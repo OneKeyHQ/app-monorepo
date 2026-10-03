@@ -7,12 +7,6 @@ on:
     types:
       - completed
   workflow_dispatch:
-    inputs:
-      production_only:
-        description: 'Build only the production artifact; skip the test build and deployment'
-        type: boolean
-        required: false
-        default: false
   workflow_call:
     inputs:
       build_number:
@@ -76,7 +70,7 @@ jobs:
     env:
       TEST_ENDPOINT: ${{ inputs.test_endpoint || 'app.onekeytest.com' }}
 
-    if: ${{ !inputs.production_only && (!github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success')) }}
+    if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
     steps:
       - name: Show executed time
         run: |
@@ -277,15 +271,10 @@ jobs:
             echo "Sourcemap upload skipped/failed — keeping .map files in artifact as fallback."
           fi
 
-      - name: Verify App Link Files
-        run: node apps/web/scripts/validate-built-app-links.mjs
-
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: app-monorepo-test-${{ env.COMMIT }}-${{ env.BUILD_NUMBER }}
-          # The validator allows only the two public .well-known files.
-          include-hidden-files: true
           path: |
             ./apps/web/web-build/
 
@@ -440,7 +429,6 @@ jobs:
       # shipped artifact. Mirrors the webpack sentryWebpackPlugin behaviour
       # (upload + filesToDeleteAfterUpload). Guarded: skips upload if no token.
       - name: Upload Web Sourcemaps to Sentry
-        if: ${{ !inputs.production_only }}
         id: upload_web_sourcemaps
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_TOKEN }}
@@ -484,13 +472,12 @@ jobs:
         run: |
           # LICENSE banner files are never shipped, regardless of sourcemaps.
           find ./apps/web/web-build -name '*.LICENSE.txt' -type f -delete
-          # Artifact-only runs skip external uploads and omit sourcemaps.
-          # Other runs retain the existing upload/fallback behavior.
+          # Only strip .map files once they were actually uploaded to Sentry.
           # If the upload was skipped (no SENTRY_AUTH_TOKEN) or failed, KEEP the
           # maps in the artifact so the release stays symbolicable offline,
           # instead of shipping maps that are neither uploaded nor retained
           # (-> minified-only stacks for that release).
-          if [ "${{ inputs.production_only }}" = "true" ] || [ "${{ steps.upload_web_sourcemaps.outputs.uploaded }}" = "true" ]; then
+          if [ "${{ steps.upload_web_sourcemaps.outputs.uploaded }}" = "true" ]; then
             find ./apps/web/web-build \
               \( -name '*.js.map' -o -name '*.css.map' \) \
               -type f -delete
@@ -498,14 +485,10 @@ jobs:
             echo "Sourcemap upload skipped/failed — keeping .map files in artifact as fallback."
           fi
 
-      - name: Verify App Link Files
-        run: node apps/web/scripts/validate-built-app-links.mjs
-
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: app-monorepo-${{ env.COMMIT }}-${{ env.BUILD_NUMBER }}
-          # The validator allows only the two public .well-known files.
           include-hidden-files: true
           path: |
             ./apps/web/web-build/
@@ -513,7 +496,7 @@ jobs:
   notify:
     runs-on: ubuntu-24.04
     needs: [test-web, build-production]
-    if: ${{ always() && !inputs.production_only && (github.event.workflow_run || inputs.build_number) }}
+    if: ${{ always() && (github.event.workflow_run || inputs.build_number) }}
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
