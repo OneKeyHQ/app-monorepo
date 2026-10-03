@@ -1368,6 +1368,7 @@
   "firmware_update_continue_via_bluetooth__action": "Продолжить обновление через Bluetooth",
   "firmware_update_device_mismatch__desc": "Подключённое устройство не соответствует этому кошельку. Подключите правильное устройство или добавьте его снова после сброса или восстановления.",
   "firmware_update_done__title": "Прошивка обновлена",
+  "firmware_update_download_desktop_app__action": "Скачать десктопное приложение",
   "firmware_update_estimated_time__desc": "Примерно {time}",
   "firmware_update_get_help__action": "Помощь",
   "firmware_update_install_page__title": "Обновление прошивки",

@@ -1368,6 +1368,7 @@
   "firmware_update_continue_via_bluetooth__action": "Continue updating via Bluetooth",
   "firmware_update_device_mismatch__desc": "The connected device does not match this wallet. Reconnect the correct device, or add it again after a reset or recovery.",
   "firmware_update_done__title": "Firmware updated",
+  "firmware_update_download_desktop_app__action": "Download desktop app",
   "firmware_update_estimated_time__desc": "Est. {time}",
   "firmware_update_get_help__action": "Get help",
   "firmware_update_install_page__title": "Firmware update",

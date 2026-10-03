@@ -1368,6 +1368,7 @@
   "firmware_update_continue_via_bluetooth__action": "블루투스로 계속 업데이트",
   "firmware_update_device_mismatch__desc": "연결된 기기가 이 지갑과 일치하지 않습니다. 올바른 기기를 다시 연결하거나, 초기화 또는 복구 후 다시 추가하세요.",
   "firmware_update_done__title": "펌웨어가 업데이트되었습니다",
+  "firmware_update_download_desktop_app__action": "데스크톱 앱 다운로드",
   "firmware_update_estimated_time__desc": "예상 {time}",
   "firmware_update_get_help__action": "도움말",
   "firmware_update_install_page__title": "펌웨어 업데이트",

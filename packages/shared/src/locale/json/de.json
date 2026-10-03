@@ -1368,6 +1368,7 @@
   "firmware_update_continue_via_bluetooth__action": "Update per Bluetooth fortsetzen",
   "firmware_update_device_mismatch__desc": "Das verbundene Gerät gehört nicht zu dieser Geldbörse. Verbinden Sie das richtige Gerät erneut oder fügen Sie es nach einem Zurücksetzen oder einer Wiederherstellung erneut hinzu.",
   "firmware_update_done__title": "Firmware aktualisiert",
+  "firmware_update_download_desktop_app__action": "Desktop-App herunterladen",
   "firmware_update_estimated_time__desc": "Ca. {time}",
   "firmware_update_get_help__action": "Hilfe",
   "firmware_update_install_page__title": "Firmware-Update",

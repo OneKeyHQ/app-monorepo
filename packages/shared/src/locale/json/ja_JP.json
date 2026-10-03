@@ -1368,6 +1368,7 @@
   "firmware_update_continue_via_bluetooth__action": "Bluetooth でアップデートを続ける",
   "firmware_update_device_mismatch__desc": "接続されたデバイスはこのウォレットと一致しません。正しいデバイスを接続し直すか、リセットまたは復元後にもう一度追加してください。",
   "firmware_update_done__title": "ファームウェアを更新しました",
+  "firmware_update_download_desktop_app__action": "デスクトップアプリをダウンロード",
   "firmware_update_estimated_time__desc": "推定 {time}",
   "firmware_update_get_help__action": "ヘルプ",
   "firmware_update_install_page__title": "ファームウェアアップデート",

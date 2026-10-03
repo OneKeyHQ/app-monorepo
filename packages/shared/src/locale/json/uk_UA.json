@@ -1368,6 +1368,7 @@
   "firmware_update_continue_via_bluetooth__action": "Продовжити оновлення через Bluetooth",
   "firmware_update_device_mismatch__desc": "Підключений пристрій не відповідає цьому гаманцю. Підключіть правильний пристрій або додайте його знову після скидання чи відновлення.",
   "firmware_update_done__title": "Прошивку оновлено",
+  "firmware_update_download_desktop_app__action": "Завантажити десктопний додаток",
   "firmware_update_estimated_time__desc": "Приблизно {time}",
   "firmware_update_get_help__action": "Допомога",
   "firmware_update_install_page__title": "Оновлення прошивки",

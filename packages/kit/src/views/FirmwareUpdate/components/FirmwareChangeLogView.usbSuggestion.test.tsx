@@ -63,6 +63,10 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
+jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
+  openUrlExternal: jest.fn(),
+}));
+
 jest.mock('use-debounce', () => ({
   useThrottledCallback: (callback: unknown) => callback,
 }));
@@ -197,7 +201,21 @@ async function settleHandlers() {
   });
 }
 
-async function closeSuggestion(extra?: { flag?: string }) {
+// The Bluetooth button is the dialog's cancel button: DialogFrame hands the
+// handler a close that reports the 'cancel' flag.
+async function continueViaBluetooth() {
+  const props = lastDialogProps();
+  await act(async () => {
+    props.onCancel?.(async () => {
+      await props.onClose?.({ flag: 'cancel' });
+    });
+  });
+  await settleHandlers();
+}
+
+// The close button, backdrop and back key close without going through any
+// button handler.
+async function dismissSuggestion(extra?: { flag?: string }) {
   await act(async () => {
     await lastDialogProps().onClose?.(extra);
   });
@@ -231,9 +249,15 @@ describe('FirmwareChangeLogView desktop USB suggestion', () => {
         title: ETranslations.firmware_update_install_page__title,
         description: ETranslations.firmware_update_usb_recommended__desc,
         onConfirmText:
-          ETranslations.firmware_update_continue_via_bluetooth__action,
-        showCancelButton: false,
+          ETranslations.firmware_update_download_desktop_app__action,
         confirmButtonProps: {
+          icon: 'MonitorOutline',
+          testID: FirmwareUpdateTestIDs.usbSuggestionDownloadBtn,
+        },
+        onCancelText:
+          ETranslations.firmware_update_continue_via_bluetooth__action,
+        cancelButtonProps: {
+          icon: 'BluetoothOutline',
           testID: FirmwareUpdateTestIDs.usbSuggestionContinueBtn,
         },
       });
@@ -243,7 +267,7 @@ describe('FirmwareChangeLogView desktop USB suggestion', () => {
     },
   );
 
-  it('opens the checklist once the suggestion has closed with confirm', async () => {
+  it('opens the checklist once the Bluetooth button has closed the suggestion', async () => {
     const result = buildResult(EDeviceType.Pro2);
     const onConfirmClick = jest.fn();
     render(
@@ -251,7 +275,7 @@ describe('FirmwareChangeLogView desktop USB suggestion', () => {
     );
 
     tapUpdateNow();
-    await closeSuggestion({ flag: 'confirm' });
+    await continueViaBluetooth();
 
     expect(mockSetStepInfo).toHaveBeenCalledTimes(1);
     expect(mockSetStepInfo).toHaveBeenCalledWith({
@@ -266,7 +290,10 @@ describe('FirmwareChangeLogView desktop USB suggestion', () => {
 
   it.each([
     { label: 'the close button, backdrop or back key', extra: undefined },
-    { label: 'a cancel flag', extra: { flag: 'cancel' } },
+    {
+      label: 'a confirm flag without the Bluetooth button',
+      extra: { flag: 'confirm' },
+    },
   ])(
     'stays on the changelog when the suggestion closes via $label',
     async ({ extra }) => {
@@ -280,7 +307,7 @@ describe('FirmwareChangeLogView desktop USB suggestion', () => {
       );
 
       tapUpdateNow();
-      await closeSuggestion(extra);
+      await dismissSuggestion(extra);
 
       expect(mockSetStepInfo).not.toHaveBeenCalled();
       expect(mockShowCheckList).not.toHaveBeenCalled();
@@ -289,7 +316,7 @@ describe('FirmwareChangeLogView desktop USB suggestion', () => {
       // The next tap starts over and can still go through.
       tapUpdateNow();
       expect(mockDialogShow).toHaveBeenCalledTimes(2);
-      await closeSuggestion({ flag: 'confirm' });
+      await continueViaBluetooth();
 
       expect(mockShowCheckList).toHaveBeenCalledTimes(1);
       expect(mockShowCheckList).toHaveBeenCalledWith({ result });
@@ -311,7 +338,7 @@ describe('FirmwareChangeLogView desktop USB suggestion', () => {
     tapUpdateNow();
     expect(mockDialogShow).toHaveBeenCalledTimes(1);
 
-    await closeSuggestion({ flag: 'confirm' });
+    await continueViaBluetooth();
 
     expect(mockShowCheckList).toHaveBeenCalledTimes(1);
     expect(onConfirmClick).toHaveBeenCalledTimes(1);
@@ -328,7 +355,7 @@ describe('FirmwareChangeLogView desktop USB suggestion', () => {
 
     tapUpdateNow();
     unmount();
-    await closeSuggestion({ flag: 'confirm' });
+    await continueViaBluetooth();
 
     expect(mockSetStepInfo).not.toHaveBeenCalled();
     expect(mockShowCheckList).not.toHaveBeenCalled();
@@ -365,7 +392,7 @@ describe('FirmwareChangeLogView desktop USB suggestion', () => {
     );
 
     tapUpdateNow();
-    await closeSuggestion({ flag: 'confirm' });
+    await continueViaBluetooth();
     unmount();
 
     expect(close).not.toHaveBeenCalled();

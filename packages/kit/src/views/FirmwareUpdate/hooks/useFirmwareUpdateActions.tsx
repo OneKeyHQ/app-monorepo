@@ -16,6 +16,7 @@ import {
   resetToRoute,
   rootNavigationRef,
 } from '@onekeyhq/components';
+import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -27,6 +28,7 @@ import {
   EOnboardingV2Routes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -92,6 +94,7 @@ function useDesktopUsbSuggestion() {
       isOpenRef.current = true;
       try {
         const confirmed = await new Promise<boolean>((resolve) => {
+          let continueViaBluetooth = false;
           dialogRef.current = dialogHost.show({
             icon: 'TypeCoutline',
             title: intl.formatMessage({
@@ -100,19 +103,40 @@ function useDesktopUsbSuggestion() {
             description: intl.formatMessage({
               id: ETranslations.firmware_update_usb_recommended__desc,
             }),
+            // The primary action opens the desktop download page and keeps
+            // the dialog open, so the user can still pick Bluetooth after
+            // coming back from the browser.
             onConfirmText: intl.formatMessage({
-              id: ETranslations.firmware_update_continue_via_bluetooth__action,
+              id: ETranslations.firmware_update_download_desktop_app__action,
             }),
             confirmButtonProps: {
+              icon: 'MonitorOutline',
+              testID: FirmwareUpdateTestIDs.usbSuggestionDownloadBtn,
+            },
+            onConfirm: ({ preventClose }) => {
+              preventClose();
+              openUrlExternal(DOWNLOAD_URL);
+            },
+            onCancelText: intl.formatMessage({
+              id: ETranslations.firmware_update_continue_via_bluetooth__action,
+            }),
+            cancelButtonProps: {
+              icon: 'BluetoothOutline',
               testID: FirmwareUpdateTestIDs.usbSuggestionContinueBtn,
             },
-            showCancelButton: false,
+            // The only way to continue is this button; the close button,
+            // backdrop and back key close without it.
+            onCancel: (close) => {
+              continueViaBluetooth = true;
+              void close();
+            },
+            // Phones stack the buttons with the primary one on top.
+            footerProps: { $md: { flexDirection: 'column-reverse' } },
             // onClose runs once the sheet has left the overlay, so whatever the
             // caller opens next never mounts inside this dialog's exit window.
-            // Only the confirm button closes with the 'confirm' flag.
-            onClose: (extra) => {
+            onClose: () => {
               dialogRef.current = undefined;
-              resolve(extra?.flag === 'confirm');
+              resolve(continueViaBluetooth);
             },
           });
         });

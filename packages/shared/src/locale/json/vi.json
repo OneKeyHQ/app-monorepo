@@ -1368,6 +1368,7 @@
   "firmware_update_continue_via_bluetooth__action": "Tiếp tục cập nhật qua Bluetooth",
   "firmware_update_device_mismatch__desc": "Thiết bị đang kết nối không khớp với ví này. Hãy kết nối lại đúng thiết bị, hoặc thêm lại thiết bị sau khi đặt lại hoặc khôi phục.",
   "firmware_update_done__title": "Đã cập nhật firmware",
+  "firmware_update_download_desktop_app__action": "Tải ứng dụng máy tính",
   "firmware_update_estimated_time__desc": "Ước tính {time}",
   "firmware_update_get_help__action": "Trợ giúp",
   "firmware_update_install_page__title": "Cập nhật firmware",

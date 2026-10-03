@@ -1368,6 +1368,7 @@
   "firmware_update_continue_via_bluetooth__action": "Continuar a atualização via Bluetooth",
   "firmware_update_device_mismatch__desc": "O dispositivo ligado não corresponde a esta carteira. Volte a ligar o dispositivo correto ou adicione-o novamente após uma reposição ou recuperação.",
   "firmware_update_done__title": "Firmware atualizado",
+  "firmware_update_download_desktop_app__action": "Transferir a aplicação de desktop",
   "firmware_update_estimated_time__desc": "Aprox. {time}",
   "firmware_update_get_help__action": "Obter ajuda",
   "firmware_update_install_page__title": "Atualização de firmware",

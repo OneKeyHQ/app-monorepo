@@ -1368,6 +1368,7 @@
   "firmware_update_continue_via_bluetooth__action": "Lanjutkan pembaruan melalui Bluetooth",
   "firmware_update_device_mismatch__desc": "Perangkat yang terhubung tidak cocok dengan dompet ini. Hubungkan kembali perangkat yang benar, atau tambahkan lagi setelah reset atau pemulihan.",
   "firmware_update_done__title": "Firmware diperbarui",
+  "firmware_update_download_desktop_app__action": "Unduh aplikasi desktop",
   "firmware_update_estimated_time__desc": "Perkiraan {time}",
   "firmware_update_get_help__action": "Dapatkan bantuan",
   "firmware_update_install_page__title": "Pembaruan firmware",

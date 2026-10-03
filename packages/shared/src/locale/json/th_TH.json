@@ -1368,6 +1368,7 @@
   "firmware_update_continue_via_bluetooth__action": "อัปเดตผ่านบลูทูธต่อ",
   "firmware_update_device_mismatch__desc": "อุปกรณ์ที่เชื่อมต่อไม่ตรงกับกระเป๋าเงินนี้ โปรดเชื่อมต่ออุปกรณ์ที่ถูกต้องอีกครั้ง หรือเพิ่มอุปกรณ์ใหม่หลังจากรีเซ็ตหรือกู้คืน",
   "firmware_update_done__title": "อัปเดตเฟิร์มแวร์แล้ว",
+  "firmware_update_download_desktop_app__action": "ดาวน์โหลดแอปเดสก์ท็อป",
   "firmware_update_estimated_time__desc": "ประมาณ {time}",
   "firmware_update_get_help__action": "ขอความช่วยเหลือ",
   "firmware_update_install_page__title": "อัปเดตเฟิร์มแวร์",

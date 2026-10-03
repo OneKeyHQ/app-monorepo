@@ -4,6 +4,7 @@ import { EDeviceType } from '@onekeyfe/hd-shared';
 import { act, renderHook } from '@testing-library/react';
 
 import { Dialog, resetModalRouteByName } from '@onekeyhq/components';
+import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
 import {
   EModalFirmwareUpdateRoutes,
   EModalRoutes,
@@ -17,6 +18,7 @@ const mockCheckDeviceReachable = jest.fn<
   Promise<string>,
   [{ connectId: string }]
 >();
+const mockOpenUrlExternal = jest.fn<void, [string]>();
 const mockGetDeviceByConnectId = jest.fn<
   Promise<{ deviceType: EDeviceType } | undefined>,
   [{ connectId: string }]
@@ -39,6 +41,10 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
       return mockIsNative;
     },
   },
+}));
+
+jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
+  openUrlExternal: (url: string) => mockOpenUrlExternal(url),
 }));
 
 jest.mock('@onekeyhq/components', () => ({
@@ -111,7 +117,21 @@ async function settle() {
   });
 }
 
-async function closeSuggestion(extra?: { flag?: string }) {
+// The Bluetooth button is the dialog's cancel button: DialogFrame hands the
+// handler a close that reports the 'cancel' flag.
+async function continueViaBluetooth() {
+  const props = lastDialogProps();
+  await act(async () => {
+    props.onCancel?.(async () => {
+      await props.onClose?.({ flag: 'cancel' });
+    });
+  });
+  await settle();
+}
+
+// The close button, backdrop and back key close without going through any
+// button handler.
+async function dismissSuggestion(extra?: { flag?: string }) {
   await act(async () => {
     await lastDialogProps().onClose?.(extra);
   });
@@ -212,7 +232,7 @@ describe('useFirmwareUpdateActions', () => {
         expect(mockCheckDeviceReachable).not.toHaveBeenCalled();
         expect(mockPushModal).not.toHaveBeenCalled();
 
-        await closeSuggestion({ flag: 'confirm' });
+        await continueViaBluetooth();
         await act(async () => {
           await opening;
         });
@@ -253,7 +273,7 @@ describe('useFirmwareUpdateActions', () => {
       expect(mockDialogShow).toHaveBeenCalledTimes(1);
       expect(mockCheckDeviceReachable).not.toHaveBeenCalled();
 
-      await closeSuggestion({ flag: 'confirm' });
+      await continueViaBluetooth();
       await act(async () => {
         await opening;
       });
@@ -309,6 +329,43 @@ describe('useFirmwareUpdateActions', () => {
       expect(mockDialogShow).not.toHaveBeenCalled();
     });
 
+    it('opens the desktop download page and keeps the suggestion open', async () => {
+      mockIsNative = true;
+      const { result } = renderHook(() => useFirmwareUpdateActions());
+
+      let opening: Promise<void> | undefined;
+      act(() => {
+        opening = result.current.openChangeLogModal({
+          connectId: 'ble-1',
+          suggestDesktopUsbFirst: true,
+          deviceType: EDeviceType.Pro2,
+        });
+      });
+      const preventClose = jest.fn();
+      const close = jest.fn();
+      await act(async () => {
+        await lastDialogProps().onConfirm?.({
+          close,
+          preventClose,
+          getForm: () => undefined,
+          isExist: () => true,
+        });
+      });
+      await settle();
+
+      expect(mockOpenUrlExternal).toHaveBeenCalledWith(DOWNLOAD_URL);
+      expect(preventClose).toHaveBeenCalledTimes(1);
+      expect(close).not.toHaveBeenCalled();
+      expect(mockCheckDeviceReachable).not.toHaveBeenCalled();
+
+      // Back from the browser, Bluetooth is still available.
+      await continueViaBluetooth();
+      await act(async () => {
+        await opening;
+      });
+      expect(mockPushModal).toHaveBeenCalledTimes(1);
+    });
+
     it('never reaches the device when the suggestion is dismissed', async () => {
       mockIsNative = true;
       const { result } = renderHook(() => useFirmwareUpdateActions());
@@ -321,7 +378,7 @@ describe('useFirmwareUpdateActions', () => {
           deviceType: EDeviceType.Pro2,
         });
       });
-      await closeSuggestion();
+      await dismissSuggestion();
       await act(async () => {
         await opening;
       });
@@ -391,7 +448,7 @@ describe('useFirmwareUpdateActions', () => {
       });
       expect(mockDialogShow).toHaveBeenCalledTimes(1);
 
-      await closeSuggestion({ flag: 'confirm' });
+      await continueViaBluetooth();
       await act(async () => {
         await Promise.all([first, second]);
       });
@@ -421,7 +478,7 @@ describe('useFirmwareUpdateActions', () => {
       expect(close).toHaveBeenCalledTimes(1);
 
       // A confirm that was already on its way must not continue either.
-      await closeSuggestion({ flag: 'confirm' });
+      await continueViaBluetooth();
       await act(async () => {
         await opening;
       });
@@ -474,7 +531,7 @@ describe('useFirmwareUpdateActions', () => {
       expect(mockDialogShow).toHaveBeenCalledTimes(2);
       expect(mockCheckDeviceReachable).not.toHaveBeenCalled();
 
-      await closeSuggestion({ flag: 'confirm' });
+      await continueViaBluetooth();
       await act(async () => {
         await confirming;
       });

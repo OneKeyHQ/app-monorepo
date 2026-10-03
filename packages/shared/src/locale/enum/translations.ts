@@ -1373,6 +1373,7 @@ export enum ETranslations {
   firmware_update_continue_via_bluetooth__action = 'firmware_update_continue_via_bluetooth__action',
   firmware_update_device_mismatch__desc = 'firmware_update_device_mismatch__desc',
   firmware_update_done__title = 'firmware_update_done__title',
+  firmware_update_download_desktop_app__action = 'firmware_update_download_desktop_app__action',
   firmware_update_estimated_time__desc = 'firmware_update_estimated_time__desc',
   firmware_update_get_help__action = 'firmware_update_get_help__action',
   firmware_update_install_page__title = 'firmware_update_install_page__title',

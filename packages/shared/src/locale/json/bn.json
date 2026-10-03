@@ -1368,6 +1368,7 @@
   "firmware_update_continue_via_bluetooth__action": "ব্লুটুথের মাধ্যমে আপডেট চালিয়ে যান",
   "firmware_update_device_mismatch__desc": "সংযুক্ত ডিভাইসটি এই ওয়ালেটের সাথে মেলে না। সঠিক ডিভাইসটি আবার সংযোগ করুন, অথবা রিসেট বা পুনরুদ্ধারের পরে এটি আবার যোগ করুন।",
   "firmware_update_done__title": "ফার্মওয়্যার আপডেট হয়েছে",
+  "firmware_update_download_desktop_app__action": "ডেস্কটপ অ্যাপ ডাউনলোড করুন",
   "firmware_update_estimated_time__desc": "আনুমানিক {time}",
   "firmware_update_get_help__action": "সহায়তা নিন",
   "firmware_update_install_page__title": "ফার্মওয়্যার আপডেট",

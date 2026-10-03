@@ -1368,6 +1368,7 @@
   "firmware_update_continue_via_bluetooth__action": "Poursuivre la mise à jour via Bluetooth",
   "firmware_update_device_mismatch__desc": "L'appareil connecté ne correspond pas à ce portefeuille. Reconnectez le bon appareil ou ajoutez-le à nouveau après une réinitialisation ou une restauration.",
   "firmware_update_done__title": "Firmware mis à jour",
+  "firmware_update_download_desktop_app__action": "Télécharger l'application de bureau",
   "firmware_update_estimated_time__desc": "Environ {time}",
   "firmware_update_get_help__action": "Obtenir de l’aide",
   "firmware_update_install_page__title": "Mise à jour du firmware",
