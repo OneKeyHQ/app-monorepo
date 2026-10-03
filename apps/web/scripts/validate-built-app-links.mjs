@@ -78,7 +78,7 @@ assert(
 
 for (const fileName of ['index.html', '404.html']) {
   const html = await readFile(join(buildDirectory, fileName), 'utf8');
-  const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)]
+  const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi)]
     .map((match) => match[1])
     .filter((script) =>
       script.includes('app-clip-bundle-id=so.onekey.wallet.Clip'),
