@@ -329,7 +329,7 @@ describe('useFirmwareUpdateActions', () => {
       expect(mockDialogShow).not.toHaveBeenCalled();
     });
 
-    it('opens the desktop download page and keeps the suggestion open', async () => {
+    it('closes the suggestion before opening the desktop download page', async () => {
       mockIsNative = true;
       const { result } = renderHook(() => useFirmwareUpdateActions());
 
@@ -341,31 +341,38 @@ describe('useFirmwareUpdateActions', () => {
           deviceType: EDeviceType.Pro2,
         });
       });
-      const preventClose = jest.fn();
-      const close = jest.fn();
+      const props = lastDialogProps();
+      // The dialog's close resolves only after its teardown has run onClose;
+      // the browser must not be asked for before that, or on iOS it would be
+      // presented underneath the still-mounted dialog.
+      const order: string[] = [];
+      mockOpenUrlExternal.mockImplementationOnce(() => {
+        order.push('browser');
+      });
+      const close = jest.fn(async () => {
+        order.push('closing');
+        await props.onClose?.({ flag: 'confirm' });
+        order.push('closed');
+      });
       await act(async () => {
-        await lastDialogProps().onConfirm?.({
+        await props.onConfirm?.({
           close,
-          preventClose,
+          preventClose: jest.fn(),
           getForm: () => undefined,
           isExist: () => true,
         });
       });
-      await settle();
-
-      expect(mockOpenUrlExternal).toHaveBeenCalledWith(
-        DOWNLOAD_DESKTOP_APP_URL,
-      );
-      expect(preventClose).toHaveBeenCalledTimes(1);
-      expect(close).not.toHaveBeenCalled();
-      expect(mockCheckDeviceReachable).not.toHaveBeenCalled();
-
-      // Back from the browser, Bluetooth is still available.
-      await continueViaBluetooth();
       await act(async () => {
         await opening;
       });
-      expect(mockPushModal).toHaveBeenCalledTimes(1);
+
+      expect(order).toEqual(['closing', 'closed', 'browser']);
+      expect(mockOpenUrlExternal).toHaveBeenCalledWith(
+        DOWNLOAD_DESKTOP_APP_URL,
+      );
+      // Choosing the desktop app is not a Bluetooth update.
+      expect(mockCheckDeviceReachable).not.toHaveBeenCalled();
+      expect(mockPushModal).not.toHaveBeenCalled();
     });
 
     it('never reaches the device when the suggestion is dismissed', async () => {

@@ -105,9 +105,11 @@ function useDesktopUsbSuggestion() {
             description: intl.formatMessage({
               id: ETranslations.firmware_update_usb_recommended__desc,
             }),
-            // The primary action opens the desktop download page and keeps
-            // the dialog open, so the user can still pick Bluetooth after
-            // coming back from the browser.
+            // The primary action ends the suggestion and opens the desktop
+            // download page. The dialog must be gone first: on iOS it lives
+            // in the FullWindowOverlay, which stays above the in-app browser
+            // (SFSafariViewController), so a dialog kept open would cover the
+            // page it just opened. `close` resolves after the teardown.
             onConfirmText: intl.formatMessage({
               id: ETranslations.firmware_update_download_desktop_app__action,
             }),
@@ -115,8 +117,8 @@ function useDesktopUsbSuggestion() {
               icon: 'MonitorOutline',
               testID: FirmwareUpdateTestIDs.usbSuggestionDownloadBtn,
             },
-            onConfirm: ({ preventClose }) => {
-              preventClose();
+            onConfirm: async ({ close }) => {
+              await close();
               openUrlExternal(DOWNLOAD_DESKTOP_APP_URL);
             },
             onCancelText: intl.formatMessage({
