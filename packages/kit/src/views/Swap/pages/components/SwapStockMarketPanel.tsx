@@ -71,8 +71,7 @@ const STOCK_CHART_RANGE_LABELS: Record<IStockSimpleChartRange, ETranslations> =
 
 function useSwapStockPrice(priceMode: 'share' | 'token') {
   const { stockDetail, selectedTokenVariant } = useStockDetail();
-  const { displayStockTokenDetail: tokenDetail, currentStockToken } =
-    useSwapStockTradeContext();
+  const { displayStockTokenDetail: tokenDetail } = useSwapStockTradeContext();
   const price = priceMode === 'share' ? stockDetail?.price : tokenDetail?.price;
   const percent =
     priceMode === 'share'
@@ -91,6 +90,9 @@ function useSwapStockPrice(priceMode: 'share' | 'token') {
       ? (value.abs().gte(0.01) ? value.decimalPlaces(2) : value).toFixed()
       : undefined;
   }, [percent, price, reportedChange]);
+  // The stock header must wait for the public stock detail. Falling back to a
+  // token's stock snapshot here can briefly turn a loading state into the
+  // misleading "24/7" badge before the listing's market status arrives.
   const status = stockDetail
     ? buildStockInfoFromPublicDetail(stockDetail, {
         source: tokenDetail?.stock?.source ?? selectedTokenVariant?.issuer,
@@ -98,7 +100,7 @@ function useSwapStockPrice(priceMode: 'share' | 'token') {
           tokenDetail?.stock?.isPaused ??
           selectedTokenVariant?.tradingHours?.isPaused,
       })
-    : (tokenDetail?.stock ?? currentStockToken?.stock);
+    : undefined;
   return { price, percent, change, status };
 }
 
@@ -232,17 +234,16 @@ function StockPrice({
 
 export function SwapStockMobileHeader() {
   const { status } = useSwapStockPrice('share');
-  const { isStockDetailLoading, stockDetail } = useStockDetail();
+  const { isStockDetailReady, stockDetail, stockId } = useStockDetail();
   const selection = useSwapStockSelection();
-  const selectedStock =
-    selection?.pendingStock ?? selection?.selectedStockPreview;
-  const showStatus =
-    !selection?.stockSelectionPending ||
-    (selectedStock &&
-      stockDetail?.stockId.toUpperCase() ===
-        selectedStock.stockId.toUpperCase());
+  const hasCurrentStockDetail = Boolean(
+    stockDetail &&
+    isStockDetailReady &&
+    stockId &&
+    stockDetail.stockId.toUpperCase() === stockId.toUpperCase(),
+  );
   const isStatusLoading = Boolean(
-    selection?.stockSelectionPending || (isStockDetailLoading && !stockDetail),
+    selection?.stockSelectionPending || !hasCurrentStockDetail,
   );
   return (
     <YStack gap="$2" pb="$5">
@@ -253,10 +254,7 @@ export function SwapStockMobileHeader() {
         {isStatusLoading ? (
           <Skeleton width={220} height={20} />
         ) : (
-          <StockMarketStatusBadge
-            stock={showStatus ? status : undefined}
-            variant="inline"
-          />
+          <StockMarketStatusBadge stock={status} variant="inline" />
         )}
       </Stack>
     </YStack>
@@ -340,6 +338,7 @@ export function SwapStockMarketPanel() {
   const {
     stockDetail,
     stockId,
+    isStockDetailReady,
     selectedTokenVariant,
     isStockDetailError,
     retryStockDetail,
@@ -361,13 +360,15 @@ export function SwapStockMarketPanel() {
     [stockDetail, tokenDetail],
   );
   const { status } = useSwapStockPrice(priceMode);
-  const selectedStock =
-    selection?.pendingStock ?? selection?.selectedStockPreview;
-  const showStatus =
-    !selection?.stockSelectionPending ||
-    (selectedStock &&
-      stockDetail?.stockId.toUpperCase() ===
-        selectedStock.stockId.toUpperCase());
+  const hasCurrentStockDetail = Boolean(
+    stockDetail &&
+    isStockDetailReady &&
+    stockId &&
+    stockDetail.stockId.toUpperCase() === stockId.toUpperCase(),
+  );
+  const isStatusLoading = Boolean(
+    selection?.stockSelectionPending || !hasCurrentStockDetail,
+  );
   const toMarket = useToMarketStockDetailPage();
   const chartRanges =
     priceMode === 'share'
@@ -418,10 +419,11 @@ export function SwapStockMarketPanel() {
           <YStack gap="$2">
             <StockPrice priceMode={priceMode} />
             <Stack minHeight={20}>
-              <StockMarketStatusBadge
-                stock={showStatus ? status : undefined}
-                variant="inline"
-              />
+              {isStatusLoading ? (
+                <Skeleton width={220} height={20} />
+              ) : (
+                <StockMarketStatusBadge stock={status} variant="inline" />
+              )}
             </Stack>
           </YStack>
           <XStack py="$1" gap="$0.5">
