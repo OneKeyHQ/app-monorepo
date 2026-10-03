@@ -41,6 +41,7 @@ import type {
   IFirmwareUpdateInfo,
 } from '@onekeyhq/shared/types/device';
 
+import { shouldSuggestDesktopUsbFirmwareUpdate } from '../firmwareUpdateTransportUtils';
 import { useFirmwareUpdateActions } from '../hooks/useFirmwareUpdateActions';
 import { useFirmwareVersionValid } from '../hooks/useFirmwareVersionValid';
 import { FirmwareUpdateTestIDs } from '../testIDs';
@@ -451,14 +452,18 @@ export function FirmwareChangeLogView({
   result,
   onConfirmClick,
   onRetryClick,
+  usbSuggestionAcknowledged,
 }: {
   result: ICheckAllFirmwareReleaseResult | undefined;
   onConfirmClick?: () => void;
   onRetryClick?: () => void | Promise<void>;
+  /** The entry that opened this page already showed the USB suggestion. */
+  usbSuggestionAcknowledged?: boolean;
 }) {
   const intl = useIntl();
   const [, setStepInfo] = useFirmwareUpdateStepInfoAtom();
-  const { showCheckList } = useFirmwareUpdateActions();
+  const { showCheckList, confirmUpdateViaBluetooth } =
+    useFirmwareUpdateActions();
 
   const handleConfirmClick = useCallback(async () => {
     if (onRetryClick) {
@@ -489,6 +494,18 @@ export function FirmwareChangeLogView({
         return;
       }
     }
+    if (
+      !usbSuggestionAcknowledged &&
+      shouldSuggestDesktopUsbFirmwareUpdate({
+        isNative: platformEnv.isNative,
+        deviceType: result?.deviceType,
+      })
+    ) {
+      const shouldContinue = await confirmUpdateViaBluetooth();
+      if (!shouldContinue) {
+        return;
+      }
+    }
     setStepInfo({
       step: EFirmwareUpdateSteps.showCheckList,
       payload: undefined,
@@ -507,7 +524,16 @@ export function FirmwareChangeLogView({
     }
     showCheckList({ result });
     onConfirmClick?.();
-  }, [result, showCheckList, onConfirmClick, onRetryClick, setStepInfo, intl]);
+  }, [
+    result,
+    showCheckList,
+    onConfirmClick,
+    onRetryClick,
+    setStepInfo,
+    intl,
+    confirmUpdateViaBluetooth,
+    usbSuggestionAcknowledged,
+  ]);
 
   const updateFirmwareInfo = result?.updateInfos?.firmware;
 

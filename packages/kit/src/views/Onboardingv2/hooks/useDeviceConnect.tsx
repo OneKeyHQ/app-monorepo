@@ -653,6 +653,7 @@ export function useDeviceConnect({
             existsFirmware,
             onBeforeUpdate: prepareUSBForUpdate,
             dialogHost: getBootloaderDialogHost?.(),
+            deviceType: device.deviceType,
           });
           bootloaderDialogShown = true;
           console.log('Device is in bootloader mode', device);

@@ -184,7 +184,19 @@ function DeviceDetailsModalV2Cmp({
   ]);
 
   const actions = useFirmwareUpdateActions();
-  const onPressCheckForUpdates = useCallback(
+  // "Check for updates" does not know yet whether anything will be installed,
+  // so the changelog page asks about desktop USB once it has found an update.
+  const onPressCheckForUpdates = useCallback(async () => {
+    const walletWithDevice = await localActions.getWalletWithDevice();
+    if (!walletWithDevice) return;
+    await actions.openChangeLogModal({
+      connectId: walletWithDevice.device?.connectId,
+    });
+  }, [localActions, actions]);
+
+  // A firmware type switch always flashes the device, so the desktop USB
+  // suggestion comes before the device is contacted.
+  const onPressFirmwareTypeChange = useCallback(
     async (
       firmwareType?: EFirmwareType,
       baseReleaseInfo?: AllFirmwareRelease,
@@ -195,6 +207,8 @@ function DeviceDetailsModalV2Cmp({
         connectId: walletWithDevice.device?.connectId,
         firmwareType,
         baseReleaseInfo,
+        suggestDesktopUsbFirst: true,
+        deviceType: walletWithDevice.device?.deviceType,
       });
     },
     [localActions, actions],
@@ -261,7 +275,7 @@ function DeviceDetailsModalV2Cmp({
                   (Trezor/Ledger), so hide it for them. */}
               {showDeviceSettings && !vendorProfile?.isThirdParty ? (
                 <DeviceSectionDangerZone
-                  onPressCheckForUpdates={onPressCheckForUpdates}
+                  onPressCheckForUpdates={onPressFirmwareTypeChange}
                 />
               ) : null}
               {showTrezorDebug ? <DeviceSectionTrezorDebug /> : null}

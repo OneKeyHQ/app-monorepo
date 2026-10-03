@@ -30,8 +30,14 @@ export function DeviceUpdateAlert({ type }: { type?: 'top' | 'bottom' }) {
 
   const actions = useFirmwareUpdateActions();
   const openChangeLogModalCallback = useCallback(() => {
-    void actions.openChangeLogModal({ connectId: deviceConnectId });
-  }, [actions, deviceConnectId]);
+    void actions.openChangeLogModal({
+      connectId: deviceConnectId,
+      // The banner only shows for a detected update, and it can be tapped
+      // without the device at hand.
+      suggestDesktopUsbFirst: true,
+      deviceType,
+    });
+  }, [actions, deviceConnectId, deviceType]);
 
   const detectResult = useMemo(() => {
     if (!deviceConnectId) return undefined;
