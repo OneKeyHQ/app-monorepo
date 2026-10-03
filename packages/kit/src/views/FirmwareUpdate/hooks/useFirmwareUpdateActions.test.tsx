@@ -456,6 +456,35 @@ describe('useFirmwareUpdateActions', () => {
       expect(mockPushModal).toHaveBeenCalledTimes(1);
     });
 
+    it('does not open a suggestion for an entry that unmounted during the record lookup', async () => {
+      mockIsNative = true;
+      let releaseLookup: (() => void) | undefined;
+      mockGetDeviceByConnectId.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            releaseLookup = () => resolve({ deviceType: EDeviceType.Pro2 });
+          }),
+      );
+      const { result, unmount } = renderHook(() => useFirmwareUpdateActions());
+
+      let opening: Promise<void> | undefined;
+      act(() => {
+        opening = result.current.openChangeLogModal({
+          connectId: 'ble-1',
+          suggestDesktopUsbFirst: true,
+        });
+      });
+      unmount();
+      await act(async () => {
+        releaseLookup?.();
+        await opening;
+      });
+
+      expect(mockDialogShow).not.toHaveBeenCalled();
+      expect(mockCheckDeviceReachable).not.toHaveBeenCalled();
+      expect(mockPushModal).not.toHaveBeenCalled();
+    });
+
     it('closes the suggestion with its host and does not continue', async () => {
       mockIsNative = true;
       const close = jest.fn();
