@@ -457,6 +457,12 @@ export enum EHyperLiquidAbstractionMode {
   DEFAULT = 'default',
 }
 
+// Cross margin state of one perp dex, as reported by its clearinghouse.
+export interface IPerpsDexCrossMargin {
+  accountValue: string;
+  maintenanceMarginUsed: string;
+}
+
 // ── Shared Types ──
 
 export interface ITradesHistoryData {

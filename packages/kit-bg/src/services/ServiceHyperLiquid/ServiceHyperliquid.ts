@@ -68,6 +68,8 @@ import {
   updateTokenSelectorFavoriteCoins,
 } from '@onekeyhq/shared/src/utils/perpsTokenSelectorFavorites';
 import perpsUtils, {
+  buildPerpsCrossMarginByDex,
+  buildTokenAvailableAfterMaintenanceMap,
   calculateSpotBalancesTotalUsd,
   isHyperLiquidAbstractionModeEnabled,
   parseDexCoin,
@@ -119,7 +121,7 @@ import type {
   IWsActiveSpotAssetCtx,
   IWsAllDexsClearinghouseState,
   IWsSpotAssetCtxs,
-  IWsSpotState,
+  IWsSpotStateWithAvailability,
   IWsWebData2,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliquid/webview';
@@ -146,6 +148,7 @@ import {
   perpsDepositTokensAtom,
   perpsFavoritesOrderPersistAtom,
   perpsLastUsedLeverageAtom,
+  perpsLiquidationRiskInputsAtom,
   perpsSpotBalancesAtom,
   perpsSpotDustingAtom,
   perpsTradesHistoryDataAtom,
@@ -514,6 +517,9 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   // Avoids async atom reads in the hot path — written to atom on a throttled schedule
   private _spotPriceCache: Record<string, ISpotAssetCtxEntry> = {};
+
+  // The price cache also holds mids, so track which marks came from contexts.
+  private _spotContextPriceCoins = new Set<string>();
 
   private _spotPriceDirty = false;
 
@@ -2093,14 +2099,24 @@ export default class ServiceHyperliquid extends ServiceBase {
         };
       }
     });
+    Object.keys(map).forEach((coin) => this._spotContextPriceCoins.add(coin));
     this._flushSpotPrices(map);
     void this.recalculateSpotTotalUsd({ force: true });
   }
 
-  async extractSpotPricesFromAllMids(mids: Record<string, string>) {
+  async extractSpotPricesFromAllMids(
+    mids: Record<string, string>,
+    preferSpotContextPrices = false,
+  ) {
     const map: Record<string, ISpotAssetCtxEntry> = {};
     for (const [coin, price] of Object.entries(mids)) {
-      if (perpsUtils.isSpotInstrument(coin) && price) {
+      // While contexts are wanted, mids only fill coins without a context mark.
+      if (
+        perpsUtils.isSpotInstrument(coin) &&
+        price &&
+        !(preferSpotContextPrices && this._spotContextPriceCoins.has(coin))
+      ) {
+        this._spotContextPriceCoins.delete(coin);
         map[coin] = { markPx: price };
       }
     }
@@ -2270,6 +2286,13 @@ export default class ServiceHyperliquid extends ServiceBase {
       return;
     }
 
+    const crossMarginByDex = buildPerpsCrossMarginByDex(clearinghouseStates);
+    await perpsLiquidationRiskInputsAtom.set((prev) => ({
+      ...(prev?.accountAddress === activeAddress ? prev : {}),
+      accountAddress: activeAddress as IHex,
+      crossMarginByDex,
+    }));
+
     // Aggregate all DEXs (HL perps + xyz) using BigNumber
     const aggregated = clearinghouseStates.reduce(
       (acc, [, state]) => {
@@ -2362,13 +2385,23 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
   }
 
-  async updateSpotBalances(spotStateData: IWsSpotState) {
+  async updateSpotBalances(spotStateData: IWsSpotStateWithAvailability) {
     const activeAccount = await perpsActiveAccountAtom.get();
     const activeAddress = activeAccount?.accountAddress?.toLowerCase();
     const dataUser = spotStateData?.user?.toLowerCase();
 
     // Active-account alignment: only process data for current account
     if (!activeAddress || activeAddress !== dataUser) return;
+
+    const tokenToAvailableAfterMaintenance =
+      buildTokenAvailableAfterMaintenanceMap(
+        spotStateData.spotState?.tokenToAvailableAfterMaintenance,
+      );
+    await perpsLiquidationRiskInputsAtom.set((prev) => ({
+      ...(prev?.accountAddress === activeAddress ? prev : {}),
+      accountAddress: activeAddress as IHex,
+      tokenToAvailableAfterMaintenance,
+    }));
 
     const balances = spotStateData?.spotState?.balances || [];
 
@@ -2888,6 +2921,12 @@ export default class ServiceHyperliquid extends ServiceBase {
         return undefined;
       }
       await perpsActiveAccountSummaryAtom.set((prev) =>
+        this.isLatestActivePerpsAccountChange(requestId) ? undefined : prev,
+      );
+      if (!this.isLatestActivePerpsAccountChange(requestId)) {
+        return undefined;
+      }
+      await perpsLiquidationRiskInputsAtom.set((prev) =>
         this.isLatestActivePerpsAccountChange(requestId) ? undefined : prev,
       );
       if (!this.isLatestActivePerpsAccountChange(requestId)) {
