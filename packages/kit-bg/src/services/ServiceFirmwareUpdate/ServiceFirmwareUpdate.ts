@@ -95,6 +95,7 @@ import {
 import ServiceBase from '../ServiceBase';
 import serviceHardwareUtils from '../ServiceHardware/serviceHardwareUtils';
 
+import { getFirmwareManifestSnapshot } from './FirmwareManifestProvider';
 import {
   FIRMWARE_ONBOARDING_MAX_VERSIONS_BEHIND,
   FIRMWARE_UPDATE_MIN_BATTERY_LEVEL,
@@ -131,8 +132,8 @@ import type {
   FirmwareUpdatePlanForceTarget,
   FirmwareUpdateV4Target,
   IDeviceType,
-  IFirmwareReleaseInfo,
   IVersionArray,
+  RemoteConfigResponse,
 } from '@onekeyfe/hd-core';
 import type { Success } from '@onekeyfe/hd-transport';
 
@@ -234,59 +235,79 @@ export function shouldForceProtocolV2ResourceUpdate({
   );
 }
 
+const isVersionArray = (value: unknown): value is number[] =>
+  Array.isArray(value) &&
+  value.length === 3 &&
+  value.every((part) => Number.isInteger(part) && part >= 0);
+
 /**
- * `resources.fullRefreshVersion` from the release manifest (devops-tools
- * `pro2-release` writes it as a version array like the other version
- * fields): devices below it receive the whole resource set, devices at or
- * above it only the few packages that changed since. Returned as x.y.z.
+ * `resources.fullRefreshVersion` of a Protocol V2 model's latest release, as
+ * x.y.z (devops-tools `pro2-release` writes it as a version array): devices
+ * below it receive the whole resource set, devices at or above it only the
+ * few packages that changed since. Read it from the raw manifest: the SDK
+ * keeps only `resources.source` when it loads the manifest, so the field is
+ * gone from the release it hands back.
  */
 export function getResourceFullRefreshVersion(
-  release: Pick<IFirmwareReleaseInfo, 'resources'> | undefined,
+  manifest: RemoteConfigResponse | undefined,
+  deviceType: string | undefined,
 ): string | undefined {
-  const value = (
-    release?.resources as { fullRefreshVersion?: unknown } | undefined
-  )?.fullRefreshVersion;
-  if (
-    !Array.isArray(value) ||
-    value.length !== 3 ||
-    !value.every((part) => Number.isInteger(part) && part >= 0)
-  ) {
+  const releases = (
+    manifest as
+      | Record<string, { 'firmware-v1'?: unknown } | undefined>
+      | undefined
+  )?.[deviceType ?? '']?.['firmware-v1'];
+  if (!Array.isArray(releases)) {
     return undefined;
   }
-  return value.join('.');
+  const latest = (releases as { version?: unknown; resources?: unknown }[])
+    .filter((release) => isVersionArray(release?.version))
+    .toSorted((left, right) =>
+      semver.rcompare(
+        (left.version as number[]).join('.'),
+        (right.version as number[]).join('.'),
+      ),
+    )[0];
+  const value = (
+    latest?.resources as { fullRefreshVersion?: unknown } | undefined
+  )?.fullRefreshVersion;
+  return isVersionArray(value) ? value.join('.') : undefined;
 }
 
 /**
  * Bytes an update moves to the device over Bluetooth, from the update plan:
  * every artifact's size, except the Protocol V2 resource archive when the
  * device's firmware is already at or past the resource full-refresh boundary
- * (the transfer then skips the unchanged packages on the device). Undefined
- * when there is no plan or an artifact has no size, so a partial sum never
- * passes for the whole; Protocol V2 artifacts always carry sizes, V1
- * manifests may omit them. Without a boundary or a known firmware version the
- * archive counts in full.
+ * (the transfer then skips the unchanged packages on the device). The archive
+ * counts in full without a boundary or a known firmware version, and when the
+ * resource target is forced, which re-sends every package. Undefined when
+ * there is no plan or an artifact has no size, so a partial sum never passes
+ * for the whole; Protocol V2 artifacts always carry sizes, V1 manifests may
+ * omit them.
  */
 export function estimateFirmwareUpdateTransferBytes({
   plan,
-  release,
+  fullRefreshVersion,
   currentVersions,
+  forceFullResourceRefresh = false,
 }: {
   plan: Pick<FirmwareUpdatePlan, 'artifacts'> | undefined;
-  release?: Pick<IFirmwareReleaseInfo, 'resources'>;
+  fullRefreshVersion?: string;
   currentVersions?: Partial<
     Pick<DeviceStateVersions, 'applicationP1' | 'applicationP2' | 'firmware'>
   >;
+  forceFullResourceRefresh?: boolean;
 }): number | undefined {
   if (!plan?.artifacts.length) {
     return undefined;
   }
-  const fullRefreshVersion = getResourceFullRefreshVersion(release);
   const currentVersion =
     currentVersions?.applicationP1 ??
     currentVersions?.applicationP2 ??
     currentVersions?.firmware ??
     null;
   const needsFullResourceRefresh =
+    forceFullResourceRefresh ||
     !fullRefreshVersion ||
     !currentVersion ||
     !semver.valid(currentVersion) ||
@@ -1197,10 +1218,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
       : undefined;
     const effectiveHasUpgrade =
       hasUpgrade || Boolean(pro2TargetsToUpdate?.length);
-    const estimatedTransferBytes = estimateFirmwareUpdateTransferBytes({
-      plan: releaseInfo.firmwareUpdatePlan,
-      release: releaseInfo.release,
-      currentVersions: releaseInfo.currentVersions,
+    const estimatedTransferBytes = await this.estimateTransferBytes({
+      deviceType,
+      releaseInfo,
+      forceFullResourceRefresh: pro2ForceTargets?.includes('resource'),
     });
 
     if (
@@ -1447,17 +1468,75 @@ class ServiceFirmwareUpdate extends ServiceBase {
     return this.loadBaseFirmwareRelease({
       ...params,
       forceFirmwareManifestRefresh: params.forceFirmwareManifestRefresh ?? true,
-    }).then((result) => ({
+    }).then(async (result) => ({
       ...result,
       firmwareUpdatePlan: undefined,
       // The plan itself stays out of this lighter result; its size survives
       // so the background detection can record how large the update is.
-      estimatedTransferBytes: estimateFirmwareUpdateTransferBytes({
-        plan: result.firmwareUpdatePlan,
-        release: result.release,
-        currentVersions: result.currentVersions,
+      estimatedTransferBytes: await this.estimateTransferBytes({
+        deviceType: result.deviceType,
+        releaseInfo: result,
       }),
     }));
+  }
+
+  private async estimateTransferBytes({
+    deviceType,
+    releaseInfo,
+    forceFullResourceRefresh,
+  }: {
+    // The manifest key of the model: an IDeviceType or the SDK's literal.
+    deviceType: string | undefined;
+    releaseInfo: Pick<
+      AllFirmwareRelease,
+      'firmwareUpdatePlan' | 'currentVersions'
+    >;
+    forceFullResourceRefresh?: boolean;
+  }): Promise<number | undefined> {
+    const plan = releaseInfo.firmwareUpdatePlan;
+    let fullRefreshVersion: string | undefined;
+    // Only a plan that carries the resource archive needs the boundary.
+    if (
+      plan?.artifacts.some((artifact) => artifact.role === 'resourceBundle')
+    ) {
+      try {
+        const preRelease =
+          await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+            'usePreReleaseConfig',
+          );
+        fullRefreshVersion = getResourceFullRefreshVersion(
+          await getFirmwareManifestSnapshot({
+            preRelease: preRelease === true,
+          }),
+          deviceType,
+        );
+      } catch {
+        // No manifest snapshot: the archive counts in full.
+      }
+    }
+    const estimatedTransferBytes = estimateFirmwareUpdateTransferBytes({
+      plan,
+      fullRefreshVersion,
+      currentVersions: releaseInfo.currentVersions,
+      forceFullResourceRefresh,
+    });
+    if (plan) {
+      serviceHardwareUtils.hardwareLog('firmwareUpdateTransferEstimate', {
+        deviceType,
+        estimatedTransferBytes,
+        fullRefreshVersion,
+        currentVersion:
+          releaseInfo.currentVersions?.applicationP1 ??
+          releaseInfo.currentVersions?.firmware,
+        forceFullResourceRefresh: Boolean(forceFullResourceRefresh),
+        artifacts: plan.artifacts.map((artifact) => ({
+          role: artifact.role,
+          target: artifact.target,
+          expectedSize: artifact.expectedSize,
+        })),
+      });
+    }
+    return estimatedTransferBytes;
   }
 
   @backgroundMethod()

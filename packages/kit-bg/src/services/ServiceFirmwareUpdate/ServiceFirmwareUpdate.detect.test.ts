@@ -155,6 +155,12 @@ jest.mock('../../states/jotai/atoms', () => ({
   },
 }));
 
+const mockGetFirmwareManifestSnapshot = jest.fn<Promise<unknown>, [unknown]>();
+jest.mock('./FirmwareManifestProvider', () => ({
+  getFirmwareManifestSnapshot: (params: unknown) =>
+    mockGetFirmwareManifestSnapshot(params),
+}));
+
 jest.mock('../ServiceHardware/serviceHardwareUtils', () => ({
   __esModule: true,
   default: {
@@ -258,59 +264,71 @@ describe('estimateFirmwareUpdateTransferBytes', () => {
       artifact(18_159_354, 'resourceBundle'),
     ],
   };
-  const withBoundary = {
-    resources: { source: {}, fullRefreshVersion: [1, 0, 3] },
-  } as never;
-  const noBoundary = { resources: { source: {} } } as never;
   const everything = 20_648_924;
   const componentsOnly = 2_489_570;
 
   it.each([
     [
       'a device below the boundary gets the whole archive',
-      withBoundary,
+      '1.0.3',
       { applicationP1: '1.0.2' },
+      false,
       everything,
     ],
     [
       'a device at the boundary skips the archive',
-      withBoundary,
+      '1.0.3',
       { applicationP1: '1.0.3' },
+      false,
       componentsOnly,
     ],
     [
       'a device past the boundary skips the archive',
-      withBoundary,
+      '1.0.3',
       { applicationP1: '1.0.4' },
+      false,
       componentsOnly,
     ],
     [
-      'no boundary in the manifest counts the archive',
-      noBoundary,
+      'a forced resource target re-sends the archive whatever the boundary',
+      '1.0.0',
       { applicationP1: '1.0.3' },
+      true,
       everything,
     ],
     [
-      'a boundary that is not a version array counts the archive',
-      { resources: { fullRefreshVersion: '1.0.3' } } as never,
+      'no boundary in the manifest counts the archive',
+      undefined,
       { applicationP1: '1.0.3' },
+      false,
       everything,
     ],
     [
       'an unknown firmware version (bootloader mode) counts the archive',
-      withBoundary,
+      '1.0.3',
       { applicationP1: null, applicationP2: null, firmware: null },
+      false,
       everything,
     ],
-  ])('%s', (_label, release, currentVersions, expected) => {
-    expect(
-      estimateFirmwareUpdateTransferBytes({
-        plan: pro2Plan,
-        release,
-        currentVersions,
-      }),
-    ).toBe(expected);
-  });
+  ])(
+    '%s',
+    (
+      _label,
+      fullRefreshVersion,
+      currentVersions,
+      forceFullResourceRefresh,
+      expected,
+    ) => {
+      expect(
+        estimateFirmwareUpdateTransferBytes({
+          plan: pro2Plan,
+          fullRefreshVersion,
+          currentVersions,
+          forceFullResourceRefresh,
+        }),
+      ).toBe(expected);
+    },
+  );
 
   it('sums a Protocol V1 plan whose manifest carries sizes', () => {
     expect(
@@ -321,7 +339,6 @@ describe('estimateFirmwareUpdateTransferBytes', () => {
             artifact(3_830_005, 'firmware'),
           ],
         },
-        release: {} as never,
         currentVersions: { firmware: '4.19.0' },
       }),
     ).toBe(7_978_741);
@@ -341,75 +358,166 @@ describe('estimateFirmwareUpdateTransferBytes', () => {
   ])('is unknown rather than a partial sum with %s', (_label, plan) => {
     expect(estimateFirmwareUpdateTransferBytes({ plan })).toBeUndefined();
   });
+});
 
-  it('reads only a three-part version array as the boundary', () => {
-    expect(getResourceFullRefreshVersion(withBoundary)).toBe('1.0.3');
-    for (const fullRefreshVersion of [
-      7,
-      '1.0.3',
-      [1, 0],
-      [1, 0, -1],
-      [1, 0, 'x'],
-    ]) {
-      expect(
-        getResourceFullRefreshVersion({
-          resources: { fullRefreshVersion },
-        } as never),
-      ).toBeUndefined();
-    }
-    expect(getResourceFullRefreshVersion(undefined)).toBeUndefined();
+describe('getResourceFullRefreshVersion', () => {
+  const manifest = (neoResources: unknown, releases?: unknown[]) =>
+    ({
+      neo: {
+        'firmware-v1': releases ?? [
+          { version: [1, 0, 3], resources: neoResources },
+        ],
+      },
+    }) as never;
+
+  it('reads the boundary of the model from the raw manifest', () => {
+    expect(
+      getResourceFullRefreshVersion(
+        manifest({ source: {}, fullRefreshVersion: [1, 0, 0] }),
+        EDeviceType.Neo,
+      ),
+    ).toBe('1.0.0');
+  });
+
+  it('takes it from the latest release when the manifest lists several', () => {
+    expect(
+      getResourceFullRefreshVersion(
+        manifest(undefined, [
+          { version: [1, 0, 2], resources: { fullRefreshVersion: [1, 0, 1] } },
+          { version: [1, 0, 3], resources: { fullRefreshVersion: [1, 0, 3] } },
+        ]),
+        EDeviceType.Neo,
+      ),
+    ).toBe('1.0.3');
+  });
+
+  it.each([
+    ['a text version', '1.0.3'],
+    ['a number', 7],
+    ['a short array', [1, 0]],
+    ['a negative part', [1, 0, -1]],
+    ['a missing field', undefined],
+  ])('ignores %s', (_label, fullRefreshVersion) => {
+    expect(
+      getResourceFullRefreshVersion(
+        manifest({ source: {}, fullRefreshVersion }),
+        EDeviceType.Neo,
+      ),
+    ).toBeUndefined();
+  });
+
+  it('is undefined for a model the manifest does not list or without a manifest', () => {
+    expect(
+      getResourceFullRefreshVersion(
+        manifest({ fullRefreshVersion: [1, 0, 3] }),
+        EDeviceType.Pro2,
+      ),
+    ).toBeUndefined();
+    expect(
+      getResourceFullRefreshVersion(undefined, EDeviceType.Neo),
+    ).toBeUndefined();
   });
 });
 
 describe('ServiceFirmwareUpdate.baseCheckAllFirmwareRelease', () => {
-  it('keeps the size of the update plan it strips from the result', async () => {
-    const checkAllFirmwareRelease = jest.fn().mockResolvedValue({
-      success: true,
-      payload: {
-        features: {},
+  // What the SDK really returns: it keeps only `resources.source` when it
+  // loads the manifest, so the release carries no fullRefreshVersion.
+  const sdkRelease = (deviceType: string, applicationP1: string) => ({
+    success: true,
+    payload: {
+      features: {},
+      deviceType,
+      targetsToUpdate: ['app_v2', 'resource'],
+      release: { version: [1, 0, 3], resources: { source: {} } },
+      currentVersions: { applicationP1 },
+      firmwareUpdatePlan: {
         targetsToUpdate: ['app_v2', 'resource'],
-        release: { resources: { fullRefreshVersion: [1, 0, 3] } },
-        currentVersions: { applicationP1: '1.0.2' },
-        firmwareUpdatePlan: {
-          targetsToUpdate: ['app_v2', 'resource'],
-          artifacts: [
-            {
-              artifactId: 'component:app_v2',
-              role: 'component',
-              expectedSize: 1_605_842,
-            },
-            {
-              artifactId: 'resource:archive',
-              role: 'resourceBundle',
-              expectedSize: 18_159_354,
-            },
-          ],
-        },
+        artifacts: [
+          {
+            artifactId: 'component:app_v2',
+            role: 'component',
+            expectedSize: 1_605_842,
+          },
+          {
+            artifactId: 'resource:archive',
+            role: 'resourceBundle',
+            expectedSize: 18_159_354,
+          },
+        ],
       },
-    });
-    const service = new ServiceFirmwareUpdate({
+    },
+  });
+  const rawManifest = {
+    pro2: {
+      'firmware-v1': [
+        {
+          version: [1, 0, 3],
+          resources: { source: {}, fullRefreshVersion: [1, 0, 3] },
+        },
+      ],
+    },
+    neo: {
+      'firmware-v1': [
+        {
+          version: [1, 0, 3],
+          resources: { source: {}, fullRefreshVersion: [1, 0, 0] },
+        },
+      ],
+    },
+  };
+  const createService = (response: unknown, usePreReleaseConfig: boolean) =>
+    new ServiceFirmwareUpdate({
       backgroundApi: {
         serviceHardware: {
-          getSDKInstance: jest
-            .fn()
-            .mockResolvedValue({ checkAllFirmwareRelease }),
+          getSDKInstance: jest.fn().mockResolvedValue({
+            checkAllFirmwareRelease: jest.fn().mockResolvedValue(response),
+          }),
         },
         serviceSetting: {
           getHardwareTransportType: jest
             .fn()
             .mockResolvedValue(EHardwareTransportType.WEBUSB),
         },
+        serviceDevSetting: {
+          getFirmwareUpdateDevSettings: jest.fn(async (key: string) =>
+            key === 'usePreReleaseConfig' ? usePreReleaseConfig : undefined,
+          ),
+        },
       } as unknown as IBackgroundApi,
     });
-
-    const result = await service.baseCheckAllFirmwareRelease({
+  const check = (service: ServiceFirmwareUpdate) =>
+    service.baseCheckAllFirmwareRelease({
       connectId: 'device-1',
       firmwareType: undefined,
       skipChangeTransportType: true,
     });
 
-    expect(result.firmwareUpdatePlan).toBeUndefined();
-    expect(result.estimatedTransferBytes).toBe(19_765_196);
+  beforeEach(() => {
+    mockGetFirmwareManifestSnapshot.mockReset();
+    mockGetFirmwareManifestSnapshot.mockResolvedValue(rawManifest);
+  });
+
+  it('strips the plan but keeps its size, with the boundary read from the raw manifest', async () => {
+    // Pro 2 on 1.0.2, boundary 1.0.3: the whole archive is still needed.
+    const pro2 = await check(createService(sdkRelease('pro2', '1.0.2'), true));
+    expect(pro2.firmwareUpdatePlan).toBeUndefined();
+    expect(pro2.estimatedTransferBytes).toBe(19_765_196);
+    expect(mockGetFirmwareManifestSnapshot).toHaveBeenLastCalledWith({
+      preRelease: true,
+    });
+
+    // Neo on 1.0.1, boundary 1.0.0: only the component is transferred.
+    const neo = await check(createService(sdkRelease('neo', '1.0.1'), false));
+    expect(neo.estimatedTransferBytes).toBe(1_605_842);
+    expect(mockGetFirmwareManifestSnapshot).toHaveBeenLastCalledWith({
+      preRelease: false,
+    });
+  });
+
+  it('counts the archive in full when the manifest snapshot is unavailable', async () => {
+    mockGetFirmwareManifestSnapshot.mockRejectedValue(new Error('offline'));
+    const neo = await check(createService(sdkRelease('neo', '1.0.1'), false));
+    expect(neo.estimatedTransferBytes).toBe(19_765_196);
   });
 });
 
