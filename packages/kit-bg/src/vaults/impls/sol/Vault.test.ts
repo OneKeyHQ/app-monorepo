@@ -125,9 +125,11 @@ function buildUnsignedTx(encodedTx: IEncodedTxSol): IUnsignedTxPro {
 function buildPendingTx({
   txid,
   createdAt,
+  encodedTx = buildLegacyEncodedTx([transferIx]),
 }: {
   txid: string;
   createdAt?: number;
+  encodedTx?: IEncodedTxSol;
 }): IAccountHistoryTx {
   return {
     id: `sol--101_${txid}`,
@@ -135,6 +137,7 @@ function buildPendingTx({
     decodedTx: {
       txid,
       createdAt,
+      encodedTx,
       status: EDecodedTxStatus.Pending,
       networkId: 'sol--101',
       accountId: 'hd-1--0',
@@ -249,6 +252,55 @@ describe('SolVault.getDroppedPendingTxs', () => {
     expect(dropped).toEqual([unseen]);
   });
 
+  it('never drops a durable-nonce tx, whose nonce outlives any blockhash', async () => {
+    const { vault } = buildVault();
+    jest.spyOn(Date, 'now').mockReturnValue(now);
+    const getSignatureStatuses = jest
+      .spyOn(vault, 'getSignatureStatuses')
+      .mockResolvedValue([null]);
+    const legacyNonce = buildPendingTx({
+      txid: 'sig-legacy-nonce',
+      createdAt: oldEnough,
+      encodedTx: buildLegacyEncodedTx([nonceAdvanceIx, transferIx]),
+    });
+    const versionedNonce = buildPendingTx({
+      txid: 'sig-versioned-nonce',
+      createdAt: oldEnough,
+      encodedTx: buildVersionedEncodedTx([nonceAdvanceIx, transferIx]),
+    });
+    const plain = buildPendingTx({ txid: 'sig-plain', createdAt: oldEnough });
+
+    const dropped = await vault.getDroppedPendingTxs({
+      pendingTxs: [legacyNonce, plain, versionedNonce],
+    });
+
+    expect(getSignatureStatuses).toHaveBeenCalledWith(['sig-plain']);
+    expect(dropped).toEqual([plain]);
+  });
+
+  it('keeps a pending tx whose payload cannot be inspected', async () => {
+    const { vault } = buildVault();
+    jest.spyOn(Date, 'now').mockReturnValue(now);
+    const getSignatureStatuses = jest.spyOn(vault, 'getSignatureStatuses');
+    const missing = buildPendingTx({
+      txid: 'sig-missing',
+      createdAt: oldEnough,
+      encodedTx: '' as IEncodedTxSol,
+    });
+    const garbage = buildPendingTx({
+      txid: 'sig-garbage',
+      createdAt: oldEnough,
+      encodedTx: 'not-a-transaction' as IEncodedTxSol,
+    });
+
+    const dropped = await vault.getDroppedPendingTxs({
+      pendingTxs: [missing, garbage],
+    });
+
+    expect(dropped).toEqual([]);
+    expect(getSignatureStatuses).not.toHaveBeenCalled();
+  });
+
   it('skips the RPC when no pending tx is old enough', async () => {
     const { vault } = buildVault();
     jest.spyOn(Date, 'now').mockReturnValue(now);
@@ -278,6 +330,59 @@ describe('SolVault.getDroppedPendingTxs', () => {
     expect(await vault.getDroppedPendingTxs({ pendingTxs })).toEqual([]);
     expect(await vault.getDroppedPendingTxs({ pendingTxs })).toEqual([]);
     expect(getSignatureStatuses).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('SolVault.buildHistoryTx', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  function buildDecodedTx(encodedTx: IEncodedTxSol) {
+    return {
+      txid: 'sig-history',
+      encodedTx,
+      status: EDecodedTxStatus.Pending,
+      networkId: 'sol--101',
+      accountId: 'hd-1--0',
+    } as unknown as Parameters<SolVault['buildHistoryTx']>[0]['decodedTx'];
+  }
+
+  it('persists the re-stamped payload the keyring actually signed', async () => {
+    const { vault } = buildVault();
+    const original = buildLegacyEncodedTx([transferIx]);
+    const unsignedTx = buildUnsignedTx(original);
+    const refreshed = await vault.refreshUnsignedTxBeforeSign(unsignedTx);
+    const signedTx: ISignedTxPro = {
+      txid: 'sig-history',
+      rawTx: 'cmF3',
+      encodedTx: refreshed.encodedTx,
+    };
+
+    const historyTx = await vault.buildHistoryTx({
+      decodedTx: buildDecodedTx(original),
+      signedTx,
+      isSigner: true,
+      isLocalCreated: true,
+    });
+
+    expect(readBlockhash(historyTx.decodedTx.encodedTx as IEncodedTxSol)).toBe(
+      NEW_BLOCKHASH,
+    );
+  });
+
+  it('keeps the decoded payload when the signed tx carries none', async () => {
+    const { vault } = buildVault();
+    const original = buildLegacyEncodedTx([transferIx]);
+
+    const historyTx = await vault.buildHistoryTx({
+      decodedTx: buildDecodedTx(original),
+      signedTx: { txid: 'sig-history', rawTx: 'cmF3', encodedTx: null },
+      isSigner: true,
+      isLocalCreated: true,
+    });
+
+    expect(historyTx.decodedTx.encodedTx).toBe(original);
   });
 });
 

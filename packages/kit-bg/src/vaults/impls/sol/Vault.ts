@@ -116,6 +116,7 @@ import {
   TOKEN_AUTH_RULES_ID,
   canRefreshSolTxBlockhash,
   isCustomProgram,
+  isDurableNonceSolTx,
   isTxOverSize,
   masterEditionAddress,
   metadataAddress,
@@ -184,6 +185,22 @@ function normalizeSolBroadcastError(error: unknown): unknown {
     message: SOL_TX_EXPIRED_MESSAGE,
     code: BLOCK_HASH_NOT_FOUND_ERROR_CODE,
   });
+}
+
+// A durable-nonce tx has no blockhash expiry: it stays valid until its nonce
+// advances, so an unseen signature after the timeout does not mean the chain
+// will never execute it. Only a payload positively parsed as a plain blockhash
+// tx may be timed out; unreadable payloads stay pending.
+function hasSolBlockhashExpiry(encodedTx: IDecodedTx['encodedTx']): boolean {
+  if (typeof encodedTx !== 'string' || !encodedTx) {
+    return false;
+  }
+  try {
+    const nativeTx = parseToNativeTx(encodedTx);
+    return Boolean(nativeTx) && !isDurableNonceSolTx(nativeTx as INativeTxSol);
+  } catch {
+    return false;
+  }
 }
 
 export default class Vault extends VaultBase {
@@ -741,11 +758,12 @@ export default class Vault extends VaultBase {
   }): Promise<IAccountHistoryTx[]> {
     const now = Date.now();
     const candidates = pendingTxs.filter((tx) => {
-      const { txid, createdAt } = tx.decodedTx;
+      const { txid, createdAt, encodedTx } = tx.decodedTx;
       return (
         Boolean(txid) &&
         !isNil(createdAt) &&
-        now - createdAt >= SOL_PENDING_TX_DROPPED_TIMEOUT_MS
+        now - createdAt >= SOL_PENDING_TX_DROPPED_TIMEOUT_MS &&
+        hasSolBlockhashExpiry(encodedTx)
       );
     });
     if (!candidates.length) {
@@ -767,6 +785,21 @@ export default class Vault extends VaultBase {
       console.error('SOL getDroppedPendingTxs: status lookup failed', error);
       return [];
     }
+  }
+
+  override async buildHistoryTx(
+    params: Parameters<VaultBase['buildHistoryTx']>[0],
+  ): Promise<IAccountHistoryTx> {
+    const historyTx = await super.buildHistoryTx(params);
+    // refreshUnsignedTxBeforeSign may have re-stamped the blockhash after the
+    // decoded tx was built from the original payload. Every Solana keyring
+    // returns the exact payload it signed as signedTx.encodedTx, so persist
+    // that one as the record of what was broadcast.
+    const signedEncodedTx = params.signedTx?.encodedTx;
+    if (typeof signedEncodedTx === 'string' && signedEncodedTx) {
+      historyTx.decodedTx.encodedTx = signedEncodedTx;
+    }
+    return historyTx;
   }
 
   async _getRecentBlockHash() {
