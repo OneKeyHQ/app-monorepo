@@ -537,6 +537,7 @@ lru
 ltc
 Ltc
 lte
+macappstore
 macos
 mainnet
 malloc
