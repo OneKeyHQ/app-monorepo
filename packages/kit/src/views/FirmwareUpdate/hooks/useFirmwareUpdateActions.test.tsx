@@ -208,7 +208,7 @@ describe('useFirmwareUpdateActions', () => {
       );
     });
 
-    it.each([EDeviceType.Pro2, EDeviceType.Neo])(
+    it.each([EDeviceType.Pro, EDeviceType.Pro2, EDeviceType.Neo])(
       'suggests desktop USB for a large %s update on mobile before reaching the device',
       async (deviceType) => {
         mockIsNative = true;
@@ -375,7 +375,7 @@ describe('useFirmwareUpdateActions', () => {
       expect(mockPushModal).not.toHaveBeenCalled();
     });
 
-    it.each([EDeviceType.Pro, EDeviceType.Classic1s])(
+    it.each([EDeviceType.Classic1s, EDeviceType.Touch])(
       'skips the suggestion for %s whatever the size',
       async (deviceType) => {
         mockIsNative = true;

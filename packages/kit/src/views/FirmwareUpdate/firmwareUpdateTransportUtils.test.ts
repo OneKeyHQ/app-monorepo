@@ -30,7 +30,7 @@ describe('shouldSuggestDesktopUsbFirmwareUpdate', () => {
   const largeUpdate = 22_000_000;
   const routineUpdate = 2_500_000;
 
-  it.each([EDeviceType.Pro2, EDeviceType.Neo])(
+  it.each([EDeviceType.Pro, EDeviceType.Pro2, EDeviceType.Neo])(
     'suggests desktop USB for a large %s update on native',
     (deviceType) => {
       expect(
@@ -43,7 +43,7 @@ describe('shouldSuggestDesktopUsbFirmwareUpdate', () => {
     },
   );
 
-  it.each([EDeviceType.Pro2, EDeviceType.Neo])(
+  it.each([EDeviceType.Pro, EDeviceType.Pro2, EDeviceType.Neo])(
     'leaves a routine %s update on the plain Bluetooth flow',
     (deviceType) => {
       expect(
@@ -84,7 +84,6 @@ describe('shouldSuggestDesktopUsbFirmwareUpdate', () => {
   });
 
   it.each([
-    EDeviceType.Pro,
     EDeviceType.Classic,
     EDeviceType.Classic1s,
     EDeviceType.ClassicPure,
@@ -106,8 +105,10 @@ describe('shouldSuggestDesktopUsbFirmwareUpdate', () => {
   );
 
   it.each([
+    { isNative: false, deviceType: EDeviceType.Pro },
     { isNative: false, deviceType: EDeviceType.Pro2 },
     { isNative: false, deviceType: EDeviceType.Neo },
+    { isNative: undefined, deviceType: EDeviceType.Pro },
     { isNative: undefined, deviceType: EDeviceType.Pro2 },
     { isNative: undefined, deviceType: EDeviceType.Neo },
   ])(

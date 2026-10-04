@@ -124,12 +124,14 @@ import type {
   CoreApi,
   Success as CoreSuccess,
   DeviceState,
+  DeviceStateVersions,
   DeviceSuccess,
   DeviceUploadResourceParams,
   FirmwareUpdatePlan,
   FirmwareUpdatePlanForceTarget,
   FirmwareUpdateV4Target,
   IDeviceType,
+  IFirmwareReleaseInfo,
   IVersionArray,
 } from '@onekeyfe/hd-core';
 import type { Success } from '@onekeyfe/hd-transport';
@@ -233,19 +235,60 @@ export function shouldForceProtocolV2ResourceUpdate({
 }
 
 /**
- * Bytes an update plan moves to the device: the sum of its artifact sizes.
- * Undefined when there is no plan or an artifact has no size, so a partial
- * sum never passes for the whole; Protocol V2 artifacts always carry sizes,
- * V1 manifests may omit them.
+ * `resources.fullRefreshVersion` from the release manifest (devops-tools
+ * `pro2-release` writes it): devices below it receive the whole resource set,
+ * devices at or above it only the few packages that changed since.
  */
-export function estimateFirmwareUpdateTransferBytes(
-  plan: Pick<FirmwareUpdatePlan, 'artifacts'> | undefined,
-): number | undefined {
+export function getResourceFullRefreshVersion(
+  release: Pick<IFirmwareReleaseInfo, 'resources'> | undefined,
+): string | undefined {
+  const value = (
+    release?.resources as { fullRefreshVersion?: unknown } | undefined
+  )?.fullRefreshVersion;
+  return typeof value === 'string' && semver.valid(value) ? value : undefined;
+}
+
+/**
+ * Bytes an update moves to the device over Bluetooth, from the update plan:
+ * every artifact's size, except the Protocol V2 resource archive when the
+ * device's firmware is already at or past the resource full-refresh boundary
+ * (the transfer then skips the unchanged packages on the device). Undefined
+ * when there is no plan or an artifact has no size, so a partial sum never
+ * passes for the whole; Protocol V2 artifacts always carry sizes, V1
+ * manifests may omit them. Without a boundary or a known firmware version the
+ * archive counts in full.
+ */
+export function estimateFirmwareUpdateTransferBytes({
+  plan,
+  release,
+  currentVersions,
+}: {
+  plan: Pick<FirmwareUpdatePlan, 'artifacts'> | undefined;
+  release?: Pick<IFirmwareReleaseInfo, 'resources'>;
+  currentVersions?: Partial<
+    Pick<DeviceStateVersions, 'applicationP1' | 'applicationP2' | 'firmware'>
+  >;
+}): number | undefined {
   if (!plan?.artifacts.length) {
     return undefined;
   }
+  const fullRefreshVersion = getResourceFullRefreshVersion(release);
+  const currentVersion =
+    currentVersions?.applicationP1 ??
+    currentVersions?.applicationP2 ??
+    currentVersions?.firmware ??
+    null;
+  const needsFullResourceRefresh =
+    !fullRefreshVersion ||
+    !currentVersion ||
+    !semver.valid(currentVersion) ||
+    semver.lt(currentVersion, fullRefreshVersion);
+  const transferred = plan.artifacts.filter(
+    (artifact) =>
+      artifact.role !== 'resourceBundle' || needsFullResourceRefresh,
+  );
   let total = 0;
-  for (const artifact of plan.artifacts) {
+  for (const artifact of transferred) {
     if (
       typeof artifact.expectedSize !== 'number' ||
       !Number.isFinite(artifact.expectedSize) ||
@@ -1146,9 +1189,11 @@ class ServiceFirmwareUpdate extends ServiceBase {
       : undefined;
     const effectiveHasUpgrade =
       hasUpgrade || Boolean(pro2TargetsToUpdate?.length);
-    const estimatedTransferBytes = estimateFirmwareUpdateTransferBytes(
-      releaseInfo.firmwareUpdatePlan,
-    );
+    const estimatedTransferBytes = estimateFirmwareUpdateTransferBytes({
+      plan: releaseInfo.firmwareUpdatePlan,
+      release: releaseInfo.release,
+      currentVersions: releaseInfo.currentVersions,
+    });
 
     if (
       originalConnectId &&
@@ -1399,9 +1444,11 @@ class ServiceFirmwareUpdate extends ServiceBase {
       firmwareUpdatePlan: undefined,
       // The plan itself stays out of this lighter result; its size survives
       // so the background detection can record how large the update is.
-      estimatedTransferBytes: estimateFirmwareUpdateTransferBytes(
-        result.firmwareUpdatePlan,
-      ),
+      estimatedTransferBytes: estimateFirmwareUpdateTransferBytes({
+        plan: result.firmwareUpdatePlan,
+        release: result.release,
+        currentVersions: result.currentVersions,
+      }),
     }));
   }
 

@@ -243,7 +243,7 @@ describe('FirmwareChangeLogView desktop USB suggestion', () => {
     mockDetectUSBDeviceAvailability.mockResolvedValue(true);
   });
 
-  it.each([EDeviceType.Pro2, EDeviceType.Neo])(
+  it.each([EDeviceType.Pro, EDeviceType.Pro2, EDeviceType.Neo])(
     'suggests desktop USB for a large %s update on mobile before the checklist',
     (deviceType) => {
       const onConfirmClick = jest.fn();
@@ -446,11 +446,10 @@ describe('FirmwareChangeLogView desktop USB suggestion', () => {
       deviceType: EDeviceType.Pro2,
       bytes: undefined,
     },
-    // The Pro manifest carries no sizes, so Pro is never asked.
     {
-      label: 'a Pro update',
+      label: 'a routine Pro update',
       deviceType: EDeviceType.Pro,
-      bytes: LARGE_UPDATE_BYTES,
+      bytes: ROUTINE_UPDATE_BYTES,
     },
     {
       label: 'a Classic 1S update',
