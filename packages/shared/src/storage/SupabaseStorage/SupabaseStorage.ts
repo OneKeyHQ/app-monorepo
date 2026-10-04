@@ -1,9 +1,11 @@
 import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
 import platformEnv, { ERuntimeRole } from '../../platformEnv';
 import cacheUtils from '../../utils/cacheUtils';
+import { SupabaseStorageTransientError } from '../../utils/supabaseAuthErrorUtils';
 import timerUtils from '../../utils/timerUtils';
 import appStorage from '../appStorage';
 import secureStorageInstance from '../instance/secureStorageInstance';
+import { SECURE_STORAGE_PERMANENT_READ_ERROR_NAME } from '../secureStorage/types';
 
 import { SUPABASE_STORAGE_KEY_PREFIX } from './consts';
 import { buildSupabaseSealedValueCodec } from './sealedValueCodec';
@@ -129,7 +131,39 @@ export class SupabaseStorage {
       key = withPrefixedKey(key);
 
       if (await shouldUseSecureStorage()) {
-        return (await secureStorageInstance.getSecureItem(key)) ?? null;
+        try {
+          return (await secureStorageInstance.getSecureItem(key)) ?? null;
+        } catch (error) {
+          // Secure storage reports read failures by throwing — it must not
+          // conflate them with absence for consumers holding irreplaceable
+          // records. Only a failure the adapter POSITIVELY labeled
+          // permanent (a desktop decrypt failure of an existing value) may
+          // read as "no session": the session is unrecoverable and
+          // re-obtainable via OAuth, mirroring the sealed-codec
+          // genuine-decrypt-failure semantics below.
+          if (
+            (error as Error | undefined)?.name ===
+            SECURE_STORAGE_PERMANENT_READ_ERROR_NAME
+          ) {
+            console.error(
+              'SupabaseStorage secure read failed permanently',
+              error,
+            );
+            return null;
+          }
+          // Everything else is TRANSIENT by default (locked keychain,
+          // keyring not ready): the slot state is unknown, and collapsing
+          // it into "no session" would let callers destroy a
+          // still-recoverable session (see primeAuthSessionAccess).
+          // Rethrown as the retryable identity the strict readers already
+          // classify; memoizee evicts the rejection next tick, so it is
+          // never pinned for maxAge the way a resolved null would be.
+          throw new SupabaseStorageTransientError(
+            `Supabase secure storage read failed: ${
+              (error as Error | undefined)?.message ?? 'unknown'
+            }`,
+          );
+        }
       }
       const rawValue = (await appStorage.getItem(key)) ?? null;
       if (rawValue === null) {

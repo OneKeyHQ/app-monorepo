@@ -30,6 +30,7 @@ import type { IPrimeInfiniBeforeBroadcastAction } from '../../types/prime/primeT
 import type { ISwapTxInfo } from '../../types/swap/types';
 import type { IToken, ITokenFiat } from '../../types/token';
 import type { EReplaceTxType, ISendTxOnSuccessData } from '../../types/tx';
+import type { IWcPayPreBroadcastRecord } from '../walletConnect/payTypes';
 
 export enum EModalSignatureConfirmRoutes {
   TxDataInput = 'TxDataInput',
@@ -108,6 +109,9 @@ export type IModalSignatureConfirmParamList = {
     onBeforeSend?: () => void | Promise<void>;
     broadcastDeadline?: number;
     beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
+    // WalletConnect Pay only: durable pre-broadcast txid record identity
+    // (see ServiceSend.signAndSendTransaction)
+    wcPayPreBroadcastRecord?: IWcPayPreBroadcastRecord;
     transferPayload?: ITransferPayload;
     popStack?: boolean;
     // Review-only page: no confirm action is rendered, the footer offers

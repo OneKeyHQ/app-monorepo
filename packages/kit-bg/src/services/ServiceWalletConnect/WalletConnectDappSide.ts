@@ -41,9 +41,9 @@ import externalWalletFactory from '../../connectors/externalWalletFactory';
 import localDb from '../../dbs/local/localDb';
 
 import walletConnectClient from './walletConnectClient';
-import { WalletConnectDappSideProvider } from './WalletConnectDappSideProvider';
 import { dappSideWalletConnectDiagnostics } from './WalletConnectDiagnostics';
 
+import type { WalletConnectDappSideProvider } from './WalletConnectDappSideProvider';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBExternalAccount } from '../../dbs/local/types';
 
@@ -297,6 +297,10 @@ export class WalletConnectDappSide {
     if (!provider) {
       const client = await this.getSharedClient();
 
+      // loaded on demand: the provider module extends UniversalProvider and
+      // must stay out of the background startup graph
+      const { WalletConnectDappSideProvider } =
+        await import('./WalletConnectDappSideProvider');
       provider = await WalletConnectDappSideProvider.initPro({
         ...walletConnectClient.sharedOptions,
         logger: WALLET_CONNECT_LOGGER_LEVEL,

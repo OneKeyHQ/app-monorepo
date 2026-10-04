@@ -670,6 +670,24 @@ async function processDeepLinkWalletConnect({
       }
     }
 
+    // ** WalletConnect Pay links must be routed to the payment flow BEFORE
+    // pairing; pair() would fail on them. Any scheme can carry a direct
+    // payment link (plain https included), so the raw url is always offered
+    // to the strict isPaymentLink verdict; non-pay links fall through.
+    // Loaded on demand: the pay entry stays off the main startup graph.
+    const payLinkCandidate = wcUri || url;
+    if (payLinkCandidate) {
+      const { handleWalletConnectPayLink } =
+        await import('./walletConnectPayLink');
+      const payResult = await handleWalletConnectPayLink({
+        url,
+        payLinkCandidate,
+      });
+      if (payResult) {
+        return payResult;
+      }
+    }
+
     if (wcUri) {
       await connectWalletConnectToDapp(wcUri);
       return {

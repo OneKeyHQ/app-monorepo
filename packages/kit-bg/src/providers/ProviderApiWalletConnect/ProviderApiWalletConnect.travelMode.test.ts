@@ -29,6 +29,16 @@ jest.mock('../../services/ServiceWalletConnect/walletConnectClient', () => ({
   default: {
     getWalletSideClient: () => mockGetWalletSideClient(),
     getWalletSideStorageSessions: async () => [{ topic: 'stored-session' }],
+    // ProviderApiWalletConnect resolves SDK errors lazily; keep the real
+    // error codes so response assertions stay meaningful
+    getSdkErrorLazy: async (
+      ...args: Parameters<typeof import('@walletconnect/utils').getSdkError>
+    ) => {
+      const { getSdkError } = jest.requireActual<
+        typeof import('@walletconnect/utils')
+      >('@walletconnect/utils');
+      return getSdkError(...args);
+    },
   },
 }));
 jest.mock('./WalletConnectRequestProxyAlgo', () => ({
