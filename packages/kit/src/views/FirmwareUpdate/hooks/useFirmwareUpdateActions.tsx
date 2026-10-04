@@ -79,10 +79,8 @@ function useDesktopUsbSuggestion() {
   return useCallback(
     async (dialogHost: IFirmwareUpdateDialogHost = Dialog) => {
       // Callers are button handlers that nothing waits for, so a second tap
-      // must not stack another suggestion on the one already open. A caller
-      // that awaited something (the device record lookup) before asking may
-      // also have lost its page by now; then nobody would close the dialog.
-      if (isOpenRef.current || !isMountedRef.current) {
+      // must not stack another suggestion on the one already open.
+      if (isOpenRef.current) {
         return false;
       }
       isOpenRef.current = true;

@@ -258,66 +258,58 @@ describe('estimateFirmwareUpdateTransferBytes', () => {
       artifact(18_159_354, 'resourceBundle'),
     ],
   };
-  const releaseWithBoundary = {
-    resources: {
-      source: { archiveUrl: 'https://x', archiveSha256: 'a', archiveSize: 1 },
-      fullRefreshVersion: '1.0.3',
-    },
+  const withBoundary = {
+    resources: { source: {}, fullRefreshVersion: '1.0.3' },
   } as never;
+  const noBoundary = { resources: { source: {} } } as never;
+  const everything = 20_648_924;
+  const componentsOnly = 2_489_570;
 
-  it('sums every artifact for a device below the resource full-refresh boundary', () => {
+  it.each([
+    [
+      'a device below the boundary gets the whole archive',
+      withBoundary,
+      { applicationP1: '1.0.2' },
+      everything,
+    ],
+    [
+      'a device at the boundary skips the archive',
+      withBoundary,
+      { applicationP1: '1.0.3' },
+      componentsOnly,
+    ],
+    [
+      'a device past the boundary skips the archive',
+      withBoundary,
+      { applicationP1: '1.0.4' },
+      componentsOnly,
+    ],
+    [
+      'no boundary in the manifest counts the archive',
+      noBoundary,
+      { applicationP1: '1.0.3' },
+      everything,
+    ],
+    [
+      'an invalid boundary counts the archive',
+      { resources: { fullRefreshVersion: 'latest' } } as never,
+      { applicationP1: '1.0.3' },
+      everything,
+    ],
+    [
+      'an unknown firmware version (bootloader mode) counts the archive',
+      withBoundary,
+      { applicationP1: null, applicationP2: null, firmware: null },
+      everything,
+    ],
+  ])('%s', (_label, release, currentVersions, expected) => {
     expect(
       estimateFirmwareUpdateTransferBytes({
         plan: pro2Plan,
-        release: releaseWithBoundary,
-        currentVersions: { applicationP1: '1.0.2' },
+        release,
+        currentVersions,
       }),
-    ).toBe(20_648_924);
-  });
-
-  it('leaves the resource archive out for a device at or past the boundary', () => {
-    expect(
-      estimateFirmwareUpdateTransferBytes({
-        plan: pro2Plan,
-        release: releaseWithBoundary,
-        currentVersions: { applicationP1: '1.0.3' },
-      }),
-    ).toBe(2_489_570);
-    expect(
-      estimateFirmwareUpdateTransferBytes({
-        plan: pro2Plan,
-        release: releaseWithBoundary,
-        currentVersions: { applicationP1: '1.0.4' },
-      }),
-    ).toBe(2_489_570);
-  });
-
-  it('counts the archive in full without a boundary or a known firmware version', () => {
-    expect(
-      estimateFirmwareUpdateTransferBytes({
-        plan: pro2Plan,
-        release: { resources: { source: {} } } as never,
-        currentVersions: { applicationP1: '1.0.3' },
-      }),
-    ).toBe(20_648_924);
-    expect(
-      estimateFirmwareUpdateTransferBytes({
-        plan: pro2Plan,
-        release: releaseWithBoundary,
-        currentVersions: {
-          applicationP1: null,
-          applicationP2: null,
-          firmware: null,
-        },
-      }),
-    ).toBe(20_648_924);
-    expect(
-      estimateFirmwareUpdateTransferBytes({
-        plan: pro2Plan,
-        release: { resources: { fullRefreshVersion: 'latest' } } as never,
-        currentVersions: { applicationP1: '1.0.3' },
-      }),
-    ).toBe(20_648_924);
+    ).toBe(expected);
   });
 
   it('sums a Protocol V1 plan whose manifest carries sizes', () => {
@@ -335,30 +327,23 @@ describe('estimateFirmwareUpdateTransferBytes', () => {
     ).toBe(7_978_741);
   });
 
-  it('is unknown without a plan or without artifacts', () => {
-    expect(
-      estimateFirmwareUpdateTransferBytes({ plan: undefined }),
-    ).toBeUndefined();
-    expect(
-      estimateFirmwareUpdateTransferBytes({ plan: { artifacts: [] } }),
-    ).toBeUndefined();
-  });
-
-  it('is unknown rather than a partial sum when an artifact has no size', () => {
-    expect(
-      estimateFirmwareUpdateTransferBytes({
-        plan: { artifacts: [artifact(883_728), artifact(undefined)] },
-      }),
-    ).toBeUndefined();
-    expect(
-      estimateFirmwareUpdateTransferBytes({
-        plan: { artifacts: [artifact(883_728), artifact(Number.NaN)] },
-      }),
-    ).toBeUndefined();
+  it.each([
+    ['no plan', undefined],
+    ['no artifacts', { artifacts: [] }],
+    [
+      'an artifact without a size',
+      { artifacts: [artifact(883_728), artifact(undefined)] },
+    ],
+    [
+      'an artifact with an invalid size',
+      { artifacts: [artifact(883_728), artifact(Number.NaN)] },
+    ],
+  ])('is unknown rather than a partial sum with %s', (_label, plan) => {
+    expect(estimateFirmwareUpdateTransferBytes({ plan })).toBeUndefined();
   });
 
   it('reads only a valid semver boundary from the manifest', () => {
-    expect(getResourceFullRefreshVersion(releaseWithBoundary)).toBe('1.0.3');
+    expect(getResourceFullRefreshVersion(withBoundary)).toBe('1.0.3');
     expect(
       getResourceFullRefreshVersion({
         resources: { fullRefreshVersion: 7 },

@@ -56,32 +56,22 @@ describe('shouldSuggestDesktopUsbFirmwareUpdate', () => {
     },
   );
 
-  it('asks only above the threshold, not at it', () => {
-    expect(
-      shouldSuggestDesktopUsbFirmwareUpdate({
-        isNative: true,
-        deviceType: EDeviceType.Pro2,
-        estimatedTransferBytes: DESKTOP_USB_SUGGESTION_MIN_TRANSFER_BYTES,
-      }),
-    ).toBe(false);
-    expect(
-      shouldSuggestDesktopUsbFirmwareUpdate({
-        isNative: true,
-        deviceType: EDeviceType.Pro2,
-        estimatedTransferBytes: DESKTOP_USB_SUGGESTION_MIN_TRANSFER_BYTES + 1,
-      }),
-    ).toBe(true);
-  });
-
-  it('never asks when the size of the update is unknown', () => {
-    expect(
-      shouldSuggestDesktopUsbFirmwareUpdate({
-        isNative: true,
-        deviceType: EDeviceType.Pro2,
-        estimatedTransferBytes: undefined,
-      }),
-    ).toBe(false);
-  });
+  it.each([
+    [DESKTOP_USB_SUGGESTION_MIN_TRANSFER_BYTES, false],
+    [DESKTOP_USB_SUGGESTION_MIN_TRANSFER_BYTES + 1, true],
+    [undefined, false],
+  ])(
+    'with %s bytes asks: %s (strictly above the threshold, never unknown)',
+    (estimatedTransferBytes, expected) => {
+      expect(
+        shouldSuggestDesktopUsbFirmwareUpdate({
+          isNative: true,
+          deviceType: EDeviceType.Pro2,
+          estimatedTransferBytes,
+        }),
+      ).toBe(expected);
+    },
+  );
 
   it.each([
     EDeviceType.Classic,

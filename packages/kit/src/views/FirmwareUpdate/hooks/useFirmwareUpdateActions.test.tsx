@@ -245,71 +245,6 @@ describe('useFirmwareUpdateActions', () => {
       },
     );
 
-    it('lets a routine update go straight to the device', async () => {
-      mockIsNative = true;
-      const { result } = renderHook(() => useFirmwareUpdateActions());
-
-      await act(async () => {
-        await result.current.openChangeLogModal({
-          connectId: 'ble-1',
-          knownUpdate: {
-            deviceType: EDeviceType.Pro2,
-            estimatedTransferBytes: ROUTINE_UPDATE_BYTES,
-          },
-        });
-      });
-
-      expect(mockDialogShow).not.toHaveBeenCalled();
-      expect(mockPushModal).toHaveBeenCalledWith(
-        EModalRoutes.FirmwareUpdateModal,
-        changeLogRoute({ connectId: 'ble-1-resolved' }),
-      );
-      expect(lastPushedChangeLogParams()).not.toHaveProperty(
-        'usbSuggestionAcknowledged',
-      );
-    });
-
-    it('leaves the question to the changelog page when the entry cannot size the update', async () => {
-      mockIsNative = true;
-      const { result } = renderHook(() => useFirmwareUpdateActions());
-
-      await act(async () => {
-        await result.current.openChangeLogModal({
-          connectId: 'ble-1',
-          knownUpdate: {
-            deviceType: EDeviceType.Pro2,
-            estimatedTransferBytes: undefined,
-          },
-        });
-      });
-
-      expect(mockDialogShow).not.toHaveBeenCalled();
-      expect(mockPushModal).toHaveBeenCalledWith(
-        EModalRoutes.FirmwareUpdateModal,
-        changeLogRoute({ connectId: 'ble-1-resolved' }),
-      );
-      expect(lastPushedChangeLogParams()).not.toHaveProperty(
-        'usbSuggestionAcknowledged',
-      );
-    });
-
-    it('shows the suggestion through the dialog host the page provides', async () => {
-      mockIsNative = true;
-      const hostShow = jest.fn();
-      const { result } = renderHook(() => useFirmwareUpdateActions());
-
-      act(() => {
-        void result.current.openChangeLogModal({
-          connectId: 'ble-1',
-          knownUpdate: knownLargeUpdate(),
-          dialogHost: { show: hostShow },
-        });
-      });
-
-      expect(hostShow).toHaveBeenCalledTimes(1);
-      expect(mockDialogShow).not.toHaveBeenCalled();
-    });
-
     it('closes the suggestion before opening the desktop download page', async () => {
       mockIsNative = true;
       const { result } = renderHook(() => useFirmwareUpdateActions());
@@ -375,16 +310,43 @@ describe('useFirmwareUpdateActions', () => {
       expect(mockPushModal).not.toHaveBeenCalled();
     });
 
-    it.each([EDeviceType.Classic1s, EDeviceType.Touch])(
-      'skips the suggestion for %s whatever the size',
-      async (deviceType) => {
-        mockIsNative = true;
+    it.each([
+      {
+        label: 'a routine update',
+        isNative: true,
+        knownUpdate: {
+          deviceType: EDeviceType.Pro2,
+          estimatedTransferBytes: ROUTINE_UPDATE_BYTES,
+        },
+      },
+      {
+        label: 'an update the entry cannot size (the page asks later)',
+        isNative: true,
+        knownUpdate: {
+          deviceType: EDeviceType.Pro2,
+          estimatedTransferBytes: undefined,
+        },
+      },
+      {
+        label: 'a model that updates quickly over Bluetooth',
+        isNative: true,
+        knownUpdate: knownLargeUpdate(EDeviceType.Classic1s),
+      },
+      {
+        label: 'any update off mobile',
+        isNative: false,
+        knownUpdate: knownLargeUpdate(),
+      },
+    ])(
+      'goes straight to the device for $label',
+      async ({ isNative, knownUpdate }) => {
+        mockIsNative = isNative;
         const { result } = renderHook(() => useFirmwareUpdateActions());
 
         await act(async () => {
           await result.current.openChangeLogModal({
             connectId: 'ble-1',
-            knownUpdate: knownLargeUpdate(deviceType),
+            knownUpdate,
           });
         });
 
@@ -398,26 +360,6 @@ describe('useFirmwareUpdateActions', () => {
         );
       },
     );
-
-    it('skips the suggestion off mobile', async () => {
-      const { result } = renderHook(() => useFirmwareUpdateActions());
-
-      await act(async () => {
-        await result.current.openChangeLogModal({
-          connectId: 'usb-1',
-          knownUpdate: knownLargeUpdate(),
-        });
-      });
-
-      expect(mockDialogShow).not.toHaveBeenCalled();
-      expect(mockPushModal).toHaveBeenCalledWith(
-        EModalRoutes.FirmwareUpdateModal,
-        changeLogRoute({ connectId: 'usb-1-resolved' }),
-      );
-      expect(lastPushedChangeLogParams()).not.toHaveProperty(
-        'usbSuggestionAcknowledged',
-      );
-    });
 
     it('ignores a second tap while the suggestion is open', async () => {
       mockIsNative = true;
@@ -444,13 +386,13 @@ describe('useFirmwareUpdateActions', () => {
       expect(mockPushModal).toHaveBeenCalledTimes(1);
     });
 
-    it('closes the suggestion with its host and does not continue', async () => {
+    it('shows the suggestion through the page dialog host and closes it with the page', async () => {
       mockIsNative = true;
       const close = jest.fn();
-      mockDialogShow.mockReturnValueOnce({
-        close,
-        getForm: () => undefined,
-        isExist: () => true,
+      let hostProps: IDialogShowProps | undefined;
+      const hostShow = jest.fn((props: IDialogShowProps) => {
+        hostProps = props;
+        return { close, getForm: () => undefined, isExist: () => true };
       });
       const { result, unmount } = renderHook(() => useFirmwareUpdateActions());
 
@@ -459,14 +401,20 @@ describe('useFirmwareUpdateActions', () => {
         opening = result.current.openChangeLogModal({
           connectId: 'ble-1',
           knownUpdate: knownLargeUpdate(),
+          dialogHost: { show: hostShow },
         });
       });
+      expect(hostShow).toHaveBeenCalledTimes(1);
+      expect(mockDialogShow).not.toHaveBeenCalled();
+
       unmount();
       expect(close).toHaveBeenCalledTimes(1);
 
       // A confirm that was already on its way must not continue either.
-      await continueViaBluetooth();
       await act(async () => {
+        hostProps?.onCancel?.(async () => {
+          await hostProps?.onClose?.({ flag: 'cancel' });
+        });
         await opening;
       });
 
