@@ -499,6 +499,7 @@ export function FirmwareChangeLogView({
       shouldSuggestDesktopUsbFirmwareUpdate({
         isNative: platformEnv.isNative,
         deviceType: result?.deviceType,
+        estimatedTransferBytes: result?.estimatedTransferBytes,
       })
     ) {
       const shouldContinue = await confirmUpdateViaBluetooth();

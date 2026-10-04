@@ -7,6 +7,7 @@ import { DeviceUpdateAlert } from './DeviceUpdateAlert';
 
 let mockDeviceType: EDeviceType | undefined;
 let mockHasUpgrade = true;
+let mockEstimatedTransferBytes: number | undefined;
 const mockOpenChangeLogModal = jest.fn<Promise<void>, [unknown]>();
 
 jest.mock('react-intl', () => {
@@ -65,6 +66,7 @@ jest.mock(
       toVersion: '1.0.2',
       toFirmwareType: undefined,
       toVersionBle: undefined,
+      estimatedTransferBytes: mockEstimatedTransferBytes,
     }),
   }),
 );
@@ -78,11 +80,12 @@ describe('DeviceUpdateAlert', () => {
     jest.clearAllMocks();
     mockDeviceType = EDeviceType.Pro2;
     mockHasUpgrade = true;
+    mockEstimatedTransferBytes = 22_000_000;
     mockOpenChangeLogModal.mockResolvedValue(undefined);
   });
 
-  it.each([EDeviceType.Pro, EDeviceType.Pro2, EDeviceType.Neo])(
-    'names the %s device type so the USB suggestion can come before the device is reached',
+  it.each([EDeviceType.Pro2, EDeviceType.Neo])(
+    'hands over the %s model and the detected size so the USB suggestion can come before the device is reached',
     (deviceType) => {
       mockDeviceType = deviceType;
       render(<DeviceUpdateAlert type="top" />);
@@ -92,11 +95,25 @@ describe('DeviceUpdateAlert', () => {
       expect(mockOpenChangeLogModal).toHaveBeenCalledTimes(1);
       expect(mockOpenChangeLogModal).toHaveBeenCalledWith({
         connectId: 'ble-1',
-        suggestDesktopUsbFirst: true,
-        deviceType,
+        knownUpdate: { deviceType, estimatedTransferBytes: 22_000_000 },
       });
     },
   );
+
+  it('passes an unknown size through when the detection recorded none', () => {
+    mockEstimatedTransferBytes = undefined;
+    render(<DeviceUpdateAlert type="top" />);
+
+    fireEvent.click(screen.getByRole('button'));
+
+    expect(mockOpenChangeLogModal).toHaveBeenCalledWith({
+      connectId: 'ble-1',
+      knownUpdate: {
+        deviceType: EDeviceType.Pro2,
+        estimatedTransferBytes: undefined,
+      },
+    });
+  });
 
   it('shows nothing to tap when no update has been detected', () => {
     mockHasUpgrade = false;

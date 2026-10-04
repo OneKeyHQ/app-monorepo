@@ -29,15 +29,15 @@ export function DeviceUpdateAlert({ type }: { type?: 'top' | 'bottom' }) {
   const deviceDetectStatus = useFirmwareUpdateDetectStatus(deviceConnectId);
 
   const actions = useFirmwareUpdateActions();
+  const estimatedTransferBytes = deviceDetectStatus?.estimatedTransferBytes;
   const openChangeLogModalCallback = useCallback(() => {
     void actions.openChangeLogModal({
       connectId: deviceConnectId,
       // The banner only shows for a detected update, and it can be tapped
-      // without the device at hand.
-      suggestDesktopUsbFirst: true,
-      deviceType,
+      // without the device at hand; the detection already sized the update.
+      knownUpdate: { deviceType, estimatedTransferBytes },
     });
-  }, [actions, deviceConnectId, deviceType]);
+  }, [actions, deviceConnectId, deviceType, estimatedTransferBytes]);
 
   const detectResult = useMemo(() => {
     if (!deviceConnectId) return undefined;

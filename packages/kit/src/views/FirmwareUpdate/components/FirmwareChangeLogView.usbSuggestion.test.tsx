@@ -178,8 +178,21 @@ type IDialogShowProps = Parameters<typeof Dialog.show>[0];
 
 const mockDialogShow = Dialog.show as jest.MockedFunction<typeof Dialog.show>;
 
-function buildResult(deviceType: EDeviceType) {
-  return { deviceType } as ICheckAllFirmwareReleaseResult;
+// The 1.0.3 resource refresh of the Pro 2 family; a routine update is a few MB.
+const LARGE_UPDATE_BYTES = 22_000_000;
+const ROUTINE_UPDATE_BYTES = 2_500_000;
+
+// Pass `bytes` explicitly to size the update; `undefined` means the release
+// check could not size it, which is different from the large default.
+function buildResult(
+  deviceType: EDeviceType,
+  ...sizing: [bytes?: number | undefined]
+) {
+  const estimatedTransferBytes = sizing.length ? sizing[0] : LARGE_UPDATE_BYTES;
+  return {
+    deviceType,
+    estimatedTransferBytes,
+  } as ICheckAllFirmwareReleaseResult;
 }
 
 function tapUpdateNow() {
@@ -230,8 +243,8 @@ describe('FirmwareChangeLogView desktop USB suggestion', () => {
     mockDetectUSBDeviceAvailability.mockResolvedValue(true);
   });
 
-  it.each([EDeviceType.Pro, EDeviceType.Pro2, EDeviceType.Neo])(
-    'suggests desktop USB to %s owners on mobile before the checklist',
+  it.each([EDeviceType.Pro2, EDeviceType.Neo])(
+    'suggests desktop USB for a large %s update on mobile before the checklist',
     (deviceType) => {
       const onConfirmClick = jest.fn();
       render(
@@ -297,7 +310,7 @@ describe('FirmwareChangeLogView desktop USB suggestion', () => {
   ])(
     'stays on the changelog when the suggestion closes via $label',
     async ({ extra }) => {
-      const result = buildResult(EDeviceType.Pro);
+      const result = buildResult(EDeviceType.Neo);
       const onConfirmClick = jest.fn();
       render(
         <FirmwareChangeLogView
@@ -418,24 +431,67 @@ describe('FirmwareChangeLogView desktop USB suggestion', () => {
   });
 
   it.each([
-    EDeviceType.Classic1s,
-    EDeviceType.ClassicPure,
-    EDeviceType.Touch,
-    EDeviceType.Mini,
-  ])('opens the checklist straight away for %s on mobile', (deviceType) => {
-    const result = buildResult(deviceType);
-    const onConfirmClick = jest.fn();
-    render(
-      <FirmwareChangeLogView result={result} onConfirmClick={onConfirmClick} />,
-    );
+    {
+      label: 'a routine Pro 2 update',
+      deviceType: EDeviceType.Pro2,
+      bytes: ROUTINE_UPDATE_BYTES,
+    },
+    {
+      label: 'a routine Neo update',
+      deviceType: EDeviceType.Neo,
+      bytes: ROUTINE_UPDATE_BYTES,
+    },
+    {
+      label: 'a Pro 2 update of unknown size',
+      deviceType: EDeviceType.Pro2,
+      bytes: undefined,
+    },
+    // The Pro manifest carries no sizes, so Pro is never asked.
+    {
+      label: 'a Pro update',
+      deviceType: EDeviceType.Pro,
+      bytes: LARGE_UPDATE_BYTES,
+    },
+    {
+      label: 'a Classic 1S update',
+      deviceType: EDeviceType.Classic1s,
+      bytes: LARGE_UPDATE_BYTES,
+    },
+    {
+      label: 'a Classic Pure update',
+      deviceType: EDeviceType.ClassicPure,
+      bytes: LARGE_UPDATE_BYTES,
+    },
+    {
+      label: 'a Touch update',
+      deviceType: EDeviceType.Touch,
+      bytes: LARGE_UPDATE_BYTES,
+    },
+    {
+      label: 'a Mini update',
+      deviceType: EDeviceType.Mini,
+      bytes: LARGE_UPDATE_BYTES,
+    },
+  ])(
+    'opens the checklist straight away for $label on mobile',
+    ({ deviceType, bytes }) => {
+      const result = buildResult(deviceType, bytes);
+      const onConfirmClick = jest.fn();
+      render(
+        <FirmwareChangeLogView
+          result={result}
+          onConfirmClick={onConfirmClick}
+        />,
+      );
 
-    tapUpdateNow();
+      tapUpdateNow();
 
-    expect(mockDialogShow).not.toHaveBeenCalled();
-    expect(mockShowCheckList).toHaveBeenCalledTimes(1);
-    expect(mockShowCheckList).toHaveBeenCalledWith({ result });
-    expect(onConfirmClick).toHaveBeenCalledTimes(1);
-  });
+      expect(mockDialogShow).not.toHaveBeenCalled();
+      expect(mockShowCheckList).toHaveBeenCalledTimes(1);
+      expect(mockShowCheckList).toHaveBeenCalledWith({ result });
+      expect(onConfirmClick).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it('retries without the suggestion', async () => {
     const onRetryClick = jest.fn(async () => {});

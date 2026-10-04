@@ -46,22 +46,14 @@ import type { AllFirmwareRelease, IDeviceType } from '@onekeyfe/hd-core';
 export type IFirmwareUpdateDialogHost = Pick<typeof Dialog, 'show'>;
 export type IBootloaderModeDialogHost = IFirmwareUpdateDialogHost;
 
-// The local device record names the model without contacting the device. A
-// first connection or bootloader mode may not have one yet.
-async function getRecordedDeviceType(connectId: string | undefined) {
-  if (!connectId) {
-    return undefined;
-  }
-  try {
-    const device =
-      await backgroundApiProxy.serviceHardware.getDeviceByConnectId({
-        connectId,
-      });
-    return device?.deviceType;
-  } catch {
-    return undefined;
-  }
-}
+/**
+ * What an entry knows about the update from an earlier release check, so the
+ * desktop USB suggestion can be decided before the device is contacted.
+ */
+export type IKnownFirmwareUpdate = {
+  deviceType: IDeviceType | undefined;
+  estimatedTransferBytes: number | undefined;
+};
 
 /**
  * The "desktop USB is faster" suggestion for models that update slowly over
@@ -210,22 +202,20 @@ export function useFirmwareUpdateActions() {
       connectId,
       firmwareType,
       baseReleaseInfo,
-      suggestDesktopUsbFirst,
-      deviceType,
+      knownUpdate,
       dialogHost,
     }: {
       connectId: string | undefined;
       firmwareType?: EFirmwareType;
       baseReleaseInfo?: AllFirmwareRelease;
       /**
-       * Set by entries that already know an update will be installed, so the
-       * desktop USB suggestion shows before any device communication. Entries
-       * that only check for updates leave it out, and the changelog page asks
-       * once it has found one. The same fallback covers a model the local
-       * device record cannot name yet.
+       * Set by entries that already have a release check behind them (the
+       * update banner, the onboarding firmware step), so the desktop USB
+       * suggestion shows before any device communication. Other entries
+       * leave it out, and the changelog page asks once its own check has
+       * sized the update.
        */
-      suggestDesktopUsbFirst?: boolean;
-      deviceType?: IDeviceType;
+      knownUpdate?: IKnownFirmwareUpdate;
       dialogHost?: IFirmwareUpdateDialogHost;
     }) => {
       if (
@@ -244,20 +234,18 @@ export function useFirmwareUpdateActions() {
       }
 
       let usbSuggestionAcknowledged = false;
-      if (suggestDesktopUsbFirst && platformEnv.isNative) {
-        const knownDeviceType =
-          deviceType ?? (await getRecordedDeviceType(connectId));
-        if (
-          shouldSuggestDesktopUsbFirmwareUpdate({
-            isNative: platformEnv.isNative,
-            deviceType: knownDeviceType,
-          })
-        ) {
-          if (!(await confirmUpdateViaBluetooth(dialogHost))) {
-            return;
-          }
-          usbSuggestionAcknowledged = true;
+      if (
+        knownUpdate &&
+        shouldSuggestDesktopUsbFirmwareUpdate({
+          isNative: platformEnv.isNative,
+          deviceType: knownUpdate.deviceType,
+          estimatedTransferBytes: knownUpdate.estimatedTransferBytes,
+        })
+      ) {
+        if (!(await confirmUpdateViaBluetooth(dialogHost))) {
+          return;
         }
+        usbSuggestionAcknowledged = true;
       }
 
       let resolvedConnectId = connectId;
@@ -333,21 +321,13 @@ export function useFirmwareUpdateActions() {
       existsFirmware,
       onBeforeUpdate,
       dialogHost = Dialog,
-      deviceType,
     }: {
       connectId: string | undefined;
       existsFirmware?: boolean;
       onBeforeUpdate?: () => Promise<string | undefined>;
       dialogHost?: IBootloaderModeDialogHost;
-      /** Known to the caller from discovery; the local record may have none. */
-      deviceType?: IDeviceType;
     }) => {
       const handleUpdateClick = async () => {
-        // "Update now" sits on the cancel button of the existsFirmware dialog,
-        // which starts closing at the same time. Let it leave the overlay
-        // before the USB suggestion or the hardware UI can mount.
-        await bootloaderModeDialogManager.close();
-
         // Call onBeforeUpdate callback if provided (for onboarding USB preparation)
         const finalConnectId = onBeforeUpdate
           ? await onBeforeUpdate()
@@ -356,14 +336,7 @@ export function useFirmwareUpdateActions() {
         // Only open modal if USB preparation succeeded (finalConnectId is defined)
         // If undefined, it means USB is not available and a dialog was already shown
         if (finalConnectId !== undefined) {
-          // A device in bootloader mode has to be flashed, so the update is
-          // certain before the changelog is opened.
-          await openChangeLogModal({
-            connectId: finalConnectId,
-            suggestDesktopUsbFirst: true,
-            deviceType,
-            dialogHost,
-          });
+          await openChangeLogModal({ connectId: finalConnectId });
         }
       };
 
@@ -433,12 +406,8 @@ export function useFirmwareUpdateActions() {
           id: ETranslations.update_update_required_desc,
         }),
         dismissOnOverlayPress: false,
-        onConfirm: async ({ close }) => {
-          // Close first, so the USB suggestion that may follow never mounts
-          // inside this dialog's exit window.
-          await close();
-          // The device itself demanded the update, so it is certain.
-          await openChangeLogModal({ connectId, suggestDesktopUsbFirst: true });
+        onConfirm: async () => {
+          await openChangeLogModal({ connectId });
         },
         onConfirmText: intl.formatMessage({
           id: ETranslations.update_update_now,

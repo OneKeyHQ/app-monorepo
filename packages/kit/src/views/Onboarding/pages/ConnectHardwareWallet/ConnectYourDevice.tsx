@@ -1541,7 +1541,6 @@ export function ConnectYourDevicePage() {
           fwUpdateActions.showBootloaderMode({
             connectId: device.connectId ?? undefined,
             existsFirmware,
-            deviceType: device.deviceType ?? undefined,
           });
           console.log('Device is in bootloader mode', device);
           throw new OneKeyLocalError('Device is in bootloader mode');

@@ -40,6 +40,7 @@ import ServiceFirmwareUpdate, {
   buildPro2TargetsToUpdate,
   buildProtocolV2FirmwareVersionInfo,
   buildProtocolV2PlanForceTargets,
+  estimateFirmwareUpdateTransferBytes,
   shouldForceProtocolV2ResourceUpdate,
   supportsFirmwareUpdateWorkflowV2,
 } from './ServiceFirmwareUpdate';
@@ -235,6 +236,85 @@ describe('ServiceFirmwareUpdate firmware manifest refresh', () => {
     expect(getSDKInstance).toHaveBeenCalledWith({
       connectId: 'device-1',
     });
+  });
+});
+
+describe('estimateFirmwareUpdateTransferBytes', () => {
+  const artifact = (expectedSize: number | undefined) =>
+    ({ artifactId: String(expectedSize), expectedSize }) as never;
+
+  it('sums the sizes of every artifact in the plan', () => {
+    expect(
+      estimateFirmwareUpdateTransferBytes({
+        artifacts: [
+          artifact(883_728),
+          artifact(1_605_842),
+          artifact(18_159_354),
+        ],
+      }),
+    ).toBe(20_648_924);
+  });
+
+  it('is unknown without a plan or without artifacts', () => {
+    expect(estimateFirmwareUpdateTransferBytes(undefined)).toBeUndefined();
+    expect(
+      estimateFirmwareUpdateTransferBytes({ artifacts: [] }),
+    ).toBeUndefined();
+  });
+
+  it('is unknown rather than a partial sum when an artifact has no size', () => {
+    expect(
+      estimateFirmwareUpdateTransferBytes({
+        artifacts: [artifact(883_728), artifact(undefined)],
+      }),
+    ).toBeUndefined();
+    expect(
+      estimateFirmwareUpdateTransferBytes({
+        artifacts: [artifact(883_728), artifact(Number.NaN)],
+      }),
+    ).toBeUndefined();
+  });
+});
+
+describe('ServiceFirmwareUpdate.baseCheckAllFirmwareRelease', () => {
+  it('keeps the size of the update plan it strips from the result', async () => {
+    const checkAllFirmwareRelease = jest.fn().mockResolvedValue({
+      success: true,
+      payload: {
+        features: {},
+        targetsToUpdate: ['app_v2', 'resource'],
+        firmwareUpdatePlan: {
+          targetsToUpdate: ['app_v2', 'resource'],
+          artifacts: [
+            { artifactId: 'component:app_v2', expectedSize: 1_605_842 },
+            { artifactId: 'resource:archive', expectedSize: 18_159_354 },
+          ],
+        },
+      },
+    });
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardware: {
+          getSDKInstance: jest
+            .fn()
+            .mockResolvedValue({ checkAllFirmwareRelease }),
+        },
+        serviceSetting: {
+          getHardwareTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.WEBUSB),
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    const result = await service.baseCheckAllFirmwareRelease({
+      connectId: 'device-1',
+      firmwareType: undefined,
+      skipChangeTransportType: true,
+    });
+
+    expect(result.firmwareUpdatePlan).toBeUndefined();
+    expect(result.estimatedTransferBytes).toBe(19_765_196);
   });
 });
 
@@ -719,6 +799,7 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
           ble: {},
           currentVersions: { ble: '2.3.7' },
           targetsToUpdate: ['resource'],
+          estimatedTransferBytes: 18_159_354,
         } as never;
       });
     const checkFirmwareRelease = jest
@@ -769,7 +850,11 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
     ).toEqual(
       expect.objectContaining({
         resolved: true,
-        status: expect.objectContaining({ hasUpgrade: true }),
+        status: expect.objectContaining({
+          hasUpgrade: true,
+          // The banner reads it to size the update before the device is contacted.
+          estimatedTransferBytes: 18_159_354,
+        }),
       }),
     );
     expect(leaseActive).toBe(false);

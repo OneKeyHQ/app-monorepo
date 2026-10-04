@@ -126,6 +126,7 @@ import type {
   DeviceState,
   DeviceSuccess,
   DeviceUploadResourceParams,
+  FirmwareUpdatePlan,
   FirmwareUpdatePlanForceTarget,
   FirmwareUpdateV4Target,
   IDeviceType,
@@ -229,6 +230,32 @@ export function shouldForceProtocolV2ResourceUpdate({
       forceTargets.includes('resource') ||
       forceOnceTargets.includes('resource'))
   );
+}
+
+/**
+ * Bytes an update plan moves to the device: the sum of its artifact sizes.
+ * Undefined when there is no plan or an artifact has no size, so a partial
+ * sum never passes for the whole; Protocol V2 artifacts always carry sizes,
+ * V1 manifests may omit them.
+ */
+export function estimateFirmwareUpdateTransferBytes(
+  plan: Pick<FirmwareUpdatePlan, 'artifacts'> | undefined,
+): number | undefined {
+  if (!plan?.artifacts.length) {
+    return undefined;
+  }
+  let total = 0;
+  for (const artifact of plan.artifacts) {
+    if (
+      typeof artifact.expectedSize !== 'number' ||
+      !Number.isFinite(artifact.expectedSize) ||
+      artifact.expectedSize < 0
+    ) {
+      return undefined;
+    }
+    total += artifact.expectedSize;
+  }
+  return total;
 }
 
 export function buildProtocolV2FirmwareVersionInfo({
@@ -729,6 +756,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
               firmware,
               ble,
               targetsToUpdate,
+              estimatedTransferBytes: releaseInfo.estimatedTransferBytes,
             });
             this.detectMap.updateLastDetectAt({
               connectId: detectConnectId,
@@ -1118,6 +1146,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
       : undefined;
     const effectiveHasUpgrade =
       hasUpgrade || Boolean(pro2TargetsToUpdate?.length);
+    const estimatedTransferBytes = estimateFirmwareUpdateTransferBytes(
+      releaseInfo.firmwareUpdatePlan,
+    );
 
     if (
       originalConnectId &&
@@ -1131,6 +1162,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
           firmware,
           ble,
           targetsToUpdate: pro2TargetsToUpdate,
+          estimatedTransferBytes,
         });
       } else {
         await this.detectMap.deleteUpdateInfo(identity);
@@ -1245,6 +1277,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
           }
         : undefined,
       protocolV2FirmwareVersionInfo,
+      estimatedTransferBytes,
     };
 
     // Firmware-check interactions such as PIN entry are complete at this point.
@@ -1364,6 +1397,11 @@ class ServiceFirmwareUpdate extends ServiceBase {
     }).then((result) => ({
       ...result,
       firmwareUpdatePlan: undefined,
+      // The plan itself stays out of this lighter result; its size survives
+      // so the background detection can record how large the update is.
+      estimatedTransferBytes: estimateFirmwareUpdateTransferBytes(
+        result.firmwareUpdatePlan,
+      ),
     }));
   }
 
