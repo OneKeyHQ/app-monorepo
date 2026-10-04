@@ -919,6 +919,7 @@ export class DeviceStageBurstScope {
           HardwareErrorCode.DeviceCheckUnlockTypeError,
           HardwareErrorCode.DeviceCheckPassphraseStateError,
           HardwareErrorCode.DeviceCheckDeviceIdError,
+          HardwareErrorCode.CallMethodNeedUpgradeFirmware,
           ECustomOneKeyHardwareError.NeedFirmwareUpgradeFromWeb,
         ],
       }) &&
@@ -975,6 +976,7 @@ export class DeviceStageBurstScope {
       isHardwareErrorByCode({
         error,
         code: [
+          HardwareErrorCode.CallMethodNeedUpgradeFirmware,
           ECustomOneKeyHardwareError.NeedFirmwareUpgradeFromWeb,
           ECustomOneKeyHardwareError.UnknownHardwareError,
         ],
