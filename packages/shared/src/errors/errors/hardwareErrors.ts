@@ -609,10 +609,7 @@ export class FirmwareVersionTooLow extends OneKeyHardwareError {
         },
         {
           defaultMessage: 'FirmwareVersionTooLow',
-          defaultKey:
-            get(props, 'payload.params.method') === 'uploadPortfolio'
-              ? ETranslations.device_desc_update_latest_firmware
-              : ETranslations.hardware_version_need_upgrade_error,
+          defaultKey: ETranslations.hardware_version_need_upgrade_error,
         },
       ),
     );

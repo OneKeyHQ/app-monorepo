@@ -132,7 +132,9 @@ describe('ErrorToastContainer', () => {
       errorToastUtils.showToastOfError(error);
     });
     expect(mockedToast.error).toHaveBeenCalledWith(
-      expect.objectContaining({ title: '请更新至最新固件以使用此功能。' }),
+      expect.objectContaining({
+        title: '请将固件升级到版本 1.0.3 或更高版本以使用此功能',
+      }),
     );
     const toast = mockedToast.error.mock.calls[0][0] as {
       actions: import('react').ReactElement;

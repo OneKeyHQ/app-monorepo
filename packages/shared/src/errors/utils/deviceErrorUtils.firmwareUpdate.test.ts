@@ -27,7 +27,8 @@ describe('convertDeviceError firmware update failures', () => {
 
       expect(toPlainErrorObject(error)).toMatchObject({
         code: HardwareErrorCode.CallMethodNeedUpgradeFirmware,
-        key: ETranslations.device_desc_update_latest_firmware,
+        key: ETranslations.hardware_version_need_upgrade_error,
+        info: { version: '1.0.3' },
         payload,
       });
       expect(toPlainErrorObject(error)?.autoToast).not.toBe(true);
