@@ -23,6 +23,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   type EModalPerpRoutes,
   type IModalPerpParamList,
@@ -685,7 +686,7 @@ const SetTpslForm = memo(
 
     return (
       <YStack flex={1}>
-        <YStack flex={1} gap="$3" pb="$6">
+        <YStack flex={1} gap="$3" pb={platformEnv.isNative ? '$8' : '$4'}>
           <YStack gap="$3">
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodyMd" color="$textSubdued">
@@ -854,7 +855,7 @@ const SetTpslForm = memo(
             {intl.formatMessage({
               id: ETranslations.perp_confirm_order,
             })}
-          </Button>{' '}
+          </Button>
         </TradingGuardWrapper>
       </YStack>
     );

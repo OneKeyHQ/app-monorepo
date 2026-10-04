@@ -899,7 +899,7 @@ function PrimeInfiniWalletPaymentContent({
     bindingId: string;
     assetKey: string;
   }) => void;
-  onReloadPaymentSession: () => void;
+  onReloadPaymentSession: (reviewPaymentBindingId?: string) => void;
   onRestartPaymentSession: () => void;
   // Reports every binding this content persisted, so the root can keep its
   // loader re-runs from bouncing an in-flow payment back to the choice screen.
@@ -3013,9 +3013,11 @@ function PrimeInfiniWalletPaymentContent({
       const recoverAfterSendExit = ({
         immediatePhase,
         fallbackPhase,
+        reviewPendingPayment = false,
       }: {
         immediatePhase: IPaymentPhase;
         fallbackPhase: IPaymentPhase;
+        reviewPendingPayment?: boolean;
       }) => {
         if (!isAttemptCurrent()) {
           return;
@@ -3046,7 +3048,14 @@ function PrimeInfiniWalletPaymentContent({
           onSettled: ({ didBroadcastStart, phase: nextPhase }) => {
             sendStartedRef.current = didBroadcastStart;
             setSendStarted(didBroadcastStart);
-            setPhase(nextPhase);
+            setPhase(
+              reviewPendingPayment && didBroadcastStart
+                ? 'retryableFailed'
+                : nextPhase,
+            );
+            if (reviewPendingPayment && didBroadcastStart) {
+              onReloadPaymentSession(paymentCacheKeyForSend.bindingId);
+            }
             void refreshTokenBalances().catch((error) => {
               logPrimeInfiniPaymentFlow({
                 ...flowContextRef.current,
@@ -3075,7 +3084,10 @@ function PrimeInfiniWalletPaymentContent({
           onRejected: (nextPhase, error) => {
             sendStartedRef.current = true;
             setSendStarted(true);
-            setPhase(nextPhase);
+            setPhase(reviewPendingPayment ? 'retryableFailed' : nextPhase);
+            if (reviewPendingPayment) {
+              onReloadPaymentSession(paymentCacheKeyForSend.bindingId);
+            }
             logPrimeInfiniPaymentFlow({
               ...flowContextRef.current,
               stage: 'paymentSession',
@@ -3361,12 +3373,13 @@ function PrimeInfiniWalletPaymentContent({
             sendStarted: sendStartedRef.current,
           });
           recoverAfterSendExit({
-            immediatePhase: 'polling',
+            immediatePhase: 'retryableFailed',
             fallbackPhase:
               preSendBlockedPhase ??
               (Date.now() >= paymentForSend.expiresAt
                 ? 'expired'
                 : 'selecting'),
+            reviewPendingPayment: true,
           });
         },
         onCancel: () => {
@@ -3480,6 +3493,7 @@ function PrimeInfiniWalletPaymentContent({
     featureName,
     intl,
     onExitPreventedChange,
+    onReloadPaymentSession,
     persistPaymentSession,
     plan,
     refreshTokenBalances,
@@ -4969,26 +4983,39 @@ function PrimeInfiniWalletPaymentRoot({
     },
     [handlePaymentContextRunError, run],
   );
-  const handleReloadPaymentSession = useCallback(() => {
-    if (pendingReloadRequestRef.current) {
-      return;
-    }
-    const request: IPrimeInfiniPaymentReloadRequest = {
-      minimumLoadAttempt: paymentContextLoadAttemptRef.current + 1,
-      previousBindingId: effectivePendingSession?.paymentCacheKey.bindingId,
-    };
-    pendingReloadRequestRef.current = request;
-    void run({ alwaysSetState: true }).catch((error) => {
-      if (pendingReloadRequestRef.current === request) {
-        pendingReloadRequestRef.current = undefined;
+  const handleReloadPaymentSession = useCallback(
+    (reviewPaymentBindingId?: string) => {
+      if (reviewPaymentBindingId) {
+        setContinuedExistingPaymentBindingId((current) =>
+          current === reviewPaymentBindingId ? '' : current,
+        );
+        setHandledPaymentBindingIds((current) => {
+          const next = new Set(current);
+          next.delete(reviewPaymentBindingId);
+          return next;
+        });
       }
-      handlePaymentContextRunError(error, 'sessionReloadFailed');
-    });
-  }, [
-    effectivePendingSession?.paymentCacheKey.bindingId,
-    handlePaymentContextRunError,
-    run,
-  ]);
+      if (pendingReloadRequestRef.current) {
+        return;
+      }
+      const request: IPrimeInfiniPaymentReloadRequest = {
+        minimumLoadAttempt: paymentContextLoadAttemptRef.current + 1,
+        previousBindingId: effectivePendingSession?.paymentCacheKey.bindingId,
+      };
+      pendingReloadRequestRef.current = request;
+      void run({ alwaysSetState: true }).catch((error) => {
+        if (pendingReloadRequestRef.current === request) {
+          pendingReloadRequestRef.current = undefined;
+        }
+        handlePaymentContextRunError(error, 'sessionReloadFailed');
+      });
+    },
+    [
+      effectivePendingSession?.paymentCacheKey.bindingId,
+      handlePaymentContextRunError,
+      run,
+    ],
+  );
   const handleRestartPaymentSession = useCallback(() => {
     paymentCreationIntentRef.current = true;
     setPaymentSessionGeneration((value) => value + 1);
@@ -5093,23 +5120,6 @@ function PrimeInfiniWalletPaymentRoot({
                 latestPayment,
               },
             ),
-          persistTrackedPayment: (latestPayment) =>
-            backgroundApiProxy.simpleDb.prime.setInfiniPendingPaymentSession({
-              onekeyUserId,
-              session: {
-                asset: currentSession.asset,
-                baseline: currentSession.baseline,
-                plan: currentSession.plan,
-                selectedSubscriptionPeriod:
-                  currentSession.selectedSubscriptionPeriod,
-                featureName: currentSession.featureName,
-                payerAccountId: currentSession.payerAccountId,
-                payerAddress: currentSession.payerAddress,
-                paymentCacheKey: currentSession.paymentCacheKey,
-                payment: latestPayment,
-                sendStarted: true,
-              },
-            }),
           onLatestPaymentUnavailable: (error) => {
             logPrimeInfiniPaymentFlow({
               ...flowContextRef.current,
@@ -5179,26 +5189,6 @@ function PrimeInfiniWalletPaymentRoot({
         }
         await purchase({ selectedSubscriptionPeriod, featureName });
         return;
-      }
-      if (replacementResult.type === 'track') {
-        logPrimeInfiniPaymentFlow({
-          ...flowContextRef.current,
-          stage: 'paymentReplacement',
-          status: 'blocked',
-          subscriptionPeriod: selectedSubscriptionPeriod,
-          featureName,
-          plan,
-          checkoutType: 'internalWallet',
-          ...getPrimeInfiniPaymentLogContext({
-            payment: replacementResult.payment,
-            asset: currentSession.asset,
-          }),
-          reason: 'paymentProgressDetected',
-          sendStarted: true,
-        });
-        setContinuedExistingPaymentBindingId(
-          currentSession.paymentCacheKey.bindingId,
-        );
       }
       await run({ alwaysSetState: true });
     } catch (error) {

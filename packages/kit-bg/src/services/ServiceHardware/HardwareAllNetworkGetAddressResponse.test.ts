@@ -1,3 +1,7 @@
+import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core/errors';
+
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 import { HardwareAllNetworkGetAddressResponse } from './HardwareAllNetworkGetAddressResponse';
 
 import type { IHwAllNetworkPrepareAccountsItem } from '../../vaults/types';
@@ -109,4 +113,78 @@ describe('HardwareAllNetworkGetAddressResponse', () => {
 
     await expect(pendingItem).resolves.toBe(item);
   });
+
+  test.each([
+    ThirdPartyHwErrorCode.AppTooOld,
+    ThirdPartyHwErrorCode.DeviceOutOfMemory,
+  ])('allows only a completed batch item failure (%s)', async (code) => {
+    const response = new HardwareAllNetworkGetAddressResponse();
+    const pendingItem = response.getItem(request);
+    response.onSdkItemCallResponse({
+      path: request.path,
+      network: request.hwSdkNetwork,
+      success: false,
+      payload: {
+        code,
+        errorCode: code,
+        error: 'Synthetic app failure',
+        connectId: 'connect-id',
+        deviceId: 'device-id',
+      },
+    });
+    const error: unknown = await pendingItem.catch(
+      (itemError: unknown) => itemError,
+    );
+
+    expect(response.isCompletedAppFailure(error)).toBe(false);
+    response.completeSdkResponse();
+    expect(response.isCompletedAppFailure(error)).toBe(true);
+    expect(
+      response.isCompletedAppFailure({ $isHardwareError: true, code }),
+    ).toBe(false);
+
+    const otherBatch = new HardwareAllNetworkGetAddressResponse();
+    otherBatch.completeSdkResponse();
+    expect(otherBatch.isCompletedAppFailure(error)).toBe(false);
+
+    response.rejectAllResponse(new OneKeyLocalError('Synthetic batch abort'));
+    expect(response.isCompletedAppFailure(error)).toBe(false);
+    response.destroy();
+    response.completeSdkResponse();
+    expect(response.isCompletedAppFailure(error)).toBe(false);
+  });
+
+  test.each([
+    ThirdPartyHwErrorCode.UserRejected,
+    ThirdPartyHwErrorCode.PinInvalid,
+    ThirdPartyHwErrorCode.TransportNotAvailable,
+    999_999,
+  ])(
+    'does not make completed device failures recoverable (%s)',
+    async (code) => {
+      const response = new HardwareAllNetworkGetAddressResponse();
+      const pendingItem = response.getItem(request);
+      response.onSdkResponse({
+        items: [
+          {
+            path: request.path,
+            network: request.hwSdkNetwork,
+            success: false,
+            payload: {
+              code,
+              errorCode: code,
+              error: 'Synthetic device failure',
+              connectId: 'connect-id',
+              deviceId: 'device-id',
+            },
+          },
+        ],
+        completed: true,
+      });
+      const error: unknown = await pendingItem.catch(
+        (itemError: unknown) => itemError,
+      );
+      expect(response.isCompletedAppFailure(error)).toBe(false);
+    },
+  );
 });
