@@ -259,7 +259,7 @@ describe('estimateFirmwareUpdateTransferBytes', () => {
     ],
   };
   const withBoundary = {
-    resources: { source: {}, fullRefreshVersion: '1.0.3' },
+    resources: { source: {}, fullRefreshVersion: [1, 0, 3] },
   } as never;
   const noBoundary = { resources: { source: {} } } as never;
   const everything = 20_648_924;
@@ -291,8 +291,8 @@ describe('estimateFirmwareUpdateTransferBytes', () => {
       everything,
     ],
     [
-      'an invalid boundary counts the archive',
-      { resources: { fullRefreshVersion: 'latest' } } as never,
+      'a boundary that is not a version array counts the archive',
+      { resources: { fullRefreshVersion: '1.0.3' } } as never,
       { applicationP1: '1.0.3' },
       everything,
     ],
@@ -342,13 +342,21 @@ describe('estimateFirmwareUpdateTransferBytes', () => {
     expect(estimateFirmwareUpdateTransferBytes({ plan })).toBeUndefined();
   });
 
-  it('reads only a valid semver boundary from the manifest', () => {
+  it('reads only a three-part version array as the boundary', () => {
     expect(getResourceFullRefreshVersion(withBoundary)).toBe('1.0.3');
-    expect(
-      getResourceFullRefreshVersion({
-        resources: { fullRefreshVersion: 7 },
-      } as never),
-    ).toBeUndefined();
+    for (const fullRefreshVersion of [
+      7,
+      '1.0.3',
+      [1, 0],
+      [1, 0, -1],
+      [1, 0, 'x'],
+    ]) {
+      expect(
+        getResourceFullRefreshVersion({
+          resources: { fullRefreshVersion },
+        } as never),
+      ).toBeUndefined();
+    }
     expect(getResourceFullRefreshVersion(undefined)).toBeUndefined();
   });
 });
@@ -360,7 +368,7 @@ describe('ServiceFirmwareUpdate.baseCheckAllFirmwareRelease', () => {
       payload: {
         features: {},
         targetsToUpdate: ['app_v2', 'resource'],
-        release: { resources: { fullRefreshVersion: '1.0.3' } },
+        release: { resources: { fullRefreshVersion: [1, 0, 3] } },
         currentVersions: { applicationP1: '1.0.2' },
         firmwareUpdatePlan: {
           targetsToUpdate: ['app_v2', 'resource'],

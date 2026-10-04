@@ -236,8 +236,9 @@ export function shouldForceProtocolV2ResourceUpdate({
 
 /**
  * `resources.fullRefreshVersion` from the release manifest (devops-tools
- * `pro2-release` writes it): devices below it receive the whole resource set,
- * devices at or above it only the few packages that changed since.
+ * `pro2-release` writes it as a version array like the other version
+ * fields): devices below it receive the whole resource set, devices at or
+ * above it only the few packages that changed since. Returned as x.y.z.
  */
 export function getResourceFullRefreshVersion(
   release: Pick<IFirmwareReleaseInfo, 'resources'> | undefined,
@@ -245,7 +246,14 @@ export function getResourceFullRefreshVersion(
   const value = (
     release?.resources as { fullRefreshVersion?: unknown } | undefined
   )?.fullRefreshVersion;
-  return typeof value === 'string' && semver.valid(value) ? value : undefined;
+  if (
+    !Array.isArray(value) ||
+    value.length !== 3 ||
+    !value.every((part) => Number.isInteger(part) && part >= 0)
+  ) {
+    return undefined;
+  }
+  return value.join('.');
 }
 
 /**
