@@ -1444,7 +1444,7 @@ const MoreActionMoreGrid = () => {
         onPress: handleReferFriends,
         trackID: 'wallet-referral',
       },
-      ...(!platformEnv.isNativeIOS || showReviewControlledFeatures
+      ...(showReviewControlledFeatures
         ? [
             {
               title: intl.formatMessage({ id: ETranslations.global_redeem }),
