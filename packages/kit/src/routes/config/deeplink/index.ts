@@ -1,7 +1,6 @@
 import * as Linking from 'expo-linking';
 import { isString } from 'lodash';
 
-import { Toast } from '@onekeyhq/components';
 import type { IDesktopOpenUrlEventData } from '@onekeyhq/desktop/app/app';
 import { perpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
@@ -27,7 +26,6 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -53,7 +51,6 @@ import { whenAppUnlocked } from '../../../utils/passwordUtils';
 import { EarnNavigation } from '../../../views/Earn/earnUtils';
 import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAccountUtils';
 import { marketNavigation } from '../../../views/Market/marketUtils';
-import { openWcPayDialog } from '../../../views/WalletConnectPay/dialog/wcPayDialogStore';
 import { openWebView } from '../../../views/WebView/utils/webViewNavigation';
 import { captureAndReportLoggerUtmParamsFromUrl } from '../loggerUtmParams';
 
@@ -599,40 +596,6 @@ const getUniversalLink = async () => {
     : ONEKEY_UNIVERSAL_LINK_HOST;
 };
 
-// The pay flow is a global dialog driven by wcPayDialogStore, not a
-// navigation route. The store holds state (not an event), so a deep link
-// drained at desktop cold start — before the dialog container has mounted —
-// is not lost: the container reads the current state on mount. No
-// navigation-retry loop needed anymore.
-function openWalletConnectPayModal({ paymentLink }: { paymentLink: string }) {
-  // Unlock gate: on native the dialog is a SYSTEM sheet that presents above
-  // the RN lock screen (the routed modal it replaced rendered under it), so
-  // the link waits for unlock. The payment's absolute deadline keeps ticking
-  // meanwhile; an expired link lands on the expired terminal, which is the
-  // correct outcome.
-  void whenAppUnlocked()
-    .then(() => {
-      const { opened } = openWcPayDialog({ paymentLink });
-      if (!opened) {
-        // an in-flight payment is non-dismissible; a second link must not
-        // silently replace it (see wcPayDialogStore.openWcPayDialog)
-        Toast.error({
-          // deep links are handled outside any React tree; the toast fires at
-          // event time, long after the locale is initialized
-          // eslint-disable-next-line onekey/no-app-locale-main-thread
-          title: appLocale.intl.formatMessage({
-            id: ETranslations.wc_pay_payment_in_progress__msg,
-          }),
-        });
-      }
-    })
-    .catch((error) => {
-      // whenAppUnlocked itself never rejects; this surfaces a throw from the
-      // store listeners or the toast instead of leaving it unhandled
-      console.error('openWalletConnectPayModal ERROR: ', error);
-    });
-}
-
 async function processDeepLinkWalletConnect({
   url,
   parsedUrl,
@@ -707,44 +670,22 @@ async function processDeepLinkWalletConnect({
       }
     }
 
-    // ** WalletConnect Pay links (wc:...?pay=... or extracted ?uri=) must be
-    // routed to the payment flow BEFORE pairing; pair() would fail on them
-    // Any scheme can carry a direct payment link (plain https included), so
-    // the raw url is always offered to the strict isPaymentLink verdict
-    // below; non-pay links simply fail the verdict and fall through.
+    // ** WalletConnect Pay links must be routed to the payment flow BEFORE
+    // pairing; pair() would fail on them. Any scheme can carry a direct
+    // payment link (plain https included), so the raw url is always offered
+    // to the strict isPaymentLink verdict; non-pay links fall through.
+    // Loaded on demand: the pay entry stays off the main startup graph.
     const payLinkCandidate = wcUri || url;
-    if (
-      payLinkCandidate &&
-      (await backgroundApiProxy.serviceWalletConnectPay.isPaymentLink({
-        uri: payLinkCandidate,
-      }))
-    ) {
-      // entry decision point: without durable progress no payment can
-      // complete, so refuse explicitly. The link was recognized as a
-      // payment link, so it must still be consumed here — falling through
-      // would hand a pay URI to dapp pairing, which fails silently
-      if (
-        !(await backgroundApiProxy.serviceWalletConnectPay.supportsDurableProgress())
-      ) {
-        Toast.error({
-          // same as openWalletConnectPayModal: no React tree here, event-time
-          // eslint-disable-next-line onekey/no-app-locale-main-thread
-          title: appLocale.intl.formatMessage({
-            id: ETranslations.wc_pay_onchain_unsupported_platform__msg,
-          }),
-        });
-        return {
-          type: 'walletConnectPay',
-          url,
-          urlExtracted: payLinkCandidate,
-        };
-      }
-      openWalletConnectPayModal({ paymentLink: payLinkCandidate });
-      return {
-        type: 'walletConnectPay',
+    if (payLinkCandidate) {
+      const { handleWalletConnectPayLink } =
+        await import('./walletConnectPayLink');
+      const payResult = await handleWalletConnectPayLink({
         url,
-        urlExtracted: payLinkCandidate,
-      };
+        payLinkCandidate,
+      });
+      if (payResult) {
+        return payResult;
+      }
     }
 
     if (wcUri) {

@@ -29,7 +29,7 @@ export function resolvePollDelayMs(pollInMs: number | undefined): number {
 /**
  * Polls `serviceWalletConnectPay.confirmPayment` with a fixed `(paymentId,
  * optionId, signatures)` triple until the result is final or polling gives
- * up, re-arming the timer after each response using `pollInMs` (sanitised
+ * up, re-arming the timer after each response using `pollInMs` (sanitized
  * via `resolvePollDelayMs`, falling back to `DEFAULT_POLL_MS`).
  *
  * `enabled` lets a caller mount this hook before `signatures` exists (e.g.

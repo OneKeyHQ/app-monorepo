@@ -1,5 +1,3 @@
-import { RELAYER_EVENTS, SUBSCRIBER_EVENTS } from '@walletconnect/core';
-
 import {
   WALLET_CONNECT_RELAY_URL,
   WALLET_CONNECT_RELAY_URLS,
@@ -8,6 +6,8 @@ import type {
   IWalletConnectDiagnosticEvent,
   IWalletConnectDiagnostics,
 } from '@onekeyhq/shared/src/walletConnect/diagnostics';
+
+import { RELAYER_EVENTS, SUBSCRIBER_EVENTS } from './walletConnectSdkEvents';
 
 import type { IWalletKit } from '@reown/walletkit';
 import type { ICore, SignClientTypes } from '@walletconnect/types';
