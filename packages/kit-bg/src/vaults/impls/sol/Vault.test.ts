@@ -7,6 +7,7 @@ detection for pending txs that never reached the ledger, and the custom RPC
 "Blockhash not found" retry parity.
 */
 import {
+  ComputeBudgetProgram,
   Keypair,
   SystemProgram,
   Transaction,
@@ -63,6 +64,9 @@ const otherSignerTransferIx = SystemProgram.transfer({
 const nonceAdvanceIx = SystemProgram.nonceAdvance({
   noncePubkey: nonceAccount.publicKey,
   authorizedPubkey: payer.publicKey,
+});
+const computeUnitPriceIx = ComputeBudgetProgram.setComputeUnitPrice({
+  microLamports: 1,
 });
 
 function buildLegacyEncodedTx(
@@ -207,6 +211,28 @@ describe('SolVault.refreshUnsignedTxBeforeSign', () => {
     expect(await vault.refreshUnsignedTxBeforeSign(legacy)).toBe(legacy);
     expect(await vault.refreshUnsignedTxBeforeSign(versioned)).toBe(versioned);
     expect(getRecentBlockHash).not.toHaveBeenCalled();
+  });
+
+  it('re-stamps a tx whose nonce advance is not the first instruction', async () => {
+    // The runtime only recognizes a durable nonce at instruction index 0
+    // (its nonce marker index), so a ComputeBudget prefix makes this a plain
+    // blockhash tx that must be refreshed like any other.
+    const { vault, getRecentBlockHash } = buildVault();
+    const prefixed = [computeUnitPriceIx, nonceAdvanceIx, transferIx];
+    const legacy = buildUnsignedTx(buildLegacyEncodedTx(prefixed));
+    const versioned = buildUnsignedTx(buildVersionedEncodedTx(prefixed));
+
+    const refreshedLegacy = await vault.refreshUnsignedTxBeforeSign(legacy);
+    const refreshedVersioned =
+      await vault.refreshUnsignedTxBeforeSign(versioned);
+
+    expect(getRecentBlockHash).toHaveBeenCalledTimes(2);
+    expect(readBlockhash(refreshedLegacy.encodedTx as IEncodedTxSol)).toBe(
+      NEW_BLOCKHASH,
+    );
+    expect(readBlockhash(refreshedVersioned.encodedTx as IEncodedTxSol)).toBe(
+      NEW_BLOCKHASH,
+    );
   });
 
   it('falls back to the original tx when the blockhash fetch fails', async () => {
