@@ -101,6 +101,7 @@ import {
 } from '../AppUpdate';
 import { MultipleClickStack } from '../MultipleClickStack';
 import { OneKeyIdAvatar } from '../OneKeyIdAvatar';
+import { useReviewControl } from '../ReviewControl';
 import { UpdateReminder } from '../UpdateReminder';
 import { WalletAvatar } from '../WalletAvatar';
 
@@ -1402,6 +1403,7 @@ const showDevModeEntryInMoreMenu =
 
 const MoreActionMoreGrid = () => {
   const intl = useIntl();
+  const showReviewControlledFeatures = useReviewControl();
   const navigation = useAppNavigation();
   const { closePopover } = usePopoverContext();
   const handleHelpAndSupport = useCallback(() => {
@@ -1442,12 +1444,16 @@ const MoreActionMoreGrid = () => {
         onPress: handleReferFriends,
         trackID: 'wallet-referral',
       },
-      {
-        title: intl.formatMessage({ id: ETranslations.global_redeem }),
-        icon: 'TicketOutline' as const,
-        onPress: handleRedeem,
-        trackID: 'wallet-redeem',
-      },
+      ...(!platformEnv.isNativeIOS || showReviewControlledFeatures
+        ? [
+            {
+              title: intl.formatMessage({ id: ETranslations.global_redeem }),
+              icon: 'TicketOutline' as const,
+              onPress: handleRedeem,
+              trackID: 'wallet-redeem',
+            },
+          ]
+        : []),
       ...(showDevModeEntryInMoreMenu
         ? [
             {
@@ -1466,6 +1472,7 @@ const MoreActionMoreGrid = () => {
     themeVariant,
     handleReferFriends,
     handleDevMode,
+    showReviewControlledFeatures,
   ]);
   return (
     <BaseMoreActionGrid
