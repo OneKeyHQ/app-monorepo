@@ -4,7 +4,9 @@
  */
 
 import type { HTMLAttributes, ReactNode } from 'react';
-import { createRef } from 'react';
+import { createRef, useEffect } from 'react';
+
+import { useForm } from 'react-hook-form';
 
 import { DialogContainer } from '.';
 
@@ -47,14 +49,17 @@ jest.mock('@onekeyhq/components', () => {
 });
 
 jest.mock('../../primitives', () => {
-  const React = jest.requireActual('react') as typeof import('react');
+  const React = jest.requireActual<typeof import('react')>('react');
   return {
     Stack: React.forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
-      ({ children, tabIndex }, ref) => (
-        <div ref={ref} tabIndex={tabIndex}>
-          {children}
-        </div>
-      ),
+      // eslint-disable-next-line prefer-arrow-callback
+      function StackMock({ children, tabIndex }, ref) {
+        return (
+          <div ref={ref} tabIndex={tabIndex}>
+            {children}
+          </div>
+        );
+      },
     ),
   };
 });
@@ -62,12 +67,26 @@ jest.mock('../../primitives', () => {
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
-jest.mock('react-native-reanimated', () => ({
-  __esModule: true,
-  default: { View: ({ children }: { children?: ReactNode }) => children },
-  useSharedValue: (value: number) => ({ value }),
-  useAnimatedStyle: () => ({}),
-}));
+jest.mock('react-native-reanimated', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    __esModule: true,
+    default: {
+      View: React.forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
+        // eslint-disable-next-line prefer-arrow-callback
+        function AnimatedViewMock({ children, tabIndex }, ref) {
+          return (
+            <div ref={ref} tabIndex={tabIndex}>
+              {children}
+            </div>
+          );
+        },
+      ),
+    },
+    useSharedValue: (value: number) => ({ value }),
+    useAnimatedStyle: () => ({}),
+  };
+});
 jest.mock('react-native-safe-area-context', () => ({}));
 jest.mock('expo-clipboard', () => ({}));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
@@ -99,7 +118,7 @@ jest.mock('./Content', () => ({
 }));
 jest.mock('./Footer', () => ({ Footer: () => null }));
 jest.mock('./Header', () => {
-  const React = jest.requireActual('react') as typeof import('react');
+  const React = jest.requireActual<typeof import('react')>('react');
   return {
     DialogHeader: () => null,
     DialogHeaderCloseButton: () => null,
@@ -308,4 +327,180 @@ describe('Dialog close confirmation', () => {
       onClose.mock.invocationCallOrder[0],
     );
   });
+});
+
+function DraftForm({
+  field,
+  initial,
+  onForm,
+  onMount,
+  onUnmount,
+  onSubmit,
+}: {
+  field: string;
+  initial: string;
+  onForm: (form: ReturnType<typeof useForm<Record<string, string>>>) => void;
+  onMount: () => void;
+  onUnmount: () => void;
+  onSubmit: () => void;
+}) {
+  // Match the consumers' real react-hook-form initialization contracts.
+  const form = useForm<Record<string, string>>(
+    field === 'passphrase'
+      ? { defaultValues: { [field]: initial } }
+      : { values: { [field]: initial } },
+  );
+  useEffect(() => {
+    onForm(form);
+    onMount();
+    return onUnmount;
+  }, [form, onForm, onMount, onUnmount]);
+  return (
+    <form onSubmit={form.handleSubmit(onSubmit)}>
+      <input aria-label={field} {...form.register(field)} />
+    </form>
+  );
+}
+
+const draftCases = [
+  { field: 'name', initial: 'Original QA Name', edited: 'Edited QA Name' },
+  { field: 'count', initial: '3', edited: '7' },
+  { field: 'passphrase', initial: '', edited: 'QA-NOT-A-WALLET-50653' },
+];
+const resizeCases = [
+  [400, 500, 400],
+  [800, 900, 800],
+  [767, 768, 767],
+  [768, 767, 768],
+];
+
+describe.each(['sheet', 'header'] as const)(
+  'Dialog unsubmitted drafts (drag area: %s)',
+  (sheetDragArea) => {
+    it.each(
+      draftCases.flatMap((draft) =>
+        resizeCases.map((widths) => ({ ...draft, widths })),
+      ),
+    )(
+      'preserves $field through $widths without remounting or refocusing',
+      async ({ field, initial, edited, widths }) => {
+        let currentForm:
+          | ReturnType<typeof useForm<Record<string, string>>>
+          | undefined;
+        const onForm = (form: typeof currentForm) => {
+          currentForm = form;
+        };
+        const onMount = jest.fn();
+        const onUnmount = jest.fn();
+        const onSubmit = jest.fn();
+        const onOpenAutoFocus = jest.fn();
+        const props = {
+          open: true,
+          showHeader: false,
+          showFooter: false,
+          sheetDragArea,
+          onClose: mockClose,
+          onOpenAutoFocus,
+          renderContent: (
+            <DraftForm
+              field={field}
+              initial={initial}
+              onForm={onForm}
+              onMount={onMount}
+              onUnmount={onUnmount}
+              onSubmit={onSubmit}
+            />
+          ),
+        };
+        mockIsSheet = widths[0] <= 767;
+        const view = render(<DialogContainer {...props} />);
+        const input = screen.getByRole<HTMLInputElement>('textbox', {
+          name: field,
+        });
+        await waitFor(() => expect(document.activeElement).toBe(input));
+        fireEvent.change(input, { target: { value: edited } });
+        const originalForm = currentForm;
+        for (const width of widths.slice(1)) {
+          mockIsSheet = width <= 767;
+          view.rerender(<DialogContainer {...props} />);
+          expect(currentForm?.getValues(field)).toBe(edited);
+          expect(currentForm).toBe(originalForm);
+          expect(screen.getByRole('textbox', { name: field })).toBe(input);
+          expect(input.value).toBe(edited);
+          expect(document.activeElement).toBe(input);
+        }
+        expect(onMount).toHaveBeenCalledTimes(1);
+        expect(onUnmount).not.toHaveBeenCalled();
+        expect(onOpenAutoFocus).toHaveBeenCalledTimes(1);
+        expect(onSubmit).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each(draftCases)(
+      'discards the unsubmitted $field only on close and reopens with its default',
+      async ({ field, initial, edited }) => {
+        let currentForm:
+          | ReturnType<typeof useForm<Record<string, string>>>
+          | undefined;
+        const onForm = (form: typeof currentForm) => {
+          currentForm = form;
+        };
+        const onMount = jest.fn();
+        const onUnmount = jest.fn();
+        const onSubmit = jest.fn();
+        const trigger = document.createElement('button');
+        trigger.dataset.dialogDraftTrigger = 'true';
+        document.body.append(trigger);
+        trigger.focus();
+        const props = {
+          showHeader: false,
+          showFooter: false,
+          sheetDragArea,
+          onClose: mockClose,
+          renderContent: (
+            <DraftForm
+              field={field}
+              initial={initial}
+              onForm={onForm}
+              onMount={onMount}
+              onUnmount={onUnmount}
+              onSubmit={onSubmit}
+            />
+          ),
+        };
+        mockIsSheet = true;
+        const view = render(<DialogContainer {...props} open />);
+        const input = screen.getByRole<HTMLInputElement>('textbox', {
+          name: field,
+        });
+        await waitFor(() => expect(document.activeElement).toBe(input));
+        fireEvent.change(input, { target: { value: edited } });
+        const originalForm = currentForm;
+        mockIsSheet = false;
+        view.rerender(<DialogContainer {...props} open />);
+        view.rerender(<DialogContainer {...props} open={false} />);
+        await waitFor(() => expect(document.activeElement).toBe(trigger));
+        expect(screen.queryByRole('textbox')).toBeNull();
+        expect(onUnmount).toHaveBeenCalledTimes(1);
+        view.rerender(<DialogContainer {...props} open />);
+        const reopened = screen.getByRole<HTMLInputElement>('textbox', {
+          name: field,
+        });
+        await waitFor(() => expect(document.activeElement).toBe(reopened));
+        expect(currentForm).not.toBe(originalForm);
+        expect(currentForm?.getValues(field)).toBe(initial);
+        expect(reopened.value).toBe(initial);
+        expect(onMount).toHaveBeenCalledTimes(2);
+        expect(onSubmit).not.toHaveBeenCalled();
+        view.unmount();
+        trigger.remove();
+      },
+    );
+  },
+);
+
+afterEach(() => {
+  document
+    .querySelectorAll('[data-dialog-draft-trigger]')
+    .forEach((node) => node.remove());
 });
