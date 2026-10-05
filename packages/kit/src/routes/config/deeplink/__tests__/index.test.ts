@@ -51,9 +51,6 @@ jest.mock('../../../../background/instance/backgroundApiProxy', () => ({
     servicePrime: {
       isLoggedIn: jest.fn(async () => false),
     },
-    serviceApp: {
-      isAppLocked: jest.fn(async () => false),
-    },
     walletConnect: {
       connectToDapp: jest.fn(),
     },

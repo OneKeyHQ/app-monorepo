@@ -1,6 +1,6 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-import { openPrimeSubscriptionFromWebLanding } from './openPrimeSubscriptionFromWebLanding';
+import { openPrimeSubscriptionInExtension } from './openPrimeSubscriptionInExtension';
 
 type IPrivateProviderHost = {
   $onekey?: {
@@ -10,7 +10,7 @@ type IPrivateProviderHost = {
   };
 };
 
-describe('openPrimeSubscriptionFromWebLanding', () => {
+describe('openPrimeSubscriptionInExtension', () => {
   const host = globalThis as IPrivateProviderHost;
   let originalOneKey: IPrivateProviderHost['$onekey'];
 
@@ -27,7 +27,6 @@ describe('openPrimeSubscriptionFromWebLanding', () => {
   });
 
   it('opens in the extension when the private provider request succeeds', async () => {
-    const openViaDeepLink = jest.fn();
     const privateProvider = {
       request: jest.fn(function request(this: unknown) {
         expect(this).toBe(privateProvider);
@@ -36,25 +35,19 @@ describe('openPrimeSubscriptionFromWebLanding', () => {
     };
     host.$onekey = { $private: privateProvider };
 
-    await openPrimeSubscriptionFromWebLanding({ openViaDeepLink });
-
+    await expect(openPrimeSubscriptionInExtension()).resolves.toBe(true);
     expect(privateProvider.request).toHaveBeenCalledWith({
       method: 'wallet_openPrimeSubscription',
     });
-    expect(openViaDeepLink).not.toHaveBeenCalled();
   });
 
-  it('falls back to the custom scheme when no extension provider is present', async () => {
-    const openViaDeepLink = jest.fn();
+  it('reports no extension when the private provider is missing', async () => {
     delete host.$onekey;
 
-    await openPrimeSubscriptionFromWebLanding({ openViaDeepLink });
-
-    expect(openViaDeepLink).toHaveBeenCalledTimes(1);
+    await expect(openPrimeSubscriptionInExtension()).resolves.toBe(false);
   });
 
-  it('falls back to the custom scheme when the extension request fails', async () => {
-    const openViaDeepLink = jest.fn();
+  it('reports failure when the extension request fails', async () => {
     host.$onekey = {
       $private: {
         request: async () => {
@@ -63,8 +56,6 @@ describe('openPrimeSubscriptionFromWebLanding', () => {
       },
     };
 
-    await openPrimeSubscriptionFromWebLanding({ openViaDeepLink });
-
-    expect(openViaDeepLink).toHaveBeenCalledTimes(1);
+    await expect(openPrimeSubscriptionInExtension()).resolves.toBe(false);
   });
 });

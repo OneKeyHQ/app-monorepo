@@ -14,7 +14,7 @@ import {
   scheduleDeepLinkFallbackHint,
 } from '../../utils/deepLinkLaunchUtils';
 
-import { openPrimeSubscriptionFromWebLanding } from './openPrimeSubscriptionFromWebLanding';
+import { openPrimeSubscriptionInExtension } from './openPrimeSubscriptionInExtension';
 
 const AUTO_OPEN_DELAY_MS = 300;
 const PRIME_SUBSCRIPTION_DEEP_LINK_FALLBACK_DELAY_MS = 3000;
@@ -33,21 +33,17 @@ function PrimeSubscriptionLandingPage() {
 
     let cancelled = false;
     let fallbackCleanup: (() => void) | undefined;
-    const autoOpenTimerId = setTimeout(() => {
-      void openPrimeSubscriptionFromWebLanding({
-        openViaDeepLink: () => {
-          if (cancelled) {
-            return;
-          }
-          // Only schedule the native fallback after the extension RPC fails;
-          // a pending RPC may still open the extension tab.
-          fallbackCleanup = scheduleDeepLinkFallbackHint({
-            delay: PRIME_SUBSCRIPTION_DEEP_LINK_FALLBACK_DELAY_MS,
-            onFallback: () => setIsFallbackVisible(true),
-          });
-          openAppViaDeepLink(PRIME_SUBSCRIPTION_DEEP_LINK);
-        },
+    const autoOpenTimerId = setTimeout(async () => {
+      if ((await openPrimeSubscriptionInExtension()) || cancelled) {
+        return;
+      }
+      // Only schedule the native fallback after the extension RPC fails;
+      // a pending RPC may still open the extension tab.
+      fallbackCleanup = scheduleDeepLinkFallbackHint({
+        delay: PRIME_SUBSCRIPTION_DEEP_LINK_FALLBACK_DELAY_MS,
+        onFallback: () => setIsFallbackVisible(true),
       });
+      openAppViaDeepLink(PRIME_SUBSCRIPTION_DEEP_LINK);
     }, AUTO_OPEN_DELAY_MS);
 
     return () => {

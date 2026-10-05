@@ -717,6 +717,7 @@ class ProviderApiPrivate extends ProviderApiBase {
         'wallet_openPrimeSubscription is only available in the extension',
       );
     }
+    // Defense in depth: BackgroundApiBase already gates this origin.
     if (!isProviderApiPrivateAllowedKeylessOrigin(request.origin)) {
       throw new OneKeyLocalError(
         `[${request.origin ?? ''}] is not allowed to call wallet_openPrimeSubscription`,

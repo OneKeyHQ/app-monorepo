@@ -23,6 +23,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { PrimeLoginDialogCancelError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -157,7 +158,7 @@ export default function PrimeDashboard({
   const loginInFlightRef = useRef<Promise<void> | null>(null);
   const fromDeepLinkRef = useRef(Boolean(fromDeepLink));
   const consumedDeepLinkHandoffRef = useRef(false);
-  const isMountedRef = useRef(true);
+  const isMountedRef = useIsMounted();
   const [isSubscribeLazyLoading, setIsSubscribeLazyLoading] = useState(false);
   const [didDashboardLoginFail, setDidDashboardLoginFail] = useState(false);
 
@@ -165,13 +166,6 @@ export default function PrimeDashboard({
     consumedDeepLinkHandoffRef.current = false;
   }
   fromDeepLinkRef.current = Boolean(fromDeepLink);
-
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
 
   usePrimeSubscribeResume({
     ensurePrimeSubscriptionActive,
@@ -193,21 +187,20 @@ export default function PrimeDashboard({
 
   const handleDashboardLoginError = useCallback(
     (error: unknown) => {
+      if (!isMountedRef.current) {
+        return;
+      }
       if (error instanceof PrimeLoginDialogCancelError) {
-        if (isMountedRef.current) {
-          setDidDashboardLoginFail(false);
-          if (fromDeepLinkRef.current) {
-            navigation.setParams({ fromDeepLink: undefined });
-          }
+        setDidDashboardLoginFail(false);
+        if (fromDeepLinkRef.current) {
+          navigation.setParams({ fromDeepLink: undefined });
         }
         return;
       }
-      if (isMountedRef.current) {
-        setDidDashboardLoginFail(true);
-        showOneKeyIdLoginFailedToast({ error, intl });
-      }
+      setDidDashboardLoginFail(true);
+      showOneKeyIdLoginFailedToast({ error, intl });
     },
-    [intl, navigation],
+    [intl, isMountedRef, navigation],
   );
 
   const consumeDeepLinkHandoff = useCallback(() => {
@@ -225,7 +218,7 @@ export default function PrimeDashboard({
     // Clear the route flag so a remount / pop-back cannot push Infini again.
     navigation.setParams({ fromDeepLink: undefined });
     navigation.push(EPrimePages.PrimeInfiniSubscription);
-  }, [navigation]);
+  }, [isMountedRef, navigation]);
 
   const handleDashboardLogin = useCallback(async () => {
     try {
@@ -240,7 +233,12 @@ export default function PrimeDashboard({
     }
     setDidDashboardLoginFail(false);
     consumeDeepLinkHandoff();
-  }, [consumeDeepLinkHandoff, ensureDashboardLogin, handleDashboardLoginError]);
+  }, [
+    consumeDeepLinkHandoff,
+    ensureDashboardLogin,
+    handleDashboardLoginError,
+    isMountedRef,
+  ]);
 
   useEffect(() => {
     if (!fromDeepLink || !isAuthReady) {

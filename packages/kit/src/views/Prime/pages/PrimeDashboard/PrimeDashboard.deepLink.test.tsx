@@ -108,7 +108,8 @@ jest.mock('../../components/oneKeyIdLoginToastUtils', () => ({
 }));
 jest.mock('../../hooks/usePrimeRequirements', () => ({
   usePrimeRequirements: () => ({
-    ensurePrimeSubscriptionActive: mockRequirements.ensurePrimeSubscriptionActive,
+    ensurePrimeSubscriptionActive:
+      mockRequirements.ensurePrimeSubscriptionActive,
   }),
 }));
 jest.mock('../../hooks/usePrimeSubscriptionPackages', () => ({
