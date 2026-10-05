@@ -22,6 +22,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IVaultSettings } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -64,7 +65,20 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
   const { updateApprovalsInfo } = useAccountOverviewActions().current;
   const markRiskApprovalsSeen = useCallback(() => {
     updateApprovalsInfo({ showRiskApprovalsDot: false });
-  }, [updateApprovalsInfo]);
+    if (!account?.id || !network?.id) return;
+    // Opening Approvals counts as reviewing the risks until they resurface.
+    void backgroundApiProxy.serviceApproval
+      .markRiskApprovalsDotSeen({
+        accountId: account.id,
+        networkId: network.id,
+      })
+      .catch((error: unknown) => {
+        defaultLogger.approval.revokeSuggestion.consoleError(
+          'Failed to persist risk approval review',
+          error,
+        );
+      });
+  }, [updateApprovalsInfo, account?.id, network?.id]);
 
   const show = useReviewControl();
   const { config, getMoreActionGroups, getActionCustomization, vaultSettings } =

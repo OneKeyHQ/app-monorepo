@@ -20,9 +20,10 @@ export interface ISimpleDbApprovalConfig {
   >;
   inactiveApprovalsAlertConfig?: Record<string, { lastShowTime: number }>; // key: networkId_accountId
   riskApprovalsAlertConfig?: Record<string, { lastShowTime: number }>; // key: networkId_accountId
+  riskApprovalsDotConfig?: Record<string, { lastSeenTime: number }>; // key: networkId_accountId
 }
 
-function buildApprovalAlertKey(networkId: string, accountId: string) {
+export function buildApprovalAlertKey(networkId: string, accountId: string) {
   return `${networkId}_${accountId}`;
 }
 
@@ -123,6 +124,42 @@ export class SimpleDbEntityApproval extends SimpleDbEntityBase<ISimpleDbApproval
     const config = await this.getRawData();
     const key = buildApprovalAlertKey(networkId, accountId);
     return config?.riskApprovalsAlertConfig?.[key];
+  }
+
+  // Latest time each target's risk approvals were reviewed via the home dot
+  // or the risk alerts (home banner / approval list header), in one read.
+  @backgroundMethod()
+  async getRiskApprovalsLastReviewTimes(
+    targets: { networkId: string; accountId: string }[],
+  ): Promise<(number | undefined)[]> {
+    const config = await this.getRawData();
+    return targets.map(({ networkId, accountId }) => {
+      const key = buildApprovalAlertKey(networkId, accountId);
+      const dotSeenTime = config?.riskApprovalsDotConfig?.[key]?.lastSeenTime;
+      const alertShowTime =
+        config?.riskApprovalsAlertConfig?.[key]?.lastShowTime;
+      return Math.max(dotSeenTime ?? 0, alertShowTime ?? 0) || undefined;
+    });
+  }
+
+  @backgroundMethod()
+  async updateRiskApprovalsDotConfig({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }) {
+    await this.setRawData((rawData) => {
+      const key = buildApprovalAlertKey(networkId, accountId);
+      return {
+        ...rawData,
+        riskApprovalsDotConfig: {
+          ...rawData?.riskApprovalsDotConfig,
+          [key]: { lastSeenTime: Date.now() },
+        },
+      };
+    });
   }
 
   @backgroundMethod()

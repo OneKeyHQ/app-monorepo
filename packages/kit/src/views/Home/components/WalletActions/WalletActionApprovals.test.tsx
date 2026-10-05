@@ -7,9 +7,6 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { WalletActionApprovals } from './WalletActionApprovals';
 
 const mockNavigateToApprovalList = jest.fn();
-const mockUpdateRiskApprovalsAlertConfig = jest.fn<Promise<void>, [unknown]>(
-  async () => undefined,
-);
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -35,16 +32,6 @@ jest.mock('@onekeyhq/components', () => ({
   Stack: ({ testID }: { testID?: string }) => <span data-testid={testID} />,
 }));
 
-jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
-  __esModule: true,
-  default: {
-    serviceApproval: {
-      updateRiskApprovalsAlertConfig: (params: unknown) =>
-        mockUpdateRiskApprovalsAlertConfig(params),
-    },
-  },
-}));
-
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
   useActiveAccount: () => ({
     activeAccount: {
@@ -58,7 +45,6 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
     wallet: { walletActions: { actionApprovals: jest.fn() } },
-    approval: { revokeSuggestion: { consoleError: jest.fn() } },
   },
 }));
 
@@ -99,10 +85,6 @@ describe('WalletActionApprovals risk dot', () => {
     await pressApprovals();
 
     expect(onRiskSeen).toHaveBeenCalledTimes(1);
-    expect(mockUpdateRiskApprovalsAlertConfig).toHaveBeenCalledWith({
-      accountId: 'account-1',
-      networkId: 'evm--1',
-    });
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(mockNavigateToApprovalList).toHaveBeenCalledWith({
       networkId: 'evm--1',
@@ -122,7 +104,6 @@ describe('WalletActionApprovals risk dot', () => {
     await pressApprovals();
 
     expect(onRiskSeen).not.toHaveBeenCalled();
-    expect(mockUpdateRiskApprovalsAlertConfig).not.toHaveBeenCalled();
     expect(mockNavigateToApprovalList).toHaveBeenCalledTimes(1);
   });
 });

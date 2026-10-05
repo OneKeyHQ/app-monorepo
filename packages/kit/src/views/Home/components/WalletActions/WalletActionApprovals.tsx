@@ -3,7 +3,6 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { ActionList } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -34,20 +33,8 @@ export function WalletActionApprovals({
       networkId: network?.id ?? '',
       source: 'homePage',
     });
-    if (showRiskDot && account?.id && network?.id) {
+    if (showRiskDot) {
       onRiskSeen?.();
-      // Opening Approvals counts as reviewing the risks until they resurface.
-      void backgroundApiProxy.serviceApproval
-        .updateRiskApprovalsAlertConfig({
-          accountId: account.id,
-          networkId: network.id,
-        })
-        .catch((error: unknown) => {
-          defaultLogger.approval.revokeSuggestion.consoleError(
-            'Failed to persist risk approval review',
-            error,
-          );
-        });
     }
     onClose();
     await timerUtils.wait(150);

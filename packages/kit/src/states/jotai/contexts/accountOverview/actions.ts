@@ -85,6 +85,12 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
 
   updateApprovalsInfo = contextAtomMethod(
     (get, set, payload: { showRiskApprovalsDot: boolean }) => {
+      if (
+        get(approvalsInfoAtom()).showRiskApprovalsDot ===
+        payload.showRiskApprovalsDot
+      ) {
+        return;
+      }
       set(approvalsInfoAtom(), {
         ...get(approvalsInfoAtom()),
         ...payload,

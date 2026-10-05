@@ -62,10 +62,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { runAfterTokensDone } from '../../../hooks/useRunAfterTokensDone';
 import { useShortcutsOnRouteFocused } from '../../../hooks/useShortcutsOnRouteFocused';
-import {
-  useAccountOverviewActions,
-  useApprovalsInfoAtom,
-} from '../../../states/jotai/contexts/accountOverview';
+import { useAccountOverviewActions } from '../../../states/jotai/contexts/accountOverview';
 import {
   useAccountSelectorStorageInitDoneAtom,
   useActiveAccount,
@@ -80,7 +77,6 @@ import { NotBackedUpEmpty } from '../components/NotBakcedUp';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 import { useHomeWalletTabSupport } from '../hooks/useHomeWalletTabSupport';
 import { HomeTestIDs } from '../testIDs';
-import { shouldShowRiskApprovalsDot } from '../utils/riskApprovalsDot';
 
 import { DeFiContainerWithProvider } from './DeFiContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
@@ -291,7 +287,6 @@ export function HomePageView({
     },
   );
 
-  const [{ showRiskApprovalsDot }] = useApprovalsInfoAtom();
   const { updateApprovalsInfo } = useAccountOverviewActions().current;
   const tabsRef = useRef<ITabContainerRef | null>(null);
   // Keep the measured native tab bar height outside the account-keyed container
@@ -333,11 +328,6 @@ export function HomePageView({
       };
     }, []),
   );
-
-  const showRiskApprovalsDotRef = useRef(showRiskApprovalsDot);
-  useEffect(() => {
-    showRiskApprovalsDotRef.current = showRiskApprovalsDot;
-  }, [showRiskApprovalsDot]);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const addressType = deriveInfo?.labelKey
@@ -429,9 +419,7 @@ export function HomePageView({
     let cancelled = false;
 
     // Keep the risk dot from becoming stale across account/network switches.
-    if (showRiskApprovalsDotRef.current) {
-      updateApprovalsInfo({ showRiskApprovalsDot: false });
-    }
+    updateApprovalsInfo({ showRiskApprovalsDot: false });
 
     const run = async (_trigger: string) => {
       if (!isBulkRevokeApprovalEnabled) return;
@@ -441,19 +429,13 @@ export function HomePageView({
       if (cancelled) return;
 
       try {
-        const resp =
-          await backgroundApiProxy.serviceApproval.fetchAccountApprovals({
+        const shouldShowDot =
+          await backgroundApiProxy.serviceApproval.shouldShowRiskApprovalsDot({
             networkId: network.id,
             accountId: account.id,
             indexedAccountId: indexedAccount?.id,
             accountAddress: account.address,
           });
-        if (cancelled) return;
-        const shouldShowDot = await shouldShowRiskApprovalsDot({
-          contractApprovals: resp.contractApprovals,
-          accountId: account.id,
-          networkId: network.id,
-        });
         if (cancelled) return;
         updateApprovalsInfo({ showRiskApprovalsDot: shouldShowDot });
       } catch (error) {
