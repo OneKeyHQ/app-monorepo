@@ -71,11 +71,15 @@ const computeUnitPriceIx = ComputeBudgetProgram.setComputeUnitPrice({
 
 function buildLegacyEncodedTx(
   instructions: Parameters<Transaction['add']>,
+  { signers = [] }: { signers?: Keypair[] } = {},
 ): IEncodedTxSol {
   const tx = new Transaction({
     recentBlockhash: OLD_BLOCKHASH,
     feePayer: payer.publicKey,
   }).add(...instructions);
+  if (signers.length) {
+    tx.partialSign(...signers);
+  }
   return bs58.encode(
     tx.serialize({ requireAllSignatures: false, verifySignatures: false }),
   );
@@ -83,6 +87,7 @@ function buildLegacyEncodedTx(
 
 function buildVersionedEncodedTx(
   instructions: Parameters<Transaction['add']>,
+  { signers = [] }: { signers?: Keypair[] } = {},
 ): IEncodedTxSol {
   const message = new TransactionMessage({
     payerKey: payer.publicKey,
@@ -91,9 +96,11 @@ function buildVersionedEncodedTx(
       typeof TransactionMessage
     >[0]['instructions'],
   }).compileToV0Message();
-  return bs58.encode(
-    Buffer.from(new VersionedTransaction(message).serialize()),
-  );
+  const tx = new VersionedTransaction(message);
+  if (signers.length) {
+    tx.sign(signers);
+  }
+  return bs58.encode(Buffer.from(tx.serialize()));
 }
 
 function readBlockhash(encodedTx: IEncodedTxSol): string | undefined {
@@ -192,6 +199,24 @@ describe('SolVault.refreshUnsignedTxBeforeSign', () => {
     );
     const versioned = buildUnsignedTx(
       buildVersionedEncodedTx([transferIx, otherSignerTransferIx]),
+    );
+
+    expect(await vault.refreshUnsignedTxBeforeSign(legacy)).toBe(legacy);
+    expect(await vault.refreshUnsignedTxBeforeSign(versioned)).toBe(versioned);
+    expect(getRecentBlockHash).not.toHaveBeenCalled();
+  });
+
+  it('leaves a tx that already carries a signature untouched', async () => {
+    // A single-signer tx can arrive pre-signed (e.g. a dApp signed it first
+    // and then asked the wallet to send it). Re-stamping its blockhash would
+    // invalidate that signature: `Transaction.serialize` rejects the payload
+    // before the wallet ever gets to sign.
+    const { vault, getRecentBlockHash } = buildVault();
+    const legacy = buildUnsignedTx(
+      buildLegacyEncodedTx([transferIx], { signers: [payer] }),
+    );
+    const versioned = buildUnsignedTx(
+      buildVersionedEncodedTx([transferIx], { signers: [payer] }),
     );
 
     expect(await vault.refreshUnsignedTxBeforeSign(legacy)).toBe(legacy);

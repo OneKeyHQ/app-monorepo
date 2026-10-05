@@ -248,10 +248,23 @@ export function isDurableNonceSolTx(nativeTx: INativeTxSol): boolean {
   );
 }
 
+// `Transaction.from` maps an all-zero wire signature to `null`, while a
+// versioned tx keeps the raw 64 zero bytes for an unsigned slot.
+function hasPopulatedSolTxSignature(nativeTx: INativeTxSol): boolean {
+  if (nativeTx instanceof VersionedTransaction) {
+    return nativeTx.signatures.some((signature) =>
+      signature.some((byte) => byte !== 0),
+    );
+  }
+  return nativeTx.signatures.some(({ signature }) => signature !== null);
+}
+
 // Re-stamping the blockhash invalidates every existing signature, so only a
-// tx the wallet alone signs (no co-signer, no durable nonce) may be refreshed.
+// tx the wallet alone signs (single signer, nothing signed yet, no durable
+// nonce) may be refreshed. A pre-signed single-signer tx would otherwise fail
+// `Transaction.serialize` signature verification before signing starts.
 export function canRefreshSolTxBlockhash(nativeTx: INativeTxSol): boolean {
-  if (nativeTx.signatures.length > 1) {
+  if (nativeTx.signatures.length > 1 || hasPopulatedSolTxSignature(nativeTx)) {
     return false;
   }
   return !isDurableNonceSolTx(nativeTx);
