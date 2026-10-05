@@ -241,22 +241,15 @@ export default function PrimeDashboard({
       return;
     }
     let cancelled = false;
-    const openInfiniSubscriptionFromDeepLink = async () => {
-      try {
-        // Checks the service token and resolves after the login dialog closes.
-        await ensureDashboardLogin();
-      } catch (error) {
-        if (!cancelled) {
-          handleDashboardLoginError(error);
-        }
-        return;
-      }
-      if (cancelled) {
-        return;
-      }
-      consumeDeepLinkHandoff();
-    };
-    void openInfiniSubscriptionFromDeepLink();
+    // Checks the service token and resolves after the login dialog closes.
+    ensureDashboardLogin().then(
+      () => {
+        if (!cancelled) consumeDeepLinkHandoff();
+      },
+      (error: unknown) => {
+        if (!cancelled) handleDashboardLoginError(error);
+      },
+    );
     return () => {
       cancelled = true;
     };
@@ -372,7 +365,9 @@ export default function PrimeDashboard({
       return;
     }
     // An explicit purchase replaces the subscription-management intent.
-    navigation.setParams({ fromDeepLink: undefined });
+    if (fromDeepLinkRef.current) {
+      navigation.setParams({ fromDeepLink: undefined });
+    }
     subscribeInFlightRef.current = true;
     try {
       setIsSubscribeLazyLoading(true);

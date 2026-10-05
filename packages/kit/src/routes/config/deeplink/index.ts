@@ -115,16 +115,13 @@ async function openPrimeInfiniSubscriptionFromDeepLink({
 }) {
   await whenAppUnlocked();
   const isLoggedIn = await backgroundApiProxy.servicePrime.isLoggedIn();
-  if (!isLoggedIn) {
-    navigation.pushModal(EModalRoutes.PrimeModal, {
-      screen: EPrimePages.PrimeDashboard,
-      params: { fromDeepLink: true },
-    });
-    return;
-  }
-  navigation.pushModal(EModalRoutes.PrimeModal, {
-    screen: EPrimePages.PrimeInfiniSubscription,
-  });
+  // Logged-out users land on the dashboard, which continues to Infini after login.
+  navigation.pushModal(
+    EModalRoutes.PrimeModal,
+    isLoggedIn
+      ? { screen: EPrimePages.PrimeInfiniSubscription }
+      : { screen: EPrimePages.PrimeDashboard, params: { fromDeepLink: true } },
+  );
 }
 
 function getOneKeyDeepLinkPath({ hostname, path, scheme }: Linking.ParsedURL) {

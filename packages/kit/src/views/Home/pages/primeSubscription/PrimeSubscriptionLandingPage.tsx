@@ -39,10 +39,8 @@ function PrimeSubscriptionLandingPage() {
           if (cancelled) {
             return;
           }
-          // Native fallback is only for a missing/failed extension RPC.
-          // Scheduling it while wallet_openPrimeSubscription is pending lets
-          // the user open desktop and still leave a later successful
-          // chrome.tabs navigation committed.
+          // Only schedule the native fallback after the extension RPC fails;
+          // a pending RPC may still open the extension tab.
           fallbackCleanup = scheduleDeepLinkFallbackHint({
             delay: PRIME_SUBSCRIPTION_DEEP_LINK_FALLBACK_DELAY_MS,
             onFallback: () => setIsFallbackVisible(true),
