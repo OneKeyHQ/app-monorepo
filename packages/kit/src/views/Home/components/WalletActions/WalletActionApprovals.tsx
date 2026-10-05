@@ -67,7 +67,12 @@ export function WalletActionApprovals({
       onPress={handlePress}
       extra={
         showRiskDot ? (
-          <RiskApprovalsDot testID="wallet-action-approvals-risk-dot" />
+          <RiskApprovalsDot
+            w="$2"
+            h="$2"
+            borderWidth={0}
+            testID="wallet-action-approvals-risk-dot"
+          />
         ) : undefined
       }
     />

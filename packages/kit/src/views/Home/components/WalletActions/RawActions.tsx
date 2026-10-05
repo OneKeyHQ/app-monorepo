@@ -314,7 +314,12 @@ function ActionMore({
         <Stack>
           <Icon name="DotHorOutline" size="$6" color="$icon" />
           {showDot ? (
-            <RiskApprovalsDot position="absolute" top="$-0.5" right="$-1" />
+            <RiskApprovalsDot
+              position="absolute"
+              top="$-0.5"
+              right="$-1"
+              borderColor="$bgStrong"
+            />
           ) : null}
         </Stack>
         <SizableText my="$1" textAlign="center" size="$bodySm" color="$text">
