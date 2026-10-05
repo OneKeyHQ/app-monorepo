@@ -21591,6 +21591,7 @@
     "packages/kit/src/views/Home/components/Upgrade/Upgrade.tsx": 1178,
     "packages/kit/src/views/Home/components/Upgrade/index.ts": 16339,
     "packages/kit/src/views/Home/components/WalletActions/RawActions.tsx": 12511,
+    "packages/kit/src/views/Home/components/WalletActions/RiskApprovalsDot.tsx": 11878,
     "packages/kit/src/views/Home/components/WalletActions/WalletActionAddressList.tsx": 22471,
     "packages/kit/src/views/Home/components/WalletActions/WalletActionApprovals.tsx": 6006,
     "packages/kit/src/views/Home/components/WalletActions/WalletActionBulkSend.tsx": 12202,
