@@ -6,8 +6,6 @@
 import type { HTMLAttributes, ReactNode } from 'react';
 import { createRef, useEffect } from 'react';
 
-import { useForm } from 'react-hook-form';
-
 import { DialogContainer } from '.';
 
 import {
@@ -17,6 +15,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react';
+import { useForm } from 'react-hook-form';
 
 import type { IDialogInstance } from './type';
 
@@ -387,9 +386,9 @@ describe.each(['sheet', 'header'] as const)(
         let currentForm:
           | ReturnType<typeof useForm<Record<string, string>>>
           | undefined;
-        const onForm = (form: typeof currentForm) => {
+        const onForm = jest.fn((form: typeof currentForm) => {
           currentForm = form;
-        };
+        });
         const onMount = jest.fn();
         const onUnmount = jest.fn();
         const onSubmit = jest.fn();
@@ -442,9 +441,9 @@ describe.each(['sheet', 'header'] as const)(
         let currentForm:
           | ReturnType<typeof useForm<Record<string, string>>>
           | undefined;
-        const onForm = (form: typeof currentForm) => {
+        const onForm = jest.fn((form: typeof currentForm) => {
           currentForm = form;
-        };
+        });
         const onMount = jest.fn();
         const onUnmount = jest.fn();
         const onSubmit = jest.fn();
