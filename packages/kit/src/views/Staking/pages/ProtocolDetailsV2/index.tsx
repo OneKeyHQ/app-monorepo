@@ -43,6 +43,7 @@ import {
   EModalStakingRoutes,
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
@@ -1088,7 +1089,7 @@ const ProtocolDetailsPage = () => {
           {
             'symbol': networkUtils.isBTCNetwork(networkId)
               ? `${symbol} (Taproot)`
-              : symbol,
+              : earnUtils.getDisplaySymbol(tokenInfo?.token) || symbol,
           },
         )}
       />

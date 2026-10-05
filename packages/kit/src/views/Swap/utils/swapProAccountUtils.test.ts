@@ -243,6 +243,7 @@ describe('getSwapProErrorAlertAction', () => {
 
 describe('shouldSyncSwapProAccountNetwork', () => {
   const baseParams = {
+    isFocused: true,
     isSwapProActive: true,
     targetNetworkId: 'evm--56',
     currentNetworkId: 'btc--0',
@@ -268,6 +269,15 @@ describe('shouldSyncSwapProAccountNetwork', () => {
       shouldSyncSwapProAccountNetwork({
         ...baseParams,
         isSingletonAccountCompatible: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('does not let an unfocused Swap instance overwrite the selected network', () => {
+    expect(
+      shouldSyncSwapProAccountNetwork({
+        ...baseParams,
+        isFocused: false,
       }),
     ).toBe(false);
   });

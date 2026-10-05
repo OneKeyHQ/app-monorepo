@@ -80,7 +80,6 @@ export {
   buildTravelModeManualLockPersistView,
   buildTravelModePasswordPersistView,
   buildTravelModeSettingsPersistView,
-  mergeTravelModeManualLockPersistWrite,
   mergeTravelModePasswordPersistWrite,
   mergeTravelModeSettingsPersistWrite,
 } from './persistencePolicy';

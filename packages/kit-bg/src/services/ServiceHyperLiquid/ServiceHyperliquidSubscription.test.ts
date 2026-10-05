@@ -4,16 +4,20 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { HYPERLIQUID_NETWORK_OFFLINE_GRACE_MS } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { IRecentTrade } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
   perpsActiveAccountAtom,
   perpsActiveAccountStatusInfoAtom,
+  perpsNetworkStatusAtom,
 } from '../../states/jotai/atoms/perps';
+import { globalJotaiStorageReadyHandler } from '../../states/jotai/jotaiStorage';
 
 import ServiceHyperliquidSubscription from './ServiceHyperliquidSubscription';
 
+import type { ISubscriptionSpec } from './utils/SubscriptionConfig';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
 jest.mock('@nktkas/hyperliquid', () => ({
@@ -709,5 +713,327 @@ describe('ServiceHyperliquidSubscription funded activation refresh', () => {
     });
 
     expect(startStatusCheck).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('ServiceHyperliquidSubscription network status', () => {
+  type INetworkInternals = {
+    _client: unknown;
+    _startPingLoop: () => void;
+    _updateNetworkLiveness: () => void;
+  };
+
+  const closeEvent = {
+    target: { readyState: 3 },
+  } as unknown as WebSocketEventMap['close'];
+  const openEvent = {
+    target: { readyState: 1 },
+  } as unknown as WebSocketEventMap['open'];
+
+  const getConnected = async () =>
+    (await perpsNetworkStatusAtom.get()).connected;
+
+  const setupOnlineService = async () => {
+    const service = createService();
+    const internals = service as unknown as INetworkInternals;
+    jest.spyOn(internals, '_startPingLoop').mockImplementation(() => {});
+    jest.spyOn(service, 'updateSubscriptions').mockResolvedValue(undefined);
+    await perpsNetworkStatusAtom.set({
+      connected: undefined,
+      lastMessageAt: null,
+    });
+    const published: Array<boolean | undefined> = [];
+    const unsubscribe = perpsNetworkStatusAtom.sub(() => {
+      void perpsNetworkStatusAtom.get().then(({ connected }) => {
+        if (published[published.length - 1] !== connected) {
+          published.push(connected);
+        }
+      });
+    });
+    const receiveFrame = async () => {
+      internals._updateNetworkLiveness();
+      await jest.advanceTimersByTimeAsync(0);
+    };
+    const streamFor = async (ms: number) => {
+      for (let elapsed = 0; elapsed < ms; elapsed += 500) {
+        await jest.advanceTimersByTimeAsync(500);
+        await receiveFrame();
+      }
+    };
+    const dropSocket = async () => {
+      service.socketCloseHandler(closeEvent);
+      await jest.advanceTimersByTimeAsync(0);
+    };
+    const reopenSocket = async () => {
+      internals._client = { transport: { socket: { readyState: 1 } } };
+      service.socketOpenHandler(openEvent);
+      await jest.advanceTimersByTimeAsync(0);
+    };
+    await receiveFrame();
+    return {
+      service,
+      internals,
+      published,
+      unsubscribe,
+      receiveFrame,
+      streamFor,
+      dropSocket,
+      reopenSocket,
+    };
+  };
+
+  let cleanupStatusRecorder: (() => void) | undefined;
+
+  beforeAll(() => {
+    globalJotaiStorageReadyHandler.resolveReady(true);
+    const g = globalThis as { WebSocket?: unknown };
+    if (typeof g.WebSocket === 'undefined') {
+      g.WebSocket = { CONNECTING: 0, OPEN: 1, CLOSING: 2, CLOSED: 3 };
+    }
+  });
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    cleanupStatusRecorder?.();
+    cleanupStatusRecorder = undefined;
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  it('never publishes a drop that recovers within the grace window', async () => {
+    const env = await setupOnlineService();
+    cleanupStatusRecorder = env.unsubscribe;
+
+    await env.dropSocket();
+    await jest.advanceTimersByTimeAsync(1000);
+    // The transport re-dispatches close for every failed retry.
+    await env.dropSocket();
+    await jest.advanceTimersByTimeAsync(2000);
+    await env.reopenSocket();
+    await env.streamFor(HYPERLIQUID_NETWORK_OFFLINE_GRACE_MS * 3);
+
+    expect(env.published).toEqual([true]);
+  });
+
+  it('publishes offline once a dropped socket stays down for the grace window', async () => {
+    const env = await setupOnlineService();
+    cleanupStatusRecorder = env.unsubscribe;
+
+    await env.dropSocket();
+    await jest.advanceTimersByTimeAsync(
+      HYPERLIQUID_NETWORK_OFFLINE_GRACE_MS - 1,
+    );
+    expect(await getConnected()).toBe(true);
+    await jest.advanceTimersByTimeAsync(1);
+    expect(await getConnected()).toBe(false);
+
+    // Failed retries and a subscription teardown are not proof of a connection.
+    for (let retry = 0; retry < 5; retry += 1) {
+      await jest.advanceTimersByTimeAsync(8000);
+      await env.dropSocket();
+    }
+    await env.service.pauseSubscriptions();
+    await jest.advanceTimersByTimeAsync(0);
+    expect(await getConnected()).toBe(false);
+
+    await env.service.enableSubscriptionsHandler();
+    await env.receiveFrame();
+    expect(env.published).toEqual([true, false, true]);
+  });
+
+  it('publishes offline when an open socket stops delivering frames', async () => {
+    const env = await setupOnlineService();
+    cleanupStatusRecorder = env.unsubscribe;
+    await env.streamFor(10_000);
+
+    // No close event: the socket stays OPEN while nothing gets through.
+    await jest.advanceTimersByTimeAsync(
+      HYPERLIQUID_NETWORK_OFFLINE_GRACE_MS - 1,
+    );
+    expect(await getConnected()).toBe(true);
+    await jest.advanceTimersByTimeAsync(1);
+
+    expect(await getConnected()).toBe(false);
+  });
+
+  it('publishes offline when a reopened socket never delivers frames', async () => {
+    const env = await setupOnlineService();
+    cleanupStatusRecorder = env.unsubscribe;
+
+    await env.dropSocket();
+    await jest.advanceTimersByTimeAsync(1000);
+    await env.reopenSocket();
+    await jest.advanceTimersByTimeAsync(
+      HYPERLIQUID_NETWORK_OFFLINE_GRACE_MS - 1,
+    );
+    expect(await getConnected()).toBe(true);
+    await jest.advanceTimersByTimeAsync(1);
+
+    expect(await getConnected()).toBe(false);
+  });
+
+  it('keeps a published offline until a reopened socket delivers a frame', async () => {
+    const env = await setupOnlineService();
+    cleanupStatusRecorder = env.unsubscribe;
+    await env.dropSocket();
+    await jest.advanceTimersByTimeAsync(HYPERLIQUID_NETWORK_OFFLINE_GRACE_MS);
+
+    await env.reopenSocket();
+    expect(await getConnected()).toBe(false);
+
+    await env.receiveFrame();
+    expect(await getConnected()).toBe(true);
+  });
+
+  it('does not read muted frames as silence after leaving Perps', async () => {
+    const env = await setupOnlineService();
+    cleanupStatusRecorder = env.unsubscribe;
+
+    await env.service.disableSubscriptionsHandler();
+    await jest.advanceTimersByTimeAsync(
+      HYPERLIQUID_NETWORK_OFFLINE_GRACE_MS * 10,
+    );
+
+    expect(env.published).toEqual([true]);
+  });
+
+  it('drops a stale offline verdict when the socket reopens while muted', async () => {
+    const env = await setupOnlineService();
+    cleanupStatusRecorder = env.unsubscribe;
+    await env.dropSocket();
+    await jest.advanceTimersByTimeAsync(HYPERLIQUID_NETWORK_OFFLINE_GRACE_MS);
+    expect(await getConnected()).toBe(false);
+
+    await env.service.disableSubscriptionsHandler();
+    await env.reopenSocket();
+
+    expect(await getConnected()).toBeUndefined();
+  });
+
+  it('gives a frozen runtime a fresh window instead of publishing offline', async () => {
+    const env = await setupOnlineService();
+    cleanupStatusRecorder = env.unsubscribe;
+    await env.dropSocket();
+
+    // App backgrounded or system asleep: the clock moves, timers do not.
+    jest.setSystemTime(Date.now() + 60_000);
+    await jest.advanceTimersByTimeAsync(HYPERLIQUID_NETWORK_OFFLINE_GRACE_MS);
+    expect(await getConnected()).toBe(true);
+
+    await env.reopenSocket();
+    await env.streamFor(HYPERLIQUID_NETWORK_OFFLINE_GRACE_MS * 2);
+    expect(env.published).toEqual([true]);
+  });
+});
+
+describe('ServiceHyperliquidSubscription transport replacement', () => {
+  type ITransportInternals = {
+    _activeSubscriptions: Map<string, unknown>;
+    _closeClient: () => Promise<void>;
+    _createSubscription: (
+      spec: ISubscriptionSpec<ESubscriptionType>,
+    ) => Promise<void>;
+    _executeSubscriptionChanges: () => Promise<void>;
+    _forceReconnectTransport: () => Promise<void>;
+    getWebSocketClient: () => Promise<unknown>;
+  };
+
+  const staleOrderBook: ISubscriptionSpec<ESubscriptionType.L2> = {
+    type: ESubscriptionType.L2,
+    key: 'l2:xyz:NVDA',
+    params: { c: 'xyz:NVDA' },
+    priority: 3,
+  };
+  const currentOrderBook: ISubscriptionSpec<ESubscriptionType.L2> = {
+    type: ESubscriptionType.L2,
+    key: 'l2:BTC',
+    params: { c: 'BTC' },
+    priority: 3,
+  };
+
+  beforeAll(() => {
+    globalJotaiStorageReadyHandler.resolveReady(true);
+  });
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  it('does not keep rebuilding over an order book the old transport could not unsubscribe', async () => {
+    const service = new ServiceHyperliquidSubscription({
+      backgroundApi: {
+        serviceHyperliquidCache: {
+          flushPendingL2BookSnapshotCache: jest.fn(),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    const internals = service as unknown as ITransportInternals;
+    // Offline switch NVDA -> BTC: the NVDA unsubscribe can never be matched,
+    // because the server replies "Already unsubscribed" with normalized params
+    // that the SDK compares exactly.
+    const unsubscribe = jest
+      .fn()
+      .mockRejectedValue(new Error('TimeoutError: signal timed out'));
+    jest
+      .spyOn(internals, 'getWebSocketClient')
+      .mockResolvedValue({ unsubscribe });
+    jest.spyOn(internals, '_closeClient').mockResolvedValue(undefined);
+    jest.spyOn(internals, '_createSubscription').mockResolvedValue(undefined);
+    const reconnect = jest.spyOn(internals, '_forceReconnectTransport');
+    service.allSubSpecsMap = {
+      [staleOrderBook.key]: staleOrderBook,
+      [currentOrderBook.key]: currentOrderBook,
+    };
+    service.pendingSubSpecsMap = { [currentOrderBook.key]: currentOrderBook };
+
+    await internals._executeSubscriptionChanges();
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+    expect(reconnect).toHaveBeenCalledTimes(1);
+
+    // Every socket opened afterwards reconciles against the same targets.
+    for (let socket = 0; socket < 3; socket += 1) {
+      await internals._executeSubscriptionChanges();
+    }
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+    expect(reconnect).toHaveBeenCalledTimes(1);
+    expect(service.allSubSpecsMap[staleOrderBook.key]).toBeUndefined();
+  });
+
+  it('still unsubscribes specs the current transport holds', async () => {
+    const service = createService();
+    const internals = service as unknown as ITransportInternals & {
+      _destroySubscription: (
+        spec: ISubscriptionSpec<ESubscriptionType>,
+      ) => Promise<boolean>;
+    };
+    const unsubscribe = jest.fn().mockResolvedValue(undefined);
+    jest
+      .spyOn(internals, 'getWebSocketClient')
+      .mockResolvedValue({ unsubscribe });
+    service.allSubSpecsMap = { [currentOrderBook.key]: currentOrderBook };
+
+    await expect(
+      internals._destroySubscription(currentOrderBook),
+    ).resolves.toBe(true);
+    expect(unsubscribe).toHaveBeenCalledWith(
+      ESubscriptionType.L2,
+      currentOrderBook.params,
+    );
+
+    service.socketCloseHandler({
+      target: { readyState: 3 },
+    } as unknown as WebSocketEventMap['close']);
+    await expect(
+      internals._destroySubscription(currentOrderBook),
+    ).resolves.toBe(true);
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
   });
 });

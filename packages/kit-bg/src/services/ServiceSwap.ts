@@ -28,6 +28,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  createApiAvailabilityTiming,
+  reportApiAvailabilityStream,
+} from '@onekeyhq/shared/src/request/availabilityMetrics';
+import type { IApiAvailabilityTiming } from '@onekeyhq/shared/src/request/availabilityMetrics';
 import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
@@ -155,6 +160,13 @@ import {
 import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwork';
 
 const SWAP_REFERRAL_LOOKUP_TIMEOUT_MS = 3000;
+
+type ISwapBuildTxContext = {
+  accountId?: string;
+  protocol: EProtocolOfExchange;
+  referralBuildTxParams: ReturnType<typeof buildSwapReferralBuildTxParams>;
+  walletTypeHeader: { 'X-OneKey-Wallet-Type': string };
+};
 
 const formatter: INumberFormatProps = {
   formatter: 'balance',
@@ -519,6 +531,7 @@ export default class ServiceSwap extends ServiceBase {
     {
       eventSource?: EventSource;
       eventSourcePolyfill?: EventSourcePolyfill;
+      availabilityTiming?: IApiAvailabilityTiming;
     }
   >();
 
@@ -602,11 +615,31 @@ export default class ServiceSwap extends ServiceBase {
     return buildSwapReferralBuildTxParams(referralInfo);
   }
 
+  @backgroundMethod()
+  async prepareSwapBuildTxContext({
+    accountId,
+    protocol,
+  }: {
+    accountId?: string;
+    protocol: EProtocolOfExchange;
+  }): Promise<ISwapBuildTxContext> {
+    const [referralBuildTxParams, walletTypeHeader] = await Promise.all([
+      this.getSwapReferralBuildTxParams({ accountId, protocol }),
+      this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+        accountId,
+      }) as Promise<ISwapBuildTxContext['walletTypeHeader']>,
+    ]);
+    return { accountId, protocol, referralBuildTxParams, walletTypeHeader };
+  }
+
   private _limitOrderCurrentAccountId?: string;
 
   private approvingInterval: ReturnType<typeof setTimeout> | undefined;
 
   private approvingIntervalCount = 0;
+
+  // Invalidates receipts from an older polling loop, even for the same tx.
+  private approvingPollingRequestId = 0;
 
   private speedSwapApprovingInterval: ReturnType<typeof setTimeout> | undefined;
 
@@ -668,6 +701,7 @@ export default class ServiceSwap extends ServiceBase {
     for (const requestId of requestIds) {
       this._activeQuoteEventRequestIds.delete(requestId);
       const sources = this._quoteEventSources.get(requestId);
+      reportApiAvailabilityStream(sources?.availabilityTiming, 'abandoned');
       this.removeQuoteEventSourceListeners(requestId);
       sources?.eventSource?.close();
       sources?.eventSourcePolyfill?.close();
@@ -1254,14 +1288,33 @@ export default class ServiceSwap extends ServiceBase {
     if (!this._activeQuoteEventRequestIds.has(quoteRequestId)) {
       return;
     }
+    // Interceptors skip event streams: the quote stream's first result is
+    // counted here, and a stream the user closes early is not counted.
+    const quoteAvailabilityTiming = createApiAvailabilityTiming({
+      url: swapEventUrl,
+    });
+    // Info and slippage events precede the first quote result or error event.
+    const reportQuoteMessage = (data: unknown) => {
+      try {
+        const json = JSON.parse(String(data)) as Record<string, unknown>;
+        if ('totalQuoteCount' in json || 'autoSuggestedSlippage' in json) {
+          return;
+        }
+      } catch {
+        // Unparsable data still counts as the stream's first result.
+      }
+      reportApiAvailabilityStream(quoteAvailabilityTiming, 'ok');
+    };
     if (platformEnv.isExtension) {
       const quoteEventSourcePolyfill = new EventSourcePolyfill(swapEventUrl, {
         headers: headers as Record<string, string>,
       });
       this._quoteEventSources.set(quoteRequestId, {
         eventSourcePolyfill: quoteEventSourcePolyfill,
+        availabilityTiming: quoteAvailabilityTiming,
       });
       quoteEventSourcePolyfill.onmessage = (event) => {
+        reportQuoteMessage(event.data);
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
           type: 'message',
           event: {
@@ -1282,6 +1335,13 @@ export default class ServiceSwap extends ServiceBase {
           type: string;
           target: any;
         };
+        // An HTTP error or wrong content type arrives with `status` only.
+        const { status } = event as { status?: number };
+        reportApiAvailabilityStream(
+          quoteAvailabilityTiming,
+          errorEvent?.error || status ? 'error' : 'ok',
+          status,
+        );
         if (!errorEvent?.error) {
           appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
             type: 'done',
@@ -1327,6 +1387,7 @@ export default class ServiceSwap extends ServiceBase {
       });
       this._quoteEventSources.set(quoteRequestId, {
         eventSource: quoteEventSource,
+        availabilityTiming: quoteAvailabilityTiming,
       });
       quoteEventSource.addEventListener('open', (event) => {
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
@@ -1339,6 +1400,7 @@ export default class ServiceSwap extends ServiceBase {
         });
       });
       quoteEventSource.addEventListener('message', (event) => {
+        reportQuoteMessage((event as { data?: unknown } | undefined)?.data);
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
           type: 'message',
           event,
@@ -1349,6 +1411,11 @@ export default class ServiceSwap extends ServiceBase {
         });
       });
       quoteEventSource.addEventListener('done', (event) => {
+        // Deferred: on React Native a dropped connection dispatches 'done'
+        // right before its 'error', which must win.
+        void Promise.resolve().then(() =>
+          reportApiAvailabilityStream(quoteAvailabilityTiming, 'ok'),
+        );
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
           type: 'done',
           event,
@@ -1369,6 +1436,15 @@ export default class ServiceSwap extends ServiceBase {
         });
       });
       quoteEventSource.addEventListener('error', (event) => {
+        const { type, xhrStatus } = (event ?? {}) as {
+          type?: string;
+          xhrStatus?: number;
+        };
+        reportApiAvailabilityStream(
+          quoteAvailabilityTiming,
+          type === 'timeout' ? 'timeout' : 'error',
+          xhrStatus,
+        );
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
           type: 'error',
           event,
@@ -1428,6 +1504,7 @@ export default class ServiceSwap extends ServiceBase {
     kind,
     walletType,
     tradeSource,
+    preparedContext,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
@@ -1443,11 +1520,18 @@ export default class ServiceSwap extends ServiceBase {
     kind: ESwapQuoteKind;
     walletType?: string;
     tradeSource: ESwapTradeSource;
+    preparedContext?: ISwapBuildTxContext;
   }): Promise<IFetchBuildTxResponse | undefined> {
-    const referralBuildTxParams = await this.getSwapReferralBuildTxParams({
-      accountId,
-      protocol,
-    });
+    const contextPromise =
+      preparedContext &&
+      preparedContext.accountId === accountId &&
+      preparedContext.protocol === protocol
+        ? Promise.resolve(preparedContext)
+        : this.prepareSwapBuildTxContext({ accountId, protocol });
+    const [context, client] = await Promise.all([
+      contextPromise,
+      this.getClient(EServiceEndpointEnum.Swap),
+    ]);
     const params: IFetchBuildTxParams = {
       fromTokenAddress: fromToken.contractAddress,
       toTokenAddress: toToken.contractAddress,
@@ -1464,17 +1548,13 @@ export default class ServiceSwap extends ServiceBase {
       kind,
       walletType,
       tradeSource,
-      ...referralBuildTxParams,
+      ...context.referralBuildTxParams,
     };
-    const client = await this.getClient(EServiceEndpointEnum.Swap);
     const { data } = await client.post<IFetchResponse<IFetchBuildTxResponse>>(
       '/swap/v1/build-tx',
       params,
       {
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId,
-          }),
+        headers: context.walletTypeHeader,
       },
     );
     return data?.data;
@@ -1851,6 +1931,7 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async cleanApprovingInterval() {
+    this.approvingPollingRequestId += 1;
     if (this.approvingInterval) {
       clearTimeout(this.approvingInterval);
       this.approvingInterval = undefined;
@@ -1865,57 +1946,69 @@ export default class ServiceSwap extends ServiceBase {
     }
   }
 
-  async approvingStateRunSync(networkId: string, txId: string) {
+  async approvingStateRunSync(
+    networkId: string,
+    txId: string,
+    approvalRequestId?: string,
+    pollingRequestId = this.approvingPollingRequestId,
+  ) {
     let enableInterval = true;
+    let trackedTxId: string | undefined = txId;
+    const ownsPolling = () =>
+      pollingRequestId === this.approvingPollingRequestId;
+    const matchesApproval = (approval?: ISwapApproveTransaction) =>
+      approval?.txId === trackedTxId &&
+      approval?.fromToken.networkId === networkId &&
+      approval?.approvalRequestId === approvalRequestId;
     try {
       const txState = await this.fetchTxState({
         txId,
         networkId,
       });
-      const preApproveTx = await this.getApprovingTransaction();
-      if (
-        txState.state === ESwapTxHistoryStatus.SUCCESS ||
-        txState.state === ESwapTxHistoryStatus.FAILED
-      ) {
-        enableInterval = false;
-        if (preApproveTx) {
-          if (
-            txState.state === ESwapTxHistoryStatus.SUCCESS ||
-            txState.state === ESwapTxHistoryStatus.FAILED
-          ) {
-            let newApproveTx: ISwapApproveTransaction = {
-              ...preApproveTx,
-              blockNumber: txState.blockNumber,
-              status: ESwapApproveTransactionStatus.SUCCESS,
-            };
-            if (txState.state === ESwapTxHistoryStatus.FAILED) {
-              newApproveTx = {
-                ...preApproveTx,
-                txId: undefined,
-                status: ESwapApproveTransactionStatus.FAILED,
-              };
-            }
-            await this.setApprovingTransaction(newApproveTx);
-          }
+      await inAppNotificationAtom.set((pre) => {
+        const approval = pre.swapApprovingTransaction;
+        if (!ownsPolling() || !approval || !matchesApproval(approval)) {
+          return pre;
         }
-      } else if (
-        preApproveTx &&
-        preApproveTx.status !== ESwapApproveTransactionStatus.PENDING
-      ) {
-        await this.setApprovingTransaction({
-          ...preApproveTx,
-          status: ESwapApproveTransactionStatus.PENDING,
-        });
-      }
+        const failed = txState.state === ESwapTxHistoryStatus.FAILED;
+        if (failed || txState.state === ESwapTxHistoryStatus.SUCCESS) {
+          enableInterval = false;
+          trackedTxId = failed ? undefined : txId;
+          return {
+            ...pre,
+            swapApprovingLoading: false,
+            swapApprovingTransaction: {
+              ...approval,
+              txId: trackedTxId,
+              ...(failed ? {} : { blockNumber: txState.blockNumber }),
+              status: failed
+                ? ESwapApproveTransactionStatus.FAILED
+                : ESwapApproveTransactionStatus.SUCCESS,
+            },
+          };
+        }
+        return approval.status === ESwapApproveTransactionStatus.PENDING
+          ? pre
+          : {
+              ...pre,
+              swapApprovingTransaction: {
+                ...approval,
+                status: ESwapApproveTransactionStatus.PENDING,
+              },
+            };
+      });
     } catch (e) {
       console.error(e);
     } finally {
-      if (enableInterval) {
-        this.approvingIntervalCount += 1;
-        void this.approvingStateAction();
-      } else {
-        void this.cleanApprovingInterval();
-        this.approvingIntervalCount = 0;
+      const approval = await this.getApprovingTransaction();
+      if (ownsPolling() && matchesApproval(approval)) {
+        if (enableInterval) {
+          this.approvingIntervalCount += 1;
+          void this.approvingStateAction();
+        } else {
+          void this.cleanApprovingInterval();
+          this.approvingIntervalCount = 0;
+        }
       }
     }
   }
@@ -1978,14 +2071,20 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async approvingStateAction() {
     void this.cleanApprovingInterval();
+    const pollingRequestId = this.approvingPollingRequestId;
     const approvingTransaction = await this.getApprovingTransaction();
-    if (approvingTransaction && approvingTransaction.txId) {
+    if (
+      pollingRequestId === this.approvingPollingRequestId &&
+      approvingTransaction?.txId
+    ) {
       this.approvingInterval = setTimeout(
         () => {
           if (approvingTransaction.txId) {
             void this.approvingStateRunSync(
               approvingTransaction.fromToken.networkId,
               approvingTransaction.txId,
+              approvingTransaction.approvalRequestId,
+              pollingRequestId,
             );
           }
         },

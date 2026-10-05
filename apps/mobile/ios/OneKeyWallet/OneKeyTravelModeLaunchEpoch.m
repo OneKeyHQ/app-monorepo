@@ -1,6 +1,7 @@
 #import <Foundation/Foundation.h>
 #import <MMKV/MMKV.h>
 #import <React/RCTBridgeModule.h>
+#import <UIKit/UIKit.h>
 
 static NSString *const OneKeyTravelModeMMKVID = @"onekey-app-setting";
 static NSString *const OneKeyTravelModeControlKey = @"onekey_travel_mode_control_v1";
@@ -50,6 +51,28 @@ static BOOL OneKeyTravelModeControlRecordIsValid(NSDictionary *record)
          [verifyString hasPrefix:@"|VS|"] &&
          verifyString.length > @"|VS|".length &&
          [record[@"version"] isEqual:@1];
+}
+
+static void OneKeyUpdateTravelModeAppIcon(BOOL enabled)
+{
+  dispatch_async(dispatch_get_main_queue(), ^{
+    UIApplication *application = UIApplication.sharedApplication;
+    NSString *iconName = enabled ? @"TravelModeIcon" : nil;
+    BOOL matches = (application.alternateIconName == nil && iconName == nil) ||
+        [application.alternateIconName isEqualToString:iconName];
+    if (matches) {
+      return;
+    }
+    if (!application.supportsAlternateIcons) {
+      NSLog(@"[TravelModeAppIcon] Alternate app icons are unavailable");
+      return;
+    }
+    [application setAlternateIconName:iconName completionHandler:^(NSError *updateError) {
+      if (updateError != nil) {
+        NSLog(@"[TravelModeAppIcon] Icon update failed: %@", updateError.domain);
+      }
+    }];
+  });
 }
 
 static BOOL OneKeyForceDisableTravelModeControl(BOOL *didChange)
@@ -140,6 +163,9 @@ static BOOL OneKeyForceDisableTravelModeForRecoveryWithChange(BOOL *didChange)
       }
       if (didChange != NULL) {
         *didChange = controlChanged;
+      }
+      if (controlChanged) {
+        OneKeyUpdateTravelModeAppIcon(NO);
       }
       return YES;
     }
@@ -240,6 +266,8 @@ RCT_REMAP_METHOD(prepareRestart,
       reject(@"TRAVEL_MODE_LAUNCH_PREPARE_FAILED", @"Launch epoch commit failed", nil);
       return;
     }
+    // A failed or missing icon callback must not block the committed restart.
+    OneKeyUpdateTravelModeAppIcon([profile isEqualToString:@"travel-mode"]);
     resolve(@(epoch));
   }
 }

@@ -10,9 +10,9 @@ jest.mock('../pages/NativeMarketDetail', () => ({
   __esModule: true,
   default: 'native-asset-market-modal',
 }));
-jest.mock('../../Market/LegacyMarketDetailRoute', () => ({
+jest.mock('../pages/MarketDetail', () => ({
   __esModule: true,
-  default: 'legacy-market-v2',
+  default: 'compact-market-modal',
 }));
 jest.mock('../pages/MarketChart', () => ({
   __esModule: true,
@@ -34,10 +34,10 @@ describe('asset market modal routes', () => {
     return (await load()).default;
   }
 
-  it('preserves the existing desktop/web detail entry', async () => {
+  it('opens the compact desktop/web detail modal', async () => {
     platformEnv.isNative = false;
     expect(await loadRoute(EModalAssetDetailRoutes.MarketDetail)).toBe(
-      'legacy-market-v2',
+      'compact-market-modal',
     );
   });
 

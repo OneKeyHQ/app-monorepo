@@ -64,6 +64,7 @@ import type { IOneKeyError } from '../errors/types/errorTypes';
 import type { EModalRoutes, ETabRoutes, IWebViewPageParams } from '../routes';
 import type { INativeStorageContractViolation } from '../storage/nativeStorageTypes';
 import type { IStorageFullDiagnostics } from '../storageChecker/types';
+import type { IPortfolioCategoryFiat } from '../utils/portfolioPayload';
 import type { IWalletConnectSession } from '../walletConnect/types';
 import type { DeviceStateEvent } from '@onekeyfe/hd-core';
 import type { FuseResult } from 'fuse.js';
@@ -105,6 +106,7 @@ export type IEventBusPayloadShowToast = {
   errorCode?: number | string;
   errorClassName?: string;
   errorName?: string;
+  isHardwareError?: boolean;
   // hardware device the error came from, when the error carries one
   connectId?: string;
   httpStatusCode?: number;
@@ -154,6 +156,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.LocalSystemTimeInvalid]: undefined;
   [EAppEventBusNames.LocalSystemTimeStatusChanged]: {
     status: 'VALID' | 'INVALID' | 'UNKNOWN';
+    isTimeErrorConfirmed: boolean;
   };
   [EAppEventBusNames.ShowDialogLoading]: IDialogLoadingProps;
   [EAppEventBusNames.HideDialogLoading]: undefined;
@@ -233,6 +236,7 @@ export interface IAppEventBusPayload {
         attemptId?: number;
       }
     | undefined;
+  [EAppEventBusNames.WalletConnectCloseConnectionProgress]: undefined;
   [EAppEventBusNames.WalletConnectModalState]: {
     open: boolean;
     attemptId?: number;
@@ -402,6 +406,8 @@ export interface IAppEventBusPayload {
     networkId?: string;
     ownerAccountId?: string;
     ownerNetworkId?: string;
+    homeTotalFiatUsd?: string;
+    homeCategoryFiatUsd?: IPortfolioCategoryFiat;
     totalFiat: string;
     totalFiatCurrency: string;
     totalTokenCount: number;
@@ -605,6 +611,7 @@ export interface IAppEventBusPayload {
     subType: ESubscriptionType;
     data: unknown;
   };
+  [EAppEventBusNames.PerpsReferralBound]: { userAddress: string };
   [EAppEventBusNames.PerpsWebSocketRecovered]: undefined;
   [EAppEventBusNames.PerpsTvPriceScaleRefreshed]: {
     symbol: string;

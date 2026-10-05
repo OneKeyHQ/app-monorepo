@@ -1,54 +1,36 @@
-# Perps Code Map
+# Perps Ownership Map
 
-Use this map as starting anchors, then confirm current paths/usages with `rg` before editing. Open only the files that own the requested behavior.
+Use this for cross-layer work or when the task's owner is unclear. Topic references contain the detailed anchors and tests; this map is not a prerequisite for a local UI change.
 
-## UI entry and layouts
+## App layers
 
-- Pages/layouts: `packages/kit/src/views/Perp/pages/Perp.tsx`, `packages/kit/src/views/Perp/pages/MobilePerpMarket.tsx`, `packages/kit/src/views/Perp/pages/ExtPerp.tsx`, `packages/kit/src/views/Perp/layouts/`.
-- Routing/providers: `packages/kit/src/views/Perp/router/index.ts`, `packages/kit/src/views/Perp/PerpsProvider.tsx`, `PerpsProviderMirror.tsx`, `PerpsAccountSelectorProviderMirror.tsx`.
+| Layer | Starting anchors | Responsibility |
+| --- | --- | --- |
+| Entry and layout | `packages/kit/src/views/Perp/pages/`, `packages/kit/src/views/Perp/layouts/`, `packages/kit/src/views/Perp/PerpsProvider.tsx`, `packages/kit/src/views/Perp/PerpsProviderMirror.tsx` | Platform layout, navigation, provider lifetime and context access outside the page tree |
+| UI context | `packages/kit/src/states/jotai/contexts/hyperliquid/atoms.ts`, `packages/kit/src/states/jotai/contexts/hyperliquid/actions.ts` | Selected instrument, scoped UI data, action orchestration |
+| UI effects | `packages/kit/src/views/Perp/components/PerpsGlobalEffects.tsx` | Subscription intent, initialization, UI event synchronization |
+| BG/global state | `packages/kit-bg/src/states/jotai/atoms/perps.ts` | Account readiness, live/display data, persisted settings and tracking |
+| Info/cache | `packages/kit-bg/src/services/ServiceHyperLiquid/ServiceHyperliquid.ts`, `packages/kit-bg/src/services/ServiceHyperLiquid/ServiceHyperliquidCache.ts` | Account/info queries, market metadata, recovery caches |
+| Exchange/subscriptions | `packages/kit-bg/src/services/ServiceHyperLiquid/ServiceHyperliquidExchange.ts`, `packages/kit-bg/src/services/ServiceHyperLiquid/ServiceHyperliquidSubscription.ts` | SDK actions and realtime lifecycle |
+| Shared contracts | `packages/shared/types/hyperliquid/`, `packages/shared/src/utils/perpsUtils.ts` | Types, precision, identifiers and domain calculations |
 
-## Trading and order UI
+Trading intent commonly travels UI -> context action -> background service -> SDK, with results returning through scoped state. Deposit providers and signing have additional owners described in their topic references. UI projections, formatters and interaction state remain legitimate local responsibilities.
 
-- Form/submit: `packages/kit/src/views/Perp/components/TradingPanel/PerpTradingPanel.tsx`, `packages/kit/src/views/Perp/components/TradingPanel/PerpTradingButton.tsx`.
-- Confirm/price: `packages/kit/src/views/Perp/hooks/useOrderConfirm.ts`, `packages/kit/src/views/Perp/hooks/useOrderPrice.ts`, `packages/kit/src/views/Perp/hooks/useTradingPrice.ts`.
-- Guards: `packages/kit/src/views/Perp/utils/timeInForce.ts`, `packages/kit/src/views/Perp/utils/minimumOrderGuard.ts`, `packages/kit/src/views/Perp/utils/perpsOrderPanelEnableTrading.ts`.
+For dialogs outside the Perps page tree, inspect `PerpsProviderMirror` and the context store actually supplied to the consumer. For context-scoped atoms, a default/global-store read is not a substitute for reading the intended Perps context. Account-selector context has its own `packages/kit/src/views/Perp/PerpsAccountSelectorProviderMirror.tsx`; check it when the dialog also consumes that context.
 
-## Positions, orders, and activity
+## Runtime scope
 
-- Panel/modals: `packages/kit/src/views/Perp/components/OrderInfoPanel/PerpOrderInfoPanel.tsx`, `CancelAllOrdersModal.tsx`, `CloseAllPositionsModal.tsx`, `ClosePositionModal.tsx`, `SetTpslModal.tsx`.
-- Lists/rows: `packages/kit/src/views/Perp/components/OrderInfoPanel/List/` and `Components/`; TWAP rows live in `PerpTwapList.tsx`, trade history in `PerpTradesHistoryList.tsx`.
-- Helpers/state: `packages/kit/src/views/Perp/components/OrderInfoPanel/utils.ts`, `packages/kit/src/views/Perp/hooks/usePerpsAccountScopedActivePositions.ts`, `packages/kit/src/views/Perp/hooks/usePerpOrderInfoPanel.ts`.
+Apply the repo's runtime topology to the path being investigated:
 
-## Orderbook, ticker, token selector
+- **Desktop/Web:** app main and bg code share one JS runtime. A call through the background API does not by itself imply serialization, a second heap or parallel JS execution.
+- **iOS/Android/Extension:** app main and bg have independent JS heaps and initialization. State/messages crossing the boundary can become separate JS copies; one side being ready does not establish the other side's readiness.
+- **Chart content:** iframe/WebView content has its own execution context and readiness, separately from the app main/bg distinction.
+- **Native resources:** for storage/startup/memory work, trace the underlying DB/MMKV/file/WebView owner separately. JS runtime separation alone does not establish whether a native resource is shared or per runtime.
 
-- Orderbook: `packages/kit/src/views/Perp/components/PerpOrderBook.tsx`, `packages/kit/src/views/Perp/components/OrderBook/index.tsx`, `useAggregatedBook.tsx`, `useTickOptions.ts`, `tickSizeUtils.ts`.
-- Ticker/selector: `packages/kit/src/views/Perp/components/TickerBar/`, `packages/kit/src/views/Perp/components/TokenSelector/`, `packages/kit/src/views/Perp/hooks/usePerpTokenSelector.ts`, `packages/kit/src/views/Perp/hooks/usePerpMarketData.ts`.
-- Freshness guards: `packages/kit/src/views/Perp/utils/l2BookFreshness.ts`, `perpsMarketDataFreshness.ts`.
+## Identity and lifetime
 
-## TradingView and K-line
+Choose identity dimensions from the data contract. Account positions and orders require account/address scope; public market data uses instrument/dex and aggregation options where relevant. A single account/dex/asset key recipe is not appropriate for every cache.
 
-- Chart surface: `packages/kit/src/views/Perp/components/PerpCandles.tsx`.
-- Bridge: `packages/kit/src/components/TradingView/TradingViewPerpsV2/TradingViewPerpsV2.tsx`; owns `SYMBOL_CHANGE` and chart-line postMessage.
-- Message constants: `packages/kit/src/components/TradingView/TradingViewPerpsV2/constants/messageTypes.ts`.
-- Display/signing helpers: `packages/shared/src/utils/perpsUtils.ts`; EIP712 webview types are in `packages/shared/types/hyperliquid/webview.ts` and are **not** TradingView messages.
+Distinguish durable preferences, scoped recovery snapshots, current live data and temporary UI state. The repo already has intentional recovery caches; preserve their validity and interaction gates when changing persistence.
 
-## State and actions
-
-- Context: `packages/kit/src/states/jotai/contexts/hyperliquid/atoms.ts`, `packages/kit/src/states/jotai/contexts/hyperliquid/actions.ts`, `packages/kit/src/states/jotai/contexts/hyperliquid/utils/`.
-- Persisted/background atoms: `packages/kit-bg/src/states/jotai/atoms/perps.ts`.
-
-## Background services
-
-- Deposit quote/status: `packages/kit-bg/src/services/ServiceSwap.ts` (`fetchPerpDepositQuote`, `fetchPerpDepositOrderStatus`, `perpDepositOrderFetchLoop`).
-- Account/info/cache: `packages/kit-bg/src/services/ServiceHyperLiquid/ServiceHyperliquid.ts`, `ServiceHyperliquidCache.ts`, `hyperLiquidApiClients.ts`.
-- Orders: `packages/kit-bg/src/services/ServiceHyperLiquid/ServiceHyperliquidExchange.ts`.
-- Subscriptions: `packages/kit-bg/src/services/ServiceHyperLiquid/ServiceHyperliquidSubscription.ts`, `packages/kit-bg/src/services/ServiceHyperLiquid/utils/SubscriptionMutationQueue.ts`, `SubscriptionConfig.ts`.
-
-## Shared contracts and utilities
-
-- Types/constants: `packages/shared/types/hyperliquid/sdk.ts`, `packages/shared/types/hyperliquid/types.ts`, `packages/shared/types/hyperliquid/perp.constants.ts`.
-- Utilities: `packages/shared/src/utils/perpsUtils.ts`, `packages/shared/src/utils/hyperliquidScaleOrderUtils.ts`.
-
-## Source-of-truth rule
-
-Display files should not become the source of trading behavior. Trading behavior belongs in shared types/utils, `actions.ts`, `ServiceSwap.ts`, or `ServiceHyperliquidExchange.ts`; realtime behavior belongs in `ServiceHyperliquidSubscription.ts`, context atoms/actions, or L2/BBO helpers.
+If navigation changes a BG active asset but the mounted UI stays on the previous instrument, inspect `PerpsGlobalEffects` and `switchTradeInstrument` event/action paths. Updating one owner does not necessarily complete the UI transition on every entry route.

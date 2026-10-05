@@ -4,6 +4,8 @@ import { useNavigationState } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import type {
+  IButtonProps,
+  IIconProps,
   IKeyOfIcons,
   IPageProps,
   ISizableTextProps,
@@ -17,14 +19,17 @@ import {
   IconButton,
   KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
   Keyboard,
+  LinearGradient,
   Page,
   Select,
   SizableText,
+  Spinner,
   XStack,
   YStack,
   useLiquidGlassHeaderTopInset,
   useMedia,
   useSafeAreaInsets,
+  useTheme,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -186,24 +191,29 @@ LayoutHeaderLanguageSelector.displayName = 'LayoutHeaderLanguageSelector';
 // Icon-only (unlike LayoutHeaderBack, which renders a text "Back" button on
 // gtMd) so it sits cleanly in the system glass capsule, while preserving the
 // onboardingExit analytics + the back-vs-exit (arrow vs cross) distinction.
-const OnboardingNativeHeaderBack = memo(({ exit }: { exit?: boolean }) => {
-  const navigation = useAppNavigation();
-  const handleBack = useCallback(() => {
-    if (exit) {
-      defaultLogger.account.wallet.onboardingExit();
-    }
-    navigation.pop();
-  }, [navigation, exit]);
-  return (
-    <IconButton
-      testID={OnboardingTestIDs.layoutHeaderBackBtn}
-      icon={exit ? 'CrossedLargeOutline' : 'ArrowLeftOutline'}
-      variant="tertiary"
-      onPress={handleBack}
-    />
-  );
-});
+export const OnboardingNativeHeaderBack = memo(
+  ({ exit }: { exit?: boolean }) => {
+    const navigation = useAppNavigation();
+    const handleBack = useCallback(() => {
+      if (exit) {
+        defaultLogger.account.wallet.onboardingExit();
+      }
+      navigation.pop();
+    }, [navigation, exit]);
+    return (
+      <IconButton
+        testID={OnboardingTestIDs.layoutHeaderBackBtn}
+        icon={exit ? 'CrossedLargeOutline' : 'ArrowLeftOutline'}
+        variant="tertiary"
+        onPress={handleBack}
+      />
+    );
+  },
+);
 OnboardingNativeHeaderBack.displayName = 'OnboardingNativeHeaderBack';
+
+const FOOTER_FADE_START = { x: 0.5, y: 0 };
+const FOOTER_FADE_END = { x: 0.5, y: 1 };
 
 export interface IOnboardingPageProps extends IPageProps {
   headerBack?: boolean | 'exit';
@@ -227,6 +237,12 @@ export interface IOnboardingPageProps extends IPageProps {
    * so the focused input clears the footer area, not just the keyboard.
    */
   keyboardBottomOffset?: number;
+  /**
+   * Pinned under the content, outside the scroll container: with
+   * `scrollable`, the content scrolls above it and the actions stay on
+   * screen whatever the locale's copy length or the window's height.
+   */
+  footer?: React.ReactNode;
   children: React.ReactNode;
 }
 
@@ -242,10 +258,14 @@ export function OnboardingPage({
   backgroundLayer,
   foregroundLayer,
   keyboardBottomOffset = KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
+  footer,
   children,
   ...pageProps
 }: IOnboardingPageProps) {
   const shouldAnimate = enterAnimation && !platformEnv.isNative;
+  // The footer's fade into the page: content scrolling under the pinned
+  // actions dissolves instead of meeting a hard edge.
+  const bgApp = useTheme().bgApp.val;
   const glassTopInset = useLiquidGlassHeaderTopInset();
   // The first screen in the onboarding stack has no native back button (no
   // in-stack history), so the shell supplies the back/exit icon there. Deeper
@@ -358,6 +378,22 @@ export function OnboardingPage({
       ) : (
         contentArea
       )}
+      {footer ? (
+        <YStack px="$5">
+          <LinearGradient
+            position="absolute"
+            left={0}
+            right={0}
+            bottom="100%"
+            h="$8"
+            pointerEvents="none"
+            colors={[`${bgApp}00`, bgApp]}
+            start={FOOTER_FADE_START}
+            end={FOOTER_FADE_END}
+          />
+          {footer}
+        </YStack>
+      ) : null}
       {foregroundLayer ? (
         <YStack
           position="absolute"
@@ -432,6 +468,66 @@ export function OnboardingHeading({
     <SizableText size="$heading4xl" {...rest}>
       {children}
     </SizableText>
+  );
+}
+
+export interface IOnboardingIconButtonProps extends Omit<
+  IButtonProps,
+  'icon' | 'loading' | 'children' | 'testID'
+> {
+  testID: string;
+  icon: IKeyOfIcons;
+  iconSize?: IIconProps['size'];
+  isLoading?: boolean;
+  children: string;
+}
+
+/**
+ * The onboarding option button: icon pinned to the leading edge, label
+ * centered on the whole button. The label's row starts past the icon's
+ * slot, and a counterweight of the same width trails the label — a short
+ * label stays on the button's center, a long one takes the counterweight's
+ * room before it wraps, and neither can run under the icon.
+ */
+export function OnboardingIconButton({
+  icon,
+  iconSize = '$5',
+  isLoading,
+  variant,
+  testID,
+  children,
+  ...rest
+}: IOnboardingIconButtonProps) {
+  const isPrimary = variant === 'primary';
+  const iconColor = isPrimary ? '$iconInverse' : '$icon';
+  return (
+    <Button
+      testID={testID}
+      variant={variant}
+      size="large"
+      alignSelf="stretch"
+      childrenAsText={false}
+      {...rest}
+    >
+      <YStack position="absolute" left="$5">
+        {isLoading ? (
+          <Spinner size="small" color={iconColor} />
+        ) : (
+          <Icon name={icon} size={iconSize} color={iconColor} />
+        )}
+      </YStack>
+      <XStack flex={1} pl="$8" justifyContent="center" alignItems="center">
+        <SizableText
+          size="$bodyLgMedium"
+          color={isPrimary ? '$textInverse' : '$text'}
+          textAlign="center"
+          maxWidth="100%"
+        >
+          {children}
+        </SizableText>
+        <YStack w="$8" flexShrink={1} />
+      </XStack>
+    </Button>
   );
 }
 

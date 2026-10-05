@@ -385,6 +385,7 @@ export interface ISwapOrderHash {
 }
 
 export interface ISwapApproveTransaction {
+  approvalRequestId?: string;
   fromToken: ISwapToken;
   toToken: ISwapToken;
   marketSwapApprovalFlowId?: string;
@@ -630,6 +631,7 @@ export interface ISwapPreSwapData {
   swapType?: ESwapTabSwitchType;
   unSupportSlippage?: boolean;
   swapBuildResultData?: {
+    reviewQuoteResult?: IFetchQuoteResult;
     swapInfo?: ISwapTxInfo;
     orderId?: string;
     slippagePercentage?: number;
@@ -1240,6 +1242,17 @@ export interface ISpeedSwapConfig {
   onlySupportSingleChain: boolean;
   unavailable?: boolean;
 }
+
+export type ISwapStockSpeedConfig = {
+  networkId: string;
+  config: ISpeedSwapConfig;
+};
+
+/** Optional Market-only metadata injected into the shared stock ticket. */
+export type ISwapStockTradeConfig = {
+  tokenToAssetRatio?: string;
+  underlyingSymbol?: string;
+};
 
 export interface IFetchUSMarketStatusResult {
   open: boolean;

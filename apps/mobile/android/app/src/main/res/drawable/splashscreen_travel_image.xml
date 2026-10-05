@@ -1,0 +1,14 @@
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+  <item>
+    <shape android:shape="rectangle">
+      <size android:width="428dp" android:height="926dp"/>
+      <solid android:color="@android:color/transparent"/>
+    </shape>
+  </item>
+  <item
+      android:width="100dp"
+      android:height="100dp"
+      android:gravity="center">
+    <bitmap android:src="@drawable/splashscreen_travel_artwork" android:gravity="fill"/>
+  </item>
+</layer-list>

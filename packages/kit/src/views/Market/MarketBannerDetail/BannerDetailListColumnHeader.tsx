@@ -20,10 +20,12 @@ function getBannerSortIconName(sortType?: IBannerDetailSortType) {
 }
 
 export function BannerDetailListColumnHeader({
+  primaryColumnTitle,
   changeSortType,
   change24hColumnTitle,
   onChangeSortPress,
 }: {
+  primaryColumnTitle: string;
   changeSortType?: IBannerDetailSortType;
   change24hColumnTitle: string;
   onChangeSortPress: () => void;
@@ -35,11 +37,7 @@ export function BannerDetailListColumnHeader({
     <XStack px="$5">
       <XStack jc="flex-start" ai="center" width="50%">
         <SizableText color="$textSubdued" size="$bodySmMedium" py="$2">
-          {`${intl.formatMessage({
-            id: ETranslations.global_name,
-          })} / ${intl.formatMessage({
-            id: ETranslations.dexmarket_turnover,
-          })}`}
+          {primaryColumnTitle}
         </SizableText>
       </XStack>
       <XStack jc="flex-end" ai="center" width="50%">

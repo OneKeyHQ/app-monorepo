@@ -32,6 +32,8 @@ import type {
   EUniversalSearchPages,
   IUniversalSearchParamList,
 } from '@onekeyhq/shared/src/routes/universalSearch';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
+import { isMarketSearchStockListing } from '@onekeyhq/shared/src/utils/marketSearchStock';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   IUniversalSearchBatchResult,
@@ -64,6 +66,12 @@ import {
 } from '../components/SearchResultItems';
 import { useSettingsSearch } from '../hooks/useSettingsSearch';
 import { UniversalSearchTestIDs } from '../testIDs';
+import {
+  getUniversalSearchTabIndex,
+  prioritizeMarketFocusedSections,
+  resolveUniversalSearchInitialTabName,
+  shouldPrioritizeMarketSearchSections,
+} from '../universalSearchTabs';
 
 import { RecentSearched } from './components/RecentSearched';
 import { UniversalSearchProviderMirror } from './UniversalSearchProviderMirror';
@@ -86,6 +94,7 @@ const LIQUID_GLASS_SEARCH_BAR_CONTAINER_PROPS = {
 const getSearchTypes = (): EUniversalSearchType[] => {
   return [
     !platformEnv.isWebDappMode && EUniversalSearchType.Address,
+    EUniversalSearchType.MarketStock,
     EUniversalSearchType.V2MarketToken,
     // Hide AccountAssets search in WebDapp mode
     !platformEnv.isWebDappMode && EUniversalSearchType.AccountAssets,
@@ -95,6 +104,7 @@ const getSearchTypes = (): EUniversalSearchType[] => {
 };
 
 const PRIMARY_SEARCH_TYPES: EUniversalSearchType[] = [
+  EUniversalSearchType.MarketStock,
   EUniversalSearchType.V2MarketToken,
   EUniversalSearchType.Perp,
 ];
@@ -108,29 +118,15 @@ const getDefaultFilterTypes = (): EUniversalSearchType[] => [
   EUniversalSearchType.Settings,
 ];
 
-const getTabIndexForSearchType = (searchType: EUniversalSearchType): number => {
-  const tabMapping: Record<EUniversalSearchType, number> = {
-    [EUniversalSearchType.Address]: 1, // Wallets tab
-    [EUniversalSearchType.V2MarketToken]: 2, // Market tab
-    [EUniversalSearchType.Perp]: 3, // Perp tab (after Market)
-    [EUniversalSearchType.MarketToken]: 0, // Legacy Tokens tab is hidden
-    // In WebDapp mode, My Assets tab is hidden
-    [EUniversalSearchType.AccountAssets]: platformEnv.isWebDappMode ? 0 : 4,
-    // DApps tab index changes based on whether My Assets tab is shown
-    [EUniversalSearchType.Dapp]: platformEnv.isWebDappMode ? 4 : 5,
-    // Settings tab is last
-    [EUniversalSearchType.Settings]: platformEnv.isWebDappMode ? 5 : 6,
-  };
-
-  return tabMapping[searchType];
-};
-
 const DEFAULT_SLICE_LIMIT = 5;
 const MARKET_SLICE_LIMIT = 3;
-const MARKET_TAB_INDEX = getTabIndexForSearchType(
+const STOCK_TAB_INDEX = getUniversalSearchTabIndex(
+  EUniversalSearchType.MarketStock,
+);
+const MARKET_TAB_INDEX = getUniversalSearchTabIndex(
   EUniversalSearchType.V2MarketToken,
 );
-const PRIORITIZED_SECONDARY_TAB_INDEX = getTabIndexForSearchType(
+const PRIORITIZED_SECONDARY_TAB_INDEX = getUniversalSearchTabIndex(
   EUniversalSearchType.Perp,
 );
 
@@ -162,7 +158,10 @@ function ListEmptyComponent() {
   );
 }
 
+const isStockSection = (tabIndex: number) => tabIndex === STOCK_TAB_INDEX;
 const isMarketSection = (tabIndex: number) => tabIndex === MARKET_TAB_INDEX;
+const isMarketTableSection = (tabIndex: number) =>
+  isStockSection(tabIndex) || isMarketSection(tabIndex);
 
 export function UniversalSearch({
   filterTypes,
@@ -174,6 +173,9 @@ export function UniversalSearch({
   source: EUniversalSearchSource;
 }) {
   const intl = useIntl();
+  const isTravelMode =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
   const { activeAccount } = useActiveAccount({ num: 0 });
   // Home raw list + full fiat map snapshot (PULLed from the BG VM, refreshed on
   // each home structure frame). Keeps the search cache hint alive (do
@@ -199,9 +201,13 @@ export function UniversalSearch({
   const [searchValue, setSearchValue] = useState('');
   const searchBarGlassActive = isLiquidGlassAvailable();
 
-  const [isFocusInMarketTab, setIsFocusInMarketTab] = useState(false);
+  const [isFocusInMarketRoute, setIsFocusInMarketRoute] = useState(false);
   useListenTabFocusState(ETabRoutes.Market, (isFocus) => {
-    setIsFocusInMarketTab(isFocus);
+    setIsFocusInMarketRoute(isFocus);
+  });
+  const isFocusInMarketTab = shouldPrioritizeMarketSearchSections({
+    isFocusInMarketRoute,
+    initialTab,
   });
 
   const searchSettings = useSettingsSearch();
@@ -221,9 +227,9 @@ export function UniversalSearch({
   const shouldIncludeSettings = allowedSearchTypeSet.has(
     EUniversalSearchType.Settings,
   );
-  const shouldIncludeMarketTrending = allowedSearchTypeSet.has(
-    EUniversalSearchType.V2MarketToken,
-  );
+  const shouldIncludeMarketTrending =
+    !isTravelMode &&
+    allowedSearchTypeSet.has(EUniversalSearchType.V2MarketToken);
 
   const tabTitles = useMemo(() => {
     return [
@@ -234,6 +240,9 @@ export function UniversalSearch({
         intl.formatMessage({
           id: ETranslations.global_universal_search_tabs_wallets,
         }),
+      intl.formatMessage({
+        id: ETranslations.perps_token_selector_stocks,
+      }),
       intl.formatMessage({
         id: ETranslations.global_market,
       }),
@@ -256,17 +265,17 @@ export function UniversalSearch({
     ].filter(Boolean);
   }, [intl]);
 
-  const initialTabName = useMemo(() => {
-    if (initialTab === 'market') {
-      return intl.formatMessage({ id: ETranslations.global_market });
-    }
-    if (initialTab === 'dapp') {
-      return intl.formatMessage({
-        id: ETranslations.global_universal_search_tabs_dapps,
-      });
-    }
-    return tabTitles[0];
-  }, [initialTab, intl, tabTitles]);
+  const initialTabName = useMemo(
+    () =>
+      resolveUniversalSearchInitialTabName({
+        initialTab,
+        allTabTitle: tabTitles[0],
+        dappTabTitle: intl.formatMessage({
+          id: ETranslations.global_universal_search_tabs_dapps,
+        }),
+      }),
+    [initialTab, intl, tabTitles],
+  );
 
   const [filterType, setFilterType] = useState(tabTitles[0]);
   const focusedTab = useSharedValue(tabTitles[0]);
@@ -488,7 +497,7 @@ export function UniversalSearch({
         const data = result[EUniversalSearchType.Address]
           .items as IUniversalSearchResultItem[];
         searchResultSections.push({
-          tabIndex: getTabIndexForSearchType(EUniversalSearchType.Address),
+          tabIndex: getUniversalSearchTabIndex(EUniversalSearchType.Address),
           type: EUniversalSearchType.Address,
           title: intl.formatMessage({
             id: ETranslations.global_universal_search_tabs_wallets,
@@ -497,11 +506,28 @@ export function UniversalSearch({
         });
       }
 
+      if (result?.[EUniversalSearchType.MarketStock]?.items?.length) {
+        const data = result[EUniversalSearchType.MarketStock]
+          .items as IUniversalSearchResultItem[];
+        searchResultSections.push({
+          tabIndex: getUniversalSearchTabIndex(
+            EUniversalSearchType.MarketStock,
+          ),
+          type: EUniversalSearchType.MarketStock,
+          title: intl.formatMessage({
+            id: ETranslations.perps_token_selector_stocks,
+          }),
+          data,
+          sliceData: data.slice(0, MARKET_SLICE_LIMIT),
+          showMore: data.length > MARKET_SLICE_LIMIT,
+        });
+      }
+
       if (result?.[EUniversalSearchType.V2MarketToken]?.items?.length) {
         const data = result[EUniversalSearchType.V2MarketToken]
           .items as IUniversalSearchResultItem[];
         searchResultSections.push({
-          tabIndex: getTabIndexForSearchType(
+          tabIndex: getUniversalSearchTabIndex(
             EUniversalSearchType.V2MarketToken,
           ),
           type: EUniversalSearchType.V2MarketToken,
@@ -518,7 +544,7 @@ export function UniversalSearch({
         const data = result[EUniversalSearchType.Perp]
           .items as IUniversalSearchResultItem[];
         searchResultSections.push({
-          tabIndex: getTabIndexForSearchType(EUniversalSearchType.Perp),
+          tabIndex: getUniversalSearchTabIndex(EUniversalSearchType.Perp),
           type: EUniversalSearchType.Perp,
           title: intl.formatMessage({
             id: ETranslations.global_perp,
@@ -531,7 +557,7 @@ export function UniversalSearch({
         const data = result[EUniversalSearchType.AccountAssets]
           .items as IUniversalSearchResultItem[];
         searchResultSections.push({
-          tabIndex: getTabIndexForSearchType(
+          tabIndex: getUniversalSearchTabIndex(
             EUniversalSearchType.AccountAssets,
           ),
           type: EUniversalSearchType.AccountAssets,
@@ -546,7 +572,7 @@ export function UniversalSearch({
         const data = result[EUniversalSearchType.Dapp]
           .items as IUniversalSearchResultItem[];
         searchResultSections.push({
-          tabIndex: getTabIndexForSearchType(EUniversalSearchType.Dapp),
+          tabIndex: getUniversalSearchTabIndex(EUniversalSearchType.Dapp),
           type: EUniversalSearchType.Dapp,
           title: intl.formatMessage({
             id: ETranslations.global_universal_search_tabs_dapps,
@@ -560,7 +586,7 @@ export function UniversalSearch({
         if (settingsResults.length > 0) {
           const data = settingsResults as IUniversalSearchResultItem[];
           searchResultSections.push({
-            tabIndex: getTabIndexForSearchType(EUniversalSearchType.Settings),
+            tabIndex: getUniversalSearchTabIndex(EUniversalSearchType.Settings),
             type: EUniversalSearchType.Settings,
             title: intl.formatMessage({
               id: ETranslations.global_settings,
@@ -834,13 +860,21 @@ export function UniversalSearch({
               source={source}
             />
           );
+        case EUniversalSearchType.MarketStock:
         case EUniversalSearchType.V2MarketToken:
           return (
             <>
               {index === 0 &&
-              isMarketSection(section.tabIndex) &&
+              isMarketTableSection(section.tabIndex) &&
               searchStatus !== ESearchStatus.init ? (
-                <MarketTableHeader />
+                <MarketTableHeader
+                  metric={
+                    isStockSection(section.tabIndex) ? 'marketCap' : 'liquidity'
+                  }
+                  changeTitle={
+                    isStockSection(section.tabIndex) ? 'change' : '24h'
+                  }
+                />
               ) : null}
               <UniversalSearchV2MarketTokenItem
                 item={item}
@@ -907,8 +941,12 @@ export function UniversalSearch({
             payload.wallet?.id ??
             index
           }-${payload.network?.id ?? ''}`;
+        case EUniversalSearchType.MarketStock:
+          return `${type}-stock:${payload.stockId}`;
         case EUniversalSearchType.V2MarketToken:
-          return `${type}-${payload.address ?? payload.symbol}-${index}`;
+          return isMarketSearchStockListing(payload)
+            ? `${type}-stock:${payload.stockId}`
+            : `${type}-${payload.address ?? payload.symbol}-${index}`;
         case EUniversalSearchType.AccountAssets:
           return `${type}-${
             payload.token.address ?? payload.token.symbol
@@ -933,27 +971,13 @@ export function UniversalSearch({
         data: i.sliceData,
       }));
 
-      // When focused in Market tab, prioritize market section
+      // When focused in Market tab, prioritize stocks then market tokens.
       if (isFocusInMarketTab) {
-        const marketSection = sectionsWithSliceData.find(
-          (section) => section.tabIndex === MARKET_TAB_INDEX,
-        );
-        const prioritizedSecondarySection = sectionsWithSliceData.find(
-          (section) => section.tabIndex === PRIORITIZED_SECONDARY_TAB_INDEX,
-        );
-        const otherSections = sectionsWithSliceData.filter(
-          (section) =>
-            section.tabIndex !== MARKET_TAB_INDEX &&
-            section.tabIndex !== PRIORITIZED_SECONDARY_TAB_INDEX,
-        );
-
-        return marketSection
-          ? [
-              marketSection,
-              prioritizedSecondarySection,
-              ...otherSections,
-            ].filter(Boolean)
-          : sectionsWithSliceData;
+        return prioritizeMarketFocusedSections(sectionsWithSliceData, {
+          stocks: STOCK_TAB_INDEX,
+          market: MARKET_TAB_INDEX,
+          perp: PRIORITIZED_SECONDARY_TAB_INDEX,
+        });
       }
 
       return sectionsWithSliceData;
@@ -963,8 +987,23 @@ export function UniversalSearch({
   }, [activeTab, isInAllTab, sections, isFocusInMarketTab]);
 
   const renderResult = useCallback(() => {
+    const noResultsComponent = (
+      <Empty
+        illustration="QuestionMark"
+        title={intl.formatMessage({
+          id: ETranslations.global_no_results,
+        })}
+        description={intl.formatMessage({
+          id: ETranslations.global_search_no_results_desc,
+        })}
+      />
+    );
+
     switch (searchStatus) {
       case ESearchStatus.init:
+        if (isTravelMode) {
+          return noResultsComponent;
+        }
         return (
           <SectionList
             stickySectionHeadersEnabled
@@ -1016,17 +1055,7 @@ export function UniversalSearch({
               sections={filterSections}
               renderSectionHeader={renderSectionHeader}
               renderSectionFooter={renderSectionFooter}
-              ListEmptyComponent={
-                <Empty
-                  illustration="QuestionMark"
-                  title={intl.formatMessage({
-                    id: ETranslations.global_no_results,
-                  })}
-                  description={intl.formatMessage({
-                    id: ETranslations.global_search_no_results_desc,
-                  })}
-                />
-              }
+              ListEmptyComponent={noResultsComponent}
               renderItem={renderItem}
               keyExtractor={keyExtractor}
               estimatedItemSize="$16"
@@ -1040,6 +1069,7 @@ export function UniversalSearch({
     }
   }, [
     searchStatus,
+    isTravelMode,
     renderSectionHeader,
     renderRecommendSectionHeader,
     recommendSections,

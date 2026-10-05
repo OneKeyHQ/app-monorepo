@@ -585,6 +585,13 @@ export interface IEarnToken {
   logoURI: string;
   name: string;
   symbol: string;
+  /**
+   * Server-supplied display relabel of `symbol`. Absent for almost every
+   * token. Render it via earnUtils.getDisplaySymbol; never use it as a
+   * lookup key, request param or route segment.
+   */
+  displaySymbol?: string;
+
   totalSupply: string;
   riskLevel: number;
   coingeckoId: string;
@@ -872,6 +879,18 @@ export interface IEarnLinkActionIcon {
   text?: IEarnText;
 }
 
+/** Puts data.text on the clipboard, e.g. a contract address the cell shows
+ * shortened (OK-62922). */
+export interface IEarnCopyActionIcon {
+  type: 'copy';
+  data: {
+    text: string;
+  };
+  icon?: IEarnIcon;
+  disabled?: boolean;
+  text?: IEarnText;
+}
+
 export interface IEarnDepositActionIcon {
   type: 'deposit';
   disabled: boolean;
@@ -1146,6 +1165,7 @@ export interface IBorrowOnekeyBonusAction {
 export type IEarnActionIcon =
   | IEarnPopupActionIcon
   | IEarnLinkActionIcon
+  | IEarnCopyActionIcon
   | IEarnClaimActionIcon
   | IEarnHistoryActionIcon
   | IEarnPortfolioActionIcon
@@ -1871,6 +1891,13 @@ export enum EBorrowProviderEnum {
 export type IStakeProtocolListItem = {
   // In the full-list (no symbol) case the server tags each row with its symbol (6.6.0+)
   symbol?: string;
+  /**
+   * Server-supplied display relabel of `symbol`. Absent for almost every
+   * token. Render it via earnUtils.getDisplaySymbol; never use it as a
+   * lookup key, request param or route segment.
+   */
+  displaySymbol?: string;
+
   provider: IStakeProviderInfo & {
     group: EStakeProtocolGroupEnum;
     category?: string | null;
@@ -1971,6 +1998,12 @@ export interface IEarnAccountToken {
   networkId: string;
   name: string;
   symbol: string;
+  /**
+   * Server-supplied display relabel of `symbol`. Absent for almost every
+   * token. Render it via earnUtils.getDisplaySymbol; never use it as a
+   * lookup key, request param or route segment.
+   */
+  displaySymbol?: string;
   logoURI: string;
   aprWithoutFee: string;
   profit: string;
@@ -2018,6 +2051,12 @@ export type IAvailableAsset = IEarnAvailableAsset & {
 export type IRecommendAsset = {
   name: string;
   symbol: string;
+  /**
+   * Server-supplied display relabel of `symbol`. Absent for almost every
+   * token. Render it via earnUtils.getDisplaySymbol; never use it as a
+   * lookup key, request param or route segment.
+   */
+  displaySymbol?: string;
   logoURI: string;
   protocols: Array<{
     networkId: string;

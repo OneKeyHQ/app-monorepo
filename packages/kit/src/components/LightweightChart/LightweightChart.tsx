@@ -10,6 +10,8 @@ import { LightweightChartPulseDot } from './LightweightChartPulseDot';
 import {
   createAreaSeriesOptions,
   createChartOptions,
+  createLastValueSeriesOptions,
+  createReferenceLineAutoscaleInfoProvider,
 } from './utils/chartOptions';
 import {
   createDottedAreaSeriesOptions,
@@ -100,9 +102,12 @@ export function LightweightChart({
   histogramOptions,
   referenceLine,
   showLastValue,
+  showLastValuePriceLine,
+  lastValueLabelColor,
   showLastPointMarker,
   showTimeScale,
   useTimeScaleTickMarkWithoutUnit,
+  timeScaleRightOffsetPixels,
   timeZone,
   locale,
   pulseLastPoint,
@@ -151,9 +156,12 @@ export function LightweightChart({
     histogramOptions,
     referenceLine,
     showLastValue,
+    showLastValuePriceLine,
+    lastValueLabelColor,
     showLastPointMarker,
     showTimeScale,
     useTimeScaleTickMarkWithoutUnit,
+    timeScaleRightOffsetPixels,
     timeZone,
     locale,
   });
@@ -220,6 +228,7 @@ export function LightweightChart({
             color: currentChartConfig.crosshairVertLineColor,
             style: currentChartConfig.crosshairVertLineStyle,
           },
+          currentChartConfig.timeScaleRightOffsetPixels,
         );
         const gridOptions = {
           vertLines: { visible: false },
@@ -242,6 +251,11 @@ export function LightweightChart({
         const isBaseline = currentChartConfig.seriesType === 'baseline';
         const isDottedArea = currentChartConfig.seriesType === 'dotted-area';
         const isHistogram = currentChartConfig.seriesType === 'histogram';
+        const lastValueSeriesOptions = createLastValueSeriesOptions({
+          showLastValue,
+          showLastValuePriceLine: currentChartConfig.showLastValuePriceLine,
+          lastValueLabelColor: currentChartConfig.lastValueLabelColor,
+        });
         let series: IPrimarySeriesApi;
         if (isDottedArea) {
           series = chart.addCustomSeries(
@@ -250,6 +264,8 @@ export function LightweightChart({
               theme: currentChartConfig.theme,
               lineWidth: currentChartConfig.lineWidth,
               showLastValue,
+              showLastValuePriceLine: currentChartConfig.showLastValuePriceLine,
+              lastValueLabelColor: currentChartConfig.lastValueLabelColor,
               showLastPointMarker: currentChartConfig.showLastPointMarker,
               patternColor: currentChartConfig.patternColor,
               priceFormatter: currentChartConfig.priceFormatter,
@@ -270,8 +286,7 @@ export function LightweightChart({
               4,
               Math.max(1, Math.round(currentChartConfig.lineWidth)),
             ) as 1 | 2 | 3 | 4,
-            lastValueVisible: !!showLastValue,
-            priceLineVisible: !!showLastValue,
+            ...lastValueSeriesOptions,
             crosshairMarkerRadius: 5,
             priceFormat: {
               type: 'custom',
@@ -281,15 +296,15 @@ export function LightweightChart({
             },
           });
         } else if (isHistogram) {
-          series = chart.addCustomSeries(
-            createHistogramSeriesPaneView(),
-            createHistogramSeriesOptions({
+          series = chart.addCustomSeries(createHistogramSeriesPaneView(), {
+            ...createHistogramSeriesOptions({
               theme: currentChartConfig.theme,
               histogramOptions: currentChartConfig.histogramOptions,
               showLastValue,
               priceFormatter: currentChartConfig.priceFormatter,
             }),
-          );
+            ...lastValueSeriesOptions,
+          });
           series.applyOptions({
             priceScaleId: currentChartConfig.priceScalePosition,
           });
@@ -301,10 +316,14 @@ export function LightweightChart({
               currentChartConfig.lineWidth,
               currentChartConfig.priceFormatter,
             ),
-            ...(showLastValue && {
-              lastValueVisible: true,
-              priceLineVisible: true,
-            }),
+            ...lastValueSeriesOptions,
+          });
+        }
+        if (currentChartConfig.referenceLine?.includeInAutoscale) {
+          series.applyOptions({
+            autoscaleInfoProvider: createReferenceLineAutoscaleInfoProvider(
+              currentChartConfig.referenceLine.price,
+            ),
           });
         }
         series.setData(currentChartConfig.data);
@@ -325,7 +344,19 @@ export function LightweightChart({
             lineVisible: true,
             axisLabelVisible:
               currentChartConfig.referenceLine.axisLabelVisible ?? false,
-            title: '',
+            title: currentChartConfig.referenceLine.title ?? '',
+            ...(currentChartConfig.referenceLine.axisLabelColor
+              ? {
+                  axisLabelColor:
+                    currentChartConfig.referenceLine.axisLabelColor,
+                }
+              : {}),
+            ...(currentChartConfig.referenceLine.axisLabelTextColor
+              ? {
+                  axisLabelTextColor:
+                    currentChartConfig.referenceLine.axisLabelTextColor,
+                }
+              : {}),
           });
         }
 
@@ -500,6 +531,7 @@ export function LightweightChart({
     chartConfig.horzLineColor,
     chartConfig.horzLineStyle,
     chartConfig.histogramOptions,
+    chartConfig.lastValueLabelColor,
     chartConfig.lineWidth,
     chartConfig.lineType,
     chartConfig.patternColor,
@@ -513,6 +545,7 @@ export function LightweightChart({
     chartConfig.seriesType,
     chartConfig.showHorzGridLines,
     chartConfig.showLastPointMarker,
+    chartConfig.showLastValuePriceLine,
     chartConfig.showPriceScale,
     chartConfig.showTimeScale,
     chartConfig.theme.bgColor,
@@ -520,6 +553,7 @@ export function LightweightChart({
     chartConfig.theme.lineColor,
     chartConfig.theme.textSubduedColor,
     chartConfig.theme.topColor,
+    chartConfig.timeScaleRightOffsetPixels,
     chartConfig.timeZone,
     chartConfig.useTimeScaleTickMarkWithoutUnit,
     chartConfig.locale,

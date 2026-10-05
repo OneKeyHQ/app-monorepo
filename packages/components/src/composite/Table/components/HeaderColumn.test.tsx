@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 
 import type { ReactNode } from 'react';
+import { useCallback, useState } from 'react';
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
@@ -179,4 +180,61 @@ describe('HeaderColumn', () => {
       expect(onSortTypeChange).toHaveBeenCalledWith(ETableSortType.DESC),
     );
   });
+});
+
+const stockColumns: ITableColumn<IRow>[] = ['marketCap', 'volume24h'].map(
+  (dataIndex) => ({ dataIndex, title: dataIndex }),
+);
+
+function StockSortHeaders() {
+  const [selectedColumnName, setSelectedColumnName] = useState('volume24h');
+  const [sorting, setSorting] = useState({
+    column: 'volume24h',
+    order: ETableSortType.DESC,
+  });
+  const onHeaderRow = useCallback<
+    NonNullable<ITableProps<IRow>['onHeaderRow']>
+  >(
+    ({ dataIndex }) => ({
+      initialSortOrder:
+        sorting.column === dataIndex ? sorting.order : undefined,
+      onSortTypeChange: (order) =>
+        setSorting(
+          order
+            ? { column: dataIndex, order: order as ETableSortType }
+            : { column: 'volume24h', order: ETableSortType.DESC },
+        ),
+    }),
+    [sorting],
+  );
+  return (
+    <>
+      {stockColumns.map((stockColumn, index) => (
+        <HeaderColumn
+          key={stockColumn.dataIndex}
+          column={stockColumn}
+          index={index}
+          selectedColumnName={selectedColumnName}
+          onChangeSelectedName={setSelectedColumnName}
+          onHeaderRow={onHeaderRow}
+        />
+      ))}
+    </>
+  );
+}
+
+test('restores the volume indicator after clearing another column and advances to ascending on the next click', async () => {
+  render(<StockSortHeaders />);
+  const volume = screen.getByTestId('volume24h');
+  const marketCap = screen.getByTestId('marketCap');
+  expect(volume.getAttribute('data-order')).toBe('desc');
+  for (const order of ['desc', 'asc', '']) {
+    fireEvent.click(marketCap);
+    await waitFor(() =>
+      expect(marketCap.getAttribute('data-order')).toBe(order),
+    );
+  }
+  await waitFor(() => expect(volume.getAttribute('data-order')).toBe('desc'));
+  fireEvent.click(volume);
+  await waitFor(() => expect(volume.getAttribute('data-order')).toBe('asc'));
 });

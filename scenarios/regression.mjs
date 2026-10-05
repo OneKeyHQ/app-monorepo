@@ -1037,6 +1037,557 @@ async function runTabsScrollExtentDesktop(cdpUrl) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// tabs-blank-space-desktop
+//
+// Sibling of tabs-scroll-extent-desktop, guarding the OPPOSITE failure. That
+// scenario catches a shared scroll extent that stays too SHORT (content
+// clipped). This one catches an extent that stays too TALL: Tabs.Container
+// pins one height on the shared pager, and a tab measured while the previous
+// tab's height is still applied inherits it, so leaving a tall tab (History)
+// for a short one (Spot) strands thousands of px of empty scroll.
+//
+// Both directions are asserted on every sample, because the natural fix for
+// one is to over-correct into the other.
+//
+// Content extent is measured independently of the production algorithm: the
+// production code sums the ScrollView's direct in-flow children, while this
+// walks every rendered descendant's client rect. An implementation bug
+// therefore cannot agree with the assertion by construction.
+// ---------------------------------------------------------------------------
+
+const HOME_TAB_TEST_IDS = [
+  ['Spot', 'home-tab-portfolio'],
+  ['Perps', 'home-tab-perps'],
+  ['DeFi', 'home-tab-defi'],
+  ['NFT', 'home-tab-nft'],
+  ['History', 'home-tab-history'],
+];
+
+// Tabs legitimately end with bottom padding + the scroll-content tab bar
+// offset. Anything past this is dead space a user can scroll into.
+const BLANK_SPACE_TOLERANCE_PX = 160;
+const CLIP_TOLERANCE_PX = 2;
+
+// Tabs with dead space that is known and NOT gated, so a pre-existing defect
+// cannot disable the whole check. Empty today; every entry needs a reason and
+// a removal condition.
+const KNOWN_DEAD_SPACE_TABS = new Set([]);
+const isKnownDeadSpace = (label) =>
+  [...KNOWN_DEAD_SPACE_TABS].some(
+    (tab) => label.endsWith(`-> ${tab}`) || label === `rest ${tab}`,
+  );
+
+// Measure what a human sees, not what the layout boxes claim. Every wrapper in
+// the focused page — the page div, the flex:1 Tabs.ScrollView — is STRETCHED to
+// the shared pager height, so a naive walk of element rects reports the pager's
+// own height back and can never see dead space. Two independent signals avoid
+// that trap:
+//   blankSpacePx — hit-test upward from the bottom edge until something other
+//     than the structural chain answers. This is literally "how much empty
+//     space can I scroll into".
+//   clippedPx — the lowest PAINTED leaf (direct text, or a replaced element)
+//     measured against the pager's bottom. Stretched wrappers paint nothing,
+//     so they cannot inflate it.
+function measureTabExtent(page) {
+  return page.evaluate(() => {
+    const scroller = document.querySelector('.onekey-tabs-container');
+    if (!(scroller instanceof HTMLElement)) return null;
+    const pager = [...scroller.querySelectorAll('div')].find(
+      (el) =>
+        el.style.height &&
+        getComputedStyle(el).flexDirection === 'row' &&
+        el.children.length > 1,
+    );
+    const focusedPage = pager
+      ? [...pager.children].find((child) => {
+          const r = child.getBoundingClientRect();
+          return r.width > 0 && r.left >= -1 && r.left < window.innerWidth;
+        })
+      : null;
+    if (!(focusedPage instanceof HTMLElement)) return null;
+
+    const REPLACED = new Set([
+      'IMG',
+      'SVG',
+      'CANVAS',
+      'VIDEO',
+      'INPUT',
+      'TEXTAREA',
+      'SELECT',
+    ]);
+    const paintsSomething = (el) => {
+      if (REPLACED.has(el.tagName)) return true;
+      for (const node of el.childNodes) {
+        if (node.nodeType === 3 && node.textContent.trim()) return true;
+      }
+      return false;
+    };
+    const isStructural = (el) =>
+      !el ||
+      el === document.body ||
+      el === document.documentElement ||
+      el === scroller ||
+      el === pager ||
+      el === focusedPage ||
+      el.classList.contains('onekey-tabs-container') ||
+      el.classList.contains('onekey-tabs-scroll-view');
+
+    const rect = scroller.getBoundingClientRect();
+    const scrollHeight = scroller.scrollHeight;
+    const clientHeight = scroller.clientHeight;
+
+    // Hit-test columns. The Portfolio sidebar is position:fixed, so it does not
+    // scroll with the tab and must not mask dead space — sample the main column.
+    // A hit only counts when something is actually DRAWN there. Empty stretched
+    // wrappers answer elementFromPoint but paint nothing, and treating them as
+    // content is precisely how a blank-space check fools itself.
+    const isPaintedHit = (el) => {
+      if (paintsSomething(el)) return true;
+      const cs = getComputedStyle(el);
+      if (cs.backgroundImage && cs.backgroundImage !== 'none') return true;
+      const bg = cs.backgroundColor;
+      if (bg && bg !== 'transparent' && !/rgba\(0, 0, 0, 0\)/.test(bg)) {
+        return true;
+      }
+      return (
+        [
+          'borderTopWidth',
+          'borderBottomWidth',
+          'borderLeftWidth',
+          'borderRightWidth',
+        ]
+          .map((k) => parseFloat(cs[k]) || 0)
+          .reduce((a, b) => a + b, 0) > 0
+      );
+    };
+    const xs = [0.2, 0.4, 0.6].map((f) => rect.left + rect.width * f);
+    const rowHasContent = (y) =>
+      xs.some((x) => {
+        const hit = document.elementFromPoint(x, y);
+        return (
+          !isStructural(hit) &&
+          hit instanceof HTMLElement &&
+          focusedPage.contains(hit) &&
+          getComputedStyle(hit).position !== 'fixed' &&
+          isPaintedHit(hit)
+        );
+      });
+    let firstContentY = null;
+    for (
+      let y = rect.bottom - 2;
+      y >= rect.top && firstContentY === null;
+      y -= 6
+    ) {
+      if (rowHasContent(y)) {
+        firstContentY = y;
+      }
+    }
+    const trailingBlankPx =
+      firstContentY === null
+        ? Math.round(rect.height)
+        : Math.round(rect.bottom - firstContentY);
+
+    // Lowest painted leaf, in scroll-content coordinates.
+    const paintedBottomAbs = [...focusedPage.querySelectorAll('*')].reduce(
+      (lowest, node) => {
+        if (!(node instanceof HTMLElement) || !paintsSomething(node)) {
+          return lowest;
+        }
+        const nodeStyle = getComputedStyle(node);
+        if (
+          nodeStyle.position === 'fixed' ||
+          nodeStyle.visibility === 'hidden' ||
+          nodeStyle.display === 'none'
+        ) {
+          return lowest;
+        }
+        const r = node.getBoundingClientRect();
+        if (r.width <= 0 || r.height <= 0) return lowest;
+        return Math.max(lowest, r.bottom - rect.top + scroller.scrollTop);
+      },
+      0,
+    );
+    const pagerBottomAbs = pager
+      ? pager.getBoundingClientRect().bottom - rect.top + scroller.scrollTop
+      : scrollHeight;
+
+    return {
+      pagerHeight: pager ? Math.round(pager.getBoundingClientRect().height) : 0,
+      scrollHeight,
+      clientHeight,
+      paintedBottom: Math.round(paintedBottomAbs),
+      // Which pager child is on screen. Samples are labelled with the tab that
+      // was *requested*, so without this a stalled tab switch would measure the
+      // previous page and still be recorded as the new one.
+      focusedIndex: [...pager.children].indexOf(focusedPage),
+      atBottom:
+        Math.abs(scroller.scrollTop - (scrollHeight - clientHeight)) <= 2,
+      blankSpacePx: trailingBlankPx,
+      // blankSpacePx saturates at the viewport height (the scan only sees what
+      // is on screen). deadScrollPx is the full size of the stranded extent.
+      deadScrollPx: Math.round(
+        Math.max(0, pagerBottomAbs - Math.max(paintedBottomAbs, clientHeight)),
+      ),
+      clippedPx: Math.round(Math.max(0, paintedBottomAbs - pagerBottomAbs)),
+    };
+  });
+}
+
+async function runTabsBlankSpaceDesktop(cdpUrl) {
+  const { page } = await connectCdpMainWindow(cdpUrl);
+  if (
+    (await page.locator('[data-testid="password-input"]:visible').count()) > 0
+  ) {
+    throw new Error(
+      'Desktop app is locked. Unlock it before running the Tabs blank space scenario.',
+    );
+  }
+
+  const available = [];
+  for (const [name, testId] of HOME_TAB_TEST_IDS) {
+    if ((await page.locator(`[data-testid="${testId}"]`).count()) > 0) {
+      available.push({ name, testId });
+    }
+  }
+  if (available.length < 2) {
+    throw new Error(`Need at least 2 home tabs, found ${available.length}`);
+  }
+  log(`tabs under test: ${available.map((t) => t.name).join(', ')}`);
+
+  // Real wheel input, not a scrollTop assignment. Assigning scrollTop jumps
+  // past scroll anchoring, sticky-header collapse and lazy pagination — the
+  // exact machinery a scroll-extent bug hides in.
+  const scrollToBottom = async () => {
+    const box = await page
+      .locator('.onekey-tabs-container')
+      .first()
+      .boundingBox()
+      .catch(() => null);
+    if (!box) return;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    let prev = -1;
+    let stuckFor = 0;
+    for (let i = 0; i < 200; i += 1) {
+      await page.mouse.wheel(0, 700);
+      await sleep(110);
+      const top = await page.evaluate(() =>
+        Math.round(document.querySelector('.onekey-tabs-container').scrollTop),
+      );
+      if (top === prev) {
+        stuckFor += 1;
+        if (stuckFor >= 6) break;
+        await sleep(350);
+      } else {
+        stuckFor = 0;
+      }
+      prev = top;
+    }
+  };
+
+  // Which pager child each tab maps to. Learned in phase 1 rather than assumed
+  // from tab-bar order, because the pager does not always carry one child per
+  // tab (Perps is served outside the pager on web).
+  const readFocusedIndex = () =>
+    page.evaluate(() => {
+      const scroller = document.querySelector('.onekey-tabs-container');
+      const pager = [...(scroller?.querySelectorAll('div') ?? [])].find(
+        (el) =>
+          el.style.height &&
+          getComputedStyle(el).flexDirection === 'row' &&
+          el.children.length > 1,
+      );
+      if (!pager) return -1;
+      return [...pager.children].findIndex((child) => {
+        const r = child.getBoundingClientRect();
+        return r.width > 0 && r.left >= -1 && r.left < window.innerWidth;
+      });
+    });
+
+  const isCalibrated = (tab) =>
+    typeof tab.pagerIndex === 'number' && tab.pagerIndex >= 0;
+
+  const gotoTab = async (tab, settleMs = 1600) => {
+    await page.click(`[data-testid="${tab.testId}"]`, { force: true });
+    await sleep(settleMs);
+    // Without a proven pager index there is nothing to verify against, so the
+    // switch is unproven — never report it as a success.
+    if (!isCalibrated(tab)) return false;
+    // A click that silently does nothing, or a pager transition that stalls,
+    // would otherwise leave the previous page on screen while the sample is
+    // recorded under the requested tab's name.
+    for (let i = 0; i < 20; i += 1) {
+      if ((await readFocusedIndex()) === tab.pagerIndex) return true;
+      await sleep(250);
+    }
+    return false;
+  };
+
+  const samples = [];
+  const sample = async (label, expectedTab = null, switched = true) => {
+    await scrollToBottom();
+    await sleep(500);
+    const m = await measureTabExtent(page);
+    if (!m) {
+      samples.push({
+        label,
+        blankSpacePx: -1,
+        clippedPx: -1,
+        unreadable: true,
+      });
+      log(`${label}: UNREADABLE (no pager/page found)`);
+      return null;
+    }
+    const wrongTab =
+      !switched ||
+      (expectedTab &&
+        (!isCalibrated(expectedTab) ||
+          m.focusedIndex !== expectedTab.pagerIndex));
+    samples.push({ label, ...m, wrongTab: Boolean(wrongTab) });
+    const wrongTabNote = wrongTab
+      ? ` WRONG TAB (focusedIndex=${m.focusedIndex})`
+      : '';
+    log(
+      `${label}: blank=${m.blankSpacePx}px clipped=${m.clippedPx}px ` +
+        `pager=${m.pagerHeight} painted=${m.paintedBottom} ` +
+        `scroll=${m.scrollHeight}/${m.clientHeight} atBottom=${m.atBottom}${wrongTabNote}`,
+    );
+    return m;
+  };
+
+  // Calibration — learn each tab's pager index, and only trust it once the
+  // click is PROVEN to have moved the pager. The learned index is the anchor
+  // for every switch assertion below, so a stalled click accepted here would
+  // quietly bless every later sample of that tab.
+  //
+  // Stepping onto a different tab first makes the click on the target an
+  // observable move regardless of which tab the app started on. A tab whose
+  // click leaves the pager where it was (e.g. a tab bar entry that navigates to
+  // another route instead of a pager page) or lands on an index another tab
+  // already owns is excluded, and reported as a failure of the switch gate.
+  const calibrationFailures = [];
+  for (let i = 0; i < available.length; i += 1) {
+    const tab = available[i];
+    const stepOff = available[(i + 1) % available.length];
+    await page.click(`[data-testid="${stepOff.testId}"]`, { force: true });
+    await sleep(1200);
+    const before = await readFocusedIndex();
+    await page.click(`[data-testid="${tab.testId}"]`, { force: true });
+    await sleep(2200);
+    const after = await readFocusedIndex();
+    const owner = available.find((t) => t !== tab && t.pagerIndex === after);
+    let reason = '';
+    if (after < 0) reason = 'no pager page on screen';
+    else if (after === before)
+      reason = `pager did not move (stayed at ${after})`;
+    else if (owner) reason = `index ${after} already owned by ${owner.name}`;
+    if (reason) {
+      calibrationFailures.push({ name: tab.name, reason });
+      log(`calibrate ${tab.name}: ${reason}; excluded from the tab matrix`);
+    } else {
+      tab.pagerIndex = after;
+      log(`calibrate ${tab.name}: pager index ${after}`);
+    }
+  }
+  const calibrated = available.filter(isCalibrated);
+  if (calibrated.length < 2) {
+    throw new Error(
+      `Only ${calibrated.length} tab(s) calibrated; cannot run a switch matrix.`,
+    );
+  }
+
+  // Phase 1 — each tab on its own, scrolled to the bottom.
+  for (const tab of calibrated) {
+    const reached = await gotoTab(tab, 2200);
+    await sample(`rest ${tab.name}`, tab, reached);
+  }
+
+  // Phase 2 — every ordered pair, leaving the source scrolled to its bottom.
+  // That is the state that produced the original report.
+  for (const from of calibrated) {
+    for (const to of calibrated.filter((t) => t.testId !== from.testId)) {
+      const reachedSource = await gotoTab(from);
+      await scrollToBottom();
+      await sleep(600);
+      const switched = (await gotoTab(to)) && reachedSource;
+      await sample(`${from.name} -> ${to.name}`, to, switched);
+    }
+  }
+
+  // Phase 3 — DeFi's nested protocol strip. Its inner chips re-anchor scroll
+  // and its Show more/less toggle grows AND shrinks the tab in place, which is
+  // the height transition most likely to strand dead space.
+  // Every sample here names `defi` as the expected tab: the grow/shrink, chip
+  // and round-trip samples are exactly the transitions most likely to strand
+  // dead space, so they must not be exempt from the switch verification.
+  const defi = calibrated.find((t) => t.testId === 'home-tab-defi');
+  if (!defi && available.some((t) => t.testId === 'home-tab-defi')) {
+    log('defi is present but not calibrated; skipping phase 3');
+  }
+  if (defi) {
+    const enteredDefi = await gotoTab(defi, 3000);
+    await page
+      .locator('[data-testid="home-defi-tab-content"]:visible')
+      .first()
+      .waitFor({ state: 'visible', timeout: 30_000 })
+      .catch(() => log('defi content did not become visible; sampling anyway'));
+    await sample('defi cold enter', defi, enteredDefi);
+
+    const toggle = page
+      .locator('[data-testid="home-render-content-btn"]:visible')
+      .first();
+    if ((await toggle.count()) > 0) {
+      await toggle.click({ force: true });
+      await sleep(1600);
+      await sample('defi show more (grow)', defi);
+      const toggleBack = page
+        .locator('[data-testid="home-render-content-btn"]:visible')
+        .first();
+      if ((await toggleBack.count()) > 0) {
+        await toggleBack.click({ force: true });
+        await sleep(1600);
+        await sample('defi show less (shrink)', defi);
+      }
+    } else {
+      log('defi show more/less toggle not present; skipping grow/shrink');
+    }
+
+    // Inner protocol chips: the strip is horizontally scrollable, so drive it
+    // through its own arrow affordance and press whatever chip is in view.
+    const chips = page.locator(
+      '[data-testid="home-defi-tab-content"] [role="button"]',
+    );
+    const chipCount = Math.min(await chips.count(), 4);
+    let chipsSampled = 0;
+    for (let i = 0; i < chipCount; i += 1) {
+      const chip = chips.nth(i);
+      if (await chip.isVisible().catch(() => false)) {
+        await chip.click({ force: true }).catch(() => {});
+        await sleep(900);
+        await sample(`defi inner chip ${i + 1}`, defi);
+        chipsSampled += 1;
+      }
+    }
+    if (chipsSampled === 0) {
+      log('defi inner chips not visible; skipping chip samples');
+    }
+
+    // HomeTestIDs.defiProtocolChipScrollBtn('right') in
+    // packages/kit/src/views/Home/testIDs.ts. Log when it is absent rather than
+    // skipping silently, so a future rename shows up in the run output instead
+    // of quietly dropping this sample.
+    const rightArrow = page
+      .locator(
+        '[data-testid="home-defi-protocol-chip-scroll-right-btn"]:visible',
+      )
+      .first();
+    if ((await rightArrow.count()) > 0) {
+      await rightArrow.click({ force: true }).catch(() => {});
+      await sleep(900);
+      await sample('defi chip strip scrolled', defi);
+    } else {
+      log('defi chip strip arrow not present; skipping that sample');
+    }
+
+    // Round trip back into DeFi with its inner state already dirty. This is an
+    // `other -> DeFi` switch with the source at its bottom — the same state
+    // phase 2 guards — so both legs must be proven.
+    const other = calibrated.find((t) => t.testId !== defi.testId);
+    const left = await gotoTab(other);
+    await scrollToBottom();
+    await sleep(600);
+    const back = await gotoTab(defi, 2500);
+    await sample(`defi round trip via ${other.name}`, defi, left && back);
+  }
+
+  await page
+    .screenshot({ path: '.tmp/ui/tabs-blank-space-desktop.png' })
+    .catch(() => {});
+
+  const unreadable = samples.filter((s) => s.unreadable);
+  const overBlank = samples.filter(
+    (s) => !s.unreadable && s.blankSpacePx > BLANK_SPACE_TOLERANCE_PX,
+  );
+  const knownBlank = overBlank.filter((s) => isKnownDeadSpace(s.label));
+  const blankFailures = overBlank.filter((s) => !isKnownDeadSpace(s.label));
+  if (knownBlank.length > 0) {
+    log(
+      `KNOWN pre-existing dead space (not gated): ${[
+        ...new Set(knownBlank.map((s) => `${s.label}=${s.deadScrollPx}px`)),
+      ]
+        .slice(0, 6)
+        .join(', ')}`,
+    );
+  }
+  const clipFailures = samples.filter(
+    (s) => !s.unreadable && s.clippedPx > CLIP_TOLERANCE_PX,
+  );
+  const worstBlank = samples.reduce(
+    (acc, s) => (s.blankSpacePx > acc ? s.blankSpacePx : acc),
+    0,
+  );
+  // A sample taken short of the true bottom proves nothing: mid-list there is
+  // almost always content at the viewport edge, so the blank-space check would
+  // pass while the real bottom is still dead.
+  const notAtBottom = samples.filter((s) => !s.unreadable && !s.atBottom);
+  const wrongTab = samples.filter((s) => !s.unreadable && s.wrongTab);
+
+  return reportVerification('tabs-blank-space-desktop', [
+    {
+      name: `no dead space at bottom (<= ${BLANK_SPACE_TOLERANCE_PX}px)`,
+      pass: blankFailures.length === 0,
+      detail:
+        blankFailures
+          .slice(0, 6)
+          .map(
+            (s) => `${s.label}=${s.blankSpacePx}px(dead ${s.deadScrollPx}px)`,
+          )
+          .join(', ') || `${samples.length} samples, worst ${worstBlank}px`,
+    },
+    {
+      name: 'no content clipped by the shared pager',
+      pass: clipFailures.length === 0,
+      detail:
+        clipFailures
+          .slice(0, 5)
+          .map((s) => `${s.label}=${s.clippedPx}px`)
+          .join(', ') || `${samples.length} samples`,
+    },
+    {
+      name: 'every sample reached the bottom',
+      pass: notAtBottom.length === 0,
+      detail:
+        notAtBottom
+          .slice(0, 6)
+          .map(
+            (s) => `${s.label} stopped at ${s.scrollHeight - s.clientHeight}`,
+          )
+          .join(', ') || `${samples.length} samples`,
+    },
+    {
+      // A tab that could not be calibrated has no proven samples at all; that
+      // is missing coverage and must fail rather than drop out unnoticed.
+      name: 'every tab calibrated and every sample measured the requested tab',
+      pass: wrongTab.length === 0 && calibrationFailures.length === 0,
+      detail:
+        [
+          ...calibrationFailures.map((f) => `calibrate ${f.name}: ${f.reason}`),
+          ...wrongTab.map((s) => `${s.label}(focusedIndex=${s.focusedIndex})`),
+        ]
+          .slice(0, 6)
+          .join(', ') ||
+        `${calibrated.length} tabs calibrated, ${samples.length} samples`,
+    },
+    {
+      name: 'every sample readable',
+      pass: unreadable.length === 0,
+      detail:
+        unreadable.map((s) => s.label).join(', ') ||
+        `${samples.length} samples`,
+    },
+  ]);
+}
+
 // Ported from the former cdp-repro-gift-storm.mjs. The detection
 // signal — console "Maximum update depth", JS heap, evaluate RTT — is CDP-only,
 // which is exactly why this scenario stays on CDP.
@@ -1364,6 +1915,17 @@ const scenarios = {
       'Detect Tabs.ScrollView clipping after DeFi/NFT round trips or async growth. CDP 9222.',
     run: () =>
       runTabsScrollExtentDesktop(
+        process.env.CDP_URL_DESKTOP ||
+          process.env.CDP_URL ||
+          'http://127.0.0.1:9222',
+      ),
+  },
+  'tabs-blank-space-desktop': {
+    backend: 'cdp',
+    describe:
+      'Detect dead scroll space after tab switches (every ordered pair + DeFi inner tabs). CDP 9222.',
+    run: () =>
+      runTabsBlankSpaceDesktop(
         process.env.CDP_URL_DESKTOP ||
           process.env.CDP_URL ||
           'http://127.0.0.1:9222',

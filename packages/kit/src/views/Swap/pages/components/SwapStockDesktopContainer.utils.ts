@@ -74,6 +74,16 @@ export function getStockChartCoinGeckoIdState({
   };
 }
 
+export function isStockChartRequestReady({
+  chartCacheReady,
+  coinGeckoIdLoading,
+}: {
+  chartCacheReady: boolean;
+  coinGeckoIdLoading: boolean;
+}) {
+  return chartCacheReady && !coinGeckoIdLoading;
+}
+
 export function getStockDisabledActionButtonProps(
   tradeSide: ESwapStockTradeSide,
   channelStage: ESwapStockChannelStage,
@@ -115,6 +125,16 @@ export function shouldDeferStockInitialContent({
     (isStockMarketPanelLoadingStage(channelStage) ||
       channelStage === ESwapStockChannelStage.InitializingPayToken)
   );
+}
+
+export function shouldResetStockTradeQuoteState({
+  identityLoading,
+  previousIdentityLoading,
+}: {
+  identityLoading: boolean;
+  previousIdentityLoading: boolean;
+}) {
+  return identityLoading && !previousIdentityLoading;
 }
 
 export function shouldShowStockMarketHeaderSkeleton({

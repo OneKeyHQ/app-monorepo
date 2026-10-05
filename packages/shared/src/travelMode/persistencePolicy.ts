@@ -20,8 +20,6 @@ const TRAVEL_MODE_SETTINGS_FIELDS = [
 const TRAVEL_MODE_LOCALES = new Set<string>(['system', ...LOCALE_KEYS]);
 
 const TRAVEL_MODE_PASSWORD_WRITABLE_FIELDS = [
-  'appLockDuration',
-  'enableSystemIdleLock',
   'passwordErrorAttempts',
   'passwordErrorProtectionTime',
 ] as const;
@@ -142,27 +140,6 @@ export function buildTravelModeManualLockPersistView({
     ...(isRecord(initialValue) ? initialValue : {}),
     manualLocking: persistedValue.manualLocking,
   };
-}
-
-export function mergeTravelModeManualLockPersistWrite({
-  persistedValue,
-  proposedValue,
-}: {
-  persistedValue: unknown;
-  proposedValue: unknown;
-}): unknown {
-  const currentValue =
-    isRecord(persistedValue) &&
-    typeof persistedValue.manualLocking === 'boolean'
-      ? { manualLocking: persistedValue.manualLocking }
-      : undefined;
-  if (
-    !isRecord(proposedValue) ||
-    typeof proposedValue.manualLocking !== 'boolean'
-  ) {
-    return currentValue;
-  }
-  return { manualLocking: proposedValue.manualLocking };
 }
 
 export function buildTravelModeSettingsPersistView({

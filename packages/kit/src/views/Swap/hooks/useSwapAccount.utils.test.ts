@@ -11,6 +11,7 @@ import {
   getSwapRecipientValidationAccountId,
   resolveSettledSwapRecipientRequired,
   resolveSwapTargetNetworkAccount,
+  resolveSwapTargetNetworkAccountOnce,
   shouldResetSwapRecipientOnAccountNetworkSync,
   shouldShowSwapRecipientAddressInfo,
   shouldShowSwapRecipientEntry,
@@ -156,6 +157,53 @@ describe('resolveSwapTargetNetworkAccount', () => {
       deriveType: 'BIP84',
     });
     expect(getNetworkAccount).toHaveBeenCalledWith('BIP84');
+  });
+});
+
+describe('resolveSwapTargetNetworkAccountOnce', () => {
+  const result = {
+    account: { id: 'account-1' },
+    deriveType: 'default' as const,
+  };
+
+  it('shares one lookup between callers that ask while it is in flight', async () => {
+    let release: (() => void) | undefined;
+    const resolve = jest.fn(
+      () =>
+        new Promise<typeof result>((done) => {
+          release = () => done(result);
+        }),
+    );
+
+    const first = resolveSwapTargetNetworkAccountOnce({ key: 'k', resolve });
+    const second = resolveSwapTargetNetworkAccountOnce({ key: 'k', resolve });
+    const other = resolveSwapTargetNetworkAccountOnce({
+      key: 'other',
+      resolve: async () => result,
+    });
+    release?.();
+
+    await expect(Promise.all([first, second, other])).resolves.toEqual([
+      result,
+      result,
+      result,
+    ]);
+    expect(resolve).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps nothing once the lookup settles, including a failure', async () => {
+    const resolve = jest
+      .fn<Promise<typeof result>, []>()
+      .mockRejectedValueOnce(new OneKeyLocalError('lookup failed'))
+      .mockResolvedValueOnce(result);
+
+    await expect(
+      resolveSwapTargetNetworkAccountOnce({ key: 'k', resolve }),
+    ).rejects.toThrow('lookup failed');
+    await expect(
+      resolveSwapTargetNetworkAccountOnce({ key: 'k', resolve }),
+    ).resolves.toEqual(result);
+    expect(resolve).toHaveBeenCalledTimes(2);
   });
 });
 

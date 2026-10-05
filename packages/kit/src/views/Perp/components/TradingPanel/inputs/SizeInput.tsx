@@ -635,6 +635,7 @@ export const SizeInput = memo(
               onChange={handleModeChange}
               tokenSymbol={symbol || ''}
               allowMarginInput={allowMarginInput}
+              ifOnDialog={ifOnDialog}
             />
           )}
         </XStack>
@@ -642,6 +643,7 @@ export const SizeInput = memo(
       [
         allowMarginInput,
         handleModeChange,
+        ifOnDialog,
         inputMode,
         isDisabled,
         isMobile,

@@ -432,6 +432,7 @@ const PositionRowDesktopFunding = memo(
         >
           <Tooltip
             hovering
+            closeOnScroll
             placement="top"
             contentProps={{ p: 0, maxWidth: 300 }}
             renderTrigger={
@@ -1295,7 +1296,7 @@ const PositionRowMobileActions = memo(
             textAlign="center"
           >
             {intl.formatMessage({
-              id: ETranslations.perp_trade_set_tp_sl,
+              id: ETranslations.perp_position_tp_sl_short,
             })}
           </SizableText>
         </Button>
@@ -1319,7 +1320,7 @@ const PositionRowMobileActions = memo(
             textAlign="center"
           >
             {intl.formatMessage({
-              id: ETranslations.perp_close_position_title,
+              id: ETranslations.perp_position_close_short,
             })}
           </SizableText>
         </Button>

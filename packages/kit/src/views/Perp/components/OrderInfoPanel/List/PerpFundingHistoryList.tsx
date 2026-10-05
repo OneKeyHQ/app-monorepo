@@ -590,17 +590,8 @@ function PerpFundingHistoryList({
     </YStack>
   ) : undefined;
 
-  const historyLimitNotice =
-    records.length >= PERP_USER_FUNDING_HISTORY_LIMIT ? (
-      <SizableText size="$bodySm" color="$textSubdued" px="$3" py="$2">
-        {intl.formatMessage({ id: ETranslations.recent })}
-        {` · ${intl.formatNumber(PERP_USER_FUNDING_HISTORY_LIMIT)}`}
-      </SizableText>
-    ) : undefined;
-
   return (
     <YStack flex={1}>
-      {!isMobile ? historyLimitNotice : null}
       <CommonTableListView
         onPullToRefresh={refresh}
         listViewDebugRenderTrackerProps={useMemo(
@@ -619,7 +610,6 @@ function PerpFundingHistoryList({
         columns={columnsConfig}
         minTableWidth={totalMinWidth}
         data={sortedRecords}
-        ListHeaderComponent={isMobile ? historyLimitNotice : undefined}
         isMobile={isMobile}
         renderRow={renderFundingHistoryRow}
         keyExtractor={(record) =>

@@ -18,7 +18,9 @@ import {
   BridgeTimeoutError,
   FirmwareUpdateBatteryTooLow,
   FirmwareUpdateExit,
+  FirmwareUpdateRequiresUsbTransport,
   FirmwareUpdateTasksClear,
+  FirmwareUpdateUnsupportedDevice,
   InitIframeLoadFail,
   InitIframeTimeout,
   NeedFirmwareUpgradeFromWeb,
@@ -32,7 +34,6 @@ import {
   convertDeviceResponse,
   isHardwareErrorByCode,
 } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
-import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   classifyFirmwareUpdateFailure,
@@ -43,6 +44,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { checkBLEState } from '@onekeyhq/shared/src/hardware/blePermissions';
 import { DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS } from '@onekeyhq/shared/src/hardware/connectionTimeouts';
 import { projectLegacyDeviceFeaturesFromState } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
@@ -473,6 +475,22 @@ class ServiceFirmwareUpdate extends ServiceBase {
     backgroundApi: this.backgroundApi,
   });
 
+  // hd-ble-sdk answers a Bluetooth-off call (701) with a BLUETOOTH_PERMISSION
+  // ui event that carries no call context, so silentMode cannot stop it and
+  // the "Enable Bluetooth" dialog pops without any user action — OK-63752.
+  // iOS and Android share subscribeBleOn, so both raise that 701; desktop
+  // reports 721/722 instead and already routes them to a skipped event.
+  private async isNativeBleTurnedOff(): Promise<boolean> {
+    if (!platformEnv.isNative) {
+      return false;
+    }
+    const transportType = await this.getActiveTransportType();
+    if (transportType !== EHardwareTransportType.BLE) {
+      return false;
+    }
+    return !(await checkBLEState());
+  }
+
   private async getFirmwareUpdateDetectIdentity(connectId: string) {
     const dbDevice = await localDb
       .getDeviceByQuery({ connectId })
@@ -629,6 +647,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
                   connectId: detectConnectId,
                 }),
               ),
+            };
+          }
+          if (await this.isNativeBleTurnedOff()) {
+            return {
+              status: 'failed',
+              retryAfterMs: FIRMWARE_UPDATE_DETECT_BUSY_RETRY_DELAY,
             };
           }
           const compatibleConnectId =
@@ -2602,16 +2626,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
     });
 
     try {
-      errorToastUtils.toastIfError(error);
-      errorToastUtils.showToastOfError(error);
-    } catch (toastError) {
-      serviceHardwareUtils.hardwareLog(
-        'failUpdateWorkflow toast ERROR',
-        toastError,
-      );
-    }
-
-    try {
       const hardwareTransportType = await this.getUpdateWorkflowTransportType();
       const trackingInfo = await this.getUpdateWorkflowTrackingInfo();
       const resultFailureType =
@@ -2703,9 +2717,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
               if (
                 currentTransportType === EHardwareTransportType.DesktopWebBle
               ) {
-                throw new OneKeyLocalError(
-                  'Desktop firmware updates require a USB transport',
-                );
+                throw new FirmwareUpdateRequiresUsbTransport();
               }
             }
             this.recordUpdateWorkflowTransportType(
@@ -2759,9 +2771,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
                           isProtocolV2ProductType(deviceType),
                       },
                     );
-                    throw new OneKeyLocalError(
-                      'Do not support update firmware for this device',
-                    );
+                    throw new FirmwareUpdateUnsupportedDevice();
                   }
                   const updateResult =
                     await this.startUpdateFirmwareTaskForNewBootVersion(

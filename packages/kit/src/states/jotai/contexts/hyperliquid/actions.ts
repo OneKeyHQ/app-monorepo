@@ -3315,6 +3315,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         coin: string;
         oid: number;
         newPrice: string;
+        expectedAccountAddress: string;
       },
     ) => {
       return withToast({
@@ -3346,6 +3347,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               reduceOnly: existing.reduceOnly,
               amendKind,
               cloid: existing.cloid,
+              expectedAccountAddress: params.expectedAccountAddress,
               alwaysPlace: true,
             },
           );

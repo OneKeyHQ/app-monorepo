@@ -15,17 +15,18 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useStockDetail } from '../../hooks/StockDetailContext';
 import { useStockSecurityStats } from '../../hooks/useStockSecurityStats';
 import { useTokenDetail } from '../../hooks/useTokenDetail';
-import {
-  buildStockInfoFromPublicDetail,
-  formatDirectPercentValue,
-  formatStockAnalystConsensus,
-} from '../../utils/stockPublicDataUtils';
+import { buildStockInfoFromPublicDetail } from '../../utils/stockPublicDataUtils';
+import { MarketAboutDescription } from '../MarketAboutDescription';
 import { StockDescriptionRows } from '../StockDescriptionRows';
-import { stockFinancialLabels } from '../StockFinancials/stockFinancialLabels';
 import { StockFinancials } from '../StockFinancials/StockFinancials';
 import { StockStatSections } from '../StockStatSections';
 
 import { TokenOverviewSkeleton } from './TokenOverviewSkeleton';
+
+// MarketAboutDescription collapses to two lines, about 200 Latin characters at
+// the desktop width. The ~335px mobile column needs four to show a similar
+// amount.
+const STOCK_OVERVIEW_ABOUT_COLLAPSED_LINES = 4;
 
 export function StockTokenOverview() {
   const intl = useIntl();
@@ -68,7 +69,6 @@ export function StockTokenOverview() {
     return <TokenOverviewSkeleton />;
   }
 
-  const ratings = stockDetail?.analystRatings;
   const about = stockDetail?.about;
 
   return (
@@ -101,54 +101,8 @@ export function StockTokenOverview() {
 
       <Divider my="$1" />
 
-      <Stack gap="$3" py="$2">
-        <SizableText size="$bodyLgMedium">
-          {intl.formatMessage({
-            id: ETranslations.market_stock_analyst_ratings,
-          })}
-        </SizableText>
-        <XStack justifyContent="space-between">
-          <SizableText color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.market_stock_consensus })}
-          </SizableText>
-          <SizableText>
-            {formatStockAnalystConsensus({ intl, analystRatings: ratings })}
-          </SizableText>
-        </XStack>
-        {[
-          {
-            key: 'buy',
-            label: intl.formatMessage({ id: ETranslations.global_buy }),
-            value: ratings?.buy,
-          },
-          {
-            key: 'hold',
-            label: intl.formatMessage({
-              id: ETranslations.market_stock_rating_hold,
-            }),
-            value: ratings?.hold,
-          },
-          {
-            key: 'sell',
-            label: intl.formatMessage({ id: ETranslations.global_sell }),
-            value: ratings?.sell,
-          },
-        ].map((item) => (
-          <XStack key={item.key} justifyContent="space-between">
-            <SizableText color="$textSubdued">{item.label}</SizableText>
-            <SizableText>{formatDirectPercentValue(item.value)}</SizableText>
-          </XStack>
-        ))}
-      </Stack>
-
-      <Divider my="$1" />
-
       {stockId ? (
-        <StockFinancials
-          stockId={stockId}
-          labels={stockFinancialLabels}
-          withHorizontalPadding={false}
-        />
+        <StockFinancials stockId={stockId} withHorizontalPadding={false} />
       ) : null}
 
       <Stack gap="$3" py="$2">
@@ -190,7 +144,12 @@ export function StockTokenOverview() {
           </XStack>
         ))}
         {about?.description ? (
-          <SizableText color="$textSubdued">{about.description}</SizableText>
+          <MarketAboutDescription
+            description={about.description}
+            testID="stock-overview-about-description"
+            toggleTestID="stock-overview-about-description-toggle"
+            collapsedLines={STOCK_OVERVIEW_ABOUT_COLLAPSED_LINES}
+          />
         ) : null}
       </Stack>
     </Stack>

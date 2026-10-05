@@ -159,6 +159,24 @@ export function getTokenIdentityKey(token?: Partial<ISwapTokenBase>) {
   }`;
 }
 
+export function shouldSyncControlledStockTokenMetadata({
+  controlledStockToken,
+  currentStockToken,
+}: {
+  controlledStockToken?: ISwapToken;
+  currentStockToken?: ISwapToken;
+}) {
+  const controlledTokenKey = getTokenIdentityKey(controlledStockToken);
+  return Boolean(
+    controlledTokenKey &&
+    controlledTokenKey === getTokenIdentityKey(currentStockToken) &&
+    controlledStockToken &&
+    currentStockToken &&
+    controlledStockToken.decimals > 0 &&
+    controlledStockToken.decimals !== currentStockToken.decimals,
+  );
+}
+
 export function buildStockPayTokenDisplaySeed(token: ISwapToken): ISwapToken {
   return {
     networkId: token.networkId,

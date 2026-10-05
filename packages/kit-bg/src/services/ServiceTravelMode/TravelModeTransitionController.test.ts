@@ -72,14 +72,14 @@ describe('TravelModeTransitionController', () => {
       'verify',
       'get-verifier',
       'persist-enabled',
-      'wait-before-restart',
       'prepare-restart-travel-mode',
+      'wait-before-restart',
       'restart-travel-mode-enabled-epoch-7',
       'mark-recovery',
     ]);
   });
 
-  it('does not prepare or dispatch restart before the loading window ends', async () => {
+  it('prepares the icon change before the loading window but defers restart until it ends', async () => {
     const { dependencies } = buildDependencies();
     let releaseLoadingWindow: (() => void) | undefined;
     let signalLoadingWindowStarted: (() => void) | undefined;
@@ -98,7 +98,7 @@ describe('TravelModeTransitionController', () => {
     const transition = controller.setEnabled(true);
     await loadingWindowStarted;
 
-    expect(dependencies.prepareRestart).not.toHaveBeenCalled();
+    expect(dependencies.prepareRestart).toHaveBeenCalledWith('travel-mode');
     expect(dependencies.restart).not.toHaveBeenCalled();
 
     releaseLoadingWindow?.();
@@ -148,6 +148,7 @@ describe('TravelModeTransitionController', () => {
     await expect(controller.setEnabled(true)).rejects.toThrow('persist failed');
 
     expect(dependencies.prepareRestart).not.toHaveBeenCalled();
+    expect(dependencies.waitBeforeRestart).not.toHaveBeenCalled();
     expect(dependencies.restart).not.toHaveBeenCalled();
   });
 
@@ -181,6 +182,7 @@ describe('TravelModeTransitionController', () => {
       verifyString: undefined,
     });
     expect(dependencies.markRestartFailed).toHaveBeenCalledTimes(1);
+    expect(dependencies.waitBeforeRestart).not.toHaveBeenCalled();
     expect(dependencies.restart).not.toHaveBeenCalled();
   });
 

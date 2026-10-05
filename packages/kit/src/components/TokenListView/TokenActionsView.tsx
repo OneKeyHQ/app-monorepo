@@ -8,6 +8,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import { buildSwapSelectedTokensColdStartAccountKey } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
+import { isSwapEntryDisabledToken } from '@onekeyhq/shared/src/utils/swapEntryUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { sortTokensCommon } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
@@ -92,6 +93,11 @@ function TokenActionsView(props: IProps) {
       fromTokenBalanceMultiplier,
       resolvedActiveToken?.balanceMultiplier,
     ].find(tokenRebaseUtils.isScalingBalanceMultiplier) !== undefined;
+  const isSwapEntryDisabled = isSwapEntryDisabledToken({
+    contractAddress: resolvedActiveToken?.address,
+    isNative: resolvedActiveToken?.isNative,
+    networkId: resolvedActiveToken?.networkId,
+  });
 
   useEffect(() => {
     let isStale = false;
@@ -163,7 +169,8 @@ function TokenActionsView(props: IProps) {
       if (
         !resolvedActiveToken ||
         !isTokenActionReady ||
-        isScaledUiSwapBlocked
+        isScaledUiSwapBlocked ||
+        isSwapEntryDisabled
       ) {
         return;
       }
@@ -221,6 +228,7 @@ function TokenActionsView(props: IProps) {
     deriveType,
     isTokenActionReady,
     isScaledUiSwapBlocked,
+    isSwapEntryDisabled,
     networkId,
     resolvedActiveToken,
   ]);
@@ -237,7 +245,9 @@ function TokenActionsView(props: IProps) {
         variant="secondary"
         cursor="pointer"
         onPress={handleTokenOnSwap}
-        disabled={!isTokenActionReady || isScaledUiSwapBlocked}
+        disabled={
+          !isTokenActionReady || isScaledUiSwapBlocked || isSwapEntryDisabled
+        }
       >
         {intl.formatMessage({ id: ETranslations.global_swap })}
       </Button>

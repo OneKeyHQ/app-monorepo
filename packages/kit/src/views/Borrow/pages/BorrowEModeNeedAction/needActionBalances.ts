@@ -1,6 +1,8 @@
 /* cspell:ignore EMODE */
 import BigNumber from 'bignumber.js';
 
+import { countLeadingZeroDecimals } from '@onekeyhq/shared/src/utils/numberUtils';
+
 import { type IEModeStep, shouldRepayAllForEModeStep } from './needActionSteps';
 
 const DEFAULT_TOKEN_DECIMALS = 6;
@@ -81,16 +83,24 @@ export function hasSufficientRepayFunding({
   return Boolean(requirement && balance.isFinite() && balance.gte(requirement));
 }
 
-// Wallet balance for display: trimmed to 6dp rounding DOWN so the shown
-// number never overstates what the wallet holds. Null when unknown or
-// non-numeric — callers render nothing rather than a fake zero.
+// Wallet balance for display: round DOWN so the shown number never overstates
+// what the wallet holds. Keep at least four meaningful digits after leading
+// zeroes; a fixed six-decimal cap turns a valid dust balance (for example
+// 0.00000032 WBTC) into the misleading value "0".
 export function formatBalanceDisplay(balanceParsed?: string): string | null {
   if (balanceParsed === undefined) {
     return null;
   }
   const balance = new BigNumber(balanceParsed);
-  if (balance.isNaN()) {
+  if (!balance.isFinite()) {
     return null;
   }
-  return balance.decimalPlaces(6, BigNumber.ROUND_DOWN).toFixed();
+  const leadingZeroDecimals = balance.isZero()
+    ? 0
+    : countLeadingZeroDecimals(balance);
+  const displayDecimals = Math.min(
+    MAX_TOKEN_DECIMALS,
+    Math.max(DEFAULT_TOKEN_DECIMALS, leadingZeroDecimals + 4),
+  );
+  return balance.decimalPlaces(displayDecimals, BigNumber.ROUND_DOWN).toFixed();
 }

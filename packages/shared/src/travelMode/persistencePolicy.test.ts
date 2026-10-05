@@ -1,9 +1,10 @@
+import { ELockDuration } from '../consts/appAutoLockConsts';
+
 import {
   buildTravelModeCurrencyReferenceView,
   buildTravelModeManualLockPersistView,
   buildTravelModePasswordPersistView,
   buildTravelModeSettingsPersistView,
-  mergeTravelModeManualLockPersistWrite,
   mergeTravelModePasswordPersistWrite,
   mergeTravelModeSettingsPersistWrite,
 } from './persistencePolicy';
@@ -50,13 +51,13 @@ describe('Travel Mode password and lock persistence policy', () => {
     });
   });
 
-  it('persists auto-lock settings and brute-force state', () => {
+  it('preserves saved lock settings while persisting brute-force state', () => {
     expect(
       mergeTravelModePasswordPersistWrite({
         persistedValue,
         proposedValue: {
           ...persistedValue,
-          appLockDuration: 30,
+          appLockDuration: Number(ELockDuration.Never),
           enableSystemIdleLock: true,
           passwordErrorAttempts: 3,
           passwordErrorProtectionTime: 200,
@@ -64,14 +65,12 @@ describe('Travel Mode password and lock persistence policy', () => {
       }),
     ).toEqual({
       ...persistedValue,
-      appLockDuration: 30,
-      enableSystemIdleLock: true,
       passwordErrorAttempts: 3,
       passwordErrorProtectionTime: 200,
     });
   });
 
-  it('exposes and persists only the manual-lock boolean', () => {
+  it('exposes only the saved manual-lock boolean', () => {
     expect(
       buildTravelModeManualLockPersistView({
         initialValue: { manualLocking: false },
@@ -81,18 +80,6 @@ describe('Travel Mode password and lock persistence policy', () => {
         },
       }),
     ).toEqual({ manualLocking: true });
-    expect(
-      mergeTravelModeManualLockPersistWrite({
-        persistedValue: {
-          manualLocking: true,
-          privateField: 'hidden',
-        },
-        proposedValue: {
-          manualLocking: false,
-          privateField: 'replacement',
-        },
-      }),
-    ).toEqual({ manualLocking: false });
   });
 
   it('ignores malformed manual-lock values', () => {
@@ -102,12 +89,6 @@ describe('Travel Mode password and lock persistence policy', () => {
         persistedValue: { manualLocking: 'yes' },
       }),
     ).toEqual({ manualLocking: false });
-    expect(
-      mergeTravelModeManualLockPersistWrite({
-        persistedValue: { manualLocking: true, privateField: 'hidden' },
-        proposedValue: { manualLocking: 'no' },
-      }),
-    ).toEqual({ manualLocking: true });
   });
 });
 

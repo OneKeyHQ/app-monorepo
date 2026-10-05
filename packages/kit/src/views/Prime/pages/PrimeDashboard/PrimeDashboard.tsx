@@ -29,9 +29,14 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  isPrimeAppleStorePayment,
+  isPrimeStorePayment,
+} from '@onekeyhq/shared/src/prime/primePaymentCapabilities';
+import {
   EPrimePages,
   type IPrimeParamList,
 } from '@onekeyhq/shared/src/routes/prime';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { showOneKeyIdLoginFailedToast } from '../../components/oneKeyIdLoginToastUtils';
@@ -102,6 +107,9 @@ export default function PrimeDashboard({
 }) {
   const intl = useIntl();
   const { fromFeature, networkId, fromDeepLink } = route.params || {};
+  const isTravelMode =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
   // const isReady = false;
   const {
     isReady: isAuthReady,
@@ -316,7 +324,7 @@ export default function PrimeDashboard({
     [packages, selectedSubscriptionPeriod],
   );
 
-  const subscribeButtonEnabled = Boolean(selectedPackage);
+  const subscribeButtonEnabled = !isTravelMode && Boolean(selectedPackage);
 
   const subscribeConfirmButtonProps = useMemo(
     () => ({
@@ -526,7 +534,7 @@ export default function PrimeDashboard({
             )}
 
             <YStack px="$5" py="$4" gap="$4">
-              {platformEnv.isNativeIOS ? (
+              {isPrimeAppleStorePayment() ? (
                 <Stack>
                   <SizableText size="$bodyMd" color="$textSubdued">
                     {intl.formatMessage({
@@ -542,7 +550,7 @@ export default function PrimeDashboard({
               ) : null}
               {!isPrimeSubscriptionActive &&
               isLoggedIn &&
-              platformEnv.isNative ? (
+              isPrimeStorePayment() ? (
                 <Stack>
                   <SizableText
                     size="$bodyMd"

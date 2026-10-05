@@ -401,7 +401,6 @@ function PerpTradesHistoryList({
         flex: 1,
         align: 'right',
         headerRightPadding: TRADES_HISTORY_SHARE_ACTION_WIDTH,
-        fixed: true,
       },
     ],
     [intl],

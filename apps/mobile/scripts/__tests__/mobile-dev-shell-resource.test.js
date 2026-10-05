@@ -812,6 +812,42 @@ describe('mobile-dev-shell-resource', () => {
     }
   });
 
+  it('downloads a large shell layer with verified concurrent ranges', async () => {
+    const bytes = Buffer.alloc(2 * 1024 * 1024 + 1, 0x5a);
+    const descriptor = {
+      digest: `sha256:${crypto.createHash('sha256').update(bytes).digest('hex')}`,
+      size: bytes.length,
+    };
+    const filePath = path.join(
+      os.tmpdir(),
+      `onekey-shell-range-${String(process.pid)}-${Date.now()}.apk`,
+    );
+    const client = {
+      fetchBlob: jest.fn(async (_digest, _timeoutMs, options) => {
+        const [start, end] = options.range
+          .match(/bytes=(\d+)-(\d+)/)
+          .slice(1)
+          .map(Number);
+        return new Response(bytes.subarray(start, end + 1), {
+          headers: { 'content-range': `bytes ${start}-${end}/${bytes.length}` },
+          status: 206,
+        });
+      }),
+    };
+    try {
+      await downloadLayerToFile({
+        client,
+        descriptor,
+        filePath,
+        maxBytes: bytes.length,
+      });
+      expect(client.fetchBlob).toHaveBeenCalledTimes(9);
+      expect(fs.readFileSync(filePath)).toEqual(bytes);
+    } finally {
+      fs.rmSync(filePath, { force: true });
+    }
+  });
+
   it('restores an incomplete cache after a stale lease pid is reused', async () => {
     const cacheRoot = fs.mkdtempSync(
       path.join(os.tmpdir(), 'onekey-shell-partial-cache-test-'),

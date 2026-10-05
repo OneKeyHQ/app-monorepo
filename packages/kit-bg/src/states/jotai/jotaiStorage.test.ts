@@ -2,6 +2,7 @@
 
 import { createMMKV } from 'react-native-mmkv';
 
+import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 const mmkvInstance = createMMKV({ id: 'onekey-jotai-states-test' });
@@ -687,6 +688,23 @@ describe('JotaiStorageNativeMMKV migration barrier', () => {
       ...maskedPasswordState,
       passwordErrorAttempts: 99,
     });
+    const lockWriteSpy = jest.spyOn(mmkvInstance, 'set');
+    mockSyncNativeStorageMMKV.mockClear();
+    await storage.setPasswordControlState({
+      ...maskedPasswordState,
+      appLockDuration: Number(ELockDuration.Never),
+      enableSystemIdleLock: true,
+    });
+    await storage.setManualLockControlState({ manualLocking: false });
+    expect(lockWriteSpy).not.toHaveBeenCalled();
+    expect(mockSyncNativeStorageMMKV).not.toHaveBeenCalled();
+    expect(mmkvInstance.getString(passwordKey)).toBe(
+      JSON.stringify(persistedPasswordState),
+    );
+    expect(mmkvInstance.getString(manualLockKey)).toBe(
+      JSON.stringify({ manualLocking: true, privateField: 'hidden' }),
+    );
+    lockWriteSpy.mockRestore();
     await storage.setPasswordControlState({
       ...maskedPasswordState,
       webAuthCredentialId: 'replacement-web-auth-id',
@@ -732,8 +750,6 @@ describe('JotaiStorageNativeMMKV migration barrier', () => {
 
     expect(JSON.parse(mmkvInstance.getString(passwordKey) ?? '')).toEqual({
       ...persistedPasswordState,
-      appLockDuration: 30,
-      enableSystemIdleLock: true,
       passwordErrorAttempts: 3,
       passwordErrorProtectionTime: 200,
     });
@@ -741,7 +757,8 @@ describe('JotaiStorageNativeMMKV migration barrier', () => {
       JSON.stringify({ privateData: true }),
     );
     expect(JSON.parse(mmkvInstance.getString(manualLockKey) ?? '')).toEqual({
-      manualLocking: false,
+      manualLocking: true,
+      privateField: 'hidden',
     });
     expect(JSON.parse(mmkvInstance.getString(settingsKey) ?? '')).toEqual({
       currencyInfo: { id: 'jpy', symbol: '¥' },
@@ -752,6 +769,34 @@ describe('JotaiStorageNativeMMKV migration barrier', () => {
       theme: 'light',
     });
 
+    environmentSpy.mockResolvedValue(
+      RuntimeEnvironment.create(getTravelModeRuntimeProfile(false)),
+    );
+    await storage.migrateFromAsyncStorage([], PROBE_KEY);
+    await expect(
+      storage.getItem(passwordKey, initialPasswordState),
+    ).resolves.toEqual({
+      ...persistedPasswordState,
+      passwordErrorAttempts: 3,
+      passwordErrorProtectionTime: 200,
+    });
+    await expect(
+      storage.getItem(manualLockKey, { manualLocking: false }),
+    ).resolves.toEqual({ manualLocking: true, privateField: 'hidden' });
+    await storage.setPasswordControlState({
+      ...persistedPasswordState,
+      appLockDuration: 30,
+      enableSystemIdleLock: true,
+    });
+    await storage.setManualLockControlState({ manualLocking: false });
+    expect(JSON.parse(mmkvInstance.getString(passwordKey) ?? '')).toEqual({
+      ...persistedPasswordState,
+      appLockDuration: 30,
+      enableSystemIdleLock: true,
+    });
+    expect(JSON.parse(mmkvInstance.getString(manualLockKey) ?? '')).toEqual({
+      manualLocking: false,
+    });
     environmentSpy.mockRestore();
   });
 });

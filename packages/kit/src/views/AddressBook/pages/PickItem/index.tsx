@@ -9,6 +9,7 @@ import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
 import type { IModalAddressBookParamList } from '@onekeyhq/shared/src/routes/addressBook';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { AddressBookListContent } from '../../components/AddressBookListContent';
@@ -34,6 +35,9 @@ const PickItemPage = () => {
     !(networkUtils.getNetworkImpl({ networkId: networkId ?? '' }) === IMPL_EVM),
   );
   const navigation = useAppNavigation();
+  const isTravelMode =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
 
   const onPressItem = useCallback(
     async (item: IAddressItem) => {
@@ -66,7 +70,7 @@ const PickItemPage = () => {
         title={intl.formatMessage({
           id: ETranslations.address_book_select_title,
         })}
-        headerRight={renderHeaderRightComponent}
+        headerRight={isTravelMode ? undefined : renderHeaderRightComponent}
       />
       <Page.Body>
         <ContentContainer

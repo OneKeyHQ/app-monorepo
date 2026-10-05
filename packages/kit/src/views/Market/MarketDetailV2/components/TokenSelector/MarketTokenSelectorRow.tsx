@@ -149,7 +149,7 @@ const MarketTokenSelectorRow = memo(
     const renderMetric = (metric: IMarketTokenSelectorMetricColumn) => {
       switch (metric) {
         case 'price':
-          return (
+          return Number.isFinite(item.price) ? (
             <NumberSizeableText
               size={METRIC_TEXT_SIZE}
               formatter={priceFormatter}
@@ -157,6 +157,8 @@ const MarketTokenSelectorRow = memo(
             >
               {String(item.price)}
             </NumberSizeableText>
+          ) : (
+            <MissingValue />
           );
         case 'change':
           return item.priceChangeRaw === undefined ||

@@ -9,6 +9,7 @@ import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
 import { parseMarketStockNumber } from '../MarketStockList/utils';
+import { getStockListingName } from '../MarketTokenList/utils/marketWatchlistRowKind';
 import { marketTokenKey } from '../MarketTokenList/utils/tokenListHelpers';
 
 import type { IMarketPerpsToken } from '../MarketPerpsList/hooks/useMarketPerpsTokenList';
@@ -63,10 +64,12 @@ const TOKEN_ROW_STYLE: MarketRowStyle = {
     lines: 1,
     alignment: 'start',
   },
+  // Every mobile Market row runs its subtitle at 12/16 (the web `$bodySm`),
+  // whatever the line holds: a volume, a company name, or both.
   subtitle: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: 'regular',
-    lineHeight: 20,
+    lineHeight: 16,
     lines: 1,
     alignment: 'start',
   },
@@ -87,32 +90,6 @@ const TOKEN_ROW_STYLE: MarketRowStyle = {
   changeWidth: 80,
   changeHeight: 32,
   changeCornerRadius: 8,
-};
-
-const STOCK_ROW_STYLE: MarketRowStyle = {
-  ...TOKEN_ROW_STYLE,
-  lineGap: 0,
-  image: {
-    width: 40,
-    height: 40,
-    shape: 'circle',
-    cornerRadius: 20,
-    contentFit: 'cover',
-  },
-};
-
-const PERP_ROW_STYLE: MarketRowStyle = {
-  ...TOKEN_ROW_STYLE,
-  horizontalPadding: 16,
-  leadingGap: 8,
-  lineGap: 0,
-  contentTrailingGap: 12,
-  subtitleTrailingPadding: 12,
-  subtitle: {
-    ...TOKEN_ROW_STYLE.subtitle,
-    fontSize: 12,
-    lineHeight: 16,
-  },
 };
 
 function toTextSegments(rendered: ReturnType<typeof numberFormatAsRenderText>):
@@ -153,6 +130,21 @@ function formatNumber(
     formatterOptions,
   });
   return toTextSegments(rendered) ?? ({ text: '--' } as const);
+}
+
+// The second line of a token or stock row: a capped localized name before the
+// volume, matching the web identity cell.
+function buildNameSubtitlePrefix(
+  text: string | undefined,
+): MarketRow['subtitlePrefix'] {
+  return text
+    ? {
+        text,
+        gap: 6,
+        maxWidth: 66,
+        style: { fontSize: 12, fontWeight: 'regular', lineHeight: 16 },
+      }
+    : undefined;
 }
 
 function formatVolume(
@@ -329,7 +321,8 @@ export function buildTokenMarketRow({
   const dexLabel = item.perpsCoin
     ? parseDexCoin(item.perpsCoin).dexLabel
     : undefined;
-  const subtitlePrefix = item.stock?.subtitle ?? item.perpsSubtitle;
+  const subtitlePrefix =
+    item.stock?.subtitle ?? item.perpsSubtitle ?? getStockListingName(item);
   return {
     key,
     type: 'market',
@@ -348,14 +341,7 @@ export function buildTokenMarketRow({
     },
     title: item.symbol,
     subtitle: formatVolume(item.turnover),
-    subtitlePrefix: subtitlePrefix
-      ? {
-          text: subtitlePrefix,
-          gap: 6,
-          maxWidth: 66,
-          style: { fontSize: 12, fontWeight: 'regular', lineHeight: 16 },
-        }
-      : undefined,
+    subtitlePrefix: buildNameSubtitlePrefix(subtitlePrefix),
     price: price.text,
     priceSegments: price.textSegments,
     change,
@@ -414,20 +400,22 @@ export function buildStockMarketRow({
       : undefined,
     leading: {
       kind: 'token',
-      image: marketImage(item.logoUrl, 40),
+      image: marketImage(item.logoUrl, 32),
       fallbackIcon: { name: 'CryptoCoinOutline' },
       shape: 'circle',
       backgroundColor: presentation.tokenBackground,
       borderColor: presentation.tokenBorderColor,
     },
     title: item.symbol,
-    subtitle: item.name,
+    subtitle: formatVolume(item.volume24h),
+    subtitlePrefix: buildNameSubtitlePrefix(item.name),
     price: price.text,
     priceSegments: price.textSegments,
     change,
     pressActionKey: 'open-detail',
     pressInActionKey: 'prewarm-stock-detail',
-    style: rowStyleForChange(STOCK_ROW_STYLE, changeValue),
+    // Stock rows share the token row frame (32px logo, 4px line gap).
+    style: rowStyleForChange(TOKEN_ROW_STYLE, changeValue),
   };
 }
 
@@ -444,7 +432,7 @@ export function buildPerpsMarketRow({
     key: item.name,
     type: 'market',
     variant: 'perp',
-    height: 64,
+    height: 72,
     testID: `market-perps-row-${item.name}`,
     accessibilityLabel: `${item.displayName}, ${price.text}, ${change.text}`,
     leading: {
@@ -475,7 +463,8 @@ export function buildPerpsMarketRow({
       compact: true,
     }),
     pressActionKey: 'open-detail',
-    style: rowStyleForChange(PERP_ROW_STYLE, item.change24hPercent),
+    // Perps rows share the token row frame (72dp, 20dp padding, 4dp line gap).
+    style: rowStyleForChange(TOKEN_ROW_STYLE, item.change24hPercent),
   };
 }
 

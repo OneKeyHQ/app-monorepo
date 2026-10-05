@@ -14,12 +14,13 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  createHideTabBarOwnerId,
+  releaseHideTabBar,
+  requestHideTabBar,
+} from '@onekeyhq/shared/src/tabBar/hideTabBarRequests';
 
 import { LayoutHeaderLanguageSelector } from '../../Onboardingv2/components/Layout';
 import { redirectToStore } from '../utils/deepLinkLaunchUtils';
@@ -46,9 +47,10 @@ export function DeepLinkLanding({
   useFocusEffect(
     useCallback(() => {
       if (!platformEnv.isWeb) return undefined;
-      appEventBus.emit(EAppEventBusNames.HideTabBar, true);
+      const ownerId = createHideTabBarOwnerId('deep-link-landing');
+      requestHideTabBar(ownerId);
       return () => {
-        appEventBus.emit(EAppEventBusNames.HideTabBar, false);
+        releaseHideTabBar(ownerId);
       };
     }, []),
   );

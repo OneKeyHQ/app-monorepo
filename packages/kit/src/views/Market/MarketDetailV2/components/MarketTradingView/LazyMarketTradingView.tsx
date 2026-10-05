@@ -53,13 +53,17 @@ function WebMarketTradingViewLoadingBoundary({
   minHeight,
   onChartError,
   onVisualReady,
+  loadingIdentity: _loadingIdentity,
   ...props
 }: IMarketTradingViewProps & {
   Chart: typeof LazyDesktopMarketTradingViewModule;
   minHeight: number;
+  loadingIdentity?: string;
 }) {
   const [isChartVisible, setIsChartVisible] = useState(false);
   const [showSlowLoading, setShowSlowLoading] = useState(false);
+  const chartLoadingIdentity =
+    _loadingIdentity ?? `${props.networkId}:${props.tokenAddress}`;
 
   useEffect(() => {
     setIsChartVisible(false);
@@ -68,7 +72,7 @@ function WebMarketTradingViewLoadingBoundary({
       setShowSlowLoading(true);
     }, SLOW_CHART_LOADING_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [props.networkId, props.tokenAddress]);
+  }, [chartLoadingIdentity]);
 
   const handleVisualReady = useCallback(() => {
     setIsChartVisible(true);

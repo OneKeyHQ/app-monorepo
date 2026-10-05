@@ -1,3 +1,7 @@
+import { StyleSheet, View } from 'react-native';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { ClassicDevice } from '../ClassicDevice';
 import { MiniDevice } from '../MiniDevice';
 import { ProDevice } from '../ProDevice';
@@ -90,7 +94,31 @@ export interface IHardwareDeviceProps {
    * replaces the single-scene swap grammar (see ../deviceSceneHost).
    */
   warmScenes?: readonly IHardwareDeviceScene[];
+  /**
+   * Soft drop shadow under the replica. It follows the drawn silhouette
+   * rather than the frame: the frame is wider than the body (the side
+   * button sits inside it and each model's chrome differs), so a box
+   * shadow would spill past the shell.
+   */
+  shadow?: boolean;
 }
+
+const SHADOW_OPACITY = 0.35;
+const SHADOW_BLUR = 10;
+const SHADOW_DROP = 8;
+
+const styles = StyleSheet.create({
+  shadow: platformEnv.isNative
+    ? {
+        shadowColor: '#000000',
+        shadowOpacity: SHADOW_OPACITY,
+        shadowRadius: SHADOW_BLUR,
+        shadowOffset: { width: 0, height: SHADOW_DROP },
+      }
+    : {
+        filter: `drop-shadow(0 ${SHADOW_DROP}px ${SHADOW_BLUR}px rgba(0,0,0,${SHADOW_OPACITY}))`,
+      },
+});
 
 /**
  * The routing table: which models draw which replica. The Classic family
@@ -126,10 +154,11 @@ export function HardwareDevice({
   instantEntry,
   paused,
   warmScenes,
+  shadow,
 }: IHardwareDeviceProps) {
   const Replica = deviceType ? REPLICAS[deviceType] : undefined;
   if (!Replica) return null;
-  return (
+  const replica = (
     <Replica
       width={width}
       animation={animation}
@@ -138,4 +167,5 @@ export function HardwareDevice({
       warmScenes={warmScenes}
     />
   );
+  return shadow ? <View style={styles.shadow}>{replica}</View> : replica;
 }

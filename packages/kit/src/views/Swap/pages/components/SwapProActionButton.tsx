@@ -428,6 +428,7 @@ const SwapProActionButton = ({
       variant={isBuy ? 'accent' : 'destructive'}
       size="small"
       childrenAsText={false}
+      height={50}
       py={5}
     >
       {showButtonLoading ? null : (

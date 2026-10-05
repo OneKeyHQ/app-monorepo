@@ -18,6 +18,8 @@ import type { NativeListProps } from '@onekeyfe/react-native-native-list';
 const mockNativeList = jest.fn((_props: NativeListProps) => null);
 const mockRun = jest.fn();
 const mockMissingCount = jest.fn();
+const mockContainerRef = { current: null };
+const mockSectionIndexContainerRef = { current: null };
 const mockNetwork = (id: string): IServerNetworkMatch =>
   ({ id, name: id, isTestnet: false }) as IServerNetworkMatch;
 const mockNetworks = [mockNetwork('a'), mockNetwork('b'), mockNetwork('c')];
@@ -49,6 +51,7 @@ const mockPresentation = {
 let mockMissingNetworks = [{ networkId: 'a' }];
 let mockSearch = '';
 let mockIsNative = false;
+let mockIsDesktop = false;
 let mockState = {
   enabledNetworks: { a: true } as Record<string, boolean>,
   disabledNetworks: {} as Record<string, boolean>,
@@ -70,6 +73,9 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   default: {
     get isNative() {
       return mockIsNative;
+    },
+    get isDesktop() {
+      return mockIsDesktop;
     },
   },
 }));
@@ -123,7 +129,7 @@ jest.mock('./useNetworkListPresentationV2', () => ({
   useNetworkListPresentationV2: () => mockPresentation,
 }));
 jest.mock('./useNetworkTooltipV2', () => ({
-  useNetworkTooltipV2: () => ({}),
+  useNetworkTooltipV2: () => ({ containerRef: mockContainerRef }),
 }));
 
 type IContextValueV2 = ComponentProps<
@@ -182,7 +188,9 @@ function HarnessV2({
   );
   return (
     <AllNetworksManagerContext.Provider value={value}>
-      <NetworksSectionListV2 />
+      <NetworksSectionListV2
+        webSectionIndexContainerRef={mockSectionIndexContainerRef}
+      />
     </AllNetworksManagerContext.Provider>
   );
 }
@@ -198,6 +206,7 @@ describe('portfolio NativeList selection adapter V2', () => {
     jest.clearAllMocks();
     mockSearch = '';
     mockIsNative = false;
+    mockIsDesktop = false;
     mockMissingNetworks = [{ networkId: 'a' }];
     mockState = { enabledNetworks: { a: true }, disabledNetworks: {} };
   });
@@ -233,6 +242,27 @@ describe('portfolio NativeList selection adapter V2', () => {
     expect(
       getNativePropsV2().snapshot.capabilities?.sectionIndex?.centeredInWindow,
     ).toBe(true);
+  });
+
+  it('hosts the section index in the list container on web', () => {
+    render(<HarnessV2 />);
+    expect(
+      getNativePropsV2().snapshot.capabilities?.sectionIndex?.centeredInWindow,
+    ).toBe(true);
+    expect(getNativePropsV2().webSectionIndexContainerRef).toBe(
+      mockSectionIndexContainerRef,
+    );
+  });
+
+  it('centers the section index in the window on desktop', () => {
+    mockIsDesktop = true;
+    render(<HarnessV2 />);
+    expect(
+      getNativePropsV2().snapshot.capabilities?.sectionIndex?.centeredInWindow,
+    ).toBe(true);
+    expect(getNativePropsV2().webSectionIndexContainerRef).toBe(
+      mockSectionIndexContainerRef,
+    );
   });
 
   it('deselects a partial selection before selecting all compatible networks', () => {

@@ -14,7 +14,7 @@ const UTXODetails = LazyLoadPage(() => import('../pages/UTXODetails'));
 const MarketDetail = LazyLoadPage(() =>
   platformEnv.isNative
     ? import('../pages/NativeMarketDetail')
-    : import('../../Market/LegacyMarketDetailRoute'),
+    : import('../pages/MarketDetail'),
 );
 const MarketChart = LazyLoadPage(() => import('../pages/MarketChart'));
 const DeFiProtocolDetails = LazyLoadPage(

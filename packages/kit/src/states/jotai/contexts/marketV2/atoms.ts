@@ -23,9 +23,15 @@ import type { IMarketSelectedDeriveType } from './marketDeriveType';
 const {
   Provider: ProviderJotaiContextMarketV2,
   contextAtom,
+  contextAtomComputed,
   contextAtomMethod,
+  useContextData: useMarketV2ContextData,
 } = createJotaiContext();
-export { ProviderJotaiContextMarketV2, contextAtomMethod };
+export {
+  ProviderJotaiContextMarketV2,
+  contextAtomMethod,
+  useMarketV2ContextData,
+};
 
 export const { atom: basicMarketWatchListV2Atom, useContextAtom } =
   contextAtom<IMarketWatchListDataV2>({ data: [] });
@@ -43,6 +49,9 @@ export const { atom: tokenDetailAtom, use: useTokenDetailAtom } = contextAtom<
   IMarketTokenDetail | undefined
 >(undefined);
 
+export const { atom: tokenDetailSymbolAtom, use: useTokenDetailSymbolAtom } =
+  contextAtomComputed((get) => get(tokenDetailAtom())?.symbol);
+
 export const { atom: tokenDetailPreviewAtom, use: useTokenDetailPreviewAtom } =
   contextAtom<IMarketTokenDetailPreview | undefined>(undefined);
 
@@ -50,6 +59,13 @@ export const { atom: tokenDetailLoadingAtom, use: useTokenDetailLoadingAtom } =
   contextAtom<boolean>(false);
 
 export const { atom: tokenDetailRequestIdAtom } = contextAtom<number>(0);
+
+// Which SWR scope the detail in `tokenDetailAtom` belongs to. The scope
+// carries the currency and locale, so the same token in another language is a
+// different scope and its cached copy still has to be seeded.
+export const { atom: tokenDetailSwrScopeAtom } = contextAtom<
+  string | undefined
+>(undefined);
 
 export const {
   atom: tokenDetailWebsocketAtom,

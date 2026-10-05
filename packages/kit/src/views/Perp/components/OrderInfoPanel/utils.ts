@@ -161,6 +161,10 @@ export const getFillDirectionDisplayInfo = ({
     text = intl.formatMessage({ id: ETranslations.perp_order_close_long });
   } else if (directionType === 'closeShort') {
     text = intl.formatMessage({ id: ETranslations.perp_order_close_short });
+  } else if (fill.dir?.trim().toLowerCase() === 'settlement') {
+    text = intl.formatMessage({
+      id: ETranslations.perp_trade_settlement__title,
+    });
   }
 
   if (fill.side === 'A') {

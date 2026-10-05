@@ -3119,6 +3119,212 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
     ).toBe(true);
   });
 
+  test('admits a fee replacement without reopening the original send claim', async () => {
+    const { entity, read } = createSessionStore({
+      infiniPendingPaymentSessionByUserId: {
+        'user-1': {
+          ...session,
+          sendStarted: true,
+          schemaVersion: 2,
+          updatedAt: Date.now(),
+        },
+      },
+    });
+    const args = {
+      onekeyUserId: 'user-1',
+      paymentCacheKey: session.paymentCacheKey,
+      transferClaim,
+      latestPayment: session.payment,
+      purchaseStatusSnapshot,
+    };
+    await expect(
+      entity.markInfiniPendingPaymentSessionSendStarted(args),
+    ).rejects.toThrow('unavailable before broadcast');
+    await expect(
+      entity.markInfiniPendingPaymentSessionSendStarted({
+        ...args,
+        mode: 'speedUp',
+      }),
+    ).resolves.toMatchObject({ sendStarted: true });
+    expect(
+      read().infiniPendingPaymentSessionByUserId?.['user-1']?.sendStarted,
+    ).toBe(true);
+    await expect(
+      entity.markInfiniPendingPaymentSessionSendStarted(args),
+    ).rejects.toThrow('unavailable before broadcast');
+  });
+
+  test('replacement admission cannot claim an unsent invoice', async () => {
+    const { entity, read } = createSessionStore({
+      infiniPendingPaymentSessionByUserId: {
+        'user-1': { ...session, schemaVersion: 2, updatedAt: Date.now() },
+      },
+    });
+    await expect(
+      entity.markInfiniPendingPaymentSessionSendStarted({
+        onekeyUserId: 'user-1',
+        paymentCacheKey: session.paymentCacheKey,
+        transferClaim,
+        latestPayment: session.payment,
+        purchaseStatusSnapshot,
+        mode: 'speedUp',
+      }),
+    ).rejects.toThrow('unavailable before broadcast');
+    expect(
+      read().infiniPendingPaymentSessionByUserId?.['user-1']?.sendStarted,
+    ).toBe(false);
+  });
+
+  test('replacement admission invalidates a terminal discard captured in the same millisecond', async () => {
+    const now = Date.now();
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(now);
+    try {
+      const { entity } = createSessionStore({
+        infiniPendingPaymentSessionByUserId: {
+          'user-1': {
+            ...session,
+            sendStarted: true,
+            schemaVersion: 2,
+            updatedAt: now,
+          },
+        },
+      });
+      await entity.markInfiniPendingPaymentSessionSendStarted({
+        onekeyUserId: 'user-1',
+        paymentCacheKey: session.paymentCacheKey,
+        transferClaim,
+        latestPayment: session.payment,
+        purchaseStatusSnapshot,
+        mode: 'speedUp',
+      });
+      await expect(
+        entity.discardTerminalInfiniPendingPaymentSession({
+          onekeyUserId: 'user-1',
+          expectedPaymentCacheIdentity: session.paymentCacheKey,
+          expectedUpdatedAt: now,
+          expectedSendStarted: true,
+          latestPayment: { ...session.payment, status: 'expired' },
+        }),
+      ).resolves.toBe(false);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  test.each([
+    { name: 'expired', payment: { ...session.payment, expiresAt: 0 } },
+    { name: 'failed', payment: { ...session.payment, status: 'failed' } },
+    {
+      name: 'recipient changed',
+      payment: { ...session.payment, address: '0xother' },
+    },
+    {
+      name: 'amount changed',
+      payment: { ...session.payment, amountDue: '20' },
+    },
+    {
+      name: 'confirming',
+      payment: { ...session.payment, amountConfirming: '1' },
+    },
+  ])(
+    'applies the shared invoice checks to speed-up: $name',
+    async ({ payment }) => {
+      const { entity } = createSessionStore({
+        infiniPendingPaymentSessionByUserId: {
+          'user-1': {
+            ...session,
+            sendStarted: true,
+            schemaVersion: 2,
+            updatedAt: Date.now(),
+          },
+        },
+      });
+      await expect(
+        entity.markInfiniPendingPaymentSessionSendStarted({
+          onekeyUserId: 'user-1',
+          paymentCacheKey: session.paymentCacheKey,
+          transferClaim,
+          latestPayment: payment,
+          purchaseStatusSnapshot,
+          mode: 'speedUp',
+        }),
+      ).rejects.toThrow('unavailable before broadcast');
+    },
+  );
+
+  test('rejects a replacement when the payment binding or purchase entitlement changed', async () => {
+    const { entity } = createSessionStore({
+      infiniPendingPaymentSessionByUserId: {
+        'user-1': {
+          ...session,
+          sendStarted: true,
+          schemaVersion: 2,
+          updatedAt: Date.now(),
+        },
+      },
+    });
+    const args = {
+      onekeyUserId: 'user-1',
+      paymentCacheKey: session.paymentCacheKey,
+      transferClaim,
+      latestPayment: session.payment,
+      purchaseStatusSnapshot,
+      mode: 'speedUp' as const,
+    };
+    await expect(
+      entity.markInfiniPendingPaymentSessionSendStarted({
+        ...args,
+        paymentCacheKey: {
+          ...session.paymentCacheKey,
+          bindingId: 'another-binding',
+        },
+      }),
+    ).rejects.toThrow('unavailable before broadcast');
+    await expect(
+      entity.markInfiniPendingPaymentSessionSendStarted({
+        ...args,
+        purchaseStatusSnapshot: {
+          ...purchaseStatusSnapshot,
+          primeSubscription: { isActive: true, expiresAt: Date.now() + 60_000 },
+        },
+      }),
+    ).rejects.toThrow('unavailable before broadcast');
+  });
+
+  test('finds legacy payment bindings in expired and superseded records without retiring them', async () => {
+    const oldSession: IPrimeInfiniPendingPaymentSession = {
+      ...session,
+      sendStarted: true,
+      schemaVersion: 2,
+      updatedAt: 0,
+    };
+    for (const stored of [
+      { infiniPendingPaymentSessionByUserId: { 'user-1': oldSession } },
+      {
+        infiniSupersededPaymentSessionsByUserId: {
+          'user-1': [
+            {
+              ...oldSession,
+              supersededAt: 1,
+              supersededReason: 'user-forced-replacement' as const,
+            },
+          ],
+        },
+      },
+    ]) {
+      const { entity, read } = createSessionStore(stored);
+      await expect(
+        entity.findInfiniPaymentForTransfer({ transferClaim }),
+      ).resolves.toMatchObject({ paymentCacheKey: session.paymentCacheKey });
+      await expect(
+        entity.findInfiniPaymentForTransfer({
+          transferClaim: { ...transferClaim, toAddress: '0xother' },
+        }),
+      ).resolves.toBeUndefined();
+      expect(read()).toEqual(stored);
+    }
+  });
+
   test.each([
     ['network', { networkId: 'evm--10' }],
     ['account', { accountId: 'hd-1--1' }],

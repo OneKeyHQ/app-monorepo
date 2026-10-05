@@ -60,23 +60,19 @@ export async function bootstrapNativeStorage({
     : bootstrapNativeSyncStorageMirrors());
 }
 
-// Reads the bg-proxied contextAtom snapshot into `__ONEKEY_CTX_ATOM_SNAPSHOT__`
+// Reads the contextAtom snapshot into `__ONEKEY_CTX_ATOM_SNAPSHOT__`
 // and starts the cold-start image prewarm. Must run AFTER the travel-mode
 // runtime launch is acknowledged: until then every synchronous storage read
 // is masked (returns undefined), so reading the snapshot inside
 // `bootstrapNativeStorage` silently found nothing (OK-61505).
 export function hydrateColdStartSnapshotAfterRuntimeLaunch() {
   try {
-    const { coldStartCacheStorage } =
-      require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
-    const { EAppSyncStorageKeys } =
-      require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
-    const raw = coldStartCacheStorage.getString(
-      EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
-    );
+    const { readContextAtomSnapshotRaw } =
+      require('@onekeyhq/shared/src/storage/uiSnapshotCaches') as typeof import('@onekeyhq/shared/src/storage/uiSnapshotCaches');
+    const raw = readContextAtomSnapshotRaw();
     if (!raw) {
       writeBootstrapLog(
-        '[StartupTiming] bg-proxied contextAtom snapshot absent, cold-start image prewarm skipped',
+        '[StartupTiming] contextAtom snapshot absent, cold-start image prewarm skipped',
       );
       return;
     }
@@ -97,7 +93,7 @@ export function hydrateColdStartSnapshotAfterRuntimeLaunch() {
     }
 
     writeBootstrapLog(
-      `[StartupTiming] bg-proxied contextAtom snapshot hydrated: ${Object.keys(snapshot).length} keys (+${Date.now() - ((globalThis as any).__ONEKEY_MAIN_ENTRY_START__ as number)}ms)`,
+      `[StartupTiming] contextAtom snapshot hydrated: ${Object.keys(snapshot).length} keys (+${Date.now() - ((globalThis as any).__ONEKEY_MAIN_ENTRY_START__ as number)}ms)`,
     );
 
     const { warmCriticalIcons } =

@@ -10,11 +10,13 @@ import {
   Page,
   SizableText,
   XStack,
+  YStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -29,6 +31,7 @@ import {
 
 function TokenDetailsFooter(props: {
   isNative?: boolean;
+  isAggregateToken?: boolean;
   networkId: string;
   networkName?: string;
   symbol?: string;
@@ -37,6 +40,7 @@ function TokenDetailsFooter(props: {
 }) {
   const {
     isNative,
+    isAggregateToken,
     networkId,
     networkName,
     symbol,
@@ -78,6 +82,12 @@ function TokenDetailsFooter(props: {
     if (marketNavigationTarget?.type === 'detail') {
       navigation.push(EModalAssetDetailRoutes.MarketDetail, {
         token: marketNavigationTarget.token,
+        preferredToken:
+          !isAggregateToken &&
+          !networkUtils.isAllNetwork({ networkId }) &&
+          (isNative || Boolean(tokenAddress))
+            ? { networkId, tokenAddress: tokenAddress ?? '', isNative }
+            : undefined,
       });
     } else if (marketNavigationTarget?.type === 'chart') {
       navigation.push(EModalAssetDetailRoutes.MarketChart, {
@@ -89,7 +99,14 @@ function TokenDetailsFooter(props: {
         tokenImageUri: marketNavigationTarget.tokenImageUri,
       });
     }
-  }, [marketNavigationTarget, navigation]);
+  }, [
+    isAggregateToken,
+    isNative,
+    marketNavigationTarget,
+    navigation,
+    networkId,
+    tokenAddress,
+  ]);
 
   const priceChangeColor = useMemo(() => {
     const priceChangeBN = new BigNumber(tokenMetadata?.priceChange24h ?? 0);
@@ -116,45 +133,50 @@ function TokenDetailsFooter(props: {
 
   return (
     <Page.Footer safeAreaBottomMode="content">
-      <XStack
-        testID={AssetDetailsTestIDs.marketFooter}
-        alignItems="center"
-        px="$5"
-        pt="$3"
-        pb={bottom || '$3'}
+      <YStack
         backgroundColor="$bgSubdued"
-        borderTopWidth={StyleSheet.hairlineWidth}
-        borderTopColor="$borderSubdued"
-        userSelect="none"
-        onPress={marketNavigationTarget ? handleMarketPress : undefined}
-        {...(marketNavigationTarget ? listItemPressStyle : null)}
+        pb={platformEnv.isNativeAndroid ? bottom : 0}
       >
-        <SizableText flex={1} size="$bodyMd">
-          {intl.formatMessage({ id: ETranslations.global_market })}
-        </SizableText>
-        <XStack alignItems="center" gap="$2">
-          <Currency
-            size="$bodyMd"
-            formatter="price"
-            sourceCurrency={tokenMetadata.currency}
-          >
-            {tokenMetadata.price}
-          </Currency>
-          <NumberSizeableText
-            size="$bodyMd"
-            formatter="priceChange"
-            formatterOptions={{
-              showPlusMinusSigns: true,
-            }}
-            color={priceChangeColor}
-          >
-            {tokenMetadata.priceChange24h}
-          </NumberSizeableText>
-          {marketNavigationTarget ? (
-            <Icon name="ChevronRightSmallOutline" color="$iconSubdued" />
-          ) : null}
+        <XStack
+          testID={AssetDetailsTestIDs.marketFooter}
+          alignItems="center"
+          px="$5"
+          pt="$3"
+          pb={platformEnv.isNativeAndroid ? '$3' : bottom || '$3'}
+          backgroundColor="$bgSubdued"
+          borderTopWidth={StyleSheet.hairlineWidth}
+          borderTopColor="$borderSubdued"
+          userSelect="none"
+          onPress={marketNavigationTarget ? handleMarketPress : undefined}
+          {...(marketNavigationTarget ? listItemPressStyle : null)}
+        >
+          <SizableText flex={1} size="$bodyMd">
+            {intl.formatMessage({ id: ETranslations.global_market })}
+          </SizableText>
+          <XStack alignItems="center" gap="$2">
+            <Currency
+              size="$bodyMd"
+              formatter="price"
+              sourceCurrency={tokenMetadata.currency}
+            >
+              {tokenMetadata.price}
+            </Currency>
+            <NumberSizeableText
+              size="$bodyMd"
+              formatter="priceChange"
+              formatterOptions={{
+                showPlusMinusSigns: true,
+              }}
+              color={priceChangeColor}
+            >
+              {tokenMetadata.priceChange24h}
+            </NumberSizeableText>
+            {marketNavigationTarget ? (
+              <Icon name="ChevronRightSmallOutline" color="$iconSubdued" />
+            ) : null}
+          </XStack>
         </XStack>
-      </XStack>
+      </YStack>
     </Page.Footer>
   );
 }

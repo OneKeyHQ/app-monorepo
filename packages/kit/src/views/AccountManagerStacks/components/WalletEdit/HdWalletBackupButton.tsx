@@ -4,6 +4,7 @@ import { ActionList } from '@onekeyhq/components';
 import { WalletBackupActions } from '@onekeyhq/kit/src/components/WalletBackup';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { AccountManagerTestIDs } from '../../testIDs';
 
@@ -19,6 +20,7 @@ export function HdWalletBackupButton({
     <WalletBackupActions
       wallet={wallet}
       actionListProps={{
+        nativeSheet: platformEnv.isNative,
         offset: {
           mainAxis: 0,
           crossAxis: 18,

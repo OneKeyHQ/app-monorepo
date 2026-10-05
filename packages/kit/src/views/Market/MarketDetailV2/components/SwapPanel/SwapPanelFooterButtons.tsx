@@ -8,9 +8,10 @@ import { MarketTestIDs } from '../../../testIDs';
 type IProps = {
   onTrade: () => void;
   onInstant: () => void;
+  disabled?: boolean;
 };
 
-function SwapPanelFooterButtons({ onTrade, onInstant }: IProps) {
+function SwapPanelFooterButtons({ onTrade, onInstant, disabled }: IProps) {
   const intl = useIntl();
   return (
     <XStack gap="$2.5">
@@ -19,6 +20,7 @@ function SwapPanelFooterButtons({ onTrade, onInstant }: IProps) {
         size="large"
         variant="secondary"
         flex={1}
+        disabled={disabled}
         onPress={onTrade}
       >
         {intl.formatMessage({ id: ETranslations.dexmarket_details_trade })}
@@ -28,6 +30,7 @@ function SwapPanelFooterButtons({ onTrade, onInstant }: IProps) {
         size="large"
         variant="accent"
         flex={1}
+        disabled={disabled}
         onPress={onInstant}
         icon="FlashSolid"
       >

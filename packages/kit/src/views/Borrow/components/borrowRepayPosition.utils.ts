@@ -120,7 +120,9 @@ export function shouldUseAaveNativeGateway({
 }) {
   const networkIdsMap = getNetworkIdsMap();
   return (
-    (networkId === networkIdsMap.eth || networkId === networkIdsMap.base) &&
+    (networkId === networkIdsMap.eth ||
+      networkId === networkIdsMap.base ||
+      networkId === networkIdsMap.arbitrum) &&
     providerName?.toLowerCase() === EBorrowProviderEnum.Aave &&
     reserveAddress === ''
   );

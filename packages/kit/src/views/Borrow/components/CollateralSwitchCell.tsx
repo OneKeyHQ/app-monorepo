@@ -11,6 +11,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Dialog,
+  ESwitchSize,
   SizableText,
   Spinner,
   Stack,
@@ -27,6 +28,7 @@ import {
 import { waitForTxFinalStatus } from '@onekeyhq/kit/src/utils/waitForTxFinalStatus';
 import { buildBorrowTag } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
@@ -181,13 +183,17 @@ function showCollateralConfirmDialog(params: {
   });
 }
 
+// A handler that only needs to exist: attaching one makes its view the
+// responder claimant on native.
+const noop = () => {};
+
 // Self-contained on purpose: TableList's memo comparator stringifies column
 // defs (functions dropped), so render-time state must live in the mounted
 // cell, never in column-def closures.
 export function CollateralSwitchCell({
   item,
   eModeId,
-  size = 'small',
+  size = ESwitchSize.extraSmall,
 }: {
   item: ISuppliedAsset;
   eModeId?: number;
@@ -654,27 +660,41 @@ export function CollateralSwitchCell({
 
   if (!render || !market || !accountId) return null;
 
+  const isSwitchDisabled =
+    previewLoading ||
+    isNativeActionUnsupported ||
+    disabled ||
+    (!value && requiresEModeId && eModeId === undefined);
+  // Attaching any handler is the whole point: it makes this view the responder
+  // claimant. See the wrapper below for when that is needed.
+  const claimNativeTouch = isSwitchDisabled ? noop : undefined;
+
   return (
     <Stack
       position="relative"
       ai="center"
       jc="center"
-      onPress={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      }}
+      // Keep the compact Switch's own hit target intact. The shared Switch
+      // uses the platform control by default, matching Swap's privacy mode;
+      // adding a padded halo here would put the target outside the parent on
+      // Android and swallow the desktop table's row press on web.
+      //
+      // Absorb taps while disabled to keep the position card underneath from
+      // expanding. The enabled path remains owned by the Switch itself.
+      onPress={
+        platformEnv.isNative
+          ? claimNativeTouch
+          : (e) => {
+              e.stopPropagation();
+            }
+      }
     >
       <Stack opacity={previewLoading ? 0 : 1}>
         <Switch
           testID={BorrowTestIDs.suppliedCollateralSwitch}
           value={value}
           size={size}
-          disabled={
-            previewLoading ||
-            isNativeActionUnsupported ||
-            disabled ||
-            (!value && requiresEModeId && eModeId === undefined)
-          }
+          disabled={isSwitchDisabled}
           onChange={handleToggle}
         />
       </Stack>

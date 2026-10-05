@@ -7,6 +7,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 
 import LegacyMarketDetailRoute from './LegacyMarketDetailRoute';
+import { getLegacyMarketDetailV2RouteParams } from './utils/legacyMarketNetwork';
 
 const mockRetry = jest.fn();
 const mockUsePromiseResult = jest.mocked(usePromiseResult);
@@ -79,6 +80,35 @@ describe('LegacyMarketDetailRoute', () => {
       isLoading: false,
       run: mockRetry,
     } as never);
+  });
+
+  it('forwards the caller identity when converting the legacy route to V2', () => {
+    const preferredToken = {
+      networkId: 'evm--747474',
+      tokenAddress: '0xKatana',
+    };
+    const legacyDetail = { symbol: 'vbUSDC' };
+    mockUsePromiseResult.mockReturnValue({
+      result: { status: 'success', data: legacyDetail },
+      isLoading: false,
+      run: mockRetry,
+      setResult: jest.fn(),
+      setStopPolling: jest.fn(),
+    });
+    const props = {
+      route: {
+        key: 'legacy-market-detail',
+        name: 'MarketDetail',
+        params: { token: 'vault-bridge-usdc', preferredToken },
+      },
+      navigation: {},
+    } as unknown as ComponentProps<typeof LegacyMarketDetailRoute>;
+    render(<LegacyMarketDetailRoute {...props} />);
+    expect(getLegacyMarketDetailV2RouteParams).toHaveBeenCalledWith({
+      marketTokenId: 'vault-bridge-usdc',
+      token: legacyDetail,
+      preferredToken,
+    });
   });
 
   it('shows a retry action when the legacy detail request fails', () => {

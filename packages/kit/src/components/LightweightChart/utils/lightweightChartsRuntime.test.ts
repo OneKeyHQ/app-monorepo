@@ -164,6 +164,25 @@ describe('getLightweightChartsRuntimeScriptTag', () => {
     expect(html).toContain('getHistogramSeriesOptions(nextConfig)');
   });
 
+  it('passes the tail gap to the native time scale', () => {
+    const html = generateChartHTML({
+      data: [{ time: 1 as UTCTimestamp, value: 1 }],
+      lineWidth: 2,
+      timeScaleRightOffsetPixels: 16,
+      theme: {
+        bgColor: '#000000',
+        textSubduedColor: '#999999',
+        lineColor: '#00aa00',
+        topColor: 'transparent',
+        bottomColor: 'transparent',
+      },
+    });
+
+    expect(html).toContain('"timeScaleRightOffsetPixels":16');
+    expect(html).toContain('fixRightEdge: rightGap <= 0');
+    expect(html).toContain('options.rightOffsetPixels = rightGap');
+  });
+
   it('preserves native adaptive tick labels when no time zone is provided', () => {
     const html = generateChartHTML({
       data: [{ time: 1 as UTCTimestamp, value: 1 }],
@@ -312,5 +331,5 @@ it('embeds and selects compact prices in the native chart', () => {
   expect(
     runInNewContext(`${html.slice(start, end)};
     getPriceFormatter({compactPriceMaxCharacters: 7})(-1.23456789e-30)`),
-  ).toBe('-$0.0₂₉...');
+  ).toBe('-$0.0₂₉12');
 });

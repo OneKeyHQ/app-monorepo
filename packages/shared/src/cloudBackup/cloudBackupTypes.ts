@@ -47,7 +47,7 @@ export type IBackupProviderAccountInfo = {
     cloudKitContainerUserId: string | null;
     cloudFsAvailable: boolean | undefined;
     cloudKitAvailable: boolean;
-    keychainCloudSyncEnabled: boolean;
+    keychainCloudSyncEnabled?: boolean;
   };
   googleDrive?: {
     email?: string;

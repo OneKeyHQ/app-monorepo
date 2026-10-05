@@ -278,6 +278,7 @@ function buildAccountDisplaySummaryCache(
     totalMarginUsed: summary.totalMarginUsed,
     crossAccountValue: summary.crossAccountValue,
     crossMaintenanceMarginUsed: summary.crossMaintenanceMarginUsed,
+    isolatedMarginUsed: summary.isolatedMarginUsed,
     totalNtlPos: summary.totalNtlPos,
     totalRawUsd: summary.totalRawUsd,
     withdrawable: summary.withdrawable,

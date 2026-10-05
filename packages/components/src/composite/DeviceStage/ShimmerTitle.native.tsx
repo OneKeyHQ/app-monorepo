@@ -14,8 +14,10 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { useTheme } from '../../hooks/useStyle';
 import { SizableText, Stack } from '../../primitives';
 
+import type { ISizableTextProps } from '../../primitives';
 import type { LayoutChangeEvent } from 'react-native';
 
 /**
@@ -33,11 +35,17 @@ const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 const BAND_WIDTH = 72;
 /** One full sweep across the words. */
 const SWEEP_MS = 1400;
-const BAND_COLORS = [
-  'rgba(255,255,255,0)',
-  '#FFFFFF',
-  'rgba(255,255,255,0)',
-] as const;
+const WHITE_BAND = '#FFFFFF';
+
+/**
+ * The band's edges must fade to the band's own color at alpha 0: fading to
+ * plain `transparent` (black at alpha 0) greys the ramp on iOS. Theme
+ * colors here are 6- or 8-digit hex; anything else falls back.
+ */
+function bandEdge(color: string) {
+  const hex = /^#([0-9a-f]{6})(?:[0-9a-f]{2})?$/i.exec(color);
+  return hex ? `#${hex[1]}00` : 'transparent';
+}
 
 const GRADIENT_START = { x: 0, y: 0.5 };
 const GRADIENT_END = { x: 1, y: 0.5 };
@@ -55,13 +63,28 @@ const styles = StyleSheet.create({
 export function ShimmerTitle({
   children,
   paused,
+  size = '$headingMd',
+  band = 'white',
 }: {
   children: string;
   /** The sweep stands down (band parked off the words) while the title
    * is mounted but hidden; clearing it restarts the sweep from the left. */
   paused?: boolean;
+  /** Text size; the capsule's heading by default. */
+  size?: ISizableTextProps['size'];
+  /**
+   * The bright band: plain white (the capsule's look) or the theme's
+   * text color, for titles that sit on the page surface.
+   */
+  band?: 'white' | 'text';
 }) {
   const reducedMotion = useReducedMotion();
+  const theme = useTheme();
+  const bandColor = band === 'text' ? theme.text.val : WHITE_BAND;
+  const bandColors = useMemo(
+    () => [bandEdge(bandColor), bandColor, bandEdge(bandColor)] as const,
+    [bandColor],
+  );
   const [textWidth, setTextWidth] = useState(0);
   const handleTextLayout = useCallback((event: LayoutChangeEvent) => {
     setTextWidth(Math.ceil(event.nativeEvent.layout.width));
@@ -94,12 +117,12 @@ export function ShimmerTitle({
     [bandMotionStyle],
   );
   const maskElement = useMemo(
-    () => <SizableText size="$headingMd">{children}</SizableText>,
-    [children],
+    () => <SizableText size={size}>{children}</SizableText>,
+    [children, size],
   );
   if (reducedMotion) {
     return (
-      <SizableText size="$headingMd" color="$textSubdued">
+      <SizableText size={size} color="$textSubdued">
         {children}
       </SizableText>
     );
@@ -108,7 +131,7 @@ export function ShimmerTitle({
     <MaskedView maskElement={maskElement}>
       {/* Invisible twin: sizes the masked box to the words. */}
       <Stack opacity={0} onLayout={handleTextLayout}>
-        <SizableText size="$headingMd">{children}</SizableText>
+        <SizableText size={size}>{children}</SizableText>
       </Stack>
       {/* The resting ink: the theme's own subdued text color; the band
           brightens it as it passes. */}
@@ -121,7 +144,7 @@ export function ShimmerTitle({
         backgroundColor="$textSubdued"
       />
       <AnimatedLinearGradient
-        colors={BAND_COLORS}
+        colors={bandColors}
         start={GRADIENT_START}
         end={GRADIENT_END}
         style={bandStyle}

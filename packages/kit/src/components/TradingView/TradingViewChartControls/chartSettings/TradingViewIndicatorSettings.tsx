@@ -35,6 +35,7 @@ export type ITradingViewIndicatorSettingsProps = {
   /** Set to null to allow any number of active sub-indicators. */
   maxActiveSubIndicatorCount?: number | null;
   displayMode?: 'focused' | 'full';
+  mobileLayout?: boolean;
   initialIndicatorId?: string;
   isSubmitting?: boolean;
   /** Called when the editable draft changes. */
@@ -77,6 +78,7 @@ export function TradingViewIndicatorSettings({
   createDefaultValue = createTradingViewIndicatorSettingsValue,
   maxActiveSubIndicatorCount = TRADING_VIEW_MAX_ACTIVE_SUB_INDICATORS,
   displayMode = 'full',
+  mobileLayout = false,
   initialIndicatorId,
   isSubmitting = false,
   onChange,
@@ -292,6 +294,7 @@ export function TradingViewIndicatorSettings({
   return (
     <TradingViewIndicatorSettingsDialog
       displayMode={displayMode}
+      mobileLayout={mobileLayout}
       value={normalizedSettingsValue}
       maxActiveSubIndicatorCount={normalizedMaxActiveSubIndicatorCount}
       selectedIndicatorScope={selectedIndicatorScope}

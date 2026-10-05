@@ -3,6 +3,7 @@ import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 import type {
   IMarketBasicConfigHomeTab,
   IMarketPerpsTokenFromServer,
+  IMarketStockPublicItem,
   IMarketTokenListItem,
 } from '@onekeyhq/shared/types/marketV2';
 
@@ -133,6 +134,25 @@ function mapMarketPerpsTokenToDisplay({
   };
 }
 
+function mapMarketStockToDisplay(
+  item: IMarketStockPublicItem,
+): IFavoriteTokenDisplay {
+  return {
+    stockId: item.stockId,
+    chainId: '',
+    contractAddress: '',
+    isNative: false,
+    symbol: item.symbol,
+    name: item.name,
+    logoUrl: item.logoUrl,
+    stockListingName: item.name,
+    price: parseMarketValue(item.price) ?? 0,
+    priceChange24h: parseMarketValue(item.priceChange24hPercent) ?? 0,
+    marketCap: parseMarketValue(item.marketCap) ?? 0,
+    volume24h: parseMarketValue(item.volume24h) ?? 0,
+  };
+}
+
 function mapMarketAssetToDisplay(
   item: IMarketAssetListItem,
 ): IFavoriteTokenDisplay {
@@ -202,5 +222,6 @@ export {
   getTokenKey,
   mapMarketAssetToDisplay,
   mapMarketPerpsTokenToDisplay,
+  mapMarketStockToDisplay,
   mapMarketTokenToDisplay,
 };

@@ -69,6 +69,24 @@ function BaseScrollView(
   const [restProps, style] = usePropsAndStyle(props, {
     resolveValues: 'auto',
   });
+  const showsScrollIndicator = props.horizontal
+    ? props.showsHorizontalScrollIndicator === true
+    : props.showsVerticalScrollIndicator === true;
+  const scrollViewProps = platformEnv.isNative
+    ? restProps
+    : {
+        ...restProps,
+        // RNW only implements the false case and cannot override the global
+        // scrollbar reset when the indicator prop is true.
+        showsHorizontalScrollIndicator: undefined,
+        showsVerticalScrollIndicator: undefined,
+        dataSet: {
+          ...(restProps as { dataSet?: Record<string, string> }).dataSet,
+          onekeyScrollViewScrollbar: showsScrollIndicator
+            ? 'visible'
+            : 'hidden',
+        },
+      };
   const contentStyle = useStyle(
     contentContainerStyle as Record<string, unknown>,
     {
@@ -101,7 +119,7 @@ function BaseScrollView(
       onScroll={handleScroll}
       // Preserve testID because RNW drops Tamagui's data-testid rewrite.
       testID={testID}
-      {...restProps}
+      {...scrollViewProps}
       refreshControl={platformEnv.isNative ? props.refreshControl : undefined}
     >
       <ScrollViewRefProvider value={value}>{children}</ScrollViewRefProvider>

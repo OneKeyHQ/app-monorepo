@@ -16,12 +16,12 @@ import {
   Form,
   IconButton,
   Input,
-  Portal,
   SizableText,
   Stack,
   XStack,
   YStack,
   onVisibilityStateChange,
+  useThemeName,
 } from '@onekeyhq/components';
 import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import { usePasswordPersistManualLockStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
@@ -38,7 +38,7 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useBiometricAuthInfo } from '../../../hooks/useBiometricAuthInfo';
 import { useHandleAppStateActive } from '../../../hooks/useHandleAppStateActive';
-import { inAppStateLockStyle } from '../../../views/Setting/hooks';
+import { inAppStateLockDialogProps } from '../../../views/Setting/hooks';
 import { useClearInputValueAfterVerified } from '../hooks/useClearInputValueAfterVerified';
 import { getPasswordKeyboardType } from '../utils';
 
@@ -61,6 +61,11 @@ interface IPasswordVerifyProps {
   alertText?: string;
   confirmBtnDisabled?: boolean;
   pageMode?: boolean;
+  // True only while this verify UI is the app-state lock screen. The
+  // lock-screen dialog props target a portal container that only the lock
+  // screen hosts, so a prompt rendered anywhere else must not use them — it
+  // would have nowhere to render.
+  inAppStateLock?: boolean;
 }
 
 export interface IPasswordVerifyForm {
@@ -68,8 +73,23 @@ export interface IPasswordVerifyForm {
   passCode: string;
 }
 
+function PasswordCooldownText({ text }: { text: string }) {
+  const themeName = useThemeName();
+  return (
+    <XStack alignSelf="center" w="$45" h="$10" borderRadius="$2.5">
+      <SizableText
+        size="$bodyMd"
+        color={themeName === 'dark' ? '$textOnColor' : '$textOnBrightColor'}
+      >
+        {text}
+      </SizableText>
+    </XStack>
+  );
+}
+
 function PasswordVerify({
   pageMode,
+  inAppStateLock,
   isEnable,
   alertText,
   confirmBtnDisabled,
@@ -208,9 +228,12 @@ function PasswordVerify({
           Dialog.confirm({
             icon: 'ErrorOutline',
             tone: 'warning',
-            ...inAppStateLockStyle,
-            isOverTopAllViews: true,
-            portalContainer: Portal.Constant.APP_STATE_LOCK_CONTAINER_OVERLAY,
+            // Off the lock screen this takes the default portal, which is
+            // where the passcode prompt that raises it already lives
+            // (PasswordVerifyPromptMount passes no container on native), so
+            // the warning stacks above it as the later child. Only the lock
+            // screen needs a container of its own.
+            ...(inAppStateLock ? inAppStateLockDialogProps : undefined),
             title: intl.formatMessage(
               {
                 id: ETranslations.global_biometric_disabled,
@@ -238,7 +261,7 @@ function PasswordVerify({
       console.error(error);
     }
     return false;
-  }, [authTitle, intl]);
+  }, [authTitle, inAppStateLock, intl]);
 
   useLayoutEffect(() => {
     void (async () => {
@@ -344,13 +367,7 @@ function PasswordVerify({
                 testID="password-input"
               />
             </Form.Field>
-            {alertText ? (
-              <XStack alignSelf="center" w="$45" h="$10" borderRadius="$2.5">
-                <SizableText size="$bodyMd" color="$textOnBrightColor">
-                  {alertText}
-                </SizableText>
-              </XStack>
-            ) : null}
+            {alertText ? <PasswordCooldownText text={alertText} /> : null}
           </>
         ) : (
           <>

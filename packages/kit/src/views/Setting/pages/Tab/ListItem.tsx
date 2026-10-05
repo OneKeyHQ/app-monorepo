@@ -193,6 +193,9 @@ export function TabSettingsListGrid({
     });
   }, [analyticsCategory, analyticsSource]);
   const onPress = useCallback(async () => {
+    if (itemRef.current.ignorePress) {
+      return;
+    }
     await dismissKeyboardWithDelay(100);
     logItemClick();
     const currentItem = itemRef.current;

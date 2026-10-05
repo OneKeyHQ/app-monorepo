@@ -53,7 +53,10 @@ export function emitPrimeSubscriptionPurchaseSuccess(
 
 export async function refreshPrimeUserInfoAfterPurchase() {
   try {
-    await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+    // Checkout can change membership; skip the short-TTL user-info cache.
+    await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo({
+      forceRefresh: true,
+    });
   } catch (error) {
     // RevenueCat is authoritative for purchase completion; the server
     // projection may lag behind its webhook and can be refreshed later.

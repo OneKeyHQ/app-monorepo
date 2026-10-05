@@ -2,9 +2,11 @@
  * @jest-environment jsdom
  */
 
-import { useResetApp } from '.';
+import { inAppStateLockDialogProps, useResetApp } from '.';
 
 import { act, renderHook } from '@testing-library/react';
+
+import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -99,28 +101,101 @@ function getMocks() {
     isAppLocked: jest.requireMock(
       '../../../background/instance/backgroundApiProxy',
     ).__isAppLocked as jest.Mock,
-    platformEnv: jest.requireMock('@onekeyhq/shared/src/platformEnv')
-      .__platformEnv as {
-      isNative: boolean;
-    },
+    resetApp: jest.requireMock(
+      '../../../background/instance/backgroundApiProxy',
+    ).default.serviceApp.resetApp as jest.Mock,
   };
 }
+
+describe('inAppStateLockDialogProps', () => {
+  it('renders lock-screen dialogs inside the lock overlay on every platform', () => {
+    expect(inAppStateLockDialogProps).toMatchObject({
+      isOverTopAllViews: false,
+      portalContainer: 'APP_STATE_LOCK_CONTAINER_OVERLAY',
+    });
+  });
+
+  it('stops the sheet form of a lock-screen dialog from portalling to the body', () => {
+    expect(inAppStateLockDialogProps.sheetProps).toMatchObject({
+      portalProps: { passThrough: true },
+    });
+  });
+});
 
 describe('useResetApp', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    const mocks = getMocks();
-    mocks.isAppLocked.mockResolvedValue(true);
-    mocks.platformEnv.isNative = false;
+    jest.requireMock(
+      '@onekeyhq/shared/src/platformEnv',
+    ).__platformEnv.isNative = false;
+    getMocks().isAppLocked.mockResolvedValue(true);
+    getMocks().resetApp.mockReset();
+    getMocks().resetApp.mockResolvedValue(undefined);
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
   });
 
-  it('keeps the desktop lock-screen reset dialog inside its portal', async () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('opens the lock-screen reset dialog with the lock overlay props', async () => {
     const { result } = renderHook(() => useResetApp({ inAppStateLock: true }));
 
     await act(async () => {
       await result.current();
     });
 
+    expect(getMocks().dialogShow).toHaveBeenCalledWith(
+      expect.objectContaining(inAppStateLockDialogProps),
+    );
+  });
+
+  it('leaves an unlocked reset dialog outside the lock overlay', async () => {
+    const { result } = renderHook(() => useResetApp());
+
+    await act(async () => {
+      await result.current();
+    });
+
+    expect(getMocks().dialogShow).toHaveBeenCalledWith(
+      expect.not.objectContaining({
+        portalContainer: 'APP_STATE_LOCK_CONTAINER_OVERLAY',
+      }),
+    );
+  });
+
+  it('claims no overlay behavior on the unlocked path, on native either', async () => {
+    // `dialogShow` only reads `isOverTopAllViews` alongside a
+    // `portalContainer`, and the unlocked path names none — so passing it
+    // would be an inert prop asserting stacking this dialog does not get.
+    jest.requireMock(
+      '@onekeyhq/shared/src/platformEnv',
+    ).__platformEnv.isNative = true;
+    const { result } = renderHook(() => useResetApp());
+
+    await act(async () => {
+      await result.current();
+    });
+
+    const props = getMocks().dialogShow.mock.calls[0][0] as Record<
+      string,
+      unknown
+    >;
+    expect(props.portalContainer).toBeUndefined();
+    expect(props.isOverTopAllViews).toBeUndefined();
+  });
+
+  it('still hands the lock screen its own container on native', async () => {
+    jest.requireMock(
+      '@onekeyhq/shared/src/platformEnv',
+    ).__platformEnv.isNative = true;
+    const { result } = renderHook(() => useResetApp({ inAppStateLock: true }));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    // The lock-screen props must win over the native default above.
     expect(getMocks().dialogShow).toHaveBeenCalledWith(
       expect.objectContaining({
         isOverTopAllViews: false,
@@ -129,19 +204,39 @@ describe('useResetApp', () => {
     );
   });
 
-  it('preserves the native over-top rendering behavior', async () => {
-    getMocks().platformEnv.isNative = true;
-    const { result } = renderHook(() => useResetApp({ inAppStateLock: true }));
-
+  it('rejects manual confirmation on failure and allows the same dialog to retry', async () => {
+    const resetError = new Error('AppStorage clear failed');
+    getMocks().resetApp.mockRejectedValueOnce(resetError);
+    const { result } = renderHook(() => useResetApp());
     await act(async () => {
       await result.current();
     });
+    const { onConfirm } = getMocks().dialogShow.mock
+      .calls[0][0] as IDialogShowProps;
+    const confirmArgs: Parameters<
+      NonNullable<IDialogShowProps['onConfirm']>
+    >[0] = {
+      close: jest.fn(),
+      preventClose: jest.fn(),
+      getForm: jest.fn(),
+      isExist: jest.fn().mockReturnValue(true),
+    };
 
-    expect(getMocks().dialogShow).toHaveBeenCalledWith(
-      expect.objectContaining({
-        isOverTopAllViews: true,
-        portalContainer: 'APP_STATE_LOCK_CONTAINER_OVERLAY',
-      }),
+    await expect(onConfirm?.(confirmArgs)).rejects.toBe(resetError);
+    await expect(onConfirm?.(confirmArgs)).resolves.toBeUndefined();
+    expect(getMocks().resetApp).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns failure for silent reset so password verification can finish and retry', async () => {
+    getMocks().resetApp.mockRejectedValueOnce(
+      new Error('AppStorage clear failed'),
     );
+    const { result } = renderHook(() => useResetApp({ silentReset: true }));
+
+    await act(async () => {
+      await expect(result.current()).resolves.toBe(false);
+      await expect(result.current()).resolves.toBe(true);
+    });
+    expect(getMocks().resetApp).toHaveBeenCalledTimes(2);
   });
 });

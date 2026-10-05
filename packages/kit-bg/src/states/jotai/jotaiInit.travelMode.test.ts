@@ -195,7 +195,7 @@ describe('Travel Mode Jotai startup', () => {
     await expect(
       atoms.passwordPersistManualLockStateAtom.get(),
     ).resolves.toEqual({ manualLocking: true });
-    expect(jotaiDefaultStore.get(appIsLocked.atom())).toBe(true);
+    expect(jotaiDefaultStore.get(appIsLocked.atom())).toBe(false);
 
     await Promise.resolve(
       jotaiDefaultStore.set(passwordPersistManualLockStateAtom.atom(), {
@@ -221,7 +221,7 @@ describe('Travel Mode Jotai startup', () => {
         manualLocking: true,
       }),
     );
-    expect(jotaiDefaultStore.get(appIsLocked.atom())).toBe(true);
+    expect(jotaiDefaultStore.get(appIsLocked.atom())).toBe(false);
 
     await Promise.resolve(
       jotaiDefaultStore.set(passwordPersistManualLockStateAtom.atom(), {
@@ -234,7 +234,7 @@ describe('Travel Mode Jotai startup', () => {
         appLockDuration: 15,
       })),
     );
-    expect(jotaiDefaultStore.get(appIsLocked.atom())).toBe(true);
+    expect(jotaiDefaultStore.get(appIsLocked.atom())).toBe(false);
 
     await Promise.resolve(
       jotaiDefaultStore.set(passwordPersistManualLockStateAtom.atom(), {
@@ -270,9 +270,7 @@ describe('Travel Mode Jotai startup', () => {
     expect(new Set(physicalReadKeys)).toEqual(
       new Set([passwordKey, manualLockKey, settingsKey, currencyKey]),
     );
-    expect(new Set(physicalWriteKeys)).toEqual(
-      new Set([passwordKey, manualLockKey]),
-    );
+    expect(physicalWriteKeys).toEqual([]);
     expect(getAllKeysSpy).not.toHaveBeenCalled();
     expect(clearAllSpy).not.toHaveBeenCalled();
     expect(legacyStorage.multiGet).not.toHaveBeenCalled();
@@ -294,8 +292,6 @@ describe('Travel Mode Jotai startup', () => {
     expect(JSON.parse(originalGetString(manualLockKey) ?? '')).toEqual({
       manualLocking: true,
     });
-    expect(mockSyncNativeStorageMMKV).toHaveBeenCalledWith(
-      'onekey-jotai-states',
-    );
+    expect(mockSyncNativeStorageMMKV).not.toHaveBeenCalled();
   });
 });

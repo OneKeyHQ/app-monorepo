@@ -1438,7 +1438,7 @@ function MobileTokenSelectorModal({
                 platformEnv.isNativeIOS ? IOS_INITIAL_ROWS_SNAPSHOT_COUNT : 5
               }
               decelerationRate="normal"
-              showsVerticalScrollIndicator
+              showsVerticalScrollIndicator={false}
               nestedScrollEnabled={platformEnv.isNativeAndroid}
               {...tokenSelectorScrollBehaviorProps}
               contentContainerStyle={{

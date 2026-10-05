@@ -19,7 +19,6 @@ import {
   Toast,
   resetAccountManagerStacksModal,
   useSafeAreaInsets,
-  useTheme,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useCreateQrWallet';
@@ -69,7 +68,9 @@ import {
   AccountSelectorMenuActionV2,
 } from './AccountSelectorActionV2';
 import { preloadAccountSelectorAvatarImages } from './accountSelectorAvatarPreload';
-import { EmptyView } from './EmptyView';
+import { buildAccountSelectorValueDisplayScopeKeyV2 } from './accountSelectorValueDisplayCacheV2';
+import { DeprecatedWalletBanner } from './DeprecatedWalletBanner';
+import { EmptyNoAccountsView, EmptyView } from './EmptyView';
 import { useAddAccount } from './hooks/useAddAccount';
 import { useAccountSelectorValuesLoaderV2 } from './useAccountSelectorValuesLoaderV2';
 import { WalletDetailsHeader } from './WalletDetailsHeader';
@@ -79,6 +80,9 @@ import type { IAccountEditActionListV2Props } from './AccountEditActionListV2';
 
 const INITIAL_ACCOUNT_IMAGE_PRELOAD_COUNT = 16;
 const ACCOUNT_IMAGE_PRELOAD_BUDGET_MS = 200;
+// Longest a switched wallet waits for its avatars and first-screen balances
+// before it is presented anyway.
+const ACCOUNT_PRESENTATION_BUDGET_MS = 300;
 
 async function preloadAccountSelectorImages(
   sources: readonly ImageSource[],
@@ -341,13 +345,41 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
     });
     return sectionDataFiltered;
   }, [sectionDataOriginal, searchText, accountAddressMap, addressMapLoading]);
+  // NativeList action titles are single-line, so empty-section messages are
+  // rendered by React above the list where they can wrap.
+  const emptySections = useMemo(
+    () =>
+      sectionData.filter(
+        (section) => !section.data.length && !!section.emptyText,
+      ),
+    [sectionData],
+  );
 
   // Load account values asynchronously in batches via atoms, scoped by selector num
-  useAccountSelectorValuesLoaderV2({
+  const { valuesLoaded } = useAccountSelectorValuesLoaderV2({
     num,
     accountsForValuesQuery: listDataResult?.accountsForValuesQuery,
     linkedNetworkId,
   });
+  const valueDisplayCacheKey = useMemo(
+    () =>
+      selectedAccount?.focusedWallet
+        ? swrKeys.accountSelectorValues({
+            walletId: selectedAccount.focusedWallet,
+          })
+        : undefined,
+    [selectedAccount?.focusedWallet],
+  );
+  const valueDisplayScopeKey = useMemo(
+    () =>
+      buildAccountSelectorValueDisplayScopeKeyV2({
+        deriveType: usedDeriveType ?? '',
+        linkedNetworkId,
+        selectedNetworkId,
+        keepAllOtherAccounts,
+      }),
+    [usedDeriveType, linkedNetworkId, selectedNetworkId, keepAllOtherAccounts],
+  );
 
   const accountsCount = useMemo(
     () => listDataResult?.accountsCount ?? 0,
@@ -363,12 +395,15 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
     [focusedWalletInfo?.wallet?.deprecated],
   );
 
-  const { enabledNetworksCompatibleWithWalletId, networkInfoMap } =
-    useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
-      walletId: focusedWalletInfo?.wallet?.id ?? '',
-      networkId: selectedNetworkId,
-      withNetworksInfo: true,
-    });
+  const {
+    enabledNetworksCompatibleWithWalletId,
+    networkInfoMap,
+    isReady: walletNetworksReady,
+  } = useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
+    walletId: focusedWalletInfo?.wallet?.id ?? '',
+    networkId: selectedNetworkId,
+    withNetworksInfo: true,
+  });
 
   useEffect(() => {
     const fn = async () => {
@@ -384,7 +419,6 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
 
   const { bottom, top } = useSafeAreaInsets();
   const theme = useAccountSelectorNativeListThemeV2();
-  const appTheme = useTheme();
   const editable = !!isEditableRouteParams && sectionData.length > 0;
   const isMockedStandardHwWallet = focusedWalletInfo?.wallet?.isMocked;
   const isHiddenWallet = !!focusedWalletInfo?.wallet?.passphraseState;
@@ -401,12 +435,16 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
     deriveType?: IAccountDeriveTypes;
   }>();
   const creatingRef = useRef(false);
-  const { handleAddAccount } = useAddAccount({
+  const { handleAddAccount, canAddAccount } = useAddAccount({
     num,
     isOthersUniversal,
     focusedWalletInfo,
   });
-  const { rows: accountRows, records } = useAccountSelectorAccountRowsV2({
+  const {
+    rows: accountRows,
+    records,
+    areRowValuesReady,
+  } = useAccountSelectorAccountRowsV2({
     num,
     sections: sectionData,
     selectedAccount,
@@ -420,10 +458,16 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
     mergeDeriveAssetsEnabled: listDataResult?.mergeDeriveAssetsEnabled,
     enabledNetworksCompatibleWithWalletId,
     networkInfoMap,
+    walletNetworksReady,
     theme,
+    valueDisplayCacheKey,
+    valueDisplayScopeKey,
+    persistDisplayedValues: !searchText,
+    valuesLoaded,
   });
   const listIdentity = `${focusedWalletInfo?.wallet?.id ?? ''}:${linkedNetworkId ?? ''}:${usedDeriveType ?? ''}:${searchText}`;
-  const presentationScope = `${focusedWalletInfo?.wallet?.id ?? ''}:${linkedNetworkId ?? ''}:${usedDeriveType ?? ''}`;
+  // Everything that changes the list or its balances, not only the wallet.
+  const presentationScope = `${focusedWalletInfo?.wallet?.id ?? ''}:${valueDisplayScopeKey}`;
   const identityRef = useRef(listIdentity);
   const generationRef = useRef(1);
   if (identityRef.current !== listIdentity) {
@@ -433,36 +477,8 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
   const generation = generationRef.current;
   const snapshot = useMemo<NativeListSnapshot>(() => {
     const rows: RowModel[] = [];
-    if (isDeprecatedWallet) {
-      rows.push({
-        type: 'system',
-        variant: 'warning',
-        key: 'deprecated-wallet',
-        title: intl.formatMessage({
-          id: ETranslations.wallet_wallet_device_has_been_reset_alert_title,
-        }),
-        message: intl.formatMessage({
-          id: ETranslations.wallet_wallet_device_has_been_reset_alert_desc,
-        }),
-        backgroundColor: appTheme.bgCautionSubdued.val,
-        borderColor: appTheme.borderCautionSubdued.val,
-        backgroundFullWidth: true,
-      });
-    }
     const byId = new Map(accountRows.map((row) => [row.key, row]));
     sectionData.forEach((section, sectionIndex) => {
-      if (!section.data.length && section.emptyText) {
-        rows.push({
-          type: 'action',
-          key: `empty:${sectionIndex}`,
-          presentation: 'accountSelector',
-          tone: 'primary',
-          title: section.emptyText,
-          actionKey: 'empty',
-          pressDisabled: true,
-          height: 56,
-        });
-      }
       section.data.forEach((item) => {
         const row = byId.get(item.id);
         if (row) rows.push(row);
@@ -471,7 +487,7 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
         isEditableRouteParams &&
         !searchText &&
         focusedWalletInfo?.wallet?.id &&
-        !isMockedStandardHwWallet &&
+        canAddAccount &&
         sectionDataOriginal.length
       ) {
         rows.push({
@@ -508,14 +524,12 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
       rows,
     };
   }, [
-    appTheme,
-    isDeprecatedWallet,
+    canAddAccount,
     accountRows,
     sectionData,
     isEditableRouteParams,
     searchText,
     focusedWalletInfo?.wallet?.id,
-    isMockedStandardHwWallet,
     sectionDataOriginal.length,
     intl,
     generation,
@@ -579,9 +593,23 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
     !searchText && listHeight > 0 && selectedIndex * 60 > listHeight
       ? selectedKey
       : undefined;
+  // Rows the list shows first; the initial scroll brings the selected one in.
+  const firstScreenValuesReady = areRowValuesReady(
+    initialScrollKey
+      ? Math.max(
+          0,
+          Math.min(
+            selectedIndex,
+            accountRows.length - INITIAL_ACCOUNT_IMAGE_PRELOAD_COUNT,
+          ),
+        )
+      : 0,
+    INITIAL_ACCOUNT_IMAGE_PRELOAD_COUNT,
+  );
   const candidateList = useMemo(
     () => ({
       editable,
+      emptySections,
       focusedWalletInfo,
       hasData: sectionData.length > 0,
       hasResolved,
@@ -599,6 +627,7 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
     }),
     [
       editable,
+      emptySections,
       focusedWalletInfo,
       hasResolved,
       initialScrollKey,
@@ -631,35 +660,65 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
       setPreloadedList(candidateList);
     }
   }, [candidateList, preloadedList.presentationScope]);
+  // A new wallet/network/derive scope is presented once its avatars and
+  // first-screen balances are ready (within one budget), so a switch paints
+  // complete rows instead of placeholders that fill in afterwards.
+  const pendingPresentationScope =
+    candidateList.hasResolved &&
+    candidateList.presentationScope !== preloadedList.presentationScope
+      ? candidateList.presentationScope
+      : undefined;
+  const presentationWaitRef = useRef<{ scope?: string; id: number }>({
+    id: 0,
+  });
+  if (presentationWaitRef.current.scope !== pendingPresentationScope) {
+    presentationWaitRef.current = {
+      scope: pendingPresentationScope,
+      id: presentationWaitRef.current.id + 1,
+    };
+  }
+  const presentationWaitId = presentationWaitRef.current.id;
+  const [imagesReadyWaitId, setImagesReadyWaitId] = useState<number>();
+  const [expiredWaitId, setExpiredWaitId] = useState<number>();
   useEffect(() => {
-    if (
-      !candidateList.hasResolved ||
-      candidateList.presentationScope === preloadedList.presentationScope
-    ) {
-      return;
-    }
+    if (!pendingPresentationScope) return;
+    const timer = setTimeout(
+      () => setExpiredWaitId(presentationWaitId),
+      ACCOUNT_PRESENTATION_BUDGET_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [pendingPresentationScope, presentationWaitId]);
+  useEffect(() => {
+    if (!pendingPresentationScope) return;
     let cancelled = false;
-    const targetPresentationScope = candidateList.presentationScope;
     void preloadAccountSelectorImages(
       initialImagePreloadSourcesRef.current,
     ).then(() => {
-      const latestCandidate = candidateListRef.current;
-      if (
-        !cancelled &&
-        latestCandidate.hasResolved &&
-        latestCandidate.presentationScope === targetPresentationScope
-      ) {
-        setPreloadedList(latestCandidate);
-      }
+      if (!cancelled) setImagesReadyWaitId(presentationWaitId);
     });
     return () => {
       cancelled = true;
     };
+  }, [pendingPresentationScope, presentationWaitId, initialImagePreloadScope]);
+  useEffect(() => {
+    if (!pendingPresentationScope) return;
+    const ready =
+      expiredWaitId === presentationWaitId ||
+      (imagesReadyWaitId === presentationWaitId && firstScreenValuesReady);
+    const latestCandidate = candidateListRef.current;
+    if (
+      ready &&
+      latestCandidate.hasResolved &&
+      latestCandidate.presentationScope === pendingPresentationScope
+    ) {
+      setPreloadedList(latestCandidate);
+    }
   }, [
-    candidateList.hasResolved,
-    candidateList.presentationScope,
-    initialImagePreloadScope,
-    preloadedList.presentationScope,
+    expiredWaitId,
+    firstScreenValuesReady,
+    imagesReadyWaitId,
+    pendingPresentationScope,
+    presentationWaitId,
   ]);
   const nativeSnapshot = useAccountSelectorNativeSnapshotV2({
     identity: presentedList.identity,
@@ -724,19 +783,6 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
     ],
   );
 
-  const deprecatedAlert = presentedList.isDeprecatedWallet ? (
-    <Alert
-      fullBleed
-      type="warning"
-      title={intl.formatMessage({
-        id: ETranslations.wallet_wallet_device_has_been_reset_alert_title,
-      })}
-      description={intl.formatMessage({
-        id: ETranslations.wallet_wallet_device_has_been_reset_alert_desc,
-      })}
-    />
-  ) : null;
-
   const nativeListProps: Omit<
     NativeListProps,
     | 'initialScrollIndex'
@@ -747,6 +793,8 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
     style: { flex: 1 },
     pointerEvents: presentedList.identity === listIdentity ? 'auto' : 'none',
     testID: 'account-selector-account-list-v2',
+    keyboardDismissMode: 'on-drag',
+    keyboardShouldPersistTaps: 'handled',
     snapshot: nativeSnapshot,
     onActionAnchorInvalidated: (event) => closeMenu(event.token),
     onRowAction: (event) => {
@@ -874,7 +922,18 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
             currentNetworkId={presentedList.linkedNetworkId}
           />
         ) : null}
-        {presentedList.isMockedStandardHwWallet ? deprecatedAlert : null}
+        {/* Kept outside the list so it stays in place while accounts scroll. */}
+        {presentedList.isDeprecatedWallet &&
+        presentedList.focusedWalletInfo?.wallet ? (
+          <DeprecatedWalletBanner
+            // Remount per wallet so a previous wallet's lookup never shows.
+            key={presentedList.focusedWalletInfo.wallet.id}
+            num={num}
+            wallet={presentedList.focusedWalletInfo.wallet}
+            device={presentedList.focusedWalletInfo.device}
+            editable={!!isEditableRouteParams}
+          />
+        ) : null}
         {presentedList.isMockedStandardHwWallet ? (
           <Stack flex={1} justifyContent="center" alignItems="center">
             <SizableText size="$bodyLg">
@@ -896,6 +955,7 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
                   ) {
                     qrHiddenCreateGuideDialog.showDialogForCreatingStandardWallet(
                       {
+                        nativeSheet: true,
                         onConfirm: () => {
                           void createQrWallet({ isOnboarding: true });
                         },
@@ -924,6 +984,11 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
             ) : null}
           </Stack>
         ) : null}
+        {!presentedList.isMockedStandardHwWallet
+          ? presentedList.emptySections.map((section) => (
+              <EmptyNoAccountsView key={section.walletId} section={section} />
+            ))
+          : null}
         <Stack
           display={presentedList.isMockedStandardHwWallet ? 'none' : 'flex'}
           flex={1}

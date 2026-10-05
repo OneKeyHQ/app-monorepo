@@ -5,11 +5,13 @@ import {
   COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS,
   ensureMarketTopCoinsCategory,
   getMarketCategoryTooltipId,
+  getMarketHomeFallbackSpotCategories,
   isMarketStockCategory,
   isMarketStockCategoryById,
   isTrendingStyleSpotCategory,
   parseValueToNumber,
   shouldHideSpotExtendedStats,
+  shouldShowSpotNetworkSelector,
   validateLiquidityInput,
   validateMaximumMinLiquidity,
 } from './utils';
@@ -367,6 +369,17 @@ describe('Spot Category Extended Stats Visibility Tests', () => {
   });
 });
 
+describe('Spot Category Network Selector Visibility Tests', () => {
+  test('hides the network selector for Robinhood Meme', () => {
+    expect(shouldShowSpotNetworkSelector('robinhood_meme')).toBe(false);
+  });
+
+  test('keeps the network selector for filterable spot categories', () => {
+    expect(shouldShowSpotNetworkSelector('trending')).toBe(true);
+    expect(shouldShowSpotNetworkSelector('x_mentioned')).toBe(true);
+  });
+});
+
 describe('Trending-style Spot Category Tests', () => {
   test('uses the trending desktop layout for trending and Robinhood meme', () => {
     expect(isTrendingStyleSpotCategory('trending')).toBe(true);
@@ -428,6 +441,14 @@ describe('Market Stock Category Detection Tests', () => {
 });
 
 describe('Top Coins Category Fallback Tests', () => {
+  test('keeps Stocks and Robinhood tab identities before config arrives', () => {
+    expect(getMarketHomeFallbackSpotCategories(({ id }) => id)).toEqual([
+      { id: 'trending', name: ETranslations.dexmarket_trending },
+      { id: 'stocks', name: ETranslations.perps_token_selector_stocks },
+      { id: 'robinhood_meme', name: 'Robinhood' },
+    ]);
+  });
+
   test('appends Top Coins after the spot categories', () => {
     // The tab strip runs Favorites, Trending, Stocks, Top coins, Perps, and
     // Perps is appended after every spot category.

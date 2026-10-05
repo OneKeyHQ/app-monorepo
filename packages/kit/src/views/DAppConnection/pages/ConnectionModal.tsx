@@ -147,6 +147,24 @@ function ConnectionModal() {
           return;
         }
       }
+      // Same gate as dApp signing: an HD wallet that has not been backed up
+      // must not hand its address to a dApp (OK-63750). Shows the backup
+      // dialog and keeps the request pending so the user can pick another
+      // wallet or back up first.
+      if (
+        await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+          walletId: selectedAccount.wallet?.id ?? '',
+        })
+      ) {
+        defaultLogger.discovery.dapp.dappUse({
+          dappName: $sourceInfo.hostname,
+          dappDomain: $sourceInfo?.origin,
+          action: 'ConnectWallet',
+          network: selectedAccount.network?.name,
+          failReason: 'wallet not backed up',
+        });
+        return;
+      }
       const {
         wallet,
         account,

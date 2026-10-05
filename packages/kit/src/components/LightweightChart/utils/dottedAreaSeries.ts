@@ -1,3 +1,5 @@
+import { createLastValueSeriesOptions } from './chartOptions';
+
 import type { ILightweightChartTheme } from '../types';
 import type {
   CustomData,
@@ -214,6 +216,8 @@ export function createDottedAreaSeriesOptions({
   theme,
   lineWidth,
   showLastValue,
+  showLastValuePriceLine,
+  lastValueLabelColor,
   showLastPointMarker,
   // Keeps the dot pattern (and the last-point marker, which reads as part of
   // the same fill) on their own color when the line is tinted differently.
@@ -224,6 +228,8 @@ export function createDottedAreaSeriesOptions({
   theme: ILightweightChartTheme;
   lineWidth?: number;
   showLastValue?: boolean;
+  showLastValuePriceLine?: boolean;
+  lastValueLabelColor?: string;
   showLastPointMarker?: boolean;
   patternColor?: string;
   priceFormatter?: (price: number) => string;
@@ -240,8 +246,11 @@ export function createDottedAreaSeriesOptions({
     showLastPointMarker: showLastPointMarker ?? true,
     lastPointMarkerColor: resolvedPatternColor,
     lastPointMarkerRadius: 5.5,
-    lastValueVisible: !!showLastValue,
-    priceLineVisible: !!showLastValue,
+    ...createLastValueSeriesOptions({
+      showLastValue,
+      showLastValuePriceLine,
+      lastValueLabelColor,
+    }),
     priceFormat: {
       type: 'custom',
       formatter: priceFormatter ?? ((price: number) => `${price.toFixed(2)}%`),

@@ -18,6 +18,7 @@ import {
   useEarnAtom,
   useEarnLoadingStatesAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
@@ -86,8 +87,10 @@ export function AvailableAssetItem({
       <ListItem.Text
         flex={1}
         primary={
-          <XStack gap="$2" ai="center">
-            <SizableText size="$bodyLgMedium">{asset.symbol}</SizableText>
+          <XStack gap="$2" ai="center" minWidth={0}>
+            <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={1}>
+              {earnUtils.getDisplaySymbol(asset)}
+            </SizableText>
             <XStack gap="$1">
               {asset.badges?.map((badge) => (
                 <Badge

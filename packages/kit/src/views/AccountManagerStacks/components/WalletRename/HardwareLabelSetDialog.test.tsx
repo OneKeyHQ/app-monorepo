@@ -6,6 +6,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { createIntl } from 'react-intl';
 
 import { Dialog } from '@onekeyhq/components';
+import { buildChangeHistoryInputAddon } from '@onekeyhq/kit/src/components/ChangeHistoryDialog/ChangeHistoryDialog';
 import { RenameInputWithNameSelector } from '@onekeyhq/kit/src/components/RenameDialog';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -133,7 +134,7 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
 
 jest.mock(
   '@onekeyhq/kit/src/components/ChangeHistoryDialog/ChangeHistoryDialog',
-  () => ({ buildChangeHistoryInputAddon: jest.fn() }),
+  () => ({ buildChangeHistoryInputAddon: jest.fn(() => ({})) }),
 );
 
 jest.mock('@onekeyhq/kit/src/components/NetworkAvatar', () => ({
@@ -173,6 +174,29 @@ describe('hardware label form presentation', () => {
     jest.clearAllMocks();
     platformEnv.isNative = false;
     platformEnv.isNativeIOS = false;
+  });
+
+  it('keeps name history in the native presentation stack', async () => {
+    await showLabelSetDialog(
+      {
+        wallet: {
+          id: 'hw--test-wallet',
+          associatedDeviceInfo: { deviceType: EDeviceType.Pro },
+        } as IDBWallet,
+        intl: mockIntl,
+      },
+      {
+        nativeSheet: true,
+        onSubmit: jest.fn(),
+      },
+    );
+
+    const options = jest.mocked(Dialog.show).mock.calls.at(-1)?.[0];
+    expect(options?.nativeSheet).toBe(true);
+    render(<>{options?.renderContent}</>);
+    expect(buildChangeHistoryInputAddon).toHaveBeenCalledWith(
+      expect.objectContaining({ nativeSheet: true }),
+    );
   });
 
   it.each([EDeviceType.Pro2, EDeviceType.Neo])(

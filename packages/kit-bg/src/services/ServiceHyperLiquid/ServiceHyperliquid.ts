@@ -45,6 +45,7 @@ import {
   assembleHyperliquidSnapshot,
   buildSpotPriceMap,
   getActivePerpPositionsUnrealizedPnl,
+  getIsolatedPerpPositionsMarginUsed,
   isHyperliquidPortfolioSnapshotFresh,
   isUnifiedPortfolioMode,
   spotHasPositiveBalance,
@@ -67,6 +68,8 @@ import {
   updateTokenSelectorFavoriteCoins,
 } from '@onekeyhq/shared/src/utils/perpsTokenSelectorFavorites';
 import perpsUtils, {
+  buildPerpsCrossMarginByDex,
+  buildTokenAvailableAfterMaintenanceMap,
   calculateSpotBalancesTotalUsd,
   isHyperLiquidAbstractionModeEnabled,
   parseDexCoin,
@@ -118,7 +121,7 @@ import type {
   IWsActiveSpotAssetCtx,
   IWsAllDexsClearinghouseState,
   IWsSpotAssetCtxs,
-  IWsSpotState,
+  IWsSpotStateWithAvailability,
   IWsWebData2,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliquid/webview';
@@ -145,6 +148,7 @@ import {
   perpsDepositTokensAtom,
   perpsFavoritesOrderPersistAtom,
   perpsLastUsedLeverageAtom,
+  perpsLiquidationRiskInputsAtom,
   perpsSpotBalancesAtom,
   perpsSpotDustingAtom,
   perpsTradesHistoryDataAtom,
@@ -2196,6 +2200,7 @@ export default class ServiceHyperliquid extends ServiceBase {
           webData2.clearinghouseState?.crossMarginSummary.accountValue,
         crossMaintenanceMarginUsed:
           webData2.clearinghouseState?.crossMaintenanceMarginUsed,
+        isolatedMarginUsed: getIsolatedPerpPositionsMarginUsed(positions),
         totalNtlPos: webData2.clearinghouseState?.marginSummary?.totalNtlPos,
         totalRawUsd: webData2.clearinghouseState?.marginSummary?.totalRawUsd,
         withdrawable: webData2.clearinghouseState?.withdrawable,
@@ -2257,6 +2262,13 @@ export default class ServiceHyperliquid extends ServiceBase {
       return;
     }
 
+    const crossMarginByDex = buildPerpsCrossMarginByDex(clearinghouseStates);
+    await perpsLiquidationRiskInputsAtom.set((prev) => ({
+      ...(prev?.accountAddress === activeAddress ? prev : {}),
+      accountAddress: activeAddress as IHex,
+      crossMarginByDex,
+    }));
+
     // Aggregate all DEXs (HL perps + xyz) using BigNumber
     const aggregated = clearinghouseStates.reduce(
       (acc, [, state]) => {
@@ -2294,6 +2306,9 @@ export default class ServiceHyperliquid extends ServiceBase {
         acc.totalUnrealizedPnl = acc.totalUnrealizedPnl.plus(
           getActivePerpPositionsUnrealizedPnl(positions),
         );
+        acc.isolatedMarginUsed = acc.isolatedMarginUsed.plus(
+          getIsolatedPerpPositionsMarginUsed(positions),
+        );
 
         return acc;
       },
@@ -2302,6 +2317,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         totalMarginUsed: new BigNumber(0),
         crossAccountValue: new BigNumber(0),
         crossMaintenanceMarginUsed: new BigNumber(0),
+        isolatedMarginUsed: new BigNumber(0),
         totalNtlPos: new BigNumber(0),
         totalRawUsd: new BigNumber(0),
         withdrawable: new BigNumber(0),
@@ -2316,6 +2332,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       crossAccountValue: aggregated.crossAccountValue.toFixed(),
       crossMaintenanceMarginUsed:
         aggregated.crossMaintenanceMarginUsed.toFixed(),
+      isolatedMarginUsed: aggregated.isolatedMarginUsed.toFixed(),
       totalNtlPos: aggregated.totalNtlPos.toFixed(),
       totalRawUsd: aggregated.totalRawUsd.toFixed(),
       withdrawable: aggregated.withdrawable.toFixed(),
@@ -2344,13 +2361,23 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
   }
 
-  async updateSpotBalances(spotStateData: IWsSpotState) {
+  async updateSpotBalances(spotStateData: IWsSpotStateWithAvailability) {
     const activeAccount = await perpsActiveAccountAtom.get();
     const activeAddress = activeAccount?.accountAddress?.toLowerCase();
     const dataUser = spotStateData?.user?.toLowerCase();
 
     // Active-account alignment: only process data for current account
     if (!activeAddress || activeAddress !== dataUser) return;
+
+    const tokenToAvailableAfterMaintenance =
+      buildTokenAvailableAfterMaintenanceMap(
+        spotStateData.spotState?.tokenToAvailableAfterMaintenance,
+      );
+    await perpsLiquidationRiskInputsAtom.set((prev) => ({
+      ...(prev?.accountAddress === activeAddress ? prev : {}),
+      accountAddress: activeAddress as IHex,
+      tokenToAvailableAfterMaintenance,
+    }));
 
     const balances = spotStateData?.spotState?.balances || [];
 
@@ -2870,6 +2897,12 @@ export default class ServiceHyperliquid extends ServiceBase {
         return undefined;
       }
       await perpsActiveAccountSummaryAtom.set((prev) =>
+        this.isLatestActivePerpsAccountChange(requestId) ? undefined : prev,
+      );
+      if (!this.isLatestActivePerpsAccountChange(requestId)) {
+        return undefined;
+      }
+      await perpsLiquidationRiskInputsAtom.set((prev) =>
         this.isLatestActivePerpsAccountChange(requestId) ? undefined : prev,
       );
       if (!this.isLatestActivePerpsAccountChange(requestId)) {

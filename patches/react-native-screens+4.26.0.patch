@@ -777,7 +777,7 @@ index 192f5d2..2b6dcd1 100644
  
  #pragma mark methods connected to transitioning
 diff --git a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
-index 1c84484..6b3cbaa 100644
+index 1c84484..976b44f 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
 @@ -381,7 +381,18 @@ RNS_IGNORE_SUPER_CALL_END
@@ -818,6 +818,21 @@ index 1c84484..6b3cbaa 100644
        break;
  
      case RNSBlurEffectStyleSystemDefault:
+@@ -513,6 +533,14 @@ RNS_IGNORE_SUPER_CALL_END
+     return;
+   }
+ 
++#if RNS_IPHONE_OS_VERSION_AVAILABLE(26_0)
++  if (@available(iOS 26.0, *)) {
++    // Liquid Glass bar items resolve their initial material from the navigation
++    // controller's container. Set it before assigning the items below so their
++    // first composited frame does not inherit the app's previous color scheme.
++    navctr.view.overrideUserInterfaceStyle = config.userInterfaceStyle;
++  }
++#endif
+   navctr.navigationBar.overrideUserInterfaceStyle = config.userInterfaceStyle;
+ 
+ #if !TARGET_OS_TV
 diff --git a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.h b/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.h
 index b1c43b7..8678802 100644
 --- a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.h

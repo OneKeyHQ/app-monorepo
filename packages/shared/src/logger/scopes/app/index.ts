@@ -16,6 +16,7 @@ import { PageScene } from './scenes/page';
 import { AppPerfScene } from './scenes/perf';
 import { RouterScene } from './scenes/router';
 import { StorageScene } from './scenes/storage';
+import { SystemTimeScene } from './scenes/systemTime';
 import { WebAuthScene } from './scenes/webAuth';
 import { WebembedScene } from './scenes/webembed';
 
@@ -55,4 +56,6 @@ export class AppScope extends BaseScope {
   webAuth = this.createScene('webAuth', WebAuthScene);
 
   storage = this.createScene('storage', StorageScene);
+
+  systemTime = this.createScene('systemTime', SystemTimeScene);
 }

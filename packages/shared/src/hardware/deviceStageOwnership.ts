@@ -55,9 +55,11 @@ export function isDeviceStageOwnedHardwareUiAction({
   if (!action) {
     return false;
   }
-  // Bluetooth pairing rides in on DeviceChecking, but it is a system
-  // pairing prompt, explicitly outside the stage's scope.
-  if (eventType === EHardwareUiStateAction.BLUETOOTH_DEVICE_PAIRING) {
+  // System Bluetooth pairing and permission prompts belong to the legacy UI.
+  if (
+    eventType === EHardwareUiStateAction.BLUETOOTH_DEVICE_PAIRING ||
+    eventType === EHardwareUiStateAction.DESKTOP_REQUEST_BLUETOOTH_PERMISSION
+  ) {
     return false;
   }
   if (action === EHardwareUiStateAction.FIRMWARE_TIP) {

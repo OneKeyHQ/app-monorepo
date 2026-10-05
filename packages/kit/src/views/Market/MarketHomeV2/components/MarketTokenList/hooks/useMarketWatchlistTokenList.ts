@@ -8,6 +8,7 @@ import {
   useSyncExternalStore,
 } from 'react';
 
+import { uniq } from 'lodash';
 import pLimit from 'p-limit';
 
 import { useCarouselIndex } from '@onekeyhq/components';
@@ -18,15 +19,21 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
+import type {
+  IMarketListingWatchlistQuote,
+  IMarketWatchListItemV2,
+} from '@onekeyhq/shared/types/market';
 
 import {
   SORT_MAP,
   buildMarketNetworkLogoUriMap,
   getNativeTokenInfo,
   getNetworkLogoUri,
+  normalizeStockMetadataValue,
   transformApiItemToToken,
 } from '../utils/tokenListHelpers';
+
+import { fetchMarketTokenListBatchForPlatform } from './marketTokenBatchPlatformApi';
 
 import type { IMarketToken } from '../MarketTokenData';
 
@@ -60,12 +67,18 @@ export interface IUseMarketWatchlistTokenListParams {
   dataCacheRef?: RefObject<IMarketWatchlistDataCache | undefined>;
 }
 
+export interface IMarketWatchlistListingQuoteEntry {
+  key: string;
+  quote: IMarketListingWatchlistQuote | undefined;
+}
+
 export interface IMarketWatchlistDataCache {
   spot?: Awaited<
     ReturnType<
       typeof backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch
     >
   >;
+  listing?: IMarketWatchlistListingQuoteEntry[];
   perps?: {
     tokenListData: Awaited<
       ReturnType<
@@ -94,7 +107,6 @@ export function useMarketWatchlistTokenList({
     [networkList],
   );
   const [currentPage, setCurrentPage] = useState(1);
-  const [transformedData, setTransformedData] = useState<IMarketToken[]>([]);
   const [sortBy, setSortBy] = useState<string | undefined>(initialSortBy);
   const [sortType, setSortType] = useState<'asc' | 'desc' | undefined>(
     initialSortType,
@@ -129,23 +141,52 @@ export function useMarketWatchlistTokenList({
     run: refetchListings,
   } = usePromiseResult(
     async () => {
-      const limit = pLimit(4);
-      return Promise.all(
-        listingItems.map((item) =>
-          limit(async () => {
-            try {
-              const quote =
-                await backgroundApiProxy.serviceMarketV2.fetchMarketListingWatchlistQuote(
-                  item,
-                );
-              return { key: getMarketWatchlistKey(item), quote };
-            } catch {
-              // Keep unavailable listings removable from the watchlist.
-              return { key: getMarketWatchlistKey(item), quote: undefined };
-            }
-          }),
-        ),
+      const assetItems = listingItems.filter((item) => item.assetId);
+      const stockItems = listingItems.filter(
+        (item) => !item.assetId && item.stockId,
       );
+      const limit = pLimit(4);
+      // Unavailable listings get no quote but stay removable from the watchlist.
+      const [assetQuotes, stockQuoteById] = await Promise.all([
+        Promise.all(
+          assetItems.map((item) =>
+            limit(async () => {
+              try {
+                const quote =
+                  await backgroundApiProxy.serviceMarketV2.fetchMarketListingWatchlistQuote(
+                    item,
+                  );
+                return { key: getMarketWatchlistKey(item), quote };
+              } catch {
+                return { key: getMarketWatchlistKey(item), quote: undefined };
+              }
+            }),
+          ),
+        ),
+        // The batch API returns the Stocks list item, which carries the
+        // variants the stock row reveals on hover; the detail API does not.
+        (async () => {
+          const quoteById = new Map<string, IMarketListingWatchlistQuote>();
+          if (stockItems.length === 0) return quoteById;
+          try {
+            const stocks =
+              await backgroundApiProxy.serviceMarketV2.fetchMarketStockBatch({
+                stockIds: uniq(stockItems.map((item) => item.stockId ?? '')),
+              });
+            stocks.forEach((stock) => {
+              quoteById.set(stock.stockId.toUpperCase(), stock);
+            });
+          } catch {
+            // Fall through with no stock quotes.
+          }
+          return quoteById;
+        })(),
+      ]);
+      const stockQuotes = stockItems.map((item) => ({
+        key: getMarketWatchlistKey(item),
+        quote: stockQuoteById.get((item.stockId ?? '').toUpperCase()),
+      }));
+      return [...assetQuotes, ...stockQuotes];
     },
     [listingItems],
     {
@@ -157,6 +198,28 @@ export function useMarketWatchlistTokenList({
       checkIsFocused: true,
     },
   );
+
+  // Listing rows are synthesized from the local watchlist record, so unlike
+  // spot rows they can render before any quote exists. Reusing the previous
+  // batch keeps a remount — the token selector drops this list on every tab
+  // switch — from falling back to that quote-less state.
+  const lastListingQuotesRef = useRef<
+    IMarketWatchlistListingQuoteEntry[] | undefined
+  >(dataCacheRef?.current?.listing);
+  useEffect(() => {
+    if (!listingQuotes) return;
+    lastListingQuotesRef.current = listingQuotes;
+    if (dataCacheRef) {
+      dataCacheRef.current = {
+        ...dataCacheRef.current,
+        listing: listingQuotes,
+      };
+    }
+  }, [dataCacheRef, listingQuotes]);
+  // usePromiseResult keeps the resolved batch on screen while a refetch is in
+  // flight, so either source can predate the current watchlist. Coverage is
+  // therefore checked per row below rather than trusting the batch as a whole.
+  const listingResult = listingQuotes ?? lastListingQuotesRef.current;
 
   // ── Spot data fetching (existing logic) ──
   const {
@@ -174,16 +237,21 @@ export function useMarketWatchlistTokenList({
       if (spotItems.length === 0) {
         return { list: [], failed: false } as const;
       }
-      const tokenAddressList = spotItems.map((item) => ({
-        chainId: item.chainId,
-        contractAddress: item.contractAddress,
-        isNative: item.isNative ?? false,
-      }));
+      const tokenAddressList = spotItems.map((item) => {
+        const { isNative } = getNativeTokenInfo(
+          item.isNative,
+          item.contractAddress,
+        );
+        return {
+          chainId: item.chainId,
+          contractAddress: item.contractAddress,
+          isNative,
+        };
+      });
       try {
-        const response =
-          await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
-            tokenAddressList,
-          });
+        const response = await fetchMarketTokenListBatchForPlatform({
+          tokenAddressList,
+        });
         return { ...response, failed: false };
       } catch (error) {
         if (!platformEnv.isNative) throw error;
@@ -229,7 +297,7 @@ export function useMarketWatchlistTokenList({
     [perpsItems.length],
     {
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
-      watchLoading: platformEnv.isNative,
+      watchLoading: true,
       revalidateOnReconnect: platformEnv.isNative,
     },
   );
@@ -287,6 +355,7 @@ export function useMarketWatchlistTokenList({
     isInitialLoad ||
     apiLoading ||
     listingLoading ||
+    (perpsItems.length > 0 && Boolean(perpsLoading)) ||
     (platformEnv.isNative &&
       ((spotItems.length > 0 && apiLoading !== false && !spotResult) ||
         (perpsItems.length > 0 && perpsLoading !== false && !perpsResult)));
@@ -332,7 +401,7 @@ export function useMarketWatchlistTokenList({
   }, [perpsApiResult]);
 
   // ── Merge spot + perps into transformedData ──
-  useEffect(() => {
+  const transformedData = useMemo(() => {
     // Transform spot items
     const spotTransformed: IMarketToken[] = [];
     if (apiResult?.list) {
@@ -386,9 +455,17 @@ export function useMarketWatchlistTokenList({
       .map((watchlistItem) => {
         if (watchlistItem.assetId || watchlistItem.stockId) {
           const key = getMarketWatchlistKey(watchlistItem);
-          const quote = listingQuotes?.find(
-            (entry) => entry.key === key,
-          )?.quote;
+          const entry = listingResult?.find((item) => item.key === key);
+          // A batch that predates this favorite carries no entry for it, and a
+          // row built from the watchlist record alone would render every metric
+          // as NaN while spot rows are still missing entirely, so hold it back.
+          // An entry that resolved to no quote still renders, which keeps
+          // delisted favorites removable.
+          if (!entry) return undefined;
+          const { quote } = entry;
+          const priceChangeValue = normalizeStockMetadataValue(
+            quote?.priceChange24hPercent,
+          );
           return {
             id: key,
             assetId: watchlistItem.assetId,
@@ -408,8 +485,8 @@ export function useMarketWatchlistTokenList({
             chainId: '',
             decimals: 0,
             price: Number(quote?.price ?? NaN),
-            change24h: Number(quote?.priceChange24hPercent ?? NaN),
-            priceChangeRaw: quote?.priceChange24hPercent ?? '-',
+            change24h: Number(priceChangeValue ?? NaN),
+            priceChangeRaw: priceChangeValue ?? '-',
             marketCap: Number(quote?.marketCap ?? NaN),
             turnover: Number(quote?.volume24h ?? NaN),
             liquidity: 0,
@@ -417,6 +494,7 @@ export function useMarketWatchlistTokenList({
             uniqueTraders: 0,
             holders: 0,
             tokenImageUri: quote?.logoUrl ?? '',
+            stockVariants: quote?.variants,
             networkLogoUri: '',
             sortIndex: watchlistItem.sortIndex ?? 0,
           } satisfies IMarketToken;
@@ -451,19 +529,31 @@ export function useMarketWatchlistTokenList({
       })
       .filter(Boolean);
 
-    setTransformedData(merged);
-
-    if (isInitialLoad) {
-      setIsInitialLoad(false);
-    }
+    return merged;
   }, [
     apiResult,
-    listingQuotes,
+    listingResult,
     watchlist,
     spotItems,
     perpsTokenMap,
-    isInitialLoad,
     networkLogoUriMap,
+  ]);
+
+  useEffect(() => {
+    if (
+      isInitialLoad &&
+      apiLoading === false &&
+      listingLoading === false &&
+      (perpsItems.length === 0 || perpsLoading === false)
+    ) {
+      setIsInitialLoad(false);
+    }
+  }, [
+    apiLoading,
+    isInitialLoad,
+    listingLoading,
+    perpsItems.length,
+    perpsLoading,
   ]);
 
   // Sorting

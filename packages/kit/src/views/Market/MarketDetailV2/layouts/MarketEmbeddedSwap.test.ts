@@ -20,6 +20,10 @@ const marketToken: ISwapToken = {
   networkId: 'evm--56',
   symbol: 'MARKET',
 };
+const stockMarketToken: ISwapToken = {
+  ...marketToken,
+  isStock: true,
+};
 
 describe('buildMarketEmbeddedSwapInitParams', () => {
   it('does not initialize shared Swap before a complete pair exists', () => {
@@ -62,6 +66,26 @@ describe('buildMarketEmbeddedSwapInitParams', () => {
     ).toMatchObject({
       importFromToken: marketToken,
       importToToken: bnb,
+    });
+  });
+
+  it('uses the latest stock variant while preserving the draft payment token', () => {
+    const inputDraft: ISwapInputAmountDraft = {
+      fromToken: bnb,
+      fromTokenAmount: { isInput: true, value: '12' },
+      toToken: { ...stockMarketToken, networkId: 'evm--1' },
+      toTokenAmount: { isInput: false, value: '' },
+    };
+
+    expect(
+      buildMarketEmbeddedSwapInitParams({
+        defaultTokens: [bnb, stockMarketToken],
+        inputDraft,
+        swapToken: { ...stockMarketToken, networkId: 'evm--56' },
+      }),
+    ).toMatchObject({
+      importFromToken: bnb,
+      importToToken: { ...stockMarketToken, networkId: 'evm--56' },
     });
   });
 });

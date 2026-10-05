@@ -27,5 +27,6 @@ export type IContextType = {
   selectedItemRef: MutableRefObject<ISelectItem>;
   offset?: IPopoverProps['offset'];
   usingPercentSnapPoints?: boolean;
+  nativeSheet?: IPopoverProps['nativeSheet'];
 };
 export const SelectContext = createContext<IContextType>({} as IContextType);

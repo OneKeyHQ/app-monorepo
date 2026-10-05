@@ -1,6 +1,9 @@
 // Shared utility functions for MarketHomeV2 components
 
-import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
+import {
+  MARKET_CATEGORY_WITHOUT_NETWORK_FILTER_ID,
+  MARKET_TOP_COINS_CATEGORY_ID,
+} from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IMarketCategoryItem, IMarketTimeRangeValue } from './types';
@@ -153,6 +156,9 @@ export const shouldHideSpotExtendedStats = (
   return !SPOT_CATEGORIES_WITH_FULL_STATS.has(normalizedCategory);
 };
 
+export const shouldShowSpotNetworkSelector = (categoryId?: string): boolean =>
+  categoryId !== MARKET_CATEGORY_WITHOUT_NETWORK_FILTER_ID;
+
 export const isTrendingStyleSpotCategory = (
   categoryId: string | undefined,
 ): boolean =>
@@ -211,6 +217,23 @@ export const isMarketStockCategoryById = (
     (category) => category.id === categoryId && isMarketStockCategory(category),
   );
 };
+
+export const getMarketHomeFallbackSpotCategories = (
+  formatMessage: (descriptor: { id: ETranslations }) => string,
+): IMarketCategoryItem[] => [
+  {
+    id: 'trending',
+    name: formatMessage({ id: ETranslations.dexmarket_trending }),
+  },
+  {
+    id: 'stocks',
+    name: formatMessage({ id: ETranslations.perps_token_selector_stocks }),
+  },
+  {
+    id: MARKET_CATEGORY_WITHOUT_NETWORK_FILTER_ID,
+    name: 'Robinhood',
+  },
+];
 
 export const ensureMarketTopCoinsCategory = (
   categories: IMarketCategoryItem[],

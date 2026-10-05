@@ -92,6 +92,7 @@ export function UniversalSearchInput({
         ]}
       />
       <View
+        testID="home-header-search-btn"
         position="absolute"
         top={0}
         left={0}

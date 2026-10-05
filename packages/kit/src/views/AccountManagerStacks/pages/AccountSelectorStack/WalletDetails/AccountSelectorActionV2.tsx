@@ -67,6 +67,7 @@ export function AccountSelectorMenuActionV2({
     };
     if (platformEnv.isNative || !gtMd) {
       const handle = ActionList.show({
+        nativeSheet: platformEnv.isNative,
         title: optionsRef.current.title,
         triggerRect: anchor.windowRect,
         renderItemsAsync: (options) =>

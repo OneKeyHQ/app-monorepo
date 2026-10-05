@@ -34,6 +34,19 @@ export class SimpleDb {
     return value;
   }
 
+  get cloudBackupPasswordCache() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@cloudBackupPasswordCache',
+      loader: () =>
+        import('../entity/SimpleDbEntityCloudBackupPasswordCache').then(
+          ({ SimpleDbEntityCloudBackupPasswordCache }) =>
+            new SimpleDbEntityCloudBackupPasswordCache(),
+        ),
+    });
+    Object.defineProperty(this, 'cloudBackupPasswordCache', { value });
+    return value;
+  }
+
   get referralCode() {
     const value = createLazyServiceProxy({
       serviceName: 'simpleDb@referralCode',
@@ -665,6 +678,19 @@ export class SimpleDb {
         ),
     });
     Object.defineProperty(this, 'recentRecipients', { value });
+    return value;
+  }
+
+  get transferRecipientsCache() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@transferRecipientsCache',
+      loader: () =>
+        import('../entity/SimpleDbEntityTransferRecipientsCache').then(
+          ({ SimpleDbEntityTransferRecipientsCache }) =>
+            new SimpleDbEntityTransferRecipientsCache(),
+        ),
+    });
+    Object.defineProperty(this, 'transferRecipientsCache', { value });
     return value;
   }
 

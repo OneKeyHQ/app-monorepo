@@ -118,13 +118,30 @@ describe('isRetryableLazyError', () => {
     expect(isRetryableLazyError({ code: 'SPLIT_BUNDLE_IO_ERROR' })).toBe(false);
   });
 
-  it('is NOT retryable for SPLIT_BUNDLE_NOT_FOUND / SHA256_MISMATCH codes', () => {
-    expect(isRetryableLazyError({ code: 'SPLIT_BUNDLE_NOT_FOUND' })).toBe(
-      false,
-    );
+  it('is NOT retryable for SPLIT_BUNDLE_SHA256_MISMATCH', () => {
     expect(isRetryableLazyError({ code: 'SPLIT_BUNDLE_SHA256_MISMATCH' })).toBe(
       false,
     );
+  });
+
+  // A caller that joins an in-flight segment load receives the RAW native
+  // rejection, with no `retryable` flag for the boundary to read, so this code
+  // lookup is what decides its fate. It must agree with the loader's retryable
+  // set or that caller goes fatal while the loader still considers the segment
+  // re-attemptable.
+  it('is retryable for SPLIT_BUNDLE_NOT_FOUND (Android extract race)', () => {
+    expect(isRetryableLazyError({ code: 'SPLIT_BUNDLE_NOT_FOUND' })).toBe(true);
+  });
+
+  // An exhausted budget still wins: the loader clears `retryable` when it
+  // permanently caches, and that flag is authoritative over the code.
+  it('is NOT retryable for a budget-exhausted SPLIT_BUNDLE_NOT_FOUND', () => {
+    expect(
+      isRetryableLazyError({
+        code: 'SPLIT_BUNDLE_NOT_FOUND',
+        retryable: false,
+      }),
+    ).toBe(false);
   });
 
   it('is NOT retryable for a plain Error', () => {
