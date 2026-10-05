@@ -1,7 +1,9 @@
 import { useMemo } from 'react';
 
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IMarketStockDetailPreview,
+  IMarketStockTokenVariant,
   IMarketTokenDetail,
   IMarketTokenDetailPreview,
 } from '@onekeyhq/shared/types/marketV2';
@@ -48,19 +50,35 @@ function buildStockPreviewTokenDetail({
   networkId,
   stockPreview,
   tokenAddress,
+  tokenVariant,
 }: {
   networkId: string;
   stockPreview?: IMarketStockDetailPreview;
   tokenAddress: string;
+  tokenVariant?: IMarketStockTokenVariant;
 }): IMarketTokenDetail | undefined {
   if (!stockPreview) return undefined;
+  // Once the variant is known the page shows that token, so preview its
+  // identity instead of the underlying stock's. Its quote stays out: the
+  // variant list and the detail endpoint report different 24h changes.
+  const variant =
+    tokenVariant &&
+    equalTokenNoCaseSensitive({
+      token1: {
+        networkId: tokenVariant.networkId,
+        contractAddress: tokenVariant.contractAddress,
+      },
+      token2: { networkId, contractAddress: tokenAddress },
+    })
+      ? tokenVariant
+      : undefined;
 
   return {
     address: tokenAddress,
     networkId,
-    logoUrl: stockPreview.logoUrl,
-    name: stockPreview.name,
-    symbol: stockPreview.symbol,
+    logoUrl: variant?.logoUrl || stockPreview.logoUrl,
+    name: variant?.name || stockPreview.name,
+    symbol: variant?.symbol || stockPreview.symbol,
     decimals: 0,
     decimalsResolved: false,
   };
@@ -123,7 +141,7 @@ export function preserveMarketDetailPreviewImage({
 
 export function useMarketDetailDisplayData() {
   const tokenDetailData = useTokenDetail();
-  const { stockPreview } = useStockDetail();
+  const { stockPreview, selectedTokenVariant } = useStockDetail();
   const { networkId, tokenAddress, tokenDetail, tokenDetailPreview } =
     tokenDetailData;
 
@@ -137,24 +155,27 @@ export function useMarketDetailDisplayData() {
         networkId,
         stockPreview,
         tokenAddress,
+        tokenVariant: selectedTokenVariant,
       }),
-    [networkId, stockPreview, tokenAddress],
+    [networkId, selectedTokenVariant, stockPreview, tokenAddress],
   );
 
   const { displayTokenDetail, isPreviewTokenDetail } = useMemo(() => {
+    // The stock route has no token preview, only a stock one, and its image is
+    // just as worth preserving across the swap to the full detail.
+    const previewDisplay = previewTokenDetail ?? stockPreviewTokenDetail;
     const matchesPreview =
       !previewTokenDetail ||
       isSameTokenIdentity({ previewTokenDetail, tokenDetail });
     if (tokenDetail && matchesPreview) {
       return {
         displayTokenDetail: preserveMarketDetailPreviewImage({
-          previewTokenDetail,
+          previewTokenDetail: previewDisplay,
           tokenDetail,
         }),
         isPreviewTokenDetail: false,
       };
     }
-    const previewDisplay = previewTokenDetail ?? stockPreviewTokenDetail;
     return {
       displayTokenDetail: previewDisplay,
       isPreviewTokenDetail: Boolean(previewDisplay),

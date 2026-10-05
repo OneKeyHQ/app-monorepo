@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef } from 'react';
 
+import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
 import {
@@ -9,6 +10,7 @@ import {
   NavBackButton,
   Page,
   SizableText,
+  Skeleton,
   XStack,
   YStack,
   glassBarItem,
@@ -23,6 +25,7 @@ import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   ECopyFrom,
@@ -48,12 +51,21 @@ import { ShareButton } from '../TokenDetailHeader/ShareButton';
 
 import { TabPageHeaderContainer } from './TabPageHeaderContainer';
 
+import type { NativeStackHeaderItem } from '@react-navigation/native-stack';
+
+// Holds the address line while a stock route resolves its token, so the
+// title does not re-center when the address arrives.
+function AddressLineSkeleton() {
+  return <Skeleton.BodySm w={96} />;
+}
+
 export function MarketDetailHeader({
   showFavoriteButton = true,
 }: {
   showFavoriteButton?: boolean;
 }) {
   const media = useMedia();
+  const intl = useIntl();
   const { width: windowWidth } = useWindowDimensions();
   const { left: safeAreaLeft, right: safeAreaRight } = useSafeAreaInsets();
   const listingIdentity = useMarketDetailWatchlistIdentity();
@@ -134,6 +146,7 @@ export function MarketDetailHeader({
         gap="$2"
         flexShrink={1}
         minWidth={0}
+        width={nativeHeaderTitleMaxWidth}
         maxWidth={nativeHeaderTitleMaxWidth}
       >
         <Token
@@ -167,7 +180,9 @@ export function MarketDetailHeader({
             ) : null}
           </XStack>
 
-          {tokenDetail?.communityRecognized || tokenDetail?.address ? (
+          {tokenDetail?.communityRecognized ||
+          tokenDetail?.address ||
+          !isNative ? (
             <XStack ai="center" gap="$1" minWidth={0}>
               {tokenDetail?.communityRecognized ? (
                 <TokenTagsPopover
@@ -208,6 +223,9 @@ export function MarketDetailHeader({
                   />
                 </XStack>
               ) : null}
+              {!tokenDetail?.address && !isNative ? (
+                <AddressLineSkeleton />
+              ) : null}
             </XStack>
           ) : null}
         </YStack>
@@ -219,6 +237,7 @@ export function MarketDetailHeader({
       tokenDetail?.communityRecognized,
       tokenDetail?.stock,
       tokenDetail?.address,
+      isNative,
       stableLogoUrls,
       networkLogoUri,
       isOverlayPage,
@@ -283,19 +302,22 @@ export function MarketDetailHeader({
   // Drive the back button through useMarketDetailBackNavigation so the
   // detail-specific routing (Search → Discovery, single-route stacks
   // resetting to Market home, split-view pop, SwapPro return) keeps
-  // working under iOS 26's native bar. The default system back would
-  // only pop the current stack and would render no entry at all when
-  // state.index === 0.
+  // working under iOS 26's native bar. Keep this as a native bar item so
+  // UIKit does not expose a React custom-view frame during pop transitions.
   const buildNativeHeaderLeftItems = useCallback(
-    () => [
-      glassBarItem(<NavBackButton onPress={handleBackPress} />),
+    (): NativeStackHeaderItem[] => [
       {
-        type: 'custom' as const,
-        element: renderNativeHeaderTitle(),
-        hidesSharedBackground: true,
+        type: 'button',
+        label: intl.formatMessage({ id: ETranslations.global_back }),
+        accessibilityLabel: intl.formatMessage({
+          id: ETranslations.global_back,
+        }),
+        icon: { type: 'sfSymbol', name: 'chevron.backward' },
+        identifier: 'market-detail-back',
+        onPress: handleBackPress,
       },
     ],
-    [handleBackPress, renderNativeHeaderTitle],
+    [handleBackPress, intl],
   );
 
   if (media.md && platformEnv.isNativeIOS26Plus) {
@@ -306,9 +328,10 @@ export function MarketDetailHeader({
     return (
       <Page.Header
         headerShown
-        // Keep the identity in the leading item group. A growing titleView can
-        // overlap the back capsule during the first iOS 26 native layout.
-        headerTitle=""
+        // A fixed-width titleView avoids the initial intrinsic-size growth that
+        // previously let long identities overlap the bar items. Keeping it in
+        // the native title slot also avoids a custom left-item snapshot on pop.
+        headerTitle={renderNativeHeaderTitle}
         unstable_headerLeftItems={buildNativeHeaderLeftItems}
         unstable_headerRightItems={buildNativeHeaderRightItems}
       />
@@ -390,6 +413,9 @@ export function MarketDetailHeader({
                       onPress={handleCopyAddress}
                     />
                   </XStack>
+                ) : null}
+                {!tokenDetail?.address && !isNative ? (
+                  <AddressLineSkeleton />
                 ) : null}
               </XStack>
             </YStack>

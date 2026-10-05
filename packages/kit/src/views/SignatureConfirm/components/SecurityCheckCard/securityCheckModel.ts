@@ -11,17 +11,12 @@ import {
   isTransactionSecurityCheckUnavailable,
   isTransactionSecurityNetworkNotSupported,
 } from '@onekeyhq/shared/src/utils/transactionSecurityUtils';
-import { ADDRESS_RISK_TAG_DISPLAY_TYPES } from '@onekeyhq/shared/src/utils/txActionUtils';
 import {
   EHostSecurityLevel,
   type IHostSecurity,
 } from '@onekeyhq/shared/types/discovery';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
-import {
-  EParseTxComponentType,
-  type IDisplayComponent,
-  type ISignatureConfirmDisplay,
-} from '@onekeyhq/shared/types/signatureConfirm';
+import type { ISignatureConfirmDisplay } from '@onekeyhq/shared/types/signatureConfirm';
 import {
   ETransactionSecurityResultCode,
   type ITransactionSecurityCheckResult,
@@ -31,11 +26,10 @@ import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 import { getCustomHexDataAlertTitleIds } from '../CustomHexDataAlert/utils';
 
 import {
-  getAddressRiskStatus,
+  getAddressRiskItems,
   getParserAlertDisplay,
   normalizeAlertText,
   normalizeSecurityFindingTitle,
-  shouldHideGenericAuthorizationAlert,
   shouldShowNoIssueSection,
 } from './utils';
 
@@ -686,53 +680,33 @@ function getPermitContext({
 function getValidParserAlerts(
   params: IBuildSecurityCheckModelParams,
   {
-    isPermitSignMethod,
-    isOrderSignMethod,
     isTrustedAuthorization,
-  }: Pick<
-    ReturnType<typeof getPermitContext>,
-    'isPermitSignMethod' | 'isOrderSignMethod' | 'isTrustedAuthorization'
-  >,
+  }: Pick<ReturnType<typeof getPermitContext>, 'isTrustedAuthorization'>,
 ) {
-  const { kind, decodedTxs, messageDisplay, intl } = params;
+  // Trusted Permit/Order on a Security site drops every parser string[] alert.
+  // Matching is typed-data primaryType + site level, not translated prose.
+  if (isTrustedAuthorization) {
+    return [];
+  }
   const parserAlerts =
-    kind === 'transaction'
-      ? (decodedTxs?.flatMap(
+    params.kind === 'transaction'
+      ? (params.decodedTxs?.flatMap(
           (decodedTx) => decodedTx.txDisplay?.alerts ?? [],
         ) ?? [])
-      : (messageDisplay?.alerts ?? []);
-  const genericPermitAlert = intl.formatMessage({
-    id: ETranslations.dapp_connect_permit_sign_alert,
-  });
-  const genericOrderAlert = intl.formatMessage({
-    id: ETranslations.dapp_connect_security_checks_order_signature_request__desc,
-  });
-  const genericAlerts = [
-    ...(isPermitSignMethod ? [genericPermitAlert] : []),
-    ...(isOrderSignMethod ? [genericPermitAlert, genericOrderAlert] : []),
-  ];
-  return dedupeAlertTexts(parserAlerts.filter(Boolean)).filter(
-    (alert) =>
-      !shouldHideGenericAuthorizationAlert({
-        alert,
-        genericAlerts,
-        isTrustedAuthorization,
-      }),
-  );
+      : (params.messageDisplay?.alerts ?? []);
+  return dedupeAlertTexts(parserAlerts.filter(Boolean));
 }
 
 function getConfirmationCauses({
   params,
   isTrustedAuthorization,
   validParserAlerts,
-  displayComponents,
-  hasAddressRisk,
+  addressRisk,
 }: {
   params: IBuildSecurityCheckModelParams;
   isTrustedAuthorization: boolean;
   validParserAlerts: string[];
-  displayComponents: IDisplayComponent[];
-  hasAddressRisk: boolean;
+  addressRisk: ReturnType<typeof getAddressRiskItems>;
 }) {
   const {
     kind,
@@ -800,25 +774,8 @@ function getConfirmationCauses({
 
   if (kind === 'message') {
     if (isTrustedAuthorization) {
-      if (validParserAlerts.length) {
-        causes.parserAlerts = validParserAlerts;
-      }
-      if (hasAddressRisk) {
-        causes.addressRisk = displayComponents.flatMap((component) => {
-          if (component.type !== EParseTxComponentType.Address) {
-            return [];
-          }
-          const tags = (component.tags ?? [])
-            .filter((tag) =>
-              ADDRESS_RISK_TAG_DISPLAY_TYPES.has(tag.displayType),
-            )
-            .map((tag) => ({
-              displayType: tag.displayType,
-              value: tag.value,
-              ...(tag.key ? { key: tag.key } : {}),
-            }));
-          return tags.length ? [{ address: component.address, tags }] : [];
-        });
+      if (addressRisk.length) {
+        causes.addressRisk = addressRisk;
       }
     } else {
       if (isConfirmationRequired) {
@@ -1064,20 +1021,13 @@ export function buildSecurityCheckModel(
   )?.state;
   const permitContext = getPermitContext(params);
   const validParserAlerts = getValidParserAlerts(params, permitContext);
-  const displayComponents = getDisplayComponents(params);
-  const ignoreWarningAddressTags =
-    kind === 'transaction' &&
-    requestScanCoverage === 'completed' &&
-    transactionSecurityInfo?.level === EHostSecurityLevel.Security;
-  const hasAddressRisk = Boolean(
-    getAddressRiskStatus(displayComponents, ignoreWarningAddressTags),
-  );
+  const addressRisk = getAddressRiskItems(getDisplayComponents(params));
+  const hasAddressRisk = addressRisk.length > 0;
   const causes = getConfirmationCauses({
     params,
     isTrustedAuthorization: permitContext.isTrustedAuthorization,
     validParserAlerts,
-    displayComponents,
-    hasAddressRisk,
+    addressRisk,
   });
   const findings = dedupeFindings(
     [
@@ -1108,8 +1058,8 @@ export function buildSecurityCheckModel(
   });
   // Confirmation follows explicit reasons, not card warning severity. Common
   // High/Medium site or Prime risk is evaluated before the trusted Permit or
-  // Order exemption. Tx parser/Hex findings, parse fallbacks, and ordinary
-  // address tags are display-only.
+  // Order exemption. Tx parser/Hex findings, parse fallbacks, and warning
+  // address tags are display-only. Critical address tags still suppress success.
   const hasRiskConfirmation = Boolean(
     causes.site ||
     causes.prime ||

@@ -58,6 +58,10 @@ export interface IMarketTokenDetail {
   };
   price?: string;
   priceConverted?: string;
+  // Runtime-only: retain the latest detail response's rate across chart ticks.
+  priceConversionRate?: string;
+  // Runtime-only: start the grace period before detail quotes may recover a stalled feed.
+  detailPriceInitializedAt?: number;
   chartPriceUpdatedAt?: number;
   priceChange1mPercent?: string;
   priceChange5mPercent?: string;
@@ -541,6 +545,9 @@ export interface IMarketBasicConfigToken {
   symbol: string;
   logo?: string;
   communityRecognized?: boolean;
+  // Present when the recommended token is a top-coin or stock listing.
+  assetId?: string;
+  stockId?: string;
 }
 
 export interface IMarketBasicConfigNetworkFeature {

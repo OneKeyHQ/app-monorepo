@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import {
   type IDebugRenderTrackerProps,
   SizableText,
-  Spinner,
   Toast,
   XStack,
   YStack,
@@ -393,12 +392,7 @@ function PerpOpenOrdersList({
       canMutateScopedOrders &&
       canChasePerpsOrder(row.order),
   );
-  const hasChasingAction =
-    hasChaseAction &&
-    displayRows.some(
-      (row) => row.type === 'single' && chasingOrderIds.has(row.order.oid),
-    );
-  const actionMeasurementKey = `${intl.locale}:${hasChaseAction}:${hasChasingAction}`;
+  const actionMeasurementKey = `${intl.locale}:${hasChaseAction}`;
   const [actionMeasurement, setActionMeasurement] = useState({
     key: '',
     width: 80,
@@ -805,17 +799,12 @@ function PerpOpenOrdersList({
             }
           }}
         >
-          {/* Include hover weight and active chase indicators in the fixed column width. */}
+          {/* Measure the actions independently of transient request state. */}
           <XStack gap="$3" alignItems="center">
             {hasChaseAction ? (
-              <XStack gap="$1" alignItems="center">
-                {hasChasingAction ? (
-                  <Spinner size="small" scale={0.65} />
-                ) : null}
-                <SizableText size="$bodySmMedium" fontWeight={600}>
-                  {intl.formatMessage({ id: ETranslations.chase__action })}
-                </SizableText>
-              </XStack>
+              <SizableText size="$bodySmMedium">
+                {intl.formatMessage({ id: ETranslations.chase__action })}
+              </SizableText>
             ) : null}
             <SizableText size="$bodySmMedium" fontWeight={600}>
               {intl.formatMessage({

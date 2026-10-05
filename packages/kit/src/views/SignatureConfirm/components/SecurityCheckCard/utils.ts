@@ -1,5 +1,3 @@
-import type { IBadgeType } from '@onekeyhq/components';
-import { ADDRESS_RISK_TAG_DISPLAY_TYPES } from '@onekeyhq/shared/src/utils/txActionUtils';
 import {
   EParseTxComponentType,
   ETransferDirection,
@@ -23,35 +21,23 @@ function findParserAlertSentenceEnd(text: string) {
 
 // Address details stay next to the address row. The card uses their presence
 // only to suppress a contradictory success verdict, never as whole-card status.
-// Backend warning Address.tags are informational first-interaction,
-// first-transfer, or contract-recipient hints kept on that row; after a
-// completed Safe transaction scan they are a display exception, not card risk.
-export function getAddressRiskStatus(
-  components: IDisplayComponent[],
-  ignoreWarningAddressTags = false,
-) {
-  let status: Extract<IBadgeType, 'critical' | 'warning'> | undefined;
-
-  components.forEach((component) => {
+// Backend warning Address.tags (first interaction, first transfer, contract
+// recipient) are display-only for the card regardless of kind, site trust,
+// Prime, or scan result. Only critical tags are risk input.
+export function getAddressRiskItems(components: IDisplayComponent[]) {
+  return components.flatMap((component) => {
     if (component.type !== EParseTxComponentType.Address) {
-      return;
+      return [];
     }
-    component.tags.forEach((tag) => {
-      if (!ADDRESS_RISK_TAG_DISPLAY_TYPES.has(tag.displayType)) {
-        return;
-      }
-      if (ignoreWarningAddressTags && tag.displayType === 'warning') {
-        return;
-      }
-      if (tag.displayType === 'critical') {
-        status = 'critical';
-      } else if (!status) {
-        status = 'warning';
-      }
-    });
+    const tags = (component.tags ?? [])
+      .filter((tag) => tag.displayType === 'critical')
+      .map((tag) => ({
+        displayType: tag.displayType,
+        value: tag.value,
+        ...(tag.key ? { key: tag.key } : {}),
+      }));
+    return tags.length ? [{ address: component.address, tags }] : [];
   });
-
-  return status;
 }
 
 export function shouldShowNoIssueSection({
@@ -80,28 +66,6 @@ export function normalizeAlertText(text?: string) {
 export function normalizeSecurityFindingTitle(title: string) {
   const trimmedTitle = title.trim();
   return trimmedTitle.replace(/[。.！!]+$/u, '') || trimmedTitle;
-}
-
-export function shouldHideGenericAuthorizationAlert({
-  alert,
-  genericAlerts,
-  isTrustedAuthorization,
-}: {
-  alert: string;
-  genericAlerts: string[];
-  isTrustedAuthorization: boolean;
-}) {
-  const normalizedAlert = normalizeAlertText(alert);
-  if (!isTrustedAuthorization || !normalizedAlert) {
-    return false;
-  }
-  return genericAlerts.some((genericAlert) => {
-    const normalizedGenericAlert = normalizeAlertText(genericAlert);
-    return (
-      Boolean(normalizedGenericAlert) &&
-      normalizedAlert === normalizedGenericAlert
-    );
-  });
 }
 
 export function getParserAlertDisplay(alert: string) {

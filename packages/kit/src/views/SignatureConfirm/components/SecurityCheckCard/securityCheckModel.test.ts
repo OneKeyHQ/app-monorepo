@@ -1,5 +1,9 @@
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  PRIMARY_TYPES_ORDER,
+  PRIMARY_TYPES_PERMIT,
+} from '@onekeyhq/shared/src/signMessage/constants';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import { createNetworkNotSupportedTransactionSecurityResult } from '@onekeyhq/shared/src/utils/transactionSecurityUtils';
 import {
@@ -51,6 +55,20 @@ function buildTypedDataMessage(primaryType: string): IUnsignedMessage {
 }
 
 const permitMessage = buildTypedDataMessage('Permit');
+const trustedAuthorizationPrimaryTypes = [
+  ...PRIMARY_TYPES_PERMIT,
+  ...PRIMARY_TYPES_ORDER,
+];
+const trustedGenericEnglishAlert =
+  'Malicious signatures can lead to asset loss. Make sure the dApp is trustworthy to prevent losing your assets.';
+const trustedGenericChineseAlert =
+  '恶意签名可能导致资产损失。请确保当前 dApp 可信，否则可能导致资产损失。';
+const trustedArbitraryParserAlert = 'The spender is known to be malicious.';
+const trustedParserAlertSamples = [
+  trustedGenericEnglishAlert,
+  trustedGenericChineseAlert,
+  trustedArbitraryParserAlert,
+];
 
 function buildTransactionSecurityResult(
   level: EHostSecurityLevel,
@@ -75,19 +93,21 @@ function buildDecodedTx(overrides: Partial<IDecodedTx> = {}): IDecodedTx {
 }
 
 function buildAddressComponent({
-  displayType,
+  displayType = 'warning',
   address = '0xrisk',
   value = 'Risky address',
+  tags,
 }: {
-  displayType: 'warning' | 'critical';
+  displayType?: 'warning' | 'critical';
   address?: string;
   value?: string;
+  tags?: { value: string; displayType: 'warning' | 'critical' }[];
 }) {
   return {
     type: EParseTxComponentType.Address as const,
     label: 'To',
     address,
-    tags: [{ value, displayType }],
+    tags: tags ?? [{ value, displayType }],
   };
 }
 
@@ -175,13 +195,15 @@ describe('securityCheckModel', () => {
     ).not.toBe(warning.acknowledgementKey);
   });
 
-  it('invalidates acknowledgement when a trusted Permit address risk changes', () => {
+  it('keeps trusted-auth warning tag changes out of acknowledgement and invalidates on critical changes', () => {
     const buildModel = ({
-      displayType,
       address = '0xrisk',
+      tags,
+      alerts = [],
     }: {
-      displayType: 'warning' | 'critical';
       address?: string;
+      tags: { value: string; displayType: 'warning' | 'critical' }[];
+      alerts?: string[];
     }) =>
       buildSecurityCheckModel({
         kind: 'message',
@@ -190,28 +212,67 @@ describe('securityCheckModel', () => {
         urlSecurityInfo: verifiedSite,
         messageDisplay: {
           ...parsedMessage,
-          components: [buildAddressComponent({ displayType, address })],
+          alerts,
+          components: [buildAddressComponent({ address, tags })],
         },
         unsignedMessage: permitMessage,
+        isPrimeUser: false,
         transactionSecurityInfo: buildTransactionSecurityResult(
           EHostSecurityLevel.Security,
         ),
         intl,
       });
 
-    const warning = buildModel({ displayType: 'warning' });
-    const critical = buildModel({ displayType: 'critical' });
-    const otherTarget = buildModel({
-      displayType: 'warning',
-      address: '0xother',
+    const warning = buildModel({
+      tags: [{ value: 'First transfer', displayType: 'warning' }],
+      alerts: [trustedGenericEnglishAlert],
     });
+    const warningMoved = buildModel({
+      address: '0xother',
+      tags: [{ value: 'Contract recipient', displayType: 'warning' }],
+      alerts: [trustedGenericChineseAlert],
+    });
+    const critical = buildModel({
+      tags: [{ value: 'Malicious address', displayType: 'critical' }],
+    });
+    const criticalMoved = buildModel({
+      address: '0xother',
+      tags: [{ value: 'Malicious address', displayType: 'critical' }],
+    });
+    const mixed = buildModel({
+      tags: [
+        { value: 'First transfer', displayType: 'warning' },
+        { value: 'Malicious address', displayType: 'critical' },
+      ],
+      alerts: [trustedGenericEnglishAlert],
+    });
+    const mixedWarningChanged = buildModel({
+      tags: [
+        { value: 'Contract recipient', displayType: 'warning' },
+        { value: 'Malicious address', displayType: 'critical' },
+      ],
+      alerts: [trustedArbitraryParserAlert],
+    });
+
     expect(warning).toMatchObject({
+      confirmation: 'none',
+      status: 'success',
+      findings: [],
+    });
+    expect(warningMoved.acknowledgementKey).toBe(warning.acknowledgementKey);
+    expect(critical).toMatchObject({
       confirmation: 'risk',
       status: undefined,
       findings: [],
     });
     expect(critical.acknowledgementKey).not.toBe(warning.acknowledgementKey);
-    expect(otherTarget.acknowledgementKey).not.toBe(warning.acknowledgementKey);
+    expect(criticalMoved.acknowledgementKey).not.toBe(
+      critical.acknowledgementKey,
+    );
+    expect(mixed.acknowledgementKey).toBe(critical.acknowledgementKey);
+    expect(mixedWarningChanged.acknowledgementKey).toBe(
+      critical.acknowledgementKey,
+    );
   });
 
   it('keeps Prime features off the card and behind the finding action', () => {
@@ -267,23 +328,18 @@ describe('securityCheckModel', () => {
   });
 
   it('does not synthesize generic typed-data findings for a trusted site', () => {
-    const trustedGenericAlerts: Record<string, string[]> = {
-      Permit: [ETranslations.dapp_connect_permit_sign_alert],
-      Order: [
-        ETranslations.dapp_connect_security_checks_order_signature_request__desc,
-      ],
-    };
     const models = ['Permit', 'Order', 'Login'].map((primaryType) =>
       buildSecurityCheckModel({
         kind: 'message',
         origin: 'https://app.example.com',
         urlSecurityInfo: verifiedSite,
-        messageDisplay: trustedGenericAlerts[primaryType]
-          ? {
-              ...parsedMessage,
-              alerts: trustedGenericAlerts[primaryType],
-            }
-          : parsedMessage,
+        messageDisplay:
+          primaryType === 'Login'
+            ? parsedMessage
+            : {
+                ...parsedMessage,
+                alerts: [trustedGenericEnglishAlert],
+              },
         unsignedMessage: buildTypedDataMessage(primaryType),
         isConfirmationRequired:
           primaryType === 'Permit' || primaryType === 'Order',
@@ -301,105 +357,75 @@ describe('securityCheckModel', () => {
     });
   });
 
-  it.each(['warning', 'critical'] as const)(
-    'keeps ordinary %s address tags off the card and out of the confirmation gate',
-    (displayType) => {
-      const internalSend = buildSecurityCheckModel({
-        kind: 'transaction',
-        decodedTxs: [
-          buildDecodedTx({
-            txDisplay: {
-              title: 'Send',
-              components: [
-                buildAddressComponent({
-                  displayType,
-                  value: 'Initial transfer',
+  it('treats resolved warning-only address tags as success and keeps critical tags from restoring success', () => {
+    // Verified-site models use a free user so the rule is proven without Prime.
+    const buildOrdinary = (
+      kind: 'message' | 'transaction',
+      displayType: 'warning' | 'critical',
+      withOrigin: boolean,
+    ) =>
+      buildSecurityCheckModel({
+        kind,
+        ...(withOrigin
+          ? {
+              origin: 'https://app.example.com',
+              urlSecurityInfo: verifiedSite,
+              isPrimeUser: false,
+              isTransactionSecurityApplicable: true,
+            }
+          : {}),
+        ...(kind === 'message'
+          ? {
+              messageDisplay: {
+                ...parsedMessage,
+                components: [buildAddressComponent({ displayType })],
+              },
+            }
+          : {
+              decodedTxs: [
+                buildDecodedTx({
+                  txDisplay: {
+                    title: 'Send',
+                    components: [
+                      buildAddressComponent({
+                        displayType,
+                        value: 'Initial transfer',
+                      }),
+                    ],
+                    alerts: [],
+                  },
                 }),
               ],
-              alerts: [],
-            },
-          }),
-        ],
-        intl,
-      });
-      const message = buildSecurityCheckModel({
-        kind: 'message',
-        origin: 'https://app.example.com',
-        urlSecurityInfo: verifiedSite,
-        messageDisplay: {
-          ...parsedMessage,
-          components: [buildAddressComponent({ displayType })],
-        },
-        intl,
-      });
-      const transaction = buildSecurityCheckModel({
-        kind: 'transaction',
-        origin: 'https://app.example.com',
-        urlSecurityInfo: verifiedSite,
-        decodedTxs: [
-          buildDecodedTx({
-            txDisplay: {
-              title: 'Send',
-              components: [buildAddressComponent({ displayType })],
-              alerts: [],
-            },
-          }),
-        ],
+            }),
         intl,
       });
 
-      for (const model of [internalSend, message, transaction]) {
-        expect(model).toMatchObject({
-          status: undefined,
-          confirmation: 'none',
-          findings: [],
-        });
-      }
-    },
-  );
-
-  it('does not let a Safe Prime scan restore success over address tags', () => {
-    const model = buildSecurityCheckModel({
-      kind: 'message',
-      origin: 'https://app.example.com',
-      urlSecurityInfo: verifiedSite,
-      messageDisplay: {
-        ...parsedMessage,
-        components: [buildAddressComponent({ displayType: 'warning' })],
-      },
-      transactionSecurityInfo: buildTransactionSecurityResult(
-        EHostSecurityLevel.Security,
-      ),
-      intl,
+    expect(buildOrdinary('transaction', 'warning', false)).toMatchObject({
+      status: undefined,
+      confirmation: 'none',
+      findings: [],
     });
-
-    expect(model.status).toBeUndefined();
-    expect(model.confirmation).toBe('none');
-
-    const partialModel = buildSecurityCheckModel({
-      kind: 'message',
-      origin: 'https://app.example.com',
-      urlSecurityInfo: verifiedSite,
-      messageDisplay: {
-        ...parsedMessage,
-        components: [buildAddressComponent({ displayType: 'critical' })],
-      },
-      transactionSecurityInfo: {
-        ...buildTransactionSecurityResult(EHostSecurityLevel.Medium),
-        coverage: {
-          hasUncoveredRequests: true,
-          hasFailedRequests: false,
-        },
-      },
-      intl,
-    });
-
-    expect(partialModel.status).toBe('warning');
-    expect(partialModel.confirmation).toBe('risk');
-    expect(
-      partialModel.coverage.find((item) => item.source === 'requestScan')
-        ?.state,
-    ).toBe('unknown');
+    for (const model of [
+      buildOrdinary('message', 'warning', true),
+      buildOrdinary('transaction', 'warning', true),
+    ]) {
+      expect(model).toMatchObject({
+        status: 'success',
+        confirmation: 'none',
+        findings: [],
+      });
+    }
+    for (const model of [
+      buildOrdinary('transaction', 'critical', false),
+      buildOrdinary('message', 'critical', true),
+      buildOrdinary('transaction', 'critical', true),
+    ]) {
+      expect(model).toMatchObject({
+        status: undefined,
+        confirmation: 'none',
+        findings: [],
+      });
+    }
   });
 
   it.each([
@@ -496,67 +522,55 @@ describe('securityCheckModel', () => {
     },
   );
 
-  it('keeps trusted Permit warning tags as risk after a Safe scan', () => {
-    expect(
-      buildSecurityCheckModel({
-        kind: 'message',
-        origin: 'https://app.example.com',
-        urlSecurityInfo: verifiedSite,
-        messageDisplay: {
-          ...parsedMessage,
-          components: [buildAddressComponent({ displayType: 'warning' })],
-        },
-        unsignedMessage: permitMessage,
-        transactionSecurityInfo: buildTransactionSecurityResult(
-          EHostSecurityLevel.Security,
-        ),
-        intl,
-      }),
-    ).toMatchObject({ confirmation: 'risk', status: undefined });
-  });
-
   it.each([
     ['Permit', 'message-permit'],
     ['Order', 'message-order'],
     ['OrderComponents', 'message-order'],
   ] as const)(
-    'keeps the legacy message risk gate for an untrusted or tagged trusted %s',
+    'keeps the legacy message risk gate for an unknown-site %s with warning tags',
     (primaryType, findingId) => {
-      const unsignedMessage = buildTypedDataMessage(primaryType);
       const untrusted = buildSecurityCheckModel({
         kind: 'message',
         origin: 'https://app.example.com',
         urlSecurityInfo: { level: EHostSecurityLevel.Unknown } as IHostSecurity,
-        messageDisplay: parsedMessage,
-        unsignedMessage,
+        messageDisplay: {
+          ...parsedMessage,
+          components: [buildAddressComponent({ displayType: 'warning' })],
+        },
+        unsignedMessage: buildTypedDataMessage(primaryType),
         isRiskSignMethod: true,
         intl,
       });
 
       expect(untrusted.confirmation).toBe('risk');
+      expect(untrusted.status).toBe('warning');
       expect(untrusted.findings).toContainEqual(
         expect.objectContaining({ id: findingId, status: 'warning' }),
       );
+    },
+  );
 
-      for (const displayType of ['warning', 'critical'] as const) {
-        expect(
-          buildSecurityCheckModel({
-            kind: 'message',
-            origin: 'https://app.example.com',
-            urlSecurityInfo: verifiedSite,
-            messageDisplay: {
-              ...parsedMessage,
-              components: [buildAddressComponent({ displayType })],
-            },
-            unsignedMessage,
-            intl,
-          }),
-        ).toMatchObject({
-          confirmation: 'risk',
-          status: undefined,
-          findings: [],
-        });
-      }
+  it.each(['Permit', 'Order', 'OrderComponents'] as const)(
+    'keeps trusted %s critical address tags as risk',
+    (primaryType) => {
+      expect(
+        buildSecurityCheckModel({
+          kind: 'message',
+          origin: 'https://app.example.com',
+          urlSecurityInfo: verifiedSite,
+          messageDisplay: {
+            ...parsedMessage,
+            components: [buildAddressComponent({ displayType: 'critical' })],
+          },
+          unsignedMessage: buildTypedDataMessage(primaryType),
+          isPrimeUser: false,
+          intl,
+        }),
+      ).toMatchObject({
+        confirmation: 'risk',
+        status: undefined,
+        findings: [],
+      });
     },
   );
 
@@ -816,7 +830,7 @@ describe('securityCheckModel', () => {
         }),
     ],
     [
-      'trusted Permit specific alert plus message fallback',
+      'trusted Permit critical address risk plus message fallback',
       () =>
         buildSecurityCheckModel({
           kind: 'message',
@@ -824,23 +838,7 @@ describe('securityCheckModel', () => {
           urlSecurityInfo: verifiedSite,
           messageDisplay: {
             ...parsedMessage,
-            alerts: ['The spender is known to be malicious.'],
-          },
-          unsignedMessage: permitMessage,
-          isMessageParseFallback: true,
-          intl,
-        }),
-    ],
-    [
-      'trusted Permit address risk plus message fallback',
-      () =>
-        buildSecurityCheckModel({
-          kind: 'message',
-          origin: 'https://app.example.com',
-          urlSecurityInfo: verifiedSite,
-          messageDisplay: {
-            ...parsedMessage,
-            components: [buildAddressComponent({ displayType: 'warning' })],
+            components: [buildAddressComponent({ displayType: 'critical' })],
           },
           unsignedMessage: permitMessage,
           isMessageParseFallback: true,
@@ -852,6 +850,42 @@ describe('securityCheckModel', () => {
     expect(model.confirmation).toBe('risk');
     expect(model.status).not.toBe('limited');
   });
+
+  it.each([
+    [
+      'warning address tags',
+      {
+        components: [buildAddressComponent({ displayType: 'warning' })],
+        alerts: [] as string[],
+      },
+    ],
+    [
+      'parser alerts',
+      {
+        components: [],
+        alerts: [trustedGenericEnglishAlert],
+      },
+    ],
+  ])(
+    'treats trusted Permit %s plus message fallback as limited, not risk',
+    (_title, messageDisplay) => {
+      const model = buildSecurityCheckModel({
+        kind: 'message',
+        origin: 'https://app.example.com',
+        urlSecurityInfo: verifiedSite,
+        messageDisplay: {
+          ...parsedMessage,
+          ...messageDisplay,
+        },
+        unsignedMessage: permitMessage,
+        isMessageParseFallback: true,
+        isPrimeUser: false,
+        intl,
+      });
+      expect(model.confirmation).toBe('none');
+      expect(model.status).toBe('limited');
+    },
+  );
 
   it('does not treat a failed request scan as SignGuard coverage', () => {
     const model = buildSecurityCheckModel({
@@ -1106,63 +1140,53 @@ describe('securityCheckModel', () => {
     },
   );
 
-  it.each([
-    [
-      'Permit',
-      [ETranslations.dapp_connect_permit_sign_alert],
-      'The spender is known to be malicious.',
-    ],
-    [
-      'Order',
-      [
-        ETranslations.dapp_connect_security_checks_order_signature_request__desc,
-        ETranslations.dapp_connect_permit_sign_alert,
-      ],
-      'The order recipient is known to be malicious.',
-    ],
-    [
-      'OrderComponents',
-      [
-        ETranslations.dapp_connect_security_checks_order_signature_request__desc,
-        ETranslations.dapp_connect_permit_sign_alert,
-      ],
-      'The order recipient is known to be malicious.',
-    ],
-  ] as const)(
-    'keeps a trusted %s generic alert exempt and a specific alert as risk',
-    (primaryType, genericAlerts, specificAlert) => {
-      const unsignedMessage = buildTypedDataMessage(primaryType);
-      const generic = buildSecurityCheckModel({
-        kind: 'message',
-        origin: 'https://app.example.com',
-        urlSecurityInfo: verifiedSite,
-        messageDisplay: { ...parsedMessage, alerts: [...genericAlerts] },
-        unsignedMessage,
-        isConfirmationRequired: true,
-        intl,
+  it.each(trustedAuthorizationPrimaryTypes)(
+    'drops all parser alerts for a trusted non-Prime %s',
+    (primaryType) => {
+      const models = trustedParserAlertSamples.map((alert) =>
+        buildSecurityCheckModel({
+          kind: 'message',
+          origin: 'https://app.example.com',
+          urlSecurityInfo: verifiedSite,
+          messageDisplay: { ...parsedMessage, alerts: [alert] },
+          unsignedMessage: buildTypedDataMessage(primaryType),
+          isPrimeUser: false,
+          isTransactionSecurityApplicable: true,
+          intl,
+        }),
+      );
+
+      models.forEach((model) => {
+        expect(model).toMatchObject({
+          confirmation: 'none',
+          status: 'success',
+          findings: [],
+        });
       });
-      const specific = buildSecurityCheckModel({
+      expect(models[1]?.acknowledgementKey).toBe(models[0]?.acknowledgementKey);
+      expect(models[2]?.acknowledgementKey).toBe(models[0]?.acknowledgementKey);
+    },
+  );
+
+  it.each(trustedAuthorizationPrimaryTypes)(
+    'keeps unknown-site %s parser alerts as card warning and risk',
+    (primaryType) => {
+      const model = buildSecurityCheckModel({
         kind: 'message',
         origin: 'https://app.example.com',
-        urlSecurityInfo: verifiedSite,
+        urlSecurityInfo: { level: EHostSecurityLevel.Unknown } as IHostSecurity,
         messageDisplay: {
           ...parsedMessage,
-          alerts: [specificAlert],
+          alerts: [trustedGenericEnglishAlert],
         },
-        unsignedMessage,
+        unsignedMessage: buildTypedDataMessage(primaryType),
+        isPrimeUser: false,
         intl,
       });
-
-      expect(generic).toMatchObject({
-        confirmation: 'none',
-        status: 'success',
-        findings: [],
-      });
-      expect(specific.confirmation).toBe('risk');
+      expect(model.confirmation).toBe('risk');
+      expect(model.status).toBe('warning');
       expect(
-        specific.findings.some((finding) =>
-          finding.id.includes('parser-alert'),
-        ),
+        model.findings.some((finding) => finding.id.includes('parser-alert')),
       ).toBe(true);
     },
   );
@@ -1175,18 +1199,75 @@ describe('securityCheckModel', () => {
         EHostSecurityLevel.High,
         EHostSecurityLevel.Medium,
       ] as const) {
+        const model = buildSecurityCheckModel({
+          kind: 'message',
+          origin: 'https://app.example.com',
+          urlSecurityInfo: verifiedSite,
+          messageDisplay: {
+            ...parsedMessage,
+            alerts: [trustedGenericEnglishAlert],
+          },
+          unsignedMessage,
+          transactionSecurityInfo: buildTransactionSecurityResult(level),
+          intl,
+        });
+        expect(model.confirmation).toBe('risk');
         expect(
-          buildSecurityCheckModel({
-            kind: 'message',
-            origin: 'https://app.example.com',
-            urlSecurityInfo: verifiedSite,
-            messageDisplay: parsedMessage,
-            unsignedMessage,
-            transactionSecurityInfo: buildTransactionSecurityResult(level),
-            intl,
-          }).confirmation,
-        ).toBe('risk');
+          model.findings.some((finding) => finding.id.includes('parser-alert')),
+        ).toBe(false);
       }
+    },
+  );
+
+  it.each([
+    [
+      'pending',
+      { isTransactionSecurityPending: true },
+      { confirmation: 'pending' as const, status: 'loading' },
+    ],
+    [
+      'failed',
+      {
+        transactionSecurityInfo: {
+          level: EHostSecurityLevel.Unknown,
+          detail: {
+            code: ETransactionSecurityResultCode.CheckFailed,
+            features: [],
+          },
+        },
+      },
+      { confirmation: 'none' as const, status: 'check_failed' },
+    ],
+    [
+      'partial',
+      {
+        transactionSecurityInfo: {
+          ...buildTransactionSecurityResult(EHostSecurityLevel.Security),
+          coverage: { hasUncoveredRequests: true, hasFailedRequests: false },
+        },
+      },
+      { confirmation: 'none' as const, status: 'unknown' },
+    ],
+  ])(
+    'does not surface trusted parser alerts during %s request-scan coverage',
+    (_title, extra, expected) => {
+      const model = buildSecurityCheckModel({
+        kind: 'message',
+        origin: 'https://app.example.com',
+        urlSecurityInfo: verifiedSite,
+        messageDisplay: {
+          ...parsedMessage,
+          alerts: [trustedGenericEnglishAlert],
+        },
+        unsignedMessage: permitMessage,
+        isPrimeUser: false,
+        intl,
+        ...extra,
+      });
+      expect(model).toMatchObject(expected);
+      expect(
+        model.findings.some((finding) => finding.id.includes('parser-alert')),
+      ).toBe(false);
     },
   );
 

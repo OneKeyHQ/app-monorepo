@@ -248,8 +248,15 @@ export function resetAboveMainRoute() {
  *
  * Use this in flows that open a modal, then dismiss + switch tab
  * (e.g. UniversalSearch → pick DApp → Discovery tab).
+ *
+ * `shouldContinue` is re-checked after the overlay-dismiss wait so a caller
+ * that was superseded during that window can abandon the tab switch itself,
+ * not only whatever it planned to do afterwards.
  */
-export const switchTabAsync = async (route: ETabRoutes): Promise<void> => {
+export const switchTabAsync = async (
+  route: ETabRoutes,
+  options?: { shouldContinue?: () => boolean },
+): Promise<void> => {
   const rootActiveTab = getActiveTabFromRef(rootNavigationRef);
   const rootHasOverlay = hasOverlayAboveMain(rootNavigationRef);
 
@@ -278,6 +285,9 @@ export const switchTabAsync = async (route: ETabRoutes): Promise<void> => {
   if (rootHasOverlay) {
     resetAboveMainRoute();
     await timerUtils.wait(100);
+    if (options?.shouldContinue && !options.shouldContinue()) {
+      return;
+    }
   }
 
   if (rootActiveTab !== route) {

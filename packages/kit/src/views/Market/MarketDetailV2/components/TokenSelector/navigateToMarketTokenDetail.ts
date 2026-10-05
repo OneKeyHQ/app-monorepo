@@ -13,6 +13,7 @@ import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2'
 
 import {
   openOrReplaceMarketDetailRoute,
+  prepareMarketDetailTabBarTransition,
   replaceFocusedMarketDetailRoute,
 } from '../../../utils/marketDetailNavigation';
 import { prewarmMarketTokenDetailPreviewImages } from '../../utils/marketDetailImagePreload';
@@ -175,6 +176,7 @@ export async function navigateToMarketTokenDetail(
     ) {
       return;
     }
+    prepareMarketDetailTabBarTransition();
     rootNavigationRef.current?.navigate(ERootRoutes.Main, {
       screen: targetTab,
       params: {

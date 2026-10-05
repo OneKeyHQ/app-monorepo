@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import BigNumber from 'bignumber.js';
 import { isNil, unionBy, uniqBy } from 'lodash';
 
@@ -738,7 +739,11 @@ function getLocalReplacementFields({
   onChainHistoryTx: IAccountHistoryTx;
 }): Pick<
   IAccountHistoryTx,
-  'replacedPrevId' | 'replacedNextId' | 'replacedType' | 'replacedMethod'
+  | 'replacedPrevId'
+  | 'replacedNextId'
+  | 'replacedType'
+  | 'replacedMethod'
+  | 'primeInfiniPayment'
 > {
   // Replacement linkage is local-only metadata. The indexer response can
   // replace the local record after confirmation, so carry it forward when the
@@ -746,6 +751,9 @@ function getLocalReplacementFields({
   // replacement must remain distinguishable from the staking metadata it
   // inherits for pending-state guards.
   return {
+    ...(localTx.primeInfiniPayment
+      ? { primeInfiniPayment: localTx.primeInfiniPayment }
+      : {}),
     ...(isNil(onChainHistoryTx.replacedPrevId) && !isNil(localTx.replacedPrevId)
       ? { replacedPrevId: localTx.replacedPrevId }
       : {}),
@@ -3300,8 +3308,10 @@ class ServiceHistory extends ServiceBase {
     accountId: string;
     data: ISendTxOnSuccessData;
     replaceTxInfo?: IReplaceTxInfo;
+    primeInfiniPayment?: IAccountHistoryTx['primeInfiniPayment'];
   }) {
-    const { networkId, accountId, data, replaceTxInfo } = params;
+    const { networkId, accountId, data, replaceTxInfo, primeInfiniPayment } =
+      params;
 
     if (!data || !data.decodedTx) {
       return;
@@ -3318,6 +3328,9 @@ class ServiceHistory extends ServiceBase {
       isSigner: true,
       isLocalCreated: true,
     });
+    if (primeInfiniPayment) {
+      newHistoryTx.primeInfiniPayment = primeInfiniPayment;
+    }
 
     const [xpub, accountAddress] = await Promise.all([
       this.backgroundApi.serviceAccount.getAccountXpub({

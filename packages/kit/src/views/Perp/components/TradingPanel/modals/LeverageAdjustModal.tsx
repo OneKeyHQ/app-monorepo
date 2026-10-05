@@ -45,6 +45,7 @@ import {
   PERP_DIALOG_BUTTON_SIZE,
   PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
 } from '../../PerpDialogLayout';
+import { PerpsSlider } from '../../PerpsSlider';
 import { TradingGuardWrapper } from '../../TradingGuardWrapper';
 import { InputAccessoryDoneButton } from '../inputs/TradingFormInput';
 
@@ -170,17 +171,36 @@ const LeverageContent = memo(
                 {...nativeInputProps}
               />
             </XStack>
-            <XStack flex={1} alignItems="center" gap="$4">
-              <Slider
-                testID={PerpTestIDs.LeverageSlider}
-                value={value || 1}
-                onChange={handleSliderChange}
-                min={1}
-                max={maxLeverage}
-                step={1}
-                disabled={loading}
-                flex={1}
-              />
+            <XStack
+              testID={
+                platformEnv.isNativeIOS ? PerpTestIDs.LeverageSlider : undefined
+              }
+              flex={1}
+              alignItems="center"
+              gap="$4"
+            >
+              {platformEnv.isNativeIOS ? (
+                <PerpsSlider
+                  value={value || 1}
+                  onChange={handleSliderChange}
+                  min={1}
+                  max={maxLeverage}
+                  segments={0}
+                  disabled={loading}
+                  showBubble={false}
+                />
+              ) : (
+                <Slider
+                  testID={PerpTestIDs.LeverageSlider}
+                  value={value || 1}
+                  onChange={handleSliderChange}
+                  min={1}
+                  max={maxLeverage}
+                  step={1}
+                  disabled={loading}
+                  flex={1}
+                />
+              )}
             </XStack>
           </YStack>
           <YStack gap="$2">

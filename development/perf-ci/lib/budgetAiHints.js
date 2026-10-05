@@ -399,6 +399,7 @@ function createWebStartupAiHints({
     reportNotes: [
       'Fix startup graph and cold-entry budgets together. Moving code behind many one-file lazy chunks can pass startup graph while failing web cold script/resource budgets.',
       'Do not silence failures by changing thresholds or workflow budget env values.',
+      'startupModuleBytes, topModules and topPackages are emitted bytes: each module is charged its share of the built bundles, attributed through the source maps. Shortening comments or type declarations does not move them.',
     ],
     buildDir,
     failedBudgetChecks: failedBudgetChecks(report.budgetChecks),

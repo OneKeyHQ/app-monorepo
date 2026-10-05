@@ -47,9 +47,11 @@ const SWAP_PRO_ENTRY_DIRECTION_MAP: Record<
 function TradeButton({
   swapToken,
   onShowSwapDialog,
+  disabled,
 }: {
   swapToken: ISwapToken;
   onShowSwapDialog?: (swapToken?: ISwapToken) => void;
+  disabled?: boolean;
 }) {
   const intl = useIntl();
   const { activeAccount, showAccountSelector } = useAccountSelectorTrigger({
@@ -65,6 +67,10 @@ function TradeButton({
         <Button
           size="large"
           variant="primary"
+          // Same readiness gate as the Trade button it stands in for: this
+          // branch otherwise let the account selector open before the token
+          // was known, which is the one path the guard used to miss.
+          disabled={disabled}
           onPress={showAccountSelector}
           testID="market-no-account-btn"
         >
@@ -80,6 +86,7 @@ function TradeButton({
         testID="market-no-account-btn"
         size="large"
         variant="primary"
+        disabled={disabled}
         onPress={() => onShowSwapDialog?.(swapToken)}
       >
         {intl.formatMessage({ id: ETranslations.dexmarket_details_trade })}
@@ -99,6 +106,8 @@ export function SwapPanel({
   disableTrade?: boolean;
   portfolioData?: IMarketAccountPortfolioDisplayItem[];
   onShowSwapDialog?: (swapToken?: ISwapToken) => void;
+  // False until the token detail confirms the token can be traded. The footer
+  // keeps its place and shows the buttons disabled instead of appearing late.
   executionReady?: boolean;
 }) {
   const intl = useIntl();
@@ -143,6 +152,8 @@ export function SwapPanel({
   const [, setSwapProJumpTokenAtom] = useSwapProJumpTokenAtom();
 
   const handleTrade = useCallback(() => {
+    // Swap needs the token's decimals; the buttons are disabled until then,
+    // but Android's gesture layer can still deliver a tap.
     if (!executionReady) {
       return;
     }
@@ -282,6 +293,7 @@ export function SwapPanel({
         <TradeButton
           swapToken={swapToken}
           onShowSwapDialog={onShowSwapDialog}
+          disabled={!executionReady}
         />
       </AccountSelectorProviderMirror>
     </View>

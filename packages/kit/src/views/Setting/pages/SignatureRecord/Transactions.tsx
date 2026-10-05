@@ -10,6 +10,7 @@ import {
   NumberSizeableText,
   SectionList,
   SizableText,
+  Skeleton,
   Stack,
   Tabs,
   XStack,
@@ -330,17 +331,30 @@ type ISectionListData = {
   data: ISignedTransaction[];
 };
 
-const ListEmptyComponent = () => {
+const ListEmptyComponent = ({ onRetry }: { onRetry?: () => void }) => {
   const intl = useIntl();
   return (
     <Empty
       title={intl.formatMessage({
-        id: ETranslations.settings_no_signed_transactions,
+        id: onRetry
+          ? ETranslations.global_an_error_occurred
+          : ETranslations.settings_no_signed_transactions,
       })}
       description={intl.formatMessage({
-        id: ETranslations.settings_no_signed_transactions_desc,
+        id: onRetry
+          ? ETranslations.global_an_error_occurred_desc
+          : ETranslations.settings_no_signed_transactions_desc,
       })}
-      illustration="Document"
+      illustration={onRetry ? undefined : 'Document'}
+      buttonProps={
+        onRetry
+          ? {
+              children: intl.formatMessage({ id: ETranslations.global_retry }),
+              onPress: onRetry,
+              testID: 'signature-transactions-retry',
+            }
+          : undefined
+      }
     />
   );
 };
@@ -353,8 +367,15 @@ const keyExtractor = (item: unknown) => {
 };
 
 export const Transactions = () => {
-  const { sections, onEndReached } = useGetSignatureSections(async (params) =>
-    backgroundApiProxy.serviceSignature.getSignedTransactions(params),
+  const { sections, isLoading, hasError, onRetry, onEndReached } =
+    useGetSignatureSections(async (params) =>
+      backgroundApiProxy.serviceSignature.getSignedTransactions(params),
+    );
+
+  const listEmptyComponent = hasError ? (
+    <ListEmptyComponent onRetry={onRetry} />
+  ) : (
+    ListEmptyComponent
   );
 
   return (
@@ -374,7 +395,18 @@ export const Transactions = () => {
       )}
       keyExtractor={keyExtractor}
       renderItem={({ item }) => <TransactionItem item={item} />}
-      ListEmptyComponent={ListEmptyComponent}
+      ListEmptyComponent={
+        isLoading ? (
+          <Skeleton.Group show>
+            <YStack px={SETTINGS_PAGE_CONTENT_PADDING_X} pt="$3" gap="$3">
+              <Skeleton w="100%" h="$24" />
+              <Skeleton w="100%" h="$24" />
+            </YStack>
+          </Skeleton.Group>
+        ) : (
+          listEmptyComponent
+        )
+      }
       onEndReached={onEndReached}
       onEndReachedThreshold={0.3}
     />

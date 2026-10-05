@@ -9,10 +9,12 @@ export function formatUsdcWithdrawFeeText({
   feeQuote,
   reserve,
   includeReserve,
+  isReserveEstimate = false,
 }: {
   feeQuote: IUsdcWithdrawFeeQuote | undefined;
   reserve: string | undefined;
   includeReserve: boolean;
+  isReserveEstimate?: boolean;
 }) {
   if (!feeQuote || (includeReserve && !reserve)) return undefined;
 
@@ -26,9 +28,11 @@ export function formatUsdcWithdrawFeeText({
   let isLessThan = components.some(
     (component) => component.kind === 'hyperEvmGas',
   );
-  const isEstimate = components.some(
-    (component) => component.kind !== 'hyperEvmGas' && component.isEstimate,
-  );
+  const isEstimate =
+    (includeReserve && isReserveEstimate) ||
+    components.some(
+      (component) => component.kind !== 'hyperEvmGas' && component.isEstimate,
+    );
 
   if (includeReserve && reserve) {
     total = total.plus(reserve);

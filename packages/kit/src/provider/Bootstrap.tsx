@@ -94,6 +94,7 @@ import useAppNavigation from '../hooks/useAppNavigation';
 import { useOnLock } from '../hooks/useOnLock';
 import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
 import { useTrayDataProvider } from '../hooks/useTrayDataProvider';
+import { registerSwrCacheMutationInvalidation } from '../utils/swrCacheMutationInvalidation';
 
 import { preloadComponentsOnIdle } from './preloadComponents';
 
@@ -826,6 +827,11 @@ function DesktopTrayDataProvider() {
     </AccountSelectorProviderMirror>
   );
 }
+
+// Registered at module load rather than from an effect: the mutation events it
+// listens for can arrive before this component mounts, and a dropped one
+// leaves a renamed or deleted entity in the snapshot store.
+registerSwrCacheMutationInvalidation();
 
 export function Bootstrap() {
   const navigation = useAppNavigation();

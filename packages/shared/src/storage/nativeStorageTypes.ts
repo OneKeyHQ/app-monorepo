@@ -1,43 +1,14 @@
-import {
-  SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
-  isValidSWRCacheKey,
-} from '../utils/swrCacheLimits';
-
 export type INativeStorageScalar = string | number | boolean;
 
-export type INativeSyncStorageName = 'settings' | 'coldStart' | 'devSettings';
+export type INativeSyncStorageName = 'settings' | 'devSettings';
 
 export type INativeSyncStorageEntry = readonly [string, INativeStorageScalar];
-
-export type INativeSWRCachePatchIntent = {
-  clearBefore?: number;
-  removePrefixes: Array<{ at: number; prefix: string }>;
-  removals: Array<readonly [key: string, removedAt: number]>;
-  updates: Array<readonly [key: string, serializedEntry: string]>;
-};
-
-export type INativeSWRCacheCanonicalEntry = readonly [
-  key: string,
-  serializedEntry: string | null,
-];
-export type INativeSWRCacheSerializedEntry = readonly [
-  key: string,
-  serializedEntry: string,
-];
-// `null` means the whole store was replaced and must be read again.
-export type INativeSWRCacheEntriesListener = (
-  entries: INativeSWRCacheCanonicalEntry[] | null,
-) => void;
 
 export type INativeSyncStorageLocalMutation =
   | {
       operation: 'set';
       key: string;
       value: INativeStorageScalar;
-    }
-  | {
-      operation: 'patchSWR';
-      entries: INativeSWRCacheCanonicalEntry[];
     }
   | { operation: 'remove'; key: string }
   | { operation: 'clear' };
@@ -49,10 +20,14 @@ export type INativeSyncStorageMutation = INativeSyncStorageLocalMutation & {
 
 export type INativeStorageBootstrapSnapshot = {
   settings: INativeSyncStorageEntry[];
-  coldStart: INativeSyncStorageEntry[];
   devSettings: INativeSyncStorageEntry[];
-  swrCacheEntries?: INativeSWRCacheSerializedEntry[];
 };
+
+/** The stores a bootstrap request asks bg to read. Omitted means all of them;
+ *  a store left out comes back empty rather than missing, so a caller that
+ *  does not mirror it pays nothing for it. */
+export const NATIVE_STORAGE_BOOTSTRAP_DEFAULT_STORES: INativeSyncStorageName[] =
+  ['settings', 'devSettings'];
 
 export type INativeStorageMigrationRecoveryTarget = 'appStorage' | 'jotai';
 
@@ -175,11 +150,10 @@ export type INativeSyncStorageRequest =
     }
   | {
       scope: 'syncStorage';
-      operation: 'patchSWR';
-      patch: INativeSWRCachePatchIntent;
+      operation: 'clear';
       sourceMutationId?: number;
       sourceRuntimeId?: string;
-      store: 'coldStart';
+      store: INativeSyncStorageName;
     };
 
 export type INativeStorageRequest =
@@ -190,7 +164,7 @@ export type INativeStorageRequest =
       operation: 'resetMigrationTarget';
       target: INativeStorageMigrationRecoveryTarget;
     }
-  | { scope: 'bootstrap' };
+  | { scope: 'bootstrap'; stores?: INativeSyncStorageName[] };
 
 export type INativeStorageCall = (
   request: INativeStorageRequest,
@@ -198,66 +172,6 @@ export type INativeStorageCall = (
 
 export const NATIVE_SYNC_STORAGE_MUTATION_EVENT =
   'onekey:native-sync-storage-mutation';
-
-function isValidSWRTimestamp(value: unknown): value is number {
-  return Number.isSafeInteger(value) && (value as number) >= 0;
-}
-
-export function parseNativeSWRCachePatchIntent(
-  value: unknown,
-): INativeSWRCachePatchIntent | undefined {
-  if (!value || typeof value !== 'object') {
-    return undefined;
-  }
-  const patch = value as Partial<INativeSWRCachePatchIntent>;
-  if (
-    (patch.clearBefore !== undefined &&
-      !isValidSWRTimestamp(patch.clearBefore)) ||
-    !Array.isArray(patch.removePrefixes) ||
-    !Array.isArray(patch.removals) ||
-    !Array.isArray(patch.updates)
-  ) {
-    return undefined;
-  }
-  const removePrefixes = patch.removePrefixes.filter(
-    (item) =>
-      item &&
-      typeof item === 'object' &&
-      isValidSWRCacheKey(item.prefix) &&
-      item.prefix.length > 0 &&
-      isValidSWRTimestamp(item.at),
-  );
-  const removals = patch.removals.filter(
-    (item) =>
-      Array.isArray(item) &&
-      item.length === 2 &&
-      isValidSWRCacheKey(item[0]) &&
-      isValidSWRTimestamp(item[1]),
-  );
-  const updates = patch.updates.filter(
-    (item) =>
-      Array.isArray(item) &&
-      item.length === 2 &&
-      isValidSWRCacheKey(item[0]) &&
-      typeof item[1] === 'string' &&
-      item[1].length <= SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
-  );
-  if (
-    removePrefixes.length === patch.removePrefixes.length &&
-    removals.length === patch.removals.length &&
-    updates.length === patch.updates.length
-  ) {
-    return patch as INativeSWRCachePatchIntent;
-  }
-  return {
-    ...(patch.clearBefore === undefined
-      ? {}
-      : { clearBefore: patch.clearBefore }),
-    removePrefixes,
-    removals,
-    updates,
-  } as INativeSWRCachePatchIntent;
-}
 
 export function parseNativeSyncStorageMutation(
   value: unknown,
@@ -273,11 +187,7 @@ export function parseNativeSyncStorageMutation(
     store?: unknown;
     value?: unknown;
   };
-  if (
-    candidate.store !== 'settings' &&
-    candidate.store !== 'coldStart' &&
-    candidate.store !== 'devSettings'
-  ) {
+  if (candidate.store !== 'settings' && candidate.store !== 'devSettings') {
     return undefined;
   }
   if (
@@ -293,27 +203,6 @@ export function parseNativeSyncStorageMutation(
       : { sourceMutationId: candidate.sourceMutationId as number };
   if (candidate.operation === 'clear') {
     return { store: candidate.store, operation: 'clear', ...source };
-  }
-  if (
-    candidate.operation === 'patchSWR' &&
-    candidate.store === 'coldStart' &&
-    Array.isArray(candidate.entries)
-  ) {
-    const entries = candidate.entries.filter(
-      (item) =>
-        Array.isArray(item) &&
-        item.length === 2 &&
-        isValidSWRCacheKey(item[0]) &&
-        (item[1] === null ||
-          (typeof item[1] === 'string' &&
-            item[1].length <= SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS)),
-    ) as INativeSWRCacheCanonicalEntry[];
-    return {
-      store: 'coldStart',
-      operation: 'patchSWR',
-      entries,
-      ...source,
-    };
   }
   if (
     (candidate.operation === 'remove' || candidate.operation === 'set') &&

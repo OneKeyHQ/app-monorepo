@@ -138,6 +138,16 @@ export interface ITradingViewNativeProps {
   testID?: string;
   source: ITradingViewNativeSource;
   storageNamespace?: ITradingViewNativeStorageNamespace;
+  enableMultiChart?: boolean;
+  /** Opt-in for drawing tools on full Market charts across all platforms. */
+  enableDrawings?: boolean;
+  /** Stable workspace panel identity; omitted for the original chart. */
+  panelId?: string;
+  onNativeMultiChartCountChange?: (count: number) => void;
+  onNativeMultiChartResizingChange?: (isResizing: boolean) => void;
+  /** The workspace owns fullscreen presentation for all its panels. */
+  isPresentationManaged?: boolean;
+  onPresentationContentChange?: (content: ReactNode) => void;
   forcedChartType?: ITradingViewNativeChartType;
   chartComponents?: readonly ITradingViewNativeChartComponentNode[];
   accountMarksContext?: ITradingViewNativeAccountMarksContext;
@@ -156,6 +166,7 @@ export interface ITradingViewNativeProps {
   /** Limits new selections without hiding sub-indicators that are already active. */
   maxSelectableSubIndicatorCount?: number;
   nativeControlsLayoutMode?: 'mobile' | 'desktop';
+  nativeChartWorkspaceControls?: ReactNode;
   /**
    * Drops the desktop controls row's own horizontal inset so its first control
    * lines up with the leading edge of the plot below it. For assemblies that

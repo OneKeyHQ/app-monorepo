@@ -3074,10 +3074,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         displayCurrency,
         eventPayload,
         schemaVersion,
-        timestamp:
-          schemaVersion === 2
-            ? updatedAt
-            : getPortfolioDisplayTimestamp({ timestamp: updatedAt }),
+        timestamp: getPortfolioDisplayTimestamp({ timestamp: updatedAt }),
       });
       telemetry.portfolioJsonBytes = artifacts.portfolioJsonBytes.byteLength;
       telemetry.tokenCount = artifacts.portfolio.tokens.length;

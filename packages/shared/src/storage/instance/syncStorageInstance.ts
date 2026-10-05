@@ -2,11 +2,7 @@ import platformEnv from '../../platformEnv';
 import { travelModeManager } from '../../travelMode';
 
 import { createMMKVSyncStorage } from './createMMKVSyncStorage';
-import {
-  createNativeColdStartCacheStorage,
-  createNativeSettingsSyncStorage,
-} from './nativeSyncStorageParts';
-import { createNonNativeColdStartCacheStorage } from './nonNativeColdStartStorage';
+import { createNativeSettingsSyncStorage } from './nativeSyncStorageParts';
 
 import type { IMMKVInstance, ISyncStorage } from './createMMKVSyncStorage';
 
@@ -88,28 +84,6 @@ function createRuntimeSelectedSyncStorage(
         onBlocked: () => [],
       });
     },
-    applySWRCachePatch(patch) {
-      return runSync({
-        operation: (storage) => storage.applySWRCachePatch?.(patch),
-        onBlocked: () => undefined,
-      });
-    },
-    // Every optional capability is declared here and forwarded with `?.`, so
-    // a caller cannot tell from its presence whether the backend implements
-    // it. Reading entries answers `undefined` unless one really does.
-    readSWRCacheEntries() {
-      return runSync({
-        operation: (storage) => storage.readSWRCacheEntries?.(),
-        onBlocked: () => undefined,
-      });
-    },
-    subscribeSWRCacheEntries(listener) {
-      return runSync({
-        operation: (storage) =>
-          storage.subscribeSWRCacheEntries?.(listener) ?? (() => undefined),
-        onBlocked: () => () => undefined,
-      });
-    },
   };
 }
 
@@ -158,25 +132,4 @@ function createSettingsSyncStorage(): ISyncStorage {
 /** App settings. Native bg owns MMKV; native main uses a bootstrapped mirror. */
 export const syncStorage = createRuntimeSelectedSyncStorage(
   createSettingsSyncStorage,
-);
-
-/** Cold-start cache storage.
- *  Native bg: backed by `coldStartCacheMMKVInstance` (synchronous MMKV).
- *  Native main: synchronous in-memory mirror with serialized writes to bg.
- *  Web/Desktop: backed by an in-memory Map pre-warmed by hydrate.ts at
- *    boot, with debounced IndexedDB persistence (`onekey-cold-start-cache`).
- *    Synchronous reads/writes operate on the Map; IDB is the durability layer.
- *  Extension background service worker: no-op stub. */
-function createColdStartCacheStorage(): ISyncStorage {
-  if (platformEnv.isNative) {
-    return createNativeColdStartCacheStorage();
-  }
-  if (platformEnv.isWeb || platformEnv.isDesktop) {
-    return createNonNativeColdStartCacheStorage();
-  }
-  return syncStorageExtBg;
-}
-
-export const coldStartCacheStorage = createRuntimeSelectedSyncStorage(
-  createColdStartCacheStorage,
 );

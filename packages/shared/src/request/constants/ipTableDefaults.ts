@@ -34,6 +34,21 @@ export const IP_TABLE_ADAPTER_FAILOVER_TTL_MS = timerUtils.getTimeDurationMs({
 });
 
 /**
+ * SNI Bypass Threshold
+ * After this many consecutive real-request failures on the selected IP, the
+ * adapter stops handing requests to the SNI transport for a short window and
+ * sends them over the domain, exactly as if no IP were selected. The service
+ * needs IP_TABLE_SNI_FAILURE_THRESHOLD failures plus a probing round before it
+ * can change the selection; this keeps a dead IP from costing every request a
+ * wasted attempt (or a non-idempotent request its only attempt) until then.
+ */
+export const IP_TABLE_SNI_BYPASS_THRESHOLD = 3;
+
+export const IP_TABLE_SNI_BYPASS_TTL_MS = timerUtils.getTimeDurationMs({
+  minute: 1,
+});
+
+/**
  * Performance Improvement Threshold
  * Only use IP routing if it's at least this percentage faster than direct domain access
  * @default 0.3 (30% improvement required)
