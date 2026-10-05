@@ -22,6 +22,8 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { RiskApprovalsDot } from './RiskApprovalsDot';
+
 export type IActionItemsProps = {
   icon?: IKeyOfIcons | null;
   label?: string | ReactNode;
@@ -228,6 +230,7 @@ function ActionMore({
   renderItemsAsync,
   testID,
   iconOnly = false,
+  showDot = false,
 }: {
   renderItems: IActionListProps['renderItems'];
   renderItemsAsync?: IActionListProps['renderItemsAsync'];
@@ -236,9 +239,27 @@ function ActionMore({
   // by the collapsed Add-Money home action row, where the secondary menu
   // should not steal flex space from the primary CTA.
   iconOnly?: boolean;
+  showDot?: boolean;
 }) {
   const intl = useIntl();
   const label = intl.formatMessage({ id: ETranslations.global_more });
+  const iconButtonTrigger = (
+    <IconButton
+      variant="secondary"
+      size="large"
+      icon="DotHorOutline"
+      testID={testID}
+    />
+  );
+  // Overlaid beside the ActionList so the Trigger still clones the button.
+  const iconButtonDot = showDot ? (
+    <RiskApprovalsDot
+      position="absolute"
+      top="$0.5"
+      right="$0.5"
+      testID={testID ? `${testID}-dot` : undefined}
+    />
+  ) : null;
 
   const handleMobilePress = () => {
     ActionList.show({
@@ -251,20 +272,16 @@ function ActionMore({
 
   if (iconOnly) {
     return (
-      <ActionList
-        title={label}
-        floatingPanelProps={{ w: '$60' }}
-        renderTrigger={
-          <IconButton
-            variant="secondary"
-            size="large"
-            icon="DotHorOutline"
-            testID={testID}
-          />
-        }
-        renderItems={renderItems}
-        renderItemsAsync={renderItemsAsync}
-      />
+      <Stack>
+        <ActionList
+          title={label}
+          floatingPanelProps={{ w: '$60' }}
+          renderTrigger={iconButtonTrigger}
+          renderItems={renderItems}
+          renderItemsAsync={renderItemsAsync}
+        />
+        {iconButtonDot}
+      </Stack>
     );
   }
 
@@ -296,6 +313,9 @@ function ActionMore({
       >
         <Stack>
           <Icon name="DotHorOutline" size="$6" color="$icon" />
+          {showDot ? (
+            <RiskApprovalsDot position="absolute" top="$-0.5" right="$-1" />
+          ) : null}
         </Stack>
         <SizableText my="$1" textAlign="center" size="$bodySm" color="$text">
           {label}
@@ -307,17 +327,11 @@ function ActionMore({
         <ActionList
           title={label}
           floatingPanelProps={{ w: '$60' }}
-          renderTrigger={
-            <IconButton
-              variant="secondary"
-              size="large"
-              icon="DotHorOutline"
-              testID={testID}
-            />
-          }
+          renderTrigger={iconButtonTrigger}
           renderItems={renderItems}
           renderItemsAsync={renderItemsAsync}
         />
+        {iconButtonDot}
       </Stack>
     </>
   );

@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { ActionList } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -10,7 +11,17 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { useNavigateToApprovalList } from '../../hooks/useNavigateToApprovalList';
 
-export function WalletActionApprovals({ onClose }: { onClose: () => void }) {
+import { RiskApprovalsDot } from './RiskApprovalsDot';
+
+export function WalletActionApprovals({
+  onClose,
+  showRiskDot = false,
+  onRiskSeen,
+}: {
+  onClose: () => void;
+  showRiskDot?: boolean;
+  onRiskSeen?: () => void;
+}) {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { network, account, wallet } = activeAccount;
@@ -23,6 +34,21 @@ export function WalletActionApprovals({ onClose }: { onClose: () => void }) {
       networkId: network?.id ?? '',
       source: 'homePage',
     });
+    if (showRiskDot && account?.id && network?.id) {
+      onRiskSeen?.();
+      // Opening Approvals counts as reviewing the risks until they resurface.
+      void backgroundApiProxy.serviceApproval
+        .updateRiskApprovalsAlertConfig({
+          accountId: account.id,
+          networkId: network.id,
+        })
+        .catch((error: unknown) => {
+          defaultLogger.approval.revokeSuggestion.consoleError(
+            'Failed to persist risk approval review',
+            error,
+          );
+        });
+    }
     onClose();
     await timerUtils.wait(150);
     void navigateToApprovalList({
@@ -39,6 +65,8 @@ export function WalletActionApprovals({ onClose }: { onClose: () => void }) {
     wallet?.id,
     wallet?.type,
     account?.indexedAccountId,
+    showRiskDot,
+    onRiskSeen,
   ]);
 
   return (
@@ -50,6 +78,11 @@ export function WalletActionApprovals({ onClose }: { onClose: () => void }) {
       })}
       onClose={() => {}}
       onPress={handlePress}
+      extra={
+        showRiskDot ? (
+          <RiskApprovalsDot testID="wallet-action-approvals-risk-dot" />
+        ) : undefined
+      }
     />
   );
 }

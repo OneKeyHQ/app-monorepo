@@ -8,6 +8,10 @@ import { useReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { getRewardCenterConfig } from '@onekeyhq/kit/src/components/RewardCenter';
 import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import {
+  useAccountOverviewActions,
+  useApprovalsInfoAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
+import {
   useAccountSelectorSceneInfo,
   useActiveAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -55,6 +59,12 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
   const activeTabId = useContext(HomeStickyHeaderContext)?.activeTabId;
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
   const { account, network } = activeAccount;
+  // Read here, not in the item: menu items render outside this context.
+  const [{ showRiskApprovalsDot }] = useApprovalsInfoAtom();
+  const { updateApprovalsInfo } = useAccountOverviewActions().current;
+  const markRiskApprovalsSeen = useCallback(() => {
+    updateApprovalsInfo({ showRiskApprovalsDot: false });
+  }, [updateApprovalsInfo]);
 
   const show = useReviewControl();
   const { config, getMoreActionGroups, getActionCustomization, vaultSettings } =
@@ -247,6 +257,8 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
                 <WalletActionApprovals
                   key="approvals"
                   onClose={handleActionListClose}
+                  showRiskDot={showRiskApprovalsDot}
+                  onRiskSeen={markRiskApprovalsSeen}
                 />
               );
             case 'vote':
@@ -363,6 +375,8 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
       isBotWalletDeactivated,
       sceneName,
       sceneUrl,
+      showRiskApprovalsDot,
+      markRiskApprovalsSeen,
     ],
   );
 
@@ -409,6 +423,7 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
       renderItemsAsync={renderItemsAsync}
       testID={HomeTestIDs.moreButton}
       iconOnly={iconOnly}
+      showDot={showRiskApprovalsDot && isApprovalEnabled}
     />
   );
 }

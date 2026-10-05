@@ -143,6 +143,14 @@ export const { atom: allNetworksStateAtom, use: useAllNetworksStateStateAtom } =
     visibleCount: 0,
   });
 
+export const { atom: approvalsInfoAtom, use: useApprovalsInfoAtom } =
+  contextAtom<{
+    // Risk approvals the user has not reviewed within the resurface window.
+    showRiskApprovalsDot: boolean;
+  }>({
+    showRiskApprovalsDot: false,
+  });
+
 export const { atom: walletTopBannersAtom, use: useWalletTopBannersAtom } =
   contextAtom<{
     banners: IWalletBanner[];
