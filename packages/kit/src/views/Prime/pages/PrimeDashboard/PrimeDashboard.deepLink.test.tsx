@@ -11,6 +11,9 @@ import PrimeDashboard from './PrimeDashboard';
 
 const mockLogin = jest.fn<Promise<void>, []>();
 const mockEnsureSubscription = jest.fn(async () => undefined);
+const mockRequirements = {
+  ensurePrimeSubscriptionActive: mockEnsureSubscription,
+};
 const mockShowOneKeyIdLoginFailedToast = jest.fn();
 const mockNavigation = {
   popStack: jest.fn(),
@@ -105,7 +108,7 @@ jest.mock('../../components/oneKeyIdLoginToastUtils', () => ({
 }));
 jest.mock('../../hooks/usePrimeRequirements', () => ({
   usePrimeRequirements: () => ({
-    ensurePrimeSubscriptionActive: mockEnsureSubscription,
+    ensurePrimeSubscriptionActive: mockRequirements.ensurePrimeSubscriptionActive,
   }),
 }));
 jest.mock('../../hooks/usePrimeSubscriptionPackages', () => ({
@@ -155,6 +158,7 @@ describe('PrimeDashboard subscription deep link', () => {
     mockAuth.isReady = true;
     mockAuth.isLoggedIn = false;
     mockAuth.isPrimeSubscriptionActive = false;
+    mockRequirements.ensurePrimeSubscriptionActive = mockEnsureSubscription;
     mockLogin.mockImplementation(
       () =>
         new Promise<void>((resolve, reject) => {
@@ -323,6 +327,27 @@ describe('PrimeDashboard subscription deep link', () => {
       await jest.advanceTimersByTimeAsync(1000);
     });
     expect(mockEnsureSubscription).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the post-login requirements callback for a checkout that awaited login', async () => {
+    const { rerender } = render(<PrimeDashboard route={route} />);
+    await act(async () => {
+      clickSubscribe();
+    });
+
+    // Login publishes the user before the dialog-close promise resolves, so
+    // the dashboard re-renders with a requirements callback bound to them.
+    const postLoginEnsureSubscription = jest.fn(async () => undefined);
+    mockRequirements.ensurePrimeSubscriptionActive =
+      postLoginEnsureSubscription;
+    mockAuth.isLoggedIn = true;
+    rerender(<PrimeDashboard route={route} />);
+    await act(async () => {
+      completeLogin();
+    });
+
+    expect(mockEnsureSubscription).not.toHaveBeenCalled();
+    expect(postLoginEnsureSubscription).toHaveBeenCalledTimes(1);
   });
 
   it('does not start checkout when the pending automatic login is cancelled', async () => {

@@ -139,6 +139,12 @@ export default function PrimeDashboard({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { ensureOneKeyIDLoggedIn, ensurePrimeSubscriptionActive } =
     usePrimeRequirements({ networkId: networkId ?? network?.id });
+  // Subscribe may await an in-flight login; read the post-login callback so
+  // purchase eligibility sees the logged-in user instead of the click closure.
+  const ensurePrimeSubscriptionActiveRef = useRef(
+    ensurePrimeSubscriptionActive,
+  );
+  ensurePrimeSubscriptionActiveRef.current = ensurePrimeSubscriptionActive;
 
   const isFocused = useIsFocused();
   const isFocusedRef = useRef(isFocused);
@@ -397,7 +403,7 @@ export default function PrimeDashboard({
       }
 
       await runPrimeSubscribeWithMinimumLoadingDuration(() =>
-        ensurePrimeSubscriptionActive({
+        ensurePrimeSubscriptionActiveRef.current({
           skipDialogConfirm: true,
           selectedSubscriptionPeriod,
           featureName: fromFeature,
@@ -409,7 +415,6 @@ export default function PrimeDashboard({
       setIsSubscribeLazyLoading(false);
     }
   }, [
-    ensurePrimeSubscriptionActive,
     handleDashboardLoginError,
     navigation,
     selectedSubscriptionPeriod,
