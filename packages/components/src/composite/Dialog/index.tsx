@@ -100,7 +100,7 @@ import type { IOverlayLevel } from '@onekeyfe/react-native-native-overlay';
 
 type IDialogFormModule = typeof import('./DialogForm');
 type IDialogFormFieldProps = ComponentProps<
-  typeof import('./DialogForm')['DialogFormField']
+  (typeof import('./DialogForm'))['DialogFormField']
 >;
 
 let loadDialogFormModulePromise: Promise<IDialogFormModule> | undefined;
@@ -488,12 +488,12 @@ function DialogFrame({
 
   // Keep the content in the same child slot when the grabber disappears.
   // Moving it from [grabber, content] to [content] remounts forms and loses
-  // unsubmitted drafts (OK-50653).
+  // drafts before submission (OK-50653).
   const dialogContentStack = (
     <Stack
       bg={
         isHeaderDragOnly
-          ? (contentContainerProps as { bg?: IColorTokens })?.bg ?? '$bg'
+          ? ((contentContainerProps as { bg?: IColorTokens })?.bg ?? '$bg')
           : undefined
       }
       borderTopLeftRadius={isHeaderDragOnly ? '$6' : undefined}
