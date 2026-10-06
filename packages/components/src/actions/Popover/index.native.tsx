@@ -9,6 +9,7 @@ import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { GlassButtonCapsule } from '../../content/GlassButtonCapsule';
 import { Keyboard } from '../../content/Keyboard';
 import { NativeSheetPresentation } from '../../hocs/NativeSheetPresentation';
 import {
@@ -389,13 +390,15 @@ function RawPopover({
                 </SizableText>
               ) : null}
             </YStack>
-            <IconButton
-              icon="CrossedSmallOutline"
-              size="small"
-              hitSlop={NATIVE_HIT_SLOP}
-              onPress={closePopover}
-              testID="popover-btn-close"
-            />
+            <GlassButtonCapsule circular>
+              <IconButton
+                icon="CrossedSmallOutline"
+                size="small"
+                hitSlop={NATIVE_HIT_SLOP}
+                onPress={closePopover}
+                testID="popover-btn-close"
+              />
+            </GlassButtonCapsule>
           </XStack>
         ) : null}
         <ScrollView
