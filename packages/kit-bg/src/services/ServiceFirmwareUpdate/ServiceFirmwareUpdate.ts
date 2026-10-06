@@ -235,10 +235,12 @@ export function shouldForceProtocolV2ResourceUpdate({
   );
 }
 
+// Safe integers only: semver throws on a larger part, and on the exponent
+// form such a number prints in.
 const isVersionArray = (value: unknown): value is number[] =>
   Array.isArray(value) &&
   value.length === 3 &&
-  value.every((part) => Number.isInteger(part) && part >= 0);
+  value.every((part) => Number.isSafeInteger(part) && part >= 0);
 
 /**
  * `resources.fullRefreshVersion` of a Protocol V2 model's latest release, as

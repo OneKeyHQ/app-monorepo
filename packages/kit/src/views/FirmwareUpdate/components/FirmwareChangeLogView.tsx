@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { EFirmwareType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
@@ -464,6 +464,9 @@ export function FirmwareChangeLogView({
   const [, setStepInfo] = useFirmwareUpdateStepInfoAtom();
   const { showCheckList, confirmUpdateViaBluetooth } =
     useFirmwareUpdateActions();
+  // "Continue via Bluetooth" answers the suggestion for this page: closing
+  // the checklist and tapping "Update now" again does not ask a second time.
+  const continuedViaBluetoothRef = useRef(false);
 
   const handleConfirmClick = useCallback(async () => {
     if (onRetryClick) {
@@ -496,6 +499,7 @@ export function FirmwareChangeLogView({
     }
     if (
       !usbSuggestionAcknowledged &&
+      !continuedViaBluetoothRef.current &&
       shouldSuggestDesktopUsbFirmwareUpdate({
         isNative: platformEnv.isNative,
         deviceType: result?.deviceType,
@@ -506,6 +510,7 @@ export function FirmwareChangeLogView({
       if (!shouldContinue) {
         return;
       }
+      continuedViaBluetoothRef.current = true;
     }
     setStepInfo({
       step: EFirmwareUpdateSteps.showCheckList,

@@ -301,6 +301,22 @@ describe('FirmwareChangeLogView desktop USB suggestion', () => {
     expect(mockDialogShow).toHaveBeenCalledTimes(1);
   });
 
+  it('asks once per page: the Bluetooth choice stands after the checklist is closed', async () => {
+    const result = buildResult(EDeviceType.Pro2);
+    render(<FirmwareChangeLogView result={result} />);
+
+    tapUpdateNow();
+    await continueViaBluetooth();
+    expect(mockShowCheckList).toHaveBeenCalledTimes(1);
+
+    // The checklist was closed without continuing; "Update now" again.
+    tapUpdateNow();
+    await settleHandlers();
+
+    expect(mockDialogShow).toHaveBeenCalledTimes(1);
+    expect(mockShowCheckList).toHaveBeenCalledTimes(2);
+  });
+
   it.each([
     { label: 'the close button, backdrop or back key', extra: undefined },
     {

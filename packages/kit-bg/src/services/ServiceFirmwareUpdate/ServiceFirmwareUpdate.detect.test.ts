@@ -396,6 +396,8 @@ describe('getResourceFullRefreshVersion', () => {
     ['a number', 7],
     ['a short array', [1, 0]],
     ['a negative part', [1, 0, -1]],
+    ['a part beyond the safe integer range', [1, 0, 2 ** 53]],
+    ['a part that prints in exponent form', [1, 0, 1e21]],
     ['a missing field', undefined],
   ])('ignores %s', (_label, fullRefreshVersion) => {
     expect(
@@ -516,6 +518,22 @@ describe('ServiceFirmwareUpdate.baseCheckAllFirmwareRelease', () => {
 
   it('counts the archive in full when the manifest snapshot is unavailable', async () => {
     mockGetFirmwareManifestSnapshot.mockRejectedValue(new Error('offline'));
+    const neo = await check(createService(sdkRelease('neo', '1.0.1'), false));
+    expect(neo.estimatedTransferBytes).toBe(19_765_196);
+  });
+
+  it('keeps the release check alive when the boundary is not a usable version', async () => {
+    // semver throws on such a version; the size hint must not fail the check.
+    mockGetFirmwareManifestSnapshot.mockResolvedValue({
+      neo: {
+        'firmware-v1': [
+          {
+            version: [1, 0, 3],
+            resources: { source: {}, fullRefreshVersion: [1, 0, 2 ** 53] },
+          },
+        ],
+      },
+    });
     const neo = await check(createService(sdkRelease('neo', '1.0.1'), false));
     expect(neo.estimatedTransferBytes).toBe(19_765_196);
   });

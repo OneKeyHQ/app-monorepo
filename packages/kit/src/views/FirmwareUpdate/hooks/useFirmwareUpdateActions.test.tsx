@@ -386,6 +386,28 @@ describe('useFirmwareUpdateActions', () => {
       expect(mockPushModal).toHaveBeenCalledTimes(1);
     });
 
+    it('does not open the suggestion for an entry that is already gone', async () => {
+      mockIsNative = true;
+      const { result, unmount } = renderHook(() => useFirmwareUpdateActions());
+      const { openChangeLogModal } = result.current;
+
+      // Onboarding prepares the transport before it asks, and the page can be
+      // left meanwhile. Its cleanup has run by then, so nothing would close a
+      // dialog opened now.
+      unmount();
+      act(() => {
+        void openChangeLogModal({
+          connectId: 'ble-1',
+          knownUpdate: knownLargeUpdate(),
+        });
+      });
+      await settle();
+
+      expect(mockDialogShow).not.toHaveBeenCalled();
+      expect(mockCheckDeviceReachable).not.toHaveBeenCalled();
+      expect(mockPushModal).not.toHaveBeenCalled();
+    });
+
     it('shows the suggestion through the page dialog host and closes it with the page', async () => {
       mockIsNative = true;
       const close = jest.fn();
