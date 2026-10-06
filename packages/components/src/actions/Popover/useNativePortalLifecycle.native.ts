@@ -51,9 +51,19 @@ export function useNativePortalLifecycle({
       if (!desiredOpenRef.current) {
         hasOpenedNativeSheetRef.current = false;
         setIsNativePortalMounted(false);
+        // Some native sheet implementations do not emit an animation
+        // completion event when they are dismissed programmatically. Notify
+        // feature-owned lifecycle state before the fallback unmounts so a
+        // closing trigger cannot remain pinned to stale content.
+        sheetProps?.onAnimationComplete?.({ open: false });
       }
     }, NATIVE_PORTAL_CLOSE_FALLBACK_DELAY);
-  }, [clearCloseFallbackTimer, isOpen, shouldUseNativePortalLifecycle]);
+  }, [
+    clearCloseFallbackTimer,
+    isOpen,
+    sheetProps,
+    shouldUseNativePortalLifecycle,
+  ]);
 
   useEffect(() => {
     if (!shouldUseNativePortalLifecycle || !isOpen || !isNativePortalMounted) {

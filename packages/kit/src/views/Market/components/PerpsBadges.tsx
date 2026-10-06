@@ -570,20 +570,29 @@ const StockIsOpenBadge = memo(
     }
     const contentWidth =
       measurement.key === measurementKey ? measurement.width : 0;
+    const hasMeasuredOptionalSegment =
+      Boolean(nextOpenText) &&
+      measurement.key === measurementKey &&
+      measurement.width > 0;
 
     if (!variant) {
       return null;
     }
     const chip = STOCK_MARKET_STATUS_CHIPS[variant];
     const showNextOpen =
-      Boolean(nextOpenText) &&
+      hasMeasuredOptionalSegment &&
       shouldShowOptionalSegment({
         availableWidth,
         contentWidth,
         // The icon box plus the row's own `$1` gap before the text stack.
         reservedWidth: iconWidth ? iconWidth + INLINE_STATUS_ROW_GAP : 0,
       });
-    showsOptionalSegmentRef.current = showNextOpen;
+    // Keep the optional segment in the layout while measuring, but hide it
+    // until its width has been confirmed. Rendering it visible on the first
+    // pass makes a long countdown flash before the row can decide to drop it.
+    const measureNextOpen =
+      Boolean(nextOpenText) && !hasMeasuredOptionalSegment;
+    showsOptionalSegmentRef.current = measureNextOpen || showNextOpen;
 
     const badge =
       displayVariant === 'inline' ? (
@@ -608,13 +617,17 @@ const StockIsOpenBadge = memo(
                 </SizableText>
               </>
             ) : null}
-            {showNextOpen ? (
-              <>
+            {nextOpenText && (measureNextOpen || showNextOpen) ? (
+              <XStack
+                alignItems="center"
+                gap="$2"
+                opacity={showNextOpen ? 1 : 0}
+              >
                 <Stack width="$px" height={12} bg="$borderSubdued" />
                 <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
                   {nextOpenText}
                 </SizableText>
-              </>
+              </XStack>
             ) : null}
           </XStack>
         </XStack>

@@ -6,7 +6,12 @@ import { isEqual } from 'lodash';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  useActiveAccount,
+  useSelectedAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useSelectedDeriveTypeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
+import { getSelectedDeriveTypeForNetwork } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/marketDeriveType';
 import {
   useSwapStockPayTokenDisplayAtom,
   useSwapStockPayTokenPreferenceAtom,
@@ -18,6 +23,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { mevSwapNetworks } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
@@ -26,6 +32,8 @@ import {
   type ISwapStockSpeedConfig,
   type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
+
+import { resolveSwapStockDeriveType } from '../utils/swapStockAccountScope';
 
 import {
   ESwapStockChannelAsyncStatus,
@@ -69,7 +77,19 @@ type IStockPayToken = IToken & {
   valueProps?: { value: string; currency: string };
 };
 
+type IStockPayTokenDetailsResult = {
+  scope: string;
+  tokens: IStockPayToken[];
+  balances: Record<string, string | undefined>;
+  cacheable: boolean;
+};
+
 const EMPTY_STOCK_PAY_TOKENS: IStockPayToken[] = [];
+
+// The stock detail page's portfolio polls at this cadence. The pay token list
+// keeps the same rhythm so both surfaces show balances of the same age.
+const STOCK_PAY_TOKEN_DETAILS_POLLING_INTERVAL_MS =
+  timerUtils.getTimeDurationMs({ seconds: 15 });
 
 function buildStockPayTokenPreferenceScope({
   accountId,
@@ -178,6 +198,8 @@ export function useSwapStockPayTokens({
   syncPayTokenDetail: (token: IToken) => void;
 }) {
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const { selectedAccount } = useSelectedAccount({ num: 0 });
+  const [selectedDeriveType] = useSelectedDeriveTypeAtom();
   const [payTokenPreferenceByScope, setPayTokenPreferenceByScope] =
     useSwapStockPayTokenPreferenceAtom();
   const [payTokenDisplayByScope, setPayTokenDisplayByScope] =
@@ -324,7 +346,21 @@ export function useSwapStockPayTokens({
     shouldLoadPayTokenDetails ? '1' : '0'
   }:${rawPayTokenKeys}:${activeAccount?.indexedAccount?.id ?? ''}:${
     activeAccount?.account?.id ?? ''
-  }`;
+  }:${activeAccount?.deriveType ?? ''}:${selectedDeriveType?.networkId ?? ''}:${
+    selectedDeriveType?.deriveType ?? ''
+  }:${selectedAccount.indexedAccountId ?? ''}:${selectedAccount.networkId ?? ''}:${
+    selectedAccount.deriveType ?? ''
+  }:${stockNetworkId}`;
+  const successfulPayTokenDetailsRef = useRef<{
+    scope: string;
+    details: Map<string, ISwapToken>;
+  }>({ scope: payTokenDetailsScope, details: new Map() });
+  if (successfulPayTokenDetailsRef.current.scope !== payTokenDetailsScope) {
+    successfulPayTokenDetailsRef.current = {
+      scope: payTokenDetailsScope,
+      details: new Map(),
+    };
+  }
   const currentPayTokenDetailsScopeRef = useRef(payTokenDetailsScope);
   const completedPayTokenDetailsScopeRef = useRef('');
   const explicitPayTokenDetailsRevalidationScopeRef = useRef('');
@@ -333,9 +369,11 @@ export function useSwapStockPayTokens({
     result: payTokenDetailsState,
     isLoading: payTokenDetailsLoading,
     run: reloadPayTokenDetails,
-  } = usePromiseResult(
+  } = usePromiseResult<IStockPayTokenDetailsResult>(
     async () => {
       const requestScope = payTokenDetailsScope;
+      const requestPayTokenDetailsCache =
+        successfulPayTokenDetailsRef.current.details;
       const shouldExplicitlyRevalidate =
         explicitPayTokenDetailsRevalidationScopeRef.current === requestScope;
       if (shouldExplicitlyRevalidate) {
@@ -357,6 +395,7 @@ export function useSwapStockPayTokens({
           scope: payTokenDetailsScope,
           tokens: [] as IStockPayToken[],
           balances: {} as Record<string, string | undefined>,
+          cacheable: false,
         });
       }
       if (!hasActiveAccount) {
@@ -373,6 +412,7 @@ export function useSwapStockPayTokens({
             },
             {},
           ),
+          cacheable: false,
         });
       }
 
@@ -392,31 +432,62 @@ export function useSwapStockPayTokens({
           return cachedRequest;
         }
         const request = (async () => {
-          const defaultDeriveType =
+          const networkDefaultDeriveType =
             await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
               {
                 networkId: tokenNetworkId,
               },
             );
+          const accountSelectedDeriveType =
+            selectedAccount.networkId === tokenNetworkId &&
+            ((activeAccount?.indexedAccount?.id &&
+              selectedAccount.indexedAccountId ===
+                activeAccount.indexedAccount.id) ||
+              (activeAccount?.account?.id &&
+                selectedAccount.othersWalletAccountId ===
+                  activeAccount.account.id))
+              ? selectedAccount.deriveType
+              : undefined;
           return backgroundApiProxy.serviceAccount.getNetworkAccount({
             accountId: activeAccount?.indexedAccount?.id
               ? undefined
               : activeAccount?.account?.id,
             indexedAccountId: activeAccount?.indexedAccount?.id ?? '',
             networkId: tokenNetworkId,
-            deriveType: defaultDeriveType ?? 'default',
+            deriveType: resolveSwapStockDeriveType({
+              activeDeriveType: activeAccount?.deriveType,
+              networkDefaultDeriveType,
+              networkId: tokenNetworkId,
+              stockNetworkId,
+              selectedDeriveType:
+                getSelectedDeriveTypeForNetwork(
+                  selectedDeriveType,
+                  tokenNetworkId,
+                ) ??
+                accountSelectedDeriveType ??
+                (activeAccount?.network?.id === tokenNetworkId
+                  ? activeAccount.deriveType
+                  : undefined),
+            }),
           });
         })();
         accountRequestMap.set(tokenNetworkId, request);
         return request;
       };
 
+      let hasAuthoritativeBalance = true;
       const tokens = await Promise.all(
         rawPayTokens.map(async (token) => {
           try {
             const networkAccount = await getNetworkAccount(token.networkId);
             if (!networkAccount?.id || !networkAccount?.address) {
-              return buildStockPayToken({ token });
+              hasAuthoritativeBalance = false;
+              return buildStockPayToken({
+                token,
+                detail: requestPayTokenDetailsCache.get(
+                  getTokenIdentityKey(token),
+                ),
+              });
             }
             const details = await runStockPayTokenDetailsRequest({
               mode: requestMode,
@@ -439,16 +510,32 @@ export function useSwapStockPayTokens({
                 }),
             });
             const firstDetail = details?.[0];
-            const detail =
-              firstDetail?.balanceParsed !== undefined
-                ? {
-                    ...firstDetail,
-                    accountAddress: networkAccount.address,
-                  }
-                : firstDetail;
-            return buildStockPayToken({ token, detail });
+            if (firstDetail?.balanceParsed !== undefined) {
+              const detail = {
+                ...firstDetail,
+                accountAddress: networkAccount.address,
+              };
+              requestPayTokenDetailsCache.set(
+                getTokenIdentityKey(token),
+                detail,
+              );
+              return buildStockPayToken({ token, detail });
+            }
+            hasAuthoritativeBalance = false;
+            return buildStockPayToken({
+              token,
+              detail: requestPayTokenDetailsCache.get(
+                getTokenIdentityKey(token),
+              ),
+            });
           } catch {
-            return buildStockPayToken({ token });
+            hasAuthoritativeBalance = false;
+            return buildStockPayToken({
+              token,
+              detail: requestPayTokenDetailsCache.get(
+                getTokenIdentityKey(token),
+              ),
+            });
           }
         }),
       );
@@ -462,29 +549,47 @@ export function useSwapStockPayTokens({
             token.balanceParsed ?? '0',
           ]),
         ),
+        cacheable: hasAuthoritativeBalance,
       });
     },
     [
       activeAccount?.account?.id,
+      activeAccount?.deriveType,
       activeAccount?.indexedAccount?.id,
+      activeAccount?.network?.id,
       hasActiveAccount,
       payTokenDetailsScope,
       rawPayTokens,
+      selectedDeriveType,
+      selectedAccount,
       shouldLoadPayTokenDetails,
+      stockNetworkId,
     ],
     {
       initResult: {
         scope: '',
         tokens: [] as IStockPayToken[],
         balances: {} as Record<string, string | undefined>,
+        cacheable: false,
       },
       watchLoading: shouldLoadPayTokenDetails,
       revalidateOnFocus: true,
+      // Keep the interval identity stable. The callback itself exits while
+      // the speed config or token candidates are still loading; changing the
+      // interval here would make usePromiseResult wait a full 15 seconds
+      // before the first authoritative balance request.
+      pollingInterval: STOCK_PAY_TOKEN_DETAILS_POLLING_INTERVAL_MS,
       swrKey: shouldLoadPayTokenDetails
         ? swrKeys.swapStockPayTokenDetails({
             scope: payTokenDetailsScope,
           })
         : undefined,
+      // Only a real balance response may seed the next cold start: the
+      // no-account placeholder carries zeroed balances that would otherwise be
+      // replayed as if they were the account's funds. Same rule as the market
+      // stock caches, which never persist a failed or empty payload.
+      swrShouldPersist: (result) =>
+        hasActiveAccount && result.cacheable && result.tokens.length > 0,
     },
   );
   const payTokenDetailsReady =

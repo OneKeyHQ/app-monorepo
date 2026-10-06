@@ -9,6 +9,7 @@ import {
   buildStockSwapTokenFromMarketListToken,
   buildStockSwapTokenFromMarketToken,
   filterStockPayTokenCandidates,
+  getTokenIdentityKey,
   hasValidStockBalanceForTrade,
   isStockBalanceActionReady,
   isStockBalanceInitializing,
@@ -82,6 +83,17 @@ const micronStockToken: ISwapToken = {
 };
 
 describe('swapStockChannelUtils', () => {
+  it('canonicalizes case-insensitive token identities before scoping requests', () => {
+    expect(
+      getTokenIdentityKey({
+        networkId: 'evm--1',
+        contractAddress: '0xAbC',
+      }),
+    ).toBe(
+      getTokenIdentityKey({ networkId: 'evm--1', contractAddress: '0xabc' }),
+    );
+  });
+
   it('loads the default stock when no stock token has been selected', () => {
     expect(
       shouldLoadDefaultStockToken({

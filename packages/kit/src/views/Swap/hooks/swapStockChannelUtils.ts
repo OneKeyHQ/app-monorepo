@@ -5,7 +5,10 @@ import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/compo
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  equalTokenNoCaseSensitive,
+  normalizeTokenContractAddress,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IMarketTokenDetail,
   IMarketTokenListItem,
@@ -154,7 +157,14 @@ export function getTokenIdentityKey(token?: Partial<ISwapTokenBase>) {
   if (!token?.networkId) {
     return '';
   }
-  return `${token.networkId}:${token.contractAddress ?? ''}:${
+  const contractAddress =
+    normalizeTokenContractAddress({
+      networkId: token.networkId,
+      contractAddress: token.contractAddress,
+    }) ??
+    token.contractAddress ??
+    '';
+  return `${token.networkId}:${contractAddress}:${
     token.isNative ? 'native' : 'token'
   }`;
 }
