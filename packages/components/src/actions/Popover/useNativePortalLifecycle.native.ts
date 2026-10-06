@@ -20,6 +20,8 @@ export function useNativePortalLifecycle({
   const closeFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  const sheetAnimationCompleteRef = useRef(sheetProps?.onAnimationComplete);
+  sheetAnimationCompleteRef.current = sheetProps?.onAnimationComplete;
   desiredOpenRef.current = Boolean(isOpen);
 
   const clearCloseFallbackTimer = useCallback(() => {
@@ -55,15 +57,10 @@ export function useNativePortalLifecycle({
         // completion event when they are dismissed programmatically. Notify
         // feature-owned lifecycle state before the fallback unmounts so a
         // closing trigger cannot remain pinned to stale content.
-        sheetProps?.onAnimationComplete?.({ open: false });
+        sheetAnimationCompleteRef.current?.({ open: false });
       }
     }, NATIVE_PORTAL_CLOSE_FALLBACK_DELAY);
-  }, [
-    clearCloseFallbackTimer,
-    isOpen,
-    sheetProps,
-    shouldUseNativePortalLifecycle,
-  ]);
+  }, [clearCloseFallbackTimer, isOpen, shouldUseNativePortalLifecycle]);
 
   useEffect(() => {
     if (!shouldUseNativePortalLifecycle || !isOpen || !isNativePortalMounted) {
@@ -87,7 +84,7 @@ export function useNativePortalLifecycle({
 
   const handleSheetAnimationComplete = useCallback(
     (info: { open: boolean }) => {
-      sheetProps?.onAnimationComplete?.(info);
+      sheetAnimationCompleteRef.current?.(info);
       if (
         !shouldUseNativePortalLifecycle ||
         info.open ||
@@ -99,7 +96,7 @@ export function useNativePortalLifecycle({
       hasOpenedNativeSheetRef.current = false;
       setIsNativePortalMounted(false);
     },
-    [clearCloseFallbackTimer, sheetProps, shouldUseNativePortalLifecycle],
+    [clearCloseFallbackTimer, shouldUseNativePortalLifecycle],
   );
 
   const resolvedSheetProps = useMemo(
