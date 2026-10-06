@@ -54,6 +54,7 @@ import {
 
 import {
   type IStockBalanceSnapshot,
+  getTokenIdentityKey,
   isStockBalanceActionReady,
   isStockBalanceInitializing,
   isStockPayTokenReadyForTradeInput,
@@ -93,12 +94,7 @@ function getNetworkLogoURI(networkId?: string) {
 }
 
 function getStockInputTokenIdentityKey(token?: Partial<ISwapToken>) {
-  if (!token?.networkId) {
-    return '';
-  }
-  return `${token.networkId}:${token.contractAddress ?? ''}:${
-    token.isNative ? 'native' : 'token'
-  }`;
+  return getTokenIdentityKey(token);
 }
 
 export function calcSwapStockPercentageAmount({
@@ -150,7 +146,6 @@ function useStockInputTokenBalance({
   const accountNetworkReady = Boolean(
     !hasActiveAccount || activeAccount?.ready,
   );
-  const balanceOwnerScope = `${tokenScope}:${balanceAccountKey ?? ''}`;
   const shouldFetchNetworkAccount = Boolean(
     enabled && tokenNetworkId && hasActiveAccount && accountNetworkReady,
   );
@@ -180,6 +175,10 @@ function useStockInputTokenBalance({
       networkId: tokenNetworkId,
     },
   )}`;
+  // A selected derive type can change the network account while the wallet and
+  // token remain the same. Keep that account identity in the balance snapshot
+  // scope so a previous derive's balance cannot bridge the lookup gap.
+  const balanceOwnerScope = `${tokenScope}:${balanceAccountKey ?? ''}:${networkAccountScope}`;
   const { result: networkAccountState, isLoading: networkAccountLoading } =
     usePromiseResult(
       async () => {
