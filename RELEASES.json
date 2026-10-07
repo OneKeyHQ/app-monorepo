@@ -25,5 +25,14 @@
       "#13738"
     ],
     "notes": "fix: sanitize Android platform header (#13738)"
+  },
+  {
+    "seq": 3,
+    "commit": "e48d3941c3e03b5a43e1bc854a29af6e443125b6",
+    "date": "2026-10-01T14:32:45Z",
+    "prs": [
+      "#13774"
+    ],
+    "notes": "fix: align Perps liquidation estimate with Hyperliquid (OK-64168) (#13774). Built from release/v6.6.0-2c08fd3 (release #2 + #13774); bundle version 23633836"
   }
 ]

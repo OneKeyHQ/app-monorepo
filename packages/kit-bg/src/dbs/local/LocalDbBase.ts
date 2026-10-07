@@ -119,7 +119,10 @@ import perfUtils, {
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
-import { resolveQrWalletDeviceType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
+import {
+  isProtocolV2ProductType,
+  resolveQrWalletDeviceType,
+} from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -4166,7 +4169,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             const serialNo = deviceUtils.getDeviceSerialNoFromFeatures(
               device?.featuresInfo,
             );
-            if (device && deviceType === EDeviceType.Pro && serialNo) {
+            if (
+              device &&
+              deviceType &&
+              (deviceType === EDeviceType.Pro ||
+                isProtocolV2ProductType(deviceType)) &&
+              serialNo
+            ) {
               const imgFromSerialNo = getDeviceAvatarImage(
                 deviceType,
                 serialNo,
