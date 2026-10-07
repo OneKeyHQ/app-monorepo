@@ -197,9 +197,7 @@ export function InviteLinkHero({
       <InviteLinkActions
         inviteUrl={inviteUrl}
         displayUrl={inviteCodeUrl}
-        copyLabel={intl.formatMessage({
-          id: ETranslations.browser_copy_link,
-        })}
+        copyLabel={INVITE_COPY.copyInviteLink}
         copyLink={copyLink}
         isCompact={md}
         shareButton={

@@ -31,6 +31,7 @@ import { RulesButton } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteRe
 import {
   EReferralPageTab,
   type IReferralPageTab,
+  IS_BENEFITS_TAB_ENABLED,
   resolveReferralPageTab,
 } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/referralPageTab';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -43,6 +44,8 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { ReferFriendsTestIDs } from '../../testIDs';
 import { useNavigateToRewardHistory } from '../RewardDistributionHistory/hooks/useNavigateToRewardHistory';
+
+import { INVITE_COPY } from './inviteCopy';
 
 const ReferralPageHeader = memo(function ReferralPageHeader({
   activeTab,
@@ -73,7 +76,7 @@ const ReferralPageHeader = memo(function ReferralPageHeader({
         title={intl.formatMessage({
           id: ETranslations.referral_title,
         })}
-        headerTitle={renderHeaderTitle}
+        headerTitle={IS_BENEFITS_TAB_ENABLED ? renderHeaderTitle : undefined}
         headerRight={renderHeaderRight}
       />
     );
@@ -89,7 +92,6 @@ const ReferralPageHeader = memo(function ReferralPageHeader({
 });
 
 function InviteRewardPage() {
-  const intl = useIntl();
   const { md } = useMedia();
   const navigation = useAppNavigation();
   const navigateToRewardHistory = useNavigateToRewardHistory();
@@ -228,9 +230,11 @@ function InviteRewardPage() {
             pt="$4"
             pb="$2"
             ai="center"
-            jc="space-between"
+            jc={IS_BENEFITS_TAB_ENABLED ? 'space-between' : 'flex-end'}
           >
-            <ReferralJobTabs value={activeTab} onChange={setActiveTab} />
+            {IS_BENEFITS_TAB_ENABLED ? (
+              <ReferralJobTabs value={activeTab} onChange={setActiveTab} />
+            ) : null}
             {isInviteTab ? (
               <XStack ai="center" gap="$2" flexShrink={1} jc="flex-end">
                 {levelPill}
@@ -276,9 +280,7 @@ function InviteRewardPage() {
         <Page.Footer>
           <Page.FooterActions
             onConfirm={copyLink}
-            onConfirmText={intl.formatMessage({
-              id: ETranslations.browser_copy_link,
-            })}
+            onConfirmText={INVITE_COPY.copyInviteLink}
             confirmButtonProps={{
               testID: ReferFriendsTestIDs.copyLinkFooterBtn,
             }}

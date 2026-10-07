@@ -146,69 +146,109 @@ function RewardListRow({
   );
 }
 
-function DesktopRewardRow({
-  row,
-  title,
+const DESKTOP_AMOUNT_COLUMN_WIDTH = 132;
+const EMPTY_CELL = '—';
+
+function AmountCell({ children }: { children?: ReactNode }) {
+  return (
+    <XStack w={DESKTOP_AMOUNT_COLUMN_WIDTH} jc="flex-end" flexShrink={0}>
+      {children ?? (
+        <SizableText size="$bodyMd" color="$textDisabled">
+          {EMPTY_CELL}
+        </SizableText>
+      )}
+    </XStack>
+  );
+}
+
+// Desktop lists every product on one aligned grid so amounts compare by column.
+function DesktopRewardTable({
+  rows,
+  titleFor,
   monthlyLabel,
-  pendingLabel,
   availableLabel,
+  pendingLabel,
   availableTooltip,
   pendingTooltip,
-  viewDetails,
-  onPress,
+  detailsLabel,
+  onOpen,
 }: {
-  row: IInviteRewardRow;
-  title: string;
+  rows: IInviteRewardRow[];
+  titleFor: (subject: IInviteRewardSubject) => string;
   monthlyLabel: string;
-  pendingLabel: string;
   availableLabel: string;
+  pendingLabel: string;
   availableTooltip?: IRewardLabelTooltip;
   pendingTooltip?: IRewardLabelTooltip;
-  viewDetails: string;
-  onPress: () => void;
+  detailsLabel: string;
+  onOpen: (subject: IInviteRewardSubject) => void;
 }) {
   return (
-    <XStack
-      ai="center"
-      gap="$3"
-      py="$3"
-      cursor="pointer"
-      role="button"
-      onPress={onPress}
-    >
-      <Icon
-        name={SUBJECT_ICON[row.subject]}
-        size="$5"
-        color="$iconSubdued"
-        flexShrink={0}
-      />
-      <SizableText flex={1} size="$bodyLgMedium" numberOfLines={1}>
-        {title}
-      </SizableText>
-      {row.monthlySalesFiatValue ? (
-        <YStack minWidth={96} gap="$0.5">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {monthlyLabel}
-          </SizableText>
-          <Currency size="$bodyMdMedium" formatter="value">
-            {row.monthlySalesFiatValue}
-          </Currency>
-        </YStack>
-      ) : null}
-      <YStack minWidth={96} ai="flex-end" gap="$0.5">
-        <RewardLabel label={availableLabel} tooltip={availableTooltip} />
-        <InviteRewardAmount summary={row.available} emptyLabel />
-      </YStack>
-      {row.pending?.hasReward ? (
-        <YStack minWidth={96} ai="flex-end" gap="$0.5">
+    <YStack>
+      <XStack ai="center" gap="$3" pb="$2">
+        <Stack w="$5" flexShrink={0} />
+        <Stack flex={1} />
+        <AmountCell>
+          <RewardLabel label={monthlyLabel} />
+        </AmountCell>
+        <AmountCell>
+          <RewardLabel label={availableLabel} tooltip={availableTooltip} />
+        </AmountCell>
+        <AmountCell>
           <RewardLabel label={pendingLabel} tooltip={pendingTooltip} />
-          <InviteRewardAmount summary={row.pending} />
-        </YStack>
-      ) : null}
-      <SizableText size="$bodyMd" color="$textSubdued">
-        {`${viewDetails} ›`}
-      </SizableText>
-    </XStack>
+        </AmountCell>
+        <Stack w={72} flexShrink={0} />
+      </XStack>
+      {rows.map((row) => (
+        <XStack
+          key={row.subject}
+          ai="center"
+          gap="$3"
+          py="$3"
+          borderTopWidth={1}
+          borderColor="$borderSubdued"
+          cursor="pointer"
+          role="button"
+          onPress={() => {
+            onOpen(row.subject);
+          }}
+        >
+          <Icon
+            name={SUBJECT_ICON[row.subject]}
+            size="$5"
+            color="$iconSubdued"
+            flexShrink={0}
+          />
+          <SizableText flex={1} size="$bodyLgMedium" numberOfLines={1}>
+            {titleFor(row.subject)}
+          </SizableText>
+          <AmountCell>
+            {row.monthlySalesFiatValue ? (
+              <Currency size="$bodyMdMedium" formatter="value">
+                {row.monthlySalesFiatValue}
+              </Currency>
+            ) : undefined}
+          </AmountCell>
+          <AmountCell>
+            <InviteRewardAmount
+              summary={row.available}
+              size="$bodyMdMedium"
+              emptyLabel
+            />
+          </AmountCell>
+          <AmountCell>
+            {row.pending?.hasReward ? (
+              <InviteRewardAmount summary={row.pending} size="$bodyMdMedium" />
+            ) : undefined}
+          </AmountCell>
+          <XStack w={72} jc="flex-end" flexShrink={0}>
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {`${detailsLabel} ›`}
+            </SizableText>
+          </XStack>
+        </XStack>
+      ))}
+    </YStack>
   );
 }
 
@@ -306,8 +346,8 @@ export function InviteRewardRows({
       <SizableText size="$headingSm" pb="$2">
         {INVITE_COPY.rewardsByProduct}
       </SizableText>
-      {rows.visibleRows.map((row) =>
-        md ? (
+      {md ? (
+        rows.visibleRows.map((row) => (
           <RewardListRow
             key={row.subject}
             row={row}
@@ -326,24 +366,19 @@ export function InviteRewardRows({
               openSubject(row.subject);
             }}
           />
-        ) : (
-          <DesktopRewardRow
-            key={row.subject}
-            row={row}
-            title={titleFor(row.subject)}
-            monthlyLabel={monthlyLabel}
-            pendingLabel={pendingLabel}
-            availableLabel={availableLabel}
-            availableTooltip={
-              row.subject === 'hardware' ? hardwareAvailableTooltip : undefined
-            }
-            pendingTooltip={hardwarePendingTooltip}
-            viewDetails={INVITE_COPY.details}
-            onPress={() => {
-              openSubject(row.subject);
-            }}
-          />
-        ),
+        ))
+      ) : (
+        <DesktopRewardTable
+          rows={rows.visibleRows}
+          titleFor={titleFor}
+          monthlyLabel={monthlyLabel}
+          availableLabel={availableLabel}
+          pendingLabel={pendingLabel}
+          availableTooltip={hardwareAvailableTooltip}
+          pendingTooltip={hardwarePendingTooltip}
+          detailsLabel={INVITE_COPY.details}
+          onOpen={openSubject}
+        />
       )}
       {rows.foldedRows.length > 0 ? (
         <ListItem

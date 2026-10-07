@@ -5,6 +5,7 @@ export const INVITE_COPY = {
   benefitsEmptyTitle: 'No benefits yet',
   benefitsEmptyDescription: 'Rewards you get as an invitee will show up here',
   headline: 'Invite friends, earn rewards',
+  copyInviteLink: 'Copy invite link',
   manageCodes: 'Manage codes',
   bindTitle: 'Invited by a friend?',
   bindDescription: 'Enter their referral code',

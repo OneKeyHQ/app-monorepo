@@ -9,8 +9,18 @@ describe('resolveReferralPageTab', () => {
     expect(resolveReferralPageTab('rewards')).toBe(EReferralPageTab.invite);
   });
 
-  it('keeps invite and benefits when the param is exact', () => {
-    expect(resolveReferralPageTab('invite')).toBe(EReferralPageTab.invite);
-    expect(resolveReferralPageTab('benefits')).toBe(EReferralPageTab.benefits);
+  it('keeps invite and benefits when the benefits tab is enabled', () => {
+    expect(resolveReferralPageTab('invite', true)).toBe(
+      EReferralPageTab.invite,
+    );
+    expect(resolveReferralPageTab('benefits', true)).toBe(
+      EReferralPageTab.benefits,
+    );
+  });
+
+  it('falls back to invite while the benefits tab is hidden', () => {
+    expect(resolveReferralPageTab('benefits', false)).toBe(
+      EReferralPageTab.invite,
+    );
   });
 });
