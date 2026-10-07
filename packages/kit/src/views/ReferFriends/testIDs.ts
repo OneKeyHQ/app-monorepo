@@ -7,7 +7,6 @@ export const ReferFriendsTestIDs = {
   // --- Invite Reward Page ---
   logoutBtn: 'refer-friends-logout-btn',
   rulesBtn: 'refer-friends-rules-btn',
-  referralListBtn: 'refer-friends-referral-list-btn',
   createCodeBtn: 'refer-friends-create-code-btn',
   copyLinkBtn: 'refer-friends-copy-link-btn',
   copyLinkFooterBtn: 'refer-friends-copy-link-footer-btn',

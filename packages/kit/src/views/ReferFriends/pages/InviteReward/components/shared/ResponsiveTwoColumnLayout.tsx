@@ -7,7 +7,6 @@ interface IResponsiveTwoColumnLayoutProps {
   rightColumn: ReactNode;
   gap?: string;
   p?: string;
-  reverseOnMobile?: boolean;
 }
 
 export function ResponsiveTwoColumnLayout({
@@ -15,7 +14,6 @@ export function ResponsiveTwoColumnLayout({
   rightColumn,
   gap = '$5',
   p = '$pagePadding',
-  reverseOnMobile = false,
 }: IResponsiveTwoColumnLayoutProps) {
   return (
     <Stack
@@ -23,9 +21,7 @@ export function ResponsiveTwoColumnLayout({
       px={p}
       flexDirection="row"
       alignItems="stretch"
-      $md={{
-        flexDirection: reverseOnMobile ? 'column-reverse' : 'column',
-      }}
+      $md={{ flexDirection: 'column' }}
     >
       <Stack
         flexGrow={1}
