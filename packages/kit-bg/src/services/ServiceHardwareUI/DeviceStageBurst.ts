@@ -19,7 +19,10 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { DEVICE_STAGE_DISCONNECTED_CODES } from '@onekeyhq/shared/src/hardware/deviceStageErrorCodes';
+import {
+  DEVICE_STAGE_DEDICATED_DIALOG_CODES,
+  DEVICE_STAGE_DISCONNECTED_CODES,
+} from '@onekeyhq/shared/src/hardware/deviceStageErrorCodes';
 import {
   isDeviceStageMachineWaitStep,
   isDeviceStageOwnedHardwareUiAction,
@@ -120,21 +123,11 @@ const USER_CANCEL_CODES = [
   HardwareErrorCode.DeviceInterruptedFromUser,
 ];
 
-/** These errors already open a recovery dialog outside DeviceStage. */
-const DEDICATED_DIALOG_ERROR_CODES = [
-  HardwareErrorCode.BleDeviceBondError,
-  HardwareErrorCode.BlePeerRemovedPairingInformation,
-  HardwareErrorCode.BleBondInvalid,
-  HardwareErrorCode.DeviceNotOpenedPassphrase,
-  HardwareErrorCode.NewFirmwareForceUpdate,
-  // Bluetooth off / no BLE permission / location services off: the SDK
-  // (and the Android pre-check) raise the "Enable Bluetooth" family of
-  // dialogs for these, so the stage stands down instead of landing a
-  // second notice under the sheet (OK-62113).
-  HardwareErrorCode.BlePermissionError,
-  HardwareErrorCode.BleLocationError,
-  HardwareErrorCode.BleLocationServicesDisabled,
-];
+/** These errors already open a recovery dialog outside DeviceStage. The
+ * set itself lives in shared so the authenticity flow ends its run on the
+ * very failures the stage yields for, instead of painting its failure
+ * card back over the dialog. */
+const DEDICATED_DIALOG_ERROR_CODES = DEVICE_STAGE_DEDICATED_DIALOG_CODES;
 
 /** DeviceNotFound (105) is deliberately absent: the initial search
  * failing is its own verdict — the "Device not connected" card's
@@ -397,6 +390,7 @@ export function pickIdentityText(
 export type IDeviceStageBurstBeginParams = {
   connectId?: string;
   deviceType?: IDeviceStageState['deviceType'];
+  deviceColor?: IDeviceStageState['deviceColor'];
   deviceName?: string;
   /** Third-party track: vendor + real model for the capsule product shot. */
   vendor?: EHardwareVendor;
@@ -508,6 +502,13 @@ export class DeviceStageBurstScope {
    * close, its trailing progress ticks — must not repaint a wait over
    * the dialog; a new ask is the device speaking and lifts the yield. */
   private yieldedToDialog = false;
+
+  /** An off whose write never reached the UI: the atom changes in this
+   * runtime first and crosses the bridge second (wrapAtomPro), so a flush
+   * failure leaves this side reading `off` while the stage still stands
+   * on screen. The next exit sends it again instead of finding nothing to
+   * take down. */
+  private offBroadcastPending = false;
 
   /** When the stage last went off (ms since epoch) — the UI's exit
    * animation trails this write, so a surface sequencing its own change
@@ -664,6 +665,7 @@ export class DeviceStageBurstScope {
           await this.setStep('connecting', {
             connectId: params.connectId,
             deviceType: params.deviceType,
+            deviceColor: params.deviceColor,
             deviceName: params.deviceName,
             vendor: params.vendor,
             vendorModel: params.vendorModel,
@@ -686,6 +688,7 @@ export class DeviceStageBurstScope {
           void this.setStep('connecting', {
             connectId: opening.connectId,
             deviceType: opening.deviceType,
+            deviceColor: opening.deviceColor,
             deviceName: opening.deviceName,
             vendor: opening.vendor,
             vendorModel: opening.vendorModel,
@@ -804,10 +807,42 @@ export class DeviceStageBurstScope {
       await this.userClose();
       return;
     }
+    // A failure another surface owns — the enable-passphrase dialog, the
+    // BLE repair guidance, the forced-update prompt — takes the screen the
+    // moment the call that raised it ends, not when the outermost hold
+    // releases. The hidden-wallet flow (and onboarding) hold an outer layer
+    // around the wrapper call, so the depth-0 stand-down below used to come
+    // a whole UI round trip after the dialog had risen: the dialog mounted
+    // under the stage's touch wall and window (re-fronted above the dialog
+    // portal on iOS, OK-62422), and with both surfaces re-stacking in the
+    // same frame the dialog's own backdrop landed over its sheet. The stage
+    // yields now; the bookkeeping below is untouched, the outer release
+    // still finds its layer, and only the device asking again may repaint
+    // over the dialog (see silence).
+    const ownedByDialog = this.isDialogOwnedFailure(params.error);
+    const yieldsToDialog = ownedByDialog && this.depth > 1;
+    // The layer is released BEFORE the yield: the off write crosses the
+    // bg->UI bridge on split-runtime targets and a flush failure propagates
+    // (jotaiBgSync), so an await ahead of the decrement would strand the
+    // depth for good and leave the burst marked active forever.
     this.depth = Math.max(this.depth - 1, 0);
+    if (yieldsToDialog) {
+      try {
+        await this.silence();
+      } catch {
+        // Best effort: the yield is the stage's courtesy to the dialog,
+        // never the flow's precondition. A failed off broadcast is kept
+        // for the next exit to send again (see forceOff) — the dialog's
+        // own UI-side yield, the holder's release — and nothing that
+        // fails here may replace the hardware error riding out through
+        // the caller's finally.
+      }
+    }
     if (this.depth > 0) {
-      // A call ending inside the hold: the device answered.
-      await this.touchActivity();
+      if (!ownedByDialog) {
+        // A call ending inside the hold: the device answered.
+        await this.touchActivity();
+      }
       return;
     }
     this.yieldedToDialog = false;
@@ -854,14 +889,7 @@ export class DeviceStageBurstScope {
     const error = params.error as
       | IOneKeyError<IOneKeyErrorI18nInfo>
       | undefined;
-    if (
-      isHardwareErrorByCode({ error, code: DEDICATED_DIALOG_ERROR_CODES }) ||
-      (error?.payload?.connectId &&
-        isHardwareErrorByCode({
-          error,
-          code: HardwareErrorCode.NotAllowInBootloaderMode,
-        }))
-    ) {
+    if (ownedByDialog) {
       await this.forceOff({ force: true });
       return;
     }
@@ -1112,9 +1140,12 @@ export class DeviceStageBurstScope {
         // over a question the person is still reading.
         return;
       }
-      if (this.authoredAuthStep && !firmwareWorkflow) {
+      if (this.authoredAuthStep && !firmwareWorkflow && !this.yieldedToDialog) {
         // A call ended inside an authored flow: the runner narrates what
-        // comes next, the stage stays on its beat meanwhile.
+        // comes next, the stage stays on its beat meanwhile. Behind a
+        // dialog the stage yielded to, this close is the interrupted call's
+        // straggler and stays off it (see silence); only the device asking
+        // again repaints.
         const isFailure = this.authoredAuthStep === 'authFailure';
         await this.setStep(this.authoredAuthStep, {
           connectId,
@@ -1210,6 +1241,13 @@ export class DeviceStageBurstScope {
             fallbackName: features.label ?? undefined,
           })
         : undefined;
+    // The finish comes off the same live features. A device the database
+    // has never seen has no row to read a serial from, so without this a
+    // first-time Pro 2 wears the default shell through its whole setup.
+    const deviceColor = deviceUtils.getDeviceColorFromFeatures({
+      deviceType: payload?.deviceType ?? current?.deviceType,
+      features,
+    });
     if (this.yieldedToDialog) {
       // Behind a dialog the stage yielded to, only the device asking
       // again may paint — that lifts the yield; a wait is the
@@ -1263,10 +1301,10 @@ export class DeviceStageBurstScope {
       // was never told about.
       if (
         current?.step === this.authoredAuthStep &&
-        deviceName !== undefined &&
-        deviceName !== current.deviceName
+        ((deviceName !== undefined && deviceName !== current.deviceName) ||
+          (deviceColor !== undefined && deviceColor !== current.deviceColor))
       ) {
-        await this.mergeDeviceIdentity({ connectId, deviceName });
+        await this.mergeDeviceIdentity({ connectId, deviceName, deviceColor });
       }
       if (
         (step === 'confirm' || askCompleted) &&
@@ -1274,7 +1312,11 @@ export class DeviceStageBurstScope {
         current.step !== 'off' &&
         current.step !== this.authoredAuthStep
       ) {
-        await this.setStep(this.authoredAuthStep, { connectId, deviceName });
+        await this.setStep(this.authoredAuthStep, {
+          connectId,
+          deviceName,
+          deviceColor,
+        });
       }
       return;
     }
@@ -1311,6 +1353,7 @@ export class DeviceStageBurstScope {
       await this.setStep('passphraseOnApp', {
         connectId,
         deviceType: payload?.deviceType,
+        deviceColor,
         deviceName,
         payload,
         passphraseMode: isCreate ? 'create' : 'verify',
@@ -1320,6 +1363,7 @@ export class DeviceStageBurstScope {
     await this.setStep(step, {
       connectId,
       deviceType: payload?.deviceType,
+      deviceColor,
       deviceName,
       payload,
     });
@@ -1508,6 +1552,7 @@ export class DeviceStageBurstScope {
     extras: {
       connectId?: string;
       deviceType?: IDeviceStageState['deviceType'];
+      deviceColor?: IDeviceStageState['deviceColor'];
       deviceName?: string;
       payload?: IHardwareUiPayload;
       confirmDetails?: IDeviceStageState['confirmDetails'];
@@ -1777,6 +1822,7 @@ export class DeviceStageBurstScope {
           this.pendingOpen.connectId,
         ),
         deviceType: params.deviceType ?? this.pendingOpen.deviceType,
+        deviceColor: params.deviceColor ?? this.pendingOpen.deviceColor,
         deviceName: pickIdentityText(
           params.deviceName,
           this.pendingOpen.deviceName,
@@ -1796,6 +1842,7 @@ export class DeviceStageBurstScope {
     const hasIdentity =
       params.connectId ||
       params.deviceType ||
+      params.deviceColor ||
       params.deviceName ||
       params.vendor ||
       params.vendorModel ||
@@ -1818,6 +1865,7 @@ export class DeviceStageBurstScope {
             : prev.activitySeq,
         connectId: pickIdentityText(params.connectId, prev.connectId),
         deviceType: pickDeviceType(params.deviceType, prev.deviceType),
+        deviceColor: params.deviceColor ?? prev.deviceColor,
         deviceName: pickIdentityText(params.deviceName, prev.deviceName),
         vendor: params.vendor ?? prev.vendor,
         vendorModel: pickIdentityText(params.vendorModel, prev.vendorModel),
@@ -1840,7 +1888,8 @@ export class DeviceStageBurstScope {
   }
 
   /** Writes the off; false when nothing was on stage to take down (or a
-   * newer claim, an outcome, or a live burst kept it). */
+   * newer claim, an outcome, or a live burst kept it), and when the write
+   * itself failed — kept for the next exit to send again, never thrown. */
   private async forceOff(options: { force?: boolean } = {}): Promise<boolean> {
     const claim = this.claimSeq;
     const prev = await deviceStageAtom.get();
@@ -1853,7 +1902,13 @@ export class DeviceStageBurstScope {
     if (claim !== this.claimSeq || (!options.force && this.depth > 0)) {
       return false;
     }
-    if (!prev || prev.step === 'off') {
+    if (!prev) {
+      return false;
+    }
+    // Already off here — unless that off never reached the UI (see
+    // offBroadcastPending): that one is sent again, any other off is
+    // nothing to take down.
+    if (prev.step === 'off' && !this.offBroadcastPending) {
       return false;
     }
     // An error outcome owns its own exit: the notice form leaves through
@@ -1867,16 +1922,27 @@ export class DeviceStageBurstScope {
     ) {
       return false;
     }
-    await deviceStageAtom.set({
-      burstId: prev.burstId,
-      step: 'off',
-      connectId: prev.connectId,
-      deviceType: prev.deviceType,
-      deviceName: prev.deviceName,
-      vendor: prev.vendor,
-      vendorModel: prev.vendorModel,
-      vendorModelName: prev.vendorModelName,
-    });
+    try {
+      await deviceStageAtom.set({
+        burstId: prev.burstId,
+        step: 'off',
+        connectId: prev.connectId,
+        deviceType: prev.deviceType,
+        deviceColor: prev.deviceColor,
+        deviceName: prev.deviceName,
+        vendor: prev.vendor,
+        vendorModel: prev.vendorModel,
+        vendorModelName: prev.vendorModelName,
+      });
+    } catch {
+      // An exit is presentation: its failure must not throw into the flow
+      // that asked for it — a wrapper's finally, the person's own close, a
+      // timer. The failed off is remembered instead, and the next exit
+      // (the dialog's own yield, the holder's release) sends it again.
+      this.offBroadcastPending = true;
+      return false;
+    }
+    this.offBroadcastPending = false;
     this.lastOffAt = Date.now();
     // Every exit announces itself: a flow awaiting a card's answer must
     // stop waiting on a card that is gone, whichever route took it.
@@ -1889,6 +1955,7 @@ export class DeviceStageBurstScope {
     extras: {
       connectId?: string;
       deviceType?: IDeviceStageState['deviceType'];
+      deviceColor?: IDeviceStageState['deviceColor'];
       deviceName?: string;
       payload?: IHardwareUiPayload;
       errorReason?: IDeviceStageErrorReasonValue;
@@ -1930,6 +1997,7 @@ export class DeviceStageBurstScope {
         ...extras,
         connectId: pickIdentityText(extras.connectId, opening.connectId),
         deviceType: extras.deviceType ?? opening.deviceType,
+        deviceColor: extras.deviceColor ?? opening.deviceColor,
         deviceName: pickIdentityText(extras.deviceName, opening.deviceName),
         vendor: extras.vendor ?? opening.vendor,
         vendorModel: pickIdentityText(extras.vendorModel, opening.vendorModel),
@@ -1976,6 +2044,9 @@ export class DeviceStageBurstScope {
         step,
         connectId: pickIdentityText(mergedExtras.connectId, base?.connectId),
         deviceType: pickDeviceType(mergedExtras.deviceType, base?.deviceType),
+        // Sticky like the model: a step that names no color keeps the one
+        // the device row gave, never blanks it.
+        deviceColor: mergedExtras.deviceColor ?? base?.deviceColor,
         deviceName: pickIdentityText(mergedExtras.deviceName, base?.deviceName),
         // Device/vendor identity is sticky within the burst (base), never
         // across bursts; the per-step extras (install / btc / action)
@@ -2049,6 +2120,24 @@ export class DeviceStageBurstScope {
         payload: mergedExtras.payload ?? base?.payload,
       };
     });
+  }
+
+  /** Whether a dedicated dialog (DEDICATED_DIALOG_ERROR_CODES, or the
+   * bootloader hand-off for a device the flow could name) speaks for this
+   * failure — the stage stands down instead of landing a notice under it. */
+  private isDialogOwnedFailure(error: unknown): boolean {
+    const typed = error as IOneKeyError<IOneKeyErrorI18nInfo> | undefined;
+    return Boolean(
+      isHardwareErrorByCode({
+        error: typed,
+        code: DEDICATED_DIALOG_ERROR_CODES,
+      }) ||
+      (typed?.payload?.connectId &&
+        isHardwareErrorByCode({
+          error: typed,
+          code: HardwareErrorCode.NotAllowInBootloaderMode,
+        })),
+    );
   }
 
   private mapErrorToReason(
