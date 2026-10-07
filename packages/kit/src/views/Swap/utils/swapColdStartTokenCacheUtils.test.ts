@@ -598,6 +598,39 @@ describe('swap cold-start selected token context', () => {
     });
   });
 
+  it('preselects the Arc ERC-20 USDC to Arc EURC pair on swap', () => {
+    const defaultTokens = buildSwapDefaultSelectedTokensFromHomeAccount({
+      homeSelectedAccount: buildSelectedAccount({
+        networkId: 'evm--5042',
+      }),
+      now: 1,
+    });
+
+    expect(defaultTokens).toEqual({
+      fromToken: expect.objectContaining({
+        contractAddress: '0x3600000000000000000000000000000000000000',
+        decimals: 6,
+        isNative: false,
+        networkId: 'evm--5042',
+        symbol: 'USDC',
+      }),
+      toToken: expect.objectContaining({
+        contractAddress: '0xbef5f6d51cb62b58e6a8f77868681825c6fe21c1',
+        decimals: 6,
+        isNative: false,
+        networkId: 'evm--5042',
+        symbol: 'EURC',
+      }),
+      context: expect.objectContaining({
+        accountKey: 'wallet-1|indexed-account-1|default',
+        networkId: 'evm--5042',
+        swapType: ESwapTabSwitchType.SWAP,
+        updatedAt: 1,
+      }),
+      swapType: ESwapTabSwitchType.SWAP,
+    });
+  });
+
   it('does not preselect Tron tokens when initializing Limit', () => {
     expect(
       buildSwapDefaultSelectedTokensFromHomeAccount({

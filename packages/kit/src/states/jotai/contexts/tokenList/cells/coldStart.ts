@@ -52,8 +52,12 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { registerColdStartFlushTrigger } from '@onekeyhq/shared/src/storage/coldStartFlushTrigger';
-import { coldStartCacheStorage } from '@onekeyhq/shared/src/storage/instance/syncStorageInstance';
-import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
+import {
+  TOKEN_LIST_CLEANUP_VERSION_KEY,
+  readContextAtomSnapshotRaw,
+  tokenListMaintenanceCache,
+  writeContextAtomSnapshotRaw,
+} from '@onekeyhq/shared/src/storage/uiSnapshotCaches';
 import { parseColdStartSnapshotRaw } from '@onekeyhq/shared/src/utils/coldStartCacheSnapshotUtils';
 import {
   OLD_RENDERED_TOKEN_LIST_CACHE_SCOPED_SUFFIX,
@@ -102,8 +106,6 @@ const COLD_START_SCOPED_KEY_SEPARATOR = '::';
  * downgrade→upgrade (the persisted value would be < N again only if a newer
  * build bumps N).
  */
-const TOKEN_COLD_START_CLEANUP_VERSION_STORAGE_KEY =
-  EAppSyncStorageKeys.onekey_tokenlist_cold_start_cleanup_version;
 
 type IGlobalColdStartSnapshot = typeof globalThis & {
   __ONEKEY_CTX_ATOM_SNAPSHOT__?: Record<string, unknown>;
@@ -346,6 +348,7 @@ function widenCompactFiat(compact: ICompactFiat, currency: string): ITokenFiat {
     price24h: compact.price24h,
     currency: compact.currency ?? currency,
     balanceMultiplier: compact.balanceMultiplier,
+    sharedBalanceExcludedFromTotal: compact.sharedBalanceExcludedFromTotal,
   };
 }
 
@@ -511,24 +514,17 @@ export function hydrateCellsFromColdStart(params: {
 export function purgeOldColdStartIfNeeded(): void {
   try {
     const persisted =
-      coldStartCacheStorage.getNumber(
-        TOKEN_COLD_START_CLEANUP_VERSION_STORAGE_KEY,
-      ) ?? 0;
+      tokenListMaintenanceCache.get(TOKEN_LIST_CLEANUP_VERSION_KEY)?.data ?? 0;
     if (persisted >= TOKEN_COLD_START_CLEANUP_VERSION) {
       return;
     }
 
     // Disk purge: strip OLD `::ctx:renderedTokenListCacheAtom` fields. The NEW
     // slim key does not match the suffix, so it survives untouched.
-    const raw = coldStartCacheStorage.getString(
-      EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
-    );
-    const snapshot = parseColdStartSnapshotRaw(raw);
+    const snapshot = parseColdStartSnapshotRaw(readContextAtomSnapshotRaw());
     if (snapshot) {
-      const purged = purgeOldColdStartFields(snapshot);
-      void coldStartCacheStorage.set(
-        EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
-        JSON.stringify(purged),
+      writeContextAtomSnapshotRaw(
+        JSON.stringify(purgeOldColdStartFields(snapshot)),
       );
     }
 
@@ -538,8 +534,8 @@ export function purgeOldColdStartIfNeeded(): void {
     // reference_coldstart_cache_double_authority).
     purgeOldColdStartRuntimeKeys(OLD_RENDERED_TOKEN_LIST_CACHE_SCOPED_SUFFIX);
 
-    void coldStartCacheStorage.set(
-      TOKEN_COLD_START_CLEANUP_VERSION_STORAGE_KEY,
+    tokenListMaintenanceCache.set(
+      TOKEN_LIST_CLEANUP_VERSION_KEY,
       TOKEN_COLD_START_CLEANUP_VERSION,
     );
   } catch {

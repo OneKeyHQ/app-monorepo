@@ -26,7 +26,10 @@ import type {
 } from '@onekeyhq/shared/src/routes/assetDetails';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
+import type {
+  IMarketPreferredToken,
+  IMarketTokenDetail,
+} from '@onekeyhq/shared/types/market';
 
 import { MarketDetailLinks } from '../../../Market/components/MarketDetailLinks';
 import { MarketDetailOverview } from '../../../Market/components/MarketDetailOverview';
@@ -42,7 +45,13 @@ type IMarketDetailProps = IPageScreenProps<
   EModalAssetDetailRoutes.MarketDetail
 >;
 
-export function MarketDetailContent({ coinGeckoId }: { coinGeckoId: string }) {
+export function MarketDetailContent({
+  coinGeckoId,
+  preferredToken,
+}: {
+  coinGeckoId: string;
+  preferredToken?: IMarketPreferredToken;
+}) {
   const intl = useIntl();
   const {
     activeAccount: { account },
@@ -112,6 +121,7 @@ export function MarketDetailContent({ coinGeckoId }: { coinGeckoId: string }) {
                   coinGeckoId={coinGeckoId}
                   token={token}
                   accountId={account?.id ?? ''}
+                  preferredToken={preferredToken}
                 />
               </YStack>
             )}
@@ -187,6 +197,7 @@ export default function MarketDetail({ route }: IMarketDetailProps) {
       <MarketDetailContent
         key={route.params.token}
         coinGeckoId={route.params.token}
+        preferredToken={route.params.preferredToken}
       />
     </AccountSelectorProviderMirror>
   );

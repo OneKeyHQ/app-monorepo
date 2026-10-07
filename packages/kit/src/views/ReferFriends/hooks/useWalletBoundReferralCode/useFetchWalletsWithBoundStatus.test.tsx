@@ -5,6 +5,8 @@
 
 import { renderHook, waitFor } from '@testing-library/react-native';
 
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+
 type IWalletInfoGetter = () => Promise<unknown>;
 
 type IDeferredPromise = {
@@ -92,7 +94,7 @@ function createWallet() {
     id: 'hd-1',
     name: 'Wallet 1',
     passphraseState: undefined,
-  } as never;
+  };
 }
 
 function createWalletInfo() {
@@ -126,6 +128,76 @@ describe('useFetchWalletsWithBoundStatus', () => {
     globalMockBag.__referralFetchBg?.serviceReferralCode.setWalletReferralCode.mockResolvedValue(
       undefined,
     );
+  });
+
+  it('excludes Ledger and Trezor before fetching referral wallet info', async () => {
+    const wallets = [
+      createWallet(),
+      {
+        id: 'hw-onekey',
+        associatedDeviceInfo: { vendor: EHardwareVendor.onekey },
+      },
+      { id: 'hw-legacy-onekey' },
+      {
+        id: 'hw-ledger',
+        associatedDeviceInfo: { vendor: EHardwareVendor.ledger },
+      },
+      {
+        id: 'hw-trezor',
+        associatedDeviceInfo: { vendor: EHardwareVendor.trezor },
+      },
+      { id: 'hw-hidden', passphraseState: 'hidden' },
+      { id: 'watching' },
+    ];
+    globalMockBag.__referralFetchBg?.serviceAccount.getWallets.mockResolvedValue(
+      { wallets },
+    );
+    globalMockBag.__referralFetchBg?.serviceReferralCode.batchCheckWalletsBoundReferralCodeV2.mockResolvedValue(
+      {
+        'evm--1:0xabc': { bound: false, bindable: true },
+      },
+    );
+
+    const { result } = renderHook(() => useFetchWalletsWithBoundStatus());
+
+    await waitFor(() => {
+      expect(
+        result.current.walletsWithStatus?.map(({ wallet }) => wallet.id),
+      ).toEqual(['hd-1', 'hw-onekey', 'hw-legacy-onekey']);
+    });
+    expect(globalMockBag.__referralFetchWalletInfoMock?.mock.calls).toEqual([
+      ['hd-1'],
+      ['hw-onekey'],
+      ['hw-legacy-onekey'],
+    ]);
+  });
+
+  it('returns an empty list without querying referral status for only third-party wallets', async () => {
+    globalMockBag.__referralFetchBg?.serviceAccount.getWallets.mockResolvedValue(
+      {
+        wallets: [
+          {
+            id: 'hw-ledger',
+            associatedDeviceInfo: { vendor: EHardwareVendor.ledger },
+          },
+          {
+            id: 'hw-trezor',
+            associatedDeviceInfo: { vendor: EHardwareVendor.trezor },
+          },
+        ],
+      },
+    );
+
+    const { result } = renderHook(() => useFetchWalletsWithBoundStatus());
+
+    await waitFor(() => {
+      expect(result.current.walletsWithStatus).toEqual([]);
+    });
+    expect(globalMockBag.__referralFetchWalletInfoMock).not.toHaveBeenCalled();
+    expect(
+      globalMockBag.__referralFetchBg?.serviceReferralCode
+        .batchCheckWalletsBoundReferralCodeV2,
+    ).not.toHaveBeenCalled();
   });
 
   it('uses V2 for UI status even when local data says bound', async () => {

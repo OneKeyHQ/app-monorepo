@@ -226,7 +226,7 @@ function DeviceDetailsModalV2Cmp({
                   vendorProfile?.supportsFirmwareVerify,
                 )}
               />
-              {device ? (
+              {device && !isQrWallet ? (
                 <PrimeGiftOffer device={device} source="deviceDetails" />
               ) : null}
               {isQrWallet ? <DeviceSectionQrInfo /> : null}

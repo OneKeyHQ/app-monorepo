@@ -20,6 +20,7 @@ import {
   resetToRoute,
   useIsOverlayPage,
   useMedia,
+  usePopoverContext,
 } from '@onekeyhq/components';
 import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -104,6 +105,50 @@ interface ISwapActionsStateProps {
 
 // cspell:ignore ellipsize
 
+function IncognitoTooltipText({
+  description,
+  onAction,
+}: {
+  description: string;
+  onAction?: (url: string) => void;
+}) {
+  return (
+    <FormatHyperlinkText
+      autoExecuteParsedAction={false}
+      onAction={onAction}
+      size="$bodyMd"
+      color="$textSubdued"
+      urlTextProps={{
+        color: '$textInfo',
+      }}
+      underlineTextProps={{
+        color: '$textInfo',
+      }}
+    >
+      {description}
+    </FormatHyperlinkText>
+  );
+}
+
+function IncognitoPopoverContent({ description }: { description: string }) {
+  const { closePopover } = usePopoverContext();
+  const handleAction = useCallback(
+    (url: string) => {
+      void (async () => {
+        await closePopover?.();
+        openUrlExternal(url);
+      })();
+    },
+    [closePopover],
+  );
+
+  return (
+    <Stack px="$5" pt="$1" pb="$5">
+      <IncognitoTooltipText description={description} onAction={handleAction} />
+    </Stack>
+  );
+}
+
 const SwapActionsState = ({
   disabled,
   forceNoConnectWallet,
@@ -181,30 +226,16 @@ const SwapActionsState = ({
   );
   const incognitoTooltipContent = useMemo(
     () => (
-      <FormatHyperlinkText
-        autoExecuteParsedAction={false}
+      <IncognitoTooltipText
+        description={incognitoTooltipDescription}
         onAction={openUrlExternal}
-        size="$bodyMd"
-        color="$textSubdued"
-        urlTextProps={{
-          color: '$textInfo',
-        }}
-        underlineTextProps={{
-          color: '$textInfo',
-        }}
-      >
-        {incognitoTooltipDescription}
-      </FormatHyperlinkText>
+      />
     ),
     [incognitoTooltipDescription],
   );
   const incognitoPopoverContent = useMemo(
-    () => (
-      <Stack px="$5" pt="$1" pb="$5">
-        {incognitoTooltipContent}
-      </Stack>
-    ),
-    [incognitoTooltipContent],
+    () => <IncognitoPopoverContent description={incognitoTooltipDescription} />,
+    [incognitoTooltipDescription],
   );
 
   // OK-58977: `swapProviderSupportReceiveAddressAtom` is computed from the

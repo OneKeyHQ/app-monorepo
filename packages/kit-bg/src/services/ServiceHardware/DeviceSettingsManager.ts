@@ -114,6 +114,7 @@ export type IChangePinParams = IBaseDeviceProcessingParams & {
   remove: boolean;
 };
 export type ISetDeviceLabelParams = { walletId: string; label: string };
+export type ISetDeviceLabelResult = DeviceSuccess & { label: string };
 
 export type IHardwareHomeScreenData = {
   id: string;
@@ -688,7 +689,10 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
   }
 
   @backgroundMethod()
-  async setDeviceLabel({ walletId, label }: ISetDeviceLabelParams) {
+  async setDeviceLabel({
+    walletId,
+    label,
+  }: ISetDeviceLabelParams): Promise<ISetDeviceLabelResult> {
     const device = await localDb.getWalletDevice({ walletId });
     const normalizedLabel = this._isProtocolV2Product(device)
       ? label.trim()
@@ -706,15 +710,16 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       );
     }
     if (this._isTrezorDevice(device)) {
-      return this._applyTrezorSettings({
+      const result = await this._applyTrezorSettings({
         walletId,
         dbDevice: device,
         debugMethodName: 'deviceSettings.setDeviceLabel.trezor',
         settings: { label: normalizedLabel },
         preciseUpdateFields: { label: normalizedLabel },
       });
+      return { ...result, label: normalizedLabel };
     }
-    return this._withDeviceProcessing({
+    const result = await this._withDeviceProcessing({
       walletId,
       dbDevice: device,
       debugMethodName: 'deviceSettings.setDeviceLabel',
@@ -722,6 +727,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       action: async (sdk, compatibleConnectId) =>
         sdk.deviceSettings(compatibleConnectId, { label: normalizedLabel }),
     });
+    return { ...result, label: normalizedLabel };
   }
 
   @backgroundMethod()

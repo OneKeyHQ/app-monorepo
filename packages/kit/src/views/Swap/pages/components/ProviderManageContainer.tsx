@@ -24,7 +24,7 @@ type IProviderManageMode = 'singleSwap' | 'crossChain';
 
 interface IProviderManageContainerProps {
   mode: IProviderManageMode;
-  onSaved: () => void;
+  onSaved: () => void | Promise<void>;
 }
 
 const PROVIDER_MANAGE_LIST_MAX_HEIGHT = {
@@ -234,7 +234,7 @@ const ProviderManageContainer = ({
       isLegacyBridgeProviderManagerFallback,
     );
     setIsSaving(false);
-    onSaved();
+    await onSaved();
   }, [isLegacyBridgeProviderManagerFallback, onSaved, providerManageNewData]);
 
   const providerManageListMaxHeight = media.gtMd

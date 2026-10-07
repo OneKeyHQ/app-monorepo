@@ -16,7 +16,6 @@ import {
   Stack,
   Switch,
   resetToRoute,
-  startViewTransition,
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -49,7 +48,6 @@ import {
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { formatDistanceToNow } from '@onekeyhq/shared/src/utils/dateUtils';
 import { isNeverLockDuration } from '@onekeyhq/shared/src/utils/passwordUtils';
-import { ELocalSystemTimeStatus } from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
 
@@ -81,9 +79,7 @@ function useIsLocalSystemTimeInvalid() {
           const result =
             await backgroundApiProxy.servicePrimeCloudSync.getLocalSystemTimeStatus();
           if (isActive) {
-            setIsLocalSystemTimeInvalid(
-              result.status === ELocalSystemTimeStatus.INVALID,
-            );
+            setIsLocalSystemTimeInvalid(result.isTimeErrorConfirmed);
           }
         } catch (error) {
           errorUtils.autoPrintErrorIgnore(error);
@@ -91,11 +87,11 @@ function useIsLocalSystemTimeInvalid() {
       })();
 
       const handleLocalSystemTimeStatusChanged = ({
-        status,
+        isTimeErrorConfirmed,
       }: {
-        status: string;
+        isTimeErrorConfirmed: boolean;
       }) => {
-        setIsLocalSystemTimeInvalid(status === ELocalSystemTimeStatus.INVALID);
+        setIsLocalSystemTimeInvalid(isTimeErrorConfirmed);
       };
       appEventBus.on(
         EAppEventBusNames.LocalSystemTimeStatusChanged,
@@ -174,11 +170,9 @@ function AutoLockUpdateDialogContent({
         })}
         onConfirm={async () => {
           try {
-            startViewTransition(async () => {
-              await backgroundApiProxy.servicePassword.setAppLockDuration(
-                Number(selectedValue),
-              );
-            });
+            await backgroundApiProxy.servicePassword.setAppLockDuration(
+              Number(selectedValue),
+            );
             onContinue();
           } catch (error) {
             onError(error as Error);

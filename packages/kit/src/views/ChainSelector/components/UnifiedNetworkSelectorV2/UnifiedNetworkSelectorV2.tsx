@@ -12,6 +12,7 @@ import {
   Stack,
   YStack,
   resetChainSelectorModal,
+  useMedia,
 } from '@onekeyhq/components';
 import { PagerView } from '@onekeyhq/components/src/composite/Carousel/pager';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -56,9 +57,15 @@ import { preloadNetworkImagesV2 } from './useNetworkListPresentationV2';
 import type { IServerNetworkMatch } from '../../types';
 import type { ITabType } from '../UnifiedNetworkSelector/TabSwitcher';
 import type { RouteProp } from '@react-navigation/core';
+import type { LayoutChangeEvent, View } from 'react-native';
 import type NativePagerView from 'react-native-pager-view';
 
 const TAB_TO_INDEX: Record<ITabType, number> = { portfolio: 0, network: 1 };
+// The single-network tab has no footer, so its web index rail reserves the
+// all-networks footer height to keep the letters in place when switching tabs.
+// These are the heights of the footer below (`p="$5"` around a medium / large
+// Button), used until the footer has been laid out once.
+const PORTFOLIO_FOOTER_FALLBACK_HEIGHT = { gtMd: 78, md: 90 };
 const INDEX_TO_TAB: ITabType[] = ['portfolio', 'network'];
 
 function UnifiedNetworkSelectorV2() {
@@ -160,6 +167,15 @@ function UnifiedNetworkSelectorV2() {
   >([]);
 
   const [missingAddressCount, setMissingAddressCount] = useState(0);
+  const { gtMd } = useMedia();
+  const [portfolioFooterHeight, setPortfolioFooterHeight] = useState<number>();
+  const handlePortfolioFooterLayout = useCallback(
+    (event: LayoutChangeEvent) =>
+      // Web measures through the modal's opening scale animation; rounding
+      // skips the sub-pixel intermediate values.
+      setPortfolioFooterHeight(Math.round(event.nativeEvent.layout.height)),
+    [],
+  );
 
   const [isCreatingMissingAddresses, setIsCreatingMissingAddresses] =
     useState(false);
@@ -182,6 +198,8 @@ function UnifiedNetworkSelectorV2() {
   activeTabRef.current = activeTab;
 
   const pagerRef = useRef<NativePagerView>(null);
+  const portfolioWebSectionIndexContainerRef = useRef<View>(null);
+  const networkWebSectionIndexContainerRef = useRef<View>(null);
 
   const handleTabChange = useCallback((tab: ITabType) => {
     setActiveTab(tab);
@@ -473,8 +491,9 @@ function UnifiedNetworkSelectorV2() {
           await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
             enabledNetworks: newEnabledNetworks,
             disabledNetworks: newDisabledNetworks,
-            cacheContext: { walletId, accountId },
           });
+          // The listener below refreshes `networkMeta`, and that refresh is
+          // what writes the new state into the SWR cache.
           appEventBus.emit(EAppEventBusNames.AddedCustomNetwork, undefined);
         } else {
           // Network tab: select network and close modal (original behavior)
@@ -487,8 +506,6 @@ function UnifiedNetworkSelectorV2() {
     handleNetworkPressItem,
     networksState,
     updateNetworksSelection,
-    walletId,
-    accountId,
   ]);
 
   const handleEditCustomNetwork = useCallback(
@@ -561,8 +578,14 @@ function UnifiedNetworkSelectorV2() {
         await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
           enabledNetworks: networksState.enabledNetworks,
           disabledNetworks: networksState.disabledNetworks,
-          cacheContext: { walletId, accountId },
         });
+
+        // Write the new state into the SWR cache from here, so the next cold
+        // open paints it instead of the state this save replaced. It has to be
+        // this runtime: the entry belongs to the hook above, and a second
+        // writer on the other side of the bridge would be racing it over one
+        // MMKV file. `alwaysSetState` because the modal is closing.
+        void refreshNetworkMeta({ alwaysSetState: true });
 
         appEventBus.emit(EAppEventBusNames.EnabledNetworksChanged, undefined);
       }
@@ -601,6 +624,7 @@ function UnifiedNetworkSelectorV2() {
     networksState.enabledNetworks,
     num,
     onNetworksChanged,
+    refreshNetworkMeta,
     walletId,
     isSameEnabledNetworks,
     isOthersWallet,
@@ -721,6 +745,9 @@ function UnifiedNetworkSelectorV2() {
             >
               <Stack flex={1}>
                 <PortfolioContentV2
+                  webSectionIndexContainerRef={
+                    portfolioWebSectionIndexContainerRef
+                  }
                   walletId={walletId}
                   accountId={accountId}
                   indexedAccountId={indexedAccountId}
@@ -743,6 +770,9 @@ function UnifiedNetworkSelectorV2() {
               </Stack>
               <Stack flex={1}>
                 <NetworkContentV2
+                  webSectionIndexContainerRef={
+                    networkWebSectionIndexContainerRef
+                  }
                   walletId={walletId}
                   accountId={accountId}
                   indexedAccountId={indexedAccountId}
@@ -762,6 +792,9 @@ function UnifiedNetworkSelectorV2() {
                 display={activeTab === 'portfolio' ? 'flex' : 'none'}
               >
                 <PortfolioContentV2
+                  webSectionIndexContainerRef={
+                    portfolioWebSectionIndexContainerRef
+                  }
                   walletId={walletId}
                   accountId={accountId}
                   indexedAccountId={indexedAccountId}
@@ -787,6 +820,15 @@ function UnifiedNetworkSelectorV2() {
                 display={activeTab === 'network' ? 'flex' : 'none'}
               >
                 <NetworkContentV2
+                  webSectionIndexContainerRef={
+                    networkWebSectionIndexContainerRef
+                  }
+                  webSectionIndexBottomInset={
+                    portfolioFooterHeight ??
+                    (gtMd
+                      ? PORTFOLIO_FOOTER_FALLBACK_HEIGHT.gtMd
+                      : PORTFOLIO_FOOTER_FALLBACK_HEIGHT.md)
+                  }
                   walletId={walletId}
                   accountId={accountId}
                   indexedAccountId={indexedAccountId}
@@ -803,6 +845,7 @@ function UnifiedNetworkSelectorV2() {
         ) : (
           <Stack flex={1}>
             <NetworkContentV2
+              webSectionIndexContainerRef={networkWebSectionIndexContainerRef}
               walletId={walletId}
               accountId={accountId}
               indexedAccountId={indexedAccountId}
@@ -824,6 +867,9 @@ function UnifiedNetworkSelectorV2() {
             gap="$2.5"
             bg="$bgApp"
             flexDirection="column-reverse"
+            onLayout={
+              platformEnv.isNative ? undefined : handlePortfolioFooterLayout
+            }
             $gtMd={{
               flexDirection: 'row',
               alignItems: 'center',

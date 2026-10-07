@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import BigNumber from 'bignumber.js';
 import { isNil, unionBy, uniqBy } from 'lodash';
 
@@ -738,7 +739,11 @@ function getLocalReplacementFields({
   onChainHistoryTx: IAccountHistoryTx;
 }): Pick<
   IAccountHistoryTx,
-  'replacedPrevId' | 'replacedNextId' | 'replacedType' | 'replacedMethod'
+  | 'replacedPrevId'
+  | 'replacedNextId'
+  | 'replacedType'
+  | 'replacedMethod'
+  | 'primeInfiniPayment'
 > {
   // Replacement linkage is local-only metadata. The indexer response can
   // replace the local record after confirmation, so carry it forward when the
@@ -746,6 +751,9 @@ function getLocalReplacementFields({
   // replacement must remain distinguishable from the staking metadata it
   // inherits for pending-state guards.
   return {
+    ...(localTx.primeInfiniPayment
+      ? { primeInfiniPayment: localTx.primeInfiniPayment }
+      : {}),
     ...(isNil(onChainHistoryTx.replacedPrevId) && !isNil(localTx.replacedPrevId)
       ? { replacedPrevId: localTx.replacedPrevId }
       : {}),
@@ -2741,6 +2749,9 @@ class ServiceHistory extends ServiceBase {
     supported: boolean;
     data: ITransferRecipient[];
     lastUsedDeriveType?: string;
+    // True when `supported: false` comes from a failed request rather than
+    // the server, so callers do not memoize the network as unsupported.
+    errored?: boolean;
   }> {
     const { accountId, networkId, limit = 10 } = params;
 
@@ -2786,12 +2797,23 @@ class ServiceHistory extends ServiceBase {
         return { supported: supported ?? true, data: data ?? [] };
       } catch (error) {
         console.error('Failed to fetch transfer recipients:', error);
-        return { supported: false, data: [] as ITransferRecipient[] };
+        return {
+          supported: false,
+          data: [] as ITransferRecipient[],
+          errored: true,
+        };
       }
     };
 
     if (xpubEntries.length <= 1) {
-      return callOnce(xpubEntries[0]?.xpub, limit);
+      const single = await callOnce(xpubEntries[0]?.xpub, limit);
+      this.persistTransferRecipients({
+        accountId,
+        networkId,
+        limit,
+        result: single,
+      });
+      return single;
     }
 
     // Each xpub requests the full limit so that addresses concentrated
@@ -2811,6 +2833,7 @@ class ServiceHistory extends ServiceBase {
         deriveType: IAccountDeriveTypes;
         supported: boolean;
         data: ITransferRecipient[];
+        errored?: boolean;
       } => !!r,
     );
 
@@ -2841,11 +2864,78 @@ class ServiceHistory extends ServiceBase {
       }
     }
     merged.sort((a, b) => (b.time ?? 0) - (a.time ?? 0));
-    return {
+    const result = {
       supported: anySupported,
       data: merged.slice(0, limit),
       lastUsedDeriveType: newestDeriveType,
+      errored: responses.length > 0 && responses.every((r) => r.errored),
     };
+    this.persistTransferRecipients({ accountId, networkId, limit, result });
+    return result;
+  }
+
+  // Remember the last successful answer so the Send address page can paint
+  // it on a cold start while the network refresh runs (OK-63452). Only a
+  // server-confirmed list is stored; unsupported or failed answers are not.
+  private persistTransferRecipients({
+    accountId,
+    networkId,
+    limit,
+    result,
+  }: {
+    accountId: string;
+    networkId: string;
+    limit: number;
+    result: {
+      supported: boolean;
+      data: ITransferRecipient[];
+      lastUsedDeriveType?: string;
+      errored?: boolean;
+    };
+  }) {
+    if (!result.supported || result.errored) {
+      return;
+    }
+    void this.backgroundApi.simpleDb.transferRecipientsCache
+      .setEntry({
+        accountId,
+        networkId,
+        limit,
+        data: result.data,
+        lastUsedDeriveType: result.lastUsedDeriveType,
+      })
+      .catch((error: unknown) => {
+        console.error('Failed to persist transfer recipients:', error);
+      });
+  }
+
+  @backgroundMethod()
+  public async getCachedTransferRecipients({
+    accountId,
+    networkId,
+    limit = 10,
+  }: {
+    accountId: string;
+    networkId: string;
+    // Must match the `limit` passed to fetchTransferRecipients.
+    limit?: number;
+  }): Promise<
+    | {
+        data: ITransferRecipient[];
+        lastUsedDeriveType?: string;
+      }
+    | undefined
+  > {
+    const entry =
+      await this.backgroundApi.simpleDb.transferRecipientsCache.getEntry({
+        accountId,
+        networkId,
+        limit,
+      });
+    if (!entry) {
+      return undefined;
+    }
+    return { data: entry.data, lastUsedDeriveType: entry.lastUsedDeriveType };
   }
 
   @backgroundMethod()
@@ -3218,8 +3308,10 @@ class ServiceHistory extends ServiceBase {
     accountId: string;
     data: ISendTxOnSuccessData;
     replaceTxInfo?: IReplaceTxInfo;
+    primeInfiniPayment?: IAccountHistoryTx['primeInfiniPayment'];
   }) {
-    const { networkId, accountId, data, replaceTxInfo } = params;
+    const { networkId, accountId, data, replaceTxInfo, primeInfiniPayment } =
+      params;
 
     if (!data || !data.decodedTx) {
       return;
@@ -3236,6 +3328,9 @@ class ServiceHistory extends ServiceBase {
       isSigner: true,
       isLocalCreated: true,
     });
+    if (primeInfiniPayment) {
+      newHistoryTx.primeInfiniPayment = primeInfiniPayment;
+    }
 
     const [xpub, accountAddress] = await Promise.all([
       this.backgroundApi.serviceAccount.getAccountXpub({

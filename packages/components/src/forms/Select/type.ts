@@ -63,4 +63,5 @@ export type ISelectProps<
   testID?: string;
   offset?: IPopoverProps['offset'];
   usingPercentSnapPoints?: boolean;
+  nativeSheet?: IPopoverProps['nativeSheet'];
 }>;

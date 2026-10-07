@@ -223,7 +223,7 @@ function DeviceListItem({
         px: '$pagePadding',
         minHeight: 88,
       }}
-      renderAvatar={() => (
+      renderAvatar={
         <Stack
           w={48}
           h={48}
@@ -247,7 +247,7 @@ function DeviceListItem({
             status={isConnected ? 'connected' : 'default'}
           />
         </Stack>
-      )}
+      }
       renderItemText={() => (
         <YStack gap="$0" flex={1}>
           <XStack gap="$1" ai="center">

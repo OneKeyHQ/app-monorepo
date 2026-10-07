@@ -29,6 +29,7 @@ const mockChartTypeSettingsRow = jest.fn<null, [IChartTypeSettingsRowProps]>(
   () => null,
 );
 const mockChartModeSelect = jest.fn<null, [IChartModeSelectProps]>(() => null);
+const mockCheckbox = jest.fn<null, [{ testID?: string }]>(() => null);
 const mockDialogClose = jest.fn<Promise<void>, []>(() => Promise.resolve());
 const mockSetSettings = jest.fn<Promise<void>, [IChartSettingsUpdater]>();
 let mockSettings = createTradingViewNativeChartSettings();
@@ -45,7 +46,7 @@ jest.mock('@onekeyhq/components', () => {
   );
 
   return {
-    Checkbox: () => null,
+    Checkbox: (props: { testID?: string }) => mockCheckbox(props),
     Divider: () => null,
     Icon: () => null,
     SizableText: View,
@@ -98,6 +99,34 @@ describe('TradingViewMobileChartSettingsDialogContent', () => {
 
     expect(mockSetSettings).toHaveBeenCalledTimes(1);
     expect(mockSettings.chartType).toBe('line');
+  });
+
+  it('lists Prev close only when the chart opts in', () => {
+    const renderedOptions = () => [
+      ...new Set(mockCheckbox.mock.calls.map(([props]) => props.testID)),
+    ];
+
+    const { unmount } = render(
+      <TradingViewMobileChartSettingsDialogContent
+        onOpenSettings={jest.fn()}
+      />,
+    );
+    expect(renderedOptions()).toEqual([
+      'trading-view-native-chart-settings-dialog-option-yAxis',
+    ]);
+    unmount();
+    mockCheckbox.mockClear();
+
+    render(
+      <TradingViewMobileChartSettingsDialogContent
+        onOpenSettings={jest.fn()}
+        showPreviousClose
+      />,
+    );
+    expect(renderedOptions()).toEqual([
+      'trading-view-native-chart-settings-dialog-option-yAxis',
+      'trading-view-native-chart-settings-dialog-option-previousClose',
+    ]);
   });
 
   it('shows the chart source switch and closes before switching', async () => {

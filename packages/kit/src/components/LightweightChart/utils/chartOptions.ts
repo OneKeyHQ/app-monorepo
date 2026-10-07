@@ -4,8 +4,10 @@ import type {
 } from '../types';
 import type {
   AreaSeriesPartialOptions,
+  AutoscaleInfoProvider,
   ChartOptions,
   DeepPartial,
+  SeriesOptionsCommon,
   TickMarkFormatter,
 } from 'lightweight-charts';
 
@@ -205,6 +207,7 @@ export function createChartOptions(
   // Opt-in crosshair overrides. Charts that pass nothing keep the faint default
   // line below.
   crosshairVertLine?: { color?: string; style?: number },
+  timeScaleRightOffsetPixels?: number,
 ): DeepPartial<ChartOptions> {
   const priceScaleOptions = {
     visible: showPriceScale,
@@ -257,7 +260,11 @@ export function createChartOptions(
       timeVisible: true,
       secondsVisible: false,
       fixLeftEdge: true,
-      fixRightEdge: true,
+      // `fixRightEdge` clamps any right offset back to zero. Scrolling and
+      // scaling are off below, so the lock can go when a tail gap is asked for.
+      ...(timeScaleRightOffsetPixels && timeScaleRightOffsetPixels > 0
+        ? { fixRightEdge: false, rightOffsetPixels: timeScaleRightOffsetPixels }
+        : { fixRightEdge: true }),
       lockVisibleTimeRangeOnResize: true,
       ...(tickMarkFormatter ? { tickMarkFormatter } : {}),
     },
@@ -287,6 +294,49 @@ export function createChartOptions(
       touch: false,
       mouse: false,
     },
+  };
+}
+
+export function createLastValueSeriesOptions({
+  showLastValue,
+  showLastValuePriceLine,
+  lastValueLabelColor,
+}: {
+  showLastValue?: boolean;
+  showLastValuePriceLine?: boolean;
+  lastValueLabelColor?: string;
+}): Pick<
+  SeriesOptionsCommon,
+  'lastValueVisible' | 'priceLineVisible' | 'priceLineColor'
+> {
+  const lastValueVisible = !!showLastValue;
+  return {
+    lastValueVisible,
+    priceLineVisible: lastValueVisible && showLastValuePriceLine !== false,
+    // lightweight-charts paints the last-value axis label with the price line
+    // color, so the label can be re-tinted even while the line stays hidden.
+    // An empty string restores the series color.
+    priceLineColor: lastValueLabelColor ?? '',
+  };
+}
+
+// Widens the series' own autoscale range so a reference price that the data
+// never touches still lands inside the visible price scale.
+export function createReferenceLineAutoscaleInfoProvider(
+  price: number,
+): AutoscaleInfoProvider {
+  return (baseImplementation) => {
+    const autoscaleInfo = baseImplementation();
+    if (!autoscaleInfo?.priceRange || !Number.isFinite(price)) {
+      return autoscaleInfo;
+    }
+    return {
+      ...autoscaleInfo,
+      priceRange: {
+        minValue: Math.min(autoscaleInfo.priceRange.minValue, price),
+        maxValue: Math.max(autoscaleInfo.priceRange.maxValue, price),
+      },
+    };
   };
 }
 

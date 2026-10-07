@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 
 import {
@@ -71,18 +72,18 @@ export const useWatchListV2Action = () => {
       if (!isMounted) {
         return false;
       }
-      // Calculate sortIndex to make new items appear at the top
-      const firstSortIndex =
-        isMounted && watchListData.length > 0
-          ? (watchListData[0].sortIndex ?? 1000)
-          : 1000;
+      // New favorites go on top; perps stars share this rule.
+      const sortIndexes = sortUtils.buildTopSortIndexes({
+        oldList: watchListData,
+        count: items.length,
+      });
 
       const watchListItems: IMarketWatchListItemV2[] = items.map(
         (item, index) => ({
           ...item,
           chainId: item.chainId,
           contractAddress: item.contractAddress,
-          sortIndex: firstSortIndex - (index + 1),
+          sortIndex: sortIndexes[index],
           isNative: item.isNative ?? false,
         }),
       );

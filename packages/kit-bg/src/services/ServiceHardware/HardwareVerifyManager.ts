@@ -144,11 +144,13 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     serialNo: string;
   }): Promise<IPrimeGiftVerifyV2Result> {
     if (!device.connectId || !serialNo) {
-      throw new OneKeyLocalError(
-        appLocale.intl.formatMessage({
+      throw new OneKeyLocalError({
+        message: appLocale.intl.formatMessage({
           id: ETranslations.prime_gift_connect_device__msg,
         }),
-      );
+        key: ETranslations.prime_gift_connect_device__msg,
+        autoToast: false,
+      });
     }
     const connectId = device.connectId;
     const dbDevice = await localDb.getExistingDevice({

@@ -10,11 +10,14 @@ import {
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EMarketBannerType } from '@onekeyhq/shared/types/marketV2';
-import type { IMarketBannerItem } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketBannerItem,
+  IMarketBannerTokenPreview,
+} from '@onekeyhq/shared/types/marketV2';
 
 import {
   isMarketIndexQuoteBanner,
-  isMarketMixedBanner,
+  isMarketStockPerpsBanner,
 } from '../../../utils/marketBannerUtils';
 
 import {
@@ -23,9 +26,58 @@ import {
   fetchMarketBannerTokenListForPlatform,
 } from './marketBannerListPlatformApi';
 
+function bannerPreviewLogos(
+  tokens: IMarketBannerTokenPreview[] | undefined,
+): Map<string, string> {
+  return new Map(tokens?.map((token) => [token.symbol, token.logo]));
+}
+
+function canReuseBannerQuotes(
+  banner: IMarketBannerItem,
+  cached: IMarketBannerItem | undefined,
+): cached is IMarketBannerItem & { tokens: IMarketBannerTokenPreview[] } {
+  return (
+    banner.type !== EMarketBannerType.Perps &&
+    !isMarketIndexQuoteBanner(banner) &&
+    !!cached?.tokens &&
+    cached.tokenListId === banner.tokenListId &&
+    cached.type === banner.type &&
+    cached.assetType === banner.assetType
+  );
+}
+
+function applyPreviewLogos(
+  tokens: IMarketBannerTokenPreview[],
+  previewLogos: Map<string, string>,
+): IMarketBannerTokenPreview[] {
+  if (previewLogos.size === 0) return tokens;
+  return tokens.map((token) => {
+    const logo = previewLogos.get(token.symbol) || token.logo;
+    return logo === token.logo ? token : { ...token, logo };
+  });
+}
+
+function mapBannerQuoteToken({
+  logo,
+  name,
+  symbol,
+  price,
+  priceChange24hPercent,
+}: {
+  logo: string;
+  name: string;
+  symbol: string;
+  price?: string;
+  priceChange24hPercent?: string;
+}): IMarketBannerTokenPreview {
+  return { logo, name, symbol, price, priceChange24hPercent };
+}
+
 export async function hydrateMarketBannerQuotes(
   banners: IMarketBannerItem[],
+  previous?: IMarketBannerItem[],
 ): Promise<IMarketBannerItem[]> {
+  const previousById = new Map(previous?.map((banner) => [banner._id, banner]));
   const hydratedBanners = await Promise.all(
     banners.map(async (banner) => {
       // Index banners expose quote rows in `indices`; they do not have a
@@ -37,25 +89,30 @@ export async function hydrateMarketBannerQuotes(
       }
 
       const isStockBanner =
-        banner.assetType !== undefined || isMarketMixedBanner(banner.type);
+        banner.assetType !== undefined || isMarketStockPerpsBanner(banner.type);
       if (banner.type === EMarketBannerType.Perps) {
         return banner;
       }
 
       try {
+        const previewLogos = bannerPreviewLogos(banner.tokens);
         if (isStockBanner || banner.type === EMarketBannerType.Stock) {
           const assets = await fetchMarketBannerStockTokenListForPlatform(
             banner.tokenListId,
           );
+          // Keep the banner artwork while refreshing quotes: the stock endpoint
+          // can provide a different rendition of the same company's logo.
           return {
             ...banner,
-            tokens: assets.map((asset) => ({
-              logo: asset.logoUrl,
-              name: asset.name,
-              symbol: asset.symbol,
-              price: asset.price,
-              priceChange24hPercent: asset.priceChange24hPercent,
-            })),
+            tokens: assets.map((asset) =>
+              mapBannerQuoteToken({
+                logo: previewLogos.get(asset.symbol) || asset.logoUrl,
+                name: asset.name,
+                symbol: asset.symbol,
+                price: asset.price,
+                priceChange24hPercent: asset.priceChange24hPercent,
+              }),
+            ),
           };
         }
 
@@ -66,15 +123,31 @@ export async function hydrateMarketBannerQuotes(
 
         return {
           ...banner,
-          tokens: tokens.map((token) => ({
-            logo: token.logoUrl ?? token.logoUrls?.[0] ?? '',
-            name: token.name,
-            symbol: token.symbol,
-            price: token.price,
-            priceChange24hPercent: token.priceChange24hPercent,
-          })),
+          tokens: tokens.map((token) =>
+            mapBannerQuoteToken({
+              logo:
+                previewLogos.get(token.symbol) ||
+                token.logoUrl ||
+                token.logoUrls?.[0] ||
+                '',
+              name: token.name,
+              symbol: token.symbol,
+              price: token.price,
+              priceChange24hPercent: token.priceChange24hPercent,
+            }),
+          ),
         };
       } catch {
+        const cached = previousById.get(banner._id);
+        if (canReuseBannerQuotes(banner, cached)) {
+          return {
+            ...banner,
+            tokens: applyPreviewLogos(
+              cached.tokens,
+              bannerPreviewLogos(banner.tokens),
+            ),
+          };
+        }
         return banner;
       }
     }),
@@ -86,21 +159,20 @@ export async function hydrateMarketBannerQuotes(
 function mergeBannerQuotes(
   banners: IMarketBannerItem[],
   previous: IMarketBannerItem[] | undefined,
-  preferQuotes = false,
 ): IMarketBannerItem[] {
   const quotes = new Map(previous?.map((banner) => [banner._id, banner]));
   return banners.map((banner) => {
     const cached = quotes.get(banner._id);
-    if (
-      banner.type !== EMarketBannerType.Perps &&
-      !isMarketIndexQuoteBanner(banner) &&
-      (preferQuotes || banner.tokens === undefined) &&
-      cached?.tokens &&
-      cached.tokenListId === banner.tokenListId &&
-      cached.type === banner.type &&
-      cached.assetType === banner.assetType
-    ) {
-      return { ...banner, tokens: cached.tokens };
+    // Keep hydrated quote rows across list polls so preview membership does
+    // not flash. Overlay the latest preview logos onto those rows.
+    if (canReuseBannerQuotes(banner, cached)) {
+      return {
+        ...banner,
+        tokens: applyPreviewLogos(
+          cached.tokens,
+          bannerPreviewLogos(banner.tokens),
+        ),
+      };
     }
     return banner;
   });
@@ -184,12 +256,10 @@ export function useMarketBannerList(): {
         source: bannerList,
         scope: requestScope,
         banners: await hydrateMarketBannerQuotes(
-          mergeBannerQuotes(
-            bannerList,
-            committedResultRef.current?.requestScope === requestScope
-              ? committedResultRef.current.bannerList
-              : undefined,
-          ),
+          bannerList,
+          committedResultRef.current?.requestScope === requestScope
+            ? committedResultRef.current.bannerList
+            : undefined,
         ),
       };
     },
@@ -198,7 +268,7 @@ export function useMarketBannerList(): {
   );
   const normalizedBanners = useMemo(() => {
     let previous: IMarketBannerItem[] | undefined;
-    // Only hydration for this response may replace its explicit quote rows.
+    // Hydration for this list response may replace rows; list polls keep them.
     const hasCurrentQuotes =
       liveQuotes?.scope === requestScope && liveQuotes.source === bannerList;
     if (hasCurrentQuotes) {
@@ -208,7 +278,7 @@ export function useMarketBannerList(): {
     }
     const banners = enableMockMarketBanner
       ? (bannerList ?? [])
-      : mergeBannerQuotes(bannerList ?? [], previous, hasCurrentQuotes);
+      : mergeBannerQuotes(bannerList ?? [], previous);
     return banners.map((banner) =>
       isMarketIndexQuoteBanner(banner) && banner.indices?.length
         ? {

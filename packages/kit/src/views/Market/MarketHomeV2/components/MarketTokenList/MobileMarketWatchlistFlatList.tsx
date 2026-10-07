@@ -42,6 +42,7 @@ import { TokenListSkeleton } from './components/TokenListSkeleton';
 import { useMarketWatchlistTokenList } from './hooks/useMarketWatchlistTokenList';
 import { useToDetailPage } from './hooks/useToMarketDetailPage';
 import { useWatchlistFilteredGroups } from './hooks/useWatchlistFilteredGroups';
+import { DEFAULT_WATCHLIST_FILTER } from './MarketWatchlistCategorySelector';
 
 import type { IMarketToken } from './MarketTokenData';
 import type { IWatchlistFilterType } from './MarketWatchlistCategorySelector';
@@ -63,7 +64,7 @@ const SECOND_LEVEL_MENU_ANCHOR_X_RATIO = 0.48;
 const SECOND_LEVEL_MENU_ANCHOR_Y_OFFSET = 4;
 
 function MobileMarketWatchlistFlatListImpl({
-  selectedFilter = 'all',
+  selectedFilter = DEFAULT_WATCHLIST_FILTER,
   listContainerProps,
   shouldSuppressItemPress,
 }: IMobileMarketWatchlistFlatListProps) {

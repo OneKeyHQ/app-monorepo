@@ -30,7 +30,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalBulkExportHistoryRoutes } from '@onekeyhq/shared/src/routes/bulkExportHistory';
-import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { isTokenSelectorDappTokenFilterSupportedNetwork } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 
@@ -203,20 +203,10 @@ function TxHistorySettingsContent({
     await closePopover?.();
     await timerUtils.wait(150);
 
-    if (isPrimeSubscriptionActive) {
-      navigation.pushModal(EModalRoutes.BulkExportHistoryModal, {
-        screen: EModalBulkExportHistoryRoutes.BulkExportHistoryModal,
-        params: {
-          networkId,
-        },
-      });
-      return;
-    }
-
-    navigation.pushFullModal(EModalRoutes.PrimeModal, {
-      screen: EPrimePages.PrimeDashboard,
+    navigation.pushModal(EModalRoutes.BulkExportHistoryModal, {
+      screen: EModalBulkExportHistoryRoutes.BulkExportHistoryModal,
       params: {
-        fromFeature: EPrimeFeatures.HistoryExport,
+        networkId,
       },
     });
   }, [closePopover, isPrimeSubscriptionActive, navigation, networkId]);

@@ -22,6 +22,7 @@ interface IFavoriteTokenDisplay {
   communityRecognized?: boolean;
   marketTokenId?: string;
   marketVariantId?: string;
+  stockListingName?: string;
   stock?: IMarketStockInfo;
   marketAsset?: IMarketAssetListItem;
 }

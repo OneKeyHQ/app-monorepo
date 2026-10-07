@@ -1,8 +1,6 @@
-import BigNumber from 'bignumber.js';
-
 import type { IIngestRoundParams } from '@onekeyhq/kit-bg/src/services/ServiceTokenViewModel';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { isValidNumberValue } from '@onekeyhq/shared/src/utils/tokenValueUtils';
+import { sumFiatValuesFromTokens } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import type {
   IAccountToken,
   ICustomTokenItem,
@@ -12,24 +10,6 @@ import type {
 
 function buildTokenKeys(tokens: IAccountToken[]): string {
   return tokens.map((token) => token.$key).join(',');
-}
-
-function sumFiatValueByTokens({
-  tokens,
-  tokenListMap,
-}: {
-  tokens: IAccountToken[];
-  tokenListMap: Record<string, ITokenFiat>;
-}): string {
-  return tokens
-    .reduce((total, token) => {
-      const fiatValue = tokenListMap[token.$key]?.fiatValue;
-      if (!isValidNumberValue(fiatValue)) {
-        return total;
-      }
-      return total.plus(fiatValue);
-    }, new BigNumber(0))
-    .toFixed();
 }
 
 export function buildHomeTokenListCacheIngestRound({
@@ -78,10 +58,12 @@ export function buildHomeTokenListCacheIngestRound({
     tokenListMap: visibleTokenListMap,
     aggregateTokensMap: {},
     ownedAggregateTokenListMap: {},
-    smallBalanceFiatValue: sumFiatValueByTokens({
-      tokens: smallBalanceTokenList,
-      tokenListMap: visibleTokenListMap,
-    }),
+    // Shared helper so shared-balance rows (Arc, OK-63633) flagged in the
+    // cached fiat map are skipped exactly like the live rounds do.
+    smallBalanceFiatValue: sumFiatValuesFromTokens(
+      smallBalanceTokenList,
+      visibleTokenListMap,
+    ).toFixed(),
     storeData: { storeName: EJotaiContextStoreNames.homeTokenList },
     keepDefault,
     homeDefaultTokenMap,

@@ -1,6 +1,5 @@
-import { EDeviceType } from '@onekeyfe/hd-shared';
-
 import {
+  getDeviceStateSettingsRecoveryKeys,
   hasAuthoritativeDeviceInfoVersionChange,
   hasDeviceStateIdentityMismatch,
   mergeDeviceStateEvent,
@@ -13,6 +12,7 @@ import type { IOneKeyDeviceState } from '@onekeyhq/shared/types/device';
 
 import type { IDeviceMetaState, IDeviceMetaStatic } from './atoms';
 import type { DeviceStateEvent } from '@onekeyfe/hd-core';
+import type { EDeviceType } from '@onekeyfe/hd-shared';
 
 export type IDeviceStateSnapshot = {
   state: IOneKeyDeviceState;
@@ -42,6 +42,11 @@ export function getDeviceStateSnapshotFromEvent({
     // SDK cache without advancing its metadata.
     const acceptsEqualMetadata =
       event.source === 'settings-read' ||
+      getDeviceStateSettingsRecoveryKeys({
+        currentState,
+        incomingState: event.state,
+        source: event.source,
+      }).length > 0 ||
       hasAuthoritativeDeviceInfoVersionChange({
         currentState,
         incomingState: event.state,
@@ -273,9 +278,7 @@ export function getDeviceSecondaryIdentifier(
     'bleName' | 'deviceType' | 'serialNo'
   >,
 ) {
-  return deviceMetaStatic.deviceType === EDeviceType.Pro2
-    ? deviceMetaStatic.bleName || deviceMetaStatic.serialNo
-    : deviceMetaStatic.serialNo;
+  return deviceMetaStatic.bleName;
 }
 
 export function buildDeviceMetaStateFromState({

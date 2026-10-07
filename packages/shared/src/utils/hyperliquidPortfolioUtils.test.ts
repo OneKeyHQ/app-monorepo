@@ -10,6 +10,7 @@ import {
   buildSpotPriceMap,
   getActivePerpAssetPositions,
   getActivePerpPositionsUnrealizedPnl,
+  getIsolatedPerpPositionsMarginUsed,
   isHyperliquidPortfolioSnapshotFresh,
   isUnifiedPortfolioMode,
   spotBalancesNeedPriceRefresh,
@@ -756,5 +757,28 @@ describe('active perp position helpers', () => {
 
     expect(getActivePerpAssetPositions(positions)).toHaveLength(2);
     expect(getActivePerpPositionsUnrealizedPnl(positions)).toBe('5');
+  });
+
+  it('sums margin held by isolated positions only', () => {
+    const isolated = (szi: string, marginUsed: string) => {
+      const item = buildPosition(szi, '0');
+      return {
+        ...item,
+        position: {
+          ...item.position,
+          marginUsed,
+          leverage: { type: 'isolated', value: 5, rawUsd: '0' },
+        },
+      };
+    };
+    const positions = [
+      buildPosition('0.2', '7'),
+      isolated('0.3', '40'),
+      isolated('-1', '2.5'),
+      isolated('0', '99'),
+    ] as any;
+
+    expect(getIsolatedPerpPositionsMarginUsed(positions)).toBe('42.5');
+    expect(getIsolatedPerpPositionsMarginUsed(undefined)).toBe('0');
   });
 });

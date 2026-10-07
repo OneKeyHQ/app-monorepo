@@ -126,11 +126,13 @@ const preview: Preview = {
           <Toaster />
           {/* The hardware stage's mount point, mirroring the native
               shell's: the web canvas has no presentation layering to
-              dodge, the target just has to exist. Canvas-wide and
-              box-none so the stage positions itself and the story
-              behind stays live. */}
+              dodge, the target just has to exist. Window-wide (fixed,
+              past Storybook's page padding — the app mounts the stage
+              on the window, and the toasters seat themselves against
+              its window-space bottom edge) and box-none so the stage
+              positions itself and the story behind stays live. */}
           <Stack
-            position="absolute"
+            position="fixed"
             top={0}
             left={0}
             right={0}

@@ -4498,3 +4498,112 @@ describe('computeUpdateTargetKey consistency', () => {
     });
   });
 });
+
+describe('Featured Changelog preview and post-install refresh', () => {
+  const featured = {
+    version: '6.6.0',
+    features: [
+      {
+        mediaUrl: 'https://cdn.onekey.so/a.png',
+        mediaType: 'image',
+        ctaAction: 'next',
+      },
+    ],
+  };
+  const cached = {
+    version: '6.6.0',
+    features: [
+      { mediaUrl: 'https://cdn.onekey.so/a.png', mediaType: 'image' as const },
+    ],
+  };
+  let service: ReturnType<typeof createService>;
+  let get: jest.Mock;
+  beforeEach(() => {
+    jest.clearAllMocks();
+    Object.assign(platformEnv, { version: '6.6.0' });
+    resetAtom({
+      latestVersion: '6.6.0',
+      featuredChangelog: cached,
+      updateStrategy: EUpdateStrategy.force,
+    });
+    service = createService();
+    get = jest.fn().mockResolvedValue({
+      data: {
+        code: 0,
+        data: { version: '6.6.0', featuredChangelog: featured },
+      },
+    });
+    jest.spyOn(service, 'getClient').mockResolvedValue({ get } as any);
+  });
+  test('passes simulated version only to the read-only preview and does not persist', async () => {
+    await service.previewFeaturedChangelog({
+      version: '6.6.0',
+      clientVersion: '6.5.0',
+    });
+    expect(get).toHaveBeenCalledWith(
+      '/utility/v1/app-update/featured-changelog-preview',
+      { params: { version: '6.6.0', clientVersion: '6.5.0' } },
+    );
+    expect(mockAtom.set).not.toHaveBeenCalled();
+  });
+  test('refreshes installed-version cards even when version-info selects a hot release', async () => {
+    get.mockImplementation((url: string) =>
+      Promise.resolve({
+        data: {
+          code: 0,
+          data:
+            url === '/utility/v1/app-update/version-info'
+              ? { version: '6.6.0', changeLog: 'Hot release' }
+              : { version: '6.6.0', featuredChangelog: featured },
+        },
+      }),
+    );
+    await service.refreshCurrentFeaturedChangelog();
+    expect(atomValue.featuredChangelog?.features[0].ctaAction).toBe('next');
+    expect(atomValue.updateStrategy).toBe(EUpdateStrategy.force);
+    expect(get).toHaveBeenCalledWith(
+      '/utility/v1/app-update/featured-changelog-preview',
+      { params: { version: '6.6.0' }, timeout: 5000 },
+    );
+  });
+  test('preserves cache when offline or when a different version is returned', async () => {
+    get.mockRejectedValueOnce(new Error('offline'));
+    await service.refreshCurrentFeaturedChangelog();
+    expect(atomValue.featuredChangelog).toEqual(cached);
+    get.mockResolvedValueOnce({
+      data: {
+        code: 0,
+        data: {
+          version: '6.7.0',
+          featuredChangelog: { ...featured, version: '6.7.0' },
+        },
+      },
+    });
+    await service.refreshCurrentFeaturedChangelog();
+    expect(atomValue.featuredChangelog).toEqual(cached);
+  });
+  test('clears cards on a valid empty response and ignores an update-state race', async () => {
+    get.mockResolvedValueOnce({
+      data: { code: 0, data: { version: '6.6.0' } },
+    });
+    await service.refreshCurrentFeaturedChangelog();
+    expect(atomValue.featuredChangelog).toBeUndefined();
+    resetAtom({ latestVersion: '6.7.0', featuredChangelog: cached });
+    await service.refreshCurrentFeaturedChangelog();
+    expect(atomValue.featuredChangelog).toEqual(cached);
+  });
+  test('does not attach full-release cards when the update state changes to a hot update', async () => {
+    get.mockImplementationOnce(() => {
+      resetAtom({ latestVersion: '6.6.0', jsBundleVersion: '222' });
+      return Promise.resolve({
+        data: {
+          code: 0,
+          data: { version: '6.6.0', featuredChangelog: featured },
+        },
+      });
+    });
+    await service.refreshCurrentFeaturedChangelog();
+    expect(atomValue.featuredChangelog).toBeUndefined();
+    expect(atomValue.jsBundleVersion).toBe('222');
+  });
+});

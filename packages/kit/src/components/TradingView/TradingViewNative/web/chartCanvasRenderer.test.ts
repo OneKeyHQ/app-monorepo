@@ -1,4 +1,7 @@
-import { drawTradingViewNativeCanvasScene } from './chartCanvasRenderer';
+import {
+  drawTradingViewNativeCanvasScene,
+  getTradingViewNativeCanvasFont,
+} from './chartCanvasRenderer';
 
 import type {
   ITradingViewNativeChartSceneCommand,
@@ -24,6 +27,7 @@ function createCanvasContext() {
     lineJoin: 'miter',
     lineTo: jest.fn(),
     lineWidth: 1,
+    measureText: jest.fn(() => ({ width: 6 })),
     moveTo: jest.fn(),
     rect: jest.fn(),
     restore: jest.fn(),
@@ -46,6 +50,44 @@ const colors = {
 };
 
 describe('TradingViewNative web canvas scene renderer', () => {
+  it.each(['B', 'S'] as const)(
+    'preserves the existing %s label font and position on web',
+    (label) => {
+      const context = createCanvasContext();
+
+      drawTradingViewNativeCanvasScene({
+        colors,
+        commands: [
+          {
+            kind: 'tradeMarkLabel',
+            label,
+            cx: 50,
+            cy: 30,
+            customPaintId: 'chart.tradeMarks.text',
+            paint: 'currentPriceLabelText',
+          },
+        ],
+        context: context as unknown as CanvasRenderingContext2D,
+        customPaintStyles: {
+          'chart.tradeMarks.text': { color: '#FFFFFF', opacity: 1 },
+        },
+        watermarkImage: null,
+      });
+
+      expect(context.fillText).toHaveBeenCalledWith(label, 47, 33.85);
+      expect(context.font).toBe('11px sans-serif');
+      expect(context.fillStyle).toBe('#FFFFFF');
+      expect(context.save).toHaveBeenCalledTimes(1);
+      expect(context.restore).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('preserves the price-axis font for reference labels on web', () => {
+    expect(getTradingViewNativeCanvasFont('referenceLineLabel', 14)).toBe(
+      getTradingViewNativeCanvasFont('priceAxis', 14),
+    );
+  });
+
   it('uses custom paint styles before the semantic fallback', () => {
     const context = createCanvasContext();
     const commands: ITradingViewNativeChartSceneCommand[] = [

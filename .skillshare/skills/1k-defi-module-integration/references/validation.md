@@ -42,5 +42,18 @@ proof.
 - cancel/failure or missing-data behavior
 - account/network change while a request is in flight, when applicable
 - refresh/pending/history agreement after success
+- setup reconciliation: reopen an approval-sensitive action after its chain
+  state changes and prove the current account/network/asset/spender scope is
+  re-read before enabling it
+- replacement lifecycle: follow a replacement through pending, remote merge,
+  and history; prove guards retain linkage while display/action classification
+  stays correct
+- capability and scope: distinguish unsupported, supported-but-disabled, and
+  enabled actions across account/network/provider/market identity
+- cache and refresh: exercise cached, empty, loading, error, and retry states;
+  preserve a complete visible snapshot and invalidate it when identity changes
+- platform and handoff: verify the account-scoped portfolio read model,
+  staged reward/action capabilities, and Market-to-Earn navigation on the
+  owning host
 
 Report checks actually run and any unavailable runtime or service evidence.

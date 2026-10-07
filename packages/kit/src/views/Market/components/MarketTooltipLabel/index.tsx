@@ -32,6 +32,10 @@ export function MarketTooltipLabel({
   // sortable table header is the exception: it does something on click, so it
   // keeps the pointer and the dashes are only the tooltip's affordance.
   cursor = 'default',
+  // Interactive mode for its hover-intent delay (250ms open, 300ms close),
+  // not for interactive content: a pointer passing over the label must not
+  // flash the tooltip.
+  hovering,
   testID,
 }: {
   children: ReactNode;
@@ -40,12 +44,14 @@ export function MarketTooltipLabel({
   color?: ISizableTextProps['color'];
   alignSelf?: 'flex-start' | 'baseline' | 'center';
   cursor?: 'default' | 'pointer';
+  hovering?: boolean;
   testID?: string;
 }) {
   return (
     <Stack alignSelf={alignSelf}>
       <Tooltip
         placement="top"
+        hovering={hovering}
         // Clone the dashed text instead of wrapping it: the default wrapper is
         // its own pressable and swallows the click, which costs a sortable
         // table header its sort whenever the pointer is over the label.

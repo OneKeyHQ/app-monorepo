@@ -1,5 +1,7 @@
 import {
   MARKET_DESKTOP_TAB_BAR_CONTAINER_STYLE,
+  MARKET_DETAIL_TRADE_COLUMN_MIN_WIDTH,
+  MARKET_DETAIL_TRADE_COLUMN_PROPS,
   MARKET_LIST_FIRST_COLUMN_WIDTH,
   MARKET_LIST_NAME_COLUMN_WIDTH,
   MARKET_LIST_STAR_COLUMN_WIDTH,
@@ -15,6 +17,38 @@ describe('marketDesktopLayoutConstants', () => {
     expect(MARKET_DESKTOP_TAB_BAR_CONTAINER_STYLE).toEqual({
       position: 'relative',
       py: '$2',
+    });
+  });
+});
+
+describe('market detail trade column', () => {
+  const GUTTER = 20;
+  const CONTENT_MAX_WIDTH = 1440;
+  const tradeWidthForWindow = (windowWidth: number) => {
+    const contentWidth = Math.min(windowWidth - GUTTER * 2, CONTENT_MAX_WIDTH);
+    const share = Number.parseFloat(MARKET_DETAIL_TRADE_COLUMN_PROPS.width);
+    return Math.max(
+      MARKET_DETAIL_TRADE_COLUMN_MIN_WIDTH,
+      (contentWidth * share) / 100,
+    );
+  };
+
+  it('holds the 384px floor up to a 1280px window', () => {
+    expect(tradeWidthForWindow(1024)).toBe(384);
+    expect(tradeWidthForWindow(1280)).toBeCloseTo(384, 6);
+  });
+
+  it('scales with the content row and stops at the frame cap', () => {
+    expect(tradeWidthForWindow(1440)).toBeCloseTo(433.5, 1);
+    expect(tradeWidthForWindow(1480)).toBeCloseTo(445.9, 1);
+    expect(tradeWidthForWindow(2560)).toBeCloseTo(445.9, 1);
+    expect(MARKET_DETAIL_TRADE_COLUMN_PROPS.flexShrink).toBe(0);
+  });
+
+  it('pins 16px below the top of the detail scroll container', () => {
+    expect(MARKET_DETAIL_TRADE_COLUMN_PROPS).toMatchObject({
+      position: 'sticky',
+      top: 16,
     });
   });
 });

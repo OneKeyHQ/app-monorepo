@@ -1,0 +1,294 @@
+diff --git a/node_modules/@tamagui/sheet/dist/cjs/useSheetScrollViewGestures.native.js b/node_modules/@tamagui/sheet/dist/cjs/useSheetScrollViewGestures.native.js
+index d650779..8e9477a 100644
+--- a/node_modules/@tamagui/sheet/dist/cjs/useSheetScrollViewGestures.native.js
++++ b/node_modules/@tamagui/sheet/dist/cjs/useSheetScrollViewGestures.native.js
+@@ -44,11 +44,14 @@ function useSheetScrollViewGestures(param) {
+     scrollEngaged: false,
+     prevScrollY: 0,
+     handoffOccurred: false,
+-    handoffDragOffset: 0
++    handoffDragOffset: 0,
++    didPan: false
+   });
+   var release = function () {
+     var s = state.current;
+     if (!s.isDraggingScrollArea) return;
++    var didPan = s.didPan;
++    s.didPan = false;
+     s.isDraggingScrollArea = false;
+     scrollBridge.scrollStartY = -1;
+     scrollBridge.scrollLock = false;
+@@ -67,21 +70,54 @@ function useSheetScrollViewGestures(param) {
+       vy = dist / recentDys.length * 0.04;
+     }
+     s.dys = [];
++    // OneKey patch: only hand the gesture to the Frame snapper when this hook
++    // actually panned the sheet. RN ScrollView forwards onTouchEnd for EVERY
++    // finger lift (taps on child rows, a second finger during a drag), and
++    // scrollBridge.release() snaps to the closest point from the live at.current,
++    // so a tap while the sheet is still opening would snap it back to dismiss.
++    if (!didPan) return;
+     scrollBridge.release({
+       dragAt: s.dragAt,
+       vy
+     });
+   };
+-  var onStartShouldSetResponder = function () {
++  // OneKey patch: React Native's ScrollView replaces onStartShouldSetResponder
++  // with its own handler and never forwards it, so this per-gesture reset never
++  // ran on native: isDraggingScrollArea stayed false, release() returned early,
++  // and isScrolling / lastPageY / scrollStartY leaked into the next gesture. The
++  // next swipe's first move then read a bogus dy from the stale lastPageY and
++  // panned the sheet (OK-63688). Reset from onTouchStart, which ScrollView does
++  // forward, and finish from onTouchEnd / onTouchCancel as well.
++  var beginGesture = function (pageY) {
+     var s = state.current;
+     scrollBridge.scrollStartY = -1;
++    scrollBridge.scrollLock = false;
+     s.isDraggingScrollArea = true;
++    s.isScrolling = false;
+     s.scrollEngaged = scrollBridge.y > 0;
+     s.prevScrollY = scrollBridge.y;
+     s.handoffOccurred = false;
+     s.handoffDragOffset = 0;
++    s.lastPageY = pageY;
++    s.dragAt = 0;
++    s.dys = [];
++    s.didPan = false;
++  };
++  var onStartShouldSetResponder = function () {
++    beginGesture(0);
+     return false;
+   };
++  var onTouchStart = function (e) {
++    var _e_nativeEvent;
++    beginGesture(((_e_nativeEvent = e.nativeEvent) === null || _e_nativeEvent === void 0 ? void 0 : _e_nativeEvent.pageY) || 0);
++  };
++  // OneKey patch: a lift while other fingers are still down is not the end of
++  // the gesture; the last finger's onTouchEnd finishes it.
++  var onTouchEnd = function (e) {
++    var _e_nativeEvent_touches, _e_nativeEvent;
++    if ((_e_nativeEvent = e.nativeEvent) === null || _e_nativeEvent === void 0 ? void 0 : (_e_nativeEvent_touches = _e_nativeEvent.touches) === null || _e_nativeEvent_touches === void 0 ? void 0 : _e_nativeEvent_touches.length) return;
++    release();
++  };
+   var onMoveShouldSetResponder = function (e) {
+     if (!scrollEnabled) return false;
+     var s = state.current;
+@@ -140,6 +176,7 @@ function useSheetScrollViewGestures(param) {
+     }
+     if (panHandles) {
+       setScrollEnabled(false);
++      s.didPan = true;
+       var effectiveDragAt = dragAt;
+       if (s.handoffOccurred) {
+         s.handoffDragOffset += dy;
+@@ -155,6 +192,10 @@ function useSheetScrollViewGestures(param) {
+   };
+   return {
+     onResponderRelease: release,
++    // OneKey patch: see beginGesture above.
++    onTouchStart,
++    onTouchEnd,
++    onTouchCancel: release,
+     onStartShouldSetResponder,
+     onMoveShouldSetResponder,
+     onResponderMove
+diff --git a/node_modules/@tamagui/sheet/dist/esm/useSheetScrollViewGestures.native.js b/node_modules/@tamagui/sheet/dist/esm/useSheetScrollViewGestures.native.js
+index 9645987..41d742e 100644
+--- a/node_modules/@tamagui/sheet/dist/esm/useSheetScrollViewGestures.native.js
++++ b/node_modules/@tamagui/sheet/dist/esm/useSheetScrollViewGestures.native.js
+@@ -15,11 +15,14 @@ function useSheetScrollViewGestures(param) {
+     scrollEngaged: false,
+     prevScrollY: 0,
+     handoffOccurred: false,
+-    handoffDragOffset: 0
++    handoffDragOffset: 0,
++    didPan: false
+   });
+   var release = function () {
+     var s = state.current;
+     if (!s.isDraggingScrollArea) return;
++    var didPan = s.didPan;
++    s.didPan = false;
+     s.isDraggingScrollArea = false;
+     scrollBridge.scrollStartY = -1;
+     scrollBridge.scrollLock = false;
+@@ -38,21 +41,54 @@ function useSheetScrollViewGestures(param) {
+       vy = dist / recentDys.length * 0.04;
+     }
+     s.dys = [];
++    // OneKey patch: only hand the gesture to the Frame snapper when this hook
++    // actually panned the sheet. RN ScrollView forwards onTouchEnd for EVERY
++    // finger lift (taps on child rows, a second finger during a drag), and
++    // scrollBridge.release() snaps to the closest point from the live at.current,
++    // so a tap while the sheet is still opening would snap it back to dismiss.
++    if (!didPan) return;
+     scrollBridge.release({
+       dragAt: s.dragAt,
+       vy
+     });
+   };
+-  var onStartShouldSetResponder = function () {
++  // OneKey patch: React Native's ScrollView replaces onStartShouldSetResponder
++  // with its own handler and never forwards it, so this per-gesture reset never
++  // ran on native: isDraggingScrollArea stayed false, release() returned early,
++  // and isScrolling / lastPageY / scrollStartY leaked into the next gesture. The
++  // next swipe's first move then read a bogus dy from the stale lastPageY and
++  // panned the sheet (OK-63688). Reset from onTouchStart, which ScrollView does
++  // forward, and finish from onTouchEnd / onTouchCancel as well.
++  var beginGesture = function (pageY) {
+     var s = state.current;
+     scrollBridge.scrollStartY = -1;
++    scrollBridge.scrollLock = false;
+     s.isDraggingScrollArea = true;
++    s.isScrolling = false;
+     s.scrollEngaged = scrollBridge.y > 0;
+     s.prevScrollY = scrollBridge.y;
+     s.handoffOccurred = false;
+     s.handoffDragOffset = 0;
++    s.lastPageY = pageY;
++    s.dragAt = 0;
++    s.dys = [];
++    s.didPan = false;
++  };
++  var onStartShouldSetResponder = function () {
++    beginGesture(0);
+     return false;
+   };
++  var onTouchStart = function (e) {
++    var _e_nativeEvent;
++    beginGesture(((_e_nativeEvent = e.nativeEvent) === null || _e_nativeEvent === void 0 ? void 0 : _e_nativeEvent.pageY) || 0);
++  };
++  // OneKey patch: a lift while other fingers are still down is not the end of
++  // the gesture; the last finger's onTouchEnd finishes it.
++  var onTouchEnd = function (e) {
++    var _e_nativeEvent_touches, _e_nativeEvent;
++    if ((_e_nativeEvent = e.nativeEvent) === null || _e_nativeEvent === void 0 ? void 0 : (_e_nativeEvent_touches = _e_nativeEvent.touches) === null || _e_nativeEvent_touches === void 0 ? void 0 : _e_nativeEvent_touches.length) return;
++    release();
++  };
+   var onMoveShouldSetResponder = function (e) {
+     if (!scrollEnabled) return false;
+     var s = state.current;
+@@ -111,6 +147,7 @@ function useSheetScrollViewGestures(param) {
+     }
+     if (panHandles) {
+       setScrollEnabled(false);
++      s.didPan = true;
+       var effectiveDragAt = dragAt;
+       if (s.handoffOccurred) {
+         s.handoffDragOffset += dy;
+@@ -126,6 +163,10 @@ function useSheetScrollViewGestures(param) {
+   };
+   return {
+     onResponderRelease: release,
++    // OneKey patch: see beginGesture above.
++    onTouchStart,
++    onTouchEnd,
++    onTouchCancel: release,
+     onStartShouldSetResponder,
+     onMoveShouldSetResponder,
+     onResponderMove
+diff --git a/node_modules/@tamagui/sheet/src/useSheetScrollViewGestures.native.ts b/node_modules/@tamagui/sheet/src/useSheetScrollViewGestures.native.ts
+index 8406b46..67a7607 100644
+--- a/node_modules/@tamagui/sheet/src/useSheetScrollViewGestures.native.ts
++++ b/node_modules/@tamagui/sheet/src/useSheetScrollViewGestures.native.ts
+@@ -12,6 +12,7 @@ interface ResponderState {
+   prevScrollY: number
+   handoffOccurred: boolean
+   handoffDragOffset: number
++  didPan: boolean
+ }
+ 
+ interface UseSheetScrollViewGesturesProps {
+@@ -42,12 +43,15 @@ export function useSheetScrollViewGestures({
+     prevScrollY: 0,
+     handoffOccurred: false,
+     handoffDragOffset: 0,
++    didPan: false,
+   })
+ 
+   const release = () => {
+     const s = state.current
+     if (!s.isDraggingScrollArea) return
+ 
++    const didPan = s.didPan
++    s.didPan = false
+     s.isDraggingScrollArea = false
+     scrollBridge.scrollStartY = -1
+     scrollBridge.scrollLock = false
+@@ -66,20 +70,55 @@ export function useSheetScrollViewGestures({
+     }
+     s.dys = []
+ 
++    // OneKey patch: only hand the gesture to the Frame snapper when this hook
++    // actually panned the sheet. RN ScrollView forwards onTouchEnd for EVERY
++    // finger lift (taps on child rows, a second finger during a drag), and
++    // scrollBridge.release() snaps to the closest point from the live at.current,
++    // so a tap while the sheet is still opening would snap it back to dismiss.
++    if (!didPan) return
++
+     scrollBridge.release({ dragAt: s.dragAt, vy })
+   }
+ 
+-  const onStartShouldSetResponder = () => {
++  // OneKey patch: React Native's ScrollView replaces onStartShouldSetResponder
++  // with its own handler and never forwards it, so this per-gesture reset never
++  // ran on native: isDraggingScrollArea stayed false, release() returned early,
++  // and isScrolling / lastPageY / scrollStartY leaked into the next gesture. The
++  // next swipe's first move then read a bogus dy from the stale lastPageY and
++  // panned the sheet (OK-63688). Reset from onTouchStart, which ScrollView does
++  // forward, and finish from onTouchEnd / onTouchCancel as well.
++  const beginGesture = (pageY: number) => {
+     const s = state.current
+     scrollBridge.scrollStartY = -1
++    scrollBridge.scrollLock = false
+     s.isDraggingScrollArea = true
++    s.isScrolling = false
+     s.scrollEngaged = scrollBridge.y > 0
+     s.prevScrollY = scrollBridge.y
+     s.handoffOccurred = false
+     s.handoffDragOffset = 0
++    s.lastPageY = pageY
++    s.dragAt = 0
++    s.dys = []
++    s.didPan = false
++  }
++
++  const onStartShouldSetResponder = () => {
++    beginGesture(0)
+     return false
+   }
+ 
++  const onTouchStart = (e: GestureResponderEvent) => {
++    beginGesture(e.nativeEvent?.pageY || 0)
++  }
++
++  // OneKey patch: a lift while other fingers are still down is not the end of
++  // the gesture; the last finger's onTouchEnd finishes it.
++  const onTouchEnd = (e: GestureResponderEvent) => {
++    if (e.nativeEvent?.touches?.length) return
++    release()
++  }
++
+   const onMoveShouldSetResponder = (e: GestureResponderEvent) => {
+     if (!scrollEnabled) return false
+     const s = state.current
+@@ -144,6 +183,7 @@ export function useSheetScrollViewGestures({
+ 
+     if (panHandles) {
+       setScrollEnabled(false)
++      s.didPan = true
+       let effectiveDragAt = dragAt
+       if (s.handoffOccurred) {
+         s.handoffDragOffset += dy
+@@ -160,6 +200,10 @@ export function useSheetScrollViewGestures({
+ 
+   return {
+     onResponderRelease: release,
++    // OneKey patch: see beginGesture above.
++    onTouchStart,
++    onTouchEnd,
++    onTouchCancel: release,
+     onStartShouldSetResponder,
+     onMoveShouldSetResponder,
+     onResponderMove,

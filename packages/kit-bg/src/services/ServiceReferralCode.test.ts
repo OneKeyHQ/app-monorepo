@@ -358,6 +358,44 @@ describe('ServiceReferralCode Swap rebate API', () => {
     ).resolves.toBeUndefined();
   });
 
+  test('returns the stored address for an Others EVM account', async () => {
+    const { service, backgroundApi } = createService();
+    backgroundApi.serviceAccount.getDBAccountSafe.mockResolvedValue({
+      id: 'watching--evm--0xWatch',
+      impl: 'evm',
+      address: '0xWatch',
+    });
+
+    await expect(
+      service.getCurrentEvmAccountAddress({
+        accountId: 'watching--evm--0xWatch',
+      }),
+    ).resolves.toBe('0xWatch');
+
+    expect(
+      backgroundApi.serviceAccount.getNetworkAccount,
+    ).not.toHaveBeenCalled();
+  });
+
+  test('returns undefined for a non-EVM Others account', async () => {
+    const { service, backgroundApi } = createService();
+    backgroundApi.serviceAccount.getDBAccountSafe.mockResolvedValue({
+      id: 'watching--btc--bc1qwatch',
+      impl: 'btc',
+      address: 'bc1qwatch',
+    });
+
+    await expect(
+      service.getCurrentEvmAccountAddress({
+        accountId: 'watching--btc--bc1qwatch',
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(
+      backgroundApi.serviceAccount.getNetworkAccount,
+    ).not.toHaveBeenCalled();
+  });
+
   test('exports Swap without transforming CSV or dropping an epoch range', async () => {
     const { service } = createService();
     const get = jest.fn().mockResolvedValue({

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import {
@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import type { ISwapInputAmountDraft } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
@@ -26,12 +27,15 @@ import { MarketStockTradeTarget } from './components/MarketStockTradeTarget';
 import { buildMarketEmbeddedSwapInitParams } from './marketEmbeddedSwapUtils';
 
 type IEmbeddedSwapProps = {
+  storeName?: EJotaiContextStoreNames;
   pageType?: EPageType.modal;
   singleSwapBridgeHeader?: boolean;
   embeddedStockTrade?: boolean;
   stockSpeedConfig?: ISwapStockSpeedConfig;
   stockTradeConfig?: ISwapStockTradeConfig;
   stockTradeHeader?: ReactNode;
+  stockTradeIdentityLoading?: boolean;
+  reviewContextKey?: string;
   stockTradeToken?: ISwapToken;
   stockTradePortfolioData?: IMarketAccountPortfolioDisplayItem[];
   stockTradeResolvedVariantKeys?: string[];
@@ -49,9 +53,16 @@ const LazyEmbeddedSwap = LazyLoad<IEmbeddedSwapProps>(
   <MarketEmbeddedSwapLoading />,
 );
 
+const MemoEmbeddedSwap = memo(LazyEmbeddedSwap);
+
 function MarketEmbeddedSwapLoading() {
   return (
-    <YStack width="100%" minHeight={520} gap="$4">
+    <YStack
+      testID="market-embedded-swap-trade-loading"
+      width="100%"
+      minHeight={520}
+      gap="$4"
+    >
       <Skeleton h="$10" w="$44" borderRadius="$full" />
       <XStack h="$13" alignItems="center" justifyContent="space-between">
         <XStack alignItems="center" gap="$2">
@@ -97,9 +108,11 @@ function getDraftToken(token?: ISwapToken): ISwapToken | undefined {
 }
 
 function MarketEmbeddedSwapContent({
+  inputDraftKey,
   swapToken,
   inputDraft,
   onInputDraftChange,
+  isTradeLoading,
   embeddedStockTrade,
   stockTradeConfig,
   stockTradeHeader,
@@ -107,9 +120,11 @@ function MarketEmbeddedSwapContent({
   stockTradePortfolioData,
   stockTradeResolvedVariantKeys,
 }: {
+  inputDraftKey: string;
   swapToken: ISwapToken;
   inputDraft?: ISwapInputAmountDraft;
   onInputDraftChange: (draft: ISwapInputAmountDraft) => void;
+  isTradeLoading?: boolean;
   embeddedStockTrade?: boolean;
   stockTradeConfig?: ISwapStockTradeConfig;
   stockTradeHeader?: ReactNode;
@@ -122,17 +137,59 @@ function MarketEmbeddedSwapContent({
   // quote/input state to enter the normal loading skeleton rather than
   // remounting the whole trade panel.
   const [swapTokenSeed, setSwapTokenSeed] = useState(swapToken);
+  const [stockTradeTokenSeed, setStockTradeTokenSeed] =
+    useState(stockTradeToken);
   const swapTokenIdentity = `${swapToken.networkId}:${swapToken.contractAddress}`;
   const swapTokenSeedIdentity = `${swapTokenSeed.networkId}:${swapTokenSeed.contractAddress}`;
   const swapTokenReadySignature = `${swapTokenIdentity}:${swapToken.decimals}:${swapToken.symbol}`;
   const swapTokenSeedReadySignature = `${swapTokenSeedIdentity}:${swapTokenSeed.decimals}:${swapTokenSeed.symbol}`;
   useEffect(() => {
-    if (swapTokenReadySignature !== swapTokenSeedReadySignature) {
+    if (
+      !isTradeLoading &&
+      swapTokenReadySignature !== swapTokenSeedReadySignature
+    ) {
       setSwapTokenSeed(swapToken);
     }
-  }, [swapToken, swapTokenReadySignature, swapTokenSeedReadySignature]);
-  // Consume the route's draft once per mount; live input must not reinitialize Swap.
-  const [initialInputAmountDraft] = useState(inputDraft);
+  }, [
+    isTradeLoading,
+    swapToken,
+    swapTokenReadySignature,
+    swapTokenSeedReadySignature,
+  ]);
+  const stockTradeTokenReadySignature = stockTradeToken
+    ? `${stockTradeToken.networkId}:${stockTradeToken.contractAddress}:${stockTradeToken.decimals}:${stockTradeToken.symbol}`
+    : '';
+  const stockTradeTokenSeedReadySignature = stockTradeTokenSeed
+    ? `${stockTradeTokenSeed.networkId}:${stockTradeTokenSeed.contractAddress}:${stockTradeTokenSeed.decimals}:${stockTradeTokenSeed.symbol}`
+    : '';
+  const stockTradeIdentityLoading = Boolean(
+    isTradeLoading ||
+    stockTradeTokenReadySignature !== stockTradeTokenSeedReadySignature,
+  );
+  useEffect(() => {
+    if (
+      !isTradeLoading &&
+      stockTradeTokenReadySignature !== stockTradeTokenSeedReadySignature
+    ) {
+      setStockTradeTokenSeed(stockTradeToken);
+    }
+  }, [
+    isTradeLoading,
+    stockTradeToken,
+    stockTradeTokenReadySignature,
+    stockTradeTokenSeedReadySignature,
+  ]);
+  // Consume the restored draft once, and discard it when the route changes.
+  // Live input must not reinitialize the retained Swap component.
+  const [initialDraft, setInitialDraft] = useState({
+    key: inputDraftKey,
+    draft: inputDraft,
+  });
+  const initialInputAmountDraft =
+    initialDraft.key === inputDraftKey ? initialDraft.draft : undefined;
+  if (initialDraft.key !== inputDraftKey) {
+    setInitialDraft({ key: inputDraftKey, draft: undefined });
+  }
   const { defaultTokens, speedConfigReady, speedSwapConfig } = useSpeedSwapInit(
     swapTokenSeed.networkId,
     true,
@@ -177,9 +234,9 @@ function MarketEmbeddedSwapContent({
 
   const resolvedStockTradeHeader =
     stockTradeHeader ??
-    (stockTradeToken ? (
+    (stockTradeTokenSeed ? (
       <MarketStockTradeTarget
-        token={stockTradeToken}
+        token={stockTradeTokenSeed}
         portfolioData={stockTradePortfolioData}
         resolvedVariantKeys={stockTradeResolvedVariantKeys}
       />
@@ -192,7 +249,8 @@ function MarketEmbeddedSwapContent({
       minHeight={520}
       overflow="hidden"
     >
-      <LazyEmbeddedSwap
+      <MemoEmbeddedSwap
+        storeName={EJotaiContextStoreNames.marketSwap}
         pageType={EPageType.modal}
         singleSwapBridgeHeader
         swapInitParams={effectiveSwapInitParams}
@@ -200,7 +258,9 @@ function MarketEmbeddedSwapContent({
         stockSpeedConfig={stockSpeedConfig}
         stockTradeConfig={stockTradeConfig}
         stockTradeHeader={resolvedStockTradeHeader}
-        stockTradeToken={stockTradeToken}
+        stockTradeIdentityLoading={stockTradeIdentityLoading}
+        reviewContextKey={`${inputDraftKey}:${swapTokenIdentity}`}
+        stockTradeToken={stockTradeTokenSeed}
         stockTradePortfolioData={stockTradePortfolioData}
         stockTradeResolvedVariantKeys={stockTradeResolvedVariantKeys}
         initialInputAmountDraft={initialInputAmountDraft}
@@ -211,8 +271,10 @@ function MarketEmbeddedSwapContent({
 }
 
 function MarketEmbeddedSwapDraft({
+  inputDraftKey,
   swapToken,
   disabled,
+  isTradeLoading,
   embeddedStockTrade,
   stockTradeConfig,
   stockTradeHeader,
@@ -220,8 +282,10 @@ function MarketEmbeddedSwapDraft({
   stockTradePortfolioData,
   stockTradeResolvedVariantKeys,
 }: {
+  inputDraftKey: string;
   swapToken: ISwapToken;
   disabled?: boolean;
+  isTradeLoading?: boolean;
   embeddedStockTrade?: boolean;
   stockTradeConfig?: ISwapStockTradeConfig;
   stockTradeHeader?: ReactNode;
@@ -230,6 +294,11 @@ function MarketEmbeddedSwapDraft({
   stockTradeResolvedVariantKeys?: string[];
 }) {
   const inputDraftRef = useRef<ISwapInputAmountDraft | undefined>(undefined);
+  const inputDraftKeyRef = useRef(inputDraftKey);
+  if (inputDraftKeyRef.current !== inputDraftKey) {
+    inputDraftKeyRef.current = inputDraftKey;
+    inputDraftRef.current = undefined;
+  }
   const onInputDraftChange = useCallback((draft: ISwapInputAmountDraft) => {
     inputDraftRef.current = {
       fromToken: getDraftToken(draft.fromToken),
@@ -243,13 +312,26 @@ function MarketEmbeddedSwapDraft({
     };
   }, []);
 
+  const hasRenderedContentRef = useRef(false);
+
   // Disabled desktop routes render their own unavailable state (or no trade
-  // panel). Do not present a perpetual loading skeleton for a terminal state.
-  return disabled ? null : (
+  // panel). Transient stock identity loading keeps the panel shell visible;
+  // once the shell has mounted, the stock channel owns partial skeletons.
+  if (disabled) {
+    return null;
+  }
+  if (isTradeLoading && !hasRenderedContentRef.current) {
+    return <MarketEmbeddedSwapLoading />;
+  }
+  hasRenderedContentRef.current = true;
+
+  return (
     <MarketEmbeddedSwapContent
+      inputDraftKey={inputDraftKey}
       swapToken={swapToken}
       inputDraft={inputDraftRef.current}
       onInputDraftChange={onInputDraftChange}
+      isTradeLoading={isTradeLoading}
       embeddedStockTrade={embeddedStockTrade}
       stockTradeConfig={stockTradeConfig}
       stockTradeHeader={stockTradeHeader}
@@ -264,6 +346,7 @@ export function MarketEmbeddedSwap({
   swapToken,
   inputDraftKey,
   disabled,
+  isTradeLoading,
   embeddedStockTrade,
   stockTradeConfig,
   stockTradeHeader,
@@ -274,6 +357,7 @@ export function MarketEmbeddedSwap({
   swapToken: ISwapToken;
   inputDraftKey: string;
   disabled?: boolean;
+  isTradeLoading?: boolean;
   embeddedStockTrade?: boolean;
   stockTradeConfig?: ISwapStockTradeConfig;
   stockTradeHeader?: ReactNode;
@@ -287,9 +371,10 @@ export function MarketEmbeddedSwap({
       enabledNum={[0, 1]}
     >
       <MarketEmbeddedSwapDraft
-        key={inputDraftKey}
+        inputDraftKey={inputDraftKey}
         swapToken={swapToken}
         disabled={disabled}
+        isTradeLoading={isTradeLoading}
         embeddedStockTrade={embeddedStockTrade}
         stockTradeConfig={stockTradeConfig}
         stockTradeHeader={stockTradeHeader}

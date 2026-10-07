@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -43,6 +44,8 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { handleDeepLinkUrl } from '../../../routes/config/deeplink';
 import { FeaturedCarousel } from '../components/FeaturedCarousel';
 import { FeaturedFooter } from '../components/FeaturedFooter';
+
+import type { IFeaturedCarouselRef } from '../components/FeaturedCarousel';
 
 // Injected payload for the ops-only Featured Changelog preview page.
 // `featuredChangelog` drives the carousel in both modes; `latestVersion` is the
@@ -103,11 +106,15 @@ function useFeaturedCta({
   isPreInstall,
   isLocked,
   activeFeature,
+  hasNext,
+  onNext,
   closeDialog,
 }: {
   isPreInstall: boolean;
   isLocked: boolean;
   activeFeature: IFeaturedItem | undefined;
+  hasNext: boolean;
+  onNext: () => void;
   closeDialog: () => Promise<void>;
 }) {
   const intl = useIntl();
@@ -139,16 +146,27 @@ function useFeaturedCta({
   const shouldOpenStore =
     isPreInstall && updateFileType === EUpdateFileType.appShell && !!storeUrl;
 
-  const ctaText = isPreInstall
-    ? intl.formatMessage({
-        id: shouldOpenStore
-          ? ETranslations.update_update_now
-          : ETranslations.update_download_and_verify_text,
-      })
-    : (activeFeature?.ctaText ??
-      intl.formatMessage({ id: ETranslations.global_done }));
+  let ctaText =
+    activeFeature?.ctaText ??
+    intl.formatMessage({ id: ETranslations.global_done });
+  if (isPreInstall) {
+    ctaText = intl.formatMessage({
+      id: shouldOpenStore
+        ? ETranslations.update_update_now
+        : ETranslations.update_download_and_verify_text,
+    });
+  } else if (activeFeature?.ctaAction === 'next') {
+    ctaText = intl.formatMessage({
+      id: hasNext ? ETranslations.global_next : ETranslations.global_done,
+    });
+  }
 
   const onCtaPress = useCallback(async () => {
+    if (!isPreInstall && activeFeature?.ctaAction === 'next') {
+      if (hasNext) onNext();
+      else await closeDialog();
+      return;
+    }
     // Ops preview: the pre-install CTA must not start a real download / open
     // the store / push DownloadVerify on a production device. The
     // already-upgraded CTA (dispatchFeatureCta) stays LIVE — jumping to the
@@ -211,6 +229,8 @@ function useFeaturedCta({
     navigation,
     closeDialog,
     activeFeature,
+    hasNext,
+    onNext,
   ]);
 
   return { ctaText, onCtaPress };
@@ -244,14 +264,21 @@ function FeaturedChangelogContent({
   const isPreview = useContext(FeaturedChangelogPreviewContext) !== undefined;
   const features = useFeatures();
 
-  const [activeFeature, setActiveFeature] = useState<IFeaturedItem | undefined>(
-    features[0],
+  const [activeIndex, setActiveIndex] = useState(0);
+  const activeFeature = features[activeIndex] ?? features[0];
+  const carouselRef = useRef<IFeaturedCarouselRef>(null);
+  const onActiveFeatureChange = useCallback(
+    (_feature: IFeaturedItem, index: number) => setActiveIndex(index),
+    [],
   );
+  const onNext = useCallback(() => carouselRef.current?.next(), []);
 
   const { ctaText, onCtaPress } = useFeaturedCta({
     isPreInstall,
     isLocked,
     activeFeature,
+    hasNext: activeIndex < features.length - 1,
+    onNext,
     closeDialog,
   });
 
@@ -294,11 +321,12 @@ function FeaturedChangelogContent({
       ]}
     >
       <FeaturedCarousel
+        ref={carouselRef}
         features={features}
         badgeText={badgeText}
         showCloseButton={!isLocked}
         onClose={() => void closeDialog()}
-        onActiveFeatureChange={setActiveFeature}
+        onActiveFeatureChange={onActiveFeatureChange}
         totalHeight={totalCarouselHeight}
       />
       <FeaturedFooter

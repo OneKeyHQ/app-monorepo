@@ -1085,8 +1085,12 @@ function RecipientQuickSelect({
 
   // Use debounced search key for auto-switch logic
   const debouncedSearchKey = useDebounce(searchKey, 300);
-  const trimmedSearchKey = normalizeSearchKey(debouncedSearchKey);
-  const isDebouncing = isSearchMode && searchKey !== debouncedSearchKey;
+  const [immediateSearchKey, setImmediateSearchKey] = useState<string>();
+  const effectiveDebouncedSearchKey =
+    immediateSearchKey === searchKey ? immediateSearchKey : debouncedSearchKey;
+  const trimmedSearchKey = normalizeSearchKey(effectiveDebouncedSearchKey);
+  const isDebouncing =
+    isSearchMode && searchKey !== effectiveDebouncedSearchKey;
 
   // Tracks the last value sent to parent via onMatchStatusChange.
   // Declared here (before prevSearchKeyRef check) so the reset below
@@ -1319,17 +1323,18 @@ function RecipientQuickSelect({
               senderDeriveType={senderDeriveType}
               lastUsedDeriveType={lastUsedDeriveType}
               searchKey={searchKey}
-              debouncedSearchKey={debouncedSearchKey}
+              debouncedSearchKey={effectiveDebouncedSearchKey}
               isSearchMode={isSearchMode}
               keylessWalletsOnly={keylessWalletsOnly}
               onInputTypeChange={onInputTypeChange}
-              onSelect={({ address }) =>
+              onSelect={({ address }) => {
+                setImmediateSearchKey(address);
                 onSelect?.({
                   address,
                   quickSelectTab: 'account',
                   ...getSearchContext(),
-                })
-              }
+                });
+              }}
               onMatchStatusChange={handleAccountMatchStatus}
             />
           </Stack>

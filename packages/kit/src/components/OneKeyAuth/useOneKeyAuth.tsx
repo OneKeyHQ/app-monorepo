@@ -206,6 +206,12 @@ export function useOneKeyAuth() {
             floatingPanelProps: platformEnv.isDesktop
               ? { width: 440 }
               : undefined,
+            ...(platformEnv.isNative
+              ? {
+                  boundedSheetLayout: true,
+                  sheetDragArea: 'header' as const,
+                }
+              : {}),
             renderContent: renderContent({
               onComplete: async () => {
                 isThisDialogClosedByNextStep = true;

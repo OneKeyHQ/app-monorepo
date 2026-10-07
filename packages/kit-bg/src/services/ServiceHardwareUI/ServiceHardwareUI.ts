@@ -800,7 +800,11 @@ class ServiceHardwareUI extends ServiceBase {
   }
 
   @backgroundMethod()
-  async deviceStageEndBurst(params: { token: number; error?: unknown }) {
+  async deviceStageEndBurst(params: {
+    token: number;
+    error?: unknown;
+    doneI18n?: IDeviceStageState['doneI18n'];
+  }) {
     await this.deviceStageBurst.endExplicit(params);
   }
 
@@ -1322,6 +1326,7 @@ class ServiceHardwareUI extends ServiceBase {
         message: appLocale.intl.formatMessage({
           id: ETranslations.feedback_hardware_is_busy,
         }),
+        key: ETranslations.feedback_hardware_is_busy,
         autoToast: false,
       });
     }

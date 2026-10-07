@@ -47,6 +47,15 @@ export type IToken = {
   defiMarked?: boolean;
   dappName?: string | null;
   dappType?: ITokenDappType;
+
+  // Shared-balance group (e.g. Arc evm--5042: native USDC and the ERC-20
+  // interface 0x3600… read the SAME balance). The server marks the member
+  // that must be skipped by totals with BOTH fields together; the primary and
+  // every other token lack both. `sharedBalanceWith` is the primary's
+  // `address` and may be '' (native), so presence checks must use
+  // `!== undefined`. See sharedBalanceUtils.
+  sharedBalanceExcluded?: boolean;
+  sharedBalanceWith?: string;
 };
 
 export type ITokenFiat = {
@@ -70,6 +79,11 @@ export type ITokenFiat = {
   // Internal cache writes normalize to 'usd' so a currency switch can re-render
   // existing data via client-side conversion instead of clearing the cache.
   currency?: string;
+  // RESOLVED shared-balance decision (see IToken.sharedBalanceExcluded):
+  // true only when a valid primary is present in the summed set, so fiat-map
+  // consumers that never see the token object can still skip this entry in
+  // totals. Row display keeps using `fiatValue` unchanged.
+  sharedBalanceExcludedFromTotal?: boolean;
 };
 
 export enum ECustomTokenStatus {

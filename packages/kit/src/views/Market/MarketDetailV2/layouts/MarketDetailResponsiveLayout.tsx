@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import { Spinner, Stack } from '@onekeyhq/components';
 
 import { DesktopLayout } from './DesktopLayout';
@@ -5,9 +7,11 @@ import { MobileLayout } from './MobileLayout';
 
 import type { IMarketDetailResponsiveLayoutProps } from './MarketDetailResponsiveLayout.types';
 
-export function MarketDetailResponsiveLayout({
+function MarketDetailResponsiveLayoutBase({
+  active,
   isLayoutPending,
   isInitialContentPending,
+  isTokenDetailRequestPending,
   disablePerpsBanner,
   isDesktopLayout,
   isChartFullscreen,
@@ -41,6 +45,7 @@ export function MarketDetailResponsiveLayout({
     }
     return (
       <DesktopLayout
+        active={active}
         isChartFullscreen={isChartFullscreen}
         isTradingViewNative={isTradingViewNative}
         onChartSwitch={onChartSwitch}
@@ -48,6 +53,7 @@ export function MarketDetailResponsiveLayout({
         isNative={isNative}
         networkId={networkId}
         tokenAddress={tokenAddress}
+        isTokenDetailRequestPending={isTokenDetailRequestPending}
         marketTokenId={marketTokenId}
         marketAssetDetail={marketAssetDetail}
         isMarketAssetDetailLoading={isMarketAssetDetailLoading}
@@ -60,6 +66,8 @@ export function MarketDetailResponsiveLayout({
 
   return (
     <MobileLayout
+      active={active}
+      isLayoutPending={isLayoutPending}
       isInitialContentPending={isInitialContentPending}
       disablePerpsBanner={disablePerpsBanner}
       disableTrade={disableTrade}
@@ -75,3 +83,7 @@ export function MarketDetailResponsiveLayout({
     />
   );
 }
+
+export const MarketDetailResponsiveLayout = memo(
+  MarketDetailResponsiveLayoutBase,
+);

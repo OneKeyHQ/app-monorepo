@@ -51,7 +51,7 @@ export function ActionFooter({
 
   const { onSubmit, onSelectPercentageStage, setSubmitting } = actions;
   const {
-    approving,
+    isFormInteractionLocked,
     approvalProgressStarted,
     loadingAllowance,
     shouldApprove,
@@ -171,7 +171,10 @@ export function ActionFooter({
         testID: BorrowTestIDs.actionConfirmBtn,
         onPress: handleConfirm,
         loading:
-          submitting || checkAmountLoading || loadingAllowance || approving,
+          submitting ||
+          checkAmountLoading ||
+          loadingAllowance ||
+          isFormInteractionLocked,
         disabled: isButtonDisabled,
       }}
     />
@@ -213,7 +216,7 @@ export function ActionFooter({
           </Stack>
           <PercentageStageOnKeyboard
             onSelectPercentageStage={
-              approving ? undefined : onSelectPercentageStage
+              isFormInteractionLocked ? undefined : onSelectPercentageStage
             }
           />
         </Page.Footer>

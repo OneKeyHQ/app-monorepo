@@ -258,6 +258,7 @@ function SelectContent() {
     waitForChangeBeforeClose,
     usingPercentSnapPoints: usingPercentSnapPointsFromContext,
     offset,
+    nativeSheet,
   } = useContext(SelectContext);
   const isSelectingRef = useRef(false);
   const selectionGenerationRef = useRef(0);
@@ -413,6 +414,7 @@ function SelectContent() {
       renderTrigger={popoverTrigger}
       renderContent={renderContent}
       offset={offset}
+      nativeSheet={nativeSheet}
     />
   );
 }
@@ -437,6 +439,7 @@ function SelectFrame<
   placement = platformEnv.isNative ? 'bottom-start' : undefined,
   usingPercentSnapPoints,
   waitForChangeBeforeClose,
+  nativeSheet,
 }: ISelectProps<T>) {
   const [isOpenInternal, setIsOpenInternal] = useState(false);
   const isControlled = openProp !== undefined;
@@ -473,6 +476,7 @@ function SelectFrame<
       offset,
       usingPercentSnapPoints,
       waitForChangeBeforeClose,
+      nativeSheet,
     }),
     [
       isOpen,
@@ -491,6 +495,7 @@ function SelectFrame<
       offset,
       usingPercentSnapPoints,
       waitForChangeBeforeClose,
+      nativeSheet,
     ],
   );
   return (

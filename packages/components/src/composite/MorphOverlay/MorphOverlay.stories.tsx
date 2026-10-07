@@ -23,8 +23,8 @@ import type { LayoutChangeEvent } from 'react-native';
 /**
  * The container on its own, with stand-in content — a capsule row and
  * two card columns of different heights — so the morph, the crossing
- * and the height re-aim can be watched, and the chrome (scrim, grabber,
- * close button, drag-to-dismiss, the modal wall) tried, without the
+ * and the height re-aim can be watched, and the chrome (scrim, close
+ * button, drag-to-dismiss, the modal wall) tried, without the
  * device stage's vocabulary in the way. The controls are the
  * component's own props; the buttons are the caller's content changes.
  */
@@ -41,7 +41,7 @@ const POSE_OF: Record<IDemoContent, IMorphOverlayPose> = {
 const TALL_LINES = [
   'A taller column, so the crossing from the short card re-aims the height on the empty beat.',
   'Every block here is measured by the caller; the container only adds its toolbar band and its chin.',
-  'Drag the card down to dismiss it, or tap the close button — both exist only while the grant is on.',
+  'Drag the card up to dismiss it, or tap the close button — both exist only while the grant is on.',
 ];
 
 /** First-frame stand-in for an unmeasured column. */
@@ -56,7 +56,7 @@ function Demo({
   modal: boolean;
   /** The dark scrim over the blocked app (implies the wall). */
   scrim: boolean;
-  /** The close grant: close buttons, grabber drag, tap outside. */
+  /** The close grant: the close buttons and the upward drag. */
   dismissible: boolean;
 }) {
   const { height: windowHeight } = useWindowDimensions();
@@ -169,15 +169,16 @@ function Demo({
     [goTall, goWaiting, onShortLayout, onTallLayout, shown],
   );
 
-  // The story's host, the stage stories' own: the overlay anchored to
-  // the bottom of a canvas kept tall enough (window minus a
-  // workbench-chrome allowance), and the buttons on the same portal,
-  // mounted after it and so above its wall — a bar along the canvas top.
+  // The story's host, the stage stories' own: the overlay hung from the
+  // top of a canvas kept tall enough (window minus a workbench-chrome
+  // allowance), and the buttons on the same portal, mounted after it
+  // and so above its wall — a bar along the canvas bottom, clear of the
+  // shell.
   const bar = useMemo(
     () => (
       <XStack
         position="absolute"
-        top={0}
+        bottom={0}
         left={0}
         right={0}
         p="$2"

@@ -1,3 +1,21 @@
+diff --git a/node_modules/@shopify/react-native-skia/cpp/api/JsiSkFont.h b/node_modules/@shopify/react-native-skia/cpp/api/JsiSkFont.h
+index baf3a8a..93311a4 100644
+--- a/node_modules/@shopify/react-native-skia/cpp/api/JsiSkFont.h
++++ b/node_modules/@shopify/react-native-skia/cpp/api/JsiSkFont.h
+@@ -185,8 +185,11 @@ public:
+   }
+ 
+   JSI_HOST_FUNCTION(getTypeface) {
+-    return JsiSkTypeface::toValue(
+-        runtime, getContext(), sk_sp<SkTypeface>(getObject()->getTypeface()));
++    // OneKey patch: sk_sp(T*) adopts without ref'ing, so getTypeface() handed the
++    // wrapper a reference it never took and over-released the SkTypeface that
++    // Skia's global font cache still points at (OK-63558).
++    return JsiSkTypeface::toValue(runtime, getContext(),
++                                  getObject()->refTypeface());
+   }
+ 
+   JSI_HOST_FUNCTION(setEdging) {
 diff --git a/node_modules/@shopify/react-native-skia/cpp/api/JsiSkFontMgr.h b/node_modules/@shopify/react-native-skia/cpp/api/JsiSkFontMgr.h
 index aec7f26..72d2ae5 100644
 --- a/node_modules/@shopify/react-native-skia/cpp/api/JsiSkFontMgr.h

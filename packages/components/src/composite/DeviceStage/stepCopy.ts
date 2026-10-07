@@ -603,6 +603,7 @@ export function resolveCapsuleText(
   errorReason?: IDeviceStageErrorReason,
   errorMessage?: string,
   stalledOn?: IDeviceStageConnectionType,
+  doneTitle?: string,
 ): { title: string; sub: string } {
   if (step === 'error') {
     return {
@@ -641,7 +642,10 @@ export function resolveCapsuleText(
     };
   }
   return {
-    title: intl.formatMessage({ id: STEP_TEXT[step].title }),
+    title:
+      step === 'done' && doneTitle
+        ? doneTitle
+        : intl.formatMessage({ id: STEP_TEXT[step].title }),
     sub: deviceName ?? '',
   };
 }

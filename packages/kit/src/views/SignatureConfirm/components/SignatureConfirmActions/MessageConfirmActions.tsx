@@ -267,12 +267,8 @@ function MessageConfirmActions(props: IProps) {
   );
 
   const isSecurityCheckPending = securityCheckConfirmation === 'pending';
-  const showConfirmationAlert =
-    !walletInternalSign &&
-    !isSecurityCheckPending &&
-    securityCheckConfirmation !== 'none';
   const showTakeRiskAlert =
-    showConfirmationAlert && securityCheckConfirmation === 'risk';
+    !walletInternalSign && securityCheckConfirmation === 'risk';
 
   const cancelCalledRef = useRef(false);
   const onCancelOnce = useCallback(() => {
@@ -317,19 +313,16 @@ function MessageConfirmActions(props: IProps) {
         confirmButtonProps={{
           loading: isLoading,
           disabled:
-            isSecurityCheckPending ||
-            (showConfirmationAlert && !continueOperate),
+            isSecurityCheckPending || (showTakeRiskAlert && !continueOperate),
           variant: showTakeRiskAlert ? 'destructive' : 'primary',
         }}
       >
         <Stack gap="$3" flexShrink={1}>
-          {showConfirmationAlert ? (
+          {showTakeRiskAlert ? (
             <Checkbox
               testID={SignatureConfirmTestIDs.MessageConfirmRiskCheckbox}
               label={intl.formatMessage({
-                id: showTakeRiskAlert
-                  ? ETranslations.dapp_connect_proceed_at_my_own_risk
-                  : ETranslations.global_i_understand,
+                id: ETranslations.dapp_connect_proceed_at_my_own_risk,
               })}
               value={continueOperate}
               onChange={(checked) => {

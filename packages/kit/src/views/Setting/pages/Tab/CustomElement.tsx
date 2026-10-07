@@ -207,7 +207,11 @@ export function LanguageListItem({
       onOpenChange={handleOpenChange}
       placement="bottom-end"
       floatingPanelProps={{ maxHeight: 280 }}
-      sheetProps={{ snapPoints: [80], snapPointsMode: 'percent' }}
+      sheetProps={{
+        snapPoints: [80],
+        snapPointsMode: 'percent',
+        disableDrag: true,
+      }}
       renderTrigger={({ label }) => (
         <TabSettingsListItem
           {...props}

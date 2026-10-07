@@ -2,6 +2,7 @@
 #import <Sentry/Sentry.h>
 #import <Sentry/SentryEvent.h>
 #import <Sentry/SentryId.h>
+#import <objc/message.h>
 
 static NSUInteger const OneKeyCrashDiagnosticsMaxReportCount = 5;
 static NSTimeInterval const OneKeyCrashDiagnosticsMaxReportAge = 7 * 24 * 60 * 60;
@@ -624,4 +625,17 @@ void OneKeyConfigureNativeSentryCrashDiagnostics(id optionsValue)
   } @catch (NSException *exception) {
     NSLog(@"[OneKeyCrashDiagnostics] Failed to configure native crash diagnostics");
   }
+}
+
+void OneKeyFlushNativeCrashDiagnostics(NSTimeInterval timeout)
+{
+  // Sentry processes a cached crash asynchronously during startup. Wait for
+  // that pipeline first, then drain our serial persistence queue so Recovery
+  // exports cannot race the crash diagnostics file write.
+  Class sentrySDK = NSClassFromString(@"Sentry.SentrySDK");
+  SEL flushSelector = NSSelectorFromString(@"flush:");
+  if ([sentrySDK respondsToSelector:flushSelector]) {
+    ((void (*)(id, SEL, NSTimeInterval))objc_msgSend)(sentrySDK, flushSelector, timeout);
+  }
+  dispatch_sync(OneKeyCrashDiagnosticsQueue(), ^{});
 }

@@ -13,11 +13,14 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ScreenshotBranding } from '../../../components/ScreenshotBranding';
 import { TradingViewNativeFullscreenHost } from '../../../components/TradingView/TradingViewNative/TradingViewNativePresentation';
+import { useSplitViewDetailOffset } from '../TableSplitViewContainer/SplitViewDetailOffsetContext';
 
 import { DevOverlayWindowContainer } from './DevOverlayWindowContainer';
+import { ToastOverlayContainer } from './ToastOverlayContainer';
 import { TradingViewNativeDebugPanelContainer } from './TradingViewNativeDebugPanelContainer';
 
 export function FullWindowOverlayContainer() {
+  const detailOffset = useSplitViewDetailOffset();
   // The stage's raise token (OK-62422): iOS stacks window overlays in the
   // order they were added, so the stage's overlay — mounted at app start —
   // sat under any modal dialog's own overlay opened later (the passphrase
@@ -84,8 +87,11 @@ export function FullWindowOverlayContainer() {
         <Stack
           position="absolute"
           top={0}
-          left={0}
-          right={0}
+          // Extend to the actual split-view origin without relocating the portal
+          // or changing its order relative to dialogs, toasts, and the app lock.
+          {...(platformEnv.isNativeAndroid
+            ? { start: -detailOffset, end: 0 }
+            : { left: 0, right: 0 })}
           bottom={0}
           zIndex={HARDWARE_STAGE_Z_INDEX}
           pointerEvents="box-none"
@@ -101,11 +107,11 @@ export function FullWindowOverlayContainer() {
           right after each stage raise, so a toast during a hardware flow
           still paints and taps above the stage on iOS. Elsewhere
           OverlayContainer is a pass-through and z-index keeps the order. */}
-      <OverlayContainer bringToFrontToken={toastRaiseToken}>
+      <ToastOverlayContainer bringToFrontToken={toastRaiseToken}>
         <ShowToastProvider />
         {/* E2E mode, enable tap in iOS */}
         {platformEnv.isE2E ? <></> : <Toaster />}
-      </OverlayContainer>
+      </ToastOverlayContainer>
       <DevOverlayWindowContainer />
       <TradingViewNativeDebugPanelContainer />
       <ScreenshotBranding />

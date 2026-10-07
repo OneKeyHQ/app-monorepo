@@ -315,6 +315,10 @@ function MobileBrowser() {
   const previousDefaultTab = useRef<ETranslations | undefined>(undefined);
   useEffect(() => {
     if (previousDefaultTab.current !== defaultTab) {
+      defaultLogger.market.navigation.discoveryDefaultTabParam({
+        defaultTab,
+        previousDefaultTab: previousDefaultTab.current,
+      });
       previousDefaultTab.current = defaultTab;
       if (defaultTab) {
         void backgroundApiProxy.serviceSetting.setSelectedBrowserTab(
@@ -372,6 +376,13 @@ function MobileBrowser() {
       showWebPage?: boolean;
       switchType?: IExploreTabSwitchType;
     }) => {
+      defaultLogger.market.navigation.discoveryTabSwitchReceived({
+        tab: event.tab,
+        switchType: event.switchType,
+        displayHomePage,
+        openUrl: event.openUrl,
+        showWebPage: event.showWebPage,
+      });
       exploreTabSwitchTypeRef.current = event.switchType ?? 'default';
 
       // State machine: when WebView is open (displayHomePage === false) and
@@ -389,6 +400,9 @@ function MobileBrowser() {
       }
 
       await backgroundApiProxy.serviceSetting.setSelectedBrowserTab(event.tab);
+      defaultLogger.market.navigation.discoveryTabSwitchApplied({
+        tab: event.tab,
+      });
       if (event.tab === ETranslations.global_browser && event.openUrl) {
         setTimeout(() => {
           popToDiscoveryHomePage();

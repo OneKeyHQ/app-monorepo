@@ -79,7 +79,7 @@ function preloadMarketDetailV2SwapPanel(
 ) {
   if (target === 'mobile') {
     void import(
-      /* webpackChunkName: "market-detail-v2-embedded-swap" */ '../components/MarketDetailEmbeddedSwap'
+      /* webpackChunkName: "market-detail-v2-swap-panel-wrap" */ '../components/SwapPanel/SwapPanelWrap'
     ).catch(() => undefined);
   }
   if (target === 'mobile') {
@@ -87,7 +87,7 @@ function preloadMarketDetailV2SwapPanel(
       /* webpackChunkName: "market-detail-v2-swap-panel" */ '../components/SwapPanel/SwapPanel'
     ).catch(() => undefined);
   }
-  if (target === 'mobile' || target === 'desktop') {
+  if (target === 'desktop') {
     void import(
       /* webpackChunkName: "market-embedded-swap" */ '../../../Swap/pages/components/SwapMainLand'
     ).catch(() => undefined);

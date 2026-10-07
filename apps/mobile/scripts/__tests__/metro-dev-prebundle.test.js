@@ -381,6 +381,35 @@ describe('metro-dev-prebundle release transport', () => {
     ).rejects.toThrow('Downloaded asset is too large');
   });
 
+  it('downloads a large vendor asset with verified concurrent ranges', async () => {
+    const content = Buffer.alloc(2 * 1024 * 1024 + 1, 0x42);
+    const digest = `sha256:${sha256(content)}`;
+    const client = {
+      fetchBlob: jest.fn(async (_digest, _timeoutMs, options) => {
+        const [start, end] = options.range
+          .match(/bytes=(\d+)-(\d+)/)
+          .slice(1)
+          .map(Number);
+        return new Response(content.subarray(start, end + 1), {
+          headers: {
+            'content-range': `bytes ${start}-${end}/${content.length}`,
+          },
+          status: 206,
+        });
+      }),
+    };
+    const ociArtifact = {
+      client,
+      layersByFileName: new Map([
+        ['asset.bin', { digest, size: content.length }],
+      ]),
+    };
+    await expect(
+      downloadOciAsset({ fileName: 'asset.bin', ociArtifact }),
+    ).resolves.toEqual(content);
+    expect(client.fetchBlob).toHaveBeenCalledTimes(9);
+  });
+
   it('uses the dependency package root instead of nested package metadata', () => {
     const repoRoot = fs.mkdtempSync(
       path.join(os.tmpdir(), 'onekey-metro-package-root-'),
@@ -546,20 +575,25 @@ describe('metro-dev-prebundle release transport', () => {
   });
 
   it('pins repository provenance during offline attestation verification', async () => {
-    const fixture = createTemporaryRepo();
-    const artifactPath = path.join(fixture.repoRoot, 'artifact.bin');
-    const bundlePath = path.join(
-      fixture.repoRoot,
-      'artifact.attestation.jsonl',
+    const repoRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'onekey-prebundle-attestation-'),
     );
+    const artifactPath = path.join(repoRoot, 'artifact.bin');
+    const bundlePath = path.join(repoRoot, 'artifact.attestation.jsonl');
     const runGh = jest.fn(async () => undefined);
     try {
+      const trustedRootRelativePath =
+        'apps/mobile/bundle-registry/metro-dev-prebundle-trusted-root.jsonl';
+      await fs.copy(
+        path.join(REPO_ROOT, trustedRootRelativePath),
+        path.join(repoRoot, trustedRootRelativePath),
+      );
       await fs.writeFile(artifactPath, 'artifact');
       await fs.writeFile(bundlePath, 'attestation');
       await verifyArtifactAttestation({
         artifactPath,
         bundlePath,
-        repoRoot: fixture.repoRoot,
+        repoRoot,
         runGh,
         sourceCommit: 'a'.repeat(40),
       });
@@ -573,7 +607,7 @@ describe('metro-dev-prebundle release transport', () => {
         bundlePath,
         '--custom-trusted-root',
         path.join(
-          fixture.repoRoot,
+          repoRoot,
           'apps/mobile/bundle-registry/metro-dev-prebundle-trusted-root.jsonl',
         ),
         '--signer-workflow',
@@ -585,7 +619,7 @@ describe('metro-dev-prebundle release transport', () => {
         '--deny-self-hosted-runners',
       ]);
     } finally {
-      await fs.remove(fixture.repoRoot);
+      await fs.remove(repoRoot);
     }
   }, 15_000);
 
@@ -852,6 +886,7 @@ describe('metro-dev-prebundle release transport', () => {
     );
     const lockDirectory = path.join(root, 'tag.lock');
     const ownerPath = path.join(lockDirectory, 'owner.json');
+    const staleMs = 60_000;
     let staleOwnerReads = 0;
     let releaseInitialReads;
     const initialReads = new Promise((resolve) => {
@@ -886,6 +921,8 @@ describe('metro-dev-prebundle release transport', () => {
         pid: 12_345,
         token: 'stale-owner',
       });
+      const staleTimestamp = new Date(Date.now() - staleMs * 2);
+      await fs.utimes(lockDirectory, staleTimestamp, staleTimestamp);
       const results = await Promise.all(
         ['first', 'second'].map((result) =>
           withCacheLock(
@@ -903,7 +940,7 @@ describe('metro-dev-prebundle release transport', () => {
             {
               fileSystem,
               processIsRunning: (pid) => pid === process.pid,
-              staleMs: 0,
+              staleMs,
               waitPollIntervalMs: 1,
               waitTimeoutMs: 1000,
             },

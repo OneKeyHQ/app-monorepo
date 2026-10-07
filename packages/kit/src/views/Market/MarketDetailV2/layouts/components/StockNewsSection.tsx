@@ -156,6 +156,12 @@ export function StockNewsSection() {
     });
   }, [allNews, intl]);
 
+  // A stock with no headlines hides the section; a failed request keeps it so
+  // the reader can retry.
+  if (!isLoading && result.status === 'success' && allNews.length === 0) {
+    return null;
+  }
+
   return (
     <YStack testID="stock-detail-news" px={STOCK_DETAIL_HORIZONTAL_GUTTER}>
       <YStack py="$8" gap="$4">
@@ -187,13 +193,6 @@ export function StockNewsSection() {
             >
               {intl.formatMessage({ id: ETranslations.global_retry })}
             </Button>
-          </YStack>
-        ) : null}
-        {!isLoading && result.status === 'success' && news.length === 0 ? (
-          <YStack height={336} alignItems="center" justifyContent="center">
-            <SizableText color="$textSubdued">
-              {intl.formatMessage({ id: ETranslations.global_no_data })}
-            </SizableText>
           </YStack>
         ) : null}
         {news.map((item) => (

@@ -28,7 +28,10 @@ type IMockDialogConfig = {
 };
 const mockTradingViewChartControls = jest.fn<null, [unknown]>(() => null);
 const mockPushModal = jest.fn();
-const mockShowMarketChartSettingsDialog = jest.fn<void, []>();
+const mockShowMarketChartSettingsDialog = jest.fn<
+  void,
+  [{ showPreviousClose?: boolean } | undefined]
+>();
 const mockDialogShow = jest.fn<void, [IMockDialogConfig]>();
 const defaultIndicatorSettingsProps = {
   activeChartType: 'candlestick' as const,
@@ -65,7 +68,9 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => () => ({
 jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/MarketChartSettingsModal',
   () => ({
-    showMarketChartSettingsDialog: () => mockShowMarketChartSettingsDialog(),
+    showMarketChartSettingsDialog: (options?: {
+      showPreviousClose?: boolean;
+    }) => mockShowMarketChartSettingsDialog(options),
   }),
 );
 
@@ -124,6 +129,29 @@ describe('TradingViewNative chart controls', () => {
           { id: 'line', label: 'Line', value: 2 },
           { id: 'area', label: 'Area', value: 3 },
         ],
+      }),
+    );
+  });
+
+  it('replaces mobile chart type and indicator actions with the supplied settings control', () => {
+    const mobileSettingsControl = <button type="button">Settings</button>;
+    render(
+      <TradingViewNativeChartControlsContainer
+        {...defaultIndicatorSettingsProps}
+        activeIndicatorValues={new Set()}
+        intervalConfig={{ activeInterval: '60', intervals: [] }}
+        mobileSettingsControl={mobileSettingsControl}
+        onIndicatorChange={jest.fn()}
+        onIntervalChange={jest.fn()}
+      />,
+    );
+    expect(mockTradingViewChartControls).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hasVisibleIndicators: false,
+        hasVisibleIntervalSelector: true,
+        showChartTypeSelect: false,
+        rightControl: mobileSettingsControl,
+        onRightControlPress: undefined,
       }),
     );
   });
@@ -279,6 +307,9 @@ describe('TradingViewNative chart controls', () => {
       controlsProps.onSettingsPress();
 
       expect(mockShowMarketChartSettingsDialog).toHaveBeenCalledTimes(1);
+      expect(mockShowMarketChartSettingsDialog).toHaveBeenCalledWith({
+        showPreviousClose: false,
+      });
       expect(mockPushModal).not.toHaveBeenCalled();
       expect(handleFullscreenChange).not.toHaveBeenCalled();
     },

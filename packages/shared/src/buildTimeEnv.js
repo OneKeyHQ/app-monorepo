@@ -1,7 +1,8 @@
 // used in babel config so must be commonjs format
 // can only access "process.env" here as it would be shared between buildtime and runtime
-const isJest =
-  process.env.JEST_WORKER_ID !== undefined || process.env.NODE_ENV === 'test';
+// Jest sets NODE_ENV=test. Do not check JEST_WORKER_ID: Metro runs Babel in
+// jest-worker threads that set it, which inlined `platformEnv.isJest` as true.
+const isJest = process.env.NODE_ENV === 'test';
 
 const isDev = process.env.NODE_ENV !== 'production';
 const isProduction = process.env.NODE_ENV === 'production';

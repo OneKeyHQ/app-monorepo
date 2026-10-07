@@ -368,6 +368,7 @@ export function AccountSelectorAccountListItem({
         renderAvatar={
           <AccountAvatar
             loading={<AccountAvatar.Loading w="$8" h="$8" />}
+            loadingStrategy="static"
             size="medium"
             indexedAccount={indexedAccount}
             account={account as any}

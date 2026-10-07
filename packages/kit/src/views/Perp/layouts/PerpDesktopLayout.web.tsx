@@ -159,8 +159,8 @@ function PerpDesktopLayout() {
 
   const accountPanel = useMemo(() => {
     return (
-      <YStack h="100%" alignSelf="stretch" style={{ overflowY: 'auto' }}>
-        <YStack minHeight={layout.bottomPanelHeight}>
+      <YStack alignSelf="stretch">
+        <YStack>
           <XStack alignItems="center">
             <XStack py="$3" px="$2.5">
               <SizableText size="$bodyMdMedium">
@@ -177,7 +177,7 @@ function PerpDesktopLayout() {
         </YStack>
       </YStack>
     );
-  }, [intl, layout.bottomPanelHeight]);
+  }, [intl]);
 
   const marketPanel = (
     <XStack h="100%" overflow="hidden">
@@ -299,22 +299,19 @@ function PerpDesktopLayout() {
         <PerpNetworkAlert />
         {chartExpanded ? null : <FavoritesBar />}
 
-        <YStack
-          flex={chartExpanded ? 1 : undefined}
-          borderBottomWidth="$px"
-          borderBottomColor="$borderSubdued"
-        >
+        <YStack flex={chartExpanded ? 1 : undefined}>
           <PerpTickerBar />
 
           <Stack
             flex={chartExpanded ? 1 : undefined}
-            h={chartExpanded ? undefined : leftContentHeight}
+            minHeight={chartExpanded ? undefined : leftContentHeight}
             overflow="hidden"
           >
-            <XStack h="100%" overflow="hidden">
+            <XStack flex={1} overflow="hidden">
               <YStack
                 flex={1}
                 minWidth={PERP_LAYOUT_CONFIG.main.marketMinWidth}
+                h={chartExpanded ? undefined : leftContentHeight}
                 overflow="hidden"
               >
                 <Allotment
@@ -356,8 +353,7 @@ function PerpDesktopLayout() {
                 </YStack>
                 <YStack
                   testID={PerpTestIDs.DesktopAccountBoundary}
-                  h={layout.bottomPanelHeight}
-                  overflow="hidden"
+                  minHeight={layout.bottomPanelHeight}
                   style={{
                     borderTopColor: theme.borderSubdued.val,
                     borderTopStyle: 'solid',

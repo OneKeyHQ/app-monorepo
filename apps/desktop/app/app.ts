@@ -75,10 +75,12 @@ import {
   applyDesktopNetworkThrottleToKnownSessions,
   applyDesktopNetworkThrottleToWebContents,
 } from './libs/networkThrottle';
+import { openExternalUrl } from './libs/openExternalUrl';
 // Side-effect import: registers synchronous IPC handler for renderer MMKV access
 // eslint-disable-next-line import-js/order
 import './libs/react-native-mmkv-desktop-main';
 import { registerInfoHandlers } from './libs/registerInfoHandlers';
+import { shouldReloadAppShellAfterFailedLoad } from './libs/rendererLoadRecovery';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
 import { getBackgroundColor } from './libs/utils';
@@ -394,6 +396,30 @@ async function softRestartRenderer() {
   }
 }
 
+// The built-in `toggleDevTools` role targets the focused webContents, which
+// can be an embedded <webview> (even one in a hidden tab), so the main window
+// shortcut must target the main window explicitly.
+const toggleMainWindowDevTools = () => {
+  getSafelyMainWindow()?.webContents.toggleDevTools();
+};
+
+const toggleFocusedWebViewDevTools = () => {
+  const focused = electronWebContents.getFocusedWebContents();
+  if (!focused || focused.isDestroyed()) {
+    return;
+  }
+  // Webview DevTools always open detached and take focus, so resolve the
+  // inspected webview from its DevTools frontend to allow closing it again.
+  const inspected = electronWebContents
+    .getAllWebContents()
+    .find((contents) => contents.devToolsWebContents === focused);
+  const target = inspected ?? focused;
+  if (target.isDestroyed() || target.getType() !== 'webview') {
+    return;
+  }
+  target.toggleDevTools();
+};
+
 const initMenu = () => {
   const template = [
     {
@@ -496,13 +522,18 @@ const initMenu = () => {
           ? [
               { role: 'reload' },
               { role: 'forceReload' },
-              { role: 'toggleDevTools' },
-              isDevServer
-                ? {
-                    role: 'toggleDevTools',
-                    label: `Toggle DevTools: ${store.getDevTools().toString()}`,
-                  }
-                : null,
+              {
+                label: isDevServer
+                  ? `Toggle Developer Tools: ${store.getDevTools().toString()}`
+                  : 'Toggle Developer Tools',
+                accelerator: isMac ? 'Alt+Command+I' : 'Ctrl+Shift+I',
+                click: toggleMainWindowDevTools,
+              },
+              {
+                label: 'Toggle WebView Developer Tools',
+                accelerator: isMac ? 'Alt+Shift+Command+I' : 'Ctrl+Alt+Shift+I',
+                click: toggleFocusedWebViewDevTools,
+              },
               { type: 'separator' },
             ].filter(Boolean)
           : []),
@@ -723,6 +754,12 @@ let nobleBleInitialization = Promise.resolve();
 let trezorBleWindowCleanup = Promise.resolve();
 // Retain retired handlers so recovery-created native instances survive until app quit.
 const trezorBleSupports = new Set<ReturnType<typeof initTrezorBleSupport>>();
+// When the main renderer dies, the window keeps its last frame but ignores all
+// input. Reload it, capped so a renderer that crashes while booting cannot
+// reload forever.
+const MAIN_RENDERER_RELOAD_WINDOW_MS = 5 * 60 * 1000;
+const MAIN_RENDERER_MAX_RELOADS_IN_WINDOW = 3;
+let mainRendererReloadTimestamps: number[] = [];
 
 async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   await trezorBleWindowCleanup;
@@ -852,6 +889,8 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     getBundleIndexHtmlPath: () => bundleIndexHtmlPath,
     useJsBundle: () => !!bundleIndexHtmlPath,
     softRestartRenderer,
+    getRevenueCat: async () =>
+      (await import('./service/revenueCat/revenueCat')).default,
   };
 
   if (isMac) {
@@ -972,6 +1011,42 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     logger.info('[CPU Watchdog] renderer webContents responsive again');
   });
 
+  browserWindow.webContents.on('render-process-gone', (_event, details) => {
+    if (details.reason === 'clean-exit' || bleQuitStarted || softRestarting) {
+      return;
+    }
+    const now = Date.now();
+    mainRendererReloadTimestamps = mainRendererReloadTimestamps.filter(
+      (timestamp) => now - timestamp < MAIN_RENDERER_RELOAD_WINDOW_MS,
+    );
+    const logData = {
+      reason: details.reason,
+      exitCode: details.exitCode,
+      recentReloads: mainRendererReloadTimestamps.length,
+    };
+    if (
+      mainRendererReloadTimestamps.length >= MAIN_RENDERER_MAX_RELOADS_IN_WINDOW
+    ) {
+      logger.error(
+        '[RendererRecovery] main renderer keeps crashing, not reloading',
+        logData,
+      );
+      return;
+    }
+    mainRendererReloadTimestamps.push(now);
+    logger.warn('[RendererRecovery] main renderer gone, reloading', logData);
+    // Start the reload after Electron finishes dispatching this event.
+    setImmediate(() => {
+      const safelyBrowserWindow = getSafelyBrowserWindow();
+      if (!safelyBrowserWindow || bleQuitStarted || softRestarting) {
+        return;
+      }
+      // Deep links received while the page reboots wait for dom-ready.
+      isAppReady = false;
+      void safelyBrowserWindow.loadURL(src);
+    });
+  });
+
   browserWindow.webContents.on('did-finish-load', () => {
     logger.info('browserWindow >>>> did-finish-load');
     // fix white flicker on Windows & Linux
@@ -997,6 +1072,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     }
   });
   browserWindow.on('closed', () => {
+    unregisterShortcuts();
     mainWindow = null;
     isAppReady = false;
     logger.info('set isAppReady on browserWindow closed', isAppReady);
@@ -1020,24 +1096,8 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     isAppReady = true;
   });
 
-  // Gate shell.openExternal behind a protocol whitelist so a tainted main
-  // renderer (XSS) cannot weaponize window.open() into phishing redirects
-  // via javascript:/file:/data: URIs. Only https:// (and mailto:) are
-  // forwarded to the OS browser. See SlowMist audit Desktop-14.
   browserWindow.webContents.setWindowOpenHandler(({ url }) => {
-    try {
-      const parsed = new URL(url);
-      if (parsed.protocol !== 'https:' && parsed.protocol !== 'mailto:') {
-        logger.warn(
-          '[setWindowOpenHandler] blocked non-https url:',
-          parsed.protocol,
-        );
-        return { action: 'deny' };
-      }
-      void shell.openExternal(url);
-    } catch {
-      logger.warn('[setWindowOpenHandler] blocked malformed url');
-    }
+    void openExternalUrl(url);
     return { action: 'deny' };
   });
 
@@ -1234,6 +1294,13 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   browserWindow.on('enter-full-screen', () => {
     const safelyBrowserWindow = getSafelyBrowserWindow();
     safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, undefined);
+    if (
+      bleQuitStarted ||
+      !safelyBrowserWindow?.isFocused() ||
+      !safelyBrowserWindow.isVisible()
+    ) {
+      return;
+    }
     registerShortcuts((event) => {
       const w = getSafelyBrowserWindow();
       w?.webContents.send(ipcMessageKeys.APP_SHORTCUT, event);
@@ -1250,6 +1317,13 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     const safelyBrowserWindow = getSafelyBrowserWindow();
     const state: IDesktopAppState = 'active';
     safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, state);
+    if (
+      bleQuitStarted ||
+      !safelyBrowserWindow?.isFocused() ||
+      !safelyBrowserWindow.isVisible()
+    ) {
+      return;
+    }
     registerShortcuts((event) => {
       const w = getSafelyBrowserWindow();
       w?.webContents.send(ipcMessageKeys.APP_SHORTCUT, event);
@@ -1257,13 +1331,14 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   });
 
   browserWindow.on('blur', () => {
+    unregisterShortcuts();
     const safelyBrowserWindow = getSafelyBrowserWindow();
     const state: IDesktopAppState = 'blur';
     safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, state);
-    unregisterShortcuts();
   });
 
   browserWindow.on('hide', () => {
+    unregisterShortcuts();
     const safelyBrowserWindow = getSafelyBrowserWindow();
     const state: IDesktopAppState = 'background';
     safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, state);
@@ -1624,12 +1699,22 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     const safelyBrowserWindow = getSafelyBrowserWindow();
     safelyBrowserWindow?.webContents.on(
       'did-fail-load',
-      (_, __, ___, validatedURL) => {
-        const redirectPath = validatedURL.replace(`${PROTOCOL}://`, '');
-        if (validatedURL.startsWith(PROTOCOL) && !redirectPath.includes('.')) {
-          const w = getSafelyBrowserWindow();
-          void w?.loadURL(src);
+      (_, errorCode, __, validatedURL, isMainFrame) => {
+        if (
+          !shouldReloadAppShellAfterFailedLoad({
+            validatedURL,
+            isMainFrame,
+            errorCode,
+            appShellUrl: src,
+          })
+        ) {
+          return;
         }
+        logger.info('browserWindow >>>> reload app shell after failed load', {
+          errorCode,
+        });
+        const w = getSafelyBrowserWindow();
+        void w?.loadURL(src);
       },
     );
   }
@@ -1872,6 +1957,7 @@ app.on('activate', async () => {
 });
 
 app.on('before-quit', (event) => {
+  unregisterShortcuts();
   if (isMac && !bleQuitReady) {
     event.preventDefault();
     if (bleQuitStarted) return;
@@ -2044,6 +2130,8 @@ app.on('render-process-gone', (event, webContents, details) => {
   logger.error('Render process gone:', {
     reason: details.reason,
     exitCode: details.exitCode,
+    webContentsType: webContents.getType(),
+    isMainWindow: webContents === getSafelyMainWindow()?.webContents,
   });
 
   if (details.reason === 'crashed' || details.reason === 'oom') {

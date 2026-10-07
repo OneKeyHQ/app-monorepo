@@ -42,6 +42,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils, {
   isEnabledNetworksInAllNetworks,
 } from '@onekeyhq/shared/src/utils/networkUtils';
+import { isSwapEntryDisabledToken } from '@onekeyhq/shared/src/utils/swapEntryUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
   displayFiatValueOrUnavailable,
@@ -339,23 +340,29 @@ function TokenDetailsOverview(props: IProps) {
     walletId,
   ]);
 
-  // Rows are sorted by fiat value, so the first member is the one the user
-  // most plausibly wants to trade; the swap page allows changing it. The
+  // Rows are sorted by fiat value, so use the first tradable member. The
   // member's scaled-UI multiplier (detail level first, token level fallback)
   // rides along so the swap gate below and `pushSwapFromTokenDetails`'s
   // fail-closed re-check judge the same member.
   const swapMember = useMemo(() => {
-    const member = rows[0]?.token ?? tokens[0];
-    if (!member) {
+    const row = rows.find(
+      ({ token }) =>
+        !isSwapEntryDisabledToken({
+          contractAddress: token.address,
+          isNative: token.isNative,
+          networkId: token.networkId,
+        }),
+    );
+    if (!row) {
       return undefined;
     }
     return {
-      token: member,
+      token: row.token,
       balanceMultiplier:
-        tokenRebaseUtils.pickBalanceMultiplier(rows[0]?.tokenDetail) ??
-        member.balanceMultiplier,
+        tokenRebaseUtils.pickBalanceMultiplier(row.tokenDetail) ??
+        row.token.balanceMultiplier,
     };
-  }, [rows, tokens]);
+  }, [rows]);
 
   const handleSwapPress = useCallback(async () => {
     const member = swapMember?.token;
@@ -398,6 +405,7 @@ function TokenDetailsOverview(props: IProps) {
   const disableSwapAction = useMemo(
     () =>
       accountUtils.isUrlAccountFn({ accountId }) ||
+      !swapMember ||
       // Scaled-UI member: same fail-closed swap gate as the single-network
       // header — Swap would display/build on the raw basis, out of sync with
       // the wallet display. A multiplier of exactly 1 is a no-op and must
@@ -405,7 +413,7 @@ function TokenDetailsOverview(props: IProps) {
       tokenRebaseUtils.isScalingBalanceMultiplier(
         swapMember?.balanceMultiplier,
       ),
-    [accountId, swapMember?.balanceMultiplier],
+    [accountId, swapMember],
   );
 
   const disableBuyAction = isWatchOnly && !platformEnv.isDev;

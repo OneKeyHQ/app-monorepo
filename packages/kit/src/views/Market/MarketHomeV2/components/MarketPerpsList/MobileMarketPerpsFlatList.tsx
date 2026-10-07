@@ -103,7 +103,8 @@ function MobileMarketPerpsFlatListImpl({
       ListEmptyComponent={ListEmptyComponent}
       ListFooterComponent={ListFooterComponent}
       contentContainerStyle={{
-        ...(platformEnv.isNative ? {} : { paddingTop: 8 }),
+        // Same 4px lead under the column header as the other mobile home lists.
+        ...(platformEnv.isNative ? {} : { paddingTop: 4 }),
         paddingBottom: platformEnv.isNativeAndroid
           ? listContainerProps.paddingBottom
           : tabBarHeight,

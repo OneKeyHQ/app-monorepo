@@ -31,6 +31,8 @@ jest.mock('@onekeyhq/components', () => {
   return {
     Page: Object.assign(Container, { Header: () => null, Body: Container }),
     NavCloseButton: () => null,
+    XStack: Container,
+    useSafeAreaInsets: () => ({ top: 0 }),
   };
 });
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({

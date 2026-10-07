@@ -6,10 +6,19 @@ import { syncNativeStorageMMKV } from '../storage/nativeStorageMigrationModule';
 import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
 
 import type { ITravelModeControlStorage } from './types';
+import type { IMMKVInstance } from '../storage/instance/createMMKVSyncStorage';
 
 const key = EAppSyncStorageKeys.onekey_travel_mode_control_v1;
 const runtimeGenerationKey = 'onekey_travel_mode_runtime_generation_v1';
 const rawControlStorage = createNativeSettingsSyncStorage();
+
+/** The settings file itself, for main's read-only path. Resolved lazily so
+ *  requiring this module costs nothing in a runtime that never asks. */
+function getDirectSettingsMMKV() {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  return require('../storage/instance/mmkvStorageInstance')
+    .default as IMMKVInstance;
+}
 
 const controlStorage: ITravelModeControlStorage = {
   getRuntimeGenerationSync() {
@@ -27,9 +36,18 @@ const controlStorage: ITravelModeControlStorage = {
     }
     return value;
   },
-  getItemSync: platformEnv.isNativeBackgroundThread
-    ? () => rawControlStorage.getString(key)
-    : undefined,
+  // Answerable in both runtimes. Main reads the settings file directly rather
+  // than through its mirror: whether Travel Mode is on has to be known before
+  // anything reads a cache, and the mirror is exactly the wait that answer
+  // exists to skip. Reads only — bg still owns every write to this store.
+  //
+  // A throw here is deliberate: the manager's constructor catches it and
+  // leaves the profile at its masked default, so an unreadable record fails
+  // closed rather than reporting Travel Mode off.
+  getItemSync: () =>
+    platformEnv.isNativeBackgroundThread
+      ? rawControlStorage.getString(key)
+      : getDirectSettingsMMKV().getString(key),
   async getItem() {
     if (platformEnv.isNativeMainThread) {
       const { bootstrapNativeSyncStorageMirrors } =

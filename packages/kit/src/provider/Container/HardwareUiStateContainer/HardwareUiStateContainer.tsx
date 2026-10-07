@@ -52,6 +52,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EFirmwareUpdateTipMessages,
@@ -318,6 +319,8 @@ function HardwareSingletonDialogCmp(
         state?.payload?.passphraseState ||
         state?.payload?.expectedPassphraseState
       );
+      const isPro2NeoPassphraseCreation =
+        !isSingleInput && isProtocolV2ProductType(state?.payload?.deviceType);
       const saveCachedHiddenWalletOptions = async ({
         hideImmediately,
       }: {
@@ -338,8 +341,10 @@ function HardwareSingletonDialogCmp(
           isVerifyMode={isSingleInput}
           allowUseAttachPin={!!state?.payload?.existsAttachPinUser}
           deviceOnly={state?.payload?.deviceOnly === true}
+          asciiCreationFeedback={isPro2NeoPassphraseCreation}
           allowProtocolV2Utf8={
-            state?.payload?.source === 'wallet-session-coordinator'
+            state?.payload?.source === 'wallet-session-coordinator' &&
+            !isPro2NeoPassphraseCreation
           }
           onConfirm={async ({ passphrase, hideImmediately }) => {
             await saveCachedHiddenWalletOptions({

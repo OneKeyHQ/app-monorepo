@@ -41,9 +41,11 @@ import {
 } from '../../utils/swapMarketHistory';
 
 const SwapPendingHistoryListComponent = ({
+  storeName,
   pageType,
   protocol = EProtocolOfExchange.SWAP,
 }: {
+  storeName?: EJotaiContextStoreNames;
   pageType?: EPageType;
   protocol?: EProtocolOfExchange;
 }) => {
@@ -141,9 +143,10 @@ const SwapPendingHistoryListComponent = ({
               params: {
                 type: protocol,
                 storeName:
-                  pageType === EPageType.modal
+                  storeName ??
+                  (pageType === EPageType.modal
                     ? EJotaiContextStoreNames.swapModal
-                    : EJotaiContextStoreNames.swap,
+                    : EJotaiContextStoreNames.swap),
               },
             });
           }}

@@ -3,6 +3,7 @@ import { memo, useCallback, useEffect, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
   ListEndIndicator,
   SizableText,
   Spinner,
@@ -60,10 +61,12 @@ function MobileMarketTokenFlatListBase({
     data,
     isLoading,
     isLoadingMore,
+    isError,
     isNetworkSwitching,
     isProvisionalFirstPageResult,
     canLoadMore,
     loadMore,
+    refetch,
   } = useMarketTokenList({
     networkId,
     initialSortBy: 'v24hUSD',
@@ -146,15 +149,31 @@ function MobileMarketTokenFlatListBase({
     }
 
     return (
-      <Stack flex={1} alignItems="center" justifyContent="center" p="$8">
+      <Stack
+        flex={1}
+        alignItems="center"
+        justifyContent="center"
+        p="$8"
+        gap="$3"
+      >
         <SizableText size="$bodyLg" color="$textSubdued">
           {intl.formatMessage({
             id: ETranslations.global_no_data,
           })}
         </SizableText>
+        {isError ? (
+          <Button
+            testID="market-token-mobile-retry"
+            size="small"
+            variant="tertiary"
+            onPress={() => void refetch()}
+          >
+            {intl.formatMessage({ id: ETranslations.global_retry })}
+          </Button>
+        ) : null}
       </Stack>
     );
-  }, [showSkeleton, intl]);
+  }, [showSkeleton, intl, isError, refetch]);
 
   const tabBarHeight = useScrollContentTabBarOffset();
   return (

@@ -44,6 +44,7 @@ import type {
   ITradingViewNativeHistoryRequest,
   ITradingViewNativeHistoryResponse,
   ITradingViewNativeRealtimeSubscription,
+  ITradingViewNativeRealtimeUpdate,
 } from './providers/types';
 import type {
   ITradingViewNativeChartInterval,
@@ -360,6 +361,55 @@ function mergeRealtimePoint(
     didChangeHistoricalPoints: existingPointIndex !== latestPointIndex,
     points: nextPoints,
   };
+}
+
+function createRealtimePricePoint({
+  interval,
+  latestPoint,
+  price,
+  timestamp,
+}: {
+  interval: ITradingViewNativeKLineInterval;
+  latestPoint: IMarketTokenKLineDataPoint;
+  price: number;
+  timestamp: number;
+}): IMarketTokenKLineDataPoint | undefined {
+  if (!Number.isFinite(price) || price <= 0 || timestamp < latestPoint.t) {
+    return undefined;
+  }
+
+  let candleTimestamp = latestPoint.t;
+  if (interval.value === '1M') {
+    // Preserve the history feed's calendar boundary, including UTC+8 month
+    // starts that fall on the previous month's last UTC day.
+    const boundary = new Date(latestPoint.t * 1000);
+    const isPreviousMonthEnd = boundary.getUTCDate() !== 1;
+    while (true) {
+      const nextBoundary = new Date(boundary);
+      nextBoundary.setUTCMonth(
+        boundary.getUTCMonth() + (isPreviousMonthEnd ? 2 : 1),
+        isPreviousMonthEnd ? 0 : 1,
+      );
+      if (nextBoundary.getTime() / 1000 > timestamp) {
+        break;
+      }
+      boundary.setTime(nextBoundary.getTime());
+    }
+    candleTimestamp = boundary.getTime() / 1000;
+  } else {
+    candleTimestamp +=
+      Math.floor((timestamp - latestPoint.t) / interval.seconds) *
+      interval.seconds;
+  }
+
+  return candleTimestamp === latestPoint.t
+    ? {
+        ...latestPoint,
+        c: price,
+        h: Math.max(latestPoint.h, price),
+        l: Math.min(latestPoint.l, price),
+      }
+    : { o: price, h: price, l: price, c: price, v: 0, t: candleTimestamp };
 }
 
 function bufferRealtimePoint(
@@ -1623,10 +1673,12 @@ function getDataState({
 }
 
 export function useTradingViewNativeKLine({
+  panelId,
   onRealtimePoint,
   source,
   storageNamespace,
 }: {
+  panelId?: string;
   onRealtimePoint?: (point: IMarketTokenKLineDataPoint) => void;
   source: ITradingViewNativeSource;
   storageNamespace?: ITradingViewNativeStorageNamespace;
@@ -1867,6 +1919,7 @@ export function useTradingViewNativeKLine({
   const intervalStorageNamespace = getTradingViewNativeIntervalStorageNamespace(
     source,
     storageNamespace,
+    panelId,
   );
   const currentSeriesKeyRef = useRef(seriesKey);
   const latestRequestIdRef = useRef(0);
@@ -3607,7 +3660,7 @@ export function useTradingViewNativeKLine({
   );
 
   const handleRealtimePoint = useCallback(
-    (point: IMarketTokenKLineDataPoint) => {
+    (update: ITradingViewNativeRealtimeUpdate) => {
       const realtimeScope = realtimeScopeRef.current;
       if (
         currentSeriesKeyRef.current !== seriesKey ||
@@ -3618,7 +3671,7 @@ export function useTradingViewNativeKLine({
           details: {
             activeInterval,
             activeProviderKey: seriesKey,
-            pointTimestamp: point.t,
+            pointTimestamp: update.t,
             scopeInterval: realtimeScope.interval,
             scopeProviderKey: realtimeScope.seriesKey,
           },
@@ -3640,13 +3693,39 @@ export function useTradingViewNativeKLine({
           details: {
             activeInterval,
             activeProviderKey: seriesKey,
-            pointTimestamp: point.t,
+            pointTimestamp: update.t,
             reason: 'history-not-ready',
           },
           level: 'warning',
           name: 'realtime.point.ignored',
         });
         return;
+      }
+
+      const interval =
+        getTradingViewNativeKLineInterval(activeInterval) ??
+        TRADING_VIEW_NATIVE_KLINE_INTERVALS[4];
+      let point: IMarketTokenKLineDataPoint;
+      if ('price' in update) {
+        let latestPoint =
+          currentChartData.points[currentChartData.points.length - 1];
+        realtimePointBufferRef.current.forEach((bufferedPoint) => {
+          if (bufferedPoint.t >= latestPoint.t) {
+            latestPoint = bufferedPoint;
+          }
+        });
+        const pricePoint = createRealtimePricePoint({
+          interval,
+          latestPoint,
+          price: update.price,
+          timestamp: update.t,
+        });
+        if (!pricePoint) {
+          return;
+        }
+        point = pricePoint;
+      } else {
+        point = update;
       }
 
       emitTradingViewNativeDebugEvent({
@@ -3659,9 +3738,6 @@ export function useTradingViewNativeKLine({
         },
         name: 'realtime.point',
       });
-      const interval =
-        getTradingViewNativeKLineInterval(activeInterval) ??
-        TRADING_VIEW_NATIVE_KLINE_INTERVALS[4];
       addHistoryCoverageRange({
         coverageState: historyCoverageRef.current,
         from: point.t,
@@ -3721,6 +3797,12 @@ export function useTradingViewNativeKLine({
     [activeInterval, seriesKey],
   );
 
+  const handleRealtimePointRef = useRef(handleRealtimePoint);
+  useLayoutEffect(() => {
+    handleRealtimePointRef.current = handleRealtimePoint;
+  }, [handleRealtimePoint]);
+  const realtimeInterval = realtimeProvider?.realtimeInterval ?? activeInterval;
+
   useEffect(() => {
     if (!realtimeProvider || !supportsRealtime || !isVisible) {
       emitTradingViewNativeDebugEvent({
@@ -3735,7 +3817,7 @@ export function useTradingViewNativeKLine({
       });
       realtimeSubscriptionRef.current = null;
       setRealtimeState((current) => ({
-        interval: activeInterval,
+        interval: realtimeScopeRef.current.interval,
         lastUpdatedAt:
           current.seriesKey === seriesKey ? current.lastUpdatedAt : undefined,
         seriesKey,
@@ -3754,14 +3836,14 @@ export function useTradingViewNativeKLine({
     emitTradingViewNativeDebugEvent({
       details: {
         hasCurrentPoints,
-        interval: activeInterval,
+        interval: realtimeInterval,
         providerKey: seriesKey,
         subscriberId,
       },
       name: 'realtime.subscription.start',
     });
     setRealtimeState((current) => ({
-      interval: activeInterval,
+      interval: realtimeScopeRef.current.interval,
       lastUpdatedAt:
         current.seriesKey === seriesKey ? current.lastUpdatedAt : undefined,
       seriesKey,
@@ -3772,9 +3854,21 @@ export function useTradingViewNativeKLine({
       try {
         const nextSubscription = await realtimeProvider.subscribeRealtime({
           interval:
-            getTradingViewNativeKLineInterval(activeInterval) ??
+            getTradingViewNativeKLineInterval(realtimeInterval) ??
             TRADING_VIEW_NATIVE_KLINE_INTERVALS[4],
-          onPoint: handleRealtimePoint,
+          getActiveInterval: () =>
+            getTradingViewNativeKLineInterval(
+              realtimeScopeRef.current.interval,
+            ) ?? TRADING_VIEW_NATIVE_KLINE_INTERVALS[4],
+          onPoint: (point) => {
+            if (
+              abortController.signal.aborted ||
+              currentSeriesKeyRef.current !== seriesKey
+            ) {
+              return;
+            }
+            handleRealtimePointRef.current(point);
+          },
           signal: abortController.signal,
           subscriberId,
         });
@@ -3787,7 +3881,7 @@ export function useTradingViewNativeKLine({
         realtimeSubscriptionRef.current = nextSubscription;
         emitTradingViewNativeDebugEvent({
           details: {
-            interval: activeInterval,
+            interval: realtimeInterval,
             providerKey: seriesKey,
             subscribed: Boolean(nextSubscription),
             subscriberId,
@@ -3797,7 +3891,7 @@ export function useTradingViewNativeKLine({
         });
         setRealtimeState((current) => {
           return {
-            interval: activeInterval,
+            interval: realtimeScopeRef.current.interval,
             lastUpdatedAt:
               current.seriesKey === seriesKey
                 ? current.lastUpdatedAt
@@ -3818,7 +3912,7 @@ export function useTradingViewNativeKLine({
         emitTradingViewNativeDebugEvent({
           details: {
             error: getTradingViewNativeDebugErrorMessage(error),
-            interval: activeInterval,
+            interval: realtimeInterval,
             providerKey: seriesKey,
             subscriberId,
           },
@@ -3827,7 +3921,7 @@ export function useTradingViewNativeKLine({
         });
         setRealtimeState((current) => ({
           error,
-          interval: activeInterval,
+          interval: realtimeScopeRef.current.interval,
           lastUpdatedAt:
             current.seriesKey === seriesKey ? current.lastUpdatedAt : undefined,
           seriesKey,
@@ -3843,7 +3937,7 @@ export function useTradingViewNativeKLine({
       emitTradingViewNativeDebugEvent({
         details: {
           hadSubscription: Boolean(ownedSubscription),
-          interval: activeInterval,
+          interval: realtimeInterval,
           providerKey: seriesKey,
           subscriberId,
         },
@@ -3862,9 +3956,8 @@ export function useTradingViewNativeKLine({
       }
     };
   }, [
-    activeInterval,
-    handleRealtimePoint,
     isVisible,
+    realtimeInterval,
     realtimeProvider,
     realtimeRetryRevision,
     seriesKey,

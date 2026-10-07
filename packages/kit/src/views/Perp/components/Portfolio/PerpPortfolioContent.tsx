@@ -54,6 +54,7 @@ import { PerpFundingBreakdown } from './PerpFundingBreakdown';
 import {
   buildFundingHistogramChartData,
   buildFundingNetSummary,
+  computeAccountHealthRisk,
   resolveFundingHistogramStyle,
 } from './portfolioStats';
 import {
@@ -153,30 +154,6 @@ function marginUsedGaugeColor(pct: number, palette: IPortfolioPalette): string {
 }
 
 // Composite risk score: MMR×3 + Leverage×2 + MarginUsed×1
-function computeAccountHealthRisk(
-  mmrPct: number,
-  leverageX: number,
-  marginUsedPct: number,
-): { level: 'safe' | 'caution' | 'danger' } {
-  let mmrScore = 2;
-  if (mmrPct <= 30) mmrScore = 0;
-  else if (mmrPct <= 60) mmrScore = 1;
-
-  let levScore = 2;
-  if (leverageX <= 5) levScore = 0;
-  else if (leverageX <= 15) levScore = 1;
-
-  let marginScore = 2;
-  if (marginUsedPct <= 60) marginScore = 0;
-  else if (marginUsedPct <= 85) marginScore = 1;
-
-  const total = mmrScore * 3 + levScore * 2 + marginScore * 1;
-
-  if (total >= 6) return { level: 'danger' };
-  if (total >= 3) return { level: 'caution' };
-  return { level: 'safe' };
-}
-
 function getAccountHealthColor(
   level: 'safe' | 'caution' | 'danger',
   palette: IPortfolioPalette,
@@ -650,11 +627,11 @@ function PerpPortfolioContentComponent({
   const accountHealthRisk = useMemo(
     () =>
       computeAccountHealthRisk(
-        marginPercentRaw,
+        mmrData?.mmrPercent ? marginPercentRaw : null,
         leverageRaw,
         marginUsedGaugePct,
       ),
-    [marginPercentRaw, leverageRaw, marginUsedGaugePct],
+    [mmrData?.mmrPercent, marginPercentRaw, leverageRaw, marginUsedGaugePct],
   );
   const accountHealthColor = getAccountHealthColor(
     accountHealthRisk.level,

@@ -15,7 +15,9 @@ import { localizeTradingViewNativeIndicatorSettingsValue } from './indicatorSett
 import type { IIndicatorSettingsIntl } from './indicatorSettingsLocalization';
 import type { ITradingViewNativeAnyIndicator } from './utils/chartIndicators';
 
-const TRADING_VIEW_NATIVE_INDICATOR_SETTINGS_DIALOG_WIDTH = 690;
+// Full mode matches the chart settings dialog (`$160`, 640px); focused mode
+// fills its sheet.
+const TRADING_VIEW_NATIVE_INDICATOR_SETTINGS_DIALOG_WIDTH = '$160';
 
 export function showTradingViewNativeIndicatorSettingsDialog({
   displayMode = 'full',

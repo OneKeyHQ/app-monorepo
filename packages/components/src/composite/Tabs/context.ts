@@ -80,6 +80,7 @@ export const TabsContext = createContext<
   focusedTab: { value: '' } as SharedValue<string>,
   accDiffClamp: { value: 0 } as SharedValue<number>,
   scrollYCurrent: { value: 0 } as SharedValue<number>,
+  isScrollDragging: { value: false } as SharedValue<boolean>,
   scrollY: { value: {} } as SharedValue<Record<string, number>>,
   refMap: {} as Record<string, AnimatedRef<RefComponent>>,
   setRef<T extends RefComponent>(

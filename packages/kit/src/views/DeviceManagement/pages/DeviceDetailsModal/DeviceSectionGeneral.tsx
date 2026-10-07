@@ -152,6 +152,7 @@ export function LanguageListItem({
       })}
       disabled={disabled || stateful.loading}
       testID={DeviceManagementTestIDs.languageSelect}
+      sheetProps={{ disableDrag: true }}
       renderTrigger={() => (
         <ListItem
           mx="$0"

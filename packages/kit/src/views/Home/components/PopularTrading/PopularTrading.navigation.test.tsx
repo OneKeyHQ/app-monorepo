@@ -68,6 +68,18 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
   default: () => ({ switchTab: jest.fn() }),
 }));
+jest.mock('@react-navigation/native', () => ({
+  CommonActions: {
+    setParams: jest.fn((params: unknown) => ({
+      type: 'SET_PARAMS',
+      payload: { params },
+    })),
+    reset: jest.fn((state: unknown) => ({
+      type: 'RESET',
+      payload: state,
+    })),
+  },
+}));
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
   usePromiseResult: () => ({ isLoading: false, run: jest.fn() }),
 }));

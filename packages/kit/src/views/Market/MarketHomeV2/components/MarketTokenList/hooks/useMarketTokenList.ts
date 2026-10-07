@@ -489,7 +489,6 @@ export function useMarketTokenList({
         );
       } catch (error) {
         if (
-          platformEnv.isNative &&
           currentQueryKeyRef.current === requestQueryKey &&
           firstPageRequestSequenceRef.current === requestSequence
         ) {
@@ -529,7 +528,7 @@ export function useMarketTokenList({
         return undefined;
       }
       if (
-        platformEnv.isNative &&
+        currentQueryKeyRef.current === requestQueryKey &&
         firstPageRequestSequenceRef.current === requestSequence
       ) {
         setErrorQueryKey(undefined);
@@ -574,6 +573,7 @@ export function useMarketTokenList({
       // Native pages can mount before the default network is initialized.
       // usePromiseResult captures watchLoading when its runner is created.
       watchLoading: platformEnv.isNative || hasNetworkId,
+      undefinedResultIfError: true,
       pollingInterval,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
@@ -615,6 +615,40 @@ export function useMarketTokenList({
           networkLogoUri,
           timeRange: timeRangeRef.current,
         });
+
+  const previousLoadingStateRef = useRef({
+    isLoading,
+    queryKey: currentQueryKey,
+  });
+
+  useEffect(() => {
+    const previous = previousLoadingStateRef.current;
+    previousLoadingStateRef.current = { isLoading, queryKey: currentQueryKey };
+
+    if (isLoading === true && transformedData.length === 0) {
+      setIsNetworkSwitching(true);
+      return;
+    }
+
+    // A fast failure may settle before the loading render commits. Clear it
+    // only within the same query so an old request cannot discard new rows.
+    if (
+      hasNetworkId &&
+      previous.queryKey === currentQueryKey &&
+      previous.isLoading !== false &&
+      isLoading === false &&
+      apiResult === undefined
+    ) {
+      setTransformedDataState({ data: [], queryKey: currentQueryKey });
+      setIsNetworkSwitching(false);
+    }
+  }, [
+    apiResult,
+    currentQueryKey,
+    hasNetworkId,
+    isLoading,
+    transformedData.length,
+  ]);
 
   const effectiveIsLoading = hasNetworkId
     ? isLoading !== false
@@ -949,7 +983,7 @@ export function useMarketTokenList({
 
   const refetch = useCallback(() => {
     // A user refresh or Retry must reach the server even if a cached request failed.
-    forceRemoteFirstPageRef.current = Boolean(platformEnv.isNative);
+    forceRemoteFirstPageRef.current = true;
     return fetchMarketTokenList();
   }, [fetchMarketTokenList]);
 

@@ -4,7 +4,13 @@ import type { ReactElement } from 'react';
 
 import { renderHook } from '@testing-library/react';
 
+import {
+  ECopyFrom,
+  EWatchlistFrom,
+} from '@onekeyhq/shared/src/logger/scopes/dex';
+
 import { useTrendingColumnsDesktop } from './useTrendingColumnsDesktop';
+import { WatchlistTokenIdentity } from './useWatchlistColumnsDesktop';
 
 import type { IMarketToken } from '../../MarketTokenData';
 
@@ -25,7 +31,21 @@ jest.mock(
 
 jest.mock('@onekeyhq/kit/src/views/Market/components/MarketStarV2', () => ({
   MarketStarV2: () => null,
+  MarketPerpsStarV2: () => null,
 }));
+
+// The watchlist columns module (for its spot-token cell) pulls these in.
+jest.mock('@onekeyhq/kit/src/views/Market/components/PerpsBadges', () => ({
+  LeverageBadge: () => null,
+  PerpDexBadge: () => null,
+  StockSourceLogo: () => null,
+  SubtitleText: () => null,
+}));
+
+jest.mock(
+  '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketVariantLogoGroup',
+  () => ({ MarketVariantLogoGroup: () => null }),
+);
 
 const tokenWithoutAge: IMarketToken = {
   id: 'token-1',
@@ -64,4 +84,54 @@ describe('useTrendingColumnsDesktop', () => {
 
     expect(identityCell.props.secondary?.props.ageLabel).toBeUndefined();
   });
+
+  test('titles the column "Name" and renders the watchlist token cell when hideTokenAge is set', () => {
+    const { result } = renderHook(() =>
+      useTrendingColumnsDesktop({
+        sort: {},
+        onSort: jest.fn(),
+        hideTokenAge: true,
+        copyFrom: ECopyFrom.BannerList,
+      }),
+    );
+    expect(result.current[1]?.title).toBe('global.name');
+    const record = {
+      ...tokenWithoutAge,
+      firstTradeTime: Date.now() - 86_400_000,
+    };
+    const identityCell = result.current[1]?.render?.(
+      undefined,
+      record,
+      0,
+    ) as ReactElement<{ record: IMarketToken; copyFrom: ECopyFrom }>;
+    // Name at rest, contract address on hover — the watchlist's spot rows.
+    expect(identityCell.type).toBe(WatchlistTokenIdentity);
+    expect(identityCell.props.record).toBe(record);
+    expect(identityCell.props.copyFrom).toBe(ECopyFrom.BannerList);
+  });
+
+  test.each([
+    [undefined, EWatchlistFrom.Homepage],
+    [EWatchlistFrom.BannerList, EWatchlistFrom.BannerList],
+  ])(
+    'logs star actions with watchlistFrom %s as %s',
+    (watchlistFrom, expectedFrom) => {
+      const { result } = renderHook(() =>
+        useTrendingColumnsDesktop({
+          sort: {},
+          onSort: jest.fn(),
+          watchlistFrom,
+        }),
+      );
+      const starCell = result.current[0]?.render?.(
+        undefined,
+        tokenWithoutAge,
+        0,
+      ) as ReactElement<{
+        children: ReactElement<{ from: EWatchlistFrom }>;
+      }>;
+
+      expect(starCell.props.children.props.from).toBe(expectedFrom);
+    },
+  );
 });

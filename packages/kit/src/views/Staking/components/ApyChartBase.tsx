@@ -18,6 +18,7 @@ import {
   APY_PRICE_SCALE_MARGINS,
   LightweightChart,
 } from '@onekeyhq/kit/src/components/LightweightChart';
+import { useDeviceTimeZone } from '@onekeyhq/kit/src/hooks/useDeviceTimeZone';
 import type { IApyHistoryItem } from '@onekeyhq/shared/types/staking';
 
 import type { UTCTimestamp } from 'lightweight-charts';
@@ -50,6 +51,7 @@ const ApyChartBaseComponent = ({
   tooltipLabel = 'APY',
 }: IApyChartBaseProps) => {
   const intl = useIntl();
+  const timeZone = useDeviceTimeZone();
   const chartHeight = 200;
   const POPUP_WIDTH = 160;
   const [hoverData, setHoverData] = useState<{
@@ -252,6 +254,11 @@ const ApyChartBaseComponent = ({
               showPriceScale ? APY_PRICE_SCALE_MARGINS : undefined
             }
             onHover={handleHover}
+            // The wrapper only localizes the time axis when both are given;
+            // otherwise lightweight-charts labels it in the system language,
+            // not the app language (OK-63219).
+            timeZone={timeZone}
+            locale={intl.locale}
           />
           {showDivider ? <Divider mt="$8" /> : null}
         </YStack>

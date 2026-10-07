@@ -18,6 +18,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { EarnActionIcon } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
+import { EarnTooltip } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnTooltip';
 import { GridItem } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/GridItemV2';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
@@ -122,6 +123,10 @@ function PortfolioRow({
                   {item.fiatValue}
                 </NumberSizeableText>
               ) : null}
+              {/* A withdrawal-requested row carries the countdown per order,
+                  the same tooltip the positions page opens from its info
+                  icon; the row used to drop it (OK-63230). */}
+              {item.tooltip ? <EarnTooltip tooltip={item.tooltip} /> : null}
             </XStack>
           )}
         </YStack>

@@ -19,6 +19,11 @@ function listSourceFiles(dirPath: string): string[] {
   return files;
 }
 
+// Exempt from the test-integrity source-text rule, see
+// development/lint/test-integrity.allowlist.json. This is the only check that
+// fails when a *new* CLI production file starts writing the session cache, so
+// it constrains where a decrypted HD credential may be memoized. Tests that
+// run the code only cover the call sites that exist today.
 describe('secureCache Layer 1 degradation', () => {
   it('only writes session memo entries inside SignerSoftwareBase.getHdCredential', () => {
     const srcRoot = path.resolve(__dirname, '..');

@@ -845,7 +845,11 @@ class ServiceDeFi extends ServiceBase {
     networkId: string;
     targetCurrency: string;
     enabledNetworkIds?: string[];
-  }): Promise<{ netWorth: string; hasCache: boolean }> {
+  }): Promise<{
+    hasCache: boolean;
+    netWorth: string;
+    networkIds: string[];
+  }> {
     const { accountId, networkId, targetCurrency, enabledNetworkIds } = params;
     const enabledNetworkIdSet = enabledNetworkIds?.length
       ? new Set(enabledNetworkIds)
@@ -860,7 +864,7 @@ class ServiceDeFi extends ServiceBase {
     });
 
     if (!entries || !entries.some((e) => e?.overview)) {
-      return { netWorth: '0', hasCache: false };
+      return { hasCache: false, netWorth: '0', networkIds: [] };
     }
 
     const { currencyMap } = await currencyPersistAtom.get();
@@ -868,6 +872,7 @@ class ServiceDeFi extends ServiceBase {
 
     let total = new BigNumber(0);
     let hasCache = false;
+    const coveredNetworkIds = new Set<string>();
     for (const entry of entries) {
       if (entry?.overview) {
         for (const [entryNetworkId, overview] of Object.entries(
@@ -877,6 +882,7 @@ class ServiceDeFi extends ServiceBase {
             !enabledNetworkIdSet || enabledNetworkIdSet.has(entryNetworkId);
           if (overview && shouldIncludeNetwork) {
             hasCache = true;
+            coveredNetworkIds.add(entryNetworkId);
             const sourceInfo =
               currencyMap[overview.currency] ?? currencyMap.usd;
             const converted = this._fixCurrencyValue({
@@ -890,7 +896,11 @@ class ServiceDeFi extends ServiceBase {
       }
     }
 
-    return { netWorth: total.toFixed(), hasCache };
+    return {
+      hasCache,
+      netWorth: total.toFixed(),
+      networkIds: [...coveredNetworkIds].toSorted(),
+    };
   }
 
   @backgroundMethod()

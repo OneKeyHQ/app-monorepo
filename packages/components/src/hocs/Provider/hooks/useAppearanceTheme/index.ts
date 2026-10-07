@@ -1,12 +1,16 @@
 import { updateRootViewBackgroundColor } from '@onekeyhq/shared/src/modules3rdParty/rootview-background';
 
 import type {
+  IGetAppThemeVariant,
   ISetSystemBarsOverride,
   IUpdateAppRootViewBackground,
   IUseAppearanceTheme,
 } from './type';
 
 export const useAppearanceTheme: IUseAppearanceTheme = () => {};
+
+/** Native-only: nothing off native presents its own UI over the app. */
+export const getAppThemeVariant: IGetAppThemeVariant = () => undefined;
 
 /** Native-only: web has no system bars to paint. */
 export const setSystemBarsOverride: ISetSystemBarsOverride = () => {};

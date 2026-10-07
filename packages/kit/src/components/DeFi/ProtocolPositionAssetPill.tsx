@@ -1,3 +1,4 @@
+import type { IButtonProps } from '@onekeyhq/components';
 import { ButtonFrame, Icon, SizableText, XStack } from '@onekeyhq/components';
 import { Token, TokenGroup } from '@onekeyhq/kit/src/components/Token';
 
@@ -13,14 +14,14 @@ type IProtocolPositionAssetPillProps = {
   logoURIs?: string[];
   interactive?: boolean;
   testID?: string;
-};
+} & Pick<IButtonProps, 'onPress' | 'disabled'>;
 
 function ProtocolPositionAssetPillContent({
   symbol,
   logoURI,
   logoURIs,
   interactive,
-}: Omit<IProtocolPositionAssetPillProps, 'testID'>) {
+}: Omit<IProtocolPositionAssetPillProps, 'testID' | 'onPress' | 'disabled'>) {
   const tokenGroup =
     logoURIs && logoURIs.length > 1
       ? logoURIs.map((tokenImageUri) => ({ tokenImageUri }))
@@ -55,6 +56,8 @@ export function ProtocolPositionAssetPill({
   logoURIs,
   interactive = false,
   testID,
+  onPress,
+  disabled,
 }: IProtocolPositionAssetPillProps) {
   const content = (
     <ProtocolPositionAssetPillContent
@@ -101,6 +104,8 @@ export function ProtocolPositionAssetPill({
       focusable
       focusVisibleStyle={ASSET_PILL_FOCUS_STYLE}
       maxWidth="100%"
+      onPress={onPress}
+      disabled={disabled}
     >
       {content}
     </ButtonFrame>

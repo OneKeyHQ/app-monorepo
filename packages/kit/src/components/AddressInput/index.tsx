@@ -52,6 +52,7 @@ import {
   getAddressQueryResolvedAddress,
   getAddressValidateTranslationId,
   queryAddressWithFallback,
+  shouldShowAddressQuerySpinner,
 } from './utils';
 
 import type { IScanPluginProps } from './plugins/scan';
@@ -220,7 +221,7 @@ type IResolvedAddressQueryContext = {
 
 function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
   const { loading, result, setResolveAddress, onRefresh } = props;
-  if (loading) {
+  if (shouldShowAddressQuerySpinner({ loading, result })) {
     return <Spinner />;
   }
   if (result?.validStatus === 'unknown') {
@@ -235,6 +236,19 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
     );
   }
   if (result) {
+    // Label badges (OKX, CEX, etc.) stay inside the input. Interaction
+    // badges (Transferred, First transfer) are rendered below the input by
+    // AddressInputWarnings.
+    const labelBadges = result.addressBadges?.filter(
+      (badge) => badge.type === 'default' || badge.type === 'info',
+    );
+    // While re-validating an existing input only the stable wallet and
+    // address-book labels stay on screen; a resolved name (ENS etc.) and
+    // server-derived badges may have changed, so they are replaced by a
+    // spinner until the new query lands. A result without such dynamic
+    // content keeps its labels as-is and shows no spinner at all.
+    const isRevalidating =
+      Boolean(loading) && Boolean(result.resolveAddress || labelBadges?.length);
     return (
       <XStack gap="$2" mb="$1" flex={1} flexWrap="wrap" overflow="hidden">
         {result.walletAccountName ? (
@@ -259,7 +273,8 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
             </XStack>
           </Badge>
         ) : null}
-        {result.resolveAddress ? (
+        {isRevalidating ? <Spinner /> : null}
+        {!isRevalidating && result.resolveAddress ? (
           <Stack>
             <ResolvedAddress
               value={result.resolveAddress}
@@ -268,20 +283,17 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
             />
           </Stack>
         ) : null}
-        {/* Label badges (OKX, CEX, etc.) stay inside the input.
-            Interaction badges (Transferred, First transfer) are rendered
-            below the input by AddressInputWarnings. */}
-        {result.addressBadges
-          ?.filter((badge) => badge.type === 'default' || badge.type === 'info')
-          .map((badge) => (
-            <AddressBadge
-              key={badge.label}
-              title={badge.label}
-              badgeType={badge.type}
-              content={badge.tip}
-              icon={badge.icon}
-            />
-          ))}
+        {isRevalidating
+          ? null
+          : labelBadges?.map((badge) => (
+              <AddressBadge
+                key={badge.label}
+                title={badge.label}
+                badgeType={badge.type}
+                content={badge.tip}
+                icon={badge.icon}
+              />
+            ))}
       </XStack>
     );
   }

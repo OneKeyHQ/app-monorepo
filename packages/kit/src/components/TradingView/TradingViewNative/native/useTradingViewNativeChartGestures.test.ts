@@ -311,6 +311,30 @@ describe('useTradingViewNativeChartGestures', () => {
     expect(failMainChartTapCrosshair).not.toHaveBeenCalled();
   });
 
+  it('keeps the crosshair visible after the long press ends', () => {
+    const { chartRuntime } = renderChartGestures();
+    const crosshairGesture = mockPanGestures[0];
+
+    crosshairGesture.handlers.onStart?.({ x: 100, y: 120 });
+    crosshairGesture.handlers.onFinalize?.({}, true);
+
+    expect(chartRuntime.value.crosshair).toMatchObject({
+      visible: true,
+      x: 100,
+      y: 120,
+    });
+  });
+
+  it('hides the crosshair when the long press is interrupted', () => {
+    const { chartRuntime } = renderChartGestures();
+    const crosshairGesture = mockPanGestures[0];
+
+    crosshairGesture.handlers.onStart?.({ x: 100, y: 120 });
+    crosshairGesture.handlers.onFinalize?.({}, false);
+
+    expect(chartRuntime.value.crosshair.visible).toBe(false);
+  });
+
   it('rejects time-scale dragging outside the time axis', () => {
     renderChartGestures();
     const timeAxisScaleGesture = mockPanGestures[2];

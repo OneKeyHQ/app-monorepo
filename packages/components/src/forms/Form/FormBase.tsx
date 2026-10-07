@@ -42,7 +42,11 @@ import { addFormInstance, removeFormInstance } from './formInstances';
 
 import type { ISizableTextProps } from '../../primitives';
 import type { IPropsWithTestId } from '../../types';
-import type { ControllerRenderProps, UseFormReturn } from 'react-hook-form';
+import type {
+  ControllerFieldState,
+  ControllerRenderProps,
+  UseFormReturn,
+} from 'react-hook-form';
 
 export type IFormProps = IPropsWithTestId<{
   form: UseFormReturn<any> & {
@@ -238,10 +242,7 @@ function Field({
   renderErrorMessage,
 }: IFieldProps) {
   const intl = useIntl();
-  const {
-    control,
-    formState: { errors },
-  } = useFormContext();
+  const { control } = useFormContext();
   const renderLabelAddon = useCallback(() => {
     if (labelAddon) {
       return typeof labelAddon === 'string' ? (
@@ -252,10 +253,6 @@ function Field({
     }
     return null;
   }, [labelAddon]);
-  const error = errors[name] as unknown as Error & {
-    translationId: ETranslations;
-  };
-
   const descriptionElement = useMemo(() => {
     return typeof description === 'string' ? (
       <FieldDescription>{description}</FieldDescription>
@@ -264,88 +261,110 @@ function Field({
     );
   }, [description]);
 
+  // Read the error from the Controller's own subscription rather than from
+  // `useFormContext().formState.errors`. That context value is a snapshot
+  // taken when FormProvider last rendered, and the lazy `Form` wrapper is
+  // memoized: `Dialog.Form` hands it a stable `form` object and static
+  // children, so a validation triggered from the dialog footer never
+  // re-rendered the provider and the field kept showing the stale, empty
+  // error (OK-63651).
   const renderField = useCallback(
-    ({ field }: { field: ControllerRenderProps<any, string> }) => (
-      <Fieldset p="$0" m="$0" borderWidth={0} {...(display ? { display } : {})}>
-        <Stack
-          gap={horizontal ? '$1' : undefined}
-          flexDirection={horizontal ? 'row' : 'column'}
-          jc={horizontal ? 'space-between' : undefined}
-          alignItems={horizontal ? 'center' : undefined}
-          mb={horizontal ? '$1.5' : undefined}
+    ({
+      field,
+      fieldState,
+    }: {
+      field: ControllerRenderProps<any, string>;
+      fieldState: ControllerFieldState;
+    }) => {
+      const error = fieldState.error as unknown as Error & {
+        translationId: ETranslations;
+      };
+      return (
+        <Fieldset
+          p="$0"
+          m="$0"
+          borderWidth={0}
+          {...(display ? { display } : {})}
         >
-          <YStack flexShrink={horizontal ? 1 : undefined}>
-            {label ? (
-              <XStack
-                mb={horizontal ? undefined : '$1.5'}
-                justifyContent="space-between"
-              >
-                <XStack>
-                  <Label htmlFor={name}>{label}</Label>
-                  {optional ? (
-                    <SizableText size="$bodyMd" color="$textSubdued" pl="$1">
-                      {`(${intl.formatMessage({
-                        id: ETranslations.form_optional_indicator,
-                      })})`}
-                    </SizableText>
-                  ) : null}
+          <Stack
+            gap={horizontal ? '$1' : undefined}
+            flexDirection={horizontal ? 'row' : 'column'}
+            jc={horizontal ? 'space-between' : undefined}
+            alignItems={horizontal ? 'center' : undefined}
+            mb={horizontal ? '$1.5' : undefined}
+          >
+            <YStack flexShrink={horizontal ? 1 : undefined}>
+              {label ? (
+                <XStack
+                  mb={horizontal ? undefined : '$1.5'}
+                  justifyContent="space-between"
+                >
+                  <XStack>
+                    <Label htmlFor={name}>{label}</Label>
+                    {optional ? (
+                      <SizableText size="$bodyMd" color="$textSubdued" pl="$1">
+                        {`(${intl.formatMessage({
+                          id: ETranslations.form_optional_indicator,
+                        })})`}
+                      </SizableText>
+                    ) : null}
+                  </XStack>
+                  {renderLabelAddon()}
                 </XStack>
-                {renderLabelAddon()}
-              </XStack>
+              ) : null}
+              {horizontal ? descriptionElement : null}
+            </YStack>
+            {Children.map(children as ReactNode[], (child) =>
+              isValidElement(child)
+                ? cloneElement(child, getChildProps(child, field, error))
+                : child,
+            )}
+          </Stack>
+          <HeightTransition>
+            {hint || error?.message ? (
+              <SizableText
+                pt="$1.5"
+                px={errorMessagePaddingHorizontal}
+                transition="quick"
+                animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
+                enterStyle={errorAnimationStyle}
+                exitStyle={errorAnimationStyle}
+                textAlign={errorMessageAlign}
+              >
+                {hint ? (
+                  <SizableText
+                    color="$textSubdued"
+                    size="$bodyMd"
+                    textAlign={errorMessageAlign}
+                  >
+                    {hint}
+                  </SizableText>
+                ) : null}
+                {!hint && renderErrorMessage
+                  ? renderErrorMessage({ error })
+                  : null}
+                {!hint && !renderErrorMessage ? (
+                  <SizableText
+                    color="$textCritical"
+                    size="$bodyMd"
+                    textAlign={errorMessageAlign}
+                    key={error?.message}
+                    testID={`${testID}-message`}
+                  >
+                    {error?.message}
+                  </SizableText>
+                ) : null}
+              </SizableText>
             ) : null}
-            {horizontal ? descriptionElement : null}
-          </YStack>
-          {Children.map(children as ReactNode[], (child) =>
-            isValidElement(child)
-              ? cloneElement(child, getChildProps(child, field, error))
-              : child,
-          )}
-        </Stack>
-        <HeightTransition>
-          {hint || error?.message ? (
-            <SizableText
-              pt="$1.5"
-              px={errorMessagePaddingHorizontal}
-              transition="quick"
-              animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-              enterStyle={errorAnimationStyle}
-              exitStyle={errorAnimationStyle}
-              textAlign={errorMessageAlign}
-            >
-              {hint ? (
-                <SizableText
-                  color="$textSubdued"
-                  size="$bodyMd"
-                  textAlign={errorMessageAlign}
-                >
-                  {hint}
-                </SizableText>
-              ) : null}
-              {!hint && renderErrorMessage
-                ? renderErrorMessage({ error })
-                : null}
-              {!hint && !renderErrorMessage ? (
-                <SizableText
-                  color="$textCritical"
-                  size="$bodyMd"
-                  textAlign={errorMessageAlign}
-                  key={error?.message}
-                  testID={`${testID}-message`}
-                >
-                  {error?.message}
-                </SizableText>
-              ) : null}
-            </SizableText>
-          ) : null}
-        </HeightTransition>
-        {horizontal ? null : descriptionElement}
-      </Fieldset>
-    ),
+          </HeightTransition>
+          {horizontal ? null : descriptionElement}
+        </Fieldset>
+      );
+    },
     [
       children,
       descriptionElement,
       display,
-      error,
       errorMessageAlign,
       errorMessagePaddingHorizontal,
       hint,

@@ -36,26 +36,31 @@ jest.mock('@onekeyhq/kit/src/components/Loading', () => ({
   ListLoading: () => null,
 }));
 jest.mock('./metricColumns', () => ({
+  HOME_MARKET_TABLE_HEADER_MIN_HEIGHT: 0,
+  HOME_MARKET_TABLE_ROW_MIN_HEIGHT: 68,
   getPopularTradingColumns: ({
     renderStarButton,
   }: {
     renderStarButton: (record: IFavoriteTokenDisplay) => ReactNode;
   }) => [{ render: renderStarButton }],
 }));
+const mockRichTableProps = jest.fn();
 jest.mock('../RichTable', () => ({
-  RichTable: ({
-    dataSource,
-    columns,
-  }: {
+  RichTable: (props: {
     dataSource: IFavoriteTokenDisplay[];
     columns: { render: (record: IFavoriteTokenDisplay) => ReactNode }[];
-  }) => (
-    <div>
-      {dataSource.map((record) => (
-        <div key={record.symbol}>{columns[0].render(record)}</div>
-      ))}
-    </div>
-  ),
+    rowProps?: { minHeight?: number };
+    headerRowProps?: { minHeight?: number };
+  }) => {
+    mockRichTableProps(props);
+    return (
+      <div>
+        {props.dataSource.map((record) => (
+          <div key={record.symbol}>{props.columns[0].render(record)}</div>
+        ))}
+      </div>
+    );
+  },
 }));
 
 it('renders and toggles Home Top Coins without a Market provider', () => {
@@ -102,4 +107,10 @@ it('renders and toggles Home Top Coins without a Market provider', () => {
   expect(isTokenInWatchList).toHaveBeenCalledWith(record);
   fireEvent.click(star);
   expect(onStarPress).toHaveBeenCalledWith(record);
+  expect(mockRichTableProps).toHaveBeenCalledWith(
+    expect.objectContaining({
+      rowProps: expect.objectContaining({ minHeight: 68 }),
+      headerRowProps: expect.objectContaining({ minHeight: 0 }),
+    }),
+  );
 });

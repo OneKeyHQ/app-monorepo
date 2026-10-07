@@ -45,6 +45,7 @@ import {
   PERP_DIALOG_BUTTON_SIZE,
   PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
 } from '../../PerpDialogLayout';
+import { PerpsSlider } from '../../PerpsSlider';
 import { TradingGuardWrapper } from '../../TradingGuardWrapper';
 import { InputAccessoryDoneButton } from '../inputs/TradingFormInput';
 
@@ -170,17 +171,36 @@ const LeverageContent = memo(
                 {...nativeInputProps}
               />
             </XStack>
-            <XStack flex={1} alignItems="center" gap="$4">
-              <Slider
-                testID={PerpTestIDs.LeverageSlider}
-                value={value || 1}
-                onChange={handleSliderChange}
-                min={1}
-                max={maxLeverage}
-                step={1}
-                disabled={loading}
-                flex={1}
-              />
+            <XStack
+              testID={
+                platformEnv.isNativeIOS ? PerpTestIDs.LeverageSlider : undefined
+              }
+              flex={1}
+              alignItems="center"
+              gap="$4"
+            >
+              {platformEnv.isNativeIOS ? (
+                <PerpsSlider
+                  value={value || 1}
+                  onChange={handleSliderChange}
+                  min={1}
+                  max={maxLeverage}
+                  segments={0}
+                  disabled={loading}
+                  showBubble={false}
+                />
+              ) : (
+                <Slider
+                  testID={PerpTestIDs.LeverageSlider}
+                  value={value || 1}
+                  onChange={handleSliderChange}
+                  min={1}
+                  max={maxLeverage}
+                  step={1}
+                  disabled={loading}
+                  flex={1}
+                />
+              )}
             </XStack>
           </YStack>
           <YStack gap="$2">
@@ -342,7 +362,7 @@ export const LeverageAdjustModal = memo(
         borderRadius="$2"
         bg={isMobile ? '$bgSubdued' : '$bgStrong'}
         onPress={showLeverageDialog}
-        px="$3.5"
+        px={platformEnv.isNativeAndroid ? '$0' : '$3.5'}
         width="100%"
         h={isMobile ? 32 : 30}
         alignItems="center"

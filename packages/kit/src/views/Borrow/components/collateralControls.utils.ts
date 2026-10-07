@@ -52,6 +52,28 @@ export function getCollateralSwitchState({
   };
 }
 
+export type ICollateralCellState = 'hidden' | 'switch' | 'unavailable';
+
+// The Switch alone cannot separate "off, but you can turn it on" from "this
+// market never accepts this asset as collateral": both render as a faded OFF
+// switch, so the second reads as a dead control instead of a fact. An absent
+// canBeCollateral flag is not a verdict, so it keeps the Switch.
+export function getCollateralCellState({
+  usageAsCollateral,
+  canBeCollateral,
+}: {
+  usageAsCollateral?: boolean;
+  canBeCollateral?: boolean;
+}): ICollateralCellState {
+  if (usageAsCollateral === undefined) {
+    return 'hidden';
+  }
+  if (usageAsCollateral === false && canBeCollateral === false) {
+    return 'unavailable';
+  }
+  return 'switch';
+}
+
 export function shouldReleaseCollateralSubmission({
   usageAsCollateral,
   targetUsageAsCollateral,

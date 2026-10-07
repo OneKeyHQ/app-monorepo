@@ -66,8 +66,11 @@ jest.mock('../../background/instance/backgroundApiProxy', () => ({
   },
 }));
 
+const mockUseHandleAppStateActive: jest.Mock<void, unknown[]> = jest.fn();
+
 jest.mock('../../hooks/useHandleAppStateActive', () => ({
-  useHandleAppStateActive: jest.fn(),
+  useHandleAppStateActive: (...args: unknown[]) =>
+    mockUseHandleAppStateActive(...args),
 }));
 
 jest.mock('../../hooks/useRouteIsFocused', () => {
@@ -123,6 +126,23 @@ const visibleResult = {
   reason: ENotificationPermissionRecoveryReason.permissionRequired,
   shouldShow: true,
 };
+
+const grantedResult = {
+  checkedAt: 2,
+  isSupported: true,
+  isTestMode: false,
+  permission: ENotificationPermission.granted,
+  pushEnabled: true,
+  reason: ENotificationPermissionRecoveryReason.permissionGranted,
+  shouldShow: false,
+};
+
+function invokeInactiveToActiveHandler() {
+  const handlers = mockUseHandleAppStateActive.mock.calls.at(-1)?.[1] as
+    | { onActiveFromBlur?: () => void }
+    | undefined;
+  handlers?.onActiveFromBlur?.();
+}
 
 function createDeferred<T>() {
   let resolve: (value: T) => void = () => undefined;
@@ -198,6 +218,162 @@ describe('NotificationPermissionRecoveryAlert', () => {
       pushEnabled: true,
       source: ENotificationPermissionRecoverySource.settings,
     });
+    expect(mockAlertProps).toEqual(
+      expect.objectContaining({
+        title: 'notifications_intro_title',
+      }),
+    );
+  });
+
+  it('renders the recovery alert by default when the check says it should show', async () => {
+    notificationService.checkNotificationPermissionRecovery.mockResolvedValueOnce(
+      visibleResult,
+    );
+
+    render(
+      <NotificationPermissionRecoveryAlert scene="home" initialDelayMs={0} />,
+    );
+    await act(async () => {
+      jest.runOnlyPendingTimers();
+      await Promise.resolve();
+    });
+
+    expect(mockAlertProps).toEqual(
+      expect.objectContaining({
+        title: 'notifications_intro_title',
+      }),
+    );
+  });
+
+  it('keeps hidden home checks on startup and app-active without rendering the alert', async () => {
+    notificationService.checkNotificationPermissionRecovery.mockResolvedValue(
+      visibleResult,
+    );
+
+    render(
+      <NotificationPermissionRecoveryAlert
+        scene="home"
+        initialDelayMs={6000}
+        showAlert={false}
+      />,
+    );
+
+    expect(
+      notificationService.checkNotificationPermissionRecovery,
+    ).not.toHaveBeenCalled();
+    expect(mockAlertProps).toBeUndefined();
+
+    await act(async () => {
+      jest.advanceTimersByTime(6000);
+      await Promise.resolve();
+    });
+
+    expect(
+      notificationService.checkNotificationPermissionRecovery,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      notificationService.checkNotificationPermissionRecovery,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ignoreCooldown: false,
+        source: ENotificationPermissionRecoverySource.homeStartup,
+      }),
+    );
+    expect(mockAlertProps).toBeUndefined();
+
+    const onActive = mockUseHandleAppStateActive.mock.calls.at(-1)?.[0] as
+      | (() => void)
+      | undefined;
+    act(() => {
+      onActive?.();
+    });
+    await act(async () => {
+      jest.advanceTimersByTime(500);
+      await Promise.resolve();
+    });
+
+    expect(
+      notificationService.checkNotificationPermissionRecovery,
+    ).toHaveBeenCalledTimes(2);
+    expect(
+      notificationService.checkNotificationPermissionRecovery,
+    ).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        ignoreCooldown: false,
+        source: ENotificationPermissionRecoverySource.appActive,
+      }),
+    );
+    expect(mockAlertProps).toBeUndefined();
+  });
+
+  it('does not render the alert when showAlert is false, but still checks the settings snapshot', async () => {
+    notificationService.checkNotificationPermissionRecovery.mockResolvedValueOnce(
+      visibleResult,
+    );
+
+    render(
+      <NotificationPermissionRecoveryAlert
+        scene="settings"
+        pushEnabled
+        showAlert={false}
+      />,
+    );
+    await act(async () => {
+      jest.runOnlyPendingTimers();
+      await Promise.resolve();
+    });
+
+    expect(
+      notificationService.checkNotificationPermissionRecovery,
+    ).toHaveBeenCalledWith({
+      ignoreCooldown: true,
+      pushEnabled: true,
+      source: ENotificationPermissionRecoverySource.settings,
+    });
+    expect(mockAlertProps).toBeUndefined();
+  });
+
+  it('rechecks on inactive-to-active while hidden, including denied to granted', async () => {
+    notificationService.checkNotificationPermissionRecovery
+      .mockResolvedValueOnce(visibleResult)
+      .mockResolvedValueOnce(grantedResult);
+
+    render(
+      <NotificationPermissionRecoveryAlert
+        scene="settings"
+        pushEnabled
+        showAlert={false}
+      />,
+    );
+    await act(async () => {
+      jest.runOnlyPendingTimers();
+      await Promise.resolve();
+    });
+
+    expect(
+      notificationService.checkNotificationPermissionRecovery,
+    ).toHaveBeenCalledTimes(1);
+    expect(mockAlertProps).toBeUndefined();
+
+    act(() => {
+      invokeInactiveToActiveHandler();
+    });
+    await act(async () => {
+      jest.advanceTimersByTime(500);
+      await Promise.resolve();
+    });
+
+    expect(
+      notificationService.checkNotificationPermissionRecovery,
+    ).toHaveBeenCalledTimes(2);
+    expect(
+      notificationService.checkNotificationPermissionRecovery,
+    ).toHaveBeenLastCalledWith({
+      ignoreCooldown: true,
+      pushEnabled: true,
+      source: ENotificationPermissionRecoverySource.appActive,
+    });
+    expect(mockAlertProps).toBeUndefined();
   });
 
   it('does not re-check after a recovery action loses focus', async () => {

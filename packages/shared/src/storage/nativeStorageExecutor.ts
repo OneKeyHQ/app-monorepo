@@ -1,14 +1,9 @@
-/* cspell:ignore IMMKV ISWR */
+/* cspell:ignore IMMKV */
 import { isPlainObject } from 'lodash';
 
 import { OneKeyLocalError } from '../errors';
 import platformEnv from '../platformEnv';
 import { travelModeManager } from '../travelMode';
-import { COLD_START_SNAPSHOT_HARD_MAX_CHARS } from '../utils/coldStartCacheSnapshotUtils';
-import {
-  SWR_CACHE_MAX_SERIALIZED_CHARS,
-  pruneSWRCacheStore,
-} from '../utils/swrCacheUtils';
 
 import { getLegacyAsyncStorageForMigration } from './legacyAsyncStorageMigration';
 import { retryLegacyAsyncStorageOperation } from './legacyAsyncStorageRetry';
@@ -24,11 +19,10 @@ import {
   setNativeStorageMigrationLedgerComplete,
   syncNativeStorageMMKV,
 } from './nativeStorageMigrationModule';
-import { createNativeStorageMigrationInconsistentErrorMessage } from './nativeStorageTypes';
 import {
-  getNativeSWRCachePersistence,
-  isNativeSWRCachePhysicalKey,
-} from './nativeSWRCachePersistence';
+  NATIVE_STORAGE_BOOTSTRAP_DEFAULT_STORES,
+  createNativeStorageMigrationInconsistentErrorMessage,
+} from './nativeStorageTypes';
 import { broadcastNativeSyncStorageMutation } from './nativeSyncStorageBroadcast';
 import { EAppSyncStorageKeys } from './syncStorageKeys';
 
@@ -76,13 +70,6 @@ const APP_STORAGE_MIGRATION_DISK_RESERVE_BYTES = 32 * 1024 * 1024;
 const APP_STORAGE_MIGRATION_SIZE_OVERHEAD_RATIO = 1.15;
 const LEGACY_READ_CHUNK_SIZE = 100;
 const MAX_MMKV_KEY_BYTE_LENGTH = 60_000;
-const SWR_CACHE_KEY = 'onekey_swr_cache';
-// An empty prefix selects the newest entries across every business namespace.
-// The count and payload caps keep the main-runtime heap copy bounded.
-const SWR_CACHE_BOOTSTRAP_KEY_PREFIXES = [''] as const;
-export const NATIVE_SWR_CACHE_BOOTSTRAP_MAX_ENTRIES = 100;
-export const NATIVE_SWR_CACHE_BOOTSTRAP_MAX_SERIALIZED_CHARS = 10 * 1024 * 1024;
-const SWR_CACHE_MAX_LEGACY_PARSE_CHARS = SWR_CACHE_MAX_SERIALIZED_CHARS * 2;
 const SYNC_STORAGE_QUEUE_RESULT_CACHE_LIMIT = 32;
 const SYNC_STORAGE_QUEUE_RESULT_CACHE_MAX_VALUE_CHARS = 8 * 1024 * 1024;
 const SYNC_STORAGE_QUEUE_RESULT_CACHE_TTL_MS = 5 * 60_000;
@@ -222,11 +209,6 @@ function getSyncStorageMMKV(store: INativeSyncStorageName): IMMKVInstance {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       return require('./instance/mmkvStorageInstance').default as IMMKVInstance;
     }
-    case 'coldStart': {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      return require('./instance/coldStartCacheMMKVInstance')
-        .default as IMMKVInstance;
-    }
     case 'devSettings': {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       return require('./instance/mmkvDevSettingStorageInstance')
@@ -239,10 +221,6 @@ function getSyncStorageMMKV(store: INativeSyncStorageName): IMMKVInstance {
       );
     }
   }
-}
-
-function getSWRCachePersistence() {
-  return getNativeSWRCachePersistence(getSyncStorageMMKV('coldStart'));
 }
 
 function getUtf8ByteLength(value: string) {
@@ -663,6 +641,10 @@ type IAppStorageTransactionJournal = {
   version: 1;
 };
 
+// Retain recovery metadata even when journal removal succeeds in memory but
+// its durability barrier fails. Only bg owns this JS state.
+let pendingAppStorageRecovery: string | undefined;
+
 function parseAppStorageTransactionJournal(
   raw: string,
 ): IAppStorageTransactionJournal {
@@ -705,10 +687,13 @@ function restoreAppStoragePreviousValues(
 }
 
 async function recoverInterruptedAppStorageBatch(mmkv: IMMKVInstance) {
-  const raw = mmkv.getString(APP_STORAGE_TRANSACTION_JOURNAL_KEY);
+  const raw =
+    pendingAppStorageRecovery ??
+    mmkv.getString(APP_STORAGE_TRANSACTION_JOURNAL_KEY);
   if (raw === undefined) {
     return;
   }
+  pendingAppStorageRecovery = raw;
   let journal: IAppStorageTransactionJournal;
   try {
     journal = parseAppStorageTransactionJournal(raw);
@@ -718,6 +703,7 @@ async function recoverInterruptedAppStorageBatch(mmkv: IMMKVInstance) {
     // a malformed journal cannot trap every later startup in the same failure.
     mmkv.remove(APP_STORAGE_TRANSACTION_JOURNAL_KEY);
     await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+    pendingAppStorageRecovery = undefined;
     logMigration('discarded invalid app-storage batch journal');
     return;
   }
@@ -725,6 +711,7 @@ async function recoverInterruptedAppStorageBatch(mmkv: IMMKVInstance) {
   await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
   mmkv.remove(APP_STORAGE_TRANSACTION_JOURNAL_KEY);
   await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+  pendingAppStorageRecovery = undefined;
   logMigration(
     `recovered interrupted app-storage batch keyCount=${journal.previousValues.length}`,
   );
@@ -1123,9 +1110,10 @@ async function applyAppStorageChanges(
       }
     }
   };
-  mmkv.set(APP_STORAGE_TRANSACTION_JOURNAL_KEY, serializedJournal);
-  await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
   try {
+    // Journal creation is part of the same recovery boundary as the batch.
+    mmkv.set(APP_STORAGE_TRANSACTION_JOURNAL_KEY, serializedJournal);
+    await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
     changes.forEach(({ key, value }) => {
       if (value === undefined) {
         mmkv.remove(key);
@@ -1139,15 +1127,13 @@ async function applyAppStorageChanges(
     trimRemovedJournal();
   } catch (error) {
     // Keep the journal until rollback is durably complete. If rollback itself
-    // fails, the next process restores it before allowing business access.
+    // fails, the next queued request retries before allowing business access.
+    pendingAppStorageRecovery = serializedJournal;
     try {
-      restoreAppStoragePreviousValues(mmkv, journal.previousValues);
-      await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
-      mmkv.remove(APP_STORAGE_TRANSACTION_JOURNAL_KEY);
-      await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+      await recoverInterruptedAppStorageBatch(mmkv);
       trimRemovedJournal();
     } catch {
-      logMigration('app-storage batch rollback deferred to next startup');
+      logMigration('app-storage batch rollback deferred to next request');
     }
     throw error;
   }
@@ -1190,6 +1176,7 @@ async function clearAppStorageAndLegacyData(mmkv: IMMKVInstance) {
 async function executeAsyncStorageRequest(request: INativeAsyncStorageRequest) {
   await ensureNativeAppStorageMigrated();
   const mmkv = getAppStorageMMKV();
+  await recoverInterruptedAppStorageBatch(mmkv);
 
   switch (request.operation) {
     case 'getItem':
@@ -1278,66 +1265,9 @@ function enqueueAsyncStorageRequest(request: INativeAsyncStorageRequest) {
   return execution;
 }
 
-type ISWREntry = { t?: number; [key: string]: unknown };
-type ISWRStore = Record<string, ISWREntry>;
-
-function parseSWRStore(value: INativeStorageScalar | undefined) {
-  if (typeof value !== 'string') {
-    return undefined;
-  }
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    return isPlainObject(parsed) ? (parsed as ISWRStore) : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function serializeMergedSWRStore({
-  currentValue,
-  previousValue,
-  nextValue,
-}: {
-  currentValue: string | undefined;
-  previousValue: INativeStorageScalar | undefined;
-  nextValue: string;
-}) {
-  const current = parseSWRStore(currentValue);
-  const previous = parseSWRStore(previousValue);
-  const next = parseSWRStore(nextValue);
-  if (!next) {
-    return '{}';
-  }
-  if (!current || !previous) {
-    return pruneSWRCacheStore(next).serialized;
-  }
-
-  const merged: ISWRStore = { ...current };
-  for (const [key, previousEntry] of Object.entries(previous)) {
-    if (!(key in next)) {
-      const currentEntry = merged[key];
-      if ((currentEntry?.t ?? 0) <= (previousEntry?.t ?? 0)) {
-        delete merged[key];
-      }
-    }
-  }
-  for (const [key, nextEntry] of Object.entries(next)) {
-    const previousEntry = previous[key];
-    if (JSON.stringify(previousEntry) !== JSON.stringify(nextEntry)) {
-      const currentEntry = merged[key];
-      if (!currentEntry || (nextEntry?.t ?? 0) >= (currentEntry?.t ?? 0)) {
-        defineEnumerableValue(merged, key, nextEntry);
-      }
-    }
-  }
-  return pruneSWRCacheStore(merged).serialized;
-}
-
 async function syncDurableSyncStorageMutation(store: INativeSyncStorageName) {
   if (store === 'settings') {
     await syncNativeStorageMMKV('onekey-app-setting');
-  } else if (store === 'coldStart') {
-    await syncNativeStorageMMKV('onekey-cold-start-cache');
   } else if (store === 'devSettings') {
     await syncNativeStorageMMKV('onekey-app-dev-setting');
   }
@@ -1380,11 +1310,6 @@ async function executeSyncStorageRequest(request: INativeSyncStorageRequest) {
       let valueChars = 0;
       if (mutation.operation === 'set' && typeof mutation.value === 'string') {
         valueChars = mutation.value.length;
-      } else if (mutation.operation === 'patchSWR') {
-        valueChars = mutation.entries.reduce(
-          (total, [, value]) => total + (value?.length ?? 0),
-          0,
-        );
       }
       completedSyncStorageResults.delete(sourceQueueId);
       completedSyncStorageResults.set(sourceQueueId, {
@@ -1399,38 +1324,7 @@ async function executeSyncStorageRequest(request: INativeSyncStorageRequest) {
   };
   switch (request.operation) {
     case 'set': {
-      if (
-        request.store === 'coldStart' &&
-        request.key === SWR_CACHE_KEY &&
-        typeof request.value === 'string'
-      ) {
-        const persistence = getSWRCachePersistence();
-        const value = serializeMergedSWRStore({
-          currentValue: persistence.readSerialized(),
-          previousValue: request.previousValue,
-          nextValue: request.value,
-        });
-        const entries = persistence.replaceSerialized(value);
-        await syncDurableSyncStorageMutation('coldStart');
-        return publishMutation({
-          store: 'coldStart',
-          operation: 'patchSWR',
-          entries,
-          ...(request.sourceMutationId === undefined
-            ? {}
-            : { sourceMutationId: request.sourceMutationId }),
-        });
-      }
-      const value =
-        request.store === 'coldStart' &&
-        request.key === SWR_CACHE_KEY &&
-        typeof request.value === 'string'
-          ? serializeMergedSWRStore({
-              currentValue: mmkv.getString(request.key),
-              previousValue: request.previousValue,
-              nextValue: request.value,
-            })
-          : request.value;
+      const { value } = request;
       mmkv.set(request.key, value);
       await syncDurableSyncStorageMutation(request.store);
       return publishMutation({
@@ -1443,31 +1337,7 @@ async function executeSyncStorageRequest(request: INativeSyncStorageRequest) {
           : { sourceMutationId: request.sourceMutationId }),
       });
     }
-    case 'patchSWR': {
-      const entries = getSWRCachePersistence().applyPatch(request.patch);
-      await syncDurableSyncStorageMutation('coldStart');
-      return publishMutation({
-        store: 'coldStart',
-        operation: 'patchSWR',
-        entries,
-        ...(request.sourceMutationId === undefined
-          ? {}
-          : { sourceMutationId: request.sourceMutationId }),
-      });
-    }
     case 'remove':
-      if (request.store === 'coldStart' && request.key === SWR_CACHE_KEY) {
-        const entries = getSWRCachePersistence().replaceSerialized('{}');
-        await syncDurableSyncStorageMutation('coldStart');
-        return publishMutation({
-          store: 'coldStart',
-          operation: 'patchSWR',
-          entries,
-          ...(request.sourceMutationId === undefined
-            ? {}
-            : { sourceMutationId: request.sourceMutationId }),
-        });
-      }
       mmkv.remove(request.key);
       await syncDurableSyncStorageMutation(request.store);
       return publishMutation({
@@ -1480,9 +1350,6 @@ async function executeSyncStorageRequest(request: INativeSyncStorageRequest) {
       });
     case 'clear':
       mmkv.clearAll();
-      if (request.store === 'coldStart') {
-        getSWRCachePersistence().invalidate();
-      }
       await syncDurableSyncStorageMutation(request.store);
       return publishMutation({
         store: request.store,
@@ -1500,128 +1367,74 @@ async function executeSyncStorageRequest(request: INativeSyncStorageRequest) {
   }
 }
 
-function persistSanitizedColdStartValue({
-  key,
-  mmkv,
-  value,
-}: {
-  key: string;
-  mmkv: IMMKVInstance;
-  value: string | undefined;
-}) {
-  try {
-    if (value === undefined) {
-      mmkv.remove(key);
-    } else {
-      mmkv.set(key, value);
-    }
-  } catch {
-    logMigration('cold-start cache size maintenance failed');
-  }
-}
-
-function sanitizeColdStartValue({
-  key,
-  mmkv,
-  value,
-}: {
-  key: string;
-  mmkv: IMMKVInstance;
-  value: INativeStorageScalar;
-}): INativeStorageScalar | undefined {
-  if (typeof value !== 'string') {
-    return value;
-  }
-  if (key === SWR_CACHE_KEY) {
-    if (value.length > SWR_CACHE_MAX_LEGACY_PARSE_CHARS) {
-      persistSanitizedColdStartValue({ key, mmkv, value: undefined });
-      return undefined;
-    }
-    const store = parseSWRStore(value);
-    if (!store) {
-      persistSanitizedColdStartValue({ key, mmkv, value: undefined });
-      return undefined;
-    }
-    const sanitized = pruneSWRCacheStore(store).serialized;
-    if (sanitized !== value) {
-      persistSanitizedColdStartValue({ key, mmkv, value: sanitized });
-    }
-    return sanitized;
-  }
-  if (value.length > COLD_START_SNAPSHOT_HARD_MAX_CHARS) {
-    persistSanitizedColdStartValue({ key, mmkv, value: undefined });
-    return undefined;
-  }
-  return value;
-}
-
-function readSyncStorageEntries(
-  mmkv: IMMKVInstance,
-  store: INativeSyncStorageName,
-  swrCacheBootstrapSerialized?: string,
-) {
+function readSyncStorageEntries(mmkv: IMMKVInstance) {
   const entries: INativeSyncStorageEntry[] = [];
   for (const key of mmkv.getAllKeys()) {
-    const isInternalSWRCacheKey =
-      store === 'coldStart' &&
-      (key === SWR_CACHE_KEY || isNativeSWRCachePhysicalKey(key));
-    if (!isInternalSWRCacheKey) {
-      const stringValue = mmkv.getString(key);
-      let value: INativeStorageScalar | undefined = stringValue;
-      if (stringValue !== undefined) {
-        value = stringValue;
-      } else {
-        const numberValue = mmkv.getNumber(key);
-        if (numberValue !== undefined) {
-          value = numberValue;
-        } else {
-          value = mmkv.getBoolean(key);
-        }
-      }
-      if (value !== undefined && store === 'coldStart') {
-        value = sanitizeColdStartValue({ key, mmkv, value });
-      }
-      if (value !== undefined) {
-        entries.push([key, value]);
-      }
+    const stringValue = mmkv.getString(key);
+    let value: INativeStorageScalar | undefined = stringValue;
+    if (stringValue === undefined) {
+      const numberValue = mmkv.getNumber(key);
+      value = numberValue === undefined ? mmkv.getBoolean(key) : numberValue;
     }
-  }
-  if (store === 'coldStart') {
-    entries.push([SWR_CACHE_KEY, swrCacheBootstrapSerialized ?? '{}']);
+    if (value !== undefined) {
+      entries.push([key, value]);
+    }
   }
   return entries;
 }
 
-async function buildBootstrapSnapshot(): Promise<INativeStorageBootstrapSnapshot> {
+async function buildBootstrapSnapshot(
+  stores: INativeSyncStorageName[] = NATIVE_STORAGE_BOOTSTRAP_DEFAULT_STORES,
+): Promise<INativeStorageBootstrapSnapshot> {
+  const startedAt = Date.now();
   await prepareNativeStorageForBackgroundStartup();
+  const syncStoresReadyAt = Date.now();
   await ensureNativeAppStorageMigrated();
-  const swrCachePersistence = getSWRCachePersistence();
-  let swrCacheBootstrapSerialized = '{}';
-  try {
-    await swrCachePersistence.ensureMigrated();
-    swrCacheBootstrapSerialized = swrCachePersistence.readSerializedSubset({
-      keyPrefixes: SWR_CACHE_BOOTSTRAP_KEY_PREFIXES,
-      maxEntries: NATIVE_SWR_CACHE_BOOTSTRAP_MAX_ENTRIES,
-      maxSerializedChars: NATIVE_SWR_CACHE_BOOTSTRAP_MAX_SERIALIZED_CHARS,
-    });
-  } catch {
-    logMigration('SWR per-entry cache migration failed; using safe fallback');
-  }
-  return {
-    settings: readSyncStorageEntries(
-      getSyncStorageMMKV('settings'),
-      'settings',
-    ),
-    coldStart: readSyncStorageEntries(
-      getSyncStorageMMKV('coldStart'),
-      'coldStart',
-      swrCacheBootstrapSerialized,
-    ),
-    devSettings: readSyncStorageEntries(
-      getSyncStorageMMKV('devSettings'),
-      'devSettings',
-    ),
+  const appStorageReadyAt = Date.now();
+  const readStore = (store: INativeSyncStorageName) =>
+    stores.includes(store)
+      ? readSyncStorageEntries(getSyncStorageMMKV(store))
+      : [];
+  const snapshot = {
+    settings: readStore('settings'),
+    devSettings: readStore('devSettings'),
   };
+  logBootstrapSnapshotTiming({
+    startedAt,
+    syncStoresReadyAt,
+    appStorageReadyAt,
+  });
+  return snapshot;
+}
+
+/** Where bg's half of the cold-start gate goes. Migration is one-time; the
+ *  reads are paid on every launch. */
+function logBootstrapSnapshotTiming({
+  startedAt,
+  syncStoresReadyAt,
+  appStorageReadyAt,
+}: {
+  startedAt: number;
+  syncStoresReadyAt: number;
+  appStorageReadyAt: number;
+}) {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { NativeLogger, LogLevel } =
+      require('../modules3rdParty/react-native-file-logger') as typeof import('../modules3rdParty/react-native-file-logger');
+    NativeLogger.write(
+      LogLevel.Info,
+      [
+        '[StartupTiming] bg bootstrap snapshot built:',
+        `sync stores ${syncStoresReadyAt - startedAt}ms,`,
+        `app storage ${appStorageReadyAt - syncStoresReadyAt}ms,`,
+        `read ${Date.now() - appStorageReadyAt}ms,`,
+        `total ${Date.now() - startedAt}ms`,
+      ].join(' '),
+    );
+  } catch {
+    // Logging is best-effort during bootstrap.
+  }
 }
 
 async function executeMaskedNativeStorageRequest(
@@ -1634,7 +1447,6 @@ async function executeMaskedNativeStorageRequest(
       : [];
     return {
       settings,
-      coldStart: [],
       devSettings: [],
     };
   }
@@ -1656,14 +1468,6 @@ async function executeMaskedNativeStorageRequest(
   if (request.operation === 'clear') {
     return {
       operation: 'clear',
-      store: request.store,
-      sourceMutationId: request.sourceMutationId,
-    };
-  }
-  if (request.operation === 'patchSWR') {
-    return {
-      entries: [],
-      operation: 'patchSWR',
       store: request.store,
       sourceMutationId: request.sourceMutationId,
     };
@@ -1700,7 +1504,7 @@ async function executeRealNativeStorageRequest(
         'Jotai migration recovery must be handled by its storage owner',
       );
     case 'bootstrap': {
-      const result = await buildBootstrapSnapshot();
+      const result = await buildBootstrapSnapshot(request.stores);
       return result;
     }
     default: {
