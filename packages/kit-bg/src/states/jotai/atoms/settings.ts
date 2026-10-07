@@ -130,6 +130,13 @@ export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
     initialValue: settingsAtomInitialValue,
   });
 
+// Theme consumers should ignore updates to unrelated settings.
+export const { use: useSettingsThemeAtom } = globalAtomComputedR<
+  ISettingsPersistAtom['theme']
+>({
+  read: (get) => get(settingsPersistAtom.atom()).theme,
+});
+
 export type IInscriptionProtectionControlPersistAtom = {
   enabled: boolean;
 };
