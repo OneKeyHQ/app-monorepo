@@ -41,6 +41,13 @@
       "block": "keeps the adapter SDK out of the runtime import graph",
       "count": 1,
       "reason": "thirdPartyDeviceUtils ships in every platform's main bundle, and a runtime import of @onekeyfe/hwk-trezor-adapter would drag in hwk-trezor-core (~620KB). The parity test in the same file imports that SDK on purpose, so the import graph under test cannot be observed from inside this runtime. Replace with a static import-graph check over the main bundle."
+    },
+    {
+      "file": "packages/shared/src/utils/avatarUtils.test.ts",
+      "rule": "source-text-assertion",
+      "block": "wires %s to %s",
+      "count": 1,
+      "reason": "Under Jest every image require() resolves to the one moduleNameMapper stub, so HwWalletAvatarImages cannot tell Pro2Black from Pro2Silver at runtime: only the source says which file each key holds. The byte-compare cases prove the art differs; this pins the wiring so a key aliased onto a sibling art is caught."
     }
   ]
 }
