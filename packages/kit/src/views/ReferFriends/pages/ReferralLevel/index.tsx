@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import {
@@ -21,37 +23,49 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { BreadcrumbSection, ReferFriendsPageContainer } from '../../components';
 
-import { CurrentLevelSection } from './components/CurrentLevelSection';
+import { LevelDetailsAccordion } from './components/LevelDetailsAccordion';
 import { LevelListSection } from './components/LevelListSection';
-import { UpgradeProgressTitle } from './components/UpgradeProgressTitle';
+import { LevelStatusCard } from './components/LevelStatusCard';
+import { UpgradeTargetsCard } from './components/UpgradeTargetsCard';
+import { getLevelOverview } from './getLevelOverview';
 
 function ReferralLevelContent({ data }: { data: IInviteLevelDetail }) {
   const intl = useIntl();
-
-  const currentLevelInfo =
-    data.levels.find((level) => level.level === data.currentLevel) ??
-    data.levels.find((level) => level.isCurrent);
-  const currentLevel = currentLevelInfo?.level ?? data.currentLevel;
+  const overview = useMemo(() => getLevelOverview(data), [data]);
+  const { currentLevel, nextLevel, retentionStatus, upgradeTargets } = overview;
 
   return (
     <ScrollView>
       <ReferFriendsPageContainer>
-        <YStack py="$5" px="$pagePadding" gap="$5">
+        <YStack py="$5" px="$pagePadding" gap="$4">
           <BreadcrumbSection
             secondItemLabel={intl.formatMessage({
               id: ETranslations.referral_referral_level,
             })}
           />
-          {currentLevelInfo ? (
-            <CurrentLevelSection
-              currentLevel={currentLevel}
-              levelIcon={currentLevelInfo.icon}
-              levelLabel={currentLevelInfo.label}
+          {currentLevel ? (
+            <LevelStatusCard
+              level={currentLevel}
+              retentionStatus={retentionStatus}
             />
           ) : null}
-          <UpgradeProgressTitle />
-
-          <LevelListSection currentLevel={currentLevel} levels={data.levels} />
+          {nextLevel && upgradeTargets.length > 0 ? (
+            <UpgradeTargetsCard
+              nextLevel={nextLevel}
+              targets={upgradeTargets}
+            />
+          ) : null}
+          {currentLevel ? (
+            <LevelDetailsAccordion
+              currentLevel={currentLevel}
+              levels={data.levels}
+            />
+          ) : (
+            <LevelListSection
+              currentLevel={data.currentLevel}
+              levels={data.levels}
+            />
+          )}
         </YStack>
       </ReferFriendsPageContainer>
     </ScrollView>

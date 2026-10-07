@@ -24,7 +24,7 @@ function formatFiatCompact(value: BigNumber) {
   return numberFormat(value.toFixed(), { formatter: 'marketCap' });
 }
 
-function formatFiatExact(value: BigNumber) {
+export function formatFiatExact(value: BigNumber) {
   return value.isInteger() ? value.toFormat(0) : value.toFormat(2);
 }
 

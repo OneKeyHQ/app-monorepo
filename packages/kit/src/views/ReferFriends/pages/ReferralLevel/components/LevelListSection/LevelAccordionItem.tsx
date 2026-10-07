@@ -16,16 +16,17 @@ import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animation
 import { sortCommissionRateItems } from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
-  IInviteLevelCommissionRate,
   IInviteLevelDetail,
   IInviteLevelUpgradeCondition,
 } from '@onekeyhq/shared/src/referralCode/type';
+
+import { getLevelCommissionRateItems } from '../../getLevelOverview';
 
 import { CommissionRateCard } from './CommissionRateCard';
 import { OrDivider } from './OrDivider';
 import { SubjectMilestoneCard } from './SubjectMilestoneCard';
 
-function getDisplayLabel(
+export function getDisplayLabel(
   intl: IntlShape,
   labelKey?: string,
   fallback?: string,
@@ -57,25 +58,10 @@ export function LevelAccordionItem({
   nextLevelLabel?: string;
 }) {
   const intl = useIntl();
-  const commissionRateItems = useMemo(() => {
-    const rates = level.commissionRates;
-    if (!rates) {
-      return [] as { subject: string; rate: IInviteLevelCommissionRate }[];
-    }
-    let items: { subject: string; rate: IInviteLevelCommissionRate }[];
-    if (Array.isArray(rates)) {
-      items = rates.map((rate, index) => ({
-        subject: rate.labelKey ?? `${index}`,
-        rate,
-      }));
-    } else {
-      items = Object.entries(rates).map(([subject, rate]) => ({
-        subject,
-        rate,
-      }));
-    }
-    return sortCommissionRateItems(items);
-  }, [level.commissionRates]);
+  const commissionRateItems = useMemo(
+    () => getLevelCommissionRateItems(level.commissionRates),
+    [level.commissionRates],
+  );
 
   const subjectGroups = useMemo(() => {
     const map = new Map<
