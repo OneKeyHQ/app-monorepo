@@ -6,8 +6,6 @@ export interface ICurrentLevelCardProps {
 }
 
 export interface IUseCurrentLevelCardReturn {
-  currentLevel: IInviteSummary['rebateConfig'];
-  levelIcon: string;
   levelLabel: string;
   commissionRates: Array<{
     subject: string;

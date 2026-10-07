@@ -31,6 +31,7 @@ import {
   ETabReferFriendsRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import type { IInviteRewardRouteParams } from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
 import {
@@ -170,10 +171,7 @@ export const useReferFriends = () => {
   }, [devSettings.enabled, devSettings.settings?.enableTestEndpoint]);
 
   const toInviteRewardPage = useCallback(
-    async (params?: {
-      showRewardDistributionHistory?: boolean;
-      tab?: 'invite' | 'benefits';
-    }) => {
+    async (params?: IInviteRewardRouteParams) => {
       const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
       if (isLogin) {
         if (shouldOpenReferralInExtensionExpandTab) {

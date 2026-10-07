@@ -1,13 +1,9 @@
 import { Empty, YStack } from '@onekeyhq/components';
-import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 
 import { ReferFriendsTestIDs } from '../../../testIDs';
-import { getReferralJobTabLabels } from '../getReferralJobTabLabels';
+import { INVITE_COPY } from '../inviteCopy';
 
 export function BenefitsTabPlaceholder() {
-  const locale = useLocaleVariant();
-  const { benefits } = getReferralJobTabLabels(locale);
-
   return (
     <YStack
       testID={ReferFriendsTestIDs.benefitsPlaceholder}
@@ -15,7 +11,11 @@ export function BenefitsTabPlaceholder() {
       px="$pagePadding"
       py="$10"
     >
-      <Empty icon="GiftOutline" title={benefits} />
+      <Empty
+        icon="GiftOutline"
+        title={INVITE_COPY.benefitsEmptyTitle}
+        description={INVITE_COPY.benefitsEmptyDescription}
+      />
     </YStack>
   );
 }

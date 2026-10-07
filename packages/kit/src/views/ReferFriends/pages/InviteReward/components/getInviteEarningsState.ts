@@ -19,17 +19,6 @@ function toAmount(value: string | undefined) {
   return amount.isFinite() ? amount : new BigNumber(0);
 }
 
-function formatNextDistribution(value: string | undefined) {
-  if (!value) {
-    return null;
-  }
-  const dated = /^(\d{4}-\d{2}-\d{2})/.exec(value);
-  if (dated) {
-    return dated[1];
-  }
-  return value;
-}
-
 export function getInviteEarningsState(
   cumulativeRewards?: IInviteEarningsInput | null,
 ): IInviteEarningsState {
@@ -42,8 +31,6 @@ export function getInviteEarningsState(
     undistributed: undistributed.toFixed(2),
     distributed: distributed.toFixed(2),
     cumulative: cumulative.toFixed(2),
-    nextDistribution: formatNextDistribution(
-      cumulativeRewards?.nextDistribution,
-    ),
+    nextDistribution: cumulativeRewards?.nextDistribution || null,
   };
 }

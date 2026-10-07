@@ -1,8 +1,11 @@
 import { useCallback, useState } from 'react';
 
-import { YStack, useMedia } from '@onekeyhq/components';
+import { YStack } from '@onekeyhq/components';
 import { ResponsiveTwoColumnLayout } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/shared';
-import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
+import type {
+  IInviteLevelDetail,
+  IInviteSummary,
+} from '@onekeyhq/shared/src/referralCode/type';
 
 import { InviteBindRow } from './InviteBindRow';
 import { InviteCodeManager } from './InviteCodeManager';
@@ -14,11 +17,12 @@ import { SuspensionAlert } from './SuspensionAlert';
 export function InviteTabContent({
   summaryInfo,
   fetchSummaryInfo,
+  levelDetail,
 }: {
-  summaryInfo?: IInviteSummary;
+  summaryInfo: IInviteSummary;
   fetchSummaryInfo: () => void;
+  levelDetail: IInviteLevelDetail | undefined;
 }) {
-  const { md } = useMedia();
   const [isCodesOpen, setIsCodesOpen] = useState(false);
   const toggleManageCodes = useCallback(() => {
     setIsCodesOpen((open) => !open);
@@ -26,46 +30,37 @@ export function InviteTabContent({
 
   return (
     <YStack pb="$6">
-      {summaryInfo ? (
-        <SuspensionAlert
-          suspensionNotice={summaryInfo.suspensionNotice}
-          suspensionContactLabel={summaryInfo.suspensionContactLabel}
-        />
-      ) : null}
+      <SuspensionAlert
+        suspensionNotice={summaryInfo.suspensionNotice}
+        suspensionContactLabel={summaryInfo.suspensionContactLabel}
+      />
 
       <ResponsiveTwoColumnLayout
         leftColumn={
           <YStack
             gap="$3"
-            borderWidth={md ? 0 : 1}
+            borderWidth={1}
             borderColor="$borderSubdued"
             borderRadius="$3"
-            p={md ? '$0' : '$4'}
+            p="$4"
+            $md={{ borderWidth: 0, p: '$0' }}
           >
-            {summaryInfo ? (
-              <InviteLinkHero
-                inviteUrl={summaryInfo.inviteUrl}
-                inviteCode={summaryInfo.inviteCode}
-                rebateConfig={summaryInfo.rebateConfig}
-                rebateLevels={summaryInfo.rebateLevels}
-                onToggleManageCodes={toggleManageCodes}
-              />
-            ) : null}
+            <InviteLinkHero
+              inviteUrl={summaryInfo.inviteUrl}
+              inviteCode={summaryInfo.inviteCode}
+              rebateConfig={summaryInfo.rebateConfig}
+              rebateLevels={summaryInfo.rebateLevels}
+              onToggleManageCodes={toggleManageCodes}
+              levelDetail={levelDetail}
+            />
             <InviteBindRow />
           </YStack>
         }
-        rightColumn={
-          summaryInfo ? (
-            <InviteEarningsCard
-              summaryInfo={summaryInfo}
-              fetchSummaryInfo={fetchSummaryInfo}
-            />
-          ) : null
-        }
+        rightColumn={<InviteEarningsCard summaryInfo={summaryInfo} />}
       />
 
-      {summaryInfo ? <InviteRewardRows summaryInfo={summaryInfo} /> : null}
-      {isCodesOpen && summaryInfo ? (
+      <InviteRewardRows summaryInfo={summaryInfo} />
+      {isCodesOpen ? (
         <InviteCodeManager
           inviteUrl={summaryInfo.inviteUrl}
           fetchSummaryInfo={fetchSummaryInfo}

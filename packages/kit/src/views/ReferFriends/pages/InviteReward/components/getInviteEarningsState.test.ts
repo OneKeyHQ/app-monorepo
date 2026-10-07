@@ -31,7 +31,7 @@ describe('getInviteEarningsState', () => {
       undistributed: '239.35',
       distributed: '4409.70',
       cumulative: '4649.05',
-      nextDistribution: '2026-10-10',
+      nextDistribution: '2026-10-10T00:00:00.000Z',
     });
   });
 
@@ -54,15 +54,5 @@ describe('getInviteEarningsState', () => {
       cumulative: '0.00',
       nextDistribution: null,
     });
-  });
-
-  it('keeps a non-date next distribution string', () => {
-    expect(
-      getInviteEarningsState({
-        distributed: '1',
-        undistributed: '0',
-        nextDistribution: 'soon',
-      }).nextDistribution,
-    ).toBe('soon');
   });
 });

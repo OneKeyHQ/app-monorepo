@@ -6,12 +6,14 @@ import { useIntl } from 'react-intl';
 import {
   Icon,
   SizableText,
+  Stack,
   XStack,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
+import { InfoIcon } from '@onekeyhq/kit/src/components/InfoIcon';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useNavigateToEarnReward } from '@onekeyhq/kit/src/views/ReferFriends/pages/EarnReward/hooks/useNavigateToEarnReward';
 import { useNavigateToHardwareSalesReward } from '@onekeyhq/kit/src/views/ReferFriends/pages/HardwareSalesReward/hooks/useNavigateToHardwareSalesReward';
@@ -20,13 +22,15 @@ import { useNavigateToSwapReward } from '@onekeyhq/kit/src/views/ReferFriends/pa
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 
-import { getInviteLayoutCopy } from './getInviteLayoutCopy';
+import { INVITE_COPY } from '../inviteCopy';
+
 import {
   type IInviteRewardRow,
   type IInviteRewardSubject,
   getInviteRewardRows,
 } from './getInviteRewardRows';
 import { InviteRewardAmount } from './InviteRewardAmount';
+import { useNextDistributionLabel } from './useNextDistributionLabel';
 
 const SUBJECT_ICON: Record<IInviteRewardSubject, IKeyOfIcons> = {
   hardware: 'OnekeyLiteOutline',
@@ -42,14 +46,47 @@ const SUBJECT_TITLE: Record<IInviteRewardSubject, ETranslations> = {
   defi: ETranslations.referral_referred_type_2,
 };
 
+interface IRewardLabelTooltip {
+  title: string;
+  content: string;
+}
+
+function stopPropagation(e: { stopPropagation: () => void }) {
+  e.stopPropagation();
+}
+
+function RewardLabel({
+  label,
+  tooltip,
+}: {
+  label: string;
+  tooltip?: IRewardLabelTooltip;
+}) {
+  return (
+    <XStack ai="center" gap="$1">
+      <SizableText size="$bodySm" color="$textSubdued">
+        {label}
+      </SizableText>
+      {tooltip ? (
+        // Keep the tooltip tap from opening the row's detail page.
+        <Stack onPress={stopPropagation}>
+          <InfoIcon size="$4" tooltip={tooltip} />
+        </Stack>
+      ) : null}
+    </XStack>
+  );
+}
+
 function HardwareSubtitle({
   row,
   monthlyLabel,
   pendingLabel,
+  pendingTooltip,
 }: {
   row: IInviteRewardRow;
   monthlyLabel: string;
   pendingLabel: string;
+  pendingTooltip: IRewardLabelTooltip;
 }) {
   const pending = row.pending?.hasReward ? row.pending : null;
   if (!row.monthlySalesFiatValue && !pending) {
@@ -75,9 +112,7 @@ function HardwareSubtitle({
       ) : null}
       {pending ? (
         <XStack ai="center" gap="$1">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {pendingLabel}
-          </SizableText>
+          <RewardLabel label={pendingLabel} tooltip={pendingTooltip} />
           <InviteRewardAmount summary={pending} size="$bodySm" />
         </XStack>
       ) : null}
@@ -117,6 +152,8 @@ function DesktopRewardRow({
   monthlyLabel,
   pendingLabel,
   availableLabel,
+  availableTooltip,
+  pendingTooltip,
   viewDetails,
   onPress,
 }: {
@@ -125,11 +162,20 @@ function DesktopRewardRow({
   monthlyLabel: string;
   pendingLabel: string;
   availableLabel: string;
+  availableTooltip?: IRewardLabelTooltip;
+  pendingTooltip?: IRewardLabelTooltip;
   viewDetails: string;
   onPress: () => void;
 }) {
   return (
-    <XStack ai="center" gap="$3" py="$3" cursor="pointer" onPress={onPress}>
+    <XStack
+      ai="center"
+      gap="$3"
+      py="$3"
+      cursor="pointer"
+      role="button"
+      onPress={onPress}
+    >
       <Icon
         name={SUBJECT_ICON[row.subject]}
         size="$5"
@@ -139,7 +185,7 @@ function DesktopRewardRow({
       <SizableText flex={1} size="$bodyLgMedium" numberOfLines={1}>
         {title}
       </SizableText>
-      {row.subject === 'hardware' && row.monthlySalesFiatValue ? (
+      {row.monthlySalesFiatValue ? (
         <YStack minWidth={96} gap="$0.5">
           <SizableText size="$bodySm" color="$textSubdued">
             {monthlyLabel}
@@ -150,17 +196,13 @@ function DesktopRewardRow({
         </YStack>
       ) : null}
       <YStack minWidth={96} ai="flex-end" gap="$0.5">
-        <SizableText size="$bodySm" color="$textSubdued">
-          {availableLabel}
-        </SizableText>
+        <RewardLabel label={availableLabel} tooltip={availableTooltip} />
         <InviteRewardAmount summary={row.available} emptyLabel />
       </YStack>
-      {row.subject === 'hardware' && row.pending?.hasReward ? (
+      {row.pending?.hasReward ? (
         <YStack minWidth={96} ai="flex-end" gap="$0.5">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {pendingLabel}
-          </SizableText>
-          <InviteRewardAmount summary={row.pending} emptyLabel />
+          <RewardLabel label={pendingLabel} tooltip={pendingTooltip} />
+          <InviteRewardAmount summary={row.pending} />
         </YStack>
       ) : null}
       <SizableText size="$bodyMd" color="$textSubdued">
@@ -210,7 +252,9 @@ export function InviteRewardRows({
   const intl = useIntl();
   const { md } = useMedia();
   const [isFoldedOpen, setIsFoldedOpen] = useState(false);
-  const copy = getInviteLayoutCopy(intl.locale);
+  const nextDistribution = useNextDistributionLabel(
+    summaryInfo.cumulativeRewards.nextDistribution,
+  );
   const rows = useMemo(() => getInviteRewardRows(summaryInfo), [summaryInfo]);
   const openSubject = useOpenInviteRewardSubject(
     summaryInfo.Onchain.title || '',
@@ -229,6 +273,27 @@ export function InviteRewardRows({
   const availableLabel = intl.formatMessage({
     id: ETranslations.referral_undistributed,
   });
+  // The undistributed hint only makes sense with a payout date.
+  const hardwareAvailableTooltip: IRewardLabelTooltip | undefined =
+    nextDistribution
+      ? {
+          title: intl.formatMessage({
+            id: ETranslations.referral_hw_undistributed_pop_title,
+          }),
+          content: intl.formatMessage(
+            { id: ETranslations.referral_hw_undistributed_pop },
+            { date: nextDistribution },
+          ),
+        }
+      : undefined;
+  const hardwarePendingTooltip: IRewardLabelTooltip = {
+    title: intl.formatMessage({
+      id: ETranslations.referral_hw_pending_pop_title,
+    }),
+    content: intl.formatMessage({
+      id: ETranslations.referral_hw_pending_pop,
+    }),
+  };
   const noRewardLabel = intl.formatMessage({
     id: ETranslations.referral_no_reward,
   });
@@ -238,8 +303,8 @@ export function InviteRewardRows({
 
   return (
     <YStack px="$pagePadding" pt="$4">
-      <SizableText size="$headingLg" pb="$2">
-        {copy.rewardDetails}
+      <SizableText size="$headingSm" pb="$2">
+        {INVITE_COPY.rewardsByProduct}
       </SizableText>
       {rows.visibleRows.map((row) =>
         md ? (
@@ -253,6 +318,7 @@ export function InviteRewardRows({
                   row={row}
                   monthlyLabel={monthlyLabel}
                   pendingLabel={pendingLabel}
+                  pendingTooltip={hardwarePendingTooltip}
                 />
               ) : undefined
             }
@@ -268,7 +334,11 @@ export function InviteRewardRows({
             monthlyLabel={monthlyLabel}
             pendingLabel={pendingLabel}
             availableLabel={availableLabel}
-            viewDetails={copy.viewDetails}
+            availableTooltip={
+              row.subject === 'hardware' ? hardwareAvailableTooltip : undefined
+            }
+            pendingTooltip={hardwarePendingTooltip}
+            viewDetails={INVITE_COPY.details}
             onPress={() => {
               openSubject(row.subject);
             }}

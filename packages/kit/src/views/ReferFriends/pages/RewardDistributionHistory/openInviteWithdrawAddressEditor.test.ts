@@ -65,19 +65,6 @@ describe('openInviteWithdrawAddressEditor', () => {
     );
   });
 
-  it('does not open EditAddress when summary is missing', () => {
-    const navigateToEditAddress = jest.fn();
-
-    openInviteWithdrawAddressEditor({
-      summaryInfo: undefined,
-      navigateToEditAddress,
-      fetchSummaryInfo: jest.fn(),
-      formatMessage: ({ id }) => id,
-    });
-
-    expect(navigateToEditAddress).not.toHaveBeenCalled();
-  });
-
   it('omits address when the OneKey ID has no withdraw address', () => {
     const navigateToEditAddress = jest.fn();
 

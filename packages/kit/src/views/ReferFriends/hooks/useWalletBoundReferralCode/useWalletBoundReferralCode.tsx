@@ -18,6 +18,10 @@ import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorT
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type {
+  IReferralBindErrorType,
+  IReferralBindSource,
+} from '@onekeyhq/shared/src/logger/scopes/referral/scenes/page';
 import type { ICheckWalletBindStatusResponse } from '@onekeyhq/shared/src/referralCode/type';
 import { autoFixPersonalSignMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -31,6 +35,7 @@ import { InviteCodeDialog } from './InviteCodeDialog';
 import {
   type IReferralBindDisplayStatus,
   getReferralBindDisplayStatus,
+  isBindWindowExpiredError,
 } from './referralBindStatusUtils';
 import { useGetReferralCodeWalletInfo } from './useGetReferralCodeWalletInfo';
 
@@ -161,7 +166,7 @@ export function useWalletBoundReferralCode({
        * referralBindingCompleted analytics event so the caller doesn't have
        * to re-log it (which would cause a double-fire).
        */
-      source?: 'onboarding_dialog' | 'home_block' | 'settings';
+      source?: IReferralBindSource;
       /**
        * If true, do not show the default success Toast on bind success.
        * Use this when the caller renders its own success feedback (e.g. an
@@ -294,10 +299,18 @@ export function useWalletBoundReferralCode({
         >;
         const isServerApiError =
           err?.className === EOneKeyErrorClassNames.OneKeyServerApiError;
-        const isBindWindowExpired =
-          err?.data?.messageId === 'exceeded_bind_window' ||
-          err?.data?.message === 'exceeded_bind_window' ||
-          err?.message === 'exceeded_bind_window';
+        const isBindWindowExpired = isBindWindowExpiredError(err);
+        let errorType: IReferralBindErrorType = 'client_error';
+        if (isBindWindowExpired) {
+          errorType = 'bind_window_expired';
+        } else if (isServerApiError) {
+          errorType = 'server_rejected';
+        }
+        defaultLogger.referral.page.referralBindFailed({
+          source,
+          errorType,
+          serverMessageId: isServerApiError ? err.data?.messageId : undefined,
+        });
 
         // Suppress toast when:
         //   - caller opts out unconditionally (suppressErrorToast), or
@@ -335,11 +348,13 @@ export function useWalletBoundReferralCode({
       onSuccess,
       onClose,
       defaultReferralCode,
+      source,
     }: {
       wallet?: IDBWallet;
       onSuccess?: () => void;
       onClose?: () => void;
       defaultReferralCode?: string;
+      source?: IReferralBindSource;
     }) => {
       dialog.show({
         showExitButton: true,
@@ -353,6 +368,7 @@ export function useWalletBoundReferralCode({
             onSuccess={onSuccess}
             confirmBindReferralCode={confirmBindReferralCode}
             defaultReferralCode={defaultReferralCode}
+            source={source}
           />
         ),
       });

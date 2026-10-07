@@ -24,6 +24,8 @@ import type { INavigationToMessageConfirmParams } from '@onekeyhq/kit/src/hooks/
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IReferralBindSource } from '@onekeyhq/shared/src/logger/scopes/referral/scenes/page';
 
 import { ReferFriendsTestIDs } from '../../testIDs';
 
@@ -32,6 +34,7 @@ import {
   AllWalletsUnavailableEmpty,
 } from './AllWalletsBoundEmpty';
 import { NoWalletEmpty } from './NoWalletEmpty';
+import { isBindWindowExpiredError } from './referralBindStatusUtils';
 import { useFetchWalletsWithBoundStatus } from './useFetchWalletsWithBoundStatus';
 import { useGetReferralCodeWalletInfo } from './useGetReferralCodeWalletInfo';
 
@@ -42,12 +45,15 @@ export function InviteCodeDialog({
   onSuccess,
   confirmBindReferralCode,
   defaultReferralCode,
+  source,
 }: {
   wallet?: IDBWallet;
   onSuccess?: () => void;
   defaultReferralCode?: string;
+  source?: IReferralBindSource;
   confirmBindReferralCode: (params: {
     referralCode: string;
+    source?: IReferralBindSource;
     preventClose?: () => void;
     walletInfo: IReferralCodeWalletInfo | null | undefined;
     navigationToMessageConfirmAsync: (
@@ -210,11 +216,18 @@ export function InviteCodeDialog({
       try {
         const isValidForm = await form.trigger();
         if (!isValidForm) {
+          if (form.getValues().referralCode) {
+            defaultLogger.referral.page.referralBindFailed({
+              source,
+              errorType: 'invalid_format',
+            });
+          }
           preventClose?.();
           return;
         }
         await confirmBindReferralCode({
           referralCode: form.getValues().referralCode,
+          source,
           preventClose,
           walletInfo,
           navigationToMessageConfirmAsync,
@@ -229,10 +242,7 @@ export function InviteCodeDialog({
           }
         >;
         if (err.className === 'OneKeyServerApiError' && err.message) {
-          const isBindWindowExpired =
-            err.data?.messageId === 'exceeded_bind_window' ||
-            err.data?.message === 'exceeded_bind_window' ||
-            err.message === 'exceeded_bind_window';
+          const isBindWindowExpired = isBindWindowExpiredError(err);
           form.setError('referralCode', {
             message: isBindWindowExpired
               ? intl.formatMessage({
@@ -251,6 +261,7 @@ export function InviteCodeDialog({
       navigationToMessageConfirmAsync,
       onSuccess,
       intl,
+      source,
     ],
   );
 

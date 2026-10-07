@@ -1,10 +1,9 @@
 import { useMemo } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import { SizableText } from '@onekeyhq/components';
+import type { IInviteLevelDetail } from '@onekeyhq/shared/src/referralCode/type';
 
-import { useCurrentLevelCard } from './CurrentLevelCard/hooks/useCurrentLevelCard';
+import { useCurrentLevelCardFromDetail } from './CurrentLevelCard/hooks/useCurrentLevelCard';
 import {
   getInviteValueLine,
   selectInviteValueLineItems,
@@ -12,9 +11,11 @@ import {
 
 import type { ICurrentLevelCardProps } from './CurrentLevelCard/types';
 
-export function InviteValueLine(props: ICurrentLevelCardProps) {
-  const intl = useIntl();
-  const { commissionRates } = useCurrentLevelCard(props);
+export function InviteValueLine({
+  levelDetail,
+  ...props
+}: ICurrentLevelCardProps & { levelDetail: IInviteLevelDetail | undefined }) {
+  const { commissionRates } = useCurrentLevelCardFromDetail(props, levelDetail);
   const line = useMemo(() => {
     const items = selectInviteValueLineItems({
       commissionRates: commissionRates.map((item) => ({
@@ -24,8 +25,8 @@ export function InviteValueLine(props: ICurrentLevelCardProps) {
       })),
       configs: props.rebateConfig.configs,
     });
-    return getInviteValueLine(items, intl.locale);
-  }, [commissionRates, intl.locale, props.rebateConfig.configs]);
+    return getInviteValueLine(items);
+  }, [commissionRates, props.rebateConfig.configs]);
 
   if (!line) {
     return null;

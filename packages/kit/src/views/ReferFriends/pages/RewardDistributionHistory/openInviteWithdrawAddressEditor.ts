@@ -5,8 +5,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 import type { IModalReferFriendsParamList } from '@onekeyhq/shared/src/routes';
 
-import { getInviteWithdrawAddress } from './getInviteWithdrawAddress';
-
 type IEditAddressParams = IModalReferFriendsParamList['EditAddress'];
 
 export function openInviteWithdrawAddressEditor({
@@ -15,18 +13,12 @@ export function openInviteWithdrawAddressEditor({
   fetchSummaryInfo,
   formatMessage,
 }: {
-  summaryInfo?: IInviteSummary;
+  summaryInfo: IInviteSummary;
   navigateToEditAddress: (params: IEditAddressParams) => void;
   fetchSummaryInfo: () => unknown;
   formatMessage: (descriptor: { id: ETranslations }) => string;
 }) {
-  if (!summaryInfo) {
-    return;
-  }
-
-  const withdrawAddress = getInviteWithdrawAddress(
-    summaryInfo.withdrawAddresses,
-  );
+  const withdrawAddress = summaryInfo.withdrawAddresses[0];
 
   navigateToEditAddress({
     enabledNetworks: summaryInfo.enabledNetworks,
@@ -41,9 +33,7 @@ export function openInviteWithdrawAddressEditor({
           id: ETranslations.referral_address_updated,
         }),
       });
-      setTimeout(() => {
-        void fetchSummaryInfo();
-      }, 50);
+      void fetchSummaryInfo();
       defaultLogger.referral.page.editReceivingAddress({
         networkId,
         editMethod: withdrawAddress ? 'edit' : 'new',

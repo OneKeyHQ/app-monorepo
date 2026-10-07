@@ -6,6 +6,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { sortCommissionRateItems } from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IInviteLevelDetail } from '@onekeyhq/shared/src/referralCode/type';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import type {
@@ -27,13 +28,11 @@ function getDisplayLabel(
   return fallback ?? '';
 }
 
-export function useCurrentLevelCard(
-  props: ICurrentLevelCardProps,
-): IUseCurrentLevelCardReturn {
-  const { rebateConfig, rebateLevels } = props;
-  const intl = useIntl();
-
-  const { result: levelDetail } = usePromiseResult(
+export function useInviteLevelDetail({ isActive }: { isActive: boolean }): {
+  levelDetail: IInviteLevelDetail | undefined;
+  refreshLevelDetail: () => Promise<void>;
+} {
+  const { result, run } = usePromiseResult(
     () => backgroundApiProxy.serviceReferralCode.getLevelDetail(),
     [],
     {
@@ -41,8 +40,18 @@ export function useCurrentLevelCard(
       pollingInterval: timerUtils.getTimeDurationMs({ minute: 1 }),
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
+      overrideIsFocused: (isPageFocused) => isPageFocused && isActive,
     },
   );
+  return { levelDetail: result, refreshLevelDetail: run };
+}
+
+export function useCurrentLevelCardFromDetail(
+  props: ICurrentLevelCardProps,
+  levelDetail: IInviteLevelDetail | undefined,
+): IUseCurrentLevelCardReturn {
+  const { rebateConfig, rebateLevels } = props;
+  const intl = useIntl();
 
   return useMemo(() => {
     const currentLevel = rebateConfig;
@@ -56,8 +65,6 @@ export function useCurrentLevelCard(
       (level) => level.level === displayedLevel,
     );
 
-    const levelIcon =
-      detailLevel?.icon || basicLevelInfo?.icon || currentLevel.icon || '';
     const levelLabel = getDisplayLabel(
       intl,
       detailLevel?.labelKey ??
@@ -66,15 +73,7 @@ export function useCurrentLevelCard(
       detailLevel?.label ?? basicLevelInfo?.label ?? currentLevel.label,
     );
 
-    let commissionRates: Array<{
-      subject: string;
-      rate: {
-        you: number;
-        invitee: number;
-        label: string;
-        enabled: boolean;
-      };
-    }> = [];
+    let commissionRates: IUseCurrentLevelCardReturn['commissionRates'] = [];
 
     const rates =
       detailLevel?.commissionRates ??
@@ -118,8 +117,6 @@ export function useCurrentLevelCard(
     }
 
     return {
-      currentLevel,
-      levelIcon,
       levelLabel,
       commissionRates,
     };

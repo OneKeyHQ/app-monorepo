@@ -1,22 +1,20 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
-import { useIntl } from 'react-intl';
-
-import { Badge, Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {
   useFetchWalletsWithBoundStatus,
   useWalletBoundReferralCode,
 } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ReferFriendsTestIDs } from '../../../testIDs';
+import { INVITE_COPY } from '../inviteCopy';
 
 import { getInviteBindRowKind } from './getInviteBindRowKind';
 
 export function InviteBindRow() {
-  const intl = useIntl();
   const { walletsWithStatus, refreshWalletsWithStatus } =
     useFetchWalletsWithBoundStatus();
   const { bindWalletInviteCode } = useWalletBoundReferralCode({
@@ -24,17 +22,24 @@ export function InviteBindRow() {
   });
   const kind = getInviteBindRowKind(walletsWithStatus);
   const isBound = kind === 'bound';
+  const hasLoggedShownRef = useRef(false);
 
-  const handlePress = useCallback(() => {
-    if (isBound) {
+  useEffect(() => {
+    if (kind === 'unknown' || hasLoggedShownRef.current) {
       return;
     }
+    hasLoggedShownRef.current = true;
+    defaultLogger.referral.page.inviteBindRowShown({ status: kind });
+  }, [kind]);
+
+  const handlePress = useCallback(() => {
     bindWalletInviteCode({
+      source: 'invite_home',
       onSuccess: () => {
         void refreshWalletsWithStatus();
       },
     });
-  }, [bindWalletInviteCode, isBound, refreshWalletsWithStatus]);
+  }, [bindWalletInviteCode, refreshWalletsWithStatus]);
 
   return (
     <ListItem
@@ -49,27 +54,12 @@ export function InviteBindRow() {
       </XStack>
       <YStack flex={1} gap="$0.5">
         <SizableText size="$bodyLgMedium">
-          {intl.formatMessage({
-            id: ETranslations.onboarding_invite_code_dialog_title,
-          })}
+          {isBound ? INVITE_COPY.boundTitle : INVITE_COPY.bindTitle}
         </SizableText>
         <SizableText size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({
-            id: isBound
-              ? ETranslations.referral_wallet_bind_code_finish
-              : ETranslations.referral_onboard_bind_code,
-          })}
+          {isBound ? INVITE_COPY.boundDescription : INVITE_COPY.bindDescription}
         </SizableText>
       </YStack>
-      {isBound ? (
-        <Badge badgeType="info" badgeSize="sm">
-          <Badge.Text>
-            {intl.formatMessage({
-              id: ETranslations.referral_wallet_bind_code_finish,
-            })}
-          </Badge.Text>
-        </Badge>
-      ) : null}
     </ListItem>
   );
 }

@@ -27,6 +27,18 @@ export type IReferralPageOpenParams = {
   pageVariant: string;
 };
 
+export type IReferralBindSource =
+  | 'onboarding_dialog'
+  | 'home_block'
+  | 'settings'
+  | 'invite_home';
+
+export type IReferralBindErrorType =
+  | 'invalid_format'
+  | 'bind_window_expired'
+  | 'server_rejected'
+  | 'client_error';
+
 export class PageScene extends BaseScene {
   @LogToServer()
   @LogToLocal({ level: 'info' })
@@ -105,12 +117,6 @@ export class PageScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal({ level: 'info' })
-  public toggleReceivingAddressVisibility(isVisible: boolean) {
-    return { isVisible };
-  }
-
-  @LogToServer()
-  @LogToLocal({ level: 'info' })
   public referralPageOpen(params: IReferralPageOpenParams) {
     return params;
   }
@@ -150,7 +156,29 @@ export class PageScene extends BaseScene {
     referralCode: string;
     address: string;
     networkId: string;
-    source?: 'onboarding_dialog' | 'home_block' | 'settings';
+    source?: IReferralBindSource;
+  }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public inviteHomeShown(params: { hasEarnings: boolean }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public inviteBindRowShown(params: { status: 'bind' | 'bound' | 'empty' }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public referralBindFailed(params: {
+    source?: IReferralBindSource;
+    errorType: IReferralBindErrorType;
+    serverMessageId?: string;
   }) {
     return params;
   }

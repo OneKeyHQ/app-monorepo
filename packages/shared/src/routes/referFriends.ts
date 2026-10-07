@@ -5,6 +5,13 @@ import type {
   IHardwareRecordItem,
 } from '../referralCode/type';
 
+export type IReferralPageTab = 'invite' | 'benefits';
+
+export interface IInviteRewardRouteParams {
+  showRewardDistributionHistory?: boolean;
+  tab?: IReferralPageTab;
+}
+
 export interface IBtcRewardCodeInfoParam {
   codeId: string;
   batchName: string;
@@ -57,12 +64,7 @@ export type IModalReferFriendsParamList = {
   [EModalReferFriendsRoutes.HardwareSalesOrderDetail]: {
     data: IHardwareRecordItem;
   };
-  [EModalReferFriendsRoutes.InviteReward]:
-    | {
-        showRewardDistributionHistory?: boolean;
-        tab?: 'invite' | 'benefits';
-      }
-    | undefined;
+  [EModalReferFriendsRoutes.InviteReward]: IInviteRewardRouteParams | undefined;
   [EModalReferFriendsRoutes.EditAddress]: {
     enabledNetworks: string[];
     accountId: string;

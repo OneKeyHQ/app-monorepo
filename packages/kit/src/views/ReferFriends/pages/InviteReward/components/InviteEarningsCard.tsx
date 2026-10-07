@@ -18,10 +18,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 
 import { ReferFriendsTestIDs } from '../../../testIDs';
+import { INVITE_COPY } from '../inviteCopy';
 
 import { getInviteEarningsState } from './getInviteEarningsState';
-import { getInviteLayoutCopy } from './getInviteLayoutCopy';
-import { InviteWithdrawAddressRow } from './InviteWithdrawAddressRow';
+import { useNextDistributionLabel } from './useNextDistributionLabel';
 
 function CardTextAction({
   label,
@@ -38,6 +38,7 @@ function CardTextAction({
       ai="center"
       gap="$0.5"
       cursor="pointer"
+      role="button"
       onPress={onPress}
     >
       <SizableText size="$bodyMd" color="$textSubdued">
@@ -45,17 +46,6 @@ function CardTextAction({
       </SizableText>
       <Icon name="ChevronRightSmallOutline" size="$4" color="$iconSubdued" />
     </XStack>
-  );
-}
-
-function EarningsStat({ label, value }: { label: string; value: string }) {
-  return (
-    <YStack flex={1} gap="$1">
-      <SizableText size="$bodySm" color="$textSubdued">
-        {label}
-      </SizableText>
-      <Currency size="$bodyLgMedium">{value}</Currency>
-    </YStack>
   );
 }
 
@@ -87,54 +77,121 @@ function EarningsTotals({
   );
 }
 
-function ActiveEarningsBody({
-  isCompact,
-  undistributedLabel,
-  nextDistributionLabel,
-  cumulativeLabel,
-  distributedLabel,
+type IInviteEarnings = ReturnType<typeof getInviteEarningsState>;
+
+interface IEarningsLabels {
+  undistributed: string;
+  distributed: string;
+  cumulative: string;
+  nextDistribution: string;
+  referred: string;
+  history: string;
+}
+
+// Desktop keeps the earnings to a single summary line beside the invite card.
+function DesktopEarningsSummary({
   earnings,
-  summaryInfo,
-  fetchSummaryInfo,
+  labels,
+  onOpenReferred,
+  onOpenHistory,
 }: {
-  isCompact: boolean;
-  undistributedLabel: string;
-  nextDistributionLabel: string;
-  cumulativeLabel: string;
-  distributedLabel: string;
-  earnings: ReturnType<typeof getInviteEarningsState>;
-  summaryInfo: IInviteSummary;
-  fetchSummaryInfo: () => void;
+  earnings: IInviteEarnings;
+  labels: IEarningsLabels;
+  onOpenReferred: () => void;
+  onOpenHistory: () => void;
+}) {
+  return (
+    <XStack ai="center" gap="$4" flexWrap="wrap">
+      <XStack flex={1} ai="center" gap="$1" flexWrap="wrap">
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {labels.undistributed}
+        </SizableText>
+        <Currency size="$bodyMdMedium">{earnings.undistributed}</Currency>
+        <SizableText size="$bodyMd" color="$textSubdued">
+          ·
+        </SizableText>
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {labels.distributed}
+        </SizableText>
+        <Currency size="$bodyMdMedium">{earnings.distributed}</Currency>
+        {earnings.nextDistribution ? (
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {`· ${labels.nextDistribution} ${earnings.nextDistribution}`}
+          </SizableText>
+        ) : null}
+      </XStack>
+      <CardTextAction
+        testID={ReferFriendsTestIDs.inviteYourReferred}
+        label={labels.referred}
+        onPress={onOpenReferred}
+      />
+      <CardTextAction
+        testID={ReferFriendsTestIDs.inviteRewardHistory}
+        label={labels.history}
+        onPress={onOpenHistory}
+      />
+    </XStack>
+  );
+}
+
+function CompactEarnings({
+  earnings,
+  labels,
+  onOpenReferred,
+  onOpenHistory,
+}: {
+  earnings: IInviteEarnings;
+  labels: IEarningsLabels;
+  onOpenReferred: () => void;
+  onOpenHistory: () => void;
 }) {
   return (
     <YStack gap="$2">
-      <SizableText size="$bodyMd" color="$textSubdued">
-        {undistributedLabel}
-      </SizableText>
-      <Currency size="$heading2xl">{earnings.undistributed}</Currency>
-      {earnings.nextDistribution ? (
-        <SizableText size="$bodySm" color="$textSubdued">
-          {`${nextDistributionLabel} ${earnings.nextDistribution}`}
-        </SizableText>
-      ) : null}
-      <Divider />
-      {isCompact ? (
-        <EarningsTotals
-          cumulativeLabel={cumulativeLabel}
-          distributedLabel={distributedLabel}
-          cumulative={earnings.cumulative}
-          distributed={earnings.distributed}
+      <XStack jc="flex-end">
+        <CardTextAction
+          testID={ReferFriendsTestIDs.inviteYourReferred}
+          label={labels.referred}
+          onPress={onOpenReferred}
         />
+      </XStack>
+      {earnings.isZero ? (
+        <ListItem
+          testID={ReferFriendsTestIDs.inviteRewardHistory}
+          mx="$0"
+          px="$0"
+          title={labels.undistributed}
+          drillIn
+          onPress={onOpenHistory}
+        >
+          <Currency size="$bodyMdMedium">{earnings.undistributed}</Currency>
+        </ListItem>
       ) : (
-        <XStack gap="$3" ai="flex-start">
-          <EarningsStat label={cumulativeLabel} value={earnings.cumulative} />
-          <EarningsStat label={distributedLabel} value={earnings.distributed} />
-          <InviteWithdrawAddressRow
-            summaryInfo={summaryInfo}
-            fetchSummaryInfo={fetchSummaryInfo}
-            layout="stat"
+        <>
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {labels.undistributed}
+          </SizableText>
+          <Currency size="$headingMd">{earnings.undistributed}</Currency>
+          {earnings.nextDistribution ? (
+            <SizableText size="$bodySm" color="$textSubdued">
+              {`${labels.nextDistribution} ${earnings.nextDistribution}`}
+            </SizableText>
+          ) : null}
+          <Divider />
+          <EarningsTotals
+            cumulativeLabel={labels.cumulative}
+            distributedLabel={labels.distributed}
+            cumulative={earnings.cumulative}
+            distributed={earnings.distributed}
           />
-        </XStack>
+          <ListItem
+            testID={ReferFriendsTestIDs.inviteRewardHistory}
+            mx="$0"
+            px="$0"
+            title={labels.history}
+            drillIn
+            onPress={onOpenHistory}
+          />
+        </>
       )}
     </YStack>
   );
@@ -142,30 +199,36 @@ function ActiveEarningsBody({
 
 export function InviteEarningsCard({
   summaryInfo,
-  fetchSummaryInfo,
 }: {
   summaryInfo: IInviteSummary;
-  fetchSummaryInfo: () => void;
 }) {
   const intl = useIntl();
   const { md } = useMedia();
   const navigateToRewardHistory = useNavigateToRewardHistory();
   const navigateToYourReferred = useNavigateToYourReferred();
-  const copy = getInviteLayoutCopy(intl.locale);
-  const earnings = useMemo(
-    () => getInviteEarningsState(summaryInfo.cumulativeRewards),
-    [summaryInfo.cumulativeRewards],
+  const nextDistribution = useNextDistributionLabel(
+    summaryInfo.cumulativeRewards.nextDistribution,
   );
-  const undistributedLabel = intl.formatMessage({
-    id: ETranslations.referral_undistributed,
-  });
-  const distributedLabel = intl.formatMessage({
-    id: ETranslations.referral_distributed,
-  });
-  const referredLabel = intl.formatMessage({
-    id: ETranslations.referral_referral_list,
-  });
-  const historyLabel = copy.rewardHistory;
+  const earnings = useMemo(
+    () => ({
+      ...getInviteEarningsState(summaryInfo.cumulativeRewards),
+      nextDistribution,
+    }),
+    [nextDistribution, summaryInfo.cumulativeRewards],
+  );
+  const labels: IEarningsLabels = {
+    undistributed: intl.formatMessage({
+      id: ETranslations.referral_undistributed,
+    }),
+    distributed: intl.formatMessage({ id: ETranslations.referral_distributed }),
+    cumulative: INVITE_COPY.totalEarned,
+    nextDistribution: intl.formatMessage({
+      id: ETranslations.referral_next_distribution,
+    }),
+    referred: intl.formatMessage({ id: ETranslations.referral_referral_list }),
+    history: intl.formatMessage({ id: ETranslations.referral_reward_history }),
+  };
+  const EarningsBody = md ? CompactEarnings : DesktopEarningsSummary;
 
   return (
     <YStack
@@ -175,55 +238,13 @@ export function InviteEarningsCard({
       borderRadius="$3"
       bg="$bgSubdued"
       p="$4"
-      gap="$2"
     >
-      <XStack jc="flex-end">
-        <CardTextAction
-          testID={ReferFriendsTestIDs.inviteYourReferred}
-          label={referredLabel}
-          onPress={navigateToYourReferred}
-        />
-      </XStack>
-      {earnings.isZero ? (
-        <ListItem
-          mx="$0"
-          px="$0"
-          title={undistributedLabel}
-          drillIn
-          onPress={navigateToRewardHistory}
-        >
-          <Currency size="$bodyMdMedium">{earnings.undistributed}</Currency>
-        </ListItem>
-      ) : (
-        <ActiveEarningsBody
-          isCompact={md}
-          undistributedLabel={undistributedLabel}
-          nextDistributionLabel={intl.formatMessage({
-            id: ETranslations.referral_next_distribution,
-          })}
-          cumulativeLabel={copy.cumulativeEarnings}
-          distributedLabel={distributedLabel}
-          earnings={earnings}
-          summaryInfo={summaryInfo}
-          fetchSummaryInfo={fetchSummaryInfo}
-        />
-      )}
-      {md || earnings.isZero ? (
-        <InviteWithdrawAddressRow
-          summaryInfo={summaryInfo}
-          fetchSummaryInfo={fetchSummaryInfo}
-        />
-      ) : null}
-      {earnings.isZero ? null : (
-        <ListItem
-          testID={ReferFriendsTestIDs.inviteRewardHistory}
-          mx="$0"
-          px="$0"
-          title={historyLabel}
-          drillIn
-          onPress={navigateToRewardHistory}
-        />
-      )}
+      <EarningsBody
+        earnings={earnings}
+        labels={labels}
+        onOpenReferred={navigateToYourReferred}
+        onOpenHistory={navigateToRewardHistory}
+      />
     </YStack>
   );
 }

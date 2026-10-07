@@ -1,23 +1,21 @@
-import { useIntl } from 'react-intl';
-
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
 import { useNavigateToReferralLevel } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferralLevel/hooks/useNavigateToReferralLevel';
+import type { IInviteLevelDetail } from '@onekeyhq/shared/src/referralCode/type';
 
 import { ReferFriendsTestIDs } from '../../../testIDs';
 
-import { useCurrentLevelCard } from './CurrentLevelCard/hooks/useCurrentLevelCard';
-import { getInviteLayoutCopy } from './getInviteLayoutCopy';
+import { useCurrentLevelCardFromDetail } from './CurrentLevelCard/hooks/useCurrentLevelCard';
 
 import type { ICurrentLevelCardProps } from './CurrentLevelCard/types';
 
 export function InviteLevelPill({
-  showBenefitsLabel,
+  levelDetail,
   ...props
-}: ICurrentLevelCardProps & { showBenefitsLabel: boolean }) {
-  const intl = useIntl();
-  const { levelLabel } = useCurrentLevelCard(props);
+}: ICurrentLevelCardProps & {
+  levelDetail: IInviteLevelDetail | undefined;
+}) {
+  const { levelLabel } = useCurrentLevelCardFromDetail(props, levelDetail);
   const navigateToReferralLevel = useNavigateToReferralLevel();
-  const copy = getInviteLayoutCopy(intl.locale);
 
   return (
     <XStack
@@ -30,6 +28,7 @@ export function InviteLevelPill({
       bg="$bgSubdued"
       flexShrink={1}
       cursor="pointer"
+      role="button"
       onPress={() => {
         void navigateToReferralLevel();
       }}
@@ -40,11 +39,6 @@ export function InviteLevelPill({
       <SizableText size="$bodyMdMedium" numberOfLines={1} flexShrink={1}>
         {levelLabel}
       </SizableText>
-      {showBenefitsLabel ? (
-        <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-          {`· ${copy.levelBenefits}`}
-        </SizableText>
-      ) : null}
       <Icon name="ChevronRightSmallOutline" size="$4" color="$iconSubdued" />
     </XStack>
   );

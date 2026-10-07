@@ -11,12 +11,12 @@ export interface IInviteValueLineConfig {
   enabled?: boolean;
 }
 
-const VALUE_LINE_LABELS: Record<string, { zh: string; en: string }> = {
-  HardwareSales: { zh: '硬件', en: 'hardware' },
-  Perp: { zh: '合约', en: 'Perps fees' },
-  Swap: { zh: 'Swap', en: 'Swap fees' },
-  Earn: { zh: 'DeFi', en: 'DeFi fees' },
-  Onchain: { zh: 'DeFi', en: 'DeFi fees' },
+const VALUE_LINE_LABELS: Record<string, string> = {
+  HardwareSales: 'hardware sales',
+  Perp: 'Perps fees',
+  Swap: 'Swap fees',
+  Earn: 'DeFi fees',
+  Onchain: 'DeFi fees',
 };
 
 function isKnownSubject(subject: string) {
@@ -31,12 +31,8 @@ function formatRate(value: number): string | null {
   return String(rounded);
 }
 
-function labelFor(subject: string, isZh: boolean) {
-  const known = VALUE_LINE_LABELS[subject];
-  if (!known) {
-    return subject;
-  }
-  return isZh ? known.zh : known.en;
+function labelFor(subject: string) {
+  return VALUE_LINE_LABELS[subject] ?? subject;
 }
 
 export function selectInviteValueLineItems({
@@ -59,39 +55,25 @@ export function selectInviteValueLineItems({
   }));
 }
 
+// Keep the hero line to one row; the level page lists every rate.
+const MAX_VALUE_LINE_ITEMS = 2;
+
 export function getInviteValueLine(
   commissionRates: readonly IInviteValueLineItem[],
-  locale: string,
 ): string | null {
-  const isZh = locale.toLowerCase().startsWith('zh');
-  const parts = sortCommissionRateItems([...commissionRates]).flatMap(
-    (item) => {
+  const parts = sortCommissionRateItems([...commissionRates])
+    .flatMap((item) => {
       if (!item.enabled) {
         return [];
       }
+      // A 0% rate is not something to advertise in the hero line.
       const rate = formatRate(item.you);
-      if (rate === null) {
+      if (rate === null || item.you <= 0) {
         return [];
       }
-      return [{ label: labelFor(item.subject, isZh), rate }];
-    },
-  );
+      return [`${rate}% on ${labelFor(item.subject)}`];
+    })
+    .slice(0, MAX_VALUE_LINE_ITEMS);
 
-  const first = parts[0];
-  if (!first) {
-    return null;
-  }
-
-  if (isZh) {
-    return parts.map((part) => `${part.label} ${part.rate}%`).join(' · ');
-  }
-
-  const rest = parts.slice(1);
-  const head = `Earn ${first.rate}% on ${first.label}`;
-  if (rest.length === 0) {
-    return head;
-  }
-  return [head, ...rest.map((part) => `${part.rate}% on ${part.label}`)].join(
-    ' · ',
-  );
+  return parts.length > 0 ? parts.join(' · ') : null;
 }

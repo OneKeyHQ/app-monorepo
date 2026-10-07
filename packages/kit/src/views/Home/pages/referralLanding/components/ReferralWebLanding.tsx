@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -16,31 +16,15 @@ import {
 import type {
   IIllustrationName,
   IKeyOfIcons,
-  ILottieViewProps,
   ISizableTextProps,
 } from '@onekeyhq/components';
-import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { HomeTestIDs } from '@onekeyhq/kit/src/views/Home/testIDs';
 import { LayoutHeaderLanguageSelector } from '@onekeyhq/kit/src/views/Onboardingv2/components/Layout';
+import { useReferLottieSource } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useReferLottieSource';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const LOTTIE_ASPECT_RATIO = 786 / 446;
-
-function resolveLottieModule(module: unknown): ILottieViewProps['source'] {
-  const lottieModule = module as { default?: ILottieViewProps['source'] };
-  return lottieModule.default ?? module;
-}
-
-async function loadReferralLottieSource(themeVariant: 'light' | 'dark') {
-  return themeVariant === 'dark'
-    ? resolveLottieModule(
-        await import('@onekeyhq/kit/assets/animations/_mov_refer_dark.json'),
-      )
-    : resolveLottieModule(
-        await import('@onekeyhq/kit/assets/animations/_mov_refer.json'),
-      );
-}
 
 const VARIANT_COPY = {
   perps: {
@@ -194,25 +178,7 @@ function StepCard({
 }
 
 function ReferralLottieAnimation() {
-  const themeVariant = useThemeVariant();
-  const [lottieSource, setLottieSource] = useState<
-    ILottieViewProps['source'] | null
-  >(null);
-  const lottieThemeVariant = themeVariant === 'dark' ? 'dark' : 'light';
-
-  useEffect(() => {
-    let cancelled = false;
-    setLottieSource(null);
-    void loadReferralLottieSource(lottieThemeVariant).then((source) => {
-      if (cancelled) {
-        return;
-      }
-      setLottieSource(source);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [lottieThemeVariant]);
+  const lottieSource = useReferLottieSource();
 
   return (
     <Stack
