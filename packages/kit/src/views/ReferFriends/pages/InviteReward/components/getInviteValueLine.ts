@@ -3,36 +3,40 @@ import { sortCommissionRateItems } from '@onekeyhq/kit/src/views/ReferFriends/ut
 export interface IInviteValueLineItem {
   subject: string;
   you: number;
+  invitee?: number;
   enabled: boolean;
 }
 
 export interface IInviteValueLineConfig {
   rebate: number;
+  discount?: number;
   enabled?: boolean;
 }
 
-const VALUE_LINE_LABELS: Record<string, string> = {
-  HardwareSales: 'hardware sales',
-  Perp: 'Perps fees',
-  Swap: 'Swap fees',
-  Earn: 'DeFi fees',
-  Onchain: 'DeFi fees',
+// One row per backend rate subject: the short name read inside the sentence
+// and the long name labelling the breakdown. `Earn` and `Onchain` are both
+// DeFi, so they collapse into one row.
+const SUBJECT_NAMES: Record<string, { short: string; long: string }> = {
+  HardwareSales: { short: 'hardware', long: 'Hardware sales' },
+  Perp: { short: 'Perps', long: 'Perps fees' },
+  Swap: { short: 'Swap', long: 'Swap fees' },
+  Earn: { short: 'DeFi', long: 'DeFi fees' },
+  Onchain: { short: 'DeFi', long: 'DeFi fees' },
 };
 
 function isKnownSubject(subject: string) {
-  return Object.prototype.hasOwnProperty.call(VALUE_LINE_LABELS, subject);
+  return Object.prototype.hasOwnProperty.call(SUBJECT_NAMES, subject);
 }
 
-function formatRate(value: number): string | null {
-  if (!Number.isFinite(value)) {
-    return null;
+function formatRate(value: number) {
+  return `${Math.round(value * 100) / 100}%`;
+}
+
+function joinNames(names: string[]) {
+  if (names.length <= 1) {
+    return names.join('');
   }
-  const rounded = Math.round(value * 100) / 100;
-  return String(rounded);
-}
-
-function labelFor(subject: string) {
-  return VALUE_LINE_LABELS[subject] ?? subject;
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 }
 
 export function selectInviteValueLineItems({
@@ -51,29 +55,65 @@ export function selectInviteValueLineItems({
   return Object.entries(configs).map(([subject, rate]) => ({
     subject,
     you: rate.rebate,
+    invitee: rate.discount,
     enabled: rate.enabled === true,
   }));
 }
 
-// Keep the hero line to one row; the level page lists every rate.
-const MAX_VALUE_LINE_ITEMS = 2;
+export interface IInviteValueRow {
+  subject: string;
+  label: string;
+  you: string;
+  // Null when the friend gets nothing for this product.
+  friend: string | null;
+}
 
-export function getInviteValueLine(
-  commissionRates: readonly IInviteValueLineItem[],
-): string | null {
-  const parts = sortCommissionRateItems([...commissionRates])
-    .flatMap((item) => {
-      if (!item.enabled) {
-        return [];
-      }
-      // A 0% rate is not something to advertise in the hero line.
-      const rate = formatRate(item.you);
-      if (rate === null || item.you <= 0) {
-        return [];
-      }
-      return [`${rate}% on ${labelFor(item.subject)}`];
-    })
-    .slice(0, MAX_VALUE_LINE_ITEMS);
+export interface IInviteValueSummary {
+  // "Earn 10%" or "Earn up to 18%"; the rate is the hover/tap target.
+  lead: string;
+  rate: string;
+  products: string;
+  rows: IInviteValueRow[];
+}
 
-  return parts.length > 0 ? parts.join(' · ') : null;
+// One sentence names every product that pays, so none looks unpaid; the
+// per-product split lives in the breakdown.
+export function getInviteValueSummary(
+  items: readonly IInviteValueLineItem[],
+): IInviteValueSummary | null {
+  const seen = new Set<string>();
+  const rows = sortCommissionRateItems([...items]).flatMap((item) => {
+    const names = SUBJECT_NAMES[item.subject];
+    // A disabled or 0% product is not something to advertise.
+    if (!names || !item.enabled || !(item.you > 0) || seen.has(names.long)) {
+      return [];
+    }
+    seen.add(names.long);
+    return [
+      {
+        subject: item.subject,
+        label: names.long,
+        you: formatRate(item.you),
+        friend:
+          item.invitee !== undefined && item.invitee > 0
+            ? formatRate(item.invitee)
+            : null,
+        youValue: item.you,
+      },
+    ];
+  });
+  if (rows.length === 0) {
+    return null;
+  }
+
+  const maxRate = Math.max(...rows.map((row) => row.youValue));
+  const isUniform = rows.every((row) => row.youValue === maxRate);
+  return {
+    lead: isUniform ? 'Earn' : 'Earn up to',
+    rate: formatRate(maxRate),
+    products: `on ${joinNames(
+      rows.map((row) => SUBJECT_NAMES[row.subject].short),
+    )}`,
+    rows: rows.map(({ youValue: _youValue, ...row }) => row),
+  };
 }

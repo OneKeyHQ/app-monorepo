@@ -19,6 +19,8 @@ const mockCopyText = jest.fn();
 const mockCopyUrl = jest.fn();
 const mockBindWalletInviteCode = jest.fn();
 const mockNavigateToYourReferred = jest.fn();
+const mockNavigateToInviteCodes = jest.fn();
+const mockNavigateToEditAddress = jest.fn();
 const mockNavigateToRewardHistory = jest.fn();
 const mockNavigateToHardwareSalesReward = jest.fn();
 const mockNavigateToPerpsReward = jest.fn();
@@ -180,8 +182,23 @@ jest.mock('./ReferralLinkDropdown', () => ({
 jest.mock('./SuspensionAlert', () => ({
   SuspensionAlert: () => null,
 }));
-jest.mock('./InviteCodeManager', () => ({
-  InviteCodeManager: () => <div data-testid="invite-code-manager" />,
+jest.mock(
+  '@onekeyhq/kit/src/views/ReferFriends/pages/InviteCodes/hooks/useNavigateToInviteCodes',
+  () => ({ useNavigateToInviteCodes: () => mockNavigateToInviteCodes }),
+);
+
+jest.mock(
+  '@onekeyhq/kit/src/views/ReferFriends/pages/ReferralLevel/hooks/useNavigateToReferralLevel',
+  () => ({ useNavigateToReferralLevel: () => jest.fn() }),
+);
+
+jest.mock(
+  '@onekeyhq/kit/src/views/ReferFriends/pages/EditAddress/hooks/useNavigateToEditAddress',
+  () => ({ useNavigateToEditAddress: () => mockNavigateToEditAddress }),
+);
+
+jest.mock('./useInviteCardStyle', () => ({
+  useInviteCardStyle: () => ({}),
 }));
 
 const TOKEN = {
@@ -230,10 +247,10 @@ const SUMMARY = {
   Onchain: { title: 'DeFi', description: '', available: REWARD, swap: REWARD },
 } as unknown as IInviteSummary;
 
-function renderTab() {
+function renderTab(summaryInfo: IInviteSummary = SUMMARY) {
   return render(
     <InviteTabContent
-      summaryInfo={SUMMARY}
+      summaryInfo={summaryInfo}
       fetchSummaryInfo={jest.fn()}
       levelDetail={undefined}
     />,
@@ -256,12 +273,11 @@ describe('InviteTabContent entry points', () => {
     expect(mockCopyText).toHaveBeenCalledWith(SUMMARY.inviteCode);
   });
 
-  it('opens invite code management from the code line', () => {
+  it('opens the invite codes page from the code line', () => {
     renderTab();
-    expect(screen.queryByTestId('invite-code-manager')).toBeNull();
 
     fireEvent.click(screen.getByTestId(ReferFriendsTestIDs.inviteManageCodes));
-    expect(screen.getByTestId('invite-code-manager')).toBeTruthy();
+    expect(mockNavigateToInviteCodes).toHaveBeenCalled();
   });
 
   it.each([false, true])(
@@ -288,6 +304,18 @@ describe('InviteTabContent entry points', () => {
     expect(
       screen.queryByTestId(ReferFriendsTestIDs.inviteWithdrawAddressRow),
     ).toBeNull();
+  });
+
+  it('edits the payout address straight from the desktop earnings card', () => {
+    renderTab();
+
+    fireEvent.click(
+      screen.getByTestId(ReferFriendsTestIDs.invitePayoutAddress),
+    );
+    expect(mockNavigateToEditAddress).toHaveBeenCalledWith(
+      expect.objectContaining({ enabledNetworks: SUMMARY.enabledNetworks }),
+    );
+    expect(mockNavigateToRewardHistory).not.toHaveBeenCalled();
   });
 
   it('opens the bind referral code dialog', () => {
@@ -319,16 +347,27 @@ describe('InviteTabContent entry points', () => {
     },
   );
 
-  it('explains hardware pending and undistributed rewards', () => {
+  it('shows one empty state instead of empty product entries', () => {
+    renderTab({
+      ...SUMMARY,
+      HardwareSales: { ...SUMMARY.HardwareSales, available: [], pending: [] },
+      Perp: { ...SUMMARY.Perp, available: [] },
+      Onchain: { ...SUMMARY.Onchain, available: [], swap: [] },
+    } as unknown as IInviteSummary);
+
+    expect(screen.queryByText(ETranslations.referral_perps)).toBeNull();
+  });
+
+  it('explains hardware pending rewards without repeating the payout date', () => {
     renderTab();
 
     expect(
       screen.getByTestId(`info-${ETranslations.referral_hw_pending_pop_title}`),
     ).toBeTruthy();
     expect(
-      screen.getByTestId(
+      screen.queryByTestId(
         `info-${ETranslations.referral_hw_undistributed_pop_title}`,
       ),
-    ).toBeTruthy();
+    ).toBeNull();
   });
 });

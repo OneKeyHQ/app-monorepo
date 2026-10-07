@@ -65,6 +65,8 @@ export function useCurrentLevelCardFromDetail(
       (level) => level.level === displayedLevel,
     );
 
+    const levelIcon =
+      detailLevel?.icon || basicLevelInfo?.icon || currentLevel.icon || '';
     const levelLabel = getDisplayLabel(
       intl,
       detailLevel?.labelKey ??
@@ -118,6 +120,7 @@ export function useCurrentLevelCardFromDetail(
 
     return {
       levelLabel,
+      levelIcon,
       commissionRates,
     };
   }, [intl, levelDetail, rebateConfig, rebateLevels]);

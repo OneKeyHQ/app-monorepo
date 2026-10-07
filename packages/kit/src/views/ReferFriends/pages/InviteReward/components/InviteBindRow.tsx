@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { Button, SizableText, XStack } from '@onekeyhq/components';
 import {
   useFetchWalletsWithBoundStatus,
   useWalletBoundReferralCode,
@@ -41,25 +40,30 @@ export function InviteBindRow() {
     });
   }, [bindWalletInviteCode, refreshWalletsWithStatus]);
 
+  // A secondary entry: one quiet line on every layout, so it does not
+  // compete with the invite actions above it. It wraps on narrow screens.
   return (
-    <ListItem
-      testID={ReferFriendsTestIDs.inviteBindRow}
-      mx="$0"
-      px="$0"
-      drillIn={!isBound}
-      onPress={isBound ? undefined : handlePress}
-    >
-      <XStack p="$2" borderRadius="$3" bg="$bgSubdued">
-        <Icon name="GiftOutline" size="$6" color="$icon" />
-      </XStack>
-      <YStack flex={1} gap="$0.5">
-        <SizableText size="$bodyLgMedium">
-          {isBound ? INVITE_COPY.boundTitle : INVITE_COPY.bindTitle}
-        </SizableText>
+    <XStack ai="center" gap="$1.5" flexWrap="wrap">
+      <SizableText size="$bodyMd" color="$textSubdued">
+        {isBound ? INVITE_COPY.boundTitle : INVITE_COPY.bindTitle}
+      </SizableText>
+      {isBound ? (
         <SizableText size="$bodyMd" color="$textSubdued">
-          {isBound ? INVITE_COPY.boundDescription : INVITE_COPY.bindDescription}
+          {`· ${INVITE_COPY.boundDescription}`}
         </SizableText>
-      </YStack>
-    </ListItem>
+      ) : (
+        <Button
+          testID={ReferFriendsTestIDs.inviteBindRow}
+          variant="tertiary"
+          size="small"
+          // The question stays subdued; the action reads as the action.
+          color="$text"
+          iconAfter="ChevronRightSmallOutline"
+          onPress={handlePress}
+        >
+          {INVITE_COPY.bindDescription}
+        </Button>
+      )}
+    </XStack>
   );
 }

@@ -9,6 +9,7 @@ import {
   RewardHeaderLayout,
   StatCard,
 } from '@onekeyhq/kit/src/views/ReferFriends/components';
+import { REFERRAL_USD_CURRENCY_PROPS } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/shared/getRewardSummary';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IHardwareCumulativeRewards } from '@onekeyhq/shared/src/referralCode/type';
 
@@ -55,13 +56,9 @@ export function HardwareSalesRewardHeader({
     <RewardHeaderLayout
       primaryCard={
         <StatCard
-          icon="CoinOutline"
-          iconBgColor="$bgSuccess"
-          iconColor="$iconSuccess"
+          fixedCurrency={REFERRAL_USD_CURRENCY_PROPS.targetCurrency}
           title={intl.formatMessage({
-            id: isWideScreen
-              ? ETranslations.referral_total_reward
-              : ETranslations.earn_referral_total_earned,
+            id: ETranslations.earn_referral_total_earned,
           })}
           value={totalEarned}
           showRefreshButton
@@ -74,9 +71,7 @@ export function HardwareSalesRewardHeader({
       secondaryCards={
         <>
           <StatCard
-            icon="ClockTimeHistoryOutline"
-            iconBgColor="$bgStrong"
-            iconColor="$icon"
+            fixedCurrency={REFERRAL_USD_CURRENCY_PROPS.targetCurrency}
             title={intl.formatMessage({
               id: ETranslations.referral_undistributed,
             })}
@@ -90,9 +85,7 @@ export function HardwareSalesRewardHeader({
             isWide={isWideScreen}
           />
           <StatCard
-            icon="HourglassOutline"
-            iconBgColor="$bgStrong"
-            iconColor="$icon"
+            fixedCurrency={REFERRAL_USD_CURRENCY_PROPS.targetCurrency}
             title={intl.formatMessage({
               id: ETranslations.referral_pending,
             })}

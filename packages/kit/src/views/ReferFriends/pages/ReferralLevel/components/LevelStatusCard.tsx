@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
   Dialog,
   Divider,
   Icon,
@@ -11,43 +12,58 @@ import {
   Stack,
   XStack,
   YStack,
-  useMedia,
 } from '@onekeyhq/components';
+import {
+  INVITE_CARD_BORDER_COLOR,
+  useInviteCardStyle,
+} from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteCardStyle';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteLevelItem } from '@onekeyhq/shared/src/referralCode/type';
 
+import { ReferFriendsTestIDs } from '../../../testIDs';
 import { LEVEL_COPY } from '../levelCopy';
 
-import type { ILevelRetentionStatus } from '../getLevelOverview';
+import { UpgradeTargetsSection } from './UpgradeTargetsCard';
 
-function RetentionStatus({ status }: { status: ILevelRetentionStatus }) {
+import type { ILevelRetentionStatus, ILevelTarget } from '../getLevelOverview';
+
+export function RetentionStatus({ status }: { status: ILevelRetentionStatus }) {
   if (status === 'none') {
     return null;
   }
   const isKept = status === 'kept';
   return (
-    <XStack ai="center" gap="$2" flex={1}>
+    <XStack ai="center" gap="$1.5">
       <Icon
         name={isKept ? 'CheckRadioSolid' : 'InfoCircleSolid'}
-        size="$6"
+        size="$4"
         color={isKept ? '$iconSuccess' : '$iconCaution'}
       />
-      <SizableText size="$bodyLgMedium">
+      <SizableText
+        size="$bodyMdMedium"
+        color={isKept ? '$textSuccess' : '$textCaution'}
+      >
         {isKept ? LEVEL_COPY.levelKept : LEVEL_COPY.levelNotKept}
       </SizableText>
     </XStack>
   );
 }
 
+// One card answers both "where am I" (top) and "how do I move up" (below the
+// divider); the top level only gets a short note instead of targets.
 export function LevelStatusCard({
   level,
   retentionStatus,
+  nextLevel,
+  upgradeTargets,
 }: {
   level: IInviteLevelItem;
   retentionStatus: ILevelRetentionStatus;
+  nextLevel?: IInviteLevelItem;
+  upgradeTargets: ILevelTarget[];
 }) {
   const intl = useIntl();
-  const { md } = useMedia();
+  const cardStyle = useInviteCardStyle();
 
   const showRules = useCallback(() => {
     Dialog.show({
@@ -71,44 +87,42 @@ export function LevelStatusCard({
   }, [intl]);
 
   return (
-    <XStack
-      ai="center"
-      gap="$4"
-      p="$4"
-      borderWidth={1}
-      borderColor="$borderSubdued"
-      borderRadius="$3"
-      flexWrap="wrap"
-    >
-      <XStack ai="center" gap="$3">
-        <Stack w="$12" h="$12" ai="center" jc="center">
+    <YStack gap="$5" p="$5" {...cardStyle}>
+      <XStack ai="center" gap="$4">
+        <Stack w="$12" h="$12" ai="center" jc="center" flexShrink={0}>
           {level.icon ? (
             <Image w="$12" h="$12" src={level.icon} />
           ) : (
             <SizableText size="$heading2xl">{level.emoji}</SizableText>
           )}
         </Stack>
-        <YStack>
+        <YStack flex={1} minWidth={0} gap="$0.5">
           <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.referral_current_level })}
           </SizableText>
-          <SizableText size="$headingXl">{level.label}</SizableText>
+          <SizableText size="$headingXl" numberOfLines={1}>
+            {level.label}
+          </SizableText>
+          <RetentionStatus status={retentionStatus} />
         </YStack>
-      </XStack>
-      {!md && retentionStatus !== 'none' ? <Divider vertical h="$10" /> : null}
-      <RetentionStatus status={retentionStatus} />
-      <XStack
-        ai="center"
-        gap="$0.5"
-        cursor="pointer"
-        role="button"
-        onPress={showRules}
-      >
-        <SizableText size="$bodyMd" color="$textSubdued">
+        <Button
+          testID={ReferFriendsTestIDs.levelRulesBtn}
+          variant="tertiary"
+          size="small"
+          iconAfter="ChevronRightSmallOutline"
+          onPress={showRules}
+        >
           {LEVEL_COPY.levelRules}
-        </SizableText>
-        <Icon name="ChevronRightSmallOutline" size="$4" color="$iconSubdued" />
+        </Button>
       </XStack>
-    </XStack>
+      <Divider borderColor={INVITE_CARD_BORDER_COLOR} />
+      {nextLevel && upgradeTargets.length > 0 ? (
+        <UpgradeTargetsSection nextLevel={nextLevel} targets={upgradeTargets} />
+      ) : (
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {LEVEL_COPY.topLevel}
+        </SizableText>
+      )}
+    </YStack>
   );
 }

@@ -1,9 +1,9 @@
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
 import { SizableText, Stack, YStack } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
+import { INVITE_CARD_BORDER_COLOR } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteCardStyle';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteLevelUpgradeCondition } from '@onekeyhq/shared/src/referralCode/type';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -17,7 +17,6 @@ interface ISubjectMilestoneCardProps {
   subjectLabel: string;
   milestones: ISubjectMilestones;
   nextLevelLabel?: string;
-  optionIndex?: number;
 }
 
 function formatFiatCompact(value: BigNumber) {
@@ -165,7 +164,6 @@ export function SubjectMilestoneCard({
   subjectLabel,
   milestones,
   nextLevelLabel,
-  optionIndex,
 }: ISubjectMilestoneCardProps) {
   const intl = useIntl();
   const currencyInfo = useCurrency();
@@ -214,32 +212,17 @@ export function SubjectMilestoneCard({
   });
   const upgradeTitle = nextLevelLabel ?? '';
 
-  const optionLabel =
-    optionIndex !== undefined
-      ? intl.formatMessage(
-          { id: ETranslations.referral_level_option_n },
-          { n: optionIndex },
-        )
-      : null;
-
   return (
     <YStack
       gap="$3"
       flex={1}
-      bg="$bgApp"
       borderRadius="$3"
-      borderWidth={StyleSheet.hairlineWidth}
-      borderColor="$neutral4"
+      borderWidth={1}
+      borderColor={INVITE_CARD_BORDER_COLOR}
       px="$4"
       py="$3"
       minWidth={0}
     >
-      {optionLabel ? (
-        <SizableText size="$bodySm" color="$textSubdued">
-          {optionLabel}
-        </SizableText>
-      ) : null}
-
       <YStack gap="$0.5">
         <SizableText size="$bodyMd" color="$textSubdued">
           {subjectLabel}

@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { Breadcrumb } from '@onekeyhq/components';
+import { Breadcrumb, Stack } from '@onekeyhq/components';
 import type { IBreadcrumbItem } from '@onekeyhq/components/src/content/Breadcrumb';
 import { useReplaceToReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -27,5 +27,11 @@ export function BreadcrumbSection({
     },
   ];
 
-  return <Breadcrumb items={breadcrumbItems} />;
+  // Items carry 8px padding for their hover surface; pull the row back so the
+  // first label lines up with the page content below.
+  return (
+    <Stack ml={-8}>
+      <Breadcrumb items={breadcrumbItems} />
+    </Stack>
+  );
 }

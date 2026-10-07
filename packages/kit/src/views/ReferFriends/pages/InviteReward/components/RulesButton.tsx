@@ -43,7 +43,9 @@ export function RulesButton() {
     <Button
       testID={ReferFriendsTestIDs.rulesBtn}
       variant="tertiary"
-      size={platformEnv.isWeb ? 'small' : undefined}
+      // Small on every platform so it matches the level pill beside it
+      // (same text size and hover box).
+      size="small"
       icon="QuestionmarkOutline"
       onPress={handlePress}
     >

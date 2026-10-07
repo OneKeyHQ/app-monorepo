@@ -17,3 +17,4 @@ export {
   ResponsiveFourColumnLayout,
   ResponsiveThreeColumnLayout,
 } from './RewardHeaderLayout';
+export { ReferFriendsLoadError } from './ReferFriendsLoadError';

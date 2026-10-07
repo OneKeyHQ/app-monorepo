@@ -96,9 +96,6 @@ export function SwapRewardHeader({
 
   const undistributedCard = (
     <StatCard
-      icon="CoinOutline"
-      iconBgColor="$bgSuccess"
-      iconColor="$iconSuccess"
       title={intl.formatMessage({
         id: ETranslations.referral_undistributed,
       })}
@@ -115,9 +112,6 @@ export function SwapRewardHeader({
 
   const volumeCard = (
     <StatCard
-      icon="ChartLineOutline"
-      iconBgColor="$bgStrong"
-      iconColor="$icon"
       title={intl.formatMessage({
         id: ETranslations.referral_perps_volume,
       })}
@@ -135,9 +129,6 @@ export function SwapRewardHeader({
 
   const invitedAddressesCard = (
     <StatCard
-      icon="WalletOutline"
-      iconBgColor="$bgStrong"
-      iconColor="$icon"
       title={intl.formatMessage({
         id: ETranslations.referral_perps_invited_addresses,
       })}

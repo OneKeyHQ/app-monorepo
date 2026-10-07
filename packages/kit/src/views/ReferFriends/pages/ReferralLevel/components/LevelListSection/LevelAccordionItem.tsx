@@ -11,8 +11,10 @@ import {
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
+import { INVITE_CARD_BORDER_COLOR } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteCardStyle';
 import { sortCommissionRateItems } from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -21,6 +23,7 @@ import type {
 } from '@onekeyhq/shared/src/referralCode/type';
 
 import { getLevelCommissionRateItems } from '../../getLevelOverview';
+import { LEVEL_COPY } from '../../levelCopy';
 
 import { CommissionRateCard } from './CommissionRateCard';
 import { OrDivider } from './OrDivider';
@@ -58,6 +61,7 @@ export function LevelAccordionItem({
   nextLevelLabel?: string;
 }) {
   const intl = useIntl();
+  const { md } = useMedia();
   const commissionRateItems = useMemo(
     () => getLevelCommissionRateItems(level.commissionRates),
     [level.commissionRates],
@@ -109,19 +113,10 @@ export function LevelAccordionItem({
   let headerNode: React.ReactNode = null;
   if (isMultiSubject) {
     headerNode = (
-      <YStack gap="$0.5">
-        <SizableText size="$bodyMdMedium" color="$text">
-          {intl.formatMessage(
-            { id: ETranslations.referral_level_complete_any_n_of_m },
-            { total: subjectGroups.length },
-          )}
-        </SizableText>
-        <SizableText size="$bodySm" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.referral_level_complete_any_subtitle,
-          })}
-        </SizableText>
-      </YStack>
+      // Same wording as the level card above, so the rule reads one way.
+      <SizableText size="$bodyMdMedium" color="$text">
+        {LEVEL_COPY.upgradeRule(true)}
+      </SizableText>
     );
   } else if (subjectGroups.length === 1) {
     const only = subjectGroups[0];
@@ -138,16 +133,29 @@ export function LevelAccordionItem({
 
   return (
     <Accordion.Item value={`level-${level.level}`}>
-      <Accordion.Trigger borderWidth={0} p={0}>
+      {/* Unstyled: the default trigger keeps a focus background after a
+          click, which reads as a stuck hover. */}
+      <Accordion.Trigger
+        unstyled
+        w="100%"
+        borderWidth={0}
+        p={0}
+        cursor="default"
+        bg="$transparent"
+        hoverStyle={{ bg: '$bgHover' }}
+        pressStyle={{ bg: '$bgActive' }}
+      >
         {({ open }: { open: boolean }) => (
           <XStack
             flex={1}
             ai="center"
             jc="space-between"
-            py="$2.5"
-            px="$4"
-            borderColor="$borderSubdued"
-            borderBottomWidth={isLast && !open ? 0 : 1}
+            py="$3.5"
+            px="$5"
+            borderColor={INVITE_CARD_BORDER_COLOR}
+            // An open row flows into its content; the content's bottom edge
+            // separates it from the next level instead.
+            borderBottomWidth={open || isLast ? 0 : 1}
             borderTopWidth={0}
             borderRightWidth={0}
             borderLeftWidth={0}
@@ -161,7 +169,7 @@ export function LevelAccordionItem({
                 )}
               </Stack>
               <XStack gap="$2" ai="center">
-                <SizableText size="$headingLg">{level.label}</SizableText>
+                <SizableText size="$bodyLgMedium">{level.label}</SizableText>
                 {isCurrent ? (
                   <Badge badgeSize="sm">
                     {intl.formatMessage({
@@ -192,9 +200,10 @@ export function LevelAccordionItem({
           borderRightWidth={0}
           borderLeftWidth={0}
           unstyled
-          borderBottomColor="$borderSubdued"
-          p="$4"
-          bg="$bgSubdued"
+          borderBottomColor={INVITE_CARD_BORDER_COLOR}
+          px="$5"
+          pt="$1"
+          pb="$5"
         >
           <YStack gap="$4">
             {subjectGroups.length > 0 ? (
@@ -208,7 +217,6 @@ export function LevelAccordionItem({
                           subjectLabel={subjectLabel}
                           milestones={milestones}
                           nextLevelLabel={nextLevelLabel}
-                          optionIndex={isMultiSubject ? index + 1 : undefined}
                         />
                         {index < subjectGroups.length - 1 ? (
                           <OrDivider />
@@ -222,9 +230,12 @@ export function LevelAccordionItem({
 
             <YStack gap="$2">
               <SizableText size="$bodyMdMedium">
-                {intl.formatMessage({
-                  id: ETranslations.referral_rate,
-                })}
+                {/* Compact rows show "10% / 10%" without labels, so they
+                    keep the "(You / Invitee)" key; desktop cards label each
+                    value themselves. */}
+                {md
+                  ? intl.formatMessage({ id: ETranslations.referral_rate })
+                  : LEVEL_COPY.commissionRatesTitle}
               </SizableText>
 
               <XStack gap="$3" $md={{ flexDirection: 'column', gap: '$2' }}>

@@ -4,27 +4,53 @@ import { useIntl } from 'react-intl';
 
 import {
   Image,
+  Progress,
   SizableText,
   Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteLevelItem } from '@onekeyhq/shared/src/referralCode/type';
 
-import { LEVEL_COPY } from '../levelCopy';
+import { LEVEL_COPY, LEVEL_TARGET_SHORT_LABELS } from '../levelCopy';
 
 import { getDisplayLabel } from './LevelListSection/LevelAccordionItem';
 import { OrDivider } from './LevelListSection/OrDivider';
 import { formatFiatExact } from './LevelListSection/SubjectMilestoneCard';
 
 import type { ILevelTarget } from '../getLevelOverview';
+import type { IntlShape } from 'react-intl';
+
+// Shared with the invite page's level popover so both name a target and its
+// remaining amount the same way.
+export function getLevelTargetLabel(intl: IntlShape, target: ILevelTarget) {
+  const { condition } = target;
+  return (
+    LEVEL_TARGET_SHORT_LABELS[target.subject] ??
+    getDisplayLabel(
+      intl,
+      condition.levelUpLabelKey,
+      condition.levelUpLabel ?? condition.label ?? condition.subject,
+    )
+  );
+}
+
+export function formatLevelTargetRemaining(
+  target: ILevelTarget,
+  currencyCode: string,
+) {
+  return target.isReached
+    ? LEVEL_COPY.targetReached
+    : LEVEL_COPY.toGo(`${formatFiatExact(target.remaining)} ${currencyCode}`);
+}
 
 function formatPct(value: number) {
   return `${Math.round(value * 10) / 10}%`;
 }
 
+// Three lines per target: progress as "current / target", the bar, and what
+// is left. The target is not repeated on its own line.
 function TargetColumn({
   target,
   currencyCode,
@@ -33,94 +59,66 @@ function TargetColumn({
   currencyCode: string;
 }) {
   const intl = useIntl();
-  const { condition } = target;
-  const label = getDisplayLabel(
-    intl,
-    condition.levelUpLabelKey,
-    condition.levelUpLabel ?? condition.label ?? condition.subject,
-  );
-  const withCode = (value: string) => `${value} ${currencyCode}`;
+  const label = getLevelTargetLabel(intl, target);
 
   return (
-    <YStack flex={1} gap="$2" minWidth={0}>
-      <SizableText size="$bodyLgMedium">{label}</SizableText>
-      <XStack ai="baseline" gap="$1.5">
-        <SizableText size="$heading3xl" numberOfLines={1} flexShrink={1}>
+    <YStack flex={1} flexBasis={0} gap="$2" minWidth={0}>
+      <SizableText size="$bodyMd" color="$textSubdued">
+        {label}
+      </SizableText>
+      <XStack ai="baseline" columnGap="$1.5" flexWrap="wrap">
+        <SizableText size="$heading2xl">
           {formatFiatExact(target.current)}
         </SizableText>
         <SizableText size="$bodyLg" color="$textSubdued">
-          {currencyCode}
+          {`/ ${formatFiatExact(target.target)} ${currencyCode}`}
         </SizableText>
       </XStack>
       <XStack ai="center" gap="$3">
-        <Stack flex={1} h={6} borderRadius="$full" bg="$neutral5">
-          <Stack
-            h={6}
-            borderRadius="$full"
-            bg="$iconSuccess"
-            width={`${target.progressPct}%`}
+        <Stack flex={1}>
+          <Progress
+            size="medium"
+            value={target.progressPct}
+            progressColor="$neutral4"
+            indicatorColor="$iconSuccess"
           />
         </Stack>
-        <SizableText size="$bodySm" color="$textSubdued">
+        <SizableText size="$bodySmMedium" color="$textSubdued">
           {formatPct(target.progressPct)}
         </SizableText>
       </XStack>
-      <SizableText size="$bodySm" color="$textSubdued" textAlign="right">
-        {LEVEL_COPY.target(withCode(formatFiatExact(target.target)))}
+      <SizableText
+        size="$bodyMdMedium"
+        color={target.isReached ? '$textSuccess' : '$text'}
+      >
+        {formatLevelTargetRemaining(target, currencyCode)}
       </SizableText>
-      {target.isReached ? (
-        <SizableText size="$bodyMdMedium" color="$textSuccess">
-          {LEVEL_COPY.targetReached}
-        </SizableText>
-      ) : (
-        <SizableText size="$bodyLgMedium">
-          {LEVEL_COPY.toGo(withCode(formatFiatExact(target.remaining)))}
-        </SizableText>
-      )}
     </YStack>
   );
 }
 
-export function UpgradeTargetsCard({
+export function UpgradeTargetsSection({
   nextLevel,
   targets,
 }: {
   nextLevel: IInviteLevelItem;
   targets: ILevelTarget[];
 }) {
-  const intl = useIntl();
   const currencyInfo = useCurrency();
   const currencyCode = currencyInfo.id.toUpperCase();
 
   return (
-    <YStack
-      gap="$4"
-      p="$4"
-      borderWidth={1}
-      borderColor="$borderSubdued"
-      borderRadius="$3"
-    >
-      <XStack ai="center" jc="space-between" gap="$3" flexWrap="wrap">
-        <XStack ai="center" gap="$2">
-          {nextLevel.icon ? (
-            <Image w="$8" h="$8" src={nextLevel.icon} />
-          ) : (
-            <SizableText size="$headingXl">{nextLevel.emoji}</SizableText>
-          )}
-          <SizableText size="$headingLg">
-            {LEVEL_COPY.upgradeTo(nextLevel.label)}
-          </SizableText>
-        </XStack>
-        {targets.length > 1 ? (
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage(
-              { id: ETranslations.referral_level_complete_any_n_of_m },
-              { total: targets.length },
-            )}
-          </SizableText>
-        ) : null}
+    <YStack gap="$5">
+      <XStack ai="center" gap="$2" flexWrap="wrap">
+        {nextLevel.icon ? <Image w="$5" h="$5" src={nextLevel.icon} /> : null}
+        <SizableText size="$headingMd">
+          {LEVEL_COPY.upgradeTo(nextLevel.label)}
+        </SizableText>
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {`· ${LEVEL_COPY.upgradeRule(targets.length > 1)}`}
+        </SizableText>
       </XStack>
-      <XStack gap="$4" ai="stretch" $md={{ flexDirection: 'column' }}>
+      <XStack gap="$5" ai="stretch" $md={{ flexDirection: 'column' }}>
         {targets.map((target, index) => (
           <Fragment key={target.subject}>
             <TargetColumn target={target} currencyCode={currencyCode} />

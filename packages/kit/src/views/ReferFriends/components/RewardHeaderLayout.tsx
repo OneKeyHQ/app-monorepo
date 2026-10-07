@@ -21,7 +21,7 @@ export function RewardHeaderLayout({
 
   if (isWideScreen) {
     return (
-      <XStack gap="$3" pb="$8" px="$5">
+      <XStack gap="$4" pb="$6" px="$5">
         {primaryCard}
         {secondaryCards}
       </XStack>
@@ -29,7 +29,7 @@ export function RewardHeaderLayout({
   }
 
   return (
-    <YStack gap="$3" pb="$8" px="$5">
+    <YStack gap="$3" pb="$6" px="$5">
       {primaryCard}
       <XStack gap="$3">{secondaryCards}</XStack>
     </YStack>

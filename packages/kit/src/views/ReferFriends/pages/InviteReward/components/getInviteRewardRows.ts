@@ -1,5 +1,7 @@
 import BigNumber from 'bignumber.js';
 
+import type { IKeyOfIcons } from '@onekeyhq/components';
+
 import {
   type IRewardSummary,
   type IRewardSummaryItem,
@@ -14,6 +16,16 @@ export const INVITE_REWARD_SUBJECTS = [
 ] as const;
 
 export type IInviteRewardSubject = (typeof INVITE_REWARD_SUBJECTS)[number];
+
+export const INVITE_REWARD_SUBJECT_ICON: Record<
+  IInviteRewardSubject,
+  IKeyOfIcons
+> = {
+  hardware: 'OnekeyLiteOutline',
+  perps: 'TradeOutline',
+  swap: 'SwitchHorOutline',
+  defi: 'CoinsOutline',
+};
 
 export interface IInviteRewardRow {
   subject: IInviteRewardSubject;
@@ -73,7 +85,8 @@ function buildHardwareRow(
     subject: 'hardware',
     hasData,
     available,
-    pending,
+    // Consumers only render pending rewards that exist.
+    pending: pending.hasReward ? pending : null,
     monthlySalesFiatValue,
   };
 }

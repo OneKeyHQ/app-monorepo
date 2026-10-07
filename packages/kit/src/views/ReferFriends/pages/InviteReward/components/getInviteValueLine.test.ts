@@ -1,49 +1,71 @@
 import {
-  getInviteValueLine,
+  getInviteValueSummary,
   selectInviteValueLineItems,
 } from './getInviteValueLine';
 
 import type { IInviteValueLineItem } from './getInviteValueLine';
 
 const GOLD_RATES: IInviteValueLineItem[] = [
-  { subject: 'Earn', you: 10, enabled: true },
-  { subject: 'Perp', you: 18, enabled: true },
-  { subject: 'HardwareSales', you: 18, enabled: true },
+  { subject: 'Earn', you: 10, invitee: 10, enabled: true },
+  { subject: 'Perp', you: 18, invitee: 10, enabled: true },
+  { subject: 'Swap', you: 18, invitee: 0, enabled: true },
+  { subject: 'HardwareSales', you: 18, invitee: 0, enabled: true },
 ];
 
-describe('getInviteValueLine', () => {
-  it('shows the first two enabled inviter rates for the current level', () => {
-    expect(getInviteValueLine(GOLD_RATES)).toBe(
-      '18% on hardware sales · 18% on Perps fees',
+function sentence(items: IInviteValueLineItem[]) {
+  const summary = getInviteValueSummary(items);
+  return summary ? `${summary.lead} ${summary.rate} ${summary.products}` : null;
+}
+
+describe('getInviteValueSummary', () => {
+  it('names every paying product and leads with the top rate', () => {
+    expect(sentence(GOLD_RATES)).toBe(
+      'Earn up to 18% on hardware, Perps, Swap and DeFi',
     );
   });
 
-  it('hides the line when there are no enabled rates', () => {
-    expect(getInviteValueLine([])).toBeNull();
+  it('drops "up to" when every product pays the same', () => {
     expect(
-      getInviteValueLine([
-        { subject: 'HardwareSales', you: 18, enabled: false },
+      sentence([
+        { subject: 'HardwareSales', you: 10, enabled: true },
+        { subject: 'Perp', you: 10, enabled: true },
       ]),
-    ).toBeNull();
-    expect(
-      getInviteValueLine([{ subject: 'Perp', you: Number.NaN, enabled: true }]),
-    ).toBeNull();
+    ).toBe('Earn 10% on hardware and Perps');
   });
 
-  it('drops disabled and zero-rate subjects', () => {
+  it('lists the split in canonical order with no friend reward as null', () => {
+    expect(getInviteValueSummary(GOLD_RATES)?.rows).toEqual([
+      {
+        subject: 'HardwareSales',
+        label: 'Hardware sales',
+        you: '18%',
+        friend: null,
+      },
+      { subject: 'Perp', label: 'Perps fees', you: '18%', friend: '10%' },
+      { subject: 'Swap', label: 'Swap fees', you: '18%', friend: null },
+      { subject: 'Earn', label: 'DeFi fees', you: '10%', friend: '10%' },
+    ]);
+  });
+
+  it('drops disabled, zero and unknown subjects, and merges DeFi keys', () => {
     expect(
-      getInviteValueLine([
+      sentence([
         { subject: 'Swap', you: 5, enabled: false },
-        { subject: 'Perp', you: 18, enabled: true },
         { subject: 'HardwareSales', you: 0, enabled: true },
+        { subject: 'Unknown', you: 30, enabled: true },
+        { subject: 'Earn', you: 10.5, enabled: true },
+        { subject: 'Onchain', you: 12, enabled: true },
       ]),
-    ).toBe('18% on Perps fees');
+    ).toBe('Earn 10.5% on DeFi');
   });
 
-  it('keeps a single rate readable', () => {
+  it('returns null when nothing pays', () => {
+    expect(getInviteValueSummary([])).toBeNull();
     expect(
-      getInviteValueLine([{ subject: 'Earn', you: 10.5, enabled: true }]),
-    ).toBe('10.5% on DeFi fees');
+      getInviteValueSummary([
+        { subject: 'Perp', you: Number.NaN, enabled: true },
+      ]),
+    ).toBeNull();
   });
 });
 
@@ -69,8 +91,8 @@ describe('selectInviteValueLineItems', () => {
         },
       }),
     ).toEqual([
-      { subject: 'Perp', you: 18, enabled: true },
-      { subject: 'HardwareSales', you: 18, enabled: false },
+      { subject: 'Perp', you: 18, invitee: undefined, enabled: true },
+      { subject: 'HardwareSales', you: 18, invitee: undefined, enabled: false },
     ]);
   });
 

@@ -5,8 +5,21 @@ export const LEVEL_COPY = {
   levelRules: 'Level rules',
   targetReached: 'Target reached',
   allLevels: 'All levels',
+  commissionRatesTitle: 'Commission rates',
+  levelDetails: 'Level details',
   upgradeTo: (level: string) => `Upgrade to ${level}`,
-  target: (amount: string) => `Target ${amount}`,
+  nextLevel: (level: string) => `Next level: ${level}`,
+  upgradeRule: (hasChoice: boolean) =>
+    hasChoice ? 'Meet any one this month' : 'Meet this target this month',
+  topLevel: "You're at the top level",
+  yourRatesAt: (level: string) => `Your rates at ${level}`,
   toGo: (amount: string) => `${amount} to go`,
-  commissionRates: (level: string) => `${level} commission rates`,
 } as const;
+
+// Level-up targets are monthly; headings say "this month", so rows use short
+// names instead of the backend's "Monthly ..." labels.
+export const LEVEL_TARGET_SHORT_LABELS: Record<string, string> = {
+  HardwareSales: 'Hardware sales',
+  Perp: 'Perps volume',
+  Swap: 'Swap volume',
+};

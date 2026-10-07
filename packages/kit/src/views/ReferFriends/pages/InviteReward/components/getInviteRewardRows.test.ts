@@ -57,11 +57,7 @@ describe('getInviteRewardRows', () => {
     const availableOnly = getInviteRewardRows({
       HardwareSales: { monthlySales: '2', available: [reward('239.40')] },
     });
-    expect(availableOnly.visibleRows[0]?.available).toMatchObject({
-      kind: 'token',
-      amount: '239.4',
-      hasReward: true,
-    });
+    expect(availableOnly.visibleRows[0]?.available.hasReward).toBe(true);
   });
 
   it('shows only the subjects that have a balance and keeps canonical order', () => {
@@ -81,13 +77,10 @@ describe('getInviteRewardRows', () => {
       'hardware',
       'swap',
     ]);
-    expect(rows.visibleRows[1]?.available).toMatchObject({
-      kind: 'token',
-      hasReward: true,
-    });
+    expect(rows.visibleRows[1]?.available.hasReward).toBe(true);
   });
 
-  it('uses fiat when a subject mixes tokens', () => {
+  it('sums fiat across tokens in one subject', () => {
     const otherToken = { ...token, address: '0xother' };
     const rows = getInviteRewardRows({
       Onchain: {
@@ -98,8 +91,7 @@ describe('getInviteRewardRows', () => {
       },
     });
     const swap = rows.visibleRows.find((row) => row.subject === 'swap');
-    expect(swap?.available).toEqual({
-      kind: 'fiat',
+    expect(swap?.available).toMatchObject({
       fiatValue: '14',
       hasReward: true,
     });

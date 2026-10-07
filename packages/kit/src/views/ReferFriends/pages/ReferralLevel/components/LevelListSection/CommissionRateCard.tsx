@@ -1,7 +1,7 @@
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
 import { SizableText, XStack, YStack, useMedia } from '@onekeyhq/components';
+import { INVITE_CARD_BORDER_COLOR } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteCardStyle';
 import {
   formatCommissionRateText,
   formatInviteeDiscountText,
@@ -49,8 +49,8 @@ export function CommissionRateCard({
       gap="$1.5"
       flex={1}
       borderRadius="$3"
-      borderWidth={StyleSheet.hairlineWidth}
-      borderColor="$neutral3"
+      borderWidth={1}
+      borderColor={INVITE_CARD_BORDER_COLOR}
       px="$4"
       py="$3"
     >

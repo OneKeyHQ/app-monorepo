@@ -1,25 +1,20 @@
-import { StyleSheet } from 'react-native';
-
-import type { IKeyOfIcons, IStackStyle } from '@onekeyhq/components';
 import {
-  Icon,
   IconButton,
   SizableText,
-  Stack,
   XStack,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
 import type { ColorTokens } from '@onekeyhq/components/src/shared/tamagui';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
+import { useInviteCardStyle } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteCardStyle';
 
 export interface IStatCardProps {
-  icon: IKeyOfIcons;
-  iconBgColor: IStackStyle['bg'];
-  iconColor: ColorTokens;
   title: string;
   value: string;
   isCurrency?: boolean;
+  // Show `value` in this currency instead of the wallet currency.
+  fixedCurrency?: string;
   prefix?: string;
   subtitle?: string;
   showRefreshButton?: boolean;
@@ -31,12 +26,10 @@ export interface IStatCardProps {
 }
 
 export function StatCard({
-  icon,
-  iconBgColor,
-  iconColor,
   title,
   value,
   isCurrency = true,
+  fixedCurrency,
   prefix,
   subtitle,
   showRefreshButton,
@@ -47,6 +40,7 @@ export function StatCard({
   valueColor = '$text',
 }: IStatCardProps) {
   const { xl } = useMedia();
+  const cardStyle = useInviteCardStyle();
   const isMediumScreen = isWide && xl;
 
   const getValueSize = () => {
@@ -60,39 +54,37 @@ export function StatCard({
   };
 
   return (
+    // Same card as the overview page; no decorative icon tile, so the figure
+    // leads and the card stays compact.
     <YStack
       flex={fullWidth ? undefined : 1}
       flexBasis={fullWidth ? undefined : 0}
-      borderWidth={StyleSheet.hairlineWidth}
-      borderColor="$borderSubdued"
-      borderRadius="$3"
+      minWidth={0}
       p={isWide ? '$5' : '$4'}
-      gap={isWide ? '$5' : '$4'}
+      {...cardStyle}
     >
-      <XStack jc="space-between" ai="center">
-        <Stack bg={iconBgColor} p="$2" borderRadius="$2">
-          <Icon name={icon} size="$5" color={iconColor} />
-        </Stack>
-        {showRefreshButton ? (
-          <IconButton
-            testID="refer-friends-get-value-size-icon-btn"
-            icon="RefreshCcwOutline"
-            variant="tertiary"
-            size="small"
-            loading={isLoading}
-            onPress={onRefresh}
-          />
-        ) : null}
-      </XStack>
-
       <YStack gap={subtitle ? '$2.5' : undefined}>
         <YStack>
-          <SizableText
-            size={isWide ? '$bodyLgMedium' : '$bodyMdMedium'}
-            color="$textSubdued"
-          >
-            {title}
-          </SizableText>
+          <XStack ai="center" jc="space-between" gap="$2">
+            <SizableText
+              size={isWide ? '$bodyLgMedium' : '$bodyMdMedium'}
+              color="$textSubdued"
+              numberOfLines={1}
+              flexShrink={1}
+            >
+              {title}
+            </SizableText>
+            {showRefreshButton ? (
+              <IconButton
+                testID="refer-friends-get-value-size-icon-btn"
+                icon="RefreshCcwOutline"
+                variant="tertiary"
+                size="small"
+                loading={isLoading}
+                onPress={onRefresh}
+              />
+            ) : null}
+          </XStack>
           <XStack ai="baseline">
             {prefix ? (
               <SizableText size={getValueSize()} color={valueColor}>
@@ -104,6 +96,8 @@ export function StatCard({
                 size={getValueSize()}
                 color={valueColor}
                 formatter="value"
+                sourceCurrency={fixedCurrency}
+                targetCurrency={fixedCurrency}
               >
                 {value}
               </Currency>

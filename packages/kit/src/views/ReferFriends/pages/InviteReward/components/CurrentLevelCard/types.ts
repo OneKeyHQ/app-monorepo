@@ -7,6 +7,7 @@ export interface ICurrentLevelCardProps {
 
 export interface IUseCurrentLevelCardReturn {
   levelLabel: string;
+  levelIcon: string;
   commissionRates: Array<{
     subject: string;
     rate: {

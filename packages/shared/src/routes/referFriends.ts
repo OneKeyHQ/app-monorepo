@@ -22,6 +22,7 @@ export enum EModalReferFriendsRoutes {
   ReferAFriend = 'ReferAFriend',
   InvitedByFriend = 'InvitedByFriend',
   YourReferred = 'YourReferred',
+  InviteCodes = 'InviteCodes',
   YourReferredWalletAddresses = 'YourReferredWalletAddresses',
   HardwareSalesReward = 'HardwareSalesReward',
   HardwareSalesOrderDetail = 'HardwareSalesOrderDetail',
@@ -51,6 +52,10 @@ export type IModalReferFriendsParamList = {
     page?: string;
   };
   [EModalReferFriendsRoutes.YourReferred]: undefined;
+  [EModalReferFriendsRoutes.InviteCodes]: {
+    // New codes build their link from this template.
+    inviteUrl: string;
+  };
   [EModalReferFriendsRoutes.YourReferredWalletAddresses]: {
     networks: IEarnWalletHistoryNetwork[];
     items: IEarnWalletHistoryItem[];
