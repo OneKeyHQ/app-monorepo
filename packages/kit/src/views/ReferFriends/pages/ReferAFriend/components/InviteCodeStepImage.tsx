@@ -1,17 +1,14 @@
 import { useEffect, useState } from 'react';
 
-import {
-  LottieView,
-  Stack,
-  useMedia,
-  usePageWidth,
-} from '@onekeyhq/components';
+import { LottieView, Stack, usePageWidth } from '@onekeyhq/components';
 import type { ILottieViewProps } from '@onekeyhq/components';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-const DESKTOP_ASPECT_RATIO = 284 / 640;
-const DESKTOP_WIDTH = 540;
+// Matches the Lottie composition (786x446) so the box has no empty bands.
+const LOTTIE_ASPECT_RATIO = 446 / 786;
+// Same max width as the intro text and actions, so their edges line up.
+const MAX_WIDTH = 480;
 
 function resolveLottieModule(module: unknown): ILottieViewProps['source'] {
   const lottieModule = module as { default?: ILottieViewProps['source'] };
@@ -48,16 +45,14 @@ interface IInviteCodeStepImageProps {
 }
 
 export function InviteCodeStepImage({ step }: IInviteCodeStepImageProps) {
-  const { gtSm } = useMedia();
   const themeVariant = useThemeVariant();
   const pageWidth = usePageWidth();
   const [lottieSource, setLottieSource] = useState<
     ILottieViewProps['source'] | null
   >(null);
-  const isDesktop = gtSm || platformEnv.isExtensionUiPopup;
   const lottieThemeVariant = themeVariant === 'dark' ? 'dark' : 'light';
-  const width = gtSm ? DESKTOP_WIDTH : pageWidth;
-  const height = isDesktop ? width * DESKTOP_ASPECT_RATIO : pageWidth;
+  const width = Math.min(pageWidth, MAX_WIDTH);
+  const height = width * LOTTIE_ASPECT_RATIO;
   const shouldLoop = step === 2;
   const renderMode =
     platformEnv.isNativeIOS && step === 2 && themeVariant !== 'dark'
