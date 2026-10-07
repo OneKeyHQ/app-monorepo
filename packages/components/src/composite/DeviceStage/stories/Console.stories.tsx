@@ -28,6 +28,7 @@ const meta = {
   argTypes: {
     step: ARG_TYPES.step,
     deviceType: ARG_TYPES.deviceType,
+    deviceColor: ARG_TYPES.deviceColor,
     passphraseMode: ARG_TYPES.passphraseMode,
     errorReason: ARG_TYPES.errorReason,
     authFailureReason: ARG_TYPES.authFailureReason,
