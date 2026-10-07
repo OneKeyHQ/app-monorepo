@@ -4,6 +4,7 @@ import { isNumber } from 'lodash';
 
 import {
   EFirmwareUpdateSteps,
+  useFirmwareUpdateRetryAtom,
   useFirmwareUpdateStepInfoAtom,
   useHardwareUiStateAtom,
   useHardwareUiStateCompletedAtom,
@@ -130,6 +131,7 @@ function getUnifiedProgress(
 
 export function useFirmwareUpdateInstallState({ isDone }: { isDone: boolean }) {
   const [stepInfo] = useFirmwareUpdateStepInfoAtom();
+  const [retryInfo] = useFirmwareUpdateRetryAtom();
   const [state] = useHardwareUiStateAtom();
   const [completedState] = useHardwareUiStateCompletedAtom();
 
@@ -172,6 +174,15 @@ export function useFirmwareUpdateInstallState({ isDone }: { isDone: boolean }) {
     setStage('preparing');
     setLastFirmwareTipMessage(undefined);
   }, [startAtTime]);
+
+  useEffect(() => {
+    if (!retryInfo) {
+      return;
+    }
+    progressRef.current = 1;
+    setProgress(1);
+    setStage('preparing');
+  }, [retryInfo]);
 
   // The active state may be cleared when the confirmation dialog closes.
   // Use the latest completed event so the page can still consume it.
@@ -255,10 +266,10 @@ export function useFirmwareUpdateInstallState({ isDone }: { isDone: boolean }) {
   updateProgressRef.current = updateProgress;
 
   useEffect(() => {
-    if (lastFirmwareTipMessage) {
+    if (!retryInfo && lastFirmwareTipMessage) {
       updateProgressRef.current(lastFirmwareTipMessage);
     }
-  }, [lastFirmwareTipMessage]);
+  }, [lastFirmwareTipMessage, retryInfo]);
 
   useEffect(() => {
     if (isDone) {
@@ -287,6 +298,9 @@ export function useFirmwareUpdateInstallState({ isDone }: { isDone: boolean }) {
   }, [stepInfo]);
 
   useEffect(() => {
+    if (retryInfo) {
+      return;
+    }
     if (
       isNumber(firmwareProgress) ||
       (firmwareProgressType === 'installingFirmware' &&
@@ -311,13 +325,18 @@ export function useFirmwareUpdateInstallState({ isDone }: { isDone: boolean }) {
     firmwareProgress,
     firmwareProgressType,
     lastFirmwareTipMessage,
+    retryInfo,
   ]);
 
   // Device-side confirmation or PIN entry pauses everything visible here.
   const isWaitingForDevice = deviceUtils.isConfirmOnDeviceAction(state);
-  const displayStage: IFirmwareUpdateStage = isWaitingForDevice
-    ? 'waitingForDevice'
-    : stage;
+  let displayStage: IFirmwareUpdateStage = stage;
+  if (isWaitingForDevice) {
+    displayStage = 'waitingForDevice';
+  }
+  if (retryInfo) {
+    displayStage = 'preparing';
+  }
 
   const remainingTime = useMemo<IRemainingTimeBucket | undefined>(() => {
     if (firmwareProgressType !== 'transferData') {
