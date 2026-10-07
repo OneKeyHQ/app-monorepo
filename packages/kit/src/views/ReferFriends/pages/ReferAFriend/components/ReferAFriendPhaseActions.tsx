@@ -66,7 +66,7 @@ export function ReferAFriendPhaseActions({
           onPress={handleBackToIntro}
         >
           {intl.formatMessage({
-            id: ETranslations.perp_term_previous,
+            id: ETranslations.global_back,
           })}
         </Button>
         <Button
