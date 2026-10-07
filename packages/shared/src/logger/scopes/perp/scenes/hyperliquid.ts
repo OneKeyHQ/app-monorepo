@@ -27,6 +27,8 @@ import type {
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
+import type { IDeviceType } from '@onekeyfe/hd-core';
+
 export interface IHyperLiquidAccountContext {
   accountAddress: string | null;
   exchangeAccountAddress: string | null;
@@ -48,6 +50,7 @@ export interface IHyperLiquidLogParams<TRequest, TResponse>
   error?: Record<string, unknown>;
   extra?: Record<string, unknown>;
   isFirstTime?: boolean;
+  deviceType?: IDeviceType;
 }
 
 export type IHyperLiquidApiFailureEndpoint = 'info' | 'exchange';

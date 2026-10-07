@@ -128,6 +128,21 @@ export function NetworkAvatar({
     return <LetterAvatar letter={name?.[0]} size={size} />;
   }
 
+  // The id alone identifies All Networks. Waiting for the async network
+  // record's `isAllNetworks` painted the preset's colored logo (returned
+  // synchronously by useNetworkLogoUri) for the first frames after a switch
+  // to a watching wallet, whose header uses this avatar for All Networks.
+  if (isAllNetworks || networkUtils.isAllNetwork({ networkId })) {
+    return (
+      <NetworkAvatarBase
+        size={size}
+        isAllNetworks
+        logoURI=""
+        allNetworksIconProps={allNetworksIconProps}
+      />
+    );
+  }
+
   if (networkUtils.isAggregateNetwork({ networkId })) {
     return (
       <NetworkAvatarBase
