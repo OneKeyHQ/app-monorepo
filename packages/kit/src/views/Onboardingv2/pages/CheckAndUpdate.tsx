@@ -159,6 +159,9 @@ function CheckAndUpdatePage({
   const isFirmwareVerifiedRef = useRef<boolean | undefined>(undefined);
   const deviceFeaturesRef = useRef<Features | undefined>(undefined);
   const hasUpgradeForceRef = useRef(false);
+  // Sized by the firmware step's release check; read when "Update now" is
+  // tapped, so the state updates that drive the steps are not re-run for it.
+  const estimatedTransferBytesRef = useRef<number | undefined>(undefined);
   // Generation counter for checkFirmwareUpdate: each call claims a new id, so
   // a previous round that out-lived its watchdog (hung transport call) cannot
   // write its late result, error, or timeout over the state a newer retry
@@ -337,8 +340,16 @@ function CheckAndUpdatePage({
     // Original transport is stored in singleton, will be restored in useFocusEffect
     await actions.openChangeLogModal({
       connectId: usbPrepareResult.connectId,
+      // The firmware step has already found and sized the update, so the
+      // desktop USB suggestion comes before the changelog's own device
+      // check. The page host keeps the dark theme.
+      knownUpdate: {
+        deviceType: currentDevice?.deviceType,
+        estimatedTransferBytes: estimatedTransferBytesRef.current,
+      },
+      dialogHost: getBootloaderDialogHost(),
     });
-  }, [actions, currentDevice, prepareUSBConnect]);
+  }, [actions, currentDevice, prepareUSBConnect, getBootloaderDialogHost]);
 
   // Watchdog for checkFirmwareUpdate. It targets the firmware step
   // explicitly — matching "whichever step is InProgress" could stamp the
@@ -607,6 +618,7 @@ function CheckAndUpdatePage({
             r.updateInfos?.firmware?.hasUpgradeForce ||
             r.updateInfos?.ble?.hasUpgradeForce ||
             false;
+          estimatedTransferBytesRef.current = r.estimatedTransferBytes;
           // Only the firmware step is written here — the genuine step's
           // terminal state (Success or Skipped) belongs to handleVerifyHardware
           // and must survive the firmware result.

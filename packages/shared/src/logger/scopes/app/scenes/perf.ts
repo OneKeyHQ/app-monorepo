@@ -1,3 +1,4 @@
+import type { IRuntimeHealthReport } from '@onekeyhq/shared/src/performance/collectors/jsBlockCollector';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { BaseScene } from '../../../base/baseScene';
@@ -59,9 +60,9 @@ export class AppPerfScene extends BaseScene {
   }
 
   // Aggregated per window: event-loop blocks, JS heap and GC, process CPU
-  // and memory. Numbers only.
+  // and memory, including compact numeric frame-window tuples.
   @LogToLocal()
-  public runtimeHealthCensus(params: Record<string, number | undefined>) {
+  public runtimeHealthCensus(params: IRuntimeHealthReport) {
     return [params];
   }
 
@@ -72,6 +73,7 @@ export class AppPerfScene extends BaseScene {
     windowMs: number;
     total: number;
     totalKB: number;
+    totalChars: number;
     byKind: { kind: string; count: number; kb: number }[];
     bySender: { sender: string; count: number; kb: number }[];
   }) {
