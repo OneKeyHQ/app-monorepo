@@ -59,6 +59,8 @@ jest.mock('@onekeyhq/components', () => ({
 
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => mockIsFocused,
+  useRouteIsFocusedWhenEnabled: ({ enabled }: { enabled: boolean }) =>
+    !enabled || mockIsFocused,
 }));
 
 jest.mock('@onekeyhq/kit/src/components/Currency', () => ({

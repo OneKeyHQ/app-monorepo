@@ -214,6 +214,7 @@ function AllNetworksManagerTrigger({
     // selector and switch to a single chain (or enable a compatible one).
     return (
       <XStack
+        testID="all-networks-manager-trigger"
         borderRadius="$2"
         hoverStyle={{
           bg: '$bgHover',
@@ -244,6 +245,7 @@ function AllNetworksManagerTrigger({
 
   return (
     <XStack
+      testID="all-networks-manager-trigger"
       borderRadius="$2"
       hoverStyle={{
         bg: '$bgHover',
