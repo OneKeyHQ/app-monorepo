@@ -24,7 +24,7 @@ export type IModalWebViewParamList = {
 
 // Root-level WebView overlay (separate from the modal-card webview above).
 // Reachable at ERootRoutes.WebView ('RootWebView') from in-app calls,
-// deeplinks, and notification taps.
+// App Clip campaign handoffs, and notification taps.
 export enum EWebViewRoutes {
   WebView = 'WebView',
 }

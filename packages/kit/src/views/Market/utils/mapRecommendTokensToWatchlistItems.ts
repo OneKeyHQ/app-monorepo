@@ -1,8 +1,3 @@
-import pLimit from 'p-limit';
-
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type { IMarketAssetVariant } from '@onekeyhq/shared/types/market';
 import type { IMarketBasicConfigToken } from '@onekeyhq/shared/types/marketV2';
 
 export type IRecommendWatchlistInput = Pick<
@@ -20,12 +15,6 @@ export type IRecommendWatchlistItem = {
   isNative?: boolean;
   assetId?: string;
   stockId?: string;
-};
-
-export type IRecommendListingIdentity = {
-  assetId: string;
-  chainId: string;
-  contractAddress: string;
 };
 
 function toDexWatchlistItem(
@@ -54,10 +43,6 @@ function toStockWatchlistItem(stockId: string): IRecommendWatchlistItem {
   };
 }
 
-function hasExplicitListingId(token: IRecommendWatchlistInput) {
-  return Boolean(token.assetId?.trim() || token.stockId?.trim());
-}
-
 export function copyRecommendListingIds(token: {
   assetId?: string;
   stockId?: string;
@@ -69,157 +54,27 @@ export function copyRecommendListingIds(token: {
   };
 }
 
-export function toRecommendWatchlistItem({
-  token,
-  listings,
-}: {
-  token: IRecommendWatchlistInput;
-  listings: IRecommendListingIdentity[];
-}): IRecommendWatchlistItem {
+/**
+ * A recommend row is a mainstream coin only when that row carries `assetId`.
+ * Looking the symbol up in the top-coin list merges a different token that
+ * happens to share the symbol, such as "Aave Token" and the asset "Aave".
+ */
+export function toRecommendWatchlistItem(
+  token: IRecommendWatchlistInput,
+): IRecommendWatchlistItem {
   const stockId = token.stockId?.trim();
   if (stockId) {
     return toStockWatchlistItem(stockId);
   }
-  const assetId = matchRecommendTokenAssetId({ token, listings });
-  return assetId ? toListingWatchlistItem(assetId) : toDexWatchlistItem(token);
-}
-
-export function matchRecommendTokenAssetId({
-  token,
-  listings,
-}: {
-  token: IRecommendWatchlistInput;
-  listings: IRecommendListingIdentity[];
-}): string | undefined {
-  const explicitAssetId = token.assetId?.trim();
-  if (explicitAssetId) {
-    return explicitAssetId;
+  const assetId = token.assetId?.trim();
+  if (assetId) {
+    return toListingWatchlistItem(assetId);
   }
-  return listings.find((listing) =>
-    equalTokenNoCaseSensitive({
-      token1: {
-        networkId: token.chainId,
-        contractAddress: token.contractAddress,
-      },
-      token2: {
-        networkId: listing.chainId,
-        contractAddress: listing.contractAddress,
-      },
-    }),
-  )?.assetId;
+  return toDexWatchlistItem(token);
 }
 
-function collectRecommendSymbols(tokens: IRecommendWatchlistInput[]) {
-  return new Set(
-    tokens
-      .map((token) => token.symbol?.trim().toUpperCase())
-      .filter((symbol): symbol is string => Boolean(symbol)),
-  );
-}
-
-function collectAssetListingIdentities({
-  assetId,
-  selectedVariant,
-  variants,
-}: {
-  assetId: string;
-  selectedVariant?: Pick<
-    IMarketAssetVariant,
-    'networkId' | 'tokenAddress' | 'isNative'
-  > | null;
-  variants?: Array<
-    | Pick<IMarketAssetVariant, 'networkId' | 'tokenAddress' | 'isNative'>
-    | null
-    | undefined
-  >;
-}): IRecommendListingIdentity[] {
-  const listings: IRecommendListingIdentity[] = [];
-  const seen = new Set<string>();
-  for (const variant of [selectedVariant, ...(variants ?? [])]) {
-    const contractAddress = variant?.tokenAddress ?? '';
-    const key = variant?.networkId
-      ? `${variant.networkId}:${contractAddress.toLowerCase()}`
-      : '';
-    const isUsable =
-      Boolean(key) &&
-      (Boolean(variant?.isNative) || Boolean(contractAddress.trim()));
-    if (isUsable && variant?.networkId && !seen.has(key)) {
-      seen.add(key);
-      listings.push({
-        assetId,
-        chainId: variant.networkId,
-        contractAddress,
-      });
-    }
-  }
-  return listings;
-}
-
-const resolveRecommendListingLimit = pLimit(4);
-
-async function loadRecommendListingIdentities(
+export function mapRecommendTokensToWatchlistItems(
   tokens: IRecommendWatchlistInput[],
-): Promise<IRecommendListingIdentity[]> {
-  const symbols = collectRecommendSymbols(tokens);
-  if (symbols.size === 0) {
-    return [];
-  }
-
-  const { list } = await backgroundApiProxy.serviceMarket.fetchMarketAssetList({
-    currency: 'usd',
-    type: 'top_coins',
-    page: 1,
-    limit: 100,
-  });
-  const candidates = list.filter((item) =>
-    symbols.has(item.symbol.toUpperCase()),
-  );
-  const resolved = await Promise.all(
-    candidates.map((item) =>
-      resolveRecommendListingLimit(async () => {
-        try {
-          const detail =
-            await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
-              assetId: item.assetId,
-              currency: 'usd',
-              autoHandleError: false,
-            });
-          return collectAssetListingIdentities({
-            assetId: item.assetId,
-            selectedVariant: detail.selectedVariant,
-            variants: detail.variants,
-          });
-        } catch {
-          // Keep listings that already resolved; one failed detail
-          // must not send the whole batch down the DEX fallback.
-          return [];
-        }
-      }),
-    ),
-  );
-  return resolved.flat();
-}
-
-export async function mapRecommendTokensToWatchlistItems(
-  tokens: IRecommendWatchlistInput[],
-): Promise<IRecommendWatchlistItem[]> {
-  if (!tokens.length) {
-    return [];
-  }
-  if (tokens.every((token) => hasExplicitListingId(token))) {
-    return tokens.map((token) =>
-      toRecommendWatchlistItem({ token, listings: [] }),
-    );
-  }
-
-  let listings: IRecommendListingIdentity[] = [];
-  try {
-    listings = await loadRecommendListingIdentities(
-      tokens.filter((token) => !hasExplicitListingId(token)),
-    );
-  } catch {
-    listings = [];
-  }
-
-  return tokens.map((token) => toRecommendWatchlistItem({ token, listings }));
+): IRecommendWatchlistItem[] {
+  return tokens.map((token) => toRecommendWatchlistItem(token));
 }
