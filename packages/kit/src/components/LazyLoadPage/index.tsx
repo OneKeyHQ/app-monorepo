@@ -50,7 +50,15 @@ export function LazyLoadPage<
       default: ComponentType<IExtractComponentProps<T>>;
     }>,
     delayMs,
-    fallback ?? defaultFallback,
+    // Android is the only platform that navigates with `animation: 'none'`
+    // (GlobalScreenOptions.native.ts), so a fallback there is never masked by a
+    // transition and flashes on every page open. iOS animates the push, and
+    // web/desktop/extension resolve `factory` over the network, where dropping
+    // the indicator reads as a hang rather than as loading — LazyRetryBoundary
+    // renders this same node through its 150/600ms retry backoff, so those
+    // platforms keep the spinner. Routes wanting other loading state pass
+    // `fallback` explicitly.
+    fallback ?? (platformEnv.isNativeAndroid ? null : defaultFallback),
   );
   function LazyLoadPageContainer(props: IExtractComponentProps<T>) {
     if (unStyle) {

@@ -503,7 +503,7 @@ function DeviceManagementV2ListWeb() {
   };
 
   return (
-    <Page fullPage safeAreaEnabled={gtMd || showHeader}>
+    <Page safeAreaEnabled={gtMd || showHeader}>
       {renderHeader()}
       <Page.Body
         alignItems="stretch"

@@ -10,7 +10,6 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalSwapRoutes,
   IModalSwapParamList,
@@ -70,7 +69,7 @@ const SwapMainLandModalPage = () => {
   }, [swapSource]);
 
   return (
-    <Page lazyLoad={!platformEnv.isNativeIOS}>
+    <Page>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_trade })}
       />
