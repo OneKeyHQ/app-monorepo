@@ -37,6 +37,7 @@ export default function ClearAppCache() {
       signatureRecord: false,
       customToken: false,
       customRpc: false,
+      customNetwork: false,
       customNetworkFee: false,
       serverNetworks: false,
       perpsData: false,
@@ -134,6 +135,16 @@ export default function ClearAppCache() {
                   <Checkbox
                     label={intl.formatMessage({
                       id: ETranslations.custom_rpc_title,
+                    })}
+                  />
+                </Form.Field>
+              )}
+              {platformEnv.isWebDappMode ? null : (
+                <Form.Field name="customNetwork">
+                  <Checkbox
+                    testID="setting-clear-app-cache-custom-network-checkbox"
+                    label={intl.formatMessage({
+                      id: ETranslations.settings_custom_networks__title,
                     })}
                   />
                 </Form.Field>
