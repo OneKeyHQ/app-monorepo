@@ -57,6 +57,12 @@ export function DeFiAssetsTab({
         pendingCountByProvider={pendingCountByProvider}
         onManage={onManage}
       />
+      {/* scopes still landing behind the rows already shown */}
+      {isLoading && protocols.length > 0 ? (
+        <Stack ai="center" py="$4">
+          <Spinner size="small" />
+        </Stack>
+      ) : null}
     </YStack>
   );
 }

@@ -310,7 +310,16 @@ const WrappedActionButtonCmp = ({
         cursor={buttonDisabled ? 'not-allowed' : 'pointer'}
         onPress={onPress}
       >
-        <EarnText size="$bodyMdMedium" text={buttonText} />
+        {/* The remote text renders outside Button.Text, so it does not pick
+            up the variant's text color: a primary button needs the inverse
+            text color or it vanishes on the dark theme. */}
+        <EarnText
+          size="$bodyMdMedium"
+          color={
+            buttonProps?.variant === 'primary' ? '$textInverse' : undefined
+          }
+          text={buttonText}
+        />
       </Button>
     );
   }
