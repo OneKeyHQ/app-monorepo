@@ -2,6 +2,7 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
   ESwapQuoteKind,
+  ESwapQuoteSource,
   ESwapTradeSource,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -39,10 +40,12 @@ function createService() {
     .fn()
     .mockResolvedValue({ 'X-OneKey-Wallet-Type': 'hd' });
   const post = jest.fn().mockResolvedValue({ data: { data: {} } });
+  const getAccountDeviceSafe = jest.fn().mockResolvedValue(null);
   const service = new ServiceSwap({
     backgroundApi: {
       serviceReferralCode: { getBoundEvmReferralCodeWalletInfo },
       serviceAccountProfile: { _getWalletTypeHeader: getWalletTypeHeader },
+      serviceAccount: { getAccountDeviceSafe },
     },
   });
   jest.spyOn(service, 'getClient').mockResolvedValue({ post } as never);
@@ -50,6 +53,7 @@ function createService() {
     service,
     getBoundEvmReferralCodeWalletInfo,
     getWalletTypeHeader,
+    getAccountDeviceSafe,
     post,
   };
 }
@@ -127,5 +131,54 @@ describe('ServiceSwap build transaction context', () => {
     await service.fetchBuildTx({ ...buildParams, preparedContext: context });
     expect(getBoundEvmReferralCodeWalletInfo).toHaveBeenCalledTimes(2);
     expect(getWalletTypeHeader).toHaveBeenCalledTimes(2);
+  });
+
+  it('uses the account device and preserves the quote source', async () => {
+    const { service, getAccountDeviceSafe, post } = createService();
+    getAccountDeviceSafe.mockResolvedValueOnce({ deviceType: 'pro2' });
+
+    await service.fetchBuildTx({
+      ...buildParams,
+      source: ESwapQuoteSource.MARKET,
+    });
+
+    expect(getAccountDeviceSafe).toHaveBeenCalledWith({
+      accountId: buildParams.accountId,
+    });
+    expect(post).toHaveBeenCalledWith(
+      '/swap/v1/build-tx',
+      expect.objectContaining({
+        deviceType: 'pro2',
+        source: ESwapQuoteSource.MARKET,
+      }),
+      expect.any(Object),
+    );
+  });
+
+  it('keeps an explicit device without an additional account lookup', async () => {
+    const { service, getAccountDeviceSafe, post } = createService();
+
+    await service.fetchBuildTx({ ...buildParams, deviceType: 'neo' });
+
+    expect(getAccountDeviceSafe).not.toHaveBeenCalled();
+    expect(post).toHaveBeenCalledWith(
+      '/swap/v1/build-tx',
+      expect.objectContaining({ deviceType: 'neo', source: undefined }),
+      expect.any(Object),
+    );
+  });
+
+  it('allows software wallets and accountless requests without device metadata', async () => {
+    const { service, getAccountDeviceSafe, post } = createService();
+
+    await service.fetchBuildTx(buildParams);
+    await service.fetchBuildTx({ ...buildParams, accountId: undefined });
+
+    expect(getAccountDeviceSafe).toHaveBeenCalledTimes(1);
+    expect(post).toHaveBeenLastCalledWith(
+      '/swap/v1/build-tx',
+      expect.objectContaining({ deviceType: undefined }),
+      expect.any(Object),
+    );
   });
 });
