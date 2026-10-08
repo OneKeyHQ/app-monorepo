@@ -1,5 +1,6 @@
 import {
   swapInitialSelectedTokensSyncedAtom,
+  swapNetworks,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
   swapSelectedTokensColdStartContextAtom,
@@ -25,6 +26,7 @@ export function hydrateSwapDefaultTokensFromGlobalHomeSnapshot(
 
   const defaultTokens = getSwapDefaultSelectedTokensFromGlobalHomeSnapshot({
     swapType: store.get(swapTypeSwitchAtom()),
+    swapNetworks: store.get(swapNetworks()),
   });
   if (!defaultTokens) {
     return false;
