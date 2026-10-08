@@ -1,6 +1,5 @@
 import { isNil } from 'lodash';
 
-import { BLANK_ICON_BASE64 } from '@onekeyhq/shared/src/consts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
@@ -19,6 +18,7 @@ import {
 } from '@onekeyhq/shared/types/notification';
 
 import NotificationProviderBase from './NotificationProviderBase';
+import { resolveExtNotificationIconUrl } from './resolveExtNotificationIconUrl';
 
 import type { INotificationProviderBaseParams } from './NotificationProviderBase';
 
@@ -202,7 +202,7 @@ export default class NotificationProvider extends NotificationProviderBase {
       const options: chrome.notifications.NotificationOptions<true> = {
         // export type TemplateType = "basic" | "image" | "list" | "progress";
         type: 'basic',
-        iconUrl: icon || BLANK_ICON_BASE64, // ONEKEY_LOGO_ICON_URL
+        iconUrl: resolveExtNotificationIconUrl(icon),
         title,
         message: description,
         silent: false,
@@ -220,8 +220,9 @@ export default class NotificationProvider extends NotificationProviderBase {
             notificationId,
             {
               ...options,
-              // image url may be invalid, use blank icon as default
-              iconUrl: BLANK_ICON_BASE64, // ONEKEY_LOGO_ICON_URL
+              // Remote extras.image may be invalid; fall back to the packaged
+              // OneKey icon so the OS notification still has a source identity.
+              iconUrl: resolveExtNotificationIconUrl(),
             },
             (id2) => {
               resolve(id2);

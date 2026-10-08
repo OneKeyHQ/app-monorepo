@@ -40,7 +40,6 @@ export const HomeTestIDs = {
     `home-token-item-${networkId}-${symbol}`,
 
   // Risk approval
-  riskApprovalAlert: 'home-risk-approval-alert',
   approvalListEmpty: 'Wallet-Approval-Unsupported-Empty', // preserve existing
 
   // Referral web landing steps

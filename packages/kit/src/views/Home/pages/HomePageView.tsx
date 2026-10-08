@@ -65,7 +65,6 @@ import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
 import { NetworkAlert } from '../../../components/NetworkAlert';
 import { NotificationEnableAlert } from '../../../components/NotificationEnableAlert';
 import { NotificationPermissionRecoveryAlert } from '../../../components/NotificationPermissionRecoveryAlert';
-import { RiskApprovalAlert } from '../../../components/RiskApprovalAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { WatchOnlyAlert } from '../../../components/WatchOnlyAlert';
 import { WebDappEmptyView } from '../../../components/WebDapp/WebDappEmptyView';
@@ -73,10 +72,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { runAfterTokensDone } from '../../../hooks/useRunAfterTokensDone';
 import { useShortcutsOnRouteFocused } from '../../../hooks/useShortcutsOnRouteFocused';
-import {
-  useAccountOverviewActions,
-  useApprovalsInfoAtom,
-} from '../../../states/jotai/contexts/accountOverview';
+import { useAccountOverviewActions } from '../../../states/jotai/contexts/accountOverview';
 import {
   useAccountSelectorStorageInitDoneAtom,
   useActiveAccount,
@@ -160,7 +156,6 @@ const AndroidScrollContainer = platformEnv.isNativeAndroid
 function HomeAlerts() {
   return (
     <>
-      <RiskApprovalAlert />
       <WatchOnlyAlert />
       <NetworkAlert />
       <NotificationPermissionRecoveryAlert
@@ -343,7 +338,6 @@ export function HomePageView({
     },
   );
 
-  const [{ hasRiskApprovals }] = useApprovalsInfoAtom();
   const { updateApprovalsInfo } = useAccountOverviewActions().current;
   const tabsRef = useRef<ITabContainerRef | null>(null);
   const homeTabsScrollToTopRef = useRef<(() => void) | undefined>(undefined);
@@ -386,11 +380,6 @@ export function HomePageView({
       };
     }, []),
   );
-
-  const hasRiskApprovalsRef = useRef(hasRiskApprovals);
-  useEffect(() => {
-    hasRiskApprovalsRef.current = hasRiskApprovals;
-  }, [hasRiskApprovals]);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const addressType = deriveInfo?.labelKey
@@ -481,10 +470,8 @@ export function HomePageView({
   useEffect(() => {
     let cancelled = false;
 
-    // Keep the red-dot state from becoming stale across account/network switches.
-    if (hasRiskApprovalsRef.current) {
-      updateApprovalsInfo({ hasRiskApprovals: false, riskApprovalsCount: 0 });
-    }
+    // Keep the risk dot from becoming stale across account/network switches.
+    updateApprovalsInfo({ showRiskApprovalsDot: false });
 
     const run = async (_trigger: string) => {
       if (!isBulkRevokeApprovalEnabled) return;
@@ -494,21 +481,15 @@ export function HomePageView({
       if (cancelled) return;
 
       try {
-        const resp =
-          await backgroundApiProxy.serviceApproval.fetchAccountApprovals({
+        const shouldShowDot =
+          await backgroundApiProxy.serviceApproval.shouldShowRiskApprovalsDot({
             networkId: network.id,
             accountId: account.id,
             indexedAccountId: indexedAccount?.id,
             accountAddress: account.address,
           });
         if (cancelled) return;
-        const riskApprovals = resp.contractApprovals.filter(
-          (i) => i.isRiskContract,
-        );
-        updateApprovalsInfo({
-          hasRiskApprovals: riskApprovals.length > 0,
-          riskApprovalsCount: riskApprovals.length,
-        });
+        updateApprovalsInfo({ showRiskApprovalsDot: shouldShowDot });
       } catch (error) {
         if (error instanceof CanceledError) {
           return;
