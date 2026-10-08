@@ -669,3 +669,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: Resolve the same top-coin listing before painting the badge, hide it until that match finishes, and reuse the result when the user adds the tokens.
 **Catchable by**: Section 4: data flow end-to-end; NEW — a display rule and the later save rule must share one identity, not a cheaper proxy that only covers part of the set
 
+## Case: Extension OS notifications used a transparent icon
+**Date**: 2026-09-20 | **Platforms**: Extension
+**Symptom**: Chrome extension system pushes carried no OneKey branding, only the browser's own attribution. Marketing notifications looked unattributed.
+**Root Cause**: `chrome.notifications.create` used `BLANK_ICON_BASE64` (1x1 transparent PNG) when `extras.image` was missing or the remote URL failed, so the notification's content icon was invisible. On macOS the app icon is always Chrome's, so `iconUrl` is the only place OneKey can appear.
+**Fix**: Resolve `iconUrl` with the packaged `icon-128.png` via `chrome.runtime.getURL` when the payload has no usable icon, including the create-failure retry path.
+**Catchable by**: Section 3: identified which platforms consume modified code; NEW — extension OS notifications must not use a transparent placeholder for `iconUrl`
+
