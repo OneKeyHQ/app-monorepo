@@ -123,6 +123,7 @@ import type {
   AllFirmwareRelease,
   CoreApi,
   Success as CoreSuccess,
+  DeviceState,
   DeviceSuccess,
   DeviceUploadResourceParams,
   FirmwareUpdatePlanForceTarget,
@@ -416,11 +417,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
     forceProtocolDetection?: boolean;
     hardwareTransportType?: EHardwareTransportType;
   }) {
+    let state: DeviceState | undefined;
     let features: IOneKeyDeviceFeatures | undefined;
     let error: IOneKeyError | undefined;
     let isBootloaderMode = false;
     try {
-      const state = await this.backgroundApi.serviceHardware.getDeviceState({
+      state = await this.backgroundApi.serviceHardware.getDeviceState({
         connectId,
         params: {
           scope: 'firmware',
@@ -456,6 +458,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     }
     return {
       isBootloaderMode,
+      state,
       features,
       error,
     };
@@ -904,12 +907,15 @@ class ServiceFirmwareUpdate extends ServiceBase {
       //
     }
 
-    const { isBootloaderMode, features: initialFeatures } =
-      await this.checkDeviceIsBootloaderMode({
-        connectId: originalConnectId,
-        allowEmptyConnectId: true,
-        hardwareTransportType: currentTransportType,
-      });
+    const {
+      isBootloaderMode,
+      state: initialState,
+      features: initialFeatures,
+    } = await this.checkDeviceIsBootloaderMode({
+      connectId: originalConnectId,
+      allowEmptyConnectId: true,
+      hardwareTransportType: currentTransportType,
+    });
     let features: IOneKeyDeviceFeatures =
       initialFeatures as IOneKeyDeviceFeatures;
 
@@ -931,6 +937,29 @@ class ServiceFirmwareUpdate extends ServiceBase {
     const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
       features,
     });
+    let protocolV2DeviceLabel = initialState?.identity.label ?? undefined;
+    if (
+      isProtocolV2ProductType(deviceType) &&
+      !isBootloaderMode &&
+      initialState?.status.unlocked === true
+    ) {
+      const deviceState =
+        await this.backgroundApi.serviceHardware.getDeviceState({
+          connectId: originalConnectId,
+          params: {
+            scope: 'settings',
+            retryCount: 0,
+            skipWebDevicePrompt: true,
+            ...(currentTransportType === EHardwareTransportType.DesktopWebBle
+              ? { timeout: DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS }
+              : {}),
+          },
+          silentMode: true,
+          hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
+          hardwareTransportType: currentTransportType,
+        });
+      protocolV2DeviceLabel = deviceState.identity.label ?? undefined;
+    }
     const protocolV2DevSettings = isProtocolV2ProductType(deviceType)
       ? await Promise.all([
           this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
@@ -1070,7 +1099,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
     // TODO boot mode device serial number is empty
     const deviceSerialNo = getDeviceSerialNo(features);
-    const deviceName = await deviceUtils.buildDeviceName({ features });
+    const deviceName = isProtocolV2ProductType(deviceType)
+      ? protocolV2DeviceLabel
+      : await deviceUtils.buildDeviceName({ features });
     const deviceBleName = deviceUtils.buildDeviceBleName({ features });
 
     const totalPhase: Array<IDeviceFirmwareType | undefined> = [
@@ -2490,10 +2521,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
                   });
                 }
 
-                serviceHardwareUtils.hardwareLog(
-                  'startUpdateWorkflow DONE',
-                  params,
-                );
+                const { deviceName: _deviceName, ...releaseResultForLog } =
+                  params.releaseResult;
+                serviceHardwareUtils.hardwareLog('startUpdateWorkflow DONE', {
+                  ...params,
+                  releaseResult: releaseResultForLog,
+                });
 
                 await firmwareUpdateRetryAtom.set(undefined);
                 if (params.releaseResult.originalConnectId) {
@@ -2783,10 +2816,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
                     updateResult,
                   );
 
-                  serviceHardwareUtils.hardwareLog(
-                    'startUpdateWorkflow DONE',
-                    params,
-                  );
+                  const { deviceName: _deviceName, ...releaseResultForLog } =
+                    params.releaseResult;
+                  serviceHardwareUtils.hardwareLog('startUpdateWorkflow DONE', {
+                    ...params,
+                    releaseResult: releaseResultForLog,
+                  });
 
                   await firmwareUpdateRetryAtom.set(undefined);
                   if (params.releaseResult.originalConnectId) {

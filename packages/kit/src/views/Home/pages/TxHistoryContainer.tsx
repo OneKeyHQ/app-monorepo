@@ -1,4 +1,12 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { isEmpty, unionBy, uniqBy } from 'lodash';
 
@@ -350,6 +358,27 @@ function TxHistoryListContainer(
       wallet?.id,
     ],
   );
+
+  // `Tabs.Container` no longer remounts on an account switch (OK-63873), so
+  // `historyData` survives it and would render the previous identity's rows
+  // until `initHistoryState`'s local DB read returns. Drop them in the same
+  // commit the identity changes (layout effect, before paint) so the skeleton
+  // shows instead; the init effect below re-seeds from the new identity's
+  // local cache. Same-identity reruns (filter / currency) are left alone.
+  const prevIdentityKeyRef = useRef(identityKey);
+  useLayoutEffect(() => {
+    if (prevIdentityKeyRef.current === identityKey) {
+      return;
+    }
+    prevIdentityKeyRef.current = identityKey;
+    setHistoryData((prev) => (prev.length === 0 ? prev : []));
+    setHistoryState({
+      initialized: false,
+      isRefreshing: true,
+    });
+    // Appended load-more pages are merged into the rows; drop them now too.
+    resetLoadMore();
+  }, [identityKey, resetLoadMore]);
 
   // Monotonic request id; bumped on identity change AND at the start of every
   // `run()` body (before any early return) so older in-flight fetches can't
