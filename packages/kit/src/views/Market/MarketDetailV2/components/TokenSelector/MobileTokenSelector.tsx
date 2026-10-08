@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FlatList } from 'react-native';
 
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
+import { FlatList } from 'react-native';
 
 import {
   Button,
@@ -19,13 +19,13 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
-import { MobileMarketStockListItem } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/MobileMarketStockListItem';
 import { useToMarketStockDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/hooks/useToMarketStockDetailPage';
-import { TokenListItem } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/components/TokenListItem';
+import { MobileMarketStockListItem } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/MobileMarketStockListItem';
 import {
   MarketNormalTokenList,
   MarketWatchlistTokenList,
 } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList';
+import { TokenListItem } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/components/TokenListItem';
 import { MarketStockCategorySelector } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketStockCategorySelector';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import { useMarketTopCoins } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTopCoinsList/hooks/useMarketTopCoins';
@@ -59,10 +59,10 @@ import {
   useDetailSelectorBrowseState,
 } from './detailSelectorBrowse';
 import { dismissMobileTokenSelectorKeyboard } from './dismissMobileTokenSelectorKeyboard';
-import { useMarketStockSelectorList } from './useMarketStockSelectorList';
 import { MobileMarketTokenSelectorSearchResults } from './MobileMarketTokenSelectorSearchResults';
 import { navigateToMarketTokenDetail } from './navigateToMarketTokenDetail';
 import { useLiveTokenOverride } from './useLiveTokenOverride';
+import { useMarketStockSelectorList } from './useMarketStockSelectorList';
 
 function normalizeRouteBooleanParam(value: boolean | string | undefined) {
   if (typeof value === 'string') {
@@ -129,7 +129,12 @@ function MobileDetailStockBrowseList({
             id: ETranslations.global_connet_error_try_again,
           })}
         </SizableText>
-        <Button size="small" variant="tertiary" onPress={() => void refresh()}>
+        <Button
+          size="small"
+          variant="tertiary"
+          testID="mobile-market-token-selector-stock-browse-retry"
+          onPress={() => void refresh()}
+        >
           {intl.formatMessage({ id: ETranslations.global_retry })}
         </Button>
       </YStack>
@@ -151,6 +156,7 @@ function MobileDetailStockBrowseList({
           my="$2"
           size="small"
           variant="tertiary"
+          testID="mobile-market-token-selector-stock-browse-show-more"
           loading={isLoadingMore}
           onPress={() => void loadMore()}
         >

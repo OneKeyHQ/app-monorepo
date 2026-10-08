@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import {
-  MARKET_SEARCH_TABS,
   type IMarketSearchTab,
+  MARKET_SEARCH_TABS,
   getDetailPopoverSearchTabs,
 } from '../../../utils/marketSearchList';
 

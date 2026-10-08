@@ -4,15 +4,15 @@ import { useIntl } from 'react-intl';
 
 import { SizableText, XStack } from '@onekeyhq/components';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
+import type {
+  IMarketCategoryItem,
+  IMarketTimeRangeValue,
+} from '@onekeyhq/kit/src/views/Market/MarketHomeV2/types';
 import {
   ensureMarketTopCoinsCategory,
   getMarketHomeFallbackSpotCategories,
   isMarketStockCategory,
 } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/utils';
-import type {
-  IMarketCategoryItem,
-  IMarketTimeRangeValue,
-} from '@onekeyhq/kit/src/views/Market/MarketHomeV2/types';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -165,11 +165,12 @@ export function useDetailSelectorBrowseState({
   const [stockCategoryId, setStockCategoryId] = useState(
     DETAIL_SELECTOR_STOCK_CATEGORY,
   );
-  const subCategories = isStockSelection
-    ? stockSubCategories
-    : isFavoritesSelection
-      ? EMPTY_DETAIL_SELECTOR_CATEGORIES
-      : tokenSubCategories;
+  let subCategories = tokenSubCategories;
+  if (isStockSelection) {
+    subCategories = stockSubCategories;
+  } else if (isFavoritesSelection) {
+    subCategories = EMPTY_DETAIL_SELECTOR_CATEGORIES;
+  }
   const selectedSubCategoryId = isStockSelection
     ? stockCategoryId
     : tokenCategoryId;
