@@ -28,6 +28,7 @@ export const HomeTestIDs = {
   moreButton: 'home-more-button',
   portfolioUpdateAction: 'home-update-portfolio-action',
   addMoneyButton: 'home-add-money-button',
+  walletActionsLoading: 'home-wallet-actions-loading',
 
   // Wallet overview
   walletOverview: 'home-wallet-overview',

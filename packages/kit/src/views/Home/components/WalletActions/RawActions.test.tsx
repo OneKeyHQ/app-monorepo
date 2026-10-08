@@ -2,7 +2,7 @@
 
 import { fireEvent, render } from '@testing-library/react';
 
-import { ActionItem, RawActions } from './RawActions';
+import { ActionItem, ActionsPlaceholder, RawActions } from './RawActions';
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -56,8 +56,11 @@ jest.mock('@onekeyhq/components', () => {
     Icon: () => null,
     IconButton: makePressable('icon-button'),
     SizableText: Passthrough,
+    Skeleton: ({ testID }: { testID?: string }) => (
+      <span data-kind="skeleton" data-testid={testID} />
+    ),
     Stack: makePressable('stack'),
-    XStack: Passthrough,
+    XStack: makePressable('xstack'),
   };
 });
 
@@ -137,4 +140,28 @@ describe('RawActions.More risk dot', () => {
       expect(queryByTestId('more-dot')).toBeNull();
     },
   );
+});
+
+// While the balance state is still unknown the header used to render nothing
+// where the action row belongs (Slack 09-22: empty account under All Networks
+// showed a blank band for the whole fan-out). The placeholder keeps one
+// skeleton card per action slot so the band reads as loading instead.
+describe('ActionsPlaceholder', () => {
+  it('renders one skeleton card per action slot', () => {
+    const { container } = render(
+      <ActionsPlaceholder slotCount={4} testID="home-wallet-actions-loading" />,
+    );
+
+    expect(
+      container.querySelector('[data-testid="home-wallet-actions-loading"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelectorAll(
+        '[data-testid="home-wallet-actions-loading-slot"]',
+      ),
+    ).toHaveLength(4);
+    expect(
+      container.querySelectorAll('[data-kind="skeleton"]').length,
+    ).toBeGreaterThanOrEqual(4);
+  });
 });

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useCallback, useContext, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { Divider } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -26,10 +26,8 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 import { HomeTestIDs } from '../../testIDs';
-import { HomeStickyHeaderContext } from '../HomeStickyHeaderContext';
 import { HomeTokenListProviderMirrorWrapper } from '../HomeTokenListProvider';
 
 import { RawActions } from './RawActions';
@@ -57,7 +55,6 @@ type IRenderMoreItemsParams = {
 export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
   const [devSettings] = useDevSettingsPersistAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const activeTabId = useContext(HomeStickyHeaderContext)?.activeTabId;
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
   const { account, network } = activeAccount;
   // Read here, not in the item: menu items render outside this context.
@@ -348,14 +345,12 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
         elements.push(...devElements);
       }
 
-      if (activeTabId === EHomeWalletTab.Portfolio) {
-        elements.push(
-          <WalletActionPortfolioSync
-            key="portfolio-sync"
-            onClose={handleActionListClose}
-          />,
-        );
-      }
+      elements.push(
+        <WalletActionPortfolioSync
+          key="portfolio-sync"
+          onClose={handleActionListClose}
+        />,
+      );
 
       return (
         <AccountSelectorProviderMirror
@@ -375,7 +370,6 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
       getMoreActionGroups,
       account?.id,
       activeAccount?.wallet?.id,
-      activeTabId,
       network?.id,
       config.moreActions,
       show,
