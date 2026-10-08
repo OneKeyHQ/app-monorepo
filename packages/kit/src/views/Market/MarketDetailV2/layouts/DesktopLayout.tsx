@@ -28,9 +28,9 @@ import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetwor
 import { LazyDesktopMarketTradingView } from '../components/MarketTradingView/LazyMarketTradingView';
 import { MarketChartFullscreenHeader } from '../components/MarketTradingView/MarketChartFullscreenHeader';
 import { useStockDetail } from '../hooks/StockDetailContext';
-import { resolveDisplayedStockPriceMode } from '../hooks/useStockPriceSource';
 import { useMarketDetailDisplayData } from '../hooks/useMarketDetailDisplayData';
 import { useMarketNativeChartPriceUpdate } from '../hooks/useMarketNativeChartPriceUpdate';
+import { resolveDisplayedStockPriceMode } from '../hooks/useStockPriceSource';
 import {
   useMarketTradingViewParams,
   useTokenDetail,
