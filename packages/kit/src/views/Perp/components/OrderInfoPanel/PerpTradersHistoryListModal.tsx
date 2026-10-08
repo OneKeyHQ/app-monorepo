@@ -30,10 +30,12 @@ import {
   usePerpTwapHistoryViewAllUrl,
 } from '../../hooks/usePerpOrderInfoPanel';
 import { useUnifoldDepositTrackerAvailability } from '../../hooks/useShowDepositWithdrawModal';
+import { useTradeHistoryFilters } from '../../hooks/useTradeHistoryFilters';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 
 import { FundingHistoryFilterToolbar } from './Components/FundingHistoryFilterToolbar';
+import { TradesHistoryFilterToolbar } from './Components/TradesHistoryFilterToolbar';
 import {
   type IFundingHistoryMarketOption,
   type IFundingHistorySideFilter,
@@ -138,6 +140,7 @@ export function PerpTradersHistoryListModal() {
   const { onViewAllUrl: onViewAllFundingUrl } =
     usePerpFundingHistoryViewAllUrl();
   const [activeTab, setActiveTab] = useState<ITabName>(initialTab);
+  const tradeHistoryFilters = useTradeHistoryFilters();
   const [fundingHistorySideFilter, setFundingHistorySideFilter] =
     useState<IFundingHistorySideFilter>('all');
   const [fundingHistoryMarketFilter, setFundingHistoryMarketFilter] = useState<
@@ -188,7 +191,13 @@ export function PerpTradersHistoryListModal() {
     }
   }, [activeTab]);
 
+  const hasActiveTradeFilter =
+    tradeHistoryFilters.filters.type !== 'all' ||
+    tradeHistoryFilters.filters.side !== 'all' ||
+    tradeHistoryFilters.filters.market !== undefined;
+
   const headerRight = useCallback(() => {
+    if (activeTab === 'Trades' && hasActiveTradeFilter) return null;
     if (activeTab === 'Funding') {
       return (
         <Button
@@ -233,6 +242,7 @@ export function PerpTradersHistoryListModal() {
   }, [
     activeTab,
     handleViewCryptoDeposits,
+    hasActiveTradeFilter,
     intl,
     isUnifoldDepositTrackerAvailable,
     onViewAllFundingUrl,
@@ -251,9 +261,24 @@ export function PerpTradersHistoryListModal() {
       <PageBody>
         <YStack flex={1}>
           <TabHeader activeTab={activeTab} onTabChange={setActiveTab} />
-          <YStack flex={1} pt={activeTab === 'Trades' ? '$3' : '$0'}>
+          <YStack flex={1}>
             {activeTab === 'Trades' ? (
-              <PerpTradesHistoryList isMobile useTabsList={false} />
+              <YStack flex={1}>
+                <XStack mt="$2" px="$5" py="$1.5" alignItems="center">
+                  <TradesHistoryFilterToolbar
+                    isMobile
+                    {...tradeHistoryFilters}
+                  />
+                </XStack>
+                <PerpTradesHistoryList
+                  isMobile
+                  useTabsList={false}
+                  filters={tradeHistoryFilters.filters}
+                  onMarketOptionsChange={
+                    tradeHistoryFilters.onMarketOptionsChange
+                  }
+                />
+              </YStack>
             ) : null}
             {activeTab === 'Twap' ? (
               <PerpTwapList
