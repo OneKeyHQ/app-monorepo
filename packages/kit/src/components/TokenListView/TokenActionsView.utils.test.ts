@@ -1,3 +1,8 @@
+import {
+  ARC_ERC20_USDC_CONTRACT_ADDRESS,
+  ARC_EURC_CONTRACT_ADDRESS,
+  ARC_NETWORK_ID,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
@@ -288,5 +293,50 @@ describe('getTokenActionSwapToToken', () => {
         },
       }),
     ).toEqual(expect.objectContaining({ networkId: 'evm--1', symbol: 'ETH' }));
+  });
+
+  it('uses the configured Arc ERC-20 USDC to Arc EURC pair', () => {
+    expect(
+      getTokenActionSwapToToken({
+        fromToken: buildSwapToken({
+          contractAddress: ARC_ERC20_USDC_CONTRACT_ADDRESS,
+          decimals: 6,
+          isNative: false,
+          name: 'USD Coin',
+          networkId: ARC_NETWORK_ID,
+          symbol: 'USDC',
+        }),
+        swapSupport: {
+          isSupportCrossChain: true,
+          isSupportSwap: true,
+        },
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        contractAddress: ARC_EURC_CONTRACT_ADDRESS,
+        isNative: false,
+        networkId: ARC_NETWORK_ID,
+        symbol: 'EURC',
+      }),
+    );
+  });
+
+  it('does not use Arc native USDC as the target for another Arc token', () => {
+    expect(
+      getTokenActionSwapToToken({
+        fromToken: buildSwapToken({
+          contractAddress: '0x1111111111111111111111111111111111111111',
+          decimals: 18,
+          isNative: false,
+          name: 'Other Token',
+          networkId: ARC_NETWORK_ID,
+          symbol: 'OTHER',
+        }),
+        swapSupport: {
+          isSupportCrossChain: true,
+          isSupportSwap: true,
+        },
+      }),
+    ).toBeUndefined();
   });
 });

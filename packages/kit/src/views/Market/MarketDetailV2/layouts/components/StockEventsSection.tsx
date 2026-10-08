@@ -304,6 +304,12 @@ export function StockEventsSection() {
   const upcomingEvents = events.filter((event) => event.status === 'scheduled');
   const pastEvents = events.filter((event) => event.status !== 'scheduled');
 
+  // A stock with no scheduled or past events hides the section; a failed
+  // request keeps it so the reader can retry.
+  if (!isLoading && result.status === 'success' && events.length === 0) {
+    return null;
+  }
+
   return (
     <YStack
       testID="stock-detail-events"
@@ -342,13 +348,6 @@ export function StockEventsSection() {
           >
             {intl.formatMessage({ id: ETranslations.global_retry })}
           </Button>
-        </YStack>
-      ) : null}
-      {!isLoading && result.status === 'success' && events.length === 0 ? (
-        <YStack height={96} alignItems="center" justifyContent="center">
-          <SizableText color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.global_no_data })}
-          </SizableText>
         </YStack>
       ) : null}
       {events.length > 0 ? (

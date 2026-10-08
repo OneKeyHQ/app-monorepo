@@ -3,18 +3,22 @@ import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlis
 import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 import type {
   IMarketPerpsTokenFromServer,
+  IMarketStockPublicItem,
   IMarketTokenListItem,
 } from '@onekeyhq/shared/types/marketV2';
 
 import {
   buildHomeMarketCategories,
+  buildHomeRecommendAddSortIndexes,
   getMarketTokenDisplayPrice,
   getMarketTokenDisplayPriceChange24h,
   getMarketTokenDisplayVolume24h,
   getTokenKey,
   mapMarketAssetToDisplay,
   mapMarketPerpsTokenToDisplay,
+  mapMarketStockToDisplay,
   mapMarketTokenToDisplay,
+  shouldShowHomeRecommendCards,
 } from './utils';
 
 function buildServerPerpsToken(name: string): IMarketPerpsTokenFromServer {
@@ -64,14 +68,6 @@ describe('PopularTrading market token display utils', () => {
   test.each<Partial<IMarketTokenListItem>>([
     { stockId: ' aapl ' },
     { stock: { stockId: 'AAPL', subtitle: 'Apple', sourceLogoUri: '' } },
-    {
-      stock: {
-        underlyingAssetTicker: 'aapl',
-        subtitle: 'Apple',
-        sourceLogoUri: '',
-      },
-    },
-    { name: 'Apple xStock', symbol: 'AAPLx' },
   ])(
     'preserves the stock favorite identity in Home display data: %j',
     (identity) => {
@@ -131,6 +127,36 @@ describe('PopularTrading market token display utils', () => {
       marketAsset: item,
     });
     expect(getTokenKey(displayToken)).toBe('asset:bitcoin');
+  });
+
+  test('maps public stocks without inventing a token identity', () => {
+    const item: IMarketStockPublicItem = {
+      stockId: 'AAPL',
+      symbol: 'AAPL',
+      name: 'Apple',
+      logoUrl: 'https://example.com/aapl.png',
+      assetType: 'stock',
+      price: '77.25',
+      priceChange24hPercent: '0.32',
+      marketCap: '4560000000000',
+      volume24h: '10670000000',
+      currency: 'USD',
+    };
+
+    const displayToken = mapMarketStockToDisplay(item);
+
+    expect(displayToken).toMatchObject({
+      stockId: 'AAPL',
+      chainId: '',
+      contractAddress: '',
+      symbol: 'AAPL',
+      stockListingName: 'Apple',
+      price: 77.25,
+      priceChange24h: 0.32,
+      marketCap: 4_560_000_000_000,
+      volume24h: 10_670_000_000,
+    });
+    expect(getTokenKey(displayToken)).toBe('stock:AAPL');
   });
 
   test('inserts Top Coins after stocks in the wallet home tabs', () => {
@@ -199,6 +225,42 @@ describe('PopularTrading market token display utils', () => {
       perpsSubtitle: 'Unitree Robotics',
       perpsDexLabel: dexLabel,
     });
+  });
+
+  test('places home recommend adds above stored favorites in card order', () => {
+    expect(
+      buildHomeRecommendAddSortIndexes({
+        existingWatchlist: [],
+        count: 4,
+      }),
+    ).toEqual([996, 997, 998, 999]);
+    expect(
+      buildHomeRecommendAddSortIndexes({
+        existingWatchlist: [{ sortIndex: 0 }, { sortIndex: 1 }],
+        count: 4,
+      }),
+    ).toEqual([-4, -3, -2, -1]);
+  });
+
+  test('shows recommend cards when stored favorites have no visible rows', () => {
+    expect(
+      shouldShowHomeRecommendCards({
+        hasStoredFavorites: false,
+        visibleFavoriteCount: 0,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowHomeRecommendCards({
+        hasStoredFavorites: true,
+        visibleFavoriteCount: 0,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowHomeRecommendCards({
+        hasStoredFavorites: true,
+        visibleFavoriteCount: 2,
+      }),
+    ).toBe(false);
   });
 
   test('does not add a DEX source label to main DEX perps', () => {

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -96,7 +96,8 @@ function TokenChartModeControl({
   );
 }
 
-export function TokenDetailChart({
+function TokenDetailChartBase({
+  active,
   chartContainerTestID,
   fullscreenStyle,
   fullscreenZIndex,
@@ -108,6 +109,7 @@ export function TokenDetailChart({
   onChartSwitch,
   onEnterChartFullscreen,
 }: {
+  active?: boolean;
   chartContainerTestID?: string;
   fullscreenStyle?: CSSProperties;
   fullscreenZIndex?: number;
@@ -228,6 +230,7 @@ export function TokenDetailChart({
       <YStack width="100%" flex={1} minHeight={0} position="relative">
         {isSimpleMode ? (
           <StockSimpleChart
+            active={active}
             marketAssetId={marketAssetId}
             range={range}
             priceMode="token"
@@ -261,3 +264,5 @@ export function TokenDetailChart({
     </MarketDesktopChartContainer>
   );
 }
+
+export const TokenDetailChart = memo(TokenDetailChartBase);

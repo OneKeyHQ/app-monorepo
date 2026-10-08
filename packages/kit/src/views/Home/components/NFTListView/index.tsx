@@ -151,19 +151,23 @@ function NFTListView(props: IProps) {
     [flexBasis, handleOnPressNFT, isAllNetworks],
   );
   const tabBarHeight = useScrollContentTabBarOffset();
-  const contentContainerStyle = useMemo(
-    () => ({
-      mt: '$3',
-      pb: tabBarHeight ?? '$6',
-      px: '$2.5',
-    }),
-    [tabBarHeight],
-  );
-
   const { result: extensionActiveTabDAppInfo } = useActiveTabDAppInfo();
   const addPaddingOnListFooter = useMemo(
     () => !!extensionActiveTabDAppInfo?.showFloatingPanel,
     [extensionActiveTabDAppInfo?.showFloatingPanel],
+  );
+
+  const contentContainerStyle = useMemo(
+    () => ({
+      mt: '$3',
+      // Clearance for the extension's floating DApp panel belongs here rather
+      // than in a ListFooterComponent: this list is multi-column, and the
+      // virtualized grid lays every entry out as one square cell, so a footer
+      // entry reserves a whole empty row (~340px) instead of its own height.
+      pb: addPaddingOnListFooter ? '$16' : (tabBarHeight ?? '$6'),
+      px: '$2.5',
+    }),
+    [addPaddingOnListFooter, tabBarHeight],
   );
 
   const style = useStyle(
@@ -218,9 +222,6 @@ function NFTListView(props: IProps) {
       data={filteredNfts || []}
       renderItem={handleRenderItem}
       ListEmptyComponent={EmptyComponentElement}
-      ListFooterComponent={
-        <>{addPaddingOnListFooter ? <Stack h="$16" /> : null}</>
-      }
     />
   );
 }

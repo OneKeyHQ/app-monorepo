@@ -169,6 +169,11 @@ export const buildAllowList = (
         showUrl: true,
         showParams: true,
       },
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.Market}${ETabMarketRoutes.MarketBannerDetail}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
     ...(!platformEnv.isNative
       ? {
           [pagePath`${ERootRoutes.Main}${ETabRoutes.ReferFriends}${TabReferAFriend}`]:

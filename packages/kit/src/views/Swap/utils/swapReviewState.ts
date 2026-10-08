@@ -288,6 +288,41 @@ export function resolveSwapReviewNeedFetchGasAfterRebuild({
   return fallbackToSeparateTxConfirm || Boolean(previousNeedFetchGas);
 }
 
+/**
+ * Applies a partial update to one review step addressed by its index.
+ *
+ * Review steps are written from several asynchronous flows that may still be
+ * running after the review dialog was closed and the steps were cleared. Writing
+ * an index that no longer exists would turn the array into a sparse one, and the
+ * next spread or deep clone materializes those holes as real `undefined` entries,
+ * which then break every consumer reading `step.status`. Such stale writes are
+ * dropped instead of corrupting the review state.
+ */
+export function updateSwapReviewStep({
+  reviewState,
+  stepIndex,
+  partialStep,
+}: {
+  reviewState: ISwapReviewState;
+  stepIndex: number;
+  partialStep: Partial<ISwapStep>;
+}): ISwapReviewState {
+  const targetStep = reviewState.steps[stepIndex];
+  if (!targetStep) {
+    return reviewState;
+  }
+
+  const nextSteps = [...reviewState.steps];
+  nextSteps[stepIndex] = {
+    ...targetStep,
+    ...partialStep,
+  };
+  return {
+    ...reviewState,
+    steps: nextSteps,
+  };
+}
+
 export function hasInFlightSwapReviewWork({
   steps,
   preSwapData,
@@ -299,10 +334,12 @@ export function hasInFlightSwapReviewWork({
     preSwapData.swapBuildLoading ||
     preSwapData.estimateNetworkFeeLoading ||
     preSwapData.stepBeforeActionsLoading ||
+    // Steps are assembled by concurrent asynchronous flows, so a missing entry
+    // must not break this render-time check.
     steps.some(
       (step) =>
-        step.status === ESwapStepStatus.LOADING ||
-        step.status === ESwapStepStatus.PENDING,
+        step?.status === ESwapStepStatus.LOADING ||
+        step?.status === ESwapStepStatus.PENDING,
     ),
   );
 }

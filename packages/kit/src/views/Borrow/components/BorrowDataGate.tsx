@@ -30,6 +30,7 @@ import { useBorrowReserves } from '../hooks/useBorrowReserves';
 
 import {
   getOwnedBorrowReservesResult,
+  isBorrowEarnAccountLoading,
   isCurrentBorrowReservesRequest,
   shouldPublishBorrowMarketChange,
   shouldRefreshBorrowDataOnActivation,
@@ -190,6 +191,12 @@ export const BorrowDataGate = ({
   const activeAccountId = activeAccount.account?.id;
   const activeIndexedAccountId = activeAccount.indexedAccount?.id;
   const hasAccountContext = Boolean(activeAccountId || activeIndexedAccountId);
+  const isEarnAccountLoading = isBorrowEarnAccountLoading({
+    isLoading: earnAccountLoading,
+    hasAccountContext,
+    hasMarketNetwork: Boolean(marketNetworkId),
+    isAccountUnresolved: scopedEarnAccountData === undefined,
+  });
   const shouldWaitForAccount =
     !activeAccount.ready ||
     (hasAccountContext && scopedEarnAccountData === undefined);
@@ -407,21 +414,13 @@ export const BorrowDataGate = ({
     }
     setEarnAccount({
       data: scopedEarnAccountData ?? null,
-      loading:
-        Boolean(earnAccountLoading) ||
-        Boolean(
-          hasAccountContext &&
-          marketNetworkId &&
-          scopedEarnAccountData === undefined,
-        ),
+      loading: isEarnAccountLoading,
       refresh: () => refreshAccount(),
       ownerMarketKey: currentMarketKey,
     });
   }, [
     currentMarketKey,
-    earnAccountLoading,
-    hasAccountContext,
-    marketNetworkId,
+    isEarnAccountLoading,
     isMarketChangePending,
     refreshAccount,
     scopedEarnAccountData,
@@ -466,7 +465,7 @@ export const BorrowDataGate = ({
     if (isMarketChangePending) {
       setEarnAccount({
         data: scopedEarnAccountData ?? null,
-        loading: Boolean(earnAccountLoading),
+        loading: isEarnAccountLoading,
         refresh: () => refreshAccount(),
         ownerMarketKey: currentMarketKey,
       });
@@ -483,8 +482,8 @@ export const BorrowDataGate = ({
   }, [
     currentMarketKey,
     dataStatus,
-    earnAccountLoading,
     fetchKey,
+    isEarnAccountLoading,
     isMarketChangePending,
     marketToLoad,
     ownedReservesResult,

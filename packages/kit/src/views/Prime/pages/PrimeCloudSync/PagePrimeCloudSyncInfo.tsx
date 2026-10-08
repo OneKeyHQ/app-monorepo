@@ -187,8 +187,17 @@ function SourceCodeLink({
 function SecurityContent() {
   const intl = useIntl();
   const [config] = usePrimeCloudSyncPersistAtom();
+  const hasUsedKeylessSyncBefore =
+    !!config.hasEverEnabledKeylessSync ||
+    !!config.lastSyncTimeKeyless ||
+    !!config.isCloudSyncEnabledKeyless;
+  const hasUsedOneKeyIdSyncBefore =
+    !!config.hasEverEnabledOneKeyIdSync ||
+    !!config.lastSyncTimeOneKeyId ||
+    (!!config.lastSyncTime && !config.lastSyncTimeKeyless);
   const isKeylessMode =
-    !!config.isCloudSyncEnabledKeyless && !config.isCloudSyncEnabled;
+    !config.isCloudSyncEnabled &&
+    (hasUsedKeylessSyncBefore || !hasUsedOneKeyIdSyncBefore);
 
   const defaultItemProps = {
     icon: 'CheckRadioSolid' as IIconProps['name'],
@@ -215,15 +224,15 @@ function SecurityContent() {
         id: ETranslations.prime_cloud_sync_security_feature_three,
       }),
     },
-    {
-      title: isKeylessMode
-        ? intl.formatMessage({
-            id: ETranslations.keyless_security_wallet_based_key__title,
-          })
-        : intl.formatMessage({
-            id: ETranslations.prime_cloud_sync_security_feature_four,
-          }),
-    },
+    ...(!isKeylessMode
+      ? [
+          {
+            title: intl.formatMessage({
+              id: ETranslations.prime_cloud_sync_security_feature_four,
+            }),
+          },
+        ]
+      : []),
     {
       title: intl.formatMessage({
         id: ETranslations.prime_cloud_sync_security_feature_five,

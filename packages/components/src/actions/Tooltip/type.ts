@@ -16,6 +16,7 @@ export interface ITooltipProps extends TMTooltipProps {
   renderContent: React.ReactNode;
   shortcutKey?: EShortcutEvents | string[];
   hovering?: boolean;
+  closeOnScroll?: boolean;
   contentProps?: PopoverContentProps;
   disabled?: boolean;
   onPress?: IStackProps['onPress'];

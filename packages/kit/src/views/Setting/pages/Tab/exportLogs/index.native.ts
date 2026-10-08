@@ -13,6 +13,7 @@ import {
   type ILogUploadResponse,
 } from '@onekeyhq/shared/src/logger/types';
 import utils from '@onekeyhq/shared/src/logger/utils';
+import { NativeLogger } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
@@ -22,17 +23,26 @@ import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 
 import { buildDefaultFileBaseName } from './utils';
 
+const IP_TABLE_CONNECTION_INFO_TIMEOUT_MS = 300;
+
 const getShareModule = async () => {
   if (!platformEnv.isNative) return null;
   return (await import('@onekeyhq/shared/src/modules3rdParty/expo-sharing'))
     .default;
 };
 
-export const exportLogs = async (filename: string) => {
-  defaultLogger.setting.device.logDeviceInfo();
+const logIpTableConnectionInfo = async () => {
   try {
-    const connectionInfo =
-      await backgroundApiProxy.serviceIpTable.getConnectionInfo();
+    const connectionInfo = await Promise.race([
+      backgroundApiProxy.serviceIpTable.getConnectionInfo(),
+      waitAsync(IP_TABLE_CONNECTION_INFO_TIMEOUT_MS).then(() => null),
+    ]);
+    if (!connectionInfo) {
+      defaultLogger.ipTable.request.warn({
+        info: `[IpTable] Skipped connection info after ${IP_TABLE_CONNECTION_INFO_TIMEOUT_MS}ms timeout`,
+      });
+      return;
+    }
     defaultLogger.ipTable.request.info({
       info: `[IpTable] Connection info: type=${connectionInfo.type}, domain=${
         connectionInfo.domain
@@ -47,8 +57,19 @@ export const exportLogs = async (filename: string) => {
       }`,
     });
   }
-  await waitAsync(1000);
+};
+
+const prepareNativeLogExport = async () => {
+  defaultLogger.setting.device.logDeviceInfo();
+  await logIpTableConnectionInfo();
   await prepareLoggerExport();
+  // Flush the shared native logger explicitly instead of relying on a delay.
+  // Both native JS runtimes write to this same native logger instance.
+  await NativeLogger.getLogFilePaths();
+};
+
+export const exportLogs = async (filename: string) => {
+  await prepareNativeLogExport();
   const logFilePath = await utils.getLogFilePath(filename);
   console.log('logFilePath', logFilePath);
   const Share = await getShareModule();
@@ -70,26 +91,7 @@ export const collectLogDigest = async (
     progressPercent: 0,
   });
   const baseName = fileBaseName ?? buildDefaultFileBaseName();
-  defaultLogger.setting.device.logDeviceInfo();
-  try {
-    const connectionInfo =
-      await backgroundApiProxy.serviceIpTable.getConnectionInfo();
-    defaultLogger.ipTable.request.info({
-      info: `[IpTable] Connection info: type=${connectionInfo.type}, domain=${
-        connectionInfo.domain
-      }, ip=${connectionInfo.ip ?? 'N/A'}, sniSupported=${String(
-        connectionInfo.sniSupported,
-      )}`,
-    });
-  } catch (error) {
-    defaultLogger.ipTable.request.warn({
-      info: `[IpTable] Failed to get connection info: ${
-        error instanceof Error ? error.message : 'Unknown error'
-      }`,
-    });
-  }
-  await waitAsync(1000);
-  await prepareLoggerExport();
+  await prepareNativeLogExport();
 
   const filePath = await utils.getLogFilePath(baseName);
   if (!filePath) {

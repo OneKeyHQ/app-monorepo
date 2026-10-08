@@ -2,6 +2,7 @@ import { ENotificationPushMessageMode } from '../../types/notification';
 import { ONEKEY_APP_DEEP_LINK_NAME } from '../consts/deeplinkConsts';
 
 export interface IFeaturedItem {
+  ctaAction?: 'next';
   title?: string;
   description?: string;
   mediaUrl: string;
@@ -125,11 +126,15 @@ function normalizeFeaturedItem(raw: unknown): IFeaturedItem | undefined {
     description: optionalTrimmedString(src.description),
     mediaUrl,
     mediaType,
-    ctaText: optionalTrimmedString(src.ctaText),
-    href,
-    hrefType,
-    mode,
-    payload,
+    ...(src.ctaAction === 'next'
+      ? { ctaAction: 'next' as const }
+      : {
+          ctaText: optionalTrimmedString(src.ctaText),
+          href,
+          hrefType,
+          mode,
+          payload,
+        }),
   };
 }
 

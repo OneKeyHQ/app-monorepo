@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -79,7 +80,6 @@ import type {
 import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import {
   PageFrame,
-  isErrorState,
   isLoadingState,
 } from '../../../Staking/components/PageFrame';
 import { EarnActionIcon } from '../../../Staking/components/ProtocolDetails/EarnActionIcon';
@@ -99,6 +99,7 @@ import { FAQSection } from '../../../Staking/pages/ProtocolDetailsV2/FAQSection'
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { EarnNavigation, EarnNetworkUtils } from '../../earnUtils';
+import { useStakingPendingTxs } from '../../hooks/useStakingPendingTxs';
 
 import { ActivityBanner } from './components/ActivityBanner';
 import { ApyChart } from './components/ApyChart';
@@ -116,6 +117,11 @@ import {
   pickProtocolInfoDisplayName,
   resolveProviderSubtitle,
 } from './mobile/providerSubtitle.utils';
+import {
+  DETAIL_BALANCE_SETTLE_REFRESH_OFFSETS_MS,
+  DETAIL_PORTFOLIO_SETTLE_REFRESH_OFFSETS_MS,
+  scheduleSettleRefreshes,
+} from './mobile/settleRefresh.utils';
 import { useMobileDetailLayout } from './mobile/useMobileDetailLayout';
 import {
   buildHeadlineApyParts,
@@ -868,6 +874,7 @@ const DetailsPartComponent = ({
   tokenInfo,
   protocolInfo,
   isLoading,
+  isError,
   keepSkeletonVisible,
   onRefresh,
   networkId,
@@ -879,11 +886,14 @@ const DetailsPartComponent = ({
   providerSubtitle,
   hasPortfolio,
   onRedeem,
+  onActionSuccess,
 }: {
   detailInfo: IStakeEarnDetail | undefined;
   tokenInfo?: IEarnTokenInfo;
   protocolInfo?: IProtocolInfo;
   isLoading: boolean;
+  // the detail fetch for the current inputs ran and failed
+  isError: boolean;
   keepSkeletonVisible: boolean;
   onRefresh: () => void;
   networkId: string;
@@ -895,6 +905,9 @@ const DetailsPartComponent = ({
   providerSubtitle?: string;
   hasPortfolio?: boolean;
   onRedeem?: () => void;
+  // A claim, stake or withdraw broadcast from the Portfolio tab. Falls back
+  // to onRefresh for callers that only have the plain reload.
+  onActionSuccess?: () => void;
 }) => {
   const now = useMemo(() => Date.now(), []);
 
@@ -933,7 +946,7 @@ const DetailsPartComponent = ({
             isLoadingState({ result: detailInfo, isLoading }) ||
             keepSkeletonVisible
           }
-          error={isErrorState({ result: detailInfo, isLoading })}
+          error={isError}
           onRefresh={onRefresh}
         >
           {detailInfo ? (
@@ -979,7 +992,7 @@ const DetailsPartComponent = ({
                       symbol={symbol}
                       provider={provider}
                       vault={detailInfo.protocol?.vault ?? vault}
-                      onActionSuccess={onRefresh}
+                      onActionSuccess={onActionSuccess ?? onRefresh}
                       onRedeem={onRedeem}
                       protocolInfo={protocolInfo}
                       tokenInfo={tokenInfo}
@@ -1032,7 +1045,7 @@ const DetailsPartComponent = ({
           isLoadingState({ result: detailInfo, isLoading }) ||
           keepSkeletonVisible
         }
-        error={isErrorState({ result: detailInfo, isLoading })}
+        error={isError}
         onRefresh={onRefresh}
       >
         {detailInfo ? (
@@ -1208,6 +1221,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     tokenInfo,
     protocolInfo,
     isLoading,
+    isError,
     refreshData,
     refreshAccount,
   } = useProtocolDetailData({
@@ -1269,9 +1283,60 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     await refreshData();
   }, [refreshAccount, refreshData]);
 
-  const handleStakeWithdrawSuccess = useCallback(() => {
+  // A refresh at broadcast reads the numbers before the chain has the
+  // transaction, and nothing on this page polled history to refresh again
+  // once it landed: a principal claim picked from the claim list (SOL, ETH,
+  // Polygon) changes nothing server-side until then, so the claimable total
+  // stayed stale (OK-63229). Track the position's pending transactions the
+  // way the positions page does and reload once they clear. The wide layout
+  // has its own activity indicator, so this stays phone-only.
+  // One read after the clear is not always enough: a provider that answers
+  // from its own index can still report the pre-transaction state. An
+  // existing position gets one more read as a fallback. A vault with no
+  // position keeps re-reading, since the Portfolio tab appearing is the only
+  // sign the deposit has landed, and the timers go the moment it does.
+  const hasPortfolioRef = useRef(hasPortfolio);
+  hasPortfolioRef.current = hasPortfolio;
+  const cancelSettleRefreshesRef = useRef<(() => void) | undefined>(undefined);
+  const awaitingPortfolioRef = useRef(false);
+  const cancelSettleRefreshes = useCallback(() => {
+    cancelSettleRefreshesRef.current?.();
+    cancelSettleRefreshesRef.current = undefined;
+    awaitingPortfolioRef.current = false;
+  }, []);
+  const refreshUntilSettled = useCallback(() => {
+    cancelSettleRefreshes();
+    const hadPortfolio = hasPortfolioRef.current;
+    awaitingPortfolioRef.current = !hadPortfolio;
+    cancelSettleRefreshesRef.current = scheduleSettleRefreshes({
+      refresh: () => {
+        void refreshData();
+      },
+      offsetsMs: hadPortfolio
+        ? DETAIL_BALANCE_SETTLE_REFRESH_OFFSETS_MS
+        : DETAIL_PORTFOLIO_SETTLE_REFRESH_OFFSETS_MS,
+    });
+  }, [cancelSettleRefreshes, refreshData]);
+  useEffect(() => {
+    if (hasPortfolio && awaitingPortfolioRef.current) {
+      cancelSettleRefreshes();
+    }
+  }, [hasPortfolio, cancelSettleRefreshes]);
+  useEffect(() => cancelSettleRefreshes, [cancelSettleRefreshes]);
+  const { refreshPending } = useStakingPendingTxs({
+    accountId: isMobileLayout
+      ? protocolInfo?.earnAccount?.accountId
+      : undefined,
+    networkId,
+    stakeTag: protocolInfo?.stakeTag,
+    onRefresh: refreshUntilSettled,
+  });
+  // Every broadcast reloads the page at once and re-reads the local pending
+  // list, so the poller picks the transaction up without waiting for focus.
+  const handleActionSuccess = useCallback(() => {
     void refreshData();
-  }, [refreshData]);
+    void refreshPending();
+  }, [refreshData, refreshPending]);
 
   // Claim, stake and withdraw refresh the page the moment their transaction
   // is broadcast, before the chain or the provider has seen it, so the numbers
@@ -1373,13 +1438,13 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
           // Redeem leaves this page for the modal; without this the balances
           // and rewards below would still show the pre-redeem numbers when it
           // pops back.
-          onStakeWithdrawSuccess: refreshData,
+          onStakeWithdrawSuccess: handleActionSuccess,
         },
       });
     },
     [
       appNavigation,
-      refreshData,
+      handleActionSuccess,
       detailInfo?.protocol?.vault,
       networkId,
       symbol,
@@ -1488,9 +1553,20 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     }
 
     const isManageOnly = isCustomProtocol;
+    // Pendle sells PT rather than redeeming it, so the footer reads Buy and
+    // Sell early (Redeem once the market has matured), and the second button
+    // stays put while there is nothing to sell, disabled, the way the other
+    // providers' Redeem does (OK-63802). The server sends no actions for
+    // Pendle (its wide layout has its own swap pair), so the rules mirror the
+    // manage page's pair: no buying after maturity, no selling without a
+    // position.
+    const isPendle = earnUtils.isPendleProvider({ providerName: provider });
+    const isMatured = Boolean(detailInfo?.maturity?.isMatured);
     const buttonText = isManageOnly
       ? intl.formatMessage({ id: ETranslations.global_manage })
-      : intl.formatMessage({ id: ETranslations.earn_deposit });
+      : intl.formatMessage({
+          id: isPendle ? ETranslations.global_buy : ETranslations.earn_deposit,
+        });
     const onPress = isManageOnly
       ? () => handleOpenManageModal()
       : () => handleOpenManageModal('deposit');
@@ -1505,9 +1581,18 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     const depositAction = detailInfo?.actions?.find(
       (action) => action.type === 'deposit',
     );
-    const showRedeem = isMobileLayout && Boolean(redeemAction);
-    const depositDisabled = Boolean(depositAction?.disabled);
-    const withdrawDisabled = Boolean(redeemAction?.disabled);
+    const showRedeem = isMobileLayout && (Boolean(redeemAction) || isPendle);
+    const depositDisabled =
+      Boolean(depositAction?.disabled) || (isPendle && isMatured);
+    const withdrawDisabled = isPendle
+      ? !hasPortfolio
+      : Boolean(redeemAction?.disabled);
+    const redeemText = intl.formatMessage({
+      id:
+        isPendle && !isMatured
+          ? ETranslations.defi_sell_early
+          : ETranslations.earn_redeem,
+    });
 
     return (
       <Page.Footer
@@ -1520,9 +1605,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
         }}
         {...(showRedeem
           ? {
-              onCancelText: intl.formatMessage({
-                id: ETranslations.earn_redeem,
-              }),
+              onCancelText: redeemText,
               cancelButtonProps: {
                 variant: 'secondary',
                 disabled: withdrawDisabled,
@@ -1543,6 +1626,8 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     isCustomProtocol,
     isMobileLayout,
     detailInfo,
+    provider,
+    hasPortfolio,
   ]);
 
   return (
@@ -1573,8 +1658,10 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
             tokenInfo={tokenInfo}
             protocolInfo={protocolInfo}
             isLoading={isLoading ?? false}
+            isError={isError}
             keepSkeletonVisible={keepSkeletonVisible}
             onRefresh={refreshData}
+            onActionSuccess={handleActionSuccess}
             networkId={networkId}
             symbol={symbol}
             provider={provider}
@@ -1598,7 +1685,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
               indexedAccountId={indexedAccountId}
               suppressPlatformBonus={Boolean(detailInfo?.platformBonus)}
               onCreateAddress={onCreateAddress}
-              onStakeWithdrawSuccess={handleStakeWithdrawSuccess}
+              onStakeWithdrawSuccess={handleActionSuccess}
             />
           </Stack>
         ) : null}

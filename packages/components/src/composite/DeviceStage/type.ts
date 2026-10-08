@@ -362,6 +362,8 @@ export interface IDeviceStageProps {
   errorMessage?: string;
   /** Translate in the UI runtime, whose locale messages are loaded. */
   errorI18n?: IDeviceStageErrorI18n;
+  /** Optional operation-specific copy for the successful `done` beat. */
+  doneI18n?: IDeviceStageErrorI18n;
   /**
    * The authenticity checklist, shown under the words on `authVerifying`,
    * on `authSuccess` when the checklist flow is what succeeded, and
@@ -448,6 +450,8 @@ export interface IDeviceStageProps {
    * what the gallery shows.
    */
   passphraseKeepAccessible?: boolean;
+  /** Show immediate ASCII creation guidance only for Pro2/Neo new wallets. */
+  passphraseAsciiCreationFeedback?: boolean;
   /**
    * The request comes from a protocol V2 device: the passphrase form takes
    * UTF-8 measured in bytes and normalizes it to NFKD, the way the shipped

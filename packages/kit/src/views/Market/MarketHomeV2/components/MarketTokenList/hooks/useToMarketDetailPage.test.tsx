@@ -4,6 +4,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { Toast, rootNavigationRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
+import { finishMarketDetailTabBarTransition } from '@onekeyhq/kit/src/views/Market/utils/marketDetailNavigation';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -16,6 +17,7 @@ jest.mock('react-intl', () => ({
 
 const mockNavigationPush = jest.fn();
 const mockNavigationReplace = jest.fn();
+const mockNavigationSetParams = jest.fn();
 const mockClearTokenDetail = jest.fn();
 const mockPrepareStockTokenDetail = jest.fn();
 const mockPrepareTokenDetailPreview = jest.fn();
@@ -33,6 +35,18 @@ jest.mock('@onekeyhq/shared/src/travelMode', () => ({
 
 jest.mock('@react-navigation/native', () => ({
   useRoute: jest.fn(() => ({ name: mockCurrentRouteName })),
+  CommonActions: {
+    setParams: (params: unknown) => ({
+      type: 'SET_PARAMS',
+      payload: { params },
+    }),
+  },
+  StackActions: {
+    replace: (name: string, params: unknown) => ({
+      type: 'REPLACE',
+      payload: { name, params },
+    }),
+  },
 }));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
@@ -90,6 +104,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   default: jest.fn(() => ({
     push: mockNavigationPush,
     replace: mockNavigationReplace,
+    setParams: mockNavigationSetParams,
     switchTab: jest.fn(),
   })),
 }));
@@ -105,6 +120,9 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
 }));
 
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
+  EAppEventBusNames: {
+    HideTabBar: 'HideTabBar',
+  },
   appEventBus: {
     emit: jest.fn(),
   },
@@ -160,6 +178,7 @@ describe('useToDetailPage', () => {
   });
 
   afterEach(() => {
+    finishMarketDetailTabBarTransition();
     jest.useRealTimers();
     Object.defineProperty(globalThis, 'close', {
       configurable: true,
@@ -524,6 +543,7 @@ describe('useToDetailPage', () => {
         tokenAddress: '0xaapl',
         networkId: 'evm--1',
         symbol: 'AAPLon',
+        stockId: 'AAPL',
         disableTrade: true,
         showFavoriteButton: false,
         stock: {
@@ -552,7 +572,7 @@ describe('useToDetailPage', () => {
     mockedPlatformEnv.isExtensionUiPopup = true;
   });
 
-  it('navigates xStocks search items without stock metadata to stock detail', async () => {
+  it('navigates xStocks search items without a stock id to token detail', async () => {
     const mockedPlatformEnv = platformEnv as typeof platformEnv & {
       isExtensionUiPopup: boolean;
     };
@@ -568,8 +588,7 @@ describe('useToDetailPage', () => {
       });
     });
 
-    expect(mockNavigationPush).toHaveBeenCalledWith('MarketStockDetail', {
-      stockId: 'ABNB',
+    expect(mockNavigationPush).toHaveBeenCalledWith('MarketDetailV2', {
       tokenAddress: '0xc156',
       network: 'eth',
       isNative: undefined,
@@ -592,6 +611,7 @@ describe('useToDetailPage', () => {
         tokenAddress: '0xaapl',
         networkId: 'evm--1',
         symbol: 'AAPLon',
+        stockId: 'AAPL',
         stock: {
           subtitle: 'Apple Inc.',
           sourceLogoUri: '',
@@ -633,14 +653,16 @@ describe('useToDetailPage', () => {
       });
     });
 
-    expect(mockNavigationPush).toHaveBeenCalledWith('MarketDetailV2', {
-      tokenAddress: '',
-      network: 'eth',
-      isNative: true,
-      from: undefined,
-      marketTokenId: 'ethereum',
-      marketTokenCategory: 'top_coins',
-    });
+    expect(mockNavigationSetParams).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tokenAddress: '',
+        network: 'eth',
+        isNative: true,
+        marketTokenId: 'ethereum',
+        marketTokenCategory: 'top_coins',
+      }),
+    );
+    expect(mockNavigationPush).not.toHaveBeenCalled();
     expect(mockNavigationReplace).not.toHaveBeenCalled();
   });
 
@@ -973,6 +995,7 @@ describe('useToDetailPage', () => {
         networkId: 'evm--1',
         symbol: 'AAPLon',
         disableTrade: true,
+        stockId: 'AAPL',
         stock: {
           subtitle: 'Apple Inc.',
           sourceLogoUri: '',

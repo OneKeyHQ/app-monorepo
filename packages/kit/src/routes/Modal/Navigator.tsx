@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 
@@ -90,13 +90,20 @@ function TravelModeOnboardingRedirect() {
 
 function StandardOnboardingNavigator() {
   const isFocused = useIsFocused();
+  // Tamagui's native useMedia subscribes in a passive effect, so screens that
+  // mount in the same commit as the real-width hold miss its refresh and keep
+  // the clamped breakpoints. Mount them only once the hold is in place; the
+  // layout-effect update commits before the first frame is painted.
+  const [isMediaReady, setIsMediaReady] = useState(!platformEnv.isNativeIOSPad);
   // Full-screen onboarding uses the real iPad width only while focused.
   // Keep this inside the standard route so travel-mode admission is unchanged.
   useLayoutEffect(() => {
     if (!isFocused) {
+      setIsMediaReady(true);
       return undefined;
     }
     acquireNativeTabletRealWidthMedia();
+    setIsMediaReady(true);
     return () => {
       releaseNativeTabletRealWidthMedia();
     };
@@ -159,10 +166,12 @@ function StandardOnboardingNavigator() {
   }, []);
   return (
     <Theme name="dark">
-      <RootModalNavigator<EOnboardingV2Routes>
-        config={onboardingRouterV2Config}
-        pageType={EPageType.onboarding}
-      />
+      {isMediaReady ? (
+        <RootModalNavigator<EOnboardingV2Routes>
+          config={onboardingRouterV2Config}
+          pageType={EPageType.onboarding}
+        />
+      ) : null}
     </Theme>
   );
 }

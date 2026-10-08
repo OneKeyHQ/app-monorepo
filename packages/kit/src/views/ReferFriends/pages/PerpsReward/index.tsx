@@ -60,8 +60,6 @@ function PerpsRewardPageWrapper() {
   const [hideZeroVolume, setHideZeroVolume] = useState(true);
   const [sortBy, setSortBy] = useState<IPerpsInvitesSortBy>('volume');
   const [sortOrder, setSortOrder] = useState<IPerpsInvitesSortOrder>('desc');
-  // Track whether user has explicitly clicked a sort header
-  const [hasUserSorted, setHasUserSorted] = useState(false);
 
   // Pagination state
   const [cursor, setCursor] = useState<string | undefined>();
@@ -69,7 +67,6 @@ function PerpsRewardPageWrapper() {
 
   const handleSort = useCallback(
     (field: IPerpsInvitesSortBy) => {
-      setHasUserSorted(true);
       if (sortBy === field) {
         // Toggle order if same field
         setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'));
@@ -459,7 +456,6 @@ function PerpsRewardPageWrapper() {
                 onSort={handleSort}
                 isLoadingMore={isLoadingMore}
                 isTabLoading={isTabLoading}
-                hasUserSorted={hasUserSorted}
               />
             </ScrollView>
           )}

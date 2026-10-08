@@ -2,10 +2,12 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketAssetListData } from '@onekeyhq/shared/types/market';
 import type {
   IMarketBasicConfigNetwork,
   IMarketPerpsTokenListData,
+  IMarketStockPublicItem,
 } from '@onekeyhq/shared/types/marketV2';
 
 import { useMarketPerpsTokenList } from '../MarketPerpsList/hooks/useMarketPerpsTokenList';
@@ -13,7 +15,10 @@ import {
   type IMarketWatchlistDataCache,
   useMarketWatchlistTokenList,
 } from '../MarketTokenList/hooks/useMarketWatchlistTokenList';
-import { useMarketTopCoins } from '../MarketTopCoinsList/hooks/useMarketTopCoins';
+import {
+  type IMarketTopCoinsDataCache,
+  useMarketTopCoins,
+} from '../MarketTopCoinsList/hooks/useMarketTopCoins';
 
 const mockNetworks: IMarketBasicConfigNetwork[] = [];
 let mockFocused = true;
@@ -53,7 +58,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceMarketV2: {
       fetchMarketPerpsTokenList: jest.fn(),
       fetchMarketTokenListBatch: jest.fn(),
-      fetchMarketListingWatchlistQuote: jest.fn(),
+      fetchMarketStockBatch: jest.fn(),
     },
     serviceHyperliquid: { getTokenSearchAliases: jest.fn(async () => ({})) },
   },
@@ -72,9 +77,9 @@ const fetchWatchlist = jest.mocked(
   // eslint-disable-next-line @typescript-eslint/unbound-method
   backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch,
 );
-const fetchListing = jest.mocked(
+const fetchStocks = jest.mocked(
   // eslint-disable-next-line @typescript-eslint/unbound-method
-  backgroundApiProxy.serviceMarketV2.fetchMarketListingWatchlistQuote,
+  backgroundApiProxy.serviceMarketV2.fetchMarketStockBatch,
 );
 const topCoins: IMarketAssetListData = {
   list: [
@@ -111,6 +116,17 @@ function perps(name: string): IMarketPerpsTokenListData {
     ],
   };
 }
+function appleStock(price: string): IMarketStockPublicItem {
+  return {
+    stockId: 'AAPL',
+    symbol: 'AAPL',
+    name: 'Apple',
+    logoUrl: '',
+    assetType: 'stock',
+    currency: 'USD',
+    price,
+  };
+}
 function deferred<T>() {
   let resolve: (value: T) => void = () => undefined;
   const promise = new Promise<T>((done) => {
@@ -123,7 +139,7 @@ beforeEach(() => {
   fetchTopCoins.mockReset();
   fetchPerps.mockReset();
   fetchWatchlist.mockReset();
-  fetchListing.mockReset();
+  fetchStocks.mockReset();
   mockFocused = true;
   mockReachable = true;
   Object.defineProperty(globalThis, 'requestIdleCallback', {
@@ -355,7 +371,7 @@ it('restores Watchlist data after unmounting offline without reviving removed fa
 
 it('restores Top Coins from its page owner after unmounting offline, including an empty replacement', async () => {
   const dataCacheRef = {
-    current: undefined as IMarketAssetListData['list'] | undefined,
+    current: undefined as IMarketTopCoinsDataCache | undefined,
   };
   fetchTopCoins.mockResolvedValue(topCoins);
   const first = renderHook(() => useMarketTopCoins({ dataCacheRef }));
@@ -373,6 +389,98 @@ it('restores Top Coins from its page owner after unmounting offline, including a
   const third = renderHook(() => useMarketTopCoins({ dataCacheRef }));
   await waitFor(() => expect(third.result.current.isError).toBe(true));
   expect(third.result.current.data).toEqual([]);
+});
+
+it('requests Top Coins sub-categories through type and caches each one separately', async () => {
+  const dataCacheRef = {
+    current: undefined as IMarketTopCoinsDataCache | undefined,
+  };
+  const chains: IMarketAssetListData = {
+    list: [{ ...topCoins.list[0], assetId: 'eth', symbol: 'ETH' }],
+    total: 1,
+  };
+  fetchTopCoins.mockResolvedValue(topCoins);
+  const first = renderHook(
+    ({ categoryId }) => useMarketTopCoins({ categoryId, dataCacheRef }),
+    { initialProps: { categoryId: 'all' } },
+  );
+  await waitFor(() => expect(first.result.current.data).toEqual(topCoins.list));
+  expect(fetchTopCoins).toHaveBeenLastCalledWith(
+    expect.objectContaining({ type: 'top_coins' }),
+  );
+
+  const chainsRequest = deferred<IMarketAssetListData>();
+  fetchTopCoins.mockReturnValue(chainsRequest.promise);
+  first.rerender({ categoryId: 'market_l1_l2_chains' });
+  await waitFor(() =>
+    expect(fetchTopCoins).toHaveBeenLastCalledWith(
+      expect.objectContaining({ type: 'market_l1_l2_chains' }),
+    ),
+  );
+  expect(first.result.current.data).toEqual([]);
+  await act(async () => chainsRequest.resolve(chains));
+  await waitFor(() => expect(first.result.current.data).toEqual(chains.list));
+
+  fetchTopCoins.mockReturnValue(deferred<IMarketAssetListData>().promise);
+  first.rerender({ categoryId: 'all' });
+  expect(first.result.current.data).toEqual(topCoins.list);
+  first.unmount();
+
+  fetchTopCoins.mockRejectedValue(new Error('offline'));
+  const second = renderHook(() =>
+    useMarketTopCoins({ categoryId: 'market_l1_l2_chains', dataCacheRef }),
+  );
+  expect(second.result.current.data).toEqual(chains.list);
+  await waitFor(() => expect(second.result.current.isError).toBe(true));
+  expect(second.result.current.data).toEqual(chains.list);
+});
+
+it('reports a switched Top Coins sub-category as loading until its request settles', async () => {
+  const renders: { count: number; isLoading: boolean | undefined }[] = [];
+  fetchTopCoins.mockResolvedValue(topCoins);
+  const { result, rerender } = renderHook(
+    ({ categoryId }) => {
+      const state = useMarketTopCoins({ categoryId });
+      renders.push({ count: state.data.length, isLoading: state.isLoading });
+      return state;
+    },
+    { initialProps: { categoryId: 'all' } },
+  );
+  expect(renders[0]).toEqual({ count: 0, isLoading: true });
+  await waitFor(() => expect(result.current.data).toEqual(topCoins.list));
+  expect(result.current.isLoading).toBe(false);
+
+  const chainsRequest = deferred<IMarketAssetListData>();
+  fetchTopCoins.mockReturnValue(chainsRequest.promise);
+  renders.length = 0;
+  rerender({ categoryId: 'market_l1_l2_chains' });
+  expect(renders.length).toBeGreaterThan(0);
+  expect(renders.filter((render) => render.isLoading !== true)).toEqual([]);
+
+  // A real empty category still settles instead of loading forever.
+  await act(async () => chainsRequest.resolve({ list: [], total: 0 }));
+  await waitFor(() => expect(result.current.isLoading).toBe(false));
+  expect(result.current.data).toEqual([]);
+});
+
+it('settles a failed Top Coins sub-category on web instead of loading forever', async () => {
+  jest.replaceProperty(platformEnv, 'isNative', false);
+  try {
+    fetchTopCoins.mockResolvedValue(topCoins);
+    const { result, rerender } = renderHook(
+      ({ categoryId }) => useMarketTopCoins({ categoryId }),
+      { initialProps: { categoryId: 'all' } },
+    );
+    await waitFor(() => expect(result.current.data).toEqual(topCoins.list));
+
+    fetchTopCoins.mockRejectedValue(new Error('offline'));
+    rerender({ categoryId: 'market_defi_and_infra' });
+    expect(result.current.isLoading).toBe(true);
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.data).toEqual([]);
+  } finally {
+    jest.restoreAllMocks();
+  }
 });
 
 it('restores Perps from its page owner without leaking another category or reviving cleared rows', async () => {
@@ -419,18 +527,13 @@ it('waits for listing quotes as well as spot and perps during native Watchlist r
   const watchlist = [{ chainId: '', contractAddress: '', stockId: 'AAPL' }];
   fetchWatchlist.mockResolvedValue({ list: [] });
   fetchPerps.mockResolvedValue({ updatedAt: 1, tokens: [] });
-  fetchListing.mockResolvedValue({
-    symbol: 'AAPL',
-    name: 'Apple',
-    logoUrl: '',
-    price: '100',
-  });
+  fetchStocks.mockResolvedValue([appleStock('100')]);
   const { result } = renderHook(() =>
     useMarketWatchlistTokenList({ watchlist }),
   );
   await waitFor(() => expect(result.current.data[0]?.price).toBe(100));
-  const request = deferred<Awaited<ReturnType<typeof fetchListing>>>();
-  fetchListing.mockReturnValue(request.promise);
+  const request = deferred<Awaited<ReturnType<typeof fetchStocks>>>();
+  fetchStocks.mockReturnValue(request.promise);
   let settled = false;
   let refresh: Promise<void> | undefined;
   await act(async () => {
@@ -440,12 +543,7 @@ it('waits for listing quotes as well as spot and perps during native Watchlist r
   });
   expect(settled).toBe(false);
   await act(async () => {
-    request.resolve({
-      symbol: 'AAPL',
-      name: 'Apple',
-      logoUrl: '',
-      price: '101',
-    });
+    request.resolve([appleStock('101')]);
     await refresh;
   });
   expect(settled).toBe(true);

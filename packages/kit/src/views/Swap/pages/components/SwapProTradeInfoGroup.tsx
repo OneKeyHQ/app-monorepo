@@ -217,6 +217,7 @@ const SwapProTradeInfoGroup = ({
         <SwapProviderInfoItem
           providerIcon={swapProQuoteResult?.info.providerLogo ?? ''}
           providerName={swapProQuoteResult?.info.providerName ?? ''}
+          isLoading={swapProQuoteFetching}
           titleProps={ITEM_TITLE_PROPS}
           valueProps={ITEM_VALUE_PROPS}
           compact

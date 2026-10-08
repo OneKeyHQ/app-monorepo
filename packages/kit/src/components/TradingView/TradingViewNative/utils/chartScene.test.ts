@@ -187,7 +187,7 @@ describe('TradingViewNative shared chart scene', () => {
     expect(paneTopBorder).toBeDefined();
     expect(watermark).toMatchObject({
       kind: 'watermark',
-      rect: { width: 56.32, x: 99.84 },
+      rect: { width: 61.952, x: 97.024 },
     });
     if (watermark?.kind === 'watermark') {
       expect(watermark.rect.x + watermark.rect.width / 2).toBeCloseTo(128);

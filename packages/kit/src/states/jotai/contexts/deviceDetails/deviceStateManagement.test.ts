@@ -1,6 +1,7 @@
 import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
+import type { IOneKeyDeviceState } from '@onekeyhq/shared/types/device';
 
 import { emptyMetaState } from './atoms';
 import {
@@ -686,6 +687,127 @@ describe('getDeviceStateSnapshotFromEvent', () => {
     },
   );
 
+  it.each([
+    { revision: 10, updatedAt: 300, accepted: true },
+    { revision: 9, updatedAt: 200, accepted: true },
+    { revision: 8, updatedAt: 200, accepted: false },
+    { revision: 10, updatedAt: 100, accepted: false },
+  ])(
+    'repairs missing V1 UI settings at $revision / $updatedAt without accepting older read-backs',
+    ({ revision, updatedAt, accepted }) => {
+      const currentState = {
+        protocol: 'V1',
+        revision: 9,
+        updatedAt: 200,
+        identity: { deviceId: 'DEVICE_ID', serialNo: 'SERIAL' },
+        status: { mode: 'normal' },
+        settings: {
+          language: null,
+          autoLockDelayMs: 60_000,
+          autoShutdownDelayMs: null,
+        },
+        versions: { firmware: '4.21.0' },
+      } as IOneKeyDeviceState;
+      const device = { connectId: 'PRO_BLE', uuid: 'SERIAL' };
+      const event = {
+        connectId: 'PRO_BLE',
+        revision,
+        source: 'device-info' as const,
+        changedKeys: ['versions.firmware'],
+        state: {
+          ...currentState,
+          revision,
+          updatedAt,
+          settings: {
+            ...currentState.settings,
+            language: 'ja',
+            autoLockDelayMs: 300_000,
+            autoShutdownDelayMs: 120_000,
+          },
+        },
+      };
+      const snapshot = getDeviceStateSnapshotFromEvent({
+        device,
+        currentState,
+        event,
+      });
+
+      if (!accepted) {
+        expect(snapshot).toBeUndefined();
+        return;
+      }
+      expect(snapshot?.state.settings).toMatchObject({
+        language: 'ja',
+        autoLockDelayMs: 60_000,
+        autoShutdownDelayMs: 120_000,
+      });
+      expect(
+        getDeviceStateSnapshotFromEvent({
+          device,
+          currentState: snapshot?.state,
+          event,
+        }),
+      ).toBeUndefined();
+    },
+  );
+
+  it('keeps V1 UI settings through bootloader and normal firmware read-back', () => {
+    const currentState = {
+      protocol: 'V1',
+      revision: 8,
+      updatedAt: 100,
+      identity: { deviceId: 'DEVICE_ID', serialNo: 'SERIAL' },
+      status: { mode: 'normal' },
+      settings: {
+        language: 'ja',
+        autoLockDelayMs: 60_000,
+        autoShutdownDelayMs: 120_000,
+      },
+      versions: { firmware: '4.21.0' },
+    } as IOneKeyDeviceState;
+    const device = { connectId: 'PRO_BLE', uuid: 'SERIAL' };
+    const loaderSnapshot = getDeviceStateSnapshotFromEvent({
+      device,
+      currentState,
+      event: {
+        connectId: 'PRO_BLE',
+        revision: 9,
+        source: 'initialize',
+        changedKeys: [
+          'status.mode',
+          'settings.language',
+          'settings.autoLockDelayMs',
+          'settings.autoShutdownDelayMs',
+        ],
+        state: {
+          ...currentState,
+          revision: 9,
+          updatedAt: 200,
+          status: { ...currentState.status, mode: 'bootloader' },
+          settings: {
+            ...currentState.settings,
+            language: null,
+            autoLockDelayMs: null,
+            autoShutdownDelayMs: null,
+          },
+        },
+      },
+    });
+    expect(loaderSnapshot?.state.settings).toEqual(currentState.settings);
+    const normalSnapshot = getDeviceStateSnapshotFromEvent({
+      device,
+      currentState: loaderSnapshot?.state,
+      event: {
+        connectId: 'PRO_BLE',
+        revision: 10,
+        source: 'device-info',
+        changedKeys: ['versions.firmware'],
+        state: { ...currentState, revision: 10, updatedAt: 300 },
+      },
+    });
+    expect(normalSnapshot?.state.settings).toEqual(currentState.settings);
+  });
+
   it('rejects a new wallet identity even when the physical serial still matches', () => {
     expect(
       getDeviceStateSnapshotFromEvent({
@@ -741,31 +863,40 @@ describe('DeviceState metadata projection', () => {
     });
   });
 
-  it('uses the BLE name as the Pro2 secondary identifier', () => {
-    expect(
-      getDeviceSecondaryIdentifier({
-        deviceType: EDeviceType.Pro2,
-        bleName: 'Pro2 6136',
-        serialNo: 'P2D33C0005B',
-      }),
-    ).toBe('Pro2 6136');
+  it.each<[EDeviceType, string]>([
+    [EDeviceType.Pro2, 'Pro2 6136'],
+    [EDeviceType.Pro, 'Pro 6136'],
+    [EDeviceType.Classic, 'Classic 6136'],
+    [EDeviceType.Classic1s, 'Classic 1S 6136'],
+    [EDeviceType.Touch, 'Touch 6136'],
+    [EDeviceType.Neo, 'Neo 6136'],
+  ])(
+    'uses the BLE name as the %s secondary identifier',
+    (deviceType, bleName) => {
+      expect(
+        getDeviceSecondaryIdentifier({
+          deviceType,
+          bleName,
+          serialNo: 'SERIAL',
+        }),
+      ).toBe(bleName);
+    },
+  );
 
-    expect(
-      getDeviceSecondaryIdentifier({
-        deviceType: EDeviceType.Pro2,
-        bleName: '',
-        serialNo: 'P2D33C0005B',
-      }),
-    ).toBe('P2D33C0005B');
-
-    expect(
-      getDeviceSecondaryIdentifier({
-        deviceType: EDeviceType.Pro,
-        bleName: 'Pro 6136',
-        serialNo: 'SERIAL',
-      }),
-    ).toBe('SERIAL');
-  });
+  it.each([EDeviceType.Pro2, EDeviceType.Pro, EDeviceType.ClassicPure])(
+    'does not use the %s serial number when the BLE name is unavailable',
+    (deviceType) => {
+      for (const bleName of ['', undefined]) {
+        expect(
+          getDeviceSecondaryIdentifier({
+            deviceType,
+            bleName,
+            serialNo: 'SERIAL',
+          }),
+        ).toBe(bleName);
+      }
+    },
+  );
 
   it('uses canonical state fields while retaining the V1 software-PIN preference', () => {
     expect(

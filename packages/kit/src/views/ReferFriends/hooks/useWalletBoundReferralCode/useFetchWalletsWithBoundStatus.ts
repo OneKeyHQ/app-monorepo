@@ -7,6 +7,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import type { IBatchCheckWalletV2Item } from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -83,12 +84,13 @@ export function useFetchWalletsWithBoundStatus() {
       nestedHiddenWallets: false,
     });
 
-    // Filter valid wallets (HD and hardware wallets)
+    // Filter valid wallets (HD and OneKey hardware wallets).
     const baseValidWallets = wallets.filter(
       (w) =>
         (accountUtils.isHdWallet({ walletId: w.id }) ||
           accountUtils.isHwWallet({ walletId: w.id })) &&
-        !accountUtils.isHwHiddenWallet({ wallet: w }),
+        !accountUtils.isHwHiddenWallet({ wallet: w }) &&
+        !getVendorProfile(w.associatedDeviceInfo?.vendor).isThirdParty,
     );
 
     // Exclude deactivated Bot Wallets — referral binding requires receiving

@@ -25,6 +25,13 @@ export interface IMarketTokenHistoricalPriceFields {
   price24hAgo?: string;
 }
 
+export interface IMarketTokenLaunchpad {
+  protocolId?: string;
+  logoUrl?: string;
+  isInternal?: boolean;
+  progress?: string;
+}
+
 export interface IMarketTokenDetail {
   networkId?: string;
   isNative?: boolean;
@@ -51,6 +58,10 @@ export interface IMarketTokenDetail {
   };
   price?: string;
   priceConverted?: string;
+  // Runtime-only: retain the latest detail response's rate across chart ticks.
+  priceConversionRate?: string;
+  // Runtime-only: start the grace period before detail quotes may recover a stalled feed.
+  detailPriceInitializedAt?: number;
   chartPriceUpdatedAt?: number;
   priceChange1mPercent?: string;
   priceChange5mPercent?: string;
@@ -123,6 +134,7 @@ export interface IMarketTokenDetail {
   vSell24h?: string;
   lastUpdated?: number;
   communityRecognized?: boolean;
+  launchpad?: IMarketTokenLaunchpad | null;
   stock?: IMarketStockInfo;
   btcMetadata?: IBtcMetadata;
   [key: string]: unknown;
@@ -202,6 +214,9 @@ export interface IMarketStockInfo {
   // the minute count is a snapshot that ages with the response.
   nextOpenTime?: string;
   nextOpenMinutes?: number;
+  // The underlying listing's last price move; only set from the public stock
+  // feed. See `priceUpdatedAt` on IMarketStockPublicItem.
+  priceUpdatedAt?: string;
   assetAnalysis?: IMarketStockAssetAnalysis;
   tradingActivity?: IMarketStockTradingActivity;
   dividendPerShare?: string;
@@ -530,6 +545,9 @@ export interface IMarketBasicConfigToken {
   symbol: string;
   logo?: string;
   communityRecognized?: boolean;
+  // Present when the recommended token is a top-coin or stock listing.
+  assetId?: string;
+  stockId?: string;
 }
 
 export interface IMarketBasicConfigNetworkFeature {
@@ -573,6 +591,7 @@ export interface IMarketBasicConfigData {
   perpsCategories?: IMarketPerpsCategory[];
   spotCategories?: IMarketSpotCategory[];
   stockCategories?: IMarketStockCategory[];
+  assetCategories?: IMarketAssetCategory[];
 }
 
 export type IMarketBasicConfigHomeTabType =
@@ -610,6 +629,13 @@ export type IMarketStockCategoryId =
 
 export interface IMarketStockCategory {
   category: IMarketStockCategoryId;
+  name: string;
+  tokenCount: number;
+}
+
+// Top coins sub-categories; `all` is the unfiltered list.
+export interface IMarketAssetCategory {
+  category: string;
   name: string;
   tokenCount: number;
 }
@@ -723,6 +749,7 @@ export enum EMarketBannerType {
   Mixed = 'mixed',
   StockPerps = 'stock_perps',
   StockIndex = 'stock_index',
+  TickerPerps = 'ticker_perps',
 }
 
 export interface IMarketBannerDescription {
@@ -793,6 +820,8 @@ export interface IMarketStockPublicItem {
   name: string;
   logoUrl: string;
   assetType: IMarketStockAssetType;
+  // Listing market labels from the stock list feed, e.g. `['US']` or `['HK']`.
+  tags?: string[];
   price?: string;
   priceChange24hPercent?: string;
   marketCap?: string;
@@ -800,6 +829,10 @@ export interface IMarketStockPublicItem {
   peRatio?: string;
   currency: 'USD';
   quoteUpdatedAt?: string;
+  // When the quote feed last moved the share price itself. Outside regular
+  // trading it stops advancing while `quoteUpdatedAt` keeps ticking, so this
+  // is the timestamp worth showing a closed or overnight market.
+  priceUpdatedAt?: string;
   sparkline?: number[];
   sparklineUpdatedAt?: string;
   variants?: IMarketStockListVariant[];

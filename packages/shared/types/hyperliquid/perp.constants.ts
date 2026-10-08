@@ -162,7 +162,12 @@ export const USDC_TOKEN_INFO = {
   isNative: false,
 } as const;
 
-export const HYPERLIQUID_NETWORK_INACTIVE_TIMEOUT_MS = 60_000;
+// How long the Perps stream may go without proof of life (a data frame or a
+// socket open) before the UI is told it is offline. Covers one full WS
+// connection timeout (5s) plus the retry that follows it, so a network handover
+// or a server-side reset never surfaces as a status change. allMids alone ticks
+// several times a second, so a silence this long is a real outage.
+export const HYPERLIQUID_NETWORK_OFFLINE_GRACE_MS = 8000;
 export const HYPERLIQUID_REFRESH_DATA_FLOW_THRESHOLD_MS = 10_000;
 export const MIN_WITHDRAW_AMOUNT = 2; // Minimum withdraw amount is 2 USDC
 

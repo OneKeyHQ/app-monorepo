@@ -9,7 +9,6 @@ export enum EShortcutEvents {
   NewTab = 'NewTab',
   NewTab2 = 'NewTab2',
   CloseTab = 'CloseTab',
-  SideBar = 'SideBar',
   SearchInPage = 'SearchInPage',
   UniversalSearch = 'UniversalSearch',
   CopyAddressOrUrl = 'CopyAddressOrUrl',
@@ -72,10 +71,6 @@ export const shortcutsMap: Record<
   [EShortcutEvents.CloseTab]: {
     keys: [shortcutsKeys.CmdOrCtrl, 'W'],
     desc: 'Close Tab',
-  },
-  [EShortcutEvents.SideBar]: {
-    keys: [shortcutsKeys.CmdOrCtrl, 'S'],
-    desc: 'Open / Close SideBar',
   },
   [EShortcutEvents.CopyAddressOrUrl]: {
     keys: [shortcutsKeys.CmdOrCtrl, shortcutsKeys.Shift, 'C'],

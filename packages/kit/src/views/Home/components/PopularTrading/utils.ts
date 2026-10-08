@@ -1,8 +1,10 @@
 import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
+import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 import type {
   IMarketBasicConfigHomeTab,
   IMarketPerpsTokenFromServer,
+  IMarketStockPublicItem,
   IMarketTokenListItem,
 } from '@onekeyhq/shared/types/marketV2';
 
@@ -133,6 +135,25 @@ function mapMarketPerpsTokenToDisplay({
   };
 }
 
+function mapMarketStockToDisplay(
+  item: IMarketStockPublicItem,
+): IFavoriteTokenDisplay {
+  return {
+    stockId: item.stockId,
+    chainId: '',
+    contractAddress: '',
+    isNative: false,
+    symbol: item.symbol,
+    name: item.name,
+    logoUrl: item.logoUrl,
+    stockListingName: item.name,
+    price: parseMarketValue(item.price) ?? 0,
+    priceChange24h: parseMarketValue(item.priceChange24hPercent) ?? 0,
+    marketCap: parseMarketValue(item.marketCap) ?? 0,
+    volume24h: parseMarketValue(item.volume24h) ?? 0,
+  };
+}
+
 function mapMarketAssetToDisplay(
   item: IMarketAssetListItem,
 ): IFavoriteTokenDisplay {
@@ -150,6 +171,31 @@ function mapMarketAssetToDisplay(
     volume24h: parseMarketValue(item.volume24h) ?? 0,
     marketAsset: item,
   };
+}
+
+function buildHomeRecommendAddSortIndexes({
+  existingWatchlist,
+  count,
+}: {
+  existingWatchlist: { sortIndex?: number }[];
+  count: number;
+}) {
+  // Recommend cards can show while stored favorites exist but render no rows.
+  // The new batch still has to sort above those stored items, in card order.
+  return sortUtils.buildOrderedTopSortIndexes({
+    oldList: existingWatchlist,
+    count,
+  });
+}
+
+function shouldShowHomeRecommendCards({
+  hasStoredFavorites,
+  visibleFavoriteCount,
+}: {
+  hasStoredFavorites: boolean;
+  visibleFavoriteCount: number;
+}) {
+  return !hasStoredFavorites || visibleFavoriteCount === 0;
 }
 
 function buildHomeMarketCategories({
@@ -195,6 +241,8 @@ function buildHomeMarketCategories({
 export {
   EMPTY_DISPLAY_TOKENS,
   buildHomeMarketCategories,
+  buildHomeRecommendAddSortIndexes,
+  shouldShowHomeRecommendCards,
   getMarketTokenDisplayMarketCap,
   getMarketTokenDisplayPrice,
   getMarketTokenDisplayPriceChange24h,
@@ -202,5 +250,6 @@ export {
   getTokenKey,
   mapMarketAssetToDisplay,
   mapMarketPerpsTokenToDisplay,
+  mapMarketStockToDisplay,
   mapMarketTokenToDisplay,
 };

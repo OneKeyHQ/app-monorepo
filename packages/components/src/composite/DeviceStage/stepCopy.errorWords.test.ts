@@ -141,3 +141,32 @@ describe('resolveCapsuleText, error step', () => {
     ).toBe('');
   });
 });
+
+describe('resolveCapsuleText, done step', () => {
+  it.each([
+    ['en-US', 'Portfolio updated'],
+    ['zh-CN', '资产概览已更新'],
+  ] as const)(
+    'uses localized operation-specific success copy in %s',
+    async (locale, expected) => {
+      const messages = await loadLocaleMessages(locale);
+      const uiIntl = createIntl({ locale, messages });
+      const successCopy = uiIntl.formatMessage({
+        id: ETranslations.portfolio_updated__title,
+      });
+
+      expect(
+        resolveCapsuleText(
+          uiIntl,
+          'done',
+          'OneKey',
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          successCopy,
+        ),
+      ).toEqual({ title: expected, sub: 'OneKey' });
+    },
+  );
+});

@@ -39,8 +39,8 @@ export class TravelModeTransitionController {
   }): Promise<never> {
     let timeout: ReturnType<typeof setTimeout> | undefined;
     try {
-      await this.dependencies.waitBeforeRestart();
       const epoch = await this.dependencies.prepareRestart(profile);
+      await this.dependencies.waitBeforeRestart();
       await Promise.race([
         this.dependencies.restart(`${reason}-epoch-${epoch}`),
         new Promise<never>((_resolve, reject) => {

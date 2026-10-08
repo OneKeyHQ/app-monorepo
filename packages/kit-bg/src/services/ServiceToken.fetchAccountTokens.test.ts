@@ -16,9 +16,16 @@ layer.
 (`withoutWalletToken`), explicit custom contracts returned by the server must
 be stripped from every dApp-only token group before cache and account-worth
 consumers see them.
+
+3. Shared-balance groups (OK-63633) — Arc native USDC and the ERC-20 0x3600…
+share one balance. The marked ERC-20 row must stay in `data` / `keys` / `map`
+but be flagged out of totals when a valid native primary is in the response,
+and be counted when it is not.
 */
 
 // --- jest.mock calls are hoisted above these imports by babel-jest ---
+
+import BigNumber from 'bignumber.js';
 
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
@@ -299,5 +306,203 @@ describe('ServiceToken.fetchAccountTokens', () => {
         }),
       );
     }
+  });
+});
+
+const ARC_NETWORK_ID = 'evm--5042';
+const ARC_ACCOUNT_ADDRESS = '0xabc';
+const ARC_ERC20_ADDRESS = '0x3600000000000000000000000000000000000000';
+const ARC_NATIVE_KEY = [ARC_NETWORK_ID, ARC_ACCOUNT_ADDRESS, 'native'].join(
+  '_',
+);
+const ARC_ERC20_KEY = [
+  ARC_NETWORK_ID,
+  ARC_ACCOUNT_ADDRESS,
+  ARC_ERC20_ADDRESS,
+].join('_');
+
+const arcNativeUsdc: IAccountToken = {
+  $key: ARC_NATIVE_KEY,
+  address: '',
+  decimals: 18,
+  isNative: true,
+  name: 'Arc',
+  symbol: 'USDC',
+  networkId: ARC_NETWORK_ID,
+};
+
+const arcErc20Usdc: IAccountToken = {
+  $key: ARC_ERC20_KEY,
+  address: ARC_ERC20_ADDRESS,
+  decimals: 6,
+  isNative: false,
+  name: 'USDC',
+  symbol: 'USDC',
+  networkId: ARC_NETWORK_ID,
+  sharedBalanceExcluded: true,
+  sharedBalanceWith: '',
+};
+
+function buildArcTokenData(tokens: IAccountToken[]): ITokenData {
+  return {
+    data: tokens,
+    keys: tokens.map((t) => t.$key).join(','),
+    map: Object.fromEntries(
+      tokens.map((t) => [
+        t.$key,
+        {
+          balance: '1456131',
+          balanceParsed: '1.456131',
+          fiatValue: '1.456131',
+          price: 1,
+        },
+      ]),
+    ),
+    fiatValue: tokens
+      .reduce((acc) => acc.plus('1.456131'), new BigNumber(0))
+      .toFixed(),
+    currency: 'usd',
+  };
+}
+
+function buildArcService(response: IFetchAccountTokensResp) {
+  const fetchTokenList = jest.fn(async () => ({ data: { data: response } }));
+  getVaultMock.mockResolvedValue({ fetchTokenList });
+  return new ServiceToken({
+    backgroundApi: {
+      serviceAccount: {
+        getAccountXpub: jest.fn(async () => ''),
+        getAccountAddressForApi: jest.fn(async () => '0xabc'),
+        buildAccountXpubOrAddress: jest.fn(
+          async ({
+            getAccountAddressFn,
+          }: {
+            getAccountAddressFn: () => Promise<string>;
+          }) => getAccountAddressFn(),
+        ),
+      },
+      serviceCustomToken: {
+        getCustomTokens: jest.fn(async () => []),
+        getHiddenTokens: jest.fn(async () => []),
+      },
+      serviceNetwork: {
+        getVaultSettings: jest.fn(async () => ({
+          mergeDeriveAssetsEnabled: false,
+        })),
+        getNetworkSafe: jest.fn(async () => ({ name: 'Arc' })),
+      },
+      serviceToken: {
+        getUnblockedTokens: jest.fn(async () => []),
+        getBlockedTokens: jest.fn(async () => []),
+        getAllAggregateTokenInfo: jest.fn(async () => ({
+          allAggregateTokenMap: {},
+          allAggregateTokens: [],
+        })),
+      },
+    },
+  });
+}
+
+describe('ServiceToken.fetchAccountTokens shared-balance groups (OK-63633)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('keeps both Arc USDC rows listed but flags the ERC-20 row out of totals', async () => {
+    const service = buildArcService({
+      tokens: buildArcTokenData([arcNativeUsdc, arcErc20Usdc]),
+      riskTokens: buildArcTokenData([]),
+      smallBalanceTokens: buildArcTokenData([]),
+    });
+
+    const result = await service.fetchAccountTokens({
+      accountId: "hd-1--m/44'/60'/0'/0/0",
+      networkId: ARC_NETWORK_ID,
+      saveToLocal: false,
+    });
+
+    expect(result.tokens.data.map((t) => t.$key)).toEqual([
+      ARC_NATIVE_KEY,
+      ARC_ERC20_KEY,
+    ]);
+    expect(result.tokens.keys).toBe(`${ARC_NATIVE_KEY},${ARC_ERC20_KEY}`);
+    expect(result.tokens.map[ARC_ERC20_KEY]).toEqual(
+      expect.objectContaining({
+        fiatValue: '1.456131',
+        sharedBalanceExcludedFromTotal: true,
+      }),
+    );
+    expect(
+      result.tokens.map[ARC_NATIVE_KEY].sharedBalanceExcludedFromTotal,
+    ).toBe(undefined);
+    expect(result.tokens.fiatValue).toBe('1.456131');
+  });
+
+  it('counts the ERC-20 row when the native primary is not in the response', async () => {
+    const service = buildArcService({
+      tokens: buildArcTokenData([arcErc20Usdc]),
+      riskTokens: buildArcTokenData([]),
+      smallBalanceTokens: buildArcTokenData([]),
+    });
+
+    const result = await service.fetchAccountTokens({
+      accountId: "hd-1--m/44'/60'/0'/0/0",
+      networkId: ARC_NETWORK_ID,
+      saveToLocal: false,
+    });
+
+    expect(
+      result.tokens.map[ARC_ERC20_KEY].sharedBalanceExcludedFromTotal,
+    ).toBe(undefined);
+    expect(result.tokens.fiatValue).toBe('1.456131');
+  });
+
+  it('finds the primary across buckets when the ERC-20 row lands in smallBalanceTokens', async () => {
+    const service = buildArcService({
+      tokens: buildArcTokenData([arcNativeUsdc]),
+      riskTokens: buildArcTokenData([]),
+      smallBalanceTokens: buildArcTokenData([arcErc20Usdc]),
+    });
+
+    const result = await service.fetchAccountTokens({
+      accountId: "hd-1--m/44'/60'/0'/0/0",
+      networkId: ARC_NETWORK_ID,
+      saveToLocal: false,
+    });
+
+    expect(
+      result.smallBalanceTokens.map[ARC_ERC20_KEY]
+        .sharedBalanceExcludedFromTotal,
+    ).toBe(true);
+    expect(result.smallBalanceTokens.fiatValue).toBe('0');
+    expect(result.tokens.fiatValue).toBe('1.456131');
+  });
+
+  it('counts the ERC-20 row when the selector filter drops its primary', async () => {
+    // The dApp-token filter classifies rows by dappType / dappName /
+    // defiMarked. If it ever removes the primary but keeps the marked row,
+    // the marked row is the only USDC left and must be counted once.
+    const service = buildArcService({
+      tokens: buildArcTokenData([
+        { ...arcNativeUsdc, defiMarked: true },
+        arcErc20Usdc,
+      ]),
+      riskTokens: buildArcTokenData([]),
+      smallBalanceTokens: buildArcTokenData([]),
+    });
+
+    const result = await service.fetchAccountTokens({
+      accountId: "hd-1--m/44'/60'/0'/0/0",
+      networkId: ARC_NETWORK_ID,
+      saveToLocal: false,
+      withoutDappToken: true,
+      withoutWalletToken: false,
+    });
+
+    expect(result.tokens.data.map((t) => t.$key)).toEqual([ARC_ERC20_KEY]);
+    expect(
+      result.tokens.map[ARC_ERC20_KEY].sharedBalanceExcludedFromTotal,
+    ).toBe(undefined);
+    expect(result.tokens.fiatValue).toBe('1.456131');
   });
 });

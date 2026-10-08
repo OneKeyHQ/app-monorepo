@@ -4,10 +4,13 @@ import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
 
+import so.onekey.app.wallet.travelmode.OneKeyTravelModeSplashScreen;
+
 public class MainLauncherActivity extends Activity {
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
+    OneKeyTravelModeSplashScreen.configureLaunch(this);
     super.onCreate(savedInstanceState);
 
     boolean shouldEnterRecovery = MainApplication.shouldShowRecovery;

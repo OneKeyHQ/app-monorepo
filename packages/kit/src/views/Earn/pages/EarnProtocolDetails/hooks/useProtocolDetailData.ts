@@ -56,19 +56,53 @@ export function useProtocolDetailData({
     ? `${accountId || ''}|${indexedAccountId || ''}`
     : undefined;
 
+  // One request identity per set of fetch inputs. usePromiseResult resets the
+  // result the moment the swr key changes but starts the new fetch only once
+  // the screen is focused again, so a page left open in another tab while the
+  // account switches sits on "no result, not loading" until refocus. Tracking
+  // which identity last settled (and whether it failed) lets the page tell
+  // that gap apart from a fetch that really failed (OK-63175).
+  const requestKey = [
+    networkId,
+    symbol,
+    provider,
+    vault ?? '',
+    locale,
+    currencyId,
+    accountScopeKey ?? '',
+  ].join('|');
+  const requestKeyRef = useRef(requestKey);
+  requestKeyRef.current = requestKey;
+  const settledRequestKeyRef = useRef<string | undefined>(undefined);
+  const failedRequestKeyRef = useRef<string | undefined>(undefined);
+
   const {
     result: detailInfo,
     isLoading: isDetailLoading,
     run,
   } = usePromiseResult(
-    async () =>
-      backgroundApiProxy.serviceStaking.getProtocolDetailsV2({
-        networkId,
-        symbol,
-        provider,
-        vault,
-        ...(includeAccountContext ? { accountId, indexedAccountId } : {}),
-      }),
+    async () => {
+      const startedRequestKey = requestKeyRef.current;
+      try {
+        const result =
+          await backgroundApiProxy.serviceStaking.getProtocolDetailsV2({
+            networkId,
+            symbol,
+            provider,
+            vault,
+            ...(includeAccountContext ? { accountId, indexedAccountId } : {}),
+          });
+        settledRequestKeyRef.current = startedRequestKey;
+        if (failedRequestKeyRef.current === startedRequestKey) {
+          failedRequestKeyRef.current = undefined;
+        }
+        return result;
+      } catch (error) {
+        settledRequestKeyRef.current = startedRequestKey;
+        failedRequestKeyRef.current = startedRequestKey;
+        throw error;
+      }
+    },
     // Locale and currency invalidate interceptor-owned request headers even
     // though getProtocolDetailsV2 does not receive them as explicit params.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -174,6 +208,17 @@ export function useProtocolDetailData({
     };
   }, [detailInfo, earnAccount, provider, symbol, vault]);
 
+  // No result yet for the current inputs and no fetch has settled for them:
+  // the fetch is either in flight or waiting for focus. Reported as loading
+  // so the page shows its skeleton instead of an error it cannot know about.
+  const isDetailPending =
+    detailInfo === undefined && settledRequestKeyRef.current !== requestKey;
+  // The fetch for exactly these inputs ran and failed; a refresh clears it.
+  const isError =
+    detailInfo === undefined &&
+    !isDetailLoading &&
+    failedRequestKeyRef.current === requestKey;
+
   return {
     earnAccount,
     detailInfo,
@@ -183,7 +228,9 @@ export function useProtocolDetailData({
     // Otherwise detail loading alone is enough
     isLoading:
       (accountId || indexedAccountId ? isAccountLoading : false) ||
-      isDetailLoading,
+      isDetailLoading ||
+      isDetailPending,
+    isError,
     refreshData: run,
     refreshAccount,
   };

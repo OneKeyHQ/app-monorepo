@@ -18,6 +18,8 @@ import type { NativeListProps } from '@onekeyfe/react-native-native-list';
 const mockNativeList = jest.fn((_props: NativeListProps) => null);
 const mockRun = jest.fn();
 const mockMissingCount = jest.fn();
+const mockContainerRef = { current: null };
+const mockSectionIndexContainerRef = { current: null };
 const mockNetwork = (id: string): IServerNetworkMatch =>
   ({ id, name: id, isTestnet: false }) as IServerNetworkMatch;
 const mockNetworks = [mockNetwork('a'), mockNetwork('b'), mockNetwork('c')];
@@ -127,7 +129,7 @@ jest.mock('./useNetworkListPresentationV2', () => ({
   useNetworkListPresentationV2: () => mockPresentation,
 }));
 jest.mock('./useNetworkTooltipV2', () => ({
-  useNetworkTooltipV2: () => ({}),
+  useNetworkTooltipV2: () => ({ containerRef: mockContainerRef }),
 }));
 
 type IContextValueV2 = ComponentProps<
@@ -186,7 +188,9 @@ function HarnessV2({
   );
   return (
     <AllNetworksManagerContext.Provider value={value}>
-      <NetworksSectionListV2 />
+      <NetworksSectionListV2
+        webSectionIndexContainerRef={mockSectionIndexContainerRef}
+      />
     </AllNetworksManagerContext.Provider>
   );
 }
@@ -240,12 +244,25 @@ describe('portfolio NativeList selection adapter V2', () => {
     ).toBe(true);
   });
 
+  it('hosts the section index in the list container on web', () => {
+    render(<HarnessV2 />);
+    expect(
+      getNativePropsV2().snapshot.capabilities?.sectionIndex?.centeredInWindow,
+    ).toBe(true);
+    expect(getNativePropsV2().webSectionIndexContainerRef).toBe(
+      mockSectionIndexContainerRef,
+    );
+  });
+
   it('centers the section index in the window on desktop', () => {
     mockIsDesktop = true;
     render(<HarnessV2 />);
     expect(
       getNativePropsV2().snapshot.capabilities?.sectionIndex?.centeredInWindow,
     ).toBe(true);
+    expect(getNativePropsV2().webSectionIndexContainerRef).toBe(
+      mockSectionIndexContainerRef,
+    );
   });
 
   it('deselects a partial selection before selecting all compatible networks', () => {

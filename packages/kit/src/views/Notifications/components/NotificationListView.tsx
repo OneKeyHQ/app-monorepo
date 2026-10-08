@@ -148,7 +148,14 @@ function NotificationItem({
   const imageElement = useMemo(() => {
     if (item.icon) {
       return (
-        <Stack w={28} h={28} borderRadius="$full" ai="center" jc="center">
+        <Stack
+          w={24}
+          h={24}
+          borderRadius="$full"
+          bg="$bgSubdued"
+          ai="center"
+          jc="center"
+        >
           <Icon name={item.icon} color="$icon" size="$4.5" />
         </Stack>
       );
@@ -158,7 +165,7 @@ function NotificationItem({
       extras?.image &&
       item.topicType !== ENotificationPushTopicTypes.system
     ) {
-      return <Image size={28} source={{ uri: extras.image }} />;
+      return <Image size={24} source={{ uri: extras.image }} />;
     }
   }, [extras?.image, item.icon, item.topicType]);
   return (
@@ -169,7 +176,7 @@ function NotificationItem({
       {...rest}
     >
       <XStack alignItems="flex-start" gap="$3" py="$2">
-        <YStack>
+        <YStack w={24} h={24}>
           {imageElement}
           {!readed && !!badge && !readedMap?.[msgId] ? (
             <Stack
@@ -609,8 +616,16 @@ export function NotificationListView({
           const itemView = (
             <YStack>
               {index > 0 ? (
-                <XStack pl={60} pr="$3" py="$0.5">
-                  <Divider borderColor="$neutral3" />
+                <XStack pl={56} pr="$3" py="$0.5">
+                  {platformEnv.isNativeIOS ? (
+                    <Stack
+                      flex={1}
+                      height={StyleSheet.hairlineWidth}
+                      bg="$neutral3"
+                    />
+                  ) : (
+                    <Divider borderColor="$neutral3" />
+                  )}
                 </XStack>
               ) : null}
               <NotificationItemMemo

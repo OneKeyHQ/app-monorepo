@@ -33,6 +33,7 @@ export function buildStockInfoFromPublicDetail(
     description: detail.marketStatus?.reason ?? undefined,
     nextOpenTime: detail.marketStatus?.nextOpenTime,
     nextOpenMinutes: detail.marketStatus?.nextOpenMinutes,
+    priceUpdatedAt: detail.priceUpdatedAt,
     assetAnalysis: {
       volume24h: detail.volume24h,
       volumeShares: detail.volumeShares,

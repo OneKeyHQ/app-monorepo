@@ -233,6 +233,34 @@ export class FirmwareUpdateBatteryTooLow extends OneKeyHardwareError {
   override code = ECustomOneKeyHardwareError.FirmwareUpdateBatteryTooLow;
 }
 
+// Thrown by the update workflow when desktop resolved a Bluetooth transport
+// for a device that must be updated over USB.
+export class FirmwareUpdateRequiresUsbTransport extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'FirmwareUpdateRequiresUsbTransport',
+      }),
+    );
+  }
+
+  override code = ECustomOneKeyHardwareError.FirmwareUpdateRequiresUsbTransport;
+}
+
+// Thrown by the update workflow when the device type has no supported
+// update strategy in this app.
+export class FirmwareUpdateUnsupportedDevice extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'FirmwareUpdateUnsupportedDevice',
+      }),
+    );
+  }
+
+  override code = ECustomOneKeyHardwareError.FirmwareUpdateUnsupportedDevice;
+}
+
 export class BridgeNetworkError extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(

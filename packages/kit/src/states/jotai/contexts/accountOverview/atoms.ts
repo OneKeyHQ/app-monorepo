@@ -85,6 +85,21 @@ export const {
   },
 );
 
+// The amount and categories currently rendered in the Home balance header.
+// Portfolio sync reads this owner-scoped view instead of fetching a second
+// valuation when it builds the device payload.
+export const {
+  atom: homePortfolioDisplayAtom,
+  use: useHomePortfolioDisplayAtom,
+} = contextAtom<{
+  ownerKey: string;
+  totalFiatUsd?: string;
+  tokenFiatUsd?: string;
+  defiFiatUsd?: string;
+  perpsFiatUsd?: string;
+  isLive: boolean;
+}>({ ownerKey: '', isLive: false });
+
 export const {
   atom: overviewTokenCacheStateAtom,
   use: useOverviewTokenCacheStateAtom,
@@ -130,11 +145,10 @@ export const { atom: allNetworksStateAtom, use: useAllNetworksStateStateAtom } =
 
 export const { atom: approvalsInfoAtom, use: useApprovalsInfoAtom } =
   contextAtom<{
-    hasRiskApprovals: boolean;
-    riskApprovalsCount: number;
+    // Risk approvals the user has not reviewed within the resurface window.
+    showRiskApprovalsDot: boolean;
   }>({
-    hasRiskApprovals: false,
-    riskApprovalsCount: 0,
+    showRiskApprovalsDot: false,
   });
 
 export const { atom: walletTopBannersAtom, use: useWalletTopBannersAtom } =

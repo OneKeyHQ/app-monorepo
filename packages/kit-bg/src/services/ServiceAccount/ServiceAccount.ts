@@ -128,11 +128,6 @@ import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
-import {
-  prefixOf,
-  swrCacheNamespaces,
-  swrCacheUtils,
-} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
@@ -342,101 +337,34 @@ class ServiceAccount extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
 
-    // SWR cache invalidation. Mutation events have no payload, so we drop
-    // every entry in the affected namespace by prefix. Subsequent UI mounts
-    // read an empty MMKV slot and the fetcher repopulates with fresh data —
-    // avoids painting deleted wallets / stale section data when the mutation
-    // happened while the consumer wasn't mounted.
-    //
-    // flushNow forces the cleared snapshot into MMKV synchronously instead
-    // of waiting on scheduleFlush's 2s debounce. Mutations are low-frequency
-    // and the extra write is worth it: a force-kill (task-manager swipe,
-    // watchdog) between the bg drop and AppState's background flush would
-    // otherwise leave deleted wallets in the MMKV blob and resurrect them
-    // on the next cold open.
-    const dropWalletListSwr = () =>
-      swrCacheUtils.removeByPrefix(
-        prefixOf(swrCacheNamespaces.walletListSideBar),
-      );
-    const dropAccountSelectorListSwr = () =>
-      swrCacheUtils.removeByPrefix(
-        prefixOf(swrCacheNamespaces.accountSelectorList),
-      );
-    // Bulk copy / bulk send snapshot wallet objects, account groups and the
-    // seeded sender (names, addresses, xpubs) with no TTL, so they follow the
-    // same contract: a mutation drops the namespaces and the next mount
-    // repopulates, instead of painting (and exporting) a deleted or renamed
-    // wallet / account left over from the previous run.
-    const dropBulkAddressSwr = () => {
-      swrCacheUtils.removeByPrefix(
-        prefixOf(swrCacheNamespaces.bulkCopyAddressesWallets),
-      );
-      swrCacheUtils.removeByPrefix(
-        prefixOf(swrCacheNamespaces.bulkCopyAddressesNetworkIds),
-      );
-      swrCacheUtils.removeByPrefix(
-        prefixOf(swrCacheNamespaces.bulkCopyAddressesAccounts),
-      );
-      swrCacheUtils.removeByPrefix(
-        prefixOf(swrCacheNamespaces.bulkSendAddressesInputSeed),
-      );
-    };
-
+    // SWR cache invalidation is NOT done here. These namespaces hold what a
+    // screen last displayed, they are written by the UI runtime's hooks, and
+    // that runtime receives the same mutation events — so it drops them
+    // itself (`kit/src/utils/swrCacheMutationInvalidation.ts`). Dropping them
+    // from bg made one namespace's file have two writers with no lock between
+    // the runtimes, and the announcement bg had to send so the UI would stop
+    // serving the value could be answered by the runtime that performed the
+    // delete, which with two foregrounds open looped between them.
     appEventBus.on(EAppEventBusNames.WalletUpdate, () => {
       void this.clearAccountCache();
-      dropWalletListSwr();
-      dropAccountSelectorListSwr();
-      dropBulkAddressSwr();
-      swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.AccountRemove, () => {
       void this.clearAccountCache();
-      // sidebar also depends on accounts via ignoreEmptySingletonWalletAccounts
-      dropWalletListSwr();
-      dropAccountSelectorListSwr();
-      dropBulkAddressSwr();
-      swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.AccountUpdate, () => {
       void this.clearAccountCache();
-      dropWalletListSwr();
-      dropAccountSelectorListSwr();
-      dropBulkAddressSwr();
-      swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.RenameDBAccounts, () => {
       void this.clearAccountCache();
-      // sidebar doesn't show account names, only the right-panel sectionData does
-      dropAccountSelectorListSwr();
-      dropBulkAddressSwr();
-      swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.WalletRename, () => {
       void this.clearAccountCache();
-      dropWalletListSwr();
-      dropAccountSelectorListSwr();
-      dropBulkAddressSwr();
-      swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.AddDBAccountsToWallet, () => {
       void this.clearAccountCache();
-      dropWalletListSwr();
-      dropAccountSelectorListSwr();
-      dropBulkAddressSwr();
-      swrCacheUtils.flushNow();
     });
-    // Defensive WalletClear handler. ServiceE2E.clearWalletsAndAccounts
-    // currently calls swrCacheUtils.clearAll() before emitting this event,
-    // so the drop here is redundant for the existing emitter — but it makes
-    // the contract explicit, so future emitters (logout flow, alternative
-    // reset paths) inherit the invalidation without having to remember the
-    // call-site dance.
     appEventBus.on(EAppEventBusNames.WalletClear, () => {
       void this.clearAccountCache();
-      dropWalletListSwr();
-      dropAccountSelectorListSwr();
-      dropBulkAddressSwr();
-      swrCacheUtils.flushNow();
     });
     // Drop derived-address / xpub memoizee caches on critical memory
     // pressure. These caches are the cheapest to rebuild (one BIP32
@@ -8241,6 +8169,7 @@ class ServiceAccount extends ServiceBase {
     networkId,
     skipEventEmit,
     applyRestoreSyncPolicy,
+    onError,
     deriveTypes: presetDeriveTypes,
     skipAddressDeriveTypeLookup,
     skipInputDeriveTypesFallback,
@@ -8252,105 +8181,102 @@ class ServiceAccount extends ServiceBase {
     networkId: string;
     skipEventEmit?: boolean;
     applyRestoreSyncPolicy?: boolean;
+    onError: (params: { stage: string; error: unknown }) => void;
     deriveTypes?: IAccountDeriveTypes[];
     skipAddressDeriveTypeLookup?: boolean;
     skipInputDeriveTypesFallback?: boolean;
   }) {
     const addedAccounts: IDBAccount[] = [];
-    try {
-      const { serviceAccount, serviceNetwork, servicePassword } =
-        this.backgroundApi;
+    const { serviceAccount, serviceNetwork, servicePassword } =
+      this.backgroundApi;
 
-      let deriveTypes: IAccountDeriveTypes[] = [...(presetDeriveTypes || [])];
-      if (
-        !deriveTypes?.length &&
-        !skipAddressDeriveTypeLookup &&
-        importedAccount?.address
-      ) {
-        try {
-          const deriveType = await this.withImportedAccountTrace({
-            stage: 'resolveImportedAccountDeriveTypeByAddress',
-            networkId,
-            task: () =>
-              serviceNetwork.getDeriveTypeByAddress({
-                networkId,
-                address: importedAccount.address,
-              }),
-          });
-          if (deriveType) {
-            deriveTypes.push(deriveType);
-          }
-        } catch (e) {
-          console.error('getDeriveTypeByAddress error', e);
-        }
-      }
-
-      if (!deriveTypes?.length && !skipInputDeriveTypesFallback) {
-        try {
-          const isUtxoImportedAccount =
-            importedAccount.type === EDBAccountType.UTXO;
-          const sensitiveInput = await this.withImportedAccountTrace({
-            stage: 'encodeImportedAccountFallbackInput',
-            targetType: 'credential',
-            networkId,
-            task: () =>
-              servicePassword.encodeSensitiveText({
-                text: input,
-              }),
-          });
-          deriveTypes = await this.withImportedAccountTrace({
-            stage: 'resolveImportedAccountDeriveTypesByInput',
-            networkId,
-            task: () =>
-              serviceNetwork.getAccountImportingDeriveTypes({
-                accountId: importedAccount.id,
-                networkId,
-                input: sensitiveInput,
-                validatePrivateKey: !isUtxoImportedAccount,
-                validateXprvt: isUtxoImportedAccount,
-                template: importedAccount.template,
-              }),
-          });
-        } catch (e) {
-          console.error('getAccountImportingDeriveTypes error', e);
-        }
-      }
-
-      if (!deriveTypes?.length) {
-        deriveTypes = ['default'];
-      }
-
-      const skipAddIfNotEqualToAddress =
-        importedAccount.address &&
-        (deriveTypes.length > 1 || presetDeriveTypes?.length)
-          ? importedAccount.address
-          : undefined;
-      let privateKeyRawForCredential = privateKey;
+    let deriveTypes: IAccountDeriveTypes[] = [...(presetDeriveTypes || [])];
+    if (
+      !deriveTypes?.length &&
+      !skipAddressDeriveTypeLookup &&
+      importedAccount?.address
+    ) {
       try {
-        for (const deriveType of deriveTypes) {
-          try {
-            const { accounts } =
-              await serviceAccount.addImportedAccountWithCredentialBase({
-                skipEventEmit,
-                credentialRaw: privateKeyRawForCredential,
-                password,
-                fallbackName: importedAccount.name,
-                networkId,
-                name: importedAccount.name,
-                deriveType,
-                skipAddIfNotEqualToAddress,
-                applyRestoreSyncPolicy,
-              });
-            addedAccounts.push(...(accounts || []));
-          } catch (e) {
-            console.error('addImportedAccountByInput error', e);
-          }
+        const deriveType = await this.withImportedAccountTrace({
+          stage: 'resolveImportedAccountDeriveTypeByAddress',
+          networkId,
+          task: () =>
+            serviceNetwork.getDeriveTypeByAddress({
+              networkId,
+              address: importedAccount.address,
+            }),
+        });
+        if (deriveType) {
+          deriveTypes.push(deriveType);
         }
-      } finally {
-        privateKeyRawForCredential = '';
+      } catch (e) {
+        onError({ stage: 'resolveRestoreDeriveTypeByAddress', error: e });
       }
-    } catch (e) {
-      console.error('addImportedAccountByInput error', e);
+    }
+
+    if (!deriveTypes?.length && !skipInputDeriveTypesFallback) {
+      try {
+        const isUtxoImportedAccount =
+          importedAccount.type === EDBAccountType.UTXO;
+        const sensitiveInput = await this.withImportedAccountTrace({
+          stage: 'encodeImportedAccountFallbackInput',
+          targetType: 'credential',
+          networkId,
+          task: () =>
+            servicePassword.encodeSensitiveText({
+              text: input,
+            }),
+        });
+        deriveTypes = await this.withImportedAccountTrace({
+          stage: 'resolveImportedAccountDeriveTypesByInput',
+          networkId,
+          task: () =>
+            serviceNetwork.getAccountImportingDeriveTypes({
+              accountId: importedAccount.id,
+              networkId,
+              input: sensitiveInput,
+              validatePrivateKey: !isUtxoImportedAccount,
+              validateXprvt: isUtxoImportedAccount,
+              template: importedAccount.template,
+            }),
+        });
+      } catch (e) {
+        onError({ stage: 'resolveRestoreDeriveTypesByInput', error: e });
+      }
+    }
+
+    if (!deriveTypes?.length) {
+      deriveTypes = ['default'];
+    }
+
+    const skipAddIfNotEqualToAddress =
+      importedAccount.address &&
+      (deriveTypes.length > 1 || presetDeriveTypes?.length)
+        ? importedAccount.address
+        : undefined;
+    let privateKeyRawForCredential = privateKey;
+    try {
+      for (const deriveType of deriveTypes) {
+        try {
+          const { accounts } =
+            await serviceAccount.addImportedAccountWithCredentialBase({
+              skipEventEmit,
+              credentialRaw: privateKeyRawForCredential,
+              password,
+              fallbackName: importedAccount.name,
+              networkId,
+              name: importedAccount.name,
+              deriveType,
+              skipAddIfNotEqualToAddress,
+              applyRestoreSyncPolicy,
+            });
+          addedAccounts.push(...(accounts || []));
+        } catch (e) {
+          onError({ stage: 'addImportedAccountWithCredential', error: e });
+        }
+      }
+    } finally {
+      privateKeyRawForCredential = '';
     }
     return { addedAccounts };
   }
@@ -8361,78 +8287,76 @@ class ServiceAccount extends ServiceBase {
     networkId,
     skipEventEmit,
     applyRestoreSyncPolicy,
+    onError,
   }: {
     watchingAccount: IPrimeTransferAccount;
     input: string;
     networkId: string;
     skipEventEmit?: boolean;
     applyRestoreSyncPolicy?: boolean;
+    onError: (params: { stage: string; error: unknown }) => void;
   }): Promise<{
     addedAccounts: IDBAccount[];
   }> {
     const addedAccounts: IDBAccount[] = [];
-    try {
-      const { serviceAccount, serviceNetwork, servicePassword } =
-        this.backgroundApi;
+    const { serviceAccount, serviceNetwork, servicePassword } =
+      this.backgroundApi;
 
-      let deriveTypes: IAccountDeriveTypes[] = [];
-      if (watchingAccount?.address) {
-        try {
-          const deriveType = await serviceNetwork.getDeriveTypeByAddress({
-            networkId,
-            address: watchingAccount.address,
-          });
-          if (deriveType) {
-            deriveTypes.push(deriveType);
-          }
-        } catch (e) {
-          console.error('getDeriveTypeByAddress error', e);
+    let deriveTypes: IAccountDeriveTypes[] = [];
+    if (watchingAccount?.address) {
+      try {
+        const deriveType = await serviceNetwork.getDeriveTypeByAddress({
+          networkId,
+          address: watchingAccount.address,
+        });
+        if (deriveType) {
+          deriveTypes.push(deriveType);
         }
+      } catch (e) {
+        onError({ stage: 'resolveRestoreDeriveTypeByAddress', error: e });
       }
+    }
 
-      if (!deriveTypes?.length) {
-        try {
-          deriveTypes = await serviceNetwork.getAccountImportingDeriveTypes({
-            accountId: watchingAccount.id,
-            networkId: networkId || '',
-            input: await servicePassword.encodeSensitiveText({
-              text: input,
-            }),
-            validateAddress: true,
-            validateXpub: true,
-            template: watchingAccount.template,
-          });
-        } catch (e) {
-          console.error('getAccountImportingDeriveTypes error', e);
-        }
+    if (!deriveTypes?.length) {
+      try {
+        deriveTypes = await serviceNetwork.getAccountImportingDeriveTypes({
+          accountId: watchingAccount.id,
+          networkId: networkId || '',
+          input: await servicePassword.encodeSensitiveText({
+            text: input,
+          }),
+          validateAddress: true,
+          validateXpub: true,
+          template: watchingAccount.template,
+        });
+      } catch (e) {
+        onError({ stage: 'resolveRestoreDeriveTypesByInput', error: e });
       }
+    }
 
-      if (!deriveTypes?.length) {
-        deriveTypes = ['default'];
-      }
+    if (!deriveTypes?.length) {
+      deriveTypes = ['default'];
+    }
 
-      const skipAddIfNotEqualToAddress =
-        deriveTypes.length > 1 ? watchingAccount.address : undefined;
-      for (const deriveType of deriveTypes) {
-        try {
-          const { accounts } = await serviceAccount.addWatchingAccount({
-            skipEventEmit,
-            input,
-            fallbackName: watchingAccount.name,
-            networkId: networkId || '',
-            name: watchingAccount.name,
-            deriveType,
-            isUrlAccount: false,
-            skipAddIfNotEqualToAddress,
-            applyRestoreSyncPolicy,
-          });
-          addedAccounts.push(...(accounts || []));
-        } catch (e) {
-          console.error('addWatchingAccountByInput error', e);
-        }
+    const skipAddIfNotEqualToAddress =
+      deriveTypes.length > 1 ? watchingAccount.address : undefined;
+    for (const deriveType of deriveTypes) {
+      try {
+        const { accounts } = await serviceAccount.addWatchingAccount({
+          skipEventEmit,
+          input,
+          fallbackName: watchingAccount.name,
+          networkId: networkId || '',
+          name: watchingAccount.name,
+          deriveType,
+          isUrlAccount: false,
+          skipAddIfNotEqualToAddress,
+          applyRestoreSyncPolicy,
+        });
+        addedAccounts.push(...(accounts || []));
+      } catch (e) {
+        onError({ stage: 'addWatchingAccount', error: e });
       }
-    } catch (e) {
-      console.error('addWatchingAccountByInput error', e);
     }
     return { addedAccounts };
   }

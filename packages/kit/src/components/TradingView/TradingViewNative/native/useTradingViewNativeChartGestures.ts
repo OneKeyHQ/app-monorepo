@@ -32,6 +32,8 @@ import {
   isTradingViewNativeTimeAxisTouch,
 } from '../utils/timeAxisScale';
 
+import { getTradingViewNativeSkiaTextFont } from './chartSkiaText';
+
 import type { ITradingViewNativeChartRuntime } from './chartRuntime';
 import type { ITradingViewNativeSkiaResources } from './chartSkiaRenderer';
 import type { ITradingViewNativeSubIndicator } from '../utils/chartIndicators';
@@ -80,6 +82,7 @@ export function useTradingViewNativeChartGestures({
       return isTradingViewNativeMainPriceAxisTouch({
         height: runtime.size.height,
         paneCount,
+        panes: runtime.subIndicatorPanes,
         priceAxisWidth: priceAxisWidth.value,
         timeAxisHeight,
         width: runtime.size.width,
@@ -149,7 +152,11 @@ export function useTradingViewNativeChartGestures({
       const regions = getTradingViewNativeSubIndicatorLegendHitRegions({
         height: runtime.size.height,
         measureTextWidth: (text) =>
-          resources.value.fonts.legend.measureText(text).width,
+          getTradingViewNativeSkiaTextFont(
+            text,
+            resources.value.fonts.legend,
+            resources.value.legendSubscriptFont,
+          ).measureText(text).width,
         panes: runtime.subIndicatorPanes,
         pointIndex,
         priceAxisX,

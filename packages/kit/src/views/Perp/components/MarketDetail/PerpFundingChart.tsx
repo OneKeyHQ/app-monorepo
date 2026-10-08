@@ -6,6 +6,7 @@ import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  ScrollView,
   SizableText,
   Spinner,
   XStack,
@@ -26,7 +27,6 @@ import {
   buildPerpFundingChartData,
   getPerpFundingTooltipPosition,
 } from '../../utils/fundingChart';
-import { PerpTableScrollView } from '../OrderInfoPanel/List/PerpTableScrollView';
 
 import type { BaselineSeriesPartialOptions } from 'lightweight-charts';
 
@@ -637,15 +637,16 @@ export function PerpFundingChart({
   }
 
   return (
-    <PerpTableScrollView
+    <ScrollView
       testID="perp-funding-chart-scroll-view"
       flex={1}
       minHeight={0}
       nestedScrollEnabled
-      showsVerticalScrollIndicator
+      showsVerticalScrollIndicator={false}
+      showsHorizontalScrollIndicator={false}
       contentContainerStyle={{ flexGrow: 1 }}
     >
       {content}
-    </PerpTableScrollView>
+    </ScrollView>
   );
 }

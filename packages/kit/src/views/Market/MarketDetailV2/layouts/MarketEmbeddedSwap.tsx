@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import {
@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import type { ISwapInputAmountDraft } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
@@ -26,12 +27,15 @@ import { MarketStockTradeTarget } from './components/MarketStockTradeTarget';
 import { buildMarketEmbeddedSwapInitParams } from './marketEmbeddedSwapUtils';
 
 type IEmbeddedSwapProps = {
+  storeName?: EJotaiContextStoreNames;
   pageType?: EPageType.modal;
   singleSwapBridgeHeader?: boolean;
   embeddedStockTrade?: boolean;
   stockSpeedConfig?: ISwapStockSpeedConfig;
   stockTradeConfig?: ISwapStockTradeConfig;
   stockTradeHeader?: ReactNode;
+  stockTradeIdentityLoading?: boolean;
+  reviewContextKey?: string;
   stockTradeToken?: ISwapToken;
   stockTradePortfolioData?: IMarketAccountPortfolioDisplayItem[];
   stockTradeResolvedVariantKeys?: string[];
@@ -48,6 +52,8 @@ const LazyEmbeddedSwap = LazyLoad<IEmbeddedSwapProps>(
   undefined,
   <MarketEmbeddedSwapLoading />,
 );
+
+const MemoEmbeddedSwap = memo(LazyEmbeddedSwap);
 
 function MarketEmbeddedSwapLoading() {
   return (
@@ -102,6 +108,7 @@ function getDraftToken(token?: ISwapToken): ISwapToken | undefined {
 }
 
 function MarketEmbeddedSwapContent({
+  inputDraftKey,
   swapToken,
   inputDraft,
   onInputDraftChange,
@@ -113,6 +120,7 @@ function MarketEmbeddedSwapContent({
   stockTradePortfolioData,
   stockTradeResolvedVariantKeys,
 }: {
+  inputDraftKey: string;
   swapToken: ISwapToken;
   inputDraft?: ISwapInputAmountDraft;
   onInputDraftChange: (draft: ISwapInputAmountDraft) => void;
@@ -154,6 +162,10 @@ function MarketEmbeddedSwapContent({
   const stockTradeTokenSeedReadySignature = stockTradeTokenSeed
     ? `${stockTradeTokenSeed.networkId}:${stockTradeTokenSeed.contractAddress}:${stockTradeTokenSeed.decimals}:${stockTradeTokenSeed.symbol}`
     : '';
+  const stockTradeIdentityLoading = Boolean(
+    isTradeLoading ||
+    stockTradeTokenReadySignature !== stockTradeTokenSeedReadySignature,
+  );
   useEffect(() => {
     if (
       !isTradeLoading &&
@@ -167,8 +179,17 @@ function MarketEmbeddedSwapContent({
     stockTradeTokenReadySignature,
     stockTradeTokenSeedReadySignature,
   ]);
-  // Consume the route's draft once per mount; live input must not reinitialize Swap.
-  const [initialInputAmountDraft] = useState(inputDraft);
+  // Consume the restored draft once, and discard it when the route changes.
+  // Live input must not reinitialize the retained Swap component.
+  const [initialDraft, setInitialDraft] = useState({
+    key: inputDraftKey,
+    draft: inputDraft,
+  });
+  const initialInputAmountDraft =
+    initialDraft.key === inputDraftKey ? initialDraft.draft : undefined;
+  if (initialDraft.key !== inputDraftKey) {
+    setInitialDraft({ key: inputDraftKey, draft: undefined });
+  }
   const { defaultTokens, speedConfigReady, speedSwapConfig } = useSpeedSwapInit(
     swapTokenSeed.networkId,
     true,
@@ -228,7 +249,8 @@ function MarketEmbeddedSwapContent({
       minHeight={520}
       overflow="hidden"
     >
-      <LazyEmbeddedSwap
+      <MemoEmbeddedSwap
+        storeName={EJotaiContextStoreNames.marketSwap}
         pageType={EPageType.modal}
         singleSwapBridgeHeader
         swapInitParams={effectiveSwapInitParams}
@@ -236,6 +258,8 @@ function MarketEmbeddedSwapContent({
         stockSpeedConfig={stockSpeedConfig}
         stockTradeConfig={stockTradeConfig}
         stockTradeHeader={resolvedStockTradeHeader}
+        stockTradeIdentityLoading={stockTradeIdentityLoading}
+        reviewContextKey={`${inputDraftKey}:${swapTokenIdentity}`}
         stockTradeToken={stockTradeTokenSeed}
         stockTradePortfolioData={stockTradePortfolioData}
         stockTradeResolvedVariantKeys={stockTradeResolvedVariantKeys}
@@ -247,6 +271,7 @@ function MarketEmbeddedSwapContent({
 }
 
 function MarketEmbeddedSwapDraft({
+  inputDraftKey,
   swapToken,
   disabled,
   isTradeLoading,
@@ -257,6 +282,7 @@ function MarketEmbeddedSwapDraft({
   stockTradePortfolioData,
   stockTradeResolvedVariantKeys,
 }: {
+  inputDraftKey: string;
   swapToken: ISwapToken;
   disabled?: boolean;
   isTradeLoading?: boolean;
@@ -268,6 +294,11 @@ function MarketEmbeddedSwapDraft({
   stockTradeResolvedVariantKeys?: string[];
 }) {
   const inputDraftRef = useRef<ISwapInputAmountDraft | undefined>(undefined);
+  const inputDraftKeyRef = useRef(inputDraftKey);
+  if (inputDraftKeyRef.current !== inputDraftKey) {
+    inputDraftKeyRef.current = inputDraftKey;
+    inputDraftRef.current = undefined;
+  }
   const onInputDraftChange = useCallback((draft: ISwapInputAmountDraft) => {
     inputDraftRef.current = {
       fromToken: getDraftToken(draft.fromToken),
@@ -296,6 +327,7 @@ function MarketEmbeddedSwapDraft({
 
   return (
     <MarketEmbeddedSwapContent
+      inputDraftKey={inputDraftKey}
       swapToken={swapToken}
       inputDraft={inputDraftRef.current}
       onInputDraftChange={onInputDraftChange}
@@ -339,7 +371,7 @@ export function MarketEmbeddedSwap({
       enabledNum={[0, 1]}
     >
       <MarketEmbeddedSwapDraft
-        key={inputDraftKey}
+        inputDraftKey={inputDraftKey}
         swapToken={swapToken}
         disabled={disabled}
         isTradeLoading={isTradeLoading}

@@ -5,10 +5,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import {
-  getListedNetworkMap,
-  getNetworkIdsMap,
-} from '@onekeyhq/shared/src/config/networkIds';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '@onekeyhq/shared/src/consts/networkConsts';
 import {
@@ -22,6 +19,7 @@ import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { applySharedBalanceExclusionToTokenGroups } from '@onekeyhq/shared/src/utils/sharedBalanceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { filterTokenSelectorTokenDataByDappTokenFilterParams } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
@@ -519,6 +517,17 @@ class ServiceToken extends ServiceBase {
           tokenSelectorFilterParams,
         });
     }
+
+    // Shared-balance groups (OK-63633, Arc native USDC vs ERC-20 0x3600…):
+    // resolve ONCE over the FILTERED tokens ∪ smallBalanceTokens which marked
+    // rows must be skipped by totals and flag their fiat-map entries. Runs
+    // after the selector filters so a marked row whose primary was filtered
+    // out is counted once instead of zero times. Rows are never dropped — the
+    // ERC-20 interface stays listed / swappable.
+    applySharedBalanceExclusionToTokenGroups({
+      tokens: resp.data.data.tokens,
+      smallBalanceTokens: resp.data.data.smallBalanceTokens,
+    });
 
     if (mergeTokens) {
       const { tokens, riskTokens, smallBalanceTokens } = resp.data.data as any;
@@ -1463,16 +1472,49 @@ class ServiceToken extends ServiceBase {
   public async getAllAggregateTokenInfo() {
     const rawData =
       await this.backgroundApi.simpleDb.aggregateToken.getRawData();
-    // Drop tokens on networks this build no longer bundles: the cached wallet
-    // config may have been persisted by an older app version whose preset
-    // network list included networks that were delisted since.
-    const listedNetworkMap = getListedNetworkMap();
+    // Drop tokens on networks this build no longer serves: the cached wallet
+    // config may have been persisted by an older app version whose network
+    // list included networks that were delisted since. Gate on the merged
+    // network registry, not the preset-only listed map: aggregate members may
+    // live on server-delivered chains (e.g. Robinhood) that presetNetworks
+    // never bundles, and ServiceSetting.syncWalletConfig applies the same
+    // registry gate at write time.
+    //
+    // The registry is only authoritative once the server-network record has
+    // been filled: getServerNetworks() returns an empty list while that record
+    // is unfilled (it only kicks a background refresh) or unreadable (storage
+    // errors are swallowed), and getAllNetworks() then resolves with presets
+    // only, which would silently drop every server-delivered member. Probe the
+    // record first and fail open (skip the filter) when it is unfilled or
+    // unreadable. The write path awaits the fill instead; this runs on the
+    // token-list hot path and must not block on a network request.
+    let eligibleNetworkIds: Set<string> | undefined;
+    try {
+      const registryFilled =
+        await this.backgroundApi.serviceCustomRpc.isServerNetworkRegistryFilled();
+      if (registryFilled) {
+        const { networks: eligibleNetworks } =
+          await this.backgroundApi.serviceNetwork.getAllNetworks({
+            excludeCustomNetwork: true,
+            excludeAllNetworkItem: true,
+          });
+        eligibleNetworkIds = new Set(eligibleNetworks.map((n) => n.id));
+      } else {
+        // Kick the fill so the next read is gated; single-flight and
+        // fetch failures are swallowed inside.
+        void this.backgroundApi.serviceCustomRpc.ensureServerNetworksFetched();
+      }
+    } catch {
+      eligibleNetworkIds = undefined;
+    }
     const allAggregateTokenMap: Record<string, { tokens: IAccountToken[] }> =
       {};
     Object.entries(rawData?.allAggregateTokenMap ?? {}).forEach(
       ([key, value]) => {
         const tokens = value.tokens.filter(
-          (token) => token.networkId && listedNetworkMap[token.networkId],
+          (token) =>
+            !!token.networkId &&
+            (!eligibleNetworkIds || eligibleNetworkIds.has(token.networkId)),
         );
         if (tokens.length > 0) {
           allAggregateTokenMap[key] = { tokens };

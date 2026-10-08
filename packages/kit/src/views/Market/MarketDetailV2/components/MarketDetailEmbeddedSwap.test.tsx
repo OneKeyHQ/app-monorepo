@@ -3,6 +3,8 @@
 import { render } from '@testing-library/react';
 
 import { EPageType } from '@onekeyhq/components';
+import type { ISwapInputAmountDraft } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   ESwapSource,
   ESwapTabSwitchType,
@@ -142,6 +144,7 @@ describe('MarketDetailEmbeddedSwap', () => {
     );
     expect(mockEmbeddedSwap).toHaveBeenLastCalledWith(
       expect.objectContaining({
+        storeName: EJotaiContextStoreNames.marketSwap,
         swapInitParams: expect.objectContaining({
           swapTabSwitchType: ESwapTabSwitchType.STOCK,
         }),
@@ -189,6 +192,7 @@ describe('MarketDetailEmbeddedSwap', () => {
     expect(view.getByTestId('market-token-detail-trade-ready')).toBeTruthy();
     expect(mockEmbeddedSwap).toHaveBeenLastCalledWith(
       expect.objectContaining({
+        storeName: EJotaiContextStoreNames.marketSwap,
         pageType: EPageType.modal,
         singleSwapBridgeHeader: true,
         swapInitParams: {
@@ -202,7 +206,7 @@ describe('MarketDetailEmbeddedSwap', () => {
     );
   });
 
-  it('remounts Swap when the Market detail token changes', () => {
+  it('updates the Market detail token without remounting Swap', () => {
     const view = render(
       <MarketDetailEmbeddedSwap
         swapToken={marketToken}
@@ -217,10 +221,15 @@ describe('MarketDetailEmbeddedSwap', () => {
       />,
     );
 
-    expect(mockEmbeddedSwapMounted).toHaveBeenCalledTimes(2);
+    expect(mockEmbeddedSwapMounted).toHaveBeenCalledTimes(1);
+    expect(mockEmbeddedSwap.mock.lastCall?.[0].swapInitParams).toEqual(
+      expect.objectContaining({
+        importToToken: expect.objectContaining({ contractAddress: '0xnext' }),
+      }),
+    );
   });
 
-  it('uses an explicit Market asset identity to reset Swap', () => {
+  it('updates an explicit Market asset identity without remounting Swap', () => {
     const view = render(
       <MarketDetailEmbeddedSwap
         resetKey="asset-1"
@@ -237,6 +246,47 @@ describe('MarketDetailEmbeddedSwap', () => {
       />,
     );
 
+    expect(mockEmbeddedSwapMounted).toHaveBeenCalledTimes(1);
+  });
+
+  it('discards a restored pair draft when the Market asset changes', () => {
+    const view = render(
+      <MarketEmbeddedSwap swapToken={marketToken} inputDraftKey="asset-1" />,
+    );
+    const captureDraft = mockEmbeddedSwap.mock.lastCall?.[0]
+      .onInputDraftChange as (draft: ISwapInputAmountDraft) => void;
+    captureDraft({
+      fromToken: mockPaymentToken,
+      toToken: marketToken,
+      fromTokenAmount: { value: '1', isInput: true },
+      toTokenAmount: { value: '', isInput: false },
+    });
+    view.rerender(
+      <MarketEmbeddedSwap
+        swapToken={marketToken}
+        inputDraftKey="asset-1"
+        disabled
+      />,
+    );
+    view.rerender(
+      <MarketEmbeddedSwap swapToken={marketToken} inputDraftKey="asset-1" />,
+    );
+    expect(mockEmbeddedSwap.mock.lastCall?.[0].initialInputAmountDraft).toEqual(
+      expect.objectContaining({
+        fromTokenAmount: { value: '1', isInput: true },
+      }),
+    );
+
+    const nextToken = { ...marketToken, contractAddress: '0xnext' };
+    view.rerender(
+      <MarketEmbeddedSwap swapToken={nextToken} inputDraftKey="asset-2" />,
+    );
+    expect(mockEmbeddedSwap.mock.lastCall?.[0].swapInitParams).toEqual(
+      expect.objectContaining({ importToToken: nextToken }),
+    );
+    expect(
+      mockEmbeddedSwap.mock.lastCall?.[0].initialInputAmountDraft,
+    ).toBeUndefined();
     expect(mockEmbeddedSwapMounted).toHaveBeenCalledTimes(2);
   });
 
@@ -284,6 +334,66 @@ describe('MarketDetailEmbeddedSwap', () => {
     expect(view.queryByTestId('market-embedded-swap-trade-loading')).toBeNull();
     expect(view.getByTestId('market-embedded-swap-trade-ready')).toBeTruthy();
     expect(mockEmbeddedSwapMounted).toHaveBeenCalledTimes(1);
+    expect(mockEmbeddedSwap.mock.lastCall?.[0].stockTradeIdentityLoading).toBe(
+      true,
+    );
+  });
+
+  it('keeps mounted stock trade content while switching listings', () => {
+    const view = render(
+      <MarketEmbeddedSwap
+        swapToken={{ ...marketToken, isStock: true }}
+        inputDraftKey="stock:MSFT"
+        stockTradeToken={{ ...marketToken, isStock: true }}
+      />,
+    );
+
+    view.rerender(
+      <MarketEmbeddedSwap
+        swapToken={{
+          ...marketToken,
+          contractAddress: '0xgoog',
+          decimals: 0,
+          isStock: true,
+        }}
+        inputDraftKey="stock:GOOG"
+        isTradeLoading
+        stockTradeToken={{
+          ...marketToken,
+          contractAddress: '0xgoog',
+          decimals: 0,
+          isStock: true,
+        }}
+      />,
+    );
+
+    expect(view.queryByTestId('market-embedded-swap-trade-loading')).toBeNull();
+    expect(view.getByTestId('market-embedded-swap-trade-ready')).toBeTruthy();
+    expect(mockEmbeddedSwapMounted).toHaveBeenCalledTimes(1);
+
+    view.rerender(
+      <MarketEmbeddedSwap
+        swapToken={{
+          ...marketToken,
+          contractAddress: '0xgoog',
+          isStock: true,
+        }}
+        inputDraftKey="stock:GOOG"
+        stockTradeToken={{
+          ...marketToken,
+          contractAddress: '0xgoog',
+          isStock: true,
+        }}
+      />,
+    );
+
+    expect(mockEmbeddedSwapMounted).toHaveBeenCalledTimes(1);
+    expect(mockEmbeddedSwap.mock.lastCall?.[0].stockTradeToken).toEqual(
+      expect.objectContaining({ contractAddress: '0xgoog' }),
+    );
+    expect(mockEmbeddedSwap.mock.lastCall?.[0].stockTradeIdentityLoading).toBe(
+      false,
+    );
   });
 
   it('does not seed a mounted stock Swap with unresolved variant metadata', () => {
@@ -305,6 +415,9 @@ describe('MarketDetailEmbeddedSwap', () => {
     expect(mockEmbeddedSwap.mock.lastCall?.[0].stockTradeToken).toEqual(
       expect.objectContaining({ contractAddress: '0xtoken', decimals: 18 }),
     );
+
+    const initialReviewContext =
+      mockEmbeddedSwap.mock.lastCall?.[0].reviewContextKey;
 
     view.rerender(
       <MarketEmbeddedSwap
@@ -335,6 +448,9 @@ describe('MarketDetailEmbeddedSwap', () => {
     );
     expect(mockEmbeddedSwap.mock.lastCall?.[0].stockTradeToken).toEqual(
       expect.objectContaining({ contractAddress: '0xtoken', decimals: 18 }),
+    );
+    expect(mockEmbeddedSwap.mock.lastCall?.[0].reviewContextKey).not.toBe(
+      initialReviewContext,
     );
 
     view.rerender(

@@ -237,6 +237,8 @@ export type IDeviceStageState = {
    */
   errorMessage?: string;
   errorI18n?: IDeviceStageErrorI18n;
+  /** Optional operation-specific copy for the successful `done` beat. */
+  doneI18n?: IDeviceStageErrorI18n;
   /** Inline retry line for the active input panel (wrong PIN etc.). */
   inputError?: string;
   passphraseMode?: 'create' | 'verify';

@@ -454,60 +454,6 @@ function getChartInitScript(): string {
           priceFormat: { type: 'custom', formatter: priceFormatter },
         });
       }
-      function applyPrimarySeriesOptions(nextConfig) {
-        if (!window.series) return;
-        var priceFormatter = getPriceFormatter(nextConfig);
-        var showLast = Boolean(nextConfig.showLastValue);
-        var normalizedLineWidth = getNormalizedLineWidth(nextConfig.lineWidth, 3);
-        if (window.seriesType === 'dotted-area') {
-          window.series.applyOptions(getDottedAreaSeriesOptions(nextConfig));
-          return;
-        }
-        if (window.seriesType === 'baseline') {
-          window.series.applyOptions(Object.assign({}, nextConfig.baselineOptions, {
-            priceScaleId: getPriceScalePosition(nextConfig),
-            lineType: getLineType(nextConfig),
-            lineWidth: normalizedLineWidth,
-            lastValueVisible: showLast,
-            priceLineVisible: showLast,
-            crosshairMarkerRadius: 5,
-            priceFormat: { type: 'custom', formatter: priceFormatter },
-          }));
-          return;
-        }
-        if (window.seriesType === 'histogram') {
-          window.series.applyOptions(getHistogramSeriesOptions(nextConfig));
-          return;
-        }
-        window.series.applyOptions({
-          priceScaleId: getPriceScalePosition(nextConfig),
-          topColor: nextConfig.theme.topColor,
-          bottomColor: nextConfig.theme.bottomColor,
-          lineColor: nextConfig.theme.lineColor,
-          lineWidth: normalizedLineWidth,
-          lastValueVisible: showLast,
-          priceLineVisible: showLast,
-          crosshairMarkerRadius: 5,
-          crosshairMarkerBorderColor: nextConfig.theme.lineColor,
-          crosshairMarkerBackgroundColor: '#ffffff',
-          priceFormat: { type: 'custom', formatter: priceFormatter },
-        });
-      }
-      function syncPrimarySeries(nextConfig) {
-        var nextSeriesType = getPrimarySeriesType(nextConfig);
-        if (!window.series || window.seriesType !== nextSeriesType) {
-          if (window.series) {
-            chart.removeSeries(window.series);
-          }
-          window.referencePriceLine = null;
-          window.series = createPrimarySeries(nextConfig);
-          window.seriesType = nextSeriesType;
-        } else {
-          applyPrimarySeriesOptions(nextConfig);
-        }
-        window.series.applyOptions(getLastValueSeriesOptions(nextConfig));
-        window.series.setData(Array.isArray(nextConfig.data) ? nextConfig.data : []);
-      }
       function syncReferenceLine(nextConfig) {
         if (!window.series) return;
         window.series.applyOptions({
@@ -545,38 +491,45 @@ function getChartInitScript(): string {
           crosshairMarkerVisible: false,
         };
       }
-      function syncSecondarySeries(nextConfig) {
-        var hasSecondaryData =
-          Array.isArray(nextConfig.secondaryLineData) &&
-          nextConfig.secondaryLineData.length > 0;
-        if (!hasSecondaryData) {
-          if (window.secondarySeries) {
-            window.secondarySeries.setData([]);
-            window.secondarySeries.applyOptions({ visible: false });
-            // Taking a series' points away (emptying it, and removing it
-            // alike) can leave the time scale with no visible range once the
-            // line has been shown before: the whole chart goes blank, axes
-            // included, and fitContent / autoscale do not bring it back
-            // (Pendle's "show underlying APY" off, OK-62390). Re-issuing the
-            // primary data is the one call that rebuilds the range — it is
-            // what a date-range switch does, which is why that "repaired" it.
-            if (window.series) {
-              window.series.setData(Array.isArray(nextConfig.data) ? nextConfig.data : []);
-            }
-          }
-          return;
+      // Rebuilds both series from scratch on every apply.
+      //
+      // lightweight-charts 5.2 keeps a stale copy of its time points after a
+      // single-series setData whose times did not change: the fast path swaps
+      // the point objects, but _replaceTimeScalePoints returns early and keeps
+      // the old list. Once a second series exists, the next setData on the
+      // first one deletes its rows through that stale list, the cleanup pass
+      // then treats those points as empty and drops the shared keys from the
+      // map, the time scale ends up with no points and the chart goes blank,
+      // axes included. Both lines get identical timestamps from the 1D / 1W
+      // buckets, which is exactly the trigger (OK-62390, OK-63666). Removing
+      // every series resets that state, and rebuilding is cheap at these
+      // sizes. The primary goes first so the overlay keeps drawing on top of
+      // it; everything runs before the next frame, so nothing flickers.
+      function rebuildSeries(nextConfig) {
+        if (window.secondarySeries) {
+          window.chart.removeSeries(window.secondarySeries);
+          window.secondarySeries = null;
         }
-        if (!window.secondarySeries) {
-          window.secondarySeries = chart.addSeries(
+        if (window.series) {
+          window.chart.removeSeries(window.series);
+          window.series = null;
+          window.referencePriceLine = null;
+        }
+        window.series = createPrimarySeries(nextConfig);
+        window.seriesType = getPrimarySeriesType(nextConfig);
+        window.series.applyOptions(getLastValueSeriesOptions(nextConfig));
+        window.series.setData(Array.isArray(nextConfig.data) ? nextConfig.data : []);
+        syncReferenceLine(nextConfig);
+        if (
+          Array.isArray(nextConfig.secondaryLineData) &&
+          nextConfig.secondaryLineData.length > 0
+        ) {
+          window.secondarySeries = window.chart.addSeries(
             LightweightCharts.LineSeries,
             getSecondarySeriesOptions(nextConfig)
           );
-        } else {
-          window.secondarySeries.applyOptions(
-            Object.assign({ visible: true }, getSecondarySeriesOptions(nextConfig))
-          );
+          window.secondarySeries.setData(nextConfig.secondaryLineData);
         }
-        window.secondarySeries.setData(nextConfig.secondaryLineData);
       }
       // Price formatter: use a serializable formatter type in WebView, otherwise default %
       // NOTE: Keep in sync with formatChartUsdPrice in shared/src/utils/perpsUtils.ts
@@ -666,9 +619,7 @@ function getChartInitScript(): string {
       window.applyChartConfig = function(nextConfig) {
         if (!nextConfig || !window.chart) return;
         window.chart.applyOptions(getChartOptions(nextConfig));
-        syncPrimarySeries(nextConfig);
-        syncReferenceLine(nextConfig);
-        syncSecondarySeries(nextConfig);
+        rebuildSeries(nextConfig);
         window.chart.timeScale().fitContent();
       };
       window.applyChartConfig(config);

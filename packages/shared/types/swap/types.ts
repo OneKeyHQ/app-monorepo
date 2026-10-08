@@ -385,6 +385,7 @@ export interface ISwapOrderHash {
 }
 
 export interface ISwapApproveTransaction {
+  approvalRequestId?: string;
   fromToken: ISwapToken;
   toToken: ISwapToken;
   marketSwapApprovalFlowId?: string;
@@ -630,6 +631,7 @@ export interface ISwapPreSwapData {
   swapType?: ESwapTabSwitchType;
   unSupportSlippage?: boolean;
   swapBuildResultData?: {
+    reviewQuoteResult?: IFetchQuoteResult;
     swapInfo?: ISwapTxInfo;
     orderId?: string;
     slippagePercentage?: number;

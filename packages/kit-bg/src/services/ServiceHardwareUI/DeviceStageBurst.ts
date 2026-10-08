@@ -169,7 +169,21 @@ const THIRD_PARTY_ACTION_TO_STEP: Partial<
   [EThirdPartyHardwareUiAction.requestBtcHighIndexConfirm]: 'btcHighIndex',
 };
 
-/** How long the third-party ✓ `done` beat rests before the exit. */
+/** The third-party rail's asks — the beats the device is waiting on the
+ * person for. Behind a dialog the stage yielded to, only these reclaim
+ * the stage (see onThirdPartyState); waits and outcomes stay off. */
+const THIRD_PARTY_ASK_STEPS: ReadonlySet<IDeviceStageStepValue> = new Set([
+  'confirmOnDevice',
+  'openApp',
+  'unlockDevice',
+  'pinOnApp',
+  'passphraseOnApp',
+  'pairingCode',
+  'deviceNotFound',
+  'btcHighIndex',
+]);
+
+/** How long the ✓ `done` beat rests before the exit. */
 const DONE_HOLD_MS = 1600;
 
 /** How long the authenticity ✓ rests before its narrative is retired —
@@ -386,6 +400,11 @@ export type IDeviceStageBurstBeginParams = {
   vendorModelName?: string;
   /** Confirm-card payload for this burst, if the caller knows it upfront. */
   confirmContent?: IDeviceStageConfirmContent;
+};
+
+export type IDeviceStageBurstEndParams = {
+  error?: unknown;
+  doneI18n?: IDeviceStageState['doneI18n'];
 };
 
 export class DeviceStageBurstScope {
@@ -633,10 +652,25 @@ export class DeviceStageBurstScope {
         // A follow-up wrapper inside the grace window rejoins the visible
         // stage: keep the burstId so the container's close grant stays armed.
         this.burstSeq = stageStillOn ? prev.burstId : this.burstSeq + 1;
+        // A completed operation belongs to the previous burst. Replace its
+        // success immediately so a new tap never inherits the old ✓ while the
+        // usual opening defer waits for a real first step.
+        this.clearPendingOpen();
+        if (prev?.step === 'done') {
+          await this.setStep('connecting', {
+            connectId: params.connectId,
+            deviceType: params.deviceType,
+            deviceName: params.deviceName,
+            vendor: params.vendor,
+            vendorModel: params.vendorModel,
+            vendorModelName: params.vendorModelName,
+            resetOutcome: true,
+          });
+          return true;
+        }
         // The opening `connecting` beat is deferred a beat: a flow whose
         // first real step follows immediately (the genuine check) opens
         // straight into it, instead of flashing the connecting scene first.
-        this.clearPendingOpen();
         this.pendingOpen = params;
         this.openingTimer = setTimeout(() => {
           const opening = this.pendingOpen;
@@ -717,16 +751,16 @@ export class DeviceStageBurstScope {
   }
 
   /** Closes a UI-held burst. A stale token is ignored. */
-  async endExplicit(params: { token: number; error?: unknown }) {
+  async endExplicit(params: IDeviceStageBurstEndParams & { token: number }) {
     if (this.explicitToken !== params.token) {
       return;
     }
     this.explicitToken = undefined;
     this.explicitOpened = false;
-    await this.end({ error: params.error });
+    await this.end({ error: params.error, doneI18n: params.doneI18n });
   }
 
-  async end(params: { error?: unknown } = {}) {
+  async end(params: IDeviceStageBurstEndParams = {}) {
     // Read, never returned on — the same reasoning that keeps the QR
     // beats off this gate: a burst already in flight must not lose its
     // bookkeeping because the gate closed under it. The firmware workflow
@@ -972,11 +1006,18 @@ export class DeviceStageBurstScope {
       });
       return;
     }
-    // The third-party track closes a successful burst with the ✓ done
-    // beat (doc §4.7) before leaving; OneKey bursts leave directly.
+    // The token owner lands success and releases its hold in one operation.
+    // A stale explicit token is rejected before reaching this write, so a
+    // dismissed or superseded flow can never resurrect the stage with ✓.
+    const current = await deviceStageAtom.get();
+    if (params.doneI18n && current && current.step !== 'off') {
+      await this.setStep('done', { doneI18n: params.doneI18n });
+      this.scheduleOff(DONE_HOLD_MS);
+      return;
+    }
+    // The third-party track authors its ✓ from the successful burst end.
     if (wasVendorBurst) {
-      const prev = await deviceStageAtom.get();
-      if (prev && prev.step !== 'off') {
+      if (current && current.step !== 'off') {
         await this.setStep('done', {});
         this.scheduleOff(DONE_HOLD_MS);
         return;
@@ -1310,7 +1351,8 @@ export class DeviceStageBurstScope {
    * subscription in ServiceHardwareUI — the adapters' many write sites
    * stay untouched. Install state outranks the ui-state action (the
    * install dialog coexisted with prompt toasts in the legacy UI);
-   * BLE binding is ignored — its legacy dialog stays.
+   * BLE binding is ignored — its legacy dialog stays, and the stage
+   * yields to it (silence) so the list is reachable (OK-63224).
    */
   async onThirdPartyState({
     ui,
@@ -1359,6 +1401,19 @@ export class DeviceStageBurstScope {
     if (ui) {
       if (ui.action === EThirdPartyHardwareUiAction.requestTrezorBleBinding) {
         return;
+      }
+      if (this.yieldedToDialog) {
+        // The SDK rail's rule, on this rail: behind a dialog the stage
+        // yielded to (the Trezor BLE binding list, OK-63224) only the
+        // device asking again reclaims the stage — the pairing code
+        // above all. The interrupted call's waits, and its outcomes (the
+        // ✓ done with its hold, an error) are stragglers the dialog
+        // reports itself, and stay off it.
+        const askStep = THIRD_PARTY_ACTION_TO_STEP[ui.action];
+        if (!askStep || !THIRD_PARTY_ASK_STEPS.has(askStep)) {
+          return;
+        }
+        this.yieldedToDialog = false;
       }
       if (ui.action === EThirdPartyHardwareUiAction.error) {
         await this.setStep('error', { vendor: ui.vendor });
@@ -1434,6 +1489,7 @@ export class DeviceStageBurstScope {
       errorReason?: IDeviceStageErrorReasonValue;
       errorMessage?: string;
       errorI18n?: IDeviceStageState['errorI18n'];
+      doneI18n?: IDeviceStageState['doneI18n'];
       authChecklist?: IDeviceStageState['authChecklist'];
       authFailureReason?: IDeviceStageState['authFailureReason'];
       authFailureMessage?: string;
@@ -1809,6 +1865,7 @@ export class DeviceStageBurstScope {
       errorReason?: IDeviceStageErrorReasonValue;
       errorMessage?: string;
       errorI18n?: IDeviceStageState['errorI18n'];
+      doneI18n?: IDeviceStageState['doneI18n'];
       confirmDetails?: IDeviceStageState['confirmDetails'];
       confirmMessage?: string;
       confirmDescription?: string;
@@ -1924,6 +1981,7 @@ export class DeviceStageBurstScope {
         errorReason: step === 'error' ? mergedExtras.errorReason : undefined,
         errorMessage: step === 'error' ? mergedExtras.errorMessage : undefined,
         errorI18n: step === 'error' ? mergedExtras.errorI18n : undefined,
+        doneI18n: step === 'done' ? mergedExtras.doneI18n : undefined,
         qrValueUr: pickQrScoped(step, mergedExtras.qrValueUr, base?.qrValueUr),
         qrSessionId: pickQrScoped(
           step,

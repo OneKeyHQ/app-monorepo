@@ -51,8 +51,14 @@ export type IDeviceStageStepValue =
 export type IDeviceStageWalletTypeValue = 'standard' | 'hidden';
 
 /** How the person left the stage: the close button or drag, Escape,
- * Android back. */
-export type IDeviceStageExitViaValue = 'close' | 'escape' | 'back';
+ * Android back, or a help exit (native only, where the page it opens
+ * lands underneath the stage). */
+export type IDeviceStageExitViaValue =
+  | 'close'
+  | 'escape'
+  | 'back'
+  | 'troubleshoot'
+  | 'support';
 
 /** The transport a burst rides — what the capsule's channel badge reads. */
 export type IDeviceStageConnectionTypeValue = 'bluetooth' | 'usb';

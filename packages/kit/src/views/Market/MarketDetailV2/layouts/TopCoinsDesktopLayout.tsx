@@ -586,6 +586,7 @@ function TopCoinsInformation({
 }
 
 export function TopCoinsDesktopLayout({
+  active,
   marketTradingView,
   swapToken,
   swapInputDraftKey,
@@ -605,6 +606,7 @@ export function TopCoinsDesktopLayout({
   onChartSwitch,
   onEnterChartFullscreen,
 }: {
+  active?: boolean;
   marketTradingView: ReactNode;
   swapToken: ISwapToken;
   swapInputDraftKey: string;
@@ -654,6 +656,7 @@ export function TopCoinsDesktopLayout({
           <YStack px="$5" pt="$5" pb="$6" gap="$4">
             <TokenPriceHeader />
             <TokenDetailChart
+              active={active}
               chartContainerTestID="market-top-coins-detail-chart"
               fullscreenZIndex={chartFullscreenZIndex}
               fullscreenStyle={MARKET_CHART_FULLSCREEN_STYLE}
@@ -679,10 +682,10 @@ export function TopCoinsDesktopLayout({
         </YStack>
 
         <YStack {...MARKET_DETAIL_TRADE_COLUMN_PROPS}>
-          {/* Renders only when the token has a Hyperliquid counterpart, and
-              stays hidden once dismissed. Sits above the trade panel, where the
-              pre-redesign desktop layout carried it. */}
-          <PerpetualTradingBanner px="$5" py="$5" />
+          {/* Keeps the trade panel aligned while Hyperliquid availability changes,
+              and stays hidden once dismissed. Sits above the trade panel, where
+              the pre-redesign desktop layout carried it. */}
+          <PerpetualTradingBanner px="$5" py="$5" reserveSpace />
           {disableTrade ? (
             <TopCoinsUnavailableTradePanel symbol={swapToken.symbol} />
           ) : null}

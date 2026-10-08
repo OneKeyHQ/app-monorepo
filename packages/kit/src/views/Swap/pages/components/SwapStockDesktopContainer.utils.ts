@@ -127,6 +127,16 @@ export function shouldDeferStockInitialContent({
   );
 }
 
+export function shouldResetStockTradeQuoteState({
+  identityLoading,
+  previousIdentityLoading,
+}: {
+  identityLoading: boolean;
+  previousIdentityLoading: boolean;
+}) {
+  return identityLoading && !previousIdentityLoading;
+}
+
 export function shouldShowStockMarketHeaderSkeleton({
   channelStage,
   hasStockIdentity,

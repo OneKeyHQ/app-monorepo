@@ -15,9 +15,15 @@ import {
   PerpDexBadge,
   SubtitleText,
 } from '../../../components/PerpsBadges';
+import { MARKET_CELL_LINE_GAP, MARKET_CELL_LOGO_GAP } from '../MarketListCell';
 import { PriceChangeBadge } from '../PriceChangeBadge';
 
 import type { IMarketPerpsToken } from './hooks/useMarketPerpsTokenList';
+
+// Same frame as the other mobile Market rows (`TokenListItem`): a fixed 72px
+// height inside 20px / 12px padding, 14px from the logo to the text, 4px
+// between the two lines, and 8px before the price.
+const MARKET_PERPS_LIST_ITEM_HEIGHT = 72;
 
 interface IMarketPerpsTokenListItemProps {
   item: IMarketPerpsToken;
@@ -34,17 +40,18 @@ const BasicMarketPerpsTokenListItem: FC<IMarketPerpsTokenListItemProps> = ({
     <XStack
       pressStyle={{ opacity: 0.8 }}
       onPress={onPress}
-      px="$4"
+      px="$5"
       py="$3"
+      height={MARKET_PERPS_LIST_ITEM_HEIGHT}
       alignItems="center"
-      gap="$3"
+      gap="$2"
     >
       {/* Left side: Token Icon + Name + Badges + Volume */}
       <XStack
         flexGrow={1}
         flexBasis={0}
         alignItems="center"
-        gap="$2"
+        gap={MARKET_CELL_LOGO_GAP}
         minWidth={0}
         overflow="hidden"
       >
@@ -54,7 +61,7 @@ const BasicMarketPerpsTokenListItem: FC<IMarketPerpsTokenListItemProps> = ({
           tokenImageUri={item.tokenImageUrl}
           fallbackIcon="CryptoCoinOutline"
         />
-        <YStack flex={1} minWidth={0}>
+        <YStack flex={1} minWidth={0} gap={MARKET_CELL_LINE_GAP}>
           <XStack alignItems="center" gap="$1" minWidth={0} overflow="hidden">
             <SizableText
               size="$bodyLgMedium"
@@ -75,7 +82,7 @@ const BasicMarketPerpsTokenListItem: FC<IMarketPerpsTokenListItemProps> = ({
             gap="$1"
             minWidth={0}
             overflow="hidden"
-            pr="$3"
+            height={16}
           >
             {item.subtitle ? <SubtitleText subtitle={item.subtitle} /> : null}
             <SkeletonContainer isLoading={!hasRealTimeData}>

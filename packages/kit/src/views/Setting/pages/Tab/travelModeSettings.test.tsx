@@ -201,6 +201,9 @@ jest.mock('../../../Onboardingv2/hooks/useCloudBackup', () => ({
   useCloudBackup: () => ({}),
 }));
 jest.mock('./exportLogs/showExportLogsDialog', () => ({}));
+jest.mock('./exportLogs/ExportDiagnosticLogsListItem', () => ({
+  ExportDiagnosticLogsListItem: () => null,
+}));
 jest.mock('./SubSettings', () => ({
   SubSettings: () => null,
   SubSearchSettings: () => null,

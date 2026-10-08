@@ -7,6 +7,7 @@ describe('isTravelModeNetworkRequestAllowed', () => {
     ['utility', '/utility/v1/market/tokens', 'get'],
     ['utility', '/utility/v1/market/asset/list?type=top_coins', 'get'],
     ['utility', '/utility/v2/market/token/list/batch', 'post'],
+    ['utility', '/utility/v1/stocks/batch', 'post'],
     ['utility', '/utility/v2/market/banner/token-list/banner-1', 'get'],
     ['utility', '/utility/v2/market/banner/perps-token-list/banner-1', 'get'],
     ['swap', '/swap/v1/networks', undefined],

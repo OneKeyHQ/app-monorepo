@@ -1,0 +1,195 @@
+diff --git a/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm b/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm
+index cbda377..a7252e1 100644
+--- a/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm
++++ b/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm
+@@ -60,6 +60,8 @@ - (instancetype)initWithFrame:(CGRect)frame
+     self.scrollEnabled = YES;
+     _initialValueLeadingBarButtonGroups = nil;
+     _initialValueTrailingBarButtonGroups = nil;
++    // OneKey patch: see RCTBackedTextInputDeferFocusUntilNavigationTransitionEnds.
++    RCTBackedTextInputStartObservingKeyboardVisibility();
+   }
+ 
+   return self;
+@@ -220,6 +222,21 @@ - (void)paste:(id)sender
+   [super paste:sender];
+ }
+ 
++// OneKey patch: avoid the darker keyboard stand-in of iOS 26+ push/pop transitions.
++- (BOOL)becomeFirstResponder
++{
++  if (RCTBackedTextInputDeferFocusUntilNavigationTransitionEnds(self)) {
++    return NO;
++  }
++  return [super becomeFirstResponder];
++}
++
++- (BOOL)resignFirstResponder
++{
++  RCTBackedTextInputCancelDeferredFocus(self);
++  return [super resignFirstResponder];
++}
++
+ // Turn off scroll animation to fix flaky scrolling.
+ // This is only necessary for iOS < 14.
+ #if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED < 140000
+diff --git a/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.h b/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.h
+index f1c32e6..514f4a0 100644
+--- a/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.h
++++ b/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.h
+@@ -33,4 +33,15 @@ NS_ASSUME_NONNULL_BEGIN
+ 
+ @end
+ 
++#pragma mark - Navigation transition focus
++
++// OneKey patch: on iOS 26+, a keyboard that appears while a UINavigationController push/pop is running
++// slides in with the screen as a darker stand-in and turns into the real keyboard only when the
++// transition ends. Focus requests made in that window (autoFocus, focus(), UIKit restoring the
++// previous first responder on pop) are postponed until the transition has finished.
++UIKIT_EXTERN void RCTBackedTextInputStartObservingKeyboardVisibility(void);
++// Returns YES when the focus request was postponed; the caller must not become first responder now.
++UIKIT_EXTERN BOOL RCTBackedTextInputDeferFocusUntilNavigationTransitionEnds(UIView *backedTextInputView);
++UIKIT_EXTERN void RCTBackedTextInputCancelDeferredFocus(UIView *backedTextInputView);
++
+ NS_ASSUME_NONNULL_END
+diff --git a/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm b/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm
+index 9633ab9..5d5d38c 100644
+--- a/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm
++++ b/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm
+@@ -7,6 +7,9 @@
+ 
+ #import <React/RCTBackedTextInputDelegateAdapter.h>
+ 
++#import <React/UIView+React.h>
++#import <objc/runtime.h>
++
+ #pragma mark - RCTBackedTextFieldDelegateAdapter (for UITextField)
+ 
+ static void *TextFieldSelectionObservingContext = &TextFieldSelectionObservingContext;
+@@ -417,3 +420,90 @@ - (bool)_shouldAcceptDrop:(id<UITextDropRequest>)drop
+ #endif
+ 
+ @end
++
++#pragma mark - Navigation transition focus
++
++static const void *RCTDeferredFocusTokenKey = &RCTDeferredFocusTokenKey;
++static const void *RCTReplayingDeferredFocusKey = &RCTReplayingDeferredFocusKey;
++// YES once the keyboard finished appearing and nothing has started moving it since.
++static BOOL RCTKeyboardIsSettledOnScreen = NO;
++
++void RCTBackedTextInputStartObservingKeyboardVisibility(void)
++{
++  static dispatch_once_t onceToken;
++  dispatch_once(&onceToken, ^{
++    NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
++    // A nil queue runs the blocks synchronously, so the state is current when UIKit posts and
++    // then immediately restores a first responder within the same call.
++    [center addObserverForName:UIKeyboardDidShowNotification
++                        object:nil
++                         queue:nil
++                    usingBlock:^(__unused NSNotification *notification) {
++                      RCTKeyboardIsSettledOnScreen = YES;
++                    }];
++    for (NSNotificationName name in
++         @[ UIKeyboardWillShowNotification, UIKeyboardWillHideNotification, UIKeyboardDidHideNotification ]) {
++      [center addObserverForName:name
++                          object:nil
++                           queue:nil
++                      usingBlock:^(__unused NSNotification *notification) {
++                        RCTKeyboardIsSettledOnScreen = NO;
++                      }];
++    }
++  });
++}
++
++static void RCTReplayDeferredFocus(UIView *view, id token, BOOL transitionCancelled)
++{
++  // A newer request or a blur replaced the token; drop this one.
++  if (view == nil || objc_getAssociatedObject(view, RCTDeferredFocusTokenKey) != token) {
++    return;
++  }
++  objc_setAssociatedObject(view, RCTDeferredFocusTokenKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
++  if (transitionCancelled || view.window == nil) {
++    return;
++  }
++  objc_setAssociatedObject(view, RCTReplayingDeferredFocusKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
++  [view becomeFirstResponder];
++  objc_setAssociatedObject(view, RCTReplayingDeferredFocusKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
++}
++
++BOOL RCTBackedTextInputDeferFocusUntilNavigationTransitionEnds(UIView *backedTextInputView)
++{
++  if (@available(iOS 26.0, *)) {
++  } else {
++    return NO;
++  }
++  // A keyboard that is already on screen is handed over in place and never shows the stand-in.
++  if (RCTKeyboardIsSettledOnScreen || backedTextInputView.isFirstResponder || backedTextInputView.window == nil ||
++      objc_getAssociatedObject(backedTextInputView, RCTReplayingDeferredFocusKey) != nil) {
++    return NO;
++  }
++  id<UIViewControllerTransitionCoordinator> coordinator = backedTextInputView.reactViewController.transitionCoordinator;
++  // Modal presentations keep the live keyboard; only push/pop transitions report UIModalPresentationNone.
++  if (coordinator == nil || coordinator.presentationStyle != UIModalPresentationNone) {
++    return NO;
++  }
++
++  NSObject *token = [NSObject new];
++  objc_setAssociatedObject(backedTextInputView, RCTDeferredFocusTokenKey, token, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
++  __weak UIView *weakView = backedTextInputView;
++  BOOL queued = [coordinator animateAlongsideTransition:nil
++                                             completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
++                                               BOOL cancelled = context.isCancelled;
++                                               // Focus after UIKit has finished the transition, so the keyboard
++                                               // gets its regular show animation after interactive pops too.
++                                               dispatch_async(dispatch_get_main_queue(), ^{
++                                                 RCTReplayDeferredFocus(weakView, token, cancelled);
++                                               });
++                                             }];
++  if (!queued) {
++    objc_setAssociatedObject(backedTextInputView, RCTDeferredFocusTokenKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
++  }
++  return queued;
++}
++
++void RCTBackedTextInputCancelDeferredFocus(UIView *backedTextInputView)
++{
++  objc_setAssociatedObject(backedTextInputView, RCTDeferredFocusTokenKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
++}
+diff --git a/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm b/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm
+index 052c003..5d69c52 100644
+--- a/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm
++++ b/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm
+@@ -36,6 +36,8 @@ - (instancetype)initWithFrame:(CGRect)frame
+     _scrollEnabled = YES;
+     _initialValueLeadingBarButtonGroups = nil;
+     _initialValueTrailingBarButtonGroups = nil;
++    // OneKey patch: see RCTBackedTextInputDeferFocusUntilNavigationTransitionEnds.
++    RCTBackedTextInputStartObservingKeyboardVisibility();
+   }
+ 
+   return self;
+@@ -266,6 +268,21 @@ - (void)paste:(id)sender
+   [super paste:sender];
+ }
+ 
++// OneKey patch: avoid the darker keyboard stand-in of iOS 26+ push/pop transitions.
++- (BOOL)becomeFirstResponder
++{
++  if (RCTBackedTextInputDeferFocusUntilNavigationTransitionEnds(self)) {
++    return NO;
++  }
++  return [super becomeFirstResponder];
++}
++
++- (BOOL)resignFirstResponder
++{
++  RCTBackedTextInputCancelDeferredFocus(self);
++  return [super resignFirstResponder];
++}
++
+ #pragma mark - Layout
+ 
+ - (CGSize)contentSize

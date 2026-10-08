@@ -9,6 +9,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { shouldContinueLedgerAutoCreateForCoreAppsCheckResult } from '@onekeyhq/kit/src/provider/Container/ThirdPartyHardwareUiStateContainer/ledgerCoreAppsReadyUtils';
 import { ensureLedgerCoreAppsReady } from '@onekeyhq/kit/src/provider/Container/ThirdPartyHardwareUiStateContainer/LedgerInstallCoreAppsDialog';
+import {
+  dropSwrCacheForRemovedAccount,
+  dropSwrCacheForRemovedWallet,
+} from '@onekeyhq/kit/src/utils/swrCacheMutationInvalidation';
 import { toastExistingWalletSwitch } from '@onekeyhq/kit/src/utils/toastExistingWalletSwitch';
 import qrHiddenCreateGuideDialog from '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/qrHiddenCreateGuideDialog';
 import type {
@@ -76,8 +80,10 @@ import {
   EModalRoutes,
   EOnboardingPages,
 } from '@onekeyhq/shared/src/routes';
-import { coldStartCacheStorage } from '@onekeyhq/shared/src/storage/instance/syncStorageInstance';
-import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
+import {
+  ACCOUNT_SELECTOR_RECENT_SELECTION_KEY,
+  accountSelectorSnapshotCache,
+} from '@onekeyhq/shared/src/storage/uiSnapshotCaches';
 import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -299,10 +305,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       if (!sceneId) {
         return undefined;
       }
-      const cache =
-        coldStartCacheStorage.getObject<IAccountSelectorRecentSelectionCache>(
-          EAppSyncStorageKeys.onekey_account_selector_recent_selection,
-        );
+      const cache = accountSelectorSnapshotCache.get(
+        ACCOUNT_SELECTOR_RECENT_SELECTION_KEY,
+      )?.data as IAccountSelectorRecentSelectionCache | undefined;
       const item = cache?.[sceneId];
       const now = Date.now();
       if (
@@ -344,9 +349,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       }
       const now = Date.now();
       const cache =
-        coldStartCacheStorage.getObject<IAccountSelectorRecentSelectionCache>(
-          EAppSyncStorageKeys.onekey_account_selector_recent_selection,
-        ) ?? {};
+        (accountSelectorSnapshotCache.get(ACCOUNT_SELECTOR_RECENT_SELECTION_KEY)
+          ?.data as IAccountSelectorRecentSelectionCache | undefined) ?? {};
       const nextCache: IAccountSelectorRecentSelectionCache = {};
       Object.entries(cache).forEach(([key, item]) => {
         if (
@@ -383,6 +387,15 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         targetUpdateMeta: updateMeta,
       });
 
+      // The other scene follows the account only and keeps its own network,
+      // like the live home<->swap sync. Copying the whole selection let a swap
+      // refresh put swap's chain into home's entry, and home restored it over
+      // All Networks on its next init.
+      let pendingHomeSync:
+        | Parameters<
+            AccountSelectorActions['setRecentAccountSelectorSelectionCacheHomeSync']
+          >[0]
+        | undefined;
       const selectedAccountForHomeSync = selectedAccountsMap[0];
       const updateMetaForHomeSync = updateMeta[0];
       if (
@@ -401,29 +414,128 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             sceneName: homeSyncSceneName,
           });
         if (homeSyncSceneId) {
-          const homeSyncSelectedAccountsMap = cloneDeep(
-            nextCache[homeSyncSceneId]?.selectedAccountsMap ?? {},
-          );
-          const homeSyncUpdateMeta = cloneDeep(
-            nextCache[homeSyncSceneId]?.updateMeta ?? {},
-          );
-          homeSyncSelectedAccountsMap[0] = selectedAccountForHomeSync;
-          homeSyncUpdateMeta[0] = updateMetaForHomeSync;
-          setCacheItem({
-            targetSceneId: homeSyncSceneId,
-            targetSelectedAccountsMap: homeSyncSelectedAccountsMap,
-            targetUpdateMeta: homeSyncUpdateMeta,
-          });
+          const homeSyncCachedAccount =
+            nextCache[homeSyncSceneId]?.selectedAccountsMap?.[0];
+          const homeSyncAccount = homeSyncCachedAccount?.networkId
+            ? accountSelectorUtils.buildMergedSelectedAccount({
+                data: homeSyncCachedAccount,
+                mergedByData: selectedAccountForHomeSync,
+              })
+            : undefined;
+          if (
+            homeSyncAccount &&
+            !accountSelectorUtils.hasOthersWalletAccountNetworkPair({
+              selectedAccount: homeSyncAccount,
+            })
+          ) {
+            setCacheItem({
+              targetSceneId: homeSyncSceneId,
+              targetSelectedAccountsMap: {
+                ...nextCache[homeSyncSceneId]?.selectedAccountsMap,
+                0: homeSyncAccount,
+              },
+              targetUpdateMeta: {
+                ...nextCache[homeSyncSceneId]?.updateMeta,
+                0: updateMetaForHomeSync,
+              },
+            });
+          } else {
+            pendingHomeSync = {
+              sceneId,
+              homeSyncSceneName,
+              homeSyncSceneId,
+              homeSyncCachedAccount,
+              selectedAccount: selectedAccountForHomeSync,
+              updateMeta: updateMetaForHomeSync,
+            };
+          }
         }
       }
 
-      await coldStartCacheStorage.setObject(
-        EAppSyncStorageKeys.onekey_account_selector_recent_selection,
+      accountSelectorSnapshotCache.set(
+        ACCOUNT_SELECTOR_RECENT_SELECTION_KEY,
         nextCache,
       );
+
+      if (pendingHomeSync) {
+        await this.setRecentAccountSelectorSelectionCacheHomeSync(
+          pendingHomeSync,
+        );
+      }
     } catch {
       // The recent selection cache only protects the quick-kill window.
     }
+  }
+
+  // Runs after the source entry is already stored, because it has to ask the
+  // background: a scene without a cached network takes it from its saved
+  // record, and an others-wallet account keeps its identity by moving to a
+  // network it supports, as the live sync does.
+  async setRecentAccountSelectorSelectionCacheHomeSync({
+    sceneId,
+    homeSyncSceneName,
+    homeSyncSceneId,
+    homeSyncCachedAccount,
+    selectedAccount,
+    updateMeta,
+  }: {
+    sceneId: string;
+    homeSyncSceneName: EAccountSelectorSceneName;
+    homeSyncSceneId: string;
+    homeSyncCachedAccount: IAccountSelectorSelectedAccount | undefined;
+    selectedAccount: IAccountSelectorSelectedAccount;
+    updateMeta: IAccountSelectorUpdateMeta;
+  }) {
+    const homeSyncCurrentAccount = homeSyncCachedAccount?.networkId
+      ? homeSyncCachedAccount
+      : await backgroundApiProxy.simpleDb.accountSelector.getSelectedAccount({
+          sceneName: homeSyncSceneName,
+          num: 0,
+        });
+    const homeSyncAccount = await this.fixOthersWalletAccountNetworkPair({
+      selectedAccount: accountSelectorUtils.buildMergedSelectedAccount({
+        data: homeSyncCurrentAccount,
+        mergedByData: selectedAccount,
+      }),
+      source: 'setRecentAccountSelectorSelectionCache:homeSync',
+    });
+
+    const cache =
+      (accountSelectorSnapshotCache.get(ACCOUNT_SELECTOR_RECENT_SELECTION_KEY)
+        ?.data as IAccountSelectorRecentSelectionCache | undefined) ?? {};
+    const isSameSelectedAccount = (
+      a: IAccountSelectorSelectedAccount | undefined,
+      b: IAccountSelectorSelectedAccount | undefined,
+    ) => isEqual(omitBy(a, isUndefined), omitBy(b, isUndefined));
+    // Either scene stored a newer selection while the background answered;
+    // that write is the authoritative one for its entry.
+    if (
+      !isSameSelectedAccount(
+        cache[sceneId]?.selectedAccountsMap?.[0],
+        selectedAccount,
+      ) ||
+      !isSameSelectedAccount(
+        cache[homeSyncSceneId]?.selectedAccountsMap?.[0],
+        homeSyncCachedAccount,
+      )
+    ) {
+      return;
+    }
+    accountSelectorSnapshotCache.set(ACCOUNT_SELECTOR_RECENT_SELECTION_KEY, {
+      ...cache,
+      [homeSyncSceneId]: {
+        version: ACCOUNT_SELECTOR_RECENT_SELECTION_CACHE_VERSION,
+        updatedAt: Date.now(),
+        selectedAccountsMap: {
+          ...cache[homeSyncSceneId]?.selectedAccountsMap,
+          0: homeSyncAccount,
+        },
+        updateMeta: {
+          ...cache[homeSyncSceneId]?.updateMeta,
+          0: updateMeta,
+        },
+      },
+    });
   }
 
   async flushRecentAccountSelectorSelectionCacheNowIfNeeded() {
@@ -432,9 +544,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     }
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { flushColdStartCacheNow } =
-        require('@onekeyhq/shared/src/storage/instance/webColdStartStorage') as typeof import('@onekeyhq/shared/src/storage/instance/webColdStartStorage');
-      await flushColdStartCacheNow();
+      const { flushUiSnapshotStoreNow } =
+        require('@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore') as typeof import('@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore');
+      await flushUiSnapshotStoreNow();
     } catch {
       // Native MMKV writes are synchronous; extension background has no cache.
     }
@@ -865,20 +977,42 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     return repairedSelectedAccountsMap;
   };
 
+  // The background fix returns its input untouched unless the selection is an
+  // others-wallet account on a concrete network, so every HD, hardware and QR
+  // selection paid a round trip for nothing; every account switch issued about
+  // twenty of them across the mounted selector scenes.
+  fixOthersWalletAccountNetworkPair = async ({
+    selectedAccount,
+    source,
+  }: {
+    selectedAccount: IAccountSelectorSelectedAccount;
+    source?: string;
+  }): Promise<IAccountSelectorSelectedAccount> => {
+    if (
+      !accountSelectorUtils.hasOthersWalletAccountNetworkPair({
+        selectedAccount,
+      })
+    ) {
+      return selectedAccount;
+    }
+    return backgroundApiProxy.serviceAccountSelector.fixOthersWalletAccountNetworkPair(
+      { selectedAccount, source },
+    );
+  };
+
   isIncompatibleOthersWalletNetworkPair = async ({
     selectedAccount,
   }: {
     selectedAccount: IAccountSelectorSelectedAccount | undefined;
   }) => {
-    const walletId = selectedAccount?.walletId;
     const networkId = selectedAccount?.networkId;
     const othersWalletAccountId = selectedAccount?.othersWalletAccountId;
     if (
-      !walletId ||
       !networkId ||
       !othersWalletAccountId ||
-      !accountUtils.isOthersWallet({ walletId }) ||
-      networkUtils.isAllNetwork({ networkId })
+      !accountSelectorUtils.hasOthersWalletAccountNetworkPair({
+        selectedAccount,
+      })
     ) {
       return false;
     }
@@ -2496,6 +2630,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       // TODO add home scene check
       // const num = 0;
       await serviceAccount.removeAccount({ account, indexedAccount });
+      // Dropped here as well as from the mutation event: this runtime is the
+      // one certain to be alive for it. Awaited so the store has committed
+      // before the caller can navigate away or the surface can close.
+      await dropSwrCacheForRemovedAccount();
       // set(accountSelectorEditModeAtom(), false);
       if (accountUtils.isOthersAccount({ accountId: account?.id })) {
         await this.autoSelectNextAccount.call(set, {
@@ -2534,6 +2672,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           isRemoveToMocked,
           removeSameDeviceWallets,
         });
+        // Dropped here as well as from the mutation event: this runtime is the
+        // one certain to be alive for it. Awaited so the store has committed
+        // before the caller can navigate away or the surface can close.
+        await dropSwrCacheForRemovedWallet(walletId);
         set(accountSelectorEditModeAtom(), false);
 
         await this.autoSelectNextAccount.call(set, {
@@ -2611,11 +2753,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               data: current,
               mergedByData: eventPayload.selectedAccount,
             });
-          newSelectedAccount =
-            await serviceAccountSelector.fixOthersWalletAccountNetworkPair({
-              selectedAccount: newSelectedAccount,
-              source: 'syncHomeAndSwapSelectedAccount',
-            });
+          newSelectedAccount = await this.fixOthersWalletAccountNetworkPair({
+            selectedAccount: newSelectedAccount,
+            source: 'syncHomeAndSwapSelectedAccount',
+          });
           await this.updateSelectedAccount.call(set, {
             updateMeta: {
               eventEmitDisabled: true, // stop update infinite loop here
@@ -3020,11 +3161,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         ) {
           return;
         }
-        selectedAccount =
-          await serviceAccountSelector.fixOthersWalletAccountNetworkPair({
-            selectedAccount,
-            source: `saveToStorage:${sceneName}:${num}`,
-          });
+        selectedAccount = await this.fixOthersWalletAccountNetworkPair({
+          selectedAccount,
+          source: `saveToStorage:${sceneName}:${num}`,
+        });
         // If the pair is still broken after the fix (e.g. the account row was
         // removed), keep the previously saved record instead of persisting an
         // unresolvable selection.
@@ -3088,7 +3228,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               mergedByData: selectedAccount,
             });
           const fixedNewSelectedAccount =
-            await serviceAccountSelector.fixOthersWalletAccountNetworkPair({
+            await this.fixOthersWalletAccountNetworkPair({
               selectedAccount: newSelectedAccount,
               source: 'saveToStorage:syncHome',
             });

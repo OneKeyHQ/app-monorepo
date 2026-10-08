@@ -3,13 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import pRetry from 'p-retry';
 import { View } from 'react-native';
 
-import {
-  DelayedFreeze,
-  Page,
-  RefreshControl,
-  ScrollView,
-  Stack,
-} from '@onekeyhq/components';
+import { Page, RefreshControl, ScrollView, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
@@ -203,7 +197,10 @@ function DashboardContent({
           <RefreshControl refreshing={isRefreshing} onRefresh={refresh} />
         }
       >
-        <DelayedFreeze freeze={!isContentActive}>{content}</DelayedFreeze>
+        {/* Deliberately not frozen while inactive: the content is light, and
+            a frozen dashboard is blank whenever a modal sheet, a tab switch
+            or a back swipe reveals it (OK-63713). */}
+        {content}
       </ScrollView>
     );
   }

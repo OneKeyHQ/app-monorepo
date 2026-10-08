@@ -2,6 +2,7 @@ import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 
 import {
   fetchMarketAssetListLight,
+  fetchMarketBasicConfigLight,
   fetchMarketTokenListBatchLight,
 } from './marketLightApi';
 
@@ -62,6 +63,39 @@ describe('marketLightApi', () => {
         limit: 100,
         page: 1,
         type: 'top_coins_test',
+      },
+    });
+  });
+
+  it('keeps a separate Top Coins cache entry per sub-category type', async () => {
+    const chains = { list: [], total: 15 };
+    const defi = { list: [], total: 7 };
+    mockGet
+      .mockResolvedValueOnce({ data: { data: chains } })
+      .mockResolvedValueOnce({ data: { data: defi } });
+
+    await expect(
+      fetchMarketAssetListLight({ type: 'chains_cache_test' }),
+    ).resolves.toBe(chains);
+    await expect(
+      fetchMarketAssetListLight({ type: 'defi_cache_test' }),
+    ).resolves.toBe(defi);
+    await expect(
+      fetchMarketAssetListLight({
+        currency: 'usd',
+        limit: 100,
+        page: 1,
+        type: 'chains_cache_test',
+      }),
+    ).resolves.toBe(chains);
+
+    expect(mockGet).toHaveBeenCalledTimes(2);
+    expect(mockGet).toHaveBeenLastCalledWith('/utility/v1/market/asset/list', {
+      params: {
+        currency: 'usd',
+        limit: 100,
+        page: 1,
+        type: 'defi_cache_test',
       },
     });
   });
@@ -434,5 +468,34 @@ describe('marketLightApi', () => {
     ).resolves.toEqual({ list: [newerItem] });
 
     expect(mockPost).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not reuse an offline basic-config failure on the next request', async () => {
+    mockGet.mockRejectedValueOnce(new Error('offline'));
+    await expect(fetchMarketBasicConfigLight()).rejects.toThrow('offline');
+    expect(mockGet).toHaveBeenCalledTimes(1);
+
+    const response = {
+      code: 0,
+      message: 'OK',
+      data: {
+        spotCategories: [
+          { type: 'trending', name: 'Trending' },
+          { type: 'stocks', name: 'Stocks' },
+          { type: 'robinhood_meme', name: 'Robinhood' },
+        ],
+      },
+    };
+    mockGet.mockResolvedValueOnce({ data: response });
+    await expect(fetchMarketBasicConfigLight()).resolves.toEqual(response);
+    expect(mockGet).toHaveBeenCalledTimes(2);
+    expect(mockGet).toHaveBeenLastCalledWith(
+      '/utility/v2/market/basic-config',
+      {
+        params: {
+          configVersion: 2,
+        },
+      },
+    );
   });
 });

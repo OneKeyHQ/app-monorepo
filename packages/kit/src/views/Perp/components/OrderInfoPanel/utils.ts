@@ -161,6 +161,10 @@ export const getFillDirectionDisplayInfo = ({
     text = intl.formatMessage({ id: ETranslations.perp_order_close_long });
   } else if (directionType === 'closeShort') {
     text = intl.formatMessage({ id: ETranslations.perp_order_close_short });
+  } else if (fill.dir?.trim().toLowerCase() === 'settlement') {
+    text = intl.formatMessage({
+      id: ETranslations.perp_trade_settlement__title,
+    });
   }
 
   if (fill.side === 'A') {
@@ -261,6 +265,28 @@ type ISpotHoldingFilterItem = {
   hasPriceSource: boolean;
 };
 
+export function isSpotHoldingVisible(
+  balance: ISpotHoldingFilterItem,
+  hideBelowThreshold: boolean,
+): boolean {
+  if (new BigNumber(balance.total).isZero()) {
+    return false;
+  }
+
+  if (
+    !hideBelowThreshold ||
+    balance.rawCoin === 'USDC' ||
+    !balance.hasPriceSource
+  ) {
+    return true;
+  }
+
+  return (
+    !Number.isFinite(balance.usdcValueNum) ||
+    balance.usdcValueNum >= MIN_VISIBLE_SPOT_HOLDING_VALUE_USD
+  );
+}
+
 export function filterSpotHoldingBalances<T extends ISpotHoldingFilterItem>({
   balances,
   hideBelowThreshold,
@@ -268,24 +294,9 @@ export function filterSpotHoldingBalances<T extends ISpotHoldingFilterItem>({
   balances: T[];
   hideBelowThreshold: boolean;
 }): T[] {
-  return balances.filter((balance) => {
-    if (new BigNumber(balance.total).isZero()) {
-      return false;
-    }
-
-    if (
-      !hideBelowThreshold ||
-      balance.rawCoin === 'USDC' ||
-      !balance.hasPriceSource
-    ) {
-      return true;
-    }
-
-    return (
-      !Number.isFinite(balance.usdcValueNum) ||
-      balance.usdcValueNum >= MIN_VISIBLE_SPOT_HOLDING_VALUE_USD
-    );
-  });
+  return balances.filter((balance) =>
+    isSpotHoldingVisible(balance, hideBelowThreshold),
+  );
 }
 
 export function getVisibleSpotHoldingsCount({

@@ -18,6 +18,7 @@ import {
   isStockMarketPanelLoadingStage,
   mergeStockChartRealtimePoint,
   shouldDeferStockInitialContent,
+  shouldResetStockTradeQuoteState,
   shouldShowStockMarketHeaderSkeleton,
   shouldShowStockMarketTokenLabelsSkeleton,
   shouldShowStockQuoteActionLoading,
@@ -250,6 +251,27 @@ describe('SwapStockDesktopContainer utils', () => {
       shouldDeferStockInitialContent({
         channelStage: ESwapStockChannelStage.CheckingMarketStatus,
         startedWithoutContent: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('resets Stock quote state only when external identity loading starts', () => {
+    expect(
+      shouldResetStockTradeQuoteState({
+        identityLoading: true,
+        previousIdentityLoading: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldResetStockTradeQuoteState({
+        identityLoading: true,
+        previousIdentityLoading: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldResetStockTradeQuoteState({
+        identityLoading: false,
+        previousIdentityLoading: true,
       }),
     ).toBe(false);
   });

@@ -13,6 +13,7 @@ import {
   EOneKeyIdLoginWithLocalKeylessPrepareStatus,
   type IOneKeyIdLoginWithLocalKeylessPrepareResult,
 } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useOneKeyAuth } from './useOneKeyAuth';
 
@@ -96,6 +97,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: {
     isDesktop: false,
+    isNative: false,
   },
 }));
 
@@ -139,6 +141,8 @@ function getDialogContentProps(index: number): ILoginDialogContentProps {
 describe('useOneKeyAuth login dialog lifecycle', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    platformEnv.isNative = false;
+    platformEnv.isDesktop = false;
     mockDialogCloses.length = 0;
     mockIsLoggedIn.mockResolvedValue(false);
     mockPrepareOneKeyIdLoginWithLocalKeyless.mockResolvedValue({
@@ -223,5 +227,34 @@ describe('useOneKeyAuth login dialog lifecycle', () => {
     await expect(loginPromise).rejects.toBeInstanceOf(
       PrimeLoginDialogCancelError,
     );
+  });
+
+  test.each([
+    {
+      name: 'enables bounded sheet layout only for native OneKey login',
+      isNative: true,
+      boundedSheetLayout: true,
+      sheetDragArea: 'header' as const,
+    },
+    {
+      name: 'preserves the default dialog layout and width on desktop',
+      isNative: false,
+      boundedSheetLayout: undefined,
+      sheetDragArea: undefined,
+    },
+  ])('$name', async ({ isNative, boundedSheetLayout, sheetDragArea }) => {
+    platformEnv.isNative = isNative;
+    platformEnv.isDesktop = !isNative;
+    const { result } = renderHook(() => useOneKeyAuth());
+    void result.current.loginOneKeyId();
+
+    await waitFor(() => {
+      expect(Dialog.show).toHaveBeenCalledTimes(1);
+    });
+    const options = jest.mocked(Dialog.show).mock.calls[0]?.[0];
+    expect(options?.boundedSheetLayout).toBe(boundedSheetLayout);
+    expect(options?.sheetDragArea).toBe(sheetDragArea);
+    expect(options?.nativeSheet).toBeUndefined();
+    expect(options?.floatingPanelProps?.width).toBe(isNative ? undefined : 440);
   });
 });

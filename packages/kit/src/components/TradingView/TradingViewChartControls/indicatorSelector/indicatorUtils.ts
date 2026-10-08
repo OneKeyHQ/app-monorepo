@@ -1,4 +1,5 @@
 import {
+  TRADING_VIEW_NATIVE_ALL_INDICATORS,
   isTradingViewNativeIndicator,
   isTradingViewNativeSubIndicator,
   resolveTradingViewNativeIndicatorId,
@@ -8,6 +9,16 @@ import type {
   ITradingViewIndicatorOption,
   ITradingViewNativeIndicatorSelection,
 } from '../types';
+
+export function getAppNativeIndicators(
+  activeIndicatorValues: ReadonlySet<string>,
+): ITradingViewIndicatorOption[] {
+  return TRADING_VIEW_NATIVE_ALL_INDICATORS.map((indicator) => ({
+    label: indicator,
+    value: indicator,
+    active: activeIndicatorValues.has(indicator),
+  }));
+}
 
 function getCanonicalIndicatorId(indicator: ITradingViewIndicatorOption) {
   return resolveTradingViewNativeIndicatorId(indicator.value, indicator.label);

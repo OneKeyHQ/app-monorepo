@@ -117,6 +117,46 @@ describe('ServiceCustomRpc server networks', () => {
     ).resolves.toBeUndefined();
   });
 
+  it('isServerNetworkRegistryFilled reflects whether the cache was ever filled', async () => {
+    const unfilled = buildService({
+      cachedNetworks: [],
+      lastFetchTime: undefined,
+      serverNetworks: [],
+    });
+    await expect(
+      unfilled.service.isServerNetworkRegistryFilled(),
+    ).resolves.toBe(false);
+
+    // Filled but holding no server networks is still authoritative.
+    const filledEmpty = buildService({
+      cachedNetworks: [],
+      lastFetchTime: Date.now(),
+      serverNetworks: [],
+    });
+    await expect(
+      filledEmpty.service.isServerNetworkRegistryFilled(),
+    ).resolves.toBe(true);
+  });
+
+  it('isServerNetworkRegistryFilled propagates storage read failures', async () => {
+    // getServerNetworks swallows these and returns []; the probe must not,
+    // so gating callers can fail open instead of filtering against nothing.
+    const { service } = buildService({
+      cachedNetworks: [robinhood],
+      lastFetchTime: Date.now(),
+      serverNetworks: [],
+    });
+    (
+      service as any
+    ).backgroundApi.simpleDb.serverNetwork.getAllServerNetworks.mockRejectedValueOnce(
+      new Error('storage read failed'),
+    );
+
+    await expect(service.isServerNetworkRegistryFilled()).rejects.toThrow(
+      'storage read failed',
+    );
+  });
+
   it('fetchNetworkFromServer shares one in-flight request', async () => {
     const { service, get } = buildService({
       cachedNetworks: [],

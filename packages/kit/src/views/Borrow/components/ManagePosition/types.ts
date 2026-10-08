@@ -51,6 +51,7 @@ export interface IBorrowDelegationApproveTarget {
 export interface IManagePositionApproval {
   approveType?: EApproveType;
   approving: boolean;
+  isFormInteractionLocked: boolean;
   approvalProgressStarted: boolean;
   loadingAllowance: boolean;
   shouldApprove: boolean;

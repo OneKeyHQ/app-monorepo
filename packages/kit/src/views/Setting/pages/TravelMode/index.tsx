@@ -13,6 +13,7 @@ import {
   Dialog,
   ESwitchSize,
   Icon,
+  Image,
   Page,
   SizableText,
   Spinner,
@@ -24,6 +25,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalSettingRoutes,
   IModalSettingParamList,
@@ -145,9 +147,30 @@ export default function TravelMode() {
         title: copy.enableConfirmationTitle,
         description: copy.enableConfirmationDescription,
         renderContent: (
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {copy.enableConfirmationDetails}
-          </SizableText>
+          <YStack gap="$4">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {copy.enableConfirmationDetails}
+            </SizableText>
+            {platformEnv.isNative ? (
+              <XStack
+                testID={SettingTestIDs.travelModeIconChangeNotice}
+                gap="$3"
+                alignItems="center"
+              >
+                <SizableText flex={1} size="$bodyMd" color="$textSubdued">
+                  {copy.enableConfirmationAppIconDescription}
+                </SizableText>
+                <Image
+                  testID={SettingTestIDs.travelModeIconPreview}
+                  accessibilityLabel={copy.title}
+                  size="$12"
+                  borderRadius="$3"
+                  flexShrink={0}
+                  source={require('@onekeyhq/kit/assets/travel_mode_app_icon.png')}
+                />
+              </XStack>
+            ) : null}
+          </YStack>
         ),
         onCancelText: copy.enableConfirmationCancel,
         onConfirmText: copy.enableConfirmationConfirm,

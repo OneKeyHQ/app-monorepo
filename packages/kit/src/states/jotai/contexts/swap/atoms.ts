@@ -62,7 +62,7 @@ import { createJotaiContext } from '../../utils/createJotaiContext';
 import {
   type ISwapQuoteEventTotalCount,
   type ISwapQuoteSelectionIntent,
-  buildSwapQuoteProviderKey,
+  selectSwapCurrentEventQuotes,
   selectSwapCurrentQuote,
 } from './quoteProgress';
 
@@ -494,12 +494,11 @@ export const {
   const list = get(swapQuoteListAtom());
   const quoteEventTotalCount = get(swapQuoteEventTotalCountAtom());
   const currentEventProviderKeys = get(swapQuoteCurrentEventProviderKeysAtom());
-  const currentEventProviderKeySet = new Set(currentEventProviderKeys);
-  return quoteEventTotalCount.count > 0
-    ? list.filter((quote) =>
-        currentEventProviderKeySet.has(buildSwapQuoteProviderKey(quote)),
-      )
-    : list;
+  return selectSwapCurrentEventQuotes({
+    quotes: list,
+    quoteEventTotalCount,
+    currentEventProviderKeys,
+  });
 });
 
 export const {

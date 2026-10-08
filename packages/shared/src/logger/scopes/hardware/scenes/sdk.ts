@@ -24,6 +24,12 @@ export function buildHardwareUiEventLogPayload(payload: unknown) {
   return compactLogPayload({
     eventType: event.type,
     deviceType: device?.deviceType,
+    progress: event.progress,
+    progressType: event.progressType,
+    transferredBytes: event.transferredBytes,
+    totalBytes: event.totalBytes,
+    rateBytesPerSecond: event.rateBytesPerSecond,
+    elapsedMs: event.elapsedMs,
     source: event.source,
     reason: event.reason,
     deviceOnly: event.deviceOnly,

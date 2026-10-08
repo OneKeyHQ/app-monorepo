@@ -1,5 +1,5 @@
 // cspell:ignore financials
-import { isNil } from 'lodash';
+import { chunk, isNil } from 'lodash';
 import pLimit from 'p-limit';
 
 import {
@@ -9,6 +9,7 @@ import {
 import {
   DEFAULT_MARKET_STOCK_SORT_BY,
   DEFAULT_MARKET_STOCK_SORT_TYPE,
+  MARKET_STOCK_BATCH_MAX_IDS,
 } from '@onekeyhq/shared/src/consts/marketConsts';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
@@ -17,7 +18,6 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { normalizeMarketApiKLineInterval } from '@onekeyhq/shared/src/utils/marketKLineUtils';
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
@@ -354,7 +354,14 @@ class ServiceMarketV2 extends ServiceBase {
 
   @backgroundMethod()
   async fetchMarketBasicConfig() {
-    return this.memoizedFetchMarketBasicConfig();
+    try {
+      return await this.memoizedFetchMarketBasicConfig();
+    } catch (error) {
+      // memoizee({ promise: true }) retains rejected promises. Drop the
+      // failure so reconnect / retry can reach the network again.
+      void this.memoizedFetchMarketBasicConfig.clear();
+      throw error;
+    }
   }
 
   @backgroundMethod()
@@ -386,11 +393,9 @@ class ServiceMarketV2 extends ServiceBase {
       timeFrame,
     });
     if (options?.forceRemote) {
-      if (platformEnv.isNativeAndroid) {
-        // Android background can retain a rejected promise across network recovery.
-        // Invalidate only this query so later polling cannot reuse that failure.
-        void this.memoizedFetchMarketTokenList.delete(normalizedParams);
-      }
+      // memoizee({ promise: true }) retains rejected promises across recovery.
+      // Invalidate this query so later polling cannot reuse that failure.
+      void this.memoizedFetchMarketTokenList.delete(normalizedParams);
       return this._fetchMarketTokenListFromApi(normalizedParams);
     }
     return this.memoizedFetchMarketTokenList(normalizedParams);
@@ -482,32 +487,25 @@ class ServiceMarketV2 extends ServiceBase {
     timeFrom?: number;
     timeTo?: number;
   }) {
-    try {
-      const client = await this.getClient(EServiceEndpointEnum.Utility);
-      const response = await client.get<{
-        code: number;
-        message: string;
-        data: IMarketAccountTokenTransactionsResponse;
-      }>('/utility/v2/market/account/token/transactions', {
-        params: {
-          accountAddress,
-          tokenAddress,
-          networkId,
-          currency: 'usd',
-          ...(cursor !== undefined && { cursor }),
-          ...(timeFrom !== undefined && { timeFrom }),
-          ...(timeTo !== undefined && { timeTo }),
-        },
-      });
-      const { data } = response.data;
-      return data;
-    } catch (error) {
-      console.error(
-        '[ServiceMarketV2] fetchMarketAccountTokenTransactions error:',
-        error,
-      );
-      return { list: [] };
-    }
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      code: number;
+      message: string;
+      data: IMarketAccountTokenTransactionsResponse;
+    }>('/utility/v2/market/account/token/transactions', {
+      params: {
+        accountAddress,
+        tokenAddress,
+        networkId,
+        currency: 'usd',
+        ...(cursor !== undefined && { cursor }),
+        ...(timeFrom !== undefined && { timeFrom }),
+        ...(timeTo !== undefined && { timeTo }),
+      },
+    });
+    // Let chart callers distinguish a failed refresh from a successful empty list.
+    const { data } = response.data;
+    return data;
   }
 
   @backgroundMethod()
@@ -1204,6 +1202,40 @@ class ServiceMarketV2 extends ServiceBase {
     return response.data.data;
   }
 
+  // Same item shape as the Stocks list, variants included. Unknown IDs are
+  // omitted from the response rather than failing the request.
+  @backgroundMethod()
+  async fetchMarketStockBatch({
+    stockIds,
+  }: {
+    stockIds: string[];
+  }): Promise<IMarketStockPublicItem[]> {
+    if (stockIds.length === 0) {
+      return [];
+    }
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const requestConfig: Parameters<typeof client.post>[2] & {
+      autoHandleError?: boolean;
+    } = {
+      headers: { 'x-onekey-request-currency': 'usd' },
+      autoHandleError: false,
+    };
+    const responses = await Promise.all(
+      chunk(stockIds, MARKET_STOCK_BATCH_MAX_IDS).map((stockIdsChunk) =>
+        client.post<{
+          code: number;
+          message: string;
+          data: IMarketStockPublicListResponse | null;
+        }>(
+          '/utility/v1/stocks/batch',
+          { stockIds: stockIdsChunk },
+          requestConfig,
+        ),
+      ),
+    );
+    return responses.flatMap((response) => response.data.data?.items ?? []);
+  }
+
   @backgroundMethod()
   async fetchMarketStockFinancials({
     stockId,
@@ -1387,8 +1419,16 @@ class ServiceMarketV2 extends ServiceBase {
         );
 
       if (action === 'add' && !existing) {
+        const { data } =
+          await this.backgroundApi.simpleDb.marketWatchListV2.getMarketWatchListV2();
+        const [sortIndex] = sortUtils.buildTopSortIndexes({
+          oldList: data,
+          count: 1,
+        });
         await this.addMarketWatchListV2({
-          watchList: [{ chainId: '', contractAddress: '', perpsCoin: coin }],
+          watchList: [
+            { chainId: '', contractAddress: '', perpsCoin: coin, sortIndex },
+          ],
           callerName: 'syncToMarketWatchList',
         });
       } else if (action === 'remove' && existing) {
@@ -1468,11 +1508,17 @@ class ServiceMarketV2 extends ServiceBase {
 
       // Sync missing items to Market watchlist
       if (missingInMarket.length > 0) {
+        // Perps favorites are stored oldest-first, so the newest lands on top.
+        const sortIndexes = sortUtils.buildTopSortIndexes({
+          oldList: watchListData.data,
+          count: missingInMarket.length,
+        });
         await this.addMarketWatchListV2({
-          watchList: missingInMarket.map((coin) => ({
+          watchList: missingInMarket.map((coin, index) => ({
             chainId: '',
             contractAddress: '',
             perpsCoin: coin,
+            sortIndex: sortIndexes[index],
           })),
           callerName: 'reconcilePerpsFavorites',
         });

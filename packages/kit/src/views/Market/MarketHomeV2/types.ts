@@ -56,5 +56,6 @@ export interface IMarketFilterBarProps {
   selectedCategory?: string;
   categories?: IMarketCategoryItem[];
   stockCategories?: IMarketCategoryItem[];
+  topCoinsCategories?: IMarketCategoryItem[];
   onCategoryChange?: (categoryId: string) => void;
 }

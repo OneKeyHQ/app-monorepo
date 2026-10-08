@@ -10,6 +10,7 @@ import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contex
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { AccountManagerTestIDs } from '../../testIDs';
@@ -164,7 +165,13 @@ export function showWalletRemoveDialog({
   nativeSheet?: boolean;
 }) {
   return Dialog.show({
-    nativeSheet,
+    // Temporary Android workaround (OK-63690): confirming opens the passcode
+    // prompt, and later a toast, while this dialog is still open. An Android
+    // native sheet is its own window above the React root, so those JS
+    // overlays would render underneath it. Toasts and other overlays are
+    // moving to native presentation; once they do, use the native sheet on
+    // Android again.
+    nativeSheet: nativeSheet && !platformEnv.isNativeAndroid,
     icon: 'ErrorOutline',
     tone: 'destructive',
     title,

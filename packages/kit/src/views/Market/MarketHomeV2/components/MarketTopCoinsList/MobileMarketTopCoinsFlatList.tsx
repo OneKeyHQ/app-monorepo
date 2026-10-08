@@ -22,6 +22,7 @@ import type { IMarketToken } from '../MarketTokenList/MarketTokenData';
 import type { FlatListProps } from 'react-native';
 
 type IMobileMarketTopCoinsFlatListProps = {
+  selectedCategoryId: string;
   listContainerProps: {
     paddingBottom: number;
   };
@@ -58,11 +59,14 @@ function toMobileMarketToken(item: IMarketAssetListItem): IMarketToken {
 }
 
 function MobileMarketTopCoinsFlatListBase({
+  selectedCategoryId,
   listContainerProps,
   shouldSuppressItemPress,
 }: IMobileMarketTopCoinsFlatListProps) {
   const intl = useIntl();
-  const { data, handleItemPress, isLoading } = useMarketTopCoins();
+  const { data, handleItemPress, isLoading } = useMarketTopCoins({
+    categoryId: selectedCategoryId,
+  });
   const tabBarHeight = useScrollContentTabBarOffset();
   const showSkeleton = isLoading && data.length === 0;
 

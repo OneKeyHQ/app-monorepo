@@ -10,7 +10,12 @@ import type { OneKeyImageProps } from '@onekeyfe/react-native-image';
 
 type INativeImageProps = Pick<
   OneKeyImageProps,
-  'loadingStrategy' | 'optimizeTos' | 'placeholderColor' | 'source' | 'style'
+  | 'loadingStrategy'
+  | 'optimizeTos'
+  | 'placeholderColor'
+  | 'round'
+  | 'source'
+  | 'style'
 >;
 
 const mockNativeImage = jest.fn<null, [INativeImageProps]>(() => null);
@@ -44,7 +49,10 @@ jest.mock('@onekeyfe/react-native-image', () => ({
 }));
 
 jest.mock('@onekeyhq/components/src/shared/tamagui', () => ({
-  usePropsAndStyle: (props: object) => [props, { width: 40, height: 40 }],
+  usePropsAndStyle: ({ round: _round, ...props }: { round?: boolean }) => [
+    props,
+    { width: 40, height: 40 },
+  ],
   useTheme: () => ({ bgStrong: { val: '#222222' } }),
 }));
 
@@ -98,21 +106,23 @@ describe('native ImageV2 rendition ownership', () => {
 
   it('keeps the original URL and layout while forwarding resize hints', () => {
     const uri = 'https://uni.onekey-asset.com/token.png';
-    const { rerender } = render(<ImageV2 src={uri} resizeWidth={32} />);
+    const { rerender } = render(<ImageV2 src={uri} resizeWidth={32} round />);
     expect(mockNativeImage).toHaveBeenLastCalledWith(
       expect.objectContaining({
         source: { uri },
         style: { width: 40, height: 40 },
         resizeWidth: 32,
+        round: true,
         optimizeTos: true,
       }),
     );
-    rerender(<ImageV2 src={uri} resizeWidth={64} />);
+    rerender(<ImageV2 src={uri} resizeWidth={64} round />);
     expect(mockNativeImage).toHaveBeenLastCalledWith(
       expect.objectContaining({
         source: { uri },
         style: { width: 40, height: 40 },
         resizeWidth: 64,
+        round: true,
         optimizeTos: true,
       }),
     );
@@ -125,14 +135,19 @@ describe('native ImageV2 rendition ownership', () => {
     );
   });
 
-  it('uses a theme backing by default and only enables skeleton explicitly', () => {
+  it('defaults to no loading visual and enables placeholders explicitly', () => {
     const uri = 'https://uni.onekey-asset.com/token.png';
     const { rerender } = render(<ImageV2 src={uri} />);
     expect(mockNativeImage).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        loadingStrategy: 'static',
+        loadingStrategy: 'none',
         placeholderColor: '#222222',
       }),
+    );
+
+    rerender(<ImageV2 src={uri} loadingStrategy="static" />);
+    expect(mockNativeImage).toHaveBeenLastCalledWith(
+      expect.objectContaining({ loadingStrategy: 'static' }),
     );
 
     rerender(<ImageV2 src={uri} loadingStrategy="skeleton" />);

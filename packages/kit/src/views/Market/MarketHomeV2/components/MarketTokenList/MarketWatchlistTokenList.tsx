@@ -27,13 +27,17 @@ import { MarketRecommendList } from '../MarketRecommendList';
 import { InlineActionBar } from './components/InlineActionBar';
 import { useMarketWatchlistTokenList } from './hooks/useMarketWatchlistTokenList';
 import { useWatchlistFilteredGroups } from './hooks/useWatchlistFilteredGroups';
-import { MarketListLoadingFallback } from './MarketListLoadingFallback';
+import {
+  MarketDesktopTableLoadingFallback,
+  MarketListLoadingFallback,
+} from './MarketListLoadingFallback';
 import { type IMarketToken } from './MarketTokenData';
 import {
   type IMarketTokenListLiveOverride,
   MarketTokenListBase,
 } from './MarketTokenListBase';
 import {
+  DEFAULT_WATCHLIST_FILTER,
   type IWatchlistFilterType,
   MarketWatchlistCategorySelector,
 } from './MarketWatchlistCategorySelector';
@@ -83,9 +87,10 @@ function MarketWatchlistTokenList({
 
   const actions = useWatchListV2Actions();
 
-  // Watchlist category filter: all / spot / perps
-  const [selectedFilter, setSelectedFilter] =
-    useState<IWatchlistFilterType>('all');
+  // Watchlist category filter: all / spot / stocks / perps
+  const [selectedFilter, setSelectedFilter] = useState<IWatchlistFilterType>(
+    DEFAULT_WATCHLIST_FILTER,
+  );
   const handleSelectFilter = useCallback(
     (filter: IWatchlistFilterType) => setSelectedFilter(filter),
     [],
@@ -135,8 +140,15 @@ function MarketWatchlistTokenList({
     hideListings,
   });
 
+  // The category selector only renders on the home Favorites tab; surfaces
+  // that pass their own toolbar or hide perps (Swap Pro, the detail token
+  // picker) see every row at once.
+  const showCategorySelector = !toolbar && !hidePerps;
+
   const filteredResult = useMemo(() => {
-    const filtered = filteredGroups[selectedFilter];
+    const filtered = showCategorySelector
+      ? filteredGroups[selectedFilter]
+      : filteredGroups.all;
     if (filtered === watchlistResult.data) return watchlistResult;
     return {
       ...watchlistResult,
@@ -146,19 +158,27 @@ function MarketWatchlistTokenList({
       isLoading:
         watchlistResult.data.length > 0 ? false : watchlistResult.isLoading,
     };
-  }, [watchlistResult, filteredGroups, selectedFilter]);
+  }, [watchlistResult, filteredGroups, selectedFilter, showCategorySelector]);
 
   const showInitialLoadingFallback =
     !watchlistState.isMounted ||
     (watchlist.length > 0 &&
       filteredResult.data.length === 0 &&
       Boolean(filteredResult.isLoading));
+  // Stored favorites that never become rows would otherwise keep the empty
+  // table up and hide the recommend grid.
+  const showRecommendList =
+    watchlist.length === 0 ||
+    (watchlistState.isMounted &&
+      !filteredResult.isLoading &&
+      watchlistResult.data.length === 0);
 
-  // Disable drag reorder when the list is filtered (hidePerps or category filter).
-  // Dragging in a filtered view would pass visible-only neighbors to
-  // sortWatchListV2Items, which computes sortIndex against the full watchlist,
-  // producing incorrect order for hidden items.
-  const isDraggable = filteredResult.data === watchlistResult.data;
+  // Reordering inside a category is safe: sortWatchListV2Items places the
+  // dragged row between its visible neighbors' sortIndex, so the relative
+  // order inside every other category is untouched. Surfaces that hide rows by
+  // option instead only drag when nothing is filtered out.
+  const isDraggable =
+    showCategorySelector || filteredResult.data === watchlistResult.data;
 
   const tokenToWatchListItem = useCallback(
     (token: IMarketToken): IMarketWatchListItemV2 => ({
@@ -341,11 +361,17 @@ function MarketWatchlistTokenList({
         </Tabs.ScrollView>
       );
     }
-    return <MarketListLoadingFallback />;
+    // Tab-integrated on web means the desktop Market home table; the Swap Pro
+    // token modal is not tab-integrated and keeps the compact fallback.
+    return tabIntegrated ? (
+      <MarketDesktopTableLoadingFallback />
+    ) : (
+      <MarketListLoadingFallback />
+    );
   }
 
-  // Show recommend list when watchlist is empty
-  if (watchlist.length === 0) {
+  // Show recommend list when there is nothing to render.
+  if (showRecommendList) {
     // When tab-integrated on native, wrap in Tabs.ScrollView so the collapsible
     // tab system has a registered scroll view for this tab.
     if (tabIntegrated && platformEnv.isNative) {

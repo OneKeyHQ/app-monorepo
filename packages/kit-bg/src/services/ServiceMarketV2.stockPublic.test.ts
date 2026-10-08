@@ -5,6 +5,7 @@ import type { INotificationWatchlistToken } from '@onekeyhq/shared/types/notific
 import ServiceMarketV2 from './ServiceMarketV2';
 
 const mockGet = jest.fn();
+const mockPost = jest.fn();
 let mockPauseMemoizationTasks = false;
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
@@ -60,13 +61,17 @@ describe('ServiceMarketV2 public stock APIs', () => {
         serviceMarket: { fetchMarketAssetDetail: mockAssetDetail },
       },
     });
-    service.getClient = jest.fn(async () => ({ get: mockGet })) as never;
+    service.getClient = jest.fn(async () => ({
+      get: mockGet,
+      post: mockPost,
+    })) as never;
     return service;
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
     mockGet.mockReset();
+    mockPost.mockReset();
     mockListingCache = {};
   });
 
@@ -122,6 +127,28 @@ describe('ServiceMarketV2 public stock APIs', () => {
       response,
     );
     expect(mockGet).toHaveBeenCalledTimes(3);
+  });
+
+  it('does not reuse an offline basic-config failure after reconnect', async () => {
+    mockPauseMemoizationTasks = true;
+    const service = createService();
+    mockGet.mockRejectedValueOnce(new Error('offline'));
+    await expect(service.fetchMarketBasicConfig()).rejects.toThrow('offline');
+    expect(mockGet).toHaveBeenCalledTimes(1);
+    const response = {
+      code: 0,
+      message: 'OK',
+      data: {
+        spotCategories: [
+          { type: 'trending', name: 'Trending' },
+          { type: 'stocks', name: 'Stocks' },
+          { type: 'robinhood_meme', name: 'Robinhood' },
+        ],
+      },
+    };
+    mockGet.mockResolvedValue({ data: response });
+    await expect(service.fetchMarketBasicConfig()).resolves.toEqual(response);
+    expect(mockGet).toHaveBeenCalledTimes(2);
   });
 
   it('loads a stock watchlist quote without resolving a token variant', async () => {
@@ -426,7 +453,7 @@ describe('ServiceMarketV2 public stock APIs', () => {
     expect(result.items[0]).not.toHaveProperty('contractAddress');
   });
 
-  it('sorts the stock list by 24h volume descending by default', async () => {
+  it('sorts the stock list by market cap descending by default', async () => {
     const service = createService();
     mockGet.mockResolvedValueOnce({
       data: {
@@ -444,7 +471,7 @@ describe('ServiceMarketV2 public stock APIs', () => {
         cursor: undefined,
         limit: 20,
         category: undefined,
-        sortBy: 'volume24h',
+        sortBy: 'marketCap',
         sortType: 'desc',
       },
       headers: { 'x-onekey-request-currency': 'usd' },
@@ -499,6 +526,66 @@ describe('ServiceMarketV2 public stock APIs', () => {
       params: { query: 'aapl', limit: 20, cursor: 'next' },
       autoHandleError: false,
     });
+  });
+
+  it('loads favorited stocks through the batch endpoint in USD', async () => {
+    const service = createService();
+    mockPost.mockResolvedValueOnce({
+      data: {
+        data: {
+          items: [
+            { stockId: 'TSLA', symbol: 'TSLA', variants: [] },
+            { stockId: 'AAPL', symbol: 'AAPL', variants: [] },
+          ],
+          total: 2,
+        },
+      },
+    });
+
+    await expect(
+      service.fetchMarketStockBatch({ stockIds: ['TSLA', 'AAPL'] }),
+    ).resolves.toEqual([
+      { stockId: 'TSLA', symbol: 'TSLA', variants: [] },
+      { stockId: 'AAPL', symbol: 'AAPL', variants: [] },
+    ]);
+    expect(mockPost).toHaveBeenCalledWith(
+      '/utility/v1/stocks/batch',
+      { stockIds: ['TSLA', 'AAPL'] },
+      {
+        headers: { 'x-onekey-request-currency': 'usd' },
+        autoHandleError: false,
+      },
+    );
+  });
+
+  it('splits stock batch requests at the 100 ID limit', async () => {
+    const service = createService();
+    const stockIds = Array.from({ length: 101 }, (_, index) => `S${index}`);
+    mockPost.mockImplementation(
+      async (_url: string, body: { stockIds: string[] }) => ({
+        data: {
+          data: {
+            items: body.stockIds.map((stockId) => ({ stockId })),
+            total: body.stockIds.length,
+          },
+        },
+      }),
+    );
+
+    const result = await service.fetchMarketStockBatch({ stockIds });
+
+    expect(mockPost).toHaveBeenCalledTimes(2);
+    expect(mockPost.mock.calls[0][1].stockIds).toHaveLength(100);
+    expect(mockPost.mock.calls[1][1].stockIds).toEqual(['S100']);
+    expect(result.map((item) => item.stockId)).toEqual(stockIds);
+  });
+
+  it('skips the stock batch request for an empty ID list', async () => {
+    const service = createService();
+    await expect(
+      service.fetchMarketStockBatch({ stockIds: [] }),
+    ).resolves.toEqual([]);
+    expect(mockPost).not.toHaveBeenCalled();
   });
 
   it('loads stock detail and token variants by stockId', async () => {

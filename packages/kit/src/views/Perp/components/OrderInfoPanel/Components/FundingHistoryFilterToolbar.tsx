@@ -33,6 +33,7 @@ import type {
 
 interface IFundingHistoryFilterToolbarProps {
   isMobile?: boolean;
+  sideLabels?: { long: string; short: string };
   sideFilter: IFundingHistorySideFilter;
   marketFilter: string | undefined;
   marketOptions: IFundingHistoryMarketOption[];
@@ -59,7 +60,7 @@ function FundingHistoryFilterTrigger({
     if (!isMobile) {
       return undefined;
     }
-    return isOpen ? '$bgStrongActive' : '$bgActive';
+    return isOpen ? '$bgActive' : '$bgSubdued';
   })();
   const iconName = isOpen
     ? 'ChevronTopSmallOutline'
@@ -78,8 +79,8 @@ function FundingHistoryFilterTrigger({
       py={isMobile ? '$1' : undefined}
       borderRadius={isMobile ? '$4' : undefined}
       bg={backgroundColor}
-      hoverStyle={isMobile ? { bg: '$bgStrongHover' } : undefined}
-      pressStyle={isMobile ? { bg: '$bgStrongActive' } : undefined}
+      hoverStyle={isMobile ? { bg: '$bgHover' } : undefined}
+      pressStyle={isMobile ? { bg: '$bgActive' } : undefined}
       onPress={onPress}
     >
       <SizableText size="$bodySmMedium" numberOfLines={1}>
@@ -245,17 +246,15 @@ function FundingHistoryMarketFilterContent({
   const keyboardHeight = useKeyboardHeight();
   const { height: windowHeight } = useWindowDimensions();
   const { top, bottom } = useSafeAreaInsets();
+  // Match Dialog's keyboard padding: Android events exclude the system bar.
+  const keyboardBottomInset = platformEnv.isNativeAndroid
+    ? keyboardHeight + bottom
+    : Math.max(keyboardHeight, bottom);
   // Reserve the title, content padding and a gap below the top safe area.
-  const mobileContentHeight = platformEnv.isNativeIOS
-    ? Math.max(
-        0,
-        Math.min(
-          480,
-          windowHeight - top - Math.max(keyboardHeight, bottom) - 112,
-        ),
-      )
+  const mobileContentHeight = platformEnv.isNative
+    ? Math.max(0, Math.min(480, windowHeight - top - keyboardBottomInset - 112))
     : 480;
-  const isKeyboardBounded = isMobile && platformEnv.isNativeIOS;
+  const isKeyboardBounded = isMobile && platformEnv.isNative;
   const scrollMaxHeight = isMobile ? 420 : 260;
   const [searchText, setSearchText] = useState('');
   const filteredMarketOptions = useMemo(
@@ -370,6 +369,7 @@ function MobileFundingHistoryMarketDialogContent({
 
 function FundingHistoryFilterToolbar({
   isMobile,
+  sideLabels,
   sideFilter,
   marketFilter,
   marketOptions,
@@ -392,15 +392,19 @@ function FundingHistoryFilterToolbar({
         value: 'all' as const,
       },
       {
-        label: intl.formatMessage({ id: ETranslations.perp_long }),
+        label:
+          sideLabels?.long ??
+          intl.formatMessage({ id: ETranslations.perp_long }),
         value: 'long' as const,
       },
       {
-        label: intl.formatMessage({ id: ETranslations.perp_short }),
+        label:
+          sideLabels?.short ??
+          intl.formatMessage({ id: ETranslations.perp_short }),
         value: 'short' as const,
       },
     ],
-    [intl],
+    [intl, sideLabels],
   );
   const sideLabel = intl.formatMessage({
     id: ETranslations.perp_funding_side__label,
@@ -550,4 +554,8 @@ function FundingHistoryFilterToolbar({
   );
 }
 
-export { FundingHistoryFilterToolbar };
+export {
+  FundingHistoryFilterToolbar,
+  FundingHistoryFilterTrigger,
+  FundingHistoryFilterOption,
+};

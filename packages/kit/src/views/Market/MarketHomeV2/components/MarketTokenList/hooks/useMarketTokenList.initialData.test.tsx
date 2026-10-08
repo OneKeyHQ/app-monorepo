@@ -877,6 +877,32 @@ describe('useMarketTokenList initial data', () => {
     expect(latestResult?.data[0]?.id).toBe('0xremote');
   });
 
+  it('exposes a desktop Retry path after the first token list request fails', async () => {
+    let latestResult: ReturnType<typeof useMarketTokenList> | undefined;
+    mockFetchMarketTokenList.mockRejectedValue(new Error('offline'));
+    function Probe() {
+      latestResult = useMarketTokenList({
+        networkId: 'evm--1',
+        pollingInterval: 0,
+        type: 'robinhood_meme',
+      });
+      return null;
+    }
+    render(<Probe />);
+    await waitFor(() => expect(latestResult?.isError).toBe(true));
+    expect(latestResult?.isLoading).toBe(false);
+    expect(latestResult?.data).toEqual([]);
+    mockFetchMarketTokenList.mockImplementation(async (_params, options) => {
+      if (!options?.forceRemote) {
+        return Promise.reject(new Error('cached offline failure'));
+      }
+      return createResponse('0xremote', 'Remote Token', 'REMOTE');
+    });
+    await act(async () => latestResult?.refetch());
+    expect(latestResult?.isError).toBe(false);
+    expect(latestResult?.data[0]?.id).toBe('0xremote');
+  });
+
   it('ends native cold-start loading when the network is initialized after mount', async () => {
     mutablePlatformEnv.isNative = true;
     mutablePlatformEnv.isWeb = false;

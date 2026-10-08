@@ -3,6 +3,8 @@ import BigNumber from 'bignumber.js';
 
 import { PERPS_ACCOUNT_DISPLAY_CACHE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { computePerpsCrossMarginRatio } from '@onekeyhq/shared/src/utils/perpsMarginRatioUtils';
+import type { IPerpsCrossMarginRatio } from '@onekeyhq/shared/src/utils/perpsMarginRatioUtils';
 import type {
   IFill,
   IHex,
@@ -12,6 +14,7 @@ import type {
   IPerpTokenSelectorConfig,
   IPerpUserConfig,
   IPerpsActiveAssetData,
+  IPerpsDexCrossMargin,
   IPerpsFormattedAssetCtx,
   IPerpsUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
@@ -86,6 +89,7 @@ export type IPerpsActiveAccountSummaryAtom =
       totalMarginUsed: string | undefined;
       crossAccountValue: string | undefined;
       crossMaintenanceMarginUsed: string | undefined;
+      isolatedMarginUsed: string | undefined;
       totalNtlPos: string | undefined;
       totalRawUsd: string | undefined;
       withdrawable: string | undefined;
@@ -328,6 +332,25 @@ export const { target: perpsSpotBalancesAtom, use: usePerpsSpotBalancesAtom } =
   });
 // #endregion
 
+// #region Liquidation Risk Inputs
+// Live-only: never hydrated from the display cache, so a pre-trade liquidation
+// estimate cannot be computed from a stale or different account's snapshot.
+export type IPerpsLiquidationRiskInputsAtom =
+  | {
+      accountAddress: IHex;
+      tokenToAvailableAfterMaintenance?: Record<number, string>;
+      crossMarginByDex?: Record<string, IPerpsDexCrossMargin>;
+    }
+  | undefined;
+export const {
+  target: perpsLiquidationRiskInputsAtom,
+  use: usePerpsLiquidationRiskInputsAtom,
+} = globalAtom<IPerpsLiquidationRiskInputsAtom>({
+  name: EAtomNames.perpsLiquidationRiskInputsAtom,
+  initialValue: undefined,
+});
+// #endregion
+
 export type IPerpsActiveAccountStatusDetails = {
   // undefined = activation not confirmed (check pending or failed);
   // false = HL userRole confirmed 'missing'; true = confirmed activated
@@ -449,29 +472,41 @@ export const {
 export const {
   target: perpsActiveAccountMmrAtom,
   use: usePerpsActiveAccountMmrAtom,
-} = globalAtomComputedR<{ mmr: string | null; mmrPercent: string | null }>({
+} = globalAtomComputedR<IPerpsCrossMarginRatio>({
   read: (get) => {
-    const accountSummary = get(perpsActiveAccountSummaryAtom.atom());
+    const account = get(perpsActiveAccountAtom.atom());
+    const modeData = get(perpsAbstractionModeAtom.atom());
+    const summary = get(perpsActiveAccountSummaryAtom.atom());
+    const spotData = get(perpsSpotBalancesAtom.atom());
 
-    if (
-      !accountSummary?.crossMaintenanceMarginUsed ||
-      !accountSummary?.crossAccountValue
-    ) {
-      return { mmr: null, mmrPercent: null };
+    const activeAddress = account?.accountAddress?.toLowerCase();
+    if (!activeAddress) {
+      return { status: 'ready', mmr: null, mmrPercent: null };
     }
+    const isForActiveAccount = (address: string | null | undefined) =>
+      address?.toLowerCase() === activeAddress;
 
-    const maintenanceMarginUsed = new BigNumber(
-      accountSummary.crossMaintenanceMarginUsed,
-    );
-    const accountValue = new BigNumber(accountSummary.crossAccountValue);
+    const activeSummary = isForActiveAccount(summary?.accountAddress)
+      ? summary
+      : undefined;
+    const activeSpotData = isForActiveAccount(spotData?.accountAddress)
+      ? spotData
+      : undefined;
+    // Every supported DEX is collateralized by USDC (spot token 0).
+    const usdcBalance = activeSpotData?.balances?.find((b) => b.token === 0);
 
-    // Avoid division by zero
-    if (accountValue.isZero()) {
-      return { mmr: null, mmrPercent: null };
-    }
-
-    const mmr = maintenanceMarginUsed.dividedBy(accountValue);
-    return { mmr: mmr.toFixed(), mmrPercent: mmr.multipliedBy(100).toFixed(2) };
+    return computePerpsCrossMarginRatio({
+      mode: isForActiveAccount(modeData?.accountAddress)
+        ? modeData?.mode
+        : undefined,
+      crossMaintenanceMarginUsed: activeSummary?.crossMaintenanceMarginUsed,
+      crossAccountValue: activeSummary?.crossAccountValue,
+      isolatedMarginUsed: activeSummary?.isolatedMarginUsed,
+      spotCollateralTotal:
+        activeSpotData?.spotTotalUsd === undefined
+          ? undefined
+          : (usdcBalance?.total ?? '0'),
+    });
   },
 });
 

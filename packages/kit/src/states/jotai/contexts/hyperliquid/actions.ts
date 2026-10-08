@@ -1960,7 +1960,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       params: {
         source: Extract<
           ISubscriptionRecoveryProofSource,
-          'route-focused' | 'token-selector'
+          'route-focused' | 'token-selector' | 'trade-history-details'
         >;
       },
     ) =>
@@ -1968,6 +1968,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         source: params.source,
         isSourceLive: () => {
           const state = get(tradeRouteViewStateAtom());
+          if (params.source === 'trade-history-details') {
+            return state.tradeHistoryDetailsOpen;
+          }
           return params.source === 'token-selector'
             ? state.tokenSelectorOpen
             : state.routeFocused;
@@ -3315,6 +3318,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         coin: string;
         oid: number;
         newPrice: string;
+        expectedAccountAddress: string;
       },
     ) => {
       return withToast({
@@ -3346,6 +3350,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               reduceOnly: existing.reduceOnly,
               amendKind,
               cloid: existing.cloid,
+              expectedAccountAddress: params.expectedAccountAddress,
               alwaysPlace: true,
             },
           );

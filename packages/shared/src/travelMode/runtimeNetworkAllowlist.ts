@@ -40,6 +40,7 @@ const TRAVEL_MODE_ALLOWED_REQUESTS = new Set(
       ['utility', 'get', '/utility/v2/market/banner/stock-token-list'],
       ['utility', 'get', '/utility/v2/market/banner/perps-token-list'],
       ['swap', 'post', '/swap/v1/check-stable-coins-list'],
+      ['utility', 'post', '/utility/v1/stocks/batch'],
       ['utility', 'post', '/utility/v2/market/token/list/batch'],
     ] as const satisfies readonly (readonly [
       ITravelModeService,

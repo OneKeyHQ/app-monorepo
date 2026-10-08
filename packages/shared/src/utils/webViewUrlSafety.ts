@@ -3,7 +3,6 @@
  *
  * Single source of truth used by:
  *   - `openWebView()` (in-app entry function)
- *   - `parseWebViewDeepLink()` (deeplink decoder)
  *   - `WebViewPage`'s `onShouldStartLoadWithRequest` (per-navigation guard)
  *   - `notificationsUtils.parseNotificationPayload`'s `openInApp` branch
  *     (including the extension-background `openUrlExternal` fallback, so the

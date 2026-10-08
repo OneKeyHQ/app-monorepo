@@ -32,7 +32,10 @@ import { markMarketPerf } from '../../utils/marketPerf';
 import { useMarketRenderCommitProbe } from '../../utils/marketReactPerf';
 import { CompactNetworkSelector } from '../components/CompactNetworkSelector';
 import { MarketBannerList } from '../components/MarketBanner';
-import { MarketListLoadingFallback } from '../components/MarketTokenList/MarketListLoadingFallback';
+import {
+  MarketDesktopTableLoadingFallback,
+  MarketListLoadingFallback,
+} from '../components/MarketTokenList/MarketListLoadingFallback';
 import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
 import { MarketTopCoinsList } from '../components/MarketTopCoinsList/MarketTopCoinsList';
 import { TimeRangeDropdown } from '../components/TimeRangeDropdown';
@@ -47,13 +50,14 @@ import {
 
 import { DesktopStickyHeaderContext } from './DesktopStickyHeaderContext';
 import { useMarketTabsLogic, useSyncedMarketTab } from './hooks';
-import { getDefaultMarketStockCategoryId } from './marketStockCategoryUtils';
+import { useMarketSubCategorySelection } from './useMarketSubCategorySelection';
 
 import type { IDesktopLayoutProps } from './DesktopLayout.types';
 import type { IMarketCategoryItem } from '../types';
 import type { TabBarProps } from 'react-native-collapsible-tab-view';
 
 const EMPTY_MARKET_STOCK_CATEGORIES: IMarketCategoryItem[] = [];
+const EMPTY_MARKET_TOP_COINS_CATEGORIES: IMarketCategoryItem[] = [];
 
 const LazyMarketWatchlistTokenList = lazy(async () => {
   const { MarketWatchlistTokenList } =
@@ -179,27 +183,12 @@ export function DesktopLayout({
   >({});
   const stockCategories =
     filterBarProps.stockCategories ?? EMPTY_MARKET_STOCK_CATEGORIES;
-  const [selectedStockCategoryId, setSelectedStockCategoryId] = useState(
-    getDefaultMarketStockCategoryId(stockCategories),
-  );
-  useEffect(() => {
-    if (stockCategories.length === 0) {
-      if (selectedStockCategoryId !== 'all') {
-        setSelectedStockCategoryId('all');
-      }
-      return;
-    }
-
-    if (
-      !stockCategories.some(
-        (category) => category.id === selectedStockCategoryId,
-      )
-    ) {
-      setSelectedStockCategoryId(
-        getDefaultMarketStockCategoryId(stockCategories),
-      );
-    }
-  }, [selectedStockCategoryId, stockCategories]);
+  const [selectedStockCategoryId, setSelectedStockCategoryId] =
+    useMarketSubCategorySelection(stockCategories);
+  const topCoinsCategories =
+    filterBarProps.topCoinsCategories ?? EMPTY_MARKET_TOP_COINS_CATEGORIES;
+  const [selectedTopCoinsCategoryId, setSelectedTopCoinsCategoryId] =
+    useMarketSubCategorySelection(topCoinsCategories);
   const handleStockDataChange = useCallback(
     (categoryId: string, isStockData: boolean) => {
       setStockDataCategoryMap((prev) => {
@@ -421,7 +410,7 @@ export function DesktopLayout({
           <Tabs.Tab key={watchlistTabName} name={watchlistTabName}>
             <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS} px="$3" flex={1}>
               {hasActivated(watchlistTabName) ? (
-                <Suspense fallback={<MarketListLoadingFallback />}>
+                <Suspense fallback={<MarketDesktopTableLoadingFallback />}>
                   <LazyMarketWatchlistTokenList
                     tabIntegrated
                     tabName={watchlistTabName}
@@ -458,6 +447,9 @@ export function DesktopLayout({
         } else if (item.categoryId === MARKET_TOP_COINS_CATEGORY_ID) {
           tabContent = (
             <MarketTopCoinsList
+              categories={topCoinsCategories}
+              selectedCategoryId={selectedTopCoinsCategoryId}
+              onSelectCategory={setSelectedTopCoinsCategoryId}
               tabIntegrated
               tabName={item.tabName}
               listContainerProps={listContainerProps}

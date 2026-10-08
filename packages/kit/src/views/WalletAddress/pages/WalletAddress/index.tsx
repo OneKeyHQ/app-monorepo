@@ -323,11 +323,12 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
                     placement="bottom-start"
                     walletId={walletId ?? ''}
                     networkId={network.id}
-                    activeDeriveType={account?.deriveType}
-                    activeDeriveInfo={account?.deriveInfo}
                     indexedAccountId={indexedAccountId ?? ''}
                     onSelect={async () => {
-                      await refreshLocalData();
+                      await refreshLocalData({
+                        alwaysSetState: true,
+                        skipAccountsCache: true,
+                      });
                     }}
                     onCreate={async ({ deriveType }) => {
                       const defaultDeriveType =

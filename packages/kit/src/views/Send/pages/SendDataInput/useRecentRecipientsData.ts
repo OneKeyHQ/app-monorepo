@@ -240,75 +240,237 @@ type IUseRecentRecipientsDataParams = {
   refreshKey?: number;
 };
 
+type IRecentRecipientsCacheEntry = {
+  recipients: IEnrichedRecentRecipient[];
+  lastUsedDeriveType?: string;
+  // The server reported /transfer-recipient as unsupported for this
+  // network, so later loads skip the round trip and read the local store.
+  apiUnsupported: boolean;
+};
+
+// Last successful /transfer-recipient answer, persisted by ServiceHistory.
+// On a cold start (no session cache yet) it is enriched locally and painted
+// at once so the Recent tab does not wait for the server round trip; the
+// API refresh that follows replaces it (OK-63452).
+async function loadPersistedApiRecipients({
+  accountId,
+  apiNetworkId,
+  networkId,
+}: {
+  accountId: string;
+  apiNetworkId: string;
+  networkId: string;
+}): Promise<IRecentRecipientsCacheEntry | undefined> {
+  try {
+    const persisted =
+      await backgroundApiProxy.serviceHistory.getCachedTransferRecipients({
+        accountId,
+        networkId: apiNetworkId,
+        limit: MAX_RECIPIENTS,
+      });
+    if (!persisted?.data?.length) {
+      return undefined;
+    }
+    const extraMap = await buildExtraMapFromApiRecipients(persisted.data);
+    const recipients = await enrichAddresses(
+      persisted.data.map((r) => r.address),
+      extraMap,
+      networkId,
+    );
+    return {
+      recipients,
+      lastUsedDeriveType: persisted.lastUsedDeriveType,
+      apiUnsupported: false,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+// Last completed load per account + network, kept for the app session so a
+// re-opened Send page paints the previous list at once while a refresh runs
+// in the background (stale-while-revalidate).
+const recentRecipientsCache = new Map<string, IRecentRecipientsCacheEntry>();
+
+// Latest load version per cache key, shared by every hook instance, so a
+// slower load started by an earlier Send page cannot overwrite the cache
+// with an older answer after a newer load has committed.
+const recentRecipientsLoadVersion = new Map<string, number>();
+
+function getRecentRecipientsCacheKey({
+  accountId,
+  networkId,
+}: {
+  accountId: string;
+  networkId: string;
+}) {
+  return `${accountId}__${networkId}`;
+}
+
+export function clearRecentRecipientsCache() {
+  recentRecipientsCache.clear();
+  recentRecipientsLoadVersion.clear();
+}
+
 export function useRecentRecipientsData({
   accountId,
   networkId,
   refreshKey,
 }: IUseRecentRecipientsDataParams) {
+  const initialCacheEntry = accountId
+    ? recentRecipientsCache.get(
+        getRecentRecipientsCacheKey({ accountId, networkId }),
+      )
+    : undefined;
   const [recentRecipients, setRecentRecipients] = useState<
     IEnrichedRecentRecipient[]
-  >([]);
-  const [isLoadingRecent, setIsLoadingRecent] = useState(true);
+  >(() => initialCacheEntry?.recipients ?? []);
+  const [isLoadingRecent, setIsLoadingRecent] = useState(!initialCacheEntry);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [lastUsedDeriveType, setLastUsedDeriveType] = useState<
     string | undefined
-  >();
+  >(() => initialCacheEntry?.lastUsedDeriveType);
   const loadIdRef = useRef(0);
 
   const load = useCallback(async () => {
     loadIdRef.current += 1;
     const currentLoadId = loadIdRef.current;
-    const isStale = () => loadIdRef.current !== currentLoadId;
 
-    setIsLoadingRecent(true);
     setIsLoadingMore(false);
-    setRecentRecipients([]);
-    setLastUsedDeriveType(undefined);
 
     if (!accountId) {
+      setRecentRecipients([]);
+      setLastUsedDeriveType(undefined);
       setIsLoadingRecent(false);
       return;
     }
 
+    const cacheKey = getRecentRecipientsCacheKey({ accountId, networkId });
+    const loadVersion = (recentRecipientsLoadVersion.get(cacheKey) ?? 0) + 1;
+    recentRecipientsLoadVersion.set(cacheKey, loadVersion);
+    // Stale when this instance started a newer load or unmounted; such a
+    // load must neither update state nor write the shared cache.
+    const isStale = () => loadIdRef.current !== currentLoadId;
+    // Another instance may have started a newer load for the same account +
+    // network. This load may still paint its own screen (so an abandoned
+    // newer load never strands it on a skeleton), but it must not overwrite
+    // the shared cache with an older answer.
+    const isLatestVersion = () =>
+      recentRecipientsLoadVersion.get(cacheKey) === loadVersion;
+
     const isEvmNetwork = networkUtils.isEvmNetwork({ networkId });
+    const apiNetworkId = isEvmNetwork ? 'evm--1' : networkId;
+
+    const fetchApiRecipients = () =>
+      backgroundApiProxy.serviceHistory.fetchTransferRecipients({
+        accountId,
+        networkId: apiNetworkId,
+        limit: MAX_RECIPIENTS,
+      });
+
+    let cached = recentRecipientsCache.get(cacheKey);
+    let apiPromise: ReturnType<typeof fetchApiRecipients> | undefined;
+    if (cached) {
+      setRecentRecipients(cached.recipients);
+      setLastUsedDeriveType(cached.lastUsedDeriveType);
+      setIsLoadingRecent(false);
+    } else {
+      setIsLoadingRecent(true);
+      setRecentRecipients([]);
+      setLastUsedDeriveType(undefined);
+      // Cold start: the API request does not depend on the persisted answer,
+      // so start it now and let the round trip overlap the local enrichment
+      // of the persisted list. Rejections are observed in Phase 1 below; the
+      // no-op catch only keeps an early stale return from leaving it
+      // unhandled.
+      apiPromise = fetchApiRecipients();
+      apiPromise.catch(() => undefined);
+      const persisted = await loadPersistedApiRecipients({
+        accountId,
+        apiNetworkId,
+        networkId,
+      });
+      if (isStale()) return;
+      if (persisted) {
+        cached = persisted;
+        // Seed the session cache so a failed refresh still leaves the next
+        // mount with an instant paint instead of replaying the cold path.
+        if (isLatestVersion()) {
+          recentRecipientsCache.set(cacheKey, persisted);
+        }
+        setRecentRecipients(persisted.recipients);
+        setLastUsedDeriveType(persisted.lastUsedDeriveType);
+        setIsLoadingRecent(false);
+      }
+    }
+
+    const commit = (entry: IRecentRecipientsCacheEntry) => {
+      if (isLatestVersion()) {
+        recentRecipientsCache.set(cacheKey, entry);
+      }
+      setRecentRecipients(entry.recipients);
+      setLastUsedDeriveType(entry.lastUsedDeriveType);
+      setIsLoadingRecent(false);
+    };
+
+    let apiUnsupported = cached?.apiUnsupported ?? false;
+    let apiFailed = false;
 
     // Phase 1: try the indexer API. When the API is supported, it is the
     // single source of truth — we do not fall back to local storage or
     // chain history to avoid mixing sources (OK-53284). If the API is
     // not supported for this chain (or the call fails), drop to the
-    // local fallback below.
-    const apiNetworkId = isEvmNetwork ? 'evm--1' : networkId;
-    try {
-      const {
-        supported,
-        data: apiRecipients,
-        lastUsedDeriveType: apiDeriveType,
-      } = await backgroundApiProxy.serviceHistory.fetchTransferRecipients({
-        accountId,
-        networkId: apiNetworkId,
-        limit: MAX_RECIPIENTS,
-      });
-      if (isStale()) return;
-
-      if (supported) {
-        if (apiDeriveType) setLastUsedDeriveType(apiDeriveType);
-
-        const apiExtraMap = await buildExtraMapFromApiRecipients(apiRecipients);
+    // local fallback below. A network the server already reported as
+    // unsupported this session skips the round trip entirely.
+    if (!apiUnsupported) {
+      try {
+        const {
+          supported,
+          data: apiRecipients,
+          lastUsedDeriveType: apiDeriveType,
+          errored,
+        } = await (apiPromise ?? fetchApiRecipients());
         if (isStale()) return;
 
-        const enriched = await enrichAddresses(
-          apiRecipients.map((r) => r.address),
-          apiExtraMap,
-          networkId,
-        );
-        if (isStale()) return;
+        if (supported) {
+          const apiExtraMap =
+            await buildExtraMapFromApiRecipients(apiRecipients);
+          if (isStale()) return;
 
-        setRecentRecipients(enriched);
-        setIsLoadingRecent(false);
-        return;
+          const enriched = await enrichAddresses(
+            apiRecipients.map((r) => r.address),
+            apiExtraMap,
+            networkId,
+          );
+          if (isStale()) return;
+
+          commit({
+            recipients: enriched,
+            lastUsedDeriveType: apiDeriveType,
+            apiUnsupported: false,
+          });
+          return;
+        }
+        // Only a server-side "unsupported" answer is memoized; a failed
+        // request must be retried on the next load.
+        apiUnsupported = !errored;
+        apiFailed = Boolean(errored);
+      } catch {
+        // API call failed — fall through to local fallback.
+        apiFailed = true;
       }
-    } catch {
-      // API call failed — fall through to local fallback.
+    }
+
+    // A thrown request skips the in-try stale checks, so guard here before
+    // touching state: this instance may have moved on to another network.
+    if (isStale()) return;
+
+    // A failed background refresh keeps the cached API list on screen (it
+    // was applied at the start of this load); the local store is only a
+    // substitute for a cold load or for a network the server reported as
+    // unsupported (OK-53284: never mix sources).
+    if (apiFailed && cached && !cached.apiUnsupported) {
+      return;
     }
 
     // Phase 2: indexer API not supported — show only locally-confirmed
@@ -327,28 +489,36 @@ export function useRecentRecipientsData({
       await loadStoredRecipients({ networkId, accountId });
     if (isStale()) return;
 
+    let storedRecipients: IEnrichedRecentRecipient[] = [];
     if (storedAddresses.length > 0) {
       try {
-        const enriched = await enrichAddresses(
+        storedRecipients = await enrichAddresses(
           storedAddresses,
           storedExtraMap,
           networkId,
         );
-        if (isStale()) return;
-        setRecentRecipients(enriched);
       } catch {
         // ignore enrichment errors
       }
     }
 
     if (isStale()) return;
-    setIsLoadingRecent(false);
+    commit({ recipients: storedRecipients, apiUnsupported });
     setIsLoadingMore(false);
   }, [accountId, networkId]);
 
   useEffect(() => {
     void load();
   }, [load, refreshKey]);
+
+  // Invalidate this instance's in-flight load on unmount so it can neither
+  // update state nor write the shared cache after the page has closed.
+  useEffect(
+    () => () => {
+      loadIdRef.current += 1;
+    },
+    [],
+  );
 
   return {
     recentRecipients,

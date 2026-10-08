@@ -1,5 +1,5 @@
 diff --git a/node_modules/@tamagui/react-native-media-driver/dist/cjs/mediaQueryList.native.js b/node_modules/@tamagui/react-native-media-driver/dist/cjs/mediaQueryList.native.js
-index ea68667..6ba12b5 100644
+index ea68667..d56cd5c 100644
 --- a/node_modules/@tamagui/react-native-media-driver/dist/cjs/mediaQueryList.native.js
 +++ b/node_modules/@tamagui/react-native-media-driver/dist/cjs/mediaQueryList.native.js
 @@ -27,7 +27,10 @@ __export(mediaQueryList_exports, {
@@ -13,13 +13,13 @@ index ea68667..6ba12b5 100644
  var import_matchQuery = require("./matchQuery.native.js");
  function _class_call_check(instance, Constructor) {
    if (!(instance instanceof Constructor)) {
-@@ -61,6 +64,35 @@ function _define_property(obj, key, value) {
+@@ -61,6 +64,39 @@ function _define_property(obj, key, value) {
    }
    return obj;
  }
 +// OneKey patch: Full-screen iPad surfaces can refresh unclamped media queries.
 +var nativeMediaControl = globalThis.$$onekeyNativeMedia ||
-+  (globalThis.$$onekeyNativeMedia = { useRealWidth: false });
++  (globalThis.$$onekeyNativeMedia = { useRealWidth: false, isTabletLike: false });
 +var mediaUpdaters = new Set();
 +nativeMediaControl.refresh = function () {
 +  mediaUpdaters.forEach(function (update) { update(); });
@@ -37,6 +37,10 @@ index ea68667..6ba12b5 100644
 +  var isTablet = ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET;
 +  var isLandscape = dimensions.width > dimensions.height;
 +  var isSpanning = isDualScreenDevice() && import_react_native_device_utils.ReactNativeDeviceUtils.isSpanning();
++  // OneKey patch: only tablet-like devices switch between clamped and real
++  // width at runtime, so the Tamagui useMedia patch scopes its re-render fix
++  // to them and leaves phones on upstream behavior.
++  nativeMediaControl.isTabletLike = isTablet || isDualScreenDevice();
 +  if (nativeMediaControl.useRealWidth && !isSpanning) return dimensions;
 +  var shouldUseHalfWidth = isSpanning || isTablet && isLandscape;
 +  var shouldClampWidth = shouldUseHalfWidth || isTablet || import_react_native.Platform.OS === "android";
@@ -49,7 +53,7 @@ index ea68667..6ba12b5 100644
  var NativeMediaQueryList = /* @__PURE__ */function () {
    "use strict";
  
-@@ -71,10 +103,21 @@ var NativeMediaQueryList = /* @__PURE__ */function () {
+@@ -71,10 +107,21 @@ var NativeMediaQueryList = /* @__PURE__ */function () {
      _define_property(this, "listeners", void 0);
      this.query = query;
      this.listeners = [];
@@ -71,7 +75,7 @@ index ea68667..6ba12b5 100644
    }
    _create_class(NativeMediaQueryList2, [{
      key: "orientation",
-@@ -118,7 +161,7 @@ var NativeMediaQueryList = /* @__PURE__ */function () {
+@@ -118,7 +165,7 @@ var NativeMediaQueryList = /* @__PURE__ */function () {
    }, {
      key: "matches",
      get: function get() {
@@ -81,7 +85,7 @@ index ea68667..6ba12b5 100644
          type: "screen",
          orientation: this.orientation,
 diff --git a/node_modules/@tamagui/react-native-media-driver/dist/esm/mediaQueryList.native.js b/node_modules/@tamagui/react-native-media-driver/dist/esm/mediaQueryList.native.js
-index 91e7740..df50e9a 100644
+index 91e7740..c96b54a 100644
 --- a/node_modules/@tamagui/react-native-media-driver/dist/esm/mediaQueryList.native.js
 +++ b/node_modules/@tamagui/react-native-media-driver/dist/esm/mediaQueryList.native.js
 @@ -1,4 +1,7 @@
@@ -93,13 +97,13 @@ index 91e7740..df50e9a 100644
  import { matchQuery } from "./matchQuery.native.js";
  function _class_call_check(instance, Constructor) {
    if (!(instance instanceof Constructor)) {
-@@ -32,6 +35,35 @@ function _define_property(obj, key, value) {
+@@ -32,6 +35,39 @@ function _define_property(obj, key, value) {
    }
    return obj;
  }
 +// OneKey patch: Full-screen iPad surfaces can refresh unclamped media queries.
 +var nativeMediaControl = globalThis.$$onekeyNativeMedia ||
-+  (globalThis.$$onekeyNativeMedia = { useRealWidth: false });
++  (globalThis.$$onekeyNativeMedia = { useRealWidth: false, isTabletLike: false });
 +var mediaUpdaters = new Set();
 +nativeMediaControl.refresh = function () {
 +  mediaUpdaters.forEach(function (update) { update(); });
@@ -117,6 +121,10 @@ index 91e7740..df50e9a 100644
 +  var isTablet = ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET;
 +  var isLandscape = dimensions.width > dimensions.height;
 +  var isSpanning = isDualScreenDevice() && ReactNativeDeviceUtils.isSpanning();
++  // OneKey patch: only tablet-like devices switch between clamped and real
++  // width at runtime, so the Tamagui useMedia patch scopes its re-render fix
++  // to them and leaves phones on upstream behavior.
++  nativeMediaControl.isTabletLike = isTablet || isDualScreenDevice();
 +  if (nativeMediaControl.useRealWidth && !isSpanning) return dimensions;
 +  var shouldUseHalfWidth = isSpanning || isTablet && isLandscape;
 +  var shouldClampWidth = shouldUseHalfWidth || isTablet || Platform.OS === "android";
@@ -129,7 +137,7 @@ index 91e7740..df50e9a 100644
  var NativeMediaQueryList = /* @__PURE__ */function () {
    "use strict";
  
-@@ -42,10 +74,21 @@ var NativeMediaQueryList = /* @__PURE__ */function () {
+@@ -42,10 +78,21 @@ var NativeMediaQueryList = /* @__PURE__ */function () {
      _define_property(this, "listeners", void 0);
      this.query = query;
      this.listeners = [];
@@ -151,7 +159,7 @@ index 91e7740..df50e9a 100644
    }
    _create_class(NativeMediaQueryList2, [{
      key: "orientation",
-@@ -89,7 +132,7 @@ var NativeMediaQueryList = /* @__PURE__ */function () {
+@@ -89,7 +136,7 @@ var NativeMediaQueryList = /* @__PURE__ */function () {
    }, {
      key: "matches",
      get: function get() {
@@ -161,7 +169,7 @@ index 91e7740..df50e9a 100644
          type: "screen",
          orientation: this.orientation,
 diff --git a/node_modules/@tamagui/react-native-media-driver/src/mediaQueryList.ts b/node_modules/@tamagui/react-native-media-driver/src/mediaQueryList.ts
-index 0c33f42..86eeaea 100644
+index 0c33f42..bb832a5 100644
 --- a/node_modules/@tamagui/react-native-media-driver/src/mediaQueryList.ts
 +++ b/node_modules/@tamagui/react-native-media-driver/src/mediaQueryList.ts
 @@ -1,5 +1,9 @@
@@ -175,14 +183,14 @@ index 0c33f42..86eeaea 100644
  
  import { matchQuery } from './matchQuery'
  
-@@ -7,6 +11,45 @@ type Orientation = 'landscape' | 'portrait'
+@@ -7,6 +11,49 @@ type Orientation = 'landscape' | 'portrait'
  
  type Listener = (orientation: Orientation) => void
  
 +// OneKey patch: Normalize responsive widths for tablets and dual-screen devices.
 +// OneKey patch: Full-screen iPad surfaces can refresh unclamped media queries.
 +const nativeMediaControl = globalThis.$$onekeyNativeMedia ||
-+  (globalThis.$$onekeyNativeMedia = { useRealWidth: false })
++  (globalThis.$$onekeyNativeMedia = { useRealWidth: false, isTabletLike: false })
 +const mediaUpdaters = new Set<() => void>()
 +nativeMediaControl.refresh = () => {
 +  mediaUpdaters.forEach((update) => update())
@@ -201,6 +209,10 @@ index 0c33f42..86eeaea 100644
 +  const isLandscape = dimensions.width > dimensions.height
 +  const isSpanning =
 +    isDualScreenDevice() && ReactNativeDeviceUtils.isSpanning()
++  // OneKey patch: only tablet-like devices switch between clamped and real
++  // width at runtime, so the Tamagui useMedia patch scopes its re-render fix
++  // to them and leaves phones on upstream behavior.
++  nativeMediaControl.isTabletLike = isTablet || isDualScreenDevice()
 +  if (nativeMediaControl.useRealWidth && !isSpanning) return dimensions
 +  const shouldUseHalfWidth = isSpanning || (isTablet && isLandscape)
 +  const shouldClampWidth = shouldUseHalfWidth || isTablet || Platform.OS === 'android'
@@ -221,7 +233,7 @@ index 0c33f42..86eeaea 100644
  export class NativeMediaQueryList implements MediaQueryList {
    private listeners: Listener[] = []
  
-@@ -16,10 +59,21 @@ export class NativeMediaQueryList implements MediaQueryList {
+@@ -16,10 +63,21 @@ export class NativeMediaQueryList implements MediaQueryList {
    }
  
    constructor(private query: string) {
@@ -243,7 +255,7 @@ index 0c33f42..86eeaea 100644
    }
  
    private notify() {
-@@ -47,7 +101,7 @@ export class NativeMediaQueryList implements MediaQueryList {
+@@ -47,7 +105,7 @@ export class NativeMediaQueryList implements MediaQueryList {
    }
  
    get matches(): boolean {

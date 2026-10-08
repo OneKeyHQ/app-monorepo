@@ -11,6 +11,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Dialog,
+  ESwitchSize,
   SizableText,
   Spinner,
   Stack,
@@ -182,13 +183,17 @@ function showCollateralConfirmDialog(params: {
   });
 }
 
+// A handler that only needs to exist: attaching one makes its view the
+// responder claimant on native.
+const noop = () => {};
+
 // Self-contained on purpose: TableList's memo comparator stringifies column
 // defs (functions dropped), so render-time state must live in the mounted
 // cell, never in column-def closures.
 export function CollateralSwitchCell({
   item,
   eModeId,
-  size = 'small',
+  size = ESwitchSize.extraSmall,
 }: {
   item: ISuppliedAsset;
   eModeId?: number;
@@ -660,46 +665,36 @@ export function CollateralSwitchCell({
     isNativeActionUnsupported ||
     disabled ||
     (!value && requiresEModeId && eModeId === undefined);
+  // Attaching any handler is the whole point: it makes this view the responder
+  // claimant. See the wrapper below for when that is needed.
+  const claimNativeTouch = isSwitchDisabled ? noop : undefined;
 
   return (
     <Stack
       position="relative"
       ai="center"
       jc="center"
+      // Keep the compact Switch's own hit target intact. The shared Switch
+      // uses the platform control by default, matching Swap's privacy mode;
+      // adding a padded halo here would put the target outside the parent on
+      // Android and swallow the desktop table's row press on web.
+      //
+      // Absorb taps while disabled to keep the position card underneath from
+      // expanding. The enabled path remains owned by the Switch itself.
       onPress={
         platformEnv.isNative
-          ? undefined
+          ? claimNativeTouch
           : (e) => {
               e.stopPropagation();
             }
       }
     >
       <Stack opacity={previewLoading ? 0 : 1}>
-        {/* The shared press-based switch avoids native row hit-testing issues on iOS. */}
         <Switch
           testID={BorrowTestIDs.suppliedCollateralSwitch}
           value={value}
           size={size}
-          native={!platformEnv.isNativeIOS}
           disabled={isSwitchDisabled}
-          {...(platformEnv.isNativeIOS
-            ? {
-                accessible: true,
-                accessibilityRole: 'switch' as const,
-                accessibilityLabel: `${item.token.symbol} ${intl.formatMessage({
-                  id: ETranslations.defi_collateral,
-                })}`,
-                accessibilityState: {
-                  checked: value,
-                  disabled: isSwitchDisabled,
-                },
-                onAccessibilityTap: () => {
-                  if (!isSwitchDisabled) handleToggle();
-                },
-                hitSlop: { top: 12, bottom: 12, left: 6, right: 6 },
-                bg: value ? '$bgAccent' : '$neutral5',
-              }
-            : undefined)}
           onChange={handleToggle}
         />
       </Stack>

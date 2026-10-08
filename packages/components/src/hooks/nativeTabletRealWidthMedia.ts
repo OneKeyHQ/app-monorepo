@@ -3,3 +3,7 @@
 export function acquireNativeTabletRealWidthMedia() {}
 
 export function releaseNativeTabletRealWidthMedia() {}
+
+export function useIsNativeTabletRealWidthMediaHeld() {
+  return false;
+}
