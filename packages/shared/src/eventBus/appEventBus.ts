@@ -156,6 +156,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.LocalSystemTimeInvalid]: undefined;
   [EAppEventBusNames.LocalSystemTimeStatusChanged]: {
     status: 'VALID' | 'INVALID' | 'UNKNOWN';
+    isTimeErrorConfirmed: boolean;
   };
   [EAppEventBusNames.ShowDialogLoading]: IDialogLoadingProps;
   [EAppEventBusNames.HideDialogLoading]: undefined;
@@ -235,6 +236,7 @@ export interface IAppEventBusPayload {
         attemptId?: number;
       }
     | undefined;
+  [EAppEventBusNames.WalletConnectCloseConnectionProgress]: undefined;
   [EAppEventBusNames.WalletConnectModalState]: {
     open: boolean;
     attemptId?: number;

@@ -25,6 +25,7 @@ export function getTradingViewNativeChartSettingsButtonRight(
 }
 
 export function TradingViewNativeChartSettingsButton({
+  panelId,
   priceAxisWidth,
   enablePreviousClose = false,
   isChartSwitchDisabled = false,
@@ -32,6 +33,7 @@ export function TradingViewNativeChartSettingsButton({
   onBeforeOpenSettings,
   placement = 'chart',
 }: {
+  panelId?: string;
   priceAxisWidth: number;
   enablePreviousClose?: boolean;
   isChartSwitchDisabled?: boolean;
@@ -46,9 +48,12 @@ export function TradingViewNativeChartSettingsButton({
     onBeforeOpenSettings?.();
     navigation.pushModal(EModalRoutes.MarketModal, {
       screen: EModalMarketRoutes.MarketChartSettings,
-      params: { showPreviousClose: enablePreviousClose },
+      params: {
+        showPreviousClose: enablePreviousClose,
+        ...(panelId ? { panelId } : {}),
+      },
     });
-  }, [enablePreviousClose, navigation, onBeforeOpenSettings]);
+  }, [enablePreviousClose, navigation, onBeforeOpenSettings, panelId]);
   const handlePress = useCallback(() => {
     Dialog.show({
       title: intl.formatMessage({ id: ETranslations.global_settings }),
@@ -56,6 +61,7 @@ export function TradingViewNativeChartSettingsButton({
       testID: 'trading-view-native-chart-settings-quick-dialog',
       renderContent: (
         <TradingViewMobileChartSettingsDialogContent
+          panelId={panelId}
           chartMode="native"
           isChartSwitchDisabled={isChartSwitchDisabled}
           showPreviousClose={enablePreviousClose}
@@ -69,6 +75,7 @@ export function TradingViewNativeChartSettingsButton({
     intl,
     isChartSwitchDisabled,
     onChartSwitch,
+    panelId,
     openChartSettingsModal,
   ]);
 

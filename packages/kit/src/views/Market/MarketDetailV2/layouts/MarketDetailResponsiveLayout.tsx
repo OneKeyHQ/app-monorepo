@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import { Spinner, Stack } from '@onekeyhq/components';
 
 import { DesktopLayout } from './DesktopLayout';
@@ -5,7 +7,7 @@ import { MobileLayout } from './MobileLayout';
 
 import type { IMarketDetailResponsiveLayoutProps } from './MarketDetailResponsiveLayout.types';
 
-export function MarketDetailResponsiveLayout({
+function MarketDetailResponsiveLayoutBase({
   active,
   isLayoutPending,
   isInitialContentPending,
@@ -64,6 +66,7 @@ export function MarketDetailResponsiveLayout({
 
   return (
     <MobileLayout
+      active={active}
       isLayoutPending={isLayoutPending}
       isInitialContentPending={isInitialContentPending}
       disablePerpsBanner={disablePerpsBanner}
@@ -80,3 +83,7 @@ export function MarketDetailResponsiveLayout({
     />
   );
 }
+
+export const MarketDetailResponsiveLayout = memo(
+  MarketDetailResponsiveLayoutBase,
+);

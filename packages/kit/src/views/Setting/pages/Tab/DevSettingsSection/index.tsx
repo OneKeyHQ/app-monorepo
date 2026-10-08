@@ -564,6 +564,11 @@ const BaseDevSettingsSection = () => {
       onConfirm: async () => {
         try {
           await backgroundApiProxy.serviceDevSetting.switchDevMode(false);
+          if (devSettings.enabled && devSettings.settings?.enableTestEndpoint) {
+            setTimeout(() => {
+              void backgroundApiProxy.serviceApp.restartApp();
+            }, 300);
+          }
         } catch {
           Toast.error({
             title: 'Failed to disable developer mode',
@@ -577,7 +582,7 @@ const BaseDevSettingsSection = () => {
         }
       },
     });
-  }, []);
+  }, [devSettings.enabled, devSettings.settings?.enableTestEndpoint]);
 
   const handleOpenDevTools = useCallback(() => {
     showDevOnlyPasswordDialog({
@@ -1062,6 +1067,19 @@ const BaseDevSettingsSection = () => {
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
                       <SectionFieldItem
+                        icon="CurrencyDollarOutline"
+                        name="ignoreReviewControl"
+                        title="忽略远端入口开关，强制显示 Buy/Sell"
+                        subtitle={
+                          devSettings.settings?.ignoreReviewControl
+                            ? '已强制显示被远端开关隐藏的 Buy/Sell 等入口'
+                            : '远端开关关闭时会隐藏 Buy/Sell 等入口（默认关闭，需手动开启）'
+                        }
+                        searchKeywords="buy sell fiat visibility 出入金 入口"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+                      <SectionFieldItem
                         icon="ShieldOutline"
                         name="disableIpTableFailover"
                         title="禁用 IP 快速故障切换"
@@ -1196,7 +1214,7 @@ const BaseDevSettingsSection = () => {
                           <SectionPressItem
                             icon="ChromeBrand"
                             title="Open Chrome DevTools in Desktop"
-                            subtitle="启用后可以使用快捷键 Cmd/Ctrl + Shift + I 开启调试工具"
+                            subtitle="启用后可以使用快捷键 ⌥⌘I (macOS) / Ctrl+Shift+I 开启主窗口调试工具，⌥⇧⌘I / Ctrl+Alt+Shift+I 开启当前 WebView 调试工具"
                             onPress={handleOpenDevTools}
                           />
                           <SectionPressItem

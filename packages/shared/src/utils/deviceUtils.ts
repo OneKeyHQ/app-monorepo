@@ -471,10 +471,8 @@ async function buildDeviceLabel({
   features: IOneKeyDeviceFeatures;
   buildModelName?: boolean;
 }): Promise<string | ''> {
-  const { getDeviceLabel } = await CoreSDKLoader();
-  const label = getDeviceLabel(features);
-  if (label && !buildModelName) {
-    return label;
+  if (features.label && !buildModelName) {
+    return features.label;
   }
   const deviceType = await getDeviceTypeFromFeatures({
     features,

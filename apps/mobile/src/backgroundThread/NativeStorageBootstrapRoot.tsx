@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import type { ComponentType, ReactNode } from 'react';
 
 import {
@@ -39,12 +39,27 @@ let bootstrapGeneration = 0;
 type IBootstrapFailureStage = 'app' | 'jotai' | 'runtime-launch' | 'storage';
 let bootstrapFailureStage: IBootstrapFailureStage | undefined;
 const subscribers = new Set<() => void>();
+// Bumped on every notify so the root can detect a notify that fired between
+// its render and its subscription (the gate can settle in that window).
+let bootstrapStateVersion = 0;
 const NATIVE_STORAGE_BOOTSTRAP_TIMEOUT_MS = 65_000;
 const NATIVE_STORAGE_BOOTSTRAP_TIMEOUT_MESSAGE =
   'Native storage bootstrap timed out after 65 seconds';
 
 function notifySubscribers() {
+  bootstrapStateVersion += 1;
   subscribers.forEach((subscriber) => subscriber());
+}
+
+function subscribeBootstrapState(subscriber: () => void) {
+  subscribers.add(subscriber);
+  return () => {
+    subscribers.delete(subscriber);
+  };
+}
+
+function getBootstrapStateVersion() {
+  return bootstrapStateVersion;
 }
 
 function initializeJotaiFromBackground() {
@@ -435,17 +450,11 @@ const styles = StyleSheet.create({
 registerSwrCacheMutationInvalidation();
 
 export function NativeStorageBootstrapRoot() {
-  const [, rerender] = useReducer((value: number) => value + 1, 0);
+  useSyncExternalStore(subscribeBootstrapState, getBootstrapStateVersion);
   const [repairConfirmationTarget, setRepairConfirmationTarget] = useState<
     INativeStorageMigrationRecoveryTarget | undefined
   >();
   const isDarkMode = useColorScheme() === 'dark';
-  useEffect(() => {
-    subscribers.add(rerender);
-    return () => {
-      subscribers.delete(rerender);
-    };
-  }, []);
 
   if (AppComponent) {
     const App = AppComponent;
