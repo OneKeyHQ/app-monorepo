@@ -1008,9 +1008,11 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
     void autoSaveToStorage().catch(() => undefined);
   }, [autoSaveToStorage]);
 
-  // Mirror-shrink safety net (non-extension targets): when the last sibling UI
-  // holding a num releases it, JotaiContextStoreMirrorTracker shrinks
-  // enabledNum and unmounts this effects instance. A selection a sibling wrote
+  // Mirror-shrink safety net (all targets): when the last sibling UI holding a
+  // num releases it, JotaiContextStoreMirrorTracker shrinks enabledNum and
+  // unmounts this effects instance. On extension the background registry
+  // rebuilds enabledNum from live UI runtime registrations, so a num is dropped
+  // once no runtime holds it. A selection a sibling wrote
   // for this num just before the shrink may not have been saved yet — the
   // auto-save effect above is gone and nothing re-triggers the save, so a
   // process kill inside that window loses the selection. Flush once on
