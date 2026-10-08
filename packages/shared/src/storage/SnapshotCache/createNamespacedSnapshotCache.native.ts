@@ -60,6 +60,7 @@ function createInertSnapshotCache<T>(): ISnapshotCacheSync<T> {
     set: () => undefined,
     setMany: () => undefined,
     remove: () => undefined,
+    touch: () => undefined,
     keys: () => [],
     sweep: () => undefined,
     clear: () => undefined,
