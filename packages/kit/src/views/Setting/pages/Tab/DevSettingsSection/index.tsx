@@ -564,6 +564,11 @@ const BaseDevSettingsSection = () => {
       onConfirm: async () => {
         try {
           await backgroundApiProxy.serviceDevSetting.switchDevMode(false);
+          if (devSettings.enabled && devSettings.settings?.enableTestEndpoint) {
+            setTimeout(() => {
+              void backgroundApiProxy.serviceApp.restartApp();
+            }, 300);
+          }
         } catch {
           Toast.error({
             title: 'Failed to disable developer mode',
@@ -577,7 +582,7 @@ const BaseDevSettingsSection = () => {
         }
       },
     });
-  }, []);
+  }, [devSettings.enabled, devSettings.settings?.enableTestEndpoint]);
 
   const handleOpenDevTools = useCallback(() => {
     showDevOnlyPasswordDialog({

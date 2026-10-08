@@ -1258,6 +1258,61 @@ describe('useSwapActions', () => {
     });
   });
 
+  it('does not add token-risk presentation to the blocking action alerts', async () => {
+    const fromToken = {
+      ...ethToken,
+      price: '100',
+      currency: 'usd',
+    };
+    const toToken = {
+      ...usdcToken,
+      price: '100',
+      currency: 'usd',
+    };
+    const quote = {
+      quoteId: 'quote-risk-warning',
+      fromAmount: '1',
+      toAmount: '1',
+      kind: ESwapQuoteKind.SELL,
+      protocol: EProtocolOfExchange.SWAP,
+      fromTokenInfo: fromToken,
+      toTokenInfo: toToken,
+      honeypot: true,
+      lowLiquidity: true,
+      info: {
+        provider: 'mock',
+        providerName: 'mock',
+      },
+    } as IFetchQuoteResult;
+    const externalAddressInfo = createExternalAddressInfo({
+      address: '0xabc',
+      isAddressInfoReady: true,
+    });
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapSelectFromTokenAtom(), fromToken);
+      storeInstance.set(swapSelectToTokenAtom(), toToken);
+      storeInstance.set(swapFromTokenAmountAtom(), {
+        value: '1',
+        isInput: true,
+      });
+      storeInstance.set(swapQuoteListAtom(), [quote]);
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await withMutedConsoleError(async () => {
+      await act(async () => {
+        await result.current.checkSwapWarning(
+          externalAddressInfo,
+          externalAddressInfo,
+        );
+      });
+    });
+
+    expect(store.get(swapAlertsAtom()).states).toEqual([]);
+  });
+
   it('ignores stale Stock quote limits when the current input amount changed', async () => {
     const quote = {
       quoteId: 'stale-stock-limit-quote',
@@ -1747,6 +1802,46 @@ describe('useSwapActions', () => {
       'new-stock-provider-quote',
     );
   });
+
+  it.each(['from', 'to', 'reverse'] as const)(
+    'treats %s token selection as user intent even for the existing default pair',
+    async (direction) => {
+      const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+        storeInstance.set(swapSelectToTokenAtom(), usdcToken);
+        storeInstance.set(swapSelectedTokensColdStartContextAtom(), {
+          accountKey: 'wallet|account|default',
+          updatedAt: 0,
+          networkId: 'evm--1',
+          swapType: ESwapTabSwitchType.SWAP,
+          defaultTokenSeed: {
+            fromToken: ethToken,
+            toToken: usdcToken,
+          },
+        });
+      });
+      const { result } = renderHook(() => useSwapActions().current, {
+        wrapper: Wrapper,
+      });
+      await act(async () => {
+        if (direction === 'from') {
+          await result.current.selectFromToken(ethToken);
+        } else if (direction === 'to') {
+          await result.current.selectToToken(usdcToken);
+        } else {
+          result.current.alternationToken();
+        }
+      });
+      expect(
+        store.get(swapSelectedTokensColdStartContextAtom())?.defaultTokenSeed,
+      ).toBeUndefined();
+      expect(store.get(swapSelectFromTokenAtom())?.symbol).toBe(
+        direction === 'reverse' ? 'USDC' : 'ETH',
+      );
+      expect(store.get(swapSelectToTokenAtom())?.symbol).toBe(
+        direction === 'reverse' ? 'ETH' : 'USDC',
+      );
+    },
+  );
 
   it('restores Limit defaults after leaving Stock with cleared tokens', async () => {
     const { store, Wrapper } = createWrapperWithStore((storeInstance) => {

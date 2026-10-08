@@ -91,6 +91,7 @@ export enum ESwapQuoteKind {
 
 export enum ESwapQuoteSource {
   MARKET = 'Market',
+  SWEEP = 'Sweep',
 }
 
 export enum ESwapSource {
@@ -208,6 +209,10 @@ export interface ISwapInitParams {
 export interface ISwapNetworkBase {
   networkId: string;
   defaultSelectToken?: { from?: string; to?: string };
+  defaultSelectTokenDetail?: {
+    from?: ISwapToken;
+    to?: ISwapToken;
+  };
   supportCrossChainSwap?: boolean;
   supportSingleSwap?: boolean;
   supportLimit?: boolean;
@@ -754,6 +759,8 @@ export interface IFetchQuoteResult {
   providerDisableBatchTransfer?: boolean;
   buyTax?: number;
   sellTax?: number;
+  honeypot?: boolean;
+  lowLiquidity?: boolean;
 }
 
 export interface IAllowanceResult {
@@ -929,6 +936,8 @@ export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
   quoteResultCtx?: any;
   kind: ESwapQuoteKind;
   walletType?: string;
+  deviceType?: string;
+  source?: ESwapQuoteSource;
   bindedAccountAddress?: string;
   bindedNetworkId?: string;
   rebateAddress?: string;
