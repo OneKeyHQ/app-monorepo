@@ -169,10 +169,12 @@ const isMarketTableSection = (tabIndex: number) =>
 
 export function UniversalSearch({
   filterTypes,
+  hasCustomFilterTypes = false,
   initialTab,
   source,
 }: {
   filterTypes?: EUniversalSearchType[];
+  hasCustomFilterTypes?: boolean;
   initialTab?: 'market' | 'dapp';
   source: EUniversalSearchSource;
 }) {
@@ -301,14 +303,14 @@ export function UniversalSearch({
   // Market home and the default Universal Search keep every tab visible.
   // Browser-scoped search still hides modules that returned no results.
   const visibleTabTitles = useMemo(() => {
-    if (!filterTypes?.length) {
+    if (!hasCustomFilterTypes) {
       return tabTitles;
     }
     const sectionTitles = new Set(sections.map((section) => section.title));
     return tabTitles.filter(
       (title, index) => index === 0 || sectionTitles.has(title),
     );
-  }, [filterTypes?.length, sections, tabTitles]);
+  }, [hasCustomFilterTypes, sections, tabTitles]);
 
   // The selected tab may have been hidden (e.g. an `initialTab` preset whose
   // module returned no results). Fall back to the "All" tab so the result list
@@ -1010,6 +1012,9 @@ export function UniversalSearch({
           return Boolean(key && watchlistKeys.has(key));
         }),
       );
+      if (data.length === 0) {
+        return [];
+      }
       return [
         {
           tabIndex: WATCHLIST_TAB_INDEX,
@@ -1188,6 +1193,7 @@ const UniversalSearchWithHomeTokenListProvider = ({
     () => routeFilterTypes || getDefaultFilterTypes(),
     [routeFilterTypes],
   );
+  const hasCustomFilterTypes = Boolean(routeFilterTypes?.length);
 
   return (
     <HomeTokenListProviderMirrorWrapper
@@ -1195,6 +1201,7 @@ const UniversalSearchWithHomeTokenListProvider = ({
     >
       <UniversalSearch
         filterTypes={filterTypes}
+        hasCustomFilterTypes={hasCustomFilterTypes}
         initialTab={route?.params?.initialTab}
         source={source}
       />

@@ -326,7 +326,8 @@ function MarketTokenSelectorSearchResults({
   const isStocksTab = activeTab === MARKET_SEARCH_TABS.stocks;
   const isTokensTab = activeTab === MARKET_SEARCH_TABS.tokens;
   const showStockSection =
-    hasStockResults && (isAllTab || isStocksTab);
+    (isAllTab || isStocksTab) &&
+    (hasStockResults || stockResult.isLoading || stockResult.isError);
   const showTokenSection =
     (isAllTab || isTokensTab) &&
     (Boolean(isMarketLoading) || chainTokenItems.length > 0);

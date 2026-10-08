@@ -1,4 +1,5 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isMarketSearchStockListing } from '@onekeyhq/shared/src/utils/marketSearchStock';
 import { buildCoinFromSearchAssetType } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
@@ -89,15 +90,15 @@ export function getUniversalSearchWatchlistKey(
     return item.payload.stockId ? `stock:${item.payload.stockId}` : undefined;
   }
   if (item.type === EUniversalSearchType.V2MarketToken) {
-    if (item.payload.stockId) {
+    if (isMarketSearchStockListing(item.payload) && item.payload.stockId) {
       return `stock:${item.payload.stockId}`;
     }
-    if (item.payload.network && item.payload.address) {
+    if (item.payload.network) {
       return `${item.payload.network}:${
         normalizeTokenContractAddress({
           networkId: item.payload.network,
           contractAddress: item.payload.address,
-        }) || item.payload.address
+        }) || ''
       }`;
     }
     return undefined;

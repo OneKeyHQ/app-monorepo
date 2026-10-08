@@ -105,7 +105,9 @@ function MobileMarketTokenSelectorSearchResults({
   const previewTokens = isShowingAllTokens
     ? visibleTokens
     : visibleTokens.slice(0, SEARCH_SECTION_PREVIEW_LIMIT);
-  const showStockSection = hasStockResults && (isAllTab || isStocksTab);
+  const showStockSection =
+    (isAllTab || isStocksTab) &&
+    (hasStockResults || stockResult.isLoading || stockResult.isError);
   const showTokenSection =
     (isAllTab || isTokensTab) &&
     (Boolean(isMarketLoading) || visibleTokens.length > 0);

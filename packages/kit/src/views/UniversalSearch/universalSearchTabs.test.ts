@@ -1,7 +1,9 @@
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
+import type { IUniversalSearchResultItem } from '@onekeyhq/shared/types/search';
 
 import {
   getUniversalSearchTabIndex,
+  getUniversalSearchWatchlistKey,
   prioritizeMarketFocusedSections,
   resolveUniversalSearchInitialTabName,
   shouldPrioritizeMarketSearchSections,
@@ -107,5 +109,38 @@ describe('prioritizeMarketFocusedSections', () => {
         perp: 5,
       }),
     ).toEqual(sections);
+  });
+});
+
+describe('getUniversalSearchWatchlistKey', () => {
+  it('matches a native token by chain even when the address is empty', () => {
+    expect(
+      getUniversalSearchWatchlistKey({
+        type: EUniversalSearchType.V2MarketToken,
+        payload: { network: 'evm--1', address: '' },
+      } as IUniversalSearchResultItem),
+    ).toBe('evm--1:');
+  });
+
+  it('matches an issuer token by chain address instead of stock id', () => {
+    expect(
+      getUniversalSearchWatchlistKey({
+        type: EUniversalSearchType.V2MarketToken,
+        payload: {
+          stockId: 'AAPL',
+          network: 'evm--1',
+          address: '0xAbC',
+        },
+      } as IUniversalSearchResultItem),
+    ).toBe('evm--1:0xabc');
+  });
+
+  it('matches a bare stock listing by stock id', () => {
+    expect(
+      getUniversalSearchWatchlistKey({
+        type: EUniversalSearchType.V2MarketToken,
+        payload: { stockId: 'AAPL', network: '', address: '' },
+      } as IUniversalSearchResultItem),
+    ).toBe('stock:AAPL');
   });
 });

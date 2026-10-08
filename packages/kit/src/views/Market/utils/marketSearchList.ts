@@ -30,7 +30,7 @@ export function isDetailSearchChainToken(item: {
 }): boolean {
   return !isMarketSearchStockListing({
     stockId: item.stockId,
-    address: item.address,
-    network: item.network ?? item.networkId,
+    address: item.address ?? '',
+    network: item.network ?? item.networkId ?? '',
   });
 }

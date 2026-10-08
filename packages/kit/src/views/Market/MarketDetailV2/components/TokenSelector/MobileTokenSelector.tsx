@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { FlatList } from 'react-native';
 
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -169,6 +170,15 @@ function MobileDetailTopCoinsList({
   isLoading: boolean;
   onItemPress: (item: IMarketAssetListItem) => void;
 }) {
+  const renderItem = useCallback(
+    ({ item }: { item: IMarketAssetListItem }) => (
+      <TokenListItem
+        item={toMobileTopCoin(item)}
+        onPress={() => onItemPress(item)}
+      />
+    ),
+    [onItemPress],
+  );
   if (isLoading && data.length === 0) {
     return (
       <YStack flex={1} alignItems="center" justifyContent="center">
@@ -177,15 +187,15 @@ function MobileDetailTopCoinsList({
     );
   }
   return (
-    <ScrollView flex={1}>
-      {data.map((item) => (
-        <TokenListItem
-          key={item.assetId}
-          item={toMobileTopCoin(item)}
-          onPress={() => onItemPress(item)}
-        />
-      ))}
-    </ScrollView>
+    <FlatList
+      data={data}
+      keyExtractor={(item) => item.assetId}
+      renderItem={renderItem}
+      initialNumToRender={12}
+      maxToRenderPerBatch={20}
+      windowSize={7}
+      style={{ flex: 1 }}
+    />
   );
 }
 
@@ -310,18 +320,16 @@ function MobileTokenSelectorContent() {
     ],
   );
 
-  const { data: topCoins, isLoading: isTopCoinsLoading, handleItemPress: handleTopCoinPress } =
-    useMarketTopCoins({
-      replaceCurrentDetail: true,
-    });
+  const { data: topCoins, isLoading: isTopCoinsLoading } = useMarketTopCoins();
   const handleTopCoinSelect = useCallback(
     (item: IMarketAssetListItem) => {
-      dismissMobileTokenSelectorKeyboard();
-      void handleTopCoinPress(item).finally(() => {
-        navigation.popStack();
+      navigateToTokenDetail({
+        address: '',
+        networkId: '',
+        assetId: item.assetId,
       });
     },
-    [handleTopCoinPress, navigation],
+    [navigateToTokenDetail],
   );
 
   const handleTokenSelect = useCallback(
@@ -358,6 +366,7 @@ function MobileTokenSelectorContent() {
         address: token.address,
         networkId: token.network,
         isNative: token.isNative,
+        stockId: token.stockId,
         tokenDetailPreview,
       });
     },
@@ -434,7 +443,7 @@ function MobileTokenSelectorContent() {
             {!isFavoritesSelection && !isStockSelection && isTopCoinsSelection ? (
               <MobileDetailTopCoinsList
                 data={topCoins}
-                isLoading={isTopCoinsLoading}
+                isLoading={Boolean(isTopCoinsLoading)}
                 onItemPress={handleTopCoinSelect}
               />
             ) : null}
