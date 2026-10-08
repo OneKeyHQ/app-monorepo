@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
 import {
@@ -188,9 +189,12 @@ export function getErrorAction({
     return <NeedFirmwareUpgradeFromWebButton />;
   }
 
-  // Generic hardware fallback: advises staying up to date, so send the user to
-  // the in-app firmware update flow rather than the web tool.
-  if (errorCode === ECustomOneKeyHardwareError.UnknownHardwareError) {
+  // Firmware compatibility errors and the generic hardware fallback both offer
+  // the existing in-app firmware update flow.
+  if (
+    errorCode === HardwareErrorCode.CallMethodNeedUpgradeFirmware ||
+    errorCode === ECustomOneKeyHardwareError.UnknownHardwareError
+  ) {
     return <CheckFirmwareUpdateButton connectId={connectId} />;
   }
 
