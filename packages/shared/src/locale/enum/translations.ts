@@ -3404,7 +3404,7 @@ export enum ETranslations {
   perp_no_active_twap__title = 'perp_no_active_twap__title',
   perp_no_twap_fill_history__title = 'perp_no_twap_fill_history__title',
   perp_no_twap_history__title = 'perp_no_twap_history__title',
-  perp_order_quantity__title = 'perp_order_quantity__title',
+
   perp_order_size_small__desc = 'perp_order_size_small__desc',
   perp_order_trigger_limit = 'perp_order_trigger_limit',
   perp_order_trigger_market = 'perp_order_trigger_market',
@@ -3538,11 +3538,11 @@ export enum ETranslations {
   perp_token_info_not_found__msg = 'perp_token_info_not_found__msg',
   perp_trade_account_overview_avbl = 'perp_trade_account_overview_avbl',
   perp_trade_deposit_to_trade__action = 'perp_trade_deposit_to_trade__action',
-  perp_trade_details_fee_token__title = 'perp_trade_details_fee_token__title',
-  perp_trade_details_liquidity_role__title = 'perp_trade_details_liquidity_role__title',
-  perp_trade_details_maker__title = 'perp_trade_details_maker__title',
-  perp_trade_details_start_position__title = 'perp_trade_details_start_position__title',
-  perp_trade_details_taker__title = 'perp_trade_details_taker__title',
+
+
+
+
+
   perp_trade_first_deposit_ready__desc = 'perp_trade_first_deposit_ready__desc',
   perp_trade_settlement__title = 'perp_trade_settlement__title',
   perp_trades_history_recent_range_desc = 'perp_trades_history_recent_range_desc',

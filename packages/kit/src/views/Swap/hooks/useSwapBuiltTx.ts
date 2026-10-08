@@ -84,6 +84,7 @@ import {
 } from '@onekeyhq/shared/types/staking';
 import type {
   ESwapCancelLimitOrderSource,
+  ESwapQuoteSource,
   IFetchBuildTxResponse,
   IFetchLimitOrderRes,
   IFetchQuoteResult,
@@ -247,6 +248,7 @@ type IEstimateNetworkFeeOptions = {
 type IUseSwapBuildTxOptions = {
   onSwapBroadcast?: (isReviewCurrent?: () => boolean) => void | Promise<void>;
   marketSwapApprovalFlowId?: string;
+  buildTxSource?: ESwapQuoteSource;
 };
 
 type ISwapSignAndSendProgressEvent = {
@@ -310,6 +312,7 @@ function getSwapCreateFrom({
 export function useSwapBuildTx({
   onSwapBroadcast,
   marketSwapApprovalFlowId,
+  buildTxSource,
 }: IUseSwapBuildTxOptions = {}) {
   const onSwapBroadcastRef = useRef(onSwapBroadcast);
   onSwapBroadcastRef.current = onSwapBroadcast;
@@ -2591,7 +2594,7 @@ export function useSwapBuildTx({
             kind: data.kind ?? ESwapQuoteKind.SELL,
             walletType: swapFromAddressInfo.accountInfo?.wallet?.type ?? '',
             deviceType: swapFromAddressInfo.accountInfo?.device?.deviceType,
-            source: quoteActionLock.source,
+            source: quoteActionLock.source ?? buildTxSource,
             tradeSource: getSwapTradeSource({
               protocol: data.protocol,
               isSwapPro: focusSwapPro,
@@ -2930,6 +2933,7 @@ export function useSwapBuildTx({
       swapFromAddressInfo.accountInfo?.wallet?.type,
       swapFromAddressInfo.accountInfo?.device?.deviceType,
       quoteActionLock.source,
+      buildTxSource,
       swapFromAddressInfo.accountInfo?.deriveInfo?.addressEncoding,
       focusSwapPro,
       isFirstTimeSwap,
