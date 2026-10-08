@@ -1560,6 +1560,8 @@ export default class ServiceSwap extends ServiceBase {
       kind,
       walletType,
       deviceType: deviceType ?? accountDevice?.deviceType,
+      // Preserve the trading entry for attribution even when native BTC quotes
+      // fall back to the legacy provider pool.
       source,
       tradeSource,
       ...context.referralBuildTxParams,

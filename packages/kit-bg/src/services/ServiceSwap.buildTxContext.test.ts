@@ -155,6 +155,36 @@ describe('ServiceSwap build transaction context', () => {
     );
   });
 
+  it('keeps Market attribution and the quoted provider for native BTC outbound builds', async () => {
+    const { service, post } = createService();
+    const quotedProvider = 'legacy-btc-provider';
+
+    await service.fetchBuildTx({
+      ...buildParams,
+      fromToken: {
+        networkId: 'btc--0',
+        contractAddress: '',
+        decimals: 8,
+        symbol: 'BTC',
+        isNative: true,
+      },
+      provider: quotedProvider,
+      source: ESwapQuoteSource.MARKET,
+    });
+
+    expect(post).toHaveBeenCalledWith(
+      '/swap/v1/build-tx',
+      expect.objectContaining({
+        fromNetworkId: 'btc--0',
+        toNetworkId: 'evm--1',
+        fromTokenAddress: '',
+        provider: quotedProvider,
+        source: ESwapQuoteSource.MARKET,
+      }),
+      expect.any(Object),
+    );
+  });
+
   it('keeps an explicit device without an additional account lookup', async () => {
     const { service, getAccountDeviceSafe, post } = createService();
 

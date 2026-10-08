@@ -453,8 +453,7 @@ export function getSwapNetworkDefaultTokenPair(network?: ISwapNetwork) {
     typeof toToken.contractAddress !== 'string' ||
     !Number.isFinite(fromToken.decimals) ||
     !Number.isFinite(toToken.decimals) ||
-    fromToken.contractAddress.toLowerCase() ===
-      toToken.contractAddress.toLowerCase()
+    equalTokenNoCaseSensitive({ token1: fromToken, token2: toToken })
   ) {
     return undefined;
   }

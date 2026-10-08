@@ -1,4 +1,5 @@
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import { SolanaUSDC } from '@onekeyhq/shared/src/consts/addresses';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
@@ -1001,6 +1002,74 @@ describe('swap cold-start selected token context', () => {
       toToken,
     });
   });
+
+  it.each([
+    {
+      name: 'distinct Solana addresses differing only by case',
+      networkId: 'sol--101',
+      fromAddress: SolanaUSDC,
+      toAddress: SolanaUSDC.replace('P', 'p'),
+      sameToken: false,
+    },
+    {
+      name: 'identical Solana addresses',
+      networkId: 'sol--101',
+      fromAddress: SolanaUSDC,
+      toAddress: SolanaUSDC,
+      sameToken: true,
+    },
+    {
+      name: 'one EVM address with different casing',
+      networkId: 'evm--1',
+      fromAddress: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+      toAddress: '0xA0B86991C6218B36C1D19D4A2E9EB0CE3606EB48',
+      sameToken: true,
+    },
+    {
+      name: 'distinct EVM addresses',
+      networkId: 'evm--1',
+      fromAddress: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+      toAddress: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+      sameToken: false,
+    },
+  ])(
+    'validates backend defaults using network-specific token address identity: $name',
+    ({ networkId, fromAddress, toAddress, sameToken }) => {
+      const fromToken: ISwapToken = {
+        networkId,
+        contractAddress: fromAddress,
+        symbol: 'FROM',
+        decimals: 6,
+      };
+      const toToken: ISwapToken = {
+        ...fromToken,
+        contractAddress: toAddress,
+        symbol: 'TO',
+      };
+      const network: ISwapNetwork = {
+        networkId,
+        name: 'Test network',
+        symbol: 'TEST',
+        defaultSelectTokenDetail: { from: fromToken, to: toToken },
+      };
+
+      if (sameToken) {
+        expect(getSwapNetworkDefaultTokenPair(network)).toBeUndefined();
+      } else {
+        expect(getSwapNetworkDefaultTokenPair(network)).toEqual({
+          fromToken,
+          toToken,
+        });
+        expect(
+          buildSwapDefaultSelectedTokensForNetwork({
+            networkId,
+            swapType: ESwapTabSwitchType.SWAP,
+            swapNetworks: [network],
+          }),
+        ).toEqual({ fromToken, toToken, swapType: ESwapTabSwitchType.SWAP });
+      }
+    },
+  );
 
   it('ignores incomplete or cross-network backend default pairs', () => {
     const fromToken: ISwapToken = {
