@@ -74,7 +74,10 @@ import {
   useSwapAddressInfo,
   useSwapRecipientAddressInfo,
 } from '../../hooks/useSwapAccount';
-import { shouldShowSwapRecipientEntry } from '../../hooks/useSwapAccount.utils';
+import {
+  getSwapRecipientValidationAccountId,
+  shouldShowSwapRecipientEntry,
+} from '../../hooks/useSwapAccount.utils';
 import {
   shouldBlockSwapActionForIncognitoRecipientInput,
   shouldEnableSwapIncognitoRecipientValidation,
@@ -176,6 +179,13 @@ const SwapActionsState = ({
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
+  // Publishing a recipient must not change its own validation account or readiness.
+  const recipientValidationAddressInfo = useSwapAddressInfo(
+    ESwapDirectionType.TO,
+    {
+      useCustomRecipientAddress: false,
+    },
+  );
   const { cleanQuoteInterval, closeQuoteEvent, quoteAction } =
     useSwapActions().current;
   const swapActionState = useSwapActionState();
@@ -345,13 +355,13 @@ const SwapActionsState = ({
   );
 
   const incognitoRecipientNetworkId =
-    toToken?.networkId ?? swapToAddressInfo.networkId;
+    toToken?.networkId ?? recipientValidationAddressInfo.networkId;
   const shouldValidateIncognitoRecipientInput = useMemo(
     () =>
       shouldEnableSwapIncognitoRecipientValidation({
         hasFromToken: Boolean(fromToken),
         hasToToken: Boolean(toToken),
-        isAddressInfoReady: swapToAddressInfo.isAddressInfoReady,
+        isAddressInfoReady: recipientValidationAddressInfo.isAddressInfoReady,
         networkId: incognitoRecipientNetworkId,
         providerSupportsRecipient: providerSupportReceiveAddressSettled,
         visible: shouldShowIncognitoRecipientInput,
@@ -361,7 +371,7 @@ const SwapActionsState = ({
       incognitoRecipientNetworkId,
       shouldShowIncognitoRecipientInput,
       providerSupportReceiveAddressSettled,
-      swapToAddressInfo.isAddressInfoReady,
+      recipientValidationAddressInfo.isAddressInfoReady,
       toToken,
     ],
   );
@@ -376,11 +386,16 @@ const SwapActionsState = ({
     validationEnabled: shouldValidateIncognitoRecipientInput,
     clearRecipientAddressOnHide,
     networkId: incognitoRecipientNetworkId,
-    accountId:
-      swapToAddressInfo.accountInfo?.account?.id ??
-      swapToAddressInfo.activeAccount?.account?.id,
+    accountId: getSwapRecipientValidationAccountId({
+      accountId: recipientValidationAddressInfo.accountInfo?.account?.id,
+      accountAddress:
+        recipientValidationAddressInfo.accountInfo?.account?.addressDetail
+          ?.address,
+      recipientAddress: recipientValidationAddressInfo.address,
+    }),
     accountInfo:
-      swapToAddressInfo.accountInfo ?? swapToAddressInfo.activeAccount,
+      recipientValidationAddressInfo.accountInfo ??
+      recipientValidationAddressInfo.activeAccount,
     address: swapToAnotherAccountAddress.address,
     swapToAnotherAccountSwitchOn,
   });

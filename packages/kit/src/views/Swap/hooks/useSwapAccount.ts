@@ -261,12 +261,19 @@ export function useSwapFromAccountNetworkSync() {
   ]);
 }
 
-export function useSwapAddressInfo(type: ESwapDirectionType) {
+export function useSwapAddressInfo(
+  type: ESwapDirectionType,
+  {
+    useCustomRecipientAddress = true,
+  }: { useCustomRecipientAddress?: boolean } = {},
+) {
   const [{ swapToAnotherAccountSwitchOn }] = useSettingsAtom();
+  const useRecipientAccount =
+    useCustomRecipientAddress && swapToAnotherAccountSwitchOn;
   const { activeAccount } = useActiveAccount({
     num: getSwapAddressAccountSelectorNum({
       type,
-      swapToAnotherAccountSwitchOn,
+      swapToAnotherAccountSwitchOn: useRecipientAccount,
     }),
   });
   const [fromToken] = useSwapSelectFromTokenAtom();
@@ -468,6 +475,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
     // Keep the confirmed custom recipient even when cross-chain TO account
     // resolution has not materialized a network account yet.
     if (
+      useCustomRecipientAddress &&
       shouldUseSwapCustomRecipientAddress({
         type,
         swapToAnotherAccountSwitchOn,
@@ -581,6 +589,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     type,
+    useCustomRecipientAddress,
     swapToAnotherAccountSwitchOn,
     swapToAnotherAccountAddressAtom.address,
     swapToAnotherAccountAddressAtom.networkId,
