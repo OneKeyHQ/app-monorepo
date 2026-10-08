@@ -26,6 +26,7 @@ export function usePerpsCrossAvailableAfterMaintenance(
     if (
       !coin ||
       !accountAddress ||
+      abstractionMode?.source !== 'live' ||
       abstractionMode?.accountAddress?.toLowerCase() !== accountAddress ||
       riskInputs?.accountAddress?.toLowerCase() !== accountAddress ||
       riskInputs.abstractionMode !== abstractionMode.mode
@@ -42,6 +43,7 @@ export function usePerpsCrossAvailableAfterMaintenance(
   }, [
     abstractionMode?.accountAddress,
     abstractionMode?.mode,
+    abstractionMode?.source,
     activeAccount?.accountAddress,
     coin,
     riskInputs,

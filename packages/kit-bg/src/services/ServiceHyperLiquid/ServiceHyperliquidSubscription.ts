@@ -2609,6 +2609,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   private async _cleanupAllSubscriptions(): Promise<void> {
+    await invalidatePerpsLiquidationRiskInputs();
     const allSpecsByKey = new Map<
       string,
       ISubscriptionSpec<ESubscriptionType>
@@ -2637,6 +2638,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       );
       await this._closeClient();
     }
+    // Frames can arrive while unsubscribe is pending; none survive the rebuild.
+    await invalidatePerpsLiquidationRiskInputs();
     this.allSubSpecsMap = {};
     this.pendingSubSpecsMap = {};
     this._activeSubscriptions.clear();

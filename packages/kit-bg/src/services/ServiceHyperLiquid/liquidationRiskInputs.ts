@@ -58,13 +58,20 @@ export async function setPerpsAbstractionModeWithRiskInvalidation(
   next: IPerpsAbstractionModeAtom,
 ): Promise<void> {
   const previous = await perpsAbstractionModeAtom.get();
+  const lostLiveConfirmation =
+    previous?.source === 'live' && next?.source !== 'live';
   if (
     previous?.accountAddress?.toLowerCase() !==
       next?.accountAddress?.toLowerCase() ||
-    previous?.mode !== next?.mode
+    previous?.mode !== next?.mode ||
+    lostLiveConfirmation
   ) {
-    // Clear before publishing the new mode; source-only refreshes retain data.
+    // Invalidate before losing live confirmation; cache-to-live keeps valid data.
     await invalidatePerpsLiquidationRiskInputs();
   }
   await perpsAbstractionModeAtom.set(next);
+  if (lostLiveConfirmation) {
+    // Reject live frames that started while the cache fallback was publishing.
+    await invalidatePerpsLiquidationRiskInputs();
+  }
 }

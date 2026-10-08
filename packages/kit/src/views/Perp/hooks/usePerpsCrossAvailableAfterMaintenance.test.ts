@@ -18,7 +18,11 @@ interface IMockRiskInputs {
 
 let mockActiveAccount: { accountAddress: string | null };
 let mockAbstractionMode:
-  | { accountAddress: string; mode: EHyperLiquidAbstractionMode }
+  | {
+      accountAddress: string;
+      mode: EHyperLiquidAbstractionMode;
+      source: 'live' | 'cache';
+    }
   | undefined;
 let mockRiskInputs: IMockRiskInputs | undefined;
 
@@ -40,6 +44,7 @@ describe('usePerpsCrossAvailableAfterMaintenance', () => {
     mockAbstractionMode = {
       accountAddress: '0xbbb',
       mode: EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT,
+      source: 'live',
     };
     mockRiskInputs = {
       accountAddress: '0xbbb',
@@ -78,6 +83,7 @@ describe('usePerpsCrossAvailableAfterMaintenance', () => {
     mockAbstractionMode = {
       accountAddress: '0xbbb',
       mode: EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN,
+      source: 'live',
     };
     rerender({});
     expect(result.current).toBeUndefined();
@@ -88,5 +94,23 @@ describe('usePerpsCrossAvailableAfterMaintenance', () => {
     };
     rerender({});
     expect(result.current?.toFixed()).toBe('20');
+  });
+
+  test('hides existing risk when same-mode live confirmation falls back to cache', () => {
+    const { result, rerender } = renderHook(() =>
+      usePerpsCrossAvailableAfterMaintenance('BTC'),
+    );
+    expect(result.current?.toFixed()).toBe('3.2555');
+    mockAbstractionMode = {
+      accountAddress: '0xbbb',
+      mode: EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT,
+      source: 'cache',
+    };
+    // The mode update may reach main before the risk invalidation.
+    rerender({});
+    expect(result.current).toBeUndefined();
+    mockAbstractionMode = { ...mockAbstractionMode, source: 'live' };
+    rerender({});
+    expect(result.current?.toFixed()).toBe('3.2555');
   });
 });

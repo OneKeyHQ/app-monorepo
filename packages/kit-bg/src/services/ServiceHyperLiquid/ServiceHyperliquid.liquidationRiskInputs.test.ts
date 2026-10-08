@@ -1,3 +1,4 @@
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 import type {
   IHex,
@@ -16,6 +17,7 @@ import { invalidatePerpsLiquidationRiskInputs } from './liquidationRiskInputs';
 import ServiceHyperliquid from './ServiceHyperliquid';
 import ServiceHyperliquidSubscription from './ServiceHyperliquidSubscription';
 
+import type { ISubscriptionSpec } from './utils/SubscriptionConfig';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
 jest.mock('@nktkas/hyperliquid', () => ({
@@ -71,6 +73,10 @@ describe('liquidation risk snapshot lifecycle', () => {
 
   beforeAll(() => {
     globalJotaiStorageReadyHandler.resolveReady(true);
+    const g = globalThis as { WebSocket?: unknown };
+    if (typeof g.WebSocket === 'undefined') {
+      g.WebSocket = { CONNECTING: 0, OPEN: 1, CLOSING: 2, CLOSED: 3 };
+    }
   });
 
   beforeEach(async () => {
@@ -216,14 +222,28 @@ describe('liquidation risk snapshot lifecycle', () => {
     expect(await perpsLiquidationRiskInputsAtom.get()).toBeUndefined();
   });
 
-  it('invalidates a mode change obtained from the cache fallback without accepting new risk until live mode is known', async () => {
-    jest
-      .spyOn(service, 'fetchUserAbstractionRawWithCache')
-      .mockRejectedValue(new Error('offline'));
-    await service.fetchUserAbstraction(USER);
-    await service.updateSpotBalances(spotState('999'));
-    expect(await perpsLiquidationRiskInputsAtom.get()).toBeUndefined();
-  });
+  it.each([UNIFIED, PORTFOLIO])(
+    'invalidates cached mode %s, including same-mode downgrade, until a new live frame arrives',
+    async (cachedMode) => {
+      jest
+        .spyOn(backgroundApi.simpleDb.perp, 'getUserAbstractionMode')
+        .mockResolvedValue(cachedMode);
+      const fetchMode = jest
+        .spyOn(service, 'fetchUserAbstractionRawWithCache')
+        .mockRejectedValue(new Error('offline'));
+      await service.fetchUserAbstraction(USER);
+      await service.updateSpotBalances(spotState('999'));
+      expect(await perpsLiquidationRiskInputsAtom.get()).toBeUndefined();
+      fetchMode.mockResolvedValue(cachedMode);
+      await service.fetchUserAbstraction(USER);
+      expect(await perpsLiquidationRiskInputsAtom.get()).toBeUndefined();
+      await service.updateSpotBalances(spotState('20'));
+      expect(
+        (await perpsLiquidationRiskInputsAtom.get())
+          ?.tokenToAvailableAfterMaintenance,
+      ).toEqual({ 0: '20' });
+    },
+  );
 
   it('retains risk on same-mode refreshes, including cache to live source changes', async () => {
     await perpsAbstractionModeAtom.set({
@@ -282,37 +302,53 @@ describe('liquidation risk snapshot lifecycle', () => {
     ).toEqual({ 0: '100' });
   });
 
-  it('does not merge an old-mode frame that arrived between invalidation and new-mode publication', async () => {
-    const publishMode = deferred<void>();
-    const writeStarted = deferred<void>();
-    const originalSet = perpsAbstractionModeAtom.set.bind(
-      perpsAbstractionModeAtom,
-    );
-    jest
-      .spyOn(perpsAbstractionModeAtom, 'set')
-      .mockImplementationOnce(async (value) => {
-        writeStarted.resolve();
-        await publishMode.promise;
-        return originalSet(value);
-      });
-    jest
-      .spyOn(service, 'fetchUserAbstractionRawWithCache')
-      .mockResolvedValue(PORTFOLIO);
-    const refresh = service.fetchUserAbstraction(USER);
-    await writeStarted.promise;
-    await service.updateSpotBalances(spotState('999'));
-    expect((await perpsLiquidationRiskInputsAtom.get())?.abstractionMode).toBe(
-      UNIFIED,
-    );
-    publishMode.resolve();
-    await refresh;
-    await service.updateActiveAccountSummaryFromClearinghouseState(
-      clearinghouseState,
-    );
-    const risk = await perpsLiquidationRiskInputsAtom.get();
-    expect(risk?.abstractionMode).toBe(PORTFOLIO);
-    expect(risk?.tokenToAvailableAfterMaintenance).toBeUndefined();
-  });
+  it.each(['mode change', 'cache fallback'] as const)(
+    'rejects frames arriving while publishing a %s',
+    async (transition) => {
+      const publishMode = deferred<void>();
+      const writeStarted = deferred<void>();
+      const originalSet = perpsAbstractionModeAtom.set.bind(
+        perpsAbstractionModeAtom,
+      );
+      jest
+        .spyOn(perpsAbstractionModeAtom, 'set')
+        .mockImplementationOnce(async (value) => {
+          writeStarted.resolve();
+          await publishMode.promise;
+          return originalSet(value);
+        });
+      const fetchMode = jest.spyOn(service, 'fetchUserAbstractionRawWithCache');
+      if (transition === 'cache fallback') {
+        jest
+          .spyOn(backgroundApi.simpleDb.perp, 'getUserAbstractionMode')
+          .mockResolvedValue(UNIFIED);
+        fetchMode.mockRejectedValue(new Error('offline'));
+      } else {
+        fetchMode.mockResolvedValue(PORTFOLIO);
+      }
+      const refresh = service.fetchUserAbstraction(USER);
+      await writeStarted.promise;
+      await service.updateSpotBalances(spotState('999'));
+      expect(
+        (await perpsLiquidationRiskInputsAtom.get())?.abstractionMode,
+      ).toBe(UNIFIED);
+      publishMode.resolve();
+      await refresh;
+      if (transition === 'cache fallback') {
+        expect(await perpsLiquidationRiskInputsAtom.get()).toBeUndefined();
+        fetchMode.mockResolvedValue(UNIFIED);
+        await service.fetchUserAbstraction(USER);
+      }
+      await service.updateActiveAccountSummaryFromClearinghouseState(
+        clearinghouseState,
+      );
+      const risk = await perpsLiquidationRiskInputsAtom.get();
+      expect(risk?.abstractionMode).toBe(
+        transition === 'mode change' ? PORTFOLIO : UNIFIED,
+      );
+      expect(risk?.tokenToAvailableAfterMaintenance).toBeUndefined();
+    },
+  );
 
   it('drops collateral when a silent open socket is declared offline', async () => {
     (
@@ -324,5 +360,88 @@ describe('liquidation risk snapshot lifecycle', () => {
       (await perpsLiquidationRiskInputsAtom.get())
         ?.tokenToAvailableAfterMaintenance,
     ).toEqual({ 0: '20' });
+  });
+
+  it('invalidates risk when pausing subscriptions without closing the socket', async () => {
+    await subscription.pauseSubscriptions();
+    expect(subscription.subscriptionsHandlerDisabled).toBe(true);
+    expect(await perpsLiquidationRiskInputsAtom.get()).toBeUndefined();
+  });
+
+  function prepareOpenSocketRefresh(healthy: boolean) {
+    const internals = subscription as unknown as {
+      getWebSocketClient: () => Promise<unknown>;
+      buildRequiredSubscriptionsMap: () => Promise<undefined>;
+      _hasHealthyOpenSocketDataFlow: () => boolean;
+      _destroySubscription: () => Promise<boolean>;
+      allSubSpecsMap: Record<string, ISubscriptionSpec<ESubscriptionType>>;
+    };
+    jest
+      .spyOn(internals, 'getWebSocketClient')
+      .mockResolvedValue({ transport: { socket: { readyState: 1 } } });
+    jest
+      .spyOn(internals, 'buildRequiredSubscriptionsMap')
+      .mockResolvedValue(undefined);
+    jest
+      .spyOn(internals, '_hasHealthyOpenSocketDataFlow')
+      .mockReturnValue(healthy);
+    const updateSubscriptions = jest
+      .spyOn(subscription, 'updateSubscriptions')
+      .mockResolvedValue(undefined);
+    jest
+      .spyOn(service, 'updatePerpsConfigByServerSilently')
+      .mockResolvedValue(undefined);
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+    return { internals, updateSubscriptions };
+  }
+
+  it('invalidates frames received during an open-socket refresh before rebuilding the feed', async () => {
+    const unsubscribing = deferred<void>();
+    const unsubscribed = deferred<boolean>();
+    const { internals } = prepareOpenSocketRefresh(false);
+    internals.allSubSpecsMap = {
+      spot: {
+        type: ESubscriptionType.SPOT_STATE,
+        key: 'spot',
+        priority: 1,
+        params: { user: USER },
+      },
+    };
+    jest
+      .spyOn(internals, '_destroySubscription')
+      .mockImplementation(async () => {
+        unsubscribing.resolve();
+        return unsubscribed.promise;
+      });
+    const refresh = subscription.refreshAllPerpsData();
+    await unsubscribing.promise;
+    expect(await perpsLiquidationRiskInputsAtom.get()).toBeUndefined();
+    await service.updateSpotBalances(spotState('999'));
+    const account = await perpsActiveAccountAtom.get();
+    const pending = deferred<typeof account>();
+    jest
+      .spyOn(perpsActiveAccountAtom, 'get')
+      .mockReturnValueOnce(pending.promise);
+    const oldUpdate = service.updateSpotBalances(spotState('888'));
+    unsubscribed.resolve(true);
+    await refresh;
+    pending.resolve(account);
+    await oldUpdate;
+    expect(await perpsLiquidationRiskInputsAtom.get()).toBeUndefined();
+    await service.updateSpotBalances(spotState('20'));
+    expect(
+      (await perpsLiquidationRiskInputsAtom.get())
+        ?.tokenToAvailableAfterMaintenance,
+    ).toEqual({ 0: '20' });
+  });
+
+  it('keeps valid collateral when a healthy open socket refresh does not rebuild', async () => {
+    const { updateSubscriptions } = prepareOpenSocketRefresh(true);
+    expect(await subscription.refreshAllPerpsData()).toBe(false);
+    expect(updateSubscriptions).not.toHaveBeenCalled();
+    expect(
+      (await perpsLiquidationRiskInputsAtom.get())
+        ?.tokenToAvailableAfterMaintenance,
+    ).toEqual({ 0: '100' });
   });
 });
