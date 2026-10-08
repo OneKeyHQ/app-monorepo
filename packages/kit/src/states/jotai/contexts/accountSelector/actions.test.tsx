@@ -223,8 +223,9 @@ const mockFixOthersWalletAccountNetworkPair: jest.MockedFunction<
     params: IFixOthersWalletAccountNetworkPairParams,
   ) => Promise<ISelectedAccount>
 > = jest.fn();
-const mockGetGlobalDeriveType: jest.MockedFunction<() => Promise<string>> =
-  jest.fn();
+const mockGetGlobalDeriveType: jest.MockedFunction<
+  () => Promise<IAccountDeriveTypes | undefined>
+> = jest.fn();
 const mockShouldUseGlobalDeriveType: jest.MockedFunction<
   () => Promise<boolean>
 > = jest.fn();
@@ -958,6 +959,40 @@ describe('useAccountSelectorActions', () => {
     });
     expect(selectionObservedByIntent).toBe(previous);
     expect(store.get(selectedAccountsAtom())[0]).toEqual(next);
+  });
+
+  it('does not invalidate a discover approval for sidebar focus alone', async () => {
+    const sceneUrl = 'https://focus-only.test';
+    const config = { sceneName: EAccountSelectorSceneName.discover, sceneUrl };
+    const { store, Wrapper } = createWrapper(config);
+    store.set(accountSelectorContextDataAtom(), config);
+    const initialSelection = createHdSelectedAccount('hd-1--0');
+    store.set(selectedAccountsAtom(), { 0: initialSelection });
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.updateSelectedAccountFocusedWallet({
+        num: 0,
+        focusedWallet: 'hd-browsed',
+        reason: 'userSelectWallet',
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]).toEqual({
+      ...initialSelection,
+      focusedWallet: 'hd-browsed',
+    });
+    expect(mockRecordConnectionSelectionIntent).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await result.current.updateSelectedAccount({
+        num: 0,
+        builder: (current) => ({ ...current, indexedAccountId: 'hd-1--1' }),
+      });
+    });
+    expect(mockRecordConnectionSelectionIntent).toHaveBeenCalledTimes(1);
   });
 
   it('does not record a dapp selection intent outside discover', async () => {
@@ -4639,7 +4674,7 @@ describe('useAccountSelectorActions', () => {
   });
 
   it('does not apply a global derive type resolved for a stale selection', async () => {
-    const globalDeriveDeferred = createDeferred<string>();
+    const globalDeriveDeferred = createDeferred<IAccountDeriveTypes>();
     mockGetGlobalDeriveType.mockReturnValueOnce(globalDeriveDeferred.promise);
 
     const { store, Wrapper } = createWrapper();
@@ -4669,7 +4704,7 @@ describe('useAccountSelectorActions', () => {
           networkId: 'btc--0',
         },
       });
-      globalDeriveDeferred.resolve('ledger_live');
+      globalDeriveDeferred.resolve('ledgerLive');
       await syncPromise;
     });
 
@@ -4680,7 +4715,7 @@ describe('useAccountSelectorActions', () => {
   });
 
   it('does not overwrite a newer derive type on the same account and network', async () => {
-    const globalDeriveDeferred = createDeferred<string>();
+    const globalDeriveDeferred = createDeferred<IAccountDeriveTypes>();
     mockGetGlobalDeriveType.mockReturnValueOnce(globalDeriveDeferred.promise);
     const initialSelection = {
       ...createHdSelectedAccount('hd-1--0'),
@@ -4717,7 +4752,7 @@ describe('useAccountSelectorActions', () => {
     // Opening the account selector panel writes focusedWallet and nothing
     // else. The sync's decision is derived from (networkId, deriveType) only,
     // so that unrelated write must not drop the sync as stale.
-    const globalDeriveDeferred = createDeferred<string>();
+    const globalDeriveDeferred = createDeferred<IAccountDeriveTypes>();
     mockGetGlobalDeriveType.mockReturnValueOnce(globalDeriveDeferred.promise);
     const initialSelection = {
       ...createHdSelectedAccount('hd-1--0'),
@@ -4742,12 +4777,12 @@ describe('useAccountSelectorActions', () => {
       store.set(selectedAccountsAtom(), {
         0: { ...initialSelection, focusedWallet: 'hd-2' },
       });
-      globalDeriveDeferred.resolve('ledger_live');
+      globalDeriveDeferred.resolve('ledgerLive');
       await syncPromise;
     });
 
     expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
-      deriveType: 'ledger_live',
+      deriveType: 'ledgerLive',
       focusedWallet: 'hd-2',
       networkId: 'evm--1',
     });
@@ -4758,7 +4793,7 @@ describe('useAccountSelectorActions', () => {
     // network change that caused it re-runs useAutoSelectDeriveType's main
     // effect, which issues a fresh sync against the new network. This locks
     // the handover: the same call, made again after the change, must succeed.
-    const globalDeriveDeferred = createDeferred<string>();
+    const globalDeriveDeferred = createDeferred<IAccountDeriveTypes>();
     mockGetGlobalDeriveType.mockReturnValueOnce(globalDeriveDeferred.promise);
     const initialSelection = {
       ...createHdSelectedAccount('hd-1--0'),
@@ -4783,7 +4818,7 @@ describe('useAccountSelectorActions', () => {
       store.set(selectedAccountsAtom(), {
         0: { ...initialSelection, networkId: 'btc--0' },
       });
-      globalDeriveDeferred.resolve('ledger_live');
+      globalDeriveDeferred.resolve('ledgerLive');
       await syncPromise;
     });
 
@@ -7062,82 +7097,123 @@ describe('useAccountSelectorActions', () => {
     );
   });
 
-  it('selects another wallet when removal arrives before the active account refreshes', async () => {
-    const removedWallet = {
-      id: 'hd-keyless-1',
-      name: 'Removed Keyless wallet',
-    } as IWallet;
-    const nextWallet = {
-      id: 'hd-2',
-      name: 'Next wallet',
-    } as IWallet;
-    const nextIndexedAccount = {
-      id: 'hd-2--0',
-      walletId: nextWallet.id,
-    } as IIndexedAccount;
+  it.each(['none', 'focus', 'account', 'network', 'derive'] as const)(
+    'handles wallet removal while %s changes before the active account refreshes',
+    async (change) => {
+      mockGetGlobalDeriveType.mockResolvedValue(undefined);
+      const removedWallet = {
+        id: 'hd-keyless-1',
+        name: 'Removed Keyless wallet',
+      } as IWallet;
+      const nextWallet = {
+        id: 'hd-2',
+        name: 'Next wallet',
+      } as IWallet;
+      const nextIndexedAccount = {
+        id: 'hd-2--0',
+        walletId: nextWallet.id,
+      } as IIndexedAccount;
 
-    mockGetAllHdHwQrWallets.mockResolvedValue({ wallets: [nextWallet] });
-    mockIsWalletHasIndexedAccounts.mockImplementation(
-      async ({ walletId }) => walletId === nextWallet.id,
-    );
-    mockGetIndexedAccountsOfWallet.mockImplementation(async ({ walletId }) => ({
-      accounts: walletId === nextWallet.id ? [nextIndexedAccount] : [],
-    }));
-    mockGetWalletSafe.mockImplementation(async ({ walletId }) =>
-      walletId === nextWallet.id ? nextWallet : undefined,
-    );
+      mockGetAllHdHwQrWallets.mockResolvedValue({ wallets: [nextWallet] });
+      mockIsWalletHasIndexedAccounts.mockImplementation(
+        async ({ walletId }) => walletId === nextWallet.id,
+      );
+      mockGetIndexedAccountsOfWallet.mockImplementation(
+        async ({ walletId }) => ({
+          accounts: walletId === nextWallet.id ? [nextIndexedAccount] : [],
+        }),
+      );
+      mockGetWalletSafe.mockImplementation(async ({ walletId }) =>
+        walletId === nextWallet.id ? nextWallet : undefined,
+      );
 
-    const { store, Wrapper } = createWrapper();
-    store.set(selectedAccountsAtom(), {
-      0: {
-        ...defaultSelectedAccount(),
-        walletId: removedWallet.id,
-        indexedAccountId: 'hd-keyless-1--0',
-        networkId: 'evm--1',
-        deriveType: 'default',
-        focusedWallet: removedWallet.id,
-      },
-    });
-    store.set(activeAccountsAtom(), {
-      0: {
-        ...defaultActiveAccountInfo(),
-        ready: true,
-        wallet: removedWallet,
-        indexedAccount: {
-          id: 'hd-keyless-1--0',
+      const { store, Wrapper } = createWrapper();
+      store.set(selectedAccountsAtom(), {
+        0: {
+          ...defaultSelectedAccount(),
           walletId: removedWallet.id,
-        } as IIndexedAccount,
-        account: {
-          id: 'hd-keyless-1--evm-account',
           indexedAccountId: 'hd-keyless-1--0',
-        } as NonNullable<
-          ReturnType<typeof defaultActiveAccountInfo>['account']
-        >,
-        network: { id: 'evm--1' } as NonNullable<
-          ReturnType<typeof defaultActiveAccountInfo>['network']
-        >,
-      },
-    });
+          networkId: 'evm--1',
+          deriveType: 'default',
+          focusedWallet: removedWallet.id,
+        },
+      });
+      store.set(activeAccountsAtom(), {
+        0: {
+          ...defaultActiveAccountInfo(),
+          ready: true,
+          wallet: removedWallet,
+          indexedAccount: {
+            id: 'hd-keyless-1--0',
+            walletId: removedWallet.id,
+          } as IIndexedAccount,
+          account: {
+            id: 'hd-keyless-1--evm-account',
+            indexedAccountId: 'hd-keyless-1--0',
+          } as NonNullable<
+            ReturnType<typeof defaultActiveAccountInfo>['account']
+          >,
+          network: { id: 'evm--1' } as NonNullable<
+            ReturnType<typeof defaultActiveAccountInfo>['network']
+          >,
+        },
+      });
 
-    const { result } = renderHook(() => useAccountSelectorActions().current, {
-      wrapper: Wrapper,
-    });
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
 
-    await act(async () => {
-      await result.current.autoSelectNextAccount({
+      const lookupStarted = createDeferred<void>();
+      const releaseLookup = createDeferred<void>();
+      mockGetAllHdHwQrWallets.mockImplementationOnce(async () => {
+        lookupStarted.resolve();
+        await releaseLookup.promise;
+        return { wallets: [nextWallet] };
+      });
+      const removal = result.current.autoSelectNextAccount({
         num: 0,
         sceneName: EAccountSelectorSceneName.home,
         triggerBy: EAccountSelectorAutoSelectTriggerBy.removeWallet,
         removedWalletId: removedWallet.id,
       });
-    });
+      await lookupStarted.promise;
+      await act(async () => {
+        if (change !== 'none') {
+          await result.current.updateSelectedAccount({
+            num: 0,
+            builder: (current) => ({
+              ...current,
+              ...(change === 'focus' && { focusedWallet: 'hd-browsed' }),
+              ...(change === 'account' && { indexedAccountId: 'hd-newer--0' }),
+              ...(change === 'network' && { networkId: 'evm--10' }),
+              ...(change === 'derive' && { deriveType: 'BIP86' as const }),
+            }),
+          });
+        }
+      });
+      const selectionBeforeFallback = store.get(selectedAccountsAtom())[0];
+      let outcome: string | undefined;
+      await act(async () => {
+        releaseLookup.resolve();
+        outcome = (await removal)?.outcome;
+      });
 
-    expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
-      walletId: nextWallet.id,
-      indexedAccountId: nextIndexedAccount.id,
-      focusedWallet: nextWallet.id,
-    });
-  });
+      if (!['none', 'focus'].includes(change)) {
+        expect(outcome).toBe('stale');
+        expect(store.get(selectedAccountsAtom())[0]).toEqual(
+          selectionBeforeFallback,
+        );
+        return;
+      }
+
+      expect(outcome).toBe('commit');
+      expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+        walletId: nextWallet.id,
+        indexedAccountId: nextIndexedAccount.id,
+        focusedWallet: nextWallet.id,
+      });
+    },
+  );
 
   it('clears the removed keyless wallet when no fallback wallet exists', async () => {
     const removedWallet = {

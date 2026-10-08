@@ -577,6 +577,50 @@ describe('SimpleDbEntityAccountSelector unavailable selection CAS', () => {
     );
   });
 
+  it.each([EAccountSelectorSceneName.home, EAccountSelectorSceneName.discover])(
+    'handles focus-only save intents correctly in %s',
+    async (sceneName) => {
+      const entity = await createEntityWithPersistInfo(
+        createPersistInfo({ home: unavailableSelection }),
+      );
+      const scope = {
+        num: 0,
+        sceneName,
+        sceneUrl:
+          sceneName === EAccountSelectorSceneName.discover
+            ? 'https://save-focus-only.test'
+            : undefined,
+      };
+      const initialEpoch = await entity.recordSelectedAccountIntent({
+        ...scope,
+        selectedAccount: unavailableSelection,
+      });
+      const focusEpoch = await entity.recordSelectedAccountIntent({
+        ...scope,
+        selectedAccount: {
+          ...unavailableSelection,
+          focusedWallet: 'hd-browsed',
+        },
+      });
+      const result = await entity.saveSelectedAccount({
+        ...scope,
+        selectedAccount: unavailableSelection,
+        selectionIntentEpoch: initialEpoch,
+      });
+
+      if (sceneName === EAccountSelectorSceneName.discover) {
+        expect(focusEpoch).toBe(initialEpoch);
+        expect(result).toEqual({ persisted: false });
+      } else {
+        expect(focusEpoch).toBeGreaterThan(initialEpoch);
+        expect(result).toMatchObject({
+          persisted: false,
+          staleSelectionIntent: true,
+        });
+      }
+    },
+  );
+
   it('rejects an A save when a newer B selection intent owns the scope', async () => {
     const entity = await createEntityWithPersistInfo(
       createPersistInfo({ home: newerSelection }),

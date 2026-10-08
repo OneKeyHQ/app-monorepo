@@ -1,3 +1,7 @@
+import {
+  areAccountSelectorActiveSelectionsEqual,
+  areAccountSelectorSelectionsEqual,
+} from '@onekeyhq/kit-bg/src/dbs/simple/entity/accountSelectorPersistenceGuard';
 import type {
   IAccountSelectorSelectedAccount,
   IAccountSelectorSelectedAccountsMap,
@@ -6,6 +10,7 @@ import type {
 import { defaultSelectedAccount } from './atoms';
 import {
   ACTIVE_ACCOUNT_RELOAD_SELECTION_FIELDS,
+  isSameActiveAccountRelevantSelection,
   isSameSelectedAccount,
   isSameSelectedAccountsMap,
 } from './selectedAccountCompare';
@@ -39,6 +44,37 @@ const allUndefinedSelectedAccount: IAccountSelectorSelectedAccount = {
 };
 
 describe('ACTIVE_ACCOUNT_RELOAD_SELECTION_FIELDS', () => {
+  it.each(Object.keys(allUndefinedSelectedAccount))(
+    'keeps the approval guard aligned with active-account identity for %s',
+    (field) => {
+      const original = createSelectedAccount('hd-1--0');
+      const changed = {
+        ...original,
+        [field]:
+          field === 'othersWalletAccountId' ? 'imported--test' : undefined,
+      };
+      const expected = isSameActiveAccountRelevantSelection(original, changed);
+      expect(areAccountSelectorActiveSelectionsEqual(original, changed)).toBe(
+        expected,
+      );
+      expect(
+        areAccountSelectorActiveSelectionsEqual(
+          bridgeThroughBackground(original),
+          bridgeThroughBackground(changed),
+        ),
+      ).toBe(expected);
+    },
+  );
+
+  it('still includes panel focus in the full persistence comparison', () => {
+    const original = createSelectedAccount('hd-1--0');
+    const changed = { ...original, focusedWallet: 'hd-browsed' };
+    expect(areAccountSelectorSelectionsEqual(original, changed)).toBe(false);
+    expect(areAccountSelectorActiveSelectionsEqual(original, changed)).toBe(
+      true,
+    );
+  });
+
   // Guards the three-way agreement between the staleness field list, the
   // reload-scheduling deps in AccountSelectorEffects, and the background build
   // inputs. When a new field is added to IAccountSelectorSelectedAccount this

@@ -79,6 +79,16 @@ export function areAccountSelectorSelectionsEqual(
   );
 }
 
+export function areAccountSelectorActiveSelectionsEqual(
+  first: IAccountSelectorSelectedAccount | null | undefined,
+  second: IAccountSelectorSelectedAccount | null | undefined,
+) {
+  // Panel focus does not change the account authorized by a DApp approval.
+  return selectedAccountFields.every(
+    (field) => field === 'focusedWallet' || first?.[field] === second?.[field],
+  );
+}
+
 export function recordAccountSelectorWriteIntent(
   scope: IAccountSelectorPersistenceScope,
   options?: { preserveStorageInitGeneration?: number },
@@ -117,8 +127,16 @@ export function recordAccountSelectorSelectionIntent(
   scope: IAccountSelectorPersistenceScope,
   selectedAccount: IAccountSelectorSelectedAccount,
 ) {
-  const epoch = recordAccountSelectorWriteIntent(scope);
   const scopeKey = buildScopeKey(scope);
+  // Discover is not persisted. Autosaves and panel browsing must not cancel
+  // an approval unless the account it authorizes actually changes.
+  const latestIntent = latestSelectionIntents.get(scopeKey);
+  const epoch =
+    scope.sceneName === EAccountSelectorSceneName.discover &&
+    latestIntent &&
+    areAccountSelectorActiveSelectionsEqual(latestIntent, selectedAccount)
+      ? getAccountSelectorWriteIntentEpoch(scope)
+      : recordAccountSelectorWriteIntent(scope);
   latestSelectionIntents.set(
     scopeKey,
     copySelectionFingerprint(selectedAccount),
@@ -151,7 +169,9 @@ export function isAccountSelectorSelectionIntentCurrent({
   return (
     epoch !== undefined &&
     getAccountSelectorWriteIntentEpoch(scope) === epoch &&
-    areAccountSelectorSelectionsEqual(
+    (scope.sceneName === EAccountSelectorSceneName.discover
+      ? areAccountSelectorActiveSelectionsEqual
+      : areAccountSelectorSelectionsEqual)(
       getAccountSelectorLatestSelectionIntent(scope),
       selectedAccount,
     )

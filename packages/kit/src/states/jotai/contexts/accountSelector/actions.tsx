@@ -2762,7 +2762,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           );
           if (
             recordSelectionIntent ||
-            (!finalSelectionIsSame &&
+            (!isSameActiveAccountRelevantSelection(
+              oldSelectedAccount,
+              newSelectedAccount,
+            ) &&
               sceneInfo?.sceneName === EAccountSelectorSceneName.discover &&
               sceneInfo.sceneUrl)
           ) {
@@ -6836,7 +6839,15 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
             phase = 'selection-update';
             selectionResult = await this.updateSelectedAccount.call(set, {
-              expectedSelection: selectedAccount,
+              // Browsing another wallet must not prevent replacing a removed
+              // account, but a newer account/network/derive choice must win.
+              expectedPartialSelection: {
+                walletId: selectedAccount.walletId,
+                indexedAccountId: selectedAccount.indexedAccountId,
+                othersWalletAccountId: selectedAccount.othersWalletAccountId,
+                networkId: selectedAccount.networkId,
+                deriveType: selectedAccount.deriveType,
+              },
               num,
               parentOperationId: operationId,
               reason: 'autoSelectNextAccount',

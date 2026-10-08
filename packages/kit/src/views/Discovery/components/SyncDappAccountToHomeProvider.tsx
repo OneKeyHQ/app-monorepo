@@ -14,6 +14,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
 import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnection';
@@ -173,8 +174,23 @@ export function SyncHomeAccountPageToDappAccount() {
       ) {
         return;
       }
+      const expectedSelection = params.expectedSelectedAccount;
+      const isAllNetwork = networkUtils.isAllNetwork({
+        networkId: expectedSelection.networkId,
+      });
       await actions.current.updateSelectedAccount({
-        expectedSelection: params.expectedSelectedAccount,
+        expectedSelection: isAllNetwork ? undefined : expectedSelection,
+        // Storage strips AllNetwork deriveType, while UI initialization uses
+        // default. Guard every other field, including unset keys after JSON RPC.
+        expectedPartialSelection: isAllNetwork
+          ? {
+              focusedWallet: expectedSelection.focusedWallet,
+              indexedAccountId: expectedSelection.indexedAccountId,
+              networkId: expectedSelection.networkId,
+              othersWalletAccountId: expectedSelection.othersWalletAccountId,
+              walletId: expectedSelection.walletId,
+            }
+          : undefined,
         num: 0,
         reason: 'syncDappAccountToHomeAccount',
         builder: () => params.selectedAccount,

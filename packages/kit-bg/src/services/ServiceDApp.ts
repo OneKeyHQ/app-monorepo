@@ -65,7 +65,7 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import {
-  areAccountSelectorSelectionsEqual,
+  areAccountSelectorActiveSelectionsEqual,
   getAccountSelectorLatestSelectionIntent,
   getAccountSelectorWriteIntentEpoch,
   recordAccountSelectorSelectionIntent,
@@ -917,15 +917,23 @@ class ServiceDApp extends ServiceBase {
       sceneName: EAccountSelectorSceneName.home,
       num: 0,
     });
-    // Capture before the first await: a selector intent arriving while the
-    // icon request is pending belongs to this approval's cancellation window.
+    // Capture before the first await: an account-changing intent arriving while
+    // the icon request is pending belongs to this approval's cancellation window.
+    if (!getAccountSelectorLatestSelectionIntent(persistenceScope)) {
+      // Establish an identity baseline before the first await, even if the
+      // renderer's first autosave has not reached background yet.
+      recordAccountSelectorSelectionIntent(
+        persistenceScope,
+        expectedSelectedAccount,
+      );
+    }
     const approvalEpoch = getAccountSelectorWriteIntentEpoch(persistenceScope);
     const matchesLatestSelectionIntent = () => {
       const latestSelectionIntent =
         getAccountSelectorLatestSelectionIntent(persistenceScope);
       return (
         !latestSelectionIntent ||
-        areAccountSelectorSelectionsEqual(
+        areAccountSelectorActiveSelectionsEqual(
           latestSelectionIntent,
           expectedSelectedAccount,
         )

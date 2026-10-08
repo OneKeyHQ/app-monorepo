@@ -391,6 +391,129 @@ describe('ServiceDApp connection approval transaction', () => {
     expect(compareSpy).toHaveBeenCalledTimes(1);
   });
 
+  it.each([false, true])(
+    'approves after only panel focus changed (JSON transport: %s)',
+    async (jsonTransport) => {
+      const origin = `https://focus-only-${jsonTransport}.test`;
+      const harness = createHarness();
+      const expectedSelectedAccount = buildSelectedAccount('active');
+      await harness.service.recordConnectionSelectionIntent({
+        accountSelectorNum: 0,
+        origin,
+        selectedAccount: {
+          ...expectedSelectedAccount,
+          focusedWallet: 'hd-browsed',
+        },
+      });
+      const accountInfo = buildConnectionAccount('active');
+
+      await expect(
+        harness.service.approveConnectionSession({
+          accountInfo,
+          accountSelectorNum: 0,
+          approvalId: `approval-focus-only-${jsonTransport}`,
+          expectedSelectedAccount: jsonTransport
+            ? (JSON.parse(
+                JSON.stringify(expectedSelectedAccount),
+              ) as IAccountSelectorSelectedAccount)
+            : expectedSelectedAccount,
+          mode: 'save',
+          origin,
+          requestId: 100,
+        }),
+      ).resolves.toEqual({ approved: true });
+      expect(harness.resolveCallback).toHaveBeenCalledWith({
+        id: 100,
+        data: accountInfo,
+      });
+    },
+  );
+
+  it.each(['intent', 'autosave'] as const)(
+    'does not cancel an in-flight approval for a focus-only %s',
+    async (source) => {
+      const origin = `https://pending-focus-${source}.test`;
+      const harness = createHarness();
+      const expectedSelectedAccount = buildSelectedAccount('active');
+      const accountInfo = buildConnectionAccount('active');
+      const gate = harness.storageHarness.gateNextWrite(
+        harness.dappConnection.entityKey,
+      );
+      const approval = harness.service.approveConnectionSession({
+        accountInfo,
+        accountSelectorNum: 0,
+        approvalId: `approval-pending-focus-${source}`,
+        expectedSelectedAccount,
+        mode: 'save',
+        origin,
+        requestId: 100,
+      });
+      await gate.started.promise;
+      const focusedSelection = {
+        ...expectedSelectedAccount,
+        focusedWallet: 'hd-browsed',
+      };
+      if (source === 'intent') {
+        await harness.service.recordConnectionSelectionIntent({
+          accountSelectorNum: 0,
+          origin,
+          selectedAccount: focusedSelection,
+        });
+      } else {
+        await harness.accountSelector.saveSelectedAccount({
+          num: 0,
+          sceneName: EAccountSelectorSceneName.discover,
+          sceneUrl: origin,
+          selectedAccount: focusedSelection,
+        });
+      }
+      gate.release.resolve();
+
+      await expect(approval).resolves.toEqual({ approved: true });
+      expect(harness.resolveCallback).toHaveBeenCalledWith({
+        id: 100,
+        data: accountInfo,
+      });
+    },
+  );
+
+  it('still cancels an approval when the active selection changes and changes back', async () => {
+    const origin = 'https://selection-aba.test';
+    const harness = createHarness();
+    const expectedSelectedAccount = buildSelectedAccount('active');
+    const gate = harness.storageHarness.gateNextWrite(
+      harness.dappConnection.entityKey,
+    );
+    const approval = harness.service.approveConnectionSession({
+      accountInfo: buildConnectionAccount('active'),
+      accountSelectorNum: 0,
+      approvalId: 'approval-selection-aba',
+      expectedSelectedAccount,
+      mode: 'save',
+      origin,
+      requestId: 100,
+    });
+    await gate.started.promise;
+    for (const selectedAccount of [
+      buildSelectedAccount('other'),
+      expectedSelectedAccount,
+    ]) {
+      await harness.service.recordConnectionSelectionIntent({
+        accountSelectorNum: 0,
+        origin,
+        selectedAccount,
+      });
+    }
+    gate.release.resolve();
+
+    await expect(approval).resolves.toEqual({
+      approved: false,
+      reason: 'selection-changed',
+    });
+    await expect(harness.dappConnection.getRawData()).resolves.toBeNull();
+    expectNoApprovalSideEffects({ ...harness, emitSpy });
+  });
+
   it('rejects an older renderer snapshot when a newer cross-runtime selection intent arrived first', async () => {
     const origin = 'https://cross-renderer-order.test';
     const harness = createHarness();
