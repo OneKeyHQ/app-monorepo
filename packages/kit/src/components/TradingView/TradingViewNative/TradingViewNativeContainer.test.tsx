@@ -7,6 +7,7 @@ import { Suspense, startTransition, use, useState } from 'react';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
+import { getMarketDetailTradingViewNativeSource } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/getMarketDetailTradingViewNativeSource';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 import {
   type ITradingViewNativeChartSettings,
@@ -430,6 +431,66 @@ describe('TradingViewNativeContainer', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  describe.each(['mobile', 'desktop'] as const)(
+    '%s Market drawing tools',
+    (nativeControlsLayoutMode) => {
+      it.each([
+        ['BTC', 'btc--0'],
+        ['ETH', 'evm--1'],
+        ['BNB', 'evm--56'],
+      ])(
+        'enables drawings for the %s Hyperliquid-backed main chart',
+        (symbol, networkId) => {
+          const source = getMarketDetailTradingViewNativeSource({
+            hyperliquidCoin: '',
+            isNative: true,
+            marketDataSource: 'websocket',
+            networkId,
+            symbol,
+            tokenAddress: '',
+          });
+          expect(source.kind).toBe('hyperliquid');
+          render(
+            <TradingViewNativeContainer
+              source={source}
+              enableDrawings
+              nativeControlsLayoutMode={nativeControlsLayoutMode}
+            />,
+          );
+          expect(mockTradingViewNativeChart).toHaveBeenLastCalledWith(
+            expect.objectContaining({ enableDrawings: true }),
+          );
+        },
+      );
+    },
+  );
+
+  it.each([
+    { name: 'charts without opt-in', props: {} },
+    {
+      name: 'Perps compact charts',
+      props: { nativeChartDisplayMode: 'compact' },
+    },
+    {
+      name: 'compact charts even with opt-in',
+      props: { enableDrawings: true, nativeChartDisplayMode: 'compact' },
+    },
+    {
+      name: 'Swap charts even with opt-in',
+      props: { enableDrawings: true, storageNamespace: 'swap' },
+    },
+  ] as const)('keeps drawings disabled for $name', ({ props }) => {
+    render(
+      <TradingViewNativeContainer
+        source={{ kind: 'hyperliquid', coin: 'BTC', environment: 'mainnet' }}
+        {...props}
+      />,
+    );
+    expect(mockTradingViewNativeChart).toHaveBeenLastCalledWith(
+      expect.objectContaining({ enableDrawings: false }),
+    );
   });
 
   it('passes account trade marks to the renderer alongside custom chart components', async () => {
@@ -861,6 +922,54 @@ describe('TradingViewNativeContainer', () => {
       <TradingViewNativeContainer source={{ ...source }} testID="chart" />,
     );
     expect(screen.queryByTestId('chart-loading')).toBeNull();
+  });
+
+  it('emits history prices when the latest point changes, not when the callback changes', () => {
+    mockDataState = { status: 'live' };
+    mockPoints = [{ c: 100, h: 101, l: 99, o: 100, t: 1, v: 10 }];
+    const source = {
+      kind: 'market' as const,
+      networkId: 'evm--1',
+      tokenAddress: '0xabc',
+      symbol: 'TOKEN',
+      realtime: 'disabled' as const,
+    };
+    const firstOnPriceUpdate = jest.fn();
+    const { rerender } = render(
+      <TradingViewNativeContainer
+        source={source}
+        onPriceUpdate={firstOnPriceUpdate}
+      />,
+    );
+    expect(firstOnPriceUpdate).toHaveBeenCalledTimes(1);
+    expect(firstOnPriceUpdate).toHaveBeenLastCalledWith(
+      expect.objectContaining({ price: 100, source: 'history', timestamp: 1 }),
+    );
+
+    // A retained route re-creating its callback must not replay the old close.
+    const nextOnPriceUpdate = jest.fn();
+    rerender(
+      <TradingViewNativeContainer
+        source={source}
+        onPriceUpdate={nextOnPriceUpdate}
+      />,
+    );
+    expect(nextOnPriceUpdate).not.toHaveBeenCalled();
+
+    mockPoints = [
+      ...mockPoints,
+      { c: 101, h: 102, l: 100, o: 100, t: 2, v: 10 },
+    ];
+    rerender(
+      <TradingViewNativeContainer
+        source={{ ...source }}
+        onPriceUpdate={nextOnPriceUpdate}
+      />,
+    );
+    expect(nextOnPriceUpdate).toHaveBeenCalledTimes(1);
+    expect(nextOnPriceUpdate).toHaveBeenLastCalledWith(
+      expect.objectContaining({ price: 101, source: 'history', timestamp: 2 }),
+    );
   });
 
   it('renders a retryable error state when history has no points', () => {

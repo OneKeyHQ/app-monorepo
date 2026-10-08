@@ -2,15 +2,18 @@
 
 import { act, renderHook } from '@testing-library/react';
 
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   type IMarketAssetRouteIdentity,
   resolveMarketAssetRouteIdentity,
 } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveMarketAssetRouteIdentity';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
+import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import {
   useAutoRefreshTokenDetail,
   useResolvedMarketAssetRouteIdentity,
+  useSyncMarketCurrentTokenLiveData,
 } from './useAutoRefreshTokenDetail';
 
 const mockFetchAssetTokenDetail = jest.fn();
@@ -24,10 +27,39 @@ const mockSetTokenDetail = jest.fn();
 const mockSetTokenDetailLoading = jest.fn();
 const mockSetTokenDetailWebsocket = jest.fn();
 const mockSeedTokenDetailFromCache = jest.fn();
+const mockTokenDetailActions = {
+  fetchTokenDetail: mockFetchTokenDetail,
+  setIsNative: mockSetIsNative,
+  setNetworkId: mockSetNetworkId,
+  setPerpsInfo: mockSetPerpsInfo,
+  setTokenAddress: mockSetTokenAddress,
+  setTokenDetail: mockSetTokenDetail,
+  setTokenDetailLoading: mockSetTokenDetailLoading,
+  setTokenDetailWebsocket: mockSetTokenDetailWebsocket,
+  seedTokenDetailFromCache: mockSeedTokenDetailFromCache,
+};
 let promiseFactory: (() => Promise<unknown>) | undefined;
 let promiseOptions: Record<string, unknown> | undefined;
 let promiseResult: unknown;
 let mockCurrencyId = 'usd';
+let mockTokenDetail: IMarketTokenDetail | undefined;
+let mockNetworkId = '';
+let mockIsFocused = true;
+let mockIsInternetReachable = true;
+
+jest.mock('@onekeyhq/components', () => ({
+  getCurrentVisibilityState: () => true,
+  onVisibilityStateChange: () => () => undefined,
+  useDeferredPromise: jest.requireActual<
+    typeof import('@onekeyhq/components/src/hooks/useDeferredPromise')
+  >('../../../../../../components/src/hooks/useDeferredPromise')
+    .useDeferredPromise,
+  useNetInfo: () => ({ isRawInternetReachable: mockIsInternetReachable }),
+}));
+
+jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
+  useRouteIsFocused: () => mockIsFocused,
+}));
 
 jest.mock('@onekeyhq/kit/src/components/Currency', () => ({
   useCurrency: () => ({ id: mockCurrencyId }),
@@ -38,30 +70,23 @@ jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
-  usePromiseResult: (
-    factory: () => Promise<unknown>,
-    _deps: unknown[],
-    options: Record<string, unknown>,
-  ) => {
-    promiseFactory = factory;
-    promiseOptions = options;
-    return { result: promiseResult, isLoading: false };
-  },
+  usePromiseResult: jest.fn(
+    (
+      factory: () => Promise<unknown>,
+      _deps: unknown[],
+      options: Record<string, unknown>,
+    ) => {
+      promiseFactory = factory;
+      promiseOptions = options;
+      return { result: promiseResult, isLoading: false };
+    },
+  ),
 }));
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
+  useTokenDetailLoadingAtom: () => [false],
   useTokenDetailActions: () => ({
-    current: {
-      fetchTokenDetail: mockFetchTokenDetail,
-      setIsNative: mockSetIsNative,
-      setNetworkId: mockSetNetworkId,
-      setPerpsInfo: mockSetPerpsInfo,
-      setTokenAddress: mockSetTokenAddress,
-      setTokenDetail: mockSetTokenDetail,
-      setTokenDetailLoading: mockSetTokenDetailLoading,
-      setTokenDetailWebsocket: mockSetTokenDetailWebsocket,
-      seedTokenDetailFromCache: mockSeedTokenDetailFromCache,
-    },
+    current: mockTokenDetailActions,
   }),
 }));
 
@@ -76,8 +101,8 @@ jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail',
   () => ({
     useTokenDetail: () => ({
-      tokenDetail: undefined,
-      networkId: '',
+      tokenDetail: mockTokenDetail,
+      networkId: mockNetworkId,
       isLoading: false,
     }),
   }),
@@ -115,7 +140,48 @@ describe('useAutoRefreshTokenDetail', () => {
     promiseOptions = undefined;
     promiseResult = undefined;
     mockCurrencyId = 'usd';
+    mockTokenDetail = undefined;
+    mockNetworkId = '';
     mockResolveMarketAssetRouteIdentity.mockResolvedValue(undefined);
+  });
+
+  it('mirrors live prices in a leaf and clears the mirror when its token disappears', () => {
+    mockNetworkId = 'evm--1';
+    mockTokenDetail = {
+      address: '0xabc',
+      networkId: mockNetworkId,
+      name: 'Token',
+      symbol: 'TEST',
+      decimals: 18,
+      logoUrl: '',
+      price: '1',
+      buy24hCount: '2',
+      sell24hCount: '3',
+    };
+    const { rerender, unmount } = renderHook(() =>
+      useSyncMarketCurrentTokenLiveData(),
+    );
+    expect(mockSetCurrentTokenLiveData).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        networkId: 'evm--1',
+        address: '0xabc',
+        price: 1,
+        walletInfo: { buy: 2, sell: 3 },
+      }),
+    );
+    mockSetCurrentTokenLiveData.mockClear();
+    mockTokenDetail = { ...mockTokenDetail, price: '2' };
+    rerender();
+    expect(mockSetCurrentTokenLiveData).toHaveBeenCalledTimes(1);
+    expect(mockSetCurrentTokenLiveData).toHaveBeenLastCalledWith(
+      expect.objectContaining({ price: 2 }),
+    );
+    mockTokenDetail = undefined;
+    rerender();
+    expect(mockSetCurrentTokenLiveData).toHaveBeenLastCalledWith(undefined);
+    mockSetCurrentTokenLiveData.mockClear();
+    unmount();
+    expect(mockSetCurrentTokenLiveData).toHaveBeenCalledWith(undefined);
   });
 
   it('uses the asset detail owner for Top Coins routes', async () => {
@@ -674,7 +740,7 @@ describe('initial detail layout readiness', () => {
     mockCurrencyId = 'usd';
   });
 
-  it('waits before the first request and stays ready during polling', async () => {
+  it('waits before the first request and stays ready during another request', async () => {
     const { result } = renderHook(() => useAutoRefreshTokenDetail(input));
     expect(result.current.isInitialTokenDetailPending).toBe(true);
     await act(async () => {
@@ -791,5 +857,114 @@ describe('initial detail layout readiness', () => {
     });
     expect(mockFetchTokenDetail).toHaveBeenCalledTimes(2);
     expect(result.current.isInitialTokenDetailPending).toBe(false);
+  });
+});
+
+describe('detail metadata refresh scheduling', () => {
+  const input = {
+    tokenAddress: '0xabc',
+    networkId: 'evm--1',
+    isNative: false,
+  };
+  const mockUsePromiseResult = jest.mocked(usePromiseResult);
+  const capturePromiseResult = mockUsePromiseResult.getMockImplementation();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.useFakeTimers();
+    mockCurrencyId = 'usd';
+    mockIsFocused = true;
+    mockIsInternetReachable = true;
+    mockFetchTokenDetail.mockResolvedValue(undefined);
+    mockFetchAssetTokenDetail.mockResolvedValue({ asset: { assetId: 'doge' } });
+    mockUsePromiseResult.mockImplementation(
+      jest.requireActual<
+        typeof import('@onekeyhq/kit/src/hooks/usePromiseResult')
+      >('@onekeyhq/kit/src/hooks/usePromiseResult').usePromiseResult,
+    );
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    if (capturePromiseResult) {
+      mockUsePromiseResult.mockImplementation(capturePromiseResult);
+    }
+  });
+
+  it.each([
+    { name: 'token', props: input },
+    {
+      name: 'asset',
+      props: {
+        tokenAddress: '',
+        networkId: 'doge--0',
+        isNative: true,
+        marketTokenId: 'doge',
+        marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
+      },
+    },
+  ])(
+    'refreshes $name metadata across time and reconnect',
+    async ({ name, props }) => {
+      const fetchDetail =
+        name === 'token' ? mockFetchTokenDetail : mockFetchAssetTokenDetail;
+      const { result, rerender } = renderHook(() =>
+        useAutoRefreshTokenDetail(props),
+      );
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(0);
+      });
+      expect(fetchDetail).toHaveBeenCalledTimes(1);
+      expect(result.current.isInitialTokenDetailPending).toBe(false);
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(6000);
+      });
+      expect(fetchDetail).toHaveBeenCalledTimes(2);
+
+      mockIsFocused = false;
+      mockIsInternetReachable = false;
+      rerender();
+      mockIsFocused = true;
+      mockIsInternetReachable = true;
+      rerender();
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(0);
+      });
+      expect(fetchDetail).toHaveBeenCalledTimes(3);
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(6000);
+      });
+      expect(fetchDetail).toHaveBeenCalledTimes(4);
+    },
+  );
+
+  it('immediately fetches each new token or display currency', async () => {
+    const { rerender } = renderHook(
+      (props) => useAutoRefreshTokenDetail(props),
+      { initialProps: input },
+    );
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    expect(mockFetchTokenDetail).toHaveBeenCalledTimes(1);
+
+    rerender({ ...input, tokenAddress: '0xdef' });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockFetchTokenDetail).toHaveBeenCalledTimes(2);
+    expect(mockFetchTokenDetail).toHaveBeenLastCalledWith(
+      '0xdef',
+      'evm--1',
+      expect.any(Object),
+    );
+
+    mockCurrencyId = 'eur';
+    rerender({ ...input, tokenAddress: '0xdef' });
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    expect(mockFetchTokenDetail).toHaveBeenCalledTimes(3);
   });
 });

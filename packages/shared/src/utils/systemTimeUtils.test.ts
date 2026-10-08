@@ -381,6 +381,27 @@ describe('system time error notifications', () => {
     expect(mockEmit).toHaveBeenCalledWith('LocalSystemTimeInvalid', undefined);
   });
 
+  it('shares the startup refresh with a concurrent freshness request', async () => {
+    let resolveRefresh: (value: boolean) => void = () => undefined;
+    const refreshPromise = new Promise<boolean>((resolve) => {
+      resolveRefresh = resolve;
+    });
+    const refreshServerTime = jest
+      .spyOn(systemTimeUtils, 'refreshServerTime')
+      .mockReturnValue(refreshPromise);
+    jest
+      .spyOn(systemTimeUtils, 'hasFreshServerTimeInCurrentProcess')
+      .mockReturnValue(false);
+
+    systemTimeUtils.startServerTimeInterval();
+    const ensurePromise = systemTimeUtils.ensureFreshServerTime();
+
+    expect(refreshServerTime).toHaveBeenCalledTimes(1);
+
+    resolveRefresh(true);
+    await expect(ensurePromise).resolves.toBe(true);
+  });
+
   it('does not confirm a delayed response when both clocks include sleep', async () => {
     mockGet.mockImplementation(async () => {
       jest.setSystemTime(Date.now() + SLEEP_TIME);

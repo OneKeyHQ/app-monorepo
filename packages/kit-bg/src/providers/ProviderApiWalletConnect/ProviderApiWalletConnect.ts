@@ -20,6 +20,7 @@ import type { IWalletConnectSessionProposalResult } from '@onekeyhq/shared/types
 
 import { travelModeDappRequestIngress } from '../../apis/TravelModeDappRequestIngress';
 import walletConnectClient from '../../services/ServiceWalletConnect/walletConnectClient';
+import { walletConnectDiagnostics } from '../../services/ServiceWalletConnect/WalletConnectDiagnostics';
 
 import { WalletConnectRequestProxyAlgo } from './WalletConnectRequestProxyAlgo';
 import { WalletConnectRequestProxyCosmos } from './WalletConnectRequestProxyCosmos';
@@ -41,6 +42,8 @@ class ProviderApiWalletConnect {
 
   web3Wallet?: IWalletKit;
 
+  private initializing?: Promise<void>;
+
   requestProxyMap: {
     [networkImpl: string]: WalletConnectRequestProxy;
   } = {
@@ -60,11 +63,19 @@ class ProviderApiWalletConnect {
   }
 
   async initializeOnStart(): Promise<void> {
-    const sessionsNew =
-      await walletConnectClient.getWalletSideStorageSessions();
-    // const sessions = await walletConnectStorage.walletSideStorage.getSessions();
-    if (sessionsNew?.length) {
-      await this.initialize();
+    walletConnectDiagnostics.record('connection', 'restoring_sessions');
+    try {
+      const sessionsNew =
+        await walletConnectClient.getWalletSideStorageSessions();
+      // const sessions = await walletConnectStorage.walletSideStorage.getSessions();
+      if (sessionsNew?.length) {
+        await this.initialize();
+      } else {
+        walletConnectDiagnostics.record('connection', 'no_stored_sessions');
+      }
+    } catch (error) {
+      walletConnectDiagnostics.setInitialization('failed', error);
+      throw error;
     }
   }
 
@@ -73,8 +84,22 @@ class ProviderApiWalletConnect {
     if (this.web3Wallet) {
       return;
     }
-    this.web3Wallet = await walletConnectClient.getWalletSideClient();
-    this.registerEvents();
+    if (!this.initializing) {
+      this.initializing = (async () => {
+        walletConnectDiagnostics.setInitialization('initializing');
+        try {
+          this.web3Wallet = await walletConnectClient.getWalletSideClient();
+          this.registerEvents();
+          walletConnectDiagnostics.setInitialization('ready');
+        } catch (error) {
+          walletConnectDiagnostics.setInitialization('failed', error);
+          throw error;
+        }
+      })().finally(() => {
+        this.initializing = undefined;
+      });
+    }
+    await this.initializing;
   }
 
   registerEvents() {
@@ -101,6 +126,7 @@ class ProviderApiWalletConnect {
       EWalletConnectSessionEvents.session_authenticate,
       this.gatedHandleAuthRequest,
     );
+    walletConnectDiagnostics.setListenersRegistered(true);
     // this.web3Wallet.on(
     //   EWalletConnectSessionEvents.session_connect,
     //   function () {
@@ -135,6 +161,7 @@ class ProviderApiWalletConnect {
       EWalletConnectSessionEvents.session_authenticate,
       this.gatedHandleAuthRequest,
     );
+    walletConnectDiagnostics.setListenersRegistered(false);
   }
 
   private handleSessionProposal = async (
@@ -157,7 +184,7 @@ class ProviderApiWalletConnect {
         'ProviderApiWalletConnect ERROR: onSessionProposal notSupportedChains',
         notSupportedChains,
       );
-      await this.web3Wallet?.rejectSession({
+      await this.rejectSession({
         id: proposal.id,
         reason: getSdkError('UNSUPPORTED_CHAINS'),
       });
@@ -181,7 +208,7 @@ class ProviderApiWalletConnect {
         const message = appLocale.intl.formatMessage({
           id: ETranslations.browser_invalid_url,
         });
-        await this.web3Wallet?.rejectSession({
+        await this.rejectSession({
           id: proposal.id,
           reason: {
             message,
@@ -202,6 +229,11 @@ class ProviderApiWalletConnect {
         return;
       }
 
+      walletConnectDiagnostics.record(
+        'session',
+        'proposal_awaiting_approval',
+        proposal,
+      );
       const result = (await serviceDApp.openModal({
         request: {
           scope: '$walletConnect',
@@ -216,10 +248,16 @@ class ProviderApiWalletConnect {
         },
         fullScreen: true,
       })) as IWalletConnectSessionProposalResult;
+      walletConnectDiagnostics.record(
+        'session',
+        'proposal_approving',
+        proposal,
+      );
       const newSession = await this.web3Wallet?.approveSession({
         id: proposal.id,
         namespaces: result.supportedNamespaces,
       });
+      walletConnectDiagnostics.record('session', 'proposal_approved', proposal);
       await serviceDApp.saveConnectionSession({
         origin,
         accountsInfo: result.accountsInfo,
@@ -237,8 +275,14 @@ class ProviderApiWalletConnect {
         network: optionalNamespacesString,
       });
     } catch (e) {
+      walletConnectDiagnostics.record(
+        'session',
+        'proposal_failed',
+        proposal,
+        e,
+      );
       console.error('onSessionProposal error: ', e);
-      await this.web3Wallet?.rejectSession({
+      await this.rejectSession({
         id: proposal.id,
         reason: getSdkError('USER_REJECTED'),
       });
@@ -261,12 +305,23 @@ class ProviderApiWalletConnect {
     console.log('onSessionRequest: ', request);
     const { serviceWalletConnect } = this.backgroundApi;
 
+    walletConnectDiagnostics.record(
+      'request',
+      'validating_chain_and_method',
+      request,
+    );
     // check request method is supported
     const chain = await serviceWalletConnect.getWcChainInfo(
       request.params.chainId,
     );
     if (!chain) {
-      await this.web3Wallet?.respondSessionRequest({
+      walletConnectDiagnostics.record(
+        'request',
+        'unsupported_chain',
+        request,
+        getSdkError('UNSUPPORTED_CHAINS'),
+      );
+      await this.respondSessionRequest({
         topic,
         response: {
           id,
@@ -288,7 +343,13 @@ class ProviderApiWalletConnect {
         request.params.request.method,
       ))
     ) {
-      await this.web3Wallet?.respondSessionRequest({
+      walletConnectDiagnostics.record(
+        'request',
+        'unsupported_method',
+        request,
+        getSdkError('UNSUPPORTED_METHODS'),
+      );
+      await this.respondSessionRequest({
         topic,
         response: {
           id,
@@ -299,6 +360,9 @@ class ProviderApiWalletConnect {
       return;
     }
 
+    let response: Parameters<
+      IWalletKit['respondSessionRequest']
+    >[0]['response'];
     try {
       const networkImpl = await serviceWalletConnect.getNetworkImplByNamespace(
         chain.wcNamespace,
@@ -306,34 +370,35 @@ class ProviderApiWalletConnect {
       const requestProxy = this.getRequestProxy({ networkImpl });
 
       // If the requested chainId does not match the one stored locally, switch the network.
+      walletConnectDiagnostics.record('request', 'switching_network', request);
       await this.switchNetwork({
         request,
         requestProxy,
       });
+      walletConnectDiagnostics.record('request', 'dispatching_method', request);
       const ret = await requestProxy.request(
         { sessionRequest: request, wcChain: chain.wcChain },
         request.params.request,
       );
+      walletConnectDiagnostics.record('request', 'method_completed', request);
       console.log('====>onSessionRequest ret: ', ret);
 
-      await this.web3Wallet?.respondSessionRequest({
-        topic,
-        response: {
-          id,
-          jsonrpc: '2.0',
-          result: ret,
-        },
-      });
-    } catch (error: any) {
-      await this.web3Wallet?.respondSessionRequest({
-        topic,
-        response: {
-          id,
-          jsonrpc: '2.0',
-          error: getSdkError('USER_REJECTED', (error as Error)?.message),
-        },
-      });
+      response = { id, jsonrpc: '2.0', result: ret };
+    } catch (error) {
+      walletConnectDiagnostics.record(
+        'request',
+        'request_failed',
+        request,
+        error,
+      );
+      response = {
+        id,
+        jsonrpc: '2.0',
+        error: getSdkError('USER_REJECTED', (error as Error)?.message),
+      };
     }
+    // A transport failure cannot change the outcome of an executed request.
+    await this.respondSessionRequest({ topic, response });
   };
 
   private handleSessionDelete = async (args: WalletKitTypes.SessionDelete) => {
@@ -347,6 +412,11 @@ class ProviderApiWalletConnect {
   private handleAuthRequest = async (
     args: WalletKitTypes.SessionAuthenticate,
   ) => {
+    walletConnectDiagnostics.record(
+      'request',
+      'authentication_handler_not_implemented',
+      args,
+    );
     console.log('onAuthRequest: ', args);
   };
 
@@ -354,33 +424,115 @@ class ProviderApiWalletConnect {
     console.log('ping');
   };
 
+  private async respondSessionRequest(
+    params: Parameters<IWalletKit['respondSessionRequest']>[0],
+  ) {
+    const payload = { topic: params.topic, id: params.response.id };
+    const responseError =
+      'error' in params.response ? params.response.error : undefined;
+    walletConnectDiagnostics.record(
+      'request',
+      responseError ? 'sending_error_response' : 'sending_response',
+      payload,
+      responseError,
+    );
+    try {
+      await this.web3Wallet?.respondSessionRequest(params);
+      walletConnectDiagnostics.record('request', 'response_submitted', payload);
+    } catch (error) {
+      walletConnectDiagnostics.record(
+        'request',
+        'response_failed',
+        payload,
+        error,
+      );
+      throw error;
+    }
+  }
+
+  private async rejectSession(
+    params: Parameters<IWalletKit['rejectSession']>[0],
+  ) {
+    walletConnectDiagnostics.record(
+      'session',
+      'proposal_rejecting',
+      params,
+      params.reason,
+    );
+    try {
+      await this.web3Wallet?.rejectSession(params);
+      walletConnectDiagnostics.record('session', 'proposal_rejected', params);
+    } catch (error) {
+      walletConnectDiagnostics.record(
+        'session',
+        'proposal_rejection_failed',
+        params,
+        error,
+      );
+      throw error;
+    }
+  }
+
   private gateSessionEvent<TArgs extends unknown[]>(
+    event: EWalletConnectSessionEvents,
     operation: (...args: TArgs) => Promise<void>,
   ) {
-    return travelModeDappRequestIngress.wrap({
-      operation,
+    const gatedOperation = travelModeDappRequestIngress.wrap({
+      operation: async (...args: TArgs) => {
+        walletConnectDiagnostics.record(
+          'session',
+          `${event}_handling`,
+          args[0],
+        );
+        try {
+          await operation(...args);
+        } catch (error) {
+          walletConnectDiagnostics.record(
+            'session',
+            `${event}_failed`,
+            args[0],
+            error,
+          );
+          throw error;
+        }
+      },
       // Suppressed sessions must not start another outbound response.
-      onBlocked: async () => {},
+      onBlocked: async (...args: TArgs) => {
+        walletConnectDiagnostics.record(
+          'session',
+          `${event}_blocked_by_travel_mode`,
+          args[0],
+        );
+      },
     });
+    return (...args: TArgs) => {
+      walletConnectDiagnostics.receivedSessionEvent(event, args[0]);
+      return gatedOperation(...args);
+    };
   }
 
   private gatedHandleSessionProposal = this.gateSessionEvent(
+    EWalletConnectSessionEvents.session_proposal,
     this.handleSessionProposal,
   );
 
   private gatedHandleSessionRequest = this.gateSessionEvent(
+    EWalletConnectSessionEvents.session_request,
     this.handleSessionRequest,
   );
 
   private gatedHandleSessionDelete = this.gateSessionEvent(
+    EWalletConnectSessionEvents.session_delete,
     this.handleSessionDelete,
   );
 
   private gatedHandleSessionPing = this.gateSessionEvent(
+    EWalletConnectSessionEvents.session_ping,
     this.handleSessionPing,
   );
 
   private gatedHandleAuthRequest = this.gateSessionEvent(
+    EWalletConnectSessionEvents.session_authenticate,
     this.handleAuthRequest,
   );
 
@@ -392,7 +544,6 @@ class ProviderApiWalletConnect {
     request: WalletKitTypes.SessionRequest;
     requestProxy: WalletConnectRequestProxy;
   }) {
-    const { topic, id } = request;
     const origin = this.getDAppOrigin({ sessionRequest: request });
     // Find connected account
     const accountsInfo =
@@ -405,16 +556,9 @@ class ProviderApiWalletConnect {
       await this.backgroundApi.serviceWalletConnect.getWcChainInfo(
         request.params.chainId,
       );
-    if (!accountsInfo?.[0].accountInfo.networkId || !chainInfo?.networkId) {
-      await this.web3Wallet?.respondSessionRequest({
-        topic,
-        response: {
-          id,
-          jsonrpc: '2.0',
-          error: getSdkError('USER_REJECTED', 'No connected account'),
-        },
-      });
-      return;
+    if (!accountsInfo?.[0]?.accountInfo.networkId || !chainInfo?.networkId) {
+      // The request handler owns the response and must not dispatch the method.
+      throw new OneKeyLocalError('No connected account');
     }
     if (accountsInfo[0].accountInfo.networkId === chainInfo.networkId) {
       return;
@@ -434,7 +578,19 @@ class ProviderApiWalletConnect {
     if (!this.web3Wallet) {
       throw new OneKeyLocalError('web3Wallet is not initialized');
     }
-    await this.web3Wallet.pair({ uri });
+    walletConnectDiagnostics.record('session', 'pairing_started');
+    try {
+      await this.web3Wallet.pair({ uri });
+      walletConnectDiagnostics.record('session', 'pairing_submitted');
+    } catch (error) {
+      walletConnectDiagnostics.record(
+        'session',
+        'pairing_failed',
+        undefined,
+        error,
+      );
+      throw error;
+    }
   }
 
   getDAppOrigin(option: IWalletConnectRequestOptions) {
