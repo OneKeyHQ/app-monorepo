@@ -36,7 +36,7 @@ jest.mock('../states/jotai/atoms', () => ({
 }));
 
 jest.mock('../vaults/settings', () => ({
-  getVaultSettings: jest.fn(),
+  getVaultSettings: jest.fn(async () => undefined),
 }));
 
 // Defensive boundary: nothing in this suite reaches localDb today, but any

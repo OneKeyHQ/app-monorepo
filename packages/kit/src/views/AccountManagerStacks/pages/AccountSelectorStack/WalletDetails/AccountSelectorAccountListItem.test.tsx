@@ -12,6 +12,7 @@ let capturedOnPress: (() => Promise<void>) | undefined;
 let capturedRenderItemTexts: unknown[] = [];
 
 const mockConfirmAccountSelect = jest.fn(async (_params: unknown) => true);
+const mockPrewarmHomeTokenListOwnerWithin = jest.fn(async () => undefined);
 const mockToastError = jest.fn((_params: unknown) => undefined);
 const mockResetAccountManagerStacksModal = jest.fn();
 
@@ -99,10 +100,20 @@ jest.mock(
   }),
 );
 
+jest.mock(
+  '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells/prewarmOwnerFrames',
+  () => ({
+    HOME_TOKEN_LIST_PREWARM_TAP_TIMEOUT_MS: 80,
+    prewarmHomeTokenListOwnerWithin: () =>
+      mockPrewarmHomeTokenListOwnerWithin(),
+  }),
+);
+
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useAccountSelectorDeFiMapAtom: () => [{}],
   useAccountSelectorValuesMapAtom: () => [{}],
   useIndexedAccountAddressCreationStateAtom: () => [undefined],
+  useSettingsPersistAtom: () => [{ currencyInfo: { id: 'usd' } }],
 }));
 
 jest.mock('../../../components/AccountEdit', () => ({
@@ -208,7 +219,11 @@ describe('AccountSelectorAccountListItem account select', () => {
   it('closes the selector modal when the selection is persisted', async () => {
     await pressItem();
 
+    expect(mockPrewarmHomeTokenListOwnerWithin).toHaveBeenCalledTimes(1);
     expect(mockConfirmAccountSelect).toHaveBeenCalledTimes(1);
+    expect(
+      mockPrewarmHomeTokenListOwnerWithin.mock.invocationCallOrder[0],
+    ).toBeLessThan(mockConfirmAccountSelect.mock.invocationCallOrder[0]);
     expect(mockConfirmAccountSelect.mock.calls[0][0]).toMatchObject({
       entry: 'accountList:indexedAccount',
       reason: 'userSelectAccount',
