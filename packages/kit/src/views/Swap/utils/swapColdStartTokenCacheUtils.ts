@@ -188,7 +188,7 @@ function buildSwapSelectedTokensColdStartOwnerKeyFromContext(
   return [walletId, accountId].join('|');
 }
 
-function isSelectedAccountOwnerMatchedIgnoringDeriveType(
+export function isSelectedAccountOwnerMatchedIgnoringDeriveType(
   accountA?: IAccountSelectorSelectedAccount,
   accountB?: IAccountSelectorSelectedAccount,
 ) {
@@ -199,7 +199,7 @@ function isSelectedAccountOwnerMatchedIgnoringDeriveType(
   return Boolean(accountKeyA && accountKeyA === accountKeyB);
 }
 
-function isSwapSelectedTokensColdStartOwnerMatchedWithSelectedAccountIgnoringDeriveType({
+export function isSwapSelectedTokensColdStartOwnerMatchedWithSelectedAccountIgnoringDeriveType({
   cachedContext,
   selectedAccount,
 }: {
@@ -231,7 +231,7 @@ function isHomeMainAccountUpdate({
   );
 }
 
-function shouldResetSelectedTokensForAllNetworkHome({
+export function shouldResetSelectedTokensForAllNetworkHome({
   cachedContext,
   selectedAccount,
 }: {
@@ -440,12 +440,37 @@ export function getSwapDefaultToTokenForSwapType({
   return toToken ?? getBridgeDefaultToTokenForFromToken(fromToken);
 }
 
+export function getSwapNetworkDefaultTokenPair(network?: ISwapNetwork) {
+  const fromToken = network?.defaultSelectTokenDetail?.from;
+  const toToken = network?.defaultSelectTokenDetail?.to;
+  if (
+    !network ||
+    !fromToken ||
+    !toToken ||
+    fromToken.networkId !== network.networkId ||
+    toToken.networkId !== network.networkId ||
+    !fromToken.symbol ||
+    !toToken.symbol ||
+    typeof fromToken.contractAddress !== 'string' ||
+    typeof toToken.contractAddress !== 'string' ||
+    !Number.isFinite(fromToken.decimals) ||
+    !Number.isFinite(toToken.decimals) ||
+    equalTokenNoCaseSensitive({ token1: fromToken, token2: toToken })
+  ) {
+    return undefined;
+  }
+
+  return { fromToken, toToken };
+}
+
 export function buildSwapDefaultSelectedTokensForNetwork({
   networkId,
   swapType: preferredSwapType,
+  swapNetworks = [],
 }: {
   networkId?: string;
   swapType?: ESwapTabSwitchType;
+  swapNetworks?: ISwapNetwork[];
 }) {
   if (!networkId || preferredSwapType === ESwapTabSwitchType.STOCK) {
     return undefined;
@@ -453,16 +478,19 @@ export function buildSwapDefaultSelectedTokensForNetwork({
 
   const defaultTokens = swapDefaultSetTokens[networkId];
   const useLimitDefaults = preferredSwapType === ESwapTabSwitchType.LIMIT;
+  const backendDefaultTokens = getSwapNetworkDefaultTokenPair(
+    swapNetworks.find((network) => network.networkId === networkId),
+  );
   const fromToken = useLimitDefaults
     ? defaultTokens?.limitFromToken
-    : defaultTokens?.fromToken;
+    : (backendDefaultTokens?.fromToken ?? defaultTokens?.fromToken);
   const toToken = getSwapDefaultToTokenForSwapType({
     fromToken,
     homeNetworkId: networkId,
     preferredSwapType,
     toToken: useLimitDefaults
       ? defaultTokens?.limitToToken
-      : defaultTokens?.toToken,
+      : (backendDefaultTokens?.toToken ?? defaultTokens?.toToken),
   });
   if (!fromToken && !toToken) {
     return undefined;
@@ -474,6 +502,29 @@ export function buildSwapDefaultSelectedTokensForNetwork({
     swapType: useLimitDefaults
       ? ESwapTabSwitchType.LIMIT
       : getDefaultSelectedTokensSwapType({ fromToken, toToken }),
+  };
+}
+
+export function buildSwapDefaultTokenSeed({
+  fromToken,
+  toToken,
+}: {
+  fromToken?: ISwapToken;
+  toToken?: ISwapToken;
+}): NonNullable<ISwapSelectedTokensColdStartContext['defaultTokenSeed']> {
+  return {
+    fromToken: fromToken
+      ? {
+          networkId: fromToken.networkId,
+          contractAddress: fromToken.contractAddress,
+        }
+      : undefined,
+    toToken: toToken
+      ? {
+          networkId: toToken.networkId,
+          contractAddress: toToken.contractAddress,
+        }
+      : undefined,
   };
 }
 
@@ -513,10 +564,12 @@ export function getSwapSelectedTokensColdStartContextNetworkId({
 export function buildSwapDefaultSelectedTokensFromHomeAccount({
   homeSelectedAccount,
   swapType: preferredSwapType,
+  swapNetworks,
   now = Date.now(),
 }: {
   homeSelectedAccount?: ISwapHomeSelectedAccountForDefaults;
   swapType?: ESwapTabSwitchType;
+  swapNetworks?: ISwapNetwork[];
   now?: number;
 }) {
   const accountKey =
@@ -534,6 +587,7 @@ export function buildSwapDefaultSelectedTokensFromHomeAccount({
   const selectedTokens = buildSwapDefaultSelectedTokensForNetwork({
     networkId: homeNetworkId,
     swapType: preferredSwapType,
+    swapNetworks,
   });
   if (!selectedTokens) {
     return undefined;
@@ -556,6 +610,7 @@ export function buildSwapDefaultSelectedTokensFromHomeAccount({
       networkId: contextNetworkId,
       swapType,
       updatedAt: now,
+      defaultTokenSeed: buildSwapDefaultTokenSeed({ fromToken, toToken }),
     },
     swapType,
   };
@@ -660,7 +715,7 @@ function isSelectedAccountMatched(
   );
 }
 
-function isSelectedAccountOwnerMatched(
+export function isSelectedAccountOwnerMatched(
   accountA?: IAccountSelectorSelectedAccount,
   accountB?: IAccountSelectorSelectedAccount,
 ) {
@@ -669,147 +724,6 @@ function isSelectedAccountOwnerMatched(
   const accountKeyB =
     buildSwapSelectedTokensColdStartAccountKeyFromSelectedAccount(accountB);
   return Boolean(accountKeyA && accountKeyA === accountKeyB);
-}
-
-export function shouldClearSwapSelectedTokensBeforeHomeAccountSync({
-  cachedContext,
-  hasSelectedTokens,
-  homeSelectedAccount,
-  initialSelectedTokensSynced,
-  preserveSelectedTokens,
-  swapSelectedAccount,
-}: {
-  cachedContext?: ISwapSelectedTokensColdStartContext;
-  hasSelectedTokens: boolean;
-  homeSelectedAccount?: IAccountSelectorSelectedAccount;
-  initialSelectedTokensSynced?: boolean;
-  preserveSelectedTokens?: boolean;
-  swapSelectedAccount?: IAccountSelectorSelectedAccount;
-}) {
-  if (!hasSelectedTokens) {
-    return false;
-  }
-
-  if (preserveSelectedTokens) {
-    return false;
-  }
-
-  if (
-    initialSelectedTokensSynced &&
-    isSelectedAccountOwnerMatchedIgnoringDeriveType(
-      homeSelectedAccount,
-      swapSelectedAccount,
-    )
-  ) {
-    return false;
-  }
-
-  if (
-    isSwapSelectedTokensColdStartOwnerMatchedWithSelectedAccountIgnoringDeriveType(
-      {
-        cachedContext,
-        selectedAccount: homeSelectedAccount,
-      },
-    )
-  ) {
-    return false;
-  }
-
-  if (
-    shouldResetSelectedTokensForAllNetworkHome({
-      cachedContext,
-      selectedAccount: homeSelectedAccount,
-    })
-  ) {
-    return true;
-  }
-
-  const isMatched =
-    isSwapSelectedTokensColdStartContextMatchedWithSelectedAccount({
-      cachedContext,
-      selectedAccount: homeSelectedAccount,
-    });
-  if (isMatched === true) {
-    return false;
-  }
-
-  const isSameOwnerAllNetworksHome =
-    isSwapColdStartAllNetworkContextNetworkId(homeSelectedAccount?.networkId) &&
-    isSelectedAccountOwnerMatched(homeSelectedAccount, swapSelectedAccount);
-  if (
-    isSameOwnerAllNetworksHome &&
-    (!cachedContext ||
-      isSwapSelectedTokensColdStartContextMatchedWithSelectedAccount({
-        cachedContext,
-        selectedAccount: swapSelectedAccount,
-      }) === true)
-  ) {
-    return false;
-  }
-
-  return true;
-}
-
-export function getSwapSelectedTokensHomeAccountSyncAction({
-  cachedContext,
-  deferSelectedTokenSync,
-  hasSelectedTokens,
-  homeSelectedAccount,
-  initialSelectedTokensSynced,
-  preserveSelectedTokens,
-  swapSelectedAccount,
-  swapType,
-  now,
-}: {
-  cachedContext?: ISwapSelectedTokensColdStartContext;
-  deferSelectedTokenSync?: boolean;
-  hasSelectedTokens: boolean;
-  homeSelectedAccount?: IAccountSelectorSelectedAccount;
-  initialSelectedTokensSynced?: boolean;
-  preserveSelectedTokens?: boolean;
-  swapSelectedAccount?: IAccountSelectorSelectedAccount;
-  swapType: ESwapTabSwitchType;
-  now?: number;
-}):
-  | {
-      type: 'preserve';
-    }
-  | {
-      type: 'replace-with-defaults';
-      defaultTokens: NonNullable<
-        ReturnType<typeof buildSwapDefaultSelectedTokensFromHomeAccount>
-      >;
-    }
-  | {
-      type: 'clear';
-    } {
-  if (deferSelectedTokenSync || swapType === ESwapTabSwitchType.STOCK) {
-    return { type: 'preserve' };
-  }
-
-  const shouldClearSelectedTokens =
-    shouldClearSwapSelectedTokensBeforeHomeAccountSync({
-      cachedContext,
-      hasSelectedTokens,
-      homeSelectedAccount,
-      initialSelectedTokensSynced,
-      preserveSelectedTokens,
-      swapSelectedAccount,
-    });
-  if (!shouldClearSelectedTokens) {
-    return { type: 'preserve' };
-  }
-
-  const defaultTokens = buildSwapDefaultSelectedTokensFromHomeAccount({
-    homeSelectedAccount,
-    swapType,
-    now,
-  });
-  if (defaultTokens) {
-    return { type: 'replace-with-defaults', defaultTokens };
-  }
-
-  return { type: 'clear' };
 }
 
 export function isSwapAccountSelectionSyncAccepted(outcome: string) {

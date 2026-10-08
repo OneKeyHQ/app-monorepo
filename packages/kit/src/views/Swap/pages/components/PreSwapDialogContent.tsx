@@ -91,6 +91,8 @@ import { reconcileSwapStepWithHistory } from '../../utils/swapStepHistory';
 import { buildSwapStockReviewDisplay } from '../../utils/swapStockReviewUtils';
 import { getSwapExecutionTypeFromQuoteResult } from '../../utils/swapTypeUtils';
 
+import SwapQuoteRiskAlert from './SwapQuoteRiskAlert';
+
 import type { ISwapReviewRebuildOptions } from '../../hooks/useSwapReviewActions';
 import type { ISwapReviewRebuildState } from '../../utils/swapReviewRebuildStateMachine';
 
@@ -930,6 +932,13 @@ const PreSwapDialogContent = ({
               </YStack>
             </>
           ) : null}
+
+          <SwapQuoteRiskAlert
+            quote={quoteResult}
+            fromToken={preSwapData?.fromToken}
+            toToken={preSwapData?.toToken}
+            isLoading={preSwapData?.swapBuildLoading}
+          />
 
           {showMarketableFillTip ? (
             <Alert
