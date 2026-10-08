@@ -114,6 +114,7 @@ function BaseMarketTokenSelectorContent({
   const routeParams = route.params as
     | {
         showFavoriteButton?: boolean | string;
+        marketTokenCategory?: string;
       }
     | undefined;
   const showFavoriteButton = normalizeRouteBooleanParam(
@@ -140,6 +141,7 @@ function BaseMarketTokenSelectorContent({
   } = useDetailSelectorBrowseState({
     defaultCategory,
     isWatchlistMode,
+    marketTokenCategory: routeParams?.marketTokenCategory,
   });
   const {
     data: topCoins,

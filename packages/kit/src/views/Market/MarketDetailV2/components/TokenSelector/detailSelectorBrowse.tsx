@@ -30,6 +30,23 @@ const BROWSE_TAB_LABELS: Record<IDetailSelectorBrowseTab, ETranslations> = {
   tokens: ETranslations.global_universal_search_tabs_tokens,
 };
 
+export function getInitialDetailSelectorTokenCategory({
+  defaultCategory,
+  marketTokenCategory,
+}: {
+  defaultCategory: IDetailSelectorDefaultCategory;
+  marketTokenCategory?: string;
+}): string {
+  const categoryId = marketTokenCategory?.trim();
+  if (categoryId && !isMarketStockCategory({ id: categoryId, name: '' })) {
+    return categoryId;
+  }
+  if (defaultCategory === 'top_coins') {
+    return MARKET_TOP_COINS_CATEGORY_ID;
+  }
+  return DETAIL_SELECTOR_TOKEN_CATEGORY;
+}
+
 export function getInitialDetailSelectorBrowseTab({
   defaultCategory,
   isWatchlistMode,
@@ -119,9 +136,11 @@ export function DetailSelectorBrowseTabs({
 export function useDetailSelectorBrowseState({
   defaultCategory,
   isWatchlistMode,
+  marketTokenCategory,
 }: {
   defaultCategory: IDetailSelectorDefaultCategory;
   isWatchlistMode: boolean;
+  marketTokenCategory?: string;
 }) {
   const intl = useIntl();
   const [browseTab, setBrowseTab] = useState<IDetailSelectorBrowseTab>(() =>
@@ -157,10 +176,11 @@ export function useDetailSelectorBrowseState({
       })),
     [apiStockCategories],
   );
-  const [tokenCategoryId, setTokenCategoryId] = useState(
-    defaultCategory === 'top_coins'
-      ? MARKET_TOP_COINS_CATEGORY_ID
-      : DETAIL_SELECTOR_TOKEN_CATEGORY,
+  const [tokenCategoryId, setTokenCategoryId] = useState(() =>
+    getInitialDetailSelectorTokenCategory({
+      defaultCategory,
+      marketTokenCategory,
+    }),
   );
   const [stockCategoryId, setStockCategoryId] = useState(
     DETAIL_SELECTOR_STOCK_CATEGORY,

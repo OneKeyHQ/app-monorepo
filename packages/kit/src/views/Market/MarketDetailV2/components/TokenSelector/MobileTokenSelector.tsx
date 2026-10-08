@@ -28,7 +28,10 @@ import {
 import { TokenListItem } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/components/TokenListItem';
 import { MarketStockCategorySelector } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketStockCategorySelector';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
-import { useMarketTopCoins } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTopCoinsList/hooks/useMarketTopCoins';
+import {
+  isMarketTopCoinNavigationSuppressed,
+  useMarketTopCoins,
+} from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTopCoinsList/hooks/useMarketTopCoins';
 import { MarketWatchListProviderMirrorV2 } from '@onekeyhq/kit/src/views/Market/MarketWatchListProviderMirrorV2';
 import { useSwapProTokenSearch } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapPro';
 import {
@@ -329,6 +332,9 @@ function MobileTokenSelectorContent() {
   const { data: topCoins, isLoading: isTopCoinsLoading } = useMarketTopCoins();
   const handleTopCoinSelect = useCallback(
     (item: IMarketAssetListItem) => {
+      if (isMarketTopCoinNavigationSuppressed()) {
+        return;
+      }
       navigateToTokenDetail({
         address: '',
         networkId: '',

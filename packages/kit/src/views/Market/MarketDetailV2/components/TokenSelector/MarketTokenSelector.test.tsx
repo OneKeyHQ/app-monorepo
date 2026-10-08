@@ -25,8 +25,14 @@ let mockStockCategories: Array<{ category: string; name: string }> = [];
 let mockSearchTokenList: IMarketToken[] = [];
 let mockWatchlistToken: IMarketToken | undefined;
 
+let mockRouteParams:
+  | {
+      marketTokenCategory?: string;
+    }
+  | undefined;
+
 jest.mock('@react-navigation/native', () => ({
-  useRoute: () => ({ params: undefined }),
+  useRoute: () => ({ params: mockRouteParams }),
 }));
 
 jest.mock('react-intl', () => ({
@@ -310,6 +316,7 @@ describe('MarketTokenSelector stock default category', () => {
     mockToStock.mockClear();
     mockSearchTokenList = [];
     mockWatchlistToken = undefined;
+    mockRouteParams = undefined;
     mockSpotCategories = [
       { type: 'trending', name: 'Trending' },
       { type: 'stocks', name: 'Stocks' },
@@ -372,6 +379,32 @@ describe('MarketTokenSelector stock default category', () => {
     expect(
       screen.getByTestId('token-list').getAttribute('data-category'),
     ).toBe('trending');
+  });
+
+  it('does not use a stock category from the detail route as the token category', () => {
+    mockRouteParams = { marketTokenCategory: 'stocks' };
+
+    render(<MarketTokenSelector />);
+    fireEvent.click(screen.getByTestId('market-token-selector-trigger'));
+
+    expect(screen.getByTestId('token-list').getAttribute('data-category')).toBe(
+      'trending',
+    );
+  });
+
+  it('opens Tokens on the detail route category', () => {
+    mockRouteParams = { marketTokenCategory: 'robinhood_meme' };
+    mockSpotCategories = [
+      { type: 'trending', name: 'Trending' },
+      { type: 'robinhood_meme', name: 'Robinhood' },
+    ];
+
+    render(<MarketTokenSelector />);
+    fireEvent.click(screen.getByTestId('market-token-selector-trigger'));
+
+    expect(screen.getByTestId('token-list').getAttribute('data-category')).toBe(
+      'robinhood_meme',
+    );
   });
 
   it('uses the standard tab label size', () => {
