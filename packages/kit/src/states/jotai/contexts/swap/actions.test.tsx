@@ -1258,7 +1258,7 @@ describe('useSwapActions', () => {
     });
   });
 
-  it('surfaces backend token risk flags as non-blocking swap warnings', async () => {
+  it('does not add token-risk presentation to the blocking action alerts', async () => {
     const fromToken = {
       ...ethToken,
       price: '100',
@@ -1310,16 +1310,7 @@ describe('useSwapActions', () => {
       });
     });
 
-    expect(store.get(swapAlertsAtom()).states).toEqual([
-      expect.objectContaining({
-        alertLevel: ESwapAlertLevel.WARNING,
-        message: 'token_selector.risk_reminder.message',
-      }),
-      expect.objectContaining({
-        alertLevel: ESwapAlertLevel.WARNING,
-        message: 'swap_page.price_impact_content_2',
-      }),
-    ]);
+    expect(store.get(swapAlertsAtom()).states).toEqual([]);
   });
 
   it('ignores stale Stock quote limits when the current input amount changed', async () => {
