@@ -18,7 +18,7 @@ import {
   useSwapSelectedTokensColdStartContextAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
-} from '../../../states/jotai/contexts/swap';
+} from '../../../states/jotai/contexts/swap/atoms';
 import { useJotaiContextRootStore } from '../../../states/jotai/utils/useJotaiContextRootStore';
 import {
   SWAP_COLD_START_HOME_SCENE_NAME,

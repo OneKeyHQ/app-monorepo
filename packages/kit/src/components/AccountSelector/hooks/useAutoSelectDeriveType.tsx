@@ -174,10 +174,6 @@ export function useAutoSelectDeriveType({ num }: { num: number }) {
           return;
         }
         const expectedSelection = actions.current.getSelectedAccount({ num });
-        if (expectedSelection.deriveType) {
-          logResult(EAutoSelectDeriveTypeOutcome.SkipExistingDerive);
-          return;
-        }
         if (expectedSelection.networkId !== networkId) {
           logResult(EAutoSelectDeriveTypeOutcome.StaleNetwork);
           return;
@@ -197,6 +193,14 @@ export function useAutoSelectDeriveType({ num }: { num: number }) {
           logResult(EAutoSelectDeriveTypeOutcome.NoDeriveOptions);
           return;
         }
+        if (
+          deriveInfoItems.some(
+            (item) => item.value === expectedSelection.deriveType,
+          )
+        ) {
+          logResult(EAutoSelectDeriveTypeOutcome.SkipExistingDerive);
+          return;
+        }
         phase = 'resolve-fallback';
         stageStartedAt = perfEnabled ? getAccountSelectorPerfTimestamp() : 0;
         const fallbackDeriveType = expectedSelection.networkId
@@ -210,10 +214,10 @@ export function useAutoSelectDeriveType({ num }: { num: number }) {
             getAccountSelectorPerfTimestamp() - stageStartedAt,
           );
         }
-        const newDeriveType =
-          fallbackDeriveType ||
-          (deriveInfoItems[0]?.value as IAccountDeriveTypes) ||
-          'default';
+        const newDeriveType = (
+          deriveInfoItems.find((item) => item.value === fallbackDeriveType) ||
+          deriveInfoItems[0]
+        ).value as IAccountDeriveTypes;
         if (cancelled) {
           logResult(EAutoSelectDeriveTypeOutcome.Cancelled);
           return;
@@ -223,10 +227,12 @@ export function useAutoSelectDeriveType({ num }: { num: number }) {
           await actions.current.updateSelectedAccountDeriveType({
             num,
             deriveType: newDeriveType,
-            // Scoped to the network only: this effect does not re-run when the
-            // account changes, so a full-selection guard would drop the fallback
-            // for good and leave the account without a derive type.
-            expectedNetworkId: networkId,
+            // Keep unrelated account changes eligible, but never overwrite a
+            // derive type selected while the fallback RPC was pending.
+            expectedPartialSelection: {
+              networkId,
+              deriveType: expectedSelection.deriveType,
+            },
             parentOperationId: operationId,
             reason: 'autoDeriveFallback',
           });

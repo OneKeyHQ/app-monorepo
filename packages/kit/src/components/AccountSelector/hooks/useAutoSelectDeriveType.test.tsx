@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 
 import { useAutoSelectDeriveType } from './useAutoSelectDeriveType';
 
@@ -152,6 +152,10 @@ describe('useAutoSelectDeriveType global sync outcome', () => {
   });
 
   it('leaves a newer derive type alone when the global sync went stale', async () => {
+    mockGetDeriveInfoItemsOfNetwork.mockResolvedValue([
+      { value: 'default' },
+      { value: 'ledgerLive' },
+    ]);
     mockSyncLocalDeriveTypeFromGlobal.mockResolvedValue({
       globalDeriveType: 'default',
       selectionResult: { outcome: 'stale' },
@@ -164,9 +168,75 @@ describe('useAutoSelectDeriveType global sync outcome', () => {
     renderHook(() => useAutoSelectDeriveType({ num: 0 }));
 
     await waitFor(() => {
-      expect(mockSyncLocalDeriveTypeFromGlobal).toHaveBeenCalled();
+      expect(mockGetDeriveInfoItemsOfNetwork).toHaveBeenCalled();
     });
     expect(mockUpdateSelectedAccountDeriveType).not.toHaveBeenCalled();
+  });
+
+  it.each(['default', 'BIP86'])(
+    'repairs an unsupported selected type when the global fallback is %s',
+    async (globalFallback) => {
+      mockSyncLocalDeriveTypeFromGlobal.mockResolvedValue({
+        globalDeriveType: undefined,
+        selectionResult: undefined,
+      });
+      mockGetSelectedAccount.mockReturnValue({
+        deriveType: 'BIP86',
+        networkId: 'evm--1',
+      });
+      mockGetDeriveTypeOrFallbackToGlobal.mockResolvedValue(globalFallback);
+
+      renderHook(() => useAutoSelectDeriveType({ num: 0 }));
+
+      await waitFor(() => {
+        expect(mockUpdateSelectedAccountDeriveType).toHaveBeenCalledWith(
+          expect.objectContaining({
+            deriveType: 'default',
+            expectedPartialSelection: {
+              networkId: 'evm--1',
+              deriveType: 'BIP86',
+            },
+            reason: 'autoDeriveFallback',
+          }),
+        );
+      });
+    },
+  );
+
+  it('guards the fallback against a derive type change during the lookup', async () => {
+    mockSyncLocalDeriveTypeFromGlobal.mockResolvedValue({
+      globalDeriveType: undefined,
+      selectionResult: undefined,
+    });
+    mockGetSelectedAccount.mockReturnValue({
+      deriveType: undefined,
+      networkId: 'evm--1',
+    });
+    let resolveFallback!: (value: string) => void;
+    mockGetDeriveTypeOrFallbackToGlobal.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveFallback = resolve;
+      }),
+    );
+
+    renderHook(() => useAutoSelectDeriveType({ num: 0 }));
+    await waitFor(() => {
+      expect(mockGetDeriveTypeOrFallbackToGlobal).toHaveBeenCalled();
+    });
+    mockGetSelectedAccount.mockReturnValue({
+      deriveType: 'ledgerLive',
+      networkId: 'evm--1',
+    });
+    await act(async () => resolveFallback('default'));
+
+    expect(mockUpdateSelectedAccountDeriveType).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expectedPartialSelection: {
+          networkId: 'evm--1',
+          deriveType: undefined,
+        },
+      }),
+    );
   });
 
   it('stops after a global sync that actually landed', async () => {

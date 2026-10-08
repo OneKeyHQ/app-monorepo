@@ -1,11 +1,13 @@
 /** @jest-environment jsdom */
 
-import type { ReactNode } from 'react';
+import type { ComponentProps, ComponentType, ReactNode } from 'react';
 
 import { SingleWalletAddressListItem } from '.';
 
-import { render } from '@testing-library/react';
+import { act, render } from '@testing-library/react';
 
+import type AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
+import type { IListItemTextProps } from '@onekeyhq/kit/src/components/ListItem';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { WalletAddressContext } from './WalletAddressContext';
@@ -15,6 +17,9 @@ import type { IWalletAddressContext } from './WalletAddressContext';
 // One entry per ListItem render; used to compare render-prop identity across
 // re-renders.
 let capturedRenderItemTexts: unknown[] = [];
+const mockAddressTypeSelector = jest.fn(
+  (_props: ComponentProps<typeof AddressTypeSelector>) => null,
+);
 
 // Identity-stable hook results: several of these values sit in the dependency
 // arrays feeding the renderItemText useCallback (directly or via onPress and
@@ -76,16 +81,22 @@ jest.mock(
   '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector',
   () => ({
     __esModule: true,
-    default: () => null,
+    default: (props: ComponentProps<typeof AddressTypeSelector>) =>
+      mockAddressTypeSelector(props),
   }),
 );
 
 jest.mock('@onekeyhq/kit/src/components/ListItem', () => {
-  const ListItemMock = ({ renderItemText }: { renderItemText?: unknown }) => {
+  const ListItemMock = ({
+    renderItemText,
+  }: {
+    renderItemText?: ComponentType<IListItemTextProps>;
+  }) => {
     capturedRenderItemTexts.push(renderItemText);
-    return null;
+    const Render = renderItemText;
+    return Render ? <Render /> : null;
   };
-  ListItemMock.Text = () => null;
+  ListItemMock.Text = ({ primary }: IListItemTextProps) => primary ?? null;
   return { ListItem: ListItemMock };
 });
 
@@ -167,7 +178,7 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
   __esModule: true,
   default: {
     isLightningNetworkByNetworkId: () => false,
-    getDefaultDeriveTypeVisibleNetworks: () => [],
+    getDefaultDeriveTypeVisibleNetworks: () => ['btc--0'],
     isViewInExplorerDisabled: () => false,
   },
   isEnabledNetworksInAllNetworks: () => true,
@@ -215,10 +226,13 @@ function buildContextValue(
   };
 }
 
-function renderItem(contextValue: IWalletAddressContext) {
+function renderItem(
+  contextValue: IWalletAddressContext,
+  itemNetwork = network,
+) {
   return (
     <WalletAddressContext.Provider value={contextValue}>
-      <SingleWalletAddressListItem network={network} />
+      <SingleWalletAddressListItem network={itemNetwork} />
     </WalletAddressContext.Provider>
   );
 }
@@ -248,5 +262,55 @@ describe('SingleWalletAddressListItem render prop stability', () => {
     expect(capturedRenderItemTexts.length).toBeGreaterThanOrEqual(2);
     expect(typeof capturedRenderItemTexts[0]).toBe('function');
     expect(capturedRenderItemTexts[1]).toBe(capturedRenderItemTexts[0]);
+  });
+
+  it('refreshes uncached addresses on the first derive type selection without pinning stale props', async () => {
+    const btcNetwork = { ...network, id: 'btc--0', name: 'Bitcoin' };
+    render(
+      renderItem(
+        buildContextValue({
+          networkAccountMap: {
+            [btcNetwork.id]: [
+              {
+                networkId: btcNetwork.id,
+                accountId: 'hd-1--btc--0',
+                apiAddress: 'old-address',
+                accountXpub: undefined,
+                pub: undefined,
+                dbAccount: undefined,
+                isNftEnabled: false,
+                isBackendIndexed: true,
+                deriveType: 'BIP86',
+                deriveInfo: undefined,
+                isTestnet: false,
+              },
+            ],
+          },
+        }),
+        btcNetwork,
+      ),
+    );
+
+    const props = mockAddressTypeSelector.mock.calls.at(-1)?.[0];
+    expect(props).toBeDefined();
+    await act(async () => {
+      await props?.onSelect?.({
+        deriveType: 'default',
+        account: undefined,
+        deriveInfo: {
+          namePrefix: 'BTC',
+          template: "m/84'/0'/0'/0/0",
+          coinType: '0',
+        },
+      });
+    });
+
+    expect(refreshLocalData).toHaveBeenCalledTimes(1);
+    expect(refreshLocalData).toHaveBeenCalledWith({
+      alwaysSetState: true,
+      skipAccountsCache: true,
+    });
+    expect(props).not.toHaveProperty('activeDeriveType');
+    expect(props).not.toHaveProperty('activeDeriveInfo');
   });
 });
