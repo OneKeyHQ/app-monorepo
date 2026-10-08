@@ -36,6 +36,7 @@ import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnecti
 import ServiceBase from '../ServiceBase';
 
 import { WalletConnectDappSide } from './WalletConnectDappSide';
+import { walletConnectDiagnostics } from './WalletConnectDiagnostics';
 
 import type { WalletKitTypes } from '@reown/walletkit';
 import type { ProposalTypes, SessionTypes } from '@walletconnect/types';
@@ -50,6 +51,22 @@ class ServiceWalletConnect extends ServiceBase {
   dappSide = new WalletConnectDappSide({
     backgroundApi: this.backgroundApi,
   });
+
+  @backgroundMethod()
+  async getWalletSideDiagnostics() {
+    return walletConnectDiagnostics.getSnapshot();
+  }
+
+  @backgroundMethod()
+  async getDappSideConnectionProgress() {
+    // Read only: opening a progress UI must never initialize a client or socket.
+    return this.dappSide.getConnectionProgress();
+  }
+
+  @backgroundMethod()
+  async clearWalletSideDiagnosticEvents() {
+    walletConnectDiagnostics.clear();
+  }
 
   @backgroundMethod()
   async abortConnectPairing({ uri }: { uri: string }) {

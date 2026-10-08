@@ -93,6 +93,45 @@ export interface IMarketWatchlistDataCache {
   };
 }
 
+function isWatchlistSpotItem(item: IMarketWatchListItemV2) {
+  return (
+    !item.perpsCoin && !item.assetId && !item.stockId && Boolean(item.chainId)
+  );
+}
+
+function isWatchlistListingItem(item: IMarketWatchListItemV2) {
+  return Boolean(item.assetId || item.stockId);
+}
+
+function isWatchlistPerpsItem(item: IMarketWatchListItemV2) {
+  return Boolean(item.perpsCoin);
+}
+
+// A remount may paint immediately only when the cache already covers every
+// source this watchlist needs. One populated source is not enough: the missing
+// source would insert later and reorder the first paint (OK-63895).
+function watchlistMountCacheCoversSources(
+  cache: IMarketWatchlistDataCache | undefined,
+  items: IMarketWatchListItemV2[],
+) {
+  if (!cache || items.length === 0) {
+    return false;
+  }
+  const needsSpot = items.some(isWatchlistSpotItem);
+  const needsListing = items.some(isWatchlistListingItem);
+  const needsPerps = items.some(isWatchlistPerpsItem);
+  if (needsSpot && !cache.spot?.list?.length) {
+    return false;
+  }
+  if (needsListing && !cache.listing?.length) {
+    return false;
+  }
+  if (needsPerps && !cache.perps?.tokenListData) {
+    return false;
+  }
+  return needsSpot || needsListing || needsPerps;
+}
+
 export function useMarketWatchlistTokenList({
   watchlist,
   initialSortBy,
@@ -114,25 +153,39 @@ export function useMarketWatchlistTokenList({
   const isLoadingMore = false;
   const hasMore = false;
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  // Cold start paints spot, listings, and perps as each request returns, so
+  // rows pop in and the order jumps (OK-63895). Hold the first commit until
+  // every source for this watchlist has settled. The mount's own loading
+  // flags are current: a sync result with isLoading false can paint
+  // immediately. A later watchlist change still carries the previous
+  // request's idle flags until its effect starts, so that render does not
+  // count. Cache written by in-flight effects is also ignored; only a mount-time
+  // cache that already covers every source this watchlist needs can paint early.
+  const hasCommittedWatchlistRowsRef = useRef(false);
+  const watchlistGenerationRef = useRef<string | null>(null);
+  // Set when the watchlist changes, cleared after that generation's fetch
+  // effects start. Loading on the transition render still belongs to the
+  // previous request.
+  const pendingGenerationRef = useRef<string | null>(null);
+  const [, setWatchlistFetchEpoch] = useState(0);
+  const hadCachedRowsOnMountRef = useRef(
+    watchlistMountCacheCoversSources(dataCacheRef?.current, watchlist),
+  );
 
   const pageIndex = useCarouselIndex();
 
   // Split watchlist into spot and perps items
   const spotItems = useMemo(
-    () =>
-      watchlist.filter(
-        (item) =>
-          !item.perpsCoin && !item.assetId && !item.stockId && item.chainId,
-      ),
+    () => watchlist.filter(isWatchlistSpotItem),
     [watchlist],
   );
   const perpsItems = useMemo(
-    () => watchlist.filter((item) => !!item.perpsCoin),
+    () => watchlist.filter(isWatchlistPerpsItem),
     [watchlist],
   );
 
   const listingItems = useMemo(
-    () => watchlist.filter((item) => item.assetId || item.stockId),
+    () => watchlist.filter(isWatchlistListingItem),
     [watchlist],
   );
   const {
@@ -575,7 +628,47 @@ export function useMarketWatchlistTokenList({
     });
   }, [transformedData, sortBy, sortType]);
 
-  const totalCount = sortedData.length;
+  const watchlistGeneration = watchlist
+    .map((item) => getMarketWatchlistKey(item))
+    .join('\n');
+  if (watchlistGenerationRef.current !== watchlistGeneration) {
+    const isInitialGeneration = watchlistGenerationRef.current === null;
+    watchlistGenerationRef.current = watchlistGeneration;
+    if (!isInitialGeneration) {
+      pendingGenerationRef.current = watchlistGeneration;
+    }
+    if (watchlist.length === 0) {
+      hasCommittedWatchlistRowsRef.current = false;
+    }
+  }
+  const watchlistFetchStarted =
+    pendingGenerationRef.current !== watchlistGeneration;
+  useEffect(() => {
+    pendingGenerationRef.current = null;
+    setWatchlistFetchEpoch((epoch) => epoch + 1);
+  }, [watchlistGeneration]);
+  const sourceHasSettled = (itemCount: number, loading: boolean | undefined) =>
+    itemCount === 0 || (watchlistFetchStarted && loading === false);
+  const watchlistSourcesSettled =
+    watchlist.length > 0 &&
+    sourceHasSettled(spotItems.length, apiLoading) &&
+    sourceHasSettled(listingItems.length, listingLoading) &&
+    sourceHasSettled(perpsItems.length, perpsLoading);
+  if (watchlistSourcesSettled) {
+    hasCommittedWatchlistRowsRef.current = true;
+  }
+  const showWatchlistRows =
+    hasCommittedWatchlistRowsRef.current || hadCachedRowsOnMountRef.current;
+  const displayData = useMemo(
+    () => (showWatchlistRows ? sortedData : []),
+    [showWatchlistRows, sortedData],
+  );
+  // While rows are held, the previous request can still report idle. Keep
+  // loading true so the list shows a skeleton instead of an empty body.
+  const isHoldingWatchlistFirstPaint =
+    watchlist.length > 0 && !showWatchlistRows;
+
+  const totalCount = displayData.length;
   const totalPages = totalCount > 0 ? Math.ceil(totalCount / pageSize) : 1;
 
   useEffect(() => {
@@ -586,8 +679,8 @@ export function useMarketWatchlistTokenList({
 
   const paginatedData = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
-    return sortedData.slice(start, start + pageSize);
-  }, [sortedData, currentPage, pageSize]);
+    return displayData.slice(start, start + pageSize);
+  }, [displayData, currentPage, pageSize]);
 
   const loadMore = useCallback(() => {
     // Watchlist doesn't support load more - all data is loaded at once
@@ -615,7 +708,7 @@ export function useMarketWatchlistTokenList({
 
   return {
     data: paginatedData,
-    isLoading,
+    isLoading: isLoading || isHoldingWatchlistFirstPaint,
     isError,
     isLoadingMore,
     isNetworkSwitching: false,

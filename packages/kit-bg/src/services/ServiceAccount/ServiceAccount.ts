@@ -8169,6 +8169,7 @@ class ServiceAccount extends ServiceBase {
     networkId,
     skipEventEmit,
     applyRestoreSyncPolicy,
+    onError,
     deriveTypes: presetDeriveTypes,
     skipAddressDeriveTypeLookup,
     skipInputDeriveTypesFallback,
@@ -8180,105 +8181,102 @@ class ServiceAccount extends ServiceBase {
     networkId: string;
     skipEventEmit?: boolean;
     applyRestoreSyncPolicy?: boolean;
+    onError: (params: { stage: string; error: unknown }) => void;
     deriveTypes?: IAccountDeriveTypes[];
     skipAddressDeriveTypeLookup?: boolean;
     skipInputDeriveTypesFallback?: boolean;
   }) {
     const addedAccounts: IDBAccount[] = [];
-    try {
-      const { serviceAccount, serviceNetwork, servicePassword } =
-        this.backgroundApi;
+    const { serviceAccount, serviceNetwork, servicePassword } =
+      this.backgroundApi;
 
-      let deriveTypes: IAccountDeriveTypes[] = [...(presetDeriveTypes || [])];
-      if (
-        !deriveTypes?.length &&
-        !skipAddressDeriveTypeLookup &&
-        importedAccount?.address
-      ) {
-        try {
-          const deriveType = await this.withImportedAccountTrace({
-            stage: 'resolveImportedAccountDeriveTypeByAddress',
-            networkId,
-            task: () =>
-              serviceNetwork.getDeriveTypeByAddress({
-                networkId,
-                address: importedAccount.address,
-              }),
-          });
-          if (deriveType) {
-            deriveTypes.push(deriveType);
-          }
-        } catch (e) {
-          console.error('getDeriveTypeByAddress error', e);
-        }
-      }
-
-      if (!deriveTypes?.length && !skipInputDeriveTypesFallback) {
-        try {
-          const isUtxoImportedAccount =
-            importedAccount.type === EDBAccountType.UTXO;
-          const sensitiveInput = await this.withImportedAccountTrace({
-            stage: 'encodeImportedAccountFallbackInput',
-            targetType: 'credential',
-            networkId,
-            task: () =>
-              servicePassword.encodeSensitiveText({
-                text: input,
-              }),
-          });
-          deriveTypes = await this.withImportedAccountTrace({
-            stage: 'resolveImportedAccountDeriveTypesByInput',
-            networkId,
-            task: () =>
-              serviceNetwork.getAccountImportingDeriveTypes({
-                accountId: importedAccount.id,
-                networkId,
-                input: sensitiveInput,
-                validatePrivateKey: !isUtxoImportedAccount,
-                validateXprvt: isUtxoImportedAccount,
-                template: importedAccount.template,
-              }),
-          });
-        } catch (e) {
-          console.error('getAccountImportingDeriveTypes error', e);
-        }
-      }
-
-      if (!deriveTypes?.length) {
-        deriveTypes = ['default'];
-      }
-
-      const skipAddIfNotEqualToAddress =
-        importedAccount.address &&
-        (deriveTypes.length > 1 || presetDeriveTypes?.length)
-          ? importedAccount.address
-          : undefined;
-      let privateKeyRawForCredential = privateKey;
+    let deriveTypes: IAccountDeriveTypes[] = [...(presetDeriveTypes || [])];
+    if (
+      !deriveTypes?.length &&
+      !skipAddressDeriveTypeLookup &&
+      importedAccount?.address
+    ) {
       try {
-        for (const deriveType of deriveTypes) {
-          try {
-            const { accounts } =
-              await serviceAccount.addImportedAccountWithCredentialBase({
-                skipEventEmit,
-                credentialRaw: privateKeyRawForCredential,
-                password,
-                fallbackName: importedAccount.name,
-                networkId,
-                name: importedAccount.name,
-                deriveType,
-                skipAddIfNotEqualToAddress,
-                applyRestoreSyncPolicy,
-              });
-            addedAccounts.push(...(accounts || []));
-          } catch (e) {
-            console.error('addImportedAccountByInput error', e);
-          }
+        const deriveType = await this.withImportedAccountTrace({
+          stage: 'resolveImportedAccountDeriveTypeByAddress',
+          networkId,
+          task: () =>
+            serviceNetwork.getDeriveTypeByAddress({
+              networkId,
+              address: importedAccount.address,
+            }),
+        });
+        if (deriveType) {
+          deriveTypes.push(deriveType);
         }
-      } finally {
-        privateKeyRawForCredential = '';
+      } catch (e) {
+        onError({ stage: 'resolveRestoreDeriveTypeByAddress', error: e });
       }
-    } catch (e) {
-      console.error('addImportedAccountByInput error', e);
+    }
+
+    if (!deriveTypes?.length && !skipInputDeriveTypesFallback) {
+      try {
+        const isUtxoImportedAccount =
+          importedAccount.type === EDBAccountType.UTXO;
+        const sensitiveInput = await this.withImportedAccountTrace({
+          stage: 'encodeImportedAccountFallbackInput',
+          targetType: 'credential',
+          networkId,
+          task: () =>
+            servicePassword.encodeSensitiveText({
+              text: input,
+            }),
+        });
+        deriveTypes = await this.withImportedAccountTrace({
+          stage: 'resolveImportedAccountDeriveTypesByInput',
+          networkId,
+          task: () =>
+            serviceNetwork.getAccountImportingDeriveTypes({
+              accountId: importedAccount.id,
+              networkId,
+              input: sensitiveInput,
+              validatePrivateKey: !isUtxoImportedAccount,
+              validateXprvt: isUtxoImportedAccount,
+              template: importedAccount.template,
+            }),
+        });
+      } catch (e) {
+        onError({ stage: 'resolveRestoreDeriveTypesByInput', error: e });
+      }
+    }
+
+    if (!deriveTypes?.length) {
+      deriveTypes = ['default'];
+    }
+
+    const skipAddIfNotEqualToAddress =
+      importedAccount.address &&
+      (deriveTypes.length > 1 || presetDeriveTypes?.length)
+        ? importedAccount.address
+        : undefined;
+    let privateKeyRawForCredential = privateKey;
+    try {
+      for (const deriveType of deriveTypes) {
+        try {
+          const { accounts } =
+            await serviceAccount.addImportedAccountWithCredentialBase({
+              skipEventEmit,
+              credentialRaw: privateKeyRawForCredential,
+              password,
+              fallbackName: importedAccount.name,
+              networkId,
+              name: importedAccount.name,
+              deriveType,
+              skipAddIfNotEqualToAddress,
+              applyRestoreSyncPolicy,
+            });
+          addedAccounts.push(...(accounts || []));
+        } catch (e) {
+          onError({ stage: 'addImportedAccountWithCredential', error: e });
+        }
+      }
+    } finally {
+      privateKeyRawForCredential = '';
     }
     return { addedAccounts };
   }
@@ -8289,78 +8287,76 @@ class ServiceAccount extends ServiceBase {
     networkId,
     skipEventEmit,
     applyRestoreSyncPolicy,
+    onError,
   }: {
     watchingAccount: IPrimeTransferAccount;
     input: string;
     networkId: string;
     skipEventEmit?: boolean;
     applyRestoreSyncPolicy?: boolean;
+    onError: (params: { stage: string; error: unknown }) => void;
   }): Promise<{
     addedAccounts: IDBAccount[];
   }> {
     const addedAccounts: IDBAccount[] = [];
-    try {
-      const { serviceAccount, serviceNetwork, servicePassword } =
-        this.backgroundApi;
+    const { serviceAccount, serviceNetwork, servicePassword } =
+      this.backgroundApi;
 
-      let deriveTypes: IAccountDeriveTypes[] = [];
-      if (watchingAccount?.address) {
-        try {
-          const deriveType = await serviceNetwork.getDeriveTypeByAddress({
-            networkId,
-            address: watchingAccount.address,
-          });
-          if (deriveType) {
-            deriveTypes.push(deriveType);
-          }
-        } catch (e) {
-          console.error('getDeriveTypeByAddress error', e);
+    let deriveTypes: IAccountDeriveTypes[] = [];
+    if (watchingAccount?.address) {
+      try {
+        const deriveType = await serviceNetwork.getDeriveTypeByAddress({
+          networkId,
+          address: watchingAccount.address,
+        });
+        if (deriveType) {
+          deriveTypes.push(deriveType);
         }
+      } catch (e) {
+        onError({ stage: 'resolveRestoreDeriveTypeByAddress', error: e });
       }
+    }
 
-      if (!deriveTypes?.length) {
-        try {
-          deriveTypes = await serviceNetwork.getAccountImportingDeriveTypes({
-            accountId: watchingAccount.id,
-            networkId: networkId || '',
-            input: await servicePassword.encodeSensitiveText({
-              text: input,
-            }),
-            validateAddress: true,
-            validateXpub: true,
-            template: watchingAccount.template,
-          });
-        } catch (e) {
-          console.error('getAccountImportingDeriveTypes error', e);
-        }
+    if (!deriveTypes?.length) {
+      try {
+        deriveTypes = await serviceNetwork.getAccountImportingDeriveTypes({
+          accountId: watchingAccount.id,
+          networkId: networkId || '',
+          input: await servicePassword.encodeSensitiveText({
+            text: input,
+          }),
+          validateAddress: true,
+          validateXpub: true,
+          template: watchingAccount.template,
+        });
+      } catch (e) {
+        onError({ stage: 'resolveRestoreDeriveTypesByInput', error: e });
       }
+    }
 
-      if (!deriveTypes?.length) {
-        deriveTypes = ['default'];
-      }
+    if (!deriveTypes?.length) {
+      deriveTypes = ['default'];
+    }
 
-      const skipAddIfNotEqualToAddress =
-        deriveTypes.length > 1 ? watchingAccount.address : undefined;
-      for (const deriveType of deriveTypes) {
-        try {
-          const { accounts } = await serviceAccount.addWatchingAccount({
-            skipEventEmit,
-            input,
-            fallbackName: watchingAccount.name,
-            networkId: networkId || '',
-            name: watchingAccount.name,
-            deriveType,
-            isUrlAccount: false,
-            skipAddIfNotEqualToAddress,
-            applyRestoreSyncPolicy,
-          });
-          addedAccounts.push(...(accounts || []));
-        } catch (e) {
-          console.error('addWatchingAccountByInput error', e);
-        }
+    const skipAddIfNotEqualToAddress =
+      deriveTypes.length > 1 ? watchingAccount.address : undefined;
+    for (const deriveType of deriveTypes) {
+      try {
+        const { accounts } = await serviceAccount.addWatchingAccount({
+          skipEventEmit,
+          input,
+          fallbackName: watchingAccount.name,
+          networkId: networkId || '',
+          name: watchingAccount.name,
+          deriveType,
+          isUrlAccount: false,
+          skipAddIfNotEqualToAddress,
+          applyRestoreSyncPolicy,
+        });
+        addedAccounts.push(...(accounts || []));
+      } catch (e) {
+        onError({ stage: 'addWatchingAccount', error: e });
       }
-    } catch (e) {
-      console.error('addWatchingAccountByInput error', e);
     }
     return { addedAccounts };
   }

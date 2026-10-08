@@ -160,6 +160,7 @@ import {
   markSubmittedSwapApprovalsCompleted,
   resolveSwapReviewNeedFetchGasAfterRebuild,
   shouldFallbackSwapStep,
+  updateSwapReviewStep,
 } from '../utils/swapReviewState';
 import {
   getStockTradeAnalyticsPayload,
@@ -614,24 +615,16 @@ export function useSwapBuildTx({
           clearQuoteData();
         }
         if (!reviewGuard || reviewGuard.isCurrent()) {
-          setSwapSteps(
-            (prevSteps: {
-              steps: ISwapStep[];
-              preSwapData: ISwapPreSwapData;
-              quoteResult?: IFetchQuoteResult | undefined;
-            }) => {
-              const newSteps = [...prevSteps.steps];
-              newSteps[newSteps.length - 1] = {
-                ...newSteps[newSteps.length - 1],
+          setSwapSteps((prevSteps) =>
+            updateSwapReviewStep({
+              reviewState: prevSteps,
+              stepIndex: prevSteps.steps.length - 1,
+              partialStep: {
                 status: ESwapStepStatus.PENDING,
                 txHash: txId,
                 orderId,
-              };
-              return {
-                ...prevSteps,
-                steps: newSteps,
-              };
-            },
+              },
+            }),
           );
           if (
             accountUtils.isQrAccount({
@@ -698,23 +691,15 @@ export function useSwapBuildTx({
           ) {
             rootNavigationRef.current?.goBack();
           }
-          setSwapSteps(
-            (prevSteps: {
-              steps: ISwapStep[];
-              preSwapData: ISwapPreSwapData;
-              quoteResult?: IFetchQuoteResult | undefined;
-            }) => {
-              const newSteps = [...prevSteps.steps];
-              newSteps[newSteps.length - 1] = {
-                ...newSteps[newSteps.length - 1],
+          setSwapSteps((prevSteps) =>
+            updateSwapReviewStep({
+              reviewState: prevSteps,
+              stepIndex: prevSteps.steps.length - 1,
+              partialStep: {
                 status: ESwapStepStatus.PENDING,
                 orderId,
-              };
-              return {
-                ...prevSteps,
-                steps: newSteps,
-              };
-            },
+              },
+            }),
           );
         }
         await completeSignedNoSendSwapSuccess({
@@ -1207,24 +1192,16 @@ export function useSwapBuildTx({
         throw new OneKeyAppError('checkLatestNativeTokenBalance failed');
       }
       assertSwapReviewExecutionAllowed(reviewGuard);
-      updateExecutionState(
-        (prev: {
-          steps: ISwapStep[];
-          preSwapData: ISwapPreSwapData;
-          quoteResult?: IFetchQuoteResult | undefined;
-        }) => {
-          const newSteps = cloneDeep(prev.steps);
-          newSteps[stepIndex] = {
-            ...newSteps[stepIndex],
+      updateExecutionState((prev) =>
+        updateSwapReviewStep({
+          reviewState: prev,
+          stepIndex,
+          partialStep: {
             stepSubTitle: intl.formatMessage({
               id: ETranslations.swap_process_sign_and_sent_tx,
             }),
-          };
-          return {
-            ...prev,
-            steps: newSteps,
-          };
-        },
+          },
+        }),
       );
       await runDirectSwapGasAccountStep({
         context: gasAccountAnalyticsContext,
@@ -1459,22 +1436,14 @@ export function useSwapBuildTx({
           return prev;
         });
         if (!shouldWaitApprove && (!reviewGuard || reviewGuard.isCurrent())) {
-          setSwapSteps(
-            (prev: {
-              steps: ISwapStep[];
-              preSwapData: ISwapPreSwapData;
-              quoteResult?: IFetchQuoteResult | undefined;
-            }) => {
-              const newSteps = cloneDeep(prev.steps);
-              newSteps[stepIndex] = {
-                ...newSteps[stepIndex],
+          setSwapSteps((prev) =>
+            updateSwapReviewStep({
+              reviewState: prev,
+              stepIndex,
+              partialStep: {
                 status: ESwapStepStatus.SUCCESS,
-              };
-              return {
-                ...prev,
-                steps: newSteps,
-              };
-            },
+              },
+            }),
           );
         }
       }
@@ -1498,22 +1467,14 @@ export function useSwapBuildTx({
       if (reviewGuard && !reviewGuard.isCurrent()) {
         return;
       }
-      setSwapSteps(
-        (prevSteps: {
-          steps: ISwapStep[];
-          preSwapData: ISwapPreSwapData;
-          quoteResult?: IFetchQuoteResult | undefined;
-        }) => {
-          const newSteps = [...prevSteps.steps];
-          newSteps[stepIndex] = {
-            ...newSteps[stepIndex],
+      setSwapSteps((prevSteps) =>
+        updateSwapReviewStep({
+          reviewState: prevSteps,
+          stepIndex,
+          partialStep: {
             status: ESwapStepStatus.FAILED,
-          };
-          return {
-            ...prevSteps,
-            steps: newSteps,
-          };
-        },
+          },
+        }),
       );
     },
     [setSwapSteps, setInAppNotificationAtom],
@@ -1552,22 +1513,14 @@ export function useSwapBuildTx({
       if (reviewGuard && !reviewGuard.isCurrent()) {
         return;
       }
-      setSwapSteps(
-        (prev: {
-          steps: ISwapStep[];
-          preSwapData: ISwapPreSwapData;
-          quoteResult?: IFetchQuoteResult | undefined;
-        }) => {
-          const newSteps = cloneDeep(prev.steps);
-          newSteps[stepIndex] = {
-            ...newSteps[stepIndex],
+      setSwapSteps((prev) =>
+        updateSwapReviewStep({
+          reviewState: prev,
+          stepIndex,
+          partialStep: {
             status: ESwapStepStatus.FAILED,
-          };
-          return {
-            ...prev,
-            steps: newSteps,
-          };
-        },
+          },
+        }),
       );
     },
     [setSwapSteps],
@@ -1582,24 +1535,16 @@ export function useSwapBuildTx({
     ) => {
       if (reviewGuard && !reviewGuard.isCurrent()) return;
       if (swapStepsRef.current?.preSwapData?.isHWAndExBatchTransfer) {
-        setSwapSteps(
-          (prev: {
-            steps: ISwapStep[];
-            preSwapData: ISwapPreSwapData;
-            quoteResult?: IFetchQuoteResult | undefined;
-          }) => {
-            const newSteps = cloneDeep(prev.steps);
-            newSteps[stepIndex] = {
-              ...newSteps[stepIndex],
+        setSwapSteps((prev) =>
+          updateSwapReviewStep({
+            reviewState: prev,
+            stepIndex,
+            partialStep: {
               stepTitle: `${intl.formatMessage({
                 id: ETranslations.swap_page_approve_and_swap,
               })} [ ${i + 1} / ${(approveUnsignedTxArr?.length ?? 0) + 1} ]`,
-            };
-            return {
-              ...prev,
-              steps: newSteps,
-            };
-          },
+            },
+          }),
         );
       }
     },
@@ -1798,24 +1743,16 @@ export function useSwapBuildTx({
         buildUnsignedParamsCheckNonce.prevNonce =
           approveUnsignedTxArr[approveUnsignedTxArr.length - 1].nonce;
       }
-      updateExecutionState(
-        (prev: {
-          steps: ISwapStep[];
-          preSwapData: ISwapPreSwapData;
-          quoteResult?: IFetchQuoteResult | undefined;
-        }) => {
-          const newSteps = cloneDeep(prev.steps);
-          newSteps[stepIndex] = {
-            ...newSteps[stepIndex],
+      updateExecutionState((prev) =>
+        updateSwapReviewStep({
+          reviewState: prev,
+          stepIndex,
+          partialStep: {
             stepSubTitle: intl.formatMessage({
               id: ETranslations.swap_process_build_and_estimate_tx,
             }),
-          };
-          return {
-            ...prev,
-            steps: newSteps,
-          };
-        },
+          },
+        }),
       );
       let lastTxRes: ISwapSendTxResult | undefined;
       const unsignedTx =
@@ -3034,24 +2971,16 @@ export function useSwapBuildTx({
         fromAccountNetworkId &&
         fromAccountId
       ) {
-        updateExecutionState(
-          (prev: {
-            steps: ISwapStep[];
-            preSwapData: ISwapPreSwapData;
-            quoteResult?: IFetchQuoteResult | undefined;
-          }) => {
-            const newSteps = cloneDeep(prev.steps);
-            newSteps[stepIndex] = {
-              ...newSteps[stepIndex],
+        updateExecutionState((prev) =>
+          updateSwapReviewStep({
+            reviewState: prev,
+            stepIndex,
+            partialStep: {
               stepSubTitle: intl.formatMessage({
                 id: ETranslations.swap_process_create_order,
               }),
-            };
-            return {
-              ...prev,
-              steps: newSteps,
-            };
-          },
+            },
+          }),
         );
         const {
           skipSendTransAction,
@@ -3093,24 +3022,16 @@ export function useSwapBuildTx({
                 handleBuildTxFallbackOnCancel(stepIndex, reviewGuard),
             });
             if (!reviewGuard || reviewGuard.isCurrent()) {
-              updateExecutionState(
-                (prev: {
-                  steps: ISwapStep[];
-                  preSwapData: ISwapPreSwapData;
-                  quoteResult?: IFetchQuoteResult | undefined;
-                }) => {
-                  const newSteps = cloneDeep(prev.steps);
-                  newSteps[stepIndex] = {
-                    ...newSteps[stepIndex],
+              updateExecutionState((prev) =>
+                updateSwapReviewStep({
+                  reviewState: prev,
+                  stepIndex,
+                  partialStep: {
                     stepSubTitle: intl.formatMessage({
                       id: ETranslations.swap_process_build_and_estimate_tx,
                     }),
-                  };
-                  return {
-                    ...prev,
-                    steps: newSteps,
-                  };
-                },
+                  },
+                }),
               );
             }
           } else {
@@ -4523,22 +4444,15 @@ export function useSwapBuildTx({
             };
             let approvalRequestId: string | undefined;
             try {
-              updateExecutionState(
-                (prevSteps: {
-                  steps: ISwapStep[];
-                  preSwapData: ISwapPreSwapData;
-                }) => {
-                  const newSteps = [...prevSteps.steps];
-                  newSteps[i] = {
-                    ...newSteps[i],
+              updateExecutionState((prevSteps) =>
+                updateSwapReviewStep({
+                  reviewState: prevSteps,
+                  stepIndex: i,
+                  partialStep: {
                     status: ESwapStepStatus.LOADING,
                     errorMessage: undefined,
-                  };
-                  return {
-                    ...prevSteps,
-                    steps: newSteps,
-                  };
-                },
+                  },
+                }),
               );
               if (type === ESwapStepType.APPROVE_TX) {
                 const approveAmount = isResetApprove
@@ -4680,22 +4594,14 @@ export function useSwapBuildTx({
                 i !== swapStepsValuesFinal.length - 1 &&
                 !preSwapDataFinal?.shouldFallback
               ) {
-                updateExecutionState(
-                  (prevSteps: {
-                    steps: ISwapStep[];
-                    preSwapData: ISwapPreSwapData;
-                    quoteResult?: IFetchQuoteResult | undefined;
-                  }) => {
-                    const newSteps = [...prevSteps.steps];
-                    newSteps[i] = {
-                      ...newSteps[i],
+                updateExecutionState((prevSteps) =>
+                  updateSwapReviewStep({
+                    reviewState: prevSteps,
+                    stepIndex: i,
+                    partialStep: {
                       status: ESwapStepStatus.SUCCESS,
-                    };
-                    return {
-                      ...prevSteps,
-                      steps: newSteps,
-                    };
-                  },
+                    },
+                  }),
                 );
               }
             } catch (error) {
@@ -4748,7 +4654,7 @@ export function useSwapBuildTx({
                     succeededApproveCount:
                       signAndSendProgress.succeededApproveCount,
                   });
-                } else {
+                } else if (newSteps[i]) {
                   newSteps[i] = {
                     ...newSteps[i],
                     status: ESwapStepStatus.READY,
@@ -4763,36 +4669,34 @@ export function useSwapBuildTx({
                   quoteResult: fallbackSwapStepsValues.quoteResult,
                 };
               }
-              updateExecutionState(
-                (prevSteps: {
-                  steps: ISwapStep[];
-                  preSwapData: ISwapPreSwapData;
-                  quoteResult?: IFetchQuoteResult | undefined;
-                }) => {
-                  if (shouldFallback) {
-                    return {
-                      ...prevSteps,
-                      steps: fallbackSwapStepsValues.steps,
-                      preSwapData: fallbackSwapStepsValues.preSwapData,
-                      quoteResult: fallbackSwapStepsValues.quoteResult,
-                    };
-                  }
-                  const newSteps = [...prevSteps.steps];
-                  newSteps[i] = {
-                    ...newSteps[i],
-                    status: ESwapStepStatus.FAILED,
-                    errorMessage,
-                  };
+              updateExecutionState((prevSteps) => {
+                if (shouldFallback) {
                   return {
                     ...prevSteps,
-                    steps: newSteps,
-                    preSwapData: {
-                      ...prevSteps.preSwapData,
-                      shouldFallback: false,
-                    },
+                    steps: fallbackSwapStepsValues.steps,
+                    preSwapData: fallbackSwapStepsValues.preSwapData,
+                    quoteResult: fallbackSwapStepsValues.quoteResult,
                   };
-                },
-              );
+                }
+                const nextState = updateSwapReviewStep({
+                  reviewState: prevSteps,
+                  stepIndex: i,
+                  partialStep: {
+                    status: ESwapStepStatus.FAILED,
+                    errorMessage,
+                  },
+                });
+                if (nextState === prevSteps) {
+                  return prevSteps;
+                }
+                return {
+                  ...nextState,
+                  preSwapData: {
+                    ...nextState.preSwapData,
+                    shouldFallback: false,
+                  },
+                };
+              });
               if (
                 shouldFallback &&
                 !swapStepsValues?.preSwapData.shouldFallback

@@ -46,6 +46,7 @@ import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { reportInstallAttribution } from '../../../components/LastActivityTracker/installAttribution';
+import { connectWalletConnectToDapp } from '../../../components/WalletConnect/connectWalletConnectToDapp';
 import { whenAppUnlocked } from '../../../utils/passwordUtils';
 import { EarnNavigation } from '../../../views/Earn/earnUtils';
 import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAccountUtils';
@@ -54,7 +55,6 @@ import { openWebView } from '../../../views/WebView/utils/webViewNavigation';
 import { captureAndReportLoggerUtmParamsFromUrl } from '../loggerUtmParams';
 
 import { registerHandler } from './handler';
-import { parseWebViewDeepLink } from './parseWebViewDeepLink';
 import {
   handleReferralLandingUrl,
   isValidReferralCode,
@@ -555,15 +555,6 @@ async function processDeepLinkUrlAccount(
         case EOneKeyDeepLinkPath.cross_device_transfer:
           console.log('TODO implement cross_device_transfer deeplink');
           break;
-        case EOneKeyDeepLinkPath.webview: {
-          const query =
-            queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.webview];
-          const webViewParams = parseWebViewDeepLink(query);
-          if (webViewParams) {
-            openWebView(webViewParams);
-          }
-          break;
-        }
         case EOneKeyDeepLinkPath.preview_featured_changelog: {
           // Ops-only entry: opens the Featured Changelog preview page so
           // dashboard-configured changelog content can be verified in a
@@ -670,9 +661,7 @@ async function processDeepLinkWalletConnect({
     }
 
     if (wcUri) {
-      console.log('Create walletConnect connection by DeepLink: ', wcUri);
-
-      await backgroundApiProxy.walletConnect.connectToDapp(wcUri);
+      await connectWalletConnectToDapp(wcUri);
       return {
         type: 'walletConnect',
         url,
