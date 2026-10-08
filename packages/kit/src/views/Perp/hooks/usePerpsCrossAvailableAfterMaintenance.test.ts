@@ -8,6 +8,7 @@ import { usePerpsCrossAvailableAfterMaintenance } from './usePerpsCrossAvailable
 
 interface IMockRiskInputs {
   accountAddress: string;
+  abstractionMode?: EHyperLiquidAbstractionMode;
   tokenToAvailableAfterMaintenance?: Record<number, string>;
   crossMarginByDex?: Record<
     string,
@@ -42,6 +43,7 @@ describe('usePerpsCrossAvailableAfterMaintenance', () => {
     };
     mockRiskInputs = {
       accountAddress: '0xbbb',
+      abstractionMode: EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT,
       tokenToAvailableAfterMaintenance: { 0: '3.2555' },
       crossMarginByDex: {
         '': { accountValue: '100', maintenanceMarginUsed: '20' },
@@ -66,5 +68,25 @@ describe('usePerpsCrossAvailableAfterMaintenance', () => {
     );
 
     expect(result.current).toBeUndefined();
+  });
+
+  test('hides an old-mode snapshot while cross-runtime mode and risk updates arrive separately', () => {
+    const { result, rerender } = renderHook(() =>
+      usePerpsCrossAvailableAfterMaintenance('BTC'),
+    );
+    expect(result.current?.toFixed()).toBe('3.2555');
+    mockAbstractionMode = {
+      accountAddress: '0xbbb',
+      mode: EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN,
+    };
+    rerender({});
+    expect(result.current).toBeUndefined();
+    mockRiskInputs = {
+      accountAddress: '0xbbb',
+      abstractionMode: EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN,
+      tokenToAvailableAfterMaintenance: { 0: '20' },
+    };
+    rerender({});
+    expect(result.current?.toFixed()).toBe('20');
   });
 });
