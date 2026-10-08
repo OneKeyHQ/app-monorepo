@@ -763,6 +763,7 @@ export default class ServiceSwap extends ServiceBase {
               : {}),
             networkId: network.networkId,
             defaultSelectToken: network.defaultSelectToken,
+            defaultSelectTokenDetail: network.defaultSelectTokenDetail,
             supportCrossChainSwap: network.supportCrossChainSwap,
             supportSingleSwap: network.supportSingleSwap,
             supportLimit: network.supportLimit,
@@ -1503,6 +1504,8 @@ export default class ServiceSwap extends ServiceBase {
     protocol,
     kind,
     walletType,
+    deviceType,
+    source,
     tradeSource,
     preparedContext,
   }: {
@@ -1519,6 +1522,8 @@ export default class ServiceSwap extends ServiceBase {
     protocol: EProtocolOfExchange;
     kind: ESwapQuoteKind;
     walletType?: string;
+    deviceType?: string;
+    source?: ESwapQuoteSource;
     tradeSource: ESwapTradeSource;
     preparedContext?: ISwapBuildTxContext;
   }): Promise<IFetchBuildTxResponse | undefined> {
@@ -1528,8 +1533,15 @@ export default class ServiceSwap extends ServiceBase {
       preparedContext.protocol === protocol
         ? Promise.resolve(preparedContext)
         : this.prepareSwapBuildTxContext({ accountId, protocol });
-    const [context, client] = await Promise.all([
+    const accountDevicePromise =
+      !deviceType && accountId
+        ? this.backgroundApi.serviceAccount.getAccountDeviceSafe({
+            accountId,
+          })
+        : Promise.resolve(undefined);
+    const [context, accountDevice, client] = await Promise.all([
       contextPromise,
+      accountDevicePromise,
       this.getClient(EServiceEndpointEnum.Swap),
     ]);
     const params: IFetchBuildTxParams = {
@@ -1547,6 +1559,10 @@ export default class ServiceSwap extends ServiceBase {
       quoteResultCtx,
       kind,
       walletType,
+      deviceType: deviceType ?? accountDevice?.deviceType,
+      // Preserve the trading entry for attribution even when native BTC quotes
+      // fall back to the legacy provider pool.
+      source,
       tradeSource,
       ...context.referralBuildTxParams,
     };
