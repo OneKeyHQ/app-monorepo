@@ -3,7 +3,7 @@
   "address": "account-selector-address",
   "addressText": "account-selector-address-text",
   "addressTypeSelectorItemPrefix": "address-type-selector-item-",
-  "allNetworksTrigger": "account-all-networks-trigger-button",
+  "allNetworksTrigger": "all-networks-manager-trigger",
   "btcOnlyWalletButton": "account-selector-is-btc-only-wallet-btn",
   "copyAddressButton": "account-selector-copy-address-btn",
   "createAddressButton": "account-selector-create-address-btn",

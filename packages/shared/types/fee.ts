@@ -273,6 +273,10 @@ export type IEstimateFeeParamsSol = {
   computeUnitLimit: string;
   baseFee: string; // lamports
   computeUnitPriceDecimals: number;
+  // microLamports per CU carried by the tx itself; '0' when it has no
+  // SetComputeUnitPrice. Used to display dApp-built txs read-only instead of
+  // the server estimate.
+  computeUnitPriceInTx?: string;
 };
 
 export type IEstimateFeeParams = {

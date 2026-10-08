@@ -333,7 +333,9 @@ class ServiceFreshAddress extends ServiceBase {
       },
     });
     appEventBus.emit(EAppEventBusNames.BtcFreshAddressUpdated, undefined);
-    appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    appEventBus.emit(EAppEventBusNames.AccountUpdate, {
+      isAccountDataChanged: true,
+    });
 
     // Update push notification subscription accounts after BTC fresh address update
     void this.backgroundApi.serviceNotification.registerClientWithAppendAccounts(

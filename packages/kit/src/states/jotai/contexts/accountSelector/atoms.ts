@@ -370,19 +370,22 @@ export const { atom: activeAccountsAtom, use: useActiveAccountsAtom } =
     },
   );
 
+export const { atom: activeAccountEpochAtom } = contextAtom<
+  Partial<Record<number, number>>
+>({});
+
 const activeAccountByNumAtomCache = new Map<
   number,
-  ReturnType<
-    typeof contextAtomComputed<IAccountSelectorActiveAccountInfo | undefined>
-  >
+  ReturnType<typeof contextAtomComputed<IAccountSelectorActiveAccountInfo>>
 >();
 
 function getOrCreateActiveAccountByNumAtom(num: number) {
   let entry = activeAccountByNumAtomCache.get(num);
   if (!entry) {
+    const fallback = defaultActiveAccountInfo();
     const selectedAtom = selectAtom(
       activeAccountsAtom(),
-      (activeAccounts) => activeAccounts[num],
+      (accounts) => accounts[num] ?? fallback,
     );
     entry = contextAtomComputed((get) => get(selectedAtom));
     activeAccountByNumAtomCache.set(num, entry);
@@ -397,14 +400,10 @@ export function useActiveAccount({ num }: { num: number }): {
   // const [selectedAccounts] = useSelectedAccountsAtom();
   // noopObject(selectedAccounts);
 
-  const [accountInfo] = getOrCreateActiveAccountByNumAtom(num).use();
+  const { use } = getOrCreateActiveAccountByNumAtom(num);
+  const [activeAccount] = use();
 
-  return useMemo(() => {
-    const activeAccount = accountInfo || defaultActiveAccountInfo();
-    return {
-      activeAccount,
-    };
-  }, [accountInfo]);
+  return useMemo(() => ({ activeAccount }), [activeAccount]);
 }
 
 export function useAccountSelectorSceneInfo() {

@@ -38,6 +38,10 @@ jest.mock('../../Staking/pages/ManagePosition/hooks/useManagePage', () => ({
 }));
 
 jest.mock('../borrowDataStatus', () => ({
+  __esModule: true,
+  ...jest.requireActual<typeof import('../borrowDataStatus')>(
+    '../borrowDataStatus',
+  ),
   isBorrowReservesPending: () => false,
 }));
 
