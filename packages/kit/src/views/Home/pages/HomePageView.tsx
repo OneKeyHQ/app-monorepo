@@ -1081,6 +1081,8 @@ export function HomePageView({
     if (platformEnv.isNative) {
       return (
         <HomeNativePager
+          // Native page offsets have no reset command; reset only for a new owner.
+          key={homeScrollOwnerKey}
           ref={tabsRef}
           tabs={pagerTabConfigs.map((tab) => ({
             ...tab,
@@ -1090,7 +1092,9 @@ export function HomePageView({
               mountedHomeTabIds.has(tab.id) ? (
                 tab.component
               ) : (
-                <Stack flex={1} />
+                <Stack flex={1} justifyContent="center" alignItems="center">
+                  <Spinner size="large" />
+                </Stack>
               ),
           }))}
           initialTabName={seedTabName}
