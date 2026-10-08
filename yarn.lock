@@ -10476,7 +10476,7 @@ __metadata:
     expo-sharing: "npm:~57.0.13"
     expo-splash-screen: "npm:~57.0.7"
     expo-web-browser: "npm:~57.0.2"
-    hermes-compiler: "npm:250829098.0.16"
+    hermes-compiler: "npm:250829098.0.19"
     https-browserify: "npm:^1.0.0"
     jcore-react-native: "https://github.com/OneKeyHQ/jcore-react-native.git#4bfbbddbbeb9f295d3ee3eda9e39129a14e99d2c"
     jpush-react-native: "https://github.com/OneKeyHQ/jpush-react-native.git#33eca9ebd18aba2ed6810f26f00add94211d9156"
@@ -33560,10 +33560,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"hermes-compiler@npm:250829098.0.16":
-  version: 250829098.0.16
-  resolution: "hermes-compiler@npm:250829098.0.16"
-  checksum: 10/49cd9558ed26ad2f11c897058f995fab113cf95b1ece9fda512045cebf60b75387aa0d2e7fdf3201b4d0102ea0d63963f7e7e4c3500c9dad2daa95e0c9f57146
+"hermes-compiler@npm:250829098.0.19":
+  version: 250829098.0.19
+  resolution: "hermes-compiler@npm:250829098.0.19"
+  checksum: 10/85e6e145ae567e3bb821a8cae203d517458a0768a11753c044cb96da7655be623af6cf361ce8ce08631960f74c14cd0b5294fdf49c772a4de8b5a1caa90e5fc4
   languageName: node
   linkType: hard
 

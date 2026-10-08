@@ -443,6 +443,7 @@
     "react-dom": "19.2.3",
     "react-server-dom-webpack": "19.2.3",
     "react-native": "0.86.2",
+    "hermes-compiler": "250829098.0.19",
     "react-native-uuid": "2.0.1",
     "shaka-player": "5.2.6",
     "@reown/appkit": "1.8.9",

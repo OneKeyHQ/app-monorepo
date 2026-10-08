@@ -1,3 +1,56 @@
+diff --git a/node_modules/@react-navigation/native-stack/lib/module/views/NativeStackView.native.js b/node_modules/@react-navigation/native-stack/lib/module/views/NativeStackView.native.js
+index a21f04f..24ad1ad 100644
+--- a/node_modules/@react-navigation/native-stack/lib/module/views/NativeStackView.native.js
++++ b/node_modules/@react-navigation/native-stack/lib/module/views/NativeStackView.native.js
+@@ -4,7 +4,7 @@ import { getDefaultHeaderHeight, getHeaderTitle, HeaderBackContext, HeaderHeight
+ import { NavigationContext, NavigationRouteContext, StackActions, usePreventRemoveContext, useTheme } from '@react-navigation/native';
+ import * as React from 'react';
+ import { Animated, Platform, StatusBar, StyleSheet, useAnimatedValue, View } from 'react-native';
+-import { useSafeAreaInsets } from 'react-native-safe-area-context';
++import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context';
+ import { compatibilityFlags, ScreenStack, ScreenStackItem } from 'react-native-screens';
+ import { debounce } from "../utils/debounce.js";
+ import { getModalRouteKeys } from "../utils/getModalRoutesKeys.js";
+@@ -126,6 +126,8 @@ const SceneView = ({
+   const parentHeaderHeight = React.useContext(HeaderHeightContext);
+   const parentHeaderBack = React.useContext(HeaderBackContext);
+   const isLandscape = useFrameSize(frame => frame.width > frame.height);
++  // OneKey patch: the native page-modal frame already consumes the status-bar inset.
++  const sceneInsets = React.useMemo(() => Platform.OS === 'android' && presentation === 'modal' && gestureDirectionOverride === 'vertical' && !isLandscape ? { ...insets, top: 0 } : insets, [gestureDirectionOverride, insets, isLandscape, presentation]);
+   const topInset = isParentHeaderShown || Platform.OS === 'ios' && isModal || isIPhone && isLandscape ? 0 : insets.top;
+   const defaultHeaderHeight = useFrameSize(frame => Platform.select({
+     // FIXME: Currently screens isn't using Material 3
+@@ -243,9 +245,8 @@ const SceneView = ({
+         fullScreenSwipeShadowEnabled: fullScreenGestureShadowEnabled,
+         freezeOnBlur: freezeOnBlur,
+         gestureEnabled: Platform.OS === 'android' ?
+-        // This prop enables handling of system back gestures on Android
+-        // Since we handle them in JS side, we disable this
+-        false : gestureEnabled,
++        // OneKey patch: opt-in native gestures request the existing JS pop action.
++        gestureEnabled ?? false : gestureEnabled,
+         homeIndicatorHidden: autoHideHomeIndicator,
+         hideKeyboardOnSwipe: keyboardHandlingEnabled,
+         navigationBarColor: navigationBarColor,
+@@ -302,7 +303,9 @@ const SceneView = ({
+         // Otherwise invalid props may not be caught by TypeScript
+         ,
+         shouldFreeze: shouldFreeze,
+-        children: /*#__PURE__*/_jsx(AnimatedHeaderHeightContext.Provider, {
++        children: /*#__PURE__*/_jsx(SafeAreaInsetsContext.Provider, {
++          value: sceneInsets,
++          children: /*#__PURE__*/_jsx(AnimatedHeaderHeightContext.Provider, {
+           value: animatedHeaderHeight,
+           children: /*#__PURE__*/_jsxs(HeaderHeightContext.Provider, {
+             value: headerShown !== false ? headerHeight : parentHeaderHeight ?? 0,
+@@ -339,6 +342,7 @@ const SceneView = ({
+             })]
+           })
+         })
++        })
+       }, route.key)
+     })
+   });
 diff --git a/node_modules/@react-navigation/native-stack/lib/module/views/useHeaderConfigProps.js b/node_modules/@react-navigation/native-stack/lib/module/views/useHeaderConfigProps.js
 index 492390b..a2da541 100644
 --- a/node_modules/@react-navigation/native-stack/lib/module/views/useHeaderConfigProps.js
@@ -14,6 +67,66 @@ index 492390b..a2da541 100644
  }
  //# sourceMappingURL=useHeaderConfigProps.js.map
 \ No newline at end of file
+diff --git a/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx b/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx
+index e694525..fdeb39a 100644
+--- a/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx
++++ b/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx
+@@ -26,7 +26,7 @@ import {
+   useAnimatedValue,
+   View,
+ } from 'react-native';
+-import { useSafeAreaInsets } from 'react-native-safe-area-context';
++import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context';
+ import {
+   compatibilityFlags,
+   type ScreenProps,
+@@ -189,6 +189,18 @@ const SceneView = ({
+ 
+   const isLandscape = useFrameSize((frame) => frame.width > frame.height);
+ 
++  // OneKey patch: the native page-modal frame already consumes the status-bar inset.
++  const sceneInsets = React.useMemo(
++    () =>
++      Platform.OS === 'android' &&
++      presentation === 'modal' &&
++      gestureDirectionOverride === 'vertical' &&
++      !isLandscape
++        ? { ...insets, top: 0 }
++        : insets,
++    [gestureDirectionOverride, insets, isLandscape, presentation]
++  );
++
+   const topInset =
+     isParentHeaderShown ||
+     (Platform.OS === 'ios' && isModal) ||
+@@ -370,9 +382,8 @@ const SceneView = ({
+           freezeOnBlur={freezeOnBlur}
+           gestureEnabled={
+             Platform.OS === 'android'
+-              ? // This prop enables handling of system back gestures on Android
+-                // Since we handle them in JS side, we disable this
+-                false
++              ? // OneKey patch: opt-in native gestures request the existing JS pop action.
++                (gestureEnabled ?? false)
+               : gestureEnabled
+           }
+           homeIndicatorHidden={autoHideHomeIndicator}
+@@ -433,6 +444,7 @@ const SceneView = ({
+           // Otherwise invalid props may not be caught by TypeScript
+           shouldFreeze={shouldFreeze}
+         >
++          <SafeAreaInsetsContext.Provider value={sceneInsets}>
+           <AnimatedHeaderHeightContext.Provider value={animatedHeaderHeight}>
+             <HeaderHeightContext.Provider
+               value={
+@@ -484,6 +496,7 @@ const SceneView = ({
+               </HeaderShownContext.Provider>
+             </HeaderHeightContext.Provider>
+           </AnimatedHeaderHeightContext.Provider>
++          </SafeAreaInsetsContext.Provider>
+         </ScreenStackItem>
+       </NavigationRouteContext.Provider>
+     </NavigationContext.Provider>
 diff --git a/node_modules/@react-navigation/native-stack/src/views/useHeaderConfigProps.tsx b/node_modules/@react-navigation/native-stack/src/views/useHeaderConfigProps.tsx
 index 14a0093..e2c4870 100644
 --- a/node_modules/@react-navigation/native-stack/src/views/useHeaderConfigProps.tsx

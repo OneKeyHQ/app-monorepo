@@ -40,9 +40,8 @@ export function makeModalOpenAnimationOptions(info: {
   }
 
   if (platformEnv.isNativeAndroid) {
-    // animation gets a little stuck
     return {
-      animation: 'none',
+      animation: 'slide_from_bottom',
     };
   }
 
@@ -79,7 +78,10 @@ export function makeModalStackNavigatorOptions({
   if (platformEnv.isNativeAndroid) {
     options = {
       headerShown: true,
-      animation: 'none',
+      animation: 'ios_from_right',
+      gestureEnabled: true,
+      gestureDirection: 'horizontal',
+      fullScreenGestureEnabled: true,
       presentation: 'modal',
       headerShadowVisible: false,
       // Android Pad modal needs to be commented out
@@ -144,6 +146,9 @@ export function makeModalScreenOptions(info: {
     // presentation: platformEnv.isNativeIOS ? 'modal' : 'transparentModal',
     presentation: 'modal',
     ...makeModalOpenAnimationOptions(info),
+    ...(platformEnv.isNativeAndroid
+      ? { gestureEnabled: true, gestureDirection: 'vertical' as const }
+      : {}),
   };
 }
 
@@ -155,8 +160,10 @@ export function makeRootModalStackOptions(params?: {
   };
 
   if (platformEnv.isNativeAndroid) {
-    // animation gets a little stuck
-    options.animation = 'none';
+    options.animation = 'ios_from_right';
+    options.gestureEnabled = true;
+    options.gestureDirection = 'horizontal';
+    options.fullScreenGestureEnabled = true;
   }
 
   if (params?.bgColor) {
@@ -186,8 +193,9 @@ export function makeTabScreenOptions({
   };
 
   if (platformEnv.isNativeAndroid) {
-    // animation gets a little stuck
-    options.animation = 'none';
+    options.animation = 'ios_from_right';
+    options.gestureEnabled = true;
+    options.fullScreenGestureEnabled = true;
   }
 
   return options;
@@ -212,7 +220,9 @@ export function makeOnboardingScreenOptions(): IStackNavigationOptions {
     animation: 'slide_from_right',
   };
   if (platformEnv.isNativeAndroid) {
-    options.animation = 'none';
+    options.animation = 'ios_from_right';
+    options.gestureEnabled = true;
+    options.fullScreenGestureEnabled = true;
   }
   return options;
 }
@@ -230,7 +240,9 @@ export function makeWebviewScreenOptions(): IStackNavigationOptions {
     animation: 'slide_from_right',
   };
   if (platformEnv.isNativeAndroid) {
-    options.animation = 'none';
+    options.animation = 'ios_from_right';
+    options.gestureEnabled = true;
+    options.fullScreenGestureEnabled = true;
   }
   return options;
 }
