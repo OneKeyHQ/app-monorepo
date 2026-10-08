@@ -705,7 +705,7 @@
   "defi_emode_resolve_requirements": "完成前置條件",
   "defi_emode_risk_near_liquidation": "此切換會讓你的健康因子接近清算，請先檢查後再確認。",
   "defi_emode_select_category": "選擇類別",
-  "defi_emode_steps_to_switch": "{count, plural, one {# 步即可切換} other {# 步即可切換}} {count, plural, one {# step to switch} {# steps to switch}",
+  "defi_emode_steps_to_switch": "{count, plural, one {# 步即可切換} other {# 步即可切換}}",
   "defi_emode_supported_assets": "支援的資產",
   "defi_emode_swap_symbol__action": "兌換 {symbol}",
   "defi_emode_switch_to": "切換至 E-Mode",

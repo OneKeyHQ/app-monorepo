@@ -705,7 +705,7 @@
   "defi_emode_resolve_requirements": "요구 사항 해결",
   "defi_emode_risk_near_liquidation": "이 전환은 건강 계수를 청산에 가깝게 만듭니다. 확인하기 전에 검토하세요.",
   "defi_emode_select_category": "카테고리를 선택하세요",
-  "defi_emode_steps_to_switch": "{count, plural, one {전환하려면 #단계가 더 필요합니다} other {전환하려면 #단계가 더 필요합니다}} {count, plural, one {# step to switch} {# steps to switch}",
+  "defi_emode_steps_to_switch": "{count, plural, one {전환하려면 #단계가 더 필요합니다} other {전환하려면 #단계가 더 필요합니다}}",
   "defi_emode_supported_assets": "지원되는 자산",
   "defi_emode_swap_symbol__action": "{symbol} 스왑",
   "defi_emode_switch_to": "E-모드로 전환",

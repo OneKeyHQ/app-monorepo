@@ -705,7 +705,7 @@
   "defi_emode_resolve_requirements": "Giải quyết các yêu cầu",
   "defi_emode_risk_near_liquidation": "Việc chuyển đổi này sẽ đẩy hệ số sức khỏe của bạn xuống gần ngưỡng thanh lý. Hãy xem lại trước khi xác nhận.",
   "defi_emode_select_category": "Chọn danh mục",
-  "defi_emode_steps_to_switch": "{count, plural, one {# bước để chuyển} other {# bước để chuyển}} {count, plural, one {# step to switch} {# steps to switch}",
+  "defi_emode_steps_to_switch": "{count, plural, one {# bước để chuyển} other {# bước để chuyển}}",
   "defi_emode_supported_assets": "Tài sản được hỗ trợ",
   "defi_emode_swap_symbol__action": "Đổi {symbol}",
   "defi_emode_switch_to": "Chuyển sang E-Mode",

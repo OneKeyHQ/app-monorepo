@@ -705,7 +705,7 @@
   "defi_emode_resolve_requirements": "แก้ไขข้อกำหนด",
   "defi_emode_risk_near_liquidation": "การสลับนี้จะทำให้ค่าเฮลธ์แฟกเตอร์ของคุณเข้าใกล้การชำระบัญชี โปรดตรวจสอบก่อนยืนยัน.",
   "defi_emode_select_category": "เลือกหมวดหมู่",
-  "defi_emode_steps_to_switch": "{count, plural, one {เหลืออีก # ขั้นตอนเพื่อสลับ} other {เหลืออีก # ขั้นตอนเพื่อสลับ}} {count, plural, one {# step to switch} {# steps to switch}",
+  "defi_emode_steps_to_switch": "{count, plural, one {เหลืออีก # ขั้นตอนเพื่อสลับ} other {เหลืออีก # ขั้นตอนเพื่อสลับ}}",
   "defi_emode_supported_assets": "สินทรัพย์ที่รองรับ",
   "defi_emode_swap_symbol__action": "แลกเปลี่ยน {symbol}",
   "defi_emode_switch_to": "สลับไปยัง E-Mode",

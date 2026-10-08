@@ -705,7 +705,7 @@
   "defi_emode_resolve_requirements": "Selesaikan persyaratan",
   "defi_emode_risk_near_liquidation": "Peralihan mode ini mendekatkan faktor kesehatan Anda ke ambang likuidasi. Tinjau kembali sebelum mengonfirmasi.",
   "defi_emode_select_category": "Pilih kategori",
-  "defi_emode_steps_to_switch": "{count, plural, one {# langkah lagi untuk beralih} other {# langkah lagi untuk beralih}} {count, plural, one {# step to switch} {# steps to switch}",
+  "defi_emode_steps_to_switch": "{count, plural, one {# langkah lagi untuk beralih} other {# langkah lagi untuk beralih}}",
   "defi_emode_supported_assets": "Aset yang didukung",
   "defi_emode_swap_symbol__action": "Tukar {symbol}",
   "defi_emode_switch_to": "Beralih ke E-Mode",

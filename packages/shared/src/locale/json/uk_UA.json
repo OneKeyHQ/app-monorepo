@@ -705,7 +705,7 @@
   "defi_emode_resolve_requirements": "Виконати вимоги",
   "defi_emode_risk_near_liquidation": "Це перемикання наближає ваш коефіцієнт здоров'я до ліквідації. Перевірте перед підтвердженням.",
   "defi_emode_select_category": "Виберіть категорію",
-  "defi_emode_steps_to_switch": "{count, plural, one {# крок до перемикання} few {# кроки до перемикання} many {# кроків до перемикання} other {# кроку до перемикання}} {count, plural, one {# step to switch} {# steps to switch}",
+  "defi_emode_steps_to_switch": "{count, plural, one {# крок до перемикання} few {# кроки до перемикання} many {# кроків до перемикання} other {# кроку до перемикання}}",
   "defi_emode_supported_assets": "Підтримувані активи",
   "defi_emode_swap_symbol__action": "Обміняти {symbol}",
   "defi_emode_switch_to": "Перемкнутися на E-Mode",
