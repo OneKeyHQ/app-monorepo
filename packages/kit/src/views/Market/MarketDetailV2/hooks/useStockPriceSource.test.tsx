@@ -4,7 +4,10 @@ import { act, renderHook } from '@testing-library/react';
 
 import type { IMarketPriceSource } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-import { useStockPriceSource } from './useStockPriceSource';
+import {
+  resolveDisplayedStockPriceMode,
+  useStockPriceSource,
+} from './useStockPriceSource';
 
 let mockStock: {
   stockId?: string;
@@ -22,6 +25,27 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
     return useState<{ source: IMarketPriceSource }>({ source: 'share' });
   },
 }));
+
+describe('resolveDisplayedStockPriceMode', () => {
+  it('keeps the stored share source while the quote is available', () => {
+    expect(
+      resolveDisplayedStockPriceMode({
+        stockId: 'AAPL',
+        storedPriceMode: 'share',
+      }),
+    ).toBe('share');
+  });
+
+  it('shows the token price when the share quote failed', () => {
+    expect(
+      resolveDisplayedStockPriceMode({
+        stockId: 'AAPL',
+        isStockDetailError: true,
+        storedPriceMode: 'share',
+      }),
+    ).toBe('token');
+  });
+});
 
 describe('useStockPriceSource', () => {
   beforeEach(() => {

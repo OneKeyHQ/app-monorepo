@@ -35,6 +35,7 @@ let mockStockDetailState: {
   isTokenVariantPending: boolean;
   isTokenVariantsError: boolean;
   isTokenVariantsLoading: boolean;
+  isStockDetailError?: boolean;
   selectedTokenVariant?: {
     networkId: string;
     contractAddress: string;
@@ -691,6 +692,47 @@ describe('DesktopLayout', () => {
         tokenSymbol: 'AAPL',
       }),
     );
+  });
+
+  it('uses the token Pro chart when the share quote failed', () => {
+    mockStockDetailState = {
+      ...mockStockDetailState,
+      isStockDetailError: true,
+    };
+
+    render(
+      <DesktopLayout
+        isChartFullscreen={false}
+        isTradingViewNative={false}
+        onChartSwitch={jest.fn()}
+        onChartFullscreenChange={jest.fn()}
+        isNative={false}
+        networkId="evm--1"
+        tokenAddress="0xaapl"
+      />,
+    );
+
+    const marketTradingView = mockStockDesktopLayout.mock.calls.at(-1)?.[0]
+      ?.marketTradingView as {
+      key: string;
+      props: {
+        kLineDataFallback?: unknown;
+        networkId: string;
+        tokenAddress: string;
+        tokenSymbol?: string;
+      };
+    };
+
+    expect(marketTradingView.key).toBe('token');
+    expect(marketTradingView.props).toEqual(
+      expect.objectContaining({
+        kLineDataFallback: undefined,
+        networkId: 'evm--1',
+        tokenAddress: '0xaapl',
+        tokenSymbol: 'AAPL',
+      }),
+    );
+    expect(fetchMarketStockKLineDataMock).not.toHaveBeenCalled();
   });
 
   it.each([false, true])(

@@ -24,6 +24,7 @@ import {
   TOKEN_SIMPLE_CHART_RANGES,
 } from '../components/StockSimpleChart';
 import { useStockDetail } from '../hooks/StockDetailContext';
+import { resolveDisplayedStockPriceMode } from '../hooks/useStockPriceSource';
 
 import { MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH } from './components/marketSimpleChartConstants';
 
@@ -113,7 +114,11 @@ export function MobileSimpleChart({
   const [{ source: priceSource }] = useMarketPriceSourceAtom();
   // Share price is what draws the previous-close line. Crypto charts, and
   // stock tokens whose share quote cannot load, stay on the token quote.
-  const priceMode = stockId && !isStockDetailError ? priceSource : 'token';
+  const priceMode = resolveDisplayedStockPriceMode({
+    stockId,
+    isStockDetailError,
+    storedPriceMode: priceSource,
+  });
 
   return (
     <YStack width="100%" gap="$2" testID="market-mobile-simple-chart">
