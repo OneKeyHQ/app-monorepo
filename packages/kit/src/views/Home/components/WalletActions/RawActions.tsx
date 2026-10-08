@@ -17,6 +17,7 @@ import {
   Icon,
   IconButton,
   SizableText,
+  Skeleton,
   Stack,
   XStack,
 } from '@onekeyhq/components';
@@ -107,6 +108,9 @@ function ActionItem({
         {...(visualDisabled && { opacity: 0.4 })}
         {...verticalContainerProps}
         onPress={onPress}
+        // Tamagui skips press handlers when `disabled` is set; without it the
+        // card only looks disabled and still opens the action on native.
+        disabled={effectiveDisabled}
         {...rest}
       >
         {icon ? (
@@ -221,11 +225,13 @@ function ActionStaking(props: IActionItemsProps) {
 }
 
 function ActionMore({
+  renderItems,
   renderItemsAsync,
   testID,
   iconOnly = false,
 }: {
-  renderItemsAsync: IActionListProps['renderItemsAsync'];
+  renderItems: IActionListProps['renderItems'];
+  renderItemsAsync?: IActionListProps['renderItemsAsync'];
   testID?: string;
   // When true, render the icon-only trigger on both mobile and desktop. Used
   // by the collapsed Add-Money home action row, where the secondary menu
@@ -239,6 +245,7 @@ function ActionMore({
     ActionList.show({
       title: label,
       floatingPanelProps: { w: '$60' },
+      renderItems,
       renderItemsAsync,
     });
   };
@@ -256,6 +263,7 @@ function ActionMore({
             testID={testID}
           />
         }
+        renderItems={renderItems}
         renderItemsAsync={renderItemsAsync}
       />
     );
@@ -308,6 +316,7 @@ function ActionMore({
               testID={testID}
             />
           }
+          renderItems={renderItems}
           renderItemsAsync={renderItemsAsync}
         />
       </Stack>
@@ -331,6 +340,60 @@ function RawActions({ children, ...rest }: IXStackProps) {
   );
 }
 
+/**
+ * Loading stand-in for the action row: one skeleton per slot, laid out like
+ * `ActionItem` on both the mobile card row and the desktop pill row, so the
+ * header keeps its height while the balance state is still unknown instead
+ * of leaving a blank band under the balance.
+ */
+function ActionsPlaceholder({
+  slotCount = 4,
+  testID,
+  ...rest
+}: IXStackProps & { slotCount?: number }) {
+  const slotTestID = testID ? `${testID}-slot` : undefined;
+  return (
+    <XStack
+      gap="$2"
+      $gtSm={{ justifyContent: 'flex-start', gap: '$3' }}
+      testID={testID}
+      {...rest}
+    >
+      {Array.from({ length: slotCount }, (_, index) => (
+        <Stack
+          key={index}
+          testID={slotTestID}
+          flex={1}
+          flexBasis={0}
+          alignItems="center"
+          justifyContent="center"
+          bg="$bgStrong"
+          borderRadius="$4"
+          pt="$2.5"
+          pb="$1"
+          px="$1"
+          $gtSm={{
+            flex: 0,
+            flexBasis: 'auto',
+            bg: 'transparent',
+            p: 0,
+          }}
+        >
+          <Skeleton w="$6" h="$6" radius="round" $gtSm={{ display: 'none' }} />
+          <Skeleton my="$1" w="$10" h="$3" $gtSm={{ display: 'none' }} />
+          <Skeleton
+            display="none"
+            w={112}
+            h="$12"
+            $gtSm={{ display: 'flex' }}
+          />
+        </Stack>
+      ))}
+    </XStack>
+  );
+}
+
+RawActions.Placeholder = ActionsPlaceholder;
 RawActions.More = ActionMore;
 RawActions.Buy = ActionBuy;
 RawActions.Send = ActionSend;
@@ -340,4 +403,4 @@ RawActions.Perp = ActionPerp;
 RawActions.Earn = ActionEarn;
 RawActions.Staking = ActionStaking;
 
-export { RawActions, ActionItem };
+export { RawActions, ActionItem, ActionsPlaceholder };

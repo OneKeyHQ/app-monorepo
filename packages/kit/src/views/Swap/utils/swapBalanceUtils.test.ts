@@ -6,7 +6,9 @@ import {
   buildNativeTokenFromGasInfo,
   checkSwapLatestBalanceSufficient,
   getSwapEncodedTxSize,
+  getSwapQuoteBalanceRequirements,
   getSwapRequiredNativeBalanceAmount,
+  getSwapTokenBalanceContractAddress,
   validateSwapBtcOutputs,
 } from './swapBalanceUtils';
 
@@ -101,6 +103,39 @@ const aptosToken = {
   isNative: true,
 } as ISwapToken;
 
+describe('getSwapTokenBalanceContractAddress', () => {
+  beforeEach(() => {
+    mockGetNativeTokenAddress.mockReset();
+  });
+
+  it.each([usdcToken, { ...aptosToken, contractAddress: aptosNativeAddress }])(
+    'preserves an explicit $symbol address',
+    async (token) => {
+      await expect(getSwapTokenBalanceContractAddress(token)).resolves.toBe(
+        token.contractAddress,
+      );
+      expect(mockGetNativeTokenAddress).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['evm--1', 'sol--101'])(
+    'preserves the empty native address supported by %s',
+    async (networkId) => {
+      mockGetNativeTokenAddress.mockResolvedValue('');
+      await expect(
+        getSwapTokenBalanceContractAddress({ ...ethToken, networkId }),
+      ).resolves.toBe('');
+    },
+  );
+
+  it('falls back without failing the balance request when lookup is unavailable', async () => {
+    mockGetNativeTokenAddress.mockRejectedValue(new Error('unavailable'));
+    await expect(getSwapTokenBalanceContractAddress(aptosToken)).resolves.toBe(
+      '',
+    );
+  });
+});
+
 describe('checkSwapLatestBalanceSufficient', () => {
   beforeEach(() => {
     mockFetchSwapTokenDetails.mockReset();
@@ -181,6 +216,51 @@ describe('checkSwapLatestBalanceSufficient', () => {
       accountId: 'account-id',
       currency: 'usd',
     });
+  });
+});
+
+describe('getSwapQuoteBalanceRequirements', () => {
+  it('combines source amount with repeated fees for the same token', () => {
+    const usdcFeeToken = { ...usdcToken, price: '1' };
+    const ethFeeToken = { ...ethToken, price: '1000' };
+    expect(
+      getSwapQuoteBalanceRequirements({
+        fromToken: usdcToken,
+        fromAmount: '10',
+        otherFeeInfos: [
+          {
+            token: {
+              ...usdcFeeToken,
+              contractAddress: usdcToken.contractAddress.toUpperCase(),
+            },
+            amount: '0.2',
+          },
+          { token: usdcFeeToken, amount: '0.3' },
+          { token: ethFeeToken, amount: '0.01' },
+        ],
+      }),
+    ).toEqual([
+      { token: usdcToken, amount: '10.5', reserveAmount: '0.5' },
+      { token: ethFeeToken, amount: '0.01', reserveAmount: '0.01' },
+    ]);
+  });
+
+  it('uses the frozen quote amount and keeps different-chain fees separate', () => {
+    const otherChainEth = {
+      ...ethToken,
+      networkId: 'evm--56',
+      price: '1000',
+    };
+    expect(
+      getSwapQuoteBalanceRequirements({
+        fromToken: ethToken,
+        fromAmount: '0.1',
+        otherFeeInfos: [{ token: otherChainEth, amount: '0.02' }],
+      }),
+    ).toEqual([
+      { token: ethToken, amount: '0.1' },
+      { token: otherChainEth, amount: '0.02', reserveAmount: '0.02' },
+    ]);
   });
 });
 

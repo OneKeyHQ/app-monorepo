@@ -106,12 +106,12 @@ type ISerializableCheckingDisabledConfig = {
   updateAt: number;
 };
 
-export function toggleBgApiSerializableChecking(enabled: boolean) {
+export async function toggleBgApiSerializableChecking(enabled: boolean) {
   const data: ISerializableCheckingDisabledConfig = {
     disabled: !enabled,
     updateAt: Date.now(),
   };
-  appGlobals.$appStorage?.syncStorage.setObject(
+  await appGlobals.$appStorage?.syncStorage.setObject(
     EAppSyncStorageKeys.onekey_disable_bg_api_serializable_checking,
     data,
   );

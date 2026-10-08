@@ -83,6 +83,15 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
+jest.mock('@tamagui/themes', () => ({
+  colorTokens: {
+    dark: {
+      green: { green3: '#0F291E' },
+      red: { red3: '#3C181A' },
+    },
+  },
+}));
+
 jest.mock('@onekeyhq/kit/src/components/LightweightChart', () => ({
   LightweightChart: (props: IMockLightweightChartProps) =>
     mockLightweightChart(props),

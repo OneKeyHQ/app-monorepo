@@ -21,11 +21,30 @@ export type IWsTwapStates = HL.TwapStatesWsEvent;
 export type IWsUserTwapHistory = HL.UserTwapHistoryWsEvent;
 export type IWsUserTwapSliceFills = HL.UserTwapSliceFillsWsEvent;
 export type ITwapState = IWsTwapStates['states'][number][1];
-export type ITwapHistoryRecord = HL.TwapHistoryResponse[number];
+// The SDK status union lags the live API: trigger TWAPs report
+// `waitingForTrigger` / `stopped`, and Hyperliquid keeps adding values. Widen it
+// here so exhaustive maps fail to compile instead of throwing at render time.
+type ITwapHistoryRecordRaw = HL.TwapHistoryResponse[number];
+export type ITwapHistoryStatusValue =
+  | ITwapHistoryRecordRaw['status']['status']
+  | 'waitingForTrigger'
+  | 'stopped';
+export type ITwapHistoryRecord = Omit<ITwapHistoryRecordRaw, 'status'> & {
+  status:
+    | { status: Exclude<ITwapHistoryStatusValue, 'error'> }
+    | { status: 'error'; description: string };
+};
 export type ITwapSliceFill = HL.UserTwapSliceFillsResponse[number];
 
 // Spot WebSocket event types
 export type IWsSpotState = HL.SpotStateWsEvent;
+// SDK 0.32.2 predates this field; Hyperliquid sends it for unified and
+// portfolio margin accounts as [collateral token, available after maintenance].
+export type IWsSpotStateWithAvailability = IWsSpotState & {
+  spotState: IWsSpotState['spotState'] & {
+    tokenToAvailableAfterMaintenance?: Array<[number, string]>;
+  };
+};
 export type IWsSpotAssetCtxs = HL.SpotAssetCtxsWsEvent;
 export type IWsActiveSpotAssetCtx = HL.ActiveSpotAssetCtxWsEvent;
 export type ISpotBalance = IWsSpotState['spotState']['balances'][number];
@@ -91,6 +110,7 @@ export type IMarginTable = HL.MarginTableResponse;
 export type IMarginTableMap = Partial<Record<number, IMarginTable>>;
 export type IMetaAndAssetCtxsResponse = HL.MetaAndAssetCtxsResponse;
 export type IFundingHistoryRecord = HL.FundingHistoryResponse[number];
+export type IUserFunding = HL.UserFundingResponse[number];
 export type IRecentTrade = HL.RecentTradesResponse[number];
 export type IPerpAnnotation = HL.PerpAnnotationResponse;
 export type IPerpsAtOpenInterestCapResponse = HL.PerpsAtOpenInterestCapResponse;

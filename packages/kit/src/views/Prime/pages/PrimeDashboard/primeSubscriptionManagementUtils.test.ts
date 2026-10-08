@@ -1,283 +1,208 @@
-/* cspell:ignore Infini infini */
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-
+/* cspell:ignore Infini infini rcbilling customerportal */
 import {
+  getPrimeSubscriptionManagementSourceKey,
   getPrimeSubscriptionManagementTarget,
-  resolvePrimeSubscriptionManagementTarget,
 } from './primeSubscriptionManagementUtils';
 
-const activeInfiniSubscription = {
-  subscriptionId: 'infini-subscription-id',
-  status: 'active',
-  plan: 'monthly' as const,
-  currentPeriodEnd: Date.now() + 60_000,
-};
-
 describe('primeSubscriptionManagementUtils', () => {
-  it('routes an Infini channel to the in-app management page', () => {
+  it('routes Infini to the in-app management page regardless of its management URL', () => {
     expect(
       getPrimeSubscriptionManagementTarget({
         userInfo: {
           primeSubscription: {
             isActive: true,
             expiresAt: Date.now() + 60_000,
-            subscriptions: [{ channel: ' Infini ' }],
+            subscriptions: [
+              {
+                channel: ' Infini ',
+                managementUrl: 'https://apps.apple.com/account/subscriptions',
+              },
+            ],
           },
-          subscriptionManageUrl: 'https://example.com/manage',
         },
-        isInfiniManageSupported: true,
       }),
     ).toEqual({ type: 'infini' });
   });
 
-  it('routes a non-Infini subscription with a management URL externally', () => {
+  it.each([
+    {
+      name: 'Apple subscription management',
+      managementUrl: 'https://apps.apple.com/account/subscriptions',
+      expectedUrl: 'https://apps.apple.com/account/subscriptions',
+    },
+    {
+      name: 'Google Play subscription with sku and package',
+      managementUrl:
+        'https://play.google.com/store/account/subscriptions?sku=prime_monthly&package=so.onekey.app.wallet',
+      expectedUrl:
+        'https://play.google.com/store/account/subscriptions?sku=prime_monthly&package=so.onekey.app.wallet',
+    },
+    {
+      name: 'RevenueCat web billing portal',
+      managementUrl:
+        'https://api.revenuecat.com/rcbilling/v1/customerportal/test-app/test-subscription/portal',
+      expectedUrl:
+        'https://api.revenuecat.com/rcbilling/v1/customerportal/test-app/test-subscription/portal',
+    },
+    {
+      name: 'HTTPS management URL',
+      managementUrl: ' https://example.com/manage ',
+      expectedUrl: 'https://example.com/manage',
+    },
+  ])(
+    'routes a channel-less $name externally',
+    ({ managementUrl, expectedUrl }) => {
+      expect(
+        getPrimeSubscriptionManagementTarget({
+          userInfo: {
+            primeSubscription: {
+              isActive: true,
+              expiresAt: 0,
+              subscriptions: [{ managementUrl }],
+            },
+          },
+        }),
+      ).toEqual({
+        type: 'external',
+        url: expectedUrl,
+      });
+    },
+  );
+
+  it.each([
+    {
+      name: 'empty subscriptions',
+      subscriptions: [],
+    },
+    {
+      name: 'a null management URL',
+      subscriptions: [{ managementUrl: null }],
+    },
+    {
+      name: 'an empty management URL',
+      subscriptions: [{ managementUrl: '' }],
+    },
+  ])('is unavailable for $name', ({ subscriptions }) => {
     expect(
       getPrimeSubscriptionManagementTarget({
         userInfo: {
           primeSubscription: {
             isActive: true,
             expiresAt: Date.now() + 60_000,
-            subscriptions: [{ channel: 'app-store' }],
+            subscriptions,
           },
-          subscriptionManageUrl: ' https://example.com/manage ',
         },
-        isInfiniManageSupported: true,
       }),
-    ).toEqual({
-      type: 'external',
-      url: 'https://example.com/manage',
-    });
+    ).toEqual({ type: 'unavailable' });
   });
 
-  it('identifies when the channel and management URL are both missing', () => {
+  it.each([
+    {
+      name: 'non-HTTPS URL',
+      managementUrl: 'http://apps.apple.com/account/subscriptions',
+    },
+    {
+      name: 'malformed URL',
+      managementUrl: 'not-a-url',
+    },
+  ])('rejects a $name', ({ managementUrl }) => {
     expect(
       getPrimeSubscriptionManagementTarget({
         userInfo: {
           primeSubscription: {
             isActive: true,
-            expiresAt: Date.now() + 60_000,
-            subscriptions: [{ managementUrl: undefined }],
+            expiresAt: 0,
+            subscriptions: [{ managementUrl }],
           },
-          subscriptionManageUrl: '',
         },
-        isInfiniManageSupported: true,
       }),
-    ).toEqual({
-      type: 'unavailable',
-      reason: 'missing-channel-and-management-url',
-    });
+    ).toEqual({ type: 'unavailable' });
   });
 
-  it('uses the Infini lookup only when both routing fields remain missing after refresh', async () => {
-    const fetchFreshUserInfo = jest.fn(async () => ({
-      primeSubscription: {
-        isActive: true,
-        expiresAt: Date.now() + 60_000,
-        subscriptions: [{ managementUrl: undefined }],
+  it.each([
+    {
+      name: 'Google HTTPS management entry',
+      laterSubscription: {
+        managementUrl:
+          'https://play.google.com/store/account/subscriptions?sku=prime_monthly&package=so.onekey.app.wallet',
       },
-      subscriptionManageUrl: '',
-    }));
-    const fetchInfiniSubscription = jest.fn(
-      async () => activeInfiniSubscription,
-    );
-
-    await expect(
-      resolvePrimeSubscriptionManagementTarget({
-        currentUserInfo: {
-          primeSubscription: {
-            isActive: true,
-            expiresAt: Date.now() + 60_000,
-            subscriptions: [{ managementUrl: undefined }],
+      expected: {
+        type: 'external' as const,
+        url: 'https://play.google.com/store/account/subscriptions?sku=prime_monthly&package=so.onekey.app.wallet',
+      },
+    },
+    {
+      name: 'Infini entry with a null URL',
+      laterSubscription: {
+        channel: 'infini',
+        managementUrl: null,
+      },
+      expected: { type: 'infini' as const },
+    },
+  ])(
+    'skips a null-URL promotional entry before a $name',
+    ({ laterSubscription, expected }) => {
+      expect(
+        getPrimeSubscriptionManagementTarget({
+          userInfo: {
+            primeSubscription: {
+              isActive: true,
+              expiresAt: Date.now() + 60_000,
+              subscriptions: [{ managementUrl: null }, laterSubscription],
+            },
           },
-          subscriptionManageUrl: '',
-        },
-        isInfiniManageSupported: true,
-        fetchFreshUserInfo,
-        fetchInfiniSubscription,
-      }),
-    ).resolves.toEqual({ type: 'infini' });
-    expect(fetchFreshUserInfo).toHaveBeenCalledTimes(1);
-    expect(fetchInfiniSubscription).toHaveBeenCalledTimes(1);
-  });
-
-  it('uses a refreshed Infini channel without calling the fallback', async () => {
-    const fetchInfiniSubscription = jest.fn(async () => {
-      throw new OneKeyLocalError('fallback failed');
-    });
-
-    await expect(
-      resolvePrimeSubscriptionManagementTarget({
-        currentUserInfo: {
-          primeSubscription: {
-            isActive: true,
-            expiresAt: Date.now() + 60_000,
-            subscriptions: [{ managementUrl: undefined }],
-          },
-          subscriptionManageUrl: '',
-        },
-        isInfiniManageSupported: true,
-        fetchFreshUserInfo: async () => ({
-          primeSubscription: {
-            isActive: true,
-            expiresAt: Date.now() + 60_000,
-            subscriptions: [{ channel: 'infini' }],
-          },
-          subscriptionManageUrl: '',
         }),
-        fetchInfiniSubscription,
+      ).toEqual(expected);
+    },
+  );
+
+  it('is unavailable when Prime is inactive', () => {
+    expect(
+      getPrimeSubscriptionManagementTarget({
+        userInfo: {
+          primeSubscription: {
+            isActive: false,
+            expiresAt: Date.now() + 60_000,
+            subscriptions: [
+              {
+                managementUrl: 'https://apps.apple.com/account/subscriptions',
+              },
+            ],
+          },
+        },
       }),
-    ).resolves.toEqual({ type: 'infini' });
-    expect(fetchInfiniSubscription).not.toHaveBeenCalled();
+    ).toEqual({ type: 'unavailable' });
   });
 
-  it('uses a refreshed management URL before the Infini fallback', async () => {
-    const fetchInfiniSubscription = jest.fn(
-      async () => activeInfiniSubscription,
+  it('keeps the refresh key stable when the server only adds subscription ids', () => {
+    const primeSubscription = {
+      isActive: true,
+      expiresAt: 1_700_000_000_000,
+      subscriptions: [
+        {
+          channel: 'infini',
+          managementUrl: null,
+        },
+      ],
+    };
+
+    expect(
+      getPrimeSubscriptionManagementSourceKey({
+        primeSubscription,
+      }),
+    ).toBe(
+      getPrimeSubscriptionManagementSourceKey({
+        primeSubscription: {
+          ...primeSubscription,
+          subscriptions: [
+            {
+              id: 'ok_prime_monthly_1',
+              channel: ' Infini ',
+              managementUrl: null,
+            },
+          ],
+        },
+      }),
     );
-
-    await expect(
-      resolvePrimeSubscriptionManagementTarget({
-        currentUserInfo: {
-          primeSubscription: {
-            isActive: true,
-            expiresAt: Date.now() + 60_000,
-            subscriptions: [{ managementUrl: undefined }],
-          },
-          subscriptionManageUrl: '',
-        },
-        isInfiniManageSupported: true,
-        fetchFreshUserInfo: async () => ({
-          primeSubscription: {
-            isActive: true,
-            expiresAt: Date.now() + 60_000,
-            subscriptions: [{ managementUrl: undefined }],
-          },
-          subscriptionManageUrl: 'https://example.com/fresh-manage',
-        }),
-        fetchInfiniSubscription,
-      }),
-    ).resolves.toEqual({
-      type: 'external',
-      url: 'https://example.com/fresh-manage',
-    });
-    expect(fetchInfiniSubscription).not.toHaveBeenCalled();
-  });
-
-  it('does not use the Infini fallback when a channel is declared', async () => {
-    const fetchInfiniSubscription = jest.fn(
-      async () => activeInfiniSubscription,
-    );
-
-    await expect(
-      resolvePrimeSubscriptionManagementTarget({
-        currentUserInfo: {
-          primeSubscription: {
-            isActive: true,
-            expiresAt: Date.now() + 60_000,
-            subscriptions: [{ channel: 'app-store' }],
-          },
-          subscriptionManageUrl: '',
-        },
-        isInfiniManageSupported: true,
-        fetchFreshUserInfo: async () => ({
-          primeSubscription: {
-            isActive: true,
-            expiresAt: Date.now() + 60_000,
-            subscriptions: [{ channel: 'app-store' }],
-          },
-          subscriptionManageUrl: '',
-        }),
-        fetchInfiniSubscription,
-      }),
-    ).resolves.toEqual({
-      type: 'unavailable',
-      reason: 'channel-without-management-url',
-    });
-    expect(fetchInfiniSubscription).not.toHaveBeenCalled();
-  });
-
-  it('starts the Infini fallback after refresh when the channel disappears', async () => {
-    const fetchInfiniSubscription = jest.fn(
-      async () => activeInfiniSubscription,
-    );
-
-    await expect(
-      resolvePrimeSubscriptionManagementTarget({
-        currentUserInfo: {
-          primeSubscription: {
-            isActive: true,
-            expiresAt: Date.now() + 60_000,
-            subscriptions: [{ channel: 'app-store' }],
-          },
-          subscriptionManageUrl: '',
-        },
-        isInfiniManageSupported: true,
-        fetchFreshUserInfo: async () => ({
-          primeSubscription: {
-            isActive: true,
-            expiresAt: Date.now() + 60_000,
-            subscriptions: [{ managementUrl: undefined }],
-          },
-          subscriptionManageUrl: '',
-        }),
-        fetchInfiniSubscription,
-      }),
-    ).resolves.toEqual({ type: 'infini' });
-    expect(fetchInfiniSubscription).toHaveBeenCalledTimes(1);
-  });
-
-  it('surfaces a failed Infini fallback instead of reporting missing data', async () => {
-    const fallbackError = new OneKeyLocalError('Infini lookup failed');
-
-    await expect(
-      resolvePrimeSubscriptionManagementTarget({
-        currentUserInfo: {
-          primeSubscription: {
-            isActive: true,
-            expiresAt: Date.now() + 60_000,
-            subscriptions: [{ managementUrl: undefined }],
-          },
-          subscriptionManageUrl: '',
-        },
-        isInfiniManageSupported: true,
-        fetchFreshUserInfo: async () => ({
-          primeSubscription: {
-            isActive: true,
-            expiresAt: Date.now() + 60_000,
-            subscriptions: [{ managementUrl: undefined }],
-          },
-          subscriptionManageUrl: '',
-        }),
-        fetchInfiniSubscription: async () => {
-          throw fallbackError;
-        },
-      }),
-    ).rejects.toBe(fallbackError);
-  });
-
-  it('surfaces a failed user-info refresh without starting the fallback', async () => {
-    const refreshError = new OneKeyLocalError('User info refresh failed');
-    const fetchInfiniSubscription = jest.fn(
-      async () => activeInfiniSubscription,
-    );
-
-    await expect(
-      resolvePrimeSubscriptionManagementTarget({
-        currentUserInfo: {
-          primeSubscription: {
-            isActive: true,
-            expiresAt: Date.now() + 60_000,
-            subscriptions: [{ managementUrl: undefined }],
-          },
-          subscriptionManageUrl: '',
-        },
-        isInfiniManageSupported: true,
-        fetchFreshUserInfo: async () => {
-          throw refreshError;
-        },
-        fetchInfiniSubscription,
-      }),
-    ).rejects.toBe(refreshError);
-    expect(fetchInfiniSubscription).not.toHaveBeenCalled();
   });
 });

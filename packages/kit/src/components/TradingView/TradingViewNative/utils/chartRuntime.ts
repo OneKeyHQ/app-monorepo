@@ -74,6 +74,7 @@ export type ITradingViewNativeChartRuntimeEvent =
       chartWidth: number;
       height: number;
       pointCount: number;
+      timeAxisHeight?: number;
       type: 'crosshairMoved';
       x: number;
       y: number;
@@ -244,7 +245,11 @@ export function reduceTradingViewNativeChartRuntime(
           x: event.x,
           y: Math.min(
             Math.max(event.y, 0),
-            Math.max(event.height - TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT, 0),
+            Math.max(
+              event.height -
+                (event.timeAxisHeight ?? TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT),
+              0,
+            ),
           ),
         },
         viewport: state.viewport,

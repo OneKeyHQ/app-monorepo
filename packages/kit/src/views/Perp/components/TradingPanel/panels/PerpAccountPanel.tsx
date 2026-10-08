@@ -9,6 +9,7 @@ import {
   DebugRenderTracker,
   IconButton,
   SizableText,
+  Skeleton,
   Tooltip,
   XStack,
   YStack,
@@ -48,7 +49,7 @@ export function PerpAccountDebugInfo() {
 }
 
 function PerpAccountMMRView() {
-  const [{ mmrPercent }] = usePerpsActiveAccountMmrAtom();
+  const [{ mmrPercent, status }] = usePerpsActiveAccountMmrAtom();
   const intl = useIntl();
   const mmrColor = (() => {
     const pct = parseFloat(mmrPercent ?? '0');
@@ -79,17 +80,23 @@ function PerpAccountMMRView() {
     [intl],
   );
 
-  if (mmrPercent) {
+  const isLoading = status === 'loading';
+  if (mmrPercent || isLoading) {
     return (
-      <XStack justifyContent="space-between">
+      <XStack justifyContent="space-between" alignItems="center">
         <Tooltip
           placement="top"
           renderContent={mmrTooltipContent}
           renderTrigger={mmrTooltipTrigger}
         />
-        <SizableText size="$bodySmMedium" color={mmrColor}>
-          {mmrPercent}%
-        </SizableText>
+        {isLoading ? (
+          // Sized like "00.00%" so the row does not shift when the value lands.
+          <Skeleton width={44} height={16} />
+        ) : (
+          <SizableText size="$bodySmMedium" color={mmrColor}>
+            {mmrPercent}%
+          </SizableText>
+        )}
       </XStack>
     );
   }

@@ -44,12 +44,7 @@ describe('showPrimeInfiniPaymentErrorToast', () => {
     expect(mockToastError).toHaveBeenCalledWith({
       title: 'payment failed for [email] token=[redacted]',
     });
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      '[PrimeInfiniPayment] payment failed for [email] token=[redacted]',
-    );
-    expect(JSON.stringify(consoleErrorSpy.mock.calls)).not.toContain(
-      'should-never-be-logged',
-    );
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
     expect(error.$$autoToastErrorTriggered).toBe(true);
   });
 
@@ -76,9 +71,7 @@ describe('showPrimeInfiniPaymentErrorToast', () => {
     expect(mockToastError).toHaveBeenCalledWith({
       title: 'Localized payment failure',
     });
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      '[PrimeInfiniPayment] Localized payment failure',
-    );
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
     expect(error.$$autoToastErrorTriggered).toBe(true);
   });
 });

@@ -11,7 +11,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ECopyFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import type { IMarketDetailPool } from '@onekeyhq/shared/types/market';
@@ -23,6 +22,7 @@ export function PoolDetailsItem({
   title,
   children,
   currency,
+  unit,
   isNumeric = false,
   formatter = 'marketCap',
   bordered = true,
@@ -30,23 +30,28 @@ export function PoolDetailsItem({
   title: string;
   rank?: number;
   currency?: boolean;
+  unit?: string;
   children: ReactElement | string;
   isNumeric?: boolean;
   formatter?: INumberSizeableTextProps['formatter'];
   bordered?: boolean;
 }) {
-  const [settings] = useSettingsPersistAtom();
-  const currencySymbol = settings.currencyInfo.symbol;
+  const currencySymbol = '$';
   const renderChildren = useMemo(() => {
     if (isNumeric) {
       return (
-        <NumberSizeableText
-          size="$bodyMdMedium"
-          formatter={formatter}
-          formatterOptions={currency ? { currency: currencySymbol } : undefined}
-        >
-          {children as string}
-        </NumberSizeableText>
+        <XStack gap="$1" alignItems="center">
+          <NumberSizeableText
+            size="$bodyMdMedium"
+            formatter={formatter}
+            formatterOptions={
+              currency ? { currency: currencySymbol } : undefined
+            }
+          >
+            {children as string}
+          </NumberSizeableText>
+          {unit ? <SizableText size="$bodyMdMedium">{unit}</SizableText> : null}
+        </XStack>
       );
     }
     return typeof children === 'string' ? (
@@ -54,7 +59,7 @@ export function PoolDetailsItem({
     ) : (
       children
     );
-  }, [children, currency, currencySymbol, formatter, isNumeric]);
+  }, [unit, children, currency, currencySymbol, formatter, isNumeric]);
   return (
     <YStack
       pb="$3"

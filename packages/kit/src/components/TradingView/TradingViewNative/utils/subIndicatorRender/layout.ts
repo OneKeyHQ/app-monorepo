@@ -29,6 +29,37 @@ export interface ITradingViewNativeSubIndicatorPaneStackLayout {
   top: number;
 }
 
+interface ITradingViewNativeSubIndicatorPaneStackOptions {
+  height: number;
+  paneCount: number;
+  panes?: readonly ITradingViewNativeSubIndicatorRenderPane[];
+  timeAxisHeight?: number;
+}
+
+export function getSubIndicatorPreferredHeight(
+  pane: ITradingViewNativeSubIndicatorRenderPane,
+) {
+  'worklet';
+  return typeof pane.preferredHeight === 'number' &&
+    Number.isFinite(pane.preferredHeight)
+    ? Math.max(36, Math.min(2000, pane.preferredHeight))
+    : TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT;
+}
+
+function getTradingViewNativeTimeAxisY(
+  height: number,
+  timeAxisHeight?: number,
+) {
+  'worklet';
+
+  const normalizedHeight = Number.isFinite(height) ? Math.max(height, 0) : 0;
+  const normalizedTimeAxisHeight =
+    typeof timeAxisHeight === 'number' && Number.isFinite(timeAxisHeight)
+      ? Math.max(timeAxisHeight, 0)
+      : TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT;
+  return Math.max(normalizedHeight - normalizedTimeAxisHeight, 0);
+}
+
 export function getTradingViewNativeVisibleSubIndicatorPaneCount(
   panes: readonly ITradingViewNativeSubIndicatorRenderPane[],
 ) {
@@ -40,26 +71,27 @@ export function getTradingViewNativeVisibleSubIndicatorPaneCount(
 export function getTradingViewNativeSubIndicatorPaneStackHeight({
   height,
   paneCount,
-}: {
-  height: number;
-  paneCount: number;
-}) {
+  panes,
+  timeAxisHeight,
+}: ITradingViewNativeSubIndicatorPaneStackOptions) {
   'worklet';
 
-  const normalizedHeight = Number.isFinite(height) ? Math.max(height, 0) : 0;
   const normalizedPaneCount = Number.isFinite(paneCount)
     ? Math.max(Math.floor(paneCount), 0)
     : 0;
-  const timeAxisY = Math.max(
-    normalizedHeight - TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
-    0,
-  );
+  const timeAxisY = getTradingViewNativeTimeAxisY(height, timeAxisHeight);
   const minimumMainChartBottom =
     TRADING_VIEW_NATIVE_CHART_TOP_PADDING +
     TRADING_VIEW_NATIVE_SUB_INDICATOR_MIN_MAIN_CHART_HEIGHT;
   const availableHeight = Math.max(timeAxisY - minimumMainChartBottom, 0);
   return Math.min(
-    normalizedPaneCount * TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT,
+    panes
+      ? panes.reduce(
+          (sum, pane) =>
+            sum + (pane.isVisible ? getSubIndicatorPreferredHeight(pane) : 0),
+          0,
+        )
+      : normalizedPaneCount * TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT,
     availableHeight,
   );
 }
@@ -67,20 +99,17 @@ export function getTradingViewNativeSubIndicatorPaneStackHeight({
 export function getTradingViewNativeSubIndicatorPaneStackLayout({
   height,
   paneCount,
-}: {
-  height: number;
-  paneCount: number;
-}): ITradingViewNativeSubIndicatorPaneStackLayout {
+  panes,
+  timeAxisHeight,
+}: ITradingViewNativeSubIndicatorPaneStackOptions): ITradingViewNativeSubIndicatorPaneStackLayout {
   'worklet';
 
-  const normalizedHeight = Number.isFinite(height) ? Math.max(height, 0) : 0;
-  const bottom = Math.max(
-    normalizedHeight - TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
-    0,
-  );
+  const bottom = getTradingViewNativeTimeAxisY(height, timeAxisHeight);
   const stackHeight = getTradingViewNativeSubIndicatorPaneStackHeight({
-    height: normalizedHeight,
+    height,
     paneCount,
+    panes,
+    timeAxisHeight,
   });
   return {
     bottom,
@@ -109,13 +138,19 @@ export function getTradingViewNativeSubIndicatorPaneLayouts({
   if (!visiblePanes.length || stackHeight <= 0) {
     return [];
   }
-  const paneHeight = stackHeight / visiblePanes.length;
+  const preferredTotal = visiblePanes.reduce(
+    (sum, pane) => sum + getSubIndicatorPreferredHeight(pane),
+    0,
+  );
+  let offset = stackTop;
   return visiblePanes.map((pane, index) => {
-    const top = stackTop + paneHeight * index;
+    const top = offset;
     const bottom =
       index === visiblePanes.length - 1
         ? stackBottom
-        : stackTop + paneHeight * (index + 1);
+        : top +
+          (stackHeight * getSubIndicatorPreferredHeight(pane)) / preferredTotal;
+    offset = bottom;
     const plotTop = Math.min(
       top + TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_PADDING,
       bottom,

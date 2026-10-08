@@ -86,19 +86,16 @@ export function isSwapStockTokenSearchMatch({
 export function isSwapStockMetadataPending({
   isSwapStockSelectTarget,
   resolvedStockMetadataTokenKey,
-  stockMetadataLoading,
   stockMetadataTokenKey,
 }: {
   isSwapStockSelectTarget: boolean;
   resolvedStockMetadataTokenKey?: string;
-  stockMetadataLoading?: boolean;
   stockMetadataTokenKey?: string;
 }) {
   return Boolean(
     isSwapStockSelectTarget &&
     stockMetadataTokenKey &&
-    (stockMetadataLoading ||
-      resolvedStockMetadataTokenKey !== stockMetadataTokenKey),
+    resolvedStockMetadataTokenKey !== stockMetadataTokenKey,
   );
 }
 

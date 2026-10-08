@@ -6,7 +6,10 @@ import {
   EWebViewRoutes,
   type IWebViewPageParams,
 } from '@onekeyhq/shared/src/routes';
-import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
+import {
+  isAllowedAppClipCampaignEntryUrl,
+  isAllowedWebViewUrl,
+} from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 
 export type IOpenWebViewParams = IWebViewPageParams;
 
@@ -24,8 +27,11 @@ export type IOpenWebViewParams = IWebViewPageParams;
  * are silently rejected — the caller gets no signal, by design.
  */
 export function openWebView(params: IOpenWebViewParams) {
-  const { url } = params;
-  if (!isAllowedWebViewUrl(url)) {
+  const { appClipCampaign, url } = params;
+  const isAllowed = appClipCampaign
+    ? isAllowedAppClipCampaignEntryUrl(url)
+    : isAllowedWebViewUrl(url);
+  if (!isAllowed) {
     return;
   }
 

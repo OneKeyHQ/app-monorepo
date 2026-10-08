@@ -19,6 +19,7 @@ import type {
   IReceiveShareData,
   IReceiveShareImageGeneratorRef,
 } from './types';
+import type { ViewShotRef } from 'react-native-view-shot';
 
 interface IShareImageGeneratorProps {
   data: IReceiveShareData;
@@ -44,7 +45,7 @@ function createImagesReadyDeferred(): IImagesReadyDeferred {
 export const ShareImageGenerator = memo(
   forwardRef<IReceiveShareImageGeneratorRef, IShareImageGeneratorProps>(
     ({ data }, ref) => {
-      const viewShotRef = useRef<ViewShot>(null);
+      const viewShotRef = useRef<ViewShotRef>(null);
       const imagesReadyDeferredRef = useRef<IImagesReadyDeferred | null>(null);
       const prevImagesKeyRef = useRef<string | null>(null);
       const prevContentKeyRef = useRef<string | null>(null);

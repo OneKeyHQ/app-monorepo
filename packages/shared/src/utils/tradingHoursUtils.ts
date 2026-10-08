@@ -680,3 +680,71 @@ export function resolveUSTradingHoursActiveRow({
   // A gap `now` already resolves to the upcoming session here.
   return tradingHours.currentSessionKey;
 }
+
+export interface IUSMarketNextOpenCountdown {
+  days: number;
+  hours: number;
+  minutes: number;
+  totalMinutes: number;
+}
+
+/**
+ * Time left until the market reopens, for the "closed" status label.
+ *
+ * `nextOpenTime` wins over `nextOpenMinutes`: the minute count is a snapshot
+ * taken when the response was built, so it drifts as the payload ages between
+ * polls, while the timestamp stays correct however stale the response is. The
+ * minute count is only the fallback for a payload that omits the timestamp,
+ * and it is anchored to `nextOpenMinutesObservedAt` so it still ticks down
+ * between polls instead of repeating the snapshot forever.
+ *
+ * Rounds up, so the final partial minute reads "1m" rather than counting down
+ * to a "0m" that would claim the market is already open. Returns undefined
+ * once the moment has passed (or with nothing usable to measure) so callers
+ * render no countdown instead of a negative one.
+ */
+export function getUSMarketNextOpenCountdown({
+  nextOpenTime,
+  nextOpenMinutes,
+  nextOpenMinutesObservedAt,
+  now = Date.now(),
+}: {
+  nextOpenTime?: string;
+  nextOpenMinutes?: number;
+  /** When the `nextOpenMinutes` snapshot was taken. */
+  nextOpenMinutesObservedAt?: number;
+  now?: number;
+}): IUSMarketNextOpenCountdown | undefined {
+  let totalMinutes: number | undefined;
+
+  if (nextOpenTime) {
+    const openAt = new Date(nextOpenTime).getTime();
+    if (Number.isFinite(openAt)) {
+      totalMinutes = Math.ceil((openAt - now) / MINUTE_MS);
+    }
+  }
+
+  if (
+    totalMinutes === undefined &&
+    typeof nextOpenMinutes === 'number' &&
+    Number.isFinite(nextOpenMinutes)
+  ) {
+    const elapsedMinutes =
+      typeof nextOpenMinutesObservedAt === 'number' &&
+      Number.isFinite(nextOpenMinutesObservedAt)
+        ? Math.max(0, now - nextOpenMinutesObservedAt) / MINUTE_MS
+        : 0;
+    totalMinutes = Math.ceil(nextOpenMinutes - elapsedMinutes);
+  }
+
+  if (totalMinutes === undefined || totalMinutes <= 0) {
+    return undefined;
+  }
+
+  return {
+    days: Math.floor(totalMinutes / MINUTES_PER_DAY),
+    hours: Math.floor((totalMinutes % MINUTES_PER_DAY) / 60),
+    minutes: totalMinutes % 60,
+    totalMinutes,
+  };
+}

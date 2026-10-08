@@ -20,8 +20,9 @@ import {
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { coldStartCacheStorage } from '@onekeyhq/shared/src/storage/instance/syncStorageInstance';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+
+import { swapProSelectTokenAtom } from '../contexts/swap/atoms';
 
 import {
   buildJotaiContextStoreId,
@@ -149,6 +150,13 @@ function ThrowingRootStoreConsumer({
   useJotaiContextRootStore(data);
   throw new OneKeyLocalError('abort root render');
 }
+
+const mockReadContextAtomSnapshotRaw = jest.fn<string | undefined, []>();
+
+jest.mock('@onekeyhq/shared/src/storage/uiSnapshotCaches', () => ({
+  readContextAtomSnapshotRaw: () => mockReadContextAtomSnapshotRaw(),
+  writeContextAtomSnapshotRaw: () => undefined,
+}));
 
 describe('jotaiContextStore reset flow', () => {
   const data = {
@@ -352,6 +360,37 @@ describe('jotaiContextStore reset flow', () => {
     });
   });
 
+  it('hydrates the saved Swap Pro token synchronously for the cold-start root', () => {
+    const selectedToken = {
+      networkId: 'evm--1',
+      contractAddress: '0xtoken',
+      symbol: 'TOKEN',
+      decimals: 18,
+      logoURI: 'https://example.com/token.png',
+      balanceParsed: '123',
+      fiatValue: '456',
+      accountAddress: '0xprevious-owner',
+    };
+    const globalCache = globalThis as IGlobalColdStartSnapshot;
+    globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
+      [`store:${EJotaiContextStoreNames.swap}::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapProSelectTokenAtom}`]:
+        selectedToken,
+    };
+    platformEnv.isNative = true;
+
+    const store = jotaiContextStore.prepareStoreForImmediateUse({
+      storeName: EJotaiContextStoreNames.swap,
+    });
+
+    expect(store.get(swapProSelectTokenAtom())).toEqual({
+      networkId: 'evm--1',
+      contractAddress: '0xtoken',
+      symbol: 'TOKEN',
+      decimals: 18,
+      logoURI: 'https://example.com/token.png',
+    });
+  });
+
   it('hydrates a late-created provider from durable storage after the boot snapshot is cleared', () => {
     const coldStartCacheKey =
       CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapBalanceDisplayCacheAtom;
@@ -376,10 +415,8 @@ describe('jotaiContextStore reset flow', () => {
           jest.fn() as unknown as IJotaiSetAtom<Args, Result>,
         ] as [Awaited<Value2>, IJotaiSetAtom<Args, Result>],
     });
-    jest.spyOn(coldStartCacheStorage, 'getString').mockReturnValue(
-      JSON.stringify({
-        [scopedKey]: cachedValue,
-      }),
+    mockReadContextAtomSnapshotRaw.mockReturnValue(
+      JSON.stringify({ [scopedKey]: cachedValue }),
     );
 
     try {

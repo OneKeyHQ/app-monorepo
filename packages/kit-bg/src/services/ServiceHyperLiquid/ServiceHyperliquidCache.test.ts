@@ -366,6 +366,7 @@ describe('ServiceHyperliquidCache account display hydration', () => {
       totalMarginUsed: undefined,
       crossAccountValue: undefined,
       crossMaintenanceMarginUsed: undefined,
+      isolatedMarginUsed: undefined,
       totalNtlPos: undefined,
       totalRawUsd: undefined,
       withdrawable: undefined,

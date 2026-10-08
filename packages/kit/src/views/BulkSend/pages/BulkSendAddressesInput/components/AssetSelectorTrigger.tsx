@@ -2,10 +2,17 @@ import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, SizableText, YStack, useMedia } from '@onekeyhq/components';
+import {
+  Button,
+  SizableText,
+  Skeleton,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { TOKEN_SIZE_MAP } from '@onekeyhq/kit/src/components/Token/tokenSize';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -52,6 +59,8 @@ function AssetSelectorTrigger({
     resolvedSenderAccountIds,
     hasUserSelectedAsset,
     setHasUserSelectedAsset,
+    isInitializing,
+    seededNetwork,
   } = useBulkSendAddressesInputContext();
   const navigation = useAppNavigation();
 
@@ -67,6 +76,11 @@ function AssetSelectorTrigger({
     },
   });
 
+  // While the page seed is loading there is no token to name yet; showing
+  // the "Select token" placeholder for that window read as a broken state
+  // (OK-61587), so the row renders a size-stable skeleton instead.
+  const showSeedSkeleton = isInitializing && !selectedToken;
+
   const title = useMemo(() => {
     if (selectedToken) {
       return selectedToken.symbol;
@@ -77,17 +91,56 @@ function AssetSelectorTrigger({
       : intl.formatMessage({ id: ETranslations.token_selector_title });
   }, [selectedToken, media.gtMd, intl]);
 
-  const avatarElement = useMemo(
-    () => (
+  // The seed already carries the network logo / name, so the row does not
+  // wait for a second lookup before the chain badge and subtitle appear.
+  const seededNetworkForDisplay =
+    seededNetwork && seededNetwork.id === displayNetworkId
+      ? seededNetwork
+      : undefined;
+  const subtitle =
+    selectedToken?.networkName ??
+    seededNetworkForDisplay?.name ??
+    network?.name;
+
+  const { tokenImageSize } = TOKEN_SIZE_MAP.lg;
+  const avatarElement = useMemo(() => {
+    if (showSeedSkeleton) {
+      return <Skeleton w={tokenImageSize} h={tokenImageSize} radius="round" />;
+    }
+    // No remount key on network change: `Token` keeps a stable root, and a
+    // remount would re-decode the image (visible as an icon flash on
+    // Android, which has no synchronous image cache).
+    return (
       <Token
-        key={displayNetworkId}
         tokenImageUri={selectedToken?.logoURI}
+        networkImageUri={
+          seededNetworkForDisplay?.isCustomNetwork
+            ? undefined
+            : seededNetworkForDisplay?.logoURI || undefined
+        }
         size="lg"
         showNetworkIcon
         networkId={displayNetworkId}
       />
-    ),
-    [displayNetworkId, selectedToken?.logoURI],
+    );
+  }, [
+    displayNetworkId,
+    selectedToken?.logoURI,
+    seededNetworkForDisplay?.isCustomNetwork,
+    seededNetworkForDisplay?.logoURI,
+    showSeedSkeleton,
+    tokenImageSize,
+  ]);
+
+  const skeletonItemText = useMemo(
+    () =>
+      showSeedSkeleton ? (
+        <YStack flex={1} justifyContent="center" gap="$1">
+          <Skeleton.BodyLg width="$12" />
+          <Skeleton.BodyMd width="$20" />
+        </YStack>
+      ) : undefined,
+    [showSeedSkeleton],
   );
 
   const {
@@ -515,8 +568,9 @@ function AssetSelectorTrigger({
       <ListItem
         drillIn={media.md}
         renderAvatar={avatarElement}
-        title={title}
-        subtitle={selectedToken?.networkName ?? network?.name}
+        renderItemText={skeletonItemText}
+        title={showSeedSkeleton ? undefined : title}
+        subtitle={showSeedSkeleton ? undefined : subtitle}
         bg="$bgSubdued"
         mx="$0"
         hoverStyle={{

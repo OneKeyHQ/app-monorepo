@@ -12,13 +12,15 @@ import {
 
 import {
   analyzeOrderBookPrecision,
+  buildPerpsCrossMarginByDex,
   buildPreferredSpotUniverseByBaseNameMap,
-  calculateLiquidationPrice,
+  buildTokenAvailableAfterMaintenanceMap,
   calculatePriceScale,
   calculateSpotBalancesTotalUsd,
   compareSpotMarketCapValues,
   computeMaxTradeSize,
   countDecimalPlaces,
+  estimateLiquidationPrice,
   findTokensByAlias,
   formatHlPrice,
   formatHlSize,
@@ -33,12 +35,14 @@ import {
   getOrderBookSizeDisplaySymbol,
   getSpotMarketCapValue,
   getSpotTokenDisplayName,
+  getValidPerpsPrice,
   getValidPriceDecimals,
   getValidSpotPriceDecimals,
   isHyperLiquidAbstractionModeEnabled,
   isPredictionMarketInstrument,
   isSpotInstrument,
   resolveBboOrderPrice,
+  resolveCrossAvailableAfterMaintenance,
   resolveOrderBookSizeDecimals,
   resolveTradingSizeBN,
   snapHlPriceToGrid,
@@ -544,6 +548,19 @@ describe('HyperLiquid wire-safe formatters', () => {
   });
 });
 
+describe('getValidPerpsPrice', () => {
+  test.each([undefined, null, '', '0', '0.0', '-1', 'NaN', 'Infinity'])(
+    'rejects a non-positive or invalid trading price: %s',
+    (price) => {
+      expect(getValidPerpsPrice(price)).toBeUndefined();
+    },
+  );
+
+  test('preserves a valid positive trading price', () => {
+    expect(getValidPerpsPrice('213.63')).toBe('213.63');
+  });
+});
+
 describe('HyperLiquid BBO price ticks', () => {
   test.each([
     ['100000', 0, '1'],
@@ -786,83 +803,343 @@ describe('formatPriceToSignificantDigits - HyperLiquid Price Formatting', () => 
   });
 });
 
-describe('calculateLiquidationPrice', () => {
-  const marginTiers = [{ lowerBound: '0', maxLeverage: 10 }];
+describe('estimateLiquidationPrice', () => {
+  const tiers10x = [{ lowerBound: '0', maxLeverage: 10 }];
+  const btcTiers = [
+    { lowerBound: '0', maxLeverage: 40 },
+    { lowerBound: '150000000', maxLeverage: 20 },
+  ];
 
-  test('keeps mark-price clamp for standard limit orders', () => {
-    const liquidationPrice = calculateLiquidationPrice({
-      totalValue: new BigNumber(110),
-      referencePrice: new BigNumber(110),
-      markPrice: new BigNumber(100),
-      clampToCurrentMark: true,
-      positionSize: new BigNumber(1),
+  // Screenshot repro: unified account, $3.2555 free USDC, BTC limit 80,000
+  // x 0.00012 with mark 83,312. Hyperliquid showed 53,540 for the long.
+  test('prices a new unified cross long from the free collateral', () => {
+    const liquidationPrice = estimateLiquidationPrice({
       side: 'long',
+      orderSize: new BigNumber('0.00012'),
+      priceMode: 'limit',
+      orderPrice: new BigNumber(80_000),
+      markPrice: new BigNumber(83_312),
+      marginMode: 'cross',
+      leverage: 27,
+      marginTiers: btcTiers,
+      maxLeverage: 40,
+      crossAvailableAfterMaintenance: new BigNumber('3.2555'),
+    });
+
+    expect(liquidationPrice?.toNumber()).toBeCloseTo(53_540.084_388, 4);
+  });
+
+  test('clamps a sell limit below mark to the mark price', () => {
+    const liquidationPrice = estimateLiquidationPrice({
+      side: 'short',
+      orderSize: new BigNumber('0.00012'),
+      priceMode: 'limit',
+      orderPrice: new BigNumber(80_000),
+      markPrice: new BigNumber(83_312),
+      marginMode: 'cross',
+      leverage: 27,
+      marginTiers: btcTiers,
+      maxLeverage: 40,
+      crossAvailableAfterMaintenance: new BigNumber('3.2555'),
+    });
+
+    expect(liquidationPrice?.toNumber()).toBeCloseTo(109_077.695_473, 4);
+  });
+
+  test('prices market orders at the mark price', () => {
+    const liquidationPrice = estimateLiquidationPrice({
+      side: 'long',
+      orderSize: new BigNumber(1),
+      priceMode: 'market',
+      orderPrice: new BigNumber(90),
+      markPrice: new BigNumber(100),
+      marginMode: 'cross',
       leverage: 10,
-      mode: 'isolated',
-      marginTiers,
+      marginTiers: tiers10x,
       maxLeverage: 10,
+      crossAvailableAfterMaintenance: new BigNumber(50),
+    });
+
+    expect(liquidationPrice?.toNumber()).toBeCloseTo(52.631_579, 6);
+  });
+
+  // Long 1 opened at 100 and now marked at 120: the account value already
+  // holds the +20 PnL, so the entry price must not be used as the reference.
+  test('values an existing cross position at mark instead of its entry price', () => {
+    const liquidationPrice = estimateLiquidationPrice({
+      side: 'long',
+      orderSize: new BigNumber(1),
+      priceMode: 'market',
+      markPrice: new BigNumber(120),
+      marginMode: 'cross',
+      leverage: 10,
+      marginTiers: tiers10x,
+      maxLeverage: 10,
+      existingPositionSize: new BigNumber(1),
+      crossAvailableAfterMaintenance: new BigNumber(34),
+    });
+
+    expect(liquidationPrice?.toNumber()).toBeCloseTo(105.263_158, 6);
+  });
+
+  test('uses the flipped direction after reversing a cross position', () => {
+    const liquidationPrice = estimateLiquidationPrice({
+      side: 'long',
+      orderSize: new BigNumber(3),
+      priceMode: 'market',
+      markPrice: new BigNumber(100),
+      marginMode: 'cross',
+      leverage: 10,
+      marginTiers: tiers10x,
+      maxLeverage: 10,
+      existingPositionSize: new BigNumber(-1),
+      crossAvailableAfterMaintenance: new BigNumber(30),
+    });
+
+    expect(liquidationPrice?.toNumber()).toBeCloseTo(86.842_105, 6);
+  });
+
+  // Hyperliquid uses the resting limit price while keeping current equity,
+  // including when a same-side reduce-only order has zero executable size.
+  test.each([
+    { side: 'long', price: 100, reduceOnly: false, expected: 70.526_316 },
+    { side: 'long', price: 100, reduceOnly: true, expected: 35.789_474 },
+    { side: 'short', price: 140, reduceOnly: false, expected: 164.761_905 },
+  ] as const)(
+    'matches Hyperliquid for a resting $side limit with reduceOnly=$reduceOnly',
+    ({ side, price, reduceOnly, expected }) => {
+      const liquidationPrice = estimateLiquidationPrice({
+        side,
+        orderSize: new BigNumber(1),
+        priceMode: 'limit',
+        orderPrice: new BigNumber(price),
+        markPrice: new BigNumber(120),
+        reduceOnly,
+        marginMode: 'cross',
+        leverage: 10,
+        marginTiers: tiers10x,
+        maxLeverage: 10,
+        existingPositionSize: new BigNumber(side === 'long' ? 1 : -1),
+        crossAvailableAfterMaintenance: new BigNumber(60),
+      });
+
+      expect(liquidationPrice?.toNumber()).toBeCloseTo(expected, 6);
+    },
+  );
+
+  test('caps reduce-only orders at the existing position size', () => {
+    const liquidationPrice = estimateLiquidationPrice({
+      side: 'short',
+      orderSize: new BigNumber(2),
+      priceMode: 'market',
+      markPrice: new BigNumber(100),
+      reduceOnly: true,
+      marginMode: 'cross',
+      leverage: 10,
+      marginTiers: tiers10x,
+      maxLeverage: 10,
+      existingPositionSize: new BigNumber(1),
+      crossAvailableAfterMaintenance: new BigNumber(34),
+    });
+
+    expect(liquidationPrice).toBeNull();
+  });
+
+  test('assumes the initial margin is posted when free collateral is short', () => {
+    const liquidationPrice = estimateLiquidationPrice({
+      side: 'long',
+      orderSize: new BigNumber(1),
+      priceMode: 'market',
+      markPrice: new BigNumber(100),
+      marginMode: 'cross',
+      leverage: 10,
+      marginTiers: tiers10x,
+      maxLeverage: 10,
+      crossAvailableAfterMaintenance: new BigNumber(0),
     });
 
     expect(liquidationPrice?.toNumber()).toBeCloseTo(94.736_842, 6);
   });
 
-  test('uses execution price directly when clamp is disabled', () => {
-    const liquidationPrice = calculateLiquidationPrice({
-      totalValue: new BigNumber(110),
-      referencePrice: new BigNumber(110),
+  test('applies the tier maintenance deduction and checks the liquidation tier', () => {
+    const liquidationPrice = estimateLiquidationPrice({
+      side: 'long',
+      orderSize: new BigNumber(50_000),
+      priceMode: 'limit',
+      orderPrice: new BigNumber(100),
       markPrice: new BigNumber(100),
-      clampToCurrentMark: false,
-      positionSize: new BigNumber(1),
-      side: 'long',
-      leverage: 10,
-      mode: 'isolated',
-      marginTiers,
+      marginMode: 'cross',
+      leverage: 5,
+      marginTiers: [
+        { lowerBound: '0', maxLeverage: 10 },
+        { lowerBound: '3000000', maxLeverage: 5 },
+      ],
       maxLeverage: 10,
+      crossAvailableAfterMaintenance: new BigNumber(1_000_000),
     });
 
-    expect(liquidationPrice?.toNumber()).toBeCloseTo(104.210_526, 6);
+    expect(liquidationPrice?.toNumber()).toBeCloseTo(85.555_556, 6);
   });
 
-  test('handles same-direction adds with an existing cross position', () => {
-    const liquidationPrice = calculateLiquidationPrice({
-      totalValue: new BigNumber(110),
-      referencePrice: new BigNumber(110),
-      clampToCurrentMark: false,
-      positionSize: new BigNumber(1),
+  test('returns null for a cross estimate without collateral input', () => {
+    const liquidationPrice = estimateLiquidationPrice({
       side: 'long',
+      orderSize: new BigNumber(1),
+      priceMode: 'market',
+      markPrice: new BigNumber(100),
+      marginMode: 'cross',
       leverage: 10,
-      mode: 'cross',
-      marginTiers,
+      marginTiers: tiers10x,
       maxLeverage: 10,
-      crossMarginUsed: new BigNumber(100),
-      crossMaintenanceMarginUsed: new BigNumber(20),
-      existingPositionSize: new BigNumber(2),
-      existingEntryPrice: new BigNumber(100),
-      newOrderSide: 'long',
     });
 
-    expect(liquidationPrice?.toNumber()).toBeCloseTo(77.192_982, 6);
+    expect(liquidationPrice).toBeNull();
   });
 
-  test('handles flip scenarios with an existing cross position', () => {
-    const liquidationPrice = calculateLiquidationPrice({
-      totalValue: new BigNumber(220),
-      referencePrice: new BigNumber(110),
-      clampToCurrentMark: false,
-      positionSize: new BigNumber(2),
-      side: 'long',
-      leverage: 10,
-      mode: 'cross',
-      marginTiers,
-      maxLeverage: 10,
-      crossMarginUsed: new BigNumber(100),
-      crossMaintenanceMarginUsed: new BigNumber(20),
-      existingPositionSize: new BigNumber(-1),
-      existingEntryPrice: new BigNumber(100),
-      newOrderSide: 'long',
+  // Live unified ETH short: with no new size the estimate must land on the
+  // liquidationPx Hyperliquid itself reported (4381.8204504841).
+  test('matches Hyperliquid liquidationPx for an existing unified position', () => {
+    const liquidationPrice = estimateLiquidationPrice({
+      side: 'short',
+      orderSize: new BigNumber(0),
+      priceMode: 'market',
+      markPrice: new BigNumber('2661.9'),
+      marginMode: 'cross',
+      leverage: 4,
+      marginTiers: [
+        { lowerBound: '0', maxLeverage: 25 },
+        { lowerBound: '100000000', maxLeverage: 15 },
+      ],
+      maxLeverage: 25,
+      existingPositionSize: new BigNumber('-7.9968'),
+      crossAvailableAfterMaintenance: new BigNumber('14028.94'),
     });
 
-    expect(liquidationPrice?.toNumber()).toBeCloseTo(25.789_474, 6);
+    expect(liquidationPrice?.toNumber()).toBeCloseTo(4381.82, 1);
+  });
+
+  test('opens an isolated position with notional over leverage', () => {
+    const liquidationPrice = estimateLiquidationPrice({
+      side: 'long',
+      orderSize: new BigNumber('0.00012'),
+      priceMode: 'limit',
+      orderPrice: new BigNumber(80_000),
+      markPrice: new BigNumber(83_311),
+      marginMode: 'isolated',
+      leverage: 40,
+      marginTiers: btcTiers,
+      maxLeverage: 40,
+    });
+
+    expect(liquidationPrice?.toNumber()).toBeCloseTo(78_987.341_772, 4);
+  });
+
+  // Isolated long 1 marked at 100 with 40 of equity (margin was added on top
+  // of the 10 opened at 10x). Selling half keeps half of that equity.
+  test('keeps the actual isolated equity when reducing', () => {
+    const liquidationPrice = estimateLiquidationPrice({
+      side: 'short',
+      orderSize: new BigNumber('0.5'),
+      priceMode: 'market',
+      markPrice: new BigNumber(100),
+      marginMode: 'isolated',
+      leverage: 10,
+      marginTiers: tiers10x,
+      maxLeverage: 10,
+      existingPositionSize: new BigNumber(1),
+      isolatedRawUsd: new BigNumber(-60),
+    });
+
+    expect(liquidationPrice?.toNumber()).toBeCloseTo(63.157_895, 6);
+  });
+});
+
+describe('liquidation risk inputs', () => {
+  test('keeps each dex cross value and maintenance margin separately', () => {
+    expect(
+      buildPerpsCrossMarginByDex([
+        [
+          '',
+          {
+            crossMarginSummary: { accountValue: '100' },
+            crossMaintenanceMarginUsed: '20',
+          },
+        ],
+        [
+          'xyz',
+          {
+            crossMarginSummary: { accountValue: '900' },
+            crossMaintenanceMarginUsed: '5',
+          },
+        ],
+        ['io', undefined],
+      ]),
+    ).toEqual({
+      '': { accountValue: '100', maintenanceMarginUsed: '20' },
+      'xyz': { accountValue: '900', maintenanceMarginUsed: '5' },
+    });
+  });
+
+  test('indexes spot availability by collateral token', () => {
+    expect(
+      buildTokenAvailableAfterMaintenanceMap([
+        [0, '13982.8773894'],
+        [360, '0.0'],
+      ]),
+    ).toEqual({ 0: '13982.8773894', 360: '0.0' });
+  });
+
+  test('uses the USDC spot availability for unified accounts', () => {
+    expect(
+      resolveCrossAvailableAfterMaintenance({
+        mode: EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT,
+        dex: 'xyz',
+        tokenToAvailableAfterMaintenance: { 0: '3.2555' },
+        crossMarginByDex: {
+          xyz: { accountValue: '0', maintenanceMarginUsed: '0' },
+        },
+      })?.toFixed(),
+    ).toBe('3.2555');
+  });
+
+  test('waits for spot availability before estimating unified accounts', () => {
+    expect(
+      resolveCrossAvailableAfterMaintenance({
+        mode: EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT,
+        dex: '',
+        tokenToAvailableAfterMaintenance: undefined,
+        crossMarginByDex: {
+          '': { accountValue: '100', maintenanceMarginUsed: '20' },
+        },
+      }),
+    ).toBeUndefined();
+  });
+
+  test('uses only the order dex for standard accounts', () => {
+    expect(
+      resolveCrossAvailableAfterMaintenance({
+        mode: EHyperLiquidAbstractionMode.DISABLED,
+        dex: '',
+        tokenToAvailableAfterMaintenance: undefined,
+        crossMarginByDex: {
+          '': { accountValue: '100', maintenanceMarginUsed: '20' },
+          'xyz': { accountValue: '900', maintenanceMarginUsed: '5' },
+        },
+      })?.toFixed(),
+    ).toBe('80');
+  });
+
+  test('does not guess the collateral when the account mode is unknown', () => {
+    expect(
+      resolveCrossAvailableAfterMaintenance({
+        mode: undefined,
+        dex: '',
+        tokenToAvailableAfterMaintenance: { 0: '10' },
+        crossMarginByDex: {
+          '': { accountValue: '100', maintenanceMarginUsed: '20' },
+        },
+      }),
+    ).toBeUndefined();
   });
 });
 

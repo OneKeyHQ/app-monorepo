@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react';
+import type { ComponentProps } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -30,7 +31,13 @@ interface ISupplementaryRow {
   onPress?: () => void;
 }
 
-export function TokenSupplementaryInfo() {
+export function TokenSupplementaryInfo({
+  variant = 'sidebar',
+  px,
+}: {
+  variant?: 'sidebar' | 'overview';
+  px?: ComponentProps<typeof XStack>['px'];
+}) {
   const intl = useIntl();
   const { tokenDetail, networkId } = useTokenDetail();
   const btcMetadata = useBtcMetadataContext();
@@ -91,6 +98,55 @@ export function TokenSupplementaryInfo() {
       return [];
     }
 
+    if (variant === 'overview') {
+      return [
+        {
+          key: 'marketCap',
+          label: intl.formatMessage({ id: ETranslations.dexmarket_market_cap }),
+          value: formatStatValueWithFormatter(
+            tokenDetail.marketCap,
+            USD_CURRENCY_FORMATTER,
+          ),
+          tooltip: intl.formatMessage({ id: ETranslations.dexmarket_mc_tips }),
+        },
+        {
+          key: 'liquidity',
+          label: intl.formatMessage({ id: ETranslations.global_liquidity }),
+          value: formatStatValueWithFormatter(
+            tokenDetail.liquidity,
+            USD_CURRENCY_FORMATTER,
+          ),
+        },
+        {
+          key: 'holders',
+          label: intl.formatMessage({ id: ETranslations.dexmarket_holders }),
+          value: formatStatValueWithFormatter(
+            tokenDetail.holders,
+            MARKET_CAP_FORMATTER,
+          ),
+        },
+        {
+          key: 'volume24h',
+          label: intl.formatMessage({
+            id: ETranslations.dexmarket_stock_24h_volume,
+          }),
+          value: formatStatValueWithFormatter(
+            tokenDetail.volume24h,
+            USD_CURRENCY_FORMATTER,
+          ),
+        },
+        {
+          key: 'fdv',
+          label: intl.formatMessage({ id: ETranslations.global_fdv }),
+          value: formatStatValueWithFormatter(
+            tokenDetail.fdv,
+            USD_CURRENCY_FORMATTER,
+          ),
+          tooltip: intl.formatMessage({ id: ETranslations.dexmarket_fdv_desc }),
+        },
+      ];
+    }
+
     return [
       {
         key: 'circulating',
@@ -124,10 +180,51 @@ export function TokenSupplementaryInfo() {
         tooltip: intl.formatMessage({ id: ETranslations.dexmarket_fdv_desc }),
       },
     ];
-  }, [btcMetadata, intl, tokenDetail, handleBlockHeightPress]);
+  }, [btcMetadata, intl, tokenDetail, handleBlockHeightPress, variant]);
 
   if (!tokenDetail) {
     return null;
+  }
+
+  if (variant === 'overview') {
+    return (
+      <XStack width="100%" px={px ?? '$5'} py="$6" flexWrap="wrap" rowGap="$6">
+        {rows.map((item) => (
+          <YStack key={item.key} flex={1} minWidth={144} pr="$2.5" gap="$1">
+            {item.tooltip ? (
+              <Tooltip
+                placement="top"
+                renderTrigger={
+                  <DashText
+                    size="$bodyMd"
+                    color="$textSubdued"
+                    dashThickness={0.5}
+                    cursor="help"
+                    numberOfLines={1}
+                  >
+                    {item.label}
+                  </DashText>
+                }
+                renderContent={
+                  <SizableText size="$bodySm">{item.tooltip}</SizableText>
+                }
+              />
+            ) : (
+              <SizableText
+                size="$bodyMd"
+                color="$textSubdued"
+                numberOfLines={1}
+              >
+                {item.label}
+              </SizableText>
+            )}
+            <SizableText size="$headingMd" numberOfLines={1}>
+              {item.value}
+            </SizableText>
+          </YStack>
+        ))}
+      </XStack>
+    );
   }
 
   return (

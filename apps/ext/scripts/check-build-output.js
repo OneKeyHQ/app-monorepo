@@ -250,13 +250,22 @@ function main() {
   );
   const backgroundBytes = fs.statSync(backgroundPath).size;
   const budgets = {
-    totalBytes: readBudget('EXT_BUILD_MAX_TOTAL_BYTES', 160000000),
+    // Raised from 160000000: the previous ceiling was set against a
+    // ~154.3 MB build and steady growth on x has since consumed almost all of
+    // that margin, so the gate started firing on whichever PR happened to land
+    // next rather than on the change that caused the growth. This restores the
+    // original ~3.7% headroom over the current output. Note the measurement is
+    // platform-sensitive — a macOS build reads ~43 KB smaller than CI's Linux
+    // build, so trust the CI number when the margin is thin.
+    totalBytes: readBudget('EXT_BUILD_MAX_TOTAL_BYTES', 166000000),
     // Keep enough headroom for expected route and chunk growth while the total
     // output size budget continues to guard against broader regressions.
     jsFiles: readBudget('EXT_BUILD_MAX_JS_FILES', 1000),
+    // The x baseline after #13208 is 39849351 bytes in Linux CI, already
+    // above 38 MiB. Restore about 2.6% headroom for incremental growth.
     backgroundBytes: readBudget(
       'EXT_BUILD_MAX_BACKGROUND_BYTES',
-      38 * 1024 * 1024,
+      39 * 1024 * 1024,
     ),
   };
 

@@ -78,6 +78,7 @@ jest.mock('@sentry/react-native', () => ({
 
 jest.mock('expo-localization', () => ({
   locale: '',
+  getLocales: () => [{ languageTag: '' }],
 }));
 
 jest.mock('expo-device', () => ({

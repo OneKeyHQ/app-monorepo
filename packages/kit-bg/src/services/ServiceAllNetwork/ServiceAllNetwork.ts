@@ -20,10 +20,16 @@ import perfUtils, {
 import networkUtils, {
   isEnabledNetworksInAllNetworks,
 } from '@onekeyhq/shared/src/utils/networkUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import ServiceBase from '../ServiceBase';
+
+import {
+  groupNetworkIdsByImpl,
+  resolveNetworkIdsWithoutAccount,
+} from './networksWithoutAccount';
 
 import type { IDBAccount } from '../../dbs/local/types';
 import type {
@@ -97,6 +103,7 @@ class ServiceAllNetwork extends ServiceBase {
     appEventBus.on(EAppEventBusNames.WalletRemove, invalidate);
     appEventBus.on(EAppEventBusNames.WalletUpdate, invalidate);
     appEventBus.on(EAppEventBusNames.WalletClear, invalidate);
+    appEventBus.on(EAppEventBusNames.GlobalDeriveTypeUpdate, invalidate);
   }
 
   private _getAllNetworkAccountsCache = new Map<
@@ -836,6 +843,67 @@ class ServiceAllNetwork extends ServiceBase {
     return mainnetItems;
   }
 
+  // Which of `networkIds` this indexed account has no usable address on.
+  // Networks sharing an impl share derivation, so each impl group is checked
+  // once: any derive type counts when the network merges derive assets,
+  // otherwise the user's current global derive type must have an account.
+  // Runs the per-group lookups in-process so the UI pays one round trip
+  // instead of three per group; see `resolveNetworkIdsWithoutAccount` for why
+  // it avoids vault loads and runs the groups sequentially.
+  @backgroundMethod()
+  async getNetworkIdsWithoutAccountInIndexedAccount({
+    indexedAccountId,
+    networkIds,
+  }: {
+    indexedAccountId: string;
+    networkIds: string[];
+  }): Promise<string[]> {
+    if (!indexedAccountId || networkIds.length === 0) {
+      return [];
+    }
+    const { serviceAccount, serviceNetwork } = this.backgroundApi;
+    const { networks } = await serviceNetwork.getAllNetworks();
+    const networkById = new Map(networks.map((n) => [n.id, n]));
+    const groups = groupNetworkIdsByImpl(
+      networkIds
+        .map((id) => networkById.get(id))
+        .filter((n): n is IServerNetwork => Boolean(n)),
+    );
+    if (groups.length === 0) {
+      return [];
+    }
+    return resolveNetworkIdsWithoutAccount({
+      groups,
+      getGroupDeriveTypes: async (networkId) => {
+        const vaultSettings = await serviceNetwork.getVaultSettings({
+          networkId,
+        });
+        const mergeDeriveAssetsEnabled =
+          !!vaultSettings.mergeDeriveAssetsEnabled;
+        return {
+          mergeDeriveAssetsEnabled,
+          deriveTypes: Object.keys(vaultSettings.accountDeriveInfo),
+          currentDeriveType: mergeDeriveAssetsEnabled
+            ? ''
+            : await serviceNetwork.getGlobalDeriveTypeOfNetwork({ networkId }),
+        };
+      },
+      getAccountId: ({ networkId, deriveType }) =>
+        serviceAccount.getDbAccountIdFromIndexedAccountId({
+          indexedAccountId,
+          networkId,
+          deriveType: deriveType as IAccountDeriveTypes,
+        }),
+      getExistingAccountIds: async (ids) => {
+        const { accounts } = await serviceAccount.getAllAccounts({ ids });
+        return new Set(accounts.map((account) => account.id));
+      },
+      yieldToQueue: async () => {
+        await timerUtils.wait(0);
+      },
+    });
+  }
+
   @backgroundMethod()
   async getAllNetworksFallbackNetworkId({
     walletId,
@@ -861,33 +929,20 @@ class ServiceAllNetwork extends ServiceBase {
     return mainnetItems?.[0]?.id;
   }
 
+  // The UnifiedNetworkSelector's SWR entry is not primed from here. bg used to
+  // take a `cacheContext` and write `swrKeys.unifiedNetworkSelectorMeta`
+  // itself, which gave that namespace a second writer over the MMKV file the
+  // UI runtime also writes. The caller refreshes its own entry after this
+  // resolves instead, which keeps the write where the key is defined.
   @backgroundMethod()
   async updateAllNetworksState(params: {
     disabledNetworks?: Record<string, boolean>;
     enabledNetworks?: Record<string, boolean>;
-    // Optional context so bg can prime the UnifiedNetworkSelector's SWR
-    // cache (swrKeys.unifiedNetworkSelectorMeta) for this account — the
-    // next modal open then reflects the new enabled/disabled state from
-    // frame 0 instead of flashing the pre-update snapshot. The context
-    // is additive: callers that don't supply it retain the old behavior.
-    cacheContext?: {
-      walletId?: string;
-      accountId?: string;
-    };
   }) {
     await this.backgroundApi.simpleDb.allNetworks.updateAllNetworksState(
       params,
     );
     this.clearGetAllNetworkAccountsCache();
-    const { cacheContext } = params;
-    if (cacheContext?.walletId) {
-      void this.backgroundApi.serviceNetwork.primeUnifiedNetworkSelectorMetaCache(
-        {
-          walletId: cacheContext.walletId,
-          accountId: cacheContext.accountId,
-        },
-      );
-    }
   }
 
   @backgroundMethod()

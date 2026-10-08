@@ -101,6 +101,7 @@ const GENERATED_DIRS = [
   'apps/desktop/public/static/js-sdk',
   'apps/mobile/android/app/src/main/assets/web-embed',
   'apps/mobile/ios/OneKeyWallet/web-embed',
+  'apps/mobile/ios/outputs',
   'apps/ext/src/entry',
 ];
 
@@ -117,11 +118,13 @@ function parseArgs(argv) {
     includeServerDynamic: false,
     deleteBatchSize: 100,
     deleteLimit: 0,
+    deleteKeysFile: '',
     deleteLokalise: false,
     deleteLokaliseConfirm: false,
     limit: DEFAULT_LIMIT,
     maxFileSize: DEFAULT_MAX_FILE_SIZE,
     output: '',
+    projectName: '',
     pullAfterDelete: false,
     roots: [],
     verbose: false,
@@ -169,6 +172,23 @@ function parseArgs(argv) {
       options.deleteLimit = Number(next());
     } else if (arg.startsWith('--delete-limit=')) {
       options.deleteLimit = Number(arg.slice('--delete-limit='.length));
+    } else if (
+      arg === '--delete-keys-file' ||
+      arg.startsWith('--delete-keys-file=')
+    ) {
+      options.deleteKeysFile =
+        arg === '--delete-keys-file'
+          ? next()
+          : arg.slice('--delete-keys-file='.length);
+      if (!options.deleteKeysFile.trim()) {
+        throw new Error('--delete-keys-file requires a non-empty path');
+      }
+    } else if (arg === '--project-name' || arg.startsWith('--project-name=')) {
+      options.projectName =
+        arg === '--project-name' ? next() : arg.slice('--project-name='.length);
+      if (!options.projectName.trim()) {
+        throw new Error('--project-name requires a non-empty name');
+      }
     } else if (arg === '--delete-batch-size') {
       options.deleteBatchSize = Number(next());
     } else if (arg.startsWith('--delete-batch-size=')) {
@@ -210,6 +230,14 @@ function parseArgs(argv) {
   if (options.deleteLokaliseConfirm && !options.deleteLokalise) {
     throw new Error('--yes requires --delete-lokalise');
   }
+  if (options.deleteKeysFile && !options.deleteLokalise) {
+    throw new Error('--delete-keys-file requires --delete-lokalise');
+  }
+  if (options.deleteKeysFile && options.deleteLimit !== 0) {
+    throw new Error(
+      '--delete-keys-file cannot be combined with --delete-limit',
+    );
+  }
   if (options.pullAfterDelete && !options.deleteLokaliseConfirm) {
     throw new Error('--pull-after-delete requires --delete-lokalise --yes');
   }
@@ -235,6 +263,8 @@ Options:
   --delete-lokalise         Build a Lokalise deletion plan for unused keys
   --yes                     Actually delete from Lokalise. Requires --delete-lokalise
   --delete-limit <n>        Delete only the first n unused keys. 0 means all
+  --delete-keys-file <path> Delete only keys in a non-empty JSON array; all must be unused
+  --project-name <name>     Verify the expected Lokalise project name before deletion
   --delete-batch-size <n>   Lokalise bulk-delete batch size. Default: 100
   --pull-after-delete       Run yarn i18n:pull after confirmed deletion
   --max-file-size <bytes>   Skip larger files. Default: ${DEFAULT_MAX_FILE_SIZE}
@@ -246,6 +276,7 @@ Examples:
   yarn i18n:unused --format json --output tmp/i18n-unused.json
   yarn i18n:unused --include-tests --root packages/kit
   yarn i18n:unused --delete-lokalise
+  yarn i18n:unused --include-tests --delete-lokalise --delete-keys-file .tmp/old-keys.json --project-name "Monorepo v5"
   yarn i18n:unused --delete-lokalise --yes --pull-after-delete
 `);
 }
@@ -936,6 +967,7 @@ function findLokaliseKeyMatches(localKey, keyIndex) {
         matchesById.set(String(match.key_id), {
           keyId: String(match.key_id),
           keyName: variant,
+          names: getLokaliseKeyNames(match),
         });
       }
     }
@@ -943,11 +975,14 @@ function findLokaliseKeyMatches(localKey, keyIndex) {
   return [...matchesById.values()];
 }
 
-function buildLokaliseDeletePlan({ keyIndex, unused }) {
+function buildLokaliseDeletePlan({ keyIndex, unused, strictNames = false }) {
   const ambiguous = [];
   const missing = [];
   const toDelete = [];
   const seenKeyIds = new Set();
+  const permittedNames = new Set(
+    unused.flatMap((item) => getLokaliseKeyNameVariants(item.key)),
+  );
 
   for (const item of unused) {
     const matches = findLokaliseKeyMatches(item.key, keyIndex);
@@ -960,7 +995,12 @@ function buildLokaliseDeletePlan({ keyIndex, unused }) {
       });
     } else {
       const match = matches[0];
-      if (!seenKeyIds.has(match.keyId)) {
+      if (
+        strictNames &&
+        match.names.some((name) => !permittedNames.has(name))
+      ) {
+        ambiguous.push({ ...item, matches });
+      } else if (!seenKeyIds.has(match.keyId)) {
         seenKeyIds.add(match.keyId);
         toDelete.push({
           ...item,
@@ -1019,20 +1059,56 @@ function runPullAfterDelete() {
   }
 }
 
+function selectUnusedForDeletion(report, options) {
+  if (!options.deleteKeysFile) {
+    return options.deleteLimit > 0
+      ? report.unused.slice(0, options.deleteLimit)
+      : report.unused;
+  }
+  if (options.deleteLimit > 0) {
+    throw new Error(
+      '--delete-keys-file cannot be combined with --delete-limit',
+    );
+  }
+  const keys = JSON.parse(
+    fs.readFileSync(resolveRoot(options.deleteKeysFile), 'utf8'),
+  );
+  if (
+    !Array.isArray(keys) ||
+    keys.length === 0 ||
+    keys.some(
+      (key) => typeof key !== 'string' || !/^[A-Za-z0-9_.:-]+$/.test(key),
+    )
+  ) {
+    throw new Error(
+      '--delete-keys-file must contain a non-empty JSON array of exact key names',
+    );
+  }
+  if (new Set(keys).size !== keys.length) {
+    throw new Error('--delete-keys-file contains duplicate keys');
+  }
+  const unusedByKey = new Map(report.unused.map((item) => [item.key, item]));
+  const rejected = keys.filter((key) => !unusedByKey.has(key));
+  if (rejected.length > 0) {
+    throw new Error(
+      `Requested keys are used, reserved or absent from the local catalog: ${rejected.join(', ')}`,
+    );
+  }
+  return keys.map((key) => unusedByKey.get(key));
+}
+
 async function applyLokaliseDeleteIfRequested(report, options) {
   if (!options.deleteLokalise) {
     return;
   }
 
-  const selectedUnused =
-    options.deleteLimit > 0
-      ? report.unused.slice(0, options.deleteLimit)
-      : report.unused;
+  const selectedUnused = selectUnusedForDeletion(report, options);
 
   const summary = {
     dryRun: !options.deleteLokaliseConfirm,
     requestedCandidates: report.unused.length,
     selectedCandidates: selectedUnused.length,
+    keysFile: options.deleteKeysFile || null,
     matched: 0,
     missing: 0,
     ambiguous: 0,
@@ -1063,6 +1139,22 @@ async function applyLokaliseDeleteIfRequested(report, options) {
     return;
   }
 
+  if (options.projectName) {
+    const response = await requestLokalise({
+      method: 'GET',
+      path: `/api2/projects/${encodeURIComponent(projectId)}`,
+      token,
+    });
+    const project = response.body?.project || response.body;
+    if (
+      project?.project_id !== projectId ||
+      project?.name !== options.projectName
+    ) {
+      throw new Error('Lokalise project name or ID mismatch; no keys deleted.');
+    }
+    summary.project = { id: projectId, name: project.name };
+  }
+
   console.error('Resolving Lokalise key IDs for deletion plan...');
   const lokaliseKeys = await fetchLokaliseKeysForLocalKeys({
     localKeys: selectedUnused.map((item) => item.key),
@@ -1073,6 +1165,7 @@ async function applyLokaliseDeleteIfRequested(report, options) {
   const plan = buildLokaliseDeletePlan({
     keyIndex,
     unused: selectedUnused,
+    strictNames: Boolean(options.deleteKeysFile),
   });
 
   summary.matched = plan.toDelete.length;
@@ -1089,9 +1182,12 @@ async function applyLokaliseDeleteIfRequested(report, options) {
     lokaliseKeyName: item.lokaliseKeyName,
   }));
 
-  if (summary.ambiguous > 0) {
+  if (
+    summary.ambiguous > 0 ||
+    (options.deleteKeysFile && summary.missing > 0)
+  ) {
     summary.note =
-      'Ambiguous Lokalise key matches found. Resolve them before confirmed deletion.';
+      'Missing or ambiguous Lokalise key matches (including platform names outside the requested scope). Resolve them before confirmed deletion.';
     if (options.deleteLokaliseConfirm) {
       throw new Error(summary.note);
     }
@@ -1426,4 +1522,13 @@ async function main() {
   }
 }
 
-void main();
+if (require.main === module) {
+  void main();
+}
+
+module.exports = {
+  parseArgs,
+  selectUnusedForDeletion,
+  buildLokaliseKeyIndex,
+  buildLokaliseDeletePlan,
+};

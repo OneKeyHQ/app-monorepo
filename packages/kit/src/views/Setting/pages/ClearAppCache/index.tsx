@@ -18,6 +18,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IClearCacheOnAppState } from '@onekeyhq/shared/types/setting';
 
+import { SETTINGS_PAGE_BODY_INSET_X } from '../Tab/settingsSurface';
+
 import { confirmClearOneKeyIdCache } from './confirmClearOneKeyIdCache';
 
 export default function ClearAppCache() {
@@ -51,8 +53,8 @@ export default function ClearAppCache() {
           id: ETranslations.settings_clear_cache_on_app,
         })}
       />
-      <Page.Body>
-        <Stack px="$6">
+      <Page.Body px={SETTINGS_PAGE_BODY_INSET_X}>
+        <Stack px="$5">
           <Form form={form}>
             <YStack>
               {platformEnv.isWebDappMode ? null : (
@@ -194,11 +196,9 @@ export default function ClearAppCache() {
               return;
             }
             await backgroundApiProxy.serviceSetting.clearCacheOnApp(values);
-            // The expo-image disk cache (token logos, NFT full-res images, dApp
-            // favicons, DeFi/market icons) is the largest on-disk contributor and
-            // is NOT cleared by clearCacheOnApp (which only clears DB/simpleDb).
-            // Purge the whole image cache here when the user clears Token & NFT
-            // data. Native-only effect; clearDiskCache is a no-op on web.
+            // The native image disk cache (token logos, NFT full-res images,
+            // dApp favicons, and DeFi/market icons) is not cleared by
+            // clearCacheOnApp, which only clears DB/simpleDb.
             if (values.tokenAndNFT && platformEnv.isNative) {
               await Promise.all([
                 Image.clearDiskCache(),

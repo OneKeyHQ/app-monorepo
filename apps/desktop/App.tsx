@@ -5,14 +5,14 @@ import '@onekeyhq/shared/src/web/index.css';
 import { Suspense, lazy, useEffect, useState } from 'react';
 
 import { KitProvider } from '@onekeyhq/kit';
-import {
-  initSentry,
-  withSentryHOC,
-} from '@onekeyhq/shared/src/modules3rdParty/sentry';
 
-import { installDesktopWatchdog } from './perf/installDesktopWatchdog';
+import {
+  flushDesktopWatchdogBreadcrumbs,
+  installDesktopWatchdog,
+} from './perf/installDesktopWatchdog';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
-import { SentryErrorBoundaryFallback } from '@onekeyhq/kit/src/components/ErrorBoundary';
+import { ErrorBoundarySimple } from '@onekeyhq/kit/src/components/ErrorBoundary';
 import { TrayPanel } from '@onekeyhq/kit/src/views/Tray/TrayPanel';
 import { TRAY_IPC } from '@onekeyhq/shared/src/types/desktop/tray';
 import type { ITrayData } from '@onekeyhq/shared/src/types/desktop/tray';
@@ -20,14 +20,100 @@ import { TamaguiProvider } from '@onekeyhq/components/src/hocs/Provider/TamaguiP
 import { AppIntlProvider } from '@onekeyhq/shared/src/locale/AppIntlProvider';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import tamaguiConfig from '@onekeyhq/components/tamagui.config';
+import type { ComponentProps } from 'react';
 
 import {
   ReanimatedLogLevel,
   configureReanimatedLogger,
 } from 'react-native-reanimated';
 
-initSentry();
 installDesktopWatchdog();
+
+const DEFERRED_SENTRY_INIT_DELAY_MS = 6000;
+const MAX_EARLY_SENTRY_ERRORS = 20;
+let hasScheduledSentryInit = false;
+const earlySentryErrors: unknown[] = [];
+
+function installEarlySentryErrorBuffer(): (() => void) | undefined {
+  if (typeof globalThis.window === 'undefined') return undefined;
+
+  const queueError = (error: unknown) => {
+    earlySentryErrors.push(error);
+    if (earlySentryErrors.length > MAX_EARLY_SENTRY_ERRORS) {
+      earlySentryErrors.shift();
+    }
+  };
+  const handleError = (event: ErrorEvent) => {
+    queueError(event.error || new Error(event.message));
+  };
+  const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+    queueError(event.reason || new Error('Unhandled promise rejection'));
+  };
+
+  globalThis.window.addEventListener('error', handleError);
+  globalThis.window.addEventListener(
+    'unhandledrejection',
+    handleUnhandledRejection,
+  );
+
+  return () => {
+    globalThis.window.removeEventListener('error', handleError);
+    globalThis.window.removeEventListener(
+      'unhandledrejection',
+      handleUnhandledRejection,
+    );
+  };
+}
+
+const removeEarlySentryErrorBuffer =
+  process.env.NODE_ENV === 'production'
+    ? installEarlySentryErrorBuffer()
+    : undefined;
+
+function loadSentry() {
+  void import('@onekeyhq/shared/src/modules3rdParty/sentry')
+    .then(({ addBreadcrumb, captureException, initSentry }) => {
+      initSentry();
+      removeEarlySentryErrorBuffer?.();
+      for (const error of earlySentryErrors.splice(0)) {
+        captureException(error);
+      }
+      flushDesktopWatchdogBreadcrumbs(addBreadcrumb);
+    })
+    .catch((error: unknown) => {
+      defaultLogger.app.error.log(
+        `Failed to initialize desktop renderer Sentry: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    });
+}
+
+function initSentryAfterStartup() {
+  if (hasScheduledSentryInit) return;
+  hasScheduledSentryInit = true;
+
+  const start = () => {
+    setTimeout(loadSentry, DEFERRED_SENTRY_INIT_DELAY_MS);
+  };
+
+  if (typeof globalThis.document === 'undefined') {
+    start();
+    return;
+  }
+
+  if (globalThis.document.readyState === 'complete') {
+    start();
+  } else {
+    globalThis.window.addEventListener('load', start, { once: true });
+  }
+}
+
+if (process.env.NODE_ENV === 'production') {
+  initSentryAfterStartup();
+} else {
+  loadSentry();
+}
 
 if (process.env.NODE_ENV !== 'production') {
   configureReanimatedLogger({
@@ -35,11 +121,6 @@ if (process.env.NODE_ENV !== 'production') {
     strict: true, // Reanimated runs in strict mode by default
   });
 }
-
-const SentryKitProvider = withSentryHOC(
-  KitProvider,
-  SentryErrorBoundaryFallback,
-);
 
 // cspell:ignore Agentation
 const AgentationDev =
@@ -101,7 +182,7 @@ function TrayPanelApp() {
   );
 }
 
-export default function App(props: any) {
+export default function App(props: ComponentProps<typeof KitProvider>) {
   const isTrayPanel =
     typeof globalThis !== 'undefined' &&
     typeof globalThis.location !== 'undefined' &&
@@ -116,7 +197,9 @@ export default function App(props: any) {
   }
   return (
     <>
-      <SentryKitProvider {...props} />
+      <ErrorBoundarySimple>
+        <KitProvider {...props} />
+      </ErrorBoundarySimple>
       {process.env.NODE_ENV !== 'production' ? (
         <Suspense>
           <AgentationDev endpoint="http://localhost:4747" />

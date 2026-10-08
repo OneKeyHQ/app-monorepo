@@ -5,6 +5,7 @@ import type { IEarnStakeType } from '@onekeyhq/shared/types/staking';
 
 const NATIVE_EARN_WRAPPED_ETH_SYMBOL = 'WETH';
 const BORROW_CLAIM_SCOPE_VERSION = 'v1';
+const BORROW_SET_COLLATERAL_SCOPE_VERSION = 'v1';
 
 function isNativeEarnEthSymbol(symbol?: string) {
   return symbol?.toUpperCase() === 'ETH';
@@ -26,8 +27,10 @@ export const buildLocalTxStatusSyncId = ({
   return baseTag;
 };
 
-// Borrow tag format:
-// borrow:{provider}:{action}[:claimIds[:v1:{networkId}:{marketAddress}]]
+// Borrow tag formats:
+// borrow:{provider}:{action}
+// borrow:{provider}:claim:{claimIds}[:v1:{networkId}:{marketAddress}]
+// borrow:{provider}:setCollateral:v1:{networkId}:{marketAddress}:{reserveAddress}
 export type IBorrowAction =
   | 'supply'
   | 'borrow'
@@ -42,6 +45,10 @@ export type IBorrowClaimScope = {
   marketAddress: string;
 };
 
+export type IBorrowSetCollateralScope = IBorrowClaimScope & {
+  reserveAddress: string;
+};
+
 export function normalizeBorrowMarketAddress({
   networkId,
   marketAddress,
@@ -51,16 +58,33 @@ export function normalizeBorrowMarketAddress({
     : marketAddress;
 }
 
+export function normalizeBorrowSetCollateralScope({
+  networkId,
+  marketAddress,
+  reserveAddress,
+}: IBorrowSetCollateralScope): IBorrowSetCollateralScope {
+  return {
+    networkId,
+    marketAddress: normalizeBorrowMarketAddress({ networkId, marketAddress }),
+    reserveAddress: normalizeBorrowMarketAddress({
+      networkId,
+      marketAddress: reserveAddress,
+    }),
+  };
+}
+
 export const buildBorrowTag = ({
   provider,
   action,
   claimIds,
   claimScope,
+  setCollateralScope,
 }: {
   provider: string;
   action: IBorrowAction;
   claimIds?: string[];
   claimScope?: IBorrowClaimScope;
+  setCollateralScope?: IBorrowSetCollateralScope;
 }): string => {
   const base = `borrow:${provider.toLowerCase()}:${action}`;
   if (action === 'claim' && claimIds?.length) {
@@ -73,11 +97,20 @@ export const buildBorrowTag = ({
     }
     return claimTag;
   }
+  if (action === 'setCollateral' && setCollateralScope) {
+    const normalizedScope =
+      normalizeBorrowSetCollateralScope(setCollateralScope);
+    return `${base}:${BORROW_SET_COLLATERAL_SCOPE_VERSION}:${encodeURIComponent(
+      normalizedScope.networkId,
+    )}:${encodeURIComponent(
+      normalizedScope.marketAddress,
+    )}:${encodeURIComponent(normalizedScope.reserveAddress)}`;
+  }
   return base;
 };
 
 function decodeBorrowTagPart(value: string | undefined): string | undefined {
-  if (!value) {
+  if (value === undefined) {
     return undefined;
   }
   try {
@@ -94,6 +127,7 @@ export const parseBorrowTag = (
   action: IBorrowAction;
   claimIds?: string[];
   claimScope?: IBorrowClaimScope;
+  setCollateralScope?: IBorrowSetCollateralScope;
 } | null => {
   if (!tag.startsWith('borrow:')) return null;
   const parts = tag.split(':');
@@ -116,11 +150,37 @@ export const parseBorrowTag = (
           }),
         }
       : undefined;
+  const setCollateralScopeNetworkId =
+    parts[3] === BORROW_SET_COLLATERAL_SCOPE_VERSION
+      ? decodeBorrowTagPart(parts[4])
+      : undefined;
+  const setCollateralScopeMarketAddress =
+    parts[3] === BORROW_SET_COLLATERAL_SCOPE_VERSION
+      ? decodeBorrowTagPart(parts[5])
+      : undefined;
+  const setCollateralScopeReserveAddress =
+    parts[3] === BORROW_SET_COLLATERAL_SCOPE_VERSION
+      ? decodeBorrowTagPart(parts[6])
+      : undefined;
+  const setCollateralScope =
+    parts[2] === 'setCollateral' &&
+    setCollateralScopeNetworkId &&
+    setCollateralScopeMarketAddress &&
+    setCollateralScopeReserveAddress !== undefined
+      ? normalizeBorrowSetCollateralScope({
+          networkId: setCollateralScopeNetworkId,
+          marketAddress: setCollateralScopeMarketAddress,
+          reserveAddress: setCollateralScopeReserveAddress,
+        })
+      : undefined;
   return {
     provider: parts[1],
     action: parts[2] as IBorrowAction,
-    claimIds: parts[3]?.split(','),
+    ...(parts[2] === 'claim' && parts[3]
+      ? { claimIds: parts[3].split(',') }
+      : {}),
     ...(claimScope ? { claimScope } : {}),
+    ...(setCollateralScope ? { setCollateralScope } : {}),
   };
 };
 

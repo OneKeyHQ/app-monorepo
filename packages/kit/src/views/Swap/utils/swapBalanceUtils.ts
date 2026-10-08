@@ -4,6 +4,7 @@ import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type {
   IQuoteResultFeeOtherFeeInfo,
@@ -35,6 +36,71 @@ export type ISwapLatestBalanceCheckResult =
       tokenSymbol: string;
     };
 
+export function checkSwapBalanceSufficientFromAmount({
+  balance,
+  amount,
+  tokenSymbol,
+}: {
+  balance: string;
+  amount: string;
+  tokenSymbol: string;
+}): ISwapLatestBalanceCheckResult {
+  const amountBN = new BigNumber(amount);
+  if (amountBN.gt(balance)) {
+    return {
+      isSufficient: false,
+      balance,
+      requiredAmount: amountBN.toFixed(),
+      tokenSymbol,
+    };
+  }
+  return { isSufficient: true, balance, tokenSymbol };
+}
+
+export function getSwapQuoteBalanceRequirements({
+  fromToken,
+  fromAmount,
+  otherFeeInfos,
+}: {
+  fromToken: ISwapToken;
+  fromAmount?: string;
+  otherFeeInfos?: IQuoteResultFeeOtherFeeInfo[];
+}) {
+  const requirements: {
+    token: ISwapToken;
+    amount: string;
+    reserveAmount?: string;
+  }[] = [{ token: fromToken, amount: fromAmount ?? '' }];
+
+  for (const feeInfo of otherFeeInfos ?? []) {
+    const feeAmount = toFiniteNonNegativeBigNumber(feeInfo.amount);
+    if (feeAmount) {
+      const existing = requirements.find((item) =>
+        equalTokenNoCaseSensitive({
+          token1: item.token,
+          token2: feeInfo.token,
+        }),
+      );
+      if (existing) {
+        existing.amount = new BigNumber(existing.amount)
+          .plus(feeAmount)
+          .toFixed();
+        existing.reserveAmount = new BigNumber(existing.reserveAmount ?? 0)
+          .plus(feeAmount)
+          .toFixed();
+      } else {
+        requirements.push({
+          token: feeInfo.token,
+          amount: feeAmount.toFixed(),
+          reserveAmount: feeAmount.toFixed(),
+        });
+      }
+    }
+  }
+
+  return requirements;
+}
+
 function toFiniteNonNegativeBigNumber(value?: string) {
   const valueBN = new BigNumber(value ?? '');
   if (valueBN.isNaN() || !valueBN.isFinite() || valueBN.lt(0)) {
@@ -64,7 +130,7 @@ export function getSwapSafeInputBalanceAmount({
   return toFiniteNonNegativeBigNumber(fallbackBalance);
 }
 
-async function getSwapTokenBalanceContractAddress(token: ISwapToken) {
+export async function getSwapTokenBalanceContractAddress(token: ISwapToken) {
   if (!token.isNative || token.contractAddress) {
     return token.contractAddress ?? '';
   }
@@ -408,14 +474,9 @@ export async function checkSwapLatestBalanceSufficient({
     return { isSufficient: true };
   }
 
-  if (amountBN.gt(balance)) {
-    return {
-      isSufficient: false,
-      balance,
-      requiredAmount: amountBN.toFixed(),
-      tokenSymbol: token.symbol,
-    };
-  }
-
-  return { isSufficient: true, balance, tokenSymbol: token.symbol };
+  return checkSwapBalanceSufficientFromAmount({
+    balance,
+    amount,
+    tokenSymbol: token.symbol,
+  });
 }

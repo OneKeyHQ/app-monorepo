@@ -15,6 +15,14 @@ export interface IHealthCheckResponse {
   ok: boolean;
 }
 
+function sanitizeHttpHeaders(
+  headers: Record<string, string>,
+): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(headers).filter(([, value]) => typeof value === 'string'),
+  );
+}
+
 /**
  * Perform health check request using native fetch
  * This is the fallback implementation for platforms that don't support IP Table
@@ -30,7 +38,7 @@ export async function healthCheckRequest(
   try {
     const response = await fetch(url, {
       method,
-      headers,
+      headers: sanitizeHttpHeaders(headers),
       signal: controller.signal,
     });
 

@@ -6,6 +6,7 @@ import { Page, SizableText, Stack, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { DeriveTypeSelectorTriggerGlobalStandAlone } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
@@ -13,6 +14,8 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { SETTINGS_PAGE_BODY_INSET_X } from '../Tab/settingsSurface';
 
 type IAccountDerivationListItemProps = {
   title: string;
@@ -53,7 +56,7 @@ const AccountDerivationListItem: FC<IAccountDerivationListItemProps> = ({
       <ListItem
         userSelect="none"
         title={title}
-        avatarProps={{ src: icon, size: '$8' }}
+        renderAvatar={<NetworkAvatarBase logoURI={icon ?? ''} size="$8" />}
       >
         <XStack>
           <SizableText mr="$3">{label}</SizableText>
@@ -107,26 +110,28 @@ const AccountDerivation = () => {
           id: ETranslations.settings_account_derivation_path,
         })}
       />
-      <Stack px="$5" py="$3">
-        <SizableText size="$bodyLg">
-          {intl.formatMessage({
-            id: ETranslations.settings_account_derivation_path_desc,
-          })}
-        </SizableText>
-      </Stack>
-      {!isLoading ? (
-        <Stack>
-          {items.map((o) => (
-            <AccountDerivationListItem
-              key={o.icon}
-              title={o.title}
-              icon={o.icon}
-              networkId={o.defaultNetworkId}
-              setDeriveTypes={setDeriveTypes}
-            />
-          ))}
+      <Page.Body px={SETTINGS_PAGE_BODY_INSET_X}>
+        <Stack px="$5" py="$3">
+          <SizableText size="$bodyLg">
+            {intl.formatMessage({
+              id: ETranslations.settings_account_derivation_path_desc,
+            })}
+          </SizableText>
         </Stack>
-      ) : null}
+        {!isLoading ? (
+          <Stack>
+            {items.map((o) => (
+              <AccountDerivationListItem
+                key={o.icon}
+                title={o.title}
+                icon={o.icon}
+                networkId={o.defaultNetworkId}
+                setDeriveTypes={setDeriveTypes}
+              />
+            ))}
+          </Stack>
+        ) : null}
+      </Page.Body>
     </Page>
   );
 };

@@ -4,7 +4,7 @@ import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import type { IButtonProps } from '@onekeyhq/components';
+import type { IButtonProps, IPageProps } from '@onekeyhq/components';
 import {
   Button,
   Form,
@@ -65,6 +65,15 @@ import type { RouteProp } from '@react-navigation/core';
 function normalizeAddress(address: string) {
   return address.toLowerCase();
 }
+
+// Page.Body alone owns no touch responder, so once an Input is focused nothing
+// on this page can release the keyboard and it keeps covering the lower fields.
+// Routing the form through the page scroll view gives blank-area taps and drags
+// the standard keyboard-dismiss behavior and keeps the focused field visible.
+const PAGE_SCROLL_PROPS: IPageProps['scrollProps'] = {
+  keyboardDismissMode: 'on-drag',
+  keyboardShouldPersistTaps: 'handled',
+};
 
 function CreateAddressButton(props: IButtonProps) {
   const intl = useIntl();
@@ -471,7 +480,7 @@ function AddCustomTokenModal() {
   const handleOnClose = useDappCloseHandler(dappApprove);
 
   return (
-    <Page onClose={handleOnClose}>
+    <Page scrollEnabled scrollProps={PAGE_SCROLL_PROPS} onClose={handleOnClose}>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.manage_token_custom_token_title,

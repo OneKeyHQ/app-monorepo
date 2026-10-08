@@ -1,16 +1,33 @@
 diff --git a/node_modules/@react-navigation/native-stack/lib/module/views/useHeaderConfigProps.js b/node_modules/@react-navigation/native-stack/lib/module/views/useHeaderConfigProps.js
-index 492390b..52edfbd 100644
+index 492390b..a2da541 100644
 --- a/node_modules/@react-navigation/native-stack/lib/module/views/useHeaderConfigProps.js
 +++ b/node_modules/@react-navigation/native-stack/lib/module/views/useHeaderConfigProps.js
-@@ -346,6 +346,10 @@
+@@ -346,7 +346,9 @@ export function useHeaderConfigProps({
      children,
      headerLeftBarButtonItems: processBarButtonItems(leftItems, colors, fonts),
      headerRightBarButtonItems: processBarButtonItems(rightItems, colors, fonts),
 -    experimental_userInterfaceStyle: dark ? 'dark' : 'light'
-+    // OneKey: prefer the app theme mirrored by ConfigProvider on iOS 26 so the
-+    // nav-bar Liquid Glass paints the right light/dark variant on the first
-+    // frame instead of flashing its light variant until react-navigation's
-+    // theme resolves. Falls back to the default when unset (non-iOS26 / others).
-+    experimental_userInterfaceStyle: globalThis.$onekeyGlassHeaderUIStyle ?? (dark ? 'dark' : 'light')
++    // OneKey: a navigator-local dark theme must win over the app-wide fallback
++    // so dark-locked flows paint the correct Liquid Glass variant immediately.
++    experimental_userInterfaceStyle: dark ? 'dark' : globalThis.$onekeyGlassHeaderUIStyle ?? 'light'
    };
+ }
+ //# sourceMappingURL=useHeaderConfigProps.js.map
+\ No newline at end of file
+diff --git a/node_modules/@react-navigation/native-stack/src/views/useHeaderConfigProps.tsx b/node_modules/@react-navigation/native-stack/src/views/useHeaderConfigProps.tsx
+index 14a0093..e2c4870 100644
+--- a/node_modules/@react-navigation/native-stack/src/views/useHeaderConfigProps.tsx
++++ b/node_modules/@react-navigation/native-stack/src/views/useHeaderConfigProps.tsx
+@@ -499,6 +499,11 @@ export function useHeaderConfigProps({
+     children,
+     headerLeftBarButtonItems: processBarButtonItems(leftItems, colors, fonts),
+     headerRightBarButtonItems: processBarButtonItems(rightItems, colors, fonts),
+-    experimental_userInterfaceStyle: dark ? 'dark' : 'light',
++    // OneKey: a navigator-local dark theme must win over the app-wide fallback
++    // so dark-locked flows paint the correct Liquid Glass variant immediately.
++    experimental_userInterfaceStyle: dark
++      ? 'dark'
++      : ((globalThis as { $onekeyGlassHeaderUIStyle?: 'light' | 'dark' })
++          .$onekeyGlassHeaderUIStyle ?? 'light'),
+   } as const;
  }

@@ -1,4 +1,5 @@
 import { PerpFooterTicker } from '../../views/Perp/components/FooterTicker/PerpFooterTicker';
+import { PerpNetworkStatus } from '../../views/Perp/components/PerpNetworkStatus';
 import { PerpsProviderMirror } from '../../views/Perp/PerpsProviderMirror';
 import { PerpRefreshButton } from '../PerpRefreshButton';
 
@@ -18,4 +19,12 @@ function PerpFooterTickerLazyImpl() {
   );
 }
 
-export { PerpFooterRefreshButtonLazyImpl, PerpFooterTickerLazyImpl };
+function PerpFooterNetworkStatusLazyImpl() {
+  return <PerpNetworkStatus />;
+}
+
+export {
+  PerpFooterNetworkStatusLazyImpl,
+  PerpFooterRefreshButtonLazyImpl,
+  PerpFooterTickerLazyImpl,
+};

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-enum-comparison */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { useCallback, useEffect, useRef } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useRef } from 'react';
 
 import { CommonActions, StackActions } from '@react-navigation/native';
 import { debounce, isEqual, noop, upperFirst } from 'lodash';
@@ -19,6 +19,7 @@ import {
   useSplitSubView,
 } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
+import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import {
   getDevSettingsNetworkThrottleEnabled,
   useDevSettingsPersistAtom,
@@ -51,6 +52,11 @@ import nativeNetworkThrottle from '@onekeyhq/shared/src/modules/NetworkThrottle'
 import { electronUpdateListeners } from '@onekeyhq/shared/src/modules3rdParty/auto-update/electronUpdateListeners';
 import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import performance from '@onekeyhq/shared/src/performance';
+import {
+  createDistinctChangeCounter,
+  startRuntimeHealthCensus,
+  stopRuntimeHealthCensus,
+} from '@onekeyhq/shared/src/performance/collectors/jsBlockCollector';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDiscoveryModalRoutes,
@@ -72,6 +78,7 @@ import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { devSettingSyncStorage } from '@onekeyhq/shared/src/storage/instance/devSettingSyncStorageInstance';
 import { EDevSettingSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import { setForceSystemBrowserForDebug } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -87,9 +94,9 @@ import useAppNavigation from '../hooks/useAppNavigation';
 import { useOnLock } from '../hooks/useOnLock';
 import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
 import { useTrayDataProvider } from '../hooks/useTrayDataProvider';
+import { registerSwrCacheMutationInvalidation } from '../utils/swrCacheMutationInvalidation';
 
 import { preloadComponentsOnIdle } from './preloadComponents';
-import { useExtensionMarketTokenDetailHashNavigation } from './useExtensionMarketTokenDetailHashNavigation';
 
 import type { IntlShape } from 'react-intl';
 
@@ -100,6 +107,15 @@ const useOnLockCallback = platformEnv.isDesktop
 const useAppUpdateInfoCallback = platformEnv.isDesktop
   ? useAppUpdateInfo
   : () => ({}) as ReturnType<typeof useAppUpdateInfo>;
+
+const LazyExtensionMarketTokenDetailHashNavigation =
+  platformEnv.isExtensionUiExpandTab
+    ? lazy(async () => {
+        const { ExtensionMarketTokenDetailHashNavigation } =
+          await import('./useExtensionMarketTokenDetailHashNavigation');
+        return { default: ExtensionMarketTokenDetailHashNavigation };
+      })
+    : null;
 
 // useAppUpdateInfo no longer accepts `autoCheck` — first-launch dispatch
 // and AppState 'active' resume listener now live in <AppUpdateForeground />,
@@ -301,9 +317,16 @@ const useDesktopEvents = platformEnv.isDesktop
           void onCheckUpdateRef.current();
         });
 
-        const debounceOpenSettings = debounce((isVisible: boolean) => {
-          openSettingsRef.current(isVisible);
-        }, 250);
+        const debounceOpenSettings = debounce(
+          (isVisible: boolean) => {
+            openSettingsRef.current(isVisible);
+          },
+          250,
+          {
+            leading: true,
+            trailing: false,
+          },
+        );
         globalThis.desktopApi.on(
           ipcMessageKeys.APP_OPEN_SETTINGS,
           debounceOpenSettings,
@@ -805,6 +828,11 @@ function DesktopTrayDataProvider() {
   );
 }
 
+// Registered at module load rather than from an effect: the mutation events it
+// listens for can arrive before this component mounts, and a dropped one
+// leaves a renamed or deleted entity in the snapshot store.
+registerSwrCacheMutationInvalidation();
+
 export function Bootstrap() {
   const navigation = useAppNavigation();
   const [devSettings] = useDevSettingsPersistAtom();
@@ -830,14 +858,16 @@ export function Bootstrap() {
     if (!platformEnv.isNative) {
       return;
     }
-    devSettingSyncStorage.set(
-      EDevSettingSyncStorageKeys.onekey_developer_mode_enabled,
-      !!devSettings.enabled,
-    );
-    devSettingSyncStorage.set(
-      EDevSettingSyncStorageKeys.onekey_native_network_throttle_enabled,
-      networkThrottleEnabled,
-    );
+    void Promise.all([
+      devSettingSyncStorage.set(
+        EDevSettingSyncStorageKeys.onekey_developer_mode_enabled,
+        !!devSettings.enabled,
+      ),
+      devSettingSyncStorage.set(
+        EDevSettingSyncStorageKeys.onekey_native_network_throttle_enabled,
+        networkThrottleEnabled,
+      ),
+    ]).catch(() => undefined);
     void nativeNetworkThrottle
       .setNetworkThrottle({
         enabled: networkThrottleEnabled,
@@ -912,6 +942,56 @@ export function Bootstrap() {
     // telemetry) for all users. Process-global on the native side, so
     // start once on mount — don't re-start when dev settings toggle.
     performance.start(1000);
+  }, []);
+
+  // One line every 30 s about this runtime's own health: event-loop blocks,
+  // JS heap and GC, process CPU and memory, next to how many account switches
+  // and how much cached data it has accumulated. A slowdown that builds up over
+  // a session is invisible in the request log; this is where it shows.
+  useEffect(() => {
+    if (!platformEnv.isNative) {
+      return undefined;
+    }
+    const homeAccountSwitches = createDistinctChangeCounter();
+    const onSelectedAccountUpdate = (payload: {
+      selectedAccount: IAccountSelectorSelectedAccount;
+      sceneName: EAccountSelectorSceneName;
+      num: number;
+    }) => {
+      if (
+        payload.sceneName !== EAccountSelectorSceneName.home ||
+        payload.num !== 0
+      ) {
+        return;
+      }
+      const { walletId, indexedAccountId, othersWalletAccountId } =
+        payload.selectedAccount;
+      homeAccountSwitches.observe(
+        [walletId, indexedAccountId, othersWalletAccountId].join('|'),
+      );
+    };
+    appEventBus.on(
+      EAppEventBusNames.AccountSelectorSelectedAccountUpdate,
+      onSelectedAccountUpdate,
+    );
+    startRuntimeHealthCensus({
+      sampleProcess: () => performance.sample(),
+      getExtra: () => {
+        const swrCache = swrCacheUtils.getSizeStats();
+        return {
+          accountSwitches: homeAccountSwitches.getCount(),
+          swrEntries: swrCache.entryCount,
+          swrKB: Math.round(swrCache.serializedChars / 1024),
+        };
+      },
+    });
+    return () => {
+      stopRuntimeHealthCensus();
+      appEventBus.off(
+        EAppEventBusNames.AccountSelectorSelectedAccountUpdate,
+        onSelectedAccountUpdate,
+      );
+    };
   }, []);
 
   useEffect(() => {
@@ -1013,24 +1093,6 @@ export function Bootstrap() {
 
   useLogVersionInfo();
 
-  // === Boot Recovery: check if we recovered from recovery page → report to Sentry ===
-  useEffect(() => {
-    if (!platformEnv.isNative) return;
-    const checkRecoveryFlag = async () => {
-      try {
-        const action = await BootRecovery.getAndClearRecoveryAction();
-        if (action) {
-          defaultLogger.app.error.log(
-            `recovery_page_shown: action=${action}, platform=${platformEnv.isNativeIOS ? 'ios' : 'android'}`,
-          );
-        }
-      } catch {
-        // Silently fail
-      }
-    };
-    void checkRecoveryFlag();
-  }, []);
-
   useFetchCurrencyList();
   useFetchMarketBasicConfig();
   useFetchPerpConfig();
@@ -1040,7 +1102,6 @@ export function Bootstrap() {
   useCheckUpdateOnDesktop();
   useIntercomInit();
   useClearStorageOnExtension();
-  useExtensionMarketTokenDetailHashNavigation();
   useRemindDevelopmentBuildExtension();
   useTabletDetailView();
   return (
@@ -1051,6 +1112,11 @@ export function Bootstrap() {
           UpdateReminder/hooks.tsx#useAppUpdateInfo. */}
       <AppUpdateForeground />
       <SplitViewPrompt />
+      {LazyExtensionMarketTokenDetailHashNavigation ? (
+        <Suspense fallback={null}>
+          <LazyExtensionMarketTokenDetailHashNavigation />
+        </Suspense>
+      ) : null}
       {platformEnv.isDesktopMac ? <DesktopTrayDataProvider /> : null}
     </>
   );

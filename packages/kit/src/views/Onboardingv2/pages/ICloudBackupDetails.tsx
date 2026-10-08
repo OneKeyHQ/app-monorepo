@@ -13,6 +13,7 @@ import {
   XStack,
   YStack,
   useMedia,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
@@ -48,6 +49,7 @@ export default function ICloudBackupDetails({
   IOnboardingParamListV2,
   EOnboardingPagesV2.ICloudBackupDetails
 >) {
+  const { bottom } = useSafeAreaInsets();
   const intl = useIntl();
   const { gtMd } = useMedia();
   const _backupTime = route.params?.backupTime;
@@ -117,8 +119,9 @@ export default function ICloudBackupDetails({
   const handleImport = useCallback(async () => {
     await doRestoreBackup({
       payload: backupData as IBackupDataEncryptedPayload,
+      recordId: route.params?.backupId,
     });
-  }, [backupData, doRestoreBackup]);
+  }, [backupData, doRestoreBackup, route.params?.backupId]);
 
   const handleBackup = useCallback(async () => {
     if (!backupData) {
@@ -265,7 +268,15 @@ export default function ICloudBackupDetails({
       safeAreaEnabled={false}
       scrollable
       headerTitle={formattedDate}
-      contentContainerProps={{ maxWidth: 480, gap: '$3', paddingVertical: 20 }}
+      contentContainerProps={{
+        maxWidth: 480,
+        gap: '$3',
+        paddingTop: 20,
+        // TODO: Move this content-owned inset into OnboardingPage. This page
+        // opts out of Page safe-area handling, so merge the native inset with
+        // the existing design padding locally instead of stacking both values.
+        paddingBottom: Math.max(bottom, 20),
+      }}
     >
       <CloudAccountBar />
       {renderContent()}
@@ -336,7 +347,7 @@ export default function ICloudBackupDetails({
         }
       />
       <YStack {...(!gtMd && { mt: 'auto' })} gap="$3">
-        <KeylessWalletBackupInfo />
+        <KeylessWalletBackupInfo backupRecordId={route.params?.backupId} />
         {actionButtons}
       </YStack>
     </OnboardingPage>

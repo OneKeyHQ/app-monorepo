@@ -1,0 +1,108 @@
+import {
+  MARKET_DESKTOP_TAB_BAR_CONTAINER_STYLE,
+  MARKET_DETAIL_TRADE_COLUMN_MIN_WIDTH,
+  MARKET_DETAIL_TRADE_COLUMN_PROPS,
+  MARKET_LIST_FIRST_COLUMN_WIDTH,
+  MARKET_LIST_NAME_COLUMN_WIDTH,
+  MARKET_LIST_STAR_COLUMN_WIDTH,
+  MARKET_LIST_STAR_SLOT_TO_LOGO_GAP,
+  MARKET_LIST_STAR_SLOT_WIDTH,
+  MARKET_LIST_STAR_TO_LOGO_GAP,
+} from './marketDesktopLayoutConstants';
+
+describe('marketDesktopLayoutConstants', () => {
+  it('gives the desktop tab bar the design 60px band', () => {
+    // 44px tab item + 8px above and below, and a positioned container so the
+    // sticky header portal anchors to it instead of the page.
+    expect(MARKET_DESKTOP_TAB_BAR_CONTAINER_STYLE).toEqual({
+      position: 'relative',
+      py: '$2',
+    });
+  });
+});
+
+describe('market detail trade column', () => {
+  const GUTTER = 20;
+  const CONTENT_MAX_WIDTH = 1440;
+  const tradeWidthForWindow = (windowWidth: number) => {
+    const contentWidth = Math.min(windowWidth - GUTTER * 2, CONTENT_MAX_WIDTH);
+    const share = Number.parseFloat(MARKET_DETAIL_TRADE_COLUMN_PROPS.width);
+    return Math.max(
+      MARKET_DETAIL_TRADE_COLUMN_MIN_WIDTH,
+      (contentWidth * share) / 100,
+    );
+  };
+
+  it('holds the 384px floor up to a 1280px window', () => {
+    expect(tradeWidthForWindow(1024)).toBe(384);
+    expect(tradeWidthForWindow(1280)).toBeCloseTo(384, 6);
+  });
+
+  it('scales with the content row and stops at the frame cap', () => {
+    expect(tradeWidthForWindow(1440)).toBeCloseTo(433.5, 1);
+    expect(tradeWidthForWindow(1480)).toBeCloseTo(445.9, 1);
+    expect(tradeWidthForWindow(2560)).toBeCloseTo(445.9, 1);
+    expect(MARKET_DETAIL_TRADE_COLUMN_PROPS.flexShrink).toBe(0);
+  });
+
+  it('pins 16px below the top of the detail scroll container', () => {
+    expect(MARKET_DETAIL_TRADE_COLUMN_PROPS).toMatchObject({
+      position: 'sticky',
+      top: 16,
+    });
+  });
+});
+
+describe('market list star layout', () => {
+  // Figma `Market / ListPageTable / TBody`, shared by the Trending, Stocks and
+  // Top coins pages: the cell pads 8px, a 4px-padded button holds the 16px
+  // glyph, then a 6px gap precedes the 40px logo.
+  const CELL_PADDING = 8;
+  const STAR_BUTTON_PADDING = 4;
+  const GLYPH_SIZE = 16;
+  const BUTTON_TO_NAME_GAP = 6;
+
+  it('puts the star glyph and the logo on the design offsets', () => {
+    const glyphStart = CELL_PADDING + STAR_BUTTON_PADDING;
+    const logoStart =
+      CELL_PADDING +
+      STAR_BUTTON_PADDING +
+      GLYPH_SIZE +
+      STAR_BUTTON_PADDING +
+      BUTTON_TO_NAME_GAP;
+    expect(glyphStart).toBe(12);
+    expect(logoStart).toBe(38);
+    expect(MARKET_LIST_STAR_TO_LOGO_GAP).toBe(
+      logoStart - (glyphStart + GLYPH_SIZE),
+    );
+  });
+
+  it('keeps the one-cell and standalone-column lists on the same offsets', () => {
+    // Stocks keeps the star and the logo in one cell: the glyph ends 4px inside
+    // the 24px slot, so the cell gap carries the design's remaining 6px.
+    expect(MARKET_LIST_STAR_SLOT_TO_LOGO_GAP).toBe(BUTTON_TO_NAME_GAP);
+    expect(MARKET_LIST_STAR_SLOT_TO_LOGO_GAP).toBe(
+      MARKET_LIST_STAR_TO_LOGO_GAP -
+        (MARKET_LIST_STAR_SLOT_WIDTH - GLYPH_SIZE) / 2,
+    );
+
+    // Trending and Top coins keep a standalone star column, so the column
+    // itself spends the distance and the name column starts its logo flush at
+    // its own edge — landing the logo on the same 38px.
+    expect(MARKET_LIST_STAR_COLUMN_WIDTH).toBe(
+      CELL_PADDING +
+        MARKET_LIST_STAR_SLOT_WIDTH +
+        MARKET_LIST_STAR_SLOT_TO_LOGO_GAP,
+    );
+    expect(MARKET_LIST_STAR_COLUMN_WIDTH).toBe(38);
+  });
+
+  it('shares one fixed first column across the list pages', () => {
+    // Fixed, not a share of the row: the pages carry different numbers of
+    // metric columns, so a percentage would differ on each one.
+    expect(MARKET_LIST_FIRST_COLUMN_WIDTH).toBe(320);
+    expect(MARKET_LIST_NAME_COLUMN_WIDTH).toBe(
+      MARKET_LIST_FIRST_COLUMN_WIDTH - MARKET_LIST_STAR_COLUMN_WIDTH,
+    );
+  });
+});

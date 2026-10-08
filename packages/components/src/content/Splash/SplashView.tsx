@@ -43,7 +43,7 @@ export function SplashView({ onExit, canDismissSplash }: ISplashViewProps) {
         <Stack
           bg="$bgApp"
           key="splash-view"
-          animation="50ms"
+          transition="50ms"
           animateOnly={ANIMATE_ONLY_OPACITY}
           position="absolute"
           top={0}

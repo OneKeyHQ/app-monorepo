@@ -228,6 +228,7 @@ export function QRCode({
   padding = 10,
   quietZoneModules = 0,
   onRenderReady,
+  drawType,
   ...props
 }: IQRCodeProps) {
   const [partValue, setPartValue] = useState<string>(value || '');
@@ -292,9 +293,12 @@ export function QRCode({
           console.log('QRCode >>>> encodeWhole', wholeParts);
           console.log(`\n\n ${wholeParts.join('\n\n').toUpperCase()} \n\n`);
         }
+        // The first frame shows now, not one interval later: the code's
+        // seat otherwise stood empty for `interval` on every mount — a
+        // bare white plate where the code should be (OK-62158).
+        setPartValue(nextPart());
         timerId = setInterval(() => {
-          const part = nextPart();
-          setPartValue(part);
+          setPartValue(nextPart());
         }, interval);
       })();
     }
@@ -345,6 +349,10 @@ export function QRCode({
         <BasicQRCode
           value={displayValue}
           {...props}
+          // Air-gap UR frames are read by hardware-wallet cameras, and some
+          // device scanners cannot reliably decode the dot style, so UR-driven
+          // codes default to line while static codes stay dot.
+          drawType={drawType ?? (valueUr ? 'line' : 'dot')}
           size={qrCodeSize}
           logoSize={scaledLogoSize}
           logoMargin={scaledLogoMargin}

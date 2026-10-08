@@ -9,6 +9,9 @@ export enum ESpotlightTour {
   earnRewardHistory = 'earnRewardHistory',
   showDevelopmentBuildWarningDialog = 'showDevelopmentBuildWarningDialog',
   splitViewFirstPrompt = 'splitViewFirstPrompt',
+  perpLayoutSettingsMenu = 'perpLayoutSettingsMenu',
+  perpLayoutSettings = 'perpLayoutSettings',
+  perpDesktopChartResize = 'perpDesktopChartResize',
 }
 
 export type ITourTripTimes = number;

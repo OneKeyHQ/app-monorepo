@@ -14,6 +14,7 @@ import { CANVAS_CONFIG } from './constants';
 import { ShareContentRenderer } from './ShareContentRenderer';
 
 import type { IRookieShareLocaleText } from './constants';
+import type { ViewShotRef } from 'react-native-view-shot';
 
 interface IShareImageGeneratorProps {
   data: IRookieShareData;
@@ -39,7 +40,7 @@ export const ShareImageGenerator = forwardRef<
   IRookieShareImageGeneratorRef,
   IShareImageGeneratorProps
 >(({ data, localeText }, ref) => {
-  const viewShotRef = useRef<ViewShot>(null);
+  const viewShotRef = useRef<ViewShotRef>(null);
   const imagesReadyDeferredRef = useRef<IImagesReadyDeferred | null>(null);
   const prevImageUrlRef = useRef<string | null>(null);
   const prevContentKeyRef = useRef<string | null>(null);

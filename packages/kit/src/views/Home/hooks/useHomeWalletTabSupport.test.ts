@@ -1,6 +1,7 @@
 import {
   HOME_WALLET_TAB_SUPPORT_INIT,
   buildHomeWalletTabSupport,
+  buildHomeWalletTabSupportScopeKey,
   hasDeFiSupportedEnabledNetwork,
   resolveHomeWalletTabSupport,
 } from './homeWalletTabSupportUtils';
@@ -182,5 +183,31 @@ describe('Home wallet tab support', () => {
       isDeFiSupported: false,
       isPerpsSupported: false,
     });
+  });
+});
+
+describe('buildHomeWalletTabSupportScopeKey', () => {
+  it('keys the scope by network, all-networks mode and perp flag only', () => {
+    expect(
+      buildHomeWalletTabSupportScopeKey({
+        networkId: 'evm--1',
+        isAllNetworks: false,
+        perpDisabled: false,
+      }),
+    ).toBe('evm--1:single:perp-enabled');
+    expect(
+      buildHomeWalletTabSupportScopeKey({
+        networkId: 'onekeyall--0',
+        isAllNetworks: true,
+        perpDisabled: true,
+      }),
+    ).toBe('onekeyall--0:all:perp-disabled');
+    expect(
+      buildHomeWalletTabSupportScopeKey({
+        networkId: undefined,
+        isAllNetworks: false,
+        perpDisabled: false,
+      }),
+    ).toBe(':single:perp-enabled');
   });
 });

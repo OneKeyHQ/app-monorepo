@@ -13,6 +13,9 @@ export type IAutoSizeInputProps = {
   maxFontSize: number;
   minFontSize: number;
   availableInlineWidth: number;
+  // False until the container's onLayout lands and availableInlineWidth is
+  // the real width rather than the window-width seed.
+  isInlineWidthMeasured?: boolean;
   inlineTextAlignMode?: 'auto' | 'center';
   currencyLabel?: string;
   inlineTokenSymbol?: string;

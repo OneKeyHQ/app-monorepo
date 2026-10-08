@@ -36,6 +36,25 @@ export function getAddressQueryResolvedAddress(
   return result.resolveAddress ?? result.validAddress ?? result.input?.trim();
 }
 
+// A re-validation (screen focus regained, manual refresh) keeps the previous
+// badges on screen; the spinner only replaces them when there is nothing to
+// show yet, so returning from a pushed page does not blank the address label.
+export function shouldShowAddressQuerySpinner({
+  loading,
+  result,
+}: {
+  loading?: boolean;
+  result?: IAddressQueryResult;
+}): boolean {
+  if (!loading) {
+    return false;
+  }
+  if (!result || Object.keys(result).length === 0) {
+    return true;
+  }
+  return result.validStatus === 'unknown';
+}
+
 export async function queryAddressWithFallback(
   params: IQueryCheckAddressArgs,
 ): Promise<IAddressQueryResult> {

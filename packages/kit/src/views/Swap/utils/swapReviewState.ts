@@ -1,7 +1,9 @@
 import BigNumber from 'bignumber.js';
+import { isObject } from 'lodash';
 
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   ESwapNetworkFeeLevel,
@@ -15,12 +17,86 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapStepStatus,
+  ESwapStepType,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
 import type { ESwapReviewRebuildPhase } from './swapReviewRebuildStateMachine';
 
 export const NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE = 1;
+
+export type ISwapStepSignAndSendProgress = {
+  hasUncertainSend: boolean;
+  succeededCount: number;
+  succeededApproveCount: number;
+};
+
+export function shouldFallbackSwapStep({
+  error,
+  stepType,
+  signAndSendProgress,
+}: {
+  error: unknown;
+  stepType: ESwapStepType;
+  signAndSendProgress: ISwapStepSignAndSendProgress;
+}) {
+  const hasSubmittedNonApproveTx =
+    signAndSendProgress.succeededCount >
+    signAndSendProgress.succeededApproveCount;
+  const wouldReplaySubmittedTx =
+    signAndSendProgress.succeededCount > 0 &&
+    stepType !== ESwapStepType.BATCH_APPROVE_SWAP;
+
+  if (
+    signAndSendProgress.hasUncertainSend ||
+    hasSubmittedNonApproveTx ||
+    wouldReplaySubmittedTx
+  ) {
+    return false;
+  }
+
+  const errorInfo = isObject(error) ? (error as Record<string, unknown>) : {};
+
+  return (
+    errorInfo.name !== EOneKeyErrorClassNames.OneKeyAppError &&
+    errorInfo.name !== EOneKeyErrorClassNames.OneKeyHardwareError &&
+    errorInfo.className !== EOneKeyErrorClassNames.OneKeyHardwareError &&
+    errorInfo.$isHardwareError !== true &&
+    errorInfo.key !== 'global.cancel' &&
+    errorInfo.code !== 803 &&
+    errorInfo.code !== -99_999 &&
+    !String(errorInfo.message ?? '')
+      .toLowerCase()
+      .includes('reject') &&
+    stepType !== ESwapStepType.SIGN_MESSAGE &&
+    errorInfo.name !== 'buildSwapApi'
+  );
+}
+
+export function markSubmittedSwapApprovalsCompleted({
+  steps,
+  succeededApproveCount,
+}: {
+  steps: ISwapStep[];
+  succeededApproveCount: number;
+}) {
+  let remainingSucceededApprovals = succeededApproveCount;
+
+  return steps.map((step) => {
+    if (
+      step.type !== ESwapStepType.APPROVE_TX ||
+      remainingSucceededApprovals <= 0
+    ) {
+      return step;
+    }
+
+    remainingSucceededApprovals -= 1;
+    return {
+      ...step,
+      status: ESwapStepStatus.SUCCESS,
+    };
+  });
+}
 
 type INativeBtcSwapTokenIdentity = Pick<ISwapToken, 'isNative' | 'networkId'>;
 
@@ -212,6 +288,41 @@ export function resolveSwapReviewNeedFetchGasAfterRebuild({
   return fallbackToSeparateTxConfirm || Boolean(previousNeedFetchGas);
 }
 
+/**
+ * Applies a partial update to one review step addressed by its index.
+ *
+ * Review steps are written from several asynchronous flows that may still be
+ * running after the review dialog was closed and the steps were cleared. Writing
+ * an index that no longer exists would turn the array into a sparse one, and the
+ * next spread or deep clone materializes those holes as real `undefined` entries,
+ * which then break every consumer reading `step.status`. Such stale writes are
+ * dropped instead of corrupting the review state.
+ */
+export function updateSwapReviewStep({
+  reviewState,
+  stepIndex,
+  partialStep,
+}: {
+  reviewState: ISwapReviewState;
+  stepIndex: number;
+  partialStep: Partial<ISwapStep>;
+}): ISwapReviewState {
+  const targetStep = reviewState.steps[stepIndex];
+  if (!targetStep) {
+    return reviewState;
+  }
+
+  const nextSteps = [...reviewState.steps];
+  nextSteps[stepIndex] = {
+    ...targetStep,
+    ...partialStep,
+  };
+  return {
+    ...reviewState,
+    steps: nextSteps,
+  };
+}
+
 export function hasInFlightSwapReviewWork({
   steps,
   preSwapData,
@@ -223,10 +334,12 @@ export function hasInFlightSwapReviewWork({
     preSwapData.swapBuildLoading ||
     preSwapData.estimateNetworkFeeLoading ||
     preSwapData.stepBeforeActionsLoading ||
+    // Steps are assembled by concurrent asynchronous flows, so a missing entry
+    // must not break this render-time check.
     steps.some(
       (step) =>
-        step.status === ESwapStepStatus.LOADING ||
-        step.status === ESwapStepStatus.PENDING,
+        step?.status === ESwapStepStatus.LOADING ||
+        step?.status === ESwapStepStatus.PENDING,
     ),
   );
 }

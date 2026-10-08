@@ -5,8 +5,37 @@ import {
   buildSwapReferralBuildTxParams,
   buildSwapRequestErrorToastPayload,
   mergeSwapTokenLists,
+  resolveSwapRequestAccountContext,
   shouldAttachSwapReferralBuildTxParams,
 } from './ServiceSwap.utils';
+
+describe('resolveSwapRequestAccountContext', () => {
+  const accountContext = {
+    accountAddress: '0xabc',
+    accountId: 'account-1',
+    accountNetworkId: 'evm--1',
+    isAllNetworkFetchAccountTokens: true,
+    onlyAccountTokens: true,
+  };
+
+  it('removes wallet identity and account-only selectors in Travel Mode', () => {
+    expect(
+      resolveSwapRequestAccountContext({
+        ...accountContext,
+        isTravelMode: true,
+      }),
+    ).toEqual({});
+  });
+
+  it('preserves the account context outside Travel Mode', () => {
+    expect(
+      resolveSwapRequestAccountContext({
+        ...accountContext,
+        isTravelMode: false,
+      }),
+    ).toEqual(accountContext);
+  });
+});
 
 describe('shouldAttachSwapReferralBuildTxParams', () => {
   it('enables attribution for Swap and Bridge builds', () => {

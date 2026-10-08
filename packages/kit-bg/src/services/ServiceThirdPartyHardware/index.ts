@@ -842,6 +842,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
   async connectDevice(params: {
     vendor: EHardwareVendor;
     connectId: string;
+    deviceId?: string;
   }): Promise<
     | {
         success: true;
@@ -856,6 +857,19 @@ class ServiceThirdPartyHardware extends ServiceBase {
     const adapter = this.getThirdPartyAdapter(params.vendor);
     if (!adapter) {
       throw createThirdPartyAdapterNotRegisteredError(params.vendor);
+    }
+    if (params.vendor === EHardwareVendor.trezor && params.deviceId) {
+      const dbDevice = await localDb.getDeviceByQuery({
+        featuresDeviceId: params.deviceId,
+        vendor: params.vendor,
+      });
+      if (dbDevice) {
+        return callTrezorWithBleFallback(
+          dbDevice,
+          (connectId) => adapter.connectDevice(connectId),
+          buildTrezorBleFallbackOptions(this.backgroundApi),
+        );
+      }
     }
     return adapter.connectDevice(params.connectId);
   }

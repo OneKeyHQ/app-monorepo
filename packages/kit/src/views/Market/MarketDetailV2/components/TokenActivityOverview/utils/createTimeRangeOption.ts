@@ -1,4 +1,6 @@
-import { clampPercentage } from '@onekeyhq/shared/src/utils/numberUtils';
+import BigNumber from 'bignumber.js';
+
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 export type IPriceChangeKey =
@@ -15,22 +17,34 @@ export function createTimeRangeOption(
 ) {
   const priceChangePercent = tokenDetail?.[priceChangeKey];
   if (priceChangePercent && typeof priceChangePercent === 'string') {
-    const formattedValue = clampPercentage(priceChangePercent);
+    const parsed = new BigNumber(priceChangePercent);
+    // An unparseable payload reads as flat, the way it did before this went
+    // through the shared formatter.
+    const safeValue = parsed.isNaN() ? '0' : priceChangePercent;
 
-    // Check if formatted value is zero (e.g., 0.001% becomes 0.00%)
-    const isZero = formattedValue === 0;
-    const isPositive = formattedValue > 0;
+    // Rounded first, so a value that only survives at more than two decimals
+    // (0.001%) counts as zero for the color and the sign, matching what the
+    // formatted string actually shows.
+    const rounded = new BigNumber(safeValue).decimalPlaces(
+      2,
+      BigNumber.ROUND_HALF_UP,
+    );
+    const isZero = rounded.isZero();
+    const isPositive = rounded.isGreaterThan(0);
 
-    // Format percentage with + sign for positive values
-    let formattedPercentage = `${formattedValue.toFixed(2)}%`;
-    if (isPositive) {
-      formattedPercentage = `+${formattedPercentage}`;
-    }
+    // The same formatter the list and detail percentages use, so this row
+    // carries one ±99,999% ceiling with them instead of its own.
+    // `showPlusMinusSigns` is dropped at zero to keep it a bare `0.00%`;
+    // a negative value keeps its sign either way.
+    const percentageChange = numberFormat(safeValue, {
+      formatter: 'priceChangeCapped',
+      formatterOptions: { showPlusMinusSigns: !isZero },
+    });
 
     return {
       label,
       value,
-      percentageChange: formattedPercentage,
+      percentageChange,
       isPositive,
       isZero,
     };

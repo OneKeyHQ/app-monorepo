@@ -289,23 +289,23 @@ const DEFINITIONS = {
     ],
     plots: [
       createPlot({
-        color: TRADING_VIEW_NATIVE_THEME_COLORS.positive,
-        id: 'histogram',
-        paletteId: 'histogram',
-        title: 'Histogram',
-        type: 'columns',
-      }),
-      createPlot({
         color: DEFAULT_LINE_COLOR,
         id: 'macd',
-        title: 'MACD',
+        title: 'DIF',
         zOrder: 11,
       }),
       createPlot({
         color: DEFAULT_SECONDARY_LINE_COLOR,
         id: 'signal',
-        title: 'Signal',
+        title: 'DEA',
         zOrder: 12,
+      }),
+      createPlot({
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.positive,
+        id: 'histogram',
+        paletteId: 'histogram',
+        title: 'MACD',
+        type: 'columns',
       }),
     ],
     scale: createAutoScale(),
@@ -424,7 +424,7 @@ const DEFINITIONS = {
     indicator: 'OBV',
     inputs: [
       createIntegerInput({
-        defaultValue: 9,
+        defaultValue: 30,
         id: 'movingAveragePeriod',
         max: 10_000,
         title: 'Smoothing Length',
@@ -435,10 +435,9 @@ const DEFINITIONS = {
     plots: [
       createPlot({ color: DEFAULT_LINE_COLOR, id: 'obv', title: 'OBV' }),
       createPlot({
-        color: DEFAULT_LINE_COLOR,
+        color: DEFAULT_SECONDARY_LINE_COLOR,
         id: 'movingAverage',
-        title: 'Smoothed MA',
-        visible: false,
+        title: 'MAOBV',
         zOrder: 11,
       }),
     ],

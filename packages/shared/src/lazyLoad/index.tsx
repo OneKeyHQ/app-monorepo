@@ -30,16 +30,28 @@ import {
 // retry lands on.
 export const MAX_LAZY_RETRIES = 1;
 const RETRY_BACKOFF_MS = [150, 600];
+// Defense in depth for a split-bundle error that reaches the boundary WITHOUT
+// the loader's `retryable` flag. Nothing in-tree produces one today: every
+// error leaving loadSegmentInternal is a SegmentLoadError carrying an explicit
+// `retryable`, including the one handed to a caller that joins an in-flight
+// load (installProdBundleLoader.ts publishes classifyLoadOutcome's promise to
+// inflightSegments for exactly that reason). So this set is a backstop for a
+// producer that bypasses the loader entirely, NOT a second source of truth to
+// keep in sync with RETRYABLE_NATIVE_REJECT_CODES — if a segment error is
+// reaching a boundary unclassified, fix the producer rather than adding its
+// code here.
 const RETRYABLE_CODES = new Set([
   'SPLIT_BUNDLE_NO_RUNTIME',
   'SPLIT_BUNDLE_TIMEOUT',
+  'SPLIT_BUNDLE_NOT_FOUND',
 ]);
 const RETRYABLE_ERROR_NAMES = new Set(['ChunkLoadError']);
 
 // Exported for unit testing. A split-bundle segment timeout is normally
-// TRANSIENT, so it re-attempts. Real eval failures (SPLIT_BUNDLE_EVAL_ERROR /
-// IO_ERROR / NOT_FOUND / SHA256_MISMATCH) are non-retryable and surface
-// immediately.
+// TRANSIENT, so it re-attempts, as is a NOT_FOUND (Android can report a
+// concurrently-extracting segment as missing — see the loader's set). Real eval
+// failures (SPLIT_BUNDLE_EVAL_ERROR / IO_ERROR / SHA256_MISMATCH) are
+// non-retryable and surface immediately.
 //
 // IMPORTANT: installProdBundleLoader exhausts its own retry budget
 // (MAX_RETRYABLE_ATTEMPTS) and then PERMANENTLY caches the failure with

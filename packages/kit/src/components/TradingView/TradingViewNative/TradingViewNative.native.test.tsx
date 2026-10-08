@@ -134,6 +134,33 @@ describe('TradingViewNative screen orientation', () => {
     expect(handleFullscreenChange).toHaveBeenCalledWith(false);
   });
 
+  it('keeps the orientation lock when the fullscreen callback changes', () => {
+    const previousHandler = jest.fn();
+    const nextHandler = jest.fn();
+    const { rerender } = render(
+      <TradingViewNative
+        source={source}
+        isNativeChartFullscreen
+        onNativeChartFullscreenChange={previousHandler}
+      />,
+    );
+
+    rerender(
+      <TradingViewNative
+        source={source}
+        isNativeChartFullscreen
+        onNativeChartFullscreenChange={nextHandler}
+      />,
+    );
+
+    expect(mockLockAsync).toHaveBeenCalledTimes(1);
+    expect(mockLockAsync).toHaveBeenCalledWith('LANDSCAPE');
+    expect(mockAppStateSubscriptionRemove).not.toHaveBeenCalled();
+    act(() => mockAppStateChangeHandler?.('background'));
+    expect(nextHandler).toHaveBeenCalledWith(false);
+    expect(previousHandler).not.toHaveBeenCalled();
+  });
+
   it('keeps fullscreen during a transient inactive state', () => {
     const handleFullscreenChange = jest.fn();
     render(

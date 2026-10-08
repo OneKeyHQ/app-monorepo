@@ -9,11 +9,13 @@ export function BorrowInfoItem({
   children,
   variant = 'default',
   gap = '$3',
+  testID,
 }: {
   title: ReactNode | string;
   children?: ReactNode;
   gap?: string | number;
   variant?: 'default' | 'highlight';
+  testID?: string;
 }) {
   const isHighlight = variant === 'highlight';
   const titleContent =
@@ -28,7 +30,7 @@ export function BorrowInfoItem({
     );
 
   return (
-    <XStack ai="flex-start" gap="$1" jc="space-between">
+    <XStack testID={testID} ai="flex-start" gap="$1" jc="space-between">
       <XStack flexShrink={0}>{titleContent}</XStack>
       <XStack
         ai="center"

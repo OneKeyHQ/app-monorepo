@@ -1,6 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { cloneDeep } from 'lodash';
 
+import type { IPrimeGiftEligibility } from '@onekeyhq/shared/types/prime/primeGiftTypes';
+import type {
+  IPrimeTransferNetworkProgress,
+  IPrimeTransferPreparationProgress,
+} from '@onekeyhq/shared/types/prime/primeTransferNetworkTypes';
 import type {
   IPrimeServerUserInfo,
   IPrimeUserInfo,
@@ -12,6 +17,18 @@ import { globalAtom } from '../utils';
 import type { IAccountDeriveTypes } from '../../../vaults/types';
 
 export type IPrimePersistAtomData = IPrimeUserInfo;
+export type IPrimeGiftEligibilityCache = Partial<
+  Record<string, IPrimeGiftEligibility>
+>;
+export const {
+  target: primeGiftEligibilityPersistAtom,
+  use: usePrimeGiftEligibilityPersistAtom,
+} = globalAtom<IPrimeGiftEligibilityCache>({
+  name: EAtomNames.primeGiftEligibilityPersistAtom,
+  persist: true,
+  initialValue: {},
+});
+
 export const primePersistAtomInitialValue: IPrimePersistAtomData = {
   // export const initialPrimePersistAtomData: IPrimePersistAtomData = {
   isLoggedIn: false,
@@ -175,6 +192,7 @@ export type IPrimeTransferAtomData = {
   myCreatedRoomId: string | undefined;
   myUserId: string | undefined;
   refreshQrcodeHook?: number | undefined;
+  exitGeneration?: number;
   transferDirection:
     | {
         fromUserId: string | undefined;
@@ -183,7 +201,10 @@ export type IPrimeTransferAtomData = {
       }
     | undefined;
   importCurrentCreatingTarget?: string;
+  networkProgress?: IPrimeTransferNetworkProgress;
+  preparationProgress?: IPrimeTransferPreparationProgress;
   importProgress?: {
+    taskUUID?: string;
     totalDetailInfo?: IPrimeTransferImportProgressTotalDetailInfo;
     total: number;
     current: number;

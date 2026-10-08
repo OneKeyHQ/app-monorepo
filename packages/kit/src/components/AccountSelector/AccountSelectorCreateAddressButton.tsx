@@ -283,6 +283,7 @@ export function AccountSelectorCreateAddressButton({
   }, [doCreate, onPressLog]);
 
   return buttonRender({
+    testID: 'account-selector-create-address-btn',
     loading: isLoading,
     onPress,
     children:

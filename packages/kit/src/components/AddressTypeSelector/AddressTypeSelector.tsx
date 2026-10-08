@@ -1,5 +1,5 @@
-import type { ReactElement, ReactNode } from 'react';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ContextType, ReactElement, ReactNode } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -13,6 +13,7 @@ import {
   Toast,
   XStack,
   YStack,
+  usePopoverContext,
 } from '@onekeyhq/components';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type {
@@ -53,6 +54,12 @@ const helpLinkMap: Record<string, string> = {
   [IMPL_BTC]: 'https://help.onekey.so/articles/11461370',
   [IMPL_TBTC]: 'https://help.onekey.so/articles/11461370',
 };
+
+const accountSelectorMirrorConfig = {
+  sceneName: EAccountSelectorSceneName.home,
+  sceneUrl: '',
+};
+const accountSelectorMirrorEnabledNum = [0];
 
 type IProps = {
   walletId: string;
@@ -424,6 +431,58 @@ const SelectorTitle = ({
   );
 };
 
+function AddressTypeSelectorPopoverContent({
+  stableContextValue,
+  dynamicContextValue,
+  networkAccounts,
+  refreshNetworkAccounts,
+  selectorTitle,
+  selectorHelpLink,
+  ...props
+}: IProps & {
+  stableContextValue: ContextType<typeof AddressTypeSelectorStableContext>;
+  dynamicContextValue: ContextType<typeof AddressTypeSelectorDynamicContext>;
+  networkAccounts: {
+    account: INetworkAccount | undefined;
+    deriveInfo: IAccountDeriveInfo;
+    deriveType: IAccountDeriveTypes;
+  }[];
+  refreshNetworkAccounts: () => Promise<void>;
+  selectorTitle: IProps['title'];
+  selectorHelpLink: string;
+}) {
+  const { open: isOpen, closePopover } = usePopoverContext();
+  const handleClosePopover = useCallback(() => {
+    void closePopover?.();
+  }, [closePopover]);
+
+  return (
+    <AccountSelectorProviderMirror
+      config={accountSelectorMirrorConfig}
+      enabledNum={accountSelectorMirrorEnabledNum}
+    >
+      <AddressTypeSelectorStableContext.Provider value={stableContextValue}>
+        <AddressTypeSelectorDynamicContext.Provider value={dynamicContextValue}>
+          <AddressTypeSelectorContent
+            {...props}
+            isOpen={isOpen}
+            closePopover={handleClosePopover}
+            networkAccounts={networkAccounts}
+            refreshNetworkAccounts={refreshNetworkAccounts}
+            selectorTitle={
+              <SelectorTitle
+                title={selectorTitle}
+                helpLink={selectorHelpLink}
+                closePopover={handleClosePopover}
+              />
+            }
+          />
+        </AddressTypeSelectorDynamicContext.Provider>
+      </AddressTypeSelectorStableContext.Provider>
+    </AccountSelectorProviderMirror>
+  );
+}
+
 function AddressTypeSelector(props: IProps) {
   const {
     walletId,
@@ -529,14 +588,6 @@ function AddressTypeSelector(props: IProps) {
     ],
   );
 
-  const activeDeriveTypeRef = useRef(activeDeriveType);
-  const isCreatingAddressRef = useRef(isCreatingAddress);
-  const dynamicContextValueRef = useRef(dynamicContextValue);
-
-  activeDeriveTypeRef.current = activeDeriveType;
-  isCreatingAddressRef.current = isCreatingAddress;
-  dynamicContextValueRef.current = dynamicContextValue;
-
   useEffect(() => {
     const fetchDefaultDeriveType = async () => {
       const defaultDeriveType =
@@ -611,53 +662,6 @@ function AddressTypeSelector(props: IProps) {
     };
   }, [refreshNetworkAccounts]);
 
-  const renderContent = useCallback(
-    ({
-      isOpen,
-      closePopover,
-    }: {
-      isOpen?: boolean;
-      closePopover: () => void;
-    }) => (
-      <AccountSelectorProviderMirror
-        config={{
-          sceneName: EAccountSelectorSceneName.home,
-          sceneUrl: '',
-        }}
-        enabledNum={[0]}
-      >
-        <AddressTypeSelectorStableContext.Provider value={stableContextValue}>
-          <AddressTypeSelectorDynamicContext.Provider
-            value={dynamicContextValueRef.current}
-          >
-            <AddressTypeSelectorContent
-              isOpen={isOpen}
-              closePopover={closePopover}
-              networkAccounts={networkAccounts}
-              refreshNetworkAccounts={refreshNetworkAccounts}
-              selectorTitle={
-                <SelectorTitle
-                  title={title}
-                  helpLink={helpLink}
-                  closePopover={closePopover}
-                />
-              }
-              {...props}
-            />
-          </AddressTypeSelectorDynamicContext.Provider>
-        </AddressTypeSelectorStableContext.Provider>
-      </AccountSelectorProviderMirror>
-    ),
-    [
-      stableContextValue,
-      networkAccounts,
-      refreshNetworkAccounts,
-      helpLink,
-      title,
-      props,
-    ],
-  );
-
   if (isSelectorDisabled) {
     return showTriggerWhenDisabled
       ? (renderSelectorTrigger ?? (
@@ -684,7 +688,17 @@ function AddressTypeSelector(props: IProps) {
           />
         )
       }
-      renderContent={renderContent}
+      renderContent={
+        <AddressTypeSelectorPopoverContent
+          {...props}
+          stableContextValue={stableContextValue}
+          dynamicContextValue={dynamicContextValue}
+          networkAccounts={networkAccounts}
+          refreshNetworkAccounts={refreshNetworkAccounts}
+          selectorTitle={title}
+          selectorHelpLink={helpLink}
+        />
+      }
       onOpenChange={(open) => {
         if (open && refreshOnOpen) {
           void fetchTokenMap();

@@ -33,11 +33,10 @@ export const Rounded: Story = {
   },
 };
 
-// A dead URI fails immediately (retry disabled) and the fallback node renders.
+// A dead URI fails and the fallback node renders.
 export const Fallback: Story = {
   args: {
     source: { uri: 'https://uni.onekey-asset.com/static/chain/missing.png' },
     fallback: FALLBACK_ICON,
-    canRetry: false,
   },
 };

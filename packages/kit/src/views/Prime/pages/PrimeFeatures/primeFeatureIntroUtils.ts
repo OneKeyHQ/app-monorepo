@@ -1,16 +1,15 @@
-import type { IKeyOfIcons } from '@onekeyhq/components';
+import type { IKeyOfIcons, IVideoSource } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
 import type { ImageSourcePropType } from 'react-native';
-import type { ReactVideoSource } from 'react-native-video';
 
 export type IPrimeFeatureIntroPosterSource = ImageSourcePropType | string;
 
 export type IPrimeFeatureIntroMedia =
   | {
       type: 'video';
-      getSource: () => ReactVideoSource;
+      getSource: () => IVideoSource;
       getPosterSource: () => IPrimeFeatureIntroPosterSource;
     }
   | {
@@ -54,13 +53,31 @@ export type IPrimeFeatureIntroCtaKind =
 const PRIME_FEATURE_VIDEO_CDN_BASE_URL =
   'https://asset.onekey-asset.com/app-monorepo/bb7a4e71aba56b405faf9278776d57d73b829708/static/media';
 
-function getPrimeFeatureVideoSource(fileName: string): ReactVideoSource {
+function getPrimeFeatureVideoSource(fileName: string): IVideoSource {
   return {
     uri: `${PRIME_FEATURE_VIDEO_CDN_BASE_URL}/${fileName}`,
   };
 }
 
 export const PRIME_FEATURE_INTROS: IPrimeFeatureIntro[] = [
+  {
+    id: EPrimeFeatures.TransactionSecurityCheck,
+    listIcon: 'DocumentSearch2Outline',
+    title: ETranslations.prime_feature_transaction_security_check__title,
+    description: ETranslations.prime_feature_transaction_security_check__desc,
+    media: {
+      type: 'video',
+      getSource: () =>
+        getPrimeFeatureVideoSource(
+          'prime-feature-transaction-security-check-20260910.mp4',
+        ),
+      getPosterSource: () =>
+        require('@onekeyhq/kit/assets/prime/transaction_security_check_poster.png') as ImageSourcePropType,
+    },
+    action: 'browser',
+    actionLabel: ETranslations.shortcuts_go_to_browser_tab,
+    details: [],
+  },
   {
     id: EPrimeFeatures.BulkSend,
     listIcon: 'ChevronDoubleUpOutline',
@@ -129,6 +146,33 @@ export const PRIME_FEATURE_INTROS: IPrimeFeatureIntro[] = [
     action: 'addressRiskCheck',
     actionLabel: ETranslations.address_risk_check_check_risk__action,
     details: [],
+  },
+  {
+    id: EPrimeFeatures.BlockaidSiteScan,
+    listIcon: 'ShieldCheckDoneOutline',
+    title: ETranslations.prime_enhanced_dapp_security_title,
+    description: ETranslations.prime_enhanced_dapp_security_desc,
+    media: {
+      type: 'video',
+      getSource: () =>
+        getPrimeFeatureVideoSource('prime-feature-dapp-security-20260529.mp4'),
+      getPosterSource: () =>
+        require('@onekeyhq/kit/assets/prime/dapp_security_poster.png') as ImageSourcePropType,
+    },
+    action: 'browser',
+    actionLabel: ETranslations.shortcuts_go_to_browser_tab,
+    details: [
+      {
+        icon: 'ShieldCheckDoneOutline',
+        title: ETranslations.prime_features_dapp_security_detail_one_title,
+        description: ETranslations.prime_features_dapp_security_detail_one_desc,
+      },
+      {
+        icon: 'ShareOutline',
+        title: ETranslations.prime_features_dapp_security_detail_two_title,
+        description: ETranslations.prime_features_dapp_security_detail_two_desc,
+      },
+    ],
   },
   {
     id: EPrimeFeatures.BulkRevoke,
@@ -234,33 +278,6 @@ export const PRIME_FEATURE_INTROS: IPrimeFeatureIntro[] = [
         icon: 'SwitchHorOutline',
         title: ETranslations.prime_features_ai_translate_detail_two_title,
         description: ETranslations.prime_features_ai_translate_detail_two_desc,
-      },
-    ],
-  },
-  {
-    id: EPrimeFeatures.BlockaidSiteScan,
-    listIcon: 'ShieldCheckDoneOutline',
-    title: ETranslations.prime_enhanced_dapp_security_title,
-    description: ETranslations.prime_enhanced_dapp_security_desc,
-    media: {
-      type: 'video',
-      getSource: () =>
-        getPrimeFeatureVideoSource('prime-feature-dapp-security-20260529.mp4'),
-      getPosterSource: () =>
-        require('@onekeyhq/kit/assets/prime/dapp_security_poster.png') as ImageSourcePropType,
-    },
-    action: 'browser',
-    actionLabel: ETranslations.shortcuts_go_to_browser_tab,
-    details: [
-      {
-        icon: 'ShieldCheckDoneOutline',
-        title: ETranslations.prime_features_dapp_security_detail_one_title,
-        description: ETranslations.prime_features_dapp_security_detail_one_desc,
-      },
-      {
-        icon: 'ShareOutline',
-        title: ETranslations.prime_features_dapp_security_detail_two_title,
-        description: ETranslations.prime_features_dapp_security_detail_two_desc,
       },
     ],
   },

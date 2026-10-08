@@ -1,4 +1,4 @@
-export const TRADING_VIEW_NATIVE_CHART_SETTINGS_SCHEMA_VERSION = 3 as const;
+export const TRADING_VIEW_NATIVE_CHART_SETTINGS_SCHEMA_VERSION = 4 as const;
 export const TRADING_VIEW_NATIVE_INDICATOR_SETTINGS_SCHEMA_VERSION = 2 as const;
 
 export const TRADING_VIEW_NATIVE_THEME_COLORS = {
@@ -118,6 +118,7 @@ export type ITradingViewNativeChartSettingsOptions = {
   depth: boolean;
   priceChange: boolean;
   latestPrice: boolean;
+  previousClose: boolean;
   futureEvents: boolean;
   pastEvents: boolean;
   clickInteraction: boolean;
@@ -182,6 +183,7 @@ export function createTradingViewNativeChartSettings(): ITradingViewNativeChartS
       depth: true,
       priceChange: true,
       latestPrice: true,
+      previousClose: false,
       futureEvents: true,
       pastEvents: false,
       clickInteraction: false,

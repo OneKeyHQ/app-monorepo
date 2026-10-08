@@ -105,7 +105,7 @@ export function PercentageStageOnKeyboard({
 
   return shouldRender ? (
     <XStack
-      animation="quick"
+      transition="quick"
       alignItems="center"
       gap="$1"
       justifyContent="space-around"

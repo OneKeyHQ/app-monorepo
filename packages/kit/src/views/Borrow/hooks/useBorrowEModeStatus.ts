@@ -12,6 +12,7 @@ interface IUseBorrowEModeStatusParams {
   marketAddress?: string;
   accountId?: string;
   enabled?: boolean;
+  revalidateOnFocus?: boolean;
 }
 
 type IScopedEModeResult = {
@@ -26,6 +27,7 @@ export const useBorrowEModeStatus = ({
   marketAddress,
   accountId,
   enabled = true,
+  revalidateOnFocus = true,
 }: IUseBorrowEModeStatusParams) => {
   const scopeKey = JSON.stringify([
     networkId,
@@ -91,7 +93,7 @@ export const useBorrowEModeStatus = ({
       watchLoading: true,
       alwaysSetState: true,
       checkIsFocused: true,
-      revalidateOnFocus: true,
+      revalidateOnFocus,
       undefinedResultIfError: true,
       swrKey,
       swrShouldPersist: (result) =>

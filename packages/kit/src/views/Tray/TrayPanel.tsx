@@ -70,6 +70,8 @@ export function TrayPanel() {
       networkId: ticker.networkId || '',
       isNative: ticker.isNative || false,
       perpsCoin: ticker.perpsCoin || '',
+      assetId: ticker.assetId || '',
+      stockId: ticker.stockId || '',
     });
   }, []);
 

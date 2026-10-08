@@ -21,9 +21,7 @@ import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
-  MMKV_MIGRATION_COMPLETE_KEY,
   atomWithStorage,
-  buildJotaiStorageKey,
   globalJotaiStorageReadyHandler,
 } from '../jotaiStorage';
 
@@ -164,51 +162,17 @@ export function crossAtomBuilder<Value, Args extends unknown[], Result>({
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   let initialVal = Object.freeze(initialValue!);
 
-  // Hydrate persisted initialValue so the atom starts with the correct value.
-  if (platformEnv.isNative && name) {
-    // Native: read from MMKV per-key if BG thread migration is complete.
-    // If migration not done yet, use default initialValue — BG thread will
-    // migrate from AsyncStorage to MMKV per-key, available on next cold start.
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { default: jotaiMMKV } =
-        require('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance');
-
-      if (jotaiMMKV.getString(MMKV_MIGRATION_COMPLETE_KEY) === '1') {
-        const raw = jotaiMMKV.getString(
-          buildJotaiStorageKey(name as IAtomNameKeys),
-        );
-        if (raw !== undefined && raw !== null) {
-          const cached = JSON.parse(raw);
-          if (cached !== undefined && cached !== null) {
-            initialVal = Object.freeze(
-              typeof initialValue === 'object' && typeof cached === 'object'
-                ? { ...initialValue, ...cached }
-                : cached,
-            ) as Value & Readonly<Value>;
-          }
-        }
-      }
-    } catch {
-      /* fallback to default initialValue */
-    }
-  } else {
-    // Non-native: opt-in snapshot injection used by jotaiInitFromUi's fast
-    // path (extension / native BG→UI bridge with useSnapshotInjection:true).
-    // Cold-start L1 mirror was REMOVED on web/desktop — hydrate.ts no longer
-    // writes to this global. So in practice on web/desktop this stays
-    // undefined and atoms initialize from defaults; jotaiInit reconciles
-    // from source-of-truth IDB asynchronously.
-    const snapshotStates = (globalThis as any).__ONEKEY_JOTAI_INIT_STATES__;
-    if (snapshotStates && name && name in snapshotStates) {
-      const cached = snapshotStates[name];
-      if (cached !== undefined && cached !== null) {
-        initialVal = Object.freeze(
-          typeof initialValue === 'object' && typeof cached === 'object'
-            ? { ...initialValue, ...cached }
-            : cached,
-        ) as Value & Readonly<Value>;
-      }
+  // UI runtimes hydrate from a bg-provided snapshot. Native main must never
+  // synchronously open the MMKV instance during module evaluation.
+  const snapshotStates = (globalThis as any).__ONEKEY_JOTAI_INIT_STATES__;
+  if (snapshotStates && name && name in snapshotStates) {
+    const cached = snapshotStates[name];
+    if (cached !== undefined && cached !== null) {
+      initialVal = Object.freeze(
+        typeof initialValue === 'object' && typeof cached === 'object'
+          ? { ...initialValue, ...cached }
+          : cached,
+      ) as Value & Readonly<Value>;
     }
   }
 
@@ -367,14 +331,10 @@ export function globalAtomComputed<Value>(read: IJotaiRead<Value>) {
   return globalAtomComputedR({ read });
 }
 
-/**
- * Registry of named contextAtoms for MMKV snapshot save/restore.
- * Unlike globalAtomRegistry (for globalAtoms), this tracks contextAtom
- * name→atomBuilder mappings so snapshot injection can work.
- */
+/** Context atom builders and optional snapshot transforms. */
 export const contextAtomSnapshotRegistry = new Map<
   string,
-  { atom: () => any }
+  { atom: () => any; transform?: (value: unknown) => unknown }
 >();
 
 const COLD_START_SCOPED_KEY_SEPARATOR = '::';
@@ -409,14 +369,7 @@ function getScopedColdStartSnapshotValue({
   return undefined;
 }
 
-// ============================================================
-// Jotai Cold Start SSR — Phase 3: Value Tracking + Debounced Save
-//
-// Tracks atom value changes at runtime and debounce-writes them to
-// MMKV so the next cold start can hydrate from fresh data.
-// This is the "server render" side — generating the snapshot that
-// Phase 1 (index.ts pre-read) and Phase 2 (hydration below) consume.
-// ============================================================
+// Track scoped context atom values for debounced MMKV snapshot writes.
 
 /** Latest values of all coldStartCache atoms, updated on every use() call */
 const coldStartValuesMap = new Map<string, unknown>();
@@ -493,16 +446,15 @@ function getRecentAccountSelectorColdStartValue({
 
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { coldStartCacheStorage } =
-      require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { EAppSyncStorageKeys } =
-      require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
+    const {
+      ACCOUNT_SELECTOR_RECENT_SELECTION_KEY,
+      accountSelectorSnapshotCache,
+    } =
+      require('@onekeyhq/shared/src/storage/uiSnapshotCaches') as typeof import('@onekeyhq/shared/src/storage/uiSnapshotCaches');
 
-    const cache =
-      coldStartCacheStorage.getObject<IAccountSelectorRecentSelectionCache>(
-        EAppSyncStorageKeys.onekey_account_selector_recent_selection,
-      );
+    const cache = accountSelectorSnapshotCache.get(
+      ACCOUNT_SELECTOR_RECENT_SELECTION_KEY,
+    )?.data as IAccountSelectorRecentSelectionCache | undefined;
     const item = cache?.[sceneId];
     const now = Date.now();
     if (
@@ -546,18 +498,13 @@ function flushColdStartCache() {
   );
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { coldStartCacheStorage } =
-      require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { EAppSyncStorageKeys } =
-      require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
+    const { readContextAtomSnapshotRaw, writeContextAtomSnapshotRaw } =
+      require('@onekeyhq/shared/src/storage/uiSnapshotCaches') as typeof import('@onekeyhq/shared/src/storage/uiSnapshotCaches');
 
     // Read-modify-write: patch only dirty keys into existing snapshot.
     // This preserves cached values for scopes not rendered this session.
     // Safe because all callers (debounce timer + AppState) are on main thread.
-    const raw = coldStartCacheStorage.getString(
-      EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
-    );
+    const raw = readContextAtomSnapshotRaw();
     const snapshot = parseColdStartSnapshotRaw(raw) ?? {};
 
     for (const name of coldStartDirtyKeys) {
@@ -571,10 +518,7 @@ function flushColdStartCache() {
       );
     }
 
-    coldStartCacheStorage.set(
-      EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
-      preparedSnapshot.serialized,
-    );
+    writeContextAtomSnapshotRaw(preparedSnapshot.serialized);
     coldStartDirtyKeys.clear();
   } catch {
     /* best-effort */
@@ -623,11 +567,11 @@ async function flushWebColdStartCacheNowIfNeeded() {
   }
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { flushColdStartCacheNow } =
-      require('@onekeyhq/shared/src/storage/instance/webColdStartStorage') as typeof import('@onekeyhq/shared/src/storage/instance/webColdStartStorage');
-    await flushColdStartCacheNow();
+    const { flushUiSnapshotStoreNow } =
+      require('@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore') as typeof import('@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore');
+    await flushUiSnapshotStoreNow();
   } catch {
-    /* webColdStartStorage may not be loaded on extension UI */
+    /* The snapshot store may not be loaded on extension UI */
   }
 }
 
@@ -690,11 +634,11 @@ function ensureColdStartAppStateListener() {
     if (platformEnv.isWeb || platformEnv.isDesktop) {
       try {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { flushColdStartCacheNow } =
-          require('@onekeyhq/shared/src/storage/instance/webColdStartStorage') as typeof import('@onekeyhq/shared/src/storage/instance/webColdStartStorage');
-        void flushColdStartCacheNow();
+        const { flushUiSnapshotStoreNow } =
+          require('@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore') as typeof import('@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore');
+        void flushUiSnapshotStoreNow();
       } catch {
-        /* webColdStartStorage may not be loaded on extension UI */
+        /* The snapshot store may not be loaded on extension UI */
       }
     }
   });
@@ -704,19 +648,12 @@ function ensureColdStartAppStateListener() {
 // TokenList cells — slim cold-start snapshot slot (spec §7).
 //
 // The cells owns its slim bundle slot inside the SAME physical
-// `onekey_jotai_context_atoms_snapshot` blob the generic flusher uses, BUT it
+// context-atom snapshot record the generic flusher uses, BUT it
 // is intentionally kept OFF `coldStartValuesMap` / `coldStartDirtyKeys` so the
 // generic flusher never re-derives or revives it. The cells drives both write
 // (debounced RMW) and T0 read explicitly so it controls the fan-out-via-apply
 // hydrate (spec §7 design decision).
 // ============================================================
-
-function getColdStartCacheStorage() {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { coldStartCacheStorage } =
-    require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
-  return coldStartCacheStorage;
-}
 
 /**
  * Synchronously read a single scoped key out of the shared cold-start snapshot
@@ -726,14 +663,10 @@ function getColdStartCacheStorage() {
  */
 function readColdStartSnapshotFromStorage() {
   try {
-    const storage = getColdStartCacheStorage();
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { EAppSyncStorageKeys } =
-      require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
-    const raw = storage.getString(
-      EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
-    );
-    return parseColdStartSnapshotRaw(raw);
+    const { readContextAtomSnapshotRaw } =
+      require('@onekeyhq/shared/src/storage/uiSnapshotCaches') as typeof import('@onekeyhq/shared/src/storage/uiSnapshotCaches');
+    return parseColdStartSnapshotRaw(readContextAtomSnapshotRaw());
   } catch {
     return undefined;
   }
@@ -757,24 +690,18 @@ let cellsSlimFlushTriggerRegistered = false;
 function flushCellsSlimColdStartWrites() {
   if (cellsSlimPendingWrites.size === 0) return;
   try {
-    const storage = getColdStartCacheStorage();
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { EAppSyncStorageKeys } =
-      require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
-    // Read-modify-write the shared blob so we co-exist with the generic flusher
+    const { readContextAtomSnapshotRaw, writeContextAtomSnapshotRaw } =
+      require('@onekeyhq/shared/src/storage/uiSnapshotCaches') as typeof import('@onekeyhq/shared/src/storage/uiSnapshotCaches');
+    // Read-modify-write the record so we co-exist with the generic flusher
     // (main thread only; safe per the same single-thread assumption flushColdStartCache relies on).
-    const raw = storage.getString(
-      EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
-    );
+    const raw = readContextAtomSnapshotRaw();
     const snapshot = parseColdStartSnapshotRaw(raw) ?? {};
     for (const [scopedKey, value] of cellsSlimPendingWrites) {
       snapshot[scopedKey] = value;
     }
     const prepared = prepareColdStartSnapshotForWrite(snapshot);
-    storage.set(
-      EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
-      prepared.serialized,
-    );
+    writeContextAtomSnapshotRaw(prepared.serialized);
     cellsSlimPendingWrites.clear();
   } catch {
     /* best-effort */
@@ -874,7 +801,7 @@ export function hydrateContextColdStartCacheForProvider({
         | undefined) ?? readColdStartSnapshotFromStorage();
     for (const [
       cacheKey,
-      { atom: atomBuilder },
+      { atom: atomBuilder, transform },
     ] of contextAtomSnapshotRegistry) {
       const typedCacheKey = cacheKey as IContextAtomColdStartCacheKey;
       const recentAccountSelectorCached =
@@ -900,16 +827,20 @@ export function hydrateContextColdStartCacheForProvider({
         });
         const atomInstance = atomBuilder();
         const currentValue = store.get(atomInstance);
+        const safeCached = transform ? transform(cached) : cached;
         const nextValue =
           typeof currentValue === 'object' &&
           currentValue !== null &&
-          typeof cached === 'object' &&
-          cached !== null
-            ? { ...(currentValue as any), ...(cached as any) }
-            : cached;
+          typeof safeCached === 'object' &&
+          safeCached !== null
+            ? { ...(currentValue as any), ...(safeCached as any) }
+            : safeCached;
 
         store.set(atomInstance, nextValue);
-        coldStartValuesMap.set(scopedCacheKey, nextValue);
+        coldStartValuesMap.set(
+          scopedCacheKey,
+          transform ? transform(nextValue) : nextValue,
+        );
         coldStartLog(`hydrate: ${scopedCacheKey}`);
         if (
           typedCacheKey ===
@@ -952,10 +883,12 @@ export function contextAtomBase<Value>({
   useColdStartScopeKey,
   coldStartCache,
   coldStartCacheKey,
+  coldStartCacheTransform,
 }: {
   initialValue: Value;
   coldStartCache?: boolean;
   coldStartCacheKey?: IContextAtomColdStartCacheKey;
+  coldStartCacheTransform?: (value: Value) => Value;
   useColdStartScopeKey?: () => string | undefined;
   useContextAtom: <Value2, Args extends any[], Result>(
     atomInstance: WritableAtom<Value2, Args, Result>,
@@ -970,11 +903,7 @@ export function contextAtomBase<Value>({
   const activeColdStartCacheKey =
     coldStartCache && coldStartCacheKey ? coldStartCacheKey : undefined;
 
-  // Hydration of context atoms is scoped (per-provider store) and happens in
-  // hydrateContextColdStartCacheForProvider, keyed by
-  // `${coldStartScopeKey}::${coldStartCacheKey}`. Module-load-time hydration
-  // via a bare atom name would never match those scoped keys and therefore
-  // does not apply to contextAtoms.
+  // Scoped providers hydrate through hydrateContextColdStartCacheForProvider.
   const atomBuilder = memoizee(() => atom(initialValue));
 
   // coldStartCache: wrap use() to auto-track value changes
@@ -983,10 +912,7 @@ export function contextAtomBase<Value>({
         const cacheKey = activeColdStartCacheKey;
         const coldStartScopeKey = useColdStartScopeKey?.();
         const result = useContextAtom(atomBuilder());
-        // Missing scopeKey means the atom is being consumed from a store not
-        // created via JotaiContextStore.createStore (e.g. a test harness or a
-        // future embedded renderer). Fall back to plain useContextAtom and
-        // skip cold-start tracking rather than crashing the render tree.
+        // Non-provider stores skip scoped cold-start tracking.
         if (!coldStartScopeKey) {
           coldStartLog(`no-scope-key: ${cacheKey}`);
           return result;
@@ -995,7 +921,9 @@ export function contextAtomBase<Value>({
           coldStartScopeKey,
           coldStartCacheKey: cacheKey,
         });
-        const currentValue = result[0];
+        const currentValue = coldStartCacheTransform
+          ? coldStartCacheTransform(result[0])
+          : result[0];
         if (!coldStartValuesMap.has(scopedCacheKey)) {
           coldStartValuesMap.set(scopedCacheKey, currentValue);
           coldStartLog(`init: ${scopedCacheKey}`);
@@ -1017,6 +945,9 @@ export function contextAtomBase<Value>({
   if (activeColdStartCacheKey) {
     contextAtomSnapshotRegistry.set(activeColdStartCacheKey, {
       atom: atomBuilder,
+      transform: coldStartCacheTransform
+        ? (value) => coldStartCacheTransform(value as Value)
+        : undefined,
     });
   }
 

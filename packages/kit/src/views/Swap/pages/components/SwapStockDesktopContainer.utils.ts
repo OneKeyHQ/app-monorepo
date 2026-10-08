@@ -21,6 +21,7 @@ export const STOCK_DESKTOP_HEADER_SLOT_PROPS = {
 } as const;
 
 export type IStockChartCoinGeckoIdLookupResult = {
+  cacheable?: boolean;
   tokenScope: string;
   coinGeckoId?: string;
 };
@@ -73,6 +74,16 @@ export function getStockChartCoinGeckoIdState({
   };
 }
 
+export function isStockChartRequestReady({
+  chartCacheReady,
+  coinGeckoIdLoading,
+}: {
+  chartCacheReady: boolean;
+  coinGeckoIdLoading: boolean;
+}) {
+  return chartCacheReady && !coinGeckoIdLoading;
+}
+
 export function getStockDisabledActionButtonProps(
   tradeSide: ESwapStockTradeSide,
   channelStage: ESwapStockChannelStage,
@@ -100,6 +111,30 @@ export function isStockMarketPanelLoadingStage(
     channelStage === ESwapStockChannelStage.InitializingStock ||
     channelStage === ESwapStockChannelStage.CheckingMarketStatus
   );
+}
+
+export function shouldDeferStockInitialContent({
+  channelStage,
+  startedWithoutContent,
+}: {
+  channelStage: ESwapStockChannelStage;
+  startedWithoutContent: boolean;
+}) {
+  return (
+    startedWithoutContent &&
+    (isStockMarketPanelLoadingStage(channelStage) ||
+      channelStage === ESwapStockChannelStage.InitializingPayToken)
+  );
+}
+
+export function shouldResetStockTradeQuoteState({
+  identityLoading,
+  previousIdentityLoading,
+}: {
+  identityLoading: boolean;
+  previousIdentityLoading: boolean;
+}) {
+  return identityLoading && !previousIdentityLoading;
 }
 
 export function shouldShowStockMarketHeaderSkeleton({

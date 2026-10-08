@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -25,7 +25,6 @@ import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { useFirmwareUpdateActions } from '../../../views/FirmwareUpdate/hooks/useFirmwareUpdateActions';
 
@@ -37,73 +36,11 @@ interface IErrorActionParams {
   i18nKey?: ETranslations;
 }
 
-// Cooldown mechanism: prevent high-frequency log uploads (1 minute)
-const LOG_UPLOAD_COOLDOWN_MS = timerUtils.getTimeDurationMs({ seconds: 60 });
-let lastLogUploadTime = 0;
-
 function ContactSupportButton({ requestId }: { requestId: string }) {
   const intl = useIntl();
-  const [isUploading, setIsUploading] = useState(false);
 
-  const handlePress = useCallback(async () => {
-    setIsUploading(true);
-
-    // Open Intercom immediately
+  const handlePress = useCallback(() => {
     void showIntercom({ requestId });
-
-    // Check cooldown before uploading
-    const now = Date.now();
-    const timeSinceLastUpload = now - lastLogUploadTime;
-    const isInCooldown = timeSinceLastUpload < LOG_UPLOAD_COOLDOWN_MS;
-
-    if (isInCooldown) {
-      const remainingSeconds = Math.ceil(
-        (LOG_UPLOAD_COOLDOWN_MS - timeSinceLastUpload) / 1000,
-      );
-      console.log(
-        `[ContactSupport] Log upload in cooldown, skipping. Retry in ${remainingSeconds}s`,
-      );
-      setIsUploading(false);
-      return;
-    }
-
-    // Update last upload time
-    lastLogUploadTime = now;
-
-    // Silently upload logs in background (fire and forget)
-    void (async () => {
-      try {
-        // Dynamically import to avoid circular dependencies and reduce initial bundle size
-        const { collectLogDigest, uploadLogBundle } =
-          await import('@onekeyhq/kit/src/views/Setting/pages/Tab/exportLogs');
-
-        // Generate timestamp-based filename
-        const timestamp = new Date().toISOString().replace(/[-:.]/g, '');
-        const fileBaseName = `OneKeyLogs-${timestamp}`;
-
-        // Collect logs and upload silently
-        const digest = await collectLogDigest(fileBaseName);
-        const token = await backgroundApiProxy.serviceLogger.requestUploadToken(
-          {
-            sizeBytes: digest.sizeBytes,
-            sha256: digest.sha256,
-          },
-        );
-        await uploadLogBundle({
-          uploadToken: token.uploadToken,
-          digest,
-        });
-
-        console.log(
-          '[ContactSupport] Logs uploaded successfully in background',
-        );
-      } catch (error) {
-        // Silent failure - don't show error to user
-        console.warn('[ContactSupport] Failed to upload logs:', error);
-      } finally {
-        setIsUploading(false);
-      }
-    })();
   }, [requestId]);
 
   return (
@@ -111,10 +48,8 @@ function ContactSupportButton({ requestId }: { requestId: string }) {
       testID="provider-token-btn"
       icon="HelpSupportOutline"
       size="small"
-      loading={isUploading}
-      disabled={isUploading}
       onPress={() => {
-        void handlePress();
+        handlePress();
       }}
     >
       {intl.formatMessage({ id: ETranslations.global_contact_us })}

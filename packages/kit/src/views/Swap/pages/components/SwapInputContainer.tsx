@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import {
@@ -49,6 +49,7 @@ import {
 
 import SwapPercentageStageBadge from '../../components/SwapPercentageStageBadge';
 import { SwapRateDifferenceText } from '../../components/SwapRateDifferenceText';
+import { getTokenIdentityKey } from '../../hooks/swapStockChannelUtils';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import {
   getSwapBalanceDisplayEntryFromGlobalSnapshot,
@@ -198,6 +199,9 @@ const SwapInputContainer = ({
   });
   const tokenSelectorDisplayToken =
     direction === ESwapDirectionType.FROM ? displayFromToken : displayToToken;
+  const selectedTokenImageRecyclingKey = platformEnv.isDesktop
+    ? getTokenIdentityKey(tokenSelectorDisplayToken) || undefined
+    : undefined;
   const balanceDisplayToken = token?.symbol ? token : tokenSelectorDisplayToken;
   const isInitialTokenSelectionPending =
     direction === ESwapDirectionType.FROM
@@ -226,6 +230,33 @@ const SwapInputContainer = ({
   const showTokenSelectorSkeleton =
     !tokenSelectorDisplayToken?.symbol &&
     (selectTokenLoading || isInitialTokenSelectionPending);
+  const handleSelectToken = useCallback(() => {
+    onSelectToken(direction);
+  }, [direction, onSelectToken]);
+  const tokenSelectorTriggerProps = useMemo(
+    () => ({
+      testID:
+        direction === ESwapDirectionType.FROM
+          ? SwapTestIDs.fromTokenSelector
+          : SwapTestIDs.toTokenSelector,
+      minWidth: tokenSelectorMinWidth,
+      justifyContent: 'flex-end' as const,
+      loading: showTokenSelectorSkeleton,
+      selectedTokenImageUri: tokenSelectorDisplayToken?.logoURI,
+      selectedTokenImageRecyclingKey,
+      selectedTokenSymbol: tokenSelectorDisplayToken?.symbol,
+      onPress: handleSelectToken,
+    }),
+    [
+      direction,
+      handleSelectToken,
+      selectedTokenImageRecyclingKey,
+      showTokenSelectorSkeleton,
+      tokenSelectorDisplayToken?.logoURI,
+      tokenSelectorDisplayToken?.symbol,
+      tokenSelectorMinWidth,
+    ],
+  );
   const displayBalance = useMemo(() => {
     const cachedBalance =
       resolveSwapBalanceDisplayCacheEntry({
@@ -445,20 +476,7 @@ const SwapInputContainer = ({
               ? SwapTestIDs.fromAmountInput
               : SwapTestIDs.toAmountInput,
         }}
-        tokenSelectorTriggerProps={{
-          testID:
-            direction === ESwapDirectionType.FROM
-              ? SwapTestIDs.fromTokenSelector
-              : SwapTestIDs.toTokenSelector,
-          minWidth: tokenSelectorMinWidth,
-          justifyContent: 'flex-end',
-          loading: showTokenSelectorSkeleton,
-          selectedTokenImageUri: tokenSelectorDisplayToken?.logoURI,
-          selectedTokenSymbol: tokenSelectorDisplayToken?.symbol,
-          onPress: () => {
-            onSelectToken(direction);
-          },
-        }}
+        tokenSelectorTriggerProps={tokenSelectorTriggerProps}
         enableMaxAmount={!!(direction === ESwapDirectionType.FROM)}
       />
       {platformEnv.isNativeIOS && direction === ESwapDirectionType.FROM ? (

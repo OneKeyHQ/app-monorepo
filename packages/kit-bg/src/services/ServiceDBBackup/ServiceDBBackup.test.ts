@@ -150,7 +150,7 @@ function createService({
       async (_name: ELocalDBStoreNames): Promise<ICredentialRow[]> =>
         backupCredentials,
     ),
-    transaction: jest.fn(() => backupBucketTx),
+    transactionAsync: jest.fn(async () => backupBucketTx),
   };
   const primaryBucketDb = {
     getAll: jest.fn(
@@ -228,12 +228,14 @@ describe('ServiceDBBackup', () => {
 
   describe('removeBackupHyperLiquidAgentCredentials', () => {
     it('returns true and removes only agent credentials when both branches succeed', async () => {
-      const { service, bucketCredentialDelete } = createService({
-        backupCredentials: [
-          { id: HL_AGENT_CREDENTIAL_ID },
-          { id: REGULAR_CREDENTIAL_ID },
-        ],
-      });
+      const { service, backupBucketDb, bucketCredentialDelete } = createService(
+        {
+          backupCredentials: [
+            { id: HL_AGENT_CREDENTIAL_ID },
+            { id: REGULAR_CREDENTIAL_ID },
+          ],
+        },
+      );
       mockedLegacyIndexedDb.getAll.mockResolvedValue([
         { id: HL_AGENT_CREDENTIAL_ID },
         { id: REGULAR_CREDENTIAL_ID },
@@ -243,6 +245,14 @@ describe('ServiceDBBackup', () => {
         service.removeBackupHyperLiquidAgentCredentials(),
       ).resolves.toBe(true);
 
+      // The scrub frees space, so it must stay allowed while the disk-full
+      // guard is raised.
+      expect(backupBucketDb.transactionAsync).toHaveBeenCalledTimes(1);
+      expect(backupBucketDb.transactionAsync).toHaveBeenCalledWith(
+        expect.anything(),
+        'readwrite',
+        { allowWhenStorageFull: true },
+      );
       expect(bucketCredentialDelete).toHaveBeenCalledTimes(1);
       expect(bucketCredentialDelete).toHaveBeenCalledWith(
         HL_AGENT_CREDENTIAL_ID,
@@ -269,7 +279,7 @@ describe('ServiceDBBackup', () => {
         service.removeBackupHyperLiquidAgentCredentials(),
       ).resolves.toBe(true);
 
-      expect(backupBucketDb.transaction).not.toHaveBeenCalled();
+      expect(backupBucketDb.transactionAsync).not.toHaveBeenCalled();
       expect(bucketCredentialDelete).not.toHaveBeenCalled();
       expect(mockedLegacyIndexedDb.delete).not.toHaveBeenCalled();
       expect(mockedLoggerAppErrorLog).not.toHaveBeenCalled();
@@ -339,7 +349,7 @@ describe('ServiceDBBackup', () => {
       await service._backupDatabaseDaily();
 
       // Snapshot write and agent-row deletes share the single transaction.
-      expect(backupBucketDb.transaction).toHaveBeenCalledTimes(1);
+      expect(backupBucketDb.transactionAsync).toHaveBeenCalledTimes(1);
       expect(backupBucketTx.objectStore).toHaveBeenCalledWith(
         ELocalDBStoreNames.Credential,
       );
@@ -383,7 +393,7 @@ describe('ServiceDBBackup', () => {
       // A scrub/snapshot failure must never leave the backup feature
       // permanently dead: the finally block still consumes the 24h window.
       expect(mockedMigrateAccountBucketRecords).not.toHaveBeenCalled();
-      expect(backupBucketDb.transaction).not.toHaveBeenCalled();
+      expect(backupBucketDb.transactionAsync).not.toHaveBeenCalled();
       expect(appStatus.setRawData).toHaveBeenCalledTimes(1);
       const updater = appStatus.setRawData.mock.calls[0][0];
       expect(updater(undefined)).toEqual(

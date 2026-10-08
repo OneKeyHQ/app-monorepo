@@ -130,6 +130,16 @@ export enum EServerInteractedStatus {
   UNKNOWN = '2',
 }
 
+/**
+ * Folded into GET /wallet/v1/account/badges. Stag field name 2026-08-26;
+ * wallet schema is not published. Only `depositEnable === false` alerts.
+ * `cexLabel` casing is not stable — compare case-insensitively.
+ */
+export type ICexSupportedInfo = {
+  depositEnable?: boolean | null;
+  cexLabel?: string;
+};
+
 export type IServerAccountBadgeResp = {
   interacted: EServerInteractedStatus;
   isCex?: boolean;
@@ -138,6 +148,7 @@ export type IServerAccountBadgeResp = {
   badges?: IAddressBadge[];
   label?: string;
   similarAddress?: string;
+  cexSupportedInfo?: ICexSupportedInfo;
 };
 
 export enum EAddressInteractionStatus {
@@ -173,6 +184,8 @@ export type IQueryCheckAddressArgs = {
   };
   ignoreSimilarAddressInAddressBook?: boolean;
   enableCheckSimilarAddressInAddressBook?: boolean;
+  // Undefined means no fungible-token context; native tokens use "".
+  tokenAddress?: string;
 };
 
 export type IFetchServerAccountDetailsParams = IFetchAccountDetailsParams & {

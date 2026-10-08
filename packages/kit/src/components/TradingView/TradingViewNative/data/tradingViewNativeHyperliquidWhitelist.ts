@@ -28,12 +28,26 @@ export interface ITradingViewNativeHyperliquidTokenIdentity {
 const networkIdsMap = getNetworkIdsMap();
 
 export const TRADING_VIEW_NATIVE_HYPERLIQUID_WHITELIST = {
+  bnb: {
+    isNative: true,
+    market: { coin: 'BNB', type: 'hyperliquid' },
+    networkId: networkIdsMap.bsc,
+    swap: { coin: 'BNB', type: 'hyperliquid' },
+    wallet: { coin: 'BNB', type: 'hyperliquid' },
+  },
   btc: {
     isNative: true,
     market: { coin: 'BTC', type: 'hyperliquid' },
     networkId: networkIdsMap.btc,
     swap: { coin: 'BTC', type: 'hyperliquid' },
     wallet: { coin: 'BTC', type: 'hyperliquid' },
+  },
+  eth: {
+    isNative: true,
+    market: { coin: 'ETH', type: 'hyperliquid' },
+    networkId: networkIdsMap.eth,
+    swap: { coin: 'ETH', type: 'hyperliquid' },
+    wallet: { coin: 'ETH', type: 'hyperliquid' },
   },
   hype: {
     isNative: true,

@@ -43,7 +43,7 @@ export function useSortIcon({
               : 'ChevronTopSmallOutline'
           }
           color={isActive ? '$iconActive' : '$iconSubdued'}
-          size="$4"
+          size="$3.5"
         />
       );
     }
@@ -59,7 +59,7 @@ export function useSortIcon({
               : 'ChevronTopSmallOutline'
           }
           color="$iconSubdued"
-          size="$4"
+          size="$3.5"
         />
       );
     }
@@ -69,7 +69,7 @@ export function useSortIcon({
         cursor={cursor}
         name="ChevronGrabberVerOutline"
         color="$iconSubdued"
-        size="$4"
+        size="$3.5"
       />
     );
   }, [cursor, order, showSortIcon, disabledSorts]);

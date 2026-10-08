@@ -1,3 +1,6 @@
+import { createIntl, createIntlCache } from 'react-intl';
+
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import {
@@ -5,6 +8,7 @@ import {
   canChasePerpsOrder,
   filterSpotHoldingBalances,
   formatSpotHoldingPnlText,
+  getFillDirectionDisplayInfo,
   getOrderAssetDisplayName,
   getOrderSizeDisplayName,
   getTwapHistoryEventTimeMs,
@@ -12,6 +16,40 @@ import {
   isSpotHoldingStableCoin,
   normalizeEpochMs,
 } from './utils';
+
+describe('fill direction translations', () => {
+  const messages: Record<string, string> = {
+    [ETranslations.perp_trade_settlement__title]: '结算',
+  };
+  const intl = createIntl(
+    {
+      locale: 'zh-CN',
+      messages,
+    },
+    createIntlCache(),
+  );
+
+  it.each(['Settlement', ' settlement '])(
+    'localizes %s without changing the side color',
+    (dir) => {
+      expect(
+        getFillDirectionDisplayInfo({
+          fill: { coin: 'TON', dir, side: 'A' },
+          intl,
+        }),
+      ).toEqual({ text: '结算', color: '$red11' });
+    },
+  );
+
+  it('preserves unrecognized directions', () => {
+    expect(
+      getFillDirectionDisplayInfo({
+        fill: { coin: 'TON', dir: 'Unknown event', side: 'B' },
+        intl,
+      }),
+    ).toEqual({ text: 'Unknown event', color: '$green11' });
+  });
+});
 
 type ISpotHoldingFilterTestItem = {
   rawCoin: string;

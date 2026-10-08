@@ -27,6 +27,47 @@ import type { IUtilsType } from './types';
 
 const NATIVE_LOG_DIR_PATH = NativeLogger.getLogDirectory();
 const NATIVE_LOG_ZIP_PATH = `${RNFS?.CachesDirectoryPath || 'OneKey'}/logs_zip`;
+const RECOVERY_LOG_ARCHIVE_PATHS = [
+  `${RNFS?.CachesDirectoryPath || 'OneKey'}/onekey_logs.zip`,
+  `${RNFS?.TemporaryDirectoryPath || 'OneKey'}/onekey-logs.zip`,
+];
+const IOS_FILE_PROTECTION_OPTIONS = platformEnv.isNativeIOS
+  ? { NSFileProtectionKey: 'NSFileProtectionComplete' }
+  : {};
+
+const normalizeFilePath = (filePath: string) =>
+  filePath.startsWith('file://') ? filePath.slice('file://'.length) : filePath;
+
+const cleanupLogArchives = async (createdBefore: number) => {
+  const nativeFs = RNFS;
+  if (!nativeFs) {
+    return;
+  }
+
+  const removePreviousLaunchArchive = async (archivePath: string) => {
+    if (!(await nativeFs.exists(archivePath))) {
+      return;
+    }
+    const archiveStat = await nativeFs.stat(archivePath);
+    const modifiedAt = new Date(archiveStat.mtime || 0).getTime();
+    if (!Number.isFinite(modifiedAt) || modifiedAt <= createdBefore) {
+      await nativeFs.unlink(archivePath).catch(() => {});
+    }
+  };
+
+  if (await nativeFs.exists(NATIVE_LOG_ZIP_PATH)) {
+    const archiveFiles = await nativeFs.readDir(NATIVE_LOG_ZIP_PATH);
+    for (const file of archiveFiles) {
+      if (file.isFile() && file.name.endsWith('.zip')) {
+        await removePreviousLaunchArchive(file.path);
+      }
+    }
+  }
+
+  await Promise.all(
+    RECOVERY_LOG_ARCHIVE_PATHS.map(removePreviousLaunchArchive),
+  );
+};
 
 const consoleFunc = (msg: string) => {
   if (platformEnv.isDev) {
@@ -43,17 +84,27 @@ const getLogFilePath = async (filename: string) => {
     throw new OneKeyLocalError('RNFS is not available');
   }
 
+  const isExist = await RNFS.exists(NATIVE_LOG_ZIP_PATH);
+  if (!isExist) {
+    await RNFS.mkdir(NATIVE_LOG_ZIP_PATH, IOS_FILE_PROTECTION_OPTIONS);
+  }
+  const safeFilename = filename.replace(/[^A-Za-z0-9._-]/g, '_');
+  const archiveName = safeFilename || 'OneKeyLogs';
+  const finalArchivePath = `${NATIVE_LOG_ZIP_PATH}/${archiveName}.zip`;
+  const stagingArchivePath = `${NATIVE_LOG_ZIP_PATH}/${archiveName}.staging.zip`;
+  let archivePath: string;
   try {
-    const isExist = await RNFS.exists(NATIVE_LOG_ZIP_PATH);
-    if (!isExist) {
-      await RNFS.mkdir(NATIVE_LOG_ZIP_PATH);
-    }
-    const filepath = await zip(
-      NATIVE_LOG_DIR_PATH,
-      `${NATIVE_LOG_ZIP_PATH}/${filename}.zip`,
+    await RNFS.unlink(finalArchivePath).catch(() => {});
+    await RNFS.unlink(stagingArchivePath).catch(() => {});
+    const filepath = await zip(NATIVE_LOG_DIR_PATH, stagingArchivePath);
+    await RNFS.moveFile(
+      filepath,
+      finalArchivePath,
+      IOS_FILE_PROTECTION_OPTIONS,
     );
-    return platformEnv.isNativeAndroid ? `file://${filepath}` : filepath;
+    archivePath = finalArchivePath;
   } catch (error) {
+    await RNFS.unlink(stagingArchivePath).catch(() => {});
     // If zip fails, return the latest log file from NATIVE_LOG_DIR_PATH
     console.error(
       'Failed to zip logs, falling back to latest log file:',
@@ -85,6 +136,25 @@ const getLogFilePath = async (filename: string) => {
 
     const latestFile = sortedFiles[0].path;
     return platformEnv.isNativeAndroid ? `file://${latestFile}` : latestFile;
+  }
+
+  return platformEnv.isNativeAndroid ? `file://${archivePath}` : archivePath;
+};
+
+const removeLogFilePath = async (filePath: string) => {
+  if (!RNFS) {
+    return;
+  }
+  const normalizedPath = normalizeFilePath(filePath);
+  const pathSegments = normalizedPath.split('/');
+  if (
+    pathSegments.includes('..') ||
+    !normalizedPath.startsWith(`${NATIVE_LOG_ZIP_PATH}/`)
+  ) {
+    return;
+  }
+  if (await RNFS.exists(normalizedPath)) {
+    await RNFS.unlink(normalizedPath).catch(() => {});
   }
 };
 
@@ -119,6 +189,8 @@ const flushPendingRepeat = () => {
 const utils: IUtilsType = {
   getDeviceInfo,
   getLogFilePath,
+  removeLogFilePath,
+  cleanupLogArchives,
   consoleFunc,
   flushPendingRepeat,
 };

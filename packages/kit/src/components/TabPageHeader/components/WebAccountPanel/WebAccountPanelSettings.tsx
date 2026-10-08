@@ -22,11 +22,13 @@ import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickSt
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCurrencySections } from '@onekeyhq/kit/src/hooks/useCurrencySections';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { resetPerpDesktopLeftSplit } from '@onekeyhq/kit/src/views/Perp/layouts/perpLayoutUtils';
 import { useLanguageSelector } from '@onekeyhq/kit/src/views/Setting/hooks/useLanguageSelector';
 import {
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountStatusAtom,
   usePerpsCustomSettingsAtom,
+  usePerpsLayoutStateAtom,
   usePerpsSpotDustingAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -288,6 +290,15 @@ function PerpsSwitchSection() {
   const intl = useIntl();
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
+  const [, setPerpsLayoutState] = usePerpsLayoutStateAtom();
+  const handleResetLayout = useCallback(() => {
+    setPerpsLayoutState(resetPerpDesktopLeftSplit);
+    Toast.success({
+      title: intl.formatMessage({
+        id: ETranslations.perps_layout_reset__msg,
+      }),
+    });
+  }, [intl, setPerpsLayoutState]);
   return (
     <YStack w="100%">
       <WebAccountPanelSectionTitle>
@@ -365,6 +376,13 @@ function PerpsSwitchSection() {
       />
       {/* eslint-disable-next-line @typescript-eslint/no-use-before-define */}
       <WebPerpsSpotDustingSetting />
+      <WebAccountPanelListItem
+        testID="web-account-panel-settings-reset-perps-layout"
+        renderLeft={intl.formatMessage({
+          id: ETranslations.perps_back_to_default_layout__action,
+        })}
+        onPress={handleResetLayout}
+      />
     </YStack>
   );
 }

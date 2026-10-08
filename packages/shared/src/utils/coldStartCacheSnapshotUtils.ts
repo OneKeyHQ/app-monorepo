@@ -1,7 +1,7 @@
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '../consts/jotaiConsts';
 
-const DEFAULT_MAX_SNAPSHOT_CHARS = 1024 * 1024;
-const DEFAULT_HARD_MAX_SNAPSHOT_CHARS = 4 * 1024 * 1024;
+export const COLD_START_SNAPSHOT_MAX_CHARS = 1024 * 1024;
+export const COLD_START_SNAPSHOT_HARD_MAX_CHARS = 4 * 1024 * 1024;
 const DEFAULT_MAX_PERPS_LIST_ITEMS = 100;
 export const SWAP_PRO_POSITIONS_CACHE_MAX_OWNERS = 20;
 export const SWAP_PRO_POSITIONS_CACHE_MAX_TOKENS_PER_OWNER = 40;
@@ -262,7 +262,7 @@ export function parseColdStartSnapshotRaw(
     return undefined;
   }
   const maxSnapshotChars =
-    options?.maxSnapshotChars ?? DEFAULT_HARD_MAX_SNAPSHOT_CHARS;
+    options?.maxSnapshotChars ?? COLD_START_SNAPSHOT_HARD_MAX_CHARS;
   if (raw.length > maxSnapshotChars) {
     return undefined;
   }
@@ -283,7 +283,7 @@ export function prepareColdStartSnapshotForWrite(
   droppedKeys: string[];
 } {
   const maxSnapshotChars =
-    options?.maxSnapshotChars ?? DEFAULT_MAX_SNAPSHOT_CHARS;
+    options?.maxSnapshotChars ?? COLD_START_SNAPSHOT_MAX_CHARS;
   const maxPerpsListItems =
     options?.maxPerpsListItems ?? DEFAULT_MAX_PERPS_LIST_ITEMS;
   const maxSwapPositionsOwners =

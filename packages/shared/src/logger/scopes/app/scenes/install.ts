@@ -11,6 +11,20 @@ export type IInstallAttributionParams = {
   utmTerm?: string;
 };
 
+export type IAppClipInstallAttributionParams = IInstallAttributionParams & {
+  campaignId?: string;
+  experience?: string;
+  firstOpenedAt?: string;
+  lastAction?: string;
+  route?: string;
+  selectedAddress?: string;
+  selectedIsNative?: boolean;
+  selectedNetwork?: string;
+  selectedSymbol?: string;
+  shortLinkPath?: string;
+  shortLinkVersion?: number;
+};
+
 export class InstallScene extends BaseScene {
   @LogToServer({ level: 'info', waitForServer: true })
   @LogToLocal({ level: 'info' })
@@ -20,6 +34,12 @@ export class InstallScene extends BaseScene {
 
   public reportGooglePlayInstallAttribution(
     params: IInstallAttributionParams,
+  ): Promise<void> {
+    return this.installAttribution(params) as unknown as Promise<void>;
+  }
+
+  public reportAppClipInstallAttribution(
+    params: IAppClipInstallAttributionParams,
   ): Promise<void> {
     return this.installAttribution(params) as unknown as Promise<void>;
   }

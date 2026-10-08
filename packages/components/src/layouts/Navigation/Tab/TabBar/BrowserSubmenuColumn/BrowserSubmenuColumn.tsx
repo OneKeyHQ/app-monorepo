@@ -6,9 +6,10 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { ReactElement } from 'react';
+import type { ReactElement, Ref } from 'react';
 
 import { XStack } from '@onekeyhq/components/src/primitives';
+import type { TamaguiElement } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 
@@ -24,8 +25,8 @@ export interface IBrowserSubmenuColumnProps {
 
 const HOVER_DELAY_MS = 150;
 
-// Browser submenu only shows on desktop and iOS (iPad)
-const isShowWebTabBar = platformEnv.isDesktop || platformEnv.isNativeIOS;
+// Browser submenu only shows in the desktop app.
+const isShowWebTabBar = platformEnv.isDesktop;
 
 export function BrowserSubmenuColumn({
   webPageTabBar,
@@ -109,7 +110,6 @@ export function BrowserSubmenuColumn({
   // When expanded, monitor pointer position to detect cursor leaving.
   // Uses coordinate-based check instead of DOM containment because
   // popovers render via portals outside the sidebar DOM tree.
-  // Only runs on web/desktop — native iOS relies on onHoverIn/onHoverOut.
   useEffect(() => {
     if (!isHovered) return;
     if (typeof document === 'undefined') return;
@@ -191,11 +191,11 @@ export function BrowserSubmenuColumn({
   return (
     <BrowserSubmenuContext.Provider value={contextValue}>
       <XStack
-        ref={containerRef}
+        ref={containerRef as unknown as Ref<TamaguiElement>}
         position="relative"
         flex={1}
-        onHoverIn={handleHoverIn}
-        onHoverOut={handleHoverOut}
+        onMouseEnter={handleHoverIn}
+        onMouseLeave={handleHoverOut}
       >
         <VerticalDivider />
         <SubmenuColumn

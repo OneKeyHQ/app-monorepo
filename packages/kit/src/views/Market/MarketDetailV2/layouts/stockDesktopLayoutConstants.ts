@@ -1,0 +1,2 @@
+export const STOCK_DETAIL_HORIZONTAL_GUTTER = 20;
+export const STOCK_DETAIL_COLUMN_GAP = 24;

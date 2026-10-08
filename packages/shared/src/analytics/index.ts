@@ -9,6 +9,7 @@ import appGlobals from '../appGlobals';
 import { OneKeyLocalError } from '../errors';
 import platformEnv from '../platformEnv';
 import { headerPlatform } from '../request/InterceptorConsts';
+import { PRIME_REDEEM_LANDING_PATH } from '../routes/tabHome';
 
 import { getDeviceInfo } from './deviceInfo';
 import { type TAnalyticsTier, getAnalyticsTier } from './tier';
@@ -204,10 +205,19 @@ export class Analytics {
     ) {
       return;
     }
+    // Transport fields, not event properties: the utility service maps them to
+    // PostHog's dedupe uuid and event time, so an event delivered twice (its
+    // acknowledgement lost) is counted once. `$`-prefixed names are reserved
+    // and must never be used for business properties.
+    const {
+      $insertId: insertId,
+      $timestamp: timestamp,
+      ...props
+    } = eventProps ?? {};
     const deviceInfo = await this.lazyDeviceInfo();
     const event = {
       ...deviceInfo,
-      ...eventProps,
+      ...props,
       tier: deviceInfo.tier,
       distinct_id: this.instanceId,
     } as Record<string, unknown>;
@@ -218,12 +228,22 @@ export class Analytics {
       // eslint-disable-next-line unicorn/prefer-global-this
       'location' in window
     ) {
-      event.currentUrl = globalThis.location.href;
+      const { href, origin, pathname } = globalThis.location;
+      const isWebRedemption =
+        platformEnv.isWeb &&
+        (pathname === PRIME_REDEEM_LANDING_PATH ||
+          pathname === `${PRIME_REDEEM_LANDING_PATH}/`);
+      // Emailed redemption links contain a code that must not reach analytics.
+      event.currentUrl = isWebRedemption ? `${origin}${pathname}` : href;
     }
     const axios = await this.lazyAxios();
     await axios.post(TRACK_EVENT_PATH, {
       eventName,
       eventProps: event,
+      ...(typeof insertId === 'string' && insertId ? { insertId } : {}),
+      ...(typeof timestamp === 'number' && Number.isFinite(timestamp)
+        ? { timestamp }
+        : {}),
     });
   }
 

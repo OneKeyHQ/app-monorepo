@@ -4,9 +4,10 @@ import { cloneDeep } from 'lodash';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
-  equalTokenNoCaseSensitive,
-  normalizeTokenContractAddress,
-} from '@onekeyhq/shared/src/utils/tokenUtils';
+  getMarketWatchlistKey,
+  isValidMarketWatchlistItem,
+} from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
+import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type {
   ICloudSyncPayloadMarketWatchList,
@@ -18,6 +19,7 @@ import { CloudSyncFlowManagerBase } from './CloudSyncFlowManagerBase';
 import type { IDBCloudSyncItem, IDBDevice } from '../../../dbs/local/types';
 
 function buildItemKey(item: IMarketWatchListItemV2) {
+  if (item.assetId || item.stockId) return getMarketWatchlistKey(item);
   if (item.perpsCoin) {
     return `perps_${item.perpsCoin}`;
   }
@@ -74,16 +76,17 @@ export class CloudSyncFlowManagerMarketWatchList extends CloudSyncFlowManagerBas
       const isPerps = !!payload.perpsCoin;
 
       // Skip invalid non-perps items with empty chainId to avoid infinite sync retry
-      if (!isPerps && !payload.chainId?.trim()) {
+      if (!isValidMarketWatchlistItem(payload)) {
         return true;
       }
 
-      const contractAddress = isPerps
-        ? ''
-        : normalizeTokenContractAddress({
-            networkId: payload.chainId,
-            contractAddress: payload.contractAddress,
-          }) || '';
+      const contractAddress =
+        isPerps || payload.assetId || payload.stockId
+          ? ''
+          : normalizeTokenContractAddress({
+              networkId: payload.chainId,
+              contractAddress: payload.contractAddress,
+            }) || '';
 
       const watchListItem: IMarketWatchListItemV2 = {
         chainId: payload.chainId,
@@ -91,6 +94,8 @@ export class CloudSyncFlowManagerMarketWatchList extends CloudSyncFlowManagerBas
         isNative: payload.isNative,
         sortIndex: payload.sortIndex,
         perpsCoin: payload.perpsCoin,
+        assetId: payload.assetId,
+        stockId: payload.stockId,
       };
       if (item.isDeleted) {
         defaultLogger.cloudSync.market.removeWatchList(watchListItem);
@@ -101,6 +106,8 @@ export class CloudSyncFlowManagerMarketWatchList extends CloudSyncFlowManagerBas
                   chainId: '',
                   contractAddress: '',
                   perpsCoin: payload.perpsCoin,
+                  assetId: payload.assetId,
+                  stockId: payload.stockId,
                 }
               : watchListItem,
           ],
@@ -113,6 +120,8 @@ export class CloudSyncFlowManagerMarketWatchList extends CloudSyncFlowManagerBas
             chainId: payload.chainId,
             contractAddress,
             perpsCoin: payload.perpsCoin,
+            assetId: payload.assetId,
+            stockId: payload.stockId,
           });
         return !removedItemExists;
       }
@@ -128,6 +137,8 @@ export class CloudSyncFlowManagerMarketWatchList extends CloudSyncFlowManagerBas
           chainId: payload.chainId,
           contractAddress,
           perpsCoin: payload.perpsCoin,
+          assetId: payload.assetId,
+          stockId: payload.stockId,
         });
       return !!addedItemExists;
     });
@@ -139,20 +150,10 @@ export class CloudSyncFlowManagerMarketWatchList extends CloudSyncFlowManagerBas
     const { payload } = params;
     const watchList =
       await this.backgroundApi.serviceMarketV2.getMarketWatchListV2();
-    const result = payload.perpsCoin
-      ? watchList.data.find((i) => i.perpsCoin === payload.perpsCoin)
-      : watchList.data.find((i) =>
-          equalTokenNoCaseSensitive({
-            token1: {
-              networkId: i.chainId,
-              contractAddress: i.contractAddress,
-            },
-            token2: {
-              networkId: payload.chainId,
-              contractAddress: payload.contractAddress,
-            },
-          }),
-        );
+    const result = watchList.data.find(
+      (entry) =>
+        getMarketWatchlistKey(entry) === getMarketWatchlistKey(payload),
+    );
     return cloneDeep(result);
   }
 

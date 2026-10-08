@@ -1,5 +1,6 @@
 import { getTradingViewNativeMarketTokenKey } from '../getTradingViewNativeSource';
 
+import { createTradingViewNativeAssetDataProvider } from './asset/assetDataProvider';
 import {
   clearTradingViewNativeCoinGeckoDataProviderCache,
   createTradingViewNativeCoinGeckoDataProvider,
@@ -9,6 +10,7 @@ import {
   clearTradingViewNativeMarketDataProviderCache,
   createTradingViewNativeMarketDataProvider,
 } from './market/marketDataProvider';
+import { createTradingViewNativeStockDataProvider } from './stock/stockDataProvider';
 
 import type { ITradingViewNativeDataProvider } from './types';
 import type { ITradingViewNativeSource } from '../../types';
@@ -21,8 +23,14 @@ export function clearTradingViewNativeDataProviderCache() {
 export function createTradingViewNativeDataProvider(
   source: ITradingViewNativeSource,
 ): ITradingViewNativeDataProvider {
+  if (source.kind === 'asset') {
+    return createTradingViewNativeAssetDataProvider(source);
+  }
   if (source.kind === 'hyperliquid') {
     return createTradingViewNativeHyperliquidDataProvider(source);
+  }
+  if (source.kind === 'stock') {
+    return createTradingViewNativeStockDataProvider(source);
   }
 
   const normalizedFallbackCoinGeckoId = source.fallbackCoinGeckoId?.trim();

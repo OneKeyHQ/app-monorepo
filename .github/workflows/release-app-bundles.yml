@@ -213,9 +213,36 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 24.x
-          cache: 'yarn'
+          package-manager-cache: false
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
+
+      - name: Locate Yarn cache
+        id: yarn-cache
+        shell: bash
+        run: |
+          node <<'NODE'
+          // Match the repository's Yarn 4 cache path without executing checkout plugins.
+          const fs = require('node:fs');
+          const os = require('node:os');
+          const path = require('node:path');
+          const base = process.platform === 'win32'
+            ? path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'Yarn', 'Berry')
+            : process.env.XDG_DATA_HOME
+              ? path.join(process.env.XDG_DATA_HOME, 'yarn', 'berry')
+              : path.join(os.homedir(), '.yarn', 'berry');
+          const cache = process.env.YARN_ENABLE_GLOBAL_CACHE === 'true'
+            ? path.join(base, 'cache') : path.join(process.env.GITHUB_WORKSPACE, '.yarn', 'cache');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `path=${cache}\narch=${process.arch}\n`);
+          NODE
+
+      - name: Restore Yarn cache from x
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.yarn-cache.outputs.path }}
+          key: node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-
 
       - name: Install Dep
         env:
@@ -368,6 +395,7 @@ jobs:
       checkout_ref: ${{ needs.prepare-params.outputs.commit }}
     secrets:
       COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
+      JPUSH_KEY: ${{ secrets.JPUSH_KEY }}
       SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
       SENTRY_DSN_REACT_NATIVE: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
       SENTRY_DSN_WEB: ${{ secrets.SENTRY_DSN_WEB }}
@@ -383,6 +411,9 @@ jobs:
       QA_JS_BUNDLE_UPLOAD_SECRET: ${{ secrets.QA_JS_BUNDLE_UPLOAD_SECRET }}
       SLACK_NOTIFICATION_WEBHOOK: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
       ACTION_SIGN_SECERT_KEY: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
+      # Onramper Headless credentials ride only with the iOS bundle.
+      ONRAMPER_CLIENT_ID: ${{ secrets.ONRAMPER_CLIENT_ID }}
+      ONRAMPER_API_KEY: ${{ secrets.ONRAMPER_API_KEY }}
 
   native-bundle-android:
     needs: [prepare-params, web-embed-build]
@@ -399,6 +430,7 @@ jobs:
       checkout_ref: ${{ needs.prepare-params.outputs.commit }}
     secrets:
       COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
+      JPUSH_KEY: ${{ secrets.JPUSH_KEY }}
       SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
       SENTRY_DSN_REACT_NATIVE: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
       SENTRY_DSN_WEB: ${{ secrets.SENTRY_DSN_WEB }}
@@ -440,3 +472,37 @@ jobs:
       SENTRY_DSN_EXT: ${{ secrets.SENTRY_DSN_EXT }}
       SLACK_NOTIFICATION_WEBHOOK: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
       ACTION_SIGN_SECERT_KEY: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
+
+  verify-web-bundle-artifact:
+    needs: [prepare-params, web-bundle]
+    if: ${{ !cancelled() && needs.web-bundle.result == 'success' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare-params.outputs.commit }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+
+      - name: Download Web Bundle Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app-monorepo-test-${{ needs.prepare-params.outputs.commit }}-${{ needs.prepare-params.outputs.build_number }}
+          path: apps/web/web-build
+
+      - name: Verify Uploaded Service Worker Bundle
+        run: |
+          node apps/web/scripts/validate-built-service-worker.mjs apps/web/web-build
+
+      - name: Report Validation Scope
+        run: |
+          {
+            echo '### Web bundle Service Worker validation'
+            echo
+            echo '- ✅ Uploaded artifact structure and compiled Service Worker were validated.'
+            echo '- ⏭️ Runtime registration and Cache Storage behavior were not exercised because this workflow does not deploy the artifact.'
+          } >> "$GITHUB_STEP_SUMMARY"

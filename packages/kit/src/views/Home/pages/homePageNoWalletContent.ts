@@ -17,6 +17,7 @@ export function isWalletListResolvedNoWallet({
 }
 
 export function shouldShowNoWalletContent({
+  forceNoWalletContent,
   hasNoUsableWallet,
   accountSelectorStorageInitDone,
   accountSelectorActiveAccountInitDone,
@@ -25,6 +26,7 @@ export function shouldShowNoWalletContent({
   activeWalletId,
   walletListWalletIds,
 }: {
+  forceNoWalletContent?: boolean;
   hasNoUsableWallet: boolean;
   accountSelectorStorageInitDone: boolean;
   accountSelectorActiveAccountInitDone: boolean;
@@ -33,6 +35,10 @@ export function shouldShowNoWalletContent({
   activeWalletId?: string;
   walletListWalletIds?: string[];
 }) {
+  if (forceNoWalletContent) {
+    return true;
+  }
+
   const walletListResolvedCurrentUnusableWalletOnly =
     !!activeWalletId &&
     !!walletListWalletIds &&

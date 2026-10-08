@@ -1,9 +1,43 @@
-import type { IMarketBannerItem } from '@onekeyhq/shared/types/marketV2';
+import {
+  EMarketBannerType,
+  type IMarketBannerItem,
+} from '@onekeyhq/shared/types/marketV2';
 
 export const MOCK_MARKET_BANNER_LIST: IMarketBannerItem[] = [
   {
     _id: '694e714617fa06428a8b87dc',
     title: 'mock data',
+    type: EMarketBannerType.Ticker,
+    tokens: [
+      {
+        logo: '',
+        name: 'Mock low gainer',
+        symbol: 'LOW',
+        price: '0.0000012655',
+        priceChange24hPercent: '1.25',
+      },
+      {
+        logo: '',
+        name: 'Mock top gainer',
+        symbol: 'TOP',
+        price: '0.12655',
+        priceChange24hPercent: '6.44',
+      },
+      {
+        logo: '',
+        name: 'Mock second gainer',
+        symbol: 'SECOND',
+        price: '126.55',
+        priceChange24hPercent: '3.2',
+      },
+      {
+        logo: '',
+        name: 'Mock missing quote',
+        symbol: 'MISSING',
+        price: '--',
+        priceChange24hPercent: '--',
+      },
+    ],
     rank: 6,
     mode: 4,
     payload: 'https://onekey.so/app/',

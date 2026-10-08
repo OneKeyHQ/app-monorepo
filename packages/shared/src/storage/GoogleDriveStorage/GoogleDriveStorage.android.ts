@@ -10,6 +10,7 @@ import { GoogleSignInConfigure } from '../../consts/googleSignConsts';
 import { OneKeyLocalError } from '../../errors';
 import RNFS from '../../modules3rdParty/react-native-fs';
 import platformEnv from '../../platformEnv';
+import { createRuntimeWalletEffectTransport } from '../../travelMode/runtimeWalletEffectTransport';
 
 import type { IGoogleDriveFile, IGoogleUserInfo } from './types';
 
@@ -271,4 +272,6 @@ export class GoogleDriveStorage {
  * Singleton instance of GoogleDriveStorage
  * Use this instance throughout the application for Google Drive operations
  */
-export const googleDriveStorage = new GoogleDriveStorage();
+export const googleDriveStorage = createRuntimeWalletEffectTransport(
+  new GoogleDriveStorage(),
+);

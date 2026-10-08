@@ -22,10 +22,6 @@ import {
 import { useBindReferralViaExtension } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useBindReferralViaExtension';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EPerpPageEnterSource,
@@ -42,6 +38,11 @@ import {
   ETabRoutes,
   type ITabHomeParamList,
 } from '@onekeyhq/shared/src/routes';
+import {
+  createHideTabBarOwnerId,
+  releaseHideTabBar,
+  requestHideTabBar,
+} from '@onekeyhq/shared/src/tabBar/hideTabBarRequests';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
@@ -485,9 +486,10 @@ function ReferralLandingPage() {
   useFocusEffect(
     useCallback(() => {
       if (!isWeb) return undefined;
-      appEventBus.emit(EAppEventBusNames.HideTabBar, true);
+      const ownerId = createHideTabBarOwnerId('referral-landing');
+      requestHideTabBar(ownerId);
       return () => {
-        appEventBus.emit(EAppEventBusNames.HideTabBar, false);
+        releaseHideTabBar(ownerId);
       };
     }, [isWeb]),
   );

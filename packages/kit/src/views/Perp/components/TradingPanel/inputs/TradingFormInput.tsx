@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import type { ReactNode, Ref } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -116,6 +116,12 @@ export const TradingFormInput = memo(
     inputAccessoryAction,
     inputRef,
   }: ITradingFormInputProps) => {
+    const [isFocused, setIsFocused] = useState(false);
+    const handleFocus = useCallback(() => {
+      if (ifOnDialog) setIsFocused(true);
+      onFocus?.();
+    }, [ifOnDialog, onFocus]);
+    const handleBlur = useCallback(() => setIsFocused(false), []);
     const accessoryId = useMemo(() => `trading-input-${generateUUID()}`, []);
 
     const shouldShowAccessory = useMemo(
@@ -191,10 +197,12 @@ export const TradingFormInput = memo(
       return (
         <YStack
           gap="$3"
-          bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
-          borderRadius="$2"
+          bg={ifOnDialog ? '$bgStrong' : '$bgSubdued'}
+          borderRadius={ifOnDialog ? '$3' : '$2'}
           borderWidth="$px"
-          borderColor={ifOnDialog ? '$borderSubdued' : '$transparent'}
+          borderColor={
+            ifOnDialog && isFocused && !disabled ? '$border' : '$transparent'
+          }
           px="$3"
           focusStyle={
             ifOnDialog || disabled
@@ -212,7 +220,8 @@ export const TradingFormInput = memo(
             size="small"
             value={value}
             onChangeText={handleInputChange}
-            onFocus={onFocus}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
             placeholder={placeholder}
             keyboardType={keyboardType}
             disabled={disabled}
@@ -230,7 +239,7 @@ export const TradingFormInput = memo(
               ...(!ifOnDialog
                 ? {
                     fontFamily: platformEnv.isNative
-                      ? 'Roobert-Medium'
+                      ? 'Roobert-Regular'
                       : undefined,
                     fontSize: 14,
                     fontWeight: '500' as const,
@@ -271,8 +280,8 @@ export const TradingFormInput = memo(
     }
     return (
       <YStack
-        bg={ifOnDialog ? '$bgApp' : '$bgStrong'}
-        borderRadius="$2"
+        bg="$bgStrong"
+        borderRadius={ifOnDialog ? '$3' : '$2'}
         py="$1"
         pl="$1"
         pr="$2.5"
@@ -284,7 +293,9 @@ export const TradingFormInput = memo(
               }
         }
         borderWidth="$px"
-        borderColor={ifOnDialog ? '$border' : '$transparent'}
+        borderColor={
+          ifOnDialog && isFocused && !disabled ? '$border' : '$transparent'
+        }
       >
         <YStack>
           <Input
@@ -304,13 +315,14 @@ export const TradingFormInput = memo(
             }}
             value={value}
             onChangeText={handleInputChange}
-            onFocus={onFocus}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
             disabled={disabled}
             keyboardType={keyboardType}
             size="small"
             containerProps={{
               bg: 'transparent',
-              borderRadius: '$2',
+              borderRadius: ifOnDialog ? '$3' : '$2',
               borderWidth: '$0',
             }}
             addOns={renderAddOns()}

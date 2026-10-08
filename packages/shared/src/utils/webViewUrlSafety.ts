@@ -3,7 +3,6 @@
  *
  * Single source of truth used by:
  *   - `openWebView()` (in-app entry function)
- *   - `parseWebViewDeepLink()` (deeplink decoder)
  *   - `WebViewPage`'s `onShouldStartLoadWithRequest` (per-navigation guard)
  *   - `notificationsUtils.parseNotificationPayload`'s `openInApp` branch
  *     (including the extension-background `openUrlExternal` fallback, so the
@@ -52,6 +51,11 @@ const DOWNLOAD_EXTENSIONS = [
   '.img',
   '.bin',
 ];
+
+const APP_CLIP_CAMPAIGN_HOSTS = new Set([
+  'app.onekey.so',
+  'app.onekeytest.com',
+]);
 
 function isLikelyDownloadPath(pathname: string): boolean {
   // URL.pathname keeps percent-encoded sequences verbatim, so a raw suffix
@@ -184,4 +188,33 @@ export function isAllowedWebViewUrl(url: string | undefined | null): boolean {
   if (containsPunycode(url)) return false;
 
   return true;
+}
+
+function parseAllowedAppClipCampaignUrl(
+  url: string | undefined | null,
+): URL | undefined {
+  if (!isAllowedWebViewUrl(url) || !url) return undefined;
+  try {
+    const parsed = new URL(url);
+    return APP_CLIP_CAMPAIGN_HOSTS.has(parsed.hostname.toLowerCase())
+      ? parsed
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function isAllowedAppClipCampaignEntryUrl(
+  url: string | undefined | null,
+): boolean {
+  const parsed = parseAllowedAppClipCampaignUrl(url);
+  if (!parsed) return false;
+  const path = parsed.pathname.replace(/\/+$/gu, '').toLowerCase();
+  return path === '/campaign' || path.startsWith('/campaign/');
+}
+
+export function isAllowedAppClipCampaignNavigationUrl(
+  url: string | undefined | null,
+): boolean {
+  return Boolean(parseAllowedAppClipCampaignUrl(url));
 }

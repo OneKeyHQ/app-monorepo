@@ -1,5 +1,6 @@
 import { memo, useCallback } from 'react';
 
+import type { ITradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
 import {
   TRADING_VIEW_DISABLED_FEATURES,
   TradingViewV2,
@@ -8,11 +9,12 @@ import type {
   ITradingViewDisabledFeature,
   ITradingViewNativeIndicatorQuickBarState,
   ITradingViewPriceUpdateData,
+  ITradingViewV2KLineDataFallback,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
-import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketTestIDs } from '../../../testIDs';
+import { useMarketChartPriceUpdate } from '../../hooks/useMarketChartPriceUpdate';
 import { useNetworkAccountAddress } from '../InformationTabs/hooks/useNetworkAccountAddress';
 
 import { MarketChartFullscreenHeader } from './MarketChartFullscreenHeader';
@@ -27,29 +29,19 @@ const MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES: readonly ITradingViewDisabl
     TRADING_VIEW_DISABLED_FEATURES.DRAWING_TOOLBAR,
   ];
 
-function normalizeChartRealtimePrice(
-  price: ITradingViewPriceUpdateData['price'],
-) {
+const STOCK_MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES: readonly ITradingViewDisabledFeature[] =
+  [
+    ...MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES,
+    TRADING_VIEW_DISABLED_FEATURES.CHART_TYPE,
+  ];
+
+function normalizeChartPrice(price: ITradingViewPriceUpdateData['price']) {
   const priceString =
     typeof price === 'number' ? price.toString() : price?.trim();
   const numericPrice = Number(priceString);
   return Number.isFinite(numericPrice) && numericPrice > 0
     ? priceString
     : undefined;
-}
-
-function normalizeChartUpdateTimestamp(
-  timestamp: ITradingViewPriceUpdateData['timestamp'],
-) {
-  if (
-    typeof timestamp !== 'number' ||
-    !Number.isFinite(timestamp) ||
-    timestamp <= 0
-  ) {
-    return Date.now();
-  }
-
-  return timestamp < 10_000_000_000 ? timestamp * 1000 : timestamp;
 }
 
 function normalizeTokenAddress(address: string | undefined) {
@@ -78,6 +70,7 @@ function isChartPriceUpdateForCurrentToken({
 }
 
 export interface IMarketTradingViewProps {
+  loadingIdentity?: string;
   tokenAddress: string;
   networkId: string;
   tokenSymbol?: string;
@@ -86,6 +79,7 @@ export interface IMarketTradingViewProps {
   isNative?: boolean;
   dataSource: 'websocket' | 'polling';
   storageNamespace?: string;
+  intervalStorageNamespace?: ITradingViewNativeIntervalStorageNamespace;
   pageWidth?: number;
   nativeChartTypeControlMode?: 'toggle' | 'select';
   nativeIndicatorControlMode?: 'dialog' | 'popover';
@@ -107,6 +101,13 @@ export interface IMarketTradingViewProps {
     options?: { layoutRestored?: boolean },
   ) => void;
   maxSelectableSubIndicatorCount?: number;
+  forceCandlestickChart?: boolean;
+  kLineDataFallback?: ITradingViewV2KLineDataFallback;
+  primaryKLineDataUnavailable?: boolean;
+  disableChartPriceUpdate?: boolean;
+  onChartError?: () => void;
+  onChartReady?: () => void;
+  onVisualReady?: () => void;
 }
 
 export const MarketTradingView = memo(
@@ -117,6 +118,7 @@ export const MarketTradingView = memo(
     decimal = 8,
     dataSource,
     storageNamespace,
+    intervalStorageNamespace,
     pageWidth,
     nativeChartTypeControlMode,
     nativeIndicatorControlMode,
@@ -133,16 +135,23 @@ export const MarketTradingView = memo(
     onInteractionOverlayOpenChange,
     onNativeSubIndicatorCountChange,
     maxSelectableSubIndicatorCount,
+    forceCandlestickChart,
+    kLineDataFallback,
+    primaryKLineDataUnavailable,
+    disableChartPriceUpdate,
+    onChartError,
+    onChartReady,
+    onVisualReady,
   }: IMarketTradingViewProps) => {
     const { accountAddress } = useNetworkAccountAddress(networkId);
-    const tokenDetailActions = useTokenDetailActions();
+    const acceptChartPrice = useMarketChartPriceUpdate({
+      networkId,
+      tokenAddress,
+      enabled: !disableChartPriceUpdate,
+    });
 
     const handlePriceUpdate = useCallback(
       (data: ITradingViewPriceUpdateData) => {
-        if (data.source === 'history') {
-          return;
-        }
-
         if (
           !isChartPriceUpdateForCurrentToken({
             data,
@@ -153,19 +162,14 @@ export const MarketTradingView = memo(
           return;
         }
 
-        const realtimePrice = normalizeChartRealtimePrice(data.price);
-        if (!realtimePrice) {
+        const chartPrice = normalizeChartPrice(data.price);
+        if (!chartPrice) {
           return;
         }
-
-        tokenDetailActions.current.applyChartPriceUpdate({
-          tokenAddress: data.tokenAddress,
-          networkId: data.networkId,
-          price: realtimePrice,
-          lastUpdated: normalizeChartUpdateTimestamp(data.timestamp),
-        });
+        // Only explicit history is gated; an untagged update is a live price.
+        acceptChartPrice(chartPrice, data.source ?? 'realtime');
       },
-      [networkId, tokenAddress, tokenDetailActions],
+      [acceptChartPrice, networkId, tokenAddress],
     );
 
     return (
@@ -177,6 +181,7 @@ export const MarketTradingView = memo(
         decimal={decimal}
         dataSource={dataSource}
         storageNamespace={storageNamespace}
+        intervalStorageNamespace={intervalStorageNamespace}
         accountAddress={accountAddress}
         w={pageWidth}
         onTouchScroll={onTouchScroll}
@@ -185,7 +190,17 @@ export const MarketTradingView = memo(
         onNativeSubIndicatorCountChange={onNativeSubIndicatorCountChange}
         maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
         onPriceUpdate={handlePriceUpdate}
-        disabledFeatures={MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES}
+        kLineDataFallback={kLineDataFallback}
+        primaryKLineDataUnavailable={primaryKLineDataUnavailable}
+        onChartError={onChartError}
+        onChartReady={onChartReady}
+        onVisualReady={onVisualReady}
+        disabledFeatures={
+          forceCandlestickChart
+            ? STOCK_MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES
+            : MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES
+        }
+        forceCandlestickChart={forceCandlestickChart}
         enableNativeChartControls
         enableNativeChartSettings
         nativeChartTypeControlMode={nativeChartTypeControlMode}

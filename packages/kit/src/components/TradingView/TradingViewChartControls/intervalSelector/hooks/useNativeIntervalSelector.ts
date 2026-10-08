@@ -7,31 +7,29 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
   MAX_PREFERRED_INTERVAL_COUNT,
-  MAX_VISIBLE_INTERVAL_COUNT,
   formatIntervalOptionDisplayLabel,
   getDefaultPreferredIntervalValues,
   getOptionsByValues,
   getOrderedIntervalOptions,
+  getVisiblePreferredIntervalValues,
   isIntervalOptionDisabled,
+  mergeVisiblePreferredIntervalValues,
   normalizeIntervalOptions,
   readStoredPreferredIntervalValues,
   reconcileIntervalValues,
   saveStoredPreferredIntervalValues,
-  sortIntervalValues,
 } from '../NativeIntervalUtils';
 
 import type { ITradingViewIntervalConfigData } from '../../types';
-
-export type ITradingViewNativeIntervalControlMode = 'dialog' | 'popover';
 
 type IIntervalsDialogInstance = ReturnType<typeof Dialog.show>;
 
 export function useNativeIntervalSelector({
   intervalConfig,
-  intervalControlMode,
+  visiblePreferredIntervalCount,
 }: {
   intervalConfig: ITradingViewIntervalConfigData | null;
-  intervalControlMode: ITradingViewNativeIntervalControlMode;
+  visiblePreferredIntervalCount: number | null;
 }) {
   const intl = useIntl();
   const [storedPreferredIntervalValues, setStoredPreferredIntervalValues] =
@@ -107,8 +105,12 @@ export function useNativeIntervalSelector({
   }, [intervalConfig?.activeInterval, options]);
 
   const defaultPreferredIntervalValues = useMemo(
-    () => getDefaultPreferredIntervalValues(options),
-    [options],
+    () =>
+      getDefaultPreferredIntervalValues(
+        options,
+        visiblePreferredIntervalCount ?? MAX_PREFERRED_INTERVAL_COUNT,
+      ),
+    [options, visiblePreferredIntervalCount],
   );
 
   const dialogOptions = useMemo(
@@ -116,7 +118,7 @@ export function useNativeIntervalSelector({
     [options],
   );
 
-  const preferredIntervalValues = useMemo(() => {
+  const allPreferredIntervalValues = useMemo(() => {
     const storedValues = hasLoadedStoredPreferredIntervals
       ? storedPreferredIntervalValues
       : null;
@@ -124,22 +126,26 @@ export function useNativeIntervalSelector({
       storedValues,
       options,
     );
-    return reconciledStoredValues.length
-      ? sortIntervalValues(reconciledStoredValues, dialogOptions).slice(
-          0,
-          intervalControlMode === 'popover'
-            ? undefined
-            : MAX_PREFERRED_INTERVAL_COUNT,
-        )
-      : defaultPreferredIntervalValues;
+    if (!reconciledStoredValues.length) {
+      return defaultPreferredIntervalValues;
+    }
+    return reconciledStoredValues;
   }, [
     defaultPreferredIntervalValues,
     hasLoadedStoredPreferredIntervals,
-    intervalControlMode,
-    dialogOptions,
     options,
     storedPreferredIntervalValues,
   ]);
+
+  const preferredIntervalValues = useMemo(
+    () =>
+      getVisiblePreferredIntervalValues({
+        preferredValues: allPreferredIntervalValues,
+        maxVisibleIntervalCount: visiblePreferredIntervalCount,
+        options: dialogOptions,
+      }),
+    [allPreferredIntervalValues, dialogOptions, visiblePreferredIntervalCount],
+  );
 
   const preferredOptions = useMemo(
     () => getOptionsByValues(preferredIntervalValues, options),
@@ -147,17 +153,12 @@ export function useNativeIntervalSelector({
   );
 
   const segmentOptions = useMemo(() => {
-    const visiblePreferredOptions =
-      intervalControlMode === 'popover'
-        ? preferredOptions
-        : preferredOptions.slice(0, MAX_VISIBLE_INTERVAL_COUNT);
-
-    return visiblePreferredOptions.map((option) => ({
+    return preferredOptions.map((option) => ({
       label: formatIntervalOptionDisplayLabel(intl, option.label),
       value: option.value,
       disabled: isIntervalOptionDisabled(option),
     }));
-  }, [intl, intervalControlMode, preferredOptions]);
+  }, [intl, preferredOptions]);
 
   const visibleSegmentValueSet = useMemo(
     () => new Set(segmentOptions.map((option) => option.value)),
@@ -171,22 +172,18 @@ export function useNativeIntervalSelector({
 
   const handlePreferredValuesChange = useCallback(
     (values: string[]) => {
-      const reconciledValues = reconcileIntervalValues(values, options);
-      const sortedValues = sortIntervalValues(
-        reconciledValues,
-        dialogOptions,
-      ).slice(
-        0,
-        intervalControlMode === 'popover'
-          ? undefined
-          : MAX_PREFERRED_INTERVAL_COUNT,
-      );
+      const nextValues = mergeVisiblePreferredIntervalValues({
+        currentValues: allPreferredIntervalValues,
+        nextVisibleValues: values,
+        maxVisibleIntervalCount: visiblePreferredIntervalCount,
+        options: dialogOptions,
+      });
       hasUpdatedPreferredIntervalsRef.current = true;
-      setStoredPreferredIntervalValues(sortedValues);
+      setStoredPreferredIntervalValues(nextValues);
       setHasLoadedStoredPreferredIntervals(true);
-      void saveStoredPreferredIntervalValues(sortedValues);
+      void saveStoredPreferredIntervalValues(nextValues);
     },
-    [dialogOptions, intervalControlMode, options],
+    [allPreferredIntervalValues, dialogOptions, visiblePreferredIntervalCount],
   );
 
   const moreLabel = intl.formatMessage({ id: ETranslations.global_more });

@@ -362,6 +362,7 @@ function normalizeIntervalConfig(
   return {
     intervals,
     activeInterval,
+    ...(typeof data.persist === 'boolean' ? { persist: data.persist } : {}),
     ...(typeof data.timestamp === 'number' && Number.isFinite(data.timestamp)
       ? { timestamp: data.timestamp }
       : {}),

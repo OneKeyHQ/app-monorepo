@@ -29,6 +29,9 @@ import type {
   ENotificationPushTopicTypes,
   INotificationClickParams,
   INotificationPermissionDetail,
+  INotificationPermissionRecoveryActionResult,
+  INotificationPermissionRecoveryCheckParams,
+  INotificationPermissionRecoveryResult,
   INotificationPushClient,
   INotificationPushMessageAckParams,
   INotificationPushMessageInfo,
@@ -43,6 +46,8 @@ import type {
 } from '@onekeyhq/shared/types/notification';
 import {
   ENotificationPermission,
+  ENotificationPermissionRecoveryAction,
+  ENotificationPermissionRecoveryTestScenario,
   ENotificationPushMessageAckAction,
   ENotificationPushSyncMethod,
   EPushProviderEventNames,
@@ -57,6 +62,11 @@ import {
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
+import {
+  buildNotificationPermissionRecoveryResult,
+  buildNotificationPermissionRecoveryStateTransition,
+  resolveNotificationPermissionRecoveryLastPermission,
+} from './notificationPermissionRecovery';
 import NotificationProvider from './NotificationProvider/NotificationProvider';
 
 import type NotificationProviderBase from './NotificationProvider/NotificationProviderBase';
@@ -408,6 +418,274 @@ export default class ServiceNotification extends ServiceBase {
     return this.getPermission();
   }
 
+  notificationPermissionRecoveryTestScenario =
+    ENotificationPermissionRecoveryTestScenario.real;
+
+  private notificationPermissionRecoveryCheckSequence = 0;
+
+  private getNotificationPermissionRecoveryTestData():
+    | {
+        permissionDetail: INotificationPermissionDetail | undefined;
+        pushEnabled: boolean | undefined;
+        queryFailed: boolean;
+      }
+    | undefined {
+    switch (this.notificationPermissionRecoveryTestScenario) {
+      case ENotificationPermissionRecoveryTestScenario.pushOnGranted:
+        return {
+          permissionDetail: {
+            isSupported: true,
+            permission: ENotificationPermission.granted,
+          },
+          pushEnabled: true,
+          queryFailed: false,
+        };
+      case ENotificationPermissionRecoveryTestScenario.pushOnDefault:
+        return {
+          permissionDetail: {
+            isSupported: true,
+            permission: ENotificationPermission.default,
+          },
+          pushEnabled: true,
+          queryFailed: false,
+        };
+      case ENotificationPermissionRecoveryTestScenario.pushOnDenied:
+        return {
+          permissionDetail: {
+            isSupported: true,
+            permission: ENotificationPermission.denied,
+          },
+          pushEnabled: true,
+          queryFailed: false,
+        };
+      case ENotificationPermissionRecoveryTestScenario.pushOff:
+        return {
+          permissionDetail: {
+            isSupported: true,
+            permission: ENotificationPermission.granted,
+          },
+          pushEnabled: false,
+          queryFailed: false,
+        };
+      case ENotificationPermissionRecoveryTestScenario.unsupported:
+        return {
+          permissionDetail: {
+            isSupported: false,
+            permission: ENotificationPermission.default,
+          },
+          pushEnabled: true,
+          queryFailed: false,
+        };
+      case ENotificationPermissionRecoveryTestScenario.queryFailed:
+        return {
+          permissionDetail: undefined,
+          pushEnabled: undefined,
+          queryFailed: true,
+        };
+      case ENotificationPermissionRecoveryTestScenario.real:
+      default:
+        return undefined;
+    }
+  }
+
+  private getNotificationPermissionRecoveryPlatform() {
+    if (platformEnv.isNativeIOS) {
+      return 'ios' as const;
+    }
+    if (platformEnv.isNativeAndroid) {
+      return 'android' as const;
+    }
+    return 'other' as const;
+  }
+
+  @backgroundMethod()
+  async setNotificationPermissionRecoveryTestScenario(
+    scenario: ENotificationPermissionRecoveryTestScenario,
+  ) {
+    this.notificationPermissionRecoveryCheckSequence += 1;
+    this.notificationPermissionRecoveryTestScenario = scenario;
+    return scenario;
+  }
+
+  @backgroundMethod()
+  async getNotificationPermissionRecoveryTestScenario() {
+    return this.notificationPermissionRecoveryTestScenario;
+  }
+
+  @backgroundMethod()
+  async resetNotificationPermissionRecoveryState() {
+    this.notificationPermissionRecoveryCheckSequence += 1;
+    await notificationsAtom.set((value) => ({
+      ...value,
+      permissionRecoveryDismissedAt: undefined,
+      permissionRecoveryLastPermission: undefined,
+    }));
+  }
+
+  @backgroundMethod()
+  async dismissNotificationPermissionRecovery() {
+    this.notificationPermissionRecoveryCheckSequence += 1;
+    await notificationsAtom.set((value) => ({
+      ...value,
+      permissionRecoveryDismissedAt: Date.now(),
+    }));
+  }
+
+  @backgroundMethod()
+  async checkNotificationPermissionRecovery({
+    source,
+    ignoreCooldown = false,
+    pushEnabled: pushEnabledSnapshot,
+  }: INotificationPermissionRecoveryCheckParams): Promise<INotificationPermissionRecoveryResult> {
+    const checkSequence = this.notificationPermissionRecoveryCheckSequence + 1;
+    this.notificationPermissionRecoveryCheckSequence = checkSequence;
+    const checkedAt = Date.now();
+    const testData = this.getNotificationPermissionRecoveryTestData();
+    const isTestMode = Boolean(testData);
+    let permissionDetail: INotificationPermissionDetail | undefined;
+    let pushEnabled: boolean | undefined;
+    let isServerSettingsAvailable = false;
+    let queryFailed = false;
+
+    if (testData) {
+      permissionDetail = testData.permissionDetail;
+      pushEnabled = testData.pushEnabled;
+      queryFailed = testData.queryFailed;
+      isServerSettingsAvailable = !queryFailed;
+    } else if (platformEnv.isNative) {
+      try {
+        const permissionPromise = this.getPermissionWithoutLog();
+        if (pushEnabledSnapshot === undefined) {
+          const [serverSettings, permission] = await Promise.all([
+            this.fetchServerNotificationSettingsWithCache(),
+            permissionPromise,
+          ]);
+          permissionDetail = permission;
+          pushEnabled = serverSettings?.pushEnabled;
+          isServerSettingsAvailable = Boolean(serverSettings);
+        } else {
+          permissionDetail = await permissionPromise;
+          pushEnabled = pushEnabledSnapshot;
+          isServerSettingsAvailable = true;
+        }
+      } catch {
+        queryFailed = true;
+      }
+    }
+
+    const notificationState = await notificationsAtom.get();
+    const previousPermission =
+      notificationState.permissionRecoveryLastPermission;
+    const currentPermission = permissionDetail?.permission;
+    const stateTransition = buildNotificationPermissionRecoveryStateTransition({
+      currentPermission,
+      dismissedAt: notificationState.permissionRecoveryDismissedAt,
+      isTestMode,
+      previousPermission,
+      pushEnabled,
+    });
+    const result = buildNotificationPermissionRecoveryResult({
+      checkedAt,
+      dismissedAt: stateTransition.dismissedAtForCheck,
+      ignoreCooldown,
+      isNative: Boolean(platformEnv.isNative),
+      isServerSettingsAvailable,
+      isTestMode,
+      permissionDetail,
+      pushEnabled,
+      queryFailed,
+    });
+    let registrationFailed = false;
+
+    if (
+      !queryFailed &&
+      currentPermission &&
+      checkSequence === this.notificationPermissionRecoveryCheckSequence
+    ) {
+      if (stateTransition.shouldRegisterClient) {
+        try {
+          await this.registerClientWithOverrideAllAccountsImmediate();
+        } catch {
+          registrationFailed = true;
+        }
+      }
+
+      await notificationsAtom.set((value) => {
+        if (
+          checkSequence !== this.notificationPermissionRecoveryCheckSequence
+        ) {
+          return value;
+        }
+        return perfUtils.buildNewValueIfChanged(value, {
+          ...value,
+          permissionRecoveryDismissedAt: stateTransition.nextDismissedAt,
+          permissionRecoveryLastPermission:
+            resolveNotificationPermissionRecoveryLastPermission({
+              currentPermission,
+              previousPermission,
+              registrationFailed,
+            }),
+        });
+      });
+    }
+
+    defaultLogger.notification.common.permissionRecoveryCheck({
+      ...result,
+      platform: this.getNotificationPermissionRecoveryPlatform(),
+      registrationFailed,
+      source,
+    });
+    return result;
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async recoverNotificationPermission(): Promise<INotificationPermissionRecoveryActionResult> {
+    this.notificationPermissionRecoveryCheckSequence += 1;
+    const testData = this.getNotificationPermissionRecoveryTestData();
+    const isTestMode = Boolean(testData);
+    let permissionDetail = testData
+      ? (testData.permissionDetail ?? {
+          isSupported: false,
+          permission: ENotificationPermission.default,
+        })
+      : await this.getPermissionWithoutLog();
+    const permissionBefore = permissionDetail.permission;
+    let action = ENotificationPermissionRecoveryAction.none;
+
+    if (permissionBefore === ENotificationPermission.default) {
+      action = ENotificationPermissionRecoveryAction.requestPermission;
+      if (isTestMode) {
+        this.notificationPermissionRecoveryTestScenario =
+          ENotificationPermissionRecoveryTestScenario.pushOnGranted;
+        permissionDetail = {
+          isSupported: true,
+          permission: ENotificationPermission.granted,
+        };
+      } else {
+        permissionDetail = await this.requestPermission();
+      }
+    } else if (permissionBefore === ENotificationPermission.denied) {
+      action = ENotificationPermissionRecoveryAction.openSettings;
+      if (!isTestMode) {
+        await this.openPermissionSettings();
+      }
+    }
+
+    const result = {
+      action,
+      isSupported: permissionDetail.isSupported,
+      isTestMode,
+      permission: permissionDetail.permission,
+    };
+    defaultLogger.notification.common.permissionRecoveryAction({
+      ...result,
+      permissionBefore,
+      platform: this.getNotificationPermissionRecoveryPlatform(),
+    });
+    return result;
+  }
+
   desktopNotificationCache: {
     [notificationId: string]: Notification;
   } = {};
@@ -705,17 +983,16 @@ export default class ServiceNotification extends ServiceBase {
 
   private async _registerClientWithOverrideAllAccountsCore() {
     console.log('registerClientWithOverrideAllAccountsCore');
-    await timerUtils.setTimeoutPromised(async () => {
-      await this.registerClientWithSyncAccounts({
-        syncMethod: ENotificationPushSyncMethod.override,
-      });
-      await notificationsAtom.set((v) =>
-        perfUtils.buildNewValueIfChanged(v, {
-          ...v,
-          lastRegisterTime: Date.now(),
-        }),
-      );
+    await timerUtils.wait(0);
+    await this.registerClientWithSyncAccounts({
+      syncMethod: ENotificationPushSyncMethod.override,
     });
+    await notificationsAtom.set((v) =>
+      perfUtils.buildNewValueIfChanged(v, {
+        ...v,
+        lastRegisterTime: Date.now(),
+      }),
+    );
   }
 
   @backgroundMethod()
@@ -882,36 +1159,53 @@ export default class ServiceNotification extends ServiceBase {
       );
     }
 
-    const accountActivity = await this.rebuildAccountActivity({
+    const accountActivity = this.rebuildAccountActivity({
       notificationWallets,
       maxAccountCount,
-      originalAccountActivity,
       currentAccountActivity,
       settings,
     });
     await this.saveAccountActivityNotificationSettings(accountActivity);
   }
 
-  async rebuildAccountActivity({
+  rebuildAccountActivity({
     notificationWallets,
     maxAccountCount,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    originalAccountActivity,
     currentAccountActivity,
     settings,
   }: {
     notificationWallets: IDBWallet[];
     maxAccountCount: number;
-    originalAccountActivity: IAccountActivityNotificationSettings;
     currentAccountActivity: IAccountActivityNotificationSettings;
     settings: ISimpleDbNotificationSettings | null | undefined;
   }) {
     const accountActivity: IAccountActivityNotificationSettings = {};
 
-    const currentEnabledAccountCount =
-      await this.backgroundApi.simpleDb.notificationSettings.getEnabledAccountCount();
+    const allNotificationWallets = notificationWallets.flatMap((wallet) => [
+      wallet,
+      ...(wallet.hiddenWallets || []),
+    ]);
+    // Reserve quota only for enabled accounts that still exist, including
+    // settings restored from the Prime backup.
+    const currentEnabledAccountCount = allNotificationWallets.reduce(
+      (count, wallet) => {
+        const walletSettings = currentAccountActivity[wallet.id];
+        if (!walletSettings || walletSettings.enabled === false) {
+          return count;
+        }
+        return (
+          count +
+          (wallet.dbAccounts || wallet.dbIndexedAccounts || []).filter(
+            (account) =>
+              walletSettings.accounts?.[account.id]?.enabled === true,
+          ).length
+        );
+      },
+      0,
+    );
 
     let totalEnabledCount = 0;
+    let newlyEnabledAccountCount = 0;
     const isInit = !settings?.accountActivity;
     const updateWalletAccountActivity = ({
       wallet,
@@ -922,12 +1216,10 @@ export default class ServiceNotification extends ServiceBase {
       skipDisabledAccounts?: boolean;
       oldAccountActivity: IAccountActivityNotificationSettings;
     }) => {
-      accountActivity[wallet.id] = oldAccountActivity?.[wallet.id] || {
-        enabled: false,
+      accountActivity[wallet.id] = {
+        enabled: oldAccountActivity[wallet.id]?.enabled ?? false,
         accounts: {},
       };
-      accountActivity[wallet.id].accounts =
-        accountActivity[wallet.id].accounts || {};
       let enabledCountInWallet = 0;
       const disableAccount = (account: IDBAccount | IDBIndexedAccount) => {
         if (skipDisabledAccounts) {
@@ -943,6 +1235,12 @@ export default class ServiceNotification extends ServiceBase {
             enabled: true,
           };
           totalEnabledCount += 1;
+          if (
+            oldAccountActivity[wallet.id]?.accounts?.[account.id]?.enabled ===
+            undefined
+          ) {
+            newlyEnabledAccountCount += 1;
+          }
           enabledCountInWallet += 1;
           accountActivity[wallet.id].enabled = true;
         } else {
@@ -966,10 +1264,18 @@ export default class ServiceNotification extends ServiceBase {
             oldAccountActivity?.[wallet.id]?.accounts?.[account.id]?.enabled ===
               true || isAccountEnabledUndefined;
 
-          if (isWalletEnabled && isAccountEnabled) {
+          if (!isWalletEnabled) {
+            // Keep selections without consuming quota while the wallet is disabled.
+            accountActivity[wallet.id].accounts[account.id] = {
+              enabled:
+                oldAccountActivity[wallet.id]?.accounts?.[account.id]
+                  ?.enabled ?? false,
+            };
+          } else if (isAccountEnabled) {
             if (
               isAccountEnabledUndefined &&
-              currentEnabledAccountCount >= maxAccountCount
+              currentEnabledAccountCount + newlyEnabledAccountCount >=
+                maxAccountCount
             ) {
               disableAccount(account);
             } else {
@@ -994,23 +1300,11 @@ export default class ServiceNotification extends ServiceBase {
         accountActivity[wallet.id].enabled = false;
       }
     };
-    for (const wallet of notificationWallets) {
-      // TODO only update enabled=true accounts
-      // updateWalletAccountActivity(wallet, originalAccountActivity);
-      // for (const hiddenWallet of wallet.hiddenWallets || []) {
-      //   updateWalletAccountActivity(hiddenWallet, originalAccountActivity);
-      // }
-
+    for (const wallet of allNotificationWallets) {
       updateWalletAccountActivity({
         wallet,
         oldAccountActivity: currentAccountActivity,
       });
-      for (const hiddenWallet of wallet.hiddenWallets || []) {
-        updateWalletAccountActivity({
-          wallet: hiddenWallet,
-          oldAccountActivity: currentAccountActivity,
-        });
-      }
     }
 
     return accountActivity;
@@ -1281,7 +1575,8 @@ export default class ServiceNotification extends ServiceBase {
   // TODO clear cache if prime expired, onekeyID logout
   getServerSettingsWithCache = memoizee(
     async () => {
-      const serverSettings = await this.fetchServerNotificationSettings();
+      const serverSettings =
+        await this.fetchServerNotificationSettingsWithoutToast();
 
       let supportNetworks:
         | {
@@ -1322,6 +1617,7 @@ export default class ServiceNotification extends ServiceBase {
       maxAge: timerUtils.getTimeDurationMs({
         hour: 1,
       }),
+      promise: true,
     },
   );
 
@@ -1378,14 +1674,18 @@ export default class ServiceNotification extends ServiceBase {
     },
   );
 
-  @backgroundMethod()
-  @toastIfError()
-  async fetchServerNotificationSettings() {
+  private async fetchServerNotificationSettingsWithoutToast() {
     const client = await this.getClient(EServiceEndpointEnum.Notification);
     const result = await client.post<
       IApiClientResponse<INotificationPushSettings>
     >('/notification/v1/config/query');
     return result?.data?.data;
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async fetchServerNotificationSettings() {
+    return this.fetchServerNotificationSettingsWithoutToast();
   }
 
   @backgroundMethod()

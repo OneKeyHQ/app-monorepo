@@ -131,6 +131,11 @@ export const discoveryRouters: ITabSubNavigatorConfig<any, any>[] = [
           headerShown: false,
         },
         {
+          name: ETabMarketRoutes.MarketStockDetail,
+          component: MarketDetailV2,
+          headerShown: false,
+        },
+        {
           name: ETabMarketRoutes.MarketBannerDetail,
           component: MarketBannerDetail,
           headerShown: false,

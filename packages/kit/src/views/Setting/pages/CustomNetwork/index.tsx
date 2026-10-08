@@ -31,6 +31,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 import { useDappCloseHandler } from '../../../DAppConnection/pages/DappOpenModalPage';
+import { SETTINGS_PAGE_CONTENT_PADDING_X } from '../Tab/settingsSurface';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -350,7 +351,7 @@ function AddCustomNetwork() {
         })}
         headerRight={headerRight}
       />
-      <Page.Body px="$5" gap="$5">
+      <Page.Body px={SETTINGS_PAGE_CONTENT_PADDING_X} gap="$5">
         <Alert
           icon="ErrorOutline"
           type="warning"

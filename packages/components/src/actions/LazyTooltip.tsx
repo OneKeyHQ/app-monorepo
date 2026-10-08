@@ -16,6 +16,7 @@ import { TooltipText } from './Tooltip/TooltipText';
 
 import type { ITooltipProps } from './Tooltip';
 import type { IStackProps } from '../primitives';
+import type { GestureResponderEvent } from 'react-native';
 
 type ILazyTooltipComponent = typeof import('./Tooltip').Tooltip;
 type ITriggerFallbackProps = {
@@ -25,7 +26,7 @@ type ITriggerFallbackProps = {
   onPress?: IStackProps['onPress'];
 };
 type ITriggerFocusArgs = Parameters<NonNullable<IStackProps['onFocus']>>;
-type ITriggerHoverInArgs = Parameters<NonNullable<IStackProps['onHoverIn']>>;
+type ITriggerHoverInArgs = [event: GestureResponderEvent];
 type ITriggerPressArgs = Parameters<NonNullable<IStackProps['onPress']>>;
 
 let loadedTooltip: ILazyTooltipComponent | undefined;
@@ -102,7 +103,9 @@ function LazyTooltipFrame(props: ITooltipProps & ITriggerFallbackProps) {
   ) {
     const triggerProps = props.renderTrigger.props;
     const handleHoverIn = (...args: ITriggerHoverInArgs) => {
-      triggerProps.onHoverIn?.(...args);
+      if (typeof triggerProps.onHoverIn === 'function') {
+        triggerProps.onHoverIn(...args);
+      }
       ensureLoaded();
     };
     const handleFocus = (...args: ITriggerFocusArgs) => {

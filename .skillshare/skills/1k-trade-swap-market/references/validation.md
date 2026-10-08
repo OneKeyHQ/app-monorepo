@@ -34,6 +34,20 @@ yarn agent:check --profile commit
   reconnect, the same identities must return and repair may resume.
 - New channel: prove happy path, one provider failure/stale response, one
   terminal status, and restart/replay behavior.
+- Identity transitions: change the asset, variant, network, or provider while
+  work is in flight; prove stale results and incompatible selections cannot
+  leak into the next trade.
+- Readiness and fallback: distinguish transient loading, provider failure,
+  terminal unsupported, and an actionable fallback; prove the terminal path is
+  explicit rather than an endless skeleton or disabled action.
+- Amount semantics: for a native pay token with a gas reserve, verify Max and
+  percentage presets subtract the reserve exactly once.
+- History lifecycle: verify provider-specific terminal states preserve the
+  right source/replacement/refund identity, stop polling/replacement actions,
+  and refresh balances only for statuses that change them.
+- Native/shared bundle changes: when a route or module crosses runtime bundles,
+  run the owning registration and startup-graph checks in addition to focused
+  tests; desktop-only rendering is not sufficient proof.
 
 ## Platform Proof
 

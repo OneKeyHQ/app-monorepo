@@ -7,7 +7,10 @@ import { LogToLocal, LogToServer } from '../../../base/decorators';
 import type {
   IGasAccountActionParams,
   IGasAccountAnalyticsContext,
+  ISendCexDepositWarningActionParams,
+  ISendCexDepositWarningContext,
 } from '../types';
+import type { IDeviceType } from '@onekeyfe/hd-core';
 
 type ISendMode = 'public' | 'private';
 type IPrivateSendQuoteStatus = 'success' | 'failed';
@@ -185,6 +188,8 @@ export class SendScene extends BaseScene {
 
   @LogToServer()
   public sendConfirm({
+    walletType,
+    deviceType,
     network,
     txnType,
     interactContract,
@@ -204,6 +209,8 @@ export class SendScene extends BaseScene {
     tronUseRedemptionCode,
     tronIsCreditAutoClaimed,
   }: {
+    walletType: string;
+    deviceType: IDeviceType | undefined;
     network: string | undefined;
     txnType: string | undefined;
     txnParseType: string | undefined;
@@ -224,6 +231,8 @@ export class SendScene extends BaseScene {
     tronIsCreditAutoClaimed: boolean | undefined;
   }) {
     const result = {
+      walletType,
+      deviceType,
       sendFlowId: this._sendFlowId,
       network,
       txnType,
@@ -332,6 +341,24 @@ export class SendScene extends BaseScene {
     params: ISendPrivateValueDropWarningParams,
   ) {
     return params;
+  }
+
+  @LogToServer()
+  public sendCexDepositWarningShow(params: ISendCexDepositWarningContext) {
+    return {
+      sendFlowId: this._sendFlowId,
+      ...params,
+    };
+  }
+
+  @LogToServer()
+  public sendCexDepositWarningAction(
+    params: ISendCexDepositWarningActionParams,
+  ) {
+    return {
+      sendFlowId: this._sendFlowId,
+      ...params,
+    };
   }
 
   @LogToServer()

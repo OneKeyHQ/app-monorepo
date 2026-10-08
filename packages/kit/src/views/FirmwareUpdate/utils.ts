@@ -1,14 +1,36 @@
-import { EFirmwareType } from '@onekeyfe/hd-shared';
+import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import type {
   ICheckAllFirmwareReleaseResult,
+  IFirmwareUpdateDetectStatusSnapshot,
+  IFirmwareUpdatesDetectStatus,
   IPro2FirmwareUpdateTarget,
 } from '@onekeyhq/shared/types/device';
 
+import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { IntlShape } from 'react-intl';
+
+export function selectFirmwareUpdateDetectStatus({
+  connectId,
+  persistedStatus,
+  snapshot,
+}: {
+  connectId: string;
+  persistedStatus: IFirmwareUpdatesDetectStatus | undefined;
+  snapshot: IFirmwareUpdateDetectStatusSnapshot | undefined;
+}) {
+  const persistedDetectStatus = persistedStatus?.[connectId];
+  if (snapshot && snapshot.requestedConnectId !== connectId) {
+    return persistedDetectStatus;
+  }
+  if (snapshot?.resolved) {
+    return snapshot.status;
+  }
+  return persistedDetectStatus;
+}
 
 export async function getFirmwareUpdateUSBPreflightParams(
   result: ICheckAllFirmwareReleaseResult | undefined,
@@ -162,4 +184,57 @@ export function getTargetFirmwareTypeLabel({
         ? ETranslations.device_firmware_type_btc_only__label
         : ETranslations.device_firmware_type_multichain__label,
   });
+}
+
+/** Whether an update replaces the firmware type (universal ↔ Bitcoin-only). */
+export function isFirmwareTypeSwitch(
+  firmware:
+    | {
+        fromFirmwareType: EFirmwareType | undefined;
+        toFirmwareType: EFirmwareType | undefined;
+      }
+    | undefined,
+): boolean {
+  return (
+    firmware?.fromFirmwareType !== undefined &&
+    firmware.toFirmwareType !== undefined &&
+    firmware.fromFirmwareType !== firmware.toFirmwareType
+  );
+}
+
+/** Product name, not translated. */
+const BITCOIN_ONLY_VERSION_PREFIX = 'Bitcoin';
+
+/**
+ * Short word in front of a version number on the install and changelog
+ * pages: Bitcoin-only builds read "Bitcoin 4.21.0"; the universal build is
+ * the unmarked default and reads "4.21.0". The full type labels stay on
+ * titles and banners, where there is room for them (OK-63518).
+ */
+export function getFirmwareVersionTypePrefix(
+  firmwareType: EFirmwareType | undefined,
+): string | undefined {
+  return firmwareType === EFirmwareType.BitcoinOnly
+    ? BITCOIN_ONLY_VERSION_PREFIX
+    : undefined;
+}
+
+/**
+ * Developer mode lists the Pro 2 component targets unless the Pro 2 debug
+ * preference hides them. Shared by the changelog and the install page.
+ */
+export function shouldHidePro2FirmwareDebugInfo({
+  developerModeEnabled,
+  hidePro2FirmwareDebugInfo,
+  deviceType,
+}: {
+  developerModeEnabled: boolean;
+  hidePro2FirmwareDebugInfo: boolean | undefined;
+  deviceType: IDeviceType | undefined;
+}) {
+  return (
+    developerModeEnabled &&
+    deviceType === EDeviceType.Pro2 &&
+    hidePro2FirmwareDebugInfo === true
+  );
 }

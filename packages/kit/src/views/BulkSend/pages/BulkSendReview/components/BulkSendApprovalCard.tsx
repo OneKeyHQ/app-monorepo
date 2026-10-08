@@ -255,7 +255,7 @@ function BulkSendApprovalCard({ onEditApproval }: Props) {
                       </>
                     ) : null}
                     <View
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_TRANSFORM}
                       rotate={open ? '180deg' : '0deg'}
                       transformOrigin="center"
@@ -271,11 +271,11 @@ function BulkSendApprovalCard({ onEditApproval }: Props) {
               )}
             </Accordion.Trigger>
             <Accordion.HeightAnimator
-              animation="quick"
+              transition="quick"
               backgroundColor="transparent"
             >
               <Accordion.Content
-                animation="quick"
+                transition="quick"
                 animateOnly={ANIMATE_ONLY_OPACITY}
                 exitStyle={{ opacity: 0 }}
                 backgroundColor="transparent"

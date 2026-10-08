@@ -5,6 +5,59 @@ import {
 } from './tosImageResizeUtils';
 
 describe('tosImageResizeUtils', () => {
+  test('selects the layout tier first and bounds density choices within it', () => {
+    for (const resizeWidth of [32, 40, 48]) {
+      for (const pixelRatio of [1, 2]) {
+        expect(getTosImageResizeTargetWidth({ resizeWidth, pixelRatio })).toBe(
+          96,
+        );
+      }
+      for (const pixelRatio of [2.625, 3, 5]) {
+        expect(getTosImageResizeTargetWidth({ resizeWidth, pixelRatio })).toBe(
+          160,
+        );
+      }
+    }
+    for (const [resizeWidth, standard, highDensity] of [
+      [48, 96, 160],
+      [48.1, 192, 320],
+      [96, 192, 320],
+      [96.1, 384, 640],
+      [192, 384, 640],
+      [192.1, 768, 1280],
+      [384, 768, 1280],
+      [384.1, 1280, 1280],
+    ]) {
+      expect(getTosImageResizeTargetWidth({ resizeWidth, pixelRatio: 2 })).toBe(
+        standard,
+      );
+      expect(
+        getTosImageResizeTargetWidth({ resizeWidth, pixelRatio: 2.625 }),
+      ).toBe(highDensity);
+    }
+    expect(
+      getTosImageResizeTargetWidth({
+        resizeWidth: 48,
+        pixelRatio: 2,
+        overscanRatio: 2,
+      }),
+    ).toBe(160);
+    expect(
+      getTosImageResizeTargetWidth({
+        resizeWidth: 100,
+        pixelRatio: NaN,
+        overscanRatio: Infinity,
+      }),
+    ).toBe(384);
+    expect(
+      getTosImageResizeTargetWidth({
+        resizeWidth: 100,
+        pixelRatio: 2,
+        overscanRatio: Number.MAX_VALUE,
+      }),
+    ).toBe(640);
+  });
+
   test('optimizes a whitelisted image URL with a stable DPR width bucket', () => {
     const result = buildTosImageResizeUrl({
       uri: 'https://uni.onekey-asset.com/icons/token.png',
@@ -15,8 +68,8 @@ describe('tosImageResizeUtils', () => {
 
     expect(result).toEqual({
       optimized: true,
-      targetWidth: 48,
-      uri: 'https://uni.onekey-asset.com/icons/token.png?x-tos-process=image%2Fresize%2Cw_48',
+      targetWidth: 96,
+      uri: 'https://uni.onekey-asset.com/icons/token.png?x-tos-process=image%2Fresize%2Cw_96',
     });
   });
 
@@ -29,9 +82,9 @@ describe('tosImageResizeUtils', () => {
     });
 
     expect(result.optimized).toBe(true);
-    expect(result.targetWidth).toBe(256);
+    expect(result.targetWidth).toBe(320);
     expect(result.uri).toBe(
-      'https://common.onekey-asset.com/a/b/logo.jpeg?foo=bar&x-tos-process=image%2Fresize%2Cw_256#preview',
+      'https://common.onekey-asset.com/a/b/logo.jpeg?foo=bar&x-tos-process=image%2Fresize%2Cw_320#preview',
     );
   });
 
@@ -44,7 +97,7 @@ describe('tosImageResizeUtils', () => {
     });
 
     expect(result.optimized).toBe(true);
-    expect(result.targetWidth).toBe(320);
+    expect(result.targetWidth).toBe(384);
   });
 
   test('uses a resize width hint as display width without requiring exact layout dimensions', () => {
@@ -56,8 +109,8 @@ describe('tosImageResizeUtils', () => {
 
     expect(result).toEqual({
       optimized: true,
-      targetWidth: 256,
-      uri: 'https://uni.onekey-asset.com/icons/token.png?x-tos-process=image%2Fresize%2Cw_256',
+      targetWidth: 384,
+      uri: 'https://uni.onekey-asset.com/icons/token.png?x-tos-process=image%2Fresize%2Cw_384',
     });
   });
 
@@ -127,7 +180,7 @@ describe('tosImageResizeUtils', () => {
     });
 
     expect(result.optimized).toBe(true);
-    expect(result.targetWidth).toBe(200);
+    expect(result.targetWidth).toBe(192);
   });
 
   test('requires exact whitelisted hosts', () => {
@@ -251,9 +304,9 @@ describe('tosImageResizeUtils', () => {
     ).toBe(96);
     expect(
       getTosImageResizeTargetWidth({ resizeWidth: 100, pixelRatio: 2 }),
-    ).toBe(256);
+    ).toBe(384);
     expect(TOS_IMAGE_RESIZE_WIDTH_BUCKETS).toEqual([
-      32, 40, 48, 64, 96, 128, 160, 200, 256, 320, 480, 640, 960, 1280,
+      96, 160, 192, 320, 384, 640, 768, 1280,
     ]);
   });
 });

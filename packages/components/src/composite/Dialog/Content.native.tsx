@@ -17,8 +17,9 @@ export function Content({
   estimatedContentHeight,
   testID,
   isAsync = false,
+  nativeSheetPresentation = false,
   ...others
-}: IDialogContentProps) {
+}: IDialogContentProps & { nativeSheetPresentation?: boolean }) {
   const isOptimization = isAsync || !!estimatedContentHeight;
   const [showLoading, changeLoadingVisibility] = useState(isOptimization);
   const [showChildren, changeChildrenVisibility] = useState(!isOptimization);
@@ -52,7 +53,7 @@ export function Content({
             pageYRef.current = pageY;
             checkMeasureY();
           } else {
-            if (platformEnv.isDev) {
+            if (platformEnv.isDev && !nativeSheetPresentation) {
               const diffTime = Date.now() - timeRef.current;
               if (diffTime > MAX_ANIMATION_DURATION) {
                 console.error(
@@ -67,7 +68,7 @@ export function Content({
         }, 5);
       },
     );
-  }, []);
+  }, [nativeSheetPresentation]);
 
   const handleChildrenLayout = useCallback((e: LayoutChangeEvent) => {
     const { height } = e.nativeEvent.layout;
@@ -77,12 +78,15 @@ export function Content({
   }, []);
 
   useEffect(() => {
-    if ((platformEnv.isDev || isOptimization) && children) {
+    if (
+      ((platformEnv.isDev && !nativeSheetPresentation) || isOptimization) &&
+      children
+    ) {
       setTimeout(() => {
         checkMeasureY();
       }, 10);
     }
-  }, [checkMeasureY, children, isOptimization]);
+  }, [checkMeasureY, children, isOptimization, nativeSheetPresentation]);
 
   const height = useMemo(() => {
     if (estimatedContentHeight) {
@@ -124,7 +128,7 @@ export function Content({
             {showLoading ? (
               <Stack
                 bg="$bg"
-                animation="medium"
+                transition="medium"
                 animateOnly={ANIMATE_ONLY_OPACITY}
                 position="absolute"
                 top={0}

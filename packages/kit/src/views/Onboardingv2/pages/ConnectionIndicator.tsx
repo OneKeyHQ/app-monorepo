@@ -96,7 +96,7 @@ function ConnectionIndicatorRoot({ children }: { children: ReactNode }) {
       borderRadius={10}
       borderCurve="continuous"
       bg="$bgSubdued"
-      animation="quick"
+      transition="quick"
       animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
       enterStyle={{
         opacity: 0,

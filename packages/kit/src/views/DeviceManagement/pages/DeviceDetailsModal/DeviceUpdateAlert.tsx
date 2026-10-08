@@ -6,16 +6,15 @@ import { useMedia } from '@onekeyhq/components';
 import {
   useCurrentWalletIdAtom,
   useDeviceConnectIdAtom,
-  useDeviceMetaStaticAtom,
   useDeviceTypeAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
-import { useFirmwareUpdatesDetectStatusPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 
 import { FirmwareUpdateReminderAlert } from '../../../FirmwareUpdate/components/HomeFirmwareUpdateReminder';
 import { useFirmwareUpdateActions } from '../../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
+import { useFirmwareUpdateDetectStatus } from '../../../FirmwareUpdate/hooks/useFirmwareUpdateDetectStatus';
 import { getTargetFirmwareTypeLabel } from '../../../FirmwareUpdate/utils';
 
 export function DeviceUpdateAlert({ type }: { type?: 'top' | 'bottom' }) {
@@ -25,10 +24,9 @@ export function DeviceUpdateAlert({ type }: { type?: 'top' | 'bottom' }) {
 
   const { gtMd } = useMedia();
 
-  const [detectStatus] = useFirmwareUpdatesDetectStatusPersistAtom();
   const [deviceConnectId] = useDeviceConnectIdAtom();
   const [deviceType] = useDeviceTypeAtom();
-  const [deviceMetaStatic] = useDeviceMetaStaticAtom();
+  const deviceDetectStatus = useFirmwareUpdateDetectStatus(deviceConnectId);
 
   const actions = useFirmwareUpdateActions();
   const openChangeLogModalCallback = useCallback(() => {
@@ -37,11 +35,10 @@ export function DeviceUpdateAlert({ type }: { type?: 'top' | 'bottom' }) {
 
   const detectResult = useMemo(() => {
     if (!deviceConnectId) return undefined;
-    const detectInfo = detectStatus?.[deviceConnectId];
-    const shouldUpdate =
-      detectInfo?.connectId === deviceConnectId && detectInfo?.hasUpgrade;
+    const detectInfo = deviceDetectStatus;
+    const shouldUpdate = detectInfo?.hasUpgrade;
     return { shouldUpdate, detectInfo };
-  }, [deviceConnectId, detectStatus]);
+  }, [deviceConnectId, deviceDetectStatus]);
 
   if (type === 'top' && gtMd) {
     return null;
@@ -56,8 +53,7 @@ export function DeviceUpdateAlert({ type }: { type?: 'top' | 'bottom' }) {
 
   let message = 'New firmware is available';
   if (isProtocolV2ProductType(deviceType)) {
-    const safeOSVersion =
-      detectResult.detectInfo?.toVersion ?? deviceMetaStatic.firmwareVersion;
+    const safeOSVersion = detectResult.detectInfo?.toVersion;
     message =
       safeOSVersion && safeOSVersion !== '0.0.0'
         ? intl.formatMessage(

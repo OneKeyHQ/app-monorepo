@@ -1,8 +1,6 @@
-import { showExportLogsDialog } from '@onekeyhq/kit/src/views/Setting/pages/Tab/exportLogs/showExportLogsDialog';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { addBreadcrumb } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getTimerCensus } from '@onekeyhq/shared/src/utils/timerRegistry';
 
@@ -10,9 +8,22 @@ import { ipcMessageKeys } from '../app/config';
 
 const LONG_TASK_MIN_MS = 200;
 const SENTRY_BREADCRUMB_RATE_LIMIT_PER_MIN = 10;
+const MAX_PENDING_SENTRY_BREADCRUMBS = 20;
 const INTERVAL_CENSUS_DUMP_MS = 60_000;
 
 let installed = false;
+
+type ILongTaskBreadcrumb = {
+  category: 'longtask';
+  level: 'warning';
+  message: string;
+  data: {
+    durationMs: number;
+    name: string;
+  };
+};
+
+const pendingSentryBreadcrumbs: ILongTaskBreadcrumb[] = [];
 
 export function installDesktopWatchdog(): void {
   if (installed) return;
@@ -52,19 +63,7 @@ function installLongTaskObserver() {
 
           if (breadcrumbsInWindow < SENTRY_BREADCRUMB_RATE_LIMIT_PER_MIN) {
             breadcrumbsInWindow += 1;
-            try {
-              addBreadcrumb({
-                category: 'longtask',
-                level: 'warning',
-                message: `LongTask ${Math.round(entry.duration)}ms (${entry.name})`,
-                data: {
-                  durationMs: Math.round(entry.duration),
-                  name: entry.name,
-                },
-              });
-            } catch {
-              // Sentry not initialized yet (e.g. dev build) — ignore.
-            }
+            queueLongTaskBreadcrumb(entry);
           }
         }
       }
@@ -72,6 +71,29 @@ function installLongTaskObserver() {
     observer.observe({ entryTypes: ['longtask'] });
   } catch (error) {
     defaultLogger.app.perf.longTaskInitFailed(error);
+  }
+}
+
+function queueLongTaskBreadcrumb(entry: PerformanceEntry) {
+  pendingSentryBreadcrumbs.push({
+    category: 'longtask',
+    level: 'warning',
+    message: `LongTask ${Math.round(entry.duration)}ms (${entry.name})`,
+    data: {
+      durationMs: Math.round(entry.duration),
+      name: entry.name,
+    },
+  });
+  if (pendingSentryBreadcrumbs.length > MAX_PENDING_SENTRY_BREADCRUMBS) {
+    pendingSentryBreadcrumbs.shift();
+  }
+}
+
+export function flushDesktopWatchdogBreadcrumbs(
+  addBreadcrumb: (breadcrumb: ILongTaskBreadcrumb) => void,
+): void {
+  for (const breadcrumb of pendingSentryBreadcrumbs.splice(0)) {
+    addBreadcrumb(breadcrumb);
   }
 }
 
@@ -93,6 +115,8 @@ function installExportLogsListener() {
         // appLocale.intl.formatMessage; otherwise the title would degrade
         // to the raw translation key.
         await appLocale.isReady;
+        const { showExportLogsDialog } =
+          await import('@onekeyhq/kit/src/views/Setting/pages/Tab/exportLogs/showExportLogsDialog');
         showExportLogsDialog({
           // eslint-disable-next-line onekey/no-app-locale-main-thread
           title: appLocale.intl.formatMessage({

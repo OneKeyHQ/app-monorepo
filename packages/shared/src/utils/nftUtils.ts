@@ -3,6 +3,7 @@ import { CoreSDKLoader } from '../hardware/instance';
 
 import bufferUtils from './bufferUtils';
 import deviceUtils from './deviceUtils';
+import { isProtocolV2ProductType } from './hardwareDeviceTypes';
 
 import type { IAccountNFT, INFTMetaData } from '../../types/nft';
 import type {
@@ -12,6 +13,64 @@ import type {
 
 export function isCollectNFTDeviceCompatible(deviceType?: IDeviceType) {
   return Boolean(deviceType && deviceUtils.isTouchDevice(deviceType));
+}
+
+export function isCollectibleNftImageMimeType(mimeType?: string) {
+  const normalizedMimeType = mimeType?.split(';')[0].trim().toLowerCase();
+  return ['image/jpeg', 'image/jpg', 'image/png', 'image/bmp'].includes(
+    normalizedMimeType ?? '',
+  );
+}
+
+export function isCollectibleNftMediaSupportedOnDevice(
+  deviceType: IDeviceType | undefined,
+  mimeType?: string,
+) {
+  if (!deviceType) return false;
+  return (
+    !isProtocolV2ProductType(deviceType) ||
+    isCollectibleNftImageMimeType(mimeType)
+  );
+}
+
+export type INFTMediaKind = 'image' | 'video';
+
+const VIDEO_MEDIA_EXTENSIONS = new Set([
+  'mp4',
+  'm4v',
+  'webm',
+  'mov',
+  'ogv',
+  'mkv',
+]);
+
+function getMediaUriExtension(uri: string) {
+  const path = uri.split(/[?#]/)[0];
+  const lastSegment = path.slice(path.lastIndexOf('/') + 1);
+  const dotIndex = lastSegment.lastIndexOf('.');
+  return dotIndex >= 0 ? lastSegment.slice(dotIndex + 1).toLowerCase() : '';
+}
+
+export function isLikelyVideoNFTMediaUri(uri: string) {
+  const trimmed = uri.trim();
+  if (/^data:video\//i.test(trimmed)) {
+    return true;
+  }
+  return VIDEO_MEDIA_EXTENSIONS.has(getMediaUriExtension(trimmed));
+}
+
+/**
+ * NFT metadata only carries a media uri, never a content type. Most NFT media
+ * are images, so probe the image renderer first unless the uri is explicitly
+ * a video; each renderer's onError advances to the next candidate.
+ */
+export function getNFTMediaProbeOrder(uri?: string): INFTMediaKind[] {
+  if (!uri?.trim()) {
+    return [];
+  }
+  return isLikelyVideoNFTMediaUri(uri)
+    ? ['video', 'image']
+    : ['image', 'video'];
 }
 
 function truncateUtf8(value: string, maxBytes: number): string {

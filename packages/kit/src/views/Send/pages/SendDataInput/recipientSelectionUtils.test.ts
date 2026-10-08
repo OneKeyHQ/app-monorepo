@@ -1,6 +1,7 @@
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 
 import {
+  getSendAddressRiskCheckButtonState,
   normalizeOptionalRecipientText,
   shouldSkipAmountInputForNFT,
   shouldSkipResolvedRecipientUpdate,
@@ -79,5 +80,49 @@ describe('recipientSelectionUtils', () => {
         nft: { collectionType: ENFTType.ERC721 },
       }),
     ).toBe(false);
+  });
+
+  const supportedPrimeState: Parameters<
+    typeof getSendAddressRiskCheckButtonState
+  >[0] = {
+    currentNetworkId: 'evm--1',
+    supportNetworkId: 'evm--1',
+    isSupported: true,
+    isPrimeUser: true,
+    resolvedAddress: '0xabc',
+  };
+
+  it.each<
+    [
+      string,
+      Partial<typeof supportedPrimeState>,
+      ReturnType<typeof getSendAddressRiskCheckButtonState>,
+    ]
+  >([
+    ['hides unsupported networks', { isSupported: false }, 'hidden'],
+    [
+      'loads while support belongs to the previous network',
+      { currentNetworkId: 'evm--137' },
+      'loading',
+    ],
+    [
+      'keeps the Prime upsell actionable without an address',
+      { isPrimeUser: false, resolvedAddress: undefined },
+      'enabled',
+    ],
+    [
+      'disables a Prime check without a resolved address',
+      { resolvedAddress: undefined },
+      'disabled',
+    ],
+    ['disables a pending Prime check', { isPending: true }, 'disabled'],
+    ['enables a resolved Prime check', {}, 'enabled'],
+  ])('%s', (_name, overrides, expected) => {
+    expect(
+      getSendAddressRiskCheckButtonState({
+        ...supportedPrimeState,
+        ...overrides,
+      }),
+    ).toBe(expected);
   });
 });

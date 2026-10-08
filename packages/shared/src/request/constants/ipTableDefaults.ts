@@ -34,6 +34,21 @@ export const IP_TABLE_ADAPTER_FAILOVER_TTL_MS = timerUtils.getTimeDurationMs({
 });
 
 /**
+ * SNI Bypass Threshold
+ * After this many consecutive real-request failures on the selected IP, the
+ * adapter stops handing requests to the SNI transport for a short window and
+ * sends them over the domain, exactly as if no IP were selected. The service
+ * needs IP_TABLE_SNI_FAILURE_THRESHOLD failures plus a probing round before it
+ * can change the selection; this keeps a dead IP from costing every request a
+ * wasted attempt (or a non-idempotent request its only attempt) until then.
+ */
+export const IP_TABLE_SNI_BYPASS_THRESHOLD = 3;
+
+export const IP_TABLE_SNI_BYPASS_TTL_MS = timerUtils.getTimeDurationMs({
+  minute: 1,
+});
+
+/**
  * Performance Improvement Threshold
  * Only use IP routing if it's at least this percentage faster than direct domain access
  * @default 0.3 (30% improvement required)
@@ -119,6 +134,12 @@ export const DEFAULT_IP_TABLE_CONFIG: IIpTableRemoteConfig = {
           'region': 'CN',
           'weight': 100,
         },
+        {
+          'ip': '43.168.19.96',
+          'provider': 'EdgeOne',
+          'region': 'CN',
+          'weight': 100,
+        },
       ],
     },
     'onekeytest.com': {
@@ -136,29 +157,23 @@ export const DEFAULT_IP_TABLE_CONFIG: IIpTableRemoteConfig = {
           'weight': 100,
         },
         {
-          'ip': '216.19.3.115',
-          'provider': 'volcengine',
+          'ip': '43.168.24.171',
+          'provider': 'EdgeOne',
           'region': 'CN',
           'weight': 100,
         },
         {
-          'ip': '216.19.2.116',
-          'provider': 'volcengine',
-          'region': 'CN',
-          'weight': 100,
-        },
-        {
-          'ip': '216.19.4.106',
-          'provider': 'volcengine',
+          'ip': '43.168.19.96',
+          'provider': 'EdgeOne',
           'region': 'CN',
           'weight': 100,
         },
       ],
     },
   },
-  'generated_at': '2025-11-06T08:30:54.066Z',
+  'generated_at': '2026-09-18T06:39:56.839Z',
   'signature':
-    '0x68ba1ea09f8775576df53c7d3182b9837e0e752df41d147cc716713aa4b6ded054d26904655d01a0f02c504ac2861ec3eeee3e075ee5f00a4c299bc165ec43331c',
+    '0xda46448865c48a3fd8ec9f9ae131c9ed22a433ed480232cf149883c621a9f53015acc0eb94cdf4c55542e88290c950a60602eff07e35b0f1e7cd4d06710f6ee51c',
   'ttl_sec': 86_400,
   'version': 1,
 };

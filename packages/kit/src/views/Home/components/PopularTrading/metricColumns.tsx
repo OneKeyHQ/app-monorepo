@@ -7,7 +7,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { ITableProps } from '@onekeyhq/components';
-import { CommunityRecognizedBadge } from '@onekeyhq/kit/src/views/Market/components/CommunityRecognizedBadge';
 import {
   StockSourceLogo,
   SubtitleBadge,
@@ -20,6 +19,12 @@ import type { IFavoriteTokenDisplay } from './types';
 import type { IntlShape } from 'react-intl';
 
 const POPULAR_TRADING_NAME_COLUMN_MIN_WIDTH = 260;
+// Table rows default to 60px. Address + copy tokens measure 68px, so one-line
+// stock / top-coin rows must use the same minHeight or switching tabs jumps.
+const HOME_MARKET_TABLE_ROW_MIN_HEIGHT = 68;
+// TableHeaderRow spreads rowProps before headerRowProps, so the data-row
+// minHeight would stretch the header unless it is cancelled here.
+const HOME_MARKET_TABLE_HEADER_MIN_HEIGHT = 0;
 const EMPTY_MARKET_VALUE = '--';
 
 type ITextSize = ComponentProps<typeof NumberSizeableText>['size'];
@@ -37,7 +42,11 @@ function renderPopularTradingTokenIdentity(
     <TokenIdentityItem
       tokenLogoURI={record.logoUrl}
       tokenLogoURIs={record.logoUrls}
-      networkId={record.perpsCoin ? undefined : record.chainId}
+      networkId={
+        record.perpsCoin || record.stockListingName || !record.chainId
+          ? undefined
+          : record.chainId
+      }
       symbol={record.symbol}
       address={record.contractAddress}
       showVolume={showVolume}
@@ -45,8 +54,10 @@ function renderPopularTradingTokenIdentity(
       showCopyButton={!showVolume}
       communityRecognized={record.communityRecognized}
       stock={record.stock}
+      stockListingName={record.stockListingName}
       maxLeverage={record.maxLeverage}
       perpsSubtitle={record.perpsSubtitle}
+      perpsDexLabel={record.perpsDexLabel}
     />
   );
 }
@@ -66,10 +77,6 @@ function renderPopularTradingStockBadges(record: IFavoriteTokenDisplay) {
   );
 }
 
-function renderPopularTradingCommunityBadge(record: IFavoriteTokenDisplay) {
-  return record.communityRecognized ? <CommunityRecognizedBadge /> : null;
-}
-
 // 24h change as colored text, shared by the mobile price cell and the desktop
 // 24H 涨跌 column (they only differ in font size).
 function renderPopularTradingChangeText(
@@ -86,7 +93,9 @@ function renderPopularTradingChangeText(
       color={changeColor}
       formatterOptions={{ showPlusMinusSigns }}
     >
-      {record.priceChange24h ?? '-'}
+      {Number.isFinite(record.priceChange24h)
+        ? record.priceChange24h
+        : EMPTY_MARKET_VALUE}
     </NumberSizeableText>
   );
 }
@@ -100,7 +109,7 @@ function renderPopularTradingPriceWithChange(record: IFavoriteTokenDisplay) {
         formatter="price"
         formatterOptions={{ currency: '$' }}
       >
-        {record.price ?? '-'}
+        {Number.isFinite(record.price) ? record.price : EMPTY_MARKET_VALUE}
       </NumberSizeableText>
       {renderPopularTradingChangeText(record, '$bodyMd')}
     </YStack>
@@ -122,7 +131,7 @@ function getPopularTradingDesktopMetricColumns(
           formatter="price"
           formatterOptions={{ currency: '$' }}
         >
-          {record.price ?? '-'}
+          {Number.isFinite(record.price) ? record.price : EMPTY_MARKET_VALUE}
         </NumberSizeableText>
       ),
     },
@@ -195,7 +204,8 @@ function getPopularTradingColumns({
 }
 
 export {
+  HOME_MARKET_TABLE_HEADER_MIN_HEIGHT,
+  HOME_MARKET_TABLE_ROW_MIN_HEIGHT,
   getPopularTradingColumns,
-  renderPopularTradingCommunityBadge,
   renderPopularTradingStockBadges,
 };

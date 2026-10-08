@@ -593,15 +593,22 @@ function createMainIndicator(
           storedIndicator,
         }),
         createLine({
-          color: TRADING_VIEW_NATIVE_THEME_COLORS.quinary,
+          color: TRADING_VIEW_NATIVE_THEME_COLORS.indicatorSecondary,
           id: 'upper',
           label: 'UB',
           storedIndicator,
         }),
         createLine({
-          color: TRADING_VIEW_NATIVE_THEME_COLORS.quaternary,
+          color: TRADING_VIEW_NATIVE_THEME_COLORS.indicatorSecondary,
           id: 'lower',
           label: 'LB',
+          storedIndicator,
+        }),
+        createLine({
+          color: TRADING_VIEW_NATIVE_THEME_COLORS.indicatorSecondary,
+          id: 'background',
+          label: 'Background',
+          showStyle: false,
           storedIndicator,
         }),
       ],
@@ -642,10 +649,12 @@ function createMainIndicator(
         id: 'sar',
         label: 'SAR',
         showCheckbox: false,
+        showColor: false,
         showStyle: false,
         storedIndicator,
       }),
     ],
+    showOpacity: true,
   };
 }
 

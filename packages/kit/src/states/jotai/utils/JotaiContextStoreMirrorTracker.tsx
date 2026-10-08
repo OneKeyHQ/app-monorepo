@@ -102,6 +102,7 @@ const SWAP_COLD_START_CACHE_KEYS = [
   CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockSelectedTokenAtom,
   CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapBalanceDisplayCacheAtom,
   CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockBalanceDisplayCacheAtom,
+  CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapProSelectTokenAtom,
   CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapProPositionsCacheAtom,
 ];
 

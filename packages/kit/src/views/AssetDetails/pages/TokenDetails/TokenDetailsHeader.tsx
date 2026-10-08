@@ -50,6 +50,10 @@ import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import {
+  getSwapConfiguredDefaultToToken,
+  isSwapEntryDisabledToken,
+} from '@onekeyhq/shared/src/utils/swapEntryUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { getSwapBridgeDefaultToToken } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
@@ -106,6 +110,16 @@ export async function pushSwapFromTokenDetails({
   walletType?: string;
   isSoftwareWalletOnlyUser: boolean;
 }) {
+  if (
+    isSwapEntryDisabledToken({
+      contractAddress: token.address,
+      isNative: token.isNative,
+      networkId,
+    })
+  ) {
+    return;
+  }
+
   // Swap has no end-to-end scaled-UI (rebase) support yet — the ISwapToken
   // pipeline treats every amount as raw. The entries are disabled for these
   // tokens; re-check here so no trigger path can seed Swap with a basis out
@@ -124,13 +138,13 @@ export async function pushSwapFromTokenDetails({
     logoURI: token.logoURI,
     networkLogoURI,
   };
-  let importToToken: ISwapToken | undefined;
+  let importToToken = getSwapConfiguredDefaultToToken(importFromToken);
   try {
     const { isSupportSwap, isSupportCrossChain } =
       await backgroundApiProxy.serviceSwap.checkSupportSwap({
         networkId,
       });
-    if (!isSupportSwap && isSupportCrossChain) {
+    if (!importToToken && !isSupportSwap && isSupportCrossChain) {
       importToToken = getSwapBridgeDefaultToToken(importFromToken);
     }
   } catch {
@@ -457,12 +471,23 @@ function TokenDetailsHeaderContent({
   const disableSwapAction = useMemo(
     () =>
       accountUtils.isUrlAccountFn({ accountId }) ||
+      isSwapEntryDisabledToken({
+        contractAddress: tokenInfo.address,
+        isNative: tokenInfo.isNative,
+        networkId,
+      }) ||
       // Scaled-UI tokens: Swap would display/build on the raw basis, out of
       // sync with the wallet display.
       tokenRebaseUtils.isScalingBalanceMultiplier(
         tokenDetailsBalanceMultiplier,
       ),
-    [accountId, tokenDetailsBalanceMultiplier],
+    [
+      accountId,
+      networkId,
+      tokenDetailsBalanceMultiplier,
+      tokenInfo.address,
+      tokenInfo.isNative,
+    ],
   );
 
   const handleSendPress = useCallback(() => {

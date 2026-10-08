@@ -80,8 +80,6 @@ export interface IDevSettings {
   showPerformanceMonitorV2?: boolean;
   // use local trading view URL for development
   useLocalTradingViewUrl?: boolean;
-  // use the deployed TradingView test URL for development
-  useTradingViewTestUrl?: boolean;
   // show the TradingViewNative event log panel
   showTradingViewNativeDebugPanel?: boolean;
   showPerpsRenderStats?: boolean;
@@ -131,6 +129,10 @@ export interface IDevSettings {
   networkThrottleEnabled?: boolean;
   // Force kaspa refTx fetch to fail, so QA can verify the blind-sign fallback.
   mockKaspaRefTxFetchFailed?: boolean;
+  // Override the remote visibility flag so the entries it gates keep rendering
+  // regardless of its value. Default off; only honored while dev mode is
+  // enabled.
+  ignoreReviewControl?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -148,6 +150,15 @@ export function getDevSettingsNetworkThrottleEnabled(
     return false;
   }
   return devSettings.settings?.networkThrottleEnabled ?? defaultEnabled;
+}
+
+export function getDevSettingsIgnoreReviewControl(
+  devSettings: IDevSettingsPersistAtom,
+) {
+  if (!devSettings.enabled) {
+    return false;
+  }
+  return Boolean(devSettings.settings?.ignoreReviewControl);
 }
 export const {
   target: devSettingsPersistAtom,
@@ -177,7 +188,6 @@ export const {
         selectedTab: ETabRoutes.Home,
       },
       useLocalTradingViewUrl: false,
-      useTradingViewTestUrl: false,
       showTradingViewNativeDebugPanel: false,
       mockTradingViewKLineEmptyEnabled: false,
       mockTradingViewKLineEmptyIntervals: ['1m'],
@@ -212,6 +222,7 @@ export type IFirmwareUpdateDevSettings = {
   showDeviceDebugLogs: boolean;
   showAutoCheckHardwareUpdatesToast: boolean;
   forceUpdateBtcOnlyUniversalFirmware: boolean;
+  hidePro2FirmwareDebugInfo: boolean;
   pro2ForceUpdateTargets: IPro2FirmwareUpdateTarget[];
   pro2ForceUpdateOnceTargets: IPro2FirmwareUpdateTarget[];
 };
@@ -240,6 +251,7 @@ export const {
     showDeviceDebugLogs: false,
     showAutoCheckHardwareUpdatesToast: false,
     forceUpdateBtcOnlyUniversalFirmware: false,
+    hidePro2FirmwareDebugInfo: false,
     pro2ForceUpdateTargets: [],
     pro2ForceUpdateOnceTargets: [],
   },

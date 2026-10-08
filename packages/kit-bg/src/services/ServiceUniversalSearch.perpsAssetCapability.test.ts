@@ -45,13 +45,14 @@ describe('ServiceUniversalSearch perps asset capability', () => {
               [{ name: 'BTC' }],
               [{ name: 'xyz:NVDA' }],
               [{ name: 'para:UNITREE' }],
+              [{ name: 'io:AAPL' }],
             ],
             updatedAt: Date.now(),
           }),
         },
       },
       serviceHyperliquid: {
-        refreshTradingMeta: jest.fn(),
+        refreshTradingMeta: jest.fn().mockResolvedValue(undefined),
       },
     };
     const Ctor = ServiceUniversalSearch as unknown as new (args: {
@@ -67,7 +68,7 @@ describe('ServiceUniversalSearch perps asset capability', () => {
       {
         params: {
           query: 'unitree',
-          assetTypeVersion: 2,
+          assetTypeVersion: 3,
         },
       },
     );
@@ -109,13 +110,14 @@ describe('ServiceUniversalSearch perps asset capability', () => {
                 { name: 'xyz:NVDA', maxLeverage: 10 },
               ],
               [{ name: 'para:UNITREE', maxLeverage: 5 }],
+              [{ name: 'io:AAPL', maxLeverage: 10 }],
             ],
             updatedAt: Date.now(),
           }),
         },
       },
       serviceHyperliquid: {
-        refreshTradingMeta: jest.fn(),
+        refreshTradingMeta: jest.fn().mockResolvedValue(undefined),
         // Shaped like the server config: every market also carries its pair
         // notations, which is what makes `usdc` match all of them upstream.
         getTokenSearchAliases: jest.fn().mockResolvedValue({

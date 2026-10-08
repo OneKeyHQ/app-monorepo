@@ -52,6 +52,10 @@ const settingPathConfig = [
     name: EModalSettingRoutes.SettingProtectModal,
     rewrite: '/protection',
   }),
+  route({
+    name: EModalSettingRoutes.SettingDAppConnectionList,
+    rewrite: '/dapp-connections',
+  }),
 ];
 
 const appUpdatePathConfig = [
@@ -100,6 +104,7 @@ const dAppConnectionPathConfig = Object.values(EDAppConnectionModal)
 
 const signatureConfirmPathConfig = [
   route({ name: EModalSignatureConfirmRoutes.TxConfirmFromDApp }),
+  route({ name: EModalSignatureConfirmRoutes.BatchTxConfirmFromDApp }),
   route({ name: EModalSignatureConfirmRoutes.MessageConfirmFromDApp }),
   route({ name: EModalSignatureConfirmRoutes.LnurlPayRequest }),
   route({ name: EModalSignatureConfirmRoutes.LnurlWithdraw }),

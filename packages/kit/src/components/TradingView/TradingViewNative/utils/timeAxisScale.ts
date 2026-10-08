@@ -47,12 +47,14 @@ export function getTradingViewNativeTimeAxisZoomScaleAfterDrag({
 export function isTradingViewNativeTimeAxisTouch({
   height,
   priceAxisWidth,
+  timeAxisHeight,
   width,
   x,
   y,
 }: {
   height: number;
   priceAxisWidth: number;
+  timeAxisHeight?: number;
   width: number;
   x: number;
   y: number;
@@ -74,7 +76,11 @@ export function isTradingViewNativeTimeAxisTouch({
   const chartWidth = getTradingViewNativeChartWidth(width, priceAxisWidth);
   const axisStartX = TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING;
   const axisEndX = axisStartX + chartWidth;
-  const axisStartY = Math.max(height - TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT, 0);
+  const resolvedTimeAxisHeight =
+    typeof timeAxisHeight === 'number' && Number.isFinite(timeAxisHeight)
+      ? Math.max(timeAxisHeight, 0)
+      : TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT;
+  const axisStartY = Math.max(height - resolvedTimeAxisHeight, 0);
 
   return (
     chartWidth > 0 &&

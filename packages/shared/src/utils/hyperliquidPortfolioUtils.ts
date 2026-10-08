@@ -248,6 +248,18 @@ export function getActivePerpPositionsUnrealizedPnl(
     .toFixed();
 }
 
+export function getIsolatedPerpPositionsMarginUsed(
+  positions: IPerpAssetPosition[] | undefined | null,
+): string {
+  return getActivePerpAssetPositions(positions)
+    .filter((position) => position.position?.leverage?.type === 'isolated')
+    .reduce(
+      (sum, position) => sum.plus(safeBN(position.position?.marginUsed)),
+      new BigNumber(0),
+    )
+    .toFixed();
+}
+
 function mergeNonUnifiedPerpsUsdcBalance({
   balances,
   perpsTotalRawUsd,

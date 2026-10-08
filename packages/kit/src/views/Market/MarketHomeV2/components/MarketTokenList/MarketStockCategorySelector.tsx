@@ -13,6 +13,7 @@ import { useNetworkFilterScroll } from '../../hooks/useNetworkFilterScroll';
 import {
   CategoryFilterItem,
   CategoryFilterItemWithLayout,
+  MARKET_MOBILE_CATEGORY_CHIP_PROPS,
 } from '../CategoryFilterItem';
 
 import type { IMarketCategoryItem } from '../../types';
@@ -49,15 +50,9 @@ function MarketStockCategorySelectorImpl({
     return (
       <XStack
         position="relative"
-        p="$1"
-        gap="$1"
-        mt="$3"
-        mb="$2"
         maxWidth="100%"
         overflow="hidden"
-        borderWidth={1}
-        borderColor="$neutral4"
-        borderRadius="$3"
+        {...containerStyle}
       >
         <XStack flex={1} position="relative">
           <ScrollView
@@ -109,6 +104,7 @@ function MarketStockCategorySelectorImpl({
           name={category.name}
           isSelected={category.id === selectedCategoryId}
           onPress={() => onSelectCategory(category.id)}
+          {...MARKET_MOBILE_CATEGORY_CHIP_PROPS}
         />
       ))}
     </ScrollableFilterBar>

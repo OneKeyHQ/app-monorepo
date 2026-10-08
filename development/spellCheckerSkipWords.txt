@@ -261,6 +261,7 @@ Cmp
 Codec
 codespace
 coinbase
+coinbasepay
 coingecko
 coinselect
 cointype
@@ -536,6 +537,7 @@ lru
 ltc
 Ltc
 lte
+macappstore
 macos
 mainnet
 malloc
@@ -615,6 +617,7 @@ Offchain
 offscreen
 Offscreen
 offscreens
+OLED
 okx
 Okx
 OKX
@@ -630,6 +633,7 @@ onekeyhq
 onekeyid
 onopen
 onramper
+onramps
 Ons
 onsuccess
 onupgradeneeded
@@ -651,6 +655,7 @@ passcode
 passpharse
 passphrase
 pathname
+paybis
 payin
 payout
 Pbkdf2
@@ -705,6 +710,7 @@ pwkey
 qrcode
 Queueing
 Rabby
+rasterizes
 rbf
 rbtc
 rdns
@@ -981,6 +987,7 @@ wmin
 wns
 wordlist
 wordlists
+wordmark
 worklet
 xaid
 xbuf
@@ -1570,6 +1577,9 @@ navigations
 # OpenType tabular-figures feature tag
 tnum
 
+# Circle Cross-Chain Transfer Protocol
+cctp
+
 EXCLUDEFROMCAPTURE
 
 # KeyTag punch/verify domain terms
@@ -1594,3 +1604,27 @@ otsu
 Otsu
 OTSU
 binarize
+
+# password manager brand referenced in Input suppression comment
+Dashlane
+robinhood
+usdg
+USDG
+cyeth
+# Market launchpad protocol names (logo file names from the token detail API)
+bankr
+clanker
+dyorfun
+dyorfunvthree
+fourmeme
+jupstudio
+launchlab
+longxyz
+meteoradbc
+moonshotmoney
+ooneexchange
+ponsvtwo
+poolsfun
+poolstrade
+pumpfun
+sunpump

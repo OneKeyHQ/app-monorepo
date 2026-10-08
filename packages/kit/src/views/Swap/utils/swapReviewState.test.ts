@@ -1,5 +1,6 @@
 import {
   ESwapStepStatus,
+  ESwapStepType,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 import type {
@@ -9,17 +10,171 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  type ISwapReviewState,
   NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
   buildCustomSlippageQuoteResultCtx,
   buildRebuiltSwapReviewQuoteResult,
   calculateMinToAmountBySlippage,
   hasInFlightSwapReviewWork,
   invalidateSwapReviewForSlippageChange,
+  markSubmittedSwapApprovalsCompleted,
   resolveSwapReviewNeedFetchGasAfterRebuild,
   shouldCloseSwapReviewOnFocusLoss,
+  shouldFallbackSwapStep,
   shouldShowNativeBtcLowSlippageWarning,
   shouldShowSwapReviewToAmountSkeleton,
+  updateSwapReviewStep,
 } from './swapReviewState';
+
+describe('shouldFallbackSwapStep', () => {
+  const noSignAndSendProgress = {
+    hasUncertainSend: false,
+    succeededCount: 0,
+    succeededApproveCount: 0,
+  };
+
+  it('keeps fallback available before signing starts', () => {
+    expect(
+      shouldFallbackSwapStep({
+        error: new Error('batch estimate failed'),
+        stepType: ESwapStepType.BATCH_APPROVE_SWAP,
+        signAndSendProgress: noSignAndSendProgress,
+      }),
+    ).toBe(true);
+  });
+
+  it.each([
+    ESwapStepType.APPROVE_TX,
+    ESwapStepType.BATCH_APPROVE_SWAP,
+    ESwapStepType.SEND_TX,
+    ESwapStepType.WRAP_TX,
+  ])(
+    'does not replay %s after signing or broadcast may have started',
+    (stepType) => {
+      expect(
+        shouldFallbackSwapStep({
+          error: new Error('timeout of 10000ms exceeded'),
+          stepType,
+          signAndSendProgress: {
+            hasUncertainSend: true,
+            succeededCount: 0,
+            succeededApproveCount: 0,
+          },
+        }),
+      ).toBe(false);
+    },
+  );
+
+  it('falls back to the remaining transaction after an approval succeeded', () => {
+    expect(
+      shouldFallbackSwapStep({
+        error: new Error('swap preparation failed'),
+        stepType: ESwapStepType.BATCH_APPROVE_SWAP,
+        signAndSendProgress: {
+          hasUncertainSend: false,
+          succeededCount: 1,
+          succeededApproveCount: 1,
+        },
+      }),
+    ).toBe(true);
+  });
+
+  it('does not fallback when the swap broadcast result is uncertain', () => {
+    expect(
+      shouldFallbackSwapStep({
+        error: new Error('swap send timed out'),
+        stepType: ESwapStepType.BATCH_APPROVE_SWAP,
+        signAndSendProgress: {
+          hasUncertainSend: true,
+          succeededCount: 1,
+          succeededApproveCount: 1,
+        },
+      }),
+    ).toBe(false);
+  });
+
+  it('does not fallback after the swap transaction was submitted', () => {
+    expect(
+      shouldFallbackSwapStep({
+        error: new Error('saving local history failed'),
+        stepType: ESwapStepType.BATCH_APPROVE_SWAP,
+        signAndSendProgress: {
+          hasUncertainSend: false,
+          succeededCount: 2,
+          succeededApproveCount: 1,
+        },
+      }),
+    ).toBe(false);
+  });
+
+  it.each([
+    { name: 'OneKeyAppError' },
+    { className: 'OneKeyHardwareError' },
+    { $isHardwareError: true },
+    { key: 'global.cancel' },
+    { code: 803 },
+    { code: -99_999 },
+    { message: 'User rejected the request' },
+    { name: 'buildSwapApi' },
+  ])('preserves a non-fallback error before signing: %o', (error) => {
+    expect(
+      shouldFallbackSwapStep({
+        error,
+        stepType: ESwapStepType.BATCH_APPROVE_SWAP,
+        signAndSendProgress: noSignAndSendProgress,
+      }),
+    ).toBe(false);
+  });
+
+  it('does not fallback a signature-message step', () => {
+    expect(
+      shouldFallbackSwapStep({
+        error: new Error('unknown error'),
+        stepType: ESwapStepType.SIGN_MESSAGE,
+        signAndSendProgress: noSignAndSendProgress,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('markSubmittedSwapApprovalsCompleted', () => {
+  it.each<[number, ESwapStepStatus[]]>([
+    [
+      1,
+      [ESwapStepStatus.SUCCESS, ESwapStepStatus.READY, ESwapStepStatus.READY],
+    ],
+    [
+      2,
+      [ESwapStepStatus.SUCCESS, ESwapStepStatus.SUCCESS, ESwapStepStatus.READY],
+    ],
+  ])(
+    'marks %i submitted approvals successful and leaves later transactions ready',
+    (succeededApproveCount, expectedStatuses) => {
+      const steps: ISwapStep[] = [
+        {
+          type: ESwapStepType.APPROVE_TX,
+          status: ESwapStepStatus.READY,
+          isResetApprove: true,
+        },
+        {
+          type: ESwapStepType.APPROVE_TX,
+          status: ESwapStepStatus.READY,
+        },
+        {
+          type: ESwapStepType.SEND_TX,
+          status: ESwapStepStatus.READY,
+        },
+      ];
+
+      expect(
+        markSubmittedSwapApprovalsCompleted({
+          steps,
+          succeededApproveCount,
+        }).map((step) => step.status),
+      ).toEqual(expectedStatuses);
+    },
+  );
+});
 
 describe('shouldShowNativeBtcLowSlippageWarning', () => {
   const nativeBtc = {
@@ -360,6 +515,93 @@ describe('shouldCloseSwapReviewOnFocusLoss', () => {
   });
 });
 
+describe('updateSwapReviewStep', () => {
+  const buildReviewState = (steps: ISwapStep[]) => ({
+    steps,
+    preSwapData: {},
+  });
+
+  it('updates only the addressed step', () => {
+    const reviewState = buildReviewState([
+      { type: ESwapStepType.APPROVE_TX, status: ESwapStepStatus.SUCCESS },
+      { type: ESwapStepType.SEND_TX, status: ESwapStepStatus.READY },
+    ]);
+
+    const nextState = updateSwapReviewStep({
+      reviewState,
+      stepIndex: 1,
+      partialStep: { status: ESwapStepStatus.LOADING },
+    });
+
+    expect(nextState).not.toBe(reviewState);
+    expect(nextState.steps[1].status).toBe(ESwapStepStatus.LOADING);
+    expect(nextState.steps[0]).toBe(reviewState.steps[0]);
+    expect(nextState.preSwapData).toBe(reviewState.preSwapData);
+  });
+
+  it('drops a write to a step that was already cleared away', () => {
+    const clearedReviewState = buildReviewState([]);
+
+    const nextState = updateSwapReviewStep({
+      reviewState: clearedReviewState,
+      stepIndex: 1,
+      partialStep: { status: ESwapStepStatus.PENDING },
+    });
+
+    expect(nextState).toBe(clearedReviewState);
+    expect(nextState.steps).toHaveLength(0);
+  });
+
+  it('never grows the steps array with a hole', () => {
+    // A sparse step array materializes its holes as `undefined` entries on the
+    // next spread or deep clone, which crashes every `step.status` reader.
+    const reviewState = buildReviewState([
+      { type: ESwapStepType.APPROVE_TX, status: ESwapStepStatus.SUCCESS },
+    ]);
+
+    const nextState = updateSwapReviewStep({
+      reviewState,
+      stepIndex: 1,
+      partialStep: { status: ESwapStepStatus.PENDING },
+    });
+
+    expect(nextState).toBe(reviewState);
+    expect(nextState.steps).toHaveLength(1);
+    expect(Object.keys(nextState.steps)).toEqual(['0']);
+    expect([...nextState.steps].some((step) => !step)).toBe(false);
+  });
+
+  it('survives the close-during-swap sequence that used to white-screen the page', () => {
+    // Closing the review while the swap step was still building cleared the
+    // steps, and the late step writes used to rebuild a sparse array that the
+    // broadcast success write turned into an `undefined` step.
+    const clearedReviewState: ISwapReviewState = {
+      steps: [],
+      preSwapData: {},
+    };
+
+    const afterLateStepWrite = updateSwapReviewStep({
+      reviewState: clearedReviewState,
+      stepIndex: 1,
+      partialStep: { stepSubTitle: 'building' },
+    });
+    const afterBroadcastWrite = updateSwapReviewStep({
+      reviewState: afterLateStepWrite,
+      stepIndex: afterLateStepWrite.steps.length - 1,
+      partialStep: { status: ESwapStepStatus.PENDING },
+    });
+
+    expect(afterBroadcastWrite).toBe(clearedReviewState);
+    expect([...afterBroadcastWrite.steps]).toEqual([]);
+    expect(
+      hasInFlightSwapReviewWork({
+        steps: [...afterBroadcastWrite.steps],
+        preSwapData: afterBroadcastWrite.preSwapData,
+      }),
+    ).toBe(false);
+  });
+});
+
 describe('hasInFlightSwapReviewWork', () => {
   const step = (status: ESwapStepStatus) => ({ status }) as ISwapStep;
 
@@ -367,6 +609,29 @@ describe('hasInFlightSwapReviewWork', () => {
     expect(
       hasInFlightSwapReviewWork({
         steps: [step(ESwapStepStatus.READY)],
+        preSwapData: {},
+      }),
+    ).toBe(false);
+  });
+
+  it('tolerates a missing step entry instead of crashing the render', () => {
+    const stepsWithMissingEntry = [
+      undefined,
+      step(ESwapStepStatus.PENDING),
+    ] as unknown as ISwapStep[];
+
+    expect(
+      hasInFlightSwapReviewWork({
+        steps: stepsWithMissingEntry,
+        preSwapData: {},
+      }),
+    ).toBe(true);
+    expect(
+      hasInFlightSwapReviewWork({
+        steps: [
+          undefined,
+          step(ESwapStepStatus.READY),
+        ] as unknown as ISwapStep[],
         preSwapData: {},
       }),
     ).toBe(false);

@@ -25,6 +25,17 @@ type ISparkLineChartProps = {
 
 const offsetY = 5;
 
+export const MARKET_SPARKLINE_COLORS = {
+  dark: {
+    positive: ['rgba(70, 254, 165, 1)', 'rgba(70, 254, 165, 0.2)'],
+    negative: ['rgba(255, 149, 146, 1)', 'rgba(255, 149, 146, 0.2)'],
+  },
+  light: {
+    positive: ['rgba(0, 113, 63, 1)', 'rgba(0, 113, 63, 0.2)'],
+    negative: ['rgba(196, 0, 6, 1)', 'rgba(196, 0, 6, 0.2)'],
+  },
+} as const;
+
 const SparkLineChart = ({
   data,
   lineColor,
@@ -48,6 +59,11 @@ const SparkLineChart = ({
         const maxValue = Math.max(...showData);
         const minValue = Math.min(...showData);
         const yStep = calculateHeight / (maxValue - minValue);
+        // A flat series would divide by zero, so pin it to the vertical middle.
+        const getY = (value: number) =>
+          maxValue === minValue
+            ? calculateHeight / 2
+            : calculateHeight - (value - minValue) * yStep;
         const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
         if (ctx) {
           ctx.scale(devicePixelRatio, devicePixelRatio);
@@ -58,18 +74,15 @@ const SparkLineChart = ({
           let xPoint = 0;
           let lastY = 0;
           showData.forEach((v, i) => {
-            const yPoint = calculateHeight - (v - minValue) * yStep;
+            const yPoint = getY(v);
             if (smooth && i >= 2 && i < showData.length - 1) {
               // draw bezier
               const pre1X = xPath * (i - 1);
-              const pre1Y =
-                calculateHeight - (showData[i - 1] - minValue) * yStep;
+              const pre1Y = getY(showData[i - 1]);
               const pre2X = xPath * (i - 2);
-              const pre2Y =
-                calculateHeight - (showData[i - 2] - minValue) * yStep;
+              const pre2Y = getY(showData[i - 2]);
               const nextX = xPath * (i + 1);
-              const nextY =
-                calculateHeight - (showData[i + 1] - minValue) * yStep;
+              const nextY = getY(showData[i + 1]);
               const cp1x = pre1X + (xPoint - pre2X) * scale;
               let cp1y = pre1Y + (yPoint - pre2Y) * scale;
               const cp2x = xPoint - (nextX - pre1X) * scale;

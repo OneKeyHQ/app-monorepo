@@ -123,20 +123,42 @@ function usePreCheckTokenBalance({
           nativeTokenTransferBN,
         );
 
-        const amountToUpdate = transferAmountBN.minus(
-          feeBN.times(network?.feeMeta.maxSendFeeUpRatio ?? 1),
+        // Fee totals can resolve to fractional base units (e.g. Cosmos
+        // gasPrice × gasLimit), so floor the preview to the network decimals
+        // to match the amount the vault actually broadcasts.
+        const amountToUpdate = new BigNumber(
+          chainValueUtils.floorNativeTokenAmount({
+            amount: transferAmountBN.minus(
+              feeBN.times(network?.feeMeta.maxSendFeeUpRatio ?? 1),
+            ),
+            network,
+          }),
         );
 
-        if (amountToUpdate.gte(0)) {
-          updateNativeTokenTransferAmountToUpdate({
-            isMaxSend: true,
-            amountToUpdate: vaultSettings?.shouldFixMaxSendAmount
-              ? chainValueUtils.fixNativeTokenMaxSendAmount({
-                  amount: amountToUpdate,
-                  network,
-                })
-              : amountToUpdate.toFixed(),
-          });
+        if (amountToUpdate.gt(0)) {
+          const adjustedAmount = vaultSettings?.shouldFixMaxSendAmount
+            ? chainValueUtils.fixNativeTokenMaxSendAmount({
+                amount: amountToUpdate,
+                network,
+              })
+            : amountToUpdate;
+
+          const flooredAmount = new BigNumber(adjustedAmount).decimalPlaces(
+            network.decimals,
+            BigNumber.ROUND_FLOOR,
+          );
+
+          if (flooredAmount.gt(0)) {
+            updateNativeTokenTransferAmountToUpdate({
+              isMaxSend: true,
+              amountToUpdate: flooredAmount.toFixed(),
+            });
+          } else {
+            updateNativeTokenTransferAmountToUpdate({
+              isMaxSend: false,
+              amountToUpdate: nativeTokenTransferBN.toFixed(),
+            });
+          }
         } else {
           updateNativeTokenTransferAmountToUpdate({
             isMaxSend: false,

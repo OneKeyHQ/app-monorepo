@@ -15,6 +15,7 @@ import type {
   IShareData,
   IShareImageGeneratorRef,
 } from './types';
+import type { ViewShotRef } from 'react-native-view-shot';
 
 interface IShareImageGeneratorProps {
   data: IShareData;
@@ -41,7 +42,7 @@ export const ShareImageGenerator = forwardRef<
     { data, config, referralQrCodeUrl, referralDisplayText, isReferralReady },
     ref,
   ) => {
-    const viewShotRef = useRef<ViewShot>(null);
+    const viewShotRef = useRef<ViewShotRef>(null);
     // Latest readiness reported by the renderer. Readiness can regress —
     // the referral QR joins the expectation only after an invite-code
     // round-trip — so generate() reads the current state instead of

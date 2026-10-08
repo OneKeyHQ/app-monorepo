@@ -1,8 +1,4 @@
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
-import {
-  ORPHAN_ELIGIBLE_ERROR_CODES,
-  HardwareErrorCode as ThirdPartyHwErrorCode,
-} from '@onekeyfe/hwk-adapter-core/errors';
+import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core/errors';
 import { chunk, isNil, range, uniqBy } from 'lodash';
 
 import { clearHdCredentialDecryptCache } from '@onekeyhq/core/src/secret';
@@ -18,12 +14,9 @@ import type {
   IOneKeyError,
   IOneKeyHardwareErrorPayload,
 } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   convertDeviceError,
   convertDeviceResponse,
-  isHardwareErrorByCode,
-  isHardwareInterruptErrorByCode,
 } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
@@ -66,6 +59,7 @@ import { buildDefaultAddAccountNetworks } from '../ServiceAccount/defaultNetwork
 import ServiceBase from '../ServiceBase';
 import { HardwareAllNetworkGetAddressResponse } from '../ServiceHardware/HardwareAllNetworkGetAddressResponse';
 
+import { shouldAbortAccountCreation } from './accountCreationErrors';
 import { normalizeAllNetworkInstallCancelErrors } from './thirdPartyAllNetworkErrors';
 import {
   type IThirdPartyAllNetworkAddressParams,
@@ -327,6 +321,14 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
   isCreateFlowCancelled = false;
 
+  // Monotonic id stamped at the synchronous entry of every batch-create flow
+  // request. cancelBatchCreateAccountsFlow() records the latest id, so a flow
+  // that was cancelled while queued behind the hardware operation lease can
+  // tell that cancel apart from stale flags left by an earlier flow.
+  latestFlowRequestId = 0;
+
+  cancelledFlowRequestId = 0;
+
   buildNetworkAccountCacheKey({
     walletId,
     networkId,
@@ -349,8 +351,12 @@ class ServiceBatchCreateAccount extends ServiceBase {
     this.networkAccountsCache = {};
   }
 
-  beforeStartFlow() {
-    this.isCreateFlowCancelled = false;
+  beforeStartFlow({ flowRequestId }: { flowRequestId: number }) {
+    // Runs once the flow owns the hardware lease. A cancel issued after this
+    // request entered (while it waited for the lease) must survive the reset;
+    // a cancel from before it entered belongs to an earlier flow and is
+    // dropped, matching the pre-lease reset semantics.
+    this.isCreateFlowCancelled = this.cancelledFlowRequestId >= flowRequestId;
     this.progressInfo = undefined;
   }
 
@@ -382,8 +388,10 @@ class ServiceBatchCreateAccount extends ServiceBase {
           params: IBatchBuildAccountsNormalFlowParams;
         },
   ) {
-    this.beforeStartFlow();
-
+    // Assigned before any await so a cancel that lands while this request
+    // waits for the hardware lease is attributed to it.
+    this.latestFlowRequestId += 1;
+    const flowRequestId = this.latestFlowRequestId;
     let indexes: number[] = [];
     let excludedIndexes: {
       [index: number]: true;
@@ -422,8 +430,21 @@ class ServiceBatchCreateAccount extends ServiceBase {
     let hwAllNetworkPrepareAccountsResponse:
       | IHwAllNetworkPrepareAccountsResponse
       | undefined;
+    let flowStarted = false;
     const flow = this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async (oneKeyOperationLease) => {
+        // Reset the singleton flow state only once this flow owns the
+        // hardware operation lease. Resetting before acquiring it would wipe
+        // the progressInfo of a flow that is still running (OK-62413).
+        flowStarted = true;
+        this.beforeStartFlow({ flowRequestId });
+        // Fail fast before touching the device when the user cancelled the
+        // ProcessingDialog while this request was queued for the lease.
+        this.checkIfCancelled({
+          saveToDb,
+          showUIProgress: payload.params.showUIProgress,
+        });
+
         let customNetworks: IBatchCreateCustomNetworkParams[] = [
           {
             networkId: payload.params.networkId,
@@ -536,6 +557,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
       {
         deviceParams,
         hideCheckingDeviceLoading: payload.params.hideCheckingDeviceLoading,
+        debugMethodName: 'batchCreateAccount.startBatchCreateAccountsFlow',
         onFinally: () => {
           hwAllNetworkPrepareAccountsResponse?.destroy();
           this.clearHdCredentialCacheScope({ hdCredentialCacheScopeId });
@@ -545,10 +567,11 @@ class ServiceBatchCreateAccount extends ServiceBase {
     return flow.catch((error) => {
       // Emit only for a UI-progress flow's prepare-phase escape; background
       // (no-UI) flows must not broadcast to the shared progress event.
+      // A flow rejected before its callback ran never touched the singleton
+      // state, so stale flags from an earlier flow must not suppress it.
       if (
-        !this.isCreateFlowCancelled &&
-        !this.progressInfo &&
-        payload.params.showUIProgress
+        payload.params.showUIProgress &&
+        (!flowStarted || (!this.isCreateFlowCancelled && !this.progressInfo))
       ) {
         appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
           totalCount: 0,
@@ -642,6 +665,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
           deviceParams,
           oneKeyOperationLease,
           skipDeviceCancel: true,
+          debugMethodName: 'batchCreateAccount.previewBatchBuildAccounts',
           onFinally: () => {
             hwAllNetworkPrepareAccountsResponse?.destroy();
             this.clearHdCredentialCacheScope({ hdCredentialCacheScopeId });
@@ -1290,6 +1314,8 @@ class ServiceBatchCreateAccount extends ServiceBase {
             skipCloseHardwareUiStateDialog ?? false,
           hideCheckingDeviceLoading,
           oneKeyOperationLease: params.oneKeyOperationLease,
+          debugMethodName:
+            'batchCreateAccount.getHwAllNetworkPrepareAccountsResponse',
         },
       );
     }
@@ -1313,8 +1339,9 @@ class ServiceBatchCreateAccount extends ServiceBase {
       error: IOneKeyError;
     }[];
   }> {
-    this.beforeStartFlow();
-
+    // See startBatchCreateAccountsFlow: stamp the request before any await.
+    this.latestFlowRequestId += 1;
+    const flowRequestId = this.latestFlowRequestId;
     const deviceParams =
       await this.backgroundApi.serviceAccount.getWalletDeviceParams({
         walletId: params.walletId,
@@ -1330,6 +1357,14 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async (oneKeyOperationLease) => {
+        // See startBatchCreateAccountsFlow: reset only while owning the lease
+        // and honour a cancel received while queued for it.
+        this.beforeStartFlow({ flowRequestId });
+        this.checkIfCancelled({
+          saveToDb: params.saveToDb,
+          showUIProgress: params.showUIProgress,
+        });
+
         const networksParams: IBatchBuildAccountsNetworkParams[] =
           await this.buildBatchCreateAccountsNetworksParams({
             walletId: params.walletId,
@@ -1456,6 +1491,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
               walletId: params.walletId,
               saveToDb,
               autoHandleExitError: params.autoHandleExitError,
+              hwAllNetworkPrepareAccountsResponse,
             });
             const plainError = errorUtils.toPlainErrorObject(error);
             failedAccounts.push({
@@ -1484,6 +1520,8 @@ class ServiceBatchCreateAccount extends ServiceBase {
         deviceParams,
         skipDeviceCancel: params.skipDeviceCancel,
         hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
+        debugMethodName:
+          'batchCreateAccount.startBatchCreateAccountsFlowForAllNetwork',
         onFinally: () => {
           hwAllNetworkPrepareAccountsResponse?.destroy();
           this.clearHdCredentialCacheScope({ hdCredentialCacheScopeId });
@@ -1500,12 +1538,14 @@ class ServiceBatchCreateAccount extends ServiceBase {
     saveToDb,
     autoHandleExitError,
     showUIProgress,
+    hwAllNetworkPrepareAccountsResponse,
   }: {
     walletId: string;
     error: any;
     saveToDb: boolean | undefined;
     autoHandleExitError?: boolean;
     showUIProgress?: boolean;
+    hwAllNetworkPrepareAccountsResponse?: IHwAllNetworkPrepareAccountsResponse;
   }) {
     errorToastUtils.showLocalSecretEnvelopeErrorDialogIfNeeded(error);
 
@@ -1534,42 +1574,9 @@ class ServiceBatchCreateAccount extends ServiceBase {
       throw error;
     }
 
-    // **** hardware terminated errors ****
-    // Some high priority errors need to interrupt the process
-    if (accountUtils.isHwWallet({ walletId })) {
-      if (isHardwareInterruptErrorByCode({ error })) {
-        throw error;
-      }
-      // Unplug device?
-      if (
-        isHardwareErrorByCode({
-          error,
-          code: [
-            // OneKey HW (legacy enum)
-            HardwareErrorCode.DeviceNotFound,
-            HardwareErrorCode.PinCancelled,
-            HardwareErrorCode.ActionCancelled,
-            HardwareErrorCode.CallQueueActionCancelled,
-            HardwareErrorCode.DeviceInterruptedFromOutside,
-            HardwareErrorCode.DeviceInterruptedFromUser,
-            // Third-party HW batch-abort codes from SDK.
-            ...ORPHAN_ELIGIBLE_ERROR_CODES,
-          ],
-        })
-      ) {
-        throw error;
-      }
-    }
-    // **** password cancel
     if (
-      errorUtils.isErrorByClassName({
-        error,
-        className: [
-          EOneKeyErrorClassNames.PasswordPromptDialogCancel,
-          EOneKeyErrorClassNames.SecureQRCodeDialogCancel,
-          EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel,
-        ],
-      })
+      shouldAbortAccountCreation(error) &&
+      !hwAllNetworkPrepareAccountsResponse?.isCompletedAppFailure(error)
     ) {
       throw error;
     }
@@ -1613,6 +1620,9 @@ class ServiceBatchCreateAccount extends ServiceBase {
   @backgroundMethod()
   async cancelBatchCreateAccountsFlow() {
     this.isCreateFlowCancelled = true;
+    // Also cancel every request that already entered but is still waiting
+    // for the hardware lease (see beforeStartFlow).
+    this.cancelledFlowRequestId = this.latestFlowRequestId;
     this.progressInfo = undefined;
   }
 

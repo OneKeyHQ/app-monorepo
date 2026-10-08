@@ -17,6 +17,7 @@ import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { appRestart } from '@onekeyhq/shared/src/modules3rdParty/appRestart';
 import { EAppRestartMode } from '@onekeyhq/shared/src/modules3rdParty/appRestart/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { flushAvailabilitySnapshotOnHidden } from '@onekeyhq/shared/src/request/availabilityAggregator';
 import {
   ERootRoutes,
   ETabHomeRoutes,
@@ -28,9 +29,11 @@ import appStorage, {
 import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
 import type { IOpenUrlRouteInfo } from '@onekeyhq/shared/src/utils/extUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
+import { storeExtensionTokenPreview } from '@onekeyhq/shared/src/utils/marketTokenPreviewRoute';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
 import localDb from '../dbs/local/localDb';
 import {
@@ -62,6 +65,12 @@ class ServiceApp extends ServiceBase {
   @backgroundMethod()
   async getEndpointInfo({ name }: { name: EServiceEndpointEnum }) {
     return this.getClientEndpointInfo(name);
+  }
+
+  /** Relayed by the main runtime: the native bg runtime gets no AppState events. */
+  @backgroundMethod()
+  async flushAvailabilitySnapshotOnHidden() {
+    flushAvailabilitySnapshotOnHidden();
   }
 
   @backgroundMethod()
@@ -97,6 +106,8 @@ class ServiceApp extends ServiceBase {
   }
 
   private async resetData() {
+    let appStorageClearError: unknown;
+    let nativeJotaiResetError: unknown;
     // const v4migrationPersistData = await v4migrationPersistAtom.get();
     // const v4migrationAutoStartDisabled =
     //   v4migrationPersistData?.v4migrationAutoStartDisabled;
@@ -105,8 +116,11 @@ class ServiceApp extends ServiceBase {
     // clean app storage
     try {
       await appStorage.clear();
-    } catch {
+    } catch (error) {
       console.error('appStorage.clear() error');
+      if (platformEnv.isNative) {
+        appStorageClearError = error;
+      }
     }
     defaultLogger.setting.page.clearDataStep('appStorage-clear');
 
@@ -118,7 +132,7 @@ class ServiceApp extends ServiceBase {
     }
 
     try {
-      appStorage.syncStorage.clearAll();
+      await appStorage.syncStorage.clearAll();
     } catch {
       console.error('syncStorage.clear() error');
     }
@@ -127,42 +141,29 @@ class ServiceApp extends ServiceBase {
     // Clean jotai MMKV per-key storage (separate instance from syncStorage)
     if (platformEnv.isNative) {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { default: jotaiMMKV } =
-          require('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance');
-        jotaiMMKV.clearAll();
-      } catch {
-        console.error('jotaiMMKV.clearAll() error');
+        const { clearNativeJotaiStorageForReset } =
+          await import('../states/jotai/jotaiStorage');
+        await clearNativeJotaiStorageForReset();
+      } catch (error) {
+        nativeJotaiResetError = error;
+        console.error('jotaiMMKV.clearAll() error', error);
       }
       defaultLogger.setting.page.clearDataStep('jotaiMMKV-clearAll');
     }
 
-    // Clean cold-start cache MMKV (contextAtom snapshot + SWR cache).
-    // On native this is a synchronous MMKV wipe; on web/desktop the facade's
-    // clearAll() schedules an async IDB clear, so we additionally await the
-    // dedicated helper to ensure the IDB store is fully wiped before reload.
+    // Clear every UI snapshot namespace: the context-atom snapshot, the SWR
+    // records and the caches a feature declares. On web one database covers
+    // them all; on native each declared namespace is its own file.
+
     try {
-      if (platformEnv.isWeb || platformEnv.isDesktop) {
-        // On web/desktop, coldStartCacheStorage.clearAll() only fires a
-        // fire-and-forget resetColdStartCache(); calling it alongside the
-        // awaitable helper spawns two concurrent resets that share a single
-        // isClearing latch, so the first one's finally releases the lock while
-        // the second is still mid-wipe — letting external writes resurrect
-        // data before db.clear lands. Use only the awaitable path here.
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { awaitColdStartCacheCleared } =
-          require('@onekeyhq/shared/src/storage/instance/webColdStartStorage') as typeof import('@onekeyhq/shared/src/storage/instance/webColdStartStorage');
-        await awaitColdStartCacheCleared();
-      } else {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { coldStartCacheStorage } =
-          require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
-        coldStartCacheStorage.clearAll();
-      }
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { clearAllSnapshotCaches } =
+        require('@onekeyhq/shared/src/storage/SnapshotCache') as typeof import('@onekeyhq/shared/src/storage/SnapshotCache');
+      await clearAllSnapshotCaches();
     } catch {
-      console.error('coldStartCacheStorage.clearAll() error');
+      console.error('clearAllSnapshotCaches() error');
     }
-    defaultLogger.setting.page.clearDataStep('coldStartCache-clearAll');
+    defaultLogger.setting.page.clearDataStep('uiSnapshotCaches-clearAll');
 
     await timerUtils.wait(100);
 
@@ -317,6 +318,16 @@ class ServiceApp extends ServiceBase {
         }
       }
     }
+    if (appStorageClearError) {
+      return Promise.reject(
+        appStorageClearError instanceof Error
+          ? appStorageClearError
+          : new OneKeyLocalError('AppStorage clear failed'),
+      );
+    }
+    if (nativeJotaiResetError) {
+      throw new OneKeyLocalError('Jotai storage reset failed');
+    }
   }
 
   @backgroundMethod()
@@ -350,8 +361,9 @@ class ServiceApp extends ServiceBase {
       defaultLogger.setting.page.clearDataStep('resetData-start');
       await this.resetData();
       defaultLogger.setting.page.clearDataStep('resetData-end');
-    } catch (e) {
-      console.error('resetData error', e);
+    } catch (error) {
+      console.error('resetData error', error);
+      throw error;
     } finally {
       resetUtils.endResetting();
       defaultLogger.setting.page.clearDataStep('endResetting');
@@ -403,26 +415,146 @@ class ServiceApp extends ServiceBase {
   async openExtensionMarketTokenDetail(params: {
     tokenAddress: string;
     network: string;
+    marketTokenId?: string;
+    marketVariantId?: string;
+    skipMarketDataFetch?: boolean;
+    disableTrade?: boolean;
     isNative?: boolean;
     from?: EEnterWay;
     showFavoriteButton?: boolean;
+    marketTokenCategory?: string;
+    marketTokenSymbol?: string;
+    resolveMarketAsset?: boolean;
+    tokenDetailPreview?: IMarketTokenDetailPreview;
   }) {
-    const { tokenAddress, network, isNative, from, showFavoriteButton } =
-      params;
+    const {
+      tokenAddress,
+      network,
+      marketTokenId,
+      marketVariantId,
+      skipMarketDataFetch,
+      disableTrade,
+      isNative,
+      from,
+      showFavoriteButton,
+      marketTokenCategory,
+      marketTokenSymbol,
+      resolveMarketAsset,
+      tokenDetailPreview,
+    } = params;
     const routeParams: IOpenUrlRouteInfo['params'] = {};
 
-    if (typeof isNative === 'boolean') {
-      routeParams.isNative = isNative;
+    if (
+      typeof tokenAddress !== 'string' ||
+      typeof network !== 'string' ||
+      !network ||
+      (!tokenAddress && isNative === false)
+    ) {
+      throw new OneKeyLocalError('Invalid market token identity');
     }
+    const routeIsNative = isNative ?? tokenAddress.length === 0;
+    routeParams.isNative = routeIsNative;
     if (from) {
       routeParams.from = from;
     }
     if (typeof showFavoriteButton === 'boolean') {
       routeParams.showFavoriteButton = showFavoriteButton;
     }
+    if (marketTokenCategory) {
+      routeParams.marketTokenCategory = marketTokenCategory;
+    }
+    if (marketTokenSymbol) {
+      routeParams.marketTokenSymbol = marketTokenSymbol;
+    }
+    if (resolveMarketAsset) {
+      routeParams.resolveMarketAsset = true;
+    }
+    if (marketTokenId) {
+      routeParams.marketTokenId = marketTokenId;
+    }
+    if (marketVariantId) {
+      routeParams.marketVariantId = marketVariantId;
+    }
+    if (skipMarketDataFetch) {
+      routeParams.skipMarketDataFetch = true;
+    }
+    if (typeof disableTrade === 'boolean') {
+      routeParams.disableTrade = disableTrade;
+    }
+    if (tokenDetailPreview) {
+      const previewId = await storeExtensionTokenPreview(
+        { network, tokenAddress, isNative: routeIsNative },
+        tokenDetailPreview,
+      );
+      if (previewId) routeParams.marketTokenPreviewId = previewId;
+    }
+    if (skipMarketDataFetch && !routeParams.marketTokenPreviewId) {
+      throw new OneKeyLocalError('Unable to transfer market token preview');
+    }
 
     return extUtils.openExpandTab({
-      path: `/market/token/${network}/${tokenAddress}`,
+      path: `/market/token/${encodeURIComponent(network)}/${encodeURIComponent(tokenAddress)}`,
+      params: routeParams,
+    });
+  }
+
+  @backgroundMethod()
+  async openExtensionMarketStockDetail(params: {
+    stockId: string;
+    stockPreviewLogoUrl?: string;
+    stockPreviewName?: string;
+    stockPreviewSymbol?: string;
+    tokenAddress?: string;
+    network?: string;
+    isNative?: boolean;
+    from?: EEnterWay;
+    disableTrade?: boolean;
+    showFavoriteButton?: boolean;
+  }) {
+    const {
+      stockId,
+      stockPreviewLogoUrl,
+      stockPreviewName,
+      stockPreviewSymbol,
+      tokenAddress,
+      network,
+      isNative,
+      from,
+      disableTrade,
+      showFavoriteButton,
+    } = params;
+    const routeParams: IOpenUrlRouteInfo['params'] = {};
+
+    if (stockPreviewSymbol) {
+      routeParams.stockPreviewSymbol = stockPreviewSymbol;
+    }
+    if (stockPreviewName) {
+      routeParams.stockPreviewName = stockPreviewName;
+    }
+    if (stockPreviewLogoUrl) {
+      routeParams.stockPreviewLogoUrl = stockPreviewLogoUrl;
+    }
+    if (tokenAddress) {
+      routeParams.tokenAddress = tokenAddress;
+    }
+    if (network) {
+      routeParams.network = network;
+    }
+    if (typeof isNative === 'boolean') {
+      routeParams.isNative = isNative;
+    }
+    if (from) {
+      routeParams.from = from;
+    }
+    if (typeof disableTrade === 'boolean') {
+      routeParams.disableTrade = disableTrade;
+    }
+    if (typeof showFavoriteButton === 'boolean') {
+      routeParams.showFavoriteButton = showFavoriteButton;
+    }
+
+    return extUtils.openExpandTab({
+      path: `/market/stock/${encodeURIComponent(stockId)}`,
       params: routeParams,
     });
   }
@@ -540,17 +672,9 @@ class ServiceApp extends ServiceBase {
           await globalStatesStorage.clear();
         }
       } else {
-        // Native: Filter and remove keys with g_states_v5 prefix from appStorage
-        const GLOBAL_STATES_KEY_PREFIX = 'g_states_v5';
-        const allKeys = await appStorage.getAllKeys();
-        const globalStatesKeys = allKeys.filter((key) =>
-          key.startsWith(GLOBAL_STATES_KEY_PREFIX),
-        );
-
-        if (globalStatesKeys.length > 0) {
-          await appStorage.multiRemove(globalStatesKeys);
-        }
-        clearedKeysCount = globalStatesKeys.length;
+        const { clearNativeJotaiStorageForReset } =
+          await import('../states/jotai/jotaiStorage');
+        clearedKeysCount = await clearNativeJotaiStorageForReset();
       }
 
       defaultLogger.setting.page.clearDataStep('globalStatus-clear');
@@ -674,13 +798,32 @@ class ServiceApp extends ServiceBase {
           allKeys = await globalStatesStorage.getAllKeys();
         }
       } else {
-        // Native: Filter keys with g_states_v5 prefix from appStorage
-        const GLOBAL_STATES_KEY_PREFIX = 'g_states_v5';
-        const allAppStorageKeys = await appStorage.getAllKeys();
-        allKeys = allAppStorageKeys.filter((key) =>
-          key.startsWith(GLOBAL_STATES_KEY_PREFIX),
-        );
-        storage = appStorage;
+        const { getNativeJotaiStorageEntries } =
+          await import('../states/jotai/jotaiStorage');
+        const entries = await getNativeJotaiStorageEntries();
+        if (!entries || entries.size === 0) {
+          return {
+            isEmpty: true,
+            key: null,
+            value: null,
+            totalKeys: 0,
+          };
+        }
+        const firstEntry = entries.entries().next();
+        if (firstEntry.done) {
+          return {
+            isEmpty: true,
+            key: null,
+            value: null,
+            totalKeys: 0,
+          };
+        }
+        return {
+          isEmpty: false,
+          key: firstEntry.value[0],
+          value: firstEntry.value[1],
+          totalKeys: entries.size,
+        };
       }
 
       if (allKeys.length === 0 || !storage) {

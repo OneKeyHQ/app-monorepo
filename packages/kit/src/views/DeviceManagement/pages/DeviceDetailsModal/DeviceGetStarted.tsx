@@ -57,7 +57,7 @@ function DeviceBanner() {
           >
             <Stack height={180}>
               <Image
-                source={{ uri: item.image }}
+                source={{ uri: item.image ?? '' }}
                 style={{ width: '100%', height: '100%' }}
                 resizeWidth={320}
                 resizeMode="cover"

@@ -3,7 +3,6 @@ import {
   memo,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -15,6 +14,7 @@ import type { ITabContainerRef } from '@onekeyhq/components';
 import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
 import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketBannerList } from '../components/MarketBanner';
@@ -23,23 +23,26 @@ import { MarketListColumnHeader } from '../components/MarketListColumnHeader';
 import { useSyncedMarketPerpsCategory } from '../components/MarketPerpsList/hooks/useSyncedMarketPerpsCategory';
 import { MarketPerpsCategorySelector } from '../components/MarketPerpsList/MarketPerpsCategorySelector';
 import { MobileMarketPerpsFlatList } from '../components/MarketPerpsList/MobileMarketPerpsFlatList';
+import { MobileMarketStockFlatList } from '../components/MarketStockList/MobileMarketStockFlatList';
 import { useIsWatchlistTokenCacheReady } from '../components/MarketTokenList/hooks/useMarketWatchlistTokenList';
 import { MarketStockCategorySelector } from '../components/MarketTokenList/MarketStockCategorySelector';
 import {
+  DEFAULT_WATCHLIST_FILTER,
   type IWatchlistFilterType,
   MarketWatchlistCategorySelector,
 } from '../components/MarketTokenList/MarketWatchlistCategorySelector';
 import { MobileMarketTokenFlatList } from '../components/MarketTokenList/MobileMarketTokenFlatList';
 import { MobileMarketWatchlistFlatList } from '../components/MarketTokenList/MobileMarketWatchlistFlatList';
 import { useOpenMarketWatchlistEditDialog } from '../components/MarketTokenList/useOpenMarketWatchlistEditDialog';
-import { isMarketStockCategoryById } from '../utils';
+import { MobileMarketTopCoinsFlatList } from '../components/MarketTopCoinsList/MobileMarketTopCoinsFlatList';
+import {
+  isMarketStockCategoryById,
+  shouldShowSpotNetworkSelector,
+} from '../utils';
 
 import { useMarketTabsLogic, useSyncedMarketTab } from './hooks';
-import {
-  getDefaultMarketStockCategoryId,
-  getMarketStockCategoryRequestParam,
-} from './marketStockCategoryUtils';
 import { getMarketWebSecondaryHeaderHeight } from './mobileLayoutUtils';
+import { useMarketSubCategorySelection } from './useMarketSubCategorySelection';
 
 import type {
   ILiquidityFilter,
@@ -72,6 +75,9 @@ interface ITabBarDynamicContext {
   stockCategories: IMarketCategoryItem[];
   selectedStockCategoryId: string;
   onSelectStockCategory: (categoryId: string) => void;
+  topCoinsCategories: IMarketCategoryItem[];
+  selectedTopCoinsCategoryId: string;
+  onSelectTopCoinsCategory: (categoryId: string) => void;
   perpsCategories: { tabId: string; name: string }[];
   selectedCategoryId: string;
   onSelectCategory: (categoryId: string) => void;
@@ -80,6 +86,7 @@ interface ITabBarDynamicContext {
 
 const TabBarDynamicContext = createContext<ITabBarDynamicContext | null>(null);
 const EMPTY_MARKET_STOCK_CATEGORIES: IMarketCategoryItem[] = [];
+const EMPTY_MARKET_TOP_COINS_CATEGORIES: IMarketCategoryItem[] = [];
 
 interface IMarketHomeTabBarProps extends TabBarProps<string> {
   watchlistTabName: string;
@@ -108,7 +115,12 @@ function MarketHomeTabBar({
       ctx.stockDataCategoryMap[currentSpotCategoryId]),
   );
   const showSpotFilterBar = Boolean(
-    currentSpotCategoryId && !currentSpotCategoryHasStockData,
+    currentSpotCategoryId &&
+    currentSpotCategoryId !== MARKET_TOP_COINS_CATEGORY_ID &&
+    !currentSpotCategoryHasStockData,
+  );
+  const showSpotNetworkSelector = shouldShowSpotNetworkSelector(
+    currentSpotCategoryId,
   );
   const showStockCategorySelector = Boolean(
     currentSpotCategoryId &&
@@ -118,11 +130,18 @@ function MarketHomeTabBar({
     ) &&
     ctx.stockCategories.length > 0,
   );
+  const showTopCoinsCategorySelector = Boolean(
+    currentSpotCategoryId === MARKET_TOP_COINS_CATEGORY_ID &&
+    ctx.topCoinsCategories.length > 0,
+  );
   const secondaryHeaderHeight = getMarketWebSecondaryHeaderHeight({
     isWatchlistEmpty: ctx.isWatchlistEmpty,
     showWatchlistSubHeader,
     showSpotSubHeader,
-    hasSpotSecondaryControls: showSpotFilterBar || showStockCategorySelector,
+    hasSpotSecondaryControls:
+      showSpotFilterBar ||
+      showStockCategorySelector ||
+      showTopCoinsCategorySelector,
   });
 
   // Watchlist sub-header: conditional rendering (hidden when empty).
@@ -165,7 +184,7 @@ function MarketHomeTabBar({
                 containerStyle={{
                   px: '$5',
                   pt: '$3',
-                  pb: '$1',
+                  pb: '$3',
                 }}
               />
             </XStack>
@@ -196,6 +215,7 @@ function MarketHomeTabBar({
             <MarketFilterBarSmall
               selectedNetworkId={ctx.filterBarProps.selectedNetworkId}
               timeRange={ctx.filterBarProps.timeRange}
+              showNetworkSelector={showSpotNetworkSelector}
               onNetworkIdChange={ctx.filterBarProps.onNetworkIdChange}
               onTimeRangeChange={ctx.filterBarProps.onTimeRangeChange}
             />
@@ -208,7 +228,19 @@ function MarketHomeTabBar({
               containerStyle={{
                 px: '$5',
                 pt: '$3',
-                pb: '$1',
+                pb: '$3',
+              }}
+            />
+          ) : null}
+          {showTopCoinsCategorySelector ? (
+            <MarketStockCategorySelector
+              categories={ctx.topCoinsCategories}
+              selectedCategoryId={ctx.selectedTopCoinsCategoryId}
+              onSelectCategory={ctx.onSelectTopCoinsCategory}
+              containerStyle={{
+                px: '$5',
+                pt: '$3',
+                pb: '$3',
               }}
             />
           ) : null}
@@ -236,7 +268,7 @@ function MarketHomeTabBar({
             containerStyle={{
               px: '$5',
               pt: '$3',
-              pb: '$1',
+              pb: '$3',
             }}
           />
           <MarketListColumnHeader />
@@ -258,6 +290,7 @@ function MobileLayoutComponent({
   const isTokenCacheReady = useIsWatchlistTokenCacheReady();
   const {
     watchlistTabName,
+    showWatchlistTab,
     spotTabItems,
     perpsTabName,
     showPerpsTab,
@@ -279,31 +312,17 @@ function MobileLayoutComponent({
     !watchlistState.data || watchlistState.data.length === 0;
 
   // Watchlist category filter state
-  const [watchlistFilter, setWatchlistFilter] =
-    useState<IWatchlistFilterType>('all');
+  const [watchlistFilter, setWatchlistFilter] = useState<IWatchlistFilterType>(
+    DEFAULT_WATCHLIST_FILTER,
+  );
   const stockCategories =
     filterBarProps.stockCategories ?? EMPTY_MARKET_STOCK_CATEGORIES;
-  const [selectedStockCategoryId, setSelectedStockCategoryId] = useState(
-    getDefaultMarketStockCategoryId(stockCategories),
-  );
-  useEffect(() => {
-    if (stockCategories.length === 0) {
-      if (selectedStockCategoryId !== 'all') {
-        setSelectedStockCategoryId('all');
-      }
-      return;
-    }
-
-    if (
-      !stockCategories.some(
-        (category) => category.id === selectedStockCategoryId,
-      )
-    ) {
-      setSelectedStockCategoryId(
-        getDefaultMarketStockCategoryId(stockCategories),
-      );
-    }
-  }, [selectedStockCategoryId, stockCategories]);
+  const [selectedStockCategoryId, setSelectedStockCategoryId] =
+    useMarketSubCategorySelection(stockCategories);
+  const topCoinsCategories =
+    filterBarProps.topCoinsCategories ?? EMPTY_MARKET_TOP_COINS_CATEGORIES;
+  const [selectedTopCoinsCategoryId, setSelectedTopCoinsCategoryId] =
+    useMarketSubCategorySelection(topCoinsCategories);
   const [stockDataCategoryMap, setStockDataCategoryMap] = useState<
     Record<string, boolean>
   >({});
@@ -408,6 +427,9 @@ function MobileLayoutComponent({
       stockCategories,
       selectedStockCategoryId,
       onSelectStockCategory: setSelectedStockCategoryId,
+      topCoinsCategories,
+      selectedTopCoinsCategoryId,
+      onSelectTopCoinsCategory: setSelectedTopCoinsCategoryId,
       perpsCategories,
       selectedCategoryId,
       onSelectCategory: handleSelectCategory,
@@ -423,6 +445,10 @@ function MobileLayoutComponent({
       stockDataCategoryMap,
       stockCategories,
       selectedStockCategoryId,
+      setSelectedStockCategoryId,
+      topCoinsCategories,
+      selectedTopCoinsCategoryId,
+      setSelectedTopCoinsCategoryId,
       perpsCategories,
       selectedCategoryId,
       handleSelectCategory,
@@ -431,31 +457,53 @@ function MobileLayoutComponent({
   );
 
   const tabElements = [
-    <Tabs.Tab key={watchlistTabName} name={watchlistTabName}>
-      <MobileMarketWatchlistFlatList
-        selectedFilter={watchlistFilter}
-        listContainerProps={listContainerProps}
-      />
-    </Tabs.Tab>,
-    ...spotTabItems.map((item) => (
-      <Tabs.Tab key={item.categoryId} name={item.tabName}>
-        <MobileMarketTokenFlatList
-          networkId={selectedNetworkId}
-          selectedCategory={item.categoryId}
-          stockCategory={
-            isMarketStockCategoryById(
-              filterBarProps.categories,
-              item.categoryId,
-            )
-              ? getMarketStockCategoryRequestParam(selectedStockCategoryId)
-              : undefined
-          }
-          timeRange={filterBarProps.timeRange}
-          listContainerProps={listContainerProps}
-          onStockDataChange={handleStockDataChange}
-        />
-      </Tabs.Tab>
-    )),
+    ...(showWatchlistTab
+      ? [
+          <Tabs.Tab key={watchlistTabName} name={watchlistTabName}>
+            <MobileMarketWatchlistFlatList
+              selectedFilter={watchlistFilter}
+              listContainerProps={listContainerProps}
+            />
+          </Tabs.Tab>,
+        ]
+      : []),
+    ...spotTabItems.map((item) => {
+      const isStockCategory = isMarketStockCategoryById(
+        filterBarProps.categories,
+        item.categoryId,
+      );
+      let tabContent;
+      if (item.categoryId === MARKET_TOP_COINS_CATEGORY_ID) {
+        tabContent = (
+          <MobileMarketTopCoinsFlatList
+            selectedCategoryId={selectedTopCoinsCategoryId}
+            listContainerProps={listContainerProps}
+          />
+        );
+      } else if (isStockCategory) {
+        tabContent = (
+          <MobileMarketStockFlatList
+            selectedCategoryId={selectedStockCategoryId}
+            listContainerProps={listContainerProps}
+          />
+        );
+      } else {
+        tabContent = (
+          <MobileMarketTokenFlatList
+            networkId={selectedNetworkId}
+            selectedCategory={item.categoryId}
+            timeRange={filterBarProps.timeRange}
+            listContainerProps={listContainerProps}
+            onStockDataChange={handleStockDataChange}
+          />
+        );
+      }
+      return (
+        <Tabs.Tab key={item.categoryId} name={item.tabName}>
+          {tabContent}
+        </Tabs.Tab>
+      );
+    }),
     ...(showPerpsTab
       ? [
           <Tabs.Tab key={perpsTabName} name={perpsTabName}>

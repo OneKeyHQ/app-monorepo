@@ -18,4 +18,15 @@ export class PageScene extends BaseScene {
       channel: tabValue,
     };
   }
+
+  // The user pressed "Connect" on a scanned device (funnel step between
+  // entering the connect page and walletAdded).
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public connectFoundDevice(deviceType: string, channel: string) {
+    return {
+      deviceType,
+      channel,
+    };
+  }
 }

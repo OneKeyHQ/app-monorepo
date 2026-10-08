@@ -1,3 +1,5 @@
+import { act, renderHook } from '@testing-library/react-native';
+
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import {
   ESwapTabSwitchType,
@@ -7,16 +9,30 @@ import {
 import {
   isSwapProTokenBalanceRequestCurrent,
   isSwapProTradeStateOwner,
+  useSwapProTokenSearch,
 } from './useSwapPro';
 import {
-  handleSwapQuoteTabVisibilityChange,
   isSwapQuoteTabEffectivelyVisible,
   shouldKeepSwapQuoteAliveOnFocusLoss,
 } from './useSwapQuote';
 
-jest.mock('../../../background/instance/backgroundApiProxy', () => ({
-  __esModule: true,
-  default: {},
+jest.mock('../../../background/instance/backgroundApiProxy', () => {
+  const universalSearchOfV2MarketToken = jest.fn();
+  (
+    globalThis as unknown as {
+      __swapProSearchMock: typeof universalSearchOfV2MarketToken;
+    }
+  ).__swapProSearchMock = universalSearchOfV2MarketToken;
+  return {
+    __esModule: true,
+    default: {
+      serviceUniversalSearch: { universalSearchOfV2MarketToken },
+    },
+  };
+});
+
+jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
+  useLocaleVariant: () => 'en-US',
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
@@ -77,6 +93,12 @@ const token = {
   contractAddress: '0xtoken1',
 } as ISwapToken;
 
+const swapProSearchMock = (
+  globalThis as unknown as {
+    __swapProSearchMock: jest.Mock;
+  }
+).__swapProSearchMock;
+
 describe('Swap quote lifecycle visibility', () => {
   it('keeps modal quoting alive while the provider picker is active', () => {
     expect(
@@ -120,54 +142,6 @@ describe('Swap quote lifecycle visibility', () => {
       ).toBe(expected);
     },
   );
-
-  it('pauses and unsubscribes while the focused tab is hidden by an overlay', () => {
-    const setQuoteVisible = jest.fn();
-    const subscribeQuoteEvents = jest.fn();
-    const refreshPreservedInputQuote = jest.fn();
-    const pauseQuote = jest.fn();
-    const unsubscribeQuoteEvents = jest.fn();
-
-    handleSwapQuoteTabVisibilityChange({
-      isFocus: true,
-      isHiddenModel: true,
-      setQuoteVisible,
-      subscribeQuoteEvents,
-      refreshPreservedInputQuote,
-      pauseQuote,
-      unsubscribeQuoteEvents,
-    });
-
-    expect(setQuoteVisible).toHaveBeenCalledWith(false);
-    expect(pauseQuote).toHaveBeenCalledTimes(1);
-    expect(unsubscribeQuoteEvents).toHaveBeenCalledTimes(1);
-    expect(subscribeQuoteEvents).not.toHaveBeenCalled();
-    expect(refreshPreservedInputQuote).not.toHaveBeenCalled();
-  });
-
-  it('subscribes and consumes the refresh marker once the tab is visible', () => {
-    const setQuoteVisible = jest.fn();
-    const subscribeQuoteEvents = jest.fn();
-    const refreshPreservedInputQuote = jest.fn();
-    const pauseQuote = jest.fn();
-    const unsubscribeQuoteEvents = jest.fn();
-
-    handleSwapQuoteTabVisibilityChange({
-      isFocus: true,
-      isHiddenModel: false,
-      setQuoteVisible,
-      subscribeQuoteEvents,
-      refreshPreservedInputQuote,
-      pauseQuote,
-      unsubscribeQuoteEvents,
-    });
-
-    expect(setQuoteVisible).toHaveBeenCalledWith(true);
-    expect(subscribeQuoteEvents).toHaveBeenCalledTimes(1);
-    expect(refreshPreservedInputQuote).toHaveBeenCalledTimes(1);
-    expect(pauseQuote).not.toHaveBeenCalled();
-    expect(unsubscribeQuoteEvents).not.toHaveBeenCalled();
-  });
 });
 
 describe('Swap Pro trade state ownership', () => {
@@ -247,5 +221,32 @@ describe('Swap Pro token balance request identity', () => {
         ...currentIdentity,
       }),
     ).toBe(false);
+  });
+});
+
+describe('Swap Pro token search', () => {
+  it('settles an uncached failed search instead of keeping loading active', async () => {
+    let rejectSearch: ((reason?: unknown) => void) | undefined;
+    swapProSearchMock.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectSearch = reject;
+        }),
+    );
+    const consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    const { result } = renderHook(() => useSwapProTokenSearch('btc'));
+
+    expect(result.current.searchLoading).toBe(true);
+    await act(async () => {
+      rejectSearch?.(new Error('search failed'));
+      await Promise.resolve();
+    });
+
+    expect(result.current.searchLoading).toBe(false);
+    expect(result.current.searchTokenList).toEqual([]);
+    consoleErrorSpy.mockRestore();
   });
 });

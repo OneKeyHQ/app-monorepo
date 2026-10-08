@@ -701,6 +701,7 @@ class ServiceFreshAddress extends ServiceBase {
     return { total, items };
   }
 
+  @backgroundMethod()
   async getAccountNameFromFreshAddress({
     address,
     networkId,

@@ -38,6 +38,16 @@ export enum EMarketPresetPriorityFeeType {
   CUSTOM = 'custom',
 }
 
+export function resolveMarketPresetEnabled({
+  enabled,
+  stockDetailDesktopLayout,
+}: {
+  enabled: boolean;
+  stockDetailDesktopLayout?: boolean;
+}) {
+  return enabled && !stockDetailDesktopLayout;
+}
+
 export function isMarketPresetAutoSlippage(
   presetKey: EMarketPresetKey,
 ): boolean {

@@ -83,7 +83,7 @@ const injectedWebEmbedLicenseDest =
 
 copyFile(
   injectedNativeSource,
-  './packages/kit/src/components/WebView/injectedNative.text-js',
+  './packages/kit/src/components/WebView/injectedNative.js.txt',
 );
 if (copyFileIfExists(injectedWebEmbedSource, injectedWebEmbedDest)) {
   copyFileIfExists(injectedWebEmbedLicenseSource, injectedWebEmbedLicenseDest);

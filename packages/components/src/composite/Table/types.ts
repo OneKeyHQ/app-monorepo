@@ -15,6 +15,11 @@ export interface ITableColumn<T> {
   // the default external sort icon rendered by Column.
   renderTitle?: (sortIcon: ReactNode) => ReactNode;
   dataIndex: string;
+  // Hover copy for a string title. The header owns its own press, so the
+  // tooltip has to be built here rather than nested inside `title`: a trigger
+  // rendered in there is its own pressable and swallows the click, costing a
+  // sortable column its sort while the pointer is over the label.
+  titleTooltip?: string;
   titleProps?: ISizableTextProps;
   columnProps?: Omit<IStackProps, 'onPress' | 'onLongPress'>;
   columnWidth?: IStackProps['width'];
@@ -32,6 +37,8 @@ export interface ITableProps<T> {
   showHeader?: boolean;
   showBackToTopButton?: boolean;
   showSkeleton?: boolean;
+  // Mount offscreen web rows when they approach the viewport.
+  deferOffscreenRows?: boolean;
   skeletonCount?: number;
   dataSource: T[];
   estimatedDataLength?: number;

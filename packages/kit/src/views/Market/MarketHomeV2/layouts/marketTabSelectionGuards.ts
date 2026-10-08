@@ -84,3 +84,11 @@ export function shouldIgnoreStalePagerTabChange({
     !isRecentPagerDrag,
   );
 }
+
+export function shouldHandleMarketPagerPageSelected(
+  isPagerUserDragging: boolean,
+): boolean {
+  // Programmatic page changes already update the local/atom target directly.
+  // Accepting their native callback would reopen stale and iOS unfreeze races.
+  return isPagerUserDragging;
+}

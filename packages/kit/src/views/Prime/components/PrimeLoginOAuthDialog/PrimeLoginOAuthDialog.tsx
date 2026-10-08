@@ -690,7 +690,7 @@ function PrimeLoginOAuthDialog(props: {
                         id: ETranslations.more_sign_in_methods__action,
                       })}
                     </SizableText>
-                    <Stack animation="quick" rotate={open ? '180deg' : '0deg'}>
+                    <Stack transition="quick" rotate={open ? '180deg' : '0deg'}>
                       <Icon
                         name="ChevronDownSmallOutline"
                         size="$4"

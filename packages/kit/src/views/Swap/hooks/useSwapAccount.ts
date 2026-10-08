@@ -46,6 +46,7 @@ import {
 import {
   getSwapAddressAccountSelectorNum,
   resolveSwapTargetNetworkAccount,
+  resolveSwapTargetNetworkAccountOnce,
   shouldResetSwapRecipientOnAccountNetworkSync,
   shouldShowSwapRecipientAddressInfo,
   shouldUseSwapCustomRecipientAddress,
@@ -382,7 +383,12 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
   useEffect(() => {
     let cancelled = false;
 
-    if (!shouldResolveTargetNetworkAccount || !tokenNetworkId) {
+    // The key is only defined while a target account has to be resolved.
+    if (
+      !shouldResolveTargetNetworkAccount ||
+      !tokenNetworkId ||
+      !targetNetworkAccountResolveKey
+    ) {
       setAccountForTargetNetwork(undefined);
       setDeriveTypeForTargetNetwork(undefined);
       setResolvedTargetNetworkAccountKey(undefined);
@@ -394,20 +400,24 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
     void (async () => {
       try {
         const { account: targetAccount, deriveType: targetDeriveType } =
-          await resolveSwapTargetNetworkAccount({
-            getDeriveType: () =>
-              backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-                networkId: tokenNetworkId,
-              }),
-            getNetworkAccount: (deriveType) =>
-              backgroundApiProxy.serviceAccount.getNetworkAccount({
-                deriveType,
-                indexedAccountId: activeAccount.indexedAccount?.id,
-                accountId: activeAccount.indexedAccount?.id
-                  ? undefined
-                  : activeAccount.account?.id,
-                dbAccount: activeAccount.dbAccount,
-                networkId: tokenNetworkId,
+          await resolveSwapTargetNetworkAccountOnce({
+            key: targetNetworkAccountResolveKey,
+            resolve: () =>
+              resolveSwapTargetNetworkAccount({
+                getDeriveType: () =>
+                  backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+                    { networkId: tokenNetworkId },
+                  ),
+                getNetworkAccount: (deriveType) =>
+                  backgroundApiProxy.serviceAccount.getNetworkAccount({
+                    deriveType,
+                    indexedAccountId: activeAccount.indexedAccount?.id,
+                    accountId: activeAccount.indexedAccount?.id
+                      ? undefined
+                      : activeAccount.account?.id,
+                    dbAccount: activeAccount.dbAccount,
+                    networkId: tokenNetworkId,
+                  }),
               }),
           });
         if (!cancelled) {

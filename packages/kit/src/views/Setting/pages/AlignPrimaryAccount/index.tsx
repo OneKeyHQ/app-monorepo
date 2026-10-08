@@ -2,22 +2,22 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Page, Radio, Stack, startViewTransition } from '@onekeyhq/components';
+import { Page, Radio, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
+
+import { SETTINGS_PAGE_BODY_INSET_X } from '../Tab/settingsSurface';
 
 function AlignPrimaryAccount() {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
 
   const setAlignPrimaryAccountMode = useCallback(async (mode: string) => {
-    startViewTransition(() => {
-      void backgroundApiProxy.serviceSetting.setAlignPrimaryAccountMode(
-        mode as EAlignPrimaryAccountMode,
-      );
-    });
+    void backgroundApiProxy.serviceSetting.setAlignPrimaryAccountMode(
+      mode as EAlignPrimaryAccountMode,
+    );
   }, []);
 
   return (
@@ -27,7 +27,7 @@ function AlignPrimaryAccount() {
           id: ETranslations.settings_account_sync_modal_title,
         })}
       />
-      <Page.Body>
+      <Page.Body px={SETTINGS_PAGE_BODY_INSET_X}>
         <Stack px="$5">
           <Radio
             testID="setting-set-align-primary-account-mode-radio"

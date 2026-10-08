@@ -22,12 +22,16 @@ export function BulkCopyAddressesButton({
   networkId,
   isPrimeActive,
   isPrimeUser,
+  entryPoint,
+  nativeSheet = false,
 }: {
   wallet: IDBWallet | undefined;
   networkId: string;
   isPrimeActive: boolean;
   isPrimeUser: boolean;
   onClose: () => void;
+  entryPoint: 'walletEdit' | 'accountSelectorAddMenu';
+  nativeSheet?: boolean;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -61,7 +65,7 @@ export function BulkCopyAddressesButton({
         if (!isPrimeUser) {
           defaultLogger.prime.subscription.primeEntryClick({
             featureName: EPrimeFeatures.BulkCopyAddresses,
-            entryPoint: 'walletEdit',
+            entryPoint,
             isPrimeActive,
           });
           navigation?.pushModal(EModalRoutes.PrimeModal, {
@@ -91,6 +95,7 @@ export function BulkCopyAddressesButton({
               walletId: wallet?.id,
             });
           Dialog.show({
+            nativeSheet,
             icon: 'InfoCircleOutline',
             title: intl.formatMessage({
               id: ETranslations.global_bulk_copy_addresses_no_wallet_title,

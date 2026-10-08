@@ -54,6 +54,39 @@ describe('indicatorSettingsAdapter', () => {
     expect(
       value.indicators.find((indicator) => indicator.id === 'VOL')?.groupLabel,
     ).toBeUndefined();
+    expect(
+      value.indicators.find((indicator) => indicator.id === 'SAR'),
+    ).toMatchObject({
+      opacityColors: {
+        downColor: TRADING_VIEW_NATIVE_THEME_COLORS.negative,
+        upColor: TRADING_VIEW_NATIVE_THEME_COLORS.positive,
+      },
+      showOpacity: true,
+    });
+    expect(
+      value.indicators
+        .find((indicator) => indicator.id === 'SAR')
+        ?.lines.find((line) => line.id === 'sar')?.showColor,
+    ).toBe(false);
+    expect(
+      value.indicators
+        .find((indicator) => indicator.id === 'BOLL')
+        ?.lines.find((line) => line.id === 'background'),
+    ).toMatchObject({
+      color: TRADING_VIEW_NATIVE_THEME_COLORS.indicatorSecondary,
+      enabled: true,
+      showStyle: false,
+    });
+    expect(
+      value.indicators
+        .find((indicator) => indicator.id === 'BOLL')
+        ?.lines.filter((line) => ['middle', 'upper', 'lower'].includes(line.id))
+        .map((line) => line.color),
+    ).toEqual([
+      TRADING_VIEW_NATIVE_THEME_COLORS.indicatorSecondary,
+      TRADING_VIEW_NATIVE_THEME_COLORS.indicatorSecondary,
+      TRADING_VIEW_NATIVE_THEME_COLORS.indicatorSecondary,
+    ]);
   });
 
   it('uses the native catalog and defaults for Reset', () => {

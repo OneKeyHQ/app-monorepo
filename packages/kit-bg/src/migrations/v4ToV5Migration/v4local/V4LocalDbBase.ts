@@ -142,7 +142,6 @@ export abstract class V4LocalDbBase extends V4LocalDbBaseContainer {
     newPassword: string;
     isCreateMode?: boolean;
   }): Promise<void> {
-    const db = await this.readyDb;
     if (oldPassword) {
       await this.verifyPassword(oldPassword);
     }
@@ -151,7 +150,7 @@ export abstract class V4LocalDbBase extends V4LocalDbBaseContainer {
         'changePassword ERROR: oldPassword is required',
       );
     }
-    await db.withTransaction(async (tx) => {
+    await this.withProtectedTransaction(async (tx) => {
       if (oldPassword) {
         // update all credentials
         await this.txUpdateAllCredentialsPassword({
@@ -181,18 +180,17 @@ export abstract class V4LocalDbBase extends V4LocalDbBaseContainer {
     newPassword: string;
     tx: IV4LocalDBTransaction;
   }) {
-    const db = await this.readyDb;
     if (!oldPassword || !newPassword) {
       throw new OneKeyLocalError('password is required');
     }
 
     // update all credentials
-    const { recordPairs: credentialsRecordPairs } = await db.txGetAllRecords({
+    const { recordPairs: credentialsRecordPairs } = await this.txGetAllRecords({
       tx,
       name: EV4LocalDBStoreNames.Credential,
     });
 
-    await db.txUpdateRecords({
+    await this.txUpdateRecords({
       tx,
       recordPairs: credentialsRecordPairs,
       name: EV4LocalDBStoreNames.Credential,
@@ -292,8 +290,7 @@ export abstract class V4LocalDbBase extends V4LocalDbBaseContainer {
     tx: IV4LocalDBTransaction;
     updater: IV4LocalDBRecordUpdater<EV4LocalDBStoreNames.Context>;
   }) {
-    const db = await this.readyDb;
-    await db.txUpdateRecords({
+    await this.txUpdateRecords({
       name: EV4LocalDBStoreNames.Context,
       ids: [DB_MAIN_CONTEXT_ID],
       tx,

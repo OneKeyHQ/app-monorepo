@@ -45,7 +45,13 @@ export class IndexedDBTransactionPromised<
 
       const error = () => {
         const err = tx.error || indexedDBPromisedUtils.newAbortError();
-        storageChecker.handleDiskFullError(err);
+        // Commit-time abort is the usual shape of a quota failure on a named
+        // Storage Bucket, so this is the path that most needs to record WHICH
+        // bucket failed — recovery has to prove that same owner can commit
+        // again, not the default origin.
+        storageChecker.handleDiskFullError(err, {
+          indexedDBFactory: db.nativeDBFactory,
+        });
         reject(err);
         unListen?.();
       };

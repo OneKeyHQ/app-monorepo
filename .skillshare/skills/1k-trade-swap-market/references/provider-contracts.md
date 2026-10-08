@@ -21,6 +21,28 @@ A data-only channel must not create transaction or history state. A response
 shape that does not fit an existing variant should get a typed adapter instead
 of conditionals spread through UI components.
 
+## Embedded Market Contract
+
+An embedded Market surface may adapt the entry pair and Market-only display
+slots, but the shared Swap channel remains the owner of quote polling, refresh,
+review/build, fallback navigation, and execution. Document each extension's
+source and lifecycle; do not pass a second loading/disabled model that can
+suppress a valid Swap fallback. Keep the detail shell separate from the trade
+surface without copying ticket state.
+
+Stock/order identity includes the selected asset/variant and network. Scope
+pay-token candidate lists, manual preferences, balances, and selector contents
+to that identity; reject late results from a previous identity. For native pay
+tokens, subtract the network's gas reserve from the raw balance once, then
+apply percentage presets to the resulting available balance. Do not subtract
+the full reserve again from a partial slice.
+
+Readiness may be staged (asset metadata, market availability, pay-token
+candidates, then quote readiness). A closed market is not automatically a
+missing quote when the provider still supports an on-chain or liquidity path;
+use the current channel status and provider contract. Carry the complete
+execution identity through review, build, and history.
+
 ## Quote Selection
 
 Bind each result to the active request/event and full trade identity. When
@@ -28,6 +50,13 @@ providers race, an early error is not terminal while the current event can
 still return an actionable quote. Once identity changes, ignore late results.
 Manual provider selection remains authoritative until invalidated by a real
 capability or identity change.
+
+Transient config/quote loading, terminal unsupported capability, provider error,
+and actionable fallback are separate states. An initial/default speed
+configuration is only a display/input hint; only a network-scoped ready
+configuration authorizes quote/build. It must not become an endless skeleton;
+an unsupported embedded trade should render an explicit unavailable state or
+the full Swap fallback when that route is valid.
 
 For every displayed field, define its source and missing-value meaning.
 Unknown fee/rate/ETA/limit is not zero, and provider unavailable is not an
@@ -39,6 +68,11 @@ Freeze the chosen quote, assets, accounts, receiver, provider, fees, rate,
 slippage, limits, risk text, and setup requirements. Confirmation must not
 read changing page atoms. After send/order submission, create the correct
 pending/history identity before relying on status polling.
+
+If an embedded flow enters approval or confirmation, keep it alive by a flow
+identity tied to the mounted trade context, not only the currently focused
+modal or tab. Close the originating review layer before opening a fallback
+confirmation layer; never leave two competing dialogs to own the same submit.
 
 ## History, Replay, And Repair
 
@@ -57,3 +91,12 @@ actually differs.
 
 Visibility is a separate concern: hiding local rows during disconnect or an
 unready account state must not call delete/clean persistence paths.
+
+For order/history channels, define the terminal matrix explicitly (success,
+failed, canceled/canceling, expired, refunded, and any provider-specific
+terminal state). Preserve source, target, replacement, and refund IDs for the
+detail view; stop polling and replacement actions at the terminal boundary,
+and do not render a second transaction ID unless the status contract says it is
+the source, replacement, or refund transaction. Treat a refunded transition as
+balance-changing only when the status source marks it that way; failed or
+expired terminal states do not by themselves imply a balance refresh.

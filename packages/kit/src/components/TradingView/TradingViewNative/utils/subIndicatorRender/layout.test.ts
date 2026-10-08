@@ -10,6 +10,7 @@ import {
   getTradingViewNativeSubIndicatorPaneLayoutAtY,
   getTradingViewNativeSubIndicatorPaneLayouts,
   getTradingViewNativeSubIndicatorPaneStackHeight,
+  getTradingViewNativeSubIndicatorPaneStackLayout,
   getTradingViewNativeVisibleSubIndicatorPaneCount,
 } from './layout';
 import {
@@ -32,6 +33,67 @@ const POINTS: IMarketTokenKLineDataPoint[] = Array.from(
 );
 
 describe('TradingViewNative sub-indicator pane layout', () => {
+  it('uses resized pane boundaries consistently for rendering and settings hit testing', () => {
+    const panes = createTradingViewNativeSubIndicatorRenderSnapshots({
+      configs: [
+        { id: 'rsi', indicator: 'RSI' },
+        { id: 'macd', indicator: 'MACD' },
+      ],
+      points: POINTS,
+    }).map(({ pane }, index) => ({
+      ...pane,
+      preferredHeight: index === 0 ? 100 : 60,
+    }));
+    const stack = getTradingViewNativeSubIndicatorPaneStackLayout({
+      height: 400,
+      paneCount: 2,
+      panes,
+      timeAxisHeight: 20,
+    });
+    expect(stack).toEqual({ top: 220, bottom: 380, height: 160 });
+    const layouts = getTradingViewNativeSubIndicatorPaneLayouts({
+      panes,
+      stackTop: stack.top,
+      stackBottom: stack.bottom,
+      startIndex: 0,
+      endIndex: POINTS.length,
+    });
+    expect(layouts.map((pane) => pane.height)).toEqual([100, 60]);
+    expect(
+      getTradingViewNativeSubIndicatorPaneLayoutAtY(layouts, 315)?.pane
+        .indicator,
+    ).toBe('RSI');
+    expect(
+      getTradingViewNativeSubIndicatorPaneLayoutAtY(layouts, 325)?.pane
+        .indicator,
+    ).toBe('MACD');
+    const regions = getTradingViewNativeSubIndicatorLegendHitRegions({
+      height: 400,
+      panes,
+      timeAxisHeight: 20,
+      measureTextWidth: (text) => text.length * 6,
+      pointIndex: 39,
+      priceAxisX: 600,
+    });
+    expect(regions[1].rect.y).toBeGreaterThanOrEqual(320);
+    const compressed = getTradingViewNativeSubIndicatorPaneStackLayout({
+      height: 200,
+      paneCount: 2,
+      panes,
+      timeAxisHeight: 20,
+    });
+    expect(compressed.top).toBeGreaterThanOrEqual(96);
+    const compactLayouts = getTradingViewNativeSubIndicatorPaneLayouts({
+      panes,
+      stackTop: compressed.top,
+      stackBottom: compressed.bottom,
+      startIndex: 0,
+      endIndex: POINTS.length,
+    });
+    expect(compactLayouts[0].height / compactLayouts[1].height).toBeCloseTo(
+      100 / 60,
+    );
+  });
   it('uses one preferred-height pane and preserves input order', () => {
     const panes = createTradingViewNativeSubIndicatorRenderSnapshots({
       configs: [
@@ -73,6 +135,20 @@ describe('TradingViewNative sub-indicator pane layout', () => {
     expect(
       220 - TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT - stackHeight,
     ).toBeGreaterThanOrEqual(96);
+  });
+
+  it('uses the supplied time-axis height as the pane stack boundary', () => {
+    expect(
+      getTradingViewNativeSubIndicatorPaneStackLayout({
+        height: 360,
+        paneCount: 1,
+        timeAxisHeight: 20,
+      }),
+    ).toEqual({
+      bottom: 340,
+      height: TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT,
+      top: 284,
+    });
   });
 
   it('filters hidden panes and resolves pane hit testing', () => {
@@ -118,6 +194,14 @@ describe('TradingViewNative sub-indicator pane layout', () => {
       pointIndex: POINTS.length - 1,
       priceAxisX: 300,
     });
+    const compactRegions = getTradingViewNativeSubIndicatorLegendHitRegions({
+      height: 400,
+      measureTextWidth: (text) => text.length * 6,
+      panes,
+      pointIndex: POINTS.length - 1,
+      priceAxisX: 300,
+      timeAxisHeight: 20,
+    });
     const rsiRegion = regions.find(({ indicator }) => indicator === 'RSI');
     const macdRegion = regions.find(({ indicator }) => indicator === 'MACD');
     expect(rsiRegion).toBeDefined();
@@ -125,6 +209,10 @@ describe('TradingViewNative sub-indicator pane layout', () => {
     if (!rsiRegion || !macdRegion) {
       return;
     }
+
+    expect(compactRegions.map(({ rect }) => rect.y)).toEqual(
+      regions.map(({ rect }) => rect.y + 4),
+    );
 
     expect(
       getTradingViewNativeSubIndicatorLegendIndicatorAtPoint({

@@ -361,12 +361,11 @@ class ProviderApiSolana extends ProviderApiBase {
         requiredSigners,
       );
 
-      // Firmware and the air-gap data types only implement version 0. The keyrings are the
-      // boundary that refuses to sign it, but they run after the confirm screen: without this
-      // the user approves a request that can only fail afterwards.
-      if (accountId && accountUtils.isHwOrQrAccount({ accountId })) {
+      // The air-gap data types only implement version 0. Reject QR requests before opening a
+      // confirmation screen; OneKey hardware handles version 1 in its Solana keyring.
+      if (accountId && accountUtils.isQrAccount({ accountId })) {
         throw web3Errors.rpc.methodNotSupported(
-          'Version 1 Solana offchain messages are not supported by hardware or QR wallets',
+          'Version 1 Solana offchain messages are not supported by QR wallets',
         );
       }
 

@@ -1,10 +1,13 @@
-import type { ILightweightChartPriceFormatterType } from '../types';
+import type {
+  ILightweightChartPriceFormatterType,
+  ILightweightChartSeriesType,
+} from '../types';
 
 export function resolveSerializablePriceFormatterType({
   seriesType,
   priceFormatter,
 }: {
-  seriesType: 'area' | 'baseline' | 'dotted-area';
+  seriesType: ILightweightChartSeriesType;
   priceFormatter?: (price: number) => string;
 }): ILightweightChartPriceFormatterType {
   if (seriesType === 'dotted-area') {
@@ -38,7 +41,7 @@ export function resolveSerializablePriceFormatterTickStep({
   seriesType,
   priceFormatterTickStep,
 }: {
-  seriesType: 'area' | 'baseline' | 'dotted-area';
+  seriesType: ILightweightChartSeriesType;
   priceFormatterTickStep?: number;
 }): number | undefined {
   if (seriesType !== 'dotted-area') {

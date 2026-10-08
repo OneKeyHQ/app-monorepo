@@ -206,6 +206,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
             textAlign="right"
             size="$bodyLgMedium"
             $key={token.$key ?? ''}
+            networkId={token.networkId}
             symbol=""
           />
           <TokenValueView
@@ -214,6 +215,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
             size="$bodyMd"
             color="$textSubdued"
             $key={token.$key ?? ''}
+            networkId={token.networkId}
           />
         </YStack>
       );
@@ -234,6 +236,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
           numberOfLines={1}
           size="$bodyLgMedium"
           $key={token.$key ?? ''}
+          networkId={token.networkId}
           symbol=""
         />
         <TokenValueView
@@ -242,6 +245,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
           size="$bodyMd"
           color="$textSubdued"
           $key={token.$key ?? ''}
+          networkId={token.networkId}
         />
       </YStack>
     );
@@ -250,6 +254,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
     hideBalanceAndValue,
     tableLayout,
     token.$key,
+    token.networkId,
     isTokenSelector,
   ]);
 

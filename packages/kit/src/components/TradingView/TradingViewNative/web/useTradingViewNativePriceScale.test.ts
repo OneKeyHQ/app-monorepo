@@ -56,8 +56,45 @@ function createPointerEvent({
 }
 
 describe('useTradingViewNativePriceScale', () => {
+  it('toggles Auto and resets the range only when Auto is re-enabled', () => {
+    const modelRef = { current: createTradingViewNativeWebPriceScaleModel() };
+    modelRef.current.autoPriceRange = { maxPrice: 20, minPrice: 10 };
+    modelRef.current.rangeScale = 2;
+    const renderWithCrosshairHidden = jest.fn();
+    const { result } = renderHook(() =>
+      useTradingViewNativePriceScale({
+        isLogScaleAvailable: true,
+        modelRef,
+        renderCurrentChart: jest.fn(),
+        renderWithCrosshairHidden,
+      }),
+    );
+
+    expect(result.current.isAutoScale).toBe(true);
+
+    act(() => {
+      result.current.handleAutoScalePress();
+    });
+    expect(result.current.isAutoScale).toBe(false);
+    expect(modelRef.current.pinnedPriceRange).toEqual({
+      maxPrice: 20,
+      minPrice: 10,
+    });
+    expect(modelRef.current.rangeScale).toBe(2);
+
+    modelRef.current.autoPriceRange = { maxPrice: 200, minPrice: 100 };
+    act(() => {
+      result.current.handleAutoScalePress();
+    });
+    expect(result.current.isAutoScale).toBe(true);
+    expect(modelRef.current.pinnedPriceRange).toBeNull();
+    expect(modelRef.current.rangeScale).toBe(1);
+    expect(renderWithCrosshairHidden).toHaveBeenCalledTimes(2);
+  });
+
   it('keeps Auto enabled for a click and disables it only after a drag', () => {
     const modelRef = { current: createTradingViewNativeWebPriceScaleModel() };
+    modelRef.current.autoPriceRange = { maxPrice: 20, minPrice: 10 };
     const renderCurrentChart = jest.fn();
     const renderWithCrosshairHidden = jest.fn();
     const { result } = renderHook(() =>
@@ -97,6 +134,10 @@ describe('useTradingViewNativePriceScale', () => {
       );
     });
     expect(result.current.isAutoScale).toBe(false);
+    expect(modelRef.current.pinnedPriceRange).toEqual({
+      maxPrice: 20,
+      minPrice: 10,
+    });
     expect(modelRef.current.rangeScale).not.toBe(1);
     expect(renderCurrentChart).toHaveBeenCalledTimes(1);
   });

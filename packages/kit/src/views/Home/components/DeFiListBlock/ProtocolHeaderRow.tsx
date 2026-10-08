@@ -154,7 +154,7 @@ function ProtocolHeaderRow({
       </SizableText>
       <View
         ml="$3"
-        animation="quick"
+        transition="quick"
         rotate={open ? '180deg' : '0deg'}
         transformOrigin="center"
       >

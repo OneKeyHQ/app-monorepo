@@ -19,12 +19,16 @@ import {
   OneKeyHardwareError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
-import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import {
+  isDesktopBlePairingCanceledError,
+  isOneKeyHardwareError,
+} from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { isLegacyHardwareUiActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { projectLegacyDeviceFeaturesFromState } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -248,6 +252,9 @@ export function useDeviceConnect({
         setCurrentDevice?.(connectedDevice);
         return features;
       } catch (error: any) {
+        if (isDesktopBlePairingCanceledError(error)) {
+          throw error;
+        }
         if (isOneKeyHardwareError(error)) {
           const { code, message } = error;
           if (
@@ -575,8 +582,13 @@ export function useDeviceConnect({
         const showCheckingDeviceDialog = () =>
           backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog({
             connectId: device.connectId ?? '',
+            deviceType: device.deviceType ?? undefined,
+            deviceName: device.name ?? undefined,
           });
-        if (platformEnv.isNativeIOS) {
+        // The iOS wait is for the legacy Sheet's mount acknowledgement —
+        // with the stage owning the surface no Sheet mounts, so waiting
+        // can only time out and kill the flow (OK-59934).
+        if (platformEnv.isNativeIOS && isLegacyHardwareUiActive()) {
           await hardwareUiStateDialogLifecycle.openAndWait(
             showCheckingDeviceDialog,
           );
@@ -629,6 +641,12 @@ export function useDeviceConnect({
               }),
             );
           }
+
+          // The connecting beat stands on stage behind its touch wall, and
+          // the page's hold keeps it there until the throw below lands —
+          // the dialog opened under it, unreachable (OK-62105). The stage
+          // yields first; the hold's own end still releases the layer.
+          await backgroundApiProxy.serviceHardwareUI.deviceStageYieldToDialog();
 
           fwUpdateActions.showBootloaderMode({
             connectId: device.connectId ?? undefined,
@@ -859,6 +877,9 @@ export function useDeviceConnect({
         if (!platformEnv.isNativeIOS || !bootloaderDialogShown) {
           void backgroundApiProxy.serviceHardwareUI.cleanHardwareUiState();
         }
+        // The stage's half: the checking beat painted with no burst behind
+        // it has nothing to land its exit (see dismissUnowned).
+        void backgroundApiProxy.serviceHardwareUI.deviceStageDismissUnowned();
         console.error('handleDeviceConnect error:', error);
         if (!connectionFailureTracked) {
           // Fire-and-forget; an analytics rejection must not mask the original error
@@ -943,9 +964,12 @@ export function useDeviceConnect({
       isFirmwareVerified?: boolean,
       deviceState?: IOneKeyDeviceState,
       connectProtocol?: HardwareConnectProtocol,
+      skipFinalizeNavigation?: boolean,
     ) => {
       try {
-        navigation.push(EOnboardingPages.FinalizeWalletSetup);
+        if (!skipFinalizeNavigation) {
+          navigation.push(EOnboardingPages.FinalizeWalletSetup);
+        }
 
         const params: IDBCreateHwWalletParamsBase = {
           device,
@@ -981,7 +1005,9 @@ export function useDeviceConnect({
         });
       } catch (error) {
         errorToastUtils.toastIfError(error);
-        navigation.pop();
+        if (!skipFinalizeNavigation) {
+          navigation.pop();
+        }
         await trackHardwareWalletConnection({
           status: 'failure',
           deviceType: device.deviceType,
@@ -1009,11 +1035,13 @@ export function useDeviceConnect({
       isFirmwareVerified,
       vendor,
       connectProtocol,
+      skipFinalizeNavigation,
     }: {
       device: SearchDevice;
       isFirmwareVerified?: boolean;
       vendor?: EHardwareVendor;
       connectProtocol?: HardwareConnectProtocol;
+      skipFinalizeNavigation?: boolean;
     }) => {
       // For third-party vendor devices (Ledger), skip OneKey SDK
       // connection/features flow and create wallet directly.
@@ -1041,7 +1069,9 @@ export function useDeviceConnect({
         backgroundApiProxy.serviceHardwareUI.showDeviceProcessLoadingDialog({
           connectId: currentDevice.connectId ?? '',
         });
-      if (platformEnv.isNativeIOS) {
+      // Same gate as the checking dialog above: the mount wait belongs to
+      // the legacy Sheet alone (OK-59934).
+      if (platformEnv.isNativeIOS && isLegacyHardwareUiActive()) {
         await hardwareUiStateDialogLifecycle.openAndWait(
           showDeviceProcessLoadingDialog,
         );
@@ -1085,6 +1115,7 @@ export function useDeviceConnect({
         isFirmwareVerified,
         deviceState,
         resolvedConnectProtocol,
+        skipFinalizeNavigation,
       );
     },
     [

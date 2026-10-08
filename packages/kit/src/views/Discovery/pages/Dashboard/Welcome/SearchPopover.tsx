@@ -24,7 +24,7 @@ export const SearchPopover: FC<ISearchPopoverProps> = ({
         right={0}
         width="100%"
         marginTop="$2"
-        animation="quick"
+        transition="quick"
         animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
         enterStyle={{
           opacity: 0,

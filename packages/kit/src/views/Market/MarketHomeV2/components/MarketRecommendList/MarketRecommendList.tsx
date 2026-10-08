@@ -1,17 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
 
-import {
-  Button,
-  SizableText,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { Button, XStack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
@@ -19,6 +10,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketBasicConfigToken } from '@onekeyhq/shared/types/marketV2';
 
 import { useWatchListV2Action } from '../../../components/watchListHooksV2';
+import { getRecommendTokenNetworkId } from '../../../utils/getRecommendTokenNetworkId';
+import { mapRecommendTokensToWatchlistItems } from '../../../utils/mapRecommendTokensToWatchlistItems';
+import { orderSelectedRecommendTokens } from '../../../utils/orderSelectedRecommendTokens';
 import { getMarketRecommendContainerPaddingTop } from '../../layouts/mobileLayoutUtils';
 
 import { RecommendItem } from './RecommendItem';
@@ -26,8 +20,6 @@ import { RecommendItem } from './RecommendItem';
 function getTokenKey(token: { chainId: string; contractAddress: string }) {
   return `${token.chainId}:${token.contractAddress}`;
 }
-
-const EMPTY_COMMUNITY_RECOGNIZED_MAP: Record<string, boolean> = {};
 
 interface IMarketRecommendListProps {
   recommendedTokens: IMarketBasicConfigToken[];
@@ -44,18 +36,13 @@ export function MarketRecommendList({
 }: IMarketRecommendListProps) {
   const intl = useIntl();
   const actions = useWatchListV2Action();
-  const { height: windowHeight } = useWindowDimensions();
-  const { gtMd } = useMedia();
-  // Show the heading only on spacious layouts; compact screens (mobile web,
-  // extension popup, narrow windows) already get context from the tab bar.
-  // Native is excluded regardless of size: its empty state relies on
-  // translateY offsets calibrated for title-less content (OK-57820).
-  const showTitle = !platformEnv.isNative && gtMd;
+  // No heading on any platform: the Watchlist tab already says where the
+  // user is, and native's translateY offsets are calibrated for title-less
+  // content (OK-57820).
   const containerPaddingTop = platformEnv.isExtensionUiPopup
     ? 0
     : getMarketRecommendContainerPaddingTop({
         isNative: Boolean(platformEnv.isNative),
-        windowHeight,
       });
 
   const uniqueTokens = useMemo(() => {
@@ -74,44 +61,11 @@ export function MarketRecommendList({
     [uniqueTokens, maxSize],
   );
 
-  const { result: communityRecognizedMap } = usePromiseResult(
-    async () => {
-      if (!defaultTokens.length) {
-        return EMPTY_COMMUNITY_RECOGNIZED_MAP;
-      }
-
-      const response =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
-          tokenAddressList: defaultTokens.map((token) => ({
-            chainId: token.chainId,
-            contractAddress: token.contractAddress,
-            isNative: token.isNative,
-          })),
-        });
-
-      return defaultTokens.reduce<Record<string, boolean>>(
-        (acc, token, index) => {
-          const tokenKey = getTokenKey(token);
-          if (
-            token.communityRecognized ||
-            response.list?.[index]?.communityRecognized
-          ) {
-            acc[tokenKey] = true;
-          }
-          return acc;
-        },
-        {},
-      );
-    },
-    [defaultTokens],
-    {
-      initResult: EMPTY_COMMUNITY_RECOGNIZED_MAP,
-    },
-  );
-
   const [selectedTokens, setSelectedTokens] = useState<
     IMarketBasicConfigToken[]
   >(enableSelection ? defaultTokens : []);
+  const [isAdding, setIsAdding] = useState(false);
+  const isAddingRef = useRef(false);
 
   useEffect(() => {
     setSelectedTokens(enableSelection ? defaultTokens : []);
@@ -119,6 +73,9 @@ export function MarketRecommendList({
 
   const handleRecommendItemChange = useCallback(
     (checked: boolean, tokenKey: string) => {
+      if (isAddingRef.current) {
+        return;
+      }
       const token = uniqueTokens.find((t) => getTokenKey(t) === tokenKey);
       if (!token) return;
 
@@ -137,17 +94,28 @@ export function MarketRecommendList({
   );
 
   const handleAddTokens = useCallback(async () => {
-    if (enableSelection) {
-      const items = selectedTokens.map((token) => ({
-        chainId: token.chainId,
-        contractAddress: token.contractAddress,
-        isNative: token.isNative,
-      }));
+    if (!enableSelection || isAddingRef.current) {
+      return;
+    }
+    isAddingRef.current = true;
+    setIsAdding(true);
+    try {
+      const orderedTokens = orderSelectedRecommendTokens(
+        defaultTokens,
+        selectedTokens,
+        getTokenKey,
+      );
+      const items = mapRecommendTokensToWatchlistItems(orderedTokens);
 
-      actions.addIntoWatchListV2(items);
+      const added = await actions.addIntoWatchListV2(items, {
+        preserveOrder: true,
+      });
+      if (!added) {
+        return;
+      }
 
       // Log analytics for each token added to watchlist from recommend list
-      selectedTokens.forEach((token) => {
+      orderedTokens.forEach((token) => {
         defaultLogger.dex.watchlist.dexAddToWatchlist({
           network: token.chainId,
           tokenSymbol: token.symbol || '',
@@ -159,6 +127,9 @@ export function MarketRecommendList({
       setTimeout(() => {
         setSelectedTokens(defaultTokens);
       }, 50);
+    } finally {
+      isAddingRef.current = false;
+      setIsAdding(false);
     }
   }, [actions, selectedTokens, defaultTokens, enableSelection]);
 
@@ -169,7 +140,8 @@ export function MarketRecommendList({
           testID="market-confirm-button-btn"
           width="100%"
           size="large"
-          disabled={!selectedTokens.length}
+          disabled={!selectedTokens.length || isAdding}
+          loading={isAdding}
           variant="primary"
           onPress={handleAddTokens}
         >
@@ -181,7 +153,7 @@ export function MarketRecommendList({
           )}
         </Button>
       ) : null,
-    [selectedTokens.length, handleAddTokens, intl, enableSelection],
+    [selectedTokens.length, handleAddTokens, intl, enableSelection, isAdding],
   );
 
   if (!uniqueTokens.length) {
@@ -197,27 +169,7 @@ export function MarketRecommendList({
       ai="center"
       width="100%"
     >
-      {showTitle ? (
-        <>
-          <SizableText size="$heading3xl" color="$text" textAlign="center">
-            {intl.formatMessage({
-              id: ETranslations.market_favorites_empty,
-            })}
-          </SizableText>
-          <SizableText
-            color="$textSubdued"
-            size="$bodyLg"
-            pt="$2"
-            textAlign="center"
-          >
-            {intl.formatMessage({
-              id: ETranslations.market_favorites_empty_desc,
-            })}
-          </SizableText>
-        </>
-      ) : null}
       <YStack
-        pt={showTitle ? '$6' : '$0'}
         gap="$2.5"
         width="100%"
         $gtMd={{ maxWidth: 480 }}
@@ -245,14 +197,11 @@ export function MarketRecommendList({
                   key={tokenKey}
                   address={tokenKey}
                   checked={isChecked}
+                  disabled={isAdding}
                   icon={item.logo || ''}
                   symbol={item.symbol}
                   tokenName={item.name}
-                  networkId={item.chainId}
-                  communityRecognized={Boolean(
-                    item.communityRecognized ||
-                    communityRecognizedMap[tokenKey],
-                  )}
+                  networkId={getRecommendTokenNetworkId(item)}
                   onChange={handleRecommendItemChange}
                 />
               );

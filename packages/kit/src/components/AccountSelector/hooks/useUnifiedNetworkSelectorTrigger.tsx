@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import { Haptics } from '@onekeyhq/components';
 import type { IUnifiedNetworkSelectorRouteParams } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -32,6 +33,7 @@ export function useUnifiedNetworkSelectorTrigger({ num }: { num: number }) {
       onNetworksChanged?: () => Promise<void>;
       defaultTab?: IUnifiedNetworkSelectorRouteParams['defaultTab'];
     } = {}) => {
+      Haptics.selection();
       actions.current.showUnifiedNetworkSelector({
         navigation,
         num,

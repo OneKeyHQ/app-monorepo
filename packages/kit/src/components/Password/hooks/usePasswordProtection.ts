@@ -6,7 +6,10 @@ import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { PASSCODE_PROTECTION_ATTEMPTS_MESSAGE_SHOW_MAX } from '@onekeyhq/shared/types/password';
 
-const usePasswordProtection = (isLock: boolean) => {
+const usePasswordProtection = (
+  isLock: boolean,
+  enforcePasswordErrorProtection = false,
+) => {
   const [unlockPeriodPasswordArray, setUnlockPeriodPasswordArray] = useState<
     string[]
   >([]);
@@ -27,17 +30,17 @@ const usePasswordProtection = (isLock: boolean) => {
     },
     setPasswordPersist,
   ] = usePasswordPersistAtom();
+  const isPasswordErrorProtectionEnabled =
+    enforcePasswordErrorProtection || (isLock && enablePasswordErrorProtection);
 
   const isProtectionTime = useMemo(
     () =>
-      isLock &&
-      enablePasswordErrorProtection &&
+      isPasswordErrorProtectionEnabled &&
       passwordErrorAttempts >= PASSCODE_PROTECTION_ATTEMPTS_MESSAGE_SHOW_MAX &&
       passwordErrorProtectionTime > Date.now(),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
-      isLock,
-      enablePasswordErrorProtection,
+      isPasswordErrorProtectionEnabled,
       passwordErrorAttempts,
       passwordErrorProtectionTime,
       passwordErrorProtectionTimeMinutesSurplus,
@@ -106,6 +109,7 @@ const usePasswordProtection = (isLock: boolean) => {
     setUnlockPeriodPasswordArray,
     setPasswordErrorProtectionTimeMinutesSurplus,
     enablePasswordErrorProtection,
+    isPasswordErrorProtectionEnabled,
     isProtectionTime,
   };
 };

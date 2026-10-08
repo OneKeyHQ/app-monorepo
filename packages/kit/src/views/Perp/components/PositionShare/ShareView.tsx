@@ -121,7 +121,7 @@ export function ShareView({
     <Stack
       width={displaySize}
       height={displaySize}
-      borderRadius="$3"
+      borderRadius="$6"
       overflow="hidden"
       borderWidth={1}
       borderColor="$borderSubdued"

@@ -11,6 +11,7 @@ import { Stack, XStack, YStack } from '../../primitives';
 
 import type { IPopoverContent, IPopoverProps } from '../../actions';
 import type { IYStackProps } from '../../primitives';
+import type { DialogContentProps } from '../../shared/tamagui';
 
 export interface IColorPickerOption {
   value: string;
@@ -635,6 +636,15 @@ export function ColorPicker({
     }),
     [floatingPanelProps],
   );
+  const dialogFloatingPanelProps = useMemo<DialogContentProps>(() => {
+    const { onCloseAutoFocus, ...panelProps } = mergedFloatingPanelProps;
+    return {
+      ...panelProps,
+      ...(typeof onCloseAutoFocus === 'function'
+        ? { onCloseAutoFocus }
+        : undefined),
+    };
+  }, [mergedFloatingPanelProps]);
 
   const renderPaletteContent = useCallback(
     (closeOverlay: () => void) => (
@@ -690,7 +700,7 @@ export function ColorPicker({
           renderContent={dialogContent}
           contentContainerProps={defaultDialogContentContainerProps}
           sheetProps={sheetProps}
-          floatingPanelProps={mergedFloatingPanelProps}
+          floatingPanelProps={dialogFloatingPanelProps}
           testID={testID ? `${testID}-dialog` : undefined}
         />
       </Portal.Body>
@@ -699,7 +709,7 @@ export function ColorPicker({
       dialogContent,
       effectiveOpen,
       handleDialogClose,
-      mergedFloatingPanelProps,
+      dialogFloatingPanelProps,
       sheetProps,
       testID,
     ],

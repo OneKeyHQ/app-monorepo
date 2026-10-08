@@ -1,4 +1,4 @@
 interface:
   display_name: "OneKey Earn and DeFi"
   short_description: "Owner-first guidance for Earn, Borrow, Staking, and DeFi Portfolio flows"
-  default_prompt: "Use $1k-defi-module-integration to trace the current Earn/DeFi owner and contract, make the smallest typed change, and verify the affected route and sibling flows."
+  default_prompt: "Use $1k-defi-module-integration to trace the current Earn/DeFi owner and full operation scope, reconcile setup/status/refresh contracts, make the smallest typed change, and verify the affected route and a sibling flow."

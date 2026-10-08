@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useMemo } from 'react';
 
 import { find } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -9,7 +9,6 @@ import {
   Image,
   Popover,
   SizableText,
-  Skeleton,
   YStack,
   useMedia,
   useThemeName,
@@ -25,6 +24,8 @@ import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 const mevProtectionProviders = getNetworksSupportMevProtection();
 
 const DEFAULT_IMAGE_HEIGHT = 40;
+// Layout hint for the CDN resize (~3:1 logos at DEFAULT_IMAGE_HEIGHT).
+const PROVIDER_LOGO_RESIZE_WIDTH = DEFAULT_IMAGE_HEIGHT * 4;
 
 function isPrivateSendSwapInfo(swapInfo: IUnsignedTxPro['swapInfo']) {
   const buildResult = swapInfo?.swapBuildResData?.result;
@@ -142,38 +143,9 @@ function TxConfirmHeaderRight(props: ITxConfirmHeaderRightProps) {
       : mevProtectionProvider?.logoURI;
   }, [mevProtectionProvider, theme]);
 
-  const [providerImageSize, setProviderImageSize] = useState<
-    | {
-        width: number;
-        height: number;
-      }
-    | undefined
-  >(undefined);
-
-  useEffect(() => {
-    if (imageUri) {
-      void Image.loadImage({ uri: imageUri }).then((imageRef) => {
-        if (imageRef) {
-          setProviderImageSize({
-            width: imageRef.width,
-            height: imageRef.height,
-          });
-        }
-      });
-    } else {
-      // Reset stale size when the badge is hidden so a later provider with a
-      // different logo does not render with the previous provider's dimensions.
-      setProviderImageSize(undefined);
-    }
-  }, [imageUri]);
-
   if (!mevProtectionProvider) {
     return null;
   }
-
-  const ratio = providerImageSize
-    ? DEFAULT_IMAGE_HEIGHT / providerImageSize.height
-    : 1;
 
   return (
     <HeaderButtonGroup>
@@ -205,18 +177,20 @@ function TxConfirmHeaderRight(props: ITxConfirmHeaderRightProps) {
                 <SizableText size={gtMd ? '$bodyMd' : '$bodyLg'}>
                   {intl.formatMessage({ id: ETranslations.global_power_by })}
                 </SizableText>
-                {providerImageSize ? (
-                  <Image
-                    width={providerImageSize.width * ratio}
-                    height={DEFAULT_IMAGE_HEIGHT}
-                    resizeMode="contain"
-                    source={{
-                      uri: imageUri,
-                    }}
-                  />
-                ) : (
-                  <Skeleton height={DEFAULT_IMAGE_HEIGHT} width="100%" />
-                )}
+                {/* The logo box is fixed, so the first open never shows the
+                    logo squeezed into a square while its intrinsic size is
+                    still unknown; `contain` centers it in the box on every
+                    platform (OK-62097). */}
+                <Image
+                  width="100%"
+                  height={DEFAULT_IMAGE_HEIGHT}
+                  resizeMode="contain"
+                  resizeWidth={PROVIDER_LOGO_RESIZE_WIDTH}
+                  recyclingKey={imageUri}
+                  source={{
+                    uri: imageUri,
+                  }}
+                />
               </YStack>
               <SizableText
                 size="$bodyMd"

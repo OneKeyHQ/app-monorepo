@@ -43,6 +43,7 @@ import { useDebouncedCallback } from '../../../hooks/useDebounce';
 import { runAfterTokensDone } from '../../../hooks/useRunAfterTokensDone';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector/atoms';
 import { whenAppUnlocked } from '../../../utils/passwordUtils';
+import { isSwapApprovalFlowActive } from '../../../views/Swap/hooks/swapNavigationUtils';
 import { handleSwapNavigation } from '../../../views/Swap/hooks/useSwapNavigation';
 
 const InAppNotification = () => {
@@ -303,10 +304,23 @@ const InAppNotification = () => {
           });
         }
         handleSwapNavigation(
-          ({ isInSwapTab, isHasSwapModal, isSwapModalOnTheTop, hasModal }) => {
+          ({
+            isInSwapTab,
+            isInMarketDetail,
+            isHasSwapModal,
+            isSwapModalOnTheTop,
+            hasModal,
+          }) => {
             if (
-              (isInSwapTab && !hasModal) ||
-              (!isInSwapTab && isSwapModalOnTheTop && isHasSwapModal)
+              isSwapApprovalFlowActive({
+                isInSwapTab,
+                isInMarketDetail,
+                isHasSwapModal,
+                isSwapModalOnTheTop,
+                hasModal,
+                marketSwapApprovalFlowId:
+                  swapApprovingTransactionRef.current?.marketSwapApprovalFlowId,
+              })
             ) {
               if (swapApprovingTransactionRef.current) {
                 appEventBus.emit(EAppEventBusNames.SwapApprovingSuccess, {
@@ -319,6 +333,11 @@ const InAppNotification = () => {
                 message,
               });
             } else {
+              const approvalRequestId =
+                swapApprovingTransactionRef.current?.approvalRequestId;
+              const txId = swapApprovingTransactionRef.current?.txId;
+              const networkId =
+                swapApprovingTransactionRef.current?.fromToken.networkId;
               toastRef.current = Toast.success({
                 title,
                 message,
@@ -326,11 +345,22 @@ const InAppNotification = () => {
                 actions: approvingSuccessAction,
                 actionsAlign: 'left',
                 onClose: () => {
-                  setInAppNotificationAtom((prev) => ({
-                    ...prev,
-                    swapApprovingLoading: false,
-                    swapApprovingTransaction: undefined,
-                  }));
+                  setInAppNotificationAtom((prev) => {
+                    const approval = prev.swapApprovingTransaction;
+                    if (
+                      !approval ||
+                      approval.approvalRequestId !== approvalRequestId ||
+                      approval.txId !== txId ||
+                      approval.fromToken.networkId !== networkId
+                    ) {
+                      return prev;
+                    }
+                    return {
+                      ...prev,
+                      swapApprovingLoading: false,
+                      swapApprovingTransaction: undefined,
+                    };
+                  });
                 },
               });
             }

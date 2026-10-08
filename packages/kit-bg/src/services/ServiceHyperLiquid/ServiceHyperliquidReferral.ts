@@ -11,8 +11,19 @@ import {
   HYPER_LIQUID_ORIGIN,
   PERPS_NETWORK_ID,
 } from '@onekeyhq/shared/src/consts/perp';
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import {
+  extractHyperLiquidErrorMessage,
+  hyperLiquidErrorResolver,
+} from '@onekeyhq/shared/src/utils/hyperLiquidErrorResolver';
 
 import { perpsActiveAccountAtom } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
@@ -50,17 +61,19 @@ export default class ServiceHyperliquidReferral extends ServiceBase {
   /**
    * Check eligibility for showing referral banner on Home screen.
    * Resolves the real EVM address internally (supports all-network mode).
-   * Uses in-memory cache + in-flight deduplication to avoid duplicate network requests.
+   * Rechecks eligible accounts and deduplicates concurrent requests.
    */
   @backgroundMethod()
   async checkBannerReferralEligibility({
     accountId,
     indexedAccountId,
     deriveType,
+    forceRefresh = false,
   }: {
     accountId: string;
     indexedAccountId?: string;
     deriveType?: string;
+    forceRefresh?: boolean;
   }): Promise<{
     shouldShow: boolean;
     resolvedAccountId: string;
@@ -79,7 +92,7 @@ export default class ServiceHyperliquidReferral extends ServiceBase {
     }
 
     // Reuse in-flight request for same params
-    const cacheKey = `${accountId}:${indexedAccountId ?? ''}:${deriveType ?? ''}`;
+    const cacheKey = `${accountId}:${indexedAccountId ?? ''}:${deriveType ?? ''}:${String(forceRefresh)}`;
     const inFlight = this.bannerCheckInFlight.get(cacheKey);
     if (inFlight) {
       return inFlight;
@@ -89,6 +102,7 @@ export default class ServiceHyperliquidReferral extends ServiceBase {
       accountId,
       indexedAccountId,
       deriveType,
+      forceRefresh,
     }).finally(() => {
       this.bannerCheckInFlight.delete(cacheKey);
     });
@@ -101,10 +115,12 @@ export default class ServiceHyperliquidReferral extends ServiceBase {
     accountId,
     indexedAccountId,
     deriveType,
+    forceRefresh,
   }: {
     accountId: string;
     indexedAccountId?: string;
     deriveType?: string;
+    forceRefresh: boolean;
   }): Promise<{
     shouldShow: boolean;
     resolvedAccountId: string;
@@ -142,7 +158,7 @@ export default class ServiceHyperliquidReferral extends ServiceBase {
     const snoozedUntil = await this.getReferralBannerSnoozedUntil({
       userAddress: resolvedAddress,
     });
-    if (snoozedUntil > Date.now()) {
+    if (!forceRefresh && snoozedUntil > Date.now()) {
       return {
         ...ServiceHyperliquidReferral.RESULT_NOT_SHOW,
         reason: 'snoozed',
@@ -155,7 +171,7 @@ export default class ServiceHyperliquidReferral extends ServiceBase {
       await this.backgroundApi.simpleDb.perp.getReferralBannerCache(
         resolvedAddress,
       );
-    if (cached) {
+    if (!forceRefresh && cached && !cached.shouldShow) {
       const isPermanent =
         cached.reason === 'already_has_referrer' ||
         cached.reason === 'volume_over_10000';
@@ -202,11 +218,13 @@ export default class ServiceHyperliquidReferral extends ServiceBase {
       reason = 'volume_over_10000';
     }
 
-    // Persist cache
-    await this.backgroundApi.simpleDb.perp.setReferralBannerCache(
-      resolvedAddress,
-      { shouldShow, reason, cachedAt: Date.now() },
-    );
+    // Never let a late eligible response overwrite a completed binding.
+    if (!shouldShow) {
+      await this.backgroundApi.simpleDb.perp.setReferralBannerCache(
+        resolvedAddress,
+        { shouldShow, reason, cachedAt: Date.now() },
+      );
+    }
 
     return {
       shouldShow,
@@ -227,6 +245,26 @@ export default class ServiceHyperliquidReferral extends ServiceBase {
       reason: 'already_has_referrer',
       cachedAt: Date.now(),
     });
+    appEventBus.emit(EAppEventBusNames.PerpsReferralBound, { userAddress });
+  }
+
+  @backgroundMethod()
+  async refreshReferralBinding({
+    userAddress,
+  }: {
+    userAddress: string;
+  }): Promise<boolean> {
+    const info = await this.getUserReferralInfo({ userAddress });
+    if (!info) {
+      throw new OneKeyError({
+        message: appLocale.intl.formatMessage({
+          id: ETranslations.perps__claim_failed__msg,
+        }),
+      });
+    }
+    if (!info.referredBy) return false;
+    await this.invalidateBannerCache({ userAddress });
+    return true;
   }
 
   /**
@@ -423,6 +461,22 @@ export default class ServiceHyperliquidReferral extends ServiceBase {
         extra: { source: 'ServiceHyperliquidReferral' },
       },
     );
+
+    if (result.status !== 'ok') {
+      const rawMessage = extractHyperLiquidErrorMessage({ response: result });
+      const resolved = rawMessage
+        ? await hyperLiquidErrorResolver.resolveAsync(rawMessage)
+        : undefined;
+      throw new OneKeyError({
+        message:
+          resolved?.localizedMessage ||
+          appLocale.intl.formatMessage({
+            id: ETranslations.perps__claim_failed__msg,
+          }),
+        autoToast: rawMessage !== 'Referrer already set',
+        data: { referralAlreadySet: rawMessage === 'Referrer already set' },
+      });
+    }
 
     defaultLogger.perp.hyperliquid.referralBindingStep({
       step: 'complete',

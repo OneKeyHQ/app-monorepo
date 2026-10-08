@@ -22,6 +22,48 @@ describe('TradingViewNative Hyperliquid whitelist', () => {
     ]);
   });
 
+  it('maps native Ethereum independently for each configured branch', () => {
+    const token = {
+      isNative: true,
+      networkId: 'evm--1',
+      tokenAddress: '',
+    };
+
+    expect(
+      (['swap', 'market', 'wallet'] as const).map((branch) =>
+        getTradingViewNativeWhitelistedHyperliquidSource({
+          branch,
+          token,
+        }),
+      ),
+    ).toEqual([
+      { coin: 'ETH', type: 'hyperliquid' },
+      { coin: 'ETH', type: 'hyperliquid' },
+      { coin: 'ETH', type: 'hyperliquid' },
+    ]);
+  });
+
+  it('maps native BNB independently for each configured branch', () => {
+    const token = {
+      isNative: true,
+      networkId: 'evm--56',
+      tokenAddress: '',
+    };
+
+    expect(
+      (['swap', 'market', 'wallet'] as const).map((branch) =>
+        getTradingViewNativeWhitelistedHyperliquidSource({
+          branch,
+          token,
+        }),
+      ),
+    ).toEqual([
+      { coin: 'BNB', type: 'hyperliquid' },
+      { coin: 'BNB', type: 'hyperliquid' },
+      { coin: 'BNB', type: 'hyperliquid' },
+    ]);
+  });
+
   it('maps native HyperEVM HYPE to its preferred spot market', () => {
     expect(
       getTradingViewNativeWhitelistedHyperliquidSource({
@@ -51,7 +93,7 @@ describe('TradingViewNative Hyperliquid whitelist', () => {
         branch: 'market',
         token: {
           isNative: true,
-          networkId: 'evm--1',
+          networkId: 'evm--137',
           tokenAddress: '',
         },
       }),

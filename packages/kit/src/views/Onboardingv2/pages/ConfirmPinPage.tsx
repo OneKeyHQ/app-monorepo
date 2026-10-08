@@ -35,50 +35,65 @@ function ConfirmPinPage() {
   const [isValid, setIsValid] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const isConfirmingRef = useRef(false);
+  const validationRequestIdRef = useRef(0);
+  const validatedRequestIdRef = useRef<number | undefined>(undefined);
 
   const handlePinChange = useCallback(
     async (filteredText: string) => {
+      if (isConfirmingRef.current) {
+        return;
+      }
+      validationRequestIdRef.current += 1;
+      const validationRequestId = validationRequestIdRef.current;
       setConfirmPin(filteredText);
+      setIsValid(false);
       setErrorMessage('');
 
       // Auto-validate when 4 digits entered
       if (filteredText.length === 4) {
         const originalPin = await getKeylessOnboardingPin();
+        // Ignore validation for input that was changed or cleared on submit.
+        if (validationRequestId !== validationRequestIdRef.current) {
+          return;
+        }
         if (!originalPin) {
           handleKeylessOnboardingTimeout();
           return;
         }
         if (filteredText === originalPin) {
+          validatedRequestIdRef.current = validationRequestId;
           setIsValid(true);
         } else {
           setErrorMessage(
             intl.formatMessage({ id: ETranslations.incorrect_pin }),
           );
-          setIsValid(false);
         }
-      } else {
-        setIsValid(false);
       }
     },
     [getKeylessOnboardingPin, handleKeylessOnboardingTimeout, intl],
   );
 
-  const isConfirmingRef = useRef(false);
   const handleConfirm = useCallback(async () => {
-    if (isConfirmingRef.current) {
+    // Require validation for the current input even before React commits.
+    if (
+      validatedRequestIdRef.current !== validationRequestIdRef.current ||
+      isConfirmingRef.current
+    ) {
       return;
     }
-    // Close the same-tick re-entry window before isLoading commits; the
-    // isLoading gate only takes effect after the first await settles.
+    // Close the same-tick re-entry window before isLoading commits.
     isConfirmingRef.current = true;
+    validationRequestIdRef.current += 1;
+    setIsLoading(true);
     setConfirmPin('');
+    setIsValid(false);
     try {
       const originalPin = await getKeylessOnboardingPin();
       if (!originalPin) {
         handleKeylessOnboardingTimeout();
         return;
       }
-      setIsLoading(true);
       await confirmKeylessOnboardingPin({
         pin: originalPin || '',
         action,
@@ -109,6 +124,7 @@ function ConfirmPinPage() {
       onSubmit={handleConfirm}
       isSubmitDisabled={!isValid}
       isLoading={isLoading}
+      isInputDisabled={isLoading}
       errorMessage={errorMessage}
     />
   );

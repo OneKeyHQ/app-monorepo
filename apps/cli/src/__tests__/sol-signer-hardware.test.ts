@@ -1,4 +1,58 @@
-import { decodeEd25519Signature } from '../signer/impls/sol/SignerHardware';
+import bs58 from 'bs58';
+
+import { EMessageTypesSolana } from '@onekeyhq/shared/types/message';
+
+import {
+  SignerHardware,
+  decodeEd25519Signature,
+} from '../signer/impls/sol/SignerHardware';
+
+import type { DeviceInfo } from '../core/auth/auth-types';
+import type { ISignerHardwareDeps } from '../signer/base/SignerHardwareBase';
+import type { CoreApi } from '@onekeyfe/hd-core';
+
+function makeSuccess<T>(payload: T) {
+  return { success: true as const, payload };
+}
+
+const DEVICE: DeviceInfo = {
+  connectId: 'connect-123',
+  deviceId: 'device-abc',
+  deviceLabel: 'OneKey Touch',
+};
+
+function makeDeps(): {
+  deps: ISignerHardwareDeps;
+  sdk: jest.Mocked<CoreApi>;
+} {
+  const sdk = {
+    getDeviceState: jest.fn(async () =>
+      makeSuccess({ status: { unlocked: true } }),
+    ),
+    deviceUnlock: jest.fn(async () => makeSuccess({})),
+    searchDevices: jest.fn(async () => makeSuccess([DEVICE])),
+    solSignOffchainMessage: jest.fn(async () =>
+      makeSuccess({ signature: 'aa'.repeat(64) }),
+    ),
+  } as unknown as jest.Mocked<CoreApi>;
+  const deps: ISignerHardwareDeps = {
+    ensureSDKReady: jest.fn(
+      async () => sdk,
+    ) as unknown as ISignerHardwareDeps['ensureSDKReady'],
+    installPassphraseProvider: jest.fn(),
+    resolvePassphraseSessionByMode:
+      jest.fn() as unknown as ISignerHardwareDeps['resolvePassphraseSessionByMode'],
+    keychainFactory: () => ({
+      get: jest.fn(async () => null),
+      set: jest.fn(async () => undefined),
+      delete: jest.fn(async () => undefined),
+    }),
+    preloadSessionCache: jest.fn(),
+    stderr: { write: jest.fn(() => true) },
+  };
+
+  return { deps, sdk };
+}
 
 // Ed25519 signatures from the firmware MUST be 64 bytes. A malformed hex
 // string would otherwise be silently truncated by Buffer.from(_, 'hex') and
@@ -43,5 +97,103 @@ describe('decodeEd25519Signature', () => {
     expect(() =>
       decodeEd25519Signature('a'.repeat(127), 'signTransaction'),
     ).toThrow(/expected 64/);
+  });
+});
+
+describe('SOL hardware offchain message signing', () => {
+  it('forwards version 1 and byte-sorted required signers to the SDK', async () => {
+    const signerA = bs58.encode(Buffer.alloc(32, 0x22));
+    const signerB = bs58.encode(Buffer.alloc(32, 0x11));
+    const { deps, sdk } = makeDeps();
+    const signer = new SignerHardware({
+      device: { ...DEVICE },
+      passphraseMode: 'none',
+      deps,
+    });
+
+    const signature = await signer.signMessage({
+      account: {
+        address: signerA,
+        path: "m/44'/501'/0'/0'",
+      },
+      unsignedMsg: {
+        type: EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE,
+        message: 'hello',
+        payload: {
+          version: 1,
+          requiredSigners: [signerA, signerB],
+        },
+      },
+    } as never);
+
+    expect(signature).toBe(bs58.encode(Buffer.alloc(64, 0xaa)));
+    expect(sdk.solSignOffchainMessage).toHaveBeenCalledWith(
+      DEVICE.connectId,
+      DEVICE.deviceId,
+      {
+        path: "m/44'/501'/0'/0'",
+        messageHex: Buffer.from('hello').toString('hex'),
+        messageVersion: 1,
+        requiredSigners: [
+          Buffer.alloc(32, 0x11).toString('hex'),
+          Buffer.alloc(32, 0x22).toString('hex'),
+        ],
+        useEmptyPassphrase: true,
+        skipPassphraseCheck: true,
+      },
+    );
+  });
+
+  it('rejects version 1 when the signing account is not required', async () => {
+    const account = bs58.encode(Buffer.alloc(32, 0x22));
+    const otherSigner = bs58.encode(Buffer.alloc(32, 0x11));
+    const { deps, sdk } = makeDeps();
+    const signer = new SignerHardware({
+      device: { ...DEVICE },
+      passphraseMode: 'none',
+      deps,
+    });
+
+    await expect(
+      signer.signMessage({
+        account: {
+          address: account,
+          path: "m/44'/501'/0'/0'",
+        },
+        unsignedMsg: {
+          type: EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE,
+          message: 'hello',
+          payload: { version: 1, requiredSigners: [otherSigner] },
+        },
+      } as never),
+    ).rejects.toThrow('requiredSigners must include the signing account');
+    expect(sdk.solSignOffchainMessage).not.toHaveBeenCalled();
+  });
+
+  it('rejects version 0 without calling the hardware SDK', async () => {
+    const account = bs58.encode(Buffer.alloc(32, 0x22));
+    const { deps, sdk } = makeDeps();
+    const signer = new SignerHardware({
+      device: { ...DEVICE },
+      passphraseMode: 'none',
+      deps,
+    });
+
+    await expect(
+      signer.signMessage({
+        account: {
+          address: account,
+          path: "m/44'/501'/0'/0'",
+        },
+        unsignedMsg: {
+          type: EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE,
+          message: 'hello',
+          payload: { version: 0 },
+        },
+      } as never),
+    ).rejects.toThrow(
+      'Version 0 Solana offchain messages are not supported by hardware wallets',
+    );
+    expect(sdk.solSignOffchainMessage).not.toHaveBeenCalled();
   });
 });

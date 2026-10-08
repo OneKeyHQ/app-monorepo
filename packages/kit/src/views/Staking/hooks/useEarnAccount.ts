@@ -57,7 +57,7 @@ export function useEarnAccount({
     isIndexedAccountScope && networkId && !fixedDeriveType,
   );
   const {
-    result: networkDeriveType,
+    result: networkDeriveTypeResult,
     run: refreshNetworkDeriveType,
     isLoading: isDeriveTypeLoading,
   } = usePromiseResult(
@@ -65,9 +65,13 @@ export function useEarnAccount({
       if (!networkId || !shouldResolveNetworkDeriveType) {
         return undefined;
       }
-      return backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+      return {
         networkId,
-      });
+        deriveType:
+          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+            networkId,
+          }),
+      };
     },
     [networkId, shouldResolveNetworkDeriveType],
     {
@@ -75,6 +79,10 @@ export function useEarnAccount({
       undefinedResultIfReRun: true,
     },
   );
+  const networkDeriveType =
+    networkDeriveTypeResult && networkDeriveTypeResult.networkId === networkId
+      ? networkDeriveTypeResult.deriveType
+      : undefined;
   const effectiveDeriveType = isIndexedAccountScope
     ? fixedDeriveType || networkDeriveType
     : undefined;
@@ -169,7 +177,8 @@ export function useEarnAccount({
     earnAccount,
     isLoading:
       isLoading ||
-      (shouldResolveNetworkDeriveType && isDeriveTypeLoading !== false),
+      (shouldResolveNetworkDeriveType &&
+        (!networkDeriveType || isDeriveTypeLoading !== false)),
     refreshAccount,
   };
 }

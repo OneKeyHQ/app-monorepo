@@ -85,12 +85,36 @@ type IBorrowContextValue = {
   setRefreshAllBorrowData: (fn: () => Promise<void>) => void;
 };
 
+type IBorrowMarketRequestContextValue = {
+  requestedMarket: IBorrowMarketItem | null;
+  setRequestedMarket: React.Dispatch<
+    React.SetStateAction<IBorrowMarketItem | null>
+  >;
+};
+
 const defaultSwapConfig: ISwapConfig = {
   isSupportSwap: false,
   isSupportCrossChain: false,
 };
 
 const BorrowContext = createContext<IBorrowContextValue | null>(null);
+const BorrowMarketRequestContext =
+  createContext<IBorrowMarketRequestContextValue | null>(null);
+
+const BorrowMarketRequestProvider = ({ children }: PropsWithChildren) => {
+  const [requestedMarket, setRequestedMarket] =
+    useState<IBorrowMarketItem | null>(null);
+  const value = useMemo(
+    () => ({ requestedMarket, setRequestedMarket }),
+    [requestedMarket],
+  );
+
+  return (
+    <BorrowMarketRequestContext.Provider value={value}>
+      {children}
+    </BorrowMarketRequestContext.Provider>
+  );
+};
 
 export const BorrowProvider = ({
   children,
@@ -228,7 +252,7 @@ export const BorrowProvider = ({
 
   return (
     <BorrowContext.Provider value={contextValue}>
-      {children}
+      <BorrowMarketRequestProvider>{children}</BorrowMarketRequestProvider>
     </BorrowContext.Provider>
   );
 };
@@ -238,6 +262,16 @@ export const useBorrowContext = () => {
   if (!context) {
     throw new OneKeyLocalError(
       'useBorrowContext must be used within a BorrowProvider',
+    );
+  }
+  return context;
+};
+
+export const useBorrowMarketRequestContext = () => {
+  const context = useContext(BorrowMarketRequestContext);
+  if (!context) {
+    throw new OneKeyLocalError(
+      'useBorrowMarketRequestContext must be used within a BorrowProvider',
     );
   }
   return context;

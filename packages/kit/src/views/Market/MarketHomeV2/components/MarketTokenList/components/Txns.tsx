@@ -5,6 +5,11 @@ import {
   YStack,
 } from '@onekeyhq/components';
 
+import {
+  MARKET_CELL_LINE_GAP,
+  MARKET_CELL_PRIMARY_SIZE,
+} from '../../MarketListCell';
+
 export interface ITxnsWalletInfo {
   /** Positive (green) count, e.g. incoming wallets */
   buy: number;
@@ -33,9 +38,13 @@ interface ITxnsProps {
  */
 export function Txns({ transactions, walletInfo }: ITxnsProps) {
   return (
-    <YStack gap="$0.5">
-      {/* Total transactions */}
-      <NumberSizeableText size="$bodyMd" formatter="marketCap">
+    <YStack gap={MARKET_CELL_LINE_GAP}>
+      {/* Total transactions — the same value face every metric column uses. */}
+      <NumberSizeableText
+        size={MARKET_CELL_PRIMARY_SIZE}
+        color="$text"
+        formatter="marketCap"
+      >
         {transactions === 0 ? '--' : transactions}
       </NumberSizeableText>
 

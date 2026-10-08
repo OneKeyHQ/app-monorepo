@@ -122,7 +122,7 @@ const WithdrawPage = () => {
       const abortController = new AbortController();
       withdrawAbortRef.current = abortController;
 
-      await handleWithdraw({
+      return handleWithdraw({
         amount,
         identity,
         protocolVault: earnUtils.shouldSendEarnProtocolVault({

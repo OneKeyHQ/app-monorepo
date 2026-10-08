@@ -7,7 +7,7 @@ import type {
 } from '@onekeyhq/shared/types/discovery';
 import type {
   EKytRiskLevel,
-  IReceiveKytIntroEntryPoint,
+  IReceiveKytIntroTrackingEntryPoint,
 } from '@onekeyhq/shared/types/kyt';
 
 import { BaseScene } from '../../../base/baseScene';
@@ -150,7 +150,7 @@ export class PrimeUsageScene extends BaseScene {
   @LogToServer()
   public primeReceiveKytIntroShown(params: {
     featureName: IReceiveKytFeatureName;
-    entryPoint: IReceiveKytIntroEntryPoint;
+    entryPoint: IReceiveKytIntroTrackingEntryPoint;
     isPrimeActive: true;
   }) {
     return params;
@@ -162,7 +162,7 @@ export class PrimeUsageScene extends BaseScene {
   @LogToServer()
   public primeReceiveKytIntroAction(params: {
     featureName: IReceiveKytFeatureName;
-    entryPoint: IReceiveKytIntroEntryPoint;
+    entryPoint: IReceiveKytIntroTrackingEntryPoint;
     isPrimeActive: true;
     action: 'enable' | 'dismiss' | 'learnMore';
   }) {

@@ -26,9 +26,12 @@ type IMockDialogConfig = {
   >;
   testID?: string;
 };
-
 const mockTradingViewChartControls = jest.fn<null, [unknown]>(() => null);
 const mockPushModal = jest.fn();
+const mockShowMarketChartSettingsDialog = jest.fn<
+  void,
+  [{ showPreviousClose?: boolean } | undefined]
+>();
 const mockDialogShow = jest.fn<void, [IMockDialogConfig]>();
 const defaultIndicatorSettingsProps = {
   activeChartType: 'candlestick' as const,
@@ -61,6 +64,15 @@ jest.mock(
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => () => ({
   pushModal: mockPushModal,
 }));
+
+jest.mock(
+  '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/MarketChartSettingsModal',
+  () => ({
+    showMarketChartSettingsDialog: (options?: {
+      showPreviousClose?: boolean;
+    }) => mockShowMarketChartSettingsDialog(options),
+  }),
+);
 
 describe('TradingViewNative chart controls', () => {
   beforeEach(() => {
@@ -101,8 +113,10 @@ describe('TradingViewNative chart controls', () => {
     expect(mockTradingViewChartControls).toHaveBeenCalledWith(
       expect.objectContaining({
         backgroundColor: '$transparent',
+        chartMode: undefined,
         hasVisibleIndicators: true,
         hasVisibleIntervalSelector: true,
+        onChartSwitch: undefined,
         settingsEnabled: false,
         showIndicatorPopover: false,
         showChartTypeSelect: true,
@@ -115,6 +129,29 @@ describe('TradingViewNative chart controls', () => {
           { id: 'line', label: 'Line', value: 2 },
           { id: 'area', label: 'Area', value: 3 },
         ],
+      }),
+    );
+  });
+
+  it('replaces mobile chart type and indicator actions with the supplied settings control', () => {
+    const mobileSettingsControl = <button type="button">Settings</button>;
+    render(
+      <TradingViewNativeChartControlsContainer
+        {...defaultIndicatorSettingsProps}
+        activeIndicatorValues={new Set()}
+        intervalConfig={{ activeInterval: '60', intervals: [] }}
+        mobileSettingsControl={mobileSettingsControl}
+        onIndicatorChange={jest.fn()}
+        onIntervalChange={jest.fn()}
+      />,
+    );
+    expect(mockTradingViewChartControls).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hasVisibleIndicators: false,
+        hasVisibleIntervalSelector: true,
+        showChartTypeSelect: false,
+        rightControl: mobileSettingsControl,
+        onRightControlPress: undefined,
       }),
     );
   });
@@ -165,14 +202,13 @@ describe('TradingViewNative chart controls', () => {
     );
   });
 
-  it('opens chart settings from opted-in desktop controls', () => {
+  it('hides the chart type selector in the compact mobile toolbar', () => {
     render(
       <TradingViewNativeChartControlsContainer
         {...defaultIndicatorSettingsProps}
-        activeIndicatorValues={new Set(['MA'])}
-        enableNativeChartSettings
+        activeIndicatorValues={new Set()}
+        compactMobileLayout
         intervalConfig={{ activeInterval: '60', intervals: [] }}
-        layoutMode="desktop"
         onIndicatorChange={jest.fn()}
         onIntervalChange={jest.fn()}
       />,
@@ -180,18 +216,121 @@ describe('TradingViewNative chart controls', () => {
 
     expect(mockTradingViewChartControls).toHaveBeenCalledWith(
       expect.objectContaining({
-        settingsEnabled: true,
+        compactMobileLayout: true,
+        showChartTypeSelect: false,
       }),
+    );
+  });
+
+  it('replaces the mobile indicator control with a close action', () => {
+    const handleChartClose = jest.fn();
+    render(
+      <TradingViewNativeChartControlsContainer
+        {...defaultIndicatorSettingsProps}
+        activeIndicatorValues={new Set()}
+        intervalConfig={{ activeInterval: '60', intervals: [] }}
+        onChartClose={handleChartClose}
+        onIndicatorChange={jest.fn()}
+        onIntervalChange={jest.fn()}
+      />,
     );
 
     const controlsProps = mockTradingViewChartControls.mock.calls[0][0] as {
-      onSettingsPress: () => void;
+      hasVisibleIndicators: boolean;
+      rightControl: ReactElement<{
+        name: string;
+        size: string;
+      }>;
+      rightControlLabel: string;
+      onRightControlPress: () => void;
     };
-    controlsProps.onSettingsPress();
+    expect(controlsProps.hasVisibleIndicators).toBe(false);
+    expect(controlsProps.rightControl.props.name).toBe(
+      'ChevronTriangleDownSmallSolid',
+    );
+    expect(controlsProps.rightControl.props.size).toBe('$5');
+    expect(controlsProps.rightControlLabel).toBe('global.close');
 
-    expect(mockPushModal).toHaveBeenCalledWith('MarketModal', {
-      screen: 'MarketChartSettings',
-    });
+    controlsProps.onRightControlPress();
+    expect(handleChartClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('can suppress the close action without restoring indicator controls', () => {
+    render(
+      <TradingViewNativeChartControlsContainer
+        {...defaultIndicatorSettingsProps}
+        activeIndicatorValues={new Set()}
+        intervalConfig={{ activeInterval: '60', intervals: [] }}
+        onChartClose={jest.fn()}
+        onIndicatorChange={jest.fn()}
+        onIntervalChange={jest.fn()}
+        showChartCloseControl={false}
+      />,
+    );
+
+    expect(mockTradingViewChartControls).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hasVisibleIndicators: false,
+        onRightControlPress: undefined,
+        rightControl: null,
+        rightControlLabel: undefined,
+      }),
+    );
+  });
+
+  it.each([false, true])(
+    'opens desktop settings without leaving the chart (fullscreen: %s)',
+    (isFullscreen) => {
+      const handleFullscreenChange = jest.fn();
+      render(
+        <TradingViewNativeChartControlsContainer
+          {...defaultIndicatorSettingsProps}
+          activeIndicatorValues={new Set(['MA'])}
+          enableNativeChartSettings
+          intervalConfig={{ activeInterval: '60', intervals: [] }}
+          isFullscreen={isFullscreen}
+          layoutMode="desktop"
+          onIndicatorChange={jest.fn()}
+          onIntervalChange={jest.fn()}
+          onFullscreenChange={handleFullscreenChange}
+        />,
+      );
+
+      expect(mockTradingViewChartControls).toHaveBeenCalledWith(
+        expect.objectContaining({
+          settingsEnabled: true,
+        }),
+      );
+      const controlsProps = mockTradingViewChartControls.mock.calls[0][0] as {
+        onSettingsPress: () => void;
+      };
+      controlsProps.onSettingsPress();
+
+      expect(mockShowMarketChartSettingsDialog).toHaveBeenCalledTimes(1);
+      expect(mockShowMarketChartSettingsDialog).toHaveBeenCalledWith({
+        showPreviousClose: false,
+      });
+      expect(mockPushModal).not.toHaveBeenCalled();
+      expect(handleFullscreenChange).not.toHaveBeenCalled();
+    },
+  );
+
+  it('keeps settings out of opted-in mobile controls', () => {
+    render(
+      <TradingViewNativeChartControlsContainer
+        {...defaultIndicatorSettingsProps}
+        activeIndicatorValues={new Set(['MA'])}
+        enableNativeChartSettings
+        intervalConfig={{ activeInterval: '60', intervals: [] }}
+        onIndicatorChange={jest.fn()}
+        onIntervalChange={jest.fn()}
+      />,
+    );
+
+    const controlsProps = mockTradingViewChartControls.mock.calls[0][0] as {
+      settingsEnabled: boolean;
+    };
+    expect(controlsProps.settingsEnabled).toBe(false);
   });
 
   it('enables calendar navigation in desktop controls', () => {
@@ -221,7 +360,7 @@ describe('TradingViewNative chart controls', () => {
     );
   });
 
-  it('forwards the chart switch action to the shared controls', () => {
+  it('forwards the chart switch action from desktop controls', () => {
     const handleChartSwitch = jest.fn();
     render(
       <TradingViewNativeChartControlsContainer
@@ -229,6 +368,7 @@ describe('TradingViewNative chart controls', () => {
         activeIndicatorValues={new Set(['MA'])}
         intervalConfig={{ activeInterval: '60', intervals: [] }}
         isChartSwitchDisabled
+        layoutMode="desktop"
         onChartSwitch={handleChartSwitch}
         onIndicatorChange={jest.fn()}
         onIntervalChange={jest.fn()}

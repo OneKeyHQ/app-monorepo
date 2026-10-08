@@ -1,4 +1,4 @@
-import { EDeviceType } from '@onekeyfe/hd-shared';
+import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 
 import {
   mergeDeviceStateEvent,
@@ -169,7 +169,7 @@ describe('deviceStateUtils', () => {
 
     expect(merged.settings.brightness).toBe(70);
     expect(merged.settings.autoLockDelayMs).toBe(300_000);
-    // settings-read 只对 settings 范围权威，不能覆盖其他缓存区段。
+    // A settings read is authoritative only for the settings section.
     expect(merged.status.unlocked).toBe(false);
   });
 
@@ -225,6 +225,139 @@ describe('deviceStateUtils', () => {
     expect(merged.settings.language).toBe('ja');
   });
 
+  it.each([
+    {
+      mode: 'bootloader',
+      changedKeys: ['settings.language'],
+      source: 'device-info',
+    },
+    { mode: 'bootloader', changedKeys: ['settings'], source: 'initialize' },
+    { mode: 'romloader', changedKeys: ['*'], source: 'initialize' },
+  ] as const)(
+    'preserves missing V1 loader settings for $mode / $changedKeys',
+    ({ mode, changedKeys, source }) => {
+      const currentState = createState();
+      currentState.protocol = 'V1';
+      currentState.settings.language = 'ja';
+      currentState.settings.autoLockDelayMs = 60_000;
+      currentState.settings.autoShutdownDelayMs = 120_000;
+      currentState.settings.brightness = 50;
+      currentState.settings.hapticFeedback = true;
+      const incomingState = createState({ revision: 2, updatedAt: 2 });
+      incomingState.protocol = 'V1';
+      incomingState.status.mode = mode;
+      incomingState.settings.brightness = 0;
+      incomingState.settings.hapticFeedback = false;
+      delete (incomingState.settings as Partial<typeof incomingState.settings>)
+        .autoShutdownDelayMs;
+
+      const merged = mergeDeviceStateEvent({
+        currentState,
+        incomingState,
+        changedKeys: [
+          ...changedKeys,
+          'status.mode',
+          'settings.autoLockDelayMs',
+          'settings.autoShutdownDelayMs',
+          'settings.brightness',
+          'settings.hapticFeedback',
+        ],
+        source,
+      });
+
+      expect(merged.settings).toMatchObject({
+        language: 'ja',
+        autoLockDelayMs: 60_000,
+        autoShutdownDelayMs: 120_000,
+        brightness: 0,
+        hapticFeedback: false,
+      });
+      expect(merged.status.mode).toBe(mode);
+      expect(currentState.settings.brightness).toBe(50);
+      expect(incomingState.settings.language).toBeNull();
+    },
+  );
+
+  it.each(['V1', 'V2'] as const)(
+    'only repairs missing settings on normal V1 firmware read-back (%s)',
+    (protocol) => {
+      const currentState = createState();
+      currentState.protocol = protocol;
+      currentState.settings.language = 'ja';
+      currentState.settings.autoShutdownDelayMs = 120_000;
+      const incomingState = createState({ revision: 2, updatedAt: 2 });
+      incomingState.protocol = protocol;
+      incomingState.settings.language = 'en';
+      incomingState.settings.autoLockDelayMs = 0;
+      incomingState.settings.autoShutdownDelayMs = 300_000;
+      incomingState.settings.hapticFeedback = false;
+
+      const merged = mergeDeviceStateEvent({
+        currentState,
+        incomingState,
+        changedKeys: ['versions.firmware'],
+        source: 'device-info',
+      });
+
+      expect(merged.settings).toMatchObject({
+        language: 'ja',
+        autoLockDelayMs: protocol === 'V1' ? 0 : null,
+        autoShutdownDelayMs: 120_000,
+        hapticFeedback: protocol === 'V1' ? false : null,
+        brightness: null,
+      });
+    },
+  );
+
+  it('only fills missing settings when equal metadata permits a V1 read-back', () => {
+    const currentState = createState();
+    currentState.protocol = 'V1';
+    currentState.settings.autoLockDelayMs = 60_000;
+    const incomingState = createState();
+    incomingState.protocol = 'V1';
+    incomingState.settings.language = 'ja';
+    incomingState.settings.autoLockDelayMs = 300_000;
+    incomingState.identity.label = 'Stale label';
+    incomingState.status.unlocked = true;
+
+    const merged = mergeDeviceStateEvent({
+      currentState,
+      incomingState,
+      changedKeys: ['*'],
+      source: 'device-info',
+    });
+
+    expect(merged.settings.language).toBe('ja');
+    expect(merged.settings.autoLockDelayMs).toBe(60_000);
+    expect(merged.identity.label).toBe(currentState.identity.label);
+    expect(merged.identity.deviceId).toBe(currentState.identity.deviceId);
+    expect(merged.status).toEqual(currentState.status);
+  });
+
+  it.each([
+    { protocol: 'V1', mode: 'normal' },
+    { protocol: 'V2', mode: 'bootloader' },
+  ] as const)(
+    'keeps existing null semantics for $protocol / $mode',
+    ({ protocol, mode }) => {
+      const currentState = createState();
+      currentState.protocol = protocol;
+      currentState.settings.language = 'ja';
+      const incomingState = createState({ revision: 2, updatedAt: 2 });
+      incomingState.protocol = protocol;
+      incomingState.status.mode = mode;
+
+      expect(
+        mergeDeviceStateEvent({
+          currentState,
+          incomingState,
+          changedKeys: ['settings.language'],
+          source: 'initialize',
+        }).settings.language,
+      ).toBeNull();
+    },
+  );
+
   it('keeps sparse patch semantics for a V2 initialize event', () => {
     const currentState = createState({ revision: 1, updatedAt: 1 });
     currentState.settings.language = 'en';
@@ -240,6 +373,121 @@ describe('deviceStateUtils', () => {
     });
 
     expect(merged.settings.language).toBe('en');
+  });
+
+  it.each(['V1', 'V2'] as const)(
+    'uses %s device-info versions as an authoritative snapshot',
+    (protocol) => {
+      const currentState = createState({ revision: 1, updatedAt: 1 });
+      currentState.protocol = protocol;
+      currentState.identity.firmwareType = EFirmwareType.Universal;
+      currentState.versions.firmware = '4.16.1';
+      currentState.versions.ble = '2.3.4';
+      currentState.versions.bootloader = '2.8.2';
+      currentState.securityElements = {
+        se01: { type: 'old-type', state: 'old-state' },
+      };
+      currentState.verification = { firmwareHash: 'old-firmware-hash' };
+
+      const incomingState = createState({ revision: 2, updatedAt: 2 });
+      incomingState.protocol = protocol;
+      incomingState.identity.firmwareType = EFirmwareType.BitcoinOnly;
+      incomingState.versions.firmware = '4.21.0';
+      incomingState.versions.ble = '2.3.7';
+      incomingState.versions.bootloader = '2.8.4';
+      incomingState.securityElements = {
+        se01: { type: 'new-type', state: 'new-state' },
+      };
+      incomingState.verification = { firmwareHash: 'new-firmware-hash' };
+
+      const merged = mergeDeviceStateEvent({
+        currentState,
+        incomingState,
+        changedKeys:
+          protocol === 'V1'
+            ? ['status.unlocked']
+            : [
+                'status.unlocked',
+                'versions.firmware',
+                'versions.ble',
+                'versions.bootloader',
+              ],
+        source: 'device-info',
+      });
+
+      expect(merged.versions).toEqual(incomingState.versions);
+      expect(merged.identity.firmwareType).toBe(EFirmwareType.Universal);
+      expect(merged.securityElements).toEqual(currentState.securityElements);
+      expect(merged.verification).toEqual(currentState.verification);
+    },
+  );
+
+  it('keeps sparse V2 device-info events from replacing unmarked versions', () => {
+    const currentState = createState({ revision: 1, updatedAt: 1 });
+    currentState.versions.firmware = '1.1.0';
+
+    const incomingState = createState({ revision: 2, updatedAt: 2 });
+    incomingState.versions.firmware = '1.2.0';
+
+    const merged = mergeDeviceStateEvent({
+      currentState,
+      incomingState,
+      changedKeys: ['status.unlocked'],
+      source: 'device-info',
+    });
+
+    expect(merged.versions.firmware).toBe('1.1.0');
+  });
+
+  it('uses V1 initialize versions as authoritative without replacing other sections', () => {
+    const currentState = createState({ revision: 1, updatedAt: 1 });
+    currentState.protocol = 'V1';
+    currentState.versions.firmware = '4.16.1';
+    currentState.capabilities = ['Capability_Bitcoin'];
+
+    const incomingState = createState({ revision: 2, updatedAt: 2 });
+    incomingState.protocol = 'V1';
+    incomingState.versions.firmware = '4.21.0';
+    incomingState.capabilities = ['Capability_BLE'];
+
+    const merged = mergeDeviceStateEvent({
+      currentState,
+      incomingState,
+      changedKeys: ['status.unlocked'],
+      source: 'initialize',
+    });
+
+    expect(merged.versions).toEqual(incomingState.versions);
+    expect(merged.capabilities).toEqual(currentState.capabilities);
+  });
+
+  it('does not replace persisted V1 versions with an incomplete snapshot', () => {
+    const currentState = createState({ revision: 1, updatedAt: 1 });
+    currentState.protocol = 'V1';
+    currentState.identity.firmwareType = EFirmwareType.BitcoinOnly;
+    currentState.versions.firmware = '4.21.0';
+    currentState.versions.ble = '2.3.7';
+    currentState.versions.bootloader = '2.8.4';
+    currentState.capabilities = ['Capability_Bitcoin'];
+
+    const incomingState = createState({ revision: 2, updatedAt: 2 });
+    incomingState.protocol = 'V1';
+    incomingState.identity.firmwareType = EFirmwareType.Universal;
+    incomingState.versions.firmware = '0.0.0';
+    incomingState.versions.ble = null;
+    incomingState.versions.bootloader = null;
+    incomingState.capabilities = [];
+
+    const merged = mergeDeviceStateEvent({
+      currentState,
+      incomingState,
+      changedKeys: ['status.mode'],
+      source: 'device-info',
+    });
+
+    expect(merged.versions).toEqual(currentState.versions);
+    expect(merged.identity.firmwareType).toBe(EFirmwareType.BitcoinOnly);
+    expect(merged.capabilities).toEqual(currentState.capabilities);
   });
 
   it('keeps sparse patch semantics for non-settings-read events', () => {

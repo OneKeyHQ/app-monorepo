@@ -33,12 +33,14 @@ import {
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { useNavigateToMarketTab } from '@onekeyhq/kit/src/views/Market/hooks';
 import { useMarketPerpsTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/hooks/useMarketPerpsTokenList';
+import { isSpotHoldingVisible } from '@onekeyhq/kit/src/views/Perp/components/OrderInfoPanel/utils';
 import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
 import {
   perpsPendingInfoPanelTabAtom,
   spotActiveAssetAtom,
   tradingModeAtom,
   useCurrencyPersistAtom,
+  usePerpsCustomSettingsAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
@@ -172,6 +174,19 @@ function useOpenPerpAsset() {
         }
         if (infoPanelTab) {
           await perpsPendingInfoPanelTabAtom.set(infoPanelTab);
+        }
+        // After the writes above and before the navigation that mounts the tab:
+        // recording it earlier would strand a pending pair whenever those
+        // writes bail out, and later would lose the race with the first mount.
+        // Isolated because losing it only costs that first-mount restore.
+        if (coin) {
+          try {
+            await backgroundApiProxy.serviceHyperliquid.setPendingInitialTradeInstrument(
+              { coin, mode },
+            );
+          } catch {
+            // ignore
+          }
         }
         setPerpPageEnterSource(EPerpPageEnterSource.Home);
         navigation.switchTab(ETabRoutes.Perp);
@@ -1593,6 +1608,22 @@ export function PerpsContainer() {
   const tabBarHeight = useScrollContentTabBarOffset();
   const { viewState, view, canDeposit, isDepositDisabled } =
     usePerpsHomePortfolio();
+  const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
+  const visibleHoldings = useMemo(
+    () =>
+      view?.holdings.filter((holding) =>
+        isSpotHoldingVisible(
+          {
+            rawCoin: holding.symbol,
+            total: holding.balance,
+            usdcValueNum: holding.valueUsd ?? 0,
+            hasPriceSource: holding.valueUsd !== undefined,
+          },
+          perpsCustomSettings.hideSmallSpotHoldings ?? false,
+        ),
+      ) ?? [],
+    [view?.holdings, perpsCustomSettings.hideSmallSpotHoldings],
+  );
 
   return (
     <Stack flex={1}>
@@ -1624,7 +1655,7 @@ export function PerpsContainer() {
             <>
               <PerpsMobileHoldingsSummary
                 totalUsd={view.accountValueUsd}
-                holdings={view.holdings}
+                holdings={visibleHoldings}
                 isDegraded={view.isDegraded}
                 canDeposit={canDeposit}
                 isDepositDisabled={isDepositDisabled}
@@ -1654,7 +1685,7 @@ export function PerpsContainer() {
                   plainContentContainer
                 />
                 <PerpsHoldingsBlock
-                  holdings={view.holdings}
+                  holdings={visibleHoldings}
                   hyperEvmLogoUri={HYPER_EVM_LOGO_URI}
                 />
               </YStack>

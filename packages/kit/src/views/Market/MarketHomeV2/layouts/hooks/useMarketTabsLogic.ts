@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { usePerpTabConfig } from '@onekeyhq/kit/src/hooks/usePerpTabConfig';
 import { useMarketSelectedTabAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 
 import { getIsMarketTabSelectionInFlight } from '../marketTabSelectionGuards';
 
@@ -18,6 +19,7 @@ export interface IMarketSpotTabItem {
 
 export interface IMarketTabsLogicReturn {
   watchlistTabName: string;
+  showWatchlistTab: boolean;
   spotTabItems: IMarketSpotTabItem[];
   perpsTabName: string;
   showPerpsTab: boolean;
@@ -70,6 +72,9 @@ export function useMarketTabsLogic(
     return inFlight;
   }, []);
   const showPerpsTab = !perpDisabled;
+  const showWatchlistTab =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind !==
+    'travel-mode';
   const { spotCategories, selectedSpotCategory, onSpotCategoryChange } =
     options ?? {};
 
@@ -125,7 +130,7 @@ export function useMarketTabsLogic(
       let tabValue: IMarketHomeTabValue = 'trending';
       const categoryId = spotTabNameToCategoryIdMap[tabName];
 
-      if (tabName === watchlistTabName) {
+      if (tabName === watchlistTabName && showWatchlistTab) {
         tabValue = 'watchlist';
       } else if (tabName === perpsTabName) {
         tabValue = 'perps';
@@ -161,11 +166,13 @@ export function useMarketTabsLogic(
       setSelectedTabAtom,
       spotTabNameToCategoryIdMap,
       watchlistTabName,
+      showWatchlistTab,
     ],
   );
 
   const selectedTabName = useMemo(() => {
-    if (selectedTab === 'watchlist') return watchlistTabName;
+    if (selectedTab === 'watchlist' && showWatchlistTab)
+      return watchlistTabName;
     if (selectedTab === 'perps' && showPerpsTab) return perpsTabName;
     return selectedSpotTabName;
   }, [
@@ -174,10 +181,12 @@ export function useMarketTabsLogic(
     selectedSpotTabName,
     perpsTabName,
     showPerpsTab,
+    showWatchlistTab,
   ]);
 
   return {
     watchlistTabName,
+    showWatchlistTab,
     spotTabItems,
     perpsTabName,
     showPerpsTab,

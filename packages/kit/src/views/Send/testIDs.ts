@@ -12,6 +12,7 @@ export const SendTestIDs = {
   addressBookButton: 'send-address-book-button',
   scanQRButton: 'send-scan-qr-button',
   pasteButton: 'send-paste-button',
+  addressRiskCheckButton: 'send-address-risk-check-button',
 
   // Send confirm
   confirmPage: 'tx-confirmation-body', // preserve existing (shared with SignatureConfirm)

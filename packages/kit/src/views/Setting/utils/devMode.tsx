@@ -28,7 +28,7 @@ const resetClickCount = () => {
 };
 
 const showPromoteDialog = async () =>
-  new Promise((resolve, reject) => {
+  new Promise<void>((resolve, reject) => {
     Dialog.show({
       title: 'Danger Zone',
       tone: 'warning',
@@ -39,9 +39,15 @@ const showPromoteDialog = async () =>
       confirmButtonProps: {
         testID: SettingTestIDs.confirmButton,
       },
-      onConfirm: resolve,
-      onCancel: (close) => {
-        void close();
+      onConfirm: async ({ close }) => {
+        // Wait for the native sheet and its portal to finish closing before
+        // the next dialog is mounted. Otherwise the exiting backdrop can
+        // remain above the next dialog and intercept taps on iOS.
+        await close({ flag: 'confirm' });
+        resolve();
+      },
+      onCancel: async (close) => {
+        await close();
         reject(new Error('User canceled'));
       },
     });
@@ -87,20 +93,23 @@ export const showDevModePasswordDialog = async () => {
           </Dialog.FormField>
         </Dialog.Form>
       ),
-      onConfirm: async ({ getForm }) => {
+      onConfirm: async ({ getForm, close }) => {
         const form = getForm();
         if (form) {
           const password = form.getValues('password');
           if (isCorrectDevOnlyPassword(password)) {
             cacheDevOnlyPassword(password);
+            await close({ flag: 'confirm' });
             resolve(true);
           } else {
             clearCachedDevOnlyPassword(password);
+            await close();
             reject(new OneKeyLocalError('Invalid dev password'));
           }
         }
       },
-      onCancel: () => {
+      onCancel: async (close) => {
+        await close();
         reject(new OneKeyLocalError('User canceled'));
       },
     });

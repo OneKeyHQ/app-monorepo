@@ -32,6 +32,21 @@ describe('TradingViewNative indicator series', () => {
       'boll-upper',
       'boll-lower',
     ]);
+    expect(series.slice(0, 3).map((item) => item.legendLabel)).toEqual([
+      'MA5',
+      'MA10',
+      'MA20',
+    ]);
+    expect(
+      series
+        .filter(({ indicator }) => indicator === 'BOLL')
+        .map(({ style }) => style?.color),
+    ).toEqual(['#F76B15', '#F76B15', '#F76B15']);
+    expect(series.find(({ key }) => key === 'boll-upper')?.fill).toEqual({
+      color: '$orange9',
+      opacity: 0.1,
+      toSeriesKey: 'boll-lower',
+    });
     expect(series.every((item) => item.values.length === points.length)).toBe(
       true,
     );
@@ -97,6 +112,69 @@ describe('TradingViewNative indicator series', () => {
     });
   });
 
+  it('keeps BOLL fill boundaries when their strokes are hidden', () => {
+    const points = buildPoints(Array.from({ length: 25 }, (_, index) => index));
+
+    for (const hiddenBoundaryIds of [
+      new Set(['upper']),
+      new Set(['upper', 'lower']),
+    ]) {
+      const series = buildTradingViewNativeIndicatorSeries({
+        activeIndicatorValues: new Set(['BOLL']),
+        indicatorSettings: {
+          BOLL: {
+            active: true,
+            id: 'BOLL',
+            lines: {
+              background: {
+                color: '#FFAA00',
+                enabled: true,
+                period: 0,
+                style: 'solid',
+              },
+              lower: {
+                color: '#FFAA00',
+                enabled: !hiddenBoundaryIds.has('lower'),
+                period: 0,
+                style: 'solid',
+              },
+              middle: {
+                color: '#FFAA00',
+                enabled: false,
+                period: 0,
+                style: 'solid',
+              },
+              upper: {
+                color: '#FFAA00',
+                enabled: !hiddenBoundaryIds.has('upper'),
+                period: 0,
+                style: 'solid',
+              },
+            },
+            parameters: { deviation: 2, period: 20 },
+            transparency: 0,
+          },
+        },
+        points,
+      });
+
+      expect(series.map(({ key }) => key)).toEqual([
+        'boll-upper',
+        'boll-lower',
+      ]);
+      expect(series.find(({ key }) => key === 'boll-upper')?.fill).toEqual({
+        color: '#FFAA00',
+        opacity: 0.1,
+        toSeriesKey: 'boll-lower',
+      });
+      expect(
+        series
+          .filter(({ key }) => hiddenBoundaryIds.has(key.replace('boll-', '')))
+          .every(({ visible }) => visible === false),
+      ).toBe(true);
+    }
+  });
+
   it('keeps configured main-indicator width and line pattern independent', () => {
     const series = buildTradingViewNativeIndicatorSeries({
       activeIndicatorValues: new Set(['MA']),
@@ -135,6 +213,42 @@ describe('TradingViewNative indicator series', () => {
     expect(series[0]?.style).toMatchObject({
       lineStyle: 'dashed',
       lineWidth: 3,
+    });
+  });
+
+  it('splits SAR points into configured bullish and bearish colors', () => {
+    const series = buildTradingViewNativeIndicatorSeries({
+      activeIndicatorValues: new Set(['SAR']),
+      indicatorSettings: {
+        SAR: {
+          active: true,
+          id: 'SAR',
+          lines: {},
+          opacityColors: {
+            downColor: '#AA0000',
+            upColor: '#00AA00',
+          },
+          parameters: {},
+          transparency: 0,
+        },
+      },
+      points: [
+        { c: 1, h: 2, l: 0, o: 1, t: 1, v: 1 },
+        { c: 2, h: 3, l: 1, o: 1, t: 2, v: 1 },
+        { c: 3, h: 4, l: 2, o: 2, t: 3, v: 1 },
+        { c: 4, h: 5, l: 3, o: 3, t: 4, v: 1 },
+        { c: 0, h: 4, l: -1, o: 4, t: 5, v: 1 },
+      ],
+    });
+
+    expect(series.map(({ key }) => key)).toEqual(['sar-up', 'sar-down']);
+    expect(series[0]).toMatchObject({
+      style: { color: '#00AA00' },
+      values: [null, 0, 0, 0.16, null],
+    });
+    expect(series[1]).toMatchObject({
+      style: { color: '#AA0000' },
+      values: [null, null, null, null, 5],
     });
   });
 });

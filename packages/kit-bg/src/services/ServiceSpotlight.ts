@@ -61,6 +61,9 @@ class ServiceSpotlight extends ServiceBase {
         [ESpotlightTour.earnRewardHistory]: 0,
         [ESpotlightTour.showDevelopmentBuildWarningDialog]: 0,
         [ESpotlightTour.splitViewFirstPrompt]: 0,
+        [ESpotlightTour.perpLayoutSettingsMenu]: 0,
+        [ESpotlightTour.perpLayoutSettings]: 0,
+        [ESpotlightTour.perpDesktopChartResize]: 0,
       },
     });
   }

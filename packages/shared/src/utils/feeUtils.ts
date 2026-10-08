@@ -312,19 +312,25 @@ export function calculateTotalFeeNative({
   withoutBaseFee?: boolean;
 }) {
   const { common } = feeInfo;
-  return new BigNumber(amount)
-    .plus(withoutBaseFee ? 0 : (common?.baseFee ?? 0))
-    .shiftedBy(
-      common?.feeDecimals ??
-        nilError('calculateTotalFeeNative ERROR: info.feeDecimals missing'),
-    ) // GWEI -> onChainValue
-    .shiftedBy(
-      -(
-        common?.nativeDecimals ??
-        nilError('calculateTotalFeeNative ERROR: info.nativeDecimals missing')
-      ),
-    ) // onChainValue -> nativeAmount
-    .toFixed();
+  return (
+    new BigNumber(amount)
+      .plus(withoutBaseFee ? 0 : (common?.baseFee ?? 0))
+      .shiftedBy(
+        common?.feeDecimals ??
+          nilError('calculateTotalFeeNative ERROR: info.feeDecimals missing'),
+      ) // GWEI -> onChainValue
+      // Chains charge whole base units. gasPrice × gasLimit can resolve to a
+      // fraction (e.g. Cosmos 0.0025 uosmo/gas) and vaults round the on-chain
+      // fee up, so mirror that here to keep display and balance checks honest.
+      .integerValue(BigNumber.ROUND_CEIL)
+      .shiftedBy(
+        -(
+          common?.nativeDecimals ??
+          nilError('calculateTotalFeeNative ERROR: info.nativeDecimals missing')
+        ),
+      ) // onChainValue -> nativeAmount
+      .toFixed()
+  );
 }
 
 export function calculateFeeForSend({

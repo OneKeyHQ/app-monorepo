@@ -183,11 +183,12 @@ class ServiceV4Migration extends ServiceBase {
       JSON.stringify(dbWallets.records, null, 2),
     );
     if (platformEnv.isNative) {
+      const diagnostics = await (
+        appGlobals.$$localDbV4 as V4LocalDbRealm
+      ).getDbDiagnostics();
       console.log({
-        dbVersion: (await (appGlobals.$$localDbV4 as V4LocalDbRealm).readyDb)
-          ?.realm?.schemaVersion,
-        dbName: (await (appGlobals.$$localDbV4 as V4LocalDbRealm).readyDb)
-          ?.realm?.path,
+        dbVersion: diagnostics?.schemaVersion,
+        dbName: diagnostics?.path,
       });
     }
     return result;

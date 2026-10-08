@@ -9,6 +9,7 @@ import {
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import { V4LocalDbBase } from '../V4LocalDbBase';
@@ -28,15 +29,18 @@ import type {
 import type { IDBPDatabase, IDBPObjectStore, IDBPTransaction } from 'idb';
 
 export class V4LocalDbIndexed extends V4LocalDbBase {
-  constructor() {
-    super();
-    this.readyDb = this._openDb();
+  private realDbPromise: Promise<V4IndexedDBAgent> | undefined;
+
+  protected override getReadyDbForAdmittedOperation(): Promise<V4IndexedDBAgent> {
+    return this.getRealDb();
   }
 
-  protected override readyDb: Promise<V4IndexedDBAgent>;
-
   async reset(): Promise<void> {
-    return this.deleteIndexedDb();
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    return environment.persistence.run({
+      operation: () => this.deleteIndexedDb(),
+      onBlocked: () => undefined,
+    });
   }
 
   // ---------------------------------------------- private methods
@@ -220,8 +224,13 @@ export class V4LocalDbIndexed extends V4LocalDbBase {
 
   // ---------------------------------------------- public methods
 
-  async deleteIndexedDb() {
-    const db = await this.readyDb;
+  private getRealDb(): Promise<V4IndexedDBAgent> {
+    this.realDbPromise ??= this._openDb();
+    return this.realDbPromise;
+  }
+
+  private async deleteIndexedDb() {
+    const db = await this.getRealDb();
     db.indexed.close();
     return deleteDB(V4_INDEXED_DB_NAME);
   }

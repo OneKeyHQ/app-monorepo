@@ -25,6 +25,7 @@ import {
   useTheme,
   useThemeName,
 } from '../../../hooks';
+import { BottomTabBarVisibilityContext } from '../../Page/BottomTabBarVisibilityContext';
 import { createNativeBottomTabNavigator } from '../BottomTabs';
 import { makeTabScreenOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
@@ -95,13 +96,14 @@ const extraScreenOptions = {
 };
 
 const nativeTabScreenOptions = {
-  // iOS: disable freezeOnBlur to prevent react-freeze from suspending tab
+  // Keep root tab content mounted so native tab selection can display an
+  // already-loaded scene without waiting for a JS unfreeze commit.
+  // iOS also needs this to prevent react-freeze from suspending tab
   // content when a modal is on top. When frozen, Jotai/React state updates
   // (e.g. network switch) don't commit until the tab regains focus — but
   // the unfreeze path on iOS can fail to flush pending commits, leaving
   // the UI visually stale until a touch forces re-layout.
-  // Android keeps freeze enabled (no observed issue).
-  freezeOnBlur: !platformEnv.isNativeIOS,
+  freezeOnBlur: false,
   preventsDefault: false,
   lazy: true,
 };
@@ -250,19 +252,20 @@ export function TabStackNavigator<RouteName extends string>({
   );
 
   return (
-    <NativeTab.Navigator
-      labeled
-      hapticFeedbackEnabled={hapticFeedbackEnabled !== false}
-      disablePageAnimations
-      ignoreBottomInsets
-      sidebarAdaptable={false}
-      tabBarHidden={hidden}
-      tabBarActiveTintColor={theme.iconActive.val}
-      tabBarInactiveTintColor={theme.iconSubdued.val}
-      tabBarStyle={tabBarStyle}
-      screenOptions={nativeTabScreenOptions}
-    >
-      {tabScreens}
-    </NativeTab.Navigator>
+    <BottomTabBarVisibilityContext.Provider value={!hidden}>
+      <NativeTab.Navigator
+        labeled
+        hapticFeedbackEnabled={hapticFeedbackEnabled !== false}
+        disablePageAnimations
+        sidebarAdaptable={false}
+        tabBarHidden={hidden}
+        tabBarActiveTintColor={theme.iconActive.val}
+        tabBarInactiveTintColor={theme.iconSubdued.val}
+        tabBarStyle={tabBarStyle}
+        screenOptions={nativeTabScreenOptions}
+      >
+        {tabScreens}
+      </NativeTab.Navigator>
+    </BottomTabBarVisibilityContext.Provider>
   );
 }

@@ -3,7 +3,11 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { useDeviceDetailsActions } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
+import {
+  resolveDeviceState,
+  useDeviceDetailsActions,
+  useDeviceStateSnapshotAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useFirmwareVerifyDialog } from '../../../Onboarding/pages/ConnectHardwareWallet/FirmwareVerifyDialog';
@@ -32,6 +36,7 @@ function DeviceSectionSupport({
   const { pushToTroubleshooting } = useDeviceManagerNavigation();
 
   const actions = useDeviceDetailsActions();
+  const [deviceStateSnapshot] = useDeviceStateSnapshotAtom();
 
   const { show: showDialogDeviceAbout } = useDialogDeviceAbout();
 
@@ -39,8 +44,14 @@ function DeviceSectionSupport({
     const walletWithDevice = await actions.getWalletWithDevice();
     if (!walletWithDevice) return;
 
-    showDialogDeviceAbout(walletWithDevice);
-  }, [actions, showDialogDeviceAbout]);
+    showDialogDeviceAbout(
+      walletWithDevice,
+      resolveDeviceState({
+        persistedState: walletWithDevice.device?.deviceStateInfo,
+        snapshot: deviceStateSnapshot,
+      }),
+    );
+  }, [actions, deviceStateSnapshot, showDialogDeviceAbout]);
 
   const { showFirmwareVerifyDialog, isLoading: isFirmwareVerifyDialogLoading } =
     useFirmwareVerifyDialog();

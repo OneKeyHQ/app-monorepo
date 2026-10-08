@@ -1,18 +1,16 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useId, useMemo, useState } from 'react';
 import type { ComponentProps } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
-import { InputAccessoryView, Keyboard } from 'react-native';
+import { InputAccessoryView } from 'react-native';
 
 import {
-  Button,
   Input,
   SizableText,
   XStack,
   YStack,
   getFontSize,
-  useIsKeyboardShown,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -24,61 +22,20 @@ import {
   validatePriceInput,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 
-// Done button component
-const TpslDoneButton = ({ onDone }: { onDone: () => void }) => {
-  const intl = useIntl();
-  const isKeyboardShown = useIsKeyboardShown();
-  const viewShow = platformEnv.isNativeIOS || isKeyboardShown;
+import { InputAccessoryDoneButton } from './TradingFormInput';
 
-  if (!viewShow) return null;
-
-  return (
-    <XStack
-      p="$2.5"
-      px="$3.5"
-      justifyContent="flex-end"
-      bg="$bgSubdued"
-      borderTopWidth="$px"
-      borderTopColor="$borderSubduedLight"
-    >
-      <Button
-        testID="perp-view-show-btn"
-        variant="tertiary"
-        childrenAsText={false}
-        onPress={() => {
-          Keyboard.dismiss();
-          onDone();
-        }}
-      >
-        <SizableText size="$bodyMdMedium" color="$text">
-          {intl.formatMessage({ id: ETranslations.global_done })}
-        </SizableText>
-      </Button>
-    </XStack>
-  );
-};
-
-// Wrapper component similar to InputWithAccessoryDoneView but with unique ID support
-type ITpslInputWithDoneProps = ComponentProps<typeof Input> & {
-  accessoryViewId: string;
-  onDone?: () => void;
-};
-
-const TpslInputWithDone = ({
-  accessoryViewId,
-  onDone = () => {},
-  ...inputProps
-}: ITpslInputWithDoneProps) => {
+const TpslInputWithDone = (inputProps: ComponentProps<typeof Input>) => {
+  const accessoryId = useId();
   return (
     <>
       <Input
         {...inputProps}
-        inputAccessoryViewID={accessoryViewId}
+        inputAccessoryViewID={platformEnv.isNativeIOS ? accessoryId : undefined}
         testID="perp-tpsl-input-with-done-input"
       />
       {platformEnv.isNativeIOS ? (
-        <InputAccessoryView nativeID={accessoryViewId}>
-          <TpslDoneButton onDone={onDone} />
+        <InputAccessoryView nativeID={accessoryId}>
+          <InputAccessoryDoneButton />
         </InputAccessoryView>
       ) : null}
     </>
@@ -124,6 +81,10 @@ export const TpslInput = memo(
     amount,
     seedPercent,
   }: ITpslInputProps) => {
+    const [focusedField, setFocusedField] = useState<
+      'tpPrice' | 'tpPercent' | 'slPrice' | 'slPercent' | undefined
+    >();
+    const unfocusedBorderColor = ifOnDialog ? '$transparent' : undefined;
     const referencePrice = useMemo(() => {
       return new BigNumber(price || 0);
     }, [price]);
@@ -348,23 +309,26 @@ export const TpslInput = memo(
           {hiddenTp ? null : (
             <YStack gap="$2">
               <TpslInputWithDone
-                accessoryViewId="tpsl-tp-price-mobile"
-                onDone={() => {}}
                 h={32}
                 placeholder={intl.formatMessage({
                   id: ETranslations.perp_trade_tp_price,
                 })}
                 value={internalState.tpTriggerPx}
                 onChangeText={handleTpPriceChange}
+                onFocus={() => setFocusedField('tpPrice')}
+                onBlur={() => setFocusedField(undefined)}
                 disabled={disabled}
                 keyboardType="decimal-pad"
                 fontSize={getFontSize('$bodyMd')}
                 size="small"
                 containerProps={{
                   borderWidth: ifOnDialog ? '$px' : 0,
-                  borderColor: ifOnDialog ? '$borderSubdued' : undefined,
-                  bg: ifOnDialog ? '$bgApp' : '$bgSubdued',
-                  borderRadius: '$2',
+                  borderColor:
+                    ifOnDialog && focusedField === 'tpPrice' && !disabled
+                      ? '$border'
+                      : unfocusedBorderColor,
+                  bg: ifOnDialog ? '$bgStrong' : '$bgSubdued',
+                  borderRadius: ifOnDialog ? '$3' : '$2',
                 }}
                 InputComponentStyle={{
                   px: '$3',
@@ -410,23 +374,26 @@ export const TpslInput = memo(
           {hiddenSl ? null : (
             <YStack gap="$2">
               <TpslInputWithDone
-                accessoryViewId="tpsl-sl-price-mobile"
-                onDone={() => {}}
                 h={32}
                 placeholder={intl.formatMessage({
                   id: ETranslations.perp_trade_sl_price,
                 })}
                 value={internalState.slTriggerPx}
                 onChangeText={handleSlPriceChange}
+                onFocus={() => setFocusedField('slPrice')}
+                onBlur={() => setFocusedField(undefined)}
                 disabled={disabled}
                 keyboardType="decimal-pad"
                 fontSize={getFontSize('$bodyMd')}
                 size="small"
                 containerProps={{
                   borderWidth: ifOnDialog ? '$px' : 0,
-                  borderColor: ifOnDialog ? '$borderSubdued' : undefined,
-                  bg: ifOnDialog ? '$bgApp' : '$bgSubdued',
-                  borderRadius: '$2',
+                  borderColor:
+                    ifOnDialog && focusedField === 'slPrice' && !disabled
+                      ? '$border'
+                      : unfocusedBorderColor,
+                  bg: ifOnDialog ? '$bgStrong' : '$bgSubdued',
+                  borderRadius: ifOnDialog ? '$3' : '$2',
                 }}
                 InputComponentStyle={{
                   px: '$3',
@@ -486,23 +453,29 @@ export const TpslInput = memo(
                     }
               }
               borderWidth={ifOnDialog ? '$px' : 0}
-              borderColor={ifOnDialog ? '$border' : undefined}
-              bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
-              borderRadius="$2"
+              borderColor={
+                ifOnDialog && focusedField === 'tpPrice' && !disabled
+                  ? '$border'
+                  : unfocusedBorderColor
+              }
+              bg={ifOnDialog ? '$bgStrong' : '$bgSubdued'}
+              borderRadius={ifOnDialog ? '$3' : '$2'}
             >
               <TpslInputWithDone
-                accessoryViewId="tpsl-tp-price-desktop"
-                onDone={() => {}}
                 h={40}
                 placeholder={intl.formatMessage({
                   id: ETranslations.perp_trade_tp_price,
                 })}
                 value={internalState.tpTriggerPx}
                 onChangeText={handleTpPriceChange}
+                onFocus={() => setFocusedField('tpPrice')}
+                onBlur={() => setFocusedField(undefined)}
                 disabled={disabled}
                 keyboardType="decimal-pad"
                 size="small"
                 containerProps={{
+                  borderRadius: ifOnDialog ? '$3' : '$2',
+                  bg: 'transparent',
                   borderWidth: 0,
                 }}
               />
@@ -520,25 +493,31 @@ export const TpslInput = memo(
                     }
               }
               borderWidth={ifOnDialog ? '$px' : 0}
-              borderColor={ifOnDialog ? '$border' : undefined}
-              bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
-              borderRadius="$2"
+              borderColor={
+                ifOnDialog && focusedField === 'tpPercent' && !disabled
+                  ? '$border'
+                  : unfocusedBorderColor
+              }
+              bg={ifOnDialog ? '$bgStrong' : '$bgSubdued'}
+              borderRadius={ifOnDialog ? '$3' : '$2'}
             >
               <TpslInputWithDone
-                accessoryViewId="tpsl-tp-gain-percent"
-                onDone={() => {}}
                 h={40}
                 placeholder={intl.formatMessage({
                   id: ETranslations.perp_trade_tp_price_gain,
                 })}
                 value={internalState.tpGainPercent}
                 onChangeText={handleTpPercentChange}
+                onFocus={() => setFocusedField('tpPercent')}
+                onBlur={() => setFocusedField(undefined)}
                 disabled={disabled}
                 keyboardType="decimal-pad"
                 size="small"
                 textAlign="right"
                 leftIconName="PlusSmallOutline"
                 containerProps={{
+                  borderRadius: ifOnDialog ? '$3' : '$2',
+                  bg: 'transparent',
                   borderWidth: 0,
                 }}
                 addOns={[
@@ -592,23 +571,29 @@ export const TpslInput = memo(
                     }
               }
               borderWidth={ifOnDialog ? '$px' : 0}
-              borderColor={ifOnDialog ? '$border' : undefined}
-              bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
-              borderRadius="$2"
+              borderColor={
+                ifOnDialog && focusedField === 'slPrice' && !disabled
+                  ? '$border'
+                  : unfocusedBorderColor
+              }
+              bg={ifOnDialog ? '$bgStrong' : '$bgSubdued'}
+              borderRadius={ifOnDialog ? '$3' : '$2'}
             >
               <TpslInputWithDone
-                accessoryViewId="tpsl-sl-price-desktop"
-                onDone={() => {}}
                 h={40}
                 placeholder={intl.formatMessage({
                   id: ETranslations.perp_trade_sl_price,
                 })}
                 value={internalState.slTriggerPx}
                 onChangeText={handleSlPriceChange}
+                onFocus={() => setFocusedField('slPrice')}
+                onBlur={() => setFocusedField(undefined)}
                 disabled={disabled}
                 keyboardType="decimal-pad"
                 size="small"
                 containerProps={{
+                  borderRadius: ifOnDialog ? '$3' : '$2',
+                  bg: 'transparent',
                   borderWidth: 0,
                 }}
               />
@@ -624,14 +609,16 @@ export const TpslInput = memo(
                       outlineStyle: 'solid',
                     }
               }
-              borderRadius="$2"
+              borderRadius={ifOnDialog ? '$3' : '$2'}
               borderWidth={ifOnDialog ? '$px' : 0}
-              borderColor={ifOnDialog ? '$border' : undefined}
-              bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
+              borderColor={
+                ifOnDialog && focusedField === 'slPercent' && !disabled
+                  ? '$border'
+                  : unfocusedBorderColor
+              }
+              bg={ifOnDialog ? '$bgStrong' : '$bgSubdued'}
             >
               <TpslInputWithDone
-                accessoryViewId="tpsl-sl-loss-percent"
-                onDone={() => {}}
                 h={40}
                 placeholder={intl.formatMessage({
                   id: ETranslations.perp_trade_sl_price_loss,
@@ -640,10 +627,14 @@ export const TpslInput = memo(
                 leftIconName="MinusSmallOutline"
                 value={internalState.slLossPercent}
                 onChangeText={handleSlPercentChange}
+                onFocus={() => setFocusedField('slPercent')}
+                onBlur={() => setFocusedField(undefined)}
                 disabled={disabled}
                 keyboardType="decimal-pad"
                 size="small"
                 containerProps={{
+                  borderRadius: ifOnDialog ? '$3' : '$2',
+                  bg: 'transparent',
                   borderWidth: 0,
                 }}
                 addOns={[

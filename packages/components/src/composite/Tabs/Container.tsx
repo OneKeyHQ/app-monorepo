@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { PropsWithChildren, RefObject } from 'react';
+import type { PropsWithChildren, Ref, RefObject } from 'react';
 
 import { debounce } from 'lodash';
 import { useAnimatedReaction, useSharedValue } from 'react-native-reanimated';
@@ -20,8 +20,9 @@ import { XStack, YStack } from '../../primitives';
 import { TabsContext, TabsScrollContext } from './context';
 import { TabBar } from './TabBar';
 import { useConvertAnimatedToValue } from './useFocusedTab';
-import { parseCssSize } from './utils';
+import { getInFlowContentBottom, parseCssSize } from './utils';
 
+import type { TamaguiElement } from '../../shared/tamagui';
 import type { LayoutChangeEvent } from 'react-native';
 import type {
   CollapsibleProps,
@@ -33,6 +34,8 @@ import type { WindowScrollerChildProps } from 'react-virtualized';
 const overflowYScrollStyle = { overflowY: 'scroll' } as const;
 const scrollSnapStyle = { scrollSnapType: 'x' } as const;
 const childDivStyle = {
+  display: 'flex',
+  flexDirection: 'column',
   width: '100%',
   flexShrink: 0,
   scrollSnapAlign: 'center',
@@ -45,6 +48,7 @@ export function ContainerChild({
   focusedTab,
   tabNames,
   disableWebTabContentVisibility,
+  fillAvailableSpace,
   ...props
 }: PropsWithChildren<WindowScrollerChildProps> & {
   listContainerRef: RefObject<Element>;
@@ -52,6 +56,7 @@ export function ContainerChild({
   focusedTab: SharedValue<string>;
   tabNames: (string | null)[];
   disableWebTabContentVisibility: boolean;
+  fillAvailableSpace: boolean;
 }) {
   const focusedTabValue = useConvertAnimatedToValue(focusedTab, '');
 
@@ -112,11 +117,43 @@ export function ContainerChild({
     () => syncFocusedTabVisibility(focusedTabValue ?? ''),
     [focusedTabValue, syncFocusedTabVisibility],
   );
+
+  useLayoutEffect(() => {
+    // WindowScroller inserts an unstyled wrapper between the flex container and pager.
+    const windowScrollerElement = listContainerRef.current
+      ?.parentElement as HTMLElement | null;
+    if (!fillAvailableSpace || !windowScrollerElement) {
+      return;
+    }
+
+    const previousStyle = {
+      display: windowScrollerElement.style.display,
+      flexDirection: windowScrollerElement.style.flexDirection,
+      flexGrow: windowScrollerElement.style.flexGrow,
+      flexShrink: windowScrollerElement.style.flexShrink,
+      minHeight: windowScrollerElement.style.minHeight,
+      minWidth: windowScrollerElement.style.minWidth,
+    };
+    Object.assign(windowScrollerElement.style, {
+      display: 'flex',
+      flexDirection: 'column',
+      flexGrow: '1',
+      flexShrink: '0',
+      minHeight: '0',
+      minWidth: '0',
+    });
+
+    return () => {
+      Object.assign(windowScrollerElement.style, previousStyle);
+    };
+  }, [fillAvailableSpace, listContainerRef]);
+
   return (
     <TabsScrollContext.Provider value={props}>
       <XStack
         ref={listContainerRef as any}
         width={containerWidth || props.width}
+        flexGrow={fillAvailableSpace ? 1 : undefined}
         overflow="hidden"
         style={scrollSnapStyle}
       >
@@ -149,6 +186,7 @@ export interface ITabContainerRef {
   getFocusedTab: () => string;
   getCurrentIndex: () => number;
   syncCurrentPage: () => void;
+  restoreScrollPosition?: () => boolean;
 }
 
 export interface ITabContainerProps {
@@ -177,6 +215,7 @@ export interface ITabContainerProps {
    * containers with dynamic content or header heights.
    */
   disableWebTabContentVisibility?: boolean;
+  isRouteFocused?: boolean;
   /** Only used on native Android, ignored on web */
   useNativeHeaderAnimation?: boolean;
   /**
@@ -202,56 +241,81 @@ export function Container({
   initialTabName,
   disableScroll,
   disableWebTabContentVisibility = false,
+  isRouteFocused = true,
 }: PropsWithChildren<CollapsibleProps> &
   ITabContainerRefProps &
   Pick<
     ITabContainerProps,
     | 'disableScroll'
     | 'disableWebTabContentVisibility'
+    | 'isRouteFocused'
     | 'useNativeHeaderAnimation'
     | 'tabPressAnimationEnabled'
     | 'renderSubHeader'
   >) {
-  const getTabContentHeight = useCallback((element: Element | null) => {
-    const htmlElement = element as HTMLElement | null;
-    if (!htmlElement) {
-      return 0;
-    }
+  const getTabContentHeight = useCallback(
+    (element: Element | null, isStretchedByContainer = false) => {
+      const htmlElement = element as HTMLElement | null;
+      if (!htmlElement) {
+        return 0;
+      }
 
-    const style = globalThis.getComputedStyle(htmlElement);
-    const verticalSpacing =
-      parseCssSize(style.marginTop) +
-      parseCssSize(style.marginBottom) +
-      parseCssSize(style.paddingTop) +
-      parseCssSize(style.paddingBottom);
-    const virtualizedInnerElement = htmlElement.querySelector<HTMLElement>(
-      [
-        '.ReactVirtualized__Grid__innerScrollContainer',
-        '.ReactVirtualized__Collection__innerScrollContainer',
-      ].join(','),
-    );
-    // Cheap path first: only force a synchronous layout via
-    // getBoundingClientRect when scrollHeight/clientHeight both come back 0.
-    const virtualizedCheap = virtualizedInnerElement
-      ? Math.max(
-          virtualizedInnerElement.scrollHeight || 0,
-          virtualizedInnerElement.clientHeight || 0,
-        ) + verticalSpacing
-      : 0;
-    const cheap = Math.max(
-      htmlElement.scrollHeight || 0,
-      htmlElement.clientHeight || 0,
-      virtualizedCheap,
-    );
-    if (cheap) return cheap;
-    const virtualizedFallback = virtualizedInnerElement
-      ? virtualizedInnerElement.getBoundingClientRect().height + verticalSpacing
-      : 0;
-    return Math.max(
-      htmlElement.getBoundingClientRect().height || 0,
-      virtualizedFallback,
-    );
-  }, []);
+      const style = globalThis.getComputedStyle(htmlElement);
+      const verticalSpacing =
+        parseCssSize(style.marginTop) +
+        parseCssSize(style.marginBottom) +
+        parseCssSize(style.paddingTop) +
+        parseCssSize(style.paddingBottom);
+      const virtualizedInnerElement = htmlElement.querySelector<HTMLElement>(
+        [
+          '.ReactVirtualized__Grid__innerScrollContainer',
+          '.ReactVirtualized__Collection__innerScrollContainer',
+        ].join(','),
+      );
+      // Cheap path first: only force a synchronous layout via
+      // getBoundingClientRect when scrollHeight/clientHeight both come back 0.
+      const virtualizedCheap = virtualizedInnerElement
+        ? Math.max(
+            virtualizedInnerElement.scrollHeight || 0,
+            virtualizedInnerElement.clientHeight || 0,
+          ) + verticalSpacing
+        : 0;
+      const cheap = Math.max(
+        htmlElement.scrollHeight || 0,
+        htmlElement.clientHeight || 0,
+        virtualizedCheap,
+      );
+      // A stretched element (Tabs.ScrollView is `flex={1}`) is sized by the
+      // shared pager container, which still carries the PREVIOUS tab's height
+      // while the newly focused tab is being measured. Its own box then
+      // reports that stale height, so the container only ever grows and a
+      // short tab inherits a tall one's dead space. The in-flow content stays
+      // content-sized, so it exposes the real height. Only trust it when it
+      // proves the box is stretched past the content — otherwise the box
+      // already matches (or is overflowed by) the content — and never let it
+      // undercut a virtualized list, whose height is content-driven already.
+      if (isStretchedByContainer && cheap) {
+        const contentBottom = getInFlowContentBottom(htmlElement);
+        if (contentBottom > 0) {
+          const contentHeight =
+            contentBottom + parseCssSize(style.paddingBottom);
+          if (contentHeight < cheap && contentHeight >= virtualizedCheap) {
+            return contentHeight;
+          }
+        }
+      }
+      if (cheap) return cheap;
+      const virtualizedFallback = virtualizedInnerElement
+        ? virtualizedInnerElement.getBoundingClientRect().height +
+          verticalSpacing
+        : 0;
+      return Math.max(
+        htmlElement.getBoundingClientRect().height || 0,
+        virtualizedFallback,
+      );
+    },
+    [],
+  );
 
   // Get tab names from children props
   const scrollTopRef = useRef<{ [key: string]: number }>({});
@@ -298,18 +362,27 @@ export function Container({
   // new element into scrollTabElementsRef" so Container can attach its
   // ResizeObserver immediately, without polling.
   const requestRemeasureRef = useRef<() => void>(() => {});
-  const contextValue = useMemo(
-    () => ({
-      focusedTab,
-      tabNames: sharedTabNames,
-      scrollTabElementsRef,
-      requestRemeasure: () => requestRemeasureRef.current(),
-    }),
-    [focusedTab, sharedTabNames],
-  );
   const isEffectValid = useRef(true);
   const ref = useRef<Element>(null);
   const listContainerRef = useRef<Element>(null);
+
+  const syncFocusedTabPosition = useCallback(() => {
+    const listContainer = listContainerRef.current;
+    if (!listContainer) {
+      return;
+    }
+    const index = tabNamesRef.current.findIndex(
+      (name) => name === focusedTab.value,
+    );
+    const width = listContainer.clientWidth || ref.current?.clientWidth || 0;
+    if (index < 0 || !width) {
+      return;
+    }
+    listContainer.scrollTo({
+      left: width * index,
+      behavior: 'instant',
+    });
+  }, [focusedTab]);
 
   const stickyHeaderHeight = useRef(0);
   const handlerStickyHeaderLayout = useCallback((event: LayoutChangeEvent) => {
@@ -318,6 +391,102 @@ export function Container({
 
   const [scrollElement, setScrollElement] = useState<Element | null>(null);
   const isSwitchingTabRef = useRef(false);
+  const routeScrollSnapshotRef = useRef<Record<string, number>>({});
+
+  // The container root is the only scroller (`overflowYScrollStyle`); the
+  // per-tab nodes in `scrollTabElementsRef` are measurement targets. Reset the
+  // real scroller AND the saved per-tab offsets, otherwise the next tab switch
+  // (`scrollTopRef`) or route focus (`restoreScrollPosition`) would put the
+  // previous position straight back.
+  const scrollToTop = useCallback(() => {
+    (scrollElement as HTMLElement | null)?.scrollTo({
+      top: 0,
+      behavior: 'instant',
+    });
+    scrollTopRef.current = {};
+    routeScrollSnapshotRef.current = {};
+  }, [scrollElement]);
+
+  const contextValue = useMemo(
+    () => ({
+      focusedTab,
+      tabNames: sharedTabNames,
+      scrollTabElementsRef,
+      requestRemeasure: () => requestRemeasureRef.current(),
+      scrollToTop,
+    }),
+    [focusedTab, sharedTabNames, scrollToTop],
+  );
+
+  useEffect(() => {
+    if (!isRouteFocused) {
+      const tabName = focusedTab.value;
+      const currentScrollTop = (scrollElement as HTMLElement | null)?.scrollTop;
+      routeScrollSnapshotRef.current[tabName] =
+        typeof currentScrollTop === 'number' && currentScrollTop > 0
+          ? currentScrollTop
+          : (scrollTopRef.current[tabName] ?? currentScrollTop ?? 0);
+    }
+  }, [focusedTab, isRouteFocused, scrollElement]);
+
+  useEffect(() => {
+    const element = scrollElement as HTMLElement | null;
+    if (!element || !isRouteFocused) return;
+
+    const cancelPendingRestore = () => {
+      const tabName = focusedTab.value;
+      if (routeScrollSnapshotRef.current[tabName] === undefined) return;
+      delete routeScrollSnapshotRef.current[tabName];
+      scrollTopRef.current[tabName] = element.scrollTop;
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.key === 'Home' ||
+        event.key === 'End' ||
+        event.key === 'PageUp' ||
+        event.key === 'PageDown' ||
+        event.key === 'ArrowUp' ||
+        event.key === 'ArrowDown'
+      ) {
+        cancelPendingRestore();
+      }
+    };
+    const handlePointerDown = (event: PointerEvent) => {
+      if (event.target === element) {
+        cancelPendingRestore();
+      }
+    };
+
+    element.addEventListener('wheel', cancelPendingRestore, {
+      passive: true,
+    });
+    element.addEventListener('touchstart', cancelPendingRestore, {
+      passive: true,
+    });
+    element.addEventListener('pointerdown', handlePointerDown);
+    element.addEventListener('keydown', handleKeyDown);
+    return () => {
+      element.removeEventListener('wheel', cancelPendingRestore);
+      element.removeEventListener('touchstart', cancelPendingRestore);
+      element.removeEventListener('pointerdown', handlePointerDown);
+      element.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [focusedTab, isRouteFocused, scrollElement]);
+
+  const restoreScrollPosition = useCallback(() => {
+    const element = scrollElement as HTMLElement | null;
+    const tabName = focusedTab.value;
+    const savedScrollTop =
+      routeScrollSnapshotRef.current[tabName] ?? scrollTopRef.current[tabName];
+    if (!element || typeof savedScrollTop !== 'number') return false;
+    element.scrollTo({ top: savedScrollTop, behavior: 'instant' });
+    const restored = Math.abs(element.scrollTop - savedScrollTop) <= 1;
+    if (restored) {
+      scrollTopRef.current[tabName] = savedScrollTop;
+      delete routeScrollSnapshotRef.current[tabName];
+    }
+    return restored;
+  }, [focusedTab, scrollElement]);
 
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const mutationObserverRef = useRef<MutationObserver | null>(null);
@@ -388,11 +557,17 @@ export function Container({
       if (shouldMeasureFallbackNaturalHeight) {
         containerElement.style.height = '';
       }
+      // Tabs.ScrollView is `flex={1}`, so the pinned container height stretches
+      // it and hides the tab's real content height from its own box. Compare
+      // against the element `isRegisteredScrollView` was derived from, so the
+      // flag can never disagree with the element actually being measured.
+      const isStretchedByContainer =
+        isRegisteredScrollView && targetElement === registeredElement;
       const h =
         typeof registeredHeight === 'number' &&
         Number.isFinite(registeredHeight)
           ? registeredHeight
-          : getTabContentHeight(targetElement);
+          : getTabContentHeight(targetElement, isStretchedByContainer);
       if (h > 0) {
         containerElement.style.height = `${h}px`;
       } else {
@@ -652,11 +827,10 @@ export function Container({
           (name) => name === focusedTab.value,
         );
       },
-      syncCurrentPage: () => {
-        // no-op on web, only needed for native PagerView
-      },
+      syncCurrentPage: syncFocusedTabPosition,
+      restoreScrollPosition,
     }),
-    [focusedTab, onTabPress],
+    [focusedTab, onTabPress, restoreScrollPosition, syncFocusedTabPosition],
   );
 
   // Memoised args for renderHeader/renderTabBar. tabNames identity may
@@ -684,7 +858,7 @@ export function Container({
       className="onekey-tabs-container"
       position="relative"
       style={disableScroll ? undefined : overflowYScrollStyle}
-      ref={ref as React.RefObject<HTMLDivElement>}
+      ref={ref as unknown as Ref<TamaguiElement>}
     >
       {scrollElement ? (
         <TabsContext.Provider value={contextValue as any}>
@@ -713,9 +887,18 @@ export function Container({
               if (!isEffectValid.current || !width) {
                 return null;
               }
-              if (!isSwitchingTabRef.current) {
-                scrollTopRef.current[focusedTab.value] =
-                  scrollElement.scrollTop;
+              if (!isSwitchingTabRef.current && isRouteFocused) {
+                const currentScrollTop = scrollElement.scrollTop;
+                const tabName = focusedTab.value;
+                const savedRouteScrollTop =
+                  routeScrollSnapshotRef.current[tabName];
+                if (
+                  currentScrollTop > 0 ||
+                  savedRouteScrollTop === undefined ||
+                  savedRouteScrollTop === 0
+                ) {
+                  scrollTopRef.current[tabName] = currentScrollTop;
+                }
               }
               return (
                 <ContainerChild
@@ -733,6 +916,7 @@ export function Container({
                   disableWebTabContentVisibility={
                     disableWebTabContentVisibility
                   }
+                  fillAvailableSpace={Boolean(disableScroll)}
                 >
                   {children}
                 </ContainerChild>

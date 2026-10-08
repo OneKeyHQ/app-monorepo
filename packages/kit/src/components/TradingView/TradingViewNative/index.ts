@@ -6,6 +6,7 @@ export {
 export type {
   ITradingViewNativeChartComponentGroup,
   ITradingViewNativeChartComponentNode,
+  ITradingViewNativeChartDisplayMode,
   ITradingViewNativeDataState,
   ITradingViewNativeIntervalChangeData,
   ITradingViewNativePriceChartAnchor,

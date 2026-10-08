@@ -66,15 +66,21 @@ Never violate this dependency order:
 
 ## Data And Dependencies
 
-- Local DB schema changes must keep Realm and IndexedDB definitions in sync and
-  bump `LOCAL_DB_VERSION` in `packages/kit-bg/src/dbs/local/consts.ts`.
-- Schema changes include Realm properties/getters, IndexedDB stores/schema maps,
-  and persisted model fields.
+- Bump `LOCAL_DB_VERSION` (`packages/kit-bg/src/dbs/local/consts.ts`)
+  for Realm schema changes (even optional fields), IndexedDB store/index
+  changes, or version-gated migrations. Name the change; align schemas.
+- Type-only edits and SimpleDB/serialized payload fields alone need no bump;
+  assess compatibility separately.
 - For third-party patches, follow `/1k-patch-package-workflow`; generated patches
   must exclude build artifacts.
 
 ## Debugging And Verification
 
+- For normal React Native launches, use `/1k-dev-commands` Mobile DevSession;
+  use direct mobile workspace scripts only for native rebuilds or diagnosis.
+- If a command emits `ONEKEY_USER_NOTICE`, or its run receipt has
+  `userNoticeRequired: true`, report every notice explicitly to the user even
+  when the fallback succeeds. Never describe that run as a clean cache hit.
 - If a fix fails, re-analyze the root cause instead of retrying small variations.
 - For visual bugs, establish platform and expected vs actual behavior first.
 - For Electron, DApp, UI, startup, and interaction fixes, state the repro,

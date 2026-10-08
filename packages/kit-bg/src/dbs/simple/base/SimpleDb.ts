@@ -1,11 +1,11 @@
+import type { AsyncStorageStatic } from '@onekeyhq/shared/src/storage/appStorageTypes';
+
 import { createLazyServiceProxy } from '../../../apis/lazyServiceProxy';
 
 import {
   getSimpleDbEntityKey,
   getXpubOrAddressFromAccountKey,
 } from './simpleDbFacadeCompatibility';
-
-import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
 
 export class SimpleDb {
   // Lazy load entities using getters
@@ -31,6 +31,19 @@ export class SimpleDb {
         ),
     });
     Object.defineProperty(this, 'primeTransfer', { value });
+    return value;
+  }
+
+  get cloudBackupPasswordCache() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@cloudBackupPasswordCache',
+      loader: () =>
+        import('../entity/SimpleDbEntityCloudBackupPasswordCache').then(
+          ({ SimpleDbEntityCloudBackupPasswordCache }) =>
+            new SimpleDbEntityCloudBackupPasswordCache(),
+        ),
+    });
+    Object.defineProperty(this, 'cloudBackupPasswordCache', { value });
     return value;
   }
 
@@ -665,6 +678,19 @@ export class SimpleDb {
         ),
     });
     Object.defineProperty(this, 'recentRecipients', { value });
+    return value;
+  }
+
+  get transferRecipientsCache() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@transferRecipientsCache',
+      loader: () =>
+        import('../entity/SimpleDbEntityTransferRecipientsCache').then(
+          ({ SimpleDbEntityTransferRecipientsCache }) =>
+            new SimpleDbEntityTransferRecipientsCache(),
+        ),
+    });
+    Object.defineProperty(this, 'transferRecipientsCache', { value });
     return value;
   }
 

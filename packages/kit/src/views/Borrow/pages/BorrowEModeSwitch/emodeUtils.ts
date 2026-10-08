@@ -75,6 +75,8 @@ export interface IEModeRow {
   isOff: boolean;
 }
 
+// Both screens derive rows from their live status so the picker can follow
+// category changes while it is open.
 export function buildEModeRows(
   status: IBorrowEModeStatus | null | undefined,
   offLabel: string,
@@ -109,32 +111,46 @@ export function buildEModeRows(
   return [offRow, ...categoryRows];
 }
 
-export function buildEModeSelectDescription({
-  row,
-  currentEModeId,
-  currentText,
-  offText,
-  formatMaxLtv,
-  needsActionText,
-}: {
+type IEModeRowSubtitleParams = {
   row: IEModeRow;
-  currentEModeId: number;
-  currentText: string;
   offText: string;
   formatMaxLtv: (ltv: string) => string;
   needsActionText: string;
+};
+
+// Picker rows always show LTV, including the base market LTV for Off.
+export function buildEModeRowSubtitle({
+  row,
+  offText,
+  formatMaxLtv,
+  needsActionText,
+}: IEModeRowSubtitleParams): string {
+  const parts = row.ltv ? [formatMaxLtv(row.ltv)] : [];
+  if (!parts.length && row.isOff) {
+    parts.push(offText);
+  }
+  if (row.canSwitch === false) {
+    parts.push(needsActionText);
+  }
+  return parts.join(' · ');
+}
+
+export function buildEModeSelectDescription({
+  currentEModeId,
+  currentText,
+  ...subtitleParams
+}: IEModeRowSubtitleParams & {
+  currentEModeId: number;
+  currentText: string;
 }): string {
+  const { row, offText } = subtitleParams;
   if (row.eModeId === currentEModeId) {
     return currentText;
   }
   if (row.isOff) {
     return offText;
   }
-  const parts = row.ltv ? [formatMaxLtv(row.ltv)] : [];
-  if (row.canSwitch === false) {
-    parts.push(needsActionText);
-  }
-  return parts.join(' · ');
+  return buildEModeRowSubtitle(subtitleParams);
 }
 
 export interface IEModeSelectionResolution {

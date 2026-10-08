@@ -15,6 +15,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { mapMarketStockPublicItemToSearchToken } from '@onekeyhq/shared/src/utils/marketSearchStock';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   buildCoinFromSearchAssetType,
@@ -37,6 +38,7 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IAddressValidation } from '@onekeyhq/shared/types/address';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import { PERPS_ASSET_TYPE_VERSION } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type {
   IUniversalSearchAddress,
   IUniversalSearchBatchResult,
@@ -56,13 +58,13 @@ import ServiceBase from './ServiceBase';
 const PERPS_UNIVERSE_SEARCH_MAX_AGE_MS = timerUtils.getTimeDurationMs({
   minute: 5,
 });
-const PERPS_ASSET_TYPE_VERSION = 2;
 // Every market's search aliases include its pair notations (`btc-usdc`), so
 // `usdc` returns every USDC settled market. Only short ASCII tickers are held
 // to a literal match: a longer query is where the index's description hits
 // such as `nasdaq` are the point, and a non-ASCII one is where the localized
 // aliases the server may hold beyond our cached map are.
 const PERPS_SEARCH_LITERAL_MATCH_MAX_QUERY_LENGTH = 4;
+const UNIVERSAL_SEARCH_STOCK_LIMIT = 10;
 
 @backgroundClass()
 class ServiceUniversalSearch extends ServiceBase {
@@ -213,6 +215,9 @@ class ServiceUniversalSearch extends ServiceBase {
       searchTypes.includes(EUniversalSearchType.V2MarketToken)
         ? this.universalSearchOfV2MarketToken(input)
         : Promise.resolve([]),
+      searchTypes.includes(EUniversalSearchType.MarketStock)
+        ? this.universalSearchOfMarketStock(input)
+        : Promise.resolve([]),
       searchTypes.includes(EUniversalSearchType.MarketToken)
         ? this.universalSearchOfMarketToken(input)
         : Promise.resolve([]),
@@ -243,6 +248,7 @@ class ServiceUniversalSearch extends ServiceBase {
     const [
       addressResultSettled,
       v2MarketTokenResultSettled,
+      marketStockResultSettled,
       marketTokenResultSettled,
       accountAssetsResultSettled,
       dappResultSettled,
@@ -266,6 +272,19 @@ class ServiceUniversalSearch extends ServiceBase {
       result[EUniversalSearchType.V2MarketToken] = {
         items: v2MarketTokenResultSettled.value.map((item) => ({
           type: EUniversalSearchType.V2MarketToken,
+          payload: item,
+        })),
+      };
+    }
+
+    if (
+      marketStockResultSettled.status === 'fulfilled' &&
+      marketStockResultSettled.value &&
+      marketStockResultSettled.value.length > 0
+    ) {
+      result[EUniversalSearchType.MarketStock] = {
+        items: marketStockResultSettled.value.map((item) => ({
+          type: EUniversalSearchType.MarketStock,
           payload: item,
         })),
       };
@@ -328,6 +347,19 @@ class ServiceUniversalSearch extends ServiceBase {
   @backgroundMethod()
   async universalSearchOfV2MarketToken(query: string) {
     return this.backgroundApi.serviceMarket.searchV2Token(query);
+  }
+
+  @backgroundMethod()
+  async universalSearchOfMarketStock(query: string) {
+    const stockResult =
+      await this.backgroundApi.serviceMarketV2.searchMarketStocks({
+        query,
+        limit: UNIVERSAL_SEARCH_STOCK_LIMIT,
+      });
+    if (!Array.isArray(stockResult?.items)) {
+      return [];
+    }
+    return stockResult.items.map(mapMarketStockPublicItemToSearchToken);
   }
 
   async universalSearchOfAccountAssets({

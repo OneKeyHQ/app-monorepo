@@ -122,5 +122,21 @@ describe('TradingViewNative time-axis scaling', () => {
     expect(isTradingViewNativeTimeAxisTouch({ ...input, x: 100, y: 300 })).toBe(
       true,
     );
+    expect(
+      isTradingViewNativeTimeAxisTouch({
+        ...input,
+        timeAxisHeight: 20,
+        x: 100,
+        y: 279,
+      }),
+    ).toBe(false);
+    expect(
+      isTradingViewNativeTimeAxisTouch({
+        ...input,
+        timeAxisHeight: 20,
+        x: 100,
+        y: 280,
+      }),
+    ).toBe(true);
   });
 });

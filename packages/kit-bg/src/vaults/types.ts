@@ -685,6 +685,13 @@ export interface IBuildUnsignedTxParams {
   stakingInfo?: IStakingInfo;
   specifiedFeeRate?: string;
   prevNonce?: number;
+  prefetchedOnChainNonce?: {
+    nonce: number;
+    fetchedAt: number;
+    accountId: string;
+    networkId: string;
+    accountAddress: string;
+  };
   feeInfo?: IFeeInfoUnit;
   transferPayload?: ITransferPayload;
   isInternalSwap?: boolean;
@@ -743,6 +750,16 @@ export interface ISignTransactionParamsBase {
   rawTxType?: 'json' | 'hex';
   useDefaultRpc?: boolean;
 }
+
+// Credentials collected once by a caller that signs several transactions in a
+// row (batch psbt signing): passing them into signTransaction skips its
+// per-call password prompt, so the no-re-prompt window stays bounded by that
+// caller's own loop instead of a global password security session that
+// unrelated transactions could piggyback on.
+export type ISignTransactionPrefetchedCredentials = {
+  password: string;
+  deviceParams: IDeviceSharedCallParams | undefined;
+};
 
 export type ISignAndSendTransactionParams = ISignTransactionParams;
 export type ISignTransactionParams = ISignTransactionParamsBase & {

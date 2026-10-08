@@ -20,6 +20,7 @@ import {
   resetToRoute,
   useIsOverlayPage,
   useMedia,
+  usePopoverContext,
 } from '@onekeyhq/components';
 import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -45,6 +46,7 @@ import {
   isSwapQuoteProvenForCurrentRequest,
   isSwapQuoteRequestForCurrentInput,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
+import { shouldRedirectOnboardingToTravelMode } from '@onekeyhq/kit/src/utils/onboardingEntryGate';
 import {
   useSettingsAtom,
   useSettingsPersistAtom,
@@ -92,7 +94,10 @@ import { PercentageStageOnKeyboard } from './SwapInputContainer';
 import { SwapSmoothReveal } from './SwapSmoothReveal';
 
 interface ISwapActionsStateProps {
+  disabled?: boolean;
+  forceNoConnectWallet?: boolean;
   forceQuoteActionLoading?: boolean;
+  onRefreshQuote?: () => void;
   onPreSwap: () => void;
   onOpenRecipientAddress: () => void;
   onSelectPercentageStage?: (stage: number) => void;
@@ -100,8 +105,55 @@ interface ISwapActionsStateProps {
 
 // cspell:ignore ellipsize
 
+function IncognitoTooltipText({
+  description,
+  onAction,
+}: {
+  description: string;
+  onAction?: (url: string) => void;
+}) {
+  return (
+    <FormatHyperlinkText
+      autoExecuteParsedAction={false}
+      onAction={onAction}
+      size="$bodyMd"
+      color="$textSubdued"
+      urlTextProps={{
+        color: '$textInfo',
+      }}
+      underlineTextProps={{
+        color: '$textInfo',
+      }}
+    >
+      {description}
+    </FormatHyperlinkText>
+  );
+}
+
+function IncognitoPopoverContent({ description }: { description: string }) {
+  const { closePopover } = usePopoverContext();
+  const handleAction = useCallback(
+    (url: string) => {
+      void (async () => {
+        await closePopover?.();
+        openUrlExternal(url);
+      })();
+    },
+    [closePopover],
+  );
+
+  return (
+    <Stack px="$5" pt="$1" pb="$5">
+      <IncognitoTooltipText description={description} onAction={handleAction} />
+    </Stack>
+  );
+}
+
 const SwapActionsState = ({
+  disabled,
+  forceNoConnectWallet,
   forceQuoteActionLoading,
+  onRefreshQuote,
   onPreSwap,
   onOpenRecipientAddress,
   onSelectPercentageStage,
@@ -127,6 +179,9 @@ const SwapActionsState = ({
   const { cleanQuoteInterval, closeQuoteEvent, quoteAction } =
     useSwapActions().current;
   const swapActionState = useSwapActionState();
+  const noConnectWallet = Boolean(
+    forceNoConnectWallet || swapActionState.noConnectWallet,
+  );
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const swapSlippageRef = useRef(slippageItem);
   const hasEverShownCostSavingsRef = useRef(false);
@@ -171,30 +226,16 @@ const SwapActionsState = ({
   );
   const incognitoTooltipContent = useMemo(
     () => (
-      <FormatHyperlinkText
-        autoExecuteParsedAction={false}
+      <IncognitoTooltipText
+        description={incognitoTooltipDescription}
         onAction={openUrlExternal}
-        size="$bodyMd"
-        color="$textSubdued"
-        urlTextProps={{
-          color: '$textInfo',
-        }}
-        underlineTextProps={{
-          color: '$textInfo',
-        }}
-      >
-        {incognitoTooltipDescription}
-      </FormatHyperlinkText>
+      />
     ),
     [incognitoTooltipDescription],
   );
   const incognitoPopoverContent = useMemo(
-    () => (
-      <Stack px="$5" pt="$1" pb="$5">
-        {incognitoTooltipContent}
-      </Stack>
-    ),
-    [incognitoTooltipContent],
+    () => <IncognitoPopoverContent description={incognitoTooltipDescription} />,
+    [incognitoTooltipDescription],
   );
 
   // OK-58977: `swapProviderSupportReceiveAddressAtom` is computed from the
@@ -266,7 +307,7 @@ const SwapActionsState = ({
     quoteSettledWithoutResult: isQuoteSettledWithoutResult,
     isAddressInfoReady: swapToAddressInfo.isAddressInfoReady,
     hasTargetAddress: Boolean(swapToAddressInfo.address),
-    noConnectWallet: Boolean(swapActionState.noConnectWallet),
+    noConnectWallet,
   });
 
   const shouldShowRecipient = useMemo(
@@ -382,7 +423,7 @@ const SwapActionsState = ({
   const shouldBlockIncognitoRecipientAction =
     shouldBlockSwapActionForIncognitoRecipientInput({
       inputText: incognitoRecipientInput.inputText,
-      isConnectWalletAction: Boolean(swapActionState.noConnectWallet),
+      isConnectWalletAction: noConnectWallet,
       loading: incognitoRecipientInput.loading,
       queryResult: incognitoRecipientInput.queryResult,
       validationEnabled: incognitoRecipientInput.enabled,
@@ -390,16 +431,19 @@ const SwapActionsState = ({
     });
 
   const shouldShowQuoteActionLoading =
+    !noConnectWallet &&
     !swapActionState.isRefreshQuote &&
     (swapActionState.isQuoteActionLoading || Boolean(forceQuoteActionLoading));
-  const isActionDisabled =
-    swapActionState.disabled ||
-    swapActionState.isLoading ||
-    shouldShowQuoteActionLoading ||
-    shouldBlockIncognitoRecipientAction;
+  const isActionDisabled = noConnectWallet
+    ? shouldRedirectOnboardingToTravelMode()
+    : Boolean(disabled) ||
+      swapActionState.disabled ||
+      swapActionState.isLoading ||
+      shouldShowQuoteActionLoading ||
+      shouldBlockIncognitoRecipientAction;
 
   const onActionHandlerBefore = useCallback(async () => {
-    if (swapActionState.noConnectWallet) {
+    if (noConnectWallet) {
       if (platformEnv.isWebDappMode) {
         navigation.pushModal(EModalRoutes.OnboardingModal, {
           screen: EOnboardingPages.ConnectWalletOptions,
@@ -418,6 +462,10 @@ const SwapActionsState = ({
       return;
     }
     if (swapActionState.isRefreshQuote) {
+      if (onRefreshQuote) {
+        onRefreshQuote();
+        return;
+      }
       void quoteAction(
         swapSlippageRef.current,
         swapFromAddressInfo?.address,
@@ -441,11 +489,12 @@ const SwapActionsState = ({
     navigation,
     onOpenRecipientAddress,
     onPreSwap,
+    onRefreshQuote,
     quoteAction,
     quoteActionLock.kind,
     shouldBlockIncognitoRecipientAction,
     swapActionState.isRefreshQuote,
-    swapActionState.noConnectWallet,
+    noConnectWallet,
     swapActionState.shouldEnterRecipient,
     swapIncognitoMode,
     swapFromAddressInfo?.accountInfo?.account?.id,
@@ -988,10 +1037,18 @@ const SwapActionsState = ({
           color="$textInverse"
           textAlign="center"
         >
-          {swapActionState.label}
+          {noConnectWallet
+            ? intl.formatMessage({ id: ETranslations.global_connect_wallet })
+            : swapActionState.label}
         </SizableText>
       ),
-    [swapActionState.label, shouldShowQuoteActionLoading, themeVariant],
+    [
+      intl,
+      noConnectWallet,
+      swapActionState.label,
+      shouldShowQuoteActionLoading,
+      themeVariant,
+    ],
   );
 
   const actionRowComponent = useMemo(

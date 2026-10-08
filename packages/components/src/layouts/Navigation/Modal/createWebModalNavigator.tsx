@@ -339,15 +339,33 @@ function WebModalNavigator({
 
   useLayoutEffect(() => {
     const element = MODAL_ANIMATED_VIEW_REF_LIST[currentRouteIndex];
-    if (element) {
-      const el = element as HTMLElement;
-      if (media.gtMd) {
-        el.style.opacity = '0';
-        el.style.transform = disableEnterScaleAnimation ? '' : 'scale(0.95)';
-      } else if (!disableModalAnimation) {
-        el.style.transform = `translateY(${screenHeight}px)`;
-      }
+    if (!element) {
+      return;
     }
+    const el = element as HTMLElement;
+    if (media.gtMd) {
+      el.style.opacity = '0';
+      el.style.transform = disableEnterScaleAnimation ? '' : 'scale(0.95)';
+    } else if (!disableModalAnimation) {
+      el.style.transform = `translateY(${screenHeight}px)`;
+    }
+
+    // The initial root-navigation state can fire before this modal ref exists.
+    void el.offsetHeight;
+    const animationFrame = requestAnimationFrame(() => {
+      if (media.gtMd) {
+        el.style.opacity = '1';
+        el.style.transform = '';
+        if (MODAL_ANIMATED_BACKDROP_VIEW_REF) {
+          (
+            MODAL_ANIMATED_BACKDROP_VIEW_REF as unknown as HTMLElement
+          ).style.opacity = '1';
+        }
+      } else if (!disableModalAnimation) {
+        el.style.transform = 'translateY(0px)';
+      }
+    });
+    return () => cancelAnimationFrame(animationFrame);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const contentVisibilityTimersRef = useRef<ReturnType<typeof setTimeout>[]>(

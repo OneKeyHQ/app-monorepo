@@ -1,14 +1,14 @@
 import platformEnv from '../../platformEnv';
 import WebStorage, { EWebStorageKeyPrefix } from '../WebStorage';
 
-import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
 import type {
-  Callback,
-  CallbackWithResult,
-  KeyValuePair,
-  MultiCallback,
-  MultiGetCallback,
-} from '@react-native-async-storage/async-storage/lib/typescript/types';
+  AsyncStorageStatic,
+  IAsyncStorageCallback as Callback,
+  IAsyncStorageCallbackWithResult as CallbackWithResult,
+  IAsyncStorageKeyValuePair as KeyValuePair,
+  IAsyncStorageMultiCallback as MultiCallback,
+  IAsyncStorageMultiGetCallback as MultiGetCallback,
+} from '../appStorageTypes';
 
 type WebStorageLegacy = import('../WebStorageLegacy').default;
 

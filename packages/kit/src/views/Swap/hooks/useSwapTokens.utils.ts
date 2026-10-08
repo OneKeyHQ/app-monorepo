@@ -1,5 +1,17 @@
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 
+export function isSwapSupportAllAccountsRequestCurrent({
+  isCancelled,
+  requestGeneration,
+  currentGeneration,
+}: {
+  isCancelled: boolean;
+  requestGeneration: number;
+  currentGeneration: number;
+}) {
+  return !isCancelled && requestGeneration === currentGeneration;
+}
+
 export function releaseSwapTokenListFetchEffectKey({
   effectKey,
   latestEffectKey,

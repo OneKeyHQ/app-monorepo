@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
+import { useNavigationState } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -32,7 +33,9 @@ import {
   LayoutHeaderBack,
   LayoutHeaderLanguageSelector,
   LayoutHeaderTitle,
+  OnboardingNativeHeaderBack,
 } from '../components/Layout';
+import { showLegacyDevicesDialog } from '../components/LegacyDevicesDialog';
 import { showOtherDevicesDialog } from '../components/OtherDevicesDialog';
 import PixelShimmer from '../components/PixelShimmer';
 
@@ -51,12 +54,13 @@ export default function PickYourDevice() {
       deviceType: EDeviceType[];
       image: ReturnType<typeof require>;
       colors?: string[];
+      dialog?: 'legacy' | 'others';
     }>
-  >(() => {
-    const devices = [
+  >(
+    () => [
       {
         name: 'OneKey Pro',
-        deviceType: [EDeviceType.Pro, EDeviceType.Pro2, EDeviceType.Neo],
+        deviceType: [EDeviceType.Pro, EDeviceType.Pro2],
         image: require('@onekeyhq/kit/assets/pick-pro.png'),
       },
       {
@@ -65,32 +69,35 @@ export default function PickYourDevice() {
         deviceType: [EDeviceType.Classic1s, EDeviceType.ClassicPure],
         image: require('@onekeyhq/kit/assets/pick-classic.png'),
       },
-      {
-        name: 'OneKey Touch',
-        deviceType: [EDeviceType.Touch],
-        image: require('@onekeyhq/kit/assets/pick-touch.png'),
-      },
-      {
-        name: 'OneKey Mini',
-        deviceType: [EDeviceType.Mini],
-        image: require('@onekeyhq/kit/assets/pick-mini.png'),
-      },
+      // Mini has no Bluetooth, so native skips the Legacy (Mini/Touch)
+      // picker and offers Touch directly.
+      platformEnv.isNative
+        ? {
+            name: 'OneKey Touch',
+            deviceType: [EDeviceType.Touch],
+            image: require('@onekeyhq/kit/assets/pick-touch.png'),
+          }
+        : {
+            name: intl.formatMessage({
+              id: ETranslations.legacy_devices__title,
+            }),
+            tags: ['Mini', 'Touch'],
+            deviceType: [],
+            image: require('@onekeyhq/kit/assets/pick-legacy.png'),
+            colors: SHIMMER_NEUTRAL,
+            dialog: 'legacy',
+          },
       {
         name: intl.formatMessage({ id: ETranslations.use_another_device }),
         tags: ['Ledger', 'Trezor'],
         deviceType: [],
         image: require('@onekeyhq/kit/assets/pick-others.png'),
         colors: SHIMMER_NEUTRAL,
+        dialog: 'others',
       },
-    ];
-
-    // Mini does not support Bluetooth, so hide it on native platforms
-    if (platformEnv.isNative) {
-      return devices.filter((device) => device.name !== 'OneKey Mini');
-    }
-
-    return devices;
-  }, [intl]);
+    ],
+    [intl],
+  );
 
   const scrollable = platformEnv.isNative || !gtMd;
   const { bottom: safeAreaBottom } = useSafeAreaInsets();
@@ -104,6 +111,11 @@ export default function PickYourDevice() {
   const bodyTopInset = useNativeHeader ? glassTopInset : undefined;
   const renderHeaderLanguage = useCallback(
     () => <LayoutHeaderLanguageSelector />,
+    [],
+  );
+  const isFirstScreen = useNavigationState((state) => state.index) === 0;
+  const renderHeaderBack = useCallback(
+    () => <OnboardingNativeHeaderBack exit />,
     [],
   );
   const pickTitle = intl.formatMessage({ id: ETranslations.pick_your_device });
@@ -125,7 +137,7 @@ export default function PickYourDevice() {
           px: 0,
         }}
       >
-        {DEVICES.map(({ name, tags, image, deviceType, colors }) => (
+        {DEVICES.map(({ name, tags, image, deviceType, colors, dialog }) => (
           <YStack
             key={name}
             group="card"
@@ -133,9 +145,13 @@ export default function PickYourDevice() {
             $gtMd={{ flex: 1 }}
             onPress={() => {
               defaultLogger.onboarding.page.pickYourDevice(
-                deviceType.length > 0 ? deviceType.join(',') : 'others',
+                dialog ?? deviceType.join(','),
               );
-              if (deviceType.length === 0) {
+              if (dialog === 'legacy') {
+                showLegacyDevicesDialog();
+                return;
+              }
+              if (dialog === 'others') {
                 showOtherDevicesDialog();
                 return;
               }
@@ -175,7 +191,7 @@ export default function PickYourDevice() {
                 left={0}
                 right={0}
                 bottom={0}
-                animation="quick"
+                transition="quick"
                 animateOnly={ANIMATE_ONLY_BG_BORDER_COLOR}
                 pointerEvents="none"
                 $gtMd={{
@@ -194,7 +210,7 @@ export default function PickYourDevice() {
               {gtMd ? <PixelShimmer colors={colors} /> : null}
               <YStack
                 position="absolute"
-                animation="medium"
+                transition="medium"
                 animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                 enterStyle={{
                   opacity: 0,
@@ -306,10 +322,14 @@ export default function PickYourDevice() {
       {useNativeHeader ? (
         // Deeper onboarding screen: the navigator supplies the native system
         // back (chevron); we only host the centered title + glass language
-        // switcher in the native bar.
+        // switcher in the native bar. Opened on its own (Device Management's
+        // "add device" resets straight to this screen), the stack has no
+        // history and so no system back — the shell supplies the exit cross,
+        // as on the first onboarding screen: leaving here leaves onboarding.
         <Page.Header
           headerTitleAlign="center"
           headerTitle={pickTitle}
+          headerLeft={isFirstScreen ? renderHeaderBack : undefined}
           headerRight={renderHeaderLanguage}
         />
       ) : (

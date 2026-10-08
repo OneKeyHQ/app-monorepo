@@ -198,7 +198,7 @@ Rate the PR on 4 dimensions (1-10 each):
 **Scoring anchors** — to keep scores consistent:
 - Start at 8 for each dimension, deduct for issues found
 - A single P0 security issue → Security capped at 3
-- A single P1 bug → Code Quality capped at 5
+- A single P0 crash/runtime bug → Code Quality capped at 5
 - Import hierarchy violation → Architecture capped at 4
 
 ## Confidence Levels
@@ -243,10 +243,10 @@ Do NOT generate auto-fix for:
 
 After generating the report, if there are findings that meet the comment threshold, **post them immediately**. Do not ask "是否确认？" and do not wait for a follow-up message. New conversations have no memory of a verbal "以后都自动发" — this section is the source of truth.
 
-**Comment threshold**: P0/P1 (any confidence) OR P2 with 🔵 High confidence. This means:
-- All P0/P1 findings (regardless of confidence)
-- All P2 findings with 🔵 High confidence (cross-validated or confirmed from code)
-- Excludes: P3/P4 findings, and P2 with 🟠 Medium or ⚪ Low confidence
+**Comment threshold**: P0 (any confidence) OR P1 with 🔵 High confidence. This means:
+- All P0 findings (regardless of confidence)
+- All P1 findings with 🔵 High confidence (cross-validated or confirmed from code)
+- Excludes: P2 findings, and P1 with 🟠 Medium or ⚪ Low confidence
 
 1. List the qualifying findings that warrant PR comments
 2. Post them in the same turn as the report, using `ManagePullRequest` `post_comment` (path + line) when available, otherwise:
@@ -331,7 +331,7 @@ _— Auto-review by Claude_" \
 
 ---
 
-### [P2] [🟠 Medium] 问题标题
+### [P1] [🟠 Medium] 问题标题
 **文件**: `path/to/file.tsx:18`
 **类型**: 运行时
 **描述**: ...
@@ -344,14 +344,14 @@ _— Auto-review by Claude_" \
 | 优先级 | 置信度 | 文件 | 类型 | 描述 | Auto-fix |
 |--------|--------|------|------|------|----------|
 | P0 | 🔵 High | file1.tsx:42 | 安全 | 描述 | ✅ |
-| P2 | 🟠 Medium | file2.tsx:18 | 运行时 | 描述 | — |
+| P1 | 🟠 Medium | file2.tsx:18 | 运行时 | 描述 | — |
 
 ## 测试建议 [REQUIRED]
 1. 测试场景
 2. 测试场景
 
 ## GH 评论操作 [REQUIRED if qualifying findings exist, OMIT if none]
-以下问题（P0/P1 任意置信度，或 P2 + 🔵 High 置信度）建议直接评论到 PR：
+以下问题（P0 任意置信度，或 P1 + 🔵 High 置信度）建议直接评论到 PR：
 - [ ] 问题1 — `file.tsx:42`
 - [ ] 问题2 — `file.tsx:88`
 
@@ -360,15 +360,15 @@ _— Auto-review by Claude_" \
 
 ## Priority Definitions
 
-**MANDATORY** — every finding must carry exactly one `P0`–`P4` tag as its priority. Do NOT use 高/中/低 or Critical/High/Medium/Low as finding priority labels.
+**MANDATORY** — every finding must carry exactly one `P0`–`P2` tag as its priority. Do NOT use 高/中/低 or Critical/High/Medium/Low as finding priority labels.
 
 | Priority | Criteria | Action |
 |----------|----------|--------|
-| **P0** | Security vulnerability, key/fund exposure, data loss, build failure | Blocker — must fix before merge |
-| **P1** | Crash, runtime bug, incorrect behavior affecting users | Must fix before merge |
-| **P2** | Edge-case bug, concurrency risk, maintainability problem | Should fix before merge |
-| **P3** | Nice-to-have, minor inconsistency | Can fix in follow-up |
-| **P4** | Nit: naming, comments, style preference | Optional |
+| **P0** | Security vulnerability, key/fund exposure, data loss, crash, runtime bug affecting users, build failure | Blocker — must fix before merge |
+| **P1** | Edge-case bug, concurrency risk, robustness gap, maintainability problem | Should fix before merge |
+| **P2** | Nice-to-have, minor inconsistency, nit (naming, comments, style) | Follow-up / optional |
+
+Historical PR threads may still use the legacy 5-tier scale; when analyzing them, map old P1 → P0, old P2 → P1, old P3/P4 → P2.
 
 ## Review Discipline
 

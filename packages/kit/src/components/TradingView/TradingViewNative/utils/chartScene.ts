@@ -17,6 +17,7 @@ import {
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_TEXT_COLOR as CURRENT_PRICE_LABEL_TEXT_COLOR,
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LINE_DASH_GAP as CURRENT_PRICE_LINE_DASH_GAP,
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LINE_DASH_LENGTH as CURRENT_PRICE_LINE_DASH_LENGTH,
+  TRADING_VIEW_NATIVE_FLOATING_PRICE_LABEL_HORIZONTAL_PADDING as FLOATING_PRICE_LABEL_HORIZONTAL_PADDING,
   TRADING_VIEW_NATIVE_GRID_LINE_DASH_GAP as GRID_LINE_DASH_GAP,
   TRADING_VIEW_NATIVE_GRID_LINE_DASH_LENGTH as GRID_LINE_DASH_LENGTH,
   TRADING_VIEW_NATIVE_INDICATOR_CYAN_COLOR as INDICATOR_CYAN_COLOR,
@@ -74,6 +75,7 @@ import {
 import { isTradingViewNativePriceUp } from './chartStyle';
 import { getTradingViewNativePrimarySeriesModel } from './chartType';
 import {
+  type ITradingViewNativePriceRange,
   type ITradingViewNativeVisiblePointRange,
   clampTradingViewNativePanOffset,
   clampTradingViewNativeZoomScale,
@@ -94,6 +96,7 @@ import {
   getTradingViewNativeSubIndicatorPaneLayouts,
   getTradingViewNativeSubIndicatorPaneStackLayout,
 } from './subIndicatorRender';
+import { appendTradingViewNativeTradeMarkCommands } from './tradeMarkScene';
 
 import type {
   ITradingViewNativeChartRuntimeCrosshair,
@@ -110,7 +113,11 @@ import type {
   ITradingViewNativePriceScaleMode,
 } from '../types';
 
-export type ITradingViewNativeChartSceneFont = 'axis' | 'legend' | 'priceAxis';
+export type ITradingViewNativeChartSceneFont =
+  | 'axis'
+  | 'legend'
+  | 'priceAxis'
+  | 'referenceLineLabel';
 
 export type ITradingViewNativeChartScenePaint =
   | 'axisText'
@@ -140,6 +147,7 @@ export interface ITradingViewNativeChartSceneColors {
   down?: string;
   grid: string;
   line: string;
+  timeAxisBorder?: string;
   up?: string;
 }
 
@@ -151,6 +159,10 @@ export interface ITradingViewNativeChartScenePaintStyle {
   strokeCap?: 'butt' | 'round' | 'square';
   strokeJoin?: 'bevel' | 'miter' | 'round';
   strokeWidth?: number;
+}
+
+export interface ITradingViewNativeChartSceneStyleOptions {
+  timeAxisBorderWidth?: number;
 }
 
 export interface ITradingViewNativeChartSceneRect {
@@ -221,6 +233,14 @@ export type ITradingViewNativeChartSceneCommand =
       y: number;
     }
   | {
+      kind: 'tradeMarkLabel';
+      label: 'B' | 'S';
+      cx: number;
+      cy: number;
+      customPaintId?: string;
+      paint: ITradingViewNativeChartScenePaint;
+    }
+  | {
       kind: 'watermark';
       opacity: number;
       rect: ITradingViewNativeChartSceneRect;
@@ -232,9 +252,11 @@ export interface IBuildTradingViewNativeChartSceneOptions {
   chartSettings?: ITradingViewNativeChartSettings;
   chartType: ITradingViewNativeChartType;
   crosshair: ITradingViewNativeChartRuntimeCrosshair;
+  extendTimeAxisBorderToCanvasEdge?: boolean;
   hasVolume: boolean;
   height: number;
   indicatorSeries?: ITradingViewNativeIndicatorSeries[];
+  isMobileLayout?: boolean;
   measureTextWidth: (
     text: string,
     font: ITradingViewNativeChartSceneFont,
@@ -242,7 +264,13 @@ export interface IBuildTradingViewNativeChartSceneOptions {
   candleLabels: ITradingViewNativeCandleLabels;
   currentPriceLabel?: string;
   points: IMarketTokenKLineDataPoint[];
+  pinnedPriceRange?: ITradingViewNativePriceRange | null;
+  priceAxisFontSize?: number;
   priceAxisWidth?: number;
+  priceAxisTickCount?: number;
+  showLegend?: boolean;
+  timeAxisFontSize?: number;
+  timeAxisHeight?: number;
   priceRangeScale?: number;
   priceScaleMode?: ITradingViewNativePriceScaleMode;
   subIndicatorPanes?: readonly ITradingViewNativeSubIndicatorRenderPane[];
@@ -264,7 +292,15 @@ const LATEST_PRICE_LABEL_PAINT_IDS = {
 } as const;
 const BACKGROUND_PAINT_ID = 'chart.background';
 
+function getMainIndicatorPaintId(series: ITradingViewNativeIndicatorSeries) {
+  'worklet';
+
+  return `chart.mainIndicator.${series.indicator}.${series.key}`;
+}
+
 export interface ITradingViewNativeChartScene {
+  layout?: ITradingViewNativeChartLayout | null;
+  autoPriceRange: ITradingViewNativePriceRange | null;
   commands: ITradingViewNativeChartSceneCommand[];
   crosshairPointIndex: number | null;
   customPaintStyles: Record<string, ITradingViewNativeChartScenePaintStyle>;
@@ -274,14 +310,18 @@ export interface ITradingViewNativeChartScene {
   visiblePointRange: ITradingViewNativeVisiblePointRange;
 }
 
-export function getTradingViewNativeChartScenePaintStyles({
-  axisText,
-  background,
-  down = CHART_DOWN_COLOR,
-  grid,
-  line,
-  up = CHART_UP_COLOR,
-}: ITradingViewNativeChartSceneColors): Record<
+export function getTradingViewNativeChartScenePaintStyles(
+  {
+    axisText,
+    background,
+    down = CHART_DOWN_COLOR,
+    grid,
+    line,
+    timeAxisBorder,
+    up = CHART_UP_COLOR,
+  }: ITradingViewNativeChartSceneColors,
+  { timeAxisBorderWidth = 1 }: ITradingViewNativeChartSceneStyleOptions = {},
+): Record<
   ITradingViewNativeChartScenePaint,
   ITradingViewNativeChartScenePaintStyle
 > {
@@ -328,7 +368,11 @@ export function getTradingViewNativeChartScenePaintStyles({
       dash: [GRID_LINE_DASH_LENGTH, GRID_LINE_DASH_GAP],
       opacity: 1,
     },
-    gridSolidLine: { color: grid, opacity: 1 },
+    gridSolidLine: {
+      color: timeAxisBorder ?? grid,
+      opacity: 1,
+      strokeWidth: timeAxisBorderWidth,
+    },
     indicatorCyanStroke: {
       color: INDICATOR_CYAN_COLOR,
       drawStyle: 'stroke',
@@ -400,9 +444,12 @@ function appendIndicatorCommands({
 }) {
   'worklet';
 
-  for (const series of indicatorSeries) {
+  const visibleSeries = indicatorSeries.filter(
+    (series) => series.visible !== false,
+  );
+  for (const series of visibleSeries) {
     const customPaintId = series.style
-      ? `chart.mainIndicator.${series.indicator}.${series.key}`
+      ? getMainIndicatorPaintId(series)
       : undefined;
     if (customPaintId && series.style) {
       let dash: [number, number] | undefined;
@@ -418,6 +465,11 @@ function appendIndicatorCommands({
         opacity: series.style.opacity,
         strokeJoin: 'round',
         strokeWidth: series.style.lineWidth,
+      };
+      customPaintStyles[`${customPaintId}:legend`] = {
+        color: series.style.color,
+        drawStyle: 'fill',
+        opacity: series.style.opacity,
       };
     }
     const firstIndex = Math.max(startIndex - 1, 0);
@@ -469,6 +521,93 @@ function appendIndicatorCommands({
   }
 }
 
+function appendIndicatorFillCommands({
+  commands,
+  customPaintStyles,
+  endIndex,
+  getPointX,
+  indicatorSeries,
+  layout,
+  startIndex,
+}: {
+  commands: ITradingViewNativeChartSceneCommand[];
+  customPaintStyles: Record<string, ITradingViewNativeChartScenePaintStyle>;
+  endIndex: number;
+  getPointX: (index: number) => number;
+  indicatorSeries: ITradingViewNativeIndicatorSeries[];
+  layout: ITradingViewNativeChartLayout;
+  startIndex: number;
+}) {
+  'worklet';
+
+  for (const series of indicatorSeries) {
+    const fill = series.fill;
+    const toSeries = fill
+      ? indicatorSeries.find(({ key }) => key === fill.toSeriesKey)
+      : undefined;
+    if (fill && toSeries) {
+      const customPaintId = `${getMainIndicatorPaintId(series)}:fill`;
+      customPaintStyles[customPaintId] = {
+        color: fill.color,
+        drawStyle: 'fill',
+        opacity: fill.opacity,
+      };
+      const firstIndex = Math.max(startIndex - 1, 0);
+      const lastIndex = Math.min(
+        endIndex + 1,
+        series.values.length,
+        toSeries.values.length,
+      );
+      let fromPoints: { x: number; y: number }[] = [];
+      let toPoints: { x: number; y: number }[] = [];
+      const appendFill = () => {
+        if (fromPoints.length > 1 && fromPoints.length === toPoints.length) {
+          const points = fromPoints.slice();
+          for (let index = toPoints.length - 1; index >= 0; index -= 1) {
+            const point = toPoints[index];
+            if (point) {
+              points.push(point);
+            }
+          }
+          commands.push({
+            customPaintId,
+            kind: 'polygon',
+            paint: series.paint,
+            points,
+          });
+        }
+        fromPoints = [];
+        toPoints = [];
+      };
+      for (let index = firstIndex; index < lastIndex; index += 1) {
+        const fromValue = series.values[index];
+        const toValue = toSeries.values[index];
+        if (
+          fromValue !== null &&
+          fromValue !== undefined &&
+          Number.isFinite(fromValue) &&
+          toValue !== null &&
+          toValue !== undefined &&
+          Number.isFinite(toValue)
+        ) {
+          const x = getPointX(index);
+          fromPoints.push({
+            x,
+            y: getTradingViewNativePriceY(fromValue, layout),
+          });
+          toPoints.push({
+            x,
+            y: getTradingViewNativePriceY(toValue, layout),
+          });
+        } else {
+          appendFill();
+        }
+      }
+      appendFill();
+    }
+  }
+}
+
 function appendLegendCommands({
   commands,
   layout,
@@ -497,6 +636,9 @@ function appendLegendCommands({
     const textBaselineY = segment.textBaselineY ?? layout.textBaselineY;
     commands.push(
       {
+        ...(segment.customPaintId
+          ? { customPaintId: segment.customPaintId }
+          : {}),
         font: 'legend',
         kind: 'text',
         paint: 'axisText',
@@ -505,6 +647,9 @@ function appendLegendCommands({
         y: textBaselineY,
       },
       {
+        ...(segment.customPaintId
+          ? { customPaintId: segment.customPaintId }
+          : {}),
         font: 'legend',
         kind: 'text',
         paint:
@@ -524,14 +669,22 @@ export function buildTradingViewNativeChartScene({
   chartSettings,
   chartType,
   crosshair,
+  extendTimeAxisBorderToCanvasEdge = false,
   hasVolume,
   height,
   indicatorSeries = [],
+  isMobileLayout = false,
   measureTextWidth,
   candleLabels,
   currentPriceLabel,
   points,
+  pinnedPriceRange,
+  priceAxisFontSize = AXIS_FONT_SIZE,
   priceAxisWidth,
+  priceAxisTickCount,
+  showLegend = true,
+  timeAxisFontSize = AXIS_FONT_SIZE,
+  timeAxisHeight = TIME_AXIS_HEIGHT,
   priceRangeScale,
   priceScaleMode,
   subIndicatorPanes = [],
@@ -613,6 +766,8 @@ export function buildTradingViewNativeChartScene({
     getTradingViewNativeSubIndicatorPaneStackLayout({
       height,
       paneCount: visibleSubIndicatorPanes.length,
+      panes: visibleSubIndicatorPanes,
+      timeAxisHeight,
     });
   const subIndicatorPaneStackHeight = subIndicatorPaneStackLayout.height;
   const customPaintStyles: Record<
@@ -681,11 +836,9 @@ export function buildTradingViewNativeChartScene({
           },
         ];
   const watermarkRect = getTradingViewNativeWatermarkLayout({
-    height: Math.max(
-      height - TIME_AXIS_HEIGHT - subIndicatorPaneStackHeight,
-      0,
-    ),
-    width,
+    canvasWidth: chartWidth,
+    isMobileLayout,
+    mainChartBottom: subIndicatorPaneStackLayout.top,
   });
   if (watermarkRect) {
     commands.push({
@@ -706,6 +859,8 @@ export function buildTradingViewNativeChartScene({
     zoomScale,
   };
   const emptyScene = {
+    layout: null,
+    autoPriceRange: null,
     commands,
     crosshairPointIndex: null,
     customPaintStyles,
@@ -733,7 +888,10 @@ export function buildTradingViewNativeChartScene({
         TRADING_VIEW_NATIVE_CANDLE_STEP * zoomScale,
       ),
     points,
+    pinnedPriceRange,
     priceAxisWidth: resolvedPriceAxisWidth,
+    priceAxisTickCount,
+    timeAxisHeight,
     priceRangeScale,
     priceScaleMode,
     visiblePointRange,
@@ -792,7 +950,7 @@ export function buildTradingViewNativeChartScene({
     kind: 'line',
     paint: 'gridSolidLine',
     x1: CHART_HORIZONTAL_PADDING,
-    x2: priceAxisX,
+    x2: extendTimeAxisBorderToCanvasEdge ? width : priceAxisX,
     y1: timeAxisY,
     y2: timeAxisY,
   });
@@ -816,7 +974,7 @@ export function buildTradingViewNativeChartScene({
         paint: 'axisText',
         text,
         x: priceAxisX + PRICE_AXIS_LABEL_LEFT_PADDING,
-        y: y + AXIS_FONT_SIZE / 2 + PRICE_AXIS_TEXT_BASELINE_OFFSET,
+        y: y + priceAxisFontSize / 2 + PRICE_AXIS_TEXT_BASELINE_OFFSET,
       });
     }
   }
@@ -840,13 +998,13 @@ export function buildTradingViewNativeChartScene({
         paint: 'axisText',
         text,
         x: priceAxisX + PRICE_AXIS_LABEL_LEFT_PADDING,
-        y: y + AXIS_FONT_SIZE / 2 + PRICE_AXIS_TEXT_BASELINE_OFFSET,
+        y: y + priceAxisFontSize / 2 + PRICE_AXIS_TEXT_BASELINE_OFFSET,
       });
     }
   }
 
   commands.push({ kind: 'clip', rect: chartClip });
-  const timeTextY = timeAxisY + (TIME_AXIS_HEIGHT + AXIS_FONT_SIZE) / 2;
+  const timeTextY = timeAxisY + (timeAxisHeight + timeAxisFontSize) / 2;
   for (const tick of timeTicks) {
     const x = getPointX(tick.index);
     if (showVerticalGrid) {
@@ -880,6 +1038,15 @@ export function buildTradingViewNativeChartScene({
       x: CHART_HORIZONTAL_PADDING,
       y: 0,
     },
+  });
+  appendIndicatorFillCommands({
+    commands,
+    customPaintStyles,
+    endIndex: visiblePointRange.endIndex,
+    getPointX,
+    indicatorSeries,
+    layout,
+    startIndex: visiblePointRange.startIndex,
   });
   appendTradingViewNativePrimarySeriesCommands({
     candleBodyWidth,
@@ -1073,8 +1240,8 @@ export function buildTradingViewNativeChartScene({
       });
     }
   };
-  appendLegendRows(
-    getTradingViewNativeChartLegendRowLayouts({
+  if (showLegend) {
+    const priceLegendLayouts = getTradingViewNativeChartLegendRowLayouts({
       items:
         chartSettings?.options.priceChange === false
           ? legend.priceItems.filter((item) => item.valueColorRole !== 'trend')
@@ -1082,23 +1249,73 @@ export function buildTradingViewNativeChartScene({
       maxX: priceAxisX,
       measureTextWidth: measureLegendTextWidth,
       top: PRICE_LEGEND_TOP,
-    }),
-  );
-  if (hasVolume) {
-    appendLegendRows(
-      getTradingViewNativeChartLegendRowLayouts({
-        items: [legend.volumeItem],
+    });
+    appendLegendRows(priceLegendLayouts);
+    let mainIndicatorLegendTop =
+      PRICE_LEGEND_TOP +
+      priceLegendLayouts.reduce(
+        (legendHeight, row) => legendHeight + row.backgroundRect.height,
+        0,
+      );
+    for (const indicator of ['MA', 'EMA'] as const) {
+      const items = indicatorSeries.flatMap((series) => {
+        const value = series.values[legendPointIndex];
+        return series.indicator === indicator &&
+          series.legendLabel &&
+          value !== null &&
+          value !== undefined &&
+          Number.isFinite(value) &&
+          series.style
+          ? [
+              {
+                customPaintId: `${getMainIndicatorPaintId(series)}:legend`,
+                label: series.legendLabel,
+                value: formatTradingViewNativePriceTick(value),
+              },
+            ]
+          : [];
+      });
+      const layouts = getTradingViewNativeChartLegendRowLayouts({
+        items,
         maxX: priceAxisX,
         measureTextWidth: measureLegendTextWidth,
-        top: volumeTop + VOLUME_LEGEND_TOP_PADDING,
-      }),
-    );
+        top: mainIndicatorLegendTop,
+      });
+      appendLegendRows(layouts);
+      mainIndicatorLegendTop += layouts.reduce(
+        (legendHeight, row) => legendHeight + row.backgroundRect.height,
+        0,
+      );
+    }
+    if (hasVolume) {
+      appendLegendRows(
+        getTradingViewNativeChartLegendRowLayouts({
+          items: [legend.volumeItem],
+          maxX: priceAxisX,
+          measureTextWidth: measureLegendTextWidth,
+          top: volumeTop + VOLUME_LEGEND_TOP_PADDING,
+        }),
+      );
+    }
   }
 
+  const currentPriceLayout = getTradingViewNativeCurrentPriceLayout({
+    labelHeight: CURRENT_PRICE_LABEL_HEIGHT,
+    maxPrice,
+    minPrice,
+    price: latestPoint.c,
+    priceChartHeight,
+    priceScaleMode: resolvedPriceScaleMode,
+  });
+  const showLatestPrice = chartSettings?.options.latestPrice ?? true;
   const chartComponentCommandLayers =
     appendTradingViewNativeChartComponentCommands({
       commands,
       components: chartComponents,
+      currentPriceLabel:
+        showLatestPrice && showYAxis && currentPriceLayout
+          ? { price: latestPoint.c, top: currentPriceLayout.labelTop }
+          : undefined,
       customPaintStyles,
       maxPrice,
       measureTextWidth,
@@ -1110,16 +1327,8 @@ export function buildTradingViewNativeChartScene({
       width,
     });
 
-  const currentPriceLayout = getTradingViewNativeCurrentPriceLayout({
-    labelHeight: CURRENT_PRICE_LABEL_HEIGHT,
-    maxPrice,
-    minPrice,
-    price: latestPoint.c,
-    priceChartHeight,
-    priceScaleMode: resolvedPriceScaleMode,
-  });
   const currentPriceLabelCommands: ITradingViewNativeChartSceneCommand[] = [];
-  if (currentPriceLayout && (chartSettings?.options.latestPrice ?? true)) {
+  if (currentPriceLayout && showLatestPrice) {
     const direction = isTradingViewNativePriceUp(latestPoint) ? 'up' : 'down';
     commands.push({
       ...(chartSettings
@@ -1133,6 +1342,13 @@ export function buildTradingViewNativeChartScene({
       y2: currentPriceLayout.lineY,
     });
     if (showYAxis) {
+      const labelWidth =
+        measureTextWidth(resolvedCurrentPriceLabel, 'priceAxis') +
+        FLOATING_PRICE_LABEL_HORIZONTAL_PADDING * 2;
+      const labelLeft = Math.min(priceAxisX, width - labelWidth);
+      const labelTop =
+        chartComponentCommandLayers.currentPriceLabelTop ??
+        currentPriceLayout.labelTop;
       currentPriceLabelCommands.push(
         {
           ...(chartSettings
@@ -1141,20 +1357,20 @@ export function buildTradingViewNativeChartScene({
           height: CURRENT_PRICE_LABEL_HEIGHT,
           kind: 'rect',
           paint: direction,
-          width: width - priceAxisX,
-          x: priceAxisX,
-          y: currentPriceLayout.labelTop,
+          width: labelWidth,
+          x: labelLeft,
+          y: labelTop,
         },
         {
           font: 'priceAxis',
           kind: 'text',
           paint: 'currentPriceLabelText',
           text: resolvedCurrentPriceLabel,
-          x: priceAxisX + PRICE_AXIS_LABEL_LEFT_PADDING,
+          x: labelLeft + FLOATING_PRICE_LABEL_HORIZONTAL_PADDING,
           y:
-            currentPriceLayout.labelTop +
+            labelTop +
             CURRENT_PRICE_LABEL_HEIGHT / 2 +
-            AXIS_FONT_SIZE / 2 +
+            priceAxisFontSize / 2 +
             PRICE_AXIS_TEXT_BASELINE_OFFSET,
         },
       );
@@ -1198,13 +1414,17 @@ export function buildTradingViewNativeChartScene({
         Math.max(crosshairY - CROSSHAIR_LABEL_HEIGHT / 2, 0),
         timeAxisY - CROSSHAIR_LABEL_HEIGHT,
       );
+      const labelWidth =
+        measureTextWidth(crosshairValueText, 'priceAxis') +
+        FLOATING_PRICE_LABEL_HORIZONTAL_PADDING * 2;
+      const labelLeft = Math.min(priceAxisX, width - labelWidth);
       commands.push(
         {
           height: CROSSHAIR_LABEL_HEIGHT,
           kind: 'rect',
           paint: 'crosshairLabelBackground',
-          width: width - priceAxisX,
-          x: priceAxisX,
+          width: labelWidth,
+          x: labelLeft,
           y: labelTop,
         },
         {
@@ -1212,11 +1432,11 @@ export function buildTradingViewNativeChartScene({
           kind: 'text',
           paint: 'crosshairLabelText',
           text: crosshairValueText,
-          x: priceAxisX + PRICE_AXIS_LABEL_LEFT_PADDING,
+          x: labelLeft + FLOATING_PRICE_LABEL_HORIZONTAL_PADDING,
           y:
             labelTop +
             CROSSHAIR_LABEL_HEIGHT / 2 +
-            AXIS_FONT_SIZE / 2 +
+            priceAxisFontSize / 2 +
             PRICE_AXIS_TEXT_BASELINE_OFFSET,
         },
       );
@@ -1237,7 +1457,7 @@ export function buildTradingViewNativeChartScene({
         Math.max(priceAxisX - timeLabelWidth, CHART_HORIZONTAL_PADDING),
       );
       const timeLabelTop =
-        timeAxisY + (TIME_AXIS_HEIGHT - CROSSHAIR_LABEL_HEIGHT) / 2;
+        timeAxisY + (timeAxisHeight - CROSSHAIR_LABEL_HEIGHT) / 2;
       commands.push(
         {
           height: CROSSHAIR_LABEL_HEIGHT,
@@ -1253,7 +1473,11 @@ export function buildTradingViewNativeChartScene({
           paint: 'crosshairLabelText',
           text: timeLabel,
           x: timeLabelLeft + (timeLabelWidth - timeTextWidth) / 2,
-          y: timeLabelTop + CROSSHAIR_LABEL_HEIGHT / 2 + AXIS_FONT_SIZE / 2 - 1,
+          y:
+            timeLabelTop +
+            CROSSHAIR_LABEL_HEIGHT / 2 +
+            timeAxisFontSize / 2 -
+            1,
         },
       );
     }
@@ -1268,7 +1492,26 @@ export function buildTradingViewNativeChartScene({
       priceAxisX,
     });
 
+  appendTradingViewNativeTradeMarkCommands({
+    candleIntervalSeconds,
+    commands,
+    components: chartComponents,
+    crosshair,
+    customPaintStyles,
+    getPointX,
+    maxPrice,
+    measureTextWidth,
+    minPrice,
+    points,
+    priceAxisX,
+    priceChartHeight,
+    priceScaleMode: resolvedPriceScaleMode,
+    priceSource: primarySeries.priceSource,
+  });
+
   return {
+    autoPriceRange: layout.autoPriceRange,
+    layout,
     commands,
     crosshairPointIndex,
     customPaintStyles,

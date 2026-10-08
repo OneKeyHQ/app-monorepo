@@ -1,15 +1,31 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import {
+  EAppEventBusNames,
+  HARDWARE_ERROR_DIALOG_TYPES,
+  appEventBus,
+} from '../../eventBus/appEventBus';
+import platformEnv from '../../platformEnv';
+import {
+  BleDeviceBondedCanceled,
   BluetoothUnavailableWhileUsbConnectedError,
   ConnectTimeoutError,
   DeviceBondError,
   DeviceMethodCallTimeout,
+  DeviceNotBonded,
+  NeedBluetoothTurnedOn,
+  UserCancel,
 } from '../errors/hardwareErrors';
 import { OneKeyLocalError } from '../errors/localError';
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
 
-import { convertDeviceError, isOneKeyHardwareError } from './deviceErrorUtils';
+import {
+  convertDeviceError,
+  convertDeviceResponse,
+  isDesktopBlePairingCanceledError,
+  isOneKeyHardwareError,
+} from './deviceErrorUtils';
+import errorToastUtils from './errorToastUtils';
 
 describe('isOneKeyHardwareError', () => {
   it('recognizes hardware error metadata rehydrated across runtimes', () => {
@@ -71,6 +87,23 @@ describe('DeviceMethodCallTimeout', () => {
   });
 });
 
+describe('convertDeviceError cancellation', () => {
+  it.each([
+    HardwareErrorCode.ActionCancelled,
+    HardwareErrorCode.CallQueueActionCancelled,
+  ])(
+    'maps raw cancellation code %s to the localized user-cancel error',
+    (code) => {
+      const error = convertDeviceError({ code, error: 'Cancelled' });
+
+      expect(error).toBeInstanceOf(UserCancel);
+      expect(error).toMatchObject({
+        key: 'hardware.user_cancel_error',
+      });
+    },
+  );
+});
+
 describe('convertDeviceError BLE connection timeout', () => {
   it.each([
     HardwareErrorCode.BleConnectedError,
@@ -89,9 +122,148 @@ describe('convertDeviceError BLE connection timeout', () => {
 });
 
 describe('convertDeviceError invalid Bluetooth bond', () => {
+  it('uses existing pairing-failed feedback for desktop not-bonded errors', () => {
+    const originalIsDesktop = platformEnv.isDesktop;
+    platformEnv.isDesktop = true;
+
+    try {
+      const error = convertDeviceError({
+        code: HardwareErrorCode.BleDeviceNotBonded,
+        error: 'device is not bonded',
+        params: {
+          nativeErrorMessage:
+            'Notification subscription failed: Encryption is insufficient',
+        },
+      });
+
+      expect(error).toBeInstanceOf(DeviceNotBonded);
+      expect(error).toMatchObject({
+        code: HardwareErrorCode.BleDeviceNotBonded,
+        key: 'feedback.bluetooth_pairing_failed',
+      });
+      expect(error).not.toBeInstanceOf(DeviceBondError);
+    } finally {
+      platformEnv.isDesktop = originalIsDesktop;
+    }
+  });
+
+  it('keeps the existing unpaired feedback off desktop', () => {
+    const originalIsDesktop = platformEnv.isDesktop;
+    platformEnv.isDesktop = false;
+
+    try {
+      const error = convertDeviceError({
+        code: HardwareErrorCode.BleDeviceNotBonded,
+      });
+
+      expect(error).toBeInstanceOf(DeviceNotBonded);
+      expect(error).toMatchObject({
+        key: 'feedback.bluetooth_unpaired',
+      });
+    } finally {
+      platformEnv.isDesktop = originalIsDesktop;
+    }
+  });
+
+  it('treats a canceled pairing as user cancellation on desktop', () => {
+    const originalIsDesktop = platformEnv.isDesktop;
+    platformEnv.isDesktop = true;
+
+    try {
+      const error = convertDeviceError({
+        code: HardwareErrorCode.BleDeviceBondedCanceled,
+        error: 'bonding canceled',
+      });
+
+      expect(error).toBeInstanceOf(UserCancel);
+      expect(error).toMatchObject({
+        code: HardwareErrorCode.ActionCancelled,
+        key: 'hardware.user_cancel_error',
+        autoToast: false,
+        payload: {
+          code: HardwareErrorCode.BleDeviceBondedCanceled,
+        },
+      });
+      expect(isDesktopBlePairingCanceledError(error)).toBe(true);
+    } finally {
+      platformEnv.isDesktop = originalIsDesktop;
+    }
+  });
+
+  it('keeps a canceled pairing distinct from an unpaired device off desktop', () => {
+    const originalIsDesktop = platformEnv.isDesktop;
+    platformEnv.isDesktop = false;
+
+    try {
+      const error = convertDeviceError({
+        code: HardwareErrorCode.BleDeviceBondedCanceled,
+        error: 'bonding canceled',
+      });
+
+      expect(error).toBeInstanceOf(BleDeviceBondedCanceled);
+      expect(error).toMatchObject({
+        code: HardwareErrorCode.BleDeviceNotBonded,
+        key: 'feedback.bluetooth_pairing_failed',
+        payload: {
+          code: HardwareErrorCode.BleDeviceBondedCanceled,
+        },
+      });
+      expect(isDesktopBlePairingCanceledError(error)).toBe(false);
+    } finally {
+      platformEnv.isDesktop = originalIsDesktop;
+    }
+  });
+
   it.each([
     HardwareErrorCode.BleDeviceBondError,
     HardwareErrorCode.BlePeerRemovedPairingInformation,
+    HardwareErrorCode.BleBondInvalid,
+  ])(
+    'does not show a raw error toast when the repair dialog handles code %s',
+    (code) => {
+      const emitSpy = jest.spyOn(appEventBus, 'emit');
+      const error = {
+        autoToast: true,
+        code,
+        message: 'Raw Bluetooth pairing error',
+      };
+
+      errorToastUtils.toastIfError(error);
+      errorToastUtils.showToastOfError(error);
+
+      expect(emitSpy).not.toHaveBeenCalledWith(
+        EAppEventBusNames.ShowToast,
+        expect.anything(),
+      );
+      emitSpy.mockRestore();
+    },
+  );
+
+  it('also suppresses a raw pairing error code carried in the SDK payload', () => {
+    const emitSpy = jest.spyOn(appEventBus, 'emit');
+    const error = {
+      autoToast: true,
+      code: -1,
+      message: 'Raw Bluetooth pairing error',
+      payload: {
+        code: HardwareErrorCode.BlePeerRemovedPairingInformation,
+      },
+    };
+
+    errorToastUtils.toastIfError(error);
+    errorToastUtils.showToastOfError(error);
+
+    expect(emitSpy).not.toHaveBeenCalledWith(
+      EAppEventBusNames.ShowToast,
+      expect.anything(),
+    );
+    emitSpy.mockRestore();
+  });
+
+  it.each([
+    HardwareErrorCode.BleDeviceBondError,
+    HardwareErrorCode.BlePeerRemovedPairingInformation,
+    HardwareErrorCode.BleBondInvalid,
   ])(
     'tells the user to re-pair the device in system settings for code %s',
     (code) => {
@@ -102,8 +274,87 @@ describe('convertDeviceError invalid Bluetooth bond', () => {
       expect(error).toBeInstanceOf(DeviceBondError);
       expect(error).toMatchObject({
         code: HardwareErrorCode.BleDeviceBondError,
-        key: 'feedback.try_repairing_device_in_settings',
+        key: 'bluetooth_pairing_invalid__desc',
+        autoToast: false,
       });
     },
   );
+
+  it('opens the shared repair dialog for interactive calls', () => {
+    const emitSpy = jest.spyOn(appEventBus, 'emit');
+
+    convertDeviceError({
+      code: HardwareErrorCode.BlePeerRemovedPairingInformation,
+      connectId: 'PRO2_BLE',
+    });
+
+    expect(emitSpy).toHaveBeenCalledWith(
+      EAppEventBusNames.ShowHardwareErrorDialog,
+      expect.objectContaining({
+        errorType: HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR,
+        errorCode: HardwareErrorCode.BlePeerRemovedPairingInformation,
+      }),
+    );
+    emitSpy.mockRestore();
+  });
+
+  it('preserves the dedicated stale-bond code in the repair dialog payload', () => {
+    const emitSpy = jest.spyOn(appEventBus, 'emit');
+
+    convertDeviceError({
+      code: HardwareErrorCode.BleBondInvalid,
+      connectId: 'PRO2_BLE',
+    });
+
+    expect(emitSpy).toHaveBeenCalledWith(
+      EAppEventBusNames.ShowHardwareErrorDialog,
+      expect.objectContaining({
+        errorType: HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR,
+        errorCode: HardwareErrorCode.BleBondInvalid,
+      }),
+    );
+    emitSpy.mockRestore();
+  });
+
+  it('does not open the repair dialog for silent probes', () => {
+    const emitSpy = jest.spyOn(appEventBus, 'emit');
+
+    convertDeviceError(
+      {
+        code: HardwareErrorCode.BleDeviceBondError,
+        connectId: 'PRO2_BLE',
+      },
+      { silentMode: true },
+    );
+
+    expect(emitSpy).not.toHaveBeenCalledWith(
+      EAppEventBusNames.ShowHardwareErrorDialog,
+      expect.anything(),
+    );
+    emitSpy.mockRestore();
+  });
+});
+
+describe('convertDeviceResponse thrown SDK errors', () => {
+  it('keeps the Bluetooth-off code and key when the transport throws', async () => {
+    const thrown = Object.assign(
+      new Error('Bluetooth required to be turned on'),
+      { errorCode: HardwareErrorCode.BlePermissionError },
+    );
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    await expect(
+      convertDeviceResponse(async () => {
+        throw thrown;
+      }),
+    ).rejects.toMatchObject({
+      code: HardwareErrorCode.BlePermissionError,
+      key: 'hardware.bluetooth_need_turned_on_error',
+    });
+    await expect(
+      convertDeviceResponse(async () => {
+        throw thrown;
+      }),
+    ).rejects.toBeInstanceOf(NeedBluetoothTurnedOn);
+  });
 });

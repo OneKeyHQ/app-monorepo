@@ -116,6 +116,7 @@ export function getTradingViewNativeSubIndicatorPanesStructureKey(
       inputValues: pane.inputValues,
       instanceId: pane.instanceId,
       isVisible: pane.isVisible,
+      preferredHeight: pane.preferredHeight,
       key: pane.key,
       scale: pane.scale,
       series: pane.series.map((series) => ({

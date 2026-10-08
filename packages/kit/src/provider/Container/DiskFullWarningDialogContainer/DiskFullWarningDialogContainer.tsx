@@ -4,7 +4,7 @@ import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IDialogInstance } from '@onekeyhq/components';
-import { Dialog } from '@onekeyhq/components';
+import { Dialog, SizableText } from '@onekeyhq/components';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -12,6 +12,33 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import storageQuotaUtils from '@onekeyhq/shared/src/storageChecker/storageQuotaUtils';
+import type { IStorageFullDiagnostics } from '@onekeyhq/shared/src/storageChecker/types';
+
+/**
+ * Storage headroom line shown under the warning copy: how much of the granted
+ * quota is left. For an extension the quota — not the physical disk — is the
+ * binding write limit, so this is the number that explains the warning to a
+ * user staring at a half-empty drive.
+ *
+ * Only the translated label plus formatted sizes are rendered. `reason` and the
+ * originating error message are diagnostics, not UI copy: they have no
+ * translation keys (and the locale files are generated, so they cannot be
+ * hand-added here), and they already go to `defaultLogger`, which is where a
+ * support engineer reads them from an exported log.
+ */
+function buildStorageHeadroomText(
+  diagnostics: IStorageFullDiagnostics | undefined,
+  availableLabel: string,
+): string | undefined {
+  const quotaInfo = diagnostics?.quotaInfo;
+  if (!quotaInfo) {
+    return undefined;
+  }
+  return `${availableLabel}: ${storageQuotaUtils.formatGB(
+    quotaInfo.availableBytes,
+  )} / ${storageQuotaUtils.formatGB(quotaInfo.quotaBytes)}`;
+}
 
 export function DiskFullWarningDialogContainer() {
   const intl = useIntl();
@@ -25,9 +52,13 @@ export function DiskFullWarningDialogContainer() {
     };
     const showFn = debounce(
       async (
-        _: IAppEventBusPayload[EAppEventBusNames.ShowSystemDiskFullWarning],
+        diagnostics: IAppEventBusPayload[EAppEventBusNames.ShowSystemDiskFullWarning],
       ) => {
         await hideFn();
+        const detail = buildStorageHeadroomText(
+          diagnostics,
+          intl.formatMessage({ id: ETranslations.global_available }),
+        );
         dialogRef.current = Dialog.show({
           icon: 'Disk2Outline',
           tone: 'destructive',
@@ -37,6 +68,11 @@ export function DiskFullWarningDialogContainer() {
           description: intl.formatMessage({
             id: ETranslations.extension_disk_full_desc,
           }),
+          renderContent: detail ? (
+            <SizableText size="$bodySm" color="$textSubdued">
+              {detail}
+            </SizableText>
+          ) : undefined,
           dismissOnOverlayPress: false,
           disableDrag: true,
           showCancelButton: false,

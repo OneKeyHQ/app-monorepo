@@ -1,6 +1,9 @@
+import type { RefObject } from 'react';
+
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 import type { ITradingViewNativeChartSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
+import type { ITradingViewNativeChartRuntime } from './native/chartRuntime';
 import type {
   ITradingViewNativeCandleLabels,
   ITradingViewNativeChartLeafComponent,
@@ -16,19 +19,37 @@ import type {
   ITradingViewNativeVisiblePointRange,
 } from './utils/chartViewport';
 import type { ITradingViewNativeSubIndicatorRenderPane } from './utils/subIndicatorRender';
+import type { SharedValue } from 'react-native-reanimated';
 
 export interface ITradingViewNativeChartProps {
+  drawingStorageKey?: string;
+  enableDrawings?: boolean;
+  /** Owned by the data controller so native presentation changes retain the viewport. */
+  runtimeRef?: RefObject<{
+    runtime: SharedValue<ITradingViewNativeChartRuntime>;
+    decayOffset: SharedValue<number>;
+  } | null>;
   candleIntervalSeconds: number;
   chartComponents: readonly ITradingViewNativeChartLeafComponent[];
   chartSettings: ITradingViewNativeChartSettings;
   chartType: ITradingViewNativeChartType;
   chartPictureVersion: number;
   currentPriceLabel: string;
+  extendTimeAxisBorderToCanvasEdge?: boolean;
   hasVolume: boolean;
   indicatorSeries: ITradingViewNativeIndicatorSeries[];
   indicatorSeriesSettingsKey: string;
   initialRightOffset?: ITradingViewNativeInitialRightOffset;
   isSwitchingInterval: boolean;
+  isMobileLayout?: boolean;
+  resizesWithSubIndicatorPanes?: boolean;
+  locale: string;
+  priceAxisFontSize?: number;
+  priceAxisTickCount?: number;
+  showLegend?: boolean;
+  timeAxisFontSize?: number;
+  timeAxisHeight?: number;
+  timeAxisBorderWidth?: number;
   onChartWidthChange?: (width: number) => void;
   onSubIndicatorSettingsPress: (
     indicator: ITradingViewNativeSubIndicator,

@@ -171,6 +171,13 @@ class ServiceInternalSignAndVerify extends ServiceBase {
       isHexString,
       format,
     } = params;
+    // External accounts forward the payload as raw RPC params to the peer
+    // wallet, so the signer slot must carry the address, never the account id.
+    const account = await this.backgroundApi.serviceAccount.getAccount({
+      accountId,
+      networkId,
+    });
+    const signerAddress = account.address;
     let unsignedMessage: IUnsignedMessage | undefined;
     if (networkId === getNetworkIdsMap().eth) {
       const decodedMessage = isHexString
@@ -182,7 +189,7 @@ class ServiceInternalSignAndVerify extends ServiceBase {
       unsignedMessage = {
         type: EMessageTypesEth.PERSONAL_SIGN,
         message: finalMessage,
-        payload: [finalMessage, accountId],
+        payload: [finalMessage, signerAddress],
       };
     } else if (networkId === getNetworkIdsMap().sol) {
       const decodedMessage = isHexString
@@ -191,7 +198,7 @@ class ServiceInternalSignAndVerify extends ServiceBase {
       unsignedMessage = {
         type: EMessageTypesCommon.SIGN_MESSAGE,
         message: decodedMessage,
-        payload: [message, accountId],
+        payload: [message, signerAddress],
       };
     } else if (networkUtils.isBTCNetwork(networkId)) {
       const decodedMessage = isHexString
@@ -281,10 +288,6 @@ class ServiceInternalSignAndVerify extends ServiceBase {
       accountUtils.isHdAccount({ accountId }) &&
       format === 'bip137'
     ) {
-      const account = await this.backgroundApi.serviceAccount.getAccount({
-        accountId,
-        networkId,
-      });
       const sigB64 = Buffer.from(signedMessage, 'hex').toString('base64');
       const bip137Sig = normalizeElectrumToBip137(sigB64, account.address);
       return bip137Sig;

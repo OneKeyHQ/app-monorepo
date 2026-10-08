@@ -1,0 +1,42 @@
+name: Prepare web-embed
+description: Restore the public web-embed OCI artifact or build it locally, then sync native assets.
+
+runs:
+  using: composite
+  steps:
+    - name: Install ORAS
+      uses: oras-project/setup-oras@1d808f7d7f6995cc68b7bf507bfe5c5446e1dc9d # v2.0.1
+      with:
+        version: 1.3.1
+
+    - name: Restore or build web-embed
+      shell: bash
+      run: |
+        set -euo pipefail
+        tag="$(node apps/web-embed/scripts/web-embed-prebundle.js tag)"
+        reference="ghcr.io/onekeyhq/web-embed-prebundle:$tag"
+        descriptor_error="$RUNNER_TEMP/web-embed-prebundle-descriptor-error.txt"
+        if oras manifest fetch --descriptor "$reference" >/dev/null 2>"$descriptor_error"; then
+          yarn workspace @onekeyhq/web-embed prebundle:restore
+        elif grep -Eiq 'manifest unknown|not found|denied: requested access to the resource is denied' "$descriptor_error"; then
+          echo "::warning::Public web-embed prebundle is unavailable; building web-embed locally."
+          yarn workspace @onekeyhq/web-embed prebundle:build
+          cp \
+            apps/web-embed/out-dir-bundle/web-embed-prebundle-build.json \
+            apps/web-embed/out-dir-bundle/web-embed-prebundle-restored.json
+        else
+          cat "$descriptor_error" >&2
+          exit 1
+        fi
+
+    - name: Sync web-embed into native assets
+      shell: bash
+      run: |
+        set -euo pipefail
+        web_embed_dir="apps/web-embed/web-build"
+        android_dir="apps/mobile/android/app/src/main/assets/web-embed"
+        ios_dir="apps/mobile/ios/OneKeyWallet/web-embed"
+        rm -rf "$android_dir" "$ios_dir"
+        mkdir -p "$android_dir" "$ios_dir"
+        rsync -r -c "$web_embed_dir/" "$android_dir/"
+        rsync -r -c "$web_embed_dir/" "$ios_dir/"

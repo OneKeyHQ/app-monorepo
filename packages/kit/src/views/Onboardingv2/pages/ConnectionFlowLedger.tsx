@@ -9,6 +9,7 @@ import {
   Button,
   EVideoResizeMode,
   HeightTransition,
+  type IVideoSource,
   LottieView,
   SizableText,
   Stack,
@@ -44,7 +45,6 @@ import { getForceTransportType, sortDevicesData } from '../utils';
 import { ConnectionIndicator } from './ConnectionIndicator';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
-import type { ReactVideoSource } from 'react-native-video';
 
 enum EConnectionStatus {
   init = 'init',
@@ -53,11 +53,11 @@ enum EConnectionStatus {
 }
 
 function DeviceVideo({ themeVariant }: { themeVariant: 'light' | 'dark' }) {
-  const videoSource = useMemo<ReactVideoSource>(
+  const videoSource = useMemo<IVideoSource>(
     () =>
       themeVariant === 'dark'
-        ? (require('@onekeyhq/kit/assets/onboarding/Connect-Ledger-D.mp4') as ReactVideoSource)
-        : (require('@onekeyhq/kit/assets/onboarding/Connect-Ledger-L.mp4') as ReactVideoSource),
+        ? (require('@onekeyhq/kit/assets/onboarding/Connect-Ledger-D.mp4') as IVideoSource)
+        : (require('@onekeyhq/kit/assets/onboarding/Connect-Ledger-L.mp4') as IVideoSource),
     [themeVariant],
   );
 

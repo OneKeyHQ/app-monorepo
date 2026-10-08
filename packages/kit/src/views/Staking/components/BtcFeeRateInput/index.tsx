@@ -146,7 +146,7 @@ const BtcFeeRateInputDialogContent = ({
           {customFeeRateErr ? (
             <SizableText
               pt="$1.5"
-              animation="quick"
+              transition="quick"
               animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
               enterStyle={{
                 opacity: 0,

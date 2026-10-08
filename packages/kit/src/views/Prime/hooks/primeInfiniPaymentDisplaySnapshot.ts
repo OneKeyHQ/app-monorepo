@@ -1,4 +1,29 @@
 /* cspell:ignore Infini */
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+
+export function resolvePrimeInfiniPaymentAsset<
+  TAsset extends { key: string; networkId: string },
+>({
+  assets,
+  selectedAssetKey,
+  pendingAssetKey,
+  preferredNetworkId,
+}: {
+  assets: TAsset[];
+  selectedAssetKey: string;
+  pendingAssetKey?: string;
+  preferredNetworkId?: string;
+}): TAsset | undefined {
+  const normalizedPreferredNetworkId = preferredNetworkId?.trim();
+  return (
+    assets.find((asset) => asset.key === selectedAssetKey) ??
+    assets.find((asset) => asset.key === pendingAssetKey) ??
+    assets.find((asset) => asset.networkId === normalizedPreferredNetworkId) ??
+    assets.find((asset) => asset.networkId === getNetworkIdsMap().eth) ??
+    assets[0]
+  );
+}
+
 export function resolvePrimeInfiniPaymentPinnedAssetKey({
   selectedAssetKey,
   pendingAssetKey,
@@ -19,6 +44,19 @@ export function isPrimeInfiniPaymentAccountSyncReady({
   return Boolean(
     syncedNetworkId && syncedNetworkId.trim() === selectedNetworkId.trim(),
   );
+}
+
+export function resolvePrimeInfiniAccountSelectionPress({
+  canChangeAccountSelection,
+  hasWallet,
+}: {
+  canChangeAccountSelection: boolean;
+  hasWallet: boolean;
+}): 'disabled' | 'onboarding' | 'accountSelector' {
+  if (!canChangeAccountSelection) {
+    return 'disabled';
+  }
+  return hasWallet ? 'accountSelector' : 'onboarding';
 }
 
 export function resolvePrimeInfiniPaymentDisplaySnapshot<
@@ -47,12 +85,14 @@ export function resolvePrimeInfiniPaymentDisplaySnapshot<
 }
 
 export function shouldShowPrimeInfiniPaymentButtonSkeleton({
+  hasPaymentAccount,
   hasCurrentPayment,
   isOptionsRefreshing,
   isBalanceLoading,
   accountSyncReady,
   accountSyncFailed,
 }: {
+  hasPaymentAccount: boolean;
   hasCurrentPayment: boolean;
   isOptionsRefreshing: boolean;
   isBalanceLoading: boolean;
@@ -60,19 +100,20 @@ export function shouldShowPrimeInfiniPaymentButtonSkeleton({
   accountSyncFailed: boolean;
 }) {
   return (
-    !hasCurrentPayment ||
     isOptionsRefreshing ||
-    isBalanceLoading ||
-    (!accountSyncReady && !accountSyncFailed)
+    (!accountSyncReady && !accountSyncFailed) ||
+    (hasPaymentAccount &&
+      !accountSyncFailed &&
+      (!hasCurrentPayment || isBalanceLoading))
   );
 }
 
 export function shouldShowPrimeInfiniExternalCheckoutLink({
   canUseExternalCheckout,
-  isPaymentButtonPreparing,
+  isOptionsRefreshing,
 }: {
   canUseExternalCheckout: boolean;
-  isPaymentButtonPreparing: boolean;
+  isOptionsRefreshing: boolean;
 }) {
-  return canUseExternalCheckout && !isPaymentButtonPreparing;
+  return canUseExternalCheckout && !isOptionsRefreshing;
 }

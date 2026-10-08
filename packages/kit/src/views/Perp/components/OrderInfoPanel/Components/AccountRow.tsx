@@ -158,6 +158,13 @@ const TYPE_CONFIG_DATA = new Map<string, ITypeConfigRaw>([
     },
   ],
   [
+    'sendOut',
+    {
+      translationId: ETranslations.perp_account_action_tranfer,
+      isIncrease: false,
+    },
+  ],
+  [
     'liquidation',
     {
       translationId: ETranslations.perp_account_history_liquidation,
@@ -188,6 +195,17 @@ const getDisplayType = (
   delta: IUserNonFundingLedgerUpdate['delta'],
   currentAddress?: string | null,
 ): string => {
+  // `send` carries both directions, and the shared config renders money coming
+  // in — so a withdrawal would show as a credit. Self-transfers are neither.
+  if (deltaType === 'send') {
+    const isSentToOthers =
+      'user' in delta &&
+      'destination' in delta &&
+      currentAddress &&
+      delta.user.toLowerCase() === currentAddress.toLowerCase() &&
+      delta.destination.toLowerCase() !== currentAddress.toLowerCase();
+    return isSentToOthers ? 'sendOut' : 'send';
+  }
   if (!TRANSFER_TYPES.has(deltaType)) {
     return deltaType;
   }

@@ -32,6 +32,8 @@ const getWatchlistItemLayout = (_: unknown, index: number) => ({
 });
 
 function getWatchlistTokenKey(item: IMarketToken) {
+  if (item.assetId) return `asset:${item.assetId}`;
+  if (item.stockId) return `stock:${item.stockId}`;
   return item.perpsCoin
     ? `perps:${item.perpsCoin}`
     : `${item.networkId}:${(item.address || '').toLowerCase()}:${item.isNative ? 1 : 0}`;
@@ -44,6 +46,8 @@ function tokenToWatchListItem(token: IMarketToken): IMarketWatchListItemV2 {
     sortIndex: token.sortIndex,
     isNative: token.isNative,
     perpsCoin: token.perpsCoin,
+    assetId: token.assetId,
+    stockId: token.stockId,
   };
 }
 
@@ -160,6 +164,7 @@ export function useOpenMarketWatchlistEditDialog() {
         await actions.current.removeFromWatchListV2(
           item.networkId,
           item.address,
+          { assetId: item.assetId, stockId: item.stockId },
         );
       }
     },

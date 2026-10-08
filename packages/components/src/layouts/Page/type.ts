@@ -55,8 +55,19 @@ export type IBasicPageProps = PropsWithChildren<
   } & IPageLifeCycle
 >;
 
+export type IPageFooterSafeAreaBottomMode = 'container' | 'content';
+
 export type IPageFooterProps = PropsWithChildren<
-  IFooterActionsProps & { disableKeyboardAnimation?: boolean }
+  IFooterActionsProps & {
+    disableKeyboardAnimation?: boolean;
+    /**
+     * Controls which layer owns the footer bottom safe-area spacing.
+     * `container` lets Page.Footer handle it; `content` is for custom content
+     * that already applies the native bottom inset itself.
+     * @default container
+     */
+    safeAreaBottomMode?: IPageFooterSafeAreaBottomMode;
+  }
 >;
 
 export type IPageProps = IBasicPageProps;

@@ -29,6 +29,7 @@ export function useModalExitPrevent({
   onConfirm,
   onConfirmText,
   onCancelText,
+  shouldRemoveOnConfirm = true,
 }: {
   title: string;
   message: string;
@@ -36,6 +37,7 @@ export function useModalExitPrevent({
   onConfirm?: () => void;
   onConfirmText?: string;
   onCancelText?: string;
+  shouldRemoveOnConfirm?: boolean;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -63,7 +65,9 @@ export function useModalExitPrevent({
           onConfirmText ||
           intl.formatMessage({ id: ETranslations.global_quit }),
         onConfirm: () => {
-          navigation.dispatch(data.action);
+          if (shouldRemoveOnConfirm) {
+            navigation.dispatch(data.action);
+          }
           onConfirm?.();
         },
         onCancelText:
@@ -74,7 +78,16 @@ export function useModalExitPrevent({
         },
       });
     },
-    [message, navigation, title, intl, onConfirm, onConfirmText, onCancelText],
+    [
+      message,
+      navigation,
+      title,
+      intl,
+      onConfirm,
+      onConfirmText,
+      onCancelText,
+      shouldRemoveOnConfirm,
+    ],
   );
   usePreventRemove(shouldPreventRemove, navPreventRemoveCallback);
 }

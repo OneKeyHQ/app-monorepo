@@ -1,6 +1,12 @@
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  RuntimeEnvironment,
+  getTravelModeRuntimeProfile,
+  travelModeManager,
+} from '@onekeyhq/shared/src/travelMode';
 
+import { runtimePersistenceAdapter } from '../../../runtime/RuntimeEnvironmentAdapter';
 import { jotaiDefaultStore } from '../utils/jotaiDefaultStore';
 
 import {
@@ -12,7 +18,7 @@ import {
 } from './passwordLock';
 import { v4migrationAtom } from './v4migration';
 
-describe('password Never lock session semantics', () => {
+describe('app lock session semantics', () => {
   beforeEach(() => {
     jotaiDefaultStore.set(passwordPersistAtom.atom(), {
       ...passwordAtomInitialValue,
@@ -33,6 +39,10 @@ describe('password Never lock session semantics', () => {
       isMigrationModalOpen: false,
       isProcessing: false,
     });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('requires a fresh unlock on browser-class cold start', () => {
@@ -56,4 +66,65 @@ describe('password Never lock session semantics', () => {
     });
     expect(jotaiDefaultStore.get(appIsLocked.atom())).toBe(true);
   });
+
+  it('keeps manual lock authoritative while business persistence is masked', () => {
+    jest
+      .spyOn(runtimePersistenceAdapter, 'isUnavailable')
+      .mockReturnValue(true);
+    jotaiDefaultStore.set(passwordPersistManualLockStateAtom.atom(), {
+      manualLocking: true,
+    });
+
+    expect(jotaiDefaultStore.get(appIsLocked.atom())).toBe(true);
+  });
+
+  it('keeps configured auto-lock state active while business persistence is masked', () => {
+    jest
+      .spyOn(runtimePersistenceAdapter, 'isUnavailable')
+      .mockReturnValue(true);
+    jotaiDefaultStore.set(passwordPersistAtom.atom(), (value) => ({
+      ...value,
+      appLockDuration: 15,
+    }));
+
+    expect(jotaiDefaultStore.get(appIsLocked.atom())).toBe(true);
+
+    jotaiDefaultStore.set(passwordAtom.atom(), (value) => ({
+      ...value,
+      unLock: true,
+    }));
+    expect(jotaiDefaultStore.get(appIsLocked.atom())).toBe(false);
+  });
+
+  it.each(Object.values(ELockDuration))(
+    'keeps Travel Mode accessible with lock duration %s and preserves lock controls',
+    (duration) => {
+      jest
+        .spyOn(travelModeManager, 'getRuntimeEnvironmentSync')
+        .mockReturnValue(
+          RuntimeEnvironment.create(getTravelModeRuntimeProfile(true)),
+        );
+      const passwordSettings = {
+        ...passwordAtomInitialValue,
+        appLockDuration: Number(duration),
+        isPasswordSet: true,
+      };
+      jotaiDefaultStore.set(passwordPersistAtom.atom(), passwordSettings);
+
+      expect(jotaiDefaultStore.get(appIsLocked.atom())).toBe(false);
+
+      jotaiDefaultStore.set(passwordPersistManualLockStateAtom.atom(), {
+        manualLocking: true,
+      });
+
+      expect(jotaiDefaultStore.get(appIsLocked.atom())).toBe(false);
+      expect(jotaiDefaultStore.get(passwordPersistAtom.atom())).toEqual(
+        passwordSettings,
+      );
+      expect(
+        jotaiDefaultStore.get(passwordPersistManualLockStateAtom.atom()),
+      ).toEqual({ manualLocking: true });
+      expect(jotaiDefaultStore.get(passwordAtom.atom()).unLock).toBe(false);
+    },
+  );
 });

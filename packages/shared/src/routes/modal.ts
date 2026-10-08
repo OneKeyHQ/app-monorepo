@@ -25,7 +25,7 @@ import type { IModalNetworkDoctorParamList } from './networkDoctor';
 import type { IModalNotificationsParamList } from './notifications';
 import type { IOnboardingParamList } from './onboarding';
 import type { IModalPerpParamList } from './perp';
-import type { IPrimeParamList } from './prime';
+import type { IPrimeGiftParamList, IPrimeParamList } from './prime';
 import type { IModalReceiveParamList } from './receive';
 import type { IModalReferFriendsParamList } from './referFriends';
 import type { IModalRewardCenterParamList } from './rewardCenter';
@@ -54,6 +54,7 @@ export enum EModalRoutes {
   AccountManagerStacks = 'AccountManagerStacks',
   OnboardingModal = 'OnboardingModal',
   PrimeModal = 'PrimeModal',
+  PrimeGiftModal = 'PrimeGiftModal',
   FirmwareUpdateModal = 'FirmwareUpdateModal',
   AssetSelectorModal = 'AssetSelectorModal',
   ChainSelectorModal = 'ChainSelectorModal',
@@ -109,6 +110,7 @@ export type IModalParamList = {
   [EModalRoutes.NotificationsModal]: IModalNotificationsParamList;
   [EModalRoutes.OnboardingModal]: IOnboardingParamList;
   [EModalRoutes.PrimeModal]: IPrimeParamList;
+  [EModalRoutes.PrimeGiftModal]: IPrimeGiftParamList;
   [EModalRoutes.ReceiveModal]: IModalReceiveParamList;
   [EModalRoutes.ReferFriendsModal]: IModalReferFriendsParamList;
   [EModalRoutes.ScanQrCodeModal]: IScanQrCodeModalParamList;

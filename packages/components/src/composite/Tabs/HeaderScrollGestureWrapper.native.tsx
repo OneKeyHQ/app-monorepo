@@ -14,6 +14,7 @@ import Animated, {
 import { Haptics, ImpactFeedbackStyle } from '../../primitives/Haptics';
 
 import { CollapsibleTabContext } from './CollapsibleTabContext';
+import { HeaderScrollGestureContext } from './HeaderScrollGestureContext';
 
 import type { IHeaderScrollGestureWrapperProps } from './HeaderScrollGestureWrapper';
 import type { LayoutChangeEvent } from 'react-native';
@@ -50,6 +51,7 @@ export function HeaderScrollGestureWrapper({
   const containerWidth = useSharedValue(0);
   const containerHeight = useSharedValue(0);
   const isGestureEnabled = useSharedValue(true);
+  const isVerticalPanPointerCountExceeded = useSharedValue(false);
   const hasNotifiedGestureActive = useSharedValue(false);
   const hasTriggeredRefreshHaptic = useSharedValue(false);
   const [measuredWidth, setMeasuredWidth] = useState(0);
@@ -83,7 +85,7 @@ export function HeaderScrollGestureWrapper({
     },
   );
 
-  const panGesture = useMemo(() => {
+  const { panGesture, scrollGestures } = useMemo(() => {
     const safeExcludeRightEdgeRatio = Math.max(
       0,
       Math.min(1, excludeRightEdgeRatio),
@@ -131,9 +133,18 @@ export function HeaderScrollGestureWrapper({
       .failOffsetX(panFailOffsetX);
 
     if (verticalPanMaxPointers !== undefined) {
-      verticalPanGesture = verticalPanGesture.maxPointers(
-        verticalPanMaxPointers,
-      );
+      verticalPanGesture = verticalPanGesture
+        .maxPointers(verticalPanMaxPointers)
+        .onTouchesDown((event) => {
+          'worklet';
+
+          // maxPointers only rejects extra pointers before activation, so
+          // latch an active page pan off for the rest of a multi-touch gesture.
+          if (event.numberOfTouches > verticalPanMaxPointers) {
+            isVerticalPanPointerCountExceeded.value = true;
+            cancelAnimation(targetScrollY);
+          }
+        });
     }
 
     if (gestureHitSlop) {
@@ -162,7 +173,10 @@ export function HeaderScrollGestureWrapper({
       .onUpdate((e) => {
         'worklet';
 
-        if (!isGestureEnabled.value) {
+        if (
+          !isGestureEnabled.value ||
+          isVerticalPanPointerCountExceeded.value
+        ) {
           return;
         }
         targetScrollY.value = startScrollY.value - e.translationY * scrollScale;
@@ -181,7 +195,10 @@ export function HeaderScrollGestureWrapper({
       .onEnd((e) => {
         'worklet';
 
-        if (!isGestureEnabled.value) {
+        if (
+          !isGestureEnabled.value ||
+          isVerticalPanPointerCountExceeded.value
+        ) {
           return;
         }
         const wasAtTop = startScrollY.value <= contentInset;
@@ -201,14 +218,17 @@ export function HeaderScrollGestureWrapper({
           runOnJS(onGestureActiveChange)(false);
         }
         hasNotifiedGestureActive.value = false;
+        isVerticalPanPointerCountExceeded.value = false;
         isGestureEnabled.value = true;
       });
 
     if (!onHorizontalSwipe) {
-      if (!simultaneousWithNativeGesture) {
-        return verticalPanGesture;
-      }
-      return Gesture.Simultaneous(Gesture.Native(), verticalPanGesture);
+      return {
+        panGesture: simultaneousWithNativeGesture
+          ? Gesture.Simultaneous(Gesture.Native(), verticalPanGesture)
+          : verticalPanGesture,
+        scrollGestures: [verticalPanGesture],
+      };
     }
 
     let horizontalPanGesture = Gesture.Pan()
@@ -254,10 +274,12 @@ export function HeaderScrollGestureWrapper({
 
     const raceGesture = Gesture.Race(horizontalPanGesture, verticalPanGesture);
 
-    if (!simultaneousWithNativeGesture) {
-      return raceGesture;
-    }
-    return Gesture.Simultaneous(Gesture.Native(), raceGesture);
+    return {
+      panGesture: simultaneousWithNativeGesture
+        ? Gesture.Simultaneous(Gesture.Native(), raceGesture)
+        : raceGesture,
+      scrollGestures: [verticalPanGesture, horizontalPanGesture],
+    };
   }, [
     startScrollY,
     scrollYCurrent,
@@ -283,14 +305,17 @@ export function HeaderScrollGestureWrapper({
     containerWidth,
     measuredWidth,
     isGestureEnabled,
+    isVerticalPanPointerCountExceeded,
     hasNotifiedGestureActive,
     hasTriggeredRefreshHaptic,
     triggerRefreshHaptic,
   ]);
 
   return (
-    <GestureDetector gesture={panGesture}>
-      <Animated.View onLayout={handleLayout}>{children}</Animated.View>
-    </GestureDetector>
+    <HeaderScrollGestureContext.Provider value={scrollGestures}>
+      <GestureDetector gesture={panGesture}>
+        <Animated.View onLayout={handleLayout}>{children}</Animated.View>
+      </GestureDetector>
+    </HeaderScrollGestureContext.Provider>
   );
 }

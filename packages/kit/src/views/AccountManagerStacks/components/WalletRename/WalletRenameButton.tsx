@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/shared/src/types/changeHistory';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
+import { PROTOCOL_V2_DEVICE_LABEL_MAX_LENGTH } from '@onekeyhq/shared/src/utils/stringUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { AccountManagerTestIDs } from '../../testIDs';
@@ -24,11 +25,13 @@ import { showLabelSetDialog as showHardwareLabelSetDialog } from './HardwareLabe
 export function WalletRenameButton({
   wallet,
   editable,
+  nativeSheet = false,
   textSize = '$bodyLgMedium',
   ...rest
 }: ComponentProps<typeof XStack> & {
   wallet: IDBWallet;
   editable: boolean | undefined;
+  nativeSheet?: boolean;
   textSize?: '$bodyLgMedium' | '$heading2xl' | '$headingXl' | '$headingLg';
 }) {
   const { serviceAccount } = backgroundApiProxy;
@@ -51,16 +54,18 @@ export function WalletRenameButton({
     return profile.isThirdParty && !profile.supportsDeviceSettings;
   }, [wallet?.associatedDeviceInfo?.vendor]);
 
-  // Trezor device labels only hold printable ASCII, so restrict the label
-  // input for Trezor (OneKey accepts CJK and keeps the shared dialog as-is).
-  const labelAsciiOnly = useMemo(
-    () => wallet?.associatedDeviceInfo?.vendor === EHardwareVendor.trezor,
-    [wallet?.associatedDeviceInfo?.vendor],
-  );
-
-  const labelAsciiAlphanumericWithSpacesOnly = useMemo(
+  // Trezor and Protocol V2 labels only hold printable ASCII. Protocol V2
+  // additionally follows the firmware's 14-byte limit.
+  const isProtocolV2Product = useMemo(
     () => isProtocolV2ProductType(wallet?.associatedDeviceInfo?.deviceType),
     [wallet?.associatedDeviceInfo?.deviceType],
+  );
+
+  const labelAsciiOnly = useMemo(
+    () =>
+      wallet?.associatedDeviceInfo?.vendor === EHardwareVendor.trezor ||
+      isProtocolV2Product,
+    [isProtocolV2Product, wallet?.associatedDeviceInfo?.vendor],
   );
 
   return (
@@ -90,20 +95,30 @@ export function WalletRenameButton({
                   wallet,
                   intl,
                   asciiOnly: labelAsciiOnly,
-                  asciiAlphanumericWithSpacesOnly:
-                    labelAsciiAlphanumericWithSpacesOnly,
                 },
                 {
+                  nativeSheet,
+                  maxLength: isProtocolV2Product
+                    ? PROTOCOL_V2_DEVICE_LABEL_MAX_LENGTH
+                    : undefined,
+                  disabledMaxLengthLabel: !isProtocolV2Product,
+                  trimOuterWhitespace: isProtocolV2Product,
+                  description: isProtocolV2Product
+                    ? intl.formatMessage({
+                        id: ETranslations.hardware_label_allowed_characters__desc,
+                      })
+                    : undefined,
                   onSubmit: async (name) => {
                     await backgroundApiProxy.serviceHardware.setDeviceLabel({
                       walletId: wallet?.id || '',
-                      label: name,
+                      label: isProtocolV2Product ? name.trim() : name,
                     });
                   },
                 },
               );
             } else {
               showRenameDialog(wallet.name, {
+                nativeSheet,
                 intl,
                 nameHistoryInfo: {
                   entityId: wallet.id,

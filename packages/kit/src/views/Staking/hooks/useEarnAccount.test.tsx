@@ -39,7 +39,7 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => {
 
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
   const state: {
-    deriveResult?: string;
+    deriveResult?: { networkId: string; deriveType: string };
     deriveDeps?: unknown[];
     deriveOptions?: {
       undefinedResultIfReRun?: boolean;
@@ -51,7 +51,7 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
     accountOptions?: { swrKey?: string; watchLoading?: boolean };
     accountRun: jest.Mock;
   } = {
-    deriveResult: 'default',
+    deriveResult: { networkId: 'evm--1', deriveType: 'default' },
     deriveRun: jest.fn(),
     accountRun: jest.fn(),
   };
@@ -115,7 +115,7 @@ const selectedAccountMock = (
 const promiseResultMock = (
   globalThis as unknown as {
     __earnAccountPromiseResultMock: {
-      deriveResult?: string;
+      deriveResult?: { networkId: string; deriveType: string };
       deriveDeps?: unknown[];
       deriveOptions?: {
         undefinedResultIfReRun?: boolean;
@@ -139,7 +139,10 @@ describe('useEarnAccount cache identity', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     selectedAccountMock.current.deriveType = 'default';
-    promiseResultMock.deriveResult = 'default';
+    promiseResultMock.deriveResult = {
+      networkId: 'evm--1',
+      deriveType: 'default',
+    };
     promiseResultMock.deriveDeps = undefined;
     promiseResultMock.deriveOptions = undefined;
     promiseResultMock.deriveRun.mockReset();
@@ -178,7 +181,10 @@ describe('useEarnAccount cache identity', () => {
     expect(promiseResultMock.accountOptions?.swrKey).toBeUndefined();
     expect(promiseResultMock.accountOptions?.watchLoading).toBe(true);
 
-    promiseResultMock.deriveResult = 'default';
+    promiseResultMock.deriveResult = {
+      networkId: 'evm--1',
+      deriveType: 'default',
+    };
     rerender(undefined);
 
     expect(promiseResultMock.accountOptions?.swrKey).toBe(
@@ -202,7 +208,10 @@ describe('useEarnAccount cache identity', () => {
       'earnAccount:v3:evm--1::wallet-1--1:default:1',
     );
 
-    promiseResultMock.deriveResult = 'ledgerLive';
+    promiseResultMock.deriveResult = {
+      networkId: 'evm--1',
+      deriveType: 'ledgerLive',
+    };
     rerender(undefined);
 
     expect(promiseResultMock.accountOptions?.swrKey).toBe(
@@ -219,6 +228,31 @@ describe('useEarnAccount cache identity', () => {
     expect(promiseResultMock.accountRun).not.toHaveBeenCalled();
   });
 
+  it('does not reuse the previous network derive type during a network switch', () => {
+    const params = { networkId: 'evm--1' };
+    const { result, rerender } = renderHook(() => useEarnAccount(params));
+
+    expect(promiseResultMock.accountOptions?.swrKey).toBe(
+      'earnAccount:v3:evm--1::wallet-1--1:default:1',
+    );
+
+    params.networkId = 'evm--2';
+    rerender(undefined);
+
+    expect(promiseResultMock.accountOptions?.swrKey).toBeUndefined();
+    expect(result.current.isLoading).toBe(true);
+
+    promiseResultMock.deriveResult = {
+      networkId: 'evm--2',
+      deriveType: 'ledgerLive',
+    };
+    rerender(undefined);
+
+    expect(promiseResultMock.accountOptions?.swrKey).toBe(
+      'earnAccount:v3:evm--2::wallet-1--1:ledgerLive:1',
+    );
+  });
+
   it('keeps an HD accountId with indexedAccountId in the derive scope', async () => {
     promiseResultMock.deriveResult = undefined;
     const { rerender } = renderHook(() =>
@@ -230,7 +264,10 @@ describe('useEarnAccount cache identity', () => {
 
     expect(promiseResultMock.accountOptions?.swrKey).toBeUndefined();
 
-    promiseResultMock.deriveResult = 'default';
+    promiseResultMock.deriveResult = {
+      networkId: 'evm--1',
+      deriveType: 'default',
+    };
     rerender(undefined);
 
     expect(promiseResultMock.accountOptions?.swrKey).toBe(

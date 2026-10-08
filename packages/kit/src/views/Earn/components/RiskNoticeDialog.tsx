@@ -1,7 +1,13 @@
 import { useCallback, useState } from 'react';
 
 import type { ICheckedState } from '@onekeyhq/components';
-import { Checkbox, Dialog, XStack, YStack } from '@onekeyhq/components';
+import {
+  Checkbox,
+  Dialog,
+  XStack,
+  YStack,
+  useDialogInstance,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IEarnRiskNoticeDialog } from '@onekeyhq/shared/types/staking';
 
@@ -24,10 +30,19 @@ function RiskNoticeDialogContent({
   riskNoticeDialogContent: IEarnRiskNoticeDialog;
 }) {
   const [checkboxState, setCheckboxState] = useState<ICheckedState>(false);
+  const dialogInstance = useDialogInstance();
 
   const handleCheckboxChange = useCallback((value: ICheckedState) => {
     setCheckboxState(value);
   }, []);
+
+  // A link in the notice navigates away from this dialog, so the dialog has to
+  // go first (OK-61348): it lives in its own overlay while the page is pushed
+  // onto the navigation stack, and would otherwise still be sitting there when
+  // the user comes back. Awaited so the two do not animate over each other.
+  const handleBeforeOpenUrl = useCallback(async () => {
+    await dialogInstance.close();
+  }, [dialogInstance]);
 
   const handleConfirm = useCallback(
     () =>
@@ -62,6 +77,7 @@ function RiskNoticeDialogContent({
         size="$bodyMd"
         text={riskNoticeDialogContent.description}
         color="$text"
+        onBeforeOpenUrl={handleBeforeOpenUrl}
       />
 
       {riskNoticeDialogContent.checkboxes.map((checkbox) => (

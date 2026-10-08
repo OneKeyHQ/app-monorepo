@@ -12,6 +12,8 @@ export enum ECustomOneKeyHardwareError {
   UnknownHardwareError = 4033,
   DeviceMethodCallTimeout = 4080,
   FirmwareUpdateBatteryTooLow = 4081,
+  FirmwareUpdateRequiresUsbTransport = 4082,
+  FirmwareUpdateUnsupportedDevice = 4083,
 }
 
 export enum ECustomCloudSyncError {

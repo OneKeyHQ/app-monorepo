@@ -50,4 +50,16 @@ describe('reconcileSwapStepWithHistory', () => {
       }).txHash,
     ).toBe('existing-transaction-id');
   });
+
+  it.each([ESwapTxHistoryStatus.REFUNDED, ESwapTxHistoryStatus.EXPIRED])(
+    'marks an order-based step failed for terminal %s history',
+    (status) => {
+      expect(
+        reconcileSwapStepWithHistory({
+          step: orderStep,
+          historyStatus: status,
+        }).status,
+      ).toBe(ESwapStepStatus.FAILED);
+    },
+  );
 });

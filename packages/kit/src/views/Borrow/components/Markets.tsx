@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -16,7 +16,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowMarketItem } from '@onekeyhq/shared/types/staking';
 
 import { getBorrowMarketLabel } from '../borrowMarketDisplayName';
-import { buildBorrowMarketKey, useBorrowContext } from '../BorrowProvider';
+import {
+  buildBorrowMarketKey,
+  useBorrowContext,
+  useBorrowMarketRequestContext,
+} from '../BorrowProvider';
 import { BorrowTestIDs } from '../testIDs';
 
 /**
@@ -109,7 +113,9 @@ function MarketBarTrigger({
 export const Markets = () => {
   const intl = useIntl();
   const { gtMd } = useMedia();
-  const { market, markets, setMarket, rememberMarket } = useBorrowContext();
+  const { market, markets, rememberMarket } = useBorrowContext();
+  const { requestedMarket, setRequestedMarket } =
+    useBorrowMarketRequestContext();
   const selectedMarket = market ?? markets[0] ?? null;
   const selectedMarketKey = selectedMarket
     ? buildBorrowMarketKey(selectedMarket)
@@ -132,20 +138,56 @@ export const Markets = () => {
     [markets],
   );
 
+  const selectionRef = useRef({
+    markets,
+    rememberMarket,
+    requestedMarket,
+    selectedMarketKey,
+    setRequestedMarket,
+  });
+  useLayoutEffect(() => {
+    selectionRef.current = {
+      markets,
+      rememberMarket,
+      requestedMarket,
+      selectedMarketKey,
+      setRequestedMarket,
+    };
+  }, [
+    markets,
+    rememberMarket,
+    requestedMarket,
+    selectedMarketKey,
+    setRequestedMarket,
+  ]);
+
+  // Select retains its content callback while open and defers selection until
+  // after closing. A pending market can finish publishing in either interval.
   const handleMarketChange = useCallback(
     (value: string | number | boolean | undefined) => {
+      const current = selectionRef.current;
       if (typeof value !== 'string') {
         return;
       }
-      const nextMarket = markets.find(
+      const nextMarket = current.markets.find(
         (item) => buildBorrowMarketKey(item) === value,
       );
-      if (nextMarket) {
-        setMarket(nextMarket);
-        rememberMarket(nextMarket);
+      if (!nextMarket) {
+        return;
       }
+
+      if (value === current.selectedMarketKey) {
+        if (current.requestedMarket) {
+          current.rememberMarket(nextMarket);
+          current.setRequestedMarket(null);
+        }
+        return;
+      }
+
+      current.rememberMarket(nextMarket);
+      current.setRequestedMarket(nextMarket);
     },
-    [markets, setMarket, rememberMarket],
+    [],
   );
 
   const label = selectedMarket ? getBorrowMarketLabel(selectedMarket) : '';

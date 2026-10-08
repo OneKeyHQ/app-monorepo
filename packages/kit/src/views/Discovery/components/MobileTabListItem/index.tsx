@@ -41,7 +41,7 @@ function MobileTabListItem({
         onLongPress(id);
       }}
       p="$1"
-      animation="quick"
+      transition="quick"
       animateOnly={ANIMATE_ONLY_TRANSFORM}
       pressStyle={{
         scale: 0.95,

@@ -1,3 +1,4 @@
+/* cspell:ignore hoverable */
 import { memo, useCallback, useMemo } from 'react';
 
 import { createPortal } from 'react-dom';
@@ -12,9 +13,11 @@ import type { GestureResponderEvent } from 'react-native';
 
 function PopoverContentOverlay({
   closePopover,
+  hoverable,
   isOpen,
   keepChildrenMounted,
 }: {
+  hoverable?: boolean;
   isOpen?: boolean;
   closePopover: () => void;
   keepChildrenMounted?: boolean;
@@ -45,7 +48,7 @@ function PopoverContentOverlay({
     );
     return createPortal(content, document.body);
   }, [handlePress, keepChildrenMounted]);
-  return gtMd && isOpen ? element : null;
+  return gtMd && isOpen && !hoverable ? element : null;
 }
 
 const MemoPopoverContentOverlay = memo(PopoverContentOverlay);
@@ -54,13 +57,18 @@ export function PopoverContent({
   keepChildrenMounted,
   children,
   closePopover,
+  hoverable,
   isOpen,
-}: IPopoverContent & { keepChildrenMounted?: boolean }) {
+}: IPopoverContent & {
+  hoverable?: boolean;
+  keepChildrenMounted?: boolean;
+}) {
   return (
     <>
       <MemoPopoverContentOverlay
         isOpen={isOpen}
         closePopover={closePopover}
+        hoverable={hoverable}
         keepChildrenMounted={keepChildrenMounted}
       />
       {children}

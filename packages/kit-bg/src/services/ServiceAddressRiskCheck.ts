@@ -53,6 +53,26 @@ class ServiceAddressRiskCheck extends ServiceBase {
     return list;
   }
 
+  @backgroundMethod()
+  async apiIsNetworkSupported({
+    networkId,
+  }: {
+    networkId: string;
+  }): Promise<boolean> {
+    try {
+      const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Prime);
+      const res = await client.get<IApiClientResponse<{ supported: boolean }>>(
+        '/prime/v1/kyt/address-risk/supported',
+        {
+          params: { networkId },
+        },
+      );
+      return res.data.data?.supported === true;
+    } catch {
+      return false;
+    }
+  }
+
   // POST /prime/v1/kyt/address-risk/check — main risk score result (图5).
   @backgroundMethod()
   async checkAddressRisk({

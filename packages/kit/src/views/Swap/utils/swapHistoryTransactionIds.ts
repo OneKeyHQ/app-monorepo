@@ -10,6 +10,8 @@ const DUAL_TRANSACTION_ID_PROVIDERS = new Set(['SwapHifiSwap', 'SwapHoudi']);
 
 const SECOND_TRANSACTION_ID_HIDDEN_STATUSES = new Set([
   ESwapTxHistoryStatus.FAILED,
+  ESwapTxHistoryStatus.REFUNDED,
+  ESwapTxHistoryStatus.EXPIRED,
   ESwapTxHistoryStatus.CANCELED,
   ESwapTxHistoryStatus.CANCELING,
 ]);
@@ -21,10 +23,12 @@ const REFUND_CROSS_CHAIN_STATUSES = new Set<ESwapCrossChainStatus>([
 ]);
 
 export function isSwapHistoryRefundStatus(
-  crossChainStatus?: ESwapCrossChainStatus,
+  item?: Pick<ISwapTxHistory, 'status' | 'crossChainStatus'>,
 ) {
   return Boolean(
-    crossChainStatus && REFUND_CROSS_CHAIN_STATUSES.has(crossChainStatus),
+    item?.status === ESwapTxHistoryStatus.REFUNDED ||
+    (item?.crossChainStatus &&
+      REFUND_CROSS_CHAIN_STATUSES.has(item.crossChainStatus)),
   );
 }
 
@@ -90,7 +94,7 @@ export function getSwapHistoryTransactionIdRows(
     getTransactionId(item.txInfo.receiverTransactionId);
   const refundTransactionId = getTransactionId(item.swapOrderHash?.refundHash);
   const shouldShowRefundTransaction = Boolean(
-    refundTransactionId && isSwapHistoryRefundStatus(item.crossChainStatus),
+    refundTransactionId && isSwapHistoryRefundStatus(item),
   );
 
   const isStandardSwapHistory =

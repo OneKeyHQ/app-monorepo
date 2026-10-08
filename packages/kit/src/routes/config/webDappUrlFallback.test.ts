@@ -1,3 +1,15 @@
+import { getPathFromState, getStateFromPath } from '@react-navigation/core';
+
+import {
+  ERootRoutes,
+  ETabMarketRoutes,
+  ETabRoutes,
+  PRIME_REDEEM_LANDING_PATH,
+} from '@onekeyhq/shared/src/routes';
+import type { IScreenPathConfig } from '@onekeyhq/shared/src/utils/routeUtils';
+import { buildAllowList } from '@onekeyhq/shared/src/utils/routeUtils';
+import { EMarketBannerType } from '@onekeyhq/shared/types/marketV2';
+
 import {
   getWebDappAllowListRule,
   getWebDappUrlFallback,
@@ -12,6 +24,76 @@ const allowList = {
 const allowListKeys = Object.keys(allowList);
 
 describe('getWebDappAllowListRule', () => {
+  it('publishes banner detail URLs with the parameters needed to restore the page', () => {
+    const screens: IScreenPathConfig = {
+      [ERootRoutes.Main]: {
+        path: '/',
+        exact: false,
+        screens: {
+          [ETabRoutes.Market]: {
+            path: '/market',
+            exact: false,
+            initialRouteName: ETabMarketRoutes.TabMarket,
+            screens: {
+              [ETabMarketRoutes.TabMarket]: { path: '/', exact: false },
+              [ETabMarketRoutes.MarketBannerDetail]: {
+                path: '/banner/:tokenListId',
+                exact: false,
+              },
+            },
+          },
+        },
+      },
+    };
+    const params = {
+      tokenListId: 'stock-list',
+      title: 'Stocks & ETFs',
+      type: EMarketBannerType.StockPerps,
+      assetType: 'stock',
+    };
+    const path = getPathFromState(
+      {
+        routes: [
+          {
+            name: ERootRoutes.Main,
+            state: {
+              routes: [
+                {
+                  name: ETabRoutes.Market,
+                  state: {
+                    routes: [
+                      { name: ETabMarketRoutes.MarketBannerDetail, params },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+      { screens },
+    );
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation();
+    try {
+      const bannerAllowList = buildAllowList(screens, true);
+      expect(path.split('?')[0]).toBe('/market/banner/stock-list');
+      expect(
+        getWebDappAllowListRule({
+          allowList: bannerAllowList,
+          allowListKeys: Object.keys(bannerAllowList),
+          path: path.split('?')[0],
+        }),
+      ).toEqual({ showUrl: true, showParams: true });
+      const restoredState = getStateFromPath(path, { screens });
+      expect(restoredState?.routes[0].state?.routes[0].state?.routes).toEqual([
+        { name: ETabMarketRoutes.TabMarket },
+        { name: ETabMarketRoutes.MarketBannerDetail, params, path },
+      ]);
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   it.each(['/modal/swap-settings', '/modal/token-selector?next=/swap'])(
     'does not authorize a non-public target containing an allowlist fragment: %s',
     (path) => {
@@ -42,6 +124,33 @@ describe('getWebDappUrlFallback', () => {
         currentSearch: '?tab=bridge',
       }),
     ).toBe('/swap?tab=bridge');
+  });
+
+  it('keeps the Prime redeem landing query', () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation();
+    try {
+      const primeRedeemAllowList = buildAllowList({}, true);
+
+      expect(primeRedeemAllowList[PRIME_REDEEM_LANDING_PATH]).toEqual({
+        showUrl: true,
+        showParams: true,
+      });
+      const slashStrippedKey = `/${PRIME_REDEEM_LANDING_PATH.replace(
+        /\//g,
+        '',
+      )}`;
+      expect(primeRedeemAllowList[slashStrippedKey]).toBeUndefined();
+      expect(
+        getWebDappUrlFallback({
+          allowList: primeRedeemAllowList,
+          allowListKeys: Object.keys(primeRedeemAllowList),
+          currentPath: PRIME_REDEEM_LANDING_PATH,
+          currentSearch: '?code=OKP-TEST',
+        }),
+      ).toBe(`${PRIME_REDEEM_LANDING_PATH}?code=OKP-TEST`);
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 
   it('strips params when the current route does not expose them', () => {

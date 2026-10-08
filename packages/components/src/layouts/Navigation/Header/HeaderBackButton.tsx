@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -14,12 +14,21 @@ import type { HeaderBackButtonProps } from '@react-navigation/elements';
 type INavButtonProps = Omit<IIconButtonProps, 'icon' | 'testID'>;
 
 export function NavBackButton(props: INavButtonProps) {
+  const iconProps = useMemo(
+    () =>
+      platformEnv.isDesktop
+        ? { color: '$icon' as const, ...props.iconProps }
+        : props.iconProps,
+    [props.iconProps],
+  );
+
   return (
     <HeaderIconButton
       icon="ChevronLeftOutline"
       {...(platformEnv.isNativeIOS && { pressStyle: undefined })}
       testID="nav-header-back"
       {...props}
+      iconProps={iconProps}
     />
   );
 }

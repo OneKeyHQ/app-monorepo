@@ -1,13 +1,14 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Page, SearchBar, Stack } from '@onekeyhq/components';
+import { Page, SearchBar, Stack, Toast } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
+import { useToMarketStockDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/hooks/useToMarketStockDetailPage';
 import {
   MarketNormalTokenList,
   MarketWatchlistTokenList,
@@ -16,14 +17,16 @@ import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/c
 import { MarketTokenListNetworkSelector } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenListNetworkSelector';
 import { MarketWatchListProviderMirrorV2 } from '@onekeyhq/kit/src/views/Market/MarketWatchListProviderMirrorV2';
 import { useSwapProTokenSearch } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapPro';
-import SwapProSearchTokenList from '@onekeyhq/kit/src/views/Swap/pages/components/SwapProSearchTokenList';
 import {
   EJotaiContextStoreNames,
   useMarketTokenSelectorConfigAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
-import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketStockPublicItem,
+  IMarketTokenDetailPreview,
+} from '@onekeyhq/shared/types/marketV2';
 
 import { prewarmMarketTokenImages } from '../../utils/marketDetailImagePreload';
 import {
@@ -32,6 +35,8 @@ import {
 } from '../../utils/marketDetailPreview';
 
 import { TOKEN_SELECTOR_POLLING_INTERVAL } from './constants';
+import { dismissMobileTokenSelectorKeyboard } from './dismissMobileTokenSelectorKeyboard';
+import { MobileMarketTokenSelectorSearchResults } from './MobileMarketTokenSelectorSearchResults';
 import { navigateToMarketTokenDetail } from './navigateToMarketTokenDetail';
 import { useLiveTokenOverride } from './useLiveTokenOverride';
 
@@ -48,6 +53,9 @@ function MobileTokenSelectorContent() {
   const navigation = useAppNavigation();
   const tokenDetailActions = useTokenDetailActions();
   const { navigateToPerps } = usePerpsNavigation();
+  const toMarketStockDetailPage = useToMarketStockDetailPage({
+    replaceCurrentDetail: true,
+  });
   const routeParams = route.params as
     | { showFavoriteButton?: boolean | string }
     | undefined;
@@ -66,14 +74,15 @@ function MobileTokenSelectorContent() {
 
   const [searchValue, setSearchValue] = useState('');
   const searchValueDebounce = useDebounce(searchValue, 500);
+  const searchQuery = searchValueDebounce.trim();
   const { searchLoading, searchTokenList } = useSwapProTokenSearch(
-    searchValueDebounce,
+    searchQuery,
     selectedNetworkId,
   );
   const liveTokenOverride = useLiveTokenOverride();
 
   useEffect(() => {
-    if (!searchValueDebounce) {
+    if (!searchQuery) {
       return;
     }
     searchTokenList.slice(0, 20).forEach((token) => {
@@ -82,7 +91,7 @@ function MobileTokenSelectorContent() {
         tokenImageUris: token.logoUrls,
       });
     });
-  }, [searchTokenList, searchValueDebounce]);
+  }, [searchTokenList, searchQuery]);
 
   const handleNetworkIdChange = useCallback(
     (networkId: string) => {
@@ -103,28 +112,50 @@ function MobileTokenSelectorContent() {
     setSelectorConfig((prev) => ({ ...prev, isWatchlistMode: true }));
   }, [setSelectorConfig]);
 
+  const navigationRequestIdRef = useRef(0);
   const navigateToTokenDetail = useCallback(
     (token: {
       address: string;
       networkId: string;
+      assetId?: string;
+      stockId?: string;
       isNative?: boolean;
       perpsCoin?: string;
       tokenDetailPreview?: IMarketTokenDetailPreview;
     }) => {
+      navigationRequestIdRef.current += 1;
+      const requestId = navigationRequestIdRef.current;
+      dismissMobileTokenSelectorKeyboard();
       if (token.perpsCoin) {
         navigation.popStack();
         navigateToPerps(token.perpsCoin);
         return;
       }
 
-      navigateToMarketTokenDetail(token, {
+      void navigateToMarketTokenDetail(token, {
+        isCurrentRequest: () => requestId === navigationRequestIdRef.current,
+        onError: () =>
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_an_error_occurred,
+            }),
+          }),
         tokenDetailActions,
         beforeNavigate: () => navigation.popStack(),
         showFavoriteButton,
+        resolveMarketAsset: startListSelect || Boolean(searchQuery),
         tokenDetailPreview: token.tokenDetailPreview,
       });
     },
-    [tokenDetailActions, navigation, navigateToPerps, showFavoriteButton],
+    [
+      intl,
+      tokenDetailActions,
+      navigation,
+      navigateToPerps,
+      searchQuery,
+      showFavoriteButton,
+      startListSelect,
+    ],
   );
 
   const handleTokenSelect = useCallback(
@@ -154,6 +185,15 @@ function MobileTokenSelectorContent() {
     [navigateToTokenDetail],
   );
 
+  const handleSearchStockSelect = useCallback(
+    (stock: IMarketStockPublicItem) => {
+      navigationRequestIdRef.current += 1;
+      dismissMobileTokenSelectorKeyboard();
+      void toMarketStockDetailPage(stock);
+    },
+    [toMarketStockDetailPage],
+  );
+
   return (
     <Page>
       <Page.Header
@@ -171,11 +211,13 @@ function MobileTokenSelectorContent() {
           />
         </Stack>
 
-        {searchValueDebounce ? (
-          <SwapProSearchTokenList
-            isLoading={searchLoading}
-            items={searchTokenList}
-            onPress={handleSearchTokenSelect}
+        {searchQuery ? (
+          <MobileMarketTokenSelectorSearchResults
+            query={searchQuery}
+            marketItems={searchTokenList}
+            isMarketLoading={searchLoading}
+            onStockPress={handleSearchStockSelect}
+            onMarketPress={handleSearchTokenSelect}
           />
         ) : (
           <>

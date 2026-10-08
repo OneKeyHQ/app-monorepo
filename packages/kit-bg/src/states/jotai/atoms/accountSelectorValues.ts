@@ -5,6 +5,12 @@ export type IAccountSelectorValueItem = {
   accountId: string;
   value: Record<string, string> | string | undefined;
   currency: string | undefined;
+  // DeFi/Perps overview published with the value in one update, so a row never
+  // combines a value and an overview from different loads.
+  deFi?: IAccountSelectorDeFiItem;
+  // Network the values query used for this account. The overview depends on
+  // it, so a row of another network scope must not show the item.
+  networkId?: string;
 };
 
 export type IAccountSelectorDeFiItem =

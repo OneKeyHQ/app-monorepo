@@ -281,6 +281,19 @@ const TabDeveloper = () => {
               >
                 IP_TABLE_TEST
               </Button>
+
+              {platformEnv.isDesktop || platformEnv.isNative ? (
+                <Button
+                  testID="sni-request-qa-open"
+                  onPress={() => {
+                    navigation.pushModal(EModalRoutes.SettingModal, {
+                      screen: EModalSettingRoutes.SettingDevSniRequestQa,
+                    });
+                  }}
+                >
+                  SNI Request QA
+                </Button>
+              ) : null}
             </PartContainer>
 
             <PartContainer title="Async Import Test">

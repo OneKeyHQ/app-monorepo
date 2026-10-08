@@ -47,7 +47,7 @@ export type IBackupProviderAccountInfo = {
     cloudKitContainerUserId: string | null;
     cloudFsAvailable: boolean | undefined;
     cloudKitAvailable: boolean;
-    keychainCloudSyncEnabled: boolean;
+    keychainCloudSyncEnabled?: boolean;
   };
   googleDrive?: {
     email?: string;
@@ -62,6 +62,11 @@ export type IBackupDataEncryptedPayload = Omit<
   'privateData'
 > & {
   privateDataEncrypted: string; // base64 string
+};
+
+export type IBackupDataExportArchive = {
+  archiveBase64: string;
+  password: string;
 };
 
 export type IBackupDataManifestItem = Omit<

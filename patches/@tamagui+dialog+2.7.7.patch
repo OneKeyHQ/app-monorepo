@@ -1,0 +1,232 @@
+diff --git a/node_modules/@tamagui/dialog/dist/cjs/Dialog.cjs b/node_modules/@tamagui/dialog/dist/cjs/Dialog.cjs
+index 5a543f9..d9ff5db 100644
+--- a/node_modules/@tamagui/dialog/dist/cjs/Dialog.cjs
++++ b/node_modules/@tamagui/dialog/dist/cjs/Dialog.cjs
+@@ -375,7 +375,7 @@ const DialogContentModal = React.forwardRef(({
+     ...props,
+     context,
+     ref: composedRefs,
+-    trapFocus: context.open,
++    trapFocus: props.trapFocus ?? context.open,
+     disableOutsidePointerEvents: true,
+     onCloseAutoFocus: (0, import_helpers.composeEventHandlers)(props.onCloseAutoFocus, event => {
+       event.preventDefault();
+@@ -471,7 +471,7 @@ const DialogContentImpl = React.forwardRef((props, forwardedRef) => {
+       onFocusOutside,
+       onInteractOutside,
+       onDismiss: () => context?.onOpenChange?.(false),
+-      children: /* @__PURE__ */(0, import_jsx_runtime.jsx)(import_focus_scope.FocusScope, {
++      children: trapFocus ? /* @__PURE__ */(0, import_jsx_runtime.jsx)(import_focus_scope.FocusScope, {
+         loop: true,
+         enabled: context.open,
+         trapped: trapFocus,
+@@ -479,7 +479,7 @@ const DialogContentImpl = React.forwardRef((props, forwardedRef) => {
+         forceUnmount: !context.open,
+         onUnmountAutoFocus: onCloseAutoFocus,
+         children: contents
+-      })
++      }) : contents
+     }), process.env.NODE_ENV === "development" && /* @__PURE__ */(0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, {
+       children: [/* @__PURE__ */(0, import_jsx_runtime.jsx)(TitleWarning, {
+         titleId: context.titleId
+diff --git a/node_modules/@tamagui/dialog/dist/cjs/Dialog.native.js b/node_modules/@tamagui/dialog/dist/cjs/Dialog.native.js
+index 6cf7260..2533d89 100644
+--- a/node_modules/@tamagui/dialog/dist/cjs/Dialog.native.js
++++ b/node_modules/@tamagui/dialog/dist/cjs/Dialog.native.js
+@@ -405,7 +405,7 @@ var DialogContentModal = /* @__PURE__ */React.forwardRef(function (param, forwar
+     ref: composedRefs,
+     // we make sure focus isn't trapped once `DialogContent` has been closed
+     // (closed !== unmounted when animating out)
+-    trapFocus: context.open,
++    trapFocus: props.trapFocus ?? context.open,
+     disableOutsidePointerEvents: true,
+     onCloseAutoFocus: (0, import_helpers.composeEventHandlers)(props.onCloseAutoFocus, function (event) {
+       var _context_triggerRef_current;
+@@ -513,7 +513,7 @@ var DialogContentImpl = /* @__PURE__ */React.forwardRef(function (props, forward
+         var _context_onOpenChange;
+         return context === null || context === void 0 ? void 0 : (_context_onOpenChange = context.onOpenChange) === null || _context_onOpenChange === void 0 ? void 0 : _context_onOpenChange.call(context, false);
+       },
+-      children: /* @__PURE__ */(0, import_jsx_runtime.jsx)(import_focus_scope.FocusScope, {
++      children: trapFocus ? /* @__PURE__ */(0, import_jsx_runtime.jsx)(import_focus_scope.FocusScope, {
+         loop: true,
+         enabled: context.open,
+         trapped: trapFocus,
+@@ -521,7 +521,7 @@ var DialogContentImpl = /* @__PURE__ */React.forwardRef(function (props, forward
+         forceUnmount: !context.open,
+         onUnmountAutoFocus: onCloseAutoFocus,
+         children: contents
+-      })
++      }) : contents
+     }), process.env.NODE_ENV === "development" && /* @__PURE__ */(0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, {
+       children: [/* @__PURE__ */(0, import_jsx_runtime.jsx)(TitleWarning, {
+         titleId: context.titleId
+diff --git a/node_modules/@tamagui/dialog/dist/esm/Dialog.mjs b/node_modules/@tamagui/dialog/dist/esm/Dialog.mjs
+index 257ba32..ca116fc 100644
+--- a/node_modules/@tamagui/dialog/dist/esm/Dialog.mjs
++++ b/node_modules/@tamagui/dialog/dist/esm/Dialog.mjs
+@@ -324,7 +324,7 @@ const DialogContentModal = React.forwardRef(({
+     ...props,
+     context,
+     ref: composedRefs,
+-    trapFocus: context.open,
++    trapFocus: props.trapFocus ?? context.open,
+     disableOutsidePointerEvents: true,
+     onCloseAutoFocus: composeEventHandlers(props.onCloseAutoFocus, event => {
+       event.preventDefault();
+@@ -420,7 +420,7 @@ const DialogContentImpl = React.forwardRef((props, forwardedRef) => {
+       onFocusOutside,
+       onInteractOutside,
+       onDismiss: () => context?.onOpenChange?.(false),
+-      children: /* @__PURE__ */jsx(FocusScope, {
++      children: trapFocus ? /* @__PURE__ */jsx(FocusScope, {
+         loop: true,
+         enabled: context.open,
+         trapped: trapFocus,
+@@ -428,7 +428,7 @@ const DialogContentImpl = React.forwardRef((props, forwardedRef) => {
+         forceUnmount: !context.open,
+         onUnmountAutoFocus: onCloseAutoFocus,
+         children: contents
+-      })
++      }) : contents
+     }), process.env.NODE_ENV === "development" && /* @__PURE__ */jsxs(Fragment, {
+       children: [/* @__PURE__ */jsx(TitleWarning, {
+         titleId: context.titleId
+diff --git a/node_modules/@tamagui/dialog/dist/esm/Dialog.native.js b/node_modules/@tamagui/dialog/dist/esm/Dialog.native.js
+index edb3c2c..7662953 100644
+--- a/node_modules/@tamagui/dialog/dist/esm/Dialog.native.js
++++ b/node_modules/@tamagui/dialog/dist/esm/Dialog.native.js
+@@ -352,7 +352,7 @@ var DialogContentModal = /* @__PURE__ */React.forwardRef(function (param, forwar
+     ref: composedRefs,
+     // we make sure focus isn't trapped once `DialogContent` has been closed
+     // (closed !== unmounted when animating out)
+-    trapFocus: context.open,
++    trapFocus: props.trapFocus ?? context.open,
+     disableOutsidePointerEvents: true,
+     onCloseAutoFocus: composeEventHandlers(props.onCloseAutoFocus, function (event) {
+       var _context_triggerRef_current;
+@@ -460,7 +460,7 @@ var DialogContentImpl = /* @__PURE__ */React.forwardRef(function (props, forward
+         var _context_onOpenChange;
+         return context === null || context === void 0 ? void 0 : (_context_onOpenChange = context.onOpenChange) === null || _context_onOpenChange === void 0 ? void 0 : _context_onOpenChange.call(context, false);
+       },
+-      children: /* @__PURE__ */_jsx(FocusScope, {
++      children: trapFocus ? /* @__PURE__ */_jsx(FocusScope, {
+         loop: true,
+         enabled: context.open,
+         trapped: trapFocus,
+@@ -468,7 +468,7 @@ var DialogContentImpl = /* @__PURE__ */React.forwardRef(function (props, forward
+         forceUnmount: !context.open,
+         onUnmountAutoFocus: onCloseAutoFocus,
+         children: contents
+-      })
++      }) : contents
+     }), process.env.NODE_ENV === "development" && /* @__PURE__ */_jsxs(_Fragment, {
+       children: [/* @__PURE__ */_jsx(TitleWarning, {
+         titleId: context.titleId
+diff --git a/node_modules/@tamagui/dialog/dist/jsx/Dialog.mjs b/node_modules/@tamagui/dialog/dist/jsx/Dialog.mjs
+index 257ba32..ca116fc 100644
+--- a/node_modules/@tamagui/dialog/dist/jsx/Dialog.mjs
++++ b/node_modules/@tamagui/dialog/dist/jsx/Dialog.mjs
+@@ -324,7 +324,7 @@ const DialogContentModal = React.forwardRef(({
+     ...props,
+     context,
+     ref: composedRefs,
+-    trapFocus: context.open,
++    trapFocus: props.trapFocus ?? context.open,
+     disableOutsidePointerEvents: true,
+     onCloseAutoFocus: composeEventHandlers(props.onCloseAutoFocus, event => {
+       event.preventDefault();
+@@ -420,7 +420,7 @@ const DialogContentImpl = React.forwardRef((props, forwardedRef) => {
+       onFocusOutside,
+       onInteractOutside,
+       onDismiss: () => context?.onOpenChange?.(false),
+-      children: /* @__PURE__ */jsx(FocusScope, {
++      children: trapFocus ? /* @__PURE__ */jsx(FocusScope, {
+         loop: true,
+         enabled: context.open,
+         trapped: trapFocus,
+@@ -428,7 +428,7 @@ const DialogContentImpl = React.forwardRef((props, forwardedRef) => {
+         forceUnmount: !context.open,
+         onUnmountAutoFocus: onCloseAutoFocus,
+         children: contents
+-      })
++      }) : contents
+     }), process.env.NODE_ENV === "development" && /* @__PURE__ */jsxs(Fragment, {
+       children: [/* @__PURE__ */jsx(TitleWarning, {
+         titleId: context.titleId
+diff --git a/node_modules/@tamagui/dialog/dist/jsx/Dialog.native.js b/node_modules/@tamagui/dialog/dist/jsx/Dialog.native.js
+index 6cf7260..2533d89 100644
+--- a/node_modules/@tamagui/dialog/dist/jsx/Dialog.native.js
++++ b/node_modules/@tamagui/dialog/dist/jsx/Dialog.native.js
+@@ -405,7 +405,7 @@ var DialogContentModal = /* @__PURE__ */React.forwardRef(function (param, forwar
+     ref: composedRefs,
+     // we make sure focus isn't trapped once `DialogContent` has been closed
+     // (closed !== unmounted when animating out)
+-    trapFocus: context.open,
++    trapFocus: props.trapFocus ?? context.open,
+     disableOutsidePointerEvents: true,
+     onCloseAutoFocus: (0, import_helpers.composeEventHandlers)(props.onCloseAutoFocus, function (event) {
+       var _context_triggerRef_current;
+@@ -513,7 +513,7 @@ var DialogContentImpl = /* @__PURE__ */React.forwardRef(function (props, forward
+         var _context_onOpenChange;
+         return context === null || context === void 0 ? void 0 : (_context_onOpenChange = context.onOpenChange) === null || _context_onOpenChange === void 0 ? void 0 : _context_onOpenChange.call(context, false);
+       },
+-      children: /* @__PURE__ */(0, import_jsx_runtime.jsx)(import_focus_scope.FocusScope, {
++      children: trapFocus ? /* @__PURE__ */(0, import_jsx_runtime.jsx)(import_focus_scope.FocusScope, {
+         loop: true,
+         enabled: context.open,
+         trapped: trapFocus,
+@@ -521,7 +521,7 @@ var DialogContentImpl = /* @__PURE__ */React.forwardRef(function (props, forward
+         forceUnmount: !context.open,
+         onUnmountAutoFocus: onCloseAutoFocus,
+         children: contents
+-      })
++      }) : contents
+     }), process.env.NODE_ENV === "development" && /* @__PURE__ */(0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, {
+       children: [/* @__PURE__ */(0, import_jsx_runtime.jsx)(TitleWarning, {
+         titleId: context.titleId
+diff --git a/node_modules/@tamagui/dialog/src/Dialog.tsx b/node_modules/@tamagui/dialog/src/Dialog.tsx
+index 7e1ec9a..488b887 100644
+--- a/node_modules/@tamagui/dialog/src/Dialog.tsx
++++ b/node_modules/@tamagui/dialog/src/Dialog.tsx
+@@ -520,7 +520,8 @@ const DialogContentModal = React.forwardRef<TamaguiElement, DialogContentTypePro
+         ref={composedRefs}
+         // we make sure focus isn't trapped once `DialogContent` has been closed
+         // (closed !== unmounted when animating out)
+-        trapFocus={context.open}
++        // OneKey patch: Allow callers to disable the modal focus trap.
++        trapFocus={props.trapFocus ?? context.open}
+         disableOutsidePointerEvents
+         onCloseAutoFocus={composeEventHandlers(props.onCloseAutoFocus, (event) => {
+           event.preventDefault()
+@@ -695,16 +696,21 @@ const DialogContentImpl = React.forwardRef<TamaguiElement, DialogContentImplProp
+           onInteractOutside={onInteractOutside}
+           onDismiss={() => context?.onOpenChange?.(false)}
+         >
+-          <FocusScope
+-            loop
+-            enabled={context.open}
+-            trapped={trapFocus}
+-            onMountAutoFocus={onOpenAutoFocus}
+-            forceUnmount={!context.open}
+-            onUnmountAutoFocus={onCloseAutoFocus}
+-          >
+-            {contents}
+-          </FocusScope>
++          {/* OneKey patch: Do not mount FocusScope when trapping is disabled. */}
++          {trapFocus ? (
++            <FocusScope
++              loop
++              enabled={context.open}
++              trapped={trapFocus}
++              onMountAutoFocus={onOpenAutoFocus}
++              forceUnmount={!context.open}
++              onUnmountAutoFocus={onCloseAutoFocus}
++            >
++              {contents}
++            </FocusScope>
++          ) : (
++            contents
++          )}
+         </Dismissable>
+ 
+         {process.env.NODE_ENV === 'development' && (

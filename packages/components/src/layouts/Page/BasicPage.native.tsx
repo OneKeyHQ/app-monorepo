@@ -91,7 +91,7 @@ function AbsoluteContainer({
       bottom={0}
       opacity={1}
       flex={1}
-      animation="quick"
+      transition="quick"
       animateOnly={ANIMATE_ONLY_OPACITY}
       exitStyle={exitStyleFadeOut}
     >

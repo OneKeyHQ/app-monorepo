@@ -1,75 +1,50 @@
-# Perps State and Subscriptions
+# Perps Market Data and Subscriptions
 
-Open this for account switching, active token changes, L2/BBO/orderbook issues, stale data, performance, or background subscription bugs.
+Use for L2/BBO, instrument/aggregation switching, reconnection, market freshness or tick performance. Account-only state belongs in [account state](positions-account-state.md); pure dimensions/scrolling in [layout](layout-interactions.md).
 
-## State owner model
+## Follow the current data path
 
-Common owners:
+| Stage | Starting anchors |
+| --- | --- |
+| UI intent and active target | `packages/kit/src/views/Perp/components/PerpsGlobalEffects.tsx`, `packages/kit/src/views/Perp/utils/subscriptionPlanner.ts`, Hyperliquid context `actions.ts` |
+| Reconcile and subscribe | `packages/kit-bg/src/services/ServiceHyperLiquid/ServiceHyperliquidSubscription.ts`; its `utils/SubscriptionConfig.ts`, `utils/SubscriptionMutationQueue.ts`, `utils/SubscriptionReconcileQueue.ts` |
+| Reconstruct/normalize | `packages/kit-bg/src/services/ServiceHyperLiquid/utils/FastL2Book.ts`, `packages/kit-bg/src/services/ServiceHyperLiquid/utils/l2Book.ts` |
+| Context merge | `packages/kit/src/states/jotai/contexts/hyperliquid/actions.ts`, `packages/kit/src/states/jotai/contexts/hyperliquid/utils/l2BookUtils.ts` |
+| Display and interaction | `packages/kit/src/views/Perp/components/PerpOrderBook.tsx`, `packages/kit/src/views/Perp/hooks/usePerpMarketData.ts` (`useL2Book`), `packages/kit/src/views/Perp/utils/l2BookFreshness.ts`, `packages/kit/src/views/Perp/hooks/useCoinOrderBookTop.ts` |
+| Recovery snapshots | `packages/kit-bg/src/services/ServiceHyperLiquid/ServiceHyperliquidCache.ts`, `packages/shared/src/consts/perpCache.ts` |
 
-- Background service: SDK/API calls, subscriptions, account binding, cache, signing/session.
-- Hyperliquid context actions: UI-triggered actions, atom writes, submit/cancel orchestration.
-- Context atoms: current UI/runtime market/account/orderbook state.
-- Persisted perps atom/simpleDb: durable preferences and settings.
-- Component state: temporary interaction only.
-- TradingView iframe: chart-ready and chart-line internals.
+The background active target owns which socket data is relevant; UI intent and rendered instrument must converge on that target. Inspect stale asynchronous writes, not just visual latency. When changing switching order, preserve the target update before slow cleanup where the current race protection relies on it.
 
-Do not fix owner bugs with downstream display patches.
+## Fast L2 and lifecycle
 
-## Account/dex/asset scoping
+The current service prefers Fast L2 with target-specific recovery/fallback to `l2Book`; older branches may only have `l2Book`. Verify the configured strategy before applying these details.
 
-- Scope Perps data by account, dex, and asset type where relevant.
-- On account switch, clear or merge only the data that is valid for the next account.
-- Do not show previous account positions, open orders, TWAP, or balances during transition.
-- Token selector, orderbook, ticker, and chart may transition at different speeds; the slowest surface should not inherit old data.
+`FastL2Book` accepts snapshot, delta and compressed frames, reconstructs a normalized book, and validates coin, frame shape, ordering and book invariants. An update without its initial snapshot does not establish readiness. Preserve parsing/decompression limits and stale-target handling when changing the parser.
 
-Key anchors:
-- `contexts/hyperliquid/utils/accountSwitchCleanup.ts`.
-- `views/Perp/utils/accountScopedData.ts`.
-- `contexts/hyperliquid/actions.ts` cleanup and merge paths.
+The service manages snapshot timeout, recovery attempts/generation and fallback. Work started for an old target or lifecycle must not overwrite the new target or revive a disposed subscription. Read current constants rather than copying retry timings into consumers.
 
-## Subscription target rule
+Two queues serve different purposes: `PerKeyMutationQueue` serializes keyed create/destroy work; `LatestSubscriptionReconcileQueue` coalesces pending desired-state reconciliation. A socket open event alone does not prove current market subscriptions were reconciled, especially when main/bg state synchronization lags. Check listeners, pending timers, queued tasks and cleanup together when changing lifecycle behavior.
 
-- Background active subscription target is the source of truth for websocket data.
-- On symbol switch, push the new BG target before slow UI cleanup when stale subscription races are possible.
-- Create/destroy subscription mutations must be serialized by key; stale create must not overwrite active maps.
-- Treat UI/BG target mismatch as a correctness bug, not just a latency bug.
+## Display validity versus interaction validity
 
-Key anchors:
-- `ServiceHyperliquidSubscription.ts`.
-- `utils/SubscriptionMutationQueue.ts`.
-- `utils/SubscriptionConfig.ts` and tests.
-- `views/Perp/utils/subscriptionPlanner.ts`.
+- `isL2BookForTarget` checks coin and aggregation options (`nSigFigs`/`mantissa`). Account-scoped positions and public orderbook data do not automatically share the same cache key dimensions.
+- A matching cold/SWR snapshot can paint the book. `isPerpsL2BookInteractive` rejects cached snapshots and checks live freshness; BBO has its own timestamp/eligibility path. Visible rows or a recovered ticker do not prove clicks are safe.
+- Freshness can expire without another tick. Preserve the refresh-delay/timer path as well as checks performed on a new frame.
+- `PerpOrderBook` filters the candidate book at render time. Its current bridge reports interaction state on boolean transitions; blindly resetting local `renderL2Book`/`isOrderBookInteractive` during a switch can lose synchronization. Follow the producer/consumer protocol when changing it instead of applying a universal clear-on-switch rule.
+- Wrong-target data must not be shown as the new instrument. Valid same-target caches can be retained with their display/interaction distinction; clearing or retaining state is an implementation choice governed by those contracts.
 
-## L2/BBO/orderbook
+## Tick cost and persistence
 
-- Clear old L2/BBO on asset/dex/account switch if the new target has not produced fresh data.
-- Ticker recovery does not prove L2/BBO/orderbook recovery.
-- BBO freshness and L2 freshness are separate checks.
-- Cached L2 can improve cold start, but it must not display as fresh for the wrong target.
-- Aggregation, tick options, and row rendering are hot-path code; prefer memoized derived data and narrow atom reads.
+Mobile-layout visual snapshots are scheduled separately from incoming data by `packages/kit/src/views/Perp/utils/orderBookVisualScheduler.ts`; inspect the actual layout predicate rather than assuming all native/web targets use the same cadence. Aggregation/render helpers live in `packages/kit/src/views/Perp/components/OrderBook/` (`useAggregatedBook.tsx`, `useRafCoalesced.ts`, `useTickOptions.ts`).
 
-Key anchors:
-- `contexts/hyperliquid/actions.ts` L2/BBO handlers.
-- `contexts/hyperliquid/utils/l2BookUtils.ts`.
-- `views/Perp/utils/l2BookFreshness.ts`.
-- `components/OrderBook/useAggregatedBook.tsx`.
-- `ServiceHyperliquidCache.ts` L2 snapshot cache.
+Trace hot atom writes and consumers before adding memoization: `usePerpsMidByCoin` narrows allMids reads; live/display/disabled price sources serve different consumers. Look for broad page subscriptions, repeated row formatting/BN work, token-selector sorting on every tick, or hot-path logging. Use `$1k-performance` when the task needs deeper performance analysis; apply the runtime distinctions in [ownership map](code-map.md) before estimating bridge/heap costs.
 
-## Performance rule
+Preferences belong in existing perps atom/simpleDb settings. Recovery caches intentionally persist some market snapshots; preserve target, age and cached-status metadata. New transient persistence needs a recovery purpose rather than automatically making every websocket payload durable.
 
-Repeated Perps performance regressions usually come from broad atom writes and broad consumers, not from a missing `memo` in one row.
+## Select validation
 
-Check before optimizing:
+Existing tests in `packages/kit-bg/src/services/ServiceHyperLiquid/` include `ServiceHyperliquidSubscription.test.ts`, `ServiceHyperliquidCache.test.ts` and `utils/FastL2Book.test.ts`, `utils/SubscriptionMutationQueue.test.ts`, `utils/SubscriptionReconcileQueue.test.ts`, `utils/SubscriptionConfig.test.ts`, `utils/l2Book.test.ts`.
 
-1. Which atom is written on every tick?
-2. How many components subscribe to that atom?
-3. Is derived formatting computed per row/per render?
-4. Does the component need all fields or one selected slice?
-5. Are native and web doing the same amount of JS work?
+UI tests include `packages/kit/src/views/Perp/utils/l2BookFreshness.test.ts`, `packages/kit/src/views/Perp/utils/subscriptionPlanner.test.ts`, `packages/kit/src/views/Perp/utils/orderBookVisualScheduler.test.ts`, `packages/kit/src/views/Perp/utils/perpsMarketDataFreshness.test.ts`, `packages/kit/src/views/Perp/components/OrderBook/tickSizeUtils.test.ts`, `packages/kit/src/views/Perp/components/OrderBook/useRafCoalesced.test.ts` and `packages/kit/src/states/jotai/contexts/hyperliquid/utils/l2BookUtils.test.ts`.
 
-Use `/1k-performance` when the change touches render hot paths, websocket tick volume, list virtualization, or expensive derived data.
-
-## Persistence boundaries
-
-Persist preferences such as display settings, favorite/tick options, or panel visibility only through existing atom/simpleDb paths.
-Do not persist transient websocket data, active orderbook snapshots, or pending UI-only state unless there is an explicit recovery requirement.
+Choose cases for the changed layer: snapshot-before-delta, stale/invalid frames and recovery; rapid coin/aggregation switches; perp/spot switches when supported; account change during updates; disconnect/foreground/restart; cached display with disabled clicks followed by fresh interactivity and later expiry. Keep chart readiness verification separate from socket/book recovery.

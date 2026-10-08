@@ -624,7 +624,7 @@ export const SizeInput = memo(
                 {inputMode === 'token' ? symbol || tokenFallbackLabel : 'USD'}
               </SizableText>
               <Icon
-                name="ChevronDownSmallOutline"
+                name="ChevronTriangleDownSmallSolid"
                 size="$4"
                 color="$iconSubdued"
               />
@@ -635,6 +635,7 @@ export const SizeInput = memo(
               onChange={handleModeChange}
               tokenSymbol={symbol || ''}
               allowMarginInput={allowMarginInput}
+              ifOnDialog={ifOnDialog}
             />
           )}
         </XStack>
@@ -642,6 +643,7 @@ export const SizeInput = memo(
       [
         allowMarginInput,
         handleModeChange,
+        ifOnDialog,
         inputMode,
         isDisabled,
         isMobile,

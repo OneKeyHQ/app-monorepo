@@ -39,6 +39,15 @@ export function isThirdPartyInstallAppUserCancelCode(code: unknown): boolean {
   );
 }
 
+export function isThirdPartyPassphraseAlwaysOnDeviceErrorCode(
+  code: unknown,
+): boolean {
+  return (
+    (typeof code === 'string' ? Number(code) : code) ===
+    ThirdPartyHwErrorCode.PassphraseAlwaysOnDevice
+  );
+}
+
 /**
  * Convert a third-party hardware SDK failure payload into a structured
  * OneKeyHardwareError with i18n key and autoToast/dialog behavior.
@@ -126,6 +135,9 @@ export function convertThirdPartyDeviceError(
 
     case ThirdPartyHwErrorCode.PassphraseStateMismatch:
       return new ThirdPartyErrors.ThirdPartyPassphraseStateMismatch(props);
+
+    case ThirdPartyHwErrorCode.PassphraseAlwaysOnDevice:
+      return new ThirdPartyErrors.ThirdPartyPassphraseAlwaysOnDevice(props);
 
     case ThirdPartyHwErrorCode.PassphraseRejected:
       // User rejected the passphrase prompt on the device — surface a proper
@@ -263,6 +275,7 @@ export function filterThirdPartyHwCreateFailureToasts<
   T extends { error: Pick<IOneKeyError, 'autoToast' | 'code'> },
 >(failedAccounts: T[]): T[] {
   let deviceOutOfMemoryShown = false;
+  let passphraseAlwaysOnDeviceShown = false;
   return failedAccounts.filter((failedAccount) => {
     if (isThirdPartyInstallAppUserCancelCode(failedAccount.error.code)) {
       return false;
@@ -275,6 +288,14 @@ export function filterThirdPartyHwCreateFailureToasts<
         return false;
       }
       deviceOutOfMemoryShown = true;
+    }
+    if (
+      isThirdPartyPassphraseAlwaysOnDeviceErrorCode(failedAccount.error.code)
+    ) {
+      if (passphraseAlwaysOnDeviceShown) {
+        return false;
+      }
+      passphraseAlwaysOnDeviceShown = true;
     }
     return true;
   });
