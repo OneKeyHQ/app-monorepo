@@ -1015,6 +1015,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         set,
         token.networkId,
       );
+      set(swapSelectedTokensColdStartContextAtom(), (context) =>
+        context?.defaultTokenSeed
+          ? { ...context, defaultTokenSeed: undefined }
+          : context,
+      );
       const needChangeToToken = this.needChangeToken({
         token,
         swapTypeSwitchValue,
@@ -1063,6 +1068,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const syncNetworksSortPromise = this.syncNetworksSort.call(
         set,
         token.networkId,
+      );
+      set(swapSelectedTokensColdStartContextAtom(), (context) =>
+        context?.defaultTokenSeed
+          ? { ...context, defaultTokenSeed: undefined }
+          : context,
       );
       set(swapSelectToTokenAtom(), token);
       await syncNetworksSortPromise;
@@ -1173,6 +1183,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     if (!fromToken && !toToken) {
       return;
     }
+    set(swapSelectedTokensColdStartContextAtom(), (context) =>
+      context?.defaultTokenSeed
+        ? { ...context, defaultTokenSeed: undefined }
+        : context,
+    );
     set(swapSelectFromTokenAtom(), toToken);
     set(swapSelectToTokenAtom(), fromToken);
     this.cleanManualSelectQuoteProviders.call(set);
@@ -3309,6 +3324,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const oldType = get(swapTypeSwitchAtom());
       const normalizedType = getVisibleSwapTabSwitchType(type) ?? type;
       const oldVisibleType = getVisibleSwapTabSwitchType(oldType) ?? oldType;
+      if (normalizedType !== oldVisibleType) {
+        set(swapSelectedTokensColdStartContextAtom(), (context) =>
+          context?.defaultTokenSeed
+            ? { ...context, defaultTokenSeed: undefined }
+            : context,
+        );
+      }
       const stableTokenKeys = options?.stableTokenKeys ?? EMPTY_SWAP_TOKEN_KEYS;
       const swapProUserSelectedToken = get(swapProUserSelectedTokenAtom());
       const swapProTargetToken =
@@ -3486,6 +3508,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           stockExitDefaultTokens = buildSwapDefaultSelectedTokensForNetwork({
             networkId: defaultNetworkId,
             swapType: normalizedType,
+            swapNetworks: get(swapNetworks()),
           });
           currentFromToken = stockExitDefaultTokens?.fromToken;
           currentToToken = stockExitDefaultTokens?.toToken;
