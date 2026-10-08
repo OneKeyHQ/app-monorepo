@@ -23,16 +23,9 @@ function SwapQuoteRiskAlert(
       icon={isHoneypot ? 'ErrorOutline' : 'InfoCircleOutline'}
       title={intl.formatMessage({
         id: isHoneypot
-          ? ETranslations.token_selector_risk_reminder_malicious_token_alert
-          : ETranslations.swap_page_price_impact_title,
+          ? ETranslations.trade_warning_honeypot_detected
+          : ETranslations.trade_warning_low_token_liquidity,
       })}
-      description={
-        isHoneypot
-          ? undefined
-          : intl.formatMessage({
-              id: ETranslations.swap_page_price_impact_content_2,
-            })
-      }
     />
   );
 }
