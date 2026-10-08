@@ -15,7 +15,10 @@ import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IListItemTextProps } from '@onekeyhq/kit/src/components/ListItem';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  useAccountSelectorSceneInfo,
+  useActiveAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import {
   HOME_TOKEN_LIST_PREWARM_TAP_TIMEOUT_MS,
@@ -42,6 +45,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { AccountEditButton } from '../../../components/AccountEdit';
@@ -108,6 +112,8 @@ export function AccountSelectorAccountListItem({
 }) {
   const intl = useIntl();
   const actions = useAccountSelectorActions();
+  const { sceneName } = useAccountSelectorSceneInfo();
+  const canPrewarmHomeTokenList = sceneName === EAccountSelectorSceneName.home;
   const {
     activeAccount: { network },
   } = useActiveAccount({
@@ -452,19 +458,21 @@ export function AccountSelectorAccountListItem({
                   autoChangeToAccountMatchedNetworkId =
                     selectedAccount?.networkId;
                 }
-                // Warm the incoming owner's frames before publishing the
-                // selection, with the upstream bound on waiting.
-                await prewarmHomeTokenListOwnerWithin(
-                  {
-                    networkId:
-                      autoChangeToAccountMatchedNetworkId ??
-                      selectedAccount?.networkId,
-                    deriveType: selectedAccount?.deriveType,
-                    othersWalletAccountId: account?.id,
-                    currencyId: currencyInfo.id,
-                  },
-                  HOME_TOKEN_LIST_PREWARM_TAP_TIMEOUT_MS,
-                );
+                // Only home consumes these frames; other scenes must not
+                // wait on home-only cache work before publishing selection.
+                if (canPrewarmHomeTokenList) {
+                  await prewarmHomeTokenListOwnerWithin(
+                    {
+                      networkId:
+                        autoChangeToAccountMatchedNetworkId ??
+                        selectedAccount?.networkId,
+                      deriveType: selectedAccount?.deriveType,
+                      othersWalletAccountId: account?.id,
+                      currencyId: currencyInfo.id,
+                    },
+                    HOME_TOKEN_LIST_PREWARM_TAP_TIMEOUT_MS,
+                  );
+                }
                 const confirmed = await actions.current.confirmAccountSelect({
                   num,
                   indexedAccount: undefined,
@@ -477,15 +485,17 @@ export function AccountSelectorAccountListItem({
                   return;
                 }
               } else if (focusedWalletInfo) {
-                await prewarmHomeTokenListOwnerWithin(
-                  {
-                    networkId: selectedAccount?.networkId,
-                    deriveType: selectedAccount?.deriveType,
-                    indexedAccountId: indexedAccount?.id,
-                    currencyId: currencyInfo.id,
-                  },
-                  HOME_TOKEN_LIST_PREWARM_TAP_TIMEOUT_MS,
-                );
+                if (canPrewarmHomeTokenList) {
+                  await prewarmHomeTokenListOwnerWithin(
+                    {
+                      networkId: selectedAccount?.networkId,
+                      deriveType: selectedAccount?.deriveType,
+                      indexedAccountId: indexedAccount?.id,
+                      currencyId: currencyInfo.id,
+                    },
+                    HOME_TOKEN_LIST_PREWARM_TAP_TIMEOUT_MS,
+                  );
+                }
                 const confirmed = await actions.current.confirmAccountSelect({
                   num,
                   indexedAccount,

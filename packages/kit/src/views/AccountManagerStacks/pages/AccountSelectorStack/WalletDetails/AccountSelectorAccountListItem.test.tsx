@@ -4,12 +4,15 @@ import type { ReactNode } from 'react';
 
 import { act, render } from '@testing-library/react';
 
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+
 import { AccountSelectorAccountListItem } from './AccountSelectorAccountListItem';
 
 let capturedOnPress: (() => Promise<void>) | undefined;
 // One entry per ListItem render; used to compare render-prop identity across
 // re-renders.
 let capturedRenderItemTexts: unknown[] = [];
+let mockSceneName = EAccountSelectorSceneName.home;
 
 const mockConfirmAccountSelect = jest.fn(async (_params: unknown) => true);
 const mockPrewarmHomeTokenListOwnerWithin = jest.fn(async () => undefined);
@@ -83,6 +86,7 @@ jest.mock('@onekeyhq/kit/src/components/ListItem', () => {
 });
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
+  useAccountSelectorSceneInfo: () => ({ sceneName: mockSceneName }),
   useActiveAccount: () => ({
     activeAccount: { network: { id: 'evm--1' } },
   }),
@@ -173,8 +177,8 @@ function buildProps(overrides: Partial<IProps> = {}): IProps {
   } as unknown as IProps;
 }
 
-async function pressItem() {
-  render(<AccountSelectorAccountListItem {...buildProps()} />);
+async function pressItem(overrides: Partial<IProps> = {}) {
+  render(<AccountSelectorAccountListItem {...buildProps(overrides)} />);
   expect(capturedOnPress).toBeDefined();
   await act(async () => {
     await capturedOnPress?.();
@@ -186,6 +190,7 @@ describe('AccountSelectorAccountListItem account select', () => {
     jest.clearAllMocks();
     capturedOnPress = undefined;
     capturedRenderItemTexts = [];
+    mockSceneName = EAccountSelectorSceneName.home;
     mockConfirmAccountSelect.mockImplementation(async () => true);
   });
 
@@ -231,6 +236,40 @@ describe('AccountSelectorAccountListItem account select', () => {
     expect(mockToastError).not.toHaveBeenCalled();
     expect(mockResetAccountManagerStacksModal).toHaveBeenCalledTimes(1);
   });
+
+  it.each([
+    EAccountSelectorSceneName.swap,
+    EAccountSelectorSceneName.addressInput,
+    EAccountSelectorSceneName.discover,
+  ])(
+    'skips home prewarm when selecting an indexed account in %s',
+    async (sceneName) => {
+      mockSceneName = sceneName;
+
+      await pressItem();
+
+      expect(mockPrewarmHomeTokenListOwnerWithin).not.toHaveBeenCalled();
+      expect(mockConfirmAccountSelect).toHaveBeenCalledTimes(1);
+      expect(mockResetAccountManagerStacksModal).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each([EAccountSelectorSceneName.home, EAccountSelectorSceneName.swap])(
+    'only prewarms home for an others-wallet selection in %s',
+    async (sceneName) => {
+      mockSceneName = sceneName;
+
+      await pressItem({ isOthersUniversal: true });
+
+      expect(mockPrewarmHomeTokenListOwnerWithin).toHaveBeenCalledTimes(
+        sceneName === EAccountSelectorSceneName.home ? 1 : 0,
+      );
+      expect(mockConfirmAccountSelect).toHaveBeenCalledWith(
+        expect.objectContaining({ entry: 'accountList:othersWallet' }),
+      );
+      expect(mockResetAccountManagerStacksModal).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it('keeps the selector modal open without a toast when the selection is cancelled', async () => {
     // confirmAccountSelect resolving false means the user backed out (e.g. a
