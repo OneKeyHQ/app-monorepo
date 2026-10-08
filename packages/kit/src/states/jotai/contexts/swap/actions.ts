@@ -3099,13 +3099,31 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 });
               } else {
                 // Subsequent fetches: collect results and update atom
-                const hasRejectedResult = results.some(
-                  (result) => result.status === 'rejected',
+                const failedNetworkIds = new Set(
+                  accountAddressList.flatMap((account, index) =>
+                    results[index]?.status === 'rejected'
+                      ? [account.networkId]
+                      : [],
+                  ),
                 );
-                if (!hasRejectedResult) {
-                  const allTokensResult = results.flatMap((result) =>
-                    result.status === 'fulfilled' ? (result.value ?? []) : [],
+                if (
+                  results.length === 0 ||
+                  results.some((result) => result.status === 'fulfilled')
+                ) {
+                  // A network can have multiple account tasks. If any fails,
+                  // retain its old slice once instead of mixing account snapshots.
+                  const refreshedTokens = results.flatMap((result, index) =>
+                    result.status === 'fulfilled' &&
+                    !failedNetworkIds.has(accountAddressList[index].networkId)
+                      ? (result.value ?? [])
+                      : [],
                   );
+                  const allTokensResult = [
+                    ...currentSwapAllNetworkTokenList.filter((token) =>
+                      failedNetworkIds.has(token.networkId),
+                    ),
+                    ...refreshedTokens,
+                  ];
                   set(swapAllNetworkTokenListMapAtom(), (value) => ({
                     ...value,
                     [tokenListCacheKey]: allTokensResult,

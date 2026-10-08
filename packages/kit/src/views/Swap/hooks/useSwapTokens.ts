@@ -164,7 +164,7 @@ export function useSwapTokenList(
     const requestGeneration = swapSupportAllAccountsCacheGeneration;
     void (async () => {
       try {
-        const { swapSupportAccounts } =
+        const { swapSupportAccounts, supportAccountsFetchFailed } =
           await backgroundApiProxy.serviceSwap.getSupportSwapAllAccounts({
             indexedAccountId,
             otherWalletTypeAccountId,
@@ -177,17 +177,23 @@ export function useSwapTokenList(
             currentGeneration: swapSupportAllAccountsCacheGeneration,
           })
         ) {
-          swapSupportAllAccountsCache.set(
-            swapSupportAllAccountsRequestKey,
-            swapSupportAccounts,
-          );
-          swapSupportAllAccountsCache.set(
-            swapSupportAllAccountsCacheKey,
-            swapSupportAccounts,
-          );
+          if (!supportAccountsFetchFailed) {
+            swapSupportAllAccountsCache.set(
+              swapSupportAllAccountsRequestKey,
+              swapSupportAccounts,
+            );
+            swapSupportAllAccountsCache.set(
+              swapSupportAllAccountsCacheKey,
+              swapSupportAccounts,
+            );
+          }
           setSwapSupportAllAccountsState({
             requestKey: swapSupportAllAccountsRequestKey,
-            accounts: swapSupportAccounts,
+            accounts: supportAccountsFetchFailed
+              ? (swapSupportAllAccountsCache.get(
+                  swapSupportAllAccountsReadCacheKey,
+                ) ?? EMPTY_SWAP_SUPPORT_ALL_ACCOUNTS)
+              : swapSupportAccounts,
           });
         }
       } catch {
@@ -305,6 +311,8 @@ export function useSwapTokenList(
   const latestTokenListFetchEffectKeyRef = useRef('');
   const [settledTokenListFetchEffectKey, setSettledTokenListFetchEffectKey] =
     useState('');
+  const isTokenListFetchSettled =
+    settledTokenListFetchEffectKey === tokenListFetchEffectKey;
 
   const swapAllNetworkTokenListCacheKey = useMemo(
     () =>
@@ -381,7 +389,11 @@ export function useSwapTokenList(
       swapAllNetRecommend?: ISwapToken[];
       swapSearchTokens?: ISwapToken[];
     }) => {
-      if (swapAllNetRecommend?.length && !swapAllNetworkTokenList) {
+      if (
+        swapAllNetRecommend?.length &&
+        !swapAllNetworkTokenList &&
+        !isTokenListFetchSettled
+      ) {
         return [];
       }
       const allNetworkTokenList = filterSupportedAllNetworkTokens(
@@ -451,6 +463,7 @@ export function useSwapTokenList(
     },
     [
       filterSupportedAllNetworkTokens,
+      isTokenListFetchSettled,
       sortAllNetworkTokens,
       swapAllNetworkTokenList,
       swapNetworks,
@@ -491,6 +504,7 @@ export function useSwapTokenList(
   useEffect(() => {
     if (!isFocused) {
       latestTokenListFetchEffectKeyRef.current = '';
+      setSettledTokenListFetchEffectKey('');
       return;
     }
     if (!isSwapSupportAllAccountsReady) {
@@ -500,6 +514,7 @@ export function useSwapTokenList(
       return;
     }
     latestTokenListFetchEffectKeyRef.current = tokenListFetchEffectKey;
+    setSettledTokenListFetchEffectKey('');
     const isLpTokenSwitchRequest = latestLpTokenRef.current !== lpToken;
     latestLpTokenRef.current = lpToken;
     if (isLpTokenSwitchRequest) {
@@ -692,8 +707,6 @@ export function useSwapTokenList(
     swapTokenFetching,
   ]);
 
-  const isTokenListFetchSettled =
-    settledTokenListFetchEffectKey === tokenListFetchEffectKey;
   const tokenListCacheKey = JSON.stringify(tokenFetchParams);
   const tokenListCacheEntry = tokenCatch?.[tokenListCacheKey];
   const unfilteredTokens = useMemo(() => {
@@ -755,10 +768,10 @@ export function useSwapTokenList(
 
   const isAllNetworkListReady =
     !isTokenFetchAllNetworks ||
-    (allNetworkTokenListReady && swapAllNetworkTokenList !== undefined);
+    (allNetworkTokenListReady &&
+      (swapAllNetworkTokenList !== undefined || isTokenListFetchSettled));
   const hasTokenListSnapshot =
-    Boolean(tokenListCacheEntry) ||
-    (!keywords && swapAllNetworkTokenList !== undefined);
+    Boolean(tokenListCacheEntry) || (!keywords && unfilteredTokens.length > 0);
   const hasCurrentScopeSnapshot =
     isSwapSupportAllAccountsReady &&
     hasTokenListSnapshot &&

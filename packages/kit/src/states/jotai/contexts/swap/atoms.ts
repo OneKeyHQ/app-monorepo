@@ -140,18 +140,17 @@ const sanitizeSwapStockPayTokenColdStartSnapshot = memoizeSnapshotTransform(
 const SWAP_TOKEN_SELECTOR_COLD_START_MAX_CACHE_ENTRIES = 3;
 const SWAP_TOKEN_SELECTOR_COLD_START_MAX_TOKENS = 200;
 
-function sanitizeSwapAllNetworkTokenListMapColdStartSnapshot(
-  value: Record<string, ISwapToken[]>,
-) {
-  return Object.fromEntries(
-    Object.entries(value)
-      .slice(-SWAP_TOKEN_SELECTOR_COLD_START_MAX_CACHE_ENTRIES)
-      .map(([cacheKey, tokens]) => [
-        cacheKey,
-        tokens.slice(0, SWAP_TOKEN_SELECTOR_COLD_START_MAX_TOKENS),
-      ]),
+const sanitizeSwapAllNetworkTokenListMapColdStartSnapshot =
+  memoizeSnapshotTransform((value: Record<string, ISwapToken[]>) =>
+    Object.fromEntries(
+      Object.entries(value)
+        .slice(-SWAP_TOKEN_SELECTOR_COLD_START_MAX_CACHE_ENTRIES)
+        .map(([cacheKey, tokens]) => [
+          cacheKey,
+          tokens.slice(0, SWAP_TOKEN_SELECTOR_COLD_START_MAX_TOKENS),
+        ]),
+    ),
   );
-}
 
 export type ISwapQuoteEventErrorState = {
   message: string;

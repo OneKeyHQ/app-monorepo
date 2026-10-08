@@ -916,15 +916,17 @@ export default class ServiceSwap extends ServiceBase {
       const successfulResponses = responses.flatMap((response) =>
         response.status === 'fulfilled' ? [response.value] : [],
       );
-      if (successfulResponses.length === 0) {
-        const failedResponse = responses.find(
-          (response) => response.status === 'rejected',
-        ) as PromiseRejectedResult;
-        throw failedResponse.reason;
-      }
+      const failedResponse = responses.find(
+        (response): response is PromiseRejectedResult =>
+          response.status === 'rejected',
+      );
       const tokens = mergeSwapTokenLists(
         successfulResponses.map(({ data }) => data?.data ?? []),
       );
+      // An incomplete empty search cannot invalidate the last-good result.
+      if (failedResponse && tokens.length === 0) {
+        throw failedResponse.reason;
+      }
       return normalizeSwapTokenListCurrency({
         tokens,
         currency: requestCurrency,
