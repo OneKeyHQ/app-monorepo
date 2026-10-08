@@ -23,7 +23,7 @@ export interface ISimpleDbApprovalConfig {
   riskApprovalsDotConfig?: Record<string, { lastSeenTime: number }>; // key: networkId_accountId
 }
 
-export function buildApprovalAlertKey(networkId: string, accountId: string) {
+function buildApprovalAlertKey(networkId: string, accountId: string) {
   return `${networkId}_${accountId}`;
 }
 

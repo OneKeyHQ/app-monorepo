@@ -17,8 +17,6 @@ import type {
 } from '@onekeyhq/shared/types/approval';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
-import { buildApprovalAlertKey } from '../dbs/simple/entity/SimpleDbEntityApproval';
-
 import ServiceBase from './ServiceBase';
 
 @backgroundClass()
@@ -387,8 +385,9 @@ class ServiceApproval extends ServiceBase {
     if (!isAllNetwork) {
       return true;
     }
-    const riskTargets = uniqBy(riskApprovals, (item) =>
-      buildApprovalAlertKey(item.networkId, item.accountId),
+    const riskTargets = uniqBy(
+      riskApprovals,
+      (item) => `${item.networkId}_${item.accountId}`,
     ).map((item) => ({ networkId: item.networkId, accountId: item.accountId }));
     return (await countStaleReviews(riskTargets)) > 0;
   }
