@@ -83,6 +83,12 @@ Var OneKeyModernIsInner
   ${IfNot} ${Errors}
     StrCpy $OneKeyModernExplicitScope "current"
   ${EndIf}
+  # An explicit scope is an upgrade only when that scope is already installed.
+  ${If} $OneKeyModernExplicitScope == "all"
+    StrCpy $OneKeyModernWasInstalled "$OneKeyModernHadPerMachine"
+  ${ElseIf} $OneKeyModernExplicitScope == "current"
+    StrCpy $OneKeyModernWasInstalled "$OneKeyModernHadPerUser"
+  ${EndIf}
   !insertmacro GetDParameter $OneKeyModernCommandLineDirectory
 
   # Keep fresh-install previews aligned with the hidden install-mode defaults.
