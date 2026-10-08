@@ -98,7 +98,8 @@ function StockPriceChangeLine({
 
 export function StockMobilePriceHeader() {
   const intl = useIntl();
-  const { priceMode, handlePriceModeChange } = useStockPriceSource();
+  const { priceMode, handlePriceModeChange, sharePriceAvailable } =
+    useStockPriceSource();
   const { tokenDetail } = useTokenDetail();
   const { stockDetail, selectedTokenVariant, stockId } = useStockDetail();
   const isSharePrice = priceMode === 'share';
@@ -162,20 +163,26 @@ export function StockMobilePriceHeader() {
             color={priceChangeColor}
           />
         </YStack>
-        <XStack alignItems="center" gap="$0.5" flexShrink={0}>
-          <PriceModeButton
-            testID="stock-mobile-price-mode-share"
-            label={intl.formatMessage({ id: ETranslations.market_share_price })}
-            selected={priceMode === 'share'}
-            onPress={() => handlePriceModeChange('share')}
-          />
-          <PriceModeButton
-            testID="stock-mobile-price-mode-token"
-            label={intl.formatMessage({ id: ETranslations.market_token_price })}
-            selected={priceMode === 'token'}
-            onPress={() => handlePriceModeChange('token')}
-          />
-        </XStack>
+        {sharePriceAvailable ? (
+          <XStack alignItems="center" gap="$0.5" flexShrink={0}>
+            <PriceModeButton
+              testID="stock-mobile-price-mode-share"
+              label={intl.formatMessage({
+                id: ETranslations.market_share_price,
+              })}
+              selected={priceMode === 'share'}
+              onPress={() => handlePriceModeChange('share')}
+            />
+            <PriceModeButton
+              testID="stock-mobile-price-mode-token"
+              label={intl.formatMessage({
+                id: ETranslations.market_token_price,
+              })}
+              selected={priceMode === 'token'}
+              onPress={() => handlePriceModeChange('token')}
+            />
+          </XStack>
+        ) : null}
       </XStack>
       <StockMarketStatusBadge
         stock={stockStatus}

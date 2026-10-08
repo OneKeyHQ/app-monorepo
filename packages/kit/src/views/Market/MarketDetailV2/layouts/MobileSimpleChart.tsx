@@ -109,11 +109,11 @@ export function MobileSimpleChart({
 }) {
   const intl = useIntl();
   const [range, setRange] = useState<IStockSimpleChartRange>('1D');
-  const { stockId } = useStockDetail();
+  const { stockId, isStockDetailError } = useStockDetail();
   const [{ source: priceSource }] = useMarketPriceSourceAtom();
-  // Share price is what draws the previous-close line. Crypto charts have no
-  // stock id, so they stay on the token quote.
-  const priceMode = stockId ? priceSource : 'token';
+  // Share price is what draws the previous-close line. Crypto charts, and
+  // stock tokens whose share quote cannot load, stay on the token quote.
+  const priceMode = stockId && !isStockDetailError ? priceSource : 'token';
 
   return (
     <YStack width="100%" gap="$2" testID="market-mobile-simple-chart">

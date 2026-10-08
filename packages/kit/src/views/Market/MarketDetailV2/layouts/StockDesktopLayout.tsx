@@ -279,9 +279,11 @@ function StockLivePrice({
 
 function StockPriceHeader({
   priceMode,
+  sharePriceAvailable,
   onPriceModeChange,
 }: {
   priceMode: IMarketPriceSource;
+  sharePriceAvailable: boolean;
   onPriceModeChange: (mode: IMarketPriceSource) => void;
 }) {
   const intl = useIntl();
@@ -412,64 +414,72 @@ function StockPriceHeader({
           answers that case too, since a button with no minimum and no shrink
           simply grows to its text, and the header above wraps the pair onto
           their own line when the row runs out of space. */}
-      <XStack height={38} py="$1" gap="$0.5" alignItems="center" flexShrink={0}>
-        <Tooltip
-          placement="top"
-          renderTrigger={
-            // eslint-disable-next-line props-checker/validator -- Tooltip injects the trigger handlers.
-            <Button
-              testID="stock-price-mode-share"
-              height={30}
-              m="$0"
-              px="$2.5"
-              borderWidth={0}
-              flexShrink={0}
-              textEllipsis
-              size="small"
-              variant={priceMode === 'share' ? 'secondary' : 'tertiary'}
-              borderRadius="$full"
-              onPress={() => onPriceModeChange('share')}
-            >
-              {intl.formatMessage({ id: ETranslations.market_share_price })}
-            </Button>
-          }
-          renderContent={
-            <SizableText size="$bodySm">
-              {intl.formatMessage({
-                id: ETranslations.market_toggle_share_price_tooltip,
-              })}
-            </SizableText>
-          }
-        />
-        <Tooltip
-          placement="top"
-          renderTrigger={
-            // eslint-disable-next-line props-checker/validator -- Tooltip injects the trigger handlers.
-            <Button
-              testID="stock-price-mode-token"
-              height={30}
-              m="$0"
-              px="$2.5"
-              borderWidth={0}
-              flexShrink={0}
-              textEllipsis
-              size="small"
-              variant={priceMode === 'token' ? 'secondary' : 'tertiary'}
-              borderRadius="$full"
-              onPress={() => onPriceModeChange('token')}
-            >
-              {intl.formatMessage({ id: ETranslations.market_token_price })}
-            </Button>
-          }
-          renderContent={
-            <SizableText size="$bodySm">
-              {intl.formatMessage({
-                id: ETranslations.market_toggle_token_price_tooltip,
-              })}
-            </SizableText>
-          }
-        />
-      </XStack>
+      {sharePriceAvailable ? (
+        <XStack
+          height={38}
+          py="$1"
+          gap="$0.5"
+          alignItems="center"
+          flexShrink={0}
+        >
+          <Tooltip
+            placement="top"
+            renderTrigger={
+              // eslint-disable-next-line props-checker/validator -- Tooltip injects the trigger handlers.
+              <Button
+                testID="stock-price-mode-share"
+                height={30}
+                m="$0"
+                px="$2.5"
+                borderWidth={0}
+                flexShrink={0}
+                textEllipsis
+                size="small"
+                variant={priceMode === 'share' ? 'secondary' : 'tertiary'}
+                borderRadius="$full"
+                onPress={() => onPriceModeChange('share')}
+              >
+                {intl.formatMessage({ id: ETranslations.market_share_price })}
+              </Button>
+            }
+            renderContent={
+              <SizableText size="$bodySm">
+                {intl.formatMessage({
+                  id: ETranslations.market_toggle_share_price_tooltip,
+                })}
+              </SizableText>
+            }
+          />
+          <Tooltip
+            placement="top"
+            renderTrigger={
+              // eslint-disable-next-line props-checker/validator -- Tooltip injects the trigger handlers.
+              <Button
+                testID="stock-price-mode-token"
+                height={30}
+                m="$0"
+                px="$2.5"
+                borderWidth={0}
+                flexShrink={0}
+                textEllipsis
+                size="small"
+                variant={priceMode === 'token' ? 'secondary' : 'tertiary'}
+                borderRadius="$full"
+                onPress={() => onPriceModeChange('token')}
+              >
+                {intl.formatMessage({ id: ETranslations.market_token_price })}
+              </Button>
+            }
+            renderContent={
+              <SizableText size="$bodySm">
+                {intl.formatMessage({
+                  id: ETranslations.market_toggle_token_price_tooltip,
+                })}
+              </SizableText>
+            }
+          />
+        </XStack>
+      ) : null}
     </XStack>
   );
 }
@@ -1273,7 +1283,8 @@ export function StockDesktopLayout({
     isRefreshing: isStockPortfolioRefreshing,
     hasAccount: hasStockPortfolioAccount,
   } = useStockPortfolioData();
-  const { priceMode, handlePriceModeChange } = useStockPriceSource();
+  const { priceMode, handlePriceModeChange, sharePriceAvailable } =
+    useStockPriceSource();
 
   return (
     <Stack
@@ -1300,6 +1311,7 @@ export function StockDesktopLayout({
           >
             <StockPriceHeader
               priceMode={priceMode}
+              sharePriceAvailable={sharePriceAvailable}
               onPriceModeChange={handlePriceModeChange}
             />
             <StockChart

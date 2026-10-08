@@ -7,8 +7,9 @@ import type { IMarketPriceSource } from '@onekeyhq/kit-bg/src/states/jotai/atoms
 import { useStockPriceSource } from './useStockPriceSource';
 
 let mockStock: {
-  stockId: string;
+  stockId?: string;
   stockDetail?: { marketStatus?: { isOpen: boolean } };
+  isStockDetailError?: boolean;
 };
 
 jest.mock('./StockDetailContext', () => ({
@@ -77,6 +78,38 @@ describe('useStockPriceSource', () => {
     mockStock.stockDetail = { marketStatus: { isOpen: false } };
     rerender();
     expect(result.current.priceMode).toBe('share');
+  });
+
+  it('shows the token price and does not force Share when stockId is missing', () => {
+    mockStock = {};
+    const { result, rerender } = renderHook(() => useStockPriceSource());
+
+    expect(result.current.priceMode).toBe('token');
+    expect(result.current.sharePriceAvailable).toBe(false);
+
+    rerender();
+    expect(result.current.priceMode).toBe('token');
+  });
+
+  it('falls back to the token price when the share quote failed', () => {
+    mockStock = {
+      stockId: 'AAPL',
+      isStockDetailError: true,
+      stockDetail: { marketStatus: { isOpen: true } },
+    };
+    const { result, rerender } = renderHook(() => useStockPriceSource());
+
+    expect(result.current.priceMode).toBe('token');
+    expect(result.current.sharePriceAvailable).toBe(false);
+
+    mockStock = {
+      stockId: 'AAPL',
+      stockDetail: { marketStatus: { isOpen: true } },
+    };
+    rerender();
+
+    expect(result.current.priceMode).toBe('share');
+    expect(result.current.sharePriceAvailable).toBe(true);
   });
 
   it('reinitializes on stock changes, including returning to a previous stock', () => {

@@ -847,7 +847,16 @@ export function MobileLayout({
         </HeaderScrollGestureWrapper>
         <Stack position="relative">
           {isSimpleChart ? (
-            <MobileSimpleChart marketAssetId={marketTokenId} />
+            <HeaderScrollGestureWrapper
+              disabled={isChartFullscreen}
+              panActiveOffsetY={[-4, 4]}
+              panFailOffsetX={chartAreaPanFailOffsetX}
+              scrollScale={1.2}
+              simultaneousWithNativeGesture
+              cancelChildTouches={false}
+            >
+              <MobileSimpleChart marketAssetId={marketTokenId} />
+            </HeaderScrollGestureWrapper>
           ) : null}
           {isSimpleChart ? null : (
             <HeaderScrollGestureWrapper
