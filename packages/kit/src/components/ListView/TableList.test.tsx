@@ -1,18 +1,20 @@
 /* eslint-disable import/first */
 
 jest.mock('@onekeyhq/components', () => {
-  const React = jest.requireActual('react') as typeof import('react');
-  const { Pressable, Text, View } = jest.requireActual(
-    'react-native',
-  ) as typeof import('react-native');
+  const React = jest.requireActual<typeof import('react')>('react');
+  const { Pressable, Text, View } =
+    jest.requireActual<typeof import('react-native')>('react-native');
 
   return {
     Icon: View,
     ListView: ({
       ListHeaderComponent,
+      ListFooterComponent,
     }: {
       ListHeaderComponent?: import('react').ReactNode;
-    }) => React.createElement(View, null, ListHeaderComponent),
+      ListFooterComponent?: import('react').ReactNode;
+    }) =>
+      React.createElement(View, null, ListHeaderComponent, ListFooterComponent),
     SizableText: Text,
     Skeleton: View,
     Stack: View,
@@ -41,12 +43,13 @@ jest.mock('@onekeyhq/components', () => {
 });
 
 jest.mock('@onekeyhq/kit/src/components/ListItem', () => {
-  const { View } = jest.requireActual(
-    'react-native',
-  ) as typeof import('react-native');
+  const { View } =
+    jest.requireActual<typeof import('react-native')>('react-native');
 
   return { ListItem: View };
 });
+
+import { useEffect } from 'react';
 
 import { act, render } from '@testing-library/react-native';
 
@@ -139,5 +142,33 @@ describe('TableList headers', () => {
       pressUpdatedSortButton();
     });
     expect(onSortChange).toHaveBeenLastCalledWith('sortableDefault', 'desc');
+  });
+
+  it('updates when the footer component changes', () => {
+    const data = [{ value: 1 }];
+    const footerUnmounted = jest.fn();
+    const Footer = () => {
+      useEffect(() => footerUnmounted, []);
+      return null;
+    };
+    const view = render(
+      <TableList
+        columns={columns}
+        data={data}
+        tableLayout
+        ListFooterComponent={<Footer />}
+      />,
+    );
+
+    view.rerender(
+      <TableList
+        columns={columns}
+        data={data}
+        tableLayout
+        ListFooterComponent={null}
+      />,
+    );
+
+    expect(footerUnmounted).toHaveBeenCalledTimes(1);
   });
 });

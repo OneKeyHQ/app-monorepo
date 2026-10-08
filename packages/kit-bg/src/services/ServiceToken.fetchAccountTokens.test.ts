@@ -102,6 +102,17 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 
 const getVaultMock = vaultFactory.getVault as unknown as jest.Mock;
 
+function createDeferred<T>() {
+  let resolve: ((value: T) => void) | undefined;
+  const promise = new Promise<T>((promiseResolve) => {
+    resolve = promiseResolve;
+  });
+  return {
+    promise,
+    resolve: (value: T) => resolve?.(value),
+  };
+}
+
 function buildBackgroundApiStub() {
   return {
     serviceAccount: {
@@ -220,6 +231,46 @@ function buildTokenData(): ITokenData {
 describe('ServiceToken.fetchAccountTokens', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it('registers abort before preflight and scopes cancellation to Home requests', async () => {
+    const homeAddress = createDeferred<string>();
+    const selectorAddress = createDeferred<string>();
+    const backgroundApi = buildBackgroundApiStub();
+    backgroundApi.serviceAccount.getAccountAddressForApi.mockImplementation(
+      ({ accountId }: { accountId: string }) =>
+        accountId === 'home-account'
+          ? homeAddress.promise
+          : selectorAddress.promise,
+    );
+    const service = new ServiceToken({ backgroundApi });
+    const vaultReached = new Error('selector vault reached');
+    getVaultMock.mockRejectedValue(vaultReached);
+
+    const homeRequest = service.fetchAccountTokens({
+      accountId: 'home-account',
+      networkId,
+      flag: 'home-token-list',
+    });
+    const selectorRequest = service.fetchAccountTokens({
+      accountId: 'selector-account',
+      networkId,
+      flag: 'token-selector',
+    });
+    await Promise.resolve();
+
+    expect(service._fetchAccountTokensControllers).toHaveLength(2);
+    await service.abortFetchAccountTokens({
+      includedFlags: ['home-token-list'],
+    });
+    homeAddress.resolve('0xhome');
+    selectorAddress.resolve('0xselector');
+
+    await expect(homeRequest).rejects.toMatchObject({
+      name: 'CanceledError',
+    });
+    await expect(selectorRequest).rejects.toBe(vaultReached);
+    expect(service._fetchAccountTokensControllers).toHaveLength(0);
   });
 
   it('removes an explicit custom wallet token from every dApp-only token group', async () => {

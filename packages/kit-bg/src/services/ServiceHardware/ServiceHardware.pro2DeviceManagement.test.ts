@@ -578,6 +578,85 @@ describe('ServiceHardware wallet session compatibility', () => {
     },
   );
 
+  it.each([EDeviceType.Pro2, EDeviceType.Neo])(
+    'skips the pre-verify unlock for an uninitialized %s and still attests',
+    async (deviceType) => {
+      const connectId = 'PRO2_BLE';
+      jest.mocked(settingsPersistAtom.get).mockResolvedValue({
+        instanceId: '94537ae5-32e9-4417-860a-1d37c8decb3e',
+      } as never);
+      const oneKeyOperationLease: IOneKeyHardwareOperationLease = {
+        deviceKey: connectId,
+        owner: Symbol('test-hardware-operation'),
+        signal: new AbortController().signal,
+      };
+      const withHardwareProcessing = jest
+        .fn()
+        .mockImplementation(
+          async (
+            callback: (
+              lease: IOneKeyHardwareOperationLease,
+            ) => Promise<unknown>,
+          ) => callback(oneKeyOperationLease),
+        );
+      const backgroundApi = {
+        serviceHardwareUI: {
+          withHardwareProcessing,
+          closeHardwareUiStateDialog: jest.fn(async () => undefined),
+        },
+        serviceHardware: undefined as never as ServiceHardware,
+      };
+      const service = new ServiceHardware({
+        backgroundApi: backgroundApi as never as IBackgroundApi,
+      });
+      backgroundApi.serviceHardware = service;
+      const deviceVerifySpy = jest.fn().mockResolvedValue({
+        success: true,
+        payload: { cert: 'cert', signature: 'signature' },
+      });
+      const waitSpy = jest
+        .spyOn(timerUtils, 'wait')
+        .mockResolvedValue(undefined);
+      jest.spyOn(service, 'getClient').mockResolvedValue({
+        post: jest.fn().mockResolvedValue({
+          data: { code: 0, message: 'RESULT', data: { sno: 'SERIAL' } },
+        }),
+      } as never);
+      jest.spyOn(service, 'getSDKInstance').mockResolvedValue({
+        deviceVerify: deviceVerifySpy,
+      } as never);
+      // A wiped or brand-new Protocol V2 device reports both flags false; the
+      // unlock path would throw "Device is not initialized" for it.
+      const getDeviceStateSpy = jest
+        .spyOn(service, 'getDeviceState')
+        .mockResolvedValue({
+          status: { initialized: false, unlocked: false },
+        } as never);
+      const getDeviceStateWithUnlockSpy = jest
+        .spyOn(service, 'getDeviceStateWithUnlock')
+        .mockRejectedValue(new Error('Device is not initialized'));
+      service.getCompatibleConnectId = jest.fn().mockResolvedValue(connectId);
+
+      const result = await service.firmwareAuthenticate({
+        device: {
+          connectId,
+          deviceType,
+          deviceId: 'DEVICE_ID',
+          uuid: 'DEVICE_SERIAL',
+          name: 'OneKey',
+          commType: 'webusb',
+        },
+      });
+
+      expect(result.verified).toBe(true);
+      expect(getDeviceStateSpy).toHaveBeenCalledTimes(1);
+      expect(getDeviceStateWithUnlockSpy).not.toHaveBeenCalled();
+      expect(waitSpy).not.toHaveBeenCalled();
+      expect(deviceVerifySpy).toHaveBeenCalledTimes(1);
+      waitSpy.mockRestore();
+    },
+  );
+
   it('does not require unavailable Pro2 attestation before wallet creation', async () => {
     const service = new ServiceHardware({
       backgroundApi: {} as IBackgroundApi,

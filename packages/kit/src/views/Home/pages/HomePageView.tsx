@@ -72,7 +72,10 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { runAfterTokensDone } from '../../../hooks/useRunAfterTokensDone';
 import { useShortcutsOnRouteFocused } from '../../../hooks/useShortcutsOnRouteFocused';
-import { useAccountOverviewActions } from '../../../states/jotai/contexts/accountOverview';
+import {
+  buildOverviewOwnerKey,
+  useAccountOverviewActions,
+} from '../../../states/jotai/contexts/accountOverview';
 import {
   useAccountSelectorStorageInitDoneAtom,
   useActiveAccount,
@@ -233,17 +236,21 @@ function FreezeInactiveHomeTab({
   tabName,
   pressedTabName,
   ownerKey,
+  keepActive,
   children,
 }: {
   tabName: string;
   pressedTabName: string;
   ownerKey?: string;
+  keepActive: boolean;
   children: React.ReactNode;
 }) {
   const focusedTab = useFocusedTab();
   const ownerThaw = useHomeTabOwnerThaw(ownerKey);
   const frozen = useHomeTabFreeze(
-    ownerThaw || isHomeTabActive({ tabName, focusedTab, pressedTabName }),
+    keepActive ||
+      ownerThaw ||
+      isHomeTabActive({ tabName, focusedTab, pressedTabName }),
   );
   return <DelayedFreeze freeze={frozen}>{children}</DelayedFreeze>;
 }
@@ -338,10 +345,11 @@ export function HomePageView({
     },
   );
 
+  const approvalOwnerKey = buildOverviewOwnerKey(account?.id, network?.id);
   const { updateApprovalsInfo } = useAccountOverviewActions().current;
   const tabsRef = useRef<ITabContainerRef | null>(null);
   const homeTabsScrollToTopRef = useRef<(() => void) | undefined>(undefined);
-  // Keep the measured native tab bar height outside the account-keyed container
+  // Keep the measured native tab bar height outside the tab container
   // so remounts do not briefly reserve the library's default 48pt height.
   const nativeTabBarHeightRef = useRef<number | undefined>(undefined);
   const nativeTabBarContainerStyle = useMemo(
@@ -471,7 +479,10 @@ export function HomePageView({
     let cancelled = false;
 
     // Keep the risk dot from becoming stale across account/network switches.
-    updateApprovalsInfo({ showRiskApprovalsDot: false });
+    updateApprovalsInfo({
+      ownerKey: approvalOwnerKey,
+      showRiskApprovalsDot: false,
+    });
 
     const run = async (_trigger: string) => {
       if (!isBulkRevokeApprovalEnabled) return;
@@ -489,7 +500,10 @@ export function HomePageView({
             accountAddress: account.address,
           });
         if (cancelled) return;
-        updateApprovalsInfo({ showRiskApprovalsDot: shouldShowDot });
+        updateApprovalsInfo({
+          ownerKey: approvalOwnerKey,
+          showRiskApprovalsDot: shouldShowDot,
+        });
       } catch (error) {
         if (error instanceof CanceledError) {
           return;
@@ -516,6 +530,7 @@ export function HomePageView({
   }, [
     account?.address,
     account?.id,
+    approvalOwnerKey,
     indexedAccount?.id,
     isBulkRevokeApprovalEnabled,
     network?.id,
@@ -686,6 +701,13 @@ export function HomePageView({
     [],
   );
 
+  const accountPaneKey = [
+    wallet?.id,
+    indexedAccount?.id,
+    account?.id,
+    network?.id,
+    activeAccount.deriveType,
+  ].join('|');
   const tabConfigs = useMemo(() => {
     return [
       {
@@ -717,7 +739,7 @@ export function HomePageView({
               id: ETranslations.global_earn,
             }),
             testID: HomeTestIDs.tabDefi,
-            component: <DeFiContainerWithProvider />,
+            component: <DeFiContainerWithProvider key={accountPaneKey} />,
           }
         : undefined,
       isNFTEnabled
@@ -729,7 +751,7 @@ export function HomePageView({
             testID: HomeTestIDs.tabNFT,
             component: (
               <HomeTabContentMaxWidth>
-                <NFTListContainerWithProvider />
+                <NFTListContainerWithProvider key={accountPaneKey} />
               </HomeTabContentMaxWidth>
             ),
           }
@@ -742,12 +764,12 @@ export function HomePageView({
         testID: HomeTestIDs.tabHistory,
         component: (
           <HomeTabContentMaxWidth>
-            <TxHistoryListContainerWithProvider />
+            <TxHistoryListContainerWithProvider key={accountPaneKey} />
           </HomeTabContentMaxWidth>
         ),
       },
     ].filter(Boolean);
-  }, [intl, isDeFiEnabled, isNFTEnabled, isPerpsEnabled]);
+  }, [accountPaneKey, intl, isDeFiEnabled, isNFTEnabled, isPerpsEnabled]);
 
   const pagerTabConfigs = useMemo(
     () =>
@@ -990,13 +1012,6 @@ export function HomePageView({
     [perpTabShowWeb, switchToPerpsWebTab, tabConfigs, pagerTabConfigs],
   );
 
-  // When the user switches network while NOT on the wallet (token list) tab,
-  // that tab is frozen (see FreezeInactiveHomeTab) so its own token-list
-  // refresh won't run until the user returns — leaving the always-visible
-  // header worth stuck on the previous network. Proactively refresh the wallet
-  // token list for the new network. The list resolves the request from the
-  // explicit account/network in the payload because its own closures are
-  // frozen on the previous network.
   // Start a switched account at the top of every pane. This is the same
   // identity the container used to be keyed on (wallet + indexedAccountId,
   // account.id for Others wallets), so a pure network switch keeps its scroll
@@ -1013,36 +1028,6 @@ export function HomePageView({
     prevHomeScrollOwnerKeyRef.current = homeScrollOwnerKey;
     homeTabsScrollToTopRef.current?.();
   }, [homeScrollOwnerKey]);
-
-  const prevNetworkIdRef = useRef(network?.id);
-  useEffect(() => {
-    const nextNetworkId = network?.id;
-    const prevNetworkId = prevNetworkIdRef.current;
-    prevNetworkIdRef.current = nextNetworkId;
-    if (!prevNetworkId || !nextNetworkId || prevNetworkId === nextNetworkId) {
-      return;
-    }
-    if (!activeTabId || activeTabId === EHomeWalletTab.Portfolio) {
-      return;
-    }
-    const accountId = account?.id;
-    if (!accountId) {
-      return;
-    }
-    appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
-      accounts: [
-        {
-          accountId,
-          networkId: nextNetworkId,
-          // Provide the fresh indexedAccountId so the frozen token list can
-          // resolve aggregate hidden/custom tokens correctly instead of
-          // falling back to its own (stale) closure.
-          indexedAccountId: indexedAccount?.id,
-        },
-      ],
-      refreshByProvidedAccounts: true,
-    });
-  }, [network?.id, activeTabId, account?.id, indexedAccount?.id]);
 
   const stickyHeaderCtx = useMemo(
     () => ({
@@ -1137,9 +1122,9 @@ export function HomePageView({
             <FreezeInactiveHomeTab
               tabName={tab.name}
               pressedTabName={activeTabName}
-              // Only the wallet pane feeds the header while another tab is
-              // focused; the other panes pick the new owner up on their next
-              // focus, as before.
+              // Portfolio owns the shared header's token requests, including
+              // All Networks; it must observe owner changes while off-tab.
+              keepActive={tab.id === EHomeWalletTab.Portfolio}
               ownerKey={
                 tab.id === EHomeWalletTab.Portfolio
                   ? homeScrollOwnerKey
@@ -1147,6 +1132,7 @@ export function HomePageView({
               }
             >
               {platformEnv.isNative ||
+              tab.id === EHomeWalletTab.Portfolio ||
               tab.id === EHomeWalletTab.Perps ||
               activeTabId === tab.id ||
               mountedHomeTabIds.has(tab.id) ? (
