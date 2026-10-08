@@ -14,23 +14,23 @@ class DesktopApiStorage {
     key: T,
     value: IDesktopStoreMap[T],
   ): Promise<void> {
-    store.instance.set(key, value);
+    store.getStoreForKey(key).set(key, value);
   }
 
   async storeGetItemAsync<T extends keyof IDesktopStoreMap>(
     key: T,
   ): Promise<IDesktopStoreMap[T]> {
-    return store.instance.get(key);
+    return store.getStoreForKey(key).get(key);
   }
 
   async storeDelItemAsync<T extends keyof IDesktopStoreMap>(
     key: T,
   ): Promise<void> {
-    store.instance.delete(key);
+    store.getStoreForKey(key).delete(key);
   }
 
   async storeClear(): Promise<void> {
-    store.instance.clear();
+    store.clear();
   }
 
   async secureSetItemAsync(key: string, value: string): Promise<void> {

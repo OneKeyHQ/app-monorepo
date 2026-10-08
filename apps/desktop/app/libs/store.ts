@@ -14,7 +14,102 @@ import type {
   IDesktopStoreUpdateSettings,
 } from '@onekeyhq/shared/types/desktop';
 
+// OneKey.json is frozen: do not add fields. Put new state in a dedicated store.
+// Keep existing preferences, encrypted data, and instance metadata here.
 const store = new Store<IDesktopStoreMap>({ name: 'OneKey' });
+const updateStateStore = new Store<IDesktopStoreMap>({
+  name: 'OneKey-update-state',
+  cwd: path.dirname(store.path),
+});
+const runtimeStateStore = new Store<IDesktopStoreMap>({
+  name: 'OneKey-runtime-state',
+  cwd: path.dirname(store.path),
+});
+
+const storeByKey = {
+  [EDesktopStoreKeys.WinBounds]: store,
+  [EDesktopStoreKeys.UpdateSettings]: store,
+  [EDesktopStoreKeys.DevTools]: store,
+  [EDesktopStoreKeys.Theme]: store,
+  [EDesktopStoreKeys.EncryptedData]: store,
+  [EDesktopStoreKeys.Language]: store,
+  [EDesktopStoreKeys.DisableKeyboardShortcuts]: store,
+  [EDesktopStoreKeys.AppInstanceMetaBackup]: store,
+  [EDesktopStoreKeys.NetworkThrottle]: store,
+  [EDesktopStoreKeys.ASCFile]: updateStateStore,
+  [EDesktopStoreKeys.UpdateBuildNumber]: updateStateStore,
+  [EDesktopStoreKeys.UpdateBundleData]: updateStateStore,
+  [EDesktopStoreKeys.FallbackUpdateBundleData]: updateStateStore,
+  [EDesktopStoreKeys.NativeVersion]: updateStateStore,
+  [EDesktopStoreKeys.NativeBuildNumber]: updateStateStore,
+  [EDesktopStoreKeys.GPUCrashCount]: runtimeStateStore,
+  [EDesktopStoreKeys.LastGPUCrashTime]: runtimeStateStore,
+  [EDesktopStoreKeys.ConsecutiveBootFailCount]: runtimeStateStore,
+  [EDesktopStoreKeys.BootFailAppVersion]: runtimeStateStore,
+} satisfies Record<EDesktopStoreKeys, Store<IDesktopStoreMap>>;
+
+export const getStoreForKey = (key: keyof IDesktopStoreMap) => storeByKey[key];
+
+let winBoundsLogSequence = 0;
+
+function winBoundsForLog(value: unknown) {
+  if (!value || typeof value !== 'object') {
+    return { type: value === null ? 'null' : typeof value };
+  }
+  const bounds = value as Record<string, unknown>;
+  const dimension = (key: string) =>
+    typeof bounds[key] === 'number' ? bounds[key] : typeof bounds[key];
+  return {
+    x: dimension('x'),
+    y: dimension('y'),
+    width: dimension('width'),
+    height: dimension('height'),
+  };
+}
+
+function logWinBounds(event: string, bounds: unknown) {
+  if (process.platform !== 'darwin') return;
+  try {
+    winBoundsLogSequence += 1;
+    logger.info('[WindowBounds]', event, {
+      pid: process.pid,
+      storeSequence: winBoundsLogSequence,
+      storePath: store.path,
+      userDataPath: app.getPath('userData'),
+      bounds: winBoundsForLog(bounds),
+    });
+  } catch {
+    // Diagnostics must not change storage behavior.
+  }
+}
+
+if (process.platform === 'darwin') {
+  try {
+    // Capture before any startup write; emit after logger configuration loads.
+    const initialBounds = winBoundsForLog(
+      store.get(EDesktopStoreKeys.WinBounds),
+    );
+    const initialUserDataPath = app.getPath('userData');
+    const initialStorePath = store.path;
+    const capturedAt = Date.now();
+    queueMicrotask(() => {
+      try {
+        logger.info('[WindowBounds]', 'store-created', {
+          pid: process.pid,
+          storeSequence: 0,
+          capturedAt,
+          storePath: initialStorePath,
+          userDataPath: initialUserDataPath,
+          bounds: initialBounds,
+        });
+      } catch {
+        // Diagnostics must not change startup behavior.
+      }
+    });
+  } catch {
+    // Keep the existing read/validation path responsible for storage errors.
+  }
+}
 
 export type ILocalStore = {
   getUpdateSettings(): IDesktopStoreUpdateSettings;
@@ -26,6 +121,8 @@ export const instance = store;
 
 export const clear = () => {
   store.clear();
+  updateStateStore.clear();
+  runtimeStateStore.clear();
 };
 
 export const getUpdateSettings = () =>
@@ -84,11 +181,19 @@ export const getLanguage = () =>
 export const setLanguage = (lang: string) =>
   store.set(EDesktopStoreKeys.Language, lang);
 
-export const getWinBounds = (): Electron.Rectangle =>
-  store.get(EDesktopStoreKeys.WinBounds, {} as any);
+export const getWinBounds = (): Electron.Rectangle => {
+  const bounds = store.get(
+    EDesktopStoreKeys.WinBounds,
+    {} as Electron.Rectangle,
+  );
+  logWinBounds('read', bounds);
+  return bounds;
+};
 
-export const setWinBounds = (bounds: Electron.Rectangle) =>
+export const setWinBounds = (bounds: Electron.Rectangle) => {
   store.set(EDesktopStoreKeys.WinBounds, bounds);
+  logWinBounds('write-complete', bounds);
+};
 
 export const clearUpdateSettings = () => {
   store.delete(EDesktopStoreKeys.UpdateSettings);
@@ -154,117 +259,118 @@ export const isSecureStorageAvailable = (): boolean => {
 };
 
 export const setASCFile = (ascFile: string) => {
-  store.set(EDesktopStoreKeys.ASCFile, ascFile);
+  updateStateStore.set(EDesktopStoreKeys.ASCFile, ascFile);
 };
 
-export const getASCFile = () => store.get(EDesktopStoreKeys.ASCFile, '');
+export const getASCFile = () =>
+  updateStateStore.get(EDesktopStoreKeys.ASCFile, '');
 
 export const clearASCFile = () => {
-  store.delete(EDesktopStoreKeys.ASCFile);
+  updateStateStore.delete(EDesktopStoreKeys.ASCFile);
 };
 
 export const setUpdateBuildNumber = (buildNumber: string) => {
-  store.set(EDesktopStoreKeys.UpdateBuildNumber, buildNumber);
+  updateStateStore.set(EDesktopStoreKeys.UpdateBuildNumber, buildNumber);
 };
 
 export const getUpdateBuildNumber = () =>
-  store.get(EDesktopStoreKeys.UpdateBuildNumber, '');
+  updateStateStore.get(EDesktopStoreKeys.UpdateBuildNumber, '');
 
 export const clearUpdateBuildNumber = () => {
-  store.delete(EDesktopStoreKeys.UpdateBuildNumber);
+  updateStateStore.delete(EDesktopStoreKeys.UpdateBuildNumber);
 };
 
 export const setUpdateBundleData = (
   updateBundleData: IDesktopStoreUpdateBundleData,
 ) => {
-  store.set(EDesktopStoreKeys.UpdateBundleData, updateBundleData);
+  updateStateStore.set(EDesktopStoreKeys.UpdateBundleData, updateBundleData);
 };
 
 export const getUpdateBundleData = () =>
-  store.get(
+  updateStateStore.get(
     EDesktopStoreKeys.UpdateBundleData,
     {} as IDesktopStoreUpdateBundleData,
   );
 
 export const clearUpdateBundleData = () => {
-  store.delete(EDesktopStoreKeys.UpdateBundleData);
+  updateStateStore.delete(EDesktopStoreKeys.UpdateBundleData);
 };
 
 export const setFallbackUpdateBundleData = (
   fallbackUpdateBundleData: IDesktopStoreFallbackUpdateBundleData,
 ) => {
-  store.set(
+  updateStateStore.set(
     EDesktopStoreKeys.FallbackUpdateBundleData,
     fallbackUpdateBundleData,
   );
 };
 
 export const getFallbackUpdateBundleData = () =>
-  store.get(
+  updateStateStore.get(
     EDesktopStoreKeys.FallbackUpdateBundleData,
     [] as IDesktopStoreFallbackUpdateBundleData,
   );
 
 export const clearFallbackUpdateBundleData = () => {
-  store.delete(EDesktopStoreKeys.FallbackUpdateBundleData);
+  updateStateStore.delete(EDesktopStoreKeys.FallbackUpdateBundleData);
 };
 
 export const setNativeVersion = (nativeVersion: string) => {
-  store.set(EDesktopStoreKeys.NativeVersion, nativeVersion);
+  updateStateStore.set(EDesktopStoreKeys.NativeVersion, nativeVersion);
 };
 
 export const getNativeVersion = () =>
-  store.get(EDesktopStoreKeys.NativeVersion, '');
+  updateStateStore.get(EDesktopStoreKeys.NativeVersion, '');
 
 export const setNativeBuildNumber = (buildNumber: string) => {
-  store.set(EDesktopStoreKeys.NativeBuildNumber, buildNumber);
+  updateStateStore.set(EDesktopStoreKeys.NativeBuildNumber, buildNumber);
 };
 
 export const getNativeBuildNumber = () =>
-  store.get(EDesktopStoreKeys.NativeBuildNumber, '');
+  updateStateStore.get(EDesktopStoreKeys.NativeBuildNumber, '');
 
 // ==================== GPU Crash Statistics ====================
 // Functions for tracking GPU crash events
 export const recordGPUCrash = () => {
-  const crashes = store.get(EDesktopStoreKeys.GPUCrashCount, 0);
+  const crashes = runtimeStateStore.get(EDesktopStoreKeys.GPUCrashCount, 0);
   const newCount = crashes + 1;
-  store.set(EDesktopStoreKeys.GPUCrashCount, newCount);
-  store.set(EDesktopStoreKeys.LastGPUCrashTime, Date.now());
+  runtimeStateStore.set(EDesktopStoreKeys.GPUCrashCount, newCount);
+  runtimeStateStore.set(EDesktopStoreKeys.LastGPUCrashTime, Date.now());
   logger.error(`GPU crash recorded. Total crashes: ${newCount}`);
 };
 
 export const getGPUCrashStats = () => ({
-  count: store.get(EDesktopStoreKeys.GPUCrashCount, 0),
-  lastCrashTime: store.get(EDesktopStoreKeys.LastGPUCrashTime, 0),
+  count: runtimeStateStore.get(EDesktopStoreKeys.GPUCrashCount, 0),
+  lastCrashTime: runtimeStateStore.get(EDesktopStoreKeys.LastGPUCrashTime, 0),
 });
 
 export const clearGPUCrashStats = () => {
-  store.delete(EDesktopStoreKeys.GPUCrashCount);
-  store.delete(EDesktopStoreKeys.LastGPUCrashTime);
+  runtimeStateStore.delete(EDesktopStoreKeys.GPUCrashCount);
+  runtimeStateStore.delete(EDesktopStoreKeys.LastGPUCrashTime);
   logger.info('GPU crash statistics cleared');
 };
 
 // ==================== Boot Recovery ====================
 export const getConsecutiveBootFailCount = () =>
-  store.get(EDesktopStoreKeys.ConsecutiveBootFailCount, 0);
+  runtimeStateStore.get(EDesktopStoreKeys.ConsecutiveBootFailCount, 0);
 
 export const incrementConsecutiveBootFailCount = () => {
   const newCount = getConsecutiveBootFailCount() + 1;
-  store.set(EDesktopStoreKeys.ConsecutiveBootFailCount, newCount);
+  runtimeStateStore.set(EDesktopStoreKeys.ConsecutiveBootFailCount, newCount);
   return newCount;
 };
 
 export const resetConsecutiveBootFailCount = () =>
-  store.set(EDesktopStoreKeys.ConsecutiveBootFailCount, 0);
+  runtimeStateStore.set(EDesktopStoreKeys.ConsecutiveBootFailCount, 0);
 
 export const setConsecutiveBootFailCount = (count: number) =>
-  store.set(EDesktopStoreKeys.ConsecutiveBootFailCount, count);
+  runtimeStateStore.set(EDesktopStoreKeys.ConsecutiveBootFailCount, count);
 
 export const getBootFailAppVersion = () =>
-  store.get(EDesktopStoreKeys.BootFailAppVersion, '');
+  runtimeStateStore.get(EDesktopStoreKeys.BootFailAppVersion, '');
 
 export const setBootFailAppVersion = (version: string) =>
-  store.set(EDesktopStoreKeys.BootFailAppVersion, version);
+  runtimeStateStore.set(EDesktopStoreKeys.BootFailAppVersion, version);
 
 // ==================== MMKV Persistent Store ====================
 const mmkvAppSettingStore = new Store({ name: 'mmkv-onekey-app-setting' });
