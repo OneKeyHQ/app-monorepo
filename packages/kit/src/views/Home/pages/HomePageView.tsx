@@ -963,7 +963,7 @@ export function HomePageView({
           tabs={pagerTabConfigs.map((tab) => ({
             ...tab,
             component:
-              tab.id !== EHomeWalletTab.Perps ||
+              tab.id === EHomeWalletTab.Portfolio ||
               activeTabId === tab.id ||
               mountedHomeTabIds.has(tab.id) ? (
                 tab.component
