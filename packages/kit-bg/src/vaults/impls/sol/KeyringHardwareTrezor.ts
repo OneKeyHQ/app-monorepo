@@ -18,14 +18,16 @@ import { ThirdPartyMethodNotSupported } from '@onekeyhq/shared/src/errors/errors
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import { EMessageTypesSolana } from '@onekeyhq/shared/types/message';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 import { thirdPartyPassphraseParamsFromDeviceParams } from '../../base/thirdPartyHardwareCommonParams';
 import {
-  buildTrezorBleFallbackOptions,
-  callTrezorWithBleFallback,
+  callTrezorWithDevice,
   getTrezorAdapterFromBackgroundApi,
 } from '../../base/trezorTransportUtils';
+
+import { buildHardwareSolSignOffchainMessageV1Params } from './KeyringHardware';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
@@ -81,10 +83,6 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
 
   override hwSdkNetwork: IHwSdkNetwork = 'sol';
 
-  private getBleFallbackOptions() {
-    return buildTrezorBleFallbackOptions(this.backgroundApi);
-  }
-
   // Best-effort: returns undefined on any failure so signing still proceeds.
   private async _resolveSolTokenDefinition(ataDetails?: IATADetails[]) {
     const tokenMint = ataDetails?.[0]?.mintAddress;
@@ -135,17 +133,14 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
         for (const index of usedIndexes) {
           const path = buildPath({ index });
 
-          const result = await callTrezorWithBleFallback(
-            dbDevice,
-            (connectId) =>
-              adapter.hw.solGetAddress(connectId, dbDevice.deviceId, {
-                path,
-                showOnDevice: params.isVerifyAddressAction ?? false,
-                ...thirdPartyPassphraseParamsFromDeviceParams(
-                  params.deviceParams,
-                ),
-              }),
-            this.getBleFallbackOptions(),
+          const result = await callTrezorWithDevice(dbDevice, (connectId) =>
+            adapter.hw.solGetAddress(connectId, dbDevice.deviceId, {
+              path,
+              showOnDevice: params.isVerifyAddressAction ?? false,
+              ...thirdPartyPassphraseParamsFromDeviceParams(
+                params.deviceParams,
+              ),
+            }),
           );
 
           if (!result.success) {
@@ -201,19 +196,16 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
 
     const encodedToken = await this._resolveSolTokenDefinition(ataDetails);
 
-    const result = await callTrezorWithBleFallback(
-      dbDevice,
-      (connectId) =>
-        adapter.hw.solSignTransaction(connectId, dbDevice.deviceId, {
-          ...buildTrezorSolSignTransactionParams({
-            path,
-            serializedTx,
-            ataDetails,
-            encodedToken,
-          }),
-          ...thirdPartyPassphraseParamsFromDeviceParams(deviceParams),
+    const result = await callTrezorWithDevice(dbDevice, (connectId) =>
+      adapter.hw.solSignTransaction(connectId, dbDevice.deviceId, {
+        ...buildTrezorSolSignTransactionParams({
+          path,
+          serializedTx,
+          ataDetails,
+          encodedToken,
         }),
-      this.getBleFallbackOptions(),
+        ...thirdPartyPassphraseParamsFromDeviceParams(deviceParams),
+      }),
     );
 
     if (!result.success) {
@@ -236,12 +228,46 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
   }
 
   override async signMessage(
-    _params: ISignMessageParams,
+    params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
-    // Trezor firmware does not implement Solana message signing — only
-    // SolanaSignTx exists. solSignMessage surfaces MethodNotSupported, so we
-    // block proactively here, mirroring the Ledger SOL keyring.
-    throw new ThirdPartyMethodNotSupported();
+    const deviceParams = checkIsDefined(params.deviceParams);
+    const { dbDevice } = deviceParams;
+    const adapter = await getTrezorAdapterFromBackgroundApi(this.backgroundApi);
+    const path = await this.vault.getAccountPath();
+
+    const signatures: string[] = [];
+    for (const payload of params.messages) {
+      if (payload.type !== EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE) {
+        throw new ThirdPartyMethodNotSupported();
+      }
+      const messagePayload = payload.payload;
+      const { messageHex, ...offchainParams } =
+        buildHardwareSolSignOffchainMessageV1Params({
+          message: payload.message,
+          messagePayload,
+        });
+      const result =
+        // eslint-disable-next-line no-await-in-loop
+        await callTrezorWithDevice(dbDevice, (connectId) =>
+          adapter.hw.solSignMessage(connectId, dbDevice.deviceId, {
+            path,
+            message: messageHex,
+            ...offchainParams,
+            ...thirdPartyPassphraseParamsFromDeviceParams(deviceParams),
+          }),
+        );
+      if (!result.success) {
+        throw convertThirdPartyDeviceError(result.payload, {
+          vendor: 'Trezor',
+          chain: 'Solana',
+        });
+      }
+      signatures.push(result.payload.signature);
+    }
+
+    return signatures.map((signature) =>
+      bs58.encode(Buffer.from(signature, 'hex')),
+    );
   }
 
   override async buildHwAllNetworkPrepareAccountsParams(

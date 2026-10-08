@@ -3,7 +3,7 @@ import { logHwk } from '../hwkLogger';
 import { getTrezorThpIdentity } from '../trezorThpIdentity';
 
 import type { IConnector } from '@onekeyfe/hwk-adapter-core';
-import type { TrezorBleApi } from '@onekeyfe/hwk-trezor-connector-electron-ble';
+import type { ThirdPartyBleApi } from '@onekeyfe/hwk-desktop-noble-ble';
 
 /**
  * Transport mode for the desktop Trezor connector.
@@ -14,7 +14,7 @@ import type { TrezorBleApi } from '@onekeyfe/hwk-trezor-connector-electron-ble';
  *           Trezor Connect's DeviceList (one manager per transport, merged list).
  *   'usb' → WebUSB only (renderer process).
  *   'ble' → BLE only, via noble-on-main behind `window.desktopApi.thirdPartyBle`
- *           (wired by `initTrezorBleSupport()` in `apps/desktop/app/app.ts`).
+ *           (wired by `initThirdPartyBleSupport()` in `apps/desktop/app/app.ts`).
  *           Use to isolate one transport while debugging.
  */
 export type TrezorDesktopTransport = 'all' | 'usb' | 'ble';
@@ -30,10 +30,10 @@ const THP = {
   logger: logHwk,
 } as const;
 
-const getBleBridge = (): TrezorBleApi | undefined =>
+const getBleBridge = (): ThirdPartyBleApi | undefined =>
   (
     globalThis as {
-      window?: { desktopApi?: { thirdPartyBle?: TrezorBleApi } };
+      window?: { desktopApi?: { thirdPartyBle?: ThirdPartyBleApi } };
     }
   ).window?.desktopApi?.thirdPartyBle;
 
@@ -46,8 +46,10 @@ const makeUsbConnector = async (): Promise<IConnector> => {
   });
 };
 
-const makeBleConnector = async (bridge: TrezorBleApi): Promise<IConnector> => {
-  // The renderer-side BLE connector talks to a `TrezorBleApi`-shaped IPC
+const makeBleConnector = async (
+  bridge: ThirdPartyBleApi,
+): Promise<IConnector> => {
+  // The renderer-side BLE connector talks to a `ThirdPartyBleApi`-shaped IPC
   // bridge. We use the vendor-neutral `thirdPartyBle` exposed by preload.ts
   // so other vendors (Ledger BLE etc.) can share the same renderer surface.
   const { createTrezorElectronBleConnector } =
@@ -70,7 +72,7 @@ export const createTrezorConnector = async (
   if (transport === 'ble') {
     if (!bridge) {
       throw new OneKeyLocalError(
-        'createTrezorConnector(ble): window.desktopApi.thirdPartyBle is unavailable — preload not loaded or initTrezorBleSupport() not called in main',
+        'createTrezorConnector(ble): window.desktopApi.thirdPartyBle is unavailable — preload not loaded or initThirdPartyBleSupport() not called in main',
       );
     }
     return makeBleConnector(bridge);

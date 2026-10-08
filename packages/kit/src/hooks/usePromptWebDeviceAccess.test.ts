@@ -7,11 +7,18 @@ import {
   getWebUsbDeviceFilters,
   isWebUsbNoDeviceSelectedError,
 } from './usePromptWebDeviceAccessUtils';
+import { KEYSTONE_WEBUSB_FILTERS } from './webDeviceFilters';
 
 describe('getWebUsbDeviceFilters', () => {
   it('uses Trezor WebUSB filters for Trezor devices', () => {
     expect(getWebUsbDeviceFilters(EHardwareVendor.trezor)).toBe(
       TREZOR_WEBUSB_FILTERS,
+    );
+  });
+
+  it('uses Keystone WebUSB filters for Keystone devices', () => {
+    expect(getWebUsbDeviceFilters(EHardwareVendor.keystone)).toBe(
+      KEYSTONE_WEBUSB_FILTERS,
     );
   });
 

@@ -142,7 +142,8 @@ export function createProductionConfig({
               cryptoVendor: {
                 test: /[\\/]node_modules[\\/](@noble|@scure|ethers|bn\.js|elliptic|hash\.js|browserify)[\\/]/,
                 name: 'vendor-crypto',
-                chunks: 'all' as const,
+                // Keep crypto used only by lazy SDKs out of the web startup chunk.
+                chunks: isWeb ? ('initial' as const) : ('all' as const),
                 priority: 20,
                 reuseExistingChunk: true,
               },

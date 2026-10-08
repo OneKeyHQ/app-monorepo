@@ -5,7 +5,6 @@ import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import {
   buildDeviceDetailsVisibility,
   canOpenDeviceManagementDetails,
-  canShowTrezorBleBinding,
   getFirmwareTypeChangeAvailability,
   getTrezorAutoLockOptionsMs,
   shouldShowDeviceInteractiveSections,
@@ -123,69 +122,6 @@ describe('DeviceDetailsModal utils', () => {
       }),
     ).resolves.toBe(true);
     expect(refresh).toHaveBeenCalledTimes(1);
-  });
-
-  it('shows Trezor BLE binding on BLE capable models, including re-binding when already bound', () => {
-    expect(
-      canShowTrezorBleBinding(
-        {
-          vendor: EHardwareVendor.trezor,
-          connectId: 'USB_ID',
-          deviceId: 'FEATURES_DEVICE_ID',
-          settings: {
-            vendorModel: 'T3W1',
-            vendorModelName: 'Safe 7',
-          },
-        },
-        { isDesktop: true },
-      ),
-    ).toBe(true);
-
-    // Already bound: still shown so a stale BLE connectId can be re-picked.
-    expect(
-      canShowTrezorBleBinding(
-        {
-          vendor: EHardwareVendor.trezor,
-          connectId: 'USB_ID',
-          deviceId: 'FEATURES_DEVICE_ID',
-          bleConnectId: 'BLE_ID',
-          settings: {
-            vendorModel: 'T3W1',
-          },
-        },
-        { isDesktop: true },
-      ),
-    ).toBe(true);
-
-    expect(
-      canShowTrezorBleBinding(
-        {
-          vendor: EHardwareVendor.trezor,
-          connectId: 'USB_ID',
-          deviceId: 'FEATURES_DEVICE_ID',
-          settings: {
-            vendorModel: 'Safe 5',
-            vendorModelName: 'Safe 5',
-          },
-        },
-        { isDesktop: true },
-      ),
-    ).toBe(false);
-
-    expect(
-      canShowTrezorBleBinding(
-        {
-          vendor: EHardwareVendor.trezor,
-          connectId: 'USB_ID',
-          deviceId: 'FEATURES_DEVICE_ID',
-          settings: {
-            vendorModel: 'T3W1',
-            vendorModelName: 'Safe 7',
-          },
-        },
-        { isDesktop: false },
-      ),
-    ).toBe(false);
   });
 
   it('uses Trezor Suite compatible auto-lock values', () => {

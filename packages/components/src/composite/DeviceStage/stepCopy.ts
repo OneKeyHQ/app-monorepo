@@ -9,6 +9,7 @@ import type {
   IDeviceStageConnectionType,
   IDeviceStageErrorReason,
   IDeviceStageStep,
+  IDeviceStageVendor,
 } from './type';
 import type { HardwareDevice } from '../../content/HardwareDevice';
 import type { IKeyOfIcons } from '../../primitives';
@@ -289,9 +290,10 @@ export const STEP_TEXT: Record<
 
 /** The vendors' display names, for the cards that address the brand.
  * Brand names, not translations. */
-export const VENDOR_LABEL: Record<'ledger' | 'trezor', string> = {
+export const VENDOR_LABEL: Record<IDeviceStageVendor, string> = {
   ledger: 'Ledger',
   trezor: 'Trezor',
+  keystone: 'Keystone',
 };
 
 /** `connecting` worn by the vendor track: the board's own label — the
@@ -318,7 +320,7 @@ export function resolvePairingCodeText(intl: IntlShape): {
 /** `deviceNotFound`'s words, addressed to the brand. */
 export function resolveDeviceNotFoundText(
   intl: IntlShape,
-  vendor?: 'ledger' | 'trezor',
+  vendor?: IDeviceStageVendor,
 ): {
   title: string;
   sub: string;
@@ -599,7 +601,7 @@ export function resolveCapsuleText(
   intl: IntlShape,
   step: IDeviceStageStep,
   deviceName?: string,
-  vendor?: 'ledger' | 'trezor',
+  vendor?: IDeviceStageVendor,
   errorReason?: IDeviceStageErrorReason,
   errorMessage?: string,
   stalledOn?: IDeviceStageConnectionType,
