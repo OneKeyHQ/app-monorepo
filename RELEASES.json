@@ -34,5 +34,29 @@
       "#13774"
     ],
     "notes": "fix: align Perps liquidation estimate with Hyperliquid (OK-64168) (#13774). Built from release/v6.6.0-2c08fd3 (release #2 + #13774); bundle version 23633836"
+  },
+  {
+    "seq": 4,
+    "commit": "8549a4b877bc1f4f791a42c818a23dc80e1a6f32",
+    "date": "2026-10-08T12:20:23Z",
+    "prs": [
+      "#13674",
+      "#13693",
+      "#13722",
+      "#13734",
+      "#13746",
+      "#13748",
+      "#13749",
+      "#13751",
+      "#13753",
+      "#13766",
+      "#13781",
+      "#13783",
+      "#13789",
+      "#13791",
+      "#13798",
+      "#13810"
+    ],
+    "notes": "fix: isolate Perps chart caches and stabilize spot prices(OK-63598, OK-63600, OK-63601) (#13674), perf: reduce account switch request and render churn (#13693), fix: stop home Perps referral banner flashing on tab switch(OK-63940) (#13722), fix: animate Prime gift banner appearance (OK-64039) (#13734), feat: claim Prime gifts inline (#13746), fix: normalize network section names for 6.6.0 hot update (#13748), fix: firmware cancellation, SafeOS versions and device names (#13749), fix: harden Borrow cache and account states (#13751), fix: show position TP/SL size placeholders (OK-64054) (#13753), feat: fold zero-balance cbBTC in Aave supply lists (#13766), feat: suggest desktop USB for large Bluetooth firmware updates(OK-64195) (#13781), fix: keep dApp-built Solana transactions unmodified so dApps stop rejecting signed txs(OK-64196) (#13783), fix: guide Portfolio firmware upgrades to the affected device (#13789), fix: upgrade hardware SDK for Pro2 OTA verification (#13791), chore: update device image assets (OK-59937) (#13798), fix: skip the pre-verify unlock for uninitialized Pro 2 and Neo devices (#13810)"
   }
 ]
