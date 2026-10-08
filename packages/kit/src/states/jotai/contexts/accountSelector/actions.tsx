@@ -281,13 +281,17 @@ export const getNextSelectionUpdatedAt = ({
 };
 
 function shouldApplyEqualRevisionEvent({
+  currentHomeToSwapSyncMode,
   currentSelectedAccount,
   currentSourceRuntimeId,
+  incomingHomeToSwapSyncMode,
   incomingSelectedAccount,
   incomingSourceRuntimeId,
 }: {
+  currentHomeToSwapSyncMode?: IAccountSelectorUpdateMeta['homeToSwapSyncMode'];
   currentSelectedAccount: IAccountSelectorSelectedAccount;
   currentSourceRuntimeId: string | undefined;
+  incomingHomeToSwapSyncMode?: IAccountSelectorUpdateMeta['homeToSwapSyncMode'];
   incomingSelectedAccount: IAccountSelectorSelectedAccount;
   incomingSourceRuntimeId: string | undefined;
 }) {
@@ -295,6 +299,16 @@ function shouldApplyEqualRevisionEvent({
   const incomingRuntimeKey = incomingSourceRuntimeId ?? '';
   if (currentRuntimeKey !== incomingRuntimeKey) {
     return incomingRuntimeKey > currentRuntimeKey;
+  }
+  if (
+    currentRuntimeKey &&
+    currentHomeToSwapSyncMode &&
+    incomingHomeToSwapSyncMode &&
+    currentHomeToSwapSyncMode !== incomingHomeToSwapSyncMode
+  ) {
+    // Two derivations of one Home event are not concurrent user selections.
+    // The page owns network/token alignment; Effects only merges the account.
+    return incomingHomeToSwapSyncMode === 'account-and-network';
   }
   // Legacy cached metadata and old peers may not carry a runtime id. The
   // stable selection key is the final deterministic fallback, so both sides
@@ -2446,6 +2460,37 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           // commit because judgment and write share this critical section.
           const committedUpdateMeta = get(accountSelectorUpdateMetaAtom())[num];
           const committedUpdatedAt = committedUpdateMeta?.updatedAt;
+          const homeToSwapSyncMode =
+            sceneInfo?.sceneName === EAccountSelectorSceneName.swap &&
+            num === 0 &&
+            typeof eventUpdatedAt === 'number' &&
+            updateMeta?.eventEmitDisabled &&
+            updateMeta.sourceRuntimeId
+              ? updateMeta.homeToSwapSyncMode
+              : undefined;
+          const acknowledgeHomeToSwapSyncMode = () => {
+            // A same-value page delivery still takes ownership of this exact
+            // event. Never mint a revision, mutate selection, or downgrade it.
+            if (
+              homeToSwapSyncMode &&
+              committedUpdatedAt === eventUpdatedAt &&
+              committedUpdateMeta?.sourceRuntimeId ===
+                updateMeta?.sourceRuntimeId &&
+              committedUpdateMeta?.homeToSwapSyncMode !== homeToSwapSyncMode &&
+              (!committedUpdateMeta?.homeToSwapSyncMode ||
+                homeToSwapSyncMode === 'account-and-network') &&
+              (!shouldCommit || shouldCommit())
+            ) {
+              set(accountSelectorUpdateMetaAtom(), (v) => {
+                const previousMeta = v[num];
+                if (!previousMeta) return v;
+                return {
+                  ...v,
+                  [num]: { ...previousMeta, homeToSwapSyncMode },
+                };
+              });
+            }
+          };
           if (
             expectedUpdatedAt !== undefined &&
             committedUpdatedAt !== (expectedUpdatedAt ?? undefined)
@@ -2566,6 +2611,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 });
               }
             }
+            acknowledgeHomeToSwapSyncMode();
             return logSelectionUpdateResult({
               outcome: ESelectionUpdateOutcome.Noop,
               selectedAccount: oldSelectedAccount,
@@ -2611,6 +2657,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 correctedDeriveType = undefined;
               }
               if (correctedDeriveType === oldSelectedAccount.deriveType) {
+                acknowledgeHomeToSwapSyncMode();
                 return logSelectionUpdateResult({
                   outcome: ESelectionUpdateOutcome.Noop,
                   selectedAccount: oldSelectedAccount,
@@ -2619,8 +2666,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             }
             if (
               !shouldApplyEqualRevisionEvent({
+                currentHomeToSwapSyncMode: homeToSwapSyncMode
+                  ? committedUpdateMeta?.homeToSwapSyncMode
+                  : undefined,
                 currentSelectedAccount: oldSelectedAccount,
                 currentSourceRuntimeId: committedUpdateMeta?.sourceRuntimeId,
+                incomingHomeToSwapSyncMode: homeToSwapSyncMode,
                 incomingSelectedAccount: newSelectedAccount,
                 incomingSourceRuntimeId: updateMeta?.sourceRuntimeId,
               })
@@ -2782,6 +2833,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             }
           }
           if (finalSelectionIsSame) {
+            acknowledgeHomeToSwapSyncMode();
             return logSelectionUpdateResult({
               outcome: ESelectionUpdateOutcome.Noop,
               selectedAccount: oldSelectedAccount,
@@ -2813,6 +2865,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               ...v,
               [num]: {
                 eventEmitDisabled: Boolean(updateMeta?.eventEmitDisabled),
+                homeToSwapSyncMode,
                 sourceRuntimeId:
                   eventUpdatedAt === undefined
                     ? appEventBus.nodeId
@@ -4463,6 +4516,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               parentOperationId: operationId,
               updateMeta: {
                 eventEmitDisabled: true, // stop update infinite loop here
+                homeToSwapSyncMode:
+                  sceneName === EAccountSelectorSceneName.swap &&
+                  num === 0 &&
+                  eventPayload.sceneName === EAccountSelectorSceneName.home &&
+                  eventPayload.num === 0
+                    ? 'account'
+                    : undefined,
                 sourceRuntimeId: eventPayload.sourceRuntimeId,
                 // The source revision, not the receive time: cross-runtime
                 // comparability of later events depends on committing the

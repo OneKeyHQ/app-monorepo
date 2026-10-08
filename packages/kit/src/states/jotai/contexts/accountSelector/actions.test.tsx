@@ -8,6 +8,7 @@ import { act, render, renderHook, waitFor } from '@testing-library/react';
 import { createStore } from 'jotai';
 
 import { Toast } from '@onekeyhq/components';
+import { prepareSwapSelectedAccountSyncedFromHome } from '@onekeyhq/kit/src/views/Swap/utils/swapColdStartTokenCacheUtils';
 import type {
   IDBAccount,
   IDBCreateHwWalletParamsBase,
@@ -5262,7 +5263,294 @@ describe('useAccountSelectorActions', () => {
     expect(store.get(accountSelectorUpdateMetaAtom())[0]?.updatedAt).toBe(1000);
   });
 
+  it.each([
+    ['effects-first', 'evm--1', 'evm--9'],
+    ['effects-first', 'evm--9', 'evm--1'],
+    ['page-first', 'evm--1', 'evm--9'],
+    ['page-first', 'evm--9', 'evm--1'],
+  ] as const)(
+    'keeps the Swap page network for one Home event (%s, Home %s, Swap %s)',
+    async (order, homeNetworkId, swapNetworkId) => {
+      mockShouldSyncHomeAndSwapSelectedAccount.mockResolvedValue(true);
+      const { store, Wrapper } = createWrapper(EAccountSelectorSceneName.swap);
+      const initialSelection = {
+        ...createHdSelectedAccount('hd-1--0'),
+        networkId: swapNetworkId,
+      };
+      store.set(accountSelectorContextDataAtom(), {
+        sceneName: EAccountSelectorSceneName.swap,
+      });
+      const homeSelection = {
+        ...createHdSelectedAccount('hd-1--1'),
+        networkId: homeNetworkId,
+      };
+      store.set(selectedAccountsAtom(), { 0: initialSelection });
+      store.set(accountSelectorUpdateMetaAtom(), {
+        0: { eventEmitDisabled: false, updatedAt: 1000 },
+      });
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+      const preparedPageSelection =
+        await prepareSwapSelectedAccountSyncedFromHome({
+          fixOthersWalletAccountNetworkPair:
+            mockFixOthersWalletAccountNetworkPair,
+          homeSelectedAccount: homeSelection,
+          swapSelectedAccount: initialSelection,
+        });
+      const applyPage = () =>
+        result.current.updateSelectedAccount({
+          eventUpdatedAt: 2000,
+          num: 0,
+          updateMeta: {
+            eventEmitDisabled: true,
+            homeToSwapSyncMode: 'account-and-network',
+            sourceRuntimeId: 'home-runtime',
+            updatedAt: 2000,
+          },
+          builder: () => preparedPageSelection,
+        });
+      const emitSpy = jest.spyOn(appEventBus, 'emit').mockReturnValue(true);
+      const mutex = getAccountSelectorActions().mutexUpdateSelectedAccount;
+      const queuedUpdateSpy = jest.spyOn(mutex, 'runExclusive');
+      const [, release] = await mutex.acquire();
+      let pageOutcome: string | undefined;
+      let effectsOutcome: string | undefined;
+      try {
+        await act(async () => {
+          const applyEffects = () =>
+            result.current.syncHomeAndSwapSelectedAccount({
+              eventPayload: {
+                selectedAccount: homeSelection,
+                selectedAccountUpdatedAt: 2000,
+                sourceRuntimeId: 'home-runtime',
+                sceneName: EAccountSelectorSceneName.home,
+                num: 0,
+              },
+              sceneName: EAccountSelectorSceneName.swap,
+              num: 0,
+            });
+          let pagePromise: ReturnType<typeof applyPage>;
+          let effectsPromise: ReturnType<typeof applyEffects>;
+          if (order === 'effects-first') {
+            effectsPromise = applyEffects();
+            await waitFor(() =>
+              expect(queuedUpdateSpy).toHaveBeenCalledTimes(1),
+            );
+            pagePromise = applyPage();
+          } else {
+            pagePromise = applyPage();
+            await waitFor(() =>
+              expect(queuedUpdateSpy).toHaveBeenCalledTimes(1),
+            );
+            effectsPromise = applyEffects();
+          }
+          // Both builders are prepared against the old Swap selection before
+          // either writer can commit. Release in each queue order, without RPCs.
+          await waitFor(() => expect(queuedUpdateSpy).toHaveBeenCalledTimes(2));
+          release();
+          pageOutcome = (await pagePromise).outcome;
+          effectsOutcome = (await effectsPromise).outcome;
+        });
+        expect(pageOutcome).toBe('commit');
+        expect(effectsOutcome).toBe(
+          order === 'effects-first' ? 'commit' : 'skip-equal-event-conflict',
+        );
+        expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+          indexedAccountId: homeSelection.indexedAccountId,
+          networkId: homeNetworkId,
+        });
+        expect(store.get(accountSelectorUpdateMetaAtom())[0]).toMatchObject({
+          eventEmitDisabled: true,
+          homeToSwapSyncMode: 'account-and-network',
+          sourceRuntimeId: 'home-runtime',
+          updatedAt: 2000,
+        });
+        expect(emitSpy).not.toHaveBeenCalledWith(
+          EAppEventBusNames.AccountSelectorSelectedAccountUpdate,
+          expect.anything(),
+        );
+      } finally {
+        release();
+        queuedUpdateSpy.mockRestore();
+        emitSpy.mockRestore();
+      }
+    },
+  );
+
+  it('retains Swap page ownership when the page delivery is a same-value noop', async () => {
+    const { store, Wrapper } = createWrapper(EAccountSelectorSceneName.swap);
+    store.set(accountSelectorContextDataAtom(), {
+      sceneName: EAccountSelectorSceneName.swap,
+    });
+    const selection = createHdSelectedAccount('hd-1--1');
+    store.set(selectedAccountsAtom(), { 0: selection });
+    store.set(accountSelectorUpdateMetaAtom(), {
+      0: {
+        eventEmitDisabled: true,
+        homeToSwapSyncMode: 'account',
+        sourceRuntimeId: 'home-runtime',
+        updatedAt: 2000,
+      },
+    });
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+    const selectionListener = jest.fn();
+    const unsubscribe = store.sub(selectedAccountsAtom(), selectionListener);
+    try {
+      await act(async () => {
+        expect(
+          (
+            await result.current.updateSelectedAccount({
+              eventUpdatedAt: 2000,
+              num: 0,
+              updateMeta: {
+                eventEmitDisabled: true,
+                homeToSwapSyncMode: 'account-and-network',
+                sourceRuntimeId: 'home-runtime',
+                updatedAt: 2000,
+              },
+              builder: () => selection,
+            })
+          ).outcome,
+        ).toBe('noop');
+      });
+      expect(selectionListener).not.toHaveBeenCalled();
+      expect(
+        store.get(accountSelectorUpdateMetaAtom())[0]?.homeToSwapSyncMode,
+      ).toBe('account-and-network');
+      await act(async () => {
+        expect(
+          (
+            await result.current.updateSelectedAccount({
+              eventUpdatedAt: 2000,
+              num: 0,
+              updateMeta: {
+                eventEmitDisabled: true,
+                homeToSwapSyncMode: 'account',
+                sourceRuntimeId: 'home-runtime',
+                updatedAt: 2000,
+              },
+              builder: () => ({ ...selection, networkId: 'evm--9' }),
+            })
+          ).outcome,
+        ).toBe('skip-equal-event-conflict');
+      });
+      expect(store.get(selectedAccountsAtom())[0]).toBe(selection);
+    } finally {
+      unsubscribe();
+    }
+  });
+
+  it.each([
+    [
+      'runtime-z',
+      'runtime-a',
+      'account',
+      'account-and-network',
+      'skip-equal-event-conflict',
+    ],
+    ['runtime-a', 'runtime-z', 'account-and-network', 'account', 'commit'],
+  ] as const)(
+    'keeps cross-runtime tie ordering independent of Home sync mode (%s -> %s)',
+    async (
+      currentRuntimeId,
+      incomingRuntimeId,
+      currentMode,
+      incomingMode,
+      outcome,
+    ) => {
+      const { store, Wrapper } = createWrapper(EAccountSelectorSceneName.swap);
+      store.set(accountSelectorContextDataAtom(), {
+        sceneName: EAccountSelectorSceneName.swap,
+      });
+      store.set(selectedAccountsAtom(), {
+        0: createHdSelectedAccount('hd-1--0'),
+      });
+      store.set(accountSelectorUpdateMetaAtom(), {
+        0: {
+          eventEmitDisabled: true,
+          homeToSwapSyncMode: currentMode,
+          sourceRuntimeId: currentRuntimeId,
+          updatedAt: 2000,
+        },
+      });
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+      await act(async () => {
+        expect(
+          (
+            await result.current.updateSelectedAccount({
+              eventUpdatedAt: 2000,
+              num: 0,
+              updateMeta: {
+                eventEmitDisabled: true,
+                homeToSwapSyncMode: incomingMode,
+                sourceRuntimeId: incomingRuntimeId,
+                updatedAt: 2000,
+              },
+              builder: () => createHdSelectedAccount('hd-1--1'),
+            })
+          ).outcome,
+        ).toBe(outcome);
+      });
+    },
+  );
+
+  it('does not let Home sync priority outrank a newer explicit Swap selection', async () => {
+    const { store, Wrapper } = createWrapper(EAccountSelectorSceneName.swap);
+    store.set(accountSelectorContextDataAtom(), {
+      sceneName: EAccountSelectorSceneName.swap,
+    });
+    store.set(selectedAccountsAtom(), {
+      0: createHdSelectedAccount('hd-1--0'),
+    });
+    store.set(accountSelectorUpdateMetaAtom(), {
+      0: {
+        eventEmitDisabled: true,
+        homeToSwapSyncMode: 'account-and-network',
+        sourceRuntimeId: 'home-runtime',
+        updatedAt: 2000,
+      },
+    });
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+    await act(async () => {
+      await result.current.updateSelectedAccount({
+        num: 0,
+        builder: () => createHdSelectedAccount('hd-1--2'),
+        updateMeta: { eventEmitDisabled: false, updatedAt: 3000 },
+      });
+      expect(
+        (
+          await result.current.updateSelectedAccount({
+            eventUpdatedAt: 2000,
+            num: 0,
+            updateMeta: {
+              eventEmitDisabled: true,
+              homeToSwapSyncMode: 'account-and-network',
+              sourceRuntimeId: 'home-runtime',
+              updatedAt: 2000,
+            },
+            builder: () => createHdSelectedAccount('hd-1--1'),
+          })
+        ).outcome,
+      ).toBe('skip-older-event');
+    });
+    expect(store.get(selectedAccountsAtom())[0]?.indexedAccountId).toBe(
+      'hd-1--2',
+    );
+    expect(
+      store.get(accountSelectorUpdateMetaAtom())[0]?.homeToSwapSyncMode,
+    ).toBeUndefined();
+  });
+
   it('lets the Effects-path sync land after a listener apply that forwards the event revision', async () => {
+    // This case covers equal results. The interleaving cases above also cover
+    // the two paths preparing different networks for the same Home event.
     // One home account switch fans out to two appliers on the swap store: the
     // swap page listener (syncSwapSelectedAccountFromHome in useSwapGlobal)
     // and the AccountSelectorEffects path (syncHomeAndSwapSelectedAccount,

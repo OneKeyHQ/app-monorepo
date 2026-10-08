@@ -240,6 +240,9 @@ export function useAccountSelectorAvailableNetworksByNum(num: number) {
 }
 export type IAccountSelectorUpdateMeta = {
   eventEmitDisabled: boolean;
+  // For the same Home event only, the Swap page owns network/token alignment
+  // over the Effects path that merges account identity without changing tokens.
+  homeToSwapSyncMode?: 'account' | 'account-and-network';
   // Stable runtime identity for deterministic ordering when two isolated
   // extension runtimes commit different values in the same millisecond.
   sourceRuntimeId?: string;

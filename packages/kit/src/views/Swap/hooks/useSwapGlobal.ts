@@ -673,6 +673,7 @@ export function useSwapInit(params?: ISwapInitParams) {
             : undefined,
         updateMeta: {
           eventEmitDisabled: true,
+          homeToSwapSyncMode: 'account-and-network',
           sourceRuntimeId,
           // The source revision, not the receive time (see the parameter
           // doc): committing the revision the home change was emitted with
