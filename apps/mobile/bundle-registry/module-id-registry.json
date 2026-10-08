@@ -21586,7 +21586,7 @@
     "packages/kit/src/views/Home/components/DeFiListBlock/useIsDeFiEnabled.ts": 20241,
     "packages/kit/src/views/Home/components/EarnListView/EarnListView.tsx": 10128,
     "packages/kit/src/views/Home/components/EarnListView/index.ts": 20912,
-    "packages/kit/src/views/Home/components/HomeHeaderGesture.native.tsx": 568,
+    "packages/kit/src/views/Home/components/HomeHeaderGesture.native.tsx": 6742,
     "packages/kit/src/views/Home/components/HomeHistoryListView/NativeHistoryList.tsx": 17836,
     "packages/kit/src/views/Home/components/HomeHistoryListView/historyActivityRows.ts": 18819,
     "packages/kit/src/views/Home/components/HomeHistoryListView/index.native.tsx": 5282,
