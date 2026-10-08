@@ -1289,6 +1289,50 @@ describe('DeviceStageBurstScope', () => {
     },
   );
 
+  it.each([true, false])(
+    'hands Portfolio firmware guidance to the action toast after RPC (connected=%s)',
+    async (connected) => {
+      const isDeviceStillConnected = jest.fn(async () => connected);
+      const scope = new DeviceStageBurstScope({ isDeviceStillConnected });
+      const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+      await scope.begin({ connectId: CONNECT_ID });
+      await paintOpeningBeat();
+      const error = convertDeviceError({
+        code: HardwareErrorCode.CallMethodNeedUpgradeFirmware,
+        connectId: CONNECT_ID,
+        params: {
+          method: 'uploadPortfolio',
+          current: '1.0.2',
+          require: '1.0.3',
+        },
+      });
+      error.autoToast = false;
+      await scope.end({ error });
+      expect(errorToastUtils.showToastOfError).not.toHaveBeenCalled();
+
+      const request = JSON.parse(
+        JSON.stringify({ token, error: toPlainErrorObject(error) }),
+      ) as { token: number; error: unknown };
+      const ending = scope.endExplicit(request);
+      await jest.advanceTimersByTimeAsync(500);
+      await ending;
+
+      expect(stage?.step).toBe('off');
+      expect(errorToastUtils.showToastOfError).toHaveBeenCalledTimes(1);
+      expect(errorToastUtils.showToastOfError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: HardwareErrorCode.CallMethodNeedUpgradeFirmware,
+          key: ETranslations.hardware_version_need_upgrade_error,
+          info: { version: '1.0.3' },
+          autoToast: true,
+          payload: expect.objectContaining({ connectId: CONNECT_ID }),
+        }),
+      );
+      expect(error.autoToast).toBe(false);
+      expect(isDeviceStillConnected).not.toHaveBeenCalled();
+    },
+  );
+
   it('does not toast an old failure when a newer flow claims the stage during exit', async () => {
     const scope = new DeviceStageBurstScope();
     await scope.begin({ connectId: CONNECT_ID });
