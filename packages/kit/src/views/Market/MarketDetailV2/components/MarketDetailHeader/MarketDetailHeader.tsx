@@ -83,9 +83,19 @@ export function MarketDetailHeader({
       screen: EModalMarketRoutes.MobileTokenSelector,
       params: {
         showFavoriteButton,
+        defaultCategory: listingIdentity.stockId
+          ? 'stocks'
+          : listingIdentity.assetId
+            ? 'top_coins'
+            : 'trending',
       },
     });
-  }, [navigation, showFavoriteButton]);
+  }, [
+    listingIdentity.assetId,
+    listingIdentity.stockId,
+    navigation,
+    showFavoriteButton,
+  ]);
 
   const handleCopyAddress = useCallback(() => {
     const address = tokenDetail?.address;

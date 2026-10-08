@@ -29,9 +29,11 @@ const STOCK_SELECTOR_TABLE_HEIGHT =
 const MarketStockSelectorList = memo(
   ({
     query,
+    category,
     onItemPress,
   }: {
     query?: string;
+    category?: string;
     onItemPress: (item: IMarketStockPublicItem) => void;
   }) => {
     const intl = useIntl();
@@ -55,7 +57,10 @@ const MarketStockSelectorList = memo(
       isRevalidatingFirstPage,
       loadMore,
       refresh: retry,
-    } = useMarketStockSelectorList({ query: normalizedQuery });
+    } = useMarketStockSelectorList({
+      query: normalizedQuery,
+      ...(category ? { category } : {}),
+    });
     const handleEndReached = useCallback(() => {
       if (isLoadMoreError || isLoadingMore) {
         return;

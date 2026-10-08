@@ -21,6 +21,7 @@ const mockUseToMarketStockDetailPage = jest.fn(
   (_options?: unknown) => mockToStock,
 );
 let mockSpotCategories: IMarketSpotCategory[] = [];
+let mockStockCategories: Array<{ category: string; name: string }> = [];
 let mockSearchTokenList: IMarketToken[] = [];
 let mockWatchlistToken: IMarketToken | undefined;
 
@@ -53,6 +54,10 @@ jest.mock('@onekeyhq/components', () => {
 
   return {
     Icon: () => null,
+    Image: () => null,
+    GradientMask: () => null,
+    ScrollView: StackComponent,
+    useMedia: () => ({ md: false }),
     Popover: ({
       open,
       onOpenChange,
@@ -89,20 +94,11 @@ jest.mock('@onekeyhq/components', () => {
     ),
     SizableText: ({
       children,
-      letterSpacing,
-      textTransform,
+      size,
     }: {
       children?: ReactNode;
-      letterSpacing?: number;
-      textTransform?: string;
-    }) => (
-      <span
-        data-letter-spacing={letterSpacing}
-        data-text-transform={textTransform}
-      >
-        {children}
-      </span>
-    ),
+      size?: string;
+    }) => <span data-size={size}>{children}</span>,
     XStack: StackComponent,
     YStack: StackComponent,
     usePopoverContext: () => ({ closePopover: jest.fn() }),
@@ -126,7 +122,10 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
 }));
 
 jest.mock('@onekeyhq/kit/src/views/Market/hooks', () => ({
-  useMarketBasicConfig: () => ({ spotCategories: mockSpotCategories }),
+  useMarketBasicConfig: () => ({
+    spotCategories: mockSpotCategories,
+    stockCategories: mockStockCategories,
+  }),
 }));
 
 jest.mock('@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation', () => ({
@@ -192,11 +191,11 @@ jest.mock('../../hooks/useMarketDetailDisplayData', () => ({
 jest.mock('./MarketStockSelectorList', () => {
   const { useEffect } = jest.requireActual<typeof import('react')>('react');
   return {
-    MarketStockSelectorList: () => {
+    MarketStockSelectorList: ({ category }: { category?: string }) => {
       useEffect(() => {
         mockStockListMount();
       }, []);
-      return <div data-testid="stock-list" />;
+      return <div data-testid="stock-list" data-category={category ?? ''} />;
     },
   };
 });
@@ -315,47 +314,73 @@ describe('MarketTokenSelector stock default category', () => {
       { type: 'trending', name: 'Trending' },
       { type: 'stocks', name: 'Stocks' },
     ];
+    mockStockCategories = [];
   });
 
-  it('adds Top Coins after Stocks and renders its selector data', async () => {
+  it('shows Favorites, Stocks, and Tokens instead of market categories', async () => {
     renderOpenStockSelector();
 
-    const topCoinsTab = screen.getByTestId(
-      'market-token-selector-tab-top_coins',
+    const favoritesTab = screen.getByTestId(
+      'market-token-selector-tab-favorites',
     );
     const stocksTab = screen.getByTestId('market-token-selector-tab-stocks');
+    const tokensTab = screen.getByTestId('market-token-selector-tab-tokens');
     expect(
-      stocksTab.compareDocumentPosition(topCoinsTab) &
+      favoritesTab.compareDocumentPosition(stocksTab) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+    expect(
+      stocksTab.compareDocumentPosition(tokensTab) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      screen.queryByTestId('market-token-selector-tab-trending'),
+    ).toBeNull();
+    expect(
+      screen.queryByTestId('market-token-selector-tab-top_coins'),
+    ).toBeNull();
 
-    fireEvent.click(topCoinsTab);
+    fireEvent.click(tokensTab);
 
     await waitFor(() => {
       expect(screen.queryByTestId('stock-list')).toBeNull();
       expect(
         screen.getByTestId('token-list').getAttribute('data-category'),
-      ).toBe('top_coins');
-      expect(
-        screen.getByTestId('token-list').getAttribute('data-override-count'),
-      ).toBe('1');
+      ).toBe('trending');
     });
-
-    fireEvent.click(screen.getByTestId('market-token-selector-top-coin'));
-    expect(mockTopCoinPress).toHaveBeenCalledWith(
-      expect.objectContaining({ assetId: 'btc' }),
-    );
-    expect(mockNavigateToMarketTokenDetail).not.toHaveBeenCalled();
   });
 
-  it('preserves category label casing', () => {
+  it('shows stock and token subcategories under the primary tabs', () => {
+    mockStockCategories = [
+      { category: 'all', name: 'All' },
+      { category: 'ai-chip', name: 'AI Tech' },
+    ];
     renderOpenStockSelector();
 
-    // The injected category name is bound to ETranslations.market_top_coins;
-    // the intl mock above renders the raw key id.
-    const topCoinsLabel = screen.getByText('market.top_coins');
-    expect(topCoinsLabel.getAttribute('data-text-transform')).toBe('none');
-    expect(topCoinsLabel.getAttribute('data-letter-spacing')).toBe('0');
+    expect(screen.getByText('All')).toBeTruthy();
+    expect(screen.getByText('AI Tech')).toBeTruthy();
+    expect(screen.queryByText('Trending')).toBeNull();
+
+    fireEvent.click(screen.getByText('AI Tech'));
+    expect(screen.getByTestId('stock-list').getAttribute('data-category')).toBe(
+      'ai-chip',
+    );
+
+    fireEvent.click(screen.getByTestId('market-token-selector-tab-tokens'));
+    expect(screen.getByText('Trending')).toBeTruthy();
+    expect(screen.queryByText('AI Tech')).toBeNull();
+    expect(
+      screen.getByTestId('token-list').getAttribute('data-category'),
+    ).toBe('trending');
+  });
+
+  it('uses the standard tab label size', () => {
+    renderOpenStockSelector();
+
+    const tokensLabel = screen.getByText(
+      'global.universal_search_tabs_tokens',
+    );
+    expect(tokensLabel.getAttribute('data-size')).toBe('$bodyLgMedium');
   });
 
   it('replaces the current detail route when selecting a stock', () => {
@@ -372,14 +397,14 @@ describe('MarketTokenSelector stock default category', () => {
     expect(screen.getByTestId('stock-list')).toBeTruthy();
   }
 
-  it('keeps Trending selected when category config refreshes', async () => {
+  it('keeps Tokens selected when category config refreshes', async () => {
     renderOpenStockSelector();
     mockSpotCategories = [
       { type: 'trending', name: 'Trending' },
       { type: 'stock', name: 'Stocks' },
     ];
 
-    fireEvent.click(screen.getByTestId('market-token-selector-tab-trending'));
+    fireEvent.click(screen.getByTestId('market-token-selector-tab-tokens'));
 
     await waitFor(() => {
       expect(screen.queryByTestId('stock-list')).toBeNull();

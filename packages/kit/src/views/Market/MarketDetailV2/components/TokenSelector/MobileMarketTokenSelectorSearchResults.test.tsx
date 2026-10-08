@@ -127,6 +127,9 @@ jest.mock('./useMarketStockSelectorList', () => ({
   useMarketStockSelectorList: (options: { query: string }) =>
     mockUseMarketStockSelectorList(options),
 }));
+jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
+  useMarketWatchListV2Atom: () => [{ data: [] }],
+}));
 
 describe('MobileMarketTokenSelectorSearchResults', () => {
   beforeEach(() => {
@@ -146,7 +149,7 @@ describe('MobileMarketTokenSelectorSearchResults', () => {
     });
   });
 
-  it('keeps stock and on-chain market rows in separate sections', () => {
+  it('keeps stock and on-chain market rows on separate tabs', () => {
     render(
       <MobileMarketTokenSelectorSearchResults
         query="aapl"
@@ -156,12 +159,16 @@ describe('MobileMarketTokenSelectorSearchResults', () => {
       />,
     );
 
-    expect(screen.getAllByText('perps.token_selector_stocks')).toHaveLength(2);
-    expect(screen.getAllByText('global.market')).toHaveLength(2);
-    fireEvent.click(screen.getByTestId('mobile-stock-AAPL'));
-    expect(mockStockPress).toHaveBeenCalledWith(stock);
+    expect(
+      screen.getAllByText('global.universal_search_tabs_tokens').length,
+    ).toBeGreaterThan(0);
     fireEvent.click(screen.getByTestId('mobile-market-evm--1:0xaapl'));
     expect(mockMarketPress).toHaveBeenCalledWith(marketItem);
+    fireEvent.click(
+      screen.getByTestId('market-token-selector-search-tab-stocks'),
+    );
+    fireEvent.click(screen.getByTestId('mobile-stock-AAPL'));
+    expect(mockStockPress).toHaveBeenCalledWith(stock);
   });
 
   it('filters mobile rows with the shared search tabs', () => {
@@ -181,7 +188,7 @@ describe('MobileMarketTokenSelectorSearchResults', () => {
     expect(screen.queryByTestId('mobile-market-evm--1:0xaapl')).toBeNull();
 
     fireEvent.click(
-      screen.getByTestId('market-token-selector-search-tab-market'),
+      screen.getByTestId('market-token-selector-search-tab-tokens'),
     );
     expect(screen.queryByTestId('mobile-stock-AAPL')).toBeNull();
     expect(screen.getByTestId('mobile-market-evm--1:0xaapl')).toBeTruthy();

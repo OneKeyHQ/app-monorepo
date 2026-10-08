@@ -34,6 +34,7 @@ import type {
 } from '@onekeyhq/shared/src/routes/universalSearch';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { isMarketSearchStockListing } from '@onekeyhq/shared/src/utils/marketSearchStock';
+import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   IUniversalSearchBatchResult,
@@ -51,6 +52,7 @@ import { ListItem } from '../../../components/ListItem';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { useMarketWatchListV2Atom } from '../../../states/jotai/contexts/marketV2';
 import { useHomeTokenListSnapshot } from '../../../states/jotai/contexts/tokenList/cells';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 import { MarketWatchListProviderMirror } from '../../Market/MarketWatchListProviderMirror';
@@ -67,7 +69,9 @@ import {
 import { useSettingsSearch } from '../hooks/useSettingsSearch';
 import { UniversalSearchTestIDs } from '../testIDs';
 import {
+  WATCHLIST_TAB_INDEX,
   getUniversalSearchTabIndex,
+  getUniversalSearchWatchlistKey,
   prioritizeMarketFocusedSections,
   resolveUniversalSearchInitialTabName,
   shouldPrioritizeMarketSearchSections,
@@ -209,6 +213,11 @@ export function UniversalSearch({
     isFocusInMarketRoute,
     initialTab,
   });
+  const [{ data: watchlistItems }] = useMarketWatchListV2Atom();
+  const watchlistKeys = useMemo(
+    () => new Set(watchlistItems.map((item) => getMarketWatchlistKey(item))),
+    [watchlistItems],
+  );
 
   const searchSettings = useSettingsSearch();
 
@@ -244,7 +253,10 @@ export function UniversalSearch({
         id: ETranslations.perps_token_selector_stocks,
       }),
       intl.formatMessage({
-        id: ETranslations.global_market,
+        id: ETranslations.global_universal_search_tabs_tokens,
+      }),
+      intl.formatMessage({
+        id: ETranslations.global_watchlist,
       }),
       intl.formatMessage({
         id: ETranslations.global_perp,
@@ -286,14 +298,17 @@ export function UniversalSearch({
     },
     [focusedTab],
   );
-  // Only surface tabs that actually have results for the current search. The
-  // leading "All" tab is always kept; module tabs with no results are hidden.
+  // Market home and the default Universal Search keep every tab visible.
+  // Browser-scoped search still hides modules that returned no results.
   const visibleTabTitles = useMemo(() => {
+    if (!filterTypes?.length) {
+      return tabTitles;
+    }
     const sectionTitles = new Set(sections.map((section) => section.title));
     return tabTitles.filter(
       (title, index) => index === 0 || sectionTitles.has(title),
     );
-  }, [sections, tabTitles]);
+  }, [filterTypes?.length, sections, tabTitles]);
 
   // The selected tab may have been hidden (e.g. an `initialTab` preset whose
   // module returned no results). Fall back to the "All" tab so the result list
@@ -532,7 +547,7 @@ export function UniversalSearch({
           ),
           type: EUniversalSearchType.V2MarketToken,
           title: intl.formatMessage({
-            id: ETranslations.global_market,
+            id: ETranslations.global_universal_search_tabs_tokens,
           }),
           data,
           sliceData: data.slice(0, MARKET_SLICE_LIMIT),
@@ -964,6 +979,12 @@ export function UniversalSearch({
     [],
   );
 
+  const watchlistTabTitle = useMemo(
+    () => intl.formatMessage({ id: ETranslations.global_watchlist }),
+    [intl],
+  );
+  const isInWatchlistTab = activeTab === watchlistTabTitle;
+
   const filterSections = useMemo(() => {
     if (isInAllTab) {
       const sectionsWithSliceData = sections.map((i) => ({
@@ -971,7 +992,7 @@ export function UniversalSearch({
         data: i.sliceData,
       }));
 
-      // When focused in Market tab, prioritize stocks then market tokens.
+      // When focused in Market tab, prioritize Tokens, then Stocks, then Perps.
       if (isFocusInMarketTab) {
         return prioritizeMarketFocusedSections(sectionsWithSliceData, {
           stocks: STOCK_TAB_INDEX,
@@ -982,16 +1003,44 @@ export function UniversalSearch({
 
       return sectionsWithSliceData;
     }
-    const filtered = sections.filter((i) => i.title === activeTab);
-    return filtered;
-  }, [activeTab, isInAllTab, sections, isFocusInMarketTab]);
+    if (isInWatchlistTab) {
+      const data = sections.flatMap((section) =>
+        section.data.filter((item) => {
+          const key = getUniversalSearchWatchlistKey(item);
+          return Boolean(key && watchlistKeys.has(key));
+        }),
+      );
+      return [
+        {
+          tabIndex: WATCHLIST_TAB_INDEX,
+          title: watchlistTabTitle,
+          type: EUniversalSearchType.V2MarketToken,
+          data,
+          sliceData: data,
+          showMore: false,
+        },
+      ];
+    }
+    return sections.filter((i) => i.title === activeTab);
+  }, [
+    activeTab,
+    isFocusInMarketTab,
+    isInAllTab,
+    isInWatchlistTab,
+    sections,
+    watchlistKeys,
+    watchlistTabTitle,
+  ]);
 
   const renderResult = useCallback(() => {
     const noResultsComponent = (
       <Empty
         illustration="QuestionMark"
         title={intl.formatMessage({
-          id: ETranslations.global_no_results,
+          id:
+            isInWatchlistTab && watchlistItems.length === 0
+              ? ETranslations.market_empty_watchlist_title
+              : ETranslations.global_no_results,
         })}
         description={intl.formatMessage({
           id: ETranslations.global_search_no_results_desc,
@@ -1085,7 +1134,9 @@ export function UniversalSearch({
     filterSections,
     renderSectionFooter,
     intl,
+    isInWatchlistTab,
     shouldIncludeMarketTrending,
+    watchlistItems.length,
   ]);
 
   return (

@@ -82,7 +82,9 @@ jest.mock('@onekeyhq/components', () => {
         {children}
       </button>
     ),
-    Empty: () => <div data-testid="empty" />,
+    Empty: ({ title }: { title?: string }) => (
+      <div data-testid="empty">{title}</div>
+    ),
     ScrollView: Container,
     SizableText: Container,
     Spinner: () => <div data-testid="spinner" />,
@@ -128,6 +130,9 @@ jest.mock('./useMarketStockSelectorList', () => ({
   useMarketStockSelectorList: (options: { query: string }) =>
     mockUseMarketStockSelectorList(options),
 }));
+jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
+  useMarketWatchListV2Atom: () => [{ data: [] }],
+}));
 
 const marketItem = {
   name: 'AAPL xStock',
@@ -153,7 +158,7 @@ describe('MarketTokenSelectorSearchResults', () => {
     mockUseMarketStockSelectorList.mockReturnValue(defaultStockResult);
   });
 
-  it('shows stock and market sections with separate navigation identities', () => {
+  it('shows token and stock tabs with separate navigation identities', () => {
     render(
       <MarketTokenSelectorSearchResults
         query="aapl"
@@ -163,15 +168,23 @@ describe('MarketTokenSelectorSearchResults', () => {
       />,
     );
 
-    expect(screen.getAllByText('perps.token_selector_stocks')).toHaveLength(2);
-    expect(screen.getAllByText('global.market')).toHaveLength(2);
+    expect(
+      screen.getByTestId('market-token-selector-search-tab-all'),
+    ).toBeTruthy();
+    expect(
+      screen.getByTestId('market-token-selector-search-tab-stocks'),
+    ).toBeTruthy();
+    expect(
+      screen.getByTestId('market-token-selector-search-tab-tokens'),
+    ).toBeTruthy();
+    expect(
+      screen.queryByTestId('market-token-selector-search-tab-watchlist'),
+    ).toBeNull();
+    expect(screen.getByTestId('search-row-AAPL')).toBeTruthy();
     expect(mockUseMarketStockSelectorList).toHaveBeenCalledWith({
       query: 'aapl',
       searchOnly: true,
     });
-
-    fireEvent.click(screen.getByTestId('search-row-AAPL'));
-    expect(mockStockPress).toHaveBeenCalledWith(defaultStockResult.items[0]);
 
     fireEvent.click(screen.getByTestId('search-row-evm--1_0xaapl'));
     expect(mockMarketPress).toHaveBeenCalledWith(
@@ -181,9 +194,15 @@ describe('MarketTokenSelectorSearchResults', () => {
         networkId: 'evm--1',
       }),
     );
+
+    fireEvent.click(
+      screen.getByTestId('market-token-selector-search-tab-stocks'),
+    );
+    fireEvent.click(screen.getByTestId('search-row-AAPL'));
+    expect(mockStockPress).toHaveBeenCalledWith(defaultStockResult.items[0]);
   });
 
-  it('filters stock and market rows and resets to all for a new query', () => {
+  it('filters stock and token rows and resets to tokens for a new query', () => {
     const { rerender } = render(
       <MarketTokenSelectorSearchResults
         query="aapl"
@@ -200,7 +219,7 @@ describe('MarketTokenSelectorSearchResults', () => {
     expect(screen.queryByTestId('search-row-evm--1_0xaapl')).toBeNull();
 
     fireEvent.click(
-      screen.getByTestId('market-token-selector-search-tab-market'),
+      screen.getByTestId('market-token-selector-search-tab-tokens'),
     );
     expect(screen.queryByTestId('search-row-AAPL')).toBeNull();
     expect(screen.getByTestId('search-row-evm--1_0xaapl')).toBeTruthy();
@@ -234,13 +253,12 @@ describe('MarketTokenSelectorSearchResults', () => {
     );
 
     expect(screen.getByTestId('search-row-evm--1_0xaapl')).toBeTruthy();
-    fireEvent.click(
-      screen.getByTestId('market-token-selector-stock-search-retry'),
-    );
-    expect(mockRefresh).toHaveBeenCalledTimes(1);
+    expect(
+      screen.queryByTestId('market-token-selector-search-tab-stocks'),
+    ).toBeNull();
   });
 
-  it('expands a section without mixing stock and market rows', () => {
+  it('expands a stock section without mixing token rows', () => {
     mockUseMarketStockSelectorList.mockReturnValue({
       ...defaultStockResult,
       items: ['AAPL', 'MSFT', 'NVDA', 'TSLA'].map(createStock),
@@ -255,9 +273,11 @@ describe('MarketTokenSelectorSearchResults', () => {
       />,
     );
 
-    expect(screen.queryByTestId('search-row-TSLA')).toBeNull();
-    fireEvent.click(screen.getByText('global.show_more'));
+    fireEvent.click(
+      screen.getByTestId('market-token-selector-search-tab-stocks'),
+    );
     expect(screen.getByTestId('search-row-TSLA')).toBeTruthy();
+    expect(screen.queryByTestId('search-row-evm--1_0xaapl')).toBeNull();
   });
 
   it('loads and retries additional stock search pages', () => {
@@ -298,6 +318,65 @@ describe('MarketTokenSelectorSearchResults', () => {
       screen.getByTestId('market-token-selector-stock-search-load-more-retry'),
     );
     expect(mockLoadMore).toHaveBeenCalledTimes(2);
+  });
+
+  it('previews three chain tokens on All and hides Stocks for a non-stock query', () => {
+    mockUseMarketStockSelectorList.mockReturnValue({
+      ...defaultStockResult,
+      items: [],
+    });
+    const tokens = ['1', '2', '3', '4'].map((suffix) => ({
+      ...marketItem,
+      address: `0x${suffix}`,
+      symbol: `BTC${suffix}`,
+    }));
+
+    render(
+      <MarketTokenSelectorSearchResults
+        query="btc"
+        marketItems={tokens}
+        onStockPress={mockStockPress}
+        onMarketPress={mockMarketPress}
+      />,
+    );
+
+    expect(
+      screen.queryByTestId('market-token-selector-search-tab-stocks'),
+    ).toBeNull();
+    expect(screen.getByTestId('search-row-evm--1_0x1')).toBeTruthy();
+    expect(screen.getByTestId('search-row-evm--1_0x3')).toBeTruthy();
+    expect(screen.queryByTestId('search-row-evm--1_0x4')).toBeNull();
+    fireEvent.click(
+      screen.getByTestId('market-token-selector-market-search-show-more'),
+    );
+    expect(screen.getByTestId('search-row-evm--1_0x4')).toBeTruthy();
+  });
+
+  it('keeps a bare stock listing out of the Tokens list', () => {
+    render(
+      <MarketTokenSelectorSearchResults
+        query="aapl"
+        marketItems={[
+          marketItem,
+          {
+            ...marketItem,
+            name: 'Apple',
+            symbol: 'AAPL',
+            address: '',
+            network: '',
+            stockId: 'AAPL',
+          },
+        ]}
+        onStockPress={mockStockPress}
+        onMarketPress={mockMarketPress}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByTestId('market-token-selector-search-tab-tokens'),
+    );
+    expect(screen.getByTestId('search-row-evm--1_0xaapl')).toBeTruthy();
+    expect(screen.queryByTestId('search-row-AAPL')).toBeNull();
   });
 
   it('asks the stock hook for search-only results', () => {

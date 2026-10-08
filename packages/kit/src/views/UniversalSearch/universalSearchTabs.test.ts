@@ -23,7 +23,7 @@ describe('getUniversalSearchTabIndex', () => {
       getUniversalSearchTabIndex(EUniversalSearchType.Perp, {
         isWebDappMode: false,
       }),
-    ).toBe(4);
+    ).toBe(5);
   });
 });
 
@@ -77,21 +77,21 @@ describe('resolveUniversalSearchInitialTabName', () => {
 });
 
 describe('prioritizeMarketFocusedSections', () => {
-  it('lifts Stocks, Market, then Perp when Market is focused', () => {
+  it('lifts Tokens, Stocks, then Perp when Market is focused', () => {
     const sections = [
       { tabIndex: 1, title: 'Wallets' },
       { tabIndex: 2, title: 'Stocks' },
-      { tabIndex: 3, title: 'Market' },
-      { tabIndex: 4, title: 'Perp' },
+      { tabIndex: 3, title: 'Tokens' },
+      { tabIndex: 5, title: 'Perp' },
     ];
 
     expect(
       prioritizeMarketFocusedSections(sections, {
         stocks: 2,
         market: 3,
-        perp: 4,
+        perp: 5,
       }).map((section) => section.title),
-    ).toEqual(['Stocks', 'Market', 'Perp', 'Wallets']);
+    ).toEqual(['Tokens', 'Stocks', 'Perp', 'Wallets']);
   });
 
   it('keeps the original order when neither Stocks nor Market is present', () => {
@@ -104,7 +104,7 @@ describe('prioritizeMarketFocusedSections', () => {
       prioritizeMarketFocusedSections(sections, {
         stocks: 2,
         market: 3,
-        perp: 4,
+        perp: 5,
       }),
     ).toEqual(sections);
   });

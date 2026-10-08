@@ -27,6 +27,7 @@ export type IModalMarketParamList = {
   [EModalMarketRoutes.MobileTokenSelector]:
     | {
         showFavoriteButton?: boolean;
+        defaultCategory?: 'trending' | 'top_coins' | 'stocks';
       }
     | undefined;
   [EModalMarketRoutes.MarketChartSettings]:

@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -14,6 +14,7 @@ import {
 import { useMarketStockColumns } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/useMarketStockColumns';
 import { useMarketTokenColumns } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketTokenColumns';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
+import { isDetailSearchChainToken } from '@onekeyhq/kit/src/views/Market/utils/marketSearchList';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
@@ -30,11 +31,11 @@ import {
   TOKEN_SELECTOR_ROW_HEIGHT,
   convertSearchTokenToMarketToken,
 } from './constants';
+import { MarketTokenSelectorSearchTabs } from './MarketTokenSelectorSearchTabs';
 import {
-  type IMarketTokenSelectorSearchTab,
-  MarketTokenSelectorSearchTabs,
-} from './MarketTokenSelectorSearchTabs';
-import { useMarketStockSelectorList } from './useMarketStockSelectorList';
+  MARKET_SEARCH_TABS,
+  useMarketTokenSelectorSearchState,
+} from './useMarketTokenSelectorSearchState';
 
 const SEARCH_RESULTS_HEIGHT = 390;
 const SEARCH_SECTION_PREVIEW_LIMIT = 3;
@@ -46,7 +47,10 @@ type IMarketSearchResultToken = IMarketToken & {
   tokenDetailPreview?: IMarketTokenDetailPreview;
 };
 
-function SearchSectionTitle({ title }: { title: string }) {
+function SearchSectionTitle({ title }: { title?: string }) {
+  if (!title) {
+    return null;
+  }
   return (
     <SizableText px="$3" py="$2" size="$headingSm">
       {title}
@@ -97,6 +101,7 @@ function StockSearchSection({
   onLoadMore,
   onRetry,
   onPress,
+  title,
 }: {
   items: IMarketStockPublicItem[];
   isLoading: boolean;
@@ -109,6 +114,7 @@ function StockSearchSection({
   onLoadMore: () => void;
   onRetry: () => void;
   onPress: (item: IMarketStockPublicItem) => void;
+  title?: string;
 }) {
   const intl = useIntl();
   const columns = useMarketStockColumns({
@@ -131,11 +137,7 @@ function StockSearchSection({
 
   return (
     <YStack>
-      <SearchSectionTitle
-        title={intl.formatMessage({
-          id: ETranslations.perps_token_selector_stocks,
-        })}
-      />
+      <SearchSectionTitle title={title} />
       {isLoading && items.length === 0 ? <SearchSectionLoading /> : null}
       {isError && items.length === 0 ? (
         <YStack py="$4" alignItems="center" gap="$2">
@@ -217,14 +219,15 @@ function MarketSearchSection({
   showAll,
   onShowAll,
   onPress,
+  title,
 }: {
   items: IMarketSearchResultToken[];
   isLoading?: boolean;
   showAll: boolean;
   onShowAll: () => void;
   onPress: (item: IMarketSearchResultToken) => void;
+  title?: string;
 }) {
-  const intl = useIntl();
   const columns = useMarketTokenColumns(
     undefined,
     false,
@@ -248,9 +251,7 @@ function MarketSearchSection({
 
   return (
     <YStack>
-      <SearchSectionTitle
-        title={intl.formatMessage({ id: ETranslations.global_market })}
-      />
+      <SearchSectionTitle title={title} />
       {isLoading && items.length === 0 ? <SearchSectionLoading /> : null}
       {visibleItems.length > 0 ? (
         <YStack height={tableHeight}>
@@ -300,45 +301,44 @@ function MarketTokenSelectorSearchResults({
   onMarketPress: (item: IMarketSearchResultToken) => void;
 }) {
   const intl = useIntl();
-  const [activeTab, setActiveTab] =
-    useState<IMarketTokenSelectorSearchTab>('all');
-  const [showAllStocks, setShowAllStocks] = useState(false);
-  const [showAllMarkets, setShowAllMarkets] = useState(false);
-  const stockResult = useMarketStockSelectorList({
-    query,
-    searchOnly: true,
-  });
-  const convertedMarketItems = useMemo(
+  const {
+    activeTab,
+    setActiveTab,
+    showAllStocks,
+    setShowAllStocks,
+    showAllTokens,
+    setShowAllTokens,
+    stockResult,
+    hasStockResults,
+    showSectionTitle,
+  } = useMarketTokenSelectorSearchState(query);
+  const chainTokenItems = useMemo(
     () =>
-      marketItems.map((item) => ({
-        ...convertSearchTokenToMarketToken(item),
-        tokenDetailPreview: buildMarketSearchTokenDetailPreview(item),
-      })),
+      marketItems
+        .filter((item) => isDetailSearchChainToken(item))
+        .map((item) => ({
+          ...convertSearchTokenToMarketToken(item),
+          tokenDetailPreview: buildMarketSearchTokenDetailPreview(item),
+        })),
     [marketItems],
   );
-
-  useEffect(() => {
-    setActiveTab('all');
-    setShowAllStocks(false);
-    setShowAllMarkets(false);
-  }, [query]);
-
+  const isAllTab = activeTab === MARKET_SEARCH_TABS.all;
+  const isStocksTab = activeTab === MARKET_SEARCH_TABS.stocks;
+  const isTokensTab = activeTab === MARKET_SEARCH_TABS.tokens;
   const showStockSection =
-    activeTab !== 'market' &&
-    (stockResult.isLoading ||
-      stockResult.isError ||
-      stockResult.items.length > 0);
-  const showMarketSection =
-    activeTab !== 'stocks' &&
-    (Boolean(isMarketLoading) || convertedMarketItems.length > 0);
+    hasStockResults && (isAllTab || isStocksTab);
+  const showTokenSection =
+    (isAllTab || isTokensTab) &&
+    (Boolean(isMarketLoading) || chainTokenItems.length > 0);
 
   return (
     <YStack height={SEARCH_RESULTS_HEIGHT}>
       <MarketTokenSelectorSearchTabs
         value={activeTab}
         onChange={setActiveTab}
+        hasStockResults={hasStockResults}
       />
-      {!showStockSection && !showMarketSection ? (
+      {!showStockSection && !showTokenSection ? (
         <YStack flex={1} alignItems="center" justifyContent="center">
           <Empty
             illustration="QuestionMark"
@@ -355,20 +355,34 @@ function MarketTokenSelectorSearchResults({
               isLoadingMore={stockResult.isLoadingMore}
               isLoadMoreError={stockResult.isLoadMoreError}
               canLoadMore={stockResult.canLoadMore}
-              showAll={activeTab === 'stocks' || showAllStocks}
+              showAll={isStocksTab || showAllStocks}
               onShowAll={() => setShowAllStocks(true)}
               onLoadMore={() => void stockResult.loadMore()}
               onRetry={() => void stockResult.refresh()}
               onPress={onStockPress}
+              title={
+                showSectionTitle
+                  ? intl.formatMessage({
+                      id: ETranslations.perps_token_selector_stocks,
+                    })
+                  : undefined
+              }
             />
           ) : null}
-          {showMarketSection ? (
+          {showTokenSection ? (
             <MarketSearchSection
-              items={convertedMarketItems}
+              items={chainTokenItems}
               isLoading={isMarketLoading}
-              showAll={activeTab === 'market' || showAllMarkets}
-              onShowAll={() => setShowAllMarkets(true)}
+              showAll={isTokensTab || showAllTokens}
+              onShowAll={() => setShowAllTokens(true)}
               onPress={onMarketPress}
+              title={
+                showSectionTitle
+                  ? intl.formatMessage({
+                      id: ETranslations.global_universal_search_tabs_tokens,
+                    })
+                  : undefined
+              }
             />
           ) : null}
         </ScrollView>
