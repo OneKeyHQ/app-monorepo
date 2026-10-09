@@ -8,7 +8,12 @@
  */
 import { getOwnerWorth } from '@onekeyhq/kit/src/views/Home/components/TokenListBlock/ownerWorthCache';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 
+import { registerHomeTokenListOwnerCacheInvalidation } from '../cells/ownerCacheInvalidation';
 import {
   clearOwnerReplayCache,
   getOwnerReplayFrames,
@@ -54,6 +59,8 @@ jest.mock('@onekeyhq/shared/src/storage/uiSnapshotCaches', () => {
       sweep: () => undefined,
       clear: () => mockWorthRecords.clear(),
     },
+    // Cleared with the replay cache on a removal; nothing here reads it.
+    tokenListOwnerSlimCache: { clear: () => undefined },
   };
 });
 
@@ -149,6 +156,32 @@ describe('prewarmHomeTokenListOwner', () => {
     clearOwnerReplayCache();
     await expect(prewarmHomeTokenListOwner(PARAMS)).resolves.toBe(true);
     expect(mockPrewarmFrames).toHaveBeenCalledTimes(2);
+  });
+
+  // PR #13695 review: a removal while the request is in flight purged the
+  // caches, and the late answer put the removed owner back into them.
+  it('drops an answer that lands after a wallet / account removal', async () => {
+    registerHomeTokenListOwnerCacheInvalidation();
+    let resolveBg: (value: unknown) => void = () => {};
+    mockPrewarmFrames.mockReturnValue(
+      new Promise((resolve) => {
+        resolveBg = resolve;
+      }),
+    );
+    const pending = prewarmHomeTokenListOwner(PARAMS);
+
+    appEventBus.emit(EAppEventBusNames.AccountRemove, undefined);
+    resolveBg(
+      makeBgResult({
+        worth: { accountId: ACCOUNT_ID, value: '12.5', currency: 'usd' },
+      }),
+    );
+
+    await expect(pending).resolves.toBe(false);
+    expect(
+      getOwnerReplayFrames({ storeName: STORE_NAME, ownerKey: OWNER_KEY }),
+    ).toBeUndefined();
+    expect(getOwnerWorth(OWNER_KEY)).toBeUndefined();
   });
 
   it('shares one in-flight request per params', async () => {
