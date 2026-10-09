@@ -6,27 +6,49 @@ import {
   useEffect,
   useImperativeHandle,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
+import { OverlayView } from '@onekeyfe/react-native-native-overlay';
 import { isNil } from 'lodash';
-import { StyleSheet } from 'react-native';
-import { useDebouncedCallback } from 'use-debounce';
+import { Animated, PanResponder, StyleSheet } from 'react-native';
 
-import { Toast, ToastViewport } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useSafeAreaInsets } from '../../hooks/useLayout';
 import { usePageWidth } from '../../hooks/usePage';
-import { useOverlayZIndex } from '../../hooks/useStyle';
 import { Stack, ThemeableStack } from '../../primitives';
-import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '../../utils/animationConstants';
 import { Trigger } from '../Trigger';
 
-import type { GestureResponderEvent } from 'react-native';
+import type {
+  IOverlayAnimation,
+  IOverlayBackdrop,
+} from '@onekeyfe/react-native-native-overlay';
 
-const toastEnterStyle = { opacity: 0, scale: 0.8, y: -20 } as const;
-const toastExitStyle = { opacity: 0, scale: 0.8, y: -20 } as const;
+// The former Tamagui toast: scale 0.8 + fade, 20pt above, `quick` spring.
+const CUSTOM_TOAST_ANIMATION: IOverlayAnimation = {
+  enter: {
+    type: 'scale',
+    scale: 0.8,
+    offsetY: -20,
+    fade: true,
+    motion: 'quick',
+  },
+};
+// Tamagui's default swipe threshold.
+const SWIPE_UP_THRESHOLD = 50;
+const SWIPE_START_THRESHOLD = 6;
+
+const styles = StyleSheet.create({
+  card: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+});
 
 // eslint-disable-next-line import/no-cycle
 export type IShowToasterProps = PropsWithChildren<{
@@ -37,6 +59,8 @@ export type IShowToasterProps = PropsWithChildren<{
   open?: boolean;
   onOpenChange?: (visible: boolean) => void;
   name?: string;
+  /** The exit animation finished; `Toast.show` unmounts the portal here. */
+  onExited?: () => void;
 }>;
 
 export interface IShowToasterInstance {
@@ -47,41 +71,55 @@ export type IContextType = {
   close: IShowToasterInstance['close'];
 };
 
-// Fix issue where toast renders before overlay, causing lower z-index layer problem on iOS
-const useHackIsShowToast = (isOpen: boolean) => {
-  const [show, setShow] = useState(false);
-  useEffect(() => {
-    if (isOpen) {
-      setTimeout(() => {
-        setShow(true);
-      }, 350);
-    } else {
-      setShow(false);
-    }
-  }, [isOpen]);
-  return show;
-};
-
 const CustomToasterContext = createContext({} as IContextType);
-const SHOW_TOAST_VIEWPORT_NAME = 'SHOW_TOAST_VIEWPORT_NAME';
-let toastNameIndex = 0;
+
+// Swipe up to close, as the Tamagui toast did. A PanResponder rather than a
+// gesture-handler pan: the content renders in the native overlay window.
+function useSwipeUpToClose(onClose: () => void, enabled: boolean) {
+  const translateY = useRef(new Animated.Value(0)).current;
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, { dy, dx }) =>
+          enabled && dy < -SWIPE_START_THRESHOLD && Math.abs(dy) > Math.abs(dx),
+        onPanResponderMove: (_, { dy }) => {
+          translateY.setValue(Math.min(0, dy));
+        },
+        onPanResponderRelease: (_, { dy }) => {
+          if (dy < -SWIPE_UP_THRESHOLD) {
+            onCloseRef.current();
+            return;
+          }
+          Animated.spring(translateY, {
+            toValue: 0,
+            useNativeDriver: false,
+          }).start();
+        },
+        onPanResponderTerminate: () => {
+          Animated.spring(translateY, {
+            toValue: 0,
+            useNativeDriver: false,
+          }).start();
+        },
+      }),
+    [enabled, translateY],
+  );
+  return { translateY, panHandlers: panResponder.panHandlers };
+}
+
 function BasicShowToaster({
   children,
   onClose,
+  onExited,
   duration = Infinity,
   dismissOnOverlayPress = true,
+  disableSwipeGesture = false,
   open,
   onOpenChange,
-  name,
   ref,
 }: IShowToasterProps & { ref?: ForwardedRef<IShowToasterInstance> }) {
-  const containerName = useMemo(() => {
-    if (name) {
-      return name;
-    }
-    toastNameIndex += 1;
-    return `${SHOW_TOAST_VIEWPORT_NAME}-${toastNameIndex}`;
-  }, [name]);
   const [isOpenState, setIsOpenState] = useState(true);
   const isControlled = !isNil(open);
   const isOpen = isControlled ? open : isOpenState;
@@ -108,10 +146,6 @@ function BasicShowToaster({
 
   const handleContainerClose = useCallback(() => handleClose(), [handleClose]);
 
-  const handleSwipeEnd = useDebouncedCallback(() => {
-    void handleContainerClose();
-  }, 50);
-
   useImperativeHandle(
     ref,
     () => ({
@@ -120,6 +154,16 @@ function BasicShowToaster({
     [handleImperativeClose],
   );
 
+  useEffect(() => {
+    if (!isOpen || !Number.isFinite(duration)) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      void handleContainerClose();
+    }, duration);
+    return () => clearTimeout(timer);
+  }, [duration, handleContainerClose, isOpen]);
+
   const value = useMemo(
     () => ({
       close: handleContainerClose,
@@ -127,77 +171,71 @@ function BasicShowToaster({
     [handleContainerClose],
   );
   const { top } = useSafeAreaInsets();
-  // when Stack's pointerEvents is set to 'auto',
-  //  if there is no click event assigned, clicks will pass through on Android.
-  const handleNoop = useCallback(() => {}, []);
-  const handleEscapeKeyDown = useCallback((event: GestureResponderEvent) => {
-    event.preventDefault();
-  }, []);
-
   const pageWidth = usePageWidth();
+  const { translateY, panHandlers } = useSwipeUpToClose(
+    handleContainerClose,
+    !disableSwipeGesture,
+  );
 
-  const zIndex = useOverlayZIndex(isOpen, containerName);
-  const isShowToast = useHackIsShowToast(isOpen);
+  // A transparent backdrop keeps taps off the page below, as before.
+  const backdrop = useMemo<IOverlayBackdrop>(
+    () => ({ color: 'transparent', dismissOnPress: dismissOnOverlayPress }),
+    [dismissOnOverlayPress],
+  );
+  const handleRequestDismiss = useCallback(() => {
+    void handleContainerClose();
+  }, [handleContainerClose]);
+  const handleOverlayClose = useCallback(() => {
+    translateY.setValue(0);
+    onExited?.();
+  }, [onExited, translateY]);
+  const cardStyle = useMemo(
+    () => [styles.card, { paddingTop: top || 20, transform: [{ translateY }] }],
+    [top, translateY],
+  );
 
   return (
-    <>
-      {isOpen ? (
+    <OverlayView
+      visible={isOpen}
+      level="toast"
+      presentation="toast"
+      animation={CUSTOM_TOAST_ANIMATION}
+      blocking
+      backdrop={backdrop}
+      dismissOnBackPress={dismissOnOverlayPress}
+      onRequestDismiss={handleRequestDismiss}
+      onClose={handleOverlayClose}
+    >
+      {/* The direct child of the overlay root: native animations scale
+          around it, not around the window. */}
+      <Animated.View
+        style={cardStyle}
+        pointerEvents="box-none"
+        {...panHandlers}
+      >
         <Stack
-          position="absolute"
-          width="100%"
-          height="100%"
-          flex={1}
-          zIndex={zIndex}
-          pointerEvents="auto"
-          onPress={dismissOnOverlayPress ? handleContainerClose : handleNoop}
-        />
-      ) : null}
-      {isShowToast ? (
-        <>
-          <ToastViewport
-            zIndex={zIndex}
-            name={containerName}
-            width="100%"
-            position="absolute"
-            alignContent="center"
-            multipleToasts={false}
-            justifyContent="center"
-            py={top || '$5'}
-          />
-          <Toast
-            zIndex={zIndex}
-            unstyled
-            onEscapeKeyDown={handleEscapeKeyDown as any}
-            onSwipeEnd={handleSwipeEnd}
-            justifyContent="center"
-            open={isOpen}
-            borderRadius={0}
-            enterStyle={toastEnterStyle}
-            exitStyle={toastExitStyle}
-            duration={duration}
-            w={platformEnv.isNative ? pageWidth : undefined}
-            maxWidth={platformEnv.isNative ? '$96' : undefined}
-            px={platformEnv.isNative ? '$5' : undefined}
-            transition="quick"
-            animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-            viewportName={containerName}
-          >
-            <CustomToasterContext.Provider value={value}>
-              <Stack
-                testID="confirm-on-device-toast-container"
-                borderRadius="$2.5"
-                borderWidth={StyleSheet.hairlineWidth}
-                borderColor="$borderSubdued"
-              >
-                <ThemeableStack bg="$bg" borderRadius="$2.5" elevation={44}>
-                  {children}
-                </ThemeableStack>
-              </Stack>
-            </CustomToasterContext.Provider>
-          </Toast>
-        </>
-      ) : null}
-    </>
+          // A drag that selects text ends the web responder; keep the card
+          // unselectable while it can be swiped.
+          userSelect={disableSwipeGesture ? undefined : 'none'}
+          w={platformEnv.isNative ? pageWidth : undefined}
+          maxWidth={platformEnv.isNative ? '$96' : undefined}
+          px={platformEnv.isNative ? '$5' : undefined}
+        >
+          <CustomToasterContext.Provider value={value}>
+            <Stack
+              testID="confirm-on-device-toast-container"
+              borderRadius="$2.5"
+              borderWidth={StyleSheet.hairlineWidth}
+              borderColor="$borderSubdued"
+            >
+              <ThemeableStack bg="$bg" borderRadius="$2.5" elevation={44}>
+                {children}
+              </ThemeableStack>
+            </Stack>
+          </CustomToasterContext.Provider>
+        </Stack>
+      </Animated.View>
+    </OverlayView>
   );
 }
 

@@ -109,15 +109,8 @@ function getMocks() {
 
 describe('inAppStateLockDialogProps', () => {
   it('renders lock-screen dialogs inside the lock overlay on every platform', () => {
-    expect(inAppStateLockDialogProps).toMatchObject({
-      isOverTopAllViews: false,
+    expect(inAppStateLockDialogProps).toEqual({
       portalContainer: 'APP_STATE_LOCK_CONTAINER_OVERLAY',
-    });
-  });
-
-  it('stops the sheet form of a lock-screen dialog from portalling to the body', () => {
-    expect(inAppStateLockDialogProps.sheetProps).toMatchObject({
-      portalProps: { passThrough: true },
     });
   });
 });
@@ -164,27 +157,6 @@ describe('useResetApp', () => {
     );
   });
 
-  it('claims no overlay behavior on the unlocked path, on native either', async () => {
-    // `dialogShow` only reads `isOverTopAllViews` alongside a
-    // `portalContainer`, and the unlocked path names none — so passing it
-    // would be an inert prop asserting stacking this dialog does not get.
-    jest.requireMock(
-      '@onekeyhq/shared/src/platformEnv',
-    ).__platformEnv.isNative = true;
-    const { result } = renderHook(() => useResetApp());
-
-    await act(async () => {
-      await result.current();
-    });
-
-    const props = getMocks().dialogShow.mock.calls[0][0] as Record<
-      string,
-      unknown
-    >;
-    expect(props.portalContainer).toBeUndefined();
-    expect(props.isOverTopAllViews).toBeUndefined();
-  });
-
   it('still hands the lock screen its own container on native', async () => {
     jest.requireMock(
       '@onekeyhq/shared/src/platformEnv',
@@ -195,10 +167,8 @@ describe('useResetApp', () => {
       await result.current();
     });
 
-    // The lock-screen props must win over the native default above.
     expect(getMocks().dialogShow).toHaveBeenCalledWith(
       expect.objectContaining({
-        isOverTopAllViews: false,
         portalContainer: 'APP_STATE_LOCK_CONTAINER_OVERLAY',
       }),
     );

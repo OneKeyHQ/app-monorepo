@@ -3,15 +3,13 @@ import { useCallback, useEffect, useRef } from 'react';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Dialog, Portal, Spinner } from '@onekeyhq/components';
+import { Dialog, Spinner } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePasswordPromptPromiseTriggerAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import type { IPbkdf2KdfParams } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { PASSWORD_VERIFY_CONTAINER_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 import { EPasswordPromptType } from '@onekeyhq/shared/types/password';
 
 const passwordPromptFallback = <Spinner size="large" />;
@@ -41,6 +39,8 @@ const PasswordVerifyPromptMount = () => {
     (id: number) => {
       dialogRef.current = Dialog.show({
         title: intl.formatMessage({ id: ETranslations.global_set_passcode }),
+        // Password prompts sit above dialogs and the hardware stage.
+        overlayLevel: 'secure',
         onClose() {
           onClose(id);
         },
@@ -82,14 +82,8 @@ const PasswordVerifyPromptMount = () => {
         title: intl.formatMessage({
           id: ETranslations.enter_passcode,
         }),
-        floatingPanelProps: platformEnv.isNative
-          ? undefined
-          : {
-              zIndex: PASSWORD_VERIFY_CONTAINER_Z_INDEX,
-            },
-        portalContainer: platformEnv.isNative
-          ? undefined
-          : Portal.Constant.PASSWORD_VERIFY_CONTAINER_PORTAL,
+        // Password prompts sit above dialogs and the hardware stage.
+        overlayLevel: 'secure',
         onClose() {
           onClose(id);
         },

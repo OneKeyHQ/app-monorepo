@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { ComponentProps, RefObject } from 'react';
 
-import { Spinner, Stack, useOverlayZIndex } from '@onekeyhq/components';
+import { OVERLAY_WEB_Z_INDEX_BASE } from '@onekeyfe/react-native-native-overlay';
+
+import { Spinner, Stack } from '@onekeyhq/components';
 import {
   type ITradingViewNativeSource,
   TradingViewNative,
@@ -59,6 +61,10 @@ const MARKET_DETAIL_LAYOUT = {
 } as const;
 
 const SCROLL_CONTAINER_STYLE = { overflowY: 'auto' } as const;
+// The fullscreen chart stays in place (a remount would reload TradingView) and
+// is lifted with `position: fixed`: above the page, just below the web overlay
+// layers, so dialogs and toasts still cover it.
+const CHART_FULLSCREEN_Z_INDEX = OVERLAY_WEB_Z_INDEX_BASE.modal - 1;
 const IFRAME_WHEEL_EVENT_TYPE = 'wheelEvent' as const;
 
 type IDesktopInformationTabsProps = ComponentProps<
@@ -244,7 +250,6 @@ export function DesktopLayout({
     () => ({ accountAddress, networkId, tokenAddress }),
     [accountAddress, networkId, tokenAddress],
   );
-  const chartFullscreenZIndex = useOverlayZIndex(isChartFullscreen);
 
   const { portfolioData, isRefreshing } = usePortfolioData({
     tokenAddress,
@@ -621,7 +626,7 @@ export function DesktopLayout({
           isTradeLoading={isTradeLoading}
           showFavoriteButton={showFavoriteButton}
           isChartFullscreen={isChartFullscreen}
-          chartFullscreenZIndex={chartFullscreenZIndex}
+          chartFullscreenZIndex={CHART_FULLSCREEN_Z_INDEX}
           onChartSwitch={onChartSwitch}
           onEnterChartFullscreen={handleEnterChartFullscreen}
         />
@@ -651,7 +656,7 @@ export function DesktopLayout({
           disableTrade={shouldDisableTrade}
           showFavoriteButton={showFavoriteButton}
           isChartFullscreen={isChartFullscreen}
-          chartFullscreenZIndex={chartFullscreenZIndex}
+          chartFullscreenZIndex={CHART_FULLSCREEN_Z_INDEX}
           chartMode={isTradingViewNative ? 'native' : 'tradingView'}
           isChartSwitchDisabled={!effectiveMarketTradingViewParams}
           onChartSwitch={onChartSwitch}
@@ -679,7 +684,7 @@ export function DesktopLayout({
         tokenLogoUrl={tokenDetail?.logoUrl}
         showFavoriteButton={showFavoriteButton}
         isChartFullscreen={isChartFullscreen}
-        chartFullscreenZIndex={chartFullscreenZIndex}
+        chartFullscreenZIndex={CHART_FULLSCREEN_Z_INDEX}
         chartMode={isTradingViewNative ? 'native' : 'tradingView'}
         isChartSwitchDisabled={!effectiveMarketTradingViewParams}
         disableTrade={shouldDisableTrade}

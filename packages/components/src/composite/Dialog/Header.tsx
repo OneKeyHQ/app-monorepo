@@ -4,6 +4,7 @@ import { createContext, memo, useContext, useEffect, useMemo } from 'react';
 import type { IHyperlinkTextProps } from '@onekeyhq/kit/src/components/HyperlinkText';
 
 import { IconButton } from '../../actions/IconButton';
+import { GlassButtonCapsule } from '../../content/GlassButtonCapsule';
 import { RichSizeableText } from '../../content/RichSizeableText';
 import { useSettingConfig } from '../../hocs/Provider/hooks/useProviderValue';
 import { Heading, Icon, SizableText, Stack } from '../../primitives';
@@ -127,21 +128,20 @@ export function DialogHeaderCloseButton({
     return null;
   }
   return (
-    // Internal dialog control; QA should target the dialog body.
-    // oxlint-disable-next-line onekey/require-testid
-    <IconButton
-      testID={testID}
-      trackID={trackID}
-      position="absolute"
-      zIndex={1}
-      right="$5"
-      top="$5"
-      icon="CrossedSmallOutline"
-      iconProps={closeButtonIconProps}
-      size="small"
-      hotKey
-      onPress={onClose}
-    />
+    <Stack position="absolute" zIndex={1} right="$5" top="$5">
+      <GlassButtonCapsule circular>
+        {/* Internal dialog control; QA can also target the dialog body. */}
+        <IconButton
+          testID={testID ?? 'dialog-header-close'}
+          trackID={trackID}
+          icon="CrossedSmallOutline"
+          iconProps={closeButtonIconProps}
+          size="small"
+          hotKey
+          onPress={onClose}
+        />
+      </GlassButtonCapsule>
+    </Stack>
   );
 }
 

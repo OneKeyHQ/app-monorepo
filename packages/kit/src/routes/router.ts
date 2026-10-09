@@ -15,6 +15,7 @@ import {
 } from './routerPathConfig';
 import { TabNavigator } from './Tab/Navigator';
 import { useTabRouterConfig } from './Tab/router';
+import { withOverlayPageHost } from './withOverlayPageHost';
 
 const ModalNavigator = LazyLoad(async () => {
   const { ModalNavigator: Component } = await import('./Modal/Navigator');
@@ -85,32 +86,32 @@ const buildOAuthCallbackWebRouter = () => {
 export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
   {
     name: ERootRoutes.Main,
-    component: TabNavigator,
+    component: withOverlayPageHost(TabNavigator),
     initialRoute: true,
   },
   {
     name: ERootRoutes.Onboarding,
-    component: OnboardingNavigator,
+    component: withOverlayPageHost(OnboardingNavigator),
     type: 'onboarding',
   },
   {
     name: ERootRoutes.Modal,
-    component: ModalNavigator,
+    component: withOverlayPageHost(ModalNavigator),
     type: 'modal',
   },
   {
     name: ERootRoutes.iOSFullScreen,
-    component: IOSFullScreenNavigator,
+    component: withOverlayPageHost(IOSFullScreenNavigator),
     type: 'iOSFullScreen',
   },
   {
     name: ERootRoutes.FullScreenPush,
-    component: FullScreenPushNavigator,
+    component: withOverlayPageHost(FullScreenPushNavigator),
     type: 'fullScreenPush',
   },
   {
     name: ERootRoutes.WebView,
-    component: WebViewNavigator,
+    component: withOverlayPageHost(WebViewNavigator),
     type: 'webView',
   },
   ...buildPermissionRouter(),

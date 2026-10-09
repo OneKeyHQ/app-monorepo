@@ -13,6 +13,8 @@ import {
   ShowToastProvider,
   Toaster,
 } from '@onekeyhq/components/src/actions/Toast';
+import { OverlayView } from '@onekeyfe/react-native-native-overlay';
+
 import { Portal } from '@onekeyhq/components/src/hocs/Portal';
 import { ConfigProvider } from '@onekeyhq/components/src/hocs/Provider';
 import { useTheme } from '@onekeyhq/components/src/hooks/useStyle';
@@ -21,7 +23,19 @@ import { Stack } from '@onekeyhq/components/src/primitives/Stack';
 import { HyperlinkTextStub } from './HyperlinkTextStub';
 
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
+import type { IOverlayViewProps } from '@onekeyfe/react-native-native-overlay';
 import type { Preview } from '@storybook/react-native-web-vite';
+
+const HOST_PROPS = {
+  visible: true,
+  presentation: 'fullscreen',
+  animation: { enter: { type: 'none' } },
+  blocking: false,
+  backdrop: false,
+  dismissOnBackPress: false,
+} as const satisfies Partial<IOverlayViewProps>;
+const TOAST_HOST_PROPS = { ...HOST_PROPS, level: 'toast' } as const;
+const HARDWARE_HOST_PROPS = { ...HOST_PROPS, level: 'hardware' } as const;
 
 function CanvasBackground() {
   // The decorator's Stack stops at its content height (its min-height:100%
@@ -123,24 +137,14 @@ const preview: Preview = {
               theme/intl context. */}
           <Portal.Container name={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL} />
           <ShowToastProvider />
-          <Toaster />
-          {/* The hardware stage's mount point, mirroring the native
-              shell's: the web canvas has no presentation layering to
-              dodge, the target just has to exist. Window-wide (fixed,
-              past Storybook's page padding — the app mounts the stage
-              on the window, and the toasters seat themselves against
-              its window-space bottom edge) and box-none so the stage
-              positions itself and the story behind stays live. */}
-          <Stack
-            position="fixed"
-            top={0}
-            left={0}
-            right={0}
-            bottom={0}
-            pointerEvents="box-none"
-          >
+          {/* As the app: the toaster in the `toast` overlay level, the
+              hardware stage's mount point in the `hardware` level. */}
+          <OverlayView {...TOAST_HOST_PROPS}>
+            <Toaster />
+          </OverlayView>
+          <OverlayView {...HARDWARE_HOST_PROPS}>
             <Portal.Container name={Portal.Constant.HARDWARE_UI_STATE_DIALOG} />
-          </Stack>
+          </OverlayView>
         </ConfigProvider>
       );
     },

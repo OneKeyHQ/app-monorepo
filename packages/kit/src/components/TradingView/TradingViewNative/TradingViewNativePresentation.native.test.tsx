@@ -20,12 +20,10 @@ jest.mock('react-native-gesture-handler', () => ({
   ),
 }));
 jest.mock('react-native-safe-area-context', () => ({
-  SafeAreaProvider: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
-  ),
-  SafeAreaView: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
-  ),
+  useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
+}));
+jest.mock('@onekeyfe/react-native-native-overlay', () => ({
+  OverlayView: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));
 
 describe('TradingViewNative fullscreen presentation', () => {

@@ -197,11 +197,14 @@ describe('PasswordVerify biometric-changed warning', () => {
 
     expect(getMocks().setBiologyAuthEnable).toHaveBeenCalledWith(false);
     expect(getMocks().dialogConfirm).toHaveBeenCalledWith(
-      expect.objectContaining(inAppStateLockDialogProps),
+      expect.objectContaining({
+        ...inAppStateLockDialogProps,
+        overlayLevel: 'lock',
+      }),
     );
   });
 
-  it('leaves the warning in the default portal everywhere else', async () => {
+  it('keeps the warning in the secure layer without targeting the lock portal', async () => {
     renderVerify();
     await flush();
 
@@ -217,10 +220,7 @@ describe('PasswordVerify biometric-changed warning', () => {
       string,
       unknown
     >;
+    expect(props.overlayLevel).toBe('secure');
     expect(props.sheetProps).toBeUndefined();
-    // The default portal, where the passcode prompt that raises it already
-    // is — no window overlay of its own, which on iOS would also put it
-    // above the lock screen and the toast layer.
-    expect(props.isOverTopAllViews).toBeUndefined();
   });
 });

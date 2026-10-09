@@ -1,11 +1,5 @@
 /* eslint-disable react/prop-types */
-import type {
-  ComponentProps,
-  MutableRefObject,
-  PropsWithChildren,
-  ReactElement,
-  RefObject,
-} from 'react';
+import type { ComponentProps, PropsWithChildren, ReactElement } from 'react';
 import {
   useCallback,
   useEffect,
@@ -15,23 +9,22 @@ import {
   useState,
 } from 'react';
 
+import {
+  OverlayView,
+  useNestedOverlayLevel,
+} from '@onekeyfe/react-native-native-overlay';
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import {
   Button,
-  EPortalContainerConstantName,
-  Portal,
   SizableText,
   Stack,
   View,
   XStack,
   YStack,
-  useBackHandler,
-  useDeferredPromise,
   useMedia,
 } from '@onekeyhq/components';
-import type { IDeferredPromise, IElement } from '@onekeyhq/components';
-import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import { useSpotlightPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spotlight';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -62,12 +55,8 @@ interface IFloatingPosition {
   height: number;
 }
 
-type ISpotlightContentEvent = ISpotlightViewProps & {
-  triggerRef: RefObject<NativeView>;
-  floatingOffset: number;
-  childrenPaddingVertical?: number;
-  childrenPaddingHorizontal?: number;
-};
+const EMPTY_POSITION: IFloatingPosition = { x: 0, y: 0, width: 0, height: 0 };
+const SPOTLIGHT_BACKDROP = { color: 'rgba(0,0,0,0.3)' } as const;
 
 export type ISpotlightProps = PropsWithChildren<{
   containerProps?: ISpotlightViewProps['containerProps'];
@@ -83,109 +72,67 @@ export type ISpotlightProps = PropsWithChildren<{
   replaceChildren?: ReactElement;
 }>;
 
-function SpotlightContent({
-  initProps,
-  triggerPropsRef,
-}: {
-  initProps: ISpotlightContentEvent;
-  triggerPropsRef: MutableRefObject<{
-    defer?: IDeferredPromise<unknown>;
-    trigger: ((props: ISpotlightContentEvent) => void) | undefined;
-  }>;
-}) {
+// Renders in a blocking native overlay (`modal`, or the level of the overlay
+// it lives in): the trigger is copied above a dimmed window at its measured
+// window frame, with the message card below it. Back / Escape are swallowed;
+// only "Done" ends the tour.
+export function SpotlightView({
+  containerProps,
+  children,
+  replaceChildren,
+  content,
+  childrenPaddingVertical = 8,
+  childrenPaddingHorizontal = 8,
+  showHighlightBackground = true,
+  highlightBackgroundOpacity = 1,
+  floatingOffset = 12,
+  visible = false,
+  onConfirm,
+}: ISpotlightViewProps) {
   const intl = useIntl();
-
   const { gtMd } = useMedia();
-  const [props, setProps] = useState(initProps);
-  const [floatingPosition, setFloatingPosition] = useState<IFloatingPosition>({
-    x: 0,
-    y: 0,
-    width: 0,
-    height: 0,
-  });
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const level = useNestedOverlayLevel();
+  const triggerRef = useRef<NativeView | null>(null);
+  const [floatingPosition, setFloatingPosition] =
+    useState<IFloatingPosition>(EMPTY_POSITION);
 
-  const md = useMedia();
-
-  const measureTriggerInWindow = useCallback(() => {
-    if (initProps.triggerRef) {
-      const noNativeNavigator =
-        platformEnv.isDesktopWin || platformEnv.isDesktopLinux;
-
-      // Requires a -30px offset to compensate for window title bar height
-      const extraY = noNativeNavigator ? -30 : 0;
-
-      initProps.triggerRef.current?.measureInWindow((x, y, width, height) => {
-        if (
-          floatingPosition.x === x &&
-          floatingPosition.y === y &&
-          floatingPosition.width === width &&
-          floatingPosition.height === height
-        ) {
-          return;
-        }
-        setFloatingPosition({
-          x,
-          y: y + extraY,
-          width,
-          height,
-        });
-      });
+  useLayoutEffect(() => {
+    if (!visible) {
+      return;
     }
-  }, [initProps.triggerRef, floatingPosition]);
-
-  useLayoutEffect(() => {
-    measureTriggerInWindow();
-  }, [md, measureTriggerInWindow]);
-
-  useLayoutEffect(() => {
-    if (triggerPropsRef.current) {
-      triggerPropsRef.current.trigger = (params) => {
-        setProps(params);
-      };
-      if (triggerPropsRef.current.defer) {
-        triggerPropsRef.current.defer.resolve(undefined);
+    triggerRef.current?.measureInWindow((x, y, width, height) => {
+      if (platformEnv.isDev && width === 0) {
+        console.error(
+          'The Spotlight on the current page is not visible, so the measured width is 0. Please change the visibility to true when the page is focused',
+        );
       }
-    }
-  }, [initProps.triggerRef, measureTriggerInWindow, triggerPropsRef]);
-  const {
-    visible,
-    children,
-    content,
-    onConfirm,
-    floatingOffset,
-    childrenPaddingHorizontal = 8,
-    childrenPaddingVertical = 8,
-    showHighlightBackground = true,
-    highlightBackgroundOpacity = 1,
-  } = props;
+      setFloatingPosition((prev) =>
+        prev.x === x &&
+        prev.y === y &&
+        prev.width === width &&
+        prev.height === height
+          ? prev
+          : { x, y, width, height },
+      );
+    });
+  }, [visible, gtMd, windowWidth, windowHeight]);
 
   const isRendered = floatingPosition.width > 0;
 
-  if (platformEnv.isDev && !isRendered) {
-    console.error(
-      'The Spotlight on the current page is not visible, so the measured width is 0. Please change the visibility to true when the page is focused',
-    );
-  }
-
   const floatingStyle = useMemo(
-    () =>
-      isRendered
-        ? {
-            top:
-              floatingPosition.y +
-              floatingPosition.height +
-              floatingOffset +
-              childrenPaddingVertical,
-            left: gtMd ? floatingPosition.x - childrenPaddingHorizontal : '$4',
-            right: gtMd ? undefined : '$4',
-            maxWidth: gtMd ? 354 : undefined,
-          }
-        : undefined,
+    () => ({
+      top:
+        floatingPosition.y +
+        floatingPosition.height +
+        floatingOffset +
+        childrenPaddingVertical,
+      left: gtMd ? floatingPosition.x - childrenPaddingHorizontal : '$4',
+      right: gtMd ? undefined : '$4',
+      maxWidth: gtMd ? 354 : undefined,
+    }),
     [
-      isRendered,
-      floatingPosition.y,
-      floatingPosition.height,
-      floatingPosition.x,
+      floatingPosition,
       floatingOffset,
       childrenPaddingVertical,
       gtMd,
@@ -193,24 +140,18 @@ function SpotlightContent({
     ],
   );
 
-  const handleBackPress = useCallback(() => true, []);
-  useBackHandler(handleBackPress);
-  if (visible && isRendered)
-    return (
-      <Stack
+  return (
+    <>
+      <View ref={triggerRef} collapsable={false} {...containerProps}>
+        {children}
+      </View>
+      <OverlayView
+        visible={visible && isRendered}
+        level={level}
+        presentation="fullscreen"
+        backdrop={SPOTLIGHT_BACKDROP}
+        dismissOnBackPress={false}
         testID="spotlight-content"
-        transition="quick"
-        animateOnly={ANIMATE_ONLY_OPACITY}
-        bg="rgba(0,0,0,0.3)"
-        position="absolute"
-        top={0}
-        left={0}
-        bottom={0}
-        right={0}
-        enterStyle={{
-          opacity: 0,
-        }}
-        exitStyle={{ opacity: 0 }}
       >
         <Stack
           position="absolute"
@@ -230,7 +171,8 @@ function SpotlightContent({
               opacity={highlightBackgroundOpacity}
             />
           ) : null}
-          {children}
+          {/* Positioned, so it paints above the absolute background on web. */}
+          <Stack position="relative">{replaceChildren || children}</Stack>
         </Stack>
         <YStack
           position="absolute"
@@ -258,91 +200,7 @@ function SpotlightContent({
             </Button>
           </XStack>
         </YStack>
-      </Stack>
-    );
-
-  return null;
-}
-
-export function SpotlightView({
-  containerProps,
-  children,
-  replaceChildren,
-  content,
-  childrenPaddingVertical,
-  childrenPaddingHorizontal,
-  showHighlightBackground,
-  highlightBackgroundOpacity,
-  floatingOffset = 12,
-  visible = false,
-  onConfirm,
-}: ISpotlightViewProps) {
-  const defer = useDeferredPromise();
-  const triggerRef = useRef<IElement | null>(null);
-  const triggerPropsRef = useRef<{
-    trigger: ((props: ISpotlightContentEvent) => void) | undefined;
-    defer: IDeferredPromise<unknown>;
-  }>({
-    trigger: undefined,
-    defer,
-  });
-  useEffect(() => {
-    setTimeout(async () => {
-      await defer.promise;
-      triggerPropsRef.current.trigger?.({
-        visible,
-        children: replaceChildren || children,
-        content,
-        onConfirm,
-        triggerRef: triggerRef as any,
-        floatingOffset,
-        childrenPaddingVertical,
-        childrenPaddingHorizontal,
-        showHighlightBackground,
-        highlightBackgroundOpacity,
-      });
-    });
-  }, [
-    children,
-    content,
-    defer,
-    floatingOffset,
-    onConfirm,
-    replaceChildren,
-    visible,
-    childrenPaddingVertical,
-    childrenPaddingHorizontal,
-    showHighlightBackground,
-    highlightBackgroundOpacity,
-  ]);
-
-  return (
-    <>
-      <View ref={triggerRef} collapsable={false} {...containerProps}>
-        {children}
-      </View>
-      {visible ? (
-        <Portal.Body
-          destroyDelayMs={1200}
-          container={EPortalContainerConstantName.SPOTLIGHT_OVERLAY_PORTAL}
-        >
-          <SpotlightContent
-            triggerPropsRef={triggerPropsRef}
-            initProps={{
-              visible,
-              children: replaceChildren || children,
-              content,
-              onConfirm,
-              floatingOffset,
-              childrenPaddingVertical,
-              childrenPaddingHorizontal,
-              showHighlightBackground,
-              highlightBackgroundOpacity,
-              triggerRef: triggerRef as any,
-            }}
-          />
-        </Portal.Body>
-      ) : null}
+      </OverlayView>
     </>
   );
 }
