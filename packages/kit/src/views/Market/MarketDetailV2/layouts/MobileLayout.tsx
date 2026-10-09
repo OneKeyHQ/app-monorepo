@@ -80,7 +80,6 @@ import { usePortfolioData } from '../components/InformationTabs/components/Portf
 import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetworkAccount';
 import { MobileInformationTabs } from '../components/InformationTabs/layout/MobileInformationTabs';
 import { LazyMobileMarketTradingView } from '../components/MarketTradingView/LazyMarketTradingView';
-import { PerpetualTradingBanner } from '../components/PerpetualTradingBanner/PerpetualTradingBanner';
 import { useStockDetail } from '../hooks/StockDetailContext';
 import { useMarketDetailDisplayData } from '../hooks/useMarketDetailDisplayData';
 import { useMarketNativeChartPriceUpdate } from '../hooks/useMarketNativeChartPriceUpdate';
@@ -348,7 +347,6 @@ export interface IMobileLayoutProps {
 export function MobileLayout({
   isLayoutPending,
   isInitialContentPending,
-  disablePerpsBanner,
   disableTrade,
   isChartFullscreen,
   isTradingViewNative,
@@ -836,11 +834,6 @@ export function MobileLayout({
         >
           <YStack>
             <DelayedFreeze freeze={isChartFullscreen}>
-              <PerpetualTradingBanner
-                px="$5"
-                stableLayout={platformEnv.isNative}
-                disabled={disablePerpsBanner}
-              />
               <InformationPanel />
             </DelayedFreeze>
           </YStack>
@@ -994,7 +987,6 @@ export function MobileLayout({
     );
   }, [
     accountMarksContext,
-    disablePerpsBanner,
     handleHeaderHorizontalSwipe,
     handleIndicatorsDialogOpenChange,
     handleInteractionOverlayOpenChange,

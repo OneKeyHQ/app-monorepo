@@ -187,7 +187,6 @@ export function SwapPanel({
       token: undefined,
       direction: ESwapProJumpTokenDirection.BUY,
     });
-    navigation.pop();
     navigation.switchTab(ETabRoutes.Swap);
   }, [
     detailKind,

@@ -52,8 +52,6 @@ import {
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { shouldRedirectOnboardingToTravelMode } from '@onekeyhq/kit/src/utils/onboardingEntryGate';
-import { useToMarketStockDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/hooks/useToMarketStockDetailPage';
-import { useToDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import {
   EJotaiContextStoreNames,
   filterSwapHistoryPendingList,
@@ -106,10 +104,6 @@ import { prefetchSwapKLineMetadata } from '../modal/swapKLineTokenUtils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import ProviderManageContainer from './ProviderManageContainer';
-import {
-  resolveSwapStockMarketDetailTarget,
-  resolveSwapToTokenMarketDetail,
-} from './swapHeaderMarketDetail';
 
 import type { IMarketPresetSettingsState } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings';
 
@@ -643,7 +637,6 @@ const StockKLineHeaderButton = ({
   const [toToken] = useSwapSelectToTokenAtom();
   const [stockExecutionTokens] = useSwapStockExecutionTokensAtom();
   const [stockSelectedToken] = useSwapStockSelectedTokenAtom();
-  const toStockDetail = useToMarketStockDetailPage();
   const stockToken = useMemo(() => {
     return resolveStockKLineToken({
       stockSelectedToken,
@@ -659,65 +652,40 @@ const StockKLineHeaderButton = ({
     stockSelectedToken,
     toToken,
   ]);
-  const stockDetailTarget = useMemo(
-    () => resolveSwapStockMarketDetailTarget(stockToken),
-    [stockToken],
-  );
-  const stockNetworkId = stockToken?.networkId ?? '';
-  const stockTokenAddress = stockToken?.contractAddress ?? '';
-  const stockNetwork = useMemo(
+  const isNative = stockToken?.isNative;
+  const networkId = stockToken?.networkId ?? '';
+  const tokenAddress = stockToken?.contractAddress ?? '';
+  const network = useMemo(
     () =>
       networkUtils.getNetworkShortCode({
-        networkId: stockNetworkId,
-      }) || stockNetworkId,
-    [stockNetworkId],
+        networkId,
+      }) || networkId,
+    [networkId],
   );
-  const desktopStockDisabled =
+  const disabled =
     shouldRedirectOnboardingToTravelMode() ||
     !stockToken?.symbol ||
-    !stockNetworkId ||
-    (!stockTokenAddress && !stockToken?.isNative);
-  const disabled = platformEnv.isNative
-    ? shouldRedirectOnboardingToTravelMode() || !stockDetailTarget
-    : desktopStockDisabled;
+    !networkId ||
+    (!tokenAddress && !isNative);
 
   const onOpenStockMarketDetail = useCallback(() => {
-    if (shouldRedirectOnboardingToTravelMode()) {
+    if (disabled || shouldRedirectOnboardingToTravelMode()) {
       return;
     }
+
     dismissKeyboard();
-    // Desktop and web keep the in-swap Pro market detail. Mobile opens the
-    // Market stock page for the listing.
-    if (!platformEnv.isNative) {
-      if (desktopStockDisabled) {
-        return;
-      }
-      navigation.pushModal(EModalRoutes.SwapModal, {
-        screen: EModalSwapRoutes.SwapProMarketDetail,
-        params: {
-          tokenAddress: stockTokenAddress,
-          network: stockNetwork,
-          isNative: stockToken?.isNative,
-          from: EEnterWay.SwapPro,
-          disableTrade: true,
-          showFavoriteButton: false,
-        },
-      });
-      return;
-    }
-    if (!stockDetailTarget) {
-      return;
-    }
-    void toStockDetail(stockDetailTarget);
-  }, [
-    desktopStockDisabled,
-    navigation,
-    stockDetailTarget,
-    stockNetwork,
-    stockToken?.isNative,
-    stockTokenAddress,
-    toStockDetail,
-  ]);
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapProMarketDetail,
+      params: {
+        tokenAddress,
+        network,
+        isNative,
+        from: EEnterWay.SwapPro,
+        disableTrade: true,
+        showFavoriteButton: false,
+      },
+    });
+  }, [disabled, isNative, navigation, network, tokenAddress]);
 
   return (
     <HeaderIconButton
@@ -731,61 +699,7 @@ const StockKLineHeaderButton = ({
   );
 };
 
-const SwapToTokenKLineHeaderButton = ({
-  iconSize,
-  iconColor,
-  buttonSize,
-}: {
-  iconSize: number | `$${string}`;
-  iconColor?: ColorTokens;
-  buttonSize: 'small' | 'medium';
-}) => {
-  const [toToken] = useSwapSelectToTokenAtom();
-  const toMarketDetail = useToDetailPage({
-    switchToMarketTabFirst: true,
-    resolveMarketAsset: true,
-    from: EEnterWay.Others,
-  });
-  const toStockDetail = useToMarketStockDetailPage();
-  const stockDetailTarget = useMemo(
-    () => resolveSwapStockMarketDetailTarget(toToken),
-    [toToken],
-  );
-  const tokenDetailTarget = useMemo(
-    () => resolveSwapToTokenMarketDetail(toToken),
-    [toToken],
-  );
-  const disabled =
-    shouldRedirectOnboardingToTravelMode() ||
-    (!stockDetailTarget && !tokenDetailTarget);
-
-  const onOpenToTokenMarketDetail = useCallback(() => {
-    if (shouldRedirectOnboardingToTravelMode()) {
-      return;
-    }
-    dismissKeyboard();
-    if (stockDetailTarget) {
-      void toStockDetail(stockDetailTarget);
-      return;
-    }
-    if (tokenDetailTarget) {
-      void toMarketDetail(tokenDetailTarget);
-    }
-  }, [stockDetailTarget, toMarketDetail, toStockDetail, tokenDetailTarget]);
-
-  return (
-    <HeaderIconButton
-      testID={SwapTestIDs.kLineButton}
-      icon="TradingViewCandlesOutline"
-      onPress={onOpenToTokenMarketDetail}
-      disabled={disabled}
-      iconProps={{ size: iconSize, color: iconColor ?? '$icon' }}
-      size={buttonSize}
-    />
-  );
-};
-
-const DesktopSwapKLineHeaderButton = ({
+const SwapKLineHeaderButton = ({
   iconSize,
   iconColor,
   buttonSize,
@@ -1319,17 +1233,9 @@ const SwapHeaderRightActionContainer = ({
           buttonSize={resolvedButtonSize}
         />
       );
-    } else if (platformEnv.isNative) {
-      kLineButton = (
-        <SwapToTokenKLineHeaderButton
-          iconSize={resolvedIconSize}
-          iconColor={iconColor}
-          buttonSize={resolvedButtonSize}
-        />
-      );
     } else {
       kLineButton = (
-        <DesktopSwapKLineHeaderButton
+        <SwapKLineHeaderButton
           iconSize={resolvedIconSize}
           iconColor={iconColor}
           buttonSize={resolvedButtonSize}

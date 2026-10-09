@@ -11,7 +11,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components';
-import type { IMarketDetailChartDisplayMode } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   useMarketDetailChartDisplayModePersistAtom,
   useMarketPriceSourceAtom,
@@ -28,8 +27,7 @@ import { resolveDisplayedStockPriceMode } from '../hooks/useStockPriceSource';
 
 import { MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH } from './components/marketSimpleChartConstants';
 
-// Figma 26907:69491. The mobile simple diagram is a fixed 280px line, with
-// the range row and Simple/Pro switch under it.
+// Keep the chart height stable when switching ranges.
 const MOBILE_SIMPLE_CHART_HEIGHT = 280;
 
 const RANGE_ROW_STYLE = {
@@ -39,13 +37,11 @@ const RANGE_ROW_STYLE = {
 } as const;
 
 function ChartModeButton({
-  selected,
   icon,
   label,
   testID,
   onPress,
 }: {
-  selected: boolean;
   icon: IKeyOfIcons;
   label: string;
   testID: string;
@@ -61,8 +57,8 @@ function ChartModeButton({
       alignItems="center"
       justifyContent="center"
       borderRadius="$full"
-      bg={selected ? '$bgStrong' : '$transparent'}
-      pressStyle={{ bg: selected ? '$bgStrongActive' : '$bgActive' }}
+      bg="$bgStrong"
+      pressStyle={{ bg: '$bgStrongActive' }}
       onPress={onPress}
     >
       <Icon name={icon} size="$4.5" color="$icon" />
@@ -74,32 +70,27 @@ export function MobileChartModeControl() {
   const intl = useIntl();
   const [{ mode }, setChartDisplayMode] =
     useMarketDetailChartDisplayModePersistAtom();
-  const handleModeChange = useCallback(
-    (nextMode: IMarketDetailChartDisplayMode) => {
-      setChartDisplayMode({ mode: nextMode });
-    },
-    [setChartDisplayMode],
-  );
+  const nextMode = mode === 'simple' ? 'pro' : 'simple';
+  const handleModeChange = useCallback(() => {
+    setChartDisplayMode({ mode: nextMode });
+  }, [nextMode, setChartDisplayMode]);
 
   return (
-    <XStack alignItems="center" gap="$0.5" flexShrink={0}>
-      <ChartModeButton
-        testID="market-mobile-chart-mode-simple"
-        label={intl.formatMessage({
-          id: ETranslations.market_chart_mode_simple,
-        })}
-        icon="TradingViewLineOutline"
-        selected={mode === 'simple'}
-        onPress={() => handleModeChange('simple')}
-      />
-      <ChartModeButton
-        testID="market-mobile-chart-mode-pro"
-        label={intl.formatMessage({ id: ETranslations.dexmarket_pro })}
-        icon="TradingViewCandlesOutline"
-        selected={mode === 'pro'}
-        onPress={() => handleModeChange('pro')}
-      />
-    </XStack>
+    <ChartModeButton
+      testID={`market-mobile-chart-mode-${nextMode}`}
+      label={intl.formatMessage({
+        id:
+          nextMode === 'simple'
+            ? ETranslations.market_chart_mode_simple
+            : ETranslations.dexmarket_pro,
+      })}
+      icon={
+        nextMode === 'simple'
+          ? 'TradingViewLineOutline'
+          : 'TradingViewCandlesOutline'
+      }
+      onPress={handleModeChange}
+    />
   );
 }
 
@@ -122,14 +113,6 @@ export function MobileSimpleChart({
 
   return (
     <YStack width="100%" gap="$2" testID="market-mobile-simple-chart">
-      <Stack height={MOBILE_SIMPLE_CHART_HEIGHT} width="100%">
-        <StockSimpleChart
-          marketAssetId={marketAssetId}
-          range={range}
-          priceMode={priceMode}
-          priceScaleFormat={stockId ? 'stock' : undefined}
-        />
-      </Stack>
       <XStack px="$3.5" py="$1" gap="$3" alignItems="center" width="100%">
         <ScrollView
           horizontal
@@ -159,6 +142,14 @@ export function MobileSimpleChart({
         </ScrollView>
         <MobileChartModeControl />
       </XStack>
+      <Stack height={MOBILE_SIMPLE_CHART_HEIGHT} width="100%">
+        <StockSimpleChart
+          marketAssetId={marketAssetId}
+          range={range}
+          priceMode={priceMode}
+          priceScaleFormat={stockId ? 'stock' : undefined}
+        />
+      </Stack>
     </YStack>
   );
 }

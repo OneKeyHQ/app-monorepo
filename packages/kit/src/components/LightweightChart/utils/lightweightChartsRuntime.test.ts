@@ -347,3 +347,56 @@ it('embeds and selects compact prices in the native chart', () => {
   ).toBe('$341.70');
   expect(html).toContain('options.localization');
 });
+
+it('repaints a returning native canvas without accepting zero-size layouts', () => {
+  const html = generateChartHTML({
+    data: [{ time: 1 as UTCTimestamp, value: 1 }],
+    lineWidth: 2,
+    theme: {
+      bgColor: 'transparent',
+      textSubduedColor: '#999999',
+      lineColor: '#00aa00',
+      topColor: 'transparent',
+      bottomColor: 'transparent',
+    },
+  });
+  const start = html.indexOf('var _isTouch =');
+  const end = html.indexOf(
+    "window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ready' }));",
+    start,
+  );
+  const resize = jest.fn();
+  const container = { clientWidth: 390, clientHeight: 280 };
+  const listeners: Record<string, () => void> = {};
+  const page = {
+    ReactNativeWebView: { postMessage: jest.fn() },
+    addEventListener: (name: string, handler: () => void) => {
+      listeners[name] = handler;
+    },
+    repaintChart: () => {},
+  };
+  const document = {
+    hidden: false,
+    addEventListener: (name: string, handler: () => void) => {
+      listeners[name] = handler;
+    },
+  };
+  runInNewContext(html.slice(start, end), {
+    window: page,
+    document,
+    container,
+    chart: { resize, subscribeCrosshairMove: jest.fn() },
+    ResizeObserver: class {
+      observe() {}
+    },
+  });
+  page.repaintChart();
+  expect(resize).toHaveBeenLastCalledWith(390, 280, true);
+  resize.mockClear();
+  container.clientWidth = 0;
+  listeners.pageshow();
+  expect(resize).not.toHaveBeenCalled();
+  container.clientWidth = 390;
+  listeners.visibilitychange();
+  expect(resize).toHaveBeenLastCalledWith(390, 280, true);
+});

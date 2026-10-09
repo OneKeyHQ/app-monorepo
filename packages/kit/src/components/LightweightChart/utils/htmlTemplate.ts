@@ -686,12 +686,20 @@ function getEventHandlers(): string {
         }
       });
 
-      new ResizeObserver(entries => {
-        if (entries.length) {
-          const { width, height } = entries[0].contentRect;
-          chart.applyOptions({ width, height });
+      window.repaintChart = function() {
+        const width = container.clientWidth;
+        const height = container.clientHeight;
+        if (width > 0 && height > 0) {
+          // A translated native header can return with the same DOM dimensions.
+          // Force a repaint even when ResizeObserver has nothing new to report.
+          chart.resize(width, height, true);
         }
-      }).observe(container);
+      };
+      new ResizeObserver(() => window.repaintChart()).observe(container);
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) window.repaintChart();
+      });
+      window.addEventListener('pageshow', () => window.repaintChart());
 
       window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ready' }));
   `.trim();

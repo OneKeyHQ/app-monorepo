@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 import { NumberSizeableText, SizableText, Stack } from '@onekeyhq/components';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import { LightweightChart } from '../LightweightChart';
@@ -340,7 +341,8 @@ export function StockPriceLineChart({
         showTimeScale
         priceScaleMargins={PRICE_SCALE_MARGINS}
         priceScaleEntireTextOnly
-        priceScaleMinimumWidth={PRICE_SCALE_WIDTH}
+        // Let the native canvas measure its labels instead of reserving desktop space.
+        priceScaleMinimumWidth={platformEnv.isNative ? 0 : PRICE_SCALE_WIDTH}
         timeScaleRightOffsetPixels={LAST_POINT_RIGHT_GAP}
         priceFormatter={priceFormatter}
         compactPriceMaxCharacters={PRICE_SCALE_MAX_CHARACTERS}

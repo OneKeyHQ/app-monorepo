@@ -2131,7 +2131,9 @@ function StockMarketTokenHeader({
           <Token
             size="xl"
             tokenImageUri={listingLogoUrl}
-            recyclingKey={listingLogoUrl}
+            recyclingKey={
+              listingLogoUrl || listingStockId || 'stock-market-token'
+            }
             borderRadius="$full"
             bg="$transparent"
             fallbackIcon="CryptoCoinOutline"
@@ -2183,7 +2185,9 @@ function StockMarketTokenHeader({
       tokenImageUris={
         currentStockToken?.logoURI ? undefined : tokenDetail?.logoUrls
       }
-      recyclingKey={tokenImageUri}
+      recyclingKey={
+        tokenImageUri || currentStockToken?.contractAddress || 'stock-token'
+      }
       networkImageUri={effectiveNetworkLogoUri}
       showNetworkIconBorder={false}
       bg="$transparent"

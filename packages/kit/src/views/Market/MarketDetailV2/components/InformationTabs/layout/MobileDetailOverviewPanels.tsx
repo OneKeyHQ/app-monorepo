@@ -1,7 +1,10 @@
 // cspell:ignore Financials
 import type { ReactNode } from 'react';
 
-import { Stack, Tabs } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import { SizableText, Stack, Tabs, XStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
 
@@ -10,6 +13,8 @@ import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { StockFinancials } from '../../StockFinancials/StockFinancials';
 import { TokenActivityOverview } from '../../TokenActivityOverview/TokenActivityOverview';
 import { TokenOverview } from '../../TokenOverview/TokenOverview';
+import { useTokenSecurity } from '../../TokenSecurityAlert/hooks';
+import { TokenSecurityAlert } from '../../TokenSecurityAlert/TokenSecurityAlert';
 import { TokenSupplementaryInfo } from '../../TokenSupplementaryInfo/TokenSupplementaryInfo';
 import { TopCoinsOverviewContent } from '../../TopCoinsOverview/TopCoinsOverviewContent';
 import { StockMobileOverview } from '../StockMobileOverview';
@@ -60,6 +65,9 @@ export function MobileTopCoinsOverviewPanel({
   assetDetail?: IMarketAssetDetailData;
   isAssetDetailLoading?: boolean;
 }) {
+  const intl = useIntl();
+  const { tokenAddress, networkId } = useTokenDetail();
+  const { securityData } = useTokenSecurity({ tokenAddress, networkId });
   return (
     <OverviewScroll scrollEnabled={scrollEnabled}>
       <TopCoinsOverviewContent
@@ -67,6 +75,27 @@ export function MobileTopCoinsOverviewPanel({
         isAssetDetailLoading={isAssetDetailLoading}
         columns={2}
       />
+      {networkId && tokenAddress ? (
+        <XStack
+          testID="market-detail-security-row"
+          px="$5"
+          pb="$4"
+          gap="$1"
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.dexmarket_audit })}
+          </SizableText>
+          {securityData ? (
+            <TokenSecurityAlert />
+          ) : (
+            <SizableText size="$bodySm" color="$textSubdued">
+              --
+            </SizableText>
+          )}
+        </XStack>
+      ) : null}
     </OverviewScroll>
   );
 }

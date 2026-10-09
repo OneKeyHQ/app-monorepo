@@ -1,9 +1,18 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
-import { View } from 'react-native';
+import { AppState, View } from 'react-native';
+import { runOnJS, useAnimatedReaction } from 'react-native-reanimated';
 import WebView from 'react-native-webview';
 
 import { Stack } from '@onekeyhq/components';
+import { CollapsibleTabContext } from '@onekeyhq/components/src/composite/Tabs/CollapsibleTabContext';
 
 import { useChartConfig } from './hooks/useChartConfig';
 import formatChartPriceSource from './utils/formatChartPriceSource';
@@ -190,6 +199,41 @@ export function LightweightChart({
     },
     [onHover],
   );
+
+  const repaintChart = useCallback(() => {
+    webViewRef.current?.injectJavaScript(`
+      (function() {
+        if (typeof window.repaintChart === 'function') {
+          window.repaintChart();
+        }
+      })();
+      true;
+    `);
+  }, []);
+
+  // Collapsing the header moves the WebView offscreen without a DOM resize.
+  // Repaint the existing canvas when it returns, without resetting the range.
+  const tabsContext = useContext(CollapsibleTabContext);
+  const scrollYCurrent = tabsContext?.scrollYCurrent;
+  const headerHeight = tabsContext?.headerHeight ?? 0;
+  useAnimatedReaction(
+    () => !scrollYCurrent || scrollYCurrent.value < headerHeight,
+    (isVisible, wasVisible) => {
+      if (isVisible && wasVisible === false) {
+        runOnJS(repaintChart)();
+      }
+    },
+    [scrollYCurrent, headerHeight, repaintChart],
+  );
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        repaintChart();
+      }
+    });
+    return () => subscription.remove();
+  }, [repaintChart]);
 
   // Update chart when data changes
   useEffect(() => {
