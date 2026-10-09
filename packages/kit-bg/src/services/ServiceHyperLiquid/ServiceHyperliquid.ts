@@ -518,6 +518,9 @@ export default class ServiceHyperliquid extends ServiceBase {
   // Avoids async atom reads in the hot path — written to atom on a throttled schedule
   private _spotPriceCache: Record<string, ISpotAssetCtxEntry> = {};
 
+  // The price cache also holds mids, so track which marks came from contexts.
+  private _spotContextPriceCoins = new Set<string>();
+
   private _spotPriceDirty = false;
 
   private _spotPriceFlushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1501,6 +1504,17 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getTwapStates(
+    params: IEventWebData2Parameters,
+  ): Promise<Pick<IWsWebData2, 'user' | 'twapStates'>> {
+    const { infoClient } = hyperLiquidApiClients;
+    const data = await infoClient.webData2(params);
+    // TWAP loading does not consume the market/account snapshot. Project it
+    // before transport so main never deserializes those unrelated fields.
+    return data ? { user: data.user, twapStates: data.twapStates } : data;
+  }
+
+  @backgroundMethod()
   async getTwapHistory(
     params: ITwapHistoryParameters,
   ): Promise<ITwapHistoryRecord[]> {
@@ -2085,14 +2099,24 @@ export default class ServiceHyperliquid extends ServiceBase {
         };
       }
     });
+    Object.keys(map).forEach((coin) => this._spotContextPriceCoins.add(coin));
     this._flushSpotPrices(map);
     void this.recalculateSpotTotalUsd({ force: true });
   }
 
-  async extractSpotPricesFromAllMids(mids: Record<string, string>) {
+  async extractSpotPricesFromAllMids(
+    mids: Record<string, string>,
+    preferSpotContextPrices = false,
+  ) {
     const map: Record<string, ISpotAssetCtxEntry> = {};
     for (const [coin, price] of Object.entries(mids)) {
-      if (perpsUtils.isSpotInstrument(coin) && price) {
+      // While contexts are wanted, mids only fill coins without a context mark.
+      if (
+        perpsUtils.isSpotInstrument(coin) &&
+        price &&
+        !(preferSpotContextPrices && this._spotContextPriceCoins.has(coin))
+      ) {
+        this._spotContextPriceCoins.delete(coin);
         map[coin] = { markPx: price };
       }
     }
