@@ -2,6 +2,7 @@ import { Fragment, useMemo } from 'react';
 import type { ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { uniqBy } from 'lodash';
 import { type IntlShape, useIntl } from 'react-intl';
 
 import {
@@ -27,6 +28,7 @@ import {
 } from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
+  IInviteLevelCommissionRate,
   IInviteLevelDetail,
   IInviteLevelUpgradeCondition,
 } from '@onekeyhq/shared/src/referralCode/type';
@@ -180,6 +182,18 @@ export function getDisplayLabel(
   return fallback ?? '';
 }
 
+function getCommissionRateLabel(
+  intl: IntlShape,
+  subject: string,
+  rate: IInviteLevelCommissionRate,
+): string {
+  return getDisplayLabel(
+    intl,
+    rate.commissionRatesLabelKey || rate.labelKey,
+    rate.commissionRatesLabel ?? rate.label ?? subject,
+  );
+}
+
 export function LevelAccordionItem({
   level,
   isCurrent,
@@ -251,6 +265,10 @@ export function LevelAccordionItem({
   const isMultiSubject = subjectGroups.length > 1;
   const currencySymbol = useCurrency().symbol;
   const ruleRows = useMemo(() => {
+    // Only compact layouts show the rule table.
+    if (!md) {
+      return [];
+    }
     const formatThreshold = (condition: IInviteLevelUpgradeCondition) =>
       `${currencySymbol}${formatFiatCompact(
         new BigNumber(condition.thresholdFiatValue ?? 0),
@@ -280,11 +298,7 @@ export function LevelAccordionItem({
     commissionRateItems.forEach(({ subject, rate }, index) => {
       const row = rowFor(
         subject || `${index}`,
-        getDisplayLabel(
-          intl,
-          rate.commissionRatesLabelKey || rate.labelKey,
-          rate.commissionRatesLabel ?? rate.label ?? subject,
-        ),
+        getCommissionRateLabel(intl, subject, rate),
       );
       row.rate = formatCommissionRateText({
         rebate: rate.rebate,
@@ -292,17 +306,11 @@ export function LevelAccordionItem({
       });
     });
     // Earn and Onchain share the DeFi name; keep only the first of them.
-    const seenLabels = new Set<string>();
-    return sortCommissionRateItems(Array.from(bySubject.values())).filter(
-      (row) => {
-        if (seenLabels.has(row.label)) {
-          return false;
-        }
-        seenLabels.add(row.label);
-        return true;
-      },
+    return uniqBy(
+      sortCommissionRateItems(Array.from(bySubject.values())),
+      'label',
     );
-  }, [commissionRateItems, currencySymbol, intl, subjectGroups]);
+  }, [commissionRateItems, currencySymbol, intl, md, subjectGroups]);
   let headerNode: React.ReactNode = null;
   if (isMultiSubject) {
     headerNode = (
@@ -444,11 +452,7 @@ export function LevelAccordionItem({
 
                 <XStack gap="$3">
                   {commissionRateItems.map(({ subject, rate }, index) => {
-                    const label = getDisplayLabel(
-                      intl,
-                      rate.commissionRatesLabelKey || rate.labelKey,
-                      rate.commissionRatesLabel ?? rate.label ?? subject,
-                    );
+                    const label = getCommissionRateLabel(intl, subject, rate);
                     return (
                       <CommissionRateCard
                         key={subject || `${index}`}

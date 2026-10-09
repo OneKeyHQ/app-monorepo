@@ -2,16 +2,11 @@ import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Empty,
-  SizableText,
-  Skeleton,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { SizableText, Skeleton, XStack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { ReferralCardEmpty } from '@onekeyhq/kit/src/views/ReferFriends/components/ReferralCardEmpty';
 import {
   COMPACT_ENTRY_TITLE_PROPS,
   COMPACT_ROW_BLEED_PROPS,
@@ -56,16 +51,12 @@ function ListEmpty() {
   const intl = useIntl();
   const cardStyle = useInviteListCardStyle();
   return (
-    <Empty
-      py="$10"
+    <ReferralCardEmpty
       {...cardStyle}
-      illustration="ShakeHands"
-      illustrationProps={{ size: 80, mb: '$1' }}
       title={intl.formatMessage({ id: ETranslations.referral_referred_empty })}
       description={intl.formatMessage({
         id: ETranslations.referral_reward_empty_desc,
       })}
-      descriptionProps={{ size: '$bodyMd' }}
     />
   );
 }

@@ -3,21 +3,21 @@ import { Suspense, forwardRef, lazy, useImperativeHandle, useRef } from 'react';
 
 import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
 
-import type { ILottieViewProps } from './type';
+import type { ILottieViewHandle, ILottieViewProps } from './type';
 
 // Lazy-load the lottie-web player (~600KB) so it leaves the initial bundle and
 // is fetched only when an animation actually renders. Web only — the native
 // variant (lottie-react-native) is unchanged.
 const LottieViewWeb = lazy(() => import('lottie-react'));
 
-export const LottieView = forwardRef<typeof LottieViewWeb, ILottieViewProps>(
+export const LottieView = forwardRef<ILottieViewHandle, ILottieViewProps>(
   ({ source, autoPlay = false, loop, ...props }, ref) => {
     const [restProps, style] = usePropsAndStyle(props, {
       resolveValues: 'auto',
     });
     const animationRef = useRef<any>(null);
 
-    useImperativeHandle(ref as any, () => ({
+    useImperativeHandle(ref, () => ({
       play: () => {
         animationRef.current?.play?.();
       },

@@ -1,26 +1,24 @@
 import { memo, useCallback } from 'react';
 import type { Ref } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import { SizableText, XStack, YStack, useMedia } from '@onekeyhq/components';
 import { useNavigateToInviteCodes } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteCodes/hooks/useNavigateToInviteCodes';
 import type { IInviteCodeStepImageControl } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferAFriend/components/InviteCodeStepImage';
-import { useNavigateToYourReferred } from '@onekeyhq/kit/src/views/ReferFriends/pages/YourReferred/hooks';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IInviteLevelDetail,
   IInviteSummary,
 } from '@onekeyhq/shared/src/referralCode/type';
 
-import { ReferFriendsTestIDs } from '../../../testIDs';
 import { INVITE_COPY } from '../inviteCopy';
 
-import { CardTextAction } from './CardTextAction';
 import { InviteBindRow } from './InviteBindRow';
 import { InviteCompactHero } from './InviteCompactHero';
 import { InviteEarningsCard } from './InviteEarningsCard';
-import { InviteCompactCard, InviteLinkHero } from './InviteLinkHero';
+import {
+  InviteCompactCard,
+  InviteLinkHero,
+  ReferralListLink,
+} from './InviteLinkHero';
 import { InviteRewardRows } from './InviteRewardRows';
 import { useInviteValueSummary } from './InviteValueLine';
 import { SuspensionAlert } from './SuspensionAlert';
@@ -30,18 +28,12 @@ import { useInviteHomeCardStyle } from './useInviteCardStyle';
 // list (the people the codes brought in) beside it, like Payout history on
 // the card itself.
 function InviteEarningsCaption() {
-  const intl = useIntl();
-  const navigateToYourReferred = useNavigateToYourReferred();
   return (
     <XStack ai="center" jc="space-between" gap="$3">
       <SizableText size="$bodyMdMedium" color="$textSubdued">
         {INVITE_COPY.earningsTitle}
       </SizableText>
-      <CardTextAction
-        testID={ReferFriendsTestIDs.inviteYourReferred}
-        label={intl.formatMessage({ id: ETranslations.referral_referral_list })}
-        onPress={navigateToYourReferred}
-      />
+      <ReferralListLink />
     </XStack>
   );
 }

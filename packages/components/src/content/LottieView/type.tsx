@@ -17,3 +17,12 @@ export type ILottieViewProps = Omit<
     width?: StackProps['width'];
     height?: StackProps['height'];
   } & ({ width?: StackProps['width'] } | { height?: StackProps['height'] });
+
+// The imperative handle both platforms expose through `ref`.
+export interface ILottieViewHandle {
+  play: () => void;
+  pause: () => void;
+  // Continues from the paused frame (`play` restarts on Android).
+  resume: () => void;
+  reset: () => void;
+}

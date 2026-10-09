@@ -2,7 +2,7 @@ import { memo, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import type { Ref } from 'react';
 
 import { LottieView, Stack, usePageWidth } from '@onekeyhq/components';
-import type { ILottieViewProps } from '@onekeyhq/components';
+import type { ILottieViewHandle, ILottieViewProps } from '@onekeyhq/components';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -83,11 +83,6 @@ interface IInviteCodeStepImageProps {
   preloadOtherStep?: boolean;
 }
 
-interface ILottiePlayer {
-  pause: () => void;
-  resume: () => void;
-}
-
 // Memoized: re-rendering the native LottieView re-serializes its ~160 KB
 // source, and every prop here is stable.
 export const InviteCodeStepImage = memo(function InviteCodeStepImage({
@@ -95,14 +90,14 @@ export const InviteCodeStepImage = memo(function InviteCodeStepImage({
   controlRef,
   preloadOtherStep = true,
 }: IInviteCodeStepImageProps) {
-  const lottieRef = useRef<ILottiePlayer | null>(null);
+  const lottieRef = useRef<ILottieViewHandle>(null);
   const pausedRef = useRef(false);
   const themeVariant = useThemeVariant();
   const pageWidth = usePageWidth();
   const [lottieSource, setLottieSource] = useState<ILottieSource | null>(null);
   const lottieThemeVariant = themeVariant === 'dark' ? 'dark' : 'light';
   const width = Math.min(pageWidth, MAX_WIDTH);
-  const height = width * LOTTIE_ASPECT_RATIO;
+  const height = getInviteCodeStepImageHeight(pageWidth);
   const shouldLoop = step === 2;
   const renderMode =
     platformEnv.isNativeIOS && step === 2 && themeVariant !== 'dark'
@@ -163,7 +158,7 @@ export const InviteCodeStepImage = memo(function InviteCodeStepImage({
     <Stack w={width} h={height} alignSelf="center" bg="$bgApp">
       {lottieSource ? (
         <LottieView
-          ref={lottieRef as never}
+          ref={lottieRef}
           source={lottieSource}
           width={width}
           height={height}

@@ -39,6 +39,10 @@ export const COMPACT_ROW_BLEED_PROPS = {
   borderRadius: '$3',
 } as const;
 
+// Pressable label/value cells on pointer layouts: the hover surface bleeds
+// 8px past the text, so the text stays aligned with the rest of the card.
+export const POINTER_ROW_BLEED_PROPS = { mx: -8, px: '$2' } as const;
+
 export const INVITE_POPOVER_PANEL_PROPS = { width: 320 } as const;
 
 // Invite home cards round a step further than the card lists on the codes

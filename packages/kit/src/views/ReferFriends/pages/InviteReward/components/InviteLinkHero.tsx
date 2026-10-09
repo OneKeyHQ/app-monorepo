@@ -26,6 +26,7 @@ import { useReferralCodeCard } from './ReferralCodeCard/hooks/useReferralCodeCar
 import { ReferralLinkDropdown } from './ReferralLinkDropdown';
 import {
   INVITE_CARD_BORDER_COLOR,
+  POINTER_ROW_BLEED_PROPS,
   PRESSABLE_SURFACE_PROPS,
 } from './useInviteCardStyle';
 
@@ -85,8 +86,7 @@ function InviteCodeLine({
         ai="center"
         gap="$2"
         // Bleed the hover surface so the label stays aligned with the text above.
-        mx={-8}
-        px="$2"
+        {...POINTER_ROW_BLEED_PROPS}
         py="$1"
         borderRadius="$2"
         {...PRESSABLE_SURFACE_PROPS}
@@ -126,8 +126,8 @@ function InviteLinkActions({
   const linkField = (
     <InviteLinkField inviteUrl={inviteUrl} displayUrl={displayUrl} />
   );
-  // Native pins the copy action to the page footer, so the hero keeps only
-  // the link field and share.
+  // Native pins sharing to the page footer, so the hero keeps only the link
+  // field and share.
   if (platformEnv.isNative) {
     return (
       <XStack ai="center" gap="$2">
@@ -158,7 +158,7 @@ function InviteLinkActions({
 
 // Desktop puts the referral list beside the invite title; compact layouts
 // keep it on the earnings caption.
-function ReferralListLink() {
+export function ReferralListLink() {
   const intl = useIntl();
   const navigateToYourReferred = useNavigateToYourReferred();
   return (

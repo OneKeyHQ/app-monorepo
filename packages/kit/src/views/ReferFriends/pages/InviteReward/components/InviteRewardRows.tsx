@@ -4,7 +4,6 @@ import { useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Empty,
   Icon,
   SizableText,
   Stack,
@@ -23,6 +22,7 @@ import { useNavigateToSwapReward } from '@onekeyhq/kit/src/views/ReferFriends/pa
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 
+import { ReferralCardEmpty } from '../../../components/ReferralCardEmpty';
 import { ReferFriendsTestIDs } from '../../../testIDs';
 import { INVITE_COPY } from '../inviteCopy';
 
@@ -287,7 +287,7 @@ function DesktopCompactRow({
 
 // Before the first reward every product page is empty too, so the section
 // shows one quiet in-card empty state: what will appear here, plus the one
-// action that changes it. Native already has a copy footer, so only the
+// action that changes it. Native already has the share footer, so only the
 // pointer layout gets the button.
 function RewardsEmpty({
   cardStyle,
@@ -297,13 +297,9 @@ function RewardsEmpty({
   onCopyLink?: () => void;
 }) {
   return (
-    <Empty
-      py="$10"
+    <ReferralCardEmpty
       {...cardStyle}
-      illustration="ShakeHands"
-      illustrationProps={{ size: 80, mb: '$1' }}
       description={INVITE_COPY.rewardsEmptyHint}
-      descriptionProps={{ size: '$bodyMd' }}
       buttonProps={
         onCopyLink
           ? {

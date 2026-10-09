@@ -32,6 +32,7 @@ import {
   COMPACT_ENTRY_TITLE_PROPS,
   COMPACT_ROW_BLEED_PROPS,
   INVITE_CARD_BORDER_COLOR,
+  POINTER_ROW_BLEED_PROPS,
   PRESSABLE_SURFACE_PROPS,
   useInviteHomeCardStyle,
 } from './useInviteCardStyle';
@@ -103,7 +104,9 @@ function StatCell({
       py="$1"
       borderRadius="$2"
       // Pressable cells get a padded hover surface that keeps text aligned.
-      {...(onPress ? { ...PRESSABLE_SURFACE_PROPS, mx: -8, px: '$2' } : null)}
+      {...(onPress
+        ? { ...PRESSABLE_SURFACE_PROPS, ...POINTER_ROW_BLEED_PROPS }
+        : null)}
       onPress={onPress}
     >
       <YStack flex={1} gap="$1" minWidth={0}>
