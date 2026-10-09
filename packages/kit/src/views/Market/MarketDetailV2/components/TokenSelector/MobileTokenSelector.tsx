@@ -452,14 +452,18 @@ function MobileTokenSelectorContent() {
                 onItemPress={handleSearchStockSelect}
               />
             ) : null}
-            {!isFavoritesSelection && !isStockSelection && isTopCoinsSelection ? (
+            {!isFavoritesSelection &&
+            !isStockSelection &&
+            isTopCoinsSelection ? (
               <MobileDetailTopCoinsList
                 data={topCoins}
                 isLoading={Boolean(isTopCoinsLoading)}
                 onItemPress={handleTopCoinSelect}
               />
             ) : null}
-            {!isFavoritesSelection && !isStockSelection && !isTopCoinsSelection ? (
+            {!isFavoritesSelection &&
+            !isStockSelection &&
+            !isTopCoinsSelection ? (
               <MarketNormalTokenList
                 onItemPress={handleTokenSelect}
                 networkId={ALL_NETWORK_ID}

@@ -376,9 +376,9 @@ describe('MarketTokenSelector stock default category', () => {
     fireEvent.click(screen.getByTestId('market-token-selector-tab-tokens'));
     expect(screen.getByText('Trending')).toBeTruthy();
     expect(screen.queryByText('AI Tech')).toBeNull();
-    expect(
-      screen.getByTestId('token-list').getAttribute('data-category'),
-    ).toBe('trending');
+    expect(screen.getByTestId('token-list').getAttribute('data-category')).toBe(
+      'trending',
+    );
   });
 
   it('does not use a stock category from the detail route as the token category', () => {
@@ -410,9 +410,7 @@ describe('MarketTokenSelector stock default category', () => {
   it('uses the standard tab label size', () => {
     renderOpenStockSelector();
 
-    const tokensLabel = screen.getByText(
-      'global.universal_search_tabs_tokens',
-    );
+    const tokensLabel = screen.getByText('global.universal_search_tabs_tokens');
     expect(tokensLabel.getAttribute('data-size')).toBe('$bodyLgMedium');
   });
 

@@ -16,7 +16,10 @@ import {
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-export type IDetailSelectorDefaultCategory = 'trending' | 'top_coins' | 'stocks';
+export type IDetailSelectorDefaultCategory =
+  | 'trending'
+  | 'top_coins'
+  | 'stocks';
 
 export type IDetailSelectorBrowseTab = 'favorites' | 'stocks' | 'tokens';
 
@@ -151,8 +154,10 @@ export function useDetailSelectorBrowseState({
   );
   const isFavoritesSelection = browseTab === 'favorites';
   const isStockSelection = browseTab === 'stocks';
-  const { spotCategories: apiSpotCategories, stockCategories: apiStockCategories } =
-    useMarketBasicConfig();
+  const {
+    spotCategories: apiSpotCategories,
+    stockCategories: apiStockCategories,
+  } = useMarketBasicConfig();
   const tokenSubCategories = useMemo(() => {
     const source =
       apiSpotCategories.length > 0
