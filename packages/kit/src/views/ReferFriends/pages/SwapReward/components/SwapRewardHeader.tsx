@@ -43,7 +43,6 @@ export function SwapRewardHeader({
   const currencyInfo = useCurrency();
   const { format } = useFormatDate();
   const { md } = useMedia();
-  const isWideScreen = !md;
 
   const formattedNextDistributionDate = useMemo(() => {
     const value = data?.nextDistribution;
@@ -78,23 +77,6 @@ export function SwapRewardHeader({
 
   const invitedAddresses = data.invitedAddresses || 0;
   const walletCount = data.walletCount || 0;
-  const primarySubtitle = [
-    formatFiatSubtitle({
-      currencySymbol: currencyInfo.symbol,
-      label: intl.formatMessage({
-        id: ETranslations.referral_perps_total,
-      }),
-      value: data.totalRewardFiatValue,
-    }),
-    formattedNextDistributionDate
-      ? `${intl.formatMessage({
-          id: ETranslations.referral_next_distribution,
-        })}: ${formattedNextDistributionDate}`
-      : undefined,
-  ]
-    .filter(Boolean)
-    .join('\n');
-
   const nextDistributionHint = formattedNextDistributionDate
     ? `${intl.formatMessage({
         id: ETranslations.referral_next_distribution,
@@ -151,6 +133,19 @@ export function SwapRewardHeader({
     );
   }
 
+  const primarySubtitle = [
+    formatFiatSubtitle({
+      currencySymbol: currencyInfo.symbol,
+      label: intl.formatMessage({
+        id: ETranslations.referral_perps_total,
+      }),
+      value: data.totalRewardFiatValue,
+    }),
+    nextDistributionHint,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
   const undistributedCard = (
     <StatCard
       title={intl.formatMessage({
@@ -162,8 +157,6 @@ export function SwapRewardHeader({
       showRefreshButton
       isLoading={isLoading}
       onRefresh={onRefresh}
-      isWide={isWideScreen}
-      fullWidth={!isWideScreen}
     />
   );
 
@@ -180,7 +173,6 @@ export function SwapRewardHeader({
         }),
         value: data.totalFeeFiatValue,
       })}
-      isWide={isWideScreen}
     />
   );
 
@@ -192,7 +184,6 @@ export function SwapRewardHeader({
       value={String(invitedAddresses)}
       isCurrency={false}
       subtitle={walletsHint}
-      isWide={isWideScreen}
     />
   );
 

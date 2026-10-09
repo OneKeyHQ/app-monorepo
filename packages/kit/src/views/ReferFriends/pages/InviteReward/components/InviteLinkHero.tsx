@@ -11,15 +11,16 @@ import {
   Stack,
   XStack,
   YStack,
-  useMedia,
 } from '@onekeyhq/components';
 import { useNavigateToYourReferred } from '@onekeyhq/kit/src/views/ReferFriends/pages/YourReferred/hooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { CompactFieldRow } from '../../../components/CompactFieldRow';
 import { ReferFriendsTestIDs } from '../../../testIDs';
 import { INVITE_COPY } from '../inviteCopy';
 
+import { CardTextAction } from './CardTextAction';
 import { InviteValueLine } from './InviteValueLine';
 import { useReferralCodeCard } from './ReferralCodeCard/hooks/useReferralCodeCard';
 import { ReferralLinkDropdown } from './ReferralLinkDropdown';
@@ -67,14 +68,12 @@ function InviteCodeLine({
   inviteCode,
   codeLabel,
   manageLabel,
-  showManageLabel,
   onCopy,
   onManage,
 }: {
   inviteCode: string;
   codeLabel: string;
   manageLabel: string;
-  showManageLabel: boolean;
   onCopy: () => void;
   onManage: () => void;
 }) {
@@ -102,26 +101,11 @@ function InviteCodeLine({
         <Icon name="Copy3Outline" size="$4" color="$iconSubdued" />
       </XStack>
       <Stack flex={1} />
-      {showManageLabel ? (
-        <Button
-          testID={ReferFriendsTestIDs.inviteManageCodes}
-          variant="tertiary"
-          size="small"
-          iconAfter="ChevronRightSmallOutline"
-          onPress={onManage}
-        >
-          {manageLabel}
-        </Button>
-      ) : (
-        <IconButton
-          testID={ReferFriendsTestIDs.inviteManageCodes}
-          variant="tertiary"
-          size="small"
-          icon="ChevronRightSmallOutline"
-          title={manageLabel}
-          onPress={onManage}
-        />
-      )}
+      <CardTextAction
+        testID={ReferFriendsTestIDs.inviteManageCodes}
+        label={manageLabel}
+        onPress={onManage}
+      />
     </XStack>
   );
 }
@@ -132,14 +116,12 @@ function InviteLinkActions({
   copyLabel,
   copyLink,
   shareButton,
-  isCompact,
 }: {
   inviteUrl: string;
   displayUrl: string;
   copyLabel: string;
   copyLink: () => void;
   shareButton: ReactNode;
-  isCompact: boolean;
 }) {
   const linkField = (
     <InviteLinkField inviteUrl={inviteUrl} displayUrl={displayUrl} />
@@ -156,7 +138,6 @@ function InviteLinkActions({
   }
   const copyButton = (
     <Button
-      flex={isCompact ? 1 : undefined}
       variant="primary"
       size="medium"
       onPress={copyLink}
@@ -165,18 +146,6 @@ function InviteLinkActions({
       {copyLabel}
     </Button>
   );
-
-  if (isCompact) {
-    return (
-      <YStack gap="$2">
-        {linkField}
-        <XStack ai="center" gap="$2">
-          {copyButton}
-          {shareButton}
-        </XStack>
-      </YStack>
-    );
-  }
 
   return (
     <InviteLinkField
@@ -187,24 +156,21 @@ function InviteLinkActions({
   );
 }
 
-// Desktop puts the referral list beside the invite title; compact layouts keep
-// it on the earnings card.
+// Desktop puts the referral list beside the invite title; compact layouts
+// keep it on the earnings caption.
 function ReferralListLink() {
   const intl = useIntl();
   const navigateToYourReferred = useNavigateToYourReferred();
   return (
-    <Button
+    <CardTextAction
       testID={ReferFriendsTestIDs.inviteYourReferred}
-      variant="tertiary"
-      size="small"
-      iconAfter="ChevronRightSmallOutline"
+      label={intl.formatMessage({ id: ETranslations.referral_referral_list })}
       onPress={navigateToYourReferred}
-    >
-      {intl.formatMessage({ id: ETranslations.referral_referral_list })}
-    </Button>
+    />
   );
 }
 
+// Pointer layouts only; compact layouts use InviteCompactCard.
 export function InviteLinkHero({
   inviteUrl,
   inviteCode,
@@ -217,7 +183,6 @@ export function InviteLinkHero({
   valueSummary: IInviteValueSummaryResult;
 }) {
   const intl = useIntl();
-  const { md } = useMedia();
   const { handleCopy, copyLink, handleShare, inviteCodeUrl } =
     useReferralCodeCard({
       inviteUrl,
@@ -225,20 +190,19 @@ export function InviteLinkHero({
     });
 
   return (
-    <YStack gap={md ? '$2' : '$4'}>
+    <YStack gap="$4">
       <XStack ai="flex-start" gap="$3">
         <YStack flex={1} gap="$1">
           <SizableText size="$headingLg">{INVITE_COPY.headline}</SizableText>
           <InviteValueLine {...valueSummary} />
         </YStack>
-        {md ? null : <ReferralListLink />}
+        <ReferralListLink />
       </XStack>
       <InviteLinkActions
         inviteUrl={inviteUrl}
         displayUrl={inviteCodeUrl}
         copyLabel={INVITE_COPY.copyLink}
         copyLink={copyLink}
-        isCompact={md}
         shareButton={
           platformEnv.isNative ? (
             <IconButton
@@ -257,7 +221,6 @@ export function InviteLinkHero({
           id: ETranslations.referral_your_code,
         })}
         manageLabel={INVITE_COPY.manageCodes}
-        showManageLabel={!md}
         onCopy={handleCopy}
         onManage={onManageCodes}
       />
@@ -265,44 +228,18 @@ export function InviteLinkHero({
   );
 }
 
-// One label/value line of the compact invite card; the value side holds the
-// figure and its inline actions (copy, more links). These rows show facts
-// rather than open pages, so they sit tighter than the 44px list rows: 8px
-// above and below the text, 16px between lines.
-function InviteFieldRow({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <XStack ai="center" gap="$3" minHeight={36}>
-      <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
-        {label}
-      </SizableText>
-      <XStack flex={1} minWidth={0} ai="center" jc="flex-end" gap="$1">
-        {children}
-      </XStack>
-    </XStack>
-  );
-}
-
 // Compact layouts keep this card to sharing: the code leads, then the link
-// and rates as label/value rows with copy beside each value.
-// Sharing itself is the page's main action, pinned to the footer.
+// with its copy and more-links actions. Sharing itself is the page's main
+// action, pinned to the footer.
 export function InviteCompactCard({
   inviteUrl,
   inviteCode,
   cardStyle,
-  levelValue,
   onManageCodes,
 }: {
   inviteUrl: string;
   inviteCode: string;
   cardStyle: IInviteCardStyle;
-  // The level sits right above the rates it sets.
-  levelValue?: ReactNode;
   onManageCodes: () => void;
 }) {
   const intl = useIntl();
@@ -320,15 +257,11 @@ export function InviteCompactCard({
         <SizableText size="$bodyMd" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.referral_your_code })}
         </SizableText>
-        <Button
+        <CardTextAction
           testID={ReferFriendsTestIDs.inviteManageCodes}
-          variant="tertiary"
-          size="small"
-          iconAfter="ChevronRightSmallOutline"
+          label={INVITE_COPY.manageCodes}
           onPress={onManageCodes}
-        >
-          {INVITE_COPY.manageCodes}
-        </Button>
+        />
       </XStack>
       {/* The code is what people share and type, so it leads the card; its
           copy action sits on it like the link's, as a quiet icon. */}
@@ -346,7 +279,7 @@ export function InviteCompactCard({
         />
       </XStack>
       <Divider mb="$1" borderColor={INVITE_CARD_BORDER_COLOR} />
-      <InviteFieldRow
+      <CompactFieldRow
         label={intl.formatMessage({ id: ETranslations.referral_referral_link })}
       >
         <SizableText size="$bodyMdMedium" numberOfLines={1} flexShrink={1}>
@@ -361,41 +294,7 @@ export function InviteCompactCard({
           title={INVITE_COPY.copyLink}
           onPress={copyLink}
         />
-      </InviteFieldRow>
-      {levelValue ? (
-        <InviteFieldRow
-          label={intl.formatMessage({
-            id: ETranslations.referral_referral_level,
-          })}
-        >
-          {levelValue}
-        </InviteFieldRow>
-      ) : null}
+      </CompactFieldRow>
     </YStack>
-  );
-}
-
-// Compact layouts: the caption over the invite card, with the referral list
-// (the people its codes brought in) on the right, like Payout history on
-// the earnings card.
-export function InviteOverviewCaption({ label }: { label?: string } = {}) {
-  const intl = useIntl();
-  const navigateToYourReferred = useNavigateToYourReferred();
-
-  return (
-    <XStack ai="center" jc="space-between" gap="$3">
-      <SizableText size="$bodyMdMedium" color="$textSubdued">
-        {label ?? intl.formatMessage({ id: ETranslations.global_overview })}
-      </SizableText>
-      <Button
-        testID={ReferFriendsTestIDs.inviteYourReferred}
-        variant="tertiary"
-        size="small"
-        iconAfter="ChevronRightSmallOutline"
-        onPress={navigateToYourReferred}
-      >
-        {intl.formatMessage({ id: ETranslations.referral_referral_list })}
-      </Button>
-    </XStack>
   );
 }

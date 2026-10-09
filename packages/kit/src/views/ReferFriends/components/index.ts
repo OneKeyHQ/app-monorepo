@@ -15,5 +15,4 @@ export type { IStatCardProps } from './StatCard';
 export { RewardHeaderLayout } from './RewardHeaderLayout';
 export { ReferFriendsLoadError } from './ReferFriendsLoadError';
 export { RewardSummaryCard } from './RewardSummaryCard';
-export type { IRewardSummaryRow } from './RewardSummaryCard';
 export { RewardDateRangeField } from './RewardDateRangeField';

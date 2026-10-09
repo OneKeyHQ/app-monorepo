@@ -23,7 +23,10 @@ import {
   ReferFriendsPageContainer,
   RewardDateRangeField,
 } from '../../components';
-import { useDatePresets } from '../../hooks/useDatePresets';
+import {
+  REFERRAL_ALL_TIME_START,
+  useDatePresets,
+} from '../../hooks/useDatePresets';
 import { useRewardFilter } from '../../hooks/useRewardFilter';
 
 import { EarnRewardsTab } from './components';
@@ -48,7 +51,7 @@ function EarnRewardPageWrapper() {
     clearCustomDateRange,
     datePickerValue,
   } = useRewardFilter({
-    startTime: new Date('2024-01-01T00:00:00.000').getTime(),
+    startTime: REFERRAL_ALL_TIME_START.getTime(),
     endTime: (() => {
       const d = new Date();
       d.setHours(23, 59, 59, 999);

@@ -10,7 +10,6 @@ export const INVITE_COPY = {
   earningsTitle: 'Earnings',
   copyLink: 'Copy link',
   inviteFriends: 'Invite friends',
-  rateLabel: 'Rate (you / invitee)',
   upTo: 'Up to',
   manageCodes: 'Manage codes',
   bindTitle: 'Invited by a friend?',

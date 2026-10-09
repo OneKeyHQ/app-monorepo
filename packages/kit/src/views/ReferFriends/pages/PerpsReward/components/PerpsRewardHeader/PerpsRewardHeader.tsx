@@ -24,8 +24,6 @@ export function PerpsRewardHeader({
   const intl = useIntl();
   const { md } = useMedia();
 
-  const isWideScreen = !md;
-
   if (!data) {
     return null;
   }
@@ -94,8 +92,6 @@ export function PerpsRewardHeader({
           showRefreshButton
           isLoading={isLoading}
           onRefresh={onRefresh}
-          isWide={isWideScreen}
-          fullWidth={!isWideScreen}
         />
       }
       secondaryCards={
@@ -105,7 +101,6 @@ export function PerpsRewardHeader({
               id: ETranslations.referral_perps_volume,
             })}
             value={volume}
-            isWide={isWideScreen}
           />
           <StatCard
             title={intl.formatMessage({
@@ -114,7 +109,6 @@ export function PerpsRewardHeader({
             value={String(invitedAddresses)}
             isCurrency={false}
             subtitle={walletsHint}
-            isWide={isWideScreen}
           />
         </>
       }

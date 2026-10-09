@@ -1,9 +1,12 @@
 import type { ReactNode } from 'react';
 
 import { IconButton, SizableText, XStack, YStack } from '@onekeyhq/components';
+import type { ISizableTextProps } from '@onekeyhq/components';
 import type { ColorTokens } from '@onekeyhq/components/src/shared/tamagui';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { useInviteListCardStyle } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteCardStyle';
+
+import { CompactFieldRow } from './CompactFieldRow';
 
 export interface IRewardSummaryRow {
   label: string;
@@ -17,7 +20,9 @@ export interface IRewardSummaryRow {
   hint?: string;
 }
 
-function SummaryValue({
+// A reward figure: an optional prefix ("~"), then the amount in the wallet
+// currency (or `fixedCurrency`), or plain text for counts.
+export function RewardValue({
   value,
   isCurrency = true,
   fixedCurrency,
@@ -29,7 +34,7 @@ function SummaryValue({
   isCurrency?: boolean;
   fixedCurrency?: string;
   prefix?: string;
-  size: '$heading3xl' | '$bodyMdMedium';
+  size: ISizableTextProps['size'];
   color?: ColorTokens;
 }) {
   let content: ReactNode = (
@@ -72,7 +77,6 @@ export function RewardSummaryCard({
   valueText,
   valueColor,
   fixedCurrency,
-  prefix,
   hint,
   rows = [],
   isLoading,
@@ -84,7 +88,6 @@ export function RewardSummaryCard({
   valueText?: string;
   valueColor?: ColorTokens;
   fixedCurrency?: string;
-  prefix?: string;
   hint?: string;
   rows?: IRewardSummaryRow[];
   isLoading?: boolean;
@@ -120,10 +123,9 @@ export function RewardSummaryCard({
           {valueText}
         </SizableText>
       ) : (
-        <SummaryValue
+        <RewardValue
           value={value}
           fixedCurrency={fixedCurrency}
-          prefix={prefix}
           size="$heading3xl"
           color={valueColor}
         />
@@ -136,41 +138,15 @@ export function RewardSummaryCard({
       {rows.length ? (
         <YStack pt="$3">
           {rows.map((row) => (
-            <XStack
-              key={row.label}
-              minHeight={36}
-              py="$1"
-              ai="center"
-              jc="space-between"
-              gap="$3"
-            >
-              <SizableText
-                size="$bodyMd"
-                color="$textSubdued"
-                numberOfLines={1}
-                flexShrink={1}
-              >
-                {row.label}
-              </SizableText>
-              <YStack ai="flex-end" gap="$0.5" flexShrink={0}>
-                <SummaryValue
-                  value={row.value}
-                  isCurrency={row.isCurrency}
-                  fixedCurrency={row.fixedCurrency}
-                  prefix={row.prefix}
-                  size="$bodyMdMedium"
-                />
-                {row.hint ? (
-                  <SizableText
-                    size="$bodySm"
-                    color="$textSubdued"
-                    numberOfLines={1}
-                  >
-                    {row.hint}
-                  </SizableText>
-                ) : null}
-              </YStack>
-            </XStack>
+            <CompactFieldRow key={row.label} label={row.label} hint={row.hint}>
+              <RewardValue
+                value={row.value}
+                isCurrency={row.isCurrency}
+                fixedCurrency={row.fixedCurrency}
+                prefix={row.prefix}
+                size="$bodyMdMedium"
+              />
+            </CompactFieldRow>
           ))}
         </YStack>
       ) : null}

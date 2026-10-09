@@ -30,3 +30,13 @@ export const LEVEL_TARGET_SHORT_LABELS: Record<string, string> = {
   Perp: 'Perps volume',
   Swap: 'Swap volume',
 };
+
+// Product names in the compact level table's row headers, where each column
+// is a few characters wide.
+export const LEVEL_SUBJECT_SHORT_LABELS: Record<string, string> = {
+  HardwareSales: 'Hardware',
+  Perp: 'Perps',
+  Swap: 'Swap',
+  Earn: 'DeFi',
+  Onchain: 'DeFi',
+};

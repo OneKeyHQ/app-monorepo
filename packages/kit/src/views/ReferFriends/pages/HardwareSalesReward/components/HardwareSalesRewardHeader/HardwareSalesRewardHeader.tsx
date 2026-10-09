@@ -29,8 +29,6 @@ export function HardwareSalesRewardHeader({
   const { md } = useMedia();
   const locale = useLocaleVariant();
 
-  const isWideScreen = !md;
-
   const distributed = cumulativeRewards.distributed || '0';
   const undistributed = cumulativeRewards.undistributed || '0';
   const pending = cumulativeRewards.pending || '0';
@@ -106,8 +104,6 @@ export function HardwareSalesRewardHeader({
           showRefreshButton
           isLoading={isLoading}
           onRefresh={onRefresh}
-          isWide={isWideScreen}
-          fullWidth={!isWideScreen}
         />
       }
       secondaryCards={
@@ -119,7 +115,6 @@ export function HardwareSalesRewardHeader({
             })}
             value={undistributed}
             subtitle={unpaidHint}
-            isWide={isWideScreen}
           />
           <StatCard
             fixedCurrency={REFERRAL_USD_CURRENCY_PROPS.targetCurrency}
@@ -129,7 +124,6 @@ export function HardwareSalesRewardHeader({
             value={pending}
             prefix={isPendingZero ? undefined : '~'}
             subtitle={pendingHint}
-            isWide={isWideScreen}
           />
         </>
       }

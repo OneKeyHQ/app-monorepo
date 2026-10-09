@@ -1,37 +1,20 @@
 import type { ReactNode } from 'react';
 
-import { XStack, YStack, useMedia } from '@onekeyhq/components';
+import { XStack } from '@onekeyhq/components';
 
-interface IRewardHeaderLayoutProps {
-  primaryCard: ReactNode;
-  secondaryCards: ReactNode;
-}
-
-/**
- * Layout for reward header with 1 primary card + 2 secondary cards.
- * Wide screen: 3 cards in a row
- * Narrow screen: primary card on top, 2 secondary cards in a row below
- */
+// Pointer layouts: the reward page's primary stat tile and two secondary
+// tiles in one row. Compact layouts use RewardSummaryCard instead.
 export function RewardHeaderLayout({
   primaryCard,
   secondaryCards,
-}: IRewardHeaderLayoutProps) {
-  const { md } = useMedia();
-  const isWideScreen = !md;
-
-  if (isWideScreen) {
-    return (
-      <XStack gap="$4" pb="$6" px="$5">
-        {primaryCard}
-        {secondaryCards}
-      </XStack>
-    );
-  }
-
+}: {
+  primaryCard: ReactNode;
+  secondaryCards: ReactNode;
+}) {
   return (
-    <YStack gap="$3" pb="$6" px="$5">
+    <XStack gap="$4" pb="$6" px="$5">
       {primaryCard}
-      <XStack gap="$3">{secondaryCards}</XStack>
-    </YStack>
+      {secondaryCards}
+    </XStack>
   );
 }

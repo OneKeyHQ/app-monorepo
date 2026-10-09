@@ -1,14 +1,13 @@
 import { useIntl } from 'react-intl';
 
-import { SizableText, XStack, YStack, useMedia } from '@onekeyhq/components';
+import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import { INVITE_CARD_BORDER_COLOR } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteCardStyle';
-import {
-  formatCommissionRateText,
-  formatInviteeDiscountText,
-} from '@onekeyhq/kit/src/views/ReferFriends/utils';
+import { formatInviteeDiscountText } from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteLevelCommissionRate } from '@onekeyhq/shared/src/referralCode/type';
 
+// Pointer layouts' per-product rate tile; compact layouts read rates from
+// the level rule table.
 export function CommissionRateCard({
   label,
   rate,
@@ -17,32 +16,6 @@ export function CommissionRateCard({
   rate: IInviteLevelCommissionRate;
 }) {
   const intl = useIntl();
-
-  const media = useMedia();
-
-  if (media.md) {
-    return (
-      <XStack
-        borderRadius="$2"
-        bg="$bgStrong"
-        py="$1"
-        px="$2"
-        jc="space-between"
-        ai="center"
-      >
-        <SizableText size="$bodyMd" color="$text">
-          {label}
-        </SizableText>
-
-        <SizableText size="$bodyMdMedium" color="$text">
-          {formatCommissionRateText({
-            rebate: rate.rebate,
-            discount: rate.discount,
-          })}
-        </SizableText>
-      </XStack>
-    );
-  }
 
   return (
     <YStack

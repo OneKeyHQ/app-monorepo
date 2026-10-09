@@ -32,7 +32,7 @@ import type {
 } from '@onekeyhq/shared/src/referralCode/type';
 
 import { getLevelCommissionRateItems } from '../../getLevelOverview';
-import { LEVEL_COPY } from '../../levelCopy';
+import { LEVEL_COPY, LEVEL_SUBJECT_SHORT_LABELS } from '../../levelCopy';
 
 import { CommissionRateCard } from './CommissionRateCard';
 import { OrDivider } from './OrDivider';
@@ -45,14 +45,6 @@ import {
 // with what keeps the level, what upgrades from it, and what it pays. The
 // user's own progress lives in the status card above, so it is not repeated
 // per level.
-const SHORT_SUBJECT_LABELS: Record<string, string> = {
-  HardwareSales: 'Hardware',
-  Perp: 'Perps',
-  Swap: 'Swap',
-  Earn: 'DeFi',
-  Onchain: 'DeFi',
-};
-
 // Header labels wrap to a second line past this width instead of widening
 // their column; figures never wrap or truncate.
 const RULE_HEADER_MAX_WIDTH = 80;
@@ -271,7 +263,7 @@ export function LevelAccordionItem({
       }
       const row: ILevelRuleRow = {
         subject,
-        label: SHORT_SUBJECT_LABELS[subject] ?? fallbackLabel,
+        label: LEVEL_SUBJECT_SHORT_LABELS[subject] ?? fallbackLabel,
       };
       bySubject.set(subject, row);
       return row;
@@ -426,11 +418,7 @@ export function LevelAccordionItem({
               {subjectGroups.length > 0 ? (
                 <YStack gap="$3">
                   {headerNode}
-                  <XStack
-                    gap="$2"
-                    ai="stretch"
-                    $md={{ flexDirection: 'column' }}
-                  >
+                  <XStack gap="$2" ai="stretch">
                     {subjectGroups.map(
                       ({ subject, milestones, subjectLabel }, index) => (
                         <Fragment key={subject}>
@@ -451,15 +439,10 @@ export function LevelAccordionItem({
 
               <YStack gap="$2">
                 <SizableText size="$bodyMdMedium">
-                  {/* Compact rows show "10% / 10%" without labels, so they
-                    keep the "(You / Invitee)" key; desktop cards label each
-                    value themselves. */}
-                  {md
-                    ? intl.formatMessage({ id: ETranslations.referral_rate })
-                    : LEVEL_COPY.commissionRatesTitle}
+                  {LEVEL_COPY.commissionRatesTitle}
                 </SizableText>
 
-                <XStack gap="$3" $md={{ flexDirection: 'column', gap: '$2' }}>
+                <XStack gap="$3">
                   {commissionRateItems.map(({ subject, rate }, index) => {
                     const label = getDisplayLabel(
                       intl,

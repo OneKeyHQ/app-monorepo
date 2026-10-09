@@ -4,7 +4,6 @@ import type { ReactNode } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Button,
   Divider,
   Icon,
   SizableText,
@@ -12,7 +11,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import type { ISizableTextProps } from '@onekeyhq/components';
+import type { ColorTokens } from '@onekeyhq/components/src/shared/tamagui';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useNavigateToEditAddress } from '@onekeyhq/kit/src/views/ReferFriends/pages/EditAddress/hooks/useNavigateToEditAddress';
@@ -22,9 +21,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { CompactFieldRow } from '../../../components/CompactFieldRow';
 import { ReferFriendsTestIDs } from '../../../testIDs';
 import { INVITE_COPY } from '../inviteCopy';
 
+import { CardTextAction } from './CardTextAction';
 import { getInviteEarningsState } from './getInviteEarningsState';
 import { REFERRAL_USD_CURRENCY_PROPS } from './shared/getRewardSummary';
 import {
@@ -35,28 +36,6 @@ import {
   useInviteHomeCardStyle,
 } from './useInviteCardStyle';
 import { useNextDistributionLabel } from './useNextDistributionLabel';
-
-function CardTextAction({
-  label,
-  onPress,
-  testID,
-}: {
-  label: string;
-  onPress: () => void;
-  testID: string;
-}) {
-  return (
-    <Button
-      testID={testID}
-      variant="tertiary"
-      size="small"
-      iconAfter="ChevronRightSmallOutline"
-      onPress={onPress}
-    >
-      {label}
-    </Button>
-  );
-}
 
 type IInviteEarnings = ReturnType<typeof getInviteEarningsState>;
 
@@ -69,43 +48,34 @@ interface IEarningsLabels {
   payoutAddress: string;
 }
 
-// The unpaid figure, optionally with its fixed "USD" unit (it stays in USD
-// whatever the wallet currency is), and the next payout date.
+// Desktop's lead figure: the unpaid amount with its fixed "USD" unit (it
+// stays in USD whatever the wallet currency is), and the next payout date.
 function UnpaidAmount({
   amount,
   nextPayout,
   nextPayoutLabel,
-  amountSize,
-  unitSize,
-  hintSize,
 }: {
   amount: string;
   nextPayout: string | null;
   nextPayoutLabel: string;
-  amountSize: ISizableTextProps['size'];
-  // Omitted on compact layouts, where every figure on the page reads "$".
-  unitSize?: ISizableTextProps['size'];
-  hintSize: ISizableTextProps['size'];
 }) {
   return (
     <YStack gap="$1">
       <XStack ai="baseline" gap="$1.5">
         <Currency
           {...REFERRAL_USD_CURRENCY_PROPS}
-          size={amountSize}
+          size="$heading4xl"
           numberOfLines={1}
           flexShrink={1}
         >
           {amount}
         </Currency>
-        {unitSize ? (
-          <SizableText size={unitSize} color="$textSubdued">
-            USD
-          </SizableText>
-        ) : null}
+        <SizableText size="$bodyLg" color="$textSubdued">
+          USD
+        </SizableText>
       </XStack>
       {nextPayout ? (
-        <SizableText size={hintSize} color="$textSubdued">
+        <SizableText size="$bodyMd" color="$textSubdued">
           {`${nextPayoutLabel} ${nextPayout}`}
         </SizableText>
       ) : null}
@@ -183,9 +153,6 @@ function DesktopEarnings({
           amount={earnings.undistributed}
           nextPayout={earnings.nextDistribution}
           nextPayoutLabel={labels.nextDistribution}
-          amountSize="$heading4xl"
-          unitSize="$bodyLg"
-          hintSize="$bodyMd"
         />
       </YStack>
       <Divider mt="auto" borderColor={INVITE_CARD_BORDER_COLOR} />
@@ -224,44 +191,9 @@ function DesktopEarnings({
   );
 }
 
-// One part of the total on the compact card: a colored dot ties it to the
-// total above. An optional hint sits under the amount, like the pending
-// line on the hardware reward row.
-function EarningsPartRow({
-  dotColor,
-  label,
-  value,
-  hint,
-}: {
-  dotColor: string;
-  label: string;
-  value: string;
-  hint?: string | null;
-}) {
-  return (
-    <XStack minHeight={36} ai="center" jc="space-between" gap="$3">
-      <XStack flex={1} minWidth={0} ai="center" gap="$2">
-        <YStack w="$2" h="$2" borderRadius="$full" bg={dotColor} />
-        <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-          {label}
-        </SizableText>
-      </XStack>
-      <YStack ai="flex-end" gap="$0.5">
-        <Currency
-          {...REFERRAL_USD_CURRENCY_PROPS}
-          size="$bodyMdMedium"
-          numberOfLines={1}
-        >
-          {value}
-        </Currency>
-        {hint ? (
-          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-            {hint}
-          </SizableText>
-        ) : null}
-      </YStack>
-    </XStack>
-  );
+// Ties each part of the compact card's total to it, like a chart legend.
+function PartDot({ color }: { color: ColorTokens }) {
+  return <YStack w="$2" h="$2" borderRadius="$full" bg={color} />;
 }
 
 // Compact layouts read the money as one sum: the total earned leads, then
@@ -304,22 +236,37 @@ function CompactEarnings({
       >
         {earnings.cumulative}
       </Currency>
-      <YStack gap="$1" pb="$3">
-        <EarningsPartRow
-          dotColor="$iconSuccess"
+      <YStack pb="$3">
+        <CompactFieldRow
+          leading={<PartDot color="$iconSuccess" />}
           label={labels.distributed}
-          value={earnings.distributed}
-        />
-        <EarningsPartRow
-          dotColor="$iconCaution"
+        >
+          <Currency
+            {...REFERRAL_USD_CURRENCY_PROPS}
+            size="$bodyMdMedium"
+            numberOfLines={1}
+          >
+            {earnings.distributed}
+          </Currency>
+        </CompactFieldRow>
+        {/* The payout date sits under the amount it applies to. */}
+        <CompactFieldRow
+          leading={<PartDot color="$iconCaution" />}
           label={labels.undistributed}
-          value={earnings.undistributed}
           hint={
             earnings.nextDistribution
               ? `${labels.nextDistribution} ${earnings.nextDistribution}`
               : null
           }
-        />
+        >
+          <Currency
+            {...REFERRAL_USD_CURRENCY_PROPS}
+            size="$bodyMdMedium"
+            numberOfLines={1}
+          >
+            {earnings.undistributed}
+          </Currency>
+        </CompactFieldRow>
       </YStack>
       <Divider mb="$1" borderColor={INVITE_CARD_BORDER_COLOR} />
       <ListItem

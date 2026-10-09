@@ -94,9 +94,10 @@ function RewardListRow({
 }: {
   row: IInviteRewardRow;
   title: string;
-  // Hardware only: the pending payout, a quiet line under the available
-  // amount. Its rules (and this month's sales) live on the detail page.
-  pendingLabel?: string;
+  // Labels the pending payout (hardware only), a quiet line under the
+  // available amount. Its rules and this month's sales live on the detail
+  // page.
+  pendingLabel: string;
   onPress: () => void;
 }) {
   return (
@@ -109,7 +110,7 @@ function RewardListRow({
       drillIn
       onPress={onPress}
     >
-      {row.pending && pendingLabel ? (
+      {row.pending ? (
         <YStack ai="flex-end" gap="$0.5">
           {/* A zero, not "No reward yet", when a payout is on its way. */}
           <InviteRewardAmount summary={row.available} />
@@ -484,6 +485,7 @@ export function InviteRewardRows({
       key={row.subject}
       row={row}
       title={titleFor(row.subject)}
+      pendingLabel={pendingLabel}
       onPress={() => {
         openSubject(row.subject);
       }}
@@ -501,7 +503,7 @@ export function InviteRewardRows({
             key={row.subject}
             row={row}
             title={titleFor(row.subject)}
-            pendingLabel={row.subject === 'hardware' ? pendingLabel : undefined}
+            pendingLabel={pendingLabel}
             onPress={() => {
               openSubject(row.subject);
             }}
