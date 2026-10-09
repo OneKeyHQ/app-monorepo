@@ -19,7 +19,7 @@ interface ISubjectMilestoneCardProps {
   nextLevelLabel?: string;
 }
 
-function formatFiatCompact(value: BigNumber) {
+export function formatFiatCompact(value: BigNumber) {
   return numberFormat(value.toFixed(), { formatter: 'marketCap' });
 }
 

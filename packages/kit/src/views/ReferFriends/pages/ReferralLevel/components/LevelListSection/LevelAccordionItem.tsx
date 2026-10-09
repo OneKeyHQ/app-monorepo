@@ -1,5 +1,6 @@
 import { Fragment, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { type IntlShape, useIntl } from 'react-intl';
 
 import {
@@ -14,11 +15,16 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import {
   INVITE_CARD_BORDER_COLOR,
   PRESSABLE_SURFACE_PROPS,
 } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteCardStyle';
-import { sortCommissionRateItems } from '@onekeyhq/kit/src/views/ReferFriends/utils';
+import { INVITE_COPY } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/inviteCopy';
+import {
+  formatCommissionRateText,
+  sortCommissionRateItems,
+} from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IInviteLevelDetail,
@@ -30,7 +36,53 @@ import { LEVEL_COPY } from '../../levelCopy';
 
 import { CommissionRateCard } from './CommissionRateCard';
 import { OrDivider } from './OrDivider';
-import { SubjectMilestoneCard } from './SubjectMilestoneCard';
+import {
+  SubjectMilestoneCard,
+  formatFiatCompact,
+} from './SubjectMilestoneCard';
+
+// Compact layouts read each level as a plain rule table: what keeps it, what
+// upgrades from it, and what it pays. The user's own progress lives in the
+// status card above, so it is not repeated per level.
+function RuleRow({ label, value }: { label: string; value: string }) {
+  return (
+    <XStack minHeight={32} ai="center" jc="space-between" gap="$3">
+      <SizableText
+        size="$bodyMd"
+        color="$textSubdued"
+        numberOfLines={1}
+        flexShrink={1}
+      >
+        {label}
+      </SizableText>
+      <SizableText size="$bodyMdMedium" flexShrink={0}>
+        {value}
+      </SizableText>
+    </XStack>
+  );
+}
+
+function RuleGroup({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: { key: string; label: string; value: string }[];
+}) {
+  if (rows.length === 0) {
+    return null;
+  }
+  return (
+    <YStack>
+      <SizableText size="$bodyMdMedium" color="$textSubdued" pb="$1">
+        {title}
+      </SizableText>
+      {rows.map((row) => (
+        <RuleRow key={row.key} label={row.label} value={row.value} />
+      ))}
+    </YStack>
+  );
+}
 
 export function getDisplayLabel(
   intl: IntlShape,
@@ -113,6 +165,47 @@ export function LevelAccordionItem({
   ]);
 
   const isMultiSubject = subjectGroups.length > 1;
+  const currencyCode = useCurrency().id.toUpperCase();
+  const formatThreshold = (condition: IInviteLevelUpgradeCondition) =>
+    `${formatFiatCompact(
+      new BigNumber(condition.thresholdFiatValue ?? 0),
+    )} ${currencyCode}`;
+  const keepRows = subjectGroups.flatMap(
+    ({ subject, milestones, subjectLabel }) =>
+      milestones.retention
+        ? [
+            {
+              key: subject,
+              label: subjectLabel,
+              value: formatThreshold(milestones.retention),
+            },
+          ]
+        : [],
+  );
+  const upgradeRows = subjectGroups.flatMap(
+    ({ subject, milestones, subjectLabel }) =>
+      milestones.upgrade
+        ? [
+            {
+              key: subject,
+              label: subjectLabel,
+              value: formatThreshold(milestones.upgrade),
+            },
+          ]
+        : [],
+  );
+  const rateRows = commissionRateItems.map(({ subject, rate }, index) => ({
+    key: subject || `${index}`,
+    label: getDisplayLabel(
+      intl,
+      rate.commissionRatesLabelKey || rate.labelKey,
+      rate.commissionRatesLabel ?? rate.label ?? subject,
+    ),
+    value: formatCommissionRateText({
+      rebate: rate.rebate,
+      discount: rate.discount,
+    }),
+  }));
   let headerNode: React.ReactNode = null;
   if (isMultiSubject) {
     headerNode = (
@@ -208,57 +301,86 @@ export function LevelAccordionItem({
           pb="$5"
           $md={{ px: '$4', pb: '$4' }}
         >
-          <YStack gap="$4">
-            {subjectGroups.length > 0 ? (
-              <YStack gap="$3">
-                {headerNode}
-                <XStack gap="$2" ai="stretch" $md={{ flexDirection: 'column' }}>
-                  {subjectGroups.map(
-                    ({ subject, milestones, subjectLabel }, index) => (
-                      <Fragment key={subject}>
-                        <SubjectMilestoneCard
-                          subjectLabel={subjectLabel}
-                          milestones={milestones}
-                          nextLevelLabel={nextLevelLabel}
-                        />
-                        {index < subjectGroups.length - 1 ? (
-                          <OrDivider />
-                        ) : null}
-                      </Fragment>
-                    ),
-                  )}
-                </XStack>
-              </YStack>
-            ) : null}
+          {md ? (
+            <YStack gap="$4">
+              {subjectGroups.length > 0 ? (
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {LEVEL_COPY.upgradeRule(isMultiSubject)}
+                </SizableText>
+              ) : null}
+              <RuleGroup
+                title={LEVEL_COPY.keepLevel(level.label)}
+                rows={keepRows}
+              />
+              <RuleGroup
+                title={
+                  nextLevelLabel
+                    ? LEVEL_COPY.upgradeTo(nextLevelLabel)
+                    : intl.formatMessage({
+                        id: ETranslations.referral_level_upgrade_conditions,
+                      })
+                }
+                rows={upgradeRows}
+              />
+              <RuleGroup title={INVITE_COPY.rateLabel} rows={rateRows} />
+            </YStack>
+          ) : (
+            <YStack gap="$4">
+              {subjectGroups.length > 0 ? (
+                <YStack gap="$3">
+                  {headerNode}
+                  <XStack
+                    gap="$2"
+                    ai="stretch"
+                    $md={{ flexDirection: 'column' }}
+                  >
+                    {subjectGroups.map(
+                      ({ subject, milestones, subjectLabel }, index) => (
+                        <Fragment key={subject}>
+                          <SubjectMilestoneCard
+                            subjectLabel={subjectLabel}
+                            milestones={milestones}
+                            nextLevelLabel={nextLevelLabel}
+                          />
+                          {index < subjectGroups.length - 1 ? (
+                            <OrDivider />
+                          ) : null}
+                        </Fragment>
+                      ),
+                    )}
+                  </XStack>
+                </YStack>
+              ) : null}
 
-            <YStack gap="$2">
-              <SizableText size="$bodyMdMedium">
-                {/* Compact rows show "10% / 10%" without labels, so they
+              <YStack gap="$2">
+                <SizableText size="$bodyMdMedium">
+                  {/* Compact rows show "10% / 10%" without labels, so they
                     keep the "(You / Invitee)" key; desktop cards label each
                     value themselves. */}
-                {md
-                  ? intl.formatMessage({ id: ETranslations.referral_rate })
-                  : LEVEL_COPY.commissionRatesTitle}
-              </SizableText>
+                  {md
+                    ? intl.formatMessage({ id: ETranslations.referral_rate })
+                    : LEVEL_COPY.commissionRatesTitle}
+                </SizableText>
 
-              <XStack gap="$3" $md={{ flexDirection: 'column', gap: '$2' }}>
-                {commissionRateItems.map(({ subject, rate }, index) => {
-                  const label = getDisplayLabel(
-                    intl,
-                    rate.commissionRatesLabelKey || rate.labelKey,
-                    rate.commissionRatesLabel ?? rate.label ?? subject,
-                  );
-                  return (
-                    <CommissionRateCard
-                      key={subject || `${index}`}
-                      label={label}
-                      rate={rate}
-                    />
-                  );
-                })}
-              </XStack>
+                <XStack gap="$3" $md={{ flexDirection: 'column', gap: '$2' }}>
+                  {commissionRateItems.map(({ subject, rate }, index) => {
+                    const label = getDisplayLabel(
+                      intl,
+                      rate.commissionRatesLabelKey || rate.labelKey,
+                      rate.commissionRatesLabel ?? rate.label ?? subject,
+                    );
+                    return (
+                      <CommissionRateCard
+                        key={subject || `${index}`}
+                        label={label}
+                        rate={rate}
+                      />
+                    );
+                  })}
+                </XStack>
+              </YStack>
             </YStack>
-          </YStack>
+          )}
         </Accordion.Content>
       </Accordion.HeightAnimator>
     </Accordion.Item>
