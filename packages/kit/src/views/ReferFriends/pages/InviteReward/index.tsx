@@ -483,6 +483,11 @@ function InviteRewardPage() {
               sheet. Copying lives on the invite card rows. */}
           <Page.FooterActions
             bg={pageCanvas.backgroundColor}
+            // Tighter than the default 20px: 12px above the button, and 12px
+            // below it plus the safe area, which still clears the home
+            // indicator; the content keeps the difference.
+            pt="$3"
+            pb="$3"
             onConfirm={handleShare}
             onConfirmText={INVITE_COPY.inviteFriends}
             confirmButtonProps={{
