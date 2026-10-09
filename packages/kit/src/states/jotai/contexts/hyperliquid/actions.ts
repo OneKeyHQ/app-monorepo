@@ -218,7 +218,9 @@ type ITwapSliceFillsLoadResult =
     };
 
 type ITwapDataLoadPromises = {
-  webData2Promise: Promise<HL.IWsWebData2 | undefined>;
+  webData2Promise: Promise<
+    Pick<HL.IWsWebData2, 'user' | 'twapStates'> | undefined
+  >;
   historyPromise: Promise<ITwapHistoryLoadResult>;
   fillsPromise: Promise<ITwapSliceFillsLoadResult>;
 };
@@ -445,7 +447,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   private fetchTwapData(accountAddress: string): ITwapDataLoadPromises {
     return {
       webData2Promise: backgroundApiProxy.serviceHyperliquid
-        .getWebData2({
+        .getTwapStates({
           user: accountAddress as HL.IHex,
         })
         .catch(() => undefined),

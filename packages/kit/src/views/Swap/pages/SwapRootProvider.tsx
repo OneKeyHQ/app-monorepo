@@ -6,13 +6,14 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import {
   ProviderJotaiContextSwap,
   useSwapFromTokenAmountAtom,
   useSwapInitialSelectedTokensSyncedAtom,
+  useSwapNetworksAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectedTokensColdStartContextAtom,
@@ -33,6 +34,9 @@ import { getVisibleSwapTabSwitchType } from '../utils/swapTypeUtils';
 export { hydrateSwapDefaultTokensFromGlobalHomeSnapshot } from '../utils/swapRootColdStartUtils';
 
 function SwapColdStartCacheSync() {
+  const [swapNetworks] = useSwapNetworksAtom();
+  const swapNetworksRef = useRef(swapNetworks);
+  swapNetworksRef.current = swapNetworks;
   const [swapTypeSwitch, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapFromToken, setSwapFromToken] = useSwapSelectFromTokenAtom();
   const [swapToToken, setSwapToToken] = useSwapSelectToTokenAtom();
@@ -81,6 +85,7 @@ function SwapColdStartCacheSync() {
       const defaultTokens = buildSwapDefaultSelectedTokensFromHomeAccount({
         homeSelectedAccount: selectedAccount,
         swapType: swapTypeSwitchRef.current,
+        swapNetworks: swapNetworksRef.current,
       });
       if (!defaultTokens) {
         return false;
@@ -101,6 +106,18 @@ function SwapColdStartCacheSync() {
       sceneName: EAccountSelectorSceneName;
       num: number;
     }) => {
+      if (
+        eventPayload.sceneName === EAccountSelectorSceneName.swap &&
+        eventPayload.num === 0
+      ) {
+        // Automatic Home synchronization suppresses Swap selection events.
+        setSelectedTokensColdStartContext((context) =>
+          context?.defaultTokenSeed
+            ? { ...context, defaultTokenSeed: undefined }
+            : context,
+        );
+        return;
+      }
       if (
         eventPayload.sceneName !== SWAP_COLD_START_HOME_SCENE_NAME ||
         eventPayload.num !== 0

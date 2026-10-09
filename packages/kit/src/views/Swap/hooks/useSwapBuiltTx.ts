@@ -84,6 +84,7 @@ import {
 } from '@onekeyhq/shared/types/staking';
 import type {
   ESwapCancelLimitOrderSource,
+  ESwapQuoteSource,
   IFetchBuildTxResponse,
   IFetchLimitOrderRes,
   IFetchQuoteResult,
@@ -121,6 +122,7 @@ import {
   useSwapLimitPriceFromAmountAtom,
   useSwapLimitPriceToAmountAtom,
   useSwapProInputAmountAtom,
+  useSwapQuoteActionLockAtom,
   useSwapQuoteEventTotalCountAtom,
   useSwapQuoteListAtom,
   useSwapStepNetFeeLevelAtom,
@@ -246,6 +248,7 @@ type IEstimateNetworkFeeOptions = {
 type IUseSwapBuildTxOptions = {
   onSwapBroadcast?: (isReviewCurrent?: () => boolean) => void | Promise<void>;
   marketSwapApprovalFlowId?: string;
+  buildTxSource?: ESwapQuoteSource;
 };
 
 type ISwapSignAndSendProgressEvent = {
@@ -309,6 +312,7 @@ function getSwapCreateFrom({
 export function useSwapBuildTx({
   onSwapBroadcast,
   marketSwapApprovalFlowId,
+  buildTxSource,
 }: IUseSwapBuildTxOptions = {}) {
   const onSwapBroadcastRef = useRef(onSwapBroadcast);
   onSwapBroadcastRef.current = onSwapBroadcast;
@@ -318,6 +322,7 @@ export function useSwapBuildTx({
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
   const [, setInAppNotificationAtom] = useInAppNotificationAtom();
+  const [quoteActionLock] = useSwapQuoteActionLockAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
@@ -2588,6 +2593,8 @@ export function useSwapBuildTx({
             protocol: data.protocol ?? EProtocolOfExchange.SWAP,
             kind: data.kind ?? ESwapQuoteKind.SELL,
             walletType: swapFromAddressInfo.accountInfo?.wallet?.type ?? '',
+            deviceType: swapFromAddressInfo.accountInfo?.device?.deviceType,
+            source: quoteActionLock.source ?? buildTxSource,
             tradeSource: getSwapTradeSource({
               protocol: data.protocol,
               isSwapPro: focusSwapPro,
@@ -2925,6 +2932,8 @@ export function useSwapBuildTx({
       checkQuoteBalances,
       swapFromAddressInfo.accountInfo?.wallet?.type,
       swapFromAddressInfo.accountInfo?.device?.deviceType,
+      quoteActionLock.source,
+      buildTxSource,
       swapFromAddressInfo.accountInfo?.deriveInfo?.addressEncoding,
       focusSwapPro,
       isFirstTimeSwap,
