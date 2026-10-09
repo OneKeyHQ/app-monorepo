@@ -105,6 +105,7 @@ import {
   perpsAbstractionModeAtom,
   perpsActiveAccountAtom,
   perpsActiveAccountStatusAtom,
+  perpsCommonConfigPersistAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
@@ -1971,7 +1972,22 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   async getUsdcWithdrawRoute(params?: {
     forceRefresh?: boolean;
   }): Promise<IUsdcWithdrawRoute> {
-    return getUsdcWithdrawRoute(params);
+    if (params?.forceRefresh) {
+      await this.backgroundApi.serviceHyperliquid.updatePerpsConfigByServerSilently(
+        { ignoreCache: true },
+      );
+    }
+    if (await this._isLegacyUsdcWithdrawForced()) {
+      return 'bridge';
+    }
+    const route = await getUsdcWithdrawRoute(params);
+    // A normal lookup may still be in flight when the emergency switch arrives.
+    return (await this._isLegacyUsdcWithdrawForced()) ? 'bridge' : route;
+  }
+
+  private async _isLegacyUsdcWithdrawForced() {
+    const config = await perpsCommonConfigPersistAtom.get();
+    return config.perpConfigCommon.withdrawChannel === 'legacy';
   }
 
   private _callHyperEvmRpc: IHyperEvmRpcCall = async (method, params) => {
@@ -2076,9 +2092,18 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   @backgroundMethod()
   async withdraw(params: IWithdrawParams): Promise<void> {
     await this.checkAccountCanTrade();
+    await this.backgroundApi.serviceHyperliquid.updatePerpsConfigByServerSilently(
+      { ignoreCache: true },
+    );
+    const forceLegacyUsdcWithdraw = await this._isLegacyUsdcWithdrawForced();
     const destinationConfig = requireUsdcWithdrawDestination(
       params.destinationId,
     );
+    if (forceLegacyUsdcWithdraw && params.destinationId !== 'arbitrum') {
+      throw new OneKeyLocalError(
+        'Withdrawal route changed. Review the updated fee and try again.',
+      );
+    }
     const wallet =
       await this.backgroundApi.serviceHyperliquidWallet.getOnekeyWallet({
         userAccountId: params.userAccountId,
@@ -2096,10 +2121,15 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     let route: IUsdcWithdrawRoute | undefined;
     let sourceDex: '' | 'spot' | undefined;
     try {
+      let routeRequest: Promise<IUsdcWithdrawRoute | undefined> =
+        Promise.resolve(undefined);
+      if (destinationConfig.transferType === 'cctp') {
+        routeRequest = forceLegacyUsdcWithdraw
+          ? Promise.resolve('bridge')
+          : getLiveUsdcWithdrawRoute();
+      }
       const [resolvedRoute, userAddress] = await Promise.all([
-        destinationConfig.transferType === 'cctp'
-          ? getLiveUsdcWithdrawRoute()
-          : Promise.resolve(undefined),
+        routeRequest,
         wallet.getAddress(),
       ]);
       route = resolvedRoute;
@@ -2146,11 +2176,22 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         }
       }
       await convertHyperLiquidResponse(async () => {
-        if (destinationConfig.transferType === 'hyperEvm') {
+        if (destinationConfig.transferType === 'hyperEvm' || route === 'cctp') {
           sourceDex = await this._resolveWithdrawSourceDex(userAddress);
+        }
+        // Reconfirm after all async preparation, before opening signing. A
+        // submitted action is never retried on another rail automatically.
+        if (
+          (await this._isLegacyUsdcWithdrawForced()) !== forceLegacyUsdcWithdraw
+        ) {
+          throw new OneKeyLocalError(
+            'Withdrawal route changed. Review the updated fee and try again.',
+          );
+        }
+        if (destinationConfig.transferType === 'hyperEvm') {
           return exchangeClient.sendAsset({
             destination: HYPEREVM_SYSTEM_ADDRESS,
-            sourceDex,
+            sourceDex: sourceDex ?? '',
             destinationDex: 'spot',
             token: 'USDC',
             amount: params.amount,
@@ -2158,7 +2199,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
           });
         }
         if (route === 'cctp') {
-          sourceDex = await this._resolveWithdrawSourceDex(userAddress);
           const destination = buildCctpWithdrawDestination({
             destinationId: params.destinationId,
             ownerAddress: userAddress,
@@ -2166,7 +2206,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
           return exchangeClient.sendToEvmWithData({
             token: 'USDC',
             amount: params.amount,
-            sourceDex,
+            sourceDex: sourceDex ?? '',
             destinationRecipient: destination.destinationRecipient,
             addressEncoding: destination.addressEncoding,
             destinationChainId: destination.destinationChainId,
