@@ -15,13 +15,16 @@ import type {
  *   - a position is one holding the user acts on as a unit: one vault /
  *     market on one network, `groupId` is its identity, and the client never
  *     merges, splits or re-derives one;
- *   - its `assets` are the staked principal plus the principal waiting to be
- *     claimed (see IEarnPositionAssetCategory); each withdrawal in progress
- *     is a locked position of its own (`earn.unstaking`), the way the wallet
- *     DeFi portfolio shows it; its `rewards` are the yield rows;
- *   - the card has one button (`earn.action`), and every claim or withdrawal
- *     runs on the detail page, except a position without one, which carries
- *     its claim in `earn.claim`;
+ *   - one vault cuts into up to three positions, the way the wallet DeFi
+ *     portfolio shows a protocol: the staked principal with its yield rows
+ *     (`deposit` assets and `rewards`), one locked position per withdrawal
+ *     in progress (`earn.unstaking`) and the principal out of its cooldown
+ *     waiting to be collected (`claimable` assets, see
+ *     IEarnPositionAssetCategory). The detail page shows what sits in the
+ *     vault and its rewards, not principal on its way out;
+ *   - the card has one button (`earn.action`): Manage or Unstake into the
+ *     detail page, or Claim on a claimable position, which carries its claim
+ *     in `earn.claim`;
  *   - the whole investment detail the position was cut from travels along in
  *     `earn.investment`, so nothing the older investment-detail page had is
  *     lost; the page reads what it renders and ignores the rest.
@@ -32,9 +35,9 @@ export type IEarnPositionCategory = 'yield' | 'staked' | 'lending';
 
 /**
  * `assets[].category` / `rewards[].category`: deposit is the staked
- * principal, claimable is withdrawn principal waiting to be claimed,
- * unstaking is a withdrawal in progress (only on locked positions), reward
- * is yield.
+ * principal, claimable is principal out of its cooldown waiting to be
+ * collected (only on claimable positions), unstaking is a withdrawal in
+ * progress (only on locked positions), reward is yield.
  */
 export type IEarnPositionAssetCategory =
   | 'deposit'
@@ -82,19 +85,29 @@ export type IEarnPositionExtension = {
   /** ms; fixed-term positions (Pendle markets) */
   maturityAt?: number;
   matured?: boolean;
-  /** where Manage and a tapped row go: this position's own detail page */
+  /**
+   * Where Manage and a tapped row go: this position's own detail page. Also
+   * the identity every flow keys on (provider, symbol, vault): a position
+   * filed under the protocol holding its funds (`protocol`; the USDe cooling
+   * down at Ethena) still claims through the provider that reads it (Pendle).
+   */
   manage: IEarnPositionManageTarget;
   /**
    * The card's button. `manage` opens the detail page; `unstake` is the same
-   * page labelled for a provider whose only move left is leaving (Ethena).
+   * page labelled for a provider whose only move left is leaving (Ethena);
+   * `claim` collects the position's principal on the card, through `claim`.
    */
-  action?: 'manage' | 'unstake';
+  action?: 'manage' | 'unstake' | 'claim';
   /** locked positions: one per withdrawal in progress, dated when the provider knows */
   unstaking?: { unlockAt?: number };
-  /** principal claimed on the card itself, for a position without a detail page */
+  /** claimable positions: the row's own claim button */
   claim?: IEarnActionIcon;
-  /** `airdrop`: the claim runs through the airdrop claim flow of the detail page */
-  claimSource?: 'airdrop';
+  /**
+   * The flow that runs `claim`: `investment` is the detail row's claim, the
+   * one the wide layout runs on its rows; `airdrop` is the airdrop read's
+   * (the USDe cooling down at Ethena, reached through Pendle).
+   */
+  claimSource?: 'investment' | 'airdrop';
   /** the protocol symbol, the one the detail page and claim flows key on */
   symbol: string;
   vault?: string;

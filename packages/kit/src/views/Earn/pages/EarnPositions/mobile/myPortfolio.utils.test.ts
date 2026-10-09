@@ -18,7 +18,7 @@ import {
   positionPendingTag,
   sumRewardsHeaderFiat,
   toLedgerClaimAsset,
-  toPositionAirdropClaimAsset,
+  toPositionClaim,
 } from './myPortfolio.utils';
 
 const POSITIONS = Object.values(
@@ -27,12 +27,15 @@ const POSITIONS = Object.values(
 const lido = POSITIONS.find(
   (position) => position.groupId === 'lido:evm--1:steth',
 );
-const cooldown = POSITIONS.find(
-  (position) => position.groupId === `pendle:evm--1:${SUSDE_VAULT}:cooldown`,
+const lidoClaimable = POSITIONS.find(
+  (position) => position.groupId === 'lido:evm--1:steth:claimable',
 );
-if (!lido || !cooldown) {
+const cooldown = POSITIONS.find(
+  (position) => position.groupId === `ethena:evm--1:${SUSDE_VAULT}:cooldown`,
+);
+if (!lido || !lidoClaimable || !cooldown) {
   throw new OneKeyLocalError(
-    'fixture changed: Lido or Pendle cooldown position missing',
+    'fixture changed: Lido or Ethena cooldown position missing',
   );
 }
 
@@ -69,8 +72,9 @@ describe('positionPendingTag', () => {
 });
 
 describe('hasPositionDetailPage', () => {
-  it('only the Pendle USDe row without buttons has no page', () => {
+  it('only the Pendle USDe row without buttons has no page, wherever it is filed', () => {
     expect(hasPositionDetailPage(lido)).toBe(true);
+    expect(hasPositionDetailPage(lidoClaimable)).toBe(true);
     expect(hasPositionDetailPage(cooldown)).toBe(false);
     expect(
       hasPositionDetailPage({
@@ -89,41 +93,83 @@ describe('hasPositionDetailPage', () => {
   });
 });
 
-describe('toPositionAirdropClaimAsset', () => {
-  it('rebuilds the airdrop asset the claim flow keys on: symbol, vault, provider, network', () => {
-    const asset = toPositionAirdropClaimAsset(cooldown);
-    expect(asset).toMatchObject({
-      token: { info: { symbol: 'USDe' } },
-      airdropAssets: [{ claimType: 'airdrop', button: CLAIM_BUTTON }],
-      metadata: {
-        protocol: {
-          vault: SUSDE_VAULT,
-          providerDetail: { code: 'pendle', name: 'Pendle' },
+describe('toPositionClaim', () => {
+  it('runs the detail row claim as a normal asset keyed on the protocol symbol and vault', () => {
+    const claim = toPositionClaim({
+      ...lidoClaimable,
+      earn: {
+        ...lidoClaimable.earn,
+        vault: '0xsteth',
+        investment: {
+          ...lidoClaimable.earn.investment,
+          rewardAssets: [
+            {
+              kind: 'claimablePrincipal',
+              title: { text: '0.5 ETH' },
+              description: { text: '($1575)' },
+              button: CLAIM_BUTTON,
+            },
+          ],
         },
-        network: { networkId: 'evm--1' },
       },
+    });
+    expect(claim).toMatchObject({
+      asset: {
+        token: { info: { symbol: 'ETH' } },
+        metadata: {
+          protocol: {
+            vault: '0xsteth',
+            providerDetail: { code: 'lido', name: 'Lido' },
+          },
+          network: { networkId: 'evm--1' },
+        },
+      },
+      reward: { title: { text: '0.5 ETH' }, button: CLAIM_BUTTON },
+      rewardSymbol: 'ETH',
+    });
+    expect(claim?.asset).not.toHaveProperty('airdropAssets');
+    expect(claim?.reward).not.toHaveProperty('claimType');
+  });
+
+  it('runs the Ethena cooldown claim as a Pendle airdrop row, whatever protocol the card is filed under', () => {
+    const claim = toPositionClaim(cooldown);
+    expect(cooldown.protocol).toBe('ethena');
+    expect(claim).toMatchObject({
+      asset: {
+        token: { info: { symbol: 'USDe' } },
+        airdropAssets: [{ claimType: 'airdrop', button: CLAIM_BUTTON }],
+        metadata: {
+          protocol: {
+            vault: SUSDE_VAULT,
+            providerDetail: { code: 'pendle', name: 'Ethena' },
+          },
+          network: { networkId: 'evm--1' },
+        },
+      },
+      reward: { claimType: 'airdrop', button: CLAIM_BUTTON },
+      rewardSymbol: 'USDe',
     });
   });
 
-  it('yields nothing for a position whose claim runs on the detail page', () => {
-    expect(toPositionAirdropClaimAsset(lido)).toBeUndefined();
-    expect(
-      toPositionAirdropClaimAsset({
-        ...cooldown,
-        earn: { ...cooldown.earn, claimSource: undefined },
-      }),
-    ).toBeUndefined();
+  it('yields nothing for a position without a claim of its own', () => {
+    expect(toPositionClaim(lido)).toBeUndefined();
   });
 });
 
 describe('buildClaimSourceCandidates / buildNetworkInfoMap', () => {
-  it('lists every held position as a claim source, by protocol symbol', () => {
-    expect(buildClaimSourceCandidates([lido])).toEqual([
+  it('lists every held position as a claim source, by the provider that reads it', () => {
+    expect(buildClaimSourceCandidates([lido, cooldown])).toEqual([
       {
         networkId: 'evm--1',
         providerName: 'lido',
         symbol: 'ETH',
         vault: undefined,
+      },
+      {
+        networkId: 'evm--1',
+        providerName: 'pendle',
+        symbol: 'USDe',
+        vault: SUSDE_VAULT,
       },
     ]);
   });

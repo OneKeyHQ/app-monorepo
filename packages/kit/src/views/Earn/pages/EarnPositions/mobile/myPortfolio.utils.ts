@@ -4,7 +4,9 @@ import { buildLocalTxStatusSyncId } from '@onekeyhq/kit/src/views/Staking/utils/
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IEarnPortfolioPosition } from '@onekeyhq/shared/types/earn/portfolioPositions';
 import type {
+  IEarnActionIcon,
   IEarnPortfolioAirdropAsset,
+  IEarnPortfolioAsset,
   IEarnRewardsPortfolioGroup,
   IEarnRewardsPortfolioItem,
 } from '@onekeyhq/shared/types/staking';
@@ -20,7 +22,10 @@ import type { IPortfolioClaimSourceCandidate } from '../../../utils/portfolioCla
  *   - POST /earn/v1/rewards/portfolio: ledger rewards (airdrops, rebates) in
  *     three stages for the Rewards tab.
  * The helpers here name positions for the pending-tx badge and adapt ledger
- * rows and card claims into the claim button the detail page already runs.
+ * rows and card claims into the claim button the wide layout already runs.
+ * Every identity reads `earn.manage`: a position filed under the protocol
+ * holding its funds (the USDe cooling down at Ethena) still claims, tags its
+ * txs and opens its page through the provider that reads it (Pendle).
  */
 
 /** Header "Rewards": the ledger's claimable + pending, plus the positions' claimable rewards. */
@@ -43,7 +48,7 @@ export function sumRewardsHeaderFiat({
  */
 export function positionPendingTag(position: IEarnPortfolioPosition): string {
   return buildLocalTxStatusSyncId({
-    providerName: position.protocol,
+    providerName: position.earn.manage.provider,
     tokenSymbol: position.earn.symbol,
     protocolVault: position.earn.vault,
   });
@@ -58,7 +63,7 @@ export function hasPositionDetailPage(
 ): boolean {
   const { earn } = position;
   return !(
-    earnUtils.isPendleProvider({ providerName: position.protocol }) &&
+    earnUtils.isPendleProvider({ providerName: earn.manage.provider }) &&
     earn.symbol === 'USDe' &&
     (earn.investment.buttons?.length ?? 0) === 0
   );
@@ -66,54 +71,112 @@ export function hasPositionDetailPage(
 
 const EMPTY_TEXT = { text: '' };
 
+/** A detail row with the button the card presses, the shape the claim button takes for a normal asset. */
+type IEarnPositionClaimRow = Omit<
+  IEarnPortfolioAsset['assetsStatus'][number],
+  'button'
+> & { button: IEarnActionIcon };
+
+/** What a claimable card's button runs on: the asset carrying the claim identity, and the row carrying the button. */
+export type IEarnPositionClaim =
+  | {
+      asset: IEarnPortfolioAirdropAsset;
+      reward: IEarnPortfolioAirdropAsset['airdropAssets'][number];
+      rewardSymbol: string;
+    }
+  | {
+      asset: IEarnPortfolioAsset;
+      reward: IEarnPositionClaimRow;
+      rewardSymbol: string;
+    };
+
 /**
- * A position that carries its own claim (today the USDe cooled down at
- * Ethena, reached through Pendle's sUSDe path) claims through the airdrop
- * flow the wide layout already runs: this rebuilds the airdrop asset that
- * flow reads its protocol, network and token off. Pendle resolves the claim
- * identity from the asset symbol and vault, which are exactly `earn.symbol`
- * and `earn.vault`.
+ * A claimable position claims through the button the wide layout already
+ * runs on its rows: this rebuilds the asset that button reads its protocol,
+ * network and token off, keyed on `earn.manage` and `earn.symbol` /
+ * `earn.vault`. The investment detail's claim travels as a normal asset
+ * row; the airdrop read's (the USDe cooled down at Ethena, reached through
+ * Pendle) as an airdrop row, which Pendle resolves from symbol and vault.
  */
-export function toPositionAirdropClaimAsset(
+export function toPositionClaim(
   position: IEarnPortfolioPosition,
-): IEarnPortfolioAirdropAsset | undefined {
+): IEarnPositionClaim | undefined {
   const { earn } = position;
   const { claim } = earn;
-  if (!claim || earn.claimSource !== 'airdrop') {
+  if (!claim) {
     return undefined;
   }
   const asset = position.assets[0];
-  const row =
-    earn.airdropRows?.find((entry) => entry.button) ?? earn.airdropRows?.[0];
-  // The airdrop row type requires a tooltip the position row does not
-  // carry; the claim button never reads it, so the entry is built without one.
-  const airdropRow = {
-    title: row?.title ?? EMPTY_TEXT,
-    description: row?.description ?? EMPTY_TEXT,
-    button: claim,
-    claimType: 'airdrop',
-  } as IEarnPortfolioAirdropAsset['airdropAssets'][number];
-  return {
-    token: {
-      info: {
-        symbol: asset?.symbol ?? earn.symbol,
-        logoURI: asset?.meta.logoUrl ?? '',
-        ...(asset?.address ? { address: asset.address } : {}),
+  const rewardSymbol = asset?.symbol ?? earn.symbol;
+  const metadata = {
+    protocol: {
+      ...(earn.vault ? { vault: earn.vault } : {}),
+      ...(earn.vaultName ? { vaultName: earn.vaultName } : {}),
+      providerDetail: {
+        code: earn.manage.provider,
+        name: position.protocolName,
+        logoURI: earn.providerLogoURI ?? '',
       },
     },
-    airdropAssets: [airdropRow],
-    metadata: {
-      protocol: {
-        vault: earn.vault,
-        vaultName: earn.vaultName,
-        providerDetail: {
-          code: position.protocol,
-          name: position.protocolName,
-          logoURI: earn.providerLogoURI ?? '',
+    network: earn.network,
+  };
+  if (earn.claimSource === 'airdrop') {
+    const row =
+      earn.airdropRows?.find((entry) => entry.button) ?? earn.airdropRows?.[0];
+    // The airdrop row type requires a tooltip the position row does not
+    // carry; the claim button never reads it, so the entry is built without one.
+    const airdropRow = {
+      title: row?.title ?? EMPTY_TEXT,
+      description: row?.description ?? EMPTY_TEXT,
+      button: claim,
+      claimType: 'airdrop',
+    } as IEarnPortfolioAirdropAsset['airdropAssets'][number];
+    return {
+      asset: {
+        token: {
+          info: {
+            symbol: earn.symbol,
+            logoURI: asset?.meta.logoUrl ?? '',
+            ...(asset?.address ? { address: asset.address } : {}),
+          },
         },
+        airdropAssets: [airdropRow],
+        metadata,
       },
-      network: earn.network,
+      reward: airdropRow,
+      rewardSymbol,
+    };
+  }
+  const { investment } = earn;
+  const row = [
+    ...(investment.rewardAssets ?? []),
+    ...(investment.assetsStatus ?? []),
+  ].find((entry) => entry.kind === 'claimablePrincipal' && entry.button);
+  return {
+    asset: {
+      token: {
+        info: { symbol: earn.symbol, logoURI: asset?.meta.logoUrl ?? '' },
+      },
+      deposit: investment.deposit ?? {
+        title: EMPTY_TEXT,
+        description: EMPTY_TEXT,
+      },
+      earnings24h: investment.earnings24h ?? { title: EMPTY_TEXT },
+      ...(investment.totalReward
+        ? { totalReward: investment.totalReward }
+        : {}),
+      rewardAssets: [],
+      assetsStatus: [],
+      buttons: [],
+      metadata,
     },
+    reward: {
+      ...row,
+      title: row?.title ?? EMPTY_TEXT,
+      description: row?.description ?? EMPTY_TEXT,
+      button: claim,
+    },
+    rewardSymbol,
   };
 }
 
@@ -127,7 +190,7 @@ export function buildClaimSourceCandidates(
 ): IPortfolioClaimSourceCandidate[] {
   return positions.map((position) => ({
     networkId: position.networkId,
-    providerName: position.protocol,
+    providerName: position.earn.manage.provider,
     symbol: position.earn.symbol,
     vault: position.earn.vault,
   }));

@@ -25,10 +25,7 @@ import type {
 import { WrappedActionButton } from '../../../components/PortfolioTabContent';
 import { EarnTestIDs } from '../../../testIDs';
 
-import {
-  hasPositionDetailPage,
-  toPositionAirdropClaimAsset,
-} from './myPortfolio.utils';
+import { hasPositionDetailPage, toPositionClaim } from './myPortfolio.utils';
 
 import type {
   IEarnPositionSectionView,
@@ -149,25 +146,24 @@ function PositionPnlLine({ position }: { position: IEarnPortfolioPosition }) {
 }
 
 /**
- * A position without a detail page claims on its card, through the airdrop
- * claim flow the wide layout already runs (identity, pending spinner,
- * refresh included).
+ * A claimable position collects its principal on the card, through the claim
+ * button the wide layout already runs on its rows (identity, pending
+ * spinner, refresh included).
  */
 function PositionClaimButton({
   position,
 }: {
   position: IEarnPortfolioPosition;
 }) {
-  const asset = toPositionAirdropClaimAsset(position);
-  const reward = asset?.airdropAssets[0];
-  if (!asset || !reward) {
+  const claim = toPositionClaim(position);
+  if (!claim) {
     return null;
   }
   return (
     <WrappedActionButton
-      asset={asset}
-      reward={reward}
-      rewardSymbol={asset.token.info.symbol}
+      asset={claim.asset}
+      reward={claim.reward}
+      rewardSymbol={claim.rewardSymbol}
       buttonProps={{ size: 'medium', variant: 'primary' }}
     />
   );
@@ -176,10 +172,10 @@ function PositionClaimButton({
 /**
  * One position, the wallet DeFi Portfolio card in the Earn design (figma
  * 29180-108096 and 30292-17104): badge and name, the position value, an
- * optional health factor line, one block per section (deposited, claimable,
- * borrowed, rewards; a locked card shows its withdrawal), the PnL line and
- * the single action: Manage or Unstake into the detail page, or Claim on a
- * position that has no page.
+ * optional health factor line, one block per section (deposited, borrowed,
+ * rewards; a locked card shows its withdrawal, a claimable card the
+ * principal to collect), the PnL line on the active card and the single
+ * action: Manage or Unstake into the detail page, or Claim.
  */
 function EarnPositionCardCmp({
   position,
@@ -206,11 +202,8 @@ function EarnPositionCardCmp({
     >
       <XStack ai="center" jc="space-between" gap="$2" minHeight={28}>
         <XStack ai="center" gap="$2" flex={1} minWidth={0}>
-          <Badge
-            badgeType={position.locked ? 'default' : 'success'}
-            badgeSize="sm"
-            flexShrink={0}
-          >
+          {/* one color for every stage: Locked is a state, not a warning */}
+          <Badge badgeType="success" badgeSize="sm" flexShrink={0}>
             <Badge.Text>{position.badgeLabel}</Badge.Text>
           </Badge>
           {position.name ? (
@@ -256,7 +249,7 @@ function EarnPositionCardCmp({
         />
       ))}
 
-      {position.variant !== 'rewards' && !position.locked ? (
+      {position.stage === 'active' && position.variant !== 'rewards' ? (
         <PositionPnlLine position={source} />
       ) : null}
 

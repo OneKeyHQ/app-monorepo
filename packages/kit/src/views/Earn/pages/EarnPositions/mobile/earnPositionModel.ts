@@ -38,11 +38,12 @@ import type {
  * This file adds what the Earn design adds on top: the badge copy, the
  * sections a card shows (deposited, claimable, borrowed, rewards; one
  * unstaking section on a locked card), the locked card's name and the
- * card's single action. Product rules: a deposit and the principal of the
- * same vault waiting to be claimed are one card; each withdrawal in
- * progress is a locked card of its own, as the wallet DeFi portfolio shows
- * it; every claim and withdrawal runs on the detail page behind the button,
- * except a position without a detail page, which claims on the card.
+ * card's single action. Product rules: the staked principal and its rewards
+ * are one card with Manage (Unstake where leaving is the only move); each
+ * withdrawal in progress is a locked card of its own, and principal out of
+ * its cooldown is a claimable card of its own with Claim, as the wallet DeFi
+ * portfolio shows them, since the detail page lists what sits in the vault
+ * and its rewards, not principal on its way out.
  */
 
 type ITranslate = (id: ETranslations) => string;
@@ -75,6 +76,13 @@ export type IEarnPositionAction =
   | { kind: 'manage' | 'unstake'; target: IEarnPositionManageTarget }
   | { kind: 'claim' };
 
+/**
+ * active: the staked principal and its rewards; unstaking: a withdrawal in
+ * progress, a locked card named after its unlock time; claimable: principal
+ * out of its cooldown, collected on the card.
+ */
+export type IEarnPositionStage = 'active' | 'unstaking' | 'claimable';
+
 export type IEarnPositionView = {
   /** the position's groupId */
   key: string;
@@ -86,7 +94,8 @@ export type IEarnPositionView = {
   sections: IEarnPositionSectionView[];
   /** the card's single button */
   action?: IEarnPositionAction;
-  /** a withdrawal in progress: its own card, named after its unlock time */
+  stage: IEarnPositionStage;
+  /** unstaking cards: when the funds free up, if the provider knows */
   locked?: { unlockAt?: number };
   /** the server position behind the card */
   source: IEarnPortfolioPosition;
@@ -230,15 +239,26 @@ function buildSections({
   }));
 }
 
+// The server attaches `claim` to the positions collected on the card alone.
 function resolveAction(source: IEarnPortfolioPosition): IEarnPositionAction {
   const { earn } = source;
-  if (earn.claim && earn.claimSource === 'airdrop') {
+  if (earn.claim) {
     return { kind: 'claim' };
   }
   return {
     kind: earn.action === 'unstake' ? 'unstake' : 'manage',
     target: earn.manage,
   };
+}
+
+function stageOf(source: IEarnPortfolioPosition): IEarnPositionStage {
+  if (source.earn.unstaking) {
+    return 'unstaking';
+  }
+  const principalOut =
+    source.assets.length > 0 &&
+    source.assets.every((asset) => asset.category === 'claimable');
+  return principalOut && source.rewards.length === 0 ? 'claimable' : 'active';
 }
 
 /** The badge: Locked on a withdrawal in progress, else the Earn category. */
@@ -272,7 +292,8 @@ function buildPositionView({
     return undefined;
   }
   const sections = buildSections({ source, translate });
-  const locked = source.earn.unstaking;
+  const stage = stageOf(source);
+  const locked = stage === 'unstaking' ? source.earn.unstaking : undefined;
   return {
     key: item.positionKey,
     badgeLabel: badgeLabelOf({ item, locked: Boolean(locked), translate }),
@@ -286,6 +307,7 @@ function buildPositionView({
         : undefined,
     sections,
     action: resolveAction(source),
+    stage,
     locked,
     source,
   };

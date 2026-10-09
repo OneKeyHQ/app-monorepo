@@ -89,35 +89,53 @@ describe('earn position model: protocol rows', () => {
       view.protocols,
     );
     expect(countEarnPositionsByNetwork(view.protocols)).toEqual({
-      'evm--1': 10,
+      'evm--1': 12,
       'evm--8453': 2,
-      'sol--101': 1,
+      'sol--101': 2,
     });
   });
 });
 
-describe('earn position model: one card per position', () => {
-  it('keeps a deposit with its claimable principal on one card, with Manage', () => {
+describe('earn position model: one card per stage of a position', () => {
+  it('keeps the staked principal on one card, with Manage', () => {
     const deposit = card(protocolRow('evm--1-lido'), 'lido:evm--1:steth');
+    expect(deposit.stage).toBe('active');
     expect(
       deposit.sections.map((section) => [section.kind, section.title]),
-    ).toEqual([
-      ['deposited', ETranslations.earn_deposited],
-      ['claimable', ETranslations.earn_claimable],
-    ]);
+    ).toEqual([['deposited', ETranslations.earn_deposited]]);
     expect(deposit.badgeLabel).toBe(ETranslations.earn_category_staked__title);
     expect(deposit.locked).toBeUndefined();
     expect(deposit.action).toEqual({
       kind: 'manage',
       target: { networkId: 'evm--1', provider: 'lido', symbol: 'ETH' },
     });
-    // 4 + 0.5 ETH at 3150: claimable principal counts in the value
-    expect(deposit.value.value).toBeCloseTo(4.5 * 3150, 6);
+    expect(deposit.value.value).toBeCloseTo(4 * 3150, 6);
+  });
+
+  it('puts the principal out of its cooldown on a claimable card of its own, with Claim', () => {
+    const claimable = card(
+      protocolRow('evm--1-lido'),
+      'lido:evm--1:steth:claimable',
+    );
+    expect(claimable.stage).toBe('claimable');
+    expect(claimable.locked).toBeUndefined();
+    // the same badge and name as the deposit: one position, another stage
+    expect(claimable.badgeLabel).toBe(
+      ETranslations.earn_category_staked__title,
+    );
+    expect(claimable.name).toBe('Lido staked ETH');
+    expect(
+      claimable.sections.map((section) => [section.kind, section.title]),
+    ).toEqual([['claimable', ETranslations.earn_claimable]]);
+    expect(claimable.action).toEqual({ kind: 'claim' });
+    expect(claimable.value.value).toBeCloseTo(0.5 * 3150, 6);
   });
 
   it('shows each withdrawal in progress as a locked card named after its unlock time', () => {
     const lido = protocolRow('evm--1-lido');
-    const locked = lido.positions.filter((position) => position.locked);
+    const locked = lido.positions.filter(
+      (position) => position.stage === 'unstaking',
+    );
     expect(locked.map((position) => position.key)).toEqual([
       'lido:evm--1:steth:unstaking:1',
       'lido:evm--1:steth:unstaking:0',
@@ -140,21 +158,26 @@ describe('earn position model: one card per position', () => {
     expect(sooner.action?.kind).toBe('manage');
   });
 
-  it('claims the USDe cooled down at Ethena on the card, which has no detail page', () => {
-    const cooldown = card(
-      protocolRow('evm--1-pendle'),
-      `pendle:evm--1:${SUSDE_VAULT}:cooldown`,
-    );
+  it('files the USDe cooled down at Ethena under Ethena, claimed on the card through Pendle', () => {
+    const ethena = protocolRow('evm--1-ethena');
+    expect(ethena.positions.map((position) => position.key)).toEqual([
+      'ethena:evm--1:USDe',
+      `ethena:evm--1:${SUSDE_VAULT}:cooldown`,
+    ]);
+    const cooldown = card(ethena, `ethena:evm--1:${SUSDE_VAULT}:cooldown`);
+    expect(cooldown.stage).toBe('claimable');
     expect(cooldown.badgeLabel).toBe(ETranslations.earn_category_staked__title);
     expect(cooldown.sections.map((section) => section.kind)).toEqual([
       'claimable',
     ]);
     expect(cooldown.action).toEqual({ kind: 'claim' });
+    expect(cooldown.source.earn.manage.provider).toBe('pendle');
     expect(cooldown.value.value).toBeCloseTo(0.045_88 * 0.9993, 9);
   });
 
   it('labels the Ethena card Unstake, its only move left', () => {
     const ethena = card(protocolRow('evm--1-ethena'), 'ethena:evm--1:USDe');
+    expect(ethena.stage).toBe('active');
     expect(ethena.action).toEqual({
       kind: 'unstake',
       target: { networkId: 'evm--1', provider: 'ethena', symbol: 'USDe' },
@@ -166,7 +189,6 @@ describe('earn position model: one card per position', () => {
     expect(pendle.positions.map((position) => position.name)).toEqual([
       'PT-USDG-28MAY2026',
       'PT-USD3-17DEC2026',
-      'USDe',
     ]);
   });
 
@@ -186,15 +208,16 @@ describe('earn position model: one card per position', () => {
     expect(loan.value.value).toBeCloseTo(44.43, 9);
   });
 
-  it('keeps withdrawn principal out of the rewards section', () => {
-    const everstake = card(
-      protocolRow('evm--1-everstake'),
-      'everstake:evm--1:eth',
-    );
-    expect(everstake.sections.map((section) => section.kind)).toEqual([
-      'deposited',
-      'claimable',
-      'rewards',
+  it('keeps the rewards on the staked card, apart from the principal to collect', () => {
+    const everstake = protocolRow('evm--1-everstake');
+    expect(
+      everstake.positions.map((position) => [
+        position.stage,
+        position.sections.map((section) => section.kind),
+      ]),
+    ).toEqual([
+      ['active', ['deposited', 'rewards']],
+      ['claimable', ['claimable']],
     ]);
   });
 
@@ -238,6 +261,7 @@ describe('earn position model: rewards claimable stage', () => {
       ]);
       expect(position.variant).toBe('rewards');
     });
+    // principal to collect is a DeFi Assets card, never a reward
     expect(claimable.map((protocol) => protocol.key).toSorted()).toEqual([
       'evm--1-everstake',
       'evm--1-morpho',
@@ -250,7 +274,8 @@ describe('earn position model: rewards claimable stage', () => {
 
   it('leaves a reward the server has not priced on the DeFi Assets card, not in the list', () => {
     const everstake = EARN_PORTFOLIO_POSITIONS_FIXTURE.positions['evm--1'].find(
-      (position) => position.protocol === 'everstake',
+      (position) =>
+        position.protocol === 'everstake' && position.rewards.length > 0,
     );
     if (!everstake) {
       throw new OneKeyLocalError('fixture changed: Everstake missing');

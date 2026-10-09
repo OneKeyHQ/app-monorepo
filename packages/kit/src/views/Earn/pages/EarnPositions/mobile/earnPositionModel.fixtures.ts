@@ -12,11 +12,11 @@ import { EClaimType } from '@onekeyhq/shared/types/staking';
 
 /**
  * Mock response in the positions contract: the cases the page has to get
- * right — a staking position with withdrawn principal and two withdrawals in
- * progress (Lido), dated Pendle markets, the USDe cooled down at Ethena that
- * Pendle's sUSDe path reports, Morpho vaults on two chains with a loan,
- * Everstake with yield, an Ethena position whose only move is unstaking,
- * Stakefish on Solana. Owners are placeholders.
+ * right — a staking position with principal out of its cooldown and two
+ * withdrawals in progress (Lido), dated Pendle markets, the USDe cooled
+ * down at Ethena that Pendle's sUSDe path reports, Morpho vaults on two
+ * chains with a loan, Everstake with yield, an Ethena position whose only
+ * move is unstaking, Stakefish on Solana. Owners are placeholders.
  */
 
 const FETCHED_AT = '2026-09-28T03:40:00.000Z';
@@ -172,13 +172,18 @@ const LIDO = {
 };
 
 const ETHEREUM_POSITIONS: IEarnPortfolioPosition[] = [
-  // Lido: the deposit and the withdrawal ready to claim are one card; each
-  // withdrawal still in progress is a locked card of its own.
+  // Lido: the deposit is one card; the withdrawal ready to collect is a
+  // claimable card of its own; each withdrawal still in progress is a locked
+  // card of its own.
   position({
     ...LIDO,
     groupId: 'lido:evm--1:steth',
+    assets: [token({ symbol: 'ETH', amount: '4', price: 3150 })],
+  }),
+  position({
+    ...LIDO,
+    groupId: 'lido:evm--1:steth:claimable',
     assets: [
-      token({ symbol: 'ETH', amount: '4', price: 3150 }),
       token({
         symbol: 'ETH',
         amount: '0.5',
@@ -186,6 +191,7 @@ const ETHEREUM_POSITIONS: IEarnPortfolioPosition[] = [
         category: 'claimable',
       }),
     ],
+    earn: { action: 'claim', claim: CLAIM_BUTTON, claimSource: 'investment' },
   }),
   position({
     ...LIDO,
@@ -241,14 +247,14 @@ const ETHEREUM_POSITIONS: IEarnPortfolioPosition[] = [
       maturityAt: Date.parse('2026-12-17T00:00:00Z'),
     },
   }),
-  // The USDe cooled down at Ethena after a Pendle sUSDe redeem: no detail
-  // page, so the card carries the claim itself.
+  // The USDe cooled down at Ethena after a Pendle sUSDe redeem: filed under
+  // Ethena, claimed on the card through Pendle, which reads it.
   position({
     ...ethereum,
-    protocol: 'pendle',
-    protocolName: 'Pendle',
+    protocol: 'ethena',
+    protocolName: 'Ethena',
     category: 'staked',
-    groupId: `pendle:evm--1:${SUSDE_VAULT}:cooldown`,
+    groupId: `ethena:evm--1:${SUSDE_VAULT}:cooldown`,
     name: 'USDe',
     assets: [
       token({
@@ -259,8 +265,15 @@ const ETHEREUM_POSITIONS: IEarnPortfolioPosition[] = [
       }),
     ],
     earn: {
+      manage: {
+        networkId: 'evm--1',
+        provider: 'pendle',
+        symbol: 'USDe',
+        vault: SUSDE_VAULT,
+      },
       symbol: 'USDe',
       vault: SUSDE_VAULT,
+      action: 'claim',
       claim: CLAIM_BUTTON,
       claimSource: 'airdrop',
       airdropRows: [{ title: { text: '0.04588 USDe' }, button: CLAIM_BUTTON }],
@@ -314,15 +327,7 @@ const ETHEREUM_POSITIONS: IEarnPortfolioPosition[] = [
     category: 'staked',
     groupId: 'everstake:evm--1:eth',
     name: 'Everstake ETH',
-    assets: [
-      token({ symbol: 'ETH', amount: '0.1', price: 3150 }),
-      token({
-        symbol: 'ETH',
-        amount: '0.05',
-        price: 3150,
-        category: 'claimable',
-      }),
-    ],
+    assets: [token({ symbol: 'ETH', amount: '0.1', price: 3150 })],
     rewards: [
       token({
         symbol: 'ETH',
@@ -331,6 +336,23 @@ const ETHEREUM_POSITIONS: IEarnPortfolioPosition[] = [
         category: 'reward',
       }),
     ],
+  }),
+  position({
+    ...ethereum,
+    protocol: 'everstake',
+    protocolName: 'Everstake',
+    category: 'staked',
+    groupId: 'everstake:evm--1:eth:claimable',
+    name: 'Everstake ETH',
+    assets: [
+      token({
+        symbol: 'ETH',
+        amount: '0.05',
+        price: 3150,
+        category: 'claimable',
+      }),
+    ],
+    earn: { action: 'claim', claim: CLAIM_BUTTON, claimSource: 'investment' },
   }),
   // Ethena: deposits are closed, so the card's one button is Unstake.
   position({
@@ -380,8 +402,16 @@ const SOLANA_POSITIONS: IEarnPortfolioPosition[] = [
     category: 'staked',
     groupId: 'stakefish:sol--101:SOL',
     name: 'Stakefish SOL',
+    assets: [token({ symbol: 'SOL', amount: '0.008119', price: 110 })],
+  }),
+  position({
+    ...solana,
+    protocol: 'stakefish',
+    protocolName: 'Stakefish',
+    category: 'staked',
+    groupId: 'stakefish:sol--101:SOL:claimable',
+    name: 'Stakefish SOL',
     assets: [
-      token({ symbol: 'SOL', amount: '0.008119', price: 110 }),
       token({
         symbol: 'SOL',
         amount: '0.008045',
@@ -389,6 +419,7 @@ const SOLANA_POSITIONS: IEarnPortfolioPosition[] = [
         category: 'claimable',
       }),
     ],
+    earn: { action: 'claim', claim: CLAIM_BUTTON, claimSource: 'investment' },
   }),
 ];
 
