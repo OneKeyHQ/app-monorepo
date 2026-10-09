@@ -27,7 +27,7 @@ import { INVITE_COPY } from '../../../inviteCopy';
 import { REFERRAL_USD_CURRENCY_PROPS } from '../../shared/getRewardSummary';
 import {
   INVITE_CARD_BORDER_COLOR,
-  useInviteCardStyle,
+  useInviteListCardStyle,
 } from '../../useInviteCardStyle';
 
 import { CopyLinkSplitButton } from './CopyLinkSplitButton';
@@ -181,7 +181,7 @@ export function InviteCodeList({
   onCodeUpdated: IOnCodeUpdated;
 }) {
   const intl = useIntl();
-  const cardStyle = useInviteCardStyle();
+  const cardStyle = useInviteListCardStyle();
   // Primary code first, then newest first so a just-created code is on top.
   const items = useMemo(
     () =>
@@ -218,7 +218,7 @@ export function InviteCodeList({
 
   return (
     <YStack>
-      <SizableText size="$bodyMd" color="$textSubdued" pb="$3">
+      <SizableText size="$bodyMd" color="$textSubdued" pb="$2">
         {INVITE_COPY.codesRemaining(
           codeListData.remainingCodes,
           codeListData.maxCodes,

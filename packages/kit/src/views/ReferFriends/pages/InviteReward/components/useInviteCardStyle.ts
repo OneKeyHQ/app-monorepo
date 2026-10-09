@@ -80,6 +80,17 @@ export function useInviteHomeCardStyle() {
   });
 }
 
+// Pages behind the invite home (Referrals) sit on the plain app canvas: the
+// home's tinted cards on compact layouts, the bordered default elsewhere.
+export function useInviteListCardStyle() {
+  const { md } = useMedia();
+  return useInviteCardStyle({
+    borderRadius: md ? INVITE_HOME_CARD_RADIUS : '$3',
+    bordered: !md,
+    tinted: md,
+  });
+}
+
 // Compact layouts use the app canvas under tinted cards. Desktop puts bright
 // `$bg` cards on the subdued canvas, except in dark mode, which needs the
 // deeper app canvas so the card background stays visible.

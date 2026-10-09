@@ -10,8 +10,8 @@ import { InviteEarningsCard } from './InviteEarningsCard';
 import { InviteLevelValue } from './InviteLevelPill';
 import {
   InviteCompactCard,
-  InviteEntriesCard,
   InviteLinkHero,
+  InviteReferralsEntry,
 } from './InviteLinkHero';
 import { InviteRewardRows } from './InviteRewardRows';
 import { useInviteValueSummary } from './InviteValueLine';
@@ -59,7 +59,7 @@ export function InviteTabContent({
 
       {md ? (
         // Compact layouts read top-down in groups: sharing (the invite card
-        // with the entries behind it, codes and the people they brought in),
+        // with the Referrals entry: codes and the people they brought in),
         // money (the earnings card and its per-product breakdown), then the
         // invitee's bind entry (only until linked). Spacing groups them: 16px
         // inside a group, 24px between groups. Sharing itself sits in the
@@ -79,9 +79,9 @@ export function InviteTabContent({
                 />
               }
             />
-            <InviteEntriesCard
+            <InviteReferralsEntry
               cardStyle={cardStyle}
-              onManageCodes={() => {
+              onOpen={() => {
                 navigateToInviteCodes(summaryInfo.inviteUrl);
               }}
             />

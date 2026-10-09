@@ -42,6 +42,10 @@ export enum EModalReferFriendsRoutes {
   BtcRewardDetail = 'BtcRewardDetail',
 }
 
+// Tabs of the Referrals page (InviteCodes route): the codes, then the
+// wallets and hardware orders they brought in.
+export type IReferralsPageTab = 'codes' | 'wallets' | 'orders';
+
 export type IModalReferFriendsParamList = {
   [EModalReferFriendsRoutes.ReferAFriend]: {
     utmSource?: string;
@@ -55,6 +59,7 @@ export type IModalReferFriendsParamList = {
   [EModalReferFriendsRoutes.InviteCodes]: {
     // New codes build their link from this template.
     inviteUrl: string;
+    tab?: IReferralsPageTab;
   };
   [EModalReferFriendsRoutes.YourReferredWalletAddresses]: {
     networks: IEarnWalletHistoryNetwork[];
