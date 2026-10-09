@@ -921,7 +921,6 @@ const TradingViewNativeContent = memo(
         enableNativeChartSettings &&
         nativeChartSettingsInToolbar ? (
           <XStack alignItems="center" gap="$1" flexShrink={0}>
-            {mobileToolbarExtra}
             <TradingViewNativeChartSettingsButton
               placement="toolbar"
               priceAxisWidth={priceAxisWidth}
@@ -930,6 +929,7 @@ const TradingViewNativeContent = memo(
               onChartSwitch={onChartSwitch}
               onBeforeOpenSettings={handleExitFullscreen}
             />
+            {mobileToolbarExtra}
           </XStack>
         ) : undefined,
       [

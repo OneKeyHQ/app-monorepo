@@ -57,7 +57,7 @@ function ChartModeButton({
       alignItems="center"
       justifyContent="center"
       borderRadius="$full"
-      bg="$bgStrong"
+      bg="$transparent"
       pressStyle={{ bg: '$bgStrongActive' }}
       onPress={onPress}
     >
