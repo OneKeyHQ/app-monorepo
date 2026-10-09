@@ -7,7 +7,6 @@ import {
   Divider,
   Icon,
   IconButton,
-  Illustration,
   SizableText,
   Stack,
   XStack,
@@ -192,16 +191,10 @@ export function InviteLinkHero({
   return (
     <YStack gap="$4">
       <XStack ai="flex-start" gap="$3">
-        {/* The brand's handshake art marks the card as the inviting one,
-            centred on the title block; the art has its own padding, so it
-            is sized a step past the two lines it sits beside. */}
-        <XStack flex={1} minWidth={0} ai="center" gap="$2">
-          <Illustration name="Referred" size={56} flexShrink={0} />
-          <YStack flex={1} gap="$1">
-            <SizableText size="$headingLg">{INVITE_COPY.headline}</SizableText>
-            <InviteValueLine {...valueSummary} />
-          </YStack>
-        </XStack>
+        <YStack flex={1} gap="$1">
+          <SizableText size="$headingLg">{INVITE_COPY.headline}</SizableText>
+          <InviteValueLine {...valueSummary} />
+        </YStack>
         <ReferralListLink />
       </XStack>
       <InviteLinkActions

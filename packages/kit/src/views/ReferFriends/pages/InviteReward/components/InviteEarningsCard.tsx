@@ -142,7 +142,8 @@ function PayoutAddressValue({
       {networkId ? (
         <NetworkAvatar
           networkId={networkId}
-          size={size === '$bodyMd' ? '$4' : '$5'}
+          // A chain mark, a step below the address text.
+          size={size === '$bodyMd' ? '$3.5' : '$4'}
         />
       ) : null}
       <SizableText size={size} color={color} numberOfLines={1} flexShrink={1}>
