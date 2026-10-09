@@ -36,6 +36,7 @@ const getJSReadyTimeAt = (): number => globalThis.$$onekeyJsReadyAt || 0;
 const getUIVisibleTimeAt = (): number => globalThis.$$onekeyUIVisibleAt || 0;
 
 const LaunchOptionsManager: ILaunchOptionsManagerInterface = {
+  reportStartupTiming: (_stage, report) => report(),
   getLaunchOptions: () => Promise.resolve(null),
   clearLaunchOptions: () => Promise.resolve(true),
   getDeviceToken: () => Promise.resolve(null),

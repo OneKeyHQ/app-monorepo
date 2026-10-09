@@ -1,3 +1,4 @@
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ENotificationPushTopicTypes } from '@onekeyhq/shared/types/notification';
 
 import { BaseScene } from '../../../base/baseScene';
@@ -67,7 +68,7 @@ export class PageScene extends BaseScene {
     return { test: 'test' };
   }
 
-  @LogToServer()
+  @LogToServer({ level: 'info', enqueueImmediately: platformEnv.isNative })
   @LogToLocal()
   public jsReadyTime(duration: number) {
     return {
@@ -75,7 +76,7 @@ export class PageScene extends BaseScene {
     };
   }
 
-  @LogToServer()
+  @LogToServer({ level: 'info', enqueueImmediately: platformEnv.isNative })
   @LogToLocal()
   public uiVisibleTime(duration: number) {
     return {

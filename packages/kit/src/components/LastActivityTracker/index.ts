@@ -74,11 +74,15 @@ const LastActivityTracker = () => {
       );
       const jsReadyTime = await LaunchOptionsManager.getJSReadyTime();
       if (jsReadyTime > 0) {
-        defaultLogger.app.page.jsReadyTime(jsReadyTime);
+        LaunchOptionsManager.reportStartupTiming('jsReadyTime', () => {
+          defaultLogger.app.page.jsReadyTime(jsReadyTime);
+        });
       }
       const uiVisibleTime = await LaunchOptionsManager.getUIVisibleTime();
       if (uiVisibleTime > 0) {
-        defaultLogger.app.page.uiVisibleTime(uiVisibleTime);
+        LaunchOptionsManager.reportStartupTiming('uiVisibleTime', () => {
+          defaultLogger.app.page.uiVisibleTime(uiVisibleTime);
+        });
       }
     }, LAST_ACTIVITY_TRACKER_START_DELAY_MS);
     defaultLogger.app.page.appStart();

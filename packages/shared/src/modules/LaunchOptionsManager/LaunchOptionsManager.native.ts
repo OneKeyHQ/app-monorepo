@@ -25,6 +25,23 @@ const getBundleStartTimeSafe = (): number =>
   typeof __BUNDLE_START_TIME__ !== 'undefined' ? __BUNDLE_START_TIME__ : 0;
 
 const LaunchOptionsManagerModule: ILaunchOptionsManagerInterface = {
+  reportStartupTiming: (stage, report) => {
+    // Only the UI runtime owns these endpoints; bg must never claim them.
+    if (!platformEnv.isNativeMainThread) {
+      return;
+    }
+    const key = `analytics:startup:${stage}`;
+    if (!ReactNativeDeviceUtils.setProcessMemoryIfAbsent(key, 'reported')) {
+      return;
+    }
+    try {
+      // The timing logger enqueues synchronously before this call returns.
+      report();
+    } catch (error) {
+      ReactNativeDeviceUtils.removeProcessMemory(key);
+      console.error('Startup timing enqueue failed', stage, error);
+    }
+  },
   getLaunchOptions: () =>
     ReactNativeDeviceUtils.getLaunchOptions() as Promise<ILaunchOptions | null>,
   clearLaunchOptions: () => ReactNativeDeviceUtils.clearLaunchOptions(),

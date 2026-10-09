@@ -6,6 +6,10 @@ export interface ILaunchOptionsNotificationInfo {
 }
 
 export interface ILaunchOptionsManagerInterface {
+  reportStartupTiming(
+    stage: 'jsReadyTime' | 'uiVisibleTime',
+    report: () => void,
+  ): void;
   getLaunchOptions(): Promise<ILaunchOptions | null>;
   clearLaunchOptions(): Promise<boolean>;
   getDeviceToken(): Promise<string | null>;

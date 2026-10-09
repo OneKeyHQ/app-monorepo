@@ -13,6 +13,7 @@ const getUIVisibleTimeAt = () => {
 };
 
 const LaunchOptionsManager: ILaunchOptionsManagerInterface = {
+  reportStartupTiming: (_stage, report) => report(),
   getLaunchOptions: () => Promise.resolve(null),
   clearLaunchOptions: () => Promise.resolve(true),
   getDeviceToken: () => Promise.resolve(null),
