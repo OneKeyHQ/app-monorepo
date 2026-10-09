@@ -30,6 +30,8 @@ const mockNavigateToSwapReward = jest.fn();
 const mockNavigateToEarnReward = jest.fn();
 let mockMd = false;
 
+const mockHeroImagePaused: Array<boolean | undefined> = [];
+
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   const createComponent = (): unknown =>
@@ -76,7 +78,12 @@ jest.mock('@onekeyhq/components', () => {
 
 jest.mock(
   '@onekeyhq/kit/src/views/ReferFriends/pages/ReferAFriend/components/InviteCodeStepImage',
-  () => ({ InviteCodeStepImage: () => null }),
+  () => ({
+    InviteCodeStepImage: (props: { paused?: boolean }) => {
+      mockHeroImagePaused.push(props.paused);
+      return null;
+    },
+  }),
 );
 
 jest.mock('react-intl', () => ({
@@ -346,6 +353,24 @@ describe('InviteTabContent entry points', () => {
       screen.getByTestId(ReferFriendsTestIDs.inviteLevelPill),
     ).toBeTruthy();
   });
+
+  it.each([true, false])(
+    'passes the hero animation pause through (%s)',
+    (paused) => {
+      mockMd = true;
+      mockHeroImagePaused.length = 0;
+      render(
+        <InviteTabContent
+          summaryInfo={SUMMARY}
+          fetchSummaryInfo={jest.fn()}
+          levelDetail={undefined}
+          isHeroAnimationPaused={paused}
+        />,
+      );
+
+      expect(mockHeroImagePaused.at(-1)).toBe(paused);
+    },
+  );
 
   it('opens the bind referral code dialog', () => {
     renderTab();

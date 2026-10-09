@@ -27,10 +27,12 @@ export function InviteTabContent({
   summaryInfo,
   fetchSummaryInfo,
   levelDetail,
+  isHeroAnimationPaused,
 }: {
   summaryInfo: IInviteSummary;
   fetchSummaryInfo: () => unknown;
   levelDetail: IInviteLevelDetail | undefined;
+  isHeroAnimationPaused?: boolean;
 }) {
   const { md } = useMedia();
   const cardStyle = useInviteHomeCardStyle();
@@ -73,6 +75,7 @@ export function InviteTabContent({
               rebateConfig={summaryInfo.rebateConfig}
               rebateLevels={summaryInfo.rebateLevels}
               levelDetail={levelDetail}
+              isAnimationPaused={isHeroAnimationPaused}
             />
             <InviteCompactCard
               inviteUrl={summaryInfo.inviteUrl}

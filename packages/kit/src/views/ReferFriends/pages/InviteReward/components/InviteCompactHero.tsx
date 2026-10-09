@@ -17,10 +17,14 @@ import type { IInviteValueSummaryResult } from './InviteValueLine';
 export function InviteCompactHero({
   valueSummary,
   levelDetail,
+  isAnimationPaused,
   ...levelProps
 }: ICurrentLevelCardProps & {
   valueSummary: IInviteValueSummaryResult;
   levelDetail: IInviteLevelDetail | undefined;
+  // While the illustration cannot be seen (scrolled away, covered by another
+  // page, or on the other tab), it holds still instead of looping unseen.
+  isAnimationPaused?: boolean;
 }) {
   const { summary } = valueSummary;
   const upTo = summary && !summary.isUniform ? `${INVITE_COPY.upTo} ` : '';
@@ -31,7 +35,7 @@ export function InviteCompactHero({
           for another across the whole canvas, so a narrower box or a frozen
           last frame leaves half of it empty. The illustration's background
           matches the canvas, so it bleeds past the page padding unseen. */}
-      <InviteCodeStepImage step={2} />
+      <InviteCodeStepImage step={2} paused={isAnimationPaused} />
       <YStack ai="center" gap="$2">
         <SizableText size="$heading2xl" textAlign="center">
           {INVITE_COPY.heroTitle}

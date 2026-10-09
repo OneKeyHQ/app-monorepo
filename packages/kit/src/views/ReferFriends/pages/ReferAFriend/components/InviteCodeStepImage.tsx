@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { LottieView, Stack, usePageWidth } from '@onekeyhq/components';
 import type { ILottieViewProps } from '@onekeyhq/components';
@@ -9,6 +9,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 const LOTTIE_ASPECT_RATIO = 446 / 786;
 // Same max width as the intro text and actions, so their edges line up.
 const MAX_WIDTH = 480;
+
+// The illustration's rendered height at a page width, for callers that track
+// when it scrolls out of view.
+export function getInviteCodeStepImageHeight(pageWidth: number) {
+  return Math.min(pageWidth, MAX_WIDTH) * LOTTIE_ASPECT_RATIO;
+}
 
 function resolveLottieModule(module: unknown): ILottieViewProps['source'] {
   const lottieModule = module as { default?: ILottieViewProps['source'] };
@@ -64,9 +70,20 @@ function getInviteCodeLottieSource(params: {
 
 interface IInviteCodeStepImageProps {
   step: 1 | 2;
+  // Holds the animation on its current frame while it cannot be seen.
+  paused?: boolean;
 }
 
-export function InviteCodeStepImage({ step }: IInviteCodeStepImageProps) {
+interface ILottiePlayer {
+  play: () => void;
+  pause: () => void;
+}
+
+export function InviteCodeStepImage({
+  step,
+  paused = false,
+}: IInviteCodeStepImageProps) {
+  const lottieRef = useRef<ILottiePlayer | null>(null);
   const themeVariant = useThemeVariant();
   const pageWidth = usePageWidth();
   const [lottieSource, setLottieSource] = useState<ILottieSource | null>(null);
@@ -101,14 +118,26 @@ export function InviteCodeStepImage({ step }: IInviteCodeStepImageProps) {
     };
   }, [lottieThemeVariant, step]);
 
+  useEffect(() => {
+    if (!lottieSource) {
+      return;
+    }
+    if (paused) {
+      lottieRef.current?.pause();
+    } else {
+      lottieRef.current?.play();
+    }
+  }, [lottieSource, paused]);
+
   return (
     <Stack w={width} h={height} alignSelf="center" bg="$bgApp">
       {lottieSource ? (
         <LottieView
+          ref={lottieRef as never}
           source={lottieSource}
           width={width}
           height={height}
-          autoPlay
+          autoPlay={!paused}
           loop={shouldLoop}
           resizeMode="contain"
           renderMode={renderMode}
