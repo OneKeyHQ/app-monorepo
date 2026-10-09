@@ -40,30 +40,38 @@ export const COMPACT_ENTRY_ICON_PROPS = { size: '$5' } as const;
 
 export const INVITE_POPOVER_PANEL_PROPS = { width: 320 } as const;
 
-// The invite home sits its cards on a subdued canvas and rounds them a step
-// further than the card lists on the codes and level pages.
+// The invite home sits its cards on a subdued canvas, so the canvas and the
+// soft shadow separate them without a border; they also round a step further
+// than the card lists on the codes and level pages.
 export const INVITE_HOME_CARD_RADIUS = '$4';
 
 export function useInviteCardStyle({
   borderRadius = '$3',
-}: { borderRadius?: '$3' | typeof INVITE_HOME_CARD_RADIUS } = {}) {
+  bordered = true,
+}: {
+  borderRadius?: '$3' | typeof INVITE_HOME_CARD_RADIUS;
+  bordered?: boolean;
+} = {}) {
   const isDark = useThemeVariant() === 'dark';
   return useMemo(
     () =>
       ({
-        borderWidth: 1,
+        borderWidth: bordered ? 1 : 0,
         borderColor: INVITE_CARD_BORDER_COLOR,
         borderRadius,
         borderCurve: 'continuous',
         bg: '$bg',
         boxShadow: isDark ? undefined : LIGHT_CARD_SHADOW,
       }) as const,
-    [borderRadius, isDark],
+    [borderRadius, bordered, isDark],
   );
 }
 
 export function useInviteHomeCardStyle() {
-  return useInviteCardStyle({ borderRadius: INVITE_HOME_CARD_RADIUS });
+  return useInviteCardStyle({
+    borderRadius: INVITE_HOME_CARD_RADIUS,
+    bordered: false,
+  });
 }
 
 // Light mode puts the bright `$bg` cards on the subdued canvas. Dark mode

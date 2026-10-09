@@ -29,7 +29,6 @@ import { ReferFriendsTestIDs } from '../../../testIDs';
 
 import { useCurrentLevelCardFromDetail } from './CurrentLevelCard/hooks/useCurrentLevelCard';
 import {
-  INVITE_CARD_BORDER_COLOR,
   INVITE_POPOVER_PANEL_PROPS,
   PRESSABLE_SURFACE_PROPS,
 } from './useInviteCardStyle';
@@ -131,8 +130,6 @@ export function InviteLevelPill({
       py="$1"
       borderRadius="$full"
       // The pill sits on the page canvas, so it takes the card surface.
-      borderWidth={1}
-      borderColor={INVITE_CARD_BORDER_COLOR}
       bg="$bg"
       flexShrink={1}
       {...PRESSABLE_SURFACE_PROPS}
