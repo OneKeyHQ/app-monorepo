@@ -241,5 +241,4 @@ describe('desktop startup with persisted state', () => {
     }).toThrow(SyntaxError);
     expect(fs.readFileSync(file, 'utf8')).toBe('{invalid-wallet-preferences');
   });
-
 });

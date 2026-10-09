@@ -124,10 +124,7 @@ export const setLanguage = (lang: string) =>
   store.set(EDesktopStoreKeys.Language, lang);
 
 export const getWinBounds = (): Electron.Rectangle => {
-  return store.get(
-    EDesktopStoreKeys.WinBounds,
-    {} as Electron.Rectangle,
-  );
+  return store.get(EDesktopStoreKeys.WinBounds, {} as Electron.Rectangle);
 };
 
 export const setWinBounds = (bounds: Electron.Rectangle) => {
