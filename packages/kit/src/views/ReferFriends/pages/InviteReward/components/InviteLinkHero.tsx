@@ -269,7 +269,9 @@ export function InviteLinkHero({
 }
 
 // One label/value line of the compact invite card; the value side holds the
-// figure and its inline actions (copy, more links).
+// figure and its inline actions (copy, more links). These rows show facts
+// rather than open pages, so they sit tighter than the 44px list rows: 8px
+// above and below the text, 16px between lines.
 function InviteFieldRow({
   label,
   children,
@@ -278,7 +280,7 @@ function InviteFieldRow({
   children: ReactNode;
 }) {
   return (
-    <XStack ai="center" gap="$3" minHeight={44}>
+    <XStack ai="center" gap="$3" minHeight={36}>
       <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
         {label}
       </SizableText>
@@ -319,7 +321,9 @@ export function InviteCompactCard({
     : null;
 
   return (
-    <YStack px="$4" pt="$4" pb="$1" {...cardStyle}>
+    // 16px from the text to the card edge on every side, like the other
+    // cards; 12px on both sides of the divider.
+    <YStack px="$4" pt="$4" pb="$2" {...cardStyle}>
       {/* The code is what people share and type, so it leads the card at
           display size; the link and rates follow as detail rows. */}
       <XStack ai="center" gap="$3" pb="$3">
@@ -343,7 +347,7 @@ export function InviteCompactCard({
           {intl.formatMessage({ id: ETranslations.global_copy })}
         </Button>
       </XStack>
-      <Divider borderColor={INVITE_CARD_BORDER_COLOR} />
+      <Divider mb="$1" borderColor={INVITE_CARD_BORDER_COLOR} />
       <InviteFieldRow
         label={intl.formatMessage({ id: ETranslations.referral_referral_link })}
       >

@@ -61,7 +61,8 @@ export function InviteBindRow({
         ai="center"
         gap="$3"
         px="$4"
-        py="$3"
+        // Same 16px text inset (and 52px height) as a one-row entries card.
+        py="$4"
         {...cardStyle}
         {...PRESSABLE_SURFACE_PROPS}
         testID={ReferFriendsTestIDs.inviteBindRow}
