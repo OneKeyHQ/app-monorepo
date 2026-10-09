@@ -225,7 +225,8 @@ function DesktopEarnings({
 }
 
 // One part of the total on the compact card: a colored dot ties it to the
-// total above, and an optional hint sits under the label.
+// total above. An optional hint sits under the amount, like the pending
+// line on the hardware reward row.
 function EarningsPartRow({
   dotColor,
   label,
@@ -239,37 +240,34 @@ function EarningsPartRow({
 }) {
   return (
     <XStack minHeight={36} ai="center" jc="space-between" gap="$3">
-      <XStack flex={1} minWidth={0} ai="flex-start" gap="$2">
-        <YStack h={20} jc="center">
-          <YStack w="$2" h="$2" borderRadius="$full" bg={dotColor} />
-        </YStack>
-        <YStack flex={1} minWidth={0}>
-          <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-            {label}
-          </SizableText>
-          {hint ? (
-            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-              {hint}
-            </SizableText>
-          ) : null}
-        </YStack>
+      <XStack flex={1} minWidth={0} ai="center" gap="$2">
+        <YStack w="$2" h="$2" borderRadius="$full" bg={dotColor} />
+        <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+          {label}
+        </SizableText>
       </XStack>
-      <Currency
-        {...REFERRAL_USD_CURRENCY_PROPS}
-        size="$bodyMdMedium"
-        numberOfLines={1}
-        alignSelf="flex-start"
-        lineHeight={20}
-      >
-        {value}
-      </Currency>
+      <YStack ai="flex-end" gap="$0.5">
+        <Currency
+          {...REFERRAL_USD_CURRENCY_PROPS}
+          size="$bodyMdMedium"
+          numberOfLines={1}
+        >
+          {value}
+        </Currency>
+        {hint ? (
+          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+            {hint}
+          </SizableText>
+        ) : null}
+      </YStack>
     </XStack>
   );
 }
 
 // Compact layouts read the money as one sum: the total earned leads, then
-// its two parts (paid, and unpaid with the next payout date), then the
-// payout address as a row, in the caution color while it is not set.
+// its two parts (paid, and unpaid with its payout date under the amount
+// it applies to), then the payout address as a row, in the caution color
+// while it is not set.
 function CompactEarnings({
   earnings,
   labels,

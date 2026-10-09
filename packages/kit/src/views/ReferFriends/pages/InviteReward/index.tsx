@@ -182,7 +182,7 @@ function InviteOverviewSkeleton() {
               <Skeleton.HeadingXl w={120} />
             </YStack>
             <Divider borderColor="$neutral4" />
-            {[0, 1].map((index) => (
+            {[0, 1, 2].map((index) => (
               <XStack key={index} jc="space-between">
                 <Skeleton.BodyMd w={96} />
                 <Skeleton.BodyMd w={120} />

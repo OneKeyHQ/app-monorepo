@@ -7,6 +7,7 @@ import type {
 
 import { InviteBindRow } from './InviteBindRow';
 import { InviteEarningsCard } from './InviteEarningsCard';
+import { InviteLevelValue } from './InviteLevelPill';
 import {
   InviteCompactCard,
   InviteLinkHero,
@@ -57,8 +58,8 @@ export function InviteTabContent({
       />
 
       {md ? (
-        // Compact layouts give each card one job: sharing (code, link and
-        // the rates it earns; the level sits behind the rate popover), then
+        // Compact layouts give each card one job: sharing (code, link, and
+        // the level with the rates it sets), then
         // money (the earnings card and its per-product breakdown), then the
         // invitee's bind entry (only until linked). Captions sit 8px over
         // their card, cards 16px apart inside a group, 24px between groups.
@@ -71,6 +72,13 @@ export function InviteTabContent({
               inviteCode={summaryInfo.inviteCode}
               valueSummary={valueSummary}
               cardStyle={cardStyle}
+              levelValue={
+                <InviteLevelValue
+                  rebateConfig={summaryInfo.rebateConfig}
+                  rebateLevels={summaryInfo.rebateLevels}
+                  levelDetail={levelDetail}
+                />
+              }
               onManageCodes={() => {
                 navigateToInviteCodes(summaryInfo.inviteUrl);
               }}
