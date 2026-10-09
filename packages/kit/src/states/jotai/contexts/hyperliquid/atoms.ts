@@ -251,6 +251,7 @@ export const {
 export interface ITradeRouteViewState {
   routeFocused: boolean;
   tokenSelectorOpen: boolean;
+  tradeHistoryDetailsOpen: boolean;
   tokenSelectorTab: string;
   infoPanelTab: string;
   favoritesBarSpotActive: boolean;
@@ -262,6 +263,7 @@ export const {
 } = contextAtom<ITradeRouteViewState>({
   routeFocused: false,
   tokenSelectorOpen: false,
+  tradeHistoryDetailsOpen: false,
   tokenSelectorTab: 'all',
   infoPanelTab: 'Positions',
   favoritesBarSpotActive: false,

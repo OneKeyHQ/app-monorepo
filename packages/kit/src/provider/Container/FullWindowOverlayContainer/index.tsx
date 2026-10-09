@@ -4,6 +4,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ScreenshotBranding } from '../../../components/ScreenshotBranding';
 import { TradingViewNativeFullscreenHost } from '../../../components/TradingView/TradingViewNative/TradingViewNativePresentation';
 
+import { AccountSelectorMirrorInspectorContainer } from './AccountSelectorMirrorInspectorContainer';
 import { DevOverlayWindowContainer } from './DevOverlayWindowContainer';
 import { HardwareStageOverlayContainer } from './HardwareStageOverlayContainer';
 import { ToastOverlayContainer } from './ToastOverlayContainer';
@@ -32,6 +33,11 @@ export function FullWindowOverlayContainer() {
         {platformEnv.isE2E ? <></> : <Toaster />}
       </ToastOverlayContainer>
       <DevOverlayWindowContainer />
+      {process.env.NODE_ENV !== 'production' &&
+      platformEnv.isWeb &&
+      (platformEnv.isDev || platformEnv.isE2E) ? (
+        <AccountSelectorMirrorInspectorContainer />
+      ) : null}
       <TradingViewNativeDebugPanelContainer />
       <ScreenshotBranding />
     </>

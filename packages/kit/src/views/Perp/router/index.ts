@@ -28,6 +28,10 @@ const PerpTradersHistoryList = LazyLoadPage(
   () => import('../components/OrderInfoPanel/PerpTradersHistoryListModal'),
 );
 
+const PerpTradeHistoryDetails = LazyLoadPage(
+  () => import('../components/OrderInfoPanel/PerpTradeHistoryDetails'),
+);
+
 const PagePerp = LazyLoadRootTabPage(
   () => import('../pages/Perp'),
   createElement(RootTabLoadingFallback, { tabRoute: ETabRoutes.Perp }),
@@ -141,6 +145,10 @@ export const ModalPerpStack: IModalFlowNavigatorConfig<
   {
     name: EModalPerpRoutes.PerpTradersHistoryList,
     component: PerpTradersHistoryList,
+  },
+  {
+    name: EModalPerpRoutes.PerpTradeHistoryDetails,
+    component: PerpTradeHistoryDetails,
   },
   {
     name: EModalPerpRoutes.MobilePerpMarket,

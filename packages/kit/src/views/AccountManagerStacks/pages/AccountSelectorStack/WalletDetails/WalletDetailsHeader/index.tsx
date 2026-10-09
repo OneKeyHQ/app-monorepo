@@ -165,6 +165,7 @@ export function WalletDetailsHeader({
               await actions.current.updateSelectedAccountDeriveType({
                 num,
                 deriveType,
+                reason: 'userSelectDeriveType',
               });
             }}
           />
