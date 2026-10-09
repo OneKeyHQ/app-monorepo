@@ -18,6 +18,7 @@ import {
 } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/StockDetailContext';
 import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EModalSwapRoutes,
   type IModalSwapParamList,
@@ -226,10 +227,16 @@ function SwapStockSelectionProvider({
         }
         if (isRiskToken) {
           setOperation({ phase: 'idle' });
-          navigation.push(EModalSwapRoutes.TokenRiskReminder, {
-            storeName,
-            token,
-            onConfirm: commitSelection,
+          navigation.pushModal(EModalRoutes.SwapModal, {
+            screen: EModalSwapRoutes.TokenRiskReminder,
+            params: {
+              storeName,
+              token,
+              onConfirm: (close) => {
+                close();
+                commitSelection();
+              },
+            },
           });
         } else {
           commitSelection();

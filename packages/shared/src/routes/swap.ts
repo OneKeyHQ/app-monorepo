@@ -77,7 +77,7 @@ export type IModalSwapParamList = {
   [EModalSwapRoutes.TokenRiskReminder]: {
     storeName: EJotaiContextStoreNames;
     token: ISwapToken;
-    onConfirm: () => void;
+    onConfirm: (close: () => void) => void;
   };
   [EModalSwapRoutes.SwapLazyMarketModal]: {
     coinGeckoId: string;
