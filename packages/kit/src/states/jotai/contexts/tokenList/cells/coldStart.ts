@@ -256,19 +256,6 @@ function persistOwnerSlimCache({
   }
 }
 
-/**
- * Drop every persisted per-owner slim slot (wallet / account removal, wallet
- * clear). Owner ids are reused after deletion, so a stale slot would paint the
- * deleted owner's rows and balances on the re-created owner until its PULL.
- */
-export function clearPersistedOwnerSlimCache(): void {
-  try {
-    tokenListOwnerSlimCache.clear();
-  } catch {
-    /* best-effort */
-  }
-}
-
 /** Read the per-owner slim bundle, verifying it is stamped for `ownerKey`. */
 export function readOwnerSlimCache({
   storeName,
@@ -364,6 +351,30 @@ interface IPendingSlimPersist {
 const slimPersistPending = new Map<IJotaiContextStore, IPendingSlimPersist>();
 
 let slimPersistFlushTriggerRegistered = false;
+let slimPersistRemovalCancelRegistered = false;
+
+/**
+ * A wallet / account removal clears the per-owner slim namespace
+ * (`ownerCacheInvalidation`). A persist still pending for the removed owner
+ * would write its slot straight back: its own timer, or the flush the next
+ * owner switch runs for the outgoing owner. So a removal drops every pending
+ * persist; the surviving owner's next apply re-arms its own. Registered with
+ * the first schedule, since nothing can be pending before it. Idempotent.
+ */
+function ensureSlimPersistRemovalCancel(): void {
+  if (slimPersistRemovalCancelRegistered) {
+    return;
+  }
+  slimPersistRemovalCancelRegistered = true;
+  const cancelAll = () => {
+    for (const store of Array.from(slimPersistPending.keys())) {
+      cancelPendingSlimColdCache(store);
+    }
+  };
+  appEventBus.on(EAppEventBusNames.WalletRemove, cancelAll);
+  appEventBus.on(EAppEventBusNames.AccountRemove, cancelAll);
+  appEventBus.on(EAppEventBusNames.WalletClear, cancelAll);
+}
 
 /**
  * On app background / tab hide, force out any pending debounced persist so a
@@ -399,6 +410,7 @@ export function schedulePersistSlimColdCache(params: {
 }): void {
   const { store, projection, getCurrency } = params;
   ensureSlimPersistFlushTrigger();
+  ensureSlimPersistRemovalCancel();
   const existing = slimPersistPending.get(store);
   if (existing) {
     clearTimeout(existing.timer);

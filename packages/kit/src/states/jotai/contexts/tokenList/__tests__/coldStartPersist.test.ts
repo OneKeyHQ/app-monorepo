@@ -33,6 +33,10 @@ import type {
   IStructureSnapshot,
   IValuationFrame,
 } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/types';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { ITokenListSlimColdCache } from '@onekeyhq/shared/src/utils/tokenListSlimColdCacheUtils';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
@@ -45,6 +49,7 @@ import {
 } from '../cells/apply';
 import {
   PERSIST_DEBOUNCE_MS,
+  flushPendingSlimColdCache,
   schedulePersistSlimColdCache,
 } from '../cells/coldStart';
 import {
@@ -272,4 +277,37 @@ describe('schedulePersistSlimColdCache — persist timing captures fiat', () => 
     expect(slim.nonZeroIds).toEqual(['a', 'b']);
     expect(slim.fundedIds).toEqual(['a']);
   });
+
+  it.each([
+    EAppEventBusNames.WalletRemove,
+    EAppEventBusNames.AccountRemove,
+    EAppEventBusNames.WalletClear,
+  ])(
+    'drops a pending persist on %s so the cleared slot is not written back',
+    (eventName) => {
+      // The removal clears the per-owner slim namespace; a persist still pending
+      // for the removed owner would write its slot straight back, from its own
+      // timer or from the flush the next owner switch runs for the outgoing
+      // owner.
+      const { ctx, projection, deps } = setup();
+      applyStructureSnapshot(ctx, projection, makeStructureFrame(), deps);
+      applyValuationFrame(ctx, projection, makeValuationFrame(), deps, (fn) =>
+        fn(),
+      );
+      schedulePersistSlimColdCache({
+        store: ctx,
+        projection,
+        getCurrency: () => 'usd',
+      });
+
+      appEventBus.emit(
+        eventName as EAppEventBusNames.WalletRemove,
+        { walletId: 'hd-1' } as never,
+      );
+      jest.advanceTimersByTime(PERSIST_DEBOUNCE_MS);
+      flushPendingSlimColdCache(ctx);
+
+      expect(mockWriteColdStartSnapshotKey).not.toHaveBeenCalled();
+    },
+  );
 });
