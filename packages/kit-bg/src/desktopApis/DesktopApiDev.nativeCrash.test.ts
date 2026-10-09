@@ -16,6 +16,19 @@ import type { IDesktopApi } from './instance/IDesktopApi';
 
 let mockLogPath = '';
 const mockCollect = jest.fn(async () => {});
+// Workspace imports resolve to source files in CI, while the duplicate Desktop
+// package names require virtual aliases locally. Isolate both module identities.
+jest.mock('../../../../apps/desktop/app/config', () => ({
+  ipcMessageKeys: {},
+}));
+jest.mock('../../../../apps/desktop/app/libs/nativeCrash', () => ({
+  collectNativeCrashReports: () => mockCollect(),
+}));
+jest.mock('../../../../apps/desktop/app/libs/networkThrottle', () => ({}));
+jest.mock('../../../../apps/desktop/app/libs/store', () => ({}));
+jest.mock('../../../../apps/desktop/app/logger', () => ({
+  flushDesktopDedup: jest.fn(),
+}));
 jest.mock('@onekeyhq/desktop/app/config', () => ({ ipcMessageKeys: {} }), {
   virtual: true,
 });
@@ -27,7 +40,9 @@ jest.mock(
 jest.mock(
   '@onekeyhq/desktop/app/libs/nativeCrashFiles',
   () =>
-    require('../../../../apps/desktop/app/libs/nativeCrashFiles') as typeof import('../../../../apps/desktop/app/libs/nativeCrashFiles'),
+    jest.requireActual<typeof import('../../../../apps/desktop/app/libs/nativeCrashFiles')>(
+      '../../../../apps/desktop/app/libs/nativeCrashFiles',
+    ),
   { virtual: true },
 );
 jest.mock('@onekeyhq/desktop/app/libs/networkThrottle', () => ({}), {
