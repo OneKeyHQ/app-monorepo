@@ -361,7 +361,8 @@ const SwapActionsState = ({
       shouldEnableSwapIncognitoRecipientValidation({
         hasFromToken: Boolean(fromToken),
         hasToToken: Boolean(toToken),
-        isAddressInfoReady: recipientValidationAddressInfo.isAddressInfoReady,
+        isAddressInfoReady:
+          recipientValidationAddressInfo.isRecipientValidationReady,
         networkId: incognitoRecipientNetworkId,
         providerSupportsRecipient: providerSupportReceiveAddressSettled,
         visible: shouldShowIncognitoRecipientInput,
@@ -371,7 +372,7 @@ const SwapActionsState = ({
       incognitoRecipientNetworkId,
       shouldShowIncognitoRecipientInput,
       providerSupportReceiveAddressSettled,
-      recipientValidationAddressInfo.isAddressInfoReady,
+      recipientValidationAddressInfo.isRecipientValidationReady,
       toToken,
     ],
   );
@@ -386,6 +387,7 @@ const SwapActionsState = ({
     validationEnabled: shouldValidateIncognitoRecipientInput,
     clearRecipientAddressOnHide,
     networkId: incognitoRecipientNetworkId,
+    validationScopeKey: recipientValidationAddressInfo.validationScopeKey,
     accountId: getSwapRecipientValidationAccountId({
       accountId: recipientValidationAddressInfo.accountInfo?.account?.id,
       accountAddress:
