@@ -46,9 +46,8 @@ export const POINTER_ROW_BLEED_PROPS = { mx: -8, px: '$2' } as const;
 export const INVITE_POPOVER_PANEL_PROPS = { width: 320 } as const;
 
 // Invite home cards round a step further than the card lists on the codes
-// and level pages, and drop the border: on desktop the subdued canvas and the
-// soft shadow separate them; compact layouts flip to tinted cards on the app
-// canvas, which need neither.
+// and level pages and drop the border: they are tinted cards on the plain
+// app canvas on every layout.
 export const INVITE_HOME_CARD_RADIUS = '$4';
 
 export function useInviteCardStyle({
@@ -76,11 +75,10 @@ export function useInviteCardStyle({
 }
 
 export function useInviteHomeCardStyle() {
-  const { md } = useMedia();
   return useInviteCardStyle({
     borderRadius: INVITE_HOME_CARD_RADIUS,
     bordered: false,
-    tinted: md,
+    tinted: true,
   });
 }
 
@@ -95,24 +93,21 @@ export function useInviteListCardStyle() {
   });
 }
 
-// Compact layouts use the app canvas under tinted cards. Desktop puts bright
-// `$bg` cards on the subdued canvas, except in dark mode, which needs the
-// deeper app canvas so the card background stays visible.
+// The invite home sits on the plain app canvas on every layout, under its
+// tinted cards.
 export function useInvitePageCanvas() {
   const theme = useTheme();
-  const { md } = useMedia();
-  const isDark = useThemeVariant() === 'dark';
-  const isAppCanvas = md || isDark;
-  const backgroundColor = isAppCanvas ? '$bgApp' : '$bgSubdued';
-  const headerBackgroundColor = isAppCanvas
-    ? theme.bgApp.val
-    : theme.bgSubdued.val;
+  const headerBackgroundColor = theme.bgApp.val;
   // Reference-stable: PageHeader diffs options shallowly before setOptions.
   const headerStyle = useMemo(
     () => ({ backgroundColor: headerBackgroundColor }),
     [headerBackgroundColor],
   );
-  return { backgroundColor, headerBackgroundColor, headerStyle } as const;
+  return {
+    backgroundColor: '$bgApp',
+    headerBackgroundColor,
+    headerStyle,
+  } as const;
 }
 
 export type IInviteCardStyle = ReturnType<typeof useInviteCardStyle>;

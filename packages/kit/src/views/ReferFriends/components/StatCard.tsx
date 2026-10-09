@@ -6,7 +6,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import type { ColorTokens } from '@onekeyhq/components/src/shared/tamagui';
-import { useInviteCardStyle } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteCardStyle';
+import { useInviteHomeCardStyle } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteCardStyle';
 
 import { RewardValue } from './RewardSummaryCard';
 
@@ -39,11 +39,11 @@ export function StatCard({
   valueColor = '$text',
 }: IStatCardProps) {
   const { xl } = useMedia();
-  const cardStyle = useInviteCardStyle();
+  const cardStyle = useInviteHomeCardStyle();
 
   return (
-    // Same card as the overview page; no decorative icon tile, so the figure
-    // leads and the card stays compact.
+    // Same tinted card as the overview page; no decorative icon tile, so the
+    // figure leads and the card stays compact.
     <YStack flex={1} flexBasis={0} minWidth={0} p="$5" {...cardStyle}>
       <YStack gap={subtitle ? '$2.5' : undefined}>
         <YStack>

@@ -85,13 +85,17 @@ export const InviteTabContent = memo(function InviteTabContent({
               levelDetail={levelDetail}
               animationControlRef={heroAnimationControlRef}
             />
-            <InviteCompactCard
-              inviteUrl={inviteUrl}
-              inviteCode={summaryInfo.inviteCode}
-              cardStyle={cardStyle}
-              onManageCodes={handleManageCodes}
-            />
-            <InviteBindRow />
+            {/* The bind line belongs to the code card, so it sits closer to
+                it than the cards sit to each other. */}
+            <YStack gap="$2.5">
+              <InviteCompactCard
+                inviteUrl={inviteUrl}
+                inviteCode={summaryInfo.inviteCode}
+                cardStyle={cardStyle}
+                onManageCodes={handleManageCodes}
+              />
+              <InviteBindRow />
+            </YStack>
           </YStack>
           <YStack gap="$2">
             <InviteEarningsCaption />

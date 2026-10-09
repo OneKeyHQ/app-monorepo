@@ -129,9 +129,9 @@ export function InviteLevelPill({
       px="$2"
       py="$1"
       borderRadius="$full"
-      // The pill sits on the page canvas, so it takes the card surface:
-      // bright on the desktop's subdued canvas, tinted on the compact one.
-      bg={gtMd ? '$bg' : '$bgSubdued'}
+      // The pill sits on the plain page canvas, so it takes the tinted card
+      // surface.
+      bg="$bgSubdued"
       flexShrink={1}
       {...PRESSABLE_SURFACE_PROPS}
       onPress={() => {
