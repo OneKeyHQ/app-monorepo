@@ -44,7 +44,7 @@ export const UndistributedRewardCard: FC<IUndistributedRewardCardProps> = ({
       <YStack testID="UndistributedRewardCard" {...rest}>
         <RewardSummaryCard
           title={intl.formatMessage({
-            id: ETranslations.referral_reward_undistributed,
+            id: ETranslations.referral_undistributed,
           })}
           value={String(value)}
           valueText={isMinDisplay ? `< $${MIN_DISPLAY_AMOUNT}` : undefined}
@@ -63,7 +63,7 @@ export const UndistributedRewardCard: FC<IUndistributedRewardCardProps> = ({
       >
         <SizableText size="$bodyLg" color="$textSubdued">
           {intl.formatMessage({
-            id: ETranslations.referral_reward_undistributed,
+            id: ETranslations.referral_undistributed,
           })}
         </SizableText>
         {showIcon ? (

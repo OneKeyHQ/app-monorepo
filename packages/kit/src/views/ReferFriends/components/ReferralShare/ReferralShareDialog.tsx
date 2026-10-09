@@ -22,6 +22,7 @@ import {
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { INVITE_COPY } from '../../pages/InviteReward/inviteCopy';
 import { ReferFriendsTestIDs } from '../../testIDs';
 
 import {
@@ -193,9 +194,7 @@ function ReferralShareContent({
         <ShareAction
           testID={ReferFriendsTestIDs.shareCopyLinkBtn}
           icon="LinkOutline"
-          label={intl.formatMessage({
-            id: ETranslations.perps_share_position_btn_copy_link,
-          })}
+          label={INVITE_COPY.copyLink}
           onPress={handleCopyLink}
         />
         <ShareAction

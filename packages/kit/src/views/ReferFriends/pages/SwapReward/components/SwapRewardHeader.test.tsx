@@ -113,9 +113,7 @@ describe('SwapRewardHeader', () => {
     expect(undistributedCard?.subtitle).toContain(
       `${ETranslations.referral_perps_total}: $3.00`,
     );
-    expect(undistributedCard?.subtitle).toContain(
-      `${ETranslations.referral_next_distribution}: Aug 1`,
-    );
+    expect(undistributedCard?.subtitle).toContain('Next payout Aug 1');
   });
 
   it('sums the figures up in one card on mobile', () => {
@@ -128,9 +126,7 @@ describe('SwapRewardHeader', () => {
     expect(mockSummaries).toHaveLength(1);
     const [summary] = mockSummaries;
     expect(summary.title).toBe(ETranslations.referral_undistributed);
-    expect(summary.hint).toBe(
-      `${ETranslations.referral_next_distribution}: Aug 1`,
-    );
+    expect(summary.hint).toBe('Next payout Aug 1');
     expect(summary.rows?.map((row) => row.label)).toEqual([
       ETranslations.referral_perps_total,
       ETranslations.referral_perps_volume,
