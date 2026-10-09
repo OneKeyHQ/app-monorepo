@@ -88,7 +88,12 @@ function ReferralLevelSkeleton() {
       <ReferFriendsPageContainer>
         <YStack py="$5" px="$pagePadding" gap="$4">
           {showBreadcrumb ? <Skeleton.BodyMd w={160} /> : null}
-          <YStack gap="$5" p="$5" $md={{ p: '$4', gap: '$4' }} {...cardStyle}>
+          <YStack
+            gap="$5"
+            p="$5"
+            $md={{ p: '$4', pb: '$6', gap: '$4' }}
+            {...cardStyle}
+          >
             <XStack ai="center" gap="$4">
               <Skeleton w="$12" h="$12" radius="round" />
               <YStack gap="$1">

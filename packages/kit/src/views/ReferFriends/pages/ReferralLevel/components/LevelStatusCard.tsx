@@ -86,8 +86,18 @@ export function LevelStatusCard({
     });
   }, [intl]);
 
+  const hasTargets = Boolean(nextLevel) && upgradeTargets.length > 0;
+
   return (
-    <YStack gap="$5" p="$5" $md={{ p: '$4', gap: '$4' }} {...cardStyle}>
+    <YStack
+      gap="$5"
+      p="$5"
+      // A thin progress bar ends the card on phones; past the usual 16px it
+      // reads as a divider rather than the card's end, so the bottom gets the
+      // page's 24px group spacing.
+      $md={{ p: '$4', pb: hasTargets ? '$6' : '$4', gap: '$4' }}
+      {...cardStyle}
+    >
       <XStack ai="center" gap="$4">
         <Stack w="$12" h="$12" ai="center" jc="center" flexShrink={0}>
           {level.icon ? (
@@ -116,7 +126,7 @@ export function LevelStatusCard({
         </Button>
       </XStack>
       <Divider borderColor={INVITE_CARD_BORDER_COLOR} />
-      {nextLevel && upgradeTargets.length > 0 ? (
+      {nextLevel && hasTargets ? (
         <UpgradeTargetsSection nextLevel={nextLevel} targets={upgradeTargets} />
       ) : (
         <SizableText size="$bodyMd" color="$textSubdued">
