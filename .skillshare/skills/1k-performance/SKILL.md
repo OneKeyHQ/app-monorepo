@@ -10,13 +10,13 @@ Performance optimization patterns and best practices for React/React Native appl
 
 ## Quick Reference
 
-| Category                | Key Optimization                              | When to Use                                  |
-| ----------------------- | --------------------------------------------- | -------------------------------------------- |
-| **Concurrent Requests** | Limit to 3-5, use `executeBatched`            | Multiple API calls, network-heavy operations |
-| **Bridge Optimization** | Minimize crossings, batch data                | React Native bridge overhead, iOS/Android    |
-| **List Rendering**      | FlashList, windowSize={5}, content-visibility | Lists with 100+ items                        |
-| **Memoization**         | memo, useMemo, useCallback                    | Expensive computations, prevent re-renders   |
-| **Heavy Operations**    | InteractionManager, setTimeout                | UI blocking operations                       |
+| Category | Key Optimization | When to Use |
+|----------|------------------|-------------|
+| **Concurrent Requests** | Limit to 3-5, use `executeBatched` | Multiple API calls, network-heavy operations |
+| **Bridge Optimization** | Minimize crossings, batch data | React Native bridge overhead, iOS/Android |
+| **List Rendering** | FlashList, windowSize={5}, content-visibility | Lists with 100+ items |
+| **Memoization** | memo, useMemo, useCallback | Expensive computations, prevent re-renders |
+| **Heavy Operations** | InteractionManager, setTimeout | UI blocking operations |
 
 ## Account Selector Render Baseline
 
@@ -130,7 +130,7 @@ Useful knobs:
 
 ```typescript
 // ❌ BAD - Can freeze UI with 15+ requests
-const requests = items.map((item) => fetchData(item));
+const requests = items.map(item => fetchData(item));
 await Promise.all(requests);
 ```
 
@@ -144,13 +144,15 @@ async function executeBatched<T>(
   const results: Array<PromiseSettledResult<T>> = [];
   for (let i = 0; i < tasks.length; i += concurrency) {
     const batch = tasks.slice(i, i + concurrency);
-    const batchResults = await Promise.allSettled(batch.map((task) => task()));
+    const batchResults = await Promise.allSettled(
+      batch.map((task) => task()),
+    );
     results.push(...batchResults);
   }
   return results;
 }
 
-const tasks = items.map((item) => () => fetchData(item));
+const tasks = items.map(item => () => fetchData(item));
 await executeBatched(tasks, 3); // Max 3 concurrent
 ```
 
@@ -158,18 +160,17 @@ await executeBatched(tasks, 3); // Max 3 concurrent
 
 **Already Optimized - NO ACTION NEEDED:**
 
-| Component  | Optimization                  | Details                   |
-| ---------- | ----------------------------- | ------------------------- |
-| `ListView` | `windowSize={5}`              | Auto-limits visible items |
-| `Tabs`     | `contentVisibility: 'hidden'` | Hides inactive tabs       |
-| `Dialog`   | `contentVisibility: 'hidden'` | Hides when closed         |
+| Component | Optimization | Details |
+|-----------|--------------|---------|
+| `ListView` | `windowSize={5}` | Auto-limits visible items |
+| `Tabs` | `contentVisibility: 'hidden'` | Hides inactive tabs |
+| `Dialog` | `contentVisibility: 'hidden'` | Hides when closed |
 
 ## Detailed Guide
 
 For comprehensive performance optimization strategies, see [performance.md](references/rules/performance.md).
 
 Topics covered:
-
 - Concurrent request control
 - React Native bridge optimization
 - Heavy operations offloading

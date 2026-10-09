@@ -6552,23 +6552,13 @@ async function runSwapInlineDeriveTypeScenario(page, devOnlyPassword, fixture) {
 //   on open (TokenSelectorPopover.tsx; Popover renders content only while
 //   open), and the review dialog does the same. That is the exception among
 //   Market views — everything else in Market mirrors home.
-// - The swap scene follows home through TWO racing consumers of the same
-//   AccountSelectorSelectedAccountUpdate event, both alive since the
-//   multi-num phase visited the Swap tab:
-//   1. The Swap page's own sync (useSwapGlobal.syncSwapSelectedAccountFromHome)
-//      applies home's account to swap num 0 with the DEFAULT reason
-//      'updateSelectedAccount' and updatedAt = Date.now() (receive time).
-//   2. AccountSelectorEffects → syncHomeAndSwapSelectedAccount commits with
-//      reason 'syncHomeAndSwapSelectedAccount' and the payload's origin
-//      revision, for swap num 0 AND num 1.
-//   Both merge ONLY the account identity (walletId/indexedAccountId/
-//   othersWalletAccountId/focusedWallet), never the target's networkId or
-//   deriveType. On swap num 0 the race winner commits and the loser settles
-//   as a no-op, a 'stale-before-fix' drop (the pre-mutex early exit in
-//   syncHomeAndSwapSelectedAccount), or a 'skip-older-event' drop (the
-//   compare-if-newer guard inside the update mutex), so WHICH reason commits
-//   is timing — but the TOTAL is exactly one commit and one reload. Swap num 1
-//   has only path 2, so its reason is deterministic.
+// - Two Home-event consumers may sync Swap: the page sync for num 0 and
+//   AccountSelectorEffects for nums 0/1. Both retain the Home event revision
+//   and source runtime. Effects keeps the target network/derive type; the
+//   page sync can also apply Home's network and derive type.
+//   Equal-revision writes from the same runtime give num 0's
+//   account-and-network sync precedence over account-only sync. The budgets
+//   below are specific to this fixture; num 1 only uses the Effects path.
 // - Because the account-manager wallet row writes focusedWallet with its own
 //   'userSelectWallet' update (which also fans out to swap), the switch target
 //   stays in the SAME wallet as the normalized account: the wallet click is
