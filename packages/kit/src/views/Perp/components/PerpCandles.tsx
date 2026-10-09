@@ -86,7 +86,7 @@ export function PerpCandles({
   }
   const [{ reloadHook }] = usePerpsCandlesWebviewReloadHookAtom();
   const [{ chartExpanded = false }, setLayoutState] = usePerpsLayoutStateAtom();
-  const [isTradingViewNative, setIsTradingViewNative] = useState(true);
+  const [isTradingViewNative, setIsTradingViewNative] = useState(false);
   const [isMobileChartFullscreen, setIsMobileChartFullscreen] = useState(false);
   const [isChartInteracting, setIsChartInteracting] = useState(false);
   const [isChartResizing, setIsChartResizing] = useState(false);

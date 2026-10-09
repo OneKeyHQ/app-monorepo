@@ -1,8 +1,6 @@
 import type { ReactNode } from 'react';
 
-import { act, render } from '@testing-library/react-native';
-
-import type { ITradingViewNativeProps } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
+import { render } from '@testing-library/react-native';
 
 import { PerpCandles } from './PerpCandles';
 
@@ -11,7 +9,6 @@ let mockCoin = 'ETH';
 const mockChartMount = jest.fn();
 const mockChartUnmount = jest.fn();
 const mockSetLayoutState = jest.fn();
-let mockNativeChartProps: ITradingViewNativeProps;
 
 jest.mock('@onekeyhq/components', () => ({
   Stack: ({ children }: { children?: ReactNode }) => children,
@@ -44,10 +41,7 @@ jest.mock('@onekeyhq/kit/src/components/TradingView/TradingViewNative', () => ({
   >(
     '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/getTradingViewNativeSource',
   ).getTradingViewNativeSourceKey,
-  TradingViewNative: (props: ITradingViewNativeProps) => {
-    mockNativeChartProps = props;
-    return null;
-  },
+  TradingViewNative: () => null,
 }));
 
 jest.mock('../hooks/usePerpsNativeChartLines', () => ({
@@ -85,10 +79,7 @@ jest.mock(
 );
 
 function renderTradingViewCandles() {
-  const view = render(<PerpCandles />);
-  expect(mockNativeChartProps.onChartSwitch).toEqual(expect.any(Function));
-  act(() => mockNativeChartProps.onChartSwitch?.());
-  return view;
+  return render(<PerpCandles />);
 }
 
 describe('PerpCandles TradingView account isolation', () => {

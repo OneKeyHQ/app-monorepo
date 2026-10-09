@@ -2,10 +2,11 @@
 
 ## First-stage scope
 
-`packages/kit/src/views/Perp/components/PerpCandles.tsx` defaults to the same
-`TradingViewNative` component used by Market and supports switching back to
-`TradingViewPerpsV2`. The shared entry covers the desktop workspace and the mobile
-market-detail chart. The compact mobile trading-panel chart in
+`packages/kit/src/views/Perp/components/PerpCandles.tsx` keeps the existing
+TradingView Web chart (`TradingViewPerpsV2`) as the default and offers the same
+`TradingViewNative` component used by Market through the chart selector.
+The shared entry covers the desktop workspace and the mobile market-detail chart.
+The compact mobile trading-panel chart in
 `PerpMobileChartPanel.tsx` already used TradingViewNative.
 
 - Reuse Market's Original/TradingView selector. The native chart exposes its
@@ -34,9 +35,9 @@ market-detail chart. The compact mobile trading-panel chart in
 - Mount the native chart when a coin is available; its readiness does not depend
   on the old WebView reload counter. The legacy branch retains its reload gate.
 
-The old `TradingViewPerpsV2` implementation and its trading integrations remain
-available by selecting TradingView. The deferred list below concerns the native
-renderer only.
+The existing `TradingViewPerpsV2` implementation and its trading integrations
+remain the default. Select Original to use the native renderer. The deferred list
+below concerns the native renderer only.
 
 ## Trading assistance lines
 
@@ -215,7 +216,8 @@ Manual pass conditions:
 3. Expand/collapse the desktop chart, then switch to Info/Funding and back.
 4. Check indicator/drawing controls, mobile parent scrolling and fullscreen,
    and subscription recovery after reconnecting.
-5. Switch Original → TradingView → Original. Confirm the selection, visible
+5. Confirm TradingView is initially selected, then switch TradingView → Original
+   → TradingView. Confirm the selection, visible
    candles for the current coin, and that the previous renderer is unmounted.
    Repeat after expanding the chart and after switching instruments.
 6. With existing positions/orders, check entry, liquidation, limit and TP/SL
