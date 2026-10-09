@@ -15,7 +15,7 @@ import {
 } from '@onekeyhq/components';
 import {
   INVITE_CARD_BORDER_COLOR,
-  useInviteCardStyle,
+  useInviteListCardStyle,
 } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteCardStyle';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteLevelItem } from '@onekeyhq/shared/src/referralCode/type';
@@ -63,7 +63,7 @@ export function LevelStatusCard({
   upgradeTargets: ILevelTarget[];
 }) {
   const intl = useIntl();
-  const cardStyle = useInviteCardStyle();
+  const cardStyle = useInviteListCardStyle();
 
   const showRules = useCallback(() => {
     Dialog.show({
@@ -87,7 +87,7 @@ export function LevelStatusCard({
   }, [intl]);
 
   return (
-    <YStack gap="$5" p="$5" {...cardStyle}>
+    <YStack gap="$5" p="$5" $md={{ p: '$4', gap: '$4' }} {...cardStyle}>
       <XStack ai="center" gap="$4">
         <Stack w="$12" h="$12" ai="center" jc="center" flexShrink={0}>
           {level.icon ? (

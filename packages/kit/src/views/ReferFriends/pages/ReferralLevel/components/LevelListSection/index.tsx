@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 
 import { Accordion } from '@onekeyhq/components';
-import { useInviteCardStyle } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteCardStyle';
+import { useInviteListCardStyle } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteCardStyle';
 import type { IInviteLevelDetail } from '@onekeyhq/shared/src/referralCode/type';
 
 import { LevelAccordionItem } from './LevelAccordionItem';
@@ -13,7 +13,7 @@ export function LevelListSection({
   currentLevel: number;
   levels: IInviteLevelDetail['levels'];
 }) {
-  const cardStyle = useInviteCardStyle();
+  const cardStyle = useInviteListCardStyle();
   const displayLevels = useMemo(() => levels.toReversed(), [levels]);
 
   return (

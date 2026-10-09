@@ -9,6 +9,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import type { IInviteLevelItem } from '@onekeyhq/shared/src/referralCode/type';
@@ -97,6 +98,51 @@ function TargetColumn({
   );
 }
 
+// Compact layouts list the targets as two-line rows: the name with
+// "current / target" on the right, then a thin bar. The percentage, the
+// "to go" line and the OR dividers would only repeat what the bar, the
+// figures and the "meet any one" rule already say.
+function TargetRow({
+  target,
+  currencyCode,
+}: {
+  target: ILevelTarget;
+  currencyCode: string;
+}) {
+  const intl = useIntl();
+  const label = getLevelTargetLabel(intl, target);
+
+  return (
+    <YStack gap="$2">
+      <XStack ai="center" jc="space-between" gap="$3">
+        <SizableText size="$bodyMdMedium" numberOfLines={1} flexShrink={1}>
+          {label}
+        </SizableText>
+        {target.isReached ? (
+          <SizableText size="$bodyMdMedium" color="$textSuccess">
+            {LEVEL_COPY.targetReached}
+          </SizableText>
+        ) : (
+          <XStack ai="baseline" gap="$1" flexShrink={0}>
+            <SizableText size="$bodyMdMedium">
+              {formatFiatExact(target.current)}
+            </SizableText>
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {`/ ${formatFiatExact(target.target)} ${currencyCode}`}
+            </SizableText>
+          </XStack>
+        )}
+      </XStack>
+      <Progress
+        size="small"
+        value={target.progressPct}
+        progressColor="$neutral4"
+        indicatorColor="$iconSuccess"
+      />
+    </YStack>
+  );
+}
+
 export function UpgradeTargetsSection({
   nextLevel,
   targets,
@@ -106,6 +152,34 @@ export function UpgradeTargetsSection({
 }) {
   const currencyInfo = useCurrency();
   const currencyCode = currencyInfo.id.toUpperCase();
+  const { md } = useMedia();
+
+  if (md) {
+    return (
+      <YStack gap="$4">
+        <YStack gap="$0.5">
+          <XStack ai="center" gap="$2">
+            {nextLevel.icon ? (
+              <Image w="$5" h="$5" src={nextLevel.icon} />
+            ) : null}
+            <SizableText size="$headingMd" numberOfLines={1} flexShrink={1}>
+              {LEVEL_COPY.upgradeTo(nextLevel.label)}
+            </SizableText>
+          </XStack>
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {LEVEL_COPY.upgradeRule(targets.length > 1)}
+          </SizableText>
+        </YStack>
+        {targets.map((target) => (
+          <TargetRow
+            key={target.subject}
+            target={target}
+            currencyCode={currencyCode}
+          />
+        ))}
+      </YStack>
+    );
+  }
 
   return (
     <YStack gap="$5">
@@ -118,7 +192,7 @@ export function UpgradeTargetsSection({
           {`· ${LEVEL_COPY.upgradeRule(targets.length > 1)}`}
         </SizableText>
       </XStack>
-      <XStack gap="$5" ai="stretch" $md={{ flexDirection: 'column' }}>
+      <XStack gap="$5" ai="stretch">
         {targets.map((target, index) => (
           <Fragment key={target.subject}>
             <TargetColumn target={target} currencyCode={currencyCode} />

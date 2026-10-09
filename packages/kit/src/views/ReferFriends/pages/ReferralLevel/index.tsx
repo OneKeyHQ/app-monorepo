@@ -32,7 +32,7 @@ import {
 import { ReferFriendsTestIDs } from '../../testIDs';
 import {
   INVITE_CARD_BORDER_COLOR,
-  useInviteCardStyle,
+  useInviteListCardStyle,
 } from '../InviteReward/components/useInviteCardStyle';
 
 import { LevelListSection } from './components/LevelListSection';
@@ -79,7 +79,7 @@ function ReferralLevelContent({ data }: { data: IInviteLevelDetail }) {
 
 // Mirrors the loaded layout: status card with two targets, then the level list.
 function ReferralLevelSkeleton() {
-  const cardStyle = useInviteCardStyle();
+  const cardStyle = useInviteListCardStyle();
   const { md } = useMedia();
   // The breadcrumb only shows on wide layouts.
   const showBreadcrumb = !platformEnv.isNative && !md;
@@ -88,7 +88,7 @@ function ReferralLevelSkeleton() {
       <ReferFriendsPageContainer>
         <YStack py="$5" px="$pagePadding" gap="$4">
           {showBreadcrumb ? <Skeleton.BodyMd w={160} /> : null}
-          <YStack gap="$5" p="$5" {...cardStyle}>
+          <YStack gap="$5" p="$5" $md={{ p: '$4', gap: '$4' }} {...cardStyle}>
             <XStack ai="center" gap="$4">
               <Skeleton w="$12" h="$12" radius="round" />
               <YStack gap="$1">
@@ -99,12 +99,12 @@ function ReferralLevelSkeleton() {
             </XStack>
             <Divider borderColor={INVITE_CARD_BORDER_COLOR} />
             <Skeleton.BodyMd w={200} />
-            <XStack gap="$5" $md={{ flexDirection: 'column' }}>
+            <XStack gap="$5" $md={{ flexDirection: 'column', gap: '$4' }}>
               {[0, 1].map((index) => (
                 <YStack key={index} flex={1} gap="$2">
                   <Skeleton.BodyMd w={120} />
-                  <Skeleton.HeadingMd w={160} />
-                  <Skeleton w="100%" h="$1.5" radius="round" />
+                  {md ? null : <Skeleton.HeadingMd w={160} />}
+                  <Skeleton w="100%" h="$1" radius="round" />
                 </YStack>
               ))}
             </XStack>
@@ -119,6 +119,7 @@ function ReferralLevelSkeleton() {
                   gap="$3"
                   py="$3.5"
                   px="$5"
+                  $md={{ px: '$4' }}
                   borderTopWidth={index === 0 ? 0 : 1}
                   borderColor={INVITE_CARD_BORDER_COLOR}
                 >

@@ -153,6 +153,7 @@ export function LevelAccordionItem({
             jc="space-between"
             py="$3.5"
             px="$5"
+            $md={{ px: '$4' }}
             borderColor={INVITE_CARD_BORDER_COLOR}
             // An open row flows into its content; the content's bottom edge
             // separates it from the next level instead.
@@ -205,6 +206,7 @@ export function LevelAccordionItem({
           px="$5"
           pt="$1"
           pb="$5"
+          $md={{ px: '$4', pb: '$4' }}
         >
           <YStack gap="$4">
             {subjectGroups.length > 0 ? (
