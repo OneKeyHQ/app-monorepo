@@ -99,6 +99,17 @@ export interface ITradingViewNativeReferenceLineComponent {
     pending?: boolean;
     style: ITradingViewNativeChartLineStyle;
     title: string;
+    /** Opt into an outlined label on the left, with an optional quantity segment. */
+    label?: {
+      offset: number;
+      backgroundColor: string;
+      color: string;
+      quantity?: {
+        text: string;
+        backgroundColor: string;
+        color: string;
+      };
+    };
   };
 }
 

@@ -2,6 +2,7 @@ import {
   TRADING_VIEW_NATIVE_AXIS_FONT_SIZE as AXIS_FONT_SIZE,
   TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE as LEGEND_FONT_SIZE,
   TRADING_VIEW_NATIVE_PRICE_AXIS_FONT_FAMILY as PRICE_AXIS_FONT_FAMILY,
+  TRADING_VIEW_NATIVE_TRADING_LINE_LABEL_FONT_SIZE as TRADING_LINE_LABEL_FONT_SIZE,
 } from '../chartConstants';
 import {
   type ITradingViewNativeChartSceneColors,
@@ -34,6 +35,9 @@ export function getTradingViewNativeCanvasFont(
   priceAxisFontSize = AXIS_FONT_SIZE,
   timeAxisFontSize = AXIS_FONT_SIZE,
 ) {
+  if (font === 'tradingLineLabel') {
+    return `600 ${TRADING_LINE_LABEL_FONT_SIZE}px sans-serif`;
+  }
   if (font === 'priceAxis' || font === 'referenceLineLabel') {
     return `${priceAxisFontSize}px "${PRICE_AXIS_FONT_FAMILY}", monospace`;
   }

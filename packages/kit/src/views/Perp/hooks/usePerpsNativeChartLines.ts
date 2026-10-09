@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import { useTheme } from '@onekeyhq/components';
 import { useTradingViewSettingsThemeColors } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/chartSettings/TradingViewSettingsThemeColors';
 import type { ITradingViewNativeReferenceLineComponent } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
@@ -14,6 +15,11 @@ import { usePerpsChartLines } from './usePerpsChartLines';
 
 export function usePerpsNativeChartLines(enableTradingUi: boolean) {
   const intl = useIntl();
+  const theme = useTheme();
+  const labelBackground = theme.bgApp.val;
+  const labelColor = theme.text.val;
+  const quantityBackground = theme.bgInverse.val;
+  const quantityColor = theme.textInverse.val;
   const themeColors = useTradingViewSettingsThemeColors();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [currentAccount] = usePerpsActiveAccountAtom();
@@ -48,14 +54,9 @@ export function usePerpsNativeChartLines(enableTradingUi: boolean) {
         const isLong = line.side === 'long';
         const isPosition =
           line.kind === 'position' || line.kind === 'liquidation';
-        let directionId: ETranslations = isLong
+        const directionId: ETranslations = isLong
           ? ETranslations.global_buy
           : ETranslations.global_sell;
-        if (isPosition) {
-          directionId = isLong
-            ? ETranslations.perp_long
-            : ETranslations.perp_short;
-        }
         const direction = intl.formatMessage({ id: directionId });
         let color =
           themeColors[
@@ -64,7 +65,7 @@ export function usePerpsNativeChartLines(enableTradingUi: boolean) {
               : TRADING_VIEW_NATIVE_THEME_COLORS.negative
           ];
         if (line.kind === 'liquidation') {
-          color = themeColors[TRADING_VIEW_NATIVE_THEME_COLORS.warning];
+          color = themeColors[TRADING_VIEW_NATIVE_THEME_COLORS.negative];
         } else if (line.kind === 'position') {
           color =
             themeColors[
@@ -89,19 +90,38 @@ export function usePerpsNativeChartLines(enableTradingUi: boolean) {
               cancelable: Boolean(line.meta?.orderId),
               draggable: line.editable === true,
               pending: Boolean(pendingAction),
-              style: line.kind === 'position' ? 'solid' : 'dashed',
-              title: [
-                direction,
-                line.label?.left,
-                line.label?.right ?? line.qty,
-              ]
+              style: 'dashed',
+              title: [isPosition ? undefined : direction, line.label?.left]
                 .filter(Boolean)
                 .join(' · '),
+              label: {
+                offset: line.kind === 'liquidation' ? 140 : 16,
+                backgroundColor: labelBackground,
+                color: labelColor,
+                quantity: line.qty
+                  ? {
+                      text: line.qty,
+                      backgroundColor: quantityBackground,
+                      color: quantityColor,
+                    }
+                  : undefined,
+              },
             },
           },
         ];
       }),
-    [intl, lines, themeColors, canInteract, getLineId, pending],
+    [
+      intl,
+      lines,
+      themeColors,
+      labelBackground,
+      labelColor,
+      quantityBackground,
+      quantityColor,
+      canInteract,
+      getLineId,
+      pending,
+    ],
   );
   return { chartComponents, onReferenceLineAction };
 }

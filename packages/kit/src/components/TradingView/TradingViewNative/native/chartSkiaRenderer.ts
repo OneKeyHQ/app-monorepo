@@ -20,6 +20,7 @@ import {
   createPicture,
 } from '@shopify/react-native-skia';
 
+import { TRADING_VIEW_NATIVE_TRADING_LINE_LABEL_FONT_SIZE } from '../chartConstants';
 import {
   type IBuildTradingViewNativeChartSceneOptions,
   type ITradingViewNativeChartScene,
@@ -70,11 +71,20 @@ export function getTradingViewNativeSkiaLegendText({
     candleLabels.high,
     candleLabels.low,
     candleLabels.close,
-    ...chartComponents.flatMap((component) =>
-      component.type === 'tradeMarks'
-        ? component.props.marks.map((mark) => `${mark.label}${mark.text}…`)
-        : [],
-    ),
+    ...chartComponents.flatMap((component) => {
+      if (component.type === 'tradeMarks') {
+        return component.props.marks.map(
+          (mark) => `${mark.label}${mark.text}…`,
+        );
+      }
+      if (component.props.label) {
+        return [
+          component.props.title,
+          component.props.label.quantity?.text ?? '',
+        ];
+      }
+      return [];
+    }),
   ].join('');
   // Keep font selection stable when trades reorder or repeat the same glyphs.
   return Array.from(new Set(text.replaceAll(/\s/g, '')))
@@ -312,6 +322,11 @@ export function createTradingViewNativeSkiaResources({
   const legendSubscriptFont = priceAxisTypeface
     ? Skia.Font(priceAxisTypeface, legendFont.getSize())
     : null;
+  const tradingLineLabelFont = Skia.Font(
+    legendFont.getTypeface() ?? undefined,
+    TRADING_VIEW_NATIVE_TRADING_LINE_LABEL_FONT_SIZE,
+  );
+  tradingLineLabelFont.setEmbolden(true);
 
   for (const paintName of Object.keys(
     paintStyles,
@@ -331,6 +346,7 @@ export function createTradingViewNativeSkiaResources({
         legendFont.getTypeface() ?? undefined,
         priceAxisFontSize,
       ),
+      tradingLineLabel: tradingLineLabelFont,
     },
     legendSubscriptFont,
     paints,

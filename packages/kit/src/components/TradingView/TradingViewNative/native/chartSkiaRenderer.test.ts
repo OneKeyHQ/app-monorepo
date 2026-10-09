@@ -84,6 +84,7 @@ const mockSkiaFont = jest.fn<SkFont, [{ fontFamily: string }, number]>(
       dispose,
       fontFamily: typeface.fontFamily,
       fontSize,
+      setEmbolden: jest.fn(),
       getSize: () => fontSize,
       getTypeface: () => typeface,
       getGlyphIDs: (text: string) =>

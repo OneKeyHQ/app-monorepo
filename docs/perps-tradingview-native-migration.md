@@ -51,11 +51,19 @@ reference lines:
 
 | Line | Anchor and label | Presentation |
 | --- | --- | --- |
-| Position | Entry price, long/short, unrealized PnL and signed position size | Solid; green/red follows PnL. |
-| Liquidation | Liquidation price and position direction | Dashed warning color. |
+| Position | Entry price, unrealized PnL and absolute position size | Dashed; green/red follows PnL. |
+| Liquidation | Liquidation price and `Liq. Price` label | Dashed red. |
 | Limit order | Limit price, buy/sell direction and remaining order size | Dashed; green for buys, red for sells. |
 | Take profit | Trigger price, trigger condition, order direction and size | Dashed green. |
 | Stop loss | Trigger price, trigger condition, order direction and size | Dashed red. |
+
+Trading labels sit toward the left of the plot with a solid color border, a
+theme-aware description background and a contrasting quantity segment. The
+liquidation label is inset further along its line. Labels use semibold text,
+while the price axis retains separate color-filled price badges. Order cancel
+buttons sit at the end of the label, and drag/cancel hit areas follow its layout.
+Web Canvas and native Skia consume the same label scene commands. Other reference
+lines, including Market's previous close, retain their existing presentation.
 
 Full-position TP/SL orders with zero order size reuse the current position size,
 as in the old chart. Invalid prices are not rendered. Lines follow the existing
