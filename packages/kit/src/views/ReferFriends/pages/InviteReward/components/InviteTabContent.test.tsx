@@ -195,7 +195,7 @@ jest.mock(
 );
 
 jest.mock('./useInviteCardStyle', () => ({
-  useInviteCardStyle: () => ({}),
+  useInviteHomeCardStyle: () => ({}),
 }));
 
 const TOKEN = {
