@@ -9,10 +9,10 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
-import { fillCopy } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/copyTemplate';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteLevelItem } from '@onekeyhq/shared/src/referralCode/type';
 
-import { LEVEL_COPY, LEVEL_TARGET_SHORT_LABELS } from '../levelCopy';
+import { LEVEL_TARGET_LABEL_IDS } from '../levelCopy';
 
 import { getDisplayLabel } from './LevelListSection/LevelAccordionItem';
 import {
@@ -27,25 +27,28 @@ import type { IntlShape } from 'react-intl';
 // remaining amount the same way.
 export function getLevelTargetLabel(intl: IntlShape, target: ILevelTarget) {
   const { condition } = target;
-  return (
-    LEVEL_TARGET_SHORT_LABELS[target.subject] ??
-    getDisplayLabel(
-      intl,
-      condition.levelUpLabelKey,
-      condition.levelUpLabel ?? condition.label ?? condition.subject,
-    )
+  const labelId = LEVEL_TARGET_LABEL_IDS[target.subject];
+  if (labelId) {
+    return intl.formatMessage({ id: labelId });
+  }
+  return getDisplayLabel(
+    intl,
+    condition.levelUpLabelKey,
+    condition.levelUpLabel ?? condition.label ?? condition.subject,
   );
 }
 
 export function formatLevelTargetRemaining(
+  intl: IntlShape,
   target: ILevelTarget,
   currencyCode: string,
 ) {
   return target.isReached
-    ? LEVEL_COPY.targetReached
-    : fillCopy(LEVEL_COPY.toGo, {
-        amount: `${formatFiatExact(target.remaining)} ${currencyCode}`,
-      });
+    ? intl.formatMessage({ id: ETranslations.referral_target_reached__msg })
+    : intl.formatMessage(
+        { id: ETranslations.referral_to_go__desc },
+        { amount: `${formatFiatExact(target.remaining)} ${currencyCode}` },
+      );
 }
 
 // Each target reads as its name, "current / target" and the bar, like the
@@ -82,7 +85,9 @@ function TargetColumn({
       />
       {target.isReached ? (
         <SizableText size="$bodyMdMedium" color="$textSuccess">
-          {LEVEL_COPY.targetReached}
+          {intl.formatMessage({
+            id: ETranslations.referral_target_reached__msg,
+          })}
         </SizableText>
       ) : null}
     </YStack>
@@ -111,7 +116,9 @@ function TargetRow({
         </SizableText>
         {target.isReached ? (
           <SizableText size="$bodyMdMedium" color="$textSuccess">
-            {LEVEL_COPY.targetReached}
+            {intl.formatMessage({
+              id: ETranslations.referral_target_reached__msg,
+            })}
           </SizableText>
         ) : (
           <XStack ai="baseline" gap="$1" flexShrink={0}>
@@ -143,9 +150,20 @@ export function UpgradeTargetsSection({
   nextLevel: IInviteLevelItem;
   targets: ILevelTarget[];
 }) {
+  const intl = useIntl();
   const currencyInfo = useCurrency();
   const currencyCode = currencyInfo.id.toUpperCase();
   const { md } = useMedia();
+  const upgradeTitle = intl.formatMessage(
+    { id: ETranslations.referral_upgrade_to__title },
+    { level: nextLevel.label },
+  );
+  const upgradeRule = intl.formatMessage({
+    id:
+      targets.length > 1
+        ? ETranslations.referral_meet_any__desc
+        : ETranslations.referral_meet_this__desc,
+  });
 
   if (md) {
     return (
@@ -156,13 +174,11 @@ export function UpgradeTargetsSection({
               <Image w="$5" h="$5" src={nextLevel.icon} />
             ) : null}
             <SizableText size="$headingMd" numberOfLines={1} flexShrink={1}>
-              {fillCopy(LEVEL_COPY.upgradeTo, { level: nextLevel.label })}
+              {upgradeTitle}
             </SizableText>
           </XStack>
           <SizableText size="$bodyMd" color="$textSubdued">
-            {targets.length > 1
-              ? LEVEL_COPY.upgradeRule
-              : LEVEL_COPY.upgradeRuleSingle}
+            {upgradeRule}
           </SizableText>
         </YStack>
         {targets.map((target) => (
@@ -180,11 +196,9 @@ export function UpgradeTargetsSection({
     <YStack gap="$5">
       <XStack ai="center" gap="$2" flexWrap="wrap">
         {nextLevel.icon ? <Image w="$5" h="$5" src={nextLevel.icon} /> : null}
-        <SizableText size="$headingMd">
-          {fillCopy(LEVEL_COPY.upgradeTo, { level: nextLevel.label })}
-        </SizableText>
+        <SizableText size="$headingMd">{upgradeTitle}</SizableText>
         <SizableText size="$bodyMd" color="$textSubdued">
-          {`· ${targets.length > 1 ? LEVEL_COPY.upgradeRule : LEVEL_COPY.upgradeRuleSingle}`}
+          {`· ${upgradeRule}`}
         </SizableText>
       </XStack>
       {/* The "meet any one" rule above already says these are alternatives,

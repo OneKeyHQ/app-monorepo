@@ -1,15 +1,16 @@
 import { memo, useCallback } from 'react';
 import type { Ref } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { SizableText, XStack, YStack, useMedia } from '@onekeyhq/components';
 import { useNavigateToInviteCodes } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteCodes/hooks/useNavigateToInviteCodes';
 import type { IInviteCodeStepImageControl } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferAFriend/components/InviteCodeStepImage';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IInviteLevelDetail,
   IInviteSummary,
 } from '@onekeyhq/shared/src/referralCode/type';
-
-import { INVITE_COPY } from '../inviteCopy';
 
 import { InviteBindRow } from './InviteBindRow';
 import { InviteCompactHero } from './InviteCompactHero';
@@ -28,10 +29,11 @@ import { useInviteHomeCardStyle } from './useInviteCardStyle';
 // list (the people the codes brought in) beside it, like Payout history on
 // the card itself.
 function InviteEarningsCaption() {
+  const intl = useIntl();
   return (
     <XStack ai="center" jc="space-between" gap="$3">
       <SizableText size="$bodyMdMedium" color="$textSubdued">
-        {INVITE_COPY.earningsTitle}
+        {intl.formatMessage({ id: ETranslations.referral_earnings__title })}
       </SizableText>
       <ReferralListLink />
     </XStack>

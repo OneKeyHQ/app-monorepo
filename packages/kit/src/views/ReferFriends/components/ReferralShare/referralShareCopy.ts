@@ -1,22 +1,18 @@
-import { fillCopy } from '../../pages/InviteReward/copyTemplate';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-// Hardcoded English until copy review; then move to Lokalise keys. `brand`,
-// `x` and `telegram` are names and stay untranslated.
-export const REFERRAL_SHARE_COPY = {
+import type { IntlShape } from 'react-intl';
+
+// Names, not copy: they stay untranslated.
+export const REFERRAL_SHARE_NAMES = {
   brand: 'OneKey',
-  scanToJoin: 'Scan to join OneKey',
-  headline: 'Get up to {rate} off fees on OneKey',
-  headlineNoDiscount: 'Join me on OneKey',
-  shareText: 'Join me on OneKey and get up to {rate} off fees.',
-  shareTextNoDiscount: 'Join me on OneKey.',
   x: 'X',
   telegram: 'Telegram',
 } as const;
 
 export interface IReferralShareCopy {
-  // The card headline as one sentence; `{rate}` is highlighted where it
+  // The card headline as one sentence; its `{rate}` is highlighted where it
   // appears, so translations can place it anywhere.
-  headline: string;
+  headlineId: ETranslations;
   rate?: string;
   // The message that goes with the link on X and Telegram.
   shareText: string;
@@ -26,20 +22,24 @@ export interface IReferralShareCopy {
 // invitee discount across products. Without one it falls back to a plain
 // invitation rather than promising a discount.
 export function getReferralShareCopy(
+  intl: IntlShape,
   inviteeRate: string | null | undefined,
 ): IReferralShareCopy {
   if (inviteeRate) {
     return {
-      headline: REFERRAL_SHARE_COPY.headline,
+      headlineId: ETranslations.referral_share_headline__title,
       rate: inviteeRate,
-      shareText: fillCopy(REFERRAL_SHARE_COPY.shareText, {
-        rate: inviteeRate,
-      }),
+      shareText: intl.formatMessage(
+        { id: ETranslations.referral_share_text__desc },
+        { rate: inviteeRate },
+      ),
     };
   }
   return {
-    headline: REFERRAL_SHARE_COPY.headlineNoDiscount,
-    shareText: REFERRAL_SHARE_COPY.shareTextNoDiscount,
+    headlineId: ETranslations.referral_share_headline_plain__title,
+    shareText: intl.formatMessage({
+      id: ETranslations.referral_share_text_plain__desc,
+    }),
   };
 }
 

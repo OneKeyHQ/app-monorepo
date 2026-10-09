@@ -30,7 +30,6 @@ import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { ReferFriendsPageContainer } from '../../components';
-import { INVITE_COPY } from '../InviteReward/inviteCopy';
 
 type ISectionListItem = {
   title?: string;
@@ -191,7 +190,11 @@ function RewardDistributionHistoryPageWrapper() {
   );
   return (
     <Page>
-      <Page.Header title={INVITE_COPY.payoutHistory} />
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.referral_payout_history__title,
+        })}
+      />
       <Page.Body>
         <InviteWithdrawAddressRow />
         <ReferFriendsPageContainer flex={1} position="relative">

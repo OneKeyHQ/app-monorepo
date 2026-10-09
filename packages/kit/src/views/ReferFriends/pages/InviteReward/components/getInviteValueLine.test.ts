@@ -1,3 +1,5 @@
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 import {
   getInviteValueSummary,
   selectInviteValueLineItems,
@@ -20,7 +22,7 @@ function figures(items: IInviteValueLineItem[]) {
     ? {
         rate: `${summary.isUniform ? '' : 'up to '}${summary.rate}`,
         friendRate: summary.friendRate,
-        products: summary.rows.map((row) => row.label),
+        products: summary.rows.map((row) => row.labelId),
       }
     : null;
 }
@@ -30,7 +32,12 @@ describe('getInviteValueSummary', () => {
     expect(figures(GOLD_RATES)).toEqual({
       rate: 'up to 18%',
       friendRate: '10%',
-      products: ['Hardware sales', 'Perps fees', 'Swap fees', 'DeFi fees'],
+      products: [
+        ETranslations.referral_referred_type_3,
+        ETranslations.referral_rate_perps__title,
+        ETranslations.referral_rate_swap__title,
+        ETranslations.referral_rate_defi__title,
+      ],
     });
   });
 
@@ -43,7 +50,10 @@ describe('getInviteValueSummary', () => {
     ).toEqual({
       rate: '10%',
       friendRate: null,
-      products: ['Hardware sales', 'Perps fees'],
+      products: [
+        ETranslations.referral_referred_type_3,
+        ETranslations.referral_rate_perps__title,
+      ],
     });
   });
 
@@ -51,13 +61,28 @@ describe('getInviteValueSummary', () => {
     expect(getInviteValueSummary(GOLD_RATES)?.rows).toEqual([
       {
         subject: 'HardwareSales',
-        label: 'Hardware sales',
+        labelId: ETranslations.referral_referred_type_3,
         you: '18%',
         friend: null,
       },
-      { subject: 'Perp', label: 'Perps fees', you: '18%', friend: '10%' },
-      { subject: 'Swap', label: 'Swap fees', you: '18%', friend: null },
-      { subject: 'Earn', label: 'DeFi fees', you: '10%', friend: '10%' },
+      {
+        subject: 'Perp',
+        labelId: ETranslations.referral_rate_perps__title,
+        you: '18%',
+        friend: '10%',
+      },
+      {
+        subject: 'Swap',
+        labelId: ETranslations.referral_rate_swap__title,
+        you: '18%',
+        friend: null,
+      },
+      {
+        subject: 'Earn',
+        labelId: ETranslations.referral_rate_defi__title,
+        you: '10%',
+        friend: '10%',
+      },
     ]);
   });
 
@@ -70,7 +95,11 @@ describe('getInviteValueSummary', () => {
         { subject: 'Earn', you: 10.5, enabled: true },
         { subject: 'Onchain', you: 12, enabled: true },
       ]),
-    ).toEqual({ rate: '10.5%', friendRate: null, products: ['DeFi fees'] });
+    ).toEqual({
+      rate: '10.5%',
+      friendRate: null,
+      products: [ETranslations.referral_rate_defi__title],
+    });
   });
 
   it('returns null when nothing pays', () => {

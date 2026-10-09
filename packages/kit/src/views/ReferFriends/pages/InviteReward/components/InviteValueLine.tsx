@@ -14,13 +14,10 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { useNavigateToReferralLevel } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferralLevel/hooks/useNavigateToReferralLevel';
-import { LEVEL_COPY } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferralLevel/levelCopy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteLevelDetail } from '@onekeyhq/shared/src/referralCode/type';
 
 import { ReferFriendsTestIDs } from '../../../testIDs';
-import { fillCopy, renderCopy } from '../copyTemplate';
-import { INVITE_COPY } from '../inviteCopy';
 
 import { useCurrentLevelCardFromDetail } from './CurrentLevelCard/hooks/useCurrentLevelCard';
 import {
@@ -52,6 +49,7 @@ function RateBreakdown({
   friendLabel: string;
   onOpenLevels: () => void;
 }) {
+  const intl = useIntl();
   return (
     <YStack px="$5" py="$4" gap="$2">
       {title ? (
@@ -62,7 +60,7 @@ function RateBreakdown({
       ) : null}
       <XStack gap="$3">
         <SizableText flex={1} size="$bodySmMedium" color="$textSubdued">
-          {INVITE_COPY.product}
+          {intl.formatMessage({ id: ETranslations.referral_product__title })}
         </SizableText>
         <SizableText
           w={64}
@@ -84,7 +82,7 @@ function RateBreakdown({
       {rows.map((row) => (
         <XStack key={row.subject} gap="$3" ai="center">
           <SizableText flex={1} size="$bodyMd" numberOfLines={1}>
-            {row.label}
+            {intl.formatMessage({ id: row.labelId })}
           </SizableText>
           <SizableText w={64} size="$bodyMdMedium" ta="right">
             {row.you}
@@ -107,7 +105,9 @@ function RateBreakdown({
           iconAfter="ChevronRightSmallOutline"
           onPress={onOpenLevels}
         >
-          {LEVEL_COPY.levelDetails}
+          {intl.formatMessage({
+            id: ETranslations.referral_level_details__action,
+          })}
         </Button>
       </XStack>
     </YStack>
@@ -154,7 +154,10 @@ export function RatePopover({
   const navigateToReferralLevel = useNavigateToReferralLevel();
   const { gtMd } = useMedia();
   const { levelLabel, levelIcon, summary } = valueSummary;
-  const title = fillCopy(LEVEL_COPY.levelRates, { level: levelLabel });
+  const title = intl.formatMessage(
+    { id: ETranslations.referral_level_rates__title },
+    { level: levelLabel },
+  );
 
   if (!summary) {
     return trigger;
@@ -175,7 +178,9 @@ export function RatePopover({
           youLabel={intl.formatMessage({
             id: ETranslations.referral_upgrade_you,
           })}
-          friendLabel={INVITE_COPY.inviteeColumn}
+          friendLabel={intl.formatMessage({
+            id: ETranslations.referral_upgrade_user,
+          })}
           onOpenLevels={() => {
             closePopover();
             void navigateToReferralLevel();
@@ -186,8 +191,7 @@ export function RatePopover({
   );
 }
 
-// "You earn 10% · Invitees save 10%" as one sentence (one key once
-// translated), with the figures in green. Products with different rates
+// "You earn 10% · Invitees save 10%" as one sentence, with the figures in green. Products with different rates
 // read "up to"; without an invitee discount only the referrer's part shows.
 export function RateLine({
   summary,
@@ -198,27 +202,31 @@ export function RateLine({
   size?: '$bodyMd' | '$bodyLg';
   textAlign?: 'center';
 }) {
+  const intl = useIntl();
   const highlight = (value: string) => (
     <SizableText size={size} fontWeight="600" color="$textSuccess">
       {value}
     </SizableText>
   );
-  let template: string;
+  let id: ETranslations;
   if (summary.friendRate) {
-    template = summary.isUniform
-      ? INVITE_COPY.rateLine
-      : INVITE_COPY.rateLineUpTo;
+    id = summary.isUniform
+      ? ETranslations.referral_rate_line__desc
+      : ETranslations.referral_rate_line_up_to__desc;
   } else {
-    template = summary.isUniform
-      ? INVITE_COPY.youEarn
-      : INVITE_COPY.youEarnUpTo;
+    id = summary.isUniform
+      ? ETranslations.referral_you_earn__desc
+      : ETranslations.referral_you_earn_up_to__desc;
   }
   return (
     <SizableText size={size} color="$textSubdued" textAlign={textAlign}>
-      {renderCopy(template, {
-        rate: highlight(summary.rate),
-        inviteeRate: highlight(summary.friendRate ?? ''),
-      })}
+      {intl.formatMessage(
+        { id },
+        {
+          rate: highlight(summary.rate),
+          inviteeRate: highlight(summary.friendRate ?? ''),
+        },
+      )}
     </SizableText>
   );
 }

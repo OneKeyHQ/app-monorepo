@@ -25,8 +25,6 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { CompactFieldRow } from '../../../components/CompactFieldRow';
 import { ReferFriendsTestIDs } from '../../../testIDs';
-import { fillCopy } from '../copyTemplate';
-import { INVITE_COPY } from '../inviteCopy';
 
 import { CardTextAction } from './CardTextAction';
 import { getInviteEarningsState } from './getInviteEarningsState';
@@ -49,6 +47,8 @@ interface IEarningsLabels {
   cumulative: string;
   history: string;
   payoutAddress: string;
+  // "Next payout {date}", or null before a payout is scheduled.
+  nextPayout: string | null;
 }
 
 // Desktop's lead figure with its fixed "USD" unit: the amount stays in USD
@@ -207,12 +207,8 @@ function DesktopEarnings({
         <XStack ai="flex-start" gap="$4">
           <YStack flex={1} minWidth={0} ai="flex-start" gap="$2">
             <LeadAmount amount={earnings.cumulative} />
-            {earnings.nextDistribution ? (
-              <NextPayoutPill
-                label={fillCopy(INVITE_COPY.nextPayout, {
-                  date: earnings.nextDistribution,
-                })}
-              />
+            {labels.nextPayout ? (
+              <NextPayoutPill label={labels.nextPayout} />
             ) : null}
           </YStack>
           {/* A touch of the brand's line art in the room the amount leaves;
@@ -323,13 +319,7 @@ function CompactEarnings({
         <CompactFieldRow
           leading={<PartDot color="$iconCaution" />}
           label={labels.undistributed}
-          hint={
-            earnings.nextDistribution
-              ? fillCopy(INVITE_COPY.nextPayout, {
-                  date: earnings.nextDistribution,
-                })
-              : null
-          }
+          hint={labels.nextPayout}
         >
           <Currency
             {...REFERRAL_USD_CURRENCY_PROPS}
@@ -399,10 +389,18 @@ export function InviteEarningsCard({
     cumulative: intl.formatMessage({
       id: ETranslations.earn_referral_total_earned,
     }),
-    history: INVITE_COPY.payoutHistory,
+    history: intl.formatMessage({
+      id: ETranslations.referral_payout_history__title,
+    }),
     payoutAddress: intl.formatMessage({
       id: ETranslations.referral_reward_received_address,
     }),
+    nextPayout: nextDistribution
+      ? intl.formatMessage(
+          { id: ETranslations.referral_next_payout__desc },
+          { date: nextDistribution },
+        )
+      : null,
   };
   const payoutTarget = summaryInfo.withdrawAddresses[0];
   const withdrawAddress = payoutTarget?.address;

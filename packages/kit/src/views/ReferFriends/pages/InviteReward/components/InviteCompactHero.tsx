@@ -1,12 +1,14 @@
 import type { Ref } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { InviteCodeStepImage } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferAFriend/components/InviteCodeStepImage';
 import type { IInviteCodeStepImageControl } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferAFriend/components/InviteCodeStepImage';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteLevelDetail } from '@onekeyhq/shared/src/referralCode/type';
 
 import { ReferFriendsTestIDs } from '../../../testIDs';
-import { INVITE_COPY } from '../inviteCopy';
 
 import { InviteLevelPill } from './InviteLevelPill';
 import { RateLine, RatePopover } from './InviteValueLine';
@@ -28,6 +30,7 @@ export function InviteCompactHero({
   // The page holds the illustration still while it cannot be seen.
   animationControlRef?: Ref<IInviteCodeStepImageControl>;
 }) {
+  const intl = useIntl();
   const { summary } = valueSummary;
 
   return (
@@ -43,7 +46,7 @@ export function InviteCompactHero({
       />
       <YStack ai="center" gap="$2">
         <SizableText size="$heading2xl" textAlign="center">
-          {INVITE_COPY.title}
+          {intl.formatMessage({ id: ETranslations.referral_home__title })}
         </SizableText>
         {summary ? (
           <RatePopover

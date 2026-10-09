@@ -21,13 +21,13 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteLevelItem } from '@onekeyhq/shared/src/referralCode/type';
 
 import { ReferFriendsTestIDs } from '../../../testIDs';
-import { LEVEL_COPY } from '../levelCopy';
 
 import { UpgradeTargetsSection } from './UpgradeTargetsCard';
 
 import type { ILevelRetentionStatus, ILevelTarget } from '../getLevelOverview';
 
 export function RetentionStatus({ status }: { status: ILevelRetentionStatus }) {
+  const intl = useIntl();
   if (status === 'none') {
     return null;
   }
@@ -43,7 +43,11 @@ export function RetentionStatus({ status }: { status: ILevelRetentionStatus }) {
         size="$bodyMdMedium"
         color={isKept ? '$textSuccess' : '$textCaution'}
       >
-        {isKept ? LEVEL_COPY.levelKept : LEVEL_COPY.levelNotKept}
+        {intl.formatMessage({
+          id: isKept
+            ? ETranslations.referral_level_kept__msg
+            : ETranslations.referral_level_not_kept__msg,
+        })}
       </SizableText>
     </XStack>
   );
@@ -67,7 +71,9 @@ export function LevelStatusCard({
 
   const showRules = useCallback(() => {
     Dialog.show({
-      title: LEVEL_COPY.levelRules,
+      title: intl.formatMessage({
+        id: ETranslations.referral_level_rules__action,
+      }),
       showFooter: false,
       renderContent: (
         <YStack gap="$2">
@@ -122,7 +128,9 @@ export function LevelStatusCard({
           iconAfter="ChevronRightSmallOutline"
           onPress={showRules}
         >
-          {LEVEL_COPY.levelRules}
+          {intl.formatMessage({
+            id: ETranslations.referral_level_rules__action,
+          })}
         </Button>
       </XStack>
       <Divider borderColor={INVITE_CARD_BORDER_COLOR} />
@@ -130,7 +138,7 @@ export function LevelStatusCard({
         <UpgradeTargetsSection nextLevel={nextLevel} targets={upgradeTargets} />
       ) : (
         <SizableText size="$bodyMd" color="$textSubdued">
-          {LEVEL_COPY.topLevel}
+          {intl.formatMessage({ id: ETranslations.referral_top_level__msg })}
         </SizableText>
       )}
     </YStack>

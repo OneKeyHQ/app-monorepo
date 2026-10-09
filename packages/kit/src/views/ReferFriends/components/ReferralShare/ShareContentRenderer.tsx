@@ -7,10 +7,8 @@ import { QRCode, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ONEKEY_LOGO_URL } from '@onekeyhq/kit/src/views/Receive/components/ReceiveShare/constants';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { renderCopy } from '../../pages/InviteReward/copyTemplate';
-
 import { REFERRAL_SHARE_CARD } from './constants';
-import { REFERRAL_SHARE_COPY } from './referralShareCopy';
+import { REFERRAL_SHARE_NAMES } from './referralShareCopy';
 
 import type { IReferralShareData } from './types';
 
@@ -62,7 +60,7 @@ export const ShareContentRenderer = memo(
               fontSize={card.brand.textSize}
               fontWeight="600"
             >
-              {REFERRAL_SHARE_COPY.brand}
+              {REFERRAL_SHARE_NAMES.brand}
             </SizableText>
           </XStack>
           <SizableText
@@ -72,18 +70,21 @@ export const ShareContentRenderer = memo(
             lineHeight={card.headline.lineHeight}
             fontWeight="600"
           >
-            {renderCopy(copy.headline, {
-              rate: (
-                <SizableText
-                  color={card.accentColor}
-                  fontSize={card.headline.size}
-                  lineHeight={card.headline.lineHeight}
-                  fontWeight="600"
-                >
-                  {copy.rate}
-                </SizableText>
-              ),
-            })}
+            {intl.formatMessage(
+              { id: copy.headlineId },
+              {
+                rate: (
+                  <SizableText
+                    color={card.accentColor}
+                    fontSize={card.headline.size}
+                    lineHeight={card.headline.lineHeight}
+                    fontWeight="600"
+                  >
+                    {copy.rate}
+                  </SizableText>
+                ),
+              },
+            )}
           </SizableText>
           <YStack mt={card.code.gapAbove}>
             <SizableText
@@ -119,7 +120,9 @@ export const ShareContentRenderer = memo(
               lineHeight={card.footer.titleLineHeight}
               fontWeight="600"
             >
-              {REFERRAL_SHARE_COPY.scanToJoin}
+              {intl.formatMessage({
+                id: ETranslations.referral_share_scan__desc,
+              })}
             </SizableText>
             <SizableText
               color={card.subduedTextColor}

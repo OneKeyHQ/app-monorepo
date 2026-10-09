@@ -23,8 +23,6 @@ import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 
 import { ReferralCardEmpty } from '../../../components/ReferralCardEmpty';
 import { ReferFriendsTestIDs } from '../../../testIDs';
-import { fillCopy } from '../copyTemplate';
-import { INVITE_COPY } from '../inviteCopy';
 
 import {
   type IInviteRewardRow,
@@ -235,6 +233,7 @@ function DesktopRewardRow({
   pendingTooltip?: IRewardLabelTooltip;
   onPress: () => void;
 }) {
+  const intl = useIntl();
   const { pending } = row;
   const hasReward = row.available.hasReward;
 
@@ -255,7 +254,10 @@ function DesktopRewardRow({
           </SizableText>
           {rate ? (
             <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-              {fillCopy(INVITE_COPY.youEarn, { rate })}
+              {intl.formatMessage(
+                { id: ETranslations.referral_you_earn__desc },
+                { rate },
+              )}
             </SizableText>
           ) : null}
         </YStack>
@@ -359,10 +361,13 @@ function RewardsEmpty({
   cardStyle: IInviteCardStyle;
   onCopyLink?: () => void;
 }) {
+  const intl = useIntl();
   return (
     <ReferralCardEmpty
       {...cardStyle}
-      description={INVITE_COPY.earningsEmptyHint}
+      description={intl.formatMessage({
+        id: ETranslations.referral_earnings_empty__desc,
+      })}
       buttonProps={
         onCopyLink
           ? {
@@ -370,7 +375,9 @@ function RewardsEmpty({
               variant: 'secondary',
               size: 'small',
               mt: '$4',
-              children: INVITE_COPY.copyLink,
+              children: intl.formatMessage({
+                id: ETranslations.referral_copy_link__action,
+              }),
               onPress: onCopyLink,
             }
           : undefined
@@ -464,7 +471,9 @@ export function InviteRewardRows({
       id: ETranslations.referral_hw_pending_pop,
     }),
   };
-  const noRewardLabel = INVITE_COPY.noEarnings;
+  const noRewardLabel = intl.formatMessage({
+    id: ETranslations.referral_no_reward,
+  });
   const foldedTitle = rows.foldedRows
     .map((row) => titleFor(row.subject))
     .join(' · ');
@@ -472,7 +481,9 @@ export function InviteRewardRows({
   if (!md) {
     const hasAnyData = rows.visibleRows.length > 0;
     const desktopLabels: IDesktopRewardLabels = {
-      product: INVITE_COPY.product,
+      product: intl.formatMessage({
+        id: ETranslations.referral_product__title,
+      }),
       monthly: monthlyLabel,
       available: availableLabel,
       pending: pendingLabel,
@@ -486,7 +497,9 @@ export function InviteRewardRows({
       // breakdown; the section title matches the app's other section titles.
       <YStack px="$pagePadding" pt="$10" gap="$3">
         <SizableText size="$headingLg">
-          {INVITE_COPY.earningsByProduct}
+          {intl.formatMessage({
+            id: ETranslations.referral_earnings_by_product__title,
+          })}
         </SizableText>
         {hasAnyData ? (
           <YStack>
@@ -535,7 +548,9 @@ export function InviteRewardRows({
   // under the earnings card it breaks down; the page sets the spacing.
   const compactTitle = (
     <SizableText size="$bodyMdMedium" color="$textSubdued">
-      {INVITE_COPY.earningsByProduct}
+      {intl.formatMessage({
+        id: ETranslations.referral_earnings_by_product__title,
+      })}
     </SizableText>
   );
 

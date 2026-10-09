@@ -10,8 +10,6 @@ import { ReferFriendsTestIDs } from '@onekeyhq/kit/src/views/ReferFriends/testID
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 
-import { INVITE_COPY } from '../inviteCopy';
-
 import { InviteTabContent } from './InviteTabContent';
 
 // Parity guard for the invite tab redesign: every entry point the previous
@@ -366,7 +364,7 @@ describe('InviteTabContent entry points', () => {
     mockMd = true;
     renderTab();
 
-    expect(screen.getByText(INVITE_COPY.title)).toBeTruthy();
+    expect(screen.getByText(ETranslations.referral_home__title)).toBeTruthy();
     expect(
       screen.getByTestId(ReferFriendsTestIDs.inviteLevelPill),
     ).toBeTruthy();

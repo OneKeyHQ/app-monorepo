@@ -1,6 +1,5 @@
 import { sortCommissionRateItems } from '@onekeyhq/kit/src/views/ReferFriends/utils';
-
-import { INVITE_COPY } from '../inviteCopy';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export interface IInviteValueLineItem {
   subject: string;
@@ -18,16 +17,16 @@ export interface IInviteValueLineConfig {
 // One row per backend rate subject, named by what the rate applies to.
 // `Earn` and `Onchain` are both DeFi, so they collapse into one row. A
 // subject the client does not know is left out rather than shown raw.
-const SUBJECT_NAMES: Record<string, string> = {
-  HardwareSales: INVITE_COPY.hardwareSalesRate,
-  Perp: INVITE_COPY.perpsFeesRate,
-  Swap: INVITE_COPY.swapFeesRate,
-  Earn: INVITE_COPY.defiFeesRate,
-  Onchain: INVITE_COPY.defiFeesRate,
+const SUBJECT_NAME_IDS: Record<string, ETranslations> = {
+  HardwareSales: ETranslations.referral_referred_type_3,
+  Perp: ETranslations.referral_rate_perps__title,
+  Swap: ETranslations.referral_rate_swap__title,
+  Earn: ETranslations.referral_rate_defi__title,
+  Onchain: ETranslations.referral_rate_defi__title,
 };
 
 function isKnownSubject(subject: string) {
-  return Object.prototype.hasOwnProperty.call(SUBJECT_NAMES, subject);
+  return Object.prototype.hasOwnProperty.call(SUBJECT_NAME_IDS, subject);
 }
 
 function formatRate(value: number) {
@@ -57,7 +56,7 @@ export function selectInviteValueLineItems({
 
 export interface IInviteValueRow {
   subject: string;
-  label: string;
+  labelId: ETranslations;
   you: string;
   // Null when the invitee gets nothing for this product.
   friend: string | null;
@@ -80,17 +79,17 @@ export function getInviteValueSummary(
 ): IInviteValueSummary | null {
   const seen = new Set<string>();
   const rows = sortCommissionRateItems([...items]).flatMap((item) => {
-    const name = SUBJECT_NAMES[item.subject];
+    const labelId = SUBJECT_NAME_IDS[item.subject];
     // A disabled or 0% product is not something to advertise, so a product
     // the backend turns off drops out of every rate line on its own.
-    if (!name || !item.enabled || !(item.you > 0) || seen.has(name)) {
+    if (!labelId || !item.enabled || !(item.you > 0) || seen.has(labelId)) {
       return [];
     }
-    seen.add(name);
+    seen.add(labelId);
     return [
       {
         subject: item.subject,
-        label: name,
+        labelId,
         you: formatRate(item.you),
         friend:
           item.invitee !== undefined && item.invitee > 0

@@ -33,7 +33,7 @@ import type {
 } from '@onekeyhq/shared/src/referralCode/type';
 
 import { getLevelCommissionRateItems } from '../../getLevelOverview';
-import { LEVEL_COPY, LEVEL_SUBJECT_SHORT_LABELS } from '../../levelCopy';
+import { LEVEL_SUBJECT_SHORT_LABEL_IDS } from '../../levelCopy';
 
 import { CommissionRateCard } from './CommissionRateCard';
 import { OrDivider } from './OrDivider';
@@ -123,6 +123,7 @@ function LevelRuleTable({
   level: { icon?: string; emoji?: string };
   nextLevel?: { icon?: string; emoji?: string };
 }) {
+  const intl = useIntl();
   const hasKeep = rows.some((row) => row.keep);
   const hasUpgrade = rows.some((row) => row.upgrade);
   return (
@@ -143,14 +144,18 @@ function LevelRuleTable({
       </YStack>
       {hasKeep ? (
         <RuleColumn
-          header={LEVEL_COPY.keepColumn}
+          header={intl.formatMessage({
+            id: ETranslations.referral_keep__title,
+          })}
           glyph={<LevelGlyph icon={level.icon} emoji={level.emoji} />}
           values={rows.map((row) => row.keep)}
         />
       ) : null}
       {hasUpgrade ? (
         <RuleColumn
-          header={LEVEL_COPY.reachColumn}
+          header={intl.formatMessage({
+            id: ETranslations.referral_reach__title,
+          })}
           glyph={
             nextLevel ? (
               <LevelGlyph icon={nextLevel.icon} emoji={nextLevel.emoji} />
@@ -160,7 +165,9 @@ function LevelRuleTable({
         />
       ) : null}
       <RuleColumn
-        header={LEVEL_COPY.rateColumn}
+        header={intl.formatMessage({
+          id: ETranslations.referral_rate_column__title,
+        })}
         values={rows.map((row) => row.rate)}
       />
     </XStack>
@@ -278,9 +285,10 @@ export function LevelAccordionItem({
       if (existing) {
         return existing;
       }
+      const labelId = LEVEL_SUBJECT_SHORT_LABEL_IDS[subject];
       const row: ILevelRuleRow = {
         subject,
-        label: LEVEL_SUBJECT_SHORT_LABELS[subject] ?? fallbackLabel,
+        label: labelId ? intl.formatMessage({ id: labelId }) : fallbackLabel,
       };
       bySubject.set(subject, row);
       return row;
@@ -325,7 +333,7 @@ export function LevelAccordionItem({
     headerNode = (
       // Same wording as the level card above, so the rule reads one way.
       <SizableText size="$bodyMdMedium" color="$text">
-        {LEVEL_COPY.upgradeRule}
+        {intl.formatMessage({ id: ETranslations.referral_meet_any__desc })}
       </SizableText>
     );
   } else if (subjectGroups.length === 1) {
@@ -422,8 +430,12 @@ export function LevelAccordionItem({
               {subjectGroups.length > 0 ? (
                 <SizableText size="$bodyMd" color="$textSubdued">
                   {isMultiSubject
-                    ? LEVEL_COPY.tableRule
-                    : LEVEL_COPY.tableRuleSingle}
+                    ? intl.formatMessage({
+                        id: ETranslations.referral_table_rule__desc,
+                      })
+                    : intl.formatMessage({
+                        id: ETranslations.referral_table_rule_single__desc,
+                      })}
                 </SizableText>
               ) : null}
               <LevelRuleTable
@@ -458,7 +470,9 @@ export function LevelAccordionItem({
 
               <YStack gap="$2">
                 <SizableText size="$bodyMdMedium">
-                  {LEVEL_COPY.rates}
+                  {intl.formatMessage({
+                    id: ETranslations.referral_rates__title,
+                  })}
                 </SizableText>
 
                 <XStack gap="$3">

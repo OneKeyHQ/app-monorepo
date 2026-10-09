@@ -15,8 +15,6 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
-import { fillCopy } from '../../InviteReward/copyTemplate';
-import { INVITE_COPY } from '../../InviteReward/inviteCopy';
 import { useNavigateToWalletAddresses } from '../../YourReferredWalletAddresses/hooks/useNavigateToWalletAddresses';
 
 // Each list leads with its total as a quiet caption (label, then the count),
@@ -55,7 +53,9 @@ function ListEmpty() {
   return (
     <ReferralCardEmpty
       {...cardStyle}
-      title={INVITE_COPY.inviteesEmpty}
+      title={intl.formatMessage({
+        id: ETranslations.referral_invitees_empty__title,
+      })}
       description={intl.formatMessage({
         id: ETranslations.referral_reward_empty_desc,
       })}
@@ -122,7 +122,10 @@ export function ReferredWalletList() {
           key={index}
           {...COMPACT_ROW_BLEED_PROPS}
           titleProps={COMPACT_ENTRY_TITLE_PROPS}
-          title={fillCopy(INVITE_COPY.walletName, { number: index + 1 })}
+          title={intl.formatMessage(
+            { id: ETranslations.referral_wallet_name__title },
+            { number: index + 1 },
+          )}
           drillIn
           onPress={() => {
             navigateToWalletAddresses({

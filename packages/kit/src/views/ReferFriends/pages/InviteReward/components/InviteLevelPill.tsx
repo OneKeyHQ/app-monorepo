@@ -21,12 +21,11 @@ import {
 import { getLevelOverview } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferralLevel/getLevelOverview';
 import type { ILevelOverview } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferralLevel/getLevelOverview';
 import { useNavigateToReferralLevel } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferralLevel/hooks/useNavigateToReferralLevel';
-import { LEVEL_COPY } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferralLevel/levelCopy';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteLevelDetail } from '@onekeyhq/shared/src/referralCode/type';
 
 import { ReferFriendsTestIDs } from '../../../testIDs';
-import { fillCopy } from '../copyTemplate';
 
 import { useCurrentLevelCardFromDetail } from './CurrentLevelCard/hooks/useCurrentLevelCard';
 import {
@@ -60,13 +59,20 @@ function LevelSummary({
                 <Image w="$4" h="$4" src={nextLevel.icon} />
               ) : null}
               <SizableText size="$bodyMdMedium">
-                {fillCopy(LEVEL_COPY.nextLevel, { level: nextLevel.label })}
+                {intl.formatMessage(
+                  { id: ETranslations.referral_next_level__title },
+                  { level: nextLevel.label },
+                )}
               </SizableText>
             </XStack>
             <SizableText size="$bodySm" color="$textSubdued">
               {upgradeTargets.length > 1
-                ? LEVEL_COPY.upgradeRule
-                : LEVEL_COPY.upgradeRuleSingle}
+                ? intl.formatMessage({
+                    id: ETranslations.referral_meet_any__desc,
+                  })
+                : intl.formatMessage({
+                    id: ETranslations.referral_meet_this__desc,
+                  })}
             </SizableText>
           </YStack>
           {upgradeTargets.map((target) => (
@@ -83,14 +89,16 @@ function LevelSummary({
                 size="$bodyMdMedium"
                 color={target.isReached ? '$textSuccess' : '$text'}
               >
-                {formatLevelTargetRemaining(target, currencyCode)}
+                {formatLevelTargetRemaining(intl, target, currencyCode)}
               </SizableText>
             </XStack>
           ))}
         </YStack>
       ) : null}
       {nextLevel ? null : (
-        <SizableText size="$bodyMdMedium">{LEVEL_COPY.topLevel}</SizableText>
+        <SizableText size="$bodyMdMedium">
+          {intl.formatMessage({ id: ETranslations.referral_top_level__msg })}
+        </SizableText>
       )}
       <XStack pt="$2">
         <Button
@@ -100,7 +108,9 @@ function LevelSummary({
           iconAfter="ChevronRightSmallOutline"
           onPress={onOpenLevel}
         >
-          {LEVEL_COPY.levelDetails}
+          {intl.formatMessage({
+            id: ETranslations.referral_level_details__action,
+          })}
         </Button>
       </XStack>
     </YStack>

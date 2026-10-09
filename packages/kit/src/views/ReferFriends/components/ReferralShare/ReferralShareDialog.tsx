@@ -22,11 +22,10 @@ import {
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { INVITE_COPY } from '../../pages/InviteReward/inviteCopy';
 import { ReferFriendsTestIDs } from '../../testIDs';
 
 import {
-  REFERRAL_SHARE_COPY,
+  REFERRAL_SHARE_NAMES,
   buildTelegramShareUrl,
 } from './referralShareCopy';
 import { ShareView } from './ShareView';
@@ -194,19 +193,21 @@ function ReferralShareContent({
         <ShareAction
           testID={ReferFriendsTestIDs.shareCopyLinkBtn}
           icon="LinkOutline"
-          label={INVITE_COPY.copyLink}
+          label={intl.formatMessage({
+            id: ETranslations.referral_copy_link__action,
+          })}
           onPress={handleCopyLink}
         />
         <ShareAction
           testID={ReferFriendsTestIDs.shareXBtn}
           icon="Xbrand"
-          label={REFERRAL_SHARE_COPY.x}
+          label={REFERRAL_SHARE_NAMES.x}
           onPress={handleX}
         />
         <ShareAction
           testID={ReferFriendsTestIDs.shareTelegramBtn}
           icon="TelegramBrand"
-          label={REFERRAL_SHARE_COPY.telegram}
+          label={REFERRAL_SHARE_NAMES.telegram}
           onPress={handleTelegram}
         />
         <ShareAction

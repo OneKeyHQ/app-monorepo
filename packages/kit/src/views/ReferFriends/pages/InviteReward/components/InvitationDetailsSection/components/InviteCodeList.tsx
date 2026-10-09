@@ -23,8 +23,6 @@ import type {
 } from '@onekeyhq/shared/src/referralCode/type';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
-import { fillCopy, renderCopy } from '../../../copyTemplate';
-import { INVITE_COPY } from '../../../inviteCopy';
 import { REFERRAL_USD_CURRENCY_PROPS } from '../../shared/getRewardSummary';
 import {
   INVITE_CARD_BORDER_COLOR,
@@ -100,7 +98,9 @@ function InviteCodeRow({
         {item.isPrimary ? (
           // The invite page shows this code.
           <Badge badgeType="default" badgeSize="sm">
-            {INVITE_COPY.codeDefault}
+            {intl.formatMessage({
+              id: ETranslations.referral_code_default__title,
+            })}
           </Badge>
         ) : null}
         {md ? (
@@ -119,23 +119,33 @@ function InviteCodeRow({
           one. */}
       <XStack ai="center" columnGap="$1" flexWrap="wrap">
         {[
-          INVITE_COPY.codeOrders(item.salesOrders),
-          INVITE_COPY.codeWallets(item.onchainWallets),
-          renderCopy(INVITE_COPY.codeEarned, {
-            amount: (
-              <Currency
-                size="$bodySmMedium"
-                formatter="value"
-                // Reward figures are shown in USD across the referral pages.
-                targetCurrency={REFERRAL_USD_CURRENCY_PROPS.targetCurrency}
-              >
-                {item.cumulativeRewardsFiatValue}
-              </Currency>
-            ),
-          }),
-          fillCopy(INVITE_COPY.codeCreated, {
-            date: formatDate(item.createdAt, { hideTimeForever: true }),
-          }),
+          intl.formatMessage(
+            { id: ETranslations.referral_code_orders__desc },
+            { count: item.salesOrders },
+          ),
+          intl.formatMessage(
+            { id: ETranslations.referral_code_wallets__desc },
+            { count: item.onchainWallets },
+          ),
+          intl.formatMessage(
+            { id: ETranslations.referral_code_earned__desc },
+            {
+              amount: (
+                <Currency
+                  size="$bodySmMedium"
+                  formatter="value"
+                  // Reward figures are shown in USD across the referral pages.
+                  targetCurrency={REFERRAL_USD_CURRENCY_PROPS.targetCurrency}
+                >
+                  {item.cumulativeRewardsFiatValue}
+                </Currency>
+              ),
+            },
+          ),
+          intl.formatMessage(
+            { id: ETranslations.referral_code_created__desc },
+            { date: formatDate(item.createdAt, { hideTimeForever: true }) },
+          ),
         ].map((fact, index) => (
           // oxlint-disable-next-line react/no-array-index-key
           <SizableText key={index} size="$bodySm" color="$textSubdued">
@@ -225,10 +235,14 @@ export function InviteCodeList({
     <YStack>
       <SizableText size="$bodyMd" color="$textSubdued" pb="$2">
         {codeListData.remainingCodes > 0
-          ? INVITE_COPY.codesRemaining(codeListData.remainingCodes)
-          : fillCopy(INVITE_COPY.codesUsedUp, {
-              max: codeListData.maxCodes,
-            })}
+          ? intl.formatMessage(
+              { id: ETranslations.referral_codes_remaining__desc },
+              { count: codeListData.remainingCodes },
+            )
+          : intl.formatMessage(
+              { id: ETranslations.referral_codes_used_up__desc },
+              { max: codeListData.maxCodes },
+            )}
       </SizableText>
       <YStack overflow="hidden" {...cardStyle}>
         {items.map((item, index) => (

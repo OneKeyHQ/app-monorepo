@@ -38,7 +38,6 @@ import {
 import { LevelListSection } from './components/LevelListSection';
 import { LevelStatusCard } from './components/LevelStatusCard';
 import { getLevelOverview } from './getLevelOverview';
-import { LEVEL_COPY } from './levelCopy';
 
 function ReferralLevelContent({ data }: { data: IInviteLevelDetail }) {
   const intl = useIntl();
@@ -65,7 +64,11 @@ function ReferralLevelContent({ data }: { data: IInviteLevelDetail }) {
           {/* Every level's conditions and rates; the current level's progress
               is already in the card above, so the list starts collapsed. */}
           <YStack gap="$3" pt="$4">
-            <SizableText size="$headingMd">{LEVEL_COPY.allLevels}</SizableText>
+            <SizableText size="$headingMd">
+              {intl.formatMessage({
+                id: ETranslations.referral_all_levels__title,
+              })}
+            </SizableText>
             <LevelListSection
               currentLevel={data.currentLevel}
               levels={data.levels}

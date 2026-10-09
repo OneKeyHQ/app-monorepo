@@ -1,10 +1,12 @@
 import { useCallback } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
 import { Page } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalReferFriendsRoutes,
   IModalReferFriendsParamList,
@@ -14,12 +16,12 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { CreateCodeButton } from '../InviteReward/components/InvitationDetailsSection/components/CreateCodeButton';
 import { InviteCodeList } from '../InviteReward/components/InvitationDetailsSection/components/InviteCodeList';
 import { useInviteCodeList } from '../InviteReward/components/InvitationDetailsSection/hooks/useInviteCodeList';
-import { INVITE_COPY } from '../InviteReward/inviteCopy';
 
 import type { RouteProp } from '@react-navigation/core';
 
 function InviteCodesPage() {
   useRedirectWhenNotLoggedIn();
+  const intl = useIntl();
 
   const { codeListData, isLoading, refetch } = useInviteCodeList();
   const route =
@@ -53,7 +55,9 @@ function InviteCodesPage() {
   return (
     <Page scrollEnabled>
       <Page.Header
-        title={INVITE_COPY.manageCodes}
+        title={intl.formatMessage({
+          id: ETranslations.referral_manage_codes__action,
+        })}
         headerRight={renderHeaderRight}
       />
       <Page.Body px="$pagePadding" pb="$5">

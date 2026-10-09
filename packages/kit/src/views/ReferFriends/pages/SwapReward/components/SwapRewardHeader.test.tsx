@@ -23,7 +23,10 @@ const mockMedia = { lg: false, md: false };
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
-    formatMessage: ({ id }: { id: string }) => id,
+    formatMessage: (
+      { id }: { id: string },
+      values?: Record<string, string | number>,
+    ) => (values ? `${id} ${Object.values(values).join(' ')}` : id),
   }),
 }));
 
@@ -113,7 +116,9 @@ describe('SwapRewardHeader', () => {
     expect(undistributedCard?.subtitle).toContain(
       `${ETranslations.referral_perps_total}: $3.00`,
     );
-    expect(undistributedCard?.subtitle).toContain('Next payout Aug 1');
+    expect(undistributedCard?.subtitle).toContain(
+      `${ETranslations.referral_next_payout__desc} Aug 1`,
+    );
   });
 
   it('sums the figures up in one card on mobile', () => {
@@ -126,7 +131,9 @@ describe('SwapRewardHeader', () => {
     expect(mockSummaries).toHaveLength(1);
     const [summary] = mockSummaries;
     expect(summary.title).toBe(ETranslations.referral_undistributed);
-    expect(summary.hint).toBe('Next payout Aug 1');
+    expect(summary.hint).toBe(
+      `${ETranslations.referral_next_payout__desc} Aug 1`,
+    );
     expect(summary.rows?.map((row) => row.label)).toEqual([
       ETranslations.referral_perps_total,
       ETranslations.referral_perps_volume,

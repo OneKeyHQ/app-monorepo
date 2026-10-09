@@ -67,7 +67,6 @@ import { ReferFriendsLoadError } from '../../components';
 import { ReferFriendsTestIDs } from '../../testIDs';
 import { useNavigateToRewardHistory } from '../RewardDistributionHistory/hooks/useNavigateToRewardHistory';
 
-import { INVITE_COPY } from './inviteCopy';
 import {
   INVITE_SUMMARY_MOCK_ENABLED,
   withInviteSummaryMock,
@@ -311,15 +310,16 @@ const InviteShareFooter = memo(function InviteShareFooter({
     rebateLevels: summaryInfo.rebateLevels,
     levelDetail,
   });
+  const intl = useIntl();
   const inviteeRate = summary?.friendRate;
   const handleInvite = useCallback(() => {
     showReferralShareDialog({
-      copy: getReferralShareCopy(inviteeRate),
+      copy: getReferralShareCopy(intl, inviteeRate),
       inviteCode: summaryInfo.inviteCode,
       inviteUrl: summaryInfo.inviteUrl,
       displayUrl: formatInviteUrlForDisplay(summaryInfo.inviteUrl),
     });
-  }, [inviteeRate, summaryInfo.inviteCode, summaryInfo.inviteUrl]);
+  }, [intl, inviteeRate, summaryInfo.inviteCode, summaryInfo.inviteUrl]);
 
   return (
     <Page.Footer>
@@ -331,7 +331,9 @@ const InviteShareFooter = memo(function InviteShareFooter({
         pt="$3"
         pb="$3"
         onConfirm={handleInvite}
-        onConfirmText={INVITE_COPY.inviteFriends}
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.referral_invite_friends__action,
+        })}
         confirmButtonProps={INVITE_FOOTER_BUTTON_PROPS}
       />
     </Page.Footer>

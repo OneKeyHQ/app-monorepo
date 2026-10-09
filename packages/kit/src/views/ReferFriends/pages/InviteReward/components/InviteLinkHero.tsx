@@ -18,7 +18,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { CompactFieldRow } from '../../../components/CompactFieldRow';
 import { ReferFriendsTestIDs } from '../../../testIDs';
-import { INVITE_COPY } from '../inviteCopy';
 
 import { CardTextAction } from './CardTextAction';
 import { InviteValueLine } from './InviteValueLine';
@@ -192,7 +191,9 @@ export function InviteLinkHero({
     <YStack gap="$4">
       <XStack ai="flex-start" gap="$3">
         <YStack flex={1} gap="$1">
-          <SizableText size="$headingLg">{INVITE_COPY.title}</SizableText>
+          <SizableText size="$headingLg">
+            {intl.formatMessage({ id: ETranslations.referral_home__title })}
+          </SizableText>
           <InviteValueLine {...valueSummary} />
         </YStack>
         <ReferralListLink />
@@ -200,7 +201,9 @@ export function InviteLinkHero({
       <InviteLinkActions
         inviteUrl={inviteUrl}
         displayUrl={inviteCodeUrl}
-        copyLabel={INVITE_COPY.copyLink}
+        copyLabel={intl.formatMessage({
+          id: ETranslations.referral_copy_link__action,
+        })}
         copyLink={copyLink}
         shareButton={
           platformEnv.isNative ? (
@@ -219,7 +222,9 @@ export function InviteLinkHero({
         codeLabel={intl.formatMessage({
           id: ETranslations.referral_your_code,
         })}
-        manageLabel={INVITE_COPY.manageCodes}
+        manageLabel={intl.formatMessage({
+          id: ETranslations.referral_manage_codes__action,
+        })}
         onCopy={handleCopy}
         onManage={onManageCodes}
       />
@@ -258,7 +263,9 @@ export function InviteCompactCard({
         </SizableText>
         <CardTextAction
           testID={ReferFriendsTestIDs.inviteManageCodes}
-          label={INVITE_COPY.manageCodes}
+          label={intl.formatMessage({
+            id: ETranslations.referral_manage_codes__action,
+          })}
           onPress={onManageCodes}
         />
       </XStack>
@@ -290,7 +297,9 @@ export function InviteCompactCard({
           variant="tertiary"
           size="small"
           icon="Copy3Outline"
-          title={INVITE_COPY.copyLink}
+          title={intl.formatMessage({
+            id: ETranslations.referral_copy_link__action,
+          })}
           onPress={copyLink}
         />
       </CompactFieldRow>

@@ -7,7 +7,6 @@ import { SimpleTabs } from '@onekeyhq/kit/src/views/ReferFriends/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { ReferFriendsTestIDs } from '../../../testIDs';
-import { INVITE_COPY } from '../inviteCopy';
 import { EReferralPageTab, type IReferralPageTab } from '../referralPageTab';
 
 function useReferralTabs() {
@@ -21,7 +20,7 @@ function useReferralTabs() {
       },
       {
         value: EReferralPageTab.benefits,
-        label: INVITE_COPY.perksTab,
+        label: intl.formatMessage({ id: ETranslations.referral_perks__title }),
         testID: ReferFriendsTestIDs.benefitsTab,
       },
     ],

@@ -11,8 +11,6 @@ import {
   RewardSummaryCard,
   StatCard,
 } from '@onekeyhq/kit/src/views/ReferFriends/components';
-import { fillCopy } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/copyTemplate';
-import { INVITE_COPY } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/inviteCopy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapCumulativeRewardsResponse } from '@onekeyhq/shared/src/referralCode/type';
 
@@ -80,7 +78,10 @@ export function SwapRewardHeader({
   const invitedAddresses = data.invitedAddresses || 0;
   const walletCount = data.walletCount || 0;
   const nextDistributionHint = formattedNextDistributionDate
-    ? fillCopy(INVITE_COPY.nextPayout, { date: formattedNextDistributionDate })
+    ? intl.formatMessage(
+        { id: ETranslations.referral_next_payout__desc },
+        { date: formattedNextDistributionDate },
+      )
     : undefined;
   const walletsHint = intl.formatMessage(
     { id: ETranslations.referral_perps_from_wallets },
