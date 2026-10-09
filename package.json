@@ -543,6 +543,7 @@
     "ws@^7.5.10": "7.5.11",
     "yaml@^2.6.1": "2.9.0",
     "fast-xml-parser": "4.5.4",
-    "shell-quote": "1.8.4"
+    "shell-quote": "1.11.0",
+    "oxfmt/tinypool": "2.1.2"
   }
 }
