@@ -190,19 +190,31 @@ function InviteOverviewSkeleton() {
     );
   }
 
+  // Pointer layouts: the earnings card (label and history link, the total
+  // with its payout pill beside the coin art, then the three parts on a
+  // hairline), the invite card, and the earnings table with its column
+  // labels and product rows.
   const earningsCard = (
     <YStack flex={1} gap="$4" p="$5" {...cardStyle}>
-      <YStack gap="$2">
-        <Skeleton.BodyMd />
-        <Skeleton.Heading3Xl />
-        <Skeleton.BodyMd w={120} />
+      <YStack gap="$1">
+        <XStack jc="space-between" ai="center" h={32}>
+          <Skeleton.BodyLg w={112} />
+          <Skeleton.BodyMd w={112} />
+        </XStack>
+        <XStack ai="flex-start" gap="$4">
+          <YStack flex={1} gap="$2">
+            <Skeleton.Heading4Xl w={220} />
+            <Skeleton w={160} h={28} radius="round" />
+          </YStack>
+          <Skeleton w={80} h={80} radius={12} />
+        </XStack>
       </YStack>
-      <Divider borderColor={INVITE_CARD_BORDER_COLOR} />
+      <Divider mt="auto" borderColor={INVITE_CARD_BORDER_COLOR} />
       <XStack gap="$6">
         {[0, 1, 2].map((index) => (
-          <YStack key={index} gap="$1">
-            <Skeleton.BodyMd />
-            <Skeleton.HeadingMd />
+          <YStack key={index} flex={1} gap="$1">
+            <Skeleton.BodyMd w={72} />
+            <Skeleton.HeadingMd w={96} />
           </YStack>
         ))}
       </XStack>
@@ -211,14 +223,53 @@ function InviteOverviewSkeleton() {
 
   const inviteCard = (
     <YStack flex={1} gap="$4" p="$5" {...cardStyle}>
-      <YStack gap="$2">
-        <Skeleton.HeadingMd w={200} />
-        <Skeleton.BodyMd w={260} />
-      </YStack>
+      <XStack jc="space-between" ai="flex-start" gap="$3">
+        <YStack gap="$1">
+          <Skeleton.HeadingLg w={220} />
+          <Skeleton.BodyMd w={280} />
+        </YStack>
+        <Skeleton.BodyMd w={96} />
+      </XStack>
       <Skeleton w="100%" h={48} radius="round" />
-      <Skeleton.BodyMd w={160} />
+      <XStack jc="space-between" ai="center" h={32}>
+        <Skeleton.BodyMd w={180} />
+        <Skeleton.BodyMd w={112} />
+      </XStack>
       <Divider borderColor={INVITE_CARD_BORDER_COLOR} />
-      <Skeleton.BodyMd w={220} />
+      <Skeleton.BodyMd w={260} />
+    </YStack>
+  );
+
+  const productRows = (
+    <YStack gap="$3">
+      <Skeleton.HeadingLg w={180} />
+      <YStack>
+        <XStack gap="$4" pb="$2">
+          {[1.4, 1, 1, 1].map((flex, index) => (
+            <XStack key={index} flex={flex} flexBasis={0}>
+              <Skeleton.BodyMd w={88} />
+            </XStack>
+          ))}
+          <XStack w="$5" />
+        </XStack>
+        {[0, 1, 2, 3].map((index) => (
+          <XStack key={index} gap="$4" py="$3" ai="center">
+            <XStack flex={1.4} flexBasis={0} gap="$3" ai="center">
+              <Skeleton w={40} h={40} radius="round" />
+              <YStack gap="$1">
+                <Skeleton.BodyLg w={120} />
+                <Skeleton.BodyMd w={88} />
+              </YStack>
+            </XStack>
+            {[0, 1, 2].map((cell) => (
+              <XStack key={cell} flex={1} flexBasis={0}>
+                <Skeleton.BodyLg w={80} />
+              </XStack>
+            ))}
+            <XStack w="$5" />
+          </XStack>
+        ))}
+      </YStack>
     </YStack>
   );
 
@@ -232,10 +283,7 @@ function InviteOverviewSkeleton() {
           {inviteCard}
         </XStack>
       </XStack>
-      <YStack gap="$4">
-        <Skeleton.HeadingXl w={200} />
-        <Skeleton w="100%" h={88} radius={16} />
-      </YStack>
+      {productRows}
     </YStack>
   );
 }
