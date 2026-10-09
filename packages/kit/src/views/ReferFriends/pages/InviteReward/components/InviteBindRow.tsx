@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { Button, Divider, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Button,
+  Divider,
+  SizableText,
+  Skeleton,
+  XStack,
+} from '@onekeyhq/components';
 import {
   useFetchWalletsWithBoundStatus,
   useWalletBoundReferralCode,
@@ -46,16 +52,25 @@ export function InviteBindRow({
     });
   }, [bindWalletInviteCode, refreshWalletsWithStatus]);
 
-  // Unknown covers loading, a failed status check and wallets whose bind
-  // window has closed: none has an action to offer, and showing the prompt
-  // would flash or open a dialog with Apply disabled.
-  if (kind === 'unknown') {
+  // While the wallet statuses load, a placeholder holds the line's height
+  // so the cards around it do not jump when it arrives.
+  const isLoading = walletsWithStatus === undefined;
+  // Unknown after loading means a failed status check or wallets whose bind
+  // window has closed: neither has an action to offer, and the prompt would
+  // open a dialog with Apply disabled.
+  if (kind === 'unknown' && !isLoading) {
     return null;
   }
 
   // A secondary entry: one quiet line, so it does not compete with the
   // invite actions above it. It wraps on narrow screens.
-  const line = (
+  const line = isLoading ? (
+    // The line lays out at its text height (the tertiary button's negative
+    // margins cancel its padding), so the placeholder matches that.
+    <XStack h={20} ai="center">
+      <Skeleton.BodyMd w={240} />
+    </XStack>
+  ) : (
     <XStack ai="center" gap="$1.5" flexWrap="wrap">
       <SizableText size="$bodyMd" color="$textSubdued">
         {isBound ? INVITE_COPY.boundTitle : INVITE_COPY.bindTitle}
