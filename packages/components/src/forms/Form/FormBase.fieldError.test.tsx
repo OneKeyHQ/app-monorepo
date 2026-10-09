@@ -76,6 +76,8 @@ jest.mock('../Input', () => ({
   >(({ value, onChangeText, testID }, ref) => <input ref={ref} data-testid={testID} value={value ?? ''} onChange={(event) => onChangeText?.(event.target.value)} />),
 }));
 
+jest.mock('../Checkbox', () => ({ Checkbox: () => null }));
+
 jest.mock('../TextArea', () => ({
   TextArea: () => null,
   TextAreaInput: () => null,
