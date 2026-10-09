@@ -242,7 +242,7 @@ describe('useMarketTopCoins', () => {
       await result.current.handleItemPress(bitcoin);
     });
 
-    expect(serviceMarket.fetchMarketAssetDetail).not.toHaveBeenCalled();
+    expect(serviceMarket.fetchMarketAssetDetail.mock.calls).toHaveLength(0);
     expect(mockToMarketDetailPage).not.toHaveBeenCalled();
     runtimeSpy.mockRestore();
   });
