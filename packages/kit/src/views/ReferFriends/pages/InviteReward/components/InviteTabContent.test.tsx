@@ -30,7 +30,14 @@ const mockNavigateToSwapReward = jest.fn();
 const mockNavigateToEarnReward = jest.fn();
 let mockMd = false;
 
-const mockHeroImagePaused: Array<boolean | undefined> = [];
+const mockHeroImageProps: Array<{
+  controlRef?: unknown;
+  preloadOtherStep?: boolean;
+}> = [];
+
+let mockWalletsWithStatus: Array<{ status: string }> | undefined = [
+  { status: 'bindable' },
+];
 
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -79,8 +86,8 @@ jest.mock('@onekeyhq/components', () => {
 jest.mock(
   '@onekeyhq/kit/src/views/ReferFriends/pages/ReferAFriend/components/InviteCodeStepImage',
   () => ({
-    InviteCodeStepImage: (props: { paused?: boolean }) => {
-      mockHeroImagePaused.push(props.paused);
+    InviteCodeStepImage: (props: (typeof mockHeroImageProps)[number]) => {
+      mockHeroImageProps.push(props);
       return null;
     },
   }),
@@ -151,7 +158,7 @@ jest.mock(
   '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode',
   () => ({
     useFetchWalletsWithBoundStatus: () => ({
-      walletsWithStatus: [{ status: 'bindable' }],
+      walletsWithStatus: mockWalletsWithStatus,
       refreshWalletsWithStatus: jest.fn(),
     }),
     useWalletBoundReferralCode: () => ({
@@ -272,6 +279,7 @@ describe('InviteTabContent entry points', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockMd = false;
+    mockWalletsWithStatus = [{ status: 'bindable' }];
   });
 
   it('copies the invite link and the invite code', () => {
@@ -354,21 +362,38 @@ describe('InviteTabContent entry points', () => {
     ).toBeTruthy();
   });
 
-  it.each([true, false])(
-    'passes the hero animation pause through (%s)',
-    (paused) => {
-      mockMd = true;
-      mockHeroImagePaused.length = 0;
-      render(
-        <InviteTabContent
-          summaryInfo={SUMMARY}
-          fetchSummaryInfo={jest.fn()}
-          levelDetail={undefined}
-          isHeroAnimationPaused={paused}
-        />,
-      );
+  it('hands the hero animation control to the page', () => {
+    mockMd = true;
+    mockHeroImageProps.length = 0;
+    const controlRef = { current: null };
+    render(
+      <InviteTabContent
+        summaryInfo={SUMMARY}
+        fetchSummaryInfo={jest.fn()}
+        levelDetail={undefined}
+        heroAnimationControlRef={controlRef}
+      />,
+    );
 
-      expect(mockHeroImagePaused.at(-1)).toBe(paused);
+    const props = mockHeroImageProps.at(-1);
+    expect(props?.controlRef).toBe(controlRef);
+    // The home shows one animation, so it skips the intro's other one.
+    expect(props?.preloadOtherStep).toBe(false);
+  });
+
+  it.each([
+    { wallets: undefined, shown: false },
+    { wallets: [{ status: 'expired' }], shown: false },
+    { wallets: [{ status: 'bindable' }], shown: true },
+  ])(
+    'shows the bind prompt only when a wallet can bind (%#)',
+    ({ wallets, shown }) => {
+      mockWalletsWithStatus = wallets;
+      renderTab();
+
+      expect(
+        Boolean(screen.queryByTestId(ReferFriendsTestIDs.inviteBindRow)),
+      ).toBe(shown);
     },
   );
 

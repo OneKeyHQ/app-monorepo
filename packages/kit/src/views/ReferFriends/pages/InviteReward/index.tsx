@@ -50,6 +50,7 @@ import {
   resolveReferralPageTab,
 } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/referralPageTab';
 import { getInviteCodeStepImageHeight } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferAFriend/components/InviteCodeStepImage';
+import type { IInviteCodeStepImageControl } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferAFriend/components/InviteCodeStepImage';
 import { formatInviteUrlForDisplay } from '@onekeyhq/kit/src/views/ReferFriends/utils/inviteUrlUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -427,25 +428,38 @@ function InviteRewardPage() {
   // A short fade under the compact bar softens content scrolling beneath
   // it; it only shows once the content has moved.
   const [isScrolled, setIsScrolled] = useState(false);
-  // The compact hero's illustration sits at the top of the content, so it is
-  // out of view once the scroll passes its height.
-  const pageWidth = usePageWidth();
-  const heroIllustrationHeight = getInviteCodeStepImageHeight(pageWidth);
-  const [isHeroScrolledAway, setIsHeroScrolledAway] = useState(false);
+  // The compact hero's looping illustration holds still while it cannot be
+  // seen: scrolled past (it sits at the top of the content), covered by a
+  // pushed page (level, payout history, product details stack over this one
+  // without unmounting it), or behind the Rewards tab. Scrolling drives it
+  // through a ref, so crossing the illustration never re-renders the page.
+  const heroAnimationControlRef = useRef<IInviteCodeStepImageControl>(null);
+  const isHeroScrolledAwayRef = useRef(false);
+  const isHeroOnScreenRef = useRef(true);
+  const syncHeroAnimation = useCallback(() => {
+    heroAnimationControlRef.current?.setPaused(
+      !isHeroOnScreenRef.current || isHeroScrolledAwayRef.current,
+    );
+  }, []);
+  const isFocused = useIsFocused();
+  useEffect(() => {
+    isHeroOnScreenRef.current = isFocused && isInviteTab;
+    syncHeroAnimation();
+  }, [isFocused, isInviteTab, syncHeroAnimation]);
+  const heroIllustrationHeight = getInviteCodeStepImageHeight(usePageWidth());
   const handleScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const offsetY = event.nativeEvent.contentOffset.y;
       // Same-value updates bail out, so this only re-renders on a crossing.
       setIsScrolled(offsetY > 0);
-      setIsHeroScrolledAway(offsetY > heroIllustrationHeight);
+      const isScrolledAway = offsetY > heroIllustrationHeight;
+      if (isScrolledAway !== isHeroScrolledAwayRef.current) {
+        isHeroScrolledAwayRef.current = isScrolledAway;
+        syncHeroAnimation();
+      }
     },
-    [heroIllustrationHeight],
+    [heroIllustrationHeight, syncHeroAnimation],
   );
-  // Pushed pages (level, payout history, product details) stack over this one
-  // without unmounting it.
-  const isFocused = useIsFocused();
-  const isHeroAnimationPaused =
-    !isFocused || !isInviteTab || isHeroScrolledAway;
 
   const showInviteFooter =
     platformEnv.isNative && isInviteTab && Boolean(summaryInfo?.inviteUrl);
@@ -496,7 +510,7 @@ function InviteRewardPage() {
                 summaryInfo={summaryInfo}
                 fetchSummaryInfo={fetchSummaryInfo}
                 levelDetail={levelDetail}
-                isHeroAnimationPaused={isHeroAnimationPaused}
+                heroAnimationControlRef={heroAnimationControlRef}
               />
             </YStack>
           ) : null}

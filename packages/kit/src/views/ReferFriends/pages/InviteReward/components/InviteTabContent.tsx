@@ -1,5 +1,8 @@
+import type { Ref } from 'react';
+
 import { Divider, XStack, YStack, useMedia } from '@onekeyhq/components';
 import { useNavigateToInviteCodes } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteCodes/hooks/useNavigateToInviteCodes';
+import type { IInviteCodeStepImageControl } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferAFriend/components/InviteCodeStepImage';
 import type {
   IInviteLevelDetail,
   IInviteSummary,
@@ -27,12 +30,12 @@ export function InviteTabContent({
   summaryInfo,
   fetchSummaryInfo,
   levelDetail,
-  isHeroAnimationPaused,
+  heroAnimationControlRef,
 }: {
   summaryInfo: IInviteSummary;
   fetchSummaryInfo: () => unknown;
   levelDetail: IInviteLevelDetail | undefined;
-  isHeroAnimationPaused?: boolean;
+  heroAnimationControlRef?: Ref<IInviteCodeStepImageControl>;
 }) {
   const { md } = useMedia();
   const cardStyle = useInviteHomeCardStyle();
@@ -75,7 +78,7 @@ export function InviteTabContent({
               rebateConfig={summaryInfo.rebateConfig}
               rebateLevels={summaryInfo.rebateLevels}
               levelDetail={levelDetail}
-              isAnimationPaused={isHeroAnimationPaused}
+              animationControlRef={heroAnimationControlRef}
             />
             <InviteCompactCard
               inviteUrl={summaryInfo.inviteUrl}

@@ -51,6 +51,13 @@ export function InviteBindRow({
 
   const cardStyle = useInviteHomeCardStyle();
 
+  // Unknown covers loading, a failed status check and wallets whose bind
+  // window has closed: none has an action to offer, and showing the prompt
+  // would flash or open a dialog with Apply disabled.
+  if (kind === 'unknown') {
+    return null;
+  }
+
   if (variant === 'card') {
     // Linked users have nothing to do here, so the card disappears.
     if (isBound) {

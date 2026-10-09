@@ -54,6 +54,10 @@ export const LottieView = forwardRef<
       pause: () => {
         animationRef.current?.pause?.();
       },
+      // Continues from the paused frame; `play` restarts on Android.
+      resume: () => {
+        animationRef.current?.resume?.();
+      },
       reset: () => {
         animationRef.current?.reset();
       },

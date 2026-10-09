@@ -24,6 +24,10 @@ export const LottieView = forwardRef<typeof LottieViewWeb, ILottieViewProps>(
       pause: () => {
         animationRef.current?.pause?.();
       },
+      // lottie-web's play continues from the paused frame.
+      resume: () => {
+        animationRef.current?.play?.();
+      },
       reset: () => {
         animationRef.current?.goToAndStop?.(0);
       },

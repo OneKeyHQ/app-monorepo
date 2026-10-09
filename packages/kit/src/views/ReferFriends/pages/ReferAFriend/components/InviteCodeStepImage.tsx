@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useImperativeHandle, useRef, useState } from 'react';
+import type { Ref } from 'react';
 
 import { LottieView, Stack, usePageWidth } from '@onekeyhq/components';
 import type { ILottieViewProps } from '@onekeyhq/components';
@@ -68,22 +69,32 @@ function getInviteCodeLottieSource(params: {
   return pending;
 }
 
+// Lets a caller hold the animation still while it cannot be seen, without
+// re-rendering: scroll handlers call it on every crossing.
+export interface IInviteCodeStepImageControl {
+  setPaused: (paused: boolean) => void;
+}
+
 interface IInviteCodeStepImageProps {
   step: 1 | 2;
-  // Holds the animation on its current frame while it cannot be seen.
-  paused?: boolean;
+  controlRef?: Ref<IInviteCodeStepImageControl>;
+  // The intro flips between both steps, so it preloads the other one; other
+  // callers show a single step and skip that.
+  preloadOtherStep?: boolean;
 }
 
 interface ILottiePlayer {
-  play: () => void;
   pause: () => void;
+  resume: () => void;
 }
 
 export function InviteCodeStepImage({
   step,
-  paused = false,
+  controlRef,
+  preloadOtherStep = true,
 }: IInviteCodeStepImageProps) {
   const lottieRef = useRef<ILottiePlayer | null>(null);
+  const pausedRef = useRef(false);
   const themeVariant = useThemeVariant();
   const pageWidth = usePageWidth();
   const [lottieSource, setLottieSource] = useState<ILottieSource | null>(null);
@@ -109,25 +120,42 @@ export function InviteCodeStepImage({
     });
     // Warm the other step while this one is on screen, so "Next" has its
     // illustration ready.
-    void getInviteCodeLottieSource({
-      step: step === 1 ? 2 : 1,
-      themeVariant: lottieThemeVariant,
-    });
+    if (preloadOtherStep) {
+      void getInviteCodeLottieSource({
+        step: step === 1 ? 2 : 1,
+        themeVariant: lottieThemeVariant,
+      });
+    }
     return () => {
       cancelled = true;
     };
-  }, [lottieThemeVariant, step]);
+  }, [lottieThemeVariant, preloadOtherStep, step]);
 
+  useImperativeHandle(
+    controlRef,
+    () => ({
+      setPaused: (paused) => {
+        if (pausedRef.current === paused) {
+          return;
+        }
+        pausedRef.current = paused;
+        if (paused) {
+          lottieRef.current?.pause();
+        } else {
+          lottieRef.current?.resume();
+        }
+      },
+    }),
+    [],
+  );
+
+  // autoPlay starts a freshly loaded animation; hold it if it was paused
+  // before it loaded.
   useEffect(() => {
-    if (!lottieSource) {
-      return;
-    }
-    if (paused) {
+    if (lottieSource && pausedRef.current) {
       lottieRef.current?.pause();
-    } else {
-      lottieRef.current?.play();
     }
-  }, [lottieSource, paused]);
+  }, [lottieSource]);
 
   return (
     <Stack w={width} h={height} alignSelf="center" bg="$bgApp">
@@ -137,7 +165,7 @@ export function InviteCodeStepImage({
           source={lottieSource}
           width={width}
           height={height}
-          autoPlay={!paused}
+          autoPlay
           loop={shouldLoop}
           resizeMode="contain"
           renderMode={renderMode}
