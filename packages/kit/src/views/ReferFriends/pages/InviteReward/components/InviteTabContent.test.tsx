@@ -347,12 +347,6 @@ describe('InviteTabContent entry points', () => {
     (md) => {
       mockMd = md;
       renderTab();
-      if (md) {
-        // Compact layouts fold the breakdown under its caption.
-        fireEvent.click(
-          screen.getByTestId(ReferFriendsTestIDs.inviteRewardsToggle),
-        );
-      }
 
       fireEvent.click(screen.getByText(ETranslations.referral_referred_type_3));
       fireEvent.click(screen.getByText(ETranslations.referral_perps));
