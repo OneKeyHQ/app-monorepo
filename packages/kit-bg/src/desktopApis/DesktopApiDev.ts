@@ -9,6 +9,8 @@ import { shell } from 'electron';
 import logger from 'electron-log/main';
 
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
+import { collectNativeCrashReports } from '@onekeyhq/desktop/app/libs/nativeCrash';
+import { readNativeCrashReports } from '@onekeyhq/desktop/app/libs/nativeCrashFiles';
 import {
   getDesktopNetworkThrottleConfig,
   setDesktopNetworkThrottleConfig,
@@ -116,6 +118,16 @@ class DesktopApiDev {
       .forEach((fileName) => {
         zip.addLocalFile(path.join(logDir, fileName), '', fileName);
       });
+    // Both manual download and user-confirmed upload share this collector.
+    // Diagnostic failure must not prevent ordinary .log export.
+    try {
+      await collectNativeCrashReports();
+      for (const report of await readNativeCrashReports(logDir)) {
+        zip.addFile(`crashes/${report.name}`, report.data);
+      }
+    } catch {
+      logger.warn('[native-crash] Export unavailable');
+    }
     zip.writeZip(zipPath);
 
     const fileBuffer = await fsPromises.readFile(zipPath);
