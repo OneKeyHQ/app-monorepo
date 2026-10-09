@@ -39,7 +39,7 @@ import {
   COMPACT_ROW_BLEED_PROPS,
   INVITE_CARD_BORDER_COLOR,
   PRESSABLE_SURFACE_PROPS,
-  useInviteCardStyle,
+  useInviteHomeCardStyle,
 } from './useInviteCardStyle';
 
 import type { IInviteCardStyle } from './useInviteCardStyle';
@@ -383,7 +383,7 @@ export function InviteRewardRows({
 }) {
   const intl = useIntl();
   const { md } = useMedia();
-  const cardStyle = useInviteCardStyle();
+  const cardStyle = useInviteHomeCardStyle();
   const [isFoldedOpen, setIsFoldedOpen] = useState(false);
   const rows = useMemo(() => getInviteRewardRows(summaryInfo), [summaryInfo]);
   const { copyLink } = useReferralCodeCard({

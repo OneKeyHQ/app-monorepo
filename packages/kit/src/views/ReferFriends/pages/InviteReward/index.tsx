@@ -31,7 +31,10 @@ import { LogoutButton } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteR
 import { useReferralCodeCard } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/ReferralCodeCard/hooks/useReferralCodeCard';
 import { ReferralJobTabs } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/ReferralJobTabs';
 import { RulesButton } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/RulesButton';
-import { useInviteCardStyle } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteCardStyle';
+import {
+  useInviteHomeCardStyle,
+  useInvitePageCanvas,
+} from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteCardStyle';
 import {
   EReferralPageTab,
   type IReferralPageTab,
@@ -63,6 +66,7 @@ const ReferralPageHeader = memo(function ReferralPageHeader({
   isCompactHeader: boolean;
 }) {
   const intl = useIntl();
+  const { headerBackgroundColor, headerStyle } = useInvitePageCanvas();
   const renderHeaderTitle = useCallback(
     () => (
       <ReferralJobTabs segmented value={activeTab} onChange={onChangeTab} />
@@ -79,6 +83,9 @@ const ReferralPageHeader = memo(function ReferralPageHeader({
   if (isCompactHeader) {
     return (
       <Page.Header
+        // Native iOS ignores the container color; headerStyle covers it.
+        headerContainerBackgroundColor={headerBackgroundColor}
+        headerStyle={headerStyle}
         title={intl.formatMessage({
           id: ETranslations.referral_title,
         })}
@@ -101,7 +108,7 @@ const ReferralPageHeader = memo(function ReferralPageHeader({
 // the first paint does not jump when data arrives.
 function InviteOverviewSkeleton() {
   const { md } = useMedia();
-  const cardStyle = useInviteCardStyle();
+  const cardStyle = useInviteHomeCardStyle();
 
   const earningsCard = (
     <YStack flex={1} gap="$4" p="$5" {...cardStyle}>
@@ -138,7 +145,7 @@ function InviteOverviewSkeleton() {
   if (md) {
     // Compact content: level pill, invite facts card, then earnings card.
     return (
-      <YStack px="$pagePadding" pt="$3" gap="$3">
+      <YStack px="$pagePadding" pt="$3" gap="$5">
         <Skeleton w={96} h={28} radius="round" />
         <YStack gap="$4" p="$4" {...cardStyle}>
           <YStack gap="$1">
@@ -176,7 +183,7 @@ function InviteOverviewSkeleton() {
 
   return (
     <YStack px="$pagePadding" gap="$10">
-      <XStack gap="$4" ai="stretch">
+      <XStack gap="$5" ai="stretch">
         <XStack flex={1} flexBasis={0} minWidth={0}>
           {earningsCard}
         </XStack>
@@ -186,7 +193,7 @@ function InviteOverviewSkeleton() {
       </XStack>
       <YStack gap="$4">
         <Skeleton.HeadingXl w={200} />
-        <Skeleton w="100%" h={88} radius={12} />
+        <Skeleton w="100%" h={88} radius={16} />
       </YStack>
     </YStack>
   );
@@ -195,6 +202,7 @@ function InviteOverviewSkeleton() {
 function InviteRewardPage() {
   const intl = useIntl();
   const { md } = useMedia();
+  const pageCanvas = useInvitePageCanvas();
   const navigation = useAppNavigation();
   const navigateToRewardHistory = useNavigateToRewardHistory();
   const route = useRoute<{
@@ -386,7 +394,7 @@ function InviteRewardPage() {
   }
 
   return (
-    <Page>
+    <Page backgroundColor={pageCanvas.backgroundColor}>
       <ReferralPageHeader
         activeTab={activeTab}
         onChangeTab={setActiveTab}
@@ -431,6 +439,7 @@ function InviteRewardPage() {
           {/* Inviting is the main action on native: it opens the share
               sheet. Copying lives on the invite card rows. */}
           <Page.FooterActions
+            bg={pageCanvas.backgroundColor}
             onConfirm={handleShare}
             onConfirmText={INVITE_COPY.inviteFriends}
             confirmButtonProps={{

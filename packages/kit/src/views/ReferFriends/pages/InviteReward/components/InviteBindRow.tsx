@@ -14,7 +14,7 @@ import { INVITE_COPY } from '../inviteCopy';
 import { getInviteBindRowKind } from './getInviteBindRowKind';
 import {
   PRESSABLE_SURFACE_PROPS,
-  useInviteCardStyle,
+  useInviteHomeCardStyle,
 } from './useInviteCardStyle';
 
 export function InviteBindRow({
@@ -49,7 +49,7 @@ export function InviteBindRow({
     });
   }, [bindWalletInviteCode, refreshWalletsWithStatus]);
 
-  const cardStyle = useInviteCardStyle();
+  const cardStyle = useInviteHomeCardStyle();
 
   if (variant === 'card') {
     // Linked users have nothing to do here, so the card disappears.

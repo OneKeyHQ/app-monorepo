@@ -33,7 +33,7 @@ import {
   COMPACT_ROW_BLEED_PROPS,
   INVITE_CARD_BORDER_COLOR,
   PRESSABLE_SURFACE_PROPS,
-  useInviteCardStyle,
+  useInviteHomeCardStyle,
 } from './useInviteCardStyle';
 import { useNextDistributionLabel } from './useNextDistributionLabel';
 
@@ -369,7 +369,7 @@ export function InviteEarningsCard({
     : intl.formatMessage({
         id: ETranslations.referral_reward_received_address_notset,
       });
-  const cardStyle = useInviteCardStyle();
+  const cardStyle = useInviteHomeCardStyle();
 
   if (md) {
     return (

@@ -14,7 +14,7 @@ import { useInviteValueSummary } from './InviteValueLine';
 import { SuspensionAlert } from './SuspensionAlert';
 import {
   INVITE_CARD_BORDER_COLOR,
-  useInviteCardStyle,
+  useInviteHomeCardStyle,
 } from './useInviteCardStyle';
 
 export function InviteTabContent({
@@ -27,7 +27,7 @@ export function InviteTabContent({
   levelDetail: IInviteLevelDetail | undefined;
 }) {
   const { md } = useMedia();
-  const cardStyle = useInviteCardStyle();
+  const cardStyle = useInviteHomeCardStyle();
   const valueSummary = useInviteValueSummary({
     rebateConfig: summaryInfo.rebateConfig,
     rebateLevels: summaryInfo.rebateLevels,
@@ -57,7 +57,7 @@ export function InviteTabContent({
         // Compact layouts: level, the invite facts card, the bind entry
         // (only until linked) and the earnings card; sharing sits in the
         // page footer.
-        <YStack px="$pagePadding" pt="$3" gap="$4">
+        <YStack px="$pagePadding" pt="$3" gap="$5">
           <XStack>
             <InviteLevelPill
               rebateConfig={summaryInfo.rebateConfig}
@@ -82,7 +82,7 @@ export function InviteTabContent({
         </YStack>
       ) : (
         // Desktop leads with earnings; the invite card sits beside it.
-        <XStack px="$pagePadding" gap="$4" ai="stretch">
+        <XStack px="$pagePadding" gap="$5" ai="stretch">
           <XStack flex={1} flexBasis={0} minWidth={0}>
             <InviteEarningsCard
               summaryInfo={summaryInfo}

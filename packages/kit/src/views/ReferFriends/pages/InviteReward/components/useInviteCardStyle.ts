@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import { useTheme } from '@onekeyhq/components';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 
@@ -25,12 +26,12 @@ export const COMPACT_ENTRY_TITLE_PROPS = { size: '$bodyMd' } as const;
 
 // List rows inside compact cards: the press/hover surface bleeds 12px past
 // the content on each side, so the highlight has padding while the icon and
-// text stay aligned with the card's other rows. Sitting 4px inside the 12px
-// card corner, the surface uses an 8px radius so the two curves stay parallel.
+// text stay aligned with the card's other rows. Sitting 4px inside the 16px
+// card corner, the surface uses a 12px radius so the two curves stay parallel.
 export const COMPACT_ROW_BLEED_PROPS = {
   mx: -12,
   px: 12,
-  borderRadius: '$2',
+  borderRadius: '$3',
 } as const;
 
 // Entry rows pair 14px titles with 20px icons; product rows keep the
@@ -39,20 +40,45 @@ export const COMPACT_ENTRY_ICON_PROPS = { size: '$5' } as const;
 
 export const INVITE_POPOVER_PANEL_PROPS = { width: 320 } as const;
 
-export function useInviteCardStyle() {
+// The invite home sits its cards on a subdued canvas and rounds them a step
+// further than the card lists on the codes and level pages.
+export const INVITE_HOME_CARD_RADIUS = '$4';
+
+export function useInviteCardStyle({
+  borderRadius = '$3',
+}: { borderRadius?: '$3' | typeof INVITE_HOME_CARD_RADIUS } = {}) {
   const isDark = useThemeVariant() === 'dark';
   return useMemo(
     () =>
       ({
         borderWidth: 1,
         borderColor: INVITE_CARD_BORDER_COLOR,
-        borderRadius: '$3',
+        borderRadius,
         borderCurve: 'continuous',
         bg: '$bg',
         boxShadow: isDark ? undefined : LIGHT_CARD_SHADOW,
       }) as const,
-    [isDark],
+    [borderRadius, isDark],
   );
+}
+
+export function useInviteHomeCardStyle() {
+  return useInviteCardStyle({ borderRadius: INVITE_HOME_CARD_RADIUS });
+}
+
+// Light mode puts the bright `$bg` cards on the subdued canvas. Dark mode
+// needs the deeper app canvas so the card background stays visible.
+export function useInvitePageCanvas() {
+  const theme = useTheme();
+  const isDark = useThemeVariant() === 'dark';
+  const backgroundColor = isDark ? '$bgApp' : '$bgSubdued';
+  const headerBackgroundColor = isDark ? theme.bgApp.val : theme.bgSubdued.val;
+  // Reference-stable: PageHeader diffs options shallowly before setOptions.
+  const headerStyle = useMemo(
+    () => ({ backgroundColor: headerBackgroundColor }),
+    [headerBackgroundColor],
+  );
+  return { backgroundColor, headerBackgroundColor, headerStyle } as const;
 }
 
 export type IInviteCardStyle = ReturnType<typeof useInviteCardStyle>;
