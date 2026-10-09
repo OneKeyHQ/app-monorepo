@@ -20,9 +20,8 @@ import type { IEditInviteCodeParams } from '@onekeyhq/shared/src/referralCode/ty
 interface IEditCodeDialogContentProps {
   code: string;
   note: string;
-  isPrimary: boolean;
   isCustomCode: boolean;
-  onUpdated?: (shouldRefreshSummary?: boolean) => Promise<void> | void;
+  onUpdated?: () => Promise<void> | void;
 }
 
 const CODE_REGEX = /^[a-zA-Z0-9]*$/;
@@ -33,7 +32,6 @@ const NOTE_MAX_LENGTH = 100;
 export function EditCodeDialogContent({
   code,
   note,
-  isPrimary,
   isCustomCode,
   onUpdated,
 }: IEditCodeDialogContentProps) {
@@ -125,7 +123,7 @@ export function EditCodeDialogContent({
     }
 
     try {
-      await onUpdated?.(isPrimary && codeChanged);
+      await onUpdated?.();
     } catch {
       // silently ignore refetch failures — edit already succeeded
     }
@@ -136,7 +134,6 @@ export function EditCodeDialogContent({
     noteChanged,
     codeValue,
     code,
-    isPrimary,
     noteValue,
     validateCode,
     intl,

@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  Divider,
   Icon,
   IconButton,
   SizableText,
@@ -12,6 +13,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useNavigateToYourReferred } from '@onekeyhq/kit/src/views/ReferFriends/pages/YourReferred/hooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -19,13 +21,19 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ReferFriendsTestIDs } from '../../../testIDs';
 import { INVITE_COPY } from '../inviteCopy';
 
-import { InviteReferAnimation } from './InviteReferAnimation';
-import { InviteValueLine } from './InviteValueLine';
+import { InviteValueLine, RatePopover } from './InviteValueLine';
 import { useReferralCodeCard } from './ReferralCodeCard/hooks/useReferralCodeCard';
 import { ReferralLinkDropdown } from './ReferralLinkDropdown';
-import { PRESSABLE_SURFACE_PROPS } from './useInviteCardStyle';
+import {
+  COMPACT_ENTRY_ICON_PROPS,
+  COMPACT_ENTRY_TITLE_PROPS,
+  COMPACT_ROW_BLEED_PROPS,
+  INVITE_CARD_BORDER_COLOR,
+  PRESSABLE_SURFACE_PROPS,
+} from './useInviteCardStyle';
 
 import type { IInviteValueSummaryResult } from './InviteValueLine';
+import type { IInviteCardStyle } from './useInviteCardStyle';
 
 function InviteLinkField({
   inviteUrl,
@@ -81,7 +89,7 @@ function InviteCodeLine({
         flexShrink={1}
         ai="center"
         gap="$2"
-        // Numeric: negative space tokens are not applied here.
+        // Bleed the hover surface so the label stays aligned with the text above.
         mx={-8}
         px="$2"
         py="$1"
@@ -222,7 +230,6 @@ export function InviteLinkHero({
 
   return (
     <YStack gap={md ? '$2' : '$4'}>
-      {md ? <InviteReferAnimation /> : null}
       <XStack ai="flex-start" gap="$3">
         <YStack flex={1} gap="$1">
           <SizableText size="$headingLg">{INVITE_COPY.headline}</SizableText>
@@ -257,6 +264,136 @@ export function InviteLinkHero({
         showManageLabel={!md}
         onCopy={handleCopy}
         onManage={onManageCodes}
+      />
+    </YStack>
+  );
+}
+
+// One label/value line of the compact invite card; the value side holds the
+// figure and its inline actions (copy, more links).
+function InviteFieldRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <XStack ai="center" gap="$3" minHeight={44}>
+      <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
+        {label}
+      </SizableText>
+      <XStack flex={1} minWidth={0} ai="center" jc="flex-end" gap="$1">
+        {children}
+      </XStack>
+    </XStack>
+  );
+}
+
+// Compact layouts list the invite facts as label/value rows (code, link,
+// rates) with copy beside each value, then the two entries that belong to
+// inviting. Sharing is the page's main action, pinned to the footer.
+export function InviteCompactCard({
+  inviteUrl,
+  inviteCode,
+  valueSummary,
+  cardStyle,
+  onManageCodes,
+}: {
+  inviteUrl: string;
+  inviteCode: string;
+  valueSummary: IInviteValueSummaryResult;
+  cardStyle: IInviteCardStyle;
+  onManageCodes: () => void;
+}) {
+  const intl = useIntl();
+  const navigateToYourReferred = useNavigateToYourReferred();
+  const { handleCopy, copyLink, inviteCodeUrl } = useReferralCodeCard({
+    inviteUrl,
+    inviteCode,
+  });
+  const { summary } = valueSummary;
+  const rateValue = summary
+    ? `${summary.isUniform ? '' : `${INVITE_COPY.upTo} `}${summary.rate} / ${
+        summary.friendRate ?? '0%'
+      }`
+    : null;
+
+  return (
+    <YStack px="$4" pt="$4" pb="$1" {...cardStyle}>
+      {/* The code is what people share and type, so it leads the card at
+          display size; the link and rates follow as detail rows. */}
+      <XStack ai="center" gap="$3" pb="$3">
+        <YStack flex={1} minWidth={0} gap="$1">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.referral_your_code })}
+          </SizableText>
+          <SizableText size="$heading3xl" numberOfLines={1}>
+            {inviteCode}
+          </SizableText>
+        </YStack>
+        <Button
+          testID={ReferFriendsTestIDs.inviteCodeLine}
+          variant="secondary"
+          size="small"
+          icon="Copy3Outline"
+          onPress={handleCopy}
+        >
+          {intl.formatMessage({ id: ETranslations.global_copy })}
+        </Button>
+      </XStack>
+      <Divider borderColor={INVITE_CARD_BORDER_COLOR} />
+      <InviteFieldRow
+        label={intl.formatMessage({ id: ETranslations.referral_referral_link })}
+      >
+        <SizableText size="$bodyMdMedium" numberOfLines={1} flexShrink={1}>
+          {inviteCodeUrl}
+        </SizableText>
+        <ReferralLinkDropdown inviteUrl={inviteUrl} />
+        <IconButton
+          testID={ReferFriendsTestIDs.copyLinkBtn}
+          variant="tertiary"
+          size="small"
+          icon="Copy3Outline"
+          title={INVITE_COPY.copyLink}
+          onPress={copyLink}
+        />
+      </InviteFieldRow>
+      {rateValue ? (
+        <InviteFieldRow label={INVITE_COPY.rateLabel}>
+          <RatePopover
+            valueSummary={valueSummary}
+            trigger={
+              <XStack ai="center" gap="$1">
+                <SizableText size="$bodyMdMedium" color="$textSuccess">
+                  {rateValue}
+                </SizableText>
+                <Icon name="InfoCircleOutline" size="$5" color="$iconSubdued" />
+              </XStack>
+            }
+          />
+        </InviteFieldRow>
+      ) : null}
+      <Divider my="$1" borderColor={INVITE_CARD_BORDER_COLOR} />
+      <ListItem
+        testID={ReferFriendsTestIDs.inviteManageCodes}
+        {...COMPACT_ROW_BLEED_PROPS}
+        icon="TicketOutline"
+        titleProps={COMPACT_ENTRY_TITLE_PROPS}
+        iconProps={COMPACT_ENTRY_ICON_PROPS}
+        title={INVITE_COPY.manageCodes}
+        drillIn
+        onPress={onManageCodes}
+      />
+      <ListItem
+        testID={ReferFriendsTestIDs.inviteYourReferred}
+        {...COMPACT_ROW_BLEED_PROPS}
+        icon="PeopleOutline"
+        titleProps={COMPACT_ENTRY_TITLE_PROPS}
+        iconProps={COMPACT_ENTRY_ICON_PROPS}
+        title={intl.formatMessage({ id: ETranslations.referral_referral_list })}
+        drillIn
+        onPress={navigateToYourReferred}
       />
     </YStack>
   );

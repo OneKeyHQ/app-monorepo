@@ -4,7 +4,6 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect, useRoute } from '@react-navigation/core';
 import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
 
 import {
   Divider,
@@ -26,7 +25,6 @@ import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends
 import { BenefitsTabPlaceholder } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/BenefitsTabPlaceholder';
 import { useInviteLevelDetail } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CurrentLevelCard/hooks/useCurrentLevelCard';
 import { getInviteEarningsState } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/getInviteEarningsState';
-import { getInviteIllustrationSize } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/getInviteIllustrationSize';
 import { InviteLevelPill } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InviteLevelPill';
 import { InviteTabContent } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InviteTabContent';
 import { LogoutButton } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/LogoutButton';
@@ -103,7 +101,6 @@ const ReferralPageHeader = memo(function ReferralPageHeader({
 // the first paint does not jump when data arrives.
 function InviteOverviewSkeleton() {
   const { md } = useMedia();
-  const { height: windowHeight } = useWindowDimensions();
   const cardStyle = useInviteCardStyle();
 
   const earningsCard = (
@@ -139,25 +136,26 @@ function InviteOverviewSkeleton() {
   );
 
   if (md) {
-    // Compact content leads with the invite block (illustration, headline,
-    // link, code) and puts the earnings card after it.
-    const illustration = getInviteIllustrationSize(windowHeight);
+    // Compact content: level pill, invite facts card, then earnings card.
     return (
-      <YStack px="$pagePadding" pt="$3" gap="$5">
-        <YStack gap="$3">
-          <Skeleton
-            alignSelf="center"
-            w={illustration.width}
-            maxWidth="100%"
-            h={illustration.height}
-            radius={12}
-          />
-          <Skeleton.HeadingLg w={220} />
-          <Skeleton.BodyMd w={260} />
-          <Skeleton w="100%" h={44} radius={8} />
-          <Skeleton.BodyMd w={160} />
+      <YStack px="$pagePadding" pt="$3" gap="$3">
+        <Skeleton w={96} h={28} radius="round" />
+        <YStack gap="$4" p="$4" {...cardStyle}>
+          <YStack gap="$1">
+            <Skeleton.BodyMd w={96} />
+            <Skeleton.Heading3Xl w={140} />
+          </YStack>
+          <Divider borderColor="$neutral4" />
+          {[0, 1].map((index) => (
+            <XStack key={index} jc="space-between">
+              <Skeleton.BodyMd w={96} />
+              <Skeleton.BodyMd w={120} />
+            </XStack>
+          ))}
+          <Divider borderColor="$neutral4" />
+          <Skeleton.BodyLg w={140} />
+          <Skeleton.BodyLg w={120} />
         </YStack>
-        {/* Compact earnings card: amount, two totals, three entry rows. */}
         <YStack gap="$4" p="$4" {...cardStyle}>
           <YStack gap="$1">
             <Skeleton.BodyMd />
@@ -171,10 +169,6 @@ function InviteOverviewSkeleton() {
               </YStack>
             ))}
           </XStack>
-          <Divider borderColor="$neutral4" />
-          {[0, 1, 2].map((index) => (
-            <Skeleton.BodyLg key={index} w={140} />
-          ))}
         </YStack>
       </YStack>
     );
@@ -284,10 +278,12 @@ function InviteRewardPage() {
     isActive: isInviteTab,
   });
 
-  const refreshAll = useCallback(
-    () => Promise.all([fetchSummaryInfo(), refreshLevelDetail()]),
-    [fetchSummaryInfo, refreshLevelDetail],
-  );
+  // Failures are already reflected on the page (error view, or the last
+  // loaded data), so pull-to-refresh and Retry must not reject: the level
+  // detail request re-throws, and these run as fire-and-forget handlers.
+  const refreshAll = useCallback(async () => {
+    await Promise.allSettled([fetchSummaryInfo(), refreshLevelDetail()]);
+  }, [fetchSummaryInfo, refreshLevelDetail]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   // Both tabs take the pull gesture so pull-down behaves the same everywhere
   // on the sheet; the benefits tab gets its own data with the Benefits PR.
@@ -319,7 +315,7 @@ function InviteRewardPage() {
     }
   }, [isInviteTab, hasSummary]);
 
-  const { copyLink } = useReferralCodeCard({
+  const { handleShare } = useReferralCodeCard({
     inviteUrl: summaryInfo?.inviteUrl ?? '',
     inviteCode: summaryInfo?.inviteCode ?? '',
   });
@@ -344,13 +340,6 @@ function InviteRewardPage() {
         levelDetail={levelDetail}
       />
     ) : null;
-  // Compact layouts show the tabs in the navigation bar, so only the level
-  // status stays above the content.
-  const compactLevelRow = levelPill ? (
-    <XStack px="$pagePadding" pt="$3" pb="$1">
-      {levelPill}
-    </XStack>
-  ) : null;
 
   let body: ReactNode;
   if (isInviteTab && isFetching) {
@@ -404,9 +393,8 @@ function InviteRewardPage() {
         isCompactHeader={isCompactHeader}
       />
       <Page.Body>
-        {isCompactHeader ? (
-          compactLevelRow
-        ) : (
+        {/* Compact layouts show the level inside the scrolling content. */}
+        {isCompactHeader ? null : (
           // Same container as the content so the header lines up with the cards.
           <Page.Container padded={false}>
             <XStack
@@ -440,11 +428,13 @@ function InviteRewardPage() {
       </Page.Body>
       {showInviteFooter ? (
         <Page.Footer>
+          {/* Inviting is the main action on native: it opens the share
+              sheet. Copying lives on the invite card rows. */}
           <Page.FooterActions
-            onConfirm={copyLink}
-            onConfirmText={INVITE_COPY.copyLink}
+            onConfirm={handleShare}
+            onConfirmText={INVITE_COPY.inviteFriends}
             confirmButtonProps={{
-              testID: ReferFriendsTestIDs.copyLinkFooterBtn,
+              testID: ReferFriendsTestIDs.inviteFriendsFooterBtn,
             }}
           />
         </Page.Footer>

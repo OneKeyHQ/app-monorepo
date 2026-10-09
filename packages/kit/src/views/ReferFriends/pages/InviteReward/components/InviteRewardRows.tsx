@@ -36,6 +36,7 @@ import { InviteRewardAmount } from './InviteRewardAmount';
 import { useReferralCodeCard } from './ReferralCodeCard/hooks/useReferralCodeCard';
 import { REFERRAL_USD_CURRENCY_PROPS } from './shared/getRewardSummary';
 import {
+  COMPACT_ROW_BLEED_PROPS,
   INVITE_CARD_BORDER_COLOR,
   PRESSABLE_SURFACE_PROPS,
   useInviteCardStyle,
@@ -143,8 +144,7 @@ function RewardListRow({
 }) {
   return (
     <ListItem
-      mx="$0"
-      px="$0"
+      {...COMPACT_ROW_BLEED_PROPS}
       icon={INVITE_REWARD_SUBJECT_ICON[row.subject]}
       title={title}
       subtitle={subtitle}
@@ -514,58 +514,64 @@ export function InviteRewardRows({
   );
 
   return (
-    <YStack px="$pagePadding" pt="$6">
-      <YStack pb="$1">{compactTitle}</YStack>
-      {rows.visibleRows.map((row) => (
-        <RewardListRow
-          key={row.subject}
-          row={row}
-          title={titleFor(row.subject)}
-          subtitle={
-            row.subject === 'hardware' ? (
-              <HardwareSubtitle
-                row={row}
-                monthlyLabel={monthlyLabel}
-                pendingLabel={pendingLabel}
-                pendingTooltip={hardwarePendingTooltip}
-              />
-            ) : undefined
-          }
-          onPress={() => {
-            openSubject(row.subject);
-          }}
-        />
-      ))}
-      {/* Like desktop: one product without rewards is listed directly; two
+    <YStack px="$pagePadding" pt="$6" gap="$3">
+      {compactTitle}
+      {/* In a card like the blocks above, so the row icons line up with
+          theirs. */}
+      <YStack px="$4" py="$1" {...cardStyle}>
+        {rows.visibleRows.map((row) => (
+          <RewardListRow
+            key={row.subject}
+            row={row}
+            title={titleFor(row.subject)}
+            subtitle={
+              row.subject === 'hardware' ? (
+                <HardwareSubtitle
+                  row={row}
+                  monthlyLabel={monthlyLabel}
+                  pendingLabel={pendingLabel}
+                  pendingTooltip={hardwarePendingTooltip}
+                />
+              ) : undefined
+            }
+            onPress={() => {
+              openSubject(row.subject);
+            }}
+          />
+        ))}
+        {/* Like desktop: one product without rewards is listed directly; two
           or more fold into one row that expands in place. */}
-      {rows.foldedRows.length > 1 ? (
-        <ListItem
-          mx="$0"
-          px="$0"
-          title={foldedTitle}
-          onPress={() => {
-            setIsFoldedOpen((open) => !open);
-          }}
-        >
-          <XStack ai="center" gap="$1" flexShrink={0}>
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {noRewardLabel}
-            </SizableText>
-            <Icon
-              name={
-                isFoldedOpen
-                  ? 'ChevronTopSmallOutline'
-                  : 'ChevronDownSmallOutline'
-              }
-              size="$5"
-              color="$iconSubdued"
-            />
-          </XStack>
-        </ListItem>
-      ) : null}
-      {rows.foldedRows.length === 1 || isFoldedOpen
-        ? rows.foldedRows.map(renderFoldedRow)
-        : null}
+        {rows.foldedRows.length > 1 ? (
+          <ListItem
+            {...COMPACT_ROW_BLEED_PROPS}
+            // Icon-wide gap so the names line up with the product rows.
+            renderIcon={<Stack w="$6" flexShrink={0} />}
+            title={foldedTitle}
+            onPress={() => {
+              setIsFoldedOpen((open) => !open);
+            }}
+          >
+            <XStack ai="center" gap="$1" flexShrink={0}>
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {noRewardLabel}
+              </SizableText>
+              <Icon
+                name={
+                  isFoldedOpen
+                    ? 'ChevronTopSmallOutline'
+                    : 'ChevronDownSmallOutline'
+                }
+                // Same size and edge as the list drill-in chevrons.
+                color="$iconSubdued"
+                mx="$-1.5"
+              />
+            </XStack>
+          </ListItem>
+        ) : null}
+        {rows.foldedRows.length === 1 || isFoldedOpen
+          ? rows.foldedRows.map(renderFoldedRow)
+          : null}
+      </YStack>
     </YStack>
   );
 }

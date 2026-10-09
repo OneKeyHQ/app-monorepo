@@ -9,7 +9,7 @@ export const ReferFriendsTestIDs = {
   rulesBtn: 'refer-friends-rules-btn',
   createCodeBtn: 'refer-friends-create-code-btn',
   copyLinkBtn: 'refer-friends-copy-link-btn',
-  copyLinkFooterBtn: 'refer-friends-copy-link-footer-btn',
+  inviteFriendsFooterBtn: 'refer-friends-invite-friends-footer-btn',
   inviteTab: 'refer-friends-tab-invite',
   benefitsTab: 'refer-friends-tab-benefits',
   inviteBindRow: 'refer-friends-invite-bind-row',

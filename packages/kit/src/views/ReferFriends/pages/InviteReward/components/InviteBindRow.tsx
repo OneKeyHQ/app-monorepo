@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { Button, SizableText, XStack } from '@onekeyhq/components';
+import { Button, Icon, SizableText, XStack } from '@onekeyhq/components';
 import {
   useFetchWalletsWithBoundStatus,
   useWalletBoundReferralCode,
@@ -12,8 +12,17 @@ import { ReferFriendsTestIDs } from '../../../testIDs';
 import { INVITE_COPY } from '../inviteCopy';
 
 import { getInviteBindRowKind } from './getInviteBindRowKind';
+import {
+  PRESSABLE_SURFACE_PROPS,
+  useInviteCardStyle,
+} from './useInviteCardStyle';
 
-export function InviteBindRow() {
+export function InviteBindRow({
+  variant = 'inline',
+}: {
+  // `card`: a standalone compact row shown only until a code is linked.
+  variant?: 'inline' | 'card';
+} = {}) {
   const { walletsWithStatus, refreshWalletsWithStatus } =
     useFetchWalletsWithBoundStatus();
   const { bindWalletInviteCode } = useWalletBoundReferralCode({
@@ -40,8 +49,38 @@ export function InviteBindRow() {
     });
   }, [bindWalletInviteCode, refreshWalletsWithStatus]);
 
-  // A secondary entry: one quiet line on every layout, so it does not
-  // compete with the invite actions above it. It wraps on narrow screens.
+  const cardStyle = useInviteCardStyle();
+
+  if (variant === 'card') {
+    // Linked users have nothing to do here, so the card disappears.
+    if (isBound) {
+      return null;
+    }
+    return (
+      <XStack
+        ai="center"
+        gap="$3"
+        px="$4"
+        py="$3"
+        {...cardStyle}
+        {...PRESSABLE_SURFACE_PROPS}
+        testID={ReferFriendsTestIDs.inviteBindRow}
+        onPress={handlePress}
+      >
+        <SizableText flex={1} size="$bodyMd" color="$textSubdued">
+          {INVITE_COPY.bindTitle}
+        </SizableText>
+        <SizableText size="$bodyMdMedium">
+          {INVITE_COPY.bindDescription}
+        </SizableText>
+        {/* Same size and edge as the list drill-in chevrons. */}
+        <Icon name="ChevronRightSmallOutline" color="$iconSubdued" mx="$-1.5" />
+      </XStack>
+    );
+  }
+
+  // A secondary entry: one quiet line, so it does not compete with the
+  // invite actions above it. It wraps on narrow screens.
   return (
     <XStack ai="center" gap="$1.5" flexWrap="wrap">
       <SizableText size="$bodyMd" color="$textSubdued">

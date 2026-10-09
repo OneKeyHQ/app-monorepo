@@ -173,9 +173,6 @@ jest.mock(
   () => ({ useNavigateToEarnReward: () => mockNavigateToEarnReward }),
 );
 
-jest.mock('./InviteReferAnimation', () => ({
-  InviteReferAnimation: () => null,
-}));
 jest.mock('./ReferralLinkDropdown', () => ({
   ReferralLinkDropdown: () => null,
 }));

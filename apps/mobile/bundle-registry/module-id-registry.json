@@ -22936,6 +22936,7 @@
     "packages/kit/src/views/ReferFriends/pages/YourReferredWalletAddresses/index.tsx": 6216,
     "packages/kit/src/views/ReferFriends/router/index.ts": 16702,
     "packages/kit/src/views/ReferFriends/testIDs.ts": 18121,
+    "packages/kit/src/views/ReferFriends/utils/amountUtils.ts": 20615,
     "packages/kit/src/views/ReferFriends/utils/commissionRateUtils.ts": 22686,
     "packages/kit/src/views/ReferFriends/utils/index.ts": 22547,
     "packages/kit/src/views/ReferFriends/utils/installReferralAutoFill.ts": 5163,

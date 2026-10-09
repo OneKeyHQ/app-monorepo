@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -24,6 +24,7 @@ import type {
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { INVITE_COPY } from '../../../inviteCopy';
+import { REFERRAL_USD_CURRENCY_PROPS } from '../../shared/getRewardSummary';
 import {
   INVITE_CARD_BORDER_COLOR,
   useInviteCardStyle,
@@ -32,10 +33,9 @@ import {
 import { CopyLinkSplitButton } from './CopyLinkSplitButton';
 import { EditCodeDialogContent } from './EditCodeDialogContent';
 
-type IOnCodeUpdated = (shouldRefreshSummary?: boolean) => Promise<void> | void;
+type IOnCodeUpdated = () => Promise<void> | void;
 
-// Memoized: the list polls every minute and usually returns the same codes.
-const InviteCodeRow = memo(function InviteCodeRow({
+function InviteCodeRow({
   item,
   isFirst,
   onUpdated,
@@ -58,7 +58,6 @@ const InviteCodeRow = memo(function InviteCodeRow({
         <EditCodeDialogContent
           code={item.code}
           note={item.note}
-          isPrimary={item.isPrimary}
           isCustomCode={item.isCustomCode}
           onUpdated={onUpdated}
         />
@@ -122,7 +121,12 @@ const InviteCodeRow = memo(function InviteCodeRow({
           {INVITE_COPY.codeStats(item.salesOrders, item.onchainWallets)}
         </SizableText>
         <XStack ai="center" gap="$1">
-          <Currency size="$bodySmMedium" formatter="value">
+          <Currency
+            size="$bodySmMedium"
+            formatter="value"
+            // Reward figures are shown in USD across the referral pages.
+            targetCurrency={REFERRAL_USD_CURRENCY_PROPS.targetCurrency}
+          >
             {item.cumulativeRewardsFiatValue}
           </Currency>
           <SizableText size="$bodySm" color="$textSubdued">
@@ -165,7 +169,7 @@ const InviteCodeRow = memo(function InviteCodeRow({
       )}
     </XStack>
   );
-});
+}
 
 export function InviteCodeList({
   codeListData,

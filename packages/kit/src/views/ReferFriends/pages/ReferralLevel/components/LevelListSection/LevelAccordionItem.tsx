@@ -14,7 +14,10 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
-import { INVITE_CARD_BORDER_COLOR } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteCardStyle';
+import {
+  INVITE_CARD_BORDER_COLOR,
+  PRESSABLE_SURFACE_PROPS,
+} from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteCardStyle';
 import { sortCommissionRateItems } from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -140,10 +143,8 @@ export function LevelAccordionItem({
         w="100%"
         borderWidth={0}
         p={0}
-        cursor="default"
         bg="$transparent"
-        hoverStyle={{ bg: '$bgHover' }}
-        pressStyle={{ bg: '$bgActive' }}
+        {...PRESSABLE_SURFACE_PROPS}
       >
         {({ open }: { open: boolean }) => (
           <XStack

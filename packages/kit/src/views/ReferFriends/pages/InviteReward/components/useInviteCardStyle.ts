@@ -19,6 +19,24 @@ export const PRESSABLE_SURFACE_PROPS = {
   role: 'button',
 } as const;
 
+// Entry rows inside compact cards (Manage codes, Payout history…) read at
+// body size, so they stay below the figures and field values in weight.
+export const COMPACT_ENTRY_TITLE_PROPS = { size: '$bodyMd' } as const;
+
+// List rows inside compact cards: the press/hover surface bleeds 12px past
+// the content on each side, so the highlight has padding while the icon and
+// text stay aligned with the card's other rows. Sitting 4px inside the 12px
+// card corner, the surface uses an 8px radius so the two curves stay parallel.
+export const COMPACT_ROW_BLEED_PROPS = {
+  mx: -12,
+  px: 12,
+  borderRadius: '$2',
+} as const;
+
+// Entry rows pair 14px titles with 20px icons; product rows keep the
+// list default (24px) next to their 16px titles.
+export const COMPACT_ENTRY_ICON_PROPS = { size: '$5' } as const;
+
 export const INVITE_POPOVER_PANEL_PROPS = { width: 320 } as const;
 
 export function useInviteCardStyle() {

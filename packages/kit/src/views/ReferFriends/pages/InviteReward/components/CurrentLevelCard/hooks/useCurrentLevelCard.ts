@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 
+import { isEqual } from 'lodash';
 import { type IntlShape, useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -32,8 +33,19 @@ export function useInviteLevelDetail({ isActive }: { isActive: boolean }): {
   levelDetail: IInviteLevelDetail | undefined;
   refreshLevelDetail: () => Promise<void>;
 } {
+  // An unchanged poll returns the previous object, so the one-minute polling
+  // does not re-render the invite page.
+  const lastRef = useRef<IInviteLevelDetail | undefined>(undefined);
   const { result, run } = usePromiseResult(
-    () => backgroundApiProxy.serviceReferralCode.getLevelDetail(),
+    async () => {
+      const detail =
+        await backgroundApiProxy.serviceReferralCode.getLevelDetail();
+      if (lastRef.current && isEqual(detail, lastRef.current)) {
+        return lastRef.current;
+      }
+      lastRef.current = detail;
+      return detail;
+    },
     [],
     {
       initResult: undefined,

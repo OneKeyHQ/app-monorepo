@@ -72,6 +72,10 @@ export interface IInviteValueSummary {
   // "Earn 10%" or "Earn up to 18%"; the rate is the hover/tap target.
   lead: string;
   rate: string;
+  // Highest invitee rate across products, or null when invitees get none;
+  // compact layouts show "you / invited" as one pair.
+  friendRate: string | null;
+  isUniform: boolean;
   products: string;
   rows: IInviteValueRow[];
 }
@@ -99,6 +103,7 @@ export function getInviteValueSummary(
             ? formatRate(item.invitee)
             : null,
         youValue: item.you,
+        friendValue: item.invitee ?? 0,
       },
     ];
   });
@@ -108,12 +113,17 @@ export function getInviteValueSummary(
 
   const maxRate = Math.max(...rows.map((row) => row.youValue));
   const isUniform = rows.every((row) => row.youValue === maxRate);
+  const maxFriendRate = Math.max(...rows.map((row) => row.friendValue));
   return {
     lead: isUniform ? 'Earn' : 'Earn up to',
     rate: formatRate(maxRate),
+    friendRate: maxFriendRate > 0 ? formatRate(maxFriendRate) : null,
+    isUniform,
     products: `on ${joinNames(
       rows.map((row) => SUBJECT_NAMES[row.subject].short),
     )}`,
-    rows: rows.map(({ youValue: _youValue, ...row }) => row),
+    rows: rows.map(
+      ({ youValue: _youValue, friendValue: _friendValue, ...row }) => row,
+    ),
   };
 }

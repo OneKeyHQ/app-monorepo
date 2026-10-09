@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import type { ReactElement } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -135,17 +136,58 @@ export type IInviteValueSummaryResult = ReturnType<
   typeof useInviteValueSummary
 >;
 
-// The caller computes the summary once and shares it with the reward tiles.
+// The per-product rate split behind any trigger: hover on desktop, a bottom
+// sheet on compact screens.
+export function RatePopover({
+  valueSummary,
+  trigger,
+}: {
+  valueSummary: IInviteValueSummaryResult;
+  trigger: ReactElement;
+}) {
+  const intl = useIntl();
+  const navigateToReferralLevel = useNavigateToReferralLevel();
+  const { gtMd } = useMedia();
+  const { levelLabel, levelIcon, summary } = valueSummary;
+  const title = LEVEL_COPY.yourRatesAt(levelLabel);
+
+  if (!summary) {
+    return trigger;
+  }
+
+  return (
+    <Popover
+      title={title}
+      hoverable
+      placement="bottom-start"
+      floatingPanelProps={INVITE_POPOVER_PANEL_PROPS}
+      renderTrigger={trigger}
+      renderContent={({ closePopover }) => (
+        <RateBreakdown
+          title={gtMd ? title : undefined}
+          titleIcon={levelIcon}
+          rows={summary.rows}
+          youLabel={intl.formatMessage({
+            id: ETranslations.referral_upgrade_you,
+          })}
+          friendLabel={intl.formatMessage({
+            id: ETranslations.referral_upgrade_user,
+          })}
+          onOpenLevels={() => {
+            closePopover();
+            void navigateToReferralLevel();
+          }}
+        />
+      )}
+    />
+  );
+}
+
 export function InviteValueLine({
   levelLabel,
   levelIcon,
   summary,
 }: IInviteValueSummaryResult) {
-  const intl = useIntl();
-  const navigateToReferralLevel = useNavigateToReferralLevel();
-  const { gtMd } = useMedia();
-  const title = LEVEL_COPY.yourRatesAt(levelLabel);
-
   if (!summary) {
     return null;
   }
@@ -155,12 +197,9 @@ export function InviteValueLine({
       <SizableText size="$bodyMd" color="$textSubdued">
         {summary.lead}
       </SizableText>
-      <Popover
-        title={title}
-        hoverable
-        placement="bottom-start"
-        floatingPanelProps={INVITE_POPOVER_PANEL_PROPS}
-        renderTrigger={
+      <RatePopover
+        valueSummary={{ levelLabel, levelIcon, summary }}
+        trigger={
           <SizableText
             size="$bodyMdMedium"
             // The one figure this card wants noticed; same green as the
@@ -173,23 +212,6 @@ export function InviteValueLine({
             {summary.rate}
           </SizableText>
         }
-        renderContent={({ closePopover }) => (
-          <RateBreakdown
-            title={gtMd ? title : undefined}
-            titleIcon={levelIcon}
-            rows={summary.rows}
-            youLabel={intl.formatMessage({
-              id: ETranslations.referral_upgrade_you,
-            })}
-            friendLabel={intl.formatMessage({
-              id: ETranslations.referral_upgrade_user,
-            })}
-            onOpenLevels={() => {
-              closePopover();
-              void navigateToReferralLevel();
-            }}
-          />
-        )}
       />
       <SizableText size="$bodyMd" color="$textSubdued">
         {summary.products}

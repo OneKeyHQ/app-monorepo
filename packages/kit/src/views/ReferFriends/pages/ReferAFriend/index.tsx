@@ -72,13 +72,19 @@ function ReferAFriendPage({
   actions,
 }: IReferAFriendPageProps) {
   const isIntro = phaseState === EPhaseState.next;
+  // With the actions pinned to the footer (native modal), the content starts
+  // from the top like other onboarding screens, and the spare height falls
+  // above the button instead of splitting around the content. Inline actions
+  // (tab pages) keep the content and buttons centred as one block.
+  const isFooterActions = !actions;
   return (
     <YStack
       $gtMd={{ py: '$5' }}
+      pt={isFooterActions ? '$8' : undefined}
       pb="$5"
       gap="$5"
       flex={1}
-      justifyContent="center"
+      justifyContent={isFooterActions ? 'flex-start' : 'center'}
     >
       <AnimatePresence exitBeforeEnter>
         <Stack

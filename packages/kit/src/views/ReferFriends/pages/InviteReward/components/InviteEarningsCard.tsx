@@ -18,7 +18,6 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useNavigateToEditAddress } from '@onekeyhq/kit/src/views/ReferFriends/pages/EditAddress/hooks/useNavigateToEditAddress';
 import { useNavigateToRewardHistory } from '@onekeyhq/kit/src/views/ReferFriends/pages/RewardDistributionHistory/hooks/useNavigateToRewardHistory';
 import { openInviteWithdrawAddressEditor } from '@onekeyhq/kit/src/views/ReferFriends/pages/RewardDistributionHistory/openInviteWithdrawAddressEditor';
-import { useNavigateToYourReferred } from '@onekeyhq/kit/src/views/ReferFriends/pages/YourReferred/hooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -29,6 +28,9 @@ import { INVITE_COPY } from '../inviteCopy';
 import { getInviteEarningsState } from './getInviteEarningsState';
 import { REFERRAL_USD_CURRENCY_PROPS } from './shared/getRewardSummary';
 import {
+  COMPACT_ENTRY_ICON_PROPS,
+  COMPACT_ENTRY_TITLE_PROPS,
+  COMPACT_ROW_BLEED_PROPS,
   INVITE_CARD_BORDER_COLOR,
   PRESSABLE_SURFACE_PROPS,
   useInviteCardStyle,
@@ -64,7 +66,6 @@ interface IEarningsLabels {
   distributed: string;
   cumulative: string;
   nextDistribution: string;
-  referred: string;
   history: string;
   payoutAddress: string;
 }
@@ -230,22 +231,28 @@ function CompactEarnings({
   labels,
   payoutAddress,
   onEditAddress,
-  onOpenReferred,
   onOpenHistory,
 }: {
   earnings: IInviteEarnings;
   labels: IEarningsLabels;
   payoutAddress: string;
   onEditAddress: () => void;
-  onOpenReferred: () => void;
   onOpenHistory: () => void;
 }) {
   return (
     <YStack>
-      <YStack gap="$1">
+      {/* Same header as desktop: the label with payout history beside it. */}
+      <XStack ai="center" jc="space-between" gap="$3">
         <SizableText size="$bodyMd" color="$textSubdued">
           {labels.undistributed}
         </SizableText>
+        <CardTextAction
+          testID={ReferFriendsTestIDs.inviteRewardHistory}
+          label={labels.history}
+          onPress={onOpenHistory}
+        />
+      </XStack>
+      <YStack pt="$1">
         <UnpaidAmount
           amount={earnings.undistributed}
           nextPayout={earnings.nextDistribution}
@@ -255,13 +262,26 @@ function CompactEarnings({
           hintSize="$bodySm"
         />
       </YStack>
-      <XStack gap="$4" pt="$4">
+      {/* Totals sit in two tinted tiles so they read as a secondary group
+          under the unpaid figure. */}
+      <XStack gap="$2" pt="$4">
         {[
           { label: labels.cumulative, value: earnings.cumulative },
           { label: labels.distributed, value: earnings.distributed },
         ].map((item) => (
-          <YStack key={item.label} flex={1} flexBasis={0} minWidth={0} gap="$1">
-            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+          <YStack
+            key={item.label}
+            flex={1}
+            flexBasis={0}
+            minWidth={0}
+            gap="$1"
+            px="$3"
+            py="$2.5"
+            borderRadius="$2"
+            borderCurve="continuous"
+            bg="$bgSubdued"
+          >
+            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
               {item.label}
             </SizableText>
             <Currency
@@ -277,8 +297,10 @@ function CompactEarnings({
       <Divider mt="$4" mb="$1" borderColor={INVITE_CARD_BORDER_COLOR} />
       <ListItem
         testID={ReferFriendsTestIDs.invitePayoutAddress}
-        mx="$0"
-        px="$0"
+        {...COMPACT_ROW_BLEED_PROPS}
+        icon="WalletOutline"
+        titleProps={COMPACT_ENTRY_TITLE_PROPS}
+        iconProps={COMPACT_ENTRY_ICON_PROPS}
         title={labels.payoutAddress}
         drillIn
         onPress={onEditAddress}
@@ -292,22 +314,6 @@ function CompactEarnings({
           {payoutAddress}
         </SizableText>
       </ListItem>
-      <ListItem
-        testID={ReferFriendsTestIDs.inviteRewardHistory}
-        mx="$0"
-        px="$0"
-        title={labels.history}
-        drillIn
-        onPress={onOpenHistory}
-      />
-      <ListItem
-        testID={ReferFriendsTestIDs.inviteYourReferred}
-        mx="$0"
-        px="$0"
-        title={labels.referred}
-        drillIn
-        onPress={onOpenReferred}
-      />
     </YStack>
   );
 }
@@ -322,7 +328,6 @@ export function InviteEarningsCard({
   const intl = useIntl();
   const { md } = useMedia();
   const navigateToRewardHistory = useNavigateToRewardHistory();
-  const navigateToYourReferred = useNavigateToYourReferred();
   const navigateToEditAddress = useNavigateToEditAddress();
   // The address cell edits the address in place instead of routing through
   // the payout history page.
@@ -353,7 +358,6 @@ export function InviteEarningsCard({
     nextDistribution: intl.formatMessage({
       id: ETranslations.referral_next_distribution,
     }),
-    referred: intl.formatMessage({ id: ETranslations.referral_referral_list }),
     history: INVITE_COPY.payoutHistory,
     payoutAddress: intl.formatMessage({
       id: ETranslations.referral_reward_received_address,
@@ -381,7 +385,6 @@ export function InviteEarningsCard({
           labels={labels}
           payoutAddress={payoutAddress}
           onEditAddress={editPayoutAddress}
-          onOpenReferred={navigateToYourReferred}
           onOpenHistory={navigateToRewardHistory}
         />
       </YStack>

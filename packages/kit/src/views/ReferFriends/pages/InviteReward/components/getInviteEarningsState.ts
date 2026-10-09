@@ -1,4 +1,4 @@
-import BigNumber from 'bignumber.js';
+import { toAmount } from '@onekeyhq/kit/src/views/ReferFriends/utils';
 
 export interface IInviteEarningsInput {
   distributed?: string;
@@ -12,11 +12,6 @@ export interface IInviteEarningsState {
   distributed: string;
   cumulative: string;
   nextDistribution: string | null;
-}
-
-function toAmount(value: string | undefined) {
-  const amount = new BigNumber(value ?? 0);
-  return amount.isFinite() ? amount : new BigNumber(0);
 }
 
 export function getInviteEarningsState(

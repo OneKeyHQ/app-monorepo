@@ -1,6 +1,9 @@
 import BigNumber from 'bignumber.js';
 
-import { sortCommissionRateItems } from '@onekeyhq/kit/src/views/ReferFriends/utils';
+import {
+  sortCommissionRateItems,
+  toAmount,
+} from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import type {
   IInviteLevelCommissionRate,
   IInviteLevelDetail,
@@ -27,14 +30,7 @@ export interface ILevelOverview {
   upgradeTargets: ILevelTarget[];
 }
 
-function toAmount(value: string | undefined) {
-  const amount = new BigNumber(value ?? 0);
-  return amount.isFinite() ? amount : new BigNumber(0);
-}
-
-export function toLevelTarget(
-  condition: IInviteLevelUpgradeCondition,
-): ILevelTarget {
+function toLevelTarget(condition: IInviteLevelUpgradeCondition): ILevelTarget {
   const current = toAmount(condition.currentFiatValue);
   const target = toAmount(condition.thresholdFiatValue);
   const isReached = current.gte(target);

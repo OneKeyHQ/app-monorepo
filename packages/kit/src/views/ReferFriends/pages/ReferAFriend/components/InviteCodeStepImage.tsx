@@ -40,6 +40,28 @@ async function loadInviteCodeLottieSource({
       );
 }
 
+type ILottieSource = ILottieViewProps['source'];
+
+// Loaded sources stay cached for the session: the two steps alternate on
+// "Next"/"Back", and re-importing and re-parsing a ~160 KB composition on every
+// switch left the illustration blank for a moment.
+const lottieSourceCache = new Map<string, Promise<ILottieSource>>();
+
+function getInviteCodeLottieSource(params: {
+  step: 1 | 2;
+  themeVariant: 'light' | 'dark';
+}) {
+  const key = `${params.step}-${params.themeVariant}`;
+  let pending = lottieSourceCache.get(key);
+  if (!pending) {
+    pending = loadInviteCodeLottieSource(params);
+    lottieSourceCache.set(key, pending);
+    // A failed load should be retried next time, not cached.
+    pending.catch(() => lottieSourceCache.delete(key));
+  }
+  return pending;
+}
+
 interface IInviteCodeStepImageProps {
   step: 1 | 2;
 }
@@ -47,9 +69,7 @@ interface IInviteCodeStepImageProps {
 export function InviteCodeStepImage({ step }: IInviteCodeStepImageProps) {
   const themeVariant = useThemeVariant();
   const pageWidth = usePageWidth();
-  const [lottieSource, setLottieSource] = useState<
-    ILottieViewProps['source'] | null
-  >(null);
+  const [lottieSource, setLottieSource] = useState<ILottieSource | null>(null);
   const lottieThemeVariant = themeVariant === 'dark' ? 'dark' : 'light';
   const width = Math.min(pageWidth, MAX_WIDTH);
   const height = width * LOTTIE_ASPECT_RATIO;
@@ -62,14 +82,19 @@ export function InviteCodeStepImage({ step }: IInviteCodeStepImageProps) {
   useEffect(() => {
     let cancelled = false;
     setLottieSource(null);
-    void loadInviteCodeLottieSource({
+    void getInviteCodeLottieSource({
       step,
       themeVariant: lottieThemeVariant,
     }).then((source) => {
-      if (cancelled) {
-        return;
+      if (!cancelled) {
+        setLottieSource(source);
       }
-      setLottieSource(source);
+    });
+    // Warm the other step while this one is on screen, so "Next" has its
+    // illustration ready.
+    void getInviteCodeLottieSource({
+      step: step === 1 ? 2 : 1,
+      themeVariant: lottieThemeVariant,
     });
     return () => {
       cancelled = true;

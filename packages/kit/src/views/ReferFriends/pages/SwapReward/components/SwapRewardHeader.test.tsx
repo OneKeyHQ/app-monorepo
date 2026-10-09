@@ -51,24 +51,6 @@ jest.mock('@onekeyhq/kit/src/views/ReferFriends/components', () => ({
       {secondaryCards}
     </>
   ),
-  ResponsiveFourColumnLayout: ({
-    firstColumn,
-    secondColumn,
-    thirdColumn,
-    fourthColumn,
-  }: {
-    firstColumn: ReactNode;
-    secondColumn: ReactNode;
-    thirdColumn: ReactNode;
-    fourthColumn: ReactNode;
-  }) => (
-    <>
-      {firstColumn}
-      {secondColumn}
-      {thirdColumn}
-      {fourthColumn}
-    </>
-  ),
   StatCard: (props: IStatCardProps) => {
     mockCards.push(props);
     return <div />;

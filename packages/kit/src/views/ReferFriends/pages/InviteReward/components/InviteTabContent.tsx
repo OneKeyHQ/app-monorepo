@@ -1,6 +1,5 @@
 import { Divider, XStack, YStack, useMedia } from '@onekeyhq/components';
 import { useNavigateToInviteCodes } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteCodes/hooks/useNavigateToInviteCodes';
-import { ResponsiveTwoColumnLayout } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/shared';
 import type {
   IInviteLevelDetail,
   IInviteSummary,
@@ -8,7 +7,8 @@ import type {
 
 import { InviteBindRow } from './InviteBindRow';
 import { InviteEarningsCard } from './InviteEarningsCard';
-import { InviteLinkHero } from './InviteLinkHero';
+import { InviteLevelPill } from './InviteLevelPill';
+import { InviteCompactCard, InviteLinkHero } from './InviteLinkHero';
 import { InviteRewardRows } from './InviteRewardRows';
 import { useInviteValueSummary } from './InviteValueLine';
 import { SuspensionAlert } from './SuspensionAlert';
@@ -54,20 +54,32 @@ export function InviteTabContent({
       />
 
       {md ? (
-        <ResponsiveTwoColumnLayout
-          leftColumn={
-            <YStack gap="$3">
-              {inviteHero}
-              <InviteBindRow />
-            </YStack>
-          }
-          rightColumn={
-            <InviteEarningsCard
-              summaryInfo={summaryInfo}
-              fetchSummaryInfo={fetchSummaryInfo}
+        // Compact layouts: level, the invite facts card, the bind entry
+        // (only until linked) and the earnings card; sharing sits in the
+        // page footer.
+        <YStack px="$pagePadding" pt="$3" gap="$4">
+          <XStack>
+            <InviteLevelPill
+              rebateConfig={summaryInfo.rebateConfig}
+              rebateLevels={summaryInfo.rebateLevels}
+              levelDetail={levelDetail}
             />
-          }
-        />
+          </XStack>
+          <InviteCompactCard
+            inviteUrl={summaryInfo.inviteUrl}
+            inviteCode={summaryInfo.inviteCode}
+            valueSummary={valueSummary}
+            cardStyle={cardStyle}
+            onManageCodes={() => {
+              navigateToInviteCodes(summaryInfo.inviteUrl);
+            }}
+          />
+          <InviteBindRow variant="card" />
+          <InviteEarningsCard
+            summaryInfo={summaryInfo}
+            fetchSummaryInfo={fetchSummaryInfo}
+          />
+        </YStack>
       ) : (
         // Desktop leads with earnings; the invite card sits beside it.
         <XStack px="$pagePadding" gap="$4" ai="stretch">

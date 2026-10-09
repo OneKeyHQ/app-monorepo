@@ -80,11 +80,14 @@ function ReferralLevelContent({ data }: { data: IInviteLevelDetail }) {
 // Mirrors the loaded layout: status card with two targets, then the level list.
 function ReferralLevelSkeleton() {
   const cardStyle = useInviteCardStyle();
+  const { md } = useMedia();
+  // The breadcrumb only shows on wide layouts.
+  const showBreadcrumb = !platformEnv.isNative && !md;
   return (
     <ScrollView>
       <ReferFriendsPageContainer>
         <YStack py="$5" px="$pagePadding" gap="$4">
-          <Skeleton.BodyMd w={160} />
+          {showBreadcrumb ? <Skeleton.BodyMd w={160} /> : null}
           <YStack gap="$5" p="$5" {...cardStyle}>
             <XStack ai="center" gap="$4">
               <Skeleton w="$12" h="$12" radius="round" />
