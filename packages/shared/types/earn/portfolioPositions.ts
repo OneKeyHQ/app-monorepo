@@ -12,19 +12,32 @@ import type {
  * page's data model. It is the wallet DeFi Portfolio contract
  * (IFetchAccountDeFiPositionsResp['data']) limited to OneKey Earn, with an
  * `earn` block on every position:
- *   - a position is the unit and `groupId` is its identity; the server cuts
- *     one investment detail into an active position plus one claimable /
- *     unstaking position per row, and the client never merges, splits or
- *     re-derives one;
+ *   - a position is one holding the user acts on as a unit: one vault /
+ *     market on one network, `groupId` is its identity, and the client never
+ *     merges, splits or re-derives one;
+ *   - its `assets` are the staked principal plus the principal waiting to be
+ *     claimed or still unstaking (see IEarnPositionAssetCategory); its
+ *     `rewards` are the yield rows; the card has one Manage action and every
+ *     claim or withdrawal runs on the detail page;
  *   - the whole investment detail the position was cut from travels along in
  *     `earn.investment`, so nothing the older investment-detail page had is
  *     lost; the page reads what it renders and ignores the rest.
  */
 
-export type IEarnPositionState = 'active' | 'claimable' | 'unstaking';
-
 /** Wallet position categories the Earn page uses; each maps to one badge. */
 export type IEarnPositionCategory = 'yield' | 'staked' | 'lending';
+
+/**
+ * `assets[].category` / `rewards[].category`: deposit is the staked
+ * principal, claimable is withdrawn principal waiting to be claimed,
+ * unstaking is a withdrawal in progress (its unlockAt sits on the matching
+ * `earn.investment.assetsStatus` row, same order), reward is yield.
+ */
+export type IEarnPositionAssetCategory =
+  | 'deposit'
+  | 'claimable'
+  | 'unstaking'
+  | 'reward';
 
 /** The Earn detail page that Manage opens: this position's own page. */
 export type IEarnPositionManageTarget = {
@@ -63,16 +76,11 @@ export type IEarnPositionInvestment = {
 };
 
 export type IEarnPositionExtension = {
-  state: IEarnPositionState;
-  /** ms; unstaking positions whose provider knows when the funds free up */
-  unlockAt?: number;
   /** ms; fixed-term positions (Pendle markets) */
   maturityAt?: number;
   matured?: boolean;
   /** where Manage and a tapped row go: this position's own detail page */
   manage: IEarnPositionManageTarget;
-  /** claimable positions: the claim the detail page runs on that row */
-  claim?: IEarnActionIcon;
   /** the protocol symbol, the one the detail page and claim flows key on */
   symbol: string;
   vault?: string;
@@ -81,14 +89,10 @@ export type IEarnPositionExtension = {
   protocolType?: IEarnProtocolType;
   providerLogoURI?: string;
   network: { networkId: string; name: string; logoURI: string };
-  /** principal still activating (staking providers); already inside the active assets */
+  /** principal still activating (staking providers); already inside the deposit asset */
   pendingActivation?: { amount: string; fiatValue: string };
   investment: IEarnPositionInvestment;
-  /** claimable / unstaking positions: the row they were cut from */
-  row?:
-    | IEarnInvestmentAsset['assetsStatus'][number]
-    | IEarnInvestmentAsset['rewardAssets'][number];
-  /** active positions: the on-chain airdrop rows the server folded into `rewards`, kept whole */
+  /** the on-chain airdrop rows the server folded into `rewards`, kept whole */
   airdropRows?: IEarnPositionAirdropRow[];
   /** fiat of those rows, as the airdrop detail sums it */
   airdropFiatValue?: string;

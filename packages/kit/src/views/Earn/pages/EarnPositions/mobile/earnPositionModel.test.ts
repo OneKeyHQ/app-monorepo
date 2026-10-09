@@ -8,11 +8,17 @@ import type {
 import {
   buildEarnClaimableRewardsView,
   buildEarnPortfolioView,
+  countEarnPositionsByNetwork,
   filterEarnProtocolsByNetworks,
+  sumEarnClaimableRewards,
 } from './earnPositionModel';
-import { EARN_PORTFOLIO_POSITIONS_FIXTURE } from './earnPositionModel.fixtures';
+import {
+  EARN_PORTFOLIO_POSITIONS_FIXTURE,
+  LIDO_LATER_UNLOCK_AT,
+  LIDO_UNLOCK_AT,
+} from './earnPositionModel.fixtures';
 
-import type { IEarnProtocolView } from './earnPositionModel';
+import type { IEarnPositionView, IEarnProtocolView } from './earnPositionModel';
 
 // Returns the key itself, so assertions read against ETranslations.
 const translate = (id: ETranslations) => id as string;
@@ -30,6 +36,14 @@ function protocolRow(key: string): IEarnProtocolView {
   return row;
 }
 
+function card(row: IEarnProtocolView, key: string): IEarnPositionView {
+  const position = row.positions.find((item) => item.key === key);
+  if (!position) {
+    throw new OneKeyLocalError(`missing card ${key}`);
+  }
+  return position;
+}
+
 describe('earn position model: protocol rows', () => {
   it('has one row per protocol per network, like the wallet', () => {
     expect(view.protocols.map((protocol) => protocol.key).toSorted()).toEqual([
@@ -37,7 +51,6 @@ describe('earn position model: protocol rows', () => {
       'evm--1-lido',
       'evm--1-morpho',
       'evm--1-pendle',
-      'evm--1-stakefish',
       'evm--8453-morpho',
       'evm--8453-pendle',
       'sol--101-stakefish',
@@ -61,41 +74,95 @@ describe('earn position model: protocol rows', () => {
     expect(view.totalValue).toBeCloseTo(rowSum, 9);
   });
 
-  it('filters by network exactly, since a row never spans networks', () => {
-    const base = filterEarnProtocolsByNetworks(view.protocols, ['evm--8453']);
-    expect(base.map((protocol) => protocol.key).toSorted()).toEqual([
+  it('filters by network exactly and counts positions per network', () => {
+    const baseRows = filterEarnProtocolsByNetworks(view.protocols, [
+      'evm--8453',
+    ]);
+    expect(baseRows.map((protocol) => protocol.key).toSorted()).toEqual([
       'evm--8453-morpho',
       'evm--8453-pendle',
     ]);
     expect(filterEarnProtocolsByNetworks(view.protocols, [])).toBe(
       view.protocols,
     );
+    expect(countEarnPositionsByNetwork(view.protocols)).toEqual({
+      'evm--1': 6,
+      'evm--8453': 2,
+      'sol--101': 1,
+    });
   });
 });
 
 describe('earn position model: one card per position', () => {
-  it('keeps every groupId as its own card, even under the same name', () => {
+  it('keeps a deposit with its claimable and unstaking principal on one card, in that order', () => {
     const lido = protocolRow('evm--1-lido');
-    expect(lido.positions).toHaveLength(4);
-    expect(new Set(lido.positions.map((position) => position.name))).toEqual(
-      new Set(['Lido staked ETH']),
-    );
-    expect(new Set(lido.positions.map((position) => position.key)).size).toBe(
-      4,
-    );
+    expect(lido.positions).toHaveLength(1);
+    const [position] = lido.positions;
+    expect(
+      position.sections.map((section) => [section.kind, section.title]),
+    ).toEqual([
+      ['deposited', ETranslations.earn_deposited],
+      ['claimable', ETranslations.earn_claimable],
+      ['unstaking', ETranslations.earn_withdrawal_requested],
+    ]);
+    // the unlock time lines up with the detail rows the server cut the assets from
+    expect(
+      position.sections[2].assets.map((asset) => [
+        asset.amount,
+        asset.unlockAt,
+      ]),
+    ).toEqual([
+      ['0.25', LIDO_UNLOCK_AT],
+      ['0.3', LIDO_LATER_UNLOCK_AT],
+    ]);
+    expect(position.badgeLabel).toBe(ETranslations.earn_category_staked__title);
+    expect(position.manage).toEqual({
+      networkId: 'evm--1',
+      provider: 'lido',
+      symbol: 'ETH',
+    });
+    // 4 + 0.5 + 0.25 + 0.3 ETH at 3150: the principal states count in the value
+    expect(position.value.value).toBeCloseTo(5.05 * 3150, 6);
   });
 
-  it('gives each Pendle market its own card, maturity and single token', () => {
+  it('gives each Pendle market its own card, named after its maturity', () => {
     const pendle = protocolRow('evm--1-pendle');
     expect(pendle.positions.map((position) => position.name)).toEqual([
       'PT-USDG-28MAY2026',
       'PT-USD3-17DEC2026',
-      'PT-USDat-14JAN2027',
     ]);
     pendle.positions.forEach((position) => {
       expect(position.sections).toHaveLength(1);
       expect(position.sections[0].assets).toHaveLength(1);
     });
+  });
+
+  it('shows a loan as Supplied / Borrowed / Rewards with its health factor, debt subtracted', () => {
+    const loan = card(
+      protocolRow('evm--1-morpho'),
+      'morpho:evm--1:market:weth-usdc',
+    );
+    expect(loan.badgeLabel).toBe(ETranslations.earn_loans);
+    expect(loan.sections.map((section) => section.title)).toEqual([
+      ETranslations.wallet_defi_asset_type_supplied,
+      ETranslations.wallet_defi_asset_type_borrowed,
+      ETranslations.wallet_defi_position_module_rewards,
+    ]);
+    expect(loan.meta).toEqual({ kind: 'healthFactor', healthFactor: 1.62 });
+    // 0.02 WETH * 3150 + 1.2 MORPHO * 1.2 - 20.01 USDC
+    expect(loan.value.value).toBeCloseTo(44.43, 9);
+  });
+
+  it('keeps withdrawn principal out of the rewards section', () => {
+    const everstake = card(
+      protocolRow('evm--1-everstake'),
+      'everstake:evm--1:eth',
+    );
+    expect(everstake.sections.map((section) => section.kind)).toEqual([
+      'deposited',
+      'claimable',
+      'rewards',
+    ]);
   });
 
   it('never merges positions that come without a groupId', () => {
@@ -117,92 +184,18 @@ describe('earn position model: one card per position', () => {
   });
 });
 
-describe('earn position model: card content', () => {
-  it('orders a protocol: deposit, then claimable, then unstaking by unlock time', () => {
-    const lido = protocolRow('evm--1-lido');
-    expect(lido.positions.map((position) => position.key)).toEqual([
-      'lido:evm--1:steth',
-      'lido:evm--1:withdrawal:81234',
-      'lido:evm--1:withdrawal:81240',
-      'lido:evm--1:withdrawal:81251',
-    ]);
-  });
-
-  it('labels the principal section by state and gives each state its action', () => {
-    const [deposited, claimable, unstaking] =
-      protocolRow('evm--1-lido').positions;
-
-    expect(deposited.sections.map((section) => section.title)).toEqual([
-      ETranslations.earn_deposited,
-    ]);
-    expect(deposited.action?.kind).toBe('manage');
-
-    expect(claimable.sections.map((section) => section.title)).toEqual([
-      ETranslations.earn_claimable,
-    ]);
-    expect(claimable.action?.kind).toBe('claim');
-
-    expect(unstaking.sections.map((section) => section.title)).toEqual([
-      ETranslations.earn_withdrawal_requested,
-    ]);
-    expect(unstaking.action).toBeUndefined();
-    expect(unstaking.meta).toEqual({
-      kind: 'unlockAt',
-      unlockAt: Date.parse('2026-10-02T08:00:00Z'),
-    });
-
-    expect(
-      [deposited, claimable, unstaking].map((position) => position.badgeLabel),
-    ).toEqual([
-      ETranslations.earn_category_staked__title,
-      ETranslations.earn_category_staked__title,
-      ETranslations.earn_category_staked__title,
-    ]);
-  });
-
-  it('shows a loan as Supplied / Borrowed / Rewards with its health factor, debt subtracted', () => {
-    const loan = protocolRow('evm--1-morpho').positions.find(
-      (position) => position.key === 'morpho:evm--1:market:weth-usdc',
-    );
-    expect(loan?.badgeLabel).toBe(ETranslations.earn_loans);
-    expect(loan?.sections.map((section) => section.title)).toEqual([
-      ETranslations.wallet_defi_asset_type_supplied,
-      ETranslations.wallet_defi_asset_type_borrowed,
-      ETranslations.wallet_defi_position_module_rewards,
-    ]);
-    expect(loan?.meta).toEqual({ kind: 'healthFactor', healthFactor: 1.62 });
-    // 0.02 WETH * 3150 + 1.2 MORPHO * 1.2 - 20.01 USDC
-    expect(loan?.value.value).toBeCloseTo(44.43, 9);
-  });
-
-  it('keeps withdrawn principal out of the rewards section', () => {
-    const everstake = protocolRow('evm--1-everstake');
-    const claimable = everstake.positions.find(
-      (position) => position.state === 'claimable',
-    );
-    expect(claimable?.sections.map((section) => section.kind)).toEqual([
-      'claimable',
-    ]);
-    const deposited = everstake.positions.find(
-      (position) => position.state === 'active',
-    );
-    expect(deposited?.sections.map((section) => section.kind)).toEqual([
-      'deposited',
-      'rewards',
-    ]);
-  });
-});
-
 describe('earn position model: rewards claimable stage', () => {
   const claimable = buildEarnClaimableRewardsView(view.protocols);
 
-  it('lists only positions with rewards, valued at the rewards alone', () => {
+  it('lists only positions with priced rewards, valued at the rewards alone', () => {
     const morpho = claimable.find(
       (protocol) => protocol.key === 'evm--1-morpho',
     );
-    expect(morpho?.positions.map((position) => position.key)).toEqual([
-      'morpho:evm--1:market:weth-usdc',
+    expect(
+      morpho?.positions.map((position) => position.key).toSorted(),
+    ).toEqual([
       'morpho:evm--1:0xa71d08a159258553a5ac190d60fa919425ff02ea',
+      'morpho:evm--1:market:weth-usdc',
     ]);
     // 1.2 MORPHO + 0.0213 MORPHO, both at $1.2
     expect(morpho?.value.value).toBeCloseTo(1.2 * 1.2 + 0.0213 * 1.2, 9);
@@ -210,16 +203,25 @@ describe('earn position model: rewards claimable stage', () => {
       expect(position.sections.map((section) => section.kind)).toEqual([
         'rewards',
       ]);
+      expect(position.variant).toBe('rewards');
     });
+    expect(claimable.map((protocol) => protocol.key).toSorted()).toEqual([
+      'evm--1-everstake',
+      'evm--1-morpho',
+    ]);
+    expect(sumEarnClaimableRewards(view.protocols)).toBeCloseTo(
+      1.2 * 1.2 + 0.0213 * 1.2 + 0.001 * 3150,
+      9,
+    );
   });
 
   it('leaves a reward the server has not priced on the DeFi Assets card, not in the list', () => {
-    const [everstake] = EARN_PORTFOLIO_POSITIONS_FIXTURE.positions[
-      'evm--1'
-    ].filter(
-      (position) =>
-        position.protocol === 'everstake' && position.rewards.length > 0,
+    const everstake = EARN_PORTFOLIO_POSITIONS_FIXTURE.positions['evm--1'].find(
+      (position) => position.protocol === 'everstake',
     );
+    if (!everstake) {
+      throw new OneKeyLocalError('fixture changed: Everstake missing');
+    }
     const unpriced: IEarnPortfolioPosition = {
       ...everstake,
       groupId: 'everstake:evm--1:unpriced',
@@ -235,21 +237,10 @@ describe('earn position model: rewards claimable stage', () => {
       errors: [],
     };
     const { protocols } = buildEarnPortfolioView({ response, translate });
-    expect(protocols[0].positions.map((position) => position.key)).toEqual([
-      everstake.groupId,
-      'everstake:evm--1:unpriced',
-    ]);
+    expect(protocols[0].positions).toHaveLength(2);
     const [row] = buildEarnClaimableRewardsView(protocols);
     expect(row.positions.map((position) => position.key)).toEqual([
       everstake.groupId,
-    ]);
-    expect(row.positions[0].variant).toBe('rewards');
-  });
-
-  it('never lists principal: protocols without rewards drop out', () => {
-    expect(claimable.map((protocol) => protocol.key).toSorted()).toEqual([
-      'evm--1-everstake',
-      'evm--1-morpho',
     ]);
   });
 });

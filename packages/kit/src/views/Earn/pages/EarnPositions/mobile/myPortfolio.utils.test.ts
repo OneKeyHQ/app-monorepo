@@ -14,21 +14,16 @@ import {
   positionPendingTag,
   sumRewardsHeaderFiat,
   toLedgerClaimAsset,
-  toPositionClaimAsset,
-  toPositionClaimReward,
 } from './myPortfolio.utils';
 
 const POSITIONS = Object.values(
   EARN_PORTFOLIO_POSITIONS_FIXTURE.positions,
 ).flat();
-const lidoDeposit = POSITIONS.find(
+const lido = POSITIONS.find(
   (position) => position.groupId === 'lido:evm--1:steth',
 );
-const lidoClaimable = POSITIONS.find(
-  (position) => position.groupId === 'lido:evm--1:withdrawal:81234',
-);
-if (!lidoDeposit || !lidoClaimable) {
-  throw new OneKeyLocalError('fixture changed: Lido positions missing');
+if (!lido) {
+  throw new OneKeyLocalError('fixture changed: Lido position missing');
 }
 
 describe('sumRewardsHeaderFiat', () => {
@@ -53,7 +48,7 @@ describe('sumRewardsHeaderFiat', () => {
 
 describe('positionPendingTag', () => {
   it('tags a position with the id the detail page stamps on its txs', () => {
-    expect(positionPendingTag(lidoDeposit)).toBe(
+    expect(positionPendingTag(lido)).toBe(
       buildLocalTxStatusSyncId({
         providerName: 'lido',
         tokenSymbol: 'ETH',
@@ -65,14 +60,14 @@ describe('positionPendingTag', () => {
 
 describe('hasPositionDetailPage', () => {
   it('only the Pendle USDe row without buttons has no page', () => {
-    expect(hasPositionDetailPage(lidoDeposit)).toBe(true);
+    expect(hasPositionDetailPage(lido)).toBe(true);
     const pendleUsde = {
-      ...lidoDeposit,
+      ...lido,
       protocol: 'pendle',
       earn: {
-        ...lidoDeposit.earn,
+        ...lido.earn,
         symbol: 'USDe',
-        investment: { ...lidoDeposit.earn.investment, buttons: [] },
+        investment: { ...lido.earn.investment, buttons: [] },
       },
     };
     expect(hasPositionDetailPage(pendleUsde)).toBe(false);
@@ -93,37 +88,9 @@ describe('hasPositionDetailPage', () => {
   });
 });
 
-describe('toPositionClaimAsset / toPositionClaimReward', () => {
-  it('rebuilds the detail asset the claim button keys on: protocol symbol, vault, network', () => {
-    const asset = toPositionClaimAsset(lidoClaimable);
-    expect(asset.token.info.symbol).toBe(lidoClaimable.earn.symbol);
-    expect(asset.metadata.protocol).toMatchObject({
-      provider: 'lido',
-      symbol: 'ETH',
-      providerDetail: { code: 'lido', name: 'Lido' },
-    });
-    expect(asset.metadata.network.networkId).toBe('evm--1');
-    expect(asset.rewardAssets).toEqual([]);
-  });
-
-  it('hands the row claim to the button, and nothing for a position without one', () => {
-    expect(toPositionClaimReward(lidoClaimable)?.button).toBe(
-      lidoClaimable.earn.claim,
-    );
-    expect(toPositionClaimReward(lidoDeposit)).toBeUndefined();
-  });
-});
-
 describe('buildClaimSourceCandidates / buildNetworkInfoMap', () => {
   it('lists every held position as a claim source, by protocol symbol', () => {
-    const candidates = buildClaimSourceCandidates([lidoDeposit, lidoClaimable]);
-    expect(candidates).toEqual([
-      {
-        networkId: 'evm--1',
-        providerName: 'lido',
-        symbol: 'ETH',
-        vault: undefined,
-      },
+    expect(buildClaimSourceCandidates([lido])).toEqual([
       {
         networkId: 'evm--1',
         providerName: 'lido',
@@ -135,7 +102,7 @@ describe('buildClaimSourceCandidates / buildNetworkInfoMap', () => {
 
   it('names each network once, as the positions name it', () => {
     const map = buildNetworkInfoMap(POSITIONS);
-    expect(map.get('evm--1')?.name).toBe(lidoDeposit.earn.network.name);
+    expect(map.get('evm--1')?.name).toBe(lido.earn.network.name);
     expect(map.size).toBe(
       new Set(POSITIONS.map((position) => position.networkId)).size,
     );

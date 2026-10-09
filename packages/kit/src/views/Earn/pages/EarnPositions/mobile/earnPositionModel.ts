@@ -8,7 +8,6 @@ import {
 } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
 import {
   type ILocalizedProtocolPositionItem,
-  type ILocalizedProtocolPositionSection,
   type IProtocolPositionSectionAssetType,
   buildLocalizedProtocolPositionItems,
   getProtocolPositionDisplayName,
@@ -16,6 +15,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import type {
+  IDeFiAsset,
   IDeFiPosition,
   IDeFiProtocol,
   IProtocolSummary,
@@ -25,19 +25,20 @@ import type {
   IEarnPortfolioPositionsResponse,
   IEarnPositionCategory,
   IEarnPositionManageTarget,
-  IEarnPositionState,
 } from '@onekeyhq/shared/types/earn/portfolioPositions';
 
 /**
  * View model of the phone "My portfolio" DeFi Assets tab (OK-61377).
  *
- * Everything that decides what a position is comes from the wallet DeFi
- * Portfolio code, unchanged: defiUtils.transformDeFiData groups positions
- * into one protocol per network and keys each position by groupId, and
- * buildLocalizedProtocolPositionItems builds its sections, value and health
- * factor. This file only adds what the Earn design adds on top: the badge
- * copy, the section label of claimable / unstaking positions, the unlock
- * time row, the Manage / Claim action and the card order inside a protocol.
+ * What a position is comes from the server and the wallet DeFi Portfolio
+ * code, unchanged: defiUtils.transformDeFiData groups positions into one
+ * protocol per network and keys each position by groupId, and
+ * buildLocalizedProtocolPositionItems gives its value and health factor.
+ * This file adds what the Earn design adds on top: the badge copy, the
+ * sections a card shows (deposited, claimable, unstaking, borrowed, rewards)
+ * and the single Manage action. Product rule: a deposit and the principal
+ * of the same vault waiting to be claimed or unstaking are one card; every
+ * claim and withdrawal runs on the detail page behind Manage.
  */
 
 type ITranslate = (id: ETranslations) => string;
@@ -45,41 +46,39 @@ type ITranslate = (id: ETranslations) => string;
 export type IEarnPositionSectionKind =
   | 'deposited'
   | 'supplied'
-  | 'borrowed'
-  | 'rewards'
   | 'claimable'
   | 'unstaking'
-  | 'other';
+  | 'borrowed'
+  | 'rewards';
+
+export type IEarnPositionSectionAsset = IDeFiAsset & {
+  /** ms; unstaking rows whose provider knows when the funds free up */
+  unlockAt?: number;
+};
 
 export type IEarnPositionSectionView = {
   key: string;
   kind: IEarnPositionSectionKind;
-  /** the wallet bucket the rows came from; drives the value sign */
+  /** the wallet bucket the rows belong to; drives the value sign */
   assetType: IProtocolPositionSectionAssetType;
   title: string;
-  assets: ILocalizedProtocolPositionSection['assets'];
+  assets: IEarnPositionSectionAsset[];
 };
 
-export type IEarnPositionMeta =
-  | { kind: 'healthFactor'; healthFactor: number }
-  | { kind: 'unlockAt'; unlockAt: number };
-
-export type IEarnPositionAction =
-  | { kind: 'manage'; target: IEarnPositionManageTarget }
-  | { kind: 'claim' };
+export type IEarnPositionMeta = { kind: 'healthFactor'; healthFactor: number };
 
 export type IEarnPositionView = {
   /** the position's groupId */
   key: string;
-  state: IEarnPositionState;
   badgeLabel: string;
   name?: string;
   /** assets + rewards - debts, the wallet position value */
   value: IProtocolValueState;
   meta?: IEarnPositionMeta;
   sections: IEarnPositionSectionView[];
-  action?: IEarnPositionAction;
-  /** the server position behind the card: its `earn` block runs Manage and Claim */
+  /** where Manage and a tapped row go */
+  manage: IEarnPositionManageTarget;
+  /** the server position behind the card */
   source: IEarnPortfolioPosition;
   /** Claimable stage: the card shows its rewards alone, no PnL line */
   variant?: 'rewards';
@@ -109,20 +108,34 @@ const BADGE_LABEL_IDS: Record<IEarnPositionCategory, ETranslations> = {
 const SECTION_TITLE_IDS: Record<IEarnPositionSectionKind, ETranslations> = {
   deposited: ETranslations.earn_deposited,
   supplied: ETranslations.wallet_defi_asset_type_supplied,
-  borrowed: ETranslations.wallet_defi_asset_type_borrowed,
-  rewards: ETranslations.wallet_defi_position_module_rewards,
   claimable: ETranslations.earn_claimable,
   unstaking: ETranslations.earn_withdrawal_requested,
-  other: ETranslations.global_others,
+  borrowed: ETranslations.wallet_defi_asset_type_borrowed,
+  rewards: ETranslations.wallet_defi_position_module_rewards,
 };
 
-// Figma 30292-17104: the card that needs a tap comes before the one the user
-// can only wait for; several unstaking requests read earliest unlock first.
-const STATE_ORDER: Record<IEarnPositionState, number> = {
-  active: 0,
-  claimable: 1,
-  unstaking: 2,
+const SECTION_ASSET_TYPES: Record<
+  IEarnPositionSectionKind,
+  IProtocolPositionSectionAssetType
+> = {
+  deposited: 'supplied',
+  supplied: 'supplied',
+  claimable: 'supplied',
+  unstaking: 'supplied',
+  borrowed: 'borrowed',
+  rewards: 'rewards',
 };
+
+// Figma 30292-17104: principal first, then what is on its way out, then
+// what is owed on top.
+const SECTION_ORDER: IEarnPositionSectionKind[] = [
+  'deposited',
+  'supplied',
+  'claimable',
+  'unstaking',
+  'borrowed',
+  'rewards',
+];
 
 function isEarnCategory(category: string): category is IEarnPositionCategory {
   return category in BADGE_LABEL_IDS;
@@ -141,27 +154,68 @@ function readEarnPosition(
   return sourcePositions?.find(isEarnPosition);
 }
 
-function resolveSectionKind({
-  assetType,
-  state,
-  category,
+/**
+ * The unlock time of each unstaking asset. The server cuts the unstaking
+ * assets from the detail's status rows then reward rows, in that order, so
+ * the same filter here lines up with `assets` entry for entry.
+ */
+function unstakingUnlockAts(
+  source: IEarnPortfolioPosition,
+): (number | undefined)[] {
+  const { assetsStatus = [], rewardAssets = [] } = source.earn.investment;
+  return [...assetsStatus, ...rewardAssets]
+    .filter((row) => row.kind === 'unstaking')
+    .map((row) => row.unlockAt);
+}
+
+function buildSections({
+  source,
+  translate,
 }: {
-  assetType: IProtocolPositionSectionAssetType;
-  state: IEarnPositionState;
-  category: string;
-}): IEarnPositionSectionKind {
-  switch (assetType) {
-    case 'supplied':
-      if (state === 'claimable') return 'claimable';
-      if (state === 'unstaking') return 'unstaking';
-      return category === 'lending' ? 'supplied' : 'deposited';
-    case 'borrowed':
-      return 'borrowed';
-    case 'rewards':
-      return 'rewards';
-    default:
-      return 'other';
-  }
+  source: IEarnPortfolioPosition;
+  translate: ITranslate;
+}): IEarnPositionSectionView[] {
+  const byKind = new Map<
+    IEarnPositionSectionKind,
+    IEarnPositionSectionAsset[]
+  >();
+  const push = (
+    kind: IEarnPositionSectionKind,
+    asset: IEarnPositionSectionAsset,
+  ) => {
+    const list = byKind.get(kind);
+    if (list) {
+      list.push(asset);
+    } else {
+      byKind.set(kind, [asset]);
+    }
+  };
+  const principalKind: IEarnPositionSectionKind =
+    source.category === 'lending' ? 'supplied' : 'deposited';
+  const unlockAts = unstakingUnlockAts(source);
+  let unstakingIndex = 0;
+  source.assets.forEach((asset) => {
+    switch (asset.category) {
+      case 'claimable':
+        push('claimable', asset);
+        break;
+      case 'unstaking':
+        push('unstaking', { ...asset, unlockAt: unlockAts[unstakingIndex] });
+        unstakingIndex += 1;
+        break;
+      default:
+        push(principalKind, asset);
+    }
+  });
+  source.debts.forEach((asset) => push('borrowed', asset));
+  source.rewards.forEach((asset) => push('rewards', asset));
+  return SECTION_ORDER.filter((kind) => byKind.has(kind)).map((kind) => ({
+    key: kind,
+    kind,
+    assetType: SECTION_ASSET_TYPES[kind],
+    title: translate(SECTION_TITLE_IDS[kind]),
+    assets: byKind.get(kind) ?? [],
+  }));
 }
 
 function buildPositionView({
@@ -175,65 +229,22 @@ function buildPositionView({
   if (!source) {
     return undefined;
   }
-  const { earn } = source;
-  const { state } = earn;
-
-  const sections = item.sections.map<IEarnPositionSectionView>((section) => {
-    const kind = resolveSectionKind({
-      assetType: section.assetType,
-      state,
-      category: item.category,
-    });
-    return {
-      key: section.key,
-      kind,
-      assetType: section.assetType,
-      title: translate(SECTION_TITLE_IDS[kind]),
-      assets: section.assets,
-    };
-  });
-
-  let meta: IEarnPositionMeta | undefined;
-  if (typeof item.healthFactor === 'number') {
-    meta = { kind: 'healthFactor', healthFactor: item.healthFactor };
-  } else if (state === 'unstaking' && earn.unlockAt) {
-    meta = { kind: 'unlockAt', unlockAt: earn.unlockAt };
-  }
-
-  let action: IEarnPositionAction | undefined;
-  if (state === 'claimable' && earn.claim) {
-    action = { kind: 'claim' };
-  } else if (state === 'active') {
-    action = { kind: 'manage', target: earn.manage };
-  }
-
+  const sections = buildSections({ source, translate });
   return {
     key: item.positionKey,
-    state,
     badgeLabel: isEarnCategory(item.category)
       ? translate(BADGE_LABEL_IDS[item.category])
       : item.categoryLabel,
     name: getProtocolPositionDisplayName(item),
     value: getProtocolPositionSectionsValueState(sections),
-    meta,
+    meta:
+      typeof item.healthFactor === 'number'
+        ? { kind: 'healthFactor', healthFactor: item.healthFactor }
+        : undefined,
     sections,
-    action,
+    manage: source.earn.manage,
     source,
   };
-}
-
-function compareInsideProtocol(a: IEarnPositionView, b: IEarnPositionView) {
-  const byState = STATE_ORDER[a.state] - STATE_ORDER[b.state];
-  if (byState !== 0) {
-    return byState;
-  }
-  if (a.state === 'unstaking') {
-    const unlockA = a.meta?.kind === 'unlockAt' ? a.meta.unlockAt : Infinity;
-    const unlockB = b.meta?.kind === 'unlockAt' ? b.meta.unlockAt : Infinity;
-    return unlockA - unlockB;
-  }
-  // Same state: keep the wallet order (value, highest first).
-  return 0;
 }
 
 function buildProtocolView({
@@ -245,10 +256,10 @@ function buildProtocolView({
   summary: IProtocolSummary | undefined;
   translate: ITranslate;
 }): IEarnProtocolView {
+  // Wallet order inside a protocol: value, highest first.
   const positions = buildLocalizedProtocolPositionItems({ protocol, translate })
     .map((item) => buildPositionView({ item, translate }))
-    .filter((view): view is IEarnPositionView => Boolean(view))
-    .toSorted(compareInsideProtocol);
+    .filter((view): view is IEarnPositionView => Boolean(view));
   return {
     key: defiUtils.buildProtocolMapKey({
       protocol: protocol.protocol,
@@ -311,10 +322,10 @@ export function buildEarnPortfolioView({
  * Rewards tab, Claimable stage (the protocol part; ledger rewards come from
  * their own endpoint): the same position cards with only their Rewards
  * section, so each card and each protocol row reads the rewards amount, never
- * the principal. Claimable principal is a position, not a reward, and never
- * shows up here. Product rule: the header Rewards figure equals what this
- * list adds up to, so a reward the server has not priced stays on the DeFi
- * Assets card and out of this list.
+ * the principal. Claimable principal is part of the position on DeFi Assets
+ * and never shows up here. Product rule: the header Rewards figure equals
+ * what this list adds up to, so a reward the server has not priced stays on
+ * the DeFi Assets card and out of this list.
  */
 export function buildEarnClaimableRewardsView(
   protocols: IEarnProtocolView[],

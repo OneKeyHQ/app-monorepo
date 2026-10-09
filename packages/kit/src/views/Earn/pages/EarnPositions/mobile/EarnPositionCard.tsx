@@ -23,14 +23,9 @@ import type {
   IEarnPositionManageTarget,
 } from '@onekeyhq/shared/types/earn/portfolioPositions';
 
-import { WrappedActionButton } from '../../../components/PortfolioTabContent';
 import { EarnTestIDs } from '../../../testIDs';
 
-import {
-  hasPositionDetailPage,
-  toPositionClaimAsset,
-  toPositionClaimReward,
-} from './myPortfolio.utils';
+import { hasPositionDetailPage } from './myPortfolio.utils';
 
 import type {
   IEarnPositionSectionView,
@@ -108,6 +103,15 @@ function PositionSection({
             >
               {asset.amount}
             </NumberSizeableTextWrapper>
+            {asset.unlockAt ? (
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                numberOfLines={1}
+              >
+                {`${intl.formatMessage({ id: ETranslations.earn_unlock_time })}: ${formatDate(new Date(asset.unlockAt), { hideTimeForever: true })}`}
+              </SizableText>
+            ) : null}
           </YStack>
         </XStack>
       ))}
@@ -150,31 +154,12 @@ function PositionPnlLine({ position }: { position: IEarnPortfolioPosition }) {
   return null;
 }
 
-/** The claim the detail page runs on this row, as the same button it renders. */
-function PositionClaimButton({
-  position,
-}: {
-  position: IEarnPortfolioPosition;
-}) {
-  const reward = toPositionClaimReward(position);
-  if (!reward) {
-    return null;
-  }
-  return (
-    <WrappedActionButton
-      asset={toPositionClaimAsset(position)}
-      reward={reward}
-      rewardSymbol={position.earn.symbol}
-      buttonProps={{ size: 'medium', variant: 'primary' }}
-    />
-  );
-}
-
 /**
  * One position, the wallet DeFi Portfolio card in the Earn design (figma
  * 29180-108096 and 30292-17104): badge and name, the position value, an
- * optional line under the header (health factor / unlock time), one block
- * per section, the PnL line and the single action this position has.
+ * optional health factor line, one block per section (deposited, claimable,
+ * unstaking with its unlock time, borrowed, rewards), the PnL line and the
+ * single Manage action. Claims and withdrawals run on the detail page.
  */
 function EarnPositionCardCmp({
   position,
@@ -182,9 +167,9 @@ function EarnPositionCardCmp({
 }: { position: IEarnPositionView } & IEarnPositionCardHandlers) {
   const intl = useIntl();
   const currencyInfo = useCurrency();
-  const { value, meta, action, source } = position;
+  const { value, meta, source } = position;
   const canOpen = Boolean(onManage) && hasPositionDetailPage(source);
-  const openDetail = canOpen ? () => onManage?.(source.earn.manage) : undefined;
+  const openDetail = canOpen ? () => onManage?.(position.manage) : undefined;
 
   return (
     <YStack
@@ -234,16 +219,6 @@ function EarnPositionCardCmp({
       {meta?.kind === 'healthFactor' ? (
         <DeFiPositionHealthFactorRow healthFactor={meta.healthFactor} />
       ) : null}
-      {meta?.kind === 'unlockAt' ? (
-        <XStack ai="center" gap="$1" px="$1">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {`${intl.formatMessage({ id: ETranslations.earn_unlock_time })}: `}
-          </SizableText>
-          <SizableText size="$bodySm">
-            {formatDate(new Date(meta.unlockAt), { hideTimeForever: true })}
-          </SizableText>
-        </XStack>
-      ) : null}
 
       {position.sections.map((section) => (
         <PositionSection
@@ -254,22 +229,19 @@ function EarnPositionCardCmp({
         />
       ))}
 
-      {position.state === 'active' && position.variant !== 'rewards' ? (
+      {position.variant !== 'rewards' ? (
         <PositionPnlLine position={source} />
       ) : null}
 
-      {action?.kind === 'manage' && canOpen ? (
+      {canOpen ? (
         <Button
           testID="earn-btn"
           size="medium"
           variant="secondary"
-          onPress={() => onManage?.(action.target)}
+          onPress={openDetail}
         >
           {intl.formatMessage({ id: ETranslations.global_manage })}
         </Button>
-      ) : null}
-      {action?.kind === 'claim' ? (
-        <PositionClaimButton position={source} />
       ) : null}
     </YStack>
   );

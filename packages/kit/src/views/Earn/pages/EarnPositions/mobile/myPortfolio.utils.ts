@@ -4,9 +4,7 @@ import { buildLocalTxStatusSyncId } from '@onekeyhq/kit/src/views/Staking/utils/
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IEarnPortfolioPosition } from '@onekeyhq/shared/types/earn/portfolioPositions';
 import type {
-  IEarnActionIcon,
   IEarnPortfolioAirdropAsset,
-  IEarnPortfolioAsset,
   IEarnRewardsPortfolioGroup,
   IEarnRewardsPortfolioItem,
 } from '@onekeyhq/shared/types/staking';
@@ -21,8 +19,8 @@ import type { IPortfolioClaimSourceCandidate } from '../../../utils/portfolioCla
  *     DeFi Portfolio contract (see earnPositionModel.ts for the view);
  *   - POST /earn/v1/rewards/portfolio: ledger rewards (airdrops, rebates) in
  *     three stages for the Rewards tab.
- * The helpers here bridge the position model into the claim button the
- * detail page already runs, and adapt ledger rows into the same button.
+ * The helpers here name positions for the pending-tx badge and adapt ledger
+ * rows into the claim button the detail page already runs.
  */
 
 /** Header "Rewards": the ledger's claimable + pending, plus the positions' claimable rewards. */
@@ -64,79 +62,6 @@ export function hasPositionDetailPage(
     earn.symbol === 'USDe' &&
     (earn.investment.buttons?.length ?? 0) === 0
   );
-}
-
-const EMPTY_TEXT = { text: '' };
-
-/**
- * The claim button the detail page runs (WrappedActionButton +
- * usePortfolioAction) reads its protocol, network and token off an
- * investment-detail asset. A position carries the same facts in `earn`, so
- * this rebuilds that asset from them: the detail texts it does not render
- * are filled with empties, the claim identity (symbol + vault) is exact.
- */
-export function toPositionClaimAsset(
-  position: IEarnPortfolioPosition,
-): IEarnPortfolioAsset {
-  const { earn } = position;
-  const { investment } = earn;
-  return {
-    token: {
-      info: {
-        symbol: earn.symbol,
-        logoURI: position.assets[0]?.meta.logoUrl ?? '',
-      },
-    },
-    deposit: investment.deposit ?? {
-      title: EMPTY_TEXT,
-      description: EMPTY_TEXT,
-    },
-    earnings24h: investment.earnings24h ?? { title: EMPTY_TEXT },
-    totalReward: investment.totalReward,
-    rewardAssets: investment.rewardAssets ?? [],
-    assetsStatus: investment.assetsStatus ?? [],
-    buttons: investment.buttons ?? [],
-    metadata: {
-      protocol: {
-        networkId: position.networkId,
-        provider: position.protocol,
-        symbol: earn.symbol,
-        vault: earn.vault,
-        vaultName: earn.vaultName,
-        category: earn.protocolCategory,
-        type: earn.protocolType,
-        providerDetail: {
-          code: position.protocol,
-          name: position.protocolName,
-          logoURI: earn.providerLogoURI ?? '',
-        },
-      },
-      network: earn.network,
-      fiatValue: investment.totalFiatValue,
-      fiatValueUsd: investment.totalFiatValueUsd,
-      netPnl: investment.netPnl,
-      netPnlFiatValue: investment.netPnlFiatValue,
-    },
-  };
-}
-
-/** The claimable row behind a claimable position, in the shape the claim button takes. */
-export function toPositionClaimReward(position: IEarnPortfolioPosition):
-  | {
-      title: IEarnPortfolioAsset['assetsStatus'][number]['title'];
-      description: IEarnPortfolioAsset['assetsStatus'][number]['description'];
-      button: IEarnActionIcon;
-    }
-  | undefined {
-  const { claim, row } = position.earn;
-  if (!claim) {
-    return undefined;
-  }
-  return {
-    title: row?.title ?? EMPTY_TEXT,
-    description: row?.description ?? EMPTY_TEXT,
-    button: claim,
-  };
 }
 
 /**

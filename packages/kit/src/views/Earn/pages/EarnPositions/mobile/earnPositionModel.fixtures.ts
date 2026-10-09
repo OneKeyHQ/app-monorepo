@@ -4,66 +4,40 @@ import type { IDeFiAsset, IProtocolSummary } from '@onekeyhq/shared/types/defi';
 import type {
   IEarnPortfolioPosition,
   IEarnPortfolioPositionsResponse,
+  IEarnPositionAssetCategory,
   IEarnPositionCategory,
   IEarnPositionExtension,
-  IEarnPositionState,
 } from '@onekeyhq/shared/types/earn/portfolioPositions';
-import { EClaimType } from '@onekeyhq/shared/types/staking';
 
 /**
- * Mock response in the reference contract, built from the positions the test
- * wallet held on 2026-09-28 (Pendle markets, Morpho vaults on two chains,
- * Everstake / Stakefish withdrawals) plus the Lido and Loans cases of the
- * design. Owners are placeholders.
+ * Mock response in the positions contract: the cases the page has to get
+ * right — a staking position with withdrawn and unstaking principal (Lido),
+ * dated Pendle markets, Morpho vaults on two chains with a loan, Everstake
+ * with yield, Stakefish on Solana. Owners are placeholders.
  */
 
 const FETCHED_AT = '2026-09-28T03:40:00.000Z';
 const EVM_OWNER = '0x0000000000000000000000000000000000000001';
 const SOL_OWNER = '11111111111111111111111111111112';
 
-const LOGO = {
-  ETH: 'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address--1751363512633.png',
-  USDC: 'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48-1749190981666.png',
-  USDC_BASE:
-    'https://uni.onekey-asset.com/server-service-indexer/evm--8453/tokens/address-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913-1720669295958.png',
-  USDT: 'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0xdac17f958d2ee523a2206206994597c13d831ec7-1722246302921.png',
-  WETH: 'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2-1720667871986.png',
-  MORPHO:
-    'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0x58d97b57bb95320f9a05dc918aef65434969c2b2-1732155300090.png',
-  POL: 'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0x455e53cbb86018ac2b8092fdcd39d8444affc3f6.png',
-  SOL: 'https://uni.onekey-asset.com/server-service-indexer/sol--101/tokens/address--1758104080638.png',
-  USD3: 'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0x056b269eb1f75477a8666ae8c7fe01b64dd55ecc-1773210188780.png',
-  USDG: 'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0xe343167631d89b6ffc58b88d6b7fb0228795491d-1757752756133.png',
-  USDat:
-    'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0x23238f20b894f29041f48d88ee91131c395aaa71-1775714413775.png',
-} as const;
-
-const PROTOCOL_LOGO = {
+const PROTOCOL_LOGO: Record<string, string> = {
   lido: 'https://uni.onekey-asset.com/static/logo/Lido.png',
   pendle: 'https://uni.onekey-asset.com/static/logo/pendle.png',
   morpho: 'https://uni.onekey-asset.com/static/logo/morpho.png',
   everstake: 'https://uni.onekey-asset.com/static/logo/everstake.png',
   stakefish: 'https://uni.onekey-asset.com/static/logo/stakefish.png',
-} as const;
-
-const CLAIM_BUTTON = {
-  type: EClaimType.ClaimOrder,
-  text: { text: 'Claim' },
-  disabled: false,
 };
 
-function token({
+export function token({
   symbol,
   amount,
   price,
-  logoUrl,
   category = 'deposit',
 }: {
   symbol: string;
   amount: string;
   price: number;
-  logoUrl: string;
-  category?: string;
+  category?: IEarnPositionAssetCategory;
 }): IDeFiAsset {
   return {
     symbol,
@@ -72,14 +46,18 @@ function token({
     price,
     value: new BigNumber(amount).times(price).toNumber(),
     category,
-    meta: { decimals: 18, logoUrl, isVerified: true },
+    meta: {
+      decimals: 18,
+      logoUrl: `https://logo/${symbol}.png`,
+      isVerified: true,
+    },
   };
 }
 
 const sumValues = (assets: IDeFiAsset[]) =>
   assets.reduce((sum, asset) => sum.plus(asset.value), new BigNumber(0));
 
-function position({
+export function position({
   networkId,
   chain,
   protocol,
@@ -91,11 +69,11 @@ function position({
   debts = [],
   rewards = [],
   healthFactor = null,
-  earn,
+  earn = {},
 }: {
   networkId: string;
   chain: string;
-  protocol: keyof typeof PROTOCOL_LOGO;
+  protocol: string;
   protocolName: string;
   category: IEarnPositionCategory;
   groupId: string;
@@ -105,7 +83,7 @@ function position({
   rewards?: IDeFiAsset[];
   healthFactor?: number | null;
   /** the server fills every field; a fixture names what the case is about */
-  earn: Partial<IEarnPositionExtension> & { state: IEarnPositionState };
+  earn?: Partial<IEarnPositionExtension>;
 }): IEarnPortfolioPosition {
   const symbol = earn.symbol ?? assets[0]?.symbol ?? '';
   return {
@@ -142,9 +120,12 @@ function position({
 
 function summary(
   positions: IEarnPortfolioPosition[],
-  protocol: keyof typeof PROTOCOL_LOGO,
+  protocol: string,
+  networkId: string,
 ): IProtocolSummary {
-  const own = positions.filter((item) => item.protocol === protocol);
+  const own = positions.filter(
+    (item) => item.protocol === protocol && item.networkId === networkId,
+  );
   const totalValue = sumValues(own.flatMap((item) => item.assets));
   const totalDebt = sumValues(own.flatMap((item) => item.debts));
   const totalReward = sumValues(own.flatMap((item) => item.rewards));
@@ -155,21 +136,24 @@ function summary(
     totalDebt: totalDebt.toNumber(),
     totalReward: totalReward.toNumber(),
     netWorth: totalValue.plus(totalReward).minus(totalDebt).toNumber(),
-    networkIds: [own[0]?.networkId ?? ''],
+    networkIds: [networkId],
     positionCount: own.length,
     positionIndices: [],
-    protocolLogo: PROTOCOL_LOGO[protocol],
+    protocolLogo: PROTOCOL_LOGO[protocol] ?? '',
     protocolUrl: '',
   };
 }
 
-const ethereum = { networkId: 'evm--1', chain: 'eth' };
-const base = { networkId: 'evm--8453', chain: 'base' };
+const ethereum = { networkId: 'evm--1', chain: 'evm' };
+const base = { networkId: 'evm--8453', chain: 'evm' };
 const solana = { networkId: 'sol--101', chain: 'sol' };
 
+export const LIDO_UNLOCK_AT = Date.parse('2026-10-02T08:00:00Z');
+export const LIDO_LATER_UNLOCK_AT = Date.parse('2026-10-05T08:00:00Z');
+
 const ETHEREUM_POSITIONS: IEarnPortfolioPosition[] = [
-  // Lido: one deposit, one withdrawal ready to claim, two still unstaking.
-  // Each is its own position (figma 30292-17104).
+  // Lido: one position; the deposit, a withdrawal ready to claim and two
+  // still unstaking are its assets (product: one holding, one card).
   position({
     ...ethereum,
     protocol: 'lido',
@@ -178,75 +162,52 @@ const ETHEREUM_POSITIONS: IEarnPortfolioPosition[] = [
     groupId: 'lido:evm--1:steth',
     name: 'Lido staked ETH',
     assets: [
-      token({ symbol: 'ETH', amount: '4', price: 3150, logoUrl: LOGO.ETH }),
-    ],
-    earn: {
-      state: 'active',
-      manage: { networkId: 'evm--1', provider: 'lido', symbol: 'ETH' },
-    },
-  }),
-  position({
-    ...ethereum,
-    protocol: 'lido',
-    protocolName: 'Lido',
-    category: 'staked',
-    groupId: 'lido:evm--1:withdrawal:81234',
-    name: 'Lido staked ETH',
-    assets: [
-      token({ symbol: 'ETH', amount: '0.5', price: 3150, logoUrl: LOGO.ETH }),
-    ],
-    earn: { state: 'claimable', claim: CLAIM_BUTTON },
-  }),
-  position({
-    ...ethereum,
-    protocol: 'lido',
-    protocolName: 'Lido',
-    category: 'staked',
-    groupId: 'lido:evm--1:withdrawal:81251',
-    name: 'Lido staked ETH',
-    assets: [
-      token({ symbol: 'ETH', amount: '0.25', price: 3150, logoUrl: LOGO.ETH }),
-    ],
-    earn: { state: 'unstaking', unlockAt: Date.parse('2026-10-05T08:00:00Z') },
-  }),
-  position({
-    ...ethereum,
-    protocol: 'lido',
-    protocolName: 'Lido',
-    category: 'staked',
-    groupId: 'lido:evm--1:withdrawal:81240',
-    name: 'Lido staked ETH',
-    assets: [
-      token({ symbol: 'ETH', amount: '1', price: 3150, logoUrl: LOGO.ETH }),
-    ],
-    earn: { state: 'unstaking', unlockAt: Date.parse('2026-10-02T08:00:00Z') },
-  }),
-
-  // Pendle: one position per PT market. The maturity belongs to the market,
-  // so it is part of that position's name, never shared by the protocol row.
-  position({
-    ...ethereum,
-    protocol: 'pendle',
-    protocolName: 'Pendle',
-    category: 'yield',
-    groupId: 'pendle:evm--1:0x4a5067c3ff1abb7449244025b0e37feaf77d8e3e',
-    name: 'PT-USD3-17DEC2026',
-    assets: [
+      token({ symbol: 'ETH', amount: '4', price: 3150 }),
       token({
-        symbol: 'PT-USD3',
-        amount: '1.1405',
-        price: 0.9733,
-        logoUrl: LOGO.USD3,
+        symbol: 'ETH',
+        amount: '0.5',
+        price: 3150,
+        category: 'claimable',
+      }),
+      token({
+        symbol: 'ETH',
+        amount: '0.25',
+        price: 3150,
+        category: 'unstaking',
+      }),
+      token({
+        symbol: 'ETH',
+        amount: '0.3',
+        price: 3150,
+        category: 'unstaking',
       }),
     ],
     earn: {
-      state: 'active',
-      maturityAt: Date.parse('2026-12-17T00:00:00Z'),
-      manage: {
-        networkId: 'evm--1',
-        provider: 'pendle',
-        symbol: 'USD3',
-        vault: '0x4a5067c3ff1abb7449244025b0e37feaf77d8e3e',
+      investment: {
+        totalFiatValue: '15907.5',
+        earnings24hFiatValue: '1.2',
+        assetsStatus: [
+          {
+            title: { text: '4 ETH' },
+            description: { text: 'Active' },
+            kind: 'active',
+            amount: '4',
+          },
+          {
+            title: { text: '0.25 ETH' },
+            description: { text: 'Withdrawal requested' },
+            kind: 'unstaking',
+            amount: '0.25',
+            unlockAt: LIDO_UNLOCK_AT,
+          },
+          {
+            title: { text: '0.3 ETH' },
+            description: { text: 'Withdrawal requested' },
+            kind: 'unstaking',
+            amount: '0.3',
+            unlockAt: LIDO_LATER_UNLOCK_AT,
+          },
+        ],
       },
     },
   }),
@@ -255,25 +216,13 @@ const ETHEREUM_POSITIONS: IEarnPortfolioPosition[] = [
     protocol: 'pendle',
     protocolName: 'Pendle',
     category: 'yield',
-    groupId: 'pendle:evm--1:0xc5b32dba5f29f8395fb9591e1a15f23a75214f33',
+    groupId: 'pendle:evm--1:0xusdg',
     name: 'PT-USDG-28MAY2026',
-    assets: [
-      token({
-        symbol: 'PT-USDG',
-        amount: '1.52',
-        price: 1,
-        logoUrl: LOGO.USDG,
-      }),
-    ],
+    assets: [token({ symbol: 'PT-USDG', amount: '120', price: 0.98 })],
     earn: {
-      state: 'active',
+      symbol: 'USDG',
+      vault: '0xusdg',
       maturityAt: Date.parse('2026-05-28T00:00:00Z'),
-      manage: {
-        networkId: 'evm--1',
-        provider: 'pendle',
-        symbol: 'USDG',
-        vault: '0xc5b32dba5f29f8395fb9591e1a15f23a75214f33',
-      },
     },
   }),
   position({
@@ -281,86 +230,34 @@ const ETHEREUM_POSITIONS: IEarnPortfolioPosition[] = [
     protocol: 'pendle',
     protocolName: 'Pendle',
     category: 'yield',
-    groupId: 'pendle:evm--1:0x4ccf6deb3d1895373f604b418ff55d8adae8b846',
-    name: 'PT-USDat-14JAN2027',
-    assets: [
-      token({
-        symbol: 'PT-USDat',
-        amount: '0.1745',
-        price: 0.9742,
-        logoUrl: LOGO.USDat,
-      }),
-    ],
+    groupId: 'pendle:evm--1:0xusd3',
+    name: 'PT-USD3-17DEC2026',
+    assets: [token({ symbol: 'PT-USD3', amount: '1.1405', price: 0.9733 })],
     earn: {
-      state: 'active',
-      maturityAt: Date.parse('2027-01-14T00:00:00Z'),
-      manage: {
-        networkId: 'evm--1',
-        provider: 'pendle',
-        symbol: 'USDat',
-        vault: '0x4ccf6deb3d1895373f604b418ff55d8adae8b846',
-      },
+      symbol: 'USD3',
+      vault: '0xusd3',
+      maturityAt: Date.parse('2026-12-17T00:00:00Z'),
     },
   }),
-
-  // Morpho on Ethereum: two vaults and one borrow market, three positions.
   position({
     ...ethereum,
     protocol: 'morpho',
     protocolName: 'Morpho',
     category: 'yield',
     groupId: 'morpho:evm--1:0xa71d08a159258553a5ac190d60fa919425ff02ea',
-    name: 'Hakutora USDT',
-    assets: [
-      token({
-        symbol: 'USDT',
-        amount: '0.4021',
-        price: 1,
-        logoUrl: LOGO.USDT,
-      }),
-    ],
+    name: 'Steakhouse USDC',
+    assets: [token({ symbol: 'USDC', amount: '50', price: 1 })],
     rewards: [
       token({
         symbol: 'MORPHO',
         amount: '0.0213',
         price: 1.2,
-        logoUrl: LOGO.MORPHO,
         category: 'reward',
       }),
     ],
     earn: {
-      state: 'active',
-      manage: {
-        networkId: 'evm--1',
-        provider: 'morpho',
-        symbol: 'USDT',
-        vault: '0xa71d08a159258553a5ac190d60fa919425ff02ea',
-      },
-    },
-  }),
-  position({
-    ...ethereum,
-    protocol: 'morpho',
-    protocolName: 'Morpho',
-    category: 'yield',
-    groupId: 'morpho:evm--1:0x974c8fbf4fd795f66b85b73ebc988a51f1a040a9',
-    name: 'Hakutora USDC',
-    assets: [
-      token({
-        symbol: 'USDC',
-        amount: '0.007549',
-        price: 1,
-        logoUrl: LOGO.USDC,
-      }),
-    ],
-    earn: {
-      state: 'active',
-      manage: {
-        networkId: 'evm--1',
-        provider: 'morpho',
-        symbol: 'USDC',
-        vault: '0x974c8fbf4fd795f66b85b73ebc988a51f1a040a9',
-      },
+      symbol: 'USDC',
+      vault: '0xa71d08a159258553a5ac190d60fa919425ff02ea',
     },
   }),
   position({
@@ -370,86 +267,43 @@ const ETHEREUM_POSITIONS: IEarnPortfolioPosition[] = [
     category: 'lending',
     groupId: 'morpho:evm--1:market:weth-usdc',
     name: 'WETH / USDC',
-    assets: [
-      token({
-        symbol: 'WETH',
-        amount: '0.02',
-        price: 3150,
-        logoUrl: LOGO.WETH,
-      }),
-    ],
-    debts: [
-      token({
-        symbol: 'USDC',
-        amount: '20.01',
-        price: 1,
-        logoUrl: LOGO.USDC,
-        category: 'borrow',
-      }),
-    ],
+    assets: [token({ symbol: 'WETH', amount: '0.02', price: 3150 })],
+    debts: [token({ symbol: 'USDC', amount: '20.01', price: 1 })],
     rewards: [
       token({
         symbol: 'MORPHO',
         amount: '1.2',
         price: 1.2,
-        logoUrl: LOGO.MORPHO,
         category: 'reward',
       }),
     ],
     healthFactor: 1.62,
-    earn: {
-      state: 'active',
-      manage: {
-        networkId: 'evm--1',
-        provider: 'morpho',
-        symbol: 'USDC',
-        vault: 'weth-usdc',
-      },
-    },
+    earn: { symbol: 'WETH', vault: 'market:weth-usdc' },
   }),
-
-  // Everstake POL: the staked position and the withdrawn POL ready to claim
-  // (today a `claimOrder` row inside the deposit, rendered as a reward).
   position({
     ...ethereum,
     protocol: 'everstake',
     protocolName: 'Everstake',
     category: 'staked',
-    groupId: 'everstake:evm--1:pol',
-    name: 'Everstake staked POL',
+    groupId: 'everstake:evm--1:eth',
+    name: 'Everstake ETH',
     assets: [
+      token({ symbol: 'ETH', amount: '0.1', price: 3150 }),
       token({
-        symbol: 'POL',
-        amount: '1.1842',
-        price: 0.1149,
-        logoUrl: LOGO.POL,
+        symbol: 'ETH',
+        amount: '0.05',
+        price: 3150,
+        category: 'claimable',
       }),
     ],
     rewards: [
       token({
-        symbol: 'POL',
-        amount: '0.0008532',
-        price: 0.1149,
-        logoUrl: LOGO.POL,
+        symbol: 'ETH',
+        amount: '0.001',
+        price: 3150,
         category: 'reward',
       }),
     ],
-    earn: {
-      state: 'active',
-      manage: { networkId: 'evm--1', provider: 'everstake', symbol: 'POL' },
-    },
-  }),
-  position({
-    ...ethereum,
-    protocol: 'everstake',
-    protocolName: 'Everstake',
-    category: 'staked',
-    groupId: 'everstake:evm--1:pol:unbond:12',
-    name: 'Everstake staked POL',
-    assets: [
-      token({ symbol: 'POL', amount: '1', price: 0.1149, logoUrl: LOGO.POL }),
-    ],
-    earn: { state: 'claimable', claim: CLAIM_BUTTON },
   }),
 ];
 
@@ -459,76 +313,23 @@ const BASE_POSITIONS: IEarnPortfolioPosition[] = [
     protocol: 'morpho',
     protocolName: 'Morpho',
     category: 'yield',
-    groupId: 'morpho:evm--8453:0x1401d1271c47648ac70cbcdfa3776d4a87ce006b',
-    name: 'Pangolins USDC',
-    assets: [
-      token({
-        symbol: 'USDC',
-        amount: '0.8552',
-        price: 1,
-        logoUrl: LOGO.USDC_BASE,
-      }),
-    ],
-    earn: {
-      state: 'active',
-      manage: {
-        networkId: 'evm--8453',
-        provider: 'morpho',
-        symbol: 'USDC',
-        vault: '0x1401d1271c47648ac70cbcdfa3776d4a87ce006b',
-      },
-    },
-  }),
-  position({
-    ...base,
-    protocol: 'morpho',
-    protocolName: 'Morpho',
-    category: 'yield',
-    groupId: 'morpho:evm--8453:0xefa40c84f1f2335a8599dd7686a28d2b6263b6ef',
-    name: 'Gauntlet USDC Prime',
-    assets: [
-      token({
-        symbol: 'USDC',
-        amount: '0.4635',
-        price: 1,
-        logoUrl: LOGO.USDC_BASE,
-      }),
-    ],
-    earn: {
-      state: 'active',
-      manage: {
-        networkId: 'evm--8453',
-        provider: 'morpho',
-        symbol: 'USDC',
-        vault: '0xefa40c84f1f2335a8599dd7686a28d2b6263b6ef',
-      },
-    },
+    groupId: 'morpho:evm--8453:0xbase',
+    name: 'Moonwell USDC',
+    assets: [token({ symbol: 'USDC', amount: '10', price: 1 })],
+    earn: { symbol: 'USDC', vault: '0xbase' },
   }),
   position({
     ...base,
     protocol: 'pendle',
     protocolName: 'Pendle',
     category: 'yield',
-    groupId: 'pendle:evm--8453:0xb0eb82ba25ffa51641d8613d270ad79183171fac',
-    name: 'PT-sKAITO-30JUL2026',
-    assets: [
-      token({
-        symbol: 'PT-sKAITO',
-        amount: '1.3',
-        price: 0.7769,
-        logoUrl:
-          'https://uni.onekey-asset.com/server-service-indexer/evm--8453/tokens/address-0x548d3b444da39686d1a6f1544781d154e7cd1ef7-1773210283051.png',
-      }),
-    ],
+    groupId: 'pendle:evm--8453:0xusdat',
+    name: 'PT-USDat-14JAN2027',
+    assets: [token({ symbol: 'PT-USDat', amount: '8', price: 0.95 })],
     earn: {
-      state: 'active',
-      maturityAt: Date.parse('2026-07-30T00:00:00Z'),
-      manage: {
-        networkId: 'evm--8453',
-        provider: 'pendle',
-        symbol: 'sKAITO',
-        vault: '0xb0eb82ba25ffa51641d8613d270ad79183171fac',
-      },
+      symbol: 'USDat',
+      vault: '0xusdat',
+      maturityAt: Date.parse('2027-01-14T00:00:00Z'),
     },
   }),
 ];
@@ -539,82 +340,41 @@ const SOLANA_POSITIONS: IEarnPortfolioPosition[] = [
     protocol: 'stakefish',
     protocolName: 'Stakefish',
     category: 'staked',
-    groupId: 'stakefish:sol--101:sol',
-    name: 'Stakefish staked SOL',
+    groupId: 'stakefish:sol--101:SOL',
+    name: 'Stakefish SOL',
     assets: [
-      token({
-        symbol: 'SOL',
-        amount: '0.008108',
-        price: 119.6,
-        logoUrl: LOGO.SOL,
-      }),
-    ],
-    earn: {
-      state: 'active',
-      manage: { networkId: 'sol--101', provider: 'stakefish', symbol: 'SOL' },
-    },
-  }),
-  position({
-    ...solana,
-    protocol: 'stakefish',
-    protocolName: 'Stakefish',
-    category: 'staked',
-    groupId: 'stakefish:sol--101:sol:withdrawal:3',
-    name: 'Stakefish staked SOL',
-    assets: [
+      token({ symbol: 'SOL', amount: '0.008119', price: 110 }),
       token({
         symbol: 'SOL',
         amount: '0.008045',
-        price: 119.6,
-        logoUrl: LOGO.SOL,
+        price: 110,
+        category: 'claimable',
       }),
     ],
-    earn: { state: 'claimable', claim: CLAIM_BUTTON },
   }),
 ];
 
-// Same provider, other network: its own protocol row, like the wallet.
-const ETHEREUM_STAKEFISH: IEarnPortfolioPosition[] = [
-  position({
-    ...ethereum,
-    protocol: 'stakefish',
-    protocolName: 'Stakefish',
-    category: 'staked',
-    groupId: 'stakefish:evm--1:pol',
-    name: 'Stakefish staked POL',
-    assets: [
-      token({
-        symbol: 'POL',
-        amount: '0.7017',
-        price: 0.1149,
-        logoUrl: LOGO.POL,
-      }),
-    ],
-    earn: {
-      state: 'active',
-      manage: { networkId: 'evm--1', provider: 'stakefish', symbol: 'POL' },
-    },
-  }),
+const ALL_POSITIONS = [
+  ...ETHEREUM_POSITIONS,
+  ...BASE_POSITIONS,
+  ...SOLANA_POSITIONS,
 ];
-
-const ethereumPositions = [...ETHEREUM_POSITIONS, ...ETHEREUM_STAKEFISH];
 
 export const EARN_PORTFOLIO_POSITIONS_FIXTURE: IEarnPortfolioPositionsResponse =
   {
-    errors: [],
     positions: {
-      'evm--1': ethereumPositions,
+      'evm--1': ETHEREUM_POSITIONS,
       'evm--8453': BASE_POSITIONS,
       'sol--101': SOLANA_POSITIONS,
     },
+    errors: [],
     protocolSummaries: [
-      summary(ethereumPositions, 'lido'),
-      summary(ethereumPositions, 'pendle'),
-      summary(ethereumPositions, 'morpho'),
-      summary(ethereumPositions, 'everstake'),
-      summary(ethereumPositions, 'stakefish'),
-      summary(BASE_POSITIONS, 'morpho'),
-      summary(BASE_POSITIONS, 'pendle'),
-      summary(SOLANA_POSITIONS, 'stakefish'),
+      summary(ALL_POSITIONS, 'lido', 'evm--1'),
+      summary(ALL_POSITIONS, 'pendle', 'evm--1'),
+      summary(ALL_POSITIONS, 'morpho', 'evm--1'),
+      summary(ALL_POSITIONS, 'everstake', 'evm--1'),
+      summary(ALL_POSITIONS, 'morpho', 'evm--8453'),
+      summary(ALL_POSITIONS, 'pendle', 'evm--8453'),
+      summary(ALL_POSITIONS, 'stakefish', 'sol--101'),
     ],
   };
