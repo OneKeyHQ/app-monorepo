@@ -489,8 +489,36 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: app-monorepo-${{ env.COMMIT }}-${{ env.BUILD_NUMBER }}
+          # Hidden files are allowed only at the two exact association paths below.
+          include-hidden-files: true
           path: |
-            ./apps/web/web-build/
+            # HTML entry points, icon, service worker and version manifest.
+            ./apps/web/web-build/index.html
+            ./apps/web/web-build/404.html
+            ./apps/web/web-build/favicon.png
+            ./apps/web/web-build/service-worker.js
+            ./apps/web/web-build/sw-version-manifest.json
+            # Root bundles/workers, CSS, WASM and the existing sourcemap fallback.
+            # [!.] rejects dot-prefixed root filenames.
+            ./apps/web/web-build/[!.]*.js
+            ./apps/web/web-build/[!.]*.css
+            ./apps/web/web-build/[!.]*.wasm
+            ./apps/web/web-build/[!.]*.map
+            # Resource directories produced by the Web build.
+            ./apps/web/web-build/static/css/
+            ./apps/web/web-build/static/js/
+            ./apps/web/web-build/static/media/
+            ./apps/web/web-build/static/canvaskit/
+            ./apps/web/web-build/static/zxing/
+            # Existing public iOS and Android association files; no directory glob.
+            ./apps/web/web-build/.well-known/apple-app-site-association
+            ./apps/web/web-build/.well-known/assetlinks.json
+            # Exclude hidden files/directories beneath all selected public folders.
+            !./apps/web/web-build/[!.]*/**/.*
+            !./apps/web/web-build/[!.]*/**/.*/**
+            # Exact association paths must be files, never directory descendants.
+            !./apps/web/web-build/.well-known/apple-app-site-association/*
+            !./apps/web/web-build/.well-known/assetlinks.json/*
 
   notify:
     runs-on: ubuntu-24.04

@@ -9,23 +9,29 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../hooks/usePromiseResult';
 import { useApprovalsInfoAtom } from '../states/jotai/contexts/accountOverview';
+import { buildOverviewOwnerKey } from '../states/jotai/contexts/accountOverview/atoms';
 import { useActiveAccount } from '../states/jotai/contexts/accountSelector';
 import { useNavigateToApprovalList } from '../views/Home/hooks/useNavigateToApprovalList';
 
 function BasicRiskApprovalAlert() {
   const intl = useIntl();
-  const [{ hasRiskApprovals, riskApprovalsCount }] = useApprovalsInfoAtom();
+  const [
+    { ownerKey: approvalsOwnerKey, hasRiskApprovals, riskApprovalsCount },
+  ] = useApprovalsInfoAtom();
   const navigateToApprovalList = useNavigateToApprovalList();
   const {
     activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
   const accountId = account?.id;
   const networkId = network?.id;
+  const hasCurrentOwnerRiskApprovals =
+    approvalsOwnerKey === buildOverviewOwnerKey(accountId, networkId) &&
+    hasRiskApprovals;
 
   const { result: visibilityResult, setResult: setVisibilityResult } =
     usePromiseResult(
       async () => {
-        if (!hasRiskApprovals || !accountId || !networkId) {
+        if (!hasCurrentOwnerRiskApprovals || !accountId || !networkId) {
           return undefined;
         }
 
@@ -51,7 +57,7 @@ function BasicRiskApprovalAlert() {
           shouldShow,
         };
       },
-      [accountId, hasRiskApprovals, networkId],
+      [accountId, hasCurrentOwnerRiskApprovals, networkId],
       {
         revalidateOnFocus: true,
         undefinedResultIfReRun: true,
@@ -110,7 +116,7 @@ function BasicRiskApprovalAlert() {
     visibilityResult.shouldShow,
   );
 
-  if (!hasRiskApprovals || !shouldShowRiskApprovalAlert) {
+  if (!hasCurrentOwnerRiskApprovals || !shouldShowRiskApprovalAlert) {
     return null;
   }
 

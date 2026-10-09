@@ -24,6 +24,18 @@ export function PerpCandles({
 }) {
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [currentAccount] = usePerpsActiveAccountAtom();
+  const accountAddress = currentAccount?.accountAddress?.toLowerCase();
+  const [chartAccount, setChartAccount] = useState({
+    address: accountAddress,
+    revision: 0,
+  });
+  if (chartAccount.address !== accountAddress) {
+    // An anonymous chart has no account marks to discard on first resolution.
+    setChartAccount({
+      address: accountAddress,
+      revision: chartAccount.revision + (chartAccount.address ? 1 : 0),
+    });
+  }
   const [{ reloadHook }] = usePerpsCandlesWebviewReloadHookAtom();
   const { gtMd } = useMedia();
   // Large desktop/web/ext only. Frozen at mount: Perp.tsx mounts the desktop vs
@@ -50,6 +62,9 @@ export function PerpCandles({
     <Stack w="100%" h="100%" flex={1}>
       {reloadHook > 0 && activeTradeInstrument.coin ? (
         <TradingViewPerpsV2
+          // The embedded chart caches marks by symbol, so accounts must not
+          // share its instance even after the current symbol's marks are cleared.
+          key={chartAccount.revision}
           webviewKey={reloadHook.toString()}
           userAddress={currentAccount?.accountAddress}
           enablePerpsTradingUi={enablePerpsTradingUi}
