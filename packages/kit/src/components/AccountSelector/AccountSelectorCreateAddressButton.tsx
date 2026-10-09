@@ -25,6 +25,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 import { useAccountSelectorCreateAddress } from './hooks/useAccountSelectorCreateAddress';
+import { AccountSelectorTestIDs } from './testIDs';
 
 export function AccountSelectorCreateAddressButton({
   num,
@@ -63,7 +64,6 @@ export function AccountSelectorCreateAddressButton({
   createAllEnabledNetworks?: boolean;
 }) {
   const intl = useIntl();
-  const { serviceAccount } = backgroundApiProxy;
   const [accountIsAutoCreating, setAccountIsAutoCreating] =
     useAccountIsAutoCreatingAtom();
   const [indexedAccountAddressCreationState] =
@@ -130,7 +130,7 @@ export function AccountSelectorCreateAddressButton({
     buttonRender ||
     ((props) => (
       <Button
-        testID="account-selector-create-address-btn"
+        testID={AccountSelectorTestIDs.createAddressButton}
         size="small"
         borderWidth={0}
         variant="tertiary"
@@ -166,13 +166,6 @@ export function AccountSelectorCreateAddressButton({
         }
       | undefined;
     try {
-      if (process.env.NODE_ENV !== 'production' && accountToCreate.walletId) {
-        const wallet = await serviceAccount.getWallet({
-          walletId: accountToCreate.walletId,
-        });
-        console.log({ wallet });
-      }
-
       const customNetworks: {
         networkId: string;
         deriveType: IAccountDeriveTypes;
@@ -217,7 +210,6 @@ export function AccountSelectorCreateAddressButton({
     num,
     selectAfterCreate,
     createAllDeriveTypes,
-    serviceAccount,
     onCreateDone,
   ]);
 

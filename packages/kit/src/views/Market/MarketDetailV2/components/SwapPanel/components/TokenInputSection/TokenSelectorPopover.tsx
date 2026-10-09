@@ -50,6 +50,7 @@ export function TokenSelectorPopover({
             sceneName: EAccountSelectorSceneName.swap,
             sceneUrl: '',
           }}
+          e2eContextProbeName="market-swap-token-popover"
           enabledNum={[0]}
         >
           <TokenList
