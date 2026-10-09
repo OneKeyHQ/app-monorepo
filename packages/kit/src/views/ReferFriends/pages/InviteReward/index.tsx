@@ -27,7 +27,10 @@ import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends
 import { BenefitsTabPlaceholder } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/BenefitsTabPlaceholder';
 import { useInviteLevelDetail } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CurrentLevelCard/hooks/useCurrentLevelCard';
 import { getInviteEarningsState } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/getInviteEarningsState';
-import { InviteLevelPill } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InviteLevelPill';
+import {
+  InviteLevelChip,
+  InviteLevelPill,
+} from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InviteLevelPill';
 import { InviteTabContent } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InviteTabContent';
 import { LogoutButton } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/LogoutButton';
 import { useReferralCodeCard } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/ReferralCodeCard/hooks/useReferralCodeCard';
@@ -62,24 +65,16 @@ import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
 const ReferralPageHeader = memo(function ReferralPageHeader({
   activeTab,
-  onChangeTab,
   isCompactHeader,
   isTitleHidden,
 }: {
   activeTab: IReferralPageTab;
-  onChangeTab: (tab: IReferralPageTab) => void;
   isCompactHeader: boolean;
-  // The content shows the large title, so the bar leaves its own empty.
+  // The content shows the title tabs, so the bar leaves its own title empty.
   isTitleHidden: boolean;
 }) {
   const intl = useIntl();
   const { headerBackgroundColor, headerStyle } = useInvitePageCanvas();
-  const renderHeaderTitle = useCallback(
-    () => (
-      <ReferralJobTabs segmented value={activeTab} onChange={onChangeTab} />
-    ),
-    [activeTab, onChangeTab],
-  );
   const renderHeaderRight = useCallback(() => {
     if (activeTab !== EReferralPageTab.invite) {
       return null;
@@ -100,7 +95,6 @@ const ReferralPageHeader = memo(function ReferralPageHeader({
                 id: ETranslations.sidebar_refer_a_friend,
               })
         }
-        headerTitle={IS_BENEFITS_TAB_ENABLED ? renderHeaderTitle : undefined}
         headerRight={renderHeaderRight}
       />
     );
@@ -154,14 +148,9 @@ function InviteOverviewSkeleton() {
   );
 
   if (md) {
-    // Compact content: title with level, invite card, earnings card,
-    // then entries card.
+    // Compact content: invite card, earnings card, then entries card.
     return (
-      <YStack px="$pagePadding" pt="$2" gap="$5">
-        <XStack jc="space-between" ai="center">
-          <Skeleton.Heading2Xl w={120} />
-          <Skeleton w={88} h={28} radius="round" />
-        </XStack>
+      <YStack px="$pagePadding" pt="$3" gap="$5">
         <YStack gap="$4" p="$4" {...cardStyle}>
           <YStack gap="$1">
             <XStack jc="space-between" ai="center">
@@ -356,12 +345,12 @@ function InviteRewardPage() {
       setIsRetrying(false);
     }
   }, [refreshAll]);
-  // Compact layouts title the page in the content (with the level beside
-  // it); the bar title returns once that title scrolls under the bar, and a
-  // short fade under the bar softens content scrolling beneath it.
-  // The skeleton holds the title's place too, so the bar title does not
-  // flash in and out while the first load runs.
-  const hasLargeTitle = md && isInviteTab && (isFetching || !!summaryInfo);
+  // Compact layouts title the page in the content with the tab names (and
+  // the level beside them); the bar title returns once that row scrolls
+  // under the bar, and a short fade under the bar softens content scrolling
+  // beneath it. Only the load error view goes without the row.
+  const isLoadError = isInviteTab && !isFetching && !summaryInfo;
+  const hasLargeTitle = md && !isLoadError;
   const largeTitleBottomRef = useRef(0);
   const [isPastLargeTitle, setIsPastLargeTitle] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -392,11 +381,45 @@ function InviteRewardPage() {
       />
     ) : null;
 
+  let levelChip: ReactNode = null;
+  if (isInviteTab && summaryInfo) {
+    levelChip = (
+      <InviteLevelChip
+        rebateConfig={summaryInfo.rebateConfig}
+        rebateLevels={summaryInfo.rebateLevels}
+        levelDetail={levelDetail}
+      />
+    );
+  } else if (isInviteTab) {
+    levelChip = <Skeleton w={88} h={28} radius="round" />;
+  }
+  const titleRow = hasLargeTitle ? (
+    <XStack
+      px="$pagePadding"
+      pt="$2"
+      ai="center"
+      jc="space-between"
+      gap="$3"
+      onLayout={(event) => {
+        const { y, height } = event.nativeEvent.layout;
+        handleLargeTitleLayout(y + height);
+      }}
+    >
+      <ReferralJobTabs
+        variant="title"
+        value={activeTab}
+        onChange={setActiveTab}
+      />
+      {levelChip}
+    </XStack>
+  ) : null;
+
   let body: ReactNode;
   if (isInviteTab && isFetching) {
     body = (
       <ScrollView>
         <Page.Container padded={false}>
+          {titleRow}
           <InviteOverviewSkeleton />
         </Page.Container>
       </ScrollView>
@@ -421,6 +444,7 @@ function InviteRewardPage() {
         scrollEventThrottle={16}
       >
         <Page.Container padded={false}>
+          {titleRow}
           {summaryInfo ? (
             // Keep the invite tab mounted so switching tabs does not
             // refetch its data or replay the illustration.
@@ -429,7 +453,6 @@ function InviteRewardPage() {
                 summaryInfo={summaryInfo}
                 fetchSummaryInfo={fetchSummaryInfo}
                 levelDetail={levelDetail}
-                onLargeTitleLayout={handleLargeTitleLayout}
               />
             </YStack>
           ) : null}
@@ -443,7 +466,6 @@ function InviteRewardPage() {
     <Page backgroundColor={pageCanvas.backgroundColor}>
       <ReferralPageHeader
         activeTab={activeTab}
-        onChangeTab={setActiveTab}
         isCompactHeader={isCompactHeader}
         isTitleHidden={hasLargeTitle && !isPastLargeTitle}
       />

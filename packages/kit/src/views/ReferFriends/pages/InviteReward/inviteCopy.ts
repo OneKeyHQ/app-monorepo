@@ -1,8 +1,7 @@
 // Hardcoded English until copy review; then move to Lokalise keys.
 export const INVITE_COPY = {
-  inviteTab: 'Invite',
-  benefitsTab: 'Benefits',
-  benefitsEmptyTitle: 'No benefits yet',
+  benefitsTab: 'Rewards',
+  benefitsEmptyTitle: 'No rewards yet',
   benefitsEmptyDescription: 'Rewards you get as an invitee will show up here',
   headline: 'Invite friends, earn rewards',
   copyLink: 'Copy link',

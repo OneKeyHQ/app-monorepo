@@ -34,7 +34,6 @@ import {
 } from './useInviteCardStyle';
 
 import type { ICurrentLevelCardProps } from './CurrentLevelCard/types';
-import type { IInviteValueSummaryResult } from './InviteValueLine';
 
 // Desktop hover summary: whether the level holds this month and the gap to
 // the next one. The full breakdown stays on the level page.
@@ -178,16 +177,18 @@ export function InviteLevelPill({
 }
 
 // Compact layouts: the header has no room beside the rules button, so the
-// level sits beside the in-content page title as a chip.
+// level sits beside the in-content title tabs as a chip.
 export function InviteLevelChip({
-  valueSummary,
-  emoji,
-}: {
-  valueSummary: IInviteValueSummaryResult;
-  emoji?: string;
+  levelDetail,
+  ...props
+}: ICurrentLevelCardProps & {
+  levelDetail: IInviteLevelDetail | undefined;
 }) {
   const navigateToReferralLevel = useNavigateToReferralLevel();
-  const { levelLabel, levelIcon } = valueSummary;
+  const { levelLabel, levelIcon } = useCurrentLevelCardFromDetail(
+    props,
+    levelDetail,
+  );
 
   return (
     <XStack
@@ -207,8 +208,8 @@ export function InviteLevelChip({
       }}
     >
       {levelIcon ? <Image w="$4" h="$4" src={levelIcon} /> : null}
-      {!levelIcon && emoji ? (
-        <SizableText size="$bodySm">{emoji}</SizableText>
+      {!levelIcon && props.rebateConfig.emoji ? (
+        <SizableText size="$bodySm">{props.rebateConfig.emoji}</SizableText>
       ) : null}
       <SizableText size="$bodyMdMedium" numberOfLines={1} flexShrink={1}>
         {levelLabel}

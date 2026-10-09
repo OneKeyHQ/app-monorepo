@@ -1,14 +1,5 @@
-import { useIntl } from 'react-intl';
-
-import {
-  Divider,
-  SizableText,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { Divider, XStack, YStack, useMedia } from '@onekeyhq/components';
 import { useNavigateToInviteCodes } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteCodes/hooks/useNavigateToInviteCodes';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IInviteLevelDetail,
   IInviteSummary,
@@ -16,7 +7,6 @@ import type {
 
 import { InviteBindRow } from './InviteBindRow';
 import { InviteEarningsCard } from './InviteEarningsCard';
-import { InviteLevelChip } from './InviteLevelPill';
 import {
   InviteCompactCard,
   InviteEntriesCard,
@@ -34,16 +24,11 @@ export function InviteTabContent({
   summaryInfo,
   fetchSummaryInfo,
   levelDetail,
-  onLargeTitleLayout,
 }: {
   summaryInfo: IInviteSummary;
   fetchSummaryInfo: () => unknown;
   levelDetail: IInviteLevelDetail | undefined;
-  // Compact layouts title the page in the content; the page uses the title's
-  // bottom edge to bring the header title back once it scrolls away.
-  onLargeTitleLayout?: (bottom: number) => void;
 }) {
-  const intl = useIntl();
   const { md } = useMedia();
   const cardStyle = useInviteHomeCardStyle();
   const valueSummary = useInviteValueSummary({
@@ -66,28 +51,6 @@ export function InviteTabContent({
 
   return (
     <YStack pb="$6">
-      {md ? (
-        <XStack
-          px="$pagePadding"
-          pt="$2"
-          ai="center"
-          jc="space-between"
-          gap="$3"
-          onLayout={(event) => {
-            const { y, height } = event.nativeEvent.layout;
-            onLargeTitleLayout?.(y + height);
-          }}
-        >
-          {/* Named like the tab that opens it, at the desktop heading's size. */}
-          <SizableText size="$heading2xl" flexShrink={1}>
-            {intl.formatMessage({ id: ETranslations.sidebar_refer_a_friend })}
-          </SizableText>
-          <InviteLevelChip
-            valueSummary={valueSummary}
-            emoji={summaryInfo.rebateConfig.emoji}
-          />
-        </XStack>
-      ) : null}
       <SuspensionAlert
         suspensionNotice={summaryInfo.suspensionNotice}
         suspensionContactLabel={summaryInfo.suspensionContactLabel}
@@ -97,7 +60,7 @@ export function InviteTabContent({
         // Compact layouts: the invite card (code, link, rates), the bind
         // entry (only until linked), the earnings section and the entries
         // behind the invite card; sharing sits in the page footer.
-        <YStack px="$pagePadding" pt="$5" gap="$5">
+        <YStack px="$pagePadding" pt="$3" gap="$5">
           <InviteCompactCard
             inviteUrl={summaryInfo.inviteUrl}
             inviteCode={summaryInfo.inviteCode}
