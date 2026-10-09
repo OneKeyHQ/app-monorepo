@@ -51,48 +51,35 @@ interface IEarningsLabels {
   payoutAddress: string;
 }
 
-// Desktop's lead figure: the unpaid amount with its fixed "USD" unit (it
-// stays in USD whatever the wallet currency is), and the next payout date.
-function UnpaidAmount({
-  amount,
-  nextPayout,
-  nextPayoutLabel,
-}: {
-  amount: string;
-  nextPayout: string | null;
-  nextPayoutLabel: string;
-}) {
+// Desktop's lead figure with its fixed "USD" unit: the amount stays in USD
+// whatever the wallet currency is.
+function LeadAmount({ amount }: { amount: string }) {
   return (
-    <YStack gap="$1">
-      <XStack ai="baseline" gap="$1.5">
-        <Currency
-          {...REFERRAL_USD_CURRENCY_PROPS}
-          size="$heading4xl"
-          numberOfLines={1}
-          flexShrink={1}
-        >
-          {amount}
-        </Currency>
-        <SizableText size="$bodyLg" color="$textSubdued">
-          USD
-        </SizableText>
-      </XStack>
-      {nextPayout ? (
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {`${nextPayoutLabel} ${nextPayout}`}
-        </SizableText>
-      ) : null}
-    </YStack>
+    <XStack ai="baseline" gap="$1.5">
+      <Currency
+        {...REFERRAL_USD_CURRENCY_PROPS}
+        size="$heading4xl"
+        numberOfLines={1}
+        flexShrink={1}
+      >
+        {amount}
+      </Currency>
+      <SizableText size="$bodyLg" color="$textSubdued">
+        USD
+      </SizableText>
+    </XStack>
   );
 }
 
 function StatCell({
   label,
+  leading,
   children,
   onPress,
   testID,
 }: {
   label: string;
+  leading?: ReactNode;
   children: ReactNode;
   onPress?: () => void;
   testID?: string;
@@ -112,9 +99,12 @@ function StatCell({
       onPress={onPress}
     >
       <YStack flex={1} gap="$1" minWidth={0}>
-        <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-          {label}
-        </SizableText>
+        <XStack ai="center" gap="$2">
+          {leading}
+          <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+            {label}
+          </SizableText>
+        </XStack>
         {children}
       </YStack>
       {onPress ? (
@@ -153,7 +143,14 @@ function PayoutAddressValue({
   );
 }
 
-// Desktop leads with the unpaid amount, then the totals and payout address.
+// Ties each part of the earnings card's total to it, like a chart legend.
+function PartDot({ color }: { color: ColorTokens }) {
+  return <YStack w="$2" h="$2" borderRadius="$full" bg={color} />;
+}
+
+// Desktop reads the money the way compact layouts do: the total earned
+// leads, and its two parts follow with the same legend dots (paid, and
+// unpaid with its payout date), then the payout address.
 function DesktopEarnings({
   earnings,
   labels,
@@ -171,13 +168,13 @@ function DesktopEarnings({
 }) {
   return (
     <YStack flex={1} gap="$4">
-      {/* Grouped by proximity rather than lines: the label sits right on its
-          amount, and the card's spare height (it stretches to the invite
-          card) becomes the gap above the stats. */}
-      <YStack gap="$2">
+      {/* The label sits right on its amount; the card's spare height (it
+          stretches to the invite card) becomes the gap above the parts,
+          which rest on a hairline. */}
+      <YStack gap="$1">
         <XStack ai="center" jc="space-between" gap="$3">
           <SizableText size="$bodyLgMedium" color="$textSubdued">
-            {labels.undistributed}
+            {labels.cumulative}
           </SizableText>
           <CardTextAction
             testID={ReferFriendsTestIDs.inviteRewardHistory}
@@ -187,30 +184,21 @@ function DesktopEarnings({
         </XStack>
         <XStack ai="center" gap="$4">
           <YStack flex={1} minWidth={0}>
-            <UnpaidAmount
-              amount={earnings.undistributed}
-              nextPayout={earnings.nextDistribution}
-              nextPayoutLabel={labels.nextDistribution}
-            />
+            <LeadAmount amount={earnings.cumulative} />
           </YStack>
           {/* A touch of the brand's line art in the room the amount leaves;
               it has a dark variant of its own. */}
           <Illustration name="BlockCoins" size={88} flexShrink={0} />
         </XStack>
       </YStack>
-      {/* The three facts share one size; the address is text, so it keeps
-          the medium weight instead of the figures' semibold. */}
-      <XStack mt="auto" ai="center" gap="$6">
-        <StatCell label={labels.cumulative}>
-          <Currency
-            {...REFERRAL_USD_CURRENCY_PROPS}
-            size="$headingMd"
-            numberOfLines={1}
-          >
-            {earnings.cumulative}
-          </Currency>
-        </StatCell>
-        <StatCell label={labels.distributed}>
+      <Divider mt="auto" borderColor={INVITE_CARD_BORDER_COLOR} />
+      {/* The figures share one size; the address is text, so it keeps the
+          medium weight instead of the figures' semibold. */}
+      <XStack ai="flex-start" gap="$6">
+        <StatCell
+          leading={<PartDot color="$iconSuccess" />}
+          label={labels.distributed}
+        >
           <Currency
             {...REFERRAL_USD_CURRENCY_PROPS}
             size="$headingMd"
@@ -218,6 +206,23 @@ function DesktopEarnings({
           >
             {earnings.distributed}
           </Currency>
+        </StatCell>
+        <StatCell
+          leading={<PartDot color="$iconCaution" />}
+          label={labels.undistributed}
+        >
+          <Currency
+            {...REFERRAL_USD_CURRENCY_PROPS}
+            size="$headingMd"
+            numberOfLines={1}
+          >
+            {earnings.undistributed}
+          </Currency>
+          {earnings.nextDistribution ? (
+            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+              {`${labels.nextDistribution} ${earnings.nextDistribution}`}
+            </SizableText>
+          ) : null}
         </StatCell>
         <StatCell
           testID={ReferFriendsTestIDs.invitePayoutAddress}
@@ -233,11 +238,6 @@ function DesktopEarnings({
       </XStack>
     </YStack>
   );
-}
-
-// Ties each part of the compact card's total to it, like a chart legend.
-function PartDot({ color }: { color: ColorTokens }) {
-  return <YStack w="$2" h="$2" borderRadius="$full" bg={color} />;
 }
 
 // Compact layouts read the money as one sum: the total earned leads, then
