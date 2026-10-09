@@ -143,10 +143,10 @@ function InviteOverviewSkeleton() {
   );
 
   if (md) {
-    // Compact content: level pill, invite facts card, then earnings card.
+    // Compact content: level line, invite facts card, then earnings card.
     return (
       <YStack px="$pagePadding" pt="$3" gap="$5">
-        <Skeleton w={96} h={28} radius="round" />
+        <Skeleton.BodyLg w={180} />
         <YStack gap="$4" p="$4" {...cardStyle}>
           <YStack gap="$1">
             <Skeleton.BodyMd w={96} />

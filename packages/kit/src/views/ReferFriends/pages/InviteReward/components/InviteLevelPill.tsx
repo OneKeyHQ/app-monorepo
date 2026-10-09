@@ -34,6 +34,7 @@ import {
 } from './useInviteCardStyle';
 
 import type { ICurrentLevelCardProps } from './CurrentLevelCard/types';
+import type { IInviteValueSummaryResult } from './InviteValueLine';
 
 // Desktop hover summary: whether the level holds this month and the gap to
 // the next one. The full breakdown stays on the level page.
@@ -173,5 +174,54 @@ export function InviteLevelPill({
         />
       )}
     />
+  );
+}
+
+// Compact layouts: the header has no room beside the rules button, so the
+// level opens the content as one line that pairs it with what it earns.
+export function InviteLevelLine({
+  valueSummary,
+  emoji,
+}: {
+  valueSummary: IInviteValueSummaryResult;
+  emoji?: string;
+}) {
+  const navigateToReferralLevel = useNavigateToReferralLevel();
+  const { levelLabel, levelIcon, summary } = valueSummary;
+
+  return (
+    <XStack
+      testID={ReferFriendsTestIDs.inviteLevelPill}
+      ai="center"
+      gap="$1.5"
+      // Bleed the press surface so the icon lines up with the cards below.
+      mx="$-2"
+      px="$2"
+      py="$1.5"
+      borderRadius="$2"
+      {...PRESSABLE_SURFACE_PROPS}
+      onPress={() => {
+        void navigateToReferralLevel();
+      }}
+    >
+      {levelIcon ? <Image w="$5" h="$5" src={levelIcon} /> : null}
+      {!levelIcon && emoji ? (
+        <SizableText size="$bodyLg">{emoji}</SizableText>
+      ) : null}
+      <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={0}>
+        {levelLabel}
+      </SizableText>
+      {summary ? (
+        <SizableText
+          size="$bodyLg"
+          color="$textSubdued"
+          numberOfLines={1}
+          flexShrink={1}
+        >
+          {`· ${summary.lead} ${summary.rate}`}
+        </SizableText>
+      ) : null}
+      <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
+    </XStack>
   );
 }

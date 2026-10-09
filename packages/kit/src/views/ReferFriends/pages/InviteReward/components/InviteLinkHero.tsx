@@ -324,7 +324,7 @@ export function InviteCompactCard({
       {/* The code is what people share and type, so it leads the card at
           display size; the link and rates follow as detail rows. */}
       <XStack ai="center" gap="$3" pb="$3">
-        <YStack flex={1} minWidth={0} gap="$1">
+        <YStack flex={1} minWidth={0}>
           <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.referral_your_code })}
           </SizableText>

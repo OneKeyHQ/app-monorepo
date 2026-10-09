@@ -73,7 +73,7 @@ export interface IInviteValueSummary {
   lead: string;
   rate: string;
   // Highest invitee rate across products, or null when invitees get none;
-  // compact layouts show "you / invited" as one pair.
+  // compact layouts show "you / invitee" as one pair.
   friendRate: string | null;
   isUniform: boolean;
   products: string;

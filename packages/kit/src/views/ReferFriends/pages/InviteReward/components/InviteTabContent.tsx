@@ -7,7 +7,7 @@ import type {
 
 import { InviteBindRow } from './InviteBindRow';
 import { InviteEarningsCard } from './InviteEarningsCard';
-import { InviteLevelPill } from './InviteLevelPill';
+import { InviteLevelLine } from './InviteLevelPill';
 import { InviteCompactCard, InviteLinkHero } from './InviteLinkHero';
 import { InviteRewardRows } from './InviteRewardRows';
 import { useInviteValueSummary } from './InviteValueLine';
@@ -59,10 +59,9 @@ export function InviteTabContent({
         // page footer.
         <YStack px="$pagePadding" pt="$3" gap="$5">
           <XStack>
-            <InviteLevelPill
-              rebateConfig={summaryInfo.rebateConfig}
-              rebateLevels={summaryInfo.rebateLevels}
-              levelDetail={levelDetail}
+            <InviteLevelLine
+              valueSummary={valueSummary}
+              emoji={summaryInfo.rebateConfig.emoji}
             />
           </XStack>
           <InviteCompactCard

@@ -262,8 +262,8 @@ function CompactEarnings({
           hintSize="$bodySm"
         />
       </YStack>
-      {/* Totals sit in two tinted tiles so they read as a secondary group
-          under the unpaid figure. */}
+      {/* Totals sit in two tiles, a step stronger than the tinted card, so
+          they read as a secondary group under the unpaid figure. */}
       <XStack gap="$2" pt="$4">
         {[
           { label: labels.cumulative, value: earnings.cumulative },
@@ -279,7 +279,7 @@ function CompactEarnings({
             py="$2.5"
             borderRadius="$2"
             borderCurve="continuous"
-            bg="$bgSubdued"
+            bg="$bgStrong"
           >
             <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
               {item.label}

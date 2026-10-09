@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { useTheme } from '@onekeyhq/components';
+import { useMedia, useTheme } from '@onekeyhq/components';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 
@@ -40,17 +40,20 @@ export const COMPACT_ENTRY_ICON_PROPS = { size: '$5' } as const;
 
 export const INVITE_POPOVER_PANEL_PROPS = { width: 320 } as const;
 
-// The invite home sits its cards on a subdued canvas, so the canvas and the
-// soft shadow separate them without a border; they also round a step further
-// than the card lists on the codes and level pages.
+// Invite home cards round a step further than the card lists on the codes
+// and level pages, and drop the border: on desktop the subdued canvas and the
+// soft shadow separate them; compact layouts flip to tinted cards on the app
+// canvas, which need neither.
 export const INVITE_HOME_CARD_RADIUS = '$4';
 
 export function useInviteCardStyle({
   borderRadius = '$3',
   bordered = true,
+  tinted = false,
 }: {
   borderRadius?: '$3' | typeof INVITE_HOME_CARD_RADIUS;
   bordered?: boolean;
+  tinted?: boolean;
 } = {}) {
   const isDark = useThemeVariant() === 'dark';
   return useMemo(
@@ -60,27 +63,34 @@ export function useInviteCardStyle({
         borderColor: INVITE_CARD_BORDER_COLOR,
         borderRadius,
         borderCurve: 'continuous',
-        bg: '$bg',
-        boxShadow: isDark ? undefined : LIGHT_CARD_SHADOW,
+        bg: tinted ? '$bgSubdued' : '$bg',
+        boxShadow: isDark || tinted ? undefined : LIGHT_CARD_SHADOW,
       }) as const,
-    [borderRadius, bordered, isDark],
+    [borderRadius, bordered, isDark, tinted],
   );
 }
 
 export function useInviteHomeCardStyle() {
+  const { md } = useMedia();
   return useInviteCardStyle({
     borderRadius: INVITE_HOME_CARD_RADIUS,
     bordered: false,
+    tinted: md,
   });
 }
 
-// Light mode puts the bright `$bg` cards on the subdued canvas. Dark mode
-// needs the deeper app canvas so the card background stays visible.
+// Compact layouts use the app canvas under tinted cards. Desktop puts bright
+// `$bg` cards on the subdued canvas, except in dark mode, which needs the
+// deeper app canvas so the card background stays visible.
 export function useInvitePageCanvas() {
   const theme = useTheme();
+  const { md } = useMedia();
   const isDark = useThemeVariant() === 'dark';
-  const backgroundColor = isDark ? '$bgApp' : '$bgSubdued';
-  const headerBackgroundColor = isDark ? theme.bgApp.val : theme.bgSubdued.val;
+  const isAppCanvas = md || isDark;
+  const backgroundColor = isAppCanvas ? '$bgApp' : '$bgSubdued';
+  const headerBackgroundColor = isAppCanvas
+    ? theme.bgApp.val
+    : theme.bgSubdued.val;
   // Reference-stable: PageHeader diffs options shallowly before setOptions.
   const headerStyle = useMemo(
     () => ({ backgroundColor: headerBackgroundColor }),
