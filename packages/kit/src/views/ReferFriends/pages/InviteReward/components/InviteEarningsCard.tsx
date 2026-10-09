@@ -224,9 +224,52 @@ function DesktopEarnings({
   );
 }
 
-// Compact layouts stack the same facts as the desktop card: the unpaid
-// amount leads, the two totals follow as columns, and the payout
-// address closes the card as a row, in the caution color while it is not set.
+// One part of the total on the compact card: a colored dot ties it to the
+// total above, and an optional hint sits under the label.
+function EarningsPartRow({
+  dotColor,
+  label,
+  value,
+  hint,
+}: {
+  dotColor: string;
+  label: string;
+  value: string;
+  hint?: string | null;
+}) {
+  return (
+    <XStack minHeight={36} ai="center" jc="space-between" gap="$3">
+      <XStack flex={1} minWidth={0} ai="flex-start" gap="$2">
+        <YStack h={20} jc="center">
+          <YStack w="$2" h="$2" borderRadius="$full" bg={dotColor} />
+        </YStack>
+        <YStack flex={1} minWidth={0}>
+          <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+            {label}
+          </SizableText>
+          {hint ? (
+            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+              {hint}
+            </SizableText>
+          ) : null}
+        </YStack>
+      </XStack>
+      <Currency
+        {...REFERRAL_USD_CURRENCY_PROPS}
+        size="$bodyMdMedium"
+        numberOfLines={1}
+        alignSelf="flex-start"
+        lineHeight={20}
+      >
+        {value}
+      </Currency>
+    </XStack>
+  );
+}
+
+// Compact layouts read the money as one sum: the total earned leads, then
+// its two parts (paid, and unpaid with the next payout date), then the
+// payout address as a row, in the caution color while it is not set.
 function CompactEarnings({
   earnings,
   labels,
@@ -244,10 +287,9 @@ function CompactEarnings({
 }) {
   return (
     <YStack>
-      {/* Same header as desktop: the label with payout history beside it. */}
       <XStack ai="center" jc="space-between" gap="$3">
         <SizableText size="$bodyMd" color="$textSubdued">
-          {labels.undistributed}
+          {labels.cumulative}
         </SizableText>
         <CardTextAction
           testID={ReferFriendsTestIDs.inviteRewardHistory}
@@ -255,36 +297,32 @@ function CompactEarnings({
           onPress={onOpenHistory}
         />
       </XStack>
-      <YStack pt="$1">
-        <UnpaidAmount
-          amount={earnings.undistributed}
-          nextPayout={earnings.nextDistribution}
-          nextPayoutLabel={labels.nextDistribution}
-          amountSize="$heading3xl"
-          hintSize="$bodySm"
+      <Currency
+        {...REFERRAL_USD_CURRENCY_PROPS}
+        size="$heading3xl"
+        numberOfLines={1}
+        pt="$1"
+        pb="$3"
+      >
+        {earnings.cumulative}
+      </Currency>
+      <YStack gap="$1" pb="$3">
+        <EarningsPartRow
+          dotColor="$iconSuccess"
+          label={labels.distributed}
+          value={earnings.distributed}
+        />
+        <EarningsPartRow
+          dotColor="$iconCaution"
+          label={labels.undistributed}
+          value={earnings.undistributed}
+          hint={
+            earnings.nextDistribution
+              ? `${labels.nextDistribution} ${earnings.nextDistribution}`
+              : null
+          }
         />
       </YStack>
-      {/* The two totals share one band, as columns like the desktop stat
-          cells, so they read as a pair under the unpaid amount. */}
-      <XStack gap="$4" pt="$4" pb="$3">
-        {[
-          { label: labels.cumulative, value: earnings.cumulative },
-          { label: labels.distributed, value: earnings.distributed },
-        ].map((item) => (
-          <YStack key={item.label} flex={1} flexBasis={0} minWidth={0}>
-            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-              {item.label}
-            </SizableText>
-            <Currency
-              {...REFERRAL_USD_CURRENCY_PROPS}
-              size="$bodyMdMedium"
-              numberOfLines={1}
-            >
-              {item.value}
-            </Currency>
-          </YStack>
-        ))}
-      </XStack>
       <Divider mb="$1" borderColor={INVITE_CARD_BORDER_COLOR} />
       <ListItem
         testID={ReferFriendsTestIDs.invitePayoutAddress}

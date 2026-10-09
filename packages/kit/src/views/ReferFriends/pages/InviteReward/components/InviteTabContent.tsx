@@ -7,7 +7,6 @@ import type {
 
 import { InviteBindRow } from './InviteBindRow';
 import { InviteEarningsCard } from './InviteEarningsCard';
-import { InviteLevelValue } from './InviteLevelPill';
 import {
   InviteCompactCard,
   InviteLinkHero,
@@ -58,14 +57,12 @@ export function InviteTabContent({
       />
 
       {md ? (
-        // Compact layouts read top-down in groups: sharing (the overview
-        // caption with the referral list, then the invite card with its codes
-        // entry),
+        // Compact layouts give each card one job: sharing (code, link and
+        // the rates it earns; the level sits behind the rate popover), then
         // money (the earnings card and its per-product breakdown), then the
-        // invitee's bind entry (only until linked). Spacing groups them: captions
-        // sit 8px over their card, cards 16px apart inside a group, 24px
-        // between groups. Sharing itself sits in the
-        // page footer.
+        // invitee's bind entry (only until linked). Captions sit 8px over
+        // their card, cards 16px apart inside a group, 24px between groups.
+        // Sharing itself sits in the page footer.
         <YStack px="$pagePadding" pt="$3" gap="$6">
           <YStack gap="$2">
             <InviteOverviewCaption />
@@ -74,13 +71,6 @@ export function InviteTabContent({
               inviteCode={summaryInfo.inviteCode}
               valueSummary={valueSummary}
               cardStyle={cardStyle}
-              levelValue={
-                <InviteLevelValue
-                  rebateConfig={summaryInfo.rebateConfig}
-                  rebateLevels={summaryInfo.rebateLevels}
-                  levelDetail={levelDetail}
-                />
-              }
               onManageCodes={() => {
                 navigateToInviteCodes(summaryInfo.inviteUrl);
               }}
