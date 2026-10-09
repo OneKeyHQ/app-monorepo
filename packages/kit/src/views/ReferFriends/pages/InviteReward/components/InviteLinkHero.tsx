@@ -13,7 +13,6 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useNavigateToYourReferred } from '@onekeyhq/kit/src/views/ReferFriends/pages/YourReferred/hooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -25,8 +24,6 @@ import { InviteValueLine, RatePopover } from './InviteValueLine';
 import { useReferralCodeCard } from './ReferralCodeCard/hooks/useReferralCodeCard';
 import { ReferralLinkDropdown } from './ReferralLinkDropdown';
 import {
-  COMPACT_ENTRY_TITLE_PROPS,
-  COMPACT_ROW_BLEED_PROPS,
   INVITE_CARD_BORDER_COLOR,
   PRESSABLE_SURFACE_PROPS,
 } from './useInviteCardStyle';
@@ -324,30 +321,38 @@ export function InviteCompactCard({
 
   return (
     // 16px from the text to the card edge on every side, like the other
-    // cards; 12px on both sides of each divider.
-    <YStack px="$4" pt="$4" pb="$1" {...cardStyle}>
-      {/* The code is what people share and type, so it leads the card at
-          display size; the link and rates follow as detail rows. */}
-      <XStack ai="center" gap="$3" pb="$3">
-        <YStack flex={1} minWidth={0}>
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.referral_your_code })}
-          </SizableText>
-          {/* Below the unpaid amount: the page title and the money lead,
-              the code reads as the card's value. */}
-          <SizableText size="$headingXl" numberOfLines={1}>
-            {inviteCode}
-          </SizableText>
-        </YStack>
+    // cards (the last row brings 8px of its own); 12px around the divider.
+    <YStack px="$4" pt="$4" pb="$2" {...cardStyle}>
+      {/* Same header as the earnings card: the label with its one-step-away
+          entry beside it, so managing codes needs no row of its own. */}
+      <XStack ai="center" jc="space-between" gap="$3">
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.referral_your_code })}
+        </SizableText>
         <Button
+          testID={ReferFriendsTestIDs.inviteManageCodes}
+          variant="tertiary"
+          size="small"
+          iconAfter="ChevronRightSmallOutline"
+          onPress={onManageCodes}
+        >
+          {INVITE_COPY.manageCodes}
+        </Button>
+      </XStack>
+      {/* The code is what people share and type, so it leads the card; its
+          copy action sits on it like the link's, as a quiet icon. */}
+      <XStack ai="center" gap="$1" pb="$3">
+        <SizableText size="$headingXl" numberOfLines={1} flexShrink={1}>
+          {inviteCode}
+        </SizableText>
+        <IconButton
           testID={ReferFriendsTestIDs.inviteCodeLine}
-          variant="secondary"
+          variant="tertiary"
           size="small"
           icon="Copy3Outline"
+          title={intl.formatMessage({ id: ETranslations.global_copy })}
           onPress={handleCopy}
-        >
-          {intl.formatMessage({ id: ETranslations.global_copy })}
-        </Button>
+        />
       </XStack>
       <Divider mb="$1" borderColor={INVITE_CARD_BORDER_COLOR} />
       <InviteFieldRow
@@ -390,17 +395,6 @@ export function InviteCompactCard({
           />
         </InviteFieldRow>
       ) : null}
-      {/* The codes this card shows are managed one step away, so the entry
-          closes the card under its own divider. */}
-      <Divider mt="$1" borderColor={INVITE_CARD_BORDER_COLOR} />
-      <ListItem
-        testID={ReferFriendsTestIDs.inviteManageCodes}
-        {...COMPACT_ROW_BLEED_PROPS}
-        titleProps={COMPACT_ENTRY_TITLE_PROPS}
-        title={INVITE_COPY.manageCodes}
-        drillIn
-        onPress={onManageCodes}
-      />
     </YStack>
   );
 }

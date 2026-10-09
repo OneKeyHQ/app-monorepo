@@ -225,7 +225,7 @@ function DesktopEarnings({
 }
 
 // Compact layouts stack the same facts as the desktop card: the unpaid
-// amount leads with the total earned as one label/value line, and the payout
+// amount leads, the two totals follow as columns, and the payout
 // address closes the card as a row, in the caution color while it is not set.
 function CompactEarnings({
   earnings,
@@ -264,19 +264,14 @@ function CompactEarnings({
           hintSize="$bodySm"
         />
       </YStack>
-      {/* The totals read as label/value lines, like the code card's rows. */}
-      <YStack pt="$2">
+      {/* The two totals share one band, as columns like the desktop stat
+          cells, so they read as a pair under the unpaid amount. */}
+      <XStack gap="$4" pt="$4" pb="$3">
         {[
           { label: labels.cumulative, value: earnings.cumulative },
           { label: labels.distributed, value: earnings.distributed },
         ].map((item) => (
-          <XStack
-            key={item.label}
-            minHeight={36}
-            ai="center"
-            jc="space-between"
-            gap="$3"
-          >
+          <YStack key={item.label} flex={1} flexBasis={0} minWidth={0}>
             <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
               {item.label}
             </SizableText>
@@ -287,10 +282,10 @@ function CompactEarnings({
             >
               {item.value}
             </Currency>
-          </XStack>
+          </YStack>
         ))}
-      </YStack>
-      <Divider mt="$1" mb="$1" borderColor={INVITE_CARD_BORDER_COLOR} />
+      </XStack>
+      <Divider mb="$1" borderColor={INVITE_CARD_BORDER_COLOR} />
       <ListItem
         testID={ReferFriendsTestIDs.invitePayoutAddress}
         {...COMPACT_ROW_BLEED_PROPS}

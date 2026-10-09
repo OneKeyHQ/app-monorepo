@@ -174,13 +174,13 @@ function InviteOverviewSkeleton() {
             <Skeleton.BodyMd w={96} />
           </XStack>
           <YStack gap="$4" p="$4" {...cardStyle}>
-            <XStack jc="space-between" ai="center">
-              <YStack gap="$1">
+            <YStack gap="$1">
+              <XStack jc="space-between">
                 <Skeleton.BodyMd w={96} />
-                <Skeleton.HeadingXl w={120} />
-              </YStack>
-              <Skeleton w={88} h={32} radius="round" />
-            </XStack>
+                <Skeleton.BodyMd w={112} />
+              </XStack>
+              <Skeleton.HeadingXl w={120} />
+            </YStack>
             <Divider borderColor="$neutral4" />
             {[0, 1, 2].map((index) => (
               <XStack key={index} jc="space-between">
@@ -188,8 +188,6 @@ function InviteOverviewSkeleton() {
                 <Skeleton.BodyMd w={120} />
               </XStack>
             ))}
-            <Divider borderColor="$neutral4" />
-            <Skeleton.BodyMd w={120} />
           </YStack>
         </YStack>
         <YStack gap="$4" p="$4" {...cardStyle}>
@@ -197,12 +195,14 @@ function InviteOverviewSkeleton() {
             <Skeleton.BodyMd />
             <Skeleton.Heading3Xl />
           </YStack>
-          {[0, 1].map((index) => (
-            <XStack key={index} jc="space-between">
-              <Skeleton.BodyMd w={96} />
-              <Skeleton.BodyMd w={88} />
-            </XStack>
-          ))}
+          <XStack gap="$4">
+            {[0, 1].map((index) => (
+              <YStack key={index} flex={1} gap="$1">
+                <Skeleton.BodyMd w={96} />
+                <Skeleton.BodyMd w={88} />
+              </YStack>
+            ))}
+          </XStack>
           <Divider borderColor="$neutral4" />
           <XStack jc="space-between">
             <Skeleton.BodyMd w={120} />
