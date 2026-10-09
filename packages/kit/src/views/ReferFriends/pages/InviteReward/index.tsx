@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Divider,
+  LinearGradient,
   Page,
   RefreshControl,
   ScrollView,
@@ -18,6 +19,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { getChartColorWithAlpha } from '@onekeyhq/kit/src/components/LightweightChart/utils/chartColor';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -56,14 +58,19 @@ import { useNavigateToRewardHistory } from '../RewardDistributionHistory/hooks/u
 
 import { INVITE_COPY } from './inviteCopy';
 
+import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
+
 const ReferralPageHeader = memo(function ReferralPageHeader({
   activeTab,
   onChangeTab,
   isCompactHeader,
+  isTitleHidden,
 }: {
   activeTab: IReferralPageTab;
   onChangeTab: (tab: IReferralPageTab) => void;
   isCompactHeader: boolean;
+  // The content shows the large title, so the bar leaves its own empty.
+  isTitleHidden: boolean;
 }) {
   const intl = useIntl();
   const { headerBackgroundColor, headerStyle } = useInvitePageCanvas();
@@ -86,9 +93,13 @@ const ReferralPageHeader = memo(function ReferralPageHeader({
         // Native iOS ignores the container color; headerStyle covers it.
         headerContainerBackgroundColor={headerBackgroundColor}
         headerStyle={headerStyle}
-        title={intl.formatMessage({
-          id: ETranslations.referral_title,
-        })}
+        title={
+          isTitleHidden
+            ? ''
+            : intl.formatMessage({
+                id: ETranslations.referral_title,
+              })
+        }
         headerTitle={IS_BENEFITS_TAB_ENABLED ? renderHeaderTitle : undefined}
         headerRight={renderHeaderRight}
       />
@@ -143,9 +154,14 @@ function InviteOverviewSkeleton() {
   );
 
   if (md) {
-    // Compact content: invite card, earnings section, then entries card.
+    // Compact content: title with level, invite card, earnings section,
+    // then entries card.
     return (
-      <YStack px="$pagePadding" pt="$3" gap="$5">
+      <YStack px="$pagePadding" pt="$2" gap="$5">
+        <XStack jc="space-between" ai="center">
+          <Skeleton.Heading4Xl w={200} />
+          <Skeleton w={88} h={28} radius="round" />
+        </XStack>
         <YStack gap="$4" p="$4" {...cardStyle}>
           <YStack gap="$1">
             <XStack jc="space-between" ai="center">
@@ -343,6 +359,30 @@ function InviteRewardPage() {
       setIsRetrying(false);
     }
   }, [refreshAll]);
+  // Compact layouts title the page in the content (with the level beside
+  // it); the bar title returns once that title scrolls under the bar, and a
+  // short fade under the bar softens content scrolling beneath it.
+  // The skeleton holds the title's place too, so the bar title does not
+  // flash in and out while the first load runs.
+  const hasLargeTitle = md && isInviteTab && (isFetching || !!summaryInfo);
+  const largeTitleBottomRef = useRef(0);
+  const [isPastLargeTitle, setIsPastLargeTitle] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const handleLargeTitleLayout = useCallback((bottom: number) => {
+    largeTitleBottomRef.current = bottom;
+  }, []);
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const offsetY = event.nativeEvent.contentOffset.y;
+      // Same-value updates bail out, so this only re-renders on a crossing.
+      setIsScrolled(offsetY > 0);
+      setIsPastLargeTitle(
+        largeTitleBottomRef.current > 0 &&
+          offsetY >= largeTitleBottomRef.current,
+      );
+    },
+    [],
+  );
   const showInviteFooter =
     platformEnv.isNative && isInviteTab && Boolean(summaryInfo?.inviteUrl);
 
@@ -380,6 +420,8 @@ function InviteRewardPage() {
         refreshControl={
           <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
         }
+        onScroll={hasLargeTitle ? handleScroll : undefined}
+        scrollEventThrottle={16}
       >
         <Page.Container padded={false}>
           {summaryInfo ? (
@@ -390,6 +432,7 @@ function InviteRewardPage() {
                 summaryInfo={summaryInfo}
                 fetchSummaryInfo={fetchSummaryInfo}
                 levelDetail={levelDetail}
+                onLargeTitleLayout={handleLargeTitleLayout}
               />
             </YStack>
           ) : null}
@@ -405,6 +448,7 @@ function InviteRewardPage() {
         activeTab={activeTab}
         onChangeTab={setActiveTab}
         isCompactHeader={isCompactHeader}
+        isTitleHidden={hasLargeTitle && !isPastLargeTitle}
       />
       <Page.Body>
         {/* Compact layouts show the level inside the scrolling content. */}
@@ -439,6 +483,20 @@ function InviteRewardPage() {
           </Page.Container>
         )}
         {body}
+        {hasLargeTitle && isScrolled ? (
+          <LinearGradient
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+            height={24}
+            pointerEvents="none"
+            colors={[
+              pageCanvas.headerBackgroundColor,
+              getChartColorWithAlpha(pageCanvas.headerBackgroundColor, 0),
+            ]}
+          />
+        ) : null}
       </Page.Body>
       {showInviteFooter ? (
         <Page.Footer>

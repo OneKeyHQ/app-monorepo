@@ -178,8 +178,7 @@ export function InviteLevelPill({
 }
 
 // Compact layouts: the header has no room beside the rules button, so the
-// level heads the invite card as a chip; the rate row below it says what the
-// level pays.
+// level sits beside the in-content page title as a chip.
 export function InviteLevelChip({
   valueSummary,
   emoji,
@@ -199,9 +198,9 @@ export function InviteLevelChip({
       pr="$1"
       py="$0.5"
       borderRadius="$full"
-      // The card is tinted, so the chip takes the app canvas to stand out.
-      bg="$bgApp"
-      flexShrink={1}
+      // Same tint as the cards, so it reads as part of the page's surfaces.
+      bg="$bgSubdued"
+      flexShrink={0}
       {...PRESSABLE_SURFACE_PROPS}
       onPress={() => {
         void navigateToReferralLevel();

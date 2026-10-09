@@ -289,21 +289,19 @@ function InviteFieldRow({
   );
 }
 
-// Compact layouts keep this card to sharing: the level and code lead, then
-// the link and rates as label/value rows with copy beside each value.
+// Compact layouts keep this card to sharing: the code leads, then the link
+// and rates as label/value rows with copy beside each value.
 // Sharing itself is the page's main action, pinned to the footer.
 export function InviteCompactCard({
   inviteUrl,
   inviteCode,
   valueSummary,
   cardStyle,
-  levelChip,
 }: {
   inviteUrl: string;
   inviteCode: string;
   valueSummary: IInviteValueSummaryResult;
   cardStyle: IInviteCardStyle;
-  levelChip?: ReactNode;
 }) {
   const intl = useIntl();
   const { handleCopy, copyLink, inviteCodeUrl } = useReferralCodeCard({
@@ -321,36 +319,25 @@ export function InviteCompactCard({
     <YStack px="$4" pt="$4" pb="$1" {...cardStyle}>
       {/* The code is what people share and type, so it leads the card at
           display size; the link and rates follow as detail rows. */}
-      <YStack pb="$3">
-        <XStack ai="center" jc="space-between" gap="$3" minHeight={24}>
-          <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
+      <XStack ai="center" gap="$3" pb="$3">
+        <YStack flex={1} minWidth={0}>
+          <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.referral_your_code })}
           </SizableText>
-          {levelChip}
-        </XStack>
-        {/* The level chip owns the right edge, so copying sits on the code
-            itself, with the same icon as the link row. The footer keeps
-            sharing as the main action. */}
-        <XStack>
-          <XStack
-            testID={ReferFriendsTestIDs.inviteCodeLine}
-            ai="center"
-            gap="$2"
-            flexShrink={1}
-            // Bleed the press surface so the code stays aligned with the label.
-            mx="$-2"
-            px="$2"
-            borderRadius="$2"
-            {...PRESSABLE_SURFACE_PROPS}
-            onPress={handleCopy}
-          >
-            <SizableText size="$heading3xl" numberOfLines={1} flexShrink={1}>
-              {inviteCode}
-            </SizableText>
-            <Icon name="Copy3Outline" size="$5" color="$iconSubdued" />
-          </XStack>
-        </XStack>
-      </YStack>
+          <SizableText size="$heading3xl" numberOfLines={1}>
+            {inviteCode}
+          </SizableText>
+        </YStack>
+        <Button
+          testID={ReferFriendsTestIDs.inviteCodeLine}
+          variant="secondary"
+          size="small"
+          icon="Copy3Outline"
+          onPress={handleCopy}
+        >
+          {intl.formatMessage({ id: ETranslations.global_copy })}
+        </Button>
+      </XStack>
       <Divider borderColor={INVITE_CARD_BORDER_COLOR} />
       <InviteFieldRow
         label={intl.formatMessage({ id: ETranslations.referral_referral_link })}
