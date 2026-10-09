@@ -23,6 +23,7 @@ import {
   EUpdateStrategy,
 } from '@onekeyhq/shared/src/appUpdate';
 import { useDownloadProgress } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
+import { getAppUpdateProgressScope } from '@onekeyhq/shared/src/modules3rdParty/auto-update/downloadProgress';
 
 // ---------------------------------------------------------------------------
 // Pipeline step types
@@ -510,7 +511,9 @@ function PendingTaskSection({
 // ---------------------------------------------------------------------------
 export default function DevBundleUpdateStatusModal() {
   const [appUpdateInfo] = useAppUpdatePersistAtom();
-  const downloadPercent = useDownloadProgress();
+  const downloadPercent = useDownloadProgress(
+    getAppUpdateProgressScope(appUpdateInfo),
+  );
   const [pendingTask, setPendingTask] = useState<
     IPendingInstallTask | null | undefined
   >(undefined);

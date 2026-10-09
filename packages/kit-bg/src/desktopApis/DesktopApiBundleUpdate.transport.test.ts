@@ -27,7 +27,9 @@ jest.mock('electron-log/main', () => ({
   default: { info: jest.fn(), warn: jest.fn(), error: jest.fn() },
 }));
 jest.mock('@onekeyhq/desktop/app/bundle', () => ({}));
-jest.mock('@onekeyhq/desktop/app/config', () => ({ ipcMessageKeys: {} }));
+jest.mock('@onekeyhq/desktop/app/config', () => ({
+  ipcMessageKeys: { UPDATE_DOWNLOADING: 'update/downloading' },
+}));
 jest.mock('@onekeyhq/desktop/app/libs/store', () => ({}));
 jest.mock('@onekeyhq/desktop/app/windowProgressBar', () => ({
   clearWindowProgressBar: jest.fn(),
@@ -192,4 +194,99 @@ test('a failed destination can retry while another download remains active', asy
   runs[2].complete();
   expect(await retry).toHaveProperty('bundleVersion', '123');
   expect(api.isDownloading).toBe(false);
+});
+
+test('downloads started during cache clearing wait until cancelled writers settle', async () => {
+  let releaseCancelled: () => void = () => {};
+  mockDownloadNodeFile.mockImplementation(async (opts) => {
+    fs.writeFileSync(opts.targetPath, 'new bundle');
+    return { filePath: opts.targetPath, totalBytes: 10 };
+  });
+  mockDownloadNodeFile.mockImplementationOnce(
+    (opts) =>
+      new Promise((_, reject) => {
+        opts.signal?.addEventListener(
+          'abort',
+          () => {
+            releaseCancelled = () =>
+              reject(new OneKeyLocalError('Download cancelled'));
+          },
+          { once: true },
+        );
+      }),
+  );
+  const api = await createApi();
+  const oldDownload = api
+    .downloadBundle(params)
+    .catch((error: unknown) => error);
+  const clear = api.clearDownload();
+  const joinedClear = api.clearDownload();
+  const nextDownload = api.downloadBundle({ ...params, bundleVersion: '124' });
+  await Promise.resolve();
+  const requestsDuringClear = mockDownloadNodeFile.mock.calls.length;
+  releaseCancelled();
+  await Promise.all([clear, joinedClear]);
+  expect(await oldDownload).toHaveProperty('message', 'Download cancelled');
+  const event = await nextDownload;
+  expect(event).toHaveProperty('bundleVersion', '124');
+  expect(requestsDuringClear).toBe(1);
+  expect(mockDownloadNodeFile).toHaveBeenCalledTimes(2);
+  if (!event?.downloadedFile)
+    throw new OneKeyLocalError('New bundle was not published');
+  expect(fs.readFileSync(event.downloadedFile, 'utf8')).toBe('new bundle');
+});
+
+test('concurrent bundle progress identifies its destination versions', async () => {
+  const send = jest.fn();
+  const previous = globalThis.$desktopMainAppFunctions;
+  globalThis.$desktopMainAppFunctions = {
+    getSafelyMainWindow: () => ({ webContents: { send } }),
+  } as unknown as typeof previous;
+  const runs: ReturnType<typeof pendingDownload>[] = [];
+  mockDownloadNodeFile.mockImplementation((opts) => {
+    const run = pendingDownload(opts);
+    runs.push(run);
+    return run.promise;
+  });
+  try {
+    const api = await createApi();
+    const first = api.downloadBundle(params);
+    const second = api.downloadBundle({ ...params, bundleVersion: '124' });
+    mockDownloadNodeFile.mock.calls[0][0].onProgress?.({
+      percent: 10,
+      total: 10,
+      transferred: 1,
+      delta: 1,
+      bytesPerSecond: 1,
+    });
+    mockDownloadNodeFile.mock.calls[1][0].onProgress?.({
+      percent: 90,
+      total: 10,
+      transferred: 9,
+      delta: 8,
+      bytesPerSecond: 1,
+    });
+    runs.forEach((run) => run.complete());
+    await Promise.all([first, second]);
+    expect(send.mock.calls).toEqual([
+      [
+        'update/downloading',
+        expect.objectContaining({
+          latestVersion: '6.0.0',
+          bundleVersion: '123',
+          percent: 10,
+        }),
+      ],
+      [
+        'update/downloading',
+        expect.objectContaining({
+          latestVersion: '6.0.0',
+          bundleVersion: '124',
+          percent: 90,
+        }),
+      ],
+    ]);
+  } finally {
+    globalThis.$desktopMainAppFunctions = previous;
+  }
 });

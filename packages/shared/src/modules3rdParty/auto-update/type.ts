@@ -1,5 +1,4 @@
 import type { IDesktopEventUnSubscribe } from '@onekeyhq/desktop/app/preload';
-import type { IUpdateProgressUpdate } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiAppUpdate';
 
 import type { IAppUpdateInfo } from '../../appUpdate';
 
@@ -73,7 +72,20 @@ export type IVerifyASC = (params: IUpdateDownloadedEvent) => Promise<void>;
 
 export type IVerifyPackage = (params: IUpdateDownloadedEvent) => Promise<void>;
 
-export type IUseDownloadProgress = () => number;
+export type IDownloadProgressScope = Pick<
+  IDownloadPackageParams,
+  'latestVersion' | 'bundleVersion'
+>;
+
+export interface IUpdateProgressUpdate extends IDownloadProgressScope {
+  percent: number;
+  delta: number;
+  bytesPerSecond: number;
+  total: number;
+  transferred: number;
+}
+
+export type IUseDownloadProgress = (scope?: IDownloadProgressScope) => number;
 
 export type IClearPackage = () => Promise<void>;
 

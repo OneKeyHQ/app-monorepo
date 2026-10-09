@@ -220,6 +220,8 @@ class DesktopApiAppBundleUpdate {
   // not tear down an unrelated concurrent run.
   private cancelByDest = new Map<string, () => void>();
 
+  private cacheClearPromise: Promise<void> | undefined;
+
   private isSkipGPGAllowed(skipGPGVerification?: boolean) {
     return (
       process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION === 'true' &&
@@ -294,6 +296,7 @@ class DesktopApiAppBundleUpdate {
   async downloadBundle(
     params: IDownloadPackageParams,
   ): Promise<IUpdateDownloadedEvent> {
+    while (this.cacheClearPromise) await this.cacheClearPromise;
     const destKey = this.getDestZipPath(params);
     // No usable key (missing version params): skip single-flight bookkeeping
     // and let the downstream validation produce the canonical error.
@@ -356,7 +359,7 @@ class DesktopApiAppBundleUpdate {
         onProgress: (progress) => {
           this.getMainWindow()?.webContents.send(
             ipcMessageKeys.UPDATE_DOWNLOADING,
-            progress,
+            { ...progress, latestVersion, bundleVersion },
           );
           updateWindowProgressBar(this.getMainWindow(), progress.percent);
         },
@@ -921,10 +924,20 @@ class DesktopApiAppBundleUpdate {
   }
 
   async clearDownload() {
-    for (const cancel of this.cancelByDest.values()) cancel();
-    await Promise.allSettled(this.inflightDownloads.values());
-    this.cancelByDest.clear();
-    fs.rmSync(this.getDownloadDir(), { recursive: true, force: true });
+    if (this.cacheClearPromise) return this.cacheClearPromise;
+    // Publish the barrier before cancellation callbacks can start another run.
+    const clear = Promise.resolve()
+      .then(async () => {
+        for (const cancel of this.cancelByDest.values()) cancel();
+        await Promise.allSettled(this.inflightDownloads.values());
+        fs.rmSync(this.getDownloadDir(), { recursive: true, force: true });
+      })
+      .finally(() => {
+        if (this.cacheClearPromise === clear)
+          this.cacheClearPromise = undefined;
+      });
+    this.cacheClearPromise = clear;
+    return clear;
   }
 
   async getFallbackUpdateBundleData() {

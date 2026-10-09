@@ -20,6 +20,7 @@ import {
   type IInstallPackage,
   type IManualInstallPackage,
   type IUpdateDownloadedEvent,
+  type IUpdateProgressUpdate,
   type IUseDownloadProgress,
   type IVerifyASC,
   type IVerifyPackage,
@@ -165,17 +166,13 @@ const installPackage: IInstallPackage = async (params) => {
   });
 };
 
-export const useDownloadProgress: IUseDownloadProgress = () => {
+export const useDownloadProgress: IUseDownloadProgress = (scope) => {
+  const latestVersion = scope?.latestVersion;
+  const bundleVersion = scope?.bundleVersion;
   const [percent, setPercent] = useState(0);
 
   const updatePercent = useThrottledCallback(
-    (params: {
-      total: number;
-      delta: number;
-      transferred: number;
-      percent: number;
-      bytesPerSecond: number;
-    }) => {
+    (params: IUpdateProgressUpdate) => {
       console.log('update/downloading', params);
       const { percent: progress } = params;
       defaultLogger.update.app.log('downloading', progress);
@@ -184,21 +181,38 @@ export const useDownloadProgress: IUseDownloadProgress = () => {
     10,
   );
 
-  const updatedDownloaded = useCallback(() => {
-    defaultLogger.update.app.log('downloaded');
-    setPercent(100);
-  }, []);
+  const updatedDownloaded = useCallback(
+    (event: IUpdateDownloadedEvent) => {
+      if (bundleVersion || event?.bundleVersion) return;
+      defaultLogger.update.app.log('downloaded');
+      setPercent(100);
+    },
+    [bundleVersion],
+  );
 
   useEffect(() => {
+    setPercent(0);
+    // Filter before throttling so another destination cannot replace queued progress.
+    const onProgress = (event: IUpdateProgressUpdate) => {
+      if (bundleVersion) {
+        if (
+          event.bundleVersion !== bundleVersion ||
+          event.latestVersion !== latestVersion
+        )
+          return;
+      } else if (event.bundleVersion) return;
+      updatePercent(event);
+    };
     const onProgressUpdateSubscription =
-      electronUpdateListeners.onProgressUpdate?.(updatePercent);
+      electronUpdateListeners.onProgressUpdate?.(onProgress);
     const updateDownloadedSubscription =
       electronUpdateListeners.onDownloaded?.(updatedDownloaded);
     return () => {
       onProgressUpdateSubscription?.();
       updateDownloadedSubscription?.();
+      updatePercent.cancel();
     };
-  }, [updatedDownloaded, updatePercent]);
+  }, [updatedDownloaded, updatePercent, bundleVersion, latestVersion]);
   return percent;
 };
 

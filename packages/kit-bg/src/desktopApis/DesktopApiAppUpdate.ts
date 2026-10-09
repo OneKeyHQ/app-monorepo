@@ -27,6 +27,7 @@ import {
   EAppUpdatePackageErrorCode,
   type IAppUpdatePackageAvailability,
   type IUpdateDownloadedEvent,
+  type IUpdateProgressUpdate,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
 import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -43,13 +44,7 @@ export interface ILatestVersion {
   isManualCheck?: boolean;
 }
 
-export interface IUpdateProgressUpdate {
-  percent: number;
-  delta: number;
-  bytesPerSecond: number;
-  total: number;
-  transferred: number;
-}
+export type { IUpdateProgressUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
 
 interface IFeedFile {
   url: string;
