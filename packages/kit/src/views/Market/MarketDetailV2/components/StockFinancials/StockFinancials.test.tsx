@@ -664,7 +664,7 @@ it('leaves a short About description unclamped without a toggle', () => {
   ).toBeNull();
 });
 
-it('distinguishes failed requests from successful empty responses', () => {
+it('keeps a failed section for retry but hides a successful empty one', () => {
   mockResult = {
     stockId: 'AAPL',
     annual: { data: null, failed: true },
@@ -685,11 +685,36 @@ it('distinguishes failed requests from successful empty responses', () => {
     quarter: { data: null, failed: false },
   };
   renderFinancials();
-  expect(
-    within(screen.getByTestId('stock-financials-performance')).getByText(
-      intlMessages[ETranslations.global_no_data],
-    ),
-  ).toBeTruthy();
+  expect(screen.queryByTestId('stock-financials')).toBeNull();
+});
+
+it('keeps the section when only one period failed', () => {
+  mockResult = {
+    stockId: 'AAPL',
+    annual: { data: null, failed: false },
+    quarter: { data: null, failed: true },
+  };
+  renderFinancials();
+  expect(screen.getByTestId('stock-financials')).toBeTruthy();
+});
+
+it('hides the section when the payload carries no chartable value', () => {
+  mockResult = {
+    stockId: 'SPY',
+    annual: {
+      data: {
+        ...annual,
+        performance: [],
+        revenueToProfitConversion: undefined,
+        debtLevelAndCoverage: [],
+        earnings: { items: [] },
+      },
+      failed: false,
+    },
+    quarter: { data: null, failed: false },
+  };
+  renderFinancials();
+  expect(screen.queryByTestId('stock-financials')).toBeNull();
 });
 
 it('prefers valid API net margins and only computes missing margins', () => {
