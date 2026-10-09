@@ -121,10 +121,8 @@ import {
   BASE_FEE,
   COMPUTE_UNIT_PRICE_DECIMALS,
   CREATE_TOKEN_ACCOUNT_RENT,
-  MIN_PRIORITY_FEE,
   TOKEN_AUTH_RULES_ID,
   isCustomProgram,
-  isTxOverSize,
   masterEditionAddress,
   metadataAddress,
   parseComputeUnitLimit,
@@ -2038,6 +2036,7 @@ export default class Vault extends VaultBase {
     });
 
     const computeUnitLimit = parseComputeUnitLimit(instructions);
+    const computeUnitPriceInTx = parseComputeUnitPrice(instructions);
 
     return {
       encodedTx,
@@ -2046,83 +2045,22 @@ export default class Vault extends VaultBase {
           baseFee: String(BASE_FEE),
           computeUnitPriceDecimals: COMPUTE_UNIT_PRICE_DECIMALS,
           computeUnitLimit: String(computeUnitLimit),
+          computeUnitPriceInTx,
         },
       },
     };
   }
 
-  override async attachFeeInfoToDAppEncodedTx(params: {
+  override async attachFeeInfoToDAppEncodedTx(_params: {
     encodedTx: IEncodedTxSol;
     feeInfo: IFeeInfoUnit;
   }): Promise<IEncodedTxSol> {
-    const { encodedTx, feeInfo } = params;
-
-    const devSettings =
-      await this.backgroundApi.serviceDevSetting.getDevSetting();
-    if (devSettings.enabled && devSettings.settings?.disableSolanaPriorityFee) {
-      return '';
-    }
-
-    const client = await this.getClient();
-    const accountAddress = await this.getAccountAddress();
-    let computeUnitPrice = '0';
-
-    const nativeTx = parseToNativeTx(encodedTx) as INativeTxSol;
-
-    // check if the tx is partially signed
-    if (nativeTx.signatures && nativeTx.signatures.length > 1) {
-      return '';
-    }
-
-    const { instructions } = await parseNativeTxDetail({
-      nativeTx,
-      client: await this.getClient(),
-    });
-
-    const computeUnitPriceFromInstructions =
-      parseComputeUnitPrice(instructions);
-
-    if (new BigNumber(computeUnitPriceFromInstructions).gte(MIN_PRIORITY_FEE)) {
-      // If the DApp tx  includes prioritization fee,
-      // try replacing it with another one to see if that works.
-
-      const encodedTxWithFee = await this._attachFeeInfoToEncodedTx({
-        encodedTx,
-        feeInfo: {
-          ...feeInfo,
-          feeSol: {
-            computeUnitPrice: '1',
-          },
-        },
-      });
-
-      return encodedTxWithFee === '' ? encodedTxWithFee : encodedTx;
-    }
-
-    if (isNil(feeInfo.feeSol?.computeUnitPrice)) {
-      const prioritizationFee = await client.getRecentMaxPrioritizationFees([
-        accountAddress,
-      ]);
-      computeUnitPrice = String(prioritizationFee);
-    } else {
-      computeUnitPrice = feeInfo.feeSol.computeUnitPrice;
-    }
-
-    const encodedTxWithFee = await this._attachFeeInfoToEncodedTx({
-      encodedTx,
-      feeInfo: {
-        ...feeInfo,
-        feeSol: {
-          computeUnitPrice,
-        },
-      },
-    });
-
-    if (isTxOverSize(encodedTxWithFee)) {
-      return '';
-    }
-
-    return encodedTxWithFee;
+    // dApp-built transactions must stay byte-identical. dApps that broadcast on
+    // their own (signTransaction) compare the returned message with the one they
+    // sent and reject any wallet-side rewrite (e.g. Jupiter Lend).
+    // Returning '' tells SendConfirmFromDApp to keep the raw tx and lock the fee
+    // editor, the same contract the BTC PSBT path uses. See OK-64196.
+    return '';
   }
 
   override async getCustomRpcEndpointStatus(

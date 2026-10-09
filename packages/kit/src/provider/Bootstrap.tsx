@@ -57,6 +57,7 @@ import {
   startRuntimeHealthCensus,
   stopRuntimeHealthCensus,
 } from '@onekeyhq/shared/src/performance/collectors/jsBlockCollector';
+import { isAccountSwitchDiagnosticsEnabled } from '@onekeyhq/shared/src/performance/enabled';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDiscoveryModalRoutes,
@@ -465,7 +466,10 @@ export const useFetchCurrencyList = () => {
 export const useFetchMarketBasicConfig = () => {
   useEffect(() => {
     const fetchMarketBasicConfig = () => {
-      void backgroundApiProxy.serviceMarketV2.fetchMarketBasicConfig();
+      // This only warms a cache; the page owns fallback and reconnect retries.
+      void backgroundApiProxy.serviceMarketV2
+        .fetchMarketBasicConfig()
+        .catch(noop);
     };
     if (platformEnv.isWeb) {
       const timer = setTimeout(fetchMarketBasicConfig, 6000);
@@ -944,12 +948,10 @@ export function Bootstrap() {
     performance.start(1000);
   }, []);
 
-  // One line every 30 s about this runtime's own health: event-loop blocks,
-  // JS heap and GC, process CPU and memory, next to how many account switches
-  // and how much cached data it has accumulated. A slowdown that builds up over
-  // a session is invisible in the request log; this is where it shows.
+  // Opt-in regression diagnostics: one line every 30 s about event-loop blocks,
+  // JS heap and GC, process CPU/memory, account switches and cached data.
   useEffect(() => {
-    if (!platformEnv.isNative) {
+    if (!platformEnv.isNative || !isAccountSwitchDiagnosticsEnabled()) {
       return undefined;
     }
     const homeAccountSwitches = createDistinctChangeCounter();
