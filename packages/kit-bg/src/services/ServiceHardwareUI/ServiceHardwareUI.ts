@@ -1685,6 +1685,18 @@ class ServiceHardwareUI extends ServiceBase {
           );
         }
       }
+      if (
+        isOuterCall &&
+        !isThirdPartyVendor &&
+        isHardwareErrorByCode({
+          error: error as IOneKeyError,
+          code: HardwareErrorCode.BlePoweredOff,
+        })
+      ) {
+        appEventBus.emit(EAppEventBusNames.RequestHardwareUIDialog, {
+          uiRequestType: EHardwareUiStateAction.BLUETOOTH_PERMISSION,
+        });
+      }
       if (isOuterCall && !isThirdPartyVendor && platformEnv.isDesktopLinux) {
         try {
           // Prepare USB permissions for the user's next attempt; never replay the operation.

@@ -469,6 +469,60 @@ describe('ServiceHardwareUI.withHardwareProcessing stage ownership', () => {
     expect(service.processingNestedNum).toBe(0);
   });
 
+  it.each([EHardwareVendor.onekey, EHardwareVendor.trezor])(
+    'requests Bluetooth settings for a direct powered-off error from %s before the stage ends',
+    async (vendor) => {
+      const error = new OneKeyHardwareError({
+        code: HardwareErrorCode.BlePoweredOff,
+        payload: { code: HardwareErrorCode.BlePoweredOff },
+      });
+      const emit = jest.spyOn(appEventBus, 'emit');
+      const end = jest
+        .spyOn(service.deviceStageBurst, 'end')
+        .mockResolvedValue();
+      await expect(
+        service.withHardwareProcessing(
+          async () => {
+            throw error;
+          },
+          {
+            deviceParams: {
+              dbDevice: {
+                id: 'test-device',
+                name: 'Test device',
+                features: '',
+                connectId: '',
+                uuid: 'test-device',
+                deviceId: 'test-device',
+                deviceType: EDeviceType.Pro,
+                settingsRaw: '',
+                createdAt: 0,
+                updatedAt: 0,
+                vendor,
+              },
+            },
+            skipCloseHardwareUiStateDialog: true,
+          },
+        ),
+      ).rejects.toBe(error);
+
+      const dialogCall = emit.mock.calls.findIndex(
+        ([event]) => event === EAppEventBusNames.RequestHardwareUIDialog,
+      );
+      if (vendor === EHardwareVendor.onekey) {
+        expect(emit).toHaveBeenCalledWith(
+          EAppEventBusNames.RequestHardwareUIDialog,
+          { uiRequestType: 'ui-bluetooth_permission' },
+        );
+        expect(emit.mock.invocationCallOrder[dialogCall]).toBeLessThan(
+          end.mock.invocationCallOrder[0],
+        );
+      } else {
+        expect(dialogCall).toBe(-1);
+      }
+    },
+  );
+
   it.each([
     { vendor: EHardwareVendor.onekey, externalPending: false },
     { vendor: EHardwareVendor.ledger, externalPending: false },
