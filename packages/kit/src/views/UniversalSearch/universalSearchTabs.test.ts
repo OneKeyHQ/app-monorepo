@@ -116,6 +116,45 @@ describe('prioritizeMarketFocusedSections', () => {
 });
 
 describe('getUniversalSearchWatchlistKey', () => {
+  it.each([
+    ['perps', 'BTC', 'perps:BTC'],
+    ['xyz', 'BTC', 'perps:xyz:BTC'],
+    ['para', 'BTC', 'perps:para:BTC'],
+  ])('preserves the %s market identity', (assetType, name, key) => {
+    const item: IUniversalSearchResultItem = {
+      type: EUniversalSearchType.Perp,
+      payload: {
+        assetType,
+        name,
+        logoUrl: '',
+        maxLeverage: 10,
+        midPx: '1',
+        dayNtlVlm: '1',
+      },
+    };
+    expect(getUniversalSearchWatchlistKey(item)).toBe(key);
+    expect(isUniversalSearchItemInWatchlist(item, new Set([key]))).toBe(true);
+    if (assetType !== 'perps') {
+      expect(
+        isUniversalSearchItemInWatchlist(item, new Set(['perps:BTC'])),
+      ).toBe(false);
+    }
+  });
+
+  it.each(['unregistered-dex', '', undefined])(
+    'does not match a main-market favorite when assetType is %s',
+    (assetType) => {
+      const item = {
+        type: EUniversalSearchType.Perp,
+        payload: { assetType, name: 'BTC' },
+      } as IUniversalSearchResultItem;
+      expect(getUniversalSearchWatchlistKey(item)).toBeUndefined();
+      expect(
+        isUniversalSearchItemInWatchlist(item, new Set(['perps:BTC'])),
+      ).toBe(false);
+    },
+  );
+
   it('matches a native token by chain even when the address is empty', () => {
     expect(
       getUniversalSearchWatchlistKey({

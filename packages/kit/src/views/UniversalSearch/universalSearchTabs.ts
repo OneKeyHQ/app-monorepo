@@ -114,11 +114,10 @@ export function getUniversalSearchWatchlistKey(
     return undefined;
   }
   if (item.type === EUniversalSearchType.Perp) {
-    const coin =
-      buildCoinFromSearchAssetType({
-        assetType: item.payload.assetType,
-        name: item.payload.name,
-      }) ?? item.payload.name;
+    const coin = buildCoinFromSearchAssetType({
+      assetType: item.payload.assetType,
+      name: item.payload.name,
+    });
     return coin ? `perps:${coin}` : undefined;
   }
   return undefined;
