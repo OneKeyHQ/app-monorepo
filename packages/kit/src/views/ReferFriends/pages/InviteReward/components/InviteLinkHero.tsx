@@ -328,19 +328,27 @@ export function InviteCompactCard({
           </SizableText>
           {levelChip}
         </XStack>
-        <XStack ai="center" gap="$3">
-          <SizableText flex={1} size="$heading3xl" numberOfLines={1}>
-            {inviteCode}
-          </SizableText>
-          <Button
+        {/* The level chip owns the right edge, so copying sits on the code
+            itself, with the same icon as the link row. The footer keeps
+            sharing as the main action. */}
+        <XStack>
+          <XStack
             testID={ReferFriendsTestIDs.inviteCodeLine}
-            variant="secondary"
-            size="small"
-            icon="Copy3Outline"
+            ai="center"
+            gap="$2"
+            flexShrink={1}
+            // Bleed the press surface so the code stays aligned with the label.
+            mx="$-2"
+            px="$2"
+            borderRadius="$2"
+            {...PRESSABLE_SURFACE_PROPS}
             onPress={handleCopy}
           >
-            {intl.formatMessage({ id: ETranslations.global_copy })}
-          </Button>
+            <SizableText size="$heading3xl" numberOfLines={1} flexShrink={1}>
+              {inviteCode}
+            </SizableText>
+            <Icon name="Copy3Outline" size="$5" color="$iconSubdued" />
+          </XStack>
         </XStack>
       </YStack>
       <Divider borderColor={INVITE_CARD_BORDER_COLOR} />
