@@ -164,15 +164,19 @@ function InviteOverviewSkeleton() {
   );
 
   if (md) {
-    // Compact content: overview caption and invite card, then earnings
-    // card, spaced like the loaded page's groups.
+    // Compact content: the hero, the code card and the bind line, then the
+    // earnings caption and card, spaced like the loaded page's groups.
     return (
-      <YStack px="$pagePadding" pt="$3" gap="$6">
-        <YStack gap="$2">
-          <XStack jc="space-between" ai="center" h={32}>
-            <Skeleton.BodyMd w={72} />
-            <Skeleton.BodyMd w={96} />
-          </XStack>
+      <YStack px="$pagePadding" gap="$6">
+        <YStack gap="$4">
+          <YStack ai="center" gap="$3">
+            <Skeleton w={282} h={160} radius={16} />
+            <YStack ai="center" gap="$2">
+              <Skeleton.Heading2Xl w={260} />
+              <Skeleton.BodyMd w={220} />
+              <Skeleton w={96} h={28} radius="round" />
+            </YStack>
+          </YStack>
           <YStack gap="$4" p="$4" {...cardStyle}>
             <YStack gap="$1">
               <XStack jc="space-between">
@@ -182,30 +186,35 @@ function InviteOverviewSkeleton() {
               <Skeleton.HeadingXl w={120} />
             </YStack>
             <Divider borderColor="$neutral4" />
-            {[0, 1, 2].map((index) => (
-              <XStack key={index} jc="space-between">
-                <Skeleton.BodyMd w={96} />
-                <Skeleton.BodyMd w={120} />
-              </XStack>
-            ))}
-          </YStack>
-        </YStack>
-        <YStack gap="$4" p="$4" {...cardStyle}>
-          <YStack gap="$1">
-            <Skeleton.BodyMd />
-            <Skeleton.Heading3Xl />
-          </YStack>
-          {[0, 1].map((index) => (
-            <XStack key={index} jc="space-between">
+            <XStack jc="space-between">
               <Skeleton.BodyMd w={96} />
-              <Skeleton.BodyMd w={88} />
+              <Skeleton.BodyMd w={160} />
             </XStack>
-          ))}
-          <Divider borderColor="$neutral4" />
-          <XStack jc="space-between">
-            <Skeleton.BodyMd w={120} />
+          </YStack>
+          <Skeleton.BodyMd w={220} />
+        </YStack>
+        <YStack gap="$2">
+          <XStack jc="space-between" ai="center" h={32}>
+            <Skeleton.BodyMd w={72} />
             <Skeleton.BodyMd w={96} />
           </XStack>
+          <YStack gap="$4" p="$4" {...cardStyle}>
+            <YStack gap="$1">
+              <Skeleton.BodyMd />
+              <Skeleton.Heading3Xl />
+            </YStack>
+            {[0, 1].map((index) => (
+              <XStack key={index} jc="space-between">
+                <Skeleton.BodyMd w={96} />
+                <Skeleton.BodyMd w={88} />
+              </XStack>
+            ))}
+            <Divider borderColor="$neutral4" />
+            <XStack jc="space-between">
+              <Skeleton.BodyMd w={120} />
+              <Skeleton.BodyMd w={96} />
+            </XStack>
+          </YStack>
         </YStack>
       </YStack>
     );

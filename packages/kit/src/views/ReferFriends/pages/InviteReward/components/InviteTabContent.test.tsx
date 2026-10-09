@@ -10,6 +10,8 @@ import { ReferFriendsTestIDs } from '@onekeyhq/kit/src/views/ReferFriends/testID
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 
+import { INVITE_COPY } from '../inviteCopy';
+
 import { InviteTabContent } from './InviteTabContent';
 
 // Parity guard for the invite tab redesign: every entry point the previous
@@ -71,6 +73,11 @@ jest.mock('@onekeyhq/components', () => {
     },
   );
 });
+
+jest.mock(
+  '@onekeyhq/kit/src/views/ReferFriends/pages/ReferAFriend/components/InviteCodeStepImage',
+  () => ({ InviteCodeStepImage: () => null }),
+);
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -329,6 +336,16 @@ describe('InviteTabContent entry points', () => {
       ).toBeTruthy();
     },
   );
+
+  it('opens the compact page on the invite hero with the level', () => {
+    mockMd = true;
+    renderTab();
+
+    expect(screen.getByText(INVITE_COPY.heroTitle)).toBeTruthy();
+    expect(
+      screen.getByTestId(ReferFriendsTestIDs.inviteLevelPill),
+    ).toBeTruthy();
+  });
 
   it('opens the bind referral code dialog', () => {
     renderTab();

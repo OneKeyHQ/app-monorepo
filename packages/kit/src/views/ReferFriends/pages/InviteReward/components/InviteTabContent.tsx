@@ -5,9 +5,11 @@ import type {
   IInviteSummary,
 } from '@onekeyhq/shared/src/referralCode/type';
 
+import { INVITE_COPY } from '../inviteCopy';
+
 import { InviteBindRow } from './InviteBindRow';
+import { InviteCompactHero } from './InviteCompactHero';
 import { InviteEarningsCard } from './InviteEarningsCard';
-import { InviteLevelValue } from './InviteLevelPill';
 import {
   InviteCompactCard,
   InviteLinkHero,
@@ -58,40 +60,40 @@ export function InviteTabContent({
       />
 
       {md ? (
-        // Compact layouts give each card one job: sharing (code, link, and
-        // the level with the rates it sets), then
-        // money (the earnings card and its per-product breakdown), then the
-        // invitee's bind entry (only until linked). Captions sit 8px over
-        // their card, cards 16px apart inside a group, 24px between groups.
-        // Sharing itself sits in the page footer.
-        <YStack px="$pagePadding" pt="$3" gap="$6">
-          <YStack gap="$2">
-            <InviteOverviewCaption />
+        // Compact layouts open on inviting: the hero (illustration, what
+        // each side gets, the level) over the code card and the bind entry.
+        // The money follows under its own caption, with the referral list
+        // beside it, a scroll away. Captions sit 8px over their card, cards
+        // 16px apart inside a group, 24px between groups. Sharing itself
+        // sits in the page footer.
+        <YStack px="$pagePadding" gap="$6">
+          <YStack gap="$4">
+            <InviteCompactHero
+              valueSummary={valueSummary}
+              rebateConfig={summaryInfo.rebateConfig}
+              rebateLevels={summaryInfo.rebateLevels}
+              levelDetail={levelDetail}
+            />
             <InviteCompactCard
               inviteUrl={summaryInfo.inviteUrl}
               inviteCode={summaryInfo.inviteCode}
-              valueSummary={valueSummary}
               cardStyle={cardStyle}
-              levelValue={
-                <InviteLevelValue
-                  rebateConfig={summaryInfo.rebateConfig}
-                  rebateLevels={summaryInfo.rebateLevels}
-                  levelDetail={levelDetail}
-                />
-              }
               onManageCodes={() => {
                 navigateToInviteCodes(summaryInfo.inviteUrl);
               }}
             />
+            <InviteBindRow />
           </YStack>
-          <YStack gap="$4">
-            <InviteEarningsCard
-              summaryInfo={summaryInfo}
-              fetchSummaryInfo={fetchSummaryInfo}
-            />
-            <InviteRewardRows summaryInfo={summaryInfo} />
+          <YStack gap="$2">
+            <InviteOverviewCaption label={INVITE_COPY.earningsTitle} />
+            <YStack gap="$4">
+              <InviteEarningsCard
+                summaryInfo={summaryInfo}
+                fetchSummaryInfo={fetchSummaryInfo}
+              />
+              <InviteRewardRows summaryInfo={summaryInfo} />
+            </YStack>
           </YStack>
-          <InviteBindRow variant="card" />
         </YStack>
       ) : (
         // Desktop leads with earnings; the invite card sits beside it.

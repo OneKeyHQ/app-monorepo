@@ -20,7 +20,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ReferFriendsTestIDs } from '../../../testIDs';
 import { INVITE_COPY } from '../inviteCopy';
 
-import { InviteValueLine, RatePopover } from './InviteValueLine';
+import { InviteValueLine } from './InviteValueLine';
 import { useReferralCodeCard } from './ReferralCodeCard/hooks/useReferralCodeCard';
 import { ReferralLinkDropdown } from './ReferralLinkDropdown';
 import {
@@ -294,14 +294,12 @@ function InviteFieldRow({
 export function InviteCompactCard({
   inviteUrl,
   inviteCode,
-  valueSummary,
   cardStyle,
   levelValue,
   onManageCodes,
 }: {
   inviteUrl: string;
   inviteCode: string;
-  valueSummary: IInviteValueSummaryResult;
   cardStyle: IInviteCardStyle;
   // The level sits right above the rates it sets.
   levelValue?: ReactNode;
@@ -312,13 +310,6 @@ export function InviteCompactCard({
     inviteUrl,
     inviteCode,
   });
-  const { summary } = valueSummary;
-  const rateValue = summary
-    ? `${summary.isUniform ? '' : `${INVITE_COPY.upTo} `}${summary.rate} / ${
-        summary.friendRate ?? '0%'
-      }`
-    : null;
-
   return (
     // 16px from the text to the card edge on every side, like the other
     // cards (the last row brings 8px of its own); 12px around the divider.
@@ -380,21 +371,6 @@ export function InviteCompactCard({
           {levelValue}
         </InviteFieldRow>
       ) : null}
-      {rateValue ? (
-        <InviteFieldRow label={INVITE_COPY.rateLabel}>
-          <RatePopover
-            valueSummary={valueSummary}
-            trigger={
-              <XStack ai="center" gap="$1">
-                <SizableText size="$bodyMdMedium" color="$textSuccess">
-                  {rateValue}
-                </SizableText>
-                <Icon name="InfoCircleOutline" size="$5" color="$iconSubdued" />
-              </XStack>
-            }
-          />
-        </InviteFieldRow>
-      ) : null}
     </YStack>
   );
 }
@@ -402,14 +378,14 @@ export function InviteCompactCard({
 // Compact layouts: the caption over the invite card, with the referral list
 // (the people its codes brought in) on the right, like Payout history on
 // the earnings card.
-export function InviteOverviewCaption() {
+export function InviteOverviewCaption({ label }: { label?: string } = {}) {
   const intl = useIntl();
   const navigateToYourReferred = useNavigateToYourReferred();
 
   return (
     <XStack ai="center" jc="space-between" gap="$3">
       <SizableText size="$bodyMdMedium" color="$textSubdued">
-        {intl.formatMessage({ id: ETranslations.global_overview })}
+        {label ?? intl.formatMessage({ id: ETranslations.global_overview })}
       </SizableText>
       <Button
         testID={ReferFriendsTestIDs.inviteYourReferred}
