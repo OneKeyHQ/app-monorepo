@@ -104,11 +104,11 @@ function ReferralLevelSkeleton() {
             </XStack>
             <Divider borderColor={INVITE_CARD_BORDER_COLOR} />
             <Skeleton.BodyMd w={200} />
-            <XStack gap="$5" $md={{ flexDirection: 'column', gap: '$4' }}>
+            <XStack gap="$10" $md={{ flexDirection: 'column', gap: '$4' }}>
               {[0, 1].map((index) => (
                 <YStack key={index} flex={1} gap="$2">
                   <Skeleton.BodyMd w={120} />
-                  {md ? null : <Skeleton.HeadingMd w={160} />}
+                  {md ? null : <Skeleton.Heading2Xl w={160} />}
                   <Skeleton w="100%" h="$1" radius="round" />
                 </YStack>
               ))}

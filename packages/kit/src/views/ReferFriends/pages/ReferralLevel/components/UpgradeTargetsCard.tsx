@@ -1,12 +1,9 @@
-import { Fragment } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import {
   Image,
   Progress,
   SizableText,
-  Stack,
   XStack,
   YStack,
   useMedia,
@@ -17,7 +14,6 @@ import type { IInviteLevelItem } from '@onekeyhq/shared/src/referralCode/type';
 import { LEVEL_COPY, LEVEL_TARGET_SHORT_LABELS } from '../levelCopy';
 
 import { getDisplayLabel } from './LevelListSection/LevelAccordionItem';
-import { OrDivider } from './LevelListSection/OrDivider';
 import {
   formatFiatCompact,
   formatFiatExact,
@@ -49,12 +45,9 @@ export function formatLevelTargetRemaining(
     : LEVEL_COPY.toGo(`${formatFiatExact(target.remaining)} ${currencyCode}`);
 }
 
-function formatPct(value: number) {
-  return `${Math.round(value * 10) / 10}%`;
-}
-
-// Three lines per target: progress as "current / target", the bar, and what
-// is left. The target is not repeated on its own line.
+// Each target reads as its name, "current / target" and the bar, like the
+// compact rows. A percentage or a "to go" line would only restate the
+// figures, so the only extra line marks a target already reached.
 function TargetColumn({
   target,
   currencyCode,
@@ -78,25 +71,17 @@ function TargetColumn({
           {`/ ${formatFiatExact(target.target)} ${currencyCode}`}
         </SizableText>
       </XStack>
-      <XStack ai="center" gap="$3">
-        <Stack flex={1}>
-          <Progress
-            size="medium"
-            value={target.progressPct}
-            progressColor="$neutral4"
-            indicatorColor="$iconSuccess"
-          />
-        </Stack>
-        <SizableText size="$bodySmMedium" color="$textSubdued">
-          {formatPct(target.progressPct)}
+      <Progress
+        size="medium"
+        value={target.progressPct}
+        progressColor="$neutral4"
+        indicatorColor="$iconSuccess"
+      />
+      {target.isReached ? (
+        <SizableText size="$bodyMdMedium" color="$textSuccess">
+          {LEVEL_COPY.targetReached}
         </SizableText>
-      </XStack>
-      <SizableText
-        size="$bodyMdMedium"
-        color={target.isReached ? '$textSuccess' : '$text'}
-      >
-        {formatLevelTargetRemaining(target, currencyCode)}
-      </SizableText>
+      ) : null}
     </YStack>
   );
 }
@@ -197,12 +182,15 @@ export function UpgradeTargetsSection({
           {`· ${LEVEL_COPY.upgradeRule(targets.length > 1)}`}
         </SizableText>
       </XStack>
-      <XStack gap="$5" ai="stretch">
-        {targets.map((target, index) => (
-          <Fragment key={target.subject}>
-            <TargetColumn target={target} currencyCode={currencyCode} />
-            {index < targets.length - 1 ? <OrDivider /> : null}
-          </Fragment>
+      {/* The "meet any one" rule above already says these are alternatives,
+          so the columns are split by space, not OR dividers. */}
+      <XStack gap="$10" ai="flex-start">
+        {targets.map((target) => (
+          <TargetColumn
+            key={target.subject}
+            target={target}
+            currencyCode={currencyCode}
+          />
         ))}
       </XStack>
     </YStack>
