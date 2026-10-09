@@ -13,6 +13,9 @@ export type ILottieViewProps = Omit<
   resizeMode?: 'cover' | 'contain' | 'center';
   loop?: boolean;
   renderMode?: LottieNativeProps['renderMode'];
+  // Called when a non-looping animation reaches its end (`isCancelled` when
+  // it was stopped first).
+  onAnimationFinish?: (isCancelled: boolean) => void;
 } & Omit<StackProps, 'width' | 'height'> & {
     width?: StackProps['width'];
     height?: StackProps['height'];

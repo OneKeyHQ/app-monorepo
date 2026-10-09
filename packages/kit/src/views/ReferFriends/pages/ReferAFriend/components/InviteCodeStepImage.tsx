@@ -1,4 +1,12 @@
-import { memo, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { Ref } from 'react';
 
 import { LottieView, Stack, usePageWidth } from '@onekeyhq/components';
@@ -69,6 +77,14 @@ function getInviteCodeLottieSource(params: {
   return pending;
 }
 
+// Step 2 is three 2-second rounds, each a friend joining: the left hand
+// slides in, coins cross to the right phone, the friend's avatar checks, then
+// the hand slides out. A one-shot play ends on round three's settled moment
+// (both hands together, coins landed, check shown) instead of the last frame,
+// where the left half of the canvas is empty. 240 starts round three; 84 is
+// where its coins land.
+const STEP_2_REST_FRAME = 240 + 84;
+
 // Lets a caller hold the animation still while it cannot be seen, without
 // re-rendering: scroll handlers call it on every crossing.
 export interface IInviteCodeStepImageControl {
@@ -81,6 +97,8 @@ interface IInviteCodeStepImageProps {
   // The intro flips between both steps, so it preloads the other one; other
   // callers show a single step and skip that.
   preloadOtherStep?: boolean;
+  // Plays step 2 once and holds its settled frame instead of looping.
+  playOnce?: boolean;
 }
 
 // Memoized: re-rendering the native LottieView re-serializes its ~160 KB
@@ -89,16 +107,20 @@ export const InviteCodeStepImage = memo(function InviteCodeStepImage({
   step,
   controlRef,
   preloadOtherStep = true,
+  playOnce = false,
 }: IInviteCodeStepImageProps) {
   const lottieRef = useRef<ILottieViewHandle>(null);
   const pausedRef = useRef(false);
+  // Once a one-shot play has ended there is nothing to pause or resume.
+  const finishedRef = useRef(false);
   const themeVariant = useThemeVariant();
   const pageWidth = usePageWidth();
   const [lottieSource, setLottieSource] = useState<ILottieSource | null>(null);
   const lottieThemeVariant = themeVariant === 'dark' ? 'dark' : 'light';
   const width = Math.min(pageWidth, MAX_WIDTH);
   const height = getInviteCodeStepImageHeight(pageWidth);
-  const shouldLoop = step === 2;
+  const isOneShot = playOnce && step === 2;
+  const shouldLoop = step === 2 && !playOnce;
   const renderMode =
     platformEnv.isNativeIOS && step === 2 && themeVariant !== 'dark'
       ? 'HARDWARE'
@@ -107,6 +129,7 @@ export const InviteCodeStepImage = memo(function InviteCodeStepImage({
   useEffect(() => {
     let cancelled = false;
     setLottieSource(null);
+    finishedRef.current = false;
     void getInviteCodeLottieSource({
       step,
       themeVariant: lottieThemeVariant,
@@ -132,7 +155,7 @@ export const InviteCodeStepImage = memo(function InviteCodeStepImage({
     controlRef,
     () => ({
       setPaused: (paused) => {
-        if (pausedRef.current === paused) {
+        if (pausedRef.current === paused || finishedRef.current) {
           return;
         }
         pausedRef.current = paused;
@@ -144,6 +167,22 @@ export const InviteCodeStepImage = memo(function InviteCodeStepImage({
       },
     }),
     [],
+  );
+
+  const handleAnimationFinish = useCallback((isCancelled: boolean) => {
+    if (!isCancelled) {
+      finishedRef.current = true;
+    }
+  }, []);
+
+  // Ending the composition at the rest frame makes the player stop there on
+  // every platform. Memoized: a new object re-serializes the source natively.
+  const playedSource = useMemo(
+    () =>
+      isOneShot && lottieSource && typeof lottieSource === 'object'
+        ? { ...lottieSource, op: STEP_2_REST_FRAME }
+        : lottieSource,
+    [isOneShot, lottieSource],
   );
 
   // A source that loads while the animation is held mounts without
@@ -160,14 +199,15 @@ export const InviteCodeStepImage = memo(function InviteCodeStepImage({
 
   return (
     <Stack w={width} h={height} alignSelf="center" bg="$bgApp">
-      {lottieSource ? (
+      {playedSource ? (
         <LottieView
           ref={lottieRef}
-          source={lottieSource}
+          source={playedSource}
           width={width}
           height={height}
           autoPlay={shouldAutoPlay}
           loop={shouldLoop}
+          onAnimationFinish={handleAnimationFinish}
           resizeMode="contain"
           renderMode={renderMode}
           backgroundColor="$bgApp"

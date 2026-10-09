@@ -1,5 +1,11 @@
 import type { LegacyRef } from 'react';
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+} from 'react';
 
 import AnimatedLottieView from 'lottie-react-native';
 import { AppState } from 'react-native';
@@ -13,13 +19,35 @@ import type { AppStateStatus } from 'react-native';
 
 export const LottieView = forwardRef<ILottieViewHandle, ILottieViewProps>(
   (
-    { source, loop = true, resizeMode, autoPlay = true, renderMode, ...props },
+    {
+      source,
+      loop = true,
+      resizeMode,
+      autoPlay = true,
+      renderMode,
+      onAnimationFinish,
+      ...props
+    },
     ref,
   ) => {
     const animationRef = useRef<AnimatedLottieView | null>(null);
     // Set by pause()/resume(), so returning from background does not restart
     // an animation its owner holds still.
     const isPausedRef = useRef(false);
+    // A one-shot animation that has played out stays on its last frame.
+    const isFinishedRef = useRef(false);
+    const handleAnimationFinish = useCallback(
+      (isCancelled: boolean) => {
+        if (!isCancelled && !loop) {
+          isFinishedRef.current = true;
+        }
+        onAnimationFinish?.(isCancelled);
+      },
+      [loop, onAnimationFinish],
+    );
+    useEffect(() => {
+      isFinishedRef.current = false;
+    }, [source]);
 
     const appStateRef = useRef(AppState.currentState);
     const [restProps, style] = usePropsAndStyle(props, {
@@ -33,7 +61,8 @@ export const LottieView = forwardRef<ILottieViewHandle, ILottieViewProps>(
           appStateRef.current &&
           /inactive|background/.exec(appStateRef.current) &&
           nextAppState === 'active' &&
-          !isPausedRef.current
+          !isPausedRef.current &&
+          !isFinishedRef.current
         ) {
           animationRef.current?.play?.();
         }
@@ -51,6 +80,7 @@ export const LottieView = forwardRef<ILottieViewHandle, ILottieViewProps>(
     useImperativeHandle(ref, () => ({
       play: () => {
         isPausedRef.current = false;
+        isFinishedRef.current = false;
         animationRef.current?.play?.();
       },
       pause: () => {
@@ -63,6 +93,7 @@ export const LottieView = forwardRef<ILottieViewHandle, ILottieViewProps>(
         animationRef.current?.resume?.();
       },
       reset: () => {
+        isFinishedRef.current = false;
         animationRef.current?.reset();
       },
     }));
@@ -75,6 +106,7 @@ export const LottieView = forwardRef<ILottieViewHandle, ILottieViewProps>(
         loop={loop}
         style={style as any}
         {...(restProps as any)}
+        onAnimationFinish={handleAnimationFinish}
         ref={animationRef as LegacyRef<AnimatedLottieView>}
         renderMode={
           renderMode ?? (platformEnv.isNativeIOS ? 'SOFTWARE' : undefined)

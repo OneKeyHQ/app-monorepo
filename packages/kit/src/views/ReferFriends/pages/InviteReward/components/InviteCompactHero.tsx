@@ -34,14 +34,16 @@ export function InviteCompactHero({
 
   return (
     <YStack ai="center" gap="$3">
-      {/* The intro's referral loop at page width: its frames swap one hand
-          for another across the whole canvas, so a narrower box or a frozen
-          last frame leaves half of it empty. The illustration's background
-          matches the canvas, so it bleeds past the page padding unseen. */}
+      {/* The intro's referral animation at page width: its frames swap one
+          hand for another across the whole canvas, so a narrower box leaves
+          half of it empty. It plays its three rounds once and holds a frame
+          with both hands in view. The illustration's background matches the
+          canvas, so it bleeds past the page padding unseen. */}
       <InviteCodeStepImage
         step={2}
         controlRef={animationControlRef}
         preloadOtherStep={false}
+        playOnce
       />
       <YStack ai="center" gap="$2">
         <SizableText size="$heading2xl" textAlign="center">

@@ -1,5 +1,12 @@
 /* eslint-disable  @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
-import { Suspense, forwardRef, lazy, useImperativeHandle, useRef } from 'react';
+import {
+  Suspense,
+  forwardRef,
+  lazy,
+  useCallback,
+  useImperativeHandle,
+  useRef,
+} from 'react';
 
 import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
 
@@ -11,11 +18,14 @@ import type { ILottieViewHandle, ILottieViewProps } from './type';
 const LottieViewWeb = lazy(() => import('lottie-react'));
 
 export const LottieView = forwardRef<ILottieViewHandle, ILottieViewProps>(
-  ({ source, autoPlay = false, loop, ...props }, ref) => {
+  ({ source, autoPlay = false, loop, onAnimationFinish, ...props }, ref) => {
     const [restProps, style] = usePropsAndStyle(props, {
       resolveValues: 'auto',
     });
     const animationRef = useRef<any>(null);
+    const handleComplete = useCallback(() => {
+      onAnimationFinish?.(false);
+    }, [onAnimationFinish]);
 
     useImperativeHandle(ref, () => ({
       play: () => {
@@ -41,6 +51,7 @@ export const LottieView = forwardRef<ILottieViewHandle, ILottieViewProps>(
           loop={loop}
           style={style as any}
           {...(restProps as any)}
+          onComplete={handleComplete}
           lottieRef={animationRef}
         />
       </Suspense>
