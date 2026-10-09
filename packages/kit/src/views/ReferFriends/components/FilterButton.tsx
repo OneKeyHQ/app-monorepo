@@ -150,8 +150,9 @@ export function FilterButton({
         <Stack
           testID={ReferFriendsTestIDs.filterActiveDot}
           position="absolute"
-          top={2}
-          right={2}
+          // Clear of the funnel's top-right corner, like a badge.
+          top={-1}
+          right={-1}
           w="$2.5"
           h="$2.5"
           borderRadius="$full"
