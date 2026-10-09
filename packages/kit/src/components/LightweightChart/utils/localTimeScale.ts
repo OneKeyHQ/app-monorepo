@@ -9,18 +9,32 @@ export function getLocalTimeOffsetSeconds(timestampSeconds: number) {
   return -new Date(timestampSeconds * 1000).getTimezoneOffset() * 60;
 }
 
-export function shiftChartToLocalTime(
-  data: IMarketTokenChart,
-): IMarketTokenChart {
-  return data.map(([time, value]) => [
-    time + getLocalTimeOffsetSeconds(time),
-    value,
-  ]);
-}
+export type ILocalTimeScale = {
+  data: IMarketTokenChart;
+  // Maps a time the chart reports back (crosshair) to the source timestamp.
+  toUtcTimestamp: (localTimeSeconds: number) => number;
+};
 
-// Inverse of the shift above, for times the chart reports back (crosshair).
-// The second pass corrects the guess when the point sits next to a DST change.
-export function toUtcTimestampFromLocalTime(localTimeSeconds: number) {
-  const guess = localTimeSeconds - getLocalTimeOffsetSeconds(localTimeSeconds);
-  return localTimeSeconds - getLocalTimeOffsetSeconds(guess);
+export function createLocalTimeScale(data: IMarketTokenChart): ILocalTimeScale {
+  const utcByLocalTime = new Map<number, number>();
+  let previousLocalTime = -Infinity;
+  const localData: IMarketTokenChart = data.map(([time, value]) => {
+    // A DST fall-back repeats an hour of wall-clock time, while the chart
+    // requires strictly increasing times. A point that would not move forward
+    // is placed one second after the previous one; the time axis is
+    // index-based, so this does not move it on screen.
+    const localTime = Math.max(
+      time + getLocalTimeOffsetSeconds(time),
+      previousLocalTime + 1,
+    );
+    previousLocalTime = localTime;
+    utcByLocalTime.set(localTime, time);
+    return [localTime, value];
+  });
+  return {
+    data: localData,
+    toUtcTimestamp: (localTimeSeconds) =>
+      utcByLocalTime.get(localTimeSeconds) ??
+      localTimeSeconds - getLocalTimeOffsetSeconds(localTimeSeconds),
+  };
 }

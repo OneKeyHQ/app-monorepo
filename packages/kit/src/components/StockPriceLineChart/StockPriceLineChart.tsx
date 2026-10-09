@@ -11,10 +11,7 @@ import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import { LightweightChart } from '../LightweightChart';
 import { formatChartPrice } from '../LightweightChart/utils/formatChartPrice';
-import {
-  shiftChartToLocalTime,
-  toUtcTimestampFromLocalTime,
-} from '../LightweightChart/utils/localTimeScale';
+import { createLocalTimeScale } from '../LightweightChart/utils/localTimeScale';
 
 import type { ILightweightChartReferenceLine } from '../LightweightChart/types';
 
@@ -137,6 +134,13 @@ export function StockPriceLineChart({
     (price: number) => formatChartPrice(price, PRICE_SCALE_MAX_CHARACTERS),
     [],
   );
+  // The chart only ever sees local-time series so its axis marks local
+  // midnight; hover times are mapped back before anything else reads them.
+  const localTimeScale = useMemo(() => createLocalTimeScale(data), [data]);
+  const localData = localTimeScale.data;
+  // Read through a ref: a new `onHover` would rebuild the chart instance.
+  const toUtcTimestampRef = useRef(localTimeScale.toUtcTimestamp);
+  toUtcTimestampRef.current = localTimeScale.toUtcTimestamp;
   const handleHover = useCallback(
     ({
       time,
@@ -155,7 +159,12 @@ export function StockPriceLineChart({
         x !== undefined &&
         y !== undefined
       ) {
-        setHoverData({ time: toUtcTimestampFromLocalTime(time), price, x, y });
+        setHoverData({
+          time: toUtcTimestampRef.current(time),
+          price,
+          x,
+          y,
+        });
       } else {
         setHoverData(null);
       }
@@ -240,9 +249,6 @@ export function StockPriceLineChart({
 
   // The whole range stays on the main (faded) series so the price scale never
   // moves; only the solid overlay drawn on top of it is cut at the cursor.
-  // The chart only ever sees local-time series so its axis marks local
-  // midnight; hover times are converted back before anything else reads them.
-  const localData = useMemo(() => shiftChartToLocalTime(data), [data]);
   const hoveredTime = hoverData?.time;
   const solidData = useMemo(() => {
     if (hoveredTime === undefined) {

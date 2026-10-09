@@ -35,7 +35,7 @@ function padTimePart(value: number) {
 }
 
 // Read as UTC: charts using the unit-less tick marks feed times already shifted
-// to local wall-clock time (see `shiftChartToLocalTime`), which is also how the
+// to local wall-clock time (see `createLocalTimeScale`), which is also how the
 // native WebView's default formatter reads them.
 function getDatePartsFromDate(date: Date) {
   return {
