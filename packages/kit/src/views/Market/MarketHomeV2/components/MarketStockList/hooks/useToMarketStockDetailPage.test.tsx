@@ -28,6 +28,14 @@ const mockSwitchTabAsync = jest.fn<Promise<void>, [unknown]>(() =>
 let mockIsModalPage = false;
 let mockCurrentRouteName: string = ETabMarketRoutes.MarketDetailV2;
 let mockCurrentRouteParams: Partial<IMarketStockDetailRouteParams> | undefined;
+let mockTravelMode = false;
+jest.mock('@onekeyhq/shared/src/travelMode', () => ({
+  travelModeManager: {
+    getRuntimeEnvironmentSync: () => ({
+      profile: { kind: mockTravelMode ? 'travel-mode' : 'normal' },
+    }),
+  },
+}));
 jest.mock('@react-navigation/native', () => ({
   useRoute: () => ({
     name: mockCurrentRouteName,
@@ -177,6 +185,7 @@ describe('hasExplicitMarketStockTokenIdentity', () => {
 describe('useToMarketStockDetailPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockTravelMode = false;
     mockedPlatformEnv.isExtensionUiPopup = false;
     mockedPlatformEnv.isExtensionUiSidePanel = false;
     mockedPlatformEnv.isDesktop = true;
@@ -190,6 +199,58 @@ describe('useToMarketStockDetailPage', () => {
 
   afterEach(() => {
     finishMarketDetailTabBarTransition();
+  });
+
+  it('reports that travel mode suppressed navigation', async () => {
+    mockTravelMode = true;
+    const { result } = renderHook(() => useToMarketStockDetailPage());
+    await expect(result.current('AAPL')).resolves.toBe(false);
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(mockPreloadMarketDetailV2Page).not.toHaveBeenCalled();
+  });
+
+  it('propagates native preload failure without navigating', async () => {
+    mockedPlatformEnv.isNative = true;
+    mockPreloadMarketDetailV2Page.mockRejectedValueOnce(
+      new Error('Preload failed'),
+    );
+    const { result } = renderHook(() =>
+      useToMarketStockDetailPage({ replaceCurrentDetail: true }),
+    );
+    await expect(result.current('AAPL')).rejects.toThrow('Preload failed');
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('stops obsolete navigation after native preloading', async () => {
+    mockedPlatformEnv.isNative = true;
+    let complete = () => {};
+    mockPreloadMarketDetailV2Page.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          complete = resolve;
+        }),
+    );
+    let isCurrent = true;
+    const { result } = renderHook(() =>
+      useToMarketStockDetailPage({ replaceCurrentDetail: true }),
+    );
+    const pending = result.current('AAPL', {
+      isCurrentRequest: () => isCurrent,
+    });
+    isCurrent = false;
+    complete();
+    await expect(pending).resolves.toBe(false);
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('reports successful navigation', async () => {
+    const { result } = renderHook(() =>
+      useToMarketStockDetailPage({ replaceCurrentDetail: true }),
+    );
+    await expect(result.current('AAPL')).resolves.toBe(true);
+    expect(mockPush).toHaveBeenCalled();
   });
 
   it('resets the tab stack before opening the selected stock', async () => {

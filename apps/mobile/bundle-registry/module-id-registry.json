@@ -21861,6 +21861,7 @@
     "packages/kit/src/views/Market/MarketDetailV2/components/TokenSelector/useLiveTokenOverride.ts": 22678,
     "packages/kit/src/views/Market/MarketDetailV2/components/TokenSelector/useMarketStockSelectorList.ts": 7136,
     "packages/kit/src/views/Market/MarketDetailV2/components/TokenSelector/useMarketTokenSelectorSearchState.ts": 6834,
+    "packages/kit/src/views/Market/MarketDetailV2/components/TokenSelector/useMobileStockSelectorNavigation.ts": 3847,
     "packages/kit/src/views/Market/MarketDetailV2/components/TokenSupplementaryInfo/StockTradingActivity.tsx": 18569,
     "packages/kit/src/views/Market/MarketDetailV2/components/TokenSupplementaryInfo/TokenSupplementaryInfo.tsx": 18935,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/BtcMetadataContext.tsx": 20035,

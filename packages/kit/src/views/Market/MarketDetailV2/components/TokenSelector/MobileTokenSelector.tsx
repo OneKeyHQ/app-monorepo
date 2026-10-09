@@ -66,6 +66,7 @@ import { MobileMarketTokenSelectorSearchResults } from './MobileMarketTokenSelec
 import { navigateToMarketTokenDetail } from './navigateToMarketTokenDetail';
 import { useLiveTokenOverride } from './useLiveTokenOverride';
 import { useMarketStockSelectorList } from './useMarketStockSelectorList';
+import { useMobileStockSelectorNavigation } from './useMobileStockSelectorNavigation';
 
 function normalizeRouteBooleanParam(value: boolean | string | undefined) {
   if (typeof value === 'string') {
@@ -385,19 +386,17 @@ function MobileTokenSelectorContent() {
     [navigateToTokenDetail],
   );
 
-  const handleSearchStockSelect = useCallback(
-    (stock: IMarketStockPublicItem) => {
-      navigationRequestIdRef.current += 1;
-      dismissMobileTokenSelectorKeyboard();
-      // Replace the open detail while this modal is still in the root state,
-      // then close the modal. Popping first hides the tab stack and stacks
-      // another detail page.
-      void toMarketStockDetailPage(stock).finally(() => {
-        navigation.popStack();
-      });
-    },
-    [navigation, toMarketStockDetailPage],
-  );
+  const handleSearchStockSelect = useMobileStockSelectorNavigation({
+    navigate: toMarketStockDetailPage,
+    requestIdRef: navigationRequestIdRef,
+    closeSelector: () => navigation.popStack(),
+    onError: () =>
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.global_an_error_occurred,
+        }),
+      }),
+  });
 
   return (
     <Page>
