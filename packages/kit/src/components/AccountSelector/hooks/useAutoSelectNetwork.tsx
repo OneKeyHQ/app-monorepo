@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -10,6 +11,7 @@ import {
   useSelectedAccount,
 } from '../../../states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
+import { isAccountSelectorPerfDebugEnabled } from '../../../states/jotai/contexts/accountSelector/perfDebug';
 
 import { useAccountSelectorAvailableNetworks } from './useAccountSelectorAvailableNetworks';
 
@@ -29,6 +31,7 @@ export function useAutoSelectNetwork({ num }: { num: number }) {
 
   const [isReady] = useAccountSelectorStorageReadyAtom();
   const { networkIds, defaultNetworkId } = useAccountSelectorAvailableNetworks({
+    consumer: 'auto-select-network',
     num,
   });
 
@@ -77,11 +80,12 @@ export function useAutoSelectNetwork({ num }: { num: number }) {
       }
 
       if (usedNetworkId) {
-        if (sceneName === EAccountSelectorSceneName.discover) {
-          console.log(
-            'useAutoSelectNetwork::: updateSelectedAccountNetwork',
-            usedNetworkId,
-          );
+        if (isAccountSelectorPerfDebugEnabled()) {
+          defaultLogger.accountSelector.perf.trace('autoSelectNetwork', {
+            networkId: usedNetworkId,
+            num,
+            sceneName,
+          });
         }
 
         let cancelled = false;
@@ -90,6 +94,7 @@ export function useAutoSelectNetwork({ num }: { num: number }) {
           .updateSelectedAccountNetwork({
             num,
             networkId: usedNetworkId,
+            reason: 'autoSelectNetwork',
           })
           .catch(() => {
             if (

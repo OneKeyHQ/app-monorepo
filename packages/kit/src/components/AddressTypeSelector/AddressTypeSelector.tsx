@@ -21,11 +21,13 @@ import type {
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -634,6 +636,29 @@ function AddressTypeSelector(props: IProps) {
         mergeDeriveAssetsEnabled: false,
       });
       setTokenMap(tokenListMap);
+    } catch (error) {
+      // Both callers fire this with `void`, so nothing rejecting out of here is
+      // ever handled: it lands as an unhandled rejection. These balances only
+      // decorate the rows, so every failure degrades to a popover without fiat
+      // values instead.
+      //
+      // Aborting is routine — a superseded fetch or a closing selector cancels
+      // these requests — and has two shapes. Desktop and Web run background in
+      // this runtime and reject with the axios instance, which
+      // isUserCancelStyleError detects. Native and extension serialize the
+      // error across runtimes, which drops the axios cancel marker but keeps
+      // `name`. Anything else is a real failure worth a trace.
+      const isAborted =
+        errorToastUtils.isUserCancelStyleError(error) ||
+        (error as Error | undefined)?.name === 'CanceledError';
+      if (!isAborted) {
+        defaultLogger.token.request.fetchAccountTokensFailed({
+          errorMessage: (error as Error | undefined)?.message,
+          errorName: (error as Error | undefined)?.name,
+          flag: 'address-type-selector',
+          networkId,
+        });
+      }
     } finally {
       setIsFetchingTokenMap(false);
     }

@@ -69,6 +69,7 @@ import {
   settingsAtomInitialValue,
   settingsPersistAtom,
 } from '../states/jotai/atoms';
+import { updateJotaiContextStoreRegistration as updateJotaiContextStoreRegistrationInBackground } from '../states/jotai/atoms/jotaiContextStoreMap';
 import {
   type IPasswordAtom,
   passwordAtomInitialValue,
@@ -767,6 +768,16 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       );
       throw error;
     }
+  }
+
+  @bindThis()
+  @backgroundMethod()
+  async updateJotaiContextStoreRegistration(
+    update: Parameters<
+      typeof updateJotaiContextStoreRegistrationInBackground
+    >[0],
+  ) {
+    return updateJotaiContextStoreRegistrationInBackground(update);
   }
 
   @backgroundMethod()
