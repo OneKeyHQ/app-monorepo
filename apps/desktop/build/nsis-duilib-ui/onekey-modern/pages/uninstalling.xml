@@ -15,7 +15,7 @@
         <Label text="{{string.uninstall.subtitle}}" textcolor="{{color.textSecondary}}" height="32" align="center" />
         <Control height="46" />
         <GlassPanel height="128" padding="20,0,20,0" bkcolor="{{color.heroSurface}}" bordercolor="{{color.border}}" bordersize="1" borderround="15,15" inset="24,20,24,8">
-          <HorizontalLayout height="26"><Label name="status" text="{{runtime.status}}" textcolor="{{color.textPrimary}}" padding="10,0,0,0" /><Label name="progress-value" text="{{runtime.progress}}%" font="0" textcolor="{{color.textPrimary}}" width="54" padding="0,0,10,0" align="right" /></HorizontalLayout>
+          <HorizontalLayout height="26"><Label name="status" text="{{string.uninstall.status}}" textcolor="{{color.textPrimary}}" padding="10,0,0,0" /><Label name="progress-value" text="{{runtime.progress}}%" font="0" textcolor="{{color.textPrimary}}" width="54" padding="0,0,10,0" align="right" /></HorizontalLayout>
           <AnimatedProgress name="progress" height="28" value="{{runtime.progress}}" trackcolor="{{color.progressTrack}}" startcolor="{{color.progressStart}}" endcolor="{{color.brand}}" />
           <Label text="{{string.uninstall.subtitle}}" textcolor="{{color.textSecondary}}" height="40" padding="10,0,0,0" wordbreak="true" />
         </GlassPanel>

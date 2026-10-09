@@ -19,7 +19,7 @@
         <HorizontalLayout height="82"><Control /><BrandMark width="82" height="82" brandcolor="{{color.brand}}" /><Control /></HorizontalLayout>
         <Control height="18" />
         <Label text="{{string.install.title}}" font="1" textcolor="{{color.textPrimary}}" height="42" align="center" />
-        <Label name="status" text="{{runtime.status}}" textcolor="{{color.textPrimary}}" height="32" align="center" />
+        <Label name="status" text="{{string.install.subtitle}}" textcolor="{{color.textPrimary}}" height="32" align="center" />
         <Control height="46" />
         <GlassPanel height="120" padding="20,0,20,0" bkcolor="{{color.heroSurface}}" bordercolor="{{color.border}}" bordersize="1" borderround="15,15" inset="24,20,24,8">
           <HorizontalLayout height="26">
