@@ -24,7 +24,7 @@ export type IExplicitLocalOneKeyIdLogoutProjection = {
 export type IIdentityExitIntent =
   | {
       type: 'logoutOneKeyId';
-      scene: 'profile' | 'referral';
+      scene: 'profile' | 'referral' | 'devSettings';
     }
   | {
       type: 'switchOneKeyIdAccount';
