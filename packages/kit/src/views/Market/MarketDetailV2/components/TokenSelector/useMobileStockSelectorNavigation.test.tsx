@@ -110,21 +110,28 @@ describe('useMobileStockSelectorNavigation', () => {
     },
   );
 
-  it('invalidates pending navigation when the selector unmounts', async () => {
-    let complete = (_success: boolean) => {};
-    navigate.mockImplementationOnce(
-      () =>
-        new Promise<boolean>((resolve) => {
-          complete = resolve;
-        }),
-    );
-    const { result, unmount } = renderHook(() =>
-      useMobileStockSelectorNavigation(options),
-    );
-    act(() => result.current(stock));
-    unmount();
-    expect(navigate.mock.calls[0][1]?.isCurrentRequest()).toBe(false);
-    await act(async () => complete(true));
-    expect(closeSelector).not.toHaveBeenCalled();
-  });
+  it.each([true, false])(
+    'preserves navigation identity but skips selector effects after unmount (success: %s)',
+    async (success) => {
+      let complete = () => {};
+      navigate.mockImplementationOnce(
+        () =>
+          new Promise<boolean>((resolve, reject) => {
+            complete = () =>
+              success ? resolve(true) : reject(new Error('Preload failed'));
+          }),
+      );
+      const { result, unmount } = renderHook(() =>
+        useMobileStockSelectorNavigation(options),
+      );
+      act(() => result.current(stock));
+      const requestId = requestIdRef.current;
+      unmount();
+      expect(requestIdRef.current).toBe(requestId);
+      expect(navigate.mock.calls[0][1]?.isCurrentRequest()).toBe(true);
+      await act(async () => complete());
+      expect(closeSelector).not.toHaveBeenCalled();
+      expect(onError).not.toHaveBeenCalled();
+    },
+  );
 });

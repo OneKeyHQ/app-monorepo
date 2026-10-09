@@ -18,12 +18,14 @@ export function useMobileStockSelectorNavigation({
   onError: () => void;
 }) {
   const pendingRef = useRef(false);
-  useEffect(
-    () => () => {
-      requestIdRef.current += 1;
-    },
-    [requestIdRef],
-  );
+  const mountedRef = useRef(false);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      // Navigation can dismiss this selector before opening the target detail.
+      mountedRef.current = false;
+    };
+  }, []);
 
   return useCallback(
     (stock: IMarketStockPublicItem) => {
@@ -36,10 +38,12 @@ export function useMobileStockSelectorNavigation({
       // Replace the detail while the selector still exposes the tab stack.
       void navigate(stock, { isCurrentRequest })
         .then((didNavigate) => {
-          if (didNavigate && isCurrentRequest()) closeSelector();
+          if (didNavigate && isCurrentRequest() && mountedRef.current) {
+            closeSelector();
+          }
         })
         .catch(() => {
-          if (isCurrentRequest()) onError();
+          if (isCurrentRequest() && mountedRef.current) onError();
         })
         .finally(() => {
           pendingRef.current = false;
