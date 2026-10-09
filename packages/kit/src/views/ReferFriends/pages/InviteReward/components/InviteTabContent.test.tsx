@@ -93,6 +93,12 @@ jest.mock(
   }),
 );
 
+jest.mock('@onekeyhq/kit/src/components/NetworkAvatar', () => ({
+  NetworkAvatar: ({ networkId }: { networkId: string }) => (
+    <div data-testid={`network-avatar-${networkId}`} />
+  ),
+}));
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     locale: 'en-US',
@@ -349,6 +355,10 @@ describe('InviteTabContent entry points', () => {
       expect(
         screen.getByTestId(ReferFriendsTestIDs.invitePayoutAddress),
       ).toBeTruthy();
+      // A set address names the chain it is paid on.
+      expect(Boolean(screen.queryByTestId('network-avatar-evm--1'))).toBe(
+        withdrawAddresses.length > 0,
+      );
     },
   );
 

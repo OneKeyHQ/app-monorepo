@@ -51,10 +51,10 @@ function InviteLinkField({
       gap="$2"
       pl={trailing ? '$4' : '$3'}
       pr={trailing ? '$1' : '$3'}
-      // A pill field matches the pill button it hosts; a quiet fill on the
-      // bright card, without an outline of its own.
+      // A pill field matches the pill button it hosts. $bgStrong reads on
+      // the card in both themes; $bgSubdued matches the dark card.
       borderRadius={trailing ? '$full' : '$2'}
-      bg="$bgSubdued"
+      bg="$bgStrong"
     >
       <SizableText flex={1} numberOfLines={1} size="$bodyLg">
         {displayUrl}
@@ -192,12 +192,16 @@ export function InviteLinkHero({
   return (
     <YStack gap="$4">
       <XStack ai="flex-start" gap="$3">
-        {/* The brand's handshake art marks the card as the inviting one. */}
-        <Illustration name="Referred" size={48} flexShrink={0} />
-        <YStack flex={1} gap="$1">
-          <SizableText size="$headingLg">{INVITE_COPY.headline}</SizableText>
-          <InviteValueLine {...valueSummary} />
-        </YStack>
+        {/* The brand's handshake art marks the card as the inviting one,
+            centred on the title block; the art has its own padding, so it
+            is sized a step past the two lines it sits beside. */}
+        <XStack flex={1} minWidth={0} ai="center" gap="$2">
+          <Illustration name="Referred" size={56} flexShrink={0} />
+          <YStack flex={1} gap="$1">
+            <SizableText size="$headingLg">{INVITE_COPY.headline}</SizableText>
+            <InviteValueLine {...valueSummary} />
+          </YStack>
+        </XStack>
         <ReferralListLink />
       </XStack>
       <InviteLinkActions

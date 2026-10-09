@@ -15,6 +15,7 @@ import {
 import type { ColorTokens } from '@onekeyhq/components/src/shared/tamagui';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { useNavigateToEditAddress } from '@onekeyhq/kit/src/views/ReferFriends/pages/EditAddress/hooks/useNavigateToEditAddress';
 import { useNavigateToRewardHistory } from '@onekeyhq/kit/src/views/ReferFriends/pages/RewardDistributionHistory/hooks/useNavigateToRewardHistory';
 import { openInviteWithdrawAddressEditor } from '@onekeyhq/kit/src/views/ReferFriends/pages/RewardDistributionHistory/openInviteWithdrawAddressEditor';
@@ -123,17 +124,47 @@ function StatCell({
   );
 }
 
+// The payout address with the chain it is paid on, so people can tell where
+// the rewards land; only shown once an address is set.
+function PayoutAddressValue({
+  address,
+  networkId,
+  size,
+  color,
+}: {
+  address: string;
+  networkId?: string;
+  size: '$bodyLgMedium' | '$bodyMd';
+  color?: '$textSubdued' | '$textCaution';
+}) {
+  return (
+    <XStack ai="center" gap="$1.5" flexShrink={1} minWidth={0}>
+      {networkId ? (
+        <NetworkAvatar
+          networkId={networkId}
+          size={size === '$bodyMd' ? '$4' : '$5'}
+        />
+      ) : null}
+      <SizableText size={size} color={color} numberOfLines={1} flexShrink={1}>
+        {address}
+      </SizableText>
+    </XStack>
+  );
+}
+
 // Desktop leads with the unpaid amount, then the totals and payout address.
 function DesktopEarnings({
   earnings,
   labels,
   payoutAddress,
+  payoutNetworkId,
   onOpenHistory,
   onEditAddress,
 }: {
   earnings: IInviteEarnings;
   labels: IEarningsLabels;
   payoutAddress: string;
+  payoutNetworkId?: string;
   onOpenHistory: () => void;
   onEditAddress: () => void;
 }) {
@@ -192,9 +223,11 @@ function DesktopEarnings({
           label={labels.payoutAddress}
           onPress={onEditAddress}
         >
-          <SizableText size="$bodyLgMedium" numberOfLines={1}>
-            {payoutAddress}
-          </SizableText>
+          <PayoutAddressValue
+            address={payoutAddress}
+            networkId={payoutNetworkId}
+            size="$bodyLgMedium"
+          />
         </StatCell>
       </XStack>
     </YStack>
@@ -214,6 +247,7 @@ function CompactEarnings({
   earnings,
   labels,
   payoutAddress,
+  payoutNetworkId,
   isPayoutAddressSet,
   onEditAddress,
   onOpenHistory,
@@ -221,6 +255,7 @@ function CompactEarnings({
   earnings: IInviteEarnings;
   labels: IEarningsLabels;
   payoutAddress: string;
+  payoutNetworkId?: string;
   isPayoutAddressSet: boolean;
   onEditAddress: () => void;
   onOpenHistory: () => void;
@@ -287,14 +322,12 @@ function CompactEarnings({
         drillIn
         onPress={onEditAddress}
       >
-        <SizableText
+        <PayoutAddressValue
+          address={payoutAddress}
+          networkId={payoutNetworkId}
           size="$bodyMd"
           color={isPayoutAddressSet ? '$textSubdued' : '$textCaution'}
-          numberOfLines={1}
-          flexShrink={1}
-        >
-          {payoutAddress}
-        </SizableText>
+        />
       </ListItem>
     </YStack>
   );
@@ -345,7 +378,9 @@ export function InviteEarningsCard({
       id: ETranslations.referral_reward_received_address,
     }),
   };
-  const withdrawAddress = summaryInfo.withdrawAddresses[0]?.address;
+  const payoutTarget = summaryInfo.withdrawAddresses[0];
+  const withdrawAddress = payoutTarget?.address;
+  const payoutNetworkId = withdrawAddress ? payoutTarget?.networkId : undefined;
   const payoutAddress = withdrawAddress
     ? accountUtils.shortenAddress({ address: withdrawAddress })
     : intl.formatMessage({
@@ -366,6 +401,7 @@ export function InviteEarningsCard({
           earnings={earnings}
           labels={labels}
           payoutAddress={payoutAddress}
+          payoutNetworkId={payoutNetworkId}
           isPayoutAddressSet={Boolean(withdrawAddress)}
           onEditAddress={editPayoutAddress}
           onOpenHistory={navigateToRewardHistory}
@@ -385,6 +421,7 @@ export function InviteEarningsCard({
         earnings={earnings}
         labels={labels}
         payoutAddress={payoutAddress}
+        payoutNetworkId={payoutNetworkId}
         onOpenHistory={navigateToRewardHistory}
         onEditAddress={editPayoutAddress}
       />

@@ -201,7 +201,7 @@ function ProductTile({ subject }: { subject?: IInviteRewardSubject }) {
       w="$10"
       h="$10"
       borderRadius="$full"
-      bg={subject ? '$bgSuccessSubdued' : undefined}
+      bg={subject ? '$bgSuccess' : undefined}
       ai="center"
       jc="center"
       flexShrink={0}
