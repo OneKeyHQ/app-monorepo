@@ -9,6 +9,13 @@ export const LEVEL_COPY = {
   levelDetails: 'Level details',
   upgradeTo: (level: string) => `Upgrade to ${level}`,
   nextLevel: (level: string) => `Next level: ${level}`,
+  // Above the compact level table: the figures are monthly, and one met
+  // target is enough to keep or reach a level.
+  tableRule: (hasChoice: boolean) =>
+    hasChoice ? 'Monthly amounts · any one is enough' : 'Monthly amounts',
+  keepColumn: 'Keep',
+  reachColumn: 'Reach',
+  rateColumn: 'You / Invitee',
   upgradeRule: (hasChoice: boolean) =>
     hasChoice ? 'Meet any one this month' : 'Meet this target this month',
   topLevel: "You're at the top level",

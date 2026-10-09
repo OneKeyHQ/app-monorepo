@@ -1,4 +1,5 @@
 import { Fragment, useMemo } from 'react';
+import type { ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { type IntlShape, useIntl } from 'react-intl';
@@ -52,7 +53,7 @@ const SHORT_SUBJECT_LABELS: Record<string, string> = {
   Onchain: 'DeFi',
 };
 
-const RULE_COLUMN_WIDTHS = { keep: 56, upgrade: 64, rate: 84 } as const;
+const RULE_COLUMN_WIDTHS = { keep: 60, upgrade: 64, rate: 84 } as const;
 
 interface ILevelRuleRow {
   subject: string;
@@ -62,47 +63,88 @@ interface ILevelRuleRow {
   rate?: string;
 }
 
-function RuleCell({
-  width,
-  value,
-  isHeader,
-}: {
-  width: number;
-  value?: string;
-  isHeader?: boolean;
-}) {
+function RuleCell({ width, value }: { width: number; value?: string }) {
   return (
     <SizableText
       w={width}
       flexShrink={0}
       textAlign="right"
       numberOfLines={1}
-      size={isHeader ? '$bodySm' : '$bodyMdMedium'}
-      color={isHeader || !value ? '$textSubdued' : '$text'}
+      size="$bodyMdMedium"
+      color={value ? '$text' : '$textSubdued'}
     >
       {value ?? '–'}
     </SizableText>
   );
 }
 
-function LevelRuleTable({ rows }: { rows: ILevelRuleRow[] }) {
+// A level's icon (or emoji) at header size, so each column names the level
+// it is about without spelling it out.
+function LevelGlyph({ icon, emoji }: { icon?: string; emoji?: string }) {
+  if (icon) {
+    return <Image w="$3.5" h="$3.5" src={icon} />;
+  }
+  return emoji ? <SizableText size="$bodySm">{emoji}</SizableText> : null;
+}
+
+function RuleHeader({
+  width,
+  label,
+  glyph,
+}: {
+  width: number;
+  label: string;
+  glyph?: ReactNode;
+}) {
+  return (
+    <XStack w={width} flexShrink={0} ai="center" jc="flex-end" gap="$1">
+      <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+        {label}
+      </SizableText>
+      {glyph}
+    </XStack>
+  );
+}
+
+function LevelRuleTable({
+  rows,
+  level,
+  nextLevel,
+}: {
+  rows: ILevelRuleRow[];
+  level: { icon?: string; emoji?: string };
+  nextLevel?: { icon?: string; emoji?: string };
+}) {
   const hasKeep = rows.some((row) => row.keep);
   const hasUpgrade = rows.some((row) => row.upgrade);
   return (
     <YStack>
+      {/* Headers name the level each column is about by its icon (keep this
+          one, reach the next), and spell out whose rate is whose. */}
       <XStack minHeight={24} ai="center" gap="$2">
         <Stack flex={1} />
         {hasKeep ? (
-          <RuleCell isHeader width={RULE_COLUMN_WIDTHS.keep} value="Keep" />
-        ) : null}
-        {hasUpgrade ? (
-          <RuleCell
-            isHeader
-            width={RULE_COLUMN_WIDTHS.upgrade}
-            value="Upgrade"
+          <RuleHeader
+            width={RULE_COLUMN_WIDTHS.keep}
+            label={LEVEL_COPY.keepColumn}
+            glyph={<LevelGlyph icon={level.icon} emoji={level.emoji} />}
           />
         ) : null}
-        <RuleCell isHeader width={RULE_COLUMN_WIDTHS.rate} value="Rate" />
+        {hasUpgrade ? (
+          <RuleHeader
+            width={RULE_COLUMN_WIDTHS.upgrade}
+            label={LEVEL_COPY.reachColumn}
+            glyph={
+              nextLevel ? (
+                <LevelGlyph icon={nextLevel.icon} emoji={nextLevel.emoji} />
+              ) : null
+            }
+          />
+        ) : null}
+        <RuleHeader
+          width={RULE_COLUMN_WIDTHS.rate}
+          label={LEVEL_COPY.rateColumn}
+        />
       </XStack>
       {rows.map((row) => (
         <XStack key={row.subject} minHeight={32} ai="center" gap="$2">
@@ -149,6 +191,7 @@ export function LevelAccordionItem({
   isLowestLevel,
   retentionConditions,
   nextLevelLabel,
+  nextLevelGlyph,
 }: {
   level: IInviteLevelDetail['levels'][0];
   isCurrent: boolean;
@@ -157,6 +200,7 @@ export function LevelAccordionItem({
   isLowestLevel: boolean;
   retentionConditions?: IInviteLevelUpgradeCondition[];
   nextLevelLabel?: string;
+  nextLevelGlyph?: { icon?: string; emoji?: string };
 }) {
   const intl = useIntl();
   const { md } = useMedia();
@@ -302,7 +346,9 @@ export function LevelAccordionItem({
             jc="space-between"
             py="$3.5"
             px="$5"
-            $md={{ px: '$4' }}
+            // Phones inset the row (and so its divider) 16px from the card
+            // edges, like the dividers in the page's other cards.
+            $md={{ px: 0, mx: '$4' }}
             borderColor={INVITE_CARD_BORDER_COLOR}
             // An open row flows into its content; the content's bottom edge
             // separates it from the next level instead.
@@ -355,16 +401,20 @@ export function LevelAccordionItem({
           px="$5"
           pt="$1"
           pb="$5"
-          $md={{ px: '$4', pb: '$4' }}
+          $md={{ px: 0, mx: '$4', pb: '$4' }}
         >
           {md ? (
             <YStack gap="$2">
               {subjectGroups.length > 0 ? (
                 <SizableText size="$bodyMd" color="$textSubdued">
-                  {LEVEL_COPY.upgradeRule(isMultiSubject)}
+                  {LEVEL_COPY.tableRule(isMultiSubject)}
                 </SizableText>
               ) : null}
-              <LevelRuleTable rows={ruleRows} />
+              <LevelRuleTable
+                rows={ruleRows}
+                level={level}
+                nextLevel={nextLevelGlyph}
+              />
             </YStack>
           ) : (
             <YStack gap="$4">

@@ -124,7 +124,7 @@ function ReferralLevelSkeleton() {
                   gap="$3"
                   py="$3.5"
                   px="$5"
-                  $md={{ px: '$4' }}
+                  $md={{ px: 0, mx: '$4' }}
                   borderTopWidth={index === 0 ? 0 : 1}
                   borderColor={INVITE_CARD_BORDER_COLOR}
                 >

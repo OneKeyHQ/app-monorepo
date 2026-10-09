@@ -25,9 +25,9 @@ export function LevelListSection({
         const retentionConditions = isLowestLevel
           ? undefined
           : levels[ascendingIndex - 1].upgradeConditions;
-        const nextLevelLabel = isHighestLevel
+        const nextLevel = isHighestLevel
           ? undefined
-          : levels[ascendingIndex + 1]?.label;
+          : levels[ascendingIndex + 1];
         const isCurrent = level.level === currentLevel;
 
         return (
@@ -39,7 +39,8 @@ export function LevelListSection({
             isHighestLevel={isHighestLevel}
             isLowestLevel={isLowestLevel}
             retentionConditions={retentionConditions}
-            nextLevelLabel={nextLevelLabel}
+            nextLevelLabel={nextLevel?.label}
+            nextLevelGlyph={nextLevel}
           />
         );
       })}
