@@ -76,6 +76,8 @@ import { DrawingToolbar } from './drawings/DrawingToolbar';
 import { useChartDrawings } from './drawings/useChartDrawings';
 import { drawTradingViewNativeCanvasChart } from './drawTradingViewNativeCanvasChart';
 import { TradingViewNativePriceScaleControls } from './TradingViewNativePriceScaleControls';
+import { useChartPriceSelection } from './useChartPriceSelection';
+import { useReferenceLineInteraction } from './useReferenceLineInteraction';
 import { useTradingViewNativeCanvasRender } from './useTradingViewNativeCanvasRender';
 import {
   createTradingViewNativeWebPriceScaleModel,
@@ -84,6 +86,7 @@ import {
 
 import type { IDrawingProjection } from './drawings/model';
 import type { ITradingViewNativeChartProps } from '../TradingViewNativeChart.types';
+import type { ITradingViewNativeReferenceLineHitRegion } from '../utils/chartComponentScene';
 import type { ITradingViewNativeSubIndicatorLegendHitRegion } from '../utils/subIndicatorRender';
 
 const ONEKEY_WATERMARK_ASSET =
@@ -121,6 +124,10 @@ export const TradingViewNativeChart = memo(
     enableDrawings: drawingsEnabled = false,
     candleIntervalSeconds,
     chartComponents,
+    onReferenceLineAction,
+    onPriceSelect,
+    priceSelectionLabel,
+    onInteractionChange,
     chartSettings,
     chartType,
     extendTimeAxisBorderToCanvasEdge = false,
@@ -136,6 +143,7 @@ export const TradingViewNativeChart = memo(
     timeAxisHeight = TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
     timeAxisBorderWidth,
     currentPriceLabel,
+    priceDecimalPlaces,
     onChartWidthChange,
     onSubIndicatorSettingsPress,
     onViewportRequestApplied,
@@ -156,6 +164,22 @@ export const TradingViewNativeChart = memo(
     const drawingRootRef = useRef<HTMLDivElement>(null);
     const drawingProjectionRef = useRef<IDrawingProjection | null>(null);
     const drawingRedrawRef = useRef<() => void>(() => undefined);
+    const referenceLineHitRegionsRef = useRef<
+      ITradingViewNativeReferenceLineHitRegion[]
+    >([]);
+    const referenceLineInteraction = useReferenceLineInteraction({
+      components: chartComponents,
+      enabled: Boolean(onReferenceLineAction) && !isSwitchingInterval,
+      hitRegionsRef: referenceLineHitRegionsRef,
+      projectionRef: drawingProjectionRef,
+      redrawRef: drawingRedrawRef,
+      onAction: onReferenceLineAction,
+    });
+    const {
+      getComponents: getInteractiveChartComponents,
+      getPriceRange: getReferenceLinePriceRange,
+      isInteracting: isReferenceLineInteracting,
+    } = referenceLineInteraction;
     const drawingController = useChartDrawings({
       enabled: drawingsEnabled,
       projectionRef: drawingProjectionRef,
@@ -169,6 +193,24 @@ export const TradingViewNativeChart = memo(
         initialRightOffset,
       }),
     );
+    const priceSelection = useChartPriceSelection({
+      enabled:
+        !isSwitchingInterval &&
+        drawingController.state.tool === 'cursor' &&
+        !drawingController.state.drag &&
+        !drawingController.state.draft,
+      label: priceSelectionLabel,
+      onSelect: onPriceSelect,
+      projectionRef: drawingProjectionRef,
+    });
+    const drawingInteraction =
+      drawingsEnabled &&
+      (drawingController.state.tool !== 'cursor' ||
+        Boolean(drawingController.state.drag || drawingController.state.draft));
+    useEffect(() => {
+      onInteractionChange?.(drawingInteraction);
+      return () => onInteractionChange?.(false);
+    }, [drawingInteraction, onInteractionChange]);
     const pointerPanDragStateRef = useRef<IPointerPanDragState | null>(null);
     const timeAxisPointerDragStateRef =
       useRef<ITimeAxisPointerDragState | null>(null);
@@ -218,14 +260,20 @@ export const TradingViewNativeChart = memo(
     const priceAxisLabels = useMemo<ITradingViewNativeCanvasPriceAxisLabels>(
       () => ({
         autoPriceRange,
-        chartComponentPrice:
-          getTradingViewNativeChartComponentPriceAxisLabel(chartComponents),
+        priceDecimalPlaces,
+        chartComponentPrice: getTradingViewNativeChartComponentPriceAxisLabel(
+          chartComponents,
+          priceDecimalPlaces,
+        ),
         currentPrice: chartSettings.options.latestPrice
           ? currentPriceLabel
           : '',
         widestIndicatorPrice:
           getTradingViewNativeIndicatorPriceAxisLabel(indicatorSeries),
-        widestPrice: getTradingViewNativePriceAxisLabel(points),
+        widestPrice: getTradingViewNativePriceAxisLabel(
+          points,
+          priceDecimalPlaces,
+        ),
         widestSubIndicator:
           getTradingViewNativeSubIndicatorAxisLabel(subIndicatorPanes),
         widestVolume: hasVolume
@@ -239,6 +287,7 @@ export const TradingViewNativeChart = memo(
         chartSettings.options.latestPrice,
         chartSettings.options.yAxis,
         currentPriceLabel,
+        priceDecimalPlaces,
         hasVolume,
         indicatorSeries,
         points,
@@ -315,10 +364,11 @@ export const TradingViewNativeChart = memo(
           priceScaleModelRef.current,
           priceAxisFontSize,
         );
+        const referenceLinePriceRange = getReferenceLinePriceRange();
         const scene = drawTradingViewNativeCanvasChart({
           candleIntervalSeconds,
           canvas,
-          chartComponents,
+          chartComponents: getInteractiveChartComponents(),
           chartSettings,
           chartType,
           colors: {
@@ -334,15 +384,22 @@ export const TradingViewNativeChart = memo(
           hasVolume,
           candleLabels,
           currentPriceLabel,
+          priceDecimalPlaces,
           indicatorSeries,
           isMobileLayout,
-          pinnedPriceRange: priceScaleModelRef.current.pinnedPriceRange,
+          pinnedPriceRange:
+            referenceLinePriceRange ??
+            priceScaleModelRef.current.pinnedPriceRange,
           points,
           priceAxisFontSize,
           priceAxisWidth,
           priceAxisTickCount,
-          priceRangeScale: priceScaleModelRef.current.rangeScale,
-          priceScaleMode: priceScaleModelRef.current.mode,
+          priceRangeScale: referenceLinePriceRange
+            ? 1
+            : priceScaleModelRef.current.rangeScale,
+          priceScaleMode:
+            referenceLinePriceRange?.priceScaleMode ??
+            priceScaleModelRef.current.mode,
           runtimeState: nextRuntimeState,
           showLegend,
           subIndicatorPanes,
@@ -354,6 +411,8 @@ export const TradingViewNativeChart = memo(
         });
         subIndicatorLegendHitRegionsRef.current =
           scene?.subIndicatorLegendHitRegions ?? [];
+        referenceLineHitRegionsRef.current =
+          scene?.referenceLineHitRegions ?? [];
         drawingProjectionRef.current =
           scene?.layout && points.length
             ? {
@@ -393,10 +452,12 @@ export const TradingViewNativeChart = memo(
         axisText,
         background,
         candleIntervalSeconds,
-        chartComponents,
+        getInteractiveChartComponents,
+        getReferenceLinePriceRange,
         chartSettings,
         chartType,
         currentPriceLabel,
+        priceDecimalPlaces,
         drawDrawings,
         drawingsEnabled,
         updateData,
@@ -1031,6 +1092,10 @@ export const TradingViewNativeChart = memo(
 
     const handleWheel = useCallback(
       (event: WheelEvent) => {
+        if (isReferenceLineInteracting()) {
+          event.preventDefault();
+          return;
+        }
         const canvas = canvasRef.current;
         if (!canvas || pointCount <= 0) {
           return;
@@ -1121,6 +1186,7 @@ export const TradingViewNativeChart = memo(
       },
       [
         handlePriceScaleWheel,
+        isReferenceLineInteracting,
         pointCount,
         priceAxisFontSize,
         priceAxisLabels,
@@ -1161,7 +1227,10 @@ export const TradingViewNativeChart = memo(
           minHeight={0}
           minWidth={0}
           position="relative"
-          onMouseLeave={handlePointerLeave}
+          onMouseLeave={() => {
+            priceSelection.hide();
+            handlePointerLeave();
+          }}
           opacity={isSwitchingInterval ? SWITCHING_INTERVAL_OPACITY : 1}
         >
           <IndicatorPaneHandles
@@ -1176,24 +1245,59 @@ export const TradingViewNativeChart = memo(
             tabIndex={drawingsEnabled ? 0 : undefined}
             aria-label="Price chart"
             onDoubleClick={drawingController.onDoubleClick}
+            onContextMenu={priceSelection.onContextMenu}
             onLostPointerCapture={(event) => {
+              if (referenceLineInteraction.onPointerUp(event)) return;
               if (!drawingController.onPointerUp(event))
                 finishPointerDrag(event);
             }}
             onPointerCancel={(event) => {
+              if (referenceLineInteraction.onPointerUp(event)) return;
               if (!drawingController.onPointerUp(event))
                 finishPointerDrag(event);
             }}
             onPointerDown={(event) => {
+              priceSelection.hide();
+              if (
+                !pointerPanDragStateRef.current &&
+                !drawingController.state.drag &&
+                !drawingController.state.draft &&
+                drawingController.state.tool === 'cursor' &&
+                referenceLineInteraction.onPointerDown(event)
+              ) {
+                renderWithCrosshairHidden();
+                return;
+              }
               if (drawingController.onPointerDown(event))
                 renderWithCrosshairHidden();
               else handlePointerDown(event);
             }}
             onPointerEnter={(event) => {
+              if (
+                !pointerPanDragStateRef.current &&
+                !drawingController.state.drag &&
+                !drawingController.state.draft &&
+                drawingController.state.tool === 'cursor' &&
+                referenceLineInteraction.onPointerMove(event)
+              ) {
+                priceSelection.hide();
+                return;
+              }
               if (!drawingController.onPointerMove(event))
                 handlePointerMove(event);
             }}
             onPointerMove={(event) => {
+              priceSelection.onPointerMove(event);
+              if (
+                !pointerPanDragStateRef.current &&
+                !drawingController.state.drag &&
+                !drawingController.state.draft &&
+                drawingController.state.tool === 'cursor' &&
+                referenceLineInteraction.onPointerMove(event)
+              ) {
+                priceSelection.hide();
+                return;
+              }
               if (
                 pointerPanDragStateRef.current ||
                 !drawingController.onPointerMove(event)
@@ -1210,6 +1314,7 @@ export const TradingViewNativeChart = memo(
               }
             }}
             onPointerUp={(event) => {
+              if (referenceLineInteraction.onPointerUp(event)) return;
               if (!drawingController.onPointerUp(event))
                 finishPointerDrag(event);
             }}
@@ -1223,6 +1328,7 @@ export const TradingViewNativeChart = memo(
               outline: 'none',
             }}
           />
+          {priceSelection.control}
           {measuredChartWidth > 0 ? (
             <div
               data-testid={

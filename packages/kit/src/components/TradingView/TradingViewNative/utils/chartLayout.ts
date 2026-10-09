@@ -282,11 +282,30 @@ export function formatTradingViewNativePriceTick(
   // Worklet default parameters cannot read captured constants before __closure is initialized.
   // Keep this literal in sync manually with PRICE_SIGNIFICANT_FRACTION_DIGITS.
   significantFractionDigits: 4 | 6 = 4,
+  priceDecimalPlaces?: number,
 ) {
   'worklet';
 
   if (!Number.isFinite(price)) {
     return '--';
+  }
+
+  if (priceDecimalPlaces !== undefined && Number.isFinite(priceDecimalPlaces)) {
+    const decimals = Math.max(0, Math.min(12, Math.floor(priceDecimalPlaces)));
+    if (price === 0) return price.toFixed(decimals);
+    const magnitude = Math.abs(price);
+    const exponent = Number(magnitude.toExponential().split('e')[1]);
+    const significantDigits = exponent + 1 + decimals;
+    // Round the decimal representation before padding, as in the shared price labels.
+    let rounded = 0;
+    if (significantDigits > 0) {
+      rounded = Number(
+        roundTradingViewNativeSubOnePrice(price, significantDigits),
+      );
+    } else if (magnitude >= 5 * 10 ** (-decimals - 1)) {
+      rounded = Math.sign(price) * 10 ** -decimals;
+    }
+    return rounded.toFixed(decimals);
   }
 
   const absolutePrice = Math.abs(price);
@@ -388,6 +407,7 @@ function getTradingViewNativePlainDecimalPriceAxisLabel(isNegative: boolean) {
 
 export function getTradingViewNativePriceAxisLabel(
   points: IMarketTokenKLineDataPoint[],
+  priceDecimalPlaces?: number,
 ) {
   'worklet';
 
@@ -428,6 +448,22 @@ export function getTradingViewNativePriceAxisLabel(
         }
       }
     }
+  }
+
+  if (priceDecimalPlaces !== undefined) {
+    const positive = formatTradingViewNativePriceTick(
+      largestNonNegativePrice,
+      4,
+      priceDecimalPlaces,
+    );
+    const negative = formatTradingViewNativePriceTick(
+      largestNegativePrice,
+      4,
+      priceDecimalPlaces,
+    );
+    return getTradingViewNativeWidestDigitLabel(
+      positive.length >= negative.length ? positive : negative,
+    );
   }
 
   if (!hasFinitePrice) {
@@ -483,11 +519,13 @@ export function getTradingViewNativePriceAxisLabel(
 export function getTradingViewNativeScaledPriceAxisLabel({
   autoPriceRange,
   baseLabel = '',
+  priceDecimalPlaces,
   priceRangeScale,
   priceScaleMode,
 }: {
   autoPriceRange: ITradingViewNativePriceRange;
   baseLabel?: string;
+  priceDecimalPlaces?: number;
   priceRangeScale: number;
   priceScaleMode: ITradingViewNativePriceScaleMode;
 }) {
@@ -498,6 +536,19 @@ export function getTradingViewNativeScaledPriceAxisLabel({
     rangeScale: priceRangeScale,
     requestedMode: priceScaleMode,
   });
+  if (priceDecimalPlaces !== undefined) {
+    const candidates = [
+      baseLabel,
+      formatTradingViewNativePriceTick(minPrice, 4, priceDecimalPlaces),
+      formatTradingViewNativePriceTick(maxPrice, 4, priceDecimalPlaces),
+    ];
+    return getTradingViewNativeWidestDigitLabel(
+      candidates.reduce(
+        (longest, label) => (label.length > longest.length ? label : longest),
+        baseLabel,
+      ),
+    );
+  }
   let longestLabel = getTradingViewNativeLongerPriceAxisLabel(
     baseLabel,
     minPrice,
@@ -531,12 +582,13 @@ export function getTradingViewNativeScaledPriceAxisLabel({
 
 export function getTradingViewNativeCurrentPriceLabel(
   points: IMarketTokenKLineDataPoint[],
+  priceDecimalPlaces?: number,
 ) {
   'worklet';
 
   const currentPrice = points[points.length - 1]?.c;
   return typeof currentPrice === 'number' && Number.isFinite(currentPrice)
-    ? formatTradingViewNativePriceTick(currentPrice)
+    ? formatTradingViewNativePriceTick(currentPrice, 4, priceDecimalPlaces)
     : '';
 }
 

@@ -132,6 +132,9 @@ export enum EAtomNames {
   spotPairDisplayNameMapAtom = 'spotPairDisplayNameMapAtom',
   spotExternalMarketCapsAtom = 'spotExternalMarketCapsAtom',
   perpsFavoritesOrderPersistAtom = 'perpsFavoritesOrderPersistAtom',
+  perpsTradingViewChartSettingsPersistAtom = 'perpsTradingViewChartSettingsPersistAtom',
+  perpsTradingViewIndicatorSettingsPersistAtom = 'perpsTradingViewIndicatorSettingsPersistAtom',
+  perpsTradingViewLayoutPersistAtom = 'perpsTradingViewLayoutPersistAtom',
   // network doctor
   networkDoctorStateAtom = 'networkDoctorStateAtom',
 
@@ -194,6 +197,12 @@ export const atomsConfig: Partial<
     mergeInitialValue: false,
   },
   [EAtomNames.swapTradingViewIndicatorSettingsPersistAtom]: {
+    mergeInitialValue: false,
+  },
+  [EAtomNames.perpsTradingViewIndicatorSettingsPersistAtom]: {
+    mergeInitialValue: false,
+  },
+  [EAtomNames.perpsTradingViewLayoutPersistAtom]: {
     mergeInitialValue: false,
   },
   // These Perps states are written as complete snapshots. Lodash merge keeps

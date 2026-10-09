@@ -1,16 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
-import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsAccountScopedActivePositions } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsAccountScopedActivePositions';
-import { usePerpsAccountScopedOpenOrdersByCoin } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsAccountScopedOpenOrdersByCoin';
-import {
-  usePerpsCustomSettingsAtom,
-  useSpotActiveOpenOrdersAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { SPOT_ASSET_ID_OFFSET } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import { usePerpsChartLines } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsChartLines';
 
 import { MESSAGE_TYPES } from '../constants/messageTypes';
-import { buildAllLinesForSymbol } from '../utils/lineBuilder';
 
 import type { IWebViewRef } from '../../../WebView/types';
 import type { ITVLine, ITVLinesPatchPayload } from '../types';
@@ -37,10 +29,6 @@ interface IUseChartLinesParams {
 interface IUseChartLinesReturn {
   sendLinesSync: () => void;
   sendLinesClear: () => void;
-}
-
-function normalizeAddress(address: string | undefined | null): string | null {
-  return address?.toLowerCase() || null;
 }
 
 function hasLineChanged(prev: ITVLine, current: ITVLine): boolean {
@@ -131,17 +119,7 @@ export function useChartLines({
   webRef,
   isReady,
 }: IUseChartLinesParams): IUseChartLinesReturn {
-  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
-  const perpsPositions = usePerpsAccountScopedActivePositions();
-  const perpsOpenOrders = usePerpsAccountScopedOpenOrdersByCoin(symbol);
-  const [
-    { openOrders: spotOpenOrders, accountAddress: spotOrdersAccountAddress },
-  ] = useSpotActiveOpenOrdersAtom();
-  const [{ showChartLines }] = usePerpsCustomSettingsAtom();
-  const normalizedUserAddress = useMemo(
-    () => normalizeAddress(userAddress),
-    [userAddress],
-  );
+  const currentLines = usePerpsChartLines({ symbol, szDecimals, userAddress });
 
   // Store previous lines for diff calculation
   const prevLinesRef = useRef<Map<string, ITVLine>>(new Map());
@@ -172,76 +150,6 @@ export function useChartLines({
     }
     pendingPnlPatchRef.current = null;
   }, []);
-
-  const currentPositions = useMemo(() => {
-    if (!normalizedUserAddress) {
-      return [];
-    }
-
-    return perpsPositions;
-  }, [normalizedUserAddress, perpsPositions]);
-
-  // Get orders for current symbol
-  const currentOrders = useMemo(() => {
-    if (!normalizedUserAddress) {
-      return [];
-    }
-
-    if (activeTradeInstrument.mode === 'spot') {
-      if (
-        normalizeAddress(spotOrdersAccountAddress) !== normalizedUserAddress
-      ) {
-        return [];
-      }
-      // Match against the chart `symbol`; only trust activeTradeInstrument's
-      // `@index`/pair aliases while it still points at this chart's symbol, so a
-      // drifted panel asset can't draw another pair's lines here (OK-56900).
-      const aliases = new Set<string>([symbol]);
-      if (activeTradeInstrument.coin === symbol) {
-        if (activeTradeInstrument.universe?.name) {
-          aliases.add(activeTradeInstrument.universe.name);
-        }
-        if (typeof activeTradeInstrument.assetId === 'number') {
-          aliases.add(
-            `@${activeTradeInstrument.assetId - SPOT_ASSET_ID_OFFSET}`,
-          );
-        }
-      }
-      return spotOpenOrders.filter((order) => aliases.has(order.coin));
-    }
-
-    return perpsOpenOrders;
-  }, [
-    activeTradeInstrument.mode,
-    activeTradeInstrument.coin,
-    activeTradeInstrument.assetId,
-    activeTradeInstrument.universe,
-    normalizedUserAddress,
-    perpsOpenOrders,
-    spotOpenOrders,
-    spotOrdersAccountAddress,
-    symbol,
-  ]);
-
-  // Build current lines (returns empty if showChartLines is disabled)
-  const currentLines = useMemo(() => {
-    if (!normalizedUserAddress || showChartLines === false) {
-      return [];
-    }
-    return buildAllLinesForSymbol(
-      currentPositions,
-      currentOrders,
-      symbol,
-      szDecimals,
-    );
-  }, [
-    currentPositions,
-    currentOrders,
-    normalizedUserAddress,
-    symbol,
-    szDecimals,
-    showChartLines,
-  ]);
 
   // Send full sync
   const sendLinesSync = useCallback(() => {
