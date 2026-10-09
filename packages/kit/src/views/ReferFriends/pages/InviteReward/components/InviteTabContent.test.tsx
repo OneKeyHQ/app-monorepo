@@ -97,6 +97,12 @@ jest.mock('@onekeyhq/kit/src/components/NetworkAvatar', () => ({
   ),
 }));
 
+jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
+  useActiveAccount: () => ({
+    activeAccount: { wallet: { id: 'hd-1' } },
+  }),
+}));
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     locale: 'en-US',
@@ -410,7 +416,10 @@ describe('InviteTabContent entry points', () => {
 
     fireEvent.click(screen.getByTestId(ReferFriendsTestIDs.inviteBindRow));
     expect(mockBindWalletInviteCode).toHaveBeenCalledWith(
-      expect.objectContaining({ source: 'invite_home' }),
+      expect.objectContaining({
+        source: 'invite_home',
+        preferredWalletId: 'hd-1',
+      }),
     );
   });
 

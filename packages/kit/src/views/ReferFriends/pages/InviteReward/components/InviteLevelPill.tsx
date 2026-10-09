@@ -76,16 +76,20 @@ function LevelSummary({
             </SizableText>
           </YStack>
           {upgradeTargets.map((target) => (
+            // The amount stays on one line; a long target name wraps.
             <XStack
               key={target.subject}
-              ai="center"
+              ai="flex-start"
               jc="space-between"
               gap="$3"
             >
-              <SizableText size="$bodyMd" numberOfLines={1} flexShrink={1}>
+              <SizableText size="$bodyMd" flex={1} flexBasis={0} minWidth={0}>
                 {getLevelTargetLabel(intl, target)}
               </SizableText>
               <SizableText
+                flexShrink={0}
+                numberOfLines={1}
+                ta="right"
                 size="$bodyMdMedium"
                 color={target.isReached ? '$textSuccess' : '$text'}
               >

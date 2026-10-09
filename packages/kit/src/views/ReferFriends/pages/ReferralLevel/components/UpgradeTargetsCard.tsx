@@ -110,12 +110,13 @@ function TargetRow({
 
   return (
     <YStack gap="$2">
-      <XStack ai="center" jc="space-between" gap="$3">
-        <SizableText size="$bodyMdMedium" numberOfLines={1} flexShrink={1}>
+      {/* A long target name wraps; the figures stay on one line. */}
+      <XStack ai="flex-start" jc="space-between" gap="$3">
+        <SizableText size="$bodyMdMedium" flex={1} flexBasis={0} minWidth={0}>
           {label}
         </SizableText>
         {target.isReached ? (
-          <SizableText size="$bodyMdMedium" color="$textSuccess">
+          <SizableText size="$bodyMdMedium" color="$textSuccess" flexShrink={0}>
             {intl.formatMessage({
               id: ETranslations.referral_target_reached__msg,
             })}

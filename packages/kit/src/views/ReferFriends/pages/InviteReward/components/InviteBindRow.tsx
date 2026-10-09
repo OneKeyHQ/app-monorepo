@@ -9,6 +9,7 @@ import {
   Skeleton,
   XStack,
 } from '@onekeyhq/components';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useFetchWalletsWithBoundStatus,
   useWalletBoundReferralCode,
@@ -31,6 +32,7 @@ export function InviteBindRow({
   const intl = useIntl();
   const { walletsWithStatus, refreshWalletsWithStatus } =
     useFetchWalletsWithBoundStatus();
+  const { activeAccount } = useActiveAccount({ num: 0 });
   const { bindWalletInviteCode } = useWalletBoundReferralCode({
     entry: platformEnv.isNative ? 'modal' : 'tab',
   });
@@ -49,11 +51,16 @@ export function InviteBindRow({
   const handlePress = useCallback(() => {
     bindWalletInviteCode({
       source: 'invite_home',
+      preferredWalletId: activeAccount?.wallet?.id,
       onSuccess: () => {
         void refreshWalletsWithStatus();
       },
     });
-  }, [bindWalletInviteCode, refreshWalletsWithStatus]);
+  }, [
+    activeAccount?.wallet?.id,
+    bindWalletInviteCode,
+    refreshWalletsWithStatus,
+  ]);
 
   // While the wallet statuses load, a placeholder holds the line's height
   // so the cards around it do not jump when it arrives.

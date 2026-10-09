@@ -2,7 +2,7 @@ import type { Ref } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import { InviteCodeStepImage } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferAFriend/components/InviteCodeStepImage';
 import type { IInviteCodeStepImageControl } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferAFriend/components/InviteCodeStepImage';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -11,7 +11,7 @@ import type { IInviteLevelDetail } from '@onekeyhq/shared/src/referralCode/type'
 import { ReferFriendsTestIDs } from '../../../testIDs';
 
 import { InviteLevelPill } from './InviteLevelPill';
-import { RateLine, RatePopover } from './InviteValueLine';
+import { RateLineTrigger } from './InviteValueLine';
 
 import type { ICurrentLevelCardProps } from './CurrentLevelCard/types';
 import type { IInviteValueSummaryResult } from './InviteValueLine';
@@ -31,7 +31,6 @@ export function InviteCompactHero({
   animationControlRef?: Ref<IInviteCodeStepImageControl>;
 }) {
   const intl = useIntl();
-  const { summary } = valueSummary;
 
   return (
     <YStack ai="center" gap="$3">
@@ -48,22 +47,11 @@ export function InviteCompactHero({
         <SizableText size="$heading2xl" textAlign="center">
           {intl.formatMessage({ id: ETranslations.referral_home__title })}
         </SizableText>
-        {summary ? (
-          <RatePopover
-            valueSummary={valueSummary}
-            trigger={
-              <XStack
-                testID={ReferFriendsTestIDs.inviteHeroRate}
-                ai="center"
-                jc="center"
-                gap="$1"
-              >
-                <RateLine summary={summary} textAlign="center" />
-                <Icon name="InfoCircleOutline" size="$4" color="$iconSubdued" />
-              </XStack>
-            }
-          />
-        ) : null}
+        <RateLineTrigger
+          valueSummary={valueSummary}
+          testID={ReferFriendsTestIDs.inviteHeroRate}
+          centered
+        />
         <XStack pt="$1">
           <InviteLevelPill {...levelProps} levelDetail={levelDetail} />
         </XStack>

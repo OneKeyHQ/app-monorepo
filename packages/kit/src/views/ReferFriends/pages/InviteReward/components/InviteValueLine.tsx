@@ -59,11 +59,18 @@ function RateBreakdown({
         </XStack>
       ) : null}
       <XStack gap="$3">
-        <SizableText flex={1} size="$bodySmMedium" color="$textSubdued">
+        <SizableText
+          flex={1}
+          flexBasis={0}
+          minWidth={0}
+          size="$bodySmMedium"
+          color="$textSubdued"
+        >
           {intl.formatMessage({ id: ETranslations.referral_product__title })}
         </SizableText>
         <SizableText
           w={64}
+          flexShrink={0}
           size="$bodySmMedium"
           color="$textSubdued"
           ta="right"
@@ -72,6 +79,7 @@ function RateBreakdown({
         </SizableText>
         <SizableText
           w={88}
+          flexShrink={0}
           size="$bodySmMedium"
           color="$textSubdued"
           ta="right"
@@ -80,15 +88,18 @@ function RateBreakdown({
         </SizableText>
       </XStack>
       {rows.map((row) => (
-        <XStack key={row.subject} gap="$3" ai="center">
-          <SizableText flex={1} size="$bodyMd" numberOfLines={1}>
+        // Fixed value columns; a long product name wraps rather than
+        // squeezing them out of line.
+        <XStack key={row.subject} gap="$3" ai="flex-start">
+          <SizableText flex={1} flexBasis={0} minWidth={0} size="$bodyMd">
             {intl.formatMessage({ id: row.labelId })}
           </SizableText>
-          <SizableText w={64} size="$bodyMdMedium" ta="right">
+          <SizableText w={64} flexShrink={0} size="$bodyMdMedium" ta="right">
             {row.you}
           </SizableText>
           <SizableText
             w={88}
+            flexShrink={0}
             size="$bodyMdMedium"
             color={row.friend ? '$text' : '$textDisabled'}
             ta="right"
@@ -219,7 +230,12 @@ export function RateLine({
       : ETranslations.referral_you_earn_up_to__desc;
   }
   return (
-    <SizableText size={size} color="$textSubdued" textAlign={textAlign}>
+    <SizableText
+      size={size}
+      color="$textSubdued"
+      textAlign={textAlign}
+      flexShrink={1}
+    >
       {intl.formatMessage(
         { id },
         {
@@ -231,9 +247,18 @@ export function RateLine({
   );
 }
 
-// Pointer layouts' rate line under the invite card title; it opens the
-// per-product breakdown.
-export function InviteValueLine(valueSummary: IInviteValueSummaryResult) {
+// The rate line with its info icon, opening the per-product breakdown. The
+// sentence wraps in longer languages; the icon stays on its first line
+// instead of floating beside the middle of the block.
+export function RateLineTrigger({
+  valueSummary,
+  testID,
+  centered = false,
+}: {
+  valueSummary: IInviteValueSummaryResult;
+  testID?: string;
+  centered?: boolean;
+}) {
   const { summary } = valueSummary;
   if (!summary) {
     return null;
@@ -242,11 +267,32 @@ export function InviteValueLine(valueSummary: IInviteValueSummaryResult) {
     <RatePopover
       valueSummary={valueSummary}
       trigger={
-        <XStack ai="center" gap="$1" cursor="default">
-          <RateLine summary={summary} />
-          <Icon name="InfoCircleOutline" size="$4" color="$iconSubdued" />
+        <XStack
+          testID={testID}
+          ai="flex-start"
+          jc={centered ? 'center' : undefined}
+          gap="$1"
+          cursor="default"
+        >
+          <RateLine
+            summary={summary}
+            textAlign={centered ? 'center' : undefined}
+          />
+          {/* Centered on the 20px first line. */}
+          <Icon
+            name="InfoCircleOutline"
+            size="$4"
+            mt="$0.5"
+            flexShrink={0}
+            color="$iconSubdued"
+          />
         </XStack>
       }
     />
   );
+}
+
+// Pointer layouts' rate line under the invite card title.
+export function InviteValueLine(valueSummary: IInviteValueSummaryResult) {
+  return <RateLineTrigger valueSummary={valueSummary} />;
 }

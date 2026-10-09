@@ -58,12 +58,16 @@ const INSTALL_REFERRAL_CAPTURE_WAIT_MS = 10_000;
 
 export function InviteCodeDialog({
   wallet,
+  preferredWalletId,
   onSuccess,
   confirmBindReferralCode,
   defaultReferralCode,
   source,
 }: {
   wallet?: IDBWallet;
+  // Without a `wallet`, the selector starts on this one if it can still
+  // bind, otherwise on the first wallet that can.
+  preferredWalletId?: string;
   onSuccess?: () => void;
   defaultReferralCode?: string;
   source?: IReferralBindSource;
@@ -215,6 +219,26 @@ export function InviteCodeDialog({
   const [selectedWalletId, setSelectedWalletId] = useState<string | undefined>(
     wallet?.id,
   );
+
+  // Entries with no wallet in hand (the referral page's own prompts) would
+  // otherwise open on an empty selector.
+  useEffect(() => {
+    if (selectedWalletId || !walletsWithStatus) {
+      return;
+    }
+    const bindable = walletsWithStatus.filter(
+      (item) =>
+        item.status !== 'bound' &&
+        item.status !== 'expired' &&
+        item.status !== 'unknown',
+    );
+    const initial =
+      bindable.find((item) => item.wallet.id === preferredWalletId) ??
+      bindable[0];
+    if (initial) {
+      setSelectedWalletId(initial.wallet.id);
+    }
+  }, [preferredWalletId, selectedWalletId, walletsWithStatus]);
 
   // Get the selected wallet object
   const selectedWallet = useMemo(() => {

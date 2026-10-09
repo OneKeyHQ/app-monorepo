@@ -345,12 +345,14 @@ export function useWalletBoundReferralCode({
   const bindWalletInviteCode = useCallback(
     ({
       wallet,
+      preferredWalletId,
       onSuccess,
       onClose,
       defaultReferralCode,
       source,
     }: {
       wallet?: IDBWallet;
+      preferredWalletId?: string;
       onSuccess?: () => void;
       onClose?: () => void;
       defaultReferralCode?: string;
@@ -365,6 +367,7 @@ export function useWalletBoundReferralCode({
         renderContent: (
           <InviteCodeDialog
             wallet={wallet}
+            preferredWalletId={preferredWalletId}
             onSuccess={onSuccess}
             confirmBindReferralCode={confirmBindReferralCode}
             defaultReferralCode={defaultReferralCode}
