@@ -114,17 +114,20 @@ and dialogs. Merely selecting a price never submits an order.
 `usePerpsNativeChartMetadata.ts` supplies the instrument's display name and
 explicit price precision to the shared renderer. Spot titles use the existing
 base/quote display mapping while candle API identifiers remain unchanged.
-Precision starts from the legacy cached Hyperliquid display scale and updates
-from actual chart prices. Spot preserves up to eight decimal places. Axis ticks,
+Precision uses the instrument's size decimals and Hyperliquid's decimal limit
+(six for perps, eight for spot). A newer close with fewer decimals cannot reduce
+the precision of historical candles or orders. Axis ticks,
 OHLC, latest price, crosshair, extrema and reference-line prices use the same
 format, with axis width measured from that precision. Other chart consumers
 retain their default formatting.
 
 Native crosshair, pan, zoom, price-axis and drawing interactions report their
 active state to the Perps page so header/page scrolling pauses during chart
-interaction and resumes afterward. Web drawing tools use the same page lock;
-ordinary vertical touch scrolling retains the browser's existing `pan-y`
-behavior. Multi-chart panels aggregate their locks, and fullscreen, gestures
+interaction and resumes afterward. Web chart pointers and drawing tools use
+the same page lock. Perps canvas and time-axis gestures disable browser touch
+scrolling; pointer release, cancellation, lost capture, window blur and unmount
+release the lock. Other chart consumers retain `pan-y` when they do not request
+interaction tracking. Multi-chart panels aggregate their locks, and fullscreen, gestures
 and panel resizing have separate owners. Closing the chart or changing the
 instrument releases the locks. The compact mobile trading-panel chart keeps
 its existing presentation; these Perps entry integrations target `PerpCandles`.

@@ -207,10 +207,60 @@ export const TradingViewNativeChart = memo(
       drawingsEnabled &&
       (drawingController.state.tool !== 'cursor' ||
         Boolean(drawingController.state.drag || drawingController.state.draft));
+    const activePointerIdsRef = useRef(new Set<number>());
+    const [pointerInteraction, setPointerInteraction] = useState(false);
+    const trackPointerInteraction = Boolean(onInteractionChange);
+    const startPointerInteraction = useCallback(
+      (event: ReactPointerEvent<HTMLDivElement>) => {
+        if (event.button !== 0) return;
+        activePointerIdsRef.current.add(event.pointerId);
+        setPointerInteraction(true);
+      },
+      [],
+    );
+    const finishPointerInteraction = useCallback(
+      ({ pointerId }: { pointerId: number }) => {
+        if (activePointerIdsRef.current.delete(pointerId)) {
+          setPointerInteraction(activePointerIdsRef.current.size > 0);
+        }
+      },
+      [],
+    );
     useEffect(() => {
-      onInteractionChange?.(drawingInteraction);
-      return () => onInteractionChange?.(false);
-    }, [drawingInteraction, onInteractionChange]);
+      const reset = () => {
+        activePointerIdsRef.current.clear();
+        setPointerInteraction(false);
+      };
+      if (!trackPointerInteraction) {
+        reset();
+        return;
+      }
+      // A drag can end outside the chart when pointer capture is unavailable.
+      globalThis.addEventListener('pointerup', finishPointerInteraction, true);
+      globalThis.addEventListener(
+        'pointercancel',
+        finishPointerInteraction,
+        true,
+      );
+      globalThis.addEventListener('blur', reset);
+      return () => {
+        globalThis.removeEventListener(
+          'pointerup',
+          finishPointerInteraction,
+          true,
+        );
+        globalThis.removeEventListener(
+          'pointercancel',
+          finishPointerInteraction,
+          true,
+        );
+        globalThis.removeEventListener('blur', reset);
+      };
+    }, [finishPointerInteraction, trackPointerInteraction]);
+    useEffect(() => {
+      onInteractionChange?.(drawingInteraction || pointerInteraction);
+    }, [drawingInteraction, onInteractionChange, pointerInteraction]);
+    useEffect(() => () => onInteractionChange?.(false), [onInteractionChange]);
     const pointerPanDragStateRef = useRef<IPointerPanDragState | null>(null);
     const timeAxisPointerDragStateRef =
       useRef<ITimeAxisPointerDragState | null>(null);
@@ -1210,6 +1260,10 @@ export const TradingViewNativeChart = memo(
     return (
       <div
         ref={drawingRootRef}
+        onPointerDownCapture={
+          trackPointerInteraction ? startPointerInteraction : undefined
+        }
+        onLostPointerCapture={finishPointerInteraction}
         style={{
           display: 'flex',
           flex: 1,
@@ -1322,7 +1376,7 @@ export const TradingViewNativeChart = memo(
               cursor: 'crosshair',
               display: 'block',
               height: '100%',
-              touchAction: 'pan-y',
+              touchAction: trackPointerInteraction ? 'none' : 'pan-y',
               userSelect: 'none',
               width: '100%',
               outline: 'none',
@@ -1346,7 +1400,7 @@ export const TradingViewNativeChart = memo(
                 height: TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
                 left: CHART_HORIZONTAL_PADDING,
                 position: 'absolute',
-                touchAction: 'pan-y',
+                touchAction: trackPointerInteraction ? 'none' : 'pan-y',
                 userSelect: 'none',
                 width: measuredChartWidth,
                 zIndex: 1,
