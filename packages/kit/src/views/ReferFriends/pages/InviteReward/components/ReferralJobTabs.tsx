@@ -8,11 +8,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { ReferFriendsTestIDs } from '../../../testIDs';
 import { INVITE_COPY } from '../inviteCopy';
-import {
-  EReferralPageTab,
-  type IReferralPageTab,
-  IS_BENEFITS_TAB_ENABLED,
-} from '../referralPageTab';
+import { EReferralPageTab, type IReferralPageTab } from '../referralPageTab';
 
 function useReferralTabs() {
   const intl = useIntl();
@@ -40,17 +36,13 @@ export function ReferralJobTabs({
 }: {
   value: IReferralPageTab;
   onChange: (value: IReferralPageTab) => void;
-  // `title`: compact layouts title the page with the tab names themselves,
-  // at heading size; the active one reads in full color. Until the benefits
-  // tab ships it is a plain page title.
-  variant?: 'tabs' | 'title';
+  // `header`: compact layouts put the tab names in the navigation bar's
+  // title slot at title size; the active one reads in full color.
+  variant?: 'tabs' | 'header';
 }) {
   const tabs = useReferralTabs();
 
-  if (variant === 'title') {
-    if (!IS_BENEFITS_TAB_ENABLED) {
-      return <SizableText size="$heading2xl">{tabs[0].label}</SizableText>;
-    }
+  if (variant === 'header') {
     return (
       <XStack ai="center" gap="$4" flexShrink={1}>
         {tabs.map((tab) => {
@@ -61,7 +53,7 @@ export function ReferralJobTabs({
               testID={tab.testID}
               role="tab"
               aria-selected={isActive}
-              size="$heading2xl"
+              size="$headingLg"
               color={isActive ? '$text' : '$textDisabled'}
               numberOfLines={1}
               cursor="default"

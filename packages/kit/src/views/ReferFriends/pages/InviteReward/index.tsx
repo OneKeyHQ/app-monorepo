@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useFocusEffect, useRoute } from '@react-navigation/core';
 import { isEqual } from 'lodash';
@@ -26,6 +26,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
 import { BenefitsTabPlaceholder } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/BenefitsTabPlaceholder';
 import { useInviteLevelDetail } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CurrentLevelCard/hooks/useCurrentLevelCard';
+import type { ICurrentLevelCardProps } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CurrentLevelCard/types';
 import { getInviteEarningsState } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/getInviteEarningsState';
 import {
   InviteLevelChip,
@@ -49,7 +50,10 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
+import type {
+  IInviteLevelDetail,
+  IInviteSummary,
+} from '@onekeyhq/shared/src/referralCode/type';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { IInviteRewardRouteParams } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -65,22 +69,54 @@ import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
 const ReferralPageHeader = memo(function ReferralPageHeader({
   activeTab,
+  onChangeTab,
   isCompactHeader,
-  isTitleHidden,
+  level,
 }: {
   activeTab: IReferralPageTab;
+  onChangeTab: (tab: IReferralPageTab) => void;
   isCompactHeader: boolean;
-  // The content shows the title tabs, so the bar leaves its own title empty.
-  isTitleHidden: boolean;
+  // Set once the summary loads; compact phones show it in the right slot.
+  level?: ICurrentLevelCardProps & {
+    levelDetail: IInviteLevelDetail | undefined;
+  };
 }) {
   const intl = useIntl();
+  const { md } = useMedia();
   const { headerBackgroundColor, headerStyle } = useInvitePageCanvas();
+  const renderHeaderTitle = useCallback(
+    () => (
+      <ReferralJobTabs
+        variant="header"
+        value={activeTab}
+        onChange={onChangeTab}
+      />
+    ),
+    [activeTab, onChangeTab],
+  );
   const renderHeaderRight = useCallback(() => {
     if (activeTab !== EReferralPageTab.invite) {
       return null;
     }
-    return <RulesButton />;
-  }, [activeTab]);
+    // Compact phones give the slot to the level (the rules move into the
+    // entries card); wider compact screens keep the desktop content, which
+    // has no rules entry, so they keep the button.
+    if (!md) {
+      return <RulesButton />;
+    }
+    if (!level) {
+      return null;
+    }
+    return (
+      <InviteLevelChip
+        rebateConfig={level.rebateConfig}
+        rebateLevels={level.rebateLevels}
+        levelDetail={level.levelDetail}
+        // Beside the tab names the level keeps only its icon.
+        iconOnly={IS_BENEFITS_TAB_ENABLED}
+      />
+    );
+  }, [activeTab, level, md]);
 
   if (isCompactHeader) {
     return (
@@ -88,13 +124,10 @@ const ReferralPageHeader = memo(function ReferralPageHeader({
         // Native iOS ignores the container color; headerStyle covers it.
         headerContainerBackgroundColor={headerBackgroundColor}
         headerStyle={headerStyle}
-        title={
-          isTitleHidden
-            ? ''
-            : intl.formatMessage({
-                id: ETranslations.sidebar_refer_a_friend,
-              })
-        }
+        title={intl.formatMessage({
+          id: ETranslations.sidebar_refer_a_friend,
+        })}
+        headerTitle={IS_BENEFITS_TAB_ENABLED ? renderHeaderTitle : undefined}
         headerRight={renderHeaderRight}
       />
     );
@@ -345,29 +378,26 @@ function InviteRewardPage() {
       setIsRetrying(false);
     }
   }, [refreshAll]);
-  // Compact layouts title the page in the content with the tab names (and
-  // the level beside them); the bar title returns once that row scrolls
-  // under the bar, and a short fade under the bar softens content scrolling
-  // beneath it. Only the load error view goes without the row.
-  const isLoadError = isInviteTab && !isFetching && !summaryInfo;
-  const hasLargeTitle = md && !isLoadError;
-  const largeTitleBottomRef = useRef(0);
-  const [isPastLargeTitle, setIsPastLargeTitle] = useState(false);
+  // A short fade under the compact bar softens content scrolling beneath
+  // it; it only shows once the content has moved.
   const [isScrolled, setIsScrolled] = useState(false);
-  const handleLargeTitleLayout = useCallback((bottom: number) => {
-    largeTitleBottomRef.current = bottom;
-  }, []);
   const handleScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const offsetY = event.nativeEvent.contentOffset.y;
       // Same-value updates bail out, so this only re-renders on a crossing.
-      setIsScrolled(offsetY > 0);
-      setIsPastLargeTitle(
-        largeTitleBottomRef.current > 0 &&
-          offsetY >= largeTitleBottomRef.current,
-      );
+      setIsScrolled(event.nativeEvent.contentOffset.y > 0);
     },
     [],
+  );
+  const headerLevel = useMemo(
+    () =>
+      summaryInfo
+        ? {
+            rebateConfig: summaryInfo.rebateConfig,
+            rebateLevels: summaryInfo.rebateLevels,
+            levelDetail,
+          }
+        : undefined,
+    [summaryInfo, levelDetail],
   );
   const showInviteFooter =
     platformEnv.isNative && isInviteTab && Boolean(summaryInfo?.inviteUrl);
@@ -381,45 +411,11 @@ function InviteRewardPage() {
       />
     ) : null;
 
-  let levelChip: ReactNode = null;
-  if (isInviteTab && summaryInfo) {
-    levelChip = (
-      <InviteLevelChip
-        rebateConfig={summaryInfo.rebateConfig}
-        rebateLevels={summaryInfo.rebateLevels}
-        levelDetail={levelDetail}
-      />
-    );
-  } else if (isInviteTab) {
-    levelChip = <Skeleton w={88} h={28} radius="round" />;
-  }
-  const titleRow = hasLargeTitle ? (
-    <XStack
-      px="$pagePadding"
-      pt="$2"
-      ai="center"
-      jc="space-between"
-      gap="$3"
-      onLayout={(event) => {
-        const { y, height } = event.nativeEvent.layout;
-        handleLargeTitleLayout(y + height);
-      }}
-    >
-      <ReferralJobTabs
-        variant="title"
-        value={activeTab}
-        onChange={setActiveTab}
-      />
-      {levelChip}
-    </XStack>
-  ) : null;
-
   let body: ReactNode;
   if (isInviteTab && isFetching) {
     body = (
       <ScrollView>
         <Page.Container padded={false}>
-          {titleRow}
           <InviteOverviewSkeleton />
         </Page.Container>
       </ScrollView>
@@ -440,11 +436,10 @@ function InviteRewardPage() {
         refreshControl={
           <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
         }
-        onScroll={hasLargeTitle ? handleScroll : undefined}
+        onScroll={isCompactHeader ? handleScroll : undefined}
         scrollEventThrottle={16}
       >
         <Page.Container padded={false}>
-          {titleRow}
           {summaryInfo ? (
             // Keep the invite tab mounted so switching tabs does not
             // refetch its data or replay the illustration.
@@ -466,8 +461,9 @@ function InviteRewardPage() {
     <Page backgroundColor={pageCanvas.backgroundColor}>
       <ReferralPageHeader
         activeTab={activeTab}
+        onChangeTab={setActiveTab}
         isCompactHeader={isCompactHeader}
-        isTitleHidden={hasLargeTitle && !isPastLargeTitle}
+        level={headerLevel}
       />
       <Page.Body>
         {/* Compact layouts show the level inside the scrolling content. */}
@@ -504,7 +500,7 @@ function InviteRewardPage() {
           </Page.Container>
         )}
         {body}
-        {hasLargeTitle && isScrolled ? (
+        {isCompactHeader && isScrolled ? (
           <LinearGradient
             position="absolute"
             top={0}

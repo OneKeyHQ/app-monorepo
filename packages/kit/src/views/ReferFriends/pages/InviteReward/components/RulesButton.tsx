@@ -11,17 +11,18 @@ import {
 
 import { ReferFriendsTestIDs } from '../../../testIDs';
 
+export function openReferralRules() {
+  if (platformEnv.isDesktop || platformEnv.isNative) {
+    openUrlInDiscovery({ url: REFERRAL_HELP_LINK });
+  } else {
+    openUrlExternal(REFERRAL_HELP_LINK);
+  }
+}
+
 export function RulesButton() {
   const intl = useIntl();
   const { md } = useMedia();
-
-  const handlePress = () => {
-    if (platformEnv.isDesktop || platformEnv.isNative) {
-      openUrlInDiscovery({ url: REFERRAL_HELP_LINK });
-    } else {
-      openUrlExternal(REFERRAL_HELP_LINK);
-    }
-  };
+  const handlePress = openReferralRules;
 
   const label = intl.formatMessage({
     id: ETranslations.referral_global_rules,

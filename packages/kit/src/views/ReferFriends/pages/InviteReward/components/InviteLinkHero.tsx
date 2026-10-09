@@ -24,6 +24,7 @@ import { INVITE_COPY } from '../inviteCopy';
 import { InviteValueLine, RatePopover } from './InviteValueLine';
 import { useReferralCodeCard } from './ReferralCodeCard/hooks/useReferralCodeCard';
 import { ReferralLinkDropdown } from './ReferralLinkDropdown';
+import { openReferralRules } from './RulesButton';
 import {
   COMPACT_ENTRY_TITLE_PROPS,
   COMPACT_ROW_BLEED_PROPS,
@@ -377,7 +378,8 @@ export function InviteCompactCard({
 }
 
 // Compact layouts: the pages behind the invite card (codes, people invited)
-// as plain drill-in rows in their own card.
+// and the rules, as plain drill-in rows in their own card. The level holds
+// the header's right slot, so the rules live here.
 export function InviteEntriesCard({
   cardStyle,
   onManageCodes,
@@ -405,6 +407,14 @@ export function InviteEntriesCard({
         title={intl.formatMessage({ id: ETranslations.referral_referral_list })}
         drillIn
         onPress={navigateToYourReferred}
+      />
+      <ListItem
+        testID={ReferFriendsTestIDs.rulesBtn}
+        {...COMPACT_ROW_BLEED_PROPS}
+        titleProps={COMPACT_ENTRY_TITLE_PROPS}
+        title={intl.formatMessage({ id: ETranslations.referral_global_rules })}
+        drillIn
+        onPress={openReferralRules}
       />
     </YStack>
   );

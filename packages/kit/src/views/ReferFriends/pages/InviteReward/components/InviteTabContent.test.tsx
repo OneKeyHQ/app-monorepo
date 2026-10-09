@@ -194,6 +194,10 @@ jest.mock(
   () => ({ useNavigateToEditAddress: () => mockNavigateToEditAddress }),
 );
 
+jest.mock('./RulesButton', () => ({
+  openReferralRules: jest.fn(),
+}));
+
 jest.mock('./useInviteCardStyle', () => ({
   useInviteHomeCardStyle: () => ({}),
 }));
