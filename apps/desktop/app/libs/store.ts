@@ -16,13 +16,16 @@ import type {
 
 // OneKey.json is frozen: do not add fields. Put new state in a dedicated store.
 // Keep existing preferences, encrypted data, and instance metadata here.
+// Native upgrades invalidate old bundles; disposable legacy state starts fresh.
 const store = new Store<IDesktopStoreMap>({ name: 'OneKey' });
 const updateStateStore = new Store<IDesktopStoreMap>({
   name: 'OneKey-update-state',
+  clearInvalidConfig: true,
   cwd: path.dirname(store.path),
 });
 const runtimeStateStore = new Store<IDesktopStoreMap>({
   name: 'OneKey-runtime-state',
+  clearInvalidConfig: true,
   cwd: path.dirname(store.path),
 });
 
@@ -74,8 +77,7 @@ function logWinBounds(event: string, bounds: unknown) {
     logger.info('[WindowBounds]', event, {
       pid: process.pid,
       storeSequence: winBoundsLogSequence,
-      storePath: store.path,
-      userDataPath: app.getPath('userData'),
+      storeFile: path.basename(store.path),
       bounds: winBoundsForLog(bounds),
     });
   } catch {
@@ -89,8 +91,7 @@ if (process.platform === 'darwin') {
     const initialBounds = winBoundsForLog(
       store.get(EDesktopStoreKeys.WinBounds),
     );
-    const initialUserDataPath = app.getPath('userData');
-    const initialStorePath = store.path;
+    const initialStoreFile = path.basename(store.path);
     const capturedAt = Date.now();
     queueMicrotask(() => {
       try {
@@ -98,8 +99,7 @@ if (process.platform === 'darwin') {
           pid: process.pid,
           storeSequence: 0,
           capturedAt,
-          storePath: initialStorePath,
-          userDataPath: initialUserDataPath,
+          storeFile: initialStoreFile,
           bounds: initialBounds,
         });
       } catch {

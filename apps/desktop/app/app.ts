@@ -316,8 +316,7 @@ function logWindowBounds(
       pid: process.pid,
       windowSequence: windowBoundsLogSequence,
       windowId: window && !destroyed ? window.id : undefined,
-      storePath: store.instance.path,
-      userDataPath: app.getPath('userData'),
+      storeFile: path.basename(store.instance.path),
       creationBounds: creationBounds
         ? {
             x:

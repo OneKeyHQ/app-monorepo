@@ -52,6 +52,7 @@ describeMac('Noble SDK process cleanup', () => {
       const { app } = require('electron');
       const events = [];
       const isMac = true, logger = { info() {}, warn() {}, error() {} };
+      const logWindowBounds = () => {};
       let bleQuitStarted = false, bleQuitReady = false;
       const nobleBleInitialization = Promise.resolve(), trezorBleSupports = new Set();
       const store = { getUpdateBundleData() {}, getConsecutiveBootFailCount: () => 0, resetConsecutiveBootFailCount() {} };
@@ -168,6 +169,7 @@ guard let pid = Int32(CommandLine.arguments[1]),
         const events = [];
         const record = (event) => { events.push(event); console.log(event); };
         const isMac = true, logger = { info() {}, warn() {}, error() {} };
+        const logWindowBounds = () => {};
         let bleQuitStarted = false, bleQuitReady = false, mainWindow;
         let systemIdleInterval, disposeContextMenu;
         const nobleBleInitialization = Promise.resolve(), trezorBleSupports = new Set();
