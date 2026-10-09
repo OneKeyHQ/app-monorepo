@@ -21,6 +21,48 @@ import {
 } from './deviceErrorUtils';
 
 describe('isOneKeyHardwareError', () => {
+  it.each([
+    [
+      HardwareErrorCode.BlePoweredOff,
+      'hardware.bluetooth_need_turned_on_error',
+    ],
+    [
+      HardwareErrorCode.BleUnsupported,
+      'hardware_third_party_transport_not_available',
+    ],
+    [
+      HardwareErrorCode.WebUsbDeviceAccessError,
+      'global.connection_failed_usb_help_text',
+    ],
+    [HardwareErrorCode.BridgeNeedsPermission, 'device.grant_usb_access'],
+  ])(
+    'localizes transport error %s without treating it as an unknown firmware error',
+    (code, key) => {
+      expect(
+        convertDeviceError({ code, error: 'Native transport failure' }),
+      ).toMatchObject({
+        code,
+        key,
+        className: EOneKeyErrorClassNames.OneKeyHardwareError,
+        payload: { code },
+      });
+    },
+  );
+
+  it('preserves native recovery context when the SDK throws a HardwareError', async () => {
+    const params = { operation: 'open', nativeErrorMessage: 'Access denied' };
+    await expect(
+      convertDeviceResponse(async () => {
+        throw Object.assign(new Error('Access denied'), {
+          errorCode: HardwareErrorCode.BridgeNeedsPermission,
+          params,
+        });
+      }),
+    ).rejects.toMatchObject({
+      code: HardwareErrorCode.BridgeNeedsPermission,
+      payload: { params },
+    });
+  });
   it('recognizes hardware error metadata rehydrated across runtimes', () => {
     const error = Object.assign(new OneKeyLocalError('link disabled'), {
       className: EOneKeyErrorClassNames.OneKeyHardwareError,

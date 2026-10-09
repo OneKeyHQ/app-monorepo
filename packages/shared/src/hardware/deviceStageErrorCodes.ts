@@ -31,6 +31,7 @@ export const DEVICE_STAGE_DEDICATED_DIALOG_CODES = [
   HardwareErrorCode.DeviceNotOpenedPassphrase,
   HardwareErrorCode.NewFirmwareForceUpdate,
   HardwareErrorCode.BlePermissionError,
+  HardwareErrorCode.BlePoweredOff,
   HardwareErrorCode.BleLocationError,
   HardwareErrorCode.BleLocationServicesDisabled,
 ];

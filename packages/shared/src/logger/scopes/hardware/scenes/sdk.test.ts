@@ -5,6 +5,44 @@ import {
 } from './sdk';
 
 describe('hardware SDK log payload', () => {
+  test('drops malformed scalars and unknown enum values from both log builders', () => {
+    expect(
+      buildHardwareUiEventLogPayload({
+        type: 'unexpected-log-text',
+        progress: 'unexpected-log-text',
+        progressType: { nested: 'unexpected-log-text' },
+        installTargetId: { nested: true },
+        installPhase: 'unexpected-log-text',
+        installPhaseProgress: NaN,
+        transferredBytes: Infinity,
+        totalBytes: 1000,
+        rateBytesPerSecond: 'unexpected-log-text',
+        elapsedMs: 10,
+        device: { deviceType: 'unexpected-log-text' },
+        source: 'unexpected-log-text',
+        reason: { nested: true },
+        deviceOnly: 'unexpected-log-text',
+      }),
+    ).toEqual({ totalBytes: 1000, elapsedMs: 10 });
+    expect(
+      buildHardwareUiStateLogPayload({
+        uiRequestType: 'unexpected-log-text',
+        deviceType: { nested: true },
+        deviceMode: 'unexpected-log-text',
+        isBootloaderMode: 'unexpected-log-text',
+        firmwareProgress: Infinity,
+        firmwareProgressType: 'unexpected-log-text',
+        firmwareInstallTargetId: 'unexpected-log-text',
+        firmwareInstallPhase: { nested: true },
+        firmwareInstallPhaseProgress: NaN,
+        firmwareTransferMetrics: {
+          transferredBytes: 'unexpected-log-text',
+          totalBytes: 1000,
+          elapsedMs: NaN,
+        },
+      }),
+    ).toEqual({ firmwareTransferMetrics: { totalBytes: 1000 } });
+  });
   test('logs whitelisted firmware progress in production and keeps other UI events masked', () => {
     const originalNodeEnv = process.env.NODE_ENV;
     process.env.NODE_ENV = 'production';

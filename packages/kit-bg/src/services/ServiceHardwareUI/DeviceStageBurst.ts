@@ -943,6 +943,10 @@ export class DeviceStageBurstScope {
         error,
         code: [
           HardwareErrorCode.BleDeviceNotBonded,
+          HardwareErrorCode.BlePoweredOff,
+          HardwareErrorCode.BleUnsupported,
+          HardwareErrorCode.BridgeNeedsPermission,
+          HardwareErrorCode.WebUsbDeviceAccessError,
           HardwareErrorCode.BleUnavailableWhileUsbConnected,
           HardwareErrorCode.DeviceCheckUnlockTypeError,
           HardwareErrorCode.DeviceCheckPassphraseStateError,

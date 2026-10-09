@@ -1,3 +1,9 @@
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   checkBLEPermissions,
   checkBLEState,
@@ -44,6 +50,7 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: {
     SyncDeviceLabelToWalletName: 'SyncDeviceLabelToWalletName',
     UpdateWalletAvatarByDeviceSerialNo: 'UpdateWalletAvatarByDeviceSerialNo',
+    ShowLinuxBundleUdevGuide: 'ShowLinuxBundleUdevGuide',
   },
   appEventBus: {
     on: jest.fn(),
@@ -154,6 +161,65 @@ function buildDevice({
 }
 
 describe('ServiceHardware.connect WebUSB reuse', () => {
+  it('routes Bluetooth powered-off UI requests to the existing settings dialog', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    const internals = service as unknown as {
+      specialProcessingEvent(params: {
+        originEvent: { type: string; payload: object };
+        usedPayload: { uiRequestType: string };
+        isCurrent(): boolean;
+      }): Promise<{ uiRequestType: string }>;
+    };
+    const result = await internals.specialProcessingEvent({
+      originEvent: { type: 'ui-bluetooth_powered_off', payload: {} },
+      usedPayload: { uiRequestType: 'ui-bluetooth_powered_off' },
+      isCurrent: () => true,
+    });
+    expect(result.uiRequestType).toBe('ui-bluetooth_permission');
+  });
+  it('recovers Linux permission errors by code, including converted SDK responses', async () => {
+    const emit = jest.spyOn(appEventBus, 'emit');
+    const service = new ServiceHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    const internals = service as unknown as {
+      isLinuxWebUsbAccessDeniedError(error: unknown): boolean;
+      isDesktopLinuxRuntime(): boolean;
+      ensureLinuxUdevRules(): Promise<boolean>;
+      isDesktopLinuxSnapRuntime(): boolean;
+    };
+    const classified = {
+      code: HardwareErrorCode.BridgeNeedsPermission,
+      error: 'USB unavailable',
+    };
+    expect(internals.isLinuxWebUsbAccessDeniedError(classified)).toBe(true);
+    expect(
+      internals.isLinuxWebUsbAccessDeniedError({ payload: classified }),
+    ).toBe(true);
+    expect(
+      internals.isLinuxWebUsbAccessDeniedError({
+        payload: { params: { nativeErrorMessage: 'LIBUSB_ERROR_ACCESS' } },
+      }),
+    ).toBe(true);
+    expect(
+      internals.isLinuxWebUsbAccessDeniedError({
+        code: HardwareErrorCode.WebUsbDeviceAccessError,
+        error: 'Unable to claim interface',
+      }),
+    ).toBe(false);
+    jest.spyOn(internals, 'isDesktopLinuxRuntime').mockReturnValue(true);
+    jest.spyOn(internals, 'isDesktopLinuxSnapRuntime').mockReturnValue(true);
+    jest.spyOn(internals, 'ensureLinuxUdevRules').mockResolvedValue(false);
+    await service.handleLinuxWebUsbAccessDeniedError({
+      error: { payload: classified },
+    });
+    expect(emit).toHaveBeenCalledWith(
+      EAppEventBusNames.ShowLinuxBundleUdevGuide,
+      { reason: 'snap' },
+    );
+  });
   beforeEach(() => {
     jest.clearAllMocks();
     HardwareConnectionManager.resetInstance();

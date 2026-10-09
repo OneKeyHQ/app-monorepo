@@ -139,6 +139,8 @@ const HARDWARE_CONNECTION_CANCEL_SKIP_CODES = [
   HardwareErrorCode.BleDeviceDisconnected,
   HardwareErrorCode.BlePoweredOff,
   HardwareErrorCode.BleUnsupported,
+  HardwareErrorCode.BridgeNeedsPermission,
+  HardwareErrorCode.WebUsbDeviceAccessError,
 ];
 
 /** How long after the stage's off write its exit is still on screen —
@@ -1679,6 +1681,19 @@ class ServiceHardwareUI extends ServiceBase {
           appEventBus.emit(
             EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode,
             { connectId },
+          );
+        }
+      }
+      if (isOuterCall && !isThirdPartyVendor && platformEnv.isDesktopLinux) {
+        try {
+          // Prepare USB permissions for the user's next attempt; never replay the operation.
+          await this.backgroundApi.serviceHardware.handleLinuxWebUsbAccessDeniedError(
+            { error },
+          );
+        } catch (permissionError) {
+          console.error(
+            'Failed to recover Linux USB permissions:',
+            permissionError,
           );
         }
       }

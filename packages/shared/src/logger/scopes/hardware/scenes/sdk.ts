@@ -1,14 +1,59 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import { devOnlyData } from '@onekeyhq/shared/src/utils/devModeUtils';
 import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
+import { EOneKeyDeviceMode } from '@onekeyhq/shared/types/device';
+import { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToConsole, LogToLocal } from '../../../base/decorators';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
+const numericLogFields = new Set([
+  'progress',
+  'installTargetId',
+  'installPhaseProgress',
+  'transferredBytes',
+  'totalBytes',
+  'rateBytesPerSecond',
+  'elapsedMs',
+  'firmwareProgress',
+  'firmwareInstallTargetId',
+  'firmwareInstallPhaseProgress',
+]);
+const booleanLogFields = new Set([
+  'isBootloaderMode',
+  'deviceOnly',
+  'existsAttachPinUser',
+]);
+const enumLogFields: Record<string, readonly string[]> = {
+  uiRequestType: Object.values(EHardwareUiStateAction),
+  eventType: [...Object.values(EHardwareUiStateAction), 'request-passphrase'],
+  deviceType: Object.values(EDeviceType),
+  deviceMode: Object.values(EOneKeyDeviceMode),
+  progressType: ['transferData', 'installingFirmware'],
+  firmwareProgressType: ['transferData', 'installingFirmware'],
+  installPhase: ['prepare', 'install', 'verify'],
+  firmwareInstallPhase: ['prepare', 'install', 'verify'],
+  source: ['wallet-session-coordinator'],
+  reason: ['session-recovery', 'open-wallet', 'change-pin', 'firmware-update'],
+};
+
 function compactLogPayload(payload: Record<string, unknown>) {
   return Object.fromEntries(
-    Object.entries(payload).filter(([, value]) => value !== undefined),
+    Object.entries(payload).filter(([key, value]) => {
+      if (numericLogFields.has(key)) {
+        return typeof value === 'number' && Number.isFinite(value);
+      }
+      if (booleanLogFields.has(key)) {
+        return typeof value === 'boolean';
+      }
+      if (key === 'firmwareTransferMetrics') {
+        return value !== undefined;
+      }
+      return typeof value === 'string' && enumLogFields[key]?.includes(value);
+    }),
   );
 }
 

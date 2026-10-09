@@ -34,6 +34,7 @@ import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import ImgEnterBootGuideMini from '../assets/enter-boot-guide-mini.png';
+import { resolveFirmwareUpdateErrorPresentation } from '../componentsV2/firmwareUpdateErrorPresentation';
 import { FirmwareUpdateTestIDs } from '../testIDs';
 
 import { FirmwareUpdateBaseMessageView } from './FirmwareUpdateBaseMessageView';
@@ -227,6 +228,36 @@ export function useFirmwareUpdateErrors({
     onRetryHandler?: () => void;
     retryText: string;
   }>(() => {
+    if (
+      isHardwareErrorByCode({
+        error,
+        code: [
+          HardwareErrorCode.BridgeNeedsPermission,
+          HardwareErrorCode.WebUsbDeviceAccessError,
+          HardwareErrorCode.BlePoweredOff,
+          HardwareErrorCode.BleUnsupported,
+        ],
+      })
+    ) {
+      const presentation = resolveFirmwareUpdateErrorPresentation({
+        error,
+        result,
+        lastFirmwareTipMessage,
+        intl,
+      });
+      const { action } = presentation;
+      return {
+        content: (
+          <CommonError
+            title={presentation.title}
+            message={presentation.message}
+          />
+        ),
+        onRetryHandler:
+          action.kind === 'link' ? () => openUrlExternal(action.url) : onRetry,
+        retryText: action.kind === 'link' ? action.text : defaultRetryText,
+      };
+    }
     if (
       isHardwareErrorByCode({
         error,

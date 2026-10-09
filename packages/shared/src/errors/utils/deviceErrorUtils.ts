@@ -174,6 +174,18 @@ export function convertDeviceError(
       return new HardwareErrors.NetworkError({ payload });
     case HardwareErrorCode.BlePermissionError:
       return new HardwareErrors.NeedBluetoothTurnedOn({ payload });
+    case HardwareErrorCode.BlePoweredOff:
+      return new HardwareErrors.OneKeyHardwareError({
+        payload,
+        code,
+        key: ETranslations.hardware_bluetooth_need_turned_on_error,
+      });
+    case HardwareErrorCode.BleUnsupported:
+      return new HardwareErrors.OneKeyHardwareError({
+        payload,
+        code,
+        key: ETranslations.hardware_third_party_transport_not_available,
+      });
     case HardwareErrorCode.BleLocationError:
       return new HardwareErrors.NeedBluetoothPermissions({ payload });
     case HardwareErrorCode.BleLocationServicesDisabled:
@@ -273,6 +285,18 @@ export function convertDeviceError(
       return new HardwareErrors.DeviceDataOverload({ payload });
     case HardwareErrorCode.BridgeDeviceDisconnected:
       return new HardwareErrors.DeviceDisconnectedError({ payload });
+    case HardwareErrorCode.WebUsbDeviceAccessError:
+      return new HardwareErrors.OneKeyHardwareError({
+        payload,
+        code,
+        key: ETranslations.global_connection_failed_usb_help_text,
+      });
+    case HardwareErrorCode.BridgeNeedsPermission:
+      return new HardwareErrors.OneKeyHardwareError({
+        payload,
+        code,
+        key: ETranslations.device_grant_usb_access,
+      });
     case HardwareErrorCode.BTCPsbtTooManyUtxos:
       return new HardwareErrors.BTCPsbtTooManyUtxos({ payload });
     case HardwareErrorCode.ResponseUnexpectTypeError:
@@ -345,7 +369,11 @@ export async function convertDeviceResponse<T>(
       ?.errorCode;
     if (typeof sdkErrorCode === 'number') {
       throw convertDeviceError(
-        { code: sdkErrorCode, error: error?.message },
+        {
+          code: sdkErrorCode,
+          error: error?.message,
+          params: (error as { params?: unknown } | undefined)?.params,
+        },
         options,
       );
     }

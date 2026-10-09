@@ -6,13 +6,16 @@ import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { renderHook } from '@testing-library/react';
 import { IntlProvider, createIntl } from 'react-intl';
 
+import { LINUX_UDEV_HELP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { BluetoothUnavailableWhileUsbConnectedError } from '@onekeyhq/shared/src/errors';
 import { FirmwareUpdateTransferInterruptedError } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import {
   EOneKeyErrorClassNames,
   type IOneKeyError,
 } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useFirmwareUpdateErrors as useLegacyFirmwareUpdateErrors } from './components/FirmwareUpdateErrors';
 import { resolveFirmwareUpdateErrorPresentation } from './componentsV2/firmwareUpdateErrorPresentation';
@@ -67,6 +70,73 @@ function IntlWrapper({ children }: { children: ReactNode }) {
 }
 
 describe('firmware update USB-priority errors', () => {
+  it.each([
+    [
+      HardwareErrorCode.WebUsbDeviceAccessError,
+      ETranslations.global_connection_failed_usb_help_text,
+    ],
+    [
+      HardwareErrorCode.BridgeNeedsPermission,
+      ETranslations.device_grant_usb_access,
+    ],
+    [
+      HardwareErrorCode.BlePoweredOff,
+      ETranslations.hardware_bluetooth_need_turned_on_error,
+    ],
+    [
+      HardwareErrorCode.BleUnsupported,
+      ETranslations.hardware_third_party_transport_not_available,
+    ],
+  ])(
+    'shows transport guidance for error %s in both firmware views',
+    (code, key) => {
+      const transportError = convertDeviceError({
+        code,
+        error: 'Native transport failure',
+      });
+      const presentation = resolveFirmwareUpdateErrorPresentation({
+        error: transportError,
+        result: undefined,
+        lastFirmwareTipMessage: undefined,
+        intl,
+      });
+      expect(presentation.title).toBe(key);
+      const { result } = renderHook(
+        () =>
+          useLegacyFirmwareUpdateErrors({
+            error: transportError,
+            lastFirmwareTipMessage: undefined,
+            onRetry: undefined,
+            result: undefined,
+          }),
+        { wrapper: IntlWrapper },
+      );
+      expect(
+        (result.current.content as ReactElement<{ title: string }>).props.title,
+      ).toBe(key);
+    },
+  );
+
+  it('links Linux permission failures to the existing udev help article', () => {
+    const previous = platformEnv.isDesktopLinux;
+    Object.assign(platformEnv, { isDesktopLinux: true });
+    try {
+      const presentation = resolveFirmwareUpdateErrorPresentation({
+        error: convertDeviceError({
+          code: HardwareErrorCode.BridgeNeedsPermission,
+        }),
+        result: undefined,
+        lastFirmwareTipMessage: undefined,
+        intl,
+      });
+      expect(presentation.action).toMatchObject({
+        kind: 'link',
+        url: LINUX_UDEV_HELP_URL,
+      });
+    } finally {
+      Object.assign(platformEnv, { isDesktopLinux: previous });
+    }
+  });
   const error = new BluetoothUnavailableWhileUsbConnectedError();
 
   it('uses the localized USB-priority message on the install page', () => {

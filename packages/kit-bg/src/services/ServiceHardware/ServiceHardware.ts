@@ -1,6 +1,7 @@
 import {
   EDeviceType,
   EFirmwareType,
+  HardwareErrorCode,
   isSameOnekeyBleName,
 } from '@onekeyfe/hd-shared';
 import { Semaphore } from 'async-mutex';
@@ -1340,6 +1341,9 @@ class ServiceHardware extends ServiceBase {
 
     let newUiRequestType = originEvent.type as EHardwareUiStateAction;
     const newPayload = usedPayload;
+    if (originEvent.type === EHardwareUiStateAction.BLUETOOTH_POWERED_OFF) {
+      newUiRequestType = EHardwareUiStateAction.BLUETOOTH_PERMISSION;
+    }
 
     // Handler Request Pin
     // If the user set is to enter pin on the device, change the event to enter pin on the hardware
@@ -2452,12 +2456,19 @@ class ServiceHardware extends ServiceBase {
       const errorRecord = error as Record<string, unknown>;
       append(errorRecord.message);
       append(errorRecord.error);
+      const appendNativeError = (params: unknown) => {
+        if (params && typeof params === 'object') {
+          append((params as Record<string, unknown>).nativeErrorMessage);
+        }
+      };
+      appendNativeError(errorRecord.params);
 
       const payload = errorRecord.payload;
       if (payload && typeof payload === 'object') {
         const payloadRecord = payload as Record<string, unknown>;
         append(payloadRecord.message);
         append(payloadRecord.error);
+        appendNativeError(payloadRecord.params);
       }
     }
 
@@ -2465,6 +2476,17 @@ class ServiceHardware extends ServiceBase {
   }
 
   private isLinuxWebUsbAccessDeniedError(error: unknown) {
+    if (error && typeof error === 'object') {
+      const record = error as Record<string, unknown>;
+      const payload = record.payload as Record<string, unknown> | undefined;
+      if (
+        [record.code, record.errorCode, payload?.code].includes(
+          HardwareErrorCode.BridgeNeedsPermission,
+        )
+      ) {
+        return true;
+      }
+    }
     const message = this.getErrorText(error);
     const lowerMessage = message.toLowerCase();
     return (

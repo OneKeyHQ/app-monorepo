@@ -4,6 +4,7 @@ import {
   BluetoothUnavailableWhileUsbConnectedError,
   DeviceNotFound,
   NotInBootLoaderMode,
+  OneKeyHardwareError,
   OneKeyLocalError,
   UserCancel,
 } from '@onekeyhq/shared/src/errors';
@@ -609,6 +610,54 @@ describe('ServiceHardwareUI bootloader recovery handoff', () => {
 });
 
 describe('ServiceHardwareUI.withHardwareProcessing USB-priority cleanup', () => {
+  it('recovers Linux USB permissions after a failed operation without replaying it', async () => {
+    const previous = platformEnv.isDesktopLinux;
+    Object.assign(platformEnv, { isDesktopLinux: true });
+    const recovery = jest.fn().mockResolvedValue(true);
+    const error = new OneKeyHardwareError({
+      code: HardwareErrorCode.BridgeNeedsPermission,
+      payload: { code: HardwareErrorCode.BridgeNeedsPermission },
+    });
+    const operation = jest.fn().mockRejectedValue(error);
+    const service = new ServiceHardwareUI({
+      backgroundApi: {
+        serviceHardware: {
+          invalidatePendingCancel: jest.fn(),
+          getFeaturesMutex: { isLocked: () => false, waitForUnlock: jest.fn() },
+          handleLinuxWebUsbAccessDeniedError: recovery,
+        },
+        serviceFirmwareUpdate: {
+          delayShouldDetectTimeCheckWithDelay: jest.fn(),
+          delayShouldDetectTimeCheck: jest.fn(),
+        },
+        serviceAccount: { generateHwWalletsMissingXfp: jest.fn() },
+      },
+    });
+    jest
+      .spyOn(service, 'closeHardwareUiStateDialog')
+      .mockResolvedValue(undefined);
+    const internals = service as unknown as {
+      withHardwareProcessingInternal(
+        operation: () => Promise<unknown>,
+        options: {
+          deviceParams: { dbDevice: { connectId: string } };
+          hideCheckingDeviceLoading: boolean;
+        },
+      ): Promise<unknown>;
+    };
+    try {
+      await expect(
+        internals.withHardwareProcessingInternal(operation, {
+          deviceParams: { dbDevice: { connectId: 'mock-usb' } },
+          hideCheckingDeviceLoading: true,
+        }),
+      ).rejects.toBe(error);
+      expect(recovery).toHaveBeenCalledWith({ error });
+      expect(operation).toHaveBeenCalledTimes(1);
+    } finally {
+      Object.assign(platformEnv, { isDesktopLinux: previous });
+    }
+  });
   it('does not send a follow-up cancel after BLE is disabled by USB priority', async () => {
     jest.mocked(firmwareUpdateWorkflowRunningAtom.get).mockResolvedValue(false);
     const service = new ServiceHardwareUI({
