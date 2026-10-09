@@ -20,7 +20,6 @@ import {
   INVITE_CARD_BORDER_COLOR,
   PRESSABLE_SURFACE_PROPS,
 } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteCardStyle';
-import { INVITE_COPY } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/inviteCopy';
 import {
   formatCommissionRateText,
   sortCommissionRateItems,
@@ -41,44 +40,88 @@ import {
   formatFiatCompact,
 } from './SubjectMilestoneCard';
 
-// Compact layouts read each level as a plain rule table: what keeps it, what
-// upgrades from it, and what it pays. The user's own progress lives in the
-// status card above, so it is not repeated per level.
-function RuleRow({ label, value }: { label: string; value: string }) {
+// Compact layouts read each level as one small table: a row per product
+// with what keeps the level, what upgrades from it, and what it pays. The
+// user's own progress lives in the status card above, so it is not repeated
+// per level.
+const SHORT_SUBJECT_LABELS: Record<string, string> = {
+  HardwareSales: 'Hardware',
+  Perp: 'Perps',
+  Swap: 'Swap',
+  Earn: 'DeFi',
+  Onchain: 'DeFi',
+};
+
+const RULE_COLUMN_WIDTHS = { keep: 56, upgrade: 64, rate: 84 } as const;
+
+interface ILevelRuleRow {
+  subject: string;
+  label: string;
+  keep?: string;
+  upgrade?: string;
+  rate?: string;
+}
+
+function RuleCell({
+  width,
+  value,
+  isHeader,
+}: {
+  width: number;
+  value?: string;
+  isHeader?: boolean;
+}) {
   return (
-    <XStack minHeight={32} ai="center" jc="space-between" gap="$3">
-      <SizableText
-        size="$bodyMd"
-        color="$textSubdued"
-        numberOfLines={1}
-        flexShrink={1}
-      >
-        {label}
-      </SizableText>
-      <SizableText size="$bodyMdMedium" flexShrink={0}>
-        {value}
-      </SizableText>
-    </XStack>
+    <SizableText
+      w={width}
+      flexShrink={0}
+      textAlign="right"
+      numberOfLines={1}
+      size={isHeader ? '$bodySm' : '$bodyMdMedium'}
+      color={isHeader || !value ? '$textSubdued' : '$text'}
+    >
+      {value ?? '–'}
+    </SizableText>
   );
 }
 
-function RuleGroup({
-  title,
-  rows,
-}: {
-  title: string;
-  rows: { key: string; label: string; value: string }[];
-}) {
-  if (rows.length === 0) {
-    return null;
-  }
+function LevelRuleTable({ rows }: { rows: ILevelRuleRow[] }) {
+  const hasKeep = rows.some((row) => row.keep);
+  const hasUpgrade = rows.some((row) => row.upgrade);
   return (
     <YStack>
-      <SizableText size="$bodyMdMedium" color="$textSubdued" pb="$1">
-        {title}
-      </SizableText>
+      <XStack minHeight={24} ai="center" gap="$2">
+        <Stack flex={1} />
+        {hasKeep ? (
+          <RuleCell isHeader width={RULE_COLUMN_WIDTHS.keep} value="Keep" />
+        ) : null}
+        {hasUpgrade ? (
+          <RuleCell
+            isHeader
+            width={RULE_COLUMN_WIDTHS.upgrade}
+            value="Upgrade"
+          />
+        ) : null}
+        <RuleCell isHeader width={RULE_COLUMN_WIDTHS.rate} value="Rate" />
+      </XStack>
       {rows.map((row) => (
-        <RuleRow key={row.key} label={row.label} value={row.value} />
+        <XStack key={row.subject} minHeight={32} ai="center" gap="$2">
+          <SizableText
+            flex={1}
+            size="$bodyMd"
+            color="$textSubdued"
+            numberOfLines={1}
+          >
+            {row.label}
+          </SizableText>
+          {hasKeep ? (
+            <RuleCell width={RULE_COLUMN_WIDTHS.keep} value={row.keep} />
+          ) : null}
+          {hasUpgrade ? (
+            <RuleCell width={RULE_COLUMN_WIDTHS.upgrade} value={row.upgrade} />
+          ) : null}
+          <RuleCell width={RULE_COLUMN_WIDTHS.rate} value={row.rate} />
+        </XStack>
       ))}
     </YStack>
   );
@@ -165,47 +208,60 @@ export function LevelAccordionItem({
   ]);
 
   const isMultiSubject = subjectGroups.length > 1;
-  const currencyCode = useCurrency().id.toUpperCase();
-  const formatThreshold = (condition: IInviteLevelUpgradeCondition) =>
-    `${formatFiatCompact(
-      new BigNumber(condition.thresholdFiatValue ?? 0),
-    )} ${currencyCode}`;
-  const keepRows = subjectGroups.flatMap(
-    ({ subject, milestones, subjectLabel }) =>
-      milestones.retention
-        ? [
-            {
-              key: subject,
-              label: subjectLabel,
-              value: formatThreshold(milestones.retention),
-            },
-          ]
-        : [],
-  );
-  const upgradeRows = subjectGroups.flatMap(
-    ({ subject, milestones, subjectLabel }) =>
-      milestones.upgrade
-        ? [
-            {
-              key: subject,
-              label: subjectLabel,
-              value: formatThreshold(milestones.upgrade),
-            },
-          ]
-        : [],
-  );
-  const rateRows = commissionRateItems.map(({ subject, rate }, index) => ({
-    key: subject || `${index}`,
-    label: getDisplayLabel(
-      intl,
-      rate.commissionRatesLabelKey || rate.labelKey,
-      rate.commissionRatesLabel ?? rate.label ?? subject,
-    ),
-    value: formatCommissionRateText({
-      rebate: rate.rebate,
-      discount: rate.discount,
-    }),
-  }));
+  const currencySymbol = useCurrency().symbol;
+  const ruleRows = useMemo(() => {
+    const formatThreshold = (condition: IInviteLevelUpgradeCondition) =>
+      `${currencySymbol}${formatFiatCompact(
+        new BigNumber(condition.thresholdFiatValue ?? 0),
+      )}`;
+    const bySubject = new Map<string, ILevelRuleRow>();
+    const rowFor = (subject: string, fallbackLabel: string) => {
+      const existing = bySubject.get(subject);
+      if (existing) {
+        return existing;
+      }
+      const row: ILevelRuleRow = {
+        subject,
+        label: SHORT_SUBJECT_LABELS[subject] ?? fallbackLabel,
+      };
+      bySubject.set(subject, row);
+      return row;
+    };
+    for (const { subject, milestones, subjectLabel } of subjectGroups) {
+      const row = rowFor(subject, subjectLabel);
+      if (milestones.retention) {
+        row.keep = formatThreshold(milestones.retention);
+      }
+      if (milestones.upgrade) {
+        row.upgrade = formatThreshold(milestones.upgrade);
+      }
+    }
+    commissionRateItems.forEach(({ subject, rate }, index) => {
+      const row = rowFor(
+        subject || `${index}`,
+        getDisplayLabel(
+          intl,
+          rate.commissionRatesLabelKey || rate.labelKey,
+          rate.commissionRatesLabel ?? rate.label ?? subject,
+        ),
+      );
+      row.rate = formatCommissionRateText({
+        rebate: rate.rebate,
+        discount: rate.discount,
+      });
+    });
+    // Earn and Onchain share the DeFi name; keep only the first of them.
+    const seenLabels = new Set<string>();
+    return sortCommissionRateItems(Array.from(bySubject.values())).filter(
+      (row) => {
+        if (seenLabels.has(row.label)) {
+          return false;
+        }
+        seenLabels.add(row.label);
+        return true;
+      },
+    );
+  }, [commissionRateItems, currencySymbol, intl, subjectGroups]);
   let headerNode: React.ReactNode = null;
   if (isMultiSubject) {
     headerNode = (
@@ -302,27 +358,13 @@ export function LevelAccordionItem({
           $md={{ px: '$4', pb: '$4' }}
         >
           {md ? (
-            <YStack gap="$4">
+            <YStack gap="$2">
               {subjectGroups.length > 0 ? (
                 <SizableText size="$bodyMd" color="$textSubdued">
                   {LEVEL_COPY.upgradeRule(isMultiSubject)}
                 </SizableText>
               ) : null}
-              <RuleGroup
-                title={LEVEL_COPY.keepLevel(level.label)}
-                rows={keepRows}
-              />
-              <RuleGroup
-                title={
-                  nextLevelLabel
-                    ? LEVEL_COPY.upgradeTo(nextLevelLabel)
-                    : intl.formatMessage({
-                        id: ETranslations.referral_level_upgrade_conditions,
-                      })
-                }
-                rows={upgradeRows}
-              />
-              <RuleGroup title={INVITE_COPY.rateLabel} rows={rateRows} />
+              <LevelRuleTable rows={ruleRows} />
             </YStack>
           ) : (
             <YStack gap="$4">

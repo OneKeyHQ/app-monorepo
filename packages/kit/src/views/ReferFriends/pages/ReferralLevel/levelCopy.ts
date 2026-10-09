@@ -8,7 +8,6 @@ export const LEVEL_COPY = {
   commissionRatesTitle: 'Commission rates',
   levelDetails: 'Level details',
   upgradeTo: (level: string) => `Upgrade to ${level}`,
-  keepLevel: (level: string) => `Keep ${level}`,
   nextLevel: (level: string) => `Next level: ${level}`,
   upgradeRule: (hasChoice: boolean) =>
     hasChoice ? 'Meet any one this month' : 'Meet this target this month',
