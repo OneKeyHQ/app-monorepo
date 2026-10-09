@@ -3,10 +3,11 @@ import { useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { useMedia } from '@onekeyhq/components';
+import { YStack, useMedia } from '@onekeyhq/components';
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import {
   RewardHeaderLayout,
+  RewardSummaryCard,
   StatCard,
 } from '@onekeyhq/kit/src/views/ReferFriends/components';
 import { REFERRAL_USD_CURRENCY_PROPS } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/shared/getRewardSummary';
@@ -52,6 +53,47 @@ export function HardwareSalesRewardHeader({
     }).format(date);
   }, [cumulativeRewards, locale]);
 
+  const unpaidHint = intl.formatMessage(
+    { id: ETranslations.referral_expected_by_date },
+    { date: formattedNextDistributionDate },
+  );
+  const pendingHint = intl.formatMessage({
+    id: ETranslations.referral_days_to_confirm,
+  });
+
+  if (md) {
+    return (
+      <YStack px="$5" pb="$6">
+        <RewardSummaryCard
+          title={intl.formatMessage({
+            id: ETranslations.earn_referral_total_earned,
+          })}
+          value={totalEarned}
+          fixedCurrency={REFERRAL_USD_CURRENCY_PROPS.targetCurrency}
+          isLoading={isLoading}
+          onRefresh={onRefresh}
+          rows={[
+            {
+              label: intl.formatMessage({
+                id: ETranslations.referral_undistributed,
+              }),
+              value: undistributed,
+              fixedCurrency: REFERRAL_USD_CURRENCY_PROPS.targetCurrency,
+              hint: unpaidHint,
+            },
+            {
+              label: intl.formatMessage({ id: ETranslations.referral_pending }),
+              value: pending,
+              fixedCurrency: REFERRAL_USD_CURRENCY_PROPS.targetCurrency,
+              prefix: isPendingZero ? undefined : '~',
+              hint: pendingHint,
+            },
+          ]}
+        />
+      </YStack>
+    );
+  }
+
   return (
     <RewardHeaderLayout
       primaryCard={
@@ -76,12 +118,7 @@ export function HardwareSalesRewardHeader({
               id: ETranslations.referral_undistributed,
             })}
             value={undistributed}
-            subtitle={intl.formatMessage(
-              { id: ETranslations.referral_expected_by_date },
-              {
-                date: formattedNextDistributionDate,
-              },
-            )}
+            subtitle={unpaidHint}
             isWide={isWideScreen}
           />
           <StatCard
@@ -91,9 +128,7 @@ export function HardwareSalesRewardHeader({
             })}
             value={pending}
             prefix={isPendingZero ? undefined : '~'}
-            subtitle={intl.formatMessage({
-              id: ETranslations.referral_days_to_confirm,
-            })}
+            subtitle={pendingHint}
             isWide={isWideScreen}
           />
         </>

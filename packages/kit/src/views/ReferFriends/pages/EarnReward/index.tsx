@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Alert, DatePicker, Page, XStack, YStack } from '@onekeyhq/components';
+import { Alert, Page, XStack } from '@onekeyhq/components';
 import type { IDateRange } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useSpotlight } from '@onekeyhq/kit/src/components/Spotlight';
@@ -21,6 +21,7 @@ import {
   FilterButton,
   ReferFriendsDetailHeader,
   ReferFriendsPageContainer,
+  RewardDateRangeField,
 } from '../../components';
 import { useDatePresets } from '../../hooks/useDatePresets';
 import { useRewardFilter } from '../../hooks/useRewardFilter';
@@ -98,15 +99,12 @@ function EarnRewardPageWrapper() {
   const toolbar = useMemo(
     () => (
       <>
-        <YStack width={240}>
-          <DatePicker.Range
-            value={currentDatePickerValue}
-            onChange={handleDateRangeChange}
-            maxDate={maxDate}
-            showPreviousMonth
-            presets={presets}
-          />
-        </YStack>
+        <RewardDateRangeField
+          value={currentDatePickerValue}
+          onChange={handleDateRangeChange}
+          maxDate={maxDate}
+          presets={presets}
+        />
         <XStack gap="$3">
           <FilterButton
             filterState={filterState}

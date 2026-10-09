@@ -36,6 +36,7 @@ export const ReferFriendsTestIDs = {
   benefitsPlaceholder: 'refer-friends-benefits-placeholder',
 
   // --- Filter & Export ---
+  dateRangeChip: 'refer-friends-date-range-chip',
   filterBtn: 'refer-friends-filter-btn',
   exportBtn: 'refer-friends-export-btn',
 

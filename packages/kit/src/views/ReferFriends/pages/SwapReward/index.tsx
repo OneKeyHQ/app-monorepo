@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  DatePicker,
   Page,
   RefreshControl,
   ScrollView,
@@ -36,6 +35,7 @@ import {
   FilterButton,
   ReferFriendsDetailHeader,
   ReferFriendsPageContainer,
+  RewardDateRangeField,
 } from '../../components';
 import { useDatePresets } from '../../hooks/useDatePresets';
 import { useRewardFilter } from '../../hooks/useRewardFilter';
@@ -655,15 +655,12 @@ function SwapRewardPageWrapper() {
   const toolbar = useMemo(
     () => (
       <>
-        <YStack width={240}>
-          <DatePicker.Range
-            value={currentDatePickerValue}
-            onChange={handleDateRangeChange}
-            maxDate={maxDate}
-            showPreviousMonth
-            presets={presets}
-          />
-        </YStack>
+        <RewardDateRangeField
+          value={currentDatePickerValue}
+          onChange={handleDateRangeChange}
+          maxDate={maxDate}
+          presets={presets}
+        />
         <XStack gap="$3">
           <FilterButton
             filterState={filterState}
