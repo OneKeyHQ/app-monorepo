@@ -1,16 +1,14 @@
-import { useMemo } from 'react';
-
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Button, SizableText, YStack, useMedia } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
-import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import {
   RewardHeaderLayout,
   RewardSummaryCard,
   StatCard,
 } from '@onekeyhq/kit/src/views/ReferFriends/components';
+import { useNextDistributionLabel } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useNextDistributionLabel';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapCumulativeRewardsResponse } from '@onekeyhq/shared/src/referralCode/type';
 
@@ -41,18 +39,11 @@ export function SwapRewardHeader({
 }: ISwapRewardHeaderProps) {
   const intl = useIntl();
   const currencyInfo = useCurrency();
-  const { format } = useFormatDate();
   const { md } = useMedia();
 
-  const formattedNextDistributionDate = useMemo(() => {
-    const value = data?.nextDistribution;
-    if (!value) {
-      return '';
-    }
-
-    const formattedDate = format(value, 'MMM d');
-    return formattedDate === '-' ? value : formattedDate;
-  }, [data?.nextDistribution, format]);
+  const formattedNextDistributionDate = useNextDistributionLabel(
+    data?.nextDistribution,
+  );
 
   if (!data) {
     if (hasError && onRefresh) {

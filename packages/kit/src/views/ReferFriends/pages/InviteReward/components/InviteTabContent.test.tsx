@@ -158,6 +158,10 @@ jest.mock('@onekeyhq/kit/src/hooks/useFormatDate', () => ({
   default: () => ({ format: (value: string) => value }),
 }));
 
+jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
+  useLocaleVariant: () => 'en-US',
+}));
+
 jest.mock('@onekeyhq/kit/src/components/InfoIcon', () => ({
   InfoIcon: ({ tooltip }: { tooltip: { title: string } }) => (
     <span data-testid={`info-${tooltip.title}`} />

@@ -40,12 +40,12 @@ jest.mock('@onekeyhq/kit/src/components/Currency', () => ({
   useCurrency: () => ({ symbol: '$' }),
 }));
 
-jest.mock('@onekeyhq/kit/src/hooks/useFormatDate', () => ({
-  __esModule: true,
-  default: () => ({
-    format: () => 'Aug 1',
+jest.mock(
+  '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useNextDistributionLabel',
+  () => ({
+    useNextDistributionLabel: (value?: string) => (value ? 'Aug 1' : null),
   }),
-}));
+);
 
 jest.mock('@onekeyhq/kit/src/views/ReferFriends/components', () => ({
   RewardHeaderLayout: ({
