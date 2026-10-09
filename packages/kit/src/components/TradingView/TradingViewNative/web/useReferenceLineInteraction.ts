@@ -54,6 +54,9 @@ export function useReferenceLineInteraction({
   onAction?: (action: ITradingViewNativeReferenceLineAction) => Promise<void>;
 }) {
   const pointerRef = useRef<ILinePointer | null>(null);
+  const submittedPricesRef = useRef(
+    new Map<string, { originalPrice: number; price: number }>(),
+  );
   const cancel = useCallback(() => {
     const pointer = pointerRef.current;
     if (!pointer) return;
@@ -64,6 +67,16 @@ export function useReferenceLineInteraction({
     redrawRef.current();
   }, [redrawRef]);
   useLayoutEffect(() => {
+    for (const [id, submitted] of submittedPricesRef.current) {
+      const component = components.find((item) => item.id === id);
+      if (
+        !enabled ||
+        component?.type !== 'referenceLine' ||
+        component.props.pending ||
+        component.props.anchor.price !== submitted.originalPrice
+      )
+        submittedPricesRef.current.delete(id);
+    }
     const pointer = pointerRef.current;
     if (
       pointer &&
@@ -84,6 +97,7 @@ export function useReferenceLineInteraction({
   }, [components, enabled, cancel]);
   useEffect(() => {
     if (!enabled) return;
+    const submittedPrices = submittedPricesRef.current;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && pointerRef.current) {
         event.preventDefault();
@@ -93,24 +107,38 @@ export function useReferenceLineInteraction({
     document.addEventListener('keydown', onKeyDown);
     return () => {
       document.removeEventListener('keydown', onKeyDown);
+      submittedPrices.clear();
       cancel();
     };
   }, [enabled, cancel]);
 
   const getComponents = useCallback(() => {
     const pointer = pointerRef.current;
-    if (!pointer?.moved || pointer.hit.action !== 'drag') return components;
-    return components.map((component) =>
-      component.id === pointer.hit.id && component.type === 'referenceLine'
-        ? {
-            ...component,
-            props: {
-              ...component.props,
-              anchor: { ...component.props.anchor, price: pointer.price },
-            },
-          }
-        : component,
-    );
+    const isDragging = pointer?.moved && pointer.hit.action === 'drag';
+    if (!isDragging && submittedPricesRef.current.size === 0) return components;
+    return components.map((component) => {
+      if (component.type !== 'referenceLine') return component;
+      const submitted = submittedPricesRef.current.get(component.id);
+      const preview =
+        submitted &&
+        !component.props.pending &&
+        component.props.anchor.price === submitted.originalPrice
+          ? submitted
+          : undefined;
+      const price =
+        isDragging && component.id === pointer.hit.id
+          ? pointer.price
+          : preview?.price;
+      if (price === undefined) return component;
+      return {
+        ...component,
+        props: {
+          ...component.props,
+          ...(preview ? { pending: true } : {}),
+          anchor: { ...component.props.anchor, price },
+        },
+      };
+    });
   }, [components]);
 
   const hitTest = useCallback(
@@ -140,6 +168,7 @@ export function useReferenceLineInteraction({
         !projection ||
         component?.type !== 'referenceLine' ||
         component.props.pending ||
+        submittedPricesRef.current.has(component.id) ||
         !component.props.interactive ||
         component.props.anchor.price !== hit.price ||
         (hit.action === 'drag'
@@ -221,8 +250,10 @@ export function useReferenceLineInteraction({
           ? component.props.draggable
           : component.props.cancelable) &&
         component.props.anchor.price === pointer.hit.price;
-      cancel();
-      if (!canSubmit || !onAction) return true;
+      if (!canSubmit || !onAction) {
+        cancel();
+        return true;
+      }
       let action: ITradingViewNativeReferenceLineAction | undefined;
       if (
         pointer.hit.action === 'drag' &&
@@ -250,13 +281,32 @@ export function useReferenceLineInteraction({
             originalPrice: pointer.hit.price,
           };
       }
+      const submitted =
+        action?.type === 'priceChange'
+          ? { originalPrice: action.originalPrice, price: action.price }
+          : undefined;
+      if (submitted) {
+        // Bridge pointer release to the owner's first committed pending state.
+        submittedPricesRef.current.set(pointer.hit.id, submitted);
+      }
+      cancel();
       if (action) {
         // The owner handles trading errors and restores the authoritative line list.
-        void onAction(action).catch(() => undefined);
+        void onAction(action)
+          .catch(() => undefined)
+          .finally(() => {
+            if (
+              submitted &&
+              submittedPricesRef.current.get(pointer.hit.id) === submitted
+            ) {
+              submittedPricesRef.current.delete(pointer.hit.id);
+              redrawRef.current();
+            }
+          });
       }
       return true;
     },
-    [cancel, components, enabled, onAction],
+    [cancel, components, enabled, onAction, redrawRef],
   );
 
   const isInteracting = useCallback(() => pointerRef.current !== null, []);

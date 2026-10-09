@@ -68,8 +68,9 @@ lines, including Market's previous close, retain their existing label styles.
 
 Limit labels use regular text in the order color, a solid order-colored quantity
 segment with white text, and a lightly tinted cancel button. A dotted grip appears
-when the order is draggable; it shares the label's drag region. The label reserves
-space for the grip, quantity and cancel button when the plot is narrow.
+when the order is draggable; it shares the label's drag region. Narrow plots give
+the full title priority. Cancellation is available only when the full title and
+button fit together; quantity appears only when its complete value also fits.
 
 Price-axis labels share `getTradingViewNativePriceLabelPositions` in
 `utils/chartLayout.ts`. Previous close, the current price and every visible
@@ -103,7 +104,11 @@ account to the background service. Spot actions preserve the order's raw coin.
 Amendments retain side, remaining size, TIF and trigger semantics, including
 zero-size full-position TP/SL orders.
 
-Dragging previews the price while holding the price scale steady. Escape,
+Dragging previews the price while holding the price scale steady. Pointer release
+keeps that preview until the owner commits its pending state. Successful amendments
+retain the submitted price until the scoped order stream updates or removes the
+order, with a ten-second synchronization timeout. Request identity prevents a late
+response from clearing a newer action after an account or instrument switch. Escape,
 pointer cancellation, changed source data and account changes discard the
 preview. The pending line disables duplicate actions; failures restore the
 authoritative price and use the existing error feedback. The interaction is
@@ -122,7 +127,9 @@ instrument changes hide the previous scope immediately.
 The native chart's existing mark renderer aligns fills with candles and displays
 fill direction, size and price in its tooltip. The `showTradeMarks` setting
 controls display and subscriptions. History refresh, network restoration and
-Perps WebSocket recovery trigger reloads. These marks are supported wherever the
+Perps WebSocket recovery trigger reloads. Refresh signals received while marks are
+hidden remain pending until history is loaded after showing the marks again.
+These marks are supported wherever the
 shared `PerpCandles` native renderer is used; the separate compact mobile trading
 panel is unchanged.
 

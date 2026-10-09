@@ -59,7 +59,6 @@ export function usePerpsNativeChartMarks(): ITradingViewNativeTradeMarksComponen
 
   useEffect(() => {
     const previousRefresh = lastRefresh.current;
-    lastRefresh.current = { accountAddress, refreshHook, restoreNonce };
     if (!accountAddress || showTradeMarks === false) return;
     let disposed = false;
     const mergeFills = (fills: IFill[]) => {
@@ -111,6 +110,7 @@ export function usePerpsNativeChartMarks(): ITradingViewNativeTradeMarksComponen
     // Subscribe before loading history so fills arriving during the request survive.
     appEventBus.on(EAppEventBusNames.HyperliquidDataUpdate, onFills);
     const loadHistory = (force: boolean) => {
+      lastRefresh.current = { accountAddress, refreshHook, restoreNonce };
       void backgroundApiProxy.serviceHyperliquid
         .loadTradesHistory(accountAddress, { force })
         .then(mergeFills)

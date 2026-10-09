@@ -119,7 +119,8 @@ function appendTradingLineLabelCommands({
     };
   }
 
-  const cancelWidth = interactive && cancelable ? TRADING_LINE_LABEL_HEIGHT : 0;
+  const preferredCancelWidth =
+    interactive && cancelable ? TRADING_LINE_LABEL_HEIGHT : 0;
   const minimumTitleWidth = TRADING_LINE_LABEL_PADDING * 2 + dragHandleWidth;
   const preferredTitleWidth =
     measureTextWidth(title, labelFont) + minimumTitleWidth;
@@ -131,19 +132,27 @@ function appendTradingLineLabelCommands({
     CHART_HORIZONTAL_PADDING,
     Math.min(
       CHART_HORIZONTAL_PADDING + label.offset,
-      maxX - preferredTitleWidth - preferredQuantityWidth - cancelWidth,
+      maxX -
+        preferredTitleWidth -
+        preferredQuantityWidth -
+        preferredCancelWidth,
     ),
   );
   const availableWidth = Math.max(maxX - left, 0);
-  if (availableWidth <= cancelWidth + minimumTitleWidth) return;
-  const quantityWidth = Math.min(
-    preferredQuantityWidth,
-    Math.max(availableWidth - cancelWidth - minimumTitleWidth, 0),
-  );
+  if (availableWidth <= minimumTitleWidth) return;
+  // Reserve the full title before enabling cancellation or adding quantity.
+  const cancelWidth =
+    availableWidth >= preferredTitleWidth + preferredCancelWidth
+      ? preferredCancelWidth
+      : 0;
   const titleWidth = Math.min(
     preferredTitleWidth,
-    availableWidth - quantityWidth - cancelWidth,
+    availableWidth - cancelWidth,
   );
+  const quantityWidth =
+    availableWidth - titleWidth - cancelWidth >= preferredQuantityWidth
+      ? preferredQuantityWidth
+      : 0;
   const top = Math.max(
     CHART_TOP_PADDING,
     Math.min(

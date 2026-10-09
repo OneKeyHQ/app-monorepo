@@ -20,6 +20,15 @@ import {
 
 import { useEnsureTradingEnabled } from './useEnableTradingWithDepositFallback';
 
+const ORDER_SYNC_TIMEOUT_MS = 10_000;
+
+type IPendingChartLineAction = {
+  originalPrice: number;
+  price?: number;
+  scope: { accountKey: ReturnType<typeof getPerpsAccountKey>; symbol: string };
+  syncDeadline?: number;
+};
+
 export function usePerpsChartLineActions({
   lines,
   enabled,
@@ -58,16 +67,62 @@ export function usePerpsChartLineActions({
   const latest = useRef({ scope, lines, canInteract, getLineId });
   latest.current = { scope, lines, canInteract, getLineId };
   const mounted = useRef(true);
-  const inFlight = useRef(new Set<string>());
-  const [pending, setPending] = useState<Record<string, { price?: number }>>(
-    {},
+  const inFlight = useRef(new Map<string, IPendingChartLineAction>());
+  const [pendingActions, setPendingActions] = useState<
+    Record<string, IPendingChartLineAction>
+  >({});
+  const pending = useMemo(() => {
+    const prices = new Map(
+      lines.map((line) => [getLineId(line), Number(line.price)]),
+    );
+    return Object.fromEntries(
+      Object.entries(pendingActions).filter(
+        ([id, action]) =>
+          action.scope === scope &&
+          prices.has(id) &&
+          (action.price === undefined ||
+            prices.get(id) === action.originalPrice),
+      ),
+    );
+  }, [getLineId, lines, pendingActions, scope]);
+  const removePending = useCallback(
+    (id: string, action: IPendingChartLineAction) => {
+      if (inFlight.current.get(id) !== action) return;
+      inFlight.current.delete(id);
+      if (!mounted.current) return;
+      setPendingActions((current) => {
+        if (current[id] !== action) return current;
+        const next = { ...current };
+        delete next[id];
+        return next;
+      });
+    },
+    [],
   );
   useEffect(() => {
+    const pendingRequests = inFlight.current;
     mounted.current = true;
     return () => {
       mounted.current = false;
+      pendingRequests.clear();
     };
   }, []);
+  useEffect(() => {
+    for (const [id, action] of Object.entries(pendingActions)) {
+      if (pending[id] !== action) removePending(id, action);
+    }
+    const timers = Object.entries(pending).flatMap(([id, action]) =>
+      action.syncDeadline === undefined
+        ? []
+        : [
+            setTimeout(
+              () => removePending(id, action),
+              Math.max(action.syncDeadline - Date.now(), 0),
+            ),
+          ],
+    );
+    return () => timers.forEach(clearTimeout);
+  }, [pending, pendingActions, removePending]);
 
   const onReferenceLineAction = useCallback(
     async (action: ITradingViewNativeReferenceLineAction) => {
@@ -113,10 +168,15 @@ export function usePerpsChartLineActions({
       )
         return;
 
-      inFlight.current.add(action.id);
-      setPending((current) => ({
+      const pendingAction: IPendingChartLineAction = {
+        originalPrice: action.originalPrice,
+        price: newPrice ? Number(newPrice) : undefined,
+        scope,
+      };
+      inFlight.current.set(action.id, pendingAction);
+      setPendingActions((current) => ({
         ...current,
-        [action.id]: { price: newPrice ? Number(newPrice) : undefined },
+        [action.id]: pendingAction,
       }));
       try {
         await ensureTradingEnabled();
@@ -134,16 +194,27 @@ export function usePerpsChartLineActions({
             newPrice,
             expectedAccountAddress,
           });
+          if (
+            mounted.current &&
+            latest.current.scope === scope &&
+            inFlight.current.get(action.id) === pendingAction
+          ) {
+            // Keep a new token until the order stream catches up; finally only
+            // clears the submission token, never this preview or a newer action.
+            const awaitingSync = {
+              ...pendingAction,
+              syncDeadline: Date.now() + ORDER_SYNC_TIMEOUT_MS,
+            };
+            inFlight.current.set(action.id, awaitingSync);
+            setPendingActions((current) =>
+              current[action.id] === pendingAction
+                ? { ...current, [action.id]: awaitingSync }
+                : current,
+            );
+          }
         }
       } finally {
-        inFlight.current.delete(action.id);
-        if (mounted.current) {
-          setPending((current) => {
-            const next = { ...current };
-            delete next[action.id];
-            return next;
-          });
-        }
+        removePending(action.id, pendingAction);
       }
     },
     [
@@ -152,6 +223,7 @@ export function usePerpsChartLineActions({
       actions,
       ensureTradingEnabled,
       isSpot,
+      removePending,
       symbol,
       szDecimals,
     ],
