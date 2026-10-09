@@ -1357,3 +1357,91 @@ export function getTradingViewNativeCurrentPriceLayout({
     lineY,
   };
 }
+
+export function getTradingViewNativePriceLabelPositions({
+  labels,
+  anchorId,
+  labelHeight,
+  minTop,
+  maxBottom,
+}: {
+  labels: readonly { id: string; price: number; top: number }[];
+  anchorId?: string;
+  labelHeight: number;
+  minTop: number;
+  maxBottom: number;
+}): Record<string, number> {
+  'worklet';
+
+  const positions: Record<string, number> = {};
+  if (
+    !Number.isFinite(labelHeight) ||
+    !Number.isFinite(minTop) ||
+    !Number.isFinite(maxBottom) ||
+    labelHeight <= 0 ||
+    maxBottom < minTop
+  ) {
+    return positions;
+  }
+  const orderedLabels = labels.filter(
+    ({ price, top }) => Number.isFinite(price) && Number.isFinite(top),
+  );
+  orderedLabels.sort((left, right) => {
+    if (left.price !== right.price) return right.price - left.price;
+    if (left.id === right.id) return 0;
+    // Keep the anchor below equal-price references, as with Prev close.
+    if (left.id === anchorId) return 1;
+    if (right.id === anchorId) return -1;
+    return left.id < right.id ? -1 : 1;
+  });
+  if (orderedLabels.length === 0) return positions;
+
+  const maxTop = Math.max(minTop, maxBottom - labelHeight);
+  const spacing =
+    orderedLabels.length > 1
+      ? Math.min(labelHeight, (maxTop - minTop) / (orderedLabels.length - 1))
+      : 0;
+  const maxOffset = Math.max(
+    minTop,
+    maxTop - (orderedLabels.length - 1) * spacing,
+  );
+  const blocks: {
+    startIndex: number;
+    endIndex: number;
+    totalOffset: number;
+    anchorOffset?: number;
+    offset: number;
+  }[] = [];
+
+  orderedLabels.forEach((label, index) => {
+    // Removing each slot's spacing reduces collision avoidance to ordered offsets.
+    const targetOffset = label.top - index * spacing;
+    blocks.push({
+      startIndex: index,
+      endIndex: index,
+      totalOffset: targetOffset,
+      anchorOffset: label.id === anchorId ? targetOffset : undefined,
+      offset: Math.min(Math.max(targetOffset, minTop), maxOffset),
+    });
+    while (blocks.length > 1) {
+      const previous = blocks[blocks.length - 2];
+      const current = blocks[blocks.length - 1];
+      if (previous.offset <= current.offset) break;
+      previous.endIndex = current.endIndex;
+      previous.totalOffset += current.totalOffset;
+      previous.anchorOffset ??= current.anchorOffset;
+      // Colliding neighbors move together; the current-price anchor takes priority.
+      const preferredOffset =
+        previous.anchorOffset ??
+        previous.totalOffset / (previous.endIndex - previous.startIndex + 1);
+      previous.offset = Math.min(Math.max(preferredOffset, minTop), maxOffset);
+      blocks.pop();
+    }
+  });
+  blocks.forEach(({ startIndex, endIndex, offset }) => {
+    for (let index = startIndex; index <= endIndex; index += 1) {
+      positions[orderedLabels[index].id] = offset + index * spacing;
+    }
+  });
+  return positions;
+}

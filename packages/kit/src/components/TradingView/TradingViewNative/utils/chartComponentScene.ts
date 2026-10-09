@@ -4,7 +4,6 @@ import {
   TRADING_VIEW_NATIVE_CHART_TOP_PADDING as CHART_TOP_PADDING,
   TRADING_VIEW_NATIVE_FLOATING_PRICE_LABEL_HORIZONTAL_PADDING as FLOATING_PRICE_LABEL_HORIZONTAL_PADDING,
   TRADING_VIEW_NATIVE_ORDER_LINE_LABEL_FONT_SIZE as ORDER_LINE_LABEL_FONT_SIZE,
-  TRADING_VIEW_NATIVE_PREVIOUS_CLOSE_REFERENCE_LINE_ID as PREVIOUS_CLOSE_REFERENCE_LINE_ID,
   TRADING_VIEW_NATIVE_PRICE_AXIS_TEXT_BASELINE_OFFSET as PRICE_AXIS_TEXT_BASELINE_OFFSET,
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_HEIGHT as PRICE_LABEL_HEIGHT,
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_TEXT_COLOR as PRICE_LABEL_TEXT_COLOR,
@@ -20,6 +19,7 @@ import {
 import {
   formatTradingViewNativePriceTick,
   getTradingViewNativeCurrentPriceLayout,
+  getTradingViewNativePriceLabelPositions,
 } from './chartLayout';
 
 import type {
@@ -33,6 +33,8 @@ import type {
   ITradingViewNativePriceScaleMode,
   ITradingViewNativeReferenceLineComponent,
 } from '../types';
+
+const CURRENT_PRICE_LABEL_ID = 'system.currentPriceLabel';
 
 interface ITradingViewNativeChartComponentCommandLayers {
   currentPriceLabelTop?: number;
@@ -345,11 +347,41 @@ export function appendTradingViewNativeChartComponentCommands({
   const priceLabelCommands: ITradingViewNativeChartSceneCommand[] = [];
   const textLabelCommands: ITradingViewNativeChartSceneCommand[] = [];
   const hitRegions: ITradingViewNativeReferenceLineHitRegion[] = [];
-  let currentPriceLabelTop = currentPriceLabel?.top;
-  components.forEach((component) => {
+  const referenceLines = components.flatMap((component) => {
     if (component.type !== 'referenceLine') {
-      return;
+      return [];
     }
+    const priceLayout = getTradingViewNativeCurrentPriceLayout({
+      labelHeight: PRICE_LABEL_HEIGHT,
+      maxPrice,
+      minPrice,
+      price: component.props.anchor.price,
+      priceChartHeight,
+      priceScaleMode,
+    });
+    return priceLayout ? [{ component, priceLayout }] : [];
+  });
+  const labelTops: Record<string, number> = showYAxis
+    ? getTradingViewNativePriceLabelPositions({
+        labels: [
+          ...referenceLines.map(({ component, priceLayout }) => ({
+            id: component.id,
+            price: component.props.anchor.price,
+            top: priceLayout.labelTop,
+          })),
+          ...(currentPriceLabel
+            ? [{ id: CURRENT_PRICE_LABEL_ID, ...currentPriceLabel }]
+            : []),
+        ],
+        anchorId: CURRENT_PRICE_LABEL_ID,
+        labelHeight: PRICE_LABEL_HEIGHT,
+        minTop: CHART_TOP_PADDING,
+        maxBottom: CHART_TOP_PADDING + priceChartHeight,
+      })
+    : {};
+  const currentPriceLabelTop =
+    labelTops[CURRENT_PRICE_LABEL_ID] ?? currentPriceLabel?.top;
+  referenceLines.forEach(({ component, priceLayout }) => {
     const {
       anchor,
       color,
@@ -363,263 +395,221 @@ export function appendTradingViewNativeChartComponentCommands({
     } = component.props;
     const canCancel = interactive && cancelable;
     const canDrag = interactive && draggable && !pending;
-    const priceLayout = getTradingViewNativeCurrentPriceLayout({
-      labelHeight: PRICE_LABEL_HEIGHT,
-      maxPrice,
-      minPrice,
-      price: anchor.price,
-      priceChartHeight,
-      priceScaleMode,
+    const labelTop = labelTops[component.id] ?? priceLayout.labelTop;
+    const priceLabel = formatTradingViewNativePriceTick(
+      anchor.price,
+      4,
+      priceDecimalPlaces,
+    );
+    const priceLabelWidth =
+      measureTextWidth(priceLabel, 'priceAxis') +
+      FLOATING_PRICE_LABEL_HORIZONTAL_PADDING * 2;
+    const priceLabelLeft = showYAxis
+      ? Math.min(priceAxisX, width - priceLabelWidth)
+      : priceAxisX;
+    const linePaintId = getReferenceLinePaintId(component.id, 'line');
+    const labelPaintId = getReferenceLinePaintId(component.id, 'label');
+    const textPaintId = getReferenceLinePaintId(component.id, 'text');
+    let dash: [number, number] | undefined;
+    if (style === 'dotted') {
+      dash = [1, 3];
+    } else if (style === 'dashed') {
+      dash = [
+        label ? 6 : REFERENCE_LINE_DASH_LENGTH,
+        label ? 6 : REFERENCE_LINE_DASH_GAP,
+      ];
+    }
+    customPaintStyles[linePaintId] = {
+      color,
+      dash,
+      opacity: 1,
+    };
+    customPaintStyles[labelPaintId] = { color, opacity: pending ? 0.5 : 1 };
+    customPaintStyles[textPaintId] = {
+      color: PRICE_LABEL_TEXT_COLOR,
+      opacity: 1,
+    };
+
+    commands.push({
+      customPaintId: linePaintId,
+      kind: 'line',
+      paint: 'gridLine',
+      x1: CHART_HORIZONTAL_PADDING,
+      x2: priceAxisX,
+      y1: priceLayout.lineY,
+      y2: priceLayout.lineY,
     });
-    if (priceLayout) {
-      let labelTop = priceLayout.labelTop;
-      if (
-        component.id === PREVIOUS_CLOSE_REFERENCE_LINE_ID &&
-        currentPriceLabel !== undefined &&
-        priceLayout.labelTop < currentPriceLabel.top + PRICE_LABEL_HEIGHT &&
-        priceLayout.labelTop + PRICE_LABEL_HEIGHT > currentPriceLabel.top
-      ) {
-        // Keep the pair inside the price pane without reversing the price order.
-        const previousCloseAbove = anchor.price >= currentPriceLabel.price;
-        const labelSpacing = Math.min(
-          PRICE_LABEL_HEIGHT,
-          Math.max(priceChartHeight - PRICE_LABEL_HEIGHT, 0),
-        );
-        const groupTop = Math.min(
-          Math.max(
-            currentPriceLabel.top - (previousCloseAbove ? labelSpacing : 0),
-            CHART_TOP_PADDING,
-          ),
-          Math.max(
-            CHART_TOP_PADDING +
-              priceChartHeight -
-              PRICE_LABEL_HEIGHT -
-              labelSpacing,
-            CHART_TOP_PADDING,
-          ),
-        );
-        labelTop = groupTop + (previousCloseAbove ? 0 : labelSpacing);
-        currentPriceLabelTop =
-          groupTop + (previousCloseAbove ? labelSpacing : 0);
-      }
-      const priceLabel = formatTradingViewNativePriceTick(
-        anchor.price,
-        4,
-        priceDecimalPlaces,
-      );
-      const priceLabelWidth =
-        measureTextWidth(priceLabel, 'priceAxis') +
-        FLOATING_PRICE_LABEL_HORIZONTAL_PADDING * 2;
-      const priceLabelLeft = showYAxis
-        ? Math.min(priceAxisX, width - priceLabelWidth)
-        : priceAxisX;
-      const linePaintId = getReferenceLinePaintId(component.id, 'line');
-      const labelPaintId = getReferenceLinePaintId(component.id, 'label');
-      const textPaintId = getReferenceLinePaintId(component.id, 'text');
-      let dash: [number, number] | undefined;
-      if (style === 'dotted') {
-        dash = [1, 3];
-      } else if (style === 'dashed') {
-        dash = [
-          label ? 6 : REFERENCE_LINE_DASH_LENGTH,
-          label ? 6 : REFERENCE_LINE_DASH_GAP,
-        ];
-      }
-      customPaintStyles[linePaintId] = {
-        color,
-        dash,
-        opacity: 1,
-      };
-      customPaintStyles[labelPaintId] = { color, opacity: pending ? 0.5 : 1 };
-      customPaintStyles[textPaintId] = {
-        color: PRICE_LABEL_TEXT_COLOR,
-        opacity: 1,
-      };
 
-      commands.push({
-        customPaintId: linePaintId,
-        kind: 'line',
-        paint: 'gridLine',
-        x1: CHART_HORIZONTAL_PADDING,
-        x2: priceAxisX,
-        y1: priceLayout.lineY,
-        y2: priceLayout.lineY,
+    if (canDrag) {
+      hitRegions.push({
+        id: component.id,
+        action: 'drag',
+        price: anchor.price,
+        rect: {
+          x: CHART_HORIZONTAL_PADDING,
+          y: priceLayout.lineY - 4,
+          width: priceAxisX - CHART_HORIZONTAL_PADDING,
+          height: 8,
+        },
       });
+    }
+    const cancelButtonWidth = canCancel ? PRICE_LABEL_HEIGHT : 0;
 
-      if (canDrag) {
-        hitRegions.push({
-          id: component.id,
-          action: 'drag',
-          price: anchor.price,
-          rect: {
-            x: CHART_HORIZONTAL_PADDING,
-            y: priceLayout.lineY - 4,
-            width: priceAxisX - CHART_HORIZONTAL_PADDING,
-            height: 8,
-          },
-        });
-      }
-      const cancelButtonWidth = canCancel ? PRICE_LABEL_HEIGHT : 0;
+    if (label) {
+      appendTradingLineLabelCommands({
+        component,
+        commands: textLabelCommands,
+        customPaintStyles,
+        hitRegions,
+        lineY: priceLayout.lineY,
+        maxX: priceLabelLeft - REFERENCE_LINE_LABEL_SEPARATOR_WIDTH,
+        measureTextWidth,
+        priceChartHeight,
+      });
+    }
 
-      if (label) {
-        appendTradingLineLabelCommands({
-          component,
-          commands: textLabelCommands,
-          customPaintStyles,
-          hitRegions,
-          lineY: priceLayout.lineY,
-          maxX: priceLabelLeft - REFERENCE_LINE_LABEL_SEPARATOR_WIDTH,
-          measureTextWidth,
-          priceChartHeight,
-        });
-      }
-
-      if (!label && title.length > 0) {
-        const labelSeparatorWidth = showYAxis
-          ? REFERENCE_LINE_LABEL_SEPARATOR_WIDTH
-          : 0;
-        const availableTitleWidth = Math.max(
-          priceLabelLeft -
-            CHART_HORIZONTAL_PADDING -
-            labelSeparatorWidth -
-            cancelButtonWidth,
-          0,
-        );
-        const titleWidth = Math.min(
-          measureTextWidth(title, 'referenceLineLabel') +
-            REFERENCE_LINE_LABEL_HORIZONTAL_PADDING * 2,
-          availableTitleWidth,
-        );
-        if (titleWidth > 0) {
-          const titleX =
-            priceLabelLeft -
-            labelSeparatorWidth -
-            cancelButtonWidth -
-            titleWidth;
-          const titleRect = {
-            height: PRICE_LABEL_HEIGHT,
-            width: titleWidth,
-            x: titleX,
-            y: labelTop,
-          };
-          if (canDrag) {
-            hitRegions.push({
-              id: component.id,
-              action: 'drag',
-              price: anchor.price,
-              rect: titleRect,
-            });
-          }
-          textLabelCommands.push(
-            { kind: 'clip', rect: titleRect },
-            {
-              ...titleRect,
-              customPaintId: labelPaintId,
-              kind: 'rect',
-              paint: 'background',
-            },
-            {
-              customPaintId: textPaintId,
-              font: 'referenceLineLabel',
-              kind: 'text',
-              paint: 'currentPriceLabelText',
-              text: title,
-              x: titleX + REFERENCE_LINE_LABEL_HORIZONTAL_PADDING,
-              y:
-                labelTop +
-                PRICE_LABEL_HEIGHT / 2 +
-                AXIS_FONT_SIZE / 2 +
-                PRICE_AXIS_TEXT_BASELINE_OFFSET,
-            },
-            { kind: 'restore' },
-          );
-          if (showYAxis) {
-            textLabelCommands.push({
-              height: PRICE_LABEL_HEIGHT,
-              kind: 'rect',
-              paint: 'background',
-              width: REFERENCE_LINE_LABEL_SEPARATOR_WIDTH,
-              x: priceLabelLeft - REFERENCE_LINE_LABEL_SEPARATOR_WIDTH,
-              y: labelTop,
-            });
-          }
-        }
-      }
-
-      if (
-        !label &&
-        canCancel &&
-        priceLabelLeft - cancelButtonWidth >= CHART_HORIZONTAL_PADDING
-      ) {
-        const rect = {
-          x: priceLabelLeft - cancelButtonWidth,
-          y: labelTop,
-          width: cancelButtonWidth,
+    if (!label && title.length > 0) {
+      const labelSeparatorWidth = showYAxis
+        ? REFERENCE_LINE_LABEL_SEPARATOR_WIDTH
+        : 0;
+      const availableTitleWidth = Math.max(
+        priceLabelLeft -
+          CHART_HORIZONTAL_PADDING -
+          labelSeparatorWidth -
+          cancelButtonWidth,
+        0,
+      );
+      const titleWidth = Math.min(
+        measureTextWidth(title, 'referenceLineLabel') +
+          REFERENCE_LINE_LABEL_HORIZONTAL_PADDING * 2,
+        availableTitleWidth,
+      );
+      if (titleWidth > 0) {
+        const titleX =
+          priceLabelLeft - labelSeparatorWidth - cancelButtonWidth - titleWidth;
+        const titleRect = {
           height: PRICE_LABEL_HEIGHT,
+          width: titleWidth,
+          x: titleX,
+          y: labelTop,
         };
-        const centerX = rect.x + rect.width / 2;
-        const centerY = rect.y + rect.height / 2;
-        textLabelCommands.push(
-          {
-            ...rect,
-            kind: 'rect',
-            customPaintId: labelPaintId,
-            paint: 'background',
-          },
-          {
-            kind: 'line',
-            customPaintId: textPaintId,
-            paint: 'gridLine',
-            x1: centerX - 3,
-            y1: centerY - 3,
-            x2: centerX + 3,
-            y2: centerY + 3,
-          },
-          {
-            kind: 'line',
-            customPaintId: textPaintId,
-            paint: 'gridLine',
-            x1: centerX - 3,
-            y1: centerY + 3,
-            x2: centerX + 3,
-            y2: centerY - 3,
-          },
-        );
-        if (!pending)
+        if (canDrag) {
           hitRegions.push({
             id: component.id,
-            action: 'cancel',
+            action: 'drag',
             price: anchor.price,
-            rect,
+            rect: titleRect,
           });
-      }
-
-      if (showYAxis) {
-        priceLabelCommands.push(
+        }
+        textLabelCommands.push(
+          { kind: 'clip', rect: titleRect },
           {
+            ...titleRect,
             customPaintId: labelPaintId,
-            height: PRICE_LABEL_HEIGHT,
             kind: 'rect',
             paint: 'background',
-            width: priceLabelWidth,
-            x: priceLabelLeft,
-            y: labelTop,
           },
           {
             customPaintId: textPaintId,
-            font: 'priceAxis',
+            font: 'referenceLineLabel',
             kind: 'text',
             paint: 'currentPriceLabelText',
-            text: priceLabel,
-            x: priceLabelLeft + FLOATING_PRICE_LABEL_HORIZONTAL_PADDING,
+            text: title,
+            x: titleX + REFERENCE_LINE_LABEL_HORIZONTAL_PADDING,
             y:
               labelTop +
               PRICE_LABEL_HEIGHT / 2 +
               AXIS_FONT_SIZE / 2 +
               PRICE_AXIS_TEXT_BASELINE_OFFSET,
           },
+          { kind: 'restore' },
         );
+        if (showYAxis) {
+          textLabelCommands.push({
+            height: PRICE_LABEL_HEIGHT,
+            kind: 'rect',
+            paint: 'background',
+            width: REFERENCE_LINE_LABEL_SEPARATOR_WIDTH,
+            x: priceLabelLeft - REFERENCE_LINE_LABEL_SEPARATOR_WIDTH,
+            y: labelTop,
+          });
+        }
       }
+    }
+
+    if (
+      !label &&
+      canCancel &&
+      priceLabelLeft - cancelButtonWidth >= CHART_HORIZONTAL_PADDING
+    ) {
+      const rect = {
+        x: priceLabelLeft - cancelButtonWidth,
+        y: labelTop,
+        width: cancelButtonWidth,
+        height: PRICE_LABEL_HEIGHT,
+      };
+      const centerX = rect.x + rect.width / 2;
+      const centerY = rect.y + rect.height / 2;
+      textLabelCommands.push(
+        {
+          ...rect,
+          kind: 'rect',
+          customPaintId: labelPaintId,
+          paint: 'background',
+        },
+        {
+          kind: 'line',
+          customPaintId: textPaintId,
+          paint: 'gridLine',
+          x1: centerX - 3,
+          y1: centerY - 3,
+          x2: centerX + 3,
+          y2: centerY + 3,
+        },
+        {
+          kind: 'line',
+          customPaintId: textPaintId,
+          paint: 'gridLine',
+          x1: centerX - 3,
+          y1: centerY + 3,
+          x2: centerX + 3,
+          y2: centerY - 3,
+        },
+      );
+      if (!pending)
+        hitRegions.push({
+          id: component.id,
+          action: 'cancel',
+          price: anchor.price,
+          rect,
+        });
+    }
+
+    if (showYAxis) {
+      priceLabelCommands.push(
+        {
+          customPaintId: labelPaintId,
+          height: PRICE_LABEL_HEIGHT,
+          kind: 'rect',
+          paint: 'background',
+          width: priceLabelWidth,
+          x: priceLabelLeft,
+          y: labelTop,
+        },
+        {
+          customPaintId: textPaintId,
+          font: 'priceAxis',
+          kind: 'text',
+          paint: 'currentPriceLabelText',
+          text: priceLabel,
+          x: priceLabelLeft + FLOATING_PRICE_LABEL_HORIZONTAL_PADDING,
+          y:
+            labelTop +
+            PRICE_LABEL_HEIGHT / 2 +
+            AXIS_FONT_SIZE / 2 +
+            PRICE_AXIS_TEXT_BASELINE_OFFSET,
+        },
+      );
     }
   });
   return {

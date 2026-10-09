@@ -64,12 +64,23 @@ use semibold text, while the price axis retains separate color-filled price badg
 Order cancel buttons sit at the end of the label, and drag/cancel hit areas follow
 its layout.
 Web Canvas and native Skia consume the same label scene commands. Other reference
-lines, including Market's previous close, retain their existing presentation.
+lines, including Market's previous close, retain their existing label styles.
 
 Limit labels use regular text in the order color, a solid order-colored quantity
 segment with white text, and a lightly tinted cancel button. A dotted grip appears
 when the order is draggable; it shares the label's drag region. The label reserves
 space for the grip, quantity and cancel button when the plot is narrow.
+
+Price-axis labels share `getTradingViewNativePriceLabelPositions` in
+`utils/chartLayout.ts`. Previous close, the current price and every visible
+reference line participate in one price-ordered layout. Colliding labels form
+groups that keep the current-price label anchored when space permits and remain
+inside the price pane. Off-screen lines and disabled price-axis labels reserve no
+space. When the pane cannot physically fit every label, spacing compresses evenly,
+preserving the previous-close behavior for very short charts. Only price labels
+and their attached right-side titles move; line prices and left-side trading
+labels stay anchored to their actual prices. Both linear and logarithmic scales
+use the same layout after price-to-coordinate projection.
 
 Full-position TP/SL orders with zero order size reuse the current position size,
 as in the old chart. Invalid prices are not rendered. Lines follow the existing
