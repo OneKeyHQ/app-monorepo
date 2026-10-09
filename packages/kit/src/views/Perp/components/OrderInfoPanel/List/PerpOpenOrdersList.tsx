@@ -515,7 +515,7 @@ function PerpOpenOrdersList({
               bid,
               ask,
               side: order.side === 'B' ? 'long' : 'short',
-              type: 'counterparty',
+              type: 'queue',
               offsetTicks: 0,
               szDecimals,
             })

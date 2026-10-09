@@ -3350,7 +3350,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               amendKind,
               cloid: existing.cloid,
               expectedAccountAddress: params.expectedAccountAddress,
-              alwaysPlace: true,
             },
           );
         },
