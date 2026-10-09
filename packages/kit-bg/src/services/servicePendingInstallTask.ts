@@ -915,51 +915,14 @@ class ServicePendingInstallTask {
       platformEnv.isDesktop &&
       task.type === EPendingInstallTaskType.appInstall &&
       message.includes(EAppUpdatePackageErrorCode.packageNotPrepared);
-    if (isAppPackageNotPrepared) {
-      await appUpdatePersistAtom.set((current) => {
-        if (
-          current.latestVersion !== task.targetAppVersion ||
-          current.status !== EAppUpdateStatus.ready
-        ) {
-          return current;
-        }
-        return {
-          ...current,
-          status: EAppUpdateStatus.notify,
-          errorText: undefined,
-          downloadedEvent: undefined,
-        };
-      });
-      await this.clearPendingTaskWithLog({
-        traceId,
-        requestSeq,
-        task,
-        clearReason: 'app_package_rehydrate_required',
-      });
-      const current = await appUpdatePersistAtom.get();
-      if (
-        current.latestVersion === task.targetAppVersion &&
-        current.status === EAppUpdateStatus.notify &&
-        !current.downloadedEvent &&
-        (current.updateStrategy === EUpdateStrategy.seamless ||
-          current.updateStrategy === EUpdateStrategy.silent)
-      ) {
-        defaultLogger.app.appUpdate.log(
-          `pending app install requires updater cache rehydrate for ${task.targetAppVersion}`,
-        );
-        appEventBus.emit(EAppEventBusNames.StartAutoDownloadUpdate, {
-          decision: 'appShellPackageRehydrate',
-        });
-      }
-      return false;
-    }
     const isAppPackageMissing =
       platformEnv.isDesktop &&
       message.includes(EAppUpdatePackageErrorCode.packageMissing);
     const isAppPackageUnavailable =
       platformEnv.isDesktop &&
       message.includes(EAppUpdatePackageErrorCode.packageUnavailable);
-    const isAppPackageInvalid = isAppPackageMissing || isAppPackageUnavailable;
+    const isAppPackageInvalid =
+      isAppPackageMissing || isAppPackageUnavailable || isAppPackageNotPrepared;
     const isFullFlowRetryTrigger =
       message.includes(RETRY_TRIGGER_BUNDLE_MISSING) ||
       message.includes(RETRY_TRIGGER_VERIFY_FAILED) ||
@@ -971,6 +934,8 @@ class ServicePendingInstallTask {
         fullFlowTrigger = 'app_package_missing';
       } else if (isAppPackageUnavailable) {
         fullFlowTrigger = 'app_package_unavailable';
+      } else if (isAppPackageNotPrepared) {
+        fullFlowTrigger = 'app_package_not_prepared';
       } else if (message.includes(RETRY_TRIGGER_BUNDLE_MISSING)) {
         fullFlowTrigger = 'bundle_missing';
       }

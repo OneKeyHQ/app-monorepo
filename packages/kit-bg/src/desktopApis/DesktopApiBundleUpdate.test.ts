@@ -653,37 +653,6 @@ describe('DesktopApiBundleUpdate file skip rules', () => {
 });
 
 // ---------------------------------------------------------------------------
-// isDownloading guard - mirrors downloadBundle (line 89)
-// ---------------------------------------------------------------------------
-describe('DesktopApiBundleUpdate isDownloading guard', () => {
-  test('second download call returns undefined when already downloading', () => {
-    let isDownloading = false;
-    function downloadBundle(): string | undefined {
-      if (isDownloading) return undefined;
-      isDownloading = true;
-      return 'downloading';
-    }
-    expect(downloadBundle()).toBe('downloading');
-    expect(downloadBundle()).toBeUndefined();
-  });
-
-  test('isDownloading resets after download completes', () => {
-    let isDownloading = false;
-    function startDownload(): string | undefined {
-      if (isDownloading) return undefined;
-      isDownloading = true;
-      return 'downloading';
-    }
-    function finishDownload() {
-      isDownloading = false;
-    }
-    expect(startDownload()).toBe('downloading');
-    finishDownload();
-    expect(startDownload()).toBe('downloading');
-  });
-});
-
-// ---------------------------------------------------------------------------
 // Cached file verification failure - mirrors downloadBundle (lines 115-137)
 // ---------------------------------------------------------------------------
 describe('DesktopApiBundleUpdate cached file redownload', () => {

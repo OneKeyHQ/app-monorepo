@@ -386,7 +386,6 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
       downloadedEvent: {
         downloadedFile: '/tmp/app-2.0.0.pkg',
         downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
-        isUpdaterRehydrated: true,
       },
     });
 

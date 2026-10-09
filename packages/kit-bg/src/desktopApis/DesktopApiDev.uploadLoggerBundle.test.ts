@@ -228,9 +228,10 @@ function makeApi(): { api: DesktopApiDev; events: IProgressEvent[] } {
       },
     },
   };
-  const desktopApi = {
-    appUpdate: { getMainWindow: () => mainWindow },
-  } as unknown as IDesktopApi;
+  globalThis.$desktopMainAppFunctions = {
+    getSafelyMainWindow: () => mainWindow,
+  } as unknown as typeof globalThis.$desktopMainAppFunctions;
+  const desktopApi = {} as IDesktopApi;
   return { api: new DesktopApiDev({ desktopApi }), events };
 }
 
@@ -258,6 +259,7 @@ describe('DesktopApiDev.uploadLoggerBundle', () => {
   let brokenServer: ILocalServer;
   let previousTlsSetting: string | undefined;
   let sandboxFetch: typeof fetch;
+  const previousMainAppFunctions = globalThis.$desktopMainAppFunctions;
 
   beforeAll(async () => {
     sandboxFetch = globalThis.fetch;
@@ -291,6 +293,7 @@ describe('DesktopApiDev.uploadLoggerBundle', () => {
     ]);
     fs.rmSync(TMP_DIR, { recursive: true, force: true });
     globalThis.fetch = sandboxFetch;
+    globalThis.$desktopMainAppFunctions = previousMainAppFunctions;
     if (previousTlsSetting === undefined) {
       delete hostGlobal.process.env.NODE_TLS_REJECT_UNAUTHORIZED;
     } else {

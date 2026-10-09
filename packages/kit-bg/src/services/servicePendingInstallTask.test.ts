@@ -691,7 +691,7 @@ describe('servicePendingInstallTask', () => {
     );
   });
 
-  test('unprepared macOS package triggers rehydrate without consuming failure budget', async () => {
+  test('unverified app package enters bounded full-flow recovery', async () => {
     const service = createService();
     const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
     autoUpdate.AppUpdate.checkPackageAvailability.mockResolvedValueOnce({
@@ -721,11 +721,11 @@ describe('servicePendingInstallTask', () => {
     expect(pendingTaskValue).toBeUndefined();
     expect(appUpdateState.status).toBe('notify');
     expect(appUpdateState.downloadedEvent).toBeUndefined();
-    expect(appUpdateState.fullFlowRetryByTarget?.['2.0.0:1']).toBeUndefined();
+    expect(appUpdateState.fullFlowRetryByTarget?.['2.0.0:1']?.count).toBe(1);
     expect(appUpdateState.freezeUntil).toBeUndefined();
     expect(appEventBus.emit).toHaveBeenCalledWith(
       EAppEventBusNames.StartAutoDownloadUpdate,
-      { decision: 'appShellPackageRehydrate' },
+      { decision: 'appShellPackageRecovery' },
     );
   });
 

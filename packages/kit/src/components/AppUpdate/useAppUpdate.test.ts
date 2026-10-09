@@ -2116,7 +2116,7 @@ describe('useDownloadPackage', () => {
       expect(mockToastError).not.toHaveBeenCalled();
     });
 
-    test('not-prepared package entering rehydrate does not surface an install error', async () => {
+    test('unverified package reconciliation does not surface an install error', async () => {
       const onSuccess = jest.fn();
       const onFail = jest.fn();
       mockPlatformEnv.isDesktop = true;
@@ -3051,7 +3051,7 @@ describe('useAppUpdateInfo useEffect', () => {
       );
     });
 
-    test('ready + silent strategy → no dialog (applied on restart via pending task)', async () => {
+    test('ready + silent package waits for pending-task install', async () => {
       // OK-55397: silent updates no longer pop a "ready" dialog. Once the
       // silent download reaches `ready`, ServiceAppUpdate.readyToInstall has
       // already queued a pending install task (silent is allowed past the
@@ -3062,6 +3062,10 @@ describe('useAppUpdateInfo useEffect', () => {
         status: EAppUpdateStatus.ready,
         updateStrategy: EUpdateStrategy.silent,
         latestVersion: '2.0.0',
+        downloadedEvent: {
+          downloadedFile: '/tmp/app.zip',
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.zip',
+        },
       });
       svc.getUpdateInfo.mockResolvedValue(mockAtomHolder.value);
       svc.fetchAppUpdateInfo.mockResolvedValue(mockAtomHolder.value);
@@ -3077,108 +3081,6 @@ describe('useAppUpdateInfo useEffect', () => {
       expect(nav.pushModal).not.toHaveBeenCalled();
       expect(nav.pushFullModal).not.toHaveBeenCalled();
       expect(svc.processPendingInstallTask).not.toHaveBeenCalled();
-    });
-
-    test('rehydrated macOS silent package installs in the prepared process', async () => {
-      setAtom({
-        status: EAppUpdateStatus.ready,
-        updateStrategy: EUpdateStrategy.silent,
-        latestVersion: '2.0.0',
-        downloadedEvent: {
-          downloadedFile: '/tmp/app.zip',
-          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.zip',
-          isUpdaterRehydrated: true,
-        },
-      });
-      mockPlatformEnv.isDesktop = true;
-      mockPlatformEnv.isDesktopMac = true;
-      svc.getUpdateInfo.mockResolvedValue(mockAtomHolder.value);
-      svc.fetchAppUpdateInfo.mockResolvedValue(mockAtomHolder.value);
-
-      const hooks = requireFreshHooks();
-      renderHook(() => hooks.useAppUpdateInfo(false, true));
-
-      await act(async () => {
-        await jest.runAllTimersAsync();
-      });
-
-      expect(svc.processPendingInstallTask).toHaveBeenCalledTimes(1);
-    });
-
-    test('rehydrated macOS seamless package installs when it becomes ready in-session', async () => {
-      setAtom({
-        status: EAppUpdateStatus.done,
-        updateStrategy: EUpdateStrategy.manual,
-        latestVersion: '1.0.0',
-      });
-      mockPlatformEnv.isDesktop = true;
-      mockPlatformEnv.isDesktopMac = true;
-
-      const hooks = requireFreshHooks();
-      const { rerender } = renderHook(() =>
-        hooks.useAppUpdateInfo(false, true),
-      );
-      await act(async () => {
-        await jest.runAllTimersAsync();
-      });
-      svc.processPendingInstallTask.mockClear();
-
-      setAtom({
-        status: EAppUpdateStatus.ready,
-        updateStrategy: EUpdateStrategy.seamless,
-        latestVersion: '2.0.0',
-        downloadedEvent: {
-          downloadedFile: '/tmp/app.zip',
-          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.zip',
-          isUpdaterRehydrated: true,
-        },
-      });
-      rerender();
-      await act(async () => {
-        await Promise.resolve();
-      });
-
-      expect(svc.processPendingInstallTask).toHaveBeenCalledTimes(1);
-    });
-
-    test('unprepared auto-ready state does not consume the later rehydrate install', async () => {
-      setAtom({
-        status: EAppUpdateStatus.ready,
-        updateStrategy: EUpdateStrategy.seamless,
-        latestVersion: '2.0.0',
-        downloadedEvent: {
-          downloadedFile: '/tmp/app.zip',
-          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.zip',
-        },
-      });
-      mockPlatformEnv.isDesktop = true;
-      mockPlatformEnv.isDesktopMac = true;
-
-      const hooks = requireFreshHooks();
-      const { rerender } = renderHook(() =>
-        hooks.useAppUpdateInfo(false, true),
-      );
-      await act(async () => {
-        await jest.runAllTimersAsync();
-      });
-      expect(svc.processPendingInstallTask).not.toHaveBeenCalled();
-
-      setAtom({
-        status: EAppUpdateStatus.ready,
-        updateStrategy: EUpdateStrategy.seamless,
-        latestVersion: '2.0.0',
-        downloadedEvent: {
-          downloadedFile: '/tmp/app.zip',
-          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.zip',
-          isUpdaterRehydrated: true,
-        },
-      });
-      rerender();
-      await act(async () => {
-        await Promise.resolve();
-      });
-
-      expect(svc.processPendingInstallTask).toHaveBeenCalledTimes(1);
     });
 
     test('update-incomplete event waits for the app to unlock', async () => {

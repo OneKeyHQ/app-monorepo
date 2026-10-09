@@ -1251,7 +1251,10 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
       // pointed at the current renderer instead of the destroyed one.
       const currentMainWebContentsId =
         getSafelyMainWindow()?.webContents.id ?? browserWindow.webContents.id;
-      if (event.sender.id !== currentMainWebContentsId) {
+      if (
+        event.sender.id !== currentMainWebContentsId ||
+        event.senderFrame !== event.sender.mainFrame
+      ) {
         logger.warn(
           '[DESKTOP_API_CALL] Rejected call from non-main renderer',
           event.sender.id,

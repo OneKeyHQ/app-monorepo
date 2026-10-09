@@ -10309,7 +10309,6 @@ __metadata:
     electron-is-dev: "npm:^2.0.0"
     electron-log: "npm:5.4.4"
     electron-store: "npm:^8.2.0"
-    electron-updater: "npm:6.8.9"
     esbuild: "npm:0.27.2"
     glob: "npm:^7.2.0"
     passport-desktop: "npm:0.1.2"
@@ -25328,16 +25327,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"builder-util-runtime@npm:9.7.0":
-  version: 9.7.0
-  resolution: "builder-util-runtime@npm:9.7.0"
-  dependencies:
-    debug: "npm:^4.3.4"
-    sax: "npm:^1.2.4"
-  checksum: 10/ec27cdce62f85aa1dde3c6f924d40f45df4574058483c9d70b25816c6cfb89f9369a1994bf4163c1aa21829e8b337165b6047b9cc8948394a05237efb478878c
-  languageName: node
-  linkType: hard
-
 "builder-util@npm:26.3.4":
   version: 26.3.4
   resolution: "builder-util@npm:26.3.4"
@@ -28785,22 +28774,6 @@ __metadata:
   version: 1.5.5
   resolution: "electron-to-chromium@npm:1.5.5"
   checksum: 10/0ca1cb9f16a4a7173b189cc8df29f88f7351056d2e429a4e7c1c7f9ac2edffc0aa43b7fb77d8495d0f0d661a33eda5cfe46679ebee6faf3343013ce63aed59a8
-  languageName: node
-  linkType: hard
-
-"electron-updater@npm:6.8.9":
-  version: 6.8.9
-  resolution: "electron-updater@npm:6.8.9"
-  dependencies:
-    builder-util-runtime: "npm:9.7.0"
-    fs-extra: "npm:^10.1.0"
-    js-yaml: "npm:^4.1.0"
-    lazy-val: "npm:^1.0.5"
-    lodash.escaperegexp: "npm:^4.1.2"
-    lodash.isequal: "npm:^4.5.0"
-    semver: "npm:~7.7.3"
-    tiny-typed-emitter: "npm:^2.1.0"
-  checksum: 10/656b7a276e2f2df48736de3df55b817f40f8252f10d94d594c98a880287ab495718d2db67f8ee3a84ea178e90283f1e0c0d2a199b3f282bafd020cff1bd67999
   languageName: node
   linkType: hard
 
@@ -37326,13 +37299,6 @@ __metadata:
   version: 4.2.0
   resolution: "lodash.defaults@npm:4.2.0"
   checksum: 10/6a2a9ea5ad7585aff8d76836c9e1db4528e5f5fa50fc4ad81183152ba8717d83aef8aec4fa88bf3417ed946fd4b4358f145ee08fbc77fb82736788714d3e12db
-  languageName: node
-  linkType: hard
-
-"lodash.escaperegexp@npm:^4.1.2":
-  version: 4.1.2
-  resolution: "lodash.escaperegexp@npm:4.1.2"
-  checksum: 10/6d99452b1cfd6073175a9b741a9b09ece159eac463f86f02ea3bee2e2092923fce812c8d2bf446309cc52d1d61bf9af51c8118b0d7421388e6cead7bd3798f0f
   languageName: node
   linkType: hard
 
@@ -47370,13 +47336,6 @@ __metadata:
     nan: "npm:^2.13.2"
     node-gyp: "npm:latest"
   checksum: 10/588393c36df18b2819787fc91616e1fcb930509307eecc460ad45c7011f99f900eea28493a36eb203c3933ae76f737e6a1b978fa0b8a391fcc5dd7b64d57c572
-  languageName: node
-  linkType: hard
-
-"tiny-typed-emitter@npm:^2.1.0":
-  version: 2.1.0
-  resolution: "tiny-typed-emitter@npm:2.1.0"
-  checksum: 10/709bca410054e08df4dc29d5ea0916328bb2900d60245c6a743068ea223887d9fd2c945b6070eb20336275a557a36c2808e5c87d2ed4b60633458632be4a3e10
   languageName: node
   linkType: hard
 

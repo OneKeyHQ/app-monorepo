@@ -54,7 +54,8 @@ class DesktopApiDev {
     fileBaseName: string;
   }): Promise<{ filePath: string }> {
     const digest = await this.collectLoggerDigest(params);
-    const mainWindow = this.desktopApi.appUpdate.getMainWindow() ?? undefined;
+    const mainWindow =
+      globalThis.$desktopMainAppFunctions?.getSafelyMainWindow?.();
     if (!mainWindow || mainWindow.isDestroyed()) {
       throw new OneKeyLocalError('No active window for download');
     }
@@ -167,7 +168,7 @@ class DesktopApiDev {
     }) => {
       try {
         const mainWindow =
-          this.desktopApi.appUpdate.getMainWindow() ?? undefined;
+          globalThis.$desktopMainAppFunctions?.getSafelyMainWindow?.();
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send(
             ipcMessageKeys.CLIENT_LOG_UPLOAD_PROGRESS,
