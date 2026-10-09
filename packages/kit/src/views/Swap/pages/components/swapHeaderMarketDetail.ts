@@ -81,3 +81,22 @@ export function resolveSwapStockMarketDetailTarget(
     isNative: token.isNative,
   };
 }
+
+export function resolveSwapHeaderMarketDetail(
+  ...tokens: (ISwapToken | undefined)[]
+):
+  | { kind: 'token'; target: ISwapToTokenMarketDetail }
+  | { kind: 'stock'; target: ISwapStockMarketDetailTarget }
+  | undefined {
+  for (const token of tokens) {
+    const stockTarget = resolveSwapStockMarketDetailTarget(token);
+    if (stockTarget) {
+      return { kind: 'stock', target: stockTarget };
+    }
+    const tokenTarget = resolveSwapToTokenMarketDetail(token);
+    if (tokenTarget) {
+      return { kind: 'token', target: tokenTarget };
+    }
+  }
+  return undefined;
+}

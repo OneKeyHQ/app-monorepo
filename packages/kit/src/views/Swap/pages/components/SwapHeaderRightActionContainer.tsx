@@ -52,6 +52,8 @@ import {
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { shouldRedirectOnboardingToTravelMode } from '@onekeyhq/kit/src/utils/onboardingEntryGate';
+import { useToMarketStockDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/hooks/useToMarketStockDetailPage';
+import { useToDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import {
   EJotaiContextStoreNames,
   filterSwapHistoryPendingList,
@@ -92,6 +94,7 @@ import { getSwapActivityHubActionPlacement } from '../../components/InviteeRewar
 import { resolveStockKLineToken } from '../../hooks/swapStockChannelUtils';
 import { useSwapLimitOrdersLocalDataVisibility } from '../../hooks/useSwapLocalDataVisibility';
 import { useSwapSlippagePercentageModeInfo } from '../../hooks/useSwapState';
+import { useSwapStockTokenDetail } from '../../hooks/useSwapStockTokenDetail';
 import { SwapTestIDs } from '../../testIDs';
 import { buildSwapRecipientAddressSettingsUpdate } from '../../utils/incognitoSettings';
 import {
@@ -104,6 +107,10 @@ import { prefetchSwapKLineMetadata } from '../modal/swapKLineTokenUtils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import ProviderManageContainer from './ProviderManageContainer';
+import {
+  resolveSwapHeaderMarketDetail,
+  resolveSwapStockMarketDetailTarget,
+} from './swapHeaderMarketDetail';
 
 import type { IMarketPresetSettingsState } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings';
 
@@ -653,6 +660,28 @@ const StockKLineHeaderButton = ({
     toToken,
   ]);
   const isNative = stockToken?.isNative;
+  const selectedStockDetailTarget = useMemo(
+    () => resolveSwapStockMarketDetailTarget(stockToken),
+    [stockToken],
+  );
+  // Cold-start execution tokens can lack the listing metadata already cached
+  // by the stock panel. Resolve that metadata before choosing the destination.
+  const { displayTokenDetail: stockTokenDetail } = useSwapStockTokenDetail({
+    token: stockToken,
+    enabled: Boolean(platformEnv.isNative && !selectedStockDetailTarget),
+  });
+  const stockDetailTarget = useMemo(
+    () =>
+      selectedStockDetailTarget ??
+      (stockToken && stockTokenDetail?.stock
+        ? resolveSwapStockMarketDetailTarget({
+            ...stockToken,
+            stock: stockTokenDetail.stock,
+          })
+        : undefined),
+    [selectedStockDetailTarget, stockToken, stockTokenDetail?.stock],
+  );
+  const toStockDetail = useToMarketStockDetailPage();
   const networkId = stockToken?.networkId ?? '';
   const tokenAddress = stockToken?.contractAddress ?? '';
   const network = useMemo(
@@ -664,9 +693,9 @@ const StockKLineHeaderButton = ({
   );
   const disabled =
     shouldRedirectOnboardingToTravelMode() ||
-    !stockToken?.symbol ||
-    !networkId ||
-    (!tokenAddress && !isNative);
+    (platformEnv.isNative
+      ? !stockDetailTarget
+      : !stockToken?.symbol || !networkId || (!tokenAddress && !isNative));
 
   const onOpenStockMarketDetail = useCallback(() => {
     if (disabled || shouldRedirectOnboardingToTravelMode()) {
@@ -674,6 +703,10 @@ const StockKLineHeaderButton = ({
     }
 
     dismissKeyboard();
+    if (platformEnv.isNative && stockDetailTarget) {
+      void toStockDetail(stockDetailTarget);
+      return;
+    }
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapProMarketDetail,
       params: {
@@ -685,7 +718,15 @@ const StockKLineHeaderButton = ({
         showFavoriteButton: false,
       },
     });
-  }, [disabled, isNative, navigation, network, tokenAddress]);
+  }, [
+    disabled,
+    isNative,
+    navigation,
+    network,
+    stockDetailTarget,
+    toStockDetail,
+    tokenAddress,
+  ]);
 
   return (
     <HeaderIconButton
@@ -798,54 +839,52 @@ const SwapKLineHeaderButton = ({
   );
 };
 
-// Mobile Swap Pro: the candlestick button lives in the top capsule (consistent
-// with the Swap & Bridge / Stocks tabs). It opens the Pro market detail for the
-// currently selected Pro token — same destination as the old in-body button.
-const SwapProKLineHeaderButton = ({
+const MobileSwapKLineHeaderButton = ({
   iconSize,
   iconColor,
   buttonSize,
+  isPro = false,
 }: {
   iconSize: number | `$${string}`;
   iconColor?: ColorTokens;
   buttonSize: 'small' | 'medium';
+  isPro?: boolean;
 }) => {
-  const navigation = useAppNavigation();
+  const [fromToken] = useSwapSelectFromTokenAtom();
+  const [toToken] = useSwapSelectToTokenAtom();
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
-  const disabled =
-    shouldRedirectOnboardingToTravelMode() ||
-    !swapProSelectToken?.networkId ||
-    (!swapProSelectToken?.contractAddress && !swapProSelectToken?.isNative);
+  const marketDetail = useMemo(
+    () =>
+      isPro
+        ? resolveSwapHeaderMarketDetail(swapProSelectToken)
+        : resolveSwapHeaderMarketDetail(toToken, fromToken),
+    [fromToken, isPro, swapProSelectToken, toToken],
+  );
+  const toMarketDetail = useToDetailPage({
+    switchToMarketTabFirst: true,
+    resolveMarketAsset: true,
+    from: isPro ? EEnterWay.SwapPro : EEnterWay.Others,
+  });
+  const toStockDetail = useToMarketStockDetailPage();
+  const disabled = shouldRedirectOnboardingToTravelMode() || !marketDetail;
 
-  const onOpenProMarketDetail = useCallback(() => {
-    if (disabled || shouldRedirectOnboardingToTravelMode()) {
+  const onOpenMarketDetail = useCallback(() => {
+    if (!marketDetail || shouldRedirectOnboardingToTravelMode()) {
       return;
     }
     dismissKeyboard();
-    navigation.pushModal(EModalRoutes.SwapModal, {
-      screen: EModalSwapRoutes.SwapProMarketDetail,
-      params: {
-        tokenAddress: swapProSelectToken?.contractAddress ?? '',
-        network: swapProSelectToken?.networkId ?? '',
-        isNative: swapProSelectToken?.isNative,
-        from: EEnterWay.SwapPro,
-        disableTrade: true,
-        showFavoriteButton: false,
-      },
-    });
-  }, [
-    disabled,
-    navigation,
-    swapProSelectToken?.contractAddress,
-    swapProSelectToken?.networkId,
-    swapProSelectToken?.isNative,
-  ]);
+    if (marketDetail.kind === 'stock') {
+      void toStockDetail(marketDetail.target);
+    } else {
+      void toMarketDetail(marketDetail.target);
+    }
+  }, [marketDetail, toMarketDetail, toStockDetail]);
 
   return (
     <HeaderIconButton
       testID={SwapTestIDs.kLineButton}
       icon="TradingViewCandlesOutline"
-      onPress={onOpenProMarketDetail}
+      onPress={onOpenMarketDetail}
       disabled={disabled}
       iconProps={{ size: iconSize, color: iconColor ?? '$icon' }}
       size={buttonSize}
@@ -1225,9 +1264,10 @@ const SwapHeaderRightActionContainer = ({
           buttonSize={resolvedButtonSize}
         />
       );
-    } else if (focusSwapPro) {
+    } else if (platformEnv.isNative) {
       kLineButton = (
-        <SwapProKLineHeaderButton
+        <MobileSwapKLineHeaderButton
+          isPro={focusSwapPro}
           iconSize={resolvedIconSize}
           iconColor={iconColor}
           buttonSize={resolvedButtonSize}
