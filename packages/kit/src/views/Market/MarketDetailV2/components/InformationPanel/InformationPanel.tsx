@@ -207,7 +207,6 @@ export function InformationPanel() {
     liquidity,
     priceConverted,
     holders = 0,
-    address = '',
     communityRecognized,
     stock,
   } = tokenDetail;
@@ -289,46 +288,39 @@ export function InformationPanel() {
         </XStack>
       </YStack>
 
-      <YStack gap="$1" width="$40" pt="$1">
-        <HeaderStatRows
-          isStockToken={Boolean(isStockToken)}
-          isPreview={isPreviewTokenDetail}
-          stock={stock}
-          btcMetadata={btcMetadata}
-          fallback={{
-            marketCap: formattedMarketCap,
-            liquidity: formattedLiquidity,
-            holders: formattedHolders,
-          }}
-        />
-        {/* Reserve the native risk row before its separate request settles.
-            A stock route learns its contract address after the first frame. */}
-        {(networkId && address && (platformEnv.isNative || securityData)) ||
-        (platformEnv.isNative && isStockToken) ? (
-          <XStack
-            testID="market-detail-security-row"
-            gap="$1"
-            ai="center"
-            width="100%"
-            jc="space-between"
-          >
-            <SizableText
-              pointerEvents="none"
-              size="$bodySm"
-              color="$textSubdued"
+      {platformEnv.isNative ? null : (
+        <YStack gap="$1" width="$40" pt="$1">
+          <HeaderStatRows
+            isStockToken={Boolean(isStockToken)}
+            isPreview={isPreviewTokenDetail}
+            stock={stock}
+            btcMetadata={btcMetadata}
+            fallback={{
+              marketCap: formattedMarketCap,
+              liquidity: formattedLiquidity,
+              holders: formattedHolders,
+            }}
+          />
+          {securityData ? (
+            <XStack
+              testID="market-detail-security-row"
+              gap="$1"
+              ai="center"
+              width="100%"
+              jc="space-between"
             >
-              {intl.formatMessage({ id: ETranslations.dexmarket_audit })}
-            </SizableText>
-            {securityData ? (
-              <TokenSecurityAlert />
-            ) : (
-              <SizableText size="$bodySmMedium" color="$textSubdued">
-                --
+              <SizableText
+                pointerEvents="none"
+                size="$bodySm"
+                color="$textSubdued"
+              >
+                {intl.formatMessage({ id: ETranslations.dexmarket_audit })}
               </SizableText>
-            )}
-          </XStack>
-        ) : null}
-      </YStack>
+              <TokenSecurityAlert />
+            </XStack>
+          ) : null}
+        </YStack>
+      )}
     </XStack>
   );
 }

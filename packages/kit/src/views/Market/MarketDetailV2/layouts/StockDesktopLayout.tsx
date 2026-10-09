@@ -677,7 +677,11 @@ export function StockChart({
   );
 }
 
-function StockOverviewGrid() {
+export function StockOverviewGrid({
+  columns = 3,
+}: {
+  columns?: 2 | 3;
+} = {}) {
   const intl = useIntl();
   const { tokenDetail } = useTokenDetail();
   const {
@@ -809,6 +813,9 @@ function StockOverviewGrid() {
     ],
     [intl, marketCap, stock, stockDetail],
   );
+  const statWidth = columns === 2 ? '50%' : '33.33%';
+  const valueSize = columns === 2 ? '$headingLg' : '$headingXl';
+  const gridHeight = columns === 2 ? undefined : 288;
 
   if (isStockDetailError) {
     return (
@@ -836,14 +843,14 @@ function StockOverviewGrid() {
     return (
       <XStack
         testID="stock-detail-stats-skeleton"
-        height={288}
+        height={gridHeight}
         flexWrap="wrap"
         rowGap="$6"
       >
         {items.map((item) => (
           <YStack
             key={item.label}
-            width="33.33%"
+            width={statWidth}
             height={54}
             pr="$2.5"
             gap="$1.5"
@@ -857,11 +864,11 @@ function StockOverviewGrid() {
   }
 
   return (
-    <XStack height={288} flexWrap="wrap" rowGap="$6">
+    <XStack height={gridHeight} flexWrap="wrap" rowGap="$6">
       {items.map((item) => (
         <YStack
           key={item.label}
-          width="33.33%"
+          width={statWidth}
           height={54}
           pr="$2.5"
           gap="$1.5"
@@ -869,7 +876,7 @@ function StockOverviewGrid() {
           <MarketTooltipLabel tooltip={item.tooltip}>
             {item.label}
           </MarketTooltipLabel>
-          <SizableText size="$headingXl">{item.value}</SizableText>
+          <SizableText size={valueSize}>{item.value}</SizableText>
         </YStack>
       ))}
     </XStack>
@@ -902,7 +909,7 @@ const STOCK_ANALYST_BAR_ROW_HEIGHT = 32;
 const STOCK_ANALYST_BAR_MIN_WIDTH = 96;
 const STOCK_ANALYST_DISTRIBUTION_MIN_WIDTH = 240;
 
-function StockAnalystRatings() {
+export function StockAnalystRatings() {
   const intl = useIntl();
   const { format } = useFormatDate();
   const { stockDetail, isStockDetailLoading } = useStockDetail();
@@ -1073,7 +1080,11 @@ function StockAnalystRatings() {
   );
 }
 
-function StockAbout() {
+export function StockAbout({
+  columns = 4,
+}: {
+  columns?: 2 | 4;
+} = {}) {
   const intl = useIntl();
   const { formatDate } = useFormatDate();
   const { tokenDetail } = useTokenDetail();
@@ -1108,8 +1119,17 @@ function StockAbout() {
             { ticker },
           )}
         </SizableText>
-        <XStack height={46}>
-          <YStack flex={1} pr="$2.5" gap="$1.5">
+        <XStack
+          height={columns === 2 ? undefined : 46}
+          flexWrap={columns === 2 ? 'wrap' : undefined}
+          rowGap={columns === 2 ? '$5' : undefined}
+        >
+          <YStack
+            width={columns === 2 ? '50%' : undefined}
+            flex={columns === 2 ? undefined : 1}
+            pr="$2.5"
+            gap="$1.5"
+          >
             <SizableText size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({
                 id: ETranslations.market_stock_about_ceo,
@@ -1119,7 +1139,12 @@ function StockAbout() {
               {about?.ceo || STAT_FALLBACK_VALUE}
             </SizableText>
           </YStack>
-          <YStack flex={1} pr="$2.5" gap="$1.5">
+          <YStack
+            width={columns === 2 ? '50%' : undefined}
+            flex={columns === 2 ? undefined : 1}
+            pr="$2.5"
+            gap="$1.5"
+          >
             <SizableText size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({
                 id: ETranslations.market_stock_about_employees,
@@ -1127,7 +1152,12 @@ function StockAbout() {
             </SizableText>
             <SizableText size="$bodyMdMedium">{formattedEmployees}</SizableText>
           </YStack>
-          <YStack flex={1} pr="$2.5" gap="$1.5">
+          <YStack
+            width={columns === 2 ? '50%' : undefined}
+            flex={columns === 2 ? undefined : 1}
+            pr="$2.5"
+            gap="$1.5"
+          >
             <SizableText size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({ id: ETranslations.exchange__title })}
             </SizableText>
@@ -1135,7 +1165,12 @@ function StockAbout() {
               {about?.exchange || STAT_FALLBACK_VALUE}
             </SizableText>
           </YStack>
-          <YStack flex={1} pr="$2.5" gap="$1.5">
+          <YStack
+            width={columns === 2 ? '50%' : undefined}
+            flex={columns === 2 ? undefined : 1}
+            pr="$2.5"
+            gap="$1.5"
+          >
             <SizableText size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({
                 id: ETranslations.market_stock_about_ipo_date,
@@ -1152,6 +1187,7 @@ function StockAbout() {
           description={description}
           testID="stock-about-description"
           toggleTestID="stock-about-description-toggle"
+          collapsedLines={columns === 2 ? 4 : undefined}
         />
       </YStack>
     </YStack>

@@ -86,23 +86,15 @@ beforeEach(() => {
   };
 });
 
-it('keeps the native risk row mounted before, during and after security loading', () => {
+it('keeps native token stats and audit out of the price header', () => {
   const { rerender } = render(<InformationPanel />);
-  const row = screen.getByText(ETranslations.dexmarket_audit).parentElement;
-  expect(screen.queryByText('risk result')).toBeNull();
+  expect(screen.queryByText(ETranslations.dexmarket_audit)).toBeNull();
+  expect(screen.queryByText(ETranslations.global_market_cap)).toBeNull();
   mockSecurityData = {
     check: { value: true, content: 'Test', riskType: 'caution' },
   };
   rerender(<InformationPanel />);
-  expect(screen.getByText(ETranslations.dexmarket_audit).parentElement).toBe(
-    row,
-  );
-  expect(screen.getByText('risk result')).toBeTruthy();
-  mockSecurityData = null;
-  rerender(<InformationPanel />);
-  expect(screen.getByText(ETranslations.dexmarket_audit).parentElement).toBe(
-    row,
-  );
+  expect(screen.queryByText(ETranslations.dexmarket_audit)).toBeNull();
   expect(screen.queryByText('risk result')).toBeNull();
 });
 

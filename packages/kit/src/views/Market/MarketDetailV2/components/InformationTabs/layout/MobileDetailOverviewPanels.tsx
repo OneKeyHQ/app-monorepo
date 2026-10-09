@@ -9,9 +9,10 @@ import { useStockDetail } from '../../../hooks/StockDetailContext';
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { StockFinancials } from '../../StockFinancials/StockFinancials';
 import { TokenActivityOverview } from '../../TokenActivityOverview/TokenActivityOverview';
-import { StockTokenOverview } from '../../TokenOverview/StockTokenOverview';
 import { TokenOverview } from '../../TokenOverview/TokenOverview';
+import { TokenSupplementaryInfo } from '../../TokenSupplementaryInfo/TokenSupplementaryInfo';
 import { TopCoinsOverviewContent } from '../../TopCoinsOverview/TopCoinsOverviewContent';
+import { StockMobileOverview } from '../StockMobileOverview';
 
 function OverviewScroll({
   scrollEnabled,
@@ -38,8 +39,14 @@ export function MobileTrendingOverviewPanel({
 
   return (
     <OverviewScroll scrollEnabled={scrollEnabled}>
-      {hideActivity ? null : <TokenActivityOverview />}
-      <TokenOverview />
+      {hideActivity ? (
+        <TokenOverview />
+      ) : (
+        <>
+          <TokenActivityOverview desktopRedesign summaryLayout="stacked" />
+          <TokenSupplementaryInfo variant="overview" columns={2} />
+        </>
+      )}
     </OverviewScroll>
   );
 }
@@ -58,6 +65,7 @@ export function MobileTopCoinsOverviewPanel({
       <TopCoinsOverviewContent
         assetDetail={assetDetail}
         isAssetDetailLoading={isAssetDetailLoading}
+        columns={2}
       />
     </OverviewScroll>
   );
@@ -70,7 +78,7 @@ export function MobileStockOverviewPanel({
 }) {
   return (
     <OverviewScroll scrollEnabled={scrollEnabled}>
-      <StockTokenOverview showFinancials={false} />
+      <StockMobileOverview />
     </OverviewScroll>
   );
 }

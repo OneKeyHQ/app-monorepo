@@ -55,14 +55,18 @@ function TopCoinsStatItem({
   label,
   value,
   rank,
+  width = '33.33%',
+  valueSize = '$headingXl',
 }: {
   label: string;
   value: string;
   rank?: number;
+  width?: '33.33%' | '50%';
+  valueSize?: '$headingXl' | '$headingLg';
 }) {
   return (
     <YStack
-      width="33.33%"
+      width={width}
       height={TOP_COINS_STAT_CELL_HEIGHT}
       pr="$2.5"
       gap="$1.5"
@@ -71,7 +75,7 @@ function TopCoinsStatItem({
         {label}
       </SizableText>
       <XStack alignItems="center" gap="$1.5">
-        <SizableText size="$headingXl" numberOfLines={1}>
+        <SizableText size={valueSize} numberOfLines={1}>
           {value}
         </SizableText>
         {rank ? (
@@ -88,17 +92,20 @@ function TopCoinsPerformanceItem({
   label,
   percentage,
   inlinePrice,
+  width,
 }: {
   label: string;
   percentage?: string | number;
   inlinePrice?: string;
+  width?: '50%';
 }) {
   return (
     <YStack
-      flexGrow={1}
+      flexGrow={width ? 0 : 1}
       flexShrink={0}
       flexBasis="auto"
-      minWidth={TOP_COINS_PERFORMANCE_ITEM_MIN_WIDTH}
+      width={width}
+      minWidth={width ? 0 : TOP_COINS_PERFORMANCE_ITEM_MIN_WIDTH}
       py="$2"
       justifyContent="center"
       gap="$2.5"
@@ -128,9 +135,11 @@ function TopCoinsPerformanceItem({
 function TopCoinsStatsAndPerformance({
   assetDetail,
   tokenDetail,
+  columns,
 }: {
   assetDetail?: IMarketAssetDetailData;
   tokenDetail?: IMarketTokenDetailV2;
+  columns: 2 | 3;
 }) {
   const intl = useIntl();
   const market = assetDetail?.market;
@@ -170,11 +179,17 @@ function TopCoinsStatsAndPerformance({
     [intl, performance],
   );
 
+  const statWidth = columns === 2 ? '50%' : '33.33%';
+  const valueSize = columns === 2 ? '$headingLg' : '$headingXl';
+  const performanceWidth = columns === 2 ? '50%' : undefined;
+
   return (
     <YStack px="$5">
-      <YStack py="$8">
+      <YStack py={columns === 2 ? '$5' : '$8'}>
         <XStack flexWrap="wrap" rowGap="$6">
           <TopCoinsStatItem
+            width={statWidth}
+            valueSize={valueSize}
             label={intl.formatMessage({ id: ETranslations.global_market_cap })}
             value={formatStatValueWithFormatter(
               market?.marketCap ?? tokenDetail?.marketCap,
@@ -183,6 +198,8 @@ function TopCoinsStatsAndPerformance({
             rank={market?.marketCapRank ?? undefined}
           />
           <TopCoinsStatItem
+            width={statWidth}
+            valueSize={valueSize}
             label={intl.formatMessage({
               id: ETranslations.dexmarket_stock_24h_volume,
             })}
@@ -192,6 +209,8 @@ function TopCoinsStatsAndPerformance({
             )}
           />
           <TopCoinsStatItem
+            width={statWidth}
+            valueSize={valueSize}
             label={intl.formatMessage({
               id: ETranslations.global_circulating_supply,
             })}
@@ -201,6 +220,8 @@ function TopCoinsStatsAndPerformance({
             )}
           />
           <TopCoinsStatItem
+            width={statWidth}
+            valueSize={valueSize}
             label={intl.formatMessage({ id: ETranslations.global_fdv })}
             value={formatStatValueWithFormatter(
               market?.fdv ?? tokenDetail?.fdv,
@@ -208,6 +229,8 @@ function TopCoinsStatsAndPerformance({
             )}
           />
           <TopCoinsStatItem
+            width={statWidth}
+            valueSize={valueSize}
             label={intl.formatMessage({
               id: ETranslations.global_total_supply,
             })}
@@ -217,6 +240,8 @@ function TopCoinsStatsAndPerformance({
             )}${symbol ? ` ${symbol}` : ''}`}
           />
           <TopCoinsStatItem
+            width={statWidth}
+            valueSize={valueSize}
             label={intl.formatMessage({ id: ETranslations.global_max_supply })}
             value={
               market?.maxSupply === 'unlimited'
@@ -229,7 +254,7 @@ function TopCoinsStatsAndPerformance({
           />
         </XStack>
       </YStack>
-      <YStack py="$8" gap="$6">
+      <YStack py={columns === 2 ? '$5' : '$8'} gap="$6">
         <SizableText size="$headingXl">
           {intl.formatMessage({ id: ETranslations.market_performance })}
         </SizableText>
@@ -240,6 +265,7 @@ function TopCoinsStatsAndPerformance({
               label={item.label}
               percentage={item.percentage}
               inlinePrice={item.inlinePrice}
+              width={performanceWidth}
             />
           ))}
         </XStack>
@@ -333,9 +359,12 @@ function TopCoinsEarnSection({
 export function TopCoinsOverviewContent({
   assetDetail,
   isAssetDetailLoading,
+  columns = 3,
 }: {
   assetDetail?: IMarketAssetDetailData;
   isAssetDetailLoading?: boolean;
+  // Desktop keeps the three-column grid. Mobile overview is two columns.
+  columns?: 2 | 3;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -372,6 +401,7 @@ export function TopCoinsOverviewContent({
       <TopCoinsStatsAndPerformance
         assetDetail={assetDetail}
         tokenDetail={tokenDetail}
+        columns={columns}
       />
       {earnAsset && earnProtocol ? (
         <TopCoinsEarnSection
