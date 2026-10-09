@@ -11,12 +11,8 @@ import { RatePopover } from './InviteValueLine';
 import type { ICurrentLevelCardProps } from './CurrentLevelCard/types';
 import type { IInviteValueSummaryResult } from './InviteValueLine';
 
-// Same height as a compact card's opening lines, so the hero reads as
-// decoration rather than content.
-const HERO_ILLUSTRATION_MAX_HEIGHT = 160;
-
-// Compact layouts open on inviting alone: the intro's illustration (played
-// once), the headline, what each side gets, and the level that sets it. The
+// Compact layouts open on inviting alone: the intro's illustration, the
+// headline, what each side gets, and the level that sets it. The
 // money sits further down the page.
 export function InviteCompactHero({
   valueSummary,
@@ -31,11 +27,11 @@ export function InviteCompactHero({
 
   return (
     <YStack ai="center" gap="$3">
-      <InviteCodeStepImage
-        step={2}
-        maxHeight={HERO_ILLUSTRATION_MAX_HEIGHT}
-        loop={false}
-      />
+      {/* The intro's referral loop at page width: its frames swap one hand
+          for another across the whole canvas, so a narrower box or a frozen
+          last frame leaves half of it empty. The illustration's background
+          matches the canvas, so it bleeds past the page padding unseen. */}
+      <InviteCodeStepImage step={2} />
       <YStack ai="center" gap="$2">
         <SizableText size="$heading2xl" textAlign="center">
           {INVITE_COPY.heroTitle}

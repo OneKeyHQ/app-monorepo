@@ -170,7 +170,7 @@ function InviteOverviewSkeleton() {
       <YStack px="$pagePadding" gap="$6">
         <YStack gap="$4">
           <YStack ai="center" gap="$3">
-            <Skeleton w={282} h={160} radius={16} />
+            <Skeleton w="100%" h={200} radius={16} />
             <YStack ai="center" gap="$2">
               <Skeleton.Heading2Xl w={260} />
               <Skeleton.BodyMd w={220} />

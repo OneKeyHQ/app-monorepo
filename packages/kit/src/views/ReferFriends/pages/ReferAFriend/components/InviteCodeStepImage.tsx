@@ -64,29 +64,16 @@ function getInviteCodeLottieSource(params: {
 
 interface IInviteCodeStepImageProps {
   step: 1 | 2;
-  // Caps the illustration's height (the width follows the composition), for
-  // decorative uses outside the intro flow.
-  maxHeight?: number;
-  // Defaults to the intro's behavior: only step 2 loops.
-  loop?: boolean;
 }
 
-export function InviteCodeStepImage({
-  step,
-  maxHeight,
-  loop,
-}: IInviteCodeStepImageProps) {
+export function InviteCodeStepImage({ step }: IInviteCodeStepImageProps) {
   const themeVariant = useThemeVariant();
   const pageWidth = usePageWidth();
   const [lottieSource, setLottieSource] = useState<ILottieSource | null>(null);
   const lottieThemeVariant = themeVariant === 'dark' ? 'dark' : 'light';
-  const width = Math.min(
-    pageWidth,
-    MAX_WIDTH,
-    maxHeight ? maxHeight / LOTTIE_ASPECT_RATIO : Infinity,
-  );
+  const width = Math.min(pageWidth, MAX_WIDTH);
   const height = width * LOTTIE_ASPECT_RATIO;
-  const shouldLoop = loop ?? step === 2;
+  const shouldLoop = step === 2;
   const renderMode =
     platformEnv.isNativeIOS && step === 2 && themeVariant !== 'dark'
       ? 'HARDWARE'
