@@ -53,7 +53,11 @@ const SHORT_SUBJECT_LABELS: Record<string, string> = {
   Onchain: 'DeFi',
 };
 
-const RULE_COLUMN_WIDTHS = { keep: 60, upgrade: 64, rate: 84 } as const;
+// Header labels wrap to a second line past this width instead of widening
+// their column; figures never wrap or truncate.
+const RULE_HEADER_MAX_WIDTH = 80;
+const RULE_HEADER_HEIGHT = 32;
+const RULE_ROW_HEIGHT = 32;
 
 interface ILevelRuleRow {
   subject: string;
@@ -61,21 +65,6 @@ interface ILevelRuleRow {
   keep?: string;
   upgrade?: string;
   rate?: string;
-}
-
-function RuleCell({ width, value }: { width: number; value?: string }) {
-  return (
-    <SizableText
-      w={width}
-      flexShrink={0}
-      textAlign="right"
-      numberOfLines={1}
-      size="$bodyMdMedium"
-      color={value ? '$text' : '$textSubdued'}
-    >
-      {value ?? '–'}
-    </SizableText>
-  );
 }
 
 // A level's icon (or emoji) at header size, so each column names the level
@@ -87,22 +76,45 @@ function LevelGlyph({ icon, emoji }: { icon?: string; emoji?: string }) {
   return emoji ? <SizableText size="$bodySm">{emoji}</SizableText> : null;
 }
 
-function RuleHeader({
-  width,
-  label,
+// One figure column, laid out top to bottom so it takes the width of its
+// widest value: currency symbols and localized figures vary in length
+// ("$8K", "Rp15,6M"), and a figure must never be cut off. Fixed-height
+// cells keep the columns' rows aligned with the label column.
+function RuleColumn({
+  header,
   glyph,
+  values,
 }: {
-  width: number;
-  label: string;
+  header: string;
   glyph?: ReactNode;
+  values: (string | undefined)[];
 }) {
   return (
-    <XStack w={width} flexShrink={0} ai="center" jc="flex-end" gap="$1">
-      <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-        {label}
-      </SizableText>
-      {glyph}
-    </XStack>
+    <YStack flexShrink={0} ai="flex-end">
+      <XStack h={RULE_HEADER_HEIGHT} ai="flex-end" jc="flex-end" gap="$1">
+        <SizableText
+          size="$bodySm"
+          color="$textSubdued"
+          textAlign="right"
+          numberOfLines={2}
+          maxWidth={RULE_HEADER_MAX_WIDTH}
+        >
+          {header}
+        </SizableText>
+        {glyph}
+      </XStack>
+      {values.map((value, index) => (
+        <XStack key={index} h={RULE_ROW_HEIGHT} ai="center">
+          <SizableText
+            size="$bodyMdMedium"
+            color={value ? '$text' : '$textSubdued'}
+            numberOfLines={1}
+          >
+            {value ?? '–'}
+          </SizableText>
+        </XStack>
+      ))}
+    </YStack>
   );
 }
 
@@ -118,54 +130,43 @@ function LevelRuleTable({
   const hasKeep = rows.some((row) => row.keep);
   const hasUpgrade = rows.some((row) => row.upgrade);
   return (
-    <YStack>
-      {/* Headers name the level each column is about by its icon (keep this
-          one, reach the next), and spell out whose rate is whose. */}
-      <XStack minHeight={24} ai="center" gap="$2">
-        <Stack flex={1} />
-        {hasKeep ? (
-          <RuleHeader
-            width={RULE_COLUMN_WIDTHS.keep}
-            label={LEVEL_COPY.keepColumn}
-            glyph={<LevelGlyph icon={level.icon} emoji={level.emoji} />}
-          />
-        ) : null}
-        {hasUpgrade ? (
-          <RuleHeader
-            width={RULE_COLUMN_WIDTHS.upgrade}
-            label={LEVEL_COPY.reachColumn}
-            glyph={
-              nextLevel ? (
-                <LevelGlyph icon={nextLevel.icon} emoji={nextLevel.emoji} />
-              ) : null
-            }
-          />
-        ) : null}
-        <RuleHeader
-          width={RULE_COLUMN_WIDTHS.rate}
-          label={LEVEL_COPY.rateColumn}
+    // Headers name the level each column is about by its icon (keep this
+    // one, reach the next) and spell out whose rate is whose. Only the
+    // product names give way when space runs out.
+    <XStack gap="$3">
+      <YStack flex={1} minWidth={0}>
+        <Stack h={RULE_HEADER_HEIGHT} />
+        {rows.map((row) => (
+          <XStack key={row.subject} h={RULE_ROW_HEIGHT} ai="center">
+            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+              {row.label}
+            </SizableText>
+          </XStack>
+        ))}
+      </YStack>
+      {hasKeep ? (
+        <RuleColumn
+          header={LEVEL_COPY.keepColumn}
+          glyph={<LevelGlyph icon={level.icon} emoji={level.emoji} />}
+          values={rows.map((row) => row.keep)}
         />
-      </XStack>
-      {rows.map((row) => (
-        <XStack key={row.subject} minHeight={32} ai="center" gap="$2">
-          <SizableText
-            flex={1}
-            size="$bodyMd"
-            color="$textSubdued"
-            numberOfLines={1}
-          >
-            {row.label}
-          </SizableText>
-          {hasKeep ? (
-            <RuleCell width={RULE_COLUMN_WIDTHS.keep} value={row.keep} />
-          ) : null}
-          {hasUpgrade ? (
-            <RuleCell width={RULE_COLUMN_WIDTHS.upgrade} value={row.upgrade} />
-          ) : null}
-          <RuleCell width={RULE_COLUMN_WIDTHS.rate} value={row.rate} />
-        </XStack>
-      ))}
-    </YStack>
+      ) : null}
+      {hasUpgrade ? (
+        <RuleColumn
+          header={LEVEL_COPY.reachColumn}
+          glyph={
+            nextLevel ? (
+              <LevelGlyph icon={nextLevel.icon} emoji={nextLevel.emoji} />
+            ) : null
+          }
+          values={rows.map((row) => row.upgrade)}
+        />
+      ) : null}
+      <RuleColumn
+        header={LEVEL_COPY.rateColumn}
+        values={rows.map((row) => row.rate)}
+      />
+    </XStack>
   );
 }
 
