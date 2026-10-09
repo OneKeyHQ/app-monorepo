@@ -1,5 +1,8 @@
+import { isAccountSwitchDiagnosticsEnabled } from '@onekeyhq/shared/src/performance/enabled';
+
 import { BaseScene } from '../../../base/baseScene';
 import { LogToConsole, LogToLocal } from '../../../base/decorators';
+import { NO_LOG_OUTPUT } from '../../../types';
 
 type IHomeTokenListRefreshTraceParams = {
   runtime: 'main' | 'bg';
@@ -48,6 +51,7 @@ export class AllNetworkAccountPerf extends BaseScene {
 
   @LogToLocal()
   public homeTokenListRefreshTrace(params: IHomeTokenListRefreshTraceParams) {
+    if (!isAccountSwitchDiagnosticsEnabled()) return NO_LOG_OUTPUT;
     return params;
   }
 }

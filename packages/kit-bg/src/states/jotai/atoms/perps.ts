@@ -14,6 +14,7 @@ import type {
   IPerpTokenSelectorConfig,
   IPerpUserConfig,
   IPerpsActiveAssetData,
+  IPerpsDexCrossMargin,
   IPerpsFormattedAssetCtx,
   IPerpsUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
@@ -329,6 +330,25 @@ export const { target: perpsSpotBalancesAtom, use: usePerpsSpotBalancesAtom } =
     name: EAtomNames.perpsSpotBalancesAtom,
     initialValue: undefined,
   });
+// #endregion
+
+// #region Liquidation Risk Inputs
+// Live-only: never hydrated from the display cache, so a pre-trade liquidation
+// estimate cannot be computed from a stale or different account's snapshot.
+export type IPerpsLiquidationRiskInputsAtom =
+  | {
+      accountAddress: IHex;
+      tokenToAvailableAfterMaintenance?: Record<number, string>;
+      crossMarginByDex?: Record<string, IPerpsDexCrossMargin>;
+    }
+  | undefined;
+export const {
+  target: perpsLiquidationRiskInputsAtom,
+  use: usePerpsLiquidationRiskInputsAtom,
+} = globalAtom<IPerpsLiquidationRiskInputsAtom>({
+  name: EAtomNames.perpsLiquidationRiskInputsAtom,
+  initialValue: undefined,
+});
 // #endregion
 
 export type IPerpsActiveAccountStatusDetails = {

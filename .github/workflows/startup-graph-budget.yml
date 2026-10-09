@@ -5,6 +5,7 @@ on:
   pull_request:
     branches:
       - x
+      - release/*
 
 # Cancel previous runs for the same PR
 concurrency:
@@ -96,11 +97,12 @@ jobs:
           NODE_OPTIONS: '--max_old_space_size=8192'
           ENABLE_NATIVE_BACKGROUND_THREAD: 'true'
           ENTRY: main
-          # main entry currently: ~2666 modules / ~13.7 MB
+          # main entry currently: ~2702 modules / ~13.87 MB
           # (AsyncStorage->MMKV migration adds the main-runtime bootstrap gate
-          # and runtime-owned MMKV instance/guard modules to the eager graph)
+          # and runtime-owned MMKV instance/guard modules to the eager graph;
+          # the release/v6.6.0 bundle sync added ~0.1 MB on top of that)
           STARTUP_MODULE_BUDGET: '3000'
-          STARTUP_SIZE_BUDGET_MB: '13.8'
+          STARTUP_SIZE_BUDGET_MB: '14.0'
         run: node apps/mobile/scripts/check-startup-graph-budget.js
 
       - name: Budget Check (background entry)

@@ -1400,6 +1400,7 @@ export function useSpeedSwapActions(props: {
           accountId: fromAccount.id,
           protocol: selectedQuote.protocol ?? EProtocolOfExchange.SWAP,
           kind: selectedQuote.kind ?? ESwapQuoteKind.SELL,
+          source: quoteActionLock.source,
           tradeSource: ESwapTradeSource.MARKET_DEX,
         });
 
@@ -1454,6 +1455,7 @@ export function useSpeedSwapActions(props: {
       toToken,
       buildMarketExecutionFromBuildRes,
       assertLatestFromTokenBalanceSufficient,
+      quoteActionLock.source,
     ],
   );
 
@@ -2081,6 +2083,7 @@ export function useSpeedSwapActions(props: {
         accountId: snapshot.accountId,
         protocol: frozenQuoteResult.protocol ?? EProtocolOfExchange.SWAP,
         kind: frozenQuoteResult.kind ?? ESwapQuoteKind.SELL,
+        source: quoteActionLock.source,
         tradeSource: ESwapTradeSource.MARKET_DEX,
       });
       if (!buildRes) {
@@ -2170,6 +2173,7 @@ export function useSpeedSwapActions(props: {
       assertLatestFromTokenBalanceSufficient,
       buildMarketExecutionFromBuildRes,
       buildMarketReviewStateFromSnapshot,
+      quoteActionLock.source,
     ],
   );
 
@@ -3042,6 +3046,7 @@ export function useSpeedSwapActions(props: {
           accountId: snapshot.accountId,
           protocol: signedQuoteResult.protocol ?? EProtocolOfExchange.SWAP,
           kind: signedQuoteResult.kind ?? ESwapQuoteKind.SELL,
+          source: quoteActionLock.source,
           tradeSource: ESwapTradeSource.MARKET_DEX,
         });
 
@@ -3169,6 +3174,7 @@ export function useSpeedSwapActions(props: {
       signMarketReviewQuoteResult,
       slippage,
       slippageMode,
+      quoteActionLock.source,
     ],
   );
 

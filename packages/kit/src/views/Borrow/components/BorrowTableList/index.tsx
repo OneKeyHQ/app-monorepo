@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { createElement, useMemo } from 'react';
 
 import { Empty } from '@onekeyhq/components';
 import type {
@@ -13,6 +13,7 @@ import { AssetField } from './AssetField';
 import { AssetWithAmountField } from './AssetWithAmountField';
 import { BorrowAPYField } from './BorrowAPYField';
 import { BorrowListSkeleton, EmptyStateSkeleton } from './BorrowListSkeleton';
+import { BorrowMoreToggle } from './BorrowMoreToggle';
 import { CollateralBadge } from './CollateralBadge';
 import { FieldWrapper } from './FieldWrapper';
 
@@ -50,6 +51,7 @@ type IBorrowTableListProps<T> = {
   estimatedItemHeight?: number;
   listProps?: Omit<ITableListProps<T>, 'columns' | 'data'>;
   emptyContent: string;
+  hideEmptyState?: boolean;
   onPressRow?: (item: T, index: number) => void;
   defaultSortKey?: string;
   defaultSortDirection?: 'asc' | 'desc';
@@ -62,6 +64,7 @@ const BorrowTableList = <T,>({
   isLoading = false,
   listProps = {},
   emptyContent,
+  hideEmptyState = false,
   onPressRow,
   defaultSortKey,
   defaultSortDirection,
@@ -88,7 +91,15 @@ const BorrowTableList = <T,>({
         />
       );
     }
-    return <Empty title={emptyContent} titleProps={{ size: '$bodyMd' }} />;
+    const footer = listProps.ListFooterComponent;
+    return (
+      <>
+        {!hideEmptyState ? (
+          <Empty title={emptyContent} titleProps={{ size: '$bodyMd' }} />
+        ) : null}
+        {typeof footer === 'function' ? createElement(footer) : footer}
+      </>
+    );
   }
 
   return (
@@ -120,6 +131,7 @@ export {
   AssetWithAmountField,
   AmountField,
   BorrowAPYField,
+  BorrowMoreToggle,
   CollateralBadge,
   FieldWrapper,
 };

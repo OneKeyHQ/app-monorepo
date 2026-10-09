@@ -1,6 +1,15 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import Animated, {
+  Easing,
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 
 import {
   Button,
@@ -18,9 +27,14 @@ import type {
   IKeyOfIcons,
   ILottieViewProps,
   ISizableTextProps,
+  IStackProps,
 } from '@onekeyhq/components';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { HomeTestIDs } from '@onekeyhq/kit/src/views/Home/testIDs';
+import {
+  hasAppClipBannerMeta,
+  isIOSSafariBrowser,
+} from '@onekeyhq/kit/src/views/Home/utils/deepLinkLaunchUtils';
 import { LayoutHeaderLanguageSelector } from '@onekeyhq/kit/src/views/Onboardingv2/components/Layout';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -143,6 +157,86 @@ function StepBadge({ number }: { number: number }) {
       <SizableText size="$bodyMdMedium" color="$brand10">
         {`0${number}`}
       </SizableText>
+    </Stack>
+  );
+}
+
+type IStackWebStyle = NonNullable<IStackProps['$platform-web']>;
+
+// Tamagui's web style type only lists `-webkit-sticky`, while CSS `sticky`
+// passes through unchanged. Cast the value alone, typed from Tamagui's own
+// prop, so the rest of the style stays checked.
+const APP_CLIP_HINT_WEB_STYLE: IStackWebStyle = {
+  position: 'sticky' as IStackWebStyle['position'],
+  top: 0,
+};
+
+function BouncingArrow() {
+  const offset = useSharedValue(0);
+  useEffect(() => {
+    offset.value = withRepeat(
+      withSequence(
+        withTiming(-4, { duration: 450, easing: Easing.out(Easing.quad) }),
+        withTiming(0, { duration: 450, easing: Easing.in(Easing.quad) }),
+      ),
+      -1,
+    );
+    return () => cancelAnimation(offset);
+  }, [offset]);
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateY: offset.value }],
+  }));
+  return (
+    <Animated.View style={style}>
+      <Icon name="ArrowTopOutline" size="$5" color="$iconInverse" />
+    </Animated.View>
+  );
+}
+
+// Points at the App Clip card Safari shows above the page for /r/ links
+// (see the `apple-itunes-app` meta in index.html.ejs). A page cannot tell
+// whether Safari actually shows the card, so the hint can be closed.
+function AppClipOpenHint({ onClose }: { onClose: () => void }) {
+  const intl = useIntl();
+  return (
+    <Stack
+      px="$5"
+      pt="$2"
+      pb="$1"
+      bg="$bgApp"
+      zIndex={10}
+      // Stays under the Safari card while the landing scrolls.
+      $platform-web={APP_CLIP_HINT_WEB_STYLE}
+    >
+      <XStack
+        pl="$4"
+        pr="$2"
+        py="$2.5"
+        gap="$2.5"
+        alignItems="center"
+        // Same brand green as the accent download button.
+        bg="$bgAccent"
+        borderRadius="$3"
+        borderCurve="continuous"
+      >
+        <BouncingArrow />
+        <SizableText size="$bodyMdMedium" color="$textInverse" flex={1}>
+          {intl.formatMessage({
+            id: ETranslations.referral_web_landing_app_clip_hint__desc,
+          })}
+        </SizableText>
+        <Stack
+          role="button"
+          aria-label={intl.formatMessage({ id: ETranslations.global_close })}
+          p="$1.5"
+          borderRadius="$full"
+          hoverStyle={{ bg: '$bgAccentHover' }}
+          pressStyle={{ bg: '$bgAccentActive' }}
+          onPress={onClose}
+        >
+          <Icon name="CrossedSmallOutline" size="$5" color="$iconInverse" />
+        </Stack>
+      </XStack>
     </Stack>
   );
 }
@@ -638,8 +732,17 @@ export function ReferralWebLanding({
   isStep2Highlighted = false,
   isDownloadHintVisible = false,
 }: IReferralWebLandingProps) {
+  const canShowAppClipHint = useMemo(
+    () => isIOSSafariBrowser() && hasAppClipBannerMeta(),
+    [],
+  );
+  const [isAppClipHintClosed, setIsAppClipHintClosed] = useState(false);
+  const closeAppClipHint = useCallback(() => setIsAppClipHintClosed(true), []);
   return (
     <YStack flex={1}>
+      {canShowAppClipHint && !isAppClipHintClosed ? (
+        <AppClipOpenHint onClose={closeAppClipHint} />
+      ) : null}
       <XStack h={52} px="$5" ai="center" jc="space-between">
         <Stack
           aria-label="OneKey home"

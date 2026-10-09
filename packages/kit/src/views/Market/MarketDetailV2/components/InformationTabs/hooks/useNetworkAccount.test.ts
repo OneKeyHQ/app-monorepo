@@ -41,6 +41,7 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms', () => ({
 
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => true,
+  useRouteIsFocusedWhenEnabled: () => true,
 }));
 
 jest.mock('@onekeyhq/components', () => {

@@ -6,29 +6,85 @@ import { EDeviceType } from '@onekeyfe/hd-shared';
 import { EHardwareVendor } from '../../types/device';
 
 import {
-  HwWalletAvatarImages,
+  getDeviceAvatarImage,
   getThirdPartyDeviceAvatarImage,
 } from './avatarUtils';
-import { NEO_DEVICE_TYPE } from './hardwareDeviceTypes';
+
+// require() resolves to a single mocked value under Jest, so tests that must
+// tell artworks apart compare the actual asset bytes on disk.
+const avatarDir = join(__dirname, '../assets/wallet/avatar');
+const readAvatar = (name: string) => readFileSync(join(avatarDir, name));
 
 describe('HwWalletAvatarImages', () => {
-  it.each([EDeviceType.Pro2, NEO_DEVICE_TYPE])(
-    'uses the OneKey Pro artwork for %s',
-    (deviceType) => {
-      expect(HwWalletAvatarImages[deviceType]).toBe(
-        HwWalletAvatarImages[EDeviceType.Pro],
-      );
-    },
-  );
+  it.each([
+    ['Pro2Black.png', 'ProBlack.png'],
+    ['Pro2Silver.png', 'Pro2Black.png'],
+    ['Pro2Orange.png', 'Pro2Black.png'],
+  ])('gives %s its own artwork rather than %s', (name, other) => {
+    expect(readAvatar(name).equals(readAvatar(other))).toBe(false);
+  });
+
+  // Every require() is the same stub under Jest, so the table's wiring is
+  // read off the source: each key must name its own file, or a key aliased
+  // onto a sibling's art (the Pro 2 on the Pro's, Silver on Orange's) would
+  // pass every runtime assertion.
+  const source = readFileSync(join(__dirname, 'avatarUtils.ts'), 'utf8');
+  const requiredFileOf = (key: string): string | undefined => {
+    const prefix = `[${key}]: require('../assets/wallet/avatar/`;
+    const start = source.indexOf(prefix);
+    if (start < 0) {
+      return undefined;
+    }
+    const from = start + prefix.length;
+    return source.slice(from, source.indexOf("'", from));
+  };
+  /** A per-color key as the table spells it: `${EDeviceType.<model>}<Color>`. */
+  const colorKey = (model: 'Pro' | 'Pro2', color: string) =>
+    `\`\${EDeviceType.${model}}${color}\``;
+  it.each([
+    ['EDeviceType.Pro2', 'Pro2Black.png'],
+    [colorKey('Pro2', 'Black'), 'Pro2Black.png'],
+    [colorKey('Pro2', 'Silver'), 'Pro2Silver.png'],
+    [colorKey('Pro2', 'Orange'), 'Pro2Orange.png'],
+    [colorKey('Pro', 'Black'), 'ProBlack.png'],
+    [colorKey('Pro', 'White'), 'ProWhite.png'],
+  ])('wires %s to %s', (key, file) => {
+    expect(requiredFileOf(key)).toBe(file);
+  });
+});
+
+describe('getDeviceAvatarImage', () => {
+  it.each([
+    ['PR0001B', 'proWhite'],
+    ['PR0001A', 'proBlack'],
+    [undefined, 'proBlack'],
+  ])('resolves a Pro serial %s to %s', (serialNo, expected) => {
+    expect(getDeviceAvatarImage(EDeviceType.Pro, serialNo)).toBe(expected);
+  });
+
+  it.each([
+    ['P20001A', 'pro2Black'],
+    ['P20001B', 'pro2Silver'],
+    ['P20001D', 'pro2Orange'],
+    // Letters the Pro 2 does not come in, and no serial, wear black.
+    ['P20001C', 'pro2Black'],
+    ['P20001E', 'pro2Black'],
+    ['P20001Z', 'pro2Black'],
+    [undefined, 'pro2Black'],
+  ])('resolves a Pro 2 serial %s to %s', (serialNo, expected) => {
+    expect(getDeviceAvatarImage(EDeviceType.Pro2, serialNo)).toBe(expected);
+  });
+
+  it('returns the model itself for models without color variants', () => {
+    expect(getDeviceAvatarImage(EDeviceType.Touch, 'TC0001A')).toBe(
+      EDeviceType.Touch,
+    );
+  });
 });
 
 describe('ThirdPartyWalletAvatarImages neutral fallback', () => {
-  // require() resolves to a single mocked value under Jest, so compare the
-  // actual asset bytes on disk to prove the fallback keys are wired to their
-  // own neutral artwork, not aliased onto a specific-model asset.
-  const avatarDir = join(__dirname, '../assets/wallet/avatar');
-  const readAvatar = (name: string) => readFileSync(join(avatarDir, name));
-
+  // The fallback keys are wired to their own neutral artwork, not aliased
+  // onto a specific-model asset.
   it('keeps the vendor fallback assets distinct from any specific-model asset', () => {
     expect(readAvatar('Trezor.png').equals(readAvatar('TrezorSafe7.png'))).toBe(
       false,

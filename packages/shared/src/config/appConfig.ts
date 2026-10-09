@@ -34,6 +34,10 @@ export const NOTIFICATIONS_HELP_CENTER_URL =
 export const DOWNLOAD_URL = 'https://onekey.so/download';
 export const DOWNLOAD_MOBILE_APP_URL =
   'https://onekey.so/download?client=mobile';
+// `client=desktop` keeps the page on the desktop app when opened from a phone;
+// it resolves to the desktop OS closest to the visitor (portal PR #911).
+export const DOWNLOAD_DESKTOP_APP_URL =
+  'https://onekey.so/download/?client=desktop';
 export const REFERRAL_HELP_LINK = 'https://help.onekey.so/articles/11461266';
 export const COIN_CONTROL_HELP_LINK =
   'https://help.onekey.so/articles/13050014';

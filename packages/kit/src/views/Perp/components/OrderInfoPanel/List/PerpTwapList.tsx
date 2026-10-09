@@ -662,7 +662,7 @@ function TwapHistoryRow({
         >
           <MobileTwapHistoryInfoRow
             label={intl.formatMessage({
-              id: ETranslations.defi_total_size,
+              id: ETranslations.perp_order_quantity__title,
             })}
             value={baseInfo.sizeWithSymbol}
           />
@@ -993,12 +993,12 @@ function TwapFillRow({
           <YStack gap="$1" flex={1} alignItems="flex-end">
             <SizableText size="$bodySm" color="$textSubdued">
               {intl.formatMessage({
-                id: ETranslations.perp_trades_history_fee,
+                id: ETranslations.perp_fee__title,
               })}
             </SizableText>
             <Popover
               title={intl.formatMessage({
-                id: ETranslations.perp_trades_history_fee,
+                id: ETranslations.perp_fee__title,
               })}
               placement="top"
               renderTrigger={
@@ -1358,7 +1358,7 @@ function PerpTwapList({
       {
         key: 'sz',
         title: intl.formatMessage({
-          id: ETranslations.defi_total_size,
+          id: ETranslations.perp_order_quantity__title,
         }),
         minWidth: 110,
         flex: 1,
@@ -1476,7 +1476,7 @@ function PerpTwapList({
       {
         key: 'fee',
         title: intl.formatMessage({
-          id: ETranslations.perp_trades_history_fee,
+          id: ETranslations.perp_fee__title,
         }),
         minWidth: 110,
         flex: 1,

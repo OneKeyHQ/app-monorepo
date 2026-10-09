@@ -528,6 +528,7 @@ function DeviceStageContainerCmp() {
     <DeviceStage
       step={step}
       deviceType={toStageDeviceType(stage?.deviceType)}
+      deviceColor={stage?.deviceColor}
       deviceName={stage?.deviceName}
       connectionType={connectionType}
       waitStalled={stalled}

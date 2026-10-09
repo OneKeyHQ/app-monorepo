@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 import type { RefObject } from 'react';
 
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 
 import type {
   IMarketListingWatchlistQuote,
@@ -22,9 +22,11 @@ const mockStockBatch = jest.fn<
   Promise<IMarketStockPublicItem[]>,
   [{ stockIds: string[] }]
 >();
-const mockBatch = jest.fn<Promise<{ list: [] }>, unknown[]>(async () => ({
-  list: [],
-}));
+const mockBatch = jest.fn<Promise<{ list: unknown[] }>, unknown[]>(
+  async () => ({
+    list: [],
+  }),
+);
 const mockNetworks: [] = [];
 jest.mock('@onekeyhq/components', () => ({ useCarouselIndex: () => 0 }));
 jest.mock('@onekeyhq/kit/src/views/Market/hooks', () => ({
@@ -50,8 +52,13 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
       const [isLoading, setLoading] = React.useState(true);
       const methodRef = React.useRef(method);
       methodRef.current = method;
+      // oxlint-disable-next-line react-hooks/exhaustive-deps -- dynamic deps, same contract as usePromiseResult
       React.useEffect(() => {
         let active = true;
+        // Match usePromiseResult: a new dependency generation marks loading
+        // before the request resolves. The flag stays false on the render
+        // that changed the deps.
+        setLoading(true);
         void methodRef.current().then((value) => {
           if (active) {
             setResult(value);
@@ -83,6 +90,180 @@ const stockItem = (
 beforeEach(() => {
   jest.clearAllMocks();
   mockStockBatch.mockResolvedValue([]);
+});
+it('holds the first paint until spot and listing quotes have both settled', async () => {
+  let resolveSpot: (value: { list: unknown[] }) => void = () => {};
+  let resolveQuote: (value: IMarketListingWatchlistQuote) => void = () => {};
+  mockBatch.mockReturnValue(
+    new Promise((resolve) => {
+      resolveSpot = resolve;
+    }),
+  );
+  mockQuote.mockReturnValue(
+    new Promise((resolve) => {
+      resolveQuote = resolve;
+    }),
+  );
+  const watchlist = [
+    { assetId: 'bitcoin', chainId: '', contractAddress: '', sortIndex: 0 },
+    { chainId: 'evm--1', contractAddress: '0xaave', sortIndex: 1 },
+  ];
+  const { result } = renderHook(() =>
+    useMarketWatchlistTokenList({ watchlist, pollingInterval: 0 }),
+  );
+  await waitFor(() => expect(mockBatch).toHaveBeenCalled());
+  await waitFor(() => expect(mockQuote).toHaveBeenCalled());
+
+  resolveSpot({
+    list: [
+      {
+        address: '0xaave',
+        name: 'Aave',
+        symbol: 'AAVE',
+        decimals: 18,
+        networkId: 'evm--1',
+      },
+    ],
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(result.current.data).toEqual([]);
+  expect(result.current.isLoading).toBe(true);
+
+  resolveQuote({
+    name: 'Bitcoin',
+    symbol: 'BTC',
+    logoUrl: '',
+    price: '1',
+    priceChange24hPercent: '1',
+  });
+  await waitFor(() =>
+    expect(result.current.data.map((item) => item.symbol)).toEqual([
+      'BTC',
+      'AAVE',
+    ]),
+  );
+});
+it('keeps holding after an empty watchlist hydrates', async () => {
+  let resolveSpot: (value: { list: unknown[] }) => void = () => {};
+  let resolveQuote: (value: IMarketListingWatchlistQuote) => void = () => {};
+  const { result, rerender } = renderHook(
+    ({ watchlist }: { watchlist: IMarketWatchListItemV2[] }) =>
+      useMarketWatchlistTokenList({ watchlist, pollingInterval: 0 }),
+    { initialProps: { watchlist: [] as IMarketWatchListItemV2[] } },
+  );
+  await waitFor(() => expect(result.current.isLoading).toBe(false));
+  expect(result.current.data).toEqual([]);
+
+  mockBatch.mockReturnValue(
+    new Promise((resolve) => {
+      resolveSpot = resolve;
+    }),
+  );
+  mockQuote.mockReturnValue(
+    new Promise((resolve) => {
+      resolveQuote = resolve;
+    }),
+  );
+  rerender({
+    watchlist: [
+      { assetId: 'bitcoin', chainId: '', contractAddress: '', sortIndex: 0 },
+      { chainId: 'evm--1', contractAddress: '0xaave', sortIndex: 1 },
+    ],
+  });
+  expect(result.current.data).toEqual([]);
+  expect(result.current.isLoading).toBe(true);
+
+  await waitFor(() => expect(mockBatch).toHaveBeenCalled());
+  resolveSpot({
+    list: [
+      {
+        address: '0xaave',
+        name: 'Aave',
+        symbol: 'AAVE',
+        decimals: 18,
+        networkId: 'evm--1',
+      },
+    ],
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(result.current.data).toEqual([]);
+
+  resolveQuote({
+    name: 'Bitcoin',
+    symbol: 'BTC',
+    logoUrl: '',
+    price: '1',
+    priceChange24hPercent: '1',
+  });
+  await waitFor(() =>
+    expect(result.current.data.map((item) => item.symbol)).toEqual([
+      'BTC',
+      'AAVE',
+    ]),
+  );
+});
+it('ignores cache written during the first load', async () => {
+  let resolveSpot: (value: { list: unknown[] }) => void = () => {};
+  let resolveQuote: (value: IMarketListingWatchlistQuote) => void = () => {};
+  mockBatch.mockReturnValue(
+    new Promise((resolve) => {
+      resolveSpot = resolve;
+    }),
+  );
+  mockQuote.mockReturnValue(
+    new Promise((resolve) => {
+      resolveQuote = resolve;
+    }),
+  );
+  const dataCacheRef: RefObject<IMarketWatchlistDataCache | undefined> = {
+    current: undefined,
+  };
+  const watchlist = [
+    { assetId: 'bitcoin', chainId: '', contractAddress: '', sortIndex: 0 },
+    { chainId: 'evm--1', contractAddress: '0xaave', sortIndex: 1 },
+  ];
+  const { result } = renderHook(() =>
+    useMarketWatchlistTokenList({
+      watchlist,
+      pollingInterval: 0,
+      dataCacheRef,
+    }),
+  );
+  await waitFor(() => expect(mockBatch).toHaveBeenCalled());
+
+  resolveSpot({
+    list: [
+      {
+        address: '0xaave',
+        name: 'Aave',
+        symbol: 'AAVE',
+        decimals: 18,
+        networkId: 'evm--1',
+      },
+    ],
+  });
+  await waitFor(() =>
+    expect(dataCacheRef.current?.spot?.list?.length).toBeGreaterThan(0),
+  );
+  expect(result.current.data).toEqual([]);
+
+  resolveQuote({
+    name: 'Bitcoin',
+    symbol: 'BTC',
+    logoUrl: '',
+    price: '1',
+    priceChange24hPercent: '1',
+  });
+  await waitFor(() =>
+    expect(result.current.data.map((item) => item.symbol)).toEqual([
+      'BTC',
+      'AAVE',
+    ]),
+  );
 });
 it('loads assets by ID and stocks through the batch API without touching the chain token batch', async () => {
   mockQuote.mockResolvedValue({
@@ -272,6 +453,57 @@ it('withholds listing rows until the first quote batch resolves', async () => {
       expect.objectContaining({ id: 'stock:AAPL', name: 'Apple', price: 321 }),
     ]),
   );
+});
+it('holds the first paint when only one watchlist source is cached', async () => {
+  let resolveQuote: (value: IMarketListingWatchlistQuote) => void = () => {};
+  mockQuote.mockReturnValue(
+    new Promise((resolve) => {
+      resolveQuote = resolve;
+    }),
+  );
+  mockBatch.mockReturnValue(new Promise(() => {}));
+  const dataCacheRef: RefObject<IMarketWatchlistDataCache | undefined> = {
+    current: {
+      spot: {
+        list: [
+          {
+            address: '0xaave',
+            name: 'Aave',
+            symbol: 'AAVE',
+            decimals: 18,
+            networkId: 'evm--1',
+          },
+        ],
+      },
+    },
+  };
+  const watchlist = [
+    { assetId: 'bitcoin', chainId: '', contractAddress: '', sortIndex: 0 },
+    { chainId: 'evm--1', contractAddress: '0xaave', sortIndex: 1 },
+  ];
+  const { result } = renderHook(() =>
+    useMarketWatchlistTokenList({
+      watchlist,
+      pollingInterval: 0,
+      dataCacheRef,
+    }),
+  );
+  await waitFor(() => expect(mockQuote).toHaveBeenCalled());
+  expect(result.current.data).toEqual([]);
+  expect(result.current.isLoading).toBe(true);
+
+  resolveQuote({
+    name: 'Bitcoin',
+    symbol: 'BTC',
+    logoUrl: '',
+    price: '1',
+    priceChange24hPercent: '1',
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(result.current.data).toEqual([]);
+  expect(result.current.isLoading).toBe(true);
 });
 it('reuses the cached quote batch so a remount renders rows immediately', async () => {
   mockStockBatch.mockResolvedValue([

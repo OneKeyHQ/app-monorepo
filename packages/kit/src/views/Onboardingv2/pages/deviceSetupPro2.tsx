@@ -21,8 +21,6 @@ import {
 import type { IPro2OnboardingStatus } from './pro2OnboardingStatus';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
-const pro2Avatar = HwWalletAvatarImages[EDeviceType.Pro];
-
 const pro2Messages = defineMessages({
   createPhraseDesc: {
     id: ETranslations.device_setup_create_phrase_desc,
@@ -432,8 +430,11 @@ const STEPPER_STEPS = [
 
 export function Pro2OnboardingStepper({
   status,
+  deviceType = EDeviceType.Pro2,
 }: {
   status: IPro2OnboardingStatus;
+  /** The connected model, so the step cards wear its own avatar. */
+  deviceType?: IDeviceType;
 }) {
   const intl = useIntl();
   const viewState = mapPro2OnboardingStatus(status);
@@ -457,7 +458,7 @@ export function Pro2OnboardingStepper({
               content ? stepContentKey(def.step, viewState.setup) : undefined
             }
             instruction={content?.instruction}
-            deviceImage={content ? pro2Avatar : undefined}
+            deviceImage={content ? HwWalletAvatarImages[deviceType] : undefined}
             backgroundSlot={content?.background}
           >
             {content?.body}

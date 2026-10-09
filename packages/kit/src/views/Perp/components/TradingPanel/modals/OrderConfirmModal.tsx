@@ -826,6 +826,8 @@ function OrderConfirmContent({
               <LiquidationPriceDisplay
                 textSize="$bodyMdMedium"
                 side={effectiveSide}
+                size={computedSizeForSide}
+                formDataOverride={formDataOverride ? formData : undefined}
               />
             </SizableText>
           </XStack>

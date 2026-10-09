@@ -106,6 +106,7 @@ import {
   ESwapDirectionType,
   ESwapProTradeType,
   ESwapQuoteKind,
+  ESwapQuoteSource,
   ESwapSelectTokenSource,
   ESwapSource,
   ESwapTabSwitchType,
@@ -263,6 +264,8 @@ const SwapMainLoad = ({
     markCurrentGasAccountReviewSubmitted,
   } = useSwapBuildTx({
     onSwapBroadcast,
+    // Order attribution must not change the quote's provider pool.
+    buildTxSource: isMarketEmbeddedSwap ? ESwapQuoteSource.MARKET : undefined,
     marketSwapApprovalFlowId: isMarketEmbeddedSwap
       ? marketSwapApprovalFlowId
       : undefined,

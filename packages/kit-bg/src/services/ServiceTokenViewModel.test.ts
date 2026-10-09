@@ -12,9 +12,10 @@
  *
  * `appEventBus.emit` is mocked to capture payloads.
  */
+import type { IAllNetworkSnapshotRound } from '@onekeyhq/shared/src/utils/buildMergedAllNetworkSnapshot';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
-import ServiceTokenViewModel from './ServiceTokenViewModel';
+import ServiceTokenViewModel, { OWNER_VM_CAP } from './ServiceTokenViewModel';
 
 import type { IIngestRoundParams } from './ServiceTokenViewModel';
 import type { IJotaiContextStoreData } from '../states/jotai/atoms/jotaiContextStoreMap';
@@ -150,6 +151,209 @@ function riskyEmits(): IRiskyFramePayload[] {
     .filter((c) => c[0] === 'TokenListRiskyFrame')
     .map((c) => c[1] as IRiskyFramePayload);
 }
+
+describe('Home token round references', () => {
+  const request = (generation: number, ownerKey = 'owner') => ({
+    mainRuntimeId: 'fixture-main',
+    generation,
+    ownerKey,
+  });
+  const round = (
+    key: string,
+    networkId = 'evm--1',
+  ): IAllNetworkSnapshotRound => ({
+    accountId: 'account',
+    networkId,
+    mergeDeriveAssets: false,
+    tokens: {
+      data: [makeToken(key)],
+      keys: key,
+      map: { [key]: makeFiat({ balance: '1', fiatValue: '10' }) },
+    },
+    smallBalanceTokens: { data: [], keys: '', map: {} },
+    riskTokens: { data: [], keys: '', map: {} },
+  });
+  const inputs = (homeRequest = request(1), homePublication = 1) => ({
+    homeRequest,
+    homePublication,
+    ownerKey: homeRequest.ownerKey,
+    accountId: 'account',
+    networkId: 'onekeyall--0',
+    storeData: STORE_DATA,
+  });
+
+  it('keeps exact old cache/live versions for a same-owner successor without aliasing a new response', async () => {
+    const svc = makeService();
+    const original = round('old');
+    Object.freeze(original.tokens.data[0]);
+    Object.freeze(original.tokens.map.old);
+    Object.freeze(original.tokens.map);
+    Object.freeze(original.tokens.data);
+    const old = svc.retainHomeTokenRound({
+      homeRequest: request(1),
+      round: original,
+      origin: 'live',
+    });
+    const cache = svc.retainHomeTokenRound({
+      homeRequest: request(1),
+      round: round('cache', 'evm--56'),
+      origin: 'cache',
+    });
+    svc.retainHomeTokenRound({
+      homeRequest: request(2),
+      round: round('new'),
+      origin: 'live',
+    });
+    await expect(
+      svc.ingestHomeTokenRounds({
+        ...inputs(request(2)),
+        roundRefs: [old, cache],
+      }),
+    ).resolves.toBe(true);
+    const raw = await svc.getRawTokenList({ ownerKey: 'owner' });
+    expect(raw.tokens.map((token) => token.$key)).toEqual(['old', 'cache']);
+    expect(original.tokens.map.old.fiatValue).toBe('10');
+  });
+
+  it('releases the previous owner and exact retirement while preserving a newer owner against old cleanup', async () => {
+    const svc = makeService();
+    const old = svc.retainHomeTokenRound({
+      homeRequest: request(1),
+      round: round('old'),
+      origin: 'live',
+    });
+    const current = request(2, 'new-owner');
+    const next = svc.retainHomeTokenRound({
+      homeRequest: current,
+      round: round('new'),
+      origin: 'live',
+    });
+    await expect(
+      svc.ingestHomeTokenRounds({ ...inputs(current), roundRefs: [old] }),
+    ).resolves.toBe(false);
+    svc.retireHomeTokenRounds(request(1));
+    await expect(
+      svc.ingestHomeTokenRounds({ ...inputs(current, 2), roundRefs: [next] }),
+    ).resolves.toBe(true);
+    svc.retireHomeTokenRounds(current);
+    await expect(
+      svc.ingestHomeTokenRounds({ ...inputs(current, 3), roundRefs: [next] }),
+    ).resolves.toBe(false);
+  });
+
+  it('bounds each source to two versions and the active-owner directory to 128 references', async () => {
+    const svc = makeService();
+    const first = svc.retainHomeTokenRound({
+      homeRequest: request(1),
+      round: round('v1'),
+      origin: 'live',
+    });
+    const second = svc.retainHomeTokenRound({
+      homeRequest: request(1),
+      round: round('v2'),
+      origin: 'live',
+    });
+    svc.retainHomeTokenRound({
+      homeRequest: request(1),
+      round: round('v3'),
+      origin: 'live',
+    });
+    await expect(
+      svc.ingestHomeTokenRounds({ ...inputs(), roundRefs: [first] }),
+    ).resolves.toBe(false);
+    await expect(
+      svc.ingestHomeTokenRounds({
+        ...inputs(request(1), 2),
+        roundRefs: [second],
+      }),
+    ).resolves.toBe(true);
+    let last = '';
+    for (let index = 0; index < 129; index += 1) {
+      last = svc.retainHomeTokenRound({
+        homeRequest: request(1),
+        round: round(`v${index}`, `network-${index}`),
+        origin: 'cache',
+      });
+    }
+    await expect(
+      svc.ingestHomeTokenRounds({
+        ...inputs(request(1), 3),
+        roundRefs: [second],
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      svc.ingestHomeTokenRounds({
+        ...inputs(request(1), 4),
+        roundRefs: [last],
+      }),
+    ).resolves.toBe(true);
+  });
+
+  it('releases a previous runtime on accepted claim even when no new result is retained', async () => {
+    const svc = makeService();
+    const old = svc.retainHomeTokenRound({
+      homeRequest: request(1),
+      round: round('old'),
+      origin: 'live',
+    });
+    const restarted = { ...request(1), mainRuntimeId: 'restarted-main' };
+    await expect(
+      svc.ingestHomeTokenRounds({ ...inputs(restarted), roundRefs: [old] }),
+    ).resolves.toBe(false);
+    svc.alignHomeTokenRequest(restarted);
+    await expect(
+      svc.ingestHomeTokenRounds({ ...inputs(request(1), 2), roundRefs: [old] }),
+    ).resolves.toBe(false);
+  });
+
+  it('never lets an older full fallback or reference publication replace a newer authoritative snapshot', async () => {
+    const svc = makeService();
+    const ref = svc.retainHomeTokenRound({
+      homeRequest: request(1),
+      round: round('current'),
+      origin: 'live',
+    });
+    await expect(
+      svc.ingestHomeTokenRounds({ ...inputs(), roundRefs: ['missing'] }),
+    ).resolves.toBe(false);
+    await svc.ingestHomeTokenRounds({
+      ...inputs(request(1), 2),
+      roundRefs: [ref],
+      source: 'authoritative',
+    });
+    await svc.ingestRound(
+      makeRound({ ...inputs(), orderedTokens: [makeToken('stale')] }),
+    );
+    await svc.ingestHomeTokenRounds({ ...inputs(), roundRefs: ['missing'] });
+    expect(
+      (await svc.getRawTokenList({ ownerKey: 'owner' })).tokens.map(
+        (token) => token.$key,
+      ),
+    ).toEqual(['current']);
+  });
+
+  it('publishes a referenced legitimate empty round and rejects incomplete reference sets without partial frames', async () => {
+    const svc = makeService();
+    const empty = round('unused');
+    empty.tokens = { data: [], keys: '', map: {} };
+    const ref = svc.retainHomeTokenRound({
+      homeRequest: request(1),
+      round: empty,
+      origin: 'live',
+    });
+    mockEmit.mockClear();
+    await expect(
+      svc.ingestHomeTokenRounds({ ...inputs(), roundRefs: [ref, 'missing'] }),
+    ).resolves.toBe(false);
+    expect(mockEmit).not.toHaveBeenCalled();
+    await expect(
+      svc.ingestHomeTokenRounds({ ...inputs(request(1), 2), roundRefs: [ref] }),
+    ).resolves.toBe(true);
+    expect((await svc.getRawTokenList({ ownerKey: 'owner' })).tokens).toEqual(
+      [],
+    );
+  });
+});
 
 describe('ServiceTokenViewModel', () => {
   beforeEach(() => {
@@ -312,10 +516,10 @@ describe('ServiceTokenViewModel', () => {
     expect(last?.structure.orderedIds).toEqual(['a']);
   });
 
-  it('evicts the LRU owner past the cap (8) while keeping the MRU owners + re-ingest re-creates an evicted owner', async () => {
+  it('evicts the LRU owner past the cap while keeping the MRU owners + re-ingest re-creates an evicted owner', async () => {
     const svc = makeService();
-    // Ingest 9 distinct owners; cap is 8, so the FIRST (owner0) is evicted.
-    for (let i = 0; i < 9; i += 1) {
+    // Ingest cap + 1 distinct owners, so the FIRST (owner0) is evicted.
+    for (let i = 0; i < OWNER_VM_CAP + 1; i += 1) {
       void svc.ingestRound(
         makeRound({
           ownerKey: `acc${i}__net`,
@@ -328,8 +532,10 @@ describe('ServiceTokenViewModel', () => {
     const evicted = await svc.getTokenListFrames({ ownerKey: 'acc0__net' });
     expect(evicted.structureVersion).toBe(-1);
     expect(evicted.structure).toBeUndefined();
-    // The MRU owner (owner8) is retained.
-    const retained = await svc.getTokenListFrames({ ownerKey: 'acc8__net' });
+    // The MRU owner (the last one ingested) is retained.
+    const retained = await svc.getTokenListFrames({
+      ownerKey: `acc${OWNER_VM_CAP}__net`,
+    });
     expect(retained.structureVersion).toBe(0);
     expect(retained.structure?.orderedIds).toEqual(['a']);
 
@@ -348,8 +554,8 @@ describe('ServiceTokenViewModel', () => {
 
   it('touching an owner refreshes its MRU position so it survives a later eviction wave', async () => {
     const svc = makeService();
-    // Seed owners 0..7 (fills the cap exactly).
-    for (let i = 0; i < 8; i += 1) {
+    // Seed owners 0..cap-1 (fills the cap exactly).
+    for (let i = 0; i < OWNER_VM_CAP; i += 1) {
       void svc.ingestRound(
         makeRound({
           ownerKey: `acc${i}__net`,
@@ -361,9 +567,12 @@ describe('ServiceTokenViewModel', () => {
     void svc.ingestRound(
       makeRound({ ownerKey: 'acc0__net', orderedTokens: [makeToken('a')] }),
     );
-    // Ingest a NEW owner (owner8). The LRU is now owner1 (owner0 was refreshed).
+    // Ingest a NEW owner. The LRU is now owner1 (owner0 was refreshed).
     void svc.ingestRound(
-      makeRound({ ownerKey: 'acc8__net', orderedTokens: [makeToken('a')] }),
+      makeRound({
+        ownerKey: `acc${OWNER_VM_CAP}__net`,
+        orderedTokens: [makeToken('a')],
+      }),
     );
     // owner0 survived (it was refreshed); owner1 was evicted.
     const survived = await svc.getTokenListFrames({ ownerKey: 'acc0__net' });
@@ -427,8 +636,8 @@ describe('ServiceTokenViewModel', () => {
 
     it('returns an empty list + undefined identity for an evicted / unknown owner', async () => {
       const svc = makeService();
-      // Fill past the cap (8) so owner0 is evicted.
-      for (let i = 0; i < 9; i += 1) {
+      // Fill past the cap so owner0 is evicted.
+      for (let i = 0; i < OWNER_VM_CAP + 1; i += 1) {
         void svc.ingestRound(
           makeRound({
             ownerKey: `acc${i}__net`,

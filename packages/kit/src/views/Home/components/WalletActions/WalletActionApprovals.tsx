@@ -10,7 +10,17 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { useNavigateToApprovalList } from '../../hooks/useNavigateToApprovalList';
 
-export function WalletActionApprovals({ onClose }: { onClose: () => void }) {
+import { RiskApprovalsDot } from './RiskApprovalsDot';
+
+export function WalletActionApprovals({
+  onClose,
+  showRiskDot = false,
+  onRiskSeen,
+}: {
+  onClose: () => void;
+  showRiskDot?: boolean;
+  onRiskSeen?: () => void;
+}) {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { network, account, wallet } = activeAccount;
@@ -23,6 +33,9 @@ export function WalletActionApprovals({ onClose }: { onClose: () => void }) {
       networkId: network?.id ?? '',
       source: 'homePage',
     });
+    if (showRiskDot) {
+      onRiskSeen?.();
+    }
     onClose();
     await timerUtils.wait(150);
     void navigateToApprovalList({
@@ -39,6 +52,8 @@ export function WalletActionApprovals({ onClose }: { onClose: () => void }) {
     wallet?.id,
     wallet?.type,
     account?.indexedAccountId,
+    showRiskDot,
+    onRiskSeen,
   ]);
 
   return (
@@ -50,6 +65,16 @@ export function WalletActionApprovals({ onClose }: { onClose: () => void }) {
       })}
       onClose={() => {}}
       onPress={handlePress}
+      extra={
+        showRiskDot ? (
+          <RiskApprovalsDot
+            w="$2"
+            h="$2"
+            borderWidth={0}
+            testID="wallet-action-approvals-risk-dot"
+          />
+        ) : undefined
+      }
     />
   );
 }
