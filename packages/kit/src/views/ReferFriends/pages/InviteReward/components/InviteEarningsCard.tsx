@@ -182,13 +182,15 @@ function DesktopEarnings({
             onPress={onOpenHistory}
           />
         </XStack>
-        <XStack ai="center" gap="$4">
+        {/* Top-aligned, so the taller art hangs beside the amount instead
+            of pushing it away from its label. */}
+        <XStack ai="flex-start" gap="$4">
           <YStack flex={1} minWidth={0}>
             <LeadAmount amount={earnings.cumulative} />
           </YStack>
           {/* A touch of the brand's line art in the room the amount leaves;
               it has a dark variant of its own. */}
-          <Illustration name="BlockCoins" size={88} flexShrink={0} />
+          <Illustration name="BlockCoins" size={80} flexShrink={0} />
         </XStack>
       </YStack>
       <Divider mt="auto" borderColor={INVITE_CARD_BORDER_COLOR} />
