@@ -5,7 +5,10 @@ import type {
   IOneKeyError,
   IOneKeyErrorI18nInfo,
 } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import { ECustomOneKeyHardwareError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import {
+  ECustomOneKeyHardwareError,
+  ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   isHardwareErrorByCode,
   isOneKeyHardwareError,
@@ -946,7 +949,7 @@ export class DeviceStageBurstScope {
           HardwareErrorCode.BlePoweredOff,
           HardwareErrorCode.BleUnsupported,
           HardwareErrorCode.BridgeNeedsPermission,
-          HardwareErrorCode.WebUsbDeviceAccessError,
+          ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
           HardwareErrorCode.BleUnavailableWhileUsbConnected,
           HardwareErrorCode.DeviceCheckUnlockTypeError,
           HardwareErrorCode.DeviceCheckPassphraseStateError,

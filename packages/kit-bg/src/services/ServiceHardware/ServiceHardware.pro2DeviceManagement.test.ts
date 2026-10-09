@@ -1183,6 +1183,65 @@ describe('ServiceHardware.getDeviceManagementSnapshot', () => {
 });
 
 describe('ServiceHardware SDK DeviceState synchronization', () => {
+  it.each(['ble-disconnect', 'sdk-replacement', 'usb-disconnect'])(
+    'scopes BLE MTU telemetry deduplication across %s',
+    async (boundary) => {
+      const trackMtu = jest
+        .spyOn(defaultLogger.hardware.connection, 'bleMtuReady')
+        .mockClear()
+        .mockImplementation((params) => params);
+      const listeners = new Map<string, (payload: unknown) => void>();
+      const service = new ServiceHardware({
+        backgroundApi: {} as unknown as IBackgroundApi,
+      });
+      const createInstance = () => ({
+        on: jest.fn((event: string, listener: (payload: unknown) => void) =>
+          listeners.set(event, listener),
+        ),
+      });
+      const instance = createInstance();
+      await service.registerSdkEvents(
+        instance as unknown as Parameters<
+          ServiceHardware['registerSdkEvents']
+        >[0],
+      );
+      const log = {
+        event: LOG_EVENT,
+        type: 'log',
+        payload: [
+          '@onekey/hd-ble-transport',
+          '[ReactNativeBleTransport] BLE MTU ready',
+          JSON.stringify({ platform: 'android', requested: 512, actual: 23 }),
+        ],
+      };
+      listeners.get(LOG_EVENT)?.(log);
+      listeners.get(LOG_EVENT)?.(log);
+      expect(trackMtu).toHaveBeenCalledTimes(1);
+
+      if (boundary === 'sdk-replacement') {
+        await service.registerSdkEvents(
+          createInstance() as unknown as Parameters<
+            ServiceHardware['registerSdkEvents']
+          >[0],
+        );
+      } else {
+        listeners.get(DEVICE.DISCONNECT)?.({
+          device: {
+            connectId: 'TEST_CONNECTION',
+            commType: boundary === 'ble-disconnect' ? 'ble' : 'webusb',
+          },
+        });
+      }
+
+      listeners.get(LOG_EVENT)?.(log);
+      listeners.get(LOG_EVENT)?.(log);
+      expect(trackMtu).toHaveBeenCalledTimes(
+        boundary === 'usb-disconnect' ? 1 : 2,
+      );
+      trackMtu.mockRestore();
+    },
+  );
+
   it('enriches connection analytics once for concurrent connect events', async () => {
     const trackConnection = jest
       .spyOn(defaultLogger.hardware.connection, 'hwDeviceConnected')

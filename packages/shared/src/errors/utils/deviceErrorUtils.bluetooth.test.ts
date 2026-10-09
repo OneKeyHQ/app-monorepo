@@ -11,7 +11,10 @@ import {
   UserCancel,
 } from '../errors/hardwareErrors';
 import { OneKeyLocalError } from '../errors/localError';
-import { EOneKeyErrorClassNames } from '../types/errorTypes';
+import {
+  EOneKeyErrorClassNames,
+  ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
+} from '../types/errorTypes';
 
 import {
   convertDeviceError,
@@ -31,7 +34,7 @@ describe('isOneKeyHardwareError', () => {
       'hardware_third_party_transport_not_available',
     ],
     [
-      HardwareErrorCode.WebUsbDeviceAccessError,
+      ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
       'global.connection_failed_usb_help_text',
     ],
     [HardwareErrorCode.BridgeNeedsPermission, 'device.grant_usb_access'],

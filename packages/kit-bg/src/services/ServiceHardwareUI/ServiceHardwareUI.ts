@@ -9,6 +9,7 @@ import {
   UserCancelFromOutside,
 } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   isHardwareError,
   isHardwareErrorByCode,
@@ -140,7 +141,7 @@ const HARDWARE_CONNECTION_CANCEL_SKIP_CODES = [
   HardwareErrorCode.BlePoweredOff,
   HardwareErrorCode.BleUnsupported,
   HardwareErrorCode.BridgeNeedsPermission,
-  HardwareErrorCode.WebUsbDeviceAccessError,
+  ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
 ];
 
 /** How long after the stage's off write its exit is still on screen —

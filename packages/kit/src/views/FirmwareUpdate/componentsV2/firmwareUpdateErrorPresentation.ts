@@ -11,6 +11,7 @@ import {
 import {
   ECustomOneKeyHardwareError,
   type IOneKeyError,
+  ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
 } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import {
@@ -115,7 +116,7 @@ export function resolveFirmwareUpdateErrorPresentation({
         : retry,
     );
   }
-  if (is(HardwareErrorCode.WebUsbDeviceAccessError)) {
+  if (is(ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE)) {
     return build(
       t(ETranslations.global_connection_failed_usb_help_text),
       undefined,

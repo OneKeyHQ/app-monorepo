@@ -2074,44 +2074,49 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     },
   );
 
-  it('isolates Mini and BLE-capable device transport decisions', async () => {
-    const service = new ServiceHardware({
-      backgroundApi: {
-        serviceDevSetting: {
-          getDevSetting: jest.fn().mockResolvedValue({
-            settings: { usbCommunicationMode: 'webusb' },
-          }),
-        },
-        serviceSetting: {
-          getHardwareTransportType: jest
-            .fn()
-            .mockResolvedValue(EHardwareTransportType.WEBUSB),
-        },
-      } as unknown as IBackgroundApi,
-    });
-    jest
-      .spyOn(service.connectionManager, 'detectWebUSBAvailability')
-      .mockResolvedValue(false);
-    jest
-      .spyOn(service.connectionManager, 'detectBluetoothAvailability')
-      .mockResolvedValue(true);
-
-    const regularResult =
-      await service.connectionManager.shouldSwitchTransportType({
-        connectId: 'PRO_USB_ID',
-        connectProtocol: 'V1',
-        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+  it.each(['PRO_USB_ID', 'mi123456789'])(
+    'isolates Mini transport decisions from BLE-capable connectId %s',
+    async (regularConnectId) => {
+      const service = new ServiceHardware({
+        backgroundApi: {
+          serviceDevSetting: {
+            getDevSetting: jest.fn().mockResolvedValue({
+              settings: { usbCommunicationMode: 'webusb' },
+            }),
+          },
+          serviceSetting: {
+            getHardwareTransportType: jest
+              .fn()
+              .mockResolvedValue(EHardwareTransportType.WEBUSB),
+          },
+        } as unknown as IBackgroundApi,
       });
-    const miniResult =
-      await service.connectionManager.shouldSwitchTransportType({
-        connectId: 'MI123456789',
-        connectProtocol: 'V1',
-        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-      });
+      jest
+        .spyOn(service.connectionManager, 'detectWebUSBAvailability')
+        .mockResolvedValue(false);
+      jest
+        .spyOn(service.connectionManager, 'detectBluetoothAvailability')
+        .mockResolvedValue(true);
 
-    expect(regularResult.targetType).toBe(EHardwareTransportType.DesktopWebBle);
-    expect(miniResult.targetType).toBe(EHardwareTransportType.WEBUSB);
-  });
+      const regularResult =
+        await service.connectionManager.shouldSwitchTransportType({
+          connectId: regularConnectId,
+          connectProtocol: 'V1',
+          hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+        });
+      const miniResult =
+        await service.connectionManager.shouldSwitchTransportType({
+          connectId: 'MI123456789',
+          connectProtocol: 'V1',
+          hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+        });
+
+      expect(regularResult.targetType).toBe(
+        EHardwareTransportType.DesktopWebBle,
+      );
+      expect(miniResult.targetType).toBe(EHardwareTransportType.WEBUSB);
+    },
+  );
 
   it('rejects a stored third-party connectId before initializing OneKey SDK', async () => {
     mockedLocalDb.getDeviceByQuery.mockResolvedValue({

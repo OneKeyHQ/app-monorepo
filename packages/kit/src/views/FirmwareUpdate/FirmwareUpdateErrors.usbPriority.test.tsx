@@ -12,6 +12,7 @@ import { FirmwareUpdateTransferInterruptedError } from '@onekeyhq/shared/src/err
 import {
   EOneKeyErrorClassNames,
   type IOneKeyError,
+  ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
 } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -72,7 +73,7 @@ function IntlWrapper({ children }: { children: ReactNode }) {
 describe('firmware update USB-priority errors', () => {
   it.each([
     [
-      HardwareErrorCode.WebUsbDeviceAccessError,
+      ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
       ETranslations.global_connection_failed_usb_help_text,
     ],
     [

@@ -3,6 +3,9 @@ import type {
   ETranslationsMock,
 } from '@onekeyhq/shared/src/locale';
 
+// The companion SDK defines this wire code; the pinned 1.2.7 types omit it.
+export const ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE = 903;
+
 export enum ECustomOneKeyHardwareError {
   NeedOneKeyBridge = 3030,
   // TODO: remove this error code

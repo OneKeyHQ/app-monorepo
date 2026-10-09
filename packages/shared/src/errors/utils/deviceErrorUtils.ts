@@ -9,6 +9,7 @@ import { THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE } from '../errors/thirdPartyH
 import {
   ECustomOneKeyHardwareError,
   EOneKeyErrorClassNames,
+  ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
 } from '../types/errorTypes';
 
 import { getDeviceErrorPayloadMessage } from './errorUtils';
@@ -285,7 +286,7 @@ export function convertDeviceError(
       return new HardwareErrors.DeviceDataOverload({ payload });
     case HardwareErrorCode.BridgeDeviceDisconnected:
       return new HardwareErrors.DeviceDisconnectedError({ payload });
-    case HardwareErrorCode.WebUsbDeviceAccessError:
+    case ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE:
       return new HardwareErrors.OneKeyHardwareError({
         payload,
         code,

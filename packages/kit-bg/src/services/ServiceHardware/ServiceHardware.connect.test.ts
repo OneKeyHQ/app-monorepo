@@ -1,5 +1,6 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 
+import { ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -205,7 +206,7 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
     ).toBe(true);
     expect(
       internals.isLinuxWebUsbAccessDeniedError({
-        code: HardwareErrorCode.WebUsbDeviceAccessError,
+        code: ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
         error: 'Unable to claim interface',
       }),
     ).toBe(false);

@@ -24,6 +24,7 @@ import {
 import {
   ECustomOneKeyHardwareError,
   type IOneKeyError,
+  ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
 } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { shouldHideFirmwareUpdateInternalError } from '@onekeyhq/shared/src/errors/utils/firmwareUpdateErrorUtils';
@@ -233,7 +234,7 @@ export function useFirmwareUpdateErrors({
         error,
         code: [
           HardwareErrorCode.BridgeNeedsPermission,
-          HardwareErrorCode.WebUsbDeviceAccessError,
+          ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
           HardwareErrorCode.BlePoweredOff,
           HardwareErrorCode.BleUnsupported,
         ],

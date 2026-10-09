@@ -1493,6 +1493,7 @@ class ServiceHardware extends ServiceBase {
 
     if (!this.registeredEvents) {
       this.resetHardwareUiEventQueue();
+      this.reportedBleMtuReadySignatures.clear();
       this.registeredEvents = true;
       this.registeredSdkEventsInstance = instance;
       this.registeredSdkDebugLogging = showSdkDebugLogs;
@@ -1951,6 +1952,9 @@ class ServiceHardware extends ServiceBase {
       });
 
       instance.on(DEVICE.DISCONNECT, (message: { device: KnownDevice }) => {
+        if (message.device?.commType === 'ble') {
+          this.reportedBleMtuReadySignatures.clear();
+        }
         // A disconnect ends the "connected and OS-paired right now" proof:
         // factory reset and OS-level unpair both surface as a disconnect
         // first, so the silent BLE bind probe must not trust this endpoint

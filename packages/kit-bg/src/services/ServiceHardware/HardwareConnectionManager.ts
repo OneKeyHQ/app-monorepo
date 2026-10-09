@@ -476,7 +476,7 @@ export class HardwareConnectionManager {
         JSON.stringify([
           args[0].hardwareCallContext || 'default',
           args[0].connectProtocol || '',
-          args[0].connectId?.toLowerCase() || '',
+          args[0].connectId || '',
         ]),
     },
   );
