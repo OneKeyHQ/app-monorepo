@@ -42,6 +42,7 @@ export enum EAtomNames {
   onboardingCloudBackupListRefreshAtom = 'onboardingCloudBackupListRefreshAtom',
   isOnBoardingOpenAtom = 'isOnBoardingOpenAtom',
   inAppNotificationAtom = 'inAppNotificationAtom',
+  swapLimitOrdersLoadingAtom = 'swapLimitOrdersLoadingAtom',
   v4migrationAtom = 'v4migrationAtom',
   v4migrationPersistAtom = 'v4migrationPersistAtom',
   accountIsAutoCreatingAtom = 'accountIsAutoCreatingAtom',
@@ -114,6 +115,7 @@ export enum EAtomNames {
   perpsAbstractionModeAtom = 'perpsAbstractionModeAtom',
   perpsSpotDustingAtom = 'perpsSpotDustingAtom',
   perpsSpotBalancesAtom = 'perpsSpotBalancesAtom',
+  perpsLiquidationRiskInputsAtom = 'perpsLiquidationRiskInputsAtom',
   perpsFooterTickerModePersistAtom = 'perpsFooterTickerModePersistAtom',
   // trading mode
   tradingModeAtom = 'tradingModeAtom',
@@ -147,6 +149,7 @@ export enum EAtomNames {
   marketSelectedTabAtom = 'marketSelectedTabAtom',
   marketBannerListSortAtom = 'marketBannerListSortAtom',
   marketTokenSelectorConfigAtom = 'marketTokenSelectorConfigAtom',
+  marketTradingViewLayoutPersistAtom = 'marketTradingViewLayoutPersistAtom',
   marketTradingViewChartSettingsPersistAtom = 'marketTradingViewChartSettingsPersistAtom',
   marketTradingViewIndicatorSettingsPersistAtom = 'marketTradingViewIndicatorSettingsPersistAtom',
   marketTradingViewSubIndicatorCountPersistAtom = 'marketTradingViewSubIndicatorCountPersistAtom',
@@ -183,6 +186,9 @@ export const atomsConfig: Partial<
   // This state is written as a complete snapshot so legacy chart namespace
   // fields can be removed instead of being merged back on every write.
   [EAtomNames.marketTradingViewSubIndicatorCountPersistAtom]: {
+    mergeInitialValue: false,
+  },
+  [EAtomNames.marketTradingViewLayoutPersistAtom]: {
     mergeInitialValue: false,
   },
   [EAtomNames.marketTradingViewIndicatorSettingsPersistAtom]: {

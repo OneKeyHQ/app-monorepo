@@ -25,6 +25,7 @@ import {
 import SwapActionsState from '@onekeyhq/kit/src/views/Swap/pages/components/SwapActionsState';
 import { SwapStockHeaderRightActionContainer } from '@onekeyhq/kit/src/views/Swap/pages/components/SwapHeaderRightActionContainer';
 import SwapQuoteResult from '@onekeyhq/kit/src/views/Swap/pages/components/SwapQuoteResult';
+import SwapQuoteRiskAlert from '@onekeyhq/kit/src/views/Swap/pages/components/SwapQuoteRiskAlert';
 import { getValidStockTokenToAssetRatio } from '@onekeyhq/kit/src/views/Swap/utils/swapStockReviewUtils';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -761,6 +762,17 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         ) : null}
 
         {/* Balance display */}
+        <SwapQuoteRiskAlert
+          quote={quoteResult}
+          fromToken={
+            tradeType === ESwapDirection.BUY ? paymentToken : balanceToken
+          }
+          toToken={
+            tradeType === ESwapDirection.BUY ? currentMarketToken : paymentToken
+          }
+          isLoading={quoteLoading || isWrapped}
+          hasQuoteError={Boolean(quoteError)}
+        />
         {tradeType === ESwapDirection.SELL ? (
           <YStack mb={shouldReduceSellForPresetGap ? '$-1' : undefined}>
             <SellForSelector

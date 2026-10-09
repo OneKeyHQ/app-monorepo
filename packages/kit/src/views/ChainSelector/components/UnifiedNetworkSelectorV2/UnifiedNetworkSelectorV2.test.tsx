@@ -75,6 +75,7 @@ jest.mock('@onekeyhq/components', () => ({
   YStack: mockContainer,
   PagerView: mockContainer,
   resetChainSelectorModal: jest.fn(),
+  useMedia: () => ({ gtMd: true }),
 }));
 jest.mock('@react-navigation/core', () => ({ useRoute: () => mockRoute }));
 jest.mock('react-intl', () => ({ useIntl: () => mockIntl }));

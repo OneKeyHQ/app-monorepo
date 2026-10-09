@@ -134,9 +134,6 @@ const HARDWARE_CONNECTION_CANCEL_SKIP_CODES = [
   HardwareErrorCode.BleLocationServicesDisabled,
   HardwareErrorCode.BleTimeoutError,
   HardwareErrorCode.BleForceCleanRunPromise,
-  HardwareErrorCode.BleDeviceBondError,
-  HardwareErrorCode.BlePeerRemovedPairingInformation,
-  HardwareErrorCode.BleBondInvalid,
   HardwareErrorCode.BleUnavailableWhileUsbConnected,
   HardwareErrorCode.BleCharacteristicNotifyChangeFailure,
   HardwareErrorCode.BleDeviceDisconnected,
@@ -308,6 +305,10 @@ class ServiceHardwareUI extends ServiceBase {
       void this.deviceStageBurst.mergeDeviceIdentity({
         connectId,
         deviceType: device.deviceType,
+        deviceColor: deviceUtils.getDeviceColorFromFeatures({
+          deviceType: device.deviceType,
+          features: device.featuresInfo,
+        }),
         deviceName: deviceUtils.buildDeviceStageName({
           features: device.featuresInfo,
           fallbackName: device.name,
@@ -723,11 +724,13 @@ class ServiceHardwareUI extends ServiceBase {
   async deviceStageShowPassphraseIntro(params: {
     connectId?: string;
     deviceType?: IDeviceStageState['deviceType'];
+    deviceColor?: IDeviceStageState['deviceColor'];
     deviceName?: string;
   }) {
     return this.deviceStageBurst.noteStep('passphraseIntro', {
       connectId: params.connectId,
       deviceType: params.deviceType,
+      deviceColor: params.deviceColor,
       deviceName: params.deviceName,
       passphraseMode: 'create',
     });
@@ -1540,6 +1543,10 @@ class ServiceHardwareUI extends ServiceBase {
         stageBurstOpened = await this.deviceStageBurst.begin({
           connectId,
           deviceType: device.deviceType,
+          deviceColor: deviceUtils.getDeviceColorFromFeatures({
+            deviceType: device.deviceType,
+            features: device.featuresInfo,
+          }),
           deviceName: deviceUtils.buildDeviceStageName({
             features: device.featuresInfo,
             fallbackName: device.name,
@@ -1775,7 +1782,17 @@ class ServiceHardwareUI extends ServiceBase {
         }
       }
       if (stageBurstOpened) {
-        await this.deviceStageBurst.end({ error: stageBurstError });
+        try {
+          await this.deviceStageBurst.end({ error: stageBurstError });
+        } catch (stageError) {
+          // The stage is presentation: its failure to land an exit must
+          // not replace the error riding out of this finally, nor skip the
+          // bookkeeping below.
+          defaultLogger.hardware.sdkLog.consoleLog(
+            'deviceStageBurst.end failed',
+            stageError,
+          );
+        }
       }
       this.processingNestedNum -= 1;
       onFinally?.();

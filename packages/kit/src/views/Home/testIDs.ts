@@ -28,6 +28,7 @@ export const HomeTestIDs = {
   moreButton: 'home-more-button',
   portfolioUpdateAction: 'home-update-portfolio-action',
   addMoneyButton: 'home-add-money-button',
+  walletActionsLoading: 'home-wallet-actions-loading',
 
   // Wallet overview
   walletOverview: 'home-wallet-overview',
@@ -39,7 +40,6 @@ export const HomeTestIDs = {
     `home-token-item-${networkId}-${symbol}`,
 
   // Risk approval
-  riskApprovalAlert: 'home-risk-approval-alert',
   approvalListEmpty: 'Wallet-Approval-Unsupported-Empty', // preserve existing
 
   // Referral web landing steps

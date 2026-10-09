@@ -190,13 +190,6 @@ export function convertDeviceError(
         return new HardwareErrors.UserCancel({ payload, autoToast: false });
       }
       return new HardwareErrors.BleDeviceBondedCanceled({ payload });
-    case HardwareErrorCode.BleDeviceBondError:
-    case HardwareErrorCode.BlePeerRemovedPairingInformation:
-    case HardwareErrorCode.BleBondInvalid:
-      return new HardwareErrors.DeviceBondError({
-        payload,
-        silentMode: options?.silentMode,
-      });
     case HardwareErrorCode.BleWriteCharacteristicError:
       return new HardwareErrors.BleWriteCharacteristicError({ payload });
     case HardwareErrorCode.BleScanError:

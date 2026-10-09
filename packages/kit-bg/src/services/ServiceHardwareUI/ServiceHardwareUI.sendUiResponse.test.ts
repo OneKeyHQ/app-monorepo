@@ -2,7 +2,6 @@ import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import {
   BluetoothUnavailableWhileUsbConnectedError,
-  DeviceBondError,
   DeviceNotFound,
   NotInBootLoaderMode,
   OneKeyLocalError,
@@ -436,6 +435,39 @@ describe('ServiceHardwareUI.withHardwareProcessing stage ownership', () => {
     expect(stage?.step).toBe('off');
   });
 
+  it('keeps a failed stage exit from replacing the result or skipping the wrapper bookkeeping', async () => {
+    const deviceParams: IWithHardwareProcessingOptions['deviceParams'] = {
+      dbDevice: {
+        id: 'test-device',
+        name: 'Test device',
+        features: '',
+        connectId: '',
+        uuid: 'test-device',
+        deviceId: 'test-device',
+        deviceType: EDeviceType.Pro,
+        settingsRaw: '',
+        createdAt: 0,
+        updatedAt: 0,
+        vendor: EHardwareVendor.onekey,
+      },
+    };
+    const onFinally = jest.fn();
+    const end = jest
+      .spyOn(service.deviceStageBurst, 'end')
+      .mockRejectedValueOnce(new Error('stage exit failed'));
+
+    await expect(
+      service.withHardwareProcessing(async () => 'signed', {
+        deviceParams,
+        skipCloseHardwareUiStateDialog: true,
+        onFinally,
+      }),
+    ).resolves.toBe('signed');
+    expect(end).toHaveBeenCalledTimes(1);
+    expect(onFinally).toHaveBeenCalledTimes(1);
+    expect(service.processingNestedNum).toBe(0);
+  });
+
   it.each([
     { vendor: EHardwareVendor.onekey, externalPending: false },
     { vendor: EHardwareVendor.ledger, externalPending: false },
@@ -704,75 +736,6 @@ describe('ServiceHardwareUI.withHardwareProcessing USB-priority cleanup', () => 
 
     expect(closeHardwareUiStateDialog).toHaveBeenCalledWith({
       connectId: 'PRO2_USB',
-      deviceResetToHome: false,
-      skipDeviceCancel: true,
-      deviceType: EDeviceType.Pro2,
-    });
-  });
-
-  it('does not send a follow-up cancel after a BLE bond error', async () => {
-    jest.mocked(firmwareUpdateWorkflowRunningAtom.get).mockResolvedValue(false);
-    const service = new ServiceHardwareUI({
-      backgroundApi: {
-        serviceHardware: {
-          cancelTimer: undefined,
-          invalidatePendingCancel: jest.fn(),
-          getFeaturesMutex: {
-            isLocked: jest.fn(() => false),
-            waitForUnlock: jest.fn(),
-          },
-        },
-        serviceAccount: {
-          generateHwWalletsMissingXfp: jest.fn(),
-        },
-        serviceFirmwareUpdate: {
-          delayShouldDetectTimeCheck: jest.fn(),
-          delayShouldDetectTimeCheckWithDelay: jest.fn(),
-        },
-      },
-    });
-    const closeHardwareUiStateDialog = jest
-      .spyOn(service, 'closeHardwareUiStateDialog')
-      .mockResolvedValue(undefined);
-    const serviceInternals = service as unknown as {
-      withHardwareProcessingInternal: <T>(
-        operation: () => Promise<T>,
-        options: {
-          deviceParams: {
-            dbDevice: {
-              connectId: string;
-              deviceType: EDeviceType;
-            };
-          };
-          hideCheckingDeviceLoading: boolean;
-        },
-      ) => Promise<T>;
-    };
-
-    await expect(
-      serviceInternals.withHardwareProcessingInternal(
-        async () => {
-          throw new DeviceBondError({
-            payload: {
-              connectId: 'PRO2_BLE_ID',
-              code: HardwareErrorCode.BleDeviceBondError,
-            },
-          });
-        },
-        {
-          deviceParams: {
-            dbDevice: {
-              connectId: 'PRO2_BLE_ID',
-              deviceType: EDeviceType.Pro2,
-            },
-          },
-          hideCheckingDeviceLoading: true,
-        },
-      ),
-    ).rejects.toBeInstanceOf(DeviceBondError);
-
-    expect(closeHardwareUiStateDialog).toHaveBeenCalledWith({
-      connectId: 'PRO2_BLE_ID',
       deviceResetToHome: false,
       skipDeviceCancel: true,
       deviceType: EDeviceType.Pro2,

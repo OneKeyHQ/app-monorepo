@@ -51,16 +51,26 @@ interface ISwapMarketHistoryListProps {
   isPushModal?: boolean;
   filterToken?: ISwapToken[];
   protocol?: EProtocolOfExchange;
+  // Height of a row the caller renders above the sibling lists that share this
+  // tab set — Swap Pro renders the "Current token" row for the other two tabs
+  // only. The empty state is offset by that row minus this list's own padding so
+  // the placeholder lines up with those lists; real rows keep their position.
+  siblingRowHeight?: number;
   // Rendered on the right of the FIRST section header (the latest date / pending
   // row), so a list-level action like Clear shares the date's row instead of
   // taking a dedicated line above the list.
   firstSectionRightAction?: ReactNode;
 }
 
+// Vertical padding of the list viewport. It also decides how much of a sibling
+// row the empty state has to compensate, so both uses share this value.
+const LIST_PADDING_Y = 8;
+
 const SwapMarketHistoryList = ({
   showType,
   filterToken,
   isPushModal,
+  siblingRowHeight,
   protocol,
   firstSectionRightAction,
 }: ISwapMarketHistoryListProps) => {
@@ -221,7 +231,7 @@ const SwapMarketHistoryList = ({
       key={`swap-history-${swapHistoryAlertDismissed ? 'dismissed' : 'shown'}`}
       renderItem={renderItem}
       sections={sectionData}
-      py="$2"
+      py={LIST_PADDING_Y}
       renderSectionHeader={({ section }) => {
         const { title, status } = section;
         // Section titles are unique (per-day dates + a single "Pending"), so
@@ -269,12 +279,16 @@ const SwapMarketHistoryList = ({
         ) : null
       }
       ListEmptyComponent={
-        <Empty
-          illustration="Orders"
-          title={intl.formatMessage({
-            id: ETranslations.global_no_results,
-          })}
-        />
+        // Only the placeholder is offset: rows keep the list's own padding, so
+        // the empty state sits where a list with a sibling row above it starts.
+        <YStack pt={Math.max((siblingRowHeight ?? 0) - LIST_PADDING_Y, 0)}>
+          <Empty
+            illustration="Orders"
+            title={intl.formatMessage({
+              id: ETranslations.global_no_results,
+            })}
+          />
+        </YStack>
       }
       ListFooterComponent={<Stack h={bottom || '$2'} />}
     />

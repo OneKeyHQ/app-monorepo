@@ -11,6 +11,11 @@ jest.mock('@onekeyhq/shared/src/utils/swrCacheUtils', () => ({
     bulkCopyAddressesAccounts: 'bulkCopyAccounts',
     bulkSendAddressesInputSeed: 'bulkSendSeed',
     discoveryHomeBookmarks: 'disHomeBookmarks',
+    earnAccount: 'earnAccount',
+    borrowReserves: 'borrowReserves',
+    borrowHealthFactor: 'borrowHealthFactor',
+    borrowRewards: 'borrowRewards',
+    borrowEModeStatus: 'borrowEModeStatus',
   },
   swrCacheUtils: {
     remove: jest.fn(),
@@ -58,6 +63,13 @@ const BULK_PREFIXES = [
   'bulkCopyAccounts:',
   'bulkSendSeed:',
 ];
+const ACCOUNT_SCOPED_PREFIXES = [
+  'earnAccount:',
+  'borrowReserves:',
+  'borrowHealthFactor:',
+  'borrowRewards:',
+  'borrowEModeStatus:',
+];
 
 function droppedPrefixes() {
   return (swrCacheUtils.removeByPrefix as jest.Mock).mock.calls.map(
@@ -90,11 +102,11 @@ describe('swrCacheMutationInvalidation', () => {
     expect(swrCacheUtils.flushNow).toHaveBeenCalledTimes(1);
   });
 
-  it('drops only the displayed balances of the removed wallet', () => {
+  it('drops account-scoped snapshots when a wallet is removed', () => {
     appEventBus.emit(EAppEventBusNames.WalletRemove, { walletId: 'hd-1' });
 
     expect(swrCacheUtils.remove).toHaveBeenCalledWith('accSelValues:v1:hd-1');
-    expect(droppedPrefixes()).toEqual([]);
+    expect(droppedPrefixes()).toEqual(ACCOUNT_SCOPED_PREFIXES);
     expect(swrCacheUtils.flushNow).toHaveBeenCalledTimes(1);
   });
 
@@ -105,6 +117,32 @@ describe('swrCacheMutationInvalidation', () => {
       'walletList:',
       'accSelList:',
       'accSelValues:',
+      ...BULK_PREFIXES,
+      ...ACCOUNT_SCOPED_PREFIXES,
+    ]);
+    expect(swrCacheUtils.flushNow).toHaveBeenCalledTimes(1);
+  });
+
+  it('drops account-scoped snapshots when an account is updated', () => {
+    appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+
+    expect(droppedPrefixes()).toEqual([
+      'walletList:',
+      'accSelList:',
+      ...BULK_PREFIXES,
+      ...ACCOUNT_SCOPED_PREFIXES,
+    ]);
+    expect(swrCacheUtils.flushNow).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps account-scoped snapshots for a presentation-only account update', () => {
+    appEventBus.emit(EAppEventBusNames.AccountUpdate, {
+      isAccountDataChanged: false,
+    });
+
+    expect(droppedPrefixes()).toEqual([
+      'walletList:',
+      'accSelList:',
       ...BULK_PREFIXES,
     ]);
     expect(swrCacheUtils.flushNow).toHaveBeenCalledTimes(1);

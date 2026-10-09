@@ -9,6 +9,7 @@ import {
   type SkFont,
   type SkFontMgr,
   type SkPaint,
+  type SkPath,
   type SkPicture,
   type SkSVG,
   type SkTypeface,
@@ -21,6 +22,7 @@ import {
 
 import {
   type IBuildTradingViewNativeChartSceneOptions,
+  type ITradingViewNativeChartScene,
   type ITradingViewNativeChartSceneColors,
   type ITradingViewNativeChartSceneCommand,
   type ITradingViewNativeChartSceneFont,
@@ -30,7 +32,14 @@ import {
   getTradingViewNativeChartScenePaintStyles,
 } from '../utils/chartScene';
 
+import { drawNativeChartDrawings } from './chartDrawingRenderer';
 import { getTradingViewNativeSkiaTextFont } from './chartSkiaText';
+import {
+  TRADE_MARK_LABEL_PATHS,
+  TRADE_MARK_LABEL_PATH_FONT_SIZE,
+} from './tradeMarkLabelPaths';
+
+import type { IDrawingRenderState } from '../drawings/useChartDrawings';
 
 export interface ITradingViewNativeSkiaResources {
   customPaintSignatures: Record<string, string>;
@@ -38,6 +47,7 @@ export interface ITradingViewNativeSkiaResources {
   fonts: Record<ITradingViewNativeChartSceneFont, SkFont>;
   legendSubscriptFont: SkFont | null;
   paints: Record<ITradingViewNativeChartScenePaint, SkPaint>;
+  tradeMarkLabelPaths: Record<'B' | 'S', SkPath | null>;
   watermarkPaint: SkPaint;
   watermarkSvg: SkSVG | null;
 }
@@ -243,6 +253,24 @@ function createTradingViewNativeSkiaPaint(
   return paint;
 }
 
+function createTradingViewNativeTradeMarkLabelPath(
+  label: 'B' | 'S',
+  fontSize: number,
+) {
+  'worklet';
+
+  const path = Skia.Path.MakeFromSVGString(TRADE_MARK_LABEL_PATHS[label]);
+  if (path) {
+    const bounds = path.computeTightBounds();
+    path.offset(-bounds.x - bounds.width / 2, -bounds.y - bounds.height / 2);
+    const scale = fontSize / TRADE_MARK_LABEL_PATH_FONT_SIZE;
+    if (scale !== 1) {
+      path.transform(Skia.Matrix().scale(scale, scale));
+    }
+  }
+  return path;
+}
+
 export function createTradingViewNativeSkiaResources({
   colors,
   fontFamily,
@@ -306,6 +334,10 @@ export function createTradingViewNativeSkiaResources({
     },
     legendSubscriptFont,
     paints,
+    tradeMarkLabelPaths: {
+      B: createTradingViewNativeTradeMarkLabelPath('B', legendFont.getSize()),
+      S: createTradingViewNativeTradeMarkLabelPath('S', legendFont.getSize()),
+    },
     watermarkPaint: Skia.Paint(),
     watermarkSvg,
   };
@@ -502,6 +534,23 @@ function drawTradingViewNativeSkiaCommands({
           ),
         );
         break;
+      case 'tradeMarkLabel': {
+        const path = resources.tradeMarkLabelPaths[command.label];
+        if (path) {
+          canvas.save();
+          canvas.translate(command.cx, command.cy);
+          canvas.drawPath(
+            path,
+            getTradingViewNativeSkiaCommandPaint({
+              customPaintId: command.customPaintId,
+              fallbackPaint: command.paint,
+              resources,
+            }),
+          );
+          canvas.restore();
+        }
+        break;
+      }
       case 'watermark':
         if (resources.watermarkSvg) {
           canvas.save();
@@ -525,9 +574,13 @@ function drawTradingViewNativeSkiaCommands({
 
 export function createTradingViewNativeSkiaPicture({
   resources,
+  drawings,
+  onScene,
   ...sceneOptions
 }: Omit<IBuildTradingViewNativeChartSceneOptions, 'measureTextWidth'> & {
   resources: ITradingViewNativeSkiaResources;
+  drawings?: IDrawingRenderState;
+  onScene?: (scene: ITradingViewNativeChartScene) => void;
 }): SkPicture {
   'worklet';
 
@@ -540,6 +593,8 @@ export function createTradingViewNativeSkiaPicture({
         font === 'legend' ? resources.legendSubscriptFont : null,
       ).measureText(text).width,
   });
+
+  onScene?.(scene);
 
   const pictureSize =
     sceneOptions.height > 0 && sceneOptions.width > 0
@@ -558,5 +613,18 @@ export function createTradingViewNativeSkiaPicture({
       customPaintStyles: scene.customPaintStyles,
       resources,
     });
+    if (drawings && scene.layout && sceneOptions.points.length)
+      drawNativeChartDrawings(
+        canvas,
+        drawings,
+        {
+          layout: scene.layout,
+          viewport: scene.viewport,
+          points: sceneOptions.points,
+          interval: sceneOptions.candleIntervalSeconds,
+        },
+        resources.fonts.legend,
+        sceneOptions.chartSettings?.background.colors[0] ?? '#ffffff',
+      );
   }, pictureSize);
 }

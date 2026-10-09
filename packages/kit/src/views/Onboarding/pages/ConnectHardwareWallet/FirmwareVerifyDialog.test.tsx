@@ -145,6 +145,7 @@ jest.mock('@onekeyhq/shared/src/utils/deviceUtils', () => ({
   default: {
     isFirmwareVerifySupported: () => true,
     buildDeviceStageName: () => 'OneKey Pro 2',
+    getDeviceColorFromFeatures: () => undefined,
   },
 }));
 
@@ -455,6 +456,72 @@ describe('DeviceStage certificate error classification', () => {
       expect(mockDeviceStageNoteAuthResolved).not.toHaveBeenCalled();
     },
   );
+
+  it.each([
+    HardwareErrorCode.BlePermissionError,
+    HardwareErrorCode.DeviceNotOpenedPassphrase,
+  ])(
+    'ends the run without a failure card when a dedicated dialog owns error %s',
+    async (code) => {
+      // Bridged hardware errors carry the marker the matcher keys on.
+      mockFirmwareAuthenticate.mockRejectedValueOnce({
+        $isHardwareError: true,
+        code,
+      });
+      const { result } = renderHook(() => useDeviceStageFirmwareVerify());
+      await act(async () => {
+        await expect(
+          result.current.runDeviceStageFirmwareVerify({
+            device: {
+              connectId: 'connect-id',
+              deviceType: 'pro2',
+            } as IDBDevice,
+            features: undefined,
+          }),
+        ).resolves.toEqual({ checked: false, closed: true });
+      });
+      expect(mockDeviceStageNoteAuthStep).not.toHaveBeenCalledWith(
+        expect.objectContaining({ step: 'authFailure' }),
+      );
+      expect(mockDeviceStageNoteAuthResolved).not.toHaveBeenCalled();
+    },
+  );
+
+  it('still lands the failure card for a server verdict that shares a dedicated-dialog code', async () => {
+    // Only a hardware error hands the failure to a dialog. A server answer
+    // carrying the same number is a verdict and must never end the run
+    // silently.
+    mockFirmwareAuthenticate.mockRejectedValueOnce({
+      className: EOneKeyErrorClassNames.OneKeyServerApiError,
+      code: HardwareErrorCode.BlePermissionError,
+      message: 'Forbidden',
+    });
+    const { result } = renderHook(() => useDeviceStageFirmwareVerify());
+    let verification: Promise<unknown> | undefined;
+    await act(async () => {
+      verification = result.current.runDeviceStageFirmwareVerify({
+        device: { connectId: 'connect-id', deviceType: 'pro2' } as IDBDevice,
+        features: undefined,
+      });
+    });
+    expect(mockDeviceStageNoteAuthStep).toHaveBeenCalledWith(
+      expect.objectContaining({
+        step: 'authFailure',
+        failureReason: 'unknown',
+      }),
+    );
+    await act(async () => {
+      appEventBus.emit(
+        EAppEventBusNames.CloseHardwareUiStateDialogManually,
+        undefined,
+      );
+      await expect(verification).resolves.toEqual({
+        checked: false,
+        closed: true,
+      });
+    });
+    expect(mockDeviceStageNoteAuthResolved).not.toHaveBeenCalled();
+  });
 
   it.each(['unofficialDevice', 'unofficialFirmware'])(
     'continues unverified after the developer override for %s',

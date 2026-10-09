@@ -1,16 +1,10 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 
-import {
-  EAppEventBusNames,
-  HARDWARE_ERROR_DIALOG_TYPES,
-  appEventBus,
-} from '../../eventBus/appEventBus';
 import platformEnv from '../../platformEnv';
 import {
   BleDeviceBondedCanceled,
   BluetoothUnavailableWhileUsbConnectedError,
   ConnectTimeoutError,
-  DeviceBondError,
   DeviceMethodCallTimeout,
   DeviceNotBonded,
   NeedBluetoothTurnedOn,
@@ -25,7 +19,6 @@ import {
   isDesktopBlePairingCanceledError,
   isOneKeyHardwareError,
 } from './deviceErrorUtils';
-import errorToastUtils from './errorToastUtils';
 
 describe('isOneKeyHardwareError', () => {
   it('recognizes hardware error metadata rehydrated across runtimes', () => {
@@ -141,7 +134,6 @@ describe('convertDeviceError invalid Bluetooth bond', () => {
         code: HardwareErrorCode.BleDeviceNotBonded,
         key: 'feedback.bluetooth_pairing_failed',
       });
-      expect(error).not.toBeInstanceOf(DeviceBondError);
     } finally {
       platformEnv.isDesktop = originalIsDesktop;
     }
@@ -212,126 +204,6 @@ describe('convertDeviceError invalid Bluetooth bond', () => {
     } finally {
       platformEnv.isDesktop = originalIsDesktop;
     }
-  });
-
-  it.each([
-    HardwareErrorCode.BleDeviceBondError,
-    HardwareErrorCode.BlePeerRemovedPairingInformation,
-    HardwareErrorCode.BleBondInvalid,
-  ])(
-    'does not show a raw error toast when the repair dialog handles code %s',
-    (code) => {
-      const emitSpy = jest.spyOn(appEventBus, 'emit');
-      const error = {
-        autoToast: true,
-        code,
-        message: 'Raw Bluetooth pairing error',
-      };
-
-      errorToastUtils.toastIfError(error);
-      errorToastUtils.showToastOfError(error);
-
-      expect(emitSpy).not.toHaveBeenCalledWith(
-        EAppEventBusNames.ShowToast,
-        expect.anything(),
-      );
-      emitSpy.mockRestore();
-    },
-  );
-
-  it('also suppresses a raw pairing error code carried in the SDK payload', () => {
-    const emitSpy = jest.spyOn(appEventBus, 'emit');
-    const error = {
-      autoToast: true,
-      code: -1,
-      message: 'Raw Bluetooth pairing error',
-      payload: {
-        code: HardwareErrorCode.BlePeerRemovedPairingInformation,
-      },
-    };
-
-    errorToastUtils.toastIfError(error);
-    errorToastUtils.showToastOfError(error);
-
-    expect(emitSpy).not.toHaveBeenCalledWith(
-      EAppEventBusNames.ShowToast,
-      expect.anything(),
-    );
-    emitSpy.mockRestore();
-  });
-
-  it.each([
-    HardwareErrorCode.BleDeviceBondError,
-    HardwareErrorCode.BlePeerRemovedPairingInformation,
-    HardwareErrorCode.BleBondInvalid,
-  ])(
-    'tells the user to re-pair the device in system settings for code %s',
-    (code) => {
-      const error = convertDeviceError({
-        code,
-      });
-
-      expect(error).toBeInstanceOf(DeviceBondError);
-      expect(error).toMatchObject({
-        code: HardwareErrorCode.BleDeviceBondError,
-        key: 'bluetooth_pairing_invalid__desc',
-        autoToast: false,
-      });
-    },
-  );
-
-  it('opens the shared repair dialog for interactive calls', () => {
-    const emitSpy = jest.spyOn(appEventBus, 'emit');
-
-    convertDeviceError({
-      code: HardwareErrorCode.BlePeerRemovedPairingInformation,
-      connectId: 'PRO2_BLE',
-    });
-
-    expect(emitSpy).toHaveBeenCalledWith(
-      EAppEventBusNames.ShowHardwareErrorDialog,
-      expect.objectContaining({
-        errorType: HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR,
-        errorCode: HardwareErrorCode.BlePeerRemovedPairingInformation,
-      }),
-    );
-    emitSpy.mockRestore();
-  });
-
-  it('preserves the dedicated stale-bond code in the repair dialog payload', () => {
-    const emitSpy = jest.spyOn(appEventBus, 'emit');
-
-    convertDeviceError({
-      code: HardwareErrorCode.BleBondInvalid,
-      connectId: 'PRO2_BLE',
-    });
-
-    expect(emitSpy).toHaveBeenCalledWith(
-      EAppEventBusNames.ShowHardwareErrorDialog,
-      expect.objectContaining({
-        errorType: HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR,
-        errorCode: HardwareErrorCode.BleBondInvalid,
-      }),
-    );
-    emitSpy.mockRestore();
-  });
-
-  it('does not open the repair dialog for silent probes', () => {
-    const emitSpy = jest.spyOn(appEventBus, 'emit');
-
-    convertDeviceError(
-      {
-        code: HardwareErrorCode.BleDeviceBondError,
-        connectId: 'PRO2_BLE',
-      },
-      { silentMode: true },
-    );
-
-    expect(emitSpy).not.toHaveBeenCalledWith(
-      EAppEventBusNames.ShowHardwareErrorDialog,
-      expect.anything(),
-    );
-    emitSpy.mockRestore();
   });
 });
 

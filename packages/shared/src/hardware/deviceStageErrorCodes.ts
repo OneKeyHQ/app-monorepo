@@ -16,3 +16,21 @@ export const DEVICE_STAGE_DISCONNECTED_CODES = [
   HardwareErrorCode.BleScanError,
   HardwareErrorCode.BleTimeoutError,
 ];
+
+/**
+ * The failures a dedicated dialog already speaks for: the enable-passphrase
+ * prompt, the forced-update prompt, and
+ * the "Enable Bluetooth" family the SDK (and the Android pre-check) raise
+ * for Bluetooth off / no BLE permission / location services off — the
+ * stage stands down for these instead of landing a second notice under
+ * the sheet (OK-62113). Shared by the stage burst, which yields the stage,
+ * and the authenticity flow, which ends its run without a failure card, so
+ * "a dialog owns this" means the same thing on both sides.
+ */
+export const DEVICE_STAGE_DEDICATED_DIALOG_CODES = [
+  HardwareErrorCode.DeviceNotOpenedPassphrase,
+  HardwareErrorCode.NewFirmwareForceUpdate,
+  HardwareErrorCode.BlePermissionError,
+  HardwareErrorCode.BleLocationError,
+  HardwareErrorCode.BleLocationServicesDisabled,
+];
