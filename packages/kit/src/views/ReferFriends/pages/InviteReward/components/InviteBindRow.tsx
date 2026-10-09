@@ -71,26 +71,31 @@ export function InviteBindRow({
       <Skeleton.BodyMd w={240} />
     </XStack>
   ) : (
+    // A secondary entry: one quiet line, so it does not compete with the
+    // invite actions above it. It wraps on narrow screens. Once linked, it
+    // only states that.
     <XStack ai="center" gap="$1.5" flexWrap="wrap">
-      <SizableText size="$bodyMd" color="$textSubdued">
-        {isBound ? INVITE_COPY.boundTitle : INVITE_COPY.bindTitle}
-      </SizableText>
       {isBound ? (
         <SizableText size="$bodyMd" color="$textSubdued">
-          {`· ${INVITE_COPY.boundDescription}`}
+          {INVITE_COPY.bound}
         </SizableText>
       ) : (
-        <Button
-          testID={ReferFriendsTestIDs.inviteBindRow}
-          variant="tertiary"
-          size="small"
-          // The question stays subdued; the action reads as the action.
-          color="$text"
-          iconAfter="ChevronRightSmallOutline"
-          onPress={handlePress}
-        >
-          {INVITE_COPY.bindDescription}
-        </Button>
+        <>
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {INVITE_COPY.bindQuestion}
+          </SizableText>
+          <Button
+            testID={ReferFriendsTestIDs.inviteBindRow}
+            variant="tertiary"
+            size="small"
+            // The question stays subdued; the action reads as the action.
+            color="$text"
+            iconAfter="ChevronRightSmallOutline"
+            onPress={handlePress}
+          >
+            {INVITE_COPY.enterReferralCode}
+          </Button>
+        </>
       )}
     </XStack>
   );

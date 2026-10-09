@@ -1,40 +1,49 @@
-// Hardcoded English until copy review; then move to Lokalise keys.
+// Hardcoded English until copy review; then move to Lokalise keys. Each
+// entry is a whole sentence with named `{params}`, matching the planned key.
 export const INVITE_COPY = {
-  benefitsTab: 'Rewards',
-  benefitsEmptyTitle: 'No rewards yet',
-  benefitsEmptyDescription: 'Rewards you get as an invitee will show up here',
-  headline: 'Invite friends, earn rewards',
-  heroTitle: 'Invite friends, earn together',
-  heroYouEarn: 'You earn',
-  heroFriendsSave: 'Friends save',
+  perksTab: 'Perks',
+  perksEmptyTitle: 'No perks yet',
+  perksEmptyDescription: 'To get fee discounts, enter a referral code',
+  enterReferralCode: 'Enter referral code',
+  title: 'Invite friends, earn together',
+  // The rate line: what the referrer earns and what invitees save. Products
+  // with different rates read "up to" the highest; without an invitee
+  // discount only the referrer's part shows.
+  rateLine: 'You earn {rate} · Invitees save {inviteeRate}',
+  rateLineUpTo: 'You earn up to {rate} · Invitees save up to {inviteeRate}',
+  youEarn: 'You earn {rate}',
+  youEarnUpTo: 'You earn up to {rate}',
   earningsTitle: 'Earnings',
   copyLink: 'Copy link',
   inviteFriends: 'Invite friends',
-  upTo: 'Up to',
   manageCodes: 'Manage codes',
-  bindTitle: 'Invited by a friend?',
-  bindDescription: 'Enter their referral code',
-  boundTitle: 'Invited by a friend',
-  boundDescription: 'Referral code linked',
-  totalEarned: 'Total earned',
-  rewardsByProduct: 'Earnings by product',
+  bindQuestion: 'Invited by a friend?',
+  bound: 'Referral code linked',
+  nextPayout: 'Next payout {date}',
+  earningsByProduct: 'Earnings by product',
+  noEarnings: 'No earnings yet',
+  earningsEmptyHint: 'Earnings appear after invitees buy hardware or trade',
   payoutHistory: 'Payout history',
-  rewardsEmptyHint:
-    'Rewards show up here once friends you invite buy hardware or pay fees.',
   product: 'Product',
-  codesRemaining: (remaining: number, max: number) => {
-    if (remaining <= 0) {
-      return `You've used all ${max} codes`;
-    }
-    return remaining === 1
-      ? 'You can create 1 more code'
-      : `You can create ${remaining} more codes`;
-  },
+  // Per-product rate rows in the rate breakdown: what each rate applies to.
+  hardwareSalesRate: 'Hardware sales',
+  perpsFeesRate: 'Perps fees',
+  swapFeesRate: 'Swap fees',
+  defiFeesRate: 'DeFi fees',
+  inviteeColumn: 'Invitee',
+  // ICU plural in Lokalise:
+  // {count, plural, one {# more code available} other {# more codes available}}
+  codesRemaining: (count: number) =>
+    count === 1 ? '1 more code available' : `${count} more codes available`,
+  codesUsedUp: 'All {max} codes used',
+  // Facts on a code row, one phrase each so a narrow row wraps between them.
+  // ICU plural in Lokalise: {count, plural, one {# order} other {# orders}}
+  codeOrders: (count: number) => (count === 1 ? '1 order' : `${count} orders`),
+  // ICU plural in Lokalise: {count, plural, one {# wallet} other {# wallets}}
+  codeWallets: (count: number) =>
+    count === 1 ? '1 wallet' : `${count} wallets`,
+  codeEarned: '{amount} earned',
   codeDefault: 'Default',
-  codeStats: (orders: number, wallets: number) =>
-    `${orders} ${orders === 1 ? 'order' : 'orders'} · ${wallets} ${
-      wallets === 1 ? 'wallet' : 'wallets'
-    } ·`,
-  codeEarned: 'earned',
-  codeCreated: (date: string) => `Created ${date}`,
+  codeCreated: 'Created {date}',
+  walletName: 'Wallet {number}',
 } as const;

@@ -1,26 +1,26 @@
 // Hardcoded English until copy review; then move to Lokalise keys.
 export const LEVEL_COPY = {
-  levelKept: 'Level kept this month',
-  levelNotKept: 'Level not kept yet this month',
+  levelKept: 'Kept this month',
+  levelNotKept: 'Not kept yet this month',
   levelRules: 'Level rules',
-  targetReached: 'Target reached',
+  targetReached: 'Reached',
   allLevels: 'All levels',
-  commissionRatesTitle: 'Commission rates',
+  rates: 'Rates',
   levelDetails: 'Level details',
-  upgradeTo: (level: string) => `Upgrade to ${level}`,
-  nextLevel: (level: string) => `Next level: ${level}`,
+  upgradeTo: 'Upgrade to {level}',
+  nextLevel: 'Next level: {level}',
+  levelRates: '{level} rates',
   // Above the compact level table: the figures are monthly, and one met
   // target is enough to keep or reach a level.
-  tableRule: (hasChoice: boolean) =>
-    hasChoice ? 'Monthly amounts · meet any one' : 'Monthly amounts',
+  tableRule: 'Monthly · meet any one',
+  tableRuleSingle: 'Monthly',
   keepColumn: 'Keep',
   reachColumn: 'Reach',
   rateColumn: 'You / Invitee',
-  upgradeRule: (hasChoice: boolean) =>
-    hasChoice ? 'Meet any one this month' : 'Meet this target this month',
-  topLevel: "You're at the top level",
-  yourRatesAt: (level: string) => `Your rates at ${level}`,
-  toGo: (amount: string) => `${amount} to go`,
+  upgradeRule: 'Meet any one this month',
+  upgradeRuleSingle: 'Meet this target this month',
+  topLevel: 'Top level reached',
+  toGo: '{amount} to go',
 } as const;
 
 // Level-up targets are monthly; headings say "this month", so rows use short

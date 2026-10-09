@@ -23,6 +23,7 @@ import type {
 } from '@onekeyhq/shared/src/referralCode/type';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
+import { fillCopy, renderCopy } from '../../../copyTemplate';
 import { INVITE_COPY } from '../../../inviteCopy';
 import { REFERRAL_USD_CURRENCY_PROPS } from '../../shared/getRewardSummary';
 import {
@@ -117,27 +118,31 @@ function InviteCodeRow({
       {/* Separate text runs so a narrow row wraps between facts, not inside
           one. */}
       <XStack ai="center" columnGap="$1" flexWrap="wrap">
-        <SizableText size="$bodySm" color="$textSubdued">
-          {INVITE_COPY.codeStats(item.salesOrders, item.onchainWallets)}
-        </SizableText>
-        <XStack ai="center" gap="$1">
-          <Currency
-            size="$bodySmMedium"
-            formatter="value"
-            // Reward figures are shown in USD across the referral pages.
-            targetCurrency={REFERRAL_USD_CURRENCY_PROPS.targetCurrency}
-          >
-            {item.cumulativeRewardsFiatValue}
-          </Currency>
-          <SizableText size="$bodySm" color="$textSubdued">
-            {`${INVITE_COPY.codeEarned} ·`}
+        {[
+          INVITE_COPY.codeOrders(item.salesOrders),
+          INVITE_COPY.codeWallets(item.onchainWallets),
+          renderCopy(INVITE_COPY.codeEarned, {
+            amount: (
+              <Currency
+                size="$bodySmMedium"
+                formatter="value"
+                // Reward figures are shown in USD across the referral pages.
+                targetCurrency={REFERRAL_USD_CURRENCY_PROPS.targetCurrency}
+              >
+                {item.cumulativeRewardsFiatValue}
+              </Currency>
+            ),
+          }),
+          fillCopy(INVITE_COPY.codeCreated, {
+            date: formatDate(item.createdAt, { hideTimeForever: true }),
+          }),
+        ].map((fact, index) => (
+          // oxlint-disable-next-line react/no-array-index-key
+          <SizableText key={index} size="$bodySm" color="$textSubdued">
+            {index > 0 ? '· ' : null}
+            {fact}
           </SizableText>
-        </XStack>
-        <SizableText size="$bodySm" color="$textSubdued">
-          {INVITE_COPY.codeCreated(
-            formatDate(item.createdAt, { hideTimeForever: true }),
-          )}
-        </SizableText>
+        ))}
       </XStack>
     </YStack>
   );
@@ -219,10 +224,11 @@ export function InviteCodeList({
   return (
     <YStack>
       <SizableText size="$bodyMd" color="$textSubdued" pb="$2">
-        {INVITE_COPY.codesRemaining(
-          codeListData.remainingCodes,
-          codeListData.maxCodes,
-        )}
+        {codeListData.remainingCodes > 0
+          ? INVITE_COPY.codesRemaining(codeListData.remainingCodes)
+          : fillCopy(INVITE_COPY.codesUsedUp, {
+              max: codeListData.maxCodes,
+            })}
       </SizableText>
       <YStack overflow="hidden" {...cardStyle}>
         {items.map((item, index) => (

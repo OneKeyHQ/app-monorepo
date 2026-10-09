@@ -5,6 +5,8 @@ import { Image } from 'react-native';
 import { QRCode, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ONEKEY_LOGO_URL } from '@onekeyhq/kit/src/views/Receive/components/ReceiveShare/constants';
 
+import { renderCopy } from '../../pages/InviteReward/copyTemplate';
+
 import { REFERRAL_SHARE_CARD } from './constants';
 import { REFERRAL_SHARE_COPY } from './referralShareCopy';
 
@@ -67,18 +69,18 @@ export const ShareContentRenderer = memo(
             lineHeight={card.headline.lineHeight}
             fontWeight="600"
           >
-            {copy.headlineLead}
-            {copy.headlineRate ? (
-              <SizableText
-                color={card.accentColor}
-                fontSize={card.headline.size}
-                lineHeight={card.headline.lineHeight}
-                fontWeight="600"
-              >
-                {copy.headlineRate}
-              </SizableText>
-            ) : null}
-            {copy.headlineTail}
+            {renderCopy(copy.headline, {
+              rate: (
+                <SizableText
+                  color={card.accentColor}
+                  fontSize={card.headline.size}
+                  lineHeight={card.headline.lineHeight}
+                  fontWeight="600"
+                >
+                  {copy.rate}
+                </SizableText>
+              ),
+            })}
           </SizableText>
           <YStack mt={card.code.gapAbove}>
             <SizableText

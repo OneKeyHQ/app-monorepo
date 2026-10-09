@@ -26,6 +26,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteLevelDetail } from '@onekeyhq/shared/src/referralCode/type';
 
 import { ReferFriendsTestIDs } from '../../../testIDs';
+import { fillCopy } from '../copyTemplate';
 
 import { useCurrentLevelCardFromDetail } from './CurrentLevelCard/hooks/useCurrentLevelCard';
 import {
@@ -59,11 +60,13 @@ function LevelSummary({
                 <Image w="$4" h="$4" src={nextLevel.icon} />
               ) : null}
               <SizableText size="$bodyMdMedium">
-                {LEVEL_COPY.nextLevel(nextLevel.label)}
+                {fillCopy(LEVEL_COPY.nextLevel, { level: nextLevel.label })}
               </SizableText>
             </XStack>
             <SizableText size="$bodySm" color="$textSubdued">
-              {LEVEL_COPY.upgradeRule(upgradeTargets.length > 1)}
+              {upgradeTargets.length > 1
+                ? LEVEL_COPY.upgradeRule
+                : LEVEL_COPY.upgradeRuleSingle}
             </SizableText>
           </YStack>
           {upgradeTargets.map((target) => (

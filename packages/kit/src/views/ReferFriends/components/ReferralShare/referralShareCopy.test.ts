@@ -6,10 +6,8 @@ import {
 describe('getReferralShareCopy', () => {
   it('leads with the invitee discount when there is one', () => {
     const copy = getReferralShareCopy('10%');
-    expect(
-      `${copy.headlineLead}${copy.headlineRate ?? ''}${copy.headlineTail}`,
-    ).toBe('Get up to 10% off fees on OneKey');
-    expect(copy.headlineRate).toBe('10%');
+    expect(copy.headline).toBe('Get up to {rate} off fees on OneKey');
+    expect(copy.rate).toBe('10%');
     expect(copy.shareText).toBe(
       'Join me on OneKey and get up to 10% off fees.',
     );
@@ -19,10 +17,8 @@ describe('getReferralShareCopy', () => {
     'falls back to a plain invitation without a discount (%p)',
     (rate) => {
       const copy = getReferralShareCopy(rate);
-      expect(copy.headlineRate).toBeUndefined();
-      expect(`${copy.headlineLead}${copy.headlineTail}`).toBe(
-        'Join me on OneKey',
-      );
+      expect(copy.rate).toBeUndefined();
+      expect(copy.headline).toBe('Join me on OneKey');
       expect(copy.shareText).toBe('Join me on OneKey.');
     },
   );

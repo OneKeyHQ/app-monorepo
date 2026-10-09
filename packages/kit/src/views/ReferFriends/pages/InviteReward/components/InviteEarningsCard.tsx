@@ -25,6 +25,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { CompactFieldRow } from '../../../components/CompactFieldRow';
 import { ReferFriendsTestIDs } from '../../../testIDs';
+import { fillCopy } from '../copyTemplate';
 import { INVITE_COPY } from '../inviteCopy';
 
 import { CardTextAction } from './CardTextAction';
@@ -46,7 +47,6 @@ interface IEarningsLabels {
   undistributed: string;
   distributed: string;
   cumulative: string;
-  nextDistribution: string;
   history: string;
   payoutAddress: string;
 }
@@ -209,7 +209,9 @@ function DesktopEarnings({
             <LeadAmount amount={earnings.cumulative} />
             {earnings.nextDistribution ? (
               <NextPayoutPill
-                label={`${labels.nextDistribution} ${earnings.nextDistribution}`}
+                label={fillCopy(INVITE_COPY.nextPayout, {
+                  date: earnings.nextDistribution,
+                })}
               />
             ) : null}
           </YStack>
@@ -323,7 +325,9 @@ function CompactEarnings({
           label={labels.undistributed}
           hint={
             earnings.nextDistribution
-              ? `${labels.nextDistribution} ${earnings.nextDistribution}`
+              ? fillCopy(INVITE_COPY.nextPayout, {
+                  date: earnings.nextDistribution,
+                })
               : null
           }
         >
@@ -392,9 +396,8 @@ export function InviteEarningsCard({
       id: ETranslations.referral_undistributed,
     }),
     distributed: intl.formatMessage({ id: ETranslations.referral_distributed }),
-    cumulative: INVITE_COPY.totalEarned,
-    nextDistribution: intl.formatMessage({
-      id: ETranslations.referral_next_distribution,
+    cumulative: intl.formatMessage({
+      id: ETranslations.earn_referral_total_earned,
     }),
     history: INVITE_COPY.payoutHistory,
     payoutAddress: intl.formatMessage({

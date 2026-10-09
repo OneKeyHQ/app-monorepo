@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  Icon,
   Image,
   Popover,
   SizableText,
@@ -18,6 +19,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteLevelDetail } from '@onekeyhq/shared/src/referralCode/type';
 
 import { ReferFriendsTestIDs } from '../../../testIDs';
+import { fillCopy, renderCopy } from '../copyTemplate';
 import { INVITE_COPY } from '../inviteCopy';
 
 import { useCurrentLevelCardFromDetail } from './CurrentLevelCard/hooks/useCurrentLevelCard';
@@ -28,7 +30,10 @@ import {
 import { INVITE_POPOVER_PANEL_PROPS } from './useInviteCardStyle';
 
 import type { ICurrentLevelCardProps } from './CurrentLevelCard/types';
-import type { IInviteValueRow } from './getInviteValueLine';
+import type {
+  IInviteValueRow,
+  IInviteValueSummary,
+} from './getInviteValueLine';
 
 function RateBreakdown({
   title,
@@ -149,7 +154,7 @@ export function RatePopover({
   const navigateToReferralLevel = useNavigateToReferralLevel();
   const { gtMd } = useMedia();
   const { levelLabel, levelIcon, summary } = valueSummary;
-  const title = LEVEL_COPY.yourRatesAt(levelLabel);
+  const title = fillCopy(LEVEL_COPY.levelRates, { level: levelLabel });
 
   if (!summary) {
     return trigger;
@@ -170,9 +175,7 @@ export function RatePopover({
           youLabel={intl.formatMessage({
             id: ETranslations.referral_upgrade_you,
           })}
-          friendLabel={intl.formatMessage({
-            id: ETranslations.referral_upgrade_user,
-          })}
+          friendLabel={INVITE_COPY.inviteeColumn}
           onOpenLevels={() => {
             closePopover();
             void navigateToReferralLevel();
@@ -183,39 +186,59 @@ export function RatePopover({
   );
 }
 
-export function InviteValueLine({
-  levelLabel,
-  levelIcon,
+// "You earn 10% · Invitees save 10%" as one sentence (one key once
+// translated), with the figures in green. Products with different rates
+// read "up to"; without an invitee discount only the referrer's part shows.
+export function RateLine({
   summary,
-}: IInviteValueSummaryResult) {
+  size = '$bodyMd',
+  textAlign,
+}: {
+  summary: IInviteValueSummary;
+  size?: '$bodyMd' | '$bodyLg';
+  textAlign?: 'center';
+}) {
+  const highlight = (value: string) => (
+    <SizableText size={size} fontWeight="600" color="$textSuccess">
+      {value}
+    </SizableText>
+  );
+  let template: string;
+  if (summary.friendRate) {
+    template = summary.isUniform
+      ? INVITE_COPY.rateLine
+      : INVITE_COPY.rateLineUpTo;
+  } else {
+    template = summary.isUniform
+      ? INVITE_COPY.youEarn
+      : INVITE_COPY.youEarnUpTo;
+  }
+  return (
+    <SizableText size={size} color="$textSubdued" textAlign={textAlign}>
+      {renderCopy(template, {
+        rate: highlight(summary.rate),
+        inviteeRate: highlight(summary.friendRate ?? ''),
+      })}
+    </SizableText>
+  );
+}
+
+// Pointer layouts' rate line under the invite card title; it opens the
+// per-product breakdown.
+export function InviteValueLine(valueSummary: IInviteValueSummaryResult) {
+  const { summary } = valueSummary;
   if (!summary) {
     return null;
   }
-
   return (
-    <XStack ai="center" flexWrap="wrap" gap="$1">
-      <SizableText size="$bodyMd" color="$textSubdued">
-        {summary.lead}
-      </SizableText>
-      <RatePopover
-        valueSummary={{ levelLabel, levelIcon, summary }}
-        trigger={
-          <SizableText
-            size="$bodyMdMedium"
-            // The one figure this card wants noticed; same green as the
-            // intro page amounts.
-            color="$textSuccess"
-            textDecorationLine="underline"
-            textDecorationStyle="dotted"
-            cursor="default"
-          >
-            {summary.rate}
-          </SizableText>
-        }
-      />
-      <SizableText size="$bodyMd" color="$textSubdued">
-        {summary.products}
-      </SizableText>
-    </XStack>
+    <RatePopover
+      valueSummary={valueSummary}
+      trigger={
+        <XStack ai="center" gap="$1" cursor="default">
+          <RateLine summary={summary} />
+          <Icon name="InfoCircleOutline" size="$4" color="$iconSubdued" />
+        </XStack>
+      }
+    />
   );
 }

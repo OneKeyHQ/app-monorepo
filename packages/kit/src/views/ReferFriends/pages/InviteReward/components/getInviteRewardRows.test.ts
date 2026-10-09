@@ -96,4 +96,20 @@ describe('getInviteRewardRows', () => {
       hasReward: true,
     });
   });
+
+  it('drops a product the backend turns off unless it still holds earnings', () => {
+    const configs = {
+      Swap: { enabled: false },
+      Earn: { enabled: false },
+      Onchain: { enabled: false },
+    };
+    const { visibleRows, foldedRows } = getInviteRewardRows(
+      { Onchain: { swap: [reward('3')] } },
+      configs,
+    );
+
+    // Swap is off but has earnings, so it stays; DeFi is off and empty.
+    expect(visibleRows.map((row) => row.subject)).toEqual(['swap']);
+    expect(foldedRows.map((row) => row.subject)).toEqual(['hardware', 'perps']);
+  });
 });

@@ -21,7 +21,7 @@ function useReferralTabs() {
       },
       {
         value: EReferralPageTab.benefits,
-        label: INVITE_COPY.benefitsTab,
+        label: INVITE_COPY.perksTab,
         testID: ReferFriendsTestIDs.benefitsTab,
       },
     ],

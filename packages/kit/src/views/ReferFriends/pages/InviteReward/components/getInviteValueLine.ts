@@ -1,5 +1,7 @@
 import { sortCommissionRateItems } from '@onekeyhq/kit/src/views/ReferFriends/utils';
 
+import { INVITE_COPY } from '../inviteCopy';
+
 export interface IInviteValueLineItem {
   subject: string;
   you: number;
@@ -13,15 +15,15 @@ export interface IInviteValueLineConfig {
   enabled?: boolean;
 }
 
-// One row per backend rate subject: the short name read inside the sentence
-// and the long name labelling the breakdown. `Earn` and `Onchain` are both
-// DeFi, so they collapse into one row.
-const SUBJECT_NAMES: Record<string, { short: string; long: string }> = {
-  HardwareSales: { short: 'hardware', long: 'Hardware sales' },
-  Perp: { short: 'Perps', long: 'Perps fees' },
-  Swap: { short: 'Swap', long: 'Swap fees' },
-  Earn: { short: 'DeFi', long: 'DeFi fees' },
-  Onchain: { short: 'DeFi', long: 'DeFi fees' },
+// One row per backend rate subject, named by what the rate applies to.
+// `Earn` and `Onchain` are both DeFi, so they collapse into one row. A
+// subject the client does not know is left out rather than shown raw.
+const SUBJECT_NAMES: Record<string, string> = {
+  HardwareSales: INVITE_COPY.hardwareSalesRate,
+  Perp: INVITE_COPY.perpsFeesRate,
+  Swap: INVITE_COPY.swapFeesRate,
+  Earn: INVITE_COPY.defiFeesRate,
+  Onchain: INVITE_COPY.defiFeesRate,
 };
 
 function isKnownSubject(subject: string) {
@@ -30,13 +32,6 @@ function isKnownSubject(subject: string) {
 
 function formatRate(value: number) {
   return `${Math.round(value * 100) / 100}%`;
-}
-
-function joinNames(names: string[]) {
-  if (names.length <= 1) {
-    return names.join('');
-  }
-  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 }
 
 export function selectInviteValueLineItems({
@@ -64,39 +59,38 @@ export interface IInviteValueRow {
   subject: string;
   label: string;
   you: string;
-  // Null when the friend gets nothing for this product.
+  // Null when the invitee gets nothing for this product.
   friend: string | null;
 }
 
 export interface IInviteValueSummary {
-  // "Earn 10%" or "Earn up to 18%"; the rate is the hover/tap target.
-  lead: string;
+  // The highest referrer rate; "up to" it when products differ.
   rate: string;
   // Highest invitee rate across products, or null when invitees get none;
-  // the compact hero's "Friends save" and the share card headline use it.
+  // the rate line's "Invitees save" and the share card headline use it.
   friendRate: string | null;
   isUniform: boolean;
-  products: string;
   rows: IInviteValueRow[];
 }
 
-// One sentence names every product that pays, so none looks unpaid; the
-// per-product split lives in the breakdown.
+// The rate line's figures across every product that pays; the per-product
+// split lives in the breakdown.
 export function getInviteValueSummary(
   items: readonly IInviteValueLineItem[],
 ): IInviteValueSummary | null {
   const seen = new Set<string>();
   const rows = sortCommissionRateItems([...items]).flatMap((item) => {
-    const names = SUBJECT_NAMES[item.subject];
-    // A disabled or 0% product is not something to advertise.
-    if (!names || !item.enabled || !(item.you > 0) || seen.has(names.long)) {
+    const name = SUBJECT_NAMES[item.subject];
+    // A disabled or 0% product is not something to advertise, so a product
+    // the backend turns off drops out of every rate line on its own.
+    if (!name || !item.enabled || !(item.you > 0) || seen.has(name)) {
       return [];
     }
-    seen.add(names.long);
+    seen.add(name);
     return [
       {
         subject: item.subject,
-        label: names.long,
+        label: name,
         you: formatRate(item.you),
         friend:
           item.invitee !== undefined && item.invitee > 0
@@ -115,13 +109,9 @@ export function getInviteValueSummary(
   const isUniform = rows.every((row) => row.youValue === maxRate);
   const maxFriendRate = Math.max(...rows.map((row) => row.friendValue));
   return {
-    lead: isUniform ? 'Earn' : 'Earn up to',
     rate: formatRate(maxRate),
     friendRate: maxFriendRate > 0 ? formatRate(maxFriendRate) : null,
     isUniform,
-    products: `on ${joinNames(
-      rows.map((row) => SUBJECT_NAMES[row.subject].short),
-    )}`,
     rows: rows.map(
       ({ youValue: _youValue, friendValue: _friendValue, ...row }) => row,
     ),

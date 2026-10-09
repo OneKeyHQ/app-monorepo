@@ -192,7 +192,7 @@ export function InviteLinkHero({
     <YStack gap="$4">
       <XStack ai="flex-start" gap="$3">
         <YStack flex={1} gap="$1">
-          <SizableText size="$headingLg">{INVITE_COPY.headline}</SizableText>
+          <SizableText size="$headingLg">{INVITE_COPY.title}</SizableText>
           <InviteValueLine {...valueSummary} />
         </YStack>
         <ReferralListLink />

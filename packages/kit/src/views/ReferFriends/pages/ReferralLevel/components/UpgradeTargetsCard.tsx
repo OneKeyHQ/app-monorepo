@@ -9,6 +9,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
+import { fillCopy } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/copyTemplate';
 import type { IInviteLevelItem } from '@onekeyhq/shared/src/referralCode/type';
 
 import { LEVEL_COPY, LEVEL_TARGET_SHORT_LABELS } from '../levelCopy';
@@ -42,7 +43,9 @@ export function formatLevelTargetRemaining(
 ) {
   return target.isReached
     ? LEVEL_COPY.targetReached
-    : LEVEL_COPY.toGo(`${formatFiatExact(target.remaining)} ${currencyCode}`);
+    : fillCopy(LEVEL_COPY.toGo, {
+        amount: `${formatFiatExact(target.remaining)} ${currencyCode}`,
+      });
 }
 
 // Each target reads as its name, "current / target" and the bar, like the
@@ -153,11 +156,13 @@ export function UpgradeTargetsSection({
               <Image w="$5" h="$5" src={nextLevel.icon} />
             ) : null}
             <SizableText size="$headingMd" numberOfLines={1} flexShrink={1}>
-              {LEVEL_COPY.upgradeTo(nextLevel.label)}
+              {fillCopy(LEVEL_COPY.upgradeTo, { level: nextLevel.label })}
             </SizableText>
           </XStack>
           <SizableText size="$bodyMd" color="$textSubdued">
-            {LEVEL_COPY.upgradeRule(targets.length > 1)}
+            {targets.length > 1
+              ? LEVEL_COPY.upgradeRule
+              : LEVEL_COPY.upgradeRuleSingle}
           </SizableText>
         </YStack>
         {targets.map((target) => (
@@ -176,10 +181,10 @@ export function UpgradeTargetsSection({
       <XStack ai="center" gap="$2" flexWrap="wrap">
         {nextLevel.icon ? <Image w="$5" h="$5" src={nextLevel.icon} /> : null}
         <SizableText size="$headingMd">
-          {LEVEL_COPY.upgradeTo(nextLevel.label)}
+          {fillCopy(LEVEL_COPY.upgradeTo, { level: nextLevel.label })}
         </SizableText>
         <SizableText size="$bodyMd" color="$textSubdued">
-          {`· ${LEVEL_COPY.upgradeRule(targets.length > 1)}`}
+          {`· ${targets.length > 1 ? LEVEL_COPY.upgradeRule : LEVEL_COPY.upgradeRuleSingle}`}
         </SizableText>
       </XStack>
       {/* The "meet any one" rule above already says these are alternatives,

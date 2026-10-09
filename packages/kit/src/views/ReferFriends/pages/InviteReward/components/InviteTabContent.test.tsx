@@ -366,7 +366,7 @@ describe('InviteTabContent entry points', () => {
     mockMd = true;
     renderTab();
 
-    expect(screen.getByText(INVITE_COPY.heroTitle)).toBeTruthy();
+    expect(screen.getByText(INVITE_COPY.title)).toBeTruthy();
     expect(
       screen.getByTestId(ReferFriendsTestIDs.inviteLevelPill),
     ).toBeTruthy();

@@ -325,7 +325,7 @@ export function LevelAccordionItem({
     headerNode = (
       // Same wording as the level card above, so the rule reads one way.
       <SizableText size="$bodyMdMedium" color="$text">
-        {LEVEL_COPY.upgradeRule(true)}
+        {LEVEL_COPY.upgradeRule}
       </SizableText>
     );
   } else if (subjectGroups.length === 1) {
@@ -421,7 +421,9 @@ export function LevelAccordionItem({
             <YStack gap="$2">
               {subjectGroups.length > 0 ? (
                 <SizableText size="$bodyMd" color="$textSubdued">
-                  {LEVEL_COPY.tableRule(isMultiSubject)}
+                  {isMultiSubject
+                    ? LEVEL_COPY.tableRule
+                    : LEVEL_COPY.tableRuleSingle}
                 </SizableText>
               ) : null}
               <LevelRuleTable
@@ -456,7 +458,7 @@ export function LevelAccordionItem({
 
               <YStack gap="$2">
                 <SizableText size="$bodyMdMedium">
-                  {LEVEL_COPY.commissionRatesTitle}
+                  {LEVEL_COPY.rates}
                 </SizableText>
 
                 <XStack gap="$3">

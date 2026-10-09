@@ -12,25 +12,39 @@ const GOLD_RATES: IInviteValueLineItem[] = [
   { subject: 'HardwareSales', you: 18, invitee: 0, enabled: true },
 ];
 
-function sentence(items: IInviteValueLineItem[]) {
+// The figures the rate line reads: "up to" the top rate when products
+// differ, the invitee's best rate, and which products pay.
+function figures(items: IInviteValueLineItem[]) {
   const summary = getInviteValueSummary(items);
-  return summary ? `${summary.lead} ${summary.rate} ${summary.products}` : null;
+  return summary
+    ? {
+        rate: `${summary.isUniform ? '' : 'up to '}${summary.rate}`,
+        friendRate: summary.friendRate,
+        products: summary.rows.map((row) => row.label),
+      }
+    : null;
 }
 
 describe('getInviteValueSummary', () => {
-  it('names every paying product and leads with the top rate', () => {
-    expect(sentence(GOLD_RATES)).toBe(
-      'Earn up to 18% on hardware, Perps, Swap and DeFi',
-    );
+  it('leads with the top rate across every paying product', () => {
+    expect(figures(GOLD_RATES)).toEqual({
+      rate: 'up to 18%',
+      friendRate: '10%',
+      products: ['Hardware sales', 'Perps fees', 'Swap fees', 'DeFi fees'],
+    });
   });
 
   it('drops "up to" when every product pays the same', () => {
     expect(
-      sentence([
+      figures([
         { subject: 'HardwareSales', you: 10, enabled: true },
         { subject: 'Perp', you: 10, enabled: true },
       ]),
-    ).toBe('Earn 10% on hardware and Perps');
+    ).toEqual({
+      rate: '10%',
+      friendRate: null,
+      products: ['Hardware sales', 'Perps fees'],
+    });
   });
 
   it('lists the split in canonical order with no friend reward as null', () => {
@@ -49,14 +63,14 @@ describe('getInviteValueSummary', () => {
 
   it('drops disabled, zero and unknown subjects, and merges DeFi keys', () => {
     expect(
-      sentence([
+      figures([
         { subject: 'Swap', you: 5, enabled: false },
         { subject: 'HardwareSales', you: 0, enabled: true },
         { subject: 'Unknown', you: 30, enabled: true },
         { subject: 'Earn', you: 10.5, enabled: true },
         { subject: 'Onchain', you: 12, enabled: true },
       ]),
-    ).toBe('Earn 10.5% on DeFi');
+    ).toEqual({ rate: '10.5%', friendRate: null, products: ['DeFi fees'] });
   });
 
   it('returns null when nothing pays', () => {

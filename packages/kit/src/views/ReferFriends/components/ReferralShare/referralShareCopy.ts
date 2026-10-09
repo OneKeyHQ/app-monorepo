@@ -1,40 +1,45 @@
+import { fillCopy } from '../../pages/InviteReward/copyTemplate';
+
 // Hardcoded English until copy review; then move to Lokalise keys.
 export const REFERRAL_SHARE_COPY = {
   brand: 'OneKey',
   codeLabel: 'Referral code',
   scanToJoin: 'Scan to join OneKey',
+  headline: 'Get up to {rate} off fees on OneKey',
+  headlineNoDiscount: 'Join me on OneKey',
+  shareText: 'Join me on OneKey and get up to {rate} off fees.',
+  shareTextNoDiscount: 'Join me on OneKey.',
   x: 'X',
   telegram: 'Telegram',
 } as const;
 
 export interface IReferralShareCopy {
-  // The card headline in three runs so the rate can be highlighted:
-  // "Get up to " + "10%" + " off fees on OneKey".
-  headlineLead: string;
-  headlineRate?: string;
-  headlineTail: string;
+  // The card headline as one sentence; `{rate}` is highlighted where it
+  // appears, so translations can place it anywhere.
+  headline: string;
+  rate?: string;
   // The message that goes with the link on X and Telegram.
   shareText: string;
 }
 
-// The card speaks to the friend being invited, so it leads with what they
-// get: the best invitee discount across products. Without one it falls back
-// to a plain invitation rather than promising a discount.
+// The card speaks to the invitee, so it leads with what they get: the best
+// invitee discount across products. Without one it falls back to a plain
+// invitation rather than promising a discount.
 export function getReferralShareCopy(
   inviteeRate: string | null | undefined,
 ): IReferralShareCopy {
   if (inviteeRate) {
     return {
-      headlineLead: 'Get up to ',
-      headlineRate: inviteeRate,
-      headlineTail: ' off fees on OneKey',
-      shareText: `Join me on OneKey and get up to ${inviteeRate} off fees.`,
+      headline: REFERRAL_SHARE_COPY.headline,
+      rate: inviteeRate,
+      shareText: fillCopy(REFERRAL_SHARE_COPY.shareText, {
+        rate: inviteeRate,
+      }),
     };
   }
   return {
-    headlineLead: 'Join me on OneKey',
-    headlineTail: '',
-    shareText: 'Join me on OneKey.',
+    headline: REFERRAL_SHARE_COPY.headlineNoDiscount,
+    shareText: REFERRAL_SHARE_COPY.shareTextNoDiscount,
   };
 }
 

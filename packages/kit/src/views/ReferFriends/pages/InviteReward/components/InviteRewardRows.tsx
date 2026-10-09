@@ -23,11 +23,13 @@ import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 
 import { ReferralCardEmpty } from '../../../components/ReferralCardEmpty';
 import { ReferFriendsTestIDs } from '../../../testIDs';
+import { fillCopy } from '../copyTemplate';
 import { INVITE_COPY } from '../inviteCopy';
 
 import {
   type IInviteRewardRow,
   type IInviteRewardSubject,
+  INVITE_REWARD_RATE_SUBJECTS,
   INVITE_REWARD_SUBJECT_ICON,
   getInviteRewardRows,
 } from './getInviteRewardRows';
@@ -253,7 +255,7 @@ function DesktopRewardRow({
           </SizableText>
           {rate ? (
             <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-              {`${INVITE_COPY.heroYouEarn} ${rate}`}
+              {fillCopy(INVITE_COPY.youEarn, { rate })}
             </SizableText>
           ) : null}
         </YStack>
@@ -360,7 +362,7 @@ function RewardsEmpty({
   return (
     <ReferralCardEmpty
       {...cardStyle}
-      description={INVITE_COPY.rewardsEmptyHint}
+      description={INVITE_COPY.earningsEmptyHint}
       buttonProps={
         onCopyLink
           ? {
@@ -409,15 +411,6 @@ function useOpenInviteRewardSubject(earnTitle: string) {
   );
 }
 
-// Backend rate subjects behind each reward row; DeFi rates may arrive under
-// either name.
-const RATE_SUBJECTS: Record<IInviteRewardSubject, string[]> = {
-  hardware: ['HardwareSales'],
-  perps: ['Perp'],
-  swap: ['Swap'],
-  defi: ['Earn', 'Onchain'],
-};
-
 export function InviteRewardRows({
   summaryInfo,
   valueSummary,
@@ -430,7 +423,10 @@ export function InviteRewardRows({
   const { md } = useMedia();
   const cardStyle = useInviteHomeCardStyle();
   const [isFoldedOpen, setIsFoldedOpen] = useState(false);
-  const rows = useMemo(() => getInviteRewardRows(summaryInfo), [summaryInfo]);
+  const rows = useMemo(
+    () => getInviteRewardRows(summaryInfo, summaryInfo.rebateConfig.configs),
+    [summaryInfo],
+  );
   const { copyLink } = useReferralCodeCard({
     inviteUrl: summaryInfo.inviteUrl,
     inviteCode: summaryInfo.inviteCode,
@@ -442,7 +438,7 @@ export function InviteRewardRows({
   const rateFor = useCallback(
     (subject: IInviteRewardSubject) =>
       rateRows?.find((rateRow) =>
-        RATE_SUBJECTS[subject].includes(rateRow.subject),
+        INVITE_REWARD_RATE_SUBJECTS[subject].includes(rateRow.subject),
       )?.you,
     [rateRows],
   );
@@ -468,9 +464,7 @@ export function InviteRewardRows({
       id: ETranslations.referral_hw_pending_pop,
     }),
   };
-  const noRewardLabel = intl.formatMessage({
-    id: ETranslations.referral_no_reward,
-  });
+  const noRewardLabel = INVITE_COPY.noEarnings;
   const foldedTitle = rows.foldedRows
     .map((row) => titleFor(row.subject))
     .join(' · ');
@@ -492,7 +486,7 @@ export function InviteRewardRows({
       // breakdown; the section title matches the app's other section titles.
       <YStack px="$pagePadding" pt="$10" gap="$3">
         <SizableText size="$headingLg">
-          {INVITE_COPY.rewardsByProduct}
+          {INVITE_COPY.earningsByProduct}
         </SizableText>
         {hasAnyData ? (
           <YStack>
@@ -541,7 +535,7 @@ export function InviteRewardRows({
   // under the earnings card it breaks down; the page sets the spacing.
   const compactTitle = (
     <SizableText size="$bodyMdMedium" color="$textSubdued">
-      {INVITE_COPY.rewardsByProduct}
+      {INVITE_COPY.earningsByProduct}
     </SizableText>
   );
 

@@ -9,7 +9,7 @@ import { ReferFriendsTestIDs } from '../../../testIDs';
 import { INVITE_COPY } from '../inviteCopy';
 
 import { InviteLevelPill } from './InviteLevelPill';
-import { RatePopover } from './InviteValueLine';
+import { RateLine, RatePopover } from './InviteValueLine';
 
 import type { ICurrentLevelCardProps } from './CurrentLevelCard/types';
 import type { IInviteValueSummaryResult } from './InviteValueLine';
@@ -29,7 +29,6 @@ export function InviteCompactHero({
   animationControlRef?: Ref<IInviteCodeStepImageControl>;
 }) {
   const { summary } = valueSummary;
-  const upTo = summary && !summary.isUniform ? `${INVITE_COPY.upTo} ` : '';
 
   return (
     <YStack ai="center" gap="$3">
@@ -44,7 +43,7 @@ export function InviteCompactHero({
       />
       <YStack ai="center" gap="$2">
         <SizableText size="$heading2xl" textAlign="center">
-          {INVITE_COPY.heroTitle}
+          {INVITE_COPY.title}
         </SizableText>
         {summary ? (
           <RatePopover
@@ -54,25 +53,9 @@ export function InviteCompactHero({
                 testID={ReferFriendsTestIDs.inviteHeroRate}
                 ai="center"
                 jc="center"
-                flexWrap="wrap"
                 gap="$1"
               >
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {INVITE_COPY.heroYouEarn}
-                </SizableText>
-                <SizableText size="$bodyMdMedium" color="$textSuccess">
-                  {`${upTo}${summary.rate}`}
-                </SizableText>
-                {summary.friendRate ? (
-                  <>
-                    <SizableText size="$bodyMd" color="$textSubdued">
-                      {`· ${INVITE_COPY.heroFriendsSave}`}
-                    </SizableText>
-                    <SizableText size="$bodyMdMedium" color="$textSuccess">
-                      {`${upTo}${summary.friendRate}`}
-                    </SizableText>
-                  </>
-                ) : null}
+                <RateLine summary={summary} textAlign="center" />
                 <Icon name="InfoCircleOutline" size="$4" color="$iconSubdued" />
               </XStack>
             }
