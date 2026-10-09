@@ -8,6 +8,7 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
+import type { ITradingViewChartMode } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 import {
   TRADING_VIEW_CHART_CONTROLS_HEIGHT,
   TradingViewChartModeSelect,
@@ -62,10 +63,13 @@ function PerpNativeCandles({
 }
 
 export function PerpCandles({
+  chartMode,
   collapseChartExpandSignal,
   onTouchScroll,
   onInteractionOverlayOpenChange,
 }: {
+  // The workspace owns the selector when it supplies a chart mode.
+  chartMode?: ITradingViewChartMode;
   collapseChartExpandSignal?: number;
   onTouchScroll?: (deltaY: number) => void;
   onInteractionOverlayOpenChange?: (isOpen: boolean) => void;
@@ -86,7 +90,10 @@ export function PerpCandles({
   }
   const [{ reloadHook }] = usePerpsCandlesWebviewReloadHookAtom();
   const [{ chartExpanded = false }, setLayoutState] = usePerpsLayoutStateAtom();
-  const [isTradingViewNative, setIsTradingViewNative] = useState(false);
+  const [localChartMode, setLocalChartMode] =
+    useState<ITradingViewChartMode>('tradingView');
+  const isTradingViewNative = (chartMode ?? localChartMode) === 'native';
+  const showChartModeSelect = chartMode === undefined;
   const [isMobileChartFullscreen, setIsMobileChartFullscreen] = useState(false);
   const [isChartInteracting, setIsChartInteracting] = useState(false);
   const [isChartResizing, setIsChartResizing] = useState(false);
@@ -155,14 +162,16 @@ export function PerpCandles({
     setIsChartInteracting(false);
     setIsChartResizing(false);
     setIsMobileChartFullscreen(false);
-  }, [activeTradeInstrument.coin]);
+  }, [activeTradeInstrument.coin, isTradingViewNative]);
   const handleChartSwitch = useCallback(() => {
     // The legacy chart owns its expand state internally and remounts collapsed.
     handleFullscreenChange(false);
     onInteractionOverlayOpenChange?.(false);
     setIsChartInteracting(false);
     setIsChartResizing(false);
-    setIsTradingViewNative((current) => !current);
+    setLocalChartMode((current) =>
+      current === 'native' ? 'tradingView' : 'native',
+    );
   }, [handleFullscreenChange, onInteractionOverlayOpenChange]);
 
   useEffect(() => {
@@ -178,7 +187,7 @@ export function PerpCandles({
 
   const content = (
     <Stack w="100%" h="100%" flex={1} minHeight={0}>
-      {!isTradingViewNative ? (
+      {!isTradingViewNative && showChartModeSelect ? (
         <XStack
           h={TRADING_VIEW_CHART_CONTROLS_HEIGHT}
           px="$2"
@@ -208,7 +217,7 @@ export function PerpCandles({
           nativeControlsLayoutMode={isDesktopLayout ? 'desktop' : 'mobile'}
           nativeChartSettingsInToolbar={platformEnv.isNative}
           showNativeIndicatorQuickBar={platformEnv.isNative}
-          onChartSwitch={handleChartSwitch}
+          onChartSwitch={showChartModeSelect ? handleChartSwitch : undefined}
           isNativeChartFullscreen={
             isDesktopLayout ? chartExpanded : isMobileChartFullscreen
           }

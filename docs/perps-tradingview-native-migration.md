@@ -9,9 +9,10 @@ The shared entry covers the desktop workspace and the mobile market-detail chart
 The compact mobile trading-panel chart in
 `PerpMobileChartPanel.tsx` already used TradingViewNative.
 
-- Reuse Market's Original/TradingView selector. The native chart exposes its
-  existing chart controls/settings switch; the legacy chart has the same selector
-  above its WebView. Only the selected renderer is mounted. Like Market, selection
+- Reuse Market's Original/TradingView selector. The desktop workspace puts it on
+  the right side of the Chart / Info / Funding header. Mobile uses the native
+  chart's existing controls/settings switch or the same selector above the legacy
+  WebView. Only the selected renderer is mounted. Like Market, selection
   is local to the page and survives instrument changes, but is not persisted.
 - Collapse fullscreen and release the parent interaction lock when changing
   renderers. The legacy chart remounts with its own collapsed internal state.
@@ -217,8 +218,10 @@ Manual pass conditions:
 4. Check indicator/drawing controls, mobile parent scrolling and fullscreen,
    and subscription recovery after reconnecting.
 5. Confirm TradingView is initially selected, then switch TradingView → Original
-   → TradingView. Confirm the selection, visible
-   candles for the current coin, and that the previous renderer is unmounted.
+   → TradingView. On desktop, confirm the selector stays on the right of the
+   workspace header without a duplicate inside either chart. Confirm the
+   selection, visible candles for the current coin, and that the previous
+   renderer is unmounted.
    Repeat after expanding the chart and after switching instruments.
 6. With existing positions/orders, check entry, liquidation, limit and TP/SL
    lines, their prices/quantities/PnL, the display setting, and account/instrument
