@@ -207,6 +207,16 @@ function DesktopRewardHeader({
   );
 }
 
+// The desktop rows' hover surface is inset like the dividers (8px from the
+// card edge, rounded, 4px clear of the dividers), so it never runs under a
+// divider's ends. Content stays 20px in, under the header labels.
+const DESKTOP_ROW_SURFACE_PROPS = {
+  mx: '$2',
+  my: '$1',
+  px: '$3',
+  borderRadius: '$3',
+} as const;
+
 // Amounts use the earnings card's basis, so the rows add up to its unpaid
 // total. Pending is not payable yet, so it reads quieter than unpaid.
 function DesktopRewardRow({
@@ -229,8 +239,8 @@ function DesktopRewardRow({
     <XStack
       ai="center"
       gap="$4"
-      px="$5"
-      py="$3.5"
+      {...DESKTOP_ROW_SURFACE_PROPS}
+      py="$3"
       {...PRESSABLE_SURFACE_PROPS}
       onPress={onPress}
     >
@@ -311,8 +321,8 @@ function DesktopCompactRow({
     <XStack
       ai="center"
       gap="$3"
-      px="$5"
-      py="$3.5"
+      {...DESKTOP_ROW_SURFACE_PROPS}
+      py="$3"
       {...PRESSABLE_SURFACE_PROPS}
       onPress={onPress}
     >
