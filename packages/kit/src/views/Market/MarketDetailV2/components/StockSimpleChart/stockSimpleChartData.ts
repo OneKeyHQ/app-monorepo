@@ -394,6 +394,94 @@ export function clipStockSimpleChartToActiveRange({
   return points.filter(([timestamp]) => timestamp >= clipStart);
 }
 
+// Floor for the stale check below, so a fine-grained series is not called
+// stale over a few minutes of provider latency.
+const STOCK_SIMPLE_CHART_STALE_MIN_SECONDS = 10 * 60;
+// Gaps sampled from the tail when the feed reports no bucket width.
+const STOCK_SIMPLE_CHART_SPACING_SAMPLE_SIZE = 5;
+
+// The share feed is queried by period and reports no bucket width, so the
+// spacing is read off the series: the median of its last few gaps.
+function resolveStockSimpleChartSeriesSpacingSeconds(
+  points: IMarketTokenChart,
+): number | undefined {
+  const gaps: number[] = [];
+  for (
+    let index = points.length - 1;
+    index > 0 && gaps.length < STOCK_SIMPLE_CHART_SPACING_SAMPLE_SIZE;
+    index -= 1
+  ) {
+    const gap = points[index][0] - points[index - 1][0];
+    if (gap > 0) {
+      gaps.push(gap);
+    }
+  }
+  if (gaps.length === 0) {
+    return undefined;
+  }
+  gaps.sort((a, b) => a - b);
+  return gaps[Math.floor(gaps.length / 2)];
+}
+
+/**
+ * True once the series has stopped advancing: its last bucket is more than a
+ * few bucket widths behind now.
+ */
+export function isStockSimpleChartSeriesStale({
+  intervalSeconds,
+  nowSeconds,
+  points,
+}: {
+  intervalSeconds?: number;
+  nowSeconds: number;
+  points: IMarketTokenChart;
+}): boolean {
+  const lastPoint = points[points.length - 1];
+  if (!lastPoint || !Number.isFinite(nowSeconds)) {
+    return false;
+  }
+  const spacingSeconds =
+    intervalSeconds && intervalSeconds > 0
+      ? intervalSeconds
+      : resolveStockSimpleChartSeriesSpacingSeconds(points);
+  return (
+    nowSeconds - lastPoint[0] >
+    Math.max((spacingSeconds ?? 0) * 3, STOCK_SIMPLE_CHART_STALE_MIN_SECONDS)
+  );
+}
+
+/**
+ * Whether a share line should end on its last close instead of a `now` tail.
+ * The provider serves pre-market through post-market but no overnight prints,
+ * so after the post-market close the feed stops while the market status can
+ * still report open (overnight), and the title quote stays on that close. The
+ * time axis is index-based: a `now` point would sit one step after the close
+ * yet carry the current time. A title that differs from the close means new
+ * prints exist (pre-market open, a lagging feed), and those keep the tail.
+ */
+export function shouldHoldStockSimpleChartLastClose({
+  intervalSeconds,
+  livePrice,
+  nowSeconds,
+  points,
+  priceMode,
+}: {
+  intervalSeconds?: number;
+  livePrice?: string | number;
+  nowSeconds: number;
+  points: IMarketTokenChart;
+  priceMode: 'share' | 'token';
+}): boolean {
+  const lastPoint = points[points.length - 1];
+  if (priceMode !== 'share' || !lastPoint) {
+    return false;
+  }
+  return (
+    Number(livePrice) === lastPoint[1] &&
+    isStockSimpleChartSeriesStale({ intervalSeconds, nowSeconds, points })
+  );
+}
+
 /**
  * Pins the line's last displayed price to the title quote without rewriting a
  * closed bucket's cutoff. K-line `t` is the bucket start, so a still-open (or
@@ -453,10 +541,13 @@ export function mergeStockSimpleChartLivePrice({
  * quote. A clock gap can empty the window (Sunday 20:00 ET, holiday
  * crosses) even while the backend is closed — only collapse to
  * `[now, live]` when the market is open. Otherwise keep the source series
- * and still pin the title quote so the last label does not jump.
+ * and still pin the title quote so the last label does not jump. A share line
+ * whose feed has stopped on the title's close (overnight, weekend, holiday)
+ * ends on that close; see `shouldHoldStockSimpleChartLastClose`.
  */
 export function resolveStockSimpleChartDisplayPoints({
   clipKey,
+  holdLastClose: holdLastCloseProp,
   intervalSeconds,
   isOpen,
   livePrice,
@@ -466,6 +557,9 @@ export function resolveStockSimpleChartDisplayPoints({
   range,
 }: {
   clipKey?: 'clip' | 'keep';
+  // Callers that already resolved it (to stop the pulse) pass it in, so the
+  // line and the pulse never disagree; resolved here when omitted.
+  holdLastClose?: boolean;
   intervalSeconds?: number;
   isOpen?: boolean;
   livePrice?: string | number;
@@ -474,6 +568,15 @@ export function resolveStockSimpleChartDisplayPoints({
   priceMode: 'share' | 'token';
   range: IStockSimpleChartRange;
 }): IMarketTokenChart {
+  const holdLastClose =
+    holdLastCloseProp ??
+    shouldHoldStockSimpleChartLastClose({
+      intervalSeconds,
+      livePrice,
+      nowSeconds,
+      points,
+      priceMode,
+    });
   const clipped =
     clipKey === 'keep'
       ? points
@@ -484,6 +587,11 @@ export function resolveStockSimpleChartDisplayPoints({
           priceMode,
           range,
         });
+  if (holdLastClose) {
+    // Overnight still reports open, which clips a 1H window down to nothing;
+    // the last session is all there is to show until new prints arrive.
+    return clipped.length > 0 ? clipped : points;
+  }
   if (clipped.length === 0 && points.length > 0) {
     const price = Number(livePrice);
     if (

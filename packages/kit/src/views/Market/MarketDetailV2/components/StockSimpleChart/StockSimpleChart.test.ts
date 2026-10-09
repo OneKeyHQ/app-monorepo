@@ -18,6 +18,7 @@ import {
   resolveStockSimpleChartPreviousClose,
   resolveStockSimpleChartPulseLastPoint,
   resolveStockSimpleChartRequestScope,
+  shouldHoldStockSimpleChartLastClose,
   shouldStoreStockSimpleChartSeries,
 } from './stockSimpleChartData';
 
@@ -1080,6 +1081,158 @@ describe('resolveStockSimpleChartDisplayPoints', () => {
         range: '1H',
       }),
     ).toEqual([...points, [holidayGapNow, 222.1]]);
+  });
+});
+
+// Thursday 2026-10-08 post-market close is 20:00 EDT (2026-10-09 00:00 UTC);
+// the share feed has no overnight prints after it.
+const postMarketBuckets: IMarketTokenChart = [
+  [Date.parse('2026-10-08T23:40:00Z') / 1000, 230.1],
+  [Date.parse('2026-10-08T23:45:00Z') / 1000, 230.3],
+  [Date.parse('2026-10-08T23:50:00Z') / 1000, 230.6],
+  [Date.parse('2026-10-08T23:55:00Z') / 1000, 230.48],
+];
+// 03:40 EDT, still overnight: the market status reports open.
+const overnightNow = Date.parse('2026-10-09T07:40:00Z') / 1000;
+// 04:02 EDT, pre-market has opened but no new bucket has arrived yet.
+const preMarketOpenNow = Date.parse('2026-10-09T08:02:00Z') / 1000;
+
+describe('shouldHoldStockSimpleChartLastClose', () => {
+  it('holds a share line that stopped on the title close', () => {
+    expect(
+      shouldHoldStockSimpleChartLastClose({
+        livePrice: '230.48',
+        nowSeconds: overnightNow,
+        points: postMarketBuckets,
+        priceMode: 'share',
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps the live tail once the title moves off the close', () => {
+    expect(
+      shouldHoldStockSimpleChartLastClose({
+        livePrice: '231.05',
+        nowSeconds: preMarketOpenNow,
+        points: postMarketBuckets,
+        priceMode: 'share',
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps the live tail while the feed is still advancing', () => {
+    const lastBucket = postMarketBuckets[postMarketBuckets.length - 1][0];
+    expect(
+      shouldHoldStockSimpleChartLastClose({
+        livePrice: '230.48',
+        nowSeconds: lastBucket + 8 * 60,
+        points: postMarketBuckets,
+        priceMode: 'share',
+      }),
+    ).toBe(false);
+  });
+
+  it('measures staleness against the spacing of the series', () => {
+    const day = 24 * 60 * 60;
+    const fridayBucket = Date.parse('2026-10-09T00:00:00Z') / 1000;
+    const dailyBuckets: IMarketTokenChart = [
+      [fridayBucket - 2 * day, 228],
+      [fridayBucket - day, 229],
+      [fridayBucket, 230.48],
+    ];
+    expect(
+      shouldHoldStockSimpleChartLastClose({
+        livePrice: '230.48',
+        nowSeconds: fridayBucket + 2 * day,
+        points: dailyBuckets,
+        priceMode: 'share',
+      }),
+    ).toBe(false);
+    expect(
+      shouldHoldStockSimpleChartLastClose({
+        livePrice: '230.48',
+        nowSeconds: fridayBucket + 4 * day,
+        points: dailyBuckets,
+        priceMode: 'share',
+      }),
+    ).toBe(true);
+  });
+
+  it('never holds a token line', () => {
+    expect(
+      shouldHoldStockSimpleChartLastClose({
+        livePrice: '230.48',
+        nowSeconds: overnightNow,
+        points: postMarketBuckets,
+        priceMode: 'token',
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('resolveStockSimpleChartDisplayPoints across the overnight gap', () => {
+  it('ends a 1D line on the post-market close overnight', () => {
+    expect(
+      resolveStockSimpleChartDisplayPoints({
+        isOpen: true,
+        livePrice: '230.48',
+        nowSeconds: overnightNow,
+        points: postMarketBuckets,
+        priceMode: 'share',
+        range: '1D',
+      }),
+    ).toEqual(postMarketBuckets);
+  });
+
+  it('keeps the last session on a 1H line instead of a lone overnight dot', () => {
+    expect(
+      resolveStockSimpleChartDisplayPoints({
+        isOpen: true,
+        livePrice: '230.48',
+        nowSeconds: overnightNow,
+        points: postMarketBuckets,
+        priceMode: 'share',
+        range: '1H',
+      }),
+    ).toBe(postMarketBuckets);
+  });
+
+  it('starts the pre-market tail at now once the title moves', () => {
+    expect(
+      resolveStockSimpleChartDisplayPoints({
+        isOpen: true,
+        livePrice: '231.05',
+        nowSeconds: preMarketOpenNow,
+        points: postMarketBuckets,
+        priceMode: 'share',
+        range: '1D',
+      }),
+    ).toEqual([...postMarketBuckets, [preMarketOpenNow, 231.05]]);
+    expect(
+      resolveStockSimpleChartDisplayPoints({
+        isOpen: true,
+        livePrice: '231.05',
+        nowSeconds: preMarketOpenNow,
+        points: postMarketBuckets,
+        priceMode: 'share',
+        range: '1H',
+      }),
+    ).toEqual([[preMarketOpenNow, 231.05]]);
+  });
+
+  it('ends a weekend line on the Friday close', () => {
+    // Saturday 2026-10-10 12:00 EDT.
+    const saturdayNow = Date.parse('2026-10-10T16:00:00Z') / 1000;
+    expect(
+      resolveStockSimpleChartDisplayPoints({
+        isOpen: false,
+        livePrice: '230.48',
+        nowSeconds: saturdayNow,
+        points: postMarketBuckets,
+        priceMode: 'share',
+        range: '1D',
+      }),
+    ).toEqual(postMarketBuckets);
   });
 });
 

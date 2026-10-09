@@ -35,6 +35,7 @@ import {
   resolveStockSimpleChartPreviousClose,
   resolveStockSimpleChartPulseLastPoint,
   resolveStockSimpleChartRequestScope,
+  shouldHoldStockSimpleChartLastClose,
   shouldStoreStockSimpleChartSeries,
 } from './stockSimpleChartData';
 
@@ -260,10 +261,21 @@ export function StockSimpleChart({
     priceMode: requestPriceMode,
     range: requestRange,
   });
+  // A line held on its last close is not live, even while overnight trading
+  // keeps the market status open. Fed to the line below, so the `now` tail
+  // drops in the same render that the pulse stops.
+  const holdLastClose = shouldHoldStockSimpleChartLastClose({
+    intervalSeconds,
+    livePrice,
+    nowSeconds: Math.floor(Date.now() / 1000),
+    points: chartState.data,
+    priceMode: requestPriceMode,
+  });
   const chartData = useMemo(
     () =>
       resolveStockSimpleChartDisplayPoints({
         clipKey: chartClipKey,
+        holdLastClose,
         intervalSeconds,
         isOpen: isMarketOpen,
         livePrice,
@@ -275,6 +287,7 @@ export function StockSimpleChart({
     [
       chartClipKey,
       chartState.data,
+      holdLastClose,
       intervalSeconds,
       isMarketOpen,
       livePrice,
@@ -348,7 +361,7 @@ export function StockSimpleChart({
         testID="stock-simple-chart-content"
         data={chartData}
         height={chartHeight}
-        pulseLastPoint={pulseLastPoint}
+        pulseLastPoint={pulseLastPoint && !holdLastClose}
         previousClose={previousClose}
         showCurrentPriceLabel
         hoverLabelLargePrice
