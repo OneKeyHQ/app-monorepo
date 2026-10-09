@@ -25,6 +25,10 @@ export const PRESSABLE_SURFACE_PROPS = {
 // subdued labels stay the only regular-weight text.
 export const COMPACT_ENTRY_TITLE_PROPS = { size: '$bodyMdMedium' } as const;
 
+// Product rows keep their icons (they name the product); at the entry rows'
+// title size the icon steps down to 20px to match.
+export const COMPACT_ROW_ICON_PROPS = { size: '$5' } as const;
+
 // List rows inside compact cards: the press/hover surface bleeds 12px past
 // the content on each side, so the highlight has padding while the icon and
 // text stay aligned with the card's other rows. Sitting 4px inside the 16px

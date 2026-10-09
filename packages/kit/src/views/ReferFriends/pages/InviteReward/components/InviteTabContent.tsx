@@ -58,10 +58,12 @@ export function InviteTabContent({
       />
 
       {md ? (
-        // Compact layouts: the invite card (code, link, level, rates), the bind
-        // entry (only until linked), the earnings section and the entries
-        // behind the invite card; sharing sits in the page footer.
-        <YStack px="$pagePadding" pt="$3" gap="$5">
+        // Compact layouts read top-down: share (the invite card), money (the
+        // earnings card and its per-product breakdown), then the secondary
+        // entries and the invitee's bind entry (only until linked). Spacing
+        // groups them: 16px inside a group, 24px between groups. Sharing
+        // itself sits in the page footer.
+        <YStack px="$pagePadding" pt="$3" gap="$6">
           <InviteCompactCard
             inviteUrl={summaryInfo.inviteUrl}
             inviteCode={summaryInfo.inviteCode}
@@ -75,17 +77,22 @@ export function InviteTabContent({
               />
             }
           />
-          <InviteBindRow variant="card" />
-          <InviteEarningsCard
-            summaryInfo={summaryInfo}
-            fetchSummaryInfo={fetchSummaryInfo}
-          />
-          <InviteEntriesCard
-            cardStyle={cardStyle}
-            onManageCodes={() => {
-              navigateToInviteCodes(summaryInfo.inviteUrl);
-            }}
-          />
+          <YStack gap="$4">
+            <InviteEarningsCard
+              summaryInfo={summaryInfo}
+              fetchSummaryInfo={fetchSummaryInfo}
+            />
+            <InviteRewardRows summaryInfo={summaryInfo} />
+          </YStack>
+          <YStack gap="$4">
+            <InviteEntriesCard
+              cardStyle={cardStyle}
+              onManageCodes={() => {
+                navigateToInviteCodes(summaryInfo.inviteUrl);
+              }}
+            />
+            <InviteBindRow variant="card" />
+          </YStack>
         </YStack>
       ) : (
         // Desktop leads with earnings; the invite card sits beside it.
@@ -109,7 +116,7 @@ export function InviteTabContent({
         </XStack>
       )}
 
-      <InviteRewardRows summaryInfo={summaryInfo} />
+      {md ? null : <InviteRewardRows summaryInfo={summaryInfo} />}
     </YStack>
   );
 }

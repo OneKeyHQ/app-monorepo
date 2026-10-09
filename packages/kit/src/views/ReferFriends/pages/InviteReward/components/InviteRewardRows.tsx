@@ -36,7 +36,9 @@ import { InviteRewardAmount } from './InviteRewardAmount';
 import { useReferralCodeCard } from './ReferralCodeCard/hooks/useReferralCodeCard';
 import { REFERRAL_USD_CURRENCY_PROPS } from './shared/getRewardSummary';
 import {
+  COMPACT_ENTRY_TITLE_PROPS,
   COMPACT_ROW_BLEED_PROPS,
+  COMPACT_ROW_ICON_PROPS,
   INVITE_CARD_BORDER_COLOR,
   PRESSABLE_SURFACE_PROPS,
   useInviteHomeCardStyle,
@@ -146,6 +148,8 @@ function RewardListRow({
     <ListItem
       {...COMPACT_ROW_BLEED_PROPS}
       icon={INVITE_REWARD_SUBJECT_ICON[row.subject]}
+      iconProps={COMPACT_ROW_ICON_PROPS}
+      titleProps={COMPACT_ENTRY_TITLE_PROPS}
       title={title}
       subtitle={subtitle}
       drillIn
@@ -487,8 +491,8 @@ export function InviteRewardRows({
     );
   }
 
-  // The page title is the only heading on compact layouts; the list gets a
-  // quiet caption, like a grouped list header.
+  // Compact layouts: a quiet caption, like a grouped list header, right
+  // under the earnings card it breaks down; the page sets the spacing.
   const compactTitle = (
     <SizableText size="$bodyMdMedium" color="$textSubdued">
       {INVITE_COPY.rewardsByProduct}
@@ -497,7 +501,7 @@ export function InviteRewardRows({
 
   if (rows.visibleRows.length === 0) {
     return (
-      <YStack px="$pagePadding" pt="$6" gap="$3">
+      <YStack gap="$2">
         {compactTitle}
         <RewardsEmpty cardStyle={cardStyle} />
       </YStack>
@@ -516,9 +520,9 @@ export function InviteRewardRows({
   );
 
   return (
-    <YStack px="$pagePadding" pt="$6" gap="$3">
+    <YStack gap="$2">
       {compactTitle}
-      {/* In a card like the blocks above, so the row icons line up with
+      {/* In a card like the blocks above, so the row text lines up with
           theirs. */}
       <YStack px="$4" py="$1" {...cardStyle}>
         {rows.visibleRows.map((row) => (
@@ -547,7 +551,8 @@ export function InviteRewardRows({
           <ListItem
             {...COMPACT_ROW_BLEED_PROPS}
             // Icon-wide gap so the names line up with the product rows.
-            renderIcon={<Stack w="$6" flexShrink={0} />}
+            renderIcon={<Stack w="$5" flexShrink={0} />}
+            titleProps={COMPACT_ENTRY_TITLE_PROPS}
             title={foldedTitle}
             onPress={() => {
               setIsFoldedOpen((open) => !open);

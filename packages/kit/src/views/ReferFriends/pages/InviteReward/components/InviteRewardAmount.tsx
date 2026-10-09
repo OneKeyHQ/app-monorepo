@@ -27,8 +27,10 @@ export function InviteRewardAmount({
   const intl = useIntl();
 
   if (!summary.hasReward && emptyLabel) {
+    // A note rather than a figure, so it takes the regular weight of the
+    // page's other subdued text.
     return (
-      <SizableText size={size} color="$textSubdued">
+      <SizableText size="$bodyMd" color="$textSubdued">
         {intl.formatMessage({ id: ETranslations.referral_no_reward })}
       </SizableText>
     );

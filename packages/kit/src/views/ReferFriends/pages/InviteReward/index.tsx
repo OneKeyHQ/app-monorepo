@@ -151,9 +151,10 @@ function InviteOverviewSkeleton() {
   );
 
   if (md) {
-    // Compact content: invite card, earnings card, then entries card.
+    // Compact content: invite card, earnings card, then entries card, with
+    // the loaded page's between-group spacing.
     return (
-      <YStack px="$pagePadding" pt="$3" gap="$5">
+      <YStack px="$pagePadding" pt="$3" gap="$6">
         <YStack gap="$4" p="$4" {...cardStyle}>
           <XStack jc="space-between" ai="center">
             <YStack gap="$1">

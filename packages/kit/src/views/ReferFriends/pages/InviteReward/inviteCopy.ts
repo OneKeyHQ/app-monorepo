@@ -14,7 +14,7 @@ export const INVITE_COPY = {
   boundTitle: 'Invited by a friend',
   boundDescription: 'Referral code linked',
   totalEarned: 'Total earned',
-  rewardsByProduct: 'Rewards by product',
+  rewardsByProduct: 'Earnings by product',
   payoutHistory: 'Payout history',
   rewardsEmptyHint:
     'Rewards show up here once friends you invite buy hardware or pay fees.',
