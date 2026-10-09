@@ -74,6 +74,9 @@ Both IPC entrances require the current main window's main frame.
 - Reuse the Node downloader in `DesktopApiBundleUpdate` by extracting only its
   transport, range, and resume mechanism into an internal reusable unit. Both
   JS bundles and app-shell packages must retain their existing public APIs.
+- Bundle single-flight is per destination: identical paths join one transfer,
+  while distinct paths complete independently. Active state and cancellation
+  come from the per-destination registry until all transfers settle.
 - Large range-capable objects use the existing eight concurrent byte ranges,
   positioned writes, durable `.partial` progress manifest, transient retry,
   cancellation, and range validation. Use a single stream when range is

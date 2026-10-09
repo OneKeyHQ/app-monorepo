@@ -128,6 +128,48 @@ describe('DesktopApiBundleUpdate public download integration', () => {
     fs.rmSync(USERDATA, { recursive: true, force: true });
   });
 
+  test('downloads distinct bundle destinations concurrently through the real downloader', async () => {
+    const contentA = crypto.randomBytes(64 * 1024);
+    const contentB = crypto.randomBytes(3 * 1024 * 1024);
+    const serverA = await startServer(contentA, false);
+    const serverB = await startServer(contentB, true);
+    try {
+      const api = makeApi();
+      const first = api.downloadBundle({
+        latestVersion: '6.0.0',
+        bundleVersion: '123',
+        downloadUrl: serverA.url,
+        sha256: sha256(contentA),
+        fileSize: contentA.length,
+      });
+      const second = api.downloadBundle({
+        latestVersion: '6.0.0',
+        bundleVersion: '124',
+        downloadUrl: serverB.url,
+        sha256: sha256(contentB),
+        fileSize: contentB.length,
+      });
+      const [resultA, resultB] = await Promise.all([first, second]);
+      const pathA = path.join(
+        USERDATA,
+        'onekey-bundle-download',
+        '6.0.0-123.zip',
+      );
+      const pathB = path.join(
+        USERDATA,
+        'onekey-bundle-download',
+        '6.0.0-124.zip',
+      );
+      expect(resultA?.downloadedFile).toBe(pathA);
+      expect(resultB?.downloadedFile).toBe(pathB);
+      expect(fs.readFileSync(pathA).equals(contentA)).toBe(true);
+      expect(fs.readFileSync(pathB).equals(contentB)).toBe(true);
+      expect(api.isDownloading).toBe(false);
+    } finally {
+      await Promise.all([serverA.close(), serverB.close()]);
+    }
+  });
+
   test('assembles ranged bundle through downloadBundle', async () => {
     const content = crypto.randomBytes(3 * 1024 * 1024);
     const server = await startServer(content, true);

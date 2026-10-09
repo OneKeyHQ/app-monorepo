@@ -200,9 +200,9 @@ function wrapDownloadError(
 class DesktopApiAppBundleUpdate {
   desktopApi: IDesktopApi;
 
-  cancelCurrentDownload: (() => void) | null;
-
-  isDownloading = false;
+  get isDownloading(): boolean {
+    return this.cancelByDest.size > 0;
+  }
 
   // OCDS §5.8 per-destination single-flight. Keyed on the destination zip path:
   // a second download() for the same dest JOINS the in-flight run (returns the
@@ -234,7 +234,6 @@ class DesktopApiAppBundleUpdate {
     stallTimeoutMs?: number;
   }) {
     this.desktopApi = desktopApi;
-    this.cancelCurrentDownload = () => {};
   }
 
   private getMainWindow(): BrowserWindow | undefined {
@@ -329,10 +328,6 @@ class DesktopApiAppBundleUpdate {
       fileSize,
       headers,
     } = params;
-    if (this.isDownloading) {
-      logger.info('bundle-download', 'Download already in progress, skipping');
-      return undefined;
-    }
     if (!latestVersion || !bundleVersion || !downloadUrl || !sha256) {
       throw new OneKeyLocalError('Invalid parameters');
     }
@@ -340,10 +335,9 @@ class DesktopApiAppBundleUpdate {
     if (!filePath) throw new OneKeyLocalError('Invalid parameters');
     const controller = new AbortController();
     const cancel = () => controller.abort();
-    this.isDownloading = true;
-    this.cancelCurrentDownload = cancel;
     this.cancelByDest.set(filePath, cancel);
-    clearWindowProgressBar(this.getMainWindow());
+    if (this.cancelByDest.size === 1)
+      clearWindowProgressBar(this.getMainWindow());
     try {
       await downloadNodeFile({
         url: downloadUrl,
@@ -384,10 +378,8 @@ class DesktopApiAppBundleUpdate {
       }
       throw wrapDownloadError(error, 'Bundle download failed');
     } finally {
-      this.isDownloading = false;
-      this.cancelCurrentDownload = () => {};
       this.cancelByDest.delete(filePath);
-      clearWindowProgressBar(this.getMainWindow());
+      if (!this.isDownloading) clearWindowProgressBar(this.getMainWindow());
     }
   }
 
@@ -929,7 +921,6 @@ class DesktopApiAppBundleUpdate {
   }
 
   async clearDownload() {
-    this.cancelCurrentDownload?.();
     for (const cancel of this.cancelByDest.values()) cancel();
     await Promise.allSettled(this.inflightDownloads.values());
     this.cancelByDest.clear();
