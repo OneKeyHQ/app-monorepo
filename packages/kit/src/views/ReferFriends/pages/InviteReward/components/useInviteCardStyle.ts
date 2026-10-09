@@ -20,9 +20,10 @@ export const PRESSABLE_SURFACE_PROPS = {
   role: 'button',
 } as const;
 
-// Entry rows inside compact cards (Manage codes, Payout history…) read at
-// body size, so they stay below the figures and field values in weight.
-export const COMPACT_ENTRY_TITLE_PROPS = { size: '$bodyMd' } as const;
+// Entry rows inside compact cards (Manage codes, Payout address…) match the
+// field values' size and weight: one step below the product rows, while the
+// subdued labels stay the only regular-weight text.
+export const COMPACT_ENTRY_TITLE_PROPS = { size: '$bodyMdMedium' } as const;
 
 // List rows inside compact cards: the press/hover surface bleeds 12px past
 // the content on each side, so the highlight has padding while the icon and
