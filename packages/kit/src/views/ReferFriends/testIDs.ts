@@ -38,6 +38,7 @@ export const ReferFriendsTestIDs = {
 
   // --- Filter & Export ---
   dateRangeChip: 'refer-friends-date-range-chip',
+  filterActiveDot: 'refer-friends-filter-active-dot',
   filterBtn: 'refer-friends-filter-btn',
   exportBtn: 'refer-friends-export-btn',
 

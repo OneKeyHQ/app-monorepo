@@ -7,6 +7,7 @@ import {
   Button,
   Icon,
   IconButton,
+  Stack,
   useMedia,
 } from '@onekeyhq/components';
 import type { IActionListItemProps } from '@onekeyhq/components';
@@ -134,13 +135,32 @@ export function FilterButton({
   }
 
   // Mobile: Use ActionList.show() to avoid Portal nesting issues
+  // A bare solid icon read as a pressed or broken button, so the active state
+  // keeps the outline and adds a dot, like a badge.
   return (
-    <IconButton
-      testID={ReferFriendsTestIDs.filterBtn}
-      icon={hasActiveFilters ? 'Filter1Solid' : 'Filter1Outline'}
-      variant="tertiary"
-      title={intl.formatMessage({ id: ETranslations.referral_filter })}
-      onPress={handleMobileClick}
-    />
+    <Stack position="relative">
+      <IconButton
+        testID={ReferFriendsTestIDs.filterBtn}
+        icon="Filter1Outline"
+        variant="tertiary"
+        title={intl.formatMessage({ id: ETranslations.referral_filter })}
+        onPress={handleMobileClick}
+      />
+      {hasActiveFilters ? (
+        <Stack
+          testID={ReferFriendsTestIDs.filterActiveDot}
+          position="absolute"
+          top={2}
+          right={2}
+          w="$2.5"
+          h="$2.5"
+          borderRadius="$full"
+          borderWidth={2}
+          borderColor="$bgApp"
+          bg="$iconSuccess"
+          pointerEvents="none"
+        />
+      ) : null}
+    </Stack>
   );
 }
