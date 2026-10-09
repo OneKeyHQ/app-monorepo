@@ -92,4 +92,25 @@ describe('useChartLines account switch', () => {
       .map((line) => line.id);
     expect(syncedLineIds).not.toContain('order:1');
   });
+
+  it('keeps the line safety flag until a fresh chart instance replaces the bridge', () => {
+    mockOrders = [{ oid: 1 }];
+    const { result, rerender } = renderHook(
+      ({ chartInstanceKey }: { chartInstanceKey: string }) =>
+        useChartLines({
+          symbol: 'BTC',
+          szDecimals: 2,
+          userAddress: '0xaaa',
+          webRef,
+          isReady: chartInstanceKey === 'first',
+          chartInstanceKey,
+        }),
+      { initialProps: { chartInstanceKey: 'first' } },
+    );
+    expect(result.current.hasAccountLinesRef.current).toBe(true);
+    act(() => result.current.sendLinesClear());
+    expect(result.current.hasAccountLinesRef.current).toBe(true);
+    rerender({ chartInstanceKey: 'second' });
+    expect(result.current.hasAccountLinesRef.current).toBe(false);
+  });
 });

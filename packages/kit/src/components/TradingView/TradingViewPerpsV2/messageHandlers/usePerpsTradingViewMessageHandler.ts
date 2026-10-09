@@ -61,6 +61,7 @@ export function usePerpsTradingViewMessageHandler({
   userAddress,
   webRef,
   chartInstanceKey,
+  hasAccountLinesRef,
   onAccountMarksRebuild,
   onChartReady,
   onChartLinesReady,
@@ -75,6 +76,7 @@ export function usePerpsTradingViewMessageHandler({
   userAddress?: IHex | null;
   webRef: React.RefObject<IWebViewRef | null>;
   chartInstanceKey: string;
+  hasAccountLinesRef?: React.RefObject<boolean>;
   onAccountMarksRebuild: () => void;
   onChartReady?: (payload: ITVChartReadyPayload) => void;
   onChartLinesReady?: (payload: ITVLineReadyPayload) => void;
@@ -87,6 +89,7 @@ export function usePerpsTradingViewMessageHandler({
 }) {
   const previousUserAddressRef = useRef<IHex | null | undefined>(userAddress);
   const marksRequestIdRef = useRef(0);
+  const accountGenerationRef = useRef(0);
   const [{ refreshHook }] = usePerpsTradesHistoryRefreshHookAtom();
   const [{ showTradeMarks }] = usePerpsCustomSettingsAtom();
   const [, setLayoutState] = usePerpsLayoutStateAtom();
@@ -178,6 +181,7 @@ export function usePerpsTradingViewMessageHandler({
       recordPerpsChartMarksSent(marksLedgerRef.current, {
         symbol: marksSymbol,
         marks,
+        operation,
       });
       webRef.current?.sendMessageViaInjectedScript({
         type: MESSAGE_TYPES.MARKS_UPDATE,
@@ -248,8 +252,15 @@ export function usePerpsTradingViewMessageHandler({
       // lag behind the app symbol.
       const requestSymbol = request.symbol || symbolRef.current;
       const requestUserAddress = normalizeAddress(userAddressRef.current);
+      const requestGeneration = accountGenerationRef.current;
+      const requestLedger = marksLedgerRef.current;
+      const isStaleRequest = () =>
+        requestGeneration !== accountGenerationRef.current ||
+        normalizeAddress(userAddressRef.current) !== requestUserAddress ||
+        symbolRef.current !== requestSymbol;
       const respond = (marks: ITradingMark[]) => {
-        recordPerpsChartMarksSent(marksLedgerRef.current, {
+        if (requestLedger !== marksLedgerRef.current) return;
+        recordPerpsChartMarksSent(requestLedger, {
           symbol: requestSymbol,
           marks,
         });
@@ -275,11 +286,8 @@ export function usePerpsTradingViewMessageHandler({
           showTradeMarks ?? true,
         );
 
-        const latestUserAddress = normalizeAddress(userAddressRef.current);
-        if (
-          latestUserAddress !== requestUserAddress ||
-          symbolRef.current !== requestSymbol
-        ) {
+        if (requestLedger !== marksLedgerRef.current) return;
+        if (isStaleRequest()) {
           respond([]);
           // The chart caches any answer to a live request id and wipes the
           // drawn marks, so the current symbol has to be redrawn.
@@ -290,7 +298,11 @@ export function usePerpsTradingViewMessageHandler({
         respond(marks);
       } catch (error) {
         console.error('Error fetching marks:', error);
+        if (requestLedger !== marksLedgerRef.current) return;
         respond([]);
+        if (isStaleRequest()) {
+          void refreshWebviewMarksByApiRef.current();
+        }
       }
     },
     [webRef, fetchAndFormatMarks, normalizeAddress, showTradeMarks],
@@ -359,12 +371,6 @@ export function usePerpsTradingViewMessageHandler({
           onChartReady?.(chartReadyPayload);
           break;
         }
-        case PERPS_TV_MESSAGE_METHODS.PRICE_UPDATE:
-          recordPerpsChartSymbol(
-            marksLedgerRef.current,
-            (messageData.data as { symbol?: string } | undefined)?.symbol,
-          );
-          break;
         case PERPS_TV_MESSAGE_METHODS.READY:
           // Chart lines iframe is ready to receive data
           onChartLinesReady?.(messageData.data as ITVLineReadyPayload);
@@ -426,29 +432,37 @@ export function usePerpsTradingViewMessageHandler({
     ],
   );
 
+  const previousSymbolRef = useRef(symbol);
   useLayoutEffect(() => {
     // A re-keyed WebView loads a chart page with empty marks caches.
     if (marksLedgerInstanceKeyRef.current !== chartInstanceKey) {
       marksLedgerInstanceKeyRef.current = chartInstanceKey;
       marksLedgerRef.current = createPerpsChartMarksLedger();
+      previousSymbolRef.current = symbol;
     }
-  }, [chartInstanceKey]);
+  }, [chartInstanceKey, symbol]);
 
   useLayoutEffect(() => {
-    // Messages sent before a symbol switch cannot prove the chart resolved it.
-    marksLedgerRef.current.chartSymbol = undefined;
+    if (previousSymbolRef.current !== symbol) {
+      previousSymbolRef.current = symbol;
+      marksLedgerRef.current.chartSymbol = undefined;
+      marksLedgerRef.current.symbolChanged = true;
+    }
   }, [symbol]);
 
-  // Layout phase, so no bridge message lands between the switch and its CLEAR.
+  // Rebuild before paint if legacy messages cannot safely isolate the account.
   useLayoutEffect(() => {
     if (marksAccountAddressRef.current === normalizedUserAddress) {
       return;
     }
     marksAccountAddressRef.current = normalizedUserAddress;
+    accountGenerationRef.current += 1;
+    marksRequestIdRef.current += 1;
 
     const ledger = marksLedgerRef.current;
     const currentSymbol = symbolRef.current;
     const action = getPerpsChartAccountSwitchAction({
+      hasAccountLines: hasAccountLinesRef?.current,
       markedSymbols: ledger.markedSymbols,
       chartSymbol: ledger.chartSymbol,
       symbol: currentSymbol,
@@ -465,7 +479,13 @@ export function usePerpsTradingViewMessageHandler({
       return;
     }
     onAccountMarksRebuild();
-  }, [normalizedUserAddress, onAccountMarksRebuild, sendMarksUpdate, webRef]);
+  }, [
+    normalizedUserAddress,
+    onAccountMarksRebuild,
+    sendMarksUpdate,
+    hasAccountLinesRef,
+    webRef,
+  ]);
 
   // Monitor userAddress changes and push updates
   useEffect(() => {
