@@ -14,6 +14,7 @@ const MAX_REDIRECTS = 5;
 const MAX_RETRIES = 3;
 const STALL_MS = 60_000;
 const MAX_DOWNLOAD_BYTES = 2 * 1024 * 1024 * 1024;
+const MAX_RETRY_DELAY_MS = 60_000;
 
 export interface INodeDownloadProgress {
   transferred: number;
@@ -60,6 +61,26 @@ type IResponse = IUpdateResponse;
 
 function cancelled(signal?: AbortSignal): void {
   if (signal?.aborted) throw new OneKeyLocalError('Download cancelled');
+}
+
+function waitForRetry(delay: number, signal?: AbortSignal): Promise<void> {
+  cancelled(signal);
+  return new Promise((resolve, reject) => {
+    const timer: { id?: ReturnType<typeof setTimeout> } = {};
+    const onAbort = () => {
+      clearTimeout(timer.id);
+      signal?.removeEventListener('abort', onAbort);
+      reject(new OneKeyLocalError('Download cancelled'));
+    };
+    timer.id = setTimeout(
+      () => {
+        signal?.removeEventListener('abort', onAbort);
+        resolve();
+      },
+      Math.min(Math.max(delay, 0), MAX_RETRY_DELAY_MS),
+    );
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
 }
 
 function isHttps(url: string): boolean {
@@ -195,7 +216,7 @@ async function probeWithRetry(opts: INodeDownloadOptions) {
       )
         throw error;
       const delay = Math.min(500 * 2 ** retry, 10_000);
-      await new Promise((resolve) => setTimeout(resolve, delay));
+      await waitForRetry(delay, opts.signal);
     }
   }
   throw new OneKeyLocalError('Range probe retry exhausted');
@@ -215,13 +236,25 @@ async function verify(
   ] as const;
   for (const [algorithm, expected] of algorithms) {
     if (expected) {
+      cancelled(opts.signal);
       const hash = createHash(algorithm);
+      const stream = fs.createReadStream(filePath);
+      const onAbort = () =>
+        stream.destroy(new OneKeyLocalError('Download cancelled'));
+      opts.signal?.addEventListener('abort', onAbort, { once: true });
       try {
-        for await (const chunk of fs.createReadStream(filePath))
+        for await (const chunk of stream) {
+          cancelled(opts.signal);
           hash.update(chunk);
+        }
       } catch {
+        cancelled(opts.signal);
         return false;
+      } finally {
+        opts.signal?.removeEventListener('abort', onAbort);
+        stream.destroy();
       }
+      cancelled(opts.signal);
       const actual = hash.digest('hex');
       const normalized = expected.trim().toLowerCase();
       const expectedHex = /^[0-9a-f]+$/.test(normalized)
@@ -431,7 +464,7 @@ async function downloadPart(
       )
         throw error;
       const delay = serverDelay ?? Math.min(500 * 2 ** retry, 10_000);
-      await new Promise((resolve) => setTimeout(resolve, delay));
+      await waitForRetry(delay, opts.signal);
       serverDelay = null;
     }
   }
@@ -637,9 +670,7 @@ async function singleWithRetry(
         !retryableStatus(Number(status[1]))
       )
         throw error;
-      await new Promise((resolve) =>
-        setTimeout(resolve, Math.min(500 * 2 ** retry, 10_000)),
-      );
+      await waitForRetry(Math.min(500 * 2 ** retry, 10_000), opts.signal);
     }
   }
   throw new OneKeyLocalError('Download retry exhausted');
@@ -670,6 +701,7 @@ export async function downloadNodeFile(
         fs.statSync(opts.targetPath).size === opts.expectedBytes) &&
       (await verify(opts.targetPath, opts))
     ) {
+      cancelled(opts.signal);
       discard(partial, manifestPath);
       return {
         filePath: opts.targetPath,
@@ -733,6 +765,7 @@ export async function downloadNodeFile(
     discard(partial, manifestPath);
     throw new OneKeyLocalError('Downloaded file checksum mismatch');
   }
+  cancelled(opts.signal);
   fs.renameSync(partial, opts.targetPath);
   fs.rmSync(manifestPath, { force: true });
   return { filePath: opts.targetPath, totalBytes: size };

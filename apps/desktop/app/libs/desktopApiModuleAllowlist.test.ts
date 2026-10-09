@@ -43,9 +43,30 @@ describe('desktop API module allowlist', () => {
     expect(isDesktopApiMethodAllowed('firmwareArtifact', method)).toBe(false);
   });
 
-  it('keeps the legacy method policy for existing modules', () => {
+  it('uses generated public visibility for existing modules', () => {
     expect(isDesktopApiMethodAllowed('system', 'getSystemInfo')).toBe(true);
     expect(isDesktopApiMethodAllowed('system', '_privateMethod')).toBe(false);
+  });
+
+  it.each([
+    'launchWindowsInstaller',
+    'stageMacUpdate',
+    'installAppImage',
+    'writeRecord',
+    'installPackageLocked',
+    'getMainWindow',
+    'constructor',
+    'toString',
+  ])('rejects appUpdate.%s', (method) => {
+    expect(isDesktopApiMethodAllowed('appUpdate', method)).toBe(false);
+  });
+
+  it('allows the verified installation entry point and denies unknown module metadata', () => {
+    expect(isDesktopApiMethodAllowed('appUpdate', 'installPackage')).toBe(true);
+    expect(isDesktopApiMethodAllowed('unknownModule', 'installPackage')).toBe(
+      false,
+    );
+    expect(isDesktopApiMethodAllowed('__proto__', 'toString')).toBe(false);
   });
 
   it.each([

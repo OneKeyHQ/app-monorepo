@@ -9,6 +9,15 @@ const glob = require('glob');
 
 const pkg = require('../app/package.json');
 
+const {
+  update: updateDesktopApiMethods,
+} = require('./generate-desktop-api-methods');
+
+async function buildDesktopMain(options) {
+  await updateDesktopApiMethods();
+  return build(options);
+}
+
 const isProduction = process.env.NODE_ENV === 'production';
 console.log('building for', isProduction ? 'production' : 'development');
 const electronSource = path.join(__dirname, '..', 'app');
@@ -108,7 +117,7 @@ console.log('process.env.BUILD_TIME', process.env.BUILD_TIME);
 console.log('process.env.VERSION', process.env.VERSION);
 console.log('process.env.BUNDLE_VERSION', process.env.BUNDLE_VERSION);
 console.log('process.env.GITHUB_SHA', process.env.GITHUB_SHA);
-build({
+buildDesktopMain({
   entryPoints,
   platform: 'node',
   bundle: true,

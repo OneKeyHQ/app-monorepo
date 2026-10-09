@@ -245,9 +245,11 @@ afterEach(async () => {
     const state = api as unknown as {
       macInstallInProgress: boolean;
       appImageInstallInProgress: boolean;
+      installInProgress: boolean;
     };
     state.macInstallInProgress = false;
     state.appImageInstallInProgress = false;
+    state.installInProgress = false;
     await api.clearUpdateCache();
   }
   jest.restoreAllMocks();
@@ -638,6 +640,58 @@ test('Windows launches only the verified NSIS installer and then quits', async (
     stdio: 'ignore',
   });
   expect(mockAppQuit).toHaveBeenCalledTimes(1);
+});
+
+test('Windows rejects a concurrent install before a second confirmation and keeps the handoff locked', async () => {
+  const { api, params } = await preparePackage('win32');
+  let confirm!: (result: { response: number }) => void;
+  mockShowMessageBox.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        confirm = resolve;
+      }),
+  );
+  const first = api.installPackage(params);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  expect(mockShowMessageBox).toHaveBeenCalledTimes(1);
+  expect(await api.installPackage(params)).toBe(false);
+  await expect(api.clearUpdateCache()).rejects.toThrow(
+    'installation is in progress',
+  );
+  confirm({ response: 0 });
+  expect(await first).toBe(true);
+  expect(await api.installPackage(params)).toBe(false);
+  expect(mockSpawn).toHaveBeenCalledTimes(1);
+  expect(mockShowMessageBox).toHaveBeenCalledTimes(1);
+});
+
+test('Windows releases the install lock after cancellation or launch failure', async () => {
+  const { api, params } = await preparePackage('win32');
+  mockShowMessageBox.mockResolvedValueOnce({ response: 1 });
+  expect(await api.installPackage(params)).toBe(false);
+  mockSpawn.mockImplementationOnce(() => {
+    const child = Object.assign(new EventEmitter(), { unref: jest.fn() });
+    setImmediate(() => child.emit('error', new Error('installer failed')));
+    return child;
+  });
+  await expect(api.installPackage(params)).rejects.toThrow('installer failed');
+  expect(await api.installPackage(params)).toBe(true);
+  expect(mockSpawn).toHaveBeenCalledTimes(2);
+});
+
+test('manual AppImage fallback releases the install lock for retry', async () => {
+  delete process.env.APPIMAGE;
+  const { api, file, params } = await preparePackage('linux', 'appImage');
+  mockStore.getASCFile.mockReturnValue('signed checksums');
+  mockReadKey.mockResolvedValue({});
+  mockReadCleartextMessage.mockResolvedValue({
+    getText: () => `${mockSha256}  ${path.basename(file)}`,
+    verify: async () => [{ verified: Promise.resolve() }],
+  });
+  expect(await api.installPackage(params)).toBe(true);
+  expect(await api.installPackage(params)).toBe(true);
+  expect(mockOpenPath).toHaveBeenCalledTimes(2);
+  expect(mockAppQuit).not.toHaveBeenCalled();
 });
 
 test('Linux AppImage without a writable current path offers the verified download folder', async () => {

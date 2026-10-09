@@ -292,6 +292,10 @@ class DesktopApiAppUpdate {
 
   private appImageInstallInProgress = false;
 
+  private installInProgress = false;
+
+  private installHandoffStarted = false;
+
   private isSkipGPGAllowed(skip?: boolean): boolean {
     return (
       process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION === 'true' && Boolean(skip)
@@ -303,7 +307,7 @@ class DesktopApiAppUpdate {
     if (isAppImage) this.reconcileAppImageHandoff();
   }
 
-  getMainWindow(): BrowserWindow | undefined {
+  private getMainWindow(): BrowserWindow | undefined {
     return globalThis.$desktopMainAppFunctions?.getSafelyMainWindow?.();
   }
 
@@ -483,7 +487,7 @@ class DesktopApiAppUpdate {
   }
 
   async clearUpdateCache(): Promise<void> {
-    if (this.macInstallInProgress || this.appImageInstallInProgress) {
+    if (this.installInProgress) {
       throw new OneKeyLocalError('App update installation is in progress');
     }
     if (this.cacheClearPromise) return this.cacheClearPromise;
@@ -523,7 +527,7 @@ class DesktopApiAppUpdate {
     latestVersion: string,
   ): Promise<IArtifact | null> {
     if (this.cacheClearPromise) await this.cacheClearPromise;
-    if (this.macInstallInProgress) {
+    if (this.installInProgress) {
       throw new OneKeyLocalError('App update installation is in progress');
     }
     this.isManualCheck = isManual;
@@ -597,7 +601,7 @@ class DesktopApiAppUpdate {
   }
 
   async downloadUpdate(): Promise<void> {
-    if (this.macInstallInProgress) {
+    if (this.installInProgress) {
       throw new OneKeyLocalError('App update installation is in progress');
     }
     if (this.isDownloading) return;
@@ -739,6 +743,9 @@ class DesktopApiAppUpdate {
 
   async downloadASC(params: IInstallUpdateParams): Promise<boolean> {
     if (this.cacheClearPromise) await this.cacheClearPromise;
+    if (this.installInProgress) {
+      throw new OneKeyLocalError('App update installation is in progress');
+    }
     const metadataGeneration = this.metadataGeneration;
     store.clearASCFile();
     if (this.isSkipGPGAllowed(params.skipGPGVerification)) return true;
@@ -914,6 +921,7 @@ class DesktopApiAppUpdate {
       app.relaunch({ execPath: destination, args: [] });
       handoffQueued = true;
       app.quit();
+      this.installHandoffStarted = true;
       return true;
     } catch (error) {
       if (!handoffQueued) {
@@ -938,6 +946,25 @@ class DesktopApiAppUpdate {
   }
 
   async installPackage(params: IInstallUpdateParams): Promise<boolean> {
+    if (this.installInProgress) return false;
+    this.installInProgress = true;
+    try {
+      // Drain cache clearing/downloads before reading the package to install.
+      if (this.cacheClearPromise) await this.cacheClearPromise;
+      await this.activeDownload;
+      this.metadataGeneration += 1;
+      this.metadataControllers.forEach((controller) => controller.abort());
+      await Promise.allSettled(this.metadataRequests);
+      return await this.installPackageLocked(params);
+    } finally {
+      // A successful handoff remains locked until this process exits.
+      if (!this.installHandoffStarted) this.installInProgress = false;
+    }
+  }
+
+  private async installPackageLocked(
+    params: IInstallUpdateParams,
+  ): Promise<boolean> {
     if (isStoreVersion) return false;
     const selection = await dialog.showMessageBox({
       type: 'question',
@@ -993,6 +1020,7 @@ class DesktopApiAppUpdate {
         autoUpdater.once('before-quit-for-update', onBeforeQuitForUpdate);
         store.setUpdateBuildNumber(params.buildNumber);
         autoUpdater.quitAndInstall();
+        this.installHandoffStarted = true;
         return true;
       } catch (error) {
         if (staged) {
@@ -1054,6 +1082,7 @@ class DesktopApiAppUpdate {
       await this.launchWindowsInstaller(record);
       store.setUpdateBuildNumber(params.buildNumber);
       app.quit();
+      this.installHandoffStarted = true;
       return true;
     }
     if (isAppImage) return this.installAppImage(record, params.buildNumber);

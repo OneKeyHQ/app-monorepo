@@ -237,7 +237,7 @@ class DesktopApiAppBundleUpdate {
     this.cancelCurrentDownload = () => {};
   }
 
-  getMainWindow(): BrowserWindow | undefined {
+  private getMainWindow(): BrowserWindow | undefined {
     return globalThis.$desktopMainAppFunctions?.getSafelyMainWindow?.();
   }
 

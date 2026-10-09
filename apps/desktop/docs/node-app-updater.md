@@ -36,6 +36,16 @@ The Android native method names do not become new Desktop IPC methods. Desktop
 continues to expose `checkForUpdates`, `downloadUpdate`, and the existing
 verification/install methods through `desktopApiProxy.appUpdate`.
 
+Desktop API visibility is enforced in the shared main-process dispatcher used
+by both invoke IPC and the legacy JsBridge. Before every main build,
+`scripts/generate-desktop-api-methods.js` reads the registered API classes with
+the TypeScript compiler API and regenerates the frozen public-method metadata.
+Public instance methods and function fields are remote-callable; internal helpers
+must be private or protected. Constructors, accessors, static members, private
+identifiers, and prototype methods are not exposed. Unsupported inheritance or
+dynamic names fail the build, and missing module/method metadata denies calls.
+Both IPC entrances require the current main window's main frame.
+
 ## Current behavior to preserve
 
 - `AppUpdate.downloadPackage`, `downloadASC`, `verifyASC`, `verifyPackage`,
@@ -65,6 +75,10 @@ verification/install methods through `desktopApiProxy.appUpdate`.
   cancellation, and range validation. Use a single stream when range is
   unavailable or the concurrent path cannot safely continue. Preserve partial
   bytes on transient interruption, including across app restart.
+- Retry delays in probe, segment, and single-stream paths observe cancellation.
+  Server-provided Retry-After delays are capped at 60 seconds. Hash reads also
+  observe cancellation, including verified-cache reuse; cancellation must reject
+  before a partial file is promoted or a successful download is published.
 - Accept request headers for feed and artifact requests. Do not forward secrets
   to a redirect on a different origin. Recheck redirect scheme and response
   ranges. Bind a resume manifest to the selected version, OS, architecture,
@@ -81,6 +95,12 @@ verification/install methods through `desktopApiProxy.appUpdate`.
   files. A fully verified new cache may be reused after a cold start.
 
 ## Install handoff
+
+All platforms acquire one main-process installation lock before showing the
+confirmation dialog. Concurrent calls return false without another dialog or
+installer. Cache clearing and new update operations are blocked while installation
+is pending. Cancellation, verification/launch failure, and manual-folder fallback
+release the lock; successful native/installer/relaunch handoff keeps it until exit.
 
 | Target | Required behavior |
 | --- | --- |
