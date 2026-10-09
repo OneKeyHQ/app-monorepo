@@ -58,25 +58,34 @@ export function InviteTabContent({
       />
 
       {md ? (
-        // Compact layouts read top-down: share (the invite card), money (the
-        // earnings card and its per-product breakdown), then the secondary
-        // entries and the invitee's bind entry (only until linked). Spacing
-        // groups them: 16px inside a group, 24px between groups. Sharing
-        // itself sits in the page footer.
+        // Compact layouts read top-down in groups: sharing (the invite card
+        // with the entries behind it, codes and the people they brought in),
+        // money (the earnings card and its per-product breakdown), then the
+        // invitee's bind entry (only until linked). Spacing groups them: 16px
+        // inside a group, 24px between groups. Sharing itself sits in the
+        // page footer.
         <YStack px="$pagePadding" pt="$3" gap="$6">
-          <InviteCompactCard
-            inviteUrl={summaryInfo.inviteUrl}
-            inviteCode={summaryInfo.inviteCode}
-            valueSummary={valueSummary}
-            cardStyle={cardStyle}
-            levelValue={
-              <InviteLevelValue
-                rebateConfig={summaryInfo.rebateConfig}
-                rebateLevels={summaryInfo.rebateLevels}
-                levelDetail={levelDetail}
-              />
-            }
-          />
+          <YStack gap="$4">
+            <InviteCompactCard
+              inviteUrl={summaryInfo.inviteUrl}
+              inviteCode={summaryInfo.inviteCode}
+              valueSummary={valueSummary}
+              cardStyle={cardStyle}
+              levelValue={
+                <InviteLevelValue
+                  rebateConfig={summaryInfo.rebateConfig}
+                  rebateLevels={summaryInfo.rebateLevels}
+                  levelDetail={levelDetail}
+                />
+              }
+            />
+            <InviteEntriesCard
+              cardStyle={cardStyle}
+              onManageCodes={() => {
+                navigateToInviteCodes(summaryInfo.inviteUrl);
+              }}
+            />
+          </YStack>
           <YStack gap="$4">
             <InviteEarningsCard
               summaryInfo={summaryInfo}
@@ -84,15 +93,7 @@ export function InviteTabContent({
             />
             <InviteRewardRows summaryInfo={summaryInfo} />
           </YStack>
-          <YStack gap="$4">
-            <InviteEntriesCard
-              cardStyle={cardStyle}
-              onManageCodes={() => {
-                navigateToInviteCodes(summaryInfo.inviteUrl);
-              }}
-            />
-            <InviteBindRow variant="card" />
-          </YStack>
+          <InviteBindRow variant="card" />
         </YStack>
       ) : (
         // Desktop leads with earnings; the invite card sits beside it.
