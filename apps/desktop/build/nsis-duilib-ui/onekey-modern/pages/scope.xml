@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Window size="{{window.width}},{{window.height}}" caption="0,0,0,64" roundcorner="{{window.radius}},{{window.radius}}" gdiplustext="true">
+<Window size="{{window.width}},{{window.height}}" caption="0,0,0,64" roundcorner="{{window.radius}},{{window.radius}}" gdiplustext="true" textrenderinghint="5">
   <Font id="0" name="{{font.family}}" size="{{font.bodySize}}" default="true" />
-  <Font id="1" name="Segoe UI" size="24" />
-  <Font id="2" name="Segoe UI Semibold" size="16" />
-  <Font id="3" name="Segoe UI Semibold" size="13" />
+  <Font id="1" name="{{font.family}}" size="{{font.titleSize}}" />
+  <Font id="2" name="{{font.family}}" size="16" bold="{{font.emphasisBold}}" />
+  <Font id="3" name="{{font.family}}" size="{{font.bodySize}}" bold="{{font.emphasisBold}}" />
   <Container name="page-root">
     <LightBackdrop float="0,0,1,1" canvascolor="{{color.canvas}}" bluecolor="{{color.blueTint}}" greencolor="{{color.greenTint}}" />
     <VerticalLayout float="0,0,1,1">
@@ -12,10 +12,10 @@
         <Label text="{{string.scope.title}}" font="1" textcolor="{{color.textPrimary}}" height="40" align="center" />
         <Label text="{{string.scope.subtitle}}" textcolor="{{color.textSecondary}}" height="42" align="center" />
         <Control height="38" />
-        <HorizontalLayout height="52"><Control /><Button name="scope-current" text="{{string.scope.current.title}}" textcolor="{{color.ink}}" bkcolor="{{color.brand}}" hotbkcolor="{{color.brandHover}}" pushedbkcolor="{{color.brandPressed}}" width="320" height="52" borderround="12,12" font="3" /><Control /></HorizontalLayout>
+        <HorizontalLayout height="52"><Control /><Button name="scope-current" text="{{string.scope.current.title}}" textcolor="{{color.textPrimary}}" bkcolor="{{color.brand}}" hotbkcolor="{{color.brandHover}}" pushedbkcolor="{{color.brandPressed}}" width="320" height="52" borderround="12,12" font="0" /><Control /></HorizontalLayout>
         <Label text="{{string.scope.current.description}}" textcolor="{{color.textSecondary}}" height="34" align="center" />
         <Control height="16" />
-        <HorizontalLayout height="52"><Control /><Button name="scope-all" text="{{string.scope.all.title}}" textcolor="{{color.textPrimary}}" hottextcolor="{{color.textPrimary}}" bkcolor="#CCFFFFFF" hotbkcolor="{{color.brandSoft}}" pushedbkcolor="{{color.surfaceStrong}}" bordercolor="{{color.border}}" bordersize="1" width="320" height="52" borderround="12,12" font="3" /><Control /></HorizontalLayout>
+        <HorizontalLayout height="52"><Control /><Button name="scope-all" text="{{string.scope.all.title}}" textcolor="{{color.textPrimary}}" hottextcolor="{{color.textPrimary}}" bkcolor="#CCFFFFFF" hotbkcolor="{{color.brandSoft}}" pushedbkcolor="{{color.surfaceStrong}}" bordercolor="{{color.border}}" bordersize="1" width="320" height="52" borderround="12,12" font="0" /><Control /></HorizontalLayout>
         <Label text="{{string.scope.all.description}}" textcolor="{{color.textSecondary}}" height="30" align="center" />
         <Control />
       </VerticalLayout>
