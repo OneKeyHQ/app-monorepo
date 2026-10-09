@@ -136,7 +136,9 @@ function renderList(networkId = network.networkId) {
 
 describe('useSwapTokenList loading lifecycle', () => {
   beforeEach(() => {
-    appEventBus.emit(EAppEventBusNames.GlobalDeriveTypeUpdate, undefined);
+    appEventBus.emit(EAppEventBusNames.GlobalDeriveTypeUpdate, {
+      networkImpl: 'evm',
+    });
     jest.clearAllMocks();
     mockNetworks = [network];
     mockFocused = true;
