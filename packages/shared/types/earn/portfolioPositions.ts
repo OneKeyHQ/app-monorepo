@@ -16,9 +16,12 @@ import type {
  *     market on one network, `groupId` is its identity, and the client never
  *     merges, splits or re-derives one;
  *   - its `assets` are the staked principal plus the principal waiting to be
- *     claimed or still unstaking (see IEarnPositionAssetCategory); its
- *     `rewards` are the yield rows; the card has one Manage action and every
- *     claim or withdrawal runs on the detail page;
+ *     claimed (see IEarnPositionAssetCategory); each withdrawal in progress
+ *     is a locked position of its own (`earn.unstaking`), the way the wallet
+ *     DeFi portfolio shows it; its `rewards` are the yield rows;
+ *   - the card has one button (`earn.action`), and every claim or withdrawal
+ *     runs on the detail page, except a position without one, which carries
+ *     its claim in `earn.claim`;
  *   - the whole investment detail the position was cut from travels along in
  *     `earn.investment`, so nothing the older investment-detail page had is
  *     lost; the page reads what it renders and ignores the rest.
@@ -30,8 +33,8 @@ export type IEarnPositionCategory = 'yield' | 'staked' | 'lending';
 /**
  * `assets[].category` / `rewards[].category`: deposit is the staked
  * principal, claimable is withdrawn principal waiting to be claimed,
- * unstaking is a withdrawal in progress (its unlockAt sits on the matching
- * `earn.investment.assetsStatus` row, same order), reward is yield.
+ * unstaking is a withdrawal in progress (only on locked positions), reward
+ * is yield.
  */
 export type IEarnPositionAssetCategory =
   | 'deposit'
@@ -81,6 +84,17 @@ export type IEarnPositionExtension = {
   matured?: boolean;
   /** where Manage and a tapped row go: this position's own detail page */
   manage: IEarnPositionManageTarget;
+  /**
+   * The card's button. `manage` opens the detail page; `unstake` is the same
+   * page labelled for a provider whose only move left is leaving (Ethena).
+   */
+  action?: 'manage' | 'unstake';
+  /** locked positions: one per withdrawal in progress, dated when the provider knows */
+  unstaking?: { unlockAt?: number };
+  /** principal claimed on the card itself, for a position without a detail page */
+  claim?: IEarnActionIcon;
+  /** `airdrop`: the claim runs through the airdrop claim flow of the detail page */
+  claimSource?: 'airdrop';
   /** the protocol symbol, the one the detail page and claim flows key on */
   symbol: string;
   vault?: string;
@@ -92,7 +106,7 @@ export type IEarnPositionExtension = {
   /** principal still activating (staking providers); already inside the deposit asset */
   pendingActivation?: { amount: string; fiatValue: string };
   investment: IEarnPositionInvestment;
-  /** the on-chain airdrop rows the server folded into `rewards`, kept whole */
+  /** the on-chain airdrop rows the server folded into `rewards` or cut this position from, kept whole */
   airdropRows?: IEarnPositionAirdropRow[];
   /** fiat of those rows, as the airdrop detail sums it */
   airdropFiatValue?: string;

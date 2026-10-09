@@ -1,5 +1,6 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import type {
   IEarnPortfolioPosition,
   IEarnPortfolioPositionsResponse,
@@ -16,6 +17,7 @@ import {
   EARN_PORTFOLIO_POSITIONS_FIXTURE,
   LIDO_LATER_UNLOCK_AT,
   LIDO_UNLOCK_AT,
+  SUSDE_VAULT,
 } from './earnPositionModel.fixtures';
 
 import type { IEarnPositionView, IEarnProtocolView } from './earnPositionModel';
@@ -47,6 +49,7 @@ function card(row: IEarnProtocolView, key: string): IEarnPositionView {
 describe('earn position model: protocol rows', () => {
   it('has one row per protocol per network, like the wallet', () => {
     expect(view.protocols.map((protocol) => protocol.key).toSorted()).toEqual([
+      'evm--1-ethena',
       'evm--1-everstake',
       'evm--1-lido',
       'evm--1-morpho',
@@ -86,7 +89,7 @@ describe('earn position model: protocol rows', () => {
       view.protocols,
     );
     expect(countEarnPositionsByNetwork(view.protocols)).toEqual({
-      'evm--1': 6,
+      'evm--1': 10,
       'evm--8453': 2,
       'sol--101': 1,
     });
@@ -94,35 +97,68 @@ describe('earn position model: protocol rows', () => {
 });
 
 describe('earn position model: one card per position', () => {
-  it('keeps a deposit with its claimable and unstaking principal on one card, in that order', () => {
-    const lido = protocolRow('evm--1-lido');
-    expect(lido.positions).toHaveLength(1);
-    const [position] = lido.positions;
+  it('keeps a deposit with its claimable principal on one card, with Manage', () => {
+    const deposit = card(protocolRow('evm--1-lido'), 'lido:evm--1:steth');
     expect(
-      position.sections.map((section) => [section.kind, section.title]),
+      deposit.sections.map((section) => [section.kind, section.title]),
     ).toEqual([
       ['deposited', ETranslations.earn_deposited],
       ['claimable', ETranslations.earn_claimable],
-      ['unstaking', ETranslations.earn_withdrawal_requested],
     ]);
-    // the unlock time lines up with the detail rows the server cut the assets from
-    expect(
-      position.sections[2].assets.map((asset) => [
-        asset.amount,
-        asset.unlockAt,
-      ]),
-    ).toEqual([
-      ['0.25', LIDO_UNLOCK_AT],
-      ['0.3', LIDO_LATER_UNLOCK_AT],
-    ]);
-    expect(position.badgeLabel).toBe(ETranslations.earn_category_staked__title);
-    expect(position.manage).toEqual({
-      networkId: 'evm--1',
-      provider: 'lido',
-      symbol: 'ETH',
+    expect(deposit.badgeLabel).toBe(ETranslations.earn_category_staked__title);
+    expect(deposit.locked).toBeUndefined();
+    expect(deposit.action).toEqual({
+      kind: 'manage',
+      target: { networkId: 'evm--1', provider: 'lido', symbol: 'ETH' },
     });
-    // 4 + 0.5 + 0.25 + 0.3 ETH at 3150: the principal states count in the value
-    expect(position.value.value).toBeCloseTo(5.05 * 3150, 6);
+    // 4 + 0.5 ETH at 3150: claimable principal counts in the value
+    expect(deposit.value.value).toBeCloseTo(4.5 * 3150, 6);
+  });
+
+  it('shows each withdrawal in progress as a locked card named after its unlock time', () => {
+    const lido = protocolRow('evm--1-lido');
+    const locked = lido.positions.filter((position) => position.locked);
+    expect(locked.map((position) => position.key)).toEqual([
+      'lido:evm--1:steth:unstaking:1',
+      'lido:evm--1:steth:unstaking:0',
+    ]);
+    const [later, sooner] = locked;
+    expect(sooner.badgeLabel).toBe(
+      ETranslations.wallet_defi_position_module_locked,
+    );
+    expect(sooner.name).toBe(
+      `${ETranslations.earn_unlock_time}: ${formatDate(new Date(LIDO_UNLOCK_AT), { hideTimeForever: true })}`,
+    );
+    expect(later.locked).toEqual({ unlockAt: LIDO_LATER_UNLOCK_AT });
+    expect(
+      sooner.sections.map((section) => [section.kind, section.title]),
+    ).toEqual([['unstaking', ETranslations.earn_withdrawal_requested]]);
+    expect(
+      sooner.sections[0].assets.map((asset) => [asset.amount, asset.unlockAt]),
+    ).toEqual([['0.25', LIDO_UNLOCK_AT]]);
+    // the way back to the detail page stays on the locked card
+    expect(sooner.action?.kind).toBe('manage');
+  });
+
+  it('claims the USDe cooled down at Ethena on the card, which has no detail page', () => {
+    const cooldown = card(
+      protocolRow('evm--1-pendle'),
+      `pendle:evm--1:${SUSDE_VAULT}:cooldown`,
+    );
+    expect(cooldown.badgeLabel).toBe(ETranslations.earn_category_staked__title);
+    expect(cooldown.sections.map((section) => section.kind)).toEqual([
+      'claimable',
+    ]);
+    expect(cooldown.action).toEqual({ kind: 'claim' });
+    expect(cooldown.value.value).toBeCloseTo(0.045_88 * 0.9993, 9);
+  });
+
+  it('labels the Ethena card Unstake, its only move left', () => {
+    const ethena = card(protocolRow('evm--1-ethena'), 'ethena:evm--1:USDe');
+    expect(ethena.action).toEqual({
+      kind: 'unstake',
+      target: { networkId: 'evm--1', provider: 'ethena', symbol: 'USDe' },
+    });
   });
 
   it('gives each Pendle market its own card, named after its maturity', () => {
@@ -130,11 +166,8 @@ describe('earn position model: one card per position', () => {
     expect(pendle.positions.map((position) => position.name)).toEqual([
       'PT-USDG-28MAY2026',
       'PT-USD3-17DEC2026',
+      'USDe',
     ]);
-    pendle.positions.forEach((position) => {
-      expect(position.sections).toHaveLength(1);
-      expect(position.sections[0].assets).toHaveLength(1);
-    });
   });
 
   it('shows a loan as Supplied / Borrowed / Rewards with its health factor, debt subtracted', () => {

@@ -20,7 +20,7 @@ import type { IPortfolioClaimSourceCandidate } from '../../../utils/portfolioCla
  *   - POST /earn/v1/rewards/portfolio: ledger rewards (airdrops, rebates) in
  *     three stages for the Rewards tab.
  * The helpers here name positions for the pending-tx badge and adapt ledger
- * rows into the claim button the detail page already runs.
+ * rows and card claims into the claim button the detail page already runs.
  */
 
 /** Header "Rewards": the ledger's claimable + pending, plus the positions' claimable rewards. */
@@ -62,6 +62,59 @@ export function hasPositionDetailPage(
     earn.symbol === 'USDe' &&
     (earn.investment.buttons?.length ?? 0) === 0
   );
+}
+
+const EMPTY_TEXT = { text: '' };
+
+/**
+ * A position that carries its own claim (today the USDe cooled down at
+ * Ethena, reached through Pendle's sUSDe path) claims through the airdrop
+ * flow the wide layout already runs: this rebuilds the airdrop asset that
+ * flow reads its protocol, network and token off. Pendle resolves the claim
+ * identity from the asset symbol and vault, which are exactly `earn.symbol`
+ * and `earn.vault`.
+ */
+export function toPositionAirdropClaimAsset(
+  position: IEarnPortfolioPosition,
+): IEarnPortfolioAirdropAsset | undefined {
+  const { earn } = position;
+  const { claim } = earn;
+  if (!claim || earn.claimSource !== 'airdrop') {
+    return undefined;
+  }
+  const asset = position.assets[0];
+  const row =
+    earn.airdropRows?.find((entry) => entry.button) ?? earn.airdropRows?.[0];
+  // The airdrop row type requires a tooltip the position row does not
+  // carry; the claim button never reads it, so the entry is built without one.
+  const airdropRow = {
+    title: row?.title ?? EMPTY_TEXT,
+    description: row?.description ?? EMPTY_TEXT,
+    button: claim,
+    claimType: 'airdrop',
+  } as IEarnPortfolioAirdropAsset['airdropAssets'][number];
+  return {
+    token: {
+      info: {
+        symbol: asset?.symbol ?? earn.symbol,
+        logoURI: asset?.meta.logoUrl ?? '',
+        ...(asset?.address ? { address: asset.address } : {}),
+      },
+    },
+    airdropAssets: [airdropRow],
+    metadata: {
+      protocol: {
+        vault: earn.vault,
+        vaultName: earn.vaultName,
+        providerDetail: {
+          code: position.protocol,
+          name: position.protocolName,
+          logoURI: earn.providerLogoURI ?? '',
+        },
+      },
+      network: earn.network,
+    },
+  };
 }
 
 /**

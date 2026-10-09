@@ -17,15 +17,18 @@ import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeab
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import type {
   IEarnPortfolioPosition,
   IEarnPositionManageTarget,
 } from '@onekeyhq/shared/types/earn/portfolioPositions';
 
+import { WrappedActionButton } from '../../../components/PortfolioTabContent';
 import { EarnTestIDs } from '../../../testIDs';
 
-import { hasPositionDetailPage } from './myPortfolio.utils';
+import {
+  hasPositionDetailPage,
+  toPositionAirdropClaimAsset,
+} from './myPortfolio.utils';
 
 import type {
   IEarnPositionSectionView,
@@ -103,15 +106,6 @@ function PositionSection({
             >
               {asset.amount}
             </NumberSizeableTextWrapper>
-            {asset.unlockAt ? (
-              <SizableText
-                size="$bodySm"
-                color="$textSubdued"
-                numberOfLines={1}
-              >
-                {`${intl.formatMessage({ id: ETranslations.earn_unlock_time })}: ${formatDate(new Date(asset.unlockAt), { hideTimeForever: true })}`}
-              </SizableText>
-            ) : null}
           </YStack>
         </XStack>
       ))}
@@ -155,11 +149,37 @@ function PositionPnlLine({ position }: { position: IEarnPortfolioPosition }) {
 }
 
 /**
+ * A position without a detail page claims on its card, through the airdrop
+ * claim flow the wide layout already runs (identity, pending spinner,
+ * refresh included).
+ */
+function PositionClaimButton({
+  position,
+}: {
+  position: IEarnPortfolioPosition;
+}) {
+  const asset = toPositionAirdropClaimAsset(position);
+  const reward = asset?.airdropAssets[0];
+  if (!asset || !reward) {
+    return null;
+  }
+  return (
+    <WrappedActionButton
+      asset={asset}
+      reward={reward}
+      rewardSymbol={asset.token.info.symbol}
+      buttonProps={{ size: 'medium', variant: 'primary' }}
+    />
+  );
+}
+
+/**
  * One position, the wallet DeFi Portfolio card in the Earn design (figma
  * 29180-108096 and 30292-17104): badge and name, the position value, an
  * optional health factor line, one block per section (deposited, claimable,
- * unstaking with its unlock time, borrowed, rewards), the PnL line and the
- * single Manage action. Claims and withdrawals run on the detail page.
+ * borrowed, rewards; a locked card shows its withdrawal), the PnL line and
+ * the single action: Manage or Unstake into the detail page, or Claim on a
+ * position that has no page.
  */
 function EarnPositionCardCmp({
   position,
@@ -167,9 +187,12 @@ function EarnPositionCardCmp({
 }: { position: IEarnPositionView } & IEarnPositionCardHandlers) {
   const intl = useIntl();
   const currencyInfo = useCurrency();
-  const { value, meta, source } = position;
-  const canOpen = Boolean(onManage) && hasPositionDetailPage(source);
-  const openDetail = canOpen ? () => onManage?.(position.manage) : undefined;
+  const { value, meta, source, action } = position;
+  const opensDetail = action?.kind === 'manage' || action?.kind === 'unstake';
+  const canOpen =
+    opensDetail && Boolean(onManage) && hasPositionDetailPage(source);
+  const openDetail =
+    canOpen && opensDetail ? () => onManage?.(action.target) : undefined;
 
   return (
     <YStack
@@ -183,7 +206,11 @@ function EarnPositionCardCmp({
     >
       <XStack ai="center" jc="space-between" gap="$2" minHeight={28}>
         <XStack ai="center" gap="$2" flex={1} minWidth={0}>
-          <Badge badgeType="success" badgeSize="sm" flexShrink={0}>
+          <Badge
+            badgeType={position.locked ? 'default' : 'success'}
+            badgeSize="sm"
+            flexShrink={0}
+          >
             <Badge.Text>{position.badgeLabel}</Badge.Text>
           </Badge>
           {position.name ? (
@@ -229,7 +256,7 @@ function EarnPositionCardCmp({
         />
       ))}
 
-      {position.variant !== 'rewards' ? (
+      {position.variant !== 'rewards' && !position.locked ? (
         <PositionPnlLine position={source} />
       ) : null}
 
@@ -240,8 +267,16 @@ function EarnPositionCardCmp({
           variant="secondary"
           onPress={openDetail}
         >
-          {intl.formatMessage({ id: ETranslations.global_manage })}
+          {intl.formatMessage({
+            id:
+              action?.kind === 'unstake'
+                ? ETranslations.defi_unstake
+                : ETranslations.global_manage,
+          })}
         </Button>
+      ) : null}
+      {action?.kind === 'claim' ? (
+        <PositionClaimButton position={source} />
       ) : null}
     </YStack>
   );

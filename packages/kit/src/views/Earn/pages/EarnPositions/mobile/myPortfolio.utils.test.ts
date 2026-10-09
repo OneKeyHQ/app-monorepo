@@ -6,7 +6,11 @@ import type {
   IEarnRewardsPortfolioItem,
 } from '@onekeyhq/shared/types/staking';
 
-import { EARN_PORTFOLIO_POSITIONS_FIXTURE } from './earnPositionModel.fixtures';
+import {
+  CLAIM_BUTTON,
+  EARN_PORTFOLIO_POSITIONS_FIXTURE,
+  SUSDE_VAULT,
+} from './earnPositionModel.fixtures';
 import {
   buildClaimSourceCandidates,
   buildNetworkInfoMap,
@@ -14,6 +18,7 @@ import {
   positionPendingTag,
   sumRewardsHeaderFiat,
   toLedgerClaimAsset,
+  toPositionAirdropClaimAsset,
 } from './myPortfolio.utils';
 
 const POSITIONS = Object.values(
@@ -22,8 +27,13 @@ const POSITIONS = Object.values(
 const lido = POSITIONS.find(
   (position) => position.groupId === 'lido:evm--1:steth',
 );
-if (!lido) {
-  throw new OneKeyLocalError('fixture changed: Lido position missing');
+const cooldown = POSITIONS.find(
+  (position) => position.groupId === `pendle:evm--1:${SUSDE_VAULT}:cooldown`,
+);
+if (!lido || !cooldown) {
+  throw new OneKeyLocalError(
+    'fixture changed: Lido or Pendle cooldown position missing',
+  );
 }
 
 describe('sumRewardsHeaderFiat', () => {
@@ -61,23 +71,14 @@ describe('positionPendingTag', () => {
 describe('hasPositionDetailPage', () => {
   it('only the Pendle USDe row without buttons has no page', () => {
     expect(hasPositionDetailPage(lido)).toBe(true);
-    const pendleUsde = {
-      ...lido,
-      protocol: 'pendle',
-      earn: {
-        ...lido.earn,
-        symbol: 'USDe',
-        investment: { ...lido.earn.investment, buttons: [] },
-      },
-    };
-    expect(hasPositionDetailPage(pendleUsde)).toBe(false);
+    expect(hasPositionDetailPage(cooldown)).toBe(false);
     expect(
       hasPositionDetailPage({
-        ...pendleUsde,
+        ...cooldown,
         earn: {
-          ...pendleUsde.earn,
+          ...cooldown.earn,
           investment: {
-            ...pendleUsde.earn.investment,
+            ...cooldown.earn.investment,
             buttons: [
               { type: 'manage', text: { text: 'Manage' }, disabled: false },
             ],
@@ -85,6 +86,33 @@ describe('hasPositionDetailPage', () => {
         },
       }),
     ).toBe(true);
+  });
+});
+
+describe('toPositionAirdropClaimAsset', () => {
+  it('rebuilds the airdrop asset the claim flow keys on: symbol, vault, provider, network', () => {
+    const asset = toPositionAirdropClaimAsset(cooldown);
+    expect(asset).toMatchObject({
+      token: { info: { symbol: 'USDe' } },
+      airdropAssets: [{ claimType: 'airdrop', button: CLAIM_BUTTON }],
+      metadata: {
+        protocol: {
+          vault: SUSDE_VAULT,
+          providerDetail: { code: 'pendle', name: 'Pendle' },
+        },
+        network: { networkId: 'evm--1' },
+      },
+    });
+  });
+
+  it('yields nothing for a position whose claim runs on the detail page', () => {
+    expect(toPositionAirdropClaimAsset(lido)).toBeUndefined();
+    expect(
+      toPositionAirdropClaimAsset({
+        ...cooldown,
+        earn: { ...cooldown.earn, claimSource: undefined },
+      }),
+    ).toBeUndefined();
   });
 });
 

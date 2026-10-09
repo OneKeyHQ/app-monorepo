@@ -13,6 +13,7 @@ import {
   getProtocolPositionDisplayName,
 } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import type {
   IDeFiAsset,
@@ -35,10 +36,13 @@ import type {
  * protocol per network and keys each position by groupId, and
  * buildLocalizedProtocolPositionItems gives its value and health factor.
  * This file adds what the Earn design adds on top: the badge copy, the
- * sections a card shows (deposited, claimable, unstaking, borrowed, rewards)
- * and the single Manage action. Product rule: a deposit and the principal
- * of the same vault waiting to be claimed or unstaking are one card; every
- * claim and withdrawal runs on the detail page behind Manage.
+ * sections a card shows (deposited, claimable, borrowed, rewards; one
+ * unstaking section on a locked card), the locked card's name and the
+ * card's single action. Product rules: a deposit and the principal of the
+ * same vault waiting to be claimed are one card; each withdrawal in
+ * progress is a locked card of its own, as the wallet DeFi portfolio shows
+ * it; every claim and withdrawal runs on the detail page behind the button,
+ * except a position without a detail page, which claims on the card.
  */
 
 type ITranslate = (id: ETranslations) => string;
@@ -52,7 +56,7 @@ export type IEarnPositionSectionKind =
   | 'rewards';
 
 export type IEarnPositionSectionAsset = IDeFiAsset & {
-  /** ms; unstaking rows whose provider knows when the funds free up */
+  /** ms; locked cards whose provider knows when the funds free up */
   unlockAt?: number;
 };
 
@@ -67,6 +71,10 @@ export type IEarnPositionSectionView = {
 
 export type IEarnPositionMeta = { kind: 'healthFactor'; healthFactor: number };
 
+export type IEarnPositionAction =
+  | { kind: 'manage' | 'unstake'; target: IEarnPositionManageTarget }
+  | { kind: 'claim' };
+
 export type IEarnPositionView = {
   /** the position's groupId */
   key: string;
@@ -76,8 +84,10 @@ export type IEarnPositionView = {
   value: IProtocolValueState;
   meta?: IEarnPositionMeta;
   sections: IEarnPositionSectionView[];
-  /** where Manage and a tapped row go */
-  manage: IEarnPositionManageTarget;
+  /** the card's single button */
+  action?: IEarnPositionAction;
+  /** a withdrawal in progress: its own card, named after its unlock time */
+  locked?: { unlockAt?: number };
   /** the server position behind the card */
   source: IEarnPortfolioPosition;
   /** Claimable stage: the card shows its rewards alone, no PnL line */
@@ -126,8 +136,7 @@ const SECTION_ASSET_TYPES: Record<
   rewards: 'rewards',
 };
 
-// Figma 30292-17104: principal first, then what is on its way out, then
-// what is owed on top.
+// Figma 30292-17104: principal first, then what is owed on top.
 const SECTION_ORDER: IEarnPositionSectionKind[] = [
   'deposited',
   'supplied',
@@ -154,18 +163,21 @@ function readEarnPosition(
   return sourcePositions?.find(isEarnPosition);
 }
 
-/**
- * The unlock time of each unstaking asset. The server cuts the unstaking
- * assets from the detail's status rows then reward rows, in that order, so
- * the same filter here lines up with `assets` entry for entry.
- */
-function unstakingUnlockAts(
-  source: IEarnPortfolioPosition,
-): (number | undefined)[] {
-  const { assetsStatus = [], rewardAssets = [] } = source.earn.investment;
-  return [...assetsStatus, ...rewardAssets]
-    .filter((row) => row.kind === 'unstaking')
-    .map((row) => row.unlockAt);
+/** "Unlock time: 2026-10-12", the locked card's name; plain "Locked" without a date. */
+function lockedName({
+  unlockAt,
+  translate,
+}: {
+  unlockAt?: number;
+  translate: ITranslate;
+}): string {
+  if (!unlockAt) {
+    return translate(ETranslations.wallet_defi_position_module_locked);
+  }
+  return `${translate(ETranslations.earn_unlock_time)}: ${formatDate(
+    new Date(unlockAt),
+    { hideTimeForever: true },
+  )}`;
 }
 
 function buildSections({
@@ -192,16 +204,16 @@ function buildSections({
   };
   const principalKind: IEarnPositionSectionKind =
     source.category === 'lending' ? 'supplied' : 'deposited';
-  const unlockAts = unstakingUnlockAts(source);
-  let unstakingIndex = 0;
   source.assets.forEach((asset) => {
     switch (asset.category) {
       case 'claimable':
         push('claimable', asset);
         break;
       case 'unstaking':
-        push('unstaking', { ...asset, unlockAt: unlockAts[unstakingIndex] });
-        unstakingIndex += 1;
+        push('unstaking', {
+          ...asset,
+          unlockAt: source.earn.unstaking?.unlockAt,
+        });
         break;
       default:
         push(principalKind, asset);
@@ -218,6 +230,36 @@ function buildSections({
   }));
 }
 
+function resolveAction(source: IEarnPortfolioPosition): IEarnPositionAction {
+  const { earn } = source;
+  if (earn.claim && earn.claimSource === 'airdrop') {
+    return { kind: 'claim' };
+  }
+  return {
+    kind: earn.action === 'unstake' ? 'unstake' : 'manage',
+    target: earn.manage,
+  };
+}
+
+/** The badge: Locked on a withdrawal in progress, else the Earn category. */
+function badgeLabelOf({
+  item,
+  locked,
+  translate,
+}: {
+  item: ILocalizedProtocolPositionItem;
+  locked: boolean;
+  translate: ITranslate;
+}): string {
+  if (locked) {
+    return translate(ETranslations.wallet_defi_position_module_locked);
+  }
+  if (isEarnCategory(item.category)) {
+    return translate(BADGE_LABEL_IDS[item.category]);
+  }
+  return item.categoryLabel;
+}
+
 function buildPositionView({
   item,
   translate,
@@ -230,19 +272,21 @@ function buildPositionView({
     return undefined;
   }
   const sections = buildSections({ source, translate });
+  const locked = source.earn.unstaking;
   return {
     key: item.positionKey,
-    badgeLabel: isEarnCategory(item.category)
-      ? translate(BADGE_LABEL_IDS[item.category])
-      : item.categoryLabel,
-    name: getProtocolPositionDisplayName(item),
+    badgeLabel: badgeLabelOf({ item, locked: Boolean(locked), translate }),
+    name: locked
+      ? lockedName({ unlockAt: locked.unlockAt, translate })
+      : getProtocolPositionDisplayName(item),
     value: getProtocolPositionSectionsValueState(sections),
     meta:
       typeof item.healthFactor === 'number'
         ? { kind: 'healthFactor', healthFactor: item.healthFactor }
         : undefined,
     sections,
-    manage: source.earn.manage,
+    action: resolveAction(source),
+    locked,
     source,
   };
 }

@@ -8,12 +8,15 @@ import type {
   IEarnPositionCategory,
   IEarnPositionExtension,
 } from '@onekeyhq/shared/types/earn/portfolioPositions';
+import { EClaimType } from '@onekeyhq/shared/types/staking';
 
 /**
  * Mock response in the positions contract: the cases the page has to get
- * right — a staking position with withdrawn and unstaking principal (Lido),
- * dated Pendle markets, Morpho vaults on two chains with a loan, Everstake
- * with yield, Stakefish on Solana. Owners are placeholders.
+ * right — a staking position with withdrawn principal and two withdrawals in
+ * progress (Lido), dated Pendle markets, the USDe cooled down at Ethena that
+ * Pendle's sUSDe path reports, Morpho vaults on two chains with a loan,
+ * Everstake with yield, an Ethena position whose only move is unstaking,
+ * Stakefish on Solana. Owners are placeholders.
  */
 
 const FETCHED_AT = '2026-09-28T03:40:00.000Z';
@@ -26,6 +29,13 @@ const PROTOCOL_LOGO: Record<string, string> = {
   morpho: 'https://uni.onekey-asset.com/static/logo/morpho.png',
   everstake: 'https://uni.onekey-asset.com/static/logo/everstake.png',
   stakefish: 'https://uni.onekey-asset.com/static/logo/stakefish.png',
+  ethena: 'https://uni.onekey-asset.com/static/logo/ethena.png',
+};
+
+export const CLAIM_BUTTON = {
+  type: EClaimType.ClaimOrder,
+  text: { text: 'Claim' },
+  disabled: false,
 };
 
 export function token({
@@ -107,6 +117,7 @@ export function position({
     name,
     earn: {
       manage: { networkId, provider: protocol, symbol },
+      action: 'manage',
       symbol,
       network: { networkId, name: networkId, logoURI: '' },
       investment: {
@@ -150,17 +161,22 @@ const solana = { networkId: 'sol--101', chain: 'sol' };
 
 export const LIDO_UNLOCK_AT = Date.parse('2026-10-02T08:00:00Z');
 export const LIDO_LATER_UNLOCK_AT = Date.parse('2026-10-05T08:00:00Z');
+export const SUSDE_VAULT = '0x9d39a5de30e57443bff2a8307a4256c8797a3497';
+
+const LIDO = {
+  ...ethereum,
+  protocol: 'lido',
+  protocolName: 'Lido',
+  category: 'staked' as const,
+  name: 'Lido staked ETH',
+};
 
 const ETHEREUM_POSITIONS: IEarnPortfolioPosition[] = [
-  // Lido: one position; the deposit, a withdrawal ready to claim and two
-  // still unstaking are its assets (product: one holding, one card).
+  // Lido: the deposit and the withdrawal ready to claim are one card; each
+  // withdrawal still in progress is a locked card of its own.
   position({
-    ...ethereum,
-    protocol: 'lido',
-    protocolName: 'Lido',
-    category: 'staked',
+    ...LIDO,
     groupId: 'lido:evm--1:steth',
-    name: 'Lido staked ETH',
     assets: [
       token({ symbol: 'ETH', amount: '4', price: 3150 }),
       token({
@@ -169,12 +185,25 @@ const ETHEREUM_POSITIONS: IEarnPortfolioPosition[] = [
         price: 3150,
         category: 'claimable',
       }),
+    ],
+  }),
+  position({
+    ...LIDO,
+    groupId: 'lido:evm--1:steth:unstaking:0',
+    assets: [
       token({
         symbol: 'ETH',
         amount: '0.25',
         price: 3150,
         category: 'unstaking',
       }),
+    ],
+    earn: { unstaking: { unlockAt: LIDO_UNLOCK_AT } },
+  }),
+  position({
+    ...LIDO,
+    groupId: 'lido:evm--1:steth:unstaking:1',
+    assets: [
       token({
         symbol: 'ETH',
         amount: '0.3',
@@ -182,34 +211,7 @@ const ETHEREUM_POSITIONS: IEarnPortfolioPosition[] = [
         category: 'unstaking',
       }),
     ],
-    earn: {
-      investment: {
-        totalFiatValue: '15907.5',
-        earnings24hFiatValue: '1.2',
-        assetsStatus: [
-          {
-            title: { text: '4 ETH' },
-            description: { text: 'Active' },
-            kind: 'active',
-            amount: '4',
-          },
-          {
-            title: { text: '0.25 ETH' },
-            description: { text: 'Withdrawal requested' },
-            kind: 'unstaking',
-            amount: '0.25',
-            unlockAt: LIDO_UNLOCK_AT,
-          },
-          {
-            title: { text: '0.3 ETH' },
-            description: { text: 'Withdrawal requested' },
-            kind: 'unstaking',
-            amount: '0.3',
-            unlockAt: LIDO_LATER_UNLOCK_AT,
-          },
-        ],
-      },
-    },
+    earn: { unstaking: { unlockAt: LIDO_LATER_UNLOCK_AT } },
   }),
   position({
     ...ethereum,
@@ -237,6 +239,31 @@ const ETHEREUM_POSITIONS: IEarnPortfolioPosition[] = [
       symbol: 'USD3',
       vault: '0xusd3',
       maturityAt: Date.parse('2026-12-17T00:00:00Z'),
+    },
+  }),
+  // The USDe cooled down at Ethena after a Pendle sUSDe redeem: no detail
+  // page, so the card carries the claim itself.
+  position({
+    ...ethereum,
+    protocol: 'pendle',
+    protocolName: 'Pendle',
+    category: 'staked',
+    groupId: `pendle:evm--1:${SUSDE_VAULT}:cooldown`,
+    name: 'USDe',
+    assets: [
+      token({
+        symbol: 'USDe',
+        amount: '0.04588',
+        price: 0.9993,
+        category: 'claimable',
+      }),
+    ],
+    earn: {
+      symbol: 'USDe',
+      vault: SUSDE_VAULT,
+      claim: CLAIM_BUTTON,
+      claimSource: 'airdrop',
+      airdropRows: [{ title: { text: '0.04588 USDe' }, button: CLAIM_BUTTON }],
     },
   }),
   position({
@@ -304,6 +331,17 @@ const ETHEREUM_POSITIONS: IEarnPortfolioPosition[] = [
         category: 'reward',
       }),
     ],
+  }),
+  // Ethena: deposits are closed, so the card's one button is Unstake.
+  position({
+    ...ethereum,
+    protocol: 'ethena',
+    protocolName: 'Ethena',
+    category: 'yield',
+    groupId: 'ethena:evm--1:USDe',
+    name: 'Ethena USDe',
+    assets: [token({ symbol: 'USDe', amount: '12', price: 0.9993 })],
+    earn: { action: 'unstake' },
   }),
 ];
 
@@ -373,6 +411,7 @@ export const EARN_PORTFOLIO_POSITIONS_FIXTURE: IEarnPortfolioPositionsResponse =
       summary(ALL_POSITIONS, 'pendle', 'evm--1'),
       summary(ALL_POSITIONS, 'morpho', 'evm--1'),
       summary(ALL_POSITIONS, 'everstake', 'evm--1'),
+      summary(ALL_POSITIONS, 'ethena', 'evm--1'),
       summary(ALL_POSITIONS, 'morpho', 'evm--8453'),
       summary(ALL_POSITIONS, 'pendle', 'evm--8453'),
       summary(ALL_POSITIONS, 'stakefish', 'sol--101'),
