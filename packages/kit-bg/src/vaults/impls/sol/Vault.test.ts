@@ -4,7 +4,9 @@ yarn jest packages/kit-bg/src/vaults/impls/sol/Vault.test.ts
 Covers the Solana blockhash lifecycle around signing and pending history
 (OK-63381): the pre-sign blockhash refresh, its skip rules, the dropped
 detection for pending txs that never reached the ledger, and the custom RPC
-"Blockhash not found" retry parity.
+"Blockhash not found" retry parity. Also covers the dApp transaction fee
+contract (OK-64196): dApp-built txs stay byte-identical and only expose the
+priority fee they already carry.
 */
 import {
   ComputeBudgetProgram,
@@ -21,6 +23,7 @@ import type { IEncodedTxSol } from '@onekeyhq/core/src/chains/sol/types';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
@@ -39,6 +42,8 @@ import { ClientCustomRpcSol } from './sdkSol/ClientCustomRpcSol';
 // eslint-disable-next-line import/first
 import SolVault from './Vault';
 
+// eslint-disable-next-line import/first
+import type ClientSol from './sdkSol/ClientSol';
 // eslint-disable-next-line import/first
 import type { FailedAttemptError } from 'p-retry';
 
@@ -112,10 +117,12 @@ function readBlockhash(encodedTx: IEncodedTxSol): string | undefined {
 }
 
 // Instantiating the full vault requires a backgroundApi context; the methods
-// under test only reach the RPC through the spied helpers below.
+// under test only reach the RPC through the spied helpers below. The dApp fee
+// paths parse instructions locally, so a bare client stub is enough for them.
 function buildVault() {
   const vault = Object.create(SolVault.prototype) as SolVault;
   vault.networkId = 'sol--101';
+  vault.getClient = async () => ({}) as unknown as ClientSol;
   const getRecentBlockHash = jest
     .spyOn(vault, '_getRecentBlockHash')
     .mockResolvedValue({
@@ -155,6 +162,55 @@ function buildPendingTx({
     },
   } as unknown as IAccountHistoryTx;
 }
+
+function buildDappEncodedTx({
+  computeUnitPrice,
+  computeUnitLimit,
+  transferCount = 1,
+}: {
+  computeUnitPrice?: number;
+  computeUnitLimit?: number;
+  transferCount?: number;
+}): IEncodedTxSol {
+  const tx = new Transaction({
+    feePayer: payer.publicKey,
+    recentBlockhash: OLD_BLOCKHASH,
+  });
+  if (computeUnitPrice !== undefined) {
+    tx.add(
+      ComputeBudgetProgram.setComputeUnitPrice({
+        microLamports: computeUnitPrice,
+      }),
+    );
+  }
+  if (computeUnitLimit !== undefined) {
+    tx.add(
+      ComputeBudgetProgram.setComputeUnitLimit({ units: computeUnitLimit }),
+    );
+  }
+  for (let i = 0; i < transferCount; i += 1) {
+    tx.add(
+      SystemProgram.transfer({
+        fromPubkey: payer.publicKey,
+        toPubkey: recipient.publicKey,
+        lamports: i + 1,
+      }),
+    );
+  }
+  return bs58.encode(
+    tx.serialize({ requireAllSignatures: false, verifySignatures: false }),
+  );
+}
+
+const dappFeeInfo: IFeeInfoUnit = {
+  common: {
+    feeDecimals: 9,
+    feeSymbol: 'SOL',
+    nativeDecimals: 9,
+    nativeSymbol: 'SOL',
+  },
+  feeSol: { computeUnitPrice: '999999' },
+};
 
 describe('SolVault.refreshUnsignedTxBeforeSign', () => {
   afterEach(() => {
@@ -557,5 +613,124 @@ describe('SolVault broadcast error copy', () => {
     await expect(vault.broadcastTransaction(broadcastParams)).rejects.toBe(
       insufficient,
     );
+  });
+});
+
+describe('SolVault dApp transaction fee handling (OK-64196)', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  describe('attachFeeInfoToDAppEncodedTx', () => {
+    it.each([
+      ['no ComputeBudget instruction', undefined],
+      ['a low dApp priority fee', 1],
+      ['a high dApp priority fee', 500_000],
+    ])(
+      'returns "" so the dApp tx is kept byte-identical when it has %s',
+      async (_label, computeUnitPrice) => {
+        const { vault } = buildVault();
+        const encodedTx = buildDappEncodedTx({ computeUnitPrice });
+
+        await expect(
+          vault.attachFeeInfoToDAppEncodedTx({
+            encodedTx,
+            feeInfo: dappFeeInfo,
+          }),
+        ).resolves.toBe('');
+      },
+    );
+  });
+
+  describe('updateUnsignedTx', () => {
+    it('does not rewrite the encoded tx when the fee is not editable', async () => {
+      const { vault } = buildVault();
+      const encodedTx = buildDappEncodedTx({ computeUnitPrice: 123 });
+
+      const result = await vault.updateUnsignedTx({
+        unsignedTx: { encodedTx },
+        feeInfo: dappFeeInfo,
+        feeInfoEditable: false,
+      });
+
+      expect(result.encodedTx).toBe(encodedTx);
+    });
+  });
+
+  describe('buildEstimateFeeParams', () => {
+    it('exposes the priority fee carried by the tx for read-only display', async () => {
+      const { vault } = buildVault();
+      const encodedTx = buildDappEncodedTx({ computeUnitPrice: 123 });
+
+      const { estimateFeeParams } = await vault.buildEstimateFeeParams({
+        encodedTx,
+      });
+
+      expect(estimateFeeParams?.estimateFeeParamsSol).toMatchObject({
+        computeUnitPriceInTx: '123',
+        computeUnitLimit: '200000',
+      });
+    });
+
+    it('derives the default compute unit limit from the instruction count', async () => {
+      const { vault } = buildVault();
+      const encodedTx = buildDappEncodedTx({
+        computeUnitPrice: 123,
+        transferCount: 3,
+      });
+
+      const { estimateFeeParams } = await vault.buildEstimateFeeParams({
+        encodedTx,
+      });
+
+      // 3 non-ComputeBudget instructions x 200k CU; the price ix is not counted
+      expect(estimateFeeParams?.estimateFeeParamsSol).toMatchObject({
+        computeUnitLimit: '600000',
+        computeUnitPriceInTx: '123',
+      });
+    });
+
+    it('caps the derived default compute unit limit at 1.4M', async () => {
+      const { vault } = buildVault();
+      const encodedTx = buildDappEncodedTx({ transferCount: 8 });
+
+      const { estimateFeeParams } = await vault.buildEstimateFeeParams({
+        encodedTx,
+      });
+
+      expect(estimateFeeParams?.estimateFeeParamsSol?.computeUnitLimit).toBe(
+        '1400000',
+      );
+    });
+
+    it('uses the explicit SetComputeUnitLimit when the tx carries one', async () => {
+      const { vault } = buildVault();
+      const encodedTx = buildDappEncodedTx({
+        computeUnitPrice: 123,
+        computeUnitLimit: 300_000,
+        transferCount: 3,
+      });
+
+      const { estimateFeeParams } = await vault.buildEstimateFeeParams({
+        encodedTx,
+      });
+
+      expect(estimateFeeParams?.estimateFeeParamsSol?.computeUnitLimit).toBe(
+        '300000',
+      );
+    });
+
+    it('reports "0" when the tx carries no SetComputeUnitPrice instruction', async () => {
+      const { vault } = buildVault();
+      const encodedTx = buildDappEncodedTx({});
+
+      const { estimateFeeParams } = await vault.buildEstimateFeeParams({
+        encodedTx,
+      });
+
+      expect(
+        estimateFeeParams?.estimateFeeParamsSol?.computeUnitPriceInTx,
+      ).toBe('0');
+    });
   });
 });

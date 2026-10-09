@@ -37,6 +37,7 @@ const {
   getCanonicalBuildEnvironment,
   getInputKey,
   getReleaseTag,
+  getWebEmbedInputDescriptor,
   hashFiles,
   restoreRelease,
 } = require('../web-embed-prebundle');
@@ -256,6 +257,72 @@ describe('web-embed-prebundle', () => {
     fs.writeFileSync(fallbackPath, 'module.exports = "second";\n');
     expect(getInputKey(options)).not.toBe(inputKey);
   });
+
+  it.each(['build-tool', '@scope/build-tool'])(
+    'attributes bundled dependencies to %s while tracking nested installations',
+    (packageName) => {
+      const packageRoot = path.join(
+        temporaryDirectory,
+        'node_modules',
+        packageName,
+      );
+      const bundledRoot = path.join(packageRoot, 'compiled/worker');
+      const nestedRoot = path.join(packageRoot, 'node_modules/helper');
+      for (const directory of [bundledRoot, nestedRoot]) {
+        fs.mkdirSync(directory, { recursive: true });
+      }
+      fs.writeFileSync(
+        path.join(temporaryDirectory, 'input.js'),
+        `require('${packageName}/compiled/worker');\n`,
+      );
+      for (const [directory, name, version, source] of [
+        [packageRoot, packageName, '1.0.0', 'module.exports = {};'],
+        [bundledRoot, 'worker', '2.1.0', "require('helper');"],
+        [nestedRoot, 'helper', '3.0.0', 'module.exports = {};'],
+      ]) {
+        fs.writeFileSync(
+          path.join(directory, 'package.json'),
+          JSON.stringify({ name, version, main: 'index.js' }),
+        );
+        fs.writeFileSync(path.join(directory, 'index.js'), source);
+      }
+      const ownerRecord = `"${packageName}@npm:1.0.0":\n  version: 1.0.0\n  resolution: "${packageName}@npm:1.0.0"\n  checksum: original\n`;
+      const helperRecord =
+        '"helper@npm:3.0.0":\n  version: 3.0.0\n  resolution: "helper@npm:3.0.0"\n';
+      const lockPath = path.join(temporaryDirectory, 'yarn.lock');
+      fs.writeFileSync(lockPath, ownerRecord + helperRecord);
+      const options = {
+        inputPaths: ['input.js'],
+        resolveOptions: {
+          alias: {},
+          extensions: ['.js'],
+          fallback: {},
+          fullySpecified: false,
+          mainFields: ['main'],
+          symlinks: true,
+        },
+        root: fs.realpathSync(temporaryDirectory),
+        traceDependencies: true,
+        inputCache: false,
+      };
+
+      expect(
+        getWebEmbedInputDescriptor(options).packages.map(({ name }) => name),
+      ).toEqual([packageName, 'helper']);
+      const inputKey = getInputKey(options);
+      fs.writeFileSync(
+        lockPath,
+        ownerRecord.replace('checksum: original', 'checksum: changed') +
+          helperRecord,
+      );
+      expect(getInputKey(options)).not.toBe(inputKey);
+
+      fs.writeFileSync(lockPath, ownerRecord);
+      expect(() => getInputKey(options)).toThrow(
+        'Installed dependency is missing from yarn.lock: helper@3.0.0',
+      );
+    },
+  );
 
   it('uses one canonical environment for every prebundle build', async () => {
     const inputKey = 'c'.repeat(64);

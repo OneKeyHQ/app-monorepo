@@ -17,6 +17,7 @@ type ITokenSelectorLpTokenSwitchProps = {
   disabled?: boolean;
   loading?: boolean;
   label?: string;
+  size?: ESwitchSize;
 };
 
 function BasicTokenSelectorLpTokenSwitch({
@@ -25,6 +26,7 @@ function BasicTokenSelectorLpTokenSwitch({
   disabled,
   loading,
   label,
+  size = ESwitchSize.extraSmall,
 }: ITokenSelectorLpTokenSwitchProps) {
   const intl = useIntl();
   const displayLabel =
@@ -56,7 +58,7 @@ function BasicTokenSelectorLpTokenSwitch({
       gap="$2"
     >
       <SizableText
-        size="$bodySm"
+        size={size === ESwitchSize.small ? '$bodyMd' : '$bodySm'}
         color={disabled || loading ? '$textDisabled' : '$textSubdued'}
         numberOfLines={1}
       >
@@ -64,7 +66,7 @@ function BasicTokenSelectorLpTokenSwitch({
       </SizableText>
       <Switch
         testID="token-selector-lp-token-switch"
-        size={ESwitchSize.extraSmall}
+        size={size}
         value={value}
         onChange={onChange}
         disabled={disabled || loading}

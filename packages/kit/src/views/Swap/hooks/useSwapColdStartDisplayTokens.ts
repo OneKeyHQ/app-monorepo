@@ -11,7 +11,10 @@ import {
 import type { ISwapSelectedTokensColdStartContext } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import type {
+  ISwapNetwork,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 
 import {
   type ISwapBalanceDisplayCache,
@@ -412,9 +415,11 @@ function getDefaultSwapSelectedTokensFromHomeSnapshot(
 export function getSwapDefaultSelectedTokensFromGlobalHomeSnapshot({
   allNetworksOnly = false,
   swapType,
+  swapNetworks,
 }: {
   allNetworksOnly?: boolean;
   swapType?: ESwapTabSwitchType;
+  swapNetworks?: ISwapNetwork[];
 } = {}) {
   for (const snapshot of getColdStartSnapshotCandidatesFromGlobal()) {
     const homeSelectedAccount = getSelectedAccountFromSnapshot({
@@ -428,6 +433,7 @@ export function getSwapDefaultSelectedTokensFromGlobalHomeSnapshot({
       const defaultTokens = buildSwapDefaultSelectedTokensFromHomeAccount({
         homeSelectedAccount,
         swapType,
+        swapNetworks,
       });
       if (defaultTokens?.fromToken?.symbol || defaultTokens?.toToken?.symbol) {
         return defaultTokens;

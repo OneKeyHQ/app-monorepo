@@ -3196,7 +3196,7 @@ function PerpTradingForm({
           min={0}
           max={100}
           value={sliderValue}
-          showBubble={false}
+          showBubble
           onChange={handleSliderPercentChange}
           disabled={sliderDisabled}
           segments={4}
