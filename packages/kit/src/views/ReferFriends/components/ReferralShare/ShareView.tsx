@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Image as RNImage, StyleSheet } from 'react-native';
 
 import { Image, Spinner, Stack } from '@onekeyhq/components';
+import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
 
 import { REFERRAL_SHARE_CARD } from './constants';
 import { ShareImageGenerator } from './ShareImageGenerator';
@@ -29,14 +30,7 @@ export function ShareView({
 }) {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [aspectRatio, setAspectRatio] = useState(INITIAL_ASPECT_RATIO);
-  const isMountedRef = useRef(true);
-
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
+  const isMountedRef = useIsMounted();
 
   useEffect(() => {
     if (!previewImage) {
@@ -51,7 +45,7 @@ export function ShareView({
       },
       () => {},
     );
-  }, [previewImage]);
+  }, [isMountedRef, previewImage]);
 
   useEffect(() => {
     // One tick so the offscreen generator has mounted before it is asked.
@@ -64,7 +58,7 @@ export function ShareView({
       })();
     }, 50);
     return () => clearTimeout(timer);
-  }, [data, generatorRef]);
+  }, [data, generatorRef, isMountedRef]);
 
   return (
     <Stack

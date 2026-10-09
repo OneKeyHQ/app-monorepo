@@ -1,24 +1,25 @@
 import { useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Linking, useWindowDimensions } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 
 import {
   Dialog,
-  Icon,
+  IconButton,
   SizableText,
-  Stack,
   Toast,
   XStack,
   YStack,
-  useClipboard,
 } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { useShareActions } from '@onekeyhq/kit/src/views/RookieGuide/components/RookieShare/useShareActions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { openSettings } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import {
+  openSettings,
+  openUrlExternal,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { ReferFriendsTestIDs } from '../../testIDs';
@@ -26,7 +27,6 @@ import { ReferFriendsTestIDs } from '../../testIDs';
 import {
   REFERRAL_SHARE_COPY,
   buildTelegramShareUrl,
-  buildXShareUrl,
 } from './referralShareCopy';
 import { ShareView } from './ShareView';
 
@@ -44,6 +44,7 @@ const PREVIEW_MIN_HEIGHT = 240;
 // first and the sheet opens once the close animation is done.
 const DIALOG_CLOSE_ANIMATION_MS = 350;
 
+// One labelled round action under the preview.
 function ShareAction({
   icon,
   label,
@@ -58,25 +59,16 @@ function ShareAction({
   onPress: () => void;
 }) {
   return (
-    <YStack
-      testID={testID}
-      flex={1}
-      ai="center"
-      gap="$1.5"
-      opacity={disabled ? 0.5 : 1}
-      pressStyle={{ opacity: 0.6 }}
-      onPress={disabled ? undefined : onPress}
-    >
-      <Stack
-        w="$12"
-        h="$12"
-        borderRadius="$full"
-        bg="$bgStrong"
-        ai="center"
-        jc="center"
-      >
-        <Icon name={icon} size="$6" color="$icon" />
-      </Stack>
+    <YStack flex={1} ai="center" gap="$1.5">
+      <IconButton
+        testID={testID}
+        title={label}
+        icon={icon}
+        size="large"
+        iconSize="$6"
+        disabled={disabled}
+        onPress={onPress}
+      />
       <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
         {label}
       </SizableText>
@@ -98,8 +90,9 @@ function ReferralShareContent({
     PREVIEW_MIN_HEIGHT,
     windowHeight - PREVIEW_RESERVED_HEIGHT,
   );
-  const { saveImage, shareImage } = useShareActions();
-  const { copyText } = useClipboard();
+  const { saveImage, shareImage, copyLink, shareToX } = useShareActions(
+    data.inviteUrl,
+  );
   const [isActionLoading, setIsActionLoading] = useState(false);
 
   const runWithImage = useCallback(
@@ -152,18 +145,20 @@ function ReferralShareContent({
 
   const handleCopyLink = useCallback(() => {
     defaultLogger.referral.page.shareReferralLink('copy');
-    copyText(data.inviteUrl);
-  }, [copyText, data.inviteUrl]);
+    copyLink();
+  }, [copyLink]);
 
+  // X and Telegram take text and the link, not the image.
   const handleX = useCallback(() => {
     defaultLogger.referral.page.shareReferralLink('x');
-    void Linking.openURL(buildXShareUrl(data.copy.shareText, data.inviteUrl));
-  }, [data.copy.shareText, data.inviteUrl]);
+    void shareToX('', data.copy.shareText);
+  }, [data.copy.shareText, shareToX]);
 
   const handleTelegram = useCallback(() => {
     defaultLogger.referral.page.shareReferralLink('telegram');
-    void Linking.openURL(
+    openUrlExternal(
       buildTelegramShareUrl(data.copy.shareText, data.inviteUrl),
+      { useSystemBrowser: true },
     );
   }, [data.copy.shareText, data.inviteUrl]);
 
@@ -189,7 +184,7 @@ function ReferralShareContent({
         <ShareAction
           testID={ReferFriendsTestIDs.shareSaveBtn}
           icon="DownloadOutline"
-          label={REFERRAL_SHARE_COPY.save}
+          label={intl.formatMessage({ id: ETranslations.action_save })}
           disabled={isActionLoading}
           onPress={() => {
             void handleSave();
@@ -198,7 +193,9 @@ function ReferralShareContent({
         <ShareAction
           testID={ReferFriendsTestIDs.shareCopyLinkBtn}
           icon="LinkOutline"
-          label={REFERRAL_SHARE_COPY.copyLink}
+          label={intl.formatMessage({
+            id: ETranslations.perps_share_position_btn_copy_link,
+          })}
           onPress={handleCopyLink}
         />
         <ShareAction
@@ -216,7 +213,7 @@ function ReferralShareContent({
         <ShareAction
           testID={ReferFriendsTestIDs.shareMoreBtn}
           icon="DotHorOutline"
-          label={REFERRAL_SHARE_COPY.more}
+          label={intl.formatMessage({ id: ETranslations.global_more })}
           disabled={isActionLoading}
           onPress={() => {
             void handleMore();

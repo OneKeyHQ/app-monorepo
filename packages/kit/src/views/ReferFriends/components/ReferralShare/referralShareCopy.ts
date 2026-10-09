@@ -3,9 +3,6 @@ export const REFERRAL_SHARE_COPY = {
   brand: 'OneKey',
   codeLabel: 'Referral code',
   scanToJoin: 'Scan to join OneKey',
-  copyLink: 'Copy link',
-  save: 'Save',
-  more: 'More',
   x: 'X',
   telegram: 'Telegram',
 } as const;
@@ -41,14 +38,8 @@ export function getReferralShareCopy(
   };
 }
 
-// X and Telegram only accept text and a link; the image goes through the
-// system share sheet ("More") or "Save".
-export function buildXShareUrl(text: string, url: string): string {
-  return `https://x.com/intent/tweet?text=${encodeURIComponent(
-    `${text}\n\n${url}`,
-  )}`;
-}
-
+// Telegram only accepts text and a link; the image goes through the system
+// share sheet ("More") or "Save". X uses the shared useShareActions intent.
 export function buildTelegramShareUrl(text: string, url: string): string {
   return `https://t.me/share/url?url=${encodeURIComponent(
     url,

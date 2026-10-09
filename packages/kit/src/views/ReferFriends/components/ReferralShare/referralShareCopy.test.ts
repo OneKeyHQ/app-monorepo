@@ -1,6 +1,5 @@
 import {
   buildTelegramShareUrl,
-  buildXShareUrl,
   getReferralShareCopy,
 } from './referralShareCopy';
 
@@ -29,17 +28,9 @@ describe('getReferralShareCopy', () => {
   );
 });
 
-describe('share URLs', () => {
+describe('buildTelegramShareUrl', () => {
   const url = 'https://onekey.so/r/HTSEO7?a=1&b=2';
   const text = 'Join me on OneKey & save';
-
-  it('puts the text and the link in the X intent', () => {
-    const shareUrl = new URL(buildXShareUrl(text, url));
-    expect(shareUrl.origin + shareUrl.pathname).toBe(
-      'https://x.com/intent/tweet',
-    );
-    expect(shareUrl.searchParams.get('text')).toBe(`${text}\n\n${url}`);
-  });
 
   it('passes the link and the text separately to Telegram', () => {
     const shareUrl = new URL(buildTelegramShareUrl(text, url));
