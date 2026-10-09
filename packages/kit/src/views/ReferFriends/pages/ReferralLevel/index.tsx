@@ -80,7 +80,9 @@ function ReferralLevelContent({ data }: { data: IInviteLevelDetail }) {
   );
 }
 
-// Mirrors the loaded layout: status card with two targets, then the level list.
+// Mirrors the loaded layout line for line, so nothing moves when it lands:
+// the status card as the lowest level shows it (no retention line, the most
+// common case) with two targets, then the level list.
 function ReferralLevelSkeleton() {
   const cardStyle = useInviteListCardStyle();
   const { md } = useMedia();
@@ -90,7 +92,12 @@ function ReferralLevelSkeleton() {
     <ScrollView>
       <ReferFriendsPageContainer>
         <YStack py="$5" px="$pagePadding" gap="$4">
-          {showBreadcrumb ? <Skeleton.BodyMd w={160} /> : null}
+          {/* The breadcrumb's items carry 4px vertical padding around the text. */}
+          {showBreadcrumb ? (
+            <XStack h={28} ai="center">
+              <Skeleton.BodyMd w={160} />
+            </XStack>
+          ) : null}
           <YStack
             gap="$5"
             p="$5"
@@ -99,20 +106,24 @@ function ReferralLevelSkeleton() {
           >
             <XStack ai="center" gap="$4">
               <Skeleton w="$12" h="$12" radius="round" />
-              <YStack gap="$1">
+              <YStack gap="$0.5">
                 <Skeleton.BodyMd />
                 <Skeleton.HeadingXl />
-                <Skeleton.BodySm w={120} />
               </YStack>
             </XStack>
             <Divider borderColor={INVITE_CARD_BORDER_COLOR} />
-            <Skeleton.BodyMd w={200} />
+            {/* "Upgrade to {level}" with its rule: one headingMd line on
+                wide layouts, the rule on its own line below on compact ones. */}
+            <YStack gap="$0.5">
+              <Skeleton.HeadingMd w={240} />
+              {md ? <Skeleton.BodyMd w={160} /> : null}
+            </YStack>
             <XStack gap="$10" $md={{ flexDirection: 'column', gap: '$4' }}>
               {[0, 1].map((index) => (
                 <YStack key={index} flex={1} gap="$2">
                   <Skeleton.BodyMd w={120} />
                   {md ? null : <Skeleton.Heading2Xl w={160} />}
-                  <Skeleton w="100%" h="$1" radius="round" />
+                  <Skeleton w="100%" h={md ? '$0.5' : '$1'} radius="round" />
                 </YStack>
               ))}
             </XStack>
