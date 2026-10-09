@@ -49,6 +49,7 @@ const NS = {
   bulkCopyAddressesAccounts: 'bulkCopyAccounts',
   chainSelectorInputNetworks: 'chainSelNets',
   homeWalletTabSupport: 'homeWalletTabs',
+  tronAccountResources: 'tronResources',
 } as const;
 export type ISwrCacheNamespace = (typeof NS)[keyof typeof NS];
 export const swrCacheNamespaces = NS;
