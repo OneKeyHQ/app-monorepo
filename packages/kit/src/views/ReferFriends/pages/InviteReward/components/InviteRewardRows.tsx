@@ -11,7 +11,6 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import type { ISizableTextProps } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { InfoIcon } from '@onekeyhq/kit/src/components/InfoIcon';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -62,27 +61,11 @@ function stopPropagation(e: { stopPropagation: () => void }) {
   e.stopPropagation();
 }
 
-function RewardLabel({
-  label,
-  tooltip,
-  size = '$bodySm',
-}: {
-  label: string;
-  tooltip?: IRewardLabelTooltip;
-  size?: ISizableTextProps['size'];
-}) {
+function RewardLabel({ label }: { label: string }) {
   return (
-    <XStack ai="center" gap="$1">
-      <SizableText size={size} color="$textSubdued">
-        {label}
-      </SizableText>
-      {tooltip ? (
-        // Keep the tooltip tap from opening the row's detail page.
-        <Stack onPress={stopPropagation}>
-          <InfoIcon size="$4" tooltip={tooltip} />
-        </Stack>
-      ) : null}
-    </XStack>
+    <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+      {label}
+    </SizableText>
   );
 }
 
@@ -137,7 +120,6 @@ interface IDesktopRewardLabels {
   monthly: string;
   available: string;
   pending: string;
-  pendingTooltip: IRewardLabelTooltip;
 }
 
 // Which optional columns the desktop table shows: monthly sales and pending
@@ -189,23 +171,19 @@ function DesktopRewardHeader({
   return (
     <XStack ai="center" gap="$4" {...DESKTOP_ROW_BLEED_PROPS} pb="$2">
       <DesktopCell first>
-        <RewardLabel label={labels.product} size="$bodyMd" />
+        <RewardLabel label={labels.product} />
       </DesktopCell>
       {columns.monthly ? (
         <DesktopCell>
-          <RewardLabel label={labels.monthly} size="$bodyMd" />
+          <RewardLabel label={labels.monthly} />
         </DesktopCell>
       ) : null}
       <DesktopCell>
-        <RewardLabel label={labels.available} size="$bodyMd" />
+        <RewardLabel label={labels.available} />
       </DesktopCell>
       {columns.pending ? (
         <DesktopCell>
-          <RewardLabel
-            label={labels.pending}
-            tooltip={labels.pendingTooltip}
-            size="$bodyMd"
-          />
+          <RewardLabel label={labels.pending} />
         </DesktopCell>
       ) : null}
       {/* Chevron-wide spacer, so the header lines up with the rows. */}
@@ -243,6 +221,7 @@ function DesktopRewardRow({
   rate,
   columns,
   noRewardLabel,
+  pendingTooltip,
   onPress,
 }: {
   row: IInviteRewardRow;
@@ -250,6 +229,7 @@ function DesktopRewardRow({
   rate?: string;
   columns: IDesktopRewardColumns;
   noRewardLabel: string;
+  pendingTooltip?: IRewardLabelTooltip;
   onPress: () => void;
 }) {
   const { pending } = row;
@@ -304,11 +284,21 @@ function DesktopRewardRow({
       {columns.pending ? (
         <DesktopCell>
           {pending ? (
-            <InviteRewardAmount
-              summary={pending}
-              size="$bodyLgMedium"
-              color="$textSubdued"
-            />
+            <>
+              <InviteRewardAmount
+                summary={pending}
+                size="$bodyLgMedium"
+                color="$textSubdued"
+              />
+              {/* The confirmation window is the product's own rule (only
+                  hardware has a pending payout), so it sits on the value,
+                  not on the column label; its tap stays off the row. */}
+              {pendingTooltip ? (
+                <Stack onPress={stopPropagation}>
+                  <InfoIcon size="$4" tooltip={pendingTooltip} />
+                </Stack>
+              ) : null}
+            </>
           ) : null}
         </DesktopCell>
       ) : null}
@@ -491,7 +481,6 @@ export function InviteRewardRows({
       monthly: monthlyLabel,
       available: availableLabel,
       pending: pendingLabel,
-      pendingTooltip: hardwarePendingTooltip,
     };
     const desktopColumns: IDesktopRewardColumns = {
       monthly: rows.visibleRows.some((row) => row.monthlySalesFiatValue),
@@ -523,6 +512,7 @@ export function InviteRewardRows({
                 rate={rateFor(row.subject)}
                 columns={desktopColumns}
                 noRewardLabel={noRewardLabel}
+                pendingTooltip={hardwarePendingTooltip}
                 onPress={() => {
                   openSubject(row.subject);
                 }}
