@@ -48,6 +48,7 @@ import {
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { formatDistanceToNow } from '@onekeyhq/shared/src/utils/dateUtils';
 import { isNeverLockDuration } from '@onekeyhq/shared/src/utils/passwordUtils';
+import { ELocalSystemTimeStatus } from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
 
@@ -79,7 +80,9 @@ function useIsLocalSystemTimeInvalid() {
           const result =
             await backgroundApiProxy.servicePrimeCloudSync.getLocalSystemTimeStatus();
           if (isActive) {
-            setIsLocalSystemTimeInvalid(result.isTimeErrorConfirmed);
+            setIsLocalSystemTimeInvalid(
+              result.status === ELocalSystemTimeStatus.INVALID,
+            );
           }
         } catch (error) {
           errorUtils.autoPrintErrorIgnore(error);
@@ -87,11 +90,11 @@ function useIsLocalSystemTimeInvalid() {
       })();
 
       const handleLocalSystemTimeStatusChanged = ({
-        isTimeErrorConfirmed,
+        status,
       }: {
-        isTimeErrorConfirmed: boolean;
+        status: string;
       }) => {
-        setIsLocalSystemTimeInvalid(isTimeErrorConfirmed);
+        setIsLocalSystemTimeInvalid(status === ELocalSystemTimeStatus.INVALID);
       };
       appEventBus.on(
         EAppEventBusNames.LocalSystemTimeStatusChanged,

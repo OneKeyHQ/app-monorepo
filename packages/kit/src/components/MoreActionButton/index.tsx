@@ -1,6 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo } from 'react';
 import type { PropsWithChildren } from 'react';
 
+import { useFocusEffect } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { I18nManager, StyleSheet } from 'react-native';
 
@@ -49,6 +50,10 @@ import {
   useNotificationsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getUpdateFileType } from '@onekeyhq/shared/src/appUpdate';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
@@ -96,6 +101,7 @@ import {
 } from '../AppUpdate';
 import { MultipleClickStack } from '../MultipleClickStack';
 import { OneKeyIdAvatar } from '../OneKeyIdAvatar';
+import { useReviewControl } from '../ReviewControl';
 import { UpdateReminder } from '../UpdateReminder';
 import { WalletAvatar } from '../WalletAvatar';
 
@@ -458,6 +464,7 @@ function MoreActionAboutCard({
 
   return (
     <XStack
+      testID="action-center-about"
       mx={isDesktopMode ? '$1' : '$5'}
       minHeight={isDesktopMode ? 40 : 44}
       px="$4"
@@ -1396,6 +1403,7 @@ const showDevModeEntryInMoreMenu =
 
 const MoreActionMoreGrid = () => {
   const intl = useIntl();
+  const showReviewControlledFeatures = useReviewControl();
   const navigation = useAppNavigation();
   const { closePopover } = usePopoverContext();
   const handleHelpAndSupport = useCallback(() => {
@@ -1436,12 +1444,16 @@ const MoreActionMoreGrid = () => {
         onPress: handleReferFriends,
         trackID: 'wallet-referral',
       },
-      {
-        title: intl.formatMessage({ id: ETranslations.global_redeem }),
-        icon: 'TicketOutline' as const,
-        onPress: handleRedeem,
-        trackID: 'wallet-redeem',
-      },
+      ...(showReviewControlledFeatures
+        ? [
+            {
+              title: intl.formatMessage({ id: ETranslations.global_redeem }),
+              icon: 'TicketOutline' as const,
+              onPress: handleRedeem,
+              trackID: 'wallet-redeem',
+            },
+          ]
+        : []),
       ...(showDevModeEntryInMoreMenu
         ? [
             {
@@ -1460,6 +1472,7 @@ const MoreActionMoreGrid = () => {
     themeVariant,
     handleReferFriends,
     handleDevMode,
+    showReviewControlledFeatures,
   ]);
   return (
     <BaseMoreActionGrid
@@ -1495,7 +1508,7 @@ function MoreActionMenuCard({
 function MoreActionDevice() {
   const intl = useIntl();
   const { pushToDeviceList } = useDeviceManagerNavigation();
-  const { result: hwQrWalletList = [] } = usePromiseResult<
+  const hwQrWalletListResult = usePromiseResult<
     Array<IDeviceManagementListItem>
   >(
     async () => {
@@ -1527,6 +1540,24 @@ function MoreActionDevice() {
       checkIsFocused: false,
     },
   );
+  const hwQrWalletList = hwQrWalletListResult.result ?? [];
+  const refreshHwQrWalletList = hwQrWalletListResult.run;
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshHwQrWalletList({ alwaysSetState: true });
+    }, [refreshHwQrWalletList]),
+  );
+
+  useEffect(() => {
+    const refreshWallets = () => {
+      void refreshHwQrWalletList({ alwaysSetState: true });
+    };
+    appEventBus.on(EAppEventBusNames.WalletUpdate, refreshWallets);
+    return () => {
+      appEventBus.off(EAppEventBusNames.WalletUpdate, refreshWallets);
+    };
+  }, [refreshHwQrWalletList]);
 
   const handleDevice = useCallback(() => {
     defaultLogger.ui.button.click({

@@ -75,7 +75,6 @@ import {
   applyDesktopNetworkThrottleToKnownSessions,
   applyDesktopNetworkThrottleToWebContents,
 } from './libs/networkThrottle';
-import { openExternalUrl } from './libs/openExternalUrl';
 // Side-effect import: registers synchronous IPC handler for renderer MMKV access
 // eslint-disable-next-line import-js/order
 import './libs/react-native-mmkv-desktop-main';
@@ -396,30 +395,6 @@ async function softRestartRenderer() {
   }
 }
 
-// The built-in `toggleDevTools` role targets the focused webContents, which
-// can be an embedded <webview> (even one in a hidden tab), so the main window
-// shortcut must target the main window explicitly.
-const toggleMainWindowDevTools = () => {
-  getSafelyMainWindow()?.webContents.toggleDevTools();
-};
-
-const toggleFocusedWebViewDevTools = () => {
-  const focused = electronWebContents.getFocusedWebContents();
-  if (!focused || focused.isDestroyed()) {
-    return;
-  }
-  // Webview DevTools always open detached and take focus, so resolve the
-  // inspected webview from its DevTools frontend to allow closing it again.
-  const inspected = electronWebContents
-    .getAllWebContents()
-    .find((contents) => contents.devToolsWebContents === focused);
-  const target = inspected ?? focused;
-  if (target.isDestroyed() || target.getType() !== 'webview') {
-    return;
-  }
-  target.toggleDevTools();
-};
-
 const initMenu = () => {
   const template = [
     {
@@ -522,18 +497,13 @@ const initMenu = () => {
           ? [
               { role: 'reload' },
               { role: 'forceReload' },
-              {
-                label: isDevServer
-                  ? `Toggle Developer Tools: ${store.getDevTools().toString()}`
-                  : 'Toggle Developer Tools',
-                accelerator: isMac ? 'Alt+Command+I' : 'Ctrl+Shift+I',
-                click: toggleMainWindowDevTools,
-              },
-              {
-                label: 'Toggle WebView Developer Tools',
-                accelerator: isMac ? 'Alt+Shift+Command+I' : 'Ctrl+Alt+Shift+I',
-                click: toggleFocusedWebViewDevTools,
-              },
+              { role: 'toggleDevTools' },
+              isDevServer
+                ? {
+                    role: 'toggleDevTools',
+                    label: `Toggle DevTools: ${store.getDevTools().toString()}`,
+                  }
+                : null,
               { type: 'separator' },
             ].filter(Boolean)
           : []),
@@ -889,8 +859,6 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     getBundleIndexHtmlPath: () => bundleIndexHtmlPath,
     useJsBundle: () => !!bundleIndexHtmlPath,
     softRestartRenderer,
-    getRevenueCat: async () =>
-      (await import('./service/revenueCat/revenueCat')).default,
   };
 
   if (isMac) {
@@ -1096,8 +1064,24 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     isAppReady = true;
   });
 
+  // Gate shell.openExternal behind a protocol whitelist so a tainted main
+  // renderer (XSS) cannot weaponize window.open() into phishing redirects
+  // via javascript:/file:/data: URIs. Only https:// (and mailto:) are
+  // forwarded to the OS browser. See SlowMist audit Desktop-14.
   browserWindow.webContents.setWindowOpenHandler(({ url }) => {
-    void openExternalUrl(url);
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== 'https:' && parsed.protocol !== 'mailto:') {
+        logger.warn(
+          '[setWindowOpenHandler] blocked non-https url:',
+          parsed.protocol,
+        );
+        return { action: 'deny' };
+      }
+      void shell.openExternal(url);
+    } catch {
+      logger.warn('[setWindowOpenHandler] blocked malformed url');
+    }
     return { action: 'deny' };
   });
 

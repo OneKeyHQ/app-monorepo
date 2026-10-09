@@ -12,19 +12,6 @@ const DeriveTypesAddress = LazyLoadPage(
     import('@onekeyhq/kit/src/views/WalletAddress/pages/DeriveTypesAddress'),
 );
 
-const FiatCryptoHeadlessBuyModal = LazyLoadPage(
-  () => import('@onekeyhq/kit/src/views/FiatCrypto/pages/HeadlessBuy'),
-);
-
-const FiatCryptoHeadlessBuyTokenSelectorModal = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/FiatCrypto/pages/HeadlessBuy/TokenSelector'),
-);
-
-const FiatCryptoHeadlessBuySuccessModal = LazyLoadPage(
-  () => import('@onekeyhq/kit/src/views/FiatCrypto/pages/HeadlessBuy/Success'),
-);
-
 export const ModalFiatCryptoRouter: IModalFlowNavigatorConfig<
   EModalFiatCryptoRoutes,
   IModalFiatCryptoParamList
@@ -36,17 +23,5 @@ export const ModalFiatCryptoRouter: IModalFlowNavigatorConfig<
   {
     name: EModalFiatCryptoRoutes.DeriveTypesAddress,
     component: DeriveTypesAddress,
-  },
-  {
-    name: EModalFiatCryptoRoutes.HeadlessBuy,
-    component: FiatCryptoHeadlessBuyModal,
-  },
-  {
-    name: EModalFiatCryptoRoutes.HeadlessBuyTokenSelector,
-    component: FiatCryptoHeadlessBuyTokenSelectorModal,
-  },
-  {
-    name: EModalFiatCryptoRoutes.HeadlessBuySuccess,
-    component: FiatCryptoHeadlessBuySuccessModal,
   },
 ];

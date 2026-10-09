@@ -16,7 +16,6 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
@@ -45,9 +44,6 @@ function showTimeErrorDialogOnce(intl: ReturnType<typeof useIntl>) {
 
   hasShownTimeErrorDialogInAppLifecycle = true;
   Dialog.confirm({
-    onOpen: () => {
-      defaultLogger.app.systemTime.dialogShown({ observedAt: Date.now() });
-    },
     title: intl.formatMessage({
       id: ETranslations.prime_time_error_title,
     }),
@@ -323,22 +319,8 @@ export function PrimeLoginContainer() {
         showTimeErrorDialogOnce(intl);
       }
     };
-    let isActive = true;
     appEventBus.on(EAppEventBusNames.LocalSystemTimeInvalid, fn);
-    if (isCloudSyncEnabled && passwordAtom.unLock) {
-      void backgroundApiProxy.servicePrimeCloudSync
-        .getLocalSystemTimeStatus()
-        .then(({ isTimeErrorConfirmed }) => {
-          if (isActive && isTimeErrorConfirmed) {
-            fn();
-          }
-        })
-        .catch((error) => {
-          errorUtils.autoPrintErrorIgnore(error);
-        });
-    }
     return () => {
-      isActive = false;
       appEventBus.off(EAppEventBusNames.LocalSystemTimeInvalid, fn);
     };
   }, [isCloudSyncEnabled, intl, passwordAtom.unLock]);

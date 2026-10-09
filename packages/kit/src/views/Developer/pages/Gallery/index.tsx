@@ -328,11 +328,6 @@ const PlaygroundGallery = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/playground/index'),
 );
 
-const HeadlessBuyGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/HeadlessBuyGallery'),
-);
-
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -593,9 +588,5 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentStorage,
     component: StorageGallery,
-  },
-  {
-    name: EGalleryRoutes.ComponentHeadlessBuy,
-    component: HeadlessBuyGallery,
   },
 ];

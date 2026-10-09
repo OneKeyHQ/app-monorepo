@@ -112,34 +112,7 @@ jobs:
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
           node-version: '24.x'
-          package-manager-cache: false
-
-      - name: Locate Yarn cache
-        id: yarn-cache
-        shell: bash
-        run: |
-          node <<'NODE'
-          // Match the repository's Yarn 4 cache path without executing checkout plugins.
-          const fs = require('node:fs');
-          const os = require('node:os');
-          const path = require('node:path');
-          const base = process.platform === 'win32'
-            ? path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'Yarn', 'Berry')
-            : process.env.XDG_DATA_HOME
-              ? path.join(process.env.XDG_DATA_HOME, 'yarn', 'berry')
-              : path.join(os.homedir(), '.yarn', 'berry');
-          const cache = process.env.YARN_ENABLE_GLOBAL_CACHE === 'true'
-            ? path.join(base, 'cache') : path.join(process.env.GITHUB_WORKSPACE, '.yarn', 'cache');
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `path=${cache}\narch=${process.arch}\n`);
-          NODE
-
-      - name: Restore Yarn cache from x
-        uses: actions/cache/restore@v4
-        with:
-          path: ${{ steps.yarn-cache.outputs.path }}
-          key: node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-
+          cache: 'yarn'
 
       - name: Setup ENV
         run: |
@@ -355,34 +328,7 @@ jobs:
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
           node-version: '24.x'
-          package-manager-cache: false
-
-      - name: Locate Yarn cache
-        id: yarn-cache
-        shell: bash
-        run: |
-          node <<'NODE'
-          // Match the repository's Yarn 4 cache path without executing checkout plugins.
-          const fs = require('node:fs');
-          const os = require('node:os');
-          const path = require('node:path');
-          const base = process.platform === 'win32'
-            ? path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'Yarn', 'Berry')
-            : process.env.XDG_DATA_HOME
-              ? path.join(process.env.XDG_DATA_HOME, 'yarn', 'berry')
-              : path.join(os.homedir(), '.yarn', 'berry');
-          const cache = process.env.YARN_ENABLE_GLOBAL_CACHE === 'true'
-            ? path.join(base, 'cache') : path.join(process.env.GITHUB_WORKSPACE, '.yarn', 'cache');
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `path=${cache}\narch=${process.arch}\n`);
-          NODE
-
-      - name: Restore Yarn cache from x
-        uses: actions/cache/restore@v4
-        with:
-          path: ${{ steps.yarn-cache.outputs.path }}
-          key: node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-
+          cache: 'yarn'
 
       - name: Setup ENV
         run: |
@@ -543,8 +489,36 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: app-monorepo-${{ env.COMMIT }}-${{ env.BUILD_NUMBER }}
+          # Hidden files are allowed only at the two exact association paths below.
+          include-hidden-files: true
           path: |
-            ./apps/web/web-build/
+            # HTML entry points, icon, service worker and version manifest.
+            ./apps/web/web-build/index.html
+            ./apps/web/web-build/404.html
+            ./apps/web/web-build/favicon.png
+            ./apps/web/web-build/service-worker.js
+            ./apps/web/web-build/sw-version-manifest.json
+            # Root bundles/workers, CSS, WASM and the existing sourcemap fallback.
+            # [!.] rejects dot-prefixed root filenames.
+            ./apps/web/web-build/[!.]*.js
+            ./apps/web/web-build/[!.]*.css
+            ./apps/web/web-build/[!.]*.wasm
+            ./apps/web/web-build/[!.]*.map
+            # Resource directories produced by the Web build.
+            ./apps/web/web-build/static/css/
+            ./apps/web/web-build/static/js/
+            ./apps/web/web-build/static/media/
+            ./apps/web/web-build/static/canvaskit/
+            ./apps/web/web-build/static/zxing/
+            # Existing public iOS and Android association files; no directory glob.
+            ./apps/web/web-build/.well-known/apple-app-site-association
+            ./apps/web/web-build/.well-known/assetlinks.json
+            # Exclude hidden files/directories beneath all selected public folders.
+            !./apps/web/web-build/[!.]*/**/.*
+            !./apps/web/web-build/[!.]*/**/.*/**
+            # Exact association paths must be files, never directory descendants.
+            !./apps/web/web-build/.well-known/apple-app-site-association/*
+            !./apps/web/web-build/.well-known/assetlinks.json/*
 
   notify:
     runs-on: ubuntu-24.04

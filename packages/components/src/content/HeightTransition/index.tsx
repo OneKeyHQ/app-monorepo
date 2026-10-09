@@ -1,7 +1,7 @@
 import type { ComponentProps } from 'react';
 import { useCallback, useEffect, useMemo } from 'react';
 
-import { StyleSheet } from 'react-native';
+import { PixelRatio, StyleSheet } from 'react-native';
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -30,12 +30,17 @@ export type IHeightTransitionProps = {
   hide?: boolean;
   initialHeight?: number;
   onHeightDidAnimate?: (height: number) => void;
+  /**
+   * Timing duration in milliseconds for both the height and opacity animations.
+   * Defaults to 80 on Android and 150 on other platforms.
+   */
+  duration?: number;
+  /** Normalize layout precision before rounding up to avoid animation restarts. */
+  roundHeightToNearestPixel?: boolean;
 } & ComponentProps<typeof MotiView>;
 
-const transition = {
-  // The animation duration on Android is twice that of iOS, so the duration has been shortened on Android.
-  duration: platformEnv.isNativeAndroid ? 80 : 150,
-} as const;
+// The animation duration on Android is twice that of iOS, so the duration has been shortened on Android.
+const defaultTransitionDuration = platformEnv.isNativeAndroid ? 80 : 150;
 
 function HeightTransition({
   children,
@@ -43,8 +48,11 @@ function HeightTransition({
   style,
   onHeightDidAnimate,
   initialHeight = 0,
+  duration = defaultTransitionDuration,
+  roundHeightToNearestPixel = false,
 }: IHeightTransitionProps) {
   const measuredHeight = useSharedValue(initialHeight);
+  const transition = useMemo(() => ({ duration }), [duration]);
 
   // On Android with Fabric/New Architecture, guard against stale worklet
   // callbacks that can cause SIGSEGV in Value::~Value during navigation
@@ -62,7 +70,7 @@ function HeightTransition({
     () => ({
       opacity: withTiming(!measuredHeight.value || hide ? 0 : 1, transition),
     }),
-    [hide, measuredHeight],
+    [hide, measuredHeight, transition],
   );
 
   const containerStyle = useAnimatedStyle(
@@ -73,14 +81,21 @@ function HeightTransition({
         }
       }),
     }),
-    [hide, measuredHeight, isMounted],
+    [hide, measuredHeight, isMounted, transition],
   );
 
   const handleLayout = useCallback(
     ({ nativeEvent }: { nativeEvent: { layout: { height: number } } }) => {
-      measuredHeight.value = Math.ceil(nativeEvent.layout.height);
+      const height = nativeEvent.layout.height;
+      // Centered iOS layouts can report 130.00003 for 130 as they move.
+      // Snap before ceil so that noise cannot restart the height animation.
+      measuredHeight.value = Math.ceil(
+        roundHeightToNearestPixel
+          ? PixelRatio.roundToNearestPixel(height)
+          : height,
+      );
     },
-    [measuredHeight],
+    [measuredHeight, roundHeightToNearestPixel],
   );
 
   const outerStyle = useMemo(

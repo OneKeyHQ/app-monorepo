@@ -69,7 +69,6 @@ const nativeContractDependencies = {
     'expo-navigation-bar',
   ],
   ios: [
-    '@onramper/onramper-react-native',
     'burnt',
     'expo-apple-authentication',
     'expo-glass-effect',

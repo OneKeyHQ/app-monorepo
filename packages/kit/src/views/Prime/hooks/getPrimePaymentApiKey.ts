@@ -6,7 +6,6 @@ import {
 } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { isPrimeAppleStorePayment } from '@onekeyhq/shared/src/prime/primePaymentCapabilities';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
@@ -37,7 +36,7 @@ export async function getPrimePaymentApiKey({
   }
 
   let apiKey = '';
-  if (isPrimeAppleStorePayment()) {
+  if (platformEnv.isNativeIOS) {
     apiKey = REVENUECAT_API_KEY_APPLE || '';
   }
   if (platformEnv.isNativeAndroid) {

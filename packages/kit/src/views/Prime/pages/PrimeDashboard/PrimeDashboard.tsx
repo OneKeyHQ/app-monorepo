@@ -27,10 +27,6 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  isPrimeAppleStorePayment,
-  isPrimeStorePayment,
-} from '@onekeyhq/shared/src/prime/primePaymentCapabilities';
 import type {
   EPrimePages,
   IPrimeParamList,
@@ -408,7 +404,7 @@ export default function PrimeDashboard({
             )}
 
             <YStack px="$5" py="$4" gap="$4">
-              {isPrimeAppleStorePayment() ? (
+              {platformEnv.isNativeIOS ? (
                 <Stack>
                   <SizableText size="$bodyMd" color="$textSubdued">
                     {intl.formatMessage({
@@ -424,7 +420,7 @@ export default function PrimeDashboard({
               ) : null}
               {!isPrimeSubscriptionActive &&
               isLoggedIn &&
-              isPrimeStorePayment() ? (
+              platformEnv.isNative ? (
                 <Stack>
                   <SizableText
                     size="$bodyMd"

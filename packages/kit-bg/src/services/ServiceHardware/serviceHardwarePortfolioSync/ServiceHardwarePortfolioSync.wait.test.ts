@@ -2848,10 +2848,9 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     expect(competingOperation).toHaveBeenCalledTimes(1);
 
     resolvePersistence?.();
-    await expect(Promise.all([syncPromise, competingPromise])).resolves.toEqual([
-      true,
-      undefined,
-    ]);
+    await expect(Promise.all([syncPromise, competingPromise])).resolves.toEqual(
+      [true, undefined],
+    );
   });
 
   test('keeps an upload active until its metadata persistence settles', async () => {

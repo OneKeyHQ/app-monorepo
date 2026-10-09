@@ -125,7 +125,6 @@ const newFetch = async function (
           source: 'fetch',
           headerDate: res?.headers?.get?.('date') || '',
           url: res?.url || url || '',
-          requestId,
         });
 
         if (isEnableLogNetwork(url)) {

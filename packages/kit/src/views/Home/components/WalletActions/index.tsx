@@ -20,7 +20,6 @@ import { useTokenListStateAtom } from '@onekeyhq/kit/src/states/jotai/contexts/t
 import { useHomeTokenListSnapshot } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells';
 import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
 import { shouldBlockBotWalletReceive } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
-import { tryOpenHeadlessBuy } from '@onekeyhq/kit/src/views/FiatCrypto/utils/openFiatCryptoOrHeadless';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
@@ -32,7 +31,6 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openFiatCryptoUrl } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import { EHeadlessBuyEntry } from '@onekeyhq/shared/types/fiatCrypto';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { useSupportNetworkId } from '../../../FiatCrypto/hooks';
@@ -197,17 +195,6 @@ function WalletActionSend({
                       safeResolve(false);
                       void dialogRef.close();
                       try {
-                        if (
-                          await tryOpenHeadlessBuy({
-                            networkId: network.id,
-                            tokenAddress: '',
-                            accountId: account?.id ?? '',
-                            entryFrom:
-                              EHeadlessBuyEntry.HomeInsufficientGasDialog,
-                          })
-                        ) {
-                          return;
-                        }
                         const { url } =
                           await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl(
                             {
@@ -436,10 +423,17 @@ function WalletActions({ ...rest }: IXStackProps) {
   const { config, getActionCustomization } = useWalletActionConfig();
   const balanceState = useHomeBalanceState();
 
-  // True cold-start with no cached balance: render nothing rather than guess
-  // a state. Sticky fallback in `useHomeBalanceState` keeps subsequent account
-  // switches from re-entering this branch.
-  if (balanceState === 'unknown') return null;
+  // No source knows this owner yet (first visit of a never-loaded account, or
+  // a wallet switch that reset the sticky fallback): keep the row's footprint
+  // with a loading placeholder rather than guess a state or blank the band.
+  if (balanceState === 'unknown') {
+    return (
+      <RawActions.Placeholder
+        {...rest}
+        testID={HomeTestIDs.walletActionsLoading}
+      />
+    );
+  }
 
   const renderActionComponent = (actionType: IWalletActionType) => {
     const customization = getActionCustomization(actionType);
