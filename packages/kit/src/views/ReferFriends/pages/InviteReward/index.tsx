@@ -66,6 +66,10 @@ import { ReferFriendsTestIDs } from '../../testIDs';
 import { useNavigateToRewardHistory } from '../RewardDistributionHistory/hooks/useNavigateToRewardHistory';
 
 import { INVITE_COPY } from './inviteCopy';
+import {
+  INVITE_SUMMARY_MOCK_ENABLED,
+  withInviteSummaryMock,
+} from './inviteSummaryMock';
 
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
@@ -319,8 +323,11 @@ function InviteRewardPage() {
   const { result: summaryInfo, run: fetchSummaryInfo } = usePromiseResult(
     async () => {
       try {
-        const summary =
+        const fetchedSummary =
           await backgroundApiProxy.serviceReferralCode.getSummaryInfo();
+        const summary = INVITE_SUMMARY_MOCK_ENABLED
+          ? withInviteSummaryMock(fetchedSummary)
+          : fetchedSummary;
         if (
           lastSummaryRef.current &&
           isEqual(summary, lastSummaryRef.current)
