@@ -23309,6 +23309,7 @@
     "packages/kit/src/views/Swap/components/SwapProviderInfoItem.tsx": 1245,
     "packages/kit/src/views/Swap/components/SwapProviderListItem.tsx": 14560,
     "packages/kit/src/views/Swap/components/SwapProviderListPanel.tsx": 18183,
+    "packages/kit/src/views/Swap/components/SwapProviderSelectContent.tsx": 6131,
     "packages/kit/src/views/Swap/components/SwapQuoteResultRate.tsx": 20826,
     "packages/kit/src/views/Swap/components/SwapRateDifferenceText.tsx": 9734,
     "packages/kit/src/views/Swap/components/SwapRateInfoItem.tsx": 8887,
