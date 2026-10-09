@@ -820,6 +820,20 @@ describe('shouldBlockSwapActionForIncognitoRecipientInput', () => {
       }),
     ).toBe(false);
   });
+
+  it('keeps Deposit to Trade available while the recipient is unresolved', () => {
+    expect(
+      shouldBlockSwapActionForIncognitoRecipientInput({
+        inputText: '0xrecipient',
+        isDepositAction: true,
+        isConnectWalletAction: false,
+        loading: true,
+        queryResult: {},
+        validationEnabled: true,
+        visible: true,
+      }),
+    ).toBe(false);
+  });
 });
 
 describe('shouldEnableSwapIncognitoRecipientValidation', () => {

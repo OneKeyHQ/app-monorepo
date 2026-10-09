@@ -18,6 +18,7 @@ import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
   useRateDifferenceAtom,
+  useSwapActions,
   useSwapAlertsAtom,
   useSwapBalanceDisplayCacheAtom,
   useSwapFromTokenAmountAtom,
@@ -26,6 +27,7 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
+  useSwapSelectedTokenBalanceMetaAtom,
   useSwapSelectedTokensColdStartContextAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
@@ -57,11 +59,17 @@ import {
 } from '../../hooks/useSwapColdStartDisplayTokens';
 import { useSwapSelectedTokenInfo } from '../../hooks/useSwapTokens';
 import { SwapTestIDs } from '../../testIDs';
+import { getSwapBalanceActionProps } from '../../utils/swapBalanceActionUtils';
 import {
   resolveSwapBalanceDisplayAccountKey,
   resolveSwapBalanceDisplayCacheEntry,
   resolveSwapInputDisplayBalance,
 } from '../../utils/swapBalanceDisplayCacheUtils';
+import {
+  buildSwapBalanceAccountIdentity,
+  resolveVerifiedSwapBalance,
+} from '../../utils/swapBalanceOwnerUtils';
+import { isSwapBalanceLoadedZero } from '../../utils/swapDepositActionUtils';
 import { getSwapTokenDisplayFiatValue } from '../../utils/swapDisplayFiatValue';
 
 import SwapAccountAddressContainer from './SwapAccountAddressContainer';
@@ -165,7 +173,8 @@ const SwapInputContainer = ({
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const [alerts] = useSwapAlertsAtom();
-  const { address, accountInfo, activeAccount } = useSwapAddressInfo(direction);
+  const swapAddressInfo = useSwapAddressInfo(direction);
+  const { address, accountInfo, activeAccount } = swapAddressInfo;
   const [rateDifference] = useRateDifferenceAtom();
   const amountPrice = useMemo(() => {
     return getSwapTokenDisplayFiatValue({
@@ -180,6 +189,7 @@ const SwapInputContainer = ({
   const [toToken] = useSwapSelectToTokenAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
+  const [swapSelectedTokenBalanceMeta] = useSwapSelectedTokenBalanceMetaAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapQuoteActionLock] = useSwapQuoteActionLockAtom();
   const [initialSelectedTokensSynced] =
@@ -388,13 +398,65 @@ const SwapInputContainer = ({
     leading: true,
   });
 
+  // A loaded zero balance keeps the Top up chip visible (subdued, because the
+  // action button already reads "Deposit to Trade") and turns Max into a
+  // refresh action so the user can re-check the balance after depositing.
+  // The balance atom holds '' until it loads and keeps its last value through
+  // a same-token refresh, so the chip and the refresh control stay put while
+  // it reloads. A fallback figure, or one still belonging to the previous
+  // token or account, is not this row's zero, same as for the action button.
+  const isFromBalanceLoadedZero = useMemo(
+    () =>
+      direction === ESwapDirectionType.FROM &&
+      isSwapBalanceLoadedZero(
+        resolveVerifiedSwapBalance({
+          balance: fromTokenBalance,
+          balanceMeta: swapSelectedTokenBalanceMeta.from,
+          token: fromToken,
+          accountAddress: address,
+          accountIdentity: buildSwapBalanceAccountIdentity(activeAccount),
+          isAddressInfoReady: swapAddressInfo.isAddressInfoReady,
+        }),
+      ),
+    [
+      address,
+      activeAccount,
+      direction,
+      fromToken,
+      fromTokenBalance,
+      swapAddressInfo.isAddressInfoReady,
+      swapSelectedTokenBalanceMeta.from,
+    ],
+  );
+  const { loadSwapSelectTokenDetail } = useSwapActions().current;
+  // Forced reload of this row's balance, used by the refresh control and when
+  // the deposit modal closes.
+  const refreshTokenBalance = useCallback(() => {
+    void loadSwapSelectTokenDetail(direction, swapAddressInfo, true);
+  }, [direction, loadSwapSelectTokenDetail, swapAddressInfo]);
+  const balanceActionProps =
+    direction === ESwapDirectionType.FROM
+      ? getSwapBalanceActionProps({
+          isLoadedZero: isFromBalanceLoadedZero,
+          refreshing: !!balanceLoading,
+          onRefresh: refreshTokenBalance,
+          onMax: onBalanceMaxPress,
+        })
+      : undefined;
+
   const showActionBuy = useMemo(
     () =>
       direction === ESwapDirectionType.FROM &&
       !!accountInfo?.account?.id &&
       !!fromToken &&
-      fromInputHasError.hasBalanceError,
-    [direction, accountInfo?.account?.id, fromToken, fromInputHasError],
+      (fromInputHasError.hasBalanceError || isFromBalanceLoadedZero),
+    [
+      direction,
+      accountInfo?.account?.id,
+      fromToken,
+      fromInputHasError,
+      isFromBalanceLoadedZero,
+    ],
   );
   const readOnly = useMemo(() => {
     if (direction === ESwapDirectionType.TO) {
@@ -418,9 +480,17 @@ const SwapInputContainer = ({
         />
         <SwapInputActions
           fromToken={fromToken}
-          accountInfo={accountInfo}
+          // Withheld while the cross-network account lookup is pending so the
+          // chip cannot open Receive for the previous network's account; a tap
+          // in that window resolves the account from activeAccount instead.
+          accountInfo={
+            swapAddressInfo.isAddressInfoReady ? accountInfo : undefined
+          }
+          activeAccount={activeAccount}
           showPercentageInput={showPercentageInputDebounce}
           showActionBuy={showActionBuy}
+          actionBuyHighlighted={!isFromBalanceLoadedZero}
+          onDepositClose={refreshTokenBalance}
           onSelectStage={onSelectPercentageStage}
         />
       </XStack>
@@ -435,14 +505,7 @@ const SwapInputContainer = ({
         balanceProps={{
           value: displayBalance,
           loading: showBalanceSkeleton,
-          onPress:
-            direction === ESwapDirectionType.FROM
-              ? onBalanceMaxPress
-              : undefined,
-          testID:
-            direction === ESwapDirectionType.FROM
-              ? SwapTestIDs.maxButton
-              : undefined,
+          ...balanceActionProps,
         }}
         valueProps={{
           value: amountPrice,

@@ -96,6 +96,7 @@ export type IModalSwapParamList = {
   [EModalSwapRoutes.SwapProMarketDetail]: {
     tokenAddress: string;
     network: string;
+    stockId?: string;
     isNative?: boolean;
     from?: EEnterWay;
     disableTrade?: boolean;
