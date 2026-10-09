@@ -202,8 +202,11 @@ export function RatePopover({
   );
 }
 
-// "You earn 10% · Invitees save 10%" as one sentence, with the figures in green. Products with different rates
-// read "up to"; without an invitee discount only the referrer's part shows.
+// "You earn 10% · Invitees save 10% (i)" as one sentence, with the figures
+// in green. Products with different rates read "up to"; without an invitee
+// discount only the referrer's part shows. The info icon sits inside the
+// text, after the last word (as in the verification email hint), so it
+// follows the sentence however it wraps.
 export function RateLine({
   summary,
   size = '$bodyMd',
@@ -230,12 +233,7 @@ export function RateLine({
       : ETranslations.referral_you_earn_up_to__desc;
   }
   return (
-    <SizableText
-      size={size}
-      color="$textSubdued"
-      textAlign={textAlign}
-      flexShrink={1}
-    >
+    <SizableText size={size} color="$textSubdued" textAlign={textAlign}>
       {intl.formatMessage(
         { id },
         {
@@ -243,13 +241,21 @@ export function RateLine({
           inviteeRate: highlight(summary.friendRate ?? ''),
         },
       )}
+      {'\u00A0'}
+      <Icon
+        name="InfoCircleOutline"
+        size="$4"
+        color="$iconSubdued"
+        pointerEvents="none"
+        // Inline views sit on the baseline; this centers the icon on the
+        // line.
+        transform={[{ translateY: 3 }]}
+      />
     </SizableText>
   );
 }
 
-// The rate line with its info icon, opening the per-product breakdown. The
-// sentence wraps in longer languages; the icon stays on its first line
-// instead of floating beside the middle of the block.
+// The rate line, opening the per-product breakdown.
 export function RateLineTrigger({
   valueSummary,
   testID,
@@ -269,22 +275,12 @@ export function RateLineTrigger({
       trigger={
         <XStack
           testID={testID}
-          ai="flex-start"
           jc={centered ? 'center' : undefined}
-          gap="$1"
           cursor="default"
         >
           <RateLine
             summary={summary}
             textAlign={centered ? 'center' : undefined}
-          />
-          {/* Centered on the 20px first line. */}
-          <Icon
-            name="InfoCircleOutline"
-            size="$4"
-            mt="$0.5"
-            flexShrink={0}
-            color="$iconSubdued"
           />
         </XStack>
       }
