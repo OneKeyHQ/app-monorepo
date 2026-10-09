@@ -97,7 +97,7 @@ const ReferralPageHeader = memo(function ReferralPageHeader({
           isTitleHidden
             ? ''
             : intl.formatMessage({
-                id: ETranslations.referral_title,
+                id: ETranslations.sidebar_refer_a_friend,
               })
         }
         headerTitle={IS_BENEFITS_TAB_ENABLED ? renderHeaderTitle : undefined}
@@ -154,12 +154,12 @@ function InviteOverviewSkeleton() {
   );
 
   if (md) {
-    // Compact content: title with level, invite card, earnings section,
+    // Compact content: title with level, invite card, earnings card,
     // then entries card.
     return (
       <YStack px="$pagePadding" pt="$2" gap="$5">
         <XStack jc="space-between" ai="center">
-          <Skeleton.Heading4Xl w={200} />
+          <Skeleton.Heading2Xl w={120} />
           <Skeleton w={88} h={28} radius="round" />
         </XStack>
         <YStack gap="$4" p="$4" {...cardStyle}>
@@ -168,7 +168,7 @@ function InviteOverviewSkeleton() {
               <Skeleton.BodyMd w={96} />
               <Skeleton w={72} h={24} radius="round" />
             </XStack>
-            <Skeleton.Heading3Xl w={140} />
+            <Skeleton.HeadingXl w={120} />
           </YStack>
           <Divider borderColor="$neutral4" />
           {[0, 1].map((index) => (
@@ -178,22 +178,19 @@ function InviteOverviewSkeleton() {
             </XStack>
           ))}
         </YStack>
-        <YStack pt="$1" gap="$3">
-          <Skeleton.HeadingLg w={96} />
-          <YStack gap="$4" p="$4" {...cardStyle}>
-            <YStack gap="$1">
-              <Skeleton.BodyMd />
-              <Skeleton.Heading3Xl />
-            </YStack>
-            <XStack gap="$4">
-              {[0, 1].map((index) => (
-                <YStack key={index} flex={1} gap="$1">
-                  <Skeleton.BodyMd />
-                  <Skeleton.HeadingMd />
-                </YStack>
-              ))}
-            </XStack>
+        <YStack gap="$4" p="$4" {...cardStyle}>
+          <YStack gap="$1">
+            <Skeleton.BodyMd />
+            <Skeleton.Heading3Xl />
           </YStack>
+          <XStack gap="$4">
+            {[0, 1].map((index) => (
+              <YStack key={index} flex={1} gap="$1">
+                <Skeleton.BodyMd />
+                <Skeleton.HeadingMd />
+              </YStack>
+            ))}
+          </XStack>
         </YStack>
         <YStack gap="$4" p="$4" {...cardStyle}>
           <Skeleton.BodyMd w={120} />
@@ -467,7 +464,9 @@ function InviteRewardPage() {
                 <ReferralJobTabs value={activeTab} onChange={setActiveTab} />
               ) : (
                 <SizableText size="$heading2xl">
-                  {intl.formatMessage({ id: ETranslations.global_overview })}
+                  {intl.formatMessage({
+                    id: ETranslations.sidebar_refer_a_friend,
+                  })}
                 </SizableText>
               )}
               {isInviteTab ? (

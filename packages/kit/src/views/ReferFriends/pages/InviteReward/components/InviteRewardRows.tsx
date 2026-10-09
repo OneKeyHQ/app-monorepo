@@ -487,10 +487,12 @@ export function InviteRewardRows({
     );
   }
 
-  // Same title weight as the invite headline above, so the two sections
-  // read as peers.
+  // The page title is the only heading on compact layouts; the list gets a
+  // quiet caption, like a grouped list header.
   const compactTitle = (
-    <SizableText size="$headingLg">{INVITE_COPY.rewardsByProduct}</SizableText>
+    <SizableText size="$bodyMdMedium" color="$textSubdued">
+      {INVITE_COPY.rewardsByProduct}
+    </SizableText>
   );
 
   if (rows.visibleRows.length === 0) {

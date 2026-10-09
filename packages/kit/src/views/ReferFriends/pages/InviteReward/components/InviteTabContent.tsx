@@ -78,8 +78,9 @@ export function InviteTabContent({
             onLargeTitleLayout?.(y + height);
           }}
         >
-          <SizableText size="$heading4xl" flexShrink={1}>
-            {intl.formatMessage({ id: ETranslations.referral_title })}
+          {/* Named like the tab that opens it, at the desktop heading's size. */}
+          <SizableText size="$heading2xl" flexShrink={1}>
+            {intl.formatMessage({ id: ETranslations.sidebar_refer_a_friend })}
           </SizableText>
           <InviteLevelChip
             valueSummary={valueSummary}

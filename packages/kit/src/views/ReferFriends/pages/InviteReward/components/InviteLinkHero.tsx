@@ -324,7 +324,9 @@ export function InviteCompactCard({
           <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.referral_your_code })}
           </SizableText>
-          <SizableText size="$heading3xl" numberOfLines={1}>
+          {/* Below the unpaid amount: the page title and the money lead,
+              the code reads as the card's value. */}
+          <SizableText size="$headingXl" numberOfLines={1}>
             {inviteCode}
           </SizableText>
         </YStack>

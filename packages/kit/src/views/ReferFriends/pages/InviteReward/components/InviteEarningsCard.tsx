@@ -224,23 +224,32 @@ function DesktopEarnings({
 // Compact layouts stack the same facts as the desktop card: the unpaid
 // amount leads, the two totals follow as plain columns, and the payout
 // address closes the card as a row so long labels have the full width.
-// Payout history sits beside the section title, outside the card.
 function CompactEarnings({
   earnings,
   labels,
   payoutAddress,
   onEditAddress,
+  onOpenHistory,
 }: {
   earnings: IInviteEarnings;
   labels: IEarningsLabels;
   payoutAddress: string;
   onEditAddress: () => void;
+  onOpenHistory: () => void;
 }) {
   return (
     <YStack>
-      <SizableText size="$bodyMd" color="$textSubdued">
-        {labels.undistributed}
-      </SizableText>
+      {/* Same header as desktop: the label with payout history beside it. */}
+      <XStack ai="center" jc="space-between" gap="$3">
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {labels.undistributed}
+        </SizableText>
+        <CardTextAction
+          testID={ReferFriendsTestIDs.inviteRewardHistory}
+          label={labels.history}
+          onPress={onOpenHistory}
+        />
+      </XStack>
       <YStack pt="$1">
         <UnpaidAmount
           amount={earnings.undistributed}
@@ -347,31 +356,20 @@ export function InviteEarningsCard({
 
   if (md) {
     return (
-      // A titled section like "Rewards by product" below; the extra top
-      // space sets it apart from the invite cards above.
-      <YStack pt="$1" gap="$3">
-        <XStack ai="center" jc="space-between" gap="$3">
-          <SizableText size="$headingLg">{INVITE_COPY.earnings}</SizableText>
-          <CardTextAction
-            testID={ReferFriendsTestIDs.inviteRewardHistory}
-            label={labels.history}
-            onPress={navigateToRewardHistory}
-          />
-        </XStack>
-        <YStack
-          testID={ReferFriendsTestIDs.inviteEarningsCard}
-          px="$4"
-          pt="$4"
-          pb="$1"
-          {...cardStyle}
-        >
-          <CompactEarnings
-            earnings={earnings}
-            labels={labels}
-            payoutAddress={payoutAddress}
-            onEditAddress={editPayoutAddress}
-          />
-        </YStack>
+      <YStack
+        testID={ReferFriendsTestIDs.inviteEarningsCard}
+        px="$4"
+        pt="$4"
+        pb="$1"
+        {...cardStyle}
+      >
+        <CompactEarnings
+          earnings={earnings}
+          labels={labels}
+          payoutAddress={payoutAddress}
+          onEditAddress={editPayoutAddress}
+          onOpenHistory={navigateToRewardHistory}
+        />
       </YStack>
     );
   }
