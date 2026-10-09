@@ -86,49 +86,30 @@ function RewardLabel({
   );
 }
 
+// Compact hardware rows: this month's sales under the product name. The
+// pending payout sits with the other money, under the amount on the right.
 function HardwareSubtitle({
   row,
   monthlyLabel,
-  pendingLabel,
-  pendingTooltip,
 }: {
   row: IInviteRewardRow;
   monthlyLabel: string;
-  pendingLabel: string;
-  pendingTooltip: IRewardLabelTooltip;
 }) {
-  const { pending } = row;
-  if (!row.monthlySalesFiatValue && !pending) {
+  if (!row.monthlySalesFiatValue) {
     return null;
   }
-
   return (
-    <XStack ai="center" gap="$1" flexWrap="wrap">
-      {row.monthlySalesFiatValue ? (
-        <XStack ai="center" gap="$1">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {monthlyLabel}
-          </SizableText>
-          <Currency
-            size="$bodySm"
-            formatter="value"
-            targetCurrency={REFERRAL_USD_CURRENCY_PROPS.targetCurrency}
-          >
-            {row.monthlySalesFiatValue}
-          </Currency>
-        </XStack>
-      ) : null}
-      {row.monthlySalesFiatValue && pending ? (
-        <SizableText size="$bodySm" color="$textSubdued">
-          ·
-        </SizableText>
-      ) : null}
-      {pending ? (
-        <XStack ai="center" gap="$1">
-          <RewardLabel label={pendingLabel} tooltip={pendingTooltip} />
-          <InviteRewardAmount summary={pending} size="$bodySm" />
-        </XStack>
-      ) : null}
+    <XStack ai="center" gap="$1">
+      <SizableText size="$bodySm" color="$textSubdued">
+        {monthlyLabel}
+      </SizableText>
+      <Currency
+        size="$bodySm"
+        formatter="value"
+        targetCurrency={REFERRAL_USD_CURRENCY_PROPS.targetCurrency}
+      >
+        {row.monthlySalesFiatValue}
+      </Currency>
     </XStack>
   );
 }
@@ -137,11 +118,16 @@ function RewardListRow({
   row,
   title,
   subtitle,
+  pendingLabel,
+  pendingTooltip,
   onPress,
 }: {
   row: IInviteRewardRow;
   title: string;
   subtitle?: ReactNode;
+  // Hardware only: the pending payout, shown under the available amount.
+  pendingLabel?: string;
+  pendingTooltip?: IRewardLabelTooltip;
   onPress: () => void;
 }) {
   return (
@@ -155,7 +141,18 @@ function RewardListRow({
       drillIn
       onPress={onPress}
     >
-      <InviteRewardAmount summary={row.available} emptyLabel />
+      {row.pending && pendingLabel ? (
+        <YStack ai="flex-end" gap="$0.5">
+          {/* A zero, not "No reward yet", when a payout is on its way. */}
+          <InviteRewardAmount summary={row.available} />
+          <XStack ai="center" gap="$1">
+            <RewardLabel label={pendingLabel} tooltip={pendingTooltip} />
+            <InviteRewardAmount summary={row.pending} size="$bodySm" />
+          </XStack>
+        </YStack>
+      ) : (
+        <InviteRewardAmount summary={row.available} emptyLabel />
+      )}
     </ListItem>
   );
 }
@@ -532,13 +529,12 @@ export function InviteRewardRows({
             title={titleFor(row.subject)}
             subtitle={
               row.subject === 'hardware' ? (
-                <HardwareSubtitle
-                  row={row}
-                  monthlyLabel={monthlyLabel}
-                  pendingLabel={pendingLabel}
-                  pendingTooltip={hardwarePendingTooltip}
-                />
+                <HardwareSubtitle row={row} monthlyLabel={monthlyLabel} />
               ) : undefined
+            }
+            pendingLabel={row.subject === 'hardware' ? pendingLabel : undefined}
+            pendingTooltip={
+              row.subject === 'hardware' ? hardwarePendingTooltip : undefined
             }
             onPress={() => {
               openSubject(row.subject);
