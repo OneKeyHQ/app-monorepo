@@ -129,7 +129,9 @@ export async function resolveUniversalSearchWatchlistKeys({
   fetchAssetDetail,
 }: {
   items: IMarketWatchListItemV2[];
-  fetchAssetDetail: (assetId: string) => Promise<IMarketAssetDetailData>;
+  fetchAssetDetail: (
+    assetId: string,
+  ) => Promise<Pick<IMarketAssetDetailData, 'selectedVariant' | 'variants'>>;
 }): Promise<Set<string>> {
   const keys = new Set(items.map(getMarketWatchlistKey));
   const limit = pLimit(4);
@@ -139,9 +141,9 @@ export async function resolveUniversalSearchWatchlistKeys({
     ].map((assetId) =>
       limit(async () => {
         try {
-          const { variants } = await fetchAssetDetail(assetId);
+          const { selectedVariant, variants } = await fetchAssetDetail(assetId);
           // Legacy search results identify assets by their chain variants.
-          for (const variant of variants) {
+          for (const variant of [selectedVariant, ...variants]) {
             keys.add(
               getMarketWatchlistKey({
                 chainId: variant.networkId,

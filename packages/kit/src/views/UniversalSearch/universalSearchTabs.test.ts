@@ -149,6 +149,16 @@ describe('getUniversalSearchWatchlistKey', () => {
 });
 
 describe('asset watchlist search matching', () => {
+  const nativeVariant: IMarketAssetDetailData['selectedVariant'] = {
+    variantId: 'ethereum-native',
+    networkId: 'evm--1',
+    tokenAddress: '',
+    networkName: 'Ethereum',
+    networkSymbol: 'ETH',
+    networkLogoUrl: '',
+    isNative: true,
+    isDefault: true,
+  };
   const token = {
     type: EUniversalSearchType.V2MarketToken,
     payload: { network: 'evm--1', address: '' },
@@ -156,9 +166,16 @@ describe('asset watchlist search matching', () => {
 
   it('matches a favorited top coin through its native and contract variants', async () => {
     const fetchAssetDetail = jest.fn().mockResolvedValue({
+      selectedVariant: nativeVariant,
       variants: [
-        { networkId: 'evm--1', tokenAddress: '' },
-        { networkId: 'evm--10', tokenAddress: '0xAbC' },
+        {
+          ...nativeVariant,
+          variantId: 'wrapped-eth',
+          networkId: 'evm--10',
+          tokenAddress: '0xAbC',
+          isNative: false,
+          isDefault: false,
+        },
       ],
     });
     const keys = await resolveUniversalSearchWatchlistKeys({
@@ -188,6 +205,29 @@ describe('asset watchlist search matching', () => {
     ).toBe(false);
   });
 
+  it('matches the selected native variant when the variant list is empty', async () => {
+    const keys = await resolveUniversalSearchWatchlistKeys({
+      items: [{ assetId: 'dogecoin', chainId: '', contractAddress: '' }],
+      fetchAssetDetail: jest.fn().mockResolvedValue({
+        selectedVariant: {
+          ...nativeVariant,
+          variantId: 'dogecoin-native',
+          networkId: 'doge--0',
+        },
+        variants: [],
+      }),
+    });
+    expect(
+      isUniversalSearchItemInWatchlist(
+        {
+          type: EUniversalSearchType.V2MarketToken,
+          payload: { network: 'doge--0', address: '' },
+        } as IUniversalSearchResultItem,
+        keys,
+      ),
+    ).toBe(true);
+  });
+
   it('matches explicit asset IDs without losing chain-address favorites', () => {
     const assetToken = {
       type: EUniversalSearchType.V2MarketToken,
@@ -203,11 +243,15 @@ describe('asset watchlist search matching', () => {
 
   it('retains other favorites when an asset detail request fails', async () => {
     const fetchAssetDetail = jest
-      .fn<Promise<IMarketAssetDetailData>, [string]>()
+      .fn<
+        Promise<Pick<IMarketAssetDetailData, 'selectedVariant' | 'variants'>>,
+        [string]
+      >()
       .mockRejectedValueOnce(new Error('Unavailable'))
       .mockResolvedValueOnce({
-        variants: [{ networkId: 'evm--1', tokenAddress: '' }],
-      } as IMarketAssetDetailData);
+        selectedVariant: nativeVariant,
+        variants: [],
+      });
     const keys = await resolveUniversalSearchWatchlistKeys({
       items: [
         { assetId: 'bitcoin', chainId: '', contractAddress: '' },
