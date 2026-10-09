@@ -49,6 +49,8 @@ function writeProfile(name: string, data: unknown) {
 
 function loadStartup() {
   const store = require('./store') as IStoreModule;
+  // Fail before writes if a local dependency layout bypasses the Electron mock.
+  expect(store.instance.path).toBe(path.join(mockProfileDir, 'OneKey.json'));
   const { getBundleIndexHtmlPath } = require('../bundle') as IBundleModule;
   return { store, getBundleIndexHtmlPath };
 }
