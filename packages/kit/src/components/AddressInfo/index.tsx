@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { Badge, Dialog, Stack, XStack } from '@onekeyhq/components';
+import { Badge, Dialog, Stack, Toast, XStack } from '@onekeyhq/components';
 import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -29,7 +29,7 @@ type ISwitchHomeAccountButtonProps = {
   children: React.ReactNode;
   walletAccountName: string;
 };
-function SwitchHomeAccountButton({
+export function SwitchHomeAccountButton({
   accountId,
   walletAccountName,
   children,
@@ -93,11 +93,31 @@ function SwitchHomeAccountButton({
             );
 
             setTimeout(async () => {
-              await actions.current.confirmAccountSelect({
-                num: 0,
-                othersWalletAccount: indexedAccount ? undefined : account,
-                indexedAccount,
-              });
+              try {
+                const confirmed = await actions.current.confirmAccountSelect({
+                  num: 0,
+                  othersWalletAccount: indexedAccount ? undefined : account,
+                  entry: 'addressInfo',
+                  indexedAccount,
+                  throwOnError: true,
+                });
+                // `false` includes a stale request superseded by a newer
+                // selection, so only thrown execution failures show a toast.
+                if (!confirmed) {
+                  // No follow-up work depends on the rejected selection.
+                }
+              } catch {
+                // An uncaught rejection inside setTimeout has no caller left
+                // to surface it, so tell the user the switch did not happen.
+                Toast.error({
+                  title: intl.formatMessage({
+                    id: ETranslations.global_an_error_occurred,
+                  }),
+                  message: intl.formatMessage({
+                    id: ETranslations.global_an_error_occurred_desc,
+                  }),
+                });
+              }
             }, 300);
           },
         });

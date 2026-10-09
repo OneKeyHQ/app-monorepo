@@ -9,6 +9,8 @@ import type {
   IAccountDeriveTypes,
   IVaultSettings,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
@@ -66,13 +68,40 @@ export function useAccountData({
       let deriveInfo: IAccountDeriveInfo | undefined;
       let addressType: string | undefined;
 
+      const getAccount = async () => {
+        if (!accountId || !networkId) {
+          return undefined;
+        }
+        try {
+          return await serviceAccount.getAccount({
+            accountId,
+            networkId,
+          });
+        } catch (error) {
+          if (accountUtils.isAllNetworkMockAccount({ accountId })) {
+            throw error;
+          }
+          const dbAccount = await serviceAccount.getDBAccountSafe({
+            accountId,
+          });
+          const indexedAccount = dbAccount?.indexedAccountId
+            ? await serviceAccount.getIndexedAccountSafe({
+                id: dbAccount.indexedAccountId,
+              })
+            : undefined;
+          if (!dbAccount || (dbAccount.indexedAccountId && !indexedAccount)) {
+            defaultLogger.accountSelector.perf.trace('consumerReadSkipped', {
+              consumer: 'useAccountData',
+              reason: dbAccount ? 'indexed-account-removed' : 'account-removed',
+            });
+            return undefined;
+          }
+          throw error;
+        }
+      };
+
       const [account, network, wallet, vaultSettings] = await Promise.all([
-        accountId && networkId
-          ? serviceAccount.getAccount({
-              accountId,
-              networkId,
-            })
-          : undefined,
+        getAccount(),
         networkId
           ? serviceNetwork.getNetwork({
               networkId,

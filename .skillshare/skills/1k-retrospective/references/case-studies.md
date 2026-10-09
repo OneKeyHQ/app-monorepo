@@ -669,10 +669,17 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: Resolve the same top-coin listing before painting the badge, hide it until that match finishes, and reuse the result when the user adds the tokens.
 **Catchable by**: Section 4: data flow end-to-end; NEW — a display rule and the later save rule must share one identity, not a cheaper proxy that only covers part of the set
 
+## Case: Removed-account activeAccount clear only worked in E2E/dev perf mode
+
+**Date**: 2026-08-20 | **Platforms**: mobile, desktop, web, extension (production builds)
+**Symptom**: On this branch, deleting the selected account in a non-auto-select scene (addressInput/primePayment) cleared `selectedAccount` but production builds kept the deleted account's full `activeAccount` (address included) until manual re-selection; E2E and dev builds cleared it correctly.
+**Root Cause**: The guard bypass in `reloadActiveAccountInfo` branched on `transitionMeta?.reason === 'removeAccountSelectionClear'`, but that reason travels through the perfDebug WeakMap attribution channel, which is only populated when `isAccountSelectorPerfDebugEnabled()` (isE2E or dev+logger) — empty in production, so `shouldKeepNetworkOnlySelection` kept the stale active account. This violated the perfDebug contract "Diagnostics only — never branch on these entries", and E2E could not catch it because `isE2E` keeps perf attribution permanently on.
+**Fix**: Added a formal `forceIncompleteSelectionReload` payload flag to `reloadActiveAccountInfo`, removed the perf-reason inference, and made the `autoSelectNextAccount` clear branch call the reload directly with the flag after a committed clear; added a regression test asserting perf metadata alone cannot bypass the guard.
+**Catchable by**: NEW — control flow must never depend on diagnostics-only channels (perf WeakMaps, trace metadata); test-mode-only wiring needs a perf-off regression path
+
 ## Case: Extension OS notifications used a transparent icon
 **Date**: 2026-09-20 | **Platforms**: Extension
 **Symptom**: Chrome extension system pushes carried no OneKey branding, only the browser's own attribution. Marketing notifications looked unattributed.
 **Root Cause**: `chrome.notifications.create` used `BLANK_ICON_BASE64` (1x1 transparent PNG) when `extras.image` was missing or the remote URL failed, so the notification's content icon was invisible. On macOS the app icon is always Chrome's, so `iconUrl` is the only place OneKey can appear.
 **Fix**: Resolve `iconUrl` with the packaged `icon-128.png` via `chrome.runtime.getURL` when the payload has no usable icon, including the create-failure retry path.
 **Catchable by**: Section 3: identified which platforms consume modified code; NEW — extension OS notifications must not use a transparent placeholder for `iconUrl`
-
