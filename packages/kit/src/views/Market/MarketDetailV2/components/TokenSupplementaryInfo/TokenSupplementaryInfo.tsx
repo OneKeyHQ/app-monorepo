@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import {
   DashText,
   InteractiveIcon,
+  Popover,
   SizableText,
   Tooltip,
   XStack,
@@ -13,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 import { openBlockExplorerUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useBtcMetadataContext } from '../../hooks/BtcMetadataContext';
@@ -36,6 +38,54 @@ interface ISupplementaryRow {
   onPress?: () => void;
 }
 
+function OverviewStatLabel({
+  item,
+  isMobileOverview,
+}: {
+  item: ISupplementaryRow;
+  isMobileOverview: boolean;
+}) {
+  if (!item.tooltip) {
+    return (
+      <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+        {item.label}
+      </SizableText>
+    );
+  }
+  const trigger = (
+    <DashText
+      testID={`token-mobile-overview-info-${item.key}`}
+      size="$bodyMd"
+      color="$textSubdued"
+      dashThickness={0.5}
+      cursor="help"
+      numberOfLines={1}
+    >
+      {item.label}
+    </DashText>
+  );
+  if (isMobileOverview && platformEnv.isNative) {
+    return (
+      <Popover
+        title={item.label}
+        renderTrigger={trigger}
+        renderContent={
+          <YStack p="$5">
+            <SizableText size="$bodyLg">{item.tooltip}</SizableText>
+          </YStack>
+        }
+      />
+    );
+  }
+  return (
+    <Tooltip
+      placement="top"
+      renderTrigger={trigger}
+      renderContent={<SizableText size="$bodySm">{item.tooltip}</SizableText>}
+    />
+  );
+}
+
 function TokenOverviewLinks() {
   const intl = useIntl();
   const { tokenDetail, tokenAddress, networkId } = useTokenDetail();
@@ -53,7 +103,14 @@ function TokenOverviewLinks() {
   return (
     <XStack testID="token-mobile-overview-links" ai="center" gap="$3" pt="$2">
       {securityData ? (
-        <XStack ai="center" gap="$1">
+        <XStack
+          ai="center"
+          gap="$1"
+          bg="$bgStrong"
+          borderRadius="$full"
+          px="$2"
+          py="$1.5"
+        >
           <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.dexmarket_audit })}
           </SizableText>
@@ -61,28 +118,34 @@ function TokenOverviewLinks() {
         </XStack>
       ) : null}
       {website ? (
-        <InteractiveIcon
-          testID="token-mobile-overview-website"
-          icon="GlobusOutline"
-          onPress={handleOpenWebsite}
-          size="$4"
-        />
+        <XStack bg="$bgStrong" borderRadius="$full" p="$2">
+          <InteractiveIcon
+            testID="token-mobile-overview-website"
+            icon="GlobusOutline"
+            onPress={handleOpenWebsite}
+            size="$4"
+          />
+        </XStack>
       ) : null}
       {twitter ? (
-        <InteractiveIcon
-          testID="token-mobile-overview-twitter"
-          icon="Xbrand"
-          onPress={handleOpenTwitter}
-          size="$4"
-        />
+        <XStack bg="$bgStrong" borderRadius="$full" p="$2">
+          <InteractiveIcon
+            testID="token-mobile-overview-twitter"
+            icon="Xbrand"
+            onPress={handleOpenTwitter}
+            size="$4"
+          />
+        </XStack>
       ) : null}
       {address ? (
-        <InteractiveIcon
-          testID="token-mobile-overview-search"
-          icon="SearchOutline"
-          onPress={handleOpenXSearch}
-          size="$4"
-        />
+        <XStack bg="$bgStrong" borderRadius="$full" p="$2">
+          <InteractiveIcon
+            testID="token-mobile-overview-search"
+            icon="SearchOutline"
+            onPress={handleOpenXSearch}
+            size="$4"
+          />
+        </XStack>
       ) : null}
     </XStack>
   );
@@ -288,40 +351,21 @@ export function TokenSupplementaryInfo({
               pr="$2.5"
               gap="$1"
             >
-              {item.tooltip ? (
-                <Tooltip
-                  placement="top"
-                  renderTrigger={
-                    <DashText
-                      size="$bodyMd"
-                      color="$textSubdued"
-                      dashThickness={0.5}
-                      cursor="help"
-                      numberOfLines={1}
-                    >
-                      {item.label}
-                    </DashText>
-                  }
-                  renderContent={
-                    <SizableText size="$bodySm">{item.tooltip}</SizableText>
-                  }
-                />
-              ) : (
-                <SizableText
-                  size="$bodyMd"
-                  color="$textSubdued"
-                  numberOfLines={1}
-                >
-                  {item.label}
-                </SizableText>
-              )}
+              <OverviewStatLabel
+                item={item}
+                isMobileOverview={isMobileOverview}
+              />
               {isMobileOverview ? (
                 <XStack ai="center" gap="$1">
                   <SizableText
                     size="$headingMd"
                     numberOfLines={1}
                     onPress={item.onPress}
-                    color={item.onPress ? '$textInfo' : undefined}
+                    color={
+                      item.onPress && item.key !== 'contractAddress'
+                        ? '$textInfo'
+                        : '$text'
+                    }
                   >
                     {item.value}
                   </SizableText>

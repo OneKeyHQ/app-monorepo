@@ -93,6 +93,8 @@ function MobileInformationTabsHeader({
       <YStack bg="$bgApp" pointerEvents="box-none">
         <Tabs.TabBar
           {...props}
+          scrollable
+          keepFocusedTabVisible
           textSize="$bodyMdMedium"
           onTabPress={handleTabPress}
           renderItem={renderTabBarItem}
