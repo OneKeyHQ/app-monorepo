@@ -159,11 +159,13 @@ function DesktopEarnings({
         />
       </YStack>
       <Divider mt="auto" borderColor={INVITE_CARD_BORDER_COLOR} />
+      {/* The three facts share one size; the address is text, so it keeps
+          the medium weight instead of the figures' semibold. */}
       <XStack ai="center" gap="$4">
         <StatCell label={labels.cumulative}>
           <Currency
             {...REFERRAL_USD_CURRENCY_PROPS}
-            size="$headingLg"
+            size="$headingMd"
             numberOfLines={1}
           >
             {earnings.cumulative}
@@ -173,7 +175,7 @@ function DesktopEarnings({
         <StatCell label={labels.distributed}>
           <Currency
             {...REFERRAL_USD_CURRENCY_PROPS}
-            size="$headingLg"
+            size="$headingMd"
             numberOfLines={1}
           >
             {earnings.distributed}

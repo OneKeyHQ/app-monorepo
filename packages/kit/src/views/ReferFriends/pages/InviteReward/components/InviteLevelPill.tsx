@@ -129,8 +129,7 @@ export function InviteLevelPill({
       px="$2"
       py="$1"
       borderRadius="$full"
-      // The pill sits on the plain page canvas, so it takes the tinted card
-      // surface.
+      // The pill sits on the plain page canvas, so it takes a tinted surface.
       bg="$bgSubdued"
       flexShrink={1}
       {...PRESSABLE_SURFACE_PROPS}

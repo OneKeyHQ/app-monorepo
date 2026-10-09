@@ -50,11 +50,10 @@ function InviteLinkField({
       gap="$2"
       pl={trailing ? '$4' : '$3'}
       pr={trailing ? '$1' : '$3'}
-      // A pill field matches the pill button it hosts.
+      // A pill field matches the pill button it hosts; a quiet fill on the
+      // bright card, without an outline of its own.
       borderRadius={trailing ? '$full' : '$2'}
-      borderWidth={1}
-      borderColor="$borderSubdued"
-      bg="$bgStrong"
+      bg="$bgSubdued"
     >
       <SizableText flex={1} numberOfLines={1} size="$bodyLg">
         {displayUrl}

@@ -522,7 +522,7 @@ function InviteRewardPage() {
               {IS_BENEFITS_TAB_ENABLED ? (
                 <ReferralJobTabs value={activeTab} onChange={setActiveTab} />
               ) : (
-                <SizableText size="$heading2xl">
+                <SizableText size="$headingXl">
                   {intl.formatMessage({
                     id: ETranslations.sidebar_refer_a_friend,
                   })}

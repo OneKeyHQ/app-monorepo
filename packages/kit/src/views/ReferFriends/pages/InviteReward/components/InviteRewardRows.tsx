@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { Fragment, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
+  Divider,
   Icon,
   SizableText,
   Stack,
@@ -133,51 +134,92 @@ function RewardListRow({
 }
 
 interface IDesktopRewardLabels {
+  product: string;
   monthly: string;
   available: string;
   pending: string;
   pendingTooltip: IRewardLabelTooltip;
 }
 
-// One metric column of a desktop reward row. Empty slots still take their
-// share so the columns line up across rows.
-function RewardMetric({
-  label,
-  tooltip,
+// Which optional columns the desktop table shows: monthly sales and pending
+// only exist for hardware, so they drop out when no listed row has them.
+interface IDesktopRewardColumns {
+  monthly: boolean;
+  pending: boolean;
+}
+
+// One cell of the desktop table; every row and the header share the same
+// flex basis, so the columns line up.
+function DesktopCell({
   children,
+  first,
 }: {
-  label: string;
-  tooltip?: IRewardLabelTooltip;
   children?: ReactNode;
+  first?: boolean;
 }) {
   return (
-    // Labels match the earnings card's stat cells; values stay a step below
-    // them since the rows break that total down.
-    <YStack flex={1} flexBasis={0} minWidth={0} gap="$1">
-      {children ? (
-        <>
-          <RewardLabel label={label} tooltip={tooltip} size="$bodyMd" />
-          {children}
-        </>
-      ) : null}
-    </YStack>
+    <XStack
+      flex={first ? 1.4 : 1}
+      flexBasis={0}
+      minWidth={0}
+      ai="center"
+      gap={first ? '$3' : '$1'}
+    >
+      {children}
+    </XStack>
   );
 }
 
-// Desktop rows share fixed columns (product, monthly sales, unpaid,
-// pending) so every unpaid amount sits in the same place. Amounts use the
-// earnings card's basis, so the rows add up to its unpaid total.
+// Desktop reads the breakdown as a table: the column labels once at the top,
+// then one line per product, so each figure sits under its label.
+function DesktopRewardHeader({
+  labels,
+  columns,
+}: {
+  labels: IDesktopRewardLabels;
+  columns: IDesktopRewardColumns;
+}) {
+  return (
+    <XStack ai="center" gap="$4" px="$5" pt="$4" pb="$3">
+      <DesktopCell first>
+        <RewardLabel label={labels.product} size="$bodyMd" />
+      </DesktopCell>
+      {columns.monthly ? (
+        <DesktopCell>
+          <RewardLabel label={labels.monthly} size="$bodyMd" />
+        </DesktopCell>
+      ) : null}
+      <DesktopCell>
+        <RewardLabel label={labels.available} size="$bodyMd" />
+      </DesktopCell>
+      {columns.pending ? (
+        <DesktopCell>
+          <RewardLabel
+            label={labels.pending}
+            tooltip={labels.pendingTooltip}
+            size="$bodyMd"
+          />
+        </DesktopCell>
+      ) : null}
+      {/* Chevron-wide spacer, so the header lines up with the rows. */}
+      <Stack w="$5" />
+    </XStack>
+  );
+}
+
+// Amounts use the earnings card's basis, so the rows add up to its unpaid
+// total. Pending is not payable yet, so it reads quieter than unpaid.
 function DesktopRewardRow({
   row,
   title,
-  labels,
-  isFirst,
+  columns,
+  noRewardLabel,
   onPress,
 }: {
   row: IInviteRewardRow;
   title: string;
-  labels: IDesktopRewardLabels;
-  isFirst: boolean;
+  columns: IDesktopRewardColumns;
+  noRewardLabel: string;
   onPress: () => void;
 }) {
   const { pending } = row;
@@ -188,13 +230,11 @@ function DesktopRewardRow({
       ai="center"
       gap="$4"
       px="$5"
-      py="$4"
-      borderTopWidth={isFirst ? 0 : 1}
-      borderColor={INVITE_CARD_BORDER_COLOR}
+      py="$3.5"
       {...PRESSABLE_SURFACE_PROPS}
       onPress={onPress}
     >
-      <XStack flex={1} flexBasis={0} minWidth={0} ai="center" gap="$3">
+      <DesktopCell first>
         <Icon
           name={INVITE_REWARD_SUBJECT_ICON[row.subject]}
           size="$6"
@@ -204,37 +244,51 @@ function DesktopRewardRow({
         <SizableText size="$bodyLgMedium" numberOfLines={1}>
           {title}
         </SizableText>
-      </XStack>
-      <RewardMetric label={labels.monthly}>
-        {row.monthlySalesFiatValue ? (
-          <Currency
-            size="$headingMd"
-            formatter="value"
-            numberOfLines={1}
-            // Sales arrive in the wallet currency; show them in USD too.
-            targetCurrency={REFERRAL_USD_CURRENCY_PROPS.targetCurrency}
-          >
-            {row.monthlySalesFiatValue}
-          </Currency>
-        ) : null}
-      </RewardMetric>
-      {/* No payout-date hint here: every product pays out together, and the
-          earnings card above already shows the next payout date. */}
-      <RewardMetric label={labels.available}>
-        <InviteRewardAmount
-          summary={row.available}
-          size="$headingMd"
-          color={hasReward ? '$text' : '$textSubdued'}
-        />
-      </RewardMetric>
-      <RewardMetric label={labels.pending} tooltip={labels.pendingTooltip}>
-        {pending ? (
-          <InviteRewardAmount summary={pending} size="$headingMd" />
-        ) : null}
-      </RewardMetric>
+      </DesktopCell>
+      {columns.monthly ? (
+        <DesktopCell>
+          {row.monthlySalesFiatValue ? (
+            <Currency
+              size="$bodyLgMedium"
+              formatter="value"
+              numberOfLines={1}
+              // Sales arrive in the wallet currency; show them in USD too.
+              targetCurrency={REFERRAL_USD_CURRENCY_PROPS.targetCurrency}
+            >
+              {row.monthlySalesFiatValue}
+            </Currency>
+          ) : null}
+        </DesktopCell>
+      ) : null}
+      <DesktopCell>
+        {hasReward || pending ? (
+          <InviteRewardAmount summary={row.available} size="$bodyLgMedium" />
+        ) : (
+          <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+            {noRewardLabel}
+          </SizableText>
+        )}
+      </DesktopCell>
+      {columns.pending ? (
+        <DesktopCell>
+          {pending ? (
+            <InviteRewardAmount
+              summary={pending}
+              size="$bodyLgMedium"
+              color="$textSubdued"
+            />
+          ) : null}
+        </DesktopCell>
+      ) : null}
       <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
     </XStack>
   );
+}
+
+// Rows inside the table card are separated by dividers inset to the text, so
+// they read as lines of one table rather than stacked boxes.
+function DesktopRowDivider() {
+  return <Divider mx="$5" borderColor={INVITE_CARD_BORDER_COLOR} />;
 }
 
 // Compact desktop line for products without rewards: a single product
@@ -259,8 +313,6 @@ function DesktopCompactRow({
       gap="$3"
       px="$5"
       py="$3.5"
-      borderTopWidth={1}
-      borderColor={INVITE_CARD_BORDER_COLOR}
       {...PRESSABLE_SURFACE_PROPS}
       onPress={onPress}
     >
@@ -397,58 +449,74 @@ export function InviteRewardRows({
   if (!md) {
     const hasAnyData = rows.visibleRows.length > 0;
     const desktopLabels: IDesktopRewardLabels = {
+      product: INVITE_COPY.product,
       monthly: monthlyLabel,
       available: availableLabel,
       pending: pendingLabel,
       pendingTooltip: hardwarePendingTooltip,
     };
+    const desktopColumns: IDesktopRewardColumns = {
+      monthly: rows.visibleRows.some((row) => row.monthlySalesFiatValue),
+      pending: rows.visibleRows.some((row) => row.pending),
+    };
     return (
-      // Section title sits a step above the card titles, and a wider gap
-      // splits the overview cards from the per-product breakdown.
-      <YStack px="$pagePadding" pt="$10" gap="$4">
-        <SizableText size="$headingXl">
+      // A wider gap splits the overview cards from the per-product
+      // breakdown; the section title matches the app's other section titles.
+      <YStack px="$pagePadding" pt="$10" gap="$3">
+        <SizableText size="$headingLg">
           {INVITE_COPY.rewardsByProduct}
         </SizableText>
         {hasAnyData ? (
-          <YStack overflow="hidden" {...cardStyle}>
-            {rows.visibleRows.map((row, index) => (
-              <DesktopRewardRow
-                key={row.subject}
-                row={row}
-                title={titleFor(row.subject)}
-                labels={desktopLabels}
-                isFirst={index === 0}
-                onPress={() => {
-                  openSubject(row.subject);
-                }}
-              />
+          <YStack overflow="hidden" pb="$1" {...cardStyle}>
+            <DesktopRewardHeader
+              labels={desktopLabels}
+              columns={desktopColumns}
+            />
+            {rows.visibleRows.map((row) => (
+              <Fragment key={row.subject}>
+                <DesktopRowDivider />
+                <DesktopRewardRow
+                  row={row}
+                  title={titleFor(row.subject)}
+                  columns={desktopColumns}
+                  noRewardLabel={noRewardLabel}
+                  onPress={() => {
+                    openSubject(row.subject);
+                  }}
+                />
+              </Fragment>
             ))}
             {rows.foldedRows.length > 1 ? (
-              <DesktopCompactRow
-                title={foldedTitle}
-                noRewardLabel={noRewardLabel}
-                trailingIcon={
-                  isFoldedOpen
-                    ? 'ChevronTopSmallOutline'
-                    : 'ChevronDownSmallOutline'
-                }
-                onPress={() => {
-                  setIsFoldedOpen((open) => !open);
-                }}
-              />
+              <>
+                <DesktopRowDivider />
+                <DesktopCompactRow
+                  title={foldedTitle}
+                  noRewardLabel={noRewardLabel}
+                  trailingIcon={
+                    isFoldedOpen
+                      ? 'ChevronTopSmallOutline'
+                      : 'ChevronDownSmallOutline'
+                  }
+                  onPress={() => {
+                    setIsFoldedOpen((open) => !open);
+                  }}
+                />
+              </>
             ) : null}
             {rows.foldedRows.length === 1 || isFoldedOpen
               ? rows.foldedRows.map((row) => (
-                  <DesktopCompactRow
-                    key={row.subject}
-                    icon={row.subject}
-                    title={titleFor(row.subject)}
-                    noRewardLabel={noRewardLabel}
-                    trailingIcon="ChevronRightSmallOutline"
-                    onPress={() => {
-                      openSubject(row.subject);
-                    }}
-                  />
+                  <Fragment key={row.subject}>
+                    <DesktopRowDivider />
+                    <DesktopCompactRow
+                      icon={row.subject}
+                      title={titleFor(row.subject)}
+                      noRewardLabel={noRewardLabel}
+                      trailingIcon="ChevronRightSmallOutline"
+                      onPress={() => {
+                        openSubject(row.subject);
+                      }}
+                    />
+                  </Fragment>
                 ))
               : null}
           </YStack>

@@ -46,8 +46,9 @@ export const POINTER_ROW_BLEED_PROPS = { mx: -8, px: '$2' } as const;
 export const INVITE_POPOVER_PANEL_PROPS = { width: 320 } as const;
 
 // Invite home cards round a step further than the card lists on the codes
-// and level pages and drop the border: they are tinted cards on the plain
-// app canvas on every layout.
+// and level pages. Both layouts sit on the plain app canvas: compact layouts
+// use tinted cards without a border, pointer layouts bright cards with a
+// hairline border and a soft lift.
 export const INVITE_HOME_CARD_RADIUS = '$4';
 
 export function useInviteCardStyle({
@@ -75,10 +76,11 @@ export function useInviteCardStyle({
 }
 
 export function useInviteHomeCardStyle() {
+  const { md } = useMedia();
   return useInviteCardStyle({
     borderRadius: INVITE_HOME_CARD_RADIUS,
-    bordered: false,
-    tinted: true,
+    bordered: !md,
+    tinted: md,
   });
 }
 
@@ -93,8 +95,7 @@ export function useInviteListCardStyle() {
   });
 }
 
-// The invite home sits on the plain app canvas on every layout, under its
-// tinted cards.
+// The invite home sits on the plain app canvas on every layout.
 export function useInvitePageCanvas() {
   const theme = useTheme();
   const headerBackgroundColor = theme.bgApp.val;
