@@ -148,9 +148,29 @@ function PartDot({ color }: { color: ColorTokens }) {
   return <YStack w="$2" h="$2" borderRadius="$full" bg={color} />;
 }
 
+// The next payout date is the card's one time-bound fact, so desktop lifts
+// it into the lead group as a brand-green pill instead of a footnote.
+function NextPayoutPill({ label }: { label: string }) {
+  return (
+    <XStack
+      ai="center"
+      gap="$1.5"
+      px="$2.5"
+      py="$1"
+      borderRadius="$full"
+      bg="$bgSuccess"
+    >
+      <Icon name="CalendarOutline" size="$4" color="$iconSuccess" />
+      <SizableText size="$bodyMdMedium" color="$textSuccess" numberOfLines={1}>
+        {label}
+      </SizableText>
+    </XStack>
+  );
+}
+
 // Desktop reads the money the way compact layouts do: the total earned
-// leads, and its two parts follow with the same legend dots (paid, and
-// unpaid with its payout date), then the payout address.
+// leads with the next payout date, and its two parts follow with the same
+// legend dots (paid, unpaid), then the payout address.
 function DesktopEarnings({
   earnings,
   labels,
@@ -185,8 +205,13 @@ function DesktopEarnings({
         {/* Top-aligned, so the taller art hangs beside the amount instead
             of pushing it away from its label. */}
         <XStack ai="flex-start" gap="$4">
-          <YStack flex={1} minWidth={0}>
+          <YStack flex={1} minWidth={0} ai="flex-start" gap="$2">
             <LeadAmount amount={earnings.cumulative} />
+            {earnings.nextDistribution ? (
+              <NextPayoutPill
+                label={`${labels.nextDistribution} ${earnings.nextDistribution}`}
+              />
+            ) : null}
           </YStack>
           {/* A touch of the brand's line art in the room the amount leaves;
               it has a dark variant of its own. */}
@@ -220,11 +245,6 @@ function DesktopEarnings({
           >
             {earnings.undistributed}
           </Currency>
-          {earnings.nextDistribution ? (
-            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-              {`${labels.nextDistribution} ${earnings.nextDistribution}`}
-            </SizableText>
-          ) : null}
         </StatCell>
         <StatCell
           testID={ReferFriendsTestIDs.invitePayoutAddress}
