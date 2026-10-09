@@ -90,7 +90,10 @@ function RuleColumn({
   values: (string | undefined)[];
 }) {
   return (
-    <YStack flexShrink={0} ai="flex-end">
+    // Starts at its widest value and takes an equal share of any spare
+    // width, so the figures spread across the row instead of bunching on
+    // the right; it never shrinks below its content.
+    <YStack flexGrow={1} flexShrink={0} flexBasis="auto" ai="flex-end">
       <XStack h={RULE_HEADER_HEIGHT} ai="flex-end" jc="flex-end" gap="$1">
         <SizableText
           size="$bodySm"
@@ -131,10 +134,11 @@ function LevelRuleTable({
   const hasUpgrade = rows.some((row) => row.upgrade);
   return (
     // Headers name the level each column is about by its icon (keep this
-    // one, reach the next) and spell out whose rate is whose. Only the
-    // product names give way when space runs out.
+    // one, reach the next) and spell out whose rate is whose. Spare width is
+    // shared by all four columns; only the product names give way when space
+    // runs out.
     <XStack gap="$3">
-      <YStack flex={1} minWidth={0}>
+      <YStack flexGrow={1} flexShrink={1} flexBasis="auto" minWidth={0}>
         <Stack h={RULE_HEADER_HEIGHT} />
         {rows.map((row) => (
           <XStack key={row.subject} h={RULE_ROW_HEIGHT} ai="center">
