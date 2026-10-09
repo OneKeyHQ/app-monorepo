@@ -1,73 +1,22 @@
-const assert = require('node:assert/strict');
-const test = require('node:test');
-const vm = require('node:vm');
+const { execFileSync } = require('node:child_process');
+const path = require('node:path');
 
-const ts = require('typescript');
-
-const {
-  generate,
-  publicMethods,
-  update,
-} = require('./generate-desktop-api-methods');
-
-test('extracts only public instance callables before visibility is erased', () => {
-  assert.deepEqual(
-    publicMethods(
-      `
-      class Api implements Contract {
-        public visible() {}
-        implicit() {}
-        arrow = () => {};
-        private hidden() {}
-        protected internal() {}
-        #secret() {}
-        private hiddenArrow = () => {};
-        static utility() {}
-        constructor() {}
-        get getter() { return 1; }
-        overloaded(value: string): void;
-        overloaded(value: number): void;
-        overloaded(value: unknown) {}
-      }
-      export default Api;
-    `,
-      'fixture.ts',
-    ),
-    ['arrow', 'implicit', 'overloaded', 'visible'],
+// Build tooling runs in Node, outside Jest's module loader and transforms.
+test.each([
+  'extracts only public instance callables',
+  'fails closed for inheritance',
+  'the committed policy is reproducible',
+])('%s in the desktop build runtime', (pattern) => {
+  const output = execFileSync(
+    process.execPath,
+    [
+      '--test',
+      '--test-reporter=tap',
+      `--test-name-pattern=${pattern}`,
+      path.join(__dirname, 'generate-desktop-api-methods.fixture.cjs'),
+    ],
+    { encoding: 'utf8' },
   );
-});
-
-test('fails closed for inheritance and dynamic callable names', () => {
-  assert.throws(
-    () =>
-      publicMethods('export default class Api extends Base {}', 'fixture.ts'),
-    /Unsupported desktop API class/,
-  );
-  assert.throws(
-    () =>
-      publicMethods('export default class Api { [name]() {} }', 'fixture.ts'),
-    /statically known/,
-  );
-});
-
-test('the committed policy is reproducible from every registered desktop API', async () => {
-  await update(true);
-  const output = await generate();
-  const code = ts.transpile(output, { module: ts.ModuleKind.CommonJS });
-  const module = { exports: {} };
-  vm.runInNewContext(code, { exports: module.exports });
-  const table = module.exports.desktopApiPublicMethods;
-  assert(Object.isFrozen(table));
-  assert(Object.isFrozen(table.appUpdate));
-  for (const method of [
-    'launchWindowsInstaller',
-    'stageMacUpdate',
-    'installAppImage',
-    'writeRecord',
-    'getMainWindow',
-  ]) {
-    assert.equal(table.appUpdate.includes(method), false);
-  }
-  assert(table.appUpdate.includes('installPackage'));
-  assert(table.firmwareArtifact.includes('download'));
+  expect(output).toContain('# pass 1');
+  expect(output).toContain('# fail 0');
 });
