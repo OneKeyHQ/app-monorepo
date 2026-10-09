@@ -300,6 +300,7 @@ export function InviteCompactCard({
   valueSummary,
   cardStyle,
   levelValue,
+  onManageCodes,
 }: {
   inviteUrl: string;
   inviteCode: string;
@@ -307,6 +308,7 @@ export function InviteCompactCard({
   cardStyle: IInviteCardStyle;
   // The level sits right above the rates it sets.
   levelValue?: ReactNode;
+  onManageCodes: () => void;
 }) {
   const intl = useIntl();
   const { handleCopy, copyLink, inviteCodeUrl } = useReferralCodeCard({
@@ -322,8 +324,8 @@ export function InviteCompactCard({
 
   return (
     // 16px from the text to the card edge on every side, like the other
-    // cards; 12px on both sides of the divider.
-    <YStack px="$4" pt="$4" pb="$2" {...cardStyle}>
+    // cards; 12px on both sides of each divider.
+    <YStack px="$4" pt="$4" pb="$1" {...cardStyle}>
       {/* The code is what people share and type, so it leads the card at
           display size; the link and rates follow as detail rows. */}
       <XStack ai="center" gap="$3" pb="$3">
@@ -388,24 +390,9 @@ export function InviteCompactCard({
           />
         </InviteFieldRow>
       ) : null}
-    </YStack>
-  );
-}
-
-// Compact layouts: the pages behind the invite card (codes, people invited)
-// as plain drill-in rows in their own card.
-export function InviteEntriesCard({
-  cardStyle,
-  onManageCodes,
-}: {
-  cardStyle: IInviteCardStyle;
-  onManageCodes: () => void;
-}) {
-  const intl = useIntl();
-  const navigateToYourReferred = useNavigateToYourReferred();
-
-  return (
-    <YStack px="$4" py="$1" {...cardStyle}>
+      {/* The codes this card shows are managed one step away, so the entry
+          closes the card under its own divider. */}
+      <Divider mt="$1" borderColor={INVITE_CARD_BORDER_COLOR} />
       <ListItem
         testID={ReferFriendsTestIDs.inviteManageCodes}
         {...COMPACT_ROW_BLEED_PROPS}
@@ -414,14 +401,31 @@ export function InviteEntriesCard({
         drillIn
         onPress={onManageCodes}
       />
-      <ListItem
-        testID={ReferFriendsTestIDs.inviteYourReferred}
-        {...COMPACT_ROW_BLEED_PROPS}
-        titleProps={COMPACT_ENTRY_TITLE_PROPS}
-        title={intl.formatMessage({ id: ETranslations.referral_referral_list })}
-        drillIn
-        onPress={navigateToYourReferred}
-      />
     </YStack>
+  );
+}
+
+// Compact layouts: the caption over the invite card, with the referral list
+// (the people its codes brought in) on the right, like Payout history on
+// the earnings card.
+export function InviteOverviewCaption() {
+  const intl = useIntl();
+  const navigateToYourReferred = useNavigateToYourReferred();
+
+  return (
+    <XStack ai="center" jc="space-between" gap="$3">
+      <SizableText size="$bodyMdMedium" color="$textSubdued">
+        {intl.formatMessage({ id: ETranslations.global_overview })}
+      </SizableText>
+      <Button
+        testID={ReferFriendsTestIDs.inviteYourReferred}
+        variant="tertiary"
+        size="small"
+        iconAfter="ChevronRightSmallOutline"
+        onPress={navigateToYourReferred}
+      >
+        {intl.formatMessage({ id: ETranslations.referral_referral_list })}
+      </Button>
+    </XStack>
   );
 }

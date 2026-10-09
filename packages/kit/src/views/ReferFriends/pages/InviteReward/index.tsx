@@ -151,11 +151,15 @@ function InviteOverviewSkeleton() {
   );
 
   if (md) {
-    // Compact content: invite card and entries card, then earnings card,
-    // spaced like the loaded page's groups.
+    // Compact content: overview caption and invite card, then earnings
+    // card, spaced like the loaded page's groups.
     return (
       <YStack px="$pagePadding" pt="$3" gap="$6">
-        <YStack gap="$4">
+        <YStack gap="$2">
+          <XStack jc="space-between" ai="center" h={32}>
+            <Skeleton.BodyMd w={72} />
+            <Skeleton.BodyMd w={96} />
+          </XStack>
           <YStack gap="$4" p="$4" {...cardStyle}>
             <XStack jc="space-between" ai="center">
               <YStack gap="$1">
@@ -171,10 +175,8 @@ function InviteOverviewSkeleton() {
                 <Skeleton.BodyMd w={120} />
               </XStack>
             ))}
-          </YStack>
-          <YStack gap="$4" p="$4" {...cardStyle}>
+            <Divider borderColor="$neutral4" />
             <Skeleton.BodyMd w={120} />
-            <Skeleton.BodyMd w={100} />
           </YStack>
         </YStack>
         <YStack gap="$4" p="$4" {...cardStyle}>
