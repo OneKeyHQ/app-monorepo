@@ -133,7 +133,10 @@ export const InviteTabContent = memo(function InviteTabContent({
               </YStack>
             </XStack>
           </XStack>
-          <InviteRewardRows summaryInfo={summaryInfo} />
+          <InviteRewardRows
+            summaryInfo={summaryInfo}
+            valueSummary={valueSummary}
+          />
         </>
       )}
     </YStack>

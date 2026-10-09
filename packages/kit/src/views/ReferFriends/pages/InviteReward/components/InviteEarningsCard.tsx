@@ -138,9 +138,9 @@ function DesktopEarnings({
 }) {
   return (
     <YStack flex={1} gap="$4">
-      {/* Grouped by proximity: the label sits right on its amount, the stats
-          sit on their divider, and the card's spare height (it stretches to
-          the invite card) becomes the gap between the two groups. */}
+      {/* Grouped by proximity rather than lines: the label sits right on its
+          amount, and the card's spare height (it stretches to the invite
+          card) becomes the gap above the stats. */}
       <YStack gap="$2">
         <XStack ai="center" jc="space-between" gap="$3">
           <SizableText size="$bodyLgMedium" color="$textSubdued">
@@ -158,10 +158,9 @@ function DesktopEarnings({
           nextPayoutLabel={labels.nextDistribution}
         />
       </YStack>
-      <Divider mt="auto" borderColor={INVITE_CARD_BORDER_COLOR} />
       {/* The three facts share one size; the address is text, so it keeps
           the medium weight instead of the figures' semibold. */}
-      <XStack ai="center" gap="$4">
+      <XStack mt="auto" ai="center" gap="$6">
         <StatCell label={labels.cumulative}>
           <Currency
             {...REFERRAL_USD_CURRENCY_PROPS}
@@ -171,7 +170,6 @@ function DesktopEarnings({
             {earnings.cumulative}
           </Currency>
         </StatCell>
-        <Divider vertical h="$10" borderColor={INVITE_CARD_BORDER_COLOR} />
         <StatCell label={labels.distributed}>
           <Currency
             {...REFERRAL_USD_CURRENCY_PROPS}
@@ -181,7 +179,6 @@ function DesktopEarnings({
             {earnings.distributed}
           </Currency>
         </StatCell>
-        <Divider vertical h="$10" borderColor={INVITE_CARD_BORDER_COLOR} />
         <StatCell
           testID={ReferFriendsTestIDs.invitePayoutAddress}
           label={labels.payoutAddress}
