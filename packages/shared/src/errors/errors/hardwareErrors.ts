@@ -604,6 +604,7 @@ export class FirmwareVersionTooLow extends OneKeyHardwareError {
     super(
       normalizeErrorProps(
         {
+          payload: props?.payload,
           info: { 'version': get(props, 'payload.params.require', '') },
         },
         {

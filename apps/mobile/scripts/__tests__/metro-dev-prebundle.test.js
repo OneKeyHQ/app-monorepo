@@ -575,7 +575,22 @@ describe('metro-dev-prebundle release transport', () => {
   });
 
   it('pins repository provenance during offline attestation verification', async () => {
-    const fixture = createTemporaryRepo();
+    // Only the trusted root has to exist here; the full fixture repo copies
+    // every fingerprint input and ran past the timeout on CI runners.
+    const trustedRootRepoPath =
+      'apps/mobile/bundle-registry/metro-dev-prebundle-trusted-root.jsonl';
+    const fixture = {
+      repoRoot: fs.mkdtempSync(
+        path.join(os.tmpdir(), 'onekey-metro-dev-prebundle-attestation-'),
+      ),
+    };
+    fs.ensureDirSync(
+      path.dirname(path.join(fixture.repoRoot, trustedRootRepoPath)),
+    );
+    fs.copyFileSync(
+      path.join(REPO_ROOT, trustedRootRepoPath),
+      path.join(fixture.repoRoot, trustedRootRepoPath),
+    );
     const artifactPath = path.join(fixture.repoRoot, 'artifact.bin');
     const bundlePath = path.join(
       fixture.repoRoot,
@@ -601,10 +616,7 @@ describe('metro-dev-prebundle release transport', () => {
         '--bundle',
         bundlePath,
         '--custom-trusted-root',
-        path.join(
-          fixture.repoRoot,
-          'apps/mobile/bundle-registry/metro-dev-prebundle-trusted-root.jsonl',
-        ),
+        path.join(fixture.repoRoot, trustedRootRepoPath),
         '--signer-workflow',
         'OneKeyHQ/app-monorepo/.github/workflows/metro-dev-prebundle.yml',
         '--source-ref',
