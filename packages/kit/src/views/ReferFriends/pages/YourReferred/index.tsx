@@ -22,8 +22,9 @@ function YourReferredPageWrapper() {
 
   const intl = useIntl();
   const { md } = useMedia();
+  // Named like the invite page's entry that opens it.
   const title = intl.formatMessage({
-    id: ETranslations.referral_your_referred,
+    id: ETranslations.referral_referral_list,
   });
 
   return (

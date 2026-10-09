@@ -9,8 +9,6 @@ export const INVITE_COPY = {
   rateLabel: 'Rate (you / invitee)',
   upTo: 'Up to',
   manageCodes: 'Manage codes',
-  referrals: 'Referrals',
-  codesTab: 'Codes',
   bindTitle: 'Invited by a friend?',
   bindDescription: 'Enter their referral code',
   boundTitle: 'Invited by a friend',

@@ -18,6 +18,7 @@ import { InviteTabContent } from './InviteTabContent';
 const mockCopyText = jest.fn();
 const mockCopyUrl = jest.fn();
 const mockBindWalletInviteCode = jest.fn();
+const mockNavigateToYourReferred = jest.fn();
 const mockNavigateToInviteCodes = jest.fn();
 const mockNavigateToEditAddress = jest.fn();
 const mockNavigateToRewardHistory = jest.fn();
@@ -145,6 +146,10 @@ jest.mock(
   }),
 );
 
+jest.mock(
+  '@onekeyhq/kit/src/views/ReferFriends/pages/YourReferred/hooks',
+  () => ({ useNavigateToYourReferred: () => mockNavigateToYourReferred }),
+);
 jest.mock(
   '@onekeyhq/kit/src/views/ReferFriends/pages/RewardDistributionHistory/hooks/useNavigateToRewardHistory',
   () => ({ useNavigateToRewardHistory: () => mockNavigateToRewardHistory }),
@@ -278,19 +283,10 @@ describe('InviteTabContent entry points', () => {
       mockMd = md;
       renderTab();
 
-      // Both open the Referrals page: desktop's referral list link on the
-      // wallets tab, the compact entry on its first (codes) tab.
       fireEvent.click(
-        screen.getByTestId(
-          md
-            ? ReferFriendsTestIDs.inviteReferrals
-            : ReferFriendsTestIDs.inviteYourReferred,
-        ),
+        screen.getByTestId(ReferFriendsTestIDs.inviteYourReferred),
       );
-      expect(mockNavigateToInviteCodes).toHaveBeenCalledWith(
-        SUMMARY.inviteUrl,
-        ...(md ? [] : ['wallets']),
-      );
+      expect(mockNavigateToYourReferred).toHaveBeenCalled();
 
       fireEvent.click(
         screen.getByTestId(ReferFriendsTestIDs.inviteRewardHistory),

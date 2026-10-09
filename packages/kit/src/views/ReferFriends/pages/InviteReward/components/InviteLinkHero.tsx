@@ -14,7 +14,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { useNavigateToInviteCodes } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteCodes/hooks/useNavigateToInviteCodes';
+import { useNavigateToYourReferred } from '@onekeyhq/kit/src/views/ReferFriends/pages/YourReferred/hooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -190,20 +190,18 @@ function InviteLinkActions({
   );
 }
 
-// Desktop puts the referral list beside the invite title; it opens the
-// Referrals page on the people the codes brought in.
-function ReferralListLink({ inviteUrl }: { inviteUrl: string }) {
+// Desktop puts the referral list beside the invite title; compact layouts keep
+// it on the earnings card.
+function ReferralListLink() {
   const intl = useIntl();
-  const navigateToInviteCodes = useNavigateToInviteCodes();
+  const navigateToYourReferred = useNavigateToYourReferred();
   return (
     <Button
       testID={ReferFriendsTestIDs.inviteYourReferred}
       variant="tertiary"
       size="small"
       iconAfter="ChevronRightSmallOutline"
-      onPress={() => {
-        navigateToInviteCodes(inviteUrl, 'wallets');
-      }}
+      onPress={navigateToYourReferred}
     >
       {intl.formatMessage({ id: ETranslations.referral_referral_list })}
     </Button>
@@ -236,7 +234,7 @@ export function InviteLinkHero({
           <SizableText size="$headingLg">{INVITE_COPY.headline}</SizableText>
           <InviteValueLine {...valueSummary} />
         </YStack>
-        {md ? null : <ReferralListLink inviteUrl={inviteUrl} />}
+        {md ? null : <ReferralListLink />}
       </XStack>
       <InviteLinkActions
         inviteUrl={inviteUrl}
@@ -394,24 +392,35 @@ export function InviteCompactCard({
   );
 }
 
-// Compact layouts: one entry to the Referrals page (codes, and the wallets
-// and orders they brought in), right under the invite card it belongs to.
-export function InviteReferralsEntry({
+// Compact layouts: the pages behind the invite card (codes, people invited)
+// as plain drill-in rows in their own card.
+export function InviteEntriesCard({
   cardStyle,
-  onOpen,
+  onManageCodes,
 }: {
   cardStyle: IInviteCardStyle;
-  onOpen: () => void;
+  onManageCodes: () => void;
 }) {
+  const intl = useIntl();
+  const navigateToYourReferred = useNavigateToYourReferred();
+
   return (
     <YStack px="$4" py="$1" {...cardStyle}>
       <ListItem
-        testID={ReferFriendsTestIDs.inviteReferrals}
+        testID={ReferFriendsTestIDs.inviteManageCodes}
         {...COMPACT_ROW_BLEED_PROPS}
         titleProps={COMPACT_ENTRY_TITLE_PROPS}
-        title={INVITE_COPY.referrals}
+        title={INVITE_COPY.manageCodes}
         drillIn
-        onPress={onOpen}
+        onPress={onManageCodes}
+      />
+      <ListItem
+        testID={ReferFriendsTestIDs.inviteYourReferred}
+        {...COMPACT_ROW_BLEED_PROPS}
+        titleProps={COMPACT_ENTRY_TITLE_PROPS}
+        title={intl.formatMessage({ id: ETranslations.referral_referral_list })}
+        drillIn
+        onPress={navigateToYourReferred}
       />
     </YStack>
   );
