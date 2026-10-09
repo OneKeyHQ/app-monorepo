@@ -170,7 +170,9 @@ function selectArtifact(
     return new URL(file.url, baseUrl).pathname.endsWith(extension);
   });
   const arch = getRuntimeArch();
-  const archMarker = `-${arch}.`;
+  // electron-builder names x64 AppImages with the Linux artifact arch x86_64.
+  const artifactArch = isLinux && arch === 'x64' ? 'x86_64' : arch;
+  const archMarker = `-${artifactArch}.`;
   const matching = files.filter((file) =>
     new URL(file.url, baseUrl).pathname.includes(archMarker),
   );

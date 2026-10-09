@@ -67,6 +67,10 @@ Both IPC entrances require the current main window's main frame.
 
 ## Download and cache
 
+- Match Linux AppImage filenames using electron-builder's artifact architecture:
+  runtime x64 maps to `x86_64`, and arm64 remains `arm64`. Cache records keep the
+  runtime architecture; Windows/macOS naming and Linux channel selection stay
+  tied to their existing runtime rules.
 - Reuse the Node downloader in `DesktopApiBundleUpdate` by extracting only its
   transport, range, and resume mechanism into an internal reusable unit. Both
   JS bundles and app-shell packages must retain their existing public APIs.

@@ -118,6 +118,7 @@ jest.mock('@onekeyhq/shared/src/request/customUA', () => ({
 }));
 
 const originalPlatform = Object.getOwnPropertyDescriptor(process, 'platform');
+const originalArch = Object.getOwnPropertyDescriptor(process, 'arch');
 const originalChannel = process.env.DESK_CHANNEL;
 const originalAppImage = process.env.APPIMAGE;
 const originalSkipGPG = process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
@@ -169,11 +170,17 @@ function localGet(url: string, authorization?: string) {
   });
 }
 
-function createApi(platform: NodeJS.Platform, channel?: string) {
+function createApi(
+  platform: NodeJS.Platform,
+  channel?: string,
+  arch?: typeof process.arch,
+) {
   Object.defineProperty(process, 'platform', {
     configurable: true,
     value: platform,
   });
+  if (arch)
+    Object.defineProperty(process, 'arch', { configurable: true, value: arch });
   if (channel) process.env.DESK_CHANNEL = channel;
   else delete process.env.DESK_CHANNEL;
   jest.resetModules();
@@ -184,13 +191,22 @@ function createApi(platform: NodeJS.Platform, channel?: string) {
   return api;
 }
 
+function linuxArtifactName(): string {
+  const arch = process.arch === 'x64' ? 'x86_64' : process.arch;
+  return `OneKey-Wallet-6.0.0-linux-${arch}.AppImage`;
+}
+
 async function preparePackage(platform: NodeJS.Platform, channel?: string) {
   const api = createApi(platform, channel);
   let extension = 'AppImage';
   if (platform === 'darwin') extension = 'zip';
   else if (platform === 'win32') extension = 'exe';
   mockHttpsResponse(
-    feed('6.0.0', [`OneKey-6.0.0-${process.arch}.${extension}`]),
+    feed('6.0.0', [
+      platform === 'linux'
+        ? linuxArtifactName()
+        : `OneKey-6.0.0-${process.arch}.${extension}`,
+    ]),
   );
   const artifact = await api.checkForUpdates(
     false,
@@ -256,6 +272,7 @@ afterEach(async () => {
   fs.rmSync(mockTempDir, { recursive: true, force: true });
   if (originalPlatform)
     Object.defineProperty(process, 'platform', originalPlatform);
+  if (originalArch) Object.defineProperty(process, 'arch', originalArch);
   if (originalChannel === undefined) delete process.env.DESK_CHANNEL;
   else process.env.DESK_CHANNEL = originalChannel;
   if (originalAppImage === undefined) delete process.env.APPIMAGE;
@@ -309,6 +326,63 @@ test.each([
   const api = createApi('darwin');
   mockHttpsResponse(response);
   await expect(api.checkForUpdates(false, {}, '6.0.0')).rejects.toThrow();
+  expect(mockDownloadNodeFile).not.toHaveBeenCalled();
+});
+
+test.each([
+  ['x64', 'x86_64', 'latest-linux.yml'],
+  ['arm64', 'arm64', 'latest-linux-arm64.yml'],
+] as const)(
+  'Linux %s selects the release AppImage name and correct channel',
+  async (arch, artifactArch, channel) => {
+    const api = createApi('linux', 'appImage', arch);
+    const get = mockHttpsResponse(
+      feed('6.6.1', [
+        'OneKey-Wallet-6.6.1-linux-x86_64.AppImage',
+        'OneKey-Wallet-6.6.1-linux-arm64.AppImage',
+      ]),
+    );
+    const artifact = await api.checkForUpdates(false, {}, '6.6.1');
+    expect(artifact?.fileName).toBe(
+      `OneKey-Wallet-6.6.1-linux-${artifactArch}.AppImage`,
+    );
+    expect(get).toHaveBeenCalledWith(
+      expect.stringContaining(`/${channel}`),
+      expect.any(Object),
+      expect.any(AbortSignal),
+      30_000,
+    );
+    await api.downloadUpdate();
+    expect(mockDownloadNodeFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: expect.stringContaining(`-linux-${artifactArch}.AppImage`),
+      }),
+    );
+  },
+);
+
+test('Linux x64 rejects feeds without a matching architecture', async () => {
+  const api = createApi('linux', 'appImage', 'x64');
+  mockHttpsResponse(
+    feed('6.6.1', ['OneKey-Wallet-6.6.1-linux-arm64.AppImage']),
+  );
+  await expect(api.checkForUpdates(false, {}, '6.6.1')).rejects.toThrow(
+    'App update feed artifact missing or ambiguous',
+  );
+  expect(mockDownloadNodeFile).not.toHaveBeenCalled();
+});
+
+test('Linux x64 rejects ambiguous matching AppImages', async () => {
+  const api = createApi('linux', 'appImage', 'x64');
+  mockHttpsResponse(
+    feed('6.6.1', [
+      'OneKey-Wallet-6.6.1-linux-x86_64.AppImage',
+      'OneKey-Wallet-Test-6.6.1-linux-x86_64.AppImage',
+    ]),
+  );
+  await expect(api.checkForUpdates(false, {}, '6.6.1')).rejects.toThrow(
+    'App update feed artifact is ambiguous',
+  );
   expect(mockDownloadNodeFile).not.toHaveBeenCalled();
 });
 
@@ -753,10 +827,7 @@ test('Linux retains the old package until startup and drops the candidate if the
   fs.writeFileSync(current, 'old app');
   process.env.APPIMAGE = current;
   const { api, params } = await preparePackage('linux', 'appImage');
-  const destination = path.join(
-    mockTempDir,
-    `OneKey-6.0.0-${process.arch}.AppImage`,
-  );
+  const destination = path.join(mockTempDir, linuxArtifactName());
   expect(await api.installPackage(params)).toBe(true);
   expect(fs.readFileSync(current, 'utf8')).toBe('old app');
   expect(fs.existsSync(destination)).toBe(true);
