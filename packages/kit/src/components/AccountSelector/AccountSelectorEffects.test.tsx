@@ -167,6 +167,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       isInTransferImportOrBackupRestoreFlow: () =>
         mockIsInTransferImportOrBackupRestoreFlow(),
     },
+    serviceToken: {
+      abortFetchAccountTokens: jest.fn(async () => undefined),
+      invalidateHomeTokenRequests: jest.fn(async () => undefined),
+    },
     simpleDb: {
       accountSelector: {
         getSelectedAccount: () => mockSimpleDbGetSelectedAccount(),
