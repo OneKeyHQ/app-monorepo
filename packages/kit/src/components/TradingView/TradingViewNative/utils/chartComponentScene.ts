@@ -3,6 +3,7 @@ import {
   TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING as CHART_HORIZONTAL_PADDING,
   TRADING_VIEW_NATIVE_CHART_TOP_PADDING as CHART_TOP_PADDING,
   TRADING_VIEW_NATIVE_FLOATING_PRICE_LABEL_HORIZONTAL_PADDING as FLOATING_PRICE_LABEL_HORIZONTAL_PADDING,
+  TRADING_VIEW_NATIVE_ORDER_LINE_LABEL_FONT_SIZE as ORDER_LINE_LABEL_FONT_SIZE,
   TRADING_VIEW_NATIVE_PREVIOUS_CLOSE_REFERENCE_LINE_ID as PREVIOUS_CLOSE_REFERENCE_LINE_ID,
   TRADING_VIEW_NATIVE_PRICE_AXIS_TEXT_BASELINE_OFFSET as PRICE_AXIS_TEXT_BASELINE_OFFSET,
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_HEIGHT as PRICE_LABEL_HEIGHT,
@@ -88,6 +89,12 @@ function appendTradingLineLabelCommands({
     pending,
   } = component.props;
   if (!label) return;
+  const isOrderLabel = label.variant === 'order';
+  const labelFont = isOrderLabel ? 'orderLineLabel' : 'tradingLineLabel';
+  const fontSize = isOrderLabel
+    ? ORDER_LINE_LABEL_FONT_SIZE
+    : TRADING_LINE_LABEL_FONT_SIZE;
+  const dragHandleWidth = isOrderLabel && interactive && draggable ? 8 : 0;
   const opacity = pending ? 0.5 : 1;
   const paintId = `${getReferenceLinePaintId(component.id, 'label')}.trading`;
   const bodyPaintId = `${paintId}.body`;
@@ -95,6 +102,7 @@ function appendTradingLineLabelCommands({
   const quantityPaintId = `${paintId}.quantity`;
   const quantityTextPaintId = `${paintId}.quantityText`;
   const borderPaintId = `${paintId}.border`;
+  const cancelBackgroundPaintId = `${paintId}.cancelBackground`;
   customPaintStyles[bodyPaintId] = { color: label.backgroundColor, opacity };
   customPaintStyles[bodyTextPaintId] = { color: label.color, opacity };
   customPaintStyles[borderPaintId] = { color, opacity, drawStyle: 'stroke' };
@@ -110,11 +118,11 @@ function appendTradingLineLabelCommands({
   }
 
   const cancelWidth = interactive && cancelable ? TRADING_LINE_LABEL_HEIGHT : 0;
+  const minimumTitleWidth = TRADING_LINE_LABEL_PADDING * 2 + dragHandleWidth;
   const preferredTitleWidth =
-    measureTextWidth(title, 'tradingLineLabel') +
-    TRADING_LINE_LABEL_PADDING * 2;
+    measureTextWidth(title, labelFont) + minimumTitleWidth;
   const preferredQuantityWidth = label.quantity
-    ? measureTextWidth(label.quantity.text, 'tradingLineLabel') +
+    ? measureTextWidth(label.quantity.text, labelFont) +
       TRADING_LINE_LABEL_PADDING * 2
     : 0;
   const left = Math.max(
@@ -125,10 +133,10 @@ function appendTradingLineLabelCommands({
     ),
   );
   const availableWidth = Math.max(maxX - left, 0);
-  if (availableWidth <= cancelWidth + TRADING_LINE_LABEL_PADDING * 2) return;
+  if (availableWidth <= cancelWidth + minimumTitleWidth) return;
   const quantityWidth = Math.min(
     preferredQuantityWidth,
-    Math.max(availableWidth - cancelWidth - TRADING_LINE_LABEL_PADDING * 2, 0),
+    Math.max(availableWidth - cancelWidth - minimumTitleWidth, 0),
   );
   const titleWidth = Math.min(
     preferredTitleWidth,
@@ -150,7 +158,7 @@ function appendTradingLineLabelCommands({
   const textY =
     top +
     TRADING_LINE_LABEL_HEIGHT / 2 +
-    TRADING_LINE_LABEL_FONT_SIZE / 2 +
+    fontSize / 2 +
     PRICE_AXIS_TEXT_BASELINE_OFFSET;
   commands.push(
     {
@@ -167,13 +175,26 @@ function appendTradingLineLabelCommands({
       kind: 'text',
       paint: 'axisText',
       customPaintId: bodyTextPaintId,
-      font: 'tradingLineLabel',
+      font: labelFont,
       text: title,
-      x: left + TRADING_LINE_LABEL_PADDING,
+      x: left + TRADING_LINE_LABEL_PADDING + dragHandleWidth,
       y: textY,
     },
     { kind: 'restore' },
   );
+  if (dragHandleWidth > 0) {
+    for (let row = 0; row < 6; row += 1) {
+      commands.push({
+        kind: 'rect',
+        paint: 'axisText',
+        customPaintId: bodyTextPaintId,
+        x: left + TRADING_LINE_LABEL_PADDING - 1,
+        y: top + TRADING_LINE_LABEL_HEIGHT / 2 - 5.5 + row * 2,
+        width: 2,
+        height: 1,
+      });
+    }
+  }
   if (label.quantity && quantityWidth > 0) {
     const quantityRect = {
       ...labelRect,
@@ -192,7 +213,7 @@ function appendTradingLineLabelCommands({
         kind: 'text',
         paint: 'axisText',
         customPaintId: quantityTextPaintId,
-        font: 'tradingLineLabel',
+        font: labelFont,
         text: label.quantity.text,
         x: quantityRect.x + TRADING_LINE_LABEL_PADDING,
         y: textY,
@@ -225,6 +246,19 @@ function appendTradingLineLabelCommands({
     };
     const centerX = cancelRect.x + cancelWidth / 2;
     const centerY = top + TRADING_LINE_LABEL_HEIGHT / 2;
+    const iconRadius = isOrderLabel ? 4.5 : 3;
+    if (isOrderLabel) {
+      customPaintStyles[cancelBackgroundPaintId] = {
+        color,
+        opacity: opacity * 0.08,
+      };
+      commands.push({
+        ...cancelRect,
+        kind: 'rect',
+        paint: 'background',
+        customPaintId: cancelBackgroundPaintId,
+      });
+    }
     commands.push(
       {
         kind: 'line',
@@ -239,19 +273,19 @@ function appendTradingLineLabelCommands({
         kind: 'line',
         paint: 'gridLine',
         customPaintId: bodyTextPaintId,
-        x1: centerX - 3,
-        x2: centerX + 3,
-        y1: centerY - 3,
-        y2: centerY + 3,
+        x1: centerX - iconRadius,
+        x2: centerX + iconRadius,
+        y1: centerY - iconRadius,
+        y2: centerY + iconRadius,
       },
       {
         kind: 'line',
         paint: 'gridLine',
         customPaintId: bodyTextPaintId,
-        x1: centerX - 3,
-        x2: centerX + 3,
-        y1: centerY + 3,
-        y2: centerY - 3,
+        x1: centerX - iconRadius,
+        x2: centerX + iconRadius,
+        y1: centerY + iconRadius,
+        y2: centerY - iconRadius,
       },
     );
     if (!pending) {
@@ -382,15 +416,18 @@ export function appendTradingViewNativeChartComponentCommands({
       const linePaintId = getReferenceLinePaintId(component.id, 'line');
       const labelPaintId = getReferenceLinePaintId(component.id, 'label');
       const textPaintId = getReferenceLinePaintId(component.id, 'text');
+      let dash: [number, number] | undefined;
+      if (style === 'dotted') {
+        dash = [1, 3];
+      } else if (style === 'dashed') {
+        dash = [
+          label ? 6 : REFERENCE_LINE_DASH_LENGTH,
+          label ? 6 : REFERENCE_LINE_DASH_GAP,
+        ];
+      }
       customPaintStyles[linePaintId] = {
         color,
-        dash:
-          style === 'dashed'
-            ? [
-                label ? 6 : REFERENCE_LINE_DASH_LENGTH,
-                label ? 6 : REFERENCE_LINE_DASH_GAP,
-              ]
-            : undefined,
+        dash,
         opacity: 1,
       };
       customPaintStyles[labelPaintId] = { color, opacity: pending ? 0.5 : 1 };

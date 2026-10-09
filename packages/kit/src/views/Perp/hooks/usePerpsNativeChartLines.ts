@@ -20,6 +20,7 @@ export function usePerpsNativeChartLines(enableTradingUi: boolean) {
   const labelColor = theme.text.val;
   const quantityBackground = theme.bgInverse.val;
   const quantityColor = theme.textInverse.val;
+  const orderQuantityColor = theme.textOnColor.val;
   const themeColors = useTradingViewSettingsThemeColors();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [currentAccount] = usePerpsActiveAccountAtom();
@@ -52,6 +53,8 @@ export function usePerpsNativeChartLines(enableTradingUi: boolean) {
         }
 
         const isLong = line.side === 'long';
+        const isLimitOrder = line.kind === 'order';
+        let labelOffset = isLimitOrder ? 50 : 16;
         const isPosition =
           line.kind === 'position' || line.kind === 'liquidation';
         const directionId: ETranslations = isLong
@@ -66,6 +69,7 @@ export function usePerpsNativeChartLines(enableTradingUi: boolean) {
           ];
         if (line.kind === 'liquidation') {
           color = themeColors[TRADING_VIEW_NATIVE_THEME_COLORS.negative];
+          labelOffset = 140;
         } else if (line.kind === 'position') {
           color =
             themeColors[
@@ -90,19 +94,25 @@ export function usePerpsNativeChartLines(enableTradingUi: boolean) {
               cancelable: Boolean(line.meta?.orderId),
               draggable: line.editable === true,
               pending: Boolean(pendingAction),
-              style: 'dashed',
-              title: [isPosition ? undefined : direction, line.label?.left]
+              style: isLimitOrder ? 'dotted' : 'dashed',
+              title: [
+                isPosition || isLimitOrder ? undefined : direction,
+                line.label?.left,
+              ]
                 .filter(Boolean)
                 .join(' · '),
               label: {
-                offset: line.kind === 'liquidation' ? 140 : 16,
+                variant: isLimitOrder ? 'order' : undefined,
+                offset: labelOffset,
                 backgroundColor: labelBackground,
-                color: labelColor,
+                color: isLimitOrder ? color : labelColor,
                 quantity: line.qty
                   ? {
                       text: line.qty,
-                      backgroundColor: quantityBackground,
-                      color: quantityColor,
+                      backgroundColor: isLimitOrder
+                        ? color
+                        : quantityBackground,
+                      color: isLimitOrder ? orderQuantityColor : quantityColor,
                     }
                   : undefined,
               },
@@ -118,6 +128,7 @@ export function usePerpsNativeChartLines(enableTradingUi: boolean) {
       labelColor,
       quantityBackground,
       quantityColor,
+      orderQuantityColor,
       canInteract,
       getLineId,
       pending,

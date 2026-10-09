@@ -20,7 +20,10 @@ import {
   createPicture,
 } from '@shopify/react-native-skia';
 
-import { TRADING_VIEW_NATIVE_TRADING_LINE_LABEL_FONT_SIZE } from '../chartConstants';
+import {
+  TRADING_VIEW_NATIVE_ORDER_LINE_LABEL_FONT_SIZE,
+  TRADING_VIEW_NATIVE_TRADING_LINE_LABEL_FONT_SIZE,
+} from '../chartConstants';
 import {
   type IBuildTradingViewNativeChartSceneOptions,
   type ITradingViewNativeChartScene,
@@ -347,6 +350,10 @@ export function createTradingViewNativeSkiaResources({
         priceAxisFontSize,
       ),
       tradingLineLabel: tradingLineLabelFont,
+      orderLineLabel: Skia.Font(
+        legendFont.getTypeface() ?? undefined,
+        TRADING_VIEW_NATIVE_ORDER_LINE_LABEL_FONT_SIZE,
+      ),
     },
     legendSubscriptFont,
     paints,

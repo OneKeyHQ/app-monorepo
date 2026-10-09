@@ -119,7 +119,8 @@ export type ITradingViewNativeChartSceneFont =
   | 'legend'
   | 'priceAxis'
   | 'referenceLineLabel'
-  | 'tradingLineLabel';
+  | 'tradingLineLabel'
+  | 'orderLineLabel';
 
 export type ITradingViewNativeChartScenePaint =
   | 'axisText'

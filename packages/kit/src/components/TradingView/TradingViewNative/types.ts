@@ -97,10 +97,11 @@ export interface ITradingViewNativeReferenceLineComponent {
     cancelable?: boolean;
     draggable?: boolean;
     pending?: boolean;
-    style: ITradingViewNativeChartLineStyle;
+    style: ITradingViewNativeChartLineStyle | 'dotted';
     title: string;
     /** Opt into an outlined label on the left, with an optional quantity segment. */
     label?: {
+      variant?: 'order';
       offset: number;
       backgroundColor: string;
       color: string;
