@@ -5207,6 +5207,8 @@
   "trade_stocks.token_to_share_ratio": "Rasio Token-ke-Saham",
   "trade_stocks.token_to_share_ratio_description": "Rasio token-ke-saham mengonversi jumlah dan harga token yang ditampilkan menjadi jumlah setara dari saham dasar dan harga saham, sehingga Anda dapat membandingkannya dengan kepemilikan saham tradisional.",
   "trade_stocks.underlying_asset": "Aset dasar",
+  "trade_warning_honeypot_detected": "Honeypot terdeteksi",
+  "trade_warning_low_token_liquidity": "Likuiditas token rendah, harap berhati-hati",
   "trading_hours.closed_tradable": "Tutup · Dapat diperdagangkan",
   "trading_hours.closed_tradable_description": "Aset ini diperdagangkan 24/7, harga di luar jam perdagangan mungkin sangat fluktuatif. Likuiditas bervariasi sesuai dengan sesi pasar AS yang mendasarinya.",
   "trading_hours.description": "Likuiditas bervariasi dengan sesi pasar AS yang mendasarinya.",

@@ -5207,6 +5207,8 @@
   "trade_stocks.token_to_share_ratio": "Tỷ lệ Token-to-Share",
   "trade_stocks.token_to_share_ratio_description": "Tỷ lệ token-to-share chuyển đổi số lượng và giá token hiển thị thành số lượng cổ phiếu cơ sở và giá cổ phiếu tương đương, để bạn có thể so sánh chúng với các khoản nắm giữ cổ phiếu truyền thống.",
   "trade_stocks.underlying_asset": "Tài sản cơ sở",
+  "trade_warning_honeypot_detected": "Phát hiện token honeypot",
+  "trade_warning_low_token_liquidity": "Thanh khoản token thấp, hãy thận trọng khi giao dịch",
   "trading_hours.closed_tradable": "Đóng · Có thể giao dịch",
   "trading_hours.closed_tradable_description": "Tài sản này giao dịch 24/7, giá ngoài giờ có thể biến động mạnh. Thanh khoản thay đổi theo phiên giao dịch thị trường Mỹ cơ sở.",
   "trading_hours.description": "Thanh khoản thay đổi theo phiên giao dịch của thị trường Mỹ cơ bản.",

@@ -5207,6 +5207,8 @@
   "trade_stocks.token_to_share_ratio": "Rapporto Token-Azione",
   "trade_stocks.token_to_share_ratio_description": "Il rapporto token-azione converte la quantità e il prezzo del token visualizzati nel numero equivalente di azioni sottostanti e nel prezzo delle azioni, in modo da poterli confrontare con le partecipazioni azionarie tradizionali.",
   "trade_stocks.underlying_asset": "Attivo sottostante",
+  "trade_warning_honeypot_detected": "Rilevato honeypot",
+  "trade_warning_low_token_liquidity": "Bassa liquidità del token, opera con cautela",
   "trading_hours.closed_tradable": "Chiuso · Negoziazione possibile",
   "trading_hours.closed_tradable_description": "Questo asset viene scambiato 24/7, i prezzi fuori orario possono essere altamente volatili. La liquidità varia con la sessione di mercato statunitense sottostante.",
   "trading_hours.description": "La liquidità varia con la sessione di mercato statunitense sottostante.",

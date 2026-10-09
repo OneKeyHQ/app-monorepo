@@ -5207,6 +5207,8 @@
   "trade_stocks.token_to_share_ratio": "Token-zu-Aktien-Verhältnis",
   "trade_stocks.token_to_share_ratio_description": "Das Token-zu-Aktien-Verhältnis wandelt die angezeigte Token-Menge und den Preis in die entsprechende Anzahl von zugrunde liegenden Aktien und Aktienkurs um, sodass Sie sie mit traditionellen Aktienbeständen vergleichen können.",
   "trade_stocks.underlying_asset": "Basiswert",
+  "trade_warning_honeypot_detected": "Honeypot erkannt",
+  "trade_warning_low_token_liquidity": "Geringe Token-Liquidität, vorsichtig handeln",
   "trading_hours.closed_tradable": "Geschlossen · Handelbar",
   "trading_hours.closed_tradable_description": "Dieses Asset wird rund um die Uhr gehandelt, außerhalb der Handelszeiten können die Preise sehr volatil sein. Die Liquidität variiert mit der zugrunde liegenden US-Marktsitzung.",
   "trading_hours.description": "Die Liquidität variiert mit der zugrunde liegenden US-Marktsitzung.",

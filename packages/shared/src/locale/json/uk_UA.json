@@ -5207,6 +5207,8 @@
   "trade_stocks.token_to_share_ratio": "Співвідношення токенів до акцій",
   "trade_stocks.token_to_share_ratio_description": "Співвідношення токенів до акцій перетворює відображену кількість токенів і ціну в еквівалентну кількість базових акцій і ціну акцій, щоб ви могли порівняти їх з традиційними акціями.",
   "trade_stocks.underlying_asset": "Базовий актив",
+  "trade_warning_honeypot_detected": "Виявлено пастку honeypot",
+  "trade_warning_low_token_liquidity": "Низька ліквідність токена — торгуйте обережно",
   "trading_hours.closed_tradable": "Закрито · Доступно для торгівлі",
   "trading_hours.closed_tradable_description": "Цей актив торгується 24/7, ціни в неробочий час можуть бути дуже нестабільними. Ліквідність змінюється залежно від сесії ринку США.",
   "trading_hours.description": "Ліквідність змінюється залежно від сесії ринку США.",

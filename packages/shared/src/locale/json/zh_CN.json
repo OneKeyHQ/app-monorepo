@@ -5207,6 +5207,8 @@
   "trade_stocks.token_to_share_ratio": "币股比例",
   "trade_stocks.token_to_share_ratio_description": "币股比例将显示的代币数量和价格转换为等值的底层股票数量和价格（即 1 代币等于多少基础股数），以便您可以与传统股票持有进行比较。",
   "trade_stocks.underlying_asset": "标的资产",
+  "trade_warning_honeypot_detected": "检测到貔貅盘",
+  "trade_warning_low_token_liquidity": "代币流动性低，请谨慎交易",
   "trading_hours.closed_tradable": "休市 · 可交易",
   "trading_hours.closed_tradable_description": "该资产支持 24/7 全天候交易，非交易时段价格可能波动较大，流动性随美国市场时段而有所不同。",
   "trading_hours.description": "流动性随美国市场时段的变化而有所不同。",

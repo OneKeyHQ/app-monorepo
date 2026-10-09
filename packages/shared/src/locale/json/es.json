@@ -5207,6 +5207,8 @@
   "trade_stocks.token_to_share_ratio": "Relación token-acción",
   "trade_stocks.token_to_share_ratio_description": "La relación token-acción convierte la cantidad y el precio del token mostrado en el número equivalente de acciones subyacentes y precio de las acciones, para que puedas compararlos con las tenencias de acciones tradicionales.",
   "trade_stocks.underlying_asset": "Activo subyacente",
+  "trade_warning_honeypot_detected": "Honeypot detectado",
+  "trade_warning_low_token_liquidity": "Baja liquidez del token; opera con cautela",
   "trading_hours.closed_tradable": "Cerrado · Negociable",
   "trading_hours.closed_tradable_description": "Este activo se negocia las 24 horas del día, los 7 días de la semana; los precios fuera de horario pueden ser muy volátiles. La liquidez varía según la sesión del mercado estadounidense subyacente.",
   "trading_hours.description": "La liquidez varía con la sesión del mercado estadounidense subyacente.",

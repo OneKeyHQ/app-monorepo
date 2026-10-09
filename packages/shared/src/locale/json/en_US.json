@@ -5207,6 +5207,8 @@
   "trade_stocks.token_to_share_ratio": "Token-to-Share ratio",
   "trade_stocks.token_to_share_ratio_description": "The token-to-share ratio converts the displayed token amount and price into the equivalent number of underlying shares and share price, so you can compare them with traditional stock holdings.",
   "trade_stocks.underlying_asset": "Underlying asset",
+  "trade_warning_honeypot_detected": "Honeypot detected",
+  "trade_warning_low_token_liquidity": "Low token liquidity, trade with caution",
   "trading_hours.closed_tradable": "Closed · Tradable",
   "trading_hours.closed_tradable_description": "This asset trades 24/7, off-hours prices may be highly volatile. Liquidity varies with the underlying US market session.",
   "trading_hours.description": "Liquidity varies with the underlying US market session.",

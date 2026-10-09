@@ -5207,6 +5207,8 @@
   "trade_stocks.token_to_share_ratio": "টোকেন-টু-শেয়ার অনুপাত",
   "trade_stocks.token_to_share_ratio_description": "টোকেন-টু-শেয়ার অনুপাত প্রদর্শিত টোকেনের পরিমাণ এবং মূল্যকে মৌলিক শেয়ারের সমতুল্য সংখ্যা এবং শেয়ারের মূল্যে রূপান্তর করে, যাতে আপনি সেগুলিকে ঐতিহ্যবাহী স্টক হোল্ডিংসের সাথে তুলনা করতে পারেন।",
   "trade_stocks.underlying_asset": "মৌলিক সম্পদ",
+  "trade_warning_honeypot_detected": "হানিপট শনাক্ত হয়েছে",
+  "trade_warning_low_token_liquidity": "টোকেনের লিকুইডিটি কম, সতর্ক হয়ে ট্রেড করুন",
   "trading_hours.closed_tradable": "বন্ধ · লেনদেনযোগ্য",
   "trading_hours.closed_tradable_description": "এই সম্পদটি ২৪/৭ ট্রেড হয়; বাজার বন্ধ থাকার সময় দাম খুব অস্থির হতে পারে। মূল মার্কিন বাজারের সেশন অনুযায়ী তারল্য পরিবর্তিত হয়।",
   "trading_hours.description": "অন্তর্নিহিত মার্কিন বাজার সেশনের ওপর নির্ভর করে তারল্য পরিবর্তিত হয়।",

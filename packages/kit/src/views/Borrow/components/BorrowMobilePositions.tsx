@@ -17,11 +17,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EManagePositionType } from '@onekeyhq/shared/types/staking';
-import type {
-  IBorrowEModeStatus,
-  IBorrowToken,
-  IEarnText,
-} from '@onekeyhq/shared/types/staking';
+import type { IBorrowToken, IEarnText } from '@onekeyhq/shared/types/staking';
 
 import { isBorrowReservesPending } from '../borrowDataStatus';
 import { useBorrowContext } from '../BorrowProvider';
@@ -128,9 +124,12 @@ function getPositionKey({
 }
 
 export function BorrowMobilePositions({
-  eModeStatus,
+  eModeId,
+  isPending,
 }: {
-  eModeStatus?: IBorrowEModeStatus | null;
+  eModeId?: number;
+  /** The home page also knows when the published owner key is unsettled. */
+  isPending?: boolean;
 }): ReactElement {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -153,7 +152,6 @@ export function BorrowMobilePositions({
     networkId,
     address: marketAddress,
   });
-  const eModeId = eModeStatus?.eModeId;
   const hasCollateralControls = Boolean(market && accountId);
 
   // Collapse the open card when the user moves to a different account, network
@@ -255,7 +253,8 @@ export function BorrowMobilePositions({
   );
 
   const entries = useBorrowPositionEntries();
-  const reservesPending = isBorrowReservesPending(borrowDataStatus);
+  const reservesPending =
+    isPending ?? isBorrowReservesPending(borrowDataStatus);
 
   // One derivation of each position's identity, shared by the reset below and
   // the list itself. Deriving it twice would mean two copies that have to

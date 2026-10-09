@@ -1,4 +1,12 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -21,8 +29,10 @@ import { useAllNetworkRequests } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { runAfterTokensDone } from '@onekeyhq/kit/src/hooks/useRunAfterTokensDone';
 import {
+  buildOverviewOwnerKey,
   useAccountDeFiOverviewAtom,
   useAccountOverviewActions,
+  useOverviewDeFiDataStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
@@ -33,7 +43,7 @@ import {
   useDeFiListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
 import { buildProtocolDisplayInfo } from '@onekeyhq/kit/src/utils/defiPositionUtils';
-import type { IDeFiDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityDeFi';
+import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
@@ -62,6 +72,10 @@ import { RichBlock } from '../RichBlock/RichBlock';
 
 import {
   deFiListLoadingReducer,
+  isDeFiAllNetworkRequestsGranted,
+  resolveDeFiFanOutFinishedState,
+  shouldApplyDeFiAllNetworksResult,
+  shouldResetDeFiReadinessOnRunStart,
   shouldShowDeFiEmptyState,
 } from './deFiListLoadingReducer';
 import { DeFiListSkeleton } from './DeFiListSkeleton';
@@ -257,6 +271,11 @@ function DeFiListBlock({
     useTabIsRefreshingFocused();
 
   const [overview] = useAccountDeFiOverviewAtom();
+  const overviewRef = useRef(overview);
+  overviewRef.current = overview;
+  const [overviewDeFiDataState] = useOverviewDeFiDataStateAtom();
+  const overviewDeFiDataStateRef = useRef(overviewDeFiDataState);
+  overviewDeFiDataStateRef.current = overviewDeFiDataState;
   const [{ isRefreshing, initialized, loadedOwnerKey }] =
     useDeFiListStateAtom();
   const [{ protocols }] = useDeFiListProtocolsAtom();
@@ -264,7 +283,6 @@ function DeFiListBlock({
   const [settingsValue] = useSettingsValuePersistAtom();
   const media = useMedia();
 
-  const deFiRawDataRef = useRef<IDeFiDBStruct | undefined>(undefined);
   const initializedRef = useRef(initialized);
   const isRefreshingRef = useRef(isRefreshing);
   initializedRef.current = initialized;
@@ -319,6 +337,34 @@ function DeFiListBlock({
       }),
     [account?.id, network?.id],
   );
+  // Read by the single-network `run` after each await: a fetch issued for the
+  // previous owner must not write its positions (or stamp its owner as
+  // loaded) once the owner has changed underneath it.
+  const liveOwnerKeyRef = useRef(currentOwnerKey);
+  liveOwnerKeyRef.current = currentOwnerKey;
+
+  // The DeFi list provider lives inside `Tabs.Container`, which no longer
+  // remounts on an account switch (OK-63873), so `protocols` would keep the
+  // previous owner's positions until the debounced fetch (>= 1 s) replaces
+  // them. Drop them in the same commit the owner changes (layout effect,
+  // before paint): the block then shows its skeleton, and `loadedOwnerKey`
+  // is reset so the empty state cannot claim the new owner early.
+  const prevOwnerKeyRef = useRef(currentOwnerKey);
+  useLayoutEffect(() => {
+    if (refreshCacheOnly || prevOwnerKeyRef.current === currentOwnerKey) {
+      return;
+    }
+    prevOwnerKeyRef.current = currentOwnerKey;
+    updateDeFiListProtocols({ protocols: [] });
+    updateDeFiListProtocolMap({ protocolMap: {} });
+    updateDeFiListState(deFiListLoadingReducer({ type: 'start' }));
+  }, [
+    currentOwnerKey,
+    refreshCacheOnly,
+    updateDeFiListProtocolMap,
+    updateDeFiListProtocols,
+    updateDeFiListState,
+  ]);
 
   const pendingManualForceRefreshIntentRef = useRef<
     | {
@@ -365,8 +411,22 @@ function DeFiListBlock({
     isDeFiEnabledProp === undefined,
   );
   const isDeFiEnabled = isDeFiEnabledProp ?? computedIsDeFiEnabled;
-  const [isAllNetRequestsEnabled, setIsAllNetRequestsEnabled] =
-    useState<boolean>(false);
+  // Held per owner, not as a plain flag: `Tabs.Container` no longer remounts
+  // on an account switch (OK-63873), so a boolean would still read `true`
+  // from the previous owner in the switch render and let the new owner's
+  // fan-out start before the gate below closes it. The closing render then
+  // starts a skipped run that invalidates the in-flight one, and the
+  // redundant-run gate skips the reopened run as a duplicate, so the new
+  // owner's positions were never published. The cache-only instance lives in
+  // the Portfolio pane, which is frozen behind the other tabs and thawed for
+  // the switch render only, so it keeps any grant (see the helper).
+  const [allNetRequestsEnabledOwnerKey, setAllNetRequestsEnabledOwnerKey] =
+    useState<string | undefined>(undefined);
+  const isAllNetRequestsEnabled = isDeFiAllNetworkRequestsGranted({
+    refreshCacheOnly,
+    grantedOwnerKey: allNetRequestsEnabledOwnerKey,
+    ownerKey: currentOwnerKey,
+  });
 
   usePromiseResult(
     async () => {
@@ -395,21 +455,21 @@ function DeFiListBlock({
       networkId: network?.id,
     });
     if (!isAllNetworks) {
-      setIsAllNetRequestsEnabled(true);
+      setAllNetRequestsEnabledOwnerKey(currentOwnerKey);
       return;
     }
 
     if (!isDeFiEnabled) {
-      setIsAllNetRequestsEnabled(false);
+      setAllNetRequestsEnabledOwnerKey(undefined);
       return;
     }
 
     if (!account?.id || !network?.id) {
-      setIsAllNetRequestsEnabled(false);
+      setAllNetRequestsEnabledOwnerKey(undefined);
       return;
     }
 
-    setIsAllNetRequestsEnabled(false);
+    setAllNetRequestsEnabledOwnerKey(undefined);
     if (!initializedRef.current && !isRefreshingRef.current) {
       updateDeFiListState({
         initialized: false,
@@ -423,9 +483,15 @@ function DeFiListBlock({
       matchNetworkId: true,
       fallbackDelayMs: POLLING_DEBOUNCE_INTERVAL * 2,
       deferWhileRefreshing: true,
-      onRun: () => setIsAllNetRequestsEnabled(true),
+      onRun: () => setAllNetRequestsEnabledOwnerKey(currentOwnerKey),
     });
-  }, [account?.id, network?.id, isDeFiEnabled, updateDeFiListState]);
+  }, [
+    account?.id,
+    network?.id,
+    currentOwnerKey,
+    isDeFiEnabled,
+    updateDeFiListState,
+  ]);
 
   const { run } = usePromiseResult(
     async () => {
@@ -441,8 +507,14 @@ function DeFiListBlock({
         return;
       }
 
+      const runOwnerKey = currentOwnerKey;
+      const isStaleRun = () => liveOwnerKeyRef.current !== runOwnerKey;
+
       const enabledNetworks =
         await backgroundApiProxy.serviceDeFi.getDeFiEnabledNetworksMap();
+      if (isStaleRun()) {
+        return;
+      }
 
       if (!enabledNetworks[network.id]) {
         const emptyData = defiUtils.getEmptyDeFiData();
@@ -469,6 +541,9 @@ function DeFiListBlock({
       }
 
       await backgroundApiProxy.serviceDeFi.abortFetchAccountDeFiPositions();
+      if (isStaleRun()) {
+        return;
+      }
       updateDeFiListState({
         isRefreshing: true,
         loadedOwnerKey: undefined,
@@ -508,6 +583,9 @@ function DeFiListBlock({
         if (singleNetworkLocalCacheRef.current.cacheKey === cacheKey) {
           singleNetworkLocalCacheRef.current.hasCache = true;
         }
+        if (isStaleRun()) {
+          return;
+        }
         updateAccountDeFiOverview({
           currency: settings.currencyInfo.id,
           accountId: account.id,
@@ -534,13 +612,18 @@ function DeFiListBlock({
       } catch (e) {
         console.error(e);
       } finally {
-        setIsHeaderRefreshing(false);
-        updateDeFiListState(
-          deFiListLoadingReducer({
-            type: 'settled',
-            loadedOwnerKey: currentOwnerKey,
-          }),
-        );
+        // A stale run's "settled" would end the NEW owner's loading and
+        // header-refresh state (and stamp the previous owner as loaded) while
+        // its fetch is still in flight; the live run settles its own owner.
+        if (!isStaleRun()) {
+          setIsHeaderRefreshing(false);
+          updateDeFiListState(
+            deFiListLoadingReducer({
+              type: 'settled',
+              loadedOwnerKey: currentOwnerKey,
+            }),
+          );
+        }
         appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
           isRefreshing: false,
           type: EHomeTab.DEFI,
@@ -583,6 +666,11 @@ function DeFiListBlock({
     };
     protocols: IDeFiProtocol[];
   }>(defiUtils.getEmptyDeFiData());
+  // Owner whose running fan-out returned positions. `useAllNetworkRequests`
+  // fires `onFinished` before it publishes the result, so stamping the owner
+  // loaded there, with the list still empty, paints the empty state for a
+  // few frames before the result effect fills the list in.
+  const fanOutPositionsOwnerKeyRef = useRef<string | undefined>(undefined);
 
   const updateAllNetworkData = useThrottledCallback(() => {
     updateAccountDeFiOverview({
@@ -593,11 +681,21 @@ function DeFiListBlock({
       merge: true,
       isReady: true,
     });
+    const hasPositions =
+      deFiDataRef.current.protocols.length > 0 ||
+      protocolsRef.current.length > 0;
     updateDeFiListProtocols({
       protocols: deFiDataRef.current.protocols,
       merge: true,
     });
     deFiDataRef.current = defiUtils.getEmptyDeFiData();
+    // The first flush is the leading edge of the throttle, often a single
+    // network's empty response while the rest are still in flight. Stamping
+    // the owner loaded with nothing listed paints the empty state before the
+    // positions arrive; the run's `onFinished` settles a truly empty owner.
+    if (!hasPositions) {
+      return;
+    }
     updateDeFiListState(
       deFiListLoadingReducer({
         type: 'settled',
@@ -605,6 +703,19 @@ function DeFiListBlock({
       }),
     );
   }, 1000);
+
+  // The owner-switch reset above only clears the atoms: a throttled merge
+  // queued for the previous owner would still land in the next owner's list
+  // (and stamp it loaded), so drop it with the accumulated data.
+  const deFiDataOwnerKeyRef = useRef(currentOwnerKey);
+  useLayoutEffect(() => {
+    if (deFiDataOwnerKeyRef.current === currentOwnerKey) {
+      return;
+    }
+    deFiDataOwnerKeyRef.current = currentOwnerKey;
+    updateAllNetworkData.cancel();
+    deFiDataRef.current = defiUtils.getEmptyDeFiData();
+  }, [currentOwnerKey, updateAllNetworkData]);
 
   const handleAllNetworkRequests = useCallback(
     async ({
@@ -635,8 +746,17 @@ function DeFiListBlock({
         isForceRefresh:
           allNetworkManualForceRefreshRef.current || shouldForceInitialRefresh,
       });
+      if (r.protocols.length && liveOwnerKeyRef.current === currentOwnerKey) {
+        fanOutPositionsOwnerKeyRef.current = currentOwnerKey;
+      }
 
-      if (!allNetworkDataInit && r.isSameAllNetworksAccountData) {
+      if (
+        !allNetworkDataInit &&
+        r.isSameAllNetworksAccountData &&
+        // The fan-out outlives an owner switch; a response issued for the
+        // previous owner must not be merged into the next owner's list.
+        liveOwnerKeyRef.current === currentOwnerKey
+      ) {
         deFiDataRef.current = {
           overview: {
             totalValue: new BigNumber(r.overview.totalValue ?? 0)
@@ -679,6 +799,7 @@ function DeFiListBlock({
       account?.id,
       account?.indexedAccountId,
       network?.id,
+      currentOwnerKey,
       updateAllNetworkData,
       updateDeFiListProtocolMap,
       sourceCurrencyInfo,
@@ -692,20 +813,33 @@ function DeFiListBlock({
       isRefreshing: true,
       loadedOwnerKey: undefined,
     });
-    updateAccountDeFiOverview({
-      currency: settings.currencyInfo.id,
-      accountId: account?.id,
-      networkId: network?.id,
-      overview: {
-        totalValue: 0,
-        totalDebt: 0,
-        totalReward: 0,
-        netWorth: 0,
-        chains: [],
-        protocolCount: 0,
-        positionCount: 0,
-      },
-    });
+    // An overview that already belongs to this owner was seeded from the
+    // local cache moments earlier (the header's cache-only instance runs in
+    // the switch render). Zeroing it only for this run's cache probe to write
+    // the same value back dips the header total for a few frames, so only an
+    // overview left by another owner is reset.
+    const currentOverview = overviewRef.current;
+    const isOverviewOfOwner =
+      !!account?.id &&
+      !!network?.id &&
+      currentOverview.accountId === account.id &&
+      currentOverview.networkId === network.id;
+    if (!isOverviewOfOwner) {
+      updateAccountDeFiOverview({
+        currency: settings.currencyInfo.id,
+        accountId: account?.id,
+        networkId: network?.id,
+        overview: {
+          totalValue: 0,
+          totalDebt: 0,
+          totalReward: 0,
+          netWorth: 0,
+          chains: [],
+          protocolCount: 0,
+          positionCount: 0,
+        },
+      });
+    }
     updateDeFiListProtocols({
       protocols: [],
     });
@@ -737,13 +871,11 @@ function DeFiListBlock({
         });
       }
 
-      deFiRawDataRef.current =
-        (await backgroundApiProxy.simpleDb.deFi.getRawData()) ?? undefined;
-
       if (refreshCacheOnly) {
         return;
       }
 
+      fanOutPositionsOwnerKeyRef.current = undefined;
       allNetworkManualForceRefreshRef.current =
         await consumePendingManualForceRefreshIntent();
 
@@ -757,11 +889,18 @@ function DeFiListBlock({
         isRefreshing: true,
         loadedOwnerKey: undefined,
       });
-      updateOverviewDeFiDataState({
-        accountId: account?.id,
-        networkId: network?.id,
-        isReady: undefined,
-      });
+      if (
+        shouldResetDeFiReadinessOnRunStart({
+          readiness: overviewDeFiDataStateRef.current,
+          ownerKey: buildOverviewOwnerKey(account?.id, network?.id),
+        })
+      ) {
+        updateOverviewDeFiDataState({
+          accountId: account?.id,
+          networkId: network?.id,
+          isReady: undefined,
+        });
+      }
     },
     [
       account?.id,
@@ -773,56 +912,53 @@ function DeFiListBlock({
     ],
   );
 
-  const handleAllNetworkCacheRequests = useCallback(
-    async ({
-      accountId,
-      networkId,
-      accountAddress,
-      xpub,
-    }: {
-      accountId: string;
-      networkId: string;
-      accountAddress: string;
-      xpub?: string;
-    }) => {
-      const localDeFiOverview =
+  const handleAllNetworkCacheRequestsBatch = useCallback(
+    async (accounts: IAllNetworkAccountInfo[]) => {
+      // Read the shared snapshot once in bg instead of returning the entire
+      // database to main and sending it back for each network.
+      const localDeFiOverviews =
         await backgroundApiProxy.serviceDeFi.getAccountsLocalDeFiOverview({
-          accounts: [
-            {
+          accounts: accounts.map(
+            ({ accountId, networkId, apiAddress, accountXpub }) => ({
               accountId,
               networkId,
-              accountAddress,
-              xpub,
-            },
-          ],
-          deFiRawData: deFiRawDataRef.current,
+              accountAddress: apiAddress,
+              xpub: accountXpub,
+            }),
+          ),
         });
 
-      const rawOverview = localDeFiOverview?.[0]?.overview?.[networkId];
+      return accounts.map(({ networkId }, index) => {
+        const rawOverview = localDeFiOverviews[index]?.overview?.[networkId];
 
-      let convertedOverview = rawOverview;
-      if (rawOverview) {
-        if (rawOverview.currency !== settings.currencyInfo.id) {
-          const _sourceCurrencyInfo = currencyMap[rawOverview.currency];
-          const _targetCurrencyInfo = currencyMap[settings.currencyInfo.id];
-          convertedOverview = {
-            ...rawOverview,
-            ...convertDeFiOverviewValues(
-              rawOverview,
-              _sourceCurrencyInfo.value,
-              _targetCurrencyInfo.value,
-            ),
-          };
+        let convertedOverview = rawOverview;
+        if (rawOverview) {
+          if (rawOverview.currency !== settings.currencyInfo.id) {
+            const _sourceCurrencyInfo = currencyMap[rawOverview.currency];
+            const _targetCurrencyInfo = currencyMap[settings.currencyInfo.id];
+            // One missing rate must not discard the other cached networks.
+            if (!_sourceCurrencyInfo || !_targetCurrencyInfo) {
+              return undefined;
+            }
+            convertedOverview = {
+              ...rawOverview,
+              ...convertDeFiOverviewValues(
+                rawOverview,
+                _sourceCurrencyInfo.value,
+                _targetCurrencyInfo.value,
+              ),
+            };
+          }
         }
-      }
 
-      if (!convertedOverview) {
-        return undefined;
-      }
+        if (!convertedOverview) {
+          return undefined;
+        }
 
-      return {
-        overview: convertedOverview,
-      };
+        return {
+          overview: convertedOverview,
+        };
+      });
     },
     [currencyMap, settings.currencyInfo.id],
   );
@@ -901,10 +1037,15 @@ function DeFiListBlock({
       // `useAllNetworkRequests` fires `onFinished` even when `resp` is
       // null (no positions), where the downstream `allNetworksResult`
       // effect would otherwise skip clearing the loading flag pair.
+      // When the run did return positions, only end the loading here: the
+      // result effect stamps the owner loaded in the commit that fills the
+      // list, so the frames in between keep the skeleton, not the empty state.
+      const positionsOwnerKey = fanOutPositionsOwnerKeyRef.current;
+      fanOutPositionsOwnerKeyRef.current = undefined;
       updateDeFiListState(
-        deFiListLoadingReducer({
-          type: 'settled',
-          loadedOwnerKey: buildDeFiListOwnerKey({ accountId, networkId }),
+        resolveDeFiFanOutFinishedState({
+          positionsOwnerKey,
+          finishedOwnerKey: buildDeFiListOwnerKey({ accountId, networkId }),
         }),
       );
     },
@@ -953,7 +1094,7 @@ function DeFiListBlock({
     onStarted: handleAllNetworkRequestsStarted,
     onFinished: handleAllNetworkRequestsFinished,
     onCacheChecked: handleAllNetworkCacheChecked,
-    allNetworkCacheRequests: handleAllNetworkCacheRequests,
+    allNetworkCacheRequestsBatch: handleAllNetworkCacheRequestsBatch,
     allNetworkCacheData: handleAllNetworkCacheData,
     allNetworkRequests: handleAllNetworkRequests,
     clearAllNetworkData: handleClearAllNetworkData,
@@ -1149,126 +1290,6 @@ function DeFiListBlock({
     currencyMap,
   ]);
 
-  // Imperatively hydrate the single-network DeFi overview (and its readiness)
-  // for an explicitly provided account/network. Mirrors the token list's
-  // off-tab refresh: when a network switch happens while the user is on another
-  // home tab (e.g. History), this block sits inside the frozen Portfolio tab so
-  // its `initDeFiData` effect won't re-run for the new network — leaving
-  // `overviewDeFiDataState` stuck on the previous network. The always-visible
-  // header gates the single-network worth on BOTH token and DeFi readiness, so
-  // without this the header falls back to a stale/zero placeholder until the
-  // user returns to the wallet tab. Driving it from explicit params lets the
-  // overview update to the new network's local cache while still frozen.
-  const explicitDeFiRefreshSeqRef = useRef(0);
-  const refreshSingleNetworkDeFiOverviewByTarget = useCallback(
-    async (target: { accountId: string; networkId: string }) => {
-      const { accountId, networkId } = target;
-      if (!accountId || !networkId) return;
-      // All-networks aggregation is driven by a separate closure-bound hook
-      // that cannot be refreshed imperatively here; let it refresh on return.
-      if (networkUtils.isAllNetwork({ networkId })) return;
-
-      const seq = (explicitDeFiRefreshSeqRef.current += 1);
-      const isLatest = () => explicitDeFiRefreshSeqRef.current === seq;
-
-      try {
-        // The DeFi local cache is keyed by the account's on-chain address, which
-        // differs per network. This block is frozen (inactive tab) so its own
-        // `account` closure still points at the previous network; resolve the
-        // target network's address explicitly instead of reusing the closure.
-        const targetAccount =
-          await backgroundApiProxy.serviceAccount.getAccount({
-            accountId,
-            networkId,
-          });
-        if (!isLatest()) return;
-
-        const localDeFiOverview = (
-          await backgroundApiProxy.serviceDeFi.getAccountsLocalDeFiOverview({
-            accounts: [
-              {
-                accountId,
-                networkId,
-                accountAddress: targetAccount?.address,
-              },
-            ],
-          })
-        )[0];
-        // A newer switch superseded this read; drop the stale body so it can't
-        // clobber the latest network's overview.
-        if (!isLatest()) return;
-
-        const rawOverview = localDeFiOverview?.overview?.[networkId];
-        if (rawOverview) {
-          let convertedOverview = rawOverview;
-          if (rawOverview.currency !== settings.currencyInfo.id) {
-            const _sourceCurrencyInfo = currencyMap[rawOverview.currency];
-            const _targetCurrencyInfo = currencyMap[settings.currencyInfo.id];
-            if (_sourceCurrencyInfo && _targetCurrencyInfo) {
-              convertedOverview = {
-                ...rawOverview,
-                ...convertDeFiOverviewValues(
-                  rawOverview,
-                  _sourceCurrencyInfo.value,
-                  _targetCurrencyInfo.value,
-                ),
-              };
-            }
-          }
-          updateAccountDeFiOverview({
-            currency: settings.currencyInfo.id,
-            accountId,
-            networkId,
-            overview: convertedOverview,
-            isReady: true,
-          });
-        } else {
-          updateAccountDeFiOverview({
-            accountId,
-            networkId,
-            overview: {
-              totalValue: 0,
-              totalDebt: 0,
-              totalReward: 0,
-              netWorth: 0,
-            },
-            isReady: false,
-          });
-        }
-      } catch {
-        // Best-effort cache hydration; the DeFi tab does a full network refresh
-        // on focus, so a transient failure here self-heals on tab return.
-      }
-    },
-    [settings.currencyInfo.id, currencyMap, updateAccountDeFiOverview],
-  );
-
-  useEffect(() => {
-    // Only the lightweight cache-only instance (mounted in the Portfolio tab)
-    // owns the always-visible header overview; the full DeFi-tab instance
-    // refreshes itself on focus, so it must not also react here.
-    if (!refreshCacheOnly) return;
-    const onRefreshByProvidedAccounts = (
-      params: IAppEventBusPayload[EAppEventBusNames.RefreshTokenList],
-    ) => {
-      if (!params?.refreshByProvidedAccounts) return;
-      const target = params?.accounts?.[0];
-      if (target) {
-        void refreshSingleNetworkDeFiOverviewByTarget(target);
-      }
-    };
-    appEventBus.on(
-      EAppEventBusNames.RefreshTokenList,
-      onRefreshByProvidedAccounts,
-    );
-    return () => {
-      appEventBus.off(
-        EAppEventBusNames.RefreshTokenList,
-        onRefreshByProvidedAccounts,
-      );
-    };
-  }, [refreshCacheOnly, refreshSingleNetworkDeFiOverviewByTarget]);
-
   useEffect(() => {
     if (refreshCacheOnly) {
       return;
@@ -1446,11 +1467,33 @@ function DeFiListBlock({
     updateDeFiListState,
   ]);
 
+  // `useAllNetworkRequests` keeps returning the previous owner's result until
+  // the next owner's fan-out lands (its runner guard only lets the live owner
+  // publish). An owner switch re-runs this effect through its owner deps, so
+  // without this check the retained result would be written as the new
+  // owner's positions and overview, and stamp the new owner as loaded.
+  const appliedAllNetworksResultRef = useRef<
+    | { result: typeof allNetworksResult; ownerKey: string | undefined }
+    | undefined
+  >(undefined);
   useEffect(() => {
     if (allNetworksResult) {
       if (refreshCacheOnly) {
         return;
       }
+      if (
+        !shouldApplyDeFiAllNetworksResult({
+          applied: appliedAllNetworksResultRef.current,
+          result: allNetworksResult,
+          ownerKey: currentOwnerKey,
+        })
+      ) {
+        return;
+      }
+      appliedAllNetworksResultRef.current = {
+        result: allNetworksResult,
+        ownerKey: currentOwnerKey,
+      };
 
       const tempOverview = {
         totalValue: 0,

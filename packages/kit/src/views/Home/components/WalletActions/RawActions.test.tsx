@@ -2,7 +2,7 @@
 
 import { fireEvent, render } from '@testing-library/react';
 
-import { ActionItem } from './RawActions';
+import { ActionItem, ActionsPlaceholder, RawActions } from './RawActions';
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -35,7 +35,7 @@ jest.mock('@onekeyhq/components', () => {
           {children}
         </button>
       ) : (
-        <div>{children}</div>
+        <div data-testid={testID}>{children}</div>
       );
     }
     Pressable.displayName = `Pressable(${kind})`;
@@ -46,13 +46,21 @@ jest.mock('@onekeyhq/components', () => {
   );
 
   return {
-    ActionList: { Item: Passthrough },
+    ActionList: Object.assign(
+      ({ renderTrigger }: { renderTrigger?: React.ReactNode }) => (
+        <div>{renderTrigger}</div>
+      ),
+      { Item: Passthrough, show: jest.fn() },
+    ),
     Button: makePressable('button'),
     Icon: () => null,
     IconButton: makePressable('icon-button'),
     SizableText: Passthrough,
+    Skeleton: ({ testID }: { testID?: string }) => (
+      <span data-kind="skeleton" data-testid={testID} />
+    ),
     Stack: makePressable('stack'),
-    XStack: Passthrough,
+    XStack: makePressable('xstack'),
   };
 });
 
@@ -105,5 +113,55 @@ describe('ActionItem disabled state', () => {
 
     fireEvent.click(getByKind(container, 'stack'));
     expect(onPress).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('RawActions.More risk dot', () => {
+  it.each([false, true])(
+    'shows the caution dot on the icon trigger only when requested (iconOnly=%s)',
+    (iconOnly) => {
+      const { queryByTestId, rerender } = render(
+        <RawActions.More
+          renderItems={() => null}
+          testID="more"
+          iconOnly={iconOnly}
+          showDot
+        />,
+      );
+      expect(queryByTestId('more-dot')).not.toBeNull();
+
+      rerender(
+        <RawActions.More
+          renderItems={() => null}
+          testID="more"
+          iconOnly={iconOnly}
+        />,
+      );
+      expect(queryByTestId('more-dot')).toBeNull();
+    },
+  );
+});
+
+// While the balance state is still unknown the header used to render nothing
+// where the action row belongs (Slack 09-22: empty account under All Networks
+// showed a blank band for the whole fan-out). The placeholder keeps one
+// skeleton card per action slot so the band reads as loading instead.
+describe('ActionsPlaceholder', () => {
+  it('renders one skeleton card per action slot', () => {
+    const { container } = render(
+      <ActionsPlaceholder slotCount={4} testID="home-wallet-actions-loading" />,
+    );
+
+    expect(
+      container.querySelector('[data-testid="home-wallet-actions-loading"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelectorAll(
+        '[data-testid="home-wallet-actions-loading-slot"]',
+      ),
+    ).toHaveLength(4);
+    expect(
+      container.querySelectorAll('[data-kind="skeleton"]').length,
+    ).toBeGreaterThanOrEqual(4);
   });
 });

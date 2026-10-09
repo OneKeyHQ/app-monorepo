@@ -5207,6 +5207,8 @@
   "trade_stocks.token_to_share_ratio": "อัตราส่วนโทเค็นต่อหุ้น",
   "trade_stocks.token_to_share_ratio_description": "อัตราส่วนโทเค็นต่อหุ้นจะแปลงจำนวนโทเค็นและราคาที่แสดงเป็นจำนวนหุ้นอ้างอิงและราคาหุ้นที่เทียบเท่า เพื่อให้คุณสามารถเปรียบเทียบกับการถือครองหุ้นแบบดั้งเดิมได้",
   "trade_stocks.underlying_asset": "สินทรัพย์อ้างอิง",
+  "trade_warning_honeypot_detected": "ตรวจพบ Honeypot",
+  "trade_warning_low_token_liquidity": "สภาพคล่องโทเคนต่ำ โปรดเทรดอย่างระมัดระวัง",
   "trading_hours.closed_tradable": "ปิด · สามารถซื้อขายได้",
   "trading_hours.closed_tradable_description": "สินทรัพย์นี้ซื้อขายได้ตลอด 24/7 ราคานอกเวลาทำการอาจมีความผันผวนสูง สภาพคล่องจะแตกต่างกันไปตามช่วงเวลาตลาดสหรัฐฯ",
   "trading_hours.description": "สภาพคล่องจะแตกต่างกันไปตามช่วงตลาดสหรัฐฯ",
