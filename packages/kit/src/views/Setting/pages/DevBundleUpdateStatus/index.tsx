@@ -21,9 +21,9 @@ import {
   EAppUpdateStatus,
   EPendingInstallTaskStatus,
   EUpdateStrategy,
+  getAppUpdateProgressScope,
 } from '@onekeyhq/shared/src/appUpdate';
 import { useDownloadProgress } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
-import { getAppUpdateProgressScope } from '@onekeyhq/shared/src/modules3rdParty/auto-update/downloadProgress';
 
 // ---------------------------------------------------------------------------
 // Pipeline step types

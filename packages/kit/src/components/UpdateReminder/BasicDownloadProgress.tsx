@@ -1,9 +1,9 @@
 import { useIntl } from 'react-intl';
 
 import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getAppUpdateProgressScope } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useDownloadProgress } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
-import { getAppUpdateProgressScope } from '@onekeyhq/shared/src/modules3rdParty/auto-update/downloadProgress';
 
 export function DownloadProgress() {
   const intl = useIntl();
