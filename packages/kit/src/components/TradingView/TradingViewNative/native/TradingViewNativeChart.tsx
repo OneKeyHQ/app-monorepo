@@ -10,6 +10,7 @@ import {
 
 import {
   Canvas,
+  FontWeight,
   Picture,
   useSVG,
   useTypeface,
@@ -35,6 +36,7 @@ import {
   TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
   TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT,
   TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
+  TRADING_VIEW_NATIVE_TRADING_LINE_LABEL_FONT_SIZE,
   TRADING_VIEW_NATIVE_WATERMARK_DARK_OPACITY as WATERMARK_DARK_OPACITY,
   TRADING_VIEW_NATIVE_WATERMARK_LIGHT_OPACITY as WATERMARK_LIGHT_OPACITY,
 } from '../chartConstants';
@@ -343,6 +345,19 @@ export const TradingViewNativeChart = memo(
         }),
       [legendText, locale],
     );
+    // Resolve a real semibold face; native Skia's setEmbolden reads a number
+    // despite its boolean TypeScript signature.
+    const tradingLineLabelFont = useMemo(
+      () =>
+        createTradingViewNativeSkiaFontForText({
+          fontFamily: SYSTEM_FONT_FAMILY,
+          fontSize: TRADING_VIEW_NATIVE_TRADING_LINE_LABEL_FONT_SIZE,
+          fontWeight: FontWeight.SemiBold,
+          locale,
+          requiredText: legendText,
+        }),
+      [legendText, locale],
+    );
     const resources = useDerivedValue(
       () =>
         createTradingViewNativeSkiaResources({
@@ -361,6 +376,7 @@ export const TradingViewNativeChart = memo(
           priceAxisFontSize,
           timeAxisFontSize,
           timeAxisBorderWidth,
+          tradingLineLabelFont,
           watermarkSvg,
         }),
       [
@@ -376,6 +392,7 @@ export const TradingViewNativeChart = memo(
         timeAxisFontSize,
         timeAxisBorder,
         timeAxisBorderWidth,
+        tradingLineLabelFont,
         watermarkSvg,
       ],
     );

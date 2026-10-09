@@ -228,6 +228,7 @@ function createResources({
     priceAxisTypeface,
     priceAxisFontSize: 12,
     timeAxisFontSize: 12,
+    tradingLineLabelFont: mockSkiaFont({ fontFamily: 'System' }, 12),
     watermarkSvg: null,
   });
 }
