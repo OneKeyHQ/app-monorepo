@@ -46,10 +46,11 @@ export const ShareImageGenerator = memo(
         imagesReadyRef.current?.resolve();
       }, []);
 
-      const generate = useCallback(async (): Promise<string> => {
-        if (lastBase64Ref.current) {
-          return lastBase64Ref.current;
-        }
+      // The preview and an early Save/More tap can ask at once; they share
+      // one capture instead of each rendering the card to an image.
+      const pendingRef = useRef<Promise<string> | null>(null);
+
+      const capture = useCallback(async (): Promise<string> => {
         const viewShot = viewShotRef.current;
         if (!viewShot) {
           return '';
@@ -74,6 +75,18 @@ export const ShareImageGenerator = memo(
           return '';
         }
       }, []);
+
+      const generate = useCallback(async (): Promise<string> => {
+        if (lastBase64Ref.current) {
+          return lastBase64Ref.current;
+        }
+        if (!pendingRef.current) {
+          pendingRef.current = capture().finally(() => {
+            pendingRef.current = null;
+          });
+        }
+        return pendingRef.current;
+      }, [capture]);
 
       useImperativeHandle(ref, () => ({ generate }));
 

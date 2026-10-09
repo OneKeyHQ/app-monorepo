@@ -2,7 +2,6 @@ import { Fragment, useMemo } from 'react';
 import type { ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { uniqBy } from 'lodash';
 import { type IntlShape, useIntl } from 'react-intl';
 
 import {
@@ -305,11 +304,21 @@ export function LevelAccordionItem({
         discount: rate.discount,
       });
     });
-    // Earn and Onchain share the DeFi name; keep only the first of them.
-    return uniqBy(
-      sortCommissionRateItems(Array.from(bySubject.values())),
-      'label',
-    );
+    // Earn and Onchain share the DeFi name: fold them into one row, the first
+    // one's figures leading and the other filling any cell the first lacks,
+    // so a threshold or rate set on only one of them is not lost.
+    const byLabel = new Map<string, ILevelRuleRow>();
+    for (const row of sortCommissionRateItems(Array.from(bySubject.values()))) {
+      const existing = byLabel.get(row.label);
+      if (existing) {
+        existing.keep ??= row.keep;
+        existing.upgrade ??= row.upgrade;
+        existing.rate ??= row.rate;
+      } else {
+        byLabel.set(row.label, row);
+      }
+    }
+    return Array.from(byLabel.values());
   }, [commissionRateItems, currencySymbol, intl, md, subjectGroups]);
   let headerNode: React.ReactNode = null;
   if (isMultiSubject) {

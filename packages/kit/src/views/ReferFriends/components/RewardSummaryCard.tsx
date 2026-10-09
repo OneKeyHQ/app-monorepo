@@ -6,6 +6,8 @@ import type { ColorTokens } from '@onekeyhq/components/src/shared/tamagui';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { useInviteListCardStyle } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteCardStyle';
 
+import { ReferFriendsTestIDs } from '../testIDs';
+
 import { CompactFieldRow } from './CompactFieldRow';
 
 export interface IRewardSummaryRow {
@@ -109,7 +111,7 @@ export function RewardSummaryCard({
         </SizableText>
         {onRefresh ? (
           <IconButton
-            testID="refer-friends-reward-summary-refresh-btn"
+            testID={ReferFriendsTestIDs.rewardSummaryRefreshBtn}
             icon="RefreshCcwOutline"
             variant="tertiary"
             size="small"

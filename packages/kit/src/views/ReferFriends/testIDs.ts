@@ -36,6 +36,8 @@ export const ReferFriendsTestIDs = {
   inviteWithdrawAddressRow: 'refer-friends-invite-withdraw-address-row',
   benefitsPlaceholder: 'refer-friends-benefits-placeholder',
 
+  rewardSummaryRefreshBtn: 'refer-friends-reward-summary-refresh-btn',
+
   // --- Filter & Export ---
   dateRangeChip: 'refer-friends-date-range-chip',
   filterActiveDot: 'refer-friends-filter-active-dot',

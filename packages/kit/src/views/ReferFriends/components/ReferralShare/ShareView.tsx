@@ -29,6 +29,9 @@ export function ShareView({
   maxHeight?: number;
 }) {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  // Stops the spinner when generation fails, so the preview does not spin
+  // forever; Save and More report the failure themselves.
+  const [isGenerating, setIsGenerating] = useState(true);
   const [aspectRatio, setAspectRatio] = useState(INITIAL_ASPECT_RATIO);
   const isMountedRef = useIsMounted();
 
@@ -48,12 +51,19 @@ export function ShareView({
   }, [isMountedRef, previewImage]);
 
   useEffect(() => {
+    setIsGenerating(true);
     // One tick so the offscreen generator has mounted before it is asked.
     const timer = setTimeout(() => {
       void (async () => {
-        const base64 = await generatorRef.current?.generate();
-        if (base64 && isMountedRef.current) {
-          setPreviewImage(base64);
+        try {
+          const base64 = await generatorRef.current?.generate();
+          if (base64 && isMountedRef.current) {
+            setPreviewImage(base64);
+          }
+        } finally {
+          if (isMountedRef.current) {
+            setIsGenerating(false);
+          }
         }
       })();
     }, 50);
@@ -83,9 +93,8 @@ export function ShareView({
           source={{ uri: previewImage }}
           resizeMode="contain"
         />
-      ) : (
-        <Spinner size="large" />
-      )}
+      ) : null}
+      {!previewImage && isGenerating ? <Spinner size="large" /> : null}
       <ShareImageGenerator ref={generatorRef} data={data} />
     </Stack>
   );

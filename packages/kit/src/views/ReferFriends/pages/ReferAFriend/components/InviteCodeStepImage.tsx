@@ -146,8 +146,12 @@ export const InviteCodeStepImage = memo(function InviteCodeStepImage({
     [],
   );
 
-  // autoPlay starts a freshly loaded animation; hold it if it was paused
-  // before it loaded.
+  // A source that loads while the animation is held mounts without
+  // autoPlay: a pause() sent right after mount can land before the native
+  // view starts playing and be lost. resume() starts it later.
+  const shouldAutoPlay = !pausedRef.current;
+  // Still mark the view paused, so returning from background does not
+  // start an animation that is held.
   useEffect(() => {
     if (lottieSource && pausedRef.current) {
       lottieRef.current?.pause();
@@ -162,7 +166,7 @@ export const InviteCodeStepImage = memo(function InviteCodeStepImage({
           source={lottieSource}
           width={width}
           height={height}
-          autoPlay
+          autoPlay={shouldAutoPlay}
           loop={shouldLoop}
           resizeMode="contain"
           renderMode={renderMode}
