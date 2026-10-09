@@ -40,9 +40,9 @@ jest.mock(
 jest.mock(
   '@onekeyhq/desktop/app/libs/nativeCrashFiles',
   () =>
-    jest.requireActual<typeof import('../../../../apps/desktop/app/libs/nativeCrashFiles')>(
-      '../../../../apps/desktop/app/libs/nativeCrashFiles',
-    ),
+    jest.requireActual<
+      typeof import('../../../../apps/desktop/app/libs/nativeCrashFiles')
+    >('../../../../apps/desktop/app/libs/nativeCrashFiles'),
   { virtual: true },
 );
 jest.mock('@onekeyhq/desktop/app/libs/networkThrottle', () => ({}), {

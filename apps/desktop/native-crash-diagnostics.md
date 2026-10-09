@@ -13,6 +13,9 @@ The project-owned parser runs in an Electron Utility Process with a 64 MB V8
 heap, no inherited environment, ignored stdout/stderr, and a five-second timeout.
 It accepts at most 32 MB per dump and validates stream counts, file ranges,
 thread/module counts, platform, architecture, and context flags before reading.
+The parser allows at most 4,096 modules and 1,024 threads; real macOS processes
+can load more than 1,000 system images. These limits do not enlarge the exported
+32-frame/module allowlist.
 It reads fixed diagnostic fields and linked frame-pointer slots, never scans
 memory for plausible addresses and never decodes strings or annotations.
 
@@ -61,6 +64,16 @@ on Windows/macOS/Linux, packaging (including ASAR and signing), restart-after-
 crash processing, locked-file retry, and normal manual/confirmed upload flows.
 No real crash, memory dump, symbol download, production log or upload is needed
 for the automated tests. Synthetic test success is not device acceptance.
+
+Local macOS ARM64 / Electron 43.1.1 verification also used `process.crash()` in
+an empty, isolated Utility Process with an empty environment, dedicated app/data
+directories, and upload disabled. After restarting the isolated test host, the
+real collector produced four frames from its Crashpad dump, deleted the raw
+input, and the real ZIP collector exported only ordinary test logs and allowlisted
+JSON with a valid size/SHA-256 digest. Unrelated wallet error, Desktop dedup/config/
+store/network, and custom-UA dependencies were stubbed to keep the host free of
+accounts and wallet state. This does not verify the signed wallet app, Windows/
+Linux, all crash types, symbolication, or production Settings/upload UI.
 
 References: [Electron crashReporter](https://www.electronjs.org/docs/latest/api/crash-reporter),
 [Utility Process](https://www.electronjs.org/docs/latest/api/utility-process),

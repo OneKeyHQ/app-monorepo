@@ -20,6 +20,30 @@ describe('native minidump whitelist parser', () => {
     fs.writeFileSync(file, buffer);
     return parseNativeMinidump(file);
   }
+  function withModuleCount(count: number): Buffer {
+    const dump = makeSyntheticDump(12, 0x81_01);
+    const modules = Buffer.alloc(4 + count * 108);
+    modules.writeUInt32LE(count, 0);
+    for (let index = 0; index < count; index += 1) {
+      dump.copy(modules, 4 + index * 108, 404, 512);
+    }
+    dump.writeUInt32LE(modules.length, 60);
+    dump.writeUInt32LE(dump.length, 64);
+    return Buffer.concat([dump, modules]);
+  }
+
+  test.each([1147, 4096])(
+    'accepts bounded macOS module lists with %s images',
+    (count) => {
+      const report = parse(withModuleCount(count));
+      expect(report.frames).toHaveLength(2);
+      expect(report.modules).toHaveLength(1);
+      expect(JSON.stringify(report)).not.toContain('SECRET');
+    },
+  );
+  test('rejects module lists beyond the work limit', () => {
+    expect(() => parse(withModuleCount(4097))).toThrow('Invalid modules');
+  });
 
   test.each([
     [9, 2, 'x64', 'windows'],

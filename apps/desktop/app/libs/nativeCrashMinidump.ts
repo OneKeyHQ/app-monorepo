@@ -102,7 +102,9 @@ export function parseNativeMinidump(filePath: string): INativeCrashReport {
 
     const moduleStream = stream(4, 4);
     const moduleCount = read(moduleStream.offset, 4).readUInt32LE(0);
-    if (moduleCount > 1024 || 4 + moduleCount * 108 > moduleStream.size)
+    // A real macOS Crashpad report can include over 1,000 system images.
+    // Keep the work bounded without rejecting normal Desktop process layouts.
+    if (moduleCount > 4096 || 4 + moduleCount * 108 > moduleStream.size)
       throw new Error('Invalid modules');
     const images: {
       base: bigint;
