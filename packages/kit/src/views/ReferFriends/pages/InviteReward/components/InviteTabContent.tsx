@@ -7,6 +7,7 @@ import type {
 
 import { InviteBindRow } from './InviteBindRow';
 import { InviteEarningsCard } from './InviteEarningsCard';
+import { InviteLevelValue } from './InviteLevelPill';
 import {
   InviteCompactCard,
   InviteEntriesCard,
@@ -57,7 +58,7 @@ export function InviteTabContent({
       />
 
       {md ? (
-        // Compact layouts: the invite card (code, link, rates), the bind
+        // Compact layouts: the invite card (code, link, level, rates), the bind
         // entry (only until linked), the earnings section and the entries
         // behind the invite card; sharing sits in the page footer.
         <YStack px="$pagePadding" pt="$3" gap="$5">
@@ -66,6 +67,13 @@ export function InviteTabContent({
             inviteCode={summaryInfo.inviteCode}
             valueSummary={valueSummary}
             cardStyle={cardStyle}
+            levelValue={
+              <InviteLevelValue
+                rebateConfig={summaryInfo.rebateConfig}
+                rebateLevels={summaryInfo.rebateLevels}
+                levelDetail={levelDetail}
+              />
+            }
           />
           <InviteBindRow variant="card" />
           <InviteEarningsCard

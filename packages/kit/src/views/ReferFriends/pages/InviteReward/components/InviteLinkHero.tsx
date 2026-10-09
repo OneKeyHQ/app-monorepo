@@ -24,7 +24,6 @@ import { INVITE_COPY } from '../inviteCopy';
 import { InviteValueLine, RatePopover } from './InviteValueLine';
 import { useReferralCodeCard } from './ReferralCodeCard/hooks/useReferralCodeCard';
 import { ReferralLinkDropdown } from './ReferralLinkDropdown';
-import { openReferralRules } from './RulesButton';
 import {
   COMPACT_ENTRY_TITLE_PROPS,
   COMPACT_ROW_BLEED_PROPS,
@@ -298,11 +297,14 @@ export function InviteCompactCard({
   inviteCode,
   valueSummary,
   cardStyle,
+  levelValue,
 }: {
   inviteUrl: string;
   inviteCode: string;
   valueSummary: IInviteValueSummaryResult;
   cardStyle: IInviteCardStyle;
+  // The level sits right above the rates it sets.
+  levelValue?: ReactNode;
 }) {
   const intl = useIntl();
   const { handleCopy, copyLink, inviteCodeUrl } = useReferralCodeCard({
@@ -358,6 +360,15 @@ export function InviteCompactCard({
           onPress={copyLink}
         />
       </InviteFieldRow>
+      {levelValue ? (
+        <InviteFieldRow
+          label={intl.formatMessage({
+            id: ETranslations.referral_referral_level,
+          })}
+        >
+          {levelValue}
+        </InviteFieldRow>
+      ) : null}
       {rateValue ? (
         <InviteFieldRow label={INVITE_COPY.rateLabel}>
           <RatePopover
@@ -378,8 +389,7 @@ export function InviteCompactCard({
 }
 
 // Compact layouts: the pages behind the invite card (codes, people invited)
-// and the rules, as plain drill-in rows in their own card. The level holds
-// the header's right slot, so the rules live here.
+// as plain drill-in rows in their own card.
 export function InviteEntriesCard({
   cardStyle,
   onManageCodes,
@@ -389,9 +399,6 @@ export function InviteEntriesCard({
 }) {
   const intl = useIntl();
   const navigateToYourReferred = useNavigateToYourReferred();
-  const rulesLabel = intl.formatMessage({
-    id: ETranslations.referral_global_rules,
-  });
 
   return (
     <YStack px="$4" py="$1" {...cardStyle}>
@@ -410,16 +417,6 @@ export function InviteEntriesCard({
         title={intl.formatMessage({ id: ETranslations.referral_referral_list })}
         drillIn
         onPress={navigateToYourReferred}
-      />
-      <ListItem
-        testID={ReferFriendsTestIDs.rulesBtn}
-        {...COMPACT_ROW_BLEED_PROPS}
-        titleProps={COMPACT_ENTRY_TITLE_PROPS}
-        title={rulesLabel}
-        drillIn
-        onPress={() => {
-          openReferralRules(rulesLabel);
-        }}
       />
     </YStack>
   );

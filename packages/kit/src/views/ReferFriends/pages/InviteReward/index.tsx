@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
 import { useFocusEffect, useRoute } from '@react-navigation/core';
 import { isEqual } from 'lodash';
@@ -26,12 +26,8 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
 import { BenefitsTabPlaceholder } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/BenefitsTabPlaceholder';
 import { useInviteLevelDetail } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CurrentLevelCard/hooks/useCurrentLevelCard';
-import type { ICurrentLevelCardProps } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CurrentLevelCard/types';
 import { getInviteEarningsState } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/getInviteEarningsState';
-import {
-  InviteLevelChip,
-  InviteLevelPill,
-} from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InviteLevelPill';
+import { InviteLevelPill } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InviteLevelPill';
 import { InviteTabContent } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InviteTabContent';
 import { LogoutButton } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/LogoutButton';
 import { useReferralCodeCard } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/ReferralCodeCard/hooks/useReferralCodeCard';
@@ -50,10 +46,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type {
-  IInviteLevelDetail,
-  IInviteSummary,
-} from '@onekeyhq/shared/src/referralCode/type';
+import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { IInviteRewardRouteParams } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -71,18 +64,12 @@ const ReferralPageHeader = memo(function ReferralPageHeader({
   activeTab,
   onChangeTab,
   isCompactHeader,
-  level,
 }: {
   activeTab: IReferralPageTab;
   onChangeTab: (tab: IReferralPageTab) => void;
   isCompactHeader: boolean;
-  // Set once the summary loads; compact phones show it in the right slot.
-  level?: ICurrentLevelCardProps & {
-    levelDetail: IInviteLevelDetail | undefined;
-  };
 }) {
   const intl = useIntl();
-  const { md } = useMedia();
   const { headerBackgroundColor, headerStyle } = useInvitePageCanvas();
   const renderHeaderTitle = useCallback(
     () => (
@@ -98,25 +85,8 @@ const ReferralPageHeader = memo(function ReferralPageHeader({
     if (activeTab !== EReferralPageTab.invite) {
       return null;
     }
-    // Compact phones give the slot to the level (the rules move into the
-    // entries card); wider compact screens keep the desktop content, which
-    // has no rules entry, so they keep the button.
-    if (!md) {
-      return <RulesButton />;
-    }
-    if (!level) {
-      return null;
-    }
-    return (
-      <InviteLevelChip
-        rebateConfig={level.rebateConfig}
-        rebateLevels={level.rebateLevels}
-        levelDetail={level.levelDetail}
-        // Beside the tab names the level keeps only its icon.
-        iconOnly={IS_BENEFITS_TAB_ENABLED}
-      />
-    );
-  }, [activeTab, level, md]);
+    return <RulesButton />;
+  }, [activeTab]);
 
   if (isCompactHeader) {
     return (
@@ -185,15 +155,15 @@ function InviteOverviewSkeleton() {
     return (
       <YStack px="$pagePadding" pt="$3" gap="$5">
         <YStack gap="$4" p="$4" {...cardStyle}>
-          <YStack gap="$1">
-            <XStack jc="space-between" ai="center">
+          <XStack jc="space-between" ai="center">
+            <YStack gap="$1">
               <Skeleton.BodyMd w={96} />
-              <Skeleton w={72} h={24} radius="round" />
-            </XStack>
-            <Skeleton.HeadingXl w={120} />
-          </YStack>
+              <Skeleton.HeadingXl w={120} />
+            </YStack>
+            <Skeleton w={88} h={32} radius="round" />
+          </XStack>
           <Divider borderColor="$neutral4" />
-          {[0, 1].map((index) => (
+          {[0, 1, 2].map((index) => (
             <XStack key={index} jc="space-between">
               <Skeleton.BodyMd w={96} />
               <Skeleton.BodyMd w={120} />
@@ -388,17 +358,7 @@ function InviteRewardPage() {
     },
     [],
   );
-  const headerLevel = useMemo(
-    () =>
-      summaryInfo
-        ? {
-            rebateConfig: summaryInfo.rebateConfig,
-            rebateLevels: summaryInfo.rebateLevels,
-            levelDetail,
-          }
-        : undefined,
-    [summaryInfo, levelDetail],
-  );
+
   const showInviteFooter =
     platformEnv.isNative && isInviteTab && Boolean(summaryInfo?.inviteUrl);
 
@@ -463,7 +423,6 @@ function InviteRewardPage() {
         activeTab={activeTab}
         onChangeTab={setActiveTab}
         isCompactHeader={isCompactHeader}
-        level={headerLevel}
       />
       <Page.Body>
         {/* Compact layouts show the level inside the scrolling content. */}

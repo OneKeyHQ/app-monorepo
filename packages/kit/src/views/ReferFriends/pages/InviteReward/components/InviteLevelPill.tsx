@@ -10,7 +10,6 @@ import {
   SizableText,
   XStack,
   YStack,
-  useInGlassHeader,
   useMedia,
 } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
@@ -177,20 +176,15 @@ export function InviteLevelPill({
   );
 }
 
-// Compact layouts: the level holds the header's right slot. Inside the iOS
-// 26 glass bar the system capsule is the chip, so only the content renders;
-// elsewhere it draws its own pill. Beside the title tabs it keeps only the
-// icon so the tabs keep their room.
-export function InviteLevelChip({
+// Compact layouts: the level as the value of a field row in the invite card,
+// right above the rates it sets. It opens the level page.
+export function InviteLevelValue({
   levelDetail,
-  iconOnly = false,
   ...props
 }: ICurrentLevelCardProps & {
   levelDetail: IInviteLevelDetail | undefined;
-  iconOnly?: boolean;
 }) {
   const navigateToReferralLevel = useNavigateToReferralLevel();
-  const inGlassHeader = useInGlassHeader();
   const { levelLabel, levelIcon } = useCurrentLevelCardFromDetail(
     props,
     levelDetail,
@@ -200,36 +194,26 @@ export function InviteLevelChip({
     <XStack
       testID={ReferFriendsTestIDs.inviteLevelPill}
       ai="center"
-      gap="$1"
-      px={iconOnly ? '$1.5' : undefined}
-      pl={iconOnly ? undefined : '$1.5'}
-      pr={iconOnly ? undefined : '$1'}
+      gap="$1.5"
+      flexShrink={1}
+      // Bleed the press surface so the chevron lines up with the icons above.
+      mx="$-2"
+      px="$2"
       py="$1"
-      borderRadius="$full"
-      bg={inGlassHeader ? undefined : '$bgSubdued'}
-      flexShrink={0}
-      {...(inGlassHeader ? null : PRESSABLE_SURFACE_PROPS)}
-      aria-label={levelLabel}
+      borderRadius="$2"
+      {...PRESSABLE_SURFACE_PROPS}
       onPress={() => {
         void navigateToReferralLevel();
       }}
     >
-      {levelIcon ? <Image w="$5" h="$5" src={levelIcon} /> : null}
+      {levelIcon ? <Image w="$4" h="$4" src={levelIcon} /> : null}
       {!levelIcon && props.rebateConfig.emoji ? (
         <SizableText size="$bodyMd">{props.rebateConfig.emoji}</SizableText>
       ) : null}
-      {iconOnly ? null : (
-        <>
-          <SizableText size="$bodyMdMedium" numberOfLines={1} flexShrink={1}>
-            {levelLabel}
-          </SizableText>
-          <Icon
-            name="ChevronRightSmallOutline"
-            size="$4"
-            color="$iconSubdued"
-          />
-        </>
-      )}
+      <SizableText size="$bodyMdMedium" numberOfLines={1} flexShrink={1}>
+        {levelLabel}
+      </SizableText>
+      <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
     </XStack>
   );
 }
