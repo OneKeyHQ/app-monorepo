@@ -28,6 +28,7 @@ export const ReferFriendsTestIDs = {
   inviteManageCodes: 'refer-friends-invite-manage-codes',
   inviteYourReferred: 'refer-friends-invite-your-referred',
   inviteRewardHistory: 'refer-friends-invite-reward-history',
+  inviteRewardsToggle: 'refer-friends-invite-rewards-toggle',
   invitePayoutAddress: 'refer-friends-invite-payout-address',
   inviteRetryBtn: 'refer-friends-invite-retry-btn',
   levelRetryBtn: 'refer-friends-level-retry-btn',

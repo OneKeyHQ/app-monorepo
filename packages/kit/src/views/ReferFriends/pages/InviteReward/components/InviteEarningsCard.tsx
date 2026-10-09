@@ -225,18 +225,21 @@ function DesktopEarnings({
 }
 
 // Compact layouts stack the same facts as the desktop card: the unpaid
-// amount leads, the two totals follow as plain columns, and the payout
-// address closes the card as a row so long labels have the full width.
+// amount leads with the total earned as one label/value line. The payout
+// address only closes the card while it is not set, as the step to take;
+// once set it lives on the Payout history page, one tap away.
 function CompactEarnings({
   earnings,
   labels,
   payoutAddress,
+  isPayoutAddressSet,
   onEditAddress,
   onOpenHistory,
 }: {
   earnings: IInviteEarnings;
   labels: IEarningsLabels;
   payoutAddress: string;
+  isPayoutAddressSet: boolean;
   onEditAddress: () => void;
   onOpenHistory: () => void;
 }) {
@@ -276,24 +279,28 @@ function CompactEarnings({
           {earnings.cumulative}
         </Currency>
       </XStack>
-      <Divider mt="$1" mb="$1" borderColor={INVITE_CARD_BORDER_COLOR} />
-      <ListItem
-        testID={ReferFriendsTestIDs.invitePayoutAddress}
-        {...COMPACT_ROW_BLEED_PROPS}
-        titleProps={COMPACT_ENTRY_TITLE_PROPS}
-        title={labels.payoutAddress}
-        drillIn
-        onPress={onEditAddress}
-      >
-        <SizableText
-          size="$bodyMd"
-          color="$textSubdued"
-          numberOfLines={1}
-          flexShrink={1}
-        >
-          {payoutAddress}
-        </SizableText>
-      </ListItem>
+      {isPayoutAddressSet ? null : (
+        <>
+          <Divider mt="$1" mb="$1" borderColor={INVITE_CARD_BORDER_COLOR} />
+          <ListItem
+            testID={ReferFriendsTestIDs.invitePayoutAddress}
+            {...COMPACT_ROW_BLEED_PROPS}
+            titleProps={COMPACT_ENTRY_TITLE_PROPS}
+            title={labels.payoutAddress}
+            drillIn
+            onPress={onEditAddress}
+          >
+            <SizableText
+              size="$bodyMd"
+              color="$textCaution"
+              numberOfLines={1}
+              flexShrink={1}
+            >
+              {payoutAddress}
+            </SizableText>
+          </ListItem>
+        </>
+      )}
     </YStack>
   );
 }
@@ -357,13 +364,16 @@ export function InviteEarningsCard({
         testID={ReferFriendsTestIDs.inviteEarningsCard}
         px="$4"
         pt="$4"
-        pb="$1"
+        // The address row brings its own 12px under the text; the total
+        // line needs 8px more to sit 16px from the edge.
+        pb={withdrawAddress ? '$2' : '$1'}
         {...cardStyle}
       >
         <CompactEarnings
           earnings={earnings}
           labels={labels}
           payoutAddress={payoutAddress}
+          isPayoutAddressSet={Boolean(withdrawAddress)}
           onEditAddress={editPayoutAddress}
           onOpenHistory={navigateToRewardHistory}
         />

@@ -315,6 +315,24 @@ describe('InviteTabContent entry points', () => {
     expect(mockNavigateToRewardHistory).not.toHaveBeenCalled();
   });
 
+  it.each([
+    { withdrawAddresses: [], shown: true },
+    {
+      withdrawAddresses: [{ networkId: 'evm--1', address: '0xpayout' }],
+      shown: false,
+    },
+  ])(
+    'shows the compact payout address only until it is set (%#)',
+    ({ withdrawAddresses, shown }) => {
+      mockMd = true;
+      renderTab({ ...SUMMARY, withdrawAddresses } as unknown as IInviteSummary);
+
+      expect(
+        Boolean(screen.queryByTestId(ReferFriendsTestIDs.invitePayoutAddress)),
+      ).toBe(shown);
+    },
+  );
+
   it('opens the bind referral code dialog', () => {
     renderTab();
 
@@ -329,6 +347,12 @@ describe('InviteTabContent entry points', () => {
     (md) => {
       mockMd = md;
       renderTab();
+      if (md) {
+        // Compact layouts fold the breakdown under its caption.
+        fireEvent.click(
+          screen.getByTestId(ReferFriendsTestIDs.inviteRewardsToggle),
+        );
+      }
 
       fireEvent.click(screen.getByText(ETranslations.referral_referred_type_3));
       fireEvent.click(screen.getByText(ETranslations.referral_perps));

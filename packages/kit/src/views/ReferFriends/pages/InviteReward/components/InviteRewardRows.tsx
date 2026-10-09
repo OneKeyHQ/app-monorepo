@@ -360,6 +360,7 @@ export function InviteRewardRows({
   const { md } = useMedia();
   const cardStyle = useInviteHomeCardStyle();
   const [isFoldedOpen, setIsFoldedOpen] = useState(false);
+  const [isCompactOpen, setIsCompactOpen] = useState(false);
   const rows = useMemo(() => getInviteRewardRows(summaryInfo), [summaryInfo]);
   const { copyLink } = useReferralCodeCard({
     inviteUrl: summaryInfo.inviteUrl,
@@ -464,11 +465,40 @@ export function InviteRewardRows({
 
   // Compact layouts: a quiet caption, like a grouped list header, right
   // under the earnings card it breaks down; the page sets the spacing.
+  // Compact layouts: the per-product breakdown is detail behind the
+  // earnings card, so it starts folded under its caption and opens in place.
   const compactTitle = (
-    <SizableText size="$bodyMdMedium" color="$textSubdued">
-      {INVITE_COPY.rewardsByProduct}
-    </SizableText>
+    <XStack
+      testID={ReferFriendsTestIDs.inviteRewardsToggle}
+      ai="center"
+      jc="space-between"
+      gap="$2"
+      minHeight={32}
+      // Bleed the press surface so the caption lines up with the cards.
+      mx="$-2"
+      px="$2"
+      borderRadius="$2"
+      {...PRESSABLE_SURFACE_PROPS}
+      onPress={() => {
+        setIsCompactOpen((open) => !open);
+      }}
+    >
+      <SizableText size="$bodyMdMedium" color="$textSubdued">
+        {INVITE_COPY.rewardsByProduct}
+      </SizableText>
+      <Icon
+        name={
+          isCompactOpen ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'
+        }
+        size="$5"
+        color="$iconSubdued"
+      />
+    </XStack>
   );
+
+  if (!isCompactOpen) {
+    return compactTitle;
+  }
 
   if (rows.visibleRows.length === 0) {
     return (
