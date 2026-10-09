@@ -2,7 +2,13 @@
 
 import type { ReactNode } from 'react';
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import type {
@@ -10,6 +16,7 @@ import type {
   IMarketStockPublicItem,
 } from '@onekeyhq/shared/types/marketV2';
 
+import { useDetailSelectorBrowseState } from './detailSelectorBrowse';
 import { MarketTokenSelector } from './MarketTokenSelector';
 
 const mockSetSelectorConfig = jest.fn();
@@ -20,6 +27,7 @@ const mockToStock = jest.fn();
 const mockUseToMarketStockDetailPage = jest.fn(
   (_options?: unknown) => mockToStock,
 );
+let mockConfigLoading = false;
 let mockSpotCategories: IMarketSpotCategory[] = [];
 let mockStockCategories: Array<{ category: string; name: string }> = [];
 let mockSearchTokenList: IMarketToken[] = [];
@@ -129,6 +137,7 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
 
 jest.mock('@onekeyhq/kit/src/views/Market/hooks', () => ({
   useMarketBasicConfig: () => ({
+    isLoading: mockConfigLoading,
     spotCategories: mockSpotCategories,
     stockCategories: mockStockCategories,
   }),
@@ -317,6 +326,7 @@ describe('MarketTokenSelector stock default category', () => {
     mockSearchTokenList = [];
     mockWatchlistToken = undefined;
     mockRouteParams = undefined;
+    mockConfigLoading = false;
     mockSpotCategories = [
       { type: 'trending', name: 'Trending' },
       { type: 'stocks', name: 'Stocks' },
@@ -405,6 +415,41 @@ describe('MarketTokenSelector stock default category', () => {
     expect(screen.getByTestId('token-list').getAttribute('data-category')).toBe(
       'robinhood_meme',
     );
+  });
+
+  it('preserves the route category until remote categories finish loading', () => {
+    mockSpotCategories = [];
+    mockConfigLoading = true;
+    const { result, rerender } = renderHook(() =>
+      useDetailSelectorBrowseState({
+        defaultCategory: 'trending',
+        isWatchlistMode: false,
+        marketTokenCategory: 'remote_category',
+      }),
+    );
+    expect(result.current.tokenCategoryId).toBe('remote_category');
+    mockSpotCategories = [
+      { type: 'trending', name: 'Trending' },
+      { type: 'remote_category', name: 'Remote' },
+    ];
+    mockConfigLoading = false;
+    rerender();
+    expect(result.current.tokenCategoryId).toBe('remote_category');
+  });
+
+  it('falls back when the loaded configuration does not contain the route category', () => {
+    mockConfigLoading = true;
+    const { result, rerender } = renderHook(() =>
+      useDetailSelectorBrowseState({
+        defaultCategory: 'trending',
+        isWatchlistMode: false,
+        marketTokenCategory: 'removed_category',
+      }),
+    );
+    expect(result.current.tokenCategoryId).toBe('removed_category');
+    mockConfigLoading = false;
+    rerender();
+    expect(result.current.tokenCategoryId).toBe('trending');
   });
 
   it('uses the standard tab label size', () => {

@@ -157,6 +157,7 @@ export function useDetailSelectorBrowseState({
   const {
     spotCategories: apiSpotCategories,
     stockCategories: apiStockCategories,
+    isLoading: isConfigLoading,
   } = useMarketBasicConfig();
   const tokenSubCategories = useMemo(() => {
     const source =
@@ -202,6 +203,7 @@ export function useDetailSelectorBrowseState({
 
   useEffect(() => {
     if (
+      isConfigLoading !== false ||
       subCategories.length === 0 ||
       subCategories.some((category) => category.id === selectedSubCategoryId)
     ) {
@@ -216,7 +218,7 @@ export function useDetailSelectorBrowseState({
       return;
     }
     setTokenCategoryId(nextCategoryId);
-  }, [isStockSelection, selectedSubCategoryId, subCategories]);
+  }, [isConfigLoading, isStockSelection, selectedSubCategoryId, subCategories]);
 
   const isTopCoinsSelection =
     !isFavoritesSelection &&

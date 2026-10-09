@@ -363,6 +363,7 @@ export interface IMarketWatchListDataV2 {
 }
 
 export interface IMarketSearchV2Token {
+  assetId?: string;
   name: string;
   price: string;
   symbol: string;

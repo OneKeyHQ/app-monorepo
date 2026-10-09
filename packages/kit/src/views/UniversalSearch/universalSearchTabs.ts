@@ -1,7 +1,14 @@
+import pLimit from 'p-limit';
+
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isMarketSearchStockListing } from '@onekeyhq/shared/src/utils/marketSearchStock';
+import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import { buildCoinFromSearchAssetType } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type {
+  IMarketAssetDetailData,
+  IMarketWatchListItemV2,
+} from '@onekeyhq/shared/types/market';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 import type { IUniversalSearchResultItem } from '@onekeyhq/shared/types/search';
 
@@ -93,6 +100,9 @@ export function getUniversalSearchWatchlistKey(
     if (isMarketSearchStockListing(item.payload) && item.payload.stockId) {
       return `stock:${item.payload.stockId}`;
     }
+    if (item.payload.assetId) {
+      return `asset:${item.payload.assetId}`;
+    }
     if (item.payload.network) {
       return `${item.payload.network}:${
         normalizeTokenContractAddress({
@@ -112,4 +122,60 @@ export function getUniversalSearchWatchlistKey(
     return coin ? `perps:${coin}` : undefined;
   }
   return undefined;
+}
+
+export async function resolveUniversalSearchWatchlistKeys({
+  items,
+  fetchAssetDetail,
+}: {
+  items: IMarketWatchListItemV2[];
+  fetchAssetDetail: (assetId: string) => Promise<IMarketAssetDetailData>;
+}): Promise<Set<string>> {
+  const keys = new Set(items.map(getMarketWatchlistKey));
+  const limit = pLimit(4);
+  await Promise.all(
+    [
+      ...new Set(items.flatMap((item) => (item.assetId ? [item.assetId] : []))),
+    ].map((assetId) =>
+      limit(async () => {
+        try {
+          const { variants } = await fetchAssetDetail(assetId);
+          // Legacy search results identify assets by their chain variants.
+          for (const variant of variants) {
+            keys.add(
+              getMarketWatchlistKey({
+                chainId: variant.networkId,
+                contractAddress: variant.tokenAddress,
+              }),
+            );
+          }
+        } catch {
+          // Retain direct identities when one asset cannot be resolved.
+        }
+      }),
+    ),
+  );
+  return keys;
+}
+
+export function isUniversalSearchItemInWatchlist(
+  item: IUniversalSearchResultItem,
+  keys: Set<string>,
+): boolean {
+  const key = getUniversalSearchWatchlistKey(item);
+  if (key && keys.has(key)) return true;
+  if (
+    item.type === EUniversalSearchType.V2MarketToken &&
+    item.payload.assetId &&
+    item.payload.network &&
+    !isMarketSearchStockListing(item.payload)
+  ) {
+    return keys.has(
+      getMarketWatchlistKey({
+        chainId: item.payload.network,
+        contractAddress: item.payload.address,
+      }),
+    );
+  }
+  return false;
 }

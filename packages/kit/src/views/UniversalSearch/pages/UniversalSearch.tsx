@@ -71,9 +71,10 @@ import { UniversalSearchTestIDs } from '../testIDs';
 import {
   WATCHLIST_TAB_INDEX,
   getUniversalSearchTabIndex,
-  getUniversalSearchWatchlistKey,
+  isUniversalSearchItemInWatchlist,
   prioritizeMarketFocusedSections,
   resolveUniversalSearchInitialTabName,
+  resolveUniversalSearchWatchlistKeys,
   shouldPrioritizeMarketSearchSections,
 } from '../universalSearchTabs';
 
@@ -216,10 +217,6 @@ export function UniversalSearch({
     initialTab,
   });
   const [{ data: watchlistItems }] = useMarketWatchListV2Atom();
-  const watchlistKeys = useMemo(
-    () => new Set(watchlistItems.map((item) => getMarketWatchlistKey(item))),
-    [watchlistItems],
-  );
 
   const searchSettings = useSettingsSearch();
 
@@ -986,6 +983,27 @@ export function UniversalSearch({
     [intl],
   );
   const isInWatchlistTab = activeTab === watchlistTabTitle;
+  const { result: resolvedWatchlist } = usePromiseResult(async () => {
+    if (!isInWatchlistTab) return undefined;
+    return {
+      items: watchlistItems,
+      keys: await resolveUniversalSearchWatchlistKeys({
+        items: watchlistItems,
+        fetchAssetDetail: (assetId) =>
+          backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
+            assetId,
+            autoHandleError: false,
+          }),
+      }),
+    };
+  }, [isInWatchlistTab, watchlistItems]);
+  const watchlistKeys = useMemo(
+    () =>
+      resolvedWatchlist?.items === watchlistItems
+        ? resolvedWatchlist.keys
+        : new Set(watchlistItems.map((item) => getMarketWatchlistKey(item))),
+    [resolvedWatchlist, watchlistItems],
+  );
 
   const filterSections = useMemo(() => {
     if (isInAllTab) {
@@ -1007,10 +1025,9 @@ export function UniversalSearch({
     }
     if (isInWatchlistTab) {
       const data = sections.flatMap((section) =>
-        section.data.filter((item) => {
-          const key = getUniversalSearchWatchlistKey(item);
-          return Boolean(key && watchlistKeys.has(key));
-        }),
+        section.data.filter((item) =>
+          isUniversalSearchItemInWatchlist(item, watchlistKeys),
+        ),
       );
       if (data.length === 0) {
         return [];

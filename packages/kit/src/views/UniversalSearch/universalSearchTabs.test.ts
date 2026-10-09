@@ -1,11 +1,14 @@
+import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 import type { IUniversalSearchResultItem } from '@onekeyhq/shared/types/search';
 
 import {
   getUniversalSearchTabIndex,
   getUniversalSearchWatchlistKey,
+  isUniversalSearchItemInWatchlist,
   prioritizeMarketFocusedSections,
   resolveUniversalSearchInitialTabName,
+  resolveUniversalSearchWatchlistKeys,
   shouldPrioritizeMarketSearchSections,
 } from './universalSearchTabs';
 
@@ -142,5 +145,86 @@ describe('getUniversalSearchWatchlistKey', () => {
         payload: { stockId: 'AAPL', network: '', address: '' },
       } as IUniversalSearchResultItem),
     ).toBe('stock:AAPL');
+  });
+});
+
+describe('asset watchlist search matching', () => {
+  const token = {
+    type: EUniversalSearchType.V2MarketToken,
+    payload: { network: 'evm--1', address: '' },
+  } as IUniversalSearchResultItem;
+
+  it('matches a favorited top coin through its native and contract variants', async () => {
+    const fetchAssetDetail = jest.fn().mockResolvedValue({
+      variants: [
+        { networkId: 'evm--1', tokenAddress: '' },
+        { networkId: 'evm--10', tokenAddress: '0xAbC' },
+      ],
+    });
+    const keys = await resolveUniversalSearchWatchlistKeys({
+      items: [{ assetId: 'ethereum', chainId: '', contractAddress: '' }],
+      fetchAssetDetail,
+    });
+    expect(fetchAssetDetail).toHaveBeenCalledWith('ethereum');
+    expect(keys.has('asset:ethereum')).toBe(true);
+    expect(isUniversalSearchItemInWatchlist(token, keys)).toBe(true);
+    expect(
+      isUniversalSearchItemInWatchlist(
+        {
+          type: EUniversalSearchType.V2MarketToken,
+          payload: { network: 'evm--10', address: '0xabc' },
+        } as IUniversalSearchResultItem,
+        keys,
+      ),
+    ).toBe(true);
+    expect(
+      isUniversalSearchItemInWatchlist(
+        {
+          type: EUniversalSearchType.V2MarketToken,
+          payload: { network: 'evm--10', address: '0xdef' },
+        } as IUniversalSearchResultItem,
+        keys,
+      ),
+    ).toBe(false);
+  });
+
+  it('matches explicit asset IDs without losing chain-address favorites', () => {
+    const assetToken = {
+      type: EUniversalSearchType.V2MarketToken,
+      payload: { assetId: 'ethereum', network: 'evm--1', address: '' },
+    } as IUniversalSearchResultItem;
+    expect(
+      isUniversalSearchItemInWatchlist(assetToken, new Set(['asset:ethereum'])),
+    ).toBe(true);
+    expect(
+      isUniversalSearchItemInWatchlist(assetToken, new Set(['evm--1:'])),
+    ).toBe(true);
+  });
+
+  it('retains other favorites when an asset detail request fails', async () => {
+    const fetchAssetDetail = jest
+      .fn<Promise<IMarketAssetDetailData>, [string]>()
+      .mockRejectedValueOnce(new Error('Unavailable'))
+      .mockResolvedValueOnce({
+        variants: [{ networkId: 'evm--1', tokenAddress: '' }],
+      } as IMarketAssetDetailData);
+    const keys = await resolveUniversalSearchWatchlistKeys({
+      items: [
+        { assetId: 'bitcoin', chainId: '', contractAddress: '' },
+        { assetId: 'ethereum', chainId: '', contractAddress: '' },
+        { stockId: 'AAPL', chainId: '', contractAddress: '' },
+        { perpsCoin: 'BTC', chainId: '', contractAddress: '' },
+      ],
+      fetchAssetDetail,
+    });
+    expect([...keys]).toEqual(
+      expect.arrayContaining([
+        'asset:bitcoin',
+        'asset:ethereum',
+        'stock:AAPL',
+        'perps:BTC',
+        'evm--1:',
+      ]),
+    );
   });
 });
