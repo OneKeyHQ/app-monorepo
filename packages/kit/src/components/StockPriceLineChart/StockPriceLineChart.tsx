@@ -11,6 +11,10 @@ import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import { LightweightChart } from '../LightweightChart';
 import { formatChartPrice } from '../LightweightChart/utils/formatChartPrice';
+import {
+  shiftChartToLocalTime,
+  toUtcTimestampFromLocalTime,
+} from '../LightweightChart/utils/localTimeScale';
 
 import type { ILightweightChartReferenceLine } from '../LightweightChart/types';
 
@@ -151,7 +155,7 @@ export function StockPriceLineChart({
         x !== undefined &&
         y !== undefined
       ) {
-        setHoverData({ time, price, x, y });
+        setHoverData({ time: toUtcTimestampFromLocalTime(time), price, x, y });
       } else {
         setHoverData(null);
       }
@@ -236,16 +240,21 @@ export function StockPriceLineChart({
 
   // The whole range stays on the main (faded) series so the price scale never
   // moves; only the solid overlay drawn on top of it is cut at the cursor.
+  // The chart only ever sees local-time series so its axis marks local
+  // midnight; hover times are converted back before anything else reads them.
+  const localData = useMemo(() => shiftChartToLocalTime(data), [data]);
   const hoveredTime = hoverData?.time;
   const solidData = useMemo(() => {
     if (hoveredTime === undefined) {
-      return data;
+      return localData;
     }
-    const upToCursor = data.filter(([time]) => time <= hoveredTime);
+    const upToCursor = localData.filter(
+      (_point, index) => data[index][0] <= hoveredTime,
+    );
     // An empty overlay would drop the overlay series entirely and rebuild the
     // chart mid-scrub, so it always keeps at least the first point.
-    return upToCursor.length > 0 ? upToCursor : data.slice(0, 1);
-  }, [data, hoveredTime]);
+    return upToCursor.length > 0 ? upToCursor : localData.slice(0, 1);
+  }, [data, hoveredTime, localData]);
 
   // Held in a ref so an inline parent callback cannot make the reporting effect
   // fire on every render.
@@ -306,7 +315,7 @@ export function StockPriceLineChart({
       }}
     >
       <LightweightChart
-        data={data}
+        data={localData}
         height={height}
         lineColor={dimmedLineColor}
         lineWidth={1}
