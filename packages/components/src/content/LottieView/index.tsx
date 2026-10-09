@@ -20,6 +20,9 @@ export const LottieView = forwardRef<
     ref,
   ) => {
     const animationRef = useRef<AnimatedLottieView | null>(null);
+    // Set by pause()/resume(), so returning from background does not restart
+    // an animation its owner holds still.
+    const isPausedRef = useRef(false);
 
     const appStateRef = useRef(AppState.currentState);
     const [restProps, style] = usePropsAndStyle(props, {
@@ -32,7 +35,8 @@ export const LottieView = forwardRef<
         if (
           appStateRef.current &&
           /inactive|background/.exec(appStateRef.current) &&
-          nextAppState === 'active'
+          nextAppState === 'active' &&
+          !isPausedRef.current
         ) {
           animationRef.current?.play?.();
         }
@@ -49,13 +53,16 @@ export const LottieView = forwardRef<
 
     useImperativeHandle(ref as any, () => ({
       play: () => {
+        isPausedRef.current = false;
         animationRef.current?.play?.();
       },
       pause: () => {
+        isPausedRef.current = true;
         animationRef.current?.pause?.();
       },
       // Continues from the paused frame; `play` restarts on Android.
       resume: () => {
+        isPausedRef.current = false;
         animationRef.current?.resume?.();
       },
       reset: () => {

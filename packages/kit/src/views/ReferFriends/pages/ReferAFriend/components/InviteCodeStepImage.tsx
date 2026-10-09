@@ -1,4 +1,4 @@
-import { useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { memo, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import type { Ref } from 'react';
 
 import { LottieView, Stack, usePageWidth } from '@onekeyhq/components';
@@ -88,7 +88,9 @@ interface ILottiePlayer {
   resume: () => void;
 }
 
-export function InviteCodeStepImage({
+// Memoized: re-rendering the native LottieView re-serializes its ~160 KB
+// source, and every prop here is stable.
+export const InviteCodeStepImage = memo(function InviteCodeStepImage({
   step,
   controlRef,
   preloadOtherStep = true,
@@ -174,4 +176,4 @@ export function InviteCodeStepImage({
       ) : null}
     </Stack>
   );
-}
+});

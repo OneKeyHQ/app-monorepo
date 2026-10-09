@@ -1,13 +1,12 @@
 import type { ReactNode } from 'react';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
-import { useFocusEffect, useIsFocused, useRoute } from '@react-navigation/core';
+import { useFocusEffect, useRoute } from '@react-navigation/core';
 import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
   Divider,
-  LinearGradient,
   Page,
   RefreshControl,
   ScrollView,
@@ -16,12 +15,10 @@ import {
   XStack,
   YStack,
   useMedia,
-  usePageWidth,
 } from '@onekeyhq/components';
 import type { IPageProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { getChartColorWithAlpha } from '@onekeyhq/kit/src/components/LightweightChart/utils/chartColor';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -39,18 +36,20 @@ import { useInviteValueSummary } from '@onekeyhq/kit/src/views/ReferFriends/page
 import { LogoutButton } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/LogoutButton';
 import { ReferralJobTabs } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/ReferralJobTabs';
 import { RulesButton } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/RulesButton';
+import { ScrollEdgeFade } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/ScrollEdgeFade';
+import type { IScrollEdgeFadeControl } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/ScrollEdgeFade';
 import {
+  INVITE_CARD_BORDER_COLOR,
   useInviteHomeCardStyle,
   useInvitePageCanvas,
 } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteCardStyle';
+import { useInviteHeroAnimation } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteHeroAnimation';
 import {
   EReferralPageTab,
   type IReferralPageTab,
   IS_BENEFITS_TAB_ENABLED,
   resolveReferralPageTab,
 } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/referralPageTab';
-import { getInviteCodeStepImageHeight } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferAFriend/components/InviteCodeStepImage';
-import type { IInviteCodeStepImageControl } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferAFriend/components/InviteCodeStepImage';
 import { formatInviteUrlForDisplay } from '@onekeyhq/kit/src/views/ReferFriends/utils/inviteUrlUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -134,38 +133,6 @@ function InviteOverviewSkeleton() {
   const { md } = useMedia();
   const cardStyle = useInviteHomeCardStyle();
 
-  const earningsCard = (
-    <YStack flex={1} gap="$4" p="$5" {...cardStyle}>
-      <YStack gap="$2">
-        <Skeleton.BodyMd />
-        <Skeleton.Heading3Xl />
-        <Skeleton.BodyMd w={120} />
-      </YStack>
-      <Divider borderColor="$neutral4" />
-      <XStack gap="$6">
-        {[0, 1, 2].map((index) => (
-          <YStack key={index} gap="$1">
-            <Skeleton.BodyMd />
-            <Skeleton.HeadingMd />
-          </YStack>
-        ))}
-      </XStack>
-    </YStack>
-  );
-
-  const inviteCard = (
-    <YStack flex={1} gap="$4" p="$5" {...cardStyle}>
-      <YStack gap="$2">
-        <Skeleton.HeadingMd w={200} />
-        <Skeleton.BodyMd w={260} />
-      </YStack>
-      <Skeleton w="100%" h={48} radius="round" />
-      <Skeleton.BodyMd w={160} />
-      <Divider borderColor="$neutral4" />
-      <Skeleton.BodyMd w={220} />
-    </YStack>
-  );
-
   if (md) {
     // Compact content: the hero, the code card and the bind line, then the
     // earnings caption and card, spaced like the loaded page's groups.
@@ -188,7 +155,7 @@ function InviteOverviewSkeleton() {
               </XStack>
               <Skeleton.HeadingXl w={120} />
             </YStack>
-            <Divider borderColor="$neutral4" />
+            <Divider borderColor={INVITE_CARD_BORDER_COLOR} />
             <XStack jc="space-between">
               <Skeleton.BodyMd w={96} />
               <Skeleton.BodyMd w={160} />
@@ -212,7 +179,7 @@ function InviteOverviewSkeleton() {
                 <Skeleton.BodyMd w={88} />
               </XStack>
             ))}
-            <Divider borderColor="$neutral4" />
+            <Divider borderColor={INVITE_CARD_BORDER_COLOR} />
             <XStack jc="space-between">
               <Skeleton.BodyMd w={120} />
               <Skeleton.BodyMd w={96} />
@@ -222,6 +189,38 @@ function InviteOverviewSkeleton() {
       </YStack>
     );
   }
+
+  const earningsCard = (
+    <YStack flex={1} gap="$4" p="$5" {...cardStyle}>
+      <YStack gap="$2">
+        <Skeleton.BodyMd />
+        <Skeleton.Heading3Xl />
+        <Skeleton.BodyMd w={120} />
+      </YStack>
+      <Divider borderColor={INVITE_CARD_BORDER_COLOR} />
+      <XStack gap="$6">
+        {[0, 1, 2].map((index) => (
+          <YStack key={index} gap="$1">
+            <Skeleton.BodyMd />
+            <Skeleton.HeadingMd />
+          </YStack>
+        ))}
+      </XStack>
+    </YStack>
+  );
+
+  const inviteCard = (
+    <YStack flex={1} gap="$4" p="$5" {...cardStyle}>
+      <YStack gap="$2">
+        <Skeleton.HeadingMd w={200} />
+        <Skeleton.BodyMd w={260} />
+      </YStack>
+      <Skeleton w="100%" h={48} radius="round" />
+      <Skeleton.BodyMd w={160} />
+      <Divider borderColor={INVITE_CARD_BORDER_COLOR} />
+      <Skeleton.BodyMd w={220} />
+    </YStack>
+  );
 
   return (
     <YStack px="$pagePadding" gap="$10">
@@ -245,7 +244,12 @@ function InviteOverviewSkeleton() {
 // preview (save, copy link, X, Telegram, system share); copying alone lives
 // on the invite card rows. A component of its own so the card's copy can
 // read the level's rates through hooks once the summary has loaded.
-function InviteShareFooter({
+const INVITE_FOOTER_BUTTON_PROPS = {
+  testID: ReferFriendsTestIDs.inviteFriendsFooterBtn,
+  icon: 'AddPeopleOutline',
+} as const;
+
+const InviteShareFooter = memo(function InviteShareFooter({
   summaryInfo,
   levelDetail,
   backgroundColor,
@@ -280,14 +284,11 @@ function InviteShareFooter({
         pb="$3"
         onConfirm={handleInvite}
         onConfirmText={INVITE_COPY.inviteFriends}
-        confirmButtonProps={{
-          testID: ReferFriendsTestIDs.inviteFriendsFooterBtn,
-          icon: 'AddPeopleOutline',
-        }}
+        confirmButtonProps={INVITE_FOOTER_BUTTON_PROPS}
       />
     </Page.Footer>
   );
-}
+});
 
 function InviteRewardPage() {
   const intl = useIntl();
@@ -425,47 +426,25 @@ function InviteRewardPage() {
       setIsRetrying(false);
     }
   }, [refreshAll]);
-  // A short fade under the compact bar softens content scrolling beneath
-  // it; it only shows once the content has moved.
-  const [isScrolled, setIsScrolled] = useState(false);
-  // The compact hero's looping illustration holds still while it cannot be
-  // seen: scrolled past (it sits at the top of the content), covered by a
-  // pushed page (level, payout history, product details stack over this one
-  // without unmounting it), or behind the Rewards tab. Scrolling drives it
-  // through a ref, so crossing the illustration never re-renders the page.
-  const heroAnimationControlRef = useRef<IInviteCodeStepImageControl>(null);
-  const isHeroScrolledAwayRef = useRef(false);
-  const isHeroOnScreenRef = useRef(true);
-  const syncHeroAnimation = useCallback(() => {
-    heroAnimationControlRef.current?.setPaused(
-      !isHeroOnScreenRef.current || isHeroScrolledAwayRef.current,
-    );
-  }, []);
-  const isFocused = useIsFocused();
-  useEffect(() => {
-    isHeroOnScreenRef.current = isFocused && isInviteTab;
-    syncHeroAnimation();
-  }, [isFocused, isInviteTab, syncHeroAnimation]);
-  const heroIllustrationHeight = getInviteCodeStepImageHeight(usePageWidth());
+  const scrollFadeRef = useRef<IScrollEdgeFadeControl>(null);
+  const heroAnimation = useInviteHeroAnimation(isInviteTab);
+  const { onScrollOffset: onHeroScrollOffset } = heroAnimation;
+  // Drives the fade and the hero animation through refs: scrolling never
+  // re-renders the page.
   const handleScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const offsetY = event.nativeEvent.contentOffset.y;
-      // Same-value updates bail out, so this only re-renders on a crossing.
-      setIsScrolled(offsetY > 0);
-      const isScrolledAway = offsetY > heroIllustrationHeight;
-      if (isScrolledAway !== isHeroScrolledAwayRef.current) {
-        isHeroScrolledAwayRef.current = isScrolledAway;
-        syncHeroAnimation();
-      }
+      scrollFadeRef.current?.setVisible(offsetY > 0);
+      onHeroScrollOffset(offsetY);
     },
-    [heroIllustrationHeight, syncHeroAnimation],
+    [onHeroScrollOffset],
   );
 
   const showInviteFooter =
     platformEnv.isNative && isInviteTab && Boolean(summaryInfo?.inviteUrl);
 
   const levelPill =
-    isInviteTab && summaryInfo ? (
+    !isCompactHeader && isInviteTab && summaryInfo ? (
       <InviteLevelPill
         rebateConfig={summaryInfo.rebateConfig}
         rebateLevels={summaryInfo.rebateLevels}
@@ -510,7 +489,7 @@ function InviteRewardPage() {
                 summaryInfo={summaryInfo}
                 fetchSummaryInfo={fetchSummaryInfo}
                 levelDetail={levelDetail}
-                heroAnimationControlRef={heroAnimationControlRef}
+                heroAnimationControlRef={heroAnimation.controlRef}
               />
             </YStack>
           ) : null}
@@ -562,18 +541,10 @@ function InviteRewardPage() {
           </Page.Container>
         )}
         {body}
-        {isCompactHeader && isScrolled ? (
-          <LinearGradient
-            position="absolute"
-            top={0}
-            left={0}
-            right={0}
-            height={24}
-            pointerEvents="none"
-            colors={[
-              pageCanvas.headerBackgroundColor,
-              getChartColorWithAlpha(pageCanvas.headerBackgroundColor, 0),
-            ]}
+        {isCompactHeader ? (
+          <ScrollEdgeFade
+            color={pageCanvas.headerBackgroundColor}
+            controlRef={scrollFadeRef}
           />
         ) : null}
       </Page.Body>

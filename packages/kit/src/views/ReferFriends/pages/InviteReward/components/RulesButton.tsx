@@ -7,12 +7,6 @@ import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { ReferFriendsTestIDs } from '../../../testIDs';
 
-// The in-app web view stacks on the current screen (the referral modal on
-// phones), so closing it returns to the page; web opens a new tab.
-export function openReferralRules(title: string) {
-  openUrlInApp(REFERRAL_HELP_LINK, title);
-}
-
 export function RulesButton() {
   const intl = useIntl();
   const { md } = useMedia();
@@ -20,8 +14,10 @@ export function RulesButton() {
   const label = intl.formatMessage({
     id: ETranslations.referral_global_rules,
   });
+  // The in-app web view stacks on the current screen (the referral modal on
+  // phones), so closing it returns to the page; web opens a new tab.
   const handlePress = () => {
-    openReferralRules(label);
+    openUrlInApp(REFERRAL_HELP_LINK, label);
   };
 
   if (md) {

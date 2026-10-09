@@ -127,7 +127,11 @@ export function useInviteValueSummary({
     });
     return getInviteValueSummary(items);
   }, [commissionRates, props.rebateConfig.configs]);
-  return { levelLabel, levelIcon, summary };
+  // Stable between renders so memoized children taking it skip re-renders.
+  return useMemo(
+    () => ({ levelLabel, levelIcon, summary }),
+    [levelIcon, levelLabel, summary],
+  );
 }
 
 // Names every paying product in one line; the rate opens the per-product
