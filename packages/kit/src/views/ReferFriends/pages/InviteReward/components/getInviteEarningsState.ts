@@ -3,7 +3,6 @@ import { toAmount } from '@onekeyhq/kit/src/views/ReferFriends/utils';
 export interface IInviteEarningsInput {
   distributed?: string;
   undistributed?: string;
-  nextDistribution?: string;
 }
 
 export interface IInviteEarningsState {
@@ -11,7 +10,6 @@ export interface IInviteEarningsState {
   undistributed: string;
   distributed: string;
   cumulative: string;
-  nextDistribution: string | null;
 }
 
 export function getInviteEarningsState(
@@ -26,6 +24,5 @@ export function getInviteEarningsState(
     undistributed: undistributed.toFixed(2),
     distributed: distributed.toFixed(2),
     cumulative: cumulative.toFixed(2),
-    nextDistribution: cumulativeRewards?.nextDistribution || null,
   };
 }

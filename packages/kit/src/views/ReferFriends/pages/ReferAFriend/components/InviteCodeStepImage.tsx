@@ -1,6 +1,5 @@
 import {
   memo,
-  useCallback,
   useEffect,
   useImperativeHandle,
   useMemo,
@@ -12,6 +11,7 @@ import type { Ref } from 'react';
 import { LottieView, Stack, usePageWidth } from '@onekeyhq/components';
 import type { ILottieViewHandle, ILottieViewProps } from '@onekeyhq/components';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import { getReferLottieSource } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useReferLottieSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // Matches the Lottie composition (786x446) so the box has no empty bands.
@@ -25,57 +25,7 @@ export function getInviteCodeStepImageHeight(pageWidth: number) {
   return Math.min(pageWidth, MAX_WIDTH) * LOTTIE_ASPECT_RATIO;
 }
 
-function resolveLottieModule(module: unknown): ILottieViewProps['source'] {
-  const lottieModule = module as { default?: ILottieViewProps['source'] };
-  return lottieModule.default ?? module;
-}
-
-async function loadInviteCodeLottieSource({
-  step,
-  themeVariant,
-}: {
-  step: 1 | 2;
-  themeVariant: 'light' | 'dark';
-}) {
-  if (step === 1) {
-    return themeVariant === 'dark'
-      ? resolveLottieModule(
-          await import('@onekeyhq/kit/assets/animations/_mov_referHardware_dark.json'),
-        )
-      : resolveLottieModule(
-          await import('@onekeyhq/kit/assets/animations/_mov_referHardware.json'),
-        );
-  }
-  return themeVariant === 'dark'
-    ? resolveLottieModule(
-        await import('@onekeyhq/kit/assets/animations/_mov_refer_dark.json'),
-      )
-    : resolveLottieModule(
-        await import('@onekeyhq/kit/assets/animations/_mov_refer.json'),
-      );
-}
-
 type ILottieSource = ILottieViewProps['source'];
-
-// Loaded sources stay cached for the session: the two steps alternate on
-// "Next"/"Back", and re-importing and re-parsing a ~160 KB composition on every
-// switch left the illustration blank for a moment.
-const lottieSourceCache = new Map<string, Promise<ILottieSource>>();
-
-function getInviteCodeLottieSource(params: {
-  step: 1 | 2;
-  themeVariant: 'light' | 'dark';
-}) {
-  const key = `${params.step}-${params.themeVariant}`;
-  let pending = lottieSourceCache.get(key);
-  if (!pending) {
-    pending = loadInviteCodeLottieSource(params);
-    lottieSourceCache.set(key, pending);
-    // A failed load should be retried next time, not cached.
-    pending.catch(() => lottieSourceCache.delete(key));
-  }
-  return pending;
-}
 
 // Step 2 is three 2-second rounds, each a friend joining: the left hand
 // slides in, coins cross to the right phone, the friend's avatar checks, then
@@ -111,8 +61,6 @@ export const InviteCodeStepImage = memo(function InviteCodeStepImage({
 }: IInviteCodeStepImageProps) {
   const lottieRef = useRef<ILottieViewHandle>(null);
   const pausedRef = useRef(false);
-  // Once a one-shot play has ended there is nothing to pause or resume.
-  const finishedRef = useRef(false);
   const themeVariant = useThemeVariant();
   const pageWidth = usePageWidth();
   const [lottieSource, setLottieSource] = useState<ILottieSource | null>(null);
@@ -129,8 +77,7 @@ export const InviteCodeStepImage = memo(function InviteCodeStepImage({
   useEffect(() => {
     let cancelled = false;
     setLottieSource(null);
-    finishedRef.current = false;
-    void getInviteCodeLottieSource({
+    void getReferLottieSource({
       step,
       themeVariant: lottieThemeVariant,
     }).then((source) => {
@@ -141,7 +88,7 @@ export const InviteCodeStepImage = memo(function InviteCodeStepImage({
     // Warm the other step while this one is on screen, so "Next" has its
     // illustration ready.
     if (preloadOtherStep) {
-      void getInviteCodeLottieSource({
+      void getReferLottieSource({
         step: step === 1 ? 2 : 1,
         themeVariant: lottieThemeVariant,
       });
@@ -155,7 +102,7 @@ export const InviteCodeStepImage = memo(function InviteCodeStepImage({
     controlRef,
     () => ({
       setPaused: (paused) => {
-        if (pausedRef.current === paused || finishedRef.current) {
+        if (pausedRef.current === paused) {
           return;
         }
         pausedRef.current = paused;
@@ -168,12 +115,6 @@ export const InviteCodeStepImage = memo(function InviteCodeStepImage({
     }),
     [],
   );
-
-  const handleAnimationFinish = useCallback((isCancelled: boolean) => {
-    if (!isCancelled) {
-      finishedRef.current = true;
-    }
-  }, []);
 
   // Ending the composition at the rest frame makes the player stop there on
   // every platform. Memoized: a new object re-serializes the source natively.
@@ -207,7 +148,6 @@ export const InviteCodeStepImage = memo(function InviteCodeStepImage({
           height={height}
           autoPlay={shouldAutoPlay}
           loop={shouldLoop}
-          onAnimationFinish={handleAnimationFinish}
           resizeMode="contain"
           renderMode={renderMode}
           backgroundColor="$bgApp"

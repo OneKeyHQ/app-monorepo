@@ -6,7 +6,7 @@ import { usePageWidth } from '@onekeyhq/components';
 import { getInviteCodeStepImageHeight } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferAFriend/components/InviteCodeStepImage';
 import type { IInviteCodeStepImageControl } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferAFriend/components/InviteCodeStepImage';
 
-// The compact hero's looping illustration holds still while it cannot be
+// The compact hero's illustration holds still while it cannot be
 // seen: scrolled past (it sits at the top of the content), covered by a
 // pushed page (level, payout history and product pages stack over the
 // referral page without unmounting it), or behind the Rewards tab. Every

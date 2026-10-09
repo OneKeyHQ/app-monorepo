@@ -8,7 +8,7 @@ import {
   RewardSummaryCard,
   StatCard,
 } from '@onekeyhq/kit/src/views/ReferFriends/components';
-import { useNextDistributionLabel } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useNextDistributionLabel';
+import { useNextDistributionLabel } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useNextDistributionLabel';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapCumulativeRewardsResponse } from '@onekeyhq/shared/src/referralCode/type';
 

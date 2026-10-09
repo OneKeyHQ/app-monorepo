@@ -1,12 +1,14 @@
 import { useMemo, useRef } from 'react';
 
 import { isEqual } from 'lodash';
-import { type IntlShape, useIntl } from 'react-intl';
+import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { sortCommissionRateItems } from '@onekeyhq/kit/src/views/ReferFriends/utils';
-import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  getDisplayLabel,
+  sortCommissionRateItems,
+} from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import type { IInviteLevelDetail } from '@onekeyhq/shared/src/referralCode/type';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -14,20 +16,6 @@ import type {
   ICurrentLevelCardProps,
   IUseCurrentLevelCardReturn,
 } from '../types';
-
-function getDisplayLabel(
-  intl: IntlShape,
-  labelKey?: string,
-  fallback?: string,
-): string {
-  if (labelKey) {
-    return intl.formatMessage({
-      id: labelKey as ETranslations,
-      defaultMessage: fallback,
-    });
-  }
-  return fallback ?? '';
-}
 
 export function useInviteLevelDetail({ isActive }: { isActive: boolean }): {
   levelDetail: IInviteLevelDetail | undefined;

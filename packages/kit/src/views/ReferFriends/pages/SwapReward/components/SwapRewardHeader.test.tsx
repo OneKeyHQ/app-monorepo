@@ -41,7 +41,7 @@ jest.mock('@onekeyhq/kit/src/components/Currency', () => ({
 }));
 
 jest.mock(
-  '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useNextDistributionLabel',
+  '@onekeyhq/kit/src/views/ReferFriends/hooks/useNextDistributionLabel',
   () => ({
     useNextDistributionLabel: (value?: string) => (value ? 'Aug 1' : null),
   }),

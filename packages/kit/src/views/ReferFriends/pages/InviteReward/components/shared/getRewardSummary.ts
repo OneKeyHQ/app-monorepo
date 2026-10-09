@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 
+import { toAmount } from '@onekeyhq/kit/src/views/ReferFriends/utils/amountUtils';
 import type { IRewardToken } from '@onekeyhq/shared/src/referralCode/type';
 
 // Referral rewards are paid in USDC, so every reward figure is shown in USD
@@ -26,10 +27,10 @@ export interface IRewardSummary {
 }
 
 function sumFinite(values: readonly (string | undefined)[]) {
-  return values.reduce((sum, value) => {
-    const amount = new BigNumber(value ?? NaN);
-    return amount.isFinite() ? sum.plus(amount) : sum;
-  }, new BigNumber(0));
+  return values.reduce(
+    (sum, value) => sum.plus(toAmount(value)),
+    new BigNumber(0),
+  );
 }
 
 export function getRewardSummary(

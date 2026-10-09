@@ -4,6 +4,7 @@ import {
   forwardRef,
   lazy,
   useCallback,
+  useEffect,
   useImperativeHandle,
   useRef,
 } from 'react';
@@ -23,22 +24,37 @@ export const LottieView = forwardRef<ILottieViewHandle, ILottieViewProps>(
       resolveValues: 'auto',
     });
     const animationRef = useRef<any>(null);
+    // A one-shot animation that has played out stays on its last frame.
+    const isFinishedRef = useRef(false);
     const handleComplete = useCallback(() => {
+      if (!loop) {
+        isFinishedRef.current = true;
+      }
       onAnimationFinish?.(false);
-    }, [onAnimationFinish]);
+    }, [loop, onAnimationFinish]);
+    useEffect(() => {
+      isFinishedRef.current = false;
+    }, [source]);
 
     useImperativeHandle(ref, () => ({
       play: () => {
+        isFinishedRef.current = false;
         animationRef.current?.play?.();
       },
+      // Both are no-ops once a one-shot animation has played out.
       pause: () => {
-        animationRef.current?.pause?.();
+        if (!isFinishedRef.current) {
+          animationRef.current?.pause?.();
+        }
       },
       // lottie-web's play continues from the paused frame.
       resume: () => {
-        animationRef.current?.play?.();
+        if (!isFinishedRef.current) {
+          animationRef.current?.play?.();
+        }
       },
       reset: () => {
+        isFinishedRef.current = false;
         animationRef.current?.goToAndStop?.(0);
       },
     }));

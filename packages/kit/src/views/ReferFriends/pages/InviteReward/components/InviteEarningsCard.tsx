@@ -16,6 +16,7 @@ import type { ColorTokens } from '@onekeyhq/components/src/shared/tamagui';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import { useNextDistributionLabel } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useNextDistributionLabel';
 import { useNavigateToEditAddress } from '@onekeyhq/kit/src/views/ReferFriends/pages/EditAddress/hooks/useNavigateToEditAddress';
 import { useNavigateToRewardHistory } from '@onekeyhq/kit/src/views/ReferFriends/pages/RewardDistributionHistory/hooks/useNavigateToRewardHistory';
 import { openInviteWithdrawAddressEditor } from '@onekeyhq/kit/src/views/ReferFriends/pages/RewardDistributionHistory/openInviteWithdrawAddressEditor';
@@ -37,7 +38,6 @@ import {
   PRESSABLE_SURFACE_PROPS,
   useInviteHomeCardStyle,
 } from './useInviteCardStyle';
-import { useNextDistributionLabel } from './useNextDistributionLabel';
 
 type IInviteEarnings = ReturnType<typeof getInviteEarningsState>;
 
@@ -375,11 +375,8 @@ export function InviteEarningsCard({
     summaryInfo.cumulativeRewards.nextDistribution,
   );
   const earnings = useMemo(
-    () => ({
-      ...getInviteEarningsState(summaryInfo.cumulativeRewards),
-      nextDistribution,
-    }),
-    [nextDistribution, summaryInfo.cumulativeRewards],
+    () => getInviteEarningsState(summaryInfo.cumulativeRewards),
+    [summaryInfo.cumulativeRewards],
   );
   const labels: IEarningsLabels = {
     undistributed: intl.formatMessage({

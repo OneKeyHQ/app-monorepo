@@ -313,16 +313,15 @@ function DesktopRewardRow({
 }
 
 // Two or more products without rewards fold into one line that expands in
-// place; a blank tile keeps the names aligned with the rows above.
+// place (and goes away once open); a blank tile keeps the names aligned with
+// the rows above.
 function DesktopFoldedRow({
   title,
   noRewardLabel,
-  isOpen,
   onPress,
 }: {
   title: string;
   noRewardLabel: string;
-  isOpen: boolean;
   onPress: () => void;
 }) {
   return (
@@ -341,11 +340,7 @@ function DesktopFoldedRow({
       <SizableText size="$bodyMd" color="$textSubdued">
         {noRewardLabel}
       </SizableText>
-      <Icon
-        name={isOpen ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'}
-        size="$5"
-        color="$iconSubdued"
-      />
+      <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
     </XStack>
   );
 }
@@ -530,7 +525,6 @@ export function InviteRewardRows({
               <DesktopFoldedRow
                 title={foldedTitle}
                 noRewardLabel={noRewardLabel}
-                isOpen={isFoldedOpen}
                 onPress={() => {
                   setIsFoldedOpen(true);
                 }}
@@ -563,7 +557,7 @@ export function InviteRewardRows({
     );
   }
 
-  const renderFoldedRow = (row: IInviteRewardRow) => (
+  const renderRow = (row: IInviteRewardRow) => (
     <RewardListRow
       key={row.subject}
       row={row}
@@ -581,17 +575,7 @@ export function InviteRewardRows({
       {/* In a card like the blocks above, so the row text lines up with
           theirs. */}
       <YStack px="$4" py="$1" {...cardStyle}>
-        {rows.visibleRows.map((row) => (
-          <RewardListRow
-            key={row.subject}
-            row={row}
-            title={titleFor(row.subject)}
-            pendingLabel={pendingLabel}
-            onPress={() => {
-              openSubject(row.subject);
-            }}
-          />
-        ))}
+        {rows.visibleRows.map(renderRow)}
         {/* Like desktop: one product without rewards is listed directly; two
           or more fold into one row that expands in place. */}
         {rows.foldedRows.length > 1 ? (
@@ -623,7 +607,7 @@ export function InviteRewardRows({
           </ListItem>
         ) : null}
         {rows.foldedRows.length === 1 || isFoldedOpen
-          ? rows.foldedRows.map(renderFoldedRow)
+          ? rows.foldedRows.map(renderRow)
           : null}
       </YStack>
     </YStack>

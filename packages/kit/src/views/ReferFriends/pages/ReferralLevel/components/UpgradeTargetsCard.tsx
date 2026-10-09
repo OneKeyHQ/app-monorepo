@@ -9,12 +9,12 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
+import { getDisplayLabel } from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteLevelItem } from '@onekeyhq/shared/src/referralCode/type';
 
 import { LEVEL_TARGET_LABEL_IDS } from '../levelCopy';
 
-import { getDisplayLabel } from './LevelListSection/LevelAccordionItem';
 import {
   formatFiatCompact,
   formatFiatExact,

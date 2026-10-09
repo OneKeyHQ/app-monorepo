@@ -23,6 +23,7 @@ import {
 } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteCardStyle';
 import {
   formatCommissionRateText,
+  getDisplayLabel,
   sortCommissionRateItems,
 } from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -172,20 +173,6 @@ function LevelRuleTable({
       />
     </XStack>
   );
-}
-
-export function getDisplayLabel(
-  intl: IntlShape,
-  labelKey?: string,
-  fallback?: string,
-): string {
-  if (labelKey) {
-    return intl.formatMessage({
-      id: labelKey as ETranslations,
-      defaultMessage: fallback,
-    });
-  }
-  return fallback ?? '';
 }
 
 function getCommissionRateLabel(

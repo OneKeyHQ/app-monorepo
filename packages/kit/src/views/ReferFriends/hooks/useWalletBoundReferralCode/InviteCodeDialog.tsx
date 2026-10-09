@@ -46,6 +46,7 @@ import { useFetchWalletsWithBoundStatus } from './useFetchWalletsWithBoundStatus
 import { useGetReferralCodeWalletInfo } from './useGetReferralCodeWalletInfo';
 
 import type { IReferralCodeWalletInfo } from './types';
+import type { IWalletReferralBindListStatus } from './useFetchWalletsWithBoundStatus';
 
 // Upper bound on holding the invite hint back for the configured rebate. A
 // cached config answers at once; a fresh install has to fetch, and past this
@@ -55,6 +56,11 @@ const INVITEE_DISCOUNT_WAIT_MS = 1500;
 // Upper bound on waiting for a startup install-referrer capture still in
 // flight when the dialog opens.
 const INSTALL_REFERRAL_CAPTURE_WAIT_MS = 10_000;
+
+// Bound, past the bind window, or of unknown status: listed but cannot be selected.
+function isUnavailableToBind(status: IWalletReferralBindListStatus) {
+  return status === 'bound' || status === 'expired' || status === 'unknown';
+}
 
 export function InviteCodeDialog({
   wallet,
@@ -215,30 +221,24 @@ export function InviteCodeDialog({
   const { walletsWithStatus, isLoading: isLoadingWallets } =
     useFetchWalletsWithBoundStatus();
 
-  // Selected wallet state
-  const [selectedWalletId, setSelectedWalletId] = useState<string | undefined>(
+  // The wallet the user picked; until then, the one the dialog opened with.
+  const [pickedWalletId, setSelectedWalletId] = useState<string | undefined>(
     wallet?.id,
   );
-
-  // Entries with no wallet in hand (the referral page's own prompts) would
-  // otherwise open on an empty selector.
-  useEffect(() => {
-    if (selectedWalletId || !walletsWithStatus) {
-      return;
+  // Entries with no wallet in hand (the referral page's own prompts) start on
+  // the preferred wallet if it can still bind, otherwise the first that can.
+  const selectedWalletId = useMemo(() => {
+    if (pickedWalletId || !walletsWithStatus) {
+      return pickedWalletId;
     }
     const bindable = walletsWithStatus.filter(
-      (item) =>
-        item.status !== 'bound' &&
-        item.status !== 'expired' &&
-        item.status !== 'unknown',
+      (item) => !isUnavailableToBind(item.status),
     );
-    const initial =
+    return (
       bindable.find((item) => item.wallet.id === preferredWalletId) ??
-      bindable[0];
-    if (initial) {
-      setSelectedWalletId(initial.wallet.id);
-    }
-  }, [preferredWalletId, selectedWalletId, walletsWithStatus]);
+      bindable[0]
+    )?.wallet.id;
+  }, [pickedWalletId, preferredWalletId, walletsWithStatus]);
 
   // Get the selected wallet object
   const selectedWallet = useMemo(() => {
@@ -255,10 +255,7 @@ export function InviteCodeDialog({
 
     return walletsWithStatus.map((item) => {
       let description: string | undefined;
-      const isDisabled =
-        item.status === 'bound' ||
-        item.status === 'expired' ||
-        item.status === 'unknown';
+      const isDisabled = isUnavailableToBind(item.status);
       if (item.status === 'bound') {
         description = intl.formatMessage({
           id: ETranslations.referral_wallet_bind_code_finish,
@@ -297,12 +294,7 @@ export function InviteCodeDialog({
   // Check if all wallets are unavailable (bound, window expired, or unknown)
   const allWalletsUnavailable = useMemo(() => {
     if (!walletsWithStatus || walletsWithStatus.length === 0) return false;
-    return walletsWithStatus.every(
-      (w) =>
-        w.status === 'bound' ||
-        w.status === 'expired' ||
-        w.status === 'unknown',
-    );
+    return walletsWithStatus.every((w) => isUnavailableToBind(w.status));
   }, [walletsWithStatus]);
 
   // Check if the selected wallet is already bound

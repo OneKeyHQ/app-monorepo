@@ -6,14 +6,12 @@ describe('getInviteEarningsState', () => {
       getInviteEarningsState({
         distributed: '0',
         undistributed: '0.00',
-        nextDistribution: '',
       }),
     ).toEqual({
       isZero: true,
       undistributed: '0.00',
       distributed: '0.00',
       cumulative: '0.00',
-      nextDistribution: null,
     });
     expect(getInviteEarningsState(undefined).isZero).toBe(true);
     expect(getInviteEarningsState(null).isZero).toBe(true);
@@ -24,14 +22,12 @@ describe('getInviteEarningsState', () => {
       getInviteEarningsState({
         distributed: '4409.70',
         undistributed: '239.35',
-        nextDistribution: '2026-10-10T00:00:00.000Z',
       }),
     ).toEqual({
       isZero: false,
       undistributed: '239.35',
       distributed: '4409.70',
       cumulative: '4649.05',
-      nextDistribution: '2026-10-10T00:00:00.000Z',
     });
   });
 
@@ -52,7 +48,6 @@ describe('getInviteEarningsState', () => {
       undistributed: '0.00',
       distributed: '0.00',
       cumulative: '0.00',
-      nextDistribution: null,
     });
   });
 });

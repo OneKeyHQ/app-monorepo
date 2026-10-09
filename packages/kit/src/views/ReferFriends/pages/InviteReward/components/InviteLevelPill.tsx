@@ -3,7 +3,6 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Button,
   Icon,
   Image,
   Popover,
@@ -13,6 +12,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
+import { CardTextAction } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CardTextAction';
 import { RetentionStatus } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferralLevel/components/LevelStatusCard';
 import {
   formatLevelTargetRemaining,
@@ -105,17 +105,13 @@ function LevelSummary({
         </SizableText>
       )}
       <XStack pt="$2">
-        <Button
+        <CardTextAction
           testID={ReferFriendsTestIDs.inviteLevelDetailsBtn}
-          variant="tertiary"
-          size="small"
-          iconAfter="ChevronRightSmallOutline"
-          onPress={onOpenLevel}
-        >
-          {intl.formatMessage({
+          label={intl.formatMessage({
             id: ETranslations.referral_level_details__action,
           })}
-        </Button>
+          onPress={onOpenLevel}
+        />
       </XStack>
     </YStack>
   );

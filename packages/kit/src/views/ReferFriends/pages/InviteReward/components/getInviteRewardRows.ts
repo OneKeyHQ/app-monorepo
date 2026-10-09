@@ -1,6 +1,5 @@
-import BigNumber from 'bignumber.js';
-
 import type { IKeyOfIcons } from '@onekeyhq/components';
+import { toAmount } from '@onekeyhq/kit/src/views/ReferFriends/utils/amountUtils';
 
 import {
   type IRewardSummary,
@@ -54,11 +53,7 @@ export interface IInviteRewardRowsInput {
 const EMPTY_REWARDS: readonly IRewardSummaryItem[] = [];
 
 function hasPositiveAmount(value: string | undefined) {
-  if (!value) {
-    return false;
-  }
-  const amount = new BigNumber(value);
-  return amount.isFinite() && amount.isGreaterThan(0);
+  return toAmount(value).isGreaterThan(0);
 }
 
 function summarize(rewards: readonly IRewardSummaryItem[] | undefined) {

@@ -15,6 +15,7 @@ import {
   XStack,
   YStack,
   useMedia,
+  usePageWidth,
 } from '@onekeyhq/components';
 import type { IPageProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -50,6 +51,7 @@ import {
   IS_BENEFITS_TAB_ENABLED,
   resolveReferralPageTab,
 } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/referralPageTab';
+import { getInviteCodeStepImageHeight } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferAFriend/components/InviteCodeStepImage';
 import { formatInviteUrlForDisplay } from '@onekeyhq/kit/src/views/ReferFriends/utils/inviteUrlUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -66,11 +68,6 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { ReferFriendsLoadError } from '../../components';
 import { ReferFriendsTestIDs } from '../../testIDs';
 import { useNavigateToRewardHistory } from '../RewardDistributionHistory/hooks/useNavigateToRewardHistory';
-
-import {
-  INVITE_SUMMARY_MOCK_ENABLED,
-  withInviteSummaryMock,
-} from './inviteSummaryMock';
 
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
@@ -131,6 +128,7 @@ const ReferralPageHeader = memo(function ReferralPageHeader({
 function InviteOverviewSkeleton() {
   const { md } = useMedia();
   const cardStyle = useInviteHomeCardStyle();
+  const heroHeight = getInviteCodeStepImageHeight(usePageWidth());
 
   if (md) {
     // Compact content: the hero, the code card and the bind line, then the
@@ -139,7 +137,7 @@ function InviteOverviewSkeleton() {
       <YStack px="$pagePadding" gap="$6">
         <YStack gap="$4">
           <YStack ai="center" gap="$3">
-            <Skeleton w="100%" h={200} radius={16} />
+            <Skeleton w="100%" maxWidth={480} h={heroHeight} radius={16} />
             <YStack ai="center" gap="$2">
               <Skeleton.Heading2Xl w={260} />
               <Skeleton.BodyMd w={220} />
@@ -388,11 +386,8 @@ function InviteRewardPage() {
   const { result: summaryInfo, run: fetchSummaryInfo } = usePromiseResult(
     async () => {
       try {
-        const fetchedSummary =
+        const summary =
           await backgroundApiProxy.serviceReferralCode.getSummaryInfo();
-        const summary = INVITE_SUMMARY_MOCK_ENABLED
-          ? withInviteSummaryMock(fetchedSummary)
-          : fetchedSummary;
         if (
           lastSummaryRef.current &&
           isEqual(summary, lastSummaryRef.current)
@@ -493,15 +488,6 @@ function InviteRewardPage() {
   const showInviteFooter =
     platformEnv.isNative && isInviteTab && Boolean(summaryInfo?.inviteUrl);
 
-  const levelPill =
-    !isCompactHeader && isInviteTab && summaryInfo ? (
-      <InviteLevelPill
-        rebateConfig={summaryInfo.rebateConfig}
-        rebateLevels={summaryInfo.rebateLevels}
-        levelDetail={levelDetail}
-      />
-    ) : null;
-
   let body: ReactNode;
   if (isInviteTab && isFetching) {
     body = (
@@ -580,7 +566,13 @@ function InviteRewardPage() {
               )}
               {isInviteTab ? (
                 <XStack ai="center" gap="$2" flexShrink={1} jc="flex-end">
-                  {levelPill}
+                  {summaryInfo ? (
+                    <InviteLevelPill
+                      rebateConfig={summaryInfo.rebateConfig}
+                      rebateLevels={summaryInfo.rebateLevels}
+                      levelDetail={levelDetail}
+                    />
+                  ) : null}
                   <XStack gap="$4" ai="center">
                     <RulesButton />
                     {platformEnv.isWeb ? <LogoutButton /> : null}

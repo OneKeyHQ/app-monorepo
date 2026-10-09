@@ -83,12 +83,20 @@ export const LottieView = forwardRef<ILottieViewHandle, ILottieViewProps>(
         isFinishedRef.current = false;
         animationRef.current?.play?.();
       },
+      // Both are no-ops once a one-shot animation has played out, so a
+      // caller that holds it while hidden does not restart it.
       pause: () => {
+        if (isFinishedRef.current) {
+          return;
+        }
         isPausedRef.current = true;
         animationRef.current?.pause?.();
       },
       // Continues from the paused frame; `play` restarts on Android.
       resume: () => {
+        if (isFinishedRef.current) {
+          return;
+        }
         isPausedRef.current = false;
         animationRef.current?.resume?.();
       },

@@ -3,7 +3,6 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Button,
   Dialog,
   Divider,
   Icon,
@@ -13,6 +12,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { CardTextAction } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CardTextAction';
 import {
   INVITE_CARD_BORDER_COLOR,
   useInviteListCardStyle,
@@ -121,17 +121,13 @@ export function LevelStatusCard({
           </SizableText>
           <RetentionStatus status={retentionStatus} />
         </YStack>
-        <Button
+        <CardTextAction
           testID={ReferFriendsTestIDs.levelRulesBtn}
-          variant="tertiary"
-          size="small"
-          iconAfter="ChevronRightSmallOutline"
-          onPress={showRules}
-        >
-          {intl.formatMessage({
+          label={intl.formatMessage({
             id: ETranslations.referral_level_rules__action,
           })}
-        </Button>
+          onPress={showRules}
+        />
       </XStack>
       <Divider borderColor={INVITE_CARD_BORDER_COLOR} />
       {nextLevel && hasTargets ? (

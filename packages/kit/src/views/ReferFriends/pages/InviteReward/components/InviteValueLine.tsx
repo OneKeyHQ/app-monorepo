@@ -4,7 +4,6 @@ import type { ReactElement } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Button,
   Icon,
   Image,
   Popover,
@@ -13,6 +12,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { CardTextAction } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CardTextAction';
 import { useNavigateToReferralLevel } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferralLevel/hooks/useNavigateToReferralLevel';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteLevelDetail } from '@onekeyhq/shared/src/referralCode/type';
@@ -109,17 +109,13 @@ function RateBreakdown({
         </XStack>
       ))}
       <XStack pt="$2">
-        <Button
+        <CardTextAction
           testID={ReferFriendsTestIDs.inviteAllLevelsBtn}
-          variant="tertiary"
-          size="small"
-          iconAfter="ChevronRightSmallOutline"
-          onPress={onOpenLevels}
-        >
-          {intl.formatMessage({
+          label={intl.formatMessage({
             id: ETranslations.referral_level_details__action,
           })}
-        </Button>
+          onPress={onOpenLevels}
+        />
       </XStack>
     </YStack>
   );
@@ -154,7 +150,7 @@ export type IInviteValueSummaryResult = ReturnType<
 
 // The per-product rate split behind any trigger: hover on desktop, a bottom
 // sheet on compact screens.
-export function RatePopover({
+function RatePopover({
   valueSummary,
   trigger,
 }: {
@@ -207,18 +203,16 @@ export function RatePopover({
 // discount only the referrer's part shows. The info icon sits inside the
 // text, after the last word (as in the verification email hint), so it
 // follows the sentence however it wraps.
-export function RateLine({
+function RateLine({
   summary,
-  size = '$bodyMd',
   textAlign,
 }: {
   summary: IInviteValueSummary;
-  size?: '$bodyMd' | '$bodyLg';
   textAlign?: 'center';
 }) {
   const intl = useIntl();
   const highlight = (value: string) => (
-    <SizableText size={size} fontWeight="600" color="$textSuccess">
+    <SizableText size="$bodyMd" fontWeight="600" color="$textSuccess">
       {value}
     </SizableText>
   );
@@ -233,7 +227,7 @@ export function RateLine({
       : ETranslations.referral_you_earn_up_to__desc;
   }
   return (
-    <SizableText size={size} color="$textSubdued" textAlign={textAlign}>
+    <SizableText size="$bodyMd" color="$textSubdued" textAlign={textAlign}>
       {intl.formatMessage(
         { id },
         {
@@ -286,9 +280,4 @@ export function RateLineTrigger({
       }
     />
   );
-}
-
-// Pointer layouts' rate line under the invite card title.
-export function InviteValueLine(valueSummary: IInviteValueSummaryResult) {
-  return <RateLineTrigger valueSummary={valueSummary} />;
 }

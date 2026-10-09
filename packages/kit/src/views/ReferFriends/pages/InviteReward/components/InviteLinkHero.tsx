@@ -20,7 +20,7 @@ import { CompactFieldRow } from '../../../components/CompactFieldRow';
 import { ReferFriendsTestIDs } from '../../../testIDs';
 
 import { CardTextAction } from './CardTextAction';
-import { InviteValueLine } from './InviteValueLine';
+import { RateLineTrigger } from './InviteValueLine';
 import { useReferralCodeCard } from './ReferralCodeCard/hooks/useReferralCodeCard';
 import { ReferralLinkDropdown } from './ReferralLinkDropdown';
 import {
@@ -194,7 +194,7 @@ export function InviteLinkHero({
           <SizableText size="$headingLg">
             {intl.formatMessage({ id: ETranslations.referral_home__title })}
           </SizableText>
-          <InviteValueLine {...valueSummary} />
+          <RateLineTrigger valueSummary={valueSummary} />
         </YStack>
         <ReferralListLink />
       </XStack>
@@ -206,15 +206,13 @@ export function InviteLinkHero({
         })}
         copyLink={copyLink}
         shareButton={
-          platformEnv.isNative ? (
-            <IconButton
-              testID={ReferFriendsTestIDs.inviteShareBtn}
-              variant="secondary"
-              icon="ShareOutline"
-              title={intl.formatMessage({ id: ETranslations.explore_share })}
-              onPress={handleShare}
-            />
-          ) : null
+          <IconButton
+            testID={ReferFriendsTestIDs.inviteShareBtn}
+            variant="secondary"
+            icon="ShareOutline"
+            title={intl.formatMessage({ id: ETranslations.explore_share })}
+            onPress={handleShare}
+          />
         }
       />
       <InviteCodeLine
