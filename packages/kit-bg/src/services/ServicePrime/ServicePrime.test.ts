@@ -237,6 +237,9 @@ const mockPersistKeylessAuthSession = jest.fn(
 );
 const mockClearAllSupabaseAuthSessions = jest.fn(async () => undefined);
 const mockVerifyEmailOtp = jest.fn();
+const mockAllowEmailSessionWrites = jest.fn(
+  async (_source: unknown) => undefined,
+);
 
 jest.mock('@onekeyhq/shared/src/utils/supabaseClientUtils', () => ({
   getSupabaseClient: () => ({
@@ -251,7 +254,8 @@ jest.mock('@onekeyhq/shared/src/utils/supabaseClientUtils', () => ({
 // Real retryable-error semantics, driven by a `$$retryable` marker on the
 // rejection so tests can simulate a failed local session refresh.
 jest.mock('./primeAuthSessionAccess', () => ({
-  allowAuthSessionStorageWritesBySessionSource: jest.fn(),
+  allowAuthSessionStorageWritesBySessionSource: (source: unknown) =>
+    mockAllowEmailSessionWrites(source),
   clearAllSupabaseAuthSessions: () => mockClearAllSupabaseAuthSessions(),
   getAuthTokenBySessionSource: (source: unknown) =>
     mockGetAuthTokenBySessionSource(source),
@@ -4079,6 +4083,38 @@ describe('ServicePrime.apiLogin invalid-token clear guard', () => {
 describe('ServicePrime.apiEmailOtpLogin serialization', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it('reopens the email storage slot before OTP verification can persist a new session', async () => {
+    const { service } = createService();
+    let allowWrites!: () => void;
+    let noteReopen!: () => void;
+    const reopening = new Promise<void>((resolve) => {
+      noteReopen = resolve;
+    });
+    mockAllowEmailSessionWrites.mockImplementationOnce(() => {
+      noteReopen();
+      return new Promise<undefined>((resolve) => {
+        allowWrites = () => resolve(undefined);
+      });
+    });
+    mockVerifyEmailOtp.mockResolvedValue({
+      data: { session: { access_token: 'next-email-token' } },
+      error: null,
+    });
+    service.apiLoginWithPersistedLegacySession = jest.fn(async () => undefined);
+    const login = service.apiEmailOtpLogin({
+      email: 'next@example.com',
+      otp: '111111',
+    });
+    await reopening;
+    expect(mockAllowEmailSessionWrites).toHaveBeenCalledWith(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    expect(mockVerifyEmailOtp).not.toHaveBeenCalled();
+    allowWrites();
+    await expect(login).resolves.toEqual({ success: true });
+    expect(mockVerifyEmailOtp).toHaveBeenCalledTimes(1);
   });
 
   it('records an email OTP verification failure once in the background runtime', async () => {
