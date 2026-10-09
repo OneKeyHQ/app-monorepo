@@ -192,26 +192,22 @@ function DesktopRewardHeader({
   );
 }
 
-// The product's icon on a round tile, the row's visual anchor like a token
-// logo in the wallet lists, in the brand green the referral art uses. The
-// folded group keeps the tile's width blank.
+// The product's icon on a round neutral tile, the row's visual anchor like a
+// token logo in the wallet lists; the page keeps its green for the few
+// figures that need it. The folded group keeps the tile's width blank.
 function ProductTile({ subject }: { subject?: IInviteRewardSubject }) {
   return (
     <Stack
       w="$10"
       h="$10"
       borderRadius="$full"
-      bg={subject ? '$bgSuccess' : undefined}
+      bg={subject ? '$bgStrong' : undefined}
       ai="center"
       jc="center"
       flexShrink={0}
     >
       {subject ? (
-        <Icon
-          name={INVITE_REWARD_SUBJECT_ICON[subject]}
-          size="$5"
-          color="$iconSuccess"
-        />
+        <Icon name={INVITE_REWARD_SUBJECT_ICON[subject]} size="$5" />
       ) : null}
     </Stack>
   );
