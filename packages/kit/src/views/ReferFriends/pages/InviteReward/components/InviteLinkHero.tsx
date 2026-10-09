@@ -389,6 +389,9 @@ export function InviteEntriesCard({
 }) {
   const intl = useIntl();
   const navigateToYourReferred = useNavigateToYourReferred();
+  const rulesLabel = intl.formatMessage({
+    id: ETranslations.referral_global_rules,
+  });
 
   return (
     <YStack px="$4" py="$1" {...cardStyle}>
@@ -412,9 +415,11 @@ export function InviteEntriesCard({
         testID={ReferFriendsTestIDs.rulesBtn}
         {...COMPACT_ROW_BLEED_PROPS}
         titleProps={COMPACT_ENTRY_TITLE_PROPS}
-        title={intl.formatMessage({ id: ETranslations.referral_global_rules })}
+        title={rulesLabel}
         drillIn
-        onPress={openReferralRules}
+        onPress={() => {
+          openReferralRules(rulesLabel);
+        }}
       />
     </YStack>
   );
