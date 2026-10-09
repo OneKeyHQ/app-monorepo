@@ -1,9 +1,11 @@
 import { memo, useCallback, useRef } from 'react';
 
+import { useIntl } from 'react-intl';
 import { Image } from 'react-native';
 
 import { QRCode, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ONEKEY_LOGO_URL } from '@onekeyhq/kit/src/views/Receive/components/ReceiveShare/constants';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { renderCopy } from '../../pages/InviteReward/copyTemplate';
 
@@ -26,6 +28,7 @@ export const ShareContentRenderer = memo(
     data: IReferralShareData;
     onImagesReady?: () => void;
   }) => {
+    const intl = useIntl();
     const { copy, inviteCode, inviteUrl, displayUrl } = data;
     const card = REFERRAL_SHARE_CARD;
 
@@ -88,7 +91,7 @@ export const ShareContentRenderer = memo(
               fontSize={card.code.labelSize}
               lineHeight={card.code.labelLineHeight}
             >
-              {REFERRAL_SHARE_COPY.codeLabel}
+              {intl.formatMessage({ id: ETranslations.referral_your_code })}
             </SizableText>
             <SizableText
               color={card.textColor}

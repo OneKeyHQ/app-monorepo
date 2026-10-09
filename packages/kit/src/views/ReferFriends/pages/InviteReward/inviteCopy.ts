@@ -46,4 +46,5 @@ export const INVITE_COPY = {
   codeDefault: 'Default',
   codeCreated: 'Created {date}',
   walletName: 'Wallet {number}',
+  inviteesEmpty: 'No invitees yet',
 } as const;

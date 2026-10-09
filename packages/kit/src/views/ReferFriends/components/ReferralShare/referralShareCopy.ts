@@ -1,9 +1,9 @@
 import { fillCopy } from '../../pages/InviteReward/copyTemplate';
 
-// Hardcoded English until copy review; then move to Lokalise keys.
+// Hardcoded English until copy review; then move to Lokalise keys. `brand`,
+// `x` and `telegram` are names and stay untranslated.
 export const REFERRAL_SHARE_COPY = {
   brand: 'OneKey',
-  codeLabel: 'Referral code',
   scanToJoin: 'Scan to join OneKey',
   headline: 'Get up to {rate} off fees on OneKey',
   headlineNoDiscount: 'Join me on OneKey',

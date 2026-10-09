@@ -55,7 +55,7 @@ function ListEmpty() {
   return (
     <ReferralCardEmpty
       {...cardStyle}
-      title={intl.formatMessage({ id: ETranslations.referral_referred_empty })}
+      title={INVITE_COPY.inviteesEmpty}
       description={intl.formatMessage({
         id: ETranslations.referral_reward_empty_desc,
       })}
