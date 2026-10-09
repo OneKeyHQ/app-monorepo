@@ -197,13 +197,9 @@ function InviteOverviewSkeleton() {
             <Skeleton.BodyMd />
             <Skeleton.Heading3Xl />
           </YStack>
-          <XStack gap="$4">
-            {[0, 1].map((index) => (
-              <YStack key={index} flex={1} gap="$1">
-                <Skeleton.BodyMd />
-                <Skeleton.HeadingMd />
-              </YStack>
-            ))}
+          <XStack jc="space-between">
+            <Skeleton.BodyMd w={96} />
+            <Skeleton.BodyMd w={88} />
           </XStack>
         </YStack>
       </YStack>
@@ -269,6 +265,7 @@ function InviteShareFooter({
         onConfirmText={INVITE_COPY.inviteFriends}
         confirmButtonProps={{
           testID: ReferFriendsTestIDs.inviteFriendsFooterBtn,
+          icon: 'AddPeopleOutline',
         }}
       />
     </Page.Footer>

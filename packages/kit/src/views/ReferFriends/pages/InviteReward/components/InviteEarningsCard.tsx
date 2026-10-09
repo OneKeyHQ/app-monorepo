@@ -69,8 +69,8 @@ interface IEarningsLabels {
   payoutAddress: string;
 }
 
-// The unpaid figure with its fixed "USD" unit (it stays in USD whatever the
-// wallet currency is) and the next payout date.
+// The unpaid figure, optionally with its fixed "USD" unit (it stays in USD
+// whatever the wallet currency is), and the next payout date.
 function UnpaidAmount({
   amount,
   nextPayout,
@@ -83,7 +83,8 @@ function UnpaidAmount({
   nextPayout: string | null;
   nextPayoutLabel: string;
   amountSize: ISizableTextProps['size'];
-  unitSize: ISizableTextProps['size'];
+  // Omitted on compact layouts, where every figure on the page reads "$".
+  unitSize?: ISizableTextProps['size'];
   hintSize: ISizableTextProps['size'];
 }) {
   return (
@@ -97,9 +98,11 @@ function UnpaidAmount({
         >
           {amount}
         </Currency>
-        <SizableText size={unitSize} color="$textSubdued">
-          USD
-        </SizableText>
+        {unitSize ? (
+          <SizableText size={unitSize} color="$textSubdued">
+            USD
+          </SizableText>
+        ) : null}
       </XStack>
       {nextPayout ? (
         <SizableText size={hintSize} color="$textSubdued">
@@ -256,30 +259,24 @@ function CompactEarnings({
           nextPayout={earnings.nextDistribution}
           nextPayoutLabel={labels.nextDistribution}
           amountSize="$heading3xl"
-          unitSize="$bodyMd"
           hintSize="$bodySm"
         />
       </YStack>
-      <XStack gap="$4" pt="$5">
-        {[
-          { label: labels.cumulative, value: earnings.cumulative },
-          { label: labels.distributed, value: earnings.distributed },
-        ].map((item) => (
-          <YStack key={item.label} flex={1} flexBasis={0} minWidth={0} gap="$1">
-            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-              {item.label}
-            </SizableText>
-            <Currency
-              {...REFERRAL_USD_CURRENCY_PROPS}
-              size="$headingMd"
-              numberOfLines={1}
-            >
-              {item.value}
-            </Currency>
-          </YStack>
-        ))}
+      {/* Paid is total earned minus unpaid, and Payout history lists it, so
+          the card keeps the one total as a label/value line. */}
+      <XStack pt="$2" minHeight={36} ai="center" jc="space-between" gap="$3">
+        <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+          {labels.cumulative}
+        </SizableText>
+        <Currency
+          {...REFERRAL_USD_CURRENCY_PROPS}
+          size="$bodyMdMedium"
+          numberOfLines={1}
+        >
+          {earnings.cumulative}
+        </Currency>
       </XStack>
-      <Divider mt="$4" mb="$1" borderColor={INVITE_CARD_BORDER_COLOR} />
+      <Divider mt="$1" mb="$1" borderColor={INVITE_CARD_BORDER_COLOR} />
       <ListItem
         testID={ReferFriendsTestIDs.invitePayoutAddress}
         {...COMPACT_ROW_BLEED_PROPS}
