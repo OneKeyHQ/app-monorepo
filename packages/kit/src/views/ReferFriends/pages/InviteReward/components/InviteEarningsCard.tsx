@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import {
   Divider,
   Icon,
+  Illustration,
   SizableText,
   XStack,
   YStack,
@@ -152,11 +153,18 @@ function DesktopEarnings({
             onPress={onOpenHistory}
           />
         </XStack>
-        <UnpaidAmount
-          amount={earnings.undistributed}
-          nextPayout={earnings.nextDistribution}
-          nextPayoutLabel={labels.nextDistribution}
-        />
+        <XStack ai="center" gap="$4">
+          <YStack flex={1} minWidth={0}>
+            <UnpaidAmount
+              amount={earnings.undistributed}
+              nextPayout={earnings.nextDistribution}
+              nextPayoutLabel={labels.nextDistribution}
+            />
+          </YStack>
+          {/* A touch of the brand's line art in the room the amount leaves;
+              it has a dark variant of its own. */}
+          <Illustration name="BlockCoins" size={88} flexShrink={0} />
+        </XStack>
       </YStack>
       {/* The three facts share one size; the address is text, so it keeps
           the medium weight instead of the figures' semibold. */}
