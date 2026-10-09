@@ -53,64 +53,6 @@ const storeByKey = {
 
 export const getStoreForKey = (key: keyof IDesktopStoreMap) => storeByKey[key];
 
-let winBoundsLogSequence = 0;
-
-function winBoundsForLog(value: unknown) {
-  if (!value || typeof value !== 'object') {
-    return { type: value === null ? 'null' : typeof value };
-  }
-  const bounds = value as Record<string, unknown>;
-  const dimension = (key: string) =>
-    typeof bounds[key] === 'number' ? bounds[key] : typeof bounds[key];
-  return {
-    x: dimension('x'),
-    y: dimension('y'),
-    width: dimension('width'),
-    height: dimension('height'),
-  };
-}
-
-function logWinBounds(event: string, bounds: unknown) {
-  if (process.platform !== 'darwin') return;
-  try {
-    winBoundsLogSequence += 1;
-    logger.info('[WindowBounds]', event, {
-      pid: process.pid,
-      storeSequence: winBoundsLogSequence,
-      storeFile: path.basename(store.path),
-      bounds: winBoundsForLog(bounds),
-    });
-  } catch {
-    // Diagnostics must not change storage behavior.
-  }
-}
-
-if (process.platform === 'darwin') {
-  try {
-    // Capture before any startup write; emit after logger configuration loads.
-    const initialBounds = winBoundsForLog(
-      store.get(EDesktopStoreKeys.WinBounds),
-    );
-    const initialStoreFile = path.basename(store.path);
-    const capturedAt = Date.now();
-    queueMicrotask(() => {
-      try {
-        logger.info('[WindowBounds]', 'store-created', {
-          pid: process.pid,
-          storeSequence: 0,
-          capturedAt,
-          storeFile: initialStoreFile,
-          bounds: initialBounds,
-        });
-      } catch {
-        // Diagnostics must not change startup behavior.
-      }
-    });
-  } catch {
-    // Keep the existing read/validation path responsible for storage errors.
-  }
-}
-
 export type ILocalStore = {
   getUpdateSettings(): IDesktopStoreUpdateSettings;
   setUpdateSettings(updateSettings: IDesktopStoreUpdateSettings): void;
@@ -182,17 +124,14 @@ export const setLanguage = (lang: string) =>
   store.set(EDesktopStoreKeys.Language, lang);
 
 export const getWinBounds = (): Electron.Rectangle => {
-  const bounds = store.get(
+  return store.get(
     EDesktopStoreKeys.WinBounds,
     {} as Electron.Rectangle,
   );
-  logWinBounds('read', bounds);
-  return bounds;
 };
 
 export const setWinBounds = (bounds: Electron.Rectangle) => {
   store.set(EDesktopStoreKeys.WinBounds, bounds);
-  logWinBounds('write-complete', bounds);
 };
 
 export const clearUpdateSettings = () => {

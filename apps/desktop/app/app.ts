@@ -18,7 +18,6 @@ import {
   BrowserWindow,
   Menu,
   app,
-  screen as electronScreen,
   webContents as electronWebContents,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   inAppPurchase,
@@ -300,66 +299,10 @@ const getSafelyMainWindow = () => {
   return undefined;
 };
 
-let windowBoundsLogSequence = 0;
-
-function logWindowBounds(
-  event: string,
-  window?: BrowserWindow,
-  creationBounds?: Partial<Electron.Rectangle>,
-) {
-  if (!isMac) return;
-  try {
-    windowBoundsLogSequence += 1;
-    const destroyed = window?.isDestroyed();
-    const bounds = window && !destroyed ? window.getBounds() : undefined;
-    logger.info('[WindowBounds]', event, {
-      pid: process.pid,
-      windowSequence: windowBoundsLogSequence,
-      windowId: window && !destroyed ? window.id : undefined,
-      storeFile: path.basename(store.instance.path),
-      creationBounds: creationBounds
-        ? {
-            x:
-              typeof creationBounds.x === 'number'
-                ? creationBounds.x
-                : undefined,
-            y:
-              typeof creationBounds.y === 'number'
-                ? creationBounds.y
-                : undefined,
-            width:
-              typeof creationBounds.width === 'number'
-                ? creationBounds.width
-                : undefined,
-            height:
-              typeof creationBounds.height === 'number'
-                ? creationBounds.height
-                : undefined,
-          }
-        : undefined,
-      destroyed,
-      bounds,
-      normalBounds: window && !destroyed ? window.getNormalBounds() : undefined,
-      minimumSize: window && !destroyed ? window.getMinimumSize() : undefined,
-      maximized: window && !destroyed ? window.isMaximized() : undefined,
-      minimized: window && !destroyed ? window.isMinimized() : undefined,
-      fullScreen: window && !destroyed ? window.isFullScreen() : undefined,
-      visible: window && !destroyed ? window.isVisible() : undefined,
-      workArea: bounds
-        ? electronScreen.getDisplayMatching(bounds).workArea
-        : electronScreen.getPrimaryDisplay().workArea,
-    });
-  } catch {
-    // Diagnostics must not change window lifecycle behavior.
-  }
-}
-
 function showMainWindow() {
   const safelyMainWindow = getSafelyMainWindow();
-  logWindowBounds('before-show', safelyMainWindow);
   safelyMainWindow?.show();
   safelyMainWindow?.focus();
-  logWindowBounds('after-show', safelyMainWindow);
 }
 
 // MAS / Mac App Store builds cannot call `app.relaunch()` (sandbox forbids it),
@@ -879,13 +822,6 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   ) {
     savedWinBounds = {};
   }
-  logWindowBounds('create-options', undefined, {
-    x: isDevServer ? 0 : undefined,
-    y: isDevServer ? 0 : undefined,
-    width: Math.min(defaultSize, dimensions.width),
-    height: Math.min(defaultSize / ratio, dimensions.height),
-    ...savedWinBounds,
-  });
   const browserWindow = new BrowserWindow({
     show: false,
     title: APP_TITLE_NAME,
@@ -927,34 +863,6 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     icon: path.join(appStaticResourcesPath, 'images/icons/512x512.png'),
     ...savedWinBounds,
   });
-  logWindowBounds('created', browserWindow);
-  if (isMac) {
-    browserWindow.on('maximize', () =>
-      logWindowBounds('maximize', browserWindow),
-    );
-    browserWindow.on('unmaximize', () =>
-      logWindowBounds('unmaximize', browserWindow),
-    );
-    browserWindow.on('minimize', () =>
-      logWindowBounds('minimize', browserWindow),
-    );
-    browserWindow.on('restore', () =>
-      logWindowBounds('restore', browserWindow),
-    );
-    browserWindow.on('enter-full-screen', () =>
-      logWindowBounds('enter-full-screen', browserWindow),
-    );
-    browserWindow.on('leave-full-screen', () =>
-      logWindowBounds('leave-full-screen', browserWindow),
-    );
-    browserWindow.on('show', () => logWindowBounds('show', browserWindow));
-    browserWindow.on('hide', () => logWindowBounds('hide', browserWindow));
-    browserWindow.on('ready-to-show', () =>
-      logWindowBounds('ready-to-show', browserWindow),
-    );
-    browserWindow.on('close', () => logWindowBounds('close', browserWindow));
-    browserWindow.on('closed', () => logWindowBounds('closed', browserWindow));
-  }
   applyDesktopNetworkThrottleToWebContents(browserWindow.webContents);
 
   const getSafelyBrowserWindow = () => {
@@ -1140,7 +1048,6 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   });
 
   browserWindow.webContents.on('did-finish-load', () => {
-    logWindowBounds('did-finish-load', browserWindow);
     logger.info('browserWindow >>>> did-finish-load');
     // fix white flicker on Windows & Linux
     if (!isMac) {
@@ -1161,7 +1068,6 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   browserWindow.on('resize', () => {
     const safelyWindow = getSafelyBrowserWindow();
     if (safelyWindow) {
-      logWindowBounds('resize-before-write', safelyWindow);
       store.setWinBounds(safelyWindow.getBounds());
     }
   });
@@ -2051,7 +1957,6 @@ app.on('activate', async () => {
 });
 
 app.on('before-quit', (event) => {
-  logWindowBounds('before-quit', getSafelyMainWindow());
   unregisterShortcuts();
   if (isMac && !bleQuitReady) {
     event.preventDefault();
@@ -2127,11 +2032,9 @@ app.on('before-quit', (event) => {
   }
   const safelyMainWindow = getSafelyMainWindow();
   if (safelyMainWindow) {
-    logWindowBounds('quit-before-close', safelyMainWindow);
     safelyMainWindow.removeAllListeners();
     safelyMainWindow.removeAllListeners('close');
     safelyMainWindow.close();
-    logWindowBounds('quit-after-close', safelyMainWindow);
   }
   disposeContextMenu?.();
 });

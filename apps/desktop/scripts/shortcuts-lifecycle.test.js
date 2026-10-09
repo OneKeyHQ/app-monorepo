@@ -75,7 +75,6 @@ function loadShortcuts() {
     disposeContextMenu: jest.fn(),
     ipcMessageKeys: { APP_STATE: 'state', APP_SHORTCUT: 'shortcut' },
     logger,
-    logWindowBounds: jest.fn(),
     mainWindow: browserWindow,
     isAppReady: true,
     isMac: true,

@@ -3,8 +3,6 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
-import { EDesktopStoreKeys } from '@onekeyhq/shared/types/desktop';
-
 let mockProfileDir = '';
 let mockAppVersion = '6.7.0';
 
@@ -103,8 +101,7 @@ describe('desktop startup with persisted state', () => {
     }
   });
 
-  afterEach(async () => {
-    await Promise.resolve();
+  afterEach(() => {
     fs.rmSync(mockProfileDir, { recursive: true, force: true });
     if (originalBuildNumber === undefined) delete process.env.BUILD_NUMBER;
     else process.env.BUILD_NUMBER = originalBuildNumber;
@@ -245,32 +242,4 @@ describe('desktop startup with persisted state', () => {
     expect(fs.readFileSync(file, 'utf8')).toBe('{invalid-wallet-preferences');
   });
 
-  it('emits window geometry diagnostics without profile paths', async () => {
-    const { store } = loadStartup();
-    const bounds = { x: 20, y: 30, width: 1200, height: 800 };
-    store.setWinBounds(bounds);
-    expect(store.getWinBounds()).toEqual(bounds);
-    await Promise.resolve();
-    const logger = jest.requireMock('electron-log/main') as { info: jest.Mock };
-    const calls = logger.info.mock.calls.filter(
-      (call) => call[0] === '[WindowBounds]',
-    );
-    if (process.platform === 'darwin') {
-      expect(calls.length).toBeGreaterThan(0);
-    } else {
-      expect(calls).toHaveLength(0);
-    }
-    for (const call of calls) {
-      expect(call[2]).toMatchObject({ storeFile: 'OneKey.json' });
-      if (call[1] === 'store-created') {
-        expect(call[2].bounds).toEqual({ type: 'undefined' });
-      } else {
-        expect(call[2].bounds).toEqual(bounds);
-      }
-      expect(JSON.stringify(call)).not.toContain(mockProfileDir);
-      expect(call[2]).not.toHaveProperty('storePath');
-      expect(call[2]).not.toHaveProperty('userDataPath');
-    }
-    expect(store.getStoreForKey(EDesktopStoreKeys.Theme)).toBe(store.instance);
-  });
 });
