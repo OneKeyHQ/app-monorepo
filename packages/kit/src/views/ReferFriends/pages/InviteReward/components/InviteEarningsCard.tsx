@@ -225,9 +225,8 @@ function DesktopEarnings({
 }
 
 // Compact layouts stack the same facts as the desktop card: the unpaid
-// amount leads with the total earned as one label/value line. The payout
-// address only closes the card while it is not set, as the step to take;
-// once set it lives on the Payout history page, one tap away.
+// amount leads with the total earned as one label/value line, and the payout
+// address closes the card as a row, in the caution color while it is not set.
 function CompactEarnings({
   earnings,
   labels,
@@ -265,42 +264,50 @@ function CompactEarnings({
           hintSize="$bodySm"
         />
       </YStack>
-      {/* Paid is total earned minus unpaid, and Payout history lists it, so
-          the card keeps the one total as a label/value line. */}
-      <XStack pt="$2" minHeight={36} ai="center" jc="space-between" gap="$3">
-        <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-          {labels.cumulative}
-        </SizableText>
-        <Currency
-          {...REFERRAL_USD_CURRENCY_PROPS}
-          size="$bodyMdMedium"
-          numberOfLines={1}
-        >
-          {earnings.cumulative}
-        </Currency>
-      </XStack>
-      {isPayoutAddressSet ? null : (
-        <>
-          <Divider mt="$1" mb="$1" borderColor={INVITE_CARD_BORDER_COLOR} />
-          <ListItem
-            testID={ReferFriendsTestIDs.invitePayoutAddress}
-            {...COMPACT_ROW_BLEED_PROPS}
-            titleProps={COMPACT_ENTRY_TITLE_PROPS}
-            title={labels.payoutAddress}
-            drillIn
-            onPress={onEditAddress}
+      {/* The totals read as label/value lines, like the code card's rows. */}
+      <YStack pt="$2">
+        {[
+          { label: labels.cumulative, value: earnings.cumulative },
+          { label: labels.distributed, value: earnings.distributed },
+        ].map((item) => (
+          <XStack
+            key={item.label}
+            minHeight={36}
+            ai="center"
+            jc="space-between"
+            gap="$3"
           >
-            <SizableText
-              size="$bodyMd"
-              color="$textCaution"
-              numberOfLines={1}
-              flexShrink={1}
-            >
-              {payoutAddress}
+            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+              {item.label}
             </SizableText>
-          </ListItem>
-        </>
-      )}
+            <Currency
+              {...REFERRAL_USD_CURRENCY_PROPS}
+              size="$bodyMdMedium"
+              numberOfLines={1}
+            >
+              {item.value}
+            </Currency>
+          </XStack>
+        ))}
+      </YStack>
+      <Divider mt="$1" mb="$1" borderColor={INVITE_CARD_BORDER_COLOR} />
+      <ListItem
+        testID={ReferFriendsTestIDs.invitePayoutAddress}
+        {...COMPACT_ROW_BLEED_PROPS}
+        titleProps={COMPACT_ENTRY_TITLE_PROPS}
+        title={labels.payoutAddress}
+        drillIn
+        onPress={onEditAddress}
+      >
+        <SizableText
+          size="$bodyMd"
+          color={isPayoutAddressSet ? '$textSubdued' : '$textCaution'}
+          numberOfLines={1}
+          flexShrink={1}
+        >
+          {payoutAddress}
+        </SizableText>
+      </ListItem>
     </YStack>
   );
 }
@@ -364,9 +371,7 @@ export function InviteEarningsCard({
         testID={ReferFriendsTestIDs.inviteEarningsCard}
         px="$4"
         pt="$4"
-        // The address row brings its own 12px under the text; the total
-        // line needs 8px more to sit 16px from the edge.
-        pb={withdrawAddress ? '$2' : '$1'}
+        pb="$1"
         {...cardStyle}
       >
         <CompactEarnings

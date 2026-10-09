@@ -316,20 +316,17 @@ describe('InviteTabContent entry points', () => {
   });
 
   it.each([
-    { withdrawAddresses: [], shown: true },
-    {
-      withdrawAddresses: [{ networkId: 'evm--1', address: '0xpayout' }],
-      shown: false,
-    },
+    { withdrawAddresses: [] },
+    { withdrawAddresses: [{ networkId: 'evm--1', address: '0xpayout' }] },
   ])(
-    'shows the compact payout address only until it is set (%#)',
-    ({ withdrawAddresses, shown }) => {
+    'always shows the compact payout address (%#)',
+    ({ withdrawAddresses }) => {
       mockMd = true;
       renderTab({ ...SUMMARY, withdrawAddresses } as unknown as IInviteSummary);
 
       expect(
-        Boolean(screen.queryByTestId(ReferFriendsTestIDs.invitePayoutAddress)),
-      ).toBe(shown);
+        screen.getByTestId(ReferFriendsTestIDs.invitePayoutAddress),
+      ).toBeTruthy();
     },
   );
 
