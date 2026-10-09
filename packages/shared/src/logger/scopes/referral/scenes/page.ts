@@ -102,7 +102,9 @@ export class PageScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal({ level: 'info' })
-  public shareReferralLink(shareMethod: 'copy' | 'share') {
+  public shareReferralLink(
+    shareMethod: 'copy' | 'share' | 'save' | 'x' | 'telegram',
+  ) {
     return { shareMethod };
   }
 

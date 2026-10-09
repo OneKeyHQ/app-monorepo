@@ -17,20 +17,25 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import type { IPageProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { getChartColorWithAlpha } from '@onekeyhq/kit/src/components/LightweightChart/utils/chartColor';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  getReferralShareCopy,
+  showReferralShareDialog,
+} from '@onekeyhq/kit/src/views/ReferFriends/components/ReferralShare';
 import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
 import { BenefitsTabPlaceholder } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/BenefitsTabPlaceholder';
 import { useInviteLevelDetail } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CurrentLevelCard/hooks/useCurrentLevelCard';
 import { getInviteEarningsState } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/getInviteEarningsState';
 import { InviteLevelPill } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InviteLevelPill';
 import { InviteTabContent } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InviteTabContent';
+import { useInviteValueSummary } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InviteValueLine';
 import { LogoutButton } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/LogoutButton';
-import { useReferralCodeCard } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/ReferralCodeCard/hooks/useReferralCodeCard';
 import { ReferralJobTabs } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/ReferralJobTabs';
 import { RulesButton } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/RulesButton';
 import {
@@ -43,10 +48,14 @@ import {
   IS_BENEFITS_TAB_ENABLED,
   resolveReferralPageTab,
 } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/referralPageTab';
+import { formatInviteUrlForDisplay } from '@onekeyhq/kit/src/views/ReferFriends/utils/inviteUrlUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
+import type {
+  IInviteLevelDetail,
+  IInviteSummary,
+} from '@onekeyhq/shared/src/referralCode/type';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { IInviteRewardRouteParams } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -215,6 +224,53 @@ function InviteOverviewSkeleton() {
   );
 }
 
+// Inviting is the main action on native. The button opens the share card
+// preview (save, copy link, X, Telegram, system share); copying alone lives
+// on the invite card rows. A component of its own so the card's copy can
+// read the level's rates through hooks once the summary has loaded.
+function InviteShareFooter({
+  summaryInfo,
+  levelDetail,
+  backgroundColor,
+}: {
+  summaryInfo: IInviteSummary;
+  levelDetail: IInviteLevelDetail | undefined;
+  backgroundColor: IPageProps['backgroundColor'];
+}) {
+  const { summary } = useInviteValueSummary({
+    rebateConfig: summaryInfo.rebateConfig,
+    rebateLevels: summaryInfo.rebateLevels,
+    levelDetail,
+  });
+  const inviteeRate = summary?.friendRate;
+  const handleInvite = useCallback(() => {
+    showReferralShareDialog({
+      copy: getReferralShareCopy(inviteeRate),
+      inviteCode: summaryInfo.inviteCode,
+      inviteUrl: summaryInfo.inviteUrl,
+      displayUrl: formatInviteUrlForDisplay(summaryInfo.inviteUrl),
+    });
+  }, [inviteeRate, summaryInfo.inviteCode, summaryInfo.inviteUrl]);
+
+  return (
+    <Page.Footer>
+      <Page.FooterActions
+        bg={backgroundColor}
+        // Tighter than the default 20px: 12px above the button, and 12px
+        // below it plus the safe area, which still clears the home
+        // indicator; the content keeps the difference.
+        pt="$3"
+        pb="$3"
+        onConfirm={handleInvite}
+        onConfirmText={INVITE_COPY.inviteFriends}
+        confirmButtonProps={{
+          testID: ReferFriendsTestIDs.inviteFriendsFooterBtn,
+        }}
+      />
+    </Page.Footer>
+  );
+}
+
 function InviteRewardPage() {
   const intl = useIntl();
   const { md } = useMedia();
@@ -338,11 +394,6 @@ function InviteRewardPage() {
       });
     }
   }, [isInviteTab, hasSummary]);
-
-  const { handleShare } = useReferralCodeCard({
-    inviteUrl: summaryInfo?.inviteUrl ?? '',
-    inviteCode: summaryInfo?.inviteCode ?? '',
-  });
 
   const isFetching = isRetrying || (isFirstLoading && !summaryInfo);
   const handleRetry = useCallback(async () => {
@@ -479,24 +530,12 @@ function InviteRewardPage() {
           />
         ) : null}
       </Page.Body>
-      {showInviteFooter ? (
-        <Page.Footer>
-          {/* Inviting is the main action on native: it opens the share
-              sheet. Copying lives on the invite card rows. */}
-          <Page.FooterActions
-            bg={pageCanvas.backgroundColor}
-            // Tighter than the default 20px: 12px above the button, and 12px
-            // below it plus the safe area, which still clears the home
-            // indicator; the content keeps the difference.
-            pt="$3"
-            pb="$3"
-            onConfirm={handleShare}
-            onConfirmText={INVITE_COPY.inviteFriends}
-            confirmButtonProps={{
-              testID: ReferFriendsTestIDs.inviteFriendsFooterBtn,
-            }}
-          />
-        </Page.Footer>
+      {showInviteFooter && summaryInfo ? (
+        <InviteShareFooter
+          summaryInfo={summaryInfo}
+          levelDetail={levelDetail}
+          backgroundColor={pageCanvas.backgroundColor}
+        />
       ) : null}
     </Page>
   );
