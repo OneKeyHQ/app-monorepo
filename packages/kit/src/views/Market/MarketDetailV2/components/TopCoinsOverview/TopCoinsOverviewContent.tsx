@@ -258,7 +258,7 @@ function TopCoinsStatsAndPerformance({
         <SizableText size="$headingXl">
           {intl.formatMessage({ id: ETranslations.market_performance })}
         </SizableText>
-        <XStack flexWrap="wrap" columnGap="$4">
+        <XStack flexWrap="wrap" columnGap={columns === 2 ? 0 : '$4'}>
           {performanceItems.map((item) => (
             <TopCoinsPerformanceItem
               key={item.key}

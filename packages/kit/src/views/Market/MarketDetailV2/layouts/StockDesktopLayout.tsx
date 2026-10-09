@@ -909,7 +909,12 @@ const STOCK_ANALYST_BAR_ROW_HEIGHT = 32;
 const STOCK_ANALYST_BAR_MIN_WIDTH = 96;
 const STOCK_ANALYST_DISTRIBUTION_MIN_WIDTH = 240;
 
-export function StockAnalystRatings() {
+export function StockAnalystRatings({
+  gaugeWidth = STOCK_ANALYST_GAUGE_WIDTH,
+}: {
+  gaugeWidth?: number;
+} = {}) {
+  const resolvedGaugeWidth = Math.min(gaugeWidth, STOCK_ANALYST_GAUGE_WIDTH);
   const intl = useIntl();
   const { format } = useFormatDate();
   const { stockDetail, isStockDetailLoading } = useStockDetail();
@@ -970,8 +975,11 @@ export function StockAnalystRatings() {
           py="$2"
         >
           <Skeleton
-            width={STOCK_ANALYST_GAUGE_WIDTH}
-            height={STOCK_ANALYST_GAUGE_HEIGHT}
+            width={resolvedGaugeWidth}
+            height={
+              STOCK_ANALYST_GAUGE_HEIGHT *
+              (resolvedGaugeWidth / STOCK_ANALYST_GAUGE_WIDTH)
+            }
           />
           {/* Three 24px bars with 12px gaps add up to the 96px the loaded
           bars occupy, so the section does not jump when data lands. */}
@@ -994,7 +1002,11 @@ export function StockAnalystRatings() {
           py="$2"
           pr="$2"
         >
-          <StockAnalystGauge ratings={ratings} ratingCounts={ratingCounts} />
+          <StockAnalystGauge
+            ratings={ratings}
+            ratingCounts={ratingCounts}
+            width={resolvedGaugeWidth}
+          />
           <YStack
             flex={1}
             minWidth={STOCK_ANALYST_DISTRIBUTION_MIN_WIDTH}

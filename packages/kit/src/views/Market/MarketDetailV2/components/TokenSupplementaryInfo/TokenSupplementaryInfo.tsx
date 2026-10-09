@@ -178,7 +178,7 @@ export function TokenSupplementaryInfo({
           label: intl.formatMessage({ id: ETranslations.global_liquidity }),
           value: formatStatValueWithFormatter(
             isMobileOverview
-              ? tokenDetail.liquidity || tokenDetail.tvl
+              ? (tokenDetail.liquidity ?? tokenDetail.tvl)
               : tokenDetail.liquidity,
             USD_CURRENCY_FORMATTER,
           ),

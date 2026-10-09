@@ -21688,6 +21688,7 @@
     "packages/kit/src/views/Market/MarketDetailV2/components/InformationPanel/InformationPanelSkeleton.tsx": 17828,
     "packages/kit/src/views/Market/MarketDetailV2/components/InformationPanel/StockMobilePriceHeader.tsx": 9686,
     "packages/kit/src/views/Market/MarketDetailV2/components/InformationPanel/stockMobilePriceChange.ts": 6150,
+    "packages/kit/src/views/Market/MarketDetailV2/components/InformationTabs/StockMobileOverview.tsx": 3411,
     "packages/kit/src/views/Market/MarketDetailV2/components/InformationTabs/components/AddressDisplay/AddressDisplay.tsx": 21632,
     "packages/kit/src/views/Market/MarketDetailV2/components/InformationTabs/components/AddressDisplay/index.ts": 14254,
     "packages/kit/src/views/Market/MarketDetailV2/components/InformationTabs/components/Holders/Holders.tsx": 20883,
