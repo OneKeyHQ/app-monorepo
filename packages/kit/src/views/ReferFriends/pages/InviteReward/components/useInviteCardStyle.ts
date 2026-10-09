@@ -34,10 +34,6 @@ export const COMPACT_ROW_BLEED_PROPS = {
   borderRadius: '$3',
 } as const;
 
-// Entry rows pair 14px titles with 20px icons; product rows keep the
-// list default (24px) next to their 16px titles.
-export const COMPACT_ENTRY_ICON_PROPS = { size: '$5' } as const;
-
 export const INVITE_POPOVER_PANEL_PROPS = { width: 320 } as const;
 
 // Invite home cards round a step further than the card lists on the codes

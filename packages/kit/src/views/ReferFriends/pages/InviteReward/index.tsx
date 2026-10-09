@@ -143,13 +143,15 @@ function InviteOverviewSkeleton() {
   );
 
   if (md) {
-    // Compact content: level line, invite facts card, then earnings card.
+    // Compact content: invite card, earnings section, then entries card.
     return (
       <YStack px="$pagePadding" pt="$3" gap="$5">
-        <Skeleton.BodyLg w={180} />
         <YStack gap="$4" p="$4" {...cardStyle}>
           <YStack gap="$1">
-            <Skeleton.BodyMd w={96} />
+            <XStack jc="space-between" ai="center">
+              <Skeleton.BodyMd w={96} />
+              <Skeleton w={72} h={24} radius="round" />
+            </XStack>
             <Skeleton.Heading3Xl w={140} />
           </YStack>
           <Divider borderColor="$neutral4" />
@@ -159,23 +161,27 @@ function InviteOverviewSkeleton() {
               <Skeleton.BodyMd w={120} />
             </XStack>
           ))}
-          <Divider borderColor="$neutral4" />
-          <Skeleton.BodyLg w={140} />
-          <Skeleton.BodyLg w={120} />
+        </YStack>
+        <YStack pt="$1" gap="$3">
+          <Skeleton.HeadingLg w={96} />
+          <YStack gap="$4" p="$4" {...cardStyle}>
+            <YStack gap="$1">
+              <Skeleton.BodyMd />
+              <Skeleton.Heading3Xl />
+            </YStack>
+            <XStack gap="$4">
+              {[0, 1].map((index) => (
+                <YStack key={index} flex={1} gap="$1">
+                  <Skeleton.BodyMd />
+                  <Skeleton.HeadingMd />
+                </YStack>
+              ))}
+            </XStack>
+          </YStack>
         </YStack>
         <YStack gap="$4" p="$4" {...cardStyle}>
-          <YStack gap="$1">
-            <Skeleton.BodyMd />
-            <Skeleton.Heading3Xl />
-          </YStack>
-          <XStack gap="$4">
-            {[0, 1].map((index) => (
-              <YStack key={index} flex={1} gap="$1">
-                <Skeleton.BodyMd />
-                <Skeleton.HeadingMd />
-              </YStack>
-            ))}
-          </XStack>
+          <Skeleton.BodyMd w={120} />
+          <Skeleton.BodyMd w={100} />
         </YStack>
       </YStack>
     );

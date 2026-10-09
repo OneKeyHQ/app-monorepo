@@ -25,7 +25,6 @@ import { InviteValueLine, RatePopover } from './InviteValueLine';
 import { useReferralCodeCard } from './ReferralCodeCard/hooks/useReferralCodeCard';
 import { ReferralLinkDropdown } from './ReferralLinkDropdown';
 import {
-  COMPACT_ENTRY_ICON_PROPS,
   COMPACT_ENTRY_TITLE_PROPS,
   COMPACT_ROW_BLEED_PROPS,
   INVITE_CARD_BORDER_COLOR,
@@ -290,24 +289,23 @@ function InviteFieldRow({
   );
 }
 
-// Compact layouts list the invite facts as label/value rows (code, link,
-// rates) with copy beside each value, then the two entries that belong to
-// inviting. Sharing is the page's main action, pinned to the footer.
+// Compact layouts keep this card to sharing: the level and code lead, then
+// the link and rates as label/value rows with copy beside each value.
+// Sharing itself is the page's main action, pinned to the footer.
 export function InviteCompactCard({
   inviteUrl,
   inviteCode,
   valueSummary,
   cardStyle,
-  onManageCodes,
+  levelChip,
 }: {
   inviteUrl: string;
   inviteCode: string;
   valueSummary: IInviteValueSummaryResult;
   cardStyle: IInviteCardStyle;
-  onManageCodes: () => void;
+  levelChip?: ReactNode;
 }) {
   const intl = useIntl();
-  const navigateToYourReferred = useNavigateToYourReferred();
   const { handleCopy, copyLink, inviteCodeUrl } = useReferralCodeCard({
     inviteUrl,
     inviteCode,
@@ -323,25 +321,28 @@ export function InviteCompactCard({
     <YStack px="$4" pt="$4" pb="$1" {...cardStyle}>
       {/* The code is what people share and type, so it leads the card at
           display size; the link and rates follow as detail rows. */}
-      <XStack ai="center" gap="$3" pb="$3">
-        <YStack flex={1} minWidth={0}>
-          <SizableText size="$bodyMd" color="$textSubdued">
+      <YStack pb="$3">
+        <XStack ai="center" jc="space-between" gap="$3" minHeight={24}>
+          <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
             {intl.formatMessage({ id: ETranslations.referral_your_code })}
           </SizableText>
-          <SizableText size="$heading3xl" numberOfLines={1}>
+          {levelChip}
+        </XStack>
+        <XStack ai="center" gap="$3">
+          <SizableText flex={1} size="$heading3xl" numberOfLines={1}>
             {inviteCode}
           </SizableText>
-        </YStack>
-        <Button
-          testID={ReferFriendsTestIDs.inviteCodeLine}
-          variant="secondary"
-          size="small"
-          icon="Copy3Outline"
-          onPress={handleCopy}
-        >
-          {intl.formatMessage({ id: ETranslations.global_copy })}
-        </Button>
-      </XStack>
+          <Button
+            testID={ReferFriendsTestIDs.inviteCodeLine}
+            variant="secondary"
+            size="small"
+            icon="Copy3Outline"
+            onPress={handleCopy}
+          >
+            {intl.formatMessage({ id: ETranslations.global_copy })}
+          </Button>
+        </XStack>
+      </YStack>
       <Divider borderColor={INVITE_CARD_BORDER_COLOR} />
       <InviteFieldRow
         label={intl.formatMessage({ id: ETranslations.referral_referral_link })}
@@ -374,13 +375,28 @@ export function InviteCompactCard({
           />
         </InviteFieldRow>
       ) : null}
-      <Divider my="$1" borderColor={INVITE_CARD_BORDER_COLOR} />
+    </YStack>
+  );
+}
+
+// Compact layouts: the pages behind the invite card (codes, people invited)
+// as plain drill-in rows in their own card.
+export function InviteEntriesCard({
+  cardStyle,
+  onManageCodes,
+}: {
+  cardStyle: IInviteCardStyle;
+  onManageCodes: () => void;
+}) {
+  const intl = useIntl();
+  const navigateToYourReferred = useNavigateToYourReferred();
+
+  return (
+    <YStack px="$4" py="$1" {...cardStyle}>
       <ListItem
         testID={ReferFriendsTestIDs.inviteManageCodes}
         {...COMPACT_ROW_BLEED_PROPS}
-        icon="TicketOutline"
         titleProps={COMPACT_ENTRY_TITLE_PROPS}
-        iconProps={COMPACT_ENTRY_ICON_PROPS}
         title={INVITE_COPY.manageCodes}
         drillIn
         onPress={onManageCodes}
@@ -388,9 +404,7 @@ export function InviteCompactCard({
       <ListItem
         testID={ReferFriendsTestIDs.inviteYourReferred}
         {...COMPACT_ROW_BLEED_PROPS}
-        icon="PeopleOutline"
         titleProps={COMPACT_ENTRY_TITLE_PROPS}
-        iconProps={COMPACT_ENTRY_ICON_PROPS}
         title={intl.formatMessage({ id: ETranslations.referral_referral_list })}
         drillIn
         onPress={navigateToYourReferred}

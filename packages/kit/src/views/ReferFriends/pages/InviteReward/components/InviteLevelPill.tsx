@@ -178,8 +178,9 @@ export function InviteLevelPill({
 }
 
 // Compact layouts: the header has no room beside the rules button, so the
-// level opens the content as one line that pairs it with what it earns.
-export function InviteLevelLine({
+// level heads the invite card as a chip; the rate row below it says what the
+// level pays.
+export function InviteLevelChip({
   valueSummary,
   emoji,
 }: {
@@ -187,41 +188,33 @@ export function InviteLevelLine({
   emoji?: string;
 }) {
   const navigateToReferralLevel = useNavigateToReferralLevel();
-  const { levelLabel, levelIcon, summary } = valueSummary;
+  const { levelLabel, levelIcon } = valueSummary;
 
   return (
     <XStack
       testID={ReferFriendsTestIDs.inviteLevelPill}
       ai="center"
-      gap="$1.5"
-      // Bleed the press surface so the icon lines up with the cards below.
-      mx="$-2"
-      px="$2"
-      py="$1.5"
-      borderRadius="$2"
+      gap="$1"
+      pl="$1.5"
+      pr="$1"
+      py="$0.5"
+      borderRadius="$full"
+      // The card is tinted, so the chip takes the app canvas to stand out.
+      bg="$bgApp"
+      flexShrink={1}
       {...PRESSABLE_SURFACE_PROPS}
       onPress={() => {
         void navigateToReferralLevel();
       }}
     >
-      {levelIcon ? <Image w="$5" h="$5" src={levelIcon} /> : null}
+      {levelIcon ? <Image w="$4" h="$4" src={levelIcon} /> : null}
       {!levelIcon && emoji ? (
-        <SizableText size="$bodyLg">{emoji}</SizableText>
+        <SizableText size="$bodySm">{emoji}</SizableText>
       ) : null}
-      <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={0}>
+      <SizableText size="$bodyMdMedium" numberOfLines={1} flexShrink={1}>
         {levelLabel}
       </SizableText>
-      {summary ? (
-        <SizableText
-          size="$bodyLg"
-          color="$textSubdued"
-          numberOfLines={1}
-          flexShrink={1}
-        >
-          {`· ${summary.lead} ${summary.rate}`}
-        </SizableText>
-      ) : null}
-      <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
+      <Icon name="ChevronRightSmallOutline" size="$4" color="$iconSubdued" />
     </XStack>
   );
 }

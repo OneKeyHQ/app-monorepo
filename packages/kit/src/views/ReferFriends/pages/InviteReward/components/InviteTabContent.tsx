@@ -7,8 +7,12 @@ import type {
 
 import { InviteBindRow } from './InviteBindRow';
 import { InviteEarningsCard } from './InviteEarningsCard';
-import { InviteLevelLine } from './InviteLevelPill';
-import { InviteCompactCard, InviteLinkHero } from './InviteLinkHero';
+import { InviteLevelChip } from './InviteLevelPill';
+import {
+  InviteCompactCard,
+  InviteEntriesCard,
+  InviteLinkHero,
+} from './InviteLinkHero';
 import { InviteRewardRows } from './InviteRewardRows';
 import { useInviteValueSummary } from './InviteValueLine';
 import { SuspensionAlert } from './SuspensionAlert';
@@ -54,29 +58,32 @@ export function InviteTabContent({
       />
 
       {md ? (
-        // Compact layouts: level, the invite facts card, the bind entry
-        // (only until linked) and the earnings card; sharing sits in the
-        // page footer.
+        // Compact layouts: the invite card (level, code, link, rates), the
+        // bind entry (only until linked), the earnings section and the
+        // entries behind the invite card; sharing sits in the page footer.
         <YStack px="$pagePadding" pt="$3" gap="$5">
-          <XStack>
-            <InviteLevelLine
-              valueSummary={valueSummary}
-              emoji={summaryInfo.rebateConfig.emoji}
-            />
-          </XStack>
           <InviteCompactCard
             inviteUrl={summaryInfo.inviteUrl}
             inviteCode={summaryInfo.inviteCode}
             valueSummary={valueSummary}
             cardStyle={cardStyle}
-            onManageCodes={() => {
-              navigateToInviteCodes(summaryInfo.inviteUrl);
-            }}
+            levelChip={
+              <InviteLevelChip
+                valueSummary={valueSummary}
+                emoji={summaryInfo.rebateConfig.emoji}
+              />
+            }
           />
           <InviteBindRow variant="card" />
           <InviteEarningsCard
             summaryInfo={summaryInfo}
             fetchSummaryInfo={fetchSummaryInfo}
+          />
+          <InviteEntriesCard
+            cardStyle={cardStyle}
+            onManageCodes={() => {
+              navigateToInviteCodes(summaryInfo.inviteUrl);
+            }}
           />
         </YStack>
       ) : (
