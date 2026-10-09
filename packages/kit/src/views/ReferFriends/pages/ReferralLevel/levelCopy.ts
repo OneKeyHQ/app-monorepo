@@ -12,7 +12,7 @@ export const LEVEL_COPY = {
   // Above the compact level table: the figures are monthly, and one met
   // target is enough to keep or reach a level.
   tableRule: (hasChoice: boolean) =>
-    hasChoice ? 'Monthly amounts · any one is enough' : 'Monthly amounts',
+    hasChoice ? 'Monthly amounts · meet any one' : 'Monthly amounts',
   keepColumn: 'Keep',
   reachColumn: 'Reach',
   rateColumn: 'You / Invitee',

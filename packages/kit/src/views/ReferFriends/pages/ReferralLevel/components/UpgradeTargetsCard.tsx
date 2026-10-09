@@ -18,7 +18,10 @@ import { LEVEL_COPY, LEVEL_TARGET_SHORT_LABELS } from '../levelCopy';
 
 import { getDisplayLabel } from './LevelListSection/LevelAccordionItem';
 import { OrDivider } from './LevelListSection/OrDivider';
-import { formatFiatExact } from './LevelListSection/SubjectMilestoneCard';
+import {
+  formatFiatCompact,
+  formatFiatExact,
+} from './LevelListSection/SubjectMilestoneCard';
 
 import type { ILevelTarget } from '../getLevelOverview';
 import type { IntlShape } from 'react-intl';
@@ -104,10 +107,10 @@ function TargetColumn({
 // figures and the "meet any one" rule already say.
 function TargetRow({
   target,
-  currencyCode,
+  currencySymbol,
 }: {
   target: ILevelTarget;
-  currencyCode: string;
+  currencySymbol: string;
 }) {
   const intl = useIntl();
   const label = getLevelTargetLabel(intl, target);
@@ -124,11 +127,13 @@ function TargetRow({
           </SizableText>
         ) : (
           <XStack ai="baseline" gap="$1" flexShrink={0}>
+            {/* Written like the level table below: the currency symbol, the
+                exact progress, and the target in short form. */}
             <SizableText size="$bodyMdMedium">
-              {formatFiatExact(target.current)}
+              {`${currencySymbol}${formatFiatExact(target.current)}`}
             </SizableText>
             <SizableText size="$bodyMd" color="$textSubdued">
-              {`/ ${formatFiatExact(target.target)} ${currencyCode}`}
+              {`/ ${currencySymbol}${formatFiatCompact(target.target)}`}
             </SizableText>
           </XStack>
         )}
@@ -174,7 +179,7 @@ export function UpgradeTargetsSection({
           <TargetRow
             key={target.subject}
             target={target}
-            currencyCode={currencyCode}
+            currencySymbol={currencyInfo.symbol}
           />
         ))}
       </YStack>
