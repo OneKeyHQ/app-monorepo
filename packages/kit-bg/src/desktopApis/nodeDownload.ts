@@ -195,7 +195,8 @@ async function probe(opts: INodeDownloadOptions) {
 function probeFailureIsTransient(error: unknown): boolean {
   if (!(error instanceof Error)) return true;
   const status = /^HTTP (\d+)$/.exec(error.message);
-  if (status) return retryableStatus(Number(status[1]));
+  if (status)
+    return Number(status[1]) === 416 || retryableStatus(Number(status[1]));
   return !(
     error.message === 'Invalid download redirect' ||
     error.message === 'Redirect to non-HTTPS URL is not allowed' ||
@@ -364,7 +365,14 @@ function emit(
   });
 }
 
-class RangeFallback extends Error {}
+class RangeFallback extends Error {
+  constructor(
+    message: string,
+    readonly refreshMetadata = false,
+  ) {
+    super(message);
+  }
+}
 
 function retryableStatus(status: number): boolean {
   return (
@@ -430,7 +438,8 @@ async function downloadPart(
         )
       ) {
         response.resume();
-        if (status === 200 || status === 206 || status === 416)
+        if (status === 416) throw new RangeFallback('HTTP 416', true);
+        if (status === 200 || status === 206)
           throw new RangeFallback('Range response changed');
         if (!retryableStatus(status))
           throw new RangeFallback(`Permanent HTTP ${status}`);
@@ -516,7 +525,13 @@ async function parallel(
         downloadPart(opts, manifest, part, fd, finalUrl, flush),
       ),
     );
-    const rejected = outcomes.find((outcome) => outcome.status === 'rejected');
+    const rejected =
+      outcomes.find(
+        (outcome) =>
+          outcome.status === 'rejected' &&
+          outcome.reason instanceof RangeFallback &&
+          outcome.reason.refreshMetadata,
+      ) ?? outcomes.find((outcome) => outcome.status === 'rejected');
     if (rejected?.status === 'rejected') throw rejected.reason;
     flush();
   } finally {
@@ -571,9 +586,6 @@ async function single(
   const status = response.statusCode ?? 0;
   if (status !== 200 && status !== 206) {
     response.resume();
-    if (status === 416) {
-      discard(partial, manifestPath);
-    }
     throw new OneKeyLocalError(`HTTP ${status}`);
   }
   if (etag && response.headers.etag && response.headers.etag !== etag) {
@@ -649,9 +661,17 @@ async function singleWithRetry(
   partial: string,
   manifestPath: string,
 ): Promise<number> {
+  let currentSize = size;
+  let currentEtag = etag;
   for (let retry = 0; retry <= MAX_RETRIES; retry += 1) {
     try {
-      return await single(opts, size, etag, partial, manifestPath);
+      return await single(
+        opts,
+        currentSize,
+        currentEtag,
+        partial,
+        manifestPath,
+      );
     } catch (error) {
       if (
         opts.signal?.aborted ||
@@ -670,10 +690,59 @@ async function singleWithRetry(
         !retryableStatus(Number(status[1]))
       )
         throw error;
+      if (status && Number(status[1]) === 416) {
+        // Revalidate the object before readManifest decides to keep/reset bytes.
+        const refreshed = await probeWithRetry(opts);
+        currentSize = refreshed.size;
+        currentEtag = refreshed.etag;
+      }
       await waitForRetry(Math.min(500 * 2 ** retry, 10_000), opts.signal);
     }
   }
   throw new OneKeyLocalError('Download retry exhausted');
+}
+
+async function parallelWithRecovery(
+  opts: INodeDownloadOptions,
+  initialInfo: Awaited<ReturnType<typeof probe>>,
+  partial: string,
+  manifestPath: string,
+): Promise<number> {
+  let info = initialInfo;
+  for (let retry = 0; retry <= MAX_RETRIES; retry += 1) {
+    try {
+      await parallel(
+        opts,
+        info.url,
+        info.size,
+        info.etag,
+        partial,
+        manifestPath,
+      );
+      return info.size;
+    } catch (error) {
+      if (!(error instanceof RangeFallback)) throw error;
+      if (error.refreshMetadata) {
+        cancelled(opts.signal);
+        if (retry === MAX_RETRIES) throw error;
+        await waitForRetry(Math.min(500 * 2 ** retry, 10_000), opts.signal);
+        info = await probeWithRetry(opts);
+        // Matching metadata preserves all completed segments on the next run.
+      } else {
+        discard(partial, manifestPath);
+      }
+      if (!error.refreshMetadata || !info.parallel) {
+        return await singleWithRetry(
+          opts,
+          info.size,
+          info.etag,
+          partial,
+          manifestPath,
+        );
+      }
+    }
+  }
+  throw new OneKeyLocalError('Range recovery exhausted');
 }
 
 export async function downloadNodeFile(
@@ -724,27 +793,7 @@ export async function downloadNodeFile(
   }
   let size: number;
   if (info.parallel) {
-    try {
-      await parallel(
-        opts,
-        info.url,
-        info.size,
-        info.etag,
-        partial,
-        manifestPath,
-      );
-      size = info.size;
-    } catch (error) {
-      if (!(error instanceof RangeFallback)) throw error;
-      discard(partial, manifestPath);
-      size = await singleWithRetry(
-        opts,
-        info.size,
-        info.etag,
-        partial,
-        manifestPath,
-      );
-    }
+    size = await parallelWithRecovery(opts, info, partial, manifestPath);
   } else {
     size = await singleWithRetry(
       opts,

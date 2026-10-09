@@ -75,6 +75,10 @@ Both IPC entrances require the current main window's main frame.
   cancellation, and range validation. Use a single stream when range is
   unavailable or the concurrent path cannot safely continue. Preserve partial
   bytes on transient interruption, including across app restart.
+- HTTP 416 triggers bounded retries and a fresh object/range probe before
+  deciding whether to reset a partial file. Matching metadata preserves the
+  single-stream offset or completed parallel segments. Changed metadata resets
+  incompatible bytes; failed recovery retains the manifest for another attempt.
 - Retry delays in probe, segment, and single-stream paths observe cancellation.
   Server-provided Retry-After delays are capped at 60 seconds. Hash reads also
   observe cancellation, including verified-cache reuse; cancellation must reject
