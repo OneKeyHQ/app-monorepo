@@ -433,6 +433,10 @@ FunctionEnd
       nsis-duilib-ui::SetPage "uninstalling"
       Pop $OneKeyModernResult
       ${If} $OneKeyModernResult == "ok"
+        nsis-duilib-ui::PrepareCommit
+        Pop $OneKeyModernResult
+      ${EndIf}
+      ${If} $OneKeyModernResult == "ok"
         nsis-duilib-ui::Show
         Pop $OneKeyModernResult
       ${EndIf}
