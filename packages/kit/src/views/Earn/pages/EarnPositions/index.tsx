@@ -30,6 +30,9 @@ import {
   useStakingPendingTxsByInfo,
 } from '../../hooks/useStakingPendingTxs';
 
+import { MyPortfolioPage } from './mobile/MyPortfolioPage';
+import { useMyPortfolioLayout } from './mobile/useMyPortfolioLayout';
+
 import type { IStakePendingTx } from '../../hooks/useStakingPendingTxs';
 
 function EarnPositionsContent() {
@@ -135,6 +138,9 @@ function EarnPositionsContent() {
 }
 
 export default function EarnPositions() {
+  // Phones get the revamped "My portfolio" page; every other layout keeps the
+  // existing page and its shared PortfolioTabContent exactly as before.
+  const isMyPortfolioLayout = useMyPortfolioLayout();
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -144,7 +150,7 @@ export default function EarnPositions() {
       enabledNum={[0]}
     >
       <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
-        <EarnPositionsContent />
+        {isMyPortfolioLayout ? <MyPortfolioPage /> : <EarnPositionsContent />}
       </EarnProviderMirror>
     </AccountSelectorProviderMirror>
   );

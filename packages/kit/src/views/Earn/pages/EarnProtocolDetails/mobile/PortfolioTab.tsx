@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import {
   Badge,
   Button,
-  Icon,
   NumberSizeableText,
   SizableText,
   XStack,
@@ -15,7 +14,6 @@ import type { IBadgeType } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { EarnActionIcon } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnTooltip';
@@ -30,37 +28,11 @@ import type {
 
 import { EarnTestIDs } from '../../../testIDs';
 
-import type { GestureResponderEvent } from 'react-native';
+import { TransactionLink } from './TransactionLink';
 
 type IMobilePortfolio = NonNullable<IStakeEarnDetail['mobilePortfolio']>;
 type IPortfolioGroup = IMobilePortfolio['groups'][number];
 type IPortfolioRow = IPortfolioGroup['items'][number];
-
-function TransactionLink({
-  networkId,
-  txHash,
-}: {
-  networkId: string;
-  txHash: string;
-}) {
-  // The row itself opens the position details, so the hash must not bubble.
-  const onPress = useCallback(
-    (event: GestureResponderEvent) => {
-      event.stopPropagation();
-      void openTransactionDetailsUrl({ networkId, txid: txHash });
-    },
-    [networkId, txHash],
-  );
-
-  return (
-    <XStack ai="center" gap="$1" cursor="pointer" onPress={onPress}>
-      <SizableText size="$bodySm" color="$textSubdued">
-        {`${txHash.slice(0, 6)}…${txHash.slice(-4)}`}
-      </SizableText>
-      <Icon name="OpenOutline" size="$4" color="$iconSubdued" />
-    </XStack>
-  );
-}
 
 // The server speaks the full EBadgeColor set; 'danger' is the one value the
 // Badge component does not have a variant for.
@@ -177,6 +149,7 @@ export function PortfolioTab({
   tokenInfo,
   onActionSuccess,
   onRedeem,
+  canRedeem,
 }: {
   portfolio: IMobilePortfolio;
   networkId: string;
@@ -191,6 +164,9 @@ export function PortfolioTab({
   // The page owns the Redeem destination (ManagePosition, or the position
   // picker for per-position providers) so the row and the footer cannot drift.
   onRedeem?: () => void;
+  // Whether the active row offers Redeem; the page decides, since a provider
+  // that hides its wide-layout actions (Native) sends no redeem capability.
+  canRedeem?: boolean;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -274,7 +250,7 @@ export function PortfolioTab({
                   : undefined
               }
               onRedeem={
-                item.redeemable && portfolio.capabilities.redeem
+                item.redeemable && (canRedeem ?? portfolio.capabilities.redeem)
                   ? onRedeem
                   : undefined
               }
