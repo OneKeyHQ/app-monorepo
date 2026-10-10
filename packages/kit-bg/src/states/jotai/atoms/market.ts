@@ -10,13 +10,30 @@ import { globalAtom } from '../utils';
 
 export type IMarketSelectedTab = 'watchlist' | 'trending' | 'perps';
 
-export interface IMarketSelectedTabAtom {
+export interface IMarketHomePreferences {
+  selectedNetworkId?: string;
+  timeRange?: '5m' | '1h' | '4h' | '24h';
+  selectedStockCategory?: string;
+  selectedTopCoinsCategory?: string;
+  watchlistFilter?: 'all' | 'spot' | 'stocks' | 'perps';
+}
+
+export interface IMarketSelectedTabAtom extends IMarketHomePreferences {
   tab: IMarketSelectedTab;
   selectedSpotCategory?: string;
   spotCategoryToSelect?: string;
   selectedPerpsCategory?: string;
   perpsCategoryToSelect?: string;
 }
+
+export const {
+  target: marketHomePreferencesAtom,
+  use: useMarketHomePreferencesAtom,
+} = globalAtom<IMarketHomePreferences>({
+  persist: true,
+  name: EAtomNames.marketHomePreferencesAtom,
+  initialValue: {},
+});
 
 export const { target: marketSelectedTabAtom, use: useMarketSelectedTabAtom } =
   globalAtom<IMarketSelectedTabAtom>({
