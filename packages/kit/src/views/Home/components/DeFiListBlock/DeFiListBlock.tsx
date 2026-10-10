@@ -20,7 +20,6 @@ import {
   XStack,
   YStack,
   useMedia,
-  useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IProtocolPositionActionSuccessParams } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionDialog';
@@ -68,6 +67,7 @@ import type {
   IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
 
+import { useTabIsRefreshingFocused } from '../../hooks/useHomeTab';
 import { RichBlock } from '../RichBlock/RichBlock';
 
 import {

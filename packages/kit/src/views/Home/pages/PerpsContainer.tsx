@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -14,7 +14,6 @@ import {
   SizableText,
   Skeleton,
   Stack,
-  Tabs,
   XStack,
   YStack,
   rootNavigationRef,
@@ -78,6 +77,7 @@ import {
   buildOverviewGridStyle,
 } from '../components/DeFiListBlock/DeFiOverviewLayout';
 import { resolveOverviewCols } from '../components/DeFiListBlock/overviewColsResolver';
+import { HomeScrollView } from '../components/HomeScrollView';
 import {
   HOME_PERPS_GUIDE_URL,
   HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
@@ -88,7 +88,12 @@ import { SupportHub } from '../components/SupportHub/SupportHub';
 import { Upgrade } from '../components/Upgrade/Upgrade';
 import { HomeTestIDs } from '../testIDs';
 
+import { debugPerpsChain } from './perpsChainTrace';
 import { usePerpsHomePortfolio } from './usePerpsHomePortfolio';
+
+import type { View } from 'react-native';
+
+debugPerpsChain('module.evaluated');
 
 const HYPER_EVM_LOGO_URI =
   'https://uni.onekey-asset.com/static/chain/hyper-evm.png';
@@ -552,9 +557,31 @@ function PerpsPositionSkeletonCard() {
 }
 
 function PerpsLoadingState() {
+  const skeletonRef = useRef<View>(null);
+  debugPerpsChain('skeleton.render');
+  useLayoutEffect(() => {
+    debugPerpsChain('skeleton.commit');
+    return () => debugPerpsChain('skeleton.unmount');
+  }, []);
   return (
     <>
-      <YStack display="flex" $gtMd={{ display: 'none' }} gap="$3" py="$2">
+      <YStack
+        testID="perps-chain-skeleton"
+        ref={skeletonRef}
+        onLayout={(event) => {
+          if (process.env.NODE_ENV === 'production' || !platformEnv.isNative) {
+            return;
+          }
+          debugPerpsChain('skeleton.nativeLayout', event.nativeEvent.layout);
+          skeletonRef.current?.measureInWindow((x, y, width, height) =>
+            debugPerpsChain('skeleton.nativeWindow', { x, y, width, height }),
+          );
+        }}
+        display="flex"
+        $gtMd={{ display: 'none' }}
+        gap="$3"
+        py="$2"
+      >
         <XStack alignItems="center" justifyContent="space-between" gap="$4">
           <XStack flex={1} minWidth={0} alignItems="center" gap="$1">
             <Skeleton.HeadingXl w={112} />
@@ -1608,6 +1635,10 @@ export function PerpsContainer() {
   const tabBarHeight = useScrollContentTabBarOffset();
   const { viewState, view, canDeposit, isDepositDisabled } =
     usePerpsHomePortfolio();
+  debugPerpsChain('container.render', { viewState });
+  useLayoutEffect(() => {
+    debugPerpsChain('container.commit', { viewState });
+  }, [viewState]);
   const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
   const visibleHoldings = useMemo(
     () =>
@@ -1627,7 +1658,13 @@ export function PerpsContainer() {
 
   return (
     <Stack flex={1}>
-      <Tabs.ScrollView
+      <HomeScrollView
+        onLayout={(event) =>
+          debugPerpsChain('scroll.nativeLayout', event.nativeEvent.layout)
+        }
+        onContentSizeChange={(width, height) =>
+          debugPerpsChain('scroll.nativeContentSize', { width, height })
+        }
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: tabBarHeight }}
         nestedScrollEnabled={platformEnv.isNativeAndroid}
@@ -1638,6 +1675,12 @@ export function PerpsContainer() {
         }
       >
         <YStack
+          onLayout={(event) =>
+            debugPerpsChain('body.nativeLayout', {
+              ...event.nativeEvent.layout,
+              viewState,
+            })
+          }
           px="$5"
           py="$3"
           pb="$4"
@@ -1720,7 +1763,7 @@ export function PerpsContainer() {
             </>
           ) : null}
         </YStack>
-      </Tabs.ScrollView>
+      </HomeScrollView>
     </Stack>
   );
 }
