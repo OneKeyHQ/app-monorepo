@@ -15,5 +15,5 @@
   "uninstall.confirmSubtitle": "このコンピューターからアプリを削除します。ウォレットデータは削除されません。",
   "uninstall.confirm": "アンインストール",
   "uninstall.cancel": "キャンセル", "uninstall.subtitle": "アプリケーションファイルを安全に削除しています。このウィンドウを閉じないでください。", "uninstall.status": "アプリケーションファイルを整理しています…", "uninstall.finishTitle": "OneKey をアンインストールしました", "uninstall.finishSubtitle": "アプリケーションファイルを安全に削除しました。OneKey をご利用いただきありがとうございます。", "uninstall.close": "完了", "uninstallError.title": "アンインストールが完了しませんでした", "uninstallError.subtitle": "今すぐ再試行するか、後で OneKey をアンインストールしてください。", "uninstallError.retry": "アンインストールを再試行",
-  "error.title": "インストールが完了しませんでした", "error.subtitle": "既存のデータは保持されています。再試行するか、後でもう一度インストールしてください。", "error.retry": "再試行", "finish.safeHint": "セキュリティ検証が完了しました"
+  "error.title": "インストールが完了しませんでした", "error.subtitle": "既存のデータは保持されています。再試行するか、後でもう一度インストールしてください。", "error.retry": "再試行", "finish.safeHint": "「OneKey を開く」をクリックして利用を開始"
 }

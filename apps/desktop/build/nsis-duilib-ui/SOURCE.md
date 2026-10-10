@@ -9,7 +9,7 @@
   Center the minimize glyph horizontally and vertically in its button.
   Resolve installed UI fonts by locale, preserve custom theme font choices,
   and keep regular/bold weights consistent when fonts are rebuilt for DPI.
-  Open the current official help-center Terms and Privacy Policy articles.
+  Open the official help-center Terms and Privacy Policy articles using locale-neutral URLs.
   Preserve confirmed cancellation across progress updates, synchronize UI-thread
   transitions and shutdown, and lock cancellation before committing staged files.
 - Modified source files (relative to the base commit):
@@ -23,7 +23,7 @@
 - Target: Win32/x86 Unicode NSIS plug-in
 - Configuration: Release, static MSVC runtime (`/MT`)
 - Output: `out/build/windows-x86-ninja/Release/nsis-duilib-ui.dll`
-- SHA256: `e947164986a86c14398ad73851d6afb0927de065841d93b1bf3ea71fe9627212`
+- SHA256: `75086815111a15fe5180875a9e26827d649861f4b31feb427885ecd836c27483`
 
 Build and test from a clean checkout on Windows with Visual Studio 2022,
 CMake 3.24 or later, and Ninja:
@@ -206,7 +206,7 @@ index 48d051f..2f940b8 100644
    values.emplace("font.bodySize", std::to_string(package.typography.body_size));
    values.emplace("window.width", std::to_string(package.window.width));
 diff --git a/src/window.cpp b/src/window.cpp
-index e14e79c896..622cac3c0d 100644
+index e14e79c896..757ed83841 100644
 --- a/src/window.cpp
 +++ b/src/window.cpp
 @@ -68,20 +68,23 @@ class ThreadDpiScope final {
@@ -313,10 +313,10 @@ index e14e79c896..622cac3c0d 100644
      const wchar_t* url = nullptr;
      if (_wcsicmp(target.GetData(), L"terms") == 0) {
 -      url = L"https://onekey.so/terms";
-+      url = L"https://help.onekey.so/zh-CN/articles/11461297-%E6%9C%8D%E5%8A%A1%E5%8D%8F%E8%AE%AE";
++      url = L"https://help.onekey.so/articles/11461297";
      } else if (_wcsicmp(target.GetData(), L"privacy") == 0) {
 -      url = L"https://onekey.so/privacy";
-+      url = L"https://help.onekey.so/zh-CN/articles/11461298-privacy-policy";
++      url = L"https://help.onekey.so/articles/11461298";
      }
      if (url != nullptr) {
        ShellExecuteW(m_hWnd, L"open", url, nullptr, nullptr, SW_SHOWNORMAL);
@@ -693,7 +693,7 @@ state decision and control updates on the window's UI thread.
 Verify the vendored binary:
 
 ```powershell
-$expected = 'e947164986a86c14398ad73851d6afb0927de065841d93b1bf3ea71fe9627212'
+$expected = '75086815111a15fe5180875a9e26827d649861f4b31feb427885ecd836c27483'
 $actual = (Get-FileHash `
   ./apps/desktop/build/nsis-duilib-ui/plugin/x86-unicode/nsis-duilib-ui.dll `
   -Algorithm SHA256).Hash.ToLowerInvariant()

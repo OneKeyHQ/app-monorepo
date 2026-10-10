@@ -70,5 +70,5 @@
   "error.title": "安裝未完成",
   "error.subtitle": "你原有的資料完好無損。請重試或稍後再安裝。",
   "error.retry": "重試",
-  "finish.safeHint": "安全驗證已完成"
+  "finish.safeHint": "點擊「開啟 OneKey」開始使用"
 }

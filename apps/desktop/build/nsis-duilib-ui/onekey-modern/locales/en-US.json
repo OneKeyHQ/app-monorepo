@@ -72,5 +72,5 @@
   "error.title": "Installation did not finish",
   "error.subtitle": "Your existing data is intact. Try again now or install later.",
   "error.retry": "Try again",
-  "finish.safeHint": "Security verification complete"
+  "finish.safeHint": "Click “Open OneKey” to get started"
 }
