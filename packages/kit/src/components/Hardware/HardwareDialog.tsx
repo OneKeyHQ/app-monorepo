@@ -121,16 +121,6 @@ export const OpenBleNotifyChangeErrorDialog = forwardRef(
   OpenBleNotifyChangeErrorDialogContainer,
 );
 
-export const buildBleBondError = (intl: IntlShape): IDialogShowProps => ({
-  ...buildBleNotifyChangeError(intl),
-  title: intl.formatMessage({
-    id: ETranslations.bluetooth_pairing_invalid__title,
-  }),
-  description: intl.formatMessage({
-    id: ETranslations.bluetooth_pairing_invalid__desc,
-  }),
-});
-
 export const buildBlePermissionDialogProps = (
   intl: IntlShape,
 ): IDialogShowProps =>
@@ -150,7 +140,11 @@ export const buildBlePermissionDialogProps = (
     },
     onConfirm: async ({ close }) => {
       await close?.();
-      await openBLEPermissionsSettings();
+      if (platformEnv.isDesktop) {
+        await globalThis.desktopApiProxy.bluetooth.openPrivacySettings();
+      } else {
+        await openBLEPermissionsSettings();
+      }
     },
     showCancelButton: false,
     sheetOverlayProps: platformEnv.isNative

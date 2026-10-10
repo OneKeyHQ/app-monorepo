@@ -1,14 +1,59 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import { devOnlyData } from '@onekeyhq/shared/src/utils/devModeUtils';
 import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
+import { EOneKeyDeviceMode } from '@onekeyhq/shared/types/device';
+import { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToConsole, LogToLocal } from '../../../base/decorators';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
+const numericLogFields = new Set([
+  'progress',
+  'installTargetId',
+  'installPhaseProgress',
+  'transferredBytes',
+  'totalBytes',
+  'rateBytesPerSecond',
+  'elapsedMs',
+  'firmwareProgress',
+  'firmwareInstallTargetId',
+  'firmwareInstallPhaseProgress',
+]);
+const booleanLogFields = new Set([
+  'isBootloaderMode',
+  'deviceOnly',
+  'existsAttachPinUser',
+]);
+const enumLogFields: Record<string, readonly string[]> = {
+  uiRequestType: Object.values(EHardwareUiStateAction),
+  eventType: [...Object.values(EHardwareUiStateAction), 'request-passphrase'],
+  deviceType: Object.values(EDeviceType),
+  deviceMode: Object.values(EOneKeyDeviceMode),
+  progressType: ['transferData', 'installingFirmware'],
+  firmwareProgressType: ['transferData', 'installingFirmware'],
+  installPhase: ['prepare', 'install', 'verify'],
+  firmwareInstallPhase: ['prepare', 'install', 'verify'],
+  source: ['wallet-session-coordinator'],
+  reason: ['session-recovery', 'open-wallet', 'change-pin', 'firmware-update'],
+};
+
 function compactLogPayload(payload: Record<string, unknown>) {
   return Object.fromEntries(
-    Object.entries(payload).filter(([, value]) => value !== undefined),
+    Object.entries(payload).filter(([key, value]) => {
+      if (numericLogFields.has(key)) {
+        return typeof value === 'number' && Number.isFinite(value);
+      }
+      if (booleanLogFields.has(key)) {
+        return typeof value === 'boolean';
+      }
+      if (key === 'firmwareTransferMetrics') {
+        return value !== undefined;
+      }
+      return typeof value === 'string' && enumLogFields[key]?.includes(value);
+    }),
   );
 }
 
@@ -26,6 +71,9 @@ export function buildHardwareUiEventLogPayload(payload: unknown) {
     deviceType: device?.deviceType,
     progress: event.progress,
     progressType: event.progressType,
+    installTargetId: event.installTargetId,
+    installPhase: event.installPhase,
+    installPhaseProgress: event.installPhaseProgress,
     transferredBytes: event.transferredBytes,
     totalBytes: event.totalBytes,
     rateBytesPerSecond: event.rateBytesPerSecond,
@@ -42,12 +90,30 @@ export function buildHardwareUiStateLogPayload(payload: unknown) {
     return undefined;
   }
   const state = payload as Record<string, unknown>;
+  const transferMetrics =
+    state.firmwareTransferMetrics &&
+    typeof state.firmwareTransferMetrics === 'object'
+      ? (state.firmwareTransferMetrics as Record<string, unknown>)
+      : undefined;
   return compactLogPayload({
     uiRequestType: state.uiRequestType,
     eventType: state.eventType,
     deviceType: state.deviceType,
     deviceMode: state.deviceMode,
     isBootloaderMode: state.isBootloaderMode,
+    firmwareProgress: state.firmwareProgress,
+    firmwareProgressType: state.firmwareProgressType,
+    firmwareInstallTargetId: state.firmwareInstallTargetId,
+    firmwareInstallPhase: state.firmwareInstallPhase,
+    firmwareInstallPhaseProgress: state.firmwareInstallPhaseProgress,
+    firmwareTransferMetrics: transferMetrics
+      ? compactLogPayload({
+          transferredBytes: transferMetrics.transferredBytes,
+          totalBytes: transferMetrics.totalBytes,
+          rateBytesPerSecond: transferMetrics.rateBytesPerSecond,
+          elapsedMs: transferMetrics.elapsedMs,
+        })
+      : undefined,
     source: state.source,
     reason: state.reason,
     deviceOnly: state.deviceOnly,
@@ -74,7 +140,11 @@ export class HardwareSDKScene extends BaseScene {
 
   @LogToConsole()
   public uiEvent(type: string, payload: any) {
-    return [type, devOnlyData(buildHardwareUiEventLogPayload(payload))];
+    const logPayload = buildHardwareUiEventLogPayload(payload);
+    return [
+      type,
+      type === 'ui-firmware-progress' ? logPayload : devOnlyData(logPayload),
+    ];
   }
 
   @LogToLocal()
@@ -104,10 +174,11 @@ export class HardwareSDKScene extends BaseScene {
     connectId: string;
     payload: any;
   }) {
+    const logPayload = buildHardwareUiStateLogPayload(payload);
     return [
       action,
       connectId,
-      devOnlyData(buildHardwareUiStateLogPayload(payload)),
+      action === 'ui-firmware-progress' ? logPayload : devOnlyData(logPayload),
     ];
   }
 

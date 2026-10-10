@@ -9,6 +9,7 @@ import {
   UserCancelFromOutside,
 } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   isHardwareError,
   isHardwareErrorByCode,
@@ -134,14 +135,13 @@ const HARDWARE_CONNECTION_CANCEL_SKIP_CODES = [
   HardwareErrorCode.BleLocationServicesDisabled,
   HardwareErrorCode.BleTimeoutError,
   HardwareErrorCode.BleForceCleanRunPromise,
-  HardwareErrorCode.BleDeviceBondError,
-  HardwareErrorCode.BlePeerRemovedPairingInformation,
-  HardwareErrorCode.BleBondInvalid,
   HardwareErrorCode.BleUnavailableWhileUsbConnected,
   HardwareErrorCode.BleCharacteristicNotifyChangeFailure,
   HardwareErrorCode.BleDeviceDisconnected,
   HardwareErrorCode.BlePoweredOff,
   HardwareErrorCode.BleUnsupported,
+  HardwareErrorCode.BridgeNeedsPermission,
+  ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
 ];
 
 /** How long after the stage's off write its exit is still on screen —
@@ -1682,6 +1682,31 @@ class ServiceHardwareUI extends ServiceBase {
           appEventBus.emit(
             EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode,
             { connectId },
+          );
+        }
+      }
+      if (
+        isOuterCall &&
+        !isThirdPartyVendor &&
+        isHardwareErrorByCode({
+          error: error as IOneKeyError,
+          code: HardwareErrorCode.BlePoweredOff,
+        })
+      ) {
+        appEventBus.emit(EAppEventBusNames.RequestHardwareUIDialog, {
+          uiRequestType: EHardwareUiStateAction.BLUETOOTH_PERMISSION,
+        });
+      }
+      if (isOuterCall && !isThirdPartyVendor && platformEnv.isDesktopLinux) {
+        try {
+          // Prepare USB permissions for the user's next attempt; never replay the operation.
+          await this.backgroundApi.serviceHardware.handleLinuxWebUsbAccessDeniedError(
+            { error },
+          );
+        } catch (permissionError) {
+          console.error(
+            'Failed to recover Linux USB permissions:',
+            permissionError,
           );
         }
       }

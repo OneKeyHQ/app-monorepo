@@ -1027,9 +1027,6 @@ describe('DeviceStageBurstScope', () => {
   });
 
   it.each([
-    HardwareErrorCode.BleDeviceBondError,
-    HardwareErrorCode.BlePeerRemovedPairingInformation,
-    HardwareErrorCode.BleBondInvalid,
     HardwareErrorCode.DeviceNotOpenedPassphrase,
     HardwareErrorCode.NewFirmwareForceUpdate,
     HardwareErrorCode.BlePermissionError,
@@ -1172,7 +1169,7 @@ describe('DeviceStageBurstScope', () => {
     await scope.noteStep('authVerifying', { connectId: CONNECT_ID });
     await scope.begin({ connectId: CONNECT_ID });
     const error = convertDeviceError({
-      code: HardwareErrorCode.BleDeviceBondError,
+      code: HardwareErrorCode.DeviceNotOpenedPassphrase,
     });
     await scope.end({ error });
     expect(stage?.step).toBe('off');
@@ -1249,7 +1246,7 @@ describe('DeviceStageBurstScope', () => {
     await paintOpeningBeat();
     stageAtom.set.mockRejectedValueOnce(new Error('broadcast failed'));
     const error = convertDeviceError({
-      code: HardwareErrorCode.BleDeviceBondError,
+      code: HardwareErrorCode.DeviceNotOpenedPassphrase,
     });
     await expect(scope.end({ error })).resolves.toBeUndefined();
     expect(burstActiveFlag).toHaveBeenLastCalledWith(false);

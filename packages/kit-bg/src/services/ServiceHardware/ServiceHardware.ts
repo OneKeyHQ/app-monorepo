@@ -1,6 +1,7 @@
 import {
   EDeviceType,
   EFirmwareType,
+  HardwareErrorCode,
   isSameOnekeyBleName,
 } from '@onekeyfe/hd-shared';
 import { Semaphore } from 'async-mutex';
@@ -944,6 +945,8 @@ class ServiceHardware extends ServiceBase {
 
   private connectedDeviceTracked = new Set<string>();
 
+  private reportedBleMtuReadySignatures = new Set<string>();
+
   private connectedDeviceIdentityKeysByConnection = new Map<
     string,
     Set<string>
@@ -1487,6 +1490,7 @@ class ServiceHardware extends ServiceBase {
 
     if (!this.registeredEvents) {
       this.resetHardwareUiEventQueue();
+      this.reportedBleMtuReadySignatures.clear();
       this.registeredEvents = true;
       this.registeredSdkEventsInstance = instance;
       this.registeredSdkDebugLogging = showSdkDebugLogs;
@@ -1945,6 +1949,9 @@ class ServiceHardware extends ServiceBase {
       });
 
       instance.on(DEVICE.DISCONNECT, (message: { device: KnownDevice }) => {
+        if (message.device?.commType === 'ble') {
+          this.reportedBleMtuReadySignatures.clear();
+        }
         // A disconnect ends the "connected and OS-paired right now" proof:
         // factory reset and OS-level unpair both surface as a disconnect
         // first, so the silent BLE bind probe must not trust this endpoint
@@ -2047,6 +2054,26 @@ class ServiceHardware extends ServiceBase {
             messageType.includes('@onekey/hd-ble-transport')
           ) {
             defaultLogger.hardware.sdkLog.log(messages.event, message);
+          }
+
+          if (messageType.includes('@onekey/hd-ble-transport')) {
+            const mtuTelemetry =
+              serviceHardwareUtils.parseBleMtuReadyLogPayload(messages.payload);
+            if (
+              mtuTelemetry &&
+              serviceHardwareUtils.shouldReportBleMtuReadyTelemetry(
+                this.reportedBleMtuReadySignatures,
+                mtuTelemetry,
+              )
+            ) {
+              defaultLogger.hardware.connection.bleMtuReady({
+                transportType: mtuTelemetry.transportType,
+                blePlatform: mtuTelemetry.blePlatform,
+                requestedMtu: mtuTelemetry.requestedMtu,
+                actualMtu: mtuTelemetry.actualMtu,
+                isDefaultMtu: mtuTelemetry.isDefaultMtu,
+              });
+            }
           }
         },
       );
@@ -2436,12 +2463,19 @@ class ServiceHardware extends ServiceBase {
       const errorRecord = error as Record<string, unknown>;
       append(errorRecord.message);
       append(errorRecord.error);
+      const appendNativeError = (params: unknown) => {
+        if (params && typeof params === 'object') {
+          append((params as Record<string, unknown>).nativeErrorMessage);
+        }
+      };
+      appendNativeError(errorRecord.params);
 
       const payload = errorRecord.payload;
       if (payload && typeof payload === 'object') {
         const payloadRecord = payload as Record<string, unknown>;
         append(payloadRecord.message);
         append(payloadRecord.error);
+        appendNativeError(payloadRecord.params);
       }
     }
 
@@ -2449,6 +2483,17 @@ class ServiceHardware extends ServiceBase {
   }
 
   private isLinuxWebUsbAccessDeniedError(error: unknown) {
+    if (error && typeof error === 'object') {
+      const record = error as Record<string, unknown>;
+      const payload = record.payload as Record<string, unknown> | undefined;
+      if (
+        [record.code, record.errorCode, payload?.code].includes(
+          HardwareErrorCode.BridgeNeedsPermission,
+        )
+      ) {
+        return true;
+      }
+    }
     const message = this.getErrorText(error);
     const lowerMessage = message.toLowerCase();
     return (
@@ -2484,21 +2529,17 @@ class ServiceHardware extends ServiceBase {
             Date.now() + LINUX_UDEV_RULES_INSTALL_RETRY_DELAY_MS;
           return false;
         }
-        const shouldShowManualGuide =
-          this.markLinuxUdevRulesInstallFailed() ||
-          result.needsManualInstall ||
-          result.skippedReason === 'missing-pkexec';
-        if (shouldShowManualGuide) {
-          this.notifyLinuxUdevManualInstallIfNeeded({
-            force: true,
-            reason:
-              result.needsManualInstall ||
-              result.skippedReason === 'missing-pkexec'
-                ? result.skippedReason
-                : 'webusb-access-denied',
-          });
-        }
-      } else if (this.markLinuxUdevRulesInstallFailed()) {
+        this.markLinuxUdevRulesInstallFailed();
+        this.notifyLinuxUdevManualInstallIfNeeded({
+          force: true,
+          reason:
+            result.needsManualInstall ||
+            result.skippedReason === 'missing-pkexec'
+              ? result.skippedReason
+              : 'webusb-access-denied',
+        });
+      } else {
+        this.markLinuxUdevRulesInstallFailed();
         this.notifyLinuxUdevManualInstallIfNeeded({
           force: true,
           reason: 'webusb-access-denied',
@@ -2509,12 +2550,11 @@ class ServiceHardware extends ServiceBase {
         '[LinuxWebUSB] Failed to install OneKey udev rules',
         error instanceof Error ? error.message : String(error),
       );
-      if (this.markLinuxUdevRulesInstallFailed()) {
-        this.notifyLinuxUdevManualInstallIfNeeded({
-          force: true,
-          reason: 'failed',
-        });
-      }
+      this.markLinuxUdevRulesInstallFailed();
+      this.notifyLinuxUdevManualInstallIfNeeded({
+        force: true,
+        reason: 'failed',
+      });
     }
     return false;
   }

@@ -1,23 +1,20 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 
-import {
-  EAppEventBusNames,
-  HARDWARE_ERROR_DIALOG_TYPES,
-  appEventBus,
-} from '../../eventBus/appEventBus';
 import platformEnv from '../../platformEnv';
 import {
   BleDeviceBondedCanceled,
   BluetoothUnavailableWhileUsbConnectedError,
   ConnectTimeoutError,
-  DeviceBondError,
   DeviceMethodCallTimeout,
   DeviceNotBonded,
   NeedBluetoothTurnedOn,
   UserCancel,
 } from '../errors/hardwareErrors';
 import { OneKeyLocalError } from '../errors/localError';
-import { EOneKeyErrorClassNames } from '../types/errorTypes';
+import {
+  EOneKeyErrorClassNames,
+  ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
+} from '../types/errorTypes';
 
 import {
   convertDeviceError,
@@ -25,9 +22,50 @@ import {
   isDesktopBlePairingCanceledError,
   isOneKeyHardwareError,
 } from './deviceErrorUtils';
-import errorToastUtils from './errorToastUtils';
 
 describe('isOneKeyHardwareError', () => {
+  it.each([
+    [
+      HardwareErrorCode.BlePoweredOff,
+      'hardware.bluetooth_need_turned_on_error',
+    ],
+    [
+      HardwareErrorCode.BleUnsupported,
+      'hardware_third_party_transport_not_available',
+    ],
+    [
+      ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
+      'global.connection_failed_usb_help_text',
+    ],
+    [HardwareErrorCode.BridgeNeedsPermission, 'device.grant_usb_access'],
+  ])(
+    'localizes transport error %s without treating it as an unknown firmware error',
+    (code, key) => {
+      expect(
+        convertDeviceError({ code, error: 'Native transport failure' }),
+      ).toMatchObject({
+        code,
+        key,
+        className: EOneKeyErrorClassNames.OneKeyHardwareError,
+        payload: { code },
+      });
+    },
+  );
+
+  it('preserves native recovery context when the SDK throws a HardwareError', async () => {
+    const params = { operation: 'open', nativeErrorMessage: 'Access denied' };
+    await expect(
+      convertDeviceResponse(async () => {
+        throw Object.assign(new Error('Access denied'), {
+          errorCode: HardwareErrorCode.BridgeNeedsPermission,
+          params,
+        });
+      }),
+    ).rejects.toMatchObject({
+      code: HardwareErrorCode.BridgeNeedsPermission,
+      payload: { params },
+    });
+  });
   it('recognizes hardware error metadata rehydrated across runtimes', () => {
     const error = Object.assign(new OneKeyLocalError('link disabled'), {
       className: EOneKeyErrorClassNames.OneKeyHardwareError,
@@ -141,7 +179,6 @@ describe('convertDeviceError invalid Bluetooth bond', () => {
         code: HardwareErrorCode.BleDeviceNotBonded,
         key: 'feedback.bluetooth_pairing_failed',
       });
-      expect(error).not.toBeInstanceOf(DeviceBondError);
     } finally {
       platformEnv.isDesktop = originalIsDesktop;
     }
@@ -212,126 +249,6 @@ describe('convertDeviceError invalid Bluetooth bond', () => {
     } finally {
       platformEnv.isDesktop = originalIsDesktop;
     }
-  });
-
-  it.each([
-    HardwareErrorCode.BleDeviceBondError,
-    HardwareErrorCode.BlePeerRemovedPairingInformation,
-    HardwareErrorCode.BleBondInvalid,
-  ])(
-    'does not show a raw error toast when the repair dialog handles code %s',
-    (code) => {
-      const emitSpy = jest.spyOn(appEventBus, 'emit');
-      const error = {
-        autoToast: true,
-        code,
-        message: 'Raw Bluetooth pairing error',
-      };
-
-      errorToastUtils.toastIfError(error);
-      errorToastUtils.showToastOfError(error);
-
-      expect(emitSpy).not.toHaveBeenCalledWith(
-        EAppEventBusNames.ShowToast,
-        expect.anything(),
-      );
-      emitSpy.mockRestore();
-    },
-  );
-
-  it('also suppresses a raw pairing error code carried in the SDK payload', () => {
-    const emitSpy = jest.spyOn(appEventBus, 'emit');
-    const error = {
-      autoToast: true,
-      code: -1,
-      message: 'Raw Bluetooth pairing error',
-      payload: {
-        code: HardwareErrorCode.BlePeerRemovedPairingInformation,
-      },
-    };
-
-    errorToastUtils.toastIfError(error);
-    errorToastUtils.showToastOfError(error);
-
-    expect(emitSpy).not.toHaveBeenCalledWith(
-      EAppEventBusNames.ShowToast,
-      expect.anything(),
-    );
-    emitSpy.mockRestore();
-  });
-
-  it.each([
-    HardwareErrorCode.BleDeviceBondError,
-    HardwareErrorCode.BlePeerRemovedPairingInformation,
-    HardwareErrorCode.BleBondInvalid,
-  ])(
-    'tells the user to re-pair the device in system settings for code %s',
-    (code) => {
-      const error = convertDeviceError({
-        code,
-      });
-
-      expect(error).toBeInstanceOf(DeviceBondError);
-      expect(error).toMatchObject({
-        code: HardwareErrorCode.BleDeviceBondError,
-        key: 'bluetooth_pairing_invalid__desc',
-        autoToast: false,
-      });
-    },
-  );
-
-  it('opens the shared repair dialog for interactive calls', () => {
-    const emitSpy = jest.spyOn(appEventBus, 'emit');
-
-    convertDeviceError({
-      code: HardwareErrorCode.BlePeerRemovedPairingInformation,
-      connectId: 'PRO2_BLE',
-    });
-
-    expect(emitSpy).toHaveBeenCalledWith(
-      EAppEventBusNames.ShowHardwareErrorDialog,
-      expect.objectContaining({
-        errorType: HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR,
-        errorCode: HardwareErrorCode.BlePeerRemovedPairingInformation,
-      }),
-    );
-    emitSpy.mockRestore();
-  });
-
-  it('preserves the dedicated stale-bond code in the repair dialog payload', () => {
-    const emitSpy = jest.spyOn(appEventBus, 'emit');
-
-    convertDeviceError({
-      code: HardwareErrorCode.BleBondInvalid,
-      connectId: 'PRO2_BLE',
-    });
-
-    expect(emitSpy).toHaveBeenCalledWith(
-      EAppEventBusNames.ShowHardwareErrorDialog,
-      expect.objectContaining({
-        errorType: HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR,
-        errorCode: HardwareErrorCode.BleBondInvalid,
-      }),
-    );
-    emitSpy.mockRestore();
-  });
-
-  it('does not open the repair dialog for silent probes', () => {
-    const emitSpy = jest.spyOn(appEventBus, 'emit');
-
-    convertDeviceError(
-      {
-        code: HardwareErrorCode.BleDeviceBondError,
-        connectId: 'PRO2_BLE',
-      },
-      { silentMode: true },
-    );
-
-    expect(emitSpy).not.toHaveBeenCalledWith(
-      EAppEventBusNames.ShowHardwareErrorDialog,
-      expect.anything(),
-    );
-    emitSpy.mockRestore();
   });
 });
 

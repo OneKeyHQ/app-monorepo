@@ -370,31 +370,6 @@ export class BleDeviceBondedCanceled extends OneKeyHardwareError {
   override code = HardwareErrorCode.BleDeviceNotBonded;
 }
 
-// 设备配对失败
-export class DeviceBondError extends OneKeyHardwareError {
-  constructor(props?: IOneKeyErrorHardwareProps) {
-    super(
-      normalizeErrorProps(props, {
-        defaultMessage: 'DeviceBondError',
-        defaultKey: ETranslations.bluetooth_pairing_invalid__desc,
-        defaultAutoToast: false,
-      }),
-    );
-
-    if (!props?.silentMode) {
-      appEventBus.emit(EAppEventBusNames.ShowHardwareErrorDialog, {
-        errorType: HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR,
-        errorCode: props?.payload?.code || HardwareErrorCode.BleDeviceBondError,
-        errorMessage:
-          props?.payload?.message || props?.message || 'DeviceBondError',
-        payload: props?.payload,
-      });
-    }
-  }
-
-  override code = HardwareErrorCode.BleDeviceBondError;
-}
-
 // 设备没有打开蓝牙
 export class NeedBluetoothTurnedOn extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
