@@ -642,6 +642,9 @@ export default class ServiceHyperliquidCache extends ServiceBase {
       accountValue: shouldUseComputedValue
         ? computedValue.accountValue
         : prevEntry?.accountValue,
+      isAccountValuePartial: shouldUseComputedValue
+        ? computedValue.isAccountValuePartial
+        : prevEntry?.isAccountValuePartial,
       withdrawable: shouldUseComputedValue
         ? computedValue.withdrawable
         : prevEntry?.withdrawable,
@@ -761,6 +764,7 @@ export default class ServiceHyperliquidCache extends ServiceBase {
             accountAddress: targetAddress,
             balances: spot.data.balances,
             spotTotalUsd: spot.data.spotTotalUsd,
+            hasUnsupportedBalances: spot.data.hasUnsupportedBalances,
           };
         });
       }
@@ -807,15 +811,18 @@ export default class ServiceHyperliquidCache extends ServiceBase {
     accountAddress,
     balances,
     spotTotalUsd,
+    hasUnsupportedBalances,
   }: {
     accountAddress: string;
     balances: ISpotBalanceItem[];
     spotTotalUsd: string;
+    hasUnsupportedBalances?: boolean;
   }) {
     const data: IPerpsAccountDisplayCacheSpotBalances = {
       accountAddress,
       balances,
       spotTotalUsd,
+      hasUnsupportedBalances,
     };
     if (
       !this._shouldWriteAccountDisplayCache({

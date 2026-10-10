@@ -1,8 +1,18 @@
 /* cspell:ignore HWAVE */
 
+import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
+import type { IWsSpotStateWithAvailability } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
-import { spotAssetCtxsMapAtom } from '../../states/jotai/atoms';
+import {
+  perpsAbstractionModeAtom,
+  perpsActiveAccountAtom,
+  perpsActiveAccountStatusInfoAtom,
+  perpsComputedAccountValueAtom,
+  perpsSpotBalancesAtom,
+  spotAssetCtxsMapAtom,
+} from '../../states/jotai/atoms';
+import { globalJotaiStorageReadyHandler } from '../../states/jotai/jotaiStorage';
 
 import ServiceHyperliquid from './ServiceHyperliquid';
 import ServiceHyperliquidSubscription from './ServiceHyperliquidSubscription';
@@ -145,4 +155,144 @@ describe('ServiceHyperliquid spot price source', () => {
     await receiveMid('0.00125');
     expectPrice('0.0012');
   });
+});
+
+describe('ServiceHyperliquid outcome balance completeness', () => {
+  let service: ServiceHyperliquid;
+  const writeSpotCache = jest.fn(async () => undefined);
+  const usdc = {
+    coin: 'USDC',
+    token: 0,
+    total: '100',
+    hold: '25',
+    entryNtl: '0',
+  };
+  const outcome = {
+    coin: '+1' as const,
+    total: '10',
+    hold: '0',
+    entryNtl: '5',
+  };
+  const receive = (
+    balances: IWsSpotStateWithAvailability['spotState']['balances'],
+  ) => service.updateSpotBalances({ user: '0xabc', spotState: { balances } });
+
+  beforeEach(async () => {
+    jest.restoreAllMocks();
+    jest.useFakeTimers();
+    writeSpotCache.mockClear();
+    globalJotaiStorageReadyHandler.resolveReady(true);
+    (
+      globalThis as typeof globalThis & { $onekeyIsInBackground?: boolean }
+    ).$onekeyIsInBackground = true;
+    service = new ServiceHyperliquid({
+      backgroundApi: {
+        simpleDb: { perp: { getPerpData: async () => ({}) } },
+        serviceHyperliquidCache: {
+          writePerpsAccountDisplaySpotBalances: writeSpotCache,
+          writePerpsAccountDisplaySnapshot: jest.fn(async () => undefined),
+        },
+      },
+    });
+    jest
+      .spyOn(service, 'getSpotMeta')
+      .mockResolvedValue({ tokens: [], universes: [] });
+    await perpsActiveAccountAtom.set({
+      accountAddress: '0xabc',
+      accountId: null,
+      indexedAccountId: null,
+      deriveType: 'default',
+    });
+    await perpsActiveAccountStatusInfoAtom.set(undefined);
+    await perpsSpotBalancesAtom.set(undefined);
+    await perpsAbstractionModeAtom.set({
+      accountAddress: '0xabc',
+      mode: EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT,
+      source: 'live',
+    });
+  });
+
+  afterEach(() => {
+    jest.clearAllTimers();
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+    delete (
+      globalThis as typeof globalThis & { $onekeyIsInBackground?: boolean }
+    ).$onekeyIsInBackground;
+  });
+
+  it('marks live and cached totals partial without blocking USDC withdrawals, then recovers', async () => {
+    await receive([usdc, outcome]);
+    await expect(perpsComputedAccountValueAtom.get()).resolves.toMatchObject({
+      accountValue: '100',
+      withdrawable: '75',
+      isLoading: false,
+      isAccountValuePartial: true,
+    });
+    expect(writeSpotCache).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        spotTotalUsd: '100',
+        hasUnsupportedBalances: true,
+      }),
+    );
+    await receive([usdc, { ...outcome, total: '0' }]);
+    await expect(perpsComputedAccountValueAtom.get()).resolves.toMatchObject({
+      accountValue: '100',
+      withdrawable: '75',
+      isLoading: false,
+      isAccountValuePartial: false,
+    });
+    expect(writeSpotCache).toHaveBeenLastCalledWith(
+      expect.objectContaining({ hasUnsupportedBalances: false }),
+    );
+  });
+
+  it('does not label an outcome-only account as a complete zero balance', async () => {
+    await receive([outcome]);
+    await expect(perpsComputedAccountValueAtom.get()).resolves.toMatchObject({
+      accountValue: '0',
+      withdrawable: '0',
+      isLoading: false,
+      isAccountValuePartial: true,
+    });
+  });
+
+  it.each(['price', 'fallback'] as const)(
+    'preserves the partial flag when %s resolves a missing spot price',
+    async (recovery) => {
+      const getPrice = jest
+        .spyOn(
+          service as unknown as {
+            getSpotBalanceMarkPrice: (coin: string) => string | undefined;
+          },
+          'getSpotBalanceMarkPrice',
+        )
+        .mockReturnValue(undefined);
+      await receive([
+        usdc,
+        outcome,
+        { coin: 'HYPE', token: 1, total: '2', hold: '0', entryNtl: '1' },
+      ]);
+      await expect(perpsSpotBalancesAtom.get()).resolves.toMatchObject({
+        spotTotalUsd: undefined,
+        hasUnsupportedBalances: true,
+      });
+      if (recovery === 'price') {
+        getPrice.mockReturnValue('5');
+        await service.recalculateSpotTotalUsd();
+      } else {
+        await jest.advanceTimersByTimeAsync(3000);
+      }
+      const spotTotalUsd = recovery === 'price' ? '110' : '100';
+      await expect(perpsComputedAccountValueAtom.get()).resolves.toMatchObject({
+        accountValue: spotTotalUsd,
+        withdrawable: '75',
+        isLoading: false,
+        isAccountValuePartial: true,
+      });
+      expect(writeSpotCache).toHaveBeenLastCalledWith(
+        expect.objectContaining({ spotTotalUsd, hasUnsupportedBalances: true }),
+      );
+    },
+  );
 });

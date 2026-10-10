@@ -147,7 +147,7 @@ type IHyperliquidWsClient = {
   transport: WebSocketTransport;
   dispose: () => Promise<void>;
   hlEventTarget: IHyperliquidEventTarget;
-  ping: () => Promise<void>;
+  ping: (signal: AbortSignal) => Promise<void>;
   subscribe: <T extends ESubscriptionType>(
     type: T,
     params: IPerpsSubscriptionParams[T],
@@ -227,7 +227,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _pingIntervalTimer: ReturnType<typeof setInterval> | null = null;
 
-  private _pingMeasurementClient: IHyperliquidWsClient | null = null;
+  private _pingMeasurement: AbortController | null = null;
 
   private _lastMessageAt: number | null = null;
 
@@ -2261,18 +2261,31 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           ...params,
         });
       };
-      const ping = () =>
+      const ping = (signal: AbortSignal) =>
         new Promise<void>((resolve, reject) => {
+          if (signal.aborted) {
+            reject(new Error('Hyperliquid WebSocket ping cancelled'));
+            return;
+          }
           const listenerController = new AbortController();
           const timeout = setTimeout(() => {
-            listenerController.abort();
+            cleanup();
             reject(new Error('Hyperliquid WebSocket ping timed out'));
           }, transport.timeout ?? 10_000);
+          function cleanup() {
+            clearTimeout(timeout);
+            listenerController.abort();
+            signal.removeEventListener('abort', onAbort);
+          }
+          function onAbort() {
+            cleanup();
+            reject(new Error('Hyperliquid WebSocket ping cancelled'));
+          }
+          signal.addEventListener('abort', onAbort, { once: true });
           hlEventTarget.addEventListener(
             'pong',
             () => {
-              clearTimeout(timeout);
-              listenerController.abort();
+              cleanup();
               resolve();
             },
             { once: true, signal: listenerController.signal },
@@ -2280,8 +2293,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           try {
             transport.socket.send('{"method":"ping"}');
           } catch (error) {
-            clearTimeout(timeout);
-            listenerController.abort();
+            cleanup();
             reject(error);
           }
         });
@@ -3178,28 +3190,29 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private async _measurePing(): Promise<void> {
     const client = this._client;
-    if (!client || this._pingMeasurementClient === client) {
+    if (!client || this._pingMeasurement) {
       return;
     }
-    this._pingMeasurementClient = client;
+    const measurement = new AbortController();
+    this._pingMeasurement = measurement;
     try {
       const start = Date.now();
-      await client.ping();
+      await client.ping(measurement.signal);
       // Guard: client may have been replaced/closed during await
-      if (this._client !== client) return;
+      if (this._client !== client || measurement.signal.aborted) return;
       const pingMs = Date.now() - start;
       void perpsNetworkStatusAtom.set(
         (prev): IPerpsNetworkStatus => ({ ...prev, pingMs }),
       );
     } catch {
-      if (this._client !== client) return;
+      if (this._client !== client || measurement.signal.aborted) return;
       // Ping failed — clear displayed value without marking disconnected
       void perpsNetworkStatusAtom.set(
         (prev): IPerpsNetworkStatus => ({ ...prev, pingMs: null }),
       );
     } finally {
-      if (this._pingMeasurementClient === client) {
-        this._pingMeasurementClient = null;
+      if (this._pingMeasurement === measurement) {
+        this._pingMeasurement = null;
       }
     }
   }
@@ -3224,6 +3237,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   private _stopPingLoop(): void {
+    this._pingMeasurement?.abort();
+    this._pingMeasurement = null;
     if (this._pingIntervalTimer) {
       clearTrackedInterval(this._pingIntervalTimer);
       this._pingIntervalTimer = null;

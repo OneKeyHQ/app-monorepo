@@ -190,6 +190,7 @@ function PerpAccountPanel() {
           />
           <PerpsAccountNumberValue
             value={computedValue?.accountValue ?? ''}
+            isPartial={computedValue?.isAccountValuePartial}
             skeletonWidth={70}
           />
         </XStack>

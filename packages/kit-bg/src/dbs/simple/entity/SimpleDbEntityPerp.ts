@@ -87,6 +87,7 @@ export interface IPerpsAccountDisplayCacheSpotBalances {
   accountAddress: string;
   balances: IPerpsAccountDisplayCacheSpotBalanceItem[];
   spotTotalUsd: string | undefined;
+  hasUnsupportedBalances?: boolean;
 }
 
 export interface IPerpsAccountDisplayCacheEntry {
