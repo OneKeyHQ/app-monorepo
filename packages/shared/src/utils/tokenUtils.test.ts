@@ -14,7 +14,6 @@ import {
   mergeDeriveTokenListMap,
   nestAggregateTokensMap,
   normalizeTokenSearchResults,
-  retainAccountsWorth,
 } from './tokenUtils';
 
 import type {
@@ -1843,43 +1842,5 @@ describe('getFilteredTokenBySearchKey — substring chain-code hits are not netw
         flattenAggregateTokens: true,
       }),
     ).toEqual([ethOnEthereum, ethOnLinea, ethOnCyber]);
-  });
-});
-
-describe('retainAccountsWorth', () => {
-  const worth = {
-    'acc-evm_evm--1': '10',
-    'acc-evm_evm--56': '5',
-    'acc-sui_sui--mainnet': '100',
-  };
-
-  it('drops the worth of accounts outside the run', () => {
-    expect(
-      retainAccountsWorth({
-        worth,
-        accountValueKeys: new Set(['acc-evm_evm--1', 'acc-evm_evm--56']),
-      }),
-    ).toEqual({
-      'acc-evm_evm--1': '10',
-      'acc-evm_evm--56': '5',
-    });
-  });
-
-  it('returns the same map when every key belongs to the run', () => {
-    const accountValueKeys = new Set([
-      'acc-evm_evm--1',
-      'acc-evm_evm--56',
-      'acc-sui_sui--mainnet',
-      'acc-btc_btc--0',
-    ]);
-    expect(retainAccountsWorth({ worth, accountValueKeys })).toBe(worth);
-    const empty = {};
-    expect(retainAccountsWorth({ worth: empty, accountValueKeys })).toBe(empty);
-  });
-
-  it('empties the map for a run without accounts', () => {
-    expect(retainAccountsWorth({ worth, accountValueKeys: new Set() })).toEqual(
-      {},
-    );
   });
 });

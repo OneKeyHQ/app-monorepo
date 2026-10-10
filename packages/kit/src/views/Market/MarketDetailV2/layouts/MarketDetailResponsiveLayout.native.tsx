@@ -3,6 +3,7 @@ import { MobileLayout } from './MobileLayout';
 import type { IMarketDetailResponsiveLayoutProps } from './MarketDetailResponsiveLayout.types';
 
 export function MarketDetailResponsiveLayout({
+  active,
   isLayoutPending,
   isInitialContentPending,
   disablePerpsBanner,
@@ -21,6 +22,7 @@ export function MarketDetailResponsiveLayout({
 }: IMarketDetailResponsiveLayoutProps) {
   return (
     <MobileLayout
+      active={active}
       isLayoutPending={isLayoutPending}
       isInitialContentPending={isInitialContentPending}
       disablePerpsBanner={disablePerpsBanner}

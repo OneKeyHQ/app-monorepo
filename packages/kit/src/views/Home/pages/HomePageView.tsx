@@ -65,7 +65,6 @@ import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
 import { NetworkAlert } from '../../../components/NetworkAlert';
 import { NotificationEnableAlert } from '../../../components/NotificationEnableAlert';
 import { NotificationPermissionRecoveryAlert } from '../../../components/NotificationPermissionRecoveryAlert';
-import { RiskApprovalAlert } from '../../../components/RiskApprovalAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { WatchOnlyAlert } from '../../../components/WatchOnlyAlert';
 import { WebDappEmptyView } from '../../../components/WebDapp/WebDappEmptyView';
@@ -160,7 +159,6 @@ const AndroidScrollContainer = platformEnv.isNativeAndroid
 function HomeAlerts() {
   return (
     <>
-      <RiskApprovalAlert />
       <WatchOnlyAlert />
       <NetworkAlert />
       <NotificationPermissionRecoveryAlert
@@ -480,11 +478,10 @@ export function HomePageView({
   useEffect(() => {
     let cancelled = false;
 
-    // Keep the red-dot state from becoming stale across account/network switches.
+    // Keep the risk dot from becoming stale across account/network switches.
     updateApprovalsInfo({
       ownerKey: approvalOwnerKey,
-      hasRiskApprovals: false,
-      riskApprovalsCount: 0,
+      showRiskApprovalsDot: false,
     });
 
     const run = async (_trigger: string) => {
@@ -495,21 +492,17 @@ export function HomePageView({
       if (cancelled) return;
 
       try {
-        const resp =
-          await backgroundApiProxy.serviceApproval.fetchAccountApprovals({
+        const shouldShowDot =
+          await backgroundApiProxy.serviceApproval.shouldShowRiskApprovalsDot({
             networkId: network.id,
             accountId: account.id,
             indexedAccountId: indexedAccount?.id,
             accountAddress: account.address,
           });
         if (cancelled) return;
-        const riskApprovals = resp.contractApprovals.filter(
-          (i) => i.isRiskContract,
-        );
         updateApprovalsInfo({
           ownerKey: approvalOwnerKey,
-          hasRiskApprovals: riskApprovals.length > 0,
-          riskApprovalsCount: riskApprovals.length,
+          showRiskApprovalsDot: shouldShowDot,
         });
       } catch (error) {
         if (error instanceof CanceledError) {

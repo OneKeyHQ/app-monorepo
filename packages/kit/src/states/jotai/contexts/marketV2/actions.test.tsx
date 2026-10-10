@@ -5,7 +5,6 @@ import type { ReactNode } from 'react';
 import { act, renderHook } from '@testing-library/react';
 import { createStore } from 'jotai';
 
-import { useMarketNativeChartPriceUpdate } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketNativeChartPriceUpdate';
 import type {
   IMarketAssetDetailData,
   IMarketWatchListItemV2,
@@ -26,9 +25,11 @@ import {
   tokenDetailPreviewAtom,
   tokenDetailRequestIdAtom,
   tokenDetailWebsocketAtom,
+  useTokenDetailSymbolAtom,
 } from './atoms';
 import { useMarketAssetTokenDetailAction } from './marketAssetDetail';
 import { marketTokenDetailSnapshotCache } from './marketSnapshotCaches';
+import { MARKET_CHART_PRICE_STALE_MS } from './marketTokenDetailPrice';
 
 const mockFetchMarketAssetDetail: jest.MockedFunction<
   (params: {
@@ -65,7 +66,6 @@ const mockResolveMarketPerpsInfoBySymbol: jest.MockedFunction<
   (params: { symbol: string }) => Promise<{ hlTicker: string } | undefined>
 > = jest.fn();
 const mockLogError = jest.fn();
-
 function createDeferred<T>() {
   let resolve: (value: T) => void = () => undefined;
   let reject: (reason?: unknown) => void = () => undefined;
@@ -273,6 +273,36 @@ describe('token detail refresh failures', () => {
       expect(store.get(tokenDetailAtom())?.firstTradeTime).toBeUndefined();
     },
   );
+  it('does not rerender symbol consumers for live price or freshness updates', () => {
+    const { store, Wrapper } = createWrapper();
+    store.set(tokenDetailAtom(), detail);
+    const renderSymbol = jest.fn();
+    const { result } = renderHook(
+      () => {
+        const [symbol] = useTokenDetailSymbolAtom();
+        renderSymbol(symbol);
+        return symbol;
+      },
+      { wrapper: Wrapper },
+    );
+    renderSymbol.mockClear();
+
+    act(() => {
+      store.set(tokenDetailAtom(), {
+        ...detail,
+        price: '2',
+        lastUpdated: Date.now(),
+        chartPriceUpdatedAt: Date.now(),
+      });
+    });
+    expect(renderSymbol).not.toHaveBeenCalled();
+    expect(result.current).toBe('TEST');
+
+    act(() => store.set(tokenDetailAtom(), { ...detail, symbol: 'NEXT' }));
+    expect(result.current).toBe('NEXT');
+    act(() => store.set(tokenDetailAtom(), undefined));
+    expect(result.current).toBeUndefined();
+  });
 
   it('keeps loaded content and chart configuration through failure and recovery', async () => {
     const { store, Wrapper } = createWrapper();
@@ -312,12 +342,19 @@ describe('token detail refresh failures', () => {
     expect(store.get(tokenDetailLoadingAtom())).toBe(false);
 
     mockFetchMarketTokenDetailByTokenAddress.mockResolvedValueOnce({
-      data: { token: { ...detail, price: '2' }, websocket, perpsInfo },
+      data: {
+        token: { ...detail, price: '2', volume24h: '20' },
+        websocket,
+        perpsInfo,
+      },
     });
     await act(async () => {
       await result.current.fetchTokenDetail(detail.address, detail.networkId);
     });
-    expect(store.get(tokenDetailAtom())?.price).toBe('2');
+    expect(store.get(tokenDetailAtom())).toMatchObject({
+      price: '1',
+      volume24h: '20',
+    });
   });
 
   it('does not keep another token when the new token request fails', async () => {
@@ -504,6 +541,169 @@ describe('stock navigation identity', () => {
   });
 });
 
+describe('detail price initialization', () => {
+  const detail = {
+    address: '0xabc',
+    networkId: 'evm--1',
+    name: 'Test token',
+    symbol: 'TEST',
+    decimals: 18,
+    logoUrl: '',
+    price: '0.9',
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockFetchTokenInfoOnly.mockResolvedValue({ info: { decimals: 18 } });
+    mockResolveMarketPerpsInfoBySymbol.mockResolvedValue(undefined);
+  });
+
+  it.each(['token', 'asset'] as const)(
+    'initializes the %s price once while refreshing metadata and retaining chart updates',
+    async (owner) => {
+      const { store, Wrapper } = createWrapper();
+      const { result } = renderHook(
+        () => ({
+          actions: useTokenDetailActions().current,
+          fetchAsset: useMarketAssetTokenDetailAction(),
+        }),
+        { wrapper: Wrapper },
+      );
+      store.set(networkIdAtom(), detail.networkId);
+      store.set(tokenAddressAtom(), detail.address);
+      store.set(tokenDetailAtom(), detail);
+
+      const fetchDetail = async (price: string, volume24h: string) => {
+        if (owner === 'asset') {
+          mockFetchMarketAssetDetail.mockResolvedValueOnce({
+            ...dogeAssetDetail,
+            selectedVariant: {
+              ...dogeAssetDetail.selectedVariant,
+              networkId: detail.networkId,
+              tokenAddress: detail.address,
+              isNative: false,
+            },
+            market: { ...dogeAssetDetail.market, price, volume24h },
+          });
+          await result.current.fetchAsset({
+            assetId: 'doge',
+            networkId: detail.networkId,
+            tokenAddress: detail.address,
+          });
+        } else {
+          mockFetchMarketTokenDetailByTokenAddress.mockResolvedValueOnce({
+            data: { token: { ...detail, price, volume24h } },
+          });
+          await result.current.actions.fetchTokenDetail(
+            detail.address,
+            detail.networkId,
+          );
+        }
+      };
+
+      // A cached quote must not consume the fresh initialization request.
+      await act(async () => fetchDetail('1', '10'));
+      expect(store.get(tokenDetailAtom())).toMatchObject({
+        price: '1',
+        volume24h: '10',
+        detailPriceInitializedAt: expect.any(Number),
+      });
+      await act(async () => fetchDetail('2', '20'));
+      expect(store.get(tokenDetailAtom())).toMatchObject({
+        price: '1',
+        volume24h: '20',
+      });
+
+      act(() => {
+        result.current.actions.applyChartPriceUpdate({
+          networkId: detail.networkId,
+          tokenAddress: detail.address,
+          price: '4',
+          lastUpdated: Date.now(),
+        });
+      });
+      await act(async () => fetchDetail('3', '30'));
+      expect(store.get(tokenDetailAtom())).toMatchObject({
+        price: '4',
+        volume24h: '30',
+      });
+
+      act(() => result.current.actions.setTokenDetail(undefined));
+      await act(async () => fetchDetail('5', '50'));
+      expect(store.get(tokenDetailAtom())).toMatchObject({
+        price: '5',
+        volume24h: '50',
+        detailPriceInitializedAt: expect.any(Number),
+      });
+    },
+  );
+
+  it.each(['0', '-1', 'invalid'])(
+    'does not let an invalid initial price %s block recovery',
+    async (price) => {
+      const { store, Wrapper } = createWrapper();
+      const { result } = renderHook(() => useTokenDetailActions().current, {
+        wrapper: Wrapper,
+      });
+      mockFetchMarketTokenDetailByTokenAddress
+        .mockResolvedValueOnce({ data: { token: { ...detail, price } } })
+        .mockResolvedValueOnce({ data: { token: { ...detail, price: '1' } } });
+      await act(async () => {
+        await result.current.fetchTokenDetail(detail.address, detail.networkId);
+      });
+      expect(
+        store.get(tokenDetailAtom())?.detailPriceInitializedAt,
+      ).toBeUndefined();
+      await act(async () => {
+        await result.current.fetchTokenDetail(detail.address, detail.networkId);
+      });
+      expect(store.get(tokenDetailAtom())).toMatchObject({
+        price: '1',
+        detailPriceInitializedAt: expect.any(Number),
+      });
+    },
+  );
+
+  it('keeps converted prices aligned with chart ticks and refreshed detail rates', async () => {
+    const { store, Wrapper } = createWrapper();
+    store.set(tokenDetailAtom(), {
+      ...detail,
+      price: '1',
+      priceConverted: '7',
+    });
+    const { result } = renderHook(() => useTokenDetailActions().current, {
+      wrapper: Wrapper,
+    });
+    const tick = (price: string) =>
+      result.current.applyChartPriceUpdate({
+        tokenAddress: detail.address,
+        networkId: detail.networkId,
+        price,
+        lastUpdated: Date.now(),
+      });
+    act(() => tick('2'));
+    expect(store.get(tokenDetailAtom())).toMatchObject({
+      price: '2',
+      priceConverted: '14',
+      priceConversionRate: '7',
+    });
+
+    mockFetchMarketTokenDetailByTokenAddress.mockResolvedValueOnce({
+      data: { token: { ...detail, price: '1.5', priceConverted: '10.65' } },
+    });
+    await act(async () => {
+      await result.current.fetchTokenDetail(detail.address, detail.networkId);
+    });
+    expect(store.get(tokenDetailAtom())).toMatchObject({
+      price: '2',
+      priceConverted: '14.2',
+      priceConversionRate: '7.1',
+    });
+    act(() => tick('3'));
+    expect(store.get(tokenDetailAtom())?.priceConverted).toBe('21.3');
+  });
+});
+
 describe('cached token detail seed', () => {
   const target = { networkId: 'evm--56', tokenAddress: '0xaaplon' };
   const swrKey = 'marketTokenDetail:v1:evm--56:0xaaplon:usd:en-us';
@@ -655,147 +855,6 @@ describe('cached token detail seed', () => {
   });
 });
 
-describe('market native chart price updates', () => {
-  const tokenDetail = {
-    address: '0xabc',
-    networkId: 'evm--1',
-    name: 'Test token',
-    symbol: 'TEST',
-    decimals: 18,
-    logoUrl: '',
-    price: '1',
-  };
-  const receivedAt = 1_788_332_400_000;
-  const realtimeUpdate = {
-    price: 2,
-    receivedAt,
-    source: 'realtime' as const,
-    timestamp: 1_788_328_800,
-  };
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-    jest.spyOn(Date, 'now').mockReturnValue(receivedAt);
-  });
-
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
-
-  it('keeps the latest chart price when the detail poll returns an older price', async () => {
-    const { store, Wrapper } = createWrapper();
-    store.set(tokenDetailAtom(), tokenDetail);
-    const { result } = renderHook(
-      () => ({
-        onPriceUpdate: useMarketNativeChartPriceUpdate({
-          networkId: tokenDetail.networkId,
-          tokenAddress: tokenDetail.address,
-        }),
-        actions: useTokenDetailActions().current,
-      }),
-      { wrapper: Wrapper },
-    );
-
-    act(() => result.current.onPriceUpdate(realtimeUpdate));
-    expect(store.get(tokenDetailAtom())).toMatchObject({
-      price: '2',
-      lastUpdated: receivedAt,
-      chartPriceUpdatedAt: receivedAt,
-    });
-
-    mockFetchMarketTokenDetailByTokenAddress.mockResolvedValueOnce({
-      data: { token: { ...tokenDetail, price: '1.5', volume24h: '100' } },
-    });
-    await act(async () => {
-      await result.current.actions.fetchTokenDetail('0xabc', 'evm--1');
-    });
-    expect(store.get(tokenDetailAtom())).toMatchObject({
-      price: '2',
-      volume24h: '100',
-      lastUpdated: receivedAt,
-    });
-  });
-
-  it('ignores historical candles and invalid realtime prices', () => {
-    const { store, Wrapper } = createWrapper();
-    store.set(tokenDetailAtom(), tokenDetail);
-    const { result } = renderHook(
-      () =>
-        useMarketNativeChartPriceUpdate({
-          networkId: tokenDetail.networkId,
-          tokenAddress: tokenDetail.address,
-        }),
-      { wrapper: Wrapper },
-    );
-
-    act(() => {
-      result.current({ ...realtimeUpdate, source: 'history' });
-      for (const price of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
-        result.current({ ...realtimeUpdate, price });
-      }
-    });
-    expect(store.get(tokenDetailAtom())).toEqual(tokenDetail);
-  });
-
-  it.each([
-    { networkId: 'evm--1', enabled: false },
-    { networkId: '', enabled: true },
-  ])(
-    'ignores updates when the token price source is inactive: %j',
-    (params) => {
-      const { store, Wrapper } = createWrapper();
-      store.set(tokenDetailAtom(), tokenDetail);
-      const { result } = renderHook(
-        () =>
-          useMarketNativeChartPriceUpdate({
-            ...params,
-            tokenAddress: tokenDetail.address,
-          }),
-        { wrapper: Wrapper },
-      );
-
-      act(() => result.current(realtimeUpdate));
-      expect(store.get(tokenDetailAtom())).toEqual(tokenDetail);
-    },
-  );
-
-  it.each([
-    { networkId: 'evm--1', tokenAddress: '0xdef' },
-    { networkId: 'evm--8453', tokenAddress: '0xabc' },
-  ])(
-    'discards a late update after switching token identity: %j',
-    (nextToken) => {
-      const { store, Wrapper } = createWrapper();
-      store.set(tokenDetailAtom(), tokenDetail);
-      const { result, rerender } = renderHook(
-        (params) => useMarketNativeChartPriceUpdate(params),
-        {
-          initialProps: {
-            networkId: tokenDetail.networkId,
-            tokenAddress: tokenDetail.address,
-          },
-          wrapper: Wrapper,
-        },
-      );
-      const previousOnPriceUpdate = result.current;
-      const nextDetail = {
-        ...tokenDetail,
-        networkId: nextToken.networkId,
-        address: nextToken.tokenAddress,
-        price: '3',
-      };
-
-      act(() => store.set(tokenDetailAtom(), nextDetail));
-      rerender(nextToken);
-      act(() => previousOnPriceUpdate(realtimeUpdate));
-      expect(store.get(tokenDetailAtom())).toEqual(nextDetail);
-
-      act(() => result.current({ ...realtimeUpdate, price: 4 }));
-      expect(store.get(tokenDetailAtom())?.price).toBe('4');
-    },
-  );
-});
-
 describe('marketV2 asset token detail actions', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -865,6 +924,90 @@ describe('marketV2 asset token detail actions', () => {
       lastUpdated: 1_788_332_400_000,
     });
   });
+
+  it.each(['detail', 'decimals'] as const)(
+    'preserves realtime prices while an asset %s request is delayed',
+    async (delayedRequest) => {
+      const receivedAt = Date.now();
+      const { store, Wrapper } = createWrapper();
+      const assetDetail = {
+        ...dogeAssetDetail,
+        selectedVariant: {
+          ...dogeAssetDetail.selectedVariant,
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          isNative: false,
+        },
+      };
+      const detailResponse = createDeferred<IMarketAssetDetailData>();
+      const decimalsResponse = createDeferred<{ info: { decimals: number } }>();
+      mockFetchMarketAssetDetail.mockReturnValueOnce(
+        delayedRequest === 'detail'
+          ? detailResponse.promise
+          : Promise.resolve(assetDetail),
+      );
+      mockFetchTokenInfoOnly.mockReturnValueOnce(
+        delayedRequest === 'decimals'
+          ? decimalsResponse.promise
+          : Promise.resolve({ info: { decimals: 18 } }),
+      );
+      store.set(tokenAddressAtom(), '0xabc');
+      store.set(networkIdAtom(), 'evm--1');
+      store.set(tokenDetailAtom(), {
+        address: '0xabc',
+        networkId: 'evm--1',
+        name: 'Dogecoin',
+        symbol: 'DOGE',
+        decimals: 2,
+        decimalsResolved: false,
+        logoUrl: '',
+        price: '0.2',
+        chartPriceUpdatedAt: receivedAt - MARKET_CHART_PRICE_STALE_MS,
+      });
+      const { result } = renderHook(
+        () => ({
+          actions: useTokenDetailActions().current,
+          fetchAssetTokenDetail: useMarketAssetTokenDetailAction(),
+        }),
+        { wrapper: Wrapper },
+      );
+      let request: Promise<IMarketAssetDetailData> | undefined;
+      await act(async () => {
+        request = result.current.fetchAssetTokenDetail({
+          assetId: 'doge',
+          tokenAddress: '0xabc',
+          networkId: 'evm--1',
+        });
+        await Promise.resolve();
+      });
+      if (delayedRequest === 'decimals') {
+        expect(mockFetchTokenInfoOnly).toHaveBeenCalledTimes(1);
+      }
+      act(() => {
+        result.current.actions.applyChartPriceUpdate({
+          tokenAddress: '0xabc',
+          networkId: 'evm--1',
+          price: '0.3',
+          lastUpdated: receivedAt,
+        });
+      });
+      jest.spyOn(Date, 'now').mockReturnValue(receivedAt + 60_000);
+      await act(async () => {
+        detailResponse.resolve(assetDetail);
+        decimalsResponse.resolve({ info: { decimals: 18 } });
+        await request;
+      });
+
+      expect(store.get(tokenDetailAtom())).toMatchObject({
+        price: '0.3',
+        lastUpdated: receivedAt,
+        chartPriceUpdatedAt: receivedAt,
+        decimals: 18,
+        decimalsResolved: true,
+        volume24h: dogeAssetDetail.market.volume24h,
+      });
+    },
+  );
 
   it('resolves perps info for the asset detail path', async () => {
     mockResolveMarketPerpsInfoBySymbol.mockResolvedValue({ hlTicker: 'DOGE' });

@@ -1962,7 +1962,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       params: {
         source: Extract<
           ISubscriptionRecoveryProofSource,
-          'route-focused' | 'token-selector'
+          'route-focused' | 'token-selector' | 'trade-history-details'
         >;
       },
     ) =>
@@ -1970,6 +1970,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         source: params.source,
         isSourceLive: () => {
           const state = get(tradeRouteViewStateAtom());
+          if (params.source === 'trade-history-details') {
+            return state.tradeHistoryDetailsOpen;
+          }
           return params.source === 'token-selector'
             ? state.tokenSelectorOpen
             : state.routeFocused;
@@ -3275,6 +3278,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         coin: string;
         oid: number;
         newPrice: string;
+        expectedAccountAddress?: string;
       },
     ) => {
       // Side stays as placed — HL rejects modify that flips isBuy.
@@ -3286,6 +3290,15 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           }
           if (existing.coin !== params.coin) {
             throw new OneKeyLocalError(getPerpsOrderChangedMessage());
+          }
+          if (params.expectedAccountAddress) {
+            const activeAccount = await perpsActiveAccountAtom.get();
+            if (
+              normalizePerpsAccountAddress(activeAccount.accountAddress) !==
+              normalizePerpsAccountAddress(params.expectedAccountAddress)
+            ) {
+              throw new OneKeyLocalError(getPerpsOrderChangedMessage());
+            }
           }
           const amendKind = getPerpsOrderAmendKind(existing);
           if (!amendKind) {
@@ -3301,6 +3314,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               reduceOnly: existing.reduceOnly,
               amendKind,
               cloid: existing.cloid,
+              ...(params.expectedAccountAddress
+                ? { expectedAccountAddress: params.expectedAccountAddress }
+                : {}),
             },
           );
         },
@@ -3365,12 +3381,14 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       set,
       params: {
         oid: number;
+        coin?: string;
+        expectedAccountAddress?: string;
       },
     ) => {
       // Inner cancelOrder owns the CANCEL_ORDER toast; emit our own
       // error toast for pre-network validation so failures aren't silent.
       const existing = await this.findChartOrder(get, params.oid);
-      if (!existing) {
+      if (!existing || (params.coin && existing.coin !== params.coin)) {
         Toast.error({
           title: getPerpsOrderChangedMessage(),
         });
@@ -3388,6 +3406,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
       return this.cancelOrder.call(set, {
         orders: [{ assetId: symbolMeta.assetId, oid: params.oid }],
+        expectedAccountAddress: params.expectedAccountAddress,
       });
     },
   );
@@ -3402,17 +3421,31 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           oid: number;
         }>;
         showToast?: boolean;
+        expectedAccountAddress?: string;
       },
     ) => {
       return withToast({
         asyncFn: async () => {
-          const result =
-            await backgroundApiProxy.serviceHyperliquidExchange.cancelOrder(
-              params.orders.map((order) => ({
-                assetId: order.assetId,
-                oid: order.oid,
-              })),
-            );
+          const cancels = params.orders.map((order) => ({
+            assetId: order.assetId,
+            oid: order.oid,
+          }));
+          const result = params.expectedAccountAddress
+            ? await backgroundApiProxy.serviceHyperliquidExchange.cancelOrder(
+                cancels,
+                { expectedAccountAddress: params.expectedAccountAddress },
+              )
+            : await backgroundApiProxy.serviceHyperliquidExchange.cancelOrder(
+                cancels,
+              );
+          if (params.expectedAccountAddress) {
+            const activeAccount = await perpsActiveAccountAtom.get();
+            if (
+              normalizePerpsAccountAddress(activeAccount.accountAddress) !==
+              normalizePerpsAccountAddress(params.expectedAccountAddress)
+            )
+              return result;
+          }
 
           // Track canceled order ids so UI can remove them immediately
           for (const o of params.orders) {
@@ -3441,6 +3474,12 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           });
 
           const prevSpot = await spotActiveOpenOrdersAtom.get();
+          if (
+            params.expectedAccountAddress &&
+            normalizePerpsAccountAddress(prevSpot.accountAddress) !==
+              normalizePerpsAccountAddress(params.expectedAccountAddress)
+          )
+            return result;
           const nextSpotOpenOrders = prevSpot.openOrders.filter(
             (o) => !this.canceledOrderIds.has(o.oid),
           );

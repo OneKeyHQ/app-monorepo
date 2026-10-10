@@ -3,9 +3,11 @@
  * @jest-environment-options {"customExportConditions": ["node", "node-addons"]}
  */
 
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { Dialog } from '.';
+
+import { renderToContainer } from './renderToContainer';
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -187,5 +189,31 @@ describe('Dialog.show overlay targeting guard', () => {
     });
 
     expect(errorSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('Dialog.show closing lifecycle', () => {
+  it('notifies close start synchronously and keeps cleanup after the animation', async () => {
+    jest.useFakeTimers();
+    try {
+      const onCloseStart = jest.fn();
+      const onClose = jest.fn();
+      Dialog.show({ portalContainer: LOCK_CONTAINER, onCloseStart, onClose });
+      const element = jest
+        .mocked(renderToContainer)
+        .mock.calls.at(-1)?.[1] as ReactElement<{
+        onClose: () => Promise<void>;
+      }>;
+      const closing = element.props.onClose();
+      expect(onCloseStart).toHaveBeenCalledTimes(1);
+      expect(onClose).not.toHaveBeenCalled();
+      jest.advanceTimersByTime(299);
+      expect(onClose).not.toHaveBeenCalled();
+      jest.advanceTimersByTime(1);
+      await closing;
+      expect(onClose).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });

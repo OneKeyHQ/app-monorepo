@@ -12,7 +12,6 @@ import {
 } from '@onekeyhq/components';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { useKeylessPinConfirmStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/keyless';
-import { getOneKeyIdAuthConfigByDevSettings } from '@onekeyhq/shared/src/config/oneKeyIdAuth';
 import {
   GOOGLE_OAUTH_CLIENT_IDS,
   JUICEBOX_ALLOWED_GUESSES,
@@ -20,6 +19,8 @@ import {
   JUICEBOX_CONFIG,
   KEYLESS_SUPABASE_PROJECT_URL,
   KEYLESS_SUPABASE_PUBLIC_API_KEY,
+  SUPABASE_PROJECT_URL,
+  SUPABASE_PUBLIC_API_KEY,
 } from '@onekeyhq/shared/src/consts/authConsts';
 import dateUtils from '@onekeyhq/shared/src/utils/dateUtils';
 
@@ -134,11 +135,10 @@ export function KeylessOnboardingDebugPanelView({
   }, [cacheKeylessOnboardingCustomMnemonic]);
 
   const handleShowAuthConsts = useCallback(() => {
-    const emailAuthConfig = getOneKeyIdAuthConfigByDevSettings(devSettings);
     const debugData = {
       GOOGLE_OAUTH_CLIENT_IDS,
-      SUPABASE_PROJECT_URL: emailAuthConfig.projectUrl,
-      SUPABASE_PUBLIC_API_KEY: emailAuthConfig.publicKey,
+      SUPABASE_PROJECT_URL,
+      SUPABASE_PUBLIC_API_KEY,
       KEYLESS_SUPABASE_PROJECT_URL,
       KEYLESS_SUPABASE_PUBLIC_API_KEY,
       JUICEBOX_AUTH_SERVER,
@@ -150,7 +150,7 @@ export function KeylessOnboardingDebugPanelView({
       title: 'Auth consts',
       debugMessage: debugData,
     });
-  }, [devSettings]);
+  }, []);
 
   return (
     <YStack gap="$2" py="$4">

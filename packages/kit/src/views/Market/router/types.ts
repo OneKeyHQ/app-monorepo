@@ -1,3 +1,4 @@
+import type { ITradingViewNativeStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/types';
 import type { EMarketBannerType } from '@onekeyhq/shared/types/marketV2';
 
 export enum EModalMarketRoutes {
@@ -33,9 +34,12 @@ export type IModalMarketParamList = {
     | {
         // Only stock detail charts can offer Prev close.
         showPreviousClose?: boolean;
+        panelId?: string;
+        storageNamespace?: ITradingViewNativeStorageNamespace;
       }
     | undefined;
   [EModalMarketRoutes.MarketIndicatorSettings]: {
-    storageNamespace: 'market' | 'swap';
+    storageNamespace: ITradingViewNativeStorageNamespace;
+    panelId?: string;
   };
 };

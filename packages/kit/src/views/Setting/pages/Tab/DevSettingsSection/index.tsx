@@ -41,6 +41,7 @@ import {
 } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { AccountSelectorMirrorInspectorTestIDs } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorMirrorInspectorTestIDs';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { Section } from '@onekeyhq/kit/src/components/Section';
@@ -564,6 +565,11 @@ const BaseDevSettingsSection = () => {
       onConfirm: async () => {
         try {
           await backgroundApiProxy.serviceDevSetting.switchDevMode(false);
+          if (devSettings.enabled && devSettings.settings?.enableTestEndpoint) {
+            setTimeout(() => {
+              void backgroundApiProxy.serviceApp.restartApp();
+            }, 300);
+          }
         } catch {
           Toast.error({
             title: 'Failed to disable developer mode',
@@ -577,7 +583,7 @@ const BaseDevSettingsSection = () => {
         }
       },
     });
-  }, []);
+  }, [devSettings.enabled, devSettings.settings?.enableTestEndpoint]);
 
   const handleOpenDevTools = useCallback(() => {
     showDevOnlyPasswordDialog({
@@ -1041,6 +1047,36 @@ const BaseDevSettingsSection = () => {
                             ? ONEKEY_TEST_API_HOST
                             : ONEKEY_API_HOST
                         }
+                        onBeforeValueChange={async () => {
+                          try {
+                            await backgroundApiProxy.serviceNotification.unregisterClient();
+                          } catch (error) {
+                            console.error(error);
+                          }
+                        }}
+                        onValueChange={async (enabled: boolean) => {
+                          if (platformEnv.isDesktop) {
+                            await globalThis.desktopApiProxy?.appUpdate?.useTestUpdateFeedUrl?.(
+                              enabled,
+                            );
+                          }
+                          setTimeout(() => {
+                            void backgroundApiProxy.serviceApp.restartApp();
+                          }, 300);
+                        }}
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="CurrencyDollarOutline"
+                        name="ignoreReviewControl"
+                        title="忽略远端入口开关，强制显示 Buy/Sell"
+                        subtitle={
+                          devSettings.settings?.ignoreReviewControl
+                            ? '已强制显示被远端开关隐藏的 Buy/Sell 等入口'
+                            : '远端开关关闭时会隐藏 Buy/Sell 等入口（默认关闭，需手动开启）'
+                        }
+                        searchKeywords="buy sell fiat visibility 出入金 入口"
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
@@ -1179,7 +1215,7 @@ const BaseDevSettingsSection = () => {
                           <SectionPressItem
                             icon="ChromeBrand"
                             title="Open Chrome DevTools in Desktop"
-                            subtitle="启用后可以使用快捷键 Cmd/Ctrl + Shift + I 开启调试工具"
+                            subtitle="启用后可以使用快捷键 ⌥⌘I (macOS) / Ctrl+Shift+I 开启主窗口调试工具，⌥⇧⌘I / Ctrl+Alt+Shift+I 开启当前 WebView 调试工具"
                             onPress={handleOpenDevTools}
                           />
                           <SectionPressItem
@@ -1737,6 +1773,24 @@ const BaseDevSettingsSection = () => {
                           />
                         </ListItem>
                       </SearchFilterItem>
+
+                      {platformEnv.isWeb &&
+                      (platformEnv.isDev || platformEnv.isE2E) ? (
+                        <SectionFieldItem
+                          icon="CodeOutline"
+                          name="showAccountSelectorMirrorInspector"
+                          title="Account Selector Mirror Inspector"
+                          subtitle="右下角显示实际 React Context 与 canonical store 的只读核对结果"
+                          searchKeywords="Account Selector Mirror React Context inspector E2E 探针 浮层"
+                        >
+                          <Switch
+                            size={ESwitchSize.small}
+                            testID={
+                              AccountSelectorMirrorInspectorTestIDs.settingsSwitch
+                            }
+                          />
+                        </SectionFieldItem>
+                      ) : null}
 
                       <SectionFieldItem
                         icon="CreditCardOutline"

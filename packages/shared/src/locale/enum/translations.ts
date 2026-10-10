@@ -3136,6 +3136,7 @@ export enum ETranslations {
   perp_order_close_short = 'perp.order_close_short',
   perp_order_mid_price_title = 'perp.order_mid_price_title',
   perp_order_mid_price_title_desc = 'perp.order_mid_price_title_desc',
+  perp_order_quantity__title = 'perp_order_quantity__title',
   perp_order_size_small = 'perp.order_size_small',
   perp_order_stop_limit = 'perp.order_stop_limit',
   perp_order_stop_market = 'perp.order_stop_market',
@@ -3263,6 +3264,11 @@ export enum ETranslations {
   perp_trade_cross = 'perp.trade_cross',
   perp_trade_current_position = 'perp.trade_current_position',
   perp_trade_deposit = 'perp.trade_deposit',
+  perp_trade_details_fee_token__title = 'perp_trade_details_fee_token__title',
+  perp_trade_details_liquidity_role__title = 'perp_trade_details_liquidity_role__title',
+  perp_trade_details_maker__title = 'perp_trade_details_maker__title',
+  perp_trade_details_start_position__title = 'perp_trade_details_start_position__title',
+  perp_trade_details_taker__title = 'perp_trade_details_taker__title',
   perp_trade_history_empty = 'perp.trade_history_empty',
   perp_trade_history_empty_desc = 'perp.trade_history_empty_desc',
   perp_trade_isolated = 'perp.trade_isolated',
@@ -3398,7 +3404,7 @@ export enum ETranslations {
   perp_no_active_twap__title = 'perp_no_active_twap__title',
   perp_no_twap_fill_history__title = 'perp_no_twap_fill_history__title',
   perp_no_twap_history__title = 'perp_no_twap_history__title',
-  perp_order_quantity__title = 'perp_order_quantity__title',
+
   perp_order_size_small__desc = 'perp_order_size_small__desc',
   perp_order_trigger_limit = 'perp_order_trigger_limit',
   perp_order_trigger_market = 'perp_order_trigger_market',
@@ -3532,11 +3538,11 @@ export enum ETranslations {
   perp_token_info_not_found__msg = 'perp_token_info_not_found__msg',
   perp_trade_account_overview_avbl = 'perp_trade_account_overview_avbl',
   perp_trade_deposit_to_trade__action = 'perp_trade_deposit_to_trade__action',
-  perp_trade_details_fee_token__title = 'perp_trade_details_fee_token__title',
-  perp_trade_details_liquidity_role__title = 'perp_trade_details_liquidity_role__title',
-  perp_trade_details_maker__title = 'perp_trade_details_maker__title',
-  perp_trade_details_start_position__title = 'perp_trade_details_start_position__title',
-  perp_trade_details_taker__title = 'perp_trade_details_taker__title',
+
+
+
+
+
   perp_trade_first_deposit_ready__desc = 'perp_trade_first_deposit_ready__desc',
   perp_trade_settlement__title = 'perp_trade_settlement__title',
   perp_trades_history_recent_range_desc = 'perp_trades_history_recent_range_desc',
@@ -4491,6 +4497,7 @@ export enum ETranslations {
   referral_creator_program__desc = 'referral_creator_program__desc',
   referral_creator_program__title = 'referral_creator_program__title',
   referral_creator_program_more_ways__title = 'referral_creator_program_more_ways__title',
+  referral_intro_hardware__desc = 'referral_intro_hardware__desc',
   referral_invited_by_code__desc = 'referral_invited_by_code__desc',
   referral_level_complete_any_n_of_m = 'referral_level.complete_any_n_of_m',
   referral_level_complete_any_subtitle = 'referral_level.complete_any_subtitle',
@@ -5211,6 +5218,8 @@ export enum ETranslations {
   trade_stocks_token_to_share_ratio = 'trade_stocks.token_to_share_ratio',
   trade_stocks_token_to_share_ratio_description = 'trade_stocks.token_to_share_ratio_description',
   trade_stocks_underlying_asset = 'trade_stocks.underlying_asset',
+  trade_warning_honeypot_detected = 'trade_warning_honeypot_detected',
+  trade_warning_low_token_liquidity = 'trade_warning_low_token_liquidity',
   trading_hours_closed_tradable = 'trading_hours.closed_tradable',
   trading_hours_closed_tradable_description = 'trading_hours.closed_tradable_description',
   trading_hours_description = 'trading_hours.description',

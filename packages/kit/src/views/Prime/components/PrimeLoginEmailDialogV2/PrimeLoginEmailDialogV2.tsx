@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -8,7 +8,6 @@ import {
   Form,
   Input,
   Stack,
-  Toast,
   YStack,
 } from '@onekeyhq/components';
 import { useForm } from '@onekeyhq/components/src/hooks/useForm';
@@ -28,8 +27,6 @@ import {
   showOneKeyIdLoginSuccessToast,
 } from '../oneKeyIdLoginToastUtils';
 import { DevTestAccountSelector } from '../PrimeDevUtils/DevTestAccountSelector';
-import { PrimeLoginPasswordTestDialog } from '../PrimeDevUtils/PrimeLoginPasswordTestDialog';
-import { useEmailOtpDevTools } from '../PrimeDevUtils/useEmailOtpDevTools';
 import { PrimeLoginEmailCodeDialogV2 } from '../PrimeLoginEmailCodeDialogV2';
 
 type IPrimeLoginEmailDialogV2Props = {
@@ -40,7 +37,6 @@ type IPrimeLoginEmailDialogV2Props = {
   onConfirm?: (code: string) => void | Promise<void>;
   onCancel?: () => void | Promise<void>;
   disabled?: boolean;
-  debugPanelOpenCount?: number;
   onSubmittingChange?: (isSubmitting: boolean) => void;
 } & (
   | {
@@ -67,7 +63,6 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
     embeddedVerificationEmail,
     onEmbeddedVerificationEmailChange,
     disabled = false,
-    debugPanelOpenCount = 0,
     onSubmittingChange,
   } = props;
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -88,22 +83,13 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
     useLoginWithEmail,
     // user
   } = useOneKeyAuth();
-  const { sendCode: originalSendCode, loginWithCode: originalLoginWithCode } =
-    useLoginWithEmail();
+  const { sendCode, loginWithCode } = useLoginWithEmail();
 
   const intl = useIntl();
 
   const form = useForm<{ email: string }>({
     defaultValues: { email: lastOneKeyIdLoginEmail || '' },
   });
-
-  const devAuth = useEmailOtpDevTools({
-    openCount: embedded ? debugPanelOpenCount : 0,
-    email: embeddedVerificationEmail ?? form.watch('email'),
-    sendCode: originalSendCode,
-    loginWithCode: originalLoginWithCode,
-  });
-  const { sendCode, loginWithCode } = devAuth;
 
   const resetSubmittingState = useCallback(() => {
     isSubmittingRef.current = false;
@@ -114,12 +100,12 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
   const submit = useCallback(
     async (options: { preventClose?: () => void } = {}) => {
       const { preventClose } = options;
-      if (isSubmittingRef.current || disabled || !devAuth.canSend) {
+      if (isSubmittingRef.current || disabled) {
         preventClose?.();
         return;
       }
       await form.trigger();
-      if (!form.formState.isValid || isSubmittingRef.current) {
+      if (!form.formState.isValid) {
         preventClose?.();
         return;
       }
@@ -227,7 +213,6 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
     },
     [
       disabled,
-      devAuth.canSend,
       embedded,
       form,
       intl,
@@ -244,14 +229,6 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
   );
 
   const handleEmbeddedLoginSuccess = useCallback(async () => {
-    if (devAuth.isTestProject || devAuth.isPasswordLogin) {
-      Toast.success({
-        title: devAuth.isPasswordLogin
-          ? 'Test Supabase password login succeeded. OneKey ID session unchanged.'
-          : 'Test Supabase OTP verified. OneKey ID session unchanged.',
-      });
-      return;
-    }
     showOneKeyIdLoginSuccessToast(intl);
     // OTP verification has already committed the login in the bg runtime.
     // Await the host dialog close before the outer continuation navigates:
@@ -273,57 +250,26 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
     await showOneKeyIdLegacyOAuthBindDialog({
       type: 'post-email-login',
     });
-  }, [
-    devAuth.isPasswordLogin,
-    devAuth.isTestProject,
-    intl,
-    onComplete,
-    onLoginSuccess,
-  ]);
+  }, [intl, onComplete, onLoginSuccess]);
 
   const handleChooseAnotherSignInMethod = useCallback(() => {
     resetSubmittingState();
     onEmbeddedVerificationEmailChange?.(undefined);
   }, [onEmbeddedVerificationEmailChange, resetSubmittingState]);
 
-  let embeddedVerificationCodeContent: ReactNode = null;
-  if (embedded && embeddedVerificationSessionEmail) {
-    embeddedVerificationCodeContent =
-      devAuth.isPasswordLogin && devAuth.captchaOverride ? (
-        <PrimeLoginPasswordTestDialog
-          key={embeddedVerificationSessionEmail}
-          active={
-            embeddedVerificationEmail === embeddedVerificationSessionEmail
-          }
-          email={embeddedVerificationSessionEmail}
-          captchaConfig={devAuth.captchaOverride}
-          revision={devAuth.revision}
-          disabled={!devAuth.canSend}
-          loginWithPassword={devAuth.loginWithPassword}
-          onLoginSuccess={handleEmbeddedLoginSuccess}
-          onChooseAnotherSignInMethod={handleChooseAnotherSignInMethod}
-          developmentControls={devAuth.renderControls}
-        />
-      ) : (
-        <PrimeLoginEmailCodeDialogV2
-          key={embeddedVerificationSessionEmail}
-          active={
-            embeddedVerificationEmail === embeddedVerificationSessionEmail
-          }
-          sendCode={sendCode}
-          loginWithCode={loginWithCode}
-          email={embeddedVerificationSessionEmail}
-          onConfirm={onConfirm}
-          onLoginSuccess={handleEmbeddedLoginSuccess}
-          onChooseAnotherSignInMethod={handleChooseAnotherSignInMethod}
-          developmentControls={devAuth.renderControls}
-          captchaConfig={devAuth.captchaOverride}
-          sendCodeDisabled={!devAuth.canSend}
-          developmentConfigRevision={devAuth.revision}
-          isolatedTest={devAuth.isTestProject}
-        />
-      );
-  }
+  const embeddedVerificationCodeContent =
+    embedded && embeddedVerificationSessionEmail ? (
+      <PrimeLoginEmailCodeDialogV2
+        key={embeddedVerificationSessionEmail}
+        active={embeddedVerificationEmail === embeddedVerificationSessionEmail}
+        sendCode={sendCode}
+        loginWithCode={loginWithCode}
+        email={embeddedVerificationSessionEmail}
+        onConfirm={onConfirm}
+        onLoginSuccess={handleEmbeddedLoginSuccess}
+        onChooseAnotherSignInMethod={handleChooseAnotherSignInMethod}
+      />
+    ) : null;
   const showEmailForm = !embedded || embeddedVerificationEmail === undefined;
 
   const titleContent = (
@@ -403,12 +349,7 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
                 size="large"
                 testID="prime-login-email-btn"
                 loading={isSubmitting}
-                disabled={
-                  disabled ||
-                  !form.formState.isValid ||
-                  !isReady ||
-                  !devAuth.canSend
-                }
+                disabled={disabled || !form.formState.isValid || !isReady}
                 onPress={() => void submit()}
               >
                 {intl.formatMessage({
@@ -416,7 +357,6 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
                 })}
               </Button>
             ) : null}
-            {devAuth.renderControls(isSubmitting)}
           </YStack>
           {embedded ? null : (
             <Dialog.Footer

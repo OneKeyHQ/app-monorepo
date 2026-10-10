@@ -103,7 +103,8 @@ const AddPositionForm = memo(
     const [{ isConnected }] = useConnectionStateAtom();
     const [tradingPreferences] = usePerpsTradingPreferencesAtom();
     const sizeInputUnit = tradingPreferences.sizeInputUnit ?? 'usd';
-    const tpslButtonPaddingTop = keyboardHeight > 0 ? 0 : '$4';
+    const tpslButtonPaddingTop =
+      keyboardHeight > 0 || !platformEnv.isNative ? 0 : '$4';
     const [allMids] = usePerpsAllMidsAtom();
     const activePositions = usePerpsAccountScopedActivePositions();
     const currentPosition = useMemo(
@@ -767,7 +768,7 @@ const AddPositionForm = memo(
             disabled={isSubmitting || !isTargetAssetReady}
             segments={4}
             snapTapToSegment
-            showBubble={false}
+            showBubble
             sliderHeight={4}
           />
           <YStack gap="$2">
@@ -789,6 +790,7 @@ const AddPositionForm = memo(
             {hasTpsl ? (
               <YStack gap="$4">
                 <TpSlFormInput
+                  ifOnDialog
                   type="tp"
                   label={intl.formatMessage({
                     id: ETranslations.perp_trade_tp_price,
@@ -801,6 +803,7 @@ const AddPositionForm = memo(
                   onTypeChange={setTpType}
                 />
                 <TpSlFormInput
+                  ifOnDialog
                   type="sl"
                   label={intl.formatMessage({
                     id: ETranslations.perp_trade_sl_price,
@@ -819,7 +822,7 @@ const AddPositionForm = memo(
         <YStack gap="$2">
           <XStack justifyContent="space-between">
             <DashText
-              size="$bodySm"
+              size="$bodyMd"
               color="$textSubdued"
               dashThickness={0.3}
               tooltip={intl.formatMessage({
@@ -834,7 +837,7 @@ const AddPositionForm = memo(
             </DashText>
             {addPositionPreview.marginRequired ? (
               <NumberSizeableText
-                size="$bodySm"
+                size="$bodyMd"
                 color="$text"
                 formatter="value"
                 formatterOptions={{ currency: '$' }}
@@ -842,7 +845,7 @@ const AddPositionForm = memo(
                 {addPositionPreview.marginRequired.toFixed()}
               </NumberSizeableText>
             ) : (
-              <SizableText size="$bodySm" color="$textSubdued">
+              <SizableText size="$bodyMd" color="$textSubdued">
                 --
               </SizableText>
             )}
@@ -850,7 +853,7 @@ const AddPositionForm = memo(
 
           <XStack justifyContent="space-between">
             <DashText
-              size="$bodySm"
+              size="$bodyMd"
               color="$textSubdued"
               dashThickness={0.5}
               tooltip={intl.formatMessage({
@@ -865,7 +868,7 @@ const AddPositionForm = memo(
             </DashText>
             {addPositionPreview.liquidationPrice ? (
               <NumberSizeableText
-                size="$bodySm"
+                size="$bodyMd"
                 color="$text"
                 formatter="price"
                 formatterOptions={{ currency: '$' }}
@@ -873,13 +876,13 @@ const AddPositionForm = memo(
                 {addPositionPreview.liquidationPrice.toFixed()}
               </NumberSizeableText>
             ) : (
-              <SizableText size="$bodySm" color="$textSubdued">
+              <SizableText size="$bodyMd" color="$textSubdued">
                 --
               </SizableText>
             )}
           </XStack>
         </YStack>
-        <YStack pt={hasTpsl ? tpslButtonPaddingTop : undefined}>
+        <YStack pt={tpslButtonPaddingTop}>
           <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
             <Button
               testID={PerpTestIDs.AddPositionConfirmButton}

@@ -1,9 +1,7 @@
 /** @jest-environment jsdom */
 /* eslint-disable import/first, import-js/order */
 
-import { useState } from 'react';
-
-import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
+import type { Session } from '@supabase/supabase-js';
 
 const mockLegacySession = {
   access_token: 'legacy-access-token',
@@ -35,15 +33,13 @@ const mockKeylessGetSession = jest.fn<
 const mockLogOneKeyIdLoginFailureReason = jest.fn();
 const mockLegacyUnsubscribe = jest.fn();
 const mockKeylessUnsubscribe = jest.fn();
-const mockLegacyOnAuthStateChange = jest.fn(
-  (_callback: (event: AuthChangeEvent, session: Session | null) => void) => ({
-    data: {
-      subscription: {
-        unsubscribe: mockLegacyUnsubscribe,
-      },
+const mockLegacyOnAuthStateChange = jest.fn(() => ({
+  data: {
+    subscription: {
+      unsubscribe: mockLegacyUnsubscribe,
     },
-  }),
-);
+  },
+}));
 const mockKeylessOnAuthStateChange = jest.fn(() => ({
   data: {
     subscription: {
@@ -52,11 +48,6 @@ const mockKeylessOnAuthStateChange = jest.fn(() => ({
   },
 }));
 let mockIsTokenRefreshRuntime = false;
-let mockDevSettings = { enabled: true, settings: { enableTestEndpoint: true } };
-
-jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings', () => ({
-  useDevSettingsPersistAtom: () => [mockDevSettings],
-}));
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -121,7 +112,6 @@ jest.mock('@onekeyhq/shared/src/storage/SupabaseStorage/consts', () => ({
 
 jest.mock('@onekeyhq/shared/src/utils/supabaseClientUtils', () => ({
   getSupabaseClient: () => ({
-    sessionKey: 'legacy-session-key',
     client: {
       auth: {
         getSession: () => mockLegacyGetSession(),
@@ -143,13 +133,7 @@ jest.mock('@onekeyhq/shared/src/utils/supabaseClientUtils', () => ({
   isSupabaseTokenRefreshRuntime: () => mockIsTokenRefreshRuntime,
 }));
 
-import {
-  act,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 
 import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
 
@@ -167,22 +151,10 @@ function SessionProbe() {
   );
 }
 
-function StatefulScreen() {
-  const [value, setValue] = useState('');
-  return (
-    <input
-      data-testid="screen-draft"
-      value={value}
-      onChange={(event) => setValue(event.target.value)}
-    />
-  );
-}
-
 describe('SupabaseAuthProvider runtime subscriptions', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockIsTokenRefreshRuntime = false;
-    mockDevSettings = { enabled: true, settings: { enableTestEndpoint: true } };
     mockGetAuthSessionSource.mockResolvedValue(
       EPrimeAuthSessionSource.LegacyEmailSupabase,
     );
@@ -258,96 +230,5 @@ describe('SupabaseAuthProvider runtime subscriptions', () => {
         sessionError,
       );
     });
-  });
-
-  test.each([true, false])(
-    'clears the previous environment projection (token refresh runtime: %s)',
-    async (refreshRuntime) => {
-      mockIsTokenRefreshRuntime = refreshRuntime;
-      const view = (
-        <SupabaseAuthProvider>
-          <SessionProbe />
-          <StatefulScreen />
-        </SupabaseAuthProvider>
-      );
-      const { rerender } = render(view);
-      await waitFor(() =>
-        expect(screen.getByTestId('session-probe').textContent).toBe(
-          'false:true:legacy@example.com',
-        ),
-      );
-      const oldCallback = mockLegacyOnAuthStateChange.mock.calls[0]?.[0];
-      const draft = screen.getByTestId<HTMLInputElement>('screen-draft');
-      fireEvent.change(draft, {
-        target: { value: 'keep this navigation draft' },
-      });
-
-      mockDevSettings = {
-        enabled: false,
-        settings: { enableTestEndpoint: true },
-      };
-      mockLegacyGetSession.mockResolvedValue({
-        data: { session: null },
-        error: null,
-      });
-      mockStorageGetItem.mockResolvedValue(null);
-      rerender(
-        <SupabaseAuthProvider>
-          <SessionProbe />
-          <StatefulScreen />
-        </SupabaseAuthProvider>,
-      );
-      await waitFor(() =>
-        expect(screen.getByTestId('session-probe').textContent).toBe(
-          'false:false:none',
-        ),
-      );
-      expect(screen.getByTestId('screen-draft')).toBe(draft);
-      expect(draft.value).toBe('keep this navigation draft');
-      if (refreshRuntime) {
-        expect(mockLegacyUnsubscribe).toHaveBeenCalledTimes(1);
-        act(() => oldCallback?.('TOKEN_REFRESHED', mockLegacySession));
-        expect(screen.getByTestId('session-probe').textContent).toBe(
-          'false:false:none',
-        );
-      }
-    },
-  );
-
-  test('late reads from the old environment cannot replace the new source or session', async () => {
-    let finishOldSource!: (source: EPrimeAuthSessionSource) => void;
-    const oldSource = new Promise<EPrimeAuthSessionSource>((resolve) => {
-      finishOldSource = resolve;
-    });
-    mockGetAuthSessionSource.mockImplementationOnce(() => oldSource);
-    const { rerender } = render(
-      <SupabaseAuthProvider>
-        <SessionProbe />
-        <StatefulScreen />
-      </SupabaseAuthProvider>,
-    );
-    await waitFor(() => expect(mockGetAuthSessionSource).toHaveBeenCalled());
-    mockDevSettings = {
-      enabled: false,
-      settings: { enableTestEndpoint: true },
-    };
-    mockStorageGetItem.mockResolvedValue(null);
-    rerender(
-      <SupabaseAuthProvider>
-        <SessionProbe />
-        <StatefulScreen />
-      </SupabaseAuthProvider>,
-    );
-    await waitFor(() =>
-      expect(screen.getByTestId('session-probe').textContent).toBe(
-        'false:false:none',
-      ),
-    );
-    await act(async () =>
-      finishOldSource(EPrimeAuthSessionSource.KeylessOAuth),
-    );
-    expect(screen.getByTestId('session-probe').textContent).toBe(
-      'false:false:none',
-    );
   });
 });

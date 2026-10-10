@@ -1,12 +1,12 @@
-import { EXTENSION_STORE_URLS } from '../config/extensionConfig';
+import { EXT_RATE_URL } from '../config/appConfig';
 import platformEnv from '../platformEnv';
 
 export function getOneKeyExtensionStoreUrl() {
   if (platformEnv.isRuntimeFirefox || platformEnv.isExtFirefox) {
-    return EXTENSION_STORE_URLS.firefox;
+    return EXT_RATE_URL.firefox;
   }
   if (platformEnv.isRuntimeEdge) {
-    return EXTENSION_STORE_URLS.edge;
+    return EXT_RATE_URL.edge;
   }
-  return EXTENSION_STORE_URLS.chrome;
+  return EXT_RATE_URL.chrome;
 }

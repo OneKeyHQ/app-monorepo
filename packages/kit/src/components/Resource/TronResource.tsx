@@ -24,11 +24,6 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import {
-  swrCacheUtils,
-  swrKeys,
-} from '@onekeyhq/shared/src/utils/swrCacheUtils';
-import type { ITronAccountResources } from '@onekeyhq/shared/types/tron';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
@@ -39,13 +34,14 @@ const DONUT_COLOR = '#818cf8';
 const DONUT_SIZE = 20;
 const DONUT_STROKE = 2;
 
+function clampResourceAvailable(value: BigNumber) {
+  return value.isNegative() ? new BigNumber(0) : value;
+}
+
 // available is already in [0, total], and the ring/bar consumers clamp
 // internally, so no extra clamp is needed here.
-function getResourcePercentage(available: string, total: string) {
-  const totalValue = new BigNumber(total);
-  return totalValue.isZero()
-    ? 0
-    : new BigNumber(available).div(totalValue).times(100).toNumber();
+function getResourcePercentage(available: BigNumber, total: BigNumber) {
+  return total.isZero() ? 0 : available.div(total).times(100).toNumber();
 }
 
 function useTronAccountResources({
@@ -59,37 +55,85 @@ function useTronAccountResources({
   pollingInterval?: number;
   suppressErrors?: boolean;
 }) {
-  // Per-account cache (OK-64027). On an account switch the hook paints this
-  // account's last known figures synchronously — or nothing, for an account
-  // never read — so the previous account's values never stand in while the
-  // fresh read is in flight, and a revisit does not wait on the network.
-  const swrKey = swrKeys.tronAccountResources({ accountId, networkId });
+  type IResourceResult = {
+    netAvailable: BigNumber;
+    netTotal: BigNumber;
+    energyAvailable: BigNumber;
+    energyTotal: BigNumber;
+  };
+  const lastResultRef = useRef<IResourceResult | undefined>(undefined);
 
   return usePromiseResult(
     async () => {
       try {
-        return await backgroundApiProxy.serviceAccountProfile.fetchTronAccountResources(
-          { accountId, networkId },
+        const accountAddress =
+          await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+            accountId,
+            networkId,
+          });
+        const [resources] =
+          await backgroundApiProxy.serviceAccountProfile.sendProxyRequest<{
+            EnergyLimit: number;
+            EnergyUsed: number;
+            NetLimit: number;
+            NetUsed: number;
+            freeEnergyLimit: number;
+            freeEnergyUsed: number;
+            freeNetLimit: number;
+            freeNetUsed: number;
+          }>({
+            networkId,
+            body: [
+              {
+                route: 'tronweb',
+                params: {
+                  method: 'trx.getAccountResources',
+                  params: [accountAddress],
+                },
+              },
+            ],
+          });
+        const netTotal = new BigNumber(resources.NetLimit ?? 0).plus(
+          resources.freeNetLimit ?? 0,
         );
+        const netAvailable = clampResourceAvailable(
+          netTotal
+            .minus(resources.NetUsed ?? 0)
+            .minus(resources.freeNetUsed ?? 0),
+        );
+
+        const energyTotal = new BigNumber(resources.EnergyLimit ?? 0).plus(
+          resources.freeEnergyLimit ?? 0,
+        );
+
+        const energyAvailable = clampResourceAvailable(
+          energyTotal
+            .minus(resources.EnergyUsed ?? 0)
+            .minus(resources.freeEnergyUsed ?? 0),
+        );
+
+        const result = { netAvailable, netTotal, energyAvailable, energyTotal };
+        lastResultRef.current = result;
+        return result;
       } catch (e: unknown) {
         if (suppressErrors && e && typeof e === 'object') {
           // Suppress toast for silent background/polling refreshes.
           // @toastIfError sets autoToast=true before BackgroundApiProxyBase
           // schedules showToastOfError in a 50ms setTimeout. Clearing it here
-          // (same object reference) prevents the toast.
+          // (same object reference) prevents the toast while keeping the
+          // previous result intact via the rethrow.
           (e as { autoToast?: boolean }).autoToast = false;
-          // Keep this account's last known values instead of resetting the
-          // card on a transient network failure. The cache is keyed per
-          // account, so a previous account's figures can never leak in.
-          return swrCacheUtils.get<ITronAccountResources>(swrKey);
+          // Return last known values so the card keeps showing valid data
+          // instead of resetting to 0/0 on a transient network failure.
+          return lastResultRef.current;
         }
         throw e;
       }
     },
-    [accountId, networkId, suppressErrors, swrKey],
+    [accountId, networkId, suppressErrors],
     {
+      watchLoading: true,
       pollingInterval,
-      swrKey,
     },
   );
 }
@@ -100,8 +144,8 @@ function ResourceDetails({
   total,
 }: {
   name: string;
-  available: string;
-  total: string;
+  available: BigNumber;
+  total: BigNumber;
 }) {
   const percentage = getResourcePercentage(available, total);
 
@@ -112,11 +156,11 @@ function ResourceDetails({
         <SizableText size="$bodySmMedium">{name}</SizableText>
         <XStack alignItems="center">
           <NumberSizeableText size="$bodySmMedium" formatter="marketCap">
-            {available}
+            {available.toFixed()}
           </NumberSizeableText>
           <SizableText size="$bodySmMedium">/</SizableText>
           <NumberSizeableText size="$bodySmMedium" formatter="marketCap">
-            {total}
+            {total.toFixed()}
           </NumberSizeableText>
         </XStack>
       </XStack>
@@ -133,10 +177,17 @@ function ResourceDetailsContent({
 }) {
   const intl = useIntl();
   const dialogInstance = useDialogInstance();
-  const { result } = useTronAccountResources({
+  const { result, isLoading } = useTronAccountResources({
     accountId,
     networkId,
   });
+
+  const { netAvailable, netTotal, energyAvailable, energyTotal } = result ?? {
+    netAvailable: new BigNumber(0),
+    netTotal: new BigNumber(0),
+    energyAvailable: new BigNumber(0),
+    energyTotal: new BigNumber(0),
+  };
 
   return (
     <Stack gap="$5">
@@ -159,21 +210,21 @@ function ResourceDetailsContent({
           })}
         </Button>
       </XStack>
-      {result ? (
+      {isLoading ? (
+        <Skeleton h="$7" flex={1} width="100%" />
+      ) : (
         <XStack gap="$4" flex={1}>
           <ResourceDetails
             name={intl.formatMessage({ id: ETranslations.global_energy })}
-            total={result.energyTotal}
-            available={result.energyAvailable}
+            total={energyTotal}
+            available={energyAvailable}
           />
           <ResourceDetails
             name={intl.formatMessage({ id: ETranslations.global_bandwidth })}
-            total={result.netTotal}
-            available={result.netAvailable}
+            total={netTotal}
+            available={netAvailable}
           />
         </XStack>
-      ) : (
-        <Skeleton h="$7" flex={1} width="100%" />
       )}
     </Stack>
   );
@@ -185,8 +236,8 @@ function ResourceRow({
   total,
 }: {
   name: string;
-  available: string;
-  total: string;
+  available: BigNumber;
+  total: BigNumber;
 }) {
   const percentage = getResourcePercentage(available, total);
 
@@ -214,7 +265,7 @@ function ResourceRow({
           color="$textSubdued"
           formatter="marketCap"
         >
-          {available}
+          {available.toFixed()}
         </NumberSizeableText>
         <SizableText size="$bodyMd" color="$textSubdued">
           /
@@ -224,22 +275,9 @@ function ResourceRow({
           color="$textSubdued"
           formatter="marketCap"
         >
-          {total}
+          {total.toFixed()}
         </NumberSizeableText>
       </XStack>
-    </XStack>
-  );
-}
-
-// Mirrors ResourceRow (ring, name, figures) at the same row height so the
-// card does not reflow when the first values replace it.
-function ResourceRowSkeleton() {
-  return (
-    <XStack alignItems="center" gap="$2.5" h={DONUT_SIZE}>
-      <Skeleton w={DONUT_SIZE} h={DONUT_SIZE} radius="round" />
-      <Skeleton h="$3" w="$14" />
-      <Stack flex={1} />
-      <Skeleton h="$3" w="$16" />
     </XStack>
   );
 }
@@ -290,7 +328,7 @@ export function TronResourceBannerCard({
 }) {
   const intl = useIntl();
   const resourceDialogInstance = useRef<IDialogInstance | null>(null);
-  const { result, run } = useTronAccountResources({
+  const { result, isLoading, run } = useTronAccountResources({
     accountId,
     networkId,
     pollingInterval: 30_000,
@@ -318,6 +356,13 @@ export function TronResourceBannerCard({
       appEventBus.off(EAppEventBusNames.HistoryTxStatusChanged, handler);
     };
   }, [run]);
+
+  const { netAvailable, netTotal, energyAvailable, energyTotal } = result ?? {
+    netAvailable: new BigNumber(0),
+    netTotal: new BigNumber(0),
+    energyAvailable: new BigNumber(0),
+    energyTotal: new BigNumber(0),
+  };
 
   return (
     <YStack
@@ -348,26 +393,20 @@ export function TronResourceBannerCard({
       userSelect="none"
       justifyContent="center"
     >
-      {/* No result means no read has landed for this account yet: keep the
-          skeleton rather than painting a 0/0 placeholder for the first
-          frames before the loading state starts (OK-64027). */}
-      {result ? (
+      {isLoading && !result ? (
+        <Skeleton h="$7" flex={1} width="100%" />
+      ) : (
         <YStack gap="$3">
           <ResourceRow
             name={intl.formatMessage({ id: ETranslations.global_energy })}
-            total={result.energyTotal}
-            available={result.energyAvailable}
+            total={energyTotal}
+            available={energyAvailable}
           />
           <ResourceRow
             name={intl.formatMessage({ id: ETranslations.global_bandwidth })}
-            total={result.netTotal}
-            available={result.netAvailable}
+            total={netTotal}
+            available={netAvailable}
           />
-        </YStack>
-      ) : (
-        <YStack gap="$3">
-          <ResourceRowSkeleton />
-          <ResourceRowSkeleton />
         </YStack>
       )}
     </YStack>

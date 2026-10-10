@@ -4,10 +4,6 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-const {
-  writeDesktopWebviewPreload,
-} = require('./build-desktop-webview-preload');
-
 console.log('Copying injected files...');
 
 function copyRecursiveSync(src, dest) {
@@ -56,9 +52,10 @@ copyFile(
   './node_modules/@onekeyfe/cross-inpage-provider-injected/dist/injected/injectedDesktopCode.js',
   './packages/kit-bg/src/desktopApis/injectedDesktopCode.text-js',
 );
-// Compose before bundle metadata is generated so the guest bridge is covered
-// by the same integrity verification as the existing provider preload.
-writeDesktopWebviewPreload();
+copyFile(
+  './node_modules/@onekeyfe/cross-inpage-provider-injected/dist/injected/injectedDesktopPreload.js',
+  './apps/desktop/public/static/preload.js',
+);
 
 // Copy to Extension injected.js
 copyFile(

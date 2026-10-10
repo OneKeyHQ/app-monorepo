@@ -14,7 +14,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import {
   redirectOneKeyIdAuthToExtExpandTab,
   shouldRunOneKeyIdAuthInExtExpandTab,
@@ -89,7 +88,6 @@ function PrimeLoginOAuthDialog(props: {
     string | undefined
   >();
   const [expandedSignInMethod, setExpandedSignInMethod] = useState('');
-  const [debugPanelOpenCount, setDebugPanelOpenCount] = useState(0);
   const [showKeylessLogoutAction, setShowKeylessLogoutAction] = useState(
     initialShowKeylessLogoutAction ?? false,
   );
@@ -620,31 +618,16 @@ function PrimeLoginOAuthDialog(props: {
     return null;
   }
 
-  const titleContent = (
-    <Dialog.Title testID="prime-login-title">
-      {intl.formatMessage({
-        id: ETranslations.sign_in_to_onekey_id__title,
-      })}
-    </Dialog.Title>
-  );
-
   return (
     <Stack>
       {isEmailVerificationStep ? null : (
         <Dialog.Header>
           <Dialog.Icon icon="OnekeyBrand" />
-          {isSignInMethodsExpanded && !isLoginBusy ? (
-            <MultipleClickStack
-              key={debugPanelOpenCount}
-              devSettingsOnly
-              testID="prime-login-debug-trigger"
-              onPress={() => setDebugPanelOpenCount((count) => count + 1)}
-            >
-              {titleContent}
-            </MultipleClickStack>
-          ) : (
-            titleContent
-          )}
+          <Dialog.Title testID="prime-login-title">
+            {intl.formatMessage({
+              id: ETranslations.sign_in_to_onekey_id__title,
+            })}
+          </Dialog.Title>
           <Dialog.Description color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.prime_onekeyid_continue_description,
@@ -737,7 +720,6 @@ function PrimeLoginOAuthDialog(props: {
               >
                 <PrimeLoginEmailDialogV2
                   embedded
-                  debugPanelOpenCount={debugPanelOpenCount}
                   embeddedVerificationEmail={emailVerificationEmail}
                   onEmbeddedVerificationEmailChange={setEmailVerificationEmail}
                   disabled={Boolean(loggingInProvider)}

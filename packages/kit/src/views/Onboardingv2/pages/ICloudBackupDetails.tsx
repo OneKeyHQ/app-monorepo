@@ -119,8 +119,9 @@ export default function ICloudBackupDetails({
   const handleImport = useCallback(async () => {
     await doRestoreBackup({
       payload: backupData as IBackupDataEncryptedPayload,
+      recordId: route.params?.backupId,
     });
-  }, [backupData, doRestoreBackup]);
+  }, [backupData, doRestoreBackup, route.params?.backupId]);
 
   const handleBackup = useCallback(async () => {
     if (!backupData) {

@@ -87,8 +87,6 @@ interface IDomainPrev {
   lastStructure: IBuildFramesPrev['structure'];
   lastScalar: string;
   lastMetaByKey: Record<ITokenKey, IToken | undefined>;
-  /** Raw balance by list id as of the last structure frame. */
-  lastBalanceByKey: Record<ITokenKey, string | undefined>;
 }
 
 /** The minimal previously-emitted risky shape the change-gate compares against. */
@@ -248,7 +246,6 @@ function freshPrev(): IDomainPrev {
     },
     lastScalar: '0',
     lastMetaByKey: {},
-    lastBalanceByKey: {},
   };
 }
 
@@ -521,12 +518,9 @@ class ServiceTokenViewModel extends ServiceBase {
       structure: prevBlob.lastStructure,
       smallBalanceFiatValue: prevBlob.lastScalar,
       metaByKey: prevBlob.lastMetaByKey,
-      // A blob persisted before this field existed reads as "no balances
-      // known": the next round then emits one structure frame and seeds it.
-      balanceByKey: prevBlob.lastBalanceByKey ?? {},
     };
 
-    const { structure, valuation, balanceByKey } = buildFrames(input, prev);
+    const { structure, valuation } = buildFrames(input, prev);
     homeTokenRequestRegistry.assertCurrent(params.homeRequest, params.ownerKey);
     if (structure) {
       structure.provisional = provisional;
@@ -560,7 +554,6 @@ class ServiceTokenViewModel extends ServiceBase {
           ...orderedTokens,
           ...smallBalanceTokens,
         ]),
-        lastBalanceByKey: balanceByKey,
       } satisfies IDomainPrev);
     }
 
@@ -753,22 +746,11 @@ class ServiceTokenViewModel extends ServiceBase {
     let worth:
       | { accountId: string; value: string; currency: string }
       | undefined;
-    const isOwnerResident = () =>
-      this.frames.getFrames(ownerKey).structure.version >= 0;
-    if (!isOwnerResident()) {
+    if (this.frames.getFrames(ownerKey).structure.version < 0) {
       const localTokens = await serviceToken.getAccountLocalTokens({
         accountId,
         networkId,
       });
-      // The owner's own rounds can land while the cache is read (the home page
-      // fetching the owner it was just switched to, or still seeding it after
-      // a cold start). Their frames are what the switch should paint, whether
-      // or not the local cache had anything: return them, as for a resident
-      // owner, instead of reporting an empty cache.
-      if (isOwnerResident()) {
-        const frames = await this.getTokenListFrames({ ownerKey });
-        return frames.structure ? { ownerKey, frames, currency } : undefined;
-      }
       if (
         !localTokens.hasCache ||
         (localTokens.tokenList.length === 0 &&
@@ -797,12 +779,6 @@ class ServiceTokenViewModel extends ServiceBase {
           ],
         }),
       ]);
-      // Same re-check after the reads above: this provisional seed must not
-      // replace a round that landed meanwhile.
-      if (isOwnerResident()) {
-        const frames = await this.getTokenListFrames({ ownerKey });
-        return frames.structure ? { ownerKey, frames, currency } : undefined;
-      }
       const pick = (tokens: IAccountToken[]) => {
         const map: Record<string, ITokenFiat> = {};
         tokens.forEach((token) => {

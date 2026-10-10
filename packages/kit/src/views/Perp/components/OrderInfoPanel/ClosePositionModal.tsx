@@ -13,7 +13,6 @@ import {
   Toast,
   XStack,
   YStack,
-  useMedia,
 } from '@onekeyhq/components';
 import type { IDialogInstance } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -23,6 +22,7 @@ import {
   usePerpsAllMidsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   calculateProfitLoss,
   formatHlSize,
@@ -71,7 +71,6 @@ interface IClosePositionFormProps extends IClosePositionParams {
 const ClosePositionForm = memo(
   ({ position, type, onClose }: IClosePositionFormProps) => {
     const intl = useIntl();
-    const { gtMd } = useMedia();
     const [allMids] = usePerpsAllMidsAtom();
     const hyperliquidActions = useHyperliquidActions();
 
@@ -579,7 +578,8 @@ const ClosePositionForm = memo(
           min={0}
           segments={4}
           snapTapToSegment
-          sliderHeight={gtMd ? 4 : 2}
+          sliderHeight={4}
+          showBubble
         />
 
         <XStack justifyContent="space-between" gap="$1">
@@ -595,25 +595,27 @@ const ClosePositionForm = memo(
             {estimatedProfit}
           </SizableText>
         </XStack>
-        <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
-          <Button
-            testID="perp-processed-value-btn"
-            size={PERP_DIALOG_BUTTON_SIZE}
-            variant="primary"
-            onPress={handleSubmit}
-            disabled={!isFormValid || isSubmitting}
-            loading={
-              isSubmitting ||
-              (formData.type === 'market' &&
-                !isPriceValid &&
-                !isMarketPriceUnavailable)
-            }
-          >
-            {intl.formatMessage({
-              id: ETranslations.perp_confirm_order,
-            })}
-          </Button>{' '}
-        </TradingGuardWrapper>
+        <YStack pt={platformEnv.isNative ? '$4' : 0}>
+          <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
+            <Button
+              testID="perp-processed-value-btn"
+              size={PERP_DIALOG_BUTTON_SIZE}
+              variant="primary"
+              onPress={handleSubmit}
+              disabled={!isFormValid || isSubmitting}
+              loading={
+                isSubmitting ||
+                (formData.type === 'market' &&
+                  !isPriceValid &&
+                  !isMarketPriceUnavailable)
+              }
+            >
+              {intl.formatMessage({
+                id: ETranslations.perp_confirm_order,
+              })}
+            </Button>{' '}
+          </TradingGuardWrapper>
+        </YStack>
       </YStack>
     );
   },

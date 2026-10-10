@@ -1,7 +1,6 @@
 import {
   deFiListLoadingReducer,
   isDeFiAllNetworkRequestsGranted,
-  resolveDeFiCacheProbeAction,
   resolveDeFiFanOutFinishedState,
   shouldApplyDeFiAllNetworksResult,
   shouldResetDeFiReadinessOnRunStart,
@@ -199,79 +198,5 @@ describe('shouldResetDeFiReadinessOnRunStart', () => {
         ownerKey: 'account-1__all',
       }),
     ).toBe(true);
-  });
-});
-
-describe('resolveDeFiCacheProbeAction', () => {
-  const live = { runOwnerKey: 'account-1:all', liveOwnerKey: 'account-1:all' };
-
-  it('marks the owner ready on a hit', () => {
-    expect(
-      resolveDeFiCacheProbeAction({
-        ...live,
-        hasCache: true,
-        overviewPredatesEnabledSet: false,
-      }),
-    ).toBe('mark-ready');
-    expect(
-      resolveDeFiCacheProbeAction({
-        ...live,
-        hasCache: true,
-        overviewPredatesEnabledSet: true,
-      }),
-    ).toBe('mark-ready');
-  });
-
-  it('zeroes the kept overview on a miss after an enabled-set change', () => {
-    expect(
-      resolveDeFiCacheProbeAction({
-        ...live,
-        hasCache: false,
-        overviewPredatesEnabledSet: true,
-      }),
-    ).toBe('zero-overview');
-  });
-
-  it('reports the miss and keeps the last-known overview on any other miss', () => {
-    // A miss is a terminal report for the header's cache-only instance:
-    // nothing else writes readiness on the spot tab, so leaving it unknown
-    // pins the header to its persisted total until the token commit + grace.
-    expect(
-      resolveDeFiCacheProbeAction({
-        ...live,
-        hasCache: false,
-        overviewPredatesEnabledSet: false,
-      }),
-    ).toBe('mark-not-cached');
-  });
-
-  it('writes nothing for a run whose owner is no longer live', () => {
-    expect(
-      resolveDeFiCacheProbeAction({
-        runOwnerKey: 'account-1:all',
-        liveOwnerKey: 'account-2:all',
-        hasCache: false,
-        overviewPredatesEnabledSet: true,
-      }),
-    ).toBe('skip');
-    expect(
-      resolveDeFiCacheProbeAction({
-        runOwnerKey: 'account-1:all',
-        liveOwnerKey: 'account-2:all',
-        hasCache: true,
-        overviewPredatesEnabledSet: false,
-      }),
-    ).toBe('skip');
-  });
-
-  it('writes nothing without an owner', () => {
-    expect(
-      resolveDeFiCacheProbeAction({
-        runOwnerKey: undefined,
-        liveOwnerKey: undefined,
-        hasCache: false,
-        overviewPredatesEnabledSet: true,
-      }),
-    ).toBe('skip');
   });
 });

@@ -15,8 +15,6 @@
 import type { IAllNetworkSnapshotRound } from '@onekeyhq/shared/src/utils/buildMergedAllNetworkSnapshot';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
-import { settingsPersistAtom } from '../states/jotai/atoms';
-
 import ServiceTokenViewModel, { OWNER_VM_CAP } from './ServiceTokenViewModel';
 
 import type { IIngestRoundParams } from './ServiceTokenViewModel';
@@ -939,118 +937,6 @@ describe('ServiceTokenViewModel', () => {
       // 1 structure (empty ordered still emits a first structure) + 1 valuation
       // + 1 risky, all SYNCHRONOUS.
       expect(riskyEmits()).toHaveLength(1);
-    });
-  });
-
-  describe('prewarmHomeTokenListFrames', () => {
-    // PR #13695 review: the selector prewarm reads the local cache for an
-    // owner the background has no frames for. The home page's own rounds for
-    // that owner can land during the read (it was just switched to, or is
-    // still seeding after a cold start); the prewarm's provisional cache seed
-    // must not replace them with the older cached list.
-    it('keeps a round for the owner that lands while the local cache is read', async () => {
-      jest
-        .spyOn(settingsPersistAtom, 'get')
-        .mockResolvedValue({ currencyInfo: { id: 'usd' } } as Awaited<
-          ReturnType<typeof settingsPersistAtom.get>
-        >);
-      let resolveLocalTokens: (value: unknown) => void = () => {};
-      const svc = new ServiceTokenViewModel({
-        backgroundApi: {
-          serviceToken: {
-            getAccountLocalTokens: () =>
-              new Promise((resolve) => {
-                resolveLocalTokens = resolve;
-              }),
-            getHomeDefaultTokenMap: async () => ({}),
-          },
-          serviceCustomToken: { getCustomTokensBatch: async () => [] },
-        },
-      } as unknown as ConstructorParameters<typeof ServiceTokenViewModel>[0]);
-
-      const prewarm = svc.prewarmHomeTokenListFrames({
-        networkId: 'net1',
-        deriveType: undefined,
-        othersWalletAccountId: 'acc1',
-      });
-      await new Promise((resolve) => setTimeout(resolve, 0));
-
-      void svc.ingestRound(
-        makeRound({
-          orderedTokens: [makeToken('live')],
-          tokenListMap: { live: makeFiat({ balance: '2', fiatValue: '20' }) },
-          source: 'single',
-        }),
-      );
-      resolveLocalTokens({
-        hasCache: true,
-        tokenList: [makeToken('cached')],
-        smallBalanceTokenList: [],
-        riskyTokenList: [],
-        tokenListMap: { cached: makeFiat({ balance: '1', fiatValue: '10' }) },
-        tokenListValue: '10',
-        currency: 'usd',
-      });
-      const result = await prewarm;
-
-      expect(result?.frames.structure?.orderedIds).toEqual(['live']);
-      expect(result?.worth).toBeUndefined();
-      expect(structureEmits().map((e) => e.structure.orderedIds)).toEqual([
-        ['live'],
-      ]);
-    });
-
-    // Same race with nothing in the local cache: the round that landed is
-    // still the owner's frames, so the prewarm hands them over rather than
-    // reporting an empty cache (which made the selector paint a switch
-    // skeleton for an owner the background already held).
-    it('returns the frames of an owner whose round lands while an empty local cache is read', async () => {
-      jest
-        .spyOn(settingsPersistAtom, 'get')
-        .mockResolvedValue({ currencyInfo: { id: 'usd' } } as Awaited<
-          ReturnType<typeof settingsPersistAtom.get>
-        >);
-      let resolveLocalTokens: (value: unknown) => void = () => {};
-      const svc = new ServiceTokenViewModel({
-        backgroundApi: {
-          serviceToken: {
-            getAccountLocalTokens: () =>
-              new Promise((resolve) => {
-                resolveLocalTokens = resolve;
-              }),
-            getHomeDefaultTokenMap: async () => ({}),
-          },
-          serviceCustomToken: { getCustomTokensBatch: async () => [] },
-        },
-      } as unknown as ConstructorParameters<typeof ServiceTokenViewModel>[0]);
-
-      const prewarm = svc.prewarmHomeTokenListFrames({
-        networkId: 'net1',
-        deriveType: undefined,
-        othersWalletAccountId: 'acc1',
-      });
-      await new Promise((resolve) => setTimeout(resolve, 0));
-
-      void svc.ingestRound(
-        makeRound({
-          orderedTokens: [makeToken('live')],
-          tokenListMap: { live: makeFiat({ balance: '2', fiatValue: '20' }) },
-          source: 'single',
-        }),
-      );
-      resolveLocalTokens({
-        hasCache: false,
-        tokenList: [],
-        smallBalanceTokenList: [],
-        riskyTokenList: [],
-        tokenListMap: {},
-        tokenListValue: '0',
-        currency: 'usd',
-      });
-      const result = await prewarm;
-
-      expect(result?.frames.structure?.orderedIds).toEqual(['live']);
-      expect(result?.worth).toBeUndefined();
     });
   });
 });

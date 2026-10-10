@@ -10,7 +10,6 @@ import {
   Stack,
   YStack,
 } from '@onekeyhq/components';
-import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { StockPriceLineChart } from '@onekeyhq/kit/src/components/StockPriceLineChart';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IMarketPriceSource } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -74,7 +73,6 @@ export function StockSimpleChart({
   );
   const { isNative, networkId, tokenAddress, tokenDetail } = useTokenDetail();
   const { stockDetail, stockId } = useStockDetail();
-  const { id: currencyId } = useCurrency();
   const {
     coinGeckoId: requestCoinGeckoId,
     isNative: requestIsNative,
@@ -112,13 +110,12 @@ export function StockSimpleChart({
     enabled:
       active &&
       resolveMarketKlineLivePriceEnabled({
-        currencyId,
         isNative: requestIsNative,
-        marketAssetId: requestMarketAssetId,
         networkId: requestNetworkId,
         priceMode: requestPriceMode,
         tokenAddress: requestTokenAddress,
       }),
+    marketAssetId: requestMarketAssetId,
     networkId: requestNetworkId,
     tokenAddress: requestTokenAddress,
   });

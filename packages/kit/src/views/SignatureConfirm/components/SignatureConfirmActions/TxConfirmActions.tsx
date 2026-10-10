@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -156,6 +157,7 @@ function TxConfirmActions(props: IProps) {
   } = props;
   const intl = useIntl();
   const isSubmitted = useRef(false);
+  const isExitHandledRef = useRef(false);
 
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
@@ -789,9 +791,25 @@ function TxConfirmActions(props: IProps) {
         gasAccountStrategy === EGasAccountErrorStrategy.Refresh ||
         gasAccountStrategy === EGasAccountErrorStrategy.Fallback
       ) {
+        const shouldReviewInfiniPayment =
+          beforeBroadcastAction?.type === 'primeInfiniPayment' &&
+          !transactionSubmitted &&
+          gasAccountSubmitIdRef.current === submitId;
         updateSendTxStatus({ isSubmitting: false });
         isSubmitted.current = false;
         gasAccountSubmitIdRef.current = null;
+        if (shouldReviewInfiniPayment) {
+          // Infini may already hold a durable send claim. Let its recovery
+          // screen offer waiting or a new payment instead of retrying here.
+          // Unmount must not report a second exit through onCancel.
+          isExitHandledRef.current = true;
+          onFail?.(e as Error);
+          if (popStack) {
+            navigation.popStack();
+          } else {
+            navigation.pop();
+          }
+        }
         return;
       }
       if (accountUtils.isQrAccount({ accountId })) {
@@ -874,7 +892,6 @@ function TxConfirmActions(props: IProps) {
     transferPayload?.originalRecipient,
   ]);
 
-  const cancelCalledRef = useRef(false);
   // If a 90212 retry loop is in flight, tear it down before the flow
   // unwinds. Otherwise the background would keep sleeping/broadcasting
   // after the user already chose to abandon — with Prime idempotency it
@@ -892,10 +909,10 @@ function TxConfirmActions(props: IProps) {
     }
   }, []);
   const onCancelOnce = useCallback(() => {
-    if (cancelCalledRef.current) {
+    if (isExitHandledRef.current) {
       return;
     }
-    cancelCalledRef.current = true;
+    isExitHandledRef.current = true;
     if (!isSubmitted.current) {
       logGasAccountAction({ action: 'exited' });
     }

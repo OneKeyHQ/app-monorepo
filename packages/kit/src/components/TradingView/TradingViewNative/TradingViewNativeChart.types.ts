@@ -9,6 +9,8 @@ import type {
   ITradingViewNativeChartLeafComponent,
   ITradingViewNativeChartType,
   ITradingViewNativeInitialRightOffset,
+  ITradingViewNativePriceSelection,
+  ITradingViewNativeReferenceLineAction,
 } from './types';
 import type {
   ITradingViewNativeIndicatorSeries,
@@ -22,6 +24,8 @@ import type { ITradingViewNativeSubIndicatorRenderPane } from './utils/subIndica
 import type { SharedValue } from 'react-native-reanimated';
 
 export interface ITradingViewNativeChartProps {
+  drawingStorageKey?: string;
+  enableDrawings?: boolean;
   /** Owned by the data controller so native presentation changes retain the viewport. */
   runtimeRef?: RefObject<{
     runtime: SharedValue<ITradingViewNativeChartRuntime>;
@@ -29,10 +33,17 @@ export interface ITradingViewNativeChartProps {
   } | null>;
   candleIntervalSeconds: number;
   chartComponents: readonly ITradingViewNativeChartLeafComponent[];
+  onReferenceLineAction?: (
+    action: ITradingViewNativeReferenceLineAction,
+  ) => Promise<void>;
   chartSettings: ITradingViewNativeChartSettings;
   chartType: ITradingViewNativeChartType;
   chartPictureVersion: number;
   currentPriceLabel: string;
+  priceDecimalPlaces?: number;
+  onPriceSelect?: (selection: ITradingViewNativePriceSelection) => void;
+  priceSelectionLabel?: string;
+  onInteractionChange?: (isInteracting: boolean) => void;
   extendTimeAxisBorderToCanvasEdge?: boolean;
   hasVolume: boolean;
   indicatorSeries: ITradingViewNativeIndicatorSeries[];

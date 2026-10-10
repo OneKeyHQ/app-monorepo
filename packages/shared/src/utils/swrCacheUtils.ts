@@ -1193,16 +1193,6 @@ export const swrKeys = {
   // (OK-61505). scopeKey = buildHomeWalletTabSupportScopeKey().
   homeWalletTabSupport: ({ scopeKey }: { scopeKey: string }) =>
     [NS.homeWalletTabSupport, 'v1', scopeKey].join(':'),
-  // Home Tron energy / bandwidth card, one entry per account (OK-64027). An
-  // account switch paints that account's last figures at once — never the
-  // previous account's, never a 0/0 placeholder — while the fresh read lands.
-  tronAccountResources: ({
-    accountId,
-    networkId,
-  }: {
-    accountId: string;
-    networkId: string;
-  }) => [NS.tronAccountResources, 'v1', networkId, accountId].join(':'),
   discoveryHomePageData: () => [NS.discoveryHomePageData, 'v1'].join(':'),
   discoveryHomeBookmarks: () => [NS.discoveryHomeBookmarks, 'v1'].join(':'),
   // Account selector left sidebar wallet list. One slot per

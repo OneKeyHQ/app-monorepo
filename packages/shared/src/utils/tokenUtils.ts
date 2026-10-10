@@ -1904,31 +1904,6 @@ export function calculateAccountTokensValue({
   return tokensWorth.worth[key] ?? Object.values(tokensWorth.worth)[0] ?? '0';
 }
 
-/**
- * The All Networks worth map restricted to the accounts of the current run.
- *
- * Per-network settles merge their key into the map and only an `updateAll`
- * commit replaces it, so after an enabled-network change the disabled
- * network's key survives until that commit — and for good when the run's
- * cache probe misses and every request then fails. Returns `worth` itself
- * when no key is dropped, so callers can skip the write.
- */
-export function retainAccountsWorth({
-  worth,
-  accountValueKeys,
-}: {
-  worth: Record<string, string>;
-  accountValueKeys: ReadonlySet<string>;
-}): Record<string, string> {
-  const entries = Object.entries(worth);
-  if (entries.every(([key]) => accountValueKeys.has(key))) {
-    return worth;
-  }
-  return Object.fromEntries(
-    entries.filter(([key]) => accountValueKeys.has(key)),
-  );
-}
-
 export function validateTokenAmount({
   token,
   amount,

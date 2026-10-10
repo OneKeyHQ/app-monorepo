@@ -146,12 +146,11 @@ export const { atom: allNetworksStateAtom, use: useAllNetworksStateStateAtom } =
 export const { atom: approvalsInfoAtom, use: useApprovalsInfoAtom } =
   contextAtom<{
     ownerKey: string;
-    hasRiskApprovals: boolean;
-    riskApprovalsCount: number;
+    // Risk approvals the user has not reviewed within the resurface window.
+    showRiskApprovalsDot: boolean;
   }>({
     ownerKey: '',
-    hasRiskApprovals: false,
-    riskApprovalsCount: 0,
+    showRiskApprovalsDot: false,
   });
 
 export const { atom: walletTopBannersAtom, use: useWalletTopBannersAtom } =

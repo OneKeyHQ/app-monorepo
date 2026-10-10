@@ -28,14 +28,20 @@ import {
   getTradingViewNativeChartTypeValue,
 } from './utils/chartType';
 
-import type { ITradingViewNativeChartType } from './types';
+import type {
+  ITradingViewNativeChartType,
+  ITradingViewNativeStorageNamespace,
+} from './types';
 
 interface ITradingViewNativeChartControlsContainerProps {
+  panelId?: string;
+  storageNamespace?: ITradingViewNativeStorageNamespace;
   activeChartType: ITradingViewNativeChartType;
   activeIndicatorValues: Set<string>;
   calendarAvailableTimeRange?: ITradingViewChartControlsProps['calendarAvailableTimeRange'];
   compactMobileLayout?: boolean;
   mobileSettingsControl?: ReactNode;
+  workspaceControls?: ReactNode;
   enableNativeChartSettings?: boolean;
   enablePreviousClose?: boolean;
   intervalConfig: ITradingViewChartControlsProps['intervalConfig'];
@@ -65,11 +71,14 @@ interface ITradingViewNativeChartControlsContainerProps {
 
 export const TradingViewNativeChartControlsContainer = memo(
   ({
+    panelId,
+    storageNamespace,
     activeChartType,
     activeIndicatorValues,
     calendarAvailableTimeRange,
     compactMobileLayout = false,
     mobileSettingsControl,
+    workspaceControls,
     enableNativeChartSettings = false,
     enablePreviousClose = false,
     intervalConfig,
@@ -102,8 +111,12 @@ export const TradingViewNativeChartControlsContainer = memo(
     const mobileSettingsButton =
       layoutMode === 'mobile' && !onChartClose ? mobileSettingsControl : null;
     const handleSettingsPress = useCallback(() => {
-      showMarketChartSettingsDialog({ showPreviousClose: enablePreviousClose });
-    }, [enablePreviousClose]);
+      showMarketChartSettingsDialog({
+        showPreviousClose: enablePreviousClose,
+        panelId,
+        ...(storageNamespace ? { storageNamespace } : {}),
+      });
+    }, [enablePreviousClose, panelId, storageNamespace]);
     const indicators = useMemo<ITradingViewIndicatorOption[]>(
       () =>
         TRADING_VIEW_NATIVE_INDICATOR_CATALOG.map(({ id, label }) => ({
@@ -230,6 +243,7 @@ export const TradingViewNativeChartControlsContainer = memo(
         isChartSwitchDisabled={isChartSwitchDisabled}
         onChartSwitch={layoutMode === 'desktop' ? onChartSwitch : undefined}
         rightControl={closeControl ?? mobileSettingsButton}
+        workspaceControls={workspaceControls}
         rightControlLabel={shouldShowChartCloseControl ? closeLabel : undefined}
         onIntervalChange={onIntervalChange}
         onIndicatorPress={handleIndicatorPress}

@@ -37,6 +37,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
+import { MarketTestIDs } from '../../../testIDs';
 import {
   type IMarketDetailFooterMode,
   type IMarketMobileDetailKind,
@@ -307,12 +308,13 @@ export function SwapPanel({
   }
 
   return (
-    <View>
+    <View testID={MarketTestIDs.swapPanel}>
       <AccountSelectorProviderMirror
         config={{
           sceneName: EAccountSelectorSceneName.home,
           sceneUrl: '',
         }}
+        e2eContextProbeName="market-swap-panel"
         enabledNum={[0]}
       >
         <TradeButton

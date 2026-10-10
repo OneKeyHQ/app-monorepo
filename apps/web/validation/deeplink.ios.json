@@ -51,8 +51,8 @@
             "comment": "Trailing-slash variant of the market home universal link"
           },
           {
-            "/": "/clip/market",
-            "comment": "Matches App Clip market continuation links"
+            "/": "/clip/*",
+            "comment": "Matches App Clip attribution and full-app continuation links"
           },
           {
             "/": "/r/*",

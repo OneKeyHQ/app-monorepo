@@ -40,8 +40,6 @@ function slotKey(ownerKey: string): string {
 }
 
 let invalidationRegistered = false;
-// Bumped on every purge; see `getOwnerWorthCacheGeneration`.
-let purgeGeneration = 0;
 
 /**
  * Owner ids are reused after a wallet / account is removed (and after a wallet
@@ -49,11 +47,9 @@ let purgeGeneration = 0;
  * deletion. Purge memory AND the persisted namespace: the persisted slot is the
  * one that outlives the process (and, on iOS/Android, lives in native MMKV
  * shared with the `bg` runtime — clearing it here in `main` is sufficient, the
- * `bg` runtime never reads it). Registered at startup (see
- * `registerHomeTokenListOwnerCacheInvalidation`) and, as a fallback, on first
- * use.
+ * `bg` runtime never reads it).
  */
-export function registerOwnerWorthCacheInvalidation(): void {
+function ensureInvalidationOnce(): void {
   if (invalidationRegistered) {
     return;
   }
@@ -71,7 +67,7 @@ export function rememberOwnerWorth(
   if (!ownerKey) {
     return;
   }
-  registerOwnerWorthCacheInvalidation();
+  ensureInvalidationOnce();
   memory.delete(ownerKey);
   memory.set(ownerKey, snapshot);
   while (memory.size > OWNER_WORTH_CACHE_CAP) {
@@ -101,7 +97,7 @@ export function getOwnerWorth(
   if (!ownerKey) {
     return undefined;
   }
-  registerOwnerWorthCacheInvalidation();
+  ensureInvalidationOnce();
   const hit = memory.get(ownerKey);
   if (hit) {
     memory.delete(ownerKey);
@@ -141,21 +137,12 @@ export function clearOwnerWorthCache(): void {
 
 /** Drop every remembered owner from memory AND the persisted namespace. */
 export function purgeOwnerWorthCache(): void {
-  purgeGeneration += 1;
   memory.clear();
   try {
     tokenListOwnerWorthCache.clear();
   } catch {
     /* best-effort */
   }
-}
-
-/**
- * Changes on every purge, so a caller remembering a worth from an async answer
- * can tell the cache was purged (a wallet / account removal) while it waited.
- */
-export function getOwnerWorthCacheGeneration(): number {
-  return purgeGeneration;
 }
 
 export function getOwnerWorthCacheSize(): number {
