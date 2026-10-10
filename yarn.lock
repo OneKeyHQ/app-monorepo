@@ -10491,7 +10491,7 @@ __metadata:
     react-native-camera-kit: "npm:17.0.1"
     react-native-canvas: "npm:^0.1.39"
     react-native-capture-protection: "npm:2.3.0"
-    react-native-cloud-fs: "npm:@onekeyfe/react-native-cloud-fs@3.0.156"
+    react-native-cloud-fs: "npm:@onekeyfe/react-native-cloud-fs@3.0.163"
     react-native-collapsible-tab-view: "npm:8.0.1"
     react-native-crypto: "npm:^2.2.0"
     react-native-dns-lookup: "npm:@onekeyfe/react-native-dns-lookup@3.0.156"
@@ -42712,13 +42712,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-cloud-fs@npm:@onekeyfe/react-native-cloud-fs@3.0.156":
-  version: 3.0.156
-  resolution: "@onekeyfe/react-native-cloud-fs@npm:3.0.156"
+"react-native-cloud-fs@npm:@onekeyfe/react-native-cloud-fs@3.0.163":
+  version: 3.0.163
+  resolution: "@onekeyfe/react-native-cloud-fs@npm:3.0.163"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/da33cdcfc203981d1e01629d620745b1cd400083378bda7d94506f21771d6facef1a757ef46cd353597852d093fafae1766121014b7d7faf9666c8f3396f20f4
+  checksum: 10/ffdde862b78963ee628547b5a188bf11e515460ecfbe81499ab172e7e79cbe992399c2f5951cd5d4f31233d6ee9c05e649019c1f144ce55a02f3585532d54cdd
   languageName: node
   linkType: hard
 
