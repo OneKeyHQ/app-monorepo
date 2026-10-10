@@ -26,6 +26,10 @@ const mockGetVaultSettings = jest.fn<
   [unknown]
 >(async () => ({ mergeDeriveAssetsEnabled: false }));
 const mockAppEventBusOn = jest.fn<void, [string, () => void]>();
+const mockAddressTypeSelectorProps = jest.fn<
+  void,
+  [{ networkId?: string; onSelect?: (value: unknown) => Promise<void> }]
+>();
 // One identity across calls, as the page keeps it in state: the test intl
 // object is new on every render, which re-runs the account lookup.
 const mockDefaultDeriveResp = {
@@ -84,6 +88,12 @@ const ACCOUNTS: Record<string, IMockAccount> = {
     address: '0xbbb',
     indexedAccountId: 'hd-1--0',
     addressDetail: { receiveAddressPath: "m/44'/60'/0'/0/0" },
+  },
+  'hd-1--btc-taproot': {
+    id: 'hd-1--btc-taproot',
+    address: 'bc1ptaproot',
+    indexedAccountId: 'hd-1--0',
+    addressDetail: { receiveAddressPath: "m/86'/0'/0'/0/0" },
   },
 };
 
@@ -325,7 +335,13 @@ jest.mock(
   '../../../components/AddressTypeSelector/AddressTypeSelector',
   () => ({
     __esModule: true,
-    default: () => null,
+    default: (props: {
+      networkId?: string;
+      onSelect?: (value: unknown) => Promise<void>;
+    }) => {
+      mockAddressTypeSelectorProps(props);
+      return null;
+    },
   }),
 );
 
@@ -555,6 +571,7 @@ describe('ReceiveToken network switch', () => {
     mockGetVaultSettings.mockReset();
     mockGetVaultSettings.mockResolvedValue({ mergeDeriveAssetsEnabled: false });
     mockAppEventBusOn.mockReset();
+    mockAddressTypeSelectorProps.mockReset();
     mockGetAccountsByIndexedAccounts.mockReset();
     mockGetAccountsByIndexedAccounts.mockResolvedValue({ accounts: [] });
     mockGetNetworkAccountsWithDeriveTypes.mockReset();
@@ -909,6 +926,59 @@ describe('ReceiveToken network switch', () => {
     }
   });
 
+  it('keeps the network on screen when it is picked again while a switch away is resolving', async () => {
+    mockRouteParams = buildParams('hd');
+    const { getByTestId } = render(<ReceiveToken />);
+    await waitFor(() =>
+      expect(getByTestId('address').textContent).toBe('0xaaa'),
+    );
+
+    let finishLookup: (settings: {
+      mergeDeriveAssetsEnabled: boolean;
+    }) => void = () => undefined;
+    mockGetVaultSettings.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishLookup = resolve;
+        }),
+    );
+    fireEvent.click(getByTestId('receive-card-network-trigger'));
+    const { params } = mockPushModal.mock.calls[
+      mockPushModal.mock.calls.length - 1
+    ][1] as {
+      params: {
+        onSelect: (
+          token: IAccountToken,
+          context?: { network?: unknown },
+        ) => Promise<void>;
+      };
+    };
+    let switching: Promise<void> = Promise.resolve();
+    act(() => {
+      switching = params.onSelect(
+        member('evm--8453', { accountId: 'hd-1--base' }),
+        { network: NETWORKS['evm--8453'] },
+      );
+    });
+
+    // The user changes their mind and picks Ethereum again before the
+    // lookup for Base has come back.
+    await act(async () => {
+      await params.onSelect(member('evm--1', { accountId: 'hd-1--evm1' }), {
+        network: NETWORKS['evm--1'],
+      });
+    });
+    await act(async () => {
+      finishLookup({ mergeDeriveAssetsEnabled: false });
+      await switching;
+    });
+
+    expect(getByTestId('receive-card-network-eta').textContent).toBe(
+      'Ethereum (~1 min)',
+    );
+    expect(getByTestId('address').textContent).toBe('0xaaa');
+  });
+
   describe('to a network with several address types', () => {
     const SEGWIT = {
       id: 'hd-1--btc-segwit',
@@ -976,6 +1046,103 @@ describe('ReceiveToken network switch', () => {
         deriveType: 'default',
       });
       expect(mockGetNetworkAccountsWithDeriveTypes).not.toHaveBeenCalled();
+    });
+
+    it('shows the address of the picked network row even when the wallet has a default address type', async () => {
+      mockGetVaultSettings.mockImplementation(async (params) => ({
+        mergeDeriveAssetsEnabled:
+          (params as { networkId: string }).networkId === 'btc--0',
+      }));
+      mockGetAccountsByIndexedAccounts.mockResolvedValue({
+        accounts: [SEGWIT],
+      });
+      mockRouteParams = {
+        networkId: 'evm--1',
+        accountId: 'hd-1--evm1',
+        walletId: 'hd-1',
+        indexedAccountId: 'hd-1--0',
+        switchEntry: 'network',
+        source: 'network',
+      };
+      const { getByTestId } = render(<ReceiveToken />);
+      await waitFor(() =>
+        expect(getByTestId('address').textContent).toBe('0xaaa'),
+      );
+
+      fireEvent.click(getByTestId('receive-card-network-trigger'));
+      expect(mockPushModal).toHaveBeenCalledWith('ReceiveModal', {
+        screen: 'ReceiveSelectNetwork',
+        params: expect.objectContaining({ walletId: 'hd-1' }),
+      });
+      const { params } = mockPushModal.mock.calls[
+        mockPushModal.mock.calls.length - 1
+      ][1] as {
+        params: {
+          onSelect: (selection: {
+            network: unknown;
+            accountId: string;
+            createdAddress?: boolean;
+          }) => Promise<void>;
+        };
+      };
+      // The row in the list showed the Taproot address.
+      await act(async () => {
+        await params.onSelect({
+          network: NETWORKS['btc--0'],
+          accountId: 'hd-1--btc-taproot',
+          createdAddress: false,
+        });
+      });
+
+      await waitFor(() =>
+        expect(getByTestId('address').textContent).toBe('bc1ptaproot'),
+      );
+      expect(getByTestId('qr-value').textContent).toBe('bc1ptaproot');
+      // The default address type is not looked up for a concrete pick.
+      expect(mockGetAccountsByIndexedAccounts).not.toHaveBeenCalled();
+    });
+
+    it('applies an address type picked on the network on screen, and ignores one that lands after a switch', async () => {
+      mockGetAccountsByIndexedAccounts.mockResolvedValue({
+        accounts: [SEGWIT],
+      });
+      const { getByTestId } = await switchToBitcoinFromTaprootRow();
+      await waitFor(() =>
+        expect(getByTestId('address').textContent).toBe('bc1qsegwit'),
+      );
+      const selectorCalls = mockAddressTypeSelectorProps.mock.calls;
+      const bitcoinSelector = selectorCalls[selectorCalls.length - 1][0];
+      expect(bitcoinSelector.networkId).toBe('btc--0');
+      const taproot = OTHER_TYPES.networkAccounts[1];
+
+      // On the Bitcoin page the pick applies. The real selector has saved it
+      // as the default type by then, which is what the lookup returns.
+      mockGetAccountsByIndexedAccounts.mockResolvedValue({
+        accounts: [taproot.account],
+      });
+      await act(async () => {
+        await bitcoinSelector.onSelect?.(taproot);
+      });
+      await waitFor(() =>
+        expect(getByTestId('address').textContent).toBe('bc1ptaproot'),
+      );
+
+      // The same callback arriving after the page moved to Base is dropped.
+      await openSelectorAndSelect(
+        getByTestId,
+        member('evm--8453', { accountId: 'hd-1--base' }),
+      );
+      await waitFor(() =>
+        expect(getByTestId('address').textContent).toBe('0xbbb'),
+      );
+      await act(async () => {
+        await bitcoinSelector.onSelect?.(OTHER_TYPES.networkAccounts[0]);
+      });
+      expect(getByTestId('receive-card-network-eta').textContent).toBe(
+        'Base (~1 min)',
+      );
+      expect(getByTestId('address').textContent).toBe('0xbbb');
+      expect(getByTestId('qr-value').textContent).toBe('0xbbb');
     });
 
     it('drops an address refresh of the previous network that lands after a switch', async () => {

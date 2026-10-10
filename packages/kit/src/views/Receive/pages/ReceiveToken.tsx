@@ -1011,7 +1011,17 @@ function ReceiveToken() {
       network?: IServerNetwork;
       selectContext?: IAggregateTokenSelectContext;
     }) => {
-      if (!targetNetworkId || targetNetworkId === networkId) {
+      if (!targetNetworkId) {
+        return;
+      }
+      // Compared with the committed network, not this render's: a switch may
+      // have landed since the picker was opened.
+      const fromNetworkId = committedTargetRef.current.networkId;
+      if (targetNetworkId === fromNetworkId) {
+        // Picking the network on screen is the last word: a switch still
+        // looking up its target is withdrawn.
+        switchAttemptRef.current += 1;
+        isSwitchResolvingRef.current = false;
         return;
       }
       // The selection page resolves addresses in its own scope; a row from
@@ -1029,7 +1039,7 @@ function ReceiveToken() {
       isSwitchResolvingRef.current = true;
       try {
         defaultLogger.transaction.receive.receiveSwitchNetwork({
-          fromNetworkId: networkId,
+          fromNetworkId,
           toNetworkId: targetNetworkId,
           source: routeSource ?? 'unknown',
           listType: switchEntry === 'network' ? 'all' : 'aggregate',
@@ -1064,10 +1074,16 @@ function ReceiveToken() {
           return;
         }
         const [settings, targetNetwork] = target;
-        // Multi-address-type chains derive the account from the indexed
-        // account (same as entering with an empty accountId); other chains
-        // use the account the selected row carries.
+        // A row of the network list shows one concrete address, and that is
+        // the one the page resolves, address type included (as on entering
+        // from that list). A token row stands for every address type of a
+        // multi-address-type chain: there the page derives the default type
+        // from the indexed account (same as entering with an empty
+        // accountId). Other chains use the account the selected row carries.
+        const keepsSelectedAccount =
+          switchEntry === 'network' && !!targetAccountId;
         const useDerivePath =
+          !keepsSelectedAccount &&
           !!settings.mergeDeriveAssetsEnabled &&
           !!indexedAccountId &&
           !accountUtils.isOthersWallet({ walletId });
@@ -1125,7 +1141,6 @@ function ReceiveToken() {
       indexedAccountId,
       intl,
       isAllNetworksMode,
-      networkId,
       resetVerifyState,
       routeSource,
       wallet?.associatedDeviceInfo?.deviceType,
@@ -1425,6 +1440,14 @@ function ReceiveToken() {
     if (!vaultSettings?.mergeDeriveAssetsEnabled || !currentAccount) {
       return null;
     }
+    // The selector saves the choice before calling back, so the callback can
+    // arrive after the page moved to another network: it only applies to the
+    // target this selector was rendered for.
+    const renderedSwitchSeq = switchSeqRef.current;
+    const isStillRenderedTarget = () =>
+      renderedSwitchSeq === switchSeqRef.current &&
+      committedTargetRef.current.networkId === networkId &&
+      committedTargetRef.current.accountId === accountId;
 
     return (
       <AddressTypeSelector
@@ -1442,7 +1465,7 @@ function ReceiveToken() {
         networkId={networkId}
         indexedAccountId={currentAccount?.indexedAccountId ?? ''}
         onSelect={async (value) => {
-          if (value.account) {
+          if (value.account && isStillRenderedTarget()) {
             resetVerifyState();
             setCurrentAccount(value.account);
             setCurrentDeriveType(value.deriveType);
@@ -1461,6 +1484,7 @@ function ReceiveToken() {
     deriveTypeTrigger,
     walletId,
     networkId,
+    accountId,
     onDeriveTypeChange,
     resetVerifyState,
   ]);
