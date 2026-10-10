@@ -10,8 +10,8 @@ import {
   shareImageOnDesktop,
 } from '@onekeyhq/kit/src/utils/shareUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import MediaLibrary from '@onekeyhq/shared/src/modules3rdParty/expo-media-library';
 import Sharing from '@onekeyhq/shared/src/modules3rdParty/expo-sharing';
+import PhotoLibrary from '@onekeyhq/shared/src/modules3rdParty/photo-library';
 import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -42,7 +42,7 @@ export function useShareActions(referralUrl?: string) {
           } | null = null;
 
           try {
-            currentPermission = await MediaLibrary.getPermissionsAsync(true);
+            currentPermission = await PhotoLibrary.getSavePermission();
           } catch (error) {
             console.error('Get permissions failed:', error);
           }
@@ -55,8 +55,7 @@ export function useShareActions(referralUrl?: string) {
 
           if (!isGranted && canRequest) {
             try {
-              const requestResult =
-                await MediaLibrary.requestPermissionsAsync(true);
+              const requestResult = await PhotoLibrary.requestSavePermission();
               if (requestResult?.status !== 'granted') {
                 return { success: false, permissionDenied: true };
               }
@@ -77,7 +76,7 @@ export function useShareActions(referralUrl?: string) {
             'base64',
           );
 
-          await MediaLibrary.saveToLibraryAsync(filepath);
+          await PhotoLibrary.saveToLibrary(filepath);
           await RNFS.unlink(filepath);
 
           const openPhotoLibrary = () => {
