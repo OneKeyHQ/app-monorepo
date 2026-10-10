@@ -1348,7 +1348,7 @@ export function LimitOrderForm({
         min={0}
         max={100}
         value={sliderValue}
-        showBubble={false}
+        showBubble
         onChange={handleSliderPercentChange}
         disabled={!sliderEnabled}
         segments={4}
