@@ -211,17 +211,18 @@ export function getPerpsAccountDisplaySnapshotEntry({
 // #region Abstraction Mode
 export type IPerpsAbstractionModeSource = 'live' | 'cache';
 
-export const {
-  target: perpsAbstractionModeAtom,
-  use: usePerpsAbstractionModeAtom,
-} = globalAtom<
+export type IPerpsAbstractionModeAtom =
   | {
       accountAddress: IHex | undefined;
       mode: EHyperLiquidAbstractionMode | undefined;
       source?: IPerpsAbstractionModeSource;
     }
-  | undefined
->({
+  | undefined;
+
+export const {
+  target: perpsAbstractionModeAtom,
+  use: usePerpsAbstractionModeAtom,
+} = globalAtom<IPerpsAbstractionModeAtom>({
   name: EAtomNames.perpsAbstractionModeAtom,
   initialValue: undefined,
 });
@@ -338,6 +339,7 @@ export const { target: perpsSpotBalancesAtom, use: usePerpsSpotBalancesAtom } =
 export type IPerpsLiquidationRiskInputsAtom =
   | {
       accountAddress: IHex;
+      abstractionMode: EHyperLiquidAbstractionMode;
       tokenToAvailableAfterMaintenance?: Record<number, string>;
       crossMarginByDex?: Record<string, IPerpsDexCrossMargin>;
     }
