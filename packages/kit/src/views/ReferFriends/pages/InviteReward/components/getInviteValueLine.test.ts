@@ -2,6 +2,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
   getInviteValueSummary,
+  getRateLineMessageId,
   selectInviteValueLineItems,
 } from './getInviteValueLine';
 
@@ -152,5 +153,72 @@ describe('selectInviteValueLineItems', () => {
         configs: {},
       }),
     ).toEqual([]);
+  });
+});
+
+describe('getRateLineMessageId', () => {
+  // Real Bronze rates: invitees get nothing on hardware, 10% elsewhere.
+  const BRONZE: IInviteValueLineItem[] = [
+    { subject: 'HardwareSales', you: 10, invitee: 0, enabled: true },
+    { subject: 'Perp', you: 10, invitee: 10, enabled: true },
+    { subject: 'Swap', you: 10, invitee: 10, enabled: true },
+    { subject: 'Onchain', you: 10, invitee: 10, enabled: true },
+  ];
+  const lineFor = (items: IInviteValueLineItem[]) => {
+    const summary = getInviteValueSummary(items);
+    return summary ? getRateLineMessageId(summary) : null;
+  };
+
+  it.each([
+    [
+      'same rates on both sides',
+      BRONZE.map((item) => ({ ...item, invitee: 10 })),
+      ETranslations.referral_rate_line__desc,
+    ],
+    [
+      'same referrer rate, invitee discounts differ',
+      BRONZE,
+      ETranslations.referral_rate_line_invitee_up_to__desc,
+    ],
+    [
+      'referrer rates differ, same invitee discount',
+      BRONZE.map((item, index) => ({
+        ...item,
+        you: index === 3 ? 10 : 15,
+        invitee: 10,
+      })),
+      ETranslations.referral_rate_line_you_up_to__desc,
+    ],
+    [
+      'both sides differ',
+      BRONZE.map((item, index) => ({ ...item, you: index === 3 ? 10 : 15 })),
+      ETranslations.referral_rate_line_up_to__desc,
+    ],
+    [
+      'same referrer rate, no invitee discount',
+      BRONZE.map((item) => ({ ...item, invitee: 0 })),
+      ETranslations.referral_you_earn__desc,
+    ],
+    [
+      'referrer rates differ, no invitee discount',
+      BRONZE.map((item, index) => ({
+        ...item,
+        you: index === 3 ? 10 : 15,
+        invitee: 0,
+      })),
+      ETranslations.referral_you_earn_up_to__desc,
+    ],
+  ])('%s', (_case, items, expected) => {
+    expect(lineFor(items)).toBe(expected);
+  });
+
+  it('ignores products that are off when comparing invitee discounts', () => {
+    expect(
+      lineFor([
+        { subject: 'HardwareSales', you: 10, invitee: 0, enabled: false },
+        { subject: 'Perp', you: 10, invitee: 10, enabled: true },
+        { subject: 'Swap', you: 10, invitee: 10, enabled: true },
+      ]),
+    ).toBe(ETranslations.referral_rate_line__desc);
   });
 });

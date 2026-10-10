@@ -22,6 +22,7 @@ import { ReferFriendsTestIDs } from '../../../testIDs';
 import { useCurrentLevelCardFromDetail } from './CurrentLevelCard/hooks/useCurrentLevelCard';
 import {
   getInviteValueSummary,
+  getRateLineMessageId,
   selectInviteValueLineItems,
 } from './getInviteValueLine';
 import { INVITE_POPOVER_PANEL_PROPS } from './useInviteCardStyle';
@@ -199,8 +200,8 @@ function RatePopover({
 }
 
 // "You earn 10% · Invitees save 10% (i)" as one sentence, with the figures
-// in green. Products with different rates read "up to"; without an invitee
-// discount only the referrer's part shows. The info icon sits inside the
+// in green; getRateLineMessageId picks which sides read "up to" and drops the
+// invitee part without a discount. The info icon sits inside the
 // text, after the last word (as in the verification email hint), so it
 // follows the sentence however it wraps.
 function RateLine({
@@ -216,16 +217,7 @@ function RateLine({
       {value}
     </SizableText>
   );
-  let id: ETranslations;
-  if (summary.friendRate) {
-    id = summary.isUniform
-      ? ETranslations.referral_rate_line__desc
-      : ETranslations.referral_rate_line_up_to__desc;
-  } else {
-    id = summary.isUniform
-      ? ETranslations.referral_you_earn__desc
-      : ETranslations.referral_you_earn_up_to__desc;
-  }
+  const id = getRateLineMessageId(summary);
   return (
     <SizableText size="$bodyMd" color="$textSubdued" textAlign={textAlign}>
       {intl.formatMessage(

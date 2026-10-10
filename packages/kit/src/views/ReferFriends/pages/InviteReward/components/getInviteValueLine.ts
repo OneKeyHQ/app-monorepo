@@ -68,7 +68,10 @@ export interface IInviteValueSummary {
   // Highest invitee rate across products, or null when invitees get none;
   // the rate line's "Invitees save" and the share card headline use it.
   friendRate: string | null;
+  // Every product pays the referrer the same rate.
   isUniform: boolean;
+  // Every product gives invitees the same discount, a 0% product included.
+  isFriendUniform: boolean;
   rows: IInviteValueRow[];
 }
 
@@ -107,12 +110,39 @@ export function getInviteValueSummary(
   const maxRate = Math.max(...rows.map((row) => row.youValue));
   const isUniform = rows.every((row) => row.youValue === maxRate);
   const maxFriendRate = Math.max(...rows.map((row) => row.friendValue));
+  const isFriendUniform = rows.every(
+    (row) => row.friendValue === maxFriendRate,
+  );
   return {
     rate: formatRate(maxRate),
     friendRate: maxFriendRate > 0 ? formatRate(maxFriendRate) : null,
     isUniform,
+    isFriendUniform,
     rows: rows.map(
       ({ youValue: _youValue, friendValue: _friendValue, ...row }) => row,
     ),
   };
+}
+
+// The rate line's sentence: each side reads "up to" only when its own rates
+// differ across products, and the invitee part drops out without a discount.
+export function getRateLineMessageId(
+  summary: Pick<
+    IInviteValueSummary,
+    'friendRate' | 'isUniform' | 'isFriendUniform'
+  >,
+): ETranslations {
+  if (!summary.friendRate) {
+    return summary.isUniform
+      ? ETranslations.referral_you_earn__desc
+      : ETranslations.referral_you_earn_up_to__desc;
+  }
+  if (summary.isUniform) {
+    return summary.isFriendUniform
+      ? ETranslations.referral_rate_line__desc
+      : ETranslations.referral_rate_line_invitee_up_to__desc;
+  }
+  return summary.isFriendUniform
+    ? ETranslations.referral_rate_line_you_up_to__desc
+    : ETranslations.referral_rate_line_up_to__desc;
 }
