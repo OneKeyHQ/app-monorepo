@@ -5,6 +5,13 @@ import type {
   IHardwareRecordItem,
 } from '../referralCode/type';
 
+export type IReferralPageTab = 'invite' | 'benefits';
+
+export interface IInviteRewardRouteParams {
+  showRewardDistributionHistory?: boolean;
+  tab?: IReferralPageTab;
+}
+
 export interface IBtcRewardCodeInfoParam {
   codeId: string;
   batchName: string;
@@ -15,6 +22,7 @@ export enum EModalReferFriendsRoutes {
   ReferAFriend = 'ReferAFriend',
   InvitedByFriend = 'InvitedByFriend',
   YourReferred = 'YourReferred',
+  InviteCodes = 'InviteCodes',
   YourReferredWalletAddresses = 'YourReferredWalletAddresses',
   HardwareSalesReward = 'HardwareSalesReward',
   HardwareSalesOrderDetail = 'HardwareSalesOrderDetail',
@@ -44,6 +52,10 @@ export type IModalReferFriendsParamList = {
     page?: string;
   };
   [EModalReferFriendsRoutes.YourReferred]: undefined;
+  [EModalReferFriendsRoutes.InviteCodes]: {
+    // New codes build their link from this template.
+    inviteUrl: string;
+  };
   [EModalReferFriendsRoutes.YourReferredWalletAddresses]: {
     networks: IEarnWalletHistoryNetwork[];
     items: IEarnWalletHistoryItem[];
@@ -57,11 +69,7 @@ export type IModalReferFriendsParamList = {
   [EModalReferFriendsRoutes.HardwareSalesOrderDetail]: {
     data: IHardwareRecordItem;
   };
-  [EModalReferFriendsRoutes.InviteReward]:
-    | {
-        showRewardDistributionHistory?: boolean;
-      }
-    | undefined;
+  [EModalReferFriendsRoutes.InviteReward]: IInviteRewardRouteParams | undefined;
   [EModalReferFriendsRoutes.EditAddress]: {
     enabledNetworks: string[];
     accountId: string;
