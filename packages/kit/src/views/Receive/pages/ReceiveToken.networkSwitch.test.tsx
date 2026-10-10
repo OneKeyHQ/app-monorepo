@@ -636,6 +636,24 @@ describe('ReceiveToken network switch', () => {
     );
   });
 
+  it('titles a page entered by network after the address, not a token', async () => {
+    mockRouteParams = {
+      networkId: 'evm--1',
+      accountId: 'hd-1--evm1',
+      walletId: 'hd-1',
+      indexedAccountId: 'hd-1--0',
+      switchEntry: 'network',
+      source: 'network',
+    };
+    const { getByTestId } = render(<ReceiveToken />);
+    await waitFor(() =>
+      expect(getByTestId('address').textContent).toBe('0xaaa'),
+    );
+    expect(getByTestId('receive-page-heading').textContent).toBe(
+      'receive_address__title',
+    );
+  });
+
   it('drops the previous network banner as soon as the network switches', async () => {
     let resolveBaseBanners: (banners: unknown[]) => void = () => undefined;
     mockFetchWalletBanner.mockImplementation(({ accountId }) =>

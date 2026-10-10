@@ -829,11 +829,12 @@ function ReceiveToken() {
     token?.symbol ??
     network?.symbol ??
     '';
-  // Entered by network: plain "Receive" (the page is not bound to a token).
+  // Entered by network: the page is bound to no token and the network is
+  // named right below the title, so the title says what the page holds.
   const pageTitleText = useMemo(
     () =>
       switchEntry === 'network'
-        ? intl.formatMessage({ id: ETranslations.global_receive })
+        ? intl.formatMessage({ id: ETranslations.receive_address__title })
         : intl.formatMessage(
             { id: ETranslations.receive_token__title },
             { token: titleSymbol },
