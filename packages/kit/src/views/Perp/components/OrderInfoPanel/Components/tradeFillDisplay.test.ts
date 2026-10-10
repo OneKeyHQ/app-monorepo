@@ -11,7 +11,53 @@ import {
   getTradeFillDisplayInfo,
   getTradeFillExtraRows,
   getTradeHistoryMarketOptions,
+  getTradeHistoryPairName,
 } from './tradeFillDisplay';
+
+describe('getTradeHistoryPairName', () => {
+  it('only resolves a complete perp pair when settlement metadata is available', () => {
+    expect(getTradeHistoryPairName({ coin: 'UNI' })).toBeUndefined();
+    expect(
+      getTradeHistoryPairName({
+        coin: 'UNI',
+        paymentTokens: { UNI: 'USDC' },
+      }),
+    ).toBe('UNI/USDC');
+  });
+
+  it('keeps settlement metadata scoped to the raw coin and DEX', () => {
+    const paymentTokens = { UNI: 'USDC', 'xyz:UNI': 'USDH' };
+    expect(getTradeHistoryPairName({ coin: 'UNI', paymentTokens })).toBe(
+      'UNI/USDC',
+    );
+    expect(getTradeHistoryPairName({ coin: 'xyz:UNI', paymentTokens })).toBe(
+      'UNI/USDH',
+    );
+    expect(
+      getTradeHistoryPairName({ coin: 'abc:UNI', paymentTokens }),
+    ).toBeUndefined();
+  });
+
+  it('uses complete indexed spot names and normalizes canonical spot pairs', () => {
+    expect(
+      getTradeHistoryPairName({
+        coin: '@107',
+        spotPairDisplayMap: { '@107': 'PURR/USDC' },
+      }),
+    ).toBe('PURR/USDC');
+    expect(getTradeHistoryPairName({ coin: 'UETH/USDH' })).toBe('ETH/USDH');
+  });
+
+  it('waits for indexed spot metadata rather than treating a bare symbol as a pair', () => {
+    expect(getTradeHistoryPairName({ coin: '@107' })).toBeUndefined();
+    expect(
+      getTradeHistoryPairName({
+        coin: '@107',
+        spotPairDisplayMap: { '@107': 'PURR' },
+      }),
+    ).toBeUndefined();
+  });
+});
 
 describe('getTradeFillDisplayInfo', () => {
   // Real Hyperliquid spot-buy fill (OK-57923): fee charged in the base token,
