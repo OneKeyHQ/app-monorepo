@@ -33,7 +33,6 @@ import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-import type { IDeviceResponse } from '@onekeyhq/shared/types/device';
 import type { IDeriveContextHashKeyringParams } from '@onekeyhq/shared/types/ProviderApis/ProviderApiBtc.type';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
@@ -48,12 +47,7 @@ import type {
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
-import type {
-  CommonParams,
-  HDNodeType,
-  PROTO,
-  RefTransaction,
-} from '@onekeyfe/hd-core';
+import type { HDNodeType, PROTO, RefTransaction } from '@onekeyfe/hd-core';
 
 export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
   abstract override coreApi: CoreChainSoftwareBtc | undefined;
@@ -67,20 +61,7 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
     );
     const { connectId, deviceId } = dbDevice;
     const sdk = await this.getHardwareSDKInstance({ connectId });
-    // The SDK version bump will provide this method's exported types.
-    const deriveSdk = sdk as typeof sdk & {
-      btcDeriveContextHash: (
-        connectId: string,
-        deviceId: string,
-        params: CommonParams & {
-          path: string;
-          appName: string;
-          context: string;
-          network: string;
-        },
-      ) => IDeviceResponse<{ secret: string }>;
-    };
-    const response = await deriveSdk.btcDeriveContextHash(connectId, deviceId, {
+    const response = await sdk.btcDeriveContextHash(connectId, deviceId, {
       ...deviceCommonParams,
       path: `${account.path}/${account.relPath ?? '0/0'}`,
       appName: params.appName,

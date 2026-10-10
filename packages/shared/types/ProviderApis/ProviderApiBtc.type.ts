@@ -1,5 +1,6 @@
 import type { IDeviceSharedCallParams } from '../device';
 import type { EMessageTypesBtc } from '../message';
+import type { BTCDeriveContextHashParams } from '@onekeyfe/hd-core';
 
 export enum EBtcDappNetworkTypeEnum {
   MAINNET,
@@ -123,7 +124,7 @@ export interface IDeriveContextHashKeyringParams {
   password: string;
   deviceParams?: IDeviceSharedCallParams;
   appName: string;
-  canonicalNetworkName: string;
+  canonicalNetworkName: BTCDeriveContextHashParams['network'];
   connectedPubkey: string;
   context: string;
 }

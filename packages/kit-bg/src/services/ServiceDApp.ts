@@ -62,6 +62,7 @@ import {
   type IGetDAppAccountInfoParams,
 } from '@onekeyhq/shared/types/dappConnection';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type { IDeriveContextHashKeyringParams } from '@onekeyhq/shared/types/ProviderApis/ProviderApiBtc.type';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import {
@@ -93,7 +94,9 @@ import type {
 import type { Verify } from '@walletconnect/types';
 
 // 4901 = Chain Disconnected analog for unsupported networks.
-function canonicalizeBtcNetworkId(networkId: string): string {
+function canonicalizeBtcNetworkId(
+  networkId: string,
+): IDeriveContextHashKeyringParams['canonicalNetworkName'] {
   switch (networkId) {
     case 'btc--0':
       return 'bitcoin-mainnet';
