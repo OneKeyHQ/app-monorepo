@@ -412,6 +412,16 @@ describe('TradingViewNative chart viewport', () => {
     ).toEqual({ maxPrice: 30, minPrice: 10 });
   });
 
+  it('has no price range when there are no candles to anchor the scale', () => {
+    expect(
+      getTradingViewNativePriceRange({
+        startIndex: 0,
+        endIndex: 0,
+        points: [],
+      }),
+    ).toBeNull();
+  });
+
   it('includes candle bodies that intersect either viewport edge', () => {
     expect(
       getTradingViewNativeVisiblePointRange({

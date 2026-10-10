@@ -700,12 +700,17 @@ export function getTradingViewNativePriceRange({
 }): ITradingViewNativePriceRange | null {
   'worklet';
 
+  if (!points.length) {
+    return null;
+  }
+
+  // Keep the nearest candle as the scale anchor in an empty viewport.
   const clampedStartIndex = Math.min(
     Math.max(Math.floor(startIndex), 0),
-    points.length,
+    points.length - 1,
   );
   const clampedEndIndex = Math.min(
-    Math.max(Math.floor(endIndex), clampedStartIndex),
+    Math.max(Math.floor(endIndex), clampedStartIndex + 1),
     points.length,
   );
   let minPrice = Number.POSITIVE_INFINITY;

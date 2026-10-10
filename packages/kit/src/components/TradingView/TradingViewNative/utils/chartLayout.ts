@@ -1084,12 +1084,7 @@ export function getTradingViewNativeChartLayout({
   }
 
   const visiblePointPriceRange = getTradingViewNativePriceRange({
-    ...(visiblePointRange.endIndex > visiblePointRange.startIndex
-      ? visiblePointRange
-      : {
-          startIndex: Math.min(visiblePointRange.startIndex, points.length - 1),
-          endIndex: Math.min(visiblePointRange.startIndex + 1, points.length),
-        }),
+    ...visiblePointRange,
     chartType,
     points,
   });
