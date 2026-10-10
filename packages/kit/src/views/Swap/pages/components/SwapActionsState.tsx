@@ -25,6 +25,7 @@ import {
 import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useSwapActions,
@@ -163,6 +164,7 @@ const SwapActionsState = ({
 }: ISwapActionsStateProps) => {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const isFocused = useRouteIsFocused();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [currentQuoteRes] = useSwapQuoteCurrentSelectAtom();
@@ -383,6 +385,7 @@ const SwapActionsState = ({
   );
 
   const incognitoRecipientInput = useSwapIncognitoRecipientInput({
+    isActive: isFocused,
     visible: shouldShowIncognitoRecipientInput,
     validationEnabled: shouldValidateIncognitoRecipientInput,
     clearRecipientAddressOnHide,

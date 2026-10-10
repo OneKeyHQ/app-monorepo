@@ -16,6 +16,7 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 type IUseSwapIncognitoRecipientInputParams = {
+  isActive?: boolean;
   visible: boolean;
   validationEnabled: boolean;
   clearRecipientAddressOnHide?: boolean;
@@ -129,6 +130,7 @@ export function shouldShowSwapIncognitoRecipientInput({
 }
 
 export function useSwapIncognitoRecipientInput({
+  isActive = true,
   visible,
   validationEnabled,
   clearRecipientAddressOnHide,
@@ -165,7 +167,7 @@ export function useSwapIncognitoRecipientInput({
     validationScopeKey,
   });
 
-  const enabled = visible && validationEnabled && !!networkId;
+  const enabled = isActive && visible && validationEnabled && !!networkId;
   const validatedInputRef = useRef<
     | {
         networkId: string;
@@ -322,6 +324,12 @@ export function useSwapIncognitoRecipientInput({
   );
 
   useEffect(() => {
+    // Inactive Swap surfaces must not reset another surface's shared recipient switch.
+    if (!isActive) {
+      resetValidationState();
+      return;
+    }
+
     if (!visible) {
       validationScopeRef.current = {
         accountId,
@@ -378,6 +386,7 @@ export function useSwapIncognitoRecipientInput({
     validationScopeKey,
     clearRecipientAddressOnHide,
     enabled,
+    isActive,
     networkId,
     resetValidationState,
     visible,
