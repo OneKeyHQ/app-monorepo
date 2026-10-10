@@ -126,10 +126,14 @@ async function subscribeCalendarCandles({
       interval: '1d',
       subscriberId,
       listener: (point) => {
-        if (!isActive() || point.t < latestDay) {
+        if (
+          !isActive() ||
+          point.t <
+            getHyperliquidCalendarBucketStart(latestDay, calendarInterval)
+        ) {
           return;
         }
-        latestDay = point.t;
+        latestDay = Math.max(latestDay, point.t);
         pendingPoint = point;
         days.set(point.t, point);
         if (refreshedThroughDay < latestDay) {

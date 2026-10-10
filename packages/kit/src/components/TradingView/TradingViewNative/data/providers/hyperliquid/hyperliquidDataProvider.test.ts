@@ -198,9 +198,35 @@ describe('Hyperliquid native calendar provider', () => {
       point('2026-10-05', { c: 107, v: 22 }),
     );
     const count = onPoint.mock.calls.length;
-    listener(point('2026-10-08', { c: 999 }));
+    listener(point('2026-10-04', { c: 999 }));
     expect(onPoint).toHaveBeenCalledTimes(count);
   });
+
+  it.each([
+    ['1W', '2026-10-05', '2026-10-04'],
+    ['1M', '2026-10-01', '2026-09-30'],
+  ])(
+    'applies late daily corrections within the current %s bucket',
+    async (value, start, previousBucketDay) => {
+      gateway.fetchCandles.mockResolvedValueOnce(
+        response([
+          point('2026-10-05'),
+          point('2026-10-08'),
+          point('2026-10-09'),
+        ]),
+      );
+      const { onPoint, promise } = subscribe(value);
+      await promise;
+      listener(point('2026-10-08', { h: 150, l: 70, c: 140, v: 20 }));
+      expect(onPoint).toHaveBeenLastCalledWith(
+        point(start, { h: 150, l: 70, v: 40 }),
+      );
+      const count = onPoint.mock.calls.length;
+      listener(point(previousBucketDay, { h: 999, v: 999 }));
+      expect(onPoint).toHaveBeenCalledTimes(count);
+      expect(gateway.fetchCandles.mock.calls).toHaveLength(1);
+    },
+  );
 
   it('keeps the day-transition frame when the refill returns an older snapshot', async () => {
     const { onPoint, promise } = subscribe();
@@ -254,12 +280,17 @@ describe('Hyperliquid native calendar provider', () => {
     const recovery = subscription?.ensure();
     await flush();
     listener(point('2026-10-09', { h: 140, c: 130, v: 20 }));
+    listener(point('2026-10-08', { h: 180, c: 160, v: 30 }));
     refresh.resolve(
-      response([point('2026-10-05', { h: 150 }), point('2026-10-09')]),
+      response([
+        point('2026-10-05', { h: 150 }),
+        point('2026-10-08'),
+        point('2026-10-09'),
+      ]),
     );
     await recovery;
     expect(onPoint).toHaveBeenLastCalledWith(
-      point('2026-10-05', { h: 150, c: 130, v: 30 }),
+      point('2026-10-05', { h: 180, c: 130, v: 60 }),
     );
   });
 
