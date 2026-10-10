@@ -320,16 +320,83 @@ it('embeds and selects compact prices in the native chart', () => {
   expect(html).toContain('"compactPriceMaxCharacters":7');
   expect(html).not.toContain('[bytecode]');
   expect(html).toContain('"priceScaleMinimumWidth":88');
-  const start = html.indexOf('var compactPriceFormatter =');
+  const start = html.indexOf('window.__onekeyFormatChartPrice =');
   const end = html.indexOf('function getNormalizedLineWidth', start);
   expect(start).toBeGreaterThan(0);
   expect(end).toBeGreaterThan(start);
+  const formatterSource = `var window = {};\n${html.slice(start, end)}`;
   expect(
-    runInNewContext(`${html.slice(start, end)};
+    runInNewContext(`${formatterSource};
     getPriceFormatter({compactPriceMaxCharacters: 7})(-1e-30)`),
   ).toBe('-$0.0₂₉1');
   expect(
-    runInNewContext(`${html.slice(start, end)};
+    runInNewContext(`${formatterSource};
     getPriceFormatter({compactPriceMaxCharacters: 7})(-1.23456789e-30)`),
   ).toBe('-$0.0₂₉12');
+  expect(
+    runInNewContext(`${formatterSource};
+    getPriceFormatter({compactPriceMaxCharacters: 10})(0.184056)`),
+  ).toBe('$0.1841');
+  expect(
+    runInNewContext(`${formatterSource};
+    getPriceFormatter({compactPriceMaxCharacters: 10})(0.142991)`),
+  ).toBe('$0.143');
+  expect(
+    runInNewContext(`${formatterSource};
+    getPriceFormatter({priceScaleFormat: 'stock', compactPriceMaxCharacters: 10})(341.7)`),
+  ).toBe('$341.70');
+  expect(html).toContain('options.localization');
+});
+
+it('repaints a returning native canvas without accepting zero-size layouts', () => {
+  const html = generateChartHTML({
+    data: [{ time: 1 as UTCTimestamp, value: 1 }],
+    lineWidth: 2,
+    theme: {
+      bgColor: 'transparent',
+      textSubduedColor: '#999999',
+      lineColor: '#00aa00',
+      topColor: 'transparent',
+      bottomColor: 'transparent',
+    },
+  });
+  const start = html.indexOf('var _isTouch =');
+  const end = html.indexOf(
+    "window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ready' }));",
+    start,
+  );
+  const resize = jest.fn();
+  const container = { clientWidth: 390, clientHeight: 280 };
+  const listeners: Record<string, () => void> = {};
+  const page = {
+    ReactNativeWebView: { postMessage: jest.fn() },
+    addEventListener: (name: string, handler: () => void) => {
+      listeners[name] = handler;
+    },
+    repaintChart: () => {},
+  };
+  const document = {
+    hidden: false,
+    addEventListener: (name: string, handler: () => void) => {
+      listeners[name] = handler;
+    },
+  };
+  runInNewContext(html.slice(start, end), {
+    window: page,
+    document,
+    container,
+    chart: { resize, subscribeCrosshairMove: jest.fn() },
+    ResizeObserver: class {
+      observe() {}
+    },
+  });
+  page.repaintChart();
+  expect(resize).toHaveBeenLastCalledWith(390, 280, true);
+  resize.mockClear();
+  container.clientWidth = 0;
+  listeners.pageshow();
+  expect(resize).not.toHaveBeenCalled();
+  container.clientWidth = 390;
+  listeners.visibilitychange();
+  expect(resize).toHaveBeenLastCalledWith(390, 280, true);
 });

@@ -80,6 +80,8 @@ function MarketDetailResponsiveLayoutBase({
       tokenAddress={tokenAddress}
       marketTokenId={marketTokenId}
       marketTokenCategory={marketTokenCategory}
+      marketAssetDetail={marketAssetDetail}
+      isMarketAssetDetailLoading={isMarketAssetDetailLoading}
     />
   );
 }

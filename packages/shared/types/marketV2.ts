@@ -33,6 +33,7 @@ export interface IMarketTokenLaunchpad {
 }
 
 export interface IMarketTokenDetail {
+  firstTradeTime?: string | number;
   networkId?: string;
   isNative?: boolean;
   address: string;
@@ -141,6 +142,7 @@ export interface IMarketTokenDetail {
 }
 
 export interface IMarketTokenDetailPreview {
+  firstTradeTime?: number;
   address: string;
   networkId: string;
   isNative?: boolean;

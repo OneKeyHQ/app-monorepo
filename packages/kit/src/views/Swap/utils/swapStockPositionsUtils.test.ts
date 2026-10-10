@@ -15,11 +15,13 @@ const stockToken = {
 } as ISwapToken;
 const buildMarketItem = (
   stock?: IMarketTokenListItem['stock'],
+  stockId?: string,
 ): IMarketTokenListItem => ({
   address: '',
   decimals: 18,
   name: '',
   stock,
+  stockId,
   symbol: '',
 });
 
@@ -39,5 +41,22 @@ describe('swapStockPositionsUtils', () => {
         tokens: [ethToken, stockToken],
       }),
     ).toBeUndefined();
+  });
+
+  it('keeps the market identity from the batch list item', () => {
+    const stock = { isOpen: true } as NonNullable<ISwapToken['stock']>;
+
+    expect(
+      buildStockPositionTokens({
+        marketItems: [buildMarketItem(stock, 'AAPL')],
+        tokens: [stockToken],
+      }),
+    ).toEqual([
+      {
+        ...stockToken,
+        isStock: true,
+        stock: { ...stock, stockId: 'AAPL' },
+      },
+    ]);
   });
 });

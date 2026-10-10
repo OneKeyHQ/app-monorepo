@@ -19,6 +19,8 @@ interface IActivitySummaryRowProps {
   sellVolume?: number;
   totalVolume?: number;
   isLoading?: boolean;
+  // Phone overview puts the bar on its own row. Desktop keeps it between columns.
+  stacked?: boolean;
 }
 
 export function ActivitySummaryRow({
@@ -29,6 +31,7 @@ export function ActivitySummaryRow({
   sellVolume,
   totalVolume,
   isLoading,
+  stacked = false,
 }: IActivitySummaryRowProps) {
   const intl = useIntl();
   const buyPercentage =
@@ -56,18 +59,34 @@ export function ActivitySummaryRow({
     totalVolume <= 0 ||
     buyVolume === undefined ||
     sellVolume === undefined;
+  const ratioBar = (
+    <BuySellRatioBar
+      buyPercentage={buyPercentage}
+      height={6}
+      isLoading={isLoading}
+      noData={noVolumeData}
+    />
+  );
 
   return (
     <XStack
       testID="market-token-activity-summary-row"
-      px="$0.5"
-      gap="$2.5"
-      alignItems="center"
+      px={stacked ? undefined : '$0.5'}
+      gap={stacked ? '$4' : '$2.5'}
+      alignItems={stacked ? 'flex-start' : 'center'}
+      flexWrap={stacked ? 'wrap' : undefined}
     >
+      {stacked ? <Stack width="100%">{ratioBar}</Stack> : null}
       {/* Figma sizes both blocks at 160px, but that clips CJK and the longer
       European translations onto a second line. 160 becomes the floor and the
       block grows with its own text; the bar between them takes what is left. */}
-      <YStack minWidth={160} flexShrink={0} gap="$1.5" alignItems="flex-start">
+      <YStack
+        minWidth={stacked ? 0 : 160}
+        flex={stacked ? 1 : undefined}
+        flexShrink={stacked ? 1 : 0}
+        gap="$1.5"
+        alignItems="flex-start"
+      >
         <XStack gap="$1" alignItems="center">
           <SizableText size="$bodyMdMedium">
             {intl.formatMessage(
@@ -128,16 +147,19 @@ export function ActivitySummaryRow({
         </XStack>
       </YStack>
 
-      <Stack flex={1} minWidth={0}>
-        <BuySellRatioBar
-          buyPercentage={buyPercentage}
-          height={6}
-          isLoading={isLoading}
-          noData={noVolumeData}
-        />
-      </Stack>
+      {stacked ? null : (
+        <Stack flex={1} minWidth={0}>
+          {ratioBar}
+        </Stack>
+      )}
 
-      <YStack minWidth={160} flexShrink={0} gap="$1.5" alignItems="flex-end">
+      <YStack
+        minWidth={stacked ? 0 : 160}
+        flex={stacked ? 1 : undefined}
+        flexShrink={stacked ? 1 : 0}
+        gap="$1.5"
+        alignItems="flex-end"
+      >
         <XStack gap="$1" alignItems="center" justifyContent="flex-end">
           <SizableText size="$bodyMdMedium">
             {intl.formatMessage({ id: ETranslations.market_net_vol })}

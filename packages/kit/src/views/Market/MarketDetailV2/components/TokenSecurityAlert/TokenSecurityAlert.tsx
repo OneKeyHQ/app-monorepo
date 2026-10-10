@@ -35,6 +35,8 @@ function TokenSecurityAlert({
     Dialog.show({
       title: intl.formatMessage({ id: ETranslations.dexmarket_audit }),
       showFooter: false,
+      sheetDragArea: 'header',
+      testID: 'market-token-security-dialog',
       renderContent: (
         <TokenSecurityAlertDialogContent
           securityData={securityData}

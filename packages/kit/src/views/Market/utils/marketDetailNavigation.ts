@@ -290,6 +290,51 @@ export function getCurrentMarketStockDetailId() {
   return typeof stockId === 'string' ? stockId : undefined;
 }
 
+export function dismissDiscoveryMarketDetailForTrade(
+  expectedRouteKey?: string,
+) {
+  if (!platformEnv.isNative) return;
+  const navigation = rootNavigationRef.current as INavigationLike | undefined;
+  const current = navigation?.getCurrentRoute?.();
+  if (
+    !current?.key ||
+    !isReplaceableMarketDetailRouteName(current.name) ||
+    (expectedRouteKey !== undefined && current.key !== expectedRouteKey)
+  ) {
+    return;
+  }
+  const stack = findMarketTabStack(navigation?.getRootState?.());
+  const routes = stack?.routes;
+  const index = stack?.index ?? (routes?.length ?? 0) - 1;
+  if (
+    !stack?.key ||
+    !routes ||
+    index <= 0 ||
+    routes[index]?.key !== current.key
+  ) {
+    return;
+  }
+  let listIndex = index - 1;
+  while (
+    listIndex >= 0 &&
+    isReplaceableMarketDetailRouteName(routes[listIndex]?.name)
+  ) {
+    listIndex -= 1;
+  }
+  if (
+    routes[listIndex]?.name !== ETabDiscoveryRoutes.TabDiscovery &&
+    routes[listIndex]?.name !== ETabMarketRoutes.MarketBannerDetail
+  ) {
+    return;
+  }
+  // Remove consecutive details above the list, preserving its params and history.
+  navigation?.dispatch({
+    ...StackActions.pop(index - listIndex),
+    source: current.key,
+    target: stack.key,
+  });
+}
+
 function containsStack(
   state: INavigationStateNode | undefined,
   stackKey: string,
@@ -326,6 +371,25 @@ function stackOwnsFocusedRoute(stack: INavigationStateNode, routeKey?: string) {
   return Boolean(
     routeKey && stack.routes?.some((route) => route.key === routeKey),
   );
+}
+
+function findRouteOwnerKey(
+  state: INavigationStateNode | undefined,
+  routeKey: string | undefined,
+): string | undefined {
+  if (!state || !routeKey) {
+    return undefined;
+  }
+  if (stackOwnsFocusedRoute(state, routeKey)) {
+    return state.key;
+  }
+  for (const route of state.routes ?? []) {
+    const ownerKey = findRouteOwnerKey(route.state, routeKey);
+    if (ownerKey) {
+      return ownerKey;
+    }
+  }
+  return undefined;
 }
 
 function shouldSkipUnfocusedMainMarketStack({
@@ -439,6 +503,7 @@ export function openOrReplaceMarketDetailRoute({
     navigation.dispatch({
       ...CommonActions.setParams(nextParams),
       source: current.key,
+      target: stack.key,
     });
     return true;
   }
@@ -468,10 +533,12 @@ export function replaceFocusedMarketDetailRoute({
   }
 
   const nextParams = buildReplacedMarketDetailParams(params);
+  const ownerKey = findRouteOwnerKey(navigation.getRootState?.(), current?.key);
   if (current?.name === EModalSwapRoutes.SwapProMarketDetail) {
     navigation.dispatch({
       ...CommonActions.setParams(omitSwapProOwnedParams(nextParams)),
       ...(current.key ? { source: current.key } : {}),
+      ...(ownerKey ? { target: ownerKey } : {}),
     });
     return true;
   }
@@ -479,6 +546,7 @@ export function replaceFocusedMarketDetailRoute({
     navigation.dispatch({
       ...CommonActions.setParams(nextParams),
       ...(current.key ? { source: current.key } : {}),
+      ...(ownerKey ? { target: ownerKey } : {}),
     });
     return true;
   }

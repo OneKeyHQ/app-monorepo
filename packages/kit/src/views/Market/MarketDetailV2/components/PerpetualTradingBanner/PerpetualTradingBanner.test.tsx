@@ -18,6 +18,8 @@ let mockPerpDisabled = false;
 let mockPerpTabShowWeb = false;
 let mockPress: (() => void) | undefined;
 const mockSwitchTab = jest.fn();
+const mockDismissDiscoveryDetail = jest.fn<void, unknown[]>();
+let mockRouteKey: string | undefined;
 const mockPendingInstrument = jest
   .fn<Promise<void>, unknown[]>()
   .mockResolvedValue(undefined);
@@ -89,7 +91,16 @@ jest.mock('@onekeyhq/shared/src/logger/scopes/perp/perpPageSource', () => ({
   setPerpPageEnterSource: jest.fn(),
   EPerpPageEnterSource: {},
 }));
+jest.mock('../../../utils/marketDetailNavigation', () => ({
+  dismissDiscoveryMarketDetailForTrade: (...args: unknown[]) =>
+    mockDismissDiscoveryDetail(...args),
+}));
 jest.mock('@onekeyhq/components', () => ({
+  rootNavigationRef: {
+    current: {
+      getCurrentRoute: () => (mockRouteKey ? { key: mockRouteKey } : undefined),
+    },
+  },
   Toast: { error: (...args: unknown[]) => mockToastError(...args) },
   Icon: () => null,
   IconButton: () => null,
@@ -113,6 +124,7 @@ beforeEach(() => {
   mockPerpDisabled = false;
   mockPerpTabShowWeb = false;
   mockPress = undefined;
+  mockRouteKey = undefined;
 });
 
 it('does not insert a banner on retry after initial detail failed or had no mapping', () => {
@@ -191,6 +203,7 @@ it.each([false, true])(
     jest.useFakeTimers();
     mockTicker = 'BTC';
     mockPerpTabShowWeb = showWeb;
+    mockRouteKey = 'market-detail';
     render(<PerpetualTradingBanner />);
     expect(mockPress).toBeDefined();
     await act(async () => {
@@ -199,6 +212,10 @@ it.each([false, true])(
     });
     expect(mockSwitchTab).toHaveBeenCalledWith(
       showWeb ? ETabRoutes.WebviewPerpTrade : ETabRoutes.Perp,
+    );
+    expect(mockDismissDiscoveryDetail).toHaveBeenCalledWith('market-detail');
+    expect(mockDismissDiscoveryDetail.mock.invocationCallOrder[0]).toBeLessThan(
+      mockSwitchTab.mock.invocationCallOrder[0],
     );
     if (showWeb) {
       expect(mockWebTarget).toHaveBeenCalledWith({ coin: 'BTC' });
@@ -237,6 +254,7 @@ it.each(['chunk', 'target'])(
     jest.useFakeTimers();
     mockTicker = 'xyz:AAPL';
     mockPerpTabShowWeb = true;
+    mockRouteKey = 'market-detail';
     if (failure === 'chunk') {
       mockProxyUnavailable = true;
     } else {
@@ -248,6 +266,7 @@ it.each(['chunk', 'target'])(
       await jest.advanceTimersByTimeAsync(80);
     });
     expect(mockSwitchTab).not.toHaveBeenCalled();
+    expect(mockDismissDiscoveryDetail).not.toHaveBeenCalled();
     expect(mockChangeAsset).not.toHaveBeenCalled();
     expect(mockLogError).toHaveBeenCalled();
     expect(mockToastError).toHaveBeenCalledWith({
@@ -262,6 +281,7 @@ it.each(['chunk', 'target'])(
     expect(mockWebTarget).toHaveBeenLastCalledWith({ coin: 'xyz:AAPL' });
     expect(mockSwitchTab).toHaveBeenCalledWith(ETabRoutes.WebviewPerpTrade);
     expect(mockToastError).toHaveBeenCalledTimes(1);
+    expect(mockDismissDiscoveryDetail).toHaveBeenCalledWith('market-detail');
   },
 );
 

@@ -32,6 +32,7 @@ const NS = {
   swapHistoryPreviewList: 'swapHistoryPreviewList',
   swapStockChart: 'swapStockChart',
   swapStockTokenDetail: 'swapStockTokenDetail',
+  swapStockTokenIdentity: 'swapStockTokenIdentity',
   swapStockSpeedConfig: 'swapStockSpeedConfig',
   swapStockPayTokenDetails: 'swapStockPayTokenDetails',
   borrowMarkets: 'borrowMarkets',

@@ -90,3 +90,14 @@ export function formatChartPrice(price: number, maxCharacters = 8): string {
   }
   return `${prefix}${body.slice(0, limit)}${unit}...`;
 }
+
+// Stock quotes on the mobile detail chart keep two decimals, matching the
+// headline (`$341.70`, not `$341.7`). Amounts under $1 stay on the shared
+// compact formatter.
+export function formatStockChartPrice(price: number): string {
+  if (!Number.isFinite(price)) return '--';
+  if (Math.abs(price) >= 1) {
+    return `${price < 0 ? '-' : ''}$${Math.abs(price).toFixed(2)}`;
+  }
+  return formatChartPrice(price, 10);
+}

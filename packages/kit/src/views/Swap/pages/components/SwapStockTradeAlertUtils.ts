@@ -1,10 +1,15 @@
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import type {
+  ISwapAlertState,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 import {
   EStockTradeAlertType,
   ESwapAlertLevel,
+  ESwapDirectionType,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { isCurrentSwapAccountNetworkUnsupportedAlert } from '../../utils/swapNoWalletWarningGuard';
 import { isSameStockTradeAmount } from '../../utils/swapStockTradeControl';
 
 export type ISwapStockQuoteEventErrorForAlert = {
@@ -130,4 +135,32 @@ export function isCurrentStockMarketClosedQuoteEventError({
       toToken,
     }),
   );
+}
+
+export type IStockAccountNetworkContext = Omit<
+  Parameters<typeof isCurrentSwapAccountNetworkUnsupportedAlert>[0],
+  'alert' | 'directionType'
+>;
+
+export function filterStockAccountNetworkAlerts({
+  alerts,
+  accountNetworkContexts,
+}: {
+  alerts: ISwapAlertState[];
+  accountNetworkContexts: Record<
+    ESwapDirectionType,
+    IStockAccountNetworkContext
+  >;
+}) {
+  return alerts.filter((alert) => {
+    if (!alert.isAccountNetworkUnsupported) return true;
+    const directionType =
+      alert.accountNetworkUnsupportedContext?.directionType ??
+      ESwapDirectionType.FROM;
+    return isCurrentSwapAccountNetworkUnsupportedAlert({
+      alert,
+      directionType,
+      ...accountNetworkContexts[directionType],
+    });
+  });
 }

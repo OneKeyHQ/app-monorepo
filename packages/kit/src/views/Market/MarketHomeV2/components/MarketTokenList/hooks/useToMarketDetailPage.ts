@@ -184,6 +184,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         : options?.marketTokenCategory;
       const stockId = resolveMarketStockId({
         stockId: resolvedItem.stockId,
+        stock: resolvedItem.stock,
       });
       const marketDetailShellPreloadPromise = preloadMarketDetailV2Page({
         includeBodyModules: true,

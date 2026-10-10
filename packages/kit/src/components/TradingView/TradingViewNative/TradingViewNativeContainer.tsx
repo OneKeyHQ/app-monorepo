@@ -15,6 +15,7 @@ import {
   IconButton,
   SizableText,
   Stack,
+  XStack,
   YStack,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -231,6 +232,7 @@ const TradingViewNativeContent = memo(
     enableNativeChartSettings,
     enableDrawings = false,
     nativeChartSettingsInToolbar = false,
+    mobileToolbarExtra,
     initialRightOffset,
     nativeChartDisplayMode,
     maxSelectableSubIndicatorCount,
@@ -943,16 +945,19 @@ const TradingViewNativeContent = memo(
         isMobileControlsLayout &&
         enableNativeChartSettings &&
         nativeChartSettingsInToolbar ? (
-          <TradingViewNativeChartSettingsButton
-            panelId={panelId}
-            storageNamespace={storageNamespace}
-            placement="toolbar"
-            priceAxisWidth={priceAxisWidth}
-            enablePreviousClose={enablePreviousClose}
-            isChartSwitchDisabled={isChartSwitchDisabled}
-            onChartSwitch={onChartSwitch}
-            onBeforeOpenSettings={handleExitFullscreen}
-          />
+          <XStack alignItems="center" gap="$1" flexShrink={0}>
+            <TradingViewNativeChartSettingsButton
+              panelId={panelId}
+              storageNamespace={storageNamespace}
+              placement="toolbar"
+              priceAxisWidth={priceAxisWidth}
+              enablePreviousClose={enablePreviousClose}
+              isChartSwitchDisabled={isChartSwitchDisabled}
+              onChartSwitch={onChartSwitch}
+              onBeforeOpenSettings={handleExitFullscreen}
+            />
+            {mobileToolbarExtra}
+          </XStack>
         ) : undefined,
       [
         enableNativeChartSettings,
@@ -960,6 +965,7 @@ const TradingViewNativeContent = memo(
         handleExitFullscreen,
         isChartSwitchDisabled,
         isMobileControlsLayout,
+        mobileToolbarExtra,
         nativeChartSettingsInToolbar,
         onChartSwitch,
         panelId,

@@ -26,6 +26,7 @@ function buildPreviewTokenDetail(
   if (!tokenDetailPreview) return undefined;
 
   return {
+    firstTradeTime: tokenDetailPreview.firstTradeTime,
     address: tokenDetailPreview.address,
     networkId: tokenDetailPreview.networkId,
     isNative: tokenDetailPreview.isNative,

@@ -37,6 +37,9 @@ export type IPromiseResultOptions<T> = {
   keepResultIfError?: boolean;
   undefinedResultIfReRun?: boolean;
   pollingInterval?: number;
+  // Run immediately when a polling interval becomes active or changes. The
+  // default keeps the historical delay so callers can opt in per request.
+  runImmediatelyOnPollingIntervalChange?: boolean;
   alwaysSetState?: boolean;
   onIsLoadingChange?: (isLoading: boolean) => void;
   // automatically revalidate when Page gets focused
@@ -500,10 +503,13 @@ export function usePromiseResult<T>(
       callback();
       // the interval duration of the call needs to be readjusted after the polling interval duration changes。
     } else {
+      const runImmediately =
+        optionsRef.current.runImmediatelyOnPollingIntervalChange;
       setTimeout(
         callback,
-        Date.now() - runAtRef.current >
-          (optionsRef.current.pollingInterval || 0)
+        runImmediately ||
+          Date.now() - runAtRef.current >
+            (optionsRef.current.pollingInterval || 0)
           ? 0
           : optionsRef.current.pollingInterval,
       );

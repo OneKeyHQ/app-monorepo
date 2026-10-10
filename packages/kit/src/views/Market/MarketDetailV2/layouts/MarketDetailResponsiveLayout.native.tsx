@@ -16,6 +16,8 @@ export function MarketDetailResponsiveLayout({
   networkId,
   tokenAddress,
   marketTokenId,
+  marketAssetDetail,
+  isMarketAssetDetailLoading,
   marketTokenCategory,
 }: IMarketDetailResponsiveLayoutProps) {
   return (
@@ -33,6 +35,8 @@ export function MarketDetailResponsiveLayout({
       networkId={networkId}
       tokenAddress={tokenAddress}
       marketTokenId={marketTokenId}
+      marketAssetDetail={marketAssetDetail}
+      isMarketAssetDetailLoading={isMarketAssetDetailLoading}
       marketTokenCategory={marketTokenCategory}
     />
   );
