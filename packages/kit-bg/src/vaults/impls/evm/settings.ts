@@ -502,7 +502,6 @@ const settings: IVaultSettings = {
     [networkIdMap.base]: true,
     [networkIdMap.optimism]: true,
     [networkIdMap.polygon]: true,
-    [networkIdMap.blast]: true,
     [networkIdMap.bob]: true,
     [networkIdMap.taiko]: true,
     [networkIdMap.mantle]: true,
