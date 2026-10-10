@@ -253,10 +253,6 @@ export default function ScanQrCodeModal() {
           }),
         });
       }
-      defaultLogger.scanQrCode.readQrCode.readFromLibrary(
-        JSON.stringify(result),
-        data,
-      );
     }
   }, [callback, intl]);
 
