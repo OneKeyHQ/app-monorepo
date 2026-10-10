@@ -76,7 +76,6 @@ import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import {
-  DEFAULT_USDC_WITHDRAW_DESTINATION_ID,
   HYPERLIQUID_DEPOSIT_ADDRESS,
   MIN_DEPOSIT_AMOUNT,
   MIN_WITHDRAW_AMOUNT,
@@ -121,6 +120,7 @@ import {
 } from './depositTokenDisplayUtils';
 import { DepositTokenSelectionContent } from './DepositTokenSelectionContent';
 import { usePerpsAmountInput } from './usePerpsAmountInput';
+import { useUsdcWithdrawRouting } from './useUsdcWithdrawRouting';
 import { formatUsdcWithdrawFeeText } from './withdrawFeeDisplayUtils';
 
 import type { RouteProp } from '@react-navigation/native';
@@ -361,40 +361,56 @@ function DepositWithdrawContent({
   const [computedValue] = usePerpsComputedAccountValueAtom();
   const [activeAccount] = usePerpsActiveAccountAtom();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
-  const [perpsCustomSettings, setPerpsCustomSettings] =
-    usePerpsCustomSettingsAtom();
+  const [, setPerpsCustomSettings] = usePerpsCustomSettingsAtom();
   const withdrawable = computedValue?.withdrawable ?? '';
-  const withdrawDestinationId = getUsdcWithdrawDestination(
-    perpsCustomSettings.lastUsdcWithdrawDestinationId,
-  )
-    ? perpsCustomSettings.lastUsdcWithdrawDestinationId
-    : DEFAULT_USDC_WITHDRAW_DESTINATION_ID;
-  const [withdrawRoute, setWithdrawRoute] = useState<
-    'bridge' | 'cctp' | undefined
-  >(undefined);
-  const fetchWithdrawRoute = useCallback(async () => {
-    try {
-      return await backgroundApiProxy.serviceHyperliquidExchange.getUsdcWithdrawRoute(
-        { forceRefresh: true },
-      );
-    } catch (error) {
-      console.error(
-        '[DepositWithdrawModal] Failed to resolve withdraw route:',
-        error,
-      );
-      return undefined;
-    }
-  }, []);
-  // Seeded from the module cache so reopening the form does not blank the row
-  // again; the effects below refresh it on every open.
-  const [withdrawFeeQuotes, setWithdrawFeeQuotes] = useState<
-    Record<string, IUsdcWithdrawFeeQuote>
-  >(() => ({ ...withdrawFeeQuoteCache }));
   const [depositInputUnit, setDepositInputUnit] = useState<'token' | 'usd'>(
     'usd',
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showMinAmountError, setShowMinAmountError] = useState(false);
+  const [
+    {
+      tokens,
+      defaultTokens,
+      currentPerpsDepositSelectedToken,
+      depositTokenListOwnerKey,
+      depositTokenListRevision,
+      depositTokenListSource,
+    },
+    setPerpsDepositTokensAtom,
+  ] = usePerpsDepositTokensAtom();
+
+  const {
+    amount,
+    setAmount,
+    source: amountSource,
+    tokenAmountBN,
+    convertedAmount,
+  } = usePerpsAmountInput({
+    unit: selectedAction === 'deposit' ? depositInputUnit : 'token',
+    tokenPrice: currentPerpsDepositSelectedToken?.price,
+    tokenDecimals: currentPerpsDepositSelectedToken?.decimals,
+  });
+
+  const resetWithdrawAmount = useCallback(() => {
+    setAmount('');
+    setShowMinAmountError(false);
+  }, [setAmount]);
+  const {
+    withdrawRoute,
+    withdrawDestinationId,
+    withdrawDestinations,
+    refreshWithdrawRoute,
+  } = useUsdcWithdrawRouting({
+    enabled: selectedAction === 'withdraw',
+    isSubmitting,
+    onRoutingChange: resetWithdrawAmount,
+  });
+  // Seeded from the module cache so reopening the form does not blank the row
+  // again; the effects below refresh it on every open.
+  const [withdrawFeeQuotes, setWithdrawFeeQuotes] = useState<
+    Record<string, IUsdcWithdrawFeeQuote>
+  >(() => ({ ...withdrawFeeQuoteCache }));
   const [desktopDepositPage, setDesktopDepositPage] = useState<
     'form' | 'selectToken'
   >('form');
@@ -499,30 +515,6 @@ function DepositWithdrawContent({
         (withdrawRoute === 'bridge' &&
           selectedWithdrawDestination.transferType === 'cctp' &&
           selectedWithdrawDestination.supportsLegacyBridge)));
-  const [
-    {
-      tokens,
-      defaultTokens,
-      currentPerpsDepositSelectedToken,
-      depositTokenListOwnerKey,
-      depositTokenListRevision,
-      depositTokenListSource,
-    },
-    setPerpsDepositTokensAtom,
-  ] = usePerpsDepositTokensAtom();
-
-  const {
-    amount,
-    setAmount,
-    source: amountSource,
-    tokenAmountBN,
-    convertedAmount,
-  } = usePerpsAmountInput({
-    unit: selectedAction === 'deposit' ? depositInputUnit : 'token',
-    tokenPrice: currentPerpsDepositSelectedToken?.price,
-    tokenDecimals: currentPerpsDepositSelectedToken?.decimals,
-  });
-
   const cachedDepositTokens = useMemo(
     () => getPerpsDepositTokenDisplayList(tokens),
     [tokens],
@@ -1680,10 +1672,7 @@ function DepositWithdrawContent({
       }
       if (selectedAction === 'withdraw') {
         void refreshWithdrawReserve();
-        const latestWithdrawRoute = await fetchWithdrawRoute();
-        if (latestWithdrawRoute) {
-          setWithdrawRoute(latestWithdrawRoute);
-        }
+        void refreshWithdrawRoute();
       }
       console.error(`[DepositWithdrawModal.${selectedAction}] Failed:`, error);
       throw error;
@@ -1715,7 +1704,7 @@ function DepositWithdrawContent({
     withdraw,
     isDepositQuotePendingDebounce,
     shouldRefreshDepositQuote,
-    fetchWithdrawRoute,
+    refreshWithdrawRoute,
     refreshWithdrawReserve,
   ]);
 
@@ -2253,7 +2242,7 @@ function DepositWithdrawContent({
 
   const withdrawDestinationItems = useMemo<ISelectItem[]>(
     () =>
-      USDC_WITHDRAW_DESTINATIONS.map((destination) => ({
+      withdrawDestinations.map((destination) => ({
         label: destination.name,
         value: destination.id,
         disabled:
@@ -2261,47 +2250,20 @@ function DepositWithdrawContent({
           withdrawRoute !== 'cctp' &&
           !destination.supportsLegacyBridge,
       })),
-    [withdrawRoute],
+    [withdrawDestinations, withdrawRoute],
   );
 
   const handleWithdrawDestinationChange = useCallback(
     (value: IUsdcWithdrawDestinationId | undefined) => {
-      if (value && getUsdcWithdrawDestination(value)) {
+      if (value && withdrawDestinations.some(({ id }) => id === value)) {
         setPerpsCustomSettings((previous) => ({
           ...previous,
           lastUsdcWithdrawDestinationId: value,
         }));
       }
     },
-    [setPerpsCustomSettings],
+    [setPerpsCustomSettings, withdrawDestinations],
   );
-
-  // Refreshed alongside the fee: a rail that flips while the form is open fails
-  // submission with "route changed", and the retry it asks for needs a live
-  // refresh instead of the longer-lived background cache.
-  useEffect(() => {
-    if (selectedAction !== 'withdraw') {
-      return;
-    }
-    let cancelled = false;
-    setWithdrawRoute(undefined);
-    const loadWithdrawRoute = () => {
-      void fetchWithdrawRoute().then((route) => {
-        if (!cancelled && route) {
-          setWithdrawRoute(route);
-        }
-      });
-    };
-    loadWithdrawRoute();
-    const refreshInterval = setInterval(
-      loadWithdrawRoute,
-      WITHDRAW_QUOTE_REFRESH_INTERVAL_MS,
-    );
-    return () => {
-      cancelled = true;
-      clearInterval(refreshInterval);
-    };
-  }, [fetchWithdrawRoute, selectedAction]);
 
   // Quote every destination up front. The rail only changes server-side, so this
   // runs once per form open and lets a switch land on a confirmed number instead
@@ -2311,7 +2273,7 @@ function DepositWithdrawContent({
       return;
     }
     let cancelled = false;
-    USDC_WITHDRAW_DESTINATIONS.forEach((destination) => {
+    withdrawDestinations.forEach((destination) => {
       const key = getWithdrawFeeKey(destination, withdrawRoute);
       if (!key || requestedWithdrawFeeKeysRef.current.has(key)) {
         return;
@@ -2336,7 +2298,12 @@ function DepositWithdrawContent({
     return () => {
       cancelled = true;
     };
-  }, [selectedAction, withdrawRoute, storeWithdrawFeeQuote]);
+  }, [
+    selectedAction,
+    withdrawDestinations,
+    withdrawRoute,
+    storeWithdrawFeeQuote,
+  ]);
 
   useEffect(() => {
     if (selectedAction !== 'withdraw') {
@@ -2924,7 +2891,7 @@ function DepositWithdrawContent({
                     <Select
                       key={`perp-withdraw-destination-${
                         withdrawRoute ?? 'loading'
-                      }`}
+                      }-${withdrawDestinations.length}`}
                       testID="perp-withdraw-destination-select"
                       items={withdrawDestinationItems}
                       value={withdrawDestinationId}

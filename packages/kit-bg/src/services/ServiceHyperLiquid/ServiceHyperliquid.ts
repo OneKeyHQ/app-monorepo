@@ -870,6 +870,8 @@ export default class ServiceHyperliquid extends ServiceBase {
               ipDisablePerp: commonConfig.ipDisablePerp === true,
               unifoldDepositEnabled:
                 commonConfig.unifoldDepositEnabled === true,
+              withdrawChannel:
+                commonConfig.withdrawChannel === 'legacy' ? 'legacy' : 'cctp',
             }),
             perpBannerConfig: options?.fromServerConfig
               ? bannerConfig
@@ -953,8 +955,25 @@ export default class ServiceHyperliquid extends ServiceBase {
     await this.disposeExchangeClients();
   }
 
+  private _perpsConfigRequest:
+    | Promise<IApiClientResponse<IPerpServerConfigResponse>>
+    | undefined;
+
   @backgroundMethod()
   async updatePerpsConfigByServer() {
+    // Focus, modal polling and submission must share one request so an older
+    // response cannot overwrite a newer emergency withdrawal policy.
+    if (!this._perpsConfigRequest) {
+      this._perpsConfigRequest = this._fetchPerpsConfigByServer().finally(
+        () => {
+          this._perpsConfigRequest = undefined;
+        },
+      );
+    }
+    return this._perpsConfigRequest;
+  }
+
+  private async _fetchPerpsConfigByServer() {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const resp = await client.get<
       IApiClientResponse<IPerpServerConfigResponse>
@@ -962,6 +981,10 @@ export default class ServiceHyperliquid extends ServiceBase {
       params: { assetTypeVersion: PERPS_ASSET_TYPE_VERSION },
     });
     const resData = resp.data;
+
+    if (!resData?.data?.referrerConfig) {
+      throw new OneKeyLocalError('Invalid Perps configuration response');
+    }
 
     if (process.env.NODE_ENV !== 'production') {
       // TODO devSettings ignore server config 11
