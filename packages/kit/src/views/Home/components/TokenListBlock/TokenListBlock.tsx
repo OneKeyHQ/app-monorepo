@@ -951,20 +951,13 @@ function TokenListBlock({
         if (
           isAccountEpochCurrent(requestAccountEpoch) &&
           isHomeTokenRequestCurrent(homeRequest) &&
-          portfolioSyncRequest &&
-          activePortfolioSyncRequest?.id === portfolioSyncRequest.id &&
           currencyInfo?.id &&
           portfolioTotalFiatCurrency &&
           isProtocolV2ProductType(portfolioSyncDeviceType) &&
           wallet &&
           accountUtils.isHwWallet({ walletId: wallet.id }) &&
-          !accountUtils.isQrWallet({ walletId: wallet.id }) &&
-          transitionPortfolioSyncRequest(
-            portfolioSyncRequest.id,
-            'communicating',
-          )
+          !accountUtils.isQrWallet({ walletId: wallet.id })
         ) {
-          ownsPortfolioSyncCommunication = true;
           const portfolioTokenMap = {
             ...r.tokens.map,
             ...r.smallBalanceTokens.map,
@@ -976,52 +969,64 @@ function TokenListBlock({
             ...cellsIngestInputsRef.current.nonZeroInputs,
             keepDefault: false,
           });
-          try {
-            const portfolioSynced =
-              await backgroundApiProxy.serviceHardwarePortfolioSync.syncPortfolio(
-                {
-                  eventPayload: {
-                    accountAddress: account?.address,
-                    accountId: account?.id,
-                    accountName,
-                    aggregateTokenMap: {},
-                    deviceConnectId:
-                      device?.connectId ??
-                      wallet.associatedDeviceInfo?.connectId,
-                    deviceDbId: device?.id ?? wallet.associatedDeviceInfo?.id,
-                    indexedAccountId: indexedAccount?.id,
-                    indexedAccountIndex: indexedAccount?.index,
-                    indexedAccountName: indexedAccount?.name,
-                    networkId: network.id,
-                    ownerAccountId: account?.id,
-                    ownerNetworkId: network.id,
-                    totalFiat: portfolioTotalFiat,
-                    totalFiatCurrency: portfolioTotalFiatCurrency,
-                    totalTokenCount: portfolioTokens.length,
-                    tokenMap: portfolioTokenMap,
-                    tokens: portfolioTokens,
-                    walletId: wallet.id,
-                    walletType: wallet.type,
-                  },
-                  syncMode: 'interactive',
-                },
-              );
-            finishPortfolioSyncRequest(
+          const portfolioSyncPayload = {
+            accountAddress: account?.address,
+            accountId: account?.id,
+            accountName,
+            aggregateTokenMap: {},
+            deviceConnectId:
+              device?.connectId ?? wallet.associatedDeviceInfo?.connectId,
+            deviceDbId: device?.id ?? wallet.associatedDeviceInfo?.id,
+            indexedAccountId: indexedAccount?.id,
+            indexedAccountIndex: indexedAccount?.index,
+            indexedAccountName: indexedAccount?.name,
+            networkId: network.id,
+            ownerAccountId: account?.id,
+            ownerNetworkId: network.id,
+            totalFiat: portfolioTotalFiat,
+            totalFiatCurrency: portfolioTotalFiatCurrency,
+            totalTokenCount: portfolioTokens.length,
+            tokenMap: portfolioTokenMap,
+            tokens: portfolioTokens,
+            walletId: wallet.id,
+            walletType: wallet.type,
+          };
+          if (
+            portfolioSyncRequest &&
+            activePortfolioSyncRequest?.id === portfolioSyncRequest.id &&
+            transitionPortfolioSyncRequest(
               portfolioSyncRequest.id,
-              portfolioSynced
-                ? {
-                    doneI18n: {
-                      key: ETranslations.portfolio_updated__title,
-                    },
-                  }
-                : undefined,
-            );
-          } catch (error) {
-            if (!isOneKeyHardwareError(error)) {
-              errorToastUtils.toastIfError(error);
-              errorToastUtils.showToastOfError(error);
+              'communicating',
+            )
+          ) {
+            ownsPortfolioSyncCommunication = true;
+            try {
+              const portfolioSynced =
+                await backgroundApiProxy.serviceHardwarePortfolioSync.syncPortfolio(
+                  {
+                    eventPayload: portfolioSyncPayload,
+                    syncMode: 'interactive',
+                  },
+                );
+              finishPortfolioSyncRequest(
+                portfolioSyncRequest.id,
+                portfolioSynced
+                  ? {
+                      doneI18n: {
+                        key: ETranslations.portfolio_updated__title,
+                      },
+                    }
+                  : undefined,
+              );
+            } catch (error) {
+              if (!isOneKeyHardwareError(error)) {
+                errorToastUtils.toastIfError(error);
+                errorToastUtils.showToastOfError(error);
+              }
+              finishPortfolioSyncRequest(portfolioSyncRequest.id, { error });
             }
-            finishPortfolioSyncRequest(portfolioSyncRequest.id, { error });
+          } else if (!portfolioSyncRequest) {
+            setSilentPortfolioPayload(portfolioSyncPayload);
           }
         }
 
@@ -3401,7 +3406,7 @@ function TokenListBlock({
 
   useEffect(() => {
     if (
-      !network?.isAllNetworks ||
+      !network?.id ||
       !silentPortfolioPayload ||
       silentPortfolioPayload.ownerAccountId !== account?.id ||
       silentPortfolioPayload.ownerNetworkId !== network.id ||
@@ -3441,7 +3446,6 @@ function TokenListBlock({
     hasPortfolioSyncTarget,
     homePortfolioDisplay,
     network?.id,
-    network?.isAllNetworks,
     portfolioSyncRequestPhase,
     silentPortfolioPayload,
   ]);
