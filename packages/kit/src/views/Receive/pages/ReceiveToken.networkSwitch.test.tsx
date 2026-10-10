@@ -25,6 +25,20 @@ const mockGetVaultSettings = jest.fn<
   Promise<{ mergeDeriveAssetsEnabled: boolean }>,
   [unknown]
 >(async () => ({ mergeDeriveAssetsEnabled: false }));
+// One identity across calls, as the page keeps it in state: the test intl
+// object is new on every render, which re-runs the account lookup.
+const mockDefaultDeriveResp = {
+  deriveType: 'default',
+  deriveInfo: { label: 'Default' },
+};
+const mockGetAccountsByIndexedAccounts = jest.fn<
+  Promise<{ accounts: unknown[] }>,
+  [unknown]
+>(async () => ({ accounts: [] }));
+const mockGetNetworkAccountsWithDeriveTypes = jest.fn<
+  Promise<{ networkAccounts: unknown[] }>,
+  [unknown]
+>(async () => ({ networkAccounts: [] }));
 const mockFetchWalletBanner = jest.fn<
   Promise<unknown[]>,
   [{ accountId?: string }]
@@ -35,6 +49,7 @@ const NETWORKS: Record<string, { id: string; name: string; logoURI: string }> =
     'evm--1': { id: 'evm--1', name: 'Ethereum', logoURI: '' },
     'evm--8453': { id: 'evm--8453', name: 'Base', logoURI: '' },
     'tron--0x2b6653dc': { id: 'tron--0x2b6653dc', name: 'Tron', logoURI: '' },
+    'btc--0': { id: 'btc--0', name: 'Bitcoin', logoURI: '' },
   };
 
 type IMockAccount = {
@@ -278,18 +293,16 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
         async ({ networkId }: { networkId: string }) => NETWORKS[networkId],
       ),
       getGlobalDeriveTypeOfNetwork: jest.fn(async () => 'default'),
-      getDeriveTypeByTemplate: jest.fn(async () => ({
-        deriveType: 'default',
-        deriveInfo: { label: 'Default' },
-      })),
+      getDeriveTypeByTemplate: jest.fn(async () => mockDefaultDeriveResp),
     },
     serviceAccount: {
       verifyHWAccountAddresses: (params: unknown) =>
         mockVerifyHWAccountAddresses(params),
-      getAccountsByIndexedAccounts: jest.fn(async () => ({ accounts: [] })),
-      getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes: jest.fn(
-        async () => ({ networkAccounts: [] }),
-      ),
+      getAccountsByIndexedAccounts: (params: unknown) =>
+        mockGetAccountsByIndexedAccounts(params),
+      getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes: (
+        params: unknown,
+      ) => mockGetNetworkAccountsWithDeriveTypes(params),
     },
     serviceWalletBanner: {
       fetchWalletBanner: (params: { accountId?: string }) =>
@@ -534,6 +547,12 @@ describe('ReceiveToken network switch', () => {
     mockFetchWalletBanner.mockResolvedValue([]);
     mockGetVaultSettings.mockReset();
     mockGetVaultSettings.mockResolvedValue({ mergeDeriveAssetsEnabled: false });
+    mockGetAccountsByIndexedAccounts.mockReset();
+    mockGetAccountsByIndexedAccounts.mockResolvedValue({ accounts: [] });
+    mockGetNetworkAccountsWithDeriveTypes.mockReset();
+    mockGetNetworkAccountsWithDeriveTypes.mockResolvedValue({
+      networkAccounts: [],
+    });
   });
 
   it('shows the trigger only for a switchable entry', async () => {
@@ -880,6 +899,106 @@ describe('ReceiveToken network switch', () => {
     } finally {
       ACCOUNTS['hw-1--evm1'] = original;
     }
+  });
+
+  describe('to a network with several address types', () => {
+    const SEGWIT = {
+      id: 'hd-1--btc-segwit',
+      address: 'bc1qsegwit',
+      template: "m/84'/0'/$$INDEX$$'/0/0",
+      indexedAccountId: 'hd-1--0',
+      addressDetail: { receiveAddressPath: "m/84'/0'/0'/0/0" },
+    };
+    const OTHER_TYPES = {
+      networkAccounts: [
+        {
+          deriveType: 'BIP44',
+          deriveInfo: { label: 'Legacy' },
+          account: {
+            id: 'hd-1--btc-legacy',
+            address: '1legacy',
+            indexedAccountId: 'hd-1--0',
+            addressDetail: { receiveAddressPath: "m/44'/0'/0'/0/0" },
+          },
+        },
+        {
+          deriveType: 'BIP86',
+          deriveInfo: { label: 'Taproot' },
+          account: {
+            id: 'hd-1--btc-taproot',
+            address: 'bc1ptaproot',
+            indexedAccountId: 'hd-1--0',
+            addressDetail: { receiveAddressPath: "m/86'/0'/0'/0/0" },
+          },
+        },
+      ],
+    };
+
+    async function switchToBitcoinFromTaprootRow() {
+      mockGetVaultSettings.mockImplementation(async (params) => ({
+        mergeDeriveAssetsEnabled:
+          (params as { networkId: string }).networkId === 'btc--0',
+      }));
+      mockRouteParams = buildParams('hd', {
+        allAggregateTokenList: [member('evm--1'), member('btc--0')],
+      });
+      const utils = render(<ReceiveToken />);
+      await waitFor(() =>
+        expect(utils.getByTestId('address').textContent).toBe('0xaaa'),
+      );
+      await openSelectorAndSelect(
+        utils.getByTestId,
+        member('btc--0', { accountId: 'hd-1--btc-taproot' }),
+      );
+      return utils;
+    }
+
+    it('starts from the default address type when the wallet has one', async () => {
+      mockGetAccountsByIndexedAccounts.mockResolvedValue({
+        accounts: [SEGWIT],
+      });
+      mockGetNetworkAccountsWithDeriveTypes.mockResolvedValue(OTHER_TYPES);
+      const { getByTestId } = await switchToBitcoinFromTaprootRow();
+      await waitFor(() =>
+        expect(getByTestId('address').textContent).toBe('bc1qsegwit'),
+      );
+      expect(mockGetAccountsByIndexedAccounts).toHaveBeenCalledWith({
+        indexedAccountIds: ['hd-1--0'],
+        networkId: 'btc--0',
+        deriveType: 'default',
+      });
+      expect(mockGetNetworkAccountsWithDeriveTypes).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      [
+        'comes back empty',
+        () =>
+          mockGetAccountsByIndexedAccounts.mockResolvedValue({ accounts: [] }),
+      ],
+      [
+        'throws',
+        () =>
+          mockGetAccountsByIndexedAccounts.mockRejectedValue(
+            new Error('account not found'),
+          ),
+      ],
+    ])(
+      'shows the address of the selected row when the default type lookup %s',
+      async (_label, arrangeDefaultLookup) => {
+        arrangeDefaultLookup();
+        mockGetNetworkAccountsWithDeriveTypes.mockResolvedValue(OTHER_TYPES);
+        const { getByTestId, queryByTestId } =
+          await switchToBitcoinFromTaprootRow();
+        // The row showed the Taproot address: that one, not just the first
+        // address type the wallet happens to have.
+        await waitFor(() =>
+          expect(getByTestId('address').textContent).toBe('bc1ptaproot'),
+        );
+        expect(queryByTestId('receive-switch-placeholder')).toBeNull();
+        expect(mockToastError).not.toHaveBeenCalled();
+      },
+    );
   });
 
   it('keeps the placeholder with a tappable header when the account cannot be resolved', async () => {

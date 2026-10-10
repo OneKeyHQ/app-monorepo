@@ -143,6 +143,10 @@ function ReceiveToken() {
   // previous network then, verification included, and a verification started
   // against it would settle after the switch.
   const isSwitchResolvingRef = useRef(false);
+  // The account of the row a switch to a multi-address-type network was
+  // picked from. The page resolves the default address type there; when the
+  // wallet has none of that type, this is the address the user chose.
+  const switchSelectedAccountIdRef = useRef<string | undefined>(undefined);
 
   const networkId = currentNetworkId;
   const accountId = currentAccountId;
@@ -642,7 +646,10 @@ function ReceiveToken() {
           resolved = true;
         }
       } catch (_e) {
-        // get default derive type account error, try to find the non-empty account
+        // No account of the default address type (the lookup throws for a
+        // missing record): handled below.
+      }
+      if (!resolved) {
         const { networkAccounts } =
           await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
             {
@@ -652,7 +659,12 @@ function ReceiveToken() {
             },
           );
         if (seq !== switchSeqRef.current) return;
-        const nonEmptyAccount = networkAccounts.find((item) => item.account);
+        const selectedAccountId = switchSelectedAccountIdRef.current;
+        const nonEmptyAccount =
+          networkAccounts.find(
+            (item) =>
+              !!selectedAccountId && item.account?.id === selectedAccountId,
+          ) ?? networkAccounts.find((item) => item.account);
         if (nonEmptyAccount) {
           setCurrentAccount(nonEmptyAccount.account);
           setCurrentDeriveType(nonEmptyAccount.deriveType);
@@ -1062,6 +1074,9 @@ function ReceiveToken() {
               selectContext.allAggregateTokenList ?? prev.allAggregateTokenList,
           }));
         }
+        switchSelectedAccountIdRef.current = useDerivePath
+          ? targetAccountId
+          : undefined;
         setCurrentNetworkId(targetNetworkId);
         setCurrentAccountId(useDerivePath ? '' : (targetAccountId ?? ''));
       } finally {
