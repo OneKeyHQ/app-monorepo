@@ -7,6 +7,7 @@ import {
   numberFormat,
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
+  formatSpotPairDisplayName,
   getSpotTokenDisplayName,
   getValidPriceDecimals,
   getValidSpotPriceDecimals,
@@ -26,6 +27,26 @@ const usdFormatter: INumberFormatProps = {
     currency: '$',
   },
 };
+
+export function getTradeHistoryPairName({
+  coin,
+  spotPairDisplayMap = {},
+  paymentTokens = {},
+}: {
+  coin: string;
+  spotPairDisplayMap?: Partial<Record<string, string>>;
+  paymentTokens?: Partial<Record<string, string>>;
+}): string | undefined {
+  if (isSpotInstrument(coin)) {
+    const pair = spotPairDisplayMap[coin] || coin;
+    const [baseName, quoteName] = pair.split('/');
+    return baseName && quoteName
+      ? formatSpotPairDisplayName(baseName, quoteName)
+      : undefined;
+  }
+  const quote = paymentTokens[coin];
+  return quote ? `${parseDexCoin(coin).displayName}/${quote}` : undefined;
+}
 
 /**
  * Display strings for one fill row. Pure so the spot/perp formatting rules can
