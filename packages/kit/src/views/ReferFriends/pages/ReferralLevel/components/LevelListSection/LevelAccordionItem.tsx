@@ -375,7 +375,9 @@ export function LevelAccordionItem({
                 )}
               </Stack>
               <XStack gap="$2" ai="center">
-                <SizableText size="$bodyLgMedium">{level.label}</SizableText>
+                <SizableText size="$bodyLgMedium">
+                  {getDisplayLabel(intl, level.labelKey, level.label)}
+                </SizableText>
                 {isCurrent ? (
                   <Badge badgeSize="sm">
                     {intl.formatMessage({

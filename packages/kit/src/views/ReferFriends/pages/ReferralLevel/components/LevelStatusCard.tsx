@@ -17,6 +17,7 @@ import {
   INVITE_CARD_BORDER_COLOR,
   useInviteListCardStyle,
 } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteCardStyle';
+import { getDisplayLabel } from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteLevelItem } from '@onekeyhq/shared/src/referralCode/type';
 
@@ -117,7 +118,7 @@ export function LevelStatusCard({
             {intl.formatMessage({ id: ETranslations.referral_current_level })}
           </SizableText>
           <SizableText size="$headingXl" numberOfLines={1}>
-            {level.label}
+            {getDisplayLabel(intl, level.labelKey, level.label)}
           </SizableText>
           <RetentionStatus status={retentionStatus} />
         </YStack>

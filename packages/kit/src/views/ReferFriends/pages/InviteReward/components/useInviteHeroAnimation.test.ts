@@ -32,11 +32,27 @@ function setup(isInviteTab = true) {
     ({ tab }: { tab: boolean }) => useInviteHeroAnimation(tab),
     { initialProps: { tab: isInviteTab } },
   );
-  hook.result.current.controlRef.current = { setPaused };
+  act(() => {
+    hook.result.current.controlRef({ setPaused });
+  });
+  setPaused.mockClear();
   return { hook, setPaused };
 }
 
 describe('useInviteHeroAnimation', () => {
+  it('applies the current state when the illustration attaches late', () => {
+    const setPaused = jest.fn();
+    const hook = renderHook(
+      ({ tab }: { tab: boolean }) => useInviteHeroAnimation(tab),
+      { initialProps: { tab: false } },
+    );
+
+    act(() => {
+      hook.result.current.controlRef({ setPaused });
+    });
+    expect(setPaused).toHaveBeenLastCalledWith(true);
+  });
+
   it('pauses once when the illustration scrolls away and resumes on return', () => {
     const { hook, setPaused } = setup();
 

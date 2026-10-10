@@ -19,19 +19,27 @@ import type { ILottieViewHandle, ILottieViewProps } from './type';
 const LottieViewWeb = lazy(() => import('lottie-react'));
 
 export const LottieView = forwardRef<ILottieViewHandle, ILottieViewProps>(
-  ({ source, autoPlay = false, loop, onAnimationFinish, ...props }, ref) => {
+  (
+    { source, autoPlay = false, loop, onAnimationFinish, onComplete, ...props },
+    ref,
+  ) => {
     const [restProps, style] = usePropsAndStyle(props, {
       resolveValues: 'auto',
     });
     const animationRef = useRef<any>(null);
     // A one-shot animation that has played out stays on its last frame.
     const isFinishedRef = useRef(false);
-    const handleComplete = useCallback(() => {
-      if (!loop) {
-        isFinishedRef.current = true;
-      }
-      onAnimationFinish?.(false);
-    }, [loop, onAnimationFinish]);
+    // Keeps a caller's own lottie-web `onComplete` working alongside it.
+    const handleComplete = useCallback<NonNullable<typeof onComplete>>(
+      (event) => {
+        if (!loop) {
+          isFinishedRef.current = true;
+        }
+        onComplete?.(event);
+        onAnimationFinish?.(false);
+      },
+      [loop, onAnimationFinish, onComplete],
+    );
     useEffect(() => {
       isFinishedRef.current = false;
     }, [source]);

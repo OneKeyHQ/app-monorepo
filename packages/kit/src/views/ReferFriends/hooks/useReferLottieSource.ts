@@ -41,32 +41,42 @@ async function loadReferLottieSource({
 // same compositions in several places, and re-importing and re-parsing a
 // ~160 KB composition on every mount left the illustration blank for a
 // moment.
-const referLottieSourceCache = new Map<string, Promise<IReferLottieSource>>();
+const referLottieSourceCache = new Map<
+  string,
+  Promise<IReferLottieSource | null>
+>();
 
+// Resolves null when the composition fails to load (e.g. a missing web
+// chunk), so callers and fire-and-forget preloads never reject.
 export function getReferLottieSource(params: {
   step: IReferLottieStep;
   themeVariant: 'light' | 'dark';
-}) {
+}): Promise<IReferLottieSource | null> {
   const key = `${params.step}-${params.themeVariant}`;
   let pending = referLottieSourceCache.get(key);
   if (!pending) {
-    pending = loadReferLottieSource(params);
+    pending = loadReferLottieSource(params).catch(() => {
+      // A failed load should be retried next time, not cached.
+      referLottieSourceCache.delete(key);
+      return null;
+    });
     referLottieSourceCache.set(key, pending);
-    // A failed load should be retried next time, not cached.
-    pending.catch(() => referLottieSourceCache.delete(key));
   }
   return pending;
 }
 
-// The referral loop (step 2) for the current theme, or null while it loads.
-export function useReferLottieSource(): IReferLottieSource | null {
+// The composition for a step (the referral loop by default) in the current
+// theme, or null while it loads.
+export function useReferLottieSource(
+  step: IReferLottieStep = 2,
+): IReferLottieSource | null {
   const themeVariant = useThemeVariant() === 'dark' ? 'dark' : 'light';
   const [source, setSource] = useState<IReferLottieSource | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setSource(null);
-    void getReferLottieSource({ step: 2, themeVariant }).then((nextSource) => {
+    void getReferLottieSource({ step, themeVariant }).then((nextSource) => {
       if (!cancelled) {
         setSource(nextSource);
       }
@@ -74,7 +84,7 @@ export function useReferLottieSource(): IReferLottieSource | null {
     return () => {
       cancelled = true;
     };
-  }, [themeVariant]);
+  }, [step, themeVariant]);
 
   return source;
 }

@@ -13,7 +13,7 @@ import type { IInviteCodeStepImageControl } from '@onekeyhq/kit/src/views/ReferF
 // input lives in a ref and the animation is driven through its control, so
 // none of this re-renders the page.
 export function useInviteHeroAnimation(isInviteTab: boolean) {
-  const controlRef = useRef<IInviteCodeStepImageControl>(null);
+  const controlRef = useRef<IInviteCodeStepImageControl | null>(null);
   const isFocusedRef = useRef(true);
   const isInviteTabRef = useRef(isInviteTab);
   const isScrolledAwayRef = useRef(false);
@@ -42,6 +42,17 @@ export function useInviteHeroAnimation(isInviteTab: boolean) {
     }, [sync]),
   );
 
+  // The illustration mounts after the summary loads and remounts across
+  // layout changes, possibly while the page is already blurred, on the
+  // other tab or scrolled away; it takes the current state when it attaches.
+  const setControlRef = useCallback(
+    (control: IInviteCodeStepImageControl | null) => {
+      controlRef.current = control;
+      sync();
+    },
+    [sync],
+  );
+
   const illustrationHeight = getInviteCodeStepImageHeight(usePageWidth());
   const onScrollOffset = useCallback(
     (offsetY: number) => {
@@ -54,5 +65,5 @@ export function useInviteHeroAnimation(isInviteTab: boolean) {
     [illustrationHeight, sync],
   );
 
-  return { controlRef, onScrollOffset };
+  return { controlRef: setControlRef, onScrollOffset };
 }

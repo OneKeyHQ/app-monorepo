@@ -157,7 +157,7 @@ export function UpgradeTargetsSection({
   const { md } = useMedia();
   const upgradeTitle = intl.formatMessage(
     { id: ETranslations.referral_upgrade_to__title },
-    { level: nextLevel.label },
+    { level: getDisplayLabel(intl, nextLevel.labelKey, nextLevel.label) },
   );
   const upgradeRule = intl.formatMessage({
     id:

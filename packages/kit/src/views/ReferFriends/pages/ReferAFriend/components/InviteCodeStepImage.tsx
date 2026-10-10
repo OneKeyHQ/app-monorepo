@@ -1,17 +1,13 @@
-import {
-  memo,
-  useEffect,
-  useImperativeHandle,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { memo, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 import type { Ref } from 'react';
 
 import { LottieView, Stack, usePageWidth } from '@onekeyhq/components';
-import type { ILottieViewHandle, ILottieViewProps } from '@onekeyhq/components';
+import type { ILottieViewHandle } from '@onekeyhq/components';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
-import { getReferLottieSource } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useReferLottieSource';
+import {
+  getReferLottieSource,
+  useReferLottieSource,
+} from '@onekeyhq/kit/src/views/ReferFriends/hooks/useReferLottieSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // Matches the Lottie composition (786x446) so the box has no empty bands.
@@ -24,8 +20,6 @@ const MAX_WIDTH = 480;
 export function getInviteCodeStepImageHeight(pageWidth: number) {
   return Math.min(pageWidth, MAX_WIDTH) * LOTTIE_ASPECT_RATIO;
 }
-
-type ILottieSource = ILottieViewProps['source'];
 
 // Step 2 is three 2-second rounds, each a friend joining: the left hand
 // slides in, coins cross to the right phone, the friend's avatar checks, then
@@ -63,7 +57,7 @@ export const InviteCodeStepImage = memo(function InviteCodeStepImage({
   const pausedRef = useRef(false);
   const themeVariant = useThemeVariant();
   const pageWidth = usePageWidth();
-  const [lottieSource, setLottieSource] = useState<ILottieSource | null>(null);
+  const lottieSource = useReferLottieSource(step);
   const lottieThemeVariant = themeVariant === 'dark' ? 'dark' : 'light';
   const width = Math.min(pageWidth, MAX_WIDTH);
   const height = getInviteCodeStepImageHeight(pageWidth);
@@ -74,28 +68,15 @@ export const InviteCodeStepImage = memo(function InviteCodeStepImage({
       ? 'HARDWARE'
       : 'AUTOMATIC';
 
+  // Warm the other step while this one is on screen, so "Next" has its
+  // illustration ready.
   useEffect(() => {
-    let cancelled = false;
-    setLottieSource(null);
-    void getReferLottieSource({
-      step,
-      themeVariant: lottieThemeVariant,
-    }).then((source) => {
-      if (!cancelled) {
-        setLottieSource(source);
-      }
-    });
-    // Warm the other step while this one is on screen, so "Next" has its
-    // illustration ready.
     if (preloadOtherStep) {
       void getReferLottieSource({
         step: step === 1 ? 2 : 1,
         themeVariant: lottieThemeVariant,
       });
     }
-    return () => {
-      cancelled = true;
-    };
   }, [lottieThemeVariant, preloadOtherStep, step]);
 
   useImperativeHandle(
@@ -128,8 +109,21 @@ export const InviteCodeStepImage = memo(function InviteCodeStepImage({
 
   // A source that loads while the animation is held mounts without
   // autoPlay: a pause() sent right after mount can land before the native
-  // view starts playing and be lost. resume() starts it later.
-  const shouldAutoPlay = !pausedRef.current;
+  // view starts playing and be lost. resume() starts it later. Decided once
+  // per source: flipping autoPlay on a later re-render makes the native view
+  // play again, replaying a one-shot that already finished.
+  const autoPlayRef = useRef<{ source: unknown; autoPlay: boolean } | null>(
+    null,
+  );
+  let autoPlayDecision = autoPlayRef.current;
+  if (!autoPlayDecision || autoPlayDecision.source !== playedSource) {
+    autoPlayDecision = {
+      source: playedSource,
+      autoPlay: !pausedRef.current,
+    };
+    autoPlayRef.current = autoPlayDecision;
+  }
+  const shouldAutoPlay = autoPlayDecision.autoPlay;
   // Still mark the view paused, so returning from background does not
   // start an animation that is held.
   useEffect(() => {

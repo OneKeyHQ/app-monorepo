@@ -21,6 +21,7 @@ import {
 import { getLevelOverview } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferralLevel/getLevelOverview';
 import type { ILevelOverview } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferralLevel/getLevelOverview';
 import { useNavigateToReferralLevel } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferralLevel/hooks/useNavigateToReferralLevel';
+import { getDisplayLabel } from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteLevelDetail } from '@onekeyhq/shared/src/referralCode/type';
@@ -61,7 +62,13 @@ function LevelSummary({
               <SizableText size="$bodyMdMedium">
                 {intl.formatMessage(
                   { id: ETranslations.referral_next_level__title },
-                  { level: nextLevel.label },
+                  {
+                    level: getDisplayLabel(
+                      intl,
+                      nextLevel.labelKey,
+                      nextLevel.label,
+                    ),
+                  },
                 )}
               </SizableText>
             </XStack>
