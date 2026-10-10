@@ -9,6 +9,8 @@ import type {
   ITradingViewNativeChartLeafComponent,
   ITradingViewNativeChartType,
   ITradingViewNativeInitialRightOffset,
+  ITradingViewNativePriceSelection,
+  ITradingViewNativeReferenceLineAction,
 } from './types';
 import type {
   ITradingViewNativeIndicatorSeries,
@@ -31,10 +33,17 @@ export interface ITradingViewNativeChartProps {
   } | null>;
   candleIntervalSeconds: number;
   chartComponents: readonly ITradingViewNativeChartLeafComponent[];
+  onReferenceLineAction?: (
+    action: ITradingViewNativeReferenceLineAction,
+  ) => Promise<void>;
   chartSettings: ITradingViewNativeChartSettings;
   chartType: ITradingViewNativeChartType;
   chartPictureVersion: number;
   currentPriceLabel: string;
+  priceDecimalPlaces?: number;
+  onPriceSelect?: (selection: ITradingViewNativePriceSelection) => void;
+  priceSelectionLabel?: string;
+  onInteractionChange?: (isInteracting: boolean) => void;
   extendTimeAxisBorderToCanvasEdge?: boolean;
   hasVolume: boolean;
   indicatorSeries: ITradingViewNativeIndicatorSeries[];

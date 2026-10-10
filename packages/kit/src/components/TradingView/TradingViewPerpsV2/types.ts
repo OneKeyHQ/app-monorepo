@@ -71,6 +71,7 @@ export interface ITVLine {
   editable?: boolean; // Only true for limit orders
   meta?: {
     orderId?: string;
+    coin?: string;
     orderType?: string;
     leverageType?: string;
   };
