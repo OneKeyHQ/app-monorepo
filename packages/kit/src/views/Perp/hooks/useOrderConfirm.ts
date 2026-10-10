@@ -377,6 +377,7 @@ function useOrderConfirmWithMarketDataFreshness({
           szDecimals,
           assetType: isSpotOrder ? 'spot' : 'perp',
         });
+        let triggerAbove: boolean | undefined;
         if (rawTriggerPrice) {
           if (!triggerPrice) {
             Toast.error({
@@ -387,7 +388,7 @@ function useOrderConfirmWithMarketDataFreshness({
             });
             return;
           }
-          const triggerAbove = getTwapTriggerAbove({
+          triggerAbove = getTwapTriggerAbove({
             triggerPrice,
             markPrice: twapReferencePriceBN,
           });
@@ -509,6 +510,7 @@ function useOrderConfirmWithMarketDataFreshness({
             assetId: activeTradeInstrument.assetId,
             formData: effectiveFormData,
             price: twapReferencePriceBN.toFixed(),
+            twapTriggerAbove: triggerAbove,
           });
           options?.onSuccess?.();
         } catch (error) {

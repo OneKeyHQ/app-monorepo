@@ -112,4 +112,17 @@ describe('ServiceHyperliquidExchange TWAP notional', () => {
       twap: { a: 1, b: true, s: '0.01', r: false, m: 5, t: false },
     });
   });
+
+  it('rejects a confirmed trigger direction that the mark has crossed', async () => {
+    await expect(
+      service.placeTwapOrder({
+        ...params,
+        size: '0.0543',
+        triggerPrice: '1900',
+        triggerAbove: true,
+        referencePrice: '1950',
+      }),
+    ).rejects.toThrow(ETranslations.target_market_data_changed__msg);
+    expect(mockTwapOrder).not.toHaveBeenCalled();
+  });
 });

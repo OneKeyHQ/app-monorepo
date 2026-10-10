@@ -44,6 +44,7 @@ import {
 } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
 import {
   formatTwapPriceForOrder,
+  getTwapTriggerAbove,
   isTwapStopPriceValid,
   isTwapTotalNotionalValid,
 } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
@@ -1603,6 +1604,20 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       throw new OneKeyLocalError(
         appLocale.intl.formatMessage({
           id: ETranslations.perps_input_trigger_price,
+        }),
+      );
+    }
+    // The mark can cross the trigger after the user confirmed its direction.
+    if (
+      triggerPrice &&
+      getTwapTriggerAbove({
+        triggerPrice,
+        markPrice: params.referencePrice,
+      }) !== params.triggerAbove
+    ) {
+      throw new OneKeyLocalError(
+        appLocale.intl.formatMessage({
+          id: ETranslations.target_market_data_changed__msg,
         }),
       );
     }

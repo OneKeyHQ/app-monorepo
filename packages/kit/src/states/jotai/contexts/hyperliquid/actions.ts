@@ -2890,6 +2890,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         assetId: number;
         formData?: ITradingFormData;
         price?: string;
+        triggerAbove?: boolean;
       },
     ) => {
       const formData = params.formData || get(tradingFormAtom());
@@ -2973,10 +2974,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               );
             }
             if (triggerPrice) {
-              triggerAbove = getTwapTriggerAbove({
-                triggerPrice,
-                markPrice: markPriceBN,
-              });
+              // Submit the confirmed direction; BG rejects it if the mark crossed.
+              triggerAbove =
+                params.triggerAbove ??
+                getTwapTriggerAbove({
+                  triggerPrice,
+                  markPrice: markPriceBN,
+                });
               if (typeof triggerAbove !== 'boolean') {
                 throw new OneKeyLocalError(
                   'TWAP trigger price must be positive and differ from the market price',
@@ -3165,6 +3169,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         formData?: ITradingFormData;
         slippage?: number;
         price: string;
+        twapTriggerAbove?: boolean;
       },
     ) => {
       const formData = params.formData || get(tradingFormAtom());
@@ -3191,6 +3196,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           assetId: params.assetId,
           formData,
           price: params.price,
+          triggerAbove: params.twapTriggerAbove,
         });
       }
 
