@@ -421,7 +421,7 @@ export function MobileLayout({
   const handleNativeChartPriceUpdate = useMarketNativeChartPriceUpdate({
     networkId,
     tokenAddress,
-    enabled: active !== false,
+    enabled: active !== false && !isSimpleChart,
   });
   const marketTradingViewParams = useMarketTradingViewParams({
     tokenAddress,
@@ -521,6 +521,7 @@ export function MobileLayout({
     enabled: resolveMarketNativeChartFallbackQuoteEnabled({
       active,
       isTradingViewNative,
+      isNativeChartMounted: !isSimpleChart,
       source: tradingViewNativeSource,
       isNative,
       networkId,
