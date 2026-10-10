@@ -42,6 +42,12 @@ import {
   assertValidScaleOrderLegs,
   buildScaleOrderLegs,
 } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
+import {
+  formatTwapPriceForOrder,
+  getTwapTriggerAbove,
+  isTwapStopPriceValid,
+  isTwapTotalNotionalValid,
+} from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import { normalizeDexCoin } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import {
   MAX_DECIMALS_PERP,
@@ -1545,13 +1551,97 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     const precision = precisionMap.get(params.assetId);
     const szDecimals = params.szDecimals ?? precision?.szDecimals ?? 2;
     const size = formatHlSize(params.size, szDecimals);
-    if (!size) {
-      throw new OneKeyLocalError('TWAP size is too small for HL lot size');
+    if (
+      !isTwapTotalNotionalValid({
+        size,
+        price: params.referencePrice,
+        szDecimals,
+      })
+    ) {
+      throw new OneKeyLocalError(
+        appLocale.intl.formatMessage({
+          id: ETranslations.perp_scale_order_size_too_small__msg,
+        }),
+      );
     }
 
     const assetType = precision?.type;
     const reduceOnly =
       assetType === 'spot' ? false : Boolean(params.reduceOnly);
+    const formatOptionalTwapPrice = (
+      price: string | undefined,
+      fieldName: 'trigger' | 'stop',
+    ) => {
+      if (!price) {
+        return undefined;
+      }
+      const formattedPrice = formatTwapPriceForOrder({
+        price,
+        szDecimals,
+        assetType: assetType ?? 'perp',
+      });
+      if (!formattedPrice) {
+        let messageId = params.isBuy
+          ? ETranslations.perp_scale_upper_price_placeholder__desc
+          : ETranslations.perp_scale_lower_price_placeholder__desc;
+        if (fieldName === 'trigger') {
+          messageId = ETranslations.perps_input_trigger_price;
+        }
+        throw new OneKeyLocalError(
+          appLocale.intl.formatMessage({
+            id: messageId,
+          }),
+        );
+      }
+      return formattedPrice;
+    };
+    const triggerPrice = formatOptionalTwapPrice(
+      params.triggerPrice,
+      'trigger',
+    );
+    const stopPrice = formatOptionalTwapPrice(params.stopPrice, 'stop');
+    if (triggerPrice && typeof params.triggerAbove !== 'boolean') {
+      throw new OneKeyLocalError(
+        appLocale.intl.formatMessage({
+          id: ETranslations.perps_input_trigger_price,
+        }),
+      );
+    }
+    // The mark can cross the trigger after the user confirmed its direction.
+    if (
+      triggerPrice &&
+      getTwapTriggerAbove({
+        triggerPrice,
+        markPrice: params.referencePrice,
+      }) !== params.triggerAbove
+    ) {
+      throw new OneKeyLocalError(
+        appLocale.intl.formatMessage({
+          id: ETranslations.target_market_data_changed__msg,
+        }),
+      );
+    }
+    if (
+      stopPrice &&
+      !isTwapStopPriceValid({
+        isBuy: params.isBuy,
+        stopPrice,
+        referencePrice: params.referencePrice,
+        triggerPrice,
+      })
+    ) {
+      throw new OneKeyLocalError(
+        `${appLocale.intl.formatMessage({
+          id: params.isBuy
+            ? ETranslations.perp_scale_upper_price_label__title
+            : ETranslations.perp_scale_lower_price_label__title,
+        })} ${params.isBuy ? '>' : '<'} ${appLocale.intl.formatMessage({
+          id: ETranslations.perp_market_price,
+        })} / ${appLocale.intl.formatMessage({
+          id: ETranslations.dexmarket_pro_trigger_price,
+        })}`,
+      );
+    }
     const twap = {
       a: params.assetId,
       b: params.isBuy,
@@ -1561,6 +1651,16 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       t: params.randomize,
     };
     const context = await this._buildLogContext(true);
+    // Plain TWAPs must keep the pre-0.33 wire shape production has validated.
+    const details =
+      triggerPrice || stopPrice
+        ? {
+            t: triggerPrice
+              ? { p: triggerPrice, a: params.triggerAbove as boolean }
+              : null,
+            s: stopPrice ?? null,
+          }
+        : undefined;
     const client = await this.getExchangeClientForTrading();
     const requestPayload = {
       twap: {
@@ -1570,7 +1670,9 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         reduceOnly,
         minutes: params.minutes,
         randomize: params.randomize,
+        referencePrice: params.referencePrice,
       },
+      details,
     };
     const startedAt = Date.now();
 
@@ -1578,6 +1680,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       const response = await convertHyperLiquidResponse(() =>
         client.twapOrder({
           twap,
+          ...(details ? { details } : {}),
         }),
       );
       defaultLogger.perp.hyperliquid.twapOrder({

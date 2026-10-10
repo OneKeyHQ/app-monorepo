@@ -29,6 +29,7 @@ import {
   type ITradingFormData,
   type ITradingFormEmptySizeParams,
   useActiveTradeInstrumentAtom,
+  useHyperliquidActions,
   usePerpsActivePositionAtom,
   useTradingFormAtom,
   useTradingFormEmptySizeParams,
@@ -61,7 +62,6 @@ import type {
 import {
   SCALE_ORDER_MAX_COUNT,
   SCALE_ORDER_MIN_COUNT,
-  SCALE_ORDER_MIN_NOTIONAL,
   buildScaleOrderLegs,
   getReduceOnlyOrderGuardError,
   getReduceOnlyPositionSnapshotError,
@@ -69,6 +69,15 @@ import {
   normalizeScaleOrderCount,
   validateScaleOrderLegs,
 } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
+import {
+  TWAP_MAX_DURATION_MINUTES,
+  TWAP_MIN_DURATION_MINUTES,
+  formatTwapPriceForOrder,
+  getTwapTriggerAbove,
+  isTwapStopPriceValid,
+  isTwapTotalNotionalValid,
+  isValidTwapDuration,
+} from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import {
   getSpotTokenDisplayName,
   parseDexCoin,
@@ -96,6 +105,7 @@ import {
 } from '../../hooks/useShowDepositWithdrawModal';
 import { useTradingCalculationsForSide } from '../../hooks/useTradingCalculationsForSide';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
+import { useTwapReferencePrice } from '../../hooks/useTwapReferencePrice';
 import { PerpTestIDs } from '../../testIDs';
 import {
   getPerpsAccountKey,
@@ -138,10 +148,6 @@ import { showEnableTradingStepsDialog } from './modals/EnableTradingStepsDialog'
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
 
 import type { LayoutChangeEvent } from 'react-native';
-
-const TWAP_MIN_DURATION_MINUTES = 5;
-const TWAP_MAX_DURATION_MINUTES = 1440;
-const TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS = 30;
 
 interface ITradingButtonGroupProps {
   isMobile: boolean;
@@ -439,6 +445,7 @@ function SideButtonInternal({
   justifyContent = 'flex-start',
 }: ISideButtonProps) {
   const intl = useIntl();
+  const actions = useHyperliquidActions();
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const [perpsAccount] = usePerpsActiveAccountAtom();
@@ -482,6 +489,10 @@ function SideButtonInternal({
   const [isSubmitting] = useTradingLoadingAtom();
   const { midPriceBN } = useTradingPrice();
   const getAggressiveLimitPriceWarning = useGetAggressiveLimitPriceWarning();
+  const twapTriggerReferencePriceBN = useTwapReferencePrice({
+    midPriceBN,
+    enabled: formData.orderMode === 'twap',
+  });
   const shouldBlockForMarketData =
     shouldBlockPerpsTradingForMarketData(marketDataFreshness);
   const confirmHyperliquidTerms = useConfirmHyperliquidTerms();
@@ -816,6 +827,7 @@ function SideButtonInternal({
     side,
     shouldBlockForMarketData,
     szDecimals,
+    twapTriggerReferencePriceBN,
   });
   latestOrderPanelStateRef.current = {
     activeAsset,
@@ -842,6 +854,7 @@ function SideButtonInternal({
     side,
     shouldBlockForMarketData,
     szDecimals,
+    twapTriggerReferencePriceBN,
   };
 
   type ILatestOrderPanelState = typeof latestOrderPanelStateRef.current;
@@ -870,6 +883,7 @@ function SideButtonInternal({
         priceError: latestPriceError,
         shouldBlockForMarketData: latestShouldBlockForMarketData,
         szDecimals: latestSzDecimals,
+        twapTriggerReferencePriceBN: latestTwapTriggerReferencePriceBN,
       } = orderPanelState;
 
       if (
@@ -994,13 +1008,77 @@ function SideButtonInternal({
 
       if (latestIsTwapMode) {
         const duration = Number(latestFormData.twapDurationMinutes ?? 0);
+        if (!isValidTwapDuration(duration)) {
+          Toast.message({
+            title: intl.formatMessage(
+              { id: ETranslations.perp_twap_duration_range__msg },
+              {
+                min: TWAP_MIN_DURATION_MINUTES,
+                max: TWAP_MAX_DURATION_MINUTES,
+              },
+            ),
+          });
+          return 'invalidTwapConfig' as const;
+        }
         if (
-          !Number.isInteger(duration) ||
-          duration < TWAP_MIN_DURATION_MINUTES ||
-          duration > TWAP_MAX_DURATION_MINUTES
+          !latestTwapTriggerReferencePriceBN.isFinite() ||
+          latestTwapTriggerReferencePriceBN.lte(0)
+        ) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.provider_unavailable,
+            }),
+          });
+          return 'marketDataUnavailable' as const;
+        }
+        const rawTriggerPrice = latestFormData.twapTriggerPrice?.trim();
+        const triggerPrice = formatTwapPriceForOrder({
+          price: rawTriggerPrice,
+          szDecimals: latestSzDecimals,
+          assetType: latestIsSpot ? 'spot' : 'perp',
+        });
+        if (
+          rawTriggerPrice &&
+          (!triggerPrice ||
+            typeof getTwapTriggerAbove({
+              triggerPrice,
+              markPrice: latestTwapTriggerReferencePriceBN,
+            }) !== 'boolean')
         ) {
           Toast.message({
-            title: `TWAP duration must be ${TWAP_MIN_DURATION_MINUTES}-${TWAP_MAX_DURATION_MINUTES} minutes`,
+            title: intl.formatMessage({
+              id: ETranslations.perps_input_trigger_price,
+            }),
+          });
+          return 'invalidTwapConfig' as const;
+        }
+        const rawStopPrice = latestFormData.twapStopPrice?.trim();
+        const stopPrice = formatTwapPriceForOrder({
+          price: rawStopPrice,
+          szDecimals: latestSzDecimals,
+          assetType: latestIsSpot ? 'spot' : 'perp',
+        });
+        if (
+          rawStopPrice &&
+          (!stopPrice ||
+            !isTwapStopPriceValid({
+              isBuy: validationSide === 'long',
+              stopPrice,
+              referencePrice: latestTwapTriggerReferencePriceBN,
+              triggerPrice,
+            }))
+        ) {
+          Toast.message({
+            title: `${intl.formatMessage({
+              id:
+                validationSide === 'long'
+                  ? ETranslations.perp_scale_upper_price_label__title
+                  : ETranslations.perp_scale_lower_price_label__title,
+            })} ${validationSide === 'long' ? '>' : '<'} ${intl.formatMessage({
+              id: ETranslations.perp_market_price,
+            })} / ${intl.formatMessage({
+              id: ETranslations.dexmarket_pro_trigger_price,
+            })}`,
           });
           return 'invalidTwapConfig' as const;
         }
@@ -1072,22 +1150,16 @@ function SideButtonInternal({
       }
 
       if (latestIsTwapMode) {
-        const duration = Number(latestFormData.twapDurationMinutes ?? 0);
-        const estimatedSlices = Math.max(
-          1,
-          Math.ceil((duration * 60) / TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS),
-        );
-        const totalNotional = latestComputedSizeForSide.multipliedBy(
-          latestEffectivePriceBN,
-        );
-        const averageSliceNotional = totalNotional.dividedBy(estimatedSlices);
         if (
-          !averageSliceNotional.isFinite() ||
-          averageSliceNotional.lt(SCALE_ORDER_MIN_NOTIONAL)
+          !isTwapTotalNotionalValid({
+            size: latestComputedSizeForSide,
+            price: latestTwapTriggerReferencePriceBN,
+            szDecimals: latestSzDecimals,
+          })
         ) {
           Toast.message({
             title: intl.formatMessage({
-              id: ETranslations.perp_twap_small_slice__msg,
+              id: ETranslations.perp_scale_order_size_too_small__msg,
             }),
           });
           return 'invalidTwapConfig' as const;
@@ -1359,6 +1431,29 @@ function SideButtonInternal({
       };
 
       const preEnableOrderPanelState = latestOrderPanelStateRef.current;
+      if (
+        preEnableOrderPanelState.isTwapMode &&
+        preEnableOrderPanelState.formData.side !== side &&
+        preEnableOrderPanelState.formData.twapStopPrice?.trim()
+      ) {
+        // Keep the price protection while the user reviews the opposite side.
+        actions.current.updateTradingForm({
+          side,
+          size: '',
+          sizePercent: 0,
+          sizeInputMode: EPerpsSizeInputMode.MANUAL,
+          twapStopPrice: preEnableOrderPanelState.formData.twapStopPrice,
+        });
+        Toast.message({
+          title: intl.formatMessage({
+            id:
+              side === 'long'
+                ? ETranslations.perp_scale_upper_price_placeholder__desc
+                : ETranslations.perp_scale_lower_price_placeholder__desc,
+          }),
+        });
+        return;
+      }
       let hasLoggedDeferredClick = false;
 
       if (shouldEnableTradingBeforeOrder) {

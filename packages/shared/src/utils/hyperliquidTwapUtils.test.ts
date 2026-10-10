@@ -1,0 +1,399 @@
+import {
+  TWAP_MAX_DURATION_MINUTES,
+  TWAP_MIN_DURATION_MINUTES,
+  TWAP_MIN_ORDER_NOTIONAL,
+  buildActiveTwapRuntimeInfoByKey,
+  formatTwapPriceForDisplay,
+  formatTwapPriceForOrder,
+  getActiveTwapRuntimeStatus,
+  getTwapElapsedMs,
+  getTwapEstimatedSliceNotional,
+  getTwapTriggerAbove,
+  getTwapTriggerReferencePrice,
+  isTerminalTwapStatus,
+  isTwapStopPriceValid,
+  isTwapTotalNotionalValid,
+  isValidTwapDuration,
+} from './hyperliquidTwapUtils';
+
+describe('hyperliquidTwapUtils', () => {
+  it('accepts integer durations from 5 minutes through 7 days', () => {
+    expect(TWAP_MIN_DURATION_MINUTES).toBe(5);
+    expect(TWAP_MAX_DURATION_MINUTES).toBe(10_080);
+    expect(isValidTwapDuration(5)).toBe(true);
+    expect(isValidTwapDuration(10_080)).toBe(true);
+    expect(isValidTwapDuration(4)).toBe(false);
+    expect(isValidTwapDuration(10_081)).toBe(false);
+    expect(isValidTwapDuration(5.5)).toBe(false);
+  });
+
+  it('validates the total order notional instead of estimated slices', () => {
+    expect(TWAP_MIN_ORDER_NOTIONAL).toBe(100);
+    expect(
+      isTwapTotalNotionalValid({ size: '0.01', price: '10000', szDecimals: 6 }),
+    ).toBe(true);
+    expect(
+      isTwapTotalNotionalValid({
+        size: '0.009999',
+        price: '10000',
+        szDecimals: 6,
+      }),
+    ).toBe(false);
+    expect(
+      isTwapTotalNotionalValid({
+        size: 'invalid',
+        price: '10000',
+        szDecimals: 6,
+      }),
+    ).toBe(false);
+  });
+
+  it.each([
+    ['0.054246', '1843.5', 4, false],
+    ['0.0543', '1843.5', 4, true],
+    ['0.010009', '10000', 4, true],
+    ['0.00009', '2000000', 4, false],
+    ['-1', '100', 4, false],
+    ['1', 'NaN', 4, false],
+    ['1', '-100', 4, false],
+  ])(
+    'validates size %s at price %s after truncating to %i decimals',
+    (size, price, szDecimals, valid) => {
+      expect(isTwapTotalNotionalValid({ size, price, szDecimals })).toBe(valid);
+    },
+  );
+
+  it('estimates slice notional like the Hyperliquid frontend', () => {
+    // Hyperliquid docs: $10,000 over 1h is ~121 slices of ~$83.
+    expect(
+      getTwapEstimatedSliceNotional({
+        size: '1',
+        price: '10000',
+        szDecimals: 4,
+        durationMinutes: 60,
+      })?.toFixed(2),
+    ).toBe('82.64');
+    // Hyperliquid docs: $10,000 over 4 days is ~1,000 slices of ~$10.
+    expect(
+      getTwapEstimatedSliceNotional({
+        size: '1',
+        price: '10000',
+        szDecimals: 4,
+        durationMinutes: 4 * 24 * 60,
+      })?.toFixed(),
+    ).toBe('10');
+    // Truncated to 0.0121 before estimating: $121 / 11 slices.
+    expect(
+      getTwapEstimatedSliceNotional({
+        size: '0.012199',
+        price: '10000',
+        szDecimals: 4,
+        durationMinutes: 5,
+      })?.toFixed(),
+    ).toBe('11');
+    expect(
+      getTwapEstimatedSliceNotional({
+        size: '1',
+        price: '10000',
+        szDecimals: 4,
+        durationMinutes: 4,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('derives whether the trigger is above the current mark price', () => {
+    expect(getTwapTriggerAbove({ triggerPrice: '101', markPrice: '100' })).toBe(
+      true,
+    );
+    expect(getTwapTriggerAbove({ triggerPrice: '99', markPrice: '100' })).toBe(
+      false,
+    );
+    expect(
+      getTwapTriggerAbove({ triggerPrice: '100', markPrice: '100' }),
+    ).toBeUndefined();
+    expect(
+      getTwapTriggerAbove({ triggerPrice: 'invalid', markPrice: '100' }),
+    ).toBeUndefined();
+  });
+
+  it('uses mark price for perp triggers and mid price for spot triggers', () => {
+    expect(
+      getTwapTriggerReferencePrice({
+        isSpot: false,
+        midPrice: '100',
+        markPrice: '102',
+      }).toFixed(),
+    ).toBe('102');
+    expect(
+      getTwapTriggerReferencePrice({
+        isSpot: true,
+        midPrice: '100',
+        markPrice: '102',
+      }).toFixed(),
+    ).toBe('100');
+  });
+
+  it('does not infer a perp trigger direction without a mark price', () => {
+    expect(
+      getTwapTriggerReferencePrice({
+        isSpot: false,
+        midPrice: '100',
+      }).isFinite(),
+    ).toBe(false);
+  });
+
+  it('keeps stop prices beyond the activation boundary', () => {
+    expect(
+      isTwapStopPriceValid({
+        isBuy: true,
+        stopPrice: '101',
+        referencePrice: '100',
+      }),
+    ).toBe(true);
+    expect(
+      isTwapStopPriceValid({
+        isBuy: false,
+        stopPrice: '99',
+        referencePrice: '100',
+      }),
+    ).toBe(true);
+    expect(
+      isTwapStopPriceValid({
+        isBuy: true,
+        stopPrice: '111',
+        referencePrice: '100',
+        triggerPrice: '110',
+      }),
+    ).toBe(true);
+    expect(
+      isTwapStopPriceValid({
+        isBuy: true,
+        stopPrice: '105',
+        referencePrice: '100',
+        triggerPrice: '110',
+      }),
+    ).toBe(false);
+    expect(
+      isTwapStopPriceValid({
+        isBuy: false,
+        stopPrice: '89',
+        referencePrice: '100',
+        triggerPrice: '90',
+      }),
+    ).toBe(true);
+    expect(
+      isTwapStopPriceValid({
+        isBuy: false,
+        stopPrice: '95',
+        referencePrice: '100',
+        triggerPrice: '90',
+      }),
+    ).toBe(false);
+    expect(
+      isTwapStopPriceValid({
+        isBuy: true,
+        stopPrice: '101',
+        referencePrice: '100',
+        triggerPrice: 0,
+      }),
+    ).toBe(false);
+  });
+
+  it('uses the trigger price as the stop boundary after activation', () => {
+    expect(
+      isTwapStopPriceValid({
+        isBuy: true,
+        stopPrice: '95',
+        referencePrice: '100',
+        triggerPrice: '90',
+      }),
+    ).toBe(true);
+    expect(
+      isTwapStopPriceValid({
+        isBuy: false,
+        stopPrice: '105',
+        referencePrice: '100',
+        triggerPrice: '110',
+      }),
+    ).toBe(true);
+  });
+
+  it('preserves the wire precision of TWAP prices for display', () => {
+    expect(formatTwapPriceForDisplay('0.000012345')).toBe('0.000012345');
+    expect(formatTwapPriceForDisplay('12345.678')).toBe('12,345.678');
+    expect(formatTwapPriceForDisplay('invalid')).toBe('--');
+  });
+
+  it('uses Hyperliquid wire precision before validating TWAP boundaries', () => {
+    expect(
+      formatTwapPriceForOrder({
+        price: '123450.5',
+        szDecimals: 5,
+        assetType: 'perp',
+      }),
+    ).toBe('123450');
+    expect(
+      formatTwapPriceForOrder({
+        price: '0.123456',
+        szDecimals: 2,
+        assetType: 'spot',
+      }),
+    ).toBe('0.12345');
+  });
+
+  it('does not advance running time while waiting for a trigger', () => {
+    const timestamp = 1000;
+    expect(
+      getTwapElapsedMs({
+        status: 'waitingForTrigger',
+        timestamp,
+        now: 61_000,
+        minutes: 10,
+      }),
+    ).toBe(0);
+    expect(
+      getTwapElapsedMs({
+        status: 'activated',
+        timestamp,
+        now: 61_000,
+        minutes: 10,
+      }),
+    ).toBe(60_000);
+    expect(
+      getTwapElapsedMs({
+        status: 'activated',
+        timestamp,
+        activatedAt: 31_000,
+        now: 61_000,
+        minutes: 10,
+      }),
+    ).toBe(30_000);
+    expect(
+      getTwapElapsedMs({
+        status: 'finished',
+        timestamp,
+        now: 601_000,
+        endTime: 121_000,
+        minutes: 10,
+      }),
+    ).toBe(120_000);
+  });
+
+  it('keeps a triggered TWAP pending until history reports activation', () => {
+    expect(
+      getActiveTwapRuntimeStatus({
+        triggerPrice: '101',
+        executedSize: '0',
+      }),
+    ).toBe('waitingForTrigger');
+    expect(
+      getActiveTwapRuntimeStatus({
+        reportedStatus: 'activated',
+        triggerPrice: '101',
+        executedSize: '0',
+      }),
+    ).toBe('activated');
+    expect(
+      getActiveTwapRuntimeStatus({
+        reportedStatus: 'waitingForTrigger',
+        triggerPrice: '101',
+        executedSize: '0.01',
+      }),
+    ).toBe('activated');
+    expect(
+      getActiveTwapRuntimeStatus({
+        triggerPrice: null,
+        executedSize: '0',
+      }),
+    ).toBe('activated');
+  });
+
+  it('keeps the latest reported status and activation time for each TWAP', () => {
+    expect(
+      buildActiveTwapRuntimeInfoByKey?.([
+        {
+          time: 1_718_000_000,
+          state: { coin: 'ETH', timestamp: 1_717_999_900_000 },
+          status: { status: 'waitingForTrigger' },
+        },
+        {
+          time: 1_718_000_120,
+          state: { coin: 'ETH', timestamp: 1_717_999_900_000 },
+          status: { status: 'activated' },
+        },
+      ]).get('ETH:1717999900000'),
+    ).toEqual({
+      reportedStatus: 'activated',
+      activatedAt: 1_718_000_120_000,
+    });
+  });
+
+  it('correlates runtime status when history omits twapId', () => {
+    const records = [
+      {
+        time: 1_718_000_120,
+        state: {
+          coin: 'ETH',
+          timestamp: 1_718_000_000_000,
+        },
+        status: { status: 'activated' as const },
+      },
+    ];
+
+    expect(
+      Array.from(buildActiveTwapRuntimeInfoByKey(records).entries()),
+    ).toEqual([
+      [
+        'ETH:1718000000000',
+        {
+          reportedStatus: 'activated',
+          activatedAt: 1_718_000_120_000,
+        },
+      ],
+    ]);
+  });
+  it('waits for activation time when a triggered order starts filling', () => {
+    const status = getActiveTwapRuntimeStatus({
+      triggerPrice: '101',
+      executedSize: '0.1',
+    });
+    const clock = {
+      status,
+      triggerPrice: '101',
+      timestamp: 1000,
+      now: 1_201_000,
+      minutes: 10,
+    };
+    expect(getTwapElapsedMs(clock)).toBeUndefined();
+    expect(getTwapElapsedMs({ ...clock, activatedAt: 1_171_000 })).toBe(30_000);
+    expect(getTwapElapsedMs({ ...clock, triggerPrice: null })).toBe(600_000);
+  });
+
+  it.each(['stopped', 'finished', 'terminated', 'error'] as const)(
+    'excludes %s orders from active rows while retaining activation time',
+    (terminalStatus) => {
+      const state = { coin: 'ETH', timestamp: 1_718_000_000_000 };
+      // History can arrive before the active snapshot and in reverse order.
+      const info = buildActiveTwapRuntimeInfoByKey([
+        { state, time: 1_718_000_180, status: { status: terminalStatus } },
+        { state, time: 1_718_000_120, status: { status: 'activated' } },
+        { state, time: 1_718_000_000, status: { status: 'waitingForTrigger' } },
+      ]).get('ETH:1718000000000');
+      expect(info).toEqual({
+        reportedStatus: terminalStatus,
+        activatedAt: 1_718_000_120_000,
+      });
+      expect(isTerminalTwapStatus(info?.reportedStatus)).toBe(true);
+      expect(
+        getActiveTwapRuntimeStatus({
+          reportedStatus: info?.reportedStatus,
+          triggerPrice: '101',
+          executedSize: '0.1',
+        }),
+      ).toBe(terminalStatus);
+      expect(isTerminalTwapStatus(undefined)).toBe(false);
+      expect(isTerminalTwapStatus('activated')).toBe(false);
+      expect(isTerminalTwapStatus('waitingForTrigger')).toBe(false);
+    },
+  );
+});
