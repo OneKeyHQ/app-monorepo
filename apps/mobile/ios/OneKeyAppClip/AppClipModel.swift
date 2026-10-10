@@ -56,7 +56,6 @@ struct AppClipReferral: Equatable {
 struct AppClipInvocation {
   enum Experience {
     case market
-    case web(URL)
     case referral(AppClipReferral)
   }
 
@@ -66,13 +65,6 @@ struct AppClipInvocation {
   let apiBaseURL: URL
   let rebateBaseURL: URL
   let appLinkHost: String
-
-  var showsMarketData: Bool {
-    if case .web = experience {
-      return false
-    }
-    return true
-  }
 
   init?(url: URL) {
     guard
@@ -89,16 +81,14 @@ struct AppClipInvocation {
     let queryItems = components?.queryItems ?? []
     var query: [String: String] = [:]
     for item in queryItems where query[item.name] == nil {
-      let maximumLength = item.name == "web_url" ? 2_048 : 128
-      if let value = Self.bounded(item.value, maximumLength: maximumLength) {
+      if let value = Self.bounded(item.value, maximumLength: 128) {
         query[item.name] = value
       }
     }
     let path = url.path
     let isMarketPath = path == "/clip/market"
-    let isWebPath = path == "/clip/web" || path.hasPrefix("/clip/web/")
     let referral = AppClipReferral(pathComponents: url.pathComponents)
-    guard isMarketPath || isWebPath || referral != nil else {
+    guard isMarketPath || referral != nil else {
       return nil
     }
     let campaignId = Self.safeIdentifier(query["campaign_id"])
@@ -106,14 +96,8 @@ struct AppClipInvocation {
     // Same key the Android Play install referrer uses for the invite code.
     // A referral landing path carries the code itself.
     inviteCode = AppClipInviteCodeStore.sanitize(referral?.code ?? query["ref_code"])
-    let requestedWebURL = query["web_url"].flatMap(URL.init(string:))
-    let allowedWebURL = requestedWebURL.flatMap {
-      CampaignURLPolicy.isAllowedEntry($0) ? $0 : nil
-    }
     if let referral {
       experience = .referral(referral)
-    } else if isWebPath, let allowedWebURL {
-      experience = .web(allowedWebURL)
     } else {
       experience = .market
     }
@@ -135,8 +119,6 @@ struct AppClipInvocation {
     switch experience {
     case .market:
       experienceName = "market"
-    case .web:
-      experienceName = "web"
     case .referral:
       experienceName = "referral"
     }
@@ -220,7 +202,6 @@ final class AppClipModel: ObservableObject {
   enum Screen {
     case market
     case detail(AppClipMarketDetail)
-    case web(URL)
     case referral(AppClipReferral)
   }
 
@@ -257,7 +238,6 @@ final class AppClipModel: ObservableObject {
   )
   private var apiBaseURL = URL(string: "https://utility.onekeycn.com")!
   private var appLinkHost = "app.onekey.so"
-  private var campaignWebURL: URL?
   private var referral: AppClipReferral?
   @Published private(set) var isInviteCodeSaved = false
   @Published private(set) var inviteeDiscountText = AppClipInviteeDiscount.fallbackText
@@ -288,16 +268,14 @@ final class AppClipModel: ObservableObject {
     }
     hasStarted = true
     startNetworkMonitoring()
-    if shouldRefreshMarketContent {
-      Task { await refreshAllMarketPages() }
-    }
+    Task { await refreshAllMarketPages() }
     refreshTask = Task { [weak self] in
       while !Task.isCancelled {
         try? await Task.sleep(nanoseconds: 60_000_000_000)
         guard !Task.isCancelled else {
           return
         }
-        guard let self, self.shouldRefreshMarketContent else {
+        guard let self else {
           continue
         }
         await self.refreshMarkets()
@@ -313,7 +291,7 @@ final class AppClipModel: ObservableObject {
       start()
       return
     }
-    guard shouldRefreshMarketContent, !isLoadingConfiguration else {
+    guard !isLoadingConfiguration else {
       return
     }
     refreshVisibleDetail()
@@ -330,12 +308,6 @@ final class AppClipModel: ObservableObject {
       return
     }
     let wasStarted = hasStarted
-    let wasShowingWeb: Bool
-    if case .web = screen {
-      wasShowingWeb = true
-    } else {
-      wasShowingWeb = false
-    }
     let environmentChanged = apiBaseURL != invocation.apiBaseURL
     hasHandledInvocation = true
     if environmentChanged {
@@ -348,28 +320,15 @@ final class AppClipModel: ObservableObject {
     if environmentChanged {
       resetMarketData()
     }
-    let needsInitialMarketLoad =
-      wasShowingWeb
-      && !isLoadingConfiguration
-      && configurationLastUpdated == nil
-      && stockStates.isEmpty
-      && perpsStates.isEmpty
-      && trendingStates.isEmpty
     AppClipAttributionStore.save(attribution)
     let didSaveInviteCode = invocation.inviteCode.map {
       AppClipInviteCodeStore.save(code: $0)
     } ?? false
     switch invocation.experience {
     case .market:
-      campaignWebURL = nil
       referral = nil
       screen = .market
-    case .web(let url):
-      campaignWebURL = url
-      referral = nil
-      screen = .web(url)
     case .referral(let invitedReferral):
-      campaignWebURL = nil
       referral = invitedReferral
       if !didSaveInviteCode {
         // The landing shows this code, so the full app must not pre-fill an
@@ -385,11 +344,7 @@ final class AppClipModel: ObservableObject {
     let reportRecord = invocation.attribution
     let reportBaseURL = invocation.apiBaseURL
     Task {
-      if
-        invocation.showsMarketData,
-        wasStarted,
-        environmentChanged || needsInitialMarketLoad
-      {
+      if wasStarted, environmentChanged {
         await refreshAllMarketPages(force: environmentChanged)
       }
       await report(
@@ -618,13 +573,6 @@ final class AppClipModel: ObservableObject {
 
   private var trendingKey: String {
     "\(selectedNetworkId)|\(selectedTimeRange.rawValue)"
-  }
-
-  private var shouldRefreshMarketContent: Bool {
-    if case .web = screen {
-      return false
-    }
-    return true
   }
 
   private func refreshAllMarketPages(force: Bool = false) async {
@@ -900,7 +848,6 @@ final class AppClipModel: ObservableObject {
     guard
       previousStatus == false,
       isAvailable,
-      shouldRefreshMarketContent,
       marketRefreshFailed || !activeDidLoad || activeIsEmpty
     else {
       return
@@ -918,7 +865,6 @@ final class AppClipModel: ObservableObject {
     }
     retryAfterNetworkRecovery = false
     guard
-      shouldRefreshMarketContent,
       marketRefreshFailed || !activeDidLoad || activeIsEmpty
     else {
       return
@@ -1129,7 +1075,7 @@ final class AppClipModel: ObservableObject {
       components.path = referral.path
       return components.url
     }
-    components.path = campaignWebURL == nil ? "/clip/market" : "/clip/web"
+    components.path = "/clip/market"
     var queryItems = [
       URLQueryItem(name: "click_id", value: attribution.clickId),
       URLQueryItem(name: "campaign_id", value: attribution.campaignId),
@@ -1140,9 +1086,7 @@ final class AppClipModel: ObservableObject {
       URLQueryItem(name: "utm_source", value: attribution.utmSource),
       URLQueryItem(name: "utm_term", value: attribution.utmTerm),
     ]
-    if let campaignWebURL {
-      queryItems.append(URLQueryItem(name: "web_url", value: campaignWebURL.absoluteString))
-    } else if let asset {
+    if let asset {
       queryItems.append(contentsOf: [
         URLQueryItem(name: "symbol", value: asset.symbol),
         URLQueryItem(name: "network", value: asset.networkId),
