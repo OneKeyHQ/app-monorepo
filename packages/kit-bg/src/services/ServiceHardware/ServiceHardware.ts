@@ -1341,9 +1341,6 @@ class ServiceHardware extends ServiceBase {
 
     let newUiRequestType = originEvent.type as EHardwareUiStateAction;
     const newPayload = usedPayload;
-    if (originEvent.type === EHardwareUiStateAction.BLUETOOTH_POWERED_OFF) {
-      newUiRequestType = EHardwareUiStateAction.BLUETOOTH_PERMISSION;
-    }
 
     // Handler Request Pin
     // If the user set is to enter pin on the device, change the event to enter pin on the hardware

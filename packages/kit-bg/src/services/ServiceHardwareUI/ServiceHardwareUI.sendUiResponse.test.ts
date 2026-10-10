@@ -514,6 +514,11 @@ describe('ServiceHardwareUI.withHardwareProcessing stage ownership', () => {
           EAppEventBusNames.RequestHardwareUIDialog,
           { uiRequestType: 'ui-bluetooth_permission' },
         );
+        expect(
+          emit.mock.calls.filter(
+            ([event]) => event === EAppEventBusNames.RequestHardwareUIDialog,
+          ),
+        ).toHaveLength(1);
         expect(emit.mock.invocationCallOrder[dialogCall]).toBeLessThan(
           end.mock.invocationCallOrder[0],
         );

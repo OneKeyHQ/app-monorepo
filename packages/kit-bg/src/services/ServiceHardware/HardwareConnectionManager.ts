@@ -169,7 +169,7 @@ export class HardwareConnectionManager {
     }
   }
 
-  async detectBridgeAvailability(_connectId?: string): Promise<boolean> {
+  async detectBridgeAvailability(connectId?: string): Promise<boolean> {
     if (!platformEnv.isSupportDesktopBle) {
       return true;
     }
@@ -187,8 +187,12 @@ export class HardwareConnectionManager {
       if (!Array.isArray(devices)) {
         return false;
       }
-      // Bridge paths are local IDs, not the serial-based App connectId.
-      return devices.length > 0;
+      if (devices.length === 0) {
+        return false;
+      }
+      // Bridge paths are local IDs. Desktop USB enumeration can identify the
+      // selected serial without acquiring a device or switching SDK transports.
+      return connectId ? this.detectWebUSBAvailability(connectId) : true;
     } catch (_error) {
       return false;
     }

@@ -52,6 +52,7 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
     SyncDeviceLabelToWalletName: 'SyncDeviceLabelToWalletName',
     UpdateWalletAvatarByDeviceSerialNo: 'UpdateWalletAvatarByDeviceSerialNo',
     ShowLinuxBundleUdevGuide: 'ShowLinuxBundleUdevGuide',
+    RequestHardwareUIDialog: 'RequestHardwareUIDialog',
   },
   appEventBus: {
     on: jest.fn(),
@@ -162,23 +163,27 @@ function buildDevice({
 }
 
 describe('ServiceHardware.connect WebUSB reuse', () => {
-  it('routes Bluetooth powered-off UI requests to the existing settings dialog', async () => {
+  it('keeps powered-off SDK events silent so user-call errors own the settings dialog', async () => {
+    const emit = jest.spyOn(appEventBus, 'emit');
+    const coreSdk = await jest
+      .requireActual<typeof hardwareInstance>(
+        '@onekeyhq/shared/src/hardware/instance',
+      )
+      .CoreSDKLoader();
+    jest.mocked(hardwareInstance.CoreSDKLoader).mockResolvedValueOnce(coreSdk);
     const service = new ServiceHardware({
       backgroundApi: {} as IBackgroundApi,
     });
-    const internals = service as unknown as {
-      specialProcessingEvent(params: {
-        originEvent: { type: string; payload: object };
-        usedPayload: { uiRequestType: string };
-        isCurrent(): boolean;
-      }): Promise<{ uiRequestType: string }>;
-    };
-    const result = await internals.specialProcessingEvent({
-      originEvent: { type: 'ui-bluetooth_powered_off', payload: {} },
-      usedPayload: { uiRequestType: 'ui-bluetooth_powered_off' },
-      isCurrent: () => true,
-    });
-    expect(result.uiRequestType).toBe('ui-bluetooth_permission');
+    const on = jest.fn();
+    await service.registerSdkEvents({
+      on,
+    } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+    const uiListener = on.mock.calls.find(
+      ([event]) => event === coreSdk.UI_EVENT,
+    )?.[1] as (event: { type: string; payload: object }) => Promise<void>;
+    expect(uiListener).toEqual(expect.any(Function));
+    await uiListener({ type: 'ui-bluetooth_powered_off', payload: {} });
+    expect(emit).not.toHaveBeenCalled();
   });
   it('recovers Linux permission errors by code, including converted SDK responses', async () => {
     const emit = jest.spyOn(appEventBus, 'emit');
