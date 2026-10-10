@@ -3320,9 +3320,18 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         expectedAccountAddress: string;
       },
     ) => {
+      const existing = await this.findChartOrder(get, params.oid);
+      // Replacing an unchanged ALO order only loses its queue priority.
+      if (
+        existing?.tif === 'Alo' &&
+        existing.coin === params.coin &&
+        new BigNumber(existing.limitPx).eq(params.newPrice)
+      ) {
+        return undefined;
+      }
+
       return withToast({
         asyncFn: async () => {
-          const existing = await this.findChartOrder(get, params.oid);
           if (!existing) {
             throw new OneKeyLocalError(getPerpsOrderChangedMessage());
           }
