@@ -210,5 +210,6 @@ export function useFetchWalletsWithBoundStatus() {
   return {
     walletsWithStatus,
     isLoading,
+    refreshWalletsWithStatus,
   };
 }
