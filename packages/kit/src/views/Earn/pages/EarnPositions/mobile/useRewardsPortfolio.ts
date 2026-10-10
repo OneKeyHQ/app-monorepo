@@ -64,7 +64,14 @@ export function useRewardsPortfolio({
       });
     },
     [accountId, networkId, indexedAccountId, stage, networkIds, isActive],
-    { watchLoading: true, revalidateOnFocus: true },
+    {
+      watchLoading: true,
+      revalidateOnFocus: true,
+      // A failed stage read clears the previous stage's response instead of
+      // leaving it in hand: the tab reads a response of another stage as
+      // "the new stage is loading", which would otherwise never end.
+      undefinedResultIfError: true,
+    },
   );
 
   const [pagedRewards, setPagedRewards] = useState<IPagedRewards>();

@@ -109,10 +109,12 @@ export function RewardsTab({
     distributed: intl.formatMessage({ id: ETranslations.referral_distributed }),
   };
   // The response in hand may still be the previous stage's while the new one
-  // loads; showing it as empty flashed the empty state on every switch.
+  // loads; showing it as empty flashed the empty state on every switch. The
+  // hook's loading flag lands a render after the stage changes, so a response
+  // of another stage is itself the signal that the new one is on its way.
   const isStageLoaded = Boolean(rewards && rewards.stage === stage);
   const groups = rewards && rewards.stage === stage ? rewards.groups : [];
-  const isStageLoading = !isStageLoaded && isLoading;
+  const isStageLoading = !isStageLoaded && (isLoading || Boolean(rewards));
   const emptyTitle = intl.formatMessage({ id: EMPTY_TITLE_BY_STAGE[stage] });
 
   let content: React.ReactNode;
