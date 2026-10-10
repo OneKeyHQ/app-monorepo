@@ -705,7 +705,7 @@
   "defi_emode_resolve_requirements": "要件を満たす",
   "defi_emode_risk_near_liquidation": "この切り替えにより、あなたのヘルスファクターが清算に近づきます。確認する前に見直してください。",
   "defi_emode_select_category": "カテゴリを選択してください",
-  "defi_emode_steps_to_switch": "{count, plural, one {切り替えまであと # ステップ} other {切り替えまであと # ステップ}} {count, plural, one {# step to switch} {# steps to switch}",
+  "defi_emode_steps_to_switch": "{count, plural, one {切り替えまであと # ステップ} other {切り替えまであと # ステップ}}",
   "defi_emode_supported_assets": "対応アセット",
   "defi_emode_swap_symbol__action": "{symbol}をスワップ",
   "defi_emode_switch_to": "E-Modeに切り替え",
