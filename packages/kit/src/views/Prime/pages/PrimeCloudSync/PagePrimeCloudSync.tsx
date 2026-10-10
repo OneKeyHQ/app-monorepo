@@ -30,6 +30,7 @@ import { PrimeTestIDs } from '@onekeyhq/kit/src/views/Prime/testIDs';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { usePrimeCloudSyncPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
+import { UserCancelError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
@@ -536,8 +537,8 @@ function AppDataSection() {
                 id: ETranslations.settings_auto_lock,
               }),
               contentContainerProps: { px: 0 },
-              onClose: () => reject(new Error('User cancelled')),
-              onCancel: () => reject(new Error('User cancelled')),
+              onClose: () => reject(new UserCancelError()),
+              onCancel: () => reject(new UserCancelError()),
               renderContent: (
                 <AutoLockUpdateDialogContent
                   onContinue={() => resolve()}

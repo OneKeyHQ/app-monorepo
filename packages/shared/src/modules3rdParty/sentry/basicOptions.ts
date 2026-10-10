@@ -165,6 +165,11 @@ export const sanitizeNavigationBreadcrumbsForLocalLog = (
         : {}),
     }));
 
+// Structural subset of every SDK's EventHint, so this stays SDK-agnostic.
+export interface ISentrySanitizableEventHint {
+  originalException?: unknown;
+}
+
 export type ISentrySanitizationErrorHandler = (
   errorMessage: string,
   stacktrace?: ISentrySanitizableStacktrace,
@@ -216,9 +221,17 @@ export const SENTRY_IPC = 'sentry-ipc://';
 export const buildSentryReleaseName = () =>
   `${process.env.VERSION ?? ''} (${process.env.BUILD_NUMBER ?? ''})`;
 
+// Sentry reports `exception.values[].type` from the error's `name`, not from
+// `className`. Any class that overrides `name` therefore needs its own entry
+// here even when its base class is already listed.
 const FILTERED_ERROR_TYPES = new Set([
   'AxiosError',
+  // axios sets `name = 'CanceledError'` on top of AxiosError, so the
+  // 'AxiosError' entry above never matches an aborted request.
+  'CanceledError',
   'HTTPClientError',
+  // User cancelling the system photo picker / cropper rejects with this type.
+  'ImageCropPickerError',
   EOneKeyErrorClassNames.OneKeyError,
   EOneKeyErrorClassNames.OneKeyLocalError,
   EOneKeyErrorClassNames.OneKeyHardwareError,
@@ -231,6 +244,8 @@ const FILTERED_ERROR_TYPES = new Set([
   EOneKeyErrorClassNames.VaultKeyringNotDefinedError,
   EOneKeyErrorClassNames.PasswordPromptDialogCancel,
   EOneKeyErrorClassNames.PrimeLoginDialogCancelError,
+  EOneKeyErrorClassNames.OAuthLoginCancelError,
+  EOneKeyErrorClassNames.UserCancelError,
   EOneKeyErrorClassNames.FirmwareUpdateExit,
   EOneKeyErrorClassNames.FirmwareUpdateTasksClear,
 ]);
@@ -240,10 +255,41 @@ const FILTER_ERROR_VALUES = new Set([
   'cancel timeout',
 ]);
 
-const isFilterErrorAndSkipSentry = (error?: {
-  type?: string | undefined;
-  value?: string | undefined;
-}) => {
+// Cancel codes carried by the thrown object itself.
+const FILTERED_ERROR_CODES = new Set([
+  'ERR_CANCELED', // axios abort
+  'E_PICKER_CANCELLED', // native image picker / cropper, user backed out
+]);
+
+// `className` and `code` live on the throwable and survive both third-party
+// wrapping and cross-runtime rehydration; the `name` Sentry reports as the
+// exception type does not. axios overwrites it on CanceledError, and the
+// native bg->main bridge copies the originating runtime's name onto a
+// OneKeyLocalError. So consult the original throwable, not just the event.
+const isFilteredOriginalException = (originalException: unknown) => {
+  if (!originalException || typeof originalException !== 'object') {
+    return false;
+  }
+  const { className, code } = originalException as {
+    className?: unknown;
+    code?: unknown;
+  };
+  if (typeof className === 'string' && FILTERED_ERROR_TYPES.has(className)) {
+    return true;
+  }
+  return typeof code === 'string' && FILTERED_ERROR_CODES.has(code);
+};
+
+const isFilterErrorAndSkipSentry = (
+  error?: {
+    type?: string | undefined;
+    value?: string | undefined;
+  },
+  originalException?: unknown,
+) => {
+  if (isFilteredOriginalException(originalException)) {
+    return true;
+  }
   if (!error) {
     return false;
   }
@@ -271,11 +317,10 @@ const isFilterErrorAndSkipSentry = (error?: {
     }
   }
 
-  if (
-    error.type === 'Error' &&
-    error.value &&
-    FILTER_ERROR_VALUES.has(error.value)
-  ) {
+  // Not gated on `error.type === 'Error'`: these messages travel on whatever
+  // error class the throwing layer used, and a rehydrated cross-runtime error
+  // carries the originating runtime's `name` rather than 'Error'.
+  if (error.value && FILTER_ERROR_VALUES.has(error.value)) {
     return true;
   }
 
@@ -285,6 +330,7 @@ const isFilterErrorAndSkipSentry = (error?: {
 export const sanitizeSentryEvent = <T extends ISentrySanitizableEvent>(
   event: T,
   onError: ISentrySanitizationErrorHandler,
+  hint?: ISentrySanitizableEventHint,
 ): T | null => {
   if (Array.isArray(event.exception?.values)) {
     for (let index = 0; index < event.exception.values.length; index += 1) {
@@ -310,10 +356,13 @@ export const sanitizeSentryEvent = <T extends ISentrySanitizableEvent>(
         }
         // Sanitize stacktrace (local variables, context lines)
         if (
-          isFilterErrorAndSkipSentry({
-            type: originalType,
-            value: originalValue,
-          })
+          isFilterErrorAndSkipSentry(
+            {
+              type: originalType,
+              value: originalValue,
+            },
+            hint?.originalException,
+          )
         ) {
           return null;
         }
@@ -347,7 +396,7 @@ export const buildBasicOptions = ({
     // zeroing the sample rate alone does NOT stop span creation.
     tracesSampleRate: 0,
     profilesSampleRate: 0,
-    beforeSend: (event, _hint) => sanitizeSentryEvent(event, onError),
+    beforeSend: (event, hint) => sanitizeSentryEvent(event, onError, hint),
   }) satisfies BrowserOptions;
 
 type ISentryTransportBuilder = Pick<

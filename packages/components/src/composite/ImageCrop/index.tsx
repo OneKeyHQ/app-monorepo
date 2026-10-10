@@ -21,6 +21,7 @@ import { Dialog } from '../Dialog';
 import {
   type IOpenPickerFunc,
   type IPickerImage,
+  ImagePickerCancelledError,
   RESULT_MINE_TYPE,
 } from './type';
 
@@ -221,7 +222,7 @@ const openCropImage = (
           // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
           onCancel={() => {
             void dialog?.close();
-            reject(new Error('User cancelled'));
+            reject(new ImagePickerCancelledError());
           }}
         />
       ),

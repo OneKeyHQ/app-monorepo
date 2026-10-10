@@ -53,6 +53,7 @@ export const initSentry = () => {
   type INativeSentryOptions = Parameters<typeof init>[0];
   const nativeBeforeSend: NonNullable<INativeSentryOptions['beforeSend']> = (
     event,
+    hint,
   ) => {
     const navigationBreadcrumbs = sanitizeNavigationBreadcrumbsForLocalLog(
       event.breadcrumbs,
@@ -72,7 +73,7 @@ export const initSentry = () => {
         );
       }
     }
-    const sanitizedEvent = sanitizeSentryEvent(event, onError);
+    const sanitizedEvent = sanitizeSentryEvent(event, onError, hint);
     if (sanitizedEvent) {
       sanitizedEvent.breadcrumbs = [];
     }

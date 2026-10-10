@@ -17,6 +17,8 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import { UserCancelError } from '@onekeyhq/shared/src/errors';
+import { isUserCancelError } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
@@ -316,7 +318,7 @@ function BaseBulkSendReview({
                   reject(error);
                 },
                 onCancel: () => {
-                  reject(new Error('User cancelled'));
+                  reject(new UserCancelError());
                 },
               },
             });
@@ -552,7 +554,7 @@ function BaseBulkSendReview({
         ) {
           startApprovalRecheck();
         }
-        if (e instanceof Error && e.message === 'User cancelled') {
+        if (isUserCancelError(e)) {
           return;
         }
         onFail?.(e as Error);
