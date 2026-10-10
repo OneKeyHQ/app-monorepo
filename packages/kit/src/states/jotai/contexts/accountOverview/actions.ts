@@ -5,6 +5,7 @@ import { isEqual } from 'lodash';
 
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { retainAccountsWorth } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
@@ -92,6 +93,33 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
       if (!isEqual(current, next)) {
         set(accountWorthAtom(), next);
       }
+    },
+  );
+
+  // Drop the worth of accounts outside the current All Networks run (see
+  // `retainAccountsWorth`). A map stamped for another account is left alone:
+  // that owner's own run replaces it.
+  retainAccountWorth = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        accountId: string;
+        accountValueKeys: ReadonlySet<string>;
+      },
+    ) => {
+      const current = get(accountWorthAtom());
+      if (current.accountId !== payload.accountId) {
+        return;
+      }
+      const worth = retainAccountsWorth({
+        worth: current.worth,
+        accountValueKeys: payload.accountValueKeys,
+      });
+      if (worth === current.worth) {
+        return;
+      }
+      set(accountWorthAtom(), { ...current, worth });
     },
   );
 
@@ -215,6 +243,7 @@ export function useAccountOverviewActions() {
   const actions = createActions();
 
   const updateAccountWorth = actions.updateAccountWorth.use();
+  const retainAccountWorth = actions.retainAccountWorth.use();
   const updateAccountOverviewState = actions.updateAccountOverviewState.use();
   const updateAllNetworksState = actions.updateAllNetworksState.use();
   const updateApprovalsInfo = actions.updateApprovalsInfo.use();
@@ -225,6 +254,7 @@ export function useAccountOverviewActions() {
   return useRef({
     updateAllNetworksState,
     updateAccountWorth,
+    retainAccountWorth,
     updateAccountOverviewState,
     updateApprovalsInfo,
     updateWalletTopBanners,
