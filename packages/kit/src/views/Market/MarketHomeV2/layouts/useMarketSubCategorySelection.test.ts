@@ -3,9 +3,11 @@ import { act, renderHook } from '@testing-library/react';
 
 import type {
   IMarketHomePreferences,
+  IMarketHomePreferencesAtom,
   IMarketSelectedTabAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { createPromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
 
 import { useMarketHomeSelection } from '../hooks/useMarketHomeSelection';
 
@@ -24,12 +26,14 @@ const DEFI: IMarketCategoryItem = {
 };
 
 let mockSelection: IMarketSelectedTabAtom;
-let mockPreferences: IMarketHomePreferences;
-let mockBackgroundPreferences: IMarketHomePreferences;
+let mockPreferences: IMarketHomePreferencesAtom;
+let mockBackgroundPreferences: IMarketHomePreferencesAtom;
 let mockEchoWrites: boolean;
 const mockListeners = new Set<() => void>();
 const mockSetPreferences = jest.fn(
-  (update: (prev: IMarketHomePreferences) => IMarketHomePreferences) => {
+  (
+    update: (prev: IMarketHomePreferencesAtom) => IMarketHomePreferencesAtom,
+  ) => {
     if (mockEchoWrites) {
       mockPreferences = update(mockPreferences);
       mockListeners.forEach((listener) => listener());
@@ -39,8 +43,18 @@ const mockSetPreferences = jest.fn(
 const mockUpdatePreferences = jest.fn(
   async (update: IMarketHomePreferences) => {
     mockBackgroundPreferences = { ...mockBackgroundPreferences, ...update };
+    mockBackgroundPreferences.revision =
+      (mockBackgroundPreferences.revision ?? 0) + 1;
+    return mockBackgroundPreferences.revision;
   },
 );
+const mockLogError = jest.fn<void, [string]>();
+
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    app: { error: { log: (message: string) => mockLogError(message) } },
+  },
+}));
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   serviceMarketV2: {
@@ -79,6 +93,7 @@ beforeEach(() => {
   mockEchoWrites = true;
   mockSetPreferences.mockClear();
   mockUpdatePreferences.mockClear();
+  mockLogError.mockClear();
 });
 
 describe('useMarketSubCategorySelection', () => {
@@ -109,7 +124,7 @@ describe('useMarketSubCategorySelection', () => {
     expect(result.current[0]).toBe('market_l1_l2_chains');
   });
 
-  it('keeps a selection that is still configured and resets a removed one', () => {
+  it('keeps a selection that is still configured and resets a removed one', async () => {
     const { result, rerender } = renderHook(
       ({ categories }) =>
         useMarketSubCategorySelection(
@@ -119,16 +134,16 @@ describe('useMarketSubCategorySelection', () => {
         ),
       { initialProps: { categories: [ALL, CHAINS, DEFI] } },
     );
-    act(() => result.current[1]('market_defi_and_infra'));
+    await act(async () => result.current[1]('market_defi_and_infra'));
     expect(result.current[0]).toBe('market_defi_and_infra');
 
     rerender({ categories: [ALL, DEFI] });
     expect(result.current[0]).toBe('market_defi_and_infra');
 
-    rerender({ categories: [ALL, CHAINS] });
+    await act(async () => rerender({ categories: [ALL, CHAINS] }));
     expect(result.current[0]).toBe('all');
 
-    act(() => result.current[1]('market_l1_l2_chains'));
+    await act(async () => result.current[1]('market_l1_l2_chains'));
     rerender({ categories: [] });
     expect(result.current[0]).toBe('market_l1_l2_chains');
   });
@@ -160,7 +175,7 @@ describe('useMarketSubCategorySelection', () => {
     expect(mockSetPreferences).not.toHaveBeenCalled();
   });
 
-  it('persists the fallback only after config confirms a category was removed', () => {
+  it('persists the fallback only after config confirms a category was removed', async () => {
     mockSelection.selectedTopCoinsCategory = DEFI.id;
     const { result, rerender } = renderHook(
       ({ isLoading }) =>
@@ -173,7 +188,7 @@ describe('useMarketSubCategorySelection', () => {
     );
     expect(result.current[0]).toBe(DEFI.id);
 
-    rerender({ isLoading: false });
+    await act(async () => rerender({ isLoading: false }));
     expect(result.current[0]).toBe(ALL.id);
     expect(mockPreferences.selectedTopCoinsCategory).toBe(ALL.id);
   });
@@ -206,7 +221,7 @@ describe('useMarketSubCategorySelection', () => {
     expect(mockSetPreferences).not.toHaveBeenCalled();
   });
 
-  it('restores independently saved stock and top coin selections after remounting', () => {
+  it('restores independently saved stock and top coin selections after remounting', async () => {
     mockSelection.selectedSpotCategory = 'topCoins';
     const renderSelections = () =>
       renderHook(() => ({
@@ -222,7 +237,7 @@ describe('useMarketSubCategorySelection', () => {
         ),
       }));
     const first = renderSelections();
-    act(() => {
+    await act(async () => {
       first.result.current.stocks[1](CHAINS.id);
       first.result.current.topCoins[1](DEFI.id);
     });
@@ -236,7 +251,7 @@ describe('useMarketSubCategorySelection', () => {
 });
 
 describe('useMarketHomeSelection', () => {
-  it('restores network, time range and Favorites filter after remounting', () => {
+  it('restores network, time range and Favorites filter after remounting', async () => {
     const renderSelections = () =>
       renderHook(() => ({
         network: useMarketHomeSelection('selectedNetworkId', 'onekeyall--0'),
@@ -244,7 +259,7 @@ describe('useMarketHomeSelection', () => {
         watchlist: useMarketHomeSelection('watchlistFilter', 'all'),
       }));
     const first = renderSelections();
-    act(() => {
+    await act(async () => {
       first.result.current.network[1]('evm--1');
       first.result.current.timeRange[1]('24h');
       first.result.current.watchlist[1]('stocks');
@@ -270,8 +285,13 @@ describe('useMarketHomeSelection', () => {
     expect(mockSetPreferences).not.toHaveBeenCalled();
   });
 
-  it('keeps the latest local selection while older bg echoes arrive', () => {
-    mockEchoWrites = false;
+  it('keeps the latest local selection while older bg echoes arrive', async () => {
+    jest.replaceProperty(platformEnv, 'isNativeMainThread', true);
+    const olderRequest = createPromiseTarget<number>();
+    const latestRequest = createPromiseTarget<number>();
+    mockUpdatePreferences
+      .mockImplementationOnce(() => olderRequest.ready)
+      .mockImplementationOnce(() => latestRequest.ready);
     const { result } = renderHook(() =>
       useMarketHomeSelection('timeRange', '1h'),
     );
@@ -279,19 +299,24 @@ describe('useMarketHomeSelection', () => {
     act(() => result.current[1]('24h'));
 
     act(() => {
-      mockPreferences = { ...mockPreferences, timeRange: '4h' };
+      mockPreferences = { ...mockPreferences, timeRange: '4h', revision: 1 };
       mockListeners.forEach((listener) => listener());
     });
     expect(result.current[0]).toBe('24h');
 
     act(() => {
-      mockPreferences = { ...mockPreferences, timeRange: '24h' };
+      mockPreferences = { ...mockPreferences, timeRange: '24h', revision: 2 };
       mockListeners.forEach((listener) => listener());
     });
     expect(result.current[0]).toBe('24h');
+    await act(async () => {
+      olderRequest.resolveTarget(1);
+      latestRequest.resolveTarget(2);
+      await Promise.all([olderRequest.ready, latestRequest.ready]);
+    });
   });
 
-  it('merges rapid native changes in bg while the UI mirror still has the old preferences', () => {
+  it('merges rapid native changes in bg while the UI mirror still has the old preferences', async () => {
     jest.replaceProperty(platformEnv, 'isNativeMainThread', true);
     mockPreferences = { timeRange: '1h', selectedNetworkId: 'onekeyall--0' };
     mockBackgroundPreferences = { ...mockPreferences };
@@ -300,7 +325,7 @@ describe('useMarketHomeSelection', () => {
       timeRange: useMarketHomeSelection('timeRange', '1h'),
     }));
 
-    act(() => {
+    await act(async () => {
       result.current.timeRange[1]('24h');
       result.current.network[1]('evm--1');
     });
@@ -313,6 +338,7 @@ describe('useMarketHomeSelection', () => {
     expect(mockBackgroundPreferences).toEqual({
       timeRange: '24h',
       selectedNetworkId: 'evm--1',
+      revision: 2,
     });
     expect(mockPreferences).toEqual({
       timeRange: '1h',
@@ -325,5 +351,119 @@ describe('useMarketHomeSelection', () => {
     });
     expect(result.current.timeRange[0]).toBe('24h');
     expect(result.current.network[0]).toBe('evm--1');
+  });
+
+  it("accepts another extension window's newer value when its own echo was coalesced", async () => {
+    jest.replaceProperty(platformEnv, 'isExtensionUi', true);
+    mockPreferences = { timeRange: '1h', revision: 0 };
+    const request = createPromiseTarget<number>();
+    mockUpdatePreferences.mockImplementationOnce(() => request.ready);
+    const { result } = renderHook(() =>
+      useMarketHomeSelection('timeRange', '1h'),
+    );
+    act(() => result.current[1]('4h'));
+    act(() => {
+      mockPreferences = { timeRange: '24h', revision: 2 };
+      mockListeners.forEach((listener) => listener());
+    });
+    expect(result.current[0]).toBe('4h');
+
+    await act(async () => {
+      request.resolveTarget(1);
+      await request.ready;
+    });
+    expect(result.current[0]).toBe('24h');
+    act(() => {
+      mockPreferences = { timeRange: '5m', revision: 3 };
+      mockListeners.forEach((listener) => listener());
+    });
+    expect(result.current[0]).toBe('5m');
+  });
+
+  it('keeps the newest native selection until its acknowledged revision arrives', async () => {
+    jest.replaceProperty(platformEnv, 'isNativeMainThread', true);
+    mockPreferences = { timeRange: '1h', revision: 0 };
+    const olderRequest = createPromiseTarget<number>();
+    const latestRequest = createPromiseTarget<number>();
+    mockUpdatePreferences
+      .mockImplementationOnce(() => olderRequest.ready)
+      .mockImplementationOnce(() => latestRequest.ready);
+    const { result } = renderHook(() =>
+      useMarketHomeSelection('timeRange', '1h'),
+    );
+    act(() => {
+      result.current[1]('4h');
+      result.current[1]('24h');
+    });
+    await act(async () => {
+      olderRequest.resolveTarget(1);
+      latestRequest.resolveTarget(2);
+      await Promise.all([olderRequest.ready, latestRequest.ready]);
+    });
+    expect(result.current[0]).toBe('24h');
+    act(() => {
+      mockPreferences = { timeRange: '4h', revision: 1 };
+      mockListeners.forEach((listener) => listener());
+    });
+    expect(result.current[0]).toBe('24h');
+    act(() => {
+      mockPreferences = { timeRange: '24h', revision: 2 };
+      mockListeners.forEach((listener) => listener());
+    });
+    expect(result.current[0]).toBe('24h');
+  });
+
+  it('handles a Travel Mode rejection as a session-only choice and accepts later authoritative updates', async () => {
+    jest.replaceProperty(platformEnv, 'isNativeMainThread', true);
+    mockPreferences = { timeRange: '1h', revision: 0 };
+    mockUpdatePreferences.mockRejectedValueOnce(
+      new Error('Travel Mode command rejected'),
+    );
+    const { result, unmount } = renderHook(() =>
+      useMarketHomeSelection('timeRange', '1h'),
+    );
+    await act(async () => result.current[1]('4h'));
+    expect(result.current[0]).toBe('4h');
+    expect(mockLogError).toHaveBeenCalledTimes(1);
+    expect(mockPreferences.timeRange).toBe('1h');
+    act(() => {
+      mockPreferences = { timeRange: '24h', revision: 1 };
+      mockListeners.forEach((listener) => listener());
+    });
+    expect(result.current[0]).toBe('24h');
+    unmount();
+    const restored = renderHook(() =>
+      useMarketHomeSelection('timeRange', '1h'),
+    );
+    expect(restored.result.current[0]).toBe('24h');
+  });
+
+  it('does not let an older failed write replace a newer pending choice', async () => {
+    jest.replaceProperty(platformEnv, 'isExtensionUi', true);
+    const olderRequest = createPromiseTarget<number>();
+    const latestRequest = createPromiseTarget<number>();
+    mockUpdatePreferences
+      .mockImplementationOnce(() => olderRequest.ready)
+      .mockImplementationOnce(() => latestRequest.ready);
+    const { result } = renderHook(() =>
+      useMarketHomeSelection('timeRange', '1h'),
+    );
+    act(() => {
+      result.current[1]('4h');
+      result.current[1]('24h');
+    });
+    await act(async () => {
+      olderRequest.rejectTarget(new Error('stale failure'));
+      await olderRequest.ready.catch(() => undefined);
+    });
+    expect(result.current[0]).toBe('24h');
+    expect(mockLogError).not.toHaveBeenCalled();
+    await act(async () => {
+      mockPreferences = { timeRange: '24h', revision: 2 };
+      mockListeners.forEach((listener) => listener());
+      latestRequest.resolveTarget(2);
+      await latestRequest.ready;
+    });
+    expect(result.current[0]).toBe('24h');
   });
 });

@@ -1,18 +1,22 @@
 import ServiceMarketV2 from './ServiceMarketV2';
 
-import type { IMarketHomePreferences } from '../states/jotai/atoms';
+import type { IMarketHomePreferencesAtom } from '../states/jotai/atoms';
 
-let mockPreferences: IMarketHomePreferences;
+let mockPreferences: IMarketHomePreferencesAtom;
 const mockSetPreferences = jest.fn(
-  async (update: (prev: IMarketHomePreferences) => IMarketHomePreferences) => {
+  async (
+    update: (prev: IMarketHomePreferencesAtom) => IMarketHomePreferencesAtom,
+  ) => {
     mockPreferences = update(mockPreferences);
   },
 );
 
 jest.mock('../states/jotai/atoms', () => ({
   marketHomePreferencesAtom: {
-    set: (update: (prev: IMarketHomePreferences) => IMarketHomePreferences) =>
-      mockSetPreferences(update),
+    set: (
+      update: (prev: IMarketHomePreferencesAtom) => IMarketHomePreferencesAtom,
+    ) => mockSetPreferences(update),
+    get: async () => mockPreferences,
   },
 }));
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
@@ -56,6 +60,17 @@ describe('market home preference updates in bg', () => {
       selectedStockCategory: 'consumer-tech',
       selectedTopCoinsCategory: 'defi',
       watchlistFilter: 'stocks',
+      revision: 3,
     });
+  });
+
+  it('acknowledges the persisted revision for a UI waiting for its write', async () => {
+    mockPreferences.revision = 6;
+    await expect(
+      ServiceMarketV2.prototype.updateMarketHomePreferences({
+        timeRange: '4h',
+      }),
+    ).resolves.toBe(7);
+    expect(mockPreferences.timeRange).toBe('4h');
   });
 });

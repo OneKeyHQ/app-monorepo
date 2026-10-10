@@ -18,6 +18,10 @@ export interface IMarketHomePreferences {
   watchlistFilter?: 'all' | 'spot' | 'stocks' | 'perps';
 }
 
+export interface IMarketHomePreferencesAtom extends IMarketHomePreferences {
+  revision?: number;
+}
+
 export interface IMarketSelectedTabAtom extends IMarketHomePreferences {
   tab: IMarketSelectedTab;
   selectedSpotCategory?: string;
@@ -29,7 +33,7 @@ export interface IMarketSelectedTabAtom extends IMarketHomePreferences {
 export const {
   target: marketHomePreferencesAtom,
   use: useMarketHomePreferencesAtom,
-} = globalAtom<IMarketHomePreferences>({
+} = globalAtom<IMarketHomePreferencesAtom>({
   persist: true,
   name: EAtomNames.marketHomePreferencesAtom,
   initialValue: {},

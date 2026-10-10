@@ -117,7 +117,9 @@ class ServiceMarketV2 extends ServiceBase {
     await marketHomePreferencesAtom.set((prev) => ({
       ...prev,
       ...preferences,
+      revision: (prev.revision ?? 0) + 1,
     }));
+    return (await marketHomePreferencesAtom.get()).revision ?? 0;
   }
 
   constructor({ backgroundApi }: { backgroundApi: any }) {

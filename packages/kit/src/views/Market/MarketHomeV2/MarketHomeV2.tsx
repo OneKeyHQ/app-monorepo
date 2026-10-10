@@ -23,6 +23,7 @@ import { LazyPageContainer } from '../../../components/LazyPageContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useWatchListV2Actions } from '../../../states/jotai/contexts/marketV2';
 import { useMarketBasicConfig } from '../hooks';
+import { resolveMarketHomeNetworkSelection } from '../hooks/marketNetworkUtils';
 import { useMarketHomePageEnterAnalytics } from '../hooks/useMarketEnterAnalytics';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
@@ -72,12 +73,23 @@ const useMarketHomeLayoutProps = () => {
     spotCategories: apiSpotCategories,
     stockCategories: apiStockCategories,
     assetCategories: apiAssetCategories,
+    networkList,
     isLoading: isMarketBasicConfigLoading,
   } = useMarketBasicConfig();
-  const [selectedNetworkId, setSelectedNetworkId] = useMarketHomeSelection(
+  const [savedNetworkId, setSelectedNetworkId] = useMarketHomeSelection(
     'selectedNetworkId',
     getNetworkIdsMap().onekeyall,
   );
+  const selectedNetworkId = resolveMarketHomeNetworkSelection({
+    selectedNetworkId: savedNetworkId,
+    networkList,
+    isConfigLoading: isMarketBasicConfigLoading,
+  });
+  useEffect(() => {
+    if (savedNetworkId !== selectedNetworkId) {
+      setSelectedNetworkId(selectedNetworkId);
+    }
+  }, [savedNetworkId, selectedNetworkId, setSelectedNetworkId]);
   const [
     { tab: selectedMarketTab, selectedSpotCategory, spotCategoryToSelect },
     setMarketSelectedTab,
