@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import {
   Icon,
   NumberSizeableText,
+  Popover,
   SizableText,
   Skeleton,
   Tooltip,
@@ -17,6 +18,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { FontSizeTokens } from 'tamagui';
 
@@ -25,6 +27,20 @@ export function PerpsPartialAccountValueWarning() {
   const label = intl.formatMessage({
     id: ETranslations.wallet_partial_price_unavailable,
   });
+  if (platformEnv.isNative) {
+    return (
+      <Popover.Tooltip
+        title={intl.formatMessage({ id: ETranslations.perp_portfolio_value })}
+        tooltip={label}
+        triggerProps={{
+          iconColor: '$iconCaution',
+          accessibilityLabel: label,
+          testID: 'perps-partial-account-value-warning',
+          p: '$0',
+        }}
+      />
+    );
+  }
   return (
     <Tooltip
       renderContent={label}
