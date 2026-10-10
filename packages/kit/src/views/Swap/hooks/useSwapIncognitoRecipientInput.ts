@@ -28,6 +28,7 @@ type IUseSwapIncognitoRecipientInputParams = {
 
 type IShouldBlockSwapActionForIncognitoRecipientInputParams = {
   inputText: string;
+  isDepositAction?: boolean;
   isConnectWalletAction: boolean;
   loading: boolean;
   queryResult: Pick<IAddressQueryResult, 'validStatus'>;
@@ -73,6 +74,7 @@ function isSameAddressValidationContext(
 
 export function shouldBlockSwapActionForIncognitoRecipientInput({
   inputText,
+  isDepositAction = false,
   isConnectWalletAction,
   loading,
   queryResult,
@@ -80,6 +82,12 @@ export function shouldBlockSwapActionForIncognitoRecipientInput({
   visible,
 }: IShouldBlockSwapActionForIncognitoRecipientInputParams) {
   if (isConnectWalletAction) {
+    return false;
+  }
+
+  // Deposit to Trade only opens the receive flow and does not consume the
+  // incognito recipient, so an unresolved recipient must not disable it.
+  if (isDepositAction) {
     return false;
   }
 

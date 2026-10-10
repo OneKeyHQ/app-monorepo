@@ -31,6 +31,10 @@ import type {
 import SwapFAQ from '../../components/SwapFAQ';
 import SwapProviderListPanel from '../../components/SwapProviderListPanel';
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
+import {
+  SWAP_DESKTOP_CARD_SHADOW_NATIVE_STYLE,
+  SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE,
+} from '../../utils/swapDesktopCardShadow';
 import { getSwapExecutionType } from '../../utils/swapTypeUtils';
 
 import LimitInfoContainer from './LimitInfoContainer';
@@ -288,15 +292,8 @@ const SwapOldSwapBridgeLimitContainer = ({
         borderWidth={1}
         borderColor="$borderSubdued"
         elevationAndroid="$1"
-        $platform-web={{
-          boxShadow: '0px 0px 24px 0px rgba(0, 0, 0, 0.06)',
-        }}
-        style={{
-          shadowColor: 'rgba(0, 0, 0, 0.08)',
-          shadowOffset: { width: 0, height: 0 },
-          shadowOpacity: 1,
-          shadowRadius: 24,
-        }}
+        $platform-web={SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE}
+        style={SWAP_DESKTOP_CARD_SHADOW_NATIVE_STYLE}
       >
         <XStack alignItems="center" justifyContent="space-between">
           {swapTitleContent}
@@ -399,15 +396,8 @@ const SwapOldSwapBridgeLimitContainer = ({
             borderWidth={1}
             borderColor="$borderSubdued"
             elevationAndroid="$1"
-            $platform-web={{
-              boxShadow: '0px 0px 24px 0px rgba(0, 0, 0, 0.06)',
-            }}
-            style={{
-              shadowColor: 'rgba(0, 0, 0, 0.08)',
-              shadowOffset: { width: 0, height: 0 },
-              shadowOpacity: 1,
-              shadowRadius: 24,
-            }}
+            $platform-web={SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE}
+            style={SWAP_DESKTOP_CARD_SHADOW_NATIVE_STYLE}
           >
             <XStack alignItems="center" justifyContent="space-between">
               {swapTitleContent}

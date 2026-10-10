@@ -44,6 +44,7 @@ import {
 } from '../utils/swapColdStartTokenCacheUtils';
 
 import {
+  buildSwapAddressAccountInfo,
   getSwapAddressAccountSelectorNum,
   resolveSwapTargetNetworkAccount,
   resolveSwapTargetNetworkAccountOnce,
@@ -261,6 +262,37 @@ export function useSwapFromAccountNetworkSync() {
   ]);
 }
 
+// The active account's counterpart on `networkId`: same wallet and indexed
+// account, the network's global derive type. useSwapAddressInfo runs this for
+// a cross-network token; press handlers call it directly when they need that
+// account while the hook's lookup is still pending, so the tap is not lost.
+export function resolveSwapNetworkAccount({
+  accountId,
+  indexedAccountId,
+  dbAccount,
+  networkId,
+}: {
+  accountId?: string;
+  indexedAccountId?: string;
+  dbAccount?: IAccountSelectorActiveAccountInfo['dbAccount'];
+  networkId: string;
+}) {
+  return resolveSwapTargetNetworkAccount({
+    getDeriveType: () =>
+      backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+        networkId,
+      }),
+    getNetworkAccount: (deriveType) =>
+      backgroundApiProxy.serviceAccount.getNetworkAccount({
+        deriveType,
+        indexedAccountId,
+        accountId: indexedAccountId ? undefined : accountId,
+        dbAccount,
+        networkId,
+      }),
+  });
+}
+
 export function useSwapAddressInfo(type: ESwapDirectionType) {
   const [{ swapToAnotherAccountSwitchOn }] = useSettingsAtom();
   const { activeAccount } = useActiveAccount({
@@ -403,21 +435,11 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
           await resolveSwapTargetNetworkAccountOnce({
             key: targetNetworkAccountResolveKey,
             resolve: () =>
-              resolveSwapTargetNetworkAccount({
-                getDeriveType: () =>
-                  backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
-                    { networkId: tokenNetworkId },
-                  ),
-                getNetworkAccount: (deriveType) =>
-                  backgroundApiProxy.serviceAccount.getNetworkAccount({
-                    deriveType,
-                    indexedAccountId: activeAccount.indexedAccount?.id,
-                    accountId: activeAccount.indexedAccount?.id
-                      ? undefined
-                      : activeAccount.account?.id,
-                    dbAccount: activeAccount.dbAccount,
-                    networkId: tokenNetworkId,
-                  }),
+              resolveSwapNetworkAccount({
+                accountId: activeAccount.account?.id,
+                indexedAccountId: activeAccount.indexedAccount?.id,
+                dbAccount: activeAccount.dbAccount,
+                networkId: tokenNetworkId,
               }),
           });
         if (!cancelled) {
@@ -533,11 +555,24 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
       };
     }
 
-    const resolvedAccount = shouldResolveTargetNetworkAccount
-      ? accountForTargetNetwork
-      : activeAccount.account;
+    // Do not expose a previous target-network result while the current lookup
+    // is pending. The active account remains the source for an on-demand
+    // lookup, but derived address and balance state must not use stale data.
+    let resolvedAccount: INetworkAccount | undefined = activeAccount.account;
+    if (shouldResolveTargetNetworkAccount) {
+      resolvedAccount = isAddressInfoReady
+        ? accountForTargetNetwork
+        : undefined;
+    }
 
     if (activeAccount) {
+      const resolvedAccountInfo = buildSwapAddressAccountInfo({
+        activeAccount,
+        shouldResolveTargetNetworkAccount,
+        // Do not expose the previous target result during a new lookup. The
+        // resolve key is only marked ready after this request settles.
+        targetNetworkAccount: isAddressInfoReady ? resolvedAccount : undefined,
+      });
       return {
         ...res,
         address: resolvedAccount?.addressDetail?.address,
@@ -554,16 +589,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
               }
             : undefined),
         },
-        accountInfo: {
-          ...activeAccount,
-          ...(resolvedAccount
-            ? {
-                account: {
-                  ...resolvedAccount,
-                },
-              }
-            : undefined),
-        },
+        accountInfo: resolvedAccountInfo,
       };
     }
     if (

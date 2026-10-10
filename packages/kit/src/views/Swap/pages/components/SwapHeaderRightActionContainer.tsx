@@ -52,6 +52,7 @@ import {
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { shouldRedirectOnboardingToTravelMode } from '@onekeyhq/kit/src/utils/onboardingEntryGate';
+import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
 import {
   EJotaiContextStoreNames,
   filterSwapHistoryPendingList,
@@ -655,6 +656,7 @@ const StockKLineHeaderButton = ({
   const isNative = stockToken?.isNative;
   const networkId = stockToken?.networkId ?? '';
   const tokenAddress = stockToken?.contractAddress ?? '';
+  const stockId = resolveMarketStockId(stockToken ?? {});
   const network = useMemo(
     () =>
       networkUtils.getNetworkShortCode({
@@ -679,13 +681,14 @@ const StockKLineHeaderButton = ({
       params: {
         tokenAddress,
         network,
+        ...(stockId ? { stockId } : undefined),
         isNative,
         from: EEnterWay.SwapPro,
         disableTrade: true,
         showFavoriteButton: false,
       },
     });
-  }, [disabled, isNative, navigation, network, tokenAddress]);
+  }, [disabled, isNative, navigation, network, stockId, tokenAddress]);
 
   return (
     <HeaderIconButton

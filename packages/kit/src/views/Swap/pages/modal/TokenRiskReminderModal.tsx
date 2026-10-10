@@ -55,29 +55,32 @@ const SwapRiskReminderModal = ({
   onConfirm,
 }: {
   token: ISwapToken;
-  onConfirm: () => void;
+  onConfirm: (close: () => void) => void;
 }) => {
   const intl = useIntl();
   // const [checkValue, setCheckValue] = useState(false);
   // const [, setSettings] = useSettingsPersistAtom();
-  const onHandleConfirm = useCallback(() => {
-    // if (checkValue) {
-    //   setSettings((v) => ({
-    //     ...v,
-    //     tokenRiskReminder: false,
-    //   }));
-    // }
-    void backgroundApiProxy.serviceSetting.addConfirmedRiskTokens([
-      `${token.networkId}_${token.contractAddress}`,
-    ]);
-    onConfirm();
-  }, [
-    // checkValue,
-    onConfirm,
-    // setSettings,
-    token.contractAddress,
-    token.networkId,
-  ]);
+  const onHandleConfirm = useCallback(
+    (close: () => void) => {
+      // if (checkValue) {
+      //   setSettings((v) => ({
+      //     ...v,
+      //     tokenRiskReminder: false,
+      //   }));
+      // }
+      void backgroundApiProxy.serviceSetting.addConfirmedRiskTokens([
+        `${token.networkId}_${token.contractAddress}`,
+      ]);
+      onConfirm(close);
+    },
+    [
+      // checkValue,
+      onConfirm,
+      // setSettings,
+      token.contractAddress,
+      token.networkId,
+    ],
+  );
   // const onCheckboxChange = useCallback((value: ICheckedState) => {
   //   setCheckValue(!!value);
   // }, []);
