@@ -31,6 +31,18 @@ Var OneKeyModernIsInner
   Var OneKeyModernPackagePrepared
   Var OneKeyModernPackageArch
 
+# Reject unsupported systems before loading the UI or replacing an old version.
+!macro preInit
+  ${IfNot} ${AtLeastWin10}
+  ${OrIfNot} ${AtLeastBuild} 14393
+    ${IfNot} ${Silent}
+      MessageBox MB_OK|MB_ICONSTOP "OneKey requires Windows 10 version 1607 or later."
+    ${EndIf}
+    SetErrorLevel 1
+    Quit
+  ${EndIf}
+!macroend
+
 # Read the persisted installation state independently from initMultiUser's
 # effective mode. A fresh install still receives a default directory there,
 # which must not be mistaken for an existing installation.
@@ -427,14 +439,23 @@ FunctionEnd
   !macroend
 
   !macro customUnInstall
-    DeleteRegKey SHELL_CONTEXT "${ONEKEY_NOTIFICATION_IDENTITY_REGISTRY_KEY}"
-
     ${If} $OneKeyModernUiActive == "1"
       nsis-duilib-ui::SetPage "uninstalling"
       Pop $OneKeyModernResult
       ${If} $OneKeyModernResult == "ok"
+      OneKeyModernUninstallPrepareCommit:
         nsis-duilib-ui::PrepareCommit
         Pop $OneKeyModernResult
+        ${If} $OneKeyModernResult == "pending"
+          Sleep 80
+          Goto OneKeyModernUninstallPrepareCommit
+        ${ElseIf} $OneKeyModernResult == "cancel"
+          nsis-duilib-ui::ShutdownHidden
+          Pop $0
+          StrCpy $OneKeyModernUiActive "0"
+          SetErrorLevel 1
+          Quit
+        ${EndIf}
       ${EndIf}
       ${If} $OneKeyModernResult == "ok"
         nsis-duilib-ui::Show
@@ -449,6 +470,7 @@ FunctionEnd
         ShowWindow $HWNDPARENT ${SW_HIDE}
       ${EndIf}
     ${EndIf}
+    DeleteRegKey SHELL_CONTEXT "${ONEKEY_NOTIFICATION_IDENTITY_REGISTRY_KEY}"
   !macroend
 
   !macro customUninstallPage
