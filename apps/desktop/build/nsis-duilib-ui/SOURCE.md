@@ -2,17 +2,28 @@
 
 - Source: https://github.com/huhuanming/nsis-duilib-ui
 - Base commit: `a35a32a6c4ec1737296b9e52eca77064492ffd00`
-- Local patches: OK-64279, OK-64284, OK-64289, and OK-64291, embedded below;
+- Local patches: OK-64279, OK-64284, OK-64289, OK-64291, OK-64292, and OK-64308, embedded below;
   use the system
   frame when DWM accepts rounded corners, otherwise retain DuiLib region
   clipping. Load window icons from the host EXE, including during un.onInit.
   Center the minimize glyph horizontally and vertically in its button.
   Resolve installed UI fonts by locale, preserve custom theme font choices,
   and keep regular/bold weights consistent when fonts are rebuilt for DPI.
+  Open the current official help-center Terms and Privacy Policy articles.
+  Preserve confirmed cancellation across progress updates, synchronize UI-thread
+  transitions and shutdown, and lock cancellation before committing staged files.
+- Modified source files (relative to the base commit):
+  - `include/nsis_dui/window.hpp`
+  - `plugin/nsis_plugin.cpp`
+  - `plugin/nsis-duilib-ui.def`
+  - `src/renderer.cpp`
+  - `src/window.cpp`
+  - `tests/renderer_test.cpp`
+  - `third_party/duilib/Core/UIManager.cpp`
 - Target: Win32/x86 Unicode NSIS plug-in
 - Configuration: Release, static MSVC runtime (`/MT`)
 - Output: `out/build/windows-x86-ninja/Release/nsis-duilib-ui.dll`
-- SHA256: `3ad2141d443287748a0517b2d68c3aad007659d88e6145610ce5a11cb4f92467`
+- SHA256: `e947164986a86c14398ad73851d6afb0927de065841d93b1bf3ea71fe9627212`
 
 Build and test from a clean checkout on Windows with Visual Studio 2022,
 CMake 3.24 or later, and Ninja:
@@ -20,6 +31,71 @@ CMake 3.24 or later, and Ninja:
 ```powershell
 git checkout a35a32a6c4ec1737296b9e52eca77064492ffd00
 $sourcePatch = @'
+diff --git a/include/nsis_dui/window.hpp b/include/nsis_dui/window.hpp
+index 580847629a..60b77afd46 100644
+--- a/include/nsis_dui/window.hpp
++++ b/include/nsis_dui/window.hpp
+@@ -24,6 +24,8 @@ enum class WindowEvent {
+   closed,
+ };
+
++enum class CommitPreparation { ready, pending, cancelled };
++
+ class InstallerWindow final {
+  public:
+   InstallerWindow();
+@@ -43,6 +45,7 @@ class InstallerWindow final {
+   [[nodiscard]] int RunMessageLoop() noexcept;
+   [[nodiscard]] WindowEvent WaitForEvent() noexcept;
+   void PumpMessages() noexcept;
++  [[nodiscard]] CommitPreparation PrepareCommit() noexcept;
+
+   [[nodiscard]] bool SetPage(const std::string& page_name) noexcept;
+   void SetProgress(int progress) noexcept;
+diff --git a/plugin/nsis_plugin.cpp b/plugin/nsis_plugin.cpp
+index bfb4f91d0a..a49691f22d 100644
+--- a/plugin/nsis_plugin.cpp
++++ b/plugin/nsis_plugin.cpp
+@@ -538,6 +538,27 @@ NSIS_ENTRY(PollEvent) {
+   }
+ }
+
++NSIS_ENTRY(PrepareCommit) {
++  Stack stack(string_size, stack_top);
++  if (!g_window) {
++    stack.Error("plugin is not initialized");
++    return;
++  }
++  g_last_poll_at = GetTickCount64();
++  g_window->PumpMessages();
++  switch (g_window->PrepareCommit()) {
++    case nsis_dui::CommitPreparation::ready:
++      stack.Ok();
++      break;
++    case nsis_dui::CommitPreparation::pending:
++      stack.Push(L"pending");
++      break;
++    case nsis_dui::CommitPreparation::cancelled:
++      stack.Push(L"cancel");
++      break;
++  }
++}
++
+ NSIS_ENTRY(WaitForEvent) {
+   Stack stack(string_size, stack_top);
+   if (!g_window) {
+diff --git a/plugin/nsis-duilib-ui.def b/plugin/nsis-duilib-ui.def
+index bae81c902b..c55657da17 100644
+--- a/plugin/nsis-duilib-ui.def
++++ b/plugin/nsis-duilib-ui.def
+@@ -5,6 +5,7 @@ EXPORTS
+   Hide
+   Init
+   PollEvent
++  PrepareCommit
+   ResetProgress
+   SetPage
+   SetProgress
 diff --git a/src/renderer.cpp b/src/renderer.cpp
 index 48d051f..2f940b8 100644
 --- a/src/renderer.cpp
@@ -130,7 +206,7 @@ index 48d051f..2f940b8 100644
    values.emplace("font.bodySize", std::to_string(package.typography.body_size));
    values.emplace("window.width", std::to_string(package.window.width));
 diff --git a/src/window.cpp b/src/window.cpp
-index 93c2ca2..e2d2ae1 100644
+index e14e79c896..622cac3c0d 100644
 --- a/src/window.cpp
 +++ b/src/window.cpp
 @@ -68,20 +68,23 @@ class ThreadDpiScope final {
@@ -200,7 +276,51 @@ index 93c2ca2..e2d2ae1 100644
        return true;
      } catch (const std::exception& error) {
        error_ = error.what();
-@@ -1020,9 +1036,14 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
+@@ -846,17 +862,30 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
+
+   void CloseInstaller() noexcept {
+     if (IsWindow(m_hWnd)) {
+-      Close(IDCANCEL);
++      // Explicit plug-in shutdown must bypass the user's exit confirmation,
++      // including when requested by the NSIS installation worker.
++      ::SendMessageW(m_hWnd, kShutdownWindow, 0, 0);
+     }
+   }
+
+   [[nodiscard]] bool SetPageName(const std::string& page_name) noexcept {
+     page_name_ = page_name;
++    operation_cancel_locked_ = false;
+     suspended_page_name_.clear();
+     event_ = WindowEvent::none;
+     return AttachPage();
+   }
+
++  [[nodiscard]] CommitPreparation PrepareCommit() noexcept {
++    if (!IsWindow(m_hWnd)) {
++      return CommitPreparation::cancelled;
++    }
++    // The installation section runs on the NSIS worker thread. Serialize the
++    // cancellation decision and control updates on the window's UI thread.
++    return static_cast<CommitPreparation>(
++        ::SendMessageW(m_hWnd, kPrepareCommit, 0, 0));
++  }
++
+   void SetProgressValue(int progress) noexcept {
+     state_.progress = (std::max)(state_.progress, std::clamp(progress, 0, 100));
+     if (DuiLib::CControlUI* control = m_pm.FindControl(L"progress");
+@@ -969,9 +998,9 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
+   void OpenLegalLink(const DuiLib::CDuiString& target) noexcept {
+     const wchar_t* url = nullptr;
+     if (_wcsicmp(target.GetData(), L"terms") == 0) {
+-      url = L"https://onekey.so/terms";
++      url = L"https://help.onekey.so/zh-CN/articles/11461297-%E6%9C%8D%E5%8A%A1%E5%8D%8F%E8%AE%AE";
+     } else if (_wcsicmp(target.GetData(), L"privacy") == 0) {
+-      url = L"https://onekey.so/privacy";
++      url = L"https://help.onekey.so/zh-CN/articles/11461298-privacy-policy";
+     }
+     if (url != nullptr) {
+       ShellExecuteW(m_hWnd, L"open", url, nullptr, nullptr, SW_SHOWNORMAL);
+@@ -1020,9 +1049,14 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
                     LPARAM,
                     BOOL& handled) override {
      handled = TRUE;
@@ -216,7 +336,7 @@ index 93c2ca2..e2d2ae1 100644
 
      m_pm.Init(m_hWnd);
      const HMONITOR monitor =
-@@ -1042,6 +1063,18 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
+@@ -1042,10 +1076,26 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
      return 0;
    }
 
@@ -235,7 +355,40 @@ index 93c2ca2..e2d2ae1 100644
    LRESULT OnClose(UINT,
                    WPARAM,
                    LPARAM,
-@@ -1219,6 +1252,29 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
+                   BOOL& handled) override {
++    if (operation_cancel_locked_ && IsOperationPage()) {
++      handled = TRUE;
++      return 0;
++    }
+     if (ShouldConfirmExit()) {
+       QueuePageTransition(kShowExitConfirmation);
+       handled = TRUE;
+@@ -1079,6 +1129,13 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
+   LRESULT HandleMessage(UINT message,
+                         WPARAM wparam,
+                         LPARAM lparam) override {
++    if (message == kPrepareCommit) {
++      return static_cast<LRESULT>(PrepareCommitOnUiThread());
++    }
++    if (message == kShutdownWindow) {
++      DestroyWindow(m_hWnd);
++      return 0;
++    }
+     if (message == kShowExitConfirmation) {
+       page_transition_pending_ = false;
+       ShowExitConfirmation();
+@@ -1141,6 +1198,10 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
+       return;
+     }
+     const DuiLib::CDuiString name = message.pSender->GetName();
++    if (operation_cancel_locked_ &&
++        (name == L"closebtn" || name == L"cancel")) {
++      return;
++    }
+     if (name == L"closebtn") {
+       if (ShouldConfirmExit()) {
+         QueuePageTransition(kShowExitConfirmation);
+@@ -1219,10 +1280,51 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
    }
 
   private:
@@ -265,7 +418,29 @@ index 93c2ca2..e2d2ae1 100644
    enum class InstallScope { current, all };
 
    static constexpr UINT kShowExitConfirmation = WM_APP + 0x4F4B;
-@@ -1323,7 +1379,7 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
+   static constexpr UINT kRestoreSuspendedPage = WM_APP + 0x4F4C;
++  static constexpr UINT kPrepareCommit = WM_APP + 0x4F4D;
++  static constexpr UINT kShutdownWindow = WM_APP + 0x4F4E;
++
++  [[nodiscard]] CommitPreparation PrepareCommitOnUiThread() noexcept {
++    if (event_ == WindowEvent::cancel || event_ == WindowEvent::closed) {
++      return CommitPreparation::cancelled;
++    }
++    if (IsExitConfirmationPage() || page_transition_pending_) {
++      return CommitPreparation::pending;
++    }
++    operation_cancel_locked_ = true;
++    for (const auto* name : {L"cancel", L"closebtn"}) {
++      if (auto* control = m_pm.FindControl(name); control != nullptr) {
++        control->SetEnabled(false);
++      }
++    }
++    return CommitPreparation::ready;
++  }
+
+   [[nodiscard]] bool IsOperationPage() const noexcept {
+     return page_name_ == "installing" || page_name_ == "uninstalling";
+@@ -1323,7 +1425,7 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
      button->SetBkColor(selected ? brand_soft : surface);
      button->SetBorderColor(selected ? brand : border);
      button->SetTextColor(text);
@@ -274,7 +449,7 @@ index 93c2ca2..e2d2ae1 100644
      button->SetHotBkColor(selected ? brand_soft : brand_soft);
      button->SetPushedBkColor(selected ? brand_soft : 0xFFE6ECE9);
    }
-@@ -1398,11 +1454,14 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
+@@ -1398,11 +1500,15 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
    ViewState state_;
    std::wstring rendered_xml_;
    std::string error_;
@@ -285,10 +460,22 @@ index 93c2ca2..e2d2ae1 100644
    bool advanced_options_visible_ = false;
    bool advanced_options_ever_opened_ = false;
    bool page_transition_pending_ = false;
++  bool operation_cancel_locked_ = false;
 +  bool system_frame_ = false;
    bool ready_ = false;
  };
 
+@@ -1493,6 +1599,10 @@ void InstallerWindow::PumpMessages() noexcept {
+   }
+ }
+
++CommitPreparation InstallerWindow::PrepareCommit() noexcept {
++  return impl_ ? impl_->PrepareCommit() : CommitPreparation::cancelled;
++}
++
+ bool InstallerWindow::SetPage(const std::string& page_name) noexcept {
+   return impl_ && impl_->SetPageName(page_name);
+ }
 diff --git a/tests/renderer_test.cpp b/tests/renderer_test.cpp
 index ee96911..42b754b 100644
 --- a/tests/renderer_test.cpp
@@ -491,10 +678,22 @@ if ($applyProcess.ExitCode -ne 0) { throw 'Source patch failed' }
 ./scripts/build.ps1 -Configuration Release
 ```
 
+`PrepareCommit` is an exported NSIS command with no arguments. Call it immediately
+before committing staged installation files and pop its one stack result:
+
+- `ok`: cancellation and close controls are locked for the commit.
+- `pending`: an exit confirmation or UI transition remains unresolved; retry
+  after processing the decision.
+- `cancel`: the user confirmed exit or the UI window closed; stop before commit.
+- `error:plugin is not initialized`: initialization is missing; do not commit.
+
+`SetPage` resets the operation cancellation lock. The command serializes its
+state decision and control updates on the window's UI thread.
+
 Verify the vendored binary:
 
 ```powershell
-$expected = '3ad2141d443287748a0517b2d68c3aad007659d88e6145610ce5a11cb4f92467'
+$expected = 'e947164986a86c14398ad73851d6afb0927de065841d93b1bf3ea71fe9627212'
 $actual = (Get-FileHash `
   ./apps/desktop/build/nsis-duilib-ui/plugin/x86-unicode/nsis-duilib-ui.dll `
   -Algorithm SHA256).Hash.ToLowerInvariant()

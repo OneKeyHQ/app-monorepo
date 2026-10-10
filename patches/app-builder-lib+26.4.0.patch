@@ -1,5 +1,5 @@
 diff --git a/node_modules/app-builder-lib/out/codeSign/macCodeSign.js b/node_modules/app-builder-lib/out/codeSign/macCodeSign.js
-index 17e0c1e..e73ec51 100644
+index 17e0c1e..aa1a28a 100644
 --- a/node_modules/app-builder-lib/out/codeSign/macCodeSign.js
 +++ b/node_modules/app-builder-lib/out/codeSign/macCodeSign.js
 @@ -157,16 +157,17 @@ async function createKeychain({ tmpDir, cscLink, cscKeyPassword, cscILink, cscIK
@@ -99,6 +99,19 @@ index a52a853..1815f53 100644
          await this.doSign(signOptions, customSignOptions, identity);
          // https://github.com/electron-userland/electron-builder/issues/1196#issuecomment-312310209
          if (masOptions != null && !isDevelopment) {
+diff --git a/node_modules/app-builder-lib/out/targets/nsis/NsisTarget.js b/node_modules/app-builder-lib/out/targets/nsis/NsisTarget.js
+index 1e4ef94..16bd529 100644
+--- a/node_modules/app-builder-lib/out/targets/nsis/NsisTarget.js
++++ b/node_modules/app-builder-lib/out/targets/nsis/NsisTarget.js
+@@ -156,6 +156,8 @@ class NsisTarget extends core_1.Target {
+         const guid = options.guid || builder_util_runtime_1.UUID.v5(appInfo.id, ELECTRON_BUILDER_NS_UUID);
+         const uninstallAppKey = guid.replace(/\\/g, " - ");
+         const defines = {
++            // OneKey patch: staging needs the Windows helper even when cross-building.
++            ONEKEY_7ZA_WINDOWS_IA32: path.join(path.dirname(require.resolve("7zip-bin/package.json")), "win", "ia32", "7za.exe"),
+             APP_ID: appInfo.id,
+             APP_GUID: guid,
+             // Windows bug - entry in Software\Microsoft\Windows\CurrentVersion\Uninstall cannot have \ symbols (dir)
 diff --git a/node_modules/app-builder-lib/out/targets/snap.js b/node_modules/app-builder-lib/out/targets/snap.js
 index be3bb87..1b25951 100644
 --- a/node_modules/app-builder-lib/out/targets/snap.js
@@ -151,8 +164,42 @@ index b7f4752..f257d39 100644
    !ifmacrodef customUninstallPage
      !insertmacro customUninstallPage
    !endif
+diff --git a/node_modules/app-builder-lib/templates/nsis/include/extractAppPackage.nsh b/node_modules/app-builder-lib/templates/nsis/include/extractAppPackage.nsh
+index f5470bf..4bb4e63 100644
+--- a/node_modules/app-builder-lib/templates/nsis/include/extractAppPackage.nsh
++++ b/node_modules/app-builder-lib/templates/nsis/include/extractAppPackage.nsh
+@@ -94,7 +94,12 @@
+   CreateDirectory "$PLUGINSDIR\7z-out"
+   ClearErrors
+   SetOutPath "$PLUGINSDIR\7z-out"
+-  Nsis7z::Extract "${FILE}"
++  # OneKey patch: reuse an archive prepared before old-version removal.
++  !ifmacrodef customPrepareAppPackage
++    !insertmacro customPrepareAppPackage "${FILE}"
++  !else
++    Nsis7z::Extract "${FILE}"
++  !endif
+   Pop $R0
+   SetOutPath $R0
+
+diff --git a/node_modules/app-builder-lib/templates/nsis/installSection.nsh b/node_modules/app-builder-lib/templates/nsis/installSection.nsh
+index 053772f..598cf27 100644
+--- a/node_modules/app-builder-lib/templates/nsis/installSection.nsh
++++ b/node_modules/app-builder-lib/templates/nsis/installSection.nsh
+@@ -49,6 +49,11 @@ ${if} $isTryToKeepShortcuts == "true"
+   ${endIf}
+ ${endif}
+
++# OneKey patch: prepare cancellable work before removing the previous version.
++!ifmacrodef customInstallBeforeRemoveOldVersion
++  !insertmacro customInstallBeforeRemoveOldVersion
++!endif
++
+ !insertmacro uninstallOldVersion SHELL_CONTEXT
+ !insertmacro handleUninstallResult SHELL_CONTEXT
+
 diff --git a/node_modules/app-builder-lib/templates/nsis/multiUser.nsh b/node_modules/app-builder-lib/templates/nsis/multiUser.nsh
-index c345dee..9b8b89b 100644
+index c345dee..931eba1 100644
 --- a/node_modules/app-builder-lib/templates/nsis/multiUser.nsh
 +++ b/node_modules/app-builder-lib/templates/nsis/multiUser.nsh
 @@ -28,15 +28,21 @@ Var installMode

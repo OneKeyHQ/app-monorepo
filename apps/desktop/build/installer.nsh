@@ -28,6 +28,8 @@ Var OneKeyModernIsInner
   Var OneKeyModernChosenDirectory
   Var OneKeyModernAccepted
   Var OneKeyModernStartAppArgs
+  Var OneKeyModernPackagePrepared
+  Var OneKeyModernPackageArch
 
 # Read the persisted installation state independently from initMultiUser's
 # effective mode. A fresh install still receives a default directory there,
@@ -42,6 +44,7 @@ Var OneKeyModernIsInner
   StrCpy $OneKeyModernWasInstalled "0"
   StrCpy $OneKeyModernIsInner "0"
   StrCpy $OneKeyModernAccepted "0"
+  StrCpy $OneKeyModernPackagePrepared "0"
   StrCpy $OneKeyModernChosenDirectory ""
   StrCpy $OneKeyModernPerUserDirectory ""
   StrCpy $OneKeyModernPerMachineDirectory ""
@@ -846,6 +849,107 @@ FunctionEnd
     ShowWindow $HWNDPARENT ${SW_SHOW}
     Abort
   FunctionEnd
+
+  # Embedded 7z extraction is cancellable because it only writes temporary
+  # files. Lock cancellation before old-version removal and the final copy.
+  !macro customInstallBeforeRemoveOldVersion
+    ${If} $OneKeyModernUiActive == "1"
+      !ifndef APP_BUILD_DIR
+        !ifndef APP_PACKAGE_URL
+          !ifndef ZIP_COMPRESSION
+            !ifdef COMPRESS
+              SetCompress off
+            !endif
+            !ifdef APP_32
+              StrCpy $OneKeyModernPackageArch "32"
+            !endif
+            !ifdef APP_64
+              ${If} ${RunningX64}
+              ${OrIf} ${IsNativeARM64}
+                StrCpy $OneKeyModernPackageArch "64"
+              ${EndIf}
+            !endif
+            !ifdef APP_ARM64
+              ${If} ${IsNativeARM64}
+                StrCpy $OneKeyModernPackageArch "arm64"
+              ${EndIf}
+            !endif
+            ${If} $OneKeyModernPackageArch == "arm64"
+              !ifdef APP_ARM64
+                !insertmacro arm64_app_files
+              !endif
+            ${ElseIf} $OneKeyModernPackageArch == "64"
+              !ifdef APP_64
+                !insertmacro x64_app_files
+              !endif
+            ${Else}
+              !ifdef APP_32
+                !insertmacro ia32_app_files
+              !endif
+            ${EndIf}
+            File /oname=$PLUGINSDIR\onekey-7za.exe "${ONEKEY_7ZA_WINDOWS_IA32}"
+            !ifdef COMPRESS
+              SetCompress "${COMPRESS}"
+            !endif
+
+            Push $OUTDIR
+            ClearErrors
+            CreateDirectory "$PLUGINSDIR\7z-out"
+            ${If} ${Errors}
+              Pop $0
+              SetOutPath $0
+              nsis-duilib-ui::Shutdown
+              Pop $0
+              StrCpy $OneKeyModernUiActive "0"
+              ShowWindow $HWNDPARENT ${SW_SHOW}
+              Abort
+            ${EndIf}
+            # Nsis7z ignores extraction failures; the existing 7za helper reports
+            # CRC and write errors before any old-version files are removed.
+            nsExec::ExecToStack '"$PLUGINSDIR\onekey-7za.exe" x -y -o"$PLUGINSDIR\7z-out" "$PLUGINSDIR\app-$OneKeyModernPackageArch.7z"'
+            Pop $OneKeyModernResult
+            Pop $0
+            Pop $0
+            SetOutPath $0
+            ${If} $OneKeyModernResult != "0"
+              nsis-duilib-ui::Shutdown
+              Pop $0
+              StrCpy $OneKeyModernUiActive "0"
+              ShowWindow $HWNDPARENT ${SW_SHOW}
+              Abort
+            ${EndIf}
+            StrCpy $OneKeyModernPackagePrepared "1"
+          !endif
+        !endif
+      !endif
+
+    OneKeyModernPrepareCommit:
+      nsis-duilib-ui::PrepareCommit
+      Pop $OneKeyModernResult
+      ${If} $OneKeyModernResult == "pending"
+        Sleep 80
+        Goto OneKeyModernPrepareCommit
+      ${ElseIf} $OneKeyModernResult == "cancel"
+        nsis-duilib-ui::ShutdownHidden
+        Pop $0
+        StrCpy $OneKeyModernUiActive "0"
+        SetErrorLevel 1
+        Quit
+      ${ElseIf} $OneKeyModernResult != "ok"
+        nsis-duilib-ui::Shutdown
+        Pop $0
+        StrCpy $OneKeyModernUiActive "0"
+        ShowWindow $HWNDPARENT ${SW_SHOW}
+        Abort
+      ${EndIf}
+    ${EndIf}
+  !macroend
+
+  !macro customPrepareAppPackage ARCHIVE
+    ${If} $OneKeyModernPackagePrepared != "1"
+      Nsis7z::Extract "${ARCHIVE}"
+    ${EndIf}
+  !macroend
 
   !macro customInstall
     !ifndef DO_NOT_CREATE_START_MENU_SHORTCUT

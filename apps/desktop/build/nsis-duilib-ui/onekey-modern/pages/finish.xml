@@ -23,7 +23,6 @@
         <Control height="34" />
         <HorizontalLayout height="48"><Control /><Button name="primary" text="{{string.finish.launch}}" textcolor="{{color.textPrimary}}" bkcolor="{{color.brand}}" hotbkcolor="{{color.brandHover}}" pushedbkcolor="{{color.brandPressed}}" width="220" height="48" borderround="11,11" font="3" /><Control /></HorizontalLayout>
         <Control height="28" />
-        <Label text="{{string.finish.safeHint}}" textcolor="{{color.textSecondary}}" height="26" align="center" />
         <Label text="OneKey {{runtime.version}}" textcolor="{{color.textSecondary}}" height="34" align="center" />
         <Control />
       </VerticalLayout>
