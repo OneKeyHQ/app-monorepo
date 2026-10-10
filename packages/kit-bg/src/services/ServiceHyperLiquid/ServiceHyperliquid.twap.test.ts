@@ -42,6 +42,8 @@ describe('ServiceHyperliquid TWAP response projection', () => {
         {
           coin: 'BTC',
           executedNtl: '0',
+          trigger: null,
+          stopPx: null,
           executedSz: '0',
           minutes: 5,
           randomize: false,

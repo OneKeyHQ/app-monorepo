@@ -35,6 +35,7 @@ import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdr
 import { useSpotMetaMaps } from '../../../hooks/useSpotMetaMaps';
 import { PerpTestIDs } from '../../../testIDs';
 import { isHyperLiquidUnifiedAccountMode } from '../../../utils';
+import { PerpsPartialAccountValueWarning } from '../../TradingPanel/components/PerpsAccountNumberValue';
 import { BalanceRow } from '../Components/BalanceRow';
 import { HideSmallSpotHoldingsCheckbox } from '../Components/HideSmallSpotHoldingsCheckbox';
 import { PerpHoldingsEmptyState } from '../Components/PerpHoldingsEmptyState';
@@ -388,14 +389,19 @@ function SpotBalanceList({
             <SizableText size="$bodyXs" color="$textSubdued">
               {intl.formatMessage({ id: ETranslations.perp_portfolio_value })}
             </SizableText>
-            <NumberSizeableText
-              size="$heading2xl"
-              formatter="value"
-              formatterOptions={{ currency: '$' }}
-              numberOfLines={1}
-            >
-              {accountValue}
-            </NumberSizeableText>
+            <XStack alignItems="center" gap="$2">
+              <NumberSizeableText
+                size="$heading2xl"
+                formatter="value"
+                formatterOptions={{ currency: '$' }}
+                numberOfLines={1}
+              >
+                {accountValue}
+              </NumberSizeableText>
+              {computedValue.isAccountValuePartial ? (
+                <PerpsPartialAccountValueWarning />
+              ) : null}
+            </XStack>
             <XStack gap="$1" alignItems="center">
               <SizableText size="$bodyXs" color="$textSubdued">
                 {intl.formatMessage({
@@ -448,6 +454,7 @@ function SpotBalanceList({
     ListHeaderComponent,
     canDeposit,
     computedValue.accountValue,
+    computedValue.isAccountValuePartial,
     computedValue.withdrawable,
     intl,
     isMobile,
