@@ -114,6 +114,9 @@ function createDecorator(decoratorArgs: IMethodDecoratorMetadata) {
         return result;
       } catch (error) {
         cleanupContext();
+        if (decoratorArgs.enqueueImmediately) {
+          throw error;
+        }
         if (!(decoratorArgs.devOnly && process.env.NODE_ENV === 'production')) {
           console.error(error);
         }
