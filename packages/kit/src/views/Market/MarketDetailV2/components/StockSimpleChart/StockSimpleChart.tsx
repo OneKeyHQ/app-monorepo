@@ -267,6 +267,7 @@ export function StockSimpleChart({
   // drops in the same render that the pulse stops.
   const holdLastClose = shouldHoldStockSimpleChartLastClose({
     intervalSeconds,
+    isOpen: isMarketOpen,
     nowSeconds: Math.floor(Date.now() / 1000),
     points: chartState.data,
     priceMode: requestPriceMode,

@@ -460,20 +460,27 @@ export function isStockSimpleChartSeriesStale({
  * `now` point would sit one step after the close yet carry the current time.
  * The bucket keeps its own price even when the title quote differs, as
  * TradingView does; nothing on the line is a price that was not printed then.
+ * A closed market holds outright: a weekend is shorter than three daily or
+ * weekly buckets, so staleness alone would let 1Y/All draw a weekend point.
  */
 export function shouldHoldStockSimpleChartLastClose({
   intervalSeconds,
+  isOpen,
   nowSeconds,
   points,
   priceMode,
 }: {
   intervalSeconds?: number;
+  isOpen?: boolean;
   nowSeconds: number;
   points: IMarketTokenChart;
   priceMode: 'share' | 'token';
 }): boolean {
+  if (priceMode !== 'share' || points.length === 0) {
+    return false;
+  }
   return (
-    priceMode === 'share' &&
+    isOpen === false ||
     isStockSimpleChartSeriesStale({ intervalSeconds, nowSeconds, points })
   );
 }
@@ -568,6 +575,7 @@ export function resolveStockSimpleChartDisplayPoints({
     holdLastCloseProp ??
     shouldHoldStockSimpleChartLastClose({
       intervalSeconds,
+      isOpen,
       nowSeconds,
       points,
       priceMode,

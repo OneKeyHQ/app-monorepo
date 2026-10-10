@@ -1200,6 +1200,56 @@ describe('shouldHoldStockSimpleChartLastClose', () => {
     ).toBe(true);
   });
 
+  it('holds a daily line through a closed weekend', () => {
+    const day = 24 * 60 * 60;
+    // Friday 2026-10-09 daily bucket, starting 00:00 EDT.
+    const fridayBucket = Date.parse('2026-10-09T04:00:00Z') / 1000;
+    const dailyBuckets: IMarketTokenChart = [
+      [fridayBucket - 2 * day, 228],
+      [fridayBucket - day, 229],
+      [fridayBucket, 229.28],
+    ];
+    // Sunday 12:00 EDT: 60h old, inside the 72h staleness window.
+    const sundayNoon = Date.parse('2026-10-11T16:00:00Z') / 1000;
+    expect(
+      shouldHoldStockSimpleChartLastClose({
+        nowSeconds: sundayNoon,
+        points: dailyBuckets,
+        priceMode: 'share',
+      }),
+    ).toBe(false);
+    expect(
+      shouldHoldStockSimpleChartLastClose({
+        isOpen: false,
+        nowSeconds: sundayNoon,
+        points: dailyBuckets,
+        priceMode: 'share',
+      }),
+    ).toBe(true);
+    expect(
+      resolveStockSimpleChartDisplayPoints({
+        isOpen: false,
+        livePrice: '229.28',
+        nowSeconds: sundayNoon,
+        points: dailyBuckets,
+        priceMode: 'share',
+        range: '1Y',
+      }),
+    ).toBe(dailyBuckets);
+  });
+
+  it('keeps the live tail of an open share session with fresh buckets', () => {
+    const lastBucket = postMarketBuckets[postMarketBuckets.length - 1][0];
+    expect(
+      shouldHoldStockSimpleChartLastClose({
+        isOpen: true,
+        nowSeconds: lastBucket + 2 * 60,
+        points: postMarketBuckets,
+        priceMode: 'share',
+      }),
+    ).toBe(false);
+  });
+
   it('never holds a token line', () => {
     expect(
       shouldHoldStockSimpleChartLastClose({
