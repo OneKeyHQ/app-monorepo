@@ -2075,6 +2075,11 @@ function TokenSelector() {
   // to the token list re-runs the effect, but only re-requests when the key
   // changed meanwhile (results for the current key are still held).
   const wasSecondaryTabActiveRef = useRef(false);
+  // Key of the results currently held, read through a ref: as a dependency
+  // it would re-run the effect on the effect's own results and send the same
+  // request again, past the debounce.
+  const heldSearchResultKeyRef = useRef(searchTokenList.searchKey);
+  heldSearchResultKeyRef.current = searchTokenList.searchKey;
   useEffect(() => {
     const returnedFromSecondaryTab =
       wasSecondaryTabActiveRef.current && !showSecondaryTab;
@@ -2082,7 +2087,10 @@ function TokenSelector() {
     if (showSecondaryTab) {
       return;
     }
-    if (returnedFromSecondaryTab && searchTokenList.searchKey === searchKey) {
+    if (
+      returnedFromSecondaryTab &&
+      heldSearchResultKeyRef.current === searchKey
+    ) {
       return;
     }
     if (searchAll && searchKey && searchKey.length >= SEARCH_KEY_MIN_LENGTH) {
@@ -2126,7 +2134,6 @@ function TokenSelector() {
     showSecondaryTab,
     searchAll,
     searchKey,
-    searchTokenList.searchKey,
     // Identity changes when the scope gates flip (e.g. `network` resolves
     // after the first keystrokes); re-run so the request carries the right
     // scope, as the pre-split effect did.
