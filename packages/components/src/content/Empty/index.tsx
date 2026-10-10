@@ -16,6 +16,8 @@ interface IEmptyProps extends YStackProps {
   icon?: IKeyOfIcons;
   iconProps?: IIconProps;
   illustration?: IIllustrationName;
+  // Resize a smaller in-card illustration; defaults stay 144 / mb $2.
+  illustrationProps?: Pick<IIconProps, 'size' | 'mb'>;
   title?: React.ReactNode;
   titleProps?: SizableTextProps;
   description?: React.ReactNode;
@@ -36,6 +38,7 @@ export function Empty(props: IEmptyProps) {
     icon,
     iconProps,
     illustration,
+    illustrationProps,
     title,
     titleProps,
     description,
@@ -46,7 +49,9 @@ export function Empty(props: IEmptyProps) {
   } = props;
   return (
     <YStack p="$5" alignItems="center" justifyContent="center" {...rest}>
-      {illustration ? <Illustration name={illustration} mb="$2" /> : null}
+      {illustration ? (
+        <Illustration name={illustration} mb="$2" {...illustrationProps} />
+      ) : null}
       {icon ? (
         <Icon
           name={icon}

@@ -15,9 +15,10 @@ import {
   getTradingViewChartSettingsValue,
   getTradingViewNativeChartSettings,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/chartSettingsAdapter';
+import type { ITradingViewNativeStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/types';
+import { useTradingViewNativeChartSettings } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/useTradingViewNativeSettings';
 import { useTradingViewPanelSettings } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/useTradingViewPanelSettings';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
-import { useMarketTradingViewChartSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -54,6 +55,7 @@ const NON_NATIVE_HIDDEN_OPTION_IDS = [
 >;
 
 type IMarketChartSettingsContentProps = {
+  storageNamespace?: ITradingViewNativeStorageNamespace;
   mobileLayout?: boolean;
   usePageFooter?: boolean;
   showPreviousClose?: boolean;
@@ -64,12 +66,17 @@ type IMarketChartSettingsContentProps = {
 function PanelChartSettingsContent(
   props: IMarketChartSettingsContentProps & { panelId: string },
 ) {
-  const { chartSettingsState } = useTradingViewPanelSettings(props.panelId);
+  const { chartSettingsState } = useTradingViewPanelSettings(
+    props.panelId,
+    props.storageNamespace,
+  );
   return <ChartSettingsContent {...props} settingsState={chartSettingsState} />;
 }
 
 function DefaultChartSettingsContent(props: IMarketChartSettingsContentProps) {
-  const settingsState = useMarketTradingViewChartSettingsPersistAtom();
+  const settingsState = useTradingViewNativeChartSettings(
+    props.storageNamespace,
+  );
   return <ChartSettingsContent {...props} settingsState={settingsState} />;
 }
 
@@ -88,9 +95,7 @@ function ChartSettingsContent({
   showPreviousClose = false,
   onClose,
 }: IMarketChartSettingsContentProps & {
-  settingsState: ReturnType<
-    typeof useMarketTradingViewChartSettingsPersistAtom
-  >;
+  settingsState: ReturnType<typeof useTradingViewNativeChartSettings>;
 }) {
   const [chartSettings, setChartSettings] = settingsState;
   const settingsValue = useMemo(
@@ -141,15 +146,18 @@ function ChartSettingsContent({
 
 export function showMarketChartSettingsDialog({
   panelId,
+  storageNamespace,
   showPreviousClose = false,
 }: {
   showPreviousClose?: boolean;
   panelId?: string;
+  storageNamespace?: ITradingViewNativeStorageNamespace;
 } = {}) {
   return showTradingViewChartSettingsDialog({
     renderContent: (closeDialog) => (
       <MarketChartSettingsContent
         panelId={panelId}
+        storageNamespace={storageNamespace}
         showPreviousClose={showPreviousClose}
         onClose={closeDialog}
       />
@@ -174,6 +182,7 @@ export default function MarketChartSettingsModal() {
       <Page.Body minHeight={0}>
         <MarketChartSettingsContent
           panelId={route.params?.panelId}
+          storageNamespace={route.params?.storageNamespace}
           usePageFooter={!md}
           mobileLayout={md}
           showPreviousClose={showPreviousClose}

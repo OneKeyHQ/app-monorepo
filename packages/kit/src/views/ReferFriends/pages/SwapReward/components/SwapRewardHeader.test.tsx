@@ -14,16 +14,25 @@ import type { ISwapCumulativeRewardsResponse } from '@onekeyhq/shared/src/referr
 import { SwapRewardHeader } from './SwapRewardHeader';
 
 const mockCards: IStatCardProps[] = [];
+const mockSummaries: Array<{
+  title: string;
+  hint?: string;
+  rows?: Array<{ label: string; value: string; hint?: string }>;
+}> = [];
 const mockMedia = { lg: false, md: false };
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
-    formatMessage: ({ id }: { id: string }) => id,
+    formatMessage: (
+      { id }: { id: string },
+      values?: Record<string, string | number>,
+    ) => (values ? `${id} ${Object.values(values).join(' ')}` : id),
   }),
 }));
 
 jest.mock('@onekeyhq/components', () => ({
   Stack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  YStack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   useMedia: () => mockMedia,
 }));
 
@@ -31,12 +40,12 @@ jest.mock('@onekeyhq/kit/src/components/Currency', () => ({
   useCurrency: () => ({ symbol: '$' }),
 }));
 
-jest.mock('@onekeyhq/kit/src/hooks/useFormatDate', () => ({
-  __esModule: true,
-  default: () => ({
-    format: () => 'Aug 1',
+jest.mock(
+  '@onekeyhq/kit/src/views/ReferFriends/hooks/useNextDistributionLabel',
+  () => ({
+    useNextDistributionLabel: (value?: string) => (value ? 'Aug 1' : null),
   }),
-}));
+);
 
 jest.mock('@onekeyhq/kit/src/views/ReferFriends/components', () => ({
   RewardHeaderLayout: ({
@@ -51,26 +60,12 @@ jest.mock('@onekeyhq/kit/src/views/ReferFriends/components', () => ({
       {secondaryCards}
     </>
   ),
-  ResponsiveFourColumnLayout: ({
-    firstColumn,
-    secondColumn,
-    thirdColumn,
-    fourthColumn,
-  }: {
-    firstColumn: ReactNode;
-    secondColumn: ReactNode;
-    thirdColumn: ReactNode;
-    fourthColumn: ReactNode;
-  }) => (
-    <>
-      {firstColumn}
-      {secondColumn}
-      {thirdColumn}
-      {fourthColumn}
-    </>
-  ),
   StatCard: (props: IStatCardProps) => {
     mockCards.push(props);
+    return <div />;
+  },
+  RewardSummaryCard: (props: (typeof mockSummaries)[number]) => {
+    mockSummaries.push(props);
     return <div />;
   },
 }));
@@ -101,6 +96,7 @@ const data: ISwapCumulativeRewardsResponse = {
 describe('SwapRewardHeader', () => {
   beforeEach(() => {
     mockCards.length = 0;
+    mockSummaries.length = 0;
     mockMedia.lg = false;
     mockMedia.md = false;
   });
@@ -121,27 +117,31 @@ describe('SwapRewardHeader', () => {
       `${ETranslations.referral_perps_total}: $3.00`,
     );
     expect(undistributedCard?.subtitle).toContain(
-      `${ETranslations.referral_next_distribution}: Aug 1`,
+      `${ETranslations.referral_next_payout__desc} Aug 1`,
     );
   });
 
-  it('uses the Perps-style primary and two-card layout on mobile', () => {
+  it('sums the figures up in one card on mobile', () => {
     mockMedia.lg = true;
     mockMedia.md = true;
 
     render(<SwapRewardHeader data={data} />);
 
-    expect(mockCards.map((card) => card.title)).toEqual([
-      ETranslations.referral_undistributed,
+    expect(mockCards).toHaveLength(0);
+    expect(mockSummaries).toHaveLength(1);
+    const [summary] = mockSummaries;
+    expect(summary.title).toBe(ETranslations.referral_undistributed);
+    expect(summary.hint).toBe(
+      `${ETranslations.referral_next_payout__desc} Aug 1`,
+    );
+    expect(summary.rows?.map((row) => row.label)).toEqual([
+      ETranslations.referral_perps_total,
       ETranslations.referral_perps_volume,
       ETranslations.referral_perps_invited_addresses,
     ]);
-    expect(mockCards[0].subtitle).toContain(
-      `${ETranslations.referral_perps_total}: $3.00`,
+    expect(summary.rows?.[0].value).toBe('3');
+    expect(summary.rows?.[1].hint).toBe(
+      `${ETranslations.referral_perps_onekey_fee}: $1.00`,
     );
-    expect(mockCards[0].subtitle).toContain(
-      `${ETranslations.referral_next_distribution}: Aug 1`,
-    );
-    expect(mockCards[0].fullWidth).toBe(true);
   });
 });

@@ -1,12 +1,8 @@
 import { GOOGLE_OAUTH_CLIENT_IDS } from './authConsts';
 
 export const GoogleSignInConfigure = {
-  scopes: [
-    'openid',
-    'profile',
-    'email',
-    'https://www.googleapis.com/auth/drive.file',
-  ],
+  // Drive permissions are requested by the native backup module on demand.
+  scopes: ['openid', 'profile', 'email'],
   offlineAccess: false,
   webClientId: GOOGLE_OAUTH_CLIENT_IDS.ANDROID,
 
