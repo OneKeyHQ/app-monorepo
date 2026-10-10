@@ -1,3 +1,4 @@
+import type { IDeviceSharedCallParams } from '../device';
 import type { EMessageTypesBtc } from '../message';
 
 export enum EBtcDappNetworkTypeEnum {
@@ -120,6 +121,7 @@ export interface IDeriveContextHashParams {
 // Service → keyring after the account is resolved and the network canonicalized.
 export interface IDeriveContextHashKeyringParams {
   password: string;
+  deviceParams?: IDeviceSharedCallParams;
   appName: string;
   canonicalNetworkName: string;
   connectedPubkey: string;

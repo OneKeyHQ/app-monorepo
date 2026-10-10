@@ -592,7 +592,8 @@ class ServiceDApp extends ServiceBase {
 
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const account = await vault.getAccount();
-    if (!account.pub) {
+    const connectedPubkey = account.pub;
+    if (!connectedPubkey) {
       throw new OneKeyLocalError(
         'Connected BTC account is missing a public key',
       );
@@ -600,18 +601,29 @@ class ServiceDApp extends ServiceBase {
 
     // Password-prompt cancel throws PasswordPromptDialogCancel; the modal
     // treats it as a sub-prompt cancel and leaves the staged entry for retry.
-    const { password } =
+    const { password, deviceParams } =
       await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
         accountId,
       });
 
-    const result = await vault.keyring.deriveContextHash({
-      password,
-      appName,
-      canonicalNetworkName,
-      connectedPubkey: account.pub,
-      context,
-    });
+    const derive = () =>
+      vault.keyring.deriveContextHash({
+        password,
+        deviceParams,
+        appName,
+        canonicalNetworkName,
+        connectedPubkey,
+        context,
+      });
+    const result = deviceParams
+      ? await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+          derive,
+          {
+            deviceParams,
+            debugMethodName: 'serviceDApp.executeDeriveContextHash',
+          },
+        )
+      : await derive();
 
     // Consume only on success so the user can retry after a derivation error.
     await this.completeDeriveContextHashRequest(nonce);

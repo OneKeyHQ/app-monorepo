@@ -33,6 +33,8 @@ import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import type { IDeviceResponse } from '@onekeyhq/shared/types/device';
+import type { IDeriveContextHashKeyringParams } from '@onekeyhq/shared/types/ProviderApis/ProviderApiBtc.type';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
@@ -46,10 +48,50 @@ import type {
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
-import type { HDNodeType, PROTO, RefTransaction } from '@onekeyfe/hd-core';
+import type {
+  CommonParams,
+  HDNodeType,
+  PROTO,
+  RefTransaction,
+} from '@onekeyfe/hd-core';
 
 export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
   abstract override coreApi: CoreChainSoftwareBtc | undefined;
+
+  override async deriveContextHash(
+    params: IDeriveContextHashKeyringParams,
+  ): Promise<string> {
+    const account = await this.vault.getAccount();
+    const { dbDevice, deviceCommonParams } = checkIsDefined(
+      params.deviceParams,
+    );
+    const { connectId, deviceId } = dbDevice;
+    const sdk = await this.getHardwareSDKInstance({ connectId });
+    // The SDK version bump will provide this method's exported types.
+    const deriveSdk = sdk as typeof sdk & {
+      btcDeriveContextHash: (
+        connectId: string,
+        deviceId: string,
+        params: CommonParams & {
+          path: string;
+          appName: string;
+          context: string;
+          network: string;
+        },
+      ) => IDeviceResponse<{ secret: string }>;
+    };
+    const response = await deriveSdk.btcDeriveContextHash(connectId, deviceId, {
+      ...deviceCommonParams,
+      path: `${account.path}/${account.relPath ?? '0/0'}`,
+      appName: params.appName,
+      context: params.context,
+      network: params.canonicalNetworkName,
+    });
+    if (!response.success) {
+      throw convertDeviceError(response.payload);
+    }
+    return response.payload.secret;
+  }
 
   override buildPrepareAccountsPrefixedPath(
     params: IBuildPrepareAccountsPrefixedPathParams,
