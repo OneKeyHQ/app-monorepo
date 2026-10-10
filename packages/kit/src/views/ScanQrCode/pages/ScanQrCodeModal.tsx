@@ -1,7 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import { launchImageLibraryAsync } from 'expo-image-picker';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -22,6 +21,7 @@ import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import PhotoLibrary from '@onekeyhq/shared/src/modules3rdParty/photo-library';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EScanQrCodeModalPages,
@@ -231,18 +231,17 @@ export default function ScanQrCodeModal() {
   const isPickedImage = useRef(false);
 
   const pickImage = useCallback(async () => {
-    const result = await launchImageLibraryAsync({
-      base64: !platformEnv.isNative,
-      allowsMultipleSelection: false,
-    });
+    const result = await PhotoLibrary.pickImage();
 
     if (!result.canceled) {
-      const uri = result?.assets?.[0]?.uri;
+      const uri = result.uri;
       let data: string | null = null;
       try {
         data = await scanFromURLAsync(uri);
       } catch {
         data = null;
+      } finally {
+        await PhotoLibrary.releasePickedImage(uri).catch(() => {});
       }
       if (data && data.length > 0) {
         isPickedImage.current = true;
