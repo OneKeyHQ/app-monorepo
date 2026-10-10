@@ -195,6 +195,13 @@ export async function fetchSwapStockVariantToken(
       'Stock token detail does not match the selected variant',
     );
   }
+  if (
+    detail.decimalsResolved === false ||
+    !Number.isInteger(detail.decimals) ||
+    detail.decimals < 0
+  ) {
+    throw new OneKeyLocalError('Stock token decimals are unavailable');
+  }
   const token = buildStockSwapTokenFromMarketListToken({
     ...detail,
     firstTradeTime:

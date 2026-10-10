@@ -319,6 +319,55 @@ describe('prepareStockSwapEntry', () => {
     expect(store.get(swapSelectToTokenAtom())).toBeUndefined();
   });
 
+  it('uses an eligible stablecoin instead of an unsupported Stock receive token', () => {
+    const store = jotaiContextStore.getOrCreateStore(swapStoreData);
+    store.set(swapSelectToTokenAtom(), ordinaryFromToken);
+    store.set(swapSelectFromTokenAtom(), ordinaryToToken);
+    const stockToken = { ...proToken, isStock: true };
+    const entry = prepareStockSwapEntry({
+      token: stockToken,
+      direction: 'from',
+    });
+    expect(entry.toToken).toBe(ordinaryToToken);
+    expect(store.get(swapSelectToTokenAtom())).toBe(ordinaryToToken);
+  });
+
+  it('leaves Stock receive selection to the channel when no eligible token exists', () => {
+    const store = jotaiContextStore.getOrCreateStore(swapStoreData);
+    store.set(swapSelectToTokenAtom(), ordinaryFromToken);
+    store.set(swapSelectFromTokenAtom(), { ...proToken, isStock: true });
+    store.set(swapFromTokenAmountAtom(), { value: '2', isInput: true });
+    store.set(swapToTokenAmountAtom(), { value: '100', isInput: false });
+    const entry = prepareStockSwapEntry({
+      token: { ...proToken, isStock: true },
+      direction: 'from',
+    });
+    expect(entry.toToken).toBeUndefined();
+    expect(store.get(swapSelectToTokenAtom())).toBeUndefined();
+    expect(store.get(swapFromTokenAmountAtom()).value).toBe('');
+    expect(store.get(swapToTokenAmountAtom()).value).toBe('');
+  });
+
+  it('preserves Stock Sell amounts when opening the same incomplete pair again', () => {
+    const store = jotaiContextStore.getOrCreateStore(swapStoreData);
+    const stockToken = { ...proToken, isStock: true };
+    prepareStockSwapEntry({ token: stockToken, direction: 'from' });
+    const fromAmount = { value: '2', isInput: true };
+    const toAmount = { value: '100', isInput: false };
+    store.set(swapFromTokenAmountAtom(), fromAmount);
+    store.set(swapToTokenAmountAtom(), toAmount);
+    prepareStockSwapEntry({ token: stockToken, direction: 'from' });
+    expect(store.get(swapFromTokenAmountAtom())).toBe(fromAmount);
+    expect(store.get(swapToTokenAmountAtom())).toBe(toAmount);
+    expect(store.get(swapSelectToTokenAtom())).toBeUndefined();
+    prepareStockSwapEntry({
+      token: { ...stockToken, contractAddress: '0xother-stock' },
+      direction: 'from',
+    });
+    expect(store.get(swapFromTokenAmountAtom()).value).toBe('');
+    expect(store.get(swapToTokenAmountAtom()).value).toBe('');
+  });
+
   it('opens the stock tab on the tapped token and drops the previous stock pair', () => {
     const store = jotaiContextStore.getOrCreateStore(swapStoreData);
     const previousStock: ISwapToken = {

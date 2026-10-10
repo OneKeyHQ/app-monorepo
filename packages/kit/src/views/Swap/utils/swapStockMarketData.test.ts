@@ -525,6 +525,34 @@ describe('Swap stock selection response mapping', () => {
     });
   });
 
+  it.each<Partial<IMarketTokenDetail>>([
+    { decimals: undefined },
+    { decimals: -1 },
+    { decimals: 1.5 },
+    { decimals: Number.NaN },
+    { decimals: Number.POSITIVE_INFINITY },
+    { decimals: 0, decimalsResolved: false },
+  ])(
+    'rejects a Stock selection with unresolved decimals %p',
+    async (overrides) => {
+      fetchDetailMock.mockResolvedValueOnce(
+        buildDetailResponse(buildDetail(overrides)),
+      );
+      await expect(
+        fetchSwapStockVariantToken(buildVariant(), stock.stockId),
+      ).rejects.toThrow('Stock token decimals are unavailable');
+    },
+  );
+
+  it('accepts an authoritative zero-decimal Stock token', async () => {
+    fetchDetailMock.mockResolvedValueOnce(
+      buildDetailResponse(buildDetail({ decimals: 0, decimalsResolved: true })),
+    );
+    await expect(
+      fetchSwapStockVariantToken(buildVariant(), stock.stockId),
+    ).resolves.toMatchObject({ decimals: 0 });
+  });
+
   it('matches stock identities without depending on backend casing', async () => {
     fetchDetailMock.mockResolvedValueOnce(
       buildDetailResponse(

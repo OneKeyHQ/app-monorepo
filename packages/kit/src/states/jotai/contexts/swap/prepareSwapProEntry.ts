@@ -1,4 +1,5 @@
 import type { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
+import { filterStockPayTokenCandidates } from '@onekeyhq/kit/src/views/Swap/hooks/swapStockChannelUtils';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
@@ -30,7 +31,7 @@ export type IPreparedMarketSwapEntry = {
 
 function isSameSwapToken(left?: ISwapToken, right?: ISwapToken) {
   if (!left || !right) {
-    return false;
+    return left === right;
   }
   return (
     left.networkId === right.networkId &&
@@ -97,6 +98,7 @@ export function prepareStockSwapEntry({
     const nextToToken = [toToken, fromToken].find(
       (candidate) =>
         candidate &&
+        filterStockPayTokenCandidates([candidate]).length > 0 &&
         !candidate.isStock &&
         candidate.networkId === stockToken.networkId &&
         !isSameSwapToken(candidate, stockToken),
