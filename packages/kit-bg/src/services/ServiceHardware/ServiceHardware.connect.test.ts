@@ -28,6 +28,7 @@ import ServiceHardware from './ServiceHardware';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBDevice, IDBWallet } from '../../dbs/local/types';
 import type { ISimpleDBAppStatus } from '../../dbs/simple/entity/SimpleDbEntityAppStatus';
+import type { IInstallOneKeyUdevRulesResult } from '../../desktopApis/DesktopApiSystem';
 import type {
   Features,
   SearchDevice,
@@ -226,6 +227,90 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
       { reason: 'snap' },
     );
   });
+  it.each([
+    ['failed', 'webusb-access-denied'],
+    ['missing result', 'webusb-access-denied'],
+    ['exception', 'failed'],
+    ['cancelled', undefined],
+  ] as const)(
+    'handles the first Linux udev installation %s without repeated guidance',
+    async (outcome, expectedReason) => {
+      const originalDescriptor = Object.getOwnPropertyDescriptor(
+        globalThis,
+        'desktopApiProxy',
+      );
+      const installOneKeyUdevRules = jest.fn(
+        async (): Promise<IInstallOneKeyUdevRulesResult | undefined> =>
+          undefined,
+      );
+      if (outcome === 'exception') {
+        installOneKeyUdevRules.mockRejectedValue(
+          new Error('installation failed'),
+        );
+      } else if (outcome !== 'missing result') {
+        installOneKeyUdevRules.mockResolvedValue({
+          supported: true,
+          installed: false,
+          needsManualInstall: false,
+          skippedReason: outcome,
+        });
+      }
+      Object.defineProperty(globalThis, 'desktopApiProxy', {
+        configurable: true,
+        value: { system: { installOneKeyUdevRules } },
+      });
+      jest.useFakeTimers({ doNotFake: ['performance'] });
+      try {
+        const emit = jest.spyOn(appEventBus, 'emit');
+        const service = new ServiceHardware({
+          backgroundApi: {} as IBackgroundApi,
+        });
+        const internals = service as unknown as {
+          isDesktopLinuxRuntime(): boolean;
+          isDesktopLinuxSnapRuntime(): boolean;
+          isDesktopLinuxFlatpakRuntime(): boolean;
+        };
+        jest.spyOn(internals, 'isDesktopLinuxRuntime').mockReturnValue(true);
+        jest
+          .spyOn(internals, 'isDesktopLinuxSnapRuntime')
+          .mockReturnValue(false);
+        jest
+          .spyOn(internals, 'isDesktopLinuxFlatpakRuntime')
+          .mockReturnValue(false);
+        const params = {
+          error: { code: HardwareErrorCode.BridgeNeedsPermission },
+        };
+        await expect(
+          service.handleLinuxWebUsbAccessDeniedError(params),
+        ).resolves.toBe(false);
+        if (expectedReason) {
+          expect(emit).toHaveBeenCalledWith(
+            EAppEventBusNames.ShowLinuxBundleUdevGuide,
+            { reason: expectedReason },
+          );
+        } else {
+          expect(emit).not.toHaveBeenCalled();
+        }
+        await service.handleLinuxWebUsbAccessDeniedError(params);
+        expect(installOneKeyUdevRules).toHaveBeenCalledTimes(1);
+        jest.advanceTimersByTime(5001);
+        await service.handleLinuxWebUsbAccessDeniedError(params);
+        expect(installOneKeyUdevRules).toHaveBeenCalledTimes(2);
+        expect(emit).toHaveBeenCalledTimes(expectedReason ? 1 : 0);
+      } finally {
+        jest.useRealTimers();
+        if (originalDescriptor) {
+          Object.defineProperty(
+            globalThis,
+            'desktopApiProxy',
+            originalDescriptor,
+          );
+        } else {
+          Reflect.deleteProperty(globalThis, 'desktopApiProxy');
+        }
+      }
+    },
+  );
   beforeEach(() => {
     jest.clearAllMocks();
     HardwareConnectionManager.resetInstance();

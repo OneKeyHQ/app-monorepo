@@ -2529,21 +2529,17 @@ class ServiceHardware extends ServiceBase {
             Date.now() + LINUX_UDEV_RULES_INSTALL_RETRY_DELAY_MS;
           return false;
         }
-        const shouldShowManualGuide =
-          this.markLinuxUdevRulesInstallFailed() ||
-          result.needsManualInstall ||
-          result.skippedReason === 'missing-pkexec';
-        if (shouldShowManualGuide) {
-          this.notifyLinuxUdevManualInstallIfNeeded({
-            force: true,
-            reason:
-              result.needsManualInstall ||
-              result.skippedReason === 'missing-pkexec'
-                ? result.skippedReason
-                : 'webusb-access-denied',
-          });
-        }
-      } else if (this.markLinuxUdevRulesInstallFailed()) {
+        this.markLinuxUdevRulesInstallFailed();
+        this.notifyLinuxUdevManualInstallIfNeeded({
+          force: true,
+          reason:
+            result.needsManualInstall ||
+            result.skippedReason === 'missing-pkexec'
+              ? result.skippedReason
+              : 'webusb-access-denied',
+        });
+      } else {
+        this.markLinuxUdevRulesInstallFailed();
         this.notifyLinuxUdevManualInstallIfNeeded({
           force: true,
           reason: 'webusb-access-denied',
@@ -2554,12 +2550,11 @@ class ServiceHardware extends ServiceBase {
         '[LinuxWebUSB] Failed to install OneKey udev rules',
         error instanceof Error ? error.message : String(error),
       );
-      if (this.markLinuxUdevRulesInstallFailed()) {
-        this.notifyLinuxUdevManualInstallIfNeeded({
-          force: true,
-          reason: 'failed',
-        });
-      }
+      this.markLinuxUdevRulesInstallFailed();
+      this.notifyLinuxUdevManualInstallIfNeeded({
+        force: true,
+        reason: 'failed',
+      });
     }
     return false;
   }
