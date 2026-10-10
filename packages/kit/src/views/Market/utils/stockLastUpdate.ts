@@ -1,3 +1,5 @@
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+
 /**
  * The share price stops moving outside regular trading, so a closed or
  * overnight market shows when the quote feed last changed it. The label is the
@@ -29,7 +31,8 @@ export function formatStockLastUpdateTime(value?: string): string | undefined {
     return undefined;
   }
   const date = new Date(timestamp);
-  const hours = `${date.getHours()}`.padStart(2, '0');
-  const minutes = `${date.getMinutes()}`.padStart(2, '0');
-  return `${hours}:${minutes} ${formatUtcOffsetLabel(date)}`;
+  // A price frozen over a weekend or holiday would read as today's without
+  // the date. Month/day matches the Perps timestamps (`LL/dd, HH:mm`).
+  const dateTime = formatDate(date, { hideYear: true, hideSeconds: true });
+  return `${dateTime} ${formatUtcOffsetLabel(date)}`;
 }
