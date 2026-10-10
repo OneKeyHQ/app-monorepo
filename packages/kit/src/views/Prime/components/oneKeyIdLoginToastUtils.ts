@@ -1,4 +1,8 @@
 import { Toast } from '@onekeyhq/components';
+import {
+  EOAuthSocialLoginProvider,
+  OAUTH_FLOW_TIMEOUT_ERROR_MESSAGE,
+} from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
@@ -9,6 +13,13 @@ import {
 } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getOAuthSocialLoginProviderName } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
+import type { IOneKeyIdAuthFailureStep } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
+import {
+  isRetryableSupabaseAuthError,
+  isSupabaseAuthError,
+} from '@onekeyhq/shared/src/utils/supabaseAuthErrorUtils';
 
 import { scrubSensitiveErrorMessageText } from '../../../utils/sensitiveErrorMessageUtils';
 
@@ -160,7 +171,11 @@ export function getSanitizedAuthErrorText(error: unknown): string {
 // failure classes into one string). Deliberately does NOT touch the
 // onekeyIdLoginFailedToast event or its dedupe mark: that event strictly
 // means "the fallback toast was shown" and keeps firing on its own terms.
-export function logOneKeyIdLoginFailureReason(reason: string, error?: unknown) {
+export function logOneKeyIdLoginFailureReason(
+  reason: string,
+  error?: unknown,
+  step?: IOneKeyIdAuthFailureStep,
+) {
   if (
     error &&
     typeof error === 'object' &&
@@ -172,9 +187,114 @@ export function logOneKeyIdLoginFailureReason(reason: string, error?: unknown) {
   console.error(safeReason);
   defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
     reason: safeReason,
+    step,
   });
   if (error && typeof error === 'object') {
     oneKeyIdFailureReasonLoggedErrors.add(error);
+  }
+}
+
+// Google Play services reports "this device cannot reach Google" as
+// CommonStatusCodes.NETWORK_ERROR; @react-native-google-signin delivers the
+// status as a string code.
+const GOOGLE_PLAY_SERVICES_NETWORK_ERROR_CODE = '7';
+
+// chrome.identity.launchWebAuthFlow rejects with this fixed message when any
+// page of the sign-in flow fails to load. Chrome shows no error page of its
+// own, and does not say whether the auth service or the provider failed.
+const EXT_AUTH_PAGE_LOAD_FAILED_MESSAGE =
+  'Authorization page could not be loaded';
+
+// Decide what an OAuth sign-in failure means for the user and, when a signal
+// reliably identifies it, which hop failed. Any other failure keeps the
+// generic copy and reports no step.
+export function getOAuthSignInFailureInfo({
+  error,
+  provider,
+}: {
+  error: unknown;
+  provider: EOAuthSocialLoginProvider;
+}): {
+  step?: IOneKeyIdAuthFailureStep;
+  key?: ETranslations;
+  values?: Record<string, string>;
+} {
+  if (isSupabaseAuthError(error)) {
+    return {
+      step: 'auth',
+      // Not global_network_error: the auto toast drops that exact copy.
+      key: isRetryableSupabaseAuthError(error)
+        ? ETranslations.auth_sign_in_network_failed__msg
+        : undefined,
+    };
+  }
+  const { code, message } = (error ?? {}) as {
+    code?: unknown;
+    message?: unknown;
+  };
+  const values = { provider: getOAuthSocialLoginProviderName(provider) };
+  if (
+    platformEnv.isNativeAndroid &&
+    provider === EOAuthSocialLoginProvider.Google &&
+    code === GOOGLE_PLAY_SERVICES_NETWORK_ERROR_CODE
+  ) {
+    return {
+      step: 'provider',
+      key: ETranslations.auth_provider_sign_in_page_failed__msg,
+      values,
+    };
+  }
+  if (
+    platformEnv.isExtension &&
+    typeof message === 'string' &&
+    message.includes(EXT_AUTH_PAGE_LOAD_FAILED_MESSAGE)
+  ) {
+    return {
+      key: ETranslations.auth_provider_sign_in_page_failed__msg,
+      values,
+    };
+  }
+  // The browser never came back; whether the page loaded is unknown.
+  if (message === OAUTH_FLOW_TIMEOUT_ERROR_MESSAGE) {
+    return { key: ETranslations.auth_provider_sign_in_page_hint__msg, values };
+  }
+  return {};
+}
+
+// A sign-in page that cannot load inside a browser surface ends as a user
+// cancel, which the app cannot tell from a deliberate one. Stay silent the
+// first time; when the same provider is cancelled again shortly after, offer
+// a conditional network hint. Not on the extension: Chrome shows its sign-in
+// window only after the page has loaded, so a cancel there proves it did.
+const OAUTH_CANCEL_HINT_WINDOW_MS = 5 * 60 * 1000;
+let lastCancelledOAuthSignIn:
+  | { provider: EOAuthSocialLoginProvider; at: number }
+  | undefined;
+
+export function noteOAuthSignInOutcome({
+  intl,
+  provider,
+  cancelled,
+}: {
+  intl: IntlShape;
+  provider: EOAuthSocialLoginProvider;
+  cancelled: boolean;
+}) {
+  const previous = lastCancelledOAuthSignIn;
+  const now = Date.now();
+  lastCancelledOAuthSignIn = cancelled ? { provider, at: now } : undefined;
+  if (
+    cancelled &&
+    !platformEnv.isExtension &&
+    previous?.provider === provider &&
+    now - previous.at < OAUTH_CANCEL_HINT_WINDOW_MS
+  ) {
+    Toast.message({
+      title: intl.formatMessage(
+        { id: ETranslations.auth_provider_sign_in_page_hint__msg },
+        { provider: getOAuthSocialLoginProviderName(provider) },
+      ),
+    });
   }
 }
 
@@ -185,15 +305,19 @@ export function throwLocalizedOneKeyIdLoginError({
   intl,
   reason,
   key = ETranslations.global_unknown_error_retry_message,
+  values,
+  step,
 }: {
   intl: IntlShape;
   reason: string;
   key?: ETranslations;
+  values?: Record<string, string>;
+  step?: IOneKeyIdAuthFailureStep;
 }): never {
   const error = new OneKeyLocalError({
-    message: intl.formatMessage({ id: key }),
+    message: intl.formatMessage({ id: key }, values),
     key,
   });
-  logOneKeyIdLoginFailureReason(reason, error);
+  logOneKeyIdLoginFailureReason(reason, error, step);
   throw error;
 }

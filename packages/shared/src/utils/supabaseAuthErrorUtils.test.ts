@@ -1,6 +1,7 @@
 import {
   SupabaseStorageTransientError,
   isRetryableSupabaseAuthError,
+  isSupabaseAuthError,
 } from './supabaseAuthErrorUtils';
 
 describe('isRetryableSupabaseAuthError', () => {
@@ -122,5 +123,25 @@ describe('isRetryableSupabaseAuthError', () => {
         false,
       );
     });
+  });
+});
+
+describe('isSupabaseAuthError', () => {
+  test.each(['AuthApiError', 'AuthRetryableFetchError', 'AuthUnknownError'])(
+    '%s comes from the Supabase auth client',
+    (name) => {
+      expect(isSupabaseAuthError({ name })).toBe(true);
+    },
+  );
+
+  test.each([
+    { name: 'OneKeyLocalError' },
+    { name: 'com.google.android.gms.common.api.ApiException' },
+    { name: 'Error' },
+    {},
+    undefined,
+    null,
+  ])('%j does not', (error) => {
+    expect(isSupabaseAuthError(error)).toBe(false);
   });
 });

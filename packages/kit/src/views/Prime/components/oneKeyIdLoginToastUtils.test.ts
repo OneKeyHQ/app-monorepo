@@ -1,13 +1,22 @@
 import { Toast } from '@onekeyhq/components';
 import {
+  EOAuthSocialLoginProvider,
+  OAUTH_FLOW_TIMEOUT_ERROR_MESSAGE,
+} from '@onekeyhq/shared/src/consts/authConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
   getOneKeyIdAuthFailureServerParams,
   getSanitizedErrorLogText,
 } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 
 import {
+  getOAuthSignInFailureInfo,
   logOneKeyIdLoginFailureReason,
+  noteOAuthSignInOutcome,
   scrubSensitiveErrorMessageText,
   showOneKeyIdLoginFailedToast,
+  throwLocalizedOneKeyIdLoginError,
 } from './oneKeyIdLoginToastUtils';
 
 const mockOneKeyIdLoginFailedReason = jest.fn();
@@ -15,6 +24,7 @@ const mockOneKeyIdLoginFailedReason = jest.fn();
 jest.mock('@onekeyhq/components', () => ({
   Toast: {
     error: jest.fn(),
+    message: jest.fn(),
   },
 }));
 
@@ -271,5 +281,205 @@ describe('showOneKeyIdLoginFailedToast', () => {
       reason:
         'OneKey ID fallback toast skipped: Post-login continuation failed',
     });
+  });
+});
+
+describe('getOAuthSignInFailureInfo', () => {
+  const originalIsNativeAndroid = platformEnv.isNativeAndroid;
+  const originalIsExtension = platformEnv.isExtension;
+  // Shape of the GoogleSignin.signIn() rejection when Play services cannot
+  // reach Google (CommonStatusCodes.NETWORK_ERROR).
+  const googleNetworkError = Object.assign(new Error('NETWORK_ERROR'), {
+    name: 'com.google.android.gms.common.api.ApiException',
+    code: '7',
+  });
+
+  afterEach(() => {
+    platformEnv.isNativeAndroid = originalIsNativeAndroid;
+    platformEnv.isExtension = originalIsExtension;
+  });
+
+  test('names the provider when Play services cannot reach Google', () => {
+    platformEnv.isNativeAndroid = true;
+
+    expect(
+      getOAuthSignInFailureInfo({
+        error: googleNetworkError,
+        provider: EOAuthSocialLoginProvider.Google,
+      }),
+    ).toEqual({
+      step: 'provider',
+      key: ETranslations.auth_provider_sign_in_page_failed__msg,
+      values: { provider: 'Google' },
+    });
+  });
+
+  test('does not read the same code as a provider outage elsewhere', () => {
+    expect(
+      getOAuthSignInFailureInfo({
+        error: googleNetworkError,
+        provider: EOAuthSocialLoginProvider.Google,
+      }),
+    ).toEqual({});
+
+    platformEnv.isNativeAndroid = true;
+    expect(
+      getOAuthSignInFailureInfo({
+        error: googleNetworkError,
+        provider: EOAuthSocialLoginProvider.Apple,
+      }),
+    ).toEqual({});
+    expect(
+      getOAuthSignInFailureInfo({
+        error: Object.assign(new Error('INTERNAL_ERROR'), { code: '8' }),
+        provider: EOAuthSocialLoginProvider.Google,
+      }),
+    ).toEqual({});
+  });
+
+  test.each([
+    { name: 'AuthRetryableFetchError', status: 0 },
+    { name: 'AuthRetryableFetchError', status: 503 },
+    { name: 'AuthUnknownError' },
+  ])(
+    'asks to check the connection when the auth service fails with %j',
+    (error) => {
+      expect(
+        getOAuthSignInFailureInfo({
+          error,
+          provider: EOAuthSocialLoginProvider.Apple,
+        }),
+      ).toEqual({
+        step: 'auth',
+        key: ETranslations.auth_sign_in_network_failed__msg,
+      });
+    },
+  );
+
+  test('names the provider when the extension sign-in page fails to load', () => {
+    // chrome.identity.launchWebAuthFlow rejection; the failing hop is unknown.
+    const loadFailure = new Error('Authorization page could not be loaded.');
+    const args = {
+      error: loadFailure,
+      provider: EOAuthSocialLoginProvider.Apple,
+    };
+
+    expect(getOAuthSignInFailureInfo(args)).toEqual({});
+
+    platformEnv.isExtension = true;
+    expect(getOAuthSignInFailureInfo(args)).toEqual({
+      key: ETranslations.auth_provider_sign_in_page_failed__msg,
+      values: { provider: 'Apple' },
+    });
+  });
+
+  test('offers the conditional hint when the browser flow times out', () => {
+    expect(
+      getOAuthSignInFailureInfo({
+        error: new Error(OAUTH_FLOW_TIMEOUT_ERROR_MESSAGE),
+        provider: EOAuthSocialLoginProvider.Google,
+      }),
+    ).toEqual({
+      key: ETranslations.auth_provider_sign_in_page_hint__msg,
+      values: { provider: 'Google' },
+    });
+  });
+
+  test('keeps the generic copy for every other failure', () => {
+    const rejected = getOAuthSignInFailureInfo({
+      error: { name: 'AuthApiError', status: 400 },
+      provider: EOAuthSocialLoginProvider.Google,
+    });
+
+    expect(rejected.step).toBe('auth');
+    expect(rejected.key).toBeUndefined();
+    expect(
+      getOAuthSignInFailureInfo({
+        error: new Error('OAuth state mismatch'),
+        provider: EOAuthSocialLoginProvider.Google,
+      }),
+    ).toEqual({});
+  });
+});
+
+describe('noteOAuthSignInOutcome', () => {
+  const originalIsExtension = platformEnv.isExtension;
+  const intl = {
+    formatMessage: jest.fn(
+      (_descriptor: unknown, values?: { provider?: string }) =>
+        `hint for ${values?.provider ?? ''}`,
+    ),
+  };
+  const note = (provider: EOAuthSocialLoginProvider, cancelled: boolean) =>
+    noteOAuthSignInOutcome({ intl: intl as never, provider, cancelled });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // Start every test without a remembered cancel.
+    note(EOAuthSocialLoginProvider.Google, false);
+  });
+
+  afterEach(() => {
+    platformEnv.isExtension = originalIsExtension;
+  });
+
+  test('hints when the same provider is cancelled twice in a row', () => {
+    note(EOAuthSocialLoginProvider.Google, true);
+    expect(Toast.message).not.toHaveBeenCalled();
+
+    note(EOAuthSocialLoginProvider.Google, true);
+    expect(Toast.message).toHaveBeenCalledWith({ title: 'hint for Google' });
+    expect(intl.formatMessage).toHaveBeenCalledWith(
+      { id: ETranslations.auth_provider_sign_in_page_hint__msg },
+      { provider: 'Google' },
+    );
+  });
+
+  test('stays silent when the cancels are not consecutive for one provider', () => {
+    note(EOAuthSocialLoginProvider.Google, true);
+    note(EOAuthSocialLoginProvider.Apple, true);
+    note(EOAuthSocialLoginProvider.Apple, false);
+    note(EOAuthSocialLoginProvider.Apple, true);
+
+    expect(Toast.message).not.toHaveBeenCalled();
+  });
+
+  test('stays silent on the extension, where a cancel proves the page loaded', () => {
+    platformEnv.isExtension = true;
+    note(EOAuthSocialLoginProvider.Google, true);
+    note(EOAuthSocialLoginProvider.Google, true);
+
+    expect(Toast.message).not.toHaveBeenCalled();
+  });
+});
+
+describe('throwLocalizedOneKeyIdLoginError', () => {
+  test('formats the copy with its values and reports the failed step', () => {
+    jest.clearAllMocks();
+    const consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const intl = {
+      formatMessage: jest.fn(() => "Can't connect to Google"),
+    };
+
+    expect(() =>
+      throwLocalizedOneKeyIdLoginError({
+        intl: intl as never,
+        reason: 'OneKey ID OAuth sign-in failed: name=Error',
+        key: ETranslations.auth_provider_sign_in_page_failed__msg,
+        values: { provider: 'Google' },
+        step: 'provider',
+      }),
+    ).toThrow("Can't connect to Google");
+    expect(intl.formatMessage).toHaveBeenCalledWith(
+      { id: ETranslations.auth_provider_sign_in_page_failed__msg },
+      { provider: 'Google' },
+    );
+    expect(mockOneKeyIdLoginFailedReason).toHaveBeenCalledWith({
+      reason: 'OneKey ID OAuth sign-in failed: name=Error',
+      step: 'provider',
+    });
+    consoleErrorSpy.mockRestore();
   });
 });
