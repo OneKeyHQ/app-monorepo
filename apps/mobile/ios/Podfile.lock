@@ -385,9 +385,9 @@ PODS:
     - AppAuth/Core (~> 2.0)
     - GTMSessionFetcher/Core (< 4.0, >= 3.3)
   - GTMSessionFetcher/Core (3.5.0)
-  - hermes-engine (250829098.0.16):
-    - hermes-engine/Pre-built (= 250829098.0.16)
-  - hermes-engine/Pre-built (250829098.0.16)
+  - hermes-engine (250829098.0.19):
+    - hermes-engine/Pre-built (= 250829098.0.19)
+  - hermes-engine/Pre-built (250829098.0.19)
   - ImageColors (2.5.0):
     - ExpoModulesCore
   - JCoreRN (2.3.2):
@@ -4154,7 +4154,7 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native/Libraries/FBLazyVector"
   hermes-engine:
     :podspec: "../../../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec"
-    :tag: hermes-v250829098.0.16
+    :tag: hermes-v250829098.0.19
   ImageColors:
     :path: "../../../node_modules/react-native-image-colors/ios"
   JCoreRN:
@@ -4499,7 +4499,7 @@ SPEC CHECKSUMS:
   GoogleUtilities: 00c88b9a86066ef77f0da2fab05f65d7768ed8e1
   GTMAppAuth: 217a876b249c3c585a54fd6f73e6b58c4f5c4238
   GTMSessionFetcher: 5aea5ba6bd522a239e236100971f10cb71b96ab6
-  hermes-engine: efd64fa18d0ad583cd32c693f2bca975e61f1245
+  hermes-engine: ca191dc6ae2dea775241f1b766ee695cba1a4467
   ImageColors: 51cd79f7a9d2524b7a681c660b0a50574085563b
   JCoreRN: d985de509185b381c177fde4bb6bfc686089fdbd
   JPushRN: 807bc962b2f25860e5c0caa5fcb7b4910572b890
