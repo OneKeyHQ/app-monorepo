@@ -36,6 +36,7 @@ import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
 import {
   PerpAccountDebugInfo,
   PerpAccountPanel,
+  PerpAccountPanelTitle,
 } from '../components/TradingPanel/panels/PerpAccountPanel';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 import { PerpTestIDs } from '../testIDs';
@@ -163,11 +164,7 @@ function PerpDesktopLayout() {
         <YStack>
           <XStack alignItems="center">
             <XStack py="$3" px="$2.5">
-              <SizableText size="$bodyMdMedium">
-                {intl.formatMessage({
-                  id: ETranslations.perp_trade_account_overview,
-                })}
-              </SizableText>
+              <PerpAccountPanelTitle />
             </XStack>
           </XStack>
           <YStack pb="$4">
@@ -177,7 +174,7 @@ function PerpDesktopLayout() {
         </YStack>
       </YStack>
     );
-  }, [intl]);
+  }, []);
 
   const marketPanel = (
     <XStack h="100%" overflow="hidden">
