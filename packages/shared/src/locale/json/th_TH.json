@@ -4131,6 +4131,7 @@
   "receive.open_exchange": "เปิด {exchange}",
   "receive.opening_exchange_in_seconds": "กำลังเปิด {exchange} ใน {count, plural, other {# วินาที}}...",
   "receive.send_asset_warning_message": "ส่งเฉพาะสินทรัพย์ของเครือข่าย {network} ไปยังที่อยู่นี้เท่านั้น",
+  "receive_address__title": "ที่อยู่สำหรับรับ",
   "receive_arrival_time_min": "~{number} นาที",
   "receive_arrival_time_over_min": "> {number} นาที",
   "receive_arrival_time_sec": "~{number} วินาที",

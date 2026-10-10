@@ -954,6 +954,7 @@ const ProtocolDetailsPage = () => {
               accountId: earnAccount?.accountId ?? '',
               walletId: earnAccount?.walletId,
               token: detailInfo?.subscriptionValue?.token.info,
+              source: 'earn',
             },
           });
         },

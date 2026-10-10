@@ -102,6 +102,7 @@ export function AccountCopyButton({
           networkId: network?.id ?? '',
           accountId: account?.id ?? indexedAccount?.associateAccount?.id ?? '',
           walletId: wallet?.id ?? '',
+          source: 'copyAddress',
         },
       });
     } else if (

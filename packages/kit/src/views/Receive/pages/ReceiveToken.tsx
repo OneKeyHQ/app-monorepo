@@ -15,8 +15,10 @@ import {
   Page,
   QRCode,
   SizableText,
+  Skeleton,
   Stack,
   Theme,
+  Toast,
   XStack,
   YStack,
   useSafeAreaInsets,
@@ -30,6 +32,7 @@ import {
 import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
+  IVaultSettings,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   EAppEventBusNames,
@@ -39,16 +42,23 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
-import { EModalReceiveRoutes } from '@onekeyhq/shared/src/routes';
+import type {
+  IAggregateTokenSelectContext,
+  IModalReceiveParamList,
+  IReceiveNetworkSelection,
+} from '@onekeyhq/shared/src/routes';
+import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { getReceiveArrivalTimeText } from '@onekeyhq/shared/src/utils/receiveArrivalTimeUtils';
 import { getReceiveNetworkDisplayName } from '@onekeyhq/shared/src/utils/receiveNetworkStandardUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { mergeAggregateTokenMembers } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
+import type { IAccountToken, IToken } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import AddressTypeSelector from '../../../components/AddressTypeSelector/AddressTypeSelector';
@@ -68,6 +78,7 @@ import {
 } from '../components/ReceiveShare';
 import { ReceiveTestIDs } from '../testIDs';
 import { EAddressState } from '../types';
+import { resolveReceiveNetworkSwitchable } from '../utils/receiveNetworkSwitchUtils';
 
 import type {
   IReceiveShareData,
@@ -87,24 +98,163 @@ function ReceiveToken() {
     >();
 
   const {
-    networkId,
-    accountId,
-    indexedAccountId,
+    networkId: routeNetworkId,
+    accountId: routeAccountId,
+    indexedAccountId: routeIndexedAccountId,
     walletId,
-    token,
+    token: routeToken,
     onDeriveTypeChange,
     disableSelector,
     btcUsedAddress,
     btcUsedAddressPath,
     exchangeSource,
+    switchEntry,
+    source: routeSource,
+    isAllNetworksMode,
+    aggregateToken: routeAggregateToken,
+    aggregateSubTokenList: routeAggregateSubTokenList,
+    allAggregateTokenList: routeAllAggregateTokenList,
   } = route.params;
 
-  const { account, network, wallet, vaultSettings, deriveType, deriveInfo } =
-    useAccountData({
-      accountId,
-      networkId,
-      walletId,
-    });
+  // The route only seeds the page. Everything the QR code, the hardware
+  // verification and the share image derive from lives in page state so an
+  // in-page network switch (5.5 in the plan) replaces it atomically instead
+  // of leaving a frame with the new network name over the old address.
+  const [currentNetworkId, setCurrentNetworkId] = useState(routeNetworkId);
+  const [currentAccountId, setCurrentAccountId] = useState(routeAccountId);
+  const [currentToken, setCurrentToken] = useState<IToken | undefined>(
+    routeToken,
+  );
+  const [currentNetwork, setCurrentNetwork] = useState<
+    IServerNetwork | undefined
+  >();
+  const [currentVaultSettings, setCurrentVaultSettings] = useState<
+    IVaultSettings | undefined
+  >();
+  // Set while a switch is resolving its account; the card keeps its header
+  // (the network name stays tappable) and shows skeletons instead of any
+  // address of the previous network.
+  const [isSwitchPending, setIsSwitchPending] = useState(false);
+  // Counts committed switches: every async writer compares against it before
+  // landing, so a slow lookup from before a switch can never win. A switch
+  // that fails leaves it alone, and with it whatever is still resolving for
+  // the network on screen.
+  const switchSeqRef = useRef(0);
+  // Counts started switches: of two that overlap, only the newest may commit.
+  const switchAttemptRef = useRef(0);
+  // The network and account the page is committed to, written in the same
+  // step as the sequence above. An account lookup also compares the target
+  // it was started for against this before landing: between a commit and the
+  // next render a stale closure can still start a lookup for the previous
+  // network, and that one already carries the new sequence.
+  const committedTargetRef = useRef({
+    networkId: routeNetworkId,
+    accountId: routeAccountId,
+  });
+  // True while a switch looks up its target. The page still shows the
+  // previous network then, verification included, and a verification started
+  // against it would settle after the switch.
+  const isSwitchResolvingRef = useRef(false);
+  // The account of the row a switch to a multi-address-type network was
+  // picked from. The page resolves the default address type there; when the
+  // wallet has none of that type, this is the address the user chose.
+  const switchSelectedAccountIdRef = useRef<string | undefined>(undefined);
+
+  const networkId = currentNetworkId;
+  const accountId = currentAccountId;
+  // The indexed account is the wallet-level scope and never changes with
+  // the network.
+  const indexedAccountId = routeIndexedAccountId;
+  const token = currentToken;
+
+  const {
+    account: fetchedAccount,
+    network: fetchedNetwork,
+    wallet,
+    vaultSettings: fetchedVaultSettings,
+    deriveType: fetchedDeriveType,
+    deriveInfo: fetchedDeriveInfo,
+  } = useAccountData({
+    accountId,
+    networkId,
+    walletId,
+    // Clear the previous network's data the moment the ids change, so no
+    // frame mixes the new network with the old account.
+    options: { undefinedResultIfReRun: true },
+  });
+
+  // Belt and braces for the switch: only data for the current ids reaches
+  // the page (a run cannot start while the selection page has focus).
+  const isFetchedForCurrent =
+    !!fetchedNetwork &&
+    fetchedNetwork.id === networkId &&
+    (!accountId || fetchedAccount?.id === accountId);
+  const network =
+    currentNetwork ?? (isFetchedForCurrent ? fetchedNetwork : undefined);
+  const vaultSettings =
+    currentVaultSettings ??
+    (isFetchedForCurrent ? fetchedVaultSettings : undefined);
+
+  // Multi-chain members behind the network switch. Carried along by the
+  // selecting page when it had them; otherwise looked up from the synced
+  // wallet config by network + contract address (token details member tab,
+  // single-network mode).
+  const [aggregateGroup, setAggregateGroup] = useState<{
+    aggregateToken?: IAccountToken;
+    aggregateSubTokenList?: IAccountToken[];
+    allAggregateTokenList?: IAccountToken[];
+  }>(() => ({
+    aggregateToken: routeAggregateToken,
+    aggregateSubTokenList: routeAggregateSubTokenList,
+    allAggregateTokenList: routeAllAggregateTokenList,
+  }));
+  const aggregateMembers = useMemo(
+    () =>
+      mergeAggregateTokenMembers({
+        aggregateSubTokenList: aggregateGroup.aggregateSubTokenList,
+        allAggregateTokenList: aggregateGroup.allAggregateTokenList,
+      }),
+    [
+      aggregateGroup.aggregateSubTokenList,
+      aggregateGroup.allAggregateTokenList,
+    ],
+  );
+  // Global members come from the synced config unless the entry carried
+  // them.
+  const hasRouteGlobalMembers = !!routeAllAggregateTokenList?.length;
+  useEffect(() => {
+    if (switchEntry !== 'token' || exchangeSource || hasRouteGlobalMembers) {
+      return;
+    }
+    let cancelled = false;
+    void backgroundApiProxy.serviceToken
+      .findAggregateGroupByNetworkAndAddress({
+        networkId: routeNetworkId,
+        address: routeToken?.address ?? '',
+        isNative: routeToken?.isNative,
+      })
+      .then((group) => {
+        if (cancelled || !group) return;
+        setAggregateGroup((prev) => ({
+          aggregateToken: prev.aggregateToken ?? group.aggregateToken,
+          aggregateSubTokenList: prev.aggregateSubTokenList,
+          allAggregateTokenList: group.members,
+        }));
+      })
+      .catch(() => {
+        // No group → no switch trigger; the page behaves as today.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    switchEntry,
+    exchangeSource,
+    hasRouteGlobalMembers,
+    routeNetworkId,
+    routeToken?.address,
+    routeToken?.isNative,
+  ]);
 
   const { result: nativeToken } = usePromiseResult(async () => {
     return backgroundApiProxy.serviceToken.getNativeToken({
@@ -122,23 +272,23 @@ function ReceiveToken() {
       { watchLoading: true },
     );
 
-  const { handleBannerOnPress } = useWalletBanner({
-    account,
-    network,
-    wallet,
-  });
-
   const [currentDeriveType, setCurrentDeriveType] = useState<
     IAccountDeriveTypes | undefined
-  >(deriveType);
+  >(fetchedDeriveType);
 
   const [currentDeriveInfo, setCurrentDeriveInfo] = useState<
     IAccountDeriveInfo | undefined
-  >(deriveInfo);
+  >(fetchedDeriveInfo);
 
   const [currentAccount, setCurrentAccount] = useState<
     INetworkAccount | undefined
-  >(account);
+  >(isFetchedForCurrent ? fetchedAccount : undefined);
+
+  const { handleBannerOnPress } = useWalletBanner({
+    account: currentAccount,
+    network,
+    wallet,
+  });
 
   const isBtcUsedAddressVerifyMode = btcUsedAddress && btcUsedAddressPath;
 
@@ -148,6 +298,10 @@ function ReceiveToken() {
   const verificationPath = isBtcUsedAddressVerifyMode
     ? btcUsedAddressPath
     : currentAccount?.addressDetail?.receiveAddressPath;
+  // What the page shows right now. A verification settles for the address it
+  // was started with, which the page may have left by then.
+  const shownAddressRef = useRef({ networkId, address: displayAddress });
+  shownAddressRef.current = { networkId, address: displayAddress };
 
   const { bottom } = useSafeAreaInsets();
 
@@ -162,7 +316,7 @@ function ReceiveToken() {
 
   const copyAddressWithDeriveType = useCopyAddressWithDeriveType();
 
-  const { result: banner } = usePromiseResult(async () => {
+  const { result: fetchedBanner } = usePromiseResult(async () => {
     const banners =
       await backgroundApiProxy.serviceWalletBanner.fetchWalletBanner({
         accountId,
@@ -172,6 +326,11 @@ function ReceiveToken() {
         _banner.position === 'receive' && _banner.networkId === networkId,
     );
   }, [accountId, networkId]);
+  // The request lags an in-page network switch: until it lands, the result
+  // still belongs to the previous network and must neither show nor be
+  // pressed under the new one.
+  const banner =
+    fetchedBanner?.networkId === networkId ? fetchedBanner : undefined;
 
   const isHardwareWallet =
     accountUtils.isQrWallet({
@@ -334,7 +493,7 @@ function ReceiveToken() {
   }, []);
 
   const handleVerifyOnDevicePress = useCallback(async () => {
-    if (isVerifyingRef.current) return;
+    if (isVerifyingRef.current || isSwitchResolvingRef.current) return;
     if (!currentDeriveType) return;
     if (!displayAddress) {
       setAddressState(EAddressState.Unverified);
@@ -388,9 +547,16 @@ function ReceiveToken() {
           },
         });
       }
+      // The device confirmed the address this attempt started with. If the
+      // page shows another network or address by now, that one is unverified.
+      const isShownAddress =
+        shownAddressRef.current.networkId === networkId &&
+        shownAddressRef.current.address === displayAddress;
       if (verifyAttemptRef.current === attempt) {
         setAddressState(
-          isSameAddress ? EAddressState.Verified : EAddressState.Unverified,
+          isSameAddress && isShownAddress
+            ? EAddressState.Verified
+            : EAddressState.Unverified,
         );
       }
     } catch (e: any) {
@@ -433,21 +599,37 @@ function ReceiveToken() {
     { leading: true, trailing: false },
   );
 
+  // The stage close event is global: closing a device stage opened by the
+  // network selection page (address creation) must not reset this page's
+  // verification, so only a verification this page started reacts.
   useEffect(() => {
+    const handler = () => {
+      if (isVerifyingRef.current) {
+        resetVerifyState();
+      }
+    };
     appEventBus.on(
       EAppEventBusNames.CloseHardwareUiStateDialogManually,
-      resetVerifyState,
+      handler,
     );
     return () => {
       appEventBus.off(
         EAppEventBusNames.CloseHardwareUiStateDialogManually,
-        resetVerifyState,
+        handler,
       );
     };
   }, [resetVerifyState]);
 
   const fetchAccount = useCallback(async () => {
     if (!accountId && networkId && indexedAccountId) {
+      const seq = switchSeqRef.current;
+      // By the time a result lands the page may have moved to another
+      // network, or to another account of this one.
+      const isSuperseded = () =>
+        seq !== switchSeqRef.current ||
+        committedTargetRef.current.networkId !== networkId ||
+        committedTargetRef.current.accountId !== accountId;
+      let resolved = false;
       try {
         const defaultDeriveType =
           await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
@@ -468,29 +650,59 @@ function ReceiveToken() {
               template: accounts[0].template,
               accountId: accounts[0].id,
             });
+          if (isSuperseded()) return;
           setCurrentDeriveInfo(deriveResp.deriveInfo);
           setCurrentDeriveType(deriveResp.deriveType);
           setCurrentAccount(accounts[0]);
+          setIsSwitchPending(false);
+          resolved = true;
         }
       } catch (_e) {
-        // get default derive type account error, try to find the non-empty account
-        const { networkAccounts } =
-          await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
-            {
-              networkId,
-              indexedAccountId,
-              excludeEmptyAccount: true,
-            },
-          );
-        const nonEmptyAccount = networkAccounts.find((item) => item.account);
-        if (nonEmptyAccount) {
-          setCurrentAccount(nonEmptyAccount.account);
-          setCurrentDeriveType(nonEmptyAccount.deriveType);
-          setCurrentDeriveInfo(nonEmptyAccount.deriveInfo);
+        // No account of the default address type (the lookup throws for a
+        // missing record): handled below.
+      }
+      if (!resolved) {
+        try {
+          const { networkAccounts } =
+            await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+              {
+                networkId,
+                indexedAccountId,
+                excludeEmptyAccount: true,
+              },
+            );
+          if (isSuperseded()) return;
+          const selectedAccountId = switchSelectedAccountIdRef.current;
+          const nonEmptyAccount =
+            networkAccounts.find(
+              (item) =>
+                !!selectedAccountId && item.account?.id === selectedAccountId,
+            ) ?? networkAccounts.find((item) => item.account);
+          if (nonEmptyAccount) {
+            setCurrentAccount(nonEmptyAccount.account);
+            setCurrentDeriveType(nonEmptyAccount.deriveType);
+            setCurrentDeriveInfo(nonEmptyAccount.deriveInfo);
+            setIsSwitchPending(false);
+            resolved = true;
+          }
+        } catch (error) {
+          // On entry this surfaces the way it always has. After a switch it
+          // is one more way of not resolving an account, reported below.
+          if (seq === 0) {
+            throw error;
+          }
         }
       }
+      // After a switch the placeholder stays (the header remains tappable
+      // for a retry) and the user is told; the initial mount keeps today's
+      // silent behavior.
+      if (!resolved && seq > 0 && !isSuperseded()) {
+        Toast.error({
+          title: intl.formatMessage({ id: ETranslations.global_unknown_error }),
+        });
+      }
     }
-  }, [accountId, indexedAccountId, networkId]);
+  }, [accountId, indexedAccountId, intl, networkId]);
 
   useEffect(() => {
     void fetchAccount();
@@ -527,24 +739,57 @@ function ReceiveToken() {
     }
   }, [isHardwareWallet, wallet?.type]);
 
+  // Network / vault settings are read straight from the fetch (or from the
+  // switch hint); only the account and its derive info become page state,
+  // since the address-type dropdown rewrites them.
   useEffect(() => {
-    if (deriveInfo) {
-      setCurrentDeriveInfo(deriveInfo);
+    if (!isFetchedForCurrent) {
+      return;
     }
-
-    if (deriveType) {
-      setCurrentDeriveType(deriveType);
+    if (fetchedDeriveInfo) {
+      setCurrentDeriveInfo(fetchedDeriveInfo);
     }
-    if (account) {
-      setCurrentAccount(account);
+    if (fetchedDeriveType) {
+      setCurrentDeriveType(fetchedDeriveType);
     }
-  }, [account, deriveInfo, deriveType]);
+    if (fetchedAccount) {
+      setCurrentAccount(fetchedAccount);
+      setIsSwitchPending(false);
+    }
+  }, [
+    isFetchedForCurrent,
+    fetchedAccount,
+    fetchedDeriveInfo,
+    fetchedDeriveType,
+  ]);
 
   useEffect(() => {
     if (btcUsedAddress || btcUsedAddressPath) {
       resetVerifyState();
     }
   }, [btcUsedAddress, btcUsedAddressPath, resetVerifyState]);
+
+  // One exposure per resolved network: on entry and after each switch
+  // (A → B → A reports twice). Keyed by switch sequence so a re-render or a
+  // derive-type change on the same network does not report again.
+  const reportedPageShownKeyRef = useRef('');
+  useEffect(() => {
+    if (!currentAccount || !network) {
+      return;
+    }
+    const key = `${switchSeqRef.current}:${network.id}`;
+    if (reportedPageShownKeyRef.current === key) {
+      return;
+    }
+    reportedPageShownKeyRef.current = key;
+    defaultLogger.transaction.receive.receivePageShown({
+      networkId: network.id,
+      source: routeSource ?? 'unknown',
+      switched: switchSeqRef.current > 0,
+      walletType: wallet?.type,
+      isAllNetworksMode,
+    });
+  }, [currentAccount, isAllNetworksMode, network, routeSource, wallet?.type]);
 
   const renderAddressCell = useCallback(() => {
     if (!displayAddress) return null;
@@ -622,13 +867,26 @@ function ReceiveToken() {
     receiveArrivalConfig,
   ]);
 
+  // After a switch the title keeps the group's public symbol (the member
+  // rows may carry a chain-specific symbol); before that it stays whatever
+  // the entry showed.
+  const hasSwitched = switchSeqRef.current > 0;
+  const titleSymbol =
+    (hasSwitched ? aggregateGroup.aggregateToken?.commonSymbol : undefined) ??
+    token?.symbol ??
+    network?.symbol ??
+    '';
+  // Entered by network: the page is bound to no token and the network is
+  // named right below the title, so the title says what the page holds.
   const pageTitleText = useMemo(
     () =>
-      intl.formatMessage(
-        { id: ETranslations.receive_token__title },
-        { token: token?.symbol ?? network?.symbol ?? '' },
-      ),
-    [intl, token?.symbol, network?.symbol],
+      switchEntry === 'network'
+        ? intl.formatMessage({ id: ETranslations.receive_address__title })
+        : intl.formatMessage(
+            { id: ETranslations.receive_token__title },
+            { token: titleSymbol },
+          ),
+    [switchEntry, intl, titleSymbol],
   );
 
   // e.g. "Ethereum (ERC20)" — shown for native coins and tokens alike
@@ -660,8 +918,12 @@ function ReceiveToken() {
       ),
       networkName: networkDisplayName,
       address: displayAddress,
-      tokenLogoURI: token?.logoURI ?? nativeToken?.logoURI,
-      networkLogoURI: network.logoURI,
+      // Network entry: a single network logo on the share image too.
+      tokenLogoURI:
+        switchEntry === 'network'
+          ? network.logoURI
+          : (token?.logoURI ?? nativeToken?.logoURI),
+      networkLogoURI: switchEntry === 'network' ? undefined : network.logoURI,
     };
   }, [
     network,
@@ -671,6 +933,7 @@ function ReceiveToken() {
     intl,
     token?.logoURI,
     nativeToken?.logoURI,
+    switchEntry,
   ]);
 
   const canShowShareEntry = shouldShowQRCode && !!displayAddress && !!shareData;
@@ -712,6 +975,254 @@ function ReceiveToken() {
       </Button>
     );
   }, [canShowShareEntry, handleSharePress, isPreparingShare, intl]);
+
+  const { isSwitchable: isNetworkSwitchable, isSwitchEnabled } =
+    resolveReceiveNetworkSwitchable({
+      switchEntry,
+      exchangeSource,
+      isBtcUsedAddressVerifyMode: !!isBtcUsedAddressVerifyMode,
+      memberCount: aggregateMembers.length,
+      isVerifying,
+      isPreparingShare,
+    });
+
+  // 5.5 state machine: one sequence number per switch; clear every value
+  // derived from the previous network in a single write, then resolve the
+  // account for the new one (same rules as entering the page) and let only
+  // the newest sequence land.
+  const applyNetworkSwitch = useCallback(
+    async ({
+      networkId: targetNetworkId,
+      accountId: targetAccountId,
+      token: targetToken,
+      network: targetNetworkHint,
+      selectContext,
+    }: {
+      networkId: string;
+      accountId?: string;
+      token?: IToken;
+      network?: IServerNetwork;
+      selectContext?: IAggregateTokenSelectContext;
+    }) => {
+      if (!targetNetworkId) {
+        return;
+      }
+      // Compared with the committed network, not this render's: a switch may
+      // have landed since the picker was opened.
+      const fromNetworkId = committedTargetRef.current.networkId;
+      if (targetNetworkId === fromNetworkId) {
+        // Picking the network on screen is the last word: a switch still
+        // looking up its target is withdrawn.
+        switchAttemptRef.current += 1;
+        isSwitchResolvingRef.current = false;
+        return;
+      }
+      // The selection page resolves addresses in its own scope; a row from
+      // another wallet must never land on this page.
+      if (
+        targetAccountId &&
+        accountUtils.getWalletIdFromAccountId({
+          accountId: targetAccountId,
+        }) !== walletId
+      ) {
+        return;
+      }
+      const attempt = switchAttemptRef.current + 1;
+      switchAttemptRef.current = attempt;
+      isSwitchResolvingRef.current = true;
+      try {
+        defaultLogger.transaction.receive.receiveSwitchNetwork({
+          fromNetworkId,
+          toNetworkId: targetNetworkId,
+          source: routeSource ?? 'unknown',
+          listType: switchEntry === 'network' ? 'all' : 'aggregate',
+          walletType: wallet?.type,
+          deviceType: wallet?.associatedDeviceInfo?.deviceType,
+          createdAddress: !!selectContext?.createdAddress,
+          isAllNetworksMode,
+        });
+
+        // Nothing is written before the target is known: when the lookup or
+        // the checks below fail, the page keeps the network, address and
+        // verification it has, and the user can pick again.
+        const target = await Promise.all([
+          backgroundApiProxy.serviceNetwork.getVaultSettings({
+            networkId: targetNetworkId,
+          }),
+          targetNetworkHint
+            ? Promise.resolve(targetNetworkHint)
+            : backgroundApiProxy.serviceNetwork.getNetwork({
+                networkId: targetNetworkId,
+              }),
+        ]).catch(() => undefined);
+        if (attempt !== switchAttemptRef.current) {
+          return;
+        }
+        if (!target) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_unknown_error,
+            }),
+          });
+          return;
+        }
+        const [settings, targetNetwork] = target;
+        // A row of the network list shows one concrete address, and that is
+        // the one the page resolves, address type included (as on entering
+        // from that list). A token row stands for every address type of a
+        // multi-address-type chain: there the page derives the default type
+        // from the indexed account (same as entering with an empty
+        // accountId). Other chains use the account the selected row carries.
+        const keepsSelectedAccount =
+          switchEntry === 'network' && !!targetAccountId;
+        const useDerivePath =
+          !keepsSelectedAccount &&
+          !!settings.mergeDeriveAssetsEnabled &&
+          !!indexedAccountId &&
+          !accountUtils.isOthersWallet({ walletId });
+        if (!useDerivePath && !targetAccountId) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_unknown_error,
+            }),
+          });
+          return;
+        }
+
+        // Committing the target clears the previous network's verification
+        // in the same write: nothing started against it may settle into the
+        // new one.
+        resetVerifyState();
+        setIsSwitchPending(true);
+        setCurrentNetwork(targetNetwork);
+        setCurrentVaultSettings(settings);
+        setCurrentAccount(undefined);
+        setCurrentDeriveType(undefined);
+        setCurrentDeriveInfo(undefined);
+        setNetworkLogoColor(null);
+        setCurrentToken(targetToken);
+        if (selectContext?.aggregateToken) {
+          setAggregateGroup((prev) => ({
+            aggregateToken: selectContext.aggregateToken ?? prev.aggregateToken,
+            aggregateSubTokenList:
+              selectContext.aggregateSubTokenList ?? prev.aggregateSubTokenList,
+            allAggregateTokenList:
+              selectContext.allAggregateTokenList ?? prev.allAggregateTokenList,
+          }));
+        }
+        switchSelectedAccountIdRef.current = useDerivePath
+          ? targetAccountId
+          : undefined;
+        const nextAccountId = useDerivePath ? '' : (targetAccountId ?? '');
+        // From here on, lookups started for the previous target are stale.
+        switchSeqRef.current += 1;
+        committedTargetRef.current = {
+          networkId: targetNetworkId,
+          accountId: nextAccountId,
+        };
+        setCurrentNetworkId(targetNetworkId);
+        setCurrentAccountId(nextAccountId);
+      } finally {
+        // A newer switch owns the guard from the moment it starts.
+        if (attempt === switchAttemptRef.current) {
+          isSwitchResolvingRef.current = false;
+        }
+      }
+    },
+    [
+      switchEntry,
+      indexedAccountId,
+      intl,
+      isAllNetworksMode,
+      resetVerifyState,
+      routeSource,
+      wallet?.associatedDeviceInfo?.deviceType,
+      wallet?.type,
+      walletId,
+    ],
+  );
+
+  // Token entry: a member row of the token's multi-chain group.
+  const handleSwitchNetwork = useCallback(
+    (member: IAccountToken, selectContext?: IAggregateTokenSelectContext) =>
+      applyNetworkSwitch({
+        networkId: member.networkId ?? '',
+        accountId: member.accountId,
+        token: member,
+        network: selectContext?.network,
+        selectContext,
+      }),
+    [applyNetworkSwitch],
+  );
+
+  // Network entry: any network of the wallet; the page shows its native coin.
+  const handleSelectNetworkEntry = useCallback(
+    ({
+      network: selectedNetwork,
+      accountId: selectedAccountId,
+      createdAddress,
+    }: IReceiveNetworkSelection) =>
+      applyNetworkSwitch({
+        networkId: selectedNetwork.id,
+        accountId: selectedAccountId,
+        token: undefined,
+        network: selectedNetwork,
+        selectContext: { createdAddress },
+      }),
+    [applyNetworkSwitch],
+  );
+
+  const handleOpenNetworkSelector = useCallback(() => {
+    if (!isSwitchEnabled) {
+      return;
+    }
+    const selectorAccountId = currentAccount?.id || accountId || routeAccountId;
+    // The picker opens as its own modal stacked over this one (not a page
+    // pushed into this stack); closing it after the pick lands back here.
+    if (switchEntry === 'network') {
+      navigation.pushModal(EModalRoutes.ReceiveModal, {
+        screen: EModalReceiveRoutes.ReceiveSelectNetwork,
+        params: {
+          walletId,
+          indexedAccountId,
+          accountId: selectorAccountId,
+          onSelect: handleSelectNetworkEntry,
+        },
+      });
+      return;
+    }
+    if (!aggregateGroup.aggregateToken) {
+      return;
+    }
+    navigation.pushModal(EModalRoutes.ReceiveModal, {
+      screen: EModalReceiveRoutes.ReceiveSelectAggregateToken,
+      params: {
+        accountId: selectorAccountId,
+        indexedAccountId,
+        aggregateToken: aggregateGroup.aggregateToken,
+        aggregateSubTokenList: aggregateGroup.aggregateSubTokenList,
+        allAggregateTokenList: aggregateGroup.allAggregateTokenList,
+        // Balances come from the home store cells, available under All
+        // Networks; the switch only exists there, so they always show.
+        hideBalanceAndValue: false,
+        enableNetworkAfterSelect: true,
+        closeAfterSelect: true,
+        onSelect: handleSwitchNetwork,
+      },
+    });
+  }, [
+    isSwitchEnabled,
+    switchEntry,
+    aggregateGroup,
+    navigation,
+    currentAccount?.id,
+    accountId,
+    routeAccountId,
+    indexedAccountId,
+    walletId,
+    handleSwitchNetwork,
+    handleSelectNetworkEntry,
+  ]);
 
   const handleSkipVerifyPress = useCallback(() => {
     Dialog.confirm({
@@ -828,24 +1339,108 @@ function ReceiveToken() {
   const cardHeaderLeft = useMemo(() => {
     if (!network) return null;
 
+    const label = arrivalTimeText
+      ? `${network.name} (${arrivalTimeText})`
+      : network.name;
+
+    if (!isNetworkSwitchable) {
+      return (
+        <SizableText
+          testID={ReceiveTestIDs.CardHeaderNetworkEta}
+          size="$bodyMdMedium"
+          numberOfLines={1}
+          flexShrink={1}
+        >
+          {label}
+        </SizableText>
+      );
+    }
+
+    // Main text color + chevron: the primary control of the header, as
+    // opposed to the subdued address-type dropdown on the right. Same 32pt
+    // height as that small tertiary button so the hover plate matches.
     return (
-      <SizableText
-        testID={ReceiveTestIDs.CardHeaderNetworkEta}
-        size="$bodyMdMedium"
-        numberOfLines={1}
+      <XStack
+        testID={ReceiveTestIDs.CardHeaderNetworkTrigger}
         flexShrink={1}
+        alignItems="center"
+        gap="$0.5"
+        h="$8"
+        mx={-8}
+        px="$2"
+        borderRadius="$2"
+        userSelect="none"
+        disabled={!isSwitchEnabled}
+        opacity={isSwitchEnabled ? 1 : 0.5}
+        onPress={handleOpenNetworkSelector}
+        hoverStyle={{ bg: '$bgHover' }}
+        pressStyle={{ bg: '$bgActive' }}
+        focusable
+        focusVisibleStyle={{
+          outlineWidth: 2,
+          outlineColor: '$focusRing',
+          outlineOffset: 0,
+          outlineStyle: 'solid',
+        }}
       >
-        {arrivalTimeText
-          ? `${network.name} (${arrivalTimeText})`
-          : network.name}
-      </SizableText>
+        <SizableText
+          testID={ReceiveTestIDs.CardHeaderNetworkEta}
+          size="$bodyMdMedium"
+          numberOfLines={1}
+          flexShrink={1}
+        >
+          {label}
+        </SizableText>
+        <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
+      </XStack>
     );
-  }, [network, arrivalTimeText]);
+  }, [
+    network,
+    arrivalTimeText,
+    isNetworkSwitchable,
+    isSwitchEnabled,
+    handleOpenNetworkSelector,
+  ]);
+
+  // Placeholder while a switch resolves: header stays, no stale address.
+  const renderPlaceholderCard = useCallback(() => {
+    if (!network) return null;
+    const qrSize = platformEnv.isNative ? 208 : 176;
+    return (
+      <ReceiveCard
+        testID={ReceiveTestIDs.SwitchPlaceholder}
+        headerLeft={cardHeaderLeft}
+      >
+        <ReceiveCardCell
+          alignItems="center"
+          justifyContent="center"
+          py={27}
+          px="$4"
+        >
+          <Skeleton w={qrSize} h={qrSize} radius={12} />
+        </ReceiveCardCell>
+        <ReceiveCardCell>
+          <YStack px="$4" py="$3" gap="$2">
+            <Skeleton w="100%" h="$4" />
+            <Skeleton w="60%" h="$4" />
+          </YStack>
+        </ReceiveCardCell>
+      </ReceiveCard>
+    );
+  }, [network, cardHeaderLeft]);
 
   const cardHeaderRight = useMemo(() => {
     if (!vaultSettings?.mergeDeriveAssetsEnabled || !currentAccount) {
       return null;
     }
+    // The selector saves the choice before calling back, so the callback can
+    // arrive after the page moved to another network: it only applies to the
+    // target this selector was rendered for.
+    const renderedSwitchSeq = switchSeqRef.current;
+    const isStillRenderedTarget = () =>
+      renderedSwitchSeq === switchSeqRef.current &&
+      committedTargetRef.current.networkId === networkId &&
+      committedTargetRef.current.accountId === accountId;
 
     return (
       <AddressTypeSelector
@@ -863,7 +1458,7 @@ function ReceiveToken() {
         networkId={networkId}
         indexedAccountId={currentAccount?.indexedAccountId ?? ''}
         onSelect={async (value) => {
-          if (value.account) {
+          if (value.account && isStillRenderedTarget()) {
             resetVerifyState();
             setCurrentAccount(value.account);
             setCurrentDeriveType(value.deriveType);
@@ -882,6 +1477,7 @@ function ReceiveToken() {
     deriveTypeTrigger,
     walletId,
     networkId,
+    accountId,
     onDeriveTypeChange,
     resetVerifyState,
   ]);
@@ -1006,12 +1602,18 @@ function ReceiveToken() {
                     borderRadius="$full"
                     bg="white"
                   >
-                    <Token
-                      size="lg"
-                      tokenImageUri={token?.logoURI ?? nativeToken?.logoURI}
-                      networkImageUri={network.logoURI}
-                      networkId={networkId}
-                    />
+                    {switchEntry === 'network' ? (
+                      // Entered by network: the page is not bound to a
+                      // token, so the plate carries the network logo alone.
+                      <Token size="lg" tokenImageUri={network.logoURI} />
+                    ) : (
+                      <Token
+                        size="lg"
+                        tokenImageUri={token?.logoURI ?? nativeToken?.logoURI}
+                        networkImageUri={network.logoURI}
+                        networkId={networkId}
+                      />
+                    )}
                   </YStack>
                 </YStack>
               </Theme>
@@ -1046,6 +1648,7 @@ function ReceiveToken() {
     token?.logoURI,
     networkId,
     nativeToken?.logoURI,
+    switchEntry,
   ]);
 
   const isPressable = useMemo(() => {
@@ -1100,6 +1703,9 @@ function ReceiveToken() {
               {shouldShowAddress ? renderAddressCell() : null}
             </ReceiveCard>
           ) : null}
+          {isSwitchPending && !(currentAccount && displayAddress)
+            ? renderPlaceholderCard()
+            : null}
           {canShowShareEntry && shareData ? (
             // offscreen: pre-generates the share image so the dialog opens
             // with the preview already resolved

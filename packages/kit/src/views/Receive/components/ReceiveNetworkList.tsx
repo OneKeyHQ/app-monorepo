@@ -1,0 +1,649 @@
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+import { useIntl } from 'react-intl';
+
+import { Icon, SectionList, Spinner, Stack, Toast } from '@onekeyhq/components';
+import type { IAllNetworksDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAllNetworks';
+import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type {
+  IReceiveNetworkSelection,
+  ITokenSelectorSecondaryTab,
+  ITokenSelectorSecondaryTabListProps,
+} from '@onekeyhq/shared/src/routes';
+import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils, {
+  POPULAR_NETWORK_IDS,
+  buildPopularFirstNetworkSections,
+  isEnabledNetworksInAllNetworks,
+} from '@onekeyhq/shared/src/utils/networkUtils';
+import type { INetworkListSection } from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
+
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useCreateAddressForNetwork } from '../../../components/AccountSelector/hooks/useCreateAddressForNetwork';
+import { EmptyToken } from '../../../components/Empty';
+import { ListItem } from '../../../components/ListItem';
+import { ListLoading } from '../../../components/Loading';
+import { NetworkAvatarBase } from '../../../components/NetworkAvatar';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { useFuseSearch } from '../../ChainSelector/hooks/useFuseSearch';
+import { ReceiveTestIDs } from '../testIDs';
+
+import type { IntlShape } from 'react-intl';
+
+type IReceiveNetworkListMode = 'tab' | 'selector';
+
+type IReceiveNetworkListScope = {
+  walletId: string;
+  indexedAccountId?: string;
+  // Any account of the wallet; with `indexedAccountId` the all-networks
+  // lookup resolves HD / hardware accounts, imported / watch-only / external
+  // wallets are looked up by this account.
+  accountId: string;
+  // tab: rows open the QR page and Lightning opens the invoice page.
+  // selector: rows report back to the caller; Lightning is not listed.
+  mode: IReceiveNetworkListMode;
+};
+
+type IReceiveNetworkListData = {
+  networks: IServerNetwork[];
+  accountMap: Record<string, IAllNetworkAccountInfo>;
+  allNetworksState: IAllNetworksDBStruct;
+};
+
+type IReceiveNetworkListDataSource = {
+  peek: () => IReceiveNetworkListData | undefined;
+  load: () => Promise<IReceiveNetworkListData>;
+  preload: () => void;
+  // An address was created: what the source holds is out of date until a
+  // load started after this call has landed.
+  invalidate: () => void;
+};
+
+type IReceiveNetworkListProps = IReceiveNetworkListScope & {
+  walletType?: string;
+  searchText: string;
+  onSelectNetwork: (selection: IReceiveNetworkSelection) => void;
+  onSelectLightning?: (selection: IReceiveNetworkSelection) => void;
+  testID?: string;
+  // Scroll feed / top inset when the list sits under a collapsing header.
+  listProps?: Partial<ITokenSelectorSecondaryTabListProps>;
+  // Handed in when the caller requested the data ahead of the list.
+  dataSource?: IReceiveNetworkListDataSource;
+};
+
+type IRowProps = {
+  network: IServerNetwork;
+  account: IAllNetworkAccountInfo | undefined;
+  isEnabled: boolean;
+  walletId: string;
+  indexedAccountId?: string;
+  onSelect: (selection: IReceiveNetworkSelection) => void | Promise<void>;
+  createAddressForNetwork: ReturnType<
+    typeof useCreateAddressForNetwork
+  >['createAddressForNetwork'];
+  enableNetwork: ReturnType<typeof useCreateAddressForNetwork>['enableNetwork'];
+  onAddressCreated: () => Promise<void>;
+  // Marks this row as the list's latest pick; the returned check tells
+  // whether it still is once the row's own async work is done.
+  beginSelection: () => () => boolean;
+};
+
+const POPULAR_NETWORK_ID_SET = new Set(POPULAR_NETWORK_IDS);
+// Enough placeholder rows to fill the list while it loads.
+const LOADING_ROW_COUNT = 10;
+
+async function fetchReceiveNetworkListData(
+  { walletId, accountId, indexedAccountId, mode }: IReceiveNetworkListScope,
+  { skipAccountsCache }: { skipAccountsCache: boolean },
+): Promise<IReceiveNetworkListData> {
+  const [{ mainnetItems }, { accountsInfo }, allNetworksState] =
+    await Promise.all([
+      backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
+        { accountId, walletId, excludeTestNetwork: true },
+      ),
+      backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
+        accountId,
+        indexedAccountId,
+        networkId: getNetworkIdsMap().onekeyall,
+        excludeTestNetwork: true,
+        // Every address type is requested: a network that only has a
+        // non-default address (e.g. BTC with Taproot only) must not show
+        // "Create address". The row then picks one of them below.
+        includingNotEqualGlobalDeriveTypeAccount: true,
+        skipCache: skipAccountsCache,
+      }),
+      backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
+    ]);
+  // Several accounts can come back for one network, one per address type,
+  // in database order. A row stands for the global default type, the one the
+  // token list and the home show; another type only when the wallet has no
+  // address of the default one.
+  const accountsByNetwork = new Map<string, IAllNetworkAccountInfo[]>();
+  accountsInfo.forEach((info) => {
+    if (!info.dbAccount) {
+      return;
+    }
+    const sameNetwork = accountsByNetwork.get(info.networkId);
+    if (sameNetwork) {
+      sameNetwork.push(info);
+    } else {
+      accountsByNetwork.set(info.networkId, [info]);
+    }
+  });
+  // The default type is stored per chain family: one lookup serves all of
+  // its networks.
+  const defaultDeriveTypeByKey = new Map<
+    string,
+    Promise<IAccountDeriveTypes | undefined>
+  >();
+  const accountMap: Record<string, IAllNetworkAccountInfo> = {};
+  await Promise.all(
+    Array.from(accountsByNetwork, async ([networkId, candidates]) => {
+      if (candidates.length === 1) {
+        accountMap[networkId] = candidates[0];
+        return;
+      }
+      const key = accountSelectorUtils.buildGlobalDeriveTypesMapKey({
+        networkId,
+      });
+      let defaultDeriveType = defaultDeriveTypeByKey.get(key);
+      if (!defaultDeriveType) {
+        defaultDeriveType = backgroundApiProxy.serviceNetwork
+          .getGlobalDeriveTypeOfNetwork({ networkId })
+          // Without it the row still has an address to show.
+          .catch(() => undefined);
+        defaultDeriveTypeByKey.set(key, defaultDeriveType);
+      }
+      const deriveType = await defaultDeriveType;
+      accountMap[networkId] =
+        candidates.find((info) => info.deriveType === deriveType) ??
+        candidates[0];
+    }),
+  );
+  const networks = mainnetItems.filter(
+    (network) =>
+      !networkUtils.isAllNetwork({ networkId: network.id }) &&
+      (mode === 'tab' ||
+        !networkUtils.isLightningNetworkByNetworkId(network.id)),
+  );
+  return { networks, accountMap, allNetworksState };
+}
+
+// Loads the list's data and keeps the newest result for the next mount of
+// the list. Networks, addresses and enabled state travel together: the rows
+// need all three, and a list that fills in piece by piece goes through
+// several loading looks and changes row height under the user.
+function createReceiveNetworkListDataSource(
+  scope: IReceiveNetworkListScope,
+): IReceiveNetworkListDataSource {
+  let latest: IReceiveNetworkListData | undefined;
+  let pending:
+    | { promise: Promise<IReceiveNetworkListData>; version: number }
+    | undefined;
+  // `version` moves on invalidate(); `loadedVersion` catches up once a load
+  // started at that version lands. While they differ, a load skips the
+  // accounts cache and any request started earlier, so a reload that failed
+  // is still owed to the next one.
+  let version = 0;
+  let loadedVersion = 0;
+  const load = () => {
+    const startedAt = version;
+    if (pending?.version === startedAt) {
+      return pending.promise;
+    }
+    const promise: Promise<IReceiveNetworkListData> =
+      fetchReceiveNetworkListData(scope, {
+        skipAccountsCache: startedAt > loadedVersion,
+      })
+        .then((data) => {
+          loadedVersion = Math.max(loadedVersion, startedAt);
+          // Only the newest load is kept; an older one may still land later.
+          if (pending?.promise === promise) {
+            latest = data;
+          }
+          return data;
+        })
+        .finally(() => {
+          if (pending?.promise === promise) {
+            pending = undefined;
+          }
+        });
+    pending = { promise, version: startedAt };
+    return promise;
+  };
+  return {
+    peek: () => latest,
+    load,
+    preload: () => {
+      // A failed warm-up is retried by the list's own load.
+      load().catch(() => undefined);
+    },
+    invalidate: () => {
+      version += 1;
+    },
+  };
+}
+
+// The "Networks" segment of the main Receive token list, handed to the
+// generic token selector as its secondary tab.
+export function buildReceiveNetworkSecondaryTab({
+  intl,
+  walletId,
+  indexedAccountId,
+  accountId,
+  walletType,
+  onSelectNetwork,
+  onSelectLightning,
+}: {
+  intl: IntlShape;
+  walletId: string;
+  indexedAccountId?: string;
+  accountId: string;
+  walletType?: string;
+  onSelectNetwork: (selection: IReceiveNetworkSelection) => void;
+  onSelectLightning: (selection: IReceiveNetworkSelection) => void;
+}): ITokenSelectorSecondaryTab {
+  // Requested as the Receive page opens, so the segment usually paints
+  // complete on its first frame instead of going through a loading state.
+  const dataSource = createReceiveNetworkListDataSource({
+    walletId,
+    indexedAccountId,
+    accountId,
+    mode: 'tab',
+  });
+  dataSource.preload();
+  return {
+    tokensTabLabel: intl.formatMessage({
+      id: ETranslations.receive_token_tab__title,
+    }),
+    label: intl.formatMessage({ id: ETranslations.global_network }),
+    searchPlaceholder: intl.formatMessage({
+      id: ETranslations.form_search_network_placeholder,
+    }),
+    testIDs: {
+      segment: ReceiveTestIDs.SelectSegment,
+      tokensTab: ReceiveTestIDs.SelectSegmentToken,
+      secondaryTab: ReceiveTestIDs.SelectSegmentNetwork,
+      searchBar: ReceiveTestIDs.SelectSearchBar,
+    },
+    renderContent: (searchKey, listProps) => (
+      <ReceiveNetworkList
+        testID={ReceiveTestIDs.NetworkList}
+        mode="tab"
+        walletId={walletId}
+        indexedAccountId={indexedAccountId}
+        accountId={accountId}
+        walletType={walletType}
+        searchText={searchKey}
+        onSelectNetwork={onSelectNetwork}
+        onSelectLightning={onSelectLightning}
+        listProps={listProps}
+        dataSource={dataSource}
+      />
+    ),
+    onTabChange: ({ toSecondary }) => {
+      defaultLogger.transaction.receive.receiveSwitchTab({
+        fromTab: toSecondary ? 'token' : 'network',
+        toTab: toSecondary ? 'network' : 'token',
+      });
+    },
+  };
+}
+
+function ReceiveNetworkRow({
+  network,
+  account,
+  isEnabled,
+  walletId,
+  indexedAccountId,
+  onSelect,
+  createAddressForNetwork,
+  enableNetwork,
+  onAddressCreated,
+  beginSelection,
+}: IRowProps) {
+  const intl = useIntl();
+  const [loading, setLoading] = useState(false);
+  const isLightning = networkUtils.isLightningNetworkByNetworkId(network.id);
+
+  const subtitle = useMemo(() => {
+    if (account) {
+      return isLightning
+        ? ''
+        : accountUtils.shortenAddress({ address: account.apiAddress });
+    }
+    return intl.formatMessage({
+      id: loading
+        ? ETranslations.global_creating_address
+        : ETranslations.global_create_address,
+    });
+  }, [account, intl, isLightning, loading]);
+
+  // One run at a time. `loading` only disables the row from the next render
+  // on and never covers the enable-network branch, so a second tap could
+  // otherwise start this handler again while the first is still awaiting.
+  const isPressingRef = useRef(false);
+
+  const handlePress = useCallback(async () => {
+    if (isPressingRef.current) {
+      return;
+    }
+    isPressingRef.current = true;
+    const isLatestSelection = beginSelection();
+    try {
+      let selectedAccountId = account?.accountId;
+      let createdAddress = false;
+      if (!selectedAccountId) {
+        try {
+          setLoading(true);
+          selectedAccountId = await createAddressForNetwork({
+            walletId,
+            indexedAccountId,
+            networkId: network.id,
+            isNetworkEnabled: isEnabled,
+          });
+          if (!selectedAccountId) {
+            return;
+          }
+          createdAddress = true;
+          try {
+            await onAddressCreated();
+          } catch {
+            // Best-effort: the address exists either way, so a failed reload
+            // of the list must not keep the selection from going through.
+            // The reload stays owed and runs again with the list's next load.
+          }
+        } finally {
+          setLoading(false);
+        }
+      } else if (!isEnabled) {
+        // An existing address on a network the user had switched off: the
+        // receive flow enables it the same way the token list does.
+        await enableNetwork(network.id);
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.network_also_enabled,
+          }),
+        });
+      }
+      // Creating an address or enabling a network takes a while: by now
+      // another row may have been picked, or the list may be gone. Reporting
+      // this row then would undo the later choice.
+      if (!isLatestSelection()) {
+        return;
+      }
+      await onSelect({ network, accountId: selectedAccountId, createdAddress });
+    } finally {
+      isPressingRef.current = false;
+    }
+  }, [
+    account?.accountId,
+    beginSelection,
+    createAddressForNetwork,
+    enableNetwork,
+    indexedAccountId,
+    intl,
+    isEnabled,
+    network,
+    onAddressCreated,
+    onSelect,
+    walletId,
+  ]);
+
+  return (
+    <ListItem
+      testID={ReceiveTestIDs.NetworkListItem(network.id)}
+      title={network.name}
+      subtitle={subtitle}
+      renderAvatar={
+        <NetworkAvatarBase
+          logoURI={network.logoURI}
+          isCustomNetwork={network.isCustomNetwork}
+          networkName={network.name}
+          size="$10"
+        />
+      }
+      onPress={handlePress}
+      disabled={loading}
+    >
+      {loading ? (
+        <Stack p="$0.5">
+          <Spinner />
+        </Stack>
+      ) : null}
+      {!account && !loading ? (
+        <Icon name="PlusLargeOutline" color="$iconSubdued" />
+      ) : null}
+    </ListItem>
+  );
+}
+const ReceiveNetworkRowMemo = memo(ReceiveNetworkRow);
+
+export function ReceiveNetworkList({
+  walletId,
+  indexedAccountId,
+  accountId,
+  walletType,
+  mode,
+  searchText,
+  onSelectNetwork,
+  onSelectLightning,
+  testID,
+  listProps,
+  dataSource: sharedDataSource,
+}: IReceiveNetworkListProps) {
+  const intl = useIntl();
+  const isOthersWallet = accountUtils.isOthersWallet({ walletId });
+  const { createAddressForNetwork, enableNetwork } =
+    useCreateAddressForNetwork();
+
+  const dataSource = useMemo(
+    () =>
+      sharedDataSource ??
+      createReceiveNetworkListDataSource({
+        walletId,
+        indexedAccountId,
+        accountId,
+        mode,
+      }),
+    [accountId, indexedAccountId, mode, sharedDataSource, walletId],
+  );
+  // Starts from whatever the source already holds, then revalidates. Coming
+  // back to the page revalidates again: addresses may have been created
+  // further down the flow, or a reload after creating one may have failed.
+  const { result: data, run: reloadData } = usePromiseResult(
+    () => dataSource.load(),
+    [dataSource],
+    { initResult: dataSource.peek(), revalidateOnFocus: true },
+  );
+
+  const refreshAfterAddressCreated = useCallback(async () => {
+    dataSource.invalidate();
+    await reloadData({ alwaysSetState: true });
+  }, [dataSource, reloadData]);
+
+  // One pick is live at a time across the list, and none once it is gone.
+  const selectionSeqRef = useRef(0);
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+  const beginSelection = useCallback(() => {
+    selectionSeqRef.current += 1;
+    const seq = selectionSeqRef.current;
+    return () => isMountedRef.current && seq === selectionSeqRef.current;
+  }, []);
+
+  const [enabledOverrides, setEnabledOverrides] = useState<
+    Record<string, boolean>
+  >({});
+  const handleEnableNetwork = useCallback(
+    async (networkId: string) => {
+      await enableNetwork(networkId);
+      setEnabledOverrides((prev) => ({ ...prev, [networkId]: true }));
+    },
+    [enableNetwork],
+  );
+
+  const visibleNetworks = useMemo(() => {
+    if (!data) {
+      return [];
+    }
+    // Imported / watch-only / external wallets cannot derive new addresses:
+    // only networks that already have one are listed.
+    return isOthersWallet
+      ? data.networks.filter((network) => !!data.accountMap[network.id])
+      : data.networks;
+  }, [data, isOthersWallet]);
+
+  const fuseSearch = useFuseSearch(visibleNetworks);
+  const isSearchMode = !!searchText.trim();
+
+  const popularTitle = intl.formatMessage({ id: ETranslations.global_popular });
+  const sections = useMemo<INetworkListSection[]>(() => {
+    const keyword = searchText.trim();
+    if (keyword) {
+      const matches = fuseSearch(keyword);
+      return matches.length ? [{ data: matches }] : [];
+    }
+    return buildPopularFirstNetworkSections({
+      networks: visibleNetworks,
+      popularTitle,
+    });
+  }, [fuseSearch, popularTitle, searchText, visibleNetworks]);
+
+  const handleSelect = useCallback(
+    async (selection: IReceiveNetworkSelection) => {
+      const { network, createdAddress } = selection;
+      const isLightning = networkUtils.isLightningNetworkByNetworkId(
+        network.id,
+      );
+      if (mode === 'tab') {
+        let action: 'open' | 'create' | 'invoice' = 'open';
+        if (isLightning) {
+          action = 'invoice';
+        } else if (createdAddress) {
+          action = 'create';
+        }
+        defaultLogger.transaction.receive.receiveSelectNetworkTab({
+          networkId: network.id,
+          section: POPULAR_NETWORK_ID_SET.has(network.id) ? 'popular' : 'alpha',
+          action,
+          hasAddress: !createdAddress,
+          isSearchMode,
+          walletType,
+        });
+      }
+      if (isLightning) {
+        onSelectLightning?.(selection);
+        return;
+      }
+      onSelectNetwork(selection);
+    },
+    [isSearchMode, mode, onSelectLightning, onSelectNetwork, walletType],
+  );
+
+  const renderSectionHeader = useCallback(
+    (item: { section: { title?: string } }) =>
+      item?.section?.title ? (
+        <SectionList.SectionHeader title={item.section.title} />
+      ) : (
+        <Stack h="$3" />
+      ),
+    [],
+  );
+
+  const renderItem = useCallback(
+    ({ item }: { item: IServerNetwork }) => {
+      const state = data?.allNetworksState;
+      const isEnabled =
+        enabledOverrides[item.id] ||
+        (state
+          ? isEnabledNetworksInAllNetworks({
+              networkId: item.id,
+              disabledNetworks: state.disabledNetworks,
+              enabledNetworks: state.enabledNetworks,
+              isTestnet: false,
+            })
+          : true);
+      return (
+        <ReceiveNetworkRowMemo
+          network={item}
+          account={data?.accountMap[item.id]}
+          isEnabled={isEnabled}
+          walletId={walletId}
+          indexedAccountId={indexedAccountId}
+          onSelect={handleSelect}
+          createAddressForNetwork={createAddressForNetwork}
+          enableNetwork={handleEnableNetwork}
+          onAddressCreated={refreshAfterAddressCreated}
+          beginSelection={beginSelection}
+        />
+      );
+    },
+    [
+      beginSelection,
+      createAddressForNetwork,
+      data,
+      enabledOverrides,
+      handleEnableNetwork,
+      handleSelect,
+      indexedAccountId,
+      refreshAfterAddressCreated,
+      walletId,
+    ],
+  );
+
+  const listEmptyComponent = useMemo(() => {
+    if (data) {
+      // Same search-empty as the token segment: copy, icon and position.
+      return (
+        <EmptyToken
+          illustration="SearchDocument"
+          title={intl.formatMessage({
+            id: ETranslations.token_selector_search_no_result__title,
+          })}
+          mt="18%"
+        />
+      );
+    }
+    // The one loading look: the frame the rows are about to fill, at their
+    // final positions, so nothing moves when they land.
+    return (
+      <Stack>
+        {isSearchMode ? (
+          <Stack h="$3" />
+        ) : (
+          <SectionList.SectionHeader title={popularTitle} />
+        )}
+        <ListLoading isTokenSelectorView listCount={LOADING_ROW_COUNT} />
+      </Stack>
+    );
+  }, [data, intl, isSearchMode, popularTitle]);
+
+  return (
+    <SectionList
+      testID={testID}
+      onScroll={listProps?.onScroll}
+      scrollEventThrottle={listProps?.scrollEventThrottle}
+      contentContainerStyle={listProps?.contentContainerStyle}
+      estimatedItemSize={60}
+      stickySectionHeadersEnabled
+      sections={sections}
+      renderSectionHeader={renderSectionHeader}
+      renderItem={renderItem}
+      ListEmptyComponent={listEmptyComponent}
+      // The hosting page applies the bottom safe area.
+      ListFooterComponent={<Stack h="$3" />}
+    />
+  );
+}

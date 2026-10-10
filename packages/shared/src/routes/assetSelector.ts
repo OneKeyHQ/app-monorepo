@@ -1,5 +1,7 @@
 /* cspell:ignore Infini */
 
+import type { ReactNode } from 'react';
+
 import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
@@ -15,8 +17,10 @@ import type {
 
 import type { EModalReceiveRoutes } from './receive';
 import type { EModalSignatureConfirmRoutes } from './signatureConfirm';
+import type { IServerNetwork } from '../../types';
 import type { INetworkAccount } from '../../types/account';
 import type { EDeriveAddressActionType } from '../../types/address';
+import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
 export enum EAssetSelectorRoutes {
   TokenSelector = 'TokenSelector',
@@ -43,6 +47,17 @@ export type IDeriveTypesAddressSelectorParams = {
   onUnmounted?: () => void;
 };
 
+// Multi-chain context handed back with a selection so the receiving page can
+// offer an in-page network switch without re-deriving the member list.
+export type IAggregateTokenSelectContext = {
+  aggregateToken?: IAccountToken;
+  aggregateSubTokenList?: IAccountToken[];
+  allAggregateTokenList?: IAccountToken[];
+  network?: IServerNetwork;
+  // The row created the address on the way (analytics).
+  createdAddress?: boolean;
+};
+
 export type ITokenSelectorParamList = {
   title?: string;
   networkId: string;
@@ -52,7 +67,10 @@ export type ITokenSelectorParamList = {
   activeNetworkId?: string;
   forceShowActiveAccountTokenList?: boolean;
   tokens?: ITokenData;
-  onSelect: (token: IToken) => void | Promise<void>;
+  onSelect: (
+    token: IToken,
+    context?: IAggregateTokenSelectContext,
+  ) => void | Promise<void>;
   closeAfterSelect?: boolean;
   tokenListState?: {
     isRefreshing: boolean;
@@ -87,6 +105,42 @@ export type ITokenSelectorParamList = {
   hideBalanceAndValue?: boolean;
   onSwitchNetwork?: () => void | Promise<void>;
   showDeFiTokenSwitch?: boolean;
+  // Keeps DeFi (dApp receipt) tokens out of the browse list without offering
+  // the switch; search still matches them. Receive uses it: such a token
+  // arrives at the same address as any other token on its network, so the
+  // list needs no second dataset.
+  hideDeFiTokens?: boolean;
+  // Optional second body segment next to the token list (main Receive uses
+  // it for the network list). When set, the header carries only the title
+  // and the body renders a segment control + search box above the content;
+  // the search text is shared across segments.
+  secondaryTab?: ITokenSelectorSecondaryTab;
+};
+
+// Props the selector hands to the secondary content so it scrolls under the
+// collapsing header the same way the token list does.
+export type ITokenSelectorSecondaryTabListProps = {
+  onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  scrollEventThrottle: number;
+  contentContainerStyle: { pt: number };
+};
+
+export type ITokenSelectorSecondaryTab = {
+  tokensTabLabel: string;
+  label: string;
+  searchPlaceholder: string;
+  testIDs?: {
+    segment?: string;
+    tokensTab?: string;
+    secondaryTab?: string;
+    searchBar?: string;
+  };
+  renderContent: (
+    searchKey: string,
+    listProps: ITokenSelectorSecondaryTabListProps,
+  ) => ReactNode;
+  // Fired on a real change only (not on the initial render).
+  onTabChange?: (params: { toSecondary: boolean }) => void;
 };
 
 export type IAggregateTokenSelectorParams = {
@@ -102,7 +156,10 @@ export type IAggregateTokenSelectorParams = {
   // fallback for any future direct entry.
   aggregateSubTokenList?: IAccountToken[];
   allAggregateTokenList?: IAccountToken[];
-  onSelect: (token: IAccountToken) => void | Promise<void>;
+  onSelect: (
+    token: IAccountToken,
+    context?: IAggregateTokenSelectContext,
+  ) => void | Promise<void>;
   closeAfterSelect?: boolean;
   enableNetworkAfterSelect?: boolean;
   hideZeroBalanceTokens?: boolean;

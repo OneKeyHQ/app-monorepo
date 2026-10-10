@@ -4136,6 +4136,7 @@ export enum ETranslations {
   receive_open_exchange = 'receive.open_exchange',
   receive_opening_exchange_in_seconds = 'receive.opening_exchange_in_seconds',
   receive_send_asset_warning_message = 'receive.send_asset_warning_message',
+  receive_address__title = 'receive_address__title',
   receive_arrival_time_min = 'receive_arrival_time_min',
   receive_arrival_time_over_min = 'receive_arrival_time_over_min',
   receive_arrival_time_sec = 'receive_arrival_time_sec',

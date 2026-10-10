@@ -263,7 +263,7 @@ function BulkSendProcessContent({
 
   const handleFillUp = useCallback(() => {
     if (nativeToken) {
-      void handleOnReceive({ token: nativeToken });
+      void handleOnReceive({ token: nativeToken, source: 'bulkSend' });
     }
   }, [handleOnReceive, nativeToken]);
 

@@ -1,8 +1,7 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
-import { uniqBy } from 'lodash';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -24,11 +23,14 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EAssetSelectorRoutes,
+  IAggregateTokenSelectContext,
   IAssetSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
+  mergeAggregateTokenMembers,
   sortTokensByOrder,
   sortTokensCommon,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -38,7 +40,7 @@ import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
-import { useAccountSelectorCreateAddress } from '../../../components/AccountSelector/hooks/useAccountSelectorCreateAddress';
+import { useCreateAddressForNetwork } from '../../../components/AccountSelector/hooks/useCreateAddressForNetwork';
 import { EmptySearch } from '../../../components/Empty';
 import { ListItem } from '../../../components/ListItem';
 import { NetworkAvatarBase } from '../../../components/NetworkAvatar';
@@ -62,6 +64,39 @@ import type { RouteProp } from '@react-navigation/core';
 // list does not flash empty while the dynamic (server-fetched) networks resolve.
 const listedNetworkMap = getListedNetworkMap();
 
+// Account scope the selector looks addresses up in and creates them for. The
+// page's own account (route params) decides where it carries one; the home
+// active account fills in otherwise, as it did before the route carried a
+// scope. Some entries pass an empty string rather than nothing, and an empty
+// scope would resolve every row against the first account of the wallet.
+export function resolveAggregateSelectorAccountScope({
+  routeAccountId,
+  routeIndexedAccountId,
+  activeWalletId,
+  activeIndexedAccountId,
+  activeIndexedAccountWalletId,
+}: {
+  routeAccountId: string | undefined;
+  routeIndexedAccountId: string | undefined;
+  activeWalletId: string | undefined;
+  activeIndexedAccountId: string | undefined;
+  activeIndexedAccountWalletId: string | undefined;
+}): { walletId: string | undefined; indexedAccountId: string | undefined } {
+  const routeWalletId = routeAccountId
+    ? accountUtils.getWalletIdFromAccountId({ accountId: routeAccountId })
+    : undefined;
+  const walletId = routeWalletId || activeWalletId;
+  // The active account only stands in for the wallet the page is about.
+  const activeFallback =
+    activeIndexedAccountWalletId === walletId
+      ? activeIndexedAccountId
+      : undefined;
+  return {
+    walletId,
+    indexedAccountId: routeIndexedAccountId || activeFallback,
+  };
+}
+
 export function AggregateTokenListItem({
   token,
   aggKey,
@@ -71,6 +106,10 @@ export function AggregateTokenListItem({
   refreshAllNetworkState,
   processingTokenKey,
   hideBalanceAndValue,
+  walletId,
+  indexedAccountId,
+  createAddressForNetwork,
+  beginSelection,
 }: {
   token: IAccountToken;
   aggKey: string;
@@ -93,6 +132,16 @@ export function AggregateTokenListItem({
   }) => void;
   processingTokenKey: string | null;
   hideBalanceAndValue?: boolean;
+  // Account scope of the page (route params), not the home active account:
+  // a Receive page opened for another wallet must create addresses there.
+  walletId: string | undefined;
+  indexedAccountId: string | undefined;
+  createAddressForNetwork: ReturnType<
+    typeof useCreateAddressForNetwork
+  >['createAddressForNetwork'];
+  // Marks this row as the selector's latest pick; the returned check tells
+  // whether it still is once the row has created its address.
+  beginSelection: () => () => boolean;
 }) {
   const [loading, setLoading] = useState(false);
 
@@ -105,11 +154,6 @@ export function AggregateTokenListItem({
   // read the live cell so a price tick updates the row while the modal is open,
   // NOT a one-shot PULL that would freeze). The modal is a home store mirror.
   const tokenInfo = useAggregateSubTokenFiat(aggKey, token.networkId);
-  const {
-    activeAccount: { wallet, indexedAccount },
-  } = useActiveAccount({ num: 0 });
-
-  const { createAddress } = useAccountSelectorCreateAddress();
 
   // Settles to an object so a pending lookup (undefined) stays distinguishable
   // from a settled "no address on this network" ({ accountId: undefined }).
@@ -126,7 +170,7 @@ export function AggregateTokenListItem({
       const account = await backgroundApiProxy.serviceAccount.getNetworkAccount(
         {
           accountId: undefined,
-          indexedAccountId: indexedAccount?.id ?? '',
+          indexedAccountId: indexedAccountId ?? '',
           networkId: token.networkId ?? '',
           deriveType,
         },
@@ -136,7 +180,7 @@ export function AggregateTokenListItem({
     } catch {
       return { accountId: undefined };
     }
-  }, [indexedAccount?.id, token.networkId, token.accountId]);
+  }, [indexedAccountId, token.networkId, token.accountId]);
   const accountId = networkAccountLookup?.accountId;
   // OK-61879: a network with no created address has no balance to show, so
   // the value column is dropped once the lookup settles without an account.
@@ -145,6 +189,7 @@ export function AggregateTokenListItem({
   const isAddressMissing = networkAccountLookup !== undefined && !accountId;
 
   const handleOnPress = useCallback(async () => {
+    const isLatestSelection = beginSelection();
     if (accountId) {
       onPress({
         token: {
@@ -155,56 +200,33 @@ export function AggregateTokenListItem({
     } else {
       try {
         setLoading(true);
-        const globalDeriveType =
-          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-            networkId: network?.id ?? '',
-          });
-
-        const createAddressResult = await createAddress({
-          account: {
-            walletId: wallet?.id,
-            networkId: network?.id ?? '',
-            indexedAccountId: indexedAccount?.id,
-            deriveType: globalDeriveType,
-          },
-          selectAfterCreate: false,
-          num: 0,
+        const networkId = token.networkId ?? network?.id ?? '';
+        const isEnabled = isEnabledNetworksInAllNetworks({
+          networkId,
+          disabledNetworks: allNetworksState.disabledNetworks,
+          enabledNetworks: allNetworksState.enabledNetworks,
+          isTestnet: false,
         });
-        if (createAddressResult) {
-          const isEnabled =
-            token.networkId &&
-            isEnabledNetworksInAllNetworks({
-              networkId: token.networkId,
-              disabledNetworks: allNetworksState.disabledNetworks,
-              enabledNetworks: allNetworksState.enabledNetworks,
-              isTestnet: false,
-            });
-
-          if (!isEnabled && token.networkId) {
-            await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
-              enabledNetworks: { [token.networkId]: true },
-            });
+        const createdAccountId = await createAddressForNetwork({
+          walletId,
+          indexedAccountId,
+          networkId,
+          isNetworkEnabled: isEnabled,
+        });
+        if (createdAccountId) {
+          if (!isEnabled) {
             void refreshAllNetworkState({ alwaysSetState: true });
           }
-          Toast.success({
-            title: intl.formatMessage({
-              id: ETranslations.swap_page_toast_address_generated,
-            }),
-            message: isEnabled
-              ? ''
-              : intl.formatMessage({
-                  id: ETranslations.network_also_enabled,
-                }),
-          });
-          onPress({
-            token: {
-              ...token,
-              accountId: createAddressResult.accounts[0]?.id,
-            },
-            enabledInAllNetworks: true,
-          });
+          // Creating an address takes a while: by now another network may
+          // have been picked, or the selector may be gone. Reporting this
+          // row then would undo the later choice.
+          if (isLatestSelection()) {
+            onPress({
+              token: { ...token, accountId: createdAccountId },
+              enabledInAllNetworks: true,
+            });
+          }
           void run();
-          appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
         }
       } finally {
         setLoading(false);
@@ -212,15 +234,15 @@ export function AggregateTokenListItem({
     }
   }, [
     accountId,
+    beginSelection,
     onPress,
     token,
     network?.id,
-    createAddress,
-    wallet?.id,
-    indexedAccount?.id,
+    createAddressForNetwork,
+    walletId,
+    indexedAccountId,
     allNetworksState.disabledNetworks,
     allNetworksState.enabledNetworks,
-    intl,
     run,
     refreshAllNetworkState,
   ]);
@@ -306,6 +328,8 @@ function AggregateTokenSelector() {
 
   const {
     title,
+    accountId,
+    indexedAccountId: routeIndexedAccountId,
     aggregateToken,
     aggregateSubTokenList,
     searchPlaceholder,
@@ -319,6 +343,35 @@ function AggregateTokenSelector() {
   } = route.params;
 
   const intl = useIntl();
+  const {
+    activeAccount: {
+      wallet: activeWallet,
+      indexedAccount: activeIndexedAccount,
+    },
+  } = useActiveAccount({ num: 0 });
+  const { walletId, indexedAccountId } = resolveAggregateSelectorAccountScope({
+    routeAccountId: accountId,
+    routeIndexedAccountId,
+    activeWalletId: activeWallet?.id,
+    activeIndexedAccountId: activeIndexedAccount?.id,
+    activeIndexedAccountWalletId: activeIndexedAccount?.walletId,
+  });
+  const { createAddressForNetwork } = useCreateAddressForNetwork();
+
+  // One pick is live at a time across the selector, and none once it is gone.
+  const selectionSeqRef = useRef(0);
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+  const beginSelection = useCallback(() => {
+    selectionSeqRef.current += 1;
+    const seq = selectionSeqRef.current;
+    return () => isMountedRef.current && seq === selectionSeqRef.current;
+  }, []);
 
   const [searchKey, setSearchKey] = useState('');
   const navigation = useAppNavigation();
@@ -341,12 +394,14 @@ function AggregateTokenSelector() {
     contextTokenListMap: undefined,
   });
 
-  // Resolve the networks behind the aggregate tokens. getNetworksByIds reads the
-  // full dynamic network list (preset + server-fetched) with delisted (TRASH)
-  // networks already filtered out, so valid server-fetched networks are kept
-  // while removed ones are dropped. The preset-only listed map cannot see
-  // server-fetched networks and would wrongly drop their tokens.
-  const { result: existingNetworks } = usePromiseResult(async () => {
+  // Resolve the networks behind the aggregate tokens and, in the same trip,
+  // which of them the wallet cannot use. The compatibility lookup reads the
+  // full dynamic network registry (preset + server-fetched, delisted dropped),
+  // so valid server-fetched networks are kept while removed ones are dropped;
+  // `unavailableItems` are the networks an imported / watch-only / external /
+  // QR wallet or BTC-only hardware firmware cannot create an address on, and
+  // such a row would only fail on tap.
+  const { result: networkResolution } = usePromiseResult(async () => {
     const networkIds = Array.from(
       new Set(
         [...aggregateTokens, ...(allAggregateTokenList ?? [])]
@@ -355,14 +410,26 @@ function AggregateTokenSelector() {
       ),
     );
     if (!networkIds.length) {
-      return [];
+      return { networks: [], incompatibleNetworkIds: new Set<string>() };
     }
-    const { networks } =
-      await backgroundApiProxy.serviceNetwork.getNetworksByIds({
-        networkIds,
-      });
-    return networks;
-  }, [aggregateTokens, allAggregateTokenList]);
+    const { mainnetItems, testnetItems, unavailableItems } =
+      await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
+        {
+          accountId,
+          walletId,
+          networkIds,
+          excludeTestNetwork: false,
+        },
+      );
+    return {
+      networks: [...mainnetItems, ...testnetItems, ...unavailableItems],
+      incompatibleNetworkIds: new Set(
+        unavailableItems.map((network) => network.id),
+      ),
+    };
+  }, [aggregateTokens, allAggregateTokenList, accountId, walletId]);
+  const existingNetworks = networkResolution?.networks;
+  const incompatibleNetworkIds = networkResolution?.incompatibleNetworkIds;
 
   // Merge the synchronously available preset LISTED networks with the resolved
   // server-fetched networks. Seeding with the preset map keeps the list from
@@ -405,13 +472,21 @@ function AggregateTokenSelector() {
       token: IAccountToken;
       enabledInAllNetworks?: boolean;
     }) => {
+      const selectContext: IAggregateTokenSelectContext = {
+        aggregateToken,
+        aggregateSubTokenList: aggregateTokens,
+        allAggregateTokenList,
+        network: networkMap.get(token.networkId ?? ''),
+        // Rows only set this flag on the create-address path.
+        createdAddress: !!enabledInAllNetworks,
+      };
       if (exchangeFilter) {
         updateProcessingTokenState({
           isProcessing: true,
           token,
         });
         try {
-          await onSelect(token);
+          await onSelect(token, selectContext);
         } finally {
           updateProcessingTokenState({
             isProcessing: false,
@@ -419,7 +494,7 @@ function AggregateTokenSelector() {
           });
         }
       } else {
-        void onSelect(token);
+        void onSelect(token, selectContext);
       }
 
       if (enableNetworkAfterSelect) {
@@ -459,6 +534,10 @@ function AggregateTokenSelector() {
       refreshAllNetworkState,
       updateProcessingTokenState,
       exchangeFilter,
+      aggregateToken,
+      aggregateTokens,
+      allAggregateTokenList,
+      networkMap,
     ],
   );
 
@@ -476,18 +555,23 @@ function AggregateTokenSelector() {
       });
     }
 
-    let result = uniqBy(
-      [
-        ...tokens,
-        ...sortTokensByOrder({ tokens: allAggregateTokenList ?? [] }),
-      ],
-      (token) => token.networkId,
-    );
+    let result = mergeAggregateTokenMembers({
+      aggregateSubTokenList: tokens,
+      allAggregateTokenList: sortTokensByOrder({
+        tokens: allAggregateTokenList ?? [],
+      }),
+    });
 
     // Drop tokens whose network is no longer listed (delisted/removed). Their
     // metadata is missing from networkMap, so they would otherwise render as
     // blank rows with a broken icon and empty name.
     result = result.filter((token) => networkMap.has(token.networkId ?? ''));
+
+    if (incompatibleNetworkIds?.size) {
+      result = result.filter(
+        (token) => !incompatibleNetworkIds.has(token.networkId ?? ''),
+      );
+    }
 
     if (exchangeFilter?.supportedAssets) {
       result = result.filter((token) => {
@@ -511,6 +595,7 @@ function AggregateTokenSelector() {
     exchangeFilter,
     aggregateToken,
     networkMap,
+    incompatibleNetworkIds,
   ]);
 
   const filteredAggregateTokens = useMemo(() => {
@@ -552,6 +637,10 @@ function AggregateTokenSelector() {
         refreshAllNetworkState={refreshAllNetworkState}
         processingTokenKey={processingTokenKey}
         hideBalanceAndValue={hideBalanceAndValue}
+        walletId={walletId}
+        indexedAccountId={indexedAccountId}
+        createAddressForNetwork={createAddressForNetwork}
+        beginSelection={beginSelection}
       />
     ));
   }, [
@@ -564,6 +653,10 @@ function AggregateTokenSelector() {
     refreshAllNetworkState,
     processingTokenKey,
     hideBalanceAndValue,
+    walletId,
+    indexedAccountId,
+    createAddressForNetwork,
+    beginSelection,
   ]);
 
   const aggregateTokenSymbol =

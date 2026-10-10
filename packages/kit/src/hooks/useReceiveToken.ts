@@ -6,8 +6,14 @@ import type { IPageNavigationProp } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { EExchangeId } from '@onekeyhq/shared/src/consts/exchangeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IWalletActionSource } from '@onekeyhq/shared/src/logger/scopes/wallet/scenes/walletActions';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
-import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
+import type {
+  IAggregateTokenSelectContext,
+  IModalReceiveParamList,
+  IReceiveNetworkSelection,
+  IReceiveSwitchEntry,
+} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
@@ -17,6 +23,7 @@ import type {
 } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { buildReceiveNetworkSecondaryTab } from '../views/Receive/components/ReceiveNetworkList';
 
 import { useAccountData } from './useAccountData';
 
@@ -29,6 +36,7 @@ function useReceiveToken({
   isMultipleDerive,
   indexedAccountId,
   exchangeSource,
+  isAllNetworks,
 }: {
   accountId: string;
   networkId: string;
@@ -48,9 +56,11 @@ function useReceiveToken({
     vaultSettings,
     account: _account,
     network,
+    wallet,
   } = useAccountData({
     networkId,
     accountId,
+    walletId,
   });
 
   const navigation =
@@ -61,12 +71,29 @@ function useReceiveToken({
       withAllAggregateTokens,
       sameModal,
       useSelector,
+      switchEntry,
+      source,
     }: {
       token?: IToken;
       withAllAggregateTokens?: boolean;
       sameModal?: boolean;
       useSelector?: boolean;
+      // Direct-to-QR callers opt in per call (token details); fixed-destination
+      // callers (gas top-up, bulk revoke) leave it off. The token list path
+      // below always opts in.
+      switchEntry?: IReceiveSwitchEntry;
+      // Analytics: the entry that opened the flow.
+      source?: IWalletActionSource;
     }) => {
+      // Home mode. Callers whose own networkId is a single chain while the
+      // home is under All Networks (token details member tab) say so.
+      const isAllNetworksMode =
+        isAllNetworks ?? networkUtils.isAllNetwork({ networkId });
+      // The in-page network switch exists only under All Networks: there
+      // the home shows whatever arrives on the other chain. In
+      // single-network mode a switched address would receive funds the
+      // home does not show, so the QR page stays on the current chain.
+      const resolvedSwitchEntry = isAllNetworksMode ? switchEntry : undefined;
       if (useSelector) {
         navigation.pushModal(EModalRoutes.ReceiveModal, {
           screen: EModalReceiveRoutes.ReceiveSelector,
@@ -106,6 +133,9 @@ function useReceiveToken({
               walletId,
               token: token ?? tokens?.data?.[0],
               indexedAccountId,
+              switchEntry: resolvedSwitchEntry,
+              source,
+              isAllNetworksMode,
             });
             return;
           }
@@ -117,6 +147,9 @@ function useReceiveToken({
               walletId,
               token: token ?? tokens?.data?.[0],
               indexedAccountId,
+              switchEntry: resolvedSwitchEntry,
+              source,
+              isAllNetworksMode,
             },
           });
           return;
@@ -130,6 +163,9 @@ function useReceiveToken({
             token,
             indexedAccountId,
             disableSelector: true,
+            switchEntry: resolvedSwitchEntry,
+            source,
+            isAllNetworksMode,
           });
         } else {
           navigation.pushModal(EModalRoutes.ReceiveModal, {
@@ -141,6 +177,9 @@ function useReceiveToken({
               token,
               indexedAccountId,
               disableSelector: true,
+              switchEntry: resolvedSwitchEntry,
+              source,
+              isAllNetworksMode,
             },
           });
         }
@@ -157,14 +196,55 @@ function useReceiveToken({
           allAggregateTokens = res.allAggregateTokens;
         }
 
+        // Main Receive under All Networks gets the Tokens | Networks layout;
+        // single-network scope and exchange deposits keep today's token list.
+        const secondaryTab =
+          !exchangeSource && isAllNetworksMode
+            ? buildReceiveNetworkSecondaryTab({
+                intl,
+                walletId,
+                indexedAccountId,
+                accountId,
+                walletType: wallet?.type,
+                onSelectNetwork: ({
+                  network: selectedNetwork,
+                  accountId: selectedAccountId,
+                }: IReceiveNetworkSelection) => {
+                  navigation.push(EModalReceiveRoutes.ReceiveToken, {
+                    networkId: selectedNetwork.id,
+                    accountId: selectedAccountId,
+                    walletId,
+                    indexedAccountId,
+                    switchEntry: 'network',
+                    source: 'network',
+                    isAllNetworksMode,
+                  });
+                },
+                onSelectLightning: ({
+                  network: selectedNetwork,
+                  accountId: selectedAccountId,
+                }: IReceiveNetworkSelection) => {
+                  navigation.push(EModalReceiveRoutes.CreateInvoice, {
+                    networkId: selectedNetwork.id,
+                    accountId: selectedAccountId,
+                  });
+                },
+              })
+            : undefined;
+
         const params = {
           allAggregateTokenMap,
           allAggregateTokens,
           aggregateTokenSelectorScreen:
             EModalReceiveRoutes.ReceiveSelectAggregateToken,
+          // Named after the "Receive transfer" row that leads here, so the
+          // page does not repeat the title of the page before it.
           title: intl.formatMessage({
-            id: ETranslations.global_select_crypto,
+            id: secondaryTab
+              ? ETranslations.receive_transfer
+              : ETranslations.global_select_crypto,
           }),
+          secondaryTab,
           networkId,
           accountId,
           indexedAccountId,
@@ -177,13 +257,16 @@ function useReceiveToken({
           browseEmptyTitle: intl.formatMessage({
             id: ETranslations.token_selector_no_tokens__title,
           }),
-          showDeFiTokenSwitch: true,
+          hideDeFiTokens: true,
           closeAfterSelect: false,
           footerTipText: intl.formatMessage({
             id: ETranslations.receive_token_list_footer_text,
           }),
           enableNetworkAfterSelect: true,
-          onSelect: async (t: IToken) => {
+          onSelect: async (
+            t: IToken,
+            selectContext?: IAggregateTokenSelectContext,
+          ) => {
             if (networkUtils.isLightningNetworkByNetworkId(t.networkId)) {
               navigation.pushModal(EModalRoutes.ReceiveModal, {
                 screen: EModalReceiveRoutes.CreateInvoice,
@@ -200,6 +283,19 @@ function useReceiveToken({
                 networkId: t.networkId ?? '',
               });
 
+            // A row without group context is not proof of an ungrouped
+            // token: search results list the members of a multi-chain token
+            // as plain per-network rows. The QR page resolves the group
+            // itself whenever no member list is carried along.
+            const switchParams = {
+              switchEntry: isAllNetworksMode ? ('token' as const) : undefined,
+              aggregateToken: selectContext?.aggregateToken,
+              aggregateSubTokenList: selectContext?.aggregateSubTokenList,
+              allAggregateTokenList: selectContext?.allAggregateTokenList,
+              source: exchangeSource ? ('exchange' as const) : source,
+              isAllNetworksMode,
+            };
+
             if (
               settings.mergeDeriveAssetsEnabled &&
               // Cross-network hits under a single-network scope (t.networkId
@@ -214,6 +310,7 @@ function useReceiveToken({
                 token: t,
                 indexedAccountId,
                 exchangeSource,
+                ...switchParams,
               });
               return;
             }
@@ -225,6 +322,7 @@ function useReceiveToken({
               token: t,
               indexedAccountId,
               exchangeSource,
+              ...switchParams,
             });
           },
         };
@@ -253,6 +351,8 @@ function useReceiveToken({
       vaultSettings?.mergeDeriveAssetsEnabled,
       walletId,
       exchangeSource,
+      wallet?.type,
+      isAllNetworks,
     ],
   );
 

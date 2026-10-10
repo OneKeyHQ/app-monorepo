@@ -2,22 +2,34 @@
 
 import type { ReactNode } from 'react';
 
-import { render, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, waitFor } from '@testing-library/react';
 
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
-import { AggregateTokenListItem } from './AggregateTokenSelector';
+import AggregateTokenSelector, {
+  AggregateTokenListItem,
+  resolveAggregateSelectorAccountScope,
+} from './AggregateTokenSelector';
 
 const mockGetNetworkAccount = jest.fn<
   Promise<{ id: string } | undefined>,
+  [{ indexedAccountId?: string; networkId?: string }]
+>();
+const mockCreateAddressForNetwork = jest.fn<
+  Promise<string | undefined>,
   [unknown]
 >();
+let mockRouteParams: Record<string, unknown> = {};
+let mockActiveAccount: {
+  wallet?: { id: string };
+  indexedAccount?: { id: string; walletId: string };
+} = {};
 let mockSubTokenFiat:
   | { balanceParsed?: string; fiatValue?: string; currency?: string }
   | undefined;
 
 jest.mock('@react-navigation/core', () => ({
-  useRoute: () => ({ params: {} }),
+  useRoute: () => ({ params: mockRouteParams }),
 }));
 
 jest.mock('react-intl', () => ({
@@ -65,9 +77,27 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   default: {
     serviceNetwork: {
       getGlobalDeriveTypeOfNetwork: jest.fn(async () => 'default'),
+      getChainSelectorNetworksCompatibleWithAccountId: jest.fn(async () => ({
+        mainnetItems: [
+          { id: 'evm--1', name: 'Ethereum' },
+          { id: 'evm--42161', name: 'Arbitrum' },
+        ],
+        testnetItems: [],
+        unavailableItems: [],
+      })),
     },
     serviceAccount: {
-      getNetworkAccount: (params: unknown) => mockGetNetworkAccount(params),
+      getNetworkAccount: (params: {
+        indexedAccountId?: string;
+        networkId?: string;
+      }) => mockGetNetworkAccount(params),
+    },
+    serviceAllNetwork: {
+      getAllNetworksState: jest.fn(async () => ({
+        disabledNetworks: {},
+        enabledNetworks: {},
+      })),
+      updateAllNetworksState: jest.fn(async () => undefined),
     },
   },
 }));
@@ -87,6 +117,17 @@ jest.mock(
   }),
 );
 
+jest.mock(
+  '../../../components/AccountSelector/hooks/useCreateAddressForNetwork',
+  () => ({
+    useCreateAddressForNetwork: () => ({
+      createAddressForNetwork: (params: unknown) =>
+        mockCreateAddressForNetwork(params),
+      enableNetwork: jest.fn(),
+    }),
+  }),
+);
+
 jest.mock('../../../components/Empty', () => ({
   EmptySearch: () => null,
 }));
@@ -98,14 +139,18 @@ jest.mock('../../../components/ListItem', () => {
       title,
       subtitle,
       children,
+      onPress,
+      disabled,
     }: {
       title?: ReactNode;
       subtitle?: ReactNode;
       children?: ReactNode;
+      onPress?: () => void;
+      disabled?: boolean;
     }) =>
       React.createElement(
         'div',
-        { 'data-testid': 'list-item' },
+        { 'data-testid': 'list-item', onClick: disabled ? undefined : onPress },
         React.createElement('span', { 'data-testid': 'title' }, title),
         subtitle
           ? React.createElement('span', { 'data-testid': 'subtitle' }, subtitle)
@@ -145,8 +190,12 @@ jest.mock('../../../hooks/usePromiseResult', () => {
   return {
     // Minimal stand-in that runs the loader once per deps change so the row's
     // account lookup settles asynchronously, the same way it does at runtime.
-    usePromiseResult: (fn: () => Promise<unknown>, deps: unknown[]) => {
-      const [result, setResult] = React.useState<unknown>(undefined);
+    usePromiseResult: (
+      fn: () => Promise<unknown>,
+      deps: unknown[],
+      options?: { initResult?: unknown },
+    ) => {
+      const [result, setResult] = React.useState<unknown>(options?.initResult);
       React.useEffect(() => {
         let cancelled = false;
         void fn().then((value) => {
@@ -165,12 +214,7 @@ jest.mock('../../../hooks/usePromiseResult', () => {
 });
 
 jest.mock('../../../states/jotai/contexts/accountSelector', () => ({
-  useActiveAccount: () => ({
-    activeAccount: {
-      wallet: { id: 'hd-1' },
-      indexedAccount: { id: 'hd-1--0' },
-    },
-  }),
+  useActiveAccount: () => ({ activeAccount: mockActiveAccount }),
 }));
 
 jest.mock('../../../states/jotai/contexts/tokenList', () => ({
@@ -217,14 +261,238 @@ function renderRow(token: IAccountToken = suiUsdc) {
       allNetworksState={{ disabledNetworks: {}, enabledNetworks: {} }}
       refreshAllNetworkState={jest.fn()}
       processingTokenKey={null}
+      walletId="hd-1"
+      indexedAccountId="hd-1--0"
+      createAddressForNetwork={jest.fn()}
+      beginSelection={() => () => true}
     />,
   );
 }
+
+describe('resolveAggregateSelectorAccountScope', () => {
+  const active = {
+    activeWalletId: 'hd-1',
+    activeIndexedAccountId: 'hd-1--1',
+    activeIndexedAccountWalletId: 'hd-1',
+  };
+
+  it('falls back to the active account when the route carries no indexed account, empty string included', () => {
+    for (const routeIndexedAccountId of ['', undefined]) {
+      expect(
+        resolveAggregateSelectorAccountScope({
+          routeAccountId: "hd-1--m/44'/60'/1'/0/0",
+          routeIndexedAccountId,
+          ...active,
+        }),
+      ).toEqual({ walletId: 'hd-1', indexedAccountId: 'hd-1--1' });
+    }
+  });
+
+  it('keeps the scope the route carries', () => {
+    expect(
+      resolveAggregateSelectorAccountScope({
+        routeAccountId: "hd-2--m/44'/60'/3'/0/0",
+        routeIndexedAccountId: 'hd-2--3',
+        ...active,
+      }),
+    ).toEqual({ walletId: 'hd-2', indexedAccountId: 'hd-2--3' });
+  });
+
+  it('does not borrow the active account for a page about another wallet', () => {
+    expect(
+      resolveAggregateSelectorAccountScope({
+        routeAccountId: "hd-2--m/44'/60'/0'/0/0",
+        routeIndexedAccountId: '',
+        ...active,
+      }),
+    ).toEqual({ walletId: 'hd-2', indexedAccountId: undefined });
+  });
+
+  it('uses the active wallet when the route carries no account', () => {
+    expect(
+      resolveAggregateSelectorAccountScope({
+        routeAccountId: '',
+        routeIndexedAccountId: undefined,
+        ...active,
+      }),
+    ).toEqual({ walletId: 'hd-1', indexedAccountId: 'hd-1--1' });
+  });
+});
+
+describe('AggregateTokenSelector', () => {
+  const AGGREGATE_USDC = {
+    $key: 'aggregate_USDC_',
+    isAggregateToken: true,
+    commonSymbol: 'USDC',
+    name: 'USD Coin',
+    symbol: 'USDC',
+    networkId: '',
+    address: 'aggregate_USDC_',
+    decimals: 0,
+    isNative: false,
+  } as IAccountToken;
+  const usdcOn = (
+    networkId: string,
+    networkName: string,
+    extra: Partial<IAccountToken> = {},
+  ): IAccountToken => ({
+    $key: `aggregate_USDC_${networkId}`,
+    address: '0xusdc',
+    decimals: 6,
+    isNative: false,
+    name: 'USD Coin',
+    symbol: 'USDC',
+    commonSymbol: 'USDC',
+    networkId,
+    networkName,
+    ...extra,
+  });
+  const settle = () =>
+    act(async () => {
+      await new Promise((resolve) => {
+        setTimeout(resolve, 0);
+      });
+    });
+
+  function renderSelector(params: Record<string, unknown> = {}) {
+    const onSelect = jest.fn(async () => undefined);
+    mockRouteParams = {
+      // The page is about account #2 of the wallet.
+      accountId: "hd-1--m/44'/60'/1'/0/0",
+      indexedAccountId: 'hd-1--1',
+      aggregateToken: AGGREGATE_USDC,
+      aggregateSubTokenList: [],
+      allAggregateTokenList: [
+        usdcOn('evm--1', 'Ethereum'),
+        usdcOn('evm--42161', 'Arbitrum'),
+      ],
+      onSelect,
+      closeAfterSelect: true,
+      ...params,
+    };
+    const utils = render(<AggregateTokenSelector />);
+    const row = (networkName: string) => {
+      const found = utils
+        .getAllByTestId('list-item')
+        .find(
+          (item) =>
+            item.querySelector('[data-testid="title"]')?.textContent ===
+            networkName,
+        );
+      expect(found).toBeDefined();
+      return found as HTMLElement;
+    };
+    return { ...utils, onSelect, row };
+  }
+
+  beforeEach(() => {
+    mockGetNetworkAccount.mockReset();
+    mockCreateAddressForNetwork.mockReset();
+    mockSubTokenFiat = undefined;
+    mockActiveAccount = {
+      wallet: { id: 'hd-1' },
+      indexedAccount: { id: 'hd-1--1', walletId: 'hd-1' },
+    };
+    // Arbitrum has an address, Ethereum has none yet.
+    mockGetNetworkAccount.mockImplementation(async ({ networkId }) => {
+      if (networkId === 'evm--42161') {
+        return { id: 'hd-1--arb-1' };
+      }
+      return Promise.reject(new Error('account not found'));
+    });
+  });
+
+  it('resolves and creates addresses for the active account when the route passes an empty indexed account', async () => {
+    mockCreateAddressForNetwork.mockResolvedValue('hd-1--eth-1');
+    const { row, onSelect, queryAllByTestId } = renderSelector({
+      indexedAccountId: '',
+    });
+    await waitFor(() => expect(queryAllByTestId('list-item')).toHaveLength(2));
+    await waitFor(() =>
+      expect(
+        row('Arbitrum').querySelector('[data-testid="subtitle"]'),
+      ).toBeNull(),
+    );
+    // Looked up for account #2, not for an empty scope.
+    for (const [params] of mockGetNetworkAccount.mock.calls) {
+      expect(params.indexedAccountId).toBe('hd-1--1');
+    }
+    // The network that already has an address is not offered for creation.
+    expect(
+      row('Ethereum').querySelector('[data-testid="subtitle"]')?.textContent,
+    ).toBe('global.create_address');
+
+    fireEvent.click(row('Ethereum'));
+    await waitFor(() => expect(onSelect).toHaveBeenCalledTimes(1));
+    expect(mockCreateAddressForNetwork).toHaveBeenCalledWith(
+      expect.objectContaining({
+        walletId: 'hd-1',
+        indexedAccountId: 'hd-1--1',
+        networkId: 'evm--1',
+      }),
+    );
+  });
+
+  it('does not report a network whose address finished creating after another network was picked', async () => {
+    let finishCreating: (accountId: string) => void = () => undefined;
+    mockCreateAddressForNetwork.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishCreating = resolve;
+        }),
+    );
+    const { row, onSelect, queryAllByTestId } = renderSelector();
+    await waitFor(() => expect(queryAllByTestId('list-item')).toHaveLength(2));
+    await waitFor(() =>
+      expect(
+        row('Arbitrum').querySelector('[data-testid="subtitle"]'),
+      ).toBeNull(),
+    );
+
+    fireEvent.click(row('Ethereum'));
+    fireEvent.click(row('Arbitrum'));
+    await waitFor(() => expect(onSelect).toHaveBeenCalledTimes(1));
+    expect(onSelect).toHaveBeenLastCalledWith(
+      expect.objectContaining({ networkId: 'evm--42161' }),
+      expect.anything(),
+    );
+
+    await act(async () => {
+      finishCreating('hd-1--eth-1');
+    });
+    await settle();
+    // Arbitrum was the last pick: Ethereum must not take over afterwards.
+    expect(onSelect).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not report a network whose address finished creating after the selector closed', async () => {
+    let finishCreating: (accountId: string) => void = () => undefined;
+    mockCreateAddressForNetwork.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishCreating = resolve;
+        }),
+    );
+    const { row, onSelect, queryAllByTestId, unmount } = renderSelector();
+    await waitFor(() => expect(queryAllByTestId('list-item')).toHaveLength(2));
+    fireEvent.click(row('Ethereum'));
+    unmount();
+    await act(async () => {
+      finishCreating('hd-1--eth-1');
+    });
+    await settle();
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+});
 
 describe('AggregateTokenListItem', () => {
   beforeEach(() => {
     mockGetNetworkAccount.mockReset();
     mockSubTokenFiat = undefined;
+    mockActiveAccount = {
+      wallet: { id: 'hd-1' },
+      indexedAccount: { id: 'hd-1--0', walletId: 'hd-1' },
+    };
   });
 
   it('hides balance and value on a network without a created address (OK-61879)', async () => {

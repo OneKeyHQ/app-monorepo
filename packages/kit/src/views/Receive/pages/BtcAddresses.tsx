@@ -538,6 +538,7 @@ function BtcAddresses() {
           btcUsedAddress: row.address,
           btcUsedAddressPath: row.path,
           disableSelector: true,
+          source: 'copyAddress',
         });
         return;
       }
