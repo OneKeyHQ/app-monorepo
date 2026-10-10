@@ -119,13 +119,18 @@ export function useToMarketStockDetailPage(
     media.gtLg && !platformEnv.isNative ? 'desktop' : 'mobile';
 
   return useCallback(
-    async (stock: IMarketStockDetailNavigationInput) => {
+    async (
+      stock: IMarketStockDetailNavigationInput,
+      request?: { isCurrentRequest: () => boolean },
+    ): Promise<boolean> => {
       if (
         travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
         'travel-mode'
       ) {
-        return;
+        return false;
       }
+      const isCurrentRequest = request?.isCurrentRequest ?? (() => true);
+      if (!isCurrentRequest()) return false;
       const stockId = typeof stock === 'string' ? stock : stock.stockId;
       const stockPreview = typeof stock === 'string' ? undefined : stock;
       const stockTokenParams =
@@ -185,6 +190,8 @@ export function useToMarketStockDetailPage(
         await preloadPromise;
       }
 
+      if (!isCurrentRequest()) return false;
+
       if (
         platformEnv.isExtensionUiPopup ||
         platformEnv.isExtensionUiSidePanel
@@ -206,7 +213,7 @@ export function useToMarketStockDetailPage(
             : EEnterWay.ExtensionSidePanel,
         });
         closeExtensionPopupAfterExpandTabOpen();
-        return;
+        return true;
       }
 
       if (options?.replaceCurrentDetail) {
@@ -226,7 +233,8 @@ export function useToMarketStockDetailPage(
             ? ETabRoutes.Discovery
             : ETabRoutes.Market;
           await switchTabAsync(marketTab);
-          rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+          if (!isCurrentRequest() || !rootNavigationRef.current) return false;
+          rootNavigationRef.current.navigate(ERootRoutes.Main, {
             screen: marketTab,
             params: {
               screen: ETabMarketRoutes.MarketStockDetail,
@@ -262,10 +270,11 @@ export function useToMarketStockDetailPage(
             prepareMarketDetailTabBarTransition();
           }
         }
-        return;
+        return true;
       }
 
-      rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+      if (!rootNavigationRef.current) return false;
+      rootNavigationRef.current.navigate(ERootRoutes.Main, {
         screen: platformEnv.isNative ? ETabRoutes.Discovery : ETabRoutes.Market,
         params: {
           screen: ETabMarketRoutes.MarketStockDetail,
@@ -283,6 +292,7 @@ export function useToMarketStockDetailPage(
         },
       });
       prepareMarketDetailTabBarTransition();
+      return true;
     },
     [
       navigation,

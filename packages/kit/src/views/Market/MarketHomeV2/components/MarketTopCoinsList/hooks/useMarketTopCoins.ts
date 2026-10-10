@@ -116,6 +116,12 @@ export function useMarketTopCoinResolver() {
   );
 }
 
+export function isMarketTopCoinNavigationSuppressed() {
+  return (
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind === 'travel-mode'
+  );
+}
+
 export function useMarketTopCoinNavigation({
   replaceCurrentDetail = false,
 }: IUseMarketTopCoinNavigationOptions = {}) {
@@ -129,10 +135,7 @@ export function useMarketTopCoinNavigation({
 
   const handleItemPress = useCallback(
     async (item: IMarketAssetListItem) => {
-      if (
-        travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
-        'travel-mode'
-      ) {
+      if (isMarketTopCoinNavigationSuppressed()) {
         return;
       }
       if (isNavigatingRef.current) {

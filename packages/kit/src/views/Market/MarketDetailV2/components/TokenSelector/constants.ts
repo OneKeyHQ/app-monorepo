@@ -100,5 +100,6 @@ export function convertSearchTokenToMarketToken(
     isNative: item.isNative,
     communityRecognized: item.communityRecognized,
     stock: item.stock,
+    stockId: item.stockId,
   };
 }

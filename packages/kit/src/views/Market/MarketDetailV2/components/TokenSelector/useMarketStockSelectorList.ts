@@ -70,13 +70,19 @@ function readCachedStockListResponse(swrKey: string) {
 export function useMarketStockSelectorList({
   query,
   searchOnly = false,
+  category,
 }: {
   query?: string;
   searchOnly?: boolean;
+  category?: string;
 }) {
   const locale = useLocaleVariant();
   const normalizedQuery = query?.trim() ?? '';
-  const queryKey = normalizedQuery;
+  const listCategory =
+    !searchOnly && !normalizedQuery && category && category !== 'all'
+      ? category
+      : undefined;
+  const queryKey = listCategory ? `category:${listCategory}` : normalizedQuery;
   const shouldUseDefaultList = !searchOnly && !normalizedQuery;
   const queryKeyRef = useRef(queryKey);
   queryKeyRef.current = queryKey;
@@ -84,10 +90,11 @@ export function useMarketStockSelectorList({
     () =>
       buildMarketStockListQueryKey({
         locale,
+        category: listCategory,
         sortBy: DEFAULT_MARKET_STOCK_SORT_BY,
         sortType: DEFAULT_MARKET_STOCK_SORT_TYPE,
       }),
-    [locale],
+    [listCategory, locale],
   );
   const emptyListSwrKey = useMemo(() => {
     if (!shouldUseDefaultList) {
@@ -154,6 +161,7 @@ export function useMarketStockSelectorList({
             })
           : await backgroundApiProxy.serviceMarketV2.fetchMarketStockList({
               limit: MARKET_STOCK_SELECTOR_PAGE_SIZE,
+              ...(listCategory ? { category: listCategory } : {}),
             });
         if (queryKeyRef.current === requestQueryKey) {
           remoteQueryKeyRef.current = requestQueryKey;
@@ -166,7 +174,7 @@ export function useMarketStockSelectorList({
         return { queryKey: requestQueryKey, failed: true };
       }
     },
-    [normalizedQuery, queryKey, searchOnly],
+    [listCategory, normalizedQuery, queryKey, searchOnly],
     {
       initResult: cachedEmptyListInitResult,
       watchLoading: true,
@@ -273,6 +281,7 @@ export function useMarketStockSelectorList({
         : await backgroundApiProxy.serviceMarketV2.fetchMarketStockList({
             cursor: nextCursor,
             limit: MARKET_STOCK_SELECTOR_PAGE_SIZE,
+            ...(listCategory ? { category: listCategory } : {}),
           });
 
       if (
@@ -312,6 +321,7 @@ export function useMarketStockSelectorList({
     isLoading,
     isLoadingMore,
     nextCursor,
+    listCategory,
     normalizedQuery,
     queryKey,
     searchOnly,

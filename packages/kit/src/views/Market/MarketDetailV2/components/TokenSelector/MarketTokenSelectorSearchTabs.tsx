@@ -3,26 +3,30 @@ import { useIntl } from 'react-intl';
 import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-const SEARCH_RESULT_TABS = [
-  { id: 'all', translationId: ETranslations.global_all },
-  {
-    id: 'stocks',
-    translationId: ETranslations.perps_token_selector_stocks,
-  },
-  { id: 'market', translationId: ETranslations.global_market },
-] as const;
+import {
+  type IMarketSearchTab,
+  getDetailPopoverSearchTabs,
+} from '../../../utils/marketSearchList';
 
-export type IMarketTokenSelectorSearchTab =
-  (typeof SEARCH_RESULT_TABS)[number]['id'];
+const SEARCH_TAB_LABELS: Record<IMarketSearchTab, ETranslations> = {
+  all: ETranslations.global_all,
+  tokens: ETranslations.global_universal_search_tabs_tokens,
+  stocks: ETranslations.perps_token_selector_stocks,
+};
+
+export type IMarketTokenSelectorSearchTab = IMarketSearchTab;
 
 export function MarketTokenSelectorSearchTabs({
   value,
   onChange,
+  hasStockResults = false,
 }: {
   value: IMarketTokenSelectorSearchTab;
   onChange: (value: IMarketTokenSelectorSearchTab) => void;
+  hasStockResults?: boolean;
 }) {
   const intl = useIntl();
+  const tabs = getDetailPopoverSearchTabs(hasStockResults);
 
   return (
     <XStack
@@ -30,24 +34,24 @@ export function MarketTokenSelectorSearchTabs({
       borderBottomWidth="$px"
       borderBottomColor="$borderSubdued"
     >
-      {SEARCH_RESULT_TABS.map((tab) => {
-        const isActive = value === tab.id;
+      {tabs.map((tab) => {
+        const isActive = value === tab;
         return (
           <YStack
-            key={tab.id}
-            testID={`market-token-selector-search-tab-${tab.id}`}
+            key={tab}
+            testID={`market-token-selector-search-tab-${tab}`}
             px="$4"
             py="$3"
             cursor="pointer"
             borderBottomWidth={isActive ? '$0.5' : '$0'}
             borderBottomColor="$borderActive"
-            onPress={() => onChange(tab.id)}
+            onPress={() => onChange(tab)}
           >
             <SizableText
-              size="$headingSm"
+              size="$bodyLgMedium"
               color={isActive ? '$text' : '$textSubdued'}
             >
-              {intl.formatMessage({ id: tab.translationId })}
+              {intl.formatMessage({ id: SEARCH_TAB_LABELS[tab] })}
             </SizableText>
           </YStack>
         );
