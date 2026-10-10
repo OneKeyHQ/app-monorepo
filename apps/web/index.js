@@ -148,6 +148,9 @@ function showUpdateBanner(onRefresh) {
       bottom: '24px',
       left: '50%',
       transform: 'translateX(-50%)',
+      width: 'max-content',
+      maxWidth: 'calc(100% - 32px)',
+      boxSizing: 'border-box',
       zIndex: '2147483647',
       display: 'flex',
       alignItems: 'center',
@@ -163,6 +166,7 @@ function showUpdateBanner(onRefresh) {
     });
 
     const text = document.createElement('span');
+    text.style.minWidth = '0';
     text.textContent = formatLocaleMessage(
       ETranslations.settings_app_update_available,
       'App update available',
@@ -174,6 +178,8 @@ function showUpdateBanner(onRefresh) {
       'Refresh',
     );
     Object.assign(refreshBtn.style, {
+      flexShrink: '0',
+      whiteSpace: 'nowrap',
       padding: '6px 16px',
       borderRadius: '8px',
       border: 'none',
@@ -194,6 +200,7 @@ function showUpdateBanner(onRefresh) {
     const dismissBtn = document.createElement('button');
     dismissBtn.textContent = '\u00D7';
     Object.assign(dismissBtn.style, {
+      flexShrink: '0',
       padding: '0',
       border: 'none',
       background: 'transparent',
