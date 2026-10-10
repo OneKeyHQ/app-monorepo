@@ -1041,23 +1041,6 @@ const BaseDevSettingsSection = () => {
                             ? ONEKEY_TEST_API_HOST
                             : ONEKEY_API_HOST
                         }
-                        onBeforeValueChange={async () => {
-                          try {
-                            await backgroundApiProxy.serviceNotification.unregisterClient();
-                          } catch (error) {
-                            console.error(error);
-                          }
-                        }}
-                        onValueChange={async (enabled: boolean) => {
-                          if (platformEnv.isDesktop) {
-                            await globalThis.desktopApiProxy?.appUpdate?.useTestUpdateFeedUrl?.(
-                              enabled,
-                            );
-                          }
-                          setTimeout(() => {
-                            void backgroundApiProxy.serviceApp.restartApp();
-                          }, 300);
-                        }}
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>

@@ -22,6 +22,7 @@ describe('travelModeCommandPolicy', () => {
     ['servicePassword', 'setAppLockDuration'],
     ['servicePassword', 'setEnableSystemIdleLock'],
     ['serviceMarket', 'fetchMarketAssetDetail'],
+    ['serviceMarketV2', 'updateMarketHomePreferences'],
     ['serviceApp', 'resetApp'],
     ['serviceAccount', 'runFutureAssetMutation'],
     ['serviceAccount', 'getOrCreateAccount'],

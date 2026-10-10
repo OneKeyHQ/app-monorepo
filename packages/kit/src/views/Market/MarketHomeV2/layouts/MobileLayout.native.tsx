@@ -58,6 +58,7 @@ import {
   MarketWatchlistCategorySelector,
 } from '../components/MarketTokenList/MarketWatchlistCategorySelector';
 import { useOpenMarketWatchlistEditDialog } from '../components/MarketTokenList/useOpenMarketWatchlistEditDialog';
+import { useMarketHomeSelection } from '../hooks/useMarketHomeSelection';
 import {
   isMarketStockCategoryById,
   shouldShowSpotNetworkSelector,
@@ -474,17 +475,26 @@ function MobileLayoutComponent({
   const [watchlistState] = useMarketWatchListV2Atom();
   const isWatchlistEmpty =
     !watchlistState.data || watchlistState.data.length === 0;
-  const [watchlistFilter, setWatchlistFilter] = useState<IWatchlistFilterType>(
+  const [watchlistFilter, setWatchlistFilter] = useMarketHomeSelection(
+    'watchlistFilter',
     DEFAULT_WATCHLIST_FILTER,
   );
   const stockCategories =
     filterBarProps.stockCategories ?? EMPTY_MARKET_STOCK_CATEGORIES;
   const [selectedStockCategoryId, setSelectedStockCategoryId] =
-    useMarketSubCategorySelection(stockCategories);
+    useMarketSubCategorySelection(
+      stockCategories,
+      'selectedStockCategory',
+      filterBarProps.isCategoryConfigLoading,
+    );
   const topCoinsCategories =
     filterBarProps.topCoinsCategories ?? EMPTY_MARKET_TOP_COINS_CATEGORIES;
   const [selectedTopCoinsCategoryId, setSelectedTopCoinsCategoryId] =
-    useMarketSubCategorySelection(topCoinsCategories);
+    useMarketSubCategorySelection(
+      topCoinsCategories,
+      'selectedTopCoinsCategory',
+      filterBarProps.isCategoryConfigLoading,
+    );
   const activeSpotCategoryId = getSpotCategoryIdByTabName(activeTabName);
   // The Stocks and Top coins tabs share one chip row; this is whichever one
   // the active page owns.
@@ -799,6 +809,7 @@ function MobileLayoutComponent({
       selectedTopCoinsCategoryId,
       setSelectedStockCategoryId,
       setSelectedTopCoinsCategoryId,
+      setWatchlistFilter,
       stockCategories,
       stockDataCategoryMap,
       topCoinsCategories,
