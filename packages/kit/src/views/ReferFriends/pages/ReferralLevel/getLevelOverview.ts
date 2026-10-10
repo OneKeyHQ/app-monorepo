@@ -98,5 +98,8 @@ export function getLevelCommissionRateItems(
         rate,
       }))
     : Object.entries(rates).map(([subject, rate]) => ({ subject, rate }));
-  return sortCommissionRateItems(items);
+  // A product the backend turns off pays nothing, so its rate is not listed.
+  return sortCommissionRateItems(
+    items.filter(({ rate }) => rate.enabled !== false),
+  );
 }

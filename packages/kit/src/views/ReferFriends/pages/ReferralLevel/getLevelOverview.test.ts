@@ -1,10 +1,14 @@
 import type {
+  IInviteLevelCommissionRate,
   IInviteLevelDetail,
   IInviteLevelItem,
   IInviteLevelUpgradeCondition,
 } from '@onekeyhq/shared/src/referralCode/type';
 
-import { getLevelOverview } from './getLevelOverview';
+import {
+  getLevelCommissionRateItems,
+  getLevelOverview,
+} from './getLevelOverview';
 
 function condition(
   subject: string,
@@ -97,5 +101,23 @@ describe('getLevelOverview', () => {
     expect(target.isReached).toBe(true);
     expect(target.remaining.isZero()).toBe(true);
     expect(target.progressPct).toBe(100);
+  });
+});
+
+describe('getLevelCommissionRateItems', () => {
+  const rate = (enabled: boolean): IInviteLevelCommissionRate => ({
+    rebate: 10,
+    discount: 5,
+    enabled,
+    hasThreshold: false,
+  });
+
+  it('leaves out products the backend turns off', () => {
+    expect(
+      getLevelCommissionRateItems({
+        Perp: rate(true),
+        Swap: rate(false),
+      }).map((item) => item.subject),
+    ).toEqual(['Perp']);
   });
 });

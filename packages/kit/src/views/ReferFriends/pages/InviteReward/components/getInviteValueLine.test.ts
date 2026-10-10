@@ -87,7 +87,7 @@ describe('getInviteValueSummary', () => {
     ]);
   });
 
-  it('drops disabled, zero and unknown subjects, and merges DeFi keys', () => {
+  it('drops disabled, zero and unknown subjects, and merges DeFi keys at the higher rate', () => {
     expect(
       figures([
         { subject: 'Swap', you: 5, enabled: false },
@@ -97,7 +97,7 @@ describe('getInviteValueSummary', () => {
         { subject: 'Onchain', you: 12, enabled: true },
       ]),
     ).toEqual({
-      rate: '10.5%',
+      rate: '12%',
       friendRate: null,
       products: [ETranslations.referral_rate_defi__title],
     });
@@ -138,6 +138,22 @@ describe('selectInviteValueLineItems', () => {
       { subject: 'Perp', you: 18, invitee: undefined, enabled: true },
       { subject: 'HardwareSales', you: 18, invitee: undefined, enabled: false },
     ]);
+  });
+
+  it('turns off hook rates for products the config disables', () => {
+    expect(
+      selectInviteValueLineItems({
+        commissionRates: GOLD_RATES,
+        configs: {
+          Perp: { rebate: 18, enabled: false },
+          Swap: { rebate: 18, enabled: true },
+        },
+      }),
+    ).toEqual(
+      GOLD_RATES.map((item) =>
+        item.subject === 'Perp' ? { ...item, enabled: false } : item,
+      ),
+    );
   });
 
   it('returns an empty list when both sources are empty', () => {

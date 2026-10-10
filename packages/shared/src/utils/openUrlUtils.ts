@@ -80,6 +80,7 @@ const openUrlByWebview = (
         url,
         title,
         enableDappBridge: options?.enableDappBridge,
+        redirectExternalNavigation: options?.redirectExternalNavigation,
       },
     },
   });
@@ -130,6 +131,11 @@ export interface IOpenUrlInAppOptions {
    * WebViewWithFeatures.
    */
   enableDappBridge?: boolean;
+  /**
+   * Hand any cross-origin navigation to the Discovery browser, which runs its
+   * URL risk checks, so the modal only ever shows the entry site.
+   */
+  redirectExternalNavigation?: boolean;
 }
 
 export const openUrlInApp = (

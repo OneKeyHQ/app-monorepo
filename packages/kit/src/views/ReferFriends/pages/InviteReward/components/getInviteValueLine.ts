@@ -44,7 +44,13 @@ export function selectInviteValueLineItems({
     isKnownSubject(item.subject),
   );
   if ((commissionRates.length > 0 && hasKnownSubject) || !configs) {
-    return [...commissionRates];
+    // The level rates can lag behind rebateConfig, so a product the config
+    // turns off stays off here too.
+    return commissionRates.map((item) =>
+      configs?.[item.subject]?.enabled === false
+        ? { ...item, enabled: false }
+        : item,
+    );
   }
   return Object.entries(configs).map(([subject, rate]) => ({
     subject,
@@ -80,29 +86,40 @@ export interface IInviteValueSummary {
 export function getInviteValueSummary(
   items: readonly IInviteValueLineItem[],
 ): IInviteValueSummary | null {
-  const seen = new Set<string>();
-  const rows = sortCommissionRateItems([...items]).flatMap((item) => {
+  // `Earn` and `Onchain` share one row, which keeps the higher rate on each
+  // side so a better DeFi rebate is never hidden behind the first one.
+  const byLabel = new Map<
+    ETranslations,
+    { subject: string; youValue: number; friendValue: number }
+  >();
+  for (const item of sortCommissionRateItems([...items])) {
     const labelId = SUBJECT_NAME_IDS[item.subject];
     // A disabled or 0% product is not something to advertise, so a product
     // the backend turns off drops out of every rate line on its own.
-    if (!labelId || !item.enabled || !(item.you > 0) || seen.has(labelId)) {
-      return [];
+    if (labelId && item.enabled && item.you > 0) {
+      const friendValue =
+        item.invitee !== undefined && item.invitee > 0 ? item.invitee : 0;
+      const existing = byLabel.get(labelId);
+      if (existing) {
+        existing.youValue = Math.max(existing.youValue, item.you);
+        existing.friendValue = Math.max(existing.friendValue, friendValue);
+      } else {
+        byLabel.set(labelId, {
+          subject: item.subject,
+          youValue: item.you,
+          friendValue,
+        });
+      }
     }
-    seen.add(labelId);
-    return [
-      {
-        subject: item.subject,
-        labelId,
-        you: formatRate(item.you),
-        friend:
-          item.invitee !== undefined && item.invitee > 0
-            ? formatRate(item.invitee)
-            : null,
-        youValue: item.you,
-        friendValue: item.invitee ?? 0,
-      },
-    ];
-  });
+  }
+  const rows = Array.from(byLabel, ([labelId, row]) => ({
+    subject: row.subject,
+    labelId,
+    you: formatRate(row.youValue),
+    friend: row.friendValue > 0 ? formatRate(row.friendValue) : null,
+    youValue: row.youValue,
+    friendValue: row.friendValue,
+  }));
   if (rows.length === 0) {
     return null;
   }

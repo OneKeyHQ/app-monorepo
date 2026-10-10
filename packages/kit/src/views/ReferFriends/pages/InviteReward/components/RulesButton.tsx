@@ -15,9 +15,12 @@ export function RulesButton() {
     id: ETranslations.referral_global_rules,
   });
   // The in-app web view stacks on the current screen (the referral modal on
-  // phones), so closing it returns to the page; web opens a new tab.
+  // phones), so closing it returns to the page; web opens a new tab. Links
+  // that leave the help site go to Discovery and its URL risk checks.
   const handlePress = () => {
-    openUrlInApp(REFERRAL_HELP_LINK, label);
+    openUrlInApp(REFERRAL_HELP_LINK, label, {
+      redirectExternalNavigation: true,
+    });
   };
 
   if (md) {
