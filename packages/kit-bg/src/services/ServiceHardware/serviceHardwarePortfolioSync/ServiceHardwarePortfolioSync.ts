@@ -1804,16 +1804,8 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     transferAt?: number;
     walletId: string;
   }) {
-    // Persist only the latest generation after a successful device upload.
-    // Compare-and-delete keeps stale cleanup from clearing a newer reservation.
-    if (!this.isCurrentSyncGeneration(targetKey, generation)) {
-      this.releaseInFlightReservation({
-        contentHash: artifacts.contentHash,
-        generation,
-        targetKey,
-      });
-      return;
-    }
+    // Record the acknowledged device content even if a newer snapshot is queued.
+    // The active upload includes persistence, so a newer upload cannot overtake it.
     await this.portfolioSyncDb.updateTargetState(targetKey, {
       lastAttemptAt: attemptAt,
       lastContentHash: artifacts.contentHash,
@@ -2785,7 +2777,11 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           telemetry,
         });
       }
-      if (!this.isCurrentSyncGeneration(targetKey, generation)) {
+      const isCurrentGeneration = this.isCurrentSyncGeneration(
+        targetKey,
+        generation,
+      );
+      if (!isCurrentGeneration && !upload.portfolioUpdated) {
         this.releaseInFlightReservation({
           contentHash: artifacts.contentHash,
           generation,
@@ -2793,7 +2789,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         });
         return;
       }
-      const result = this.setLastResult({
+      const result = {
         ...this.buildResultBase({
           artifacts,
           eventPayload,
@@ -2802,7 +2798,10 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           updatedAt,
         }),
         upload,
-      });
+      };
+      if (isCurrentGeneration) {
+        this.setLastResult(result);
+      }
       debugPortfolioSyncLog('uploaded', {
         bytesLength: serverSubmit.serverPackageBytesLength,
         contentHash: artifacts.contentHash,
@@ -2843,7 +2842,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           });
         }
       };
-      if (syncMode === 'interactive') {
+      if (syncMode === 'interactive' && isCurrentGeneration) {
         this.pendingDesktopBlePayloadByTargetKey.delete(targetKey);
         this.pendingMobileBlePayloadByTargetKey.delete(targetKey);
         this.pendingDisconnectedPayloadByTargetKey.delete(targetKey);
@@ -2855,7 +2854,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       ) {
         this.pendingDesktopBlePayloadByTargetKey.delete(targetKey);
       }
-      return result;
+      return isCurrentGeneration ? result : undefined;
     };
     const uploadPromise = desktopBleExecution
       ? (async () => {

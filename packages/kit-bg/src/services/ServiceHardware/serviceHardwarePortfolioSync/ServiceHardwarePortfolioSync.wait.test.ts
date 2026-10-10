@@ -2903,6 +2903,65 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
   });
 
+  test('does not upload an identical snapshot again when it arrives during upload', async () => {
+    type ITargetState = {
+      lastAttemptAt?: number;
+      lastContentHash?: string;
+      lastTransferAt?: number;
+      lastWalletId?: string;
+    };
+    let targetState: ITargetState | undefined;
+    let markUploadStarted: (() => void) | undefined;
+    let resolveUpload:
+      | ((result: { portfolioUpdated: boolean }) => void)
+      | undefined;
+    const uploadStarted = new Promise<void>((resolve) => {
+      markUploadStarted = resolve;
+    });
+    const uploadPending = new Promise<{ portfolioUpdated: boolean }>(
+      (resolve) => {
+        resolveUpload = resolve;
+      },
+    );
+    const {
+      getTargetState,
+      serviceInternals,
+      updateTargetState,
+      uploadPortfolioPackage,
+    } = prepareHardwareSync({ busyResults: [false, false] });
+    getTargetState.mockImplementation(async () => targetState);
+    updateTargetState.mockImplementation(
+      async (_targetKey: string, patch: ITargetState) => {
+        targetState = { ...targetState, ...patch };
+      },
+    );
+    uploadPortfolioPackage.mockImplementationOnce(() => {
+      markUploadStarted?.();
+      return uploadPending;
+    });
+
+    const payload = buildHardwarePayload();
+    const firstSync = serviceInternals.syncSettledPortfolio(payload);
+    await uploadStarted;
+    const secondSync = serviceInternals.syncSettledPortfolio(payload);
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    resolveUpload?.({ portfolioUpdated: true });
+    await Promise.all([firstSync, secondSync]);
+
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    expect(targetState).toEqual(
+      expect.objectContaining({
+        lastContentHash: expect.any(String),
+        lastTransferAt: expect.any(Number),
+        lastWalletId: payload.walletId,
+      }),
+    );
+  });
+
   test('uploads an unchanged snapshot again for an explicit sync', async () => {
     jest.spyOn(Date, 'now').mockReturnValue(1_785_723_200_000);
     const payload = buildHardwarePayload();
@@ -4127,10 +4186,18 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     releaseAttemptWrite();
     await syncTask;
 
-    expect(updateTargetState).toHaveBeenCalledTimes(1);
+    expect(updateTargetState).toHaveBeenCalledTimes(2);
     expect(updateTargetState).toHaveBeenCalledWith('db-device-1', {
       lastAttemptAt: expect.any(Number),
     });
+    expect(updateTargetState).toHaveBeenCalledWith(
+      'db-device-1',
+      expect.objectContaining({
+        lastContentHash: expect.any(String),
+        lastTransferAt: expect.any(Number),
+        lastWalletId: 'hw-1',
+      }),
+    );
   });
 
   test('keeps the operation lock until upload settles when attempt persistence fails', async () => {
