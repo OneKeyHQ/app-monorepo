@@ -7,7 +7,6 @@ Hermes, CocoaPods, wallet services, authentication, or wallet JSBridge code.
 
 - Market: `https://app.onekey.so/clip/market`
 - Market detail handoff: append `network`, `address`, and optional `is_native`
-- Campaign WebView: `https://app.onekey.so/clip/web?web_url=<encoded OneKey HTTPS URL>`
 - Referral landing: `https://app.onekey.so/r/<code>/app/<page>` (also `/r/<code>` and
   `/r/<code>/app`). `page` picks the perps, swap (`swap`) or DeFi (`earn`/`defi`) variant; any
   other page falls back to perps. The code is saved like `ref_code`, and the install CTA opens the
@@ -30,10 +29,6 @@ separate from the click-id record) and the most recent invocation carrying a cod
 launch the full app captures it into the same invite-code slot as the Play referrer, so the
 onboarding and bind dialogs pre-fill it the same way.
 
-Campaign WebViews only load HTTPS pages on `app.onekey.so` or `app.onekeytest.com`, use an
-ephemeral data store, and expose no wallet bridge. Add new campaign hosts only after a security
-review, then update both `CampaignURLPolicy` and `WKAppBoundDomains`.
-
 ## Attribution handoff
 
 1. Utility Short Link creates a 22-character `click_id` and stores an immutable UTM snapshot.
@@ -41,7 +36,7 @@ review, then update both `CampaignURLPolicy` and `WKAppBoundDomains`.
    reporting any interaction.
 3. The App Clip reports `open`, `market_select`, and `install_cta` lifecycle events to Utility.
 4. The install CTA opens the canonical HTTPS URL as a universal link only. An installed full app
-   opens the selected existing market detail route (or the approved campaign WebView); otherwise
+   opens the selected existing market detail route or referral landing; otherwise
    StoreKit presents the corresponding full-app download overlay.
 5. On first full-app startup or a validated App Clip warm handoff, the iOS main JS runtime reads the
    shared record and claims the server-side snapshot.
@@ -71,9 +66,9 @@ Use Xcode's App Clip local experience override to verify invocation payload deli
 2. Deploy the updated AASA file to both OneKey app domains with `application/json`, no redirect,
    and the App Clip bundle identifier `BVJ3FU5H2K.so.onekey.wallet.Clip`.
 3. Configure the default or advanced App Clip experiences in App Store Connect for `/clip/market`
-   and approved `/clip/web` campaign URLs, including card image, title, and action metadata.
+   and `/r/` referral URLs, including card image, title, and action metadata.
 4. Archive the `OneKeyWallet` app, not the App Clip target by itself, and confirm the archive embeds
    `OneKeyAppClip.app` and stays within Apple's current App Clip size limit.
 5. Deploy the Utility attribution endpoints before publishing Short Links that target the App Clip.
 6. Test both installed and not-installed paths on a physical device, then confirm claim idempotency,
-   analytics delivery, campaign WebView rejection, and post-install deep-link routing.
+   analytics delivery, referral handoff, and post-install deep-link routing.

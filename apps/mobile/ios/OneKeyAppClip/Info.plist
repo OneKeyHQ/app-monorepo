@@ -52,10 +52,5 @@
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
-	<key>WKAppBoundDomains</key>
-	<array>
-		<string>app.onekey.so</string>
-		<string>app.onekeytest.com</string>
-	</array>
 </dict>
 </plist>
