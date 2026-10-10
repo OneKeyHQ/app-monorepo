@@ -1939,31 +1939,38 @@ class ServiceToken extends ServiceBase {
   // config, so a Receive page entered with a single-network token (token
   // details member tab, single-network mode) can offer the same network
   // switch as the Receive token list. The config map is keyed by
-  // network + lowercased contract address; native coins are stored under an
-  // empty address, so both spellings are tried. One raw read (the entity is
-  // uncached) and only the matched group is filtered by the network
-  // registry. Returns undefined when the config has not synced yet or the
-  // token is not part of any group.
+  // network + lowercased contract address, and native coins are stored under
+  // an empty address. A native coin whose token carries a spelled-out address
+  // (e.g. "uatom") therefore also tries the empty key; a contract token
+  // matches its own address only, or it would resolve to the group of the
+  // network's native coin. One raw read (the entity is uncached) and only the
+  // matched group is filtered by the network registry. Returns undefined when
+  // the config has not synced yet or the token is not part of any group.
   @backgroundMethod()
   public async findAggregateGroupByNetworkAndAddress({
     networkId,
     address,
+    isNative,
   }: {
     networkId: string;
     address?: string;
+    isNative?: boolean;
   }): Promise<
     { aggregateToken: IAccountToken; members: IAccountToken[] } | undefined
   > {
     const rawData =
       await this.backgroundApi.simpleDb.aggregateToken.getRawData();
     const configMap = rawData?.aggregateTokenConfigMap ?? {};
-    const commonSymbol = uniq([address ?? '', ''])
+    const tokenAddress = address ?? '';
+    const candidateAddresses =
+      tokenAddress && isNative ? [tokenAddress, ''] : [tokenAddress];
+    const commonSymbol = candidateAddresses
       .map(
-        (tokenAddress) =>
+        (candidateAddress) =>
           configMap[
             buildAggregateTokenMapKeyForAggregateConfig({
               networkId,
-              tokenAddress,
+              tokenAddress: candidateAddress,
             })
           ]?.commonSymbol,
       )

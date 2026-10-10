@@ -262,35 +262,55 @@ function ReceiveNetworkRow({
     });
   }, [account, intl, isLightning, loading]);
 
+  // One run at a time. `loading` only disables the row from the next render
+  // on and never covers the enable-network branch, so a second tap could
+  // otherwise start this handler again while the first is still awaiting.
+  const isPressingRef = useRef(false);
+
   const handlePress = useCallback(async () => {
-    let selectedAccountId = account?.accountId;
-    let createdAddress = false;
-    if (!selectedAccountId) {
-      try {
-        setLoading(true);
-        selectedAccountId = await createAddressForNetwork({
-          walletId,
-          indexedAccountId,
-          networkId: network.id,
-          isNetworkEnabled: isEnabled,
-        });
-        if (!selectedAccountId) {
-          return;
-        }
-        createdAddress = true;
-        await onAddressCreated();
-      } finally {
-        setLoading(false);
-      }
-    } else if (!isEnabled) {
-      // An existing address on a network the user had switched off: the
-      // receive flow enables it the same way the token list does.
-      await enableNetwork(network.id);
-      Toast.success({
-        title: intl.formatMessage({ id: ETranslations.network_also_enabled }),
-      });
+    if (isPressingRef.current) {
+      return;
     }
-    await onSelect({ network, accountId: selectedAccountId, createdAddress });
+    isPressingRef.current = true;
+    try {
+      let selectedAccountId = account?.accountId;
+      let createdAddress = false;
+      if (!selectedAccountId) {
+        try {
+          setLoading(true);
+          selectedAccountId = await createAddressForNetwork({
+            walletId,
+            indexedAccountId,
+            networkId: network.id,
+            isNetworkEnabled: isEnabled,
+          });
+          if (!selectedAccountId) {
+            return;
+          }
+          createdAddress = true;
+          try {
+            await onAddressCreated();
+          } catch {
+            // Best-effort: the address exists either way, so a failed reload
+            // of the list must not keep the selection from going through.
+          }
+        } finally {
+          setLoading(false);
+        }
+      } else if (!isEnabled) {
+        // An existing address on a network the user had switched off: the
+        // receive flow enables it the same way the token list does.
+        await enableNetwork(network.id);
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.network_also_enabled,
+          }),
+        });
+      }
+      await onSelect({ network, accountId: selectedAccountId, createdAddress });
+    } finally {
+      isPressingRef.current = false;
+    }
   }, [
     account?.accountId,
     createAddressForNetwork,

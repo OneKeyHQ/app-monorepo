@@ -216,6 +216,7 @@ function ReceiveToken() {
       .findAggregateGroupByNetworkAndAddress({
         networkId: routeNetworkId,
         address: routeToken?.address ?? '',
+        isNative: routeToken?.isNative,
       })
       .then((group) => {
         if (cancelled || !group) return;
@@ -238,6 +239,7 @@ function ReceiveToken() {
     hasRouteGlobalMembers,
     routeNetworkId,
     routeToken?.address,
+    routeToken?.isNative,
   ]);
 
   const { result: nativeToken } = usePromiseResult(async () => {
@@ -296,7 +298,7 @@ function ReceiveToken() {
 
   const copyAddressWithDeriveType = useCopyAddressWithDeriveType();
 
-  const { result: banner } = usePromiseResult(async () => {
+  const { result: fetchedBanner } = usePromiseResult(async () => {
     const banners =
       await backgroundApiProxy.serviceWalletBanner.fetchWalletBanner({
         accountId,
@@ -306,6 +308,11 @@ function ReceiveToken() {
         _banner.position === 'receive' && _banner.networkId === networkId,
     );
   }, [accountId, networkId]);
+  // The request lags an in-page network switch: until it lands, the result
+  // still belongs to the previous network and must neither show nor be
+  // pressed under the new one.
+  const banner =
+    fetchedBanner?.networkId === networkId ? fetchedBanner : undefined;
 
   const isHardwareWallet =
     accountUtils.isQrWallet({

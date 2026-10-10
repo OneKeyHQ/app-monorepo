@@ -39,6 +39,10 @@ const mockCreateAddressForNetwork = jest.fn<
   [unknown]
 >();
 const mockEnableNetwork = jest.fn<Promise<void>, [string]>();
+const mockGetAllNetworkAccounts = jest.fn<
+  Promise<{ accountsInfo: typeof mockAccountsInfo }>,
+  [unknown]
+>();
 const mockToastSuccess = jest.fn<void, [unknown]>();
 const mockReceiveSelectNetworkTab = jest.fn<void, [unknown]>();
 
@@ -166,9 +170,8 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
       getGlobalDeriveTypeOfNetwork: jest.fn(async () => 'default'),
     },
     serviceAllNetwork: {
-      getAllNetworkAccounts: jest.fn(async () => ({
-        accountsInfo: mockAccountsInfo,
-      })),
+      getAllNetworkAccounts: (params: unknown) =>
+        mockGetAllNetworkAccounts(params),
       getAllNetworksState: jest.fn(async () => ({
         disabledNetworks: { 'tron--0x2b6653dc': true },
         enabledNetworks: {},
@@ -322,6 +325,10 @@ describe('ReceiveNetworkList', () => {
     ];
     mockCreateAddressForNetwork.mockReset();
     mockEnableNetwork.mockReset();
+    mockGetAllNetworkAccounts.mockReset();
+    mockGetAllNetworkAccounts.mockImplementation(async () => ({
+      accountsInfo: mockAccountsInfo,
+    }));
     mockToastSuccess.mockReset();
     mockReceiveSelectNetworkTab.mockReset();
   });
@@ -496,6 +503,59 @@ describe('ReceiveNetworkList', () => {
         hasAddress: false,
       }),
     );
+  });
+
+  it('still reports the new address when the list fails to reload after creating it', async () => {
+    mockCreateAddressForNetwork.mockResolvedValue('hd-1--aptos');
+    const { getByTestId, onSelectNetwork } = renderList();
+    await waitFor(() =>
+      expect(
+        getByTestId('receive-network-list-item-aptos--1').querySelector(
+          '[data-testid="subtitle"]',
+        )?.textContent,
+      ).toBe('global_create_address'),
+    );
+    mockGetAllNetworkAccounts.mockRejectedValueOnce(new Error('reload failed'));
+    fireEvent.click(getByTestId('receive-network-list-item-aptos--1'));
+    await waitFor(() => expect(onSelectNetwork).toHaveBeenCalledTimes(1));
+    expect(onSelectNetwork).toHaveBeenCalledWith({
+      network: NETWORKS['aptos--1'],
+      accountId: 'hd-1--aptos',
+      createdAddress: true,
+    });
+  });
+
+  it('runs one selection at a time when a row is tapped again mid-flight', async () => {
+    let finishEnabling: () => void = () => undefined;
+    mockEnableNetwork.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finishEnabling = resolve;
+        }),
+    );
+    const { getByTestId, onSelectNetwork } = renderList();
+    await waitFor(() =>
+      expect(
+        getByTestId('receive-network-list-item-tron--0x2b6653dc').querySelector(
+          '[data-testid="subtitle"]',
+        ),
+      ).not.toBeNull(),
+    );
+    const row = getByTestId('receive-network-list-item-tron--0x2b6653dc');
+    fireEvent.click(row);
+    fireEvent.click(row);
+    await act(async () => {
+      finishEnabling();
+    });
+    await waitFor(() => expect(onSelectNetwork).toHaveBeenCalledTimes(1));
+    expect(mockEnableNetwork).toHaveBeenCalledTimes(1);
+    expect(mockToastSuccess).toHaveBeenCalledTimes(1);
+
+    // The guard is released once the run settles: the same row works again
+    // (the network is enabled by now, so nothing is written a second time).
+    fireEvent.click(getByTestId('receive-network-list-item-tron--0x2b6653dc'));
+    await waitFor(() => expect(onSelectNetwork).toHaveBeenCalledTimes(2));
+    expect(mockEnableNetwork).toHaveBeenCalledTimes(1);
   });
 
   it('routes Lightning to the invoice callback in tab mode and hides it in selector mode', async () => {

@@ -129,6 +129,34 @@ describe('ServiceToken.findAggregateGroupByNetworkAndAddress', () => {
     expect(result?.members.map((m) => m.networkId)).toEqual(['evm--1']);
   });
 
+  it('falls back to the empty address for a native coin spelled with one', async () => {
+    const service = buildService(buildRawData());
+    const result = await service.findAggregateGroupByNetworkAndAddress({
+      networkId: 'evm--1',
+      address: 'native-coin',
+      isNative: true,
+    });
+    expect(result?.aggregateToken.$key).toBe('aggregate_ETH_');
+  });
+
+  it('never resolves a contract token to the native coin group of its network', async () => {
+    const service = buildService(buildRawData());
+    // Not part of any group, on a network whose native coin is grouped.
+    await expect(
+      service.findAggregateGroupByNetworkAndAddress({
+        networkId: 'evm--1',
+        address: '0x000000000000000000000000000000000000dEaD',
+        isNative: false,
+      }),
+    ).resolves.toBeUndefined();
+    await expect(
+      service.findAggregateGroupByNetworkAndAddress({
+        networkId: 'evm--1',
+        address: '0x000000000000000000000000000000000000dEaD',
+      }),
+    ).resolves.toBeUndefined();
+  });
+
   it('returns undefined for a token outside every group', async () => {
     const service = buildService(buildRawData());
     await expect(

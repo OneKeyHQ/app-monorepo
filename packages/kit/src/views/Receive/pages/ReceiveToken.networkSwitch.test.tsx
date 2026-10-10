@@ -21,6 +21,10 @@ const mockToastError = jest.fn<void, [unknown]>();
 const mockFindAggregateGroup = jest.fn<Promise<unknown>, [unknown]>(
   async () => undefined,
 );
+const mockFetchWalletBanner = jest.fn<
+  Promise<unknown[]>,
+  [{ accountId?: string }]
+>(async () => []);
 
 const NETWORKS: Record<string, { id: string; name: string; logoURI: string }> =
   {
@@ -286,7 +290,8 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
       ),
     },
     serviceWalletBanner: {
-      fetchWalletBanner: jest.fn(async () => []),
+      fetchWalletBanner: (params: { accountId?: string }) =>
+        mockFetchWalletBanner(params),
     },
     serviceFreshAddress: {
       syncBTCFreshAddressByAccountId: jest.fn(),
@@ -523,6 +528,8 @@ describe('ReceiveToken network switch', () => {
     mockToastError.mockReset();
     mockFindAggregateGroup.mockReset();
     mockFindAggregateGroup.mockResolvedValue(undefined);
+    mockFetchWalletBanner.mockReset();
+    mockFetchWalletBanner.mockResolvedValue([]);
   });
 
   it('shows the trigger only for a switchable entry', async () => {
@@ -554,9 +561,12 @@ describe('ReceiveToken network switch', () => {
     );
     // No members from the route and no group in the config: plain label.
     expect(third.queryByTestId('receive-card-network-trigger')).toBeNull();
+    // The token's own flag travels along: only a native coin may fall back
+    // to the native group of its network.
     expect(mockFindAggregateGroup).toHaveBeenCalledWith({
       networkId: 'evm--1',
       address: '0xusdt',
+      isNative: false,
     });
     expect(queryByTestId('skeleton')).toBeNull();
   });
@@ -624,6 +634,43 @@ describe('ReceiveToken network switch', () => {
     expect(mockReceivePageShown.mock.calls[1][0]).toEqual(
       expect.objectContaining({ networkId: 'evm--8453', switched: true }),
     );
+  });
+
+  it('drops the previous network banner as soon as the network switches', async () => {
+    let resolveBaseBanners: (banners: unknown[]) => void = () => undefined;
+    mockFetchWalletBanner.mockImplementation(({ accountId }) =>
+      accountId === 'hd-1--base'
+        ? new Promise<unknown[]>((resolve) => {
+            resolveBaseBanners = resolve;
+          })
+        : Promise.resolve([
+            { id: 'eth', position: 'receive', networkId: 'evm--1', src: '' },
+          ]),
+    );
+    mockRouteParams = buildParams('hd');
+    const { getByTestId, queryByTestId } = render(<ReceiveToken />);
+    await waitFor(() => expect(getByTestId('receive-banner')).not.toBeNull());
+
+    await openSelectorAndSelect(
+      getByTestId,
+      member('evm--8453', { accountId: 'hd-1--base' }),
+    );
+
+    // The new network is on screen while its banner request is still out:
+    // the Ethereum banner must not sit under it.
+    await waitFor(() =>
+      expect(getByTestId('receive-card-network-eta').textContent).toBe(
+        'Base (~1 min)',
+      ),
+    );
+    expect(queryByTestId('receive-banner')).toBeNull();
+
+    await act(async () => {
+      resolveBaseBanners([
+        { id: 'base', position: 'receive', networkId: 'evm--8453', src: '' },
+      ]);
+    });
+    await waitFor(() => expect(getByTestId('receive-banner')).not.toBeNull());
   });
 
   it('verifies the new network and derive type on a hardware wallet after a switch', async () => {
