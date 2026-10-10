@@ -214,6 +214,9 @@ type IProps = {
     | 'ListFooterComponentStyle'
     | 'contentContainerStyle'
   >;
+  // Scroll feed for a collapsing header rendered above the list.
+  onScroll?: ComponentProps<typeof ListView>['onScroll'];
+  scrollEventThrottle?: number;
   showNetworkIcon?: boolean;
   allAggregateTokenMap?: Record<
     string,
@@ -274,6 +277,8 @@ function TokenListViewCmp(props: IProps) {
     emptyAccountView,
     showActiveAccountTokenList = false,
     listViewStyleProps,
+    onScroll,
+    scrollEventThrottle,
     onRefresh,
     showNetworkIcon,
     allAggregateTokenMap,
@@ -1067,6 +1072,7 @@ function TokenListViewCmp(props: IProps) {
       ) : (
         <EmptyToken
           testID="TokenSelector-Search-Empty"
+          illustration="SearchDocument"
           title={intl.formatMessage({
             id: ETranslations.token_selector_search_no_result__title,
           })}
@@ -1248,6 +1254,8 @@ function TokenListViewCmp(props: IProps) {
       // @ts-ignore
       estimatedItemSize={tableLayout ? undefined : 60}
       showsVerticalScrollIndicator={false}
+      onScroll={onScroll}
+      scrollEventThrottle={scrollEventThrottle}
       refreshControl={
         onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
       }

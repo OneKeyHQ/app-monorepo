@@ -643,6 +643,7 @@ function RewardCenterDetails({
           networkId: network.id,
           walletId: accountWalletId,
           indexedAccountId: account.indexedAccountId,
+          source: 'rewardCenter',
         },
       });
       return;

@@ -24,6 +24,8 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { filterTokenSelectorTokenDataByDappTokenFilterParams } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import {
+  buildAggregateTokenListMapKeyForTokenList,
+  buildAggregateTokenMapKeyForAggregateConfig,
   buildTokenSearchKeywordQueries,
   filterAccountTokenListByLimit,
   getEmptyTokenData,
@@ -1468,6 +1470,31 @@ class ServiceToken extends ServiceBase {
     );
   }
 
+  // Networks this build serves, or undefined when the registry is not
+  // authoritative yet (fail open). See getAllAggregateTokenInfo.
+  private async _getAggregateEligibleNetworkIds(): Promise<
+    Set<string> | undefined
+  > {
+    try {
+      const registryFilled =
+        await this.backgroundApi.serviceCustomRpc.isServerNetworkRegistryFilled();
+      if (registryFilled) {
+        const { networks: eligibleNetworks } =
+          await this.backgroundApi.serviceNetwork.getAllNetworks({
+            excludeCustomNetwork: true,
+            excludeAllNetworkItem: true,
+          });
+        return new Set(eligibleNetworks.map((n) => n.id));
+      }
+      // Kick the fill so the next read is gated; single-flight and
+      // fetch failures are swallowed inside.
+      void this.backgroundApi.serviceCustomRpc.ensureServerNetworksFetched();
+    } catch {
+      // fail open
+    }
+    return undefined;
+  }
+
   @backgroundMethod()
   public async getAllAggregateTokenInfo() {
     const rawData =
@@ -1488,25 +1515,7 @@ class ServiceToken extends ServiceBase {
     // record first and fail open (skip the filter) when it is unfilled or
     // unreadable. The write path awaits the fill instead; this runs on the
     // token-list hot path and must not block on a network request.
-    let eligibleNetworkIds: Set<string> | undefined;
-    try {
-      const registryFilled =
-        await this.backgroundApi.serviceCustomRpc.isServerNetworkRegistryFilled();
-      if (registryFilled) {
-        const { networks: eligibleNetworks } =
-          await this.backgroundApi.serviceNetwork.getAllNetworks({
-            excludeCustomNetwork: true,
-            excludeAllNetworkItem: true,
-          });
-        eligibleNetworkIds = new Set(eligibleNetworks.map((n) => n.id));
-      } else {
-        // Kick the fill so the next read is gated; single-flight and
-        // fetch failures are swallowed inside.
-        void this.backgroundApi.serviceCustomRpc.ensureServerNetworksFetched();
-      }
-    } catch {
-      eligibleNetworkIds = undefined;
-    }
+    const eligibleNetworkIds = await this._getAggregateEligibleNetworkIds();
     const allAggregateTokenMap: Record<string, { tokens: IAccountToken[] }> =
       {};
     Object.entries(rawData?.allAggregateTokenMap ?? {}).forEach(
@@ -1527,6 +1536,62 @@ class ServiceToken extends ServiceBase {
         (token) => allAggregateTokenMap[token.$key]?.tokens.length,
       ),
     };
+  }
+
+  // Resolves the multi-chain group a token belongs to from the synced wallet
+  // config, so a Receive page entered with a single-network token (token
+  // details member tab, single-network mode) can offer the same network
+  // switch as the Receive token list. The config map is keyed by
+  // network + lowercased contract address; native coins are stored under an
+  // empty address, so both spellings are tried. One raw read (the entity is
+  // uncached) and only the matched group is filtered by the network
+  // registry. Returns undefined when the config has not synced yet or the
+  // token is not part of any group.
+  @backgroundMethod()
+  public async findAggregateGroupByNetworkAndAddress({
+    networkId,
+    address,
+  }: {
+    networkId: string;
+    address?: string;
+  }): Promise<
+    { aggregateToken: IAccountToken; members: IAccountToken[] } | undefined
+  > {
+    const rawData =
+      await this.backgroundApi.simpleDb.aggregateToken.getRawData();
+    const configMap = rawData?.aggregateTokenConfigMap ?? {};
+    const commonSymbol = uniq([address ?? '', ''])
+      .map(
+        (tokenAddress) =>
+          configMap[
+            buildAggregateTokenMapKeyForAggregateConfig({
+              networkId,
+              tokenAddress,
+            })
+          ]?.commonSymbol,
+      )
+      .find(Boolean);
+    if (!commonSymbol) {
+      return undefined;
+    }
+    const groupKey = buildAggregateTokenListMapKeyForTokenList({
+      commonSymbol,
+    });
+    const aggregateToken = rawData?.allAggregateTokens?.find(
+      (token) => token.$key === groupKey,
+    );
+    const eligibleNetworkIds = await this._getAggregateEligibleNetworkIds();
+    const members = (
+      rawData?.allAggregateTokenMap?.[groupKey]?.tokens ?? []
+    ).filter(
+      (token) =>
+        !!token.networkId &&
+        (!eligibleNetworkIds || eligibleNetworkIds.has(token.networkId)),
+    );
+    if (!aggregateToken || members.length === 0) {
+      return undefined;
+    }
+    return { aggregateToken, members };
   }
 
   @backgroundMethod()

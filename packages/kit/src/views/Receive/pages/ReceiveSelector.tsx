@@ -220,6 +220,7 @@ function ReceiveSelectorContent() {
           token,
           indexedAccountId,
           disableSelector: true,
+          source: 'receiveSelector',
         });
       } else {
         onPress();
@@ -288,7 +289,7 @@ function ReceiveSelectorContent() {
         accountId,
         indexedAccountId,
         closeAfterSelect: false,
-        showDeFiTokenSwitch: true,
+        hideDeFiTokens: true,
         aggregateTokenSelectorScreen:
           EModalReceiveRoutes.ReceiveSelectAggregateToken,
         exchangeFilter: {
@@ -380,7 +381,7 @@ function ReceiveSelectorContent() {
           accountId,
           indexedAccountId,
           closeAfterSelect: false,
-          showDeFiTokenSwitch: true,
+          hideDeFiTokens: true,
           aggregateTokenSelectorScreen:
             EModalReceiveRoutes.ReceiveSelectAggregateToken,
           onSelect: async (selectedToken: IToken) => {
@@ -398,6 +399,7 @@ function ReceiveSelectorContent() {
                 token: selectedToken,
                 indexedAccountId,
                 exchangeSource: config.id,
+                source: 'exchange',
               });
             } else {
               try {

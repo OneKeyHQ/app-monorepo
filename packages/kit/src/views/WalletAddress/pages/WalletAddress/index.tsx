@@ -64,6 +64,7 @@ import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import networkUtils, {
+  buildPopularFirstNetworkSections,
   isEnabledNetworksInAllNetworks,
 } from '@onekeyhq/shared/src/utils/networkUtils';
 import {
@@ -395,12 +396,10 @@ const WalletAddressListItemMemo = memo(WalletAddressListItem);
 function WalletAddressContent({
   mainnetItems: m,
   testnetItems: t,
-  frequentlyUsedNetworks: f,
   actionType,
 }: {
   mainnetItems: IServerNetwork[];
   testnetItems: IServerNetwork[];
-  frequentlyUsedNetworks: IServerNetwork[];
   actionType?: EWalletAddressActionType;
 }) {
   log('WalletAddressContentRender');
@@ -414,14 +413,10 @@ function WalletAddressContent({
 
   let mainnetItems = m;
   let testnetItems = t;
-  let frequentlyUsedNetworks = f;
 
   if (showEnabledNetworksOnlyInCopyAddressPanel) {
     mainnetItems = mainnetItems.filter((o) => isAllNetworksEnabled[o.id]);
     testnetItems = testnetItems.filter((o) => isAllNetworksEnabled[o.id]);
-    frequentlyUsedNetworks = frequentlyUsedNetworks.filter(
-      (o) => isAllNetworksEnabled[o.id],
-    );
   }
 
   if (actionType === EWalletAddressActionType.ViewInExplorer) {
@@ -429,9 +424,6 @@ function WalletAddressContent({
       (o) => !networkUtils.isViewInExplorerDisabled({ networkId: o.id }),
     );
     testnetItems = testnetItems.filter(
-      (o) => !networkUtils.isViewInExplorerDisabled({ networkId: o.id }),
-    );
-    frequentlyUsedNetworks = frequentlyUsedNetworks.filter(
       (o) => !networkUtils.isViewInExplorerDisabled({ networkId: o.id }),
     );
   }
@@ -456,48 +448,22 @@ function WalletAddressContent({
           ];
     }
 
-    const frequentlyUsedNetworksSet = new Set(
-      frequentlyUsedNetworks.map((o) => o.id),
-    );
-    const filterFrequentlyUsedNetworks = (inputs: IServerNetwork[]) =>
-      inputs.filter((o) => !frequentlyUsedNetworksSet.has(o.id));
-
-    const data = filterFrequentlyUsedNetworks(mainnetItems).reduce(
-      (result, item) => {
-        const char = item.name[0].toUpperCase();
-        if (!result[char]) {
-          result[char] = [];
-        }
-        result[char].push(item);
-
-        return result;
-      },
-      {} as Record<string, IServerNetwork[]>,
-    );
-    const sectionList = Object.entries(data)
-      .map(([key, value]) => ({ title: key, data: value }))
-      .toSorted((a, b) => a.title.charCodeAt(0) - b.title.charCodeAt(0));
-    const _sections: ISectionItem[] = [
-      { data: frequentlyUsedNetworks },
-      ...sectionList,
-    ];
+    // Same top block as the Receive network list: the fixed "Popular" set,
+    // then the rest by first letter.
+    const _sections: ISectionItem[] = buildPopularFirstNetworkSections({
+      networks: mainnetItems,
+      popularTitle: intl.formatMessage({ id: ETranslations.global_popular }),
+    });
     if (testnetItems.length > 0) {
       _sections.push({
         title: intl.formatMessage({
           id: ETranslations.global_testnet,
         }),
-        data: filterFrequentlyUsedNetworks(testnetItems),
+        data: testnetItems,
       });
     }
     return _sections;
-  }, [
-    mainnetItems,
-    frequentlyUsedNetworks,
-    searchText,
-    testnetItems,
-    intl,
-    networkFuseSearch,
-  ]);
+  }, [mainnetItems, searchText, testnetItems, intl, networkFuseSearch]);
 
   const renderSectionHeader = useCallback(
     (item: { section: { title: string } }) => {
@@ -590,7 +556,6 @@ function WalletAddress({
   indexedAccountId,
   mainnetItems,
   testnetItems,
-  frequentlyUsedNetworks,
   actionType,
 }: {
   accountId: string | undefined;
@@ -598,7 +563,6 @@ function WalletAddress({
   indexedAccountId: string | undefined;
   mainnetItems: IServerNetwork[];
   testnetItems: IServerNetwork[];
-  frequentlyUsedNetworks: IServerNetwork[];
   actionType?: EWalletAddressActionType;
 }) {
   const {
@@ -652,7 +616,6 @@ function WalletAddress({
       <WalletAddressContentMemo
         testnetItems={testnetItems}
         mainnetItems={mainnetItems}
-        frequentlyUsedNetworks={frequentlyUsedNetworks}
         actionType={actionType}
       />
     </WalletAddressPageView>
@@ -1024,7 +987,6 @@ function WalletAddressPageMainView({
             indexedAccountId={indexedAccountId}
             testnetItems={result.networks.testnetItems}
             mainnetItems={result.networks.mainnetItems}
-            frequentlyUsedNetworks={result.networks.frequentlyUsedItems}
             actionType={actionType}
           />
         )}

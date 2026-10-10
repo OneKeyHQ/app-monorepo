@@ -10,7 +10,23 @@ export const ReceiveTestIDs = {
   Banner: 'receive-banner',
   PageHeading: 'receive-page-heading',
   CardHeaderNetworkEta: 'receive-card-network-eta',
+  CardHeaderNetworkTrigger: 'receive-card-network-trigger',
+  SwitchPlaceholder: 'receive-switch-placeholder',
   ShareButton: 'receive-share-button',
+
+  // Receive token / network selection (ReceiveSelectToken with secondaryTab)
+  SelectSegment: 'receive-select-segment',
+  SelectSegmentToken: 'receive-select-segment-token',
+  SelectSegmentNetwork: 'receive-select-segment-network',
+  SelectSearchBar: 'receive-select-search-bar',
+  NetworkList: 'receive-network-list',
+  NetworkListItem: (networkId: string) =>
+    `receive-network-list-item-${networkId}`,
+
+  // ReceiveSelectNetwork page (switch target of a network entry)
+  SelectNetworkPage: 'receive-select-network-page',
+  SelectNetworkSearchBar: 'receive-select-network-search-bar',
+  SelectNetworkList: 'receive-select-network-list',
 
   // ReceiveShare dialog
   ShareDialogPreview: 'receive-share-preview',

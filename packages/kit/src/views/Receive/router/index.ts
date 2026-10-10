@@ -23,6 +23,10 @@ const AggregateTokenSelector = LazyLoadPage(
     import('@onekeyhq/kit/src/views/AssetSelector/pages/AggregateTokenSelector'),
 );
 
+const ReceiveSelectNetwork = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Receive/pages/ReceiveSelectNetwork'),
+);
+
 const DeriveTypesAddress = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/WalletAddress/pages/DeriveTypesAddress'),
@@ -75,6 +79,10 @@ export const ModalReceiveStack: IModalFlowNavigatorConfig<
   {
     name: EModalReceiveRoutes.ReceiveSelectAggregateToken,
     component: AggregateTokenSelector,
+  },
+  {
+    name: EModalReceiveRoutes.ReceiveSelectNetwork,
+    component: ReceiveSelectNetwork,
   },
   {
     name: EModalReceiveRoutes.ReceiveSelectDeriveAddress,

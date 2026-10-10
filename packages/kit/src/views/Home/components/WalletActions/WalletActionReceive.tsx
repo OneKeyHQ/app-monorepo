@@ -124,6 +124,7 @@ function WalletActionReceive({
         withAllAggregateTokens: network?.isAllNetworks,
         sameModal,
         useSelector,
+        source: source ?? 'homePage',
       });
     }
   }, [

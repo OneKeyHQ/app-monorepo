@@ -217,6 +217,9 @@ function renderRow(token: IAccountToken = suiUsdc) {
       allNetworksState={{ disabledNetworks: {}, enabledNetworks: {} }}
       refreshAllNetworkState={jest.fn()}
       processingTokenKey={null}
+      walletId="hd-1"
+      indexedAccountId="hd-1--0"
+      createAddressForNetwork={jest.fn()}
     />,
   );
 }
