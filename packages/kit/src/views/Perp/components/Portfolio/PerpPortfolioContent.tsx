@@ -402,7 +402,7 @@ function PerpPortfolioContentComponent({
           <XStack height={20} alignItems="center" justifyContent="center">
             <SizableText
               size="$bodySmMedium"
-              color={chartType === option.value ? '$textInverse' : '$text'}
+              color={chartType === option.value ? '$text' : '$textSubdued'}
               textAlign="center"
               numberOfLines={1}
             >
@@ -867,7 +867,7 @@ function PerpPortfolioContentComponent({
             options={mobileChartTypeOptions}
             segmentControlItemStyleProps={{
               px: '$2.5',
-              py: '$1',
+              py: '$0.5',
             }}
           />
           {pnlTypeSelector}

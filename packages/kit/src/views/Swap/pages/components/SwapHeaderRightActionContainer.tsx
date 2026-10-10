@@ -436,13 +436,13 @@ const SwapSettingsDialogContent = ({
                   <Icon
                     name="Ai3StarOutline"
                     size="$4.5"
-                    color={isActive ? '$iconInverse' : '$iconSuccess'}
+                    color="$iconSuccess"
                     mr="$0.5"
                   />
                 ) : null}
                 <SizableText
                   size="$bodyMdMedium"
-                  color={isActive ? '$textInverse' : '$text'}
+                  color={isActive ? '$text' : '$textSubdued'}
                 >
                   {intl.formatMessage({
                     id:
