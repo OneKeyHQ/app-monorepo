@@ -133,6 +133,7 @@ function useReceiveToken({
               walletId,
               token: token ?? tokens?.data?.[0],
               indexedAccountId,
+              switchEntry: resolvedSwitchEntry,
               source,
               isAllNetworksMode,
             });
@@ -146,6 +147,7 @@ function useReceiveToken({
               walletId,
               token: token ?? tokens?.data?.[0],
               indexedAccountId,
+              switchEntry: resolvedSwitchEntry,
               source,
               isAllNetworksMode,
             },
