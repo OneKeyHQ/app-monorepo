@@ -137,11 +137,15 @@ export const loadOPReturn = (
   opReturn: string,
   opReturnSizeLimit: number = TX_OP_RETURN_SIZE_LIMIT,
 ) => {
-  if (opReturn.length > opReturnSizeLimit) {
+  const buffer = Buffer.from(opReturn);
+  // The OP_RETURN limit is a byte limit, so it must be measured on the encoded
+  // buffer. Checking `opReturn.length` (UTF-16 code units) let a multi-byte
+  // string pass the guard and then `slice(0, limit)` silently truncated it,
+  // possibly mid-character, so the broadcast data differed from the input.
+  if (buffer.length > opReturnSizeLimit) {
     throw new OneKeyLocalError('OP_RETURN data is too large.');
   }
-  const buffer = Buffer.from(opReturn);
-  return buffer.slice(0, opReturnSizeLimit);
+  return buffer;
 };
 
 // Re-export from shared for backward compatibility
