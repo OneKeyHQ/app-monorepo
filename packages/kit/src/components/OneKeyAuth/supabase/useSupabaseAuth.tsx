@@ -5,8 +5,10 @@ import { useIntl } from 'react-intl';
 import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
+  getOAuthSignInFailureInfo,
   getSanitizedAuthErrorText,
   logOneKeyIdLoginFailureReason,
+  noteOAuthSignInOutcome,
   throwLocalizedOneKeyIdLoginError,
 } from '@onekeyhq/kit/src/views/Prime/components/oneKeyIdLoginToastUtils';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
@@ -223,13 +225,18 @@ export function useSupabaseAuth() {
     ): Promise<IOAuthSignInResult> => {
       return errorToastUtils.withErrorAutoToast(async () => {
         try {
-          return await performOAuthSignIn(provider);
+          const result = await performOAuthSignIn(provider);
+          noteOAuthSignInOutcome({ intl, provider, cancelled: false });
+          return result;
         } catch (error) {
-          if (errorToastUtils.isUserCancelStyleError(error)) {
+          const cancelled = errorToastUtils.isUserCancelStyleError(error);
+          noteOAuthSignInOutcome({ intl, provider, cancelled });
+          if (cancelled) {
             throw error;
           }
           throwLocalizedOneKeyIdLoginError({
             intl,
+            ...getOAuthSignInFailureInfo({ error, provider }),
             reason: `OneKey ID OAuth sign-in failed: ${getSanitizedAuthErrorText(
               error,
             )}`,

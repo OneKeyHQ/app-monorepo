@@ -42,6 +42,13 @@ export class SupabaseStorageTransientError extends Error {
   }
 }
 
+// True for any error produced by the Supabase auth client. Every auth-js
+// error class is named `Auth*` (AuthApiError, AuthRetryableFetchError, ...).
+export function isSupabaseAuthError(error: unknown): boolean {
+  const name = (error as { name?: unknown } | undefined | null)?.name;
+  return typeof name === 'string' && name.startsWith('Auth');
+}
+
 // Structural typing on purpose: `@onekeyhq/shared` must not depend on
 // @supabase/auth-js. Supabase AuthError instances carry a `name` and a
 // numeric HTTP `status` (undefined for non-HTTP failures).

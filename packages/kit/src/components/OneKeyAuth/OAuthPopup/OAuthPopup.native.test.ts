@@ -27,6 +27,11 @@ jest.mock('expo-crypto', () => ({
 }));
 jest.mock('expo-web-browser', () => ({}));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({}));
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    prime: { subscription: { onekeyIdLoginFailedReason: jest.fn() } },
+  },
+}));
 
 describe('native Google identity authentication', () => {
   const originalAndroid = platformEnv.isNativeAndroid;
@@ -157,5 +162,22 @@ describe('native Google identity authentication', () => {
     ).rejects.toBeInstanceOf(OAuthLoginCancelError);
     expect(signInWithIdToken).not.toHaveBeenCalled();
     expect(handleSessionPersistence).not.toHaveBeenCalled();
+  });
+
+  it('rejects with the Play services error itself so its code stays classifiable', async () => {
+    // Shape of the rejection when Play services cannot reach Google.
+    const networkError = Object.assign(new Error('NETWORK_ERROR'), {
+      code: '7',
+    });
+    googleSignin.signIn.mockRejectedValue(networkError);
+
+    await expect(
+      OAuthPopup.open({
+        provider: 'google',
+        client,
+        handleSessionPersistence,
+      }),
+    ).rejects.toBe(networkError);
+    expect(signInWithIdToken).not.toHaveBeenCalled();
   });
 });
