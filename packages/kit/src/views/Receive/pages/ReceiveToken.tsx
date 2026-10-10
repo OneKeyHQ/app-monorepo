@@ -139,6 +139,15 @@ function ReceiveToken() {
   // Monotonic switch sequence: every async writer compares against it before
   // landing, so a slow lookup from an earlier switch can never win.
   const switchSeqRef = useRef(0);
+  // The network and account the page is committed to, written in the same
+  // step as the switch that changes them. An account lookup compares the
+  // target it was started for against this before landing: the sequence
+  // above already moves when a switch starts, so a lookup started while that
+  // switch was still resolving carries the new sequence.
+  const committedTargetRef = useRef({
+    networkId: routeNetworkId,
+    accountId: routeAccountId,
+  });
   // True while a switch looks up its target. The page still shows the
   // previous network then, verification included, and a verification started
   // against it would settle after the switch.
@@ -617,6 +626,12 @@ function ReceiveToken() {
   const fetchAccount = useCallback(async () => {
     if (!accountId && networkId && indexedAccountId) {
       const seq = switchSeqRef.current;
+      // By the time a result lands the page may have moved to another
+      // network, or to another account of this one.
+      const isSuperseded = () =>
+        seq !== switchSeqRef.current ||
+        committedTargetRef.current.networkId !== networkId ||
+        committedTargetRef.current.accountId !== accountId;
       let resolved = false;
       try {
         const defaultDeriveType =
@@ -638,7 +653,7 @@ function ReceiveToken() {
               template: accounts[0].template,
               accountId: accounts[0].id,
             });
-          if (seq !== switchSeqRef.current) return;
+          if (isSuperseded()) return;
           setCurrentDeriveInfo(deriveResp.deriveInfo);
           setCurrentDeriveType(deriveResp.deriveType);
           setCurrentAccount(accounts[0]);
@@ -658,7 +673,7 @@ function ReceiveToken() {
               excludeEmptyAccount: true,
             },
           );
-        if (seq !== switchSeqRef.current) return;
+        if (isSuperseded()) return;
         const selectedAccountId = switchSelectedAccountIdRef.current;
         const nonEmptyAccount =
           networkAccounts.find(
@@ -676,7 +691,7 @@ function ReceiveToken() {
       // After a switch the placeholder stays (the header remains tappable
       // for a retry) and the user is told; the initial mount keeps today's
       // silent behavior.
-      if (!resolved && seq > 0 && seq === switchSeqRef.current) {
+      if (!resolved && seq > 0 && !isSuperseded()) {
         Toast.error({
           title: intl.formatMessage({ id: ETranslations.global_unknown_error }),
         });
@@ -1077,8 +1092,14 @@ function ReceiveToken() {
         switchSelectedAccountIdRef.current = useDerivePath
           ? targetAccountId
           : undefined;
+        const nextAccountId = useDerivePath ? '' : (targetAccountId ?? '');
+        // From here on, lookups started for the previous target are stale.
+        committedTargetRef.current = {
+          networkId: targetNetworkId,
+          accountId: nextAccountId,
+        };
         setCurrentNetworkId(targetNetworkId);
-        setCurrentAccountId(useDerivePath ? '' : (targetAccountId ?? ''));
+        setCurrentAccountId(nextAccountId);
       } finally {
         // A newer switch owns the guard from the moment it starts.
         if (seq === switchSeqRef.current) {

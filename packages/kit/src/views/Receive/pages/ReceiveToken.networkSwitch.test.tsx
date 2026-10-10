@@ -25,6 +25,7 @@ const mockGetVaultSettings = jest.fn<
   Promise<{ mergeDeriveAssetsEnabled: boolean }>,
   [unknown]
 >(async () => ({ mergeDeriveAssetsEnabled: false }));
+const mockAppEventBusOn = jest.fn<void, [string, () => void]>();
 // One identity across calls, as the page keeps it in state: the test intl
 // object is new on every render, which re-runs the account lookup.
 const mockDefaultDeriveResp = {
@@ -200,7 +201,11 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
     CloseHardwareUiStateDialogManually: 'CloseHardwareUiStateDialogManually',
     BtcFreshAddressUpdated: 'BtcFreshAddressUpdated',
   },
-  appEventBus: { on: jest.fn(), off: jest.fn(), emit: jest.fn() },
+  appEventBus: {
+    on: (name: string, handler: () => void) => mockAppEventBusOn(name, handler),
+    off: jest.fn(),
+    emit: jest.fn(),
+  },
 }));
 
 jest.mock('@onekeyhq/shared/src/locale', () => ({
@@ -257,7 +262,9 @@ jest.mock('@onekeyhq/shared/src/utils/debug/debugUtils', () => ({
 
 jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
   __esModule: true,
-  default: { isBTCNetwork: () => false },
+  default: {
+    isBTCNetwork: (networkId?: string) => networkId === 'btc--0',
+  },
 }));
 
 jest.mock('@onekeyhq/shared/src/utils/receiveArrivalTimeUtils', () => ({
@@ -547,6 +554,7 @@ describe('ReceiveToken network switch', () => {
     mockFetchWalletBanner.mockResolvedValue([]);
     mockGetVaultSettings.mockReset();
     mockGetVaultSettings.mockResolvedValue({ mergeDeriveAssetsEnabled: false });
+    mockAppEventBusOn.mockReset();
     mockGetAccountsByIndexedAccounts.mockReset();
     mockGetAccountsByIndexedAccounts.mockResolvedValue({ accounts: [] });
     mockGetNetworkAccountsWithDeriveTypes.mockReset();
@@ -968,6 +976,81 @@ describe('ReceiveToken network switch', () => {
         deriveType: 'default',
       });
       expect(mockGetNetworkAccountsWithDeriveTypes).not.toHaveBeenCalled();
+    });
+
+    it('drops an address refresh of the previous network that lands after a switch', async () => {
+      mockGetAccountsByIndexedAccounts.mockResolvedValue({
+        accounts: [SEGWIT],
+      });
+      const { getByTestId } = await switchToBitcoinFromTaprootRow();
+      await waitFor(() =>
+        expect(getByTestId('address').textContent).toBe('bc1qsegwit'),
+      );
+
+      // A switch to Base starts; its target lookup stays out.
+      let finishTargetLookup: (settings: {
+        mergeDeriveAssetsEnabled: boolean;
+      }) => void = () => undefined;
+      mockGetVaultSettings.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishTargetLookup = resolve;
+          }),
+      );
+      fireEvent.click(getByTestId('receive-card-network-trigger'));
+      const { params } = mockPushModal.mock.calls[
+        mockPushModal.mock.calls.length - 1
+      ][1] as {
+        params: {
+          onSelect: (
+            token: IAccountToken,
+            context?: { network?: unknown },
+          ) => Promise<void>;
+        };
+      };
+      let switching: Promise<void> = Promise.resolve();
+      act(() => {
+        switching = params.onSelect(
+          member('evm--8453', { accountId: 'hd-1--base' }),
+          { network: NETWORKS['evm--8453'] },
+        );
+      });
+
+      // Meanwhile the Bitcoin page is told its fresh address changed and
+      // looks its account up again; that lookup stays out too.
+      let finishBitcoinLookup: (result: { accounts: unknown[] }) => void = () =>
+        undefined;
+      mockGetAccountsByIndexedAccounts.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishBitcoinLookup = resolve;
+          }),
+      );
+      const refreshCalls = mockAppEventBusOn.mock.calls.filter(
+        ([name]) => name === 'BtcFreshAddressUpdated',
+      );
+      const refreshBitcoinAddress = refreshCalls[refreshCalls.length - 1][1];
+      await act(async () => {
+        refreshBitcoinAddress();
+      });
+
+      await act(async () => {
+        finishTargetLookup({ mergeDeriveAssetsEnabled: false });
+        await switching;
+      });
+      await waitFor(() =>
+        expect(getByTestId('address').textContent).toBe('0xbbb'),
+      );
+
+      // The Bitcoin lookup lands once Base is on screen.
+      await act(async () => {
+        finishBitcoinLookup({ accounts: [SEGWIT] });
+      });
+      expect(getByTestId('receive-card-network-eta').textContent).toBe(
+        'Base (~1 min)',
+      );
+      expect(getByTestId('address').textContent).toBe('0xbbb');
+      expect(getByTestId('qr-value').textContent).toBe('0xbbb');
     });
 
     it.each([
