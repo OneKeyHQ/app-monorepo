@@ -1,35 +1,34 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
-import {
-  MARKET_STOCK_CATEGORY_ALL,
-  getDefaultMarketStockCategoryId,
-} from './marketStockCategoryUtils';
+import { useMarketHomeSelection } from '../hooks/useMarketHomeSelection';
+
+import { getDefaultMarketStockCategoryId } from './marketStockCategoryUtils';
 
 import type { IMarketCategoryItem } from '../types';
 
 /**
  * Selected chip of a config-driven sub-category row (Stocks, Top coins).
- * The selection is not persisted; when the configured list no longer
- * contains it, it falls back to `all` (or the first category).
+ * Restore the persisted selection before config loads. Once a nonempty config
+ * settles, a removed category falls back to `all` (or the first category).
  */
 export function useMarketSubCategorySelection(
   categories: IMarketCategoryItem[],
+  selectionKey: 'selectedStockCategory' | 'selectedTopCoinsCategory',
+  isConfigLoading?: boolean,
 ) {
-  const [selectedCategoryId, setSelectedCategoryId] = useState(
+  const [selectedCategoryId, setSelectedCategoryId] = useMarketHomeSelection(
+    selectionKey,
     getDefaultMarketStockCategoryId(categories),
   );
   useEffect(() => {
-    if (categories.length === 0) {
-      if (selectedCategoryId !== MARKET_STOCK_CATEGORY_ALL) {
-        setSelectedCategoryId(MARKET_STOCK_CATEGORY_ALL);
-      }
+    if (isConfigLoading !== false || categories.length === 0) {
       return;
     }
 
     if (!categories.some((category) => category.id === selectedCategoryId)) {
       setSelectedCategoryId(getDefaultMarketStockCategoryId(categories));
     }
-  }, [categories, selectedCategoryId]);
+  }, [categories, isConfigLoading, selectedCategoryId, setSelectedCategoryId]);
 
   return [selectedCategoryId, setSelectedCategoryId] as const;
 }

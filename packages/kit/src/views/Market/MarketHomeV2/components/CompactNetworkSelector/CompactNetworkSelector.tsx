@@ -106,6 +106,7 @@ function CompactNetworkSelector({
       alignItems="center"
     >
       <Stack
+        testID={MarketTestIDs.networkOption(allNetwork?.id ?? 'all')}
         px="$2"
         py="$1"
         borderRadius="$full"
@@ -130,6 +131,7 @@ function CompactNetworkSelector({
         return (
           <Stack
             key={network.id}
+            testID={MarketTestIDs.networkOption(network.id)}
             p="$1"
             borderRadius="$full"
             bg={isSelected ? '$neutral6' : '$transparent'}
