@@ -66,7 +66,6 @@ export function RewardsClaimableList({
       <RewardsLedgerList
         groups={ledgerGroups}
         expansion={expansion}
-        indexOffset={protocols.length}
         renderAction={(group, item) => {
           const network = networkInfoById.get(group.networkId);
           const asset = toLedgerClaimAsset({

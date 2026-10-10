@@ -44,13 +44,10 @@ function LedgerGroupTotal({ group }: { group: IEarnRewardsPortfolioGroup }) {
 export function RewardsLedgerList({
   groups,
   expansion,
-  indexOffset = 0,
   renderAction,
 }: {
   groups: IEarnRewardsPortfolioGroup[];
   expansion: IGroupExpansion;
-  /** how many groups precede this list, so only one first group opens */
-  indexOffset?: number;
   renderAction?: (
     group: IEarnRewardsPortfolioGroup,
     item: IEarnRewardsPortfolioGroup['items'][number],
@@ -58,7 +55,7 @@ export function RewardsLedgerList({
 }) {
   return (
     <YStack gap="$4">
-      {groups.map((group, index) => (
+      {groups.map((group) => (
         <GroupRow
           key={`${group.provider}|${group.networkId}`}
           name={group.providerName}
@@ -66,13 +63,9 @@ export function RewardsLedgerList({
           networkId={group.networkId}
           expanded={expansion.isExpanded(
             `${group.provider}|${group.networkId}`,
-            indexOffset + index,
           )}
           onToggle={() =>
-            expansion.toggle(
-              `${group.provider}|${group.networkId}`,
-              indexOffset + index,
-            )
+            expansion.toggle(`${group.provider}|${group.networkId}`)
           }
           total={<LedgerGroupTotal group={group} />}
         >

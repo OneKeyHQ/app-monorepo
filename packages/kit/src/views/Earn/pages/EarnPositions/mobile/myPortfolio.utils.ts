@@ -77,7 +77,7 @@ type IEarnPositionClaimRow = Omit<
   'button'
 > & { button: IEarnActionIcon };
 
-/** What a claimable card's button runs on: the asset carrying the claim identity, and the row carrying the button. */
+/** What a card's own button runs on: the asset carrying the claim identity, and the row carrying the button. */
 export type IEarnPositionClaim =
   | {
       asset: IEarnPortfolioAirdropAsset;
@@ -89,6 +89,68 @@ export type IEarnPositionClaim =
       reward: IEarnPositionClaimRow;
       rewardSymbol: string;
     };
+
+/** The asset the claim button reads its protocol, network and token off, keyed on `earn.manage`. */
+function positionClaimMetadata(position: IEarnPortfolioPosition) {
+  const { earn } = position;
+  return {
+    protocol: {
+      ...(earn.vault ? { vault: earn.vault } : {}),
+      ...(earn.vaultName ? { vaultName: earn.vaultName } : {}),
+      providerDetail: {
+        code: earn.manage.provider,
+        name: position.protocolName,
+        logoURI: earn.providerLogoURI ?? '',
+      },
+    },
+    network: earn.network,
+  };
+}
+
+/** The investment detail's own row behind a card button, as a normal asset the button understands. */
+function toInvestmentRowAction({
+  position,
+  button,
+  kind,
+}: {
+  position: IEarnPortfolioPosition;
+  button: IEarnActionIcon;
+  kind: 'claimablePrincipal' | 'unstaking';
+}): IEarnPositionClaim {
+  const { earn } = position;
+  const { investment } = earn;
+  const asset = position.assets[0];
+  const row = [
+    ...(investment.rewardAssets ?? []),
+    ...(investment.assetsStatus ?? []),
+  ].find((entry) => entry.kind === kind && entry.button);
+  return {
+    asset: {
+      token: {
+        info: { symbol: earn.symbol, logoURI: asset?.meta.logoUrl ?? '' },
+      },
+      deposit: investment.deposit ?? {
+        title: EMPTY_TEXT,
+        description: EMPTY_TEXT,
+      },
+      earnings24h: investment.earnings24h ?? { title: EMPTY_TEXT },
+      ...(investment.totalReward
+        ? { totalReward: investment.totalReward }
+        : {}),
+      rewardAssets: [],
+      assetsStatus: [],
+      buttons: [],
+      metadata: positionClaimMetadata(position),
+    },
+    reward: {
+      ...row,
+      title: row?.title ?? EMPTY_TEXT,
+      description: row?.description ?? EMPTY_TEXT,
+      button,
+    },
+    rewardSymbol: asset?.symbol ?? earn.symbol,
+  };
+}
 
 /**
  * A claimable position claims through the button the wide layout already
@@ -106,78 +168,59 @@ export function toPositionClaim(
   if (!claim) {
     return undefined;
   }
+  if (earn.claimSource !== 'airdrop') {
+    return toInvestmentRowAction({
+      position,
+      button: claim,
+      kind: 'claimablePrincipal',
+    });
+  }
   const asset = position.assets[0];
   const rewardSymbol = asset?.symbol ?? earn.symbol;
-  const metadata = {
-    protocol: {
-      ...(earn.vault ? { vault: earn.vault } : {}),
-      ...(earn.vaultName ? { vaultName: earn.vaultName } : {}),
-      providerDetail: {
-        code: earn.manage.provider,
-        name: position.protocolName,
-        logoURI: earn.providerLogoURI ?? '',
-      },
-    },
-    network: earn.network,
-  };
-  if (earn.claimSource === 'airdrop') {
-    const row =
-      earn.airdropRows?.find((entry) => entry.button) ?? earn.airdropRows?.[0];
-    // The airdrop row type requires a tooltip the position row does not
-    // carry; the claim button never reads it, so the entry is built without one.
-    const airdropRow = {
-      title: row?.title ?? EMPTY_TEXT,
-      description: row?.description ?? EMPTY_TEXT,
-      button: claim,
-      claimType: 'airdrop',
-    } as IEarnPortfolioAirdropAsset['airdropAssets'][number];
-    return {
-      asset: {
-        token: {
-          info: {
-            symbol: earn.symbol,
-            logoURI: asset?.meta.logoUrl ?? '',
-            ...(asset?.address ? { address: asset.address } : {}),
-          },
-        },
-        airdropAssets: [airdropRow],
-        metadata,
-      },
-      reward: airdropRow,
-      rewardSymbol,
-    };
-  }
-  const { investment } = earn;
-  const row = [
-    ...(investment.rewardAssets ?? []),
-    ...(investment.assetsStatus ?? []),
-  ].find((entry) => entry.kind === 'claimablePrincipal' && entry.button);
+  const metadata = positionClaimMetadata(position);
+  const row =
+    earn.airdropRows?.find((entry) => entry.button) ?? earn.airdropRows?.[0];
+  // The airdrop row type requires a tooltip the position row does not
+  // carry; the claim button never reads it, so the entry is built without one.
+  const airdropRow = {
+    title: row?.title ?? EMPTY_TEXT,
+    description: row?.description ?? EMPTY_TEXT,
+    button: claim,
+    claimType: 'airdrop',
+  } as IEarnPortfolioAirdropAsset['airdropAssets'][number];
   return {
     asset: {
       token: {
-        info: { symbol: earn.symbol, logoURI: asset?.meta.logoUrl ?? '' },
+        info: {
+          symbol: earn.symbol,
+          logoURI: asset?.meta.logoUrl ?? '',
+          ...(asset?.address ? { address: asset.address } : {}),
+        },
       },
-      deposit: investment.deposit ?? {
-        title: EMPTY_TEXT,
-        description: EMPTY_TEXT,
-      },
-      earnings24h: investment.earnings24h ?? { title: EMPTY_TEXT },
-      ...(investment.totalReward
-        ? { totalReward: investment.totalReward }
-        : {}),
-      rewardAssets: [],
-      assetsStatus: [],
-      buttons: [],
+      airdropAssets: [airdropRow],
       metadata,
     },
-    reward: {
-      ...row,
-      title: row?.title ?? EMPTY_TEXT,
-      description: row?.description ?? EMPTY_TEXT,
-      button: claim,
-    },
+    reward: airdropRow,
     rewardSymbol,
   };
+}
+
+/**
+ * A locked position whose withdrawal can be called back (Native) runs the
+ * cancel the wide layout ran on that row, through the same button.
+ */
+export function toPositionCancel(
+  position: IEarnPortfolioPosition,
+): IEarnPositionClaim | undefined {
+  const { cancel } = position.earn;
+  if (!cancel) {
+    return undefined;
+  }
+  return toInvestmentRowAction({
+    position,
+    button: cancel,
+    kind: 'unstaking',
+  });
 }
 
 /**

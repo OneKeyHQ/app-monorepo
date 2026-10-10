@@ -49,8 +49,6 @@ export function DeFiAssetsTab({
         {networkFilter}
       </Stack>
       {placeholder}
-      {/* the first protocol opens by default so the page never lands on a
-          wall of collapsed rows */}
       <EarnPositionProtocolList
         protocols={protocols}
         expansion={expansion}

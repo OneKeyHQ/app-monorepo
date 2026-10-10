@@ -8,7 +8,8 @@ import type {
   IEarnPositionCategory,
   IEarnPositionExtension,
 } from '@onekeyhq/shared/types/earn/portfolioPositions';
-import { EClaimType } from '@onekeyhq/shared/types/staking';
+import { EClaimType, EStakingActionType } from '@onekeyhq/shared/types/staking';
+import type { IEarnCancelWithdrawalActionIcon } from '@onekeyhq/shared/types/staking';
 
 /**
  * Mock response in the positions contract: the cases the page has to get
@@ -35,6 +36,12 @@ const PROTOCOL_LOGO: Record<string, string> = {
 export const CLAIM_BUTTON = {
   type: EClaimType.ClaimOrder,
   text: { text: 'Claim' },
+  disabled: false,
+};
+
+export const CANCEL_BUTTON: IEarnCancelWithdrawalActionIcon = {
+  type: EStakingActionType.CancelWithdrawal,
+  text: { text: 'Cancel' },
   disabled: false,
 };
 
@@ -161,6 +168,8 @@ const solana = { networkId: 'sol--101', chain: 'sol' };
 
 export const LIDO_UNLOCK_AT = Date.parse('2026-10-02T08:00:00Z');
 export const LIDO_LATER_UNLOCK_AT = Date.parse('2026-10-05T08:00:00Z');
+export const NATIVE_UNLOCK_AT = Date.parse('2026-10-12T08:00:00Z');
+export const NATIVE_USDT_VAULT = '0xc31daeeb822790e9ca730e7e34a9ef497fffc959';
 export const SUSDE_VAULT = '0x9d39a5de30e57443bff2a8307a4256c8797a3497';
 
 const LIDO = {
@@ -365,6 +374,55 @@ const ETHEREUM_POSITIONS: IEarnPortfolioPosition[] = [
     assets: [token({ symbol: 'USDe', amount: '12', price: 0.9993 })],
     earn: { action: 'unstake' },
   }),
+  // Native: the queued withdrawal can still be called back, so its locked
+  // card carries Cancel instead of Manage.
+  position({
+    ...ethereum,
+    protocol: 'native',
+    protocolName: 'Native',
+    category: 'yield',
+    groupId: `native:evm--1:${NATIVE_USDT_VAULT}`,
+    name: 'Native USDT',
+    assets: [token({ symbol: 'USDT', amount: '2', price: 0.9992 })],
+    earn: { symbol: 'USDT', vault: NATIVE_USDT_VAULT },
+  }),
+  position({
+    ...ethereum,
+    protocol: 'native',
+    protocolName: 'Native',
+    category: 'yield',
+    groupId: `native:evm--1:${NATIVE_USDT_VAULT}:unstaking:0`,
+    name: 'Native USDT',
+    assets: [
+      token({
+        symbol: 'USDT',
+        amount: '0.112',
+        price: 0.9992,
+        category: 'unstaking',
+      }),
+    ],
+    earn: {
+      symbol: 'USDT',
+      vault: NATIVE_USDT_VAULT,
+      action: 'cancel',
+      cancel: CANCEL_BUTTON,
+      unstaking: { unlockAt: NATIVE_UNLOCK_AT },
+      investment: {
+        totalFiatValue: '2.11',
+        earnings24hFiatValue: '0',
+        assetsStatus: [
+          {
+            kind: 'unstaking',
+            amount: '0.112',
+            unlockAt: NATIVE_UNLOCK_AT,
+            title: { text: '0.112 USDT' },
+            description: { text: 'Withdrawing' },
+            button: CANCEL_BUTTON,
+          },
+        ],
+      },
+    },
+  }),
 ];
 
 const BASE_POSITIONS: IEarnPortfolioPosition[] = [
@@ -443,6 +501,7 @@ export const EARN_PORTFOLIO_POSITIONS_FIXTURE: IEarnPortfolioPositionsResponse =
       summary(ALL_POSITIONS, 'morpho', 'evm--1'),
       summary(ALL_POSITIONS, 'everstake', 'evm--1'),
       summary(ALL_POSITIONS, 'ethena', 'evm--1'),
+      summary(ALL_POSITIONS, 'native', 'evm--1'),
       summary(ALL_POSITIONS, 'morpho', 'evm--8453'),
       summary(ALL_POSITIONS, 'pendle', 'evm--8453'),
       summary(ALL_POSITIONS, 'stakefish', 'sol--101'),

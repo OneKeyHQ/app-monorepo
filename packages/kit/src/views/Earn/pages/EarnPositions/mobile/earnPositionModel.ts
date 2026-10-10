@@ -40,10 +40,11 @@ import type {
  * unstaking section on a locked card), the locked card's name and the
  * card's single action. Product rules: the staked principal and its rewards
  * are one card with Manage (Unstake where leaving is the only move); each
- * withdrawal in progress is a locked card of its own, and principal out of
- * its cooldown is a claimable card of its own with Claim, as the wallet DeFi
- * portfolio shows them, since the detail page lists what sits in the vault
- * and its rewards, not principal on its way out.
+ * withdrawal in progress is a locked card of its own (Cancel where the
+ * provider lets it be called back), and principal out of its cooldown is a
+ * claimable card of its own with Claim, as the wallet DeFi portfolio shows
+ * them, since the detail page lists what sits in the vault and its rewards,
+ * not principal on its way out.
  */
 
 type ITranslate = (id: ETranslations) => string;
@@ -74,7 +75,8 @@ export type IEarnPositionMeta = { kind: 'healthFactor'; healthFactor: number };
 
 export type IEarnPositionAction =
   | { kind: 'manage' | 'unstake'; target: IEarnPositionManageTarget }
-  | { kind: 'claim' };
+  | { kind: 'claim' }
+  | { kind: 'cancel' };
 
 /**
  * active: the staked principal and its rewards; unstaking: a withdrawal in
@@ -239,11 +241,15 @@ function buildSections({
   }));
 }
 
-// The server attaches `claim` to the positions collected on the card alone.
+// The server attaches `claim` and `cancel` to the positions acted on from
+// the card alone: principal to collect, a withdrawal that can be called back.
 function resolveAction(source: IEarnPortfolioPosition): IEarnPositionAction {
   const { earn } = source;
   if (earn.claim) {
     return { kind: 'claim' };
+  }
+  if (earn.cancel) {
+    return { kind: 'cancel' };
   }
   return {
     kind: earn.action === 'unstake' ? 'unstake' : 'manage',
@@ -400,12 +406,16 @@ export function buildEarnClaimableRewardsView(
     .map((protocol) => {
       const positions = protocol.positions.flatMap<IEarnPositionView>(
         (position) => {
+          // No zero rows either: a reward the server lists but has not
+          // amounted yet (Lista before its Check) is nothing to claim.
           const sections = position.sections
             .filter((section) => section.kind === 'rewards')
             .map((section) => ({
               ...section,
               assets: section.assets.filter(
-                (asset) => !isProtocolAssetValueUnavailable(asset),
+                (asset) =>
+                  !isProtocolAssetValueUnavailable(asset) &&
+                  new BigNumber(asset.amount).gt(0),
               ),
             }))
             .filter((section) => section.assets.length > 0);

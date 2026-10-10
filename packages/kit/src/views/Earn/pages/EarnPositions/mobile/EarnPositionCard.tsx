@@ -25,7 +25,11 @@ import type {
 import { WrappedActionButton } from '../../../components/PortfolioTabContent';
 import { EarnTestIDs } from '../../../testIDs';
 
-import { hasPositionDetailPage, toPositionClaim } from './myPortfolio.utils';
+import {
+  hasPositionDetailPage,
+  toPositionCancel,
+  toPositionClaim,
+} from './myPortfolio.utils';
 
 import type {
   IEarnPositionSectionView,
@@ -146,25 +150,32 @@ function PositionPnlLine({ position }: { position: IEarnPortfolioPosition }) {
 }
 
 /**
- * A claimable position collects its principal on the card, through the claim
- * button the wide layout already runs on its rows (identity, pending
+ * A claimable position collects its principal on the card, and a locked
+ * position whose withdrawal can be called back cancels it there, through
+ * the button the wide layout already runs on those rows (identity, pending
  * spinner, refresh included).
  */
-function PositionClaimButton({
+function PositionRowButton({
   position,
+  kind,
 }: {
   position: IEarnPortfolioPosition;
+  kind: 'claim' | 'cancel';
 }) {
-  const claim = toPositionClaim(position);
-  if (!claim) {
+  const action =
+    kind === 'claim' ? toPositionClaim(position) : toPositionCancel(position);
+  if (!action) {
     return null;
   }
   return (
     <WrappedActionButton
-      asset={claim.asset}
-      reward={claim.reward}
-      rewardSymbol={claim.rewardSymbol}
-      buttonProps={{ size: 'medium', variant: 'primary' }}
+      asset={action.asset}
+      reward={action.reward}
+      rewardSymbol={action.rewardSymbol}
+      buttonProps={{
+        size: 'medium',
+        variant: kind === 'claim' ? 'primary' : 'secondary',
+      }}
     />
   );
 }
@@ -175,7 +186,8 @@ function PositionClaimButton({
  * optional health factor line, one block per section (deposited, borrowed,
  * rewards; a locked card shows its withdrawal, a claimable card the
  * principal to collect), the PnL line on the active card and the single
- * action: Manage or Unstake into the detail page, or Claim.
+ * action: Manage or Unstake into the detail page, Claim, or Cancel on a
+ * withdrawal that can be called back.
  */
 function EarnPositionCardCmp({
   position,
@@ -268,8 +280,8 @@ function EarnPositionCardCmp({
           })}
         </Button>
       ) : null}
-      {action?.kind === 'claim' ? (
-        <PositionClaimButton position={source} />
+      {action?.kind === 'claim' || action?.kind === 'cancel' ? (
+        <PositionRowButton position={source} kind={action.kind} />
       ) : null}
     </YStack>
   );

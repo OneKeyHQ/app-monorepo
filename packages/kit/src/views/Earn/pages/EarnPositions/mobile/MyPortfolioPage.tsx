@@ -184,10 +184,13 @@ export function MyPortfolioPage() {
   );
 
   // Manage and a tapped row open the position's own detail page, where every
-  // other action lives.
+  // other action lives, landing on its Portfolio tab.
   const handleManage = useCallback(
     (target: IEarnPositionManageTarget) => {
-      void EarnNavigation.pushToEarnProtocolDetails(navigation, target);
+      void EarnNavigation.pushToEarnProtocolDetails(navigation, {
+        ...target,
+        scrollToPortfolio: true,
+      });
     },
     [navigation],
   );

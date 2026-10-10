@@ -5,20 +5,19 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { PendingIndicator } from '@onekeyhq/kit/src/views/Staking/components/StakingActivityIndicator';
 
 /**
- * Which groups are open. A group is open when the user opened it, or when it
- * is the first in its list and the user never touched it. Lists on this page
- * re-order while accounts load, so this is kept as overrides keyed by group
- * rather than as state inside each row: a row that was first when it mounted
- * must not stay open once a richer group lands above it.
+ * Which groups are open: only the ones the user opened (product: nothing
+ * opens by itself). Lists on this page re-order while accounts load, so this
+ * is kept as state keyed by group rather than inside each row, and a group
+ * stays as the user left it wherever it lands.
  */
 export function useGroupExpansion() {
-  const [overrides, setOverrides] = useState<Record<string, boolean>>({});
+  const [opened, setOpened] = useState<Record<string, boolean>>({});
   const isExpanded = useCallback(
-    (key: string, index: number) => overrides[key] ?? index === 0,
-    [overrides],
+    (key: string) => opened[key] ?? false,
+    [opened],
   );
-  const toggle = useCallback((key: string, index: number) => {
-    setOverrides((prev) => ({ ...prev, [key]: !(prev[key] ?? index === 0) }));
+  const toggle = useCallback((key: string) => {
+    setOpened((prev) => ({ ...prev, [key]: !(prev[key] ?? false) }));
   }, []);
   return { isExpanded, toggle };
 }

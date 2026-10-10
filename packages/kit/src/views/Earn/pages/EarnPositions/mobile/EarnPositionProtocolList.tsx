@@ -22,14 +22,11 @@ import type { IGroupExpansion } from './GroupRow';
 export function EarnPositionProtocolList({
   protocols,
   expansion,
-  indexOffset = 0,
   pendingCountByProvider,
   onManage,
 }: {
   protocols: IEarnProtocolView[];
   expansion: IGroupExpansion;
-  /** where these rows sit in a longer list; the first row of the list opens by default */
-  indexOffset?: number;
   pendingCountByProvider?: Record<string, number>;
 } & IEarnPositionCardHandlers) {
   const intl = useIntl();
@@ -40,15 +37,15 @@ export function EarnPositionProtocolList({
 
   return (
     <YStack gap="$4">
-      {protocols.map((protocol, index) => (
+      {protocols.map((protocol) => (
         <GroupRow
           key={protocol.key}
           name={protocol.name}
           logoURI={protocol.logoURI}
           networkId={protocol.networkId}
           pendingCount={pendingCountByProvider?.[protocol.protocol] ?? 0}
-          expanded={expansion.isExpanded(protocol.key, indexOffset + index)}
-          onToggle={() => expansion.toggle(protocol.key, indexOffset + index)}
+          expanded={expansion.isExpanded(protocol.key)}
+          onToggle={() => expansion.toggle(protocol.key)}
           testID={EarnTestIDs.portfolioItem(protocol.name)}
           total={
             <ProtocolValueCell

@@ -17,6 +17,8 @@ import {
   EARN_PORTFOLIO_POSITIONS_FIXTURE,
   LIDO_LATER_UNLOCK_AT,
   LIDO_UNLOCK_AT,
+  NATIVE_UNLOCK_AT,
+  NATIVE_USDT_VAULT,
   SUSDE_VAULT,
 } from './earnPositionModel.fixtures';
 
@@ -53,6 +55,7 @@ describe('earn position model: protocol rows', () => {
       'evm--1-everstake',
       'evm--1-lido',
       'evm--1-morpho',
+      'evm--1-native',
       'evm--1-pendle',
       'evm--8453-morpho',
       'evm--8453-pendle',
@@ -89,7 +92,7 @@ describe('earn position model: protocol rows', () => {
       view.protocols,
     );
     expect(countEarnPositionsByNetwork(view.protocols)).toEqual({
-      'evm--1': 12,
+      'evm--1': 14,
       'evm--8453': 2,
       'sol--101': 2,
     });
@@ -156,6 +159,19 @@ describe('earn position model: one card per stage of a position', () => {
     ).toEqual([['0.25', LIDO_UNLOCK_AT]]);
     // the way back to the detail page stays on the locked card
     expect(sooner.action?.kind).toBe('manage');
+  });
+
+  it('puts Cancel on a locked card whose withdrawal can be called back', () => {
+    const locked = card(
+      protocolRow('evm--1-native'),
+      `native:evm--1:${NATIVE_USDT_VAULT}:unstaking:0`,
+    );
+    expect(locked.stage).toBe('unstaking');
+    expect(locked.locked).toEqual({ unlockAt: NATIVE_UNLOCK_AT });
+    expect(locked.action).toEqual({ kind: 'cancel' });
+    expect(locked.badgeLabel).toBe(
+      ETranslations.wallet_defi_position_module_locked,
+    );
   });
 
   it('files the USDe cooled down at Ethena under Ethena, claimed on the card through Pendle', () => {
@@ -270,6 +286,34 @@ describe('earn position model: rewards claimable stage', () => {
       1.2 * 1.2 + 0.0213 * 1.2 + 0.001 * 3150,
       9,
     );
+  });
+
+  it('leaves a reward without an amount yet off the list', () => {
+    const morpho = EARN_PORTFOLIO_POSITIONS_FIXTURE.positions['evm--1'].find(
+      (position) => position.groupId === 'morpho:evm--1:market:weth-usdc',
+    );
+    if (!morpho) {
+      throw new OneKeyLocalError('fixture changed: Morpho loan missing');
+    }
+    const zeroAmount: IEarnPortfolioPosition = {
+      ...morpho,
+      groupId: 'morpho:evm--1:zeroAmount',
+      rewards: morpho.rewards.map((reward) => ({
+        ...reward,
+        amount: '0',
+        value: 0,
+      })),
+    };
+    const response: IEarnPortfolioPositionsResponse = {
+      positions: { 'evm--1': [morpho, zeroAmount] },
+      protocolSummaries: [],
+      errors: [],
+    };
+    const { protocols } = buildEarnPortfolioView({ response, translate });
+    const [row] = buildEarnClaimableRewardsView(protocols);
+    expect(row.positions.map((position) => position.key)).toEqual([
+      morpho.groupId,
+    ]);
   });
 
   it('leaves a reward the server has not priced on the DeFi Assets card, not in the list', () => {

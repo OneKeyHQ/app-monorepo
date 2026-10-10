@@ -8,7 +8,9 @@ import {
   useState,
 } from 'react';
 
+import { useHeaderHeight } from '@react-navigation/elements';
 import { useIntl } from 'react-intl';
+import { View } from 'react-native';
 import Svg, { Line } from 'react-native-svg';
 
 import {
@@ -27,6 +29,7 @@ import {
   YStack,
   useMedia,
   useScrollContentTabBarOffset,
+  useScrollView,
   useShare,
   useTheme,
 } from '@onekeyhq/components';
@@ -885,6 +888,8 @@ const DetailsPartComponent = ({
   isMobileLayout,
   providerSubtitle,
   hasPortfolio,
+  canRedeem,
+  scrollToPortfolio,
   onRedeem,
   onActionSuccess,
 }: {
@@ -904,12 +909,61 @@ const DetailsPartComponent = ({
   isMobileLayout?: boolean;
   providerSubtitle?: string;
   hasPortfolio?: boolean;
+  // phone: whether the Portfolio rows may offer Redeem (page-level rule)
+  canRedeem?: boolean;
+  // phone: scroll the tabs into view once the page has loaded (OK-61377)
+  scrollToPortfolio?: boolean;
   onRedeem?: () => void;
   // A claim, stake or withdraw broadcast from the Portfolio tab. Falls back
   // to onRefresh for callers that only have the plain reload.
   onActionSuccess?: () => void;
 }) => {
   const now = useMemo(() => Date.now(), []);
+
+  // The positions page's Manage lands on the position: once the page has
+  // loaded with a Portfolio tab, scroll the tabs to the top of the view, once.
+  // On iOS 26 the content runs under the translucent header, so the target
+  // sits below it by the header's height.
+  const { scrollViewRef, pageOffsetRef } = useScrollView();
+  const headerHeight = useHeaderHeight();
+  const tabsAnchorRef = useRef<View>(null);
+  const portfolioScrolledRef = useRef(false);
+  const handleTabsLayout = useCallback(() => {
+    if (
+      !scrollToPortfolio ||
+      !hasPortfolio ||
+      !detailInfo ||
+      portfolioScrolledRef.current
+    ) {
+      return;
+    }
+    const scroller = scrollViewRef.current;
+    const anchor = tabsAnchorRef.current;
+    const scrollHost = scroller?.getNativeScrollRef?.();
+    if (!scroller || !anchor || !scrollHost) {
+      return;
+    }
+    portfolioScrolledRef.current = true;
+    const topInset = platformEnv.isNativeIOS26Plus ? headerHeight : 0;
+    // Measured against the viewport, so the current offset is added back.
+    anchor.measureLayout(
+      scrollHost,
+      (_x, y) => {
+        scroller.scrollTo({
+          y: Math.max(y + pageOffsetRef.current.y - topInset, 0),
+          animated: true,
+        });
+      },
+      () => {},
+    );
+  }, [
+    scrollToPortfolio,
+    hasPortfolio,
+    detailInfo,
+    scrollViewRef,
+    pageOffsetRef,
+    headerHeight,
+  ]);
 
   // The sheet replaces the icon-button popup only when the server sent a
   // complete breakdown; otherwise the existing popup renders untouched.
@@ -982,53 +1036,58 @@ const DetailsPartComponent = ({
               </YStack>
               {countDownAlert}
               <AlertSection alerts={detailInfo.alertsV2} />
-              <MobileDetailTabs
-                hasPortfolio={Boolean(hasPortfolio)}
-                portfolioContent={
-                  detailInfo.mobilePortfolio?.groups?.length ? (
-                    <PortfolioTab
-                      portfolio={detailInfo.mobilePortfolio}
-                      networkId={networkId}
-                      symbol={symbol}
-                      provider={provider}
-                      vault={detailInfo.protocol?.vault ?? vault}
-                      onActionSuccess={onActionSuccess ?? onRefresh}
-                      onRedeem={onRedeem}
-                      protocolInfo={protocolInfo}
-                      tokenInfo={tokenInfo}
-                    />
-                  ) : null
-                }
-                infoContent={
-                  <YStack gap="$8">
-                    {/* mobileInfo is the phone-only copy of intro (Vault cell
+              <View ref={tabsAnchorRef} onLayout={handleTabsLayout}>
+                <MobileDetailTabs
+                  hasPortfolio={Boolean(hasPortfolio)}
+                  portfolioContent={
+                    detailInfo.mobilePortfolio?.groups?.length ? (
+                      <PortfolioTab
+                        portfolio={detailInfo.mobilePortfolio}
+                        networkId={networkId}
+                        symbol={symbol}
+                        provider={provider}
+                        vault={detailInfo.protocol?.vault ?? vault}
+                        onActionSuccess={onActionSuccess ?? onRefresh}
+                        onRedeem={onRedeem}
+                        canRedeem={canRedeem}
+                        protocolInfo={protocolInfo}
+                        tokenInfo={tokenInfo}
+                      />
+                    ) : null
+                  }
+                  infoContent={
+                    <YStack gap="$8">
+                      {/* mobileInfo is the phone-only copy of intro (Vault cell
                         swapped for Protocol) plus the new Token info block.
                         Falls back to intro when the server predates it. */}
-                    <GridSection
-                      data={
-                        detailInfo.mobileInfo?.productInfo ?? detailInfo.intro
-                      }
-                    />
-                    <GridSection data={detailInfo.mobileInfo?.tokenInfo} />
-                    {earnUtils.isPendleProvider({ providerName: provider }) ? (
-                      <PendleRulesSection data={detailInfo.rules} />
-                    ) : (
-                      <GridSection data={detailInfo.rules} />
-                    )}
-                    <PeriodSection timeline={detailInfo.timeline} />
-                    <GridSection data={detailInfo.performance} />
-                    <ProtectionSection protection={detailInfo.protection} />
-                    <RiskSection risk={detailInfo.risk} />
-                  </YStack>
-                }
-                protocolContent={
-                  hasProtocolIntroContent(detailInfo.protocolInfo) ? (
-                    <ProtocolIntroSection
-                      protocolInfo={detailInfo.protocolInfo}
-                    />
-                  ) : undefined
-                }
-              />
+                      <GridSection
+                        data={
+                          detailInfo.mobileInfo?.productInfo ?? detailInfo.intro
+                        }
+                      />
+                      <GridSection data={detailInfo.mobileInfo?.tokenInfo} />
+                      {earnUtils.isPendleProvider({
+                        providerName: provider,
+                      }) ? (
+                        <PendleRulesSection data={detailInfo.rules} />
+                      ) : (
+                        <GridSection data={detailInfo.rules} />
+                      )}
+                      <PeriodSection timeline={detailInfo.timeline} />
+                      <GridSection data={detailInfo.performance} />
+                      <ProtectionSection protection={detailInfo.protection} />
+                      <RiskSection risk={detailInfo.risk} />
+                    </YStack>
+                  }
+                  protocolContent={
+                    hasProtocolIntroContent(detailInfo.protocolInfo) ? (
+                      <ProtocolIntroSection
+                        protocolInfo={detailInfo.protocolInfo}
+                      />
+                    ) : undefined
+                  }
+                />
+              </View>
               <FAQSection faqs={detailInfo.faqs} tokenInfo={tokenInfo} />
             </YStack>
           ) : null}
@@ -1163,6 +1222,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     provider: string;
     vault: string | undefined;
     logoURI?: string;
+    scrollToPortfolio?: boolean;
   }>(() => {
     const routeParams = route.params as any;
 
@@ -1198,7 +1258,8 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     }
 
     // Old format: normal navigation
-    const { networkId, symbol, provider, vault, logoURI } = routeParams;
+    const { networkId, symbol, provider, vault, logoURI, scrollToPortfolio } =
+      routeParams;
 
     return {
       networkId,
@@ -1206,6 +1267,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
       provider,
       vault,
       logoURI,
+      scrollToPortfolio,
     };
   }, [route.params]);
 
@@ -1539,6 +1601,30 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     return false;
   }, [symbol]);
 
+  // A provider that hides its wide-layout actions (Native, Stakefish ATOM and
+  // POL: meta.showActions false) sends none, which read as hold-to-earn here
+  // and left the phone page with no way to redeem (OK-61377). With a position,
+  // Redeem opens the manage page's withdraw tab, where the wide layout's
+  // Manage goes; the Portfolio rows follow the same rule.
+  const redeemWithoutActions = useMemo(
+    () =>
+      isMobileLayout &&
+      !detailInfo?.actions &&
+      !isCustomProtocol &&
+      !earnUtils.isPendleProvider({ providerName: provider }) &&
+      hasPortfolio,
+    [
+      isMobileLayout,
+      detailInfo?.actions,
+      isCustomProtocol,
+      provider,
+      hasPortfolio,
+    ],
+  );
+  const canRedeem =
+    Boolean(detailInfo?.mobilePortfolio?.capabilities.redeem) ||
+    redeemWithoutActions;
+
   const tabBarHeight = useScrollContentTabBarOffset();
 
   const pageFooter = useMemo(() => {
@@ -1581,7 +1667,9 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     const depositAction = detailInfo?.actions?.find(
       (action) => action.type === 'deposit',
     );
-    const showRedeem = isMobileLayout && (Boolean(redeemAction) || isPendle);
+    const showRedeem =
+      isMobileLayout &&
+      (Boolean(redeemAction) || isPendle || redeemWithoutActions);
     const depositDisabled =
       Boolean(depositAction?.disabled) || (isPendle && isMatured);
     const withdrawDisabled = isPendle
@@ -1628,6 +1716,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     detailInfo,
     provider,
     hasPortfolio,
+    redeemWithoutActions,
   ]);
 
   return (
@@ -1670,6 +1759,8 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
             isMobileLayout={isMobileLayout}
             providerSubtitle={providerSubtitle}
             hasPortfolio={hasPortfolio}
+            canRedeem={canRedeem}
+            scrollToPortfolio={resolvedParams.scrollToPortfolio}
             onRedeem={handleOpenRedeem}
           />
         </Stack>

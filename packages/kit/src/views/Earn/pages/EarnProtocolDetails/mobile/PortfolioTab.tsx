@@ -149,6 +149,7 @@ export function PortfolioTab({
   tokenInfo,
   onActionSuccess,
   onRedeem,
+  canRedeem,
 }: {
   portfolio: IMobilePortfolio;
   networkId: string;
@@ -163,6 +164,9 @@ export function PortfolioTab({
   // The page owns the Redeem destination (ManagePosition, or the position
   // picker for per-position providers) so the row and the footer cannot drift.
   onRedeem?: () => void;
+  // Whether the active row offers Redeem; the page decides, since a provider
+  // that hides its wide-layout actions (Native) sends no redeem capability.
+  canRedeem?: boolean;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -246,7 +250,7 @@ export function PortfolioTab({
                   : undefined
               }
               onRedeem={
-                item.redeemable && portfolio.capabilities.redeem
+                item.redeemable && (canRedeem ?? portfolio.capabilities.redeem)
                   ? onRedeem
                   : undefined
               }
