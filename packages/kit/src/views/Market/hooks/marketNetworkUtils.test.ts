@@ -1,9 +1,11 @@
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ENetworkStatus } from '@onekeyhq/shared/types';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IMarketBasicConfigNetwork } from '@onekeyhq/shared/types/marketV2';
 
 import {
   buildMarketNetworkFromBasicConfig,
+  resolveMarketHomeNetworkSelection,
   resolveMarketNetworkFromConfig,
 } from './marketNetworkUtils';
 
@@ -63,5 +65,55 @@ describe('marketNetworkUtils', () => {
       logoURI: 'https://example.com/custom.png',
       explorerURL: 'https://explorer.example.com',
     });
+  });
+});
+
+describe('restoring a saved market network', () => {
+  it.each([true, undefined])(
+    'preserves it while config loading is %s',
+    (isConfigLoading) => {
+      expect(
+        resolveMarketHomeNetworkSelection({
+          selectedNetworkId: 'evm--1',
+          networkList: [mockConfigNetwork],
+          isConfigLoading,
+        }),
+      ).toBe('evm--1');
+    },
+  );
+
+  it('preserves it when a failed or empty config does not confirm removal', () => {
+    expect(
+      resolveMarketHomeNetworkSelection({
+        selectedNetworkId: 'evm--1',
+        networkList: [],
+        isConfigLoading: false,
+      }),
+    ).toBe('evm--1');
+  });
+
+  it('restores an available network and keeps All selectable', () => {
+    for (const selectedNetworkId of [
+      mockConfigNetwork.networkId,
+      getNetworkIdsMap().onekeyall,
+    ]) {
+      expect(
+        resolveMarketHomeNetworkSelection({
+          selectedNetworkId,
+          networkList: [mockConfigNetwork],
+          isConfigLoading: false,
+        }),
+      ).toBe(selectedNetworkId);
+    }
+  });
+
+  it('uses All before rendering lists when a settled config removes the saved network', () => {
+    expect(
+      resolveMarketHomeNetworkSelection({
+        selectedNetworkId: 'evm--1',
+        networkList: [mockConfigNetwork],
+        isConfigLoading: false,
+      }),
+    ).toBe(getNetworkIdsMap().onekeyall);
   });
 });

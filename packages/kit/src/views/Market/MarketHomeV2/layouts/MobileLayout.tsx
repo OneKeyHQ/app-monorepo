@@ -35,6 +35,7 @@ import { MobileMarketTokenFlatList } from '../components/MarketTokenList/MobileM
 import { MobileMarketWatchlistFlatList } from '../components/MarketTokenList/MobileMarketWatchlistFlatList';
 import { useOpenMarketWatchlistEditDialog } from '../components/MarketTokenList/useOpenMarketWatchlistEditDialog';
 import { MobileMarketTopCoinsFlatList } from '../components/MarketTopCoinsList/MobileMarketTopCoinsFlatList';
+import { useMarketHomeSelection } from '../hooks/useMarketHomeSelection';
 import {
   isMarketStockCategoryById,
   shouldShowSpotNetworkSelector,
@@ -312,17 +313,26 @@ function MobileLayoutComponent({
     !watchlistState.data || watchlistState.data.length === 0;
 
   // Watchlist category filter state
-  const [watchlistFilter, setWatchlistFilter] = useState<IWatchlistFilterType>(
+  const [watchlistFilter, setWatchlistFilter] = useMarketHomeSelection(
+    'watchlistFilter',
     DEFAULT_WATCHLIST_FILTER,
   );
   const stockCategories =
     filterBarProps.stockCategories ?? EMPTY_MARKET_STOCK_CATEGORIES;
   const [selectedStockCategoryId, setSelectedStockCategoryId] =
-    useMarketSubCategorySelection(stockCategories);
+    useMarketSubCategorySelection(
+      stockCategories,
+      'selectedStockCategory',
+      filterBarProps.isCategoryConfigLoading,
+    );
   const topCoinsCategories =
     filterBarProps.topCoinsCategories ?? EMPTY_MARKET_TOP_COINS_CATEGORIES;
   const [selectedTopCoinsCategoryId, setSelectedTopCoinsCategoryId] =
-    useMarketSubCategorySelection(topCoinsCategories);
+    useMarketSubCategorySelection(
+      topCoinsCategories,
+      'selectedTopCoinsCategory',
+      filterBarProps.isCategoryConfigLoading,
+    );
   const [stockDataCategoryMap, setStockDataCategoryMap] = useState<
     Record<string, boolean>
   >({});
@@ -352,6 +362,8 @@ function MobileLayoutComponent({
 
   const setActiveTabNameRef = useRef(setActiveTabName);
   setActiveTabNameRef.current = setActiveTabName;
+  const handleTabChangeRef = useRef(handleTabChange);
+  handleTabChangeRef.current = handleTabChange;
 
   const containerProps = useMemo(
     () => ({
@@ -392,6 +404,7 @@ function MobileLayoutComponent({
     (tabBarProps: TabBarProps<string>) => {
       const handleTabPress = (name: string) => {
         setActiveTabNameRef.current(name);
+        handleTabChangeRef.current(name);
         tabBarProps.onTabPress?.(name);
       };
 
@@ -409,10 +422,13 @@ function MobileLayoutComponent({
 
   const onTabChangeHandler = useCallback(
     ({ tabName }: { tabName: string }) => {
+      if (currentTabsRef.current?.getFocusedTab() !== tabName) {
+        return;
+      }
       setActiveTabName(tabName);
-      handleTabChange(tabName);
+      handleTabChangeRef.current(tabName);
     },
-    [handleTabChange, setActiveTabName],
+    [currentTabsRef, setActiveTabName],
   );
   const dynamicCtx = useMemo<ITabBarDynamicContext>(
     () => ({
@@ -438,6 +454,7 @@ function MobileLayoutComponent({
     [
       filterBarProps,
       watchlistFilter,
+      setWatchlistFilter,
       isWatchlistEmpty,
       isTokenCacheReady,
       openMarketWatchlistEditDialog,
