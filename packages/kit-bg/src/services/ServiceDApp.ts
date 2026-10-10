@@ -618,15 +618,24 @@ class ServiceDApp extends ServiceBase {
         connectedPubkey,
         context,
       });
-    const result = deviceParams
-      ? await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-          derive,
-          {
-            deviceParams,
-            debugMethodName: 'serviceDApp.executeDeriveContextHash',
-          },
-        )
-      : await derive();
+    let result: string | undefined;
+    if (deviceParams) {
+      // Keep the secret out of the processing wrapper's completion log.
+      await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+        async () => {
+          result = await derive();
+        },
+        {
+          deviceParams,
+          debugMethodName: 'serviceDApp.executeDeriveContextHash',
+        },
+      );
+    } else {
+      result = await derive();
+    }
+    if (result === undefined) {
+      throw new OneKeyLocalError('Context hash derivation returned no result');
+    }
 
     // Consume only on success so the user can retry after a derivation error.
     await this.completeDeriveContextHashRequest(nonce);

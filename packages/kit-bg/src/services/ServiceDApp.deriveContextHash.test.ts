@@ -124,7 +124,7 @@ function createHarness({
       [{ request: IJsBridgeMessagePayload; nonce: string }]
     >()
     .mockResolvedValue('approval-opened');
-  const withHardwareProcessing = jest.fn(async (fn: () => Promise<string>) =>
+  const withHardwareProcessing = jest.fn(async (fn: () => Promise<unknown>) =>
     fn(),
   );
   const backgroundApi = {
@@ -218,6 +218,23 @@ describe('BTC deriveContextHash hardware integration', () => {
       expect(await h.service.peekDeriveContextHashRequest(nonce)).toBeNull();
     },
   );
+
+  it('keeps the derived secret out of hardware completion logs', async () => {
+    const h = createHarness();
+    const completionLogResults: unknown[] = [];
+    h.withHardwareProcessing.mockImplementation(async (fn) => {
+      const result = await fn();
+      completionLogResults.push(result);
+      return result;
+    });
+    await h.provider.deriveContextHash(REQUEST, PARAMS);
+    const { nonce } = h.openModal.mock.calls[0][0];
+
+    await expect(h.service.executeDeriveContextHash({ nonce })).resolves.toBe(
+      SECRET,
+    );
+    expect(completionLogResults).toEqual([undefined]);
+  });
 
   it.each([EHardwareVendor.ledger, EHardwareVendor.trezor])(
     'rejects %s before approval or device communication',
