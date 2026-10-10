@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { Icon, SectionList, Spinner, Stack, Toast } from '@onekeyhq/components';
 import type { IAllNetworksDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAllNetworks';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -13,6 +14,7 @@ import type {
   ITokenSelectorSecondaryTab,
   ITokenSelectorSecondaryTabListProps,
 } from '@onekeyhq/shared/src/routes';
+import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils, {
   POPULAR_NETWORK_IDS,
@@ -110,20 +112,60 @@ async function fetchReceiveNetworkListData(
         indexedAccountId,
         networkId: getNetworkIdsMap().onekeyall,
         excludeTestNetwork: true,
-        // Rows show the global default type first, but a network that only
-        // has a non-default address (e.g. BTC with Taproot only) must not
-        // show "Create address".
+        // Every address type is requested: a network that only has a
+        // non-default address (e.g. BTC with Taproot only) must not show
+        // "Create address". The row then picks one of them below.
         includingNotEqualGlobalDeriveTypeAccount: true,
         skipCache: skipAccountsCache,
       }),
       backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
     ]);
-  const accountMap: Record<string, IAllNetworkAccountInfo> = {};
+  // Several accounts can come back for one network, one per address type,
+  // in database order. A row stands for the global default type, the one the
+  // token list and the home show; another type only when the wallet has no
+  // address of the default one.
+  const accountsByNetwork = new Map<string, IAllNetworkAccountInfo[]>();
   accountsInfo.forEach((info) => {
-    if (info.dbAccount && !accountMap[info.networkId]) {
-      accountMap[info.networkId] = info;
+    if (!info.dbAccount) {
+      return;
+    }
+    const sameNetwork = accountsByNetwork.get(info.networkId);
+    if (sameNetwork) {
+      sameNetwork.push(info);
+    } else {
+      accountsByNetwork.set(info.networkId, [info]);
     }
   });
+  // The default type is stored per chain family: one lookup serves all of
+  // its networks.
+  const defaultDeriveTypeByKey = new Map<
+    string,
+    Promise<IAccountDeriveTypes | undefined>
+  >();
+  const accountMap: Record<string, IAllNetworkAccountInfo> = {};
+  await Promise.all(
+    Array.from(accountsByNetwork, async ([networkId, candidates]) => {
+      if (candidates.length === 1) {
+        accountMap[networkId] = candidates[0];
+        return;
+      }
+      const key = accountSelectorUtils.buildGlobalDeriveTypesMapKey({
+        networkId,
+      });
+      let defaultDeriveType = defaultDeriveTypeByKey.get(key);
+      if (!defaultDeriveType) {
+        defaultDeriveType = backgroundApiProxy.serviceNetwork
+          .getGlobalDeriveTypeOfNetwork({ networkId })
+          // Without it the row still has an address to show.
+          .catch(() => undefined);
+        defaultDeriveTypeByKey.set(key, defaultDeriveType);
+      }
+      const deriveType = await defaultDeriveType;
+      accountMap[networkId] =
+        candidates.find((info) => info.deriveType === deriveType) ??
+        candidates[0];
+    }),
+  );
   const networks = mainnetItems.filter(
     (network) =>
       !networkUtils.isAllNetwork({ networkId: network.id }) &&

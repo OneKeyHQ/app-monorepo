@@ -33,7 +33,9 @@ let mockAccountsInfo: Array<{
   accountId: string;
   apiAddress: string;
   dbAccount: object | undefined;
+  deriveType?: string;
 }> = [];
+const mockGetGlobalDeriveType = jest.fn<Promise<string>, [unknown]>();
 const mockCreateAddressForNetwork = jest.fn<
   Promise<string | undefined>,
   [unknown]
@@ -147,6 +149,8 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
       networkId === 'onekeyall--0',
     isLightningNetworkByNetworkId: (networkId?: string) =>
       networkId === 'lightning--0',
+    getNetworkImpl: ({ networkId }: { networkId: string }) =>
+      networkId.split('--')[0],
   },
   POPULAR_NETWORK_IDS: jest.requireActual<
     typeof import('@onekeyhq/shared/src/utils/networkUtils')
@@ -170,7 +174,8 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
       getChainSelectorNetworksCompatibleWithAccountId: jest.fn(async () => ({
         mainnetItems: Object.values(NETWORKS),
       })),
-      getGlobalDeriveTypeOfNetwork: jest.fn(async () => 'default'),
+      getGlobalDeriveTypeOfNetwork: (params: unknown) =>
+        mockGetGlobalDeriveType(params),
     },
     serviceAllNetwork: {
       getAllNetworkAccounts: (params: unknown) =>
@@ -350,6 +355,8 @@ describe('ReceiveNetworkList', () => {
     mockGetAllNetworkAccounts.mockImplementation(async () => ({
       accountsInfo: mockAccountsInfo,
     }));
+    mockGetGlobalDeriveType.mockReset();
+    mockGetGlobalDeriveType.mockResolvedValue('default');
     mockToastSuccess.mockReset();
     mockReceiveSelectNetworkTab.mockReset();
   });
@@ -580,6 +587,77 @@ describe('ReceiveNetworkList', () => {
     expect(mockGetAllNetworkAccounts).toHaveBeenLastCalledWith(
       expect.objectContaining({ skipCache: false }),
     );
+  });
+
+  describe('a network with addresses of several types', () => {
+    const ethereumSubtitle = (
+      getByTestId: ReturnType<typeof render>['getByTestId'],
+    ) =>
+      getByTestId('receive-network-list-item-evm--1').querySelector(
+        '[data-testid="subtitle"]',
+      )?.textContent;
+
+    beforeEach(() => {
+      // Database order puts the non-default type first.
+      mockAccountsInfo = [
+        {
+          networkId: 'evm--1',
+          accountId: 'hd-1--evm-ledger-live',
+          apiAddress: '0xaaaa000000000bbb',
+          dbAccount: {},
+          deriveType: 'ledgerLive',
+        },
+        {
+          networkId: 'evm--1',
+          accountId: 'hd-1--evm',
+          apiAddress: '0x1234567890abcdef',
+          dbAccount: {},
+          deriveType: 'default',
+        },
+      ];
+    });
+
+    it('shows and reports the default type whatever order the accounts come in', async () => {
+      const { getByTestId, onSelectNetwork } = renderList();
+      await waitFor(() =>
+        expect(ethereumSubtitle(getByTestId)).toBe('0x12…def'),
+      );
+      fireEvent.click(getByTestId('receive-network-list-item-evm--1'));
+      await waitFor(() => expect(onSelectNetwork).toHaveBeenCalledTimes(1));
+      expect(onSelectNetwork).toHaveBeenCalledWith(
+        expect.objectContaining({ accountId: 'hd-1--evm' }),
+      );
+    });
+
+    it('follows the global default when the user changed it', async () => {
+      mockGetGlobalDeriveType.mockResolvedValue('ledgerLive');
+      const { getByTestId, onSelectNetwork } = renderList();
+      await waitFor(() =>
+        expect(ethereumSubtitle(getByTestId)).toBe('0xaa…bbb'),
+      );
+      fireEvent.click(getByTestId('receive-network-list-item-evm--1'));
+      await waitFor(() => expect(onSelectNetwork).toHaveBeenCalledTimes(1));
+      expect(onSelectNetwork).toHaveBeenCalledWith(
+        expect.objectContaining({ accountId: 'hd-1--evm-ledger-live' }),
+      );
+    });
+
+    it('falls back to an address of another type when the wallet has none of the default one', async () => {
+      mockGetGlobalDeriveType.mockResolvedValue('bip44Standard');
+      const { getByTestId } = renderList();
+      // Still an address, not "Create address".
+      await waitFor(() =>
+        expect(ethereumSubtitle(getByTestId)).toBe('0xaa…bbb'),
+      );
+    });
+
+    it('still lists the network when the default type cannot be read', async () => {
+      mockGetGlobalDeriveType.mockRejectedValue(new Error('unavailable'));
+      const { getByTestId } = renderList();
+      await waitFor(() =>
+        expect(ethereumSubtitle(getByTestId)).toBe('0xaa…bbb'),
+      );
+    });
   });
 
   describe('a row still creating its address', () => {
