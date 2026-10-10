@@ -260,6 +260,57 @@ describe('marketDetailNavigation', () => {
       expect(updated?.routes).toEqual(routes.slice(0, 2));
     });
 
+    it.each([1, 2])(
+      'returns from %s banner token details to the existing banner list',
+      (detailCount) => {
+        const router = StackRouter({});
+        const config = {
+          routeNames: ['TabDiscovery', 'MarketBannerDetail', 'MarketDetailV2'],
+          routeParamList: {},
+          routeGetIdList: {},
+        };
+        const preservedRoutes = [
+          discoveryStack.routes[0],
+          {
+            key: 'banner-list',
+            name: 'MarketBannerDetail',
+            params: {
+              tokenListId: 'featured-tokens',
+              title: 'Featured tokens',
+            },
+          },
+        ];
+        const stack = {
+          ...router.getInitialState(config),
+          ...discoveryStack,
+          index: preservedRoutes.length + detailCount - 1,
+          routes: [
+            ...preservedRoutes,
+            ...Array.from({ length: detailCount }, (_, index) => ({
+              key: `detail-${index}`,
+              name: 'MarketDetailV2',
+            })),
+          ],
+        };
+        const current = stack.routes[stack.index];
+        getRootStateMock.mockReturnValue(stack);
+        getCurrentRouteMock.mockReturnValue(current);
+        dismissDiscoveryMarketDetailForTrade(current.key);
+        const action = dispatchMock.mock.calls[0]?.[0] as Parameters<
+          typeof router.getStateForAction
+        >[1];
+        expect(action).toMatchObject({
+          type: 'POP',
+          payload: { count: detailCount },
+          source: current.key,
+          target: 'discovery-stack',
+        });
+        const updated = router.getStateForAction(stack, action, config);
+        expect(updated?.index).toBe(1);
+        expect(updated?.routes).toEqual(preservedRoutes);
+      },
+    );
+
     it('does not remove unrelated screens between the list and detail', () => {
       getRootStateMock.mockReturnValue({
         ...discoveryStack,

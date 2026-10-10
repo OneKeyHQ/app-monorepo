@@ -321,7 +321,12 @@ export function dismissDiscoveryMarketDetailForTrade(
   ) {
     listIndex -= 1;
   }
-  if (routes[listIndex]?.name !== ETabDiscoveryRoutes.TabDiscovery) return;
+  if (
+    routes[listIndex]?.name !== ETabDiscoveryRoutes.TabDiscovery &&
+    routes[listIndex]?.name !== ETabMarketRoutes.MarketBannerDetail
+  ) {
+    return;
+  }
   // Remove consecutive details above the list, preserving its params and history.
   navigation?.dispatch({
     ...StackActions.pop(index - listIndex),
