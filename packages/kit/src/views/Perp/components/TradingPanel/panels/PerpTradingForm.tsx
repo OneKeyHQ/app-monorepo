@@ -69,6 +69,7 @@ import {
 import {
   TWAP_MAX_DURATION_MINUTES,
   TWAP_MIN_DURATION_MINUTES,
+  formatTwapEstimatedSliceNotional,
   isValidTwapDuration,
 } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -1059,6 +1060,24 @@ function PerpTradingForm({
       };
     }
   }, [formData.twapDurationMinutes, intl, isTwapMode]);
+
+  const twapEstimatedSliceNotionalDisplay = useMemo(() => {
+    if (!isTwapMode) {
+      return undefined;
+    }
+    return formatTwapEstimatedSliceNotional({
+      size: advancedComputedSizeBN,
+      price: twapReferencePriceBN,
+      szDecimals: sizeSzDecimals,
+      durationMinutes: Number(formData.twapDurationMinutes ?? ''),
+    });
+  }, [
+    advancedComputedSizeBN,
+    formData.twapDurationMinutes,
+    isTwapMode,
+    sizeSzDecimals,
+    twapReferencePriceBN,
+  ]);
 
   const [twapDurationHoursInput, setTwapDurationHoursInput] = useState('');
   const [twapDurationMinutesInput, setTwapDurationMinutesInput] = useState('');
@@ -2558,6 +2577,33 @@ function PerpTradingForm({
             </XStack>
           </YStack>
           {renderTwapDetailsSection()}
+          {twapEstimatedSliceNotionalDisplay ? (
+            <XStack
+              width="100%"
+              alignItems="center"
+              justifyContent="space-between"
+              gap="$3"
+              mt="$1"
+            >
+              <SizableText
+                size={isMobile ? '$bodySm' : '$bodyMdMedium'}
+                color="$textSubdued"
+                flex={1}
+                numberOfLines={1}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.perp_twap_child_order_size__title,
+                })}
+              </SizableText>
+              <SizableText
+                size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
+                color="$text"
+                numberOfLines={1}
+              >
+                {twapEstimatedSliceNotionalDisplay}
+              </SizableText>
+            </XStack>
+          ) : null}
         </YStack>
       );
     }

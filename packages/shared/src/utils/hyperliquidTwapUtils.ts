@@ -1,11 +1,13 @@
 import BigNumber from 'bignumber.js';
 
-import { formatLocalizedNumberString } from './numberUtils';
+import { formatLocalizedNumberString, numberFormat } from './numberUtils';
 import { formatHlPrice, formatHlSize } from './perpsUtils';
 
 export const TWAP_MIN_DURATION_MINUTES = 5;
 export const TWAP_MAX_DURATION_MINUTES = 7 * 24 * 60;
 export const TWAP_MIN_ORDER_NOTIONAL = 100;
+const TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS = 30;
+const TWAP_ESTIMATED_MIN_SLICE_NOTIONAL = 10;
 
 export type ITwapRuntimeStatus =
   | 'activated'
@@ -147,7 +149,7 @@ export function isValidTwapDuration(minutes: number): boolean {
   );
 }
 
-export function isTwapTotalNotionalValid({
+function getTwapTruncatedNotional({
   size,
   price,
   szDecimals,
@@ -155,7 +157,7 @@ export function isTwapTotalNotionalValid({
   size: BigNumber.Value;
   price: BigNumber.Value;
   szDecimals: number;
-}): boolean {
+}): BigNumber | undefined {
   const sizeBN = new BigNumber(formatHlSize(size, szDecimals));
   const priceBN = new BigNumber(price);
   if (
@@ -164,9 +166,59 @@ export function isTwapTotalNotionalValid({
     sizeBN.lte(0) ||
     priceBN.lte(0)
   ) {
-    return false;
+    return undefined;
   }
-  return sizeBN.multipliedBy(priceBN).gte(TWAP_MIN_ORDER_NOTIONAL);
+  return sizeBN.multipliedBy(priceBN);
+}
+
+export function isTwapTotalNotionalValid(params: {
+  size: BigNumber.Value;
+  price: BigNumber.Value;
+  szDecimals: number;
+}): boolean {
+  return (
+    getTwapTruncatedNotional(params)?.gte(TWAP_MIN_ORDER_NOTIONAL) ?? false
+  );
+}
+
+// Mirrors app.hyperliquid.xyz: one slice per 30s plus the opening slice,
+// raised to $10 per slice and capped at the whole order. Randomize and
+// catch-up after unfilled slices make actual slices differ.
+export function getTwapEstimatedSliceNotional({
+  durationMinutes,
+  ...params
+}: {
+  size: BigNumber.Value;
+  price: BigNumber.Value;
+  szDecimals: number;
+  durationMinutes: number;
+}): BigNumber | undefined {
+  const notionalBN = getTwapTruncatedNotional(params);
+  if (!notionalBN || !isValidTwapDuration(durationMinutes)) {
+    return undefined;
+  }
+  const sliceCount =
+    Math.floor((durationMinutes * 60) / TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS) +
+    1;
+  return BigNumber.min(
+    notionalBN,
+    BigNumber.max(
+      notionalBN.dividedBy(sliceCount),
+      TWAP_ESTIMATED_MIN_SLICE_NOTIONAL,
+    ),
+  );
+}
+
+export function formatTwapEstimatedSliceNotional(
+  params: Parameters<typeof getTwapEstimatedSliceNotional>[0],
+): string | undefined {
+  const sliceNotionalBN = getTwapEstimatedSliceNotional(params);
+  if (!sliceNotionalBN) {
+    return undefined;
+  }
+  return `≈ ${numberFormat(sliceNotionalBN.toFixed(), {
+    formatter: 'balance',
+  })} USDC`;
 }
 
 export function getTwapTriggerAbove({

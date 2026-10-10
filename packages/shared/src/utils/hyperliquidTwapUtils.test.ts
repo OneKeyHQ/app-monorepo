@@ -7,6 +7,7 @@ import {
   formatTwapPriceForOrder,
   getActiveTwapRuntimeStatus,
   getTwapElapsedMs,
+  getTwapEstimatedSliceNotional,
   getTwapTriggerAbove,
   getTwapTriggerReferencePrice,
   isTerminalTwapStatus,
@@ -61,6 +62,44 @@ describe('hyperliquidTwapUtils', () => {
       expect(isTwapTotalNotionalValid({ size, price, szDecimals })).toBe(valid);
     },
   );
+
+  it('estimates slice notional like the Hyperliquid frontend', () => {
+    // Hyperliquid docs: $10,000 over 1h is ~121 slices of ~$83.
+    expect(
+      getTwapEstimatedSliceNotional({
+        size: '1',
+        price: '10000',
+        szDecimals: 4,
+        durationMinutes: 60,
+      })?.toFixed(2),
+    ).toBe('82.64');
+    // Hyperliquid docs: $10,000 over 4 days is ~1,000 slices of ~$10.
+    expect(
+      getTwapEstimatedSliceNotional({
+        size: '1',
+        price: '10000',
+        szDecimals: 4,
+        durationMinutes: 4 * 24 * 60,
+      })?.toFixed(),
+    ).toBe('10');
+    // Truncated to 0.0121 before estimating: $121 / 11 slices.
+    expect(
+      getTwapEstimatedSliceNotional({
+        size: '0.012199',
+        price: '10000',
+        szDecimals: 4,
+        durationMinutes: 5,
+      })?.toFixed(),
+    ).toBe('11');
+    expect(
+      getTwapEstimatedSliceNotional({
+        size: '1',
+        price: '10000',
+        szDecimals: 4,
+        durationMinutes: 4,
+      }),
+    ).toBeUndefined();
+  });
 
   it('derives whether the trigger is above the current mark price', () => {
     expect(getTwapTriggerAbove({ triggerPrice: '101', markPrice: '100' })).toBe(

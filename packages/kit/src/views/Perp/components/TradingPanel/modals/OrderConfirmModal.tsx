@@ -25,7 +25,10 @@ import {
   usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { formatTwapPriceForOrder } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
+import {
+  formatTwapEstimatedSliceNotional,
+  formatTwapPriceForOrder,
+} from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import {
   formatLocalizedNumberString,
   numberFormat,
@@ -41,6 +44,7 @@ import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useOrderConfirm, useTradingCalculationsForSide } from '../../../hooks';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
+import { useTwapReferencePrice } from '../../../hooks/useTwapReferencePrice';
 import { PerpsAccountSelectorProviderMirror } from '../../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import {
@@ -289,6 +293,28 @@ function OrderConfirmContent({
     isTwapMode,
     szDecimals,
   ]);
+  const twapReferencePriceBN = useTwapReferencePrice({
+    midPriceBN,
+    enabled: isTwapMode,
+  });
+  const twapEstimatedSliceNotionalDisplay = useMemo(
+    () =>
+      isTwapMode
+        ? formatTwapEstimatedSliceNotional({
+            size: computedSizeForSide,
+            price: twapReferencePriceBN,
+            szDecimals,
+            durationMinutes: Number(formData.twapDurationMinutes ?? ''),
+          })
+        : undefined,
+    [
+      computedSizeForSide,
+      formData.twapDurationMinutes,
+      isTwapMode,
+      szDecimals,
+      twapReferencePriceBN,
+    ],
+  );
 
   const _inferredTpslBadge = useMemo(() => {
     if (!isTriggerMode || !formData.triggerPrice) return null;
@@ -838,6 +864,19 @@ function OrderConfirmContent({
             </SizableText>
             <SizableText size="$bodyMdMedium">
               {formData.twapRandomize ? yesText : noText}
+            </SizableText>
+          </XStack>
+        ) : null}
+
+        {twapEstimatedSliceNotionalDisplay ? (
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_twap_child_order_size__title,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMdMedium">
+              {twapEstimatedSliceNotionalDisplay}
             </SizableText>
           </XStack>
         ) : null}
