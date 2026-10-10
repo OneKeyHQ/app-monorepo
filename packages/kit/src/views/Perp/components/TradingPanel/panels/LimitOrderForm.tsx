@@ -1497,7 +1497,7 @@ export function LimitOrderForm({
               numberOfLines={1}
             >
               {intl.formatMessage({
-                id: ETranslations.global_top_up,
+                id: ETranslations.perp_trade_deposit,
               })}
             </SizableText>
           </Button>
