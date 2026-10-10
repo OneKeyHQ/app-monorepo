@@ -31,14 +31,25 @@ const LaunchOptionsManagerModule: ILaunchOptionsManagerInterface = {
       return;
     }
     const key = `analytics:startup:${stage}`;
-    if (!ReactNativeDeviceUtils.setInMemoryValueIfAbsent(key, 'reported')) {
-      return;
-    }
+    let claimed = false;
     try {
+      claimed = ReactNativeDeviceUtils.setInMemoryValueIfAbsent(
+        key,
+        'reported',
+      );
+      if (!claimed) {
+        return;
+      }
       // The timing logger enqueues synchronously before this call returns.
       report();
     } catch (error) {
-      ReactNativeDeviceUtils.removeInMemoryValue(key);
+      if (claimed) {
+        try {
+          ReactNativeDeviceUtils.removeInMemoryValue(key);
+        } catch (releaseError) {
+          console.error('Startup timing release failed', stage, releaseError);
+        }
+      }
       console.error('Startup timing enqueue failed', stage, error);
     }
   },

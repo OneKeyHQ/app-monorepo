@@ -1,3 +1,5 @@
+import { ReactNativeDeviceUtils } from '@onekeyfe/react-native-device-utils';
+
 import appGlobals from '../../appGlobals';
 import { OneKeyLocalError } from '../../errors';
 import { loggerRuntime } from '../../logger/runtime/loggerRuntime';
@@ -62,6 +64,7 @@ describe('native process startup reporting', () => {
     appGlobals.$analytics = undefined;
     logError.mockRestore();
     jest.useRealTimers();
+    jest.restoreAllMocks();
   });
 
   function reportBoth(scene = new PageScene()) {
@@ -132,6 +135,57 @@ describe('native process startup reporting', () => {
     ]);
     reportBoth();
     expect(trackEvent).toHaveBeenCalledTimes(3);
+  });
+
+  it('contains a failed native claim without releasing another runtime key', () => {
+    mockInMemoryStore.set('analytics:startup:jsReadyTime', 'other-runtime');
+    const claim = jest
+      .spyOn(ReactNativeDeviceUtils, 'setInMemoryValueIfAbsent')
+      .mockImplementationOnce(() => {
+        throw new OneKeyLocalError('store capacity exceeded');
+      });
+    const release = jest.spyOn(ReactNativeDeviceUtils, 'removeInMemoryValue');
+    expect(() => reportBoth()).not.toThrow();
+    expect(release).not.toHaveBeenCalled();
+    expect(mockInMemoryStore.get('analytics:startup:jsReadyTime')).toBe(
+      'other-runtime',
+    );
+    expect(trackEvent.mock.calls).toEqual([
+      ['uiVisibleTime', { duration: 200 }],
+    ]);
+    expect(claim).toHaveBeenCalledTimes(2);
+    mockInMemoryStore.delete('analytics:startup:jsReadyTime');
+    reportBoth();
+    expect(trackEvent.mock.calls).toEqual([
+      ['uiVisibleTime', { duration: 200 }],
+      ['jsReadyTime', { duration: 100 }],
+    ]);
+  });
+
+  it('contains a native release failure and continues the next stage', () => {
+    trackEvent.mockImplementationOnce(() => {
+      throw new OneKeyLocalError('enqueue failed');
+    });
+    jest
+      .spyOn(ReactNativeDeviceUtils, 'removeInMemoryValue')
+      .mockImplementationOnce(() => {
+        throw new OneKeyLocalError('release failed');
+      });
+    expect(() => reportBoth()).not.toThrow();
+    expect(logError).toHaveBeenCalledWith(
+      'Startup timing release failed',
+      'jsReadyTime',
+      expect.objectContaining({ message: 'release failed' }),
+    );
+    expect(logError).toHaveBeenCalledWith(
+      'Startup timing enqueue failed',
+      'jsReadyTime',
+      expect.objectContaining({ message: 'enqueue failed' }),
+    );
+    expect(trackEvent.mock.calls).toEqual([
+      ['jsReadyTime', { duration: 100 }],
+      ['uiVisibleTime', { duration: 200 }],
+    ]);
   });
 
   it('releases the flag if analytics is unavailable before enqueue', () => {
