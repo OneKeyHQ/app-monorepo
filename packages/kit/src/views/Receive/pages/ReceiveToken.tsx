@@ -140,8 +140,8 @@ function ReceiveToken() {
   // landing, so a slow lookup from an earlier switch can never win.
   const switchSeqRef = useRef(0);
   // True while a switch looks up its target. The page still shows the
-  // previous network then, and a verification started against it would
-  // settle after the switch.
+  // previous network then, verification included, and a verification started
+  // against it would settle after the switch.
   const isSwitchResolvingRef = useRef(false);
 
   const networkId = currentNetworkId;
@@ -989,7 +989,6 @@ function ReceiveToken() {
       switchSeqRef.current = seq;
       isSwitchResolvingRef.current = true;
       try {
-        resetVerifyState();
         defaultLogger.transaction.receive.receiveSwitchNetwork({
           fromNetworkId: networkId,
           toNetworkId: targetNetworkId,
@@ -1001,7 +1000,10 @@ function ReceiveToken() {
           isAllNetworksMode,
         });
 
-        const [settings, targetNetwork] = await Promise.all([
+        // Nothing is written before the target is known: when the lookup or
+        // the checks below fail, the page keeps the network, address and
+        // verification it has, and the user can pick again.
+        const target = await Promise.all([
           backgroundApiProxy.serviceNetwork.getVaultSettings({
             networkId: targetNetworkId,
           }),
@@ -1010,10 +1012,19 @@ function ReceiveToken() {
             : backgroundApiProxy.serviceNetwork.getNetwork({
                 networkId: targetNetworkId,
               }),
-        ]);
+        ]).catch(() => undefined);
         if (seq !== switchSeqRef.current) {
           return;
         }
+        if (!target) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_unknown_error,
+            }),
+          });
+          return;
+        }
+        const [settings, targetNetwork] = target;
         // Multi-address-type chains derive the account from the indexed
         // account (same as entering with an empty accountId); other chains
         // use the account the selected row carries.
@@ -1030,8 +1041,9 @@ function ReceiveToken() {
           return;
         }
 
-        // Committing the target: nothing started against the previous
-        // network may settle into the new one.
+        // Committing the target clears the previous network's verification
+        // in the same write: nothing started against it may settle into the
+        // new one.
         resetVerifyState();
         setIsSwitchPending(true);
         setCurrentNetwork(targetNetwork);

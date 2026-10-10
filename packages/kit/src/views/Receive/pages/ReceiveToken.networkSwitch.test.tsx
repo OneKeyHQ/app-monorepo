@@ -804,6 +804,46 @@ describe('ReceiveToken network switch', () => {
     );
   });
 
+  it('keeps the verified page and tells the user when the target lookup fails', async () => {
+    mockVerifyHWAccountAddresses.mockResolvedValue(['0xaaa']);
+    mockRouteParams = buildParams('hw');
+    const { getByTestId } = render(<ReceiveToken />);
+    await waitFor(() =>
+      expect(getByTestId('receive-verify-on-device-button')).not.toBeNull(),
+    );
+    fireEvent.click(getByTestId('receive-verify-on-device-button'));
+    await waitFor(() =>
+      expect(getByTestId('address').textContent).toBe('0xaaa'),
+    );
+
+    mockGetVaultSettings.mockRejectedValueOnce(new Error('lookup failed'));
+    // The picker closes right after calling back, so the failure has to be
+    // handled here rather than surface as an unhandled rejection.
+    await openSelectorAndSelect(
+      getByTestId,
+      member('evm--8453', { accountId: 'hw-1--base' }),
+    );
+    expect(mockToastError).toHaveBeenCalledWith({
+      title: 'global_unknown_error',
+    });
+    expect(getByTestId('receive-card-network-eta').textContent).toBe(
+      'Ethereum (~1 min)',
+    );
+    // Still the address the device confirmed: no second verification needed.
+    expect(getByTestId('address').textContent).toBe('0xaaa');
+
+    // A retry goes through.
+    await openSelectorAndSelect(
+      getByTestId,
+      member('evm--8453', { accountId: 'hw-1--base' }),
+    );
+    await waitFor(() =>
+      expect(getByTestId('receive-card-network-eta').textContent).toBe(
+        'Base (~1 min)',
+      ),
+    );
+  });
+
   it('leaves the page unverified when the shown address changed during a verification', async () => {
     let finishVerify: (addresses: string[]) => void = () => undefined;
     mockVerifyHWAccountAddresses.mockImplementation(
