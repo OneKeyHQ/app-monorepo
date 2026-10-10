@@ -3787,6 +3787,80 @@ describe('TradingViewNative K-line data state machine', () => {
     await waitFor(() => expect(mockFetchHistory).toHaveBeenCalledTimes(4));
   });
 
+  it('loads newer pages without recentering an empty future viewport', async () => {
+    jest.spyOn(Date, 'now').mockReturnValue(1_000_000_000);
+    mockHistoryBatchSize = 200;
+    mockHistoryRequestCandleCount = 2000;
+    mockFetchHistory
+      .mockResolvedValueOnce(buildResponse(100, 990_000))
+      .mockResolvedValueOnce(
+        buildMultiPointResponse(
+          Array.from({ length: 100 }, (_, index) => ({
+            close: 70 + index,
+            timestamp: 100_000 + index * 900,
+          })),
+        ),
+      )
+      .mockResolvedValueOnce(
+        buildMultiPointResponse(
+          Array.from({ length: 100 }, (_, index) => ({
+            close: 170 + index,
+            timestamp: 190_000 + index * 900,
+          })),
+        ),
+      )
+      .mockResolvedValueOnce(
+        buildMultiPointResponse(
+          Array.from({ length: 100 }, (_, index) => ({
+            close: 270 + index,
+            timestamp: 280_000 + index * 900,
+          })),
+        ),
+      );
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({ source: buildMarketSource() }),
+    );
+
+    await waitFor(() => expect(result.current.points).toHaveLength(1));
+    act(() =>
+      result.current.handleIntervalChange('15', {
+        skipNextHistoryRequest: true,
+      }),
+    );
+    await waitFor(() =>
+      expect(result.current.intervalConfig.activeInterval).toBe('15'),
+    );
+    expect(mockFetchHistory).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await result.current.handleViewportTargetChange({
+        kind: 'timeRange',
+        from: 100_000,
+        to: 189_100,
+      });
+    });
+    const viewportRequestId = result.current.viewportRequest?.requestId;
+    act(() =>
+      result.current.handleViewportRequestApplied(viewportRequestId ?? 0),
+    );
+    act(() =>
+      result.current.handleVisiblePointRangeChange({
+        endIndex: 100,
+        startIndex: 100,
+      }),
+    );
+
+    await waitFor(() => expect(result.current.points).toHaveLength(200));
+    expect(mockFetchHistory.mock.calls[2]?.[0]).toEqual(
+      expect.objectContaining({
+        interval: expect.objectContaining({ value: '15' }),
+        timeFrom: 189_101,
+        timeTo: 279_100,
+      }),
+    );
+    expect(result.current.viewportRequest).toBeNull();
+  });
+
   it('finds the next newer candle after an empty forward window', async () => {
     jest.spyOn(Date, 'now').mockReturnValue(300_000_000);
     mockHistoryBatchSize = 200;

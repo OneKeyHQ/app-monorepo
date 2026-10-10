@@ -88,6 +88,8 @@ export function useTradingViewNativeChartGestures({
     null,
   );
   const panPriceHeight = useSharedValue(0);
+  const panPriceStartTranslationY = useSharedValue(0);
+  const panPriceLastTranslationY = useSharedValue(0);
   const isPricePanActive = useSharedValue(false);
   const activeGestures = useSharedValue(0);
   return useMemo(() => {
@@ -319,45 +321,10 @@ export function useTradingViewNativeChartGestures({
           pointCount: runtime.points.length,
           type: 'panMoved',
         });
-        const visiblePointRange = getTradingViewNativeVisiblePointRange({
-          ...runtime.viewport,
-          chartWidth: nextChartWidth,
-          pointCount: runtime.points.length,
-        });
-        const layout = getTradingViewNativeChartLayout({
-          additionalPriceRange: getTradingViewNativeIndicatorPriceRange({
-            ...visiblePointRange,
-            series: runtime.indicatorSeries,
-          }),
-          candleIntervalSeconds: runtime.candleIntervalSeconds,
-          chartType: runtime.chartType,
-          contentBottomInset: Math.max(
-            0,
-            getTradingViewNativeMainPriceAxisLayout({
-              height: runtime.size.height,
-              paneCount: getTradingViewNativeVisibleSubIndicatorPaneCount(
-                runtime.subIndicatorPanes,
-              ),
-              panes: runtime.subIndicatorPanes,
-              timeAxisHeight,
-            }).bottomInset - timeAxisHeight,
-          ),
-          hasVolume: runtime.hasVolume,
-          height: runtime.size.height,
-          width: runtime.size.width,
-          minimumTimeTickIndexSpacing: 1,
-          points: runtime.points,
-          pinnedPriceRange: runtime.pinnedPriceRange,
-          priceAxisWidth: priceAxisWidth.value,
-          priceRangeScale: runtime.priceRangeScale,
-          priceScaleMode: runtime.priceScaleMode,
-          timeAxisHeight,
-          visiblePointRange,
-        });
         isPricePanActive.value = false;
-        panPriceRange.value =
-          runtime.pinnedPriceRange ?? layout?.autoPriceRange ?? null;
-        panPriceHeight.value = layout?.priceChartHeight ?? 0;
+        panPriceRange.value = null;
+        panPriceLastTranslationY.value = 0;
+        panPriceStartTranslationY.value = 0;
         const startOffset = nextRuntimeState.viewport.offset;
         decayOffset.value = startOffset;
         chartRuntime.value = {
@@ -385,9 +352,54 @@ export function useTradingViewNativeChartGestures({
           pointCount: runtime.points.length,
           type: 'panMoved',
         });
+        if (!isPricePanActive.value && Math.abs(event.translationY) > 4) {
+          const visiblePointRange = getTradingViewNativeVisiblePointRange({
+            ...runtime.viewport,
+            chartWidth: getTradingViewNativeChartWidth(
+              runtime.size.width,
+              priceAxisWidth.value,
+            ),
+            pointCount: runtime.points.length,
+          });
+          const layout = getTradingViewNativeChartLayout({
+            additionalPriceRange: getTradingViewNativeIndicatorPriceRange({
+              ...visiblePointRange,
+              series: runtime.indicatorSeries,
+            }),
+            candleIntervalSeconds: runtime.candleIntervalSeconds,
+            chartType: runtime.chartType,
+            contentBottomInset: Math.max(
+              0,
+              getTradingViewNativeMainPriceAxisLayout({
+                height: runtime.size.height,
+                paneCount: getTradingViewNativeVisibleSubIndicatorPaneCount(
+                  runtime.subIndicatorPanes,
+                ),
+                panes: runtime.subIndicatorPanes,
+                timeAxisHeight,
+              }).bottomInset - timeAxisHeight,
+            ),
+            hasVolume: runtime.hasVolume,
+            height: runtime.size.height,
+            width: runtime.size.width,
+            minimumTimeTickIndexSpacing: 1,
+            points: runtime.points,
+            pinnedPriceRange: runtime.pinnedPriceRange,
+            priceAxisWidth: priceAxisWidth.value,
+            priceRangeScale: runtime.priceRangeScale,
+            priceScaleMode: runtime.priceScaleMode,
+            timeAxisHeight,
+            visiblePointRange,
+          });
+          panPriceRange.value =
+            runtime.pinnedPriceRange ?? layout?.autoPriceRange ?? null;
+          panPriceHeight.value = layout?.priceChartHeight ?? 0;
+          panPriceStartTranslationY.value = panPriceLastTranslationY.value;
+          isPricePanActive.value =
+            Boolean(panPriceRange.value) && panPriceHeight.value > 0;
+        }
+        panPriceLastTranslationY.value = event.translationY;
         const priceRange = panPriceRange.value;
-        isPricePanActive.value =
-          isPricePanActive.value || Math.abs(event.translationY) > 4;
         const pinnedPriceRange =
           priceRange && isPricePanActive.value
             ? panTradingViewNativePriceRange({
@@ -395,7 +407,8 @@ export function useTradingViewNativeChartGestures({
                 rangeScale: runtime.priceRangeScale,
                 mode: runtime.priceScaleMode,
                 chartHeight: panPriceHeight.value,
-                translationY: event.translationY,
+                translationY:
+                  event.translationY - panPriceStartTranslationY.value,
               })
             : runtime.pinnedPriceRange;
         if (pinnedPriceRange && !runtime.pinnedPriceRange && onPriceRangePan) {
@@ -631,6 +644,8 @@ export function useTradingViewNativeChartGestures({
     activeGestures,
     panPriceRange,
     panPriceHeight,
+    panPriceStartTranslationY,
+    panPriceLastTranslationY,
     isPricePanActive,
     chartRuntime,
     decayOffset,

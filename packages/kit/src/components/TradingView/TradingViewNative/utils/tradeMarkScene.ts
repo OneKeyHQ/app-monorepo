@@ -6,6 +6,7 @@ import {
   TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE,
 } from '../chartConstants';
 
+import { getTradingViewNativeCandleTimestampAtOffset } from './candleTime';
 import { getTradingViewNativePriceY } from './chartLayout';
 
 import type { ITradingViewNativeChartRuntimeCrosshair } from './chartRuntime';
@@ -57,16 +58,11 @@ export function getTradingViewNativeTradeMarkPointIndex({
   if (!point) {
     return null;
   }
-  let end = point.t + candleIntervalSeconds;
-  if (candleIntervalSeconds === 30 * 24 * 60 * 60) {
-    const date = new Date(point.t * 1000);
-    const monthStart =
-      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1) / 1000;
-    // CoinGecko uses fixed 30-day Unix buckets instead of calendar months.
-    if (point.t === monthStart) {
-      end = Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1) / 1000;
-    }
-  }
+  const end = getTradingViewNativeCandleTimestampAtOffset({
+    timestamp: point.t,
+    candleIntervalSeconds,
+    offset: 1,
+  });
   // Do not attach trades in a missing candle to the preceding candle.
   return time < Math.min(end, points[index + 1]?.t ?? end) ? index : null;
 }

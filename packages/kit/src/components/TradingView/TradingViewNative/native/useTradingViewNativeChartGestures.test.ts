@@ -389,4 +389,43 @@ describe('free chart panning', () => {
     pan.handlers.onEnd?.({ velocityX: 0 });
     expect(chartRuntime.value.viewport.offset).toBeLessThan(0);
   });
+  it('anchors vertical panning to the range visible after a horizontal drag', () => {
+    const { chartRuntime } = renderChartGestures();
+    chartRuntime.value.points = chartRuntime.value.points.map(
+      (point, index) => ({
+        ...point,
+        l: index < 50 ? 10 : 100,
+        h: index < 50 ? 20 : 120,
+      }),
+    );
+    const pan = mockPanGestures[1];
+    pan.handlers.onStart?.();
+    pan.handlers.onUpdate?.({ translationX: 400, translationY: 2 });
+    expect(chartRuntime.value.pinnedPriceRange).toBeNull();
+    pan.handlers.onUpdate?.({ translationX: 400, translationY: 5 });
+    const range = chartRuntime.value.pinnedPriceRange!;
+    expect(range.minPrice).toBeGreaterThan(10);
+    expect(range.maxPrice).toBeLessThan(21);
+    expect(range.maxPrice - range.minPrice).toBeCloseTo(10);
+    pan.handlers.onUpdate?.({ translationX: 400, translationY: 2 });
+    expect(chartRuntime.value.pinnedPriceRange).toEqual({
+      minPrice: 10,
+      maxPrice: 20,
+    });
+  });
+
+  it('gives a flat series a movable price range', () => {
+    const { chartRuntime } = renderChartGestures();
+    chartRuntime.value.points = chartRuntime.value.points.map((point) => ({
+      ...point,
+      l: 100,
+      h: 100,
+    }));
+    const pan = mockPanGestures[1];
+    pan.handlers.onStart?.();
+    pan.handlers.onUpdate?.({ translationX: 0, translationY: 50 });
+    expect(chartRuntime.value.pinnedPriceRange!.maxPrice).toBeGreaterThan(
+      chartRuntime.value.pinnedPriceRange!.minPrice,
+    );
+  });
 });

@@ -40,6 +40,7 @@ import {
   TRADING_VIEW_NATIVE_VOLUME_OPACITY as VOLUME_OPACITY,
 } from '../chartConstants';
 
+import { getTradingViewNativeCandleTimestampAtOffset } from './candleTime';
 import { appendTradingViewNativeChartComponentCommands } from './chartComponentScene';
 import { getTradingViewNativeChartComponentPriceAxisLabel } from './chartComponentTree';
 import {
@@ -1195,8 +1196,11 @@ export function buildTradingViewNativeChartScene({
         (crosshairX - getPointX(anchorIndex)) /
           (TRADING_VIEW_NATIVE_CANDLE_STEP * zoomScale),
       );
-      crosshairTimestamp =
-        points[anchorIndex].t + distance * candleIntervalSeconds;
+      crosshairTimestamp = getTradingViewNativeCandleTimestampAtOffset({
+        timestamp: points[anchorIndex].t,
+        candleIntervalSeconds,
+        offset: distance,
+      });
     }
   }
   const crosshairY =

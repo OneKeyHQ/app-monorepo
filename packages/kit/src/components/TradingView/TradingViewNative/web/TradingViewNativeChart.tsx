@@ -105,6 +105,8 @@ interface IPointerPanDragState {
   priceRange: ITradingViewNativePriceRange | null;
   isPricePanActive: boolean;
   priceChartHeight: number;
+  pricePanStartTranslationY: number;
+  pricePanLastTranslationY: number;
   currentClientX: number;
   pointerId: number;
   startClientX: number;
@@ -882,10 +884,10 @@ export const TradingViewNativeChart = memo(
         }
         pointerPanDragStateRef.current = {
           isPricePanActive: false,
-          priceRange:
-            priceScaleModelRef.current.pinnedPriceRange ??
-            priceScaleModelRef.current.autoPriceRange,
-          priceChartHeight: priceChartHeightRef.current,
+          priceRange: null,
+          priceChartHeight: 0,
+          pricePanStartTranslationY: 0,
+          pricePanLastTranslationY: 0,
           currentClientX: event.clientX,
           pointerId: event.pointerId,
           startClientX: event.clientX,
@@ -923,8 +925,18 @@ export const TradingViewNativeChart = memo(
           }
           dragState.subIndicatorSettingsTarget = null;
           event.preventDefault();
-          dragState.isPricePanActive ||=
-            Math.abs(event.clientY - dragState.startClientY) > 4;
+          const translationY = event.clientY - dragState.startClientY;
+          if (!dragState.isPricePanActive && Math.abs(translationY) > 4) {
+            dragState.priceRange =
+              priceScaleModelRef.current.pinnedPriceRange ??
+              priceScaleModelRef.current.autoPriceRange;
+            dragState.priceChartHeight = priceChartHeightRef.current;
+            dragState.pricePanStartTranslationY =
+              dragState.pricePanLastTranslationY;
+            dragState.isPricePanActive =
+              Boolean(dragState.priceRange) && dragState.priceChartHeight > 0;
+          }
+          dragState.pricePanLastTranslationY = translationY;
           if (dragState.priceRange && dragState.isPricePanActive) {
             handlePriceRangePan(
               panTradingViewNativePriceRange({
@@ -932,7 +944,8 @@ export const TradingViewNativeChart = memo(
                 rangeScale: priceScaleModelRef.current.rangeScale,
                 mode: priceScaleModelRef.current.mode,
                 chartHeight: dragState.priceChartHeight,
-                translationY: event.clientY - dragState.startClientY,
+                translationY:
+                  translationY - dragState.pricePanStartTranslationY,
               }),
             );
           }

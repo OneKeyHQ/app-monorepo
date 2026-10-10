@@ -1,4 +1,5 @@
 import {
+  getTradingViewNativePriceProgress,
   isTradingViewNativeLogPriceScaleAvailable,
   mergeTradingViewNativePriceRanges,
   panTradingViewNativePriceRange,
@@ -69,4 +70,44 @@ describe('price range panning', () => {
     expect(result.minPrice).toBeCloseTo(1);
     expect(result.maxPrice).toBeCloseTo(10);
   });
+});
+
+describe('flat price range panning', () => {
+  it.each(['linear', 'logarithmic'] as const)(
+    'keeps later prices distinct after panning a flat %s range',
+    (mode) => {
+      const range = panTradingViewNativePriceRange({
+        priceRange: { minPrice: 100, maxPrice: 100 },
+        rangeScale: 1,
+        mode,
+        chartHeight: 200,
+        translationY: 50,
+      });
+      expect(range.maxPrice).toBeGreaterThan(range.minPrice);
+      expect(
+        getTradingViewNativePriceProgress({ ...range, mode, price: 100 }),
+      ).toBeCloseTo(0.75);
+      expect(
+        getTradingViewNativePriceProgress({ ...range, mode, price: 100.5 }),
+      ).toBeLessThan(0.75);
+    },
+  );
+  it.each([0, -100, 1e-15])(
+    'keeps a flat range at %s finite and movable',
+    (price) => {
+      const range = panTradingViewNativePriceRange({
+        priceRange: { minPrice: price, maxPrice: price },
+        rangeScale: 1,
+        mode: 'linear',
+        chartHeight: 200,
+        translationY: 50,
+      });
+      expect(Number.isFinite(range.minPrice)).toBe(true);
+      expect(Number.isFinite(range.maxPrice)).toBe(true);
+      expect(range.maxPrice).toBeGreaterThan(range.minPrice);
+      expect(
+        getTradingViewNativePriceProgress({ ...range, mode: 'linear', price }),
+      ).toBeCloseTo(0.75);
+    },
+  );
 });

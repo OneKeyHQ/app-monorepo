@@ -163,8 +163,19 @@ export function panTradingViewNativePriceRange({
 
   if (chartHeight <= 0 || !Number.isFinite(translationY)) return priceRange;
   const progress = (translationY * rangeScale) / chartHeight;
-  const { minPrice, maxPrice } = priceRange;
+  let { minPrice, maxPrice } = priceRange;
   const logarithmic = mode === 'logarithmic' && minPrice > 0 && maxPrice > 0;
+  if (minPrice === maxPrice) {
+    // Give flat series a movable range without changing their centered position.
+    if (logarithmic) {
+      minPrice /= 1.01;
+      maxPrice *= 1.01;
+    } else {
+      const padding = Math.abs(minPrice) * 0.01 || 1;
+      minPrice -= padding;
+      maxPrice += padding;
+    }
+  }
   const shift = logarithmic
     ? (Math.log(maxPrice) - Math.log(minPrice)) * progress
     : (maxPrice - minPrice) * progress;
