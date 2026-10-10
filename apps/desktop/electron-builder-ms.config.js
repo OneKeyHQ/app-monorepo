@@ -15,11 +15,11 @@ module.exports = {
 
   'nsis': {
     'oneClick': false,
-    'include': 'resources/windows/installer.nsh',
+    'include': 'installer.nsh',
     'installerSidebar': 'app/build/static/images/icons/installerSidebar.bmp',
     'installerIcon': 'app/build/static/images/icons/installerIcon.ico',
     'uninstallerIcon': 'app/build/static/images/icons/installerIcon.ico',
-    'deleteAppDataOnUninstall': true,
+    'deleteAppDataOnUninstall': false,
   },
   'win': {
     'files': [...baseFiles, ...winExcludePrebuilds],
