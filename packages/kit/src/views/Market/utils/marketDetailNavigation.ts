@@ -290,6 +290,38 @@ export function getCurrentMarketStockDetailId() {
   return typeof stockId === 'string' ? stockId : undefined;
 }
 
+export function dismissDiscoveryMarketDetailForTrade(
+  expectedRouteKey?: string,
+) {
+  if (!platformEnv.isNative) return;
+  const navigation = rootNavigationRef.current as INavigationLike | undefined;
+  const current = navigation?.getCurrentRoute?.();
+  if (
+    !current?.key ||
+    !isReplaceableMarketDetailRouteName(current.name) ||
+    (expectedRouteKey !== undefined && current.key !== expectedRouteKey)
+  ) {
+    return;
+  }
+  const stack = findMarketTabStack(navigation?.getRootState?.());
+  const routes = stack?.routes;
+  const index = stack?.index ?? (routes?.length ?? 0) - 1;
+  if (
+    !stack?.key ||
+    !routes?.some((route) => route.name === ETabDiscoveryRoutes.TabDiscovery) ||
+    index <= 0 ||
+    routes[index]?.key !== current.key
+  ) {
+    return;
+  }
+  // Target only this detail's stack; keep unrelated tab and overlay history.
+  navigation?.dispatch({
+    ...StackActions.pop(1),
+    source: current.key,
+    target: stack.key,
+  });
+}
+
 function containsStack(
   state: INavigationStateNode | undefined,
   stackKey: string,

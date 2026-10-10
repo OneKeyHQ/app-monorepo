@@ -9,6 +9,7 @@ import { isTabBarHiddenByRequest } from '@onekeyhq/shared/src/tabBar/hideTabBarR
 
 import {
   buildReplacedMarketDetailParams,
+  dismissDiscoveryMarketDetailForTrade,
   findMarketTabStack,
   finishMarketDetailTabBarTransition,
   getCurrentMarketStockDetailId,
@@ -71,6 +72,7 @@ jest.mock('@react-navigation/native', () => ({
     }),
   },
   StackActions: {
+    pop: (count: number) => ({ type: 'POP', payload: { count } }),
     replace: (name: string, params: unknown) => ({
       type: 'REPLACE',
       payload: { name, params },
@@ -165,6 +167,82 @@ describe('marketDetailNavigation', () => {
     finishMarketDetailTabBarTransition();
     navigationStateListeners.clear();
     platformEnv.isNative = false;
+  });
+
+  describe('leaving Discovery detail for trading', () => {
+    const discoveryStack = {
+      key: 'discovery-stack',
+      index: 1,
+      routes: [
+        { key: 'list', name: 'TabDiscovery', params: { defaultTab: 'market' } },
+        { key: 'detail', name: 'MarketDetailV2' },
+      ],
+    };
+
+    beforeEach(() => {
+      getRootStateMock.mockReturnValue(discoveryStack);
+      getCurrentRouteMock.mockReturnValue(discoveryStack.routes[1]);
+    });
+
+    it.each(['MarketDetailV2', 'MarketStockDetail', 'MarketNativeDetail'])(
+      'pops only the current %s route',
+      (name) => {
+        getCurrentRouteMock.mockReturnValue({ key: 'detail', name });
+        dismissDiscoveryMarketDetailForTrade();
+        expect(dispatchMock).toHaveBeenCalledWith({
+          type: 'POP',
+          payload: { count: 1 },
+          source: 'detail',
+          target: 'discovery-stack',
+        });
+      },
+    );
+
+    it('keeps a newer detail when asynchronous Perps preparation finishes', () => {
+      dismissDiscoveryMarketDetailForTrade('previous-detail');
+      expect(dispatchMock).not.toHaveBeenCalled();
+    });
+
+    it('returns to the existing list with its params preserved', () => {
+      const router = StackRouter({});
+      const config = {
+        routeNames: ['TabDiscovery', 'MarketDetailV2'],
+        routeParamList: {},
+        routeGetIdList: {},
+      };
+      const stack = { ...router.getInitialState(config), ...discoveryStack };
+      dismissDiscoveryMarketDetailForTrade('detail');
+      const action = dispatchMock.mock.calls[0]?.[0] as Parameters<
+        typeof router.getStateForAction
+      >[1];
+      const updated = router.getStateForAction(stack, action, config);
+      expect(updated?.index).toBe(0);
+      expect(updated?.routes).toEqual([discoveryStack.routes[0]]);
+    });
+
+    it.each(['TabDiscovery', 'MobileTokenSelector', 'SwapProMarketDetail'])(
+      'preserves history when the focused route is %s',
+      (name) => {
+        getCurrentRouteMock.mockReturnValue({ key: 'other', name });
+        dismissDiscoveryMarketDetailForTrade();
+        expect(dispatchMock).not.toHaveBeenCalled();
+      },
+    );
+
+    it('does not pop a detail in another stack', () => {
+      getRootStateMock.mockReturnValue({
+        ...discoveryStack,
+        routes: [{ key: 'list', name: 'TabMarket' }, discoveryStack.routes[1]],
+      });
+      dismissDiscoveryMarketDetailForTrade();
+      expect(dispatchMock).not.toHaveBeenCalled();
+    });
+
+    it('preserves desktop and web detail navigation', () => {
+      platformEnv.isNative = false;
+      dismissDiscoveryMarketDetailForTrade();
+      expect(dispatchMock).not.toHaveBeenCalled();
+    });
   });
 
   describe('market detail tab bar transition', () => {

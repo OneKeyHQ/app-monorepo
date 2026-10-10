@@ -23,6 +23,7 @@ import {
   prepareStockSwapEntry,
   prepareTopCoinSwapEntry,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/prepareSwapProEntry';
+import { dismissDiscoveryMarketDetailForTrade } from '@onekeyhq/kit/src/views/Market/utils/marketDetailNavigation';
 import {
   ESwapProJumpTokenDirection,
   useSwapFromMarketJumpTokenAtom,
@@ -190,6 +191,7 @@ export function SwapPanel({
         token: undefined,
         direction: ESwapProJumpTokenDirection.BUY,
       });
+      dismissDiscoveryMarketDetailForTrade();
       navigation.switchTab(ETabRoutes.Swap);
     },
     [
