@@ -348,6 +348,10 @@ describe('ServiceHyperliquidCache account display write throttle', () => {
 });
 
 describe('ServiceHyperliquidCache account display hydration', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   beforeAll(() => {
     globalJotaiStorageReadyHandler.resolveReady(true);
     (
@@ -433,8 +437,9 @@ describe('ServiceHyperliquidCache account display hydration', () => {
   });
 
   it.each([true, false, undefined])(
-    'round-trips the partial marker (%s) through spot and account-value display caches',
+    'persists completeness changes (%s) inside the throttle window through both display caches',
     async (hasUnsupportedBalances) => {
+      jest.spyOn(Date, 'now').mockReturnValue(1_000_000);
       let stored: IPerpsAccountDisplayCacheSpotBalances | undefined;
       const service = new ServiceHyperliquidCache({
         backgroundApi: {
@@ -493,6 +498,51 @@ describe('ServiceHyperliquidCache account display hydration', () => {
           '0xabc': {
             accountValue: '100',
             isAccountValuePartial: hasUnsupportedBalances,
+          },
+        },
+      });
+
+      // Value-only updates remain throttled, including legacy undefined -> false.
+      const nextData = {
+        accountAddress: '0xabc' as const,
+        balances: [],
+        spotTotalUsd: '150',
+        hasUnsupportedBalances: Boolean(hasUnsupportedBalances),
+      };
+      await perpsSpotBalancesAtom.set(nextData);
+      await service.writePerpsAccountDisplaySpotBalances(nextData);
+      await service.writePerpsAccountDisplaySnapshot({
+        accountAddress: '0xabc',
+      });
+      expect(stored?.spotTotalUsd).toBe('100');
+      expect(
+        (await perpsAccountDisplaySnapshotAtom.get()).entries['0xabc']
+          .accountValue,
+      ).toBe('100');
+
+      // Both transitions bypass the same 5-second window and survive hydration.
+      const changedData = {
+        ...nextData,
+        hasUnsupportedBalances: !hasUnsupportedBalances,
+      };
+      await perpsSpotBalancesAtom.set(changedData);
+      await service.writePerpsAccountDisplaySpotBalances(changedData);
+      await service.writePerpsAccountDisplaySnapshot({
+        accountAddress: '0xabc',
+      });
+      await perpsSpotBalancesAtom.set(undefined);
+      await service.hydratePerpsAccountDisplayCache('0xabc');
+      await expect(perpsComputedAccountValueAtom.get()).resolves.toMatchObject({
+        accountValue: '150',
+        isAccountValuePartial: !hasUnsupportedBalances,
+      });
+      await expect(
+        perpsAccountDisplaySnapshotAtom.get(),
+      ).resolves.toMatchObject({
+        entries: {
+          '0xabc': {
+            accountValue: '150',
+            isAccountValuePartial: !hasUnsupportedBalances,
           },
         },
       });
