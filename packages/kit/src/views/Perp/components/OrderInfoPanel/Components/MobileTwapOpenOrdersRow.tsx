@@ -169,6 +169,7 @@ const MobileTwapOpenOrdersRow = memo(
         status,
         timestamp: state.timestamp,
         activatedAt,
+        triggerPrice: state.trigger?.px,
         now,
         minutes: state.minutes,
       });
@@ -181,11 +182,12 @@ const MobileTwapOpenOrdersRow = memo(
         triggerPriceFormatted: formatTwapPriceForDisplay(state.trigger?.px),
         stopPriceFormatted: formatTwapPriceForDisplay(state.stopPx),
         execution,
-        runningTimeText: isWaitingForTrigger
-          ? '--'
-          : `${formatElapsedDuration(elapsedMs)} / ${formatTotalDuration(
-              state.minutes,
-            )}`,
+        runningTimeText:
+          isWaitingForTrigger || elapsedMs === undefined
+            ? '--'
+            : `${formatElapsedDuration(elapsedMs)} / ${formatTotalDuration(
+                state.minutes,
+              )}`,
         reduceOnlyText: state.reduceOnly
           ? intl.formatMessage({ id: ETranslations.perp_yes__title })
           : intl.formatMessage({ id: ETranslations.perp_no__title }),

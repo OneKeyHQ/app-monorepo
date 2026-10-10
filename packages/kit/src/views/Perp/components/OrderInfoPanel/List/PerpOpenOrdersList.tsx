@@ -34,6 +34,7 @@ import {
   buildActiveTwapRuntimeInfoByKey,
   getActiveTwapRuntimeStatus,
   getTwapRuntimeInfoKey,
+  isTerminalTwapStatus,
 } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import {
   normalizePerpsAccountAddress,
@@ -257,7 +258,7 @@ function PerpOpenOrdersList({
       spotOpenOrdersState.openOrders,
     ],
   );
-  const scopedTwapOrders = useMemo(
+  const rawScopedTwapOrders = useMemo(
     () =>
       getPerpsAccountScopedListData({
         activeAccountAddress: accountScopedAddress,
@@ -286,6 +287,17 @@ function PerpOpenOrdersList({
   const activeTwapRuntimeInfoByKey = useMemo(
     () => buildActiveTwapRuntimeInfoByKey(scopedTwapHistory),
     [scopedTwapHistory],
+  );
+  const scopedTwapOrders = useMemo(
+    () =>
+      rawScopedTwapOrders.filter(
+        (order) =>
+          !isTerminalTwapStatus(
+            activeTwapRuntimeInfoByKey.get(getTwapRuntimeInfoKey(order.state))
+              ?.reportedStatus,
+          ),
+      ),
+    [rawScopedTwapOrders, activeTwapRuntimeInfoByKey],
   );
   const openOrders = useMemo(
     () =>

@@ -16,7 +16,7 @@ export type ITwapRuntimeStatus =
   | 'waitingForTrigger';
 
 export type IActiveTwapRuntimeInfo = {
-  reportedStatus: 'activated' | 'waitingForTrigger';
+  reportedStatus: ITwapRuntimeStatus;
   activatedAt?: number;
 };
 
@@ -42,8 +42,16 @@ export function buildActiveTwapRuntimeInfoByKey(
   }[],
 ): Map<string, IActiveTwapRuntimeInfo> {
   const latestRecordByKey = new Map<string, (typeof records)[number]>();
+  const activationTimeByKey = new Map<string, number>();
   records.forEach((record) => {
     const key = getTwapRuntimeInfoKey(record.state);
+    if (record.status.status === 'activated') {
+      const activatedAt = normalizeTwapHistoryTimeMs(record.time);
+      activationTimeByKey.set(
+        key,
+        Math.min(activationTimeByKey.get(key) ?? activatedAt, activatedAt),
+      );
+    }
     const previous = latestRecordByKey.get(key);
     if (!previous || record.time > previous.time) {
       latestRecordByKey.set(key, record);
@@ -53,16 +61,19 @@ export function buildActiveTwapRuntimeInfoByKey(
     Array.from(latestRecordByKey.entries()).map(([key, record]) => [
       key,
       {
-        reportedStatus:
-          record.status.status === 'waitingForTrigger'
-            ? 'waitingForTrigger'
-            : 'activated',
-        activatedAt:
-          record.status.status === 'activated'
-            ? normalizeTwapHistoryTimeMs(record.time)
-            : undefined,
+        reportedStatus: record.status.status,
+        activatedAt: activationTimeByKey.get(key),
       },
     ]),
+  );
+}
+
+export function isTerminalTwapStatus(status?: ITwapRuntimeStatus): boolean {
+  return (
+    status === 'finished' ||
+    status === 'stopped' ||
+    status === 'terminated' ||
+    status === 'error'
   );
 }
 
@@ -71,10 +82,13 @@ export function getActiveTwapRuntimeStatus({
   triggerPrice,
   executedSize,
 }: {
-  reportedStatus?: 'activated' | 'waitingForTrigger';
+  reportedStatus?: ITwapRuntimeStatus;
   triggerPrice?: string | null;
   executedSize: BigNumber.Value;
-}): 'activated' | 'waitingForTrigger' {
+}): ITwapRuntimeStatus {
+  if (reportedStatus && isTerminalTwapStatus(reportedStatus)) {
+    return reportedStatus;
+  }
   const executedSizeBN = new BigNumber(executedSize);
   if (executedSizeBN.isFinite() && executedSizeBN.gt(0)) {
     return 'activated';
@@ -213,6 +227,7 @@ export function getTwapElapsedMs({
   status,
   timestamp,
   activatedAt,
+  triggerPrice,
   now,
   endTime,
   minutes,
@@ -220,12 +235,17 @@ export function getTwapElapsedMs({
   status?: ITwapRuntimeStatus;
   timestamp: number;
   activatedAt?: number;
+  triggerPrice?: string | null;
   now: number;
   endTime?: number;
   minutes: number;
-}): number {
+}): number | undefined {
   if (status === 'waitingForTrigger') {
     return 0;
+  }
+  // Creation can precede activation by days; wait for the history timestamp.
+  if (triggerPrice && activatedAt === undefined) {
+    return undefined;
   }
   const totalMs = Math.max(0, minutes) * 60_000;
   return Math.min(

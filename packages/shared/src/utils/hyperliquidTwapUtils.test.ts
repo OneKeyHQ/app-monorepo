@@ -9,6 +9,7 @@ import {
   getTwapElapsedMs,
   getTwapTriggerAbove,
   getTwapTriggerReferencePrice,
+  isTerminalTwapStatus,
   isTwapStopPriceValid,
   isTwapTotalNotionalValid,
   isValidTwapDuration,
@@ -312,4 +313,48 @@ describe('hyperliquidTwapUtils', () => {
       ],
     ]);
   });
+  it('waits for activation time when a triggered order starts filling', () => {
+    const status = getActiveTwapRuntimeStatus({
+      triggerPrice: '101',
+      executedSize: '0.1',
+    });
+    const clock = {
+      status,
+      triggerPrice: '101',
+      timestamp: 1000,
+      now: 1_201_000,
+      minutes: 10,
+    };
+    expect(getTwapElapsedMs(clock)).toBeUndefined();
+    expect(getTwapElapsedMs({ ...clock, activatedAt: 1_171_000 })).toBe(30_000);
+    expect(getTwapElapsedMs({ ...clock, triggerPrice: null })).toBe(600_000);
+  });
+
+  it.each(['stopped', 'finished', 'terminated', 'error'] as const)(
+    'excludes %s orders from active rows while retaining activation time',
+    (terminalStatus) => {
+      const state = { coin: 'ETH', timestamp: 1_718_000_000_000 };
+      // History can arrive before the active snapshot and in reverse order.
+      const info = buildActiveTwapRuntimeInfoByKey([
+        { state, time: 1_718_000_180, status: { status: terminalStatus } },
+        { state, time: 1_718_000_120, status: { status: 'activated' } },
+        { state, time: 1_718_000_000, status: { status: 'waitingForTrigger' } },
+      ]).get('ETH:1718000000000');
+      expect(info).toEqual({
+        reportedStatus: terminalStatus,
+        activatedAt: 1_718_000_120_000,
+      });
+      expect(isTerminalTwapStatus(info?.reportedStatus)).toBe(true);
+      expect(
+        getActiveTwapRuntimeStatus({
+          reportedStatus: info?.reportedStatus,
+          triggerPrice: '101',
+          executedSize: '0.1',
+        }),
+      ).toBe(terminalStatus);
+      expect(isTerminalTwapStatus(undefined)).toBe(false);
+      expect(isTerminalTwapStatus('activated')).toBe(false);
+      expect(isTerminalTwapStatus('waitingForTrigger')).toBe(false);
+    },
+  );
 });

@@ -37,6 +37,7 @@ import {
   getActiveTwapRuntimeStatus,
   getTwapElapsedMs,
   getTwapRuntimeInfoKey,
+  isTerminalTwapStatus,
 } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
@@ -281,6 +282,7 @@ function getTwapBaseInfo({
     status,
     timestamp: state.timestamp,
     activatedAt,
+    triggerPrice: state.trigger?.px,
     now,
     endTime,
     minutes: state.minutes,
@@ -298,7 +300,7 @@ function getTwapBaseInfo({
     triggerPriceFormatted: formatTwapPriceForDisplay(state.trigger?.px),
     stopPriceFormatted: formatTwapPriceForDisplay(state.stopPx),
     runningTimeText:
-      status === 'waitingForTrigger'
+      status === 'waitingForTrigger' || elapsedMs === undefined
         ? '--'
         : `${formatElapsedDuration(elapsedMs)} / ${formatTotalDuration(
             state.minutes,
@@ -1302,24 +1304,6 @@ function PerpTwapList({
 
   const currentAccountAddress = currentUser?.accountAddress?.toLowerCase();
 
-  const twapOrders = useMemo(() => {
-    if (
-      !currentAccountAddress ||
-      activeTwapAccountAddress?.toLowerCase() !== currentAccountAddress
-    ) {
-      return [];
-    }
-    return rawTwapOrders;
-  }, [activeTwapAccountAddress, currentAccountAddress, rawTwapOrders]);
-
-  useEffect(() => {
-    if (activeTab !== 'active' || twapOrders.length === 0) {
-      return undefined;
-    }
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [activeTab, twapOrders.length]);
-
   const historyRows = useMemo(() => {
     if (
       !currentAccountAddress ||
@@ -1334,6 +1318,35 @@ function PerpTwapList({
     () => buildActiveTwapRuntimeInfoByKey(historyRows),
     [historyRows],
   );
+
+  const twapOrders = useMemo(() => {
+    if (
+      !currentAccountAddress ||
+      activeTwapAccountAddress?.toLowerCase() !== currentAccountAddress
+    ) {
+      return [];
+    }
+    return rawTwapOrders.filter(
+      (order) =>
+        !isTerminalTwapStatus(
+          activeRuntimeInfoByKey.get(getTwapRuntimeInfoKey(order.state))
+            ?.reportedStatus,
+        ),
+    );
+  }, [
+    activeRuntimeInfoByKey,
+    activeTwapAccountAddress,
+    currentAccountAddress,
+    rawTwapOrders,
+  ]);
+
+  useEffect(() => {
+    if (activeTab !== 'active' || twapOrders.length === 0) {
+      return undefined;
+    }
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [activeTab, twapOrders.length]);
 
   const sliceFills = useMemo(() => {
     if (
