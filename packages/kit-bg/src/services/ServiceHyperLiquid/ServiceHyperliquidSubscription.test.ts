@@ -77,6 +77,42 @@ describe('ServiceHyperliquidSubscription Fast L2 lifecycle', () => {
 });
 
 describe('ServiceHyperliquidSubscription ping measurement', () => {
+  it('cancels the old measurement and measures immediately on the same reconnected client', async () => {
+    const service = createService();
+    const internals = service as unknown as {
+      _client: { ping: (signal: AbortSignal) => Promise<void> };
+      _measurePing: () => Promise<void>;
+      _stopPingLoop: () => void;
+    };
+    const complete: (() => void)[] = [];
+    const signals: AbortSignal[] = [];
+    const ping = jest.fn((signal: AbortSignal) => {
+      signals.push(signal);
+      return new Promise<void>((resolve) => complete.push(resolve));
+    });
+    const publish = jest
+      .spyOn(perpsNetworkStatusAtom, 'set')
+      .mockResolvedValue(undefined);
+    try {
+      internals._client = { ping };
+      const oldMeasurement = internals._measurePing();
+      internals._stopPingLoop();
+      expect(signals[0].aborted).toBe(true);
+      const newMeasurement = internals._measurePing();
+      expect(ping).toHaveBeenCalledTimes(2);
+      complete[0]();
+      await oldMeasurement;
+      expect(publish).not.toHaveBeenCalled();
+      await internals._measurePing();
+      expect(ping).toHaveBeenCalledTimes(2);
+      complete[1]();
+      await newMeasurement;
+      expect(publish).toHaveBeenCalledTimes(1);
+    } finally {
+      publish.mockRestore();
+    }
+  });
+
   it('keeps one ping in flight per client', async () => {
     const service = createService();
     const internals = service as unknown as {

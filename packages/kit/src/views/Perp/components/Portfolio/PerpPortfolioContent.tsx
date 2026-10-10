@@ -49,6 +49,7 @@ import { usePerpUserFundingHistory } from '../../hooks/usePerpOrderInfoPanel';
 import { usePerpsActivePositionsByAddress } from '../../hooks/usePerpsActivePositionsByAddress';
 import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
 import { PERP_DIALOG_BUTTON_SIZE } from '../PerpDialogLayout';
+import { PerpsPartialAccountValueWarning } from '../TradingPanel/components/PerpsAccountNumberValue';
 
 import { PerpFundingBreakdown } from './PerpFundingBreakdown';
 import {
@@ -1280,9 +1281,14 @@ function PerpPortfolioContentComponent({
         <SectionLabel>
           {intl.formatMessage({ id: ETranslations.perp_portfolio_value })}
         </SectionLabel>
-        <SizableText size="$heading4xl" color="$text">
-          {accountValue}
-        </SizableText>
+        <XStack alignItems="center" gap="$2">
+          <SizableText size="$heading4xl" color="$text">
+            {accountValue}
+          </SizableText>
+          {computedValue?.isAccountValuePartial ? (
+            <PerpsPartialAccountValueWarning />
+          ) : null}
+        </XStack>
         <XStack gap="$1.5" alignItems="center">
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.perp_portfolio_available })}
@@ -1304,9 +1310,14 @@ function PerpPortfolioContentComponent({
           <SectionLabel>
             {intl.formatMessage({ id: ETranslations.perp_portfolio_value })}
           </SectionLabel>
-          <SizableText size="$heading2xl" color="$text">
-            {accountValue}
-          </SizableText>
+          <XStack alignItems="center" gap="$2">
+            <SizableText size="$heading2xl" color="$text">
+              {accountValue}
+            </SizableText>
+            {computedValue?.isAccountValuePartial ? (
+              <PerpsPartialAccountValueWarning />
+            ) : null}
+          </XStack>
         </YStack>
         <YStack gap="$0.5" alignItems="flex-end">
           <SectionLabel>

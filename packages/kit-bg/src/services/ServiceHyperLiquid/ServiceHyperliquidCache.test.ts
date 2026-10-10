@@ -2,10 +2,15 @@ import {
   swrCacheUtils,
   swrKeys,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 import type { IBook } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import {
+  perpsAccountDisplaySnapshotAtom,
+  perpsActiveAccountAtom,
+  perpsActiveAccountStatusInfoAtom,
   perpsActiveAccountSummaryAtom,
+  perpsComputedAccountValueAtom,
   perpsSpotBalancesAtom,
 } from '../../states/jotai/atoms';
 import { globalJotaiStorageReadyHandler } from '../../states/jotai/jotaiStorage';
@@ -18,7 +23,10 @@ import ServiceHyperliquidCache, {
   shouldWritePerpsAccountDisplayCache,
 } from './ServiceHyperliquidCache';
 
-import type { IPerpsL2BookSnapshotCacheEntry } from '../../dbs/simple/entity/SimpleDbEntityPerp';
+import type {
+  IPerpsAccountDisplayCacheSpotBalances,
+  IPerpsL2BookSnapshotCacheEntry,
+} from '../../dbs/simple/entity/SimpleDbEntityPerp';
 
 function buildBook({
   coin = 'BTC',
@@ -423,4 +431,71 @@ describe('ServiceHyperliquidCache account display hydration', () => {
     );
     await expect(perpsSpotBalancesAtom.get()).resolves.toEqual(previousSpot);
   });
+
+  it.each([true, false, undefined])(
+    'round-trips the partial marker (%s) through spot and account-value display caches',
+    async (hasUnsupportedBalances) => {
+      let stored: IPerpsAccountDisplayCacheSpotBalances | undefined;
+      const service = new ServiceHyperliquidCache({
+        backgroundApi: {
+          simpleDb: {
+            perp: {
+              setPerpsAccountDisplaySpotBalances: jest.fn(
+                async ({
+                  data,
+                }: {
+                  data: IPerpsAccountDisplayCacheSpotBalances;
+                }) => {
+                  stored = data;
+                },
+              ),
+              getUserAbstractionMode: jest
+                .fn()
+                .mockResolvedValue(EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT),
+              getPerpsAccountDisplayCache: jest.fn(async () => ({
+                spotBalances: { data: stored, updatedAt: Date.now() },
+              })),
+            },
+          },
+        },
+      });
+      await perpsActiveAccountAtom.set({
+        accountAddress: '0xabc',
+        accountId: null,
+        indexedAccountId: null,
+        deriveType: 'default',
+      });
+      await perpsActiveAccountStatusInfoAtom.set(undefined);
+      await perpsAccountDisplaySnapshotAtom.set({ entries: {} });
+      await service.writePerpsAccountDisplaySpotBalances({
+        accountAddress: '0xabc',
+        balances: [
+          { coin: 'USDC', token: 0, total: '100', hold: '25', entryNtl: '0' },
+        ],
+        spotTotalUsd: '100',
+        hasUnsupportedBalances,
+      });
+      await perpsSpotBalancesAtom.set(undefined);
+      await service.hydratePerpsAccountDisplayCache('0xabc');
+      await expect(perpsComputedAccountValueAtom.get()).resolves.toMatchObject({
+        accountValue: '100',
+        withdrawable: '75',
+        isLoading: false,
+        isAccountValuePartial: hasUnsupportedBalances,
+      });
+      await service.writePerpsAccountDisplaySnapshot({
+        accountAddress: '0xabc',
+      });
+      await expect(
+        perpsAccountDisplaySnapshotAtom.get(),
+      ).resolves.toMatchObject({
+        entries: {
+          '0xabc': {
+            accountValue: '100',
+            isAccountValuePartial: hasUnsupportedBalances,
+          },
+        },
+      });
+    },
+  );
 });
