@@ -75,6 +75,7 @@ import {
   useSwapRecipientAddressInfo,
 } from '../../hooks/useSwapAccount';
 import { shouldShowSwapRecipientEntry } from '../../hooks/useSwapAccount.utils';
+import { useSwapDepositEntryPress } from '../../hooks/useSwapDepositEntry';
 import {
   shouldBlockSwapActionForIncognitoRecipientInput,
   shouldEnableSwapIncognitoRecipientValidation,
@@ -176,8 +177,12 @@ const SwapActionsState = ({
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
-  const { cleanQuoteInterval, closeQuoteEvent, quoteAction } =
-    useSwapActions().current;
+  const {
+    cleanQuoteInterval,
+    closeQuoteEvent,
+    loadSwapSelectTokenDetail,
+    quoteAction,
+  } = useSwapActions().current;
   const swapActionState = useSwapActionState();
   const noConnectWallet = Boolean(
     forceNoConnectWallet || swapActionState.noConnectWallet,
@@ -423,6 +428,7 @@ const SwapActionsState = ({
   const shouldBlockIncognitoRecipientAction =
     shouldBlockSwapActionForIncognitoRecipientInput({
       inputText: incognitoRecipientInput.inputText,
+      isDepositAction: swapActionState.shouldDepositToTrade,
       isConnectWalletAction: noConnectWallet,
       loading: incognitoRecipientInput.loading,
       queryResult: incognitoRecipientInput.queryResult,
@@ -430,9 +436,31 @@ const SwapActionsState = ({
       visible: shouldShowIncognitoRecipientInput,
     });
 
+  const refreshFromTokenBalance = useCallback(() => {
+    void loadSwapSelectTokenDetail(
+      ESwapDirectionType.FROM,
+      swapFromAddressInfo,
+      true,
+    );
+  }, [loadSwapSelectTokenDetail, swapFromAddressInfo]);
+  // Withhold accountInfo while the cross-network account lookup is pending or
+  // has no target result, so a tap resolves the right account from
+  // activeAccount instead of opening Receive for the wrong network.
+  const onDepositToTrade = useSwapDepositEntryPress({
+    token: fromToken,
+    accountInfo: swapFromAddressInfo.isAddressInfoReady
+      ? swapFromAddressInfo.accountInfo
+      : undefined,
+    activeAccount: swapFromAddressInfo.activeAccount,
+    onClose: refreshFromTokenBalance,
+  });
+
+  // Depositing needs no quote, so the deposit state never shows the quote
+  // loading animation in place of its label.
   const shouldShowQuoteActionLoading =
     !noConnectWallet &&
     !swapActionState.isRefreshQuote &&
+    !swapActionState.shouldDepositToTrade &&
     (swapActionState.isQuoteActionLoading || Boolean(forceQuoteActionLoading));
   const isActionDisabled = noConnectWallet
     ? shouldRedirectOnboardingToTravelMode()
@@ -456,6 +484,10 @@ const SwapActionsState = ({
           },
         });
       }
+      return;
+    }
+    if (swapActionState.shouldDepositToTrade) {
+      onDepositToTrade();
       return;
     }
     if (shouldBlockIncognitoRecipientAction) {
@@ -487,6 +519,7 @@ const SwapActionsState = ({
   }, [
     currentQuoteRes?.kind,
     navigation,
+    onDepositToTrade,
     onOpenRecipientAddress,
     onPreSwap,
     onRefreshQuote,
@@ -494,6 +527,7 @@ const SwapActionsState = ({
     quoteActionLock.kind,
     shouldBlockIncognitoRecipientAction,
     swapActionState.isRefreshQuote,
+    swapActionState.shouldDepositToTrade,
     noConnectWallet,
     swapActionState.shouldEnterRecipient,
     swapIncognitoMode,

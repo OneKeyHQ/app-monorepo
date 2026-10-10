@@ -1,5 +1,8 @@
+import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
+
 import {
   buildSwapLimitOrdersAccountIdKey,
+  isCurrentSwapAccountNetworkUnsupportedAlert,
   removeSwapNoConnectWalletAlerts,
   shouldAllowSwapNoConnectWalletWarning,
   shouldShowSwapAccountUnsupportedAlert,
@@ -370,5 +373,96 @@ describe('shouldShowSwapAccountUnsupportedAlert', () => {
         accountId: 'hd-1--m/44/60/0/0/0',
       }),
     ).toBe(false);
+  });
+});
+
+describe('isCurrentSwapAccountNetworkUnsupportedAlert', () => {
+  it('matches the account, wallet, and network that produced the alert', () => {
+    const alert = {
+      isAccountNetworkUnsupported: true,
+      accountNetworkUnsupportedContext: {
+        accountId: 'account-1',
+        walletId: 'wallet-1',
+        networkId: 'evm--56',
+      },
+    };
+
+    expect(
+      isCurrentSwapAccountNetworkUnsupportedAlert({
+        alert,
+        accountId: 'account-1',
+        walletId: 'wallet-1',
+        networkId: 'evm--56',
+      }),
+    ).toBe(true);
+    expect(
+      isCurrentSwapAccountNetworkUnsupportedAlert({
+        alert,
+        accountId: 'account-2',
+        walletId: 'wallet-1',
+        networkId: 'evm--56',
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps legacy alerts until a complete warning check replaces them', () => {
+    expect(
+      isCurrentSwapAccountNetworkUnsupportedAlert({
+        alert: { isAccountNetworkUnsupported: true },
+        accountId: 'account-1',
+        walletId: 'wallet-1',
+        networkId: 'evm--56',
+      }),
+    ).toBe(true);
+  });
+
+  it('matches the alert direction when validating a to-side warning', () => {
+    const alert = {
+      isAccountNetworkUnsupported: true,
+      accountNetworkUnsupportedContext: {
+        accountId: 'to-account',
+        walletId: 'to-wallet',
+        networkId: 'to-network',
+        directionType: ESwapDirectionType.TO,
+      },
+    };
+
+    expect(
+      isCurrentSwapAccountNetworkUnsupportedAlert({
+        alert,
+        accountId: 'to-account',
+        walletId: 'to-wallet',
+        networkId: 'to-network',
+        directionType: ESwapDirectionType.TO,
+      }),
+    ).toBe(true);
+    expect(
+      isCurrentSwapAccountNetworkUnsupportedAlert({
+        alert,
+        accountId: 'to-account',
+        walletId: 'to-wallet',
+        networkId: 'to-network',
+        directionType: ESwapDirectionType.FROM,
+      }),
+    ).toBe(false);
+  });
+
+  it('treats a missing caller direction as FROM for legacy Stock callers', () => {
+    expect(
+      isCurrentSwapAccountNetworkUnsupportedAlert({
+        alert: {
+          isAccountNetworkUnsupported: true,
+          accountNetworkUnsupportedContext: {
+            accountId: 'account-1',
+            walletId: 'wallet-1',
+            networkId: 'evm--56',
+            directionType: ESwapDirectionType.FROM,
+          },
+        },
+        accountId: 'account-1',
+        walletId: 'wallet-1',
+        networkId: 'evm--56',
+      }),
+    ).toBe(true);
   });
 });

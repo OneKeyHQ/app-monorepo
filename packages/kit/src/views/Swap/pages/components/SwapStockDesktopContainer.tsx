@@ -124,6 +124,7 @@ import {
   useSwapStockEstimatedReceiveState,
 } from '../../hooks/useSwapStockTradeInputs';
 import { SwapTestIDs } from '../../testIDs';
+import { getSwapBalanceActionProps } from '../../utils/swapBalanceActionUtils';
 import {
   type ISwapRecentTokenPair,
   buildSwapRecentTokenPairsFromHistory,
@@ -1211,6 +1212,7 @@ function StockAmountInput({
     amountFiatValue,
     balanceActionsReady,
     balanceLoading,
+    balanceRefreshing,
     currencySymbol,
     disableNativePayToken,
     displayBalance,
@@ -1218,9 +1220,11 @@ function StockAmountInput({
     inputToken,
     inputTokenNetworkLogoURI,
     inputValue,
+    isBalanceLoadedZero,
     isBuySide,
     onAmountChange,
     onBalanceMaxPress,
+    onBalanceRefreshPress,
     onSelectPercentageStage,
     payToken,
     payTokenOptionsLoading,
@@ -1268,17 +1272,24 @@ function StockAmountInput({
       Boolean(
         swapFromAddressInfo.accountInfo?.account?.id &&
         inputToken &&
-        hasBalanceError,
+        (hasBalanceError || isBalanceLoadedZero),
       ),
     [
       hasBalanceError,
       inputToken,
+      isBalanceLoadedZero,
       isBuySide,
       swapFromAddressInfo.accountInfo?.account?.id,
     ],
   );
   const showTokenSelectorLoading =
     !inputToken && (fetchLoading || (isBuySide && payTokenOptionsLoading));
+  const balanceActionProps = getSwapBalanceActionProps({
+    isLoadedZero: isBalanceLoadedZero,
+    refreshing: balanceRefreshing,
+    onRefresh: onBalanceRefreshPress,
+    onMax: balanceActionsReady ? onBalanceMaxPress : undefined,
+  });
 
   if (forceLoading || shouldRenderSkeleton || deferInitialContent) {
     return <StockAmountInputSkeleton isBuySide={isBuySide} />;
@@ -1301,11 +1312,18 @@ function StockAmountInput({
         </SizableText>
         <SwapInputActions
           fromToken={inputToken}
-          accountInfo={swapFromAddressInfo.accountInfo}
+          accountInfo={
+            swapFromAddressInfo.isAddressInfoReady
+              ? swapFromAddressInfo.accountInfo
+              : undefined
+          }
+          activeAccount={swapFromAddressInfo.activeAccount}
+          onDepositClose={onBalanceRefreshPress}
           showPercentageInput={Boolean(
             showPercentageInputDebounce && balanceActionsReady,
           )}
           showActionBuy={showActionBuy}
+          actionBuyHighlighted={!isBalanceLoadedZero}
           onSelectStage={onSelectPercentageStage}
         />
       </XStack>
@@ -1324,10 +1342,9 @@ function StockAmountInput({
         balanceProps={{
           value: inputToken ? displayBalance : undefined,
           loading: balanceLoading,
-          onPress: balanceActionsReady ? onBalanceMaxPress : undefined,
           hideIcon: true,
           tokenSymbol: inputToken?.symbol,
-          testID: balanceActionsReady ? SwapTestIDs.maxButton : undefined,
+          ...balanceActionProps,
         }}
         maxAmountText={intl.formatMessage({ id: ETranslations.global_max })}
         inputProps={{
