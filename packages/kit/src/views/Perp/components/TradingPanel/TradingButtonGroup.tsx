@@ -1439,6 +1439,9 @@ function SideButtonInternal({
         // Keep the price protection while the user reviews the opposite side.
         actions.current.updateTradingForm({
           side,
+          size: '',
+          sizePercent: 0,
+          sizeInputMode: EPerpsSizeInputMode.MANUAL,
           twapStopPrice: preEnableOrderPanelState.formData.twapStopPrice,
         });
         Toast.message({
