@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+
 import { NumberSizeableText, YStack } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import type { IEarnRewardsPortfolioGroup } from '@onekeyhq/shared/types/staking';
@@ -8,10 +10,14 @@ import { LedgerRewardRow } from './LedgerRewardRow';
 
 import type { IGroupExpansion } from './GroupRow';
 
-/** "123 USDC" when the group is one token, otherwise its fiat total. */
+/**
+ * The group's fiat total, the way the protocol rows read; the token amount
+ * only when nothing priced the group (QA: one figure style for every row).
+ */
 function LedgerGroupTotal({ group }: { group: IEarnRewardsPortfolioGroup }) {
   const currencyInfo = useCurrency();
-  if (group.total.amount && group.total.symbol) {
+  const hasFiat = new BigNumber(group.total.fiatValue || '0').gt(0);
+  if (!hasFiat && group.total.amount && group.total.symbol) {
     return (
       <NumberSizeableText
         size="$bodyLgMedium"

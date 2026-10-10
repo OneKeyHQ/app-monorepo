@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { Empty, YStack } from '@onekeyhq/components';
+import { Empty, Spinner, Stack, YStack } from '@onekeyhq/components';
 import type { IEarnPortfolioPosition } from '@onekeyhq/shared/types/earn/portfolioPositions';
 import type { IEarnRewardsPortfolioGroup } from '@onekeyhq/shared/types/staking';
 
@@ -34,12 +34,15 @@ export function RewardsClaimableList({
   protocols,
   positions,
   ledgerGroups,
+  isLoading = false,
   emptyTitle,
   onManage,
 }: {
   protocols: IEarnProtocolView[];
   positions: IEarnPortfolioPosition[];
   ledgerGroups: IEarnRewardsPortfolioGroup[];
+  /** the ledger part is still on its way: no empty state yet */
+  isLoading?: boolean;
   emptyTitle: string;
 } & IEarnPositionCardHandlers) {
   const expansion = useGroupExpansion();
@@ -53,6 +56,13 @@ export function RewardsClaimableList({
   );
 
   if (protocols.length === 0 && ledgerGroups.length === 0) {
+    if (isLoading) {
+      return (
+        <Stack ai="center" py="$8">
+          <Spinner size="large" />
+        </Stack>
+      );
+    }
     return <Empty icon="GiftOutline" title={emptyTitle} />;
   }
 

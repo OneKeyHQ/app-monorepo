@@ -108,7 +108,11 @@ export function RewardsTab({
     // key is on the OK-61377 i18n list.
     distributed: intl.formatMessage({ id: ETranslations.referral_distributed }),
   };
-  const groups = rewards?.stage === stage ? rewards.groups : [];
+  // The response in hand may still be the previous stage's while the new one
+  // loads; showing it as empty flashed the empty state on every switch.
+  const isStageLoaded = Boolean(rewards && rewards.stage === stage);
+  const groups = rewards && rewards.stage === stage ? rewards.groups : [];
+  const isStageLoading = !isStageLoaded && isLoading;
   const emptyTitle = intl.formatMessage({ id: EMPTY_TITLE_BY_STAGE[stage] });
 
   let content: React.ReactNode;
@@ -118,11 +122,12 @@ export function RewardsTab({
         protocols={claimableProtocols}
         positions={positions}
         ledgerGroups={groups}
+        isLoading={isStageLoading}
         emptyTitle={emptyTitle}
         onManage={onManage}
       />
     );
-  } else if (isLoading && !rewards) {
+  } else if (isStageLoading) {
     content = (
       <Stack ai="center" py="$8">
         <Spinner size="large" />

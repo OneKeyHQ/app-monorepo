@@ -1,6 +1,12 @@
 import { useIntl } from 'react-intl';
 
-import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -31,8 +37,10 @@ function FactRow({
 
 /**
  * One Pending / Distributed ledger reward as its own card (figma
- * 29180-109399 / 29180-109764): the token on top, then the amount, the
- * payout date the stage is about, and for distributed rows the transaction.
+ * 29180-109399 / 29180-109764): the token on top, then the reward as fiat
+ * with the token amount under it (the figure style of every other card),
+ * the payout date the stage is about, and for distributed rows the
+ * transaction.
  */
 export function LedgerRewardCard({
   item,
@@ -42,6 +50,7 @@ export function LedgerRewardCard({
   group: IEarnRewardsPortfolioGroup;
 }) {
   const intl = useIntl();
+  const currencyInfo = useCurrency();
   const isDistributed = item.stage === 'distributed';
   const time = isDistributed ? item.distributedAt : item.availableAt;
   const timeLabel = intl.formatMessage({
@@ -71,12 +80,24 @@ export function LedgerRewardCard({
         </SizableText>
       </XStack>
       <FactRow label={intl.formatMessage({ id: ETranslations.earn_rewards })}>
-        <EarnText
-          text={item.title}
-          size="$bodySmMedium"
-          color="$textSuccess"
-          numberOfLines={1}
-        />
+        <YStack ai="flex-end" flexShrink={1}>
+          {item.fiatValue ? (
+            <NumberSizeableText
+              size="$bodySmMedium"
+              formatter="value"
+              formatterOptions={{ currency: currencyInfo.symbol }}
+              numberOfLines={1}
+            >
+              {item.fiatValue}
+            </NumberSizeableText>
+          ) : null}
+          <EarnText
+            text={item.title}
+            size={item.fiatValue ? '$bodySm' : '$bodySmMedium'}
+            color={item.fiatValue ? '$textSubdued' : '$textSuccess'}
+            numberOfLines={1}
+          />
+        </YStack>
       </FactRow>
       {time ? (
         <FactRow label={timeLabel}>
