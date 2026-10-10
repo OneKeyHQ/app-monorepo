@@ -29,9 +29,14 @@ const REQUEST_TIMEOUT_MS = 20_000;
 let tray: Tray | null = null;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let isInitialized = false;
+let isTrayInteractionSuspended = false;
 let isRequesting = false;
 let requestTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
 let cachedGetMainWindow: (() => BrowserWindow | undefined) | null = null;
+
+export function setTrayInteractionSuspended(suspended: boolean): void {
+  isTrayInteractionSuspended = suspended;
+}
 
 function clearRequestTimeout(): void {
   if (requestTimeoutTimer) {
@@ -121,7 +126,7 @@ export function initTrayManager(
   tray.setToolTip('OneKey');
 
   const handleClick = () => {
-    if (!tray) return;
+    if (!tray || isTrayInteractionSuspended) return;
     if (getTrayWindow()) {
       sendCachedDataToTrayWindow();
     } else {
