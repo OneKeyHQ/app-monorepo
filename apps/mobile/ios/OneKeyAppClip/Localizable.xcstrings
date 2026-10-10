@@ -1,18 +1,6 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "campaign.secure_webview" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Secure OneKey web experience" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "OneKey 安全活动页面" } }
-      }
-    },
-    "campaign.title" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Featured experience" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "精选活动" } }
-      }
-    },
     "chart.unavailable" : {
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Chart data is unavailable" } },
