@@ -396,6 +396,7 @@ const TradingViewNativeContent = memo(
     const {
       calendarAvailableTimeRange,
       candleIntervalSeconds,
+      candleTimeMode,
       chartType: automaticChartType,
       chartPictureVersion,
       dataProviderKey,
@@ -1049,6 +1050,7 @@ const TradingViewNativeContent = memo(
               }
               runtimeRef={chartRuntimeRef}
               candleIntervalSeconds={candleIntervalSeconds}
+              candleTimeMode={candleTimeMode}
               chartComponents={chartComponentRenderNodes}
               onReferenceLineAction={onReferenceLineAction}
               chartSettings={chartSettings}

@@ -255,12 +255,9 @@ export function getTradingViewNativeMaxPanOffset({
 }
 
 export function clampTradingViewNativePanOffset({
-  candleGap,
   chartWidth,
-  initialRightOffset,
   offset,
   pointCount,
-  zoomScale,
 }: {
   candleGap?: number;
   chartWidth: number;
@@ -271,17 +268,9 @@ export function clampTradingViewNativePanOffset({
 }) {
   'worklet';
 
-  const resolvedCandleGap = candleGap ?? TRADING_VIEW_NATIVE_CANDLE_GAP;
-  return Math.min(
-    Math.max(offset, 0),
-    getTradingViewNativeMaxPanOffset({
-      candleGap: resolvedCandleGap,
-      chartWidth,
-      initialRightOffset,
-      pointCount,
-      zoomScale,
-    }),
-  );
+  return chartWidth > 0 && pointCount > 0 && Number.isFinite(offset)
+    ? offset
+    : 0;
 }
 
 export function getTradingViewNativeViewportForPointRange({
@@ -427,7 +416,7 @@ export function getTradingViewNativePanOffsetAfterDataUpdate({
   const safeAppendedPointCount = Number.isFinite(appendedPointCount)
     ? Math.max(Math.floor(appendedPointCount), 0)
     : 0;
-  if (clampedOffset <= 0 || safeAppendedPointCount === 0) {
+  if (clampedOffset === 0 || safeAppendedPointCount === 0) {
     return clampedOffset;
   }
 
@@ -538,7 +527,8 @@ export function getTradingViewNativeVisiblePointRange({
   );
 
   if (newestVisibleDistance > oldestVisibleDistance) {
-    return { endIndex: 0, startIndex: 0 };
+    const emptyIndex = oldestVisibleDistance < 0 ? pointCount : 0;
+    return { endIndex: emptyIndex, startIndex: emptyIndex };
   }
 
   return {
@@ -710,12 +700,17 @@ export function getTradingViewNativePriceRange({
 }): ITradingViewNativePriceRange | null {
   'worklet';
 
+  if (!points.length) {
+    return null;
+  }
+
+  // Keep the nearest candle as the scale anchor in an empty viewport.
   const clampedStartIndex = Math.min(
     Math.max(Math.floor(startIndex), 0),
-    points.length,
+    points.length - 1,
   );
   const clampedEndIndex = Math.min(
-    Math.max(Math.floor(endIndex), clampedStartIndex),
+    Math.max(Math.floor(endIndex), clampedStartIndex + 1),
     points.length,
   );
   let minPrice = Number.POSITIVE_INFINITY;

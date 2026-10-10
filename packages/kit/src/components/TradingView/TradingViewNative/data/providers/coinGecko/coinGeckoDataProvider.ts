@@ -89,6 +89,7 @@ export function createTradingViewNativeCoinGeckoDataProvider({
   const chartDataRequests = new Map<string, Promise<IMarketTokenChart>>();
 
   return {
+    getCandleTimeMode: () => 'fixed',
     getHistoryRequestCandleCount: getCoinGeckoHistoryRequestCandleCount,
     hasMoreHistory: () => false,
     fetchHistory: async ({

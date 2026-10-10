@@ -145,3 +145,49 @@ export function getTradingViewNativePriceProgress({
   }
   return (maxPrice - price) / (maxPrice - minPrice);
 }
+
+export function panTradingViewNativePriceRange({
+  priceRange,
+  rangeScale,
+  mode,
+  chartHeight,
+  translationY,
+}: {
+  priceRange: ITradingViewNativePriceRange;
+  rangeScale: number;
+  mode: ITradingViewNativePriceScaleMode;
+  chartHeight: number;
+  translationY: number;
+}): ITradingViewNativePriceRange {
+  'worklet';
+
+  if (chartHeight <= 0 || !Number.isFinite(translationY)) return priceRange;
+  const progress = (translationY * rangeScale) / chartHeight;
+  let { minPrice, maxPrice } = priceRange;
+  const logarithmic = mode === 'logarithmic' && minPrice > 0 && maxPrice > 0;
+  if (minPrice === maxPrice) {
+    // Give flat series a movable range without changing their centered position.
+    if (logarithmic) {
+      minPrice /= 1.01;
+      maxPrice *= 1.01;
+    } else {
+      const padding = Math.abs(minPrice) * 0.01 || 1;
+      minPrice -= padding;
+      maxPrice += padding;
+    }
+  }
+  const shift = logarithmic
+    ? (Math.log(maxPrice) - Math.log(minPrice)) * progress
+    : (maxPrice - minPrice) * progress;
+  const nextMin = logarithmic
+    ? Math.exp(Math.log(minPrice) + shift)
+    : minPrice + shift;
+  const nextMax = logarithmic
+    ? Math.exp(Math.log(maxPrice) + shift)
+    : maxPrice + shift;
+  return Number.isFinite(nextMin) &&
+    Number.isFinite(nextMax) &&
+    (!logarithmic || nextMin > 0)
+    ? { minPrice: nextMin, maxPrice: nextMax }
+    : priceRange;
+}
