@@ -10,7 +10,14 @@ import type { IMarketStockPublicChartPeriod } from '@onekeyhq/shared/types/marke
 
 import { getMarketStockPreviousClose } from '../../utils/marketStockPreviousClose';
 
-export type IStockSimpleChartRange = '1H' | '1D' | '1W' | '1M' | '1Y' | 'All';
+export type IStockSimpleChartRange =
+  | '1H'
+  | '1D'
+  | '1W'
+  | '1M'
+  | '1Y'
+  | '5Y'
+  | 'All';
 
 export const TOKEN_SIMPLE_CHART_RANGES = [
   '1H',
@@ -21,10 +28,40 @@ export const TOKEN_SIMPLE_CHART_RANGES = [
   'All',
 ] as const satisfies readonly IStockSimpleChartRange[];
 
-export const STOCK_SHARE_SIMPLE_CHART_RANGES =
-  TOKEN_SIMPLE_CHART_RANGES satisfies readonly IStockSimpleChartRange[];
+// The share chart's longest period (`all`) serves five years, so it is
+// labelled for what it draws rather than as the full history.
+export const STOCK_SHARE_SIMPLE_CHART_RANGES = [
+  '1H',
+  '1D',
+  '1W',
+  '1M',
+  '1Y',
+  '5Y',
+] as const satisfies readonly IStockSimpleChartRange[];
+
+/**
+ * Keeps a range picked in one price mode valid in the other. Each mode ends on
+ * its own longest window (share 5Y, token All), so switching from one carries
+ * over to the other instead of leaving no button selected.
+ */
+export function resolveStockSimpleChartRangeForPriceMode({
+  priceMode,
+  range,
+}: {
+  priceMode: 'share' | 'token';
+  range: IStockSimpleChartRange;
+}): IStockSimpleChartRange {
+  if (priceMode === 'share' && range === 'All') {
+    return '5Y';
+  }
+  if (priceMode === 'token' && range === '5Y') {
+    return 'All';
+  }
+  return range;
+}
 
 const STOCK_SIMPLE_CHART_ONE_MONTH_SECONDS = 30 * 24 * 60 * 60;
+const STOCK_SIMPLE_CHART_ONE_YEAR_SECONDS = 365 * 24 * 60 * 60;
 
 // The previous session close frames the within-day ranges. On longer ranges
 // it is one of the many closes already on the line, so it stays off.
@@ -94,6 +131,7 @@ const STOCK_SIMPLE_CHART_MIN_REFRESH_MS: Record<
   '1W': 300_000,
   '1M': 300_000,
   '1Y': 600_000,
+  '5Y': 600_000,
   All: 600_000,
 };
 
@@ -226,7 +264,8 @@ const STOCK_SIMPLE_CHART_RANGE_SECONDS: Record<
   '1D': 24 * 60 * 60,
   '1W': 7 * 24 * 60 * 60,
   '1M': STOCK_SIMPLE_CHART_ONE_MONTH_SECONDS,
-  '1Y': 365 * 24 * 60 * 60,
+  '1Y': STOCK_SIMPLE_CHART_ONE_YEAR_SECONDS,
+  '5Y': 5 * STOCK_SIMPLE_CHART_ONE_YEAR_SECONDS,
   All: undefined,
 };
 
@@ -239,6 +278,7 @@ const STOCK_TOKEN_CHART_INTERVALS: Record<IStockSimpleChartRange, string> = {
   '1W': '1H',
   '1M': '4H',
   '1Y': '1D',
+  '5Y': '1W',
   All: '1W',
 };
 
@@ -519,6 +559,7 @@ const COINGECKO_CHART_DAYS: Record<IStockSimpleChartRange, string> = {
   '1W': '7',
   '1M': '30',
   '1Y': '365',
+  '5Y': '1825',
   All: 'max',
 };
 
@@ -531,6 +572,7 @@ const STOCK_SHARE_CHART_PERIODS: Record<
   '1W': '1w',
   '1M': '1m',
   '1Y': '1y',
+  '5Y': 'all',
   All: 'all',
 };
 

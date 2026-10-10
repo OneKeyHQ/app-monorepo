@@ -73,6 +73,7 @@ import { RichBlock } from '../RichBlock/RichBlock';
 import {
   deFiListLoadingReducer,
   isDeFiAllNetworkRequestsGranted,
+  resolveDeFiCacheProbeAction,
   resolveDeFiFanOutFinishedState,
   shouldApplyDeFiAllNetworksResult,
   shouldResetDeFiReadinessOnRunStart,
@@ -81,6 +82,11 @@ import {
 import { DeFiListSkeleton } from './DeFiListSkeleton';
 import { planDeFiOverviewInit } from './deFiOverviewInitPlan';
 import { getOverviewCollapsedProtocolLimit } from './DeFiOverviewPlanner';
+import {
+  accumulateDeFiRunOverview,
+  getEmptyDeFiRunOverview,
+  shouldPublishDeFiRunOverview,
+} from './deFiRunOverview';
 import { formatPortfolioTotal } from './formatPortfolioTotal';
 import { buildDeFiOverviewCells } from './hooks/useDeFiOverviewTopN';
 import { resolveOverviewCols } from './overviewColsResolver';
@@ -672,15 +678,29 @@ function DeFiListBlock({
   // few frames before the result effect fills the list in.
   const fanOutPositionsOwnerKeyRef = useRef<string | undefined>(undefined);
 
+  // Sum of every response this run has merged so far; see
+  // `accumulateDeFiRunOverview` for why it replaces the atom whole.
+  const runOverviewRef = useRef(getEmptyDeFiRunOverview());
+  const resetRunOverview = useCallback(() => {
+    runOverviewRef.current = getEmptyDeFiRunOverview();
+  }, []);
+
   const updateAllNetworkData = useThrottledCallback(() => {
-    updateAccountDeFiOverview({
-      currency: settings.currencyInfo.id,
-      accountId: account?.id,
-      networkId: network?.id,
-      overview: deFiDataRef.current.overview,
-      merge: true,
-      isReady: true,
-    });
+    runOverviewRef.current = accumulateDeFiRunOverview(
+      runOverviewRef.current,
+      deFiDataRef.current.overview,
+    );
+    // Not while the sum is still empty: the leading flush would replace the
+    // header's DeFi total with 0 (see `shouldPublishDeFiRunOverview`).
+    if (shouldPublishDeFiRunOverview(runOverviewRef.current)) {
+      updateAccountDeFiOverview({
+        currency: settings.currencyInfo.id,
+        accountId: account?.id,
+        networkId: network?.id,
+        overview: runOverviewRef.current,
+        isReady: true,
+      });
+    }
     const hasPositions =
       deFiDataRef.current.protocols.length > 0 ||
       protocolsRef.current.length > 0;
@@ -715,17 +735,29 @@ function DeFiListBlock({
     deFiDataOwnerKeyRef.current = currentOwnerKey;
     updateAllNetworkData.cancel();
     deFiDataRef.current = defiUtils.getEmptyDeFiData();
-  }, [currentOwnerKey, updateAllNetworkData]);
+    resetRunOverview();
+  }, [currentOwnerKey, resetRunOverview, updateAllNetworkData]);
+
+  // The same for a fan-out an enabled-network change superseded: a throttled
+  // merge still pending for it would land its (possibly disabled) networks in
+  // the list and the totals the new run has just cleared.
+  const handleAbortSupersededRequests = useCallback(() => {
+    updateAllNetworkData.cancel();
+    deFiDataRef.current = defiUtils.getEmptyDeFiData();
+    resetRunOverview();
+  }, [resetRunOverview, updateAllNetworkData]);
 
   const handleAllNetworkRequests = useCallback(
     async ({
       accountId,
       networkId,
       allNetworkDataInit,
+      isRunCurrent,
     }: {
       accountId: string;
       networkId: string;
       allNetworkDataInit?: boolean;
+      isRunCurrent?: () => boolean;
     }) => {
       if (refreshCacheOnly) {
         return;
@@ -746,7 +778,14 @@ function DeFiListBlock({
         isForceRefresh:
           allNetworkManualForceRefreshRef.current || shouldForceInitialRefresh,
       });
-      if (r.protocols.length && liveOwnerKeyRef.current === currentOwnerKey) {
+      // Not for a superseded run either: the run that replaced it would then
+      // finish believing positions are on the way and never settle its empty
+      // state.
+      if (
+        r.protocols.length &&
+        liveOwnerKeyRef.current === currentOwnerKey &&
+        isRunCurrent?.() !== false
+      ) {
         fanOutPositionsOwnerKeyRef.current = currentOwnerKey;
       }
 
@@ -755,7 +794,10 @@ function DeFiListBlock({
         r.isSameAllNetworksAccountData &&
         // The fan-out outlives an owner switch; a response issued for the
         // previous owner must not be merged into the next owner's list.
-        liveOwnerKeyRef.current === currentOwnerKey
+        liveOwnerKeyRef.current === currentOwnerKey &&
+        // Nor may a fan-out superseded by an enabled-network change add its
+        // (possibly disabled) network to the new run's totals.
+        isRunCurrent?.() !== false
       ) {
         deFiDataRef.current = {
           overview: {
@@ -817,7 +859,10 @@ function DeFiListBlock({
     // local cache moments earlier (the header's cache-only instance runs in
     // the switch render). Zeroing it only for this run's cache probe to write
     // the same value back dips the header total for a few frames, so only an
-    // overview left by another owner is reset.
+    // overview left by another owner is reset. The probe settles the kept
+    // one (`handleAllNetworkCacheChecked`): a hit replaces it with this run's
+    // cached sum; a miss zeroes it when the enabled network set changed since
+    // it was summed, and otherwise keeps it as the last-known total.
     const currentOverview = overviewRef.current;
     const isOverviewOfOwner =
       !!account?.id &&
@@ -860,10 +905,15 @@ function DeFiListBlock({
     async ({
       accountId,
       networkId,
+      isRunCurrent,
     }: {
       accountId?: string;
       networkId?: string;
+      isRunCurrent?: () => boolean;
     }) => {
+      // A new run starts its own sum; before any await, so it cannot race the
+      // run it follows.
+      resetRunOverview();
       if (!refreshCacheOnly && accountId && networkId) {
         await backgroundApiProxy.serviceDeFi.updateCurrentAccount({
           accountId,
@@ -871,13 +921,23 @@ function DeFiListBlock({
         });
       }
 
+      // Superseded by an enabled-network change while that write was in
+      // flight: the run that replaced this one owns the refreshing state
+      // below (and its `onFinished` clears it).
+      if (isRunCurrent?.() === false) {
+        return;
+      }
+
       if (refreshCacheOnly) {
         return;
       }
 
       fanOutPositionsOwnerKeyRef.current = undefined;
-      allNetworkManualForceRefreshRef.current =
-        await consumePendingManualForceRefreshIntent();
+      const manualForceRefresh = await consumePendingManualForceRefreshIntent();
+      if (isRunCurrent?.() === false) {
+        return;
+      }
+      allNetworkManualForceRefreshRef.current = manualForceRefresh;
 
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: true,
@@ -907,6 +967,7 @@ function DeFiListBlock({
       network?.id,
       refreshCacheOnly,
       consumePendingManualForceRefreshIntent,
+      resetRunOverview,
       updateDeFiListState,
       updateOverviewDeFiDataState,
     ],
@@ -1057,6 +1118,38 @@ function DeFiListBlock({
     ],
   );
 
+  // Set by an enabled-network change: the overview `handleClearAllNetworkData`
+  // keeps across the cold rerun was summed over the previous set. Consumed by
+  // that rerun's cache probe (`handleAllNetworkCacheChecked`), which settles
+  // the overview for the current set.
+  const overviewPredatesEnabledSetRef = useRef(false);
+  useEffect(() => {
+    if (!network?.isAllNetworks) {
+      return undefined;
+    }
+    const markOverviewPredatesEnabledSet = () => {
+      overviewPredatesEnabledSetRef.current = true;
+    };
+    appEventBus.on(
+      EAppEventBusNames.EnabledNetworksChanged,
+      markOverviewPredatesEnabledSet,
+    );
+    appEventBus.on(
+      EAppEventBusNames.DeFiEnabledNetworksChanged,
+      markOverviewPredatesEnabledSet,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.EnabledNetworksChanged,
+        markOverviewPredatesEnabledSet,
+      );
+      appEventBus.off(
+        EAppEventBusNames.DeFiEnabledNetworksChanged,
+        markOverviewPredatesEnabledSet,
+      );
+    };
+  }, [network?.isAllNetworks]);
+
   const handleAllNetworkCacheChecked = useCallback(
     ({
       accountId,
@@ -1067,13 +1160,72 @@ function DeFiListBlock({
       networkId?: string;
       hasCache: boolean;
     }) => {
-      updateOverviewDeFiDataState({
-        accountId,
-        networkId,
-        isReady: hasCache,
+      const action = resolveDeFiCacheProbeAction({
+        hasCache,
+        overviewPredatesEnabledSet: overviewPredatesEnabledSetRef.current,
+        runOwnerKey: buildDeFiListOwnerKey({ accountId, networkId }),
+        liveOwnerKey: liveOwnerKeyRef.current,
       });
+      if (action !== 'skip') {
+        overviewPredatesEnabledSetRef.current = false;
+      }
+      switch (action) {
+        case 'skip':
+          return;
+        case 'mark-ready':
+          // `handleAllNetworkCacheData` follows and replaces the overview
+          // with the cached sum of this run's network set.
+          updateOverviewDeFiDataState({
+            accountId,
+            networkId,
+            isReady: true,
+          });
+          return;
+        case 'mark-not-cached':
+          // Nothing cached: report it (`false`, a defined readiness) so the
+          // header releases its hold onto the live token total instead of
+          // waiting for a DeFi write that the cache-only instance never
+          // issues. The kept overview is the last-known total for this
+          // network set and stays counted (see `shouldIncludeKnownDeFiWorth`).
+          updateOverviewDeFiDataState({
+            accountId,
+            networkId,
+            isReady: false,
+          });
+          return;
+        case 'zero-overview':
+          // `handleClearAllNetworkData` kept a same-owner overview only so
+          // this probe could write the same value back without a dip. It was
+          // summed over the previous enabled set and nothing is cached for
+          // the current one, so there is no such value
+          // (see `resolveDeFiCacheProbeAction`). Reported like any miss.
+          updateAccountDeFiOverview({
+            currency: settings.currencyInfo.id,
+            accountId,
+            networkId,
+            overview: {
+              totalValue: 0,
+              totalDebt: 0,
+              totalReward: 0,
+              netWorth: 0,
+              chains: [],
+              protocolCount: 0,
+              positionCount: 0,
+            },
+            isReady: false,
+          });
+          return;
+        default: {
+          const _exhaustive: never = action;
+          return _exhaustive;
+        }
+      }
     },
-    [updateOverviewDeFiDataState],
+    [
+      settings.currencyInfo.id,
+      updateAccountDeFiOverview,
+      updateOverviewDeFiDataState,
+    ],
   );
 
   const {
@@ -1098,6 +1250,7 @@ function DeFiListBlock({
     allNetworkCacheData: handleAllNetworkCacheData,
     allNetworkRequests: handleAllNetworkRequests,
     clearAllNetworkData: handleClearAllNetworkData,
+    abortSupersededRequests: handleAbortSupersededRequests,
     isDeFiRequests: true,
     disabled: network?.isAllNetworks ? !isAllNetRequestsEnabled : false,
     // The cache-only instance is the sole writer of the header's DeFi
