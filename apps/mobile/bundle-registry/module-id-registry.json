@@ -22029,6 +22029,7 @@
     "packages/kit/src/views/Market/MarketHomeV2/components/TimeRangeSelector/index.ts": 6516,
     "packages/kit/src/views/Market/MarketHomeV2/components/useMarketDesktopResponsiveColumns.ts": 13008,
     "packages/kit/src/views/Market/MarketHomeV2/hooks/index.ts": 7405,
+    "packages/kit/src/views/Market/MarketHomeV2/hooks/useMarketHomeSelection.ts": 18732,
     "packages/kit/src/views/Market/MarketHomeV2/hooks/useNetworkAnalytics.ts": 4618,
     "packages/kit/src/views/Market/MarketHomeV2/hooks/useNetworkFilterScroll.ts": 7124,
     "packages/kit/src/views/Market/MarketHomeV2/hooks/useNetworkLoadingAnalytics.ts": 1036,
