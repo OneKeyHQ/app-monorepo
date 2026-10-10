@@ -109,7 +109,6 @@ function ReceiveToken() {
     btcUsedAddressPath,
     exchangeSource,
     switchEntry,
-    skipAggregateLookup,
     source: routeSource,
     isAllNetworksMode,
     aggregateToken: routeAggregateToken,
@@ -221,15 +220,10 @@ function ReceiveToken() {
     ],
   );
   // Global members come from the synced config unless the entry carried
-  // them or already knows the token belongs to no group.
+  // them.
   const hasRouteGlobalMembers = !!routeAllAggregateTokenList?.length;
   useEffect(() => {
-    if (
-      switchEntry !== 'token' ||
-      exchangeSource ||
-      skipAggregateLookup ||
-      hasRouteGlobalMembers
-    ) {
+    if (switchEntry !== 'token' || exchangeSource || hasRouteGlobalMembers) {
       return;
     }
     let cancelled = false;
@@ -256,7 +250,6 @@ function ReceiveToken() {
   }, [
     switchEntry,
     exchangeSource,
-    skipAggregateLookup,
     hasRouteGlobalMembers,
     routeNetworkId,
     routeToken?.address,

@@ -30,6 +30,8 @@ jest.mock('@onekeyhq/shared/src/routes', () => ({
   EModalReceiveRoutes: {
     ReceiveToken: 'ReceiveToken',
     ReceiveSelector: 'ReceiveSelector',
+    ReceiveSelectToken: 'ReceiveSelectToken',
+    ReceiveSelectAggregateToken: 'ReceiveSelectAggregateToken',
     CreateInvoice: 'CreateInvoice',
   },
   EModalRoutes: { ReceiveModal: 'ReceiveModal' },
@@ -51,7 +53,9 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
 
 jest.mock('../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
-  default: {},
+  default: {
+    serviceNetwork: { getVaultSettings: jest.fn(async () => ({})) },
+  },
 }));
 
 jest.mock('../views/Receive/components/ReceiveNetworkList', () => ({
@@ -164,5 +168,61 @@ describe('useReceiveToken direct-to-QR switch opt-in', () => {
         isAllNetworksMode: false,
       }),
     });
+  });
+});
+
+describe('useReceiveToken token list selection', () => {
+  beforeEach(() => {
+    mockPush.mockReset();
+    mockPushModal.mockReset();
+    mockVaultSettings = {};
+  });
+
+  it('leaves the group of a row picked without group context for the QR page to resolve', async () => {
+    const { result } = renderReceive({
+      networkId: 'onekeyall--0',
+      accountId: 'hd-1--all',
+    });
+    await act(async () => {
+      await result.current.handleOnReceive({});
+    });
+    expect(mockPushModal).toHaveBeenCalledWith('ReceiveModal', {
+      screen: 'ReceiveSelectToken',
+      params: expect.objectContaining({ enableCrossNetworkSearch: true }),
+    });
+    const { params } = mockPushModal.mock.calls[0][1] as {
+      params: { onSelect: (token: IToken) => Promise<void> };
+    };
+
+    // A search result under All Networks: one member of a multi-chain token,
+    // listed as a plain per-network row.
+    await act(async () => {
+      await params.onSelect({
+        networkId: 'tron--0x2b6653dc',
+        accountId: 'hd-1--tron',
+        address: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
+        symbol: 'USDT',
+        isNative: false,
+      } as IToken);
+    });
+
+    expect(mockPush).toHaveBeenCalledTimes(1);
+    const [screen, pushed] = mockPush.mock.calls[0] as [
+      string,
+      Record<string, unknown>,
+    ];
+    expect(screen).toBe('ReceiveToken');
+    expect(pushed).toEqual(
+      expect.objectContaining({
+        networkId: 'tron--0x2b6653dc',
+        accountId: 'hd-1--tron',
+        switchEntry: 'token',
+        isAllNetworksMode: true,
+      }),
+    );
+    // No member list travels with it, and nothing tells the page to skip
+    // looking the group up.
+    expect(pushed.allAggregateTokenList).toBeUndefined();
+    expect(pushed).not.toHaveProperty('skipAggregateLookup');
   });
 });

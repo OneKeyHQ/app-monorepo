@@ -283,16 +283,15 @@ function useReceiveToken({
                 networkId: t.networkId ?? '',
               });
 
-            // Under All Networks every grouped token shows as an aggregate
-            // row, so a plain row is known to belong to no group and the QR
-            // page skips its config lookup.
+            // A row without group context is not proof of an ungrouped
+            // token: search results list the members of a multi-chain token
+            // as plain per-network rows. The QR page resolves the group
+            // itself whenever no member list is carried along.
             const switchParams = {
               switchEntry: isAllNetworksMode ? ('token' as const) : undefined,
               aggregateToken: selectContext?.aggregateToken,
               aggregateSubTokenList: selectContext?.aggregateSubTokenList,
               allAggregateTokenList: selectContext?.allAggregateTokenList,
-              skipAggregateLookup:
-                isAllNetworksMode && !selectContext?.aggregateToken,
               source: exchangeSource ? ('exchange' as const) : source,
               isAllNetworksMode,
             };

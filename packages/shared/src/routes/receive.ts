@@ -89,12 +89,10 @@ export type IModalReceiveParamList = {
     isAllNetworksMode?: boolean;
     // Multi-chain members of the token, carried along by the selecting page.
     // Without a global member list the page asks the background by
-    // network + contract address, unless the entry already knows the token
-    // belongs to no group (skipAggregateLookup).
+    // network + contract address.
     aggregateToken?: IAccountToken;
     aggregateSubTokenList?: IAccountToken[];
     allAggregateTokenList?: IAccountToken[];
-    skipAggregateLookup?: boolean;
   };
   [EModalReceiveRoutes.ReceiveInvoice]: {
     networkId: string;
