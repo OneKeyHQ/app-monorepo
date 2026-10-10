@@ -15,7 +15,11 @@ import type {
   IMarketTokenKLineResponse,
 } from '@onekeyhq/shared/types/marketV2';
 
-import { normalizeHyperliquidCandle } from './hyperliquidCandleUtils';
+import {
+  getHyperliquidCandleHistoryBoundary,
+  normalizeHyperliquidCandle,
+  normalizeHyperliquidHistoryCandle,
+} from './hyperliquidCandleUtils';
 
 import type { IHyperliquidCandleInterval } from './hyperliquidCandleUtils';
 import type { ITradingViewNativeHyperliquidEnvironment } from '../../../types';
@@ -265,17 +269,24 @@ export class TradingViewNativeHyperliquidGateway {
     timeFrom,
     timeTo,
   }: IFetchHyperliquidCandlesParams): Promise<IMarketTokenKLineResponse> {
+    const boundary = getHyperliquidCandleHistoryBoundary(coin, environment);
+    const startTime = boundary
+      ? Math.max(timeFrom * 1000, boundary.startTime)
+      : timeFrom * 1000;
+    if (boundary && startTime >= timeTo * 1000) {
+      return { points: [], total: 0 };
+    }
     const candles = await this.getInfoClient(environment).candleSnapshot(
       {
         coin,
         interval,
-        startTime: timeFrom * 1000,
+        startTime,
         endTime: timeTo * 1000,
       },
       signal,
     );
     const points = candles
-      .map(normalizeHyperliquidCandle)
+      .map((candle) => normalizeHyperliquidHistoryCandle(candle, environment))
       .filter((point) => point !== null);
 
     return { points, total: points.length };
