@@ -14,6 +14,7 @@ import { Bootstrap } from '../Bootstrap';
 
 import { AirGapQrcodeDialogContainer } from './AirGapQrcodeDialogContainer';
 import { AppStateLockContainer } from './AppStateLockContainer';
+import { BrowserOffRouteThrottleContainerGate } from './BrowserOffRouteThrottleContainer';
 import { CloudBackupContainer } from './CloudBackupContainer';
 import { ColdStartByNotification } from './ColdStartByNotification';
 import { CreateAddressContainer } from './CreateAddressContainer';
@@ -78,6 +79,7 @@ function DetailRouter() {
       <CloudBackupContainer />
 
       {/* <PortalBodyContainer /> */}
+      <BrowserOffRouteThrottleContainerGate />
       <PageTrackerContainer />
       <ErrorToastContainer />
       <PerpsUnifoldDepositTerminalDeliveryContainer />
