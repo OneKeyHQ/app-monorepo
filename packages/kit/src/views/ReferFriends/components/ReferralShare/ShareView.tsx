@@ -1,0 +1,101 @@
+import { useEffect, useState } from 'react';
+
+import { Image as RNImage, StyleSheet } from 'react-native';
+
+import { Image, Spinner, Stack } from '@onekeyhq/components';
+import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
+
+import { REFERRAL_SHARE_CARD } from './constants';
+import { ShareImageGenerator } from './ShareImageGenerator';
+
+import type {
+  IReferralShareData,
+  IReferralShareImageGeneratorRef,
+} from './types';
+
+// Initial guess until the generated image reports its real size.
+const INITIAL_ASPECT_RATIO = REFERRAL_SHARE_CARD.width / 440;
+
+// Shows the generated card as an image, so the preview is exactly what gets
+// saved or shared. The box contain-fits under `maxHeight` so the action row
+// below always stays on screen.
+export function ShareView({
+  data,
+  generatorRef,
+  maxHeight,
+}: {
+  data: IReferralShareData;
+  generatorRef: React.RefObject<IReferralShareImageGeneratorRef | null>;
+  maxHeight?: number;
+}) {
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  // Stops the spinner when generation fails, so the preview does not spin
+  // forever; Save and More report the failure themselves.
+  const [isGenerating, setIsGenerating] = useState(true);
+  const [aspectRatio, setAspectRatio] = useState(INITIAL_ASPECT_RATIO);
+  const isMountedRef = useIsMounted();
+
+  useEffect(() => {
+    if (!previewImage) {
+      return;
+    }
+    RNImage.getSize(
+      previewImage,
+      (imgWidth, imgHeight) => {
+        if (imgWidth > 0 && imgHeight > 0 && isMountedRef.current) {
+          setAspectRatio(imgWidth / imgHeight);
+        }
+      },
+      () => {},
+    );
+  }, [isMountedRef, previewImage]);
+
+  useEffect(() => {
+    setIsGenerating(true);
+    // One tick so the offscreen generator has mounted before it is asked.
+    const timer = setTimeout(() => {
+      void (async () => {
+        try {
+          const base64 = await generatorRef.current?.generate();
+          if (base64 && isMountedRef.current) {
+            setPreviewImage(base64);
+          }
+        } finally {
+          if (isMountedRef.current) {
+            setIsGenerating(false);
+          }
+        }
+      })();
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [data, generatorRef, isMountedRef]);
+
+  return (
+    <Stack
+      width="100%"
+      maxWidth={maxHeight ? maxHeight * aspectRatio : undefined}
+      alignSelf="center"
+      aspectRatio={aspectRatio}
+      borderRadius={16}
+      borderCurve="continuous"
+      // outlines the image area in the dialog; the exported image has none
+      borderWidth={StyleSheet.hairlineWidth}
+      borderColor="$borderSubdued"
+      overflow="hidden"
+      bg="$bgSubdued"
+      ai="center"
+      jc="center"
+    >
+      {previewImage ? (
+        <Image
+          width="100%"
+          height="100%"
+          source={{ uri: previewImage }}
+          resizeMode="contain"
+        />
+      ) : null}
+      {!previewImage && isGenerating ? <Spinner size="large" /> : null}
+      <ShareImageGenerator ref={generatorRef} data={data} />
+    </Stack>
+  );
+}
