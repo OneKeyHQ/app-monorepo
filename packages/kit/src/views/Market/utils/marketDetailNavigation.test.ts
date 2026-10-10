@@ -1,3 +1,6 @@
+import { StackRouter } from '@react-navigation/routers';
+
+import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -413,6 +416,7 @@ describe('marketDetailNavigation', () => {
         }),
       },
       source: 'detail-1',
+      target: 'market-stack',
     });
   });
 
@@ -490,6 +494,7 @@ describe('marketDetailNavigation', () => {
         }),
       },
       source: 'detail-1',
+      target: 'market-stack',
     });
   });
 
@@ -532,6 +537,116 @@ describe('marketDetailNavigation', () => {
       }),
     ).toBe(false);
     expect(dispatchMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      label: 'another top coin',
+      params: {
+        tokenAddress: '',
+        network: 'btc',
+        isNative: true,
+        marketTokenId: 'bitcoin',
+        marketVariantId: 'bitcoin-native',
+        marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
+      },
+    },
+    {
+      label: 'a regular token',
+      params: {
+        tokenAddress: '0xabc',
+        network: 'bsc',
+        isNative: false,
+      },
+    },
+  ])(
+    'updates top coin route identity under the selector when choosing $label',
+    ({ params }) => {
+      const router = StackRouter({});
+      const config = {
+        routeNames: ['TabDiscovery', 'MarketDetailV2'],
+        routeParamList: {},
+        routeGetIdList: {},
+      };
+      const stack = {
+        ...router.getInitialState(config),
+        key: 'discovery-stack',
+        index: 1,
+        routes: [
+          { key: 'list', name: 'TabDiscovery' },
+          {
+            key: 'detail',
+            name: 'MarketDetailV2',
+            params: {
+              network: 'eth',
+              tokenAddress: '',
+              isNative: true,
+              marketTokenId: 'ethereum',
+              marketVariantId: 'ethereum-native',
+              marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
+            },
+          },
+        ],
+      };
+      getRootStateMock.mockReturnValue({
+        key: 'root',
+        index: 1,
+        routes: [
+          { key: 'main', name: 'main', state: stack },
+          { key: 'selector', name: 'MarketModal' },
+        ],
+      });
+      getCurrentRouteMock.mockReturnValue({ name: 'MobileTokenSelector' });
+
+      expect(
+        openOrReplaceMarketDetailRoute({ routeName: 'MarketDetailV2', params }),
+      ).toBe(true);
+      const action = dispatchMock.mock.calls[0]?.[0] as Parameters<
+        typeof router.getStateForAction
+      >[1];
+      // Root dispatch reaches an unfocused child only with an explicit target.
+      expect(action.target).toBe(stack.key);
+      const updated = router.getStateForAction(stack, action, config);
+      expect(updated?.routes[1].params).toEqual(
+        buildReplacedMarketDetailParams(params),
+      );
+      expect(updated?.routes.map((route) => route.key)).toEqual([
+        'list',
+        'detail',
+      ]);
+    },
+  );
+
+  it('targets the owning modal stack when updating a focused SwapPro detail', () => {
+    getRootStateMock.mockReturnValue({
+      key: 'root',
+      routes: [
+        {
+          key: 'modal',
+          name: 'SwapModal',
+          state: {
+            key: 'swap-modal-stack',
+            routes: [{ key: 'swap-detail', name: 'SwapProMarketDetail' }],
+          },
+        },
+      ],
+    });
+    getCurrentRouteMock.mockReturnValue({
+      key: 'swap-detail',
+      name: 'SwapProMarketDetail',
+    });
+    expect(
+      replaceFocusedMarketDetailRoute({
+        routeName: 'MarketDetailV2',
+        params: { tokenAddress: '0xabc', network: 'eth' },
+      }),
+    ).toBe(true);
+    expect(dispatchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: 'swap-modal-stack',
+        source: 'swap-detail',
+      }),
+    );
   });
 
   it('returns false when no market tab stack is mounted', () => {

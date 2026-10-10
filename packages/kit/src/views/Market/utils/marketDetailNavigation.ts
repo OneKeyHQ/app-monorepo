@@ -328,6 +328,25 @@ function stackOwnsFocusedRoute(stack: INavigationStateNode, routeKey?: string) {
   );
 }
 
+function findRouteOwnerKey(
+  state: INavigationStateNode | undefined,
+  routeKey: string | undefined,
+): string | undefined {
+  if (!state || !routeKey) {
+    return undefined;
+  }
+  if (stackOwnsFocusedRoute(state, routeKey)) {
+    return state.key;
+  }
+  for (const route of state.routes ?? []) {
+    const ownerKey = findRouteOwnerKey(route.state, routeKey);
+    if (ownerKey) {
+      return ownerKey;
+    }
+  }
+  return undefined;
+}
+
 function shouldSkipUnfocusedMainMarketStack({
   root,
   stack,
@@ -439,6 +458,7 @@ export function openOrReplaceMarketDetailRoute({
     navigation.dispatch({
       ...CommonActions.setParams(nextParams),
       source: current.key,
+      target: stack.key,
     });
     return true;
   }
@@ -468,10 +488,12 @@ export function replaceFocusedMarketDetailRoute({
   }
 
   const nextParams = buildReplacedMarketDetailParams(params);
+  const ownerKey = findRouteOwnerKey(navigation.getRootState?.(), current?.key);
   if (current?.name === EModalSwapRoutes.SwapProMarketDetail) {
     navigation.dispatch({
       ...CommonActions.setParams(omitSwapProOwnedParams(nextParams)),
       ...(current.key ? { source: current.key } : {}),
+      ...(ownerKey ? { target: ownerKey } : {}),
     });
     return true;
   }
@@ -479,6 +501,7 @@ export function replaceFocusedMarketDetailRoute({
     navigation.dispatch({
       ...CommonActions.setParams(nextParams),
       ...(current.key ? { source: current.key } : {}),
+      ...(ownerKey ? { target: ownerKey } : {}),
     });
     return true;
   }
