@@ -23,12 +23,44 @@
 
 const GLOBAL_FLAG_KEY = '__ONEKEY_STARTUP_PROFILE__';
 const GLOBAL_STATS_KEY = '__ONEKEY_STARTUP_PROFILE_STATS__';
+const FUNCTION_TRACE_FLAG_KEY = '__ONEKEY_FUNCTION_TRACE__';
+const FUNCTION_TRACE_START_KEY = '__onekeyFunctionTraceStart';
+const FUNCTION_TRACE_END_KEY = '__onekeyFunctionTraceEnd';
 
 type IModStat = {
   id: string | number;
   selfMs: number;
   totalMs: number;
 };
+
+type IFunctionTraceMeta = {
+  name: string;
+  file: string;
+  line?: number;
+};
+
+type IFunctionTraceEntry = {
+  id: number;
+  start: number;
+  meta: IFunctionTraceMeta;
+};
+
+// The instrumentation cannot hold a per-call variable (react-native-worklets
+// would capture it as a worklet closure variable), so it passes an equal meta
+// object to both hooks and the open calls are tracked here instead.
+const functionTraceOpenCalls: IFunctionTraceEntry[] = [];
+// A function that never returns (a generator left suspended) never runs its
+// `finally`, so cap the list rather than let it grow for the whole session.
+const FUNCTION_TRACE_MAX_OPEN_CALLS = 20_000;
+
+function isSameFunctionTraceMeta(
+  a: IFunctionTraceMeta,
+  b: IFunctionTraceMeta,
+): boolean {
+  return (
+    a.name === b.name && a.file === b.file && (a.line ?? 0) === (b.line ?? 0)
+  );
+}
 
 export function isStartupProfileEnabled(): boolean {
   const g = globalThis as any;
@@ -38,6 +70,85 @@ export function isStartupProfileEnabled(): boolean {
   } catch {
     return false;
   }
+}
+
+let functionTraceId = 0;
+let functionTraceLogger: {
+  write: (level: number, message: string) => void;
+  level: number;
+} | null = null;
+const pendingFunctionTraceLogs: string[] = [];
+
+function writeFunctionTrace(message: string): void {
+  try {
+    if (!functionTraceLogger) {
+      const m =
+        require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+      functionTraceLogger = {
+        write: (level: number, logMessage: string) => {
+          m.NativeLogger.write(level, logMessage);
+        },
+        level: m.LogLevel.Error,
+      };
+    }
+    for (const pendingMessage of pendingFunctionTraceLogs.splice(0)) {
+      functionTraceLogger.write(functionTraceLogger.level, pendingMessage);
+    }
+    functionTraceLogger.write(functionTraceLogger.level, message);
+  } catch {
+    // Native logger may not be ready during the earliest runtime bootstrap.
+    if (pendingFunctionTraceLogs.length < 1000) {
+      pendingFunctionTraceLogs.push(message);
+    }
+  }
+}
+
+function functionTraceNow(): number {
+  return typeof performance !== 'undefined' && performance.now
+    ? performance.now()
+    : Date.now();
+}
+
+export function installFunctionTrace(): void {
+  const g = globalThis as any;
+  if (g[FUNCTION_TRACE_FLAG_KEY] !== true) return;
+  if (g[FUNCTION_TRACE_START_KEY] || g[FUNCTION_TRACE_END_KEY]) return;
+
+  g[FUNCTION_TRACE_START_KEY] = (meta: IFunctionTraceMeta) => {
+    if (!meta) return;
+    functionTraceId += 1;
+    const id = functionTraceId;
+    functionTraceOpenCalls.push({ id, start: functionTraceNow(), meta });
+    if (functionTraceOpenCalls.length > FUNCTION_TRACE_MAX_OPEN_CALLS) {
+      functionTraceOpenCalls.shift();
+    }
+    const runtime = g.__ONEKEY_RUNTIME_KIND__ ?? 'unknown';
+    writeFunctionTrace(
+      `[FunctionTrace] begin id=${id} ts=${Date.now()} runtime=${runtime} name=${meta.name} file=${meta.file} line=${meta.line ?? 0}`,
+    );
+  };
+
+  g[FUNCTION_TRACE_END_KEY] = (meta?: IFunctionTraceMeta) => {
+    if (!meta) return;
+    // Innermost match first: recursive and awaited calls of the same function
+    // then pair in the order they return.
+    let index = -1;
+    for (let i = functionTraceOpenCalls.length - 1; i >= 0; i -= 1) {
+      if (isSameFunctionTraceMeta(functionTraceOpenCalls[i].meta, meta)) {
+        index = i;
+        break;
+      }
+    }
+    // No match when the begin hook was installed later than this call started,
+    // or when its entry was dropped by the cap above.
+    if (index === -1) return;
+    const [entry] = functionTraceOpenCalls.splice(index, 1);
+    const runtime = g.__ONEKEY_RUNTIME_KIND__ ?? 'unknown';
+    const durationMs = functionTraceNow() - entry.start;
+    writeFunctionTrace(
+      `[FunctionTrace] end id=${entry.id} ts=${Date.now()} runtime=${runtime} name=${entry.meta.name} file=${entry.meta.file} line=${entry.meta.line ?? 0} durationMs=${durationMs.toFixed(3)}`,
+    );
+  };
 }
 
 // Diagnostic: emit a one-off NativeLogger line so when the profile flag is on

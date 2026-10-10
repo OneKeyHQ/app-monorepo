@@ -78,6 +78,19 @@ ONEKEY_STARTUP_PROFILE = YES
 ```
 Ship a profile-enabled TestFlight build to inspect real-device release timings.
 
+### Per-function tracing (`ONEKEY_FUNCTION_TRACE=1`)
+
+Heavier opt-in layer on top of the startup profile. `apps/mobile/plugins/functionTrace.js` wraps every first-party function body, and `installFunctionTrace()` writes one begin and one end line per call to `app-latest.log`:
+
+```
+[FunctionTrace] begin id=42 ts=1789650000123 runtime=main name=useSample file=packages/kit/src/views/Sample.tsx line=11
+[FunctionTrace] end id=42 ts=1789650000125 runtime=main name=useSample file=packages/kit/src/views/Sample.tsx line=11 durationMs=1.842
+```
+
+- **CI**: set `ENABLE_FUNCTION_TRACE` on `daily-build`, `daily-build-dev`, `release-ios` or `release-android`. It builds the `-function-trace` variant of the EAS profile the run would otherwise use (for example `production-store-function-trace`), so signing, the GPG setting and distribution are unchanged: `daily-build` still uploads to TestFlight and Google Play, while `daily-build-dev` and manual `release-ios`/`release-android` runs stay internal. `ENABLE_STARTUP_PROFILE` works the same way with the `-startup-profile` variants, without function tracing.
+- **Local**: export both `ONEKEY_STARTUP_PROFILE=1` and `ONEKEY_FUNCTION_TRACE=1` at bundle time. The trace flag is emitted by the startup-profile prologue, so `ONEKEY_FUNCTION_TRACE=1` alone installs no hooks. Metro's transform cache is namespaced (`function-trace-v1`), so traced and untraced builds don't reuse each other's transforms.
+- Tracing overhead distorts `[StartupProfile.js]` timings; use an `ENABLE_STARTUP_PROFILE` build for module timings. The accepted trade-offs (ERROR log level, log rotation, duplicate worklet events) are documented at the top of `apps/mobile/plugins/functionTrace.js`.
+
 ---
 
 ## What shows up in the log when enabled
