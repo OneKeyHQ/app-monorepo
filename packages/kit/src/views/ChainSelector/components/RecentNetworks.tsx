@@ -49,7 +49,13 @@ function RecentNetworkItem({
     >
       <XStack alignItems="center" gap="$2">
         <NetworkAvatar networkId={network.id} size={18} />
-        <SizableText textBreakStrategy="simple" size="$bodyMdMedium">
+        {/* Chips are single-line pills. Some Android ROMs draw text wider
+            than RN measured it, which wrapped the last word (OK-64008). */}
+        <SizableText
+          textBreakStrategy="simple"
+          size="$bodyMdMedium"
+          numberOfLines={1}
+        >
           {network.name}
         </SizableText>
       </XStack>
