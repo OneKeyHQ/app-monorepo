@@ -197,7 +197,7 @@ describe('useOnboardingDeviceScanErrorHandler', () => {
     expect(requestHardwareUiDialog).not.toHaveBeenCalled();
   });
 
-  it('opens the existing Linux USB permission guide without a second toast', () => {
+  it('leaves Linux USB permission guidance to the recovery service', () => {
     const originalIsDesktopLinux = platformEnv.isDesktopLinux;
     platformEnv.isDesktopLinux = true;
     try {
@@ -218,11 +218,7 @@ describe('useOnboardingDeviceScanErrorHandler', () => {
 
       expect(stopScan).toHaveBeenCalledTimes(1);
       expect(toastError).not.toHaveBeenCalled();
-      expect(requestHardwareUiDialog).toHaveBeenCalledTimes(1);
-      expect(requestHardwareUiDialog).toHaveBeenCalledWith(
-        EAppEventBusNames.ShowLinuxBundleUdevGuide,
-        { reason: 'webusb-access-denied' },
-      );
+      expect(requestHardwareUiDialog).not.toHaveBeenCalled();
     } finally {
       platformEnv.isDesktopLinux = originalIsDesktopLinux;
     }

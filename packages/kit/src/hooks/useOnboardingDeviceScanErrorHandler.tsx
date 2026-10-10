@@ -89,11 +89,8 @@ function showStoppedScanError(error: Error, intl: IntlShape) {
       code: HardwareErrorCode.BridgeNeedsPermission,
     })
   ) {
-    if (platformEnv.isDesktopLinux) {
-      appEventBus.emit(EAppEventBusNames.ShowLinuxBundleUdevGuide, {
-        reason: 'webusb-access-denied',
-      });
-    } else {
+    // Linux recovery owns the guide, including cancellation and session deduplication.
+    if (!platformEnv.isDesktopLinux) {
       Toast.error({
         title: intl.formatMessage({
           id: ETranslations.device_grant_usb_access,
