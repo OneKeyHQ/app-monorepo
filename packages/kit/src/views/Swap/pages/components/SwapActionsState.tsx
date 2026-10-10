@@ -25,6 +25,7 @@ import {
 import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useSwapActions,
@@ -74,7 +75,10 @@ import {
   useSwapAddressInfo,
   useSwapRecipientAddressInfo,
 } from '../../hooks/useSwapAccount';
-import { shouldShowSwapRecipientEntry } from '../../hooks/useSwapAccount.utils';
+import {
+  getSwapRecipientValidationAccountId,
+  shouldShowSwapRecipientEntry,
+} from '../../hooks/useSwapAccount.utils';
 import { useSwapDepositEntryPress } from '../../hooks/useSwapDepositEntry';
 import {
   shouldBlockSwapActionForIncognitoRecipientInput,
@@ -161,6 +165,7 @@ const SwapActionsState = ({
 }: ISwapActionsStateProps) => {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const isFocused = useRouteIsFocused();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [currentQuoteRes] = useSwapQuoteCurrentSelectAtom();
@@ -177,6 +182,13 @@ const SwapActionsState = ({
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
+  // Publishing a recipient must not change its own validation account or readiness.
+  const recipientValidationAddressInfo = useSwapAddressInfo(
+    ESwapDirectionType.TO,
+    {
+      useCustomRecipientAddress: false,
+    },
+  );
   const {
     cleanQuoteInterval,
     closeQuoteEvent,
@@ -350,13 +362,14 @@ const SwapActionsState = ({
   );
 
   const incognitoRecipientNetworkId =
-    toToken?.networkId ?? swapToAddressInfo.networkId;
+    toToken?.networkId ?? recipientValidationAddressInfo.networkId;
   const shouldValidateIncognitoRecipientInput = useMemo(
     () =>
       shouldEnableSwapIncognitoRecipientValidation({
         hasFromToken: Boolean(fromToken),
         hasToToken: Boolean(toToken),
-        isAddressInfoReady: swapToAddressInfo.isAddressInfoReady,
+        isAddressInfoReady:
+          recipientValidationAddressInfo.isRecipientValidationReady,
         networkId: incognitoRecipientNetworkId,
         providerSupportsRecipient: providerSupportReceiveAddressSettled,
         visible: shouldShowIncognitoRecipientInput,
@@ -366,7 +379,7 @@ const SwapActionsState = ({
       incognitoRecipientNetworkId,
       shouldShowIncognitoRecipientInput,
       providerSupportReceiveAddressSettled,
-      swapToAddressInfo.isAddressInfoReady,
+      recipientValidationAddressInfo.isRecipientValidationReady,
       toToken,
     ],
   );
@@ -377,15 +390,22 @@ const SwapActionsState = ({
   );
 
   const incognitoRecipientInput = useSwapIncognitoRecipientInput({
+    isActive: isFocused,
     visible: shouldShowIncognitoRecipientInput,
     validationEnabled: shouldValidateIncognitoRecipientInput,
     clearRecipientAddressOnHide,
     networkId: incognitoRecipientNetworkId,
-    accountId:
-      swapToAddressInfo.accountInfo?.account?.id ??
-      swapToAddressInfo.activeAccount?.account?.id,
+    validationScopeKey: recipientValidationAddressInfo.validationScopeKey,
+    accountId: getSwapRecipientValidationAccountId({
+      accountId: recipientValidationAddressInfo.accountInfo?.account?.id,
+      accountAddress:
+        recipientValidationAddressInfo.accountInfo?.account?.addressDetail
+          ?.address,
+      recipientAddress: recipientValidationAddressInfo.address,
+    }),
     accountInfo:
-      swapToAddressInfo.accountInfo ?? swapToAddressInfo.activeAccount,
+      recipientValidationAddressInfo.accountInfo ??
+      recipientValidationAddressInfo.activeAccount,
     address: swapToAnotherAccountAddress.address,
     swapToAnotherAccountSwitchOn,
   });
@@ -455,8 +475,6 @@ const SwapActionsState = ({
     onClose: refreshFromTokenBalance,
   });
 
-  // Depositing needs no quote, so the deposit state never shows the quote
-  // loading animation in place of its label.
   const shouldShowQuoteActionLoading =
     !noConnectWallet &&
     !swapActionState.isRefreshQuote &&
@@ -518,8 +536,8 @@ const SwapActionsState = ({
     onPreSwap();
   }, [
     currentQuoteRes?.kind,
-    navigation,
     onDepositToTrade,
+    navigation,
     onOpenRecipientAddress,
     onPreSwap,
     onRefreshQuote,

@@ -368,6 +368,8 @@ const fromAddressInfo: ISwapAddressInfo = {
   accountInfo: activeAccountInfo,
   activeAccount: activeAccountInfo,
   isAddressInfoReady: true,
+  isRecipientValidationReady: true,
+  validationScopeKey: 'source|evm--1',
 };
 
 function createDeferred<T>() {
@@ -5376,6 +5378,8 @@ describe('useSwapActions', () => {
         wallet: externalWallet,
       },
       isAddressInfoReady: true,
+      isRecipientValidationReady: true,
+      validationScopeKey: 'disconnected|evm--1',
     };
 
     const { result } = renderHook(() => useSwapActions().current, {

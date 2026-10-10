@@ -200,6 +200,8 @@ beforeEach(() => {
     accountInfo: fromAccountInfo,
     activeAccount: fromAccountInfo,
     isAddressInfoReady: true,
+    isRecipientValidationReady: true,
+    validationScopeKey: '',
   };
   mockToAddressInfo = {
     address: toAccountInfo.account?.address,
@@ -207,6 +209,8 @@ beforeEach(() => {
     accountInfo: toAccountInfo,
     activeAccount: toAccountInfo,
     isAddressInfoReady: true,
+    isRecipientValidationReady: true,
+    validationScopeKey: '',
   };
 });
 
