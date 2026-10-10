@@ -308,15 +308,23 @@ export function dismissDiscoveryMarketDetailForTrade(
   const index = stack?.index ?? (routes?.length ?? 0) - 1;
   if (
     !stack?.key ||
-    !routes?.some((route) => route.name === ETabDiscoveryRoutes.TabDiscovery) ||
+    !routes ||
     index <= 0 ||
     routes[index]?.key !== current.key
   ) {
     return;
   }
-  // Target only this detail's stack; keep unrelated tab and overlay history.
+  let listIndex = index - 1;
+  while (
+    listIndex >= 0 &&
+    isReplaceableMarketDetailRouteName(routes[listIndex]?.name)
+  ) {
+    listIndex -= 1;
+  }
+  if (routes[listIndex]?.name !== ETabDiscoveryRoutes.TabDiscovery) return;
+  // Remove consecutive details above the list, preserving its params and history.
   navigation?.dispatch({
-    ...StackActions.pop(1),
+    ...StackActions.pop(index - listIndex),
     source: current.key,
     target: stack.key,
   });

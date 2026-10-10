@@ -220,6 +220,60 @@ describe('marketDetailNavigation', () => {
       expect(updated?.routes).toEqual([discoveryStack.routes[0]]);
     });
 
+    it('returns past stacked details while preserving history below the list', () => {
+      const router = StackRouter({});
+      const config = {
+        routeNames: [
+          'previous-screen',
+          'TabDiscovery',
+          'MarketDetailV2',
+          'MarketStockDetail',
+        ],
+        routeParamList: {},
+        routeGetIdList: {},
+      };
+      const routes = [
+        { key: 'previous', name: 'previous-screen' },
+        discoveryStack.routes[0],
+        { key: 'older-detail', name: 'MarketStockDetail' },
+        discoveryStack.routes[1],
+      ];
+      const stack = {
+        ...router.getInitialState(config),
+        ...discoveryStack,
+        index: 3,
+        routes,
+      };
+      getRootStateMock.mockReturnValue(stack);
+      dismissDiscoveryMarketDetailForTrade('detail');
+      const action = dispatchMock.mock.calls[0]?.[0] as Parameters<
+        typeof router.getStateForAction
+      >[1];
+      expect(action).toMatchObject({
+        type: 'POP',
+        payload: { count: 2 },
+        source: 'detail',
+        target: 'discovery-stack',
+      });
+      const updated = router.getStateForAction(stack, action, config);
+      expect(updated?.index).toBe(1);
+      expect(updated?.routes).toEqual(routes.slice(0, 2));
+    });
+
+    it('does not remove unrelated screens between the list and detail', () => {
+      getRootStateMock.mockReturnValue({
+        ...discoveryStack,
+        index: 2,
+        routes: [
+          discoveryStack.routes[0],
+          { key: 'other-screen', name: 'other-screen' },
+          discoveryStack.routes[1],
+        ],
+      });
+      dismissDiscoveryMarketDetailForTrade('detail');
+      expect(dispatchMock).not.toHaveBeenCalled();
+    });
+
     it.each(['TabDiscovery', 'MobileTokenSelector', 'SwapProMarketDetail'])(
       'preserves history when the focused route is %s',
       (name) => {
