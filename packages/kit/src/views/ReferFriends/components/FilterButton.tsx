@@ -7,6 +7,8 @@ import {
   Button,
   Icon,
   IconButton,
+  SizableText,
+  Stack,
   useMedia,
 } from '@onekeyhq/components';
 import type { IActionListItemProps } from '@onekeyhq/components';
@@ -26,6 +28,27 @@ export interface IFilterState {
 interface IFilterButtonProps {
   filterState: IFilterState;
   onFilterChange: (updates: Partial<IFilterState>) => void;
+}
+
+// Marks an active invite-code filter on both layouts. A solid funnel read
+// as a pressed or broken button, so the icon stays outlined and gains a dot,
+// like a badge, in the trigger's top-right corner.
+function FilterActiveDot() {
+  return (
+    <Stack
+      testID={ReferFriendsTestIDs.filterActiveDot}
+      position="absolute"
+      top={-1}
+      right={-1}
+      w="$2.5"
+      h="$2.5"
+      borderRadius="$full"
+      borderWidth={2}
+      borderColor="$bgApp"
+      bg="$iconSuccess"
+      pointerEvents="none"
+    />
+  );
 }
 
 export function FilterButton({
@@ -119,9 +142,13 @@ export function FilterButton({
           <Button
             testID={ReferFriendsTestIDs.filterBtn}
             size="small"
-            icon={hasActiveFilters ? 'Filter1Solid' : 'Filter1Outline'}
+            icon="Filter1Outline"
+            childrenAsText={false}
           >
-            {intl.formatMessage({ id: ETranslations.referral_filter })}
+            <SizableText size="$bodyMdMedium">
+              {intl.formatMessage({ id: ETranslations.referral_filter })}
+            </SizableText>
+            {hasActiveFilters ? <FilterActiveDot /> : null}
           </Button>
         }
         sections={sections}
@@ -135,12 +162,15 @@ export function FilterButton({
 
   // Mobile: Use ActionList.show() to avoid Portal nesting issues
   return (
-    <IconButton
-      testID={ReferFriendsTestIDs.filterBtn}
-      icon={hasActiveFilters ? 'Filter1Solid' : 'Filter1Outline'}
-      variant="tertiary"
-      title={intl.formatMessage({ id: ETranslations.referral_filter })}
-      onPress={handleMobileClick}
-    />
+    <Stack position="relative">
+      <IconButton
+        testID={ReferFriendsTestIDs.filterBtn}
+        icon="Filter1Outline"
+        variant="tertiary"
+        title={intl.formatMessage({ id: ETranslations.referral_filter })}
+        onPress={handleMobileClick}
+      />
+      {hasActiveFilters ? <FilterActiveDot /> : null}
+    </Stack>
   );
 }

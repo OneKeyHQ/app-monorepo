@@ -1,11 +1,15 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 
-import { type IntlShape, useIntl } from 'react-intl';
+import { isEqual } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { sortCommissionRateItems } from '@onekeyhq/kit/src/views/ReferFriends/utils';
-import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  getDisplayLabel,
+  sortCommissionRateItems,
+} from '@onekeyhq/kit/src/views/ReferFriends/utils';
+import type { IInviteLevelDetail } from '@onekeyhq/shared/src/referralCode/type';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import type {
@@ -13,36 +17,41 @@ import type {
   IUseCurrentLevelCardReturn,
 } from '../types';
 
-function getDisplayLabel(
-  intl: IntlShape,
-  labelKey?: string,
-  fallback?: string,
-): string {
-  if (labelKey) {
-    return intl.formatMessage({
-      id: labelKey as ETranslations,
-      defaultMessage: fallback,
-    });
-  }
-  return fallback ?? '';
-}
-
-export function useCurrentLevelCard(
-  props: ICurrentLevelCardProps,
-): IUseCurrentLevelCardReturn {
-  const { rebateConfig, rebateLevels } = props;
-  const intl = useIntl();
-
-  const { result: levelDetail } = usePromiseResult(
-    () => backgroundApiProxy.serviceReferralCode.getLevelDetail(),
+export function useInviteLevelDetail({ isActive }: { isActive: boolean }): {
+  levelDetail: IInviteLevelDetail | undefined;
+  refreshLevelDetail: () => Promise<void>;
+} {
+  // An unchanged poll returns the previous object, so the one-minute polling
+  // does not re-render the invite page.
+  const lastRef = useRef<IInviteLevelDetail | undefined>(undefined);
+  const { result, run } = usePromiseResult(
+    async () => {
+      const detail =
+        await backgroundApiProxy.serviceReferralCode.getLevelDetail();
+      if (lastRef.current && isEqual(detail, lastRef.current)) {
+        return lastRef.current;
+      }
+      lastRef.current = detail;
+      return detail;
+    },
     [],
     {
       initResult: undefined,
       pollingInterval: timerUtils.getTimeDurationMs({ minute: 1 }),
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
+      overrideIsFocused: (isPageFocused) => isPageFocused && isActive,
     },
   );
+  return { levelDetail: result, refreshLevelDetail: run };
+}
+
+export function useCurrentLevelCardFromDetail(
+  props: ICurrentLevelCardProps,
+  levelDetail: IInviteLevelDetail | undefined,
+): IUseCurrentLevelCardReturn {
+  const { rebateConfig, rebateLevels } = props;
+  const intl = useIntl();
 
   return useMemo(() => {
     const currentLevel = rebateConfig;
@@ -66,14 +75,7 @@ export function useCurrentLevelCard(
       detailLevel?.label ?? basicLevelInfo?.label ?? currentLevel.label,
     );
 
-    let commissionRates: Array<{
-      subject: string;
-      rate: {
-        you: number;
-        invitee: number;
-        label: string;
-      };
-    }> = [];
+    let commissionRates: IUseCurrentLevelCardReturn['commissionRates'] = [];
 
     const rates =
       detailLevel?.commissionRates ??
@@ -94,6 +96,7 @@ export function useCurrentLevelCard(
               rate.commissionRatesLabelKey ?? rate.labelKey,
               rate.commissionRatesLabel ?? rate.label,
             ),
+            enabled: rate.enabled === true,
           },
         }));
       } else {
@@ -107,6 +110,7 @@ export function useCurrentLevelCard(
               rate.commissionRatesLabelKey ?? rate.labelKey,
               rate.commissionRatesLabel ?? rate.label ?? subject,
             ),
+            enabled: rate.enabled === true,
           },
         }));
       }
@@ -115,9 +119,8 @@ export function useCurrentLevelCard(
     }
 
     return {
-      currentLevel,
-      levelIcon,
       levelLabel,
+      levelIcon,
       commissionRates,
     };
   }, [intl, levelDetail, rebateConfig, rebateLevels]);
