@@ -21702,6 +21702,7 @@
     "packages/kit/src/views/Home/pages/nativeHomePortfolioViewModel.ts": 14120,
     "packages/kit/src/views/Home/pages/nativeHomeRendererDecision.ts": 1668,
     "packages/kit/src/views/Home/pages/nativeHomeSpotMarketViewModel.ts": 5745,
+    "packages/kit/src/views/Home/pages/perpsChainTrace.ts": 23250,
     "packages/kit/src/views/Home/pages/redeemBitcoinVoucher/RedeemBitcoinVoucherLandingPage.tsx": 9891,
     "packages/kit/src/views/Home/pages/referralLanding/ReferralLandingPage.tsx": 7264,
     "packages/kit/src/views/Home/pages/referralLanding/components/ReferralWebLanding.tsx": 17381,
