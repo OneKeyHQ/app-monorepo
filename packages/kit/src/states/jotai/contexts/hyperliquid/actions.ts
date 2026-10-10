@@ -130,6 +130,7 @@ import {
   sortActivePerpsPositions,
 } from './utils/coldStartMergeUtils';
 import {
+  getPerpsActiveAccountChangedMessage,
   getPerpsOrderChangedMessage,
   getPerpsOrderNoLongerEligibleForChaseMessage,
   getPerpsTokenInfoNotFoundMessage,
@@ -555,11 +556,19 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       atom: ReturnType<typeof perpsActiveOpenOrdersAtom>,
     ) => IPerpsActiveOpenOrdersAtom,
     oid: number,
+    expectedAccountAddress?: string,
   ): Promise<HL.IPerpsFrontendOrder | undefined> {
     const activeAccount = await perpsActiveAccountAtom.get();
     const activeAccountAddress = normalizePerpsAccountAddress(
       activeAccount?.accountAddress,
     );
+    if (
+      expectedAccountAddress !== undefined &&
+      activeAccountAddress !==
+        normalizePerpsAccountAddress(expectedAccountAddress)
+    ) {
+      throw new OneKeyLocalError(getPerpsActiveAccountChangedMessage());
+    }
     if (!activeAccountAddress) {
       return undefined;
     }
@@ -3320,18 +3329,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         expectedAccountAddress: string;
       },
     ) => {
-      const existing = await this.findChartOrder(get, params.oid);
-      // Replacing an unchanged ALO order only loses its queue priority.
-      if (
-        existing?.tif === 'Alo' &&
-        existing.coin === params.coin &&
-        new BigNumber(existing.limitPx).eq(params.newPrice)
-      ) {
-        return undefined;
-      }
-
       return withToast({
         asyncFn: async () => {
+          const existing = await this.findChartOrder(
+            get,
+            params.oid,
+            params.expectedAccountAddress,
+          );
           if (!existing) {
             throw new OneKeyLocalError(getPerpsOrderChangedMessage());
           }
@@ -3348,6 +3352,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               getPerpsOrderNoLongerEligibleForChaseMessage(),
             );
           }
+          // Replacing an unchanged ALO order only loses its queue priority.
+          if (
+            existing.tif === 'Alo' &&
+            new BigNumber(existing.limitPx).eq(params.newPrice)
+          ) {
+            return undefined;
+          }
           return backgroundApiProxy.serviceHyperliquidExchange.amendOrderPriceByOid(
             {
               coin: params.coin,
@@ -3363,6 +3374,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           );
         },
         actionType: EActionType.MODIFY_ORDER,
+        shouldShowSuccess: (result) => result !== undefined,
       });
     },
   );

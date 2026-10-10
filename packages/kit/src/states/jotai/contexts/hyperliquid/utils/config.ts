@@ -8,6 +8,9 @@ import type { IToastConfig } from './types';
 
 const t = (id: ETranslations) => () => appLocale.intl.formatMessage({ id });
 
+export const getPerpsActiveAccountChangedMessage = t(
+  ETranslations.active_trading_account_changed__msg,
+);
 export const getPerpsOrderChangedMessage = t(
   ETranslations.order_changed_try_again__msg,
 );

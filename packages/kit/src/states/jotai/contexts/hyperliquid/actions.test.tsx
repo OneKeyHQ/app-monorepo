@@ -459,7 +459,53 @@ describe('useHyperliquidActions.loadTwapData', () => {
 });
 
 describe('useHyperliquidActions.chaseOrder', () => {
+  const accountAddress = '0xabcd';
+
   afterEach(() => jest.restoreAllMocks());
+
+  function setup(overrides: Partial<HL.IPerpsFrontendOrder> = {}) {
+    jest.spyOn(perpsActiveAccountAtom, 'get').mockResolvedValue({
+      accountId: null,
+      indexedAccountId: null,
+      deriveType: 'default',
+      accountAddress,
+    });
+    const order: HL.IPerpsFrontendOrder = {
+      coin: 'BTC',
+      oid: 1,
+      orderType: 'Limit',
+      tif: 'Alo',
+      side: 'B',
+      limitPx: '100',
+      sz: '0.25',
+      origSz: '1',
+      reduceOnly: false,
+      isTrigger: false,
+      isPositionTpsl: false,
+      triggerCondition: '',
+      triggerPx: '0',
+      timestamp: 1,
+      cloid: null,
+      children: [],
+      ...overrides,
+    };
+    const store = createStore();
+    store.set(perpsActiveOpenOrdersAtom(), {
+      accountAddress,
+      openOrders: [order],
+      openOrdersByCoin: { BTC: [order] },
+    });
+    mockAmendOrderPriceByOid.mockReset().mockResolvedValue({
+      status: 'ok',
+      response: { type: 'default' },
+    });
+    jest.mocked(Toast.success).mockClear();
+    jest.mocked(Toast.error).mockClear();
+    const { result } = renderHook(() => useHyperliquidActions(), {
+      wrapper: createWrapper(store),
+    });
+    return { result, order };
+  }
 
   it.each([
     ['Alo', '100.00', false],
@@ -468,46 +514,7 @@ describe('useHyperliquidActions.chaseOrder', () => {
   ] as const)(
     'chases %s at %s only when price or TIF changes',
     async (tif, newPrice, shouldAmend) => {
-      const accountAddress = '0xabcd';
-      jest.spyOn(perpsActiveAccountAtom, 'get').mockResolvedValue({
-        accountId: null,
-        indexedAccountId: null,
-        deriveType: 'default',
-        accountAddress,
-      });
-      const order: HL.IPerpsFrontendOrder = {
-        coin: 'BTC',
-        oid: 1,
-        orderType: 'Limit',
-        tif,
-        side: 'B',
-        limitPx: '100',
-        sz: '0.25',
-        origSz: '1',
-        reduceOnly: false,
-        isTrigger: false,
-        isPositionTpsl: false,
-        triggerCondition: '',
-        triggerPx: '0',
-        timestamp: 1,
-        cloid: null,
-        children: [],
-      };
-      const store = createStore();
-      store.set(perpsActiveOpenOrdersAtom(), {
-        accountAddress,
-        openOrders: [order],
-        openOrdersByCoin: { BTC: [order] },
-      });
-      mockAmendOrderPriceByOid.mockReset().mockResolvedValue({
-        status: 'ok',
-        response: { type: 'default' },
-      });
-      jest.mocked(Toast.success).mockClear();
-      const { result } = renderHook(() => useHyperliquidActions(), {
-        wrapper: createWrapper(store),
-      });
-
+      const { result, order } = setup({ tif });
       await act(async () => {
         await result.current.current.chaseOrder({
           coin: order.coin,
@@ -529,6 +536,33 @@ describe('useHyperliquidActions.chaseOrder', () => {
           }),
         );
       }
+    },
+  );
+
+  it.each(['ineligible order', 'changed account', 'lookup failure'])(
+    'reports %s even when an ALO order has the target price',
+    async (scenario) => {
+      const { result, order } = setup(
+        scenario === 'ineligible order' ? { sz: '0' } : {},
+      );
+      if (scenario === 'lookup failure') {
+        jest
+          .mocked(perpsActiveAccountAtom.get)
+          .mockRejectedValueOnce(new OneKeyLocalError('Order lookup failed'));
+      }
+      await expect(
+        result.current.current.chaseOrder({
+          coin: order.coin,
+          oid: order.oid,
+          newPrice: '100.00',
+          expectedAccountAddress:
+            scenario === 'changed account' ? '0xdef0' : accountAddress,
+        }),
+      ).rejects.toThrow();
+
+      await waitFor(() => expect(Toast.error).toHaveBeenCalledTimes(1));
+      expect(Toast.success).not.toHaveBeenCalled();
+      expect(mockAmendOrderPriceByOid).not.toHaveBeenCalled();
     },
   );
 });
