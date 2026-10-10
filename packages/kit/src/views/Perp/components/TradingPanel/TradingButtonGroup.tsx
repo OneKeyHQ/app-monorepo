@@ -29,6 +29,7 @@ import {
   type ITradingFormData,
   type ITradingFormEmptySizeParams,
   useActiveTradeInstrumentAtom,
+  useHyperliquidActions,
   usePerpsActivePositionAtom,
   useTradingFormAtom,
   useTradingFormEmptySizeParams,
@@ -444,6 +445,7 @@ function SideButtonInternal({
   justifyContent = 'flex-start',
 }: ISideButtonProps) {
   const intl = useIntl();
+  const actions = useHyperliquidActions();
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const [perpsAccount] = usePerpsActiveAccountAtom();
@@ -1429,6 +1431,26 @@ function SideButtonInternal({
       };
 
       const preEnableOrderPanelState = latestOrderPanelStateRef.current;
+      if (
+        preEnableOrderPanelState.isTwapMode &&
+        preEnableOrderPanelState.formData.side !== side &&
+        preEnableOrderPanelState.formData.twapStopPrice?.trim()
+      ) {
+        // Keep the price protection while the user reviews the opposite side.
+        actions.current.updateTradingForm({
+          side,
+          twapStopPrice: preEnableOrderPanelState.formData.twapStopPrice,
+        });
+        Toast.message({
+          title: intl.formatMessage({
+            id:
+              side === 'long'
+                ? ETranslations.perp_scale_upper_price_placeholder__desc
+                : ETranslations.perp_scale_lower_price_placeholder__desc,
+          }),
+        });
+        return;
+      }
       let hasLoggedDeferredClick = false;
 
       if (shouldEnableTradingBeforeOrder) {

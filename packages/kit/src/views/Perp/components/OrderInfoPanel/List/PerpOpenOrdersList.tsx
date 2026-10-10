@@ -423,6 +423,12 @@ function PerpOpenOrdersList({
     ];
   }, [activeOpenOrdersSubTab, filteredOrders, filteredTwapOrders, isMobile]);
 
+  const pageSize = isMobile ? 20 : 40;
+  const totalPages = Math.max(1, Math.ceil(displayRows.length / pageSize));
+  useEffect(() => {
+    setCurrentListPage((page) => Math.min(page, totalPages));
+  }, [totalPages]);
+
   const hasChaseAction = displayRows.some(
     (row) =>
       row.type === 'single' &&
@@ -889,7 +895,7 @@ function PerpOpenOrdersList({
         useTabsList={useTabsList}
         disableListScroll={disableListScroll}
         enablePagination
-        pageSize={isMobile ? 20 : 40}
+        pageSize={pageSize}
         paginationToBottom={isMobile}
         currentListPage={currentListPage}
         setCurrentListPage={setCurrentListPage}
