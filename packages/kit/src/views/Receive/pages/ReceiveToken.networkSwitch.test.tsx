@@ -21,6 +21,10 @@ const mockToastError = jest.fn<void, [unknown]>();
 const mockFindAggregateGroup = jest.fn<Promise<unknown>, [unknown]>(
   async () => undefined,
 );
+const mockGetVaultSettings = jest.fn<
+  Promise<{ mergeDeriveAssetsEnabled: boolean }>,
+  [unknown]
+>(async () => ({ mergeDeriveAssetsEnabled: false }));
 const mockFetchWalletBanner = jest.fn<
   Promise<unknown[]>,
   [{ accountId?: string }]
@@ -269,9 +273,7 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
     },
     serviceNetwork: {
       getReceiveArrivalConfig: jest.fn(async () => undefined),
-      getVaultSettings: jest.fn(async () => ({
-        mergeDeriveAssetsEnabled: false,
-      })),
+      getVaultSettings: (params: unknown) => mockGetVaultSettings(params),
       getNetwork: jest.fn(
         async ({ networkId }: { networkId: string }) => NETWORKS[networkId],
       ),
@@ -530,6 +532,8 @@ describe('ReceiveToken network switch', () => {
     mockFindAggregateGroup.mockResolvedValue(undefined);
     mockFetchWalletBanner.mockReset();
     mockFetchWalletBanner.mockResolvedValue([]);
+    mockGetVaultSettings.mockReset();
+    mockGetVaultSettings.mockResolvedValue({ mergeDeriveAssetsEnabled: false });
   });
 
   it('shows the trigger only for a switchable entry', async () => {
@@ -733,6 +737,109 @@ describe('ReceiveToken network switch', () => {
     expect(mockShowReceived).toHaveBeenCalledWith(
       expect.objectContaining({ isSuccess: true }),
     );
+  });
+
+  it('does not start a verification against the previous network while a switch is resolving', async () => {
+    mockVerifyHWAccountAddresses.mockResolvedValue(['0xbbb']);
+    mockRouteParams = buildParams('hw');
+    const { getByTestId, queryByTestId } = render(<ReceiveToken />);
+    await waitFor(() =>
+      expect(getByTestId('receive-verify-on-device-button')).not.toBeNull(),
+    );
+
+    let finishLookup: (settings: {
+      mergeDeriveAssetsEnabled: boolean;
+    }) => void = () => undefined;
+    mockGetVaultSettings.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishLookup = resolve;
+        }),
+    );
+    fireEvent.click(getByTestId('receive-card-network-trigger'));
+    const { params } = mockPushModal.mock.calls[
+      mockPushModal.mock.calls.length - 1
+    ][1] as {
+      params: {
+        onSelect: (
+          token: IAccountToken,
+          context?: { network?: unknown },
+        ) => Promise<void>;
+      };
+    };
+    let switching: Promise<void> = Promise.resolve();
+    act(() => {
+      switching = params.onSelect(
+        member('evm--8453', { accountId: 'hw-1--base' }),
+        { network: NETWORKS['evm--8453'] },
+      );
+    });
+
+    // The target lookup is still out and the page still shows Ethereum: a
+    // press now would verify the address the page is about to leave.
+    fireEvent.click(getByTestId('receive-verify-on-device-button'));
+    expect(mockVerifyHWAccountAddresses).not.toHaveBeenCalled();
+
+    await act(async () => {
+      finishLookup({ mergeDeriveAssetsEnabled: false });
+      await switching;
+    });
+    await waitFor(() =>
+      expect(getByTestId('receive-card-network-eta').textContent).toBe(
+        'Base (~1 min)',
+      ),
+    );
+    expect(queryByTestId('address')).toBeNull();
+
+    // Once the target is on screen, verification is aimed at it.
+    fireEvent.click(getByTestId('receive-verify-on-device-button'));
+    await waitFor(() =>
+      expect(mockVerifyHWAccountAddresses).toHaveBeenCalledTimes(1),
+    );
+    expect(mockVerifyHWAccountAddresses).toHaveBeenCalledWith(
+      expect.objectContaining({
+        networkId: 'evm--8453',
+        expectedAddress: '0xbbb',
+      }),
+    );
+  });
+
+  it('leaves the page unverified when the shown address changed during a verification', async () => {
+    let finishVerify: (addresses: string[]) => void = () => undefined;
+    mockVerifyHWAccountAddresses.mockImplementation(
+      () =>
+        new Promise<string[]>((resolve) => {
+          finishVerify = resolve;
+        }),
+    );
+    mockRouteParams = buildParams('hw');
+    const { getByTestId, queryByTestId, rerender } = render(<ReceiveToken />);
+    await waitFor(() =>
+      expect(getByTestId('receive-verify-on-device-button')).not.toBeNull(),
+    );
+    fireEvent.click(getByTestId('receive-verify-on-device-button'));
+    await waitFor(() =>
+      expect(mockVerifyHWAccountAddresses).toHaveBeenCalledTimes(1),
+    );
+
+    // The account behind the page is replaced while the device is asked.
+    const original = ACCOUNTS['hw-1--evm1'];
+    ACCOUNTS['hw-1--evm1'] = { ...original, address: '0xccc' };
+    try {
+      rerender(<ReceiveToken />);
+      // The device confirms the address the attempt started with.
+      await act(async () => {
+        finishVerify(['0xaaa']);
+      });
+      await waitFor(() =>
+        expect(getByTestId('receive-verify-on-device-button')).not.toBeNull(),
+      );
+      // 0xccc was never confirmed on the device, so it stays hidden.
+      expect(queryByTestId('address')).toBeNull();
+      expect(queryByTestId('qr-value')).toBeNull();
+    } finally {
+      ACCOUNTS['hw-1--evm1'] = original;
+    }
   });
 
   it('keeps the placeholder with a tappable header when the account cannot be resolved', async () => {

@@ -139,6 +139,10 @@ function ReceiveToken() {
   // Monotonic switch sequence: every async writer compares against it before
   // landing, so a slow lookup from an earlier switch can never win.
   const switchSeqRef = useRef(0);
+  // True while a switch looks up its target. The page still shows the
+  // previous network then, and a verification started against it would
+  // settle after the switch.
+  const isSwitchResolvingRef = useRef(false);
 
   const networkId = currentNetworkId;
   const accountId = currentAccountId;
@@ -284,6 +288,10 @@ function ReceiveToken() {
   const verificationPath = isBtcUsedAddressVerifyMode
     ? btcUsedAddressPath
     : currentAccount?.addressDetail?.receiveAddressPath;
+  // What the page shows right now. A verification settles for the address it
+  // was started with, which the page may have left by then.
+  const shownAddressRef = useRef({ networkId, address: displayAddress });
+  shownAddressRef.current = { networkId, address: displayAddress };
 
   const { bottom } = useSafeAreaInsets();
 
@@ -475,7 +483,7 @@ function ReceiveToken() {
   }, []);
 
   const handleVerifyOnDevicePress = useCallback(async () => {
-    if (isVerifyingRef.current) return;
+    if (isVerifyingRef.current || isSwitchResolvingRef.current) return;
     if (!currentDeriveType) return;
     if (!displayAddress) {
       setAddressState(EAddressState.Unverified);
@@ -529,9 +537,16 @@ function ReceiveToken() {
           },
         });
       }
+      // The device confirmed the address this attempt started with. If the
+      // page shows another network or address by now, that one is unverified.
+      const isShownAddress =
+        shownAddressRef.current.networkId === networkId &&
+        shownAddressRef.current.address === displayAddress;
       if (verifyAttemptRef.current === attempt) {
         setAddressState(
-          isSameAddress ? EAddressState.Verified : EAddressState.Unverified,
+          isSameAddress && isShownAddress
+            ? EAddressState.Verified
+            : EAddressState.Unverified,
         );
       }
     } catch (e: any) {
@@ -972,64 +987,77 @@ function ReceiveToken() {
       }
       const seq = switchSeqRef.current + 1;
       switchSeqRef.current = seq;
-      resetVerifyState();
-      defaultLogger.transaction.receive.receiveSwitchNetwork({
-        fromNetworkId: networkId,
-        toNetworkId: targetNetworkId,
-        source: routeSource ?? 'unknown',
-        listType: switchEntry === 'network' ? 'all' : 'aggregate',
-        walletType: wallet?.type,
-        deviceType: wallet?.associatedDeviceInfo?.deviceType,
-        createdAddress: !!selectContext?.createdAddress,
-        isAllNetworksMode,
-      });
-
-      const [settings, targetNetwork] = await Promise.all([
-        backgroundApiProxy.serviceNetwork.getVaultSettings({
-          networkId: targetNetworkId,
-        }),
-        targetNetworkHint
-          ? Promise.resolve(targetNetworkHint)
-          : backgroundApiProxy.serviceNetwork.getNetwork({
-              networkId: targetNetworkId,
-            }),
-      ]);
-      if (seq !== switchSeqRef.current) {
-        return;
-      }
-      // Multi-address-type chains derive the account from the indexed
-      // account (same as entering with an empty accountId); other chains use
-      // the account the selected row carries.
-      const useDerivePath =
-        !!settings.mergeDeriveAssetsEnabled &&
-        !!indexedAccountId &&
-        !accountUtils.isOthersWallet({ walletId });
-      if (!useDerivePath && !targetAccountId) {
-        Toast.error({
-          title: intl.formatMessage({ id: ETranslations.global_unknown_error }),
+      isSwitchResolvingRef.current = true;
+      try {
+        resetVerifyState();
+        defaultLogger.transaction.receive.receiveSwitchNetwork({
+          fromNetworkId: networkId,
+          toNetworkId: targetNetworkId,
+          source: routeSource ?? 'unknown',
+          listType: switchEntry === 'network' ? 'all' : 'aggregate',
+          walletType: wallet?.type,
+          deviceType: wallet?.associatedDeviceInfo?.deviceType,
+          createdAddress: !!selectContext?.createdAddress,
+          isAllNetworksMode,
         });
-        return;
-      }
 
-      setIsSwitchPending(true);
-      setCurrentNetwork(targetNetwork);
-      setCurrentVaultSettings(settings);
-      setCurrentAccount(undefined);
-      setCurrentDeriveType(undefined);
-      setCurrentDeriveInfo(undefined);
-      setNetworkLogoColor(null);
-      setCurrentToken(targetToken);
-      if (selectContext?.aggregateToken) {
-        setAggregateGroup((prev) => ({
-          aggregateToken: selectContext.aggregateToken ?? prev.aggregateToken,
-          aggregateSubTokenList:
-            selectContext.aggregateSubTokenList ?? prev.aggregateSubTokenList,
-          allAggregateTokenList:
-            selectContext.allAggregateTokenList ?? prev.allAggregateTokenList,
-        }));
+        const [settings, targetNetwork] = await Promise.all([
+          backgroundApiProxy.serviceNetwork.getVaultSettings({
+            networkId: targetNetworkId,
+          }),
+          targetNetworkHint
+            ? Promise.resolve(targetNetworkHint)
+            : backgroundApiProxy.serviceNetwork.getNetwork({
+                networkId: targetNetworkId,
+              }),
+        ]);
+        if (seq !== switchSeqRef.current) {
+          return;
+        }
+        // Multi-address-type chains derive the account from the indexed
+        // account (same as entering with an empty accountId); other chains
+        // use the account the selected row carries.
+        const useDerivePath =
+          !!settings.mergeDeriveAssetsEnabled &&
+          !!indexedAccountId &&
+          !accountUtils.isOthersWallet({ walletId });
+        if (!useDerivePath && !targetAccountId) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_unknown_error,
+            }),
+          });
+          return;
+        }
+
+        // Committing the target: nothing started against the previous
+        // network may settle into the new one.
+        resetVerifyState();
+        setIsSwitchPending(true);
+        setCurrentNetwork(targetNetwork);
+        setCurrentVaultSettings(settings);
+        setCurrentAccount(undefined);
+        setCurrentDeriveType(undefined);
+        setCurrentDeriveInfo(undefined);
+        setNetworkLogoColor(null);
+        setCurrentToken(targetToken);
+        if (selectContext?.aggregateToken) {
+          setAggregateGroup((prev) => ({
+            aggregateToken: selectContext.aggregateToken ?? prev.aggregateToken,
+            aggregateSubTokenList:
+              selectContext.aggregateSubTokenList ?? prev.aggregateSubTokenList,
+            allAggregateTokenList:
+              selectContext.allAggregateTokenList ?? prev.allAggregateTokenList,
+          }));
+        }
+        setCurrentNetworkId(targetNetworkId);
+        setCurrentAccountId(useDerivePath ? '' : (targetAccountId ?? ''));
+      } finally {
+        // A newer switch owns the guard from the moment it starts.
+        if (seq === switchSeqRef.current) {
+          isSwitchResolvingRef.current = false;
+        }
       }
-      setCurrentNetworkId(targetNetworkId);
-      setCurrentAccountId(useDerivePath ? '' : (targetAccountId ?? ''));
     },
     [
       switchEntry,
