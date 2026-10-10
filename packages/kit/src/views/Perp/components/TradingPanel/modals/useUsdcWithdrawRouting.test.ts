@@ -134,6 +134,25 @@ describe('open withdrawal form routing', () => {
     expect(onRoutingChange).toHaveBeenCalledTimes(1);
   });
 
+  it('retains the route after a failed refresh and recovers on the next refresh', async () => {
+    const { result } = renderHook(useUsdcWithdrawRouting, { initialProps });
+    await waitFor(() => expect(result.current.withdrawRoute).toBe('cctp'));
+    getRoute.mockRejectedValueOnce(new Error('offline'));
+    await act(async () => {
+      await expect(
+        result.current.refreshWithdrawRoute(),
+      ).resolves.toBeUndefined();
+    });
+    expect(result.current.withdrawRoute).toBe('cctp');
+    expect(onRoutingChange).not.toHaveBeenCalled();
+    getRoute.mockResolvedValue('bridge');
+    await act(async () => {
+      await result.current.refreshWithdrawRoute();
+    });
+    expect(result.current.withdrawRoute).toBe('bridge');
+    expect(onRoutingChange).toHaveBeenCalledTimes(1);
+  });
+
   it('refreshes on focus and reconnect', async () => {
     const { rerender } = renderHook(useUsdcWithdrawRouting, { initialProps });
     await waitFor(() => expect(getRoute).toHaveBeenCalledTimes(1));

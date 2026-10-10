@@ -36,16 +36,25 @@ export function useUsdcWithdrawRouting({
     }
   }, [isSubmitting, serverForceLegacy]);
 
+  const previousResultRef = useRef<
+    { route: 'bridge' | 'cctp'; forceLegacyUsdcWithdraw: boolean } | undefined
+  >(undefined);
   const { result, run: refreshWithdrawRoute } = usePromiseResult(
     async () => {
       if (!enabled || isSubmitting) {
         return undefined;
       }
-      const route =
-        await backgroundApiProxy.serviceHyperliquidExchange.getUsdcWithdrawRoute(
-          { forceRefresh: true },
-        );
-      return { route, forceLegacyUsdcWithdraw };
+      try {
+        const route =
+          await backgroundApiProxy.serviceHyperliquidExchange.getUsdcWithdrawRoute(
+            { forceRefresh: true },
+          );
+        return { route, forceLegacyUsdcWithdraw };
+      } catch {
+        // Automatic refreshes may fail offline. Keep the last accepted quote;
+        // policy matching below and submission-time validation still apply.
+        return previousResultRef.current;
+      }
     },
     [enabled, isSubmitting, forceLegacyUsdcWithdraw],
     {
@@ -55,6 +64,9 @@ export function useUsdcWithdrawRouting({
       revalidateOnReconnect: true,
     },
   );
+  useEffect(() => {
+    previousResultRef.current = result;
+  }, [result]);
   useEffect(
     () =>
       onVisibilityStateChange((visible) => {
