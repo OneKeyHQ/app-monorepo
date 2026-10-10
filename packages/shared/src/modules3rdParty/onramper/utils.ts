@@ -31,6 +31,47 @@ function truncateForLog(value: string, max: number): string {
   return value.length > max ? `${value.slice(0, max)}…` : value;
 }
 
+// Some OnramperSDK-internal Swift error enums do not implement LocalizedError,
+// so when the SDK wraps them (e.g. `initializationFailed("SDK initialization
+// failed: \(error.localizedDescription)")`) all that survives is Foundation's
+// generic NSError text with the case index:
+//   "The operation couldn’t be completed. (OnramperSDK.BFFRecoveryError error 1.)"
+// The tables below name those indexes. They are pinned to the SDK version in
+// apps/mobile/package.json (1.2.2) and ordered the way NSError numbers enum
+// cases — payload cases first, then no-payload cases, each in declaration
+// order — as recovered from the Swift reflection metadata in the SDK binary.
+// Re-verify on every SDK bump; an unknown enum or index is left untouched.
+const SDK_INTERNAL_ERROR_CASES: Record<string, readonly string[]> = {
+  // SecureBFFClient recovery outcomes. `sdkSessionRejected` is the one seen
+  // when the partner session the backend minted does not match the apiKey the
+  // SDK was configured with (2026-10 key rotation).
+  BFFRecoveryError: [
+    'configurationError',
+    'sdkSessionRejected',
+    'userTokenRejected',
+    'attestationRejected',
+    'dpopProofRejected',
+    'dpopNonceRequired',
+    'deviceBlocked',
+  ],
+};
+
+const SDK_INTERNAL_ERROR_PATTERN = /\(OnramperSDK\.(\w+) error (\d+)\.\)/g;
+
+// Rewrites "(OnramperSDK.X error N.)" to "(OnramperSDK.X error N = caseName.)"
+// for the enums listed above so device logs name the failure directly.
+export function annotateOnramperSdkErrorMessage(message: string): string {
+  return message.replace(
+    SDK_INTERNAL_ERROR_PATTERN,
+    (match, enumName: string, index: string) => {
+      const caseName = SDK_INTERNAL_ERROR_CASES[enumName]?.[Number(index)];
+      return caseName
+        ? `(OnramperSDK.${enumName} error ${index} = ${caseName}.)`
+        : match;
+    },
+  );
+}
+
 export function getErrorMessageForLog(error: unknown): string | undefined {
   if (error === undefined || error === null) {
     return undefined;
@@ -39,7 +80,12 @@ export function getErrorMessageForLog(error: unknown): string | undefined {
     typeof error === 'object' && 'message' in error
       ? String((error as { message?: unknown }).message ?? '')
       : String(error);
-  return message ? truncateForLog(message, LOG_MESSAGE_MAX_LENGTH) : undefined;
+  return message
+    ? truncateForLog(
+        annotateOnramperSdkErrorMessage(message),
+        LOG_MESSAGE_MAX_LENGTH,
+      )
+    : undefined;
 }
 
 export function getErrorInfoForLog(
