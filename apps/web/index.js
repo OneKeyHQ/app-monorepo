@@ -150,9 +150,12 @@ function showUpdateBanner(onRefresh) {
       transform: 'translateX(-50%)',
       width: 'max-content',
       maxWidth: 'calc(100% - 32px)',
+      maxHeight: 'calc(100% - 48px)',
+      overflowY: 'auto',
       boxSizing: 'border-box',
       zIndex: '2147483647',
       display: 'flex',
+      flexWrap: 'wrap',
       alignItems: 'center',
       gap: '12px',
       padding: '12px 20px',
@@ -167,6 +170,7 @@ function showUpdateBanner(onRefresh) {
 
     const text = document.createElement('span');
     text.style.minWidth = '0';
+    text.style.overflowWrap = 'anywhere';
     text.textContent = formatLocaleMessage(
       ETranslations.settings_app_update_available,
       'App update available',
@@ -179,7 +183,9 @@ function showUpdateBanner(onRefresh) {
     );
     Object.assign(refreshBtn.style, {
       flexShrink: '0',
-      whiteSpace: 'nowrap',
+      maxWidth: '100%',
+      whiteSpace: 'normal',
+      overflowWrap: 'anywhere',
       padding: '6px 16px',
       borderRadius: '8px',
       border: 'none',
