@@ -47,7 +47,6 @@ function OneKeyIdUserProfile() {
       const uri = result.uri;
       if (uri) {
         // TODO: Upload the image and update user avatar
-        console.log('Selected avatar:', uri);
         await PhotoLibrary.releasePickedImage(uri).catch(() => {});
       }
     }
