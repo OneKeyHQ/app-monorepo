@@ -5,10 +5,11 @@
 // natively via Info.plist UIAppFonts, which lets iOS manage font lifecycle and auto-restore
 // them after memory purge.
 //
-// This lint script ensures all three font registration points stay in sync:
+// This lint script ensures all four font registration points stay in sync:
 //   1. useLoadCustomFonts.ts — runtime font loading (expo-font, source of truth)
 //   2. Info.plist UIAppFonts — native iOS font registration
 //   3. Podfile font_files   — copies font files into the Xcode project during pod install
+//   4. Android assets/fonts — synchronous ReactFontManager lookup by JS family name
 //
 // It also verifies that each font file's internal PostScript name matches the JS key used
 // by expo-font, because iOS UIAppFonts registers fonts by PostScript name. A mismatch would
@@ -40,6 +41,10 @@ const infoPlistPath = path.join(
   'apps/mobile/ios/OneKeyWallet/Info.plist',
 );
 const podfilePath = path.join(rootDir, 'apps/mobile/ios/Podfile');
+const androidFontsDir = path.join(
+  rootDir,
+  'apps/mobile/android/app/src/main/assets/fonts',
+);
 
 let hasError = false;
 
@@ -159,7 +164,28 @@ for (const { jsKey, fileName } of fontEntries) {
   }
 }
 
-// 3. Check Info.plist UIAppFonts
+// 3. Check Android assets by JS family name against the referenced Provider file
+console.log('\nChecking Android native font assets...');
+for (const { jsKey, fileName } of fontEntries) {
+  const androidFileName = `${jsKey}.ttf`;
+  const androidFilePath = path.join(androidFontsDir, androidFileName);
+  const sourceFilePath = path.join(fontsSrcDir, fileName);
+  if (!fs.existsSync(androidFilePath)) {
+    error(`${androidFileName} MISSING from Android assets/fonts`);
+  } else if (fs.existsSync(sourceFilePath)) {
+    if (
+      fs.readFileSync(androidFilePath).equals(fs.readFileSync(sourceFilePath))
+    ) {
+      ok(`${androidFileName} matches Provider ${fileName}`);
+    } else {
+      error(
+        `${androidFileName} in Android assets/fonts does NOT match Provider ${fileName}`,
+      );
+    }
+  }
+}
+
+// 4. Check Info.plist UIAppFonts
 console.log('\nChecking Info.plist UIAppFonts...');
 const plistContent = fs.readFileSync(infoPlistPath, 'utf-8');
 const uiAppFontsMatch = plistContent.match(
@@ -193,7 +219,7 @@ if (!uiAppFontsMatch) {
   }
 }
 
-// 4. Check Podfile font_files list
+// 5. Check Podfile font_files list
 console.log('\nChecking Podfile font_files...');
 const podfileContent = fs.readFileSync(podfilePath, 'utf-8');
 const podfileFontMatch = podfileContent.match(
@@ -236,6 +262,9 @@ if (hasError) {
   );
   console.error('  2. Be declared in Info.plist UIAppFonts');
   console.error('  3. Be listed in Podfile font_files');
+  console.error(
+    '  4. Have an Android assets/fonts/<JS key>.ttf copy matching the Provider file',
+  );
   exit(1);
 } else {
   console.log(
