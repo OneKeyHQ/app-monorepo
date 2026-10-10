@@ -2,7 +2,7 @@ import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/market
 
 export type IMarketMobileDetailKind = 'trending' | 'topCoin' | 'stock';
 
-export type IMarketDetailFooterMode = 'trade' | 'perps-trade';
+export type IMarketDetailFooterMode = 'buy-sell' | 'perps-buy-sell';
 
 export type IMarketMobileTradeDestination = 'stock' | 'swap';
 
@@ -34,9 +34,9 @@ export function resolveMarketMobileDetailKind({
 }
 
 export function resolveMarketDetailFooterMode(
-  kind: IMarketMobileDetailKind,
+  hasPerps: boolean,
 ): IMarketDetailFooterMode {
-  return kind === 'trending' ? 'trade' : 'perps-trade';
+  return hasPerps ? 'perps-buy-sell' : 'buy-sell';
 }
 
 export type IMobileInformationColumnHeader =

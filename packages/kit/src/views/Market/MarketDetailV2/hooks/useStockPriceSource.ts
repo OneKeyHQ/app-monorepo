@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useLayoutEffect, useRef } from 'react';
 
 import {
   type IMarketPriceSource,
@@ -32,19 +32,21 @@ export function useStockPriceSource() {
   const initializedRef = useRef(false);
   const sharePriceAvailable = Boolean(stockId) && !isStockDetailError;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     // No listing id means there is no share quote to select. Leave the stored
     // mode alone so the next stock can still apply its own default.
     if (!stockId) {
       return;
     }
     initializedRef.current = false;
+    // Reset before paint so the header and chart never inherit another
+    // stock's share selection while this stock's market status is pending.
     setPriceSource((prev) =>
-      prev.source === 'share' ? prev : { source: 'share' },
+      prev.source === 'token' ? prev : { source: 'token' },
     );
   }, [stockId, setPriceSource]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     // Wait for this stock's market status, then apply its default only once.
     // Quote polling must not replace the user's choice on the same stock.
     if (

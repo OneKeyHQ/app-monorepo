@@ -6,7 +6,7 @@ import { View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 
-import { Button, XStack } from '@onekeyhq/components';
+import { Button, Icon, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { MarketTestIDs } from '../../../testIDs';
@@ -20,9 +20,24 @@ import type { IMarketDetailFooterMode } from '../../utils/marketMobileDetailKind
 // GestureHandlerRootView (app root) level, bypassing the native view
 // hierarchy entirely.
 
+function useFooterTap(onPress: () => void, disabled?: boolean) {
+  // The gesture intercepts above Button, so it must enforce disabled itself.
+  return useMemo(
+    () =>
+      Gesture.Tap()
+        .enabled(!disabled)
+        .onEnd(() => {
+          'worklet';
+          runOnJS(onPress)();
+        }),
+    [disabled, onPress],
+  );
+}
+
 type IProps = {
   mode: IMarketDetailFooterMode;
-  onTrade: () => void;
+  onBuy: () => void;
+  onSell: () => void;
   onPerps?: () => void;
   tradeDisabled?: boolean;
   perpsDisabled?: boolean;
@@ -30,87 +45,70 @@ type IProps = {
 
 function SwapPanelFooterButtons({
   mode,
-  onTrade,
+  onBuy,
+  onSell,
   onPerps,
   tradeDisabled,
   perpsDisabled,
 }: IProps) {
   const intl = useIntl();
-  const tradeLabel = intl.formatMessage({
-    id: ETranslations.dexmarket_details_trade,
-  });
-
-  // RNGH intercepts above the Button, so its `disabled` cannot stop these
-  // gestures — the tap has to be dropped here as well.
-  const tradeGesture = useMemo(
-    () =>
-      Gesture.Tap()
-        .enabled(!tradeDisabled)
-        .onEnd(() => {
-          'worklet';
-
-          runOnJS(onTrade)();
-        }),
-    [onTrade, tradeDisabled],
-  );
-
-  const handlePerps = onPerps ?? noop;
-  const perpsGesture = useMemo(
-    () =>
-      Gesture.Tap()
-        .enabled(!perpsDisabled && Boolean(onPerps))
-        .onEnd(() => {
-          'worklet';
-
-          runOnJS(handlePerps)();
-        }),
-    [handlePerps, onPerps, perpsDisabled],
-  );
-
-  if (mode === 'trade') {
-    return (
-      <GestureDetector gesture={tradeGesture}>
-        <View>
-          <Button
-            testID={MarketTestIDs.detailSwapButton}
-            size="large"
-            variant="primary"
-            width="100%"
-            disabled={tradeDisabled}
-          >
-            {tradeLabel}
-          </Button>
-        </View>
-      </GestureDetector>
-    );
-  }
+  const buyGesture = useFooterTap(onBuy, tradeDisabled);
+  const sellGesture = useFooterTap(onSell, tradeDisabled);
+  const perpsGesture = useFooterTap(onPerps ?? noop, perpsDisabled || !onPerps);
 
   return (
     <XStack gap="$2.5">
-      <GestureDetector gesture={perpsGesture}>
+      <GestureDetector gesture={buyGesture}>
         <View style={{ flex: 1 }}>
           <Button
-            testID={MarketTestIDs.detailPerpsButton}
+            testID={MarketTestIDs.detailBuyButton}
             size="large"
+            height={50}
             variant="secondary"
-            disabled={perpsDisabled}
-          >
-            {intl.formatMessage({ id: ETranslations.perps_perps })}
-          </Button>
-        </View>
-      </GestureDetector>
-      <GestureDetector gesture={tradeGesture}>
-        <View style={{ flex: 1 }}>
-          <Button
-            testID={MarketTestIDs.detailSwapButton}
-            size="large"
-            variant="primary"
+            bg="$bgSuccessStrong"
+            color="$textOnColor"
+            hoverStyle={{ bg: '$success10' }}
+            pressStyle={{ bg: '$success11' }}
             disabled={tradeDisabled}
           >
-            {tradeLabel}
+            {intl.formatMessage({ id: ETranslations.global_buy })}
           </Button>
         </View>
       </GestureDetector>
+      <GestureDetector gesture={sellGesture}>
+        <View style={{ flex: 1 }}>
+          <Button
+            testID={MarketTestIDs.detailSellButton}
+            size="large"
+            height={50}
+            variant="destructive"
+            disabled={tradeDisabled}
+          >
+            {intl.formatMessage({ id: ETranslations.global_sell })}
+          </Button>
+        </View>
+      </GestureDetector>
+      {mode === 'perps-buy-sell' ? (
+        <GestureDetector gesture={perpsGesture}>
+          <View style={{ width: 50 }}>
+            <Button
+              testID={MarketTestIDs.detailPerpsButton}
+              size="large"
+              height={50}
+              variant="secondary"
+              width={50}
+              px="$3"
+              childrenAsText={false}
+              accessibilityLabel={intl.formatMessage({
+                id: ETranslations.perps_perps,
+              })}
+              disabled={perpsDisabled}
+            >
+              <Icon name="TradeOutline" size="$6" color="$icon" />
+            </Button>
+          </View>
+        </GestureDetector>
+      ) : null}
     </XStack>
   );
 }

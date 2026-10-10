@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { Button, XStack } from '@onekeyhq/components';
+import { Button, Icon, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { MarketTestIDs } from '../../../testIDs';
@@ -9,7 +9,8 @@ import type { IMarketDetailFooterMode } from '../../utils/marketMobileDetailKind
 
 type IProps = {
   mode: IMarketDetailFooterMode;
-  onTrade: () => void;
+  onBuy: () => void;
+  onSell: () => void;
   onPerps?: () => void;
   tradeDisabled?: boolean;
   perpsDisabled?: boolean;
@@ -17,53 +18,60 @@ type IProps = {
 
 function SwapPanelFooterButtons({
   mode,
-  onTrade,
+  onBuy,
+  onSell,
   onPerps,
   tradeDisabled,
   perpsDisabled,
 }: IProps) {
   const intl = useIntl();
-  const tradeLabel = intl.formatMessage({
-    id: ETranslations.dexmarket_details_trade,
-  });
-
-  if (mode === 'trade') {
-    return (
-      <Button
-        testID={MarketTestIDs.detailSwapButton}
-        size="large"
-        variant="primary"
-        width="100%"
-        disabled={tradeDisabled}
-        onPress={onTrade}
-      >
-        {tradeLabel}
-      </Button>
-    );
-  }
 
   return (
     <XStack gap="$2.5">
       <Button
-        testID={MarketTestIDs.detailPerpsButton}
+        testID={MarketTestIDs.detailBuyButton}
         size="large"
+        height={50}
         variant="secondary"
-        flex={1}
-        disabled={perpsDisabled}
-        onPress={onPerps}
-      >
-        {intl.formatMessage({ id: ETranslations.perps_perps })}
-      </Button>
-      <Button
-        testID={MarketTestIDs.detailSwapButton}
-        size="large"
-        variant="primary"
+        bg="$bgSuccessStrong"
+        color="$textOnColor"
+        hoverStyle={{ bg: '$success10' }}
+        pressStyle={{ bg: '$success11' }}
         flex={1}
         disabled={tradeDisabled}
-        onPress={onTrade}
+        onPress={onBuy}
       >
-        {tradeLabel}
+        {intl.formatMessage({ id: ETranslations.global_buy })}
       </Button>
+      <Button
+        testID={MarketTestIDs.detailSellButton}
+        size="large"
+        height={50}
+        variant="destructive"
+        flex={1}
+        disabled={tradeDisabled}
+        onPress={onSell}
+      >
+        {intl.formatMessage({ id: ETranslations.global_sell })}
+      </Button>
+      {mode === 'perps-buy-sell' ? (
+        <Button
+          testID={MarketTestIDs.detailPerpsButton}
+          size="large"
+          height={50}
+          variant="secondary"
+          width={50}
+          px="$3"
+          childrenAsText={false}
+          accessibilityLabel={intl.formatMessage({
+            id: ETranslations.perps_perps,
+          })}
+          disabled={perpsDisabled}
+          onPress={onPerps}
+        >
+          <Icon name="TradeOutline" size="$6" color="$icon" />
+        </Button>
+      ) : null}
     </XStack>
   );
 }

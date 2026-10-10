@@ -158,6 +158,24 @@ export function buildStockSimpleChartScopeKey({
   ].join('|');
 }
 
+export function buildStockSimpleChartAssetKey({
+  coinGeckoId,
+  marketAssetId,
+  networkId,
+  priceMode,
+  stockId,
+  tokenAddress,
+}: Omit<Parameters<typeof buildStockSimpleChartScopeKey>[0], 'range'>): string {
+  return [
+    priceMode,
+    networkId,
+    tokenAddress,
+    stockId ?? '',
+    marketAssetId ?? '',
+    coinGeckoId ?? '',
+  ].join('|');
+}
+
 export function resolveStockSimpleChartLivePrice({
   priceMode,
   stockDetail,

@@ -271,6 +271,54 @@ describe('prepareStockSwapEntry', () => {
       .__ONEKEY_CTX_ATOM_SNAPSHOT__;
   });
 
+  it('opens a stock sell with a same-network receive token and clears buy amounts', () => {
+    const store = jotaiContextStore.getOrCreateStore(swapStoreData);
+    const stockToken: ISwapToken = { ...proToken, isStock: true };
+    store.set(swapSelectFromTokenAtom(), ordinaryToToken);
+    store.set(swapSelectToTokenAtom(), stockToken);
+    store.set(swapFromTokenAmountAtom(), { value: '123', isInput: true });
+    store.set(swapToTokenAmountAtom(), { value: '5', isInput: false });
+    const entry = prepareStockSwapEntry({
+      token: stockToken,
+      direction: 'from',
+    });
+    expect(entry).toEqual({
+      fromToken: stockToken,
+      toToken: ordinaryToToken,
+      swapType: ESwapTabSwitchType.STOCK,
+    });
+    expect(store.get(swapSelectFromTokenAtom())).toEqual(stockToken);
+    expect(store.get(swapSelectToTokenAtom())).toBe(ordinaryToToken);
+    expect(store.get(swapStockSelectedTokenAtom())).toEqual(stockToken);
+    expect(store.get(swapStockExecutionTokensAtom())).toBeUndefined();
+    expect(store.get(swapFromTokenAmountAtom()).value).toBe('');
+    expect(store.get(swapToTokenAmountAtom()).value).toBe('');
+    store.set(swapFromTokenAmountAtom(), { value: '2', isInput: true });
+    prepareStockSwapEntry({ token: stockToken, direction: 'from' });
+    expect(store.get(swapFromTokenAmountAtom()).value).toBe('2');
+    prepareStockSwapEntry({ token: stockToken, direction: 'to' });
+    expect(store.get(swapSelectToTokenAtom())).toEqual(stockToken);
+    expect(store.get(swapFromTokenAmountAtom()).value).toBe('');
+  });
+
+  it('drops the previous network receive token when selling a new stock', () => {
+    const store = jotaiContextStore.getOrCreateStore(swapStoreData);
+    store.set(swapSelectToTokenAtom(), ordinaryToToken);
+    store.set(swapSelectFromTokenAtom(), ordinaryFromToken);
+    const stockToken: ISwapToken = {
+      ...proToken,
+      networkId: 'evm--56',
+      isStock: true,
+    };
+    const entry = prepareStockSwapEntry({
+      token: stockToken,
+      direction: 'from',
+    });
+    expect(entry.fromToken).toEqual(stockToken);
+    expect(entry.toToken).toBeUndefined();
+    expect(store.get(swapSelectToTokenAtom())).toBeUndefined();
+  });
+
   it('opens the stock tab on the tapped token and drops the previous stock pair', () => {
     const store = jotaiContextStore.getOrCreateStore(swapStoreData);
     const previousStock: ISwapToken = {
@@ -410,6 +458,51 @@ describe('prepareTopCoinSwapEntry', () => {
     jotaiContextStore.storeResetRequests.clear();
     delete (globalThis as IGlobalColdStartSnapshot)
       .__ONEKEY_CTX_ATOM_SNAPSHOT__;
+  });
+
+  it('opens Sell on From and clears the previous directed-pair amounts', () => {
+    const store = jotaiContextStore.getOrCreateStore(swapStoreData);
+    store.set(swapSelectFromTokenAtom(), ordinaryToToken);
+    store.set(swapSelectToTokenAtom(), proToken);
+    store.set(swapFromTokenAmountAtom(), { value: '123', isInput: true });
+    const entry = prepareTopCoinSwapEntry({
+      token: proToken,
+      direction: 'from',
+    });
+    expect(entry).toEqual({
+      fromToken: proToken,
+      toToken: ordinaryToToken,
+      swapType: ESwapTabSwitchType.SWAP,
+    });
+    expect(store.get(swapSelectFromTokenAtom())).toBe(proToken);
+    expect(store.get(swapSelectToTokenAtom())).toBe(ordinaryToToken);
+    expect(store.get(swapFromTokenAmountAtom()).value).toBe('');
+    store.set(swapFromTokenAmountAtom(), { value: '10', isInput: true });
+    prepareTopCoinSwapEntry({ token: proToken, direction: 'from' });
+    expect(store.get(swapFromTokenAmountAtom()).value).toBe('10');
+    prepareTopCoinSwapEntry({ token: proToken, direction: 'to' });
+    expect(store.get(swapSelectToTokenAtom())).toBe(proToken);
+    expect(store.get(swapFromTokenAmountAtom()).value).toBe('');
+  });
+
+  it('keeps cross-network Sell on Bridge and replaces a stock receive token', () => {
+    const store = jotaiContextStore.getOrCreateStore(swapStoreData);
+    const receiveToken = { ...ordinaryToToken, networkId: 'evm--56' };
+    store.set(swapSelectToTokenAtom(), receiveToken);
+    const entry = prepareTopCoinSwapEntry({
+      token: proToken,
+      direction: 'from',
+    });
+    expect(entry.swapType).toBe(ESwapTabSwitchType.BRIDGE);
+    expect(entry.toToken).toBe(receiveToken);
+    store.set(swapSelectToTokenAtom(), { ...receiveToken, isStock: true });
+    const ordinaryEntry = prepareTopCoinSwapEntry({
+      token: proToken,
+      direction: 'from',
+    });
+    expect(ordinaryEntry.toToken?.isStock).not.toBe(true);
+    expect(ordinaryEntry.fromToken).toBe(proToken);
+    expect(ordinaryEntry.toToken).not.toEqual(proToken);
   });
 
   it('opens ordinary Swap with the coin as the receive token', () => {

@@ -72,36 +72,16 @@ beforeEach(() => {
   });
 });
 
-it('keeps contract audit results accessible in the mobile top-coin overview', () => {
-  render(<MobileTopCoinsOverviewPanel scrollEnabled />);
-  expect(screen.getByRole('button', { name: 'Audit results' })).toBeTruthy();
-  expect(useTokenSecurity).toHaveBeenCalledWith({
-    networkId: 'evm--1',
-    tokenAddress: '0xabc',
-  });
-});
-
-it('keeps an audit placeholder while the result is loading', () => {
-  jest.mocked(useTokenSecurity).mockReturnValue({
-    securityData: null,
-    securityStatus: null,
-    riskCount: 0,
-    cautionCount: 0,
-    formattedData: [],
-  });
-  render(<MobileTopCoinsOverviewPanel scrollEnabled />);
-  expect(
-    screen.getByTestId('market-detail-security-row').textContent,
-  ).toContain('--');
-  expect(screen.queryByRole('button')).toBeNull();
-});
-
-it('does not offer contract audit for a native asset without an address', () => {
-  jest
-    .mocked(useTokenDetail)
-    .mockReturnValue({ networkId: 'evm--1', tokenAddress: '' } as ReturnType<
-      typeof useTokenDetail
-    >);
-  render(<MobileTopCoinsOverviewPanel scrollEnabled />);
-  expect(screen.queryByTestId('market-detail-security-row')).toBeNull();
-});
+it.each(['0xabc', ''])(
+  'does not show audit in the top-coin overview (address: %s)',
+  (tokenAddress) => {
+    jest.mocked(useTokenDetail).mockReturnValue({
+      networkId: 'evm--1',
+      tokenAddress,
+    } as ReturnType<typeof useTokenDetail>);
+    render(<MobileTopCoinsOverviewPanel scrollEnabled />);
+    expect(screen.queryByRole('button', { name: 'Audit results' })).toBeNull();
+    expect(screen.queryByTestId('market-detail-security-row')).toBeNull();
+    expect(useTokenSecurity).not.toHaveBeenCalled();
+  },
+);

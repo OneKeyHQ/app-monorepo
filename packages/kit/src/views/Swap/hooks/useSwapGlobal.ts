@@ -1702,19 +1702,19 @@ export function useSwapInit(params?: ISwapInitParams) {
             fromTokenRef.current = jumpToken.otherToken;
           }
           await selectToToken(jumpToken.token);
-          if (jumpToken.type === ESwapTabSwitchType.STOCK) {
-            setSwapStockSelectedToken(
-              jumpToken.token.isStock
-                ? jumpToken.token
-                : { ...jumpToken.token, isStock: true },
-            );
-          }
           if (jumpToken.amount) {
             void setFromTokenAmount({
               value: jumpToken.amount,
               isInput: true,
             });
           }
+        }
+        if (jumpToken.type === ESwapTabSwitchType.STOCK) {
+          setSwapStockSelectedToken(
+            jumpToken.token.isStock
+              ? jumpToken.token
+              : { ...jumpToken.token, isStock: true },
+          );
         }
         initialSelectedTokensSyncedRef.current = true;
         setInitialSelectedTokensSynced(true);

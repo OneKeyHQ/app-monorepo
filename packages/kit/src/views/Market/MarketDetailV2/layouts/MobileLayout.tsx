@@ -376,8 +376,10 @@ export function MobileLayout({
     isStockToken: Boolean(isStockToken || isStockRoute),
     marketTokenCategory,
   });
-  const footerMode = resolveMarketDetailFooterMode(detailKind);
   const { perpDisabled } = usePerpTabConfig();
+  const footerMode = resolveMarketDetailFooterMode(
+    !perpDisabled && Boolean(perpsInfo?.hlTicker),
+  );
   const { navigateToPerps } = usePerpsNavigation(
     EPerpPageEnterSource.MarketBanner,
   );
@@ -834,7 +836,7 @@ export function MobileLayout({
         >
           <YStack>
             <DelayedFreeze freeze={isChartFullscreen}>
-              <InformationPanel />
+              <InformationPanel mobileDetailKind={detailKind} />
             </DelayedFreeze>
           </YStack>
         </HeaderScrollGestureWrapper>
@@ -987,6 +989,7 @@ export function MobileLayout({
     );
   }, [
     accountMarksContext,
+    detailKind,
     handleHeaderHorizontalSwipe,
     handleIndicatorsDialogOpenChange,
     handleInteractionOverlayOpenChange,

@@ -6,6 +6,7 @@ import {
   Button,
   NumberSizeableText,
   SizableText,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -184,11 +185,18 @@ export function StockMobilePriceHeader() {
           </XStack>
         ) : null}
       </XStack>
-      <StockMarketStatusBadge
-        stock={stockStatus}
-        variant="inline"
-        showLastUpdate={isSharePrice}
-      />
+      {/* Keep the status row's bodyMd line box while its first quote loads. */}
+      <Stack
+        testID="stock-mobile-market-status-row"
+        minHeight={20}
+        justifyContent="center"
+      >
+        <StockMarketStatusBadge
+          stock={stockStatus}
+          variant="inline"
+          showLastUpdate={isSharePrice}
+        />
+      </Stack>
     </YStack>
   );
 }

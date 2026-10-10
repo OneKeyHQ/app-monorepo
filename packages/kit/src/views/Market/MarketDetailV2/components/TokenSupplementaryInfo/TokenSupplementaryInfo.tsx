@@ -27,8 +27,6 @@ import {
   formatStatValueWithFormatter,
 } from '../../utils/statValue';
 import { useTokenDetailHeaderLeftActions } from '../TokenDetailHeader/hooks/useTokenDetailHeaderLeftActions';
-import { TokenSecurityAlert } from '../TokenSecurityAlert';
-import { useTokenSecurity } from '../TokenSecurityAlert/hooks/useTokenSecurity';
 
 interface ISupplementaryRow {
   key: string;
@@ -87,36 +85,19 @@ function OverviewStatLabel({
 }
 
 function TokenOverviewLinks() {
-  const intl = useIntl();
-  const { tokenDetail, tokenAddress, networkId } = useTokenDetail();
-  const { securityData } = useTokenSecurity({ tokenAddress, networkId });
+  const { tokenDetail } = useTokenDetail();
   const { handleOpenWebsite, handleOpenTwitter, handleOpenXSearch } =
     useTokenDetailHeaderLeftActions({ tokenDetail });
   const website = tokenDetail?.extraData?.website;
   const twitter = tokenDetail?.extraData?.twitter;
   const address = tokenDetail?.address;
 
-  if (!securityData && !website && !twitter && !address) {
+  if (!website && !twitter && !address) {
     return null;
   }
 
   return (
     <XStack testID="token-mobile-overview-links" ai="center" gap="$3" pt="$2">
-      {securityData ? (
-        <XStack
-          ai="center"
-          gap="$1"
-          bg="$bgStrong"
-          borderRadius="$full"
-          px="$2"
-          py="$1.5"
-        >
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.dexmarket_audit })}
-          </SizableText>
-          <TokenSecurityAlert />
-        </XStack>
-      ) : null}
       {website ? (
         <XStack bg="$bgStrong" borderRadius="$full" p="$2">
           <InteractiveIcon

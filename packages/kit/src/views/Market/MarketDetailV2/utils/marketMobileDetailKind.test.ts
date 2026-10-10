@@ -62,13 +62,12 @@ describe('resolveMarketMobileTradeDestination', () => {
 });
 
 describe('resolveMarketDetailFooterMode', () => {
-  it('uses a single Trade action for trending tokens', () => {
-    expect(resolveMarketDetailFooterMode('trending')).toBe('trade');
+  it('shows Buy and Sell when Perps is unavailable', () => {
+    expect(resolveMarketDetailFooterMode(false)).toBe('buy-sell');
   });
 
-  it('uses Perps and Trade for mainstream coins and stocks', () => {
-    expect(resolveMarketDetailFooterMode('topCoin')).toBe('perps-trade');
-    expect(resolveMarketDetailFooterMode('stock')).toBe('perps-trade');
+  it('adds Perps when the current token supports it', () => {
+    expect(resolveMarketDetailFooterMode(true)).toBe('perps-buy-sell');
   });
 });
 

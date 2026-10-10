@@ -102,7 +102,7 @@ export function SwapPanel({
   portfolioData,
   onShowSwapDialog,
   executionReady = true,
-  footerMode = 'trade',
+  footerMode = 'buy-sell',
   detailKind,
   onPerps,
   perpsDisabled,
@@ -161,41 +161,48 @@ export function SwapPanel({
   const [, setSwapProJumpTokenAtom] = useSwapProJumpTokenAtom();
   const [, setSwapFromMarketJumpToken] = useSwapFromMarketJumpTokenAtom();
 
-  const handleTrade = useCallback(() => {
-    // Swap needs the token's decimals; the buttons are disabled until then,
-    // but Android's gesture layer can still deliver a tap.
-    if (!executionReady) {
-      return;
-    }
-    const tradeDestination = swapToken.isStock
-      ? 'stock'
-      : resolveMarketMobileTradeDestination(detailKind ?? 'trending');
-    const swapEntry =
-      tradeDestination === 'stock'
-        ? prepareStockSwapEntry({ token: swapToken })
-        : prepareTopCoinSwapEntry({ token: swapToken });
-    // Focus sync can clear the pair before the Swap page paints. Re-apply it
-    // after that sync, once swap networks are available.
-    setSwapFromMarketJumpToken({
-      token: swapEntry.toToken,
-      otherToken: swapEntry.fromToken,
-      type: swapEntry.swapType,
-      direction: 'to',
-    });
-    // A pending pro intent would switch the Swap tab back to Limit.
-    setSwapProJumpTokenAtom({
-      token: undefined,
-      direction: ESwapProJumpTokenDirection.BUY,
-    });
-    navigation.switchTab(ETabRoutes.Swap);
-  }, [
-    detailKind,
-    executionReady,
-    setSwapFromMarketJumpToken,
-    setSwapProJumpTokenAtom,
-    swapToken,
-    navigation,
-  ]);
+  const handleTrade = useCallback(
+    (direction: 'from' | 'to') => {
+      // Swap needs the token's decimals; the buttons are disabled until then,
+      // but Android's gesture layer can still deliver a tap.
+      if (!executionReady) {
+        return;
+      }
+      const tradeDestination = swapToken.isStock
+        ? 'stock'
+        : resolveMarketMobileTradeDestination(detailKind ?? 'trending');
+      const swapEntry =
+        tradeDestination === 'stock'
+          ? prepareStockSwapEntry({ token: swapToken, direction })
+          : prepareTopCoinSwapEntry({ token: swapToken, direction });
+      // Focus sync can clear the pair before the Swap page paints. Re-apply it
+      // after that sync, once swap networks are available.
+      setSwapFromMarketJumpToken({
+        token: swapToken,
+        otherToken:
+          direction === 'to' ? swapEntry.fromToken : swapEntry.toToken,
+        type: swapEntry.swapType,
+        direction,
+      });
+      // A pending pro intent would switch the Swap tab back to Limit.
+      setSwapProJumpTokenAtom({
+        token: undefined,
+        direction: ESwapProJumpTokenDirection.BUY,
+      });
+      navigation.switchTab(ETabRoutes.Swap);
+    },
+    [
+      detailKind,
+      executionReady,
+      setSwapFromMarketJumpToken,
+      setSwapProJumpTokenAtom,
+      swapToken,
+      navigation,
+    ],
+  );
+
+  const handleBuy = useCallback(() => handleTrade('to'), [handleTrade]);
+  const handleSell = useCallback(() => handleTrade('from'), [handleTrade]);
 
   if (!swapToken) {
     return (
@@ -288,7 +295,8 @@ export function SwapPanel({
         <Stack px="$5" pb={bottomInset || '$4'} pt="$2.5">
           <SwapPanelFooterButtons
             mode={footerMode}
-            onTrade={handleTrade}
+            onBuy={handleBuy}
+            onSell={handleSell}
             onPerps={onPerps}
             tradeDisabled={!executionReady}
             perpsDisabled={perpsDisabled}

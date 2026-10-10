@@ -9,6 +9,8 @@ import {
   useStockPriceSource,
 } from './useStockPriceSource';
 
+let mockInitialPriceSource: IMarketPriceSource = 'share';
+
 let mockStock: {
   stockId?: string;
   stockDetail?: { marketStatus?: { isOpen: boolean } };
@@ -22,7 +24,9 @@ jest.mock('./StockDetailContext', () => ({
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useMarketPriceSourceAtom: () => {
     const { useState } = jest.requireActual<typeof import('react')>('react');
-    return useState<{ source: IMarketPriceSource }>({ source: 'share' });
+    return useState<{ source: IMarketPriceSource }>({
+      source: mockInitialPriceSource,
+    });
   },
 }));
 
@@ -47,113 +51,132 @@ describe('resolveDisplayedStockPriceMode', () => {
   });
 });
 
-describe('useStockPriceSource', () => {
-  beforeEach(() => {
-    mockStock = { stockId: 'AAPL' };
-  });
+describe.each(['share', 'token'] as const)(
+  'useStockPriceSource (initial source=%s)',
+  (initialSource) => {
+    beforeEach(() => {
+      mockInitialPriceSource = initialSource;
+      mockStock = { stockId: 'AAPL' };
+    });
 
-  it.each([
-    [false, 'token'],
-    [true, 'share'],
-  ] as const)('defaults isOpen=%s to %s after loading', (isOpen, source) => {
-    const { result, rerender } = renderHook(() => useStockPriceSource());
-    expect(result.current.priceMode).toBe('share');
-
-    mockStock.stockDetail = { marketStatus: { isOpen } };
-    rerender();
-
-    expect(result.current.priceMode).toBe(source);
-  });
-
-  it('uses an already loaded closed-market status on mount', () => {
-    mockStock.stockDetail = { marketStatus: { isOpen: false } };
-    const { result } = renderHook(() => useStockPriceSource());
-    expect(result.current.priceMode).toBe('token');
-  });
-
-  it('keeps Share Price when the market status is missing', () => {
-    mockStock.stockDetail = {};
-    const { result } = renderHook(() => useStockPriceSource());
-    expect(result.current.priceMode).toBe('share');
-  });
-
-  it.each([
-    [true, 'token'],
-    [false, 'share'],
-  ] as const)(
-    'preserves manual %s -> %s through polling',
-    (isInitiallyOpen, source) => {
-      mockStock.stockDetail = { marketStatus: { isOpen: isInitiallyOpen } };
+    it.each([
+      [false, 'token'],
+      [true, 'share'],
+    ] as const)('defaults isOpen=%s to %s after loading', (isOpen, source) => {
       const { result, rerender } = renderHook(() => useStockPriceSource());
-      act(() => result.current.handlePriceModeChange(source));
+      expect(result.current.priceMode).toBe('token');
 
-      for (const isOpen of [true, false, true]) {
+      mockStock.stockDetail = { marketStatus: { isOpen } };
+      rerender();
+
+      expect(result.current.priceMode).toBe(source);
+    });
+
+    it.each([false, true])(
+      'uses an already loaded isOpen=%s status on mount',
+      (isOpen) => {
         mockStock.stockDetail = { marketStatus: { isOpen } };
-        rerender();
-        expect(result.current.priceMode).toBe(source);
-      }
-    },
-  );
+        const { result } = renderHook(() => useStockPriceSource());
+        expect(result.current.priceMode).toBe(isOpen ? 'share' : 'token');
+      },
+    );
 
-  it('preserves a manual Share Price choice before the response arrives', () => {
-    const { result, rerender } = renderHook(() => useStockPriceSource());
-    act(() => result.current.handlePriceModeChange('share'));
+    it('defaults a closed market to Token Price on both cold entry and cached re-entry', () => {
+      const first = renderHook(() => useStockPriceSource());
+      expect(first.result.current.priceMode).toBe('token');
+      mockStock.stockDetail = { marketStatus: { isOpen: false } };
+      first.rerender();
+      expect(first.result.current.priceMode).toBe('token');
+      first.unmount();
 
-    mockStock.stockDetail = { marketStatus: { isOpen: false } };
-    rerender();
-    expect(result.current.priceMode).toBe('share');
-  });
+      const second = renderHook(() => useStockPriceSource());
+      expect(second.result.current.priceMode).toBe('token');
+    });
 
-  it('shows the token price and does not force Share when stockId is missing', () => {
-    mockStock = {};
-    const { result, rerender } = renderHook(() => useStockPriceSource());
+    it('keeps Token Price when the market status is missing', () => {
+      mockStock.stockDetail = {};
+      const { result } = renderHook(() => useStockPriceSource());
+      expect(result.current.priceMode).toBe('token');
+    });
 
-    expect(result.current.priceMode).toBe('token');
-    expect(result.current.sharePriceAvailable).toBe(false);
+    it.each([
+      [true, 'token'],
+      [false, 'share'],
+    ] as const)(
+      'preserves manual %s -> %s through polling',
+      (isInitiallyOpen, source) => {
+        mockStock.stockDetail = { marketStatus: { isOpen: isInitiallyOpen } };
+        const { result, rerender } = renderHook(() => useStockPriceSource());
+        act(() => result.current.handlePriceModeChange(source));
 
-    rerender();
-    expect(result.current.priceMode).toBe('token');
-  });
+        for (const isOpen of [true, false, true]) {
+          mockStock.stockDetail = { marketStatus: { isOpen } };
+          rerender();
+          expect(result.current.priceMode).toBe(source);
+        }
+      },
+    );
 
-  it('falls back to the token price when the share quote failed', () => {
-    mockStock = {
-      stockId: 'AAPL',
-      isStockDetailError: true,
-      stockDetail: { marketStatus: { isOpen: true } },
-    };
-    const { result, rerender } = renderHook(() => useStockPriceSource());
+    it('preserves a manual Share Price choice before the response arrives', () => {
+      const { result, rerender } = renderHook(() => useStockPriceSource());
+      act(() => result.current.handlePriceModeChange('share'));
 
-    expect(result.current.priceMode).toBe('token');
-    expect(result.current.sharePriceAvailable).toBe(false);
+      mockStock.stockDetail = { marketStatus: { isOpen: false } };
+      rerender();
+      expect(result.current.priceMode).toBe('share');
+    });
 
-    mockStock = {
-      stockId: 'AAPL',
-      stockDetail: { marketStatus: { isOpen: true } },
-    };
-    rerender();
+    it('shows the token price and does not force Share when stockId is missing', () => {
+      mockStock = {};
+      const { result, rerender } = renderHook(() => useStockPriceSource());
 
-    expect(result.current.priceMode).toBe('share');
-    expect(result.current.sharePriceAvailable).toBe(true);
-  });
+      expect(result.current.priceMode).toBe('token');
+      expect(result.current.sharePriceAvailable).toBe(false);
 
-  it('reinitializes on stock changes, including returning to a previous stock', () => {
-    mockStock.stockDetail = { marketStatus: { isOpen: false } };
-    const { result, rerender } = renderHook(() => useStockPriceSource());
-    expect(result.current.priceMode).toBe('token');
-    act(() => result.current.handlePriceModeChange('share'));
+      rerender();
+      expect(result.current.priceMode).toBe('token');
+    });
 
-    mockStock = { stockId: 'MSFT' };
-    rerender();
-    expect(result.current.priceMode).toBe('share');
-    mockStock.stockDetail = { marketStatus: { isOpen: true } };
-    rerender();
-    expect(result.current.priceMode).toBe('share');
+    it('falls back to the token price when the share quote failed', () => {
+      mockStock = {
+        stockId: 'AAPL',
+        isStockDetailError: true,
+        stockDetail: { marketStatus: { isOpen: true } },
+      };
+      const { result, rerender } = renderHook(() => useStockPriceSource());
 
-    mockStock = {
-      stockId: 'AAPL',
-      stockDetail: { marketStatus: { isOpen: false } },
-    };
-    rerender();
-    expect(result.current.priceMode).toBe('token');
-  });
-});
+      expect(result.current.priceMode).toBe('token');
+      expect(result.current.sharePriceAvailable).toBe(false);
+
+      mockStock = {
+        stockId: 'AAPL',
+        stockDetail: { marketStatus: { isOpen: true } },
+      };
+      rerender();
+
+      expect(result.current.priceMode).toBe('share');
+      expect(result.current.sharePriceAvailable).toBe(true);
+    });
+
+    it('reinitializes on stock changes, including returning to a previous stock', () => {
+      mockStock.stockDetail = { marketStatus: { isOpen: false } };
+      const { result, rerender } = renderHook(() => useStockPriceSource());
+      expect(result.current.priceMode).toBe('token');
+      act(() => result.current.handlePriceModeChange('share'));
+
+      mockStock = { stockId: 'MSFT' };
+      rerender();
+      expect(result.current.priceMode).toBe('token');
+      mockStock.stockDetail = { marketStatus: { isOpen: true } };
+      rerender();
+      expect(result.current.priceMode).toBe('share');
+
+      mockStock = {
+        stockId: 'AAPL',
+        stockDetail: { marketStatus: { isOpen: false } },
+      };
+      rerender();
+      expect(result.current.priceMode).toBe('token');
+    });
+  },
+);

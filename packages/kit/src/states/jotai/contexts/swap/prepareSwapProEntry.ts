@@ -24,7 +24,7 @@ const EMPTY_SWAP_TOKEN_AMOUNT = { value: '', isInput: false } as const;
 
 export type IPreparedMarketSwapEntry = {
   fromToken?: ISwapToken;
-  toToken: ISwapToken;
+  toToken?: ISwapToken;
   swapType: ESwapTabSwitchType;
 };
 
@@ -82,14 +82,43 @@ export function prepareSwapProEntry({
 
 export function prepareStockSwapEntry({
   token,
+  direction = 'to',
 }: {
   token: ISwapToken;
+  direction?: 'from' | 'to';
 }): IPreparedMarketSwapEntry {
   const store = jotaiContextStore.prepareStoreForImmediateUse({
     storeName: EJotaiContextStoreNames.swap,
   });
   const stockToken = token.isStock ? token : { ...token, isStock: true };
   const fromToken = store.get(swapSelectFromTokenAtom());
+  if (direction === 'from') {
+    const toToken = store.get(swapSelectToTokenAtom());
+    const nextToToken = [toToken, fromToken].find(
+      (candidate) =>
+        candidate &&
+        !candidate.isStock &&
+        candidate.networkId === stockToken.networkId &&
+        !isSameSwapToken(candidate, stockToken),
+    );
+    store.set(swapSelectFromTokenAtom(), stockToken);
+    store.set(swapSelectToTokenAtom(), nextToToken);
+    store.set(swapStockSelectedTokenAtom(), stockToken);
+    if (
+      !isSameSwapToken(fromToken, stockToken) ||
+      !isSameSwapToken(toToken, nextToToken)
+    ) {
+      store.set(swapFromTokenAmountAtom(), EMPTY_SWAP_TOKEN_AMOUNT);
+      store.set(swapToTokenAmountAtom(), EMPTY_SWAP_TOKEN_AMOUNT);
+    }
+    store.set(swapStockExecutionTokensAtom(), undefined);
+    store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+    return {
+      fromToken: stockToken,
+      toToken: nextToToken,
+      swapType: ESwapTabSwitchType.STOCK,
+    };
+  }
   const previousStockToken = store.get(swapStockSelectedTokenAtom());
   const nextFromToken = fromToken?.isStock ? undefined : fromToken;
   const stockChanged = !isSameSwapToken(previousStockToken, stockToken);
@@ -121,45 +150,44 @@ export function prepareStockSwapEntry({
 
 export function prepareTopCoinSwapEntry({
   token,
+  direction = 'to',
 }: {
   token: ISwapToken;
+  direction?: 'from' | 'to';
 }): IPreparedMarketSwapEntry {
   const store = jotaiContextStore.prepareStoreForImmediateUse({
     storeName: EJotaiContextStoreNames.swap,
   });
   const fromToken = store.get(swapSelectFromTokenAtom());
-  const previousToToken = store.get(swapSelectToTokenAtom());
-  let nextFromToken = fromToken;
-  if (!fromToken || fromToken.isStock || isSameSwapToken(fromToken, token)) {
-    nextFromToken =
-      previousToToken &&
-      !previousToToken.isStock &&
-      !isSameSwapToken(previousToToken, token)
-        ? previousToToken
+  const toToken = store.get(swapSelectToTokenAtom());
+  const oppositeToken = direction === 'to' ? fromToken : toToken;
+  const replacedToken = direction === 'to' ? toToken : fromToken;
+  let otherToken = oppositeToken;
+  if (!otherToken || otherToken.isStock || isSameSwapToken(otherToken, token)) {
+    otherToken =
+      replacedToken &&
+      !replacedToken.isStock &&
+      !isSameSwapToken(replacedToken, token)
+        ? replacedToken
         : undefined;
   }
-  if (!nextFromToken) {
-    nextFromToken = resolveDefaultSwapPayToken(token);
-  }
+  otherToken ??= resolveDefaultSwapPayToken(token);
+  const nextFromToken = direction === 'to' ? otherToken : token;
+  const nextToToken = direction === 'to' ? token : otherToken;
   const swapType =
-    nextFromToken?.networkId && nextFromToken.networkId !== token.networkId
+    otherToken?.networkId && otherToken.networkId !== token.networkId
       ? ESwapTabSwitchType.BRIDGE
       : ESwapTabSwitchType.SWAP;
   store.set(swapSelectFromTokenAtom(), nextFromToken);
-  store.set(swapSelectToTokenAtom(), token);
-  // Replacing the pay token leaves the previous amount on a different asset.
-  // The same pair keeps the amount the user already entered.
+  store.set(swapSelectToTokenAtom(), nextToToken);
+  // Amounts belong to the complete directed pair, including the trade side.
   if (
-    !isSameSwapToken(previousToToken, token) ||
+    !isSameSwapToken(toToken, nextToToken) ||
     !isSameSwapToken(fromToken, nextFromToken)
   ) {
     store.set(swapFromTokenAmountAtom(), EMPTY_SWAP_TOKEN_AMOUNT);
     store.set(swapToTokenAmountAtom(), EMPTY_SWAP_TOKEN_AMOUNT);
   }
   store.set(swapTypeSwitchAtom(), swapType);
-  return {
-    fromToken: nextFromToken,
-    toToken: token,
-    swapType,
-  };
+  return { fromToken: nextFromToken, toToken: nextToToken, swapType };
 }

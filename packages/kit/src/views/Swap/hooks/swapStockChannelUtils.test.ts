@@ -1228,6 +1228,30 @@ describe('resolveFollowedStockToken', () => {
 });
 
 describe('shouldResetStockTradeSideForMarketEntry', () => {
+  it('follows a Sell entry without forcing it back to Buy', () => {
+    expect(
+      shouldResetStockTradeSideForMarketEntry({
+        isStockMarketJump: true,
+        direction: 'from',
+        tradeSide: ESwapStockTradeSide.Buy,
+      }),
+    ).toBe(true);
+    expect(
+      shouldResetStockTradeSideForMarketEntry({
+        isStockMarketJump: true,
+        direction: 'from',
+        tradeSide: ESwapStockTradeSide.Sell,
+      }),
+    ).toBe(false);
+    expect(
+      shouldResetStockTradeSideForMarketEntry({
+        isStockMarketJump: false,
+        direction: 'from',
+        tradeSide: ESwapStockTradeSide.Buy,
+      }),
+    ).toBe(false);
+  });
+
   it('opens a market stock entry on buy while the page is selling', () => {
     expect(
       shouldResetStockTradeSideForMarketEntry({

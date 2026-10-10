@@ -272,16 +272,19 @@ export function shouldCommitFollowedStockToken({
   return false;
 }
 
-// Market stock entry always buys. A mounted stock page can still be on Sell,
-// and that local choice overrides the new buy pair until it is cleared.
+// A mounted stock page must follow the side requested by the Market entry.
 export function shouldResetStockTradeSideForMarketEntry({
   isStockMarketJump,
   tradeSide,
+  direction = 'to',
 }: {
   isStockMarketJump: boolean;
   tradeSide: ESwapStockTradeSide;
+  direction?: 'from' | 'to';
 }) {
-  return isStockMarketJump && tradeSide !== ESwapStockTradeSide.Buy;
+  const entrySide =
+    direction === 'from' ? ESwapStockTradeSide.Sell : ESwapStockTradeSide.Buy;
+  return isStockMarketJump && tradeSide !== entrySide;
 }
 
 export function shouldSyncControlledStockTokenMetadata({

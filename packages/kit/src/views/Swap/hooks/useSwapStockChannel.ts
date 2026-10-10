@@ -424,14 +424,19 @@ export function useSwapStockChannel(
       persistedStockToken: persistedStockSelectedToken,
       stockPairToken: stockPair.stockToken,
     });
-    const openMarketEntryOnBuy = shouldResetStockTradeSideForMarketEntry({
+    const marketEntrySide =
+      swapFromMarketJumpToken?.direction === 'from'
+        ? ESwapStockTradeSide.Sell
+        : ESwapStockTradeSide.Buy;
+    const shouldSyncMarketTradeSide = shouldResetStockTradeSideForMarketEntry({
       isStockMarketJump:
         swapFromMarketJumpToken?.type === ESwapTabSwitchType.STOCK &&
         Boolean(swapFromMarketJumpToken.token),
       tradeSide,
+      direction: swapFromMarketJumpToken?.direction,
     });
-    if (openMarketEntryOnBuy) {
-      setTradeSideState(ESwapStockTradeSide.Buy);
+    if (shouldSyncMarketTradeSide) {
+      setTradeSideState(marketEntrySide);
     }
     if (!nextStockToken) {
       return;
@@ -451,13 +456,13 @@ export function useSwapStockChannel(
       manualStockPayTokenKeyRef.current = '';
       selectStockSwapToken(nextStockToken, {
         resetReceiveAmount: true,
-        tradeSide: openMarketEntryOnBuy ? ESwapStockTradeSide.Buy : undefined,
+        tradeSide: shouldSyncMarketTradeSide ? marketEntrySide : undefined,
       });
       return;
     }
-    if (openMarketEntryOnBuy) {
+    if (shouldSyncMarketTradeSide) {
       void syncStockExecutionTokens({
-        nextTradeSide: ESwapStockTradeSide.Buy,
+        nextTradeSide: marketEntrySide,
         stockToken: nextStockToken,
       });
     }
