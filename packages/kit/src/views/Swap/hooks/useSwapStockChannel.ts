@@ -92,6 +92,7 @@ type ISelectStockSwapTokenOptions = {
 export function useSwapStockChannel(
   stockSpeedConfig?: ISwapStockSpeedConfig,
   controlledStockToken?: ISwapToken,
+  storeName?: string,
 ) {
   const locale = useLocaleVariant().toLowerCase();
   const localeRef = useRef(locale);
@@ -516,8 +517,14 @@ export function useSwapStockChannel(
   }, [currentStockToken, stockTokenDetail, syncStockTokenDetail]);
 
   useEffect(() => {
-    const handleSwapStockTokenSelected = (token: ISwapToken) => {
-      if (!token?.networkId) {
+    const handleSwapStockTokenSelected = ({
+      token,
+      storeName: targetStoreName,
+    }: {
+      token: ISwapToken;
+      storeName: string;
+    }) => {
+      if (!token?.networkId || targetStoreName !== storeName) {
         return;
       }
       defaultLogger.swap.selectToken.selectToken({
@@ -537,7 +544,7 @@ export function useSwapStockChannel(
         handleSwapStockTokenSelected,
       );
     };
-  }, [selectStockSwapToken]);
+  }, [selectStockSwapToken, storeName]);
 
   const {
     defaultStockTokenLoading,

@@ -5,10 +5,13 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  buildSwapAddressAccountInfo,
+  getSwapAccountNetworkWarningAccountId,
   getSwapAddressAccountSelectorNum,
   getSwapRecipientActionState,
   getSwapRecipientEditorAccountInfo,
   getSwapRecipientValidationAccountId,
+  hasSwapFromAddressForVerdict,
   resolveSettledSwapRecipientRequired,
   resolveSwapTargetNetworkAccount,
   resolveSwapTargetNetworkAccountOnce,
@@ -43,6 +46,81 @@ function buildAccountInfo({
     deriveInfoItems: [],
   };
 }
+
+describe('buildSwapAddressAccountInfo', () => {
+  const activeAccount = {
+    ...buildAccountInfo({ accountId: 'account-evm-1' }),
+    indexedAccount: { id: 'indexed-1' } as NonNullable<
+      IAccountSelectorActiveAccountInfo['indexedAccount']
+    >,
+    dbAccount: { id: 'db-account-1' } as NonNullable<
+      IAccountSelectorActiveAccountInfo['dbAccount']
+    >,
+    wallet: { id: 'wallet-1' } as NonNullable<
+      IAccountSelectorActiveAccountInfo['wallet']
+    >,
+  };
+  const targetNetworkAccount = {
+    id: 'account-evm-56',
+  } as IAccountSelectorActiveAccountInfo['account'];
+
+  it('keeps identity context without exposing the active network account', () => {
+    expect(
+      buildSwapAddressAccountInfo({
+        activeAccount,
+        shouldResolveTargetNetworkAccount: true,
+      }),
+    ).toEqual({
+      ...activeAccount,
+      account: undefined,
+    });
+  });
+
+  it('replaces the account only after the target network account resolves', () => {
+    expect(
+      buildSwapAddressAccountInfo({
+        activeAccount,
+        shouldResolveTargetNetworkAccount: true,
+        targetNetworkAccount,
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        account: targetNetworkAccount,
+        indexedAccount: activeAccount.indexedAccount,
+      }),
+    );
+  });
+
+  it('keeps the active account for same-network selections', () => {
+    expect(
+      buildSwapAddressAccountInfo({
+        activeAccount,
+        shouldResolveTargetNetworkAccount: false,
+      }),
+    ).toEqual(activeAccount);
+  });
+});
+
+describe('getSwapAccountNetworkWarningAccountId', () => {
+  it('does not reuse the previous network account after a target lookup settles without one', () => {
+    expect(
+      getSwapAccountNetworkWarningAccountId({
+        accountInfo: buildAccountInfo(),
+        activeAccount: buildAccountInfo({
+          accountId: 'previous-network-account',
+        }),
+      }),
+    ).toBeUndefined();
+  });
+
+  it('keeps the legacy active-account fallback when accountInfo is unavailable', () => {
+    expect(
+      getSwapAccountNetworkWarningAccountId({
+        activeAccount: buildAccountInfo({ accountId: 'active-account' }),
+      }),
+    ).toBe('active-account');
+  });
+});
 
 describe('getSwapRecipientEditorAccountInfo', () => {
   it('prefers ready recipient ownership information', () => {
@@ -687,5 +765,31 @@ describe('shouldShowSwapRecipientAddressInfo', () => {
         toAddressNetworkId: 'evm--1',
       }),
     ).toBe(false);
+  });
+});
+
+describe('hasSwapFromAddressForVerdict', () => {
+  it('holds the verdict while the cross-network lookup is pending', () => {
+    expect(
+      hasSwapFromAddressForVerdict({
+        address: undefined,
+        isAddressInfoReady: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('reports a missing address only once the lookup has settled', () => {
+    expect(
+      hasSwapFromAddressForVerdict({
+        address: undefined,
+        isAddressInfoReady: true,
+      }),
+    ).toBe(false);
+    expect(
+      hasSwapFromAddressForVerdict({
+        address: '0xabc',
+        isAddressInfoReady: true,
+      }),
+    ).toBe(true);
   });
 });

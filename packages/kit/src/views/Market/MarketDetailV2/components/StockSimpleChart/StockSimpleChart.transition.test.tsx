@@ -5,7 +5,7 @@ import { render, screen } from '@testing-library/react';
 
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
-import { StockSimpleChart } from './StockSimpleChart';
+import { StockSimpleChart, StockSimpleChartContent } from './StockSimpleChart';
 import {
   buildStockSimpleChartAssetKey,
   buildStockSimpleChartScopeKey,
@@ -97,6 +97,38 @@ beforeEach(() => {
     isLoading: false,
     run: jest.fn(),
   });
+});
+
+it('renders the Swap asset independently of the Market detail identity', () => {
+  mockTokenDetail.mockReturnValue({
+    networkId: 'evm--56',
+    tokenAddress: '0xdef',
+  });
+  render(<StockSimpleChartContent {...base} isNative={false} />);
+  expect(mockTokenDetail).not.toHaveBeenCalled();
+  expect(screen.getByTestId('rendered-chart')).toBeTruthy();
+  expect(mockChart.mock.calls.at(-1)?.[0].data).toEqual(points);
+});
+
+it('hides the previous Swap range until the requested range completes', () => {
+  const { rerender } = render(
+    <StockSimpleChartContent {...base} isNative={false} />,
+  );
+  mockPromiseResult.mockReturnValue({
+    result: result('1D'),
+    isLoading: true,
+    run: jest.fn(),
+  });
+  rerender(<StockSimpleChartContent {...base} isNative={false} range="1W" />);
+  expect(screen.getByTestId('stock-simple-chart-loading')).toBeTruthy();
+  expect(screen.queryByTestId('rendered-chart')).toBeNull();
+  mockPromiseResult.mockReturnValue({
+    result: result('1W'),
+    isLoading: false,
+    run: jest.fn(),
+  });
+  rerender(<StockSimpleChartContent {...base} isNative={false} range="1W" />);
+  expect(screen.getByTestId('rendered-chart')).toBeTruthy();
 });
 
 it('keeps the drawn series through consecutive range changes and replaces it on completion', () => {

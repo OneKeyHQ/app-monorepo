@@ -15,6 +15,10 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IMarketPriceSource } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
+import type {
+  IMarketStockPublicDetail,
+  IMarketTokenDetail,
+} from '@onekeyhq/shared/types/marketV2';
 
 import { useStockDetail } from '../../hooks/StockDetailContext';
 import { useMarketKlineLivePrice } from '../../hooks/useMarketKlineLivePrice';
@@ -52,27 +56,64 @@ type IStockSimpleChartState = {
   range: IStockSimpleChartRange;
 };
 
-export function StockSimpleChart({
-  active = true,
-  coinGeckoId,
-  marketAssetId,
-  range,
-  priceMode,
-  priceScaleFormat,
-}: {
+type IStockSimpleChartProps = {
   active?: boolean;
   coinGeckoId?: string;
   marketAssetId?: string;
   range: IStockSimpleChartRange;
   priceMode: IMarketPriceSource;
   priceScaleFormat?: 'stock';
+  onRequestRetry?: () => void;
+  requestError?: boolean;
+};
+
+export function StockSimpleChart(props: IStockSimpleChartProps) {
+  const { isNative, networkId, tokenAddress, tokenDetail } = useTokenDetail();
+  const { stockDetail, stockId } = useStockDetail();
+  return (
+    <StockSimpleChartContent
+      {...props}
+      isNative={isNative}
+      networkId={networkId}
+      tokenAddress={tokenAddress}
+      tokenDetail={tokenDetail}
+      stockDetail={stockDetail}
+      stockId={stockId}
+      retainPreviousRange
+    />
+  );
+}
+
+// Entry adapters own the asset identity; the chart never reads another page's atoms.
+export function StockSimpleChartContent({
+  active = true,
+  coinGeckoId,
+  marketAssetId,
+  range,
+  priceMode,
+  priceScaleFormat,
+  requestError = false,
+  onRequestRetry,
+  retainPreviousRange = false,
+  isNative,
+  networkId,
+  tokenAddress,
+  tokenDetail,
+  stockDetail,
+  stockId,
+}: IStockSimpleChartProps & {
+  retainPreviousRange?: boolean;
+  isNative: boolean;
+  networkId: string;
+  tokenAddress: string;
+  tokenDetail?: IMarketTokenDetail;
+  stockDetail?: IMarketStockPublicDetail | null;
+  stockId?: string;
 }) {
   const intl = useIntl();
   const [chartHeight, setChartHeight] = useState(
     STOCK_SIMPLE_CHART_INITIAL_HEIGHT,
   );
-  const { isNative, networkId, tokenAddress, tokenDetail } = useTokenDetail();
-  const { stockDetail, stockId } = useStockDetail();
   const {
     coinGeckoId: requestCoinGeckoId,
     isNative: requestIsNative,
@@ -93,6 +134,14 @@ export function StockSimpleChart({
     tokenAddress,
   });
 
+  const requestReady =
+    requestPriceMode === 'share'
+      ? Boolean(requestStockId)
+      : Boolean(
+          requestMarketAssetId ||
+          requestCoinGeckoId ||
+          (requestNetworkId && (requestTokenAddress || requestIsNative)),
+        );
   const pulseLastPoint = resolveStockSimpleChartPulseLastPoint({
     stockDetail,
     stockId,
@@ -109,6 +158,7 @@ export function StockSimpleChart({
   useMarketKlineLivePrice({
     enabled:
       active &&
+      requestReady &&
       resolveMarketKlineLivePriceEnabled({
         isNative: requestIsNative,
         networkId: requestNetworkId,
@@ -173,6 +223,10 @@ export function StockSimpleChart({
           : { data: [], ...stateScope, status: 'pending' };
       }
 
+      if (!requestReady) {
+        return { data: [], ...stateScope, status: 'pending' };
+      }
+
       requestSeqRef.current += 1;
       const seq = requestSeqRef.current;
       // One polling interval serves every range, so the per-range pace is
@@ -225,6 +279,7 @@ export function StockSimpleChart({
     },
     [
       active,
+      requestReady,
       requestCoinGeckoId,
       requestIsNative,
       requestMarketAssetId,
@@ -256,6 +311,7 @@ export function StockSimpleChart({
 
   const isCurrentScopeLoaded = chartState.scopeKey === scopeKey;
   const isRetainingRange =
+    retainPreviousRange &&
     !isCurrentScopeLoaded &&
     chartState.assetKey === assetKey &&
     chartState.status === 'success' &&
@@ -305,9 +361,44 @@ export function StockSimpleChart({
     ],
   );
 
+  const renderChartError = () => (
+    <YStack
+      testID="stock-simple-chart-error"
+      width="100%"
+      height="100%"
+      alignItems="center"
+      justifyContent="center"
+      gap="$2"
+    >
+      <Icon name="InfoCircleOutline" size="$6" color="$iconSubdued" />
+      <SizableText size="$bodySm" color="$textSubdued">
+        {intl.formatMessage({
+          id: ETranslations.global_unknown_error_retry_message,
+        })}
+      </SizableText>
+      <Button
+        testID="stock-simple-chart-retry"
+        size="small"
+        variant="tertiary"
+        onPress={() => {
+          if (requestError) {
+            onRequestRetry?.();
+          } else {
+            void retry();
+          }
+        }}
+      >
+        {intl.formatMessage({ id: ETranslations.global_retry })}
+      </Button>
+    </YStack>
+  );
+
   let chartContent;
   // Retain only another range of this asset; never expose a previous asset.
-  if (
+  if (requestError) {
+    chartContent = renderChartError();
+  } else if (
+    !requestReady ||
     chartState.status === 'pending' ||
     (!isCurrentScopeLoaded && !isRetainingRange) ||
     (isLoading && !chartState.data.length)
@@ -318,31 +409,7 @@ export function StockSimpleChart({
       </Stack>
     );
   } else if (chartState.status === 'error') {
-    chartContent = (
-      <YStack
-        testID="stock-simple-chart-error"
-        width="100%"
-        height="100%"
-        alignItems="center"
-        justifyContent="center"
-        gap="$2"
-      >
-        <Icon name="InfoCircleOutline" size="$6" color="$iconSubdued" />
-        <SizableText size="$bodySm" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.global_unknown_error_retry_message,
-          })}
-        </SizableText>
-        <Button
-          testID="stock-simple-chart-retry"
-          size="small"
-          variant="tertiary"
-          onPress={() => void retry()}
-        >
-          {intl.formatMessage({ id: ETranslations.global_retry })}
-        </Button>
-      </YStack>
-    );
+    chartContent = renderChartError();
   } else if (!chartState.data.length) {
     chartContent = (
       <YStack

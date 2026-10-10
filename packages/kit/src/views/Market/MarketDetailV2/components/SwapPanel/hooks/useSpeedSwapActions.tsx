@@ -124,7 +124,6 @@ import type {
 import {
   EProtocolOfExchange,
   ESwapApproveTransactionStatus,
-  ESwapFetchCancelCause,
   ESwapNetworkFeeLevel,
   ESwapQuoteKind,
   ESwapQuoteSource,
@@ -461,6 +460,7 @@ export function useSpeedSwapActions(props: {
   const { activeAccount: account } = useActiveAccount({ num: 0 });
   const [shouldApprove, setShouldApprove] = useState(false);
   const [shouldResetApprove, setShouldResetApprove] = useState(false);
+  const tokenAllowanceRequestIdRef = useRef(0);
   const [speedSwapBuildTxLoading, setSpeedSwapBuildTxLoading] = useState(false);
   const [checkTokenAllowanceLoading, setCheckTokenAllowanceLoading] =
     useState(false);
@@ -2179,6 +2179,10 @@ export function useSpeedSwapActions(props: {
 
   const checkTokenApproveAllowance = useCallback(
     async (amount: string, overrideSpenderAddress?: string) => {
+      tokenAllowanceRequestIdRef.current += 1;
+      const requestId = tokenAllowanceRequestIdRef.current;
+      const isCurrentRequest = () =>
+        tokenAllowanceRequestIdRef.current === requestId;
       const spender = overrideSpenderAddress || effectiveSpenderAddress;
       const amountBN = new BigNumber(amount || 0);
       try {
@@ -2193,8 +2197,11 @@ export function useSpeedSwapActions(props: {
           !fromToken.contractAddress ||
           isWrapped
         ) {
-          setShouldApprove(false);
-          setShouldResetApprove(false);
+          if (isCurrentRequest()) {
+            setShouldApprove(false);
+            setShouldResetApprove(false);
+            setCheckTokenAllowanceLoading(false);
+          }
           return;
         }
         setCheckTokenAllowanceLoading(true);
@@ -2214,12 +2221,16 @@ export function useSpeedSwapActions(props: {
             fetchApproveAllowanceParams,
           );
 
+        if (!isCurrentRequest()) {
+          return;
+        }
         setShouldApprove(!approveRes.isApproved);
         setShouldResetApprove(!!approveRes.shouldResetApprove);
         setCheckTokenAllowanceLoading(false);
-      } catch (e: any) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        if (e.cause !== ESwapFetchCancelCause.SWAP_APPROVE_ALLOWANCE_CANCEL) {
+      } catch {
+        if (isCurrentRequest()) {
+          // A cancellation without a replacement request is terminal for this
+          // request. A newer request has its own id and remains authoritative.
           setCheckTokenAllowanceLoading(false);
         }
       }
@@ -2234,6 +2245,13 @@ export function useSpeedSwapActions(props: {
       isWrapped,
     ],
   );
+
+  const clearTokenAllowanceState = useCallback(() => {
+    tokenAllowanceRequestIdRef.current += 1;
+    setShouldApprove(false);
+    setShouldResetApprove(false);
+    setCheckTokenAllowanceLoading(false);
+  }, []);
 
   const requireReviewExecutionSnapshot = useCallback(
     (kind?: IMarketReviewExecutionSnapshot['kind']) => {
@@ -3751,10 +3769,10 @@ export function useSpeedSwapActions(props: {
         selectedQuoteResult.allowanceResult.allowanceTarget,
       );
     } else {
-      setShouldApprove(false);
-      setShouldResetApprove(false);
+      clearTokenAllowanceState();
     }
   }, [
+    clearTokenAllowanceState,
     checkTokenApproveAllowance,
     fromTokenAmountDebounced,
     inAppNotificationAtom.speedSwapApprovingTransaction?.status,
