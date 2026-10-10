@@ -9,27 +9,35 @@ describe('formatStockLastUpdateTime', () => {
     jest
       .spyOn(Date.prototype, 'getTimezoneOffset')
       .mockReturnValue(-offsetMinutesAheadOfUtc);
-    jest
-      .spyOn(Date.prototype, 'getHours')
-      .mockImplementation(function getHours(this: Date) {
-        return shift(this).getUTCHours();
-      });
-    jest
-      .spyOn(Date.prototype, 'getMinutes')
-      .mockImplementation(function getMinutes(this: Date) {
-        return shift(this).getUTCMinutes();
-      });
+    // date-fns derives the offset from every local getter, so all of them
+    // follow the pinned zone.
+    const localGetters = [
+      ['getFullYear', 'getUTCFullYear'],
+      ['getMonth', 'getUTCMonth'],
+      ['getDate', 'getUTCDate'],
+      ['getHours', 'getUTCHours'],
+      ['getMinutes', 'getUTCMinutes'],
+      ['getSeconds', 'getUTCSeconds'],
+      ['getMilliseconds', 'getUTCMilliseconds'],
+    ] as const;
+    for (const [localGetter, utcGetter] of localGetters) {
+      jest
+        .spyOn(Date.prototype, localGetter)
+        .mockImplementation(function getLocal(this: Date) {
+          return shift(this)[utcGetter]();
+        });
+    }
   }
 
   afterEach(() => {
     jest.restoreAllMocks();
   });
 
-  it('reports the local time and offset of the quote', () => {
+  it('reports the local date, time and offset of the quote', () => {
     mockTimeZone(8 * 60);
 
     expect(formatStockLastUpdateTime('2026-09-15T23:58:00.007Z')).toBe(
-      '07:58 UTC+8',
+      '09/16, 07:58 UTC+8',
     );
   });
 
@@ -37,7 +45,7 @@ describe('formatStockLastUpdateTime', () => {
     mockTimeZone(5 * 60 + 30);
 
     expect(formatStockLastUpdateTime('2026-09-15T23:58:00.007Z')).toBe(
-      '05:28 UTC+5:30',
+      '09/16, 05:28 UTC+5:30',
     );
   });
 
@@ -45,7 +53,7 @@ describe('formatStockLastUpdateTime', () => {
     mockTimeZone(0);
 
     expect(formatStockLastUpdateTime('2026-09-15T23:58:00.007Z')).toBe(
-      '23:58 UTC',
+      '09/15, 23:58 UTC',
     );
   });
 
@@ -53,7 +61,7 @@ describe('formatStockLastUpdateTime', () => {
     mockTimeZone(-4 * 60);
 
     expect(formatStockLastUpdateTime('2026-09-15T23:58:00.007Z')).toBe(
-      '19:58 UTC-4',
+      '09/15, 19:58 UTC-4',
     );
   });
 
