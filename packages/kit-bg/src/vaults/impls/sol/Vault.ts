@@ -82,6 +82,7 @@ import type {
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IVerifyMessageParams } from '@onekeyhq/shared/types/message';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -111,15 +112,16 @@ import {
   BASE_FEE,
   COMPUTE_UNIT_PRICE_DECIMALS,
   CREATE_TOKEN_ACCOUNT_RENT,
-  MIN_PRIORITY_FEE,
   TOKEN_AUTH_RULES_ID,
+  canRefreshSolTxBlockhash,
   isCustomProgram,
-  isTxOverSize,
+  isDurableNonceSolTx,
   masterEditionAddress,
   metadataAddress,
   parseComputeUnitLimit,
   parseComputeUnitPrice,
   parseNativeTxDetail,
+  replaceSolTxRecentBlockhash,
   tokenRecordAddress,
 } from './utils';
 
@@ -127,6 +129,7 @@ import type { IAssociatedTokenInfo, IParsedAccountInfo } from './types';
 import type { IKeyringMap } from '../../base/VaultBase';
 import type {
   IBroadcastTransactionByCustomRpcParams,
+  IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -145,6 +148,58 @@ import type {
 } from '@metaplex-foundation/mpl-token-metadata';
 import type { AccountInfo, TransactionInstruction } from '@solana/web3.js';
 import type { FailedAttemptError } from 'p-retry';
+
+// A pending Solana tx that never reached the ledger leaves no signature
+// status. Its blockhash lives ~150 slots (60-90 s) and the broadcast retries
+// add up to ~45 s more, so an unseen tx older than this window is dropped.
+const SOL_PENDING_TX_DROPPED_TIMEOUT_MS = timerUtils.getTimeDurationMs({
+  minute: 3,
+});
+// Preflight rejection text shared by the proxy (code 40028) and custom RPCs.
+const SOL_BLOCKHASH_NOT_FOUND_MESSAGE = 'Blockhash not found';
+// TODO(OK-63381): move to an ETranslations key once the copy lands in Lokalise.
+const SOL_TX_EXPIRED_MESSAGE = 'Transaction expired, please try again.';
+
+function isSolBlockhashNotFoundError(error: unknown): boolean {
+  return (
+    (error as OneKeyError | undefined)?.code ===
+      BLOCK_HASH_NOT_FOUND_ERROR_CODE ||
+    Boolean(
+      (error as Error | undefined)?.message?.includes(
+        SOL_BLOCKHASH_NOT_FOUND_MESSAGE,
+      ),
+    )
+  );
+}
+
+// Both broadcast paths surface the raw node text ("Error JSON RPC response:
+// Transaction simulation failed: Blockhash not found"); replace it with the
+// user-facing copy while keeping the code the retry check matches on.
+function normalizeSolBroadcastError(error: unknown): unknown {
+  if (!isSolBlockhashNotFoundError(error)) {
+    return error;
+  }
+  return new OneKeyLocalError({
+    message: SOL_TX_EXPIRED_MESSAGE,
+    code: BLOCK_HASH_NOT_FOUND_ERROR_CODE,
+  });
+}
+
+// A durable-nonce tx has no blockhash expiry: it stays valid until its nonce
+// advances, so an unseen signature after the timeout does not mean the chain
+// will never execute it. Only a payload positively parsed as a plain blockhash
+// tx may be timed out; unreadable payloads stay pending.
+function hasSolBlockhashExpiry(encodedTx: IDecodedTx['encodedTx']): boolean {
+  if (typeof encodedTx !== 'string' || !encodedTx) {
+    return false;
+  }
+  try {
+    const nativeTx = parseToNativeTx(encodedTx);
+    return Boolean(nativeTx) && !isDurableNonceSolTx(nativeTx as INativeTxSol);
+  } catch {
+    return false;
+  }
+}
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.sol.hd;
@@ -659,6 +714,90 @@ export default class Vault extends VaultBase {
     }
 
     return { ...unsignedTx, encodedTx: newEncodedTx };
+  }
+
+  override async refreshUnsignedTxBeforeSign(
+    unsignedTx: IUnsignedTxPro,
+  ): Promise<IUnsignedTxPro> {
+    const nativeTx = parseToNativeTx(unsignedTx.encodedTx as IEncodedTxSol);
+    if (!nativeTx || !canRefreshSolTxBlockhash(nativeTx)) {
+      return unsignedTx;
+    }
+
+    let recentBlockhash: string;
+    let lastValidBlockHeight: number;
+    try {
+      ({ recentBlockhash, lastValidBlockHeight } =
+        await this._getRecentBlockHash());
+    } catch (error) {
+      // Signing with the original blockhash is still the best effort when
+      // the RPC is unreachable; the broadcast reports the real outcome.
+      console.error(
+        'SOL refreshUnsignedTxBeforeSign: blockhash fetch failed',
+        error,
+      );
+      return unsignedTx;
+    }
+
+    return {
+      ...unsignedTx,
+      encodedTx: replaceSolTxRecentBlockhash({
+        nativeTx,
+        recentBlockhash,
+        lastValidBlockHeight,
+      }),
+    };
+  }
+
+  override async getDroppedPendingTxs({
+    pendingTxs,
+  }: {
+    pendingTxs: IAccountHistoryTx[];
+  }): Promise<IAccountHistoryTx[]> {
+    const now = Date.now();
+    const candidates = pendingTxs.filter((tx) => {
+      const { txid, createdAt, encodedTx } = tx.decodedTx;
+      return (
+        Boolean(txid) &&
+        !isNil(createdAt) &&
+        now - createdAt >= SOL_PENDING_TX_DROPPED_TIMEOUT_MS &&
+        hasSolBlockhashExpiry(encodedTx)
+      );
+    });
+    if (!candidates.length) {
+      return [];
+    }
+
+    try {
+      const statuses = await this.getSignatureStatuses(
+        candidates.map((tx) => tx.decodedTx.txid),
+      );
+      if (!statuses || statuses.length !== candidates.length) {
+        return [];
+      }
+      // `null` (not `undefined`) is the RPC's explicit "never seen" answer,
+      // even with searchTransactionHistory; anything else keeps the tx pending
+      // for the regular detail polling to settle.
+      return candidates.filter((_, index) => statuses[index] === null);
+    } catch (error) {
+      console.error('SOL getDroppedPendingTxs: status lookup failed', error);
+      return [];
+    }
+  }
+
+  override async buildHistoryTx(
+    params: Parameters<VaultBase['buildHistoryTx']>[0],
+  ): Promise<IAccountHistoryTx> {
+    const historyTx = await super.buildHistoryTx(params);
+    // refreshUnsignedTxBeforeSign may have re-stamped the blockhash after the
+    // decoded tx was built from the original payload. Every Solana keyring
+    // returns the exact payload it signed as signedTx.encodedTx, so persist
+    // that one as the record of what was broadcast.
+    const signedEncodedTx = params.signedTx?.encodedTx;
+    if (typeof signedEncodedTx === 'string' && signedEncodedTx) {
+      historyTx.decodedTx.encodedTx = signedEncodedTx;
+    }
+    return historyTx;
   }
 
   async _getRecentBlockHash() {
@@ -1790,6 +1929,7 @@ export default class Vault extends VaultBase {
     });
 
     const computeUnitLimit = parseComputeUnitLimit(instructions);
+    const computeUnitPriceInTx = parseComputeUnitPrice(instructions);
 
     return {
       encodedTx,
@@ -1798,83 +1938,22 @@ export default class Vault extends VaultBase {
           baseFee: String(BASE_FEE),
           computeUnitPriceDecimals: COMPUTE_UNIT_PRICE_DECIMALS,
           computeUnitLimit: String(computeUnitLimit),
+          computeUnitPriceInTx,
         },
       },
     };
   }
 
-  override async attachFeeInfoToDAppEncodedTx(params: {
+  override async attachFeeInfoToDAppEncodedTx(_params: {
     encodedTx: IEncodedTxSol;
     feeInfo: IFeeInfoUnit;
   }): Promise<IEncodedTxSol> {
-    const { encodedTx, feeInfo } = params;
-
-    const devSettings =
-      await this.backgroundApi.serviceDevSetting.getDevSetting();
-    if (devSettings.enabled && devSettings.settings?.disableSolanaPriorityFee) {
-      return '';
-    }
-
-    const client = await this.getClient();
-    const accountAddress = await this.getAccountAddress();
-    let computeUnitPrice = '0';
-
-    const nativeTx = parseToNativeTx(encodedTx) as INativeTxSol;
-
-    // check if the tx is partially signed
-    if (nativeTx.signatures && nativeTx.signatures.length > 1) {
-      return '';
-    }
-
-    const { instructions } = await parseNativeTxDetail({
-      nativeTx,
-      client: await this.getClient(),
-    });
-
-    const computeUnitPriceFromInstructions =
-      parseComputeUnitPrice(instructions);
-
-    if (new BigNumber(computeUnitPriceFromInstructions).gte(MIN_PRIORITY_FEE)) {
-      // If the DApp tx  includes prioritization fee,
-      // try replacing it with another one to see if that works.
-
-      const encodedTxWithFee = await this._attachFeeInfoToEncodedTx({
-        encodedTx,
-        feeInfo: {
-          ...feeInfo,
-          feeSol: {
-            computeUnitPrice: '1',
-          },
-        },
-      });
-
-      return encodedTxWithFee === '' ? encodedTxWithFee : encodedTx;
-    }
-
-    if (isNil(feeInfo.feeSol?.computeUnitPrice)) {
-      const prioritizationFee = await client.getRecentMaxPrioritizationFees([
-        accountAddress,
-      ]);
-      computeUnitPrice = String(prioritizationFee);
-    } else {
-      computeUnitPrice = feeInfo.feeSol.computeUnitPrice;
-    }
-
-    const encodedTxWithFee = await this._attachFeeInfoToEncodedTx({
-      encodedTx,
-      feeInfo: {
-        ...feeInfo,
-        feeSol: {
-          computeUnitPrice,
-        },
-      },
-    });
-
-    if (isTxOverSize(encodedTxWithFee)) {
-      return '';
-    }
-
-    return encodedTxWithFee;
+    // dApp-built transactions must stay byte-identical. dApps that broadcast on
+    // their own (signTransaction) compare the returned message with the one they
+    // sent and reject any wallet-side rewrite (e.g. Jupiter Lend).
+    // Returning '' tells SendConfirmFromDApp to keep the raw tx and lock the fee
+    // editor, the same contract the BTC PSBT path uses. See OK-64196.
+    return '';
   }
 
   override async getCustomRpcEndpointStatus(
@@ -1898,12 +1977,27 @@ export default class Vault extends VaultBase {
       throw new OneKeyInternalError('Invalid rpc url');
     }
     const client = new ClientCustomRpcSol(rpcUrl);
-    const txid = await client.broadcastTransaction(signedTx.rawTx);
+    let txid: string;
+    try {
+      txid = await client.broadcastTransaction(signedTx.rawTx);
+    } catch (error) {
+      throw normalizeSolBroadcastError(error);
+    }
     return {
       ...signedTx,
       txid,
       encodedTx: signedTx.encodedTx,
     };
+  }
+
+  override async broadcastTransaction(
+    params: IBroadcastTransactionParams,
+  ): Promise<ISignedTxPro> {
+    try {
+      return await super.broadcastTransaction(params);
+    } catch (error) {
+      throw normalizeSolBroadcastError(error);
+    }
   }
 
   override async validateSendAmount({
@@ -1933,10 +2027,11 @@ export default class Vault extends VaultBase {
   override async checkShouldRetryBroadcastTx(
     error: FailedAttemptError,
   ): Promise<boolean> {
-    if (
-      (error as unknown as OneKeyError)?.code ===
-      BLOCK_HASH_NOT_FOUND_ERROR_CODE
-    ) {
+    // A custom RPC node answers with a plain JSON-RPC error (no OneKey code).
+    // The blockhash comes from the proxy node, so a custom node lagging a few
+    // slots behind rejects it transiently the same way the proxy does with
+    // 40028; retry both alike.
+    if (isSolBlockhashNotFoundError(error)) {
       await timerUtils.wait((error?.attemptNumber || 1) * 1000);
       return true;
     }

@@ -246,6 +246,7 @@ export function AccountSelectorWalletListSideBar({
         void actions.current.updateSelectedAccountFocusedWallet({
           num,
           focusedWallet: walletsResult.wallets[0]?.id,
+          reason: 'autoRepairFocusedWallet',
         });
       }
 
@@ -276,6 +277,7 @@ export function AccountSelectorWalletListSideBar({
       void actions.current.updateSelectedAccountFocusedWallet({
         num,
         focusedWallet,
+        reason: 'userSelectWallet',
       });
     },
     [actions, num],
@@ -457,7 +459,7 @@ export function AccountSelectorWalletListSideBar({
               focusedWallet={selectedAccount.focusedWallet}
               onWalletPress={onWalletPress}
               onWalletLongPress={drag}
-              testID={`wallet-${item.id}`}
+              testID={AccountManagerTestIDs.wallet(item.id)}
               badge={item.badge}
               isEditMode={isEditableRouteParams}
               shouldShowCreateHiddenWalletButtonFn={

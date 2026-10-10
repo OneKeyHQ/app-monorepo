@@ -226,7 +226,14 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
         params: { scope: 'runtime' },
         hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       });
-      if (state.status.unlocked === false) {
+      // An uninitialized device (fresh or just wiped) has no PIN to unlock: the
+      // firmware refuses DeviceSessionAskPin while onboarding and hd-core itself
+      // skips its pre-unlock for it, so go straight to the attestation call.
+      // Mirrors the SDK guard (`initialized !== false`).
+      if (
+        state.status.initialized !== false &&
+        state.status.unlocked === false
+      ) {
         await this.serviceHardware.getDeviceStateWithUnlock({
           connectId,
           params: { scope: 'runtime' },

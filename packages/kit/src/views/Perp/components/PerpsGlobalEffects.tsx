@@ -270,6 +270,7 @@ function useTradeRouteViewStateSync() {
       actionsRef.setTradeRouteViewState({
         routeFocused: false,
         tokenSelectorOpen: false,
+        tradeHistoryDetailsOpen: false,
       });
     };
   }, [actions]);

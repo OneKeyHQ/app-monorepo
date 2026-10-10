@@ -38,12 +38,14 @@ import { isSpotInstrument } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { usePerpsAccountScopedCacheAddress } from '../../hooks/usePerpsAccountScopedCacheAddress';
 import { useShowUnifoldDepositTracker } from '../../hooks/useShowDepositWithdrawModal';
+import { useTradeHistoryFilters } from '../../hooks/useTradeHistoryFilters';
 import { useVisibleSpotHoldingsCount } from '../../hooks/useVisibleSpotHoldingsCount';
 import { isHyperLiquidUnifiedAccountMode } from '../../utils';
 import { getPerpsAccountScopedListData } from '../../utils/accountScopedData';
 
 import { FundingHistoryFilterToolbar } from './Components/FundingHistoryFilterToolbar';
 import { HideSmallSpotHoldingsCheckbox } from './Components/HideSmallSpotHoldingsCheckbox';
+import { TradesHistoryFilterToolbar } from './Components/TradesHistoryFilterToolbar';
 import {
   type IFundingHistoryMarketOption,
   type IFundingHistorySideFilter,
@@ -201,6 +203,7 @@ function PerpOrderInfoPanel() {
   const initialTabName =
     tradeRouteViewState.infoPanelTab === 'Balances' ? 'Balances' : 'Positions';
   const [activeTab, setActiveTab] = useState<string>(initialTabName);
+  const tradeHistoryFilters = useTradeHistoryFilters();
   const [fundingHistorySideFilter, setFundingHistorySideFilter] =
     useState<IFundingHistorySideFilter>('all');
   const [fundingHistoryMarketFilter, setFundingHistoryMarketFilter] = useState<
@@ -212,6 +215,7 @@ function PerpOrderInfoPanel() {
     useShowUnifoldDepositTracker();
   const hasTabBarTrailingContent =
     activeTab === 'Balances' ||
+    activeTab === 'Trades History' ||
     activeTab === 'Funding' ||
     (activeTab === 'Account' && isUnifoldDepositTrackerAvailable);
 
@@ -292,7 +296,13 @@ function PerpOrderInfoPanel() {
       case 'TWAP':
         return <PerpTwapList />;
       case 'Trades History':
-        return <PerpTradesHistoryList useTabsList={false} />;
+        return (
+          <PerpTradesHistoryList
+            useTabsList={false}
+            filters={tradeHistoryFilters.filters}
+            onMarketOptionsChange={tradeHistoryFilters.onMarketOptionsChange}
+          />
+        );
       case 'Funding':
         return (
           <PerpFundingHistoryList
@@ -345,6 +355,9 @@ function PerpOrderInfoPanel() {
           <XStack mr="$3" alignItems="center">
             <HideSmallSpotHoldingsCheckbox />
           </XStack>
+        ) : null}
+        {activeTab === 'Trades History' ? (
+          <TradesHistoryFilterToolbar {...tradeHistoryFilters} />
         ) : null}
         {activeTab === 'Funding' ? (
           <FundingHistoryFilterToolbar

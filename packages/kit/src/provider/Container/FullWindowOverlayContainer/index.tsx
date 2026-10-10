@@ -15,6 +15,7 @@ import { ScreenshotBranding } from '../../../components/ScreenshotBranding';
 import { TradingViewNativeFullscreenHost } from '../../../components/TradingView/TradingViewNative/TradingViewNativePresentation';
 import { useSplitViewDetailOffset } from '../TableSplitViewContainer/SplitViewDetailOffsetContext';
 
+import { AccountSelectorMirrorInspectorContainer } from './AccountSelectorMirrorInspectorContainer';
 import { DevOverlayWindowContainer } from './DevOverlayWindowContainer';
 import { ToastOverlayContainer } from './ToastOverlayContainer';
 import { TradingViewNativeDebugPanelContainer } from './TradingViewNativeDebugPanelContainer';
@@ -113,6 +114,11 @@ export function FullWindowOverlayContainer() {
         {platformEnv.isE2E ? <></> : <Toaster />}
       </ToastOverlayContainer>
       <DevOverlayWindowContainer />
+      {process.env.NODE_ENV !== 'production' &&
+      platformEnv.isWeb &&
+      (platformEnv.isDev || platformEnv.isE2E) ? (
+        <AccountSelectorMirrorInspectorContainer />
+      ) : null}
       <TradingViewNativeDebugPanelContainer />
       <ScreenshotBranding />
     </OverlayContainer>

@@ -1,8 +1,10 @@
 import type { ISetTpslParams } from '@onekeyhq/kit/src/views/Perp/components/OrderInfoPanel/SetTpslModal';
 
+import type { IFill } from '../../types/hyperliquid/sdk';
 import type { TPerpDepositEntrySource } from '../logger/scopes/perp/type';
 
 export enum EModalPerpRoutes {
+  PerpTradeHistoryDetails = 'PerpTradeHistoryDetails',
   PerpTradersHistoryList = 'PerpTradersHistoryList',
   MobilePerpMarket = 'MobilePerpMarket',
   MobileTokenSelector = 'MobileTokenSelector',
@@ -51,6 +53,10 @@ export type IUnifoldSourceSelectorResult =
     };
 
 export type IModalPerpParamList = {
+  [EModalPerpRoutes.PerpTradeHistoryDetails]: {
+    fill: IFill;
+    builderFeeRate?: number;
+  };
   [EModalPerpRoutes.PerpTradersHistoryList]:
     | { initialTab?: IPerpHistoryTab }
     | undefined;
