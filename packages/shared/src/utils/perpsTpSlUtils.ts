@@ -109,12 +109,12 @@ export function getPerpsChaseOrderAmendKind(
 ): Extract<IOrderAmendKind, { kind: 'limit' }> | null {
   if (
     order.orderType !== 'Limit' ||
-    order.tif !== 'Gtc' ||
+    (order.tif !== 'Gtc' && order.tif !== 'Alo') ||
     order.isTrigger ||
     order.isPositionTpsl
   ) {
     return null;
   }
 
-  return { kind: 'limit', tif: 'Gtc' };
+  return { kind: 'limit', tif: 'Alo' };
 }

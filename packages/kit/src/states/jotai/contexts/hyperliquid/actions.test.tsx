@@ -11,6 +11,7 @@ import {
 } from '@testing-library/react';
 import { createStore } from 'jotai';
 
+import { Toast } from '@onekeyhq/components';
 import { useFirstDepositAction } from '@onekeyhq/kit/src/views/Perp/hooks/useEnableTradingWithDepositFallback';
 import {
   perpsActiveAccountAtom,
@@ -27,6 +28,7 @@ import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { useHyperliquidActions } from './actions';
 import {
   ProviderJotaiContextHyperliquid,
+  perpsActiveOpenOrdersAtom,
   perpsActiveTwapOrdersAtom,
 } from './atoms';
 
@@ -64,6 +66,10 @@ const mockEnableTrading = jest.fn<
 const mockGetTwapStates = jest.fn<
   Promise<Pick<HL.IWsWebData2, 'user' | 'twapStates'> | undefined>,
   [HL.IEventWebData2Parameters]
+>();
+const mockAmendOrderPriceByOid = jest.fn<
+  Promise<HL.IModifyResponse>,
+  unknown[]
 >();
 const mockGetTwapHistory = jest.fn<Promise<HL.ITwapHistoryRecord[]>, []>();
 const mockGetTwapSliceFills = jest.fn<Promise<HL.ITwapSliceFill[]>, []>();
@@ -163,6 +169,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockGetTwapStates(params),
       getTwapHistory: () => mockGetTwapHistory(),
       getUserTwapSliceFills: () => mockGetTwapSliceFills(),
+    },
+    serviceHyperliquidExchange: {
+      amendOrderPriceByOid: (...args: unknown[]) =>
+        mockAmendOrderPriceByOid(...args),
     },
     servicePassword: {
       promptHyperLiquidAgentPasswordSetupOrVerify: () =>
@@ -446,4 +456,113 @@ describe('useHyperliquidActions.loadTwapData', () => {
       existingOrders,
     );
   });
+});
+
+describe('useHyperliquidActions.chaseOrder', () => {
+  const accountAddress = '0xabcd';
+
+  afterEach(() => jest.restoreAllMocks());
+
+  function setup(overrides: Partial<HL.IPerpsFrontendOrder> = {}) {
+    jest.spyOn(perpsActiveAccountAtom, 'get').mockResolvedValue({
+      accountId: null,
+      indexedAccountId: null,
+      deriveType: 'default',
+      accountAddress,
+    });
+    const order: HL.IPerpsFrontendOrder = {
+      coin: 'BTC',
+      oid: 1,
+      orderType: 'Limit',
+      tif: 'Alo',
+      side: 'B',
+      limitPx: '100',
+      sz: '0.25',
+      origSz: '1',
+      reduceOnly: false,
+      isTrigger: false,
+      isPositionTpsl: false,
+      triggerCondition: '',
+      triggerPx: '0',
+      timestamp: 1,
+      cloid: null,
+      children: [],
+      ...overrides,
+    };
+    const store = createStore();
+    store.set(perpsActiveOpenOrdersAtom(), {
+      accountAddress,
+      openOrders: [order],
+      openOrdersByCoin: { BTC: [order] },
+    });
+    mockAmendOrderPriceByOid.mockReset().mockResolvedValue({
+      status: 'ok',
+      response: { type: 'default' },
+    });
+    jest.mocked(Toast.success).mockClear();
+    jest.mocked(Toast.error).mockClear();
+    const { result } = renderHook(() => useHyperliquidActions(), {
+      wrapper: createWrapper(store),
+    });
+    return { result, order };
+  }
+
+  it.each([
+    ['Alo', '100.00', false],
+    ['Gtc', '100.00', true],
+    ['Alo', '101', true],
+  ] as const)(
+    'chases %s at %s only when price or TIF changes',
+    async (tif, newPrice, shouldAmend) => {
+      const { result, order } = setup({ tif });
+      await act(async () => {
+        await result.current.current.chaseOrder({
+          coin: order.coin,
+          oid: order.oid,
+          newPrice,
+          expectedAccountAddress: accountAddress,
+        });
+      });
+
+      expect(mockAmendOrderPriceByOid).toHaveBeenCalledTimes(
+        shouldAmend ? 1 : 0,
+      );
+      expect(Toast.success).toHaveBeenCalledTimes(shouldAmend ? 1 : 0);
+      if (shouldAmend) {
+        expect(mockAmendOrderPriceByOid).toHaveBeenCalledWith(
+          expect.objectContaining({
+            newPrice,
+            amendKind: { kind: 'limit', tif: 'Alo' },
+          }),
+        );
+      }
+    },
+  );
+
+  it.each(['ineligible order', 'changed account', 'lookup failure'])(
+    'reports %s even when an ALO order has the target price',
+    async (scenario) => {
+      const { result, order } = setup(
+        scenario === 'ineligible order' ? { sz: '0' } : {},
+      );
+      if (scenario === 'lookup failure') {
+        jest
+          .mocked(perpsActiveAccountAtom.get)
+          .mockRejectedValueOnce(new OneKeyLocalError('Order lookup failed'));
+      }
+      await expect(
+        result.current.current.chaseOrder({
+          coin: order.coin,
+          oid: order.oid,
+          newPrice: '100.00',
+          expectedAccountAddress:
+            scenario === 'changed account' ? '0xdef0' : accountAddress,
+        }),
+      ).rejects.toThrow();
+
+      await waitFor(() => expect(Toast.error).toHaveBeenCalledTimes(1));
+      expect(Toast.success).not.toHaveBeenCalled();
+      expect(mockAmendOrderPriceByOid).not.toHaveBeenCalled();
+    },
+  );
 });
