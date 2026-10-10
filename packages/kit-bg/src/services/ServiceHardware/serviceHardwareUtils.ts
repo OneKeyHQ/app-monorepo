@@ -5,6 +5,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 const BLE_MTU_READY_LOG_EVENT = '[ReactNativeBleTransport] BLE MTU ready';
 
 type IBleMtuReadyTelemetry = {
+  connectionId?: number;
   transportType: 'ble';
   blePlatform: 'ios' | 'android';
   requestedMtu: number;
@@ -34,6 +35,7 @@ function parseBleMtuReadyLogPayload(
     const params = JSON.parse(serializedParams) as Record<string, unknown>;
     const requestedMtu = parsePositiveNumber(params.requested);
     const actualMtu = parsePositiveNumber(params.actual);
+    const connectionId = parsePositiveNumber(params.connectionId);
     if (
       (params.platform !== 'ios' && params.platform !== 'android') ||
       requestedMtu === undefined
@@ -42,6 +44,9 @@ function parseBleMtuReadyLogPayload(
     }
 
     return {
+      connectionId: Number.isSafeInteger(connectionId)
+        ? connectionId
+        : undefined,
       transportType: 'ble',
       blePlatform: params.platform,
       requestedMtu,
@@ -57,7 +62,11 @@ function shouldReportBleMtuReadyTelemetry(
   reportedSignatures: Set<string>,
   telemetry: IBleMtuReadyTelemetry,
 ): boolean {
-  const signature = `${telemetry.blePlatform}:${telemetry.requestedMtu}:${
+  // Matching MTUs alone cannot identify a connection.
+  if (telemetry.connectionId === undefined) {
+    return true;
+  }
+  const signature = `${telemetry.blePlatform}:${telemetry.connectionId}:${telemetry.requestedMtu}:${
     telemetry.actualMtu ?? 'unknown'
   }`;
   if (reportedSignatures.has(signature)) {

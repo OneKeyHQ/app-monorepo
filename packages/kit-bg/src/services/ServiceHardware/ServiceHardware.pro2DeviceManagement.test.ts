@@ -1211,12 +1211,39 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
         payload: [
           '@onekey/hd-ble-transport',
           '[ReactNativeBleTransport] BLE MTU ready',
-          JSON.stringify({ platform: 'android', requested: 512, actual: 23 }),
+          JSON.stringify({
+            platform: 'android',
+            requested: 512,
+            actual: 23,
+            connectionId: 1,
+          }),
         ],
       };
       listeners.get(LOG_EVENT)?.(log);
       listeners.get(LOG_EVENT)?.(log);
       expect(trackMtu).toHaveBeenCalledTimes(1);
+      const secondConnectionLog = {
+        ...log,
+        payload: [
+          ...log.payload.slice(0, -1),
+          JSON.stringify({
+            platform: 'android',
+            requested: 512,
+            actual: 23,
+            connectionId: 2,
+          }),
+        ],
+      };
+      listeners.get(LOG_EVENT)?.(secondConnectionLog);
+      listeners.get(LOG_EVENT)?.(secondConnectionLog);
+      expect(trackMtu).toHaveBeenCalledTimes(2);
+      expect(trackMtu).toHaveBeenLastCalledWith({
+        transportType: 'ble',
+        blePlatform: 'android',
+        requestedMtu: 512,
+        actualMtu: 23,
+        isDefaultMtu: true,
+      });
 
       if (boundary === 'sdk-replacement') {
         await service.registerSdkEvents(
@@ -1236,7 +1263,7 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
       listeners.get(LOG_EVENT)?.(log);
       listeners.get(LOG_EVENT)?.(log);
       expect(trackMtu).toHaveBeenCalledTimes(
-        boundary === 'usb-disconnect' ? 1 : 2,
+        boundary === 'usb-disconnect' ? 2 : 3,
       );
       trackMtu.mockRestore();
     },

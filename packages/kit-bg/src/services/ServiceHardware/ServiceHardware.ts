@@ -2066,7 +2066,13 @@ class ServiceHardware extends ServiceBase {
                 mtuTelemetry,
               )
             ) {
-              defaultLogger.hardware.connection.bleMtuReady(mtuTelemetry);
+              defaultLogger.hardware.connection.bleMtuReady({
+                transportType: mtuTelemetry.transportType,
+                blePlatform: mtuTelemetry.blePlatform,
+                requestedMtu: mtuTelemetry.requestedMtu,
+                actualMtu: mtuTelemetry.actualMtu,
+                isDefaultMtu: mtuTelemetry.isDefaultMtu,
+              });
             }
           }
         },

@@ -28,19 +28,37 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   default: { isSupportWebUSB: false },
 }));
 
+jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
+  EAppEventBusNames: { RequestHardwareUIDialog: 'RequestHardwareUIDialog' },
+  appEventBus: { emit: jest.fn() },
+}));
+
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { act, renderHook } from '@testing-library/react-native';
 
 import { Toast } from '@onekeyhq/components';
-import { BluetoothUnavailableWhileUsbConnectedError } from '@onekeyhq/shared/src/errors';
+import { EHardwareUiStateAction } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  BluetoothUnavailableWhileUsbConnectedError,
+  OneKeyHardwareError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
+import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useOnboardingDeviceScanErrorHandler } from './useOnboardingDeviceScanErrorHandler';
 
 const toastError = jest.mocked(Toast.error);
+const requestHardwareUiDialog = jest.spyOn(appEventBus, 'emit');
 
 describe('useOnboardingDeviceScanErrorHandler', () => {
   beforeEach(() => {
     toastError.mockClear();
+    requestHardwareUiDialog.mockClear();
   });
 
   it('keeps scanning and de-duplicates the USB conflict toast', () => {
@@ -88,5 +106,31 @@ describe('useOnboardingDeviceScanErrorHandler', () => {
     expect(toastError).toHaveBeenCalledWith({
       title: ETranslations.device_communication_failed,
     });
+  });
+
+  it('routes a powered-off scan error to the existing Bluetooth settings dialog', () => {
+    const stopScan = jest.fn();
+    const { result } = renderHook(() =>
+      useOnboardingDeviceScanErrorHandler({ stopScan }),
+    );
+    const error = convertDeviceError({
+      code: HardwareErrorCode.BlePoweredOff,
+      error: 'Bluetooth is powered off',
+    });
+    if (!(error instanceof OneKeyHardwareError)) {
+      throw new OneKeyLocalError('Expected a converted SDK error instance');
+    }
+
+    act(() => {
+      result.current.handleScanError(error);
+    });
+
+    expect(stopScan).toHaveBeenCalledTimes(1);
+    expect(toastError).not.toHaveBeenCalled();
+    expect(requestHardwareUiDialog).toHaveBeenCalledTimes(1);
+    expect(requestHardwareUiDialog).toHaveBeenCalledWith(
+      EAppEventBusNames.RequestHardwareUIDialog,
+      { uiRequestType: EHardwareUiStateAction.BLUETOOTH_PERMISSION },
+    );
   });
 });
