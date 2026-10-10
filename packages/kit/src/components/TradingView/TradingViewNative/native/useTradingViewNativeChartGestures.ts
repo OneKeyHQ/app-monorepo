@@ -49,6 +49,7 @@ export function useTradingViewNativeChartGestures({
   isClickInteractionEnabled,
   isCrosshairEnabled,
   onSubIndicatorSettingsPress,
+  onInteractionChange,
   priceAxisResetGesture,
   priceAxisScaleGesture,
   priceAxisWidth,
@@ -59,6 +60,7 @@ export function useTradingViewNativeChartGestures({
   decayOffset: SharedValue<number>;
   isClickInteractionEnabled: boolean;
   isCrosshairEnabled: boolean;
+  onInteractionChange?: (isInteracting: boolean) => void;
   onSubIndicatorSettingsPress: (
     indicator: ITradingViewNativeSubIndicator,
   ) => void;
@@ -71,7 +73,16 @@ export function useTradingViewNativeChartGestures({
   const pressedSubIndicatorSettingsTarget =
     useSharedValue<ITradingViewNativeSubIndicator | null>(null);
 
+  const activeGestures = useSharedValue(0);
   return useMemo(() => {
+    const setInteraction = (bit: number, active: boolean) => {
+      'worklet';
+      const previous = activeGestures.value;
+      const next = active ? previous | bit : previous & ~bit;
+      activeGestures.value = next;
+      if (onInteractionChange && Boolean(previous) !== Boolean(next))
+        scheduleOnRN(onInteractionChange, Boolean(next));
+    };
     const isMainPriceAxisTouch = (x: number, y: number) => {
       'worklet';
 
@@ -183,6 +194,7 @@ export function useTradingViewNativeChartGestures({
       })
       .onStart((event) => {
         'worklet';
+        setInteraction(1, true);
 
         cancelAnimation(decayOffset);
         updateCrosshair(event.x, event.y);
@@ -194,6 +206,7 @@ export function useTradingViewNativeChartGestures({
       })
       .onFinalize((_event, success) => {
         'worklet';
+        setInteraction(1, false);
 
         if (success) {
           return;
@@ -277,6 +290,7 @@ export function useTradingViewNativeChartGestures({
       })
       .onStart(() => {
         'worklet';
+        setInteraction(2, true);
 
         const runtime = chartRuntime.value;
         const nextChartWidth = getTradingViewNativeChartWidth(
@@ -369,6 +383,7 @@ export function useTradingViewNativeChartGestures({
       })
       .onFinalize(() => {
         'worklet';
+        setInteraction(2, false);
 
         const runtime = chartRuntime.value;
         chartRuntime.value = {
@@ -394,6 +409,7 @@ export function useTradingViewNativeChartGestures({
       })
       .onStart((event) => {
         'worklet';
+        setInteraction(4, true);
 
         cancelAnimation(decayOffset);
         const runtime = chartRuntime.value;
@@ -463,6 +479,7 @@ export function useTradingViewNativeChartGestures({
       })
       .onFinalize(() => {
         'worklet';
+        setInteraction(4, false);
 
         const runtime = chartRuntime.value;
         chartRuntime.value = {
@@ -477,6 +494,7 @@ export function useTradingViewNativeChartGestures({
     const pinchGesture = Gesture.Pinch()
       .onStart((event) => {
         'worklet';
+        setInteraction(8, true);
 
         cancelAnimation(decayOffset);
         const runtime = chartRuntime.value;
@@ -541,6 +559,7 @@ export function useTradingViewNativeChartGestures({
       })
       .onFinalize(() => {
         'worklet';
+        setInteraction(8, false);
 
         const runtime = chartRuntime.value;
         chartRuntime.value = {
@@ -567,11 +586,13 @@ export function useTradingViewNativeChartGestures({
       ),
     );
   }, [
+    activeGestures,
     chartRuntime,
     decayOffset,
     isClickInteractionEnabled,
     isCrosshairEnabled,
     onSubIndicatorSettingsPress,
+    onInteractionChange,
     pressedSubIndicatorSettingsTarget,
     priceAxisResetGesture,
     priceAxisScaleGesture,

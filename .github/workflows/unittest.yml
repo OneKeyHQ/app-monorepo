@@ -45,8 +45,8 @@ jobs:
   unittest:
     name: Unit Tests (${{ matrix.shard }}/5)
     runs-on: ubuntu-24.04
-    # Include a cold install and first-time image publication; benchmarks keep the slow baseline observable.
-    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 30 || 13 }}
+    # Allow cold immutable installs and coverage reporting to finish on PR runners.
+    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 30 || 20 }}
 
     strategy:
       fail-fast: false

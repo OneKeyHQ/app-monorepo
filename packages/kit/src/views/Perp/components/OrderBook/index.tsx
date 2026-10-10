@@ -2406,7 +2406,7 @@ export function OrderBookMobile({
     [askDepth, reversedAsks],
   );
   const askPricesRaw = useMemo(
-    () => reversedAsks.map((itemData) => itemData.price),
+    () => reversedAsks.map((itemData) => itemData.displayPrice),
     [reversedAsks],
   );
   const askSizesRaw = useMemo(
@@ -2421,7 +2421,7 @@ export function OrderBookMobile({
     [aggregatedData.bids, bidDepth],
   );
   const bidPricesRaw = useMemo(
-    () => aggregatedData.bids.map((itemData) => itemData.price),
+    () => aggregatedData.bids.map((itemData) => itemData.displayPrice),
     [aggregatedData.bids],
   );
   const bidSizesRaw = useMemo(

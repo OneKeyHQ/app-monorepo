@@ -20,6 +20,7 @@ import {
   createPicture,
 } from '@shopify/react-native-skia';
 
+import { TRADING_VIEW_NATIVE_ORDER_LINE_LABEL_FONT_SIZE } from '../chartConstants';
 import {
   type IBuildTradingViewNativeChartSceneOptions,
   type ITradingViewNativeChartScene,
@@ -70,11 +71,20 @@ export function getTradingViewNativeSkiaLegendText({
     candleLabels.high,
     candleLabels.low,
     candleLabels.close,
-    ...chartComponents.flatMap((component) =>
-      component.type === 'tradeMarks'
-        ? component.props.marks.map((mark) => `${mark.label}${mark.text}…`)
-        : [],
-    ),
+    ...chartComponents.flatMap((component) => {
+      if (component.type === 'tradeMarks') {
+        return component.props.marks.map(
+          (mark) => `${mark.label}${mark.text}…`,
+        );
+      }
+      if (component.props.label) {
+        return [
+          component.props.title,
+          component.props.label.quantity?.text ?? '',
+        ];
+      }
+      return [];
+    }),
   ].join('');
   // Keep font selection stable when trades reorder or repeat the same glyphs.
   return Array.from(new Set(text.replaceAll(/\s/g, '')))
@@ -93,14 +103,19 @@ function createTradingViewNativeSkiaFont({
   fontFamily,
   fontManager,
   fontSize,
+  fontWeight,
 }: {
   fontFamily: string;
   fontManager: SkFontMgr;
   fontSize: number;
+  fontWeight?: FontWeight;
 }): SkFont {
   'worklet';
 
-  const typeface = fontManager.matchFamilyStyle(fontFamily, REGULAR_FONT_STYLE);
+  const typeface = fontManager.matchFamilyStyle(fontFamily, {
+    ...REGULAR_FONT_STYLE,
+    weight: fontWeight ?? REGULAR_FONT_STYLE.weight,
+  });
   return Skia.Font(typeface, fontSize);
 }
 
@@ -108,12 +123,14 @@ function createTradingViewNativeSkiaFontFromSystemFamilies({
   fontFamily,
   fontManager,
   fontSize,
+  fontWeight,
   primaryFont,
   requiredText,
 }: {
   fontFamily: string;
   fontManager: SkFontMgr;
   fontSize: number;
+  fontWeight: FontWeight;
   primaryFont: SkFont;
   requiredText: string;
 }): SkFont {
@@ -125,6 +142,7 @@ function createTradingViewNativeSkiaFontFromSystemFamilies({
         fontFamily: fallbackFontFamily,
         fontManager,
         fontSize,
+        fontWeight,
       });
       if (
         doesTradingViewNativeSkiaFontSupportText(fallbackFont, requiredText)
@@ -142,11 +160,13 @@ function createTradingViewNativeSkiaFontFromSystemFamilies({
 export function createTradingViewNativeSkiaFontForText({
   fontFamily,
   fontSize,
+  fontWeight = FontWeight.Normal,
   locale,
   requiredText,
 }: {
   fontFamily: string;
   fontSize: number;
+  fontWeight?: FontWeight;
   locale: string;
   requiredText: string;
 }): SkFont {
@@ -155,6 +175,7 @@ export function createTradingViewNativeSkiaFontForText({
     fontFamily,
     fontManager,
     fontSize,
+    fontWeight,
   });
   const requiredCharacters = Array.from(requiredText);
   const primaryGlyphIds = primaryFont.getGlyphIDs(requiredText);
@@ -171,6 +192,7 @@ export function createTradingViewNativeSkiaFontForText({
       fontFamily,
       fontManager,
       fontSize,
+      fontWeight,
       primaryFont,
       requiredText,
     });
@@ -184,7 +206,7 @@ export function createTradingViewNativeSkiaFontForText({
       checkedCodePoints.add(codePoint);
       const fallbackTypeface = fontManager.matchFamilyStyleCharacter(
         fontFamily,
-        REGULAR_FONT_STYLE,
+        { ...REGULAR_FONT_STYLE, weight: fontWeight },
         bcp47,
         codePoint,
       );
@@ -279,6 +301,7 @@ export function createTradingViewNativeSkiaResources({
   priceAxisFontSize,
   timeAxisFontSize,
   timeAxisBorderWidth,
+  tradingLineLabelFont,
   watermarkSvg,
 }: {
   colors: ITradingViewNativeChartSceneColors;
@@ -288,6 +311,7 @@ export function createTradingViewNativeSkiaResources({
   priceAxisFontSize: number;
   timeAxisFontSize: number;
   timeAxisBorderWidth?: number;
+  tradingLineLabelFont: SkFont;
   watermarkSvg: SkSVG | null;
 }): ITradingViewNativeSkiaResources {
   'worklet';
@@ -312,7 +336,6 @@ export function createTradingViewNativeSkiaResources({
   const legendSubscriptFont = priceAxisTypeface
     ? Skia.Font(priceAxisTypeface, legendFont.getSize())
     : null;
-
   for (const paintName of Object.keys(
     paintStyles,
   ) as ITradingViewNativeChartScenePaint[]) {
@@ -330,6 +353,11 @@ export function createTradingViewNativeSkiaResources({
       referenceLineLabel: Skia.Font(
         legendFont.getTypeface() ?? undefined,
         priceAxisFontSize,
+      ),
+      tradingLineLabel: tradingLineLabelFont,
+      orderLineLabel: Skia.Font(
+        legendFont.getTypeface() ?? undefined,
+        TRADING_VIEW_NATIVE_ORDER_LINE_LABEL_FONT_SIZE,
       ),
     },
     legendSubscriptFont,
