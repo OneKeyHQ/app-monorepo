@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -64,6 +64,39 @@ import type { RouteProp } from '@react-navigation/core';
 // list does not flash empty while the dynamic (server-fetched) networks resolve.
 const listedNetworkMap = getListedNetworkMap();
 
+// Account scope the selector looks addresses up in and creates them for. The
+// page's own account (route params) decides where it carries one; the home
+// active account fills in otherwise, as it did before the route carried a
+// scope. Some entries pass an empty string rather than nothing, and an empty
+// scope would resolve every row against the first account of the wallet.
+export function resolveAggregateSelectorAccountScope({
+  routeAccountId,
+  routeIndexedAccountId,
+  activeWalletId,
+  activeIndexedAccountId,
+  activeIndexedAccountWalletId,
+}: {
+  routeAccountId: string | undefined;
+  routeIndexedAccountId: string | undefined;
+  activeWalletId: string | undefined;
+  activeIndexedAccountId: string | undefined;
+  activeIndexedAccountWalletId: string | undefined;
+}): { walletId: string | undefined; indexedAccountId: string | undefined } {
+  const routeWalletId = routeAccountId
+    ? accountUtils.getWalletIdFromAccountId({ accountId: routeAccountId })
+    : undefined;
+  const walletId = routeWalletId || activeWalletId;
+  // The active account only stands in for the wallet the page is about.
+  const activeFallback =
+    activeIndexedAccountWalletId === walletId
+      ? activeIndexedAccountId
+      : undefined;
+  return {
+    walletId,
+    indexedAccountId: routeIndexedAccountId || activeFallback,
+  };
+}
+
 export function AggregateTokenListItem({
   token,
   aggKey,
@@ -76,6 +109,7 @@ export function AggregateTokenListItem({
   walletId,
   indexedAccountId,
   createAddressForNetwork,
+  beginSelection,
 }: {
   token: IAccountToken;
   aggKey: string;
@@ -105,6 +139,9 @@ export function AggregateTokenListItem({
   createAddressForNetwork: ReturnType<
     typeof useCreateAddressForNetwork
   >['createAddressForNetwork'];
+  // Marks this row as the selector's latest pick; the returned check tells
+  // whether it still is once the row has created its address.
+  beginSelection: () => () => boolean;
 }) {
   const [loading, setLoading] = useState(false);
 
@@ -152,6 +189,7 @@ export function AggregateTokenListItem({
   const isAddressMissing = networkAccountLookup !== undefined && !accountId;
 
   const handleOnPress = useCallback(async () => {
+    const isLatestSelection = beginSelection();
     if (accountId) {
       onPress({
         token: {
@@ -179,10 +217,15 @@ export function AggregateTokenListItem({
           if (!isEnabled) {
             void refreshAllNetworkState({ alwaysSetState: true });
           }
-          onPress({
-            token: { ...token, accountId: createdAccountId },
-            enabledInAllNetworks: true,
-          });
+          // Creating an address takes a while: by now another network may
+          // have been picked, or the selector may be gone. Reporting this
+          // row then would undo the later choice.
+          if (isLatestSelection()) {
+            onPress({
+              token: { ...token, accountId: createdAccountId },
+              enabledInAllNetworks: true,
+            });
+          }
           void run();
         }
       } finally {
@@ -191,6 +234,7 @@ export function AggregateTokenListItem({
     }
   }, [
     accountId,
+    beginSelection,
     onPress,
     token,
     network?.id,
@@ -299,17 +343,35 @@ function AggregateTokenSelector() {
   } = route.params;
 
   const intl = useIntl();
-  // Address lookup / creation scope: the page's own account (route params);
-  // the home active account only fills in for callers that pass no
-  // indexedAccountId.
   const {
-    activeAccount: { indexedAccount: activeIndexedAccount },
+    activeAccount: {
+      wallet: activeWallet,
+      indexedAccount: activeIndexedAccount,
+    },
   } = useActiveAccount({ num: 0 });
-  const walletId = accountId
-    ? accountUtils.getWalletIdFromAccountId({ accountId })
-    : undefined;
-  const indexedAccountId = routeIndexedAccountId ?? activeIndexedAccount?.id;
+  const { walletId, indexedAccountId } = resolveAggregateSelectorAccountScope({
+    routeAccountId: accountId,
+    routeIndexedAccountId,
+    activeWalletId: activeWallet?.id,
+    activeIndexedAccountId: activeIndexedAccount?.id,
+    activeIndexedAccountWalletId: activeIndexedAccount?.walletId,
+  });
   const { createAddressForNetwork } = useCreateAddressForNetwork();
+
+  // One pick is live at a time across the selector, and none once it is gone.
+  const selectionSeqRef = useRef(0);
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+  const beginSelection = useCallback(() => {
+    selectionSeqRef.current += 1;
+    const seq = selectionSeqRef.current;
+    return () => isMountedRef.current && seq === selectionSeqRef.current;
+  }, []);
 
   const [searchKey, setSearchKey] = useState('');
   const navigation = useAppNavigation();
@@ -578,6 +640,7 @@ function AggregateTokenSelector() {
         walletId={walletId}
         indexedAccountId={indexedAccountId}
         createAddressForNetwork={createAddressForNetwork}
+        beginSelection={beginSelection}
       />
     ));
   }, [
@@ -593,6 +656,7 @@ function AggregateTokenSelector() {
     walletId,
     indexedAccountId,
     createAddressForNetwork,
+    beginSelection,
   ]);
 
   const aggregateTokenSymbol =
