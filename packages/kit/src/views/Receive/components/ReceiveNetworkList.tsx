@@ -2,14 +2,7 @@ import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Icon,
-  SectionList,
-  Spinner,
-  Stack,
-  Toast,
-  useSafeAreaInsets,
-} from '@onekeyhq/components';
+import { Icon, SectionList, Spinner, Stack, Toast } from '@onekeyhq/components';
 import type { IAllNetworksDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAllNetworks';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -354,7 +347,6 @@ export function ReceiveNetworkList({
   dataSource: sharedDataSource,
 }: IReceiveNetworkListProps) {
   const intl = useIntl();
-  const { bottom } = useSafeAreaInsets();
   const isOthersWallet = accountUtils.isOthersWallet({ walletId });
   const freshLoadRef = useRef(false);
   const { createAddressForNetwork, enableNetwork } =
@@ -544,7 +536,8 @@ export function ReceiveNetworkList({
       renderSectionHeader={renderSectionHeader}
       renderItem={renderItem}
       ListEmptyComponent={listEmptyComponent}
-      ListFooterComponent={<Stack h={bottom || '$3'} />}
+      // The hosting page applies the bottom safe area.
+      ListFooterComponent={<Stack h="$3" />}
     />
   );
 }

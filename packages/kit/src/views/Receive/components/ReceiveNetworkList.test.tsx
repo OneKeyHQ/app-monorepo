@@ -96,7 +96,6 @@ jest.mock('@onekeyhq/components', () => {
       success: (params: unknown) => mockToastSuccess(params),
       error: jest.fn(),
     },
-    useSafeAreaInsets: () => ({ bottom: 0 }),
   };
 });
 

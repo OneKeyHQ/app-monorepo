@@ -44,7 +44,7 @@ function ReceiveSelectNetwork() {
   );
 
   return (
-    <Page safeAreaEnabled={false}>
+    <Page>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_select_network })}
       />
