@@ -1182,10 +1182,23 @@ export function buildTradingViewNativeChartScene({
           zoomScale,
         })
       : null;
-  const crosshairPoint =
-    crosshairPointIndex === null ? null : points[crosshairPointIndex];
-  const crosshairX =
-    crosshairPointIndex === null ? null : getPointX(crosshairPointIndex);
+  let crosshairX: number | null = null;
+  let crosshairTimestamp: number | null = null;
+  if (crosshair.visible && (chartSettings?.options.crossLine ?? true)) {
+    if (crosshairPointIndex !== null) {
+      crosshairX = getPointX(crosshairPointIndex);
+      crosshairTimestamp = points[crosshairPointIndex].t;
+    } else {
+      crosshairX = crosshair.x;
+      const anchorIndex = crosshairX < getPointX(0) ? 0 : points.length - 1;
+      const distance = Math.round(
+        (crosshairX - getPointX(anchorIndex)) /
+          (TRADING_VIEW_NATIVE_CANDLE_STEP * zoomScale),
+      );
+      crosshairTimestamp =
+        points[anchorIndex].t + distance * candleIntervalSeconds;
+    }
+  }
   const crosshairY =
     crosshairX === null ? null : Math.min(Math.max(crosshair.y, 0), timeAxisY);
   if (crosshairX !== null && crosshairY !== null) {
@@ -1228,7 +1241,7 @@ export function buildTradingViewNativeChartScene({
   const previousLegendPoint =
     legendPointIndex > 0 ? points[legendPointIndex - 1] : undefined;
   const legend = getTradingViewNativeChartLegend(
-    crosshairPoint ?? legendPoint,
+    legendPoint,
     candleLabels,
     chartType,
     previousLegendPoint?.c,
@@ -1403,8 +1416,13 @@ export function buildTradingViewNativeChartScene({
     ...chartComponentCommandLayers.textLabelCommands,
   );
 
-  if (crosshairPoint && crosshairX !== null && crosshairY !== null) {
+  if (
+    crosshairTimestamp !== null &&
+    crosshairX !== null &&
+    crosshairY !== null
+  ) {
     const crosshairPrice = getTradingViewNativePriceAtY({
+      allowOutsideChart: crosshairY < (hasVolume ? volumeTop : mainChartBottom),
       maxPrice,
       minPrice,
       priceChartHeight,
@@ -1467,7 +1485,7 @@ export function buildTradingViewNativeChartScene({
     }
 
     const timeLabel = formatTradingViewNativeCrosshairTime(
-      crosshairPoint.t,
+      crosshairTimestamp,
       candleIntervalSeconds,
     );
     const timeTextWidth = measureTextWidth(timeLabel, 'axis');

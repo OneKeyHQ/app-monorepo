@@ -10,7 +10,6 @@ import {
   type ITradingViewNativeVisiblePointRange,
   clampTradingViewNativePanOffset,
   getTradingViewNativePanOffsetAfterDataUpdate,
-  getTradingViewNativePointIndexAtX,
   getTradingViewNativeViewportForPointRange,
   getTradingViewNativeVisiblePointRange,
   getTradingViewNativeZoomedViewport,
@@ -231,17 +230,14 @@ export function reduceTradingViewNativeChartRuntime(
         TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING + event.chartWidth,
         0,
       );
-      const pointIndex = getTradingViewNativePointIndexAtX({
-        initialRightOffset: state.viewport.initialRightOffset,
-        offset: state.viewport.offset,
-        pointCount: event.pointCount,
-        priceAxisX,
-        x: event.x,
-        zoomScale: state.viewport.zoomScale,
-      });
       return {
         crosshair: {
-          visible: pointIndex !== null,
+          visible:
+            event.pointCount > 0 &&
+            Number.isFinite(event.x) &&
+            Number.isFinite(event.y) &&
+            event.x >= TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING &&
+            event.x <= priceAxisX,
           x: event.x,
           y: Math.min(
             Math.max(event.y, 0),

@@ -1,6 +1,7 @@
 import {
   isTradingViewNativeLogPriceScaleAvailable,
   mergeTradingViewNativePriceRanges,
+  panTradingViewNativePriceRange,
 } from './priceScale';
 
 describe('TradingViewNative price ranges', () => {
@@ -42,5 +43,30 @@ describe('TradingViewNative price ranges', () => {
       }),
     ).toBe(false);
     expect(isTradingViewNativeLogPriceScaleAvailable(null)).toBe(false);
+  });
+});
+
+describe('price range panning', () => {
+  it('moves a linear price range by the screen distance at the current scale', () => {
+    expect(
+      panTradingViewNativePriceRange({
+        priceRange: { minPrice: 100, maxPrice: 200 },
+        rangeScale: 2,
+        mode: 'linear',
+        chartHeight: 200,
+        translationY: 50,
+      }),
+    ).toEqual({ minPrice: 150, maxPrice: 250 });
+  });
+  it('preserves ratios while panning a logarithmic scale', () => {
+    const result = panTradingViewNativePriceRange({
+      priceRange: { minPrice: 10, maxPrice: 100 },
+      rangeScale: 1,
+      mode: 'logarithmic',
+      chartHeight: 200,
+      translationY: -200,
+    });
+    expect(result.minPrice).toBeCloseTo(1);
+    expect(result.maxPrice).toBeCloseTo(10);
   });
 });

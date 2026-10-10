@@ -13,6 +13,8 @@ import {
 
 import { useTradingViewNativeChartGestures } from './useTradingViewNativeChartGestures';
 
+import type { ITradingViewNativePriceRange } from '../utils/chartViewport';
+
 type IMockGestureHandler = (...args: unknown[]) => void;
 
 interface IMockGestureBuilder {
@@ -40,6 +42,7 @@ function mockCreateGestureBuilder(): IMockGestureBuilder {
     'enabled',
     'failOffsetY',
     'maxDistance',
+    'minDistance',
     'maxPointers',
     'onBegin',
     'onEnd',
@@ -141,6 +144,7 @@ function renderChartGestures() {
   const chartRuntime = {
     value: {
       crosshair: { visible: true, x: 0, y: 0 },
+      indicatorSeries: [],
       panGesture: { startOffset: 0, translationX: 0 },
       pinchGesture: {
         anchorX: 0,
@@ -150,7 +154,19 @@ function renderChartGestures() {
         startOffset: 0,
         startZoomScale: 1,
       },
-      points: Array.from({ length: 100 }, () => ({})),
+      candleIntervalSeconds: 60,
+      hasVolume: false,
+      pinnedPriceRange: null as ITradingViewNativePriceRange | null,
+      priceRangeScale: 1,
+      priceScaleMode: 'linear',
+      points: Array.from({ length: 100 }, (_, index) => ({
+        o: 100,
+        h: 120,
+        l: 80,
+        c: 100,
+        v: 1,
+        t: 1_700_000_000 + index * 60,
+      })),
       size: { height: 300, width: 320 },
       subIndicatorPanes: [],
       timeAxisScaleGesture: {
@@ -346,5 +362,31 @@ describe('useTradingViewNativeChartGestures', () => {
     );
 
     expect(fail).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('free chart panning', () => {
+  beforeEach(() => {
+    mockPanGestures.length = 0;
+    mockTapGestures.length = 0;
+  });
+  it('moves both axes and restores the vertical origin when a drag returns', () => {
+    const { chartRuntime } = renderChartGestures();
+    const pan = mockPanGestures[1];
+    pan.handlers.onStart?.();
+    pan.handlers.onUpdate?.({ translationX: -600, translationY: 50 });
+    expect(chartRuntime.value.viewport.offset).toBeLessThan(0);
+    expect(chartRuntime.value.pinnedPriceRange!.minPrice).toBeGreaterThan(80);
+    expect(
+      chartRuntime.value.pinnedPriceRange!.maxPrice -
+        chartRuntime.value.pinnedPriceRange!.minPrice,
+    ).toBeCloseTo(40);
+    pan.handlers.onUpdate?.({ translationX: -600, translationY: 0 });
+    expect(chartRuntime.value.pinnedPriceRange).toEqual({
+      minPrice: 80,
+      maxPrice: 120,
+    });
+    pan.handlers.onEnd?.({ velocityX: 0 });
+    expect(chartRuntime.value.viewport.offset).toBeLessThan(0);
   });
 });

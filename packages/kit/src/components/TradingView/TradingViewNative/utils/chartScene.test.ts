@@ -9,10 +9,12 @@ import {
 } from '../chartConstants';
 
 import { buildTradingViewNativeIndicatorSeries } from './chartIndicators';
+import { formatTradingViewNativeCrosshairTime } from './chartLayout';
 import {
   buildTradingViewNativeChartScene,
   getTradingViewNativeChartScenePaintStyles,
 } from './chartScene';
+import { getTradingViewNativeCandleX } from './chartViewport';
 import {
   createTradingViewNativeSubIndicatorRenderSnapshot,
   createTradingViewNativeSubIndicatorRenderSnapshots,
@@ -1355,4 +1357,55 @@ describe('TradingViewNative shared chart scene', () => {
     }
     expect(scene.commands[lowMarkerIndex + 1]).toEqual({ kind: 'restore' });
   });
+});
+
+describe('crosshair in empty chart space', () => {
+  it.each([
+    [-600, 0],
+    [-600, 80],
+    [600, 80],
+    [600, 212],
+  ])(
+    'renders time and price in empty space at offset %s and y %s',
+    (offset, y) => {
+      const scene = buildTradingViewNativeChartScene({
+        candleIntervalSeconds: 3600,
+        chartType: 'candlestick',
+        crosshair: { visible: true, x: 120, y },
+        hasVolume: false,
+        height: 240,
+        measureTextWidth: (text) => text.length * 6,
+        candleLabels: CANDLE_LABELS,
+        points: POINTS,
+        viewport: { offset, zoomScale: 1 },
+        watermarkOpacity: 0.16,
+        width: 320,
+      });
+      expect(scene.layout).not.toBeNull();
+      expect(scene.viewport.offset).toBe(offset);
+      expect(scene.crosshairPointIndex).toBeNull();
+      const anchorIndex = offset > 0 ? 0 : POINTS.length - 1;
+      const anchorX = getTradingViewNativeCandleX({
+        index: anchorIndex,
+        offset,
+        pointCount: POINTS.length,
+        priceAxisX: scene.layout!.priceAxisX,
+        zoomScale: 1,
+      });
+      const timestamp =
+        POINTS[anchorIndex].t + Math.round((120 - anchorX) / 6) * 3600;
+      const labels = scene.commands.filter(
+        (command) =>
+          command.kind === 'text' && command.paint === 'crosshairLabelText',
+      );
+      expect(labels).toHaveLength(2);
+      expect(labels).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            text: formatTradingViewNativeCrosshairTime(timestamp, 3600),
+          }),
+        ]),
+      );
+    },
+  );
 });
