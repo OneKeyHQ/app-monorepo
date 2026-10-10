@@ -2,6 +2,26 @@
 
 const mockRuntimeHealthCensus = jest.fn<void, [Record<string, unknown>]>();
 const mockMainInboundCensus = jest.fn<void, [Record<string, unknown>]>();
+let mockVisibilityListener: ((visible: boolean) => void) | undefined;
+let mockCurrentVisibility = true;
+jest.mock('../enabled', () => {
+  const actual = jest.requireActual<typeof import('../enabled')>('../enabled');
+  return {
+    ...actual,
+    isAccountSwitchDiagnosticsEnabled: jest.fn(
+      actual.isAccountSwitchDiagnosticsEnabled,
+    ),
+  };
+});
+jest.mock('../../utils/appVisibility', () => ({
+  getCurrentVisibilityState: () => mockCurrentVisibility,
+  onVisibilityStateChange: (listener: (visible: boolean) => void) => {
+    mockVisibilityListener = listener;
+    return () => {
+      mockVisibilityListener = undefined;
+    };
+  },
+}));
 jest.mock('../../logger/logger', () => ({
   defaultLogger: {
     app: {
@@ -18,6 +38,8 @@ jest.mock('../../logger/logger', () => ({
 }));
 
 import { OneKeyLocalError } from '../../errors';
+import platformEnv, { ERuntimeRole } from '../../platformEnv';
+import * as diagnostics from '../enabled';
 
 import {
   createDistinctChangeCounter,
@@ -26,11 +48,23 @@ import {
   stopRuntimeHealthCensus,
 } from './jsBlockCollector';
 
+import type { IRuntimeHealthReport } from './jsBlockCollector';
+
 type IHermesGlobal = {
   HermesInternal?: { getInstrumentedStats?: () => Record<string, unknown> };
 };
 
 const MB = 1024 * 1024;
+
+const diagnosticsEnabled = jest.mocked(
+  diagnostics.isAccountSwitchDiagnosticsEnabled,
+);
+beforeEach(() => {
+  diagnosticsEnabled.mockReturnValue(true);
+});
+afterEach(() => {
+  diagnosticsEnabled.mockReset();
+});
 
 describe('createDistinctChangeCounter', () => {
   it('counts a change once however often the new key is repeated', () => {
@@ -69,6 +103,7 @@ describe('startRuntimeHealthCensus', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     now = 0;
+    mockCurrentVisibility = true;
     nowSpy = jest.spyOn(performance, 'now').mockImplementation(() => now);
     mockRuntimeHealthCensus.mockClear();
     mockMainInboundCensus.mockClear();
@@ -135,7 +170,9 @@ describe('startRuntimeHealthCensus', () => {
     startRuntimeHealthCensus();
 
     runIdle(10_000);
+    mockVisibilityListener?.(false);
     block(60_000);
+    mockVisibilityListener?.(true);
     runIdle(20_000);
 
     expect(mockRuntimeHealthCensus).toHaveBeenCalledTimes(1);
@@ -143,6 +180,19 @@ describe('startRuntimeHealthCensus', () => {
       windowMs: 30_000,
       blockCount: 0,
       suspendedCount: 1,
+    });
+  });
+
+  it('counts long foreground stalls instead of guessing suspension', () => {
+    startRuntimeHealthCensus();
+    runIdle(1000);
+    block(6000);
+    runIdle(30_000);
+    expect(mockRuntimeHealthCensus.mock.calls[0][0]).toMatchObject({
+      blockMaxMs: 6000,
+      blockTotalMs: 6000,
+      blockOver1000: 1,
+      suspendedCount: 0,
     });
   });
 
@@ -179,6 +229,73 @@ describe('startRuntimeHealthCensus', () => {
     const report = mockRuntimeHealthCensus.mock.calls[0][0];
     expect(report).not.toHaveProperty('heapMB');
     expect(report).not.toHaveProperty('gcMs');
+  });
+
+  it('separates Hades generations, lifetime timing and current heap gauges', () => {
+    const stats = {
+      js_numGCs: 20,
+      js_gcTime: 1,
+      js_avgGCTime: 0.05,
+      js_maxGCTime: 0.2,
+      js_heapSize: 200 * MB,
+      js_allocatedBytes: 80 * MB,
+      js_externalBytes: 12 * MB,
+      js_totalAllocatedBytes: 1000 * MB,
+      js_gcSpecific: {
+        js_numYGCollections: 18,
+        js_numOGCollections: 2,
+        js_numCompactions: 1,
+      },
+    };
+    (globalThis as IHermesGlobal).HermesInternal = {
+      getInstrumentedStats: () => stats,
+    };
+    startRuntimeHealthCensus();
+    stats.js_numGCs = 24;
+    stats.js_gcTime = 1.12;
+    stats.js_totalAllocatedBytes = 1090 * MB;
+    stats.js_gcSpecific.js_numYGCollections = 21;
+    stats.js_gcSpecific.js_numOGCollections = 3;
+    runIdle(30_000);
+
+    expect(mockRuntimeHealthCensus.mock.calls[0][0]).toMatchObject({
+      youngGCCount: 3,
+      oldGCCount: 1,
+      compactionCount: 0,
+      allocationMBPerSec: 3,
+      gcMaxLifetimeMs: 200,
+      gcAvgLifetimeMs: 50,
+      liveMB: 80,
+      heapMB: 200,
+      externalMB: 12,
+      js_numYGCollections: 21,
+      js_numOGCollections: 3,
+      js_numCompactions: 1,
+    });
+    expect(mockRuntimeHealthCensus.mock.calls[0][0].gcAvgMs).toBeCloseTo(30);
+    expect(mockRuntimeHealthCensus.mock.calls[0][0]).not.toHaveProperty(
+      'gcMaxMs',
+    );
+  });
+
+  it('keeps unavailable generation counters unknown instead of zero', () => {
+    (globalThis as IHermesGlobal).HermesInternal = {
+      getInstrumentedStats: () => ({
+        js_numGCs: 1,
+        js_gcTime: 0.01,
+        js_heapSize: MB,
+        js_totalAllocatedBytes: MB,
+        js_maxGCTime: Number.NaN,
+      }),
+    };
+    startRuntimeHealthCensus();
+    runIdle(30_000);
+    const report = mockRuntimeHealthCensus.mock.calls[0][0];
+    expect(report.youngGCCount).toBeUndefined();
+    expect(report.oldGCCount).toBeUndefined();
+    expect(report.compactionCount).toBeUndefined();
+    expect(report.gcMaxLifetimeMs).toBeUndefined();
+    expect(report.gcAvgMs).toBe(0);
   });
 
   it('folds the process samples and the caller fields into the line', async () => {
@@ -245,6 +362,307 @@ describe('startRuntimeHealthCensus', () => {
       'cpuAvg',
     );
   });
+
+  describe('main runtime frame windows', () => {
+    const wallStartedAt = 1_790_000_000_000;
+    const originalRequestFrame = globalThis.requestAnimationFrame;
+    const originalCancelFrame = globalThis.cancelAnimationFrame;
+    const originalRuntimeRole = platformEnv.runtimeRole;
+    const originalPerfMonitorEnabled = process.env.PERF_MONITOR_ENABLED;
+    let frameCallbacks: Map<number, (timestamp: number) => void>;
+    let nextFrameId = 0;
+    let wallSpy: jest.SpyInstance;
+
+    const fireFrames = (frames: number) => {
+      for (let index = 0; index < frames; index += 1) {
+        const entry = frameCallbacks.entries().next().value as
+          | [number, (timestamp: number) => void]
+          | undefined;
+        if (!entry) throw new OneKeyLocalError('No scheduled frame');
+        frameCallbacks.delete(entry[0]);
+        entry[1](now);
+      }
+    };
+    const firstReport = () =>
+      mockRuntimeHealthCensus.mock.calls[0][0] as IRuntimeHealthReport;
+
+    beforeEach(() => {
+      delete process.env.PERF_MONITOR_ENABLED;
+      frameCallbacks = new Map();
+      nextFrameId = 0;
+      platformEnv.runtimeRole = ERuntimeRole.Main;
+      globalThis.requestAnimationFrame = jest.fn((callback) => {
+        nextFrameId += 1;
+        frameCallbacks.set(nextFrameId, callback);
+        return nextFrameId;
+      });
+      globalThis.cancelAnimationFrame = jest.fn((id) => {
+        if (typeof id === 'number') frameCallbacks.delete(id);
+      });
+      wallSpy = jest
+        .spyOn(Date, 'now')
+        .mockImplementation(() => wallStartedAt + now);
+    });
+
+    afterEach(() => {
+      if (originalPerfMonitorEnabled === undefined) {
+        delete process.env.PERF_MONITOR_ENABLED;
+      } else {
+        process.env.PERF_MONITOR_ENABLED = originalPerfMonitorEnabled;
+      }
+      stopRuntimeHealthCensus();
+      globalThis.requestAnimationFrame = originalRequestFrame;
+      globalThis.cancelAnimationFrame = originalCancelFrame;
+      platformEnv.runtimeRole = originalRuntimeRole;
+      wallSpy.mockRestore();
+    });
+
+    it.each([undefined, '1'])(
+      'defaults to no diagnostic timers, listeners, heap reads or logs (PERF_MONITOR_ENABLED=%s)',
+      (perfMonitorEnabled) => {
+        diagnosticsEnabled.mockImplementation(
+          jest.requireActual<typeof import('../enabled')>('../enabled')
+            .isAccountSwitchDiagnosticsEnabled,
+        );
+        if (perfMonitorEnabled === undefined) {
+          delete process.env.PERF_MONITOR_ENABLED;
+        } else {
+          process.env.PERF_MONITOR_ENABLED = perfMonitorEnabled;
+        }
+        const getStats = jest.fn();
+        (globalThis as IHermesGlobal).HermesInternal = {
+          getInstrumentedStats: getStats,
+        };
+        const sampleProcess = jest.fn();
+        const getExtra = jest.fn();
+        const timerCount = jest.getTimerCount();
+        startRuntimeHealthCensus({ sampleProcess, getExtra });
+        expect(jest.getTimerCount()).toBe(timerCount);
+        expect(mockVisibilityListener).toBeUndefined();
+        runIdle(30_000);
+        expect(globalThis.requestAnimationFrame).not.toHaveBeenCalled();
+        expect(getStats).not.toHaveBeenCalled();
+        expect(sampleProcess).not.toHaveBeenCalled();
+        expect(getExtra).not.toHaveBeenCalled();
+        expect(mockRuntimeHealthCensus).not.toHaveBeenCalled();
+        expect(mockMainInboundCensus).not.toHaveBeenCalled();
+      },
+    );
+
+    it('retains actual elapsed time and complete coverage without extra logs', () => {
+      startRuntimeHealthCensus();
+      runIdle(900);
+      fireFrames(60);
+      block(200);
+      runIdle(100);
+      expect(mockRuntimeHealthCensus).not.toHaveBeenCalled();
+      runIdle(28_800);
+
+      const report = firstReport();
+      expect(report.fpsSamples?.[0]).toEqual([
+        wallStartedAt,
+        wallStartedAt + 1200,
+        1200,
+        60,
+        0,
+      ]);
+      const sample = report.fpsSamples?.[0];
+      expect(sample && (sample[3] * 1000) / sample[2]).toBe(50);
+      expect(report).toMatchObject({
+        fpsSamplingAvailable: 1,
+        fpsNominalWindowMs: 1000,
+        fpsSampleCount: 30,
+        fpsValidSampleCount: 30,
+        fpsCoverageMs: 30_000,
+        fpsValidCoverageMs: 30_000,
+        fpsDroppedWindowCount: 0,
+      });
+      expect(mockRuntimeHealthCensus).toHaveBeenCalledTimes(1);
+    });
+
+    it('records a long foreground stall as one actual-duration frame window', () => {
+      startRuntimeHealthCensus();
+      runIdle(1000);
+      fireFrames(3);
+      block(5000);
+      runIdle(24_000);
+
+      expect(firstReport().fpsSamples?.[1]).toEqual([
+        wallStartedAt + 1000,
+        wallStartedAt + 6100,
+        5100,
+        3,
+        0,
+      ]);
+      expect(firstReport()).toMatchObject({
+        fpsCoverageMs: 30_000,
+        fpsValidCoverageMs: 30_000,
+        fpsDroppedWindowCount: 0,
+      });
+    });
+
+    it('keeps real foreground zero-frame windows valid', () => {
+      startRuntimeHealthCensus();
+      runIdle(30_000);
+
+      expect(firstReport().fpsSamples).toHaveLength(30);
+      expect(
+        firstReport().fpsSamples?.every(
+          (sample) => sample[2] === 1000 && sample[3] === 0 && sample[4] === 0,
+        ),
+      ).toBe(true);
+      expect(firstReport().fpsValidSampleCount).toBe(30);
+      expect(firstReport().jsFpsMin).toBeUndefined();
+    });
+
+    it('cuts lifecycle boundaries and starts fresh after resume', () => {
+      startRuntimeHealthCensus();
+      fireFrames(30);
+      runIdle(500);
+      mockVisibilityListener?.(false);
+      expect(frameCallbacks.size).toBe(0);
+      block(5000);
+      mockVisibilityListener?.(true);
+      fireFrames(60);
+      runIdle(29_500);
+
+      expect(firstReport().fpsSamples?.slice(0, 3)).toEqual([
+        [wallStartedAt, wallStartedAt + 500, 500, 30, 1],
+        [wallStartedAt + 500, wallStartedAt + 5500, 5000, 0, 1],
+        [wallStartedAt + 5500, wallStartedAt + 6500, 1000, 60, 0],
+      ]);
+      expect(firstReport()).toMatchObject({
+        fpsCoverageMs: 35_000,
+        fpsValidCoverageMs: 29_500,
+        fpsDroppedWindowCount: 0,
+        blockCount: 0,
+        suspendedCount: 1,
+      });
+    });
+
+    it('does not treat an initially background runtime as foreground zero FPS', () => {
+      mockCurrentVisibility = false;
+      startRuntimeHealthCensus();
+      expect(frameCallbacks.size).toBe(0);
+      block(5000);
+      mockVisibilityListener?.(true);
+      runIdle(30_000);
+      expect(firstReport().fpsSamples?.[0]).toEqual([
+        wallStartedAt,
+        wallStartedAt + 5000,
+        5000,
+        0,
+        1,
+      ]);
+      expect(firstReport().fpsValidCoverageMs).toBe(30_000);
+    });
+
+    it('bounds a fully populated census below the native log limit and reports dropped segments', async () => {
+      const stats = {
+        js_numGCs: 123_456,
+        js_gcTime: 123_456.123_456,
+        js_avgGCTime: 123.123_456,
+        js_maxGCTime: 987.123_456,
+        js_heapSize: 9_123_456_789,
+        js_allocatedBytes: 8_123_456_789,
+        js_mallocSizeEstimate: 7_123_456_789,
+        js_externalBytes: 6_123_456_789,
+        js_totalAllocatedBytes: 9_123_456_789_123,
+        js_gcSpecific: {
+          js_numYGCollections: 123_456,
+          js_numOGCollections: 123_456,
+          js_numCompactions: 123_456,
+        },
+      };
+      (globalThis as IHermesGlobal).HermesInternal = {
+        getInstrumentedStats: () => stats,
+      };
+      startRuntimeHealthCensus({
+        sampleProcess: async () => ({
+          cpu: 123.456,
+          rss: 9_123_456_789,
+          uiFps: 60,
+          jsFps: 59,
+        }),
+        getExtra: () => ({
+          accountSwitches: 123_456,
+          swrEntries: 123_456,
+          swrKB: 123_456,
+        }),
+      });
+      runIdle(5000);
+      await Promise.resolve();
+      for (let index = 0; index < 20; index += 1) {
+        fireFrames(240);
+        runIdle(500);
+        mockVisibilityListener?.(false);
+        block(100);
+        mockVisibilityListener?.(true);
+      }
+      stats.js_numGCs += 123;
+      stats.js_gcTime += 0.123_456;
+      stats.js_totalAllocatedBytes += 123_456_789;
+      stats.js_gcSpecific.js_numYGCollections += 123;
+      stats.js_gcSpecific.js_numOGCollections += 123;
+      stats.js_gcSpecific.js_numCompactions += 123;
+      runIdle(15_000);
+      const report = firstReport();
+      expect(report.fpsSamples).toHaveLength(32);
+      expect(report.fpsDroppedWindowCount).toBeGreaterThan(0);
+      expect(
+        Number(report.fpsCoverageMs) + Number(report.fpsDroppedCoverageMs),
+      ).toBe(32_000);
+      expect(report).toHaveProperty('gcAvgLifetimeMs');
+      expect(report).toHaveProperty('mallocMB');
+      expect(report).toHaveProperty('youngGCCount');
+      expect(report).toHaveProperty('oldGCCount');
+      expect(report).toHaveProperty('compactionCount');
+      expect(report).toHaveProperty('cpuAvg');
+      expect(report).toHaveProperty('jsFpsMin');
+      // The logger serializes the report as one array argument; reserve an
+      // additional 256 characters for its timestamp, scope and level prefix.
+      expect(JSON.stringify([report]).length + 256).toBeLessThan(4096);
+    });
+
+    it('cancels frame and health timers and discards stopped state', () => {
+      startRuntimeHealthCensus();
+      fireFrames(10);
+      runIdle(500);
+      const pendingFrame = frameCallbacks.values().next().value as
+        | ((timestamp: number) => void)
+        | undefined;
+      stopRuntimeHealthCensus();
+      expect(frameCallbacks.size).toBe(0);
+      expect(jest.getTimerCount()).toBe(0);
+      expect(mockVisibilityListener).toBeUndefined();
+      pendingFrame?.(now);
+      expect(frameCallbacks.size).toBe(0);
+      runIdle(5000);
+      expect(mockRuntimeHealthCensus).not.toHaveBeenCalled();
+
+      startRuntimeHealthCensus();
+      runIdle(30_000);
+      expect(firstReport().fpsSamples?.[0]).toEqual([
+        wallStartedAt + 5500,
+        wallStartedAt + 6500,
+        1000,
+        0,
+        0,
+      ]);
+    });
+
+    it('does not install a frame loop in the isolated background runtime', () => {
+      platformEnv.runtimeRole = ERuntimeRole.Background;
+      startRuntimeHealthCensus();
+      expect(frameCallbacks.size).toBe(0);
+      runIdle(30_000);
+      expect(firstReport()).toMatchObject({
+        fpsSamplingAvailable: 0,
+        fpsSamples: [],
+        fpsSampleCount: 0,
+      });
+    });
+  });
 });
 
 describe('recordInboundFromBackground', () => {
@@ -275,6 +693,23 @@ describe('recordInboundFromBackground', () => {
     stopRuntimeHealthCensus();
     nowSpy.mockRestore();
     jest.useRealTimers();
+  });
+
+  it('does not retain disabled inbound counters for a later enabled window', () => {
+    stopRuntimeHealthCensus();
+    diagnosticsEnabled.mockReturnValue(false);
+    recordInboundFromBackground({ kind: 'rpc', name: 'disabled', chars: 4096 });
+    diagnosticsEnabled.mockReturnValue(true);
+    startRuntimeHealthCensus();
+    runIdle(30_000);
+    expect(mockMainInboundCensus).not.toHaveBeenCalled();
+    recordInboundFromBackground({ kind: 'rpc', name: 'enabled', chars: 1024 });
+    runIdle(30_000);
+    expect(mockMainInboundCensus.mock.calls[0][0]).toMatchObject({
+      total: 1,
+      totalChars: 1024,
+      bySender: [{ sender: 'rpc:enabled', count: 1, kb: 1 }],
+    });
   });
 
   it('totals what each sender pushed, biggest first', () => {
@@ -365,5 +800,20 @@ describe('recordInboundFromBackground', () => {
       (mockMainInboundCensus.mock.calls[0][0] as { bySender: unknown[] })
         .bySender,
     ).toEqual([{ sender: 'rpc:others', count: 1, kb: 3 }]);
+  });
+
+  it('keeps known senders attributed after the distinct-name limit', () => {
+    for (let i = 0; i < 100; i += 1) {
+      recordInboundFromBackground({ kind: 'rpc', name: `rpc-${i}`, chars: 1 });
+    }
+    recordInboundFromBackground({ kind: 'rpc', name: 'rpc-0', chars: 4096 });
+    runIdle(30_000);
+    expect(mockMainInboundCensus.mock.calls[0][0]).toMatchObject({
+      total: 101,
+      totalChars: 4196,
+      bySender: expect.arrayContaining([
+        { sender: 'rpc:rpc-0', count: 2, kb: 4 },
+      ]),
+    });
   });
 });

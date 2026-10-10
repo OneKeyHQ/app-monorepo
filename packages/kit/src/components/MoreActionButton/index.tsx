@@ -1,6 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo } from 'react';
 import type { PropsWithChildren } from 'react';
 
+import { useFocusEffect } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { I18nManager, StyleSheet } from 'react-native';
 
@@ -49,6 +50,10 @@ import {
   useNotificationsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getUpdateFileType } from '@onekeyhq/shared/src/appUpdate';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
@@ -80,6 +85,7 @@ import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useReferFriends } from '../../hooks/useReferFriends';
 import { useThemeVariant } from '../../hooks/useThemeVariant';
 import { getDeviceManagementWallets } from '../../states/jotai/contexts/deviceDetails/deviceStateManagement';
+import { canAccessBulkSend } from '../../views/BulkSend/access';
 import { useBulkSendModeDialog } from '../../views/BulkSend/hooks/useBulkSendModeDialog';
 import { useNavigateToBulkSend } from '../../views/BulkSend/hooks/useNavigateToBulkSend';
 import { useDeviceManagerNavigation } from '../../views/DeviceManagement/hooks/useDeviceManagerNavigation';
@@ -96,6 +102,7 @@ import {
 } from '../AppUpdate';
 import { MultipleClickStack } from '../MultipleClickStack';
 import { OneKeyIdAvatar } from '../OneKeyIdAvatar';
+import { useReviewControl } from '../ReviewControl';
 import { UpdateReminder } from '../UpdateReminder';
 import { WalletAvatar } from '../WalletAvatar';
 
@@ -458,6 +465,7 @@ function MoreActionAboutCard({
 
   return (
     <XStack
+      testID="action-center-about"
       mx={isDesktopMode ? '$1' : '$5'}
       minHeight={isDesktopMode ? 40 : 44}
       px="$4"
@@ -1195,6 +1203,11 @@ const MoreActionWalletGrid = () => {
 
   const { user, isPrimeActive } = useOneKeyAuth();
   const isPrimeUser = isPrimeActive && user?.onekeyUserId;
+  const hasBulkSendAccess = canAccessBulkSend({
+    isE2E: platformEnv.isE2E === true,
+    isPrimeActive,
+    oneKeyUserId: user?.onekeyUserId,
+  });
   const {
     activeAccount: { account, network, wallet, indexedAccount },
   } = useActiveAccount({ num: 0 });
@@ -1234,7 +1247,7 @@ const MoreActionWalletGrid = () => {
   }, [network?.id, checkIsPrimeUser, navigation, wallet?.id]);
 
   const openBulkSendModule = useCallback(async () => {
-    if (!checkIsPrimeUser(EPrimeFeatures.BulkSend)) {
+    if (!hasBulkSendAccess && !checkIsPrimeUser(EPrimeFeatures.BulkSend)) {
       return;
     }
 
@@ -1255,6 +1268,7 @@ const MoreActionWalletGrid = () => {
     navigateToBulkSend,
     showBulkSendModeDialog,
     checkIsPrimeUser,
+    hasBulkSendAccess,
   ]);
 
   const openAddressRiskCheckModule = useCallback(() => {
@@ -1337,7 +1351,7 @@ const MoreActionWalletGrid = () => {
             }),
             icon: 'ChevronDoubleUpOutline' as const,
             onPress: () => {
-              if (!isPrimeUser) {
+              if (!hasBulkSendAccess) {
                 defaultLogger.prime.subscription.primeEntryClick({
                   featureName: EPrimeFeatures.BulkSend,
                   entryPoint: 'moreActions',
@@ -1347,7 +1361,7 @@ const MoreActionWalletGrid = () => {
               void openBulkSendModule();
             },
             trackID: 'bulk-send-in-more-action',
-            isPrimeFeature: true,
+            isPrimeFeature: !platformEnv.isE2E,
           },
       platformEnv.isWebDappMode
         ? undefined
@@ -1376,6 +1390,7 @@ const MoreActionWalletGrid = () => {
     openSettingsCategory,
     isPrimeActive,
     isPrimeUser,
+    hasBulkSendAccess,
     openBulkCopyAddressesModule,
     openBulkSendModule,
     openAddressRiskCheckModule,
@@ -1396,6 +1411,7 @@ const showDevModeEntryInMoreMenu =
 
 const MoreActionMoreGrid = () => {
   const intl = useIntl();
+  const showReviewControlledFeatures = useReviewControl();
   const navigation = useAppNavigation();
   const { closePopover } = usePopoverContext();
   const handleHelpAndSupport = useCallback(() => {
@@ -1436,12 +1452,16 @@ const MoreActionMoreGrid = () => {
         onPress: handleReferFriends,
         trackID: 'wallet-referral',
       },
-      {
-        title: intl.formatMessage({ id: ETranslations.global_redeem }),
-        icon: 'TicketOutline' as const,
-        onPress: handleRedeem,
-        trackID: 'wallet-redeem',
-      },
+      ...(showReviewControlledFeatures
+        ? [
+            {
+              title: intl.formatMessage({ id: ETranslations.global_redeem }),
+              icon: 'TicketOutline' as const,
+              onPress: handleRedeem,
+              trackID: 'wallet-redeem',
+            },
+          ]
+        : []),
       ...(showDevModeEntryInMoreMenu
         ? [
             {
@@ -1460,6 +1480,7 @@ const MoreActionMoreGrid = () => {
     themeVariant,
     handleReferFriends,
     handleDevMode,
+    showReviewControlledFeatures,
   ]);
   return (
     <BaseMoreActionGrid
@@ -1495,7 +1516,7 @@ function MoreActionMenuCard({
 function MoreActionDevice() {
   const intl = useIntl();
   const { pushToDeviceList } = useDeviceManagerNavigation();
-  const { result: hwQrWalletList = [] } = usePromiseResult<
+  const hwQrWalletListResult = usePromiseResult<
     Array<IDeviceManagementListItem>
   >(
     async () => {
@@ -1527,6 +1548,24 @@ function MoreActionDevice() {
       checkIsFocused: false,
     },
   );
+  const hwQrWalletList = hwQrWalletListResult.result ?? [];
+  const refreshHwQrWalletList = hwQrWalletListResult.run;
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshHwQrWalletList({ alwaysSetState: true });
+    }, [refreshHwQrWalletList]),
+  );
+
+  useEffect(() => {
+    const refreshWallets = () => {
+      void refreshHwQrWalletList({ alwaysSetState: true });
+    };
+    appEventBus.on(EAppEventBusNames.WalletUpdate, refreshWallets);
+    return () => {
+      appEventBus.off(EAppEventBusNames.WalletUpdate, refreshWallets);
+    };
+  }, [refreshHwQrWalletList]);
 
   const handleDevice = useCallback(() => {
     defaultLogger.ui.button.click({

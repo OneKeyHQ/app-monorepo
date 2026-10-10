@@ -165,6 +165,13 @@ function MarketWatchlistTokenList({
     (watchlist.length > 0 &&
       filteredResult.data.length === 0 &&
       Boolean(filteredResult.isLoading));
+  // Stored favorites that never become rows would otherwise keep the empty
+  // table up and hide the recommend grid.
+  const showRecommendList =
+    watchlist.length === 0 ||
+    (watchlistState.isMounted &&
+      !filteredResult.isLoading &&
+      watchlistResult.data.length === 0);
 
   // Reordering inside a category is safe: sortWatchListV2Items places the
   // dragged row between its visible neighbors' sortIndex, so the relative
@@ -363,8 +370,8 @@ function MarketWatchlistTokenList({
     );
   }
 
-  // Show recommend list when watchlist is empty
-  if (watchlist.length === 0) {
+  // Show recommend list when there is nothing to render.
+  if (showRecommendList) {
     // When tab-integrated on native, wrap in Tabs.ScrollView so the collapsible
     // tab system has a registered scroll view for this tab.
     if (tabIntegrated && platformEnv.isNative) {

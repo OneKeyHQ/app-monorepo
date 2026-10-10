@@ -84,6 +84,7 @@ const mockSkiaFont = jest.fn<SkFont, [{ fontFamily: string }, number]>(
       dispose,
       fontFamily: typeface.fontFamily,
       fontSize,
+      setEmbolden: jest.fn(),
       getSize: () => fontSize,
       getTypeface: () => typeface,
       getGlyphIDs: (text: string) =>
@@ -227,6 +228,7 @@ function createResources({
     priceAxisTypeface,
     priceAxisFontSize: 12,
     timeAxisFontSize: 12,
+    tradingLineLabelFont: mockSkiaFont({ fontFamily: 'System' }, 12),
     watermarkSvg: null,
   });
 }

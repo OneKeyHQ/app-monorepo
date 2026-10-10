@@ -334,9 +334,16 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     });
   }
 
-  private async _buildLogContext() {
+  private async _buildLogContext(includeDeviceType = false) {
     const activeAccount = await perpsActiveAccountAtom.get();
+    const device =
+      includeDeviceType && activeAccount?.accountId
+        ? await this.backgroundApi.serviceAccount
+            .getAccountDeviceSafe({ accountId: activeAccount.accountId })
+            .catch(() => undefined)
+        : undefined;
     return {
+      deviceType: device?.deviceType,
       accountAddress: activeAccount?.accountAddress ?? null,
       exchangeAccountAddress: this._account,
       walletType: activeAccount?.walletType ?? 'unknown',
@@ -895,6 +902,16 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     const formattedOrders = await this._formatOrdersForHyperLiquid(orders, {
       allowZeroSize: grouping === 'positionTpsl',
     });
+    const context = await this._buildLogContext(
+      options.action !== undefined &&
+        [
+          'orderOpen',
+          'orderTrigger',
+          'multiOrder',
+          'ordersClose',
+          'setPositionTpsl',
+        ].includes(options.action),
+    );
     const client = await this.getExchangeClientForTrading({
       expectedAccountAddress,
     });
@@ -903,7 +920,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       grouping,
       builder: this._builderFeeInfo ?? null,
     };
-    const context = await this._buildLogContext();
     const extra = this._composeOrderLogExtra(options);
     const isFirstTime = await this._resolveOrderOpenIsFirstTime(
       options,
@@ -1447,9 +1463,10 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     const startedAt = Date.now();
 
     try {
-      const response = await convertHyperLiquidResponse(() =>
-        client.modify(requestPayload),
-      );
+      const response = await convertHyperLiquidResponse(() => {
+        this._assertExchangeUserAddress(expectedAccountAddress);
+        return client.modify(requestPayload);
+      });
       defaultLogger.perp.hyperliquid.modifyOrder({
         ...context,
         request: requestPayload,
@@ -1474,7 +1491,12 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  async cancelOrder(cancels: ICancelOrderParams[]): Promise<ICancelResponse> {
+  async cancelOrder(
+    cancels: ICancelOrderParams[],
+    options: IOrderAccountGuardOptions = {},
+  ): Promise<ICancelResponse> {
+    const expectedAccountAddress =
+      await this._resolveExpectedAccountAddress(options);
     await this.checkAccountCanTrade();
 
     const cancelParams = cancels.map((cancel) => ({
@@ -1482,7 +1504,9 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       o: cancel.oid,
     }));
 
-    const client = await this.getExchangeClientForTrading();
+    const client = await this.getExchangeClientForTrading({
+      expectedAccountAddress,
+    });
     const requestPayload = { cancels: cancelParams };
     const context = await this._buildLogContext();
     const extra = {
@@ -1491,9 +1515,10 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     };
     const startedAt = Date.now();
     try {
-      const response = await convertHyperLiquidResponse(() =>
-        client.cancel(requestPayload),
-      );
+      const response = await convertHyperLiquidResponse(() => {
+        this._assertExchangeUserAddress(expectedAccountAddress);
+        return client.cancel(requestPayload);
+      });
       defaultLogger.perp.hyperliquid.cancelOrder({
         ...context,
         request: requestPayload,
@@ -1544,8 +1569,8 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       m: params.minutes,
       t: params.randomize,
     };
+    const context = await this._buildLogContext(true);
     const client = await this.getExchangeClientForTrading();
-    const context = await this._buildLogContext();
     const requestPayload = {
       twap: {
         assetId: params.assetId,

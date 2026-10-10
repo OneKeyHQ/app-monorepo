@@ -280,5 +280,5 @@ export function useNativeChartDrawings({
   useEffect(() => {
     updateDataIndex(dataIndex.current);
   }, [points, indicatorSeries, subIndicatorPanes, updateDataIndex]);
-  return { controller, drawings, projection, gesture };
+  return { controller, drawings, projection, gesture, pointerId };
 }

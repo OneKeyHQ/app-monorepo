@@ -332,20 +332,6 @@ function resolveWebEmbedSpecifier({ fallback, resolve }, context, specifier) {
 
 function findPackageRoot(filePath, root, cache, snapshot) {
   let current = path.dirname(filePath);
-  const parts = path.relative(root, filePath).split(path.sep);
-  const nodeModulesIndex = parts.lastIndexOf('node_modules');
-  const packageNameIndex = nodeModulesIndex + 1;
-  const installedPackageRoot =
-    nodeModulesIndex >= 0
-      ? path.join(
-          root,
-          ...parts.slice(
-            0,
-            packageNameIndex +
-              (parts[packageNameIndex]?.startsWith('@') ? 2 : 1),
-          ),
-        )
-      : undefined;
   const visited = [];
   const finish = (result) => {
     for (const directory of visited) cache?.set(directory, result);
@@ -354,24 +340,24 @@ function findPackageRoot(filePath, root, cache, snapshot) {
   while (current.startsWith(root) && current !== root) {
     if (cache?.has(current)) return finish(cache.get(current));
     visited.push(current);
-    // Bundled code may contain its own package.json without a lockfile entry.
-    const insideInstalledPackage =
-      installedPackageRoot &&
-      current !== installedPackageRoot &&
-      current.startsWith(`${installedPackageRoot}${path.sep}`);
-    if (!insideInstalledPackage) {
-      const packagePath = path.join(current, 'package.json');
-      snapshot?.fileDependencies.add(packagePath);
-      if (fs.existsSync(packagePath)) {
-        const contents = fs.readFileSync(packagePath, 'utf8');
-        snapshot?.recordContents(packagePath, contents);
-        const packageJson = JSON.parse(contents);
-        if (
-          typeof packageJson.name === 'string' &&
-          typeof packageJson.version === 'string'
-        ) {
-          return finish({ packageJson, packagePath, packageRoot: current });
-        }
+    const packagePath = path.join(current, 'package.json');
+    snapshot?.fileDependencies.add(packagePath);
+    if (fs.existsSync(packagePath)) {
+      const contents = fs.readFileSync(packagePath, 'utf8');
+      snapshot?.recordContents(packagePath, contents);
+      const packageJson = JSON.parse(contents);
+      const parent = path.dirname(current);
+      // Bundled package manifests belong to the enclosing installed package.
+      const isInstalledPackage =
+        path.basename(parent) === 'node_modules' ||
+        (path.basename(parent).startsWith('@') &&
+          path.basename(path.dirname(parent)) === 'node_modules');
+      if (
+        isInstalledPackage &&
+        typeof packageJson.name === 'string' &&
+        typeof packageJson.version === 'string'
+      ) {
+        return finish({ packageJson, packagePath, packageRoot: current });
       }
     }
     current = path.dirname(current);

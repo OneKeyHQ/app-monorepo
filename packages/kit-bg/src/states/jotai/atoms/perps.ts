@@ -14,6 +14,7 @@ import type {
   IPerpTokenSelectorConfig,
   IPerpUserConfig,
   IPerpsActiveAssetData,
+  IPerpsDexCrossMargin,
   IPerpsFormattedAssetCtx,
   IPerpsUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
@@ -28,6 +29,12 @@ import {
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { IUsdcWithdrawDestinationId } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
+import {
+  type ITradingViewNativeChartSettings,
+  type ITradingViewNativeIndicatorSettings,
+  createTradingViewNativeChartSettings,
+  createTradingViewNativeIndicatorSettings,
+} from '@onekeyhq/shared/types/tradingViewNative';
 import type {
   IUnifoldDepositExecution,
   IUnifoldExecutionStatus,
@@ -38,8 +45,40 @@ import { globalAtom, globalAtomComputedR } from '../utils';
 
 import { hyperLiquidAgentPasswordStatusAtom } from './passwordLock';
 
+import type { IMarketTradingViewLayout } from './market';
 import type { IPerpDynamicTab } from '../../../services/ServiceWebviewPerp/ServiceWebviewPerp';
 import type { IAccountDeriveTypes } from '../../../vaults/types';
+
+export const {
+  target: perpsTradingViewChartSettingsPersistAtom,
+  use: usePerpsTradingViewChartSettingsPersistAtom,
+} = globalAtom<ITradingViewNativeChartSettings>({
+  persist: true,
+  name: EAtomNames.perpsTradingViewChartSettingsPersistAtom,
+  initialValue: createTradingViewNativeChartSettings(),
+});
+
+export const {
+  target: perpsTradingViewIndicatorSettingsPersistAtom,
+  use: usePerpsTradingViewIndicatorSettingsPersistAtom,
+} = globalAtom<ITradingViewNativeIndicatorSettings>({
+  persist: true,
+  name: EAtomNames.perpsTradingViewIndicatorSettingsPersistAtom,
+  initialValue: createTradingViewNativeIndicatorSettings(),
+});
+
+export const {
+  target: perpsTradingViewLayoutPersistAtom,
+  use: usePerpsTradingViewLayoutPersistAtom,
+} = globalAtom<IMarketTradingViewLayout>({
+  persist: true,
+  name: EAtomNames.perpsTradingViewLayoutPersistAtom,
+  initialValue: {
+    panelCount: 1,
+    panelOrder: ['main', 'panel-2', 'panel-3', 'panel-4'],
+    panelSettings: {},
+  },
+});
 
 // Shared by Market entries and Web Perps, including expanded extension windows.
 export const {
@@ -329,6 +368,25 @@ export const { target: perpsSpotBalancesAtom, use: usePerpsSpotBalancesAtom } =
     name: EAtomNames.perpsSpotBalancesAtom,
     initialValue: undefined,
   });
+// #endregion
+
+// #region Liquidation Risk Inputs
+// Live-only: never hydrated from the display cache, so a pre-trade liquidation
+// estimate cannot be computed from a stale or different account's snapshot.
+export type IPerpsLiquidationRiskInputsAtom =
+  | {
+      accountAddress: IHex;
+      tokenToAvailableAfterMaintenance?: Record<number, string>;
+      crossMarginByDex?: Record<string, IPerpsDexCrossMargin>;
+    }
+  | undefined;
+export const {
+  target: perpsLiquidationRiskInputsAtom,
+  use: usePerpsLiquidationRiskInputsAtom,
+} = globalAtom<IPerpsLiquidationRiskInputsAtom>({
+  name: EAtomNames.perpsLiquidationRiskInputsAtom,
+  initialValue: undefined,
+});
 // #endregion
 
 export type IPerpsActiveAccountStatusDetails = {

@@ -118,7 +118,32 @@
             <%= htmlHeadPreloadCode %>
           </script>
       <% } %>
-      <% if ( platform == 'web-embed' ) { %> 
+      <% if ( platform === 'web' ) { %>
+        <script>
+          // Referral invite links (/r/<code>/...) offer the App Clip card in
+          // iOS Safari. The banner meta is read from the parsed head, so it is
+          // added here, during parsing, and only on referral paths: every web
+          // route shares this template, and the App Clip only handles /r/ and
+          // /clip/ URLs. IDs match the App Store listing and the App Clip target.
+          (function () {
+            // Same shapes as the App Clip's referral parser:
+            // /r/<code>, /r/<code>/app and /r/<code>/app/<page>.
+            if (
+              !/^\/r\/[A-Za-z0-9_-]{1,32}(\/app(\/[A-Za-z0-9_-]{0,32})?)?\/?$/.test(
+                location.pathname
+              )
+            ) {
+              return;
+            }
+            var meta = document.createElement('meta');
+            meta.name = 'apple-itunes-app';
+            meta.content =
+              'app-id=1609559473, app-clip-bundle-id=so.onekey.wallet.Clip, app-clip-display=card';
+            document.head.appendChild(meta);
+          })();
+        </script>
+      <% } %>
+      <% if ( platform == 'web-embed' ) { %>
         <script>
           if (typeof globalThis === 'undefined') {
               var globalThis = window;

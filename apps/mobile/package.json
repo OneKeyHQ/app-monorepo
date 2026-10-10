@@ -51,7 +51,7 @@
     "clean:build": "rimraf ./dist && rimraf ./expo && rimraf .tamagui && rimraf ./node_modules/.cache && yarn android:clean",
     "android:clean": "./android/gradlew clean -p ./android",
     "android:dependencies": "./android/gradlew dependencies -p ./android",
-    "eas-build-pre-install": "git config --global url.\"https://github.com/juicebox-systems/\".insteadOf \"git@github.com:juicebox-systems/\"",
+    "eas-build-pre-install": "git config --global url.\"https://github.com/juicebox-systems/\".insteadOf \"git@github.com:juicebox-systems/\" && if [ \"$EAS_BUILD_PLATFORM\" = ios ]; then node_gyp_cache_version=$(node -p 'process.versions.node') && [ -n \"$HOME\" ] && [ -n \"$node_gyp_cache_version\" ] && rm -rf \"$HOME/Library/Caches/node-gyp/$node_gyp_cache_version\"; fi",
     "eas-build-post-install": "echo $KEY_SECRET | base64 -d > ../../node_modules/@onekeyfe/react-native-lite-card/keys/keys.secret"
   },
   "devDependencies": {
@@ -169,7 +169,7 @@
     "react-native-camera-kit": "17.0.1",
     "react-native-canvas": "^0.1.39",
     "react-native-capture-protection": "2.3.0",
-    "react-native-cloud-fs": "npm:@onekeyfe/react-native-cloud-fs@3.0.156",
+    "react-native-cloud-fs": "npm:@onekeyfe/react-native-cloud-fs@3.0.163",
     "react-native-collapsible-tab-view": "8.0.1",
     "react-native-crypto": "^2.2.0",
     "react-native-dns-lookup": "npm:@onekeyfe/react-native-dns-lookup@3.0.156",

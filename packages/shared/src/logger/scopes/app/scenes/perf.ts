@@ -1,3 +1,4 @@
+import type { IRuntimeHealthReport } from '@onekeyhq/shared/src/performance/collectors/jsBlockCollector';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { BaseScene } from '../../../base/baseScene';
@@ -59,9 +60,9 @@ export class AppPerfScene extends BaseScene {
   }
 
   // Aggregated per window: event-loop blocks, JS heap and GC, process CPU
-  // and memory. Numbers only.
+  // and memory, including compact numeric frame-window tuples.
   @LogToLocal()
-  public runtimeHealthCensus(params: Record<string, number | undefined>) {
+  public runtimeHealthCensus(params: IRuntimeHealthReport) {
     return [params];
   }
 
@@ -72,6 +73,7 @@ export class AppPerfScene extends BaseScene {
     windowMs: number;
     total: number;
     totalKB: number;
+    totalChars: number;
     byKind: { kind: string; count: number; kb: number }[];
     bySender: { sender: string; count: number; kb: number }[];
   }) {
@@ -211,5 +213,28 @@ export class AppPerfScene extends BaseScene {
     dataVersion: string;
   }) {
     return params;
+  }
+
+  // A root tab has to clear three gates before it can be shown without any
+  // loading state, and preloading is only worth anything if all three happen
+  // before the user taps. One line per transition, never one per render:
+  //   dispatch          - the navigator sent CommonActions.preload
+  //   sceneRevealed     - the scene laid out and SceneLoadingView came off
+  //   pageBodyRendered  - LazyPageContainer let the page tree mount
+  // `aheadOfFocus: false` means the stage only happened once the tab was
+  // already focused, i.e. the user sat through it. `dispatch` carries no such
+  // flag: it is a scheduler event, and whether the queue reached a tab first
+  // is answered by the two stages that actually gate what the user sees.
+  @LogToLocal()
+  public tabPreloadStage(
+    params:
+      | { stage: 'dispatch'; tab: string }
+      | {
+          stage: 'sceneRevealed' | 'pageBodyRendered';
+          tab: string;
+          aheadOfFocus: boolean;
+        },
+  ) {
+    return [params];
   }
 }
