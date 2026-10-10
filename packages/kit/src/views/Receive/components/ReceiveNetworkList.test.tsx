@@ -44,6 +44,9 @@ const mockGetAllNetworkAccounts = jest.fn<
   [unknown]
 >();
 const mockToastSuccess = jest.fn<void, [unknown]>();
+// Loaders of the lists that asked to be revalidated when their page regains
+// focus; `refocusPage` runs them the way the real hook would.
+const mockFocusRuns = new Set<() => Promise<void>>();
 const mockReceiveSelectNetworkTab = jest.fn<void, [unknown]>();
 
 jest.mock('react-intl', () => ({
@@ -253,7 +256,7 @@ jest.mock('../../../hooks/usePromiseResult', () => {
     usePromiseResult: (
       fn: () => Promise<unknown>,
       deps: unknown[],
-      options?: { initResult?: unknown },
+      options?: { initResult?: unknown; revalidateOnFocus?: boolean },
     ) => {
       const [result, setResult] = React.useState<unknown>(options?.initResult);
       const [isLoading, setIsLoading] = React.useState<boolean | undefined>();
@@ -267,6 +270,16 @@ jest.mock('../../../hooks/usePromiseResult', () => {
       React.useEffect(() => {
         void run();
       }, [run]);
+      const revalidateOnFocus = !!options?.revalidateOnFocus;
+      React.useEffect(() => {
+        if (!revalidateOnFocus) {
+          return undefined;
+        }
+        mockFocusRuns.add(run);
+        return () => {
+          mockFocusRuns.delete(run);
+        };
+      }, [run, revalidateOnFocus]);
       return { result, isLoading, run };
     },
   };
@@ -278,6 +291,14 @@ jest.mock('../../ChainSelector/hooks/useFuseSearch', () => ({
       n.name.toLowerCase().includes(keyword.toLowerCase()),
     ),
 }));
+
+async function refocusPage() {
+  await act(async () => {
+    await Promise.all(
+      Array.from(mockFocusRuns, (run) => run().catch(() => undefined)),
+    );
+  });
+}
 
 function renderList(
   overrides: Partial<Parameters<typeof ReceiveNetworkList>[0]> = {},
@@ -523,6 +544,42 @@ describe('ReceiveNetworkList', () => {
       accountId: 'hd-1--aptos',
       createdAddress: true,
     });
+  });
+
+  it('reloads past the accounts cache on the next focus when the reload after creating failed', async () => {
+    mockCreateAddressForNetwork.mockResolvedValue('hd-1--aptos');
+    const { getByTestId, onSelectNetwork } = renderList();
+    const aptosSubtitle = () =>
+      getByTestId('receive-network-list-item-aptos--1').querySelector(
+        '[data-testid="subtitle"]',
+      )?.textContent;
+    await waitFor(() => expect(aptosSubtitle()).toBe('global_create_address'));
+    mockGetAllNetworkAccounts.mockRejectedValueOnce(new Error('reload failed'));
+    fireEvent.click(getByTestId('receive-network-list-item-aptos--1'));
+    await waitFor(() => expect(onSelectNetwork).toHaveBeenCalledTimes(1));
+    // The list could not refresh, so the row is still on its old data.
+    expect(aptosSubtitle()).toBe('global_create_address');
+
+    mockAccountsInfo = [
+      ...mockAccountsInfo,
+      {
+        networkId: 'aptos--1',
+        accountId: 'hd-1--aptos',
+        apiAddress: '0xabcdef1234567890',
+        dbAccount: {},
+      },
+    ];
+    await refocusPage();
+    await waitFor(() => expect(aptosSubtitle()).toBe('0xab…890'));
+    expect(mockGetAllNetworkAccounts).toHaveBeenLastCalledWith(
+      expect.objectContaining({ skipCache: true }),
+    );
+
+    // The owed reload has landed: later reloads use the cache again.
+    await refocusPage();
+    expect(mockGetAllNetworkAccounts).toHaveBeenLastCalledWith(
+      expect.objectContaining({ skipCache: false }),
+    );
   });
 
   it('runs one selection at a time when a row is tapped again mid-flight', async () => {

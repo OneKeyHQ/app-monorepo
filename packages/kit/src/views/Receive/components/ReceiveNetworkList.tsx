@@ -56,8 +56,11 @@ type IReceiveNetworkListData = {
 
 type IReceiveNetworkListDataSource = {
   peek: () => IReceiveNetworkListData | undefined;
-  load: (options?: { fresh?: boolean }) => Promise<IReceiveNetworkListData>;
+  load: () => Promise<IReceiveNetworkListData>;
   preload: () => void;
+  // An address was created: what the source holds is out of date until a
+  // load started after this call has landed.
+  invalidate: () => void;
 };
 
 type IReceiveNetworkListProps = IReceiveNetworkListScope & {
@@ -135,27 +138,38 @@ function createReceiveNetworkListDataSource(
   scope: IReceiveNetworkListScope,
 ): IReceiveNetworkListDataSource {
   let latest: IReceiveNetworkListData | undefined;
-  let pending: Promise<IReceiveNetworkListData> | undefined;
-  const load = (options?: { fresh?: boolean }) => {
-    const fresh = !!options?.fresh;
-    if (pending && !fresh) {
-      return pending;
+  let pending:
+    | { promise: Promise<IReceiveNetworkListData>; version: number }
+    | undefined;
+  // `version` moves on invalidate(); `loadedVersion` catches up once a load
+  // started at that version lands. While they differ, a load skips the
+  // accounts cache and any request started earlier, so a reload that failed
+  // is still owed to the next one.
+  let version = 0;
+  let loadedVersion = 0;
+  const load = () => {
+    const startedAt = version;
+    if (pending?.version === startedAt) {
+      return pending.promise;
     }
     const promise: Promise<IReceiveNetworkListData> =
-      fetchReceiveNetworkListData(scope, { skipAccountsCache: fresh })
+      fetchReceiveNetworkListData(scope, {
+        skipAccountsCache: startedAt > loadedVersion,
+      })
         .then((data) => {
+          loadedVersion = Math.max(loadedVersion, startedAt);
           // Only the newest load is kept; an older one may still land later.
-          if (pending === promise) {
+          if (pending?.promise === promise) {
             latest = data;
           }
           return data;
         })
         .finally(() => {
-          if (pending === promise) {
+          if (pending?.promise === promise) {
             pending = undefined;
           }
         });
-    pending = promise;
+    pending = { promise, version: startedAt };
     return promise;
   };
   return {
@@ -164,6 +178,9 @@ function createReceiveNetworkListDataSource(
     preload: () => {
       // A failed warm-up is retried by the list's own load.
       load().catch(() => undefined);
+    },
+    invalidate: () => {
+      version += 1;
     },
   };
 }
@@ -293,6 +310,7 @@ function ReceiveNetworkRow({
           } catch {
             // Best-effort: the address exists either way, so a failed reload
             // of the list must not keep the selection from going through.
+            // The reload stays owed and runs again with the list's next load.
           }
         } finally {
           setLoading(false);
@@ -368,7 +386,6 @@ export function ReceiveNetworkList({
 }: IReceiveNetworkListProps) {
   const intl = useIntl();
   const isOthersWallet = accountUtils.isOthersWallet({ walletId });
-  const freshLoadRef = useRef(false);
   const { createAddressForNetwork, enableNetwork } =
     useCreateAddressForNetwork();
 
@@ -383,21 +400,19 @@ export function ReceiveNetworkList({
       }),
     [accountId, indexedAccountId, mode, sharedDataSource, walletId],
   );
-  // Starts from whatever the source already holds, then revalidates.
+  // Starts from whatever the source already holds, then revalidates. Coming
+  // back to the page revalidates again: addresses may have been created
+  // further down the flow, or a reload after creating one may have failed.
   const { result: data, run: reloadData } = usePromiseResult(
-    () => dataSource.load({ fresh: freshLoadRef.current }),
+    () => dataSource.load(),
     [dataSource],
-    { initResult: dataSource.peek() },
+    { initResult: dataSource.peek(), revalidateOnFocus: true },
   );
 
   const refreshAfterAddressCreated = useCallback(async () => {
-    freshLoadRef.current = true;
-    try {
-      await reloadData({ alwaysSetState: true });
-    } finally {
-      freshLoadRef.current = false;
-    }
-  }, [reloadData]);
+    dataSource.invalidate();
+    await reloadData({ alwaysSetState: true });
+  }, [dataSource, reloadData]);
 
   const [enabledOverrides, setEnabledOverrides] = useState<
     Record<string, boolean>
