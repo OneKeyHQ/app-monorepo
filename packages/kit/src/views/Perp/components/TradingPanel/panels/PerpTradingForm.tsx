@@ -2585,16 +2585,25 @@ function PerpTradingForm({
               gap="$3"
               mt="$1"
             >
-              <SizableText
-                size={isMobile ? '$bodySm' : '$bodyMdMedium'}
-                color="$textSubdued"
-                flex={1}
-                numberOfLines={1}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.perp_twap_child_order_size__title,
-                })}
-              </SizableText>
+              <XStack flex={1}>
+                <DashText
+                  size={isMobile ? '$bodySm' : '$bodyMdMedium'}
+                  color="$textSubdued"
+                  dashColor="$textDisabled"
+                  dashThickness={0.5}
+                  numberOfLines={1}
+                  tooltip={intl.formatMessage({
+                    id: ETranslations.perp_twap_child_order_size__desc,
+                  })}
+                  tooltipTitle={intl.formatMessage({
+                    id: ETranslations.perp_twap_child_order_size__title,
+                  })}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_twap_child_order_size__title,
+                  })}
+                </DashText>
+              </XStack>
               <SizableText
                 size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
                 color="$text"

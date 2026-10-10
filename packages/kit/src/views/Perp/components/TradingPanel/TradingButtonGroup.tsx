@@ -72,6 +72,7 @@ import {
 import {
   TWAP_MAX_DURATION_MINUTES,
   TWAP_MIN_DURATION_MINUTES,
+  TWAP_MIN_ORDER_NOTIONAL,
   formatTwapPriceForOrder,
   getTwapTriggerAbove,
   isTwapStopPriceValid,
@@ -1158,9 +1159,10 @@ function SideButtonInternal({
           })
         ) {
           Toast.message({
-            title: intl.formatMessage({
-              id: ETranslations.perp_scale_order_size_too_small__msg,
-            }),
+            title: intl.formatMessage(
+              { id: ETranslations.perp_twap_min_order_notional__msg },
+              { amount: TWAP_MIN_ORDER_NOTIONAL },
+            ),
           });
           return 'invalidTwapConfig' as const;
         }

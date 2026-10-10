@@ -35,6 +35,7 @@ import {
   PERPS_L2_BOOK_SWR_CACHE_MAX_AGE_MS,
 } from '@onekeyhq/shared/src/consts/perpCache';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { normalizeErrorProps } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -3037,7 +3038,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               })
             ) {
               throw new OneKeyLocalError(
-                `TWAP total notional must be at least ${TWAP_MIN_ORDER_NOTIONAL} USDC`,
+                normalizeErrorProps({
+                  key: ETranslations.perp_twap_min_order_notional__msg,
+                  info: { amount: TWAP_MIN_ORDER_NOTIONAL },
+                }),
               );
             }
 

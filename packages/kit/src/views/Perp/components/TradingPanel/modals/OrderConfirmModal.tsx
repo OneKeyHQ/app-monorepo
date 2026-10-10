@@ -7,6 +7,7 @@ import {
   Badge,
   Button,
   Checkbox,
+  DashText,
   Dialog,
   SizableText,
   Toast,
@@ -870,11 +871,22 @@ function OrderConfirmContent({
 
         {twapEstimatedSliceNotionalDisplay ? (
           <XStack justifyContent="space-between" alignItems="center">
-            <SizableText size="$bodyMd" color="$textSubdued">
+            <DashText
+              size="$bodyMd"
+              color="$textSubdued"
+              dashColor="$textDisabled"
+              dashThickness={0.5}
+              tooltip={intl.formatMessage({
+                id: ETranslations.perp_twap_child_order_size__desc,
+              })}
+              tooltipTitle={intl.formatMessage({
+                id: ETranslations.perp_twap_child_order_size__title,
+              })}
+            >
               {intl.formatMessage({
                 id: ETranslations.perp_twap_child_order_size__title,
               })}
-            </SizableText>
+            </DashText>
             <SizableText size="$bodyMdMedium">
               {twapEstimatedSliceNotionalDisplay}
             </SizableText>
