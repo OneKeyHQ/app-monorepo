@@ -62,6 +62,7 @@ import {
   type IGetDAppAccountInfoParams,
 } from '@onekeyhq/shared/types/dappConnection';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type { IDeriveContextHashKeyringParams } from '@onekeyhq/shared/types/ProviderApis/ProviderApiBtc.type';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import {
@@ -93,7 +94,9 @@ import type {
 import type { Verify } from '@walletconnect/types';
 
 // 4901 = Chain Disconnected analog for unsupported networks.
-function canonicalizeBtcNetworkId(networkId: string): string {
+function canonicalizeBtcNetworkId(
+  networkId: string,
+): IDeriveContextHashKeyringParams['canonicalNetworkName'] {
   switch (networkId) {
     case 'btc--0':
       return 'bitcoin-mainnet';
@@ -592,7 +595,8 @@ class ServiceDApp extends ServiceBase {
 
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const account = await vault.getAccount();
-    if (!account.pub) {
+    const connectedPubkey = account.pub;
+    if (!connectedPubkey) {
       throw new OneKeyLocalError(
         'Connected BTC account is missing a public key',
       );
@@ -600,18 +604,38 @@ class ServiceDApp extends ServiceBase {
 
     // Password-prompt cancel throws PasswordPromptDialogCancel; the modal
     // treats it as a sub-prompt cancel and leaves the staged entry for retry.
-    const { password } =
+    const { password, deviceParams } =
       await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
         accountId,
       });
 
-    const result = await vault.keyring.deriveContextHash({
-      password,
-      appName,
-      canonicalNetworkName,
-      connectedPubkey: account.pub,
-      context,
-    });
+    const derive = () =>
+      vault.keyring.deriveContextHash({
+        password,
+        deviceParams,
+        appName,
+        canonicalNetworkName,
+        connectedPubkey,
+        context,
+      });
+    let result: string | undefined;
+    if (deviceParams) {
+      // Keep the secret out of the processing wrapper's completion log.
+      await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+        async () => {
+          result = await derive();
+        },
+        {
+          deviceParams,
+          debugMethodName: 'serviceDApp.executeDeriveContextHash',
+        },
+      );
+    } else {
+      result = await derive();
+    }
+    if (result === undefined) {
+      throw new OneKeyLocalError('Context hash derivation returned no result');
+    }
 
     // Consume only on success so the user can retry after a derivation error.
     await this.completeDeriveContextHashRequest(nonce);
