@@ -2903,6 +2903,60 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
   });
 
+  test('subtracts queued upload time from the remaining cooldown', async () => {
+    const now = 1_784_592_000_000;
+    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(now);
+    const {
+      service,
+      serviceInternals,
+      prepareHardwareTransport,
+      uploadPortfolioPackage,
+    } = prepareHardwareSync({
+      busyResults: [false],
+      targetState: { lastAttemptAt: now, lastTransferAt: now },
+    });
+    const cooldownInternals = service as unknown as {
+      activeUploadByTargetKey: Map<string, Promise<unknown>>;
+      getHardwareCooldownRemainingMs: (params: {
+        cooldownMs?: number;
+        targetKey: string;
+        now: number;
+      }) => Promise<number>;
+      scheduleSyncAfterCooldown: (params: { remainingMs: number }) => void;
+    };
+    cooldownInternals.getHardwareCooldownRemainingMs = (
+      ServiceHardwarePortfolioSync.prototype as unknown as typeof cooldownInternals
+    ).getHardwareCooldownRemainingMs.bind(service);
+    const scheduleSync = jest
+      .spyOn(cooldownInternals, 'scheduleSyncAfterCooldown')
+      .mockImplementation(() => undefined);
+    let resolveUpload: (() => void) | undefined;
+    const activeUpload = new Promise<void>((resolve) => {
+      resolveUpload = resolve;
+    });
+    cooldownInternals.activeUploadByTargetKey.set('db-device-1', activeUpload);
+
+    const sync = serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+    expect(prepareHardwareTransport).not.toHaveBeenCalled();
+
+    nowSpy.mockReturnValue(now + 10_000);
+    resolveUpload?.();
+
+    await expect(sync).resolves.toEqual(
+      expect.objectContaining({
+        cooldownRemainingMs: 50_000,
+        status: 'cooldown',
+      }),
+    );
+    expect(scheduleSync).toHaveBeenCalledWith(
+      expect.objectContaining({ remainingMs: 50_000 }),
+    );
+    expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+  });
+
   test('does not upload an identical snapshot again when it arrives during upload', async () => {
     type ITargetState = {
       lastAttemptAt?: number;

@@ -3050,7 +3050,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
                 ? DESKTOP_BLE_TRANSFER_COOLDOWN_MS
                 : undefined,
               targetKey,
-              now: updatedAt,
+              now: Date.now(),
             })
           : 0;
       if (!this.isCurrentSyncGeneration(targetKey, generation)) {
