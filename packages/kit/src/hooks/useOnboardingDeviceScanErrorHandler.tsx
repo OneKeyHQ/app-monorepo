@@ -20,6 +20,7 @@ import {
   NeedBluetoothTurnedOn,
   NeedOneKeyBridge,
 } from '@onekeyhq/shared/src/errors';
+import { ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import {
   EAppEventBusNames,
@@ -69,6 +70,48 @@ function showStoppedScanError(error: Error, intl: IntlShape) {
   if (isHardwareErrorByCode({ error, code: HardwareErrorCode.BlePoweredOff })) {
     appEventBus.emit(EAppEventBusNames.RequestHardwareUIDialog, {
       uiRequestType: EHardwareUiStateAction.BLUETOOTH_PERMISSION,
+    });
+    return;
+  }
+  if (
+    isHardwareErrorByCode({ error, code: HardwareErrorCode.BleUnsupported })
+  ) {
+    Toast.error({
+      title: intl.formatMessage({
+        id: ETranslations.hardware_third_party_transport_not_available,
+      }),
+    });
+    return;
+  }
+  if (
+    isHardwareErrorByCode({
+      error,
+      code: HardwareErrorCode.BridgeNeedsPermission,
+    })
+  ) {
+    if (platformEnv.isDesktopLinux) {
+      appEventBus.emit(EAppEventBusNames.ShowLinuxBundleUdevGuide, {
+        reason: 'webusb-access-denied',
+      });
+    } else {
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.device_grant_usb_access,
+        }),
+      });
+    }
+    return;
+  }
+  if (
+    isHardwareErrorByCode({
+      error,
+      code: ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
+    })
+  ) {
+    Toast.error({
+      title: intl.formatMessage({
+        id: ETranslations.global_connection_failed_usb_help_text,
+      }),
     });
     return;
   }

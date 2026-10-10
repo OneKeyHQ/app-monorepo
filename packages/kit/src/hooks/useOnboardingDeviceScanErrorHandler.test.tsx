@@ -29,7 +29,10 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 }));
 
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
-  EAppEventBusNames: { RequestHardwareUIDialog: 'RequestHardwareUIDialog' },
+  EAppEventBusNames: {
+    RequestHardwareUIDialog: 'RequestHardwareUIDialog',
+    ShowLinuxBundleUdevGuide: 'ShowLinuxBundleUdevGuide',
+  },
   appEventBus: { emit: jest.fn() },
 }));
 
@@ -43,12 +46,14 @@ import {
   OneKeyHardwareError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import { ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useOnboardingDeviceScanErrorHandler } from './useOnboardingDeviceScanErrorHandler';
 
@@ -132,5 +137,94 @@ describe('useOnboardingDeviceScanErrorHandler', () => {
       EAppEventBusNames.RequestHardwareUIDialog,
       { uiRequestType: EHardwareUiStateAction.BLUETOOTH_PERMISSION },
     );
+  });
+
+  it.each([
+    [HardwareErrorCode.BleLocationError],
+    [HardwareErrorCode.BleLocationServicesDisabled],
+  ])(
+    'leaves the SDK permission dialog as the only notice for code %s',
+    (code) => {
+      const stopScan = jest.fn();
+      const { result } = renderHook(() =>
+        useOnboardingDeviceScanErrorHandler({ stopScan }),
+      );
+      const error = convertDeviceError({ code });
+      if (!(error instanceof OneKeyHardwareError)) {
+        throw new OneKeyLocalError('Expected a converted SDK error instance');
+      }
+
+      act(() => {
+        result.current.handleScanError(error);
+      });
+
+      expect(stopScan).toHaveBeenCalledTimes(1);
+      expect(toastError).not.toHaveBeenCalled();
+      expect(requestHardwareUiDialog).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    [
+      HardwareErrorCode.BleUnsupported,
+      ETranslations.hardware_third_party_transport_not_available,
+    ],
+    [
+      HardwareErrorCode.BridgeNeedsPermission,
+      ETranslations.device_grant_usb_access,
+    ],
+    [
+      ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
+      ETranslations.global_connection_failed_usb_help_text,
+    ],
+  ])('preserves the recovery message for transport error %s', (code, title) => {
+    const stopScan = jest.fn();
+    const { result } = renderHook(() =>
+      useOnboardingDeviceScanErrorHandler({ stopScan }),
+    );
+    const error = convertDeviceError({ code });
+    if (!(error instanceof OneKeyHardwareError)) {
+      throw new OneKeyLocalError('Expected a converted SDK error instance');
+    }
+
+    act(() => {
+      result.current.handleScanError(error);
+    });
+
+    expect(stopScan).toHaveBeenCalledTimes(1);
+    expect(toastError).toHaveBeenCalledTimes(1);
+    expect(toastError).toHaveBeenCalledWith({ title });
+    expect(requestHardwareUiDialog).not.toHaveBeenCalled();
+  });
+
+  it('opens the existing Linux USB permission guide without a second toast', () => {
+    const originalIsDesktopLinux = platformEnv.isDesktopLinux;
+    platformEnv.isDesktopLinux = true;
+    try {
+      const stopScan = jest.fn();
+      const { result } = renderHook(() =>
+        useOnboardingDeviceScanErrorHandler({ stopScan }),
+      );
+      const error = convertDeviceError({
+        code: HardwareErrorCode.BridgeNeedsPermission,
+      });
+      if (!(error instanceof OneKeyHardwareError)) {
+        throw new OneKeyLocalError('Expected a converted SDK error instance');
+      }
+
+      act(() => {
+        result.current.handleScanError(error);
+      });
+
+      expect(stopScan).toHaveBeenCalledTimes(1);
+      expect(toastError).not.toHaveBeenCalled();
+      expect(requestHardwareUiDialog).toHaveBeenCalledTimes(1);
+      expect(requestHardwareUiDialog).toHaveBeenCalledWith(
+        EAppEventBusNames.ShowLinuxBundleUdevGuide,
+        { reason: 'webusb-access-denied' },
+      );
+    } finally {
+      platformEnv.isDesktopLinux = originalIsDesktopLinux;
+    }
   });
 });

@@ -140,7 +140,11 @@ export const buildBlePermissionDialogProps = (
     },
     onConfirm: async ({ close }) => {
       await close?.();
-      await openBLEPermissionsSettings();
+      if (platformEnv.isDesktop) {
+        await globalThis.desktopApiProxy.bluetooth.openPrivacySettings();
+      } else {
+        await openBLEPermissionsSettings();
+      }
     },
     showCancelButton: false,
     sheetOverlayProps: platformEnv.isNative
