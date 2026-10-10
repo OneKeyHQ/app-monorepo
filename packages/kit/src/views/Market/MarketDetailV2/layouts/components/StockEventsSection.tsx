@@ -57,6 +57,7 @@ const STOCK_EVENT_METADATA_LABEL_IDS: Record<string, ETranslations> = {
   adjustedDividendPerShare:
     ETranslations.market_stock_event_adj_dividend_per_share,
   dividendYield: ETranslations.dexmarket_stock_dividend_yield,
+  exDate: ETranslations.market_stock_event_ex_dividend_date,
   declarationDate: ETranslations.market_stock_event_declaration_date,
   recordDate: ETranslations.market_stock_event_record_date,
   paymentDate: ETranslations.market_stock_event_payment_date,
@@ -76,11 +77,21 @@ const STOCK_EVENT_CURRENCY_METADATA_KEYS = new Set([
 const STOCK_EVENT_PERCENT_METADATA_KEYS = new Set(['dividendYield']);
 
 const STOCK_EVENT_DATE_METADATA_KEYS = new Set([
+  'exDate',
   'declarationDate',
   'recordDate',
   'paymentDate',
   'lastUpdated',
 ]);
+
+/**
+ * `frequency` arrives as an English word. Values without a translation are
+ * shown as sent.
+ */
+const STOCK_EVENT_FREQUENCY_VALUE_IDS: Record<string, ETranslations> = {
+  monthly: ETranslations.earn_monthly,
+  quarterly: ETranslations.market_stock_event_frequency_quarterly,
+};
 
 function getStockEventMetadataLabel(key: string, intl: IntlShape) {
   const labelId = STOCK_EVENT_METADATA_LABEL_IDS[key];
@@ -97,7 +108,12 @@ function formatStockEventMetadataValue(
   key: string,
   value: string | number,
   formatDate: IFormatDate,
+  intl: IntlShape,
 ) {
+  if (key === 'frequency' && typeof value === 'string') {
+    const frequencyId = STOCK_EVENT_FREQUENCY_VALUE_IDS[value.toLowerCase()];
+    return frequencyId ? intl.formatMessage({ id: frequencyId }) : value;
+  }
   if (STOCK_EVENT_CURRENCY_METADATA_KEYS.has(key)) {
     return formatCurrencyStatValue(value);
   }
@@ -127,6 +143,7 @@ function getStockEventDetailLines(
       key,
       value,
       formatDate,
+      intl,
     );
     return [{ key, text: `${label}: ${formattedValue}` }];
   });
@@ -151,7 +168,11 @@ function getStockEventTitle(event: IMarketStockEvent, intl: IntlShape) {
   return event.title;
 }
 
-function getStockEventDescription(event: IMarketStockEvent, intl: IntlShape) {
+function getStockEventDescription(
+  event: IMarketStockEvent,
+  formatDate: IFormatDate,
+  intl: IntlShape,
+) {
   const epsEstimate = event.metadata?.epsEstimated;
   if (
     event.type === 'earnings' &&
@@ -162,6 +183,19 @@ function getStockEventDescription(event: IMarketStockEvent, intl: IntlShape) {
       id: ETranslations.market_stock_event_eps_estimate,
     });
     return `${label}: $${epsEstimate}`;
+  }
+  // The backend's English "Eligibility cutoff: <date>" always carries the
+  // ex-dividend date, so it is rebuilt from that field in the reader's locale.
+  const exDate = event.metadata?.exDate;
+  if (event.type === 'cash_dividend' && exDate) {
+    const label = getStockEventMetadataLabel('exDate', intl);
+    const value = formatStockEventMetadataValue(
+      'exDate',
+      exDate,
+      formatDate,
+      intl,
+    );
+    return `${label}: ${value}`;
   }
   return event.description ?? STAT_FALLBACK_VALUE;
 }
@@ -253,7 +287,7 @@ function StockEventRow({
             ))
           ) : (
             <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-              {getStockEventDescription(event, intl)}
+              {getStockEventDescription(event, formatDate, intl)}
             </SizableText>
           )}
         </YStack>
