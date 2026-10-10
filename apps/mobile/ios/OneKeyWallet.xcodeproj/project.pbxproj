@@ -29,7 +29,6 @@
 		A1C000000000000000000002 /* AppClipRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C000000000000000000021 /* AppClipRootView.swift */; };
 		A1C000000000000000000003 /* AppClipModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C000000000000000000022 /* AppClipModel.swift */; };
 		A1C000000000000000000004 /* AppClipMarketService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C000000000000000000023 /* AppClipMarketService.swift */; };
-		A1C000000000000000000005 /* CampaignWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C000000000000000000024 /* CampaignWebView.swift */; };
 		A1C000000000000000000006 /* AppClipAttributionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C000000000000000000029 /* AppClipAttributionStore.swift */; };
 		A1C000000000000000000007 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A1C000000000000000000027 /* PrivacyInfo.xcprivacy */; };
 		A1C000000000000000000008 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A1C000000000000000000028 /* Localizable.xcstrings */; };
@@ -132,7 +131,6 @@
 		A1C000000000000000000021 /* AppClipRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppClipRootView.swift; sourceTree = "<group>"; };
 		A1C000000000000000000022 /* AppClipModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppClipModel.swift; sourceTree = "<group>"; };
 		A1C000000000000000000023 /* AppClipMarketService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppClipMarketService.swift; sourceTree = "<group>"; };
-		A1C000000000000000000024 /* CampaignWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CampaignWebView.swift; sourceTree = "<group>"; };
 		A1C000000000000000000025 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A1C000000000000000000026 /* OneKeyAppClip.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OneKeyAppClip.entitlements; sourceTree = "<group>"; };
 		A1C000000000000000000027 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
@@ -287,7 +285,6 @@
 				A1C000000000000000000021 /* AppClipRootView.swift */,
 				A1C000000000000000000022 /* AppClipModel.swift */,
 				A1C000000000000000000023 /* AppClipMarketService.swift */,
-				A1C000000000000000000024 /* CampaignWebView.swift */,
 				A1C000000000000000000025 /* Info.plist */,
 				A1C000000000000000000026 /* OneKeyAppClip.entitlements */,
 				A1C000000000000000000027 /* PrivacyInfo.xcprivacy */,
@@ -802,7 +799,6 @@
 				A1C000000000000000000002 /* AppClipRootView.swift in Sources */,
 				A1C000000000000000000003 /* AppClipModel.swift in Sources */,
 				A1C000000000000000000004 /* AppClipMarketService.swift in Sources */,
-				A1C000000000000000000005 /* CampaignWebView.swift in Sources */,
 				A1C000000000000000000006 /* AppClipAttributionStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
