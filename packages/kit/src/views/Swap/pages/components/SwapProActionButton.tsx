@@ -82,7 +82,7 @@ const formatCompactValue = (value: string, currencySymbol: string): string => {
 
 interface ISwapProActionButtonProps {
   onSwapProActionClick: () => void;
-  onDepositToTrade: () => void;
+  onDepositToTrade?: () => void;
   hasEnoughBalance: boolean;
   balanceLoading: boolean;
   supportSpeedSwap: boolean;
@@ -276,7 +276,7 @@ const SwapProActionButton = ({
 
   const onPressActionButton = useCallback(() => {
     if (shouldDepositToTrade) {
-      onDepositToTrade();
+      onDepositToTrade?.();
       return;
     }
     if (!canExecuteInPro) {
@@ -305,7 +305,7 @@ const SwapProActionButton = ({
   }, [swapProTradeType, isWaitingActionableQuote, quoteFetching]);
   const actionButtonDisabled = useMemo(() => {
     if (shouldDepositToTrade) {
-      return false;
+      return !onDepositToTrade;
     }
     let originalDisabled =
       !!isActionDisabled ||
@@ -320,6 +320,7 @@ const SwapProActionButton = ({
     return originalDisabled;
   }, [
     shouldDepositToTrade,
+    onDepositToTrade,
     isActionDisabled,
     hasEnoughBalance,
     currentQuoteRes?.toAmount,

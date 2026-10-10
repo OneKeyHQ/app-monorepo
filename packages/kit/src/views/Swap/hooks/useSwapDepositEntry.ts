@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -29,9 +29,11 @@ import { resolveSwapNetworkAccount } from './useSwapAccount';
 function buildSwapDepositSelectionKey({
   token,
   activeAccount,
+  enabled,
 }: {
   token?: ISwapToken;
   activeAccount?: IAccountSelectorActiveAccountInfo;
+  enabled: boolean;
 }) {
   return [
     getTokenIdentityKey(token),
@@ -39,6 +41,7 @@ function buildSwapDepositSelectionKey({
     activeAccount?.indexedAccount?.id,
     activeAccount?.account?.id,
     activeAccount?.dbAccount?.id,
+    enabled,
   ].join('|');
 }
 
@@ -47,12 +50,14 @@ export function useSwapDepositEntryPress({
   accountInfo,
   activeAccount,
   onClose,
+  enabled = true,
   logLowBalance = true,
 }: {
   token?: ISwapToken;
   accountInfo?: IAccountSelectorActiveAccountInfo;
   activeAccount?: IAccountSelectorActiveAccountInfo;
   onClose: () => void;
+  enabled?: boolean;
   // Passed through to openSwapDepositEntry; always-visible deposit entries
   // (the Pro panel's Top up chip) set false so they do not count the
   // low-balance funnel event.
@@ -65,6 +70,7 @@ export function useSwapDepositEntryPress({
     accountInfo,
     activeAccount,
     onClose,
+    enabled,
     logLowBalance,
   });
   latest.current = {
@@ -72,16 +78,25 @@ export function useSwapDepositEntryPress({
     accountInfo,
     activeAccount,
     onClose,
+    enabled,
     logLowBalance,
   };
   // Selection key of the in-flight on-demand lookup. One lookup per selection:
   // repeated taps for the same selection dedupe, while a press for a new
   // selection starts its own lookup and the older result is dropped below.
   const resolvingKeyRef = useRef('');
-  // A user can switch A -> B -> A while the first A lookup is still pending.
-  // The selection key is equal again when both A lookups settle, so keep a
-  // request generation as well and only let the latest press open Receive.
+  // Invalidate on selection changes as well as new presses. Returning to A
+  // must not revive a pending A press or dedupe a new tap against that lookup.
   const latestRequestIdRef = useRef(0);
+  const selectionKey = buildSwapDepositSelectionKey(latest.current);
+  const selectionKeyRef = useRef(selectionKey);
+  useLayoutEffect(() => {
+    if (selectionKeyRef.current !== selectionKey) {
+      selectionKeyRef.current = selectionKey;
+      latestRequestIdRef.current += 1;
+      resolvingKeyRef.current = '';
+    }
+  }, [selectionKey]);
   // A pending lookup must not open anything after this entry unmounted (the
   // user left the page while the account was resolving).
   const mountedRef = useRef(true);
@@ -94,6 +109,7 @@ export function useSwapDepositEntryPress({
   return useCallback(() => {
     void (async () => {
       const pressed = latest.current;
+      if (!pressed.enabled) return;
       const pressedKey = buildSwapDepositSelectionKey(pressed);
       if (resolvingKeyRef.current === pressedKey) return;
       const requestId = latestRequestIdRef.current + 1;

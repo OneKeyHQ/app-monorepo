@@ -53,6 +53,7 @@ import {
   useSwapProTokenInfoSync,
 } from '../../hooks/useSwapPro';
 import { SwapTestIDs } from '../../testIDs';
+import { getSwapProDepositAccountInfo } from '../../utils/swapProAccountUtils';
 
 import SwapProTabListContainer from './SwapProTabListContainer';
 import SwapProTokenSelector from './SwapProTokenSelect';
@@ -146,50 +147,31 @@ const SwapProContainer = ({
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { selectedAccount } = useSelectedAccount({ num: 0 });
   // The Pro pay token can sit on another network than the selected account's.
-  // Keep account metadata only when it belongs to the identity that resolved
-  // the network account; otherwise a slow account-selector update could pair
-  // account B with wallet/indexed-account metadata from account A.
-  const depositAccountInfo = useMemo(() => {
-    if (!netAccountRes.result) return undefined;
-    const indexedAccountMatches = Boolean(
-      resolvedIndexedAccountId &&
-      activeAccount.indexedAccount?.id === resolvedIndexedAccountId,
-    );
-    const accountMatches = Boolean(
-      resolvedAccountId &&
-      (activeAccount.account?.id === resolvedAccountId ||
-        activeAccount.dbAccount?.id === resolvedAccountId),
-    );
-    const dbAccountMatches = Boolean(
-      resolvedAccountId && activeAccount.dbAccount?.id === resolvedAccountId,
-    );
-    const walletMatches = Boolean(
-      !selectedAccount.walletId ||
-      activeAccount.wallet?.id === selectedAccount.walletId,
-    );
-    const identityMatches = indexedAccountMatches || accountMatches;
-    return {
-      ...activeAccount,
-      account: netAccountRes.result,
-      wallet:
-        identityMatches && walletMatches ? activeAccount.wallet : undefined,
-      indexedAccount:
-        indexedAccountMatches && walletMatches
-          ? activeAccount.indexedAccount
-          : undefined,
-      dbAccount: dbAccountMatches ? activeAccount.dbAccount : undefined,
-    };
-  }, [
-    activeAccount,
-    netAccountRes.result,
-    resolvedAccountId,
-    resolvedIndexedAccountId,
-    selectedAccount.walletId,
-  ]);
+  // Wait for its selected identity and wallet metadata together. Pro owns the
+  // selected derive type, so its pending account must not use the generic
+  // on-demand lookup (which resolves the network's global derive type).
+  const depositAccountInfo = useMemo(
+    () =>
+      getSwapProDepositAccountInfo({
+        activeAccount,
+        networkAccount: netAccountRes.result,
+        indexedAccountId: resolvedIndexedAccountId,
+        accountId: resolvedAccountId,
+        selectedWalletId: selectedAccount.walletId,
+      }),
+    [
+      activeAccount,
+      netAccountRes.result,
+      resolvedAccountId,
+      resolvedIndexedAccountId,
+      selectedAccount.walletId,
+    ],
+  );
   const onDepositToTrade = useSwapDepositEntryPress({
     token: inputToken as ISwapToken | undefined,
     accountInfo: depositAccountInfo,
-    activeAccount,
+    activeAccount: depositAccountInfo,
+    enabled: Boolean(depositAccountInfo),
     onClose: syncInputTokenBalance,
   });
   // The Pro panel's Top up chip is always visible, so it must not count the
@@ -197,7 +179,8 @@ const SwapProContainer = ({
   const onProTopUpPress = useSwapDepositEntryPress({
     token: inputToken as ISwapToken | undefined,
     accountInfo: depositAccountInfo,
-    activeAccount,
+    activeAccount: depositAccountInfo,
+    enabled: Boolean(depositAccountInfo),
     onClose: syncInputTokenBalance,
     logLowBalance: false,
   });
@@ -400,8 +383,8 @@ const SwapProContainer = ({
             onBalanceMax={onBalanceMaxPress}
             onSelectPercentageStage={onSelectPercentageStage}
             onSwapProActionClick={onSwapProActionClick}
-            onDepositToTrade={onDepositToTrade}
-            onTopUpPress={onProTopUpPress}
+            onDepositToTrade={depositAccountInfo ? onDepositToTrade : undefined}
+            onTopUpPress={depositAccountInfo ? onProTopUpPress : undefined}
             hasEnoughBalance={hasEnoughBalance}
             handleSelectAccountClick={handleSelectAccountClick}
             cleanInputAmount={cleanInputAmount}

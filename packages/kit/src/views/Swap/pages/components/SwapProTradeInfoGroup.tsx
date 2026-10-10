@@ -44,7 +44,7 @@ interface ISwapProTradeInfoGroupProps {
   onBalanceMax: () => void;
   // Shared deposit entry (Done shortcut, balance reload, funnel event), same
   // as the "Deposit to Trade" action button.
-  onDepositPress: () => void;
+  onDepositPress?: () => void;
   storeName: EJotaiContextStoreNames;
 }
 
@@ -163,6 +163,8 @@ const SwapProTradeInfoGroup = ({
             ) : null}
             <XStack
               onPress={onDepositPress}
+              disabled={!onDepositPress}
+              opacity={onDepositPress ? 1 : 0.5}
               hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
               hoverStyle={{ opacity: 0.7 }}
               pressStyle={{ opacity: 0.5 }}

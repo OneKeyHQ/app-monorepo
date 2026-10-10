@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react-native';
 
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
@@ -8,9 +9,10 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { useSwapDepositEntryPress } from './useSwapDepositEntry';
 
 const mockPushModal = jest.fn();
+const mockNavigation = { pushModal: mockPushModal };
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
-  default: () => ({ pushModal: mockPushModal }),
+  default: () => mockNavigation,
 }));
 
 const mockResolveSwapNetworkAccount = jest.fn<
@@ -39,11 +41,8 @@ jest.mock('@onekeyhq/components', () => ({
   },
 }));
 
-jest.mock('react-intl', () => ({
-  useIntl: () => ({
-    formatMessage: ({ id }: { id: string }) => id,
-  }),
-}));
+const mockIntl = { formatMessage: ({ id }: { id: string }) => id };
+jest.mock('react-intl', () => ({ useIntl: () => mockIntl }));
 
 const mockBuyOnLowBalance = jest.fn();
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
@@ -447,5 +446,241 @@ describe('useSwapDepositEntryPress', () => {
     });
     expect(mockPushModal).toHaveBeenCalledTimes(1);
     expect(mockBuyOnLowBalance).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['network', ethUsdc],
+    ['contract', { ...bnbUsdc, contractAddress: '0xother' }],
+    ['token kind', { ...bnbUsdc, isNative: true }],
+  ])(
+    'invalidates a press after an A-B-A %s cycle without another tap',
+    async (_kind, otherToken) => {
+      const lookup = createDeferred<{ account: INetworkAccount | undefined }>();
+      mockResolveSwapNetworkAccount.mockReturnValue(lookup.promise);
+      const { result, rerender } = renderHook(
+        ({ token }: { token: ISwapToken }) =>
+          useSwapDepositEntryPress({
+            token,
+            activeAccount,
+            onClose: jest.fn(),
+          }),
+        { initialProps: { token: bnbUsdc } },
+      );
+      act(() => {
+        result.current();
+      });
+      rerender({ token: otherToken as ISwapToken });
+      rerender({ token: bnbUsdc });
+      await act(async () => {
+        lookup.resolve({ account: bnbAccount });
+        await lookup.promise;
+      });
+      expect(mockPushModal).not.toHaveBeenCalled();
+      expect(mockToastMessage).not.toHaveBeenCalled();
+      expect(mockBuyOnLowBalance).not.toHaveBeenCalled();
+    },
+  );
+
+  it('drops a failed lookup after leaving and returning to the same token', async () => {
+    const lookup = createDeferred<void>();
+    mockResolveSwapNetworkAccount.mockReturnValue(
+      lookup.promise.then(() => {
+        throw new OneKeyLocalError('old lookup failed');
+      }),
+    );
+    const { result, rerender } = renderHook(
+      ({ token }: { token: ISwapToken }) =>
+        useSwapDepositEntryPress({ token, activeAccount, onClose: jest.fn() }),
+      { initialProps: { token: bnbUsdc } },
+    );
+    act(() => {
+      result.current();
+    });
+    rerender({ token: ethUsdc });
+    rerender({ token: bnbUsdc });
+    await act(async () => {
+      lookup.resolve();
+      await lookup.promise;
+    });
+    expect(mockPushModal).not.toHaveBeenCalled();
+    expect(mockToastMessage).not.toHaveBeenCalled();
+  });
+
+  it.each([true, false])(
+    'allows a fresh return-A tap and drops the old lookup (old completes first: %s)',
+    async (oldCompletesFirst) => {
+      const oldLookup = createDeferred<{
+        account: INetworkAccount | undefined;
+      }>();
+      const newLookup = createDeferred<{
+        account: INetworkAccount | undefined;
+      }>();
+      mockResolveSwapNetworkAccount
+        .mockReturnValueOnce(oldLookup.promise)
+        .mockReturnValueOnce(newLookup.promise);
+      const { result, rerender } = renderHook(
+        ({ token }: { token: ISwapToken }) =>
+          useSwapDepositEntryPress({
+            token,
+            activeAccount,
+            onClose: jest.fn(),
+          }),
+        { initialProps: { token: bnbUsdc } },
+      );
+      act(() => {
+        result.current();
+      });
+      rerender({ token: ethUsdc });
+      rerender({ token: bnbUsdc });
+      act(() => {
+        result.current();
+      });
+      expect(mockResolveSwapNetworkAccount).toHaveBeenCalledTimes(2);
+      if (oldCompletesFirst) {
+        await act(async () => {
+          oldLookup.resolve({ account: bnbAccount });
+          await oldLookup.promise;
+        });
+        expect(mockPushModal).not.toHaveBeenCalled();
+        act(() => {
+          result.current();
+        });
+        expect(mockResolveSwapNetworkAccount).toHaveBeenCalledTimes(2);
+      }
+      await act(async () => {
+        newLookup.resolve({ account: bnbAccount });
+        await newLookup.promise;
+      });
+      if (!oldCompletesFirst) {
+        await act(async () => {
+          oldLookup.resolve({ account: bnbAccount });
+          await oldLookup.promise;
+        });
+      }
+      expect(mockPushModal).toHaveBeenCalledTimes(1);
+      expect(mockBuyOnLowBalance).toHaveBeenCalledTimes(1);
+      expect(mockToastMessage).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    { wallet: { id: 'wallet-2', type: 'hd' } },
+    { indexedAccount: { id: 'indexed-2' } },
+    { account: { id: 'hd-2--evm--1' } },
+    { dbAccount: { id: 'db-account-2' } },
+  ])(
+    'invalidates an account identity cycle without another tap: %j',
+    async (change) => {
+      const lookup = createDeferred<{ account: INetworkAccount | undefined }>();
+      mockResolveSwapNetworkAccount.mockReturnValue(lookup.promise);
+      const { result, rerender } = renderHook(
+        ({ account }: { account: IAccountSelectorActiveAccountInfo }) =>
+          useSwapDepositEntryPress({
+            token: bnbUsdc,
+            activeAccount: account,
+            onClose: jest.fn(),
+          }),
+        { initialProps: { account: activeAccount } },
+      );
+      act(() => {
+        result.current();
+      });
+      rerender({
+        account: {
+          ...activeAccount,
+          ...change,
+        } as IAccountSelectorActiveAccountInfo,
+      });
+      rerender({ account: activeAccount });
+      await act(async () => {
+        lookup.resolve({ account: bnbAccount });
+        await lookup.promise;
+      });
+      expect(mockPushModal).not.toHaveBeenCalled();
+      expect(mockToastMessage).not.toHaveBeenCalled();
+    },
+  );
+
+  it('keeps a pending press through balance and metadata refreshes with the latest close callback', async () => {
+    const lookup = createDeferred<{ account: INetworkAccount | undefined }>();
+    mockResolveSwapNetworkAccount.mockReturnValue(lookup.promise);
+    const firstClose = jest.fn();
+    const latestClose = jest.fn();
+    const { result, rerender } = renderHook(
+      (props: {
+        token: ISwapToken;
+        account: IAccountSelectorActiveAccountInfo;
+        accountInfo?: IAccountSelectorActiveAccountInfo;
+        onClose: () => void;
+      }) =>
+        useSwapDepositEntryPress({ ...props, activeAccount: props.account }),
+      {
+        initialProps: {
+          token: bnbUsdc,
+          account: activeAccount,
+          accountInfo: undefined as
+            | IAccountSelectorActiveAccountInfo
+            | undefined,
+          onClose: firstClose,
+        },
+      },
+    );
+    const handler = result.current;
+    act(() => {
+      handler();
+    });
+    rerender({
+      token: { ...bnbUsdc, balanceParsed: '1' },
+      account: {
+        ...activeAccount,
+        wallet: { ...activeAccount.wallet! },
+        indexedAccount: { ...activeAccount.indexedAccount! },
+      },
+      accountInfo: { ...activeAccount, account: bnbAccount },
+      onClose: latestClose,
+    });
+    expect(result.current).toBe(handler);
+    act(() => {
+      result.current();
+    });
+    expect(mockResolveSwapNetworkAccount).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      lookup.resolve({ account: bnbAccount });
+      await lookup.promise;
+    });
+    expect(mockPushModal).toHaveBeenCalledTimes(1);
+    expect(mockPushModal.mock.calls[0][1].params.onClose).toBe(latestClose);
+  });
+
+  it('blocks disabled entries and invalidates a pending press when disabled', async () => {
+    const lookup = createDeferred<{ account: INetworkAccount | undefined }>();
+    mockResolveSwapNetworkAccount.mockReturnValue(lookup.promise);
+    const { result, rerender } = renderHook(
+      ({ enabled }: { enabled: boolean }) =>
+        useSwapDepositEntryPress({
+          token: bnbUsdc,
+          activeAccount,
+          onClose: jest.fn(),
+          enabled,
+        }),
+      { initialProps: { enabled: false } },
+    );
+    act(() => {
+      result.current();
+    });
+    expect(mockResolveSwapNetworkAccount).not.toHaveBeenCalled();
+    expect(mockToastMessage).not.toHaveBeenCalled();
+    rerender({ enabled: true });
+    act(() => {
+      result.current();
+    });
+    rerender({ enabled: false });
+    rerender({ enabled: true });
+    await act(async () => {
+      lookup.resolve({ account: bnbAccount });
+      await lookup.promise;
+    });
+    expect(mockPushModal).not.toHaveBeenCalled();
+    expect(mockToastMessage).not.toHaveBeenCalled();
   });
 });
