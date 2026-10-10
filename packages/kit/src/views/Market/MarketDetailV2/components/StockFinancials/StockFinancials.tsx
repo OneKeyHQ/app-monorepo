@@ -16,7 +16,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IStockFinancialPeriod } from '@onekeyhq/shared/types/marketStockFinancials';
 
 import { FinancialChart } from './FinancialChart';
-import { buildFinancialChart } from './financialChartData';
+import {
+  FINANCIAL_CHART_KINDS,
+  buildFinancialChart,
+  hasFinancialChartData,
+} from './financialChartData';
 import { isFinancialNumber } from './financialsUtils';
 import { useStockFinancialLabels } from './stockFinancialLabels';
 import { useStockFinancials } from './useStockFinancials';
@@ -214,6 +218,19 @@ export function StockFinancials({
   // Measure the content column: the desktop trade panel also consumes width.
   const cardWidth =
     contentWidth >= 800 ? (contentWidth - columnGap) / 2 : '100%';
+  // Like the events and analyst sections, a stock the provider has no
+  // statements for (ETFs among them) hides the section. A failed request keeps
+  // it so the reader can retry.
+  if (
+    !isLoading &&
+    result &&
+    !result.annual.failed &&
+    !result.quarter.failed &&
+    !hasFinancialChartData(result.annual.data, labels) &&
+    !hasFinancialChartData(result.quarter.data, labels)
+  ) {
+    return null;
+  }
   return (
     <YStack
       testID="stock-financials"
@@ -230,20 +247,18 @@ export function StockFinancials({
         pb="$6"
         onLayout={(event) => setContentWidth(event.nativeEvent.layout.width)}
       >
-        {(['performance', 'conversion', 'debt', 'earnings'] as const).map(
-          (kind) => (
-            <Stack key={`${stockId}-${kind}`} width={cardWidth} minWidth={0}>
-              <FinancialCard
-                kind={kind}
-                annual={result?.annual}
-                quarter={result?.quarter}
-                labels={labels}
-                retry={retry}
-                isLoading={isLoading}
-              />
-            </Stack>
-          ),
-        )}
+        {FINANCIAL_CHART_KINDS.map((kind) => (
+          <Stack key={`${stockId}-${kind}`} width={cardWidth} minWidth={0}>
+            <FinancialCard
+              kind={kind}
+              annual={result?.annual}
+              quarter={result?.quarter}
+              labels={labels}
+              retry={retry}
+              isLoading={isLoading}
+            />
+          </Stack>
+        ))}
       </XStack>
     </YStack>
   );

@@ -51,20 +51,22 @@ export function resolveStockSimpleChartPreviousClose({
   return getMarketStockPreviousClose(stockDetail);
 }
 
-// The line ends on a live pulse while the asset is trading. Crypto trades
-// around the clock, so it always pulses; a stock only pulses while its market
-// is open.
+// The line ends on a live pulse while the asset is trading. Crypto and a
+// tokenized stock's own price trade on chain around the clock, so they always
+// pulse; a share price only pulses while its market is open.
 export function resolveStockSimpleChartPulseLastPoint({
+  priceMode,
   stockDetail,
   stockId,
   tokenStock,
 }: {
+  priceMode: 'share' | 'token';
   stockDetail?: { marketStatus?: { isOpen?: boolean } } | null;
   stockId?: string;
   tokenStock?: { isOpen?: boolean } | null;
 }): boolean {
   const isStock = Boolean(stockId) || Boolean(tokenStock);
-  if (!isStock) {
+  if (!isStock || priceMode === 'token') {
     return true;
   }
   return (
@@ -394,6 +396,95 @@ export function clipStockSimpleChartToActiveRange({
   return points.filter(([timestamp]) => timestamp >= clipStart);
 }
 
+// Floor for the stale check below, so a fine-grained series is not called
+// stale over a few minutes of provider latency.
+const STOCK_SIMPLE_CHART_STALE_MIN_SECONDS = 10 * 60;
+// Gaps sampled from the tail when the feed reports no bucket width.
+const STOCK_SIMPLE_CHART_SPACING_SAMPLE_SIZE = 5;
+
+// The share feed is queried by period and reports no bucket width, so the
+// spacing is read off the series: the median of its last few gaps.
+function resolveStockSimpleChartSeriesSpacingSeconds(
+  points: IMarketTokenChart,
+): number | undefined {
+  const gaps: number[] = [];
+  for (
+    let index = points.length - 1;
+    index > 0 && gaps.length < STOCK_SIMPLE_CHART_SPACING_SAMPLE_SIZE;
+    index -= 1
+  ) {
+    const gap = points[index][0] - points[index - 1][0];
+    if (gap > 0) {
+      gaps.push(gap);
+    }
+  }
+  if (gaps.length === 0) {
+    return undefined;
+  }
+  gaps.sort((a, b) => a - b);
+  return gaps[Math.floor(gaps.length / 2)];
+}
+
+/**
+ * True once the series has stopped advancing: its last bucket is more than a
+ * few bucket widths behind now.
+ */
+export function isStockSimpleChartSeriesStale({
+  intervalSeconds,
+  nowSeconds,
+  points,
+}: {
+  intervalSeconds?: number;
+  nowSeconds: number;
+  points: IMarketTokenChart;
+}): boolean {
+  const lastPoint = points[points.length - 1];
+  if (!lastPoint || !Number.isFinite(nowSeconds)) {
+    return false;
+  }
+  const spacingSeconds =
+    intervalSeconds && intervalSeconds > 0
+      ? intervalSeconds
+      : resolveStockSimpleChartSeriesSpacingSeconds(points);
+  return (
+    nowSeconds - lastPoint[0] >
+    Math.max((spacingSeconds ?? 0) * 3, STOCK_SIMPLE_CHART_STALE_MIN_SECONDS)
+  );
+}
+
+/**
+ * Whether a share line should end on its last real bucket instead of a `now`
+ * tail. The provider serves pre-market through post-market but no overnight
+ * prints, so after the post-market close the feed stops while the market
+ * status can still report open (overnight). The time axis is index-based: a
+ * `now` point would sit one step after the close yet carry the current time.
+ * The bucket keeps its own price even when the title quote differs, as
+ * TradingView does; nothing on the line is a price that was not printed then.
+ * A closed market holds outright: a weekend is shorter than three daily or
+ * weekly buckets, so staleness alone would let 1Y/All draw a weekend point.
+ */
+export function shouldHoldStockSimpleChartLastClose({
+  intervalSeconds,
+  isOpen,
+  nowSeconds,
+  points,
+  priceMode,
+}: {
+  intervalSeconds?: number;
+  isOpen?: boolean;
+  nowSeconds: number;
+  points: IMarketTokenChart;
+  priceMode: 'share' | 'token';
+}): boolean {
+  if (priceMode !== 'share' || points.length === 0) {
+    return false;
+  }
+  return (
+    isOpen === false ||
+    isStockSimpleChartSeriesStale({ intervalSeconds, nowSeconds, points })
+  );
+}
+
 /**
  * Pins the line's last displayed price to the title quote without rewriting a
  * closed bucket's cutoff. K-line `t` is the bucket start, so a still-open (or
@@ -453,10 +544,13 @@ export function mergeStockSimpleChartLivePrice({
  * quote. A clock gap can empty the window (Sunday 20:00 ET, holiday
  * crosses) even while the backend is closed — only collapse to
  * `[now, live]` when the market is open. Otherwise keep the source series
- * and still pin the title quote so the last label does not jump.
+ * and still pin the title quote so the last label does not jump. A share line
+ * whose feed has stopped (overnight, weekend, holiday) ends on its last real
+ * bucket; see `shouldHoldStockSimpleChartLastClose`.
  */
 export function resolveStockSimpleChartDisplayPoints({
   clipKey,
+  holdLastClose: holdLastCloseProp,
   intervalSeconds,
   isOpen,
   livePrice,
@@ -466,6 +560,9 @@ export function resolveStockSimpleChartDisplayPoints({
   range,
 }: {
   clipKey?: 'clip' | 'keep';
+  // Callers that already resolved it (to stop the pulse) pass it in, so the
+  // line and the pulse never disagree; resolved here when omitted.
+  holdLastClose?: boolean;
   intervalSeconds?: number;
   isOpen?: boolean;
   livePrice?: string | number;
@@ -474,6 +571,15 @@ export function resolveStockSimpleChartDisplayPoints({
   priceMode: 'share' | 'token';
   range: IStockSimpleChartRange;
 }): IMarketTokenChart {
+  const holdLastClose =
+    holdLastCloseProp ??
+    shouldHoldStockSimpleChartLastClose({
+      intervalSeconds,
+      isOpen,
+      nowSeconds,
+      points,
+      priceMode,
+    });
   const clipped =
     clipKey === 'keep'
       ? points
@@ -484,6 +590,11 @@ export function resolveStockSimpleChartDisplayPoints({
           priceMode,
           range,
         });
+  if (holdLastClose) {
+    // Overnight still reports open, which clips a 1H window down to nothing;
+    // the last session is all there is to show until new prints arrive.
+    return clipped.length > 0 ? clipped : points;
+  }
   if (clipped.length === 0 && points.length > 0) {
     const price = Number(livePrice);
     if (

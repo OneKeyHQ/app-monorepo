@@ -34,14 +34,17 @@ function padTimePart(value: number) {
   return value.toString().padStart(2, '0');
 }
 
+// Read as UTC: charts using the unit-less tick marks feed times already shifted
+// to local wall-clock time (see `createLocalTimeScale`), which is also how the
+// native WebView's default formatter reads them.
 function getDatePartsFromDate(date: Date) {
   return {
-    year: date.getFullYear(),
-    month: date.getMonth() + 1,
-    day: date.getDate(),
-    hours: date.getHours(),
-    minutes: date.getMinutes(),
-    seconds: date.getSeconds(),
+    year: date.getUTCFullYear(),
+    month: date.getUTCMonth() + 1,
+    day: date.getUTCDate(),
+    hours: date.getUTCHours(),
+    minutes: date.getUTCMinutes(),
+    seconds: date.getUTCSeconds(),
   };
 }
 
