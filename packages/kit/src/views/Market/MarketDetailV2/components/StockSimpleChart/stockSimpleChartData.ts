@@ -51,20 +51,22 @@ export function resolveStockSimpleChartPreviousClose({
   return getMarketStockPreviousClose(stockDetail);
 }
 
-// The line ends on a live pulse while the asset is trading. Crypto trades
-// around the clock, so it always pulses; a stock only pulses while its market
-// is open.
+// The line ends on a live pulse while the asset is trading. Crypto and a
+// tokenized stock's own price trade on chain around the clock, so they always
+// pulse; a share price only pulses while its market is open.
 export function resolveStockSimpleChartPulseLastPoint({
+  priceMode,
   stockDetail,
   stockId,
   tokenStock,
 }: {
+  priceMode: 'share' | 'token';
   stockDetail?: { marketStatus?: { isOpen?: boolean } } | null;
   stockId?: string;
   tokenStock?: { isOpen?: boolean } | null;
 }): boolean {
   const isStock = Boolean(stockId) || Boolean(tokenStock);
-  if (!isStock) {
+  if (!isStock || priceMode === 'token') {
     return true;
   }
   return (
@@ -451,33 +453,27 @@ export function isStockSimpleChartSeriesStale({
 }
 
 /**
- * Whether a share line should end on its last close instead of a `now` tail.
- * The provider serves pre-market through post-market but no overnight prints,
- * so after the post-market close the feed stops while the market status can
- * still report open (overnight), and the title quote stays on that close. The
- * time axis is index-based: a `now` point would sit one step after the close
- * yet carry the current time. A title that differs from the close means new
- * prints exist (pre-market open, a lagging feed), and those keep the tail.
+ * Whether a share line should end on its last real bucket instead of a `now`
+ * tail. The provider serves pre-market through post-market but no overnight
+ * prints, so after the post-market close the feed stops while the market
+ * status can still report open (overnight). The time axis is index-based: a
+ * `now` point would sit one step after the close yet carry the current time.
+ * The bucket keeps its own price even when the title quote differs, as
+ * TradingView does; nothing on the line is a price that was not printed then.
  */
 export function shouldHoldStockSimpleChartLastClose({
   intervalSeconds,
-  livePrice,
   nowSeconds,
   points,
   priceMode,
 }: {
   intervalSeconds?: number;
-  livePrice?: string | number;
   nowSeconds: number;
   points: IMarketTokenChart;
   priceMode: 'share' | 'token';
 }): boolean {
-  const lastPoint = points[points.length - 1];
-  if (priceMode !== 'share' || !lastPoint) {
-    return false;
-  }
   return (
-    Number(livePrice) === lastPoint[1] &&
+    priceMode === 'share' &&
     isStockSimpleChartSeriesStale({ intervalSeconds, nowSeconds, points })
   );
 }
@@ -542,8 +538,8 @@ export function mergeStockSimpleChartLivePrice({
  * crosses) even while the backend is closed — only collapse to
  * `[now, live]` when the market is open. Otherwise keep the source series
  * and still pin the title quote so the last label does not jump. A share line
- * whose feed has stopped on the title's close (overnight, weekend, holiday)
- * ends on that close; see `shouldHoldStockSimpleChartLastClose`.
+ * whose feed has stopped (overnight, weekend, holiday) ends on its last real
+ * bucket; see `shouldHoldStockSimpleChartLastClose`.
  */
 export function resolveStockSimpleChartDisplayPoints({
   clipKey,
@@ -572,7 +568,6 @@ export function resolveStockSimpleChartDisplayPoints({
     holdLastCloseProp ??
     shouldHoldStockSimpleChartLastClose({
       intervalSeconds,
-      livePrice,
       nowSeconds,
       points,
       priceMode,
