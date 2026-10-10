@@ -22,11 +22,9 @@ import type { FontSizeTokens } from 'tamagui';
 
 export function PerpsPartialAccountValueWarning() {
   const intl = useIntl();
-  const label = `${intl.formatMessage({
-    id: ETranslations.export_history_partial__title,
-  })}: ${intl.formatMessage({
+  const label = intl.formatMessage({
     id: ETranslations.wallet_partial_price_unavailable,
-  })}`;
+  });
   return (
     <Tooltip
       renderContent={label}
