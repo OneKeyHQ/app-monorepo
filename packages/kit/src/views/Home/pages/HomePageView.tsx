@@ -107,6 +107,7 @@ import {
   useHomeTabOwnerThaw,
 } from './homeTabFreeze';
 import { NFTListContainerWithProvider } from './NFTListContainer';
+import { debugPerpsChain } from './perpsChainTrace';
 import { PortfolioContainerWithProvider } from './PortfolioContainer';
 import { TabHeaderSettings } from './TabHeaderSettings';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
@@ -117,9 +118,20 @@ import type { LayoutChangeEvent } from 'react-native';
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
 const NATIVE_TAB_BAR_CONTAINER_STYLE = { position: 'relative' } as const;
-const PerpsContainer = lazy(async () => ({
-  default: (await import('./PerpsContainer')).PerpsContainer,
-}));
+const PerpsContainer = lazy(async () => {
+  debugPerpsChain('import.start');
+  const module = await import('./PerpsContainer');
+  debugPerpsChain('import.end');
+  return { default: module.PerpsContainer };
+});
+function PerpsSuspenseTrace() {
+  debugPerpsChain('suspense.render');
+  useLayoutEffect(() => {
+    debugPerpsChain('suspense.commit');
+    return () => debugPerpsChain('suspense.unmount');
+  }, []);
+  return null;
+}
 // Seed for the collapsible header height before the first layout (the funded
 // layout with the banner band). Measured heights per header variant are kept
 // for the session so a later switch back paints with the exact height.
@@ -701,9 +713,17 @@ export function HomePageView({
               <HomeTabContentMaxWidth>
                 <Suspense
                   fallback={
-                    <Stack flex={1} justifyContent="center" alignItems="center">
-                      <Spinner size="large" />
-                    </Stack>
+                    platformEnv.isNative ? (
+                      <PerpsSuspenseTrace />
+                    ) : (
+                      <Stack
+                        flex={1}
+                        justifyContent="center"
+                        alignItems="center"
+                      >
+                        <Spinner size="large" />
+                      </Stack>
+                    )
                   }
                 >
                   <PerpsContainer />
@@ -819,6 +839,31 @@ export function HomePageView({
     Set<EHomeWalletTab>
   >(() => (initialTabId ? new Set([initialTabId]) : new Set()));
   const lastDisplayableTabNameRef = useRef(initialTabName);
+  debugPerpsChain('home.render', {
+    activeTabId,
+    perpsMounted: mountedHomeTabIds.has(EHomeWalletTab.Perps),
+  });
+  useLayoutEffect(() => {
+    debugPerpsChain('home.commit', {
+      activeTabId,
+      perpsMounted: mountedHomeTabIds.has(EHomeWalletTab.Perps),
+    });
+  }, [activeTabId, mountedHomeTabIds]);
+
+  const handleTabPrepare = useCallback(
+    ({ tabId }: { tabId: EHomeWalletTab }) => {
+      if (!pagerTabConfigs.some((tab) => tab.id === tabId)) return;
+      debugPerpsChain('home.tabPrepare', { tabId, activeTabId });
+      // Preparing a swipe target must not change the selected business tab.
+      setMountedHomeTabIds((prev) => {
+        if (prev.has(tabId)) return prev;
+        const next = new Set(prev);
+        next.add(tabId);
+        return next;
+      });
+    },
+    [activeTabId, pagerTabConfigs],
+  );
 
   useEffect(() => {
     setActiveTabName((prev) =>
@@ -893,6 +938,7 @@ export function HomePageView({
       // Design: plain-text tabs on small screens only; pill elsewhere.
       const tabBarVariant = isSmallScreen ? 'text' : 'pill';
       const handleTabPress = (name: string) => {
+        debugPerpsChain('home.tabPress', { name });
         const nextTab = tabConfigs.find((tab) => tab.name === name);
         if (perpTabShowWeb && nextTab?.id === EHomeWalletTab.Perps) {
           switchToPerpsWebTab();
@@ -975,6 +1021,7 @@ export function HomePageView({
 
   const handleTabChange = useCallback(
     (data: { tabName: string }) => {
+      debugPerpsChain('home.tabChange', { name: data.tabName });
       const nextTab = tabConfigs.find((tab) => tab.name === data.tabName);
       if (perpTabShowWeb && nextTab?.id === EHomeWalletTab.Perps) {
         switchToPerpsWebTab();
@@ -1071,18 +1118,15 @@ export function HomePageView({
             component:
               tab.id === EHomeWalletTab.Portfolio ||
               activeTabId === tab.id ||
-              mountedHomeTabIds.has(tab.id) ? (
-                tab.component
-              ) : (
-                <Stack flex={1} justifyContent="center" alignItems="center">
-                  <Spinner size="large" />
-                </Stack>
-              ),
+              mountedHomeTabIds.has(tab.id)
+                ? tab.component
+                : null,
           }))}
           initialTabName={seedTabName}
           renderHeader={renderHeader}
           renderTabBar={renderTabBar}
           onTabChange={handleTabChange}
+          onTabPrepare={handleTabPrepare}
         />
       );
     }
@@ -1164,6 +1208,7 @@ export function HomePageView({
     activeTabName,
     activeTabId,
     mountedHomeTabIds,
+    handleTabPrepare,
     homeScrollOwnerKey,
     nativeHeaderHeightHint,
   ]);

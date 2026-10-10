@@ -15,6 +15,8 @@ import { useTheme } from '@onekeyhq/components';
 
 import { HomeNativeTabContext } from '../hooks/useHomeTab.native';
 
+import { debugPerpsChain } from './perpsChainTrace';
+
 import type { IHomeNativePagerProps } from './HomeNativePager';
 
 export function HomeNativePager({
@@ -24,6 +26,7 @@ export function HomeNativePager({
   renderHeader,
   renderTabBar,
   onTabChange,
+  onTabPrepare,
 }: IHomeNativePagerProps) {
   const initialIndex = Math.max(
     0,
@@ -42,11 +45,17 @@ export function HomeNativePager({
   const theme = useTheme();
   const selectedIndexRef = useRef(selectedIndex);
   const followsPageScrollRef = useRef(true);
+  const dragRef = useRef<{
+    startIndex: number;
+    preparedIndices: Set<number>;
+  } | null>(null);
   selectedIndexRef.current = selectedIndex;
 
   const setIndex = useCallback(
     (index: number) => {
+      debugPerpsChain('pager.command', { index });
       if (!tabs[index]) return;
+      dragRef.current = null;
       if (Math.abs(index - selectedIndexRef.current) > 1) {
         // Immediate jumps may omit progress events; ignore queued old progress
         // until the next drag or animated command takes ownership.
@@ -67,6 +76,7 @@ export function HomeNativePager({
     [setIndex, tabs],
   );
   const syncCurrentPage = useCallback(() => {
+    dragRef.current = null;
     followsPageScrollRef.current = false;
     indexDecimal.value = selectedIndexRef.current;
     pagerRef.current?.setPageWithoutAnimation(selectedIndexRef.current);
@@ -90,6 +100,7 @@ export function HomeNativePager({
   useEffect(() => {
     if (previousTabIdentity.current === tabIdentity) return;
     previousTabIdentity.current = tabIdentity;
+    dragRef.current = null;
     const selectedTab = tabs[selectedIndex];
     if (selectedTab && selectedTab.id !== selectedId) {
       setSelectedId(selectedTab.id);
@@ -153,16 +164,47 @@ export function HomeNativePager({
         </View>
       }
       onPageScroll={({ nativeEvent }) => {
+        const progress = nativeEvent.position + nativeEvent.offset;
         if (followsPageScrollRef.current) {
-          indexDecimal.value = nativeEvent.position + nativeEvent.offset;
+          indexDecimal.value = progress;
+        }
+        const drag = dragRef.current;
+        if (drag && progress !== drag.startIndex) {
+          const targetIndex =
+            drag.startIndex + (progress > drag.startIndex ? 1 : -1);
+          const target = tabs[targetIndex];
+          if (target && !drag.preparedIndices.has(targetIndex)) {
+            drag.preparedIndices.add(targetIndex);
+            debugPerpsChain('pager.prepare', {
+              index: targetIndex,
+              progress,
+              selectedIndex: selectedIndexRef.current,
+            });
+            onTabPrepare?.({ tabId: target.id });
+          }
         }
       }}
       onPageScrollStateChanged={({ nativeEvent }) => {
         if (nativeEvent.pageScrollState === 'dragging') {
           followsPageScrollRef.current = true;
+          dragRef.current = {
+            startIndex: selectedIndexRef.current,
+            preparedIndices: new Set(),
+          };
+          debugPerpsChain('pager.drag.start', {
+            index: selectedIndexRef.current,
+          });
+        } else if (nativeEvent.pageScrollState === 'idle') {
+          debugPerpsChain('pager.drag.end', {
+            index: selectedIndexRef.current,
+          });
+          dragRef.current = null;
         }
       }}
       onPageSelected={({ nativeEvent }) => {
+        debugPerpsChain('pager.selected.receive', {
+          index: nativeEvent.position,
+        });
         const tab = tabs[nativeEvent.position];
         if (!tab) return;
         setSelectedId(tab.id);

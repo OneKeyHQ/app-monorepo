@@ -22,6 +22,7 @@ const mockNativeEvents: {
 jest.mock('@onekeyhq/components', () => ({
   useTheme: () => ({ bgApp: { val: '#ffffff' } }),
 }));
+jest.mock('./perpsChainTrace', () => ({ debugPerpsChain: jest.fn() }));
 jest.mock('react-native-pager-view', () => ({
   CollapsiblePagerView: ({
     ref,
@@ -75,6 +76,67 @@ it.each([
     expect(
       animated ? mockSetPageWithoutAnimation : mockSetPage,
     ).not.toHaveBeenCalled();
+  },
+);
+
+it.each([
+  ['Spot', 0, EHomeWalletTab.Perps, 0.2],
+  ['Perps', 1, EHomeWalletTab.Portfolio, 0.8],
+] as const)(
+  'prepares a swipe from %s without changing focus when cancelled',
+  (initialTabName, initialIndex, targetId, progress) => {
+    const ref = createRef<ITabContainerRef>();
+    const onTabPrepare = jest.fn();
+    const onTabChange = jest.fn();
+    render(
+      <HomeNativePager
+        ref={ref}
+        tabs={[
+          { id: EHomeWalletTab.Portfolio, name: 'Spot', component: null },
+          { id: EHomeWalletTab.Perps, name: 'Perps', component: null },
+        ]}
+        initialTabName={initialTabName}
+        renderHeader={() => null}
+        renderTabBar={() => null}
+        onTabChange={onTabChange}
+        onTabPrepare={onTabPrepare}
+      />,
+    );
+    const scroll = () =>
+      mockNativeEvents.onPageScroll?.({
+        nativeEvent: { position: 0, offset: progress },
+      });
+    act(scroll);
+    expect(onTabPrepare).not.toHaveBeenCalled();
+    act(() => {
+      mockNativeEvents.onPageScrollStateChanged?.({
+        nativeEvent: { pageScrollState: 'dragging' },
+      });
+      scroll();
+      scroll();
+    });
+    expect(onTabPrepare).toHaveBeenCalledTimes(1);
+    expect(onTabPrepare).toHaveBeenCalledWith({ tabId: targetId });
+    expect(ref.current?.getCurrentIndex()).toBe(initialIndex);
+    expect(ref.current?.getFocusedTab()).toBe(initialTabName);
+    expect(onTabChange).not.toHaveBeenCalled();
+    act(() => {
+      mockNativeEvents.onPageScrollStateChanged?.({
+        nativeEvent: { pageScrollState: 'idle' },
+      });
+      scroll();
+    });
+    expect(onTabPrepare).toHaveBeenCalledTimes(1);
+    expect(ref.current?.getFocusedTab()).toBe(initialTabName);
+    expect(onTabChange).not.toHaveBeenCalled();
+    const targetIndex = initialIndex === 0 ? 1 : 0;
+    act(() => {
+      mockNativeEvents.onPageSelected?.({
+        nativeEvent: { position: targetIndex },
+      });
+    });
+    expect(ref.current?.getCurrentIndex()).toBe(targetIndex);
+    expect(onTabChange).toHaveBeenCalledTimes(1);
   },
 );
 

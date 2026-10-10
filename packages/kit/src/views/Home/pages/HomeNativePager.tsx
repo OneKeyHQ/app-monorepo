@@ -16,6 +16,7 @@ export type IHomeNativePagerProps = {
     onTabPress: (name: string) => void;
   }) => ReactNode;
   onTabChange: (data: { tabName: string }) => void;
+  onTabPrepare?: (data: { tabId: EHomeWalletTab }) => void;
 };
 
 export function HomeNativePager(_props: IHomeNativePagerProps) {
