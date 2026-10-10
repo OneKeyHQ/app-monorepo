@@ -136,14 +136,18 @@ function ReceiveToken() {
   // (the network name stays tappable) and shows skeletons instead of any
   // address of the previous network.
   const [isSwitchPending, setIsSwitchPending] = useState(false);
-  // Monotonic switch sequence: every async writer compares against it before
-  // landing, so a slow lookup from an earlier switch can never win.
+  // Counts committed switches: every async writer compares against it before
+  // landing, so a slow lookup from before a switch can never win. A switch
+  // that fails leaves it alone, and with it whatever is still resolving for
+  // the network on screen.
   const switchSeqRef = useRef(0);
+  // Counts started switches: of two that overlap, only the newest may commit.
+  const switchAttemptRef = useRef(0);
   // The network and account the page is committed to, written in the same
-  // step as the switch that changes them. An account lookup compares the
-  // target it was started for against this before landing: the sequence
-  // above already moves when a switch starts, so a lookup started while that
-  // switch was still resolving carries the new sequence.
+  // step as the sequence above. An account lookup also compares the target
+  // it was started for against this before landing: between a commit and the
+  // next render a stale closure can still start a lookup for the previous
+  // network, and that one already carries the new sequence.
   const committedTargetRef = useRef({
     networkId: routeNetworkId,
     accountId: routeAccountId,
@@ -665,27 +669,35 @@ function ReceiveToken() {
         // missing record): handled below.
       }
       if (!resolved) {
-        const { networkAccounts } =
-          await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
-            {
-              networkId,
-              indexedAccountId,
-              excludeEmptyAccount: true,
-            },
-          );
-        if (isSuperseded()) return;
-        const selectedAccountId = switchSelectedAccountIdRef.current;
-        const nonEmptyAccount =
-          networkAccounts.find(
-            (item) =>
-              !!selectedAccountId && item.account?.id === selectedAccountId,
-          ) ?? networkAccounts.find((item) => item.account);
-        if (nonEmptyAccount) {
-          setCurrentAccount(nonEmptyAccount.account);
-          setCurrentDeriveType(nonEmptyAccount.deriveType);
-          setCurrentDeriveInfo(nonEmptyAccount.deriveInfo);
-          setIsSwitchPending(false);
-          resolved = true;
+        try {
+          const { networkAccounts } =
+            await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+              {
+                networkId,
+                indexedAccountId,
+                excludeEmptyAccount: true,
+              },
+            );
+          if (isSuperseded()) return;
+          const selectedAccountId = switchSelectedAccountIdRef.current;
+          const nonEmptyAccount =
+            networkAccounts.find(
+              (item) =>
+                !!selectedAccountId && item.account?.id === selectedAccountId,
+            ) ?? networkAccounts.find((item) => item.account);
+          if (nonEmptyAccount) {
+            setCurrentAccount(nonEmptyAccount.account);
+            setCurrentDeriveType(nonEmptyAccount.deriveType);
+            setCurrentDeriveInfo(nonEmptyAccount.deriveInfo);
+            setIsSwitchPending(false);
+            resolved = true;
+          }
+        } catch (error) {
+          // On entry this surfaces the way it always has. After a switch it
+          // is one more way of not resolving an account, reported below.
+          if (seq === 0) {
+            throw error;
+          }
         }
       }
       // After a switch the placeholder stays (the header remains tappable
@@ -1012,8 +1024,8 @@ function ReceiveToken() {
       ) {
         return;
       }
-      const seq = switchSeqRef.current + 1;
-      switchSeqRef.current = seq;
+      const attempt = switchAttemptRef.current + 1;
+      switchAttemptRef.current = attempt;
       isSwitchResolvingRef.current = true;
       try {
         defaultLogger.transaction.receive.receiveSwitchNetwork({
@@ -1040,7 +1052,7 @@ function ReceiveToken() {
                 networkId: targetNetworkId,
               }),
         ]).catch(() => undefined);
-        if (seq !== switchSeqRef.current) {
+        if (attempt !== switchAttemptRef.current) {
           return;
         }
         if (!target) {
@@ -1094,6 +1106,7 @@ function ReceiveToken() {
           : undefined;
         const nextAccountId = useDerivePath ? '' : (targetAccountId ?? '');
         // From here on, lookups started for the previous target are stale.
+        switchSeqRef.current += 1;
         committedTargetRef.current = {
           networkId: targetNetworkId,
           accountId: nextAccountId,
@@ -1102,7 +1115,7 @@ function ReceiveToken() {
         setCurrentAccountId(nextAccountId);
       } finally {
         // A newer switch owns the guard from the moment it starts.
-        if (seq === switchSeqRef.current) {
+        if (attempt === switchAttemptRef.current) {
           isSwitchResolvingRef.current = false;
         }
       }

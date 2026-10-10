@@ -1053,6 +1053,58 @@ describe('ReceiveToken network switch', () => {
       expect(getByTestId('qr-value').textContent).toBe('0xbbb');
     });
 
+    it('still resolves the network on screen when a switch away from it fails', async () => {
+      let finishBitcoinLookup: (result: { accounts: unknown[] }) => void = () =>
+        undefined;
+      const bitcoinLookup = new Promise<{ accounts: unknown[] }>((resolve) => {
+        finishBitcoinLookup = resolve;
+      });
+      mockGetAccountsByIndexedAccounts.mockImplementation(() => bitcoinLookup);
+      const { getByTestId, queryByTestId } =
+        await switchToBitcoinFromTaprootRow();
+      // Bitcoin is on screen and its account is still being looked up.
+      expect(getByTestId('receive-card-network-eta').textContent).toBe(
+        'Bitcoin (~1 min)',
+      );
+      expect(queryByTestId('address')).toBeNull();
+
+      // A switch away from it fails at the target lookup.
+      mockGetVaultSettings.mockRejectedValueOnce(new Error('lookup failed'));
+      await openSelectorAndSelect(
+        getByTestId,
+        member('evm--8453', { accountId: 'hd-1--base' }),
+      );
+      expect(mockToastError).toHaveBeenCalledTimes(1);
+
+      // The Bitcoin lookup lands: the page it was started for never left.
+      await act(async () => {
+        finishBitcoinLookup({ accounts: [SEGWIT] });
+      });
+      await waitFor(() =>
+        expect(getByTestId('address').textContent).toBe('bc1qsegwit'),
+      );
+    });
+
+    it('reports an unresolved account after a switch when the fallback lookup fails too', async () => {
+      mockGetAccountsByIndexedAccounts.mockRejectedValue(
+        new Error('account not found'),
+      );
+      mockGetNetworkAccountsWithDeriveTypes.mockRejectedValue(
+        new Error('lookup failed'),
+      );
+      const { getByTestId, queryByTestId } =
+        await switchToBitcoinFromTaprootRow();
+      await waitFor(() =>
+        expect(mockToastError).toHaveBeenCalledWith({
+          title: 'global_unknown_error',
+        }),
+      );
+      // The header stays tappable for another pick.
+      expect(getByTestId('receive-switch-placeholder')).not.toBeNull();
+      expect(getByTestId('receive-card-network-trigger')).not.toBeNull();
+      expect(queryByTestId('address')).toBeNull();
+    });
+
     it.each([
       [
         'comes back empty',
