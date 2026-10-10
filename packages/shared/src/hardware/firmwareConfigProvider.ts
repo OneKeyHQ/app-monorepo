@@ -71,6 +71,42 @@ function parseFirmwareRemoteConfig(
   return isFirmwareRemoteConfig(normalized) ? normalized : null;
 }
 
+const CLOUDFLARE_PROVIDER = 'cloudflare';
+
+// The remote shape guard only validates `ip`, so `provider` may be absent.
+function getEndpointProvider(endpoint: { provider?: unknown }): string {
+  return typeof endpoint.provider === 'string'
+    ? endpoint.provider.toLowerCase()
+    : '';
+}
+
+// Order `pool` behind `preferred` round-robin by provider, so one provider's
+// outage cannot use up every attempt. A provider already used by `preferred`
+// starts that many rounds behind.
+function spreadAcrossProviders(options: {
+  preferred: string[];
+  pool: string[];
+  providerByIp: Map<string, string>;
+}): string[] {
+  const { preferred, pool, providerByIp } = options;
+  const usedByProvider = new Map<string, number>();
+  const takeRound = (ip: string): number => {
+    const provider = providerByIp.get(ip) ?? '';
+    const round = usedByProvider.get(provider) ?? 0;
+    usedByProvider.set(provider, round + 1);
+    return round;
+  };
+  preferred.forEach(takeRound);
+  return [
+    ...preferred,
+    ...pool
+      .filter((ip) => !preferred.includes(ip))
+      .map((ip) => ({ ip, round: takeRound(ip) }))
+      .toSorted((left, right) => left.round - right.round)
+      .map(({ ip }) => ip),
+  ];
+}
+
 async function getConfigSniCandidates(options: {
   hostname: string;
   configKey: string;
@@ -85,15 +121,32 @@ async function getConfigSniCandidates(options: {
   const activeEndpoints =
     activeConfig?.config.domains[configKey]?.endpoints ?? [];
   const endorsedIps = new Set(activeEndpoints.map((endpoint) => endpoint.ip));
+  const providerByIp = new Map<string, string>();
+  for (const endpoint of [
+    ...activeEndpoints,
+    ...(DEFAULT_IP_TABLE_CONFIG.domains[configKey]?.endpoints ?? []),
+  ]) {
+    // The first non-empty label wins: the active table, then the builtin one.
+    if (!providerByIp.get(endpoint.ip)) {
+      providerByIp.set(endpoint.ip, getEndpointProvider(endpoint));
+    }
+  }
+  // The shared table is ranked against the API hosts. The firmware config
+  // host resolves to the CN CDN providers, so Cloudflare endpoints are skipped.
+  const isUsable = (ip: string) => providerByIp.get(ip) !== CLOUDFLARE_PROVIDER;
   const preferredCandidates = [
-    activeConfig?.runtime?.selections?.[configKey],
-    activeConfig?.runtime?.lastBestIp?.[configKey],
-  ].filter(
-    (candidate): candidate is string =>
-      typeof candidate === 'string' &&
-      candidate.length > 0 &&
-      endorsedIps.has(candidate),
-  );
+    ...new Set(
+      [
+        activeConfig?.runtime?.selections?.[configKey],
+        activeConfig?.runtime?.lastBestIp?.[configKey],
+      ].filter(
+        (candidate): candidate is string =>
+          typeof candidate === 'string' &&
+          candidate.length > 0 &&
+          endorsedIps.has(candidate),
+      ),
+    ),
+  ].filter(isUsable);
   const builtinCandidates = getOrderedIpTableCandidates({
     hostname,
     configKey,
@@ -101,11 +154,12 @@ async function getConfigSniCandidates(options: {
       config: DEFAULT_IP_TABLE_CONFIG,
       runtime: undefined,
     },
-  });
-  return [...new Set([...preferredCandidates, ...builtinCandidates])].slice(
-    0,
-    CONFIG_FETCH_MAX_SNI_CANDIDATES,
-  );
+  }).filter(isUsable);
+  return spreadAcrossProviders({
+    preferred: preferredCandidates,
+    pool: builtinCandidates,
+    providerByIp,
+  }).slice(0, CONFIG_FETCH_MAX_SNI_CANDIDATES);
 }
 
 async function fetchFirmwareConfigWithinDeadline({
