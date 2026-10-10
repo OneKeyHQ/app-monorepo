@@ -1778,14 +1778,14 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     }
   });
 
-  it('uses Bridge only when the selected device path is enumerated', async () => {
+  it('detects Bridge USB presence when its path differs from the serial connectId', async () => {
     mockedAxios.post.mockResolvedValue({
-      data: [{ path: 'UNRELATED_USB_ID' }],
+      data: [{ path: '1' }],
     });
     mockedLocalDb.getDeviceByQuery.mockResolvedValue({
       id: 'db-pro-device',
-      connectId: 'UNRELATED_USB_ID',
-      usbConnectId: 'UNRELATED_USB_ID',
+      connectId: 'PRO_USB_SERIAL',
+      usbConnectId: 'PRO_USB_SERIAL',
       bleConnectId: 'PRO_BLE_PERIPHERAL_ID',
       deviceId: 'PRO_FEATURES_DEVICE_ID',
       connectProtocol: 'V1',
@@ -1817,9 +1817,9 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
 
     await expect(
       service.connectionManager.detectBridgeAvailability('OTHER_USB_ID'),
-    ).resolves.toBe(false);
+    ).resolves.toBe(true);
     await expect(
-      service.connectionManager.detectBridgeAvailability('UNRELATED_USB_ID'),
+      service.connectionManager.detectBridgeAvailability('PRO_USB_SERIAL'),
     ).resolves.toBe(true);
     await expect(
       service.connectionManager.detectBridgeAvailability(),
@@ -1827,7 +1827,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
 
     await expect(
       service.connectionManager.shouldSwitchTransportType({
-        connectId: 'UNRELATED_USB_ID',
+        connectId: 'PRO_USB_SERIAL',
         connectProtocol: 'V1',
         hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       }),
@@ -1837,12 +1837,17 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
 
     await expect(
       service.getCompatibleConnectId({
-        connectId: 'UNRELATED_USB_ID',
+        connectId: 'PRO_USB_SERIAL',
         featuresDeviceId: 'PRO_FEATURES_DEVICE_ID',
         hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       }),
-    ).resolves.toBe('UNRELATED_USB_ID');
+    ).resolves.toBe('PRO_USB_SERIAL');
     expect(detectBluetoothAvailability).not.toHaveBeenCalled();
+
+    mockedAxios.post.mockResolvedValue({ data: [] });
+    await expect(
+      service.connectionManager.detectBridgeAvailability('PRO_USB_SERIAL'),
+    ).resolves.toBe(false);
   });
 
   it('switches Mini back to the configured USB transport after BLE was active', async () => {

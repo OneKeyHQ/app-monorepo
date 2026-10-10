@@ -169,7 +169,7 @@ export class HardwareConnectionManager {
     }
   }
 
-  async detectBridgeAvailability(connectId?: string): Promise<boolean> {
+  async detectBridgeAvailability(_connectId?: string): Promise<boolean> {
     if (!platformEnv.isSupportDesktopBle) {
       return true;
     }
@@ -187,9 +187,8 @@ export class HardwareConnectionManager {
       if (!Array.isArray(devices)) {
         return false;
       }
-      return connectId
-        ? devices.some((device) => device.path === connectId)
-        : devices.length > 0;
+      // Bridge paths are local IDs, not the serial-based App connectId.
+      return devices.length > 0;
     } catch (_error) {
       return false;
     }
