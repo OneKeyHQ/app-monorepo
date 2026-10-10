@@ -14,7 +14,6 @@ import {
   resolveStockMarketStatusCase,
 } from '@onekeyhq/kit/src/views/Market/components/StockMarketStatusAlert';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
-import { isCurrentSwapAccountNetworkUnsupportedAlert } from '@onekeyhq/kit/src/views/Swap/utils/swapNoWalletWarningGuard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
@@ -36,6 +35,8 @@ import { getStockQuoteTradeControl } from '../../utils/swapStockTradeControl';
 import SwapAlertContainer from './SwapAlertContainer';
 import { SwapSmoothReveal } from './SwapSmoothReveal';
 import {
+  type IStockAccountNetworkContext,
+  filterStockAccountNetworkAlerts,
   getStockErrorAlertLevel,
   getStockTradeAlertType,
   isCurrentStockMarketClosedQuoteEventError,
@@ -54,12 +55,10 @@ type ISwapStockTradeAlertProps = {
   quoteLoading: boolean;
   quoteResult?: IFetchQuoteResult;
   stockChannel: IUseSwapStockChannelReturn;
-  accountNetworkContext: {
-    accountId?: string;
-    walletId?: string;
-    networkId?: string;
-    directionType: ESwapDirectionType;
-  };
+  accountNetworkContexts: Record<
+    ESwapDirectionType,
+    IStockAccountNetworkContext
+  >;
   /** px value of the hosting Stack gap, offset by SwapSmoothReveal */
   parentGap: number;
 };
@@ -113,7 +112,7 @@ function BasicSwapStockTradeAlert({
   quoteLoading,
   quoteResult,
   stockChannel,
-  accountNetworkContext,
+  accountNetworkContexts,
   parentGap,
 }: ISwapStockTradeAlertProps) {
   const intl = useIntl();
@@ -182,14 +181,10 @@ function BasicSwapStockTradeAlert({
     quoteEventError?.message,
   ]);
 
-  const currentAlerts = alerts.states.filter(
-    (item) =>
-      !item.isAccountNetworkUnsupported ||
-      isCurrentSwapAccountNetworkUnsupportedAlert({
-        alert: item,
-        ...accountNetworkContext,
-      }),
-  );
+  const currentAlerts = filterStockAccountNetworkAlerts({
+    alerts: alerts.states,
+    accountNetworkContexts,
+  });
   const currentUnsupportedAlerts = currentAlerts.filter(
     (item) => item.isAccountNetworkUnsupported,
   );

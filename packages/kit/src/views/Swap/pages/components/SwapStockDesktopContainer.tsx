@@ -1092,6 +1092,7 @@ function StockTradeTicket({
 }) {
   const standaloneSelection = useSwapStockSelection();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
+  const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const amountInputState = useSwapStockAmountInputState({ stockChannel });
   const startedWithoutAmountInputRef = useRef(!amountInputState.inputToken);
   const deferInitialAmountContent = shouldDeferStockInitialContent({
@@ -1193,16 +1194,27 @@ function StockTradeTicket({
             quoteLoading={quoteLoading}
             quoteResult={quoteResult}
             stockChannel={stockChannel}
-            accountNetworkContext={{
-              accountId: getSwapAccountNetworkWarningAccountId({
-                accountInfo: swapFromAddressInfo.accountInfo,
-                activeAccount: swapFromAddressInfo.activeAccount,
-              }),
-              walletId:
-                swapFromAddressInfo.accountInfo?.wallet?.id ??
-                swapFromAddressInfo.activeAccount?.wallet?.id,
-              networkId: stockChannel.fromToken?.networkId,
-              directionType: ESwapDirectionType.FROM,
+            accountNetworkContexts={{
+              [ESwapDirectionType.FROM]: {
+                accountId: getSwapAccountNetworkWarningAccountId({
+                  accountInfo: swapFromAddressInfo.accountInfo,
+                  activeAccount: swapFromAddressInfo.activeAccount,
+                }),
+                walletId:
+                  swapFromAddressInfo.accountInfo?.wallet?.id ??
+                  swapFromAddressInfo.activeAccount?.wallet?.id,
+                networkId: stockChannel.fromToken?.networkId,
+              },
+              [ESwapDirectionType.TO]: {
+                accountId: getSwapAccountNetworkWarningAccountId({
+                  accountInfo: swapToAddressInfo.accountInfo,
+                  activeAccount: swapToAddressInfo.activeAccount,
+                }),
+                walletId:
+                  swapToAddressInfo.accountInfo?.wallet?.id ??
+                  swapToAddressInfo.activeAccount?.wallet?.id,
+                networkId: stockChannel.toToken?.networkId,
+              },
             }}
             // px of the hosting YStack gap above: "$3" = 12, "$4" = 16
             parentGap={compact ? 12 : 16}

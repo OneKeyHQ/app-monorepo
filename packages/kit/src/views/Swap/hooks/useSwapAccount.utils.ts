@@ -44,6 +44,31 @@ export function buildSwapAddressAccountInfo({
   };
 }
 
+export async function resolveSwapBalanceAccount({
+  activeAccount,
+  networkId,
+  resolveNetworkAccount,
+}: {
+  activeAccount: IAccountSelectorActiveAccountInfo;
+  networkId: string;
+  resolveNetworkAccount: () => Promise<INetworkAccount | undefined>;
+}): Promise<INetworkAccount | undefined> {
+  if (
+    !activeAccount.ready ||
+    !networkId ||
+    (!activeAccount.indexedAccount?.id && !activeAccount.account?.id)
+  ) {
+    return undefined;
+  }
+  if (
+    !networkUtils.isAllNetwork({ networkId: activeAccount.network?.id }) &&
+    activeAccount.network?.id === networkId
+  ) {
+    return activeAccount.account;
+  }
+  return resolveNetworkAccount();
+}
+
 export function getSwapAccountNetworkWarningAccountId({
   accountInfo,
   activeAccount,

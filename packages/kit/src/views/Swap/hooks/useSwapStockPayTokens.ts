@@ -6,18 +6,12 @@ import { isEqual } from 'lodash';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import {
-  useActiveAccount,
-  useSelectedAccount,
-} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useSelectedDeriveTypeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
-import { getSelectedDeriveTypeForNetwork } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/marketDeriveType';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useSwapStockPayTokenDisplayAtom,
   useSwapStockPayTokenPreferenceAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
-import { resolveStockPortfolioDeriveType } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useStockPortfolioData';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
   EAppEventBusNames,
@@ -50,6 +44,8 @@ import {
   shouldRefreshStockPayTokensForHistoryEvent,
   shouldSyncStockPayTokenDetail,
 } from './swapStockPayTokenUtils';
+import { resolveSwapNetworkAccount } from './useSwapAccount';
+import { resolveSwapBalanceAccount } from './useSwapAccount.utils';
 import { getSwapStockPayTokenDisplayFromGlobalSnapshot } from './useSwapColdStartDisplayTokens';
 
 const defaultSpeedSwapConfig: ISpeedSwapConfig = {
@@ -197,8 +193,6 @@ export function useSwapStockPayTokens({
   syncPayTokenDetail: (token: IToken) => void;
 }) {
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const { selectedAccount } = useSelectedAccount({ num: 0 });
-  const [selectedDeriveType] = useSelectedDeriveTypeAtom();
   const [payTokenPreferenceByScope, setPayTokenPreferenceByScope] =
     useSwapStockPayTokenPreferenceAtom();
   const [payTokenDisplayByScope, setPayTokenDisplayByScope] =
@@ -345,11 +339,9 @@ export function useSwapStockPayTokens({
     shouldLoadPayTokenDetails ? '1' : '0'
   }:${rawPayTokenKeys}:${activeAccount?.indexedAccount?.id ?? ''}:${
     activeAccount?.account?.id ?? ''
-  }:${activeAccount?.deriveType ?? ''}:${selectedDeriveType?.networkId ?? ''}:${
-    selectedDeriveType?.deriveType ?? ''
-  }:${selectedAccount.indexedAccountId ?? ''}:${selectedAccount.networkId ?? ''}:${
-    selectedAccount.deriveType ?? ''
-  }:${stockNetworkId}`;
+  }:${activeAccount?.deriveType ?? ''}:${activeAccount.network?.id ?? ''}:${
+    activeAccount.account?.addressDetail?.address ?? ''
+  }:${activeAccount.ready ? '1' : '0'}:${stockNetworkId}`;
   const successfulPayTokenDetailsRef = useRef<{
     scope: string;
     details: Map<string, ISwapToken>;
@@ -431,41 +423,22 @@ export function useSwapStockPayTokens({
           return cachedRequest;
         }
         const request = (async () => {
-          const networkDefaultDeriveType =
-            await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
-              {
-                networkId: tokenNetworkId,
-              },
-            );
-          const accountSelectedDeriveType =
-            activeAccount?.indexedAccount?.id &&
-            selectedAccount.indexedAccountId ===
-              activeAccount.indexedAccount.id &&
-            selectedAccount.networkId === tokenNetworkId
-              ? selectedAccount.deriveType
-              : undefined;
-          return backgroundApiProxy.serviceAccount.getNetworkAccount({
-            accountId: activeAccount?.indexedAccount?.id
-              ? undefined
-              : activeAccount?.account?.id,
-            indexedAccountId: activeAccount?.indexedAccount?.id ?? '',
+          const account = await resolveSwapBalanceAccount({
+            activeAccount,
             networkId: tokenNetworkId,
-            deriveType: resolveStockPortfolioDeriveType({
-              activeDeriveType: activeAccount?.deriveType,
-              networkDefaultDeriveType,
-              networkId: tokenNetworkId,
-              portfolioNetworkId: stockNetworkId,
-              selectedDeriveType:
-                getSelectedDeriveTypeForNetwork(
-                  selectedDeriveType,
-                  tokenNetworkId,
-                ) ??
-                accountSelectedDeriveType ??
-                (activeAccount?.network?.id === tokenNetworkId
-                  ? activeAccount.deriveType
-                  : undefined),
-            }),
+            resolveNetworkAccount: async () => {
+              const result = await resolveSwapNetworkAccount({
+                accountId: activeAccount.account?.id,
+                indexedAccountId: activeAccount.indexedAccount?.id,
+                dbAccount: activeAccount.dbAccount,
+                networkId: tokenNetworkId,
+              });
+              return result.account;
+            },
           });
+          return account
+            ? { id: account.id, address: account.addressDetail?.address }
+            : undefined;
         })();
         accountRequestMap.set(tokenNetworkId, request);
         return request;
@@ -549,17 +522,11 @@ export function useSwapStockPayTokens({
       });
     },
     [
-      activeAccount?.account?.id,
-      activeAccount?.deriveType,
-      activeAccount?.indexedAccount?.id,
-      activeAccount?.network?.id,
+      activeAccount,
       hasActiveAccount,
       payTokenDetailsScope,
       rawPayTokens,
-      selectedDeriveType,
-      selectedAccount,
       shouldLoadPayTokenDetails,
-      stockNetworkId,
     ],
     {
       initResult: {

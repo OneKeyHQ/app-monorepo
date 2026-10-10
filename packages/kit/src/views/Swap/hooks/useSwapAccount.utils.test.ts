@@ -13,6 +13,7 @@ import {
   getSwapRecipientValidationAccountId,
   hasSwapFromAddressForVerdict,
   resolveSettledSwapRecipientRequired,
+  resolveSwapBalanceAccount,
   resolveSwapTargetNetworkAccount,
   resolveSwapTargetNetworkAccountOnce,
   shouldResetSwapRecipientOnAccountNetworkSync,
@@ -791,5 +792,75 @@ describe('hasSwapFromAddressForVerdict', () => {
         isAddressInfoReady: true,
       }),
     ).toBe(true);
+  });
+});
+
+describe('resolveSwapBalanceAccount', () => {
+  const networkId = 'sol--101';
+  const activeAccount = {
+    ...buildAccountInfo({ accountId: 'sol-selected' }),
+    network: { id: networkId } as NonNullable<
+      IAccountSelectorActiveAccountInfo['network']
+    >,
+    deriveType: 'default' as const,
+  };
+  const targetAccount = {
+    ...activeAccount.account,
+    id: 'sol-global',
+  } as NonNullable<IAccountSelectorActiveAccountInfo['account']>;
+
+  it('uses the actual active sending account on the same network', async () => {
+    const resolveNetworkAccount = jest.fn().mockResolvedValue(targetAccount);
+    await expect(
+      resolveSwapBalanceAccount({
+        activeAccount,
+        networkId,
+        resolveNetworkAccount,
+      }),
+    ).resolves.toBe(activeAccount.account);
+    expect(resolveNetworkAccount).not.toHaveBeenCalled();
+  });
+
+  it.each(['evm--1', 'all--0'])(
+    'uses the Swap target resolver from %s instead of a Market derive selection',
+    async (activeNetworkId) => {
+      const resolveNetworkAccount = jest.fn().mockResolvedValue(targetAccount);
+      await expect(
+        resolveSwapBalanceAccount({
+          activeAccount: {
+            ...activeAccount,
+            network: {
+              ...activeAccount.network,
+              id: activeNetworkId,
+            } as NonNullable<IAccountSelectorActiveAccountInfo['network']>,
+          },
+          networkId,
+          resolveNetworkAccount,
+        }),
+      ).resolves.toBe(targetAccount);
+      expect(resolveNetworkAccount).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('does not publish an account before account selection is ready', async () => {
+    const resolveNetworkAccount = jest.fn().mockResolvedValue(targetAccount);
+    await expect(
+      resolveSwapBalanceAccount({
+        activeAccount: { ...activeAccount, ready: false },
+        networkId,
+        resolveNetworkAccount,
+      }),
+    ).resolves.toBeUndefined();
+    expect(resolveNetworkAccount).not.toHaveBeenCalled();
+  });
+
+  it('does not reuse the source account when target resolution finds no account', async () => {
+    await expect(
+      resolveSwapBalanceAccount({
+        activeAccount,
+        networkId: 'evm--1',
+        resolveNetworkAccount: jest.fn().mockResolvedValue(undefined),
+      }),
+    ).resolves.toBeUndefined();
   });
 });
