@@ -582,6 +582,99 @@ describe('ReceiveNetworkList', () => {
     );
   });
 
+  describe('a row still creating its address', () => {
+    async function renderWithAptosToCreate() {
+      const utils = renderList();
+      await waitFor(() =>
+        expect(
+          utils
+            .getByTestId('receive-network-list-item-aptos--1')
+            .querySelector('[data-testid="subtitle"]')?.textContent,
+        ).toBe('global_create_address'),
+      );
+      return utils;
+    }
+    const settle = () =>
+      act(async () => {
+        await new Promise((resolve) => {
+          setTimeout(resolve, 0);
+        });
+      });
+
+    it('does not report once another row was picked while it was creating', async () => {
+      let finishCreating: (accountId: string) => void = () => undefined;
+      mockCreateAddressForNetwork.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            finishCreating = resolve;
+          }),
+      );
+      const { getByTestId, onSelectNetwork } = await renderWithAptosToCreate();
+      fireEvent.click(getByTestId('receive-network-list-item-aptos--1'));
+      fireEvent.click(getByTestId('receive-network-list-item-evm--1'));
+      await waitFor(() => expect(onSelectNetwork).toHaveBeenCalledTimes(1));
+      expect(onSelectNetwork).toHaveBeenLastCalledWith(
+        expect.objectContaining({ accountId: 'hd-1--evm' }),
+      );
+
+      await act(async () => {
+        finishCreating('hd-1--aptos');
+      });
+      await settle();
+      // Ethereum was the last pick: Aptos must not take over afterwards.
+      expect(onSelectNetwork).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not report once another row was picked while the list was reloading', async () => {
+      mockCreateAddressForNetwork.mockResolvedValue('hd-1--aptos');
+      const { getByTestId, onSelectNetwork } = await renderWithAptosToCreate();
+      let finishReload: () => void = () => undefined;
+      mockGetAllNetworkAccounts.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishReload = () => resolve({ accountsInfo: mockAccountsInfo });
+          }),
+      );
+      fireEvent.click(getByTestId('receive-network-list-item-aptos--1'));
+      // The address exists; the row is now waiting for the list to reload.
+      await waitFor(() =>
+        expect(mockGetAllNetworkAccounts).toHaveBeenLastCalledWith(
+          expect.objectContaining({ skipCache: true }),
+        ),
+      );
+      fireEvent.click(getByTestId('receive-network-list-item-evm--1'));
+      await waitFor(() => expect(onSelectNetwork).toHaveBeenCalledTimes(1));
+
+      await act(async () => {
+        finishReload();
+      });
+      await settle();
+      expect(onSelectNetwork).toHaveBeenCalledTimes(1);
+      expect(onSelectNetwork).toHaveBeenLastCalledWith(
+        expect.objectContaining({ accountId: 'hd-1--evm' }),
+      );
+    });
+
+    it('does not report after the list is gone', async () => {
+      let finishCreating: (accountId: string) => void = () => undefined;
+      mockCreateAddressForNetwork.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            finishCreating = resolve;
+          }),
+      );
+      const { getByTestId, onSelectNetwork, unmount } =
+        await renderWithAptosToCreate();
+      fireEvent.click(getByTestId('receive-network-list-item-aptos--1'));
+      unmount();
+      await act(async () => {
+        finishCreating('hd-1--aptos');
+      });
+      await settle();
+      expect(onSelectNetwork).not.toHaveBeenCalled();
+    });
+  });
+
   it('runs one selection at a time when a row is tapped again mid-flight', async () => {
     let finishEnabling: () => void = () => undefined;
     mockEnableNetwork.mockImplementation(

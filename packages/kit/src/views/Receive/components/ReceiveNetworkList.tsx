@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -87,6 +87,9 @@ type IRowProps = {
   >['createAddressForNetwork'];
   enableNetwork: ReturnType<typeof useCreateAddressForNetwork>['enableNetwork'];
   onAddressCreated: () => Promise<void>;
+  // Marks this row as the list's latest pick; the returned check tells
+  // whether it still is once the row's own async work is done.
+  beginSelection: () => () => boolean;
 };
 
 const POPULAR_NETWORK_ID_SET = new Set(POPULAR_NETWORK_IDS);
@@ -261,6 +264,7 @@ function ReceiveNetworkRow({
   createAddressForNetwork,
   enableNetwork,
   onAddressCreated,
+  beginSelection,
 }: IRowProps) {
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
@@ -289,6 +293,7 @@ function ReceiveNetworkRow({
       return;
     }
     isPressingRef.current = true;
+    const isLatestSelection = beginSelection();
     try {
       let selectedAccountId = account?.accountId;
       let createdAddress = false;
@@ -325,12 +330,19 @@ function ReceiveNetworkRow({
           }),
         });
       }
+      // Creating an address or enabling a network takes a while: by now
+      // another row may have been picked, or the list may be gone. Reporting
+      // this row then would undo the later choice.
+      if (!isLatestSelection()) {
+        return;
+      }
       await onSelect({ network, accountId: selectedAccountId, createdAddress });
     } finally {
       isPressingRef.current = false;
     }
   }, [
     account?.accountId,
+    beginSelection,
     createAddressForNetwork,
     enableNetwork,
     indexedAccountId,
@@ -413,6 +425,21 @@ export function ReceiveNetworkList({
     dataSource.invalidate();
     await reloadData({ alwaysSetState: true });
   }, [dataSource, reloadData]);
+
+  // One pick is live at a time across the list, and none once it is gone.
+  const selectionSeqRef = useRef(0);
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+  const beginSelection = useCallback(() => {
+    selectionSeqRef.current += 1;
+    const seq = selectionSeqRef.current;
+    return () => isMountedRef.current && seq === selectionSeqRef.current;
+  }, []);
 
   const [enabledOverrides, setEnabledOverrides] = useState<
     Record<string, boolean>
@@ -517,10 +544,12 @@ export function ReceiveNetworkList({
           createAddressForNetwork={createAddressForNetwork}
           enableNetwork={handleEnableNetwork}
           onAddressCreated={refreshAfterAddressCreated}
+          beginSelection={beginSelection}
         />
       );
     },
     [
+      beginSelection,
       createAddressForNetwork,
       data,
       enabledOverrides,
