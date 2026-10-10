@@ -20,6 +20,7 @@ type ISelectItem = {
 
 type ISelectProps = {
   items: ISelectItem[];
+  value?: string;
 };
 
 type IFooterProps = {
@@ -114,6 +115,13 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceReferralCode: {
       getCachedInviteCode: jest.fn(async () => undefined),
       setCachedInviteCode: jest.fn(async () => undefined),
+      getInstallReferralAutoFill: jest.fn(async () => ({
+        code: undefined,
+        isCaptureResolved: true,
+      })),
+      consumeInstallReferralIfBound: jest.fn(async () => false),
+      getPostConfig: jest.fn(async () => undefined),
+      fetchPostConfig: jest.fn(async () => undefined),
     },
   },
 }));
@@ -240,5 +248,43 @@ describe('InviteCodeDialog', () => {
 
     expect(screen.getByTestId('all-unavailable')).toBeTruthy();
     expect(getMockBag().selectProps).toBeUndefined();
+  });
+
+  it.each([
+    ['the active wallet when it can still bind', 'hd-active', 'hd-active'],
+    ['the first bindable wallet otherwise', 'hd-bound', 'hd-first'],
+    ['the first bindable wallet without a preference', undefined, 'hd-first'],
+  ])('opens without a wallet on %s', (_case, preferredWalletId, expected) => {
+    getMockBag().fetchReturn = {
+      isLoading: false,
+      walletsWithStatus: [
+        {
+          wallet: createWallet('hd-bound'),
+          isBound: true,
+          status: 'bound',
+        },
+        {
+          wallet: createWallet('hd-first'),
+          isBound: false,
+          bindable: true,
+          status: 'bindable',
+        },
+        {
+          wallet: createWallet('hd-active'),
+          isBound: false,
+          bindable: true,
+          status: 'bindable',
+        },
+      ],
+    };
+
+    render(
+      <InviteCodeDialog
+        preferredWalletId={preferredWalletId}
+        confirmBindReferralCode={jest.fn()}
+      />,
+    );
+
+    expect(getMockBag().selectProps?.value).toBe(expected);
   });
 });

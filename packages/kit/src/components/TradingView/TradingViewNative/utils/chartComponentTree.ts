@@ -36,6 +36,7 @@ export function flattenTradingViewNativeChartComponentTree(
 
 export function getTradingViewNativeChartComponentPriceAxisLabel(
   components: readonly ITradingViewNativeChartLeafComponent[],
+  priceDecimalPlaces?: number,
 ) {
   'worklet';
 
@@ -47,6 +48,8 @@ export function getTradingViewNativeChartComponentPriceAxisLabel(
     ) {
       const label = formatTradingViewNativePriceTick(
         component.props.anchor.price,
+        4,
+        priceDecimalPlaces,
       );
       if (label.length > widestLabel.length) {
         widestLabel = label;

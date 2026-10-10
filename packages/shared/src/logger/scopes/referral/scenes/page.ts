@@ -27,6 +27,18 @@ export type IReferralPageOpenParams = {
   pageVariant: string;
 };
 
+export type IReferralBindSource =
+  | 'onboarding_dialog'
+  | 'home_block'
+  | 'settings'
+  | 'invite_home';
+
+export type IReferralBindErrorType =
+  | 'invalid_format'
+  | 'bind_window_expired'
+  | 'server_rejected'
+  | 'client_error';
+
 export class PageScene extends BaseScene {
   @LogToServer()
   @LogToLocal({ level: 'info' })
@@ -90,7 +102,9 @@ export class PageScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal({ level: 'info' })
-  public shareReferralLink(shareMethod: 'copy' | 'share') {
+  public shareReferralLink(
+    shareMethod: 'copy' | 'share' | 'save' | 'x' | 'telegram',
+  ) {
     return { shareMethod };
   }
 
@@ -101,12 +115,6 @@ export class PageScene extends BaseScene {
     editMethod: 'new' | 'edit';
   }) {
     return params;
-  }
-
-  @LogToServer()
-  @LogToLocal({ level: 'info' })
-  public toggleReceivingAddressVisibility(isVisible: boolean) {
-    return { isVisible };
   }
 
   @LogToServer()
@@ -150,7 +158,29 @@ export class PageScene extends BaseScene {
     referralCode: string;
     address: string;
     networkId: string;
-    source?: 'onboarding_dialog' | 'home_block' | 'settings';
+    source?: IReferralBindSource;
+  }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public inviteHomeShown(params: { hasEarnings: boolean }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public inviteBindRowShown(params: { status: 'bind' | 'bound' | 'empty' }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public referralBindFailed(params: {
+    source?: IReferralBindSource;
+    errorType: IReferralBindErrorType;
+    serverMessageId?: string;
   }) {
     return params;
   }
@@ -179,6 +209,44 @@ export class PageScene extends BaseScene {
     walletId: string;
     walletType: string;
     codeLength: number;
+    /** True when the submitted code is the one we pre-filled untouched. */
+    isAutoFilled?: boolean;
+  }) {
+    return params;
+  }
+
+  /**
+   * Fires once per install when the store referrer is resolved. Carries no
+   * referrer content — only whether a usable code was present — so campaign
+   * strings never reach the analytics payload.
+   */
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public installReferralCaptured(params: { source: string; hasCode: boolean }) {
+    return params;
+  }
+
+  /**
+   * The stored invite code was presented to the user. `surface` separates the
+   * onboarding dialog, which pre-fills the field outright, from the bind
+   * dialog, which only shows it as a hint — their conversion rates are not
+   * comparable without it.
+   */
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public installReferralOffered(params: {
+    surface: 'onboarding_dialog' | 'bind_dialog';
+    walletId?: string;
+    walletType?: string;
+  }) {
+    return params;
+  }
+
+  /** The user bound the offered code rather than one of their own. */
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public installReferralAccepted(params: {
+    surface: 'onboarding_dialog' | 'bind_dialog';
   }) {
     return params;
   }

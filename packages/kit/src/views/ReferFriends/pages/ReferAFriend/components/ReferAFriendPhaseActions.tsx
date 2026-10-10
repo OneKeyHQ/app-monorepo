@@ -11,34 +11,23 @@ import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { ReferFriendsTestIDs } from '../../../testIDs';
 import { EPhaseState } from '../types';
 
-export type IReferAFriendActionPlacement = 'inline' | 'footer';
-
 interface IReferAFriendPhaseActionsProps {
-  phaseState: EPhaseState | undefined;
-  setPhaseState: (state: EPhaseState | undefined) => void;
-  placement?: IReferAFriendActionPlacement;
+  phaseState: EPhaseState;
+  setPhaseState: (state: EPhaseState) => void;
 }
 
 export function ReferAFriendPhaseActions({
   phaseState,
   setPhaseState,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  placement = 'inline',
 }: IReferAFriendPhaseActionsProps) {
   const intl = useIntl();
   const { toInviteRewardPage } = useReferFriends();
   const handleBackToIntro = useCallback(() => {
-    setPhaseState(undefined);
-    setTimeout(() => {
-      setPhaseState(EPhaseState.next);
-    }, 50);
+    setPhaseState(EPhaseState.next);
   }, [setPhaseState]);
 
   const handleNext = useCallback(() => {
-    setPhaseState(undefined);
-    setTimeout(() => {
-      setPhaseState(EPhaseState.join);
-    }, 50);
+    setPhaseState(EPhaseState.join);
   }, [setPhaseState]);
 
   const handleJoin = useCallback(async () => {
@@ -49,10 +38,6 @@ export function ReferAFriendPhaseActions({
       void toInviteRewardPage();
     }, 200);
   }, [toInviteRewardPage]);
-
-  if (!phaseState) {
-    return null;
-  }
 
   if (phaseState === EPhaseState.next) {
     return (
@@ -81,7 +66,7 @@ export function ReferAFriendPhaseActions({
           onPress={handleBackToIntro}
         >
           {intl.formatMessage({
-            id: ETranslations.perp_term_previous,
+            id: ETranslations.global_back,
           })}
         </Button>
         <Button

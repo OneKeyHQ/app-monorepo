@@ -2,7 +2,7 @@
 
 import { fireEvent, render } from '@testing-library/react';
 
-import { ActionItem, ActionsPlaceholder } from './RawActions';
+import { ActionItem, ActionsPlaceholder, RawActions } from './RawActions';
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -46,7 +46,12 @@ jest.mock('@onekeyhq/components', () => {
   );
 
   return {
-    ActionList: { Item: Passthrough },
+    ActionList: Object.assign(
+      ({ renderTrigger }: { renderTrigger?: React.ReactNode }) => (
+        <div>{renderTrigger}</div>
+      ),
+      { Item: Passthrough, show: jest.fn() },
+    ),
     Button: makePressable('button'),
     Icon: () => null,
     IconButton: makePressable('icon-button'),
@@ -109,6 +114,32 @@ describe('ActionItem disabled state', () => {
     fireEvent.click(getByKind(container, 'stack'));
     expect(onPress).toHaveBeenCalledTimes(1);
   });
+});
+
+describe('RawActions.More risk dot', () => {
+  it.each([false, true])(
+    'shows the caution dot on the icon trigger only when requested (iconOnly=%s)',
+    (iconOnly) => {
+      const { queryByTestId, rerender } = render(
+        <RawActions.More
+          renderItems={() => null}
+          testID="more"
+          iconOnly={iconOnly}
+          showDot
+        />,
+      );
+      expect(queryByTestId('more-dot')).not.toBeNull();
+
+      rerender(
+        <RawActions.More
+          renderItems={() => null}
+          testID="more"
+          iconOnly={iconOnly}
+        />,
+      );
+      expect(queryByTestId('more-dot')).toBeNull();
+    },
+  );
 });
 
 // While the balance state is still unknown the header used to render nothing

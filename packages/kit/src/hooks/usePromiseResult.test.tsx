@@ -68,8 +68,28 @@ jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => {
     return v;
   };
 
+  const useRouteIsFocusedWhenEnabled = ({ enabled }: { enabled: boolean }) => {
+    const [v, setV] = ReactModule.useState<boolean>(
+      enabled ? currentFocus : true,
+    );
+    ReactModule.useEffect(() => {
+      if (!enabled) {
+        setV(true);
+        return undefined;
+      }
+      listeners.push(setV);
+      setV(currentFocus);
+      return () => {
+        const idx = listeners.indexOf(setV);
+        if (idx >= 0) listeners.splice(idx, 1);
+      };
+    }, [enabled]);
+    return v;
+  };
+
   return {
     useRouteIsFocused,
+    useRouteIsFocusedWhenEnabled,
     __setFocus,
     __resetFocus,
   };
@@ -88,6 +108,7 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
@@ -122,6 +143,88 @@ describe('usePromiseResult', () => {
     globalNetInfo.listeners = [];
     globalNetInfo.state = { isInternetReachable: null };
     globalNetInfo.prevIsInternetReachable = false;
+  });
+
+  it('keeps optional data after a failed revalidation and can recover', async () => {
+    const method = jest.fn(async () => 'cached');
+    const { result } = renderHook(() =>
+      usePromiseResult(method, [], {
+        keepResultIfError: true,
+        watchLoading: true,
+      }),
+    );
+    await waitFor(() => expect(result.current.result).toBe('cached'));
+
+    method.mockRejectedValueOnce(new Error('optional config unavailable'));
+    await act(async () => {
+      await expect(result.current.run()).resolves.toBeUndefined();
+    });
+    expect(result.current.result).toBe('cached');
+    expect(result.current.isLoading).toBe(false);
+
+    method.mockResolvedValueOnce('recovered');
+    await act(async () => {
+      await result.current.run();
+    });
+    expect(result.current.result).toBe('recovered');
+  });
+
+  it('still rejects errors when keeping optional data was not requested', async () => {
+    const method = jest.fn(async () => 'cached');
+    const { result } = renderHook(() => usePromiseResult(method, []));
+    await waitFor(() => expect(result.current.result).toBe('cached'));
+    const failure = new Error('required data unavailable');
+    method.mockRejectedValueOnce(failure);
+    await act(async () => {
+      await expect(result.current.run()).rejects.toBe(failure);
+    });
+    expect(result.current.result).toBe('cached');
+  });
+
+  it('keeps defaults on a cold-start failure and retries on reconnect', async () => {
+    globalNetInfo.state = { isInternetReachable: false };
+    let recovered = false;
+    const method = jest.fn(async () => {
+      if (!recovered) {
+        throw new OneKeyLocalError('optional config unavailable');
+      }
+      return 'recovered';
+    });
+    const { result } = renderHook(() =>
+      usePromiseResult(method, [], {
+        initResult: 'default',
+        keepResultIfError: true,
+        watchLoading: true,
+        revalidateOnReconnect: true,
+      }),
+    );
+    await waitFor(() => {
+      expect(method).toHaveBeenCalled();
+      expect(result.current.isLoading).toBe(false);
+    });
+    expect(result.current.result).toBe('default');
+
+    recovered = true;
+    act(() => {
+      globalNetInfo.updateState({ isInternetReachable: true });
+    });
+    await waitFor(() => expect(result.current.result).toBe('recovered'));
+  });
+
+  it('gives undefinedResultIfError precedence over keepResultIfError', async () => {
+    const method = jest.fn(async () => 'cached');
+    const { result } = renderHook(() =>
+      usePromiseResult(method, [], {
+        keepResultIfError: true,
+        undefinedResultIfError: true,
+      }),
+    );
+    await waitFor(() => expect(result.current.result).toBe('cached'));
+    method.mockRejectedValueOnce(new Error('config unavailable'));
+    await act(async () => {
+      await expect(result.current.run()).resolves.toBeUndefined();
+    });
+    expect(result.current.result).toBeUndefined();
   });
 
   it('does not rerender on netinfo updates when reconnect revalidation is disabled', async () => {
@@ -1283,6 +1386,30 @@ describe('usePromiseResult', () => {
         expect(result.current.result).toBe('data');
       });
       expect(method).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not subscribe to route focus when checkIsFocused is false', async () => {
+      const method = jest.fn(async () => 'data');
+      let renderCount = 0;
+
+      const { result } = renderHook(() => {
+        renderCount += 1;
+        return usePromiseResult(method, [method], {
+          checkIsFocused: false,
+          initResult: 'init',
+        });
+      });
+
+      await waitFor(() => {
+        expect(result.current.result).toBe('data');
+      });
+      const renderCountBeforeFocusChange = renderCount;
+
+      act(() => {
+        focusControl.__setFocus(false);
+      });
+
+      expect(renderCount).toBe(renderCountBeforeFocusChange);
     });
 
     it('does not start fetch when not focused at mount (default checkIsFocused: true)', async () => {
