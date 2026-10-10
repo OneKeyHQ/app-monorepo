@@ -7,20 +7,20 @@ import LaunchOptionsManager from './LaunchOptionsManager.native';
 
 import type { Analytics } from '../../analytics';
 
-const mockProcessMemory = new Map<string, string>();
+const mockInMemoryStore = new Map<string, string>();
 let mockIsMain = true;
 let mockLoggerReady = true;
 
 jest.mock('@onekeyfe/react-native-device-utils', () => ({
   ReactNativeDeviceUtils: {
-    setProcessMemoryIfAbsent: (key: string, value: string) => {
-      if (mockProcessMemory.has(key)) {
+    setInMemoryValueIfAbsent: (key: string, value: string) => {
+      if (mockInMemoryStore.has(key)) {
         return false;
       }
-      mockProcessMemory.set(key, value);
+      mockInMemoryStore.set(key, value);
       return true;
     },
-    removeProcessMemory: (key: string) => mockProcessMemory.delete(key),
+    removeInMemoryValue: (key: string) => mockInMemoryStore.delete(key),
   },
 }));
 
@@ -49,7 +49,7 @@ describe('native process startup reporting', () => {
 
   beforeEach(() => {
     jest.useFakeTimers();
-    mockProcessMemory.clear();
+    mockInMemoryStore.clear();
     mockIsMain = true;
     mockLoggerReady = true;
     trackEvent = jest.fn();
@@ -97,7 +97,7 @@ describe('native process startup reporting', () => {
 
   it('reports again with a fresh native process Map', () => {
     reportBoth();
-    mockProcessMemory.clear();
+    mockInMemoryStore.clear();
     reportBoth();
     expect(trackEvent).toHaveBeenCalledTimes(4);
   });
@@ -105,7 +105,7 @@ describe('native process startup reporting', () => {
   it('never lets background claim the UI stages', () => {
     mockIsMain = false;
     reportBoth();
-    expect(mockProcessMemory.size).toBe(0);
+    expect(mockInMemoryStore.size).toBe(0);
     expect(trackEvent).not.toHaveBeenCalled();
     mockIsMain = true;
     reportBoth();
@@ -122,8 +122,8 @@ describe('native process startup reporting', () => {
       'jsReadyTime',
       expect.objectContaining({ message: 'enqueue failed' }),
     );
-    expect(mockProcessMemory.has('analytics:startup:jsReadyTime')).toBe(false);
-    expect(mockProcessMemory.has('analytics:startup:uiVisibleTime')).toBe(true);
+    expect(mockInMemoryStore.has('analytics:startup:jsReadyTime')).toBe(false);
+    expect(mockInMemoryStore.has('analytics:startup:uiVisibleTime')).toBe(true);
     reportBoth();
     expect(trackEvent.mock.calls).toEqual([
       ['jsReadyTime', { duration: 100 }],
@@ -138,7 +138,7 @@ describe('native process startup reporting', () => {
     appGlobals.$analytics = undefined;
     reportBoth();
     expect(logError).toHaveBeenCalledTimes(2);
-    expect(mockProcessMemory.size).toBe(0);
+    expect(mockInMemoryStore.size).toBe(0);
     appGlobals.$analytics = { trackEvent } as unknown as Analytics;
     reportBoth();
     expect(trackEvent).toHaveBeenCalledTimes(2);
@@ -149,7 +149,7 @@ describe('native process startup reporting', () => {
     reportBoth();
     reportBoth();
     expect(trackEvent).not.toHaveBeenCalled();
-    expect(mockProcessMemory.size).toBe(2);
+    expect(mockInMemoryStore.size).toBe(2);
     mockLoggerReady = true;
     loggerRuntime.drain();
     expect(trackEvent).toHaveBeenCalledTimes(2);

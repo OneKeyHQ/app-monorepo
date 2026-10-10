@@ -31,14 +31,14 @@ const LaunchOptionsManagerModule: ILaunchOptionsManagerInterface = {
       return;
     }
     const key = `analytics:startup:${stage}`;
-    if (!ReactNativeDeviceUtils.setProcessMemoryIfAbsent(key, 'reported')) {
+    if (!ReactNativeDeviceUtils.setInMemoryValueIfAbsent(key, 'reported')) {
       return;
     }
     try {
       // The timing logger enqueues synchronously before this call returns.
       report();
     } catch (error) {
-      ReactNativeDeviceUtils.removeProcessMemory(key);
+      ReactNativeDeviceUtils.removeInMemoryValue(key);
       console.error('Startup timing enqueue failed', stage, error);
     }
   },
