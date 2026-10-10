@@ -80,7 +80,40 @@ type IFetchAccountTokensController = {
   controller: AbortController;
   flag?: string;
   homeRequest?: IHomeTokenRequest;
+  isAllNetworks?: boolean;
 };
+
+type IAbortFetchAccountTokensOptions = {
+  // Requests carrying one of these flags survive.
+  excludedFlags?: string[];
+  // Only requests carrying one of these flags are aborted.
+  includedFlags?: string[];
+  // Only requests issued with this `isAllNetworks` value are aborted.
+  isAllNetworks?: boolean;
+};
+
+function shouldKeepFetchAccountTokensController(
+  item: IFetchAccountTokensController,
+  options?: IAbortFetchAccountTokensOptions,
+): boolean {
+  if (item.flag && options?.excludedFlags?.includes(item.flag)) {
+    return true;
+  }
+  const includedFlags = options?.includedFlags ?? [];
+  if (
+    includedFlags.length > 0 &&
+    (!item.flag || !includedFlags.includes(item.flag))
+  ) {
+    return true;
+  }
+  if (
+    options?.isAllNetworks !== undefined &&
+    !!item.isAllNetworks !== options.isAllNetworks
+  ) {
+    return true;
+  }
+  return false;
+}
 
 @backgroundClass()
 class ServiceToken extends ServiceBase {
@@ -226,23 +259,13 @@ class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async abortFetchAccountTokens(options?: {
-    excludedFlags?: string[];
-    includedFlags?: string[];
-  }) {
-    const excludedFlags = options?.excludedFlags ?? [];
-    const includedFlags = options?.includedFlags ?? [];
+  public async abortFetchAccountTokens(
+    options?: IAbortFetchAccountTokensOptions,
+  ) {
     const nextControllers: IFetchAccountTokensController[] = [];
 
     this._fetchAccountTokensControllers.forEach((item) => {
-      if (
-        includedFlags.length > 0 &&
-        (!item.flag || !includedFlags.includes(item.flag))
-      ) {
-        nextControllers.push(item);
-        return;
-      }
-      if (item.flag && excludedFlags.includes(item.flag)) {
+      if (shouldKeepFetchAccountTokensController(item, options)) {
         nextControllers.push(item);
         return;
       }
@@ -365,6 +388,7 @@ class ServiceToken extends ServiceBase {
       controller,
       flag: params.flag,
       homeRequest: params.homeRequest,
+      isAllNetworks: !!params.isAllNetworks,
     });
     try {
       return await this.fetchAccountTokensInternal(params, controller);

@@ -36,10 +36,7 @@ import {
   isAgg,
   metaEqual,
 } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import {
   activeAccountsAtom,
@@ -61,13 +58,12 @@ import {
 } from './apply';
 import {
   cancelPendingSlimColdCache,
-  clearPersistedOwnerSlimCache,
   flushPendingSlimColdCache,
   hydrateCellsFromOwnerSlimCache,
   schedulePersistSlimColdCache,
 } from './coldStart';
+import { registerHomeTokenListOwnerCacheInvalidation } from './ownerCacheInvalidation';
 import {
-  clearOwnerReplayCache,
   getOwnerReplayFrames,
   rememberOwnerReplayFrame,
 } from './ownerFrameReplayCache';
@@ -98,32 +94,6 @@ import type {
 } from './ownerFrameReplayCache';
 
 type ITokenFrameKind = 'structure' | 'valuation' | 'risky';
-
-let replayCacheInvalidationRegistered = false;
-
-/**
- * Drop the replay sources when a wallet or account is removed, or the wallet
- * is cleared, so a re-created owner (ids are reused after deletion / clear)
- * never replays the snapshot it had before. Both layers must go: the main-heap
- * frames AND the persisted per-owner slim slots, which outlive the process
- * (iOS/Android: native MMKV shared with `bg`, which never reads them, so the
- * clear from `main` is sufficient; extension: per-runtime storage; desktop/web:
- * single runtime). Whole-namespace clear: the next switch to any surviving
- * owner re-fills both layers from the PULL.
- */
-function ensureReplayCacheInvalidationOnce(): void {
-  if (replayCacheInvalidationRegistered) {
-    return;
-  }
-  replayCacheInvalidationRegistered = true;
-  const clear = () => {
-    clearOwnerReplayCache();
-    clearPersistedOwnerSlimCache();
-  };
-  appEventBus.on(EAppEventBusNames.WalletRemove, clear);
-  appEventBus.on(EAppEventBusNames.AccountRemove, clear);
-  appEventBus.on(EAppEventBusNames.WalletClear, clear);
-}
 
 /**
  * Receive shell. Call once from the home `TokenListBlock`, passing the current
@@ -307,7 +277,8 @@ export function useTokenListCellsProducer(
   // `replayedRiskyOwnerRef`), so a replay the fast path already did for this
   // owner is not reported as "nothing replayed" here.
   useLayoutEffect(() => {
-    ensureReplayCacheInvalidationOnce();
+    // Registered at startup already; kept for mounts outside the app shell.
+    registerHomeTokenListOwnerCacheInvalidation();
     if (!enabled || !store || !deps || !identity) {
       return;
     }

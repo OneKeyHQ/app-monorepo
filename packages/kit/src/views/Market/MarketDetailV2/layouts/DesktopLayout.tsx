@@ -478,9 +478,6 @@ export function DesktopLayout({
           enablePreviousClose={shouldUseStockDesktopLayout}
           previousClose={stockPreviousClose}
           onPriceUpdate={handleNativeChartPriceUpdate}
-          forcedChartType={
-            shouldUseStockDesktopLayout ? 'candlestick' : undefined
-          }
           enableNativeChartSettings
           nativeControlsLayoutMode="desktop"
           isNativeChartFullscreen={isChartFullscreen}
