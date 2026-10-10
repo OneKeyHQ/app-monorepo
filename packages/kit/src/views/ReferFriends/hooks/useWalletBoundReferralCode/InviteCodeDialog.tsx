@@ -32,6 +32,7 @@ import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IReferralBindSource } from '@onekeyhq/shared/src/logger/scopes/referral/scenes/page';
 
 import { ReferFriendsTestIDs } from '../../testIDs';
 
@@ -40,10 +41,12 @@ import {
   AllWalletsUnavailableEmpty,
 } from './AllWalletsBoundEmpty';
 import { NoWalletEmpty } from './NoWalletEmpty';
+import { isBindWindowExpiredError } from './referralBindStatusUtils';
 import { useFetchWalletsWithBoundStatus } from './useFetchWalletsWithBoundStatus';
 import { useGetReferralCodeWalletInfo } from './useGetReferralCodeWalletInfo';
 
 import type { IReferralCodeWalletInfo } from './types';
+import type { IWalletReferralBindListStatus } from './useFetchWalletsWithBoundStatus';
 
 // Upper bound on holding the invite hint back for the configured rebate. A
 // cached config answers at once; a fresh install has to fetch, and past this
@@ -54,17 +57,29 @@ const INVITEE_DISCOUNT_WAIT_MS = 1500;
 // flight when the dialog opens.
 const INSTALL_REFERRAL_CAPTURE_WAIT_MS = 10_000;
 
+// Bound, past the bind window, or of unknown status: listed but cannot be selected.
+function isUnavailableToBind(status: IWalletReferralBindListStatus) {
+  return status === 'bound' || status === 'expired' || status === 'unknown';
+}
+
 export function InviteCodeDialog({
   wallet,
+  preferredWalletId,
   onSuccess,
   confirmBindReferralCode,
   defaultReferralCode,
+  source,
 }: {
   wallet?: IDBWallet;
+  // Without a `wallet`, the selector starts on this one if it can still
+  // bind, otherwise on the first wallet that can.
+  preferredWalletId?: string;
   onSuccess?: () => void;
   defaultReferralCode?: string;
+  source?: IReferralBindSource;
   confirmBindReferralCode: (params: {
     referralCode: string;
+    source?: IReferralBindSource;
     preventClose?: () => void;
     walletInfo: IReferralCodeWalletInfo | null | undefined;
     navigationToMessageConfirmAsync: (
@@ -206,10 +221,24 @@ export function InviteCodeDialog({
   const { walletsWithStatus, isLoading: isLoadingWallets } =
     useFetchWalletsWithBoundStatus();
 
-  // Selected wallet state
-  const [selectedWalletId, setSelectedWalletId] = useState<string | undefined>(
+  // The wallet the user picked; until then, the one the dialog opened with.
+  const [pickedWalletId, setSelectedWalletId] = useState<string | undefined>(
     wallet?.id,
   );
+  // Entries with no wallet in hand (the referral page's own prompts) start on
+  // the preferred wallet if it can still bind, otherwise the first that can.
+  const selectedWalletId = useMemo(() => {
+    if (pickedWalletId || !walletsWithStatus) {
+      return pickedWalletId;
+    }
+    const bindable = walletsWithStatus.filter(
+      (item) => !isUnavailableToBind(item.status),
+    );
+    return (
+      bindable.find((item) => item.wallet.id === preferredWalletId) ??
+      bindable[0]
+    )?.wallet.id;
+  }, [pickedWalletId, preferredWalletId, walletsWithStatus]);
 
   // Get the selected wallet object
   const selectedWallet = useMemo(() => {
@@ -226,10 +255,7 @@ export function InviteCodeDialog({
 
     return walletsWithStatus.map((item) => {
       let description: string | undefined;
-      const isDisabled =
-        item.status === 'bound' ||
-        item.status === 'expired' ||
-        item.status === 'unknown';
+      const isDisabled = isUnavailableToBind(item.status);
       if (item.status === 'bound') {
         description = intl.formatMessage({
           id: ETranslations.referral_wallet_bind_code_finish,
@@ -268,12 +294,7 @@ export function InviteCodeDialog({
   // Check if all wallets are unavailable (bound, window expired, or unknown)
   const allWalletsUnavailable = useMemo(() => {
     if (!walletsWithStatus || walletsWithStatus.length === 0) return false;
-    return walletsWithStatus.every(
-      (w) =>
-        w.status === 'bound' ||
-        w.status === 'expired' ||
-        w.status === 'unknown',
-    );
+    return walletsWithStatus.every((w) => isUnavailableToBind(w.status));
   }, [walletsWithStatus]);
 
   // Check if the selected wallet is already bound
@@ -350,6 +371,12 @@ export function InviteCodeDialog({
       try {
         const isValidForm = await form.trigger();
         if (!isValidForm) {
+          if (form.getValues().referralCode) {
+            defaultLogger.referral.page.referralBindFailed({
+              source,
+              errorType: 'invalid_format',
+            });
+          }
           preventClose?.();
           return;
         }
@@ -364,6 +391,7 @@ export function InviteCodeDialog({
         }
         await confirmBindReferralCode({
           referralCode,
+          source,
           preventClose,
           walletInfo,
           navigationToMessageConfirmAsync,
@@ -396,10 +424,7 @@ export function InviteCodeDialog({
           }
         >;
         if (err.className === 'OneKeyServerApiError' && err.message) {
-          const isBindWindowExpired =
-            err.data?.messageId === 'exceeded_bind_window' ||
-            err.data?.message === 'exceeded_bind_window' ||
-            err.message === 'exceeded_bind_window';
+          const isBindWindowExpired = isBindWindowExpiredError(err);
           form.setError('referralCode', {
             message: isBindWindowExpired
               ? intl.formatMessage({
@@ -420,6 +445,7 @@ export function InviteCodeDialog({
       navigationToMessageConfirmAsync,
       onSuccess,
       intl,
+      source,
     ],
   );
 

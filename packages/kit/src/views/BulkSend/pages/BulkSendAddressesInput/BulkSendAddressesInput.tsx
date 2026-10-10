@@ -731,6 +731,7 @@ function BaseBulkSendAddressesInput({
                 sceneUrl: '',
               }}
               enabledNum={[0, 1]}
+              perfDebugName="bulk-send-address-input"
               availableNetworksMap={{
                 0: {
                   networkIds: [selectedNetworkId ?? ''],

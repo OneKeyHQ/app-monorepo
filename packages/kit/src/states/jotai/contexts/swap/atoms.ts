@@ -137,6 +137,21 @@ const sanitizeSwapStockPayTokenColdStartSnapshot = memoizeSnapshotTransform(
   sanitizeSwapStockPayTokenDisplaySnapshot,
 );
 
+const SWAP_TOKEN_SELECTOR_COLD_START_MAX_CACHE_ENTRIES = 3;
+const SWAP_TOKEN_SELECTOR_COLD_START_MAX_TOKENS = 200;
+
+const sanitizeSwapAllNetworkTokenListMapColdStartSnapshot =
+  memoizeSnapshotTransform((value: Record<string, ISwapToken[]>) =>
+    Object.fromEntries(
+      Object.entries(value)
+        .slice(-SWAP_TOKEN_SELECTOR_COLD_START_MAX_CACHE_ENTRIES)
+        .map(([cacheKey, tokens]) => [
+          cacheKey,
+          tokens.slice(0, SWAP_TOKEN_SELECTOR_COLD_START_MAX_TOKENS),
+        ]),
+    ),
+  );
+
 export type ISwapQuoteEventErrorState = {
   message: string;
   fromToken?: ISwapToken;
@@ -401,7 +416,16 @@ export const {
 export const {
   atom: swapAllNetworkTokenListMapAtom,
   use: useSwapAllNetworkTokenListMapAtom,
-} = contextAtom<Record<string, ISwapToken[]>>({});
+} = contextAtom<Record<string, ISwapToken[]>>(
+  {},
+  {
+    coldStartCache: true,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapAllNetworkTokenListMapAtom,
+    coldStartCacheTransform:
+      sanitizeSwapAllNetworkTokenListMapColdStartSnapshot,
+  },
+);
 
 export const {
   atom: swapAllNetworkActionLockAtom,
