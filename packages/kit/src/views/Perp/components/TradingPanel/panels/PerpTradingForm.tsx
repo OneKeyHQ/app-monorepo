@@ -191,7 +191,6 @@ const USDC_TOKEN_SYMBOL = 'USDC';
 export const ORDER_TYPE_HELP_CENTER_URL =
   'https://help.onekey.so/articles/15442238';
 const TWAP_DURATION_PRESET_OPTIONS = [
-  { label: '1h', minutes: 60 },
   { label: '6h', minutes: 360 },
   { label: '12h', minutes: 720 },
   { label: '24h', minutes: 1440 },
@@ -2255,6 +2254,7 @@ function PerpTradingForm({
                 <XStack
                   key={option.minutes}
                   flex={1}
+                  flexBasis={0}
                   minWidth={0}
                   h={quickOptionHeight}
                   px="$2"
@@ -2412,6 +2412,7 @@ function PerpTradingForm({
               <XStack
                 key={option.minutes}
                 flex={1}
+                flexBasis={0}
                 minWidth={0}
                 h={quickOptionHeight}
                 px="$2"
@@ -2577,33 +2578,40 @@ function PerpTradingForm({
             </XStack>
           </YStack>
           {renderTwapDetailsSection()}
-          {twapEstimatedSliceNotionalDisplay ? (
-            <XStack
-              width="100%"
-              alignItems="center"
-              justifyContent="space-between"
-              gap="$3"
-              mt="$1"
-            >
-              <SizableText
+          <XStack
+            width="100%"
+            alignItems="center"
+            justifyContent="space-between"
+            gap="$3"
+            mt="$1"
+          >
+            <XStack flex={1}>
+              <DashText
                 size={isMobile ? '$bodySm' : '$bodyMdMedium'}
                 color="$textSubdued"
-                flex={1}
+                dashColor="$textDisabled"
+                dashThickness={0.5}
                 numberOfLines={1}
+                tooltip={intl.formatMessage({
+                  id: ETranslations.perp_twap_child_order_size__desc,
+                })}
+                tooltipTitle={intl.formatMessage({
+                  id: ETranslations.perp_twap_child_order_size__title,
+                })}
               >
                 {intl.formatMessage({
                   id: ETranslations.perp_twap_child_order_size__title,
                 })}
-              </SizableText>
-              <SizableText
-                size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
-                color="$text"
-                numberOfLines={1}
-              >
-                {twapEstimatedSliceNotionalDisplay}
-              </SizableText>
+              </DashText>
             </XStack>
-          ) : null}
+            <SizableText
+              size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
+              color="$text"
+              numberOfLines={1}
+            >
+              {twapEstimatedSliceNotionalDisplay ?? '≈ 0 USDC'}
+            </SizableText>
+          </XStack>
         </YStack>
       );
     }

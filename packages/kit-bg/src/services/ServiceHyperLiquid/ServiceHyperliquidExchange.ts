@@ -43,6 +43,7 @@ import {
   buildScaleOrderLegs,
 } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
 import {
+  TWAP_MIN_ORDER_NOTIONAL,
   formatTwapPriceForOrder,
   getTwapTriggerAbove,
   isTwapStopPriceValid,
@@ -1559,9 +1560,10 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       })
     ) {
       throw new OneKeyLocalError(
-        appLocale.intl.formatMessage({
-          id: ETranslations.perp_scale_order_size_too_small__msg,
-        }),
+        appLocale.intl.formatMessage(
+          { id: ETranslations.perp_twap_min_order_notional__msg },
+          { amount: TWAP_MIN_ORDER_NOTIONAL },
+        ),
       );
     }
 

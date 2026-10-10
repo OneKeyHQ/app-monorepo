@@ -86,7 +86,7 @@ describe('ServiceHyperliquidExchange TWAP notional', () => {
 
   it('rejects an order whose raw notional passes but wire notional is below 100', async () => {
     await expect(service.placeTwapOrder(params)).rejects.toThrow(
-      ETranslations.perp_scale_order_size_too_small__msg,
+      ETranslations.perp_twap_min_order_notional__msg,
     );
     expect(mockTwapOrder).not.toHaveBeenCalled();
     expect(recordTaskCompleted).not.toHaveBeenCalled();

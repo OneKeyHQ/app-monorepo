@@ -27,6 +27,7 @@ import {
 import {
   TWAP_MAX_DURATION_MINUTES,
   TWAP_MIN_DURATION_MINUTES,
+  TWAP_MIN_ORDER_NOTIONAL,
   formatTwapPriceForOrder,
   getTwapTriggerAbove,
   isTwapStopPriceValid,
@@ -450,9 +451,10 @@ function useOrderConfirmWithMarketDataFreshness({
         ) {
           Toast.error({
             title: intl.formatMessage({ id: ETranslations.global_failed }),
-            message: intl.formatMessage({
-              id: ETranslations.perp_scale_order_size_too_small__msg,
-            }),
+            message: intl.formatMessage(
+              { id: ETranslations.perp_twap_min_order_notional__msg },
+              { amount: TWAP_MIN_ORDER_NOTIONAL },
+            ),
           });
           return;
         }
