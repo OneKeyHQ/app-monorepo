@@ -222,6 +222,7 @@ function main() {
     'background-vendor.bundle.js',
     'background.bundle.js',
   ];
+  let backgroundScriptFiles = backgroundBootFiles;
   for (const file of backgroundBootFiles) {
     assertFile(outputRoot, file, 'background entrypoint');
   }
@@ -233,11 +234,12 @@ function main() {
       path.join(outputRoot, manifest.background.page),
       'utf8',
     );
-    const backgroundFiles = [
+    backgroundScriptFiles = [
       ...backgroundHtml.matchAll(/<script[^>]+src=["']([^"']+)["']/g),
-    ]
-      .map((match) => match[1].replace(/^\//, '').split(/[?#]/)[0])
-      .filter((file) => backgroundBootFiles.includes(file));
+    ].map((match) => match[1].replace(/^\//, '').split(/[?#]/)[0]);
+    const backgroundFiles = backgroundScriptFiles.filter((file) =>
+      backgroundBootFiles.includes(file),
+    );
     if (
       JSON.stringify(backgroundFiles) !== JSON.stringify(backgroundBootFiles)
     ) {
@@ -338,7 +340,7 @@ function main() {
     (isFirefox
       ? 0
       : fs.statSync(path.join(outputRoot, 'background.bootstrap.js')).size) +
-    backgroundBootFiles.reduce(
+    [...new Set(backgroundScriptFiles)].reduce(
       (total, file) => total + fs.statSync(path.join(outputRoot, file)).size,
       0,
     );
