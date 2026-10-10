@@ -23,7 +23,9 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { PrimeLoginDialogCancelError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -31,13 +33,14 @@ import {
   isPrimeAppleStorePayment,
   isPrimeStorePayment,
 } from '@onekeyhq/shared/src/prime/primePaymentCapabilities';
-import type {
+import {
   EPrimePages,
-  IPrimeParamList,
+  type IPrimeParamList,
 } from '@onekeyhq/shared/src/routes/prime';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { showOneKeyIdLoginFailedToast } from '../../components/oneKeyIdLoginToastUtils';
 import { PrimeSubscriptionPlans } from '../../components/PrimePurchaseDialog/PrimeSubscriptionPlans';
 import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
 import { usePrimeSubscriptionPackages } from '../../hooks/usePrimeSubscriptionPackages';
@@ -104,7 +107,7 @@ export default function PrimeDashboard({
   route: RouteProp<IPrimeParamList, EPrimePages.PrimeDashboard>;
 }) {
   const intl = useIntl();
-  const { fromFeature, networkId } = route.params || {};
+  const { fromFeature, networkId, fromDeepLink } = route.params || {};
   const isTravelMode =
     travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
     'travel-mode';
@@ -137,6 +140,12 @@ export default function PrimeDashboard({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { ensureOneKeyIDLoggedIn, ensurePrimeSubscriptionActive } =
     usePrimeRequirements({ networkId: networkId ?? network?.id });
+  // Subscribe may await an in-flight login; read the post-login callback so
+  // purchase eligibility sees the logged-in user instead of the click closure.
+  const ensurePrimeSubscriptionActiveRef = useRef(
+    ensurePrimeSubscriptionActive,
+  );
+  ensurePrimeSubscriptionActiveRef.current = ensurePrimeSubscriptionActive;
 
   const isFocused = useIsFocused();
   const isFocusedRef = useRef(isFocused);
@@ -146,7 +155,17 @@ export default function PrimeDashboard({
 
   const pendingSubscribeRef = useRef<IPrimePendingSubscribe | null>(null);
   const subscribeInFlightRef = useRef(false);
+  const loginInFlightRef = useRef<Promise<void> | null>(null);
+  const fromDeepLinkRef = useRef(Boolean(fromDeepLink));
+  const consumedDeepLinkHandoffRef = useRef(false);
+  const isMountedRef = useIsMounted();
   const [isSubscribeLazyLoading, setIsSubscribeLazyLoading] = useState(false);
+  const [didDashboardLoginFail, setDidDashboardLoginFail] = useState(false);
+
+  if (fromDeepLink && !fromDeepLinkRef.current) {
+    consumedDeepLinkHandoffRef.current = false;
+  }
+  fromDeepLinkRef.current = Boolean(fromDeepLink);
 
   usePrimeSubscribeResume({
     ensurePrimeSubscriptionActive,
@@ -156,6 +175,95 @@ export default function PrimeDashboard({
     pendingSubscribeRef,
     subscribeInFlightRef,
   });
+
+  const ensureDashboardLogin = useCallback(() => {
+    if (!loginInFlightRef.current) {
+      loginInFlightRef.current = loginOneKeyId().finally(() => {
+        loginInFlightRef.current = null;
+      });
+    }
+    return loginInFlightRef.current;
+  }, [loginOneKeyId]);
+
+  const handleDashboardLoginError = useCallback(
+    (error: unknown) => {
+      if (!isMountedRef.current) {
+        return;
+      }
+      if (error instanceof PrimeLoginDialogCancelError) {
+        setDidDashboardLoginFail(false);
+        if (fromDeepLinkRef.current) {
+          navigation.setParams({ fromDeepLink: undefined });
+        }
+        return;
+      }
+      setDidDashboardLoginFail(true);
+      showOneKeyIdLoginFailedToast({ error, intl });
+    },
+    [intl, isMountedRef, navigation],
+  );
+
+  const consumeDeepLinkHandoff = useCallback(() => {
+    if (
+      !isMountedRef.current ||
+      consumedDeepLinkHandoffRef.current ||
+      pendingSubscribeRef.current ||
+      subscribeInFlightRef.current ||
+      !fromDeepLinkRef.current
+    ) {
+      return;
+    }
+    consumedDeepLinkHandoffRef.current = true;
+    setDidDashboardLoginFail(false);
+    // Clear the route flag so a remount / pop-back cannot push Infini again.
+    navigation.setParams({ fromDeepLink: undefined });
+    navigation.push(EPrimePages.PrimeInfiniSubscription);
+  }, [isMountedRef, navigation]);
+
+  const handleDashboardLogin = useCallback(async () => {
+    try {
+      // Checks the service token and resolves after the login dialog closes.
+      await ensureDashboardLogin();
+    } catch (error) {
+      handleDashboardLoginError(error);
+      return;
+    }
+    if (!isMountedRef.current) {
+      return;
+    }
+    setDidDashboardLoginFail(false);
+    consumeDeepLinkHandoff();
+  }, [
+    consumeDeepLinkHandoff,
+    ensureDashboardLogin,
+    handleDashboardLoginError,
+    isMountedRef,
+  ]);
+
+  useEffect(() => {
+    if (!fromDeepLink || !isAuthReady) {
+      return;
+    }
+    let cancelled = false;
+    // Checks the service token and resolves after the login dialog closes.
+    ensureDashboardLogin().then(
+      () => {
+        if (!cancelled) consumeDeepLinkHandoff();
+      },
+      (error: unknown) => {
+        if (!cancelled) handleDashboardLoginError(error);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    consumeDeepLinkHandoff,
+    ensureDashboardLogin,
+    fromDeepLink,
+    handleDashboardLoginError,
+    isAuthReady,
+  ]);
 
   const dashboardShownRef = useRef(false);
   useEffect(() => {
@@ -260,11 +368,21 @@ export default function PrimeDashboard({
     if (subscribeInFlightRef.current) {
       return;
     }
+    // An explicit purchase replaces the subscription-management intent.
+    if (fromDeepLinkRef.current) {
+      navigation.setParams({ fromDeepLink: undefined });
+    }
     subscribeInFlightRef.current = true;
     try {
       setIsSubscribeLazyLoading(true);
-      if (isLoggedIn) {
-        pendingSubscribeRef.current = null;
+      const pendingLogin = loginInFlightRef.current;
+      if (pendingLogin) {
+        try {
+          await pendingLogin;
+        } catch (error) {
+          handleDashboardLoginError(error);
+          return;
+        }
       }
 
       defaultLogger.prime.subscription.primeSubscribeButtonClick({
@@ -273,8 +391,9 @@ export default function PrimeDashboard({
         isLoggedIn,
       });
 
-      // If not logged in, store intent so we can resume after login.
-      if (!isLoggedIn) {
+      if (isLoggedIn || pendingLogin) {
+        pendingSubscribeRef.current = null;
+      } else {
         pendingSubscribeRef.current = {
           subscriptionPeriod: selectedSubscriptionPeriod,
           freeTrial: selectedPackage?.freeTrial,
@@ -282,7 +401,7 @@ export default function PrimeDashboard({
       }
 
       await runPrimeSubscribeWithMinimumLoadingDuration(() =>
-        ensurePrimeSubscriptionActive({
+        ensurePrimeSubscriptionActiveRef.current({
           skipDialogConfirm: true,
           selectedSubscriptionPeriod,
           featureName: fromFeature,
@@ -294,7 +413,8 @@ export default function PrimeDashboard({
       setIsSubscribeLazyLoading(false);
     }
   }, [
-    ensurePrimeSubscriptionActive,
+    handleDashboardLoginError,
+    navigation,
     selectedSubscriptionPeriod,
     subscribeButtonEnabled,
     fromFeature,
@@ -315,8 +435,12 @@ export default function PrimeDashboard({
   //   return isPrimeSubscriptionActive && platformEnv.isNativeIOS;
   // }, [isPrimeSubscriptionActive]);
 
+  // Persisted Prime flags hide the purchase footer, but a failed service-token
+  // login still needs the retry CTA in that footer.
+  const shouldShowLoginPrompt = !isLoggedInMaybe || didDashboardLoginFail;
+
   const renderLoginPrompt = useMemo(() => {
-    if (isLoggedInMaybe) {
+    if (!shouldShowLoginPrompt) {
       return null;
     }
     const fullText = intl.formatMessage({
@@ -331,7 +455,7 @@ export default function PrimeDashboard({
           cursor="pointer"
           hoverStyle={{ opacity: 0.8 }}
           onPress={() => {
-            void loginOneKeyId();
+            void handleDashboardLogin();
           }}
         >
           {fullText}
@@ -351,14 +475,14 @@ export default function PrimeDashboard({
           cursor="pointer"
           hoverStyle={{ opacity: 0.8 }}
           onPress={() => {
-            void loginOneKeyId();
+            void handleDashboardLogin();
           }}
         >
           {action}
         </SizableText>
       </XStack>
     );
-  }, [isLoggedInMaybe, intl, loginOneKeyId]);
+  }, [handleDashboardLogin, intl, shouldShowLoginPrompt]);
 
   return (
     <>
@@ -449,7 +573,7 @@ export default function PrimeDashboard({
             ) : null}
           </Page.Body>
 
-          {shouldShowConfirmButton ? (
+          {shouldShowConfirmButton || shouldShowLoginPrompt ? (
             <Page.Footer>
               <FooterGradient />
               <Stack p="$5" pt="$1" gap="$4">
@@ -467,12 +591,14 @@ export default function PrimeDashboard({
                   }}
                 >
                   {renderLoginPrompt}
-                  <Page.FooterActions
-                    p="$0"
-                    confirmButtonProps={subscribeConfirmButtonProps}
-                    onConfirm={subscribe}
-                    onConfirmText={subscribeButtonText}
-                  />
+                  {shouldShowConfirmButton ? (
+                    <Page.FooterActions
+                      p="$0"
+                      confirmButtonProps={subscribeConfirmButtonProps}
+                      onConfirm={subscribe}
+                      onConfirmText={subscribeButtonText}
+                    />
+                  ) : null}
                 </XStack>
 
                 {/* Mobile layout: column with subscribe and login */}
@@ -482,13 +608,15 @@ export default function PrimeDashboard({
                   alignItems="center"
                   $gtMd={{ display: 'none' }}
                 >
-                  <Page.FooterActions
-                    p="$0"
-                    width="100%"
-                    confirmButtonProps={subscribeConfirmButtonProps}
-                    onConfirm={subscribe}
-                    onConfirmText={subscribeButtonText}
-                  />
+                  {shouldShowConfirmButton ? (
+                    <Page.FooterActions
+                      p="$0"
+                      width="100%"
+                      confirmButtonProps={subscribeConfirmButtonProps}
+                      onConfirm={subscribe}
+                      onConfirmText={subscribeButtonText}
+                    />
+                  ) : null}
                   {renderLoginPrompt}
                 </YStack>
               </Stack>

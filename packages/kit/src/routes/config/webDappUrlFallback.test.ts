@@ -5,6 +5,7 @@ import {
   ETabMarketRoutes,
   ETabRoutes,
   PRIME_REDEEM_LANDING_PATH,
+  PRIME_SUBSCRIPTION_LANDING_PATH,
 } from '@onekeyhq/shared/src/routes';
 import type { IScreenPathConfig } from '@onekeyhq/shared/src/utils/routeUtils';
 import { buildAllowList } from '@onekeyhq/shared/src/utils/routeUtils';
@@ -148,6 +149,33 @@ describe('getWebDappUrlFallback', () => {
           currentSearch: '?code=OKP-TEST',
         }),
       ).toBe(`${PRIME_REDEEM_LANDING_PATH}?code=OKP-TEST`);
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it('keeps the Prime subscription landing path', () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation();
+    try {
+      const primeLandingAllowList = buildAllowList({}, true);
+
+      expect(primeLandingAllowList[PRIME_SUBSCRIPTION_LANDING_PATH]).toEqual({
+        showUrl: true,
+        showParams: false,
+      });
+      const slashStrippedKey = `/${PRIME_SUBSCRIPTION_LANDING_PATH.replace(
+        /\//g,
+        '',
+      )}`;
+      expect(primeLandingAllowList[slashStrippedKey]).toBeUndefined();
+      expect(
+        getWebDappUrlFallback({
+          allowList: primeLandingAllowList,
+          allowListKeys: Object.keys(primeLandingAllowList),
+          currentPath: PRIME_SUBSCRIPTION_LANDING_PATH,
+          currentSearch: '?utm=test',
+        }),
+      ).toBe(PRIME_SUBSCRIPTION_LANDING_PATH);
     } finally {
       errorSpy.mockRestore();
     }
