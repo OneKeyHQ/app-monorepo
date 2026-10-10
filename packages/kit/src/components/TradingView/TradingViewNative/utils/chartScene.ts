@@ -110,6 +110,7 @@ import type {
 } from './subIndicatorRender';
 import type {
   ITradingViewNativeCandleLabels,
+  ITradingViewNativeCandleTimeMode,
   ITradingViewNativeChartLeafComponent,
   ITradingViewNativeChartType,
   ITradingViewNativePriceScaleMode,
@@ -252,6 +253,7 @@ export type ITradingViewNativeChartSceneCommand =
 
 export interface IBuildTradingViewNativeChartSceneOptions {
   candleIntervalSeconds: number;
+  candleTimeMode?: ITradingViewNativeCandleTimeMode;
   chartComponents?: readonly ITradingViewNativeChartLeafComponent[];
   chartSettings?: ITradingViewNativeChartSettings;
   chartType: ITradingViewNativeChartType;
@@ -671,6 +673,7 @@ function appendLegendCommands({
 
 export function buildTradingViewNativeChartScene({
   candleIntervalSeconds,
+  candleTimeMode,
   chartComponents = [],
   chartSettings,
   chartType,
@@ -1199,6 +1202,7 @@ export function buildTradingViewNativeChartScene({
       crosshairTimestamp = getTradingViewNativeCandleTimestampAtOffset({
         timestamp: points[anchorIndex].t,
         candleIntervalSeconds,
+        candleTimeMode,
         offset: distance,
       });
     }
@@ -1540,6 +1544,7 @@ export function buildTradingViewNativeChartScene({
 
   appendTradingViewNativeTradeMarkCommands({
     candleIntervalSeconds,
+    candleTimeMode,
     commands,
     components: chartComponents,
     crosshair,

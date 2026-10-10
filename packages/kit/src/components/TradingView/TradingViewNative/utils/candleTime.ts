@@ -1,15 +1,22 @@
+import type { ITradingViewNativeCandleTimeMode } from '../types';
+
 export function getTradingViewNativeCandleTimestampAtOffset({
   timestamp,
   candleIntervalSeconds,
+  candleTimeMode = 'calendar',
   offset,
 }: {
   timestamp: number;
   candleIntervalSeconds: number;
+  candleTimeMode?: ITradingViewNativeCandleTimeMode;
   offset: number;
 }) {
   'worklet';
 
-  if (candleIntervalSeconds === 30 * 24 * 60 * 60) {
+  if (
+    candleTimeMode === 'calendar' &&
+    candleIntervalSeconds === 30 * 24 * 60 * 60
+  ) {
     const date = new Date(timestamp * 1000);
     const day = date.getUTCDate();
     const lastDay = new Date(

@@ -14,6 +14,7 @@ export type ITradingViewNativeHyperliquidEnvironment = 'mainnet' | 'testnet';
 export type ITradingViewNativeChartDisplayMode = 'default' | 'compact';
 export type ITradingViewNativeStorageNamespace = 'market' | 'perps' | 'swap';
 export type ITradingViewNativePriceScaleMode = 'linear' | 'logarithmic';
+export type ITradingViewNativeCandleTimeMode = 'calendar' | 'fixed';
 
 export interface ITradingViewNativeCandleLabels {
   close: string;

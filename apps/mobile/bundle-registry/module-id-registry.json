@@ -20164,6 +20164,7 @@
     "packages/kit/src/components/TradingView/TradingViewNative/useTradingViewNativeChartComponents.ts": 14562,
     "packages/kit/src/components/TradingView/TradingViewNative/useTradingViewNativeSettings.ts": 10657,
     "packages/kit/src/components/TradingView/TradingViewNative/useTradingViewPanelSettings.ts": 6693,
+    "packages/kit/src/components/TradingView/TradingViewNative/utils/candleTime.ts": 5309,
     "packages/kit/src/components/TradingView/TradingViewNative/utils/chartComponentScene.ts": 2502,
     "packages/kit/src/components/TradingView/TradingViewNative/utils/chartComponentTree.ts": 11395,
     "packages/kit/src/components/TradingView/TradingViewNative/utils/chartIndicators/boll.ts": 15976,

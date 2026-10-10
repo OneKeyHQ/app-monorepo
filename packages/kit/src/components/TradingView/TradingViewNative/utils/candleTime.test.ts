@@ -30,4 +30,20 @@ describe('candle timestamps outside loaded data', () => {
       }),
     ).toBe(timestamp - 3 * 3600);
   });
+
+  it.each([-1, 1, 2])(
+    'keeps fixed buckets that start on February 1 fixed at offset %s',
+    (offset) => {
+      const timestamp = Date.UTC(2027, 1, 1) / 1000;
+      expect(timestamp).toBe(695 * MONTH);
+      expect(
+        getTradingViewNativeCandleTimestampAtOffset({
+          timestamp,
+          offset,
+          candleIntervalSeconds: MONTH,
+          candleTimeMode: 'fixed',
+        }),
+      ).toBe(timestamp + offset * MONTH);
+    },
+  );
 });

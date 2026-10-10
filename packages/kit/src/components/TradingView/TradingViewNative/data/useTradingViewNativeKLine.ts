@@ -53,6 +53,7 @@ import type {
 } from './tradingViewNativeIntervals';
 import type { ITradingViewNativeIntervalStorageNamespace } from './tradingViewNativeIntervalStorage';
 import type {
+  ITradingViewNativeCandleTimeMode,
   ITradingViewNativeDataState,
   ITradingViewNativeSource,
   ITradingViewNativeStorageNamespace,
@@ -366,11 +367,13 @@ function mergeRealtimePoint(
 
 function createRealtimePricePoint({
   interval,
+  candleTimeMode,
   latestPoint,
   price,
   timestamp,
 }: {
   interval: ITradingViewNativeKLineInterval;
+  candleTimeMode: ITradingViewNativeCandleTimeMode;
   latestPoint: IMarketTokenKLineDataPoint;
   price: number;
   timestamp: number;
@@ -380,12 +383,13 @@ function createRealtimePricePoint({
   }
 
   let candleTimestamp = latestPoint.t;
-  if (interval.value === '1M') {
+  if (interval.value === '1M' && candleTimeMode === 'calendar') {
     let offset = 1;
     while (true) {
       const nextTimestamp = getTradingViewNativeCandleTimestampAtOffset({
         timestamp: latestPoint.t,
         candleIntervalSeconds: interval.seconds,
+        candleTimeMode,
         offset,
       });
       if (nextTimestamp > timestamp) {
@@ -3714,6 +3718,7 @@ export function useTradingViewNativeKLine({
         });
         const pricePoint = createRealtimePricePoint({
           interval,
+          candleTimeMode: historyProvider.getCandleTimeMode?.() ?? 'calendar',
           latestPoint,
           price: update.price,
           timestamp: update.t,
@@ -3792,7 +3797,7 @@ export function useTradingViewNativeKLine({
             };
       });
     },
-    [activeInterval, seriesKey],
+    [activeInterval, historyProvider, seriesKey],
   );
 
   const handleRealtimePointRef = useRef(handleRealtimePoint);
@@ -4463,6 +4468,7 @@ export function useTradingViewNativeKLine({
   return {
     calendarAvailableTimeRange,
     candleIntervalSeconds: displayedInterval.seconds,
+    candleTimeMode: historyProvider.getCandleTimeMode?.() ?? 'calendar',
     chartType: getTradingViewNativeChartType({
       hasSingleValueHistory: isSingleValueHistoryClassification(
         visibleHistoryPointTypeScopes?.get(

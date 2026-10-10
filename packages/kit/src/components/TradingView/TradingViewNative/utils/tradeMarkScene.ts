@@ -17,6 +17,7 @@ import type {
 } from './chartScene';
 import type { ITradingViewNativePrimarySeriesPriceSource } from './chartType';
 import type {
+  ITradingViewNativeCandleTimeMode,
   ITradingViewNativeChartLeafComponent,
   ITradingViewNativePriceScaleMode,
 } from '../types';
@@ -32,10 +33,12 @@ export function getTradingViewNativeTradeMarkPointIndex({
   points,
   timestamp,
   candleIntervalSeconds,
+  candleTimeMode,
 }: {
   points: readonly IMarketTokenKLineDataPoint[];
   timestamp: number;
   candleIntervalSeconds: number;
+  candleTimeMode?: ITradingViewNativeCandleTimeMode;
 }): number | null {
   'worklet';
 
@@ -61,6 +64,7 @@ export function getTradingViewNativeTradeMarkPointIndex({
   const end = getTradingViewNativeCandleTimestampAtOffset({
     timestamp: point.t,
     candleIntervalSeconds,
+    candleTimeMode,
     offset: 1,
   });
   // Do not attach trades in a missing candle to the preceding candle.
@@ -161,6 +165,7 @@ function appendTradeMarkTooltip({
 
 export function appendTradingViewNativeTradeMarkCommands({
   candleIntervalSeconds,
+  candleTimeMode,
   commands,
   components,
   crosshair,
@@ -176,6 +181,7 @@ export function appendTradingViewNativeTradeMarkCommands({
   priceSource,
 }: {
   candleIntervalSeconds: number;
+  candleTimeMode?: ITradingViewNativeCandleTimeMode;
   commands: ITradingViewNativeChartSceneCommand[];
   components: readonly ITradingViewNativeChartLeafComponent[];
   crosshair: ITradingViewNativeChartRuntimeCrosshair;
@@ -211,6 +217,7 @@ export function appendTradingViewNativeTradeMarkCommands({
       ids.add(mark.id);
       const index = getTradingViewNativeTradeMarkPointIndex({
         candleIntervalSeconds,
+        candleTimeMode,
         points,
         timestamp: mark.time,
       });

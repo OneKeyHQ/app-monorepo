@@ -38,7 +38,10 @@ import type {
   ITradingViewNativeHistoryResponse,
   ITradingViewNativeRealtimeSubscriptionRequest,
 } from './providers/types';
-import type { ITradingViewNativeSource } from '../types';
+import type {
+  ITradingViewNativeCandleTimeMode,
+  ITradingViewNativeSource,
+} from '../types';
 
 const mockFetchHistory = jest.fn<
   Promise<ITradingViewNativeHistoryResponse | null>,
@@ -69,6 +72,7 @@ let mockVisibilityListener: ((isVisible: boolean) => void) | undefined;
 let mockHistoryBatchSize = 1;
 let mockHistoryRequestCandleCount = 1;
 let mockRealtimeInterval: ITradingViewNativeDataProvider['realtimeInterval'];
+let mockCandleTimeMode: ITradingViewNativeCandleTimeMode = 'calendar';
 
 jest.mock('@onekeyhq/components/src/hooks/useVisibilityChange', () => ({
   getCurrentVisibilityState: () => mockCurrentVisibility,
@@ -249,6 +253,7 @@ describe('TradingViewNative K-line data state machine', () => {
     mockHistoryBatchSize = 1;
     mockHistoryRequestCandleCount = 1;
     mockRealtimeInterval = undefined;
+    mockCandleTimeMode = 'calendar';
     mockCurrentVisibility = true;
     mockVisibilityListener = undefined;
     realtimePointListener = undefined;
@@ -262,6 +267,7 @@ describe('TradingViewNative K-line data state machine', () => {
       };
     });
     mockCreateTradingViewNativeDataProvider.mockImplementation((source) => ({
+      getCandleTimeMode: () => mockCandleTimeMode,
       getHistoryRequestCandleCount: () => mockHistoryRequestCandleCount,
       hasMoreHistory: mockHasMoreHistory,
       historyRefreshInterval: source.kind === 'asset' ? 30_000 : undefined,
@@ -948,6 +954,40 @@ describe('TradingViewNative K-line data state machine', () => {
     expect(dailyRequestCount).toBe(4);
     expect(result.current.calendarAvailableTimeRange).toEqual({
       from: 110_000,
+    });
+  });
+
+  it('keeps a February 1 fixed monthly bucket through realtime updates', async () => {
+    mockCandleTimeMode = 'fixed';
+    mockReadTradingViewNativeActiveInterval.mockReturnValue('1M');
+    const timestamp = Date.UTC(2027, 1, 1) / 1000;
+    mockFetchHistory.mockResolvedValue(buildResponse(100, timestamp));
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({
+        source: buildMarketSource({ realtime: 'websocket' }),
+      }),
+    );
+    await waitFor(() => expect(result.current.points[0]?.c).toBe(100));
+    await waitFor(() => expect(mockSubscribeRealtime).toHaveBeenCalled());
+    expect(result.current.candleTimeMode).toBe('fixed');
+    act(() => {
+      realtimePointListener?.({
+        price: 105,
+        t: Date.UTC(2027, 2, 1) / 1000,
+      });
+    });
+    expect(result.current.points).toHaveLength(1);
+    expect(result.current.points[0]).toMatchObject({ c: 105, t: timestamp });
+    act(() => {
+      realtimePointListener?.({
+        price: 110,
+        t: Date.UTC(2027, 2, 3) / 1000,
+      });
+    });
+    expect(result.current.points).toHaveLength(2);
+    expect(result.current.points.at(-1)).toMatchObject({
+      c: 110,
+      t: timestamp + 30 * 24 * 60 * 60,
     });
   });
 

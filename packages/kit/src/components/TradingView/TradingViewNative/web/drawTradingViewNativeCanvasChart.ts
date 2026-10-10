@@ -13,6 +13,7 @@ import {
 
 import type {
   ITradingViewNativeCandleLabels,
+  ITradingViewNativeCandleTimeMode,
   ITradingViewNativeChartLeafComponent,
   ITradingViewNativeChartType,
   ITradingViewNativePriceScaleMode,
@@ -24,6 +25,7 @@ import type { ITradingViewNativeSubIndicatorRenderPane } from '../utils/subIndic
 
 interface IDrawTradingViewNativeCanvasChartOptions {
   candleIntervalSeconds: number;
+  candleTimeMode?: ITradingViewNativeCandleTimeMode;
   canvas: HTMLCanvasElement;
   chartComponents: readonly ITradingViewNativeChartLeafComponent[];
   chartSettings: ITradingViewNativeChartSettings;
@@ -55,6 +57,7 @@ interface IDrawTradingViewNativeCanvasChartOptions {
 
 export function drawTradingViewNativeCanvasChart({
   candleIntervalSeconds,
+  candleTimeMode,
   canvas,
   chartComponents,
   chartSettings,
@@ -104,6 +107,7 @@ export function drawTradingViewNativeCanvasChart({
 
   const scene = buildTradingViewNativeChartScene({
     candleIntervalSeconds,
+    candleTimeMode,
     chartComponents,
     chartSettings,
     chartType,

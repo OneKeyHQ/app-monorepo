@@ -132,6 +132,7 @@ export const TradingViewNativeChart = memo(
     drawingStorageKey,
     enableDrawings: drawingsEnabled = false,
     candleIntervalSeconds,
+    candleTimeMode,
     chartComponents,
     onReferenceLineAction,
     onPriceSelect,
@@ -427,6 +428,7 @@ export const TradingViewNativeChart = memo(
         const referenceLinePriceRange = getReferenceLinePriceRange();
         const scene = drawTradingViewNativeCanvasChart({
           candleIntervalSeconds,
+          candleTimeMode,
           canvas,
           chartComponents: getInteractiveChartComponents(),
           chartSettings,
@@ -513,6 +515,7 @@ export const TradingViewNativeChart = memo(
         axisText,
         background,
         candleIntervalSeconds,
+        candleTimeMode,
         getInteractiveChartComponents,
         getReferenceLinePriceRange,
         chartSettings,

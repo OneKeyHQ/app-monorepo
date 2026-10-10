@@ -11,6 +11,7 @@ import {
 import { getTradingViewNativeGestureStartOffsetAfterDataUpdate } from '../utils/chartViewport';
 
 import type {
+  ITradingViewNativeCandleTimeMode,
   ITradingViewNativeChartLeafComponent,
   ITradingViewNativeChartType,
   ITradingViewNativeInitialRightOffset,
@@ -27,6 +28,7 @@ export interface ITradingViewNativeChartSize {
 
 export interface ITradingViewNativeChartRuntime extends ITradingViewNativeChartRuntimeState {
   candleIntervalSeconds: number;
+  candleTimeMode: ITradingViewNativeCandleTimeMode;
   chartComponents: readonly ITradingViewNativeChartLeafComponent[];
   chartSettings: ITradingViewNativeChartSettings;
   chartType: ITradingViewNativeChartType;
@@ -129,6 +131,7 @@ export function resizeTradingViewNativeChartRuntime(
 
 export function createTradingViewNativeChartRuntime({
   candleIntervalSeconds,
+  candleTimeMode = 'calendar',
   chartComponents,
   chartSettings,
   chartType,
@@ -140,6 +143,7 @@ export function createTradingViewNativeChartRuntime({
   subIndicatorPanes,
 }: {
   candleIntervalSeconds: number;
+  candleTimeMode?: ITradingViewNativeCandleTimeMode;
   chartComponents: readonly ITradingViewNativeChartLeafComponent[];
   chartSettings: ITradingViewNativeChartSettings;
   chartType: ITradingViewNativeChartType;
@@ -153,6 +157,7 @@ export function createTradingViewNativeChartRuntime({
   return {
     ...createTradingViewNativeChartRuntimeState({ initialRightOffset }),
     candleIntervalSeconds,
+    candleTimeMode,
     chartComponents,
     chartSettings,
     chartType,
