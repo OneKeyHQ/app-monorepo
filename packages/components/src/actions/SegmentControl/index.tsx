@@ -73,6 +73,7 @@ function SegmentControlItem({
   activeTextColor,
   inactiveTextColor,
   testID,
+  onLayout,
   ...rest
 }: {
   label: string | ReactElement;
@@ -95,6 +96,7 @@ function SegmentControlItem({
   const handleHoverOut = useCallback(() => setHovered(false), []);
   const handleLayout = useCallback(
     (e: LayoutChangeEvent) => {
+      onLayout?.(e);
       let { x, y, width, height } = e.nativeEvent.layout;
       // A hidden control (display: none) reports an empty rect. Keep the last
       // real one so the thumb is already in place when it shows again.
@@ -120,7 +122,7 @@ function SegmentControlItem({
       }
       onItemLayout(index, { x, y, width, height });
     },
-    [index, onItemLayout],
+    [index, onItemLayout, onLayout],
   );
 
   let textColor = inactiveTextColor ?? (floating ? '$textSubdued' : '$text');
