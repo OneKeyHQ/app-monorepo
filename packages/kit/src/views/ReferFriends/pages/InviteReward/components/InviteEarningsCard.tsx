@@ -78,17 +78,23 @@ function StatCell({
   children,
   onPress,
   testID,
+  share = 1,
 }: {
   label: string;
   leading?: ReactNode;
   children: ReactNode;
   onPress?: () => void;
   testID?: string;
+  // Width share of the row. A zero basis keeps the split fixed, so masking
+  // the address does not resize the cells.
+  share?: number;
 }) {
   return (
     <XStack
       testID={testID}
-      flex={1}
+      flex={share}
+      flexBasis={0}
+      minWidth={0}
       ai="center"
       gap="$2"
       py="$1"
@@ -142,7 +148,7 @@ function PayoutAddressValue({
   const isHidden = visibility ? !visibility.isVisible : false;
   return (
     <XStack ai="center" gap="$1.5" flexShrink={1} minWidth={0}>
-      {networkId && !isHidden ? (
+      {networkId ? (
         <NetworkAvatar
           networkId={networkId}
           // A chain mark, a step below the address text.
@@ -270,6 +276,9 @@ function DesktopEarnings({
         </StatCell>
         <StatCell
           testID={ReferFriendsTestIDs.invitePayoutAddress}
+          // The address, its chain and the eye need about twice an
+          // amount's width.
+          share={2}
           label={labels.payoutAddress}
           onPress={onEditAddress}
         >
