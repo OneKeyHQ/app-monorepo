@@ -4,32 +4,33 @@ import { useIntl } from 'react-intl';
 
 import { ActionList, Badge } from '@onekeyhq/components';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
-import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { canAccessBulkSend } from '../../../BulkSend/access';
 import { useBulkSendModeDialog } from '../../../BulkSend/hooks/useBulkSendModeDialog';
 import { useNavigateToBulkSend } from '../../../BulkSend/hooks/useNavigateToBulkSend';
 import { usePrimeAvailable } from '../../../Prime/hooks/usePrimeAvailable';
+import { usePrimeFeatureAccess } from '../../../Prime/hooks/usePrimeFeatureAccess';
 
 export function WalletActionBulkSend({ onClose }: { onClose: () => void }) {
   const intl = useIntl();
-  const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { network, account, indexedAccount } = activeAccount;
 
-  const { user, isPrimeActive } = useOneKeyAuth();
+  const { user, isPrimeActive, isPrimeSubscriptionActive } = useOneKeyAuth();
+  // Access without free-trial metering (E2E / Prime); free users go through
+  // the gate.
   const hasBulkSendAccess = canAccessBulkSend({
     isE2E: platformEnv.isE2E === true,
-    isPrimeActive,
+    isPrimeActive: Boolean(isPrimeSubscriptionActive),
     oneKeyUserId: user?.onekeyUserId,
   });
+  const { ensureFeatureAccess } = usePrimeFeatureAccess();
   const { isPrimeAvailable } = usePrimeAvailable();
 
   const navigateToBulkSend = useNavigateToBulkSend();
@@ -45,13 +46,16 @@ export function WalletActionBulkSend({ onClose }: { onClose: () => void }) {
         entryPoint: 'moreActions',
         isPrimeActive,
       });
-      navigation.pushFullModal(EModalRoutes.PrimeModal, {
-        screen: EPrimePages.PrimeDashboard,
-        params: {
-          fromFeature: EPrimeFeatures.BulkSend,
-        },
+      // The bulk send pages open in the extension expand tab, which runs
+      // the login and page-level gate itself.
+      const access = await ensureFeatureAccess({
+        featureId: EPrimeFeatures.BulkSend,
+        networkId: network?.id,
+        extPopup: { mode: 'passThrough' },
       });
-      return;
+      if (!access.granted) {
+        return;
+      }
     }
 
     showBulkSendModeDialog({
@@ -70,7 +74,7 @@ export function WalletActionBulkSend({ onClose }: { onClose: () => void }) {
     hasBulkSendAccess,
     navigateToBulkSend,
     showBulkSendModeDialog,
-    navigation,
+    ensureFeatureAccess,
     network?.id,
     account?.id,
     indexedAccount?.id,

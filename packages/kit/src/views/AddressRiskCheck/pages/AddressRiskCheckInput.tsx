@@ -22,6 +22,7 @@ import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { queryAddressWithFallback } from '@onekeyhq/kit/src/components/AddressInput/utils';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -30,10 +31,13 @@ import {
   EModalAddressRiskCheckRoutes,
   type IModalAddressRiskCheckParamList,
 } from '@onekeyhq/shared/src/routes/addressRiskCheck';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IAddressRiskCheckRecentItem } from '@onekeyhq/shared/types/addressRiskCheck';
 
 import useConfigurableChainSelector from '../../ChainSelector/hooks/useChainSelector';
+import { PrimeFreeTrialRemainingHint } from '../../Prime/components/PrimeFreeTrialRemainingHint';
+import { usePrimeFeatureAccess } from '../../Prime/hooks/usePrimeFeatureAccess';
 import { RecentCheckItem } from '../components/RecentCheckItem';
 import { useCheckAddressRisk } from '../hooks/useCheckAddressRisk';
 import { useRecentChecks } from '../hooks/useRecentChecks';
@@ -48,6 +52,11 @@ function AddressRiskCheckInput() {
   const { getClipboard } = useClipboard();
   const { isChecking, checkRisk } = useCheckAddressRisk();
   const { items: recentChecks, networkNameMap } = useRecentChecks({ limit: 3 });
+  // Check history (incl. the recent list here) stays a Prime benefit; free
+  // trial users only get the checks themselves.
+  const { isPrimeSubscriptionActive } = useOneKeyAuth();
+  const { openPrimeDashboard } = usePrimeFeatureAccess();
+  const canViewHistory = Boolean(isPrimeSubscriptionActive);
 
   const route =
     useRoute<
@@ -188,8 +197,15 @@ function AddressRiskCheckInput() {
   }, [getClipboard]);
 
   const handleOpenHistory = useCallback(() => {
+    if (!canViewHistory) {
+      openPrimeDashboard({
+        featureId: EPrimeFeatures.AddressRiskCheck,
+        networkId: activeNetworkId,
+      });
+      return;
+    }
     navigation.push(EModalAddressRiskCheckRoutes.AddressRiskCheckHistory);
-  }, [navigation]);
+  }, [activeNetworkId, canViewHistory, navigation, openPrimeDashboard]);
 
   const handleRecentPress = useCallback(
     (item: IAddressRiskCheckRecentItem) => {
@@ -245,6 +261,9 @@ function AddressRiskCheckInput() {
                 id: ETranslations.address_risk_check_intro__desc,
               })}
             </SizableText>
+            <PrimeFreeTrialRemainingHint
+              featureId={EPrimeFeatures.AddressRiskCheck}
+            />
 
             <YStack gap="$1.5">
               <SizableText size="$bodyMdMedium">
@@ -387,7 +406,7 @@ function AddressRiskCheckInput() {
             </YStack>
           </YStack>
 
-          {recentChecks.length ? (
+          {canViewHistory && recentChecks.length ? (
             <YStack pb="$4">
               <XStack px="$5" py="$2" ai="center" jc="space-between">
                 <SizableText size="$headingSm" color="$textSubdued">

@@ -67,6 +67,7 @@ export enum EAtomNames {
   primeInitAtom = 'primeInitAtom',
   primeLoginDialogAtom = 'primeLoginDialogAtom',
   primeTransferAtom = 'primeTransferAtom',
+  primeFreeTrialAtom = 'primeFreeTrialAtom',
   keylessPinConfirmStatusAtom = 'keylessPinConfirmStatusAtom',
   keylessLastCancelVerifyPinTimeAtom = 'keylessLastCancelVerifyPinTimeAtom',
   keylessBackendShareV2MigrationPersistAtom = 'keylessBackendShareV2MigrationPersistAtom',

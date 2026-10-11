@@ -71,7 +71,7 @@ import {
   EModalSignatureConfirmRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EModalAddressRiskCheckRoutes } from '@onekeyhq/shared/src/routes/addressRiskCheck';
-import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getBadgeQueryTokenAddress } from '@onekeyhq/shared/src/utils/cexDepositSupportUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -85,6 +85,10 @@ import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import {
+  isPrimeFreeTrialTravelMode,
+  usePrimeFeatureAccess,
+} from '../../../Prime/hooks/usePrimeFeatureAccess';
 import { getAccountIdOnNetwork } from '../../../ScanQrCode/utils/getAccountIdOnNetwork';
 import { parseOnChainAmount } from '../../../ScanQrCode/utils/parseOnChainAmount';
 import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
@@ -185,7 +189,8 @@ function SendDataInputContainer() {
 
   const { hiddenTabs: recipientHiddenTabs, keylessWalletsOnly } =
     useWebDappRecipientOptions();
-  const { isPrimeActive, user } = useOneKeyAuth();
+  const { isPrimeActive, isPrimeSubscriptionActive } = useOneKeyAuth();
+  const { getCachedAccess, ensureFeatureAccess } = usePrimeFeatureAccess();
 
   const { result: addressRiskSupport } = usePromiseResult(
     async () => {
@@ -405,7 +410,15 @@ function SendDataInputContainer() {
   const toResolved = toValue?.resolved;
   const toAddressRaw = toValue?.raw;
   const toSimilarAddress = toValue?.similarAddress;
-  const isPrimeUser = Boolean(isPrimeActive && user?.onekeyUserId);
+  // Only drives the Prime badge; free-trial access is checked on press.
+  const isPrimeUser = Boolean(isPrimeSubscriptionActive);
+  const addressRiskCheckAccessStatus = getCachedAccess(
+    EPrimeFeatures.AddressRiskCheck,
+  ).status;
+  const canRunAddressRiskCheck =
+    isPrimeUser ||
+    (!isPrimeFreeTrialTravelMode() &&
+      addressRiskCheckAccessStatus === 'available');
   addressRiskContextRef.current = {
     networkId: currentAccount.networkId,
     address: toResolved,
@@ -416,12 +429,12 @@ function SendDataInputContainer() {
         currentNetworkId: currentAccount.networkId,
         supportNetworkId: addressRiskSupport.networkId,
         isSupported: addressRiskSupport.supported,
-        isPrimeUser,
+        canRunCheck: canRunAddressRiskCheck,
         resolvedAddress: toResolved,
         isPending: toPending,
       });
 
-  const handleAddressRiskCheck = useCallback(() => {
+  const handleAddressRiskCheck = useCallback(async () => {
     if (addressRiskCheckButtonState !== 'enabled') {
       return;
     }
@@ -430,22 +443,25 @@ function SendDataInputContainer() {
       entryPoint: 'sendAddressInput',
       isPrimeActive: !!isPrimeActive,
     });
-    if (!isPrimeUser) {
-      navigation.pushModal(EModalRoutes.PrimeModal, {
-        screen: EPrimePages.PrimeDashboard,
-        params: {
-          fromFeature: EPrimeFeatures.AddressRiskCheck,
-          networkId: currentAccount.networkId,
-        },
-      });
-      return;
-    }
-    if (!toResolved) {
+    const contextAtPress = {
+      networkId: currentAccount.networkId,
+      address: toResolved,
+    };
+    // In the extension popup the login is handed off to the expand tab
+    // without a continuation: this form state dies with the popup.
+    const access = await ensureFeatureAccess({
+      featureId: EPrimeFeatures.AddressRiskCheck,
+      networkId: currentAccount.networkId,
+      isContextValid: () =>
+        addressRiskContextRef.current.networkId === contextAtPress.networkId &&
+        addressRiskContextRef.current.address === contextAtPress.address,
+    });
+    if (!access.granted || !contextAtPress.address) {
       return;
     }
     const checkedContext = {
-      networkId: currentAccount.networkId,
-      address: toResolved,
+      networkId: contextAtPress.networkId,
+      address: contextAtPress.address,
     };
     navigation.pushModal(EModalRoutes.AddressRiskCheckModal, {
       screen: EModalAddressRiskCheckRoutes.AddressRiskCheckResult,
@@ -484,8 +500,8 @@ function SendDataInputContainer() {
   }, [
     addressRiskCheckButtonState,
     currentAccount.networkId,
+    ensureFeatureAccess,
     isPrimeActive,
-    isPrimeUser,
     navigation,
     toResolved,
   ]);
@@ -507,7 +523,9 @@ function SendDataInputContainer() {
           ? addressRiskCheckInteractionProps
           : {})}
         disabled={addressRiskCheckButtonState !== 'enabled'}
-        onPress={handleAddressRiskCheck}
+        onPress={() => {
+          void handleAddressRiskCheck();
+        }}
       >
         <SizableText size="$bodyMdMedium" color="$textSubdued">
           {intl.formatMessage({

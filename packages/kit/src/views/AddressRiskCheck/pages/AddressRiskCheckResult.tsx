@@ -22,6 +22,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalWebViewRoutes } from '@onekeyhq/shared/src/routes';
@@ -30,10 +31,14 @@ import type {
   IModalAddressRiskCheckParamList,
 } from '@onekeyhq/shared/src/routes/addressRiskCheck';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import { getPrimeFreeTrialError } from '@onekeyhq/shared/src/utils/primeFreeTrialUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IAddressRiskCheckResult } from '@onekeyhq/shared/types/addressRiskCheck';
 import { EKytRiskLevel } from '@onekeyhq/shared/types/kyt';
 
+import { usePrimeFeatureAccess } from '../../Prime/hooks/usePrimeFeatureAccess';
+import { getPrimeEntitlementSource } from '../../Prime/utils/primeFreeTrialAccess';
 import { AddressRiskMoreAnalysis } from '../components/AddressRiskMoreAnalysis';
 import {
   CardRow,
@@ -438,6 +443,10 @@ function AddressRiskCheckResult() {
   const [isFailed, setIsFailed] = useState(false);
   const requestNetworkId = checkRequest?.networkId;
   const requestAddress = checkRequest?.address;
+  const navigation = useAppNavigation();
+  const { handleFreeTrialError } = usePrimeFeatureAccess();
+  const [primeUser] = usePrimePersistAtom();
+  const entitlementSource = getPrimeEntitlementSource(primeUser);
 
   useEffect(() => {
     if (!requestNetworkId || !requestAddress) {
@@ -449,21 +458,37 @@ function AddressRiskCheckResult() {
       networkId: requestNetworkId,
       address: requestAddress,
       entryPoint: 'sendAddressInput',
+      entitlementSource,
     }).then(
       (nextResult) => {
         if (isActive) {
           setResult(nextResult);
         }
       },
-      () => {
-        if (isActive) {
-          setIsFailed(true);
+      async (error: unknown) => {
+        if (!isActive) {
+          return;
         }
+        if (getPrimeFreeTrialError(error)) {
+          // Close this result modal first so the user is not left on a
+          // pending / failed page behind the Prime dashboard.
+          navigation.popStack();
+          await timerUtils.wait(300);
+          handleFreeTrialError({
+            error,
+            networkId: requestNetworkId,
+            afterPageExit: true,
+          });
+          return;
+        }
+        setIsFailed(true);
       },
     );
     return () => {
       isActive = false;
     };
+    // Runs once per request; navigation / feedback helpers may change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestAddress, requestNetworkId]);
 
   if (!result) {

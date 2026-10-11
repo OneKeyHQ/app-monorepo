@@ -1,0 +1,894 @@
+import {
+  OneKeyErrorPrimeLoginInvalidToken,
+  OneKeyErrorPrimePaidMembershipRequired,
+  OneKeyServerApiError,
+} from '@onekeyhq/shared/src/errors';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
+import type {
+  IPrimeFreeTrialAtomData,
+  IPrimeFreeTrialFeatureQuota,
+  IPrimeFreeTrialPendingAction,
+  IPrimeFreeTrialQuota,
+  IPrimeFreeTrialUsageRecord,
+} from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
+import {
+  EPrimeFreeTrialPendingActionType,
+  PRIME_FREE_TRIAL_NOT_OPEN_CODE,
+  PRIME_FREE_TRIAL_QUOTA_EXHAUSTED_CODE,
+} from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
+
+import ServicePrimeFreeTrial from './ServicePrimeFreeTrial';
+
+jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
+  backgroundClass: () => () => undefined,
+  backgroundMethod: () => (_t: unknown, _k: unknown, d: PropertyDescriptor) =>
+    d,
+}));
+
+const mockOneKeyIdClient = {
+  get: jest.fn(),
+  post: jest.fn(),
+};
+const mockPlainClient = {
+  get: jest.fn(),
+};
+
+jest.mock('../ServiceBase', () => ({
+  __esModule: true,
+  default: class ServiceBase {
+    backgroundApi: any;
+
+    constructor({ backgroundApi }: { backgroundApi: any }) {
+      this.backgroundApi = backgroundApi;
+    }
+
+    async getClient() {
+      return mockPlainClient;
+    }
+
+    async getOneKeyIdClient() {
+      return mockOneKeyIdClient;
+    }
+  },
+}));
+
+type IMockUser = {
+  isLoggedIn: boolean;
+  isLoggedInOnServer: boolean;
+  onekeyUserId?: string;
+  primeSubscription?: { isActive: boolean };
+};
+
+const mockState: {
+  user: IMockUser;
+  freeTrial: IPrimeFreeTrialAtomData;
+} = {
+  user: { isLoggedIn: false, isLoggedInOnServer: false },
+  freeTrial: { config: { status: 'idle' }, quota: { status: 'idle' } },
+};
+
+jest.mock('../../states/jotai/atoms/prime', () => ({
+  primePersistAtom: {
+    get: async () => mockState.user,
+  },
+  primeFreeTrialAtom: {
+    get: async () => mockState.freeTrial,
+    set: async (
+      updater: (v: IPrimeFreeTrialAtomData) => IPrimeFreeTrialAtomData,
+    ) => {
+      mockState.freeTrial = updater(mockState.freeTrial);
+    },
+  },
+  primeFreeTrialAtomInitialValue: {
+    config: { status: 'idle' },
+    quota: { status: 'idle' },
+  },
+}));
+
+jest.mock('../../dbs/simple/entity/SimpleDbEntityPrimeFreeTrial', () => ({
+  buildPrimeFreeTrialUsageRecordKey: ({
+    onekeyUserId,
+    featureId,
+    usageId,
+  }: {
+    onekeyUserId: string;
+    featureId: string;
+    usageId: string;
+  }) => `${onekeyUserId}__${featureId}__${usageId}`,
+  isPrimeFreeTrialUsageRecordReportable: (record: {
+    result?: string;
+    reportedAt?: number;
+  }) => Boolean(record.result) && !record.reportedAt,
+}));
+
+jest.mock('@onekeyhq/shared/src/travelMode', () => ({
+  travelModeManager: {
+    getRuntimeEnvironment: async () => ({ profile: { kind: 'standard' } }),
+  },
+}));
+
+jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => ({
+  __esModule: true,
+  default: {
+    wait: async () => undefined,
+    getTimeDurationMs: () => 0,
+  },
+}));
+
+jest.mock('@onekeyhq/shared/src/logger/logger', () => {
+  const noopLogger = new Proxy(jest.fn(), {
+    apply: () => undefined,
+    get: () => noopLogger,
+  });
+  return { defaultLogger: noopLogger };
+});
+
+function recordKey(record: {
+  onekeyUserId: string;
+  featureId: string;
+  usageId: string;
+}) {
+  return `${record.onekeyUserId}__${record.featureId}__${record.usageId}`;
+}
+
+function createSimpleDbMock() {
+  const records = new Map<string, IPrimeFreeTrialUsageRecord>();
+  let pendingAction: IPrimeFreeTrialPendingAction | undefined;
+  return {
+    records,
+    entity: {
+      getUsageRecords: jest.fn(async () => [...records.values()]),
+      updateUsageRecord: jest.fn(
+        async (
+          key: { onekeyUserId: string; featureId: string; usageId: string },
+          updater: (
+            record: IPrimeFreeTrialUsageRecord | undefined,
+          ) => IPrimeFreeTrialUsageRecord | undefined,
+        ) => {
+          const next = updater(records.get(recordKey(key)));
+          if (next) {
+            records.set(recordKey(key), next);
+          } else {
+            records.delete(recordKey(key));
+          }
+          return next;
+        },
+      ),
+      deleteUsageRecordsOfUser: jest.fn(
+        async ({ onekeyUserId }: { onekeyUserId: string }) => {
+          [...records.entries()].forEach(([key, record]) => {
+            if (record.onekeyUserId === onekeyUserId) {
+              records.delete(key);
+            }
+          });
+        },
+      ),
+      getPendingAction: jest.fn(async () => pendingAction),
+      setPendingAction: jest.fn(
+        async (action: IPrimeFreeTrialPendingAction) => {
+          pendingAction = action;
+        },
+      ),
+      clearPendingAction: jest.fn(
+        async (predicate?: (a: IPrimeFreeTrialPendingAction) => boolean) => {
+          if (pendingAction && predicate && !predicate(pendingAction)) {
+            return;
+          }
+          pendingAction = undefined;
+        },
+      ),
+    },
+  };
+}
+
+function createService() {
+  const simpleDb = createSimpleDbMock();
+  const servicePrime = {
+    captureOneKeyIdAuthRequestConfig: jest.fn(
+      async ({
+        expectedOneKeyUserId,
+        createStateChangedError,
+      }: {
+        expectedOneKeyUserId: string;
+        createStateChangedError: () => Error;
+      }) => {
+        if (mockState.user.onekeyUserId !== expectedOneKeyUserId) {
+          throw createStateChangedError();
+        }
+        return {
+          snapshot: { expectedOneKeyUserId },
+          requestConfig: { headers: { 'X-Onekey-Request-Token': 't' } },
+        };
+      },
+    ),
+    assertOneKeyIdAuthSnapshotUnchanged: jest.fn(async () => undefined),
+    apiFetchPrimeUserInfo: jest.fn(async () => undefined),
+  };
+  const service = new ServicePrimeFreeTrial({
+    backgroundApi: {
+      servicePrime,
+      simpleDb: { primeFreeTrial: simpleDb.entity },
+    },
+  });
+  return { service, simpleDb, servicePrime };
+}
+
+async function flushPromises() {
+  for (let i = 0; i < 20; i += 1) {
+    await new Promise((resolve) => {
+      setImmediate(resolve);
+    });
+  }
+}
+
+function serverError(code: number, data?: unknown) {
+  return new OneKeyServerApiError({
+    code,
+    message: `server ${code}`,
+    data: { code, message: `server ${code}`, data } as never,
+    httpStatusCode: 200,
+  });
+}
+
+function networkError() {
+  return new Error('Network Error');
+}
+
+const quotaOfBulkSend: IPrimeFreeTrialFeatureQuota = {
+  featureId: EPrimeFeatures.BulkSend,
+  unit: 'count',
+  monthlyQuota: 1,
+  used: 1,
+  remaining: 0,
+};
+
+function finishCalls(): Array<[string, Record<string, unknown>, unknown]> {
+  return (
+    mockOneKeyIdClient.post.mock.calls as Array<
+      [string, Record<string, unknown>, unknown]
+    >
+  ).filter(([url]) => url === '/prime/v1/free-trial/usage/finish');
+}
+
+describe('ServicePrimeFreeTrial', () => {
+  beforeEach(() => {
+    jest.useFakeTimers({
+      doNotFake: ['setImmediate', 'nextTick', 'queueMicrotask'],
+    });
+    mockOneKeyIdClient.get.mockReset();
+    mockOneKeyIdClient.post.mockReset();
+    mockPlainClient.get.mockReset();
+    mockState.user = {
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      onekeyUserId: 'user-a',
+      primeSubscription: { isActive: false },
+    };
+    mockState.freeTrial = {
+      config: { status: 'idle' },
+      quota: { status: 'idle' },
+    };
+    mockOneKeyIdClient.get.mockResolvedValue({ data: { code: 0, data: null } });
+  });
+
+  afterEach(() => {
+    jest.clearAllTimers();
+    jest.useRealTimers();
+  });
+
+  describe('startUsage', () => {
+    it('reserves a use and keeps a durable record with the expiry', async () => {
+      const { service, simpleDb } = createService();
+      mockOneKeyIdClient.post.mockResolvedValueOnce({
+        data: {
+          code: 0,
+          data: {
+            unlimited: false,
+            featureId: EPrimeFeatures.BulkSend,
+            usageId: 'usage-0001',
+            quota: quotaOfBulkSend,
+            expiresAt: 1000,
+            resetAt: 2000,
+          },
+        },
+      });
+
+      const result = await service.startUsage({
+        featureId: EPrimeFeatures.BulkSend,
+        usageId: 'usage-0001',
+      });
+
+      expect(result).toMatchObject({
+        status: 'granted',
+        usageId: 'usage-0001',
+      });
+      const record = simpleDb.records.get('user-a__BulkSend__usage-0001');
+      expect(record).toMatchObject({ expiresAt: 1000 });
+      expect(record?.result).toBeUndefined();
+    });
+
+    it('returns exhausted for 90600 without throwing', async () => {
+      const { service } = createService();
+      mockOneKeyIdClient.post.mockRejectedValueOnce(
+        serverError(PRIME_FREE_TRIAL_QUOTA_EXHAUSTED_CODE, {
+          ...quotaOfBulkSend,
+          resetAt: 2000,
+        }),
+      );
+
+      const result = await service.startUsage({
+        featureId: EPrimeFeatures.BulkSend,
+        usageId: 'usage-0002',
+      });
+
+      expect(result).toMatchObject({
+        status: 'exhausted',
+        featureId: EPrimeFeatures.BulkSend,
+        data: { featureId: EPrimeFeatures.BulkSend, remaining: 0 },
+      });
+    });
+
+    it('treats the rewritten 90005 and a raw 90601 as not open', async () => {
+      const { service } = createService();
+      mockOneKeyIdClient.post
+        .mockRejectedValueOnce(new OneKeyErrorPrimePaidMembershipRequired())
+        .mockRejectedValueOnce(serverError(PRIME_FREE_TRIAL_NOT_OPEN_CODE));
+
+      await expect(
+        service.startUsage({
+          featureId: EPrimeFeatures.BulkRevoke,
+          usageId: 'usage-0003',
+        }),
+      ).resolves.toEqual({
+        status: 'notOpen',
+        featureId: EPrimeFeatures.BulkRevoke,
+      });
+      await expect(
+        service.startUsage({
+          featureId: EPrimeFeatures.BulkRevoke,
+          usageId: 'usage-0004',
+        }),
+      ).resolves.toEqual({
+        status: 'notOpen',
+        featureId: EPrimeFeatures.BulkRevoke,
+      });
+    });
+
+    it('retries the same id and releases it with cancelled when still unknown', async () => {
+      const { service } = createService();
+      mockOneKeyIdClient.post.mockImplementation(async (url: string) => {
+        if (url === '/prime/v1/free-trial/usage/start') {
+          throw networkError();
+        }
+        return { data: { code: 0, data: { unlimited: false } } };
+      });
+
+      await expect(
+        service.startUsage({
+          featureId: EPrimeFeatures.BulkSend,
+          usageId: 'usage-0005',
+        }),
+      ).rejects.toThrow('Network Error');
+      await flushPromises();
+
+      const startCalls = mockOneKeyIdClient.post.mock.calls.filter(
+        ([url]) => url === '/prime/v1/free-trial/usage/start',
+      );
+      expect(startCalls).toHaveLength(3);
+      startCalls.forEach(([, body]) =>
+        expect(body).toEqual({
+          featureId: EPrimeFeatures.BulkSend,
+          usageId: 'usage-0005',
+        }),
+      );
+      expect(finishCalls()).toEqual([
+        [
+          '/prime/v1/free-trial/usage/finish',
+          {
+            featureId: EPrimeFeatures.BulkSend,
+            usageId: 'usage-0005',
+            result: 'cancelled',
+          },
+          expect.anything(),
+        ],
+      ]);
+    });
+
+    it('never starts for a local Prime user', async () => {
+      const { service } = createService();
+      mockState.user.primeSubscription = { isActive: true };
+
+      await expect(
+        service.startUsage({
+          featureId: EPrimeFeatures.BulkSend,
+          usageId: 'usage-0007',
+        }),
+      ).resolves.toEqual({ status: 'unlimited' });
+      expect(mockOneKeyIdClient.post).not.toHaveBeenCalled();
+    });
+
+    it('asks for a login instead of failing silently', async () => {
+      const { service } = createService();
+      mockState.user = { isLoggedIn: false, isLoggedInOnServer: false };
+
+      await expect(
+        service.startUsage({
+          featureId: EPrimeFeatures.BulkCopyAddresses,
+          usageId: 'usage-0008',
+        }),
+      ).resolves.toEqual({
+        status: 'loginRequired',
+        featureId: EPrimeFeatures.BulkCopyAddresses,
+      });
+      expect(mockOneKeyIdClient.post).not.toHaveBeenCalled();
+    });
+
+    it('does not retry a definitive error', async () => {
+      const { service } = createService();
+      mockOneKeyIdClient.post.mockRejectedValue(serverError(90_001));
+
+      await expect(
+        service.startUsage({
+          featureId: EPrimeFeatures.BulkSend,
+          usageId: 'usage-0006',
+        }),
+      ).rejects.toBeTruthy();
+      expect(mockOneKeyIdClient.post).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('usage results', () => {
+    function seedStartedUsage(
+      simpleDb: ReturnType<typeof createSimpleDbMock>,
+      {
+        usageId,
+        featureId = EPrimeFeatures.BulkSend,
+        onekeyUserId = 'user-a',
+      }: {
+        usageId: string;
+        featureId?: EPrimeFeatures.BulkSend | EPrimeFeatures.BulkRevoke;
+        onekeyUserId?: string;
+      },
+    ) {
+      simpleDb.records.set(recordKey({ onekeyUserId, featureId, usageId }), {
+        onekeyUserId,
+        featureId,
+        usageId,
+        startedAt: Date.now(),
+        expiresAt: Date.now() + 30 * 60 * 1000,
+        reportAttempts: 0,
+      });
+    }
+
+    it('keeps success over later failed / cancelled and reports once', async () => {
+      const { service, simpleDb } = createService();
+      seedStartedUsage(simpleDb, { usageId: 'usage-1001' });
+      let resolveFinish: ((value: unknown) => void) | undefined;
+      mockOneKeyIdClient.post.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveFinish = resolve;
+          }),
+      );
+
+      await service.markUsageSuccess({
+        featureId: EPrimeFeatures.BulkSend,
+        usageId: 'usage-1001',
+      });
+      await service.settleUsage({
+        featureId: EPrimeFeatures.BulkSend,
+        usageId: 'usage-1001',
+        result: 'failed',
+      });
+      await service.markUsageSuccess({
+        featureId: EPrimeFeatures.BulkSend,
+        usageId: 'usage-1001',
+      });
+      await flushPromises();
+
+      expect(finishCalls()).toHaveLength(1);
+      expect(finishCalls()[0][1]).toMatchObject({ result: 'success' });
+
+      resolveFinish?.({ data: { code: 0, data: { unlimited: false } } });
+      await flushPromises();
+      expect(
+        simpleDb.records.get('user-a__BulkSend__usage-1001'),
+      ).toMatchObject({ result: 'success', reportedAt: expect.any(Number) });
+      await expect(
+        service.getUsageResult({
+          featureId: EPrimeFeatures.BulkSend,
+          usageId: 'usage-1001',
+        }),
+      ).resolves.toBe('success');
+    });
+
+    it('never reports again after the server confirmed (one mark per broadcast)', async () => {
+      const { service, simpleDb } = createService();
+      seedStartedUsage(simpleDb, { usageId: 'usage-1002' });
+      mockOneKeyIdClient.post.mockResolvedValue({
+        data: { code: 0, data: { unlimited: false } },
+      });
+
+      for (let i = 0; i < 5; i += 1) {
+        await service.markBroadcastSuccess({
+          featureId: EPrimeFeatures.BulkSend,
+          usageId: 'usage-1002',
+        });
+        await flushPromises();
+      }
+
+      expect(finishCalls()).toHaveLength(1);
+    });
+
+    it('drops a result of an unknown usage instead of charging the current user', async () => {
+      const { service, simpleDb } = createService();
+      mockOneKeyIdClient.post.mockResolvedValue({
+        data: { code: 0, data: { unlimited: false } },
+      });
+
+      await service.markUsageSuccess({
+        featureId: EPrimeFeatures.BulkSend,
+        usageId: 'usage-1003',
+      });
+      await flushPromises();
+
+      expect(simpleDb.records.size).toBe(0);
+      expect(finishCalls()).toHaveLength(0);
+    });
+
+    it('keeps the first non-success result', async () => {
+      const { service, simpleDb } = createService();
+      seedStartedUsage(simpleDb, {
+        usageId: 'usage-1004',
+        featureId: EPrimeFeatures.BulkRevoke,
+      });
+      mockOneKeyIdClient.post.mockImplementation(() => new Promise(() => {}));
+
+      await service.settleUsage({
+        featureId: EPrimeFeatures.BulkRevoke,
+        usageId: 'usage-1004',
+        result: 'cancelled',
+      });
+      await service.settleUsage({
+        featureId: EPrimeFeatures.BulkRevoke,
+        usageId: 'usage-1004',
+        result: 'failed',
+      });
+      await flushPromises();
+
+      expect(finishCalls()).toHaveLength(1);
+      expect(finishCalls()[0][1]).toMatchObject({ result: 'cancelled' });
+    });
+
+    it('keeps the record with backoff on a transient finish failure', async () => {
+      const { service, simpleDb } = createService();
+      seedStartedUsage(simpleDb, { usageId: 'usage-1005' });
+      mockOneKeyIdClient.post.mockRejectedValue(serverError(90_000));
+
+      await service.markUsageSuccess({
+        featureId: EPrimeFeatures.BulkSend,
+        usageId: 'usage-1005',
+      });
+      await flushPromises();
+
+      const record = simpleDb.records.get('user-a__BulkSend__usage-1005');
+      expect(record).toMatchObject({ result: 'success', reportAttempts: 1 });
+      expect(record?.reportedAt).toBeUndefined();
+      expect(record?.nextReportAt).toBeGreaterThan(Date.now());
+    });
+
+    it('treats 90001 as terminal', async () => {
+      const { service, simpleDb } = createService();
+      seedStartedUsage(simpleDb, { usageId: 'usage-1006' });
+      mockOneKeyIdClient.post.mockRejectedValue(serverError(90_001));
+
+      await service.markUsageSuccess({
+        featureId: EPrimeFeatures.BulkSend,
+        usageId: 'usage-1006',
+      });
+      await flushPromises();
+      await service.flushPendingReports({ force: true });
+      await flushPromises();
+
+      expect(finishCalls()).toHaveLength(1);
+      expect(
+        simpleDb.records.get('user-a__BulkSend__usage-1006')?.reportedAt,
+      ).toEqual(expect.any(Number));
+    });
+
+    it('keeps the record without a retry timer after an invalid token', async () => {
+      const { service, simpleDb } = createService();
+      seedStartedUsage(simpleDb, { usageId: 'usage-1007' });
+      const invalidToken = new OneKeyErrorPrimeLoginInvalidToken();
+      invalidToken.$$invalidTokenHandled = true;
+      mockOneKeyIdClient.post.mockRejectedValue(invalidToken);
+
+      await service.markUsageSuccess({
+        featureId: EPrimeFeatures.BulkSend,
+        usageId: 'usage-1007',
+      });
+      await flushPromises();
+
+      expect(
+        simpleDb.records.get('user-a__BulkSend__usage-1007'),
+      ).toMatchObject({ result: 'success', reportAttempts: 0 });
+      expect(jest.getTimerCount()).toBe(0);
+    });
+
+    it('only reports a record as its owner and never spins for others', async () => {
+      const { service, simpleDb } = createService();
+      mockOneKeyIdClient.post.mockResolvedValue({
+        data: { code: 0, data: { unlimited: false } },
+      });
+      simpleDb.records.set('user-a__BulkSend__usage-1008', {
+        onekeyUserId: 'user-a',
+        featureId: EPrimeFeatures.BulkSend,
+        usageId: 'usage-1008',
+        startedAt: Date.now(),
+        result: 'success',
+        resultAt: Date.now(),
+        reportAttempts: 2,
+        // Backoff already due: must not schedule a 1s loop for user-b.
+        nextReportAt: Date.now() - 1000,
+      });
+      mockState.user = {
+        isLoggedIn: true,
+        isLoggedInOnServer: true,
+        onekeyUserId: 'user-b',
+      };
+
+      await service.flushPendingReports({ force: true });
+      await flushPromises();
+      expect(finishCalls()).toHaveLength(0);
+      expect(jest.getTimerCount()).toBe(0);
+
+      mockState.user = {
+        isLoggedIn: true,
+        isLoggedInOnServer: true,
+        onekeyUserId: 'user-a',
+      };
+      await service.flushPendingReports({ force: true });
+      await flushPromises();
+      expect(finishCalls()).toHaveLength(1);
+      expect(
+        simpleDb.records.get('user-a__BulkSend__usage-1008')?.reportedAt,
+      ).toEqual(expect.any(Number));
+    });
+
+    it('clears every record of a deleted account', async () => {
+      const { service, simpleDb } = createService();
+      simpleDb.records.set('user-a__BulkSend__usage-1009', {
+        onekeyUserId: 'user-a',
+        featureId: EPrimeFeatures.BulkSend,
+        usageId: 'usage-1009',
+        startedAt: Date.now(),
+        result: 'success',
+        reportAttempts: 3,
+      });
+
+      await service.clearUserData({ onekeyUserId: 'user-a' });
+
+      expect(simpleDb.records.size).toBe(0);
+    });
+  });
+
+  describe('getHeldReservationEnd', () => {
+    function seedRecord(
+      simpleDb: ReturnType<typeof createSimpleDbMock>,
+      record: Partial<IPrimeFreeTrialUsageRecord> & { usageId: string },
+    ) {
+      const full: IPrimeFreeTrialUsageRecord = {
+        onekeyUserId: 'user-a',
+        featureId: EPrimeFeatures.BulkSend,
+        startedAt: Date.now(),
+        reportAttempts: 0,
+        ...record,
+      };
+      simpleDb.records.set(recordKey(full), full);
+    }
+
+    it('returns the earliest end of a reservation still held', async () => {
+      const { service, simpleDb } = createService();
+      const now = Date.now();
+      // Interrupted: no result yet
+      seedRecord(simpleDb, { usageId: 'usage-2001', expiresAt: now + 20_000 });
+      // Release not reported yet
+      seedRecord(simpleDb, {
+        usageId: 'usage-2002',
+        expiresAt: now + 10_000,
+        result: 'cancelled',
+      });
+
+      await expect(
+        service.getHeldReservationEnd({ featureId: EPrimeFeatures.BulkSend }),
+      ).resolves.toBe(now + 10_000);
+    });
+
+    it('ignores charged, released, expired and foreign reservations', async () => {
+      const { service, simpleDb } = createService();
+      const now = Date.now();
+      seedRecord(simpleDb, {
+        usageId: 'usage-2003',
+        expiresAt: now + 10_000,
+        result: 'success',
+      });
+      seedRecord(simpleDb, {
+        usageId: 'usage-2004',
+        expiresAt: now + 10_000,
+        result: 'failed',
+        reportedAt: now,
+      });
+      seedRecord(simpleDb, { usageId: 'usage-2005', expiresAt: now - 1 });
+      seedRecord(simpleDb, {
+        usageId: 'usage-2006',
+        expiresAt: now + 10_000,
+        onekeyUserId: 'user-b',
+      });
+      seedRecord(simpleDb, {
+        usageId: 'usage-2007',
+        expiresAt: now + 10_000,
+        featureId: EPrimeFeatures.BulkRevoke,
+      });
+
+      await expect(
+        service.getHeldReservationEnd({ featureId: EPrimeFeatures.BulkSend }),
+      ).resolves.toBeUndefined();
+    });
+  });
+
+  describe('quota snapshot', () => {
+    const quota: IPrimeFreeTrialQuota = {
+      period: '2026-10',
+      resetAt: 2000,
+      features: [{ ...quotaOfBulkSend, used: 0, remaining: 1 }],
+    };
+
+    it('ignores a slower /user/info that started before a newer quota request', async () => {
+      const { service } = createService();
+      const userInfoSeq = service.allocateQuotaRequestSeq();
+      mockOneKeyIdClient.get.mockResolvedValueOnce({
+        data: {
+          code: 0,
+          data: {
+            ...quota,
+            features: [{ ...quotaOfBulkSend, used: 1, remaining: 0 }],
+          },
+        },
+      });
+      await service.refreshQuota();
+
+      await service.applyQuotaFromPrimeUserInfo({
+        freeTrial: quota,
+        onekeyUserId: 'user-a',
+        requestSeq: userInfoSeq,
+        isPrimeSubscriptionActive: false,
+      });
+
+      expect(mockState.freeTrial.quota.data?.features[0].remaining).toBe(0);
+    });
+
+    it('keeps the snapshot when freeTrial is missing and clears it on null', async () => {
+      const { service } = createService();
+      await service.applyQuotaFromPrimeUserInfo({
+        freeTrial: quota,
+        onekeyUserId: 'user-a',
+        requestSeq: service.allocateQuotaRequestSeq(),
+        isPrimeSubscriptionActive: false,
+      });
+      await service.applyQuotaFromPrimeUserInfo({
+        freeTrial: undefined,
+        onekeyUserId: 'user-a',
+        requestSeq: service.allocateQuotaRequestSeq(),
+        isPrimeSubscriptionActive: false,
+      });
+      expect(mockState.freeTrial.quota.data).toEqual(quota);
+
+      await service.applyQuotaFromPrimeUserInfo({
+        freeTrial: null,
+        onekeyUserId: 'user-a',
+        requestSeq: service.allocateQuotaRequestSeq(),
+        isPrimeSubscriptionActive: false,
+      });
+      expect(mockState.freeTrial.quota.data).toBeNull();
+    });
+
+    it('never writes the quota of another account', async () => {
+      const { service } = createService();
+      await service.applyQuotaFromPrimeUserInfo({
+        freeTrial: quota,
+        onekeyUserId: 'user-b',
+        requestSeq: service.allocateQuotaRequestSeq(),
+        isPrimeSubscriptionActive: false,
+      });
+      expect(mockState.freeTrial.quota.data).toBeUndefined();
+    });
+
+    it('does not query the quota for Prime users', async () => {
+      const { service } = createService();
+      mockState.user.primeSubscription = { isActive: true };
+
+      await expect(service.refreshQuota()).resolves.toBeNull();
+      expect(mockOneKeyIdClient.get).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('normalizeFreeTrialError', () => {
+    it('normalizes the raw translate 90005 to the client not-open code', () => {
+      const { service } = createService();
+      expect(
+        service.normalizeFreeTrialError({
+          error: serverError(90_005),
+          featureId: EPrimeFeatures.DAppTranslate,
+        }),
+      ).toEqual({
+        code: PRIME_FREE_TRIAL_NOT_OPEN_CODE,
+        data: { featureId: EPrimeFeatures.DAppTranslate, reason: undefined },
+      });
+    });
+
+    it('reads the 90600 business data from the response wrapper', () => {
+      const { service } = createService();
+      expect(
+        service.normalizeFreeTrialError({
+          error: serverError(PRIME_FREE_TRIAL_QUOTA_EXHAUSTED_CODE, {
+            featureId: EPrimeFeatures.AddressRiskCheck,
+            unit: 'count',
+            monthlyQuota: 5,
+            used: 5,
+            remaining: 0,
+            resetAt: 2000,
+          }),
+          featureId: EPrimeFeatures.AddressRiskCheck,
+        }),
+      ).toEqual({
+        code: PRIME_FREE_TRIAL_QUOTA_EXHAUSTED_CODE,
+        data: {
+          featureId: EPrimeFeatures.AddressRiskCheck,
+          unit: 'count',
+          monthlyQuota: 5,
+          used: 5,
+          remaining: 0,
+          resetAt: 2000,
+        },
+      });
+    });
+
+    it('ignores unrelated errors', () => {
+      const { service } = createService();
+      expect(
+        service.normalizeFreeTrialError({
+          error: serverError(90_104),
+          featureId: EPrimeFeatures.DAppTranslate,
+        }),
+      ).toBeUndefined();
+    });
+  });
+
+  describe('pending action', () => {
+    it('keeps an action saved after the cancelled login started', async () => {
+      const { service } = createService();
+      const action = await service.savePendingAction({
+        type: EPrimeFreeTrialPendingActionType.BulkCopyAddresses,
+        walletId: 'hd-1',
+        networkId: 'btc--0',
+      });
+
+      await service.clearPendingActionCreatedBefore({
+        timestamp: action.createdAt,
+      });
+      await expect(service.consumePendingAction()).resolves.toEqual(action);
+      await expect(service.consumePendingAction()).resolves.toBeUndefined();
+    });
+
+    it('drops an expired action', async () => {
+      const { service } = createService();
+      await service.savePendingAction({
+        type: EPrimeFreeTrialPendingActionType.AddressRiskCheck,
+        networkId: 'evm--1',
+      });
+      jest.setSystemTime(Date.now() + 11 * 60 * 1000);
+
+      await expect(service.consumePendingAction()).resolves.toBeUndefined();
+    });
+  });
+});

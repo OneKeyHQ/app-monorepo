@@ -127,6 +127,7 @@ function createFixture({
   const deleteOneKeyIdAccountOnServer = jest
     .fn()
     .mockResolvedValue({ ok: true });
+  const clearPrimeFreeTrialUserData = jest.fn().mockResolvedValue(undefined);
   const clearAllIdentityAuthForExplicitOperation = jest
     .fn()
     .mockResolvedValue({ status: 'committed', revision: 11 });
@@ -418,6 +419,9 @@ function createFixture({
         .fn()
         .mockResolvedValue({ recovered: false, abandoned: false }),
     },
+    servicePrimeFreeTrial: {
+      clearUserData: clearPrimeFreeTrialUserData,
+    },
   };
   const service = new ServiceIdentityExit({ backgroundApi });
   return {
@@ -433,6 +437,7 @@ function createFixture({
     commitExplicitLocalOneKeyIdLogout,
     logoutPrimeServerSessionBestEffort,
     deleteOneKeyIdAccountOnServer,
+    clearPrimeFreeTrialUserData,
     clearAllIdentityAuthForExplicitOperation,
     setPrimePersistAtomNotLoggedIn,
     setIdentityExitJournalEntry,
@@ -1775,6 +1780,7 @@ describe('ServiceIdentityExit', () => {
       uuid: 'delete-request-1',
       emailOTP: '123456',
     });
+    expect(fixture.clearPrimeFreeTrialUserData).toHaveBeenCalledTimes(1);
     expect(
       fixture.clearAllIdentityAuthForExplicitOperation,
     ).toHaveBeenCalledWith({

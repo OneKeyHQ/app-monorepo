@@ -446,6 +446,12 @@ function createService() {
       showAlertDialogIfServerPasswordNotSet: jest.fn(async () => undefined),
       showAlertDialogIfServerPasswordChanged: jest.fn(async () => undefined),
     },
+    servicePrimeFreeTrial: {
+      allocateQuotaRequestSeq: jest.fn(() => 1),
+      applyQuotaFromPrimeUserInfo: jest.fn(async () => undefined),
+      normalizeFreeTrialError: jest.fn(() => undefined),
+      handleFreeTrialErrorFromServer: jest.fn(async () => undefined),
+    },
     serviceAccount: {
       getKeylessWallet: jest.fn(async () => undefined),
     },

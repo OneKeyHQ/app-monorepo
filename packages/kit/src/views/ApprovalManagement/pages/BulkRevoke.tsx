@@ -37,6 +37,7 @@ import type {
   EModalApprovalManagementRoutes,
   IModalApprovalManagementParamList,
 } from '@onekeyhq/shared/src/routes/approvalManagement';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -53,6 +54,10 @@ import type {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import {
+  isPrimeFreeTrialUserCancelError,
+  usePrimeFreeTrialUsage,
+} from '../../Prime/hooks/usePrimeFreeTrialUsage';
 import BulkRevokeItem from '../components/BulkRevokeItem';
 import { ApprovalManagementTestIDs } from '../testIDs';
 
@@ -90,7 +95,21 @@ function BulkRevoke() {
       >
     >();
 
-  const { contractMap } = route.params;
+  const { contractMap, freeTrialUsageId } = route.params;
+
+  // Free trial (free users only, started in the method dialog). ServiceSend
+  // marks the usage consumed at the broadcast point; this page settles a
+  // round without any broadcast and decides whether a retry needs a new
+  // start. Refs only: the loop keeps running after unmount.
+  const { settleUsage, prepareRetryUsage: prepareRetryFreeTrialUsage } =
+    usePrimeFreeTrialUsage({
+      featureId: EPrimeFeatures.BulkRevoke,
+    });
+  const freeTrialUsageIdRef = useRef<string | undefined>(freeTrialUsageId);
+  const freeTrialUsageSucceededRef = useRef(false);
+  const freeTrialRoundCancelledRef = useRef(false);
+  const retryStartingRef = useRef(false);
+  const [isRetryStarting, setIsRetryStarting] = useState(false);
 
   const [unsignedTxs, setUnsignedTxs] = useState<IUnsignedTxPro[]>(
     route.params.unsignedTxs,
@@ -161,7 +180,7 @@ function BulkRevoke() {
       };
     }, [revokeTxsStatusMap]);
 
-  usePromiseResult(async () => {
+  const runRevokeLoop = useCallback(async () => {
     for (let i = 0; i < unsignedTxs?.length; i += 1) {
       const tx = unsignedTxs[i];
 
@@ -406,6 +425,7 @@ function BulkRevoke() {
           totalFiatForDisplay: feeResult.totalFiatForDisplay,
         };
 
+        const roundUsageId = freeTrialUsageIdRef.current;
         const result =
           await backgroundApiProxy.serviceSend.batchSignAndSendTransaction({
             accountId: tx.accountId,
@@ -413,7 +433,13 @@ function BulkRevoke() {
             unsignedTxs: [updatedTx],
             feeInfos: [sendSelectedFeeInfo],
             transferPayload: undefined,
+            freeTrialUsage: roundUsageId
+              ? { featureId: EPrimeFeatures.BulkRevoke, usageId: roundUsageId }
+              : undefined,
           });
+        if (roundUsageId) {
+          freeTrialUsageSucceededRef.current = true;
+        }
 
         if (
           !isNil(networkStatusRef.current[tx.networkId ?? '']?.nativeBalance)
@@ -443,6 +469,9 @@ function BulkRevoke() {
       } catch (error: unknown) {
         let passphraseEnabled;
         let deviceCommunicationError;
+        if (isPrimeFreeTrialUserCancelError(error)) {
+          freeTrialRoundCancelledRef.current = true;
+        }
         if (
           isHardwareInterruptErrorByCode({
             error: error as IOneKeyError,
@@ -538,6 +567,27 @@ function BulkRevoke() {
     }
     setProgressState(ERevokeProgressState.Finished);
   }, [unsignedTxs, waitUntilInProgress, intl]);
+
+  usePromiseResult(async () => {
+    try {
+      await runRevokeLoop();
+    } finally {
+      // Round over and every broadcast of it has returned: settle a usage
+      // without any broadcast right away (the background ignores this once a
+      // broadcast succeeded).
+      const roundUsageId = freeTrialUsageIdRef.current;
+      if (roundUsageId && !freeTrialUsageSucceededRef.current) {
+        void settleUsage(
+          roundUsageId,
+          isAborted.current || freeTrialRoundCancelledRef.current
+            ? 'cancelled'
+            : 'failed',
+        );
+      }
+    }
+    // Re-runs exactly when the loop itself changes (retry resets the txs).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runRevokeLoop]);
 
   const renderBulkRevokeAlert = useCallback(() => {
     return (
@@ -635,13 +685,46 @@ function BulkRevoke() {
     succeededTxCount,
   ]);
 
-  const handleOnCancel = useCallback(() => {
+  // Retry of failed items after the round finished. A usage with a
+  // broadcast is reused; a settled usage without one needs a new start, and
+  // a rejected start keeps the result page untouched.
+  const prepareRetryUsage = useCallback(async () => {
+    // A retry while the round still runs keeps the current usage.
+    if (progressState !== ERevokeProgressState.Finished) {
+      return true;
+    }
+    const prepared = await prepareRetryFreeTrialUsage({
+      usageId: freeTrialUsageIdRef.current,
+      succeededLocally: freeTrialUsageSucceededRef.current,
+    });
+    if (prepared.isNewUsage) {
+      freeTrialUsageIdRef.current = prepared.usageId;
+      freeTrialUsageSucceededRef.current = false;
+    }
+    return prepared.proceed;
+  }, [prepareRetryFreeTrialUsage, progressState]);
+
+  const handleOnCancel = useCallback(async () => {
     if (skippedTxCount === 0 && failedTxCount === 0) {
       isAborted.current = true;
       setProgressState(ERevokeProgressState.Aborted);
       navigation.popStack();
       return;
     }
+    if (retryStartingRef.current) {
+      return;
+    }
+    retryStartingRef.current = true;
+    setIsRetryStarting(true);
+    try {
+      if (!(await prepareRetryUsage())) {
+        return;
+      }
+    } finally {
+      retryStartingRef.current = false;
+      setIsRetryStarting(false);
+    }
+    freeTrialRoundCancelledRef.current = false;
     setProgressState(ERevokeProgressState.InProgress);
     networkStatusRef.current = {};
     setUnsignedTxs((prev) =>
@@ -652,7 +735,13 @@ function BulkRevoke() {
       ),
     );
     setRevokeTxsStatusMap({});
-  }, [skippedTxCount, failedTxCount, navigation, revokeTxsStatusMap]);
+  }, [
+    skippedTxCount,
+    failedTxCount,
+    navigation,
+    revokeTxsStatusMap,
+    prepareRetryUsage,
+  ]);
 
   return (
     <Page
@@ -693,7 +782,11 @@ function BulkRevoke() {
                     size: 'large',
                   } as any
                 }
-                onPress={handleOnCancel}
+                loading={isRetryStarting}
+                disabled={isRetryStarting}
+                onPress={() => {
+                  void handleOnCancel();
+                }}
               >
                 {progressState === ERevokeProgressState.Finished &&
                 (failedTxCount !== 0 || skippedTxCount !== 0)

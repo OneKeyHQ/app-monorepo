@@ -16,9 +16,9 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
-import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
 import type { IAddressInfo } from '@onekeyhq/shared/types/address';
 import type {
@@ -30,15 +30,23 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { LinkedDeck } from '../../../hooks/useLinkedList';
+import { PrimeFreeTrialRemainingHint } from '../../Prime/components/PrimeFreeTrialRemainingHint';
 import { usePrimeAvailable } from '../../Prime/hooks/usePrimeAvailable';
+import { usePrimeFeatureAccess } from '../../Prime/hooks/usePrimeFeatureAccess';
+import { usePrimeFreeTrialUsage } from '../../Prime/hooks/usePrimeFreeTrialUsage';
 
 import type { IHasId } from '../../../hooks/useLinkedList';
 
 function useBulkRevoke() {
   const intl = useIntl();
   const { isPrimeAvailable } = usePrimeAvailable();
-  const { user } = useOneKeyAuth();
-  const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
+  const { isPrimeActive, isPrimeSubscriptionActive } = useOneKeyAuth();
+  // Drives the Prime badge; access (incl. free trial) is checked on press.
+  const isPrimeUser = Boolean(isPrimeSubscriptionActive);
+  const { ensureFeatureAccess } = usePrimeFeatureAccess();
+  const { startUsage } = usePrimeFreeTrialUsage({
+    featureId: EPrimeFeatures.BulkRevoke,
+  });
 
   const [isBuildingRevokeTxs, setIsBuildingRevokeTxs] = useState(false);
   const navigation = useAppNavigation();
@@ -47,16 +55,76 @@ function useBulkRevoke() {
     async ({
       unsignedTxs,
       contractMap,
+      freeTrialUsageId,
     }: {
       unsignedTxs: (IUnsignedTxPro & IHasId)[];
       contractMap: Record<string, IAddressInfo>;
+      freeTrialUsageId?: string;
     }) => {
       navigation.push(EModalApprovalManagementRoutes.BulkRevoke, {
         unsignedTxs,
         contractMap,
+        freeTrialUsageId,
       });
     },
     [navigation],
+  );
+
+  // BulkRevoke runs as soon as it mounts, so the free-trial use is reserved
+  // here, when the user picks the bulk method.
+  const startBulkRevokeWithAccess = useCallback(
+    async ({
+      unsignedTxs,
+      contractMap,
+    }: {
+      unsignedTxs: (IUnsignedTxPro & IHasId)[];
+      contractMap: Record<string, IAddressInfo>;
+    }) => {
+      if (!isPrimeUser) {
+        defaultLogger.prime.subscription.primeEntryClick({
+          featureName: EPrimeFeatures.BulkRevoke,
+          entryPoint: 'approvalBulkRevoke',
+          isPrimeActive,
+        });
+      }
+      // The revoke button keeps its loading state while access and the
+      // free-trial start are checked.
+      setIsBuildingRevokeTxs(true);
+      let freeTrialUsageId: string | undefined;
+      try {
+        const access = await ensureFeatureAccess({
+          featureId: EPrimeFeatures.BulkRevoke,
+          networkId: unsignedTxs[0]?.networkId,
+        });
+        if (!access.granted) {
+          return;
+        }
+        if (access.entitlementSource === 'freeTrial') {
+          const outcome = await startUsage({
+            networkId: unsignedTxs[0]?.networkId,
+          });
+          if (outcome.status === 'rejected' || outcome.status === 'error') {
+            return;
+          }
+          freeTrialUsageId =
+            outcome.status === 'granted' ? outcome.usageId : undefined;
+        }
+      } finally {
+        setIsBuildingRevokeTxs(false);
+      }
+      void navigationToBulkRevoke({
+        unsignedTxs,
+        contractMap,
+        freeTrialUsageId,
+      });
+    },
+    [
+      ensureFeatureAccess,
+      isPrimeActive,
+      isPrimeUser,
+      navigationToBulkRevoke,
+      startUsage,
+    ],
   );
 
   const navigationToOneByOneRevoke = useCallback(
@@ -278,19 +346,10 @@ function useBulkRevoke() {
                 await dialog.close();
 
                 if (isPrimeAvailable) {
-                  if (isPrimeUser) {
-                    void navigationToBulkRevoke({
-                      unsignedTxs,
-                      contractMap,
-                    });
-                  } else {
-                    navigation.pushModal(EModalRoutes.PrimeModal, {
-                      screen: EPrimePages.PrimeDashboard,
-                      params: {
-                        fromFeature: EPrimeFeatures.BulkRevoke,
-                      },
-                    });
-                  }
+                  void startBulkRevokeWithAccess({
+                    unsignedTxs,
+                    contractMap,
+                  });
                 } else {
                   void navigationToBulkRevoke({
                     unsignedTxs,
@@ -324,6 +383,9 @@ function useBulkRevoke() {
                 })}
               />
             </ListItem>
+            <PrimeFreeTrialRemainingHint
+              featureId={EPrimeFeatures.BulkRevoke}
+            />
           </YStack>
         ),
         showCancelButton: false,
@@ -334,9 +396,9 @@ function useBulkRevoke() {
       intl,
       isPrimeAvailable,
       isPrimeUser,
-      navigation,
       navigationToBulkRevoke,
       navigationToOneByOneRevoke,
+      startBulkRevokeWithAccess,
     ],
   );
 

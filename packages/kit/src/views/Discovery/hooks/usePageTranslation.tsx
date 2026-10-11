@@ -15,19 +15,26 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { useWebViewTranslate } from '@onekeyhq/kit/src/components/WebView/useWebViewTranslate';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import type { IFreeTrialTranslateStopPayload } from '@onekeyhq/kit/src/components/WebView/useWebViewTranslate';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { DiscoveryTestIDs } from '@onekeyhq/kit/src/views/Discovery/testIDs';
+import {
+  isPrimeFreeTrialTravelMode,
+  usePrimeFeatureAccess,
+} from '@onekeyhq/kit/src/views/Prime/hooks/usePrimeFeatureAccess';
+import { PRIME_FREE_TRIAL_COPY } from '@onekeyhq/kit/src/views/Prime/utils/primeFreeTrialCopy';
 import { useTranslateSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 // import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations, LOCALES_OPTION } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
-import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
+import { PRIME_FREE_TRIAL_QUOTA_EXHAUSTED_CODE } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 
 import { ETranslateDisplayMode, ETranslateEngine } from '../types';
 
@@ -278,12 +285,22 @@ export function TranslatePopoverContent({
   onShowSettingsChange: (show: boolean) => void;
 }) {
   const intl = useIntl();
-  const { user, isPrimeActive } = useOneKeyAuth();
-  const navigation = useAppNavigation();
-  const isPrimeUser = useMemo(
-    () => !!(user?.primeSubscription?.isActive && user?.onekeyUserId),
-    [user?.primeSubscription?.isActive, user?.onekeyUserId],
-  );
+  const { isPrimeActive, isPrimeSubscriptionActive, isLoggedIn } =
+    useOneKeyAuth();
+  const isPrimeUser = Boolean(isPrimeSubscriptionActive);
+
+  // Mounted only while the popover is open (on every platform): refresh the
+  // free quota so the "Translate" press below can judge an exhausted quota.
+  useEffect(() => {
+    if (isPrimeUser || !isLoggedIn || isPrimeFreeTrialTravelMode()) {
+      return;
+    }
+    void backgroundApiProxy.servicePrimeFreeTrial.refreshQuota({
+      dedupe: true,
+    });
+    // Only on open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const themeVariant = useThemeVariant();
   const targetLanguageLabel = useTargetLanguageLabel();
   const isNative = platformEnv.isNative;
@@ -306,24 +323,14 @@ export function TranslatePopoverContent({
         entryPoint: 'browserTranslate',
         isPrimeActive,
       });
-      navigation.pushFullModal(EModalRoutes.PrimeModal, {
-        screen: EPrimePages.PrimeDashboard,
-        params: {
-          fromFeature: EPrimeFeatures.DAppTranslate,
-        },
-      });
+      // The free-trial gate (login, exhausted, not open) runs in
+      // usePageTranslation, which owns the tab / page context.
+      onTranslate();
       return;
     }
     onTranslate();
     closePopover();
-  }, [
-    closePopover,
-    isPrimeActive,
-    isPrimeUser,
-    isTranslated,
-    navigation,
-    onTranslate,
-  ]);
+  }, [closePopover, isPrimeActive, isPrimeUser, isTranslated, onTranslate]);
 
   const handleRetranslatePress = useCallback(() => {
     onRetranslate?.();
@@ -520,6 +527,57 @@ export function usePageTranslation(tabId: string) {
     }
   }, []);
 
+  const { isPrimeSubscriptionActive } = useOneKeyAuth();
+  const { showQuotaExhaustedToast, openPrimeDashboard } =
+    usePrimeFeatureAccess();
+  // A running session hit the free-trial limit (or the trial was closed):
+  // the session was already stopped with the billed translations kept. Only
+  // this tab is switched off; no automatic jump to the dashboard.
+  const handleFreeTrialUnavailable = useCallback(
+    ({ freeTrialError, sessionId }: IFreeTrialTranslateStopPayload) => {
+      setIsTranslated(false);
+      if (freeTrialError.code === PRIME_FREE_TRIAL_QUOTA_EXHAUSTED_CODE) {
+        defaultLogger.prime.subscription.primeFreeTrialQuotaExhausted({
+          featureName: EPrimeFeatures.DAppTranslate,
+          featureId: EPrimeFeatures.DAppTranslate,
+          trigger: 'auto',
+        });
+        showQuotaExhaustedToast({
+          featureId: EPrimeFeatures.DAppTranslate,
+          resetAt: freeTrialError.data.resetAt,
+          toastId: `discovery-free-trial-exhausted-${sessionId}`,
+        });
+        return;
+      }
+      Toast.message({
+        toastId: `discovery-free-trial-not-open-${sessionId}`,
+        title: PRIME_FREE_TRIAL_COPY.translateNoLongerAvailableTitle,
+        actionsAlign: 'left',
+        actions: (
+          <Button
+            testID="discovery-free-trial-get-prime-btn"
+            size="small"
+            variant="tertiary"
+            color="$textSuccess"
+            onPress={() => {
+              defaultLogger.prime.subscription.primeFreeTrialUpgradeClick({
+                featureName: EPrimeFeatures.DAppTranslate,
+                featureId: EPrimeFeatures.DAppTranslate,
+              });
+              openPrimeDashboard({
+                featureId: EPrimeFeatures.DAppTranslate,
+                freeTrialReason: 'notOpen',
+              });
+            }}
+          >
+            {PRIME_FREE_TRIAL_COPY.getPrime}
+          </Button>
+        ),
+      });
+    },
+    [openPrimeDashboard, showQuotaExhaustedToast],
+  );
+
   const { startTranslate, restoreOriginal, toggleTranslate, translatingRef } =
     useWebViewTranslate({
       tabId,
@@ -528,6 +586,8 @@ export function usePageTranslation(tabId: string) {
       displayMode: settings.displayMode,
       dappUrl: tab?.url,
       currentTargetLang: resolvedTargetLang,
+      entitlementSource: isPrimeSubscriptionActive ? 'prime' : 'freeTrial',
+      onFreeTrialUnavailable: handleFreeTrialUnavailable,
       onAITranslateUnavailable: ({ targetLang }) => {
         setIsTranslated(false);
 
@@ -572,7 +632,9 @@ export function usePageTranslation(tabId: string) {
                   engine: ETranslateEngine.standard,
                   targetLang,
                   displayMode: settings.displayMode,
-                  dappDomain: tab?.url ?? '',
+                  dappDomain: uriUtils.getHostNameFromUrl({
+                    url: tab?.url ?? '',
+                  }),
                 });
               }}
             >
@@ -592,18 +654,74 @@ export function usePageTranslation(tabId: string) {
         engine: settings.engine,
         targetLang: resolvedTargetLang,
         displayMode: settings.displayMode,
-        dappDomain: tab?.url ?? '',
+        dappDomain: uriUtils.getHostNameFromUrl({ url: tab?.url ?? '' }),
       });
     },
     [settings.engine, settings.displayMode, resolvedTargetLang, tab?.url],
   );
 
+  const { getCachedAccess, ensureFeatureAccess, showActiveRejectedFeedback } =
+    usePrimeFeatureAccess();
+  // Free-trial gate of a "Translate" press by a non-Prime user. Active
+  // exhaustion is judged at press time on the quota refreshed when the
+  // popover opened; a session that hits the limit later only gets a toast.
+  const ensureTranslateAccess = useCallback(async () => {
+    if (isPrimeSubscriptionActive) {
+      return true;
+    }
+    if (isPrimeFreeTrialTravelMode()) {
+      openPrimeDashboard({ featureId: EPrimeFeatures.DAppTranslate });
+      return false;
+    }
+    if (await backgroundApiProxy.servicePrime.isLoggedIn()) {
+      const access = getCachedAccess(EPrimeFeatures.DAppTranslate);
+      if (access.status === 'exhausted' || access.status === 'notOpen') {
+        showActiveRejectedFeedback({
+          featureId: EPrimeFeatures.DAppTranslate,
+          reason: access.status,
+          resetAt: access.status === 'exhausted' ? access.resetAt : undefined,
+        });
+        return false;
+      }
+      return true;
+    }
+    const pageContextVersionAtPress = pageContextVersionRef.current;
+    const pageUrlAtPress = currentTabUrlRef.current;
+    const access = await ensureFeatureAccess({
+      featureId: EPrimeFeatures.DAppTranslate,
+      // Same tab and page after the login, or the translate is dropped.
+      isContextValid: () =>
+        pageContextVersionRef.current === pageContextVersionAtPress &&
+        activeTabIdRef.current === tabId &&
+        currentTabUrlRef.current === pageUrlAtPress,
+    });
+    return access.granted;
+  }, [
+    ensureFeatureAccess,
+    getCachedAccess,
+    isPrimeSubscriptionActive,
+    openPrimeDashboard,
+    showActiveRejectedFeedback,
+    tabId,
+  ]);
+
   const handleTranslate = useCallback(() => {
     const willTranslate = !translatingRef.current;
-    toggleTranslate(resolvedTargetLang);
-    setIsTranslated(willTranslate);
-    logToggle(willTranslate ? 'enable' : 'disable');
-  }, [toggleTranslate, translatingRef, resolvedTargetLang, logToggle]);
+    void (async () => {
+      if (willTranslate && !(await ensureTranslateAccess())) {
+        return;
+      }
+      toggleTranslate(resolvedTargetLang);
+      setIsTranslated(willTranslate);
+      logToggle(willTranslate ? 'enable' : 'disable');
+    })();
+  }, [
+    ensureTranslateAccess,
+    toggleTranslate,
+    translatingRef,
+    resolvedTargetLang,
+    logToggle,
+  ]);
 
   const handleRetranslate = useCallback(() => {
     restoreOriginal();

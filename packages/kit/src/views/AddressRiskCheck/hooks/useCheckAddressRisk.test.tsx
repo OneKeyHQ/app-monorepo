@@ -20,6 +20,7 @@ const mockCheckAddressRisk = jest.fn<
 const mockAddCheck = jest.fn<Promise<void>, [unknown]>();
 const mockAddressRiskCheckSuccess = jest.fn<void, [unknown]>();
 const mockToastError = jest.fn();
+const mockHandleFreeTrialError = jest.fn<unknown, [{ error: unknown }]>();
 let mockIsRouteFocused = true;
 
 jest.mock('react-intl', () => ({
@@ -32,6 +33,23 @@ jest.mock('@onekeyhq/components', () => ({
       mockToastError(params);
     },
   },
+}));
+
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/prime', () => ({
+  usePrimePersistAtom: () => [
+    {
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      primeSubscription: undefined,
+    },
+  ],
+}));
+
+jest.mock('../../Prime/hooks/usePrimeFeatureAccess', () => ({
+  usePrimeFeatureAccess: () => ({
+    handleFreeTrialError: (params: { error: unknown }) =>
+      mockHandleFreeTrialError(params),
+  }),
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
@@ -85,6 +103,7 @@ describe('useCheckAddressRisk navigation', () => {
     mockIsRouteFocused = true;
     mockCheckAddressRisk.mockResolvedValue(riskResult);
     mockAddCheck.mockResolvedValue(undefined);
+    mockHandleFreeTrialError.mockReturnValue(undefined);
   });
 
   afterEach(cleanup);
@@ -118,6 +137,8 @@ describe('useCheckAddressRisk navigation', () => {
       riskLevel: riskResult.level,
       riskFactorsCount: riskResult.reasons.length,
       cached: riskResult.cached,
+      featureName: 'AddressRiskCheck',
+      entitlementSource: undefined,
     });
     expect(mockAddCheck).toHaveBeenCalledTimes(1);
   });
@@ -256,5 +277,31 @@ describe('useCheckAddressRisk navigation', () => {
       title: ETranslations.address_risk_check_level_failed__title,
       message: ETranslations.address_risk_check_level_failed__desc,
     });
+  });
+
+  it('routes free-trial errors to the unified feedback instead of a failure toast', async () => {
+    const freeTrialError = {
+      code: 90_600,
+      data: { featureId: 'AddressRiskCheck' },
+    };
+    mockCheckAddressRisk.mockRejectedValueOnce(
+      freeTrialError as unknown as Error,
+    );
+    mockHandleFreeTrialError.mockReturnValueOnce(freeTrialError);
+    const { result } = renderHook(() => useCheckAddressRisk());
+
+    await act(async () => {
+      await result.current.checkRisk({
+        networkId: riskResult.networkId,
+        address: riskResult.address,
+        entryPoint: 'inputManual',
+      });
+    });
+
+    expect(mockHandleFreeTrialError).toHaveBeenCalledWith(
+      expect.objectContaining({ error: freeTrialError }),
+    );
+    expect(mockToastError).not.toHaveBeenCalled();
+    expect(mockPush).not.toHaveBeenCalled();
   });
 });

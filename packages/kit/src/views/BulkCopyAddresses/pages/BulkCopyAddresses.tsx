@@ -39,6 +39,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import type { IModalBulkCopyAddressesParamList } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -56,6 +57,11 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { EmptyNoWalletView } from '../../AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/EmptyView';
 import { BATCH_CREATE_ACCONT_MAX_COUNT } from '../../AccountManagerStacks/pages/BatchCreateAccount/BatchCreateAccountFormBase';
 import { showBatchCreateAccountProcessingDialog } from '../../AccountManagerStacks/pages/BatchCreateAccount/ProcessingDialog';
+import { PrimeFreeTrialRemainingHint } from '../../Prime/components/PrimeFreeTrialRemainingHint';
+import {
+  isPrimeFreeTrialUserCancelError,
+  usePrimeFreeTrialUsage,
+} from '../../Prime/hooks/usePrimeFreeTrialUsage';
 import { BulkCopyAddressesTestIDs } from '../testIDs';
 import { buildBulkCopyByAccountsFlowParams } from '../utils/buildBulkCopyByAccountsParams';
 import { computeBulkCopyByAccountsViewState } from '../utils/bulkCopyAddressesViewState';
@@ -133,6 +139,14 @@ function BulkCopyAddresses({
     EBulkCopyType.Account,
   );
   const [isGeneratingAddresses, setIsGeneratingAddresses] = useState(false);
+  const { startUsage, markUsageSuccess, settleUsage } = usePrimeFreeTrialUsage({
+    featureId: EPrimeFeatures.BulkCopyAddresses,
+  });
+  // Guards against a second export press while the first one is still
+  // starting the free-trial usage or generating addresses.
+  const exportInFlightRef = useRef(false);
+  // Covers the free-trial start before any generation dialog shows up.
+  const [isExporting, setIsExporting] = useState(false);
   const sharedStyles = getSharedInputStyles({
     size: 'large',
   });
@@ -869,7 +883,39 @@ function BulkCopyAddresses({
     handleFormValueOnChange,
   ]);
 
-  const handleExportAddresses = useCallback(
+  // Free trial: a usage is consumed once addresses were generated and the
+  // result page opens; copying / exporting there is not metered again.
+  const settleGenerateError = useCallback(
+    async (usageId: string | undefined, error: unknown) => {
+      const isCancelled =
+        isPrimeFreeTrialUserCancelError(error) ||
+        (error as Error | undefined)?.message ===
+          intl.formatMessage({
+            id: ETranslations.global_bulk_accounts_loading_error,
+          });
+      await settleUsage(usageId, isCancelled ? 'cancelled' : 'failed');
+    },
+    [intl, settleUsage],
+  );
+  const settleGenerateResult = useCallback(
+    async (
+      usageId: string | undefined,
+      accountsData: Record<string, unknown[] | undefined> | undefined,
+    ) => {
+      const addressCount = Object.values(accountsData ?? {}).reduce(
+        (sum, list) => sum + (list?.length ?? 0),
+        0,
+      );
+      if (addressCount > 0) {
+        await markUsageSuccess(usageId);
+      } else {
+        await settleUsage(usageId, 'failed');
+      }
+    },
+    [markUsageSuccess, settleUsage],
+  );
+
+  const handleExportAddressesImpl = useCallback(
     async ({ exportWithoutDevice }: { exportWithoutDevice?: boolean }) => {
       if (copyType === EBulkCopyType.Account) {
         let enumeratedAccounts = networkAccountsByDeriveType;
@@ -887,11 +933,21 @@ function BulkCopyAddresses({
           enumeratedAccounts = fresh.networkAccountsByDeriveType;
           enumeratedNetworkAccounts = fresh.networkAccounts;
         }
+        const usage = await startUsage({ networkId: selectedNetworkId });
+        if (usage.status === 'rejected' || usage.status === 'error') {
+          return;
+        }
+        const usageId = usage.status === 'granted' ? usage.usageId : undefined;
         let accountsData = enumeratedAccounts;
         if (isHwWallet && !exportWithoutDevice) {
-          accountsData = await handleGenerateAddressesByAccounts(
-            enumeratedNetworkAccounts,
-          );
+          try {
+            accountsData = await handleGenerateAddressesByAccounts(
+              enumeratedNetworkAccounts,
+            );
+          } catch (error) {
+            await settleGenerateError(usageId, error);
+            throw error;
+          }
           if (enumeratedAccounts) {
             for (const [deriveType, accounts] of Object.entries(accountsData)) {
               accountsData[deriveType] =
@@ -907,6 +963,7 @@ function BulkCopyAddresses({
           }
         }
 
+        await settleGenerateResult(usageId, accountsData);
         navigation.push(EModalBulkCopyAddressesRoutes.ExportAddressesModal, {
           walletId: selectedWalletId,
           networkId: selectedNetworkId,
@@ -915,7 +972,19 @@ function BulkCopyAddresses({
           exportWithoutDevice,
         });
       } else if (copyType === EBulkCopyType.Range) {
-        const resp = await handleGenerateAddressesByRange();
+        const usage = await startUsage({ networkId: selectedNetworkId });
+        if (usage.status === 'rejected' || usage.status === 'error') {
+          return;
+        }
+        const usageId = usage.status === 'granted' ? usage.usageId : undefined;
+        let resp: Awaited<ReturnType<typeof handleGenerateAddressesByRange>>;
+        try {
+          resp = await handleGenerateAddressesByRange();
+        } catch (error) {
+          await settleGenerateError(usageId, error);
+          throw error;
+        }
+        await settleGenerateResult(usageId, resp);
         navigation.push(EModalBulkCopyAddressesRoutes.ExportAddressesModal, {
           walletId: selectedWalletId,
           networkId: selectedNetworkId,
@@ -939,12 +1008,32 @@ function BulkCopyAddresses({
       handleGenerateAddressesByAccounts,
       handleGenerateAddressesByRange,
       isHwWallet,
+      startUsage,
+      settleGenerateError,
+      settleGenerateResult,
     ],
   );
 
+  const handleExportAddresses = useCallback(
+    async (params: { exportWithoutDevice?: boolean }) => {
+      if (exportInFlightRef.current) {
+        return;
+      }
+      exportInFlightRef.current = true;
+      setIsExporting(true);
+      try {
+        await handleExportAddressesImpl(params);
+      } finally {
+        exportInFlightRef.current = false;
+        setIsExporting(false);
+      }
+    },
+    [handleExportAddressesImpl],
+  );
+
   const isLoading = useMemo(() => {
-    return isGeneratingAddresses;
-  }, [isGeneratingAddresses]);
+    return isGeneratingAddresses || isExporting;
+  }, [isGeneratingAddresses, isExporting]);
 
   const isDisabled = useMemo(() => {
     return copyType === EBulkCopyType.Account
@@ -1006,6 +1095,9 @@ function BulkCopyAddresses({
       />
       <Page.Body px="$5">
         <YStack gap="$5">
+          <PrimeFreeTrialRemainingHint
+            featureId={EPrimeFeatures.BulkCopyAddresses}
+          />
           <Form form={form}>
             <Form.Field
               name="selectedWalletId"

@@ -34,6 +34,19 @@ export class SimpleDb {
     return value;
   }
 
+  get primeFreeTrial() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@primeFreeTrial',
+      loader: () =>
+        import('../entity/SimpleDbEntityPrimeFreeTrial').then(
+          ({ SimpleDbEntityPrimeFreeTrial }) =>
+            new SimpleDbEntityPrimeFreeTrial(),
+        ),
+    });
+    Object.defineProperty(this, 'primeFreeTrial', { value });
+    return value;
+  }
+
   get cloudBackupPasswordCache() {
     const value = createLazyServiceProxy({
       serviceName: 'simpleDb@cloudBackupPasswordCache',

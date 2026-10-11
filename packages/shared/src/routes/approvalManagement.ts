@@ -64,5 +64,7 @@ export type IModalApprovalManagementParamList = {
   [EModalApprovalManagementRoutes.BulkRevoke]: {
     unsignedTxs: IUnsignedTxPro[];
     contractMap: Record<string, IAddressInfo>;
+    // Free-trial usage started in the method dialog; absent for Prime users.
+    freeTrialUsageId?: string;
   };
 };

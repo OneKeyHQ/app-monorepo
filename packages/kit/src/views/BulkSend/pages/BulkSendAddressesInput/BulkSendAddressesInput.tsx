@@ -33,6 +33,7 @@ import {
   ETabHomeRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
@@ -46,11 +47,13 @@ import type {
 } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
+import { PrimeFreeTrialRemainingHint } from '../../../Prime/components/PrimeFreeTrialRemainingHint';
 import BulkSendBar from '../../components/BulkSendBar';
 import BulkSendContentWrapper from '../../components/BulkSendContentWrapper';
 import BulkSendHeader from '../../components/BulkSendHeader';
 import { useBulkSendMobileHeader } from '../../components/BulkSendMobileHeader';
 import { useBulkSendModeDialog } from '../../hooks/useBulkSendModeDialog';
+import { useBulkSendPageAccess } from '../../hooks/useBulkSendPageAccess';
 import { isBulkSendTokenDetailsMatched } from '../../utils';
 
 import { parseBulkSendAddressLines } from './addressLineUtils';
@@ -100,6 +103,11 @@ function BaseBulkSendAddressesInput({
   const [inscriptionProtectionState] = useInscriptionProtectionStateAtom();
 
   const { isInModal } = route.params ?? {};
+
+  useBulkSendPageAccess({
+    networkId: route.params?.networkId,
+    isInModal,
+  });
 
   const {
     setSelectedTokenDetail,
@@ -718,6 +726,10 @@ function BaseBulkSendAddressesInput({
           <BulkSendHeader
             bulkSendMode={bulkSendMode}
             onChangeBulkSendMode={handleChangeBulkSendMode}
+          />
+          <PrimeFreeTrialRemainingHint
+            featureId={EPrimeFeatures.BulkSend}
+            mb="$4"
           />
           <YStack gap="$6" $gtMd={{ gap: '$8' }}>
             <AssetSelectorTrigger

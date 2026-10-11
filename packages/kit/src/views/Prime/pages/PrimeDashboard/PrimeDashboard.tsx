@@ -104,7 +104,7 @@ export default function PrimeDashboard({
   route: RouteProp<IPrimeParamList, EPrimePages.PrimeDashboard>;
 }) {
   const intl = useIntl();
-  const { fromFeature, networkId } = route.params || {};
+  const { fromFeature, networkId, freeTrialReason } = route.params || {};
   const isTravelMode =
     travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
     'travel-mode';
@@ -165,8 +165,10 @@ export default function PrimeDashboard({
     defaultLogger.prime.subscription.primeDashboardShow({
       featureName: fromFeature,
       isPrimeActive,
+      entitlementSource: freeTrialReason ? 'freeTrial' : undefined,
+      freeTrialReason,
     });
-  }, [fromFeature, isAuthReady, isPrimeActive]);
+  }, [freeTrialReason, fromFeature, isAuthReady, isPrimeActive]);
 
   useEffect(() => {
     const fn = async () => {

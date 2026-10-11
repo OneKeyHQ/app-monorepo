@@ -6,16 +6,26 @@ import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import type { IPrimeAddressRiskCheckEntryPoint } from '@onekeyhq/shared/src/logger/scopes/prime/types';
+import type {
+  IPrimeAddressRiskCheckEntryPoint,
+  IPrimeEntitlementSource,
+} from '@onekeyhq/shared/src/logger/scopes/prime/types';
 import { EModalAddressRiskCheckRoutes } from '@onekeyhq/shared/src/routes/addressRiskCheck';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import type { IAddressRiskCheckResult } from '@onekeyhq/shared/types/addressRiskCheck';
+
+import { usePrimeFeatureAccess } from '../../Prime/hooks/usePrimeFeatureAccess';
+import { getPrimeEntitlementSource } from '../../Prime/utils/primeFreeTrialAccess';
 
 type IAddressRiskCheckRequest = {
   networkId: string;
   address: string;
   entryPoint: IPrimeAddressRiskCheckEntryPoint;
+  // Analytics only
+  entitlementSource?: IPrimeEntitlementSource;
 };
 
 const addressRiskCheckRequests = new Map<
@@ -27,6 +37,7 @@ export function executeAddressRiskCheck({
   networkId,
   address,
   entryPoint,
+  entitlementSource,
 }: IAddressRiskCheckRequest): Promise<IAddressRiskCheckResult> {
   const requestKey = `${entryPoint}\n${networkId}\n${address}`;
   const pendingRequest = addressRiskCheckRequests.get(requestKey);
@@ -46,6 +57,8 @@ export function executeAddressRiskCheck({
       riskLevel: result.level,
       riskFactorsCount: result.reasons.length,
       cached: result.cached,
+      featureName: EPrimeFeatures.AddressRiskCheck,
+      entitlementSource,
     });
     // Best-effort local history write must never hide or delay a successful
     // risk result.
@@ -84,6 +97,9 @@ export function useCheckAddressRisk() {
   const isCheckingRef = useRef(false);
   const [isChecking, setIsChecking] = useState(false);
   isRouteFocusedRef.current = isRouteFocused;
+  const { handleFreeTrialError } = usePrimeFeatureAccess();
+  const [primeUser] = usePrimePersistAtom();
+  const entitlementSource = getPrimeEntitlementSource(primeUser);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -114,6 +130,7 @@ export function useCheckAddressRisk() {
           networkId,
           address,
           entryPoint,
+          entitlementSource,
         });
         if (!shouldPresentFeedback()) {
           return result;
@@ -123,7 +140,15 @@ export function useCheckAddressRisk() {
           showMoreAnalysis: true,
         });
         return result;
-      } catch {
+      } catch (error) {
+        // Free trial exhausted / not open: unified feedback (dashboard and,
+        // when exhausted, the reset time) instead of a generic failure.
+        if (
+          shouldPresentFeedback() &&
+          handleFreeTrialError({ error, networkId })
+        ) {
+          return undefined;
+        }
         // Network / rate-limit / server errors. Invalid-address is handled
         // inline on the input form before this call.
         if (shouldPresentFeedback()) {
@@ -144,7 +169,7 @@ export function useCheckAddressRisk() {
         isCheckingRef.current = false;
       }
     },
-    [intl, navigation],
+    [entitlementSource, handleFreeTrialError, intl, navigation],
   );
 
   return { isChecking, checkRisk };

@@ -2,7 +2,9 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { buildPrimeFreeTrialLocalError } from '@onekeyhq/shared/src/utils/primeFreeTrialUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IAddressRiskCheckDetails,
@@ -73,6 +75,29 @@ class ServiceAddressRiskCheck extends ServiceBase {
     }
   }
 
+  // Free users are metered by check itself. Quota exhausted (90600) and "not
+  // open" (raw 90005 / 90601, or the interceptor-rewritten paid membership
+  // error) are re-thrown with the normalized code and autoToast off, so the
+  // UI shows one unified feedback instead of a background toast.
+  private async withFreeTrialErrorHandling<T>(fn: () => Promise<T>) {
+    try {
+      return await fn();
+    } catch (error) {
+      const freeTrialError =
+        this.backgroundApi.servicePrimeFreeTrial.normalizeFreeTrialError({
+          error,
+          featureId: EPrimeFeatures.AddressRiskCheck,
+        });
+      if (freeTrialError) {
+        await this.backgroundApi.servicePrimeFreeTrial.handleFreeTrialErrorFromServer(
+          freeTrialError,
+        );
+        throw buildPrimeFreeTrialLocalError(freeTrialError);
+      }
+      throw error;
+    }
+  }
+
   // POST /prime/v1/kyt/address-risk/check — main risk score result (图5).
   @backgroundMethod()
   async checkAddressRisk({
@@ -82,12 +107,16 @@ class ServiceAddressRiskCheck extends ServiceBase {
     networkId: string;
     address: string;
   }): Promise<IAddressRiskCheckResult> {
-    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Prime);
-    const res = await client.post<IApiClientResponse<IAddressRiskCheckResult>>(
-      '/prime/v1/kyt/address-risk/check',
-      { networkId, address },
-    );
-    return res.data.data;
+    const result = await this.withFreeTrialErrorHandling(async () => {
+      const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Prime);
+      const res = await client.post<
+        IApiClientResponse<IAddressRiskCheckResult>
+      >('/prime/v1/kyt/address-risk/check', { networkId, address });
+      return res.data.data;
+    });
+    // A successful check may have used one free check.
+    void this.backgroundApi.servicePrimeFreeTrial.refreshQuota();
+    return result;
   }
 
   // POST /prime/v1/kyt/address-risk/details — deep analysis (图6), loaded on
@@ -100,12 +129,13 @@ class ServiceAddressRiskCheck extends ServiceBase {
     networkId: string;
     address: string;
   }): Promise<IAddressRiskCheckDetails> {
-    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Prime);
-    const res = await client.post<IApiClientResponse<IAddressRiskCheckDetails>>(
-      '/prime/v1/kyt/address-risk/details',
-      { networkId, address },
-    );
-    return res.data.data;
+    return this.withFreeTrialErrorHandling(async () => {
+      const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Prime);
+      const res = await client.post<
+        IApiClientResponse<IAddressRiskCheckDetails>
+      >('/prime/v1/kyt/address-risk/details', { networkId, address });
+      return res.data.data;
+    });
   }
 }
 

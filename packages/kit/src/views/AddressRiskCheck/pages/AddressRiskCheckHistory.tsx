@@ -1,18 +1,55 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Dialog, Empty, Page, ScrollView, YStack } from '@onekeyhq/components';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IAddressRiskCheckRecentItem } from '@onekeyhq/shared/types/addressRiskCheck';
 
+import { usePrimeFeatureAccess } from '../../Prime/hooks/usePrimeFeatureAccess';
 import { RecentCheckItem } from '../components/RecentCheckItem';
 import { useCheckAddressRisk } from '../hooks/useCheckAddressRisk';
 import { useRecentChecks } from '../hooks/useRecentChecks';
 
+// Page-level Prime gate: the history is a Prime benefit, also when the
+// route is opened directly. Free-trial users are sent to the dashboard.
+function useAddressRiskCheckHistoryAccess() {
+  const navigation = useAppNavigation();
+  const { isPrimeSubscriptionActive } = useOneKeyAuth();
+  const { openPrimeDashboard } = usePrimeFeatureAccess();
+  const checkedRef = useRef(false);
+  useEffect(() => {
+    if (checkedRef.current || isPrimeSubscriptionActive) {
+      return;
+    }
+    checkedRef.current = true;
+    void (async () => {
+      // The local projection may lag on a cold start.
+      if (await backgroundApiProxy.servicePrime.isPrimeSubscriptionActive()) {
+        return;
+      }
+      navigation.pop();
+      await timerUtils.wait(300);
+      openPrimeDashboard({
+        featureId: EPrimeFeatures.AddressRiskCheck,
+        afterPageExit: true,
+      });
+    })();
+    // Runs once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return Boolean(isPrimeSubscriptionActive);
+}
+
 function AddressRiskCheckHistory() {
   const intl = useIntl();
+  const canViewHistory = useAddressRiskCheckHistoryAccess();
   const { items, networkNameMap, deleteOne, clearAll } = useRecentChecks();
   const { checkRisk } = useCheckAddressRisk();
 
@@ -45,10 +82,10 @@ function AddressRiskCheckHistory() {
 
   const headerRight = useCallback(
     () =>
-      items.length ? (
+      canViewHistory && items.length ? (
         <HeaderIconButton icon="BroomOutline" onPress={handleClearAll} />
       ) : null,
-    [items.length, handleClearAll],
+    [canViewHistory, items.length, handleClearAll],
   );
 
   return (
@@ -60,7 +97,7 @@ function AddressRiskCheckHistory() {
         headerRight={headerRight}
       />
       <Page.Body>
-        {items.length ? (
+        {canViewHistory && items.length ? (
           <ScrollView>
             <YStack py="$2">
               {items.map((item) => (
@@ -74,7 +111,8 @@ function AddressRiskCheckHistory() {
               ))}
             </YStack>
           </ScrollView>
-        ) : (
+        ) : null}
+        {canViewHistory && !items.length ? (
           <Empty
             icon="ClockTimeHistoryOutline"
             title={intl.formatMessage({
@@ -84,7 +122,7 @@ function AddressRiskCheckHistory() {
               id: ETranslations.address_risk_check_history_empty__desc,
             })}
           />
-        )}
+        ) : null}
       </Page.Body>
     </Page>
   );

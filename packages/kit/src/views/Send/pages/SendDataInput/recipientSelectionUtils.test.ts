@@ -88,7 +88,7 @@ describe('recipientSelectionUtils', () => {
     currentNetworkId: 'evm--1',
     supportNetworkId: 'evm--1',
     isSupported: true,
-    isPrimeUser: true,
+    canRunCheck: true,
     resolvedAddress: '0xabc',
   };
 
@@ -107,8 +107,13 @@ describe('recipientSelectionUtils', () => {
     ],
     [
       'keeps the Prime upsell actionable without an address',
-      { isPrimeUser: false, resolvedAddress: undefined },
+      { canRunCheck: false, resolvedAddress: undefined },
       'enabled',
+    ],
+    [
+      'treats a free-trial user like Prime and disables without an address',
+      { canRunCheck: true, resolvedAddress: undefined },
+      'disabled',
     ],
     [
       'disables a Prime check without a resolved address',

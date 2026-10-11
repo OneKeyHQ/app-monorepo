@@ -14,7 +14,10 @@ import {
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { EExtOneKeyIdAuthFlow } from '@onekeyhq/shared/src/consts/authConsts';
 import type { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
-import { PrimeLoginDialogCancelError } from '@onekeyhq/shared/src/errors';
+import {
+  PrimeLoginDialogCancelError,
+  PrimeLoginHandedOffToExtExpandTabError,
+} from '@onekeyhq/shared/src/errors';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EOneKeyIdLoginWithLocalKeylessPrepareStatus,
@@ -158,13 +161,14 @@ export function useOneKeyAuth() {
       // The extension action popup dies on focus loss, which destroys the
       // pending launchWebAuthFlow OAuth flow (see extOneKeyIdAuthExpandTab).
       // Hand the whole login flow off to the expand tab before touching any
-      // local auth state, and settle this call as a user cancel.
+      // local auth state, and settle this call as a cancel subclass that
+      // callers can tell apart from a real user cancel.
       if (shouldRunOneKeyIdAuthInExtExpandTab()) {
         await redirectOneKeyIdAuthToExtExpandTab({
           flow: EExtOneKeyIdAuthFlow.Login,
           toOneKeyIdPageOnLoginSuccess,
         });
-        throw new PrimeLoginDialogCancelError();
+        throw new PrimeLoginHandedOffToExtExpandTabError();
       }
 
       return new Promise<void>((resolve, reject) => {

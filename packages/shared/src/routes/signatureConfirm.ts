@@ -26,6 +26,7 @@ import type {
   ILNURLWithdrawServiceResponse,
 } from '../../types/lightning';
 import type { IAccountNFT } from '../../types/nft';
+import type { IPrimeFreeTrialBroadcastUsage } from '../../types/prime/primeFreeTrialTypes';
 import type { IPrimeInfiniBeforeBroadcastAction } from '../../types/prime/primeTypes';
 import type { ISwapTxInfo } from '../../types/swap/types';
 import type { IToken, ITokenFiat } from '../../types/token';
@@ -120,6 +121,9 @@ export type IModalSignatureConfirmParamList = {
     isQueueMode?: boolean;
     unsignedTxQueue?: LinkedDeck<IUnsignedTxPro & IHasId>;
     gasAccountScenario?: IGasAccountScenario;
+    // Free-trial usage of a bulk tool confirmed tx by tx (Tron bulk send);
+    // ServiceSend marks it consumed at the broadcast point.
+    freeTrialUsage?: IPrimeFreeTrialBroadcastUsage;
   };
   [EModalSignatureConfirmRoutes.BatchTxConfirm]: {
     batchId: string;
