@@ -69,6 +69,8 @@ import { ReferFriendsLoadError } from '../../components';
 import { ReferFriendsTestIDs } from '../../testIDs';
 import { useNavigateToRewardHistory } from '../RewardDistributionHistory/hooks/useNavigateToRewardHistory';
 
+import { applyDevMockSummary } from './devMockSummary';
+
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
 const ReferralPageHeader = memo(function ReferralPageHeader({
@@ -411,8 +413,9 @@ function InviteRewardPage() {
   const { result: summaryInfo, run: fetchSummaryInfo } = usePromiseResult(
     async () => {
       try {
-        const summary =
-          await backgroundApiProxy.serviceReferralCode.getSummaryInfo();
+        const summary = applyDevMockSummary(
+          await backgroundApiProxy.serviceReferralCode.getSummaryInfo(),
+        );
         if (
           lastSummaryRef.current &&
           isEqual(summary, lastSummaryRef.current)
