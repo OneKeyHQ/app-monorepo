@@ -28,12 +28,11 @@ export function InviteStatCell({
   share?: number | 'content';
 }) {
   const hug = share === 'content';
+  const sizing = hug ? { flexShrink: 1 } : { flex: share, flexBasis: 0 };
   return (
     <XStack
       testID={testID}
-      {...(share === 'content'
-        ? { flexShrink: 1 }
-        : { flex: share, flexBasis: 0 })}
+      {...sizing}
       minWidth={0}
       ai="center"
       gap="$2"

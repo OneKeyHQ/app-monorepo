@@ -4,8 +4,9 @@ import { SizableText, XStack, YStack } from '@onekeyhq/components';
 
 // One label/value line of the compact referral cards: a subdued label (with
 // an optional leading mark) on the left, the value and its inline actions on
-// the right, and an optional hint under the value it explains. They hold
-// inline actions (copy, more links), so they keep the 44px touch row height.
+// the right, and an optional hint under the value it explains. Every row is
+// 44px tall: the ones with inline actions (copy, more links) need the touch
+// height, and the rest match them so the cards read evenly spaced.
 export function CompactFieldRow({
   label,
   leading,

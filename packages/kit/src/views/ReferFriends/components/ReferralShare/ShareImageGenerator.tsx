@@ -24,7 +24,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { REFERRAL_SHARE_CARD } from './constants';
 import { REFERRAL_SHARE_NAMES } from './referralShareCopy';
+import { truncateToWidth, wrapRuns } from './shareCardText';
 
+import type { ITextRun } from './shareCardText';
 import type {
   IReferralShareData,
   IReferralShareImageGeneratorRef,
@@ -39,11 +41,6 @@ const FOOTER_COLUMN_GAP = 16;
 const FOOTER_TEXT_GAP = 4;
 // Stands in for the highlighted rate while the headline is split into runs.
 const RATE_MARKER = '\u0000rate\u0000';
-// CJK and full-width characters wrap one at a time; other text wraps by word.
-const SEGMENT_PATTERN = /\s+|[⺀-鿿가-힯぀-ヿ＀-￯]|[^\s⺀-鿿가-힯぀-ヿ＀-￯]+/g;
-
-type ITextRun = { text: string; color: string };
-
 const imageCache = new Map<string, HTMLImageElement>();
 
 function loadImage(src: string): Promise<HTMLImageElement | null> {
@@ -67,37 +64,6 @@ function toCanvasFont(size: number, weight: number) {
   return `${weight} ${size}px ${webFontFamily}`;
 }
 
-// Greedy wrap over colored runs; whitespace never starts a line.
-function wrapRuns(
-  ctx: CanvasRenderingContext2D,
-  runs: ITextRun[],
-  maxWidth: number,
-): ITextRun[][] {
-  const lines: ITextRun[][] = [];
-  let line: ITextRun[] = [];
-  let lineWidth = 0;
-  runs.forEach((run) => {
-    (run.text.match(SEGMENT_PATTERN) ?? []).forEach((segment) => {
-      const isSpace = !segment.trim();
-      if (isSpace && line.length === 0) {
-        return;
-      }
-      const width = ctx.measureText(segment).width;
-      if (line.length > 0 && !isSpace && lineWidth + width > maxWidth) {
-        lines.push(line);
-        line = [];
-        lineWidth = 0;
-      }
-      line.push({ text: segment, color: run.color });
-      lineWidth += width;
-    });
-  });
-  if (line.length > 0) {
-    lines.push(line);
-  }
-  return lines;
-}
-
 function drawRunLine(
   ctx: CanvasRenderingContext2D,
   line: ITextRun[],
@@ -110,21 +76,6 @@ function drawRunLine(
     ctx.fillText(segment.text, cursor, y);
     cursor += ctx.measureText(segment.text).width;
   });
-}
-
-function truncateToWidth(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  maxWidth: number,
-) {
-  if (ctx.measureText(text).width <= maxWidth) {
-    return text;
-  }
-  let result = text;
-  while (result.length > 0 && ctx.measureText(`${result}…`).width > maxWidth) {
-    result = result.slice(0, -1);
-  }
-  return `${result}…`;
 }
 
 // Web and desktop twin of the native generator: paints the same dark card as
@@ -158,10 +109,7 @@ export const ShareImageGenerator = memo(
         displayUrl,
       ].join('|');
 
-      const generate = useCallback(async (): Promise<string> => {
-        if (lastResultRef.current?.key === contentKey) {
-          return lastResultRef.current.base64;
-        }
+      const paint = useCallback(async (): Promise<string> => {
         const canvas = canvasRef.current;
         const ctx = canvas?.getContext('2d');
         if (!canvas || !ctx) {
@@ -327,20 +275,16 @@ export const ShareImageGenerator = memo(
             getQRCodePlateBorderRadius(QR_PLATE_PADDING / 2),
           );
           ctx.fill();
-          try {
-            await drawDotQRCodeOnCanvas(ctx, {
-              value: inviteUrl,
-              x: plateX + QR_PLATE_PADDING / 2,
-              y: plateY + QR_PLATE_PADDING / 2,
-              size: card.footer.qrSize,
-              // The QRCode component's default level, so both cards match.
-              ecl: 'H',
-            });
-          } catch (error) {
-            if (platformEnv.isDev) {
-              console.error('Failed to draw referral share QR code:', error);
-            }
-          }
+          // A card nobody can scan is a failed image: a throw here skips the
+          // cache, so the next Save tries again.
+          await drawDotQRCodeOnCanvas(ctx, {
+            value: inviteUrl,
+            x: plateX + QR_PLATE_PADDING / 2,
+            y: plateY + QR_PLATE_PADDING / 2,
+            size: card.footer.qrSize,
+            // The QRCode component's default level, so both cards match.
+            ecl: 'H',
+          });
 
           const base64 = canvas.toDataURL('image/png', 1.0);
           lastResultRef.current = { key: contentKey, base64 };
@@ -361,6 +305,28 @@ export const ShareImageGenerator = memo(
         inviteUrl,
         scanTitle,
       ]);
+
+      // The preview and an early Save can ask at once; they share one paint
+      // of the one canvas instead of clearing each other's drawing.
+      const pendingRef = useRef<{
+        key: string;
+        promise: Promise<string>;
+      } | null>(null);
+      const generate = useCallback(async (): Promise<string> => {
+        if (lastResultRef.current?.key === contentKey) {
+          return lastResultRef.current.base64;
+        }
+        if (pendingRef.current?.key === contentKey) {
+          return pendingRef.current.promise;
+        }
+        const promise = paint().finally(() => {
+          if (pendingRef.current?.promise === promise) {
+            pendingRef.current = null;
+          }
+        });
+        pendingRef.current = { key: contentKey, promise };
+        return promise;
+      }, [contentKey, paint]);
 
       useImperativeHandle(ref, () => ({ generate }), [generate]);
 
