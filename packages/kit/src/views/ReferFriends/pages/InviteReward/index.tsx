@@ -181,9 +181,12 @@ function InviteOverviewSkeleton() {
         </YStack>
         <YStack gap="$5">
           <YStack px="$4" pt="$4" pb="$1" {...cardStyle}>
-            <Skeleton.BodyMd w={96} />
-            <XStack pt="$1" pb="$3">
-              <Skeleton.Heading3Xl w={180} />
+            <XStack ai="center" jc="space-between" pb="$3">
+              <YStack gap="$1">
+                <Skeleton.BodyMd w={96} />
+                <Skeleton.Heading3Xl w={180} />
+              </YStack>
+              <Skeleton w={24} h={24} radius="round" />
             </XStack>
             <YStack pb="$3">
               {[0, 1].map((index) => (

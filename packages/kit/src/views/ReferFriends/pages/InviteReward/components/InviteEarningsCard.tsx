@@ -20,6 +20,7 @@ import { useNextDistributionLabel } from '@onekeyhq/kit/src/views/ReferFriends/h
 import { useNavigateToEditAddress } from '@onekeyhq/kit/src/views/ReferFriends/pages/EditAddress/hooks/useNavigateToEditAddress';
 import { useNavigateToRewardHistory } from '@onekeyhq/kit/src/views/ReferFriends/pages/RewardDistributionHistory/hooks/useNavigateToRewardHistory';
 import { openInviteWithdrawAddressEditor } from '@onekeyhq/kit/src/views/ReferFriends/pages/RewardDistributionHistory/openInviteWithdrawAddressEditor';
+import { NATIVE_MEDIUM_ICON_HIT_SLOP } from '@onekeyhq/kit/src/views/ReferFriends/utils/touchTarget';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
@@ -37,7 +38,6 @@ import {
   COMPACT_ENTRY_TITLE_PROPS,
   COMPACT_ROW_BLEED_PROPS,
   INVITE_CARD_BORDER_COLOR,
-  PRESSABLE_SURFACE_PROPS,
   useInviteHomeCardStyle,
 } from './useInviteCardStyle';
 
@@ -277,48 +277,47 @@ function CompactEarnings({
 }) {
   return (
     <YStack>
-      <SizableText size="$bodyMd" color="$textSubdued">
-        {labels.cumulative}
-      </SizableText>
-      <XStack ai="baseline" gap="$1.5" pt="$1" pb="$3">
-        <Currency
-          {...REFERRAL_USD_CURRENCY_PROPS}
-          size="$heading3xl"
-          numberOfLines={1}
-          flexShrink={1}
-        >
-          {earnings.cumulative}
-        </Currency>
-        <ReferralUsdUnit />
-      </XStack>
-      <YStack pb="$3">
-        {/* The paid amount opens its own record: the payout history. */}
-        <YStack
-          testID={ReferFriendsTestIDs.inviteRewardHistory}
-          {...COMPACT_ROW_BLEED_PROPS}
-          {...PRESSABLE_SURFACE_PROPS}
-          onPress={onOpenHistory}
-        >
-          <CompactFieldRow
-            leading={<PartDot color="$iconSuccess" />}
-            label={labels.distributed}
-          >
+      {/* Payout history sits on the total it explains, as the app's usual
+          history clock. */}
+      <XStack ai="center" gap="$3" pb="$3">
+        <YStack flex={1} minWidth={0}>
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {labels.cumulative}
+          </SizableText>
+          <XStack ai="baseline" gap="$1.5" pt="$1">
             <Currency
               {...REFERRAL_USD_CURRENCY_PROPS}
-              size="$bodyMdMedium"
+              size="$heading3xl"
               numberOfLines={1}
+              flexShrink={1}
             >
-              {earnings.distributed}
+              {earnings.cumulative}
             </Currency>
-            {/* Same size and edge as the list drill-in chevrons. */}
-            <Icon
-              name="ChevronRightSmallOutline"
-              color="$iconSubdued"
-              mr="$-1.5"
-              flexShrink={0}
-            />
-          </CompactFieldRow>
+            <ReferralUsdUnit />
+          </XStack>
         </YStack>
+        <IconButton
+          testID={ReferFriendsTestIDs.inviteRewardHistory}
+          variant="tertiary"
+          icon="ClockTimeHistoryOutline"
+          title={labels.history}
+          hitSlop={NATIVE_MEDIUM_ICON_HIT_SLOP}
+          onPress={onOpenHistory}
+        />
+      </XStack>
+      <YStack pb="$3">
+        <CompactFieldRow
+          leading={<PartDot color="$iconSuccess" />}
+          label={labels.distributed}
+        >
+          <Currency
+            {...REFERRAL_USD_CURRENCY_PROPS}
+            size="$bodyMdMedium"
+            numberOfLines={1}
+          >
+            {earnings.distributed}
+          </Currency>
+        </CompactFieldRow>
         {/* The payout date sits under the amount it applies to. */}
         <CompactFieldRow
           leading={<PartDot color="$iconCaution" />}
