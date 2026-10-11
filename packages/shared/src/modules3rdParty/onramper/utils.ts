@@ -80,10 +80,12 @@ export function getErrorMessageForLog(error: unknown): string | undefined {
     typeof error === 'object' && 'message' in error
       ? String((error as { message?: unknown }).message ?? '')
       : String(error);
+  // Cap the free-form SDK text first, then annotate: the appended case names
+  // come from our own table and are bounded, so they must not be what the cap
+  // cuts off. A marker that is itself split by the cap stays unannotated.
   return message
-    ? truncateForLog(
-        annotateOnramperSdkErrorMessage(message),
-        LOG_MESSAGE_MAX_LENGTH,
+    ? annotateOnramperSdkErrorMessage(
+        truncateForLog(message, LOG_MESSAGE_MAX_LENGTH),
       )
     : undefined;
 }

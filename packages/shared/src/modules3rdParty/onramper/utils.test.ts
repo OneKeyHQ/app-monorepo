@@ -47,7 +47,7 @@ describe('annotateOnramperSdkErrorMessage', () => {
 });
 
 describe('getErrorMessageForLog', () => {
-  it('annotates SDK enum indexes before truncation', () => {
+  it('annotates SDK enum indexes', () => {
     const raw =
       'SDK initialization failed: The operation couldn’t be completed. (OnramperSDK.BFFRecoveryError error 1.)';
     expect(getErrorMessageForLog({ message: raw })).toBe(
@@ -61,6 +61,23 @@ describe('getErrorMessageForLog', () => {
   it('still truncates long messages', () => {
     const long = 'x'.repeat(400);
     expect(getErrorMessageForLog(long)).toBe(`${'x'.repeat(300)}…`);
+  });
+
+  it('keeps the case name when the marker ends exactly at the cap', () => {
+    const marker = '(OnramperSDK.BFFRecoveryError error 1.)';
+    const raw = `${'x'.repeat(300 - marker.length)}${marker}`;
+    expect(raw).toHaveLength(300);
+    expect(getErrorMessageForLog(raw)).toBe(
+      `${'x'.repeat(300 - marker.length)}(OnramperSDK.BFFRecoveryError error 1 = sdkSessionRejected.)`,
+    );
+  });
+
+  it('leaves a marker that the cap splits unannotated', () => {
+    const marker = '(OnramperSDK.BFFRecoveryError error 1.)';
+    const raw = `${'x'.repeat(301 - marker.length)}${marker}`;
+    expect(getErrorMessageForLog(raw)).toBe(
+      `${'x'.repeat(301 - marker.length)}${marker.slice(0, -1)}…`,
+    );
   });
 
   it('returns undefined for empty input', () => {
