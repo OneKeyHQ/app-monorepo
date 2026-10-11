@@ -23,6 +23,7 @@ import { SuspensionAlert } from './SuspensionAlert';
 import {
   COMPACT_ENTRY_TITLE_PROPS,
   COMPACT_ROW_BLEED_PROPS,
+  COMPACT_ROW_ICON_PROPS,
   useInviteHomeCardStyle,
 } from './useInviteCardStyle';
 
@@ -43,11 +44,13 @@ function InviteManageLinks({
   const links = [
     {
       testID: ReferFriendsTestIDs.inviteManageCodes,
+      icon: 'TicketOutline' as const,
       title: ETranslations.referral_manage_codes__action,
       onPress: onManageCodes,
     },
     {
       testID: ReferFriendsTestIDs.inviteYourReferred,
+      icon: 'PeopleOutline' as const,
       title: ETranslations.referral_referral_list,
       onPress: navigateToYourReferred,
     },
@@ -59,6 +62,9 @@ function InviteManageLinks({
           key={link.testID}
           testID={link.testID}
           {...COMPACT_ROW_BLEED_PROPS}
+          // Icons like the product rows below, so the lists scan alike.
+          icon={link.icon}
+          iconProps={COMPACT_ROW_ICON_PROPS}
           titleProps={COMPACT_ENTRY_TITLE_PROPS}
           title={intl.formatMessage({ id: link.title })}
           drillIn
@@ -112,15 +118,19 @@ export const InviteTabContent = memo(function InviteTabContent({
               rebateLevels={summaryInfo.rebateLevels}
               levelDetail={levelDetail}
             />
-            <InviteCompactCard
-              inviteUrl={inviteUrl}
-              inviteCode={summaryInfo.inviteCode}
-              cardStyle={cardStyle}
-            />
-            <InviteManageLinks
-              cardStyle={cardStyle}
-              onManageCodes={handleManageCodes}
-            />
+            {/* The code card and the pages about your invites read as one
+                group: closer to each other than to the hero. */}
+            <YStack gap="$3">
+              <InviteCompactCard
+                inviteUrl={inviteUrl}
+                inviteCode={summaryInfo.inviteCode}
+                cardStyle={cardStyle}
+              />
+              <InviteManageLinks
+                cardStyle={cardStyle}
+                onManageCodes={handleManageCodes}
+              />
+            </YStack>
           </YStack>
           <YStack gap="$5">
             <InviteEarningsCard

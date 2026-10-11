@@ -284,12 +284,15 @@ export function InviteCompactCard({
         testID={ReferFriendsTestIDs.inviteCodeRow}
         ai="center"
         gap="$3"
-        py="$2"
+        // 16px from the card's top edge to the label, and from the code down
+        // to the hairline.
+        pt="$2"
+        pb="$4"
         {...COMPACT_ROW_BLEED_PROPS}
         {...PRESSABLE_SURFACE_PROPS}
         onPress={handleCopy}
       >
-        <YStack flex={1} minWidth={0} gap="$1">
+        <YStack flex={1} minWidth={0} gap="$1.5">
           <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.referral_your_code })}
           </SizableText>
@@ -308,7 +311,7 @@ export function InviteCompactCard({
           {intl.formatMessage({ id: ETranslations.global_copy })}
         </Button>
       </XStack>
-      <Divider my="$1" borderColor={INVITE_CARD_BORDER_COLOR} />
+      <Divider mb="$1" borderColor={INVITE_CARD_BORDER_COLOR} />
       <YStack
         testID={ReferFriendsTestIDs.inviteLinkRow}
         {...COMPACT_ROW_BLEED_PROPS}

@@ -20,7 +20,6 @@ import { useNextDistributionLabel } from '@onekeyhq/kit/src/views/ReferFriends/h
 import { useNavigateToEditAddress } from '@onekeyhq/kit/src/views/ReferFriends/pages/EditAddress/hooks/useNavigateToEditAddress';
 import { useNavigateToRewardHistory } from '@onekeyhq/kit/src/views/ReferFriends/pages/RewardDistributionHistory/hooks/useNavigateToRewardHistory';
 import { openInviteWithdrawAddressEditor } from '@onekeyhq/kit/src/views/ReferFriends/pages/RewardDistributionHistory/openInviteWithdrawAddressEditor';
-import { NATIVE_MEDIUM_ICON_HIT_SLOP } from '@onekeyhq/kit/src/views/ReferFriends/utils/touchTarget';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
@@ -278,8 +277,8 @@ function CompactEarnings({
   return (
     <YStack>
       {/* Payout history sits on the total it explains, as the app's usual
-          history clock. */}
-      <XStack ai="center" gap="$3" pb="$3">
+          history clock, level with the label. */}
+      <XStack ai="flex-start" gap="$3" pb="$3">
         <YStack flex={1} minWidth={0}>
           <SizableText size="$bodyMd" color="$textSubdued">
             {labels.cumulative}
@@ -299,9 +298,9 @@ function CompactEarnings({
         <IconButton
           testID={ReferFriendsTestIDs.inviteRewardHistory}
           variant="tertiary"
+          size="small"
           icon="ClockTimeHistoryOutline"
           title={labels.history}
-          hitSlop={NATIVE_MEDIUM_ICON_HIT_SLOP}
           onPress={onOpenHistory}
         />
       </XStack>
