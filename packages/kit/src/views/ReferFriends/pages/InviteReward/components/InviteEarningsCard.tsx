@@ -31,14 +31,13 @@ import { ReferFriendsTestIDs } from '../../../testIDs';
 
 import { CardTextAction } from './CardTextAction';
 import { getInviteEarningsState } from './getInviteEarningsState';
+import { InviteStatCell as StatCell } from './InviteStatCell';
 import { REFERRAL_USD_CURRENCY_PROPS } from './shared/getRewardSummary';
 import { ReferralUsdUnit } from './shared/ReferralUsdUnit';
 import {
   COMPACT_ENTRY_TITLE_PROPS,
   COMPACT_ROW_BLEED_PROPS,
   INVITE_CARD_BORDER_COLOR,
-  POINTER_ROW_BLEED_PROPS,
-  PRESSABLE_SURFACE_PROPS,
   useInviteHomeCardStyle,
 } from './useInviteCardStyle';
 
@@ -68,52 +67,6 @@ function LeadAmount({ amount }: { amount: string }) {
         {amount}
       </Currency>
       <ReferralUsdUnit size="$bodyLg" />
-    </XStack>
-  );
-}
-
-function StatCell({
-  label,
-  leading,
-  children,
-  onPress,
-  testID,
-  share = 1,
-}: {
-  label: string;
-  leading?: ReactNode;
-  children: ReactNode;
-  onPress?: () => void;
-  testID?: string;
-  // Width share of the row. A zero basis keeps the split fixed, so masking
-  // the address does not resize the cells.
-  share?: number;
-}) {
-  return (
-    <XStack
-      testID={testID}
-      flex={share}
-      flexBasis={0}
-      minWidth={0}
-      ai="center"
-      gap="$2"
-      py="$1"
-      borderRadius="$2"
-      // Pressable cells get a padded hover surface that keeps text aligned.
-      {...(onPress
-        ? { ...PRESSABLE_SURFACE_PROPS, ...POINTER_ROW_BLEED_PROPS }
-        : null)}
-      onPress={onPress}
-    >
-      <YStack flex={1} gap="$1" minWidth={0}>
-        <XStack ai="center" gap="$2">
-          {leading}
-          <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-            {label}
-          </SizableText>
-        </XStack>
-        {children}
-      </YStack>
     </XStack>
   );
 }

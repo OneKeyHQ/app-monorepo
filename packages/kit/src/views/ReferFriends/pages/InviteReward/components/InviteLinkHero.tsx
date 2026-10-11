@@ -20,13 +20,13 @@ import { CompactFieldRow } from '../../../components/CompactFieldRow';
 import { ReferFriendsTestIDs } from '../../../testIDs';
 
 import { CardTextAction } from './CardTextAction';
+import { InviteStatCell } from './InviteStatCell';
 import { RateLineTrigger } from './InviteValueLine';
 import { useReferralCodeCard } from './ReferralCodeCard/hooks/useReferralCodeCard';
 import { ReferralLinkDropdown } from './ReferralLinkDropdown';
 import {
   COMPACT_ROW_BLEED_PROPS,
   INVITE_CARD_BORDER_COLOR,
-  POINTER_ROW_BLEED_PROPS,
   PRESSABLE_SURFACE_PROPS,
 } from './useInviteCardStyle';
 
@@ -37,14 +37,18 @@ function InviteLinkField({
   inviteUrl,
   displayUrl,
   trailing,
+  grow = false,
 }: {
   inviteUrl: string;
   displayUrl: string;
   trailing?: ReactNode;
+  // Fills a row beside the share button. Never set in a column, where it
+  // would stretch the field's height instead.
+  grow?: boolean;
 }) {
   return (
     <XStack
-      flex={1}
+      flex={grow ? 1 : undefined}
       minHeight={trailing ? 48 : 44}
       ai="center"
       gap="$2"
@@ -64,51 +68,6 @@ function InviteLinkField({
   );
 }
 
-function InviteCodeLine({
-  inviteCode,
-  codeLabel,
-  manageLabel,
-  onCopy,
-  onManage,
-}: {
-  inviteCode: string;
-  codeLabel: string;
-  manageLabel: string;
-  onCopy: () => void;
-  onManage: () => void;
-}) {
-  return (
-    <XStack ai="center" minHeight={32} gap="$2">
-      <XStack
-        testID={ReferFriendsTestIDs.inviteCodeLine}
-        flexShrink={1}
-        ai="center"
-        gap="$2"
-        // Bleed the hover surface so the label stays aligned with the text above.
-        {...POINTER_ROW_BLEED_PROPS}
-        py="$1"
-        borderRadius="$2"
-        {...PRESSABLE_SURFACE_PROPS}
-        onPress={onCopy}
-      >
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {codeLabel}
-        </SizableText>
-        <SizableText size="$bodyMdMedium" numberOfLines={1} flexShrink={1}>
-          {inviteCode}
-        </SizableText>
-        <Icon name="Copy3Outline" size="$4" color="$iconSubdued" />
-      </XStack>
-      <Stack flex={1} />
-      <CardTextAction
-        testID={ReferFriendsTestIDs.inviteManageCodes}
-        label={manageLabel}
-        onPress={onManage}
-      />
-    </XStack>
-  );
-}
-
 function InviteLinkActions({
   inviteUrl,
   displayUrl,
@@ -123,7 +82,7 @@ function InviteLinkActions({
   shareButton: ReactNode;
 }) {
   const linkField = (
-    <InviteLinkField inviteUrl={inviteUrl} displayUrl={displayUrl} />
+    <InviteLinkField inviteUrl={inviteUrl} displayUrl={displayUrl} grow />
   );
   // Native pins sharing to the page footer, so the hero keeps only the link
   // field and share.
@@ -189,8 +148,9 @@ export function InviteLinkHero({
     });
 
   return (
-    // Fills the card, which stretches to the earnings card's height; the
-    // code line sits at the bottom, level with the earnings figures.
+    // Mirrors the earnings card beside it: header, the main block, then a
+    // hairline and a label-over-value row at the bottom, so both cards'
+    // hairlines and bottom rows line up.
     <YStack flex={1} gap="$4">
       <XStack ai="flex-start" gap="$3">
         <YStack flex={1} gap="$1">
@@ -218,19 +178,37 @@ export function InviteLinkHero({
           />
         }
       />
-      <YStack mt="auto">
-        <InviteCodeLine
-          inviteCode={inviteCode}
-          codeLabel={intl.formatMessage({
-            id: ETranslations.referral_your_code,
-          })}
-          manageLabel={intl.formatMessage({
+      <Divider mt="auto" borderColor={INVITE_CARD_BORDER_COLOR} />
+      <XStack ai="center" gap="$6">
+        <InviteStatCell
+          testID={ReferFriendsTestIDs.inviteCodeLine}
+          label={intl.formatMessage({ id: ETranslations.referral_your_code })}
+          onPress={handleCopy}
+        >
+          <XStack ai="center" gap="$2" minWidth={0}>
+            <SizableText
+              size="$bodyLgMedium"
+              numberOfLines={1}
+              flexShrink={1}
+            >
+              {inviteCode}
+            </SizableText>
+            <Icon
+              name="Copy3Outline"
+              size="$5"
+              color="$iconSubdued"
+              flexShrink={0}
+            />
+          </XStack>
+        </InviteStatCell>
+        <CardTextAction
+          testID={ReferFriendsTestIDs.inviteManageCodes}
+          label={intl.formatMessage({
             id: ETranslations.referral_manage_codes__action,
           })}
-          onCopy={handleCopy}
-          onManage={onManageCodes}
+          onPress={onManageCodes}
         />
-      </YStack>
+      </XStack>
     </YStack>
   );
 }
