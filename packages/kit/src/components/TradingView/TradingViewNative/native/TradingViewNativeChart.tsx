@@ -10,6 +10,7 @@ import {
 
 import {
   Canvas,
+  FontWeight,
   Picture,
   useSVG,
   useTypeface,
@@ -35,6 +36,7 @@ import {
   TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
   TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT,
   TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
+  TRADING_VIEW_NATIVE_TRADING_LINE_LABEL_FONT_SIZE,
   TRADING_VIEW_NATIVE_WATERMARK_DARK_OPACITY as WATERMARK_DARK_OPACITY,
   TRADING_VIEW_NATIVE_WATERMARK_LIGHT_OPACITY as WATERMARK_LIGHT_OPACITY,
 } from '../chartConstants';
@@ -120,11 +122,13 @@ export const TradingViewNativeChart = memo(
     enableDrawings = false,
     candleIntervalSeconds,
     chartComponents,
+    onInteractionChange,
     chartSettings,
     chartType,
     chartPictureVersion,
     extendTimeAxisBorderToCanvasEdge = false,
     currentPriceLabel,
+    priceDecimalPlaces,
     hasVolume,
     indicatorSeries,
     indicatorSeriesSettingsKey,
@@ -196,6 +200,7 @@ export const TradingViewNativeChart = memo(
       drawings,
       projection: drawingProjection,
       gesture: drawingGesture,
+      pointerId: drawingPointerId,
     } = useNativeChartDrawings({
       enabled: enableDrawings,
       points,
@@ -205,6 +210,59 @@ export const TradingViewNativeChart = memo(
       chartRuntime,
       decayOffset,
     });
+    const interactionMounted = useRef(true);
+    const interactionState = useRef({
+      gestures: false,
+      drawings: false,
+      drawingTool: false,
+      priceScale: false,
+    });
+    const reportInteraction = useCallback(
+      (
+        source: 'gestures' | 'drawings' | 'drawingTool' | 'priceScale',
+        active: boolean,
+      ) => {
+        if (!interactionMounted.current) return;
+        interactionState.current[source] = active;
+        onInteractionChange?.(
+          Object.values(interactionState.current).some(Boolean),
+        );
+      },
+      [onInteractionChange],
+    );
+    const handleGestureInteraction = useCallback(
+      (active: boolean) => reportInteraction('gestures', active),
+      [reportInteraction],
+    );
+    const handleDrawingInteraction = useCallback(
+      (active: boolean) => reportInteraction('drawings', active),
+      [reportInteraction],
+    );
+    const handlePriceScaleInteraction = useCallback(
+      (active: boolean) => reportInteraction('priceScale', active),
+      [reportInteraction],
+    );
+    useAnimatedReaction(
+      () => drawingPointerId.value !== null,
+      (active, previous) => {
+        if (onInteractionChange && active !== previous)
+          scheduleOnRN(handleDrawingInteraction, active);
+      },
+      [drawingPointerId, handleDrawingInteraction, onInteractionChange],
+    );
+    useEffect(() => {
+      interactionMounted.current = true;
+      return () => {
+        interactionMounted.current = false;
+        onInteractionChange?.(false);
+      };
+    }, [onInteractionChange]);
+    useEffect(() => {
+      reportInteraction(
+        'drawingTool',
+        enableDrawings && drawingController.state.tool !== 'cursor',
+      );
+    }, [enableDrawings, drawingController.state.tool, reportInteraction]);
     useEffect(() => () => cancelAnimation(decayOffset), [decayOffset]);
     const previousLatestTimestampRef = useRef<number | undefined>(
       points[points.length - 1]?.t,
@@ -247,12 +305,16 @@ export const TradingViewNativeChart = memo(
     const isLogScaleAvailable =
       isTradingViewNativeLogPriceScaleAvailable(autoPriceRange);
     const widestPriceLabel = useMemo(
-      () => getTradingViewNativePriceAxisLabel(points),
-      [points],
+      () => getTradingViewNativePriceAxisLabel(points, priceDecimalPlaces),
+      [points, priceDecimalPlaces],
     );
     const widestChartComponentPriceLabel = useMemo(
-      () => getTradingViewNativeChartComponentPriceAxisLabel(chartComponents),
-      [chartComponents],
+      () =>
+        getTradingViewNativeChartComponentPriceAxisLabel(
+          chartComponents,
+          priceDecimalPlaces,
+        ),
+      [chartComponents, priceDecimalPlaces],
     );
     const widestIndicatorPriceLabel = useMemo(
       () => getTradingViewNativeIndicatorPriceAxisLabel(indicatorSeries),
@@ -283,6 +345,19 @@ export const TradingViewNativeChart = memo(
         }),
       [legendText, locale],
     );
+    // Resolve a real semibold face; native Skia's setEmbolden reads a number
+    // despite its boolean TypeScript signature.
+    const tradingLineLabelFont = useMemo(
+      () =>
+        createTradingViewNativeSkiaFontForText({
+          fontFamily: SYSTEM_FONT_FAMILY,
+          fontSize: TRADING_VIEW_NATIVE_TRADING_LINE_LABEL_FONT_SIZE,
+          fontWeight: FontWeight.SemiBold,
+          locale,
+          requiredText: legendText,
+        }),
+      [legendText, locale],
+    );
     const resources = useDerivedValue(
       () =>
         createTradingViewNativeSkiaResources({
@@ -301,6 +376,7 @@ export const TradingViewNativeChart = memo(
           priceAxisFontSize,
           timeAxisFontSize,
           timeAxisBorderWidth,
+          tradingLineLabelFont,
           watermarkSvg,
         }),
       [
@@ -316,6 +392,7 @@ export const TradingViewNativeChart = memo(
         timeAxisFontSize,
         timeAxisBorder,
         timeAxisBorderWidth,
+        tradingLineLabelFont,
         watermarkSvg,
       ],
     );
@@ -337,6 +414,7 @@ export const TradingViewNativeChart = memo(
           ? getTradingViewNativeScaledPriceAxisLabel({
               autoPriceRange: priceRange,
               baseLabel: widestPriceLabel,
+              priceDecimalPlaces,
               priceRangeScale: chartRuntime.value.priceRangeScale,
               priceScaleMode: chartRuntime.value.priceScaleMode,
             })
@@ -379,6 +457,7 @@ export const TradingViewNativeChart = memo(
       chartSettings.options.latestPrice,
       chartSettings.options.yAxis,
       currentPriceLabel,
+      priceDecimalPlaces,
       resources,
       widestChartComponentPriceLabel,
       widestIndicatorPriceLabel,
@@ -406,6 +485,7 @@ export const TradingViewNativeChart = memo(
         crosshair: runtime.crosshair,
         extendTimeAxisBorderToCanvasEdge,
         currentPriceLabel: runtime.currentPriceLabel,
+        priceDecimalPlaces,
         hasVolume: runtime.hasVolume,
         height: runtime.size.height,
         candleLabels,
@@ -429,6 +509,7 @@ export const TradingViewNativeChart = memo(
       });
     }, [
       candleLabels,
+      priceDecimalPlaces,
       enableDrawings,
       extendTimeAxisBorderToCanvasEdge,
       isMobileLayout,
@@ -847,6 +928,9 @@ export const TradingViewNativeChart = memo(
       decayOffset,
       isEnabled: chartSettings.options.yAxis,
       isLogScaleAvailable,
+      onInteractionChange: onInteractionChange
+        ? handlePriceScaleInteraction
+        : undefined,
       priceAxisWidth,
       subIndicatorPanes,
       timeAxisHeight,
@@ -857,6 +941,9 @@ export const TradingViewNativeChart = memo(
       decayOffset,
       isClickInteractionEnabled: chartSettings.options.clickInteraction,
       isCrosshairEnabled: chartSettings.options.crossLine,
+      onInteractionChange: onInteractionChange
+        ? handleGestureInteraction
+        : undefined,
       onSubIndicatorSettingsPress,
       priceAxisResetGesture,
       priceAxisScaleGesture,
