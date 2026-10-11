@@ -158,15 +158,15 @@ function InviteOverviewSkeleton() {
             </YStack>
           </YStack>
           <YStack gap="$3">
-            <YStack px="$4" py="$2" {...cardStyle}>
-              <XStack pt="$2" pb="$4" ai="center" jc="space-between">
+            <YStack px="$4" py="$1" {...cardStyle}>
+              <XStack py="$3" ai="center" jc="space-between">
                 <YStack gap="$1.5">
                   <Skeleton.BodyMd w={96} />
                   <Skeleton.HeadingXl w={140} />
                 </YStack>
                 <Skeleton w={72} h={28} radius="round" />
               </XStack>
-              <Divider mb="$1" borderColor={INVITE_CARD_BORDER_COLOR} />
+              <Divider my="$1" borderColor={INVITE_CARD_BORDER_COLOR} />
               <XStack minHeight={44} ai="center" jc="space-between">
                 <Skeleton.BodyMd w={72} />
                 <Skeleton.BodyMd w={180} />
