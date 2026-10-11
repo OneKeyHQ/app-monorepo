@@ -1290,12 +1290,23 @@ class ServiceSend extends ServiceBase {
       ? undefined
       : gasAccountSubmitId;
 
+    const broadcastedTxs = sentTxsTrackingId
+      ? this.getBatchBroadcastedTxs(sentTxsTrackingId)
+      : undefined;
+    const singleTxUuid = isMultiTxs ? undefined : unsignedTxs[0]?.uuid;
+
     // Replace (speed up / cancel) txs reuse the original pending tx's nonce.
     // Re-validate that nonce against the on-chain nonce at the last moment
     // before signing: if the original tx was already confirmed/replaced, abort
     // and clean up the stale local pending tx instead of broadcasting a doomed
-    // tx (which the backend rejects with code 40024).
-    if (replaceTxInfo && !isMultiTxs) {
+    // tx (which the backend rejects with code 40024). Skipped when an earlier
+    // attempt already broadcast this replacement: its own confirmation would
+    // look like a consumed nonce and block the retry from finishing it.
+    if (
+      replaceTxInfo &&
+      !isMultiTxs &&
+      !(singleTxUuid && broadcastedTxs?.has(singleTxUuid))
+    ) {
       const replaceTargetNonce = unsignedTxs[0]?.nonce;
       if (!isNil(replaceTargetNonce)) {
         const { consumed } = await this.precheckReplaceTxNonceConsumed({
@@ -1314,9 +1325,6 @@ class ServiceSend extends ServiceBase {
       }
     }
 
-    const broadcastedTxs = sentTxsTrackingId
-      ? this.getBatchBroadcastedTxs(sentTxsTrackingId)
-      : undefined;
     const result: ISendTxOnSuccessData[] = [];
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
       const txUuid = unsignedTxs[i].uuid;

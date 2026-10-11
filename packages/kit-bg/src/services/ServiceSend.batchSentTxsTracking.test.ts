@@ -7,6 +7,7 @@ way the extension bridge and the native background thread deliver them.
 */
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type { ISendSelectedFeeInfo } from '@onekeyhq/shared/types/fee';
+import { EReplaceTxType } from '@onekeyhq/shared/types/tx';
 import type { IDecodedTx, ISendTxBaseParams } from '@onekeyhq/shared/types/tx';
 
 import { vaultFactory } from '../vaults/factory';
@@ -227,6 +228,39 @@ describe('ServiceSend.batchSignAndSendTransaction sentTxsTrackingId', () => {
     await expect(sendFromUi(service, params)).resolves.toEqual(result);
     expect(signAndSend).toHaveBeenCalledTimes(1);
     expect(saveSendConfirmHistoryTxs).toHaveBeenCalledTimes(2);
+  });
+
+  test('retry finishes a broadcast replacement whose nonce is now consumed', async () => {
+    const { service, backgroundApi, signAndSend } = makeService();
+    const precheckNonce = jest
+      .spyOn(service, 'precheckReplaceTxNonceConsumed')
+      .mockResolvedValueOnce({ consumed: false })
+      .mockResolvedValue({ consumed: true });
+    backgroundApi.serviceHistory.saveSendConfirmHistoryTxs.mockRejectedValueOnce(
+      new Error('history write failed'),
+    );
+    const params: IBatchParams = {
+      accountId,
+      networkId,
+      unsignedTxs: [{ ...makeUnsignedTx('tx-1'), nonce: 7 }],
+      signOnly: false,
+      transferPayload: undefined,
+      replaceTxInfo: {
+        replaceType: EReplaceTxType.SpeedUp,
+        replaceHistoryId: 'history-1',
+      },
+      sentTxsTrackingId: 'screen-1',
+    };
+
+    await expect(sendFromUi(service, params)).rejects.toThrow(
+      'history write failed',
+    );
+    const result = await sendFromUi(service, params);
+
+    // The replacement's own confirmation must not read as a stale nonce.
+    expect(precheckNonce).toHaveBeenCalledTimes(1);
+    expect(signAndSend).toHaveBeenCalledTimes(1);
+    expect(result.map((item) => item.signedTx.txid)).toEqual(['txid-tx-1']);
   });
 
   test('tracking is scoped to its id and opt-in', async () => {
