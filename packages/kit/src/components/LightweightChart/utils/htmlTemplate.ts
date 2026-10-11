@@ -19,15 +19,11 @@ function getChartInitScript(): string {
       function getPriceFormatter(nextConfig) {
         if (nextConfig.priceScaleFormat === 'stock') {
           return function(price) {
-            if (!isFinite(price)) return '--';
-            var abs = Math.abs(price);
-            if (abs >= 1) {
-              return (price < 0 ? '-' : '') + '$' + abs.toFixed(2);
-            }
             var formatChartPrice = window.__onekeyFormatChartPrice;
             return formatChartPrice(
               price,
               nextConfig.compactPriceMaxCharacters || 10,
+              true,
             );
           };
         }

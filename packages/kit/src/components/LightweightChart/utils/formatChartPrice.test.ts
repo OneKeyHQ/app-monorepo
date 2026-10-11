@@ -36,6 +36,26 @@ describe('formatStockChartPrice', () => {
     expect(formatStockChartPrice(-9.4)).toBe('-$9.40');
   });
 
+  it.each([
+    [1.005, '$1.01'],
+    [2.675, '$2.68'],
+    [9.995, '$10.00'],
+    [999.995, '$1000.00'],
+    [-1.005, '-$1.01'],
+    [-9.995, '-$10.00'],
+    [1.0049, '$1.00'],
+    [1e21, '$1000000000000000000000.00'],
+  ])(
+    'rounds the stock quote %s half-up in both runtimes',
+    (price, expected) => {
+      const nativeFormatter = runInNewContext(
+        `(${readFileSync('packages/kit/src/components/LightweightChart/utils/formatChartPrice.text-js', 'utf8')})`,
+      ) as typeof formatChartPrice;
+      expect(formatStockChartPrice(price)).toBe(expected);
+      expect(nativeFormatter(price, 10, true)).toBe(expected);
+    },
+  );
+
   it('keeps the compact form for sub-dollar quotes', () => {
     expect(formatStockChartPrice(0.142_991)).toBe('$0.143');
     expect(formatStockChartPrice(Number.NaN)).toBe('--');

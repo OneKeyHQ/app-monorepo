@@ -1,6 +1,27 @@
 // Keep this function self-contained: native charts embed it in the WebView.
-export function formatChartPrice(price: number, maxCharacters = 8): string {
+export function formatChartPrice(
+  price: number,
+  maxCharacters = 8,
+  stockPrice = false,
+): string {
   if (!Number.isFinite(price)) return '--';
+  if (stockPrice && Math.abs(price) >= 1) {
+    // Round the decimal digits half-up, avoiding binary midpoint errors.
+    const [mantissa, exponentText] = Math.abs(price).toExponential().split('e');
+    const decimalPosition = Number(exponentText) + 1;
+    const digits = mantissa.replace('.', '').padEnd(decimalPosition + 3, '0');
+    const cents = digits.slice(0, decimalPosition + 2).split('');
+    if (digits.charAt(decimalPosition + 2) >= '5') {
+      let index = cents.length - 1;
+      while (index >= 0 && cents[index] === '9') {
+        cents[index] = '0';
+        index -= 1;
+      }
+      if (index < 0) cents.unshift('1');
+      else cents[index] = String(Number(cents[index]) + 1);
+    }
+    return `${price < 0 ? '-' : ''}$${cents.slice(0, -2).join('')}.${cents.slice(-2).join('')}`;
+  }
   const limit = Number.isFinite(maxCharacters)
     ? Math.max(4, Math.floor(maxCharacters))
     : 8;
@@ -95,9 +116,5 @@ export function formatChartPrice(price: number, maxCharacters = 8): string {
 // headline (`$341.70`, not `$341.7`). Amounts under $1 stay on the shared
 // compact formatter.
 export function formatStockChartPrice(price: number): string {
-  if (!Number.isFinite(price)) return '--';
-  if (Math.abs(price) >= 1) {
-    return `${price < 0 ? '-' : ''}$${Math.abs(price).toFixed(2)}`;
-  }
-  return formatChartPrice(price, 10);
+  return formatChartPrice(price, 10, true);
 }

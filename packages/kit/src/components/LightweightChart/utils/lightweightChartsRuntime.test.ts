@@ -345,6 +345,17 @@ it('embeds and selects compact prices in the native chart', () => {
     runInNewContext(`${formatterSource};
     getPriceFormatter({priceScaleFormat: 'stock', compactPriceMaxCharacters: 10})(341.7)`),
   ).toBe('$341.70');
+  for (const [price, expected] of [
+    [1.005, '$1.01'],
+    [-1.005, '-$1.01'],
+    [9.995, '$10.00'],
+  ]) {
+    expect(
+      runInNewContext(
+        `${formatterSource}; getPriceFormatter({priceScaleFormat: 'stock'})(${price})`,
+      ),
+    ).toBe(expected);
+  }
   expect(html).toContain('options.localization');
 });
 
