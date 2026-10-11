@@ -27,7 +27,6 @@ import { ReferFriendsTestIDs } from '../../../testIDs';
 import {
   type IInviteRewardRow,
   type IInviteRewardSubject,
-  INVITE_REWARD_RATE_SUBJECTS,
   INVITE_REWARD_SUBJECT_ICON,
   getInviteRewardRows,
 } from './getInviteRewardRows';
@@ -42,7 +41,6 @@ import {
   useInviteHomeCardStyle,
 } from './useInviteCardStyle';
 
-import type { IInviteValueSummaryResult } from './InviteValueLine';
 import type { IInviteCardStyle } from './useInviteCardStyle';
 
 const SUBJECT_TITLE: Record<IInviteRewardSubject, ETranslations> = {
@@ -235,12 +233,10 @@ function ProductTile({ subject }: { subject?: IInviteRewardSubject }) {
 }
 
 // Amounts use the earnings card's basis, so the rows add up to its unpaid
-// total. Pending is not payable yet, so it reads quieter than unpaid. The
-// product's own rate sits under its name.
+// total. Pending is not payable yet, so it reads quieter than unpaid.
 function DesktopRewardRow({
   row,
   title,
-  rate,
   columns,
   noRewardLabel,
   pendingTooltip,
@@ -248,13 +244,11 @@ function DesktopRewardRow({
 }: {
   row: IInviteRewardRow;
   title: string;
-  rate?: string;
   columns: IDesktopRewardColumns;
   noRewardLabel: string;
   pendingTooltip?: IRewardLabelTooltip;
   onPress: () => void;
 }) {
-  const intl = useIntl();
   const { pending } = row;
   const hasReward = row.available.hasReward;
 
@@ -269,19 +263,9 @@ function DesktopRewardRow({
     >
       <DesktopCell first>
         <ProductTile subject={row.subject} />
-        <YStack flex={1} minWidth={0}>
-          <SizableText size="$bodyLgMedium" numberOfLines={1}>
-            {title}
-          </SizableText>
-          {rate ? (
-            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-              {intl.formatMessage(
-                { id: ETranslations.referral_you_earn__desc },
-                { rate },
-              )}
-            </SizableText>
-          ) : null}
-        </YStack>
+        <SizableText flex={1} size="$bodyLgMedium" numberOfLines={1}>
+          {title}
+        </SizableText>
       </DesktopCell>
       {columns.monthly ? (
         <DesktopCell>
@@ -436,11 +420,8 @@ function useOpenInviteRewardSubject(earnTitle: string) {
 
 export function InviteRewardRows({
   summaryInfo,
-  valueSummary,
 }: {
   summaryInfo: IInviteSummary;
-  // Desktop rows show each product's own rate under its name.
-  valueSummary?: IInviteValueSummaryResult;
 }) {
   const intl = useIntl();
   const { md } = useMedia();
@@ -456,14 +437,6 @@ export function InviteRewardRows({
   });
   const openSubject = useOpenInviteRewardSubject(
     summaryInfo.Onchain.title || '',
-  );
-  const rateRows = valueSummary?.summary?.rows;
-  const rateFor = useCallback(
-    (subject: IInviteRewardSubject) =>
-      rateRows?.find((rateRow) =>
-        INVITE_REWARD_RATE_SUBJECTS[subject].includes(rateRow.subject),
-      )?.you,
-    [rateRows],
   );
   const titleFor = useCallback(
     (subject: IInviteRewardSubject) =>
@@ -533,7 +506,6 @@ export function InviteRewardRows({
                 key={row.subject}
                 row={row}
                 title={titleFor(row.subject)}
-                rate={rateFor(row.subject)}
                 columns={desktopColumns}
                 noRewardLabel={noRewardLabel}
                 pendingTooltip={hardwarePendingTooltip}
