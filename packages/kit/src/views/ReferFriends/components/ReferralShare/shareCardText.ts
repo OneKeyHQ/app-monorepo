@@ -9,11 +9,24 @@ export type ITextRun = { text: string; color: string };
 // Only the measuring part of a canvas context is needed.
 type ITextMeasurer = Pick<CanvasRenderingContext2D, 'measureText'>;
 
+// Breaks between user-perceived characters, so a Thai or Devanagari vowel
+// sign stays with its base letter. Code points are the fallback where
+// Intl.Segmenter is missing.
+function splitGraphemes(text: string): string[] {
+  if (typeof Intl.Segmenter === 'function') {
+    const segmenter = new Intl.Segmenter(undefined, {
+      granularity: 'grapheme',
+    });
+    return Array.from(segmenter.segment(text), ({ segment }) => segment);
+  }
+  return Array.from(text);
+}
+
 // A segment wider than the line (a script without spaces such as Thai, or a
 // long compound word) breaks between characters instead of overflowing.
 function splitOversized(ctx: ITextMeasurer, segment: string, maxWidth: number) {
   return segment.trim() && ctx.measureText(segment).width > maxWidth
-    ? Array.from(segment)
+    ? splitGraphemes(segment)
     : [segment];
 }
 
@@ -58,9 +71,12 @@ export function truncateToWidth(
   if (ctx.measureText(text).width <= maxWidth) {
     return text;
   }
-  let result = text;
-  while (result.length > 0 && ctx.measureText(`${result}…`).width > maxWidth) {
-    result = result.slice(0, -1);
+  const graphemes = splitGraphemes(text);
+  while (
+    graphemes.length > 0 &&
+    ctx.measureText(`${graphemes.join('')}…`).width > maxWidth
+  ) {
+    graphemes.pop();
   }
-  return `${result}…`;
+  return `${graphemes.join('')}…`;
 }

@@ -30,6 +30,13 @@ describe('wrapRuns', () => {
     expect(lineTexts(lines).join('')).toBe(thai);
   });
 
+  it('keeps combining marks with their base letter when breaking', () => {
+    // ที่ is one grapheme: a base letter plus two combining marks.
+    // A width of 5 would fit one and a half of them.
+    const lines = wrapRuns(ctx, [{ text: 'ที่ที่ที่', color: 'a' }], 5);
+    expect(lineTexts(lines)).toEqual(['ที่', 'ที่', 'ที่']);
+  });
+
   it('keeps each run its own color across a wrap', () => {
     const lines = wrapRuns(
       ctx,
@@ -50,5 +57,9 @@ describe('truncateToWidth', () => {
 
   it('ends text that does not fit with an ellipsis', () => {
     expect(truncateToWidth(ctx, 'onekey.so/r/HTSEO7', 8)).toBe('onekey.…');
+  });
+
+  it('never cuts a combining mark off its letter', () => {
+    expect(truncateToWidth(ctx, 'ที่ที่ที่', 5)).toBe('ที่…');
   });
 });
