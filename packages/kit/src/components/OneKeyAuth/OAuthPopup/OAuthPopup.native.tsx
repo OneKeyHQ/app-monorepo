@@ -175,6 +175,21 @@ export class OAuthPopup extends OAuthPopupBase {
 
   // ============ Private Methods - Shared ============
 
+  // A cancel of a native sign-in sheet rather than a web page.
+  private static createSystemSheetCancelError(): OAuthLoginCancelError {
+    const data: IOAuthLoginCancelErrorData = { systemSheet: true };
+    return new OAuthLoginCancelError({ data });
+  }
+
+  // Play services reports an unreachable Google as an error (status 7), so a
+  // cancel of its sheet is deliberate. On iOS the SDK signs in through a web
+  // auth session, where a page that cannot load also ends as a cancel.
+  private static createGoogleCancelError(): OAuthLoginCancelError {
+    return platformEnv.isNativeAndroid
+      ? OAuthPopup.createSystemSheetCancelError()
+      : new OAuthLoginCancelError();
+  }
+
   /**
    * Generate a random nonce and its SHA-256 hash.
    * The hash is passed to OAuth provider, and the raw nonce to Supabase.
@@ -340,8 +355,7 @@ export class OAuthPopup extends OAuthPopupBase {
     } catch (error) {
       // Handle specific Apple Sign-In errors
       if (OAuthPopup.isAppleUserCancelledError(error)) {
-        const data: IOAuthLoginCancelErrorData = { systemSheet: true };
-        throw new OAuthLoginCancelError({ data });
+        throw OAuthPopup.createSystemSheetCancelError();
       }
 
       throw error;
@@ -534,7 +548,7 @@ export class OAuthPopup extends OAuthPopupBase {
       };
 
       if (resultWithType.type === 'cancelled') {
-        throw new OAuthLoginCancelError();
+        throw OAuthPopup.createGoogleCancelError();
       }
 
       if (resultWithType.data?.idToken) {
@@ -592,7 +606,7 @@ export class OAuthPopup extends OAuthPopupBase {
     } catch (error) {
       // Handle specific GoogleSignin errors
       if (OAuthPopup.isUserCancelledError(error)) {
-        throw new OAuthLoginCancelError();
+        throw OAuthPopup.createGoogleCancelError();
       }
       throw OAuthPopup.wrapError(error, 'Google Sign-In failed');
     }

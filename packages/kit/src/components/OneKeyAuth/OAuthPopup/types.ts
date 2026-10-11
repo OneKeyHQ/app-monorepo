@@ -25,8 +25,8 @@ export type IOAuthPopupResult = {
 // OAuth Cancel Types
 // ============================================================================
 
-// `data` of an OAuthLoginCancelError raised by a system sign-in sheet that has
-// no web page behind it (Apple on iOS).
+// `data` of an OAuthLoginCancelError raised by a native sign-in sheet rather
+// than a web page: the Apple sheet on iOS and Play services on Android.
 export type IOAuthLoginCancelErrorData = {
   systemSheet?: boolean;
 };

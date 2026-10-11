@@ -264,15 +264,15 @@ export function getOAuthSignInFailureInfo({
   return {};
 }
 
-// Sign-in UI is a web page nearly everywhere: a browser tab or popup, a web
-// auth session (what the Google SDK opens on iOS as well), or Play services,
-// which reports every way of leaving its screens as one cancel. A page that
-// cannot load ends as a user cancel, which the app cannot tell from a
-// deliberate one. Stay silent the first time; when the same provider is
-// cancelled again shortly after, offer a conditional network hint.
-// Two surfaces are left out, because a cancel there says nothing about a
-// page: the extension, where Chrome shows its sign-in window only after the
-// page has loaded, and the Apple system sheet on iOS, which has no page.
+// Sign-in UI is mostly a web page: a browser tab or popup, or a web auth
+// session (what the Google SDK opens on iOS as well). A page that cannot load
+// ends as a user cancel, which the app cannot tell from a deliberate one.
+// Stay silent the first time; when the same provider is cancelled again
+// shortly after, offer a conditional network hint.
+// Not counted, because a cancel there says nothing about a page: the
+// extension, where Chrome shows its sign-in window only after the page has
+// loaded, and native sign-in sheets (the Apple sheet on iOS has no page; Play
+// services on Android reports an unreachable Google as an error instead).
 const OAUTH_CANCEL_HINT_WINDOW_MS = 5 * 60 * 1000;
 let lastCancelledOAuthSignIn:
   | { provider: EOAuthSocialLoginProvider; at: number }

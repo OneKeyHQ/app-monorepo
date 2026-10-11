@@ -176,6 +176,29 @@ describe('native Google identity authentication', () => {
     expect(handleSessionPersistence).not.toHaveBeenCalled();
   });
 
+  it.each([
+    // Play services reports an unreachable Google as an error, not a cancel.
+    { platform: 'Android', data: { systemSheet: true } },
+    // The iOS SDK shows a web page, which can fail to load behind a cancel.
+    { platform: 'iOS', data: undefined },
+  ])(
+    'reports a Google cancel on $platform with data $data',
+    async ({ platform, data }) => {
+      platformEnv.isNativeAndroid = platform === 'Android';
+      platformEnv.isNativeIOS = platform === 'iOS';
+      googleSignin.signIn.mockResolvedValue({ type: 'cancelled', data: null });
+
+      const error: unknown = await OAuthPopup.open({
+        provider: 'google',
+        client,
+        handleSessionPersistence,
+      }).catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(OAuthLoginCancelError);
+      expect((error as OAuthLoginCancelError).data).toEqual(data);
+    },
+  );
+
   it('rejects with the Play services error itself so its code stays classifiable', async () => {
     // Shape of the rejection when Play services cannot reach Google.
     const networkError = Object.assign(new Error('NETWORK_ERROR'), {
