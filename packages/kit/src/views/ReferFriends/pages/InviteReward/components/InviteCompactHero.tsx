@@ -54,7 +54,9 @@ export function InviteCompactHero({
           testID={ReferFriendsTestIDs.inviteHeroRate}
           centered
         />
-        <XStack pt="$1">
+        {/* Far enough below the rate line that their touch areas (the
+            line's padding, the pill's slop) do not meet. */}
+        <XStack pt="$3">
           <InviteLevelPill {...levelProps} levelDetail={levelDetail} />
         </XStack>
       </YStack>

@@ -232,10 +232,10 @@ export function InviteLinkHero({
 }
 
 // Compact layouts keep this card to sharing: the code leads, then the link
-// with its copy and more-links actions. Sharing itself is the page's main
-// action, pinned to the footer. As before the redesign, a tap anywhere on
-// the code or link row copies it; the icons stay as the visible cue, and
-// their own presses (and the more-links menu) stay off the row.
+// with its more-links menu. Sharing itself is the page's main action, pinned
+// to the footer. As before the redesign, a tap anywhere on the code or link
+// row copies it; the copy icons are only the cue, so the more-links menu is
+// the one separate target and keeps its press off the row.
 export function InviteCompactCard({
   inviteUrl,
   inviteCode,
@@ -270,15 +270,15 @@ export function InviteCompactCard({
           onPress={onManageCodes}
         />
       </XStack>
-      {/* The code is what people share and type, so it leads the card; its
-          copy action sits on it like the link's, as a quiet icon. The
-          margins keep the text where it was inside the press surface. */}
+      {/* The code is what people share and type, so it leads the card. Its
+          row starts 8px under the header, clear of Manage codes' touch
+          area. */}
       <XStack
         testID={ReferFriendsTestIDs.inviteCodeRow}
+        minHeight={44}
         ai="center"
-        gap="$1"
-        py="$1"
-        mt="$-1"
+        gap="$2"
+        mt="$2"
         mb="$2"
         {...COMPACT_ROW_BLEED_PROPS}
         {...PRESSABLE_SURFACE_PROPS}
@@ -287,14 +287,7 @@ export function InviteCompactCard({
         <SizableText size="$headingXl" numberOfLines={1} flexShrink={1}>
           {inviteCode}
         </SizableText>
-        <IconButton
-          testID={ReferFriendsTestIDs.inviteCodeLine}
-          variant="tertiary"
-          size="small"
-          icon="Copy3Outline"
-          title={intl.formatMessage({ id: ETranslations.global_copy })}
-          onPress={handleCopy}
-        />
+        <Icon name="Copy3Outline" size="$5" color="$iconSubdued" />
       </XStack>
       <Divider mb="$1" borderColor={INVITE_CARD_BORDER_COLOR} />
       <YStack
@@ -311,20 +304,12 @@ export function InviteCompactCard({
           <SizableText size="$bodyMdMedium" numberOfLines={1} flexShrink={1}>
             {inviteCodeUrl}
           </SizableText>
-          {/* Spaced so the two 44px touch areas do not overlap. */}
-          <XStack ai="center" gap="$3" pl="$1" flexShrink={0}>
+          <Icon name="Copy3Outline" size="$5" color="$iconSubdued" />
+          {/* Last, at the row's edge, so its touch area does not cover the
+              copy cue. */}
+          <Stack pl="$1">
             <ReferralLinkDropdown inviteUrl={inviteUrl} />
-            <IconButton
-              testID={ReferFriendsTestIDs.copyLinkBtn}
-              variant="tertiary"
-              size="small"
-              icon="Copy3Outline"
-              title={intl.formatMessage({
-                id: ETranslations.referral_copy_link__action,
-              })}
-              onPress={copyLink}
-            />
-          </XStack>
+          </Stack>
         </CompactFieldRow>
       </YStack>
     </YStack>

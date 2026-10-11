@@ -116,7 +116,7 @@ function StatCell({
       </YStack>
       {/* The only pressable cell is the payout address, which it edits. */}
       {onPress ? (
-        <Icon name="PencilOutline" size="$4" color="$iconSubdued" />
+        <Icon name="PencilOutline" size="$5" color="$iconSubdued" />
       ) : null}
     </XStack>
   );
@@ -384,7 +384,7 @@ function CompactEarnings({
         />
         <Icon
           name="PencilOutline"
-          size="$4"
+          size="$5"
           color="$iconSubdued"
           flexShrink={0}
           // Clear of the eye button's touch area.

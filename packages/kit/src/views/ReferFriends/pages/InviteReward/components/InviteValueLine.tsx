@@ -251,6 +251,7 @@ export function RateLineTrigger({
   testID?: string;
   centered?: boolean;
 }) {
+  const { md } = useMedia();
   const { summary } = valueSummary;
   if (!summary) {
     return null;
@@ -263,10 +264,11 @@ export function RateLineTrigger({
           testID={testID}
           jc={centered ? 'center' : undefined}
           cursor="default"
-          // A single text line is too short to tap; the padding grows the
-          // touch area and the margin keeps the layout where it was.
-          py="$3"
-          my="$-3"
+          // On touch layouts a single text line is too short to tap; the
+          // padding grows the touch area to 44px and the margin keeps the
+          // layout where it was. Pointer layouts open it on hover, so the
+          // area stays on the text there.
+          {...(md ? { py: '$3', my: '$-3' } : null)}
         >
           <RateLine
             summary={summary}
