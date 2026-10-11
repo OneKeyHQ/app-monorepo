@@ -1,12 +1,11 @@
 import { useIntl } from 'react-intl';
 
-import { SizableText, XStack } from '@onekeyhq/components';
+import { SizableText } from '@onekeyhq/components';
 import type { ColorTokens, ISizableTextProps } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { REFERRAL_USD_CURRENCY_PROPS } from './shared/getRewardSummary';
-import { ReferralUsdUnit } from './shared/ReferralUsdUnit';
 
 import type { IRewardSummary } from './shared/getRewardSummary';
 
@@ -18,15 +17,12 @@ export function InviteRewardAmount({
   size = '$bodyMdMedium',
   color,
   emptyLabel = false,
-  withUnit = false,
 }: {
   summary: IRewardSummary;
   size?: ISizableTextProps['size'];
   color?: ColorTokens;
   // Show "No reward yet" instead of a zero amount.
   emptyLabel?: boolean;
-  // Append the "USD" unit, for layouts without a column header to carry it.
-  withUnit?: boolean;
 }) {
   const intl = useIntl();
 
@@ -41,7 +37,7 @@ export function InviteRewardAmount({
   }
 
   const hasUsd = summary.usdValue !== undefined;
-  const amount = (
+  return (
     <Currency
       size={size}
       color={color}
@@ -53,14 +49,5 @@ export function InviteRewardAmount({
     >
       {hasUsd ? summary.usdValue : summary.fiatValue}
     </Currency>
-  );
-  if (!withUnit) {
-    return amount;
-  }
-  return (
-    <XStack ai="baseline" gap="$1">
-      {amount}
-      <ReferralUsdUnit size={size === '$bodySm' ? '$bodySm' : '$bodyMd'} />
-    </XStack>
   );
 }

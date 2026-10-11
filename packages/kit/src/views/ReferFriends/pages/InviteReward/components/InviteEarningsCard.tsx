@@ -53,8 +53,9 @@ interface IEarningsLabels {
   nextPayout: string | null;
 }
 
-// Desktop's lead figure with its fixed "USD" unit: the amount stays in USD
-// whatever the wallet currency is.
+// The lead figure with its fixed "USD" unit, on every layout: the one place
+// the card says rewards stay in USD whatever the wallet currency is; the
+// other figures carry only the $ sign.
 function LeadAmount({ amount }: { amount: string }) {
   return (
     <XStack ai="baseline" gap="$1.5">
