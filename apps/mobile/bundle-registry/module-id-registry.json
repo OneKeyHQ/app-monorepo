@@ -22921,7 +22921,6 @@
     "packages/kit/src/views/ReferFriends/pages/InviteReward/components/shared/FiatValue.tsx": 18346,
     "packages/kit/src/views/ReferFriends/pages/InviteReward/components/shared/NoRewardYet.tsx": 13324,
     "packages/kit/src/views/ReferFriends/pages/InviteReward/components/shared/ReferralLinkPopoverContent.tsx": 9280,
-    "packages/kit/src/views/ReferFriends/pages/InviteReward/components/shared/ReferralUsdUnit.tsx": 5364,
     "packages/kit/src/views/ReferFriends/pages/InviteReward/components/shared/ResponsiveTwoColumnLayout.tsx": 8639,
     "packages/kit/src/views/ReferFriends/pages/InviteReward/components/shared/UndistributedReward.tsx": 7094,
     "packages/kit/src/views/ReferFriends/pages/InviteReward/components/shared/getRewardSummary.ts": 15665,

@@ -32,7 +32,6 @@ import { CardTextAction } from './CardTextAction';
 import { getInviteEarningsState } from './getInviteEarningsState';
 import { InviteStatCell as StatCell } from './InviteStatCell';
 import { REFERRAL_USD_CURRENCY_PROPS } from './shared/getRewardSummary';
-import { ReferralUsdUnit } from './shared/ReferralUsdUnit';
 import {
   COMPACT_ENTRY_TITLE_PROPS,
   COMPACT_ROW_BLEED_PROPS,
@@ -52,22 +51,18 @@ interface IEarningsLabels {
   nextPayout: string | null;
 }
 
-// The lead figure with its fixed "USD" unit, on every layout: the one place
-// the card says rewards stay in USD whatever the wallet currency is; the
-// other figures carry only the $ sign.
+// Desktop's lead figure. Like every referral amount it stays in USD whatever
+// the wallet currency is, and its $ sign is the unit.
 function LeadAmount({ amount }: { amount: string }) {
   return (
-    <XStack ai="baseline" gap="$1.5">
-      <Currency
-        {...REFERRAL_USD_CURRENCY_PROPS}
-        size="$heading4xl"
-        numberOfLines={1}
-        flexShrink={1}
-      >
-        {amount}
-      </Currency>
-      <ReferralUsdUnit size="$bodyLg" />
-    </XStack>
+    <Currency
+      {...REFERRAL_USD_CURRENCY_PROPS}
+      size="$heading4xl"
+      numberOfLines={1}
+      flexShrink={1}
+    >
+      {amount}
+    </Currency>
   );
 }
 
@@ -283,17 +278,14 @@ function CompactEarnings({
           <SizableText size="$bodyMd" color="$textSubdued">
             {labels.cumulative}
           </SizableText>
-          <XStack ai="baseline" gap="$1.5" pt="$1">
-            <Currency
-              {...REFERRAL_USD_CURRENCY_PROPS}
-              size="$heading3xl"
-              numberOfLines={1}
-              flexShrink={1}
-            >
-              {earnings.cumulative}
-            </Currency>
-            <ReferralUsdUnit />
-          </XStack>
+          <Currency
+            {...REFERRAL_USD_CURRENCY_PROPS}
+            size="$heading3xl"
+            numberOfLines={1}
+            pt="$1"
+          >
+            {earnings.cumulative}
+          </Currency>
         </YStack>
         <IconButton
           testID={ReferFriendsTestIDs.inviteRewardHistory}
