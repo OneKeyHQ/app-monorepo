@@ -1,6 +1,14 @@
+import { useState } from 'react';
+
 import { useIntl } from 'react-intl';
 
-import { Page, Tabs, YStack, useMedia } from '@onekeyhq/components';
+import {
+  Page,
+  ScrollView,
+  SegmentControl,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
@@ -10,6 +18,7 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { BreadcrumbSection, ReferFriendsPageContainer } from '../../components';
+import { ReferFriendsTestIDs } from '../../testIDs';
 
 import {
   ReferredHardwareOrders,
@@ -26,6 +35,21 @@ function YourReferredPageWrapper() {
   const title = intl.formatMessage({
     id: ETranslations.referral_referral_list,
   });
+  const [activeList, setActiveList] = useState<'wallet' | 'hardware'>('wallet');
+  const lists = [
+    {
+      value: 'wallet' as const,
+      label: intl.formatMessage({ id: ETranslations.global_wallet }),
+      testID: ReferFriendsTestIDs.referralListWalletTab,
+      content: <ReferredWalletList />,
+    },
+    {
+      value: 'hardware' as const,
+      label: intl.formatMessage({ id: ETranslations.referral_referred_type_3 }),
+      testID: ReferFriendsTestIDs.referralListHardwareTab,
+      content: <ReferredHardwareOrders />,
+    },
+  ];
 
   return (
     <Page>
@@ -45,36 +69,38 @@ function YourReferredPageWrapper() {
               <BreadcrumbSection secondItemLabel={title} />
             </YStack>
           ) : null}
-          <Tabs.Container>
-            <Tabs.Tab
-              name={intl.formatMessage({
-                id: ETranslations.global_wallet,
-              })}
+          {/* A plain switch rather than a swipeable pager: two short lists
+              have no header to collapse, and a pager could snap back to the
+              old tab when tapped mid-swipe. */}
+          <YStack px="$pagePadding" pt="$3">
+            <SegmentControl
+              fullWidth
+              value={activeList}
+              options={lists.map(({ value, label, testID }) => ({
+                value,
+                label,
+                testID,
+              }))}
+              onChange={(value) => {
+                setActiveList(value as 'wallet' | 'hardware');
+              }}
+            />
+          </YStack>
+          {/* Both lists stay mounted, so switching back keeps their data and
+              scroll position instead of loading again. */}
+          {lists.map((list) => (
+            <ScrollView
+              key={list.value}
+              flex={1}
+              display={list.value === activeList ? 'flex' : 'none'}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 40 }}
             >
-              <Tabs.ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 40 }}
-              >
-                <YStack px="$pagePadding" pt="$5">
-                  <ReferredWalletList />
-                </YStack>
-              </Tabs.ScrollView>
-            </Tabs.Tab>
-            <Tabs.Tab
-              name={intl.formatMessage({
-                id: ETranslations.referral_referred_type_3,
-              })}
-            >
-              <Tabs.ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 40 }}
-              >
-                <YStack px="$pagePadding" pt="$5">
-                  <ReferredHardwareOrders />
-                </YStack>
-              </Tabs.ScrollView>
-            </Tabs.Tab>
-          </Tabs.Container>
+              <YStack px="$pagePadding" pt="$5">
+                {list.content}
+              </YStack>
+            </ScrollView>
+          ))}
         </ReferFriendsPageContainer>
       </Page.Body>
     </Page>
