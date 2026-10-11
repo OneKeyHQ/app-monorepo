@@ -93,6 +93,20 @@ jest.mock('@onekeyhq/kit/src/components/Captcha/CaptchaFrame', () => ({
               type: 'onekey-test-captcha',
               requestId,
               status: 'error',
+              code: '400021',
+            })
+          }
+        >
+          Provider cannot recover
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            onResult({
+              type: 'onekey-test-captcha',
+              requestId,
+              status: 'error',
+              code: '600010',
             })
           }
         >
@@ -691,6 +705,54 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
     expect(screen.getByTestId('prime-otp-code').hasAttribute('disabled')).toBe(
       false,
     );
+  });
+
+  test('a terminal provider error offers Retry and only a fresh token sends OTP', async () => {
+    const sendCode = jest.fn().mockResolvedValue(undefined);
+    render(
+      <PrimeLoginEmailCodeDialogV2
+        email="test@example.com"
+        sendCode={sendCode}
+        loginWithCode={jest.fn()}
+        captchaConfig={{
+          enabled: true,
+          pageUrl: 'https://captcha.example.com',
+        }}
+      />,
+    );
+    fireEvent.click(await screen.findByText('Provider ready'));
+    const firstUrl = screen.getByTestId('test-captcha-frame').dataset.url;
+    fireEvent.click(screen.getByText('Provider cannot recover'));
+    const retry = await screen.findByRole<HTMLButtonElement>('button', {
+      name: ETranslations.global_retry,
+    });
+    await waitFor(() => expect(retry.disabled).toBe(false));
+    expect(screen.queryByTestId('test-captcha-frame')).toBeNull();
+    expect(
+      screen.getByText('CAPTCHA is unavailable. Please try again later.'),
+    ).toBeTruthy();
+    expect(sendCode).not.toHaveBeenCalled();
+    fireEvent.click(retry);
+    const complete = await screen.findByText('Complete provider verification');
+    expect(screen.getByTestId('test-captcha-frame').dataset.url).not.toBe(
+      firstUrl,
+    );
+    expect(
+      screen.queryByRole('button', { name: ETranslations.global_retry }),
+    ).toBeNull();
+    expect(
+      screen.queryByText('CAPTCHA is unavailable. Please try again later.'),
+    ).toBeNull();
+    fireEvent.click(complete);
+    fireEvent.click(complete);
+    await waitFor(() => expect(sendCode).toHaveBeenCalledTimes(1));
+    expect(sendCode).toHaveBeenCalledWith({
+      email: 'test@example.com',
+      captchaToken: 'fresh-captcha-token',
+    });
+    expect(
+      screen.queryByRole('button', { name: ETranslations.global_retry }),
+    ).toBeNull();
   });
 
   test('keeps the original Resend copy and locks code entry while CAPTCHA and the send API are pending', async () => {
