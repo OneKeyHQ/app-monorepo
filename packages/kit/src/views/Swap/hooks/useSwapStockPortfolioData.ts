@@ -76,7 +76,15 @@ export function useSwapStockPortfolioData() {
   const networkAccountCacheRef = useRef(
     new Map<string, Promise<INetworkAccount | undefined>>(),
   );
-  const hasAccount = Boolean(accountId || indexedAccountId);
+  // Selection can advance before the active account finishes synchronizing.
+  const hasAccount = Boolean(
+    activeAccount.ready &&
+    (indexedAccountId
+      ? indexedAccountId === activeAccount.indexedAccount?.id
+      : accountId &&
+        (accountId === activeAccount.account?.id ||
+          accountId === activeAccount.dbAccount?.id)),
+  );
   // Only the variant identities restart the query; the 6s variant metadata
   // refresh hands back a new array every tick and must not.
   const tokenVariantsKey = useMemo(
@@ -96,6 +104,7 @@ export function useSwapStockPortfolioData() {
 
   const resolveNetworkAccount = useCallback(
     async (networkId: string) => {
+      if (!hasAccount) return undefined;
       const networkAccount = await resolveSwapBalanceAccount({
         activeAccount,
         networkId,
@@ -150,7 +159,7 @@ export function useSwapStockPortfolioData() {
         xpub: getNetworkAccountXpub(networkAccount),
       };
     },
-    [accountId, activeAccount, indexedAccountId, portfolioOwnerKey],
+    [accountId, activeAccount, hasAccount, indexedAccountId, portfolioOwnerKey],
   );
 
   const {
@@ -199,6 +208,7 @@ export function useSwapStockPortfolioData() {
   // request lands; those rows belong to another company, so they are not
   // shown under this one.
   const currentPortfolioResult =
+    hasAccount &&
     portfolioResult?.stockId === stockId &&
     portfolioResult?.portfolioOwnerKey === portfolioOwnerKey
       ? portfolioResult

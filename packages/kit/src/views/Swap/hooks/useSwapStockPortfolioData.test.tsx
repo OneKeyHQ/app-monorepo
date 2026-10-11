@@ -419,6 +419,16 @@ describe('useSwapStockPortfolioData', () => {
     rerender({});
 
     expect(result.current.portfolioData).toEqual([]);
+    expect(releasePortfolio).toBeUndefined();
+    mockUseActiveAccount.mockReturnValue({
+      activeAccount: {
+        ready: true,
+        indexedAccount: { id: 'indexed-2' },
+        account: undefined,
+        deriveType: 'default',
+      },
+    } as unknown as ReturnType<typeof useActiveAccount>);
+    rerender({});
     await waitFor(() => expect(releasePortfolio).toBeDefined());
     releasePortfolio?.();
     await waitFor(() =>
@@ -426,6 +436,97 @@ describe('useSwapStockPortfolioData', () => {
         'address-new-account-evm--1',
       ),
     );
+  });
+
+  it.each(['indexed', 'imported'] as const)(
+    'waits for the selected %s wallet to synchronize before reading holdings',
+    async (kind) => {
+      const oldAccount = {
+        ready: true,
+        indexedAccount: kind === 'indexed' ? { id: 'indexed-1' } : undefined,
+        account: { id: 'old-account', address: 'old-address' },
+        network: { id: ethVariant.networkId },
+        deriveType: 'default',
+      };
+      setStockDetail('AAPL', [ethVariant]);
+      mockUseAccountIdentity.mockReturnValue(
+        kind === 'indexed'
+          ? { indexedAccountId: 'indexed-1', accountId: undefined }
+          : { indexedAccountId: undefined, accountId: 'old-account' },
+      );
+      mockUseActiveAccount.mockReturnValue({
+        activeAccount: oldAccount,
+      } as unknown as ReturnType<typeof useActiveAccount>);
+      const { result, rerender } = renderHook(() =>
+        useSwapStockPortfolioData(),
+      );
+      await waitFor(() =>
+        expect(result.current.portfolioData[0]?.accountAddress).toBe(
+          'old-address',
+        ),
+      );
+      fetchMarketAccountPortfolio.mockClear();
+      getNetworkAccount.mockClear();
+      mockUseAccountIdentity.mockReturnValue(
+        kind === 'indexed'
+          ? { indexedAccountId: 'indexed-2', accountId: undefined }
+          : { indexedAccountId: undefined, accountId: 'new-account' },
+      );
+      rerender({});
+      expect(result.current.portfolioData).toEqual([]);
+      expect(result.current.hasAccount).toBe(false);
+      expect(fetchMarketAccountPortfolio).not.toHaveBeenCalled();
+      expect(getNetworkAccount).not.toHaveBeenCalled();
+      mockUseActiveAccount.mockReturnValue({
+        activeAccount: {
+          ...oldAccount,
+          indexedAccount: kind === 'indexed' ? { id: 'indexed-2' } : undefined,
+          account: { id: 'new-account', address: 'new-address' },
+        },
+      } as unknown as ReturnType<typeof useActiveAccount>);
+      rerender({});
+      await waitFor(() =>
+        expect(result.current.portfolioData[0]?.accountAddress).toBe(
+          'new-address',
+        ),
+      );
+    },
+  );
+
+  it('does not restore old holdings when the same account ID changes address and refresh fails', async () => {
+    const activeAccount = {
+      ready: true,
+      indexedAccount: { id: 'indexed-1' },
+      account: { id: 'same-account', address: 'old-address' },
+      network: { id: ethVariant.networkId },
+      deriveType: 'default',
+    };
+    setStockDetail('AAPL', [ethVariant]);
+    mockUseActiveAccount.mockReturnValue({
+      activeAccount,
+    } as unknown as ReturnType<typeof useActiveAccount>);
+    const { result, rerender } = renderHook(() => useSwapStockPortfolioData());
+    await waitFor(() =>
+      expect(result.current.portfolioData[0]?.accountAddress).toBe(
+        'old-address',
+      ),
+    );
+    fetchMarketAccountPortfolio.mockRejectedValue(
+      new OneKeyLocalError('refresh failed'),
+    );
+    mockUseActiveAccount.mockReturnValue({
+      activeAccount: {
+        ...activeAccount,
+        account: { id: 'same-account', address: 'new-address' },
+      },
+    } as unknown as ReturnType<typeof useActiveAccount>);
+    rerender({});
+    await waitFor(() => expect(result.current.isRefreshing).toBe(false));
+    expect(fetchMarketAccountPortfolio).toHaveBeenLastCalledWith(
+      expect.objectContaining({ accountAddress: 'new-address' }),
+    );
+    expect(result.current.portfolioData).toEqual([]);
+    expect(result.current.resolvedVariantKeys).toEqual([]);
   });
 
   it('retries an account lookup that failed instead of pinning the failure', async () => {
