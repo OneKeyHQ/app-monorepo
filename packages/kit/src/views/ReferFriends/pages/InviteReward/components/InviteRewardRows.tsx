@@ -127,6 +127,16 @@ interface IDesktopRewardColumns {
   pending: boolean;
 }
 
+// Marks a column that does not apply to the row's product (monthly sales and
+// pending exist only for hardware), so the cell does not read as missing.
+function NotApplicableCell() {
+  return (
+    <SizableText size="$bodyLgMedium" color="$textDisabled">
+      —
+    </SizableText>
+  );
+}
+
 // One cell of the desktop table; every row and the header share the same
 // flex basis, so the columns line up.
 function DesktopCell({
@@ -258,7 +268,9 @@ function DesktopRewardRow({
             >
               {row.monthlySalesFiatValue}
             </Currency>
-          ) : null}
+          ) : (
+            <NotApplicableCell />
+          )}
         </DesktopCell>
       ) : null}
       <DesktopCell>
@@ -288,7 +300,9 @@ function DesktopRewardRow({
                 </Stack>
               ) : null}
             </>
-          ) : null}
+          ) : (
+            <NotApplicableCell />
+          )}
         </DesktopCell>
       ) : null}
       <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
