@@ -1,10 +1,7 @@
-import type { Ref } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import { InviteCodeStepImage } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferAFriend/components/InviteCodeStepImage';
-import type { IInviteCodeStepImageControl } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferAFriend/components/InviteCodeStepImage';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteLevelDetail } from '@onekeyhq/shared/src/referralCode/type';
 
@@ -22,29 +19,20 @@ import type { IInviteValueSummaryResult } from './InviteValueLine';
 export function InviteCompactHero({
   valueSummary,
   levelDetail,
-  animationControlRef,
   ...levelProps
 }: ICurrentLevelCardProps & {
   valueSummary: IInviteValueSummaryResult;
   levelDetail: IInviteLevelDetail | undefined;
-  // The page holds the illustration still while it cannot be seen.
-  animationControlRef?: Ref<IInviteCodeStepImageControl>;
 }) {
   const intl = useIntl();
 
   return (
     <YStack ai="center" gap="$3">
-      {/* The intro's referral animation at page width: its frames swap one
-          hand for another across the whole canvas, so a narrower box leaves
-          half of it empty. It plays its three rounds once and holds a frame
-          with both hands in view. The illustration's background matches the
-          canvas, so it bleeds past the page padding unseen. */}
-      <InviteCodeStepImage
-        step={2}
-        controlRef={animationControlRef}
-        preloadOtherStep={false}
-        playOnce
-      />
+      {/* The intro's referral illustration at page width: its frames span
+          the whole canvas, so a narrower box leaves half of it empty. It
+          shows still, on the frame with both hands in view. Its background
+          matches the canvas, so it bleeds past the page padding unseen. */}
+      <InviteCodeStepImage step={2} preloadOtherStep={false} still />
       <YStack ai="center" gap="$2">
         <SizableText size="$heading2xl" textAlign="center">
           {intl.formatMessage({ id: ETranslations.referral_home__title })}

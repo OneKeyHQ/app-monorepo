@@ -1,11 +1,9 @@
 import { memo, useCallback } from 'react';
-import type { Ref } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { SizableText, XStack, YStack, useMedia } from '@onekeyhq/components';
 import { useNavigateToInviteCodes } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteCodes/hooks/useNavigateToInviteCodes';
-import type { IInviteCodeStepImageControl } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferAFriend/components/InviteCodeStepImage';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IInviteLevelDetail,
@@ -43,12 +41,10 @@ export const InviteTabContent = memo(function InviteTabContent({
   summaryInfo,
   fetchSummaryInfo,
   levelDetail,
-  heroAnimationControlRef,
 }: {
   summaryInfo: IInviteSummary;
   fetchSummaryInfo: () => unknown;
   levelDetail: IInviteLevelDetail | undefined;
-  heroAnimationControlRef?: Ref<IInviteCodeStepImageControl>;
 }) {
   const { md } = useMedia();
   const cardStyle = useInviteHomeCardStyle();
@@ -84,7 +80,6 @@ export const InviteTabContent = memo(function InviteTabContent({
               rebateConfig={summaryInfo.rebateConfig}
               rebateLevels={summaryInfo.rebateLevels}
               levelDetail={levelDetail}
-              animationControlRef={heroAnimationControlRef}
             />
             <InviteCompactCard
               inviteUrl={inviteUrl}

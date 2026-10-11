@@ -29,8 +29,8 @@ const mockNavigateToEarnReward = jest.fn();
 let mockMd = false;
 
 const mockHeroImageProps: Array<{
-  controlRef?: unknown;
   preloadOtherStep?: boolean;
+  still?: boolean;
 }> = [];
 
 jest.mock('@onekeyhq/components', () => {
@@ -404,22 +404,14 @@ describe('InviteTabContent entry points', () => {
     ).toBeTruthy();
   });
 
-  it('hands the hero animation control to the page', () => {
+  it('shows the hero illustration still', () => {
     mockMd = true;
     mockHeroImageProps.length = 0;
-    const controlRef = { current: null };
-    render(
-      <InviteTabContent
-        summaryInfo={SUMMARY}
-        fetchSummaryInfo={jest.fn()}
-        levelDetail={undefined}
-        heroAnimationControlRef={controlRef}
-      />,
-    );
+    renderTab();
 
     const props = mockHeroImageProps.at(-1);
-    expect(props?.controlRef).toBe(controlRef);
-    // The home shows one animation, so it skips the intro's other one.
+    expect(props?.still).toBe(true);
+    // The home shows one illustration, so it skips the intro's other one.
     expect(props?.preloadOtherStep).toBe(false);
   });
 

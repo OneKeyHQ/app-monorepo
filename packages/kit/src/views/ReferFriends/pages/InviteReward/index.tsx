@@ -44,7 +44,6 @@ import {
   useInviteHomeCardStyle,
   useInvitePageCanvas,
 } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteCardStyle';
-import { useInviteHeroAnimation } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteHeroAnimation';
 import {
   EReferralPageTab,
   type IReferralPageTab,
@@ -500,17 +499,13 @@ function InviteRewardPage() {
     }
   }, [refreshAll]);
   const scrollFadeRef = useRef<IScrollEdgeFadeControl>(null);
-  const heroAnimation = useInviteHeroAnimation(isInviteTab);
-  const { onScrollOffset: onHeroScrollOffset } = heroAnimation;
-  // Drives the fade and the hero animation through refs: scrolling never
-  // re-renders the page.
+  // Drives the fade through a ref: scrolling never re-renders the page.
   const handleScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const offsetY = event.nativeEvent.contentOffset.y;
       scrollFadeRef.current?.setVisible(offsetY > 0);
-      onHeroScrollOffset(offsetY);
     },
-    [onHeroScrollOffset],
+    [],
   );
 
   const showInviteFooter =
@@ -547,13 +542,12 @@ function InviteRewardPage() {
         <Page.Container padded={false}>
           {summaryInfo ? (
             // Keep the invite tab mounted so switching tabs does not
-            // refetch its data or replay the illustration.
+            // refetch its data.
             <YStack display={isInviteTab ? 'flex' : 'none'}>
               <InviteTabContent
                 summaryInfo={summaryInfo}
                 fetchSummaryInfo={fetchSummaryInfo}
                 levelDetail={levelDetail}
-                heroAnimationControlRef={heroAnimation.controlRef}
               />
             </YStack>
           ) : null}
