@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import {
   Divider,
   Icon,
+  IconButton,
   Illustration,
   SizableText,
   XStack,
@@ -21,6 +22,7 @@ import { useNavigateToEditAddress } from '@onekeyhq/kit/src/views/ReferFriends/p
 import { useNavigateToRewardHistory } from '@onekeyhq/kit/src/views/ReferFriends/pages/RewardDistributionHistory/hooks/useNavigateToRewardHistory';
 import { openInviteWithdrawAddressEditor } from '@onekeyhq/kit/src/views/ReferFriends/pages/RewardDistributionHistory/openInviteWithdrawAddressEditor';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
@@ -107,29 +109,41 @@ function StatCell({
         </XStack>
         {children}
       </YStack>
+      {/* The only pressable cell is the payout address, which it edits. */}
       {onPress ? (
-        <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
+        <Icon name="PencilOutline" size="$4" color="$iconSubdued" />
       ) : null}
     </XStack>
   );
 }
 
+const HIDDEN_ADDRESS_MASK = '**********';
+
+interface IPayoutAddressVisibility {
+  isVisible: boolean;
+  onToggle: () => void;
+}
+
 // The payout address with the chain it is paid on, so people can tell where
-// the rewards land; only shown once an address is set.
+// the rewards land; only shown once an address is set. A set address can be
+// masked with the eye button, whose press stays off the cell.
 function PayoutAddressValue({
   address,
   networkId,
   size,
   color,
+  visibility,
 }: {
   address: string;
   networkId?: string;
   size: '$bodyLgMedium' | '$bodyMd';
   color?: '$textSubdued' | '$textCaution';
+  visibility?: IPayoutAddressVisibility;
 }) {
+  const isHidden = visibility ? !visibility.isVisible : false;
   return (
     <XStack ai="center" gap="$1.5" flexShrink={1} minWidth={0}>
-      {networkId ? (
+      {networkId && !isHidden ? (
         <NetworkAvatar
           networkId={networkId}
           // A chain mark, a step below the address text.
@@ -137,8 +151,17 @@ function PayoutAddressValue({
         />
       ) : null}
       <SizableText size={size} color={color} numberOfLines={1} flexShrink={1}>
-        {address}
+        {isHidden ? HIDDEN_ADDRESS_MASK : address}
       </SizableText>
+      {visibility ? (
+        <IconButton
+          testID={ReferFriendsTestIDs.invitePayoutAddressVisibility}
+          icon={visibility.isVisible ? 'EyeOffOutline' : 'EyeOutline'}
+          variant="tertiary"
+          size="small"
+          onPress={visibility.onToggle}
+        />
+      ) : null}
     </XStack>
   );
 }
@@ -176,6 +199,7 @@ function DesktopEarnings({
   labels,
   payoutAddress,
   payoutNetworkId,
+  addressVisibility,
   onOpenHistory,
   onEditAddress,
 }: {
@@ -183,6 +207,7 @@ function DesktopEarnings({
   labels: IEarningsLabels;
   payoutAddress: string;
   payoutNetworkId?: string;
+  addressVisibility?: IPayoutAddressVisibility;
   onOpenHistory: () => void;
   onEditAddress: () => void;
 }) {
@@ -253,6 +278,7 @@ function DesktopEarnings({
             address={payoutAddress}
             networkId={payoutNetworkId}
             size="$bodyLgMedium"
+            visibility={addressVisibility}
           />
         </StatCell>
       </XStack>
@@ -269,7 +295,7 @@ function CompactEarnings({
   labels,
   payoutAddress,
   payoutNetworkId,
-  isPayoutAddressSet,
+  addressVisibility,
   onEditAddress,
   onOpenHistory,
 }: {
@@ -277,7 +303,8 @@ function CompactEarnings({
   labels: IEarningsLabels;
   payoutAddress: string;
   payoutNetworkId?: string;
-  isPayoutAddressSet: boolean;
+  // Only a set address can be masked.
+  addressVisibility?: IPayoutAddressVisibility;
   onEditAddress: () => void;
   onOpenHistory: () => void;
 }) {
@@ -336,14 +363,20 @@ function CompactEarnings({
         {...COMPACT_ROW_BLEED_PROPS}
         titleProps={COMPACT_ENTRY_TITLE_PROPS}
         title={labels.payoutAddress}
-        drillIn
         onPress={onEditAddress}
       >
         <PayoutAddressValue
           address={payoutAddress}
           networkId={payoutNetworkId}
           size="$bodyMd"
-          color={isPayoutAddressSet ? '$textSubdued' : '$textCaution'}
+          color={addressVisibility ? '$textSubdued' : '$textCaution'}
+          visibility={addressVisibility}
+        />
+        <Icon
+          name="PencilOutline"
+          size="$4"
+          color="$iconSubdued"
+          flexShrink={0}
         />
       </ListItem>
     </YStack>
@@ -407,6 +440,16 @@ export function InviteEarningsCard({
     : intl.formatMessage({
         id: ETranslations.referral_reward_received_address_notset,
       });
+  const [isAddressVisible, setIsAddressVisible] = useState(true);
+  const toggleAddressVisibility = useCallback(() => {
+    const nextVisible = !isAddressVisible;
+    setIsAddressVisible(nextVisible);
+    defaultLogger.referral.page.toggleReceivingAddressVisibility(nextVisible);
+  }, [isAddressVisible]);
+  const addressVisibility: IPayoutAddressVisibility | undefined =
+    withdrawAddress
+      ? { isVisible: isAddressVisible, onToggle: toggleAddressVisibility }
+      : undefined;
   const cardStyle = useInviteHomeCardStyle();
 
   if (md) {
@@ -423,7 +466,7 @@ export function InviteEarningsCard({
           labels={labels}
           payoutAddress={payoutAddress}
           payoutNetworkId={payoutNetworkId}
-          isPayoutAddressSet={Boolean(withdrawAddress)}
+          addressVisibility={addressVisibility}
           onEditAddress={editPayoutAddress}
           onOpenHistory={navigateToRewardHistory}
         />
@@ -443,6 +486,7 @@ export function InviteEarningsCard({
         labels={labels}
         payoutAddress={payoutAddress}
         payoutNetworkId={payoutNetworkId}
+        addressVisibility={addressVisibility}
         onOpenHistory={navigateToRewardHistory}
         onEditAddress={editPayoutAddress}
       />

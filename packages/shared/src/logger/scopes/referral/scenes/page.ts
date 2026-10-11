@@ -119,6 +119,12 @@ export class PageScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal({ level: 'info' })
+  public toggleReceivingAddressVisibility(isVisible: boolean) {
+    return { isVisible };
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
   public referralPageOpen(params: IReferralPageOpenParams) {
     return params;
   }

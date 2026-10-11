@@ -30,6 +30,8 @@ export const ReferFriendsTestIDs = {
   inviteHeroRate: 'refer-friends-invite-hero-rate',
   inviteRewardHistory: 'refer-friends-invite-reward-history',
   invitePayoutAddress: 'refer-friends-invite-payout-address',
+  invitePayoutAddressVisibility:
+    'refer-friends-invite-payout-address-visibility',
   inviteRetryBtn: 'refer-friends-invite-retry-btn',
   levelRetryBtn: 'refer-friends-level-retry-btn',
   inviteRewardsEmptyCopyBtn: 'refer-friends-invite-rewards-empty-copy-btn',
