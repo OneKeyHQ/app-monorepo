@@ -1,14 +1,20 @@
+import * as React from 'react';
 import { createRef } from 'react';
 
 import { act, render } from '@testing-library/react-native';
+import * as jsxRuntime from 'react/jsx-runtime';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 import { HomeNativePager } from './HomeNativePager.native';
 
+import type { IHomeHeaderContainerProps } from './HomeHeaderContainer';
 import type { LayoutChangeEvent } from 'react-native';
 
+let mockRenderParentHeader = false;
+let mockParentComponentLookup: ((key: PropertyKey) => unknown) | undefined;
 const mockSetPage = jest.fn();
 const mockSetPageWithoutAnimation = jest.fn();
 const mockHeaderHeightCommits: number[] = [];
@@ -24,9 +30,19 @@ const mockNativeEvents: {
   }) => void;
 } = {};
 
-jest.mock('@onekeyhq/components', () => ({
-  useTheme: () => ({ bgApp: { val: '#ffffff' } }),
-}));
+jest.mock(
+  '@onekeyhq/components',
+  () =>
+    new Proxy(
+      {
+        useTheme: () => ({ bgApp: { val: '#ffffff' } }),
+      },
+      {
+        get: (target, key): unknown =>
+          mockParentComponentLookup?.(key) ?? Reflect.get(target, key),
+      },
+    ),
+);
 jest.mock('./perpsChainTrace', () => ({ debugPerpsChain: jest.fn() }));
 jest.mock('react-native-pager-view', () => ({
   CollapsiblePagerView: ({
@@ -45,7 +61,7 @@ jest.mock('react-native-pager-view', () => ({
       setPage: mockSetPage,
       setPageWithoutAnimation: mockSetPageWithoutAnimation,
     }));
-    return null;
+    return mockRenderParentHeader ? events.header : null;
   },
 }));
 jest.mock('react-native-reanimated', () => {
@@ -355,3 +371,293 @@ it.each([
     expect(tabBarState?.indexDecimal.value).toBe(1.6);
   },
 );
+
+describe('HomePageView complete header authority', () => {
+  let HomePage: typeof import('./HomePageView').HomePageView;
+  const callbacks: IHomeHeaderContainerProps = {};
+  const measurements: ((
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ) => void)[] = [];
+  let onFullLayout: ((event: LayoutChangeEvent) => void) | undefined;
+  const cache = new Map<string, number>([['B', 182]]);
+  const noop = () => undefined;
+  const host = (name: string) => {
+    const Stub = ({ children, ...props }: { children?: React.ReactNode }) =>
+      React.createElement(name, props, children);
+    Stub.displayName = name;
+    return Stub;
+  };
+
+  beforeAll(() => {
+    // Keep React shared with the renderer while isolating the parent module's
+    // business providers. Header callbacks and the native pager stay real.
+    jest.isolateModules(() => {
+      jest.doMock('react', () => React);
+      jest.doMock('react/jsx-runtime', () => jsxRuntime);
+      const generic = new Proxy(
+        {},
+        { get: (_target, key) => host(String(key)) },
+      );
+      const components = new Proxy(
+        {
+          Stack: ({
+            children,
+            ...props
+          }: React.ComponentPropsWithRef<
+            typeof import('react-native').View
+          >) => {
+            if (props.ref && props.onLayout) onFullLayout = props.onLayout;
+            return React.createElement('View', props, children);
+          },
+          Page: Object.assign(host('Page'), {
+            Body: host('Page.Body'),
+            Container: host('Page.Container'),
+          }),
+          Keyboard: { AwareScrollView: host('AwareScrollView') },
+          Icon: Object.assign(host('Icon'), { prefetch: noop }),
+          useScrollContentTabBarOffset: () => 48,
+          useMedia: () => ({ md: true }),
+          useTheme: () => ({ bgApp: { val: '#ffffff' } }),
+          useFocusedTab: () => 'spot',
+          useTabsScrollToTop: () => noop,
+        },
+        {
+          get: (target, key): unknown =>
+            Reflect.get(target, key) ?? Reflect.get(generic, key),
+        },
+      );
+      mockParentComponentLookup = (key): unknown =>
+        Reflect.get(components, key);
+      const mocks: Record<string, unknown> = {
+        '@onekeyhq/components': components,
+        '@react-navigation/core': { useFocusEffect: noop },
+        'react-intl': {
+          useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+        },
+        '@onekeyhq/kit/src/hooks/useTabContainerWidth': {
+          useTabContainerWidth: () => 400,
+        },
+        '@onekeyhq/shared/src/config/presetNetworks': {
+          getNetworksSupportBulkRevokeApproval: () => ({}),
+        },
+        '@onekeyhq/shared/src/consts/dbConsts': {
+          WALLET_TYPE_HD: 'hd',
+          WALLET_TYPE_WATCHING: 'watch',
+        },
+        '@onekeyhq/shared/src/platformEnv': {
+          default: { isNative: true, isNativeAndroid: true },
+          __esModule: true,
+        },
+        '@onekeyhq/shared/src/locale': {
+          ETranslations: new Proxy({}, { get: (_target, key) => key }),
+        },
+        '@onekeyhq/shared/types/wallet': { EHomeWalletTab },
+        '@onekeyhq/shared/src/eventBus/appEventBus': {
+          EAppEventBusNames: {},
+          appEventBus: { on: noop, off: noop },
+        },
+        '@onekeyhq/shared/src/storage/uiSnapshotCaches': {
+          homeHeaderLayoutCache: {
+            get: (key: string) =>
+              cache.has(key) ? { data: cache.get(key) } : undefined,
+            set: (key: string, value: number) => cache.set(key, value),
+          },
+        },
+        '@onekeyhq/shared/src/travelMode': {
+          travelModeManager: {
+            getRuntimeEnvironmentSync: () => ({ profile: { kind: 'normal' } }),
+          },
+        },
+        '@onekeyhq/shared/src/utils/accountUtils': {
+          default: {
+            hasNoUsableWallet: () => false,
+            isWalletDeprecatedOrMocked: () => false,
+          },
+          __esModule: true,
+        },
+        '../../../hooks/useAppNavigation': {
+          default: () => ({}),
+          __esModule: true,
+        },
+        '../../../hooks/usePromiseResult': {
+          usePromiseResult: () => ({ run: noop }),
+        },
+        '../../../hooks/useRunAfterTokensDone': {
+          runAfterTokensDone: () => noop,
+        },
+        '../../../hooks/useShortcutsOnRouteFocused': {
+          useShortcutsOnRouteFocused: noop,
+        },
+        '../../../states/jotai/contexts/accountSelector': {
+          useActiveAccount: () => ({
+            activeAccount: {
+              ready: true,
+              wallet: { id: 'test-hd', type: 'hd', backuped: true },
+              account: { id: 'test-account' },
+              network: { id: 'test-network' },
+            },
+          }),
+          useAccountSelectorStorageInitDoneAtom: () => [true],
+          useIsAccountSelectorActiveAccountInitDone: () => true,
+        },
+        '../../../states/jotai/contexts/accountOverview': {
+          buildOverviewOwnerKey: () => 'test-owner',
+          useAccountOverviewActions: () => ({
+            current: { updateApprovalsInfo: noop },
+          }),
+        },
+        '../../../components/AccountSelector/hooks/useUnifiedNetworkSelectorTrigger':
+          { useUnifiedNetworkSelectorTrigger: () => ({}) },
+        '../hooks/useHomeWalletTabSupport': {
+          useHomeWalletTabSupport: () => ({}),
+        },
+        '../components/HomeStickyHeaderContext': {
+          HomeStickyHeaderContext: React.createContext({}),
+        },
+        './homePageNoWalletContent': {
+          isWalletListResolvedNoWallet: () => false,
+          shouldShowNoWalletContent: () => false,
+        },
+        './homeTabFreeze': {
+          useHomeTabFreeze: () => false,
+          useHomeTabOwnerThaw: () => false,
+          isHomeTabActive: () => true,
+        },
+        './HomeHeaderContainer': {
+          HomeHeaderContainer: (props: IHomeHeaderContainerProps) => {
+            Object.assign(callbacks, props);
+            return null;
+          },
+        },
+        './HomeNativePager': { HomeNativePager },
+      };
+      const boundaries = [
+        '@react-navigation/core',
+        'axios',
+        'react-intl',
+        '@onekeyhq/components',
+        '@onekeyhq/components/src/composite/Tabs/TabBar',
+        '@onekeyhq/kit/src/hooks/useTabContainerWidth',
+        '@onekeyhq/shared/src/config/presetNetworks',
+        '@onekeyhq/shared/src/consts/dbConsts',
+        '@onekeyhq/shared/src/eventBus/appEventBus',
+        '@onekeyhq/shared/src/locale',
+        '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource',
+        '@onekeyhq/shared/src/platformEnv',
+        '@onekeyhq/shared/src/routes',
+        '@onekeyhq/shared/src/shortcuts/shortcuts.enum',
+        '@onekeyhq/shared/src/storage/uiSnapshotCaches',
+        '@onekeyhq/shared/src/travelMode',
+        '@onekeyhq/shared/src/utils/accountUtils',
+        '@onekeyhq/shared/src/utils/networkUtils',
+        '@onekeyhq/shared/types/wallet',
+        '../../../background/instance/backgroundApiProxy',
+        '../../../components/AccountSelector/hooks/useUnifiedNetworkSelectorTrigger',
+        '../../../components/Empty',
+        '../../../components/NetworkAlert',
+        '../../../components/NotificationEnableAlert',
+        '../../../components/NotificationPermissionRecoveryAlert',
+        '../../../components/TabPageHeader',
+        '../../../components/WatchOnlyAlert',
+        '../../../components/WebDapp/WebDappEmptyView',
+        '../../../hooks/useAppNavigation',
+        '../../../hooks/usePromiseResult',
+        '../../../hooks/useRunAfterTokensDone',
+        '../../../hooks/useShortcutsOnRouteFocused',
+        '../../../states/jotai/contexts/accountOverview',
+        '../../../states/jotai/contexts/accountSelector',
+        '../../../utils/deferHeavyWork',
+        '../../Staking/components/ProtocolDetails/NetworkUnsupportedWarning',
+        '../components/HomeHeaderGesture',
+        '../components/HomeStickyHeaderContext',
+        '../components/HomeSupportedWallet',
+        '../components/NotBakcedUp',
+        '../components/PullToRefresh',
+        '../hooks/useHomeWalletTabSupport',
+        '../testIDs',
+        './DeFiContainer',
+        './HomeHeaderContainer',
+        './HomeNativePager',
+        './homePageContentMaxWidth',
+        './homePageNoWalletContent',
+        './homeTabFreeze',
+        './NFTListContainer',
+        './perpsChainTrace',
+        './PortfolioContainer',
+        './TabHeaderSettings',
+        './TxHistoryContainer',
+        './WalletContentWithAuth',
+      ];
+      for (const id of boundaries)
+        jest.doMock(
+          id,
+          () =>
+            mocks[id] ??
+            new Proxy(
+              { __esModule: true, default: host(id) },
+              {
+                get: (target, key): unknown =>
+                  Reflect.get(target, key) ?? Reflect.get(generic, key),
+              },
+            ),
+        );
+      HomePage =
+        jest.requireActual<typeof import('./HomePageView')>(
+          './HomePageView',
+        ).HomePageView;
+    });
+  });
+  beforeEach(() => {
+    mockRenderParentHeader = true;
+    measurements.length = 0;
+    onFullLayout = undefined;
+  });
+  afterEach(() => {
+    mockRenderParentHeader = false;
+  });
+  const renderParent = () =>
+    render(
+      React.createElement(HomePage, {
+        sceneName: EAccountSelectorSceneName.home,
+      }),
+      {
+        createNodeMock: () => ({
+          measure: (callback: (typeof measurements)[number]) =>
+            measurements.push(callback),
+        }),
+      },
+    );
+
+  it('keeps a complete fractional measurement when the inner layout arrives later', () => {
+    renderParent();
+    act(() => {
+      mockNativeEvents.header?.props.onLayout(headerLayoutEvent(182.2));
+      onFullLayout?.(headerLayoutEvent(182.2));
+    });
+    expect(mockNativeEvents.headerHeight).toBe(183);
+    act(() => callbacks.onHeaderLayout?.('A', 182.2));
+    expect(mockNativeEvents.headerHeight).toBe(183);
+  });
+
+  it('measures same-height variants and rejects obsolete variant/layout snapshots', () => {
+    renderParent();
+    act(() => onFullLayout?.(headerLayoutEvent(182.2)));
+    for (const variant of ['A', 'B', 'A'])
+      act(() => callbacks.onHeaderVariantChange?.(variant));
+    expect(measurements).toHaveLength(3);
+    act(() => measurements[2](0, 0, 400, 182.2));
+    expect(mockNativeEvents.headerHeight).toBe(183);
+    act(() => {
+      measurements[0](0, 0, 400, 292.2);
+      measurements[1](0, 0, 400, 240.2);
+    });
+    expect(mockNativeEvents.headerHeight).toBe(183);
+    act(() => callbacks.onHeaderVariantChange?.('B'));
+    act(() => onFullLayout?.(headerLayoutEvent(192.8)));
+    act(() => measurements[3](0, 0, 400, 182.2));
+    expect(mockNativeEvents.headerHeight).toBe(193);
+  });
+});

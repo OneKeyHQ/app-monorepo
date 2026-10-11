@@ -89,7 +89,7 @@ import { HomeHeaderGesture } from '../components/HomeHeaderGesture';
 import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 import { NotBackedUpEmpty } from '../components/NotBakcedUp';
-import { onHomePageRefresh } from '../components/PullToRefresh';
+import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 import { useHomeWalletTabSupport } from '../hooks/useHomeWalletTabSupport';
 import { HomeTestIDs } from '../testIDs';
 
@@ -113,7 +113,7 @@ import { TabHeaderSettings } from './TabHeaderSettings';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
 
-import type { LayoutChangeEvent } from 'react-native';
+import type { LayoutChangeEvent, View } from 'react-native';
 
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
@@ -582,26 +582,28 @@ export function HomePageView({
   // showed the list shifted for those frames. Remember the measured height of
   // the header container per layout variant and hand the tab container the
   // expected total in the same commit the variant changes; onLayout only
-  // corrects a wrong hint. The alert band above the container (risk approval,
-  // watch-only, network) is measured separately and added live, so accounts
-  // with and without alerts never share a remembered height.
+  // corrects a wrong hint. Inner and alert measurements only predict variant
+  // changes; the complete header measurement remains authoritative.
   const [nativeHeaderHeightHint, setNativeHeaderHeightHint] = useState(
     NATIVE_HEADER_HEIGHT_SEED,
   );
   const nativeHeaderAlertsHeightRef = useRef(0);
+  const nativeHeaderRef = useRef<View>(null);
+  const nativeHeaderMeasureGenerationRef = useRef(0);
+  const handleFullHeaderLayout = useCallback((event: LayoutChangeEvent) => {
+    nativeHeaderMeasureGenerationRef.current += 1;
+    const height = Math.ceil(event.nativeEvent.layout.height);
+    if (height > 0) {
+      setNativeHeaderHeightHint(height);
+    }
+  }, []);
   const handleHeaderAlertsLayout = useCallback((event: LayoutChangeEvent) => {
     const height = Math.round(event.nativeEvent.layout.height);
-    const delta = height - nativeHeaderAlertsHeightRef.current;
-    if (delta === 0) {
-      return;
-    }
     nativeHeaderAlertsHeightRef.current = height;
-    // Alerts can change within one header variant, where no variant or
-    // container height change re-applies the hint; shift it by the alert
-    // delta so it tracks the band regardless of which onLayout lands first.
-    setNativeHeaderHeightHint((prev) => prev + delta);
   }, []);
   const handleHeaderVariantChange = useCallback((variant: string) => {
+    nativeHeaderMeasureGenerationRef.current += 1;
+    const generation = nativeHeaderMeasureGenerationRef.current;
     let learned = learnedNativeHeaderHeights.get(variant);
     if (!learned) {
       // First time this launch: the height measured on an earlier launch.
@@ -617,6 +619,16 @@ export function HomePageView({
     if (learned) {
       setNativeHeaderHeightHint(learned + nativeHeaderAlertsHeightRef.current);
     }
+    // Equal-height variants may not emit another layout event. Measure the
+    // complete header after the variant commits, then discard older snapshots.
+    nativeHeaderRef.current?.measure((_x, _y, _width, rawHeight) => {
+      if (
+        generation === nativeHeaderMeasureGenerationRef.current &&
+        rawHeight > 0
+      ) {
+        setNativeHeaderHeightHint(Math.ceil(rawHeight));
+      }
+    });
   }, []);
   const handleHeaderContainerLayout = useCallback(
     (variant: string, rawHeight: number) => {
@@ -632,14 +644,17 @@ export function HomePageView({
           // The hint is a paint optimization; failing to remember it is fine.
         }
       }
-      setNativeHeaderHeightHint(height + nativeHeaderAlertsHeightRef.current);
     },
     [],
   );
 
   const renderHeader = useCallback(() => {
     return (
-      <Stack {...homePageContentMaxWidthSx}>
+      <Stack
+        {...homePageContentMaxWidthSx}
+        ref={platformEnv.isNative ? nativeHeaderRef : undefined}
+        onLayout={platformEnv.isNative ? handleFullHeaderLayout : undefined}
+      >
         {platformEnv.isNative ? (
           <Stack onLayout={handleHeaderAlertsLayout}>
             <HomeHeaderGesture onRefresh={onHomePageRefresh}>
@@ -658,6 +673,7 @@ export function HomePageView({
       </Stack>
     );
   }, [
+    handleFullHeaderLayout,
     handleHeaderAlertsLayout,
     handleHeaderContainerLayout,
     handleHeaderVariantChange,
@@ -1072,6 +1088,11 @@ export function HomePageView({
         <Keyboard.AwareScrollView
           style={{ flex: 1 }}
           nestedScrollEnabled={platformEnv.isNativeAndroid}
+          refreshControl={
+            platformEnv.isNativeAndroid ? (
+              <PullToRefresh onRefresh={onHomePageRefresh} />
+            ) : undefined
+          }
           contentContainerStyle={{ paddingBottom: tabBarHeight }}
           bottomOffset={KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET}
         >
