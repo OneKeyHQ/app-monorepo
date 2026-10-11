@@ -113,7 +113,7 @@ export const InviteTabContent = memo(function InviteTabContent({
                 only the space left after padding, so a padded item would end
                 up wider than its sibling. */}
             <XStack flex={1} flexBasis={0} minWidth={0}>
-              <YStack flex={1} gap="$4" p="$5" {...cardStyle}>
+              <YStack flex={1} p="$5" {...cardStyle}>
                 <InviteLinkHero
                   inviteUrl={inviteUrl}
                   inviteCode={summaryInfo.inviteCode}

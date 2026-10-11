@@ -16,24 +16,24 @@ export function InviteStatCell({
   onPress,
   testID,
   share = 1,
-  hug = false,
 }: {
   label: string;
   leading?: ReactNode;
   children: ReactNode;
   onPress?: () => void;
   testID?: string;
-  // Width share of the row. A zero basis keeps the split fixed, so masking
-  // the address does not resize the cells.
-  share?: number;
-  // Sizes to its content instead of taking a share, so a lone pressable
-  // cell's hover surface stays on what it acts on.
-  hug?: boolean;
+  // Width share of the row; a zero basis keeps the split fixed, so masking
+  // the address does not resize the cells. 'content' sizes the cell to what
+  // it holds, so a lone pressable cell's hover surface stays on it.
+  share?: number | 'content';
 }) {
+  const hug = share === 'content';
   return (
     <XStack
       testID={testID}
-      {...(hug ? { flexShrink: 1 } : { flex: share, flexBasis: 0 })}
+      {...(share === 'content'
+        ? { flexShrink: 1 }
+        : { flex: share, flexBasis: 0 })}
       minWidth={0}
       ai="center"
       gap="$2"

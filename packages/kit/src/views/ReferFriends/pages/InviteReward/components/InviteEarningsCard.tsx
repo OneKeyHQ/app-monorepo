@@ -1,5 +1,4 @@
 import { useCallback, useMemo, useState } from 'react';
-import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -88,14 +87,12 @@ function PayoutAddressValue({
   size,
   color,
   visibility,
-  trailing,
 }: {
   address: string;
   networkId?: string;
   size: '$bodyLgMedium' | '$bodyMd';
   color?: '$textSubdued' | '$textCaution';
   visibility?: IPayoutAddressVisibility;
-  trailing?: ReactNode;
 }) {
   const isHidden = visibility ? !visibility.isVisible : false;
   return (
@@ -119,7 +116,15 @@ function PayoutAddressValue({
           onPress={visibility.onToggle}
         />
       ) : null}
-      {trailing}
+      {/* The cell edits the address; the pencil sits right after it, clear
+          of the eye button's touch area. */}
+      <Icon
+        name="PencilOutline"
+        size="$5"
+        color="$iconSubdued"
+        flexShrink={0}
+        ml="$2"
+      />
     </XStack>
   );
 }
@@ -240,16 +245,6 @@ function DesktopEarnings({
             networkId={payoutNetworkId}
             size="$bodyLgMedium"
             visibility={addressVisibility}
-            // Right after the value it edits, not at the cell's far edge.
-            trailing={
-              <Icon
-                name="PencilOutline"
-                size="$5"
-                color="$iconSubdued"
-                flexShrink={0}
-                ml="$2"
-              />
-            }
           />
         </StatCell>
       </XStack>
@@ -344,14 +339,6 @@ function CompactEarnings({
           size="$bodyMd"
           color={addressVisibility ? '$textSubdued' : '$textCaution'}
           visibility={addressVisibility}
-        />
-        <Icon
-          name="PencilOutline"
-          size="$5"
-          color="$iconSubdued"
-          flexShrink={0}
-          // Clear of the eye button's touch area.
-          ml="$2"
         />
       </ListItem>
     </YStack>

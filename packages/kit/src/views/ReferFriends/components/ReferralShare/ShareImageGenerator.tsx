@@ -9,7 +9,10 @@ import {
 import { useIntl } from 'react-intl';
 
 import { Stack } from '@onekeyhq/components';
-import { getQRCodePlateBorderRadius } from '@onekeyhq/components/src/content/QRCode/QRCode.utils';
+import {
+  ensureQRCodeUtilLoaded,
+  getQRCodePlateBorderRadius,
+} from '@onekeyhq/components/src/content/QRCode/QRCode.utils';
 import { webFontFamily } from '@onekeyhq/components/src/utils/webFontFamily';
 import {
   drawDotQRCodeOnCanvas,
@@ -169,10 +172,14 @@ export const ShareImageGenerator = memo(
         const qrPlateSize = card.footer.qrSize + QR_PLATE_PADDING;
 
         try {
-          const logoImg = await loadImage(ONEKEY_LOGO_URL);
+          // The logo and the QR encoder load in parallel; both are cached
+          // after the first card.
+          const [logoImg] = await Promise.all([
+            loadImage(ONEKEY_LOGO_URL),
+            ensureQRCodeUtilLoaded(),
+          ]);
 
-          // Measuring pass; resizing the canvas later resets its state.
-          canvas.width = card.width * CANVAS_SCALE;
+          // Measuring pass: only the font matters to measureText.
           ctx.font = toCanvasFont(card.headline.size, 600);
           const headlineRuns: ITextRun[] = headline
             .split(RATE_MARKER)

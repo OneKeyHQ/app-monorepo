@@ -43,18 +43,17 @@ function InviteLinkField({
   inviteUrl,
   displayUrl,
   trailing,
-  grow = false,
 }: {
   inviteUrl: string;
   displayUrl: string;
   trailing?: ReactNode;
-  // Fills a row beside the share button. Never set in a column, where it
-  // would stretch the field's height instead.
-  grow?: boolean;
 }) {
   return (
     <XStack
-      flex={grow ? 1 : undefined}
+      // Without its own actions it shares a row with the share button; with
+      // them it stands alone in the card's column, where flex would stretch
+      // its height instead.
+      flex={trailing ? undefined : 1}
       minHeight={trailing ? 48 : 44}
       ai="center"
       gap="$2"
@@ -82,21 +81,23 @@ function InviteLinkActions({
   displayUrl,
   copyLabel,
   copyLink,
+  shareLabel,
   shareButton,
-  shareCardButton,
+  onShareCard,
 }: {
   inviteUrl: string;
   displayUrl: string;
   copyLabel: string;
   copyLink: () => void;
+  shareLabel: string;
   shareButton: ReactNode;
   // Opens the share card (image, X, Telegram); desktop and web only, where
   // there is no page footer to hold it. It sits in the field beside Copy,
   // so the row reads as one link with its two actions.
-  shareCardButton: ReactNode;
+  onShareCard: () => void;
 }) {
   const linkField = (
-    <InviteLinkField inviteUrl={inviteUrl} displayUrl={displayUrl} grow />
+    <InviteLinkField inviteUrl={inviteUrl} displayUrl={displayUrl} />
   );
   // Native pins sharing to the page footer, so the hero keeps only the link
   // field and share.
@@ -125,7 +126,13 @@ function InviteLinkActions({
       displayUrl={displayUrl}
       trailing={
         <XStack ai="center" gap="$3">
-          {shareCardButton}
+          <IconButton
+            testID={ReferFriendsTestIDs.inviteShareCardBtn}
+            variant="tertiary"
+            icon="ShareOutline"
+            title={shareLabel}
+            onPress={onShareCard}
+          />
           {copyButton}
         </XStack>
       }
@@ -207,20 +214,13 @@ export function InviteLinkHero({
             onPress={handleShare}
           />
         }
-        shareCardButton={
-          <IconButton
-            testID={ReferFriendsTestIDs.inviteShareCardBtn}
-            variant="tertiary"
-            icon="ShareOutline"
-            title={intl.formatMessage({ id: ETranslations.explore_share })}
-            onPress={openShareCard}
-          />
-        }
+        shareLabel={intl.formatMessage({ id: ETranslations.explore_share })}
+        onShareCard={openShareCard}
       />
       <Divider mt="auto" borderColor={INVITE_CARD_BORDER_COLOR} />
       <XStack ai="flex-start" jc="space-between" gap="$6">
         <InviteStatCell
-          hug
+          share="content"
           testID={ReferFriendsTestIDs.inviteCodeLine}
           label={intl.formatMessage({ id: ETranslations.referral_your_code })}
           onPress={handleCopy}

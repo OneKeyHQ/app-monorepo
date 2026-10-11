@@ -93,12 +93,6 @@ jest.mock('@onekeyhq/kit/src/components/NetworkAvatar', () => ({
   ),
 }));
 
-jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
-  useActiveAccount: () => ({
-    activeAccount: { wallet: { id: 'hd-1' } },
-  }),
-}));
-
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     locale: 'en-US',
