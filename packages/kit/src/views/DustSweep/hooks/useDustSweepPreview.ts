@@ -12,6 +12,8 @@ type IPreview = {
   status: 'loading' | 'ready' | 'error';
   amount: string;
   quotedCount: number;
+  provider?: string;
+  providerName?: string;
   providerLogo?: string;
 };
 
@@ -59,6 +61,8 @@ export function useDustSweepPreview(
             )
             .toFixed(),
           quotedCount: quotes.length,
+          provider: quotes[0]?.info.provider,
+          providerName: quotes[0]?.info.providerName,
           providerLogo: quotes[0]?.info.providerLogo,
         });
       });

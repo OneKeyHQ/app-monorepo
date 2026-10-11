@@ -98,5 +98,7 @@ it('debounces rapid selection revisions to one current quote request', async () 
     status: 'ready',
     quotedCount: 1,
     amount: '0.01',
+    provider: 'SwapOKX',
+    providerName: 'OKX',
   });
 });

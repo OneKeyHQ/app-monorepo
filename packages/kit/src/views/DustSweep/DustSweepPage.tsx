@@ -19,6 +19,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDustSweepRouteParams } from '@onekeyhq/shared/types/swap/dustSweep';
 
+import { DustSweepDetails } from './components/DustSweepDetails';
 import { DustSweepNetworks } from './components/DustSweepFilters';
 import { DustSweepSelection } from './components/DustSweepSelection';
 import {
@@ -29,6 +30,26 @@ import { DustSweepProvider, useDustSweep } from './DustSweepProvider';
 import { getDustSweepTotals } from './stateMachine';
 
 import type { NavigationAction, RouteProp } from '@react-navigation/core';
+
+function DustSweepResultDialog({
+  state,
+  onClose,
+  onAgain,
+}: {
+  state: Parameters<typeof DustSweepResult>[0]['state'];
+  onClose: () => void;
+  onAgain: () => void | Promise<void>;
+}) {
+  const [showDetails, setShowDetails] = useState(false);
+  if (showDetails) return <DustSweepDetails state={state} onClose={onClose} />;
+  return (
+    <DustSweepResult
+      state={state}
+      onDetails={() => setShowDetails(true)}
+      onAgain={onAgain}
+    />
+  );
+}
 
 function DustSweepPageContent() {
   const { session, selecting, sweepAgain } = useDustSweep();
@@ -134,9 +155,9 @@ function DustSweepPageContent() {
       disableDrag: true,
       contentContainerProps: { px: 0, pb: 0 },
       renderContent: (
-        <DustSweepResult
+        <DustSweepResultDialog
           state={state}
-          onDetails={() => {
+          onClose={() => {
             void dialog.close();
           }}
           onAgain={async () => {

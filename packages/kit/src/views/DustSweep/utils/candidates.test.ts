@@ -107,6 +107,24 @@ describe('Dust Sweep candidate eligibility', () => {
     expect(token.balanceMultiplier).toBeUndefined();
     expect(token.valueUsd).toBe('4');
   });
+
+  it('keeps unverified tokens visible even below the hidden threshold', () => {
+    const tokens = buildDustSweepCandidates(
+      response([
+        { key: 'safe-hidden', value: '0.05' },
+        {
+          key: 'risk-hidden',
+          value: '0.05',
+          riskLevel: ETokenRiskLevel.UNKNOWN,
+        },
+      ]),
+      'evm--1',
+    );
+    const result = filterDustSweepCandidates(tokens, 10, false);
+
+    expect(result.hidden.map((token) => token.key)).toEqual(['safe-hidden']);
+    expect(result.visible.map((token) => token.key)).toEqual(['risk-hidden']);
+  });
   it('does not expose scaled tokens that the existing Swap pipeline cannot execute', () => {
     expect(
       buildDustSweepCandidates(
@@ -132,6 +150,6 @@ describe('Dust Sweep candidate eligibility', () => {
     ['', false],
     ['Infinity', false],
   ])('validates slippage %s', (value, valid) => {
-    expect(isValidDustSweepSlippage(value as string)).toBe(valid);
+    expect(isValidDustSweepSlippage(value)).toBe(valid);
   });
 });

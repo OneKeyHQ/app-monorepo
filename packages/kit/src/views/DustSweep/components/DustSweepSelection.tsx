@@ -38,9 +38,15 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
     ? visible
     : session.state.items.map((item) => item.token);
   const desktopCardHeight = includeHidden ? 712 : 592;
+  const selectableVisibleCount = visible.filter(
+    (token) => !token.suspicious,
+  ).length;
+  const selectedVisibleCount = selected.filter(
+    (token) => !token.suspicious,
+  ).length;
   let selectAllValue: boolean | 'indeterminate' =
-    selected.length === visible.length && !!visible.length;
-  if (selected.length > 0 && selected.length < visible.length)
+    selectedVisibleCount === selectableVisibleCount && !!selectableVisibleCount;
+  if (selectedVisibleCount > 0 && selectedVisibleCount < selectableVisibleCount)
     selectAllValue = 'indeterminate';
   const loading = selecting && loadStatus === 'loading';
   return (
@@ -78,7 +84,7 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
             <Checkbox
               testID="dust-sweep-select-all"
               value={selectAllValue}
-              disabled={!selecting || loading}
+              disabled={!selecting || loading || !selectableVisibleCount}
               onChange={toggleAll}
             />
             <SizableText size="$bodyLgMedium">
@@ -97,10 +103,11 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
                 selected={selected.some((item) => item.key === token.key)}
                 item={selecting ? undefined : session.state.items[index]}
                 paused={
-                  session.state.phase === 'paused' &&
-                  session.state.items.findIndex(
-                    (item) => item.status === 'waiting',
-                  ) === index
+                  session.state.phase === 'paused'
+                    ? session.state.items.findIndex(
+                        (item) => item.status === 'waiting',
+                      ) === index
+                    : false
                 }
                 onToggle={toggle}
               />

@@ -300,15 +300,36 @@ export function DustSweepSummary({
                   id: ETranslations.swap_page_provider_provider,
                 })}
               </SizableText>
-              <XStack gap="$1" alignItems="center">
-                <Image
-                  source={{ uri: preview.providerLogo }}
-                  width={20}
-                  height={20}
-                  borderRadius="$1"
-                  fallback={<Icon name="OkxBrand" size="$5" />}
-                />
-                <SizableText size="$bodyMdMedium">OKX</SizableText>
+              <XStack gap="$1" alignItems="center" flexShrink={1} minWidth={0}>
+                {preview.providerLogo ? (
+                  <Stack position="relative" width={20} height={20}>
+                    <Image
+                      source={{ uri: preview.providerLogo }}
+                      width={20}
+                      height={20}
+                      borderRadius="$1"
+                    />
+                    <Stack
+                      position="absolute"
+                      top={0}
+                      left={0}
+                      right={0}
+                      bottom={0}
+                      borderRadius="$1"
+                      borderWidth="$px"
+                      borderColor="$borderSubdued"
+                      pointerEvents="none"
+                    />
+                  </Stack>
+                ) : null}
+                <SizableText
+                  size="$bodyMdMedium"
+                  numberOfLines={1}
+                  maxWidth="$64"
+                  flexShrink={1}
+                >
+                  {preview.providerName || preview.provider || '—'}
+                </SizableText>
               </XStack>
             </XStack>
             <XStack

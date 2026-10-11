@@ -109,6 +109,10 @@ function useDustSweepController(params: IDustSweepRouteParams) {
       ),
     [current, preferences.threshold, includeHidden],
   );
+  const selectableHidden = useMemo(
+    () => hidden.filter((token) => !token.suspicious),
+    [hidden],
+  );
   const selected = useMemo(
     () =>
       visible.filter((token) =>
@@ -185,32 +189,36 @@ function useDustSweepController(params: IDustSweepRouteParams) {
   );
   const toggleAll = useCallback(() => {
     if (!selecting) return;
-    setSelection(
-      selected.length === visible.length
-        ? new Set()
-        : new Set(visible.map((token) => token.key)),
-    );
-  }, [selecting, selected.length, visible]);
+    const selectableKeys = visible
+      .filter((token) => !token.suspicious)
+      .map((token) => token.key);
+    const selectedKeys = new Set(selected.map((token) => token.key));
+    const selectedSelectableCount = selectableKeys.filter((key) =>
+      selectedKeys.has(key),
+    ).length;
+    if (selectedSelectableCount === selectableKeys.length) {
+      selectableKeys.forEach((key) => selectedKeys.delete(key));
+    } else {
+      selectableKeys.forEach((key) => selectedKeys.add(key));
+    }
+    setSelection(selectedKeys);
+  }, [selecting, selected, visible]);
   const addHidden = useCallback(() => {
     if (!selecting || includeHidden) return;
     setSelection(
-      new Set(
-        [...selected, ...hidden.filter((token) => !token.suspicious)].map(
-          (token) => token.key,
-        ),
-      ),
+      new Set([...selected, ...selectableHidden].map((token) => token.key)),
     );
     setIncludeHidden(true);
     if (!hiddenReported.current) {
       hiddenReported.current = true;
       defaultLogger.dex.dustSweep.dustSweepAddHidden({
-        hiddenCount: hidden.length,
-        hiddenTotalUsd: hidden
+        hiddenCount: selectableHidden.length,
+        hiddenTotalUsd: selectableHidden
           .reduce((sum, token) => sum.plus(token.valueUsd), new BigNumber(0))
           .toFixed(),
       });
     }
-  }, [selecting, includeHidden, selected, hidden]);
+  }, [selecting, includeHidden, selected, selectableHidden]);
   const sweepAgain = useCallback(() => {
     session.reset();
     setSelection(undefined);
@@ -230,7 +238,7 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     networks: orderedNetworks,
     current,
     visible,
-    hidden,
+    hidden: selectableHidden,
     selected,
     includeHidden,
     valueUsd,

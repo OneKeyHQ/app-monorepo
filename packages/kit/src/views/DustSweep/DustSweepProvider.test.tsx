@@ -78,7 +78,11 @@ function useMockSession(): ReturnType<typeof useDustSweepSession> {
   };
 }
 
-function network(networkId: string, values: string[]): IDustSweepNetwork {
+function network(
+  networkId: string,
+  values: string[],
+  suspiciousIndexes: number[] = [],
+): IDustSweepNetwork {
   const tokens: IDustSweepToken[] = values.map((valueUsd, index) => ({
     key: `${networkId}:${index}`,
     networkId,
@@ -87,7 +91,7 @@ function network(networkId: string, values: string[]): IDustSweepNetwork {
     decimals: 18,
     amount: '1',
     valueUsd,
-    suspicious: false,
+    suspicious: suspiciousIndexes.includes(index),
   }));
   return {
     network: { networkId, name: networkId, symbol: 'ETH' },
@@ -107,6 +111,11 @@ function network(networkId: string, values: string[]): IDustSweepNetwork {
 
 const ethereum = network('evm--1', ['8']);
 const ethereumWithHidden = network('evm--1', ['8', '0.05']);
+const ethereumWithRiskAndHidden = network(
+  'evm--1',
+  ['8', '0.5', '0.05', '0.01'],
+  [1, 2],
+);
 const base = network('evm--8453', ['2', '50']);
 const routeParams: IDustSweepRouteParams = {
   walletId: 'hd-test',
@@ -234,6 +243,51 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     expect(result.current.includeHidden).toBe(true);
     act(() => result.current.selectThreshold(1));
     expect(result.current.includeHidden).toBe(false);
+  });
+
+  it('keeps suspicious tokens out of bulk selection while allowing explicit selection', async () => {
+    mockLoadNetworks.mockResolvedValue({
+      networks: [ethereumWithRiskAndHidden],
+      partialError: false,
+    });
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+
+    const safeVisibleKey = ethereumWithRiskAndHidden.tokens[0].key;
+    const suspiciousVisibleKey = ethereumWithRiskAndHidden.tokens[1].key;
+    const safeHiddenKey = ethereumWithRiskAndHidden.tokens[3].key;
+    const suspiciousHiddenKey = ethereumWithRiskAndHidden.tokens[2].key;
+
+    expect(result.current.selected.map((token) => token.key)).toEqual([
+      safeVisibleKey,
+    ]);
+    expect(result.current.hidden.map((token) => token.key)).toEqual([
+      safeHiddenKey,
+    ]);
+
+    act(() => result.current.toggleAll());
+    expect(result.current.selected).toEqual([]);
+
+    act(() => result.current.toggle(suspiciousVisibleKey));
+    act(() => result.current.toggleAll());
+    expect(result.current.selected.map((token) => token.key)).toEqual([
+      safeVisibleKey,
+      suspiciousVisibleKey,
+    ]);
+
+    act(() => result.current.toggleAll());
+    expect(result.current.selected.map((token) => token.key)).toEqual([
+      suspiciousVisibleKey,
+    ]);
+
+    act(() => result.current.addHidden());
+    expect(result.current.selected.map((token) => token.key)).toEqual([
+      suspiciousVisibleKey,
+      safeHiddenKey,
+    ]);
+    expect(result.current.selected.map((token) => token.key)).not.toContain(
+      suspiciousHiddenKey,
+    );
   });
 
   it.each(['resolve', 'reject'] as const)(

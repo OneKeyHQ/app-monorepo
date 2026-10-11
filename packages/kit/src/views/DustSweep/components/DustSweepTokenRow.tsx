@@ -23,22 +23,23 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IDustSweepItem,
+  IDustSweepReason,
   IDustSweepToken,
 } from '@onekeyhq/shared/types/swap/dustSweep';
 
 export const DUST_SWEEP_ROW_HEIGHT = 60;
 export const DUST_SWEEP_TOKEN_SIZE = 32;
 
-const reasonKeys = {
-  priceImpact: ETranslations.toast_price_impact_exceeded_skipped,
-  valueDrop: ETranslations.swap_page_price_impact_title,
-  noQuote: ETranslations.swap_page_provider_rate_unavailable,
-  insufficientGas: ETranslations.swap_page_button_insufficient_balance,
-  txFailed: ETranslations.swap_review_transaction_failed,
-  unknown: ETranslations.global_unknown_error,
+export const dustSweepReasonMessages: Record<IDustSweepReason, string> = {
+  priceImpact: 'Price impact exceeds slippage — skipped',
+  valueDrop: 'High value drop — skipped',
+  noQuote: 'No quote from provider — skipped',
+  insufficientGas: 'Insufficient balance for network fee — skipped',
+  txFailed: 'Transaction failed on-chain',
+  unknown: 'Unknown error — try a manual swap',
 };
 
-export const DustSweepTokenRow = memo(function DustSweepTokenRow({
+const DustSweepTokenRowBase = ({
   token,
   selected,
   item,
@@ -50,18 +51,13 @@ export const DustSweepTokenRow = memo(function DustSweepTokenRow({
   item?: IDustSweepItem;
   paused?: boolean;
   onToggle?: (key: string) => void;
-}) {
+}) => {
   const intl = useIntl();
-  const reasonText = intl.formatMessage({
-    id:
-      item?.status === 'unknown'
-        ? ETranslations.global_pending
-        : reasonKeys[item?.reason ?? 'unknown'],
-  });
-  const reasonDescription =
-    item?.status === 'skipped' && item.reason !== 'priceImpact'
-      ? `${reasonText} · ${intl.formatMessage({ id: ETranslations.label_skipped })}`
-      : reasonText;
+  const reasonText =
+    item?.status === 'unknown'
+      ? dustSweepReasonMessages.unknown
+      : dustSweepReasonMessages[item?.reason ?? 'unknown'];
+  const reasonDescription = reasonText;
   let statusIcon;
   if (item) {
     if (['preparing', 'signing', 'broadcasted'].includes(item.status))
@@ -211,4 +207,10 @@ export const DustSweepTokenRow = memo(function DustSweepTokenRow({
       </YStack>
     </XStack>
   );
-});
+};
+
+DustSweepTokenRowBase.displayName = 'DustSweepTokenRow';
+
+export const DustSweepTokenRow = memo(DustSweepTokenRowBase);
+
+DustSweepTokenRow.displayName = 'DustSweepTokenRow';
