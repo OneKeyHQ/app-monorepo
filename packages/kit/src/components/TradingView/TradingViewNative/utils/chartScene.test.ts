@@ -9,10 +9,12 @@ import {
 } from '../chartConstants';
 
 import { buildTradingViewNativeIndicatorSeries } from './chartIndicators';
+import { formatTradingViewNativeCrosshairTime } from './chartLayout';
 import {
   buildTradingViewNativeChartScene,
   getTradingViewNativeChartScenePaintStyles,
 } from './chartScene';
+import { getTradingViewNativeCandleX } from './chartViewport';
 import {
   createTradingViewNativeSubIndicatorRenderSnapshot,
   createTradingViewNativeSubIndicatorRenderSnapshots,
@@ -1355,4 +1357,119 @@ describe('TradingViewNative shared chart scene', () => {
     }
     expect(scene.commands[lowMarkerIndex + 1]).toEqual({ kind: 'restore' });
   });
+});
+
+describe('crosshair in empty chart space', () => {
+  it.each([
+    ['fixed', Date.UTC(2027, 2, 3)],
+    ['calendar', Date.UTC(2027, 2, 1)],
+  ] as const)(
+    'uses the %s feed boundary for empty monthly slots and trade marks',
+    (candleTimeMode, expectedTimestamp) => {
+      const options: Parameters<typeof buildTradingViewNativeChartScene>[0] = {
+        candleIntervalSeconds: 30 * 24 * 60 * 60,
+        candleTimeMode,
+        chartType: 'candlestick',
+        chartComponents: [
+          {
+            id: 'trades',
+            type: 'tradeMarks',
+            props: {
+              marks: [
+                {
+                  id: 'buy',
+                  label: 'B',
+                  text: 'Buy',
+                  time: Date.UTC(2027, 2, 2) / 1000,
+                },
+              ],
+            },
+          },
+        ],
+        crosshair: { visible: false, x: 0, y: 80 },
+        hasVolume: false,
+        height: 240,
+        measureTextWidth: (text) => text.length * 6,
+        candleLabels: CANDLE_LABELS,
+        points: [{ ...POINTS[0], t: Date.UTC(2027, 1, 1) / 1000 }],
+        viewport: { offset: -60, zoomScale: 1 },
+        watermarkOpacity: 0.16,
+        width: 320,
+      };
+      const initialScene = buildTradingViewNativeChartScene(options);
+      const anchorX = getTradingViewNativeCandleX({
+        ...options.viewport,
+        index: 0,
+        pointCount: 1,
+        priceAxisX: initialScene.layout!.priceAxisX,
+      });
+      const scene = buildTradingViewNativeChartScene({
+        ...options,
+        crosshair: { visible: true, x: anchorX + 6, y: 80 },
+      });
+      expect(scene.crosshairPointIndex).toBeNull();
+      expect(scene.commands).toContainEqual(
+        expect.objectContaining({
+          kind: 'text',
+          paint: 'crosshairLabelText',
+          text: formatTradingViewNativeCrosshairTime(
+            expectedTimestamp / 1000,
+            options.candleIntervalSeconds,
+          ),
+        }),
+      );
+      expect(
+        scene.commands.filter((command) => command.kind === 'tradeMarkLabel'),
+      ).toHaveLength(candleTimeMode === 'fixed' ? 1 : 0);
+    },
+  );
+
+  it.each([
+    [-600, 0],
+    [-600, 80],
+    [600, 80],
+    [600, 212],
+  ])(
+    'renders time and price in empty space at offset %s and y %s',
+    (offset, y) => {
+      const scene = buildTradingViewNativeChartScene({
+        candleIntervalSeconds: 3600,
+        chartType: 'candlestick',
+        crosshair: { visible: true, x: 120, y },
+        hasVolume: false,
+        height: 240,
+        measureTextWidth: (text) => text.length * 6,
+        candleLabels: CANDLE_LABELS,
+        points: POINTS,
+        viewport: { offset, zoomScale: 1 },
+        watermarkOpacity: 0.16,
+        width: 320,
+      });
+      expect(scene.layout).not.toBeNull();
+      expect(scene.viewport.offset).toBe(offset);
+      expect(scene.crosshairPointIndex).toBeNull();
+      const anchorIndex = offset > 0 ? 0 : POINTS.length - 1;
+      const anchorX = getTradingViewNativeCandleX({
+        index: anchorIndex,
+        offset,
+        pointCount: POINTS.length,
+        priceAxisX: scene.layout!.priceAxisX,
+        zoomScale: 1,
+      });
+      const timestamp =
+        POINTS[anchorIndex].t + Math.round((120 - anchorX) / 6) * 3600;
+      const labels = scene.commands.filter(
+        (command) =>
+          command.kind === 'text' && command.paint === 'crosshairLabelText',
+      );
+      expect(labels).toHaveLength(2);
+      expect(labels).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            text: formatTradingViewNativeCrosshairTime(timestamp, 3600),
+          }),
+        ]),
+      );
+    },
+  );
 });

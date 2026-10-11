@@ -15,6 +15,7 @@ import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
+import { getTradingViewNativeCandleTimestampAtOffset } from '../utils/candleTime';
 import {
   getTradingViewNativeChartType,
   isTradingViewNativeSingleValueHistory,
@@ -52,6 +53,7 @@ import type {
 } from './tradingViewNativeIntervals';
 import type { ITradingViewNativeIntervalStorageNamespace } from './tradingViewNativeIntervalStorage';
 import type {
+  ITradingViewNativeCandleTimeMode,
   ITradingViewNativeDataState,
   ITradingViewNativeSource,
   ITradingViewNativeStorageNamespace,
@@ -365,11 +367,13 @@ function mergeRealtimePoint(
 
 function createRealtimePricePoint({
   interval,
+  candleTimeMode,
   latestPoint,
   price,
   timestamp,
 }: {
   interval: ITradingViewNativeKLineInterval;
+  candleTimeMode: ITradingViewNativeCandleTimeMode;
   latestPoint: IMarketTokenKLineDataPoint;
   price: number;
   timestamp: number;
@@ -379,23 +383,21 @@ function createRealtimePricePoint({
   }
 
   let candleTimestamp = latestPoint.t;
-  if (interval.value === '1M') {
-    // Preserve the history feed's calendar boundary, including UTC+8 month
-    // starts that fall on the previous month's last UTC day.
-    const boundary = new Date(latestPoint.t * 1000);
-    const isPreviousMonthEnd = boundary.getUTCDate() !== 1;
+  if (interval.value === '1M' && candleTimeMode === 'calendar') {
+    let offset = 1;
     while (true) {
-      const nextBoundary = new Date(boundary);
-      nextBoundary.setUTCMonth(
-        boundary.getUTCMonth() + (isPreviousMonthEnd ? 2 : 1),
-        isPreviousMonthEnd ? 0 : 1,
-      );
-      if (nextBoundary.getTime() / 1000 > timestamp) {
+      const nextTimestamp = getTradingViewNativeCandleTimestampAtOffset({
+        timestamp: latestPoint.t,
+        candleIntervalSeconds: interval.seconds,
+        candleTimeMode,
+        offset,
+      });
+      if (nextTimestamp > timestamp) {
         break;
       }
-      boundary.setTime(nextBoundary.getTime());
+      candleTimestamp = nextTimestamp;
+      offset += 1;
     }
-    candleTimestamp = boundary.getTime() / 1000;
   } else {
     candleTimestamp +=
       Math.floor((timestamp - latestPoint.t) / interval.seconds) *
@@ -1462,7 +1464,7 @@ function getVisiblePointAnchorTimestamp({
   points: IMarketTokenKLineDataPoint[];
   range: IScopedVisiblePointRange;
 }) {
-  if (!points.length) {
+  if (!points.length || range.startIndex >= range.endIndex) {
     return undefined;
   }
   const startIndex = Math.min(
@@ -3716,6 +3718,7 @@ export function useTradingViewNativeKLine({
         });
         const pricePoint = createRealtimePricePoint({
           interval,
+          candleTimeMode: historyProvider.getCandleTimeMode?.() ?? 'calendar',
           latestPoint,
           price: update.price,
           timestamp: update.t,
@@ -3794,7 +3797,7 @@ export function useTradingViewNativeKLine({
             };
       });
     },
-    [activeInterval, seriesKey],
+    [activeInterval, historyProvider, seriesKey],
   );
 
   const handleRealtimePointRef = useRef(handleRealtimePoint);
@@ -4465,6 +4468,7 @@ export function useTradingViewNativeKLine({
   return {
     calendarAvailableTimeRange,
     candleIntervalSeconds: displayedInterval.seconds,
+    candleTimeMode: historyProvider.getCandleTimeMode?.() ?? 'calendar',
     chartType: getTradingViewNativeChartType({
       hasSingleValueHistory: isSingleValueHistoryClassification(
         visibleHistoryPointTypeScopes?.get(
