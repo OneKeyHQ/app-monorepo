@@ -89,7 +89,7 @@ export function useSwapTableColumns(isCompact: boolean) {
         sortable: true,
       }),
       rewards: getColumnWidth({
-        label: intl.formatMessage({ id: ETranslations.earn_rewards }),
+        label: intl.formatMessage({ id: ETranslations.referral_order_reward }),
         minWidth: MIN_COLUMN_WIDTHS.rewards,
         sortable: true,
       }),

@@ -384,7 +384,7 @@ export function InviteEarningsCard({
     }),
     distributed: intl.formatMessage({ id: ETranslations.referral_distributed }),
     cumulative: intl.formatMessage({
-      id: ETranslations.earn_referral_total_earned,
+      id: ETranslations.referral_cumulative_rewards,
     }),
     history: intl.formatMessage({
       id: ETranslations.referral_payout_history__title,
