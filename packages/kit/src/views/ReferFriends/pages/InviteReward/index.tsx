@@ -211,7 +211,9 @@ function InviteOverviewSkeleton() {
             </XStack>
           </YStack>
           <YStack gap="$2">
-            <Skeleton.BodyMd w={120} />
+            <XStack px="$4">
+              <Skeleton.BodyMd w={120} />
+            </XStack>
             <YStack px="$4" py="$1" {...cardStyle}>
               {[0, 1, 2].map(listRow)}
             </YStack>

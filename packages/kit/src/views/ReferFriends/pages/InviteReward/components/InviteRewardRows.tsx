@@ -511,9 +511,10 @@ export function InviteRewardRows({
   }
 
   // Compact layouts: a quiet caption, like a grouped list header, right
-  // under the earnings card it breaks down; the page sets the spacing.
+  // under the earnings card it breaks down; the page sets the spacing. It
+  // is inset like the cards' text, so the page keeps one left edge.
   const compactTitle = (
-    <SizableText size="$bodyMdMedium" color="$textSubdued">
+    <SizableText size="$bodyMdMedium" color="$textSubdued" px="$4">
       {intl.formatMessage({
         id: ETranslations.referral_earnings_by_product__title,
       })}
