@@ -37,7 +37,11 @@ import { getSanitizedErrorLogText } from '@onekeyhq/shared/src/utils/sensitiveEr
 
 import { OAuthPopupBase } from './OAuthPopupBase';
 
-import type { IOAuthPopupOptions, IOAuthPopupResult } from './types';
+import type {
+  IOAuthLoginCancelErrorData,
+  IOAuthPopupOptions,
+  IOAuthPopupResult,
+} from './types';
 import type { GoogleSignin as GoogleSigninType } from '@react-native-google-signin/google-signin';
 
 // Lazy load GoogleSignin to avoid crash if native module is not available
@@ -336,7 +340,8 @@ export class OAuthPopup extends OAuthPopupBase {
     } catch (error) {
       // Handle specific Apple Sign-In errors
       if (OAuthPopup.isAppleUserCancelledError(error)) {
-        throw new OAuthLoginCancelError();
+        const data: IOAuthLoginCancelErrorData = { systemSheet: true };
+        throw new OAuthLoginCancelError({ data });
       }
 
       throw error;

@@ -3,6 +3,7 @@ import {
   EOAuthSocialLoginProvider,
   OAUTH_FLOW_TIMEOUT_ERROR_MESSAGE,
 } from '@onekeyhq/shared/src/consts/authConsts';
+import { OAuthLoginCancelError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -337,22 +338,32 @@ describe('getOAuthSignInFailureInfo', () => {
     ).toEqual({});
   });
 
+  test('asks to check the connection when the auth service cannot be reached', () => {
+    expect(
+      getOAuthSignInFailureInfo({
+        error: { name: 'AuthRetryableFetchError', status: 0 },
+        provider: EOAuthSocialLoginProvider.Apple,
+      }),
+    ).toEqual({
+      step: 'auth',
+      key: ETranslations.auth_sign_in_network_failed__msg,
+    });
+  });
+
   test.each([
-    { name: 'AuthRetryableFetchError', status: 0 },
+    { name: 'AuthApiError', status: 429 },
+    { name: 'AuthApiError', status: 500 },
     { name: 'AuthRetryableFetchError', status: 503 },
     { name: 'AuthUnknownError' },
   ])(
-    'asks to check the connection when the auth service fails with %j',
+    'does not blame the connection when the auth service answers with %j',
     (error) => {
       expect(
         getOAuthSignInFailureInfo({
           error,
           provider: EOAuthSocialLoginProvider.Apple,
         }),
-      ).toEqual({
-        step: 'auth',
-        key: ETranslations.auth_sign_in_network_failed__msg,
-      });
+      ).toEqual({ step: 'auth', key: undefined });
     },
   );
 
@@ -410,8 +421,16 @@ describe('noteOAuthSignInOutcome', () => {
         `hint for ${values?.provider ?? ''}`,
     ),
   };
-  const note = (provider: EOAuthSocialLoginProvider, cancelled: boolean) =>
-    noteOAuthSignInOutcome({ intl: intl as never, provider, cancelled });
+  const note = (
+    provider: EOAuthSocialLoginProvider,
+    cancelled: boolean,
+    cancelError: unknown = new OAuthLoginCancelError(),
+  ) =>
+    noteOAuthSignInOutcome({
+      intl: intl as never,
+      provider,
+      cancelError: cancelled ? cancelError : undefined,
+    });
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -450,6 +469,24 @@ describe('noteOAuthSignInOutcome', () => {
     note(EOAuthSocialLoginProvider.Google, true);
 
     expect(Toast.message).not.toHaveBeenCalled();
+  });
+
+  test('does not count a dismissed system sheet, which has no page', () => {
+    const sheetCancel = () =>
+      new OAuthLoginCancelError({ data: { systemSheet: true } });
+
+    note(EOAuthSocialLoginProvider.Apple, true, sheetCancel());
+    note(EOAuthSocialLoginProvider.Apple, true, sheetCancel());
+    expect(Toast.message).not.toHaveBeenCalled();
+
+    // The sheet failed and sign-in continued in a browser: those cancels count.
+    note(EOAuthSocialLoginProvider.Apple, true);
+    note(EOAuthSocialLoginProvider.Apple, true, sheetCancel());
+    note(EOAuthSocialLoginProvider.Apple, true);
+    expect(Toast.message).not.toHaveBeenCalled();
+
+    note(EOAuthSocialLoginProvider.Apple, true);
+    expect(Toast.message).toHaveBeenCalledWith({ title: 'hint for Apple' });
   });
 });
 

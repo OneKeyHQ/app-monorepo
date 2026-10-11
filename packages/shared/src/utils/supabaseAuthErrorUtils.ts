@@ -49,6 +49,20 @@ export function isSupabaseAuthError(error: unknown): boolean {
   return typeof name === 'string' && name.startsWith('Auth');
 }
 
+// True when the fetch itself failed, so no usable answer came back from the
+// auth server. auth-js reports that as AuthRetryableFetchError with status 0
+// (a rejected fetch, or a 2xx body that is not JSON); gateway responses
+// (502/503/504) share the name but keep their HTTP status. Only for clients
+// without sessionPreservingSupabaseFetch, which reports rate limits and 5xx
+// the same way.
+export function isSupabaseAuthTransportError(error: unknown): boolean {
+  const authError = error as
+    | { name?: unknown; status?: unknown }
+    | undefined
+    | null;
+  return authError?.name === 'AuthRetryableFetchError' && !authError.status;
+}
+
 // Structural typing on purpose: `@onekeyhq/shared` must not depend on
 // @supabase/auth-js. Supabase AuthError instances carry a `name` and a
 // numeric HTTP `status` (undefined for non-HTTP failures).

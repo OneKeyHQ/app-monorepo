@@ -17,12 +17,13 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getOAuthSocialLoginProviderName } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
 import type { IOneKeyIdAuthFailureStep } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import {
-  isRetryableSupabaseAuthError,
   isSupabaseAuthError,
+  isSupabaseAuthTransportError,
 } from '@onekeyhq/shared/src/utils/supabaseAuthErrorUtils';
 
 import { scrubSensitiveErrorMessageText } from '../../../utils/sensitiveErrorMessageUtils';
 
+import type { IOAuthLoginCancelErrorData } from '../../../components/OneKeyAuth/OAuthPopup/types';
 import type { IntlShape } from 'react-intl';
 
 export { scrubSensitiveErrorMessageText } from '../../../utils/sensitiveErrorMessageUtils';
@@ -222,8 +223,10 @@ export function getOAuthSignInFailureInfo({
   if (isSupabaseAuthError(error)) {
     return {
       step: 'auth',
+      // Only when the auth server was never reached: a rate limit or a
+      // server error is not something the user's network can fix.
       // Not global_network_error: the auto toast drops that exact copy.
-      key: isRetryableSupabaseAuthError(error)
+      key: isSupabaseAuthTransportError(error)
         ? ETranslations.auth_sign_in_network_failed__msg
         : undefined,
     };
@@ -261,11 +264,15 @@ export function getOAuthSignInFailureInfo({
   return {};
 }
 
-// A sign-in page that cannot load inside a browser surface ends as a user
-// cancel, which the app cannot tell from a deliberate one. Stay silent the
-// first time; when the same provider is cancelled again shortly after, offer
-// a conditional network hint. Not on the extension: Chrome shows its sign-in
-// window only after the page has loaded, so a cancel there proves it did.
+// Sign-in UI is a web page nearly everywhere: a browser tab or popup, a web
+// auth session (what the Google SDK opens on iOS as well), or Play services,
+// which reports every way of leaving its screens as one cancel. A page that
+// cannot load ends as a user cancel, which the app cannot tell from a
+// deliberate one. Stay silent the first time; when the same provider is
+// cancelled again shortly after, offer a conditional network hint.
+// Two surfaces are left out, because a cancel there says nothing about a
+// page: the extension, where Chrome shows its sign-in window only after the
+// page has loaded, and the Apple system sheet on iOS, which has no page.
 const OAUTH_CANCEL_HINT_WINDOW_MS = 5 * 60 * 1000;
 let lastCancelledOAuthSignIn:
   | { provider: EOAuthSocialLoginProvider; at: number }
@@ -274,12 +281,17 @@ let lastCancelledOAuthSignIn:
 export function noteOAuthSignInOutcome({
   intl,
   provider,
-  cancelled,
+  cancelError,
 }: {
   intl: IntlShape;
   provider: EOAuthSocialLoginProvider;
-  cancelled: boolean;
+  // The cancel that ended the attempt; leave out for any other outcome.
+  cancelError?: unknown;
 }) {
+  const cancelData = (
+    cancelError as { data?: IOAuthLoginCancelErrorData } | undefined
+  )?.data;
+  const cancelled = Boolean(cancelError) && !cancelData?.systemSheet;
   const previous = lastCancelledOAuthSignIn;
   const now = Date.now();
   lastCancelledOAuthSignIn = cancelled ? { provider, at: now } : undefined;

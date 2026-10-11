@@ -226,11 +226,15 @@ export function useSupabaseAuth() {
       return errorToastUtils.withErrorAutoToast(async () => {
         try {
           const result = await performOAuthSignIn(provider);
-          noteOAuthSignInOutcome({ intl, provider, cancelled: false });
+          noteOAuthSignInOutcome({ intl, provider });
           return result;
         } catch (error) {
           const cancelled = errorToastUtils.isUserCancelStyleError(error);
-          noteOAuthSignInOutcome({ intl, provider, cancelled });
+          noteOAuthSignInOutcome({
+            intl,
+            provider,
+            cancelError: cancelled ? error : undefined,
+          });
           if (cancelled) {
             throw error;
           }

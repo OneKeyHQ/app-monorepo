@@ -2,6 +2,7 @@ import {
   SupabaseStorageTransientError,
   isRetryableSupabaseAuthError,
   isSupabaseAuthError,
+  isSupabaseAuthTransportError,
 } from './supabaseAuthErrorUtils';
 
 describe('isRetryableSupabaseAuthError', () => {
@@ -143,5 +144,30 @@ describe('isSupabaseAuthError', () => {
     null,
   ])('%j does not', (error) => {
     expect(isSupabaseAuthError(error)).toBe(false);
+  });
+});
+
+describe('isSupabaseAuthTransportError', () => {
+  test('a rejected fetch never reached the auth server', () => {
+    expect(
+      isSupabaseAuthTransportError({
+        name: 'AuthRetryableFetchError',
+        status: 0,
+      }),
+    ).toBe(true);
+  });
+
+  test.each([
+    { name: 'AuthRetryableFetchError', status: 502 },
+    { name: 'AuthRetryableFetchError', status: 504 },
+    { name: 'AuthApiError', status: 429 },
+    { name: 'AuthApiError', status: 500 },
+    { name: 'AuthUnknownError' },
+    { name: 'TypeError' },
+    {},
+    undefined,
+    null,
+  ])('%j is an answer from a server, or not an auth error', (error) => {
+    expect(isSupabaseAuthTransportError(error)).toBe(false);
   });
 });
