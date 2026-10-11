@@ -144,8 +144,13 @@ function formatCounts(counts) {
   return `${counts.vulnerability} vulnerabilities, ${counts.misconfiguration} misconfigurations, ${counts.secret} secrets`;
 }
 
+// Escape backslashes before pipes so a trailing backslash cannot neutralize
+// the escaped table delimiter.
 function escapeCell(value) {
-  return String(value).replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+  return String(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/\|/g, '\\|')
+    .replace(/\r?\n/g, ' ');
 }
 
 function renderSummary({ newFindings, headCounts, baseCounts }) {
