@@ -61,11 +61,31 @@ function stopPropagation(e: { stopPropagation: () => void }) {
   e.stopPropagation();
 }
 
-function RewardLabel({ label }: { label: string }) {
+// Amount columns carry their unit in the header, as its own text so the
+// label can truncate before it.
+function RewardLabel({
+  label,
+  withUnit = false,
+}: {
+  label: string;
+  withUnit?: boolean;
+}) {
   return (
-    <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-      {label}
-    </SizableText>
+    <>
+      <SizableText
+        size="$bodyMd"
+        color="$textSubdued"
+        numberOfLines={1}
+        flexShrink={1}
+      >
+        {label}
+      </SizableText>
+      {withUnit ? (
+        <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
+          (USD)
+        </SizableText>
+      ) : null}
+    </>
   );
 }
 
@@ -96,7 +116,7 @@ function RewardListRow({
       {row.pending ? (
         <YStack ai="flex-end" gap="$0.5">
           {/* A zero, not "No reward yet", when a payout is on its way. */}
-          <InviteRewardAmount summary={row.available} />
+          <InviteRewardAmount summary={row.available} withUnit />
           <XStack ai="center" gap="$1">
             <SizableText size="$bodySm" color="$textSubdued">
               {pendingLabel}
@@ -105,11 +125,12 @@ function RewardListRow({
               summary={row.pending}
               size="$bodySm"
               color="$textSubdued"
+              withUnit
             />
           </XStack>
         </YStack>
       ) : (
-        <InviteRewardAmount summary={row.available} emptyLabel />
+        <InviteRewardAmount summary={row.available} emptyLabel withUnit />
       )}
     </ListItem>
   );
@@ -175,15 +196,15 @@ function DesktopRewardHeader({
       </DesktopCell>
       {columns.monthly ? (
         <DesktopCell>
-          <RewardLabel label={labels.monthly} />
+          <RewardLabel label={labels.monthly} withUnit />
         </DesktopCell>
       ) : null}
       <DesktopCell>
-        <RewardLabel label={labels.available} />
+        <RewardLabel label={labels.available} withUnit />
       </DesktopCell>
       {columns.pending ? (
         <DesktopCell>
-          <RewardLabel label={labels.pending} />
+          <RewardLabel label={labels.pending} withUnit />
         </DesktopCell>
       ) : null}
       {/* Chevron-wide spacer, so the header lines up with the rows. */}

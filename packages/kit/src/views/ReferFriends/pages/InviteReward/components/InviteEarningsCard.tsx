@@ -32,6 +32,7 @@ import { ReferFriendsTestIDs } from '../../../testIDs';
 import { CardTextAction } from './CardTextAction';
 import { getInviteEarningsState } from './getInviteEarningsState';
 import { REFERRAL_USD_CURRENCY_PROPS } from './shared/getRewardSummary';
+import { ReferralUsdUnit } from './shared/ReferralUsdUnit';
 import {
   COMPACT_ENTRY_TITLE_PROPS,
   COMPACT_ROW_BLEED_PROPS,
@@ -66,9 +67,7 @@ function LeadAmount({ amount }: { amount: string }) {
       >
         {amount}
       </Currency>
-      <SizableText size="$bodyLg" color="$textSubdued">
-        USD
-      </SizableText>
+      <ReferralUsdUnit size="$bodyLg" />
     </XStack>
   );
 }
@@ -320,15 +319,17 @@ function CompactEarnings({
           onPress={onOpenHistory}
         />
       </XStack>
-      <Currency
-        {...REFERRAL_USD_CURRENCY_PROPS}
-        size="$heading3xl"
-        numberOfLines={1}
-        pt="$1"
-        pb="$3"
-      >
-        {earnings.cumulative}
-      </Currency>
+      <XStack ai="baseline" gap="$1.5" pt="$1" pb="$3">
+        <Currency
+          {...REFERRAL_USD_CURRENCY_PROPS}
+          size="$heading3xl"
+          numberOfLines={1}
+          flexShrink={1}
+        >
+          {earnings.cumulative}
+        </Currency>
+        <ReferralUsdUnit />
+      </XStack>
       <YStack pb="$3">
         <CompactFieldRow
           leading={<PartDot color="$iconSuccess" />}

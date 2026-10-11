@@ -131,14 +131,17 @@ function InviteCodeRow({
             { id: ETranslations.referral_code_earned__desc },
             {
               amount: (
-                <Currency
-                  size="$bodySmMedium"
-                  formatter="value"
-                  // Reward figures are shown in USD across the referral pages.
-                  targetCurrency={REFERRAL_USD_CURRENCY_PROPS.targetCurrency}
-                >
-                  {item.cumulativeRewardsFiatValue}
-                </Currency>
+                <>
+                  <Currency
+                    size="$bodySmMedium"
+                    formatter="value"
+                    // Reward figures are shown in USD across the referral pages.
+                    targetCurrency={REFERRAL_USD_CURRENCY_PROPS.targetCurrency}
+                  >
+                    {item.cumulativeRewardsFiatValue}
+                  </Currency>{' '}
+                  USD
+                </>
               ),
             },
           ),
