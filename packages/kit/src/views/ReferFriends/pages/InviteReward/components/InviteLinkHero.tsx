@@ -65,10 +65,13 @@ function InviteLinkField({
       borderRadius={trailing ? '$full' : '$2'}
       bg="$bgStrong"
     >
-      <SizableText flex={1} numberOfLines={1} size="$bodyLg">
+      {/* The more-links menu sits right after the link it switches, the
+          actions at the far end. */}
+      <SizableText flexShrink={1} numberOfLines={1} size="$bodyLg">
         {displayUrl}
       </SizableText>
       <ReferralLinkDropdown inviteUrl={inviteUrl} />
+      <Stack flex={1} />
       {trailing}
     </XStack>
   );
@@ -88,7 +91,8 @@ function InviteLinkActions({
   copyLink: () => void;
   shareButton: ReactNode;
   // Opens the share card (image, X, Telegram); desktop and web only, where
-  // there is no page footer to hold it.
+  // there is no page footer to hold it. It sits in the field beside Copy,
+  // so the row reads as one link with its two actions.
   shareCardButton: ReactNode;
 }) {
   const linkField = (
@@ -116,15 +120,16 @@ function InviteLinkActions({
   );
 
   return (
-    <XStack ai="center" gap="$2">
-      <InviteLinkField
-        inviteUrl={inviteUrl}
-        displayUrl={displayUrl}
-        trailing={copyButton}
-        grow
-      />
-      {shareCardButton}
-    </XStack>
+    <InviteLinkField
+      inviteUrl={inviteUrl}
+      displayUrl={displayUrl}
+      trailing={
+        <XStack ai="center" gap="$3">
+          {shareCardButton}
+          {copyButton}
+        </XStack>
+      }
+    />
   );
 }
 
@@ -205,9 +210,7 @@ export function InviteLinkHero({
         shareCardButton={
           <IconButton
             testID={ReferFriendsTestIDs.inviteShareCardBtn}
-            variant="secondary"
-            // As tall as the link field beside it.
-            size="large"
+            variant="tertiary"
             icon="ShareOutline"
             title={intl.formatMessage({ id: ETranslations.explore_share })}
             onPress={openShareCard}
