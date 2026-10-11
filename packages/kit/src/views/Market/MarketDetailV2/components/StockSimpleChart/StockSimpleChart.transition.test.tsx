@@ -1,9 +1,10 @@
 /** @jest-environment jsdom */
 import type { PropsWithChildren } from 'react';
 
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
+import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import { StockSimpleChart, StockSimpleChartContent } from './StockSimpleChart';
 import {
@@ -35,10 +36,19 @@ jest.mock('@onekeyhq/kit/src/components/Currency', () => ({
 }));
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
-  default: {},
+  default: {
+    serviceMarketV2: {
+      fetchMarketTokenKline: async () => ({
+        points: [{ t: Math.floor(Date.now() / 1000), c: 110 }],
+      }),
+    },
+  },
 }));
-jest.mock('../../hooks/useMarketKlineLivePrice', () => ({
-  useMarketKlineLivePrice: () => undefined,
+const mockMarketActions = { current: { applyChartPriceUpdate: jest.fn() } };
+let mockRunLivePrice: (() => Promise<void>) | undefined;
+jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
+  useTokenDetailActions: () => mockMarketActions,
+  useMarketV2ContextData: () => ({ store: undefined }),
 }));
 const mockTokenDetail = jest.fn<
   { isNative?: boolean; networkId: string; tokenAddress: string },
@@ -55,7 +65,13 @@ const mockPromiseResult = jest.fn<
   []
 >();
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
-  usePromiseResult: () => mockPromiseResult(),
+  usePromiseResult: (factory: () => Promise<void>, deps: unknown[]) => {
+    if (deps[0] === mockMarketActions) {
+      mockRunLivePrice = factory;
+      return {};
+    }
+    return mockPromiseResult();
+  },
 }));
 const mockChart = jest.fn<void, [{ data: IMarketTokenChart }]>();
 jest.mock('@onekeyhq/kit/src/components/StockPriceLineChart', () => ({
@@ -205,4 +221,24 @@ it('keeps the initial loading state and shows a failed range request instead of 
   rerender(<StockSimpleChart range="1W" priceMode="token" />);
   expect(screen.getByTestId('stock-simple-chart-error')).toBeTruthy();
   expect(screen.queryByTestId('rendered-chart')).toBeNull();
+});
+
+it('uses the real live-price polling hook to replace the stale Swap snapshot endpoint', async () => {
+  render(
+    <StockSimpleChartContent
+      {...base}
+      isNative={false}
+      tokenDetail={
+        {
+          price: '100',
+        } as IMarketTokenDetail
+      }
+    />,
+  );
+  expect(mockChart.mock.calls.at(-1)?.[0].data.at(-1)?.[1]).toBe(100);
+  await act(async () => mockRunLivePrice?.());
+  expect(mockChart.mock.calls.at(-1)?.[0].data.at(-1)?.[1]).toBe(110);
+  expect(
+    mockMarketActions.current.applyChartPriceUpdate,
+  ).not.toHaveBeenCalled();
 });

@@ -73,6 +73,7 @@ export function StockSimpleChart(props: IStockSimpleChartProps) {
   return (
     <StockSimpleChartContent
       {...props}
+      updateMarketDetail
       isNative={isNative}
       networkId={networkId}
       tokenAddress={tokenAddress}
@@ -101,7 +102,9 @@ export function StockSimpleChartContent({
   tokenDetail,
   stockDetail,
   stockId,
+  updateMarketDetail = false,
 }: IStockSimpleChartProps & {
+  updateMarketDetail?: boolean;
   retainPreviousRange?: boolean;
   isNative: boolean;
   networkId: string;
@@ -147,7 +150,7 @@ export function StockSimpleChartContent({
     stockId,
     tokenStock: tokenDetail?.stock,
   });
-  const livePrice = resolveStockSimpleChartLivePrice({
+  const snapshotPrice = resolveStockSimpleChartLivePrice({
     priceMode: requestPriceMode,
     stockDetail,
     tokenDetail,
@@ -155,7 +158,7 @@ export function StockSimpleChartContent({
   // This chart pins its last point to the quote above, so a quote that stops
   // moving freezes the chart with it. Simple mode mounts no TradingView, which
   // is what keeps that quote on the traded price everywhere else.
-  useMarketKlineLivePrice({
+  const polledPrice = useMarketKlineLivePrice({
     enabled:
       active &&
       requestReady &&
@@ -168,7 +171,9 @@ export function StockSimpleChartContent({
     marketAssetId: requestMarketAssetId,
     networkId: requestNetworkId,
     tokenAddress: requestTokenAddress,
+    updateMarketDetail,
   });
+  const livePrice = polledPrice ?? snapshotPrice;
   const scopeKey = buildStockSimpleChartScopeKey({
     coinGeckoId: requestCoinGeckoId,
     marketAssetId: requestMarketAssetId,

@@ -156,6 +156,7 @@ beforeEach(() => {
   });
   mockUseActiveAccount.mockReturnValue({
     activeAccount: {
+      ready: true,
       indexedAccount: { id: 'indexed-1' },
       account: undefined,
       deriveType: 'default',
@@ -198,9 +199,10 @@ beforeEach(() => {
 });
 
 describe('useSwapStockPortfolioData', () => {
-  it('uses the selected derive type for the portfolio network', async () => {
+  it('ignores stale Market derive types and uses Swap global types across networks', async () => {
     mockUseActiveAccount.mockReturnValue({
       activeAccount: {
+        ready: true,
         indexedAccount: { id: 'indexed-1' },
         account: undefined,
         deriveType: 'default',
@@ -219,12 +221,77 @@ describe('useSwapStockPortfolioData', () => {
       getNetworkAccount.mock.calls.find(
         ([params]) => params.networkId === 'evm--1',
       )?.[0],
-    ).toEqual(expect.objectContaining({ deriveType: 'ledgerLegacy' }));
+    ).toEqual(expect.objectContaining({ deriveType: 'default' }));
     expect(
       getNetworkAccount.mock.calls.find(
         ([params]) => params.networkId === 'evm--56',
       )?.[0],
     ).toEqual(expect.objectContaining({ deriveType: 'default' }));
+  });
+
+  it('uses the actual same-network account and invalidates rows after an address change', async () => {
+    const activeAccount = {
+      ready: true,
+      indexedAccount: { id: 'indexed-1' },
+      network: { id: 'evm--1' },
+      deriveType: 'default',
+      account: { id: 'default-account', address: 'default-address' },
+    };
+    mockUseActiveAccount.mockReturnValue({
+      activeAccount,
+    } as unknown as ReturnType<typeof useActiveAccount>);
+    mockUseSelectedDeriveTypeAtom.mockReturnValue([
+      { networkId: 'evm--1', deriveType: 'ledgerLegacy' },
+      jest.fn(),
+    ] as unknown as ReturnType<typeof useSelectedDeriveTypeAtom>);
+    const { result, rerender } = renderHook(() => useSwapStockPortfolioData());
+    await waitFor(() =>
+      expect(
+        result.current.portfolioData.find(
+          (item) => item.tokenId === ethVariant.tokenId,
+        )?.accountAddress,
+      ).toBe('default-address'),
+    );
+    expect(
+      getNetworkAccount.mock.calls.some(
+        ([params]) => params.networkId === 'evm--1',
+      ),
+    ).toBe(false);
+    mockUseActiveAccount.mockReturnValue({
+      activeAccount: {
+        ...activeAccount,
+        deriveType: 'ledgerLegacy',
+        account: { id: 'legacy-account', address: 'legacy-address' },
+      },
+    } as unknown as ReturnType<typeof useActiveAccount>);
+    rerender({});
+    expect(result.current.portfolioData).toEqual([]);
+    await waitFor(() =>
+      expect(
+        result.current.portfolioData.find(
+          (item) => item.tokenId === ethVariant.tokenId,
+        )?.accountAddress,
+      ).toBe('legacy-address'),
+    );
+  });
+
+  it('does not reuse cached network accounts after the global derive type changes', async () => {
+    const { result, rerender } = renderHook(() => useSwapStockPortfolioData());
+    await waitFor(() => expect(result.current.portfolioData).toHaveLength(3));
+    getGlobalDeriveTypeOfNetwork.mockResolvedValue('ledgerLegacy');
+    setStockDetail('MSFT', [ethVariant, bscVariant, solVariant]);
+    rerender({});
+    await waitFor(() => expect(getNetworkAccount).toHaveBeenCalledTimes(6));
+    expect(getNetworkAccount.mock.calls.slice(3)).toEqual(
+      expect.arrayContaining([
+        [
+          expect.objectContaining({
+            networkId: 'evm--1',
+            deriveType: 'ledgerLegacy',
+          }),
+        ],
+      ]),
+    );
   });
 
   it('lists the holdings largest first and keeps dust out of the table only', async () => {
