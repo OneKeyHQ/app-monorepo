@@ -2,7 +2,9 @@
  * @jest-environment jsdom
  */
 
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
+
+import assert from 'node:assert/strict';
 
 import { act, render } from '@testing-library/react';
 
@@ -14,6 +16,25 @@ import {
 import { inAppStateLockDialogProps } from '../../../views/Setting/hooks';
 
 import PasswordVerify from './PasswordVerify';
+
+import type { UseFormReturn } from 'react-hook-form';
+
+interface ICaptured {
+  form: UseFormReturn<{ password: string; passCode: string }>;
+  input: { addOns: { onPress: () => void | Promise<void>; testID?: string }[] };
+  icon: { onPress: () => void };
+  passCode: {
+    onPinCodeChange: (value: string) => void;
+    onComplete: () => void;
+  };
+  active?: () => void;
+  visibility?: (visible: boolean) => void;
+}
+interface IComponentMocks {
+  __captured: ICaptured;
+  __dialogConfirm: jest.Mock<void, [Record<string, unknown>]>;
+}
+type IBooleanMock = jest.Mock<Promise<boolean>, []>;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -35,15 +56,31 @@ jest.mock('@onekeyhq/components', () => {
     Host.displayName = name;
     return Host;
   };
-  const Form: any = ({ children }: { children?: unknown }) => children;
-  Form.Field = ({ children }: { children?: unknown }) => children;
+  const capture = {} as ICaptured;
+  const Form = Object.assign(
+    ({ children, form }: { children?: ReactNode; form: ICaptured['form'] }) => {
+      capture.form = form;
+      return children ?? null;
+    },
+    { Field: ({ children }: { children?: ReactNode }) => children ?? null },
+  );
   const dialogConfirm = jest.fn();
   return {
     __dialogConfirm: dialogConfirm,
+    __captured: capture,
     Dialog: { confirm: dialogConfirm },
     Form,
-    IconButton: () => null,
-    Input: () => null,
+    IconButton: (props: ICaptured['icon']) => {
+      capture.icon = props;
+      return createElement('button', {
+        'data-testid': 'biometric-icon',
+        onClick: props.onPress,
+      });
+    },
+    Input: (props: ICaptured['input']) => {
+      capture.input = props;
+      return createElement('input', { 'data-testid': 'password-input' });
+    },
     Portal: {
       Constant: {
         APP_STATE_LOCK_CONTAINER_OVERLAY: 'APP_STATE_LOCK_CONTAINER_OVERLAY',
@@ -53,8 +90,15 @@ jest.mock('@onekeyhq/components', () => {
     Stack: host('div'),
     XStack: host('div'),
     YStack: host('div'),
-    onVisibilityStateChange: () => () => {},
-    useForm: jest.requireActual('react-hook-form').useForm,
+    onVisibilityStateChange: (callback: (visible: boolean) => void) => {
+      capture.visibility = callback;
+      return () => {
+        capture.visibility = undefined;
+      };
+    },
+    useForm:
+      jest.requireActual<typeof import('react-hook-form')>('react-hook-form')
+        .useForm,
   };
 });
 
@@ -125,7 +169,11 @@ jest.mock('../../../hooks/useBiometricAuthInfo', () => ({
 }));
 
 jest.mock('../../../hooks/useHandleAppStateActive', () => ({
-  useHandleAppStateActive: () => {},
+  useHandleAppStateActive: (callback: (() => void) | undefined) => {
+    jest.requireMock<IComponentMocks>(
+      '@onekeyhq/components',
+    ).__captured.active = callback;
+  },
 }));
 
 jest.mock('../../../views/Setting/hooks/useLanguageSelector', () => ({}));
@@ -137,16 +185,22 @@ jest.mock('../hooks/useClearInputValueAfterVerified', () => ({
 
 jest.mock('./PassCodeInput', () => ({
   __esModule: true,
-  default: () => null,
+  default: (props: ICaptured['passCode']) => {
+    jest.requireMock<IComponentMocks>(
+      '@onekeyhq/components',
+    ).__captured.passCode = props;
+    return null;
+  },
 }));
 
 function getMocks() {
   return {
-    dialogConfirm: jest.requireMock('@onekeyhq/components')
-      .__dialogConfirm as jest.Mock,
-    setBiologyAuthEnable: jest.requireMock(
-      '../../../background/instance/backgroundApiProxy',
-    ).__setBiologyAuthEnable as jest.Mock,
+    dialogConfirm: jest.requireMock<IComponentMocks>('@onekeyhq/components')
+      .__dialogConfirm,
+    setBiologyAuthEnable: jest.requireMock<{
+      __setBiologyAuthEnable: jest.Mock<Promise<void>, [boolean]>;
+    }>('../../../background/instance/backgroundApiProxy')
+      .__setBiologyAuthEnable,
   };
 }
 
@@ -163,7 +217,7 @@ async function flush() {
   });
 }
 
-function renderVerify(props?: { inAppStateLock?: boolean }) {
+function renderVerify(props?: Partial<ComponentProps<typeof PasswordVerify>>) {
   return render(
     <PasswordVerify
       authType={[]}
@@ -185,6 +239,9 @@ describe('PasswordVerify biometric-changed warning', () => {
     // burn its one-shot "act without await" warning on a false positive.
     jest.useFakeTimers({ doNotFake: ['queueMicrotask'] });
     jest.clearAllMocks();
+    supportCheck().mockResolvedValue(true);
+    sdkCheck().mockResolvedValue(true);
+    getMocks().setBiologyAuthEnable.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -222,5 +279,235 @@ describe('PasswordVerify biometric-changed warning', () => {
     // is — no window overlay of its own, which on iOS would also put it
     // above the lock screen and the toast layer.
     expect(props.isOverTopAllViews).toBeUndefined();
+  });
+});
+
+function captured(): ICaptured {
+  return jest.requireMock<IComponentMocks>('@onekeyhq/components').__captured;
+}
+function sdkCheck(): IBooleanMock {
+  return jest.requireMock<{ checkBiometricAuthChanged: IBooleanMock }>(
+    '@onekeyhq/shared/src/modules3rdParty/check-biometric-auth-changed',
+  ).checkBiometricAuthChanged;
+}
+function supportCheck(): IBooleanMock {
+  return jest.requireMock<{ default: { isSupportBiologyAuth: IBooleanMock } }>(
+    '@onekeyhq/shared/src/biologyAuth',
+  ).default.isSupportBiologyAuth;
+}
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
+describe('PasswordVerify biometric safety guard', () => {
+  beforeEach(() => {
+    jest.useFakeTimers({ doNotFake: ['queueMicrotask'] });
+    jest.clearAllMocks();
+    sdkCheck().mockResolvedValue(false);
+    supportCheck().mockResolvedValue(true);
+    getMocks().setBiologyAuthEnable.mockResolvedValue(undefined);
+
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+  });
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.useRealTimers();
+  });
+
+  it.each(['support', 'sdk', 'disable'] as const)(
+    'blocks all biometric entrances after %s failure while password remains usable',
+    async (failure) => {
+      const onBiologyAuth = jest.fn();
+      const onInputPasswordAuth = jest.fn();
+      if (failure === 'support')
+        supportCheck().mockRejectedValue(new Error('support failed'));
+      if (failure === 'sdk')
+        sdkCheck().mockRejectedValue(new Error('Keychain read failed'));
+      if (failure === 'disable') {
+        sdkCheck().mockResolvedValue(true);
+        getMocks().setBiologyAuthEnable.mockRejectedValue(
+          new Error('setting failed'),
+        );
+      }
+      const view = renderVerify({ onBiologyAuth, onInputPasswordAuth });
+      const manual = captured().input.addOns[0].onPress;
+      await flush();
+      await act(async () => {
+        void manual();
+        captured().active?.();
+        captured().visibility?.(true);
+      });
+      await flush();
+      expect(onBiologyAuth).not.toHaveBeenCalled();
+      expect(getMocks().setBiologyAuthEnable).toHaveBeenCalledTimes(
+        failure === 'disable' ? 1 : 0,
+      );
+      expect(getMocks().dialogConfirm).not.toHaveBeenCalled();
+      expect(view.getByText('auth_biometric_failed')).toBeTruthy();
+      await act(async () => {
+        captured().form.setValue('password', 'still-usable');
+      });
+      await act(async () => {
+        const passwordAction = captured().input.addOns.find(
+          (item) => item.testID === 'verifying-password',
+        );
+        assert(passwordAction, 'Password submission action is missing');
+        await passwordAction.onPress();
+      });
+      expect(onInputPasswordAuth).toHaveBeenCalledWith(
+        expect.objectContaining({ password: 'still-usable' }),
+        undefined,
+      );
+      // The same failure blocks the passcode manual entrance, without blocking completion.
+      view.unmount();
+      renderVerify({
+        passwordMode: EPasswordMode.PASSCODE,
+        onBiologyAuth,
+        onInputPasswordAuth,
+      });
+      const passcodeManual = captured().icon.onPress;
+      await flush();
+      await act(async () => {
+        passcodeManual();
+        captured().active?.();
+        captured().visibility?.(true);
+        captured().passCode.onPinCodeChange('123456');
+        captured().passCode.onComplete();
+      });
+      await flush();
+      expect(onBiologyAuth).not.toHaveBeenCalled();
+      expect(onInputPasswordAuth).toHaveBeenCalledWith(
+        expect.objectContaining({ passCode: '123456' }),
+        undefined,
+      );
+    },
+  );
+
+  it('coalesces check and entire authentication challenge across automatic and manual entrances', async () => {
+    const check = deferred<boolean>();
+    const challenge = deferred<void>();
+    sdkCheck().mockReturnValue(check.promise);
+    const onBiologyAuth = jest.fn().mockReturnValue(challenge.promise);
+    renderVerify({ onBiologyAuth });
+    await act(async () => {
+      void captured().input.addOns[0].onPress();
+      captured().active?.();
+      captured().visibility?.(true);
+    });
+    expect(sdkCheck()).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      check.resolve(false);
+    });
+    expect(onBiologyAuth).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      void captured().input.addOns[0].onPress();
+    });
+    expect(onBiologyAuth).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      challenge.resolve();
+    });
+    await act(async () => {
+      void captured().input.addOns[0].onPress();
+    });
+    expect(onBiologyAuth).toHaveBeenCalledTimes(2);
+  });
+
+  it('visibility checks never issue an authentication challenge', async () => {
+    const onBiologyAuth = jest.fn();
+    renderVerify({ onBiologyAuth, isEnable: false });
+    await act(async () => {
+      captured().visibility?.(true);
+    });
+    expect(sdkCheck()).toHaveBeenCalledTimes(1);
+    expect(onBiologyAuth).not.toHaveBeenCalled();
+  });
+
+  it.each(['disabled', 'input', 'verifying', 'verified', 'unmounted'] as const)(
+    'does not authenticate after pending check becomes %s',
+    async (change) => {
+      const check = deferred<boolean>();
+      sdkCheck().mockReturnValue(check.promise);
+      const onBiologyAuth = jest.fn();
+      const view = renderVerify({ onBiologyAuth });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      if (change === 'input')
+        await act(async () => {
+          captured().form.setValue('password', 'typing');
+        });
+      else if (change === 'unmounted') view.unmount();
+      else {
+        let latestStatus = EPasswordVerifyStatus.DEFAULT;
+        if (change === 'verifying')
+          latestStatus = EPasswordVerifyStatus.VERIFYING;
+        if (change === 'verified')
+          latestStatus = EPasswordVerifyStatus.VERIFIED;
+        view.rerender(
+          <PasswordVerify
+            authType={[]}
+            isEnable={change !== 'disabled'}
+            passwordMode={EPasswordMode.PASSWORD}
+            status={{
+              value: latestStatus,
+            }}
+            onPasswordChange={() => {}}
+            onBiologyAuth={onBiologyAuth}
+            onInputPasswordAuth={() => {}}
+          />,
+        );
+      }
+      await act(async () => {
+        check.resolve(false);
+      });
+      expect(onBiologyAuth).not.toHaveBeenCalled();
+    },
+  );
+  it('treats unsupported biometrics as unavailable without disabling the setting', async () => {
+    supportCheck().mockResolvedValue(false);
+    const onBiologyAuth = jest.fn();
+    const view = renderVerify({ onBiologyAuth });
+    await flush();
+    expect(sdkCheck()).not.toHaveBeenCalled();
+    expect(onBiologyAuth).not.toHaveBeenCalled();
+    expect(getMocks().setBiologyAuthEnable).not.toHaveBeenCalled();
+    expect(view.getByText('auth_biometric_failed')).toBeTruthy();
+  });
+
+  it('latches changed state before settings persistence completes', async () => {
+    const disabling = deferred<void>();
+    sdkCheck().mockResolvedValue(true);
+    getMocks().setBiologyAuthEnable.mockReturnValue(disabling.promise);
+    const onBiologyAuth = jest.fn();
+    renderVerify({ onBiologyAuth });
+    const manual = captured().input.addOns[0].onPress;
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      void manual();
+      captured().active?.();
+      captured().visibility?.(true);
+    });
+    expect(sdkCheck()).toHaveBeenCalledTimes(1);
+    expect(getMocks().setBiologyAuthEnable).toHaveBeenCalledTimes(1);
+    expect(onBiologyAuth).not.toHaveBeenCalled();
+    expect(getMocks().dialogConfirm).not.toHaveBeenCalled();
+    await act(async () => {
+      disabling.resolve();
+    });
+    await flush();
+    expect(getMocks().dialogConfirm).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      void manual();
+      captured().active?.();
+      captured().visibility?.(true);
+    });
+    expect(onBiologyAuth).not.toHaveBeenCalled();
   });
 });
