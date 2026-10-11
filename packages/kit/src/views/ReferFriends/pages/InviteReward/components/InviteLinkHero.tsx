@@ -218,8 +218,9 @@ export function InviteLinkHero({
         }
       />
       <Divider mt="auto" borderColor={INVITE_CARD_BORDER_COLOR} />
-      <XStack ai="flex-start" gap="$6">
+      <XStack ai="flex-start" jc="space-between" gap="$6">
         <InviteStatCell
+          hug
           testID={ReferFriendsTestIDs.inviteCodeLine}
           label={intl.formatMessage({ id: ETranslations.referral_your_code })}
           onPress={handleCopy}
