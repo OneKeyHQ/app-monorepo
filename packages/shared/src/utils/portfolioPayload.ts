@@ -599,7 +599,13 @@ export function buildPortfolioPayload({
           formatPortfolioNetWorth(
             new BigNumber(value),
             currencyPrefix,
-            formatPro2PortfolioFiat,
+            field === 'defiFiat'
+              ? (amount, prefix) =>
+                  formatPro2PortfolioFiat(
+                    amount.decimalPlaces(2, BigNumber.ROUND_HALF_UP),
+                    prefix,
+                  )
+              : formatPro2PortfolioFiat,
           ),
           field,
         );

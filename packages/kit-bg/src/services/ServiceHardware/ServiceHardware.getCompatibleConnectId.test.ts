@@ -3197,6 +3197,75 @@ describe('ServiceHardware.unlockDevice', () => {
 });
 
 describe('ServiceHardware cancellation ownership', () => {
+  it('dispatches explicit global cancellation after earlier cleanup on the same firmware lease', async () => {
+    const manager = new HardwareProcessingManager();
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceHardwareUI: { hardwareProcessingManager: manager },
+      } as unknown as IBackgroundApi,
+    });
+    const sdkCancel = jest.fn();
+    const sdk = { cancel: sdkCancel } as unknown as Awaited<
+      ReturnType<ServiceHardware['getSDKInstance']>
+    >;
+    Object.defineProperty(service, 'activeHardwareSDKInstance', {
+      value: sdk,
+    });
+    const getSDKInstance = jest.fn().mockResolvedValue(sdk);
+    service.getSDKInstance = getSDKInstance;
+    service.getCompatibleConnectId = jest.fn().mockResolvedValue('device');
+
+    await manager.runExclusiveOneKeyOperation({
+      operation: async (lease) => {
+        await service.cancel({
+          connectId: 'device',
+          oneKeyOperationLease: lease,
+          immediate: true,
+        });
+        getSDKInstance.mockRejectedValue(new Error('SDK lookup is blocked'));
+
+        // Retry keeps the firmware workflow lease while starting a new SDK call.
+        await service.cancel({ immediate: true });
+        await service.cancel({ immediate: true });
+      },
+    });
+
+    expect(sdkCancel.mock.calls).toEqual([
+      ['device'],
+      [undefined],
+      [undefined],
+    ]);
+    expect(getSDKInstance).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not let explicit global cancellation with a stale lease cancel a new operation', async () => {
+    const manager = new HardwareProcessingManager();
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceHardwareUI: { hardwareProcessingManager: manager },
+      } as unknown as IBackgroundApi,
+    });
+    const sdkCancel = jest.fn();
+    Object.defineProperty(service, 'activeHardwareSDKInstance', {
+      value: { cancel: sdkCancel },
+    });
+    let oldLease: ReturnType<typeof manager.getActiveOneKeyOperationLease>;
+    await manager.runExclusiveOneKeyOperation({
+      operation: async (lease) => {
+        oldLease = lease;
+      },
+    });
+    await manager.runExclusiveOneKeyOperation({
+      operation: () =>
+        service.cancel({
+          immediate: true,
+          oneKeyOperationLease: oldLease,
+        }),
+    });
+
+    expect(sdkCancel).not.toHaveBeenCalled();
+  });
+
   it('preserves the operation outcome when cancel initialization fails', async () => {
     const manager = new HardwareProcessingManager();
     const service = new ServiceHardware({

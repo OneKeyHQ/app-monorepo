@@ -39,6 +39,7 @@ import {
 import { pushSwapReceiveSelector } from '../../utils/swapDepositEntryUtils';
 
 import { ITEM_TITLE_PROPS, ITEM_VALUE_PROPS } from './SwapProTokenDetailGroup';
+import SwapQuoteRiskAlert from './SwapQuoteRiskAlert';
 
 interface ISwapProTradeInfoGroupProps {
   balanceLoading: boolean;
@@ -231,6 +232,12 @@ const SwapProTradeInfoGroup = ({
           }
         />
       ) : null}
+      <SwapQuoteRiskAlert
+        quote={swapProQuoteResult}
+        fromToken={inputToken}
+        toToken={toToken}
+        isLoading={swapProQuoteFetching}
+      />
     </YStack>
   );
 };

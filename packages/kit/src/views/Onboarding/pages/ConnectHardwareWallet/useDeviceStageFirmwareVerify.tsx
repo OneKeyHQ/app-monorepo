@@ -7,10 +7,12 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { DEVICE_STAGE_DEDICATED_DIALOG_CODES } from '@onekeyhq/shared/src/hardware/deviceStageErrorCodes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -123,15 +125,20 @@ export function useDeviceStageFirmwareVerify() {
       // be gone when this run ended, leaving the stage to exit on the
       // next network gap. The join is unconditional and the leave single,
       // so the release below always addresses the layer opened here.
+      // The device-settings entry hands a stored device carrying its own
+      // features; the onboarding entry only has the ones passed in.
+      const stageFeatures =
+        features ??
+        ('featuresInfo' in device ? device.featuresInfo : undefined);
       await serviceHardwareUI.deviceStageJoinBurst({
         connectId,
         deviceType: device.deviceType,
+        deviceColor: deviceUtils.getDeviceColorFromFeatures({
+          deviceType: device.deviceType,
+          features: stageFeatures,
+        }),
         deviceName: deviceUtils.buildDeviceStageName({
-          // The device-settings entry hands a stored device carrying its
-          // own features; the onboarding entry only has the ones passed in.
-          features:
-            features ??
-            ('featuresInfo' in device ? device.featuresInfo : undefined),
+          features: stageFeatures,
           fallbackName: device.name,
         }),
       });
@@ -204,7 +211,8 @@ export function useDeviceStageFirmwareVerify() {
 
         // One run of the check. `failed` leaves a card standing and waits
         // for its exit; `aborted` means the run ended with no card at all
-        // (cancelled, forced firmware update) and nothing is waiting.
+        // (cancelled, forced firmware update, a failure a dedicated dialog
+        // owns) and nothing is waiting.
         type IRunOutcome = 'verified' | 'failed' | 'aborted';
         const runOnce = async (): Promise<IRunOutcome> => {
           // The device asks for a confirmation first; the wait begins when
@@ -281,6 +289,23 @@ export function useDeviceStageFirmwareVerify() {
           } catch (error) {
             const err = error as IOneKeyError;
             if (SILENT_CODES.has(err?.code)) {
+              return 'aborted';
+            }
+            // A failure a dedicated dialog already speaks for — the BLE
+            // re-pairing guidance, the "Enable Bluetooth" family, the
+            // enable-passphrase prompt. The stage has yielded to that
+            // dialog by the time this lands, so a failure card would go
+            // straight back over it. No verdict was reached and nothing
+            // here opens a bypass: the run ends like a cancel and the dialog
+            // owns what happens next. Matched as a hardware error, never by
+            // code alone — a server verdict that happens to share a number
+            // must still land its card.
+            if (
+              isHardwareErrorByCode({
+                error: err,
+                code: DEVICE_STAGE_DEDICATED_DIALOG_CODES,
+              })
+            ) {
               return 'aborted';
             }
             // A wrong PIN fails the unlock, not the authenticity check — no

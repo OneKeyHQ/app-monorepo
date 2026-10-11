@@ -634,7 +634,16 @@ function TxConfirmActions(props: IProps) {
       const swapInfo = newUnsignedTxs?.[0].swapInfo;
       const stakingInfo = newUnsignedTxs?.[0].stakingInfo;
       const isTronNetwork = networkUtils.isTronNetworkByNetworkId(networkId);
+      const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+      const [wallet, device] = await Promise.all([
+        serviceAccount.getWallet({ walletId }).catch(() => undefined),
+        serviceAccount
+          .getAccountDeviceSafe({ accountId })
+          .catch(() => undefined),
+      ]);
       defaultLogger.transaction.send.sendConfirm({
+        walletType: wallet?.type ?? 'unknown',
+        deviceType: device?.deviceType,
         network: networkId,
         txnType: getTxnType({
           actions: result?.[0].decodedTx.actions,

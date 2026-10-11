@@ -618,6 +618,100 @@ describe('DeviceStageBurstScope', () => {
   const passphraseAsk = (deviceType: EDeviceType) =>
     ({ deviceType, connectId: CONNECT_ID }) as IHardwareUiPayload;
 
+  it.each(['V1', 'V2'] as const)(
+    'refreshes the communication name from a live V2 event, protocol=%s',
+    async (protocol) => {
+      const scope = new DeviceStageBurstScope();
+      await scope.begin({ connectId: CONNECT_ID, deviceName: 'Pro2 Old' });
+      await paintOpeningBeat();
+
+      await scope.onHardwareUiEvent({
+        action: EHardwareUiStateAction.REQUEST_BUTTON,
+        connectId: CONNECT_ID,
+        payload: {
+          rawPayload: {
+            device: {
+              features: { protocol, bleName: 'Pro2 New', label: 'New label' },
+            },
+          },
+        } as IHardwareUiPayload,
+      });
+
+      expect(stage?.step).toBe('confirm');
+      expect(stage?.deviceName).toBe(
+        protocol === 'V2' ? 'Pro2 New' : 'Pro2 Old',
+      );
+    },
+  );
+
+  it('reads the finish off the live device when no record names it', async () => {
+    // A first-time device has no database row to read a serial from: the
+    // SDK event's own features are the only place its finish exists.
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID, deviceType: EDeviceType.Pro2 });
+    await paintOpeningBeat();
+    expect(stage?.deviceColor).toBeUndefined();
+
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.REQUEST_PIN,
+      connectId: CONNECT_ID,
+      payload: {
+        rawPayload: {
+          device: {
+            features: { protocol: 'V2', onekey_serial_no: 'P20001B' },
+          },
+        },
+      } as IHardwareUiPayload,
+    });
+    expect(stage?.step).toBe('pinOnApp');
+    expect(stage?.deviceColor).toBe('Silver');
+
+    // Sticky like the model: a later beat that names no finish keeps it.
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.REQUEST_BUTTON,
+      connectId: CONNECT_ID,
+    });
+    expect(stage?.deviceColor).toBe('Silver');
+  });
+
+  it('refreshes a V2 auth narrative name without dismissing an unanswered PIN', async () => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID, deviceName: 'Pro2 Old' });
+    await paintOpeningBeat();
+    await scope.noteStep('authFailure', { authFailureReason: 'unknown' });
+    const payload = {
+      rawPayload: {
+        device: { features: { protocol: 'V2', bleName: 'Pro2 New' } },
+      },
+    } as IHardwareUiPayload;
+
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.REQUEST_BUTTON,
+      connectId: CONNECT_ID,
+      payload,
+    });
+    expect(stage?.step).toBe('authFailure');
+    expect(stage?.deviceName).toBe('Pro2 New');
+    expect(stage?.authFailureReason).toBe('unknown');
+
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.REQUEST_PIN,
+      connectId: CONNECT_ID,
+      payload,
+    });
+    expect(stage?.step).toBe('pinOnApp');
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.ProcessLoading,
+      connectId: CONNECT_ID,
+      payload: {
+        rawPayload: {
+          device: { features: { protocol: 'V2', bleName: 'Pro2 Latest' } },
+        },
+      } as IHardwareUiPayload,
+    });
+    expect(stage?.step).toBe('pinOnApp');
+  });
+
   it.each([EDeviceType.Pro, EDeviceType.Pro2, EDeviceType.Neo])(
     'lands a %s on its on-screen confirm once an app-typed passphrase is handed over',
     async (deviceType) => {
@@ -1009,6 +1103,158 @@ describe('DeviceStageBurstScope', () => {
     expect(stage?.step).toBe('off');
   });
 
+  it('yields to the enable-passphrase dialog when the inner call ends, before the holder releases', async () => {
+    // The hidden-wallet flow holds an outer layer around the wrapper call
+    // that finds passphrase disabled. The dialog rises from that call's
+    // rejection — a UI round trip before the holder's own release — so the
+    // stage must already be off by then, or the dialog lands under it.
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    expect(stage?.step).toBe('connecting');
+    const error = convertDeviceError({
+      code: HardwareErrorCode.DeviceNotOpenedPassphrase,
+    });
+    await scope.end({ error });
+    expect(stage?.step).toBe('off');
+    // The interrupted call's stragglers stay off the dialog.
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.CLOSE_UI_WINDOW,
+      connectId: CONNECT_ID,
+    });
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.ProcessLoading,
+      connectId: CONNECT_ID,
+    });
+    expect(stage?.step).toBe('off');
+    // The hold is still the holder's to release.
+    expect(burstActiveFlag).toHaveBeenLastCalledWith(true);
+    await scope.endExplicit({
+      token,
+      error: JSON.parse(JSON.stringify(toPlainErrorObject(error))) as unknown,
+    });
+    await letTheExitRun();
+    expect(stage?.step).toBe('off');
+    expect(burstActiveFlag).toHaveBeenLastCalledWith(false);
+  });
+
+  it("keeps the layer bookkeeping when the yield's off write fails", async () => {
+    // The off write crosses the bg->UI bridge on split-runtime targets and
+    // a flush failure propagates. The layer must still be released, or the
+    // burst stays marked active after every later hold has ended — and the
+    // caller's finally must see its own hardware error, not this one.
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    const error = convertDeviceError({
+      code: HardwareErrorCode.DeviceNotOpenedPassphrase,
+    });
+    stageAtom.set.mockRejectedValueOnce(new Error('broadcast failed'));
+    await expect(scope.end({ error })).resolves.toBeUndefined();
+    await scope.endExplicit({
+      token,
+      error: JSON.parse(JSON.stringify(toPlainErrorObject(error))) as unknown,
+    });
+    await letTheExitRun();
+    expect(stage?.step).toBe('off');
+    expect(burstActiveFlag).toHaveBeenLastCalledWith(false);
+  });
+
+  it('keeps a yielded stage off when a straggler close lands during an authored narrative', async () => {
+    // The authenticity flow authors its beats around the wrapper call. A
+    // dialog-owned failure inside yields the stage; the interrupted call's
+    // close must not put the narrative's beat back over the dialog — only
+    // the device asking again may repaint, and that lifts the yield.
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+    await scope.noteStep('authVerifying', { connectId: CONNECT_ID });
+    await scope.begin({ connectId: CONNECT_ID });
+    const error = convertDeviceError({
+      code: HardwareErrorCode.BleDeviceBondError,
+    });
+    await scope.end({ error });
+    expect(stage?.step).toBe('off');
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.CLOSE_UI_WINDOW,
+      connectId: CONNECT_ID,
+    });
+    expect(stage?.step).toBe('off');
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.EnterPinOnDevice,
+      connectId: CONNECT_ID,
+    });
+    expect(stage?.step).toBe('enterPin');
+    await scope.endExplicit({
+      token,
+      error: JSON.parse(JSON.stringify(toPlainErrorObject(error))) as unknown,
+    });
+    await letTheExitRun();
+    expect(stage?.step).toBe('off');
+  });
+
+  it('sends an off again when its broadcast failed and the next exit asks', async () => {
+    // The atom changes in this runtime before it crosses to the UI, and a
+    // flush failure propagates: this side reads `off` while the stage still
+    // stands on screen. Without the re-send, the dialog's own yield and the
+    // holder's release both find "nothing to take down".
+    const emit = jest.spyOn(appEventBus, 'emit');
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    stageAtom.set.mockImplementationOnce(async (next) => {
+      stage = typeof next === 'function' ? next(stage) : next;
+      throw new OneKeyLocalError('broadcast failed');
+    });
+    const error = convertDeviceError({
+      code: HardwareErrorCode.DeviceNotOpenedPassphrase,
+    });
+    await expect(scope.end({ error })).resolves.toBeUndefined();
+    expect(stage?.step).toBe('off');
+    expect(emit).not.toHaveBeenCalledWith(
+      EAppEventBusNames.DeviceStageOff,
+      undefined,
+    );
+
+    // The dialog's UI-side yield: the off goes out again, and announces
+    // itself this time.
+    const writes = stageAtom.set.mock.calls.length;
+    await expect(scope.silence()).resolves.toBe(true);
+    expect(stageAtom.set.mock.calls.length).toBe(writes + 1);
+    expect(emit).toHaveBeenCalledWith(
+      EAppEventBusNames.DeviceStageOff,
+      undefined,
+    );
+    // Delivered: a further exit has nothing left to send.
+    await expect(scope.silence()).resolves.toBe(false);
+    expect(stageAtom.set.mock.calls.length).toBe(writes + 1);
+
+    await scope.endExplicit({
+      token,
+      error: JSON.parse(JSON.stringify(toPlainErrorObject(error))) as unknown,
+    });
+    await letTheExitRun();
+    expect(burstActiveFlag).toHaveBeenLastCalledWith(false);
+    emit.mockRestore();
+  });
+
+  it('keeps a failed exit from throwing out of a single-layer dialog-owned failure', async () => {
+    // No outer hold: the last layer's own stand-down is the write that
+    // fails. It must not replace the hardware error in the caller's
+    // finally, and the burst still closes.
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    stageAtom.set.mockRejectedValueOnce(new Error('broadcast failed'));
+    const error = convertDeviceError({
+      code: HardwareErrorCode.BleDeviceBondError,
+    });
+    await expect(scope.end({ error })).resolves.toBeUndefined();
+    expect(burstActiveFlag).toHaveBeenLastCalledWith(false);
+  });
+
   it.each([
     ECustomOneKeyHardwareError.NeedFirmwareUpgradeFromWeb,
     ECustomOneKeyHardwareError.UnknownHardwareError,
@@ -1040,6 +1286,50 @@ describe('DeviceStageBurstScope', () => {
         }),
       );
       expect(error.autoToast).toBe(false);
+    },
+  );
+
+  it.each([true, false])(
+    'hands Portfolio firmware guidance to the action toast after RPC (connected=%s)',
+    async (connected) => {
+      const isDeviceStillConnected = jest.fn(async () => connected);
+      const scope = new DeviceStageBurstScope({ isDeviceStillConnected });
+      const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+      await scope.begin({ connectId: CONNECT_ID });
+      await paintOpeningBeat();
+      const error = convertDeviceError({
+        code: HardwareErrorCode.CallMethodNeedUpgradeFirmware,
+        connectId: CONNECT_ID,
+        params: {
+          method: 'uploadPortfolio',
+          current: '1.0.2',
+          require: '1.0.3',
+        },
+      });
+      error.autoToast = false;
+      await scope.end({ error });
+      expect(errorToastUtils.showToastOfError).not.toHaveBeenCalled();
+
+      const request = JSON.parse(
+        JSON.stringify({ token, error: toPlainErrorObject(error) }),
+      ) as { token: number; error: unknown };
+      const ending = scope.endExplicit(request);
+      await jest.advanceTimersByTimeAsync(500);
+      await ending;
+
+      expect(stage?.step).toBe('off');
+      expect(errorToastUtils.showToastOfError).toHaveBeenCalledTimes(1);
+      expect(errorToastUtils.showToastOfError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: HardwareErrorCode.CallMethodNeedUpgradeFirmware,
+          key: ETranslations.hardware_version_need_upgrade_error,
+          info: { version: '1.0.3' },
+          autoToast: true,
+          payload: expect.objectContaining({ connectId: CONNECT_ID }),
+        }),
+      );
+      expect(error.autoToast).toBe(false);
+      expect(isDeviceStillConnected).not.toHaveBeenCalled();
     },
   );
 

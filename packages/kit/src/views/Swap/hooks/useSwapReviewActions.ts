@@ -28,6 +28,7 @@ import {
 import {
   ESwapReviewApproveTransactionSource,
   getSwapReviewApproveTransaction,
+  updateSwapReviewStep,
 } from '../utils/swapReviewState';
 
 import { useSwapReviewRebuildStateMachine } from './useSwapReviewRebuildStateMachine';
@@ -94,17 +95,13 @@ function useReviewStepStateActions() {
 
   const updateStep = useCallback(
     (stepIndex: number, partialStep: Partial<ISwapStep>) => {
-      setSwapSteps((prev) => {
-        const nextSteps = [...prev.steps];
-        nextSteps[stepIndex] = {
-          ...nextSteps[stepIndex],
-          ...partialStep,
-        };
-        return {
-          ...prev,
-          steps: nextSteps,
-        };
-      });
+      setSwapSteps((prev) =>
+        updateSwapReviewStep({
+          reviewState: prev,
+          stepIndex,
+          partialStep,
+        }),
+      );
     },
     [setSwapSteps],
   );

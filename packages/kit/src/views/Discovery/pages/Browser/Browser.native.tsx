@@ -3,12 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import * as ExpoDevice from 'expo-device';
 import { Freeze } from 'react-freeze';
-import {
-  BackHandler,
-  type LayoutChangeEvent,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { BackHandler, StyleSheet, View } from 'react-native';
 import Animated, { useSharedValue } from 'react-native-reanimated';
 
 import {
@@ -519,19 +514,6 @@ function MobileBrowser() {
     exploreTabSwitchTypeRef.current = 'swipe';
   }, []);
 
-  const INITIAL_TAB_PAGE_HEIGHT_IOS = 153;
-  const INITIAL_TAB_PAGE_HEIGHT_ANDROID = 100;
-  const [tabPageHeight, setTabPageHeight] = useState(
-    platformEnv.isNativeIOS
-      ? INITIAL_TAB_PAGE_HEIGHT_IOS
-      : INITIAL_TAB_PAGE_HEIGHT_ANDROID,
-  );
-  const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
-    // Use the actual measured height without arbitrary adjustments
-    const height = e.nativeEvent.layout.height;
-    setTabPageHeight(height);
-  }, []);
-
   const isShowContent = useMemo(() => {
     if (
       ExpoDevice.deviceType !== ExpoDevice.DeviceType.TABLET &&
@@ -579,7 +561,37 @@ function MobileBrowser() {
       {/* custom header */}
 
       {showDiscoveryPage ? (
-        <Stack h={tabPageHeight} />
+        <YStack
+          bg="$bgApp"
+          // Keep the visible header and the space above the pager in the same
+          // layout tree, so async native measurement cannot move the page body.
+          // iOS 26 needs 58pt for the lower 44pt glass search bar and its gap.
+          pt={searchGlassActive ? 58 : '$12'}
+          width="100%"
+        >
+          <Stack
+            position="absolute"
+            top={discoverSearchTop}
+            px="$5"
+            {...(searchGlassActive && { left: 0, right: 0 })}
+          >
+            <LegacyUniversalSearchInput
+              size="medium"
+              glass
+              initialTab={searchInitialTab}
+              tabRoute={universalSearchTabRoute}
+            />
+          </Stack>
+          <TabPageHeader
+            sceneName={EAccountSelectorSceneName.home}
+            tabRoute={ETabRoutes.Discovery}
+            selectedHeaderTab={selectedHeaderTab}
+            // Tablet has no outer pager updates, so omit its shared position.
+            pageScrollPosition={
+              useOuterPager ? outerPageScrollPosition : undefined
+            }
+          />
+        </YStack>
       ) : (
         <XStack
           pt={top}
@@ -722,7 +734,9 @@ function MobileBrowser() {
                   : 'auto'
               }
               accessibilityElementsHidden={
-                shouldKeepBrowserTabLayerAttached && !isBrowserHeaderTabSelected
+                shouldKeepBrowserTabLayerAttached
+                  ? !isBrowserHeaderTabSelected
+                  : undefined
               }
               importantForAccessibility={
                 shouldKeepBrowserTabLayerAttached && !isBrowserHeaderTabSelected
@@ -815,50 +829,6 @@ function MobileBrowser() {
           </>
         )}
       </Page.Body>
-      {showDiscoveryPage ? (
-        <YStack
-          position="absolute"
-          top={0}
-          left={0}
-          bg="$bgApp"
-          // iOS 26: the search bar grew (40->44) and shifted down +6 for Wallet
-          // alignment, which ate the gap to the segment row (Market/DeFi/Browser)
-          // below it. Push that row down so the gap matches the original ~8pt
-          // (6 shift + 44 bar + 8 gap = 58). Off iOS 26 keep the original $12.
-          pt={searchGlassActive ? 58 : '$12'}
-          width="100%"
-          onLayout={handleTabPageLayout}
-        >
-          <Stack
-            position="absolute"
-            top={discoverSearchTop}
-            px="$5"
-            // iOS 26: the glass search bar fills its width via flex, which
-            // collapses to 0 inside this shrink-to-fit absolute container — pin
-            // left/right so it spans the header width. Off iOS 26 the Stack
-            // keeps its original content width (unchanged).
-            {...(searchGlassActive && { left: 0, right: 0 })}
-          >
-            <LegacyUniversalSearchInput
-              size="medium"
-              glass
-              initialTab={searchInitialTab}
-              tabRoute={universalSearchTabRoute}
-            />
-          </Stack>
-          <TabPageHeader
-            sceneName={EAccountSelectorSceneName.home}
-            tabRoute={ETabRoutes.Discovery}
-            selectedHeaderTab={selectedHeaderTab}
-            // Only pass pageScrollPosition when OuterTabPagerView is active (phone).
-            // On tablet/dual-screen, useOuterPager is false so no onPageScroll
-            // events fire — passing the stale shared value would freeze tab colors.
-            pageScrollPosition={
-              useOuterPager ? outerPageScrollPosition : undefined
-            }
-          />
-        </YStack>
-      ) : null}
       {shouldShowTabletHomeContainer ? (
         <Stack
           position="absolute"

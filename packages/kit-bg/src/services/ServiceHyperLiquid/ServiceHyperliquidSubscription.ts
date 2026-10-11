@@ -92,6 +92,7 @@ import {
 import {
   SUBSCRIPTION_TYPE_INFO,
   calculateRequiredSubscriptionsMap,
+  generateSubscriptionKey,
   getOrderBookSubscriptionCoin,
   getSubscriptionResumeAction,
   isOrderBookOptionsTargetReady,
@@ -122,6 +123,11 @@ interface IActiveSubscription {
   isActive: boolean;
   spec: ISubscriptionSpec<ESubscriptionType>;
 }
+
+const SPOT_ASSET_CTXS_SUBSCRIPTION_KEY = generateSubscriptionKey(
+  ESubscriptionType.SPOT_ASSET_CTXS,
+  {},
+);
 
 interface IPublicTradesSubscription {
   refCount: number;
@@ -2703,8 +2709,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         hyperLiquidCache.allMids = data as IWsAllMids;
         const allMidsData = data as { mids?: Record<string, string> };
         if (allMidsData?.mids) {
+          // Pending specs are the wanted set, so this covers REST hydration
+          // before the subscribe ACK and turns off as soon as it is unwanted.
           void this.backgroundApi.serviceHyperliquid.extractSpotPricesFromAllMids(
             allMidsData.mids,
+            Boolean(this.pendingSubSpecsMap[SPOT_ASSET_CTXS_SUBSCRIPTION_KEY]),
           );
         }
         // Re-trigger spot calculation if it was deferred (SPOT_STATE arrived before ALL_MIDS)

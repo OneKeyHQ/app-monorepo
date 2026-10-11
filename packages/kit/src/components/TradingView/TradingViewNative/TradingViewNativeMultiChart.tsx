@@ -12,11 +12,6 @@ import type { ComponentType, ReactNode } from 'react';
 import { useIntl } from 'react-intl';
 
 import { SizableText, Stack, XStack } from '@onekeyhq/components';
-import {
-  useMarketTradingViewChartSettingsPersistAtom,
-  useMarketTradingViewIndicatorSettingsPersistAtom,
-  useMarketTradingViewLayoutPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IMarketTradingViewPanelSizes } from '@onekeyhq/kit-bg/src/states/jotai/atoms/market';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -32,6 +27,11 @@ import { TradingViewLayoutSelector } from './TradingViewLayoutSelector';
 import { TradingViewNativePresentation } from './TradingViewNativePresentation';
 import { TradingViewPanelButton } from './TradingViewPanelButton';
 import { TradingViewPanelDivider } from './TradingViewPanelDivider';
+import {
+  useTradingViewNativeChartSettings,
+  useTradingViewNativeIndicatorSettings,
+  useTradingViewNativeLayout,
+} from './useTradingViewNativeSettings';
 
 import type { ITradingViewNativeProps } from './types';
 import type { LayoutChangeEvent } from 'react-native';
@@ -40,13 +40,19 @@ import type { LayoutChangeEvent } from 'react-native';
 const PanelController = memo(function PanelController({
   id,
   onContentChange,
+  onPanelInteractionChange,
   ChartComponent,
   ...chartProps
 }: ITradingViewNativeProps & {
   id: string;
   ChartComponent: ComponentType<ITradingViewNativeProps>;
   onContentChange: (id: string, content: ReactNode) => void;
+  onPanelInteractionChange?: (id: string, active: boolean) => void;
 }) {
+  const handleInteractionChange = useCallback(
+    (active: boolean) => onPanelInteractionChange?.(id, active),
+    [id, onPanelInteractionChange],
+  );
   const handleContentChange = useCallback(
     (content: ReactNode) => onContentChange(id, content),
     [id, onContentChange],
@@ -56,6 +62,9 @@ const PanelController = memo(function PanelController({
     <ChartComponent
       {...chartProps}
       onPresentationContentChange={handleContentChange}
+      onInteractionChange={
+        onPanelInteractionChange ? handleInteractionChange : undefined
+      }
     />
   );
 });
@@ -67,10 +76,15 @@ export function TradingViewNativeMultiChart({
   ChartComponent: ComponentType<ITradingViewNativeProps>;
 }) {
   const intl = useIntl();
-  const [storedLayout, setLayout] = useMarketTradingViewLayoutPersistAtom();
-  const [chartSettings] = useMarketTradingViewChartSettingsPersistAtom();
-  const [indicatorSettings] =
-    useMarketTradingViewIndicatorSettingsPersistAtom();
+  const [storedLayout, setLayout] = useTradingViewNativeLayout(
+    props.storageNamespace,
+  );
+  const [chartSettings] = useTradingViewNativeChartSettings(
+    props.storageNamespace,
+  );
+  const [indicatorSettings] = useTradingViewNativeIndicatorSettings(
+    props.storageNamespace,
+  );
   const layout = useMemo(
     () => normalizeTradingViewMultiChartLayout(storedLayout),
     [storedLayout],
@@ -132,7 +146,18 @@ export function TradingViewNativeMultiChart({
     onNativeChartFullscreenChange,
     onNativeMultiChartCountChange,
     onNativeMultiChartResizingChange,
+    onInteractionChange,
   } = props;
+  const interactingPanels = useRef(new Set<string>());
+  const handlePanelInteractionChange = useCallback(
+    (id: string, active: boolean) => {
+      if (active) interactingPanels.current.add(id);
+      else interactingPanels.current.delete(id);
+      onInteractionChange?.(interactingPanels.current.size > 0);
+    },
+    [onInteractionChange],
+  );
+  useEffect(() => () => onInteractionChange?.(false), [onInteractionChange]);
   const handleResizeStart = useCallback(
     (axis: 'columns' | 'rows', index: number) => {
       const snapshot = resizeSnapshotRef.current;
@@ -216,6 +241,10 @@ export function TradingViewNativeMultiChart({
     },
     [chartSettings, indicatorSettings, setLayout],
   );
+  const handleExitFullscreen = useCallback(
+    () => onNativeChartFullscreenChange?.(false),
+    [onNativeChartFullscreenChange],
+  );
   const fullscreenTitle = intl.formatMessage({
     id: isNativeChartFullscreen
       ? ETranslations.global_collapse
@@ -266,6 +295,9 @@ export function TradingViewNativeMultiChart({
           id={id}
           ChartComponent={ChartComponent}
           onContentChange={handleContentChange}
+          onPanelInteractionChange={
+            onInteractionChange ? handlePanelInteractionChange : undefined
+          }
           {...props}
           enableMultiChart={false}
           panelId={id === 'main' ? undefined : id}
@@ -300,6 +332,8 @@ export function TradingViewNativeMultiChart({
         />
       ))}
       <TradingViewNativePresentation
+        useFullscreenOverlay={props.useFullscreenOverlay}
+        onRequestClose={handleExitFullscreen}
         isFullscreen={Boolean(isNativeChartFullscreen)}
       >
         <Stack flex={1} minHeight={0} width="100%" onLayout={handleLayout}>

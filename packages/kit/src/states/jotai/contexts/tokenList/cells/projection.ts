@@ -43,9 +43,19 @@ export interface IStoreProjection {
   >;
   /** aggregate DERIVED read-only cells (sum of sub-cells, spec §3.1). */
   aggCells: Map<IAggKey, Atom<ITokenFiat | undefined>>;
+  /** Synchronous valuation boundaries for each aggregate group. */
+  aggUpdating: Map<IAggKey, PrimitiveAtom<boolean>>;
   curOwnerKey: string | undefined;
   /** generation of the most recent applyStructure. */
   curGeneration: number;
+  /**
+   * The paint on screen is not the owner's settled list (OK-63873): it came
+   * from a cache-seed / progressive-paint round, an owner-switch replay or the
+   * cold-start bundle. The debounced slim persist reads this at fire time and
+   * skips, so a switch away before the authoritative round lands never leaves
+   * an empty or partial bundle behind. Cleared by a settled live frame.
+   */
+  lastRoundProvisional: boolean;
 }
 
 /**
@@ -69,8 +79,10 @@ export function ensureStoreProjection(
       metas: new Map(),
       aggSubCells: new Map(),
       aggCells: new Map(),
+      aggUpdating: new Map(),
       curOwnerKey: undefined,
       curGeneration: -1,
+      lastRoundProvisional: false,
     };
     storeProjection.set(store, p);
   }
@@ -194,11 +206,20 @@ export function aggCell(
   const p = ensureStoreProjection(store);
   let a = p.aggCells.get(aggKey);
   if (!a) {
+    const updating = atom(false);
+    p.aggUpdating.set(aggKey, updating);
+    let lastValue: ITokenFiat | undefined;
     a = atom<ITokenFiat | undefined>((get) => {
+      // Detach sub-cell dependencies during a synchronous frame so Jotai does
+      // not sum the entire group after every individual network write.
+      if (get(updating)) {
+        return lastValue;
+      }
       const members = get(listStructureAtom()).aggMembership[aggKey] ?? [];
-      return sumAggregateEntry(
+      lastValue = sumAggregateEntry(
         members.map((net) => get(subcell(store, aggKey, net))),
       );
+      return lastValue;
     });
     p.aggCells.set(aggKey, a);
   }
@@ -215,6 +236,7 @@ export function clearAll(p: IStoreProjection): void {
   p.metas.clear();
   p.aggSubCells.clear();
   p.aggCells.clear();
+  p.aggUpdating.clear();
   p.curOwnerKey = undefined;
   p.curGeneration = -1;
 }

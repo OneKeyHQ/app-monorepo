@@ -53,6 +53,10 @@
           {
             "/": "/clip/*",
             "comment": "Matches App Clip attribution and full-app continuation links"
+          },
+          {
+            "/": "/r/*",
+            "comment": "Matches referral invite links; the App Clip serves them when the full app is absent"
           }
         ]
       }

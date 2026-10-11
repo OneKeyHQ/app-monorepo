@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -7,6 +8,7 @@ import {
   AnimatePresence,
   Page,
   Stack,
+  XStack,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
@@ -23,6 +25,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { InviteCodeStepImage } from './components/InviteCodeStepImage';
 import { ReferAFriendHowToPhase } from './components/ReferAFriendHowToPhase';
 import { ReferAFriendIntroPhase } from './components/ReferAFriendIntroPhase';
 import { ReferAFriendPhaseActions } from './components/ReferAFriendPhaseActions';
@@ -31,71 +34,82 @@ import { EPhaseState } from './types';
 
 interface IReferAFriendPageProps {
   postConfig: IInvitePostConfig;
-  phaseState: EPhaseState | undefined;
-  setPhaseState: (state: EPhaseState | undefined) => void;
-  showInlineActions: boolean;
+  phaseState: EPhaseState;
+  actions?: ReactNode;
+}
+
+// Both phase texts share one row cell (the second pulls back with a -100%
+// margin), so the row is always as tall as the taller phase and the actions
+// below never move. The hidden phase is transparent and non-interactive.
+function PhaseLayer({
+  isActive,
+  overlapPrevious,
+  children,
+}: {
+  isActive: boolean;
+  overlapPrevious?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <Stack
+      w="100%"
+      flexShrink={0}
+      ml={overlapPrevious ? '-100%' : undefined}
+      opacity={isActive ? 1 : 0}
+      pointerEvents={isActive ? 'auto' : 'none'}
+      aria-hidden={!isActive}
+      transition="quick"
+      animateOnly={ANIMATE_ONLY_OPACITY}
+    >
+      {children}
+    </Stack>
+  );
 }
 
 function ReferAFriendPage({
   postConfig,
   phaseState,
-  setPhaseState,
-  showInlineActions,
+  actions,
 }: IReferAFriendPageProps) {
+  const isIntro = phaseState === EPhaseState.next;
+  // With the actions pinned to the footer (native modal), the content starts
+  // from the top like other onboarding screens, and the spare height falls
+  // above the button instead of splitting around the content. Inline actions
+  // (tab pages) keep the content and buttons centred as one block.
+  const isFooterActions = !actions;
   return (
-    <YStack $gtMd={{ py: '$5' }} pb="$5" flex={1} justifyContent="center">
+    <YStack
+      $gtMd={{ py: '$5' }}
+      pt={isFooterActions ? '$8' : undefined}
+      pb="$5"
+      gap="$5"
+      flex={1}
+      justifyContent={isFooterActions ? 'flex-start' : 'center'}
+    >
       <AnimatePresence exitBeforeEnter>
-        {phaseState === EPhaseState.next ? (
-          <YStack
-            key="intro-phase"
-            transition="quick"
-            animateOnly={ANIMATE_ONLY_OPACITY}
-            enterStyle={{
-              opacity: 0,
-            }}
-            exitStyle={{
-              opacity: 0,
-            }}
-          >
-            <ReferAFriendIntroPhase
-              postConfig={postConfig}
-              actions={
-                showInlineActions ? (
-                  <ReferAFriendPhaseActions
-                    phaseState={phaseState}
-                    setPhaseState={setPhaseState}
-                  />
-                ) : undefined
-              }
-            />
-          </YStack>
-        ) : null}
-        {phaseState === EPhaseState.join ? (
-          <YStack
-            key="howto-phase"
-            transition="quick"
-            animateOnly={ANIMATE_ONLY_OPACITY}
-            enterStyle={{
-              opacity: 0,
-            }}
-            exitStyle={{
-              opacity: 0,
-            }}
-          >
-            <ReferAFriendHowToPhase
-              postConfig={postConfig}
-              actions={
-                showInlineActions ? (
-                  <ReferAFriendPhaseActions
-                    phaseState={phaseState}
-                    setPhaseState={setPhaseState}
-                  />
-                ) : undefined
-              }
-            />
-          </YStack>
-        ) : null}
+        <Stack
+          key={phaseState}
+          transition="quick"
+          animateOnly={ANIMATE_ONLY_OPACITY}
+          enterStyle={{ opacity: 0 }}
+          exitStyle={{ opacity: 0 }}
+        >
+          <InviteCodeStepImage step={isIntro ? 1 : 2} />
+        </Stack>
       </AnimatePresence>
+      <XStack>
+        <PhaseLayer isActive={isIntro}>
+          <ReferAFriendIntroPhase postConfig={postConfig} />
+        </PhaseLayer>
+        <PhaseLayer isActive={!isIntro} overlapPrevious>
+          <ReferAFriendHowToPhase postConfig={postConfig} />
+        </PhaseLayer>
+      </XStack>
+      {actions ? (
+        <Stack maxWidth={480} w="100%" mx="auto" mt="$5">
+          {actions}
+        </Stack>
+      ) : null}
     </YStack>
   );
 }
@@ -105,15 +119,18 @@ function ReferAFriendPageWrapper() {
   const route = useRoute();
   const { md } = useMedia();
   const { postConfig } = useReferAFriendData();
-  const [phaseState, setPhaseState] = useState<EPhaseState | undefined>(
-    EPhaseState.next,
-  );
+  const [phaseState, setPhaseState] = useState<EPhaseState>(EPhaseState.next);
 
   // Check if opened as Modal (window mode) by route name
   const isModalMode = route.name === EModalReferFriendsRoutes.ReferAFriend;
-
+  // Modal (native) pins actions to the footer; tab pages keep them under the text.
   const showInlineActions = !isModalMode;
-  const shouldShowFooter = !showInlineActions && !!postConfig && !!phaseState;
+  const actions = (
+    <ReferAFriendPhaseActions
+      phaseState={phaseState}
+      setPhaseState={setPhaseState}
+    />
+  );
 
   return (
     <Page
@@ -139,21 +156,16 @@ function ReferAFriendPageWrapper() {
             <ReferAFriendPage
               postConfig={postConfig}
               phaseState={phaseState}
-              setPhaseState={setPhaseState}
-              showInlineActions={showInlineActions}
+              actions={showInlineActions ? actions : undefined}
             />
           ) : null}
         </Page.Container>
       </Page.Body>
 
-      {shouldShowFooter ? (
+      {postConfig && !showInlineActions ? (
         <Page.Footer>
           <Stack px="$4" py="$4" bg="$bgApp">
-            <ReferAFriendPhaseActions
-              placement="footer"
-              phaseState={phaseState}
-              setPhaseState={setPhaseState}
-            />
+            {actions}
           </Stack>
         </Page.Footer>
       ) : null}
