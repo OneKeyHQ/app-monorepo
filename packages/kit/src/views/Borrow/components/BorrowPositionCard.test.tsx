@@ -153,6 +153,7 @@ jest.mock('@onekeyhq/components', () => {
 
 jest.mock('@onekeyhq/kit/src/components/Token', () => ({
   __esModule: true,
+  getTokenImageResizeWidth: (size: string) => (size === 'lg' ? 40 : 32),
   Token: ({ size }: { size?: string }) => <div data-token-size={size} />,
 }));
 

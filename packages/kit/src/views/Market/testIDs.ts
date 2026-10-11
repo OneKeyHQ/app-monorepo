@@ -1,4 +1,10 @@
+import testIDValues from './testIDValues.json';
+
 export const MarketTestIDs = {
+  // Shared with e2e suites through testIDValues.json (see
+  // apps/web/e2e/account-selector-test-ids.js).
+  ...testIDValues,
+
   // Main page
   marketPage: 'market-page',
   searchBar: 'market-search-bar',

@@ -96,6 +96,7 @@ export function useTradingViewNativePriceScale({
   decayOffset,
   isEnabled,
   isLogScaleAvailable,
+  onInteractionChange,
   priceAxisWidth,
   subIndicatorPanes,
   timeAxisHeight,
@@ -106,6 +107,7 @@ export function useTradingViewNativePriceScale({
   decayOffset: SharedValue<number>;
   isEnabled: boolean;
   isLogScaleAvailable: boolean;
+  onInteractionChange?: (active: boolean) => void;
   priceAxisWidth: SharedValue<number>;
   subIndicatorPanes: readonly ITradingViewNativeSubIndicatorRenderPane[];
   timeAxisHeight: number;
@@ -321,6 +323,7 @@ export function useTradingViewNativePriceScale({
       })
       .onStart((event) => {
         'worklet';
+        if (onInteractionChange) scheduleOnRN(onInteractionChange, true);
 
         cancelAnimation(decayOffset);
         const runtime = getRuntimeWithCrosshairHidden(chartRuntime.value);
@@ -368,12 +371,19 @@ export function useTradingViewNativePriceScale({
           }),
         };
       });
+    if (onInteractionChange) {
+      scaleGesture.onFinalize(() => {
+        'worklet';
+        scheduleOnRN(onInteractionChange, false);
+      });
+    }
 
     return { resetGesture, scaleGesture };
   }, [
     chartRuntime,
     decayOffset,
     handleAutoScaleStateChange,
+    onInteractionChange,
     isEnabled,
     priceAxisWidth,
     timeAxisHeight,

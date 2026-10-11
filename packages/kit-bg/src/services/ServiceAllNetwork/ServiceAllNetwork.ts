@@ -20,15 +20,22 @@ import perfUtils, {
 import networkUtils, {
   isEnabledNetworksInAllNetworks,
 } from '@onekeyhq/shared/src/utils/networkUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import ServiceBase from '../ServiceBase';
 
+import {
+  groupNetworkIdsByImpl,
+  resolveNetworkIdsWithoutAccount,
+} from './networksWithoutAccount';
+
 import type { IDBAccount } from '../../dbs/local/types';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
+  INetworkDeriveInfo,
 } from '../../vaults/types';
 
 export type IAllNetworkAccountInfo = {
@@ -409,6 +416,30 @@ class ServiceAllNetwork extends ServiceBase {
       excludeTestNetwork: params.excludeTestNetwork ?? false,
     });
     return accountsInfoResult;
+  }
+
+  @backgroundMethod()
+  async getAllNetworkAccountsForHome({
+    accountId,
+    networkId,
+    networksEnabledOnly,
+    excludeTestNetwork,
+  }: Pick<
+    IAllNetworkAccountsParams,
+    'accountId' | 'networkId' | 'networksEnabledOnly' | 'excludeTestNetwork'
+  >): Promise<IAllNetworkAccountInfo[]> {
+    const { accountsInfo } = await this.getAllNetworkAccounts({
+      accountId,
+      networkId,
+      networksEnabledOnly,
+      excludeTestNetwork,
+      deriveType: undefined,
+      nftEnabledOnly: false,
+      DeFiEnabledOnly: false,
+    });
+    // With both category filters disabled, allAccountsInfo has the same
+    // entries; main can also partition these entries by isBackendIndexed.
+    return accountsInfo;
   }
 
   @backgroundMethod()
@@ -797,13 +828,18 @@ class ServiceAllNetwork extends ServiceBase {
   @backgroundMethod()
   async getEnabledNetworksCompatibleWithWalletId({
     walletId,
+    enabledNetworkIds: enabledNetworkIdsParam,
   }: {
     walletId: string;
+    enabledNetworkIds?: string[];
   }): Promise<IServerNetwork[]> {
     // Mirrors useEnabledNetworksCompatibleWithWalletIdInAllNetworks (kit):
     // the mainnet networks the All Networks view actually aggregates for
     // this wallet. An empty result means All Networks is a dead end for
     // the wallet (e.g. QR wallet with only QR-unsupported networks enabled).
+    if (enabledNetworkIdsParam?.length === 0) {
+      return [];
+    }
     const [{ enabledNetworks, disabledNetworks }, { networks }] =
       await Promise.all([
         this.getAllNetworksState(),
@@ -812,14 +848,19 @@ class ServiceAllNetwork extends ServiceBase {
           excludeAllNetworkItem: true,
         }),
       ]);
+    const enabledNetworkIdSet = enabledNetworkIdsParam
+      ? new Set(enabledNetworkIdsParam)
+      : undefined;
     const enabledNetworkIds = networks
       .filter((n) =>
-        isEnabledNetworksInAllNetworks({
-          networkId: n.id,
-          disabledNetworks,
-          enabledNetworks,
-          isTestnet: n.isTestnet,
-        }),
+        enabledNetworkIdSet
+          ? enabledNetworkIdSet.has(n.id)
+          : isEnabledNetworksInAllNetworks({
+              networkId: n.id,
+              disabledNetworks,
+              enabledNetworks,
+              isTestnet: n.isTestnet,
+            }),
       )
       .map((n) => n.id);
     if (enabledNetworkIds.length === 0) {
@@ -835,6 +876,143 @@ class ServiceAllNetwork extends ServiceBase {
         },
       );
     return mainnetItems;
+  }
+
+  // Which of `networkIds` this indexed account has no usable address on.
+  // Networks sharing an impl share derivation, so each impl group is checked
+  // once: any derive type counts when the network merges derive assets,
+  // otherwise the user's current global derive type must have an account.
+  // Runs the per-group lookups in-process so the UI pays one round trip
+  // instead of three per group; see `resolveNetworkIdsWithoutAccount` for why
+  // it avoids vault loads and runs the groups sequentially.
+  @backgroundMethod()
+  async getNetworkIdsWithoutAccountInIndexedAccount({
+    indexedAccountId,
+    networkIds,
+  }: {
+    indexedAccountId: string;
+    networkIds: string[];
+  }): Promise<string[]> {
+    if (!indexedAccountId || networkIds.length === 0) {
+      return [];
+    }
+    const { serviceAccount, serviceNetwork } = this.backgroundApi;
+    const { networks } = await serviceNetwork.getAllNetworks();
+    const networkById = new Map(networks.map((n) => [n.id, n]));
+    const groups = groupNetworkIdsByImpl(
+      networkIds
+        .map((id) => networkById.get(id))
+        .filter((n): n is IServerNetwork => Boolean(n)),
+    );
+    if (groups.length === 0) {
+      return [];
+    }
+    return resolveNetworkIdsWithoutAccount({
+      groups,
+      getGroupDeriveTypes: async (networkId) => {
+        const vaultSettings = await serviceNetwork.getVaultSettings({
+          networkId,
+        });
+        const mergeDeriveAssetsEnabled =
+          !!vaultSettings.mergeDeriveAssetsEnabled;
+        return {
+          mergeDeriveAssetsEnabled,
+          deriveTypes: Object.keys(vaultSettings.accountDeriveInfo),
+          currentDeriveType: mergeDeriveAssetsEnabled
+            ? ''
+            : await serviceNetwork.getGlobalDeriveTypeOfNetwork({ networkId }),
+        };
+      },
+      getAccountId: ({ networkId, deriveType }) =>
+        serviceAccount.getDbAccountIdFromIndexedAccountId({
+          indexedAccountId,
+          networkId,
+          deriveType: deriveType as IAccountDeriveTypes,
+        }),
+      getExistingAccountIds: async (ids) => {
+        const { accounts } = await serviceAccount.getAllAccounts({ ids });
+        return new Set(accounts.map((account) => account.id));
+      },
+      yieldToQueue: async () => {
+        await timerUtils.wait(0);
+      },
+    });
+  }
+
+  @backgroundMethod()
+  async getEnabledNetworksAccountCompatibility({
+    walletId,
+    enabledNetworkIds,
+    indexedAccountId,
+    filterNetworksWithoutAccount,
+    withNetworksInfo = false,
+  }: {
+    walletId: string;
+    enabledNetworkIds?: string[];
+    indexedAccountId?: string;
+    filterNetworksWithoutAccount?: boolean;
+    withNetworksInfo?: boolean;
+  }): Promise<{
+    compatibleNetworks: IServerNetwork[];
+    compatibleNetworksWithoutAccount: IServerNetwork[];
+    networkInfoMap: Record<string, INetworkDeriveInfo>;
+  }> {
+    const compatibleNetworks =
+      await this.getEnabledNetworksCompatibleWithWalletId({
+        walletId,
+        enabledNetworkIds,
+      });
+    const compatibleNetworksWithoutAccount: IServerNetwork[] = [];
+    const networkInfoMap: Record<string, INetworkDeriveInfo> = {};
+    const { serviceNetwork } = this.backgroundApi;
+
+    if (withNetworksInfo) {
+      for (const network of compatibleNetworks) {
+        const [deriveType, vaultSettings] = await Promise.all([
+          serviceNetwork.getGlobalDeriveTypeOfNetwork({
+            networkId: network.id,
+          }),
+          serviceNetwork.getVaultSettings({ networkId: network.id }),
+        ]);
+        const suffixToDeriveType: Record<string, string> = {};
+        for (const [dt, info] of Object.entries(
+          vaultSettings.accountDeriveInfo ?? {},
+        )) {
+          if (info.idSuffix) {
+            suffixToDeriveType[info.idSuffix.toLowerCase()] = dt;
+          }
+        }
+        networkInfoMap[network.id] = {
+          deriveType,
+          mergeDeriveAssetsEnabled: !!vaultSettings.mergeDeriveAssetsEnabled,
+          suffixToDeriveType,
+        };
+      }
+    }
+
+    if (
+      filterNetworksWithoutAccount &&
+      indexedAccountId &&
+      compatibleNetworks.length > 0
+    ) {
+      const networkIdsWithoutAccount = new Set(
+        await this.getNetworkIdsWithoutAccountInIndexedAccount({
+          indexedAccountId,
+          networkIds: compatibleNetworks.map((network) => network.id),
+        }),
+      );
+      for (const network of compatibleNetworks) {
+        if (networkIdsWithoutAccount.has(network.id)) {
+          compatibleNetworksWithoutAccount.push(network);
+        }
+      }
+    }
+
+    return {
+      compatibleNetworks,
+      compatibleNetworksWithoutAccount,
+      networkInfoMap,
+    };
   }
 
   @backgroundMethod()

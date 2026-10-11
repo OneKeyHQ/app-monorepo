@@ -33,6 +33,12 @@ jest.mock('react-intl', () => ({
 
 jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   serviceHardware: { setPassphraseEnabled: jest.fn() },
+  // The dialog lets a live stage yield and exit first; nothing is on stage
+  // here, so both hops answer at once.
+  serviceHardwareUI: {
+    deviceStageYieldToDialog: jest.fn(async () => false),
+    deviceStageWaitForOff: jest.fn(async () => false),
+  },
 }));
 
 describe('passphrase-disabled recovery dialog', () => {
@@ -56,7 +62,7 @@ describe('passphrase-disabled recovery dialog', () => {
     );
     render(<GlobalErrorHandlerContainer />);
 
-    act(() => {
+    await act(async () => {
       const error = convertDeviceError({
         code: HardwareErrorCode.DeviceNotOpenedPassphrase,
         connectId: 'disabled-device',
@@ -86,7 +92,7 @@ describe('passphrase-disabled recovery dialog', () => {
     );
     render(<GlobalErrorHandlerContainer />);
 
-    act(() => {
+    await act(async () => {
       appEventBus.emit(EAppEventBusNames.ShowHardwareErrorDialog, {
         errorType: HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_OPENED_PASSPHRASE,
         payload: { params: { walletId: 'hw-wallet' } },
@@ -116,7 +122,7 @@ describe('passphrase-disabled recovery dialog', () => {
         payload: { connectId: 'disabled-device' },
       });
 
-    act(() => {
+    await act(async () => {
       emitError();
       emitError();
       addListener.mock.calls[0][0](new DeviceNotOpenedPassphrase());
@@ -124,14 +130,14 @@ describe('passphrase-disabled recovery dialog', () => {
     expect(Dialog.show).toHaveBeenCalledTimes(1);
 
     await jest.mocked(Dialog.show).mock.calls[0][0].onClose?.();
-    act(() => {
+    await act(async () => {
       emitError();
     });
     expect(Dialog.show).toHaveBeenCalledTimes(2);
 
     unmount();
     expect(removeListener).toHaveBeenCalledWith(addListener.mock.calls[0][0]);
-    act(() => {
+    await act(async () => {
       emitError();
     });
     expect(Dialog.show).toHaveBeenCalledTimes(2);
@@ -156,10 +162,10 @@ describe('passphrase-disabled recovery dialog', () => {
     expect(enable).not.toHaveBeenCalled();
   });
 
-  it('does not open the dialog for silent calls or unrelated errors', () => {
+  it('does not open the dialog for silent calls or unrelated errors', async () => {
     render(<GlobalErrorHandlerContainer />);
 
-    act(() => {
+    await act(async () => {
       convertDeviceError(
         { code: HardwareErrorCode.DeviceNotOpenedPassphrase },
         { silentMode: true },

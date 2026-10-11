@@ -212,4 +212,31 @@ describe('firmwareUpdateInstallViewModel', () => {
       },
     ]);
   });
+
+  test('shows both SafeOS versions when only Bluetooth is updated', () => {
+    const result = {
+      updateInfos: { ble: { hasUpgrade: true } },
+    } as unknown as ICheckAllFirmwareReleaseResult;
+    const items = getFirmwareUpdateItems({
+      result,
+      protocolV2Items: [
+        { target: 'safeos', currentVersion: '1.0.2', targetVersion: null },
+        {
+          target: 'coprocessor',
+          currentVersion: '1.0.2',
+          targetVersion: '1.0.3',
+        },
+      ],
+      ...labels,
+    });
+    const primary = getPrimaryFirmwareUpdateItem(items);
+    expect(primary?.key).toBe('safeos');
+    expect(primary?.toVersion).toBe('1.0.2');
+    expect(
+      formatFirmwareUpdateVersionRange({
+        item: primary!,
+        isVersionValid: (version) => Boolean(version),
+      }),
+    ).toEqual({ from: '1.0.2', to: '1.0.2' });
+  });
 });

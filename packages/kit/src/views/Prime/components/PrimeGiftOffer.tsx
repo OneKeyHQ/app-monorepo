@@ -4,6 +4,7 @@ import { useFocusEffect } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
+  HeightTransition,
   Icon,
   SizableText,
   XStack,
@@ -30,6 +31,11 @@ import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 
 import { getPrimeGiftDurationText } from '../hooks/primeGiftDuration';
 import { usePrimeGiftOfferImpression } from '../hooks/usePrimeGiftOfferImpression';
+
+// Stable identity: HeightTransition memoizes its style prop.
+const fullWidthStyle = {
+  width: '100%',
+} as const;
 
 export function PrimeGiftOffer({
   device,
@@ -80,6 +86,19 @@ export function PrimeGiftOffer({
   const isEligible = Boolean(
     serialNo && eligibility?.eligible && eligibility.hasUnclaimedGift,
   );
+  // First frame for this serial. Onboarding always grows into an already
+  // visible page. Device details grows only when eligibility arrives later,
+  // so a cached offer does not push the sections below on every open.
+  const appearanceRef = useRef<{
+    serialNo: string | undefined;
+    eligible: boolean;
+  } | null>(null);
+  let appearance = appearanceRef.current;
+  if (!appearance || appearance.serialNo !== serialNo) {
+    appearance = { serialNo, eligible: isEligible };
+    appearanceRef.current = appearance;
+  }
+  const shouldAnimateEnter = source === 'onboarding' || !appearance.eligible;
   const impressionRef = usePrimeGiftOfferImpression({
     enabled: isEligible,
     serialNo,
@@ -88,7 +107,7 @@ export function PrimeGiftOffer({
   if (!serialNo || !eligibility?.eligible || !eligibility.hasUnclaimedGift) {
     return null;
   }
-  return (
+  const card = (
     <XStack
       ref={impressionRef}
       testID={`prime-gift-offer-${source}`}
@@ -97,13 +116,9 @@ export function PrimeGiftOffer({
       alignItems="center"
       gap="$3"
       minHeight={88}
-      {...(source === 'onboarding'
-        ? {
-            w: '100%' as const,
-            $gtMd: { w: 400 },
-          }
-        : undefined)}
-      px="$4"
+      w="100%"
+      pl="$4"
+      pr="$5"
       py="$4"
       bg="$bgSubdued"
       borderRadius="$4"
@@ -138,13 +153,13 @@ export function PrimeGiftOffer({
         size="$6"
       />
       <YStack flex={1} minWidth={0} gap="$0.5">
-        <SizableText size="$bodyLgMedium">
+        <SizableText size="$bodyLgMedium" cursor="default">
           {intl.formatMessage(
             { id: ETranslations.prime_gift_claim_duration__action },
             { duration: getPrimeGiftDurationText(eligibility, intl) },
           )}
         </SizableText>
-        <SizableText size="$bodyMd" color="$textSubdued">
+        <SizableText size="$bodyMd" color="$textSubdued" cursor="default">
           {intl.formatMessage({
             id:
               source === 'onboarding'
@@ -153,12 +168,42 @@ export function PrimeGiftOffer({
           })}
         </SizableText>
       </YStack>
+      {/* Match ListItem.DrillIn's default 24dp; $6 shrinks on narrow Android screens. */}
       <Icon
         name="ChevronRightSmallOutline"
-        size="$4"
         color="$iconSubdued"
+        mr="$-1.5"
         flexShrink={0}
       />
     </XStack>
+  );
+  const frameProps =
+    source === 'onboarding'
+      ? {
+          w: '100%' as const,
+          $gtMd: { w: 400 },
+        }
+      : {
+          w: '100%' as const,
+        };
+  if (shouldAnimateEnter) {
+    return (
+      <YStack {...frameProps}>
+        <HeightTransition
+          duration={300}
+          roundHeightToNearestPixel={platformEnv.isNativeIOS}
+          style={fullWidthStyle}
+        >
+          <YStack pt="$8" w="100%">
+            {card}
+          </YStack>
+        </HeightTransition>
+      </YStack>
+    );
+  }
+  return (
+    <YStack pt="$8" {...frameProps}>
+      {card}
+    </YStack>
   );
 }

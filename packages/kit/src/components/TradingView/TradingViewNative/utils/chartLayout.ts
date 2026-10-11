@@ -282,11 +282,30 @@ export function formatTradingViewNativePriceTick(
   // Worklet default parameters cannot read captured constants before __closure is initialized.
   // Keep this literal in sync manually with PRICE_SIGNIFICANT_FRACTION_DIGITS.
   significantFractionDigits: 4 | 6 = 4,
+  priceDecimalPlaces?: number,
 ) {
   'worklet';
 
   if (!Number.isFinite(price)) {
     return '--';
+  }
+
+  if (priceDecimalPlaces !== undefined && Number.isFinite(priceDecimalPlaces)) {
+    const decimals = Math.max(0, Math.min(12, Math.floor(priceDecimalPlaces)));
+    if (price === 0) return price.toFixed(decimals);
+    const magnitude = Math.abs(price);
+    const exponent = Number(magnitude.toExponential().split('e')[1]);
+    const significantDigits = exponent + 1 + decimals;
+    // Round the decimal representation before padding, as in the shared price labels.
+    let rounded = 0;
+    if (significantDigits > 0) {
+      rounded = Number(
+        roundTradingViewNativeSubOnePrice(price, significantDigits),
+      );
+    } else if (magnitude >= 5 * 10 ** (-decimals - 1)) {
+      rounded = Math.sign(price) * 10 ** -decimals;
+    }
+    return rounded.toFixed(decimals);
   }
 
   const absolutePrice = Math.abs(price);
@@ -388,6 +407,7 @@ function getTradingViewNativePlainDecimalPriceAxisLabel(isNegative: boolean) {
 
 export function getTradingViewNativePriceAxisLabel(
   points: IMarketTokenKLineDataPoint[],
+  priceDecimalPlaces?: number,
 ) {
   'worklet';
 
@@ -428,6 +448,22 @@ export function getTradingViewNativePriceAxisLabel(
         }
       }
     }
+  }
+
+  if (priceDecimalPlaces !== undefined) {
+    const positive = formatTradingViewNativePriceTick(
+      largestNonNegativePrice,
+      4,
+      priceDecimalPlaces,
+    );
+    const negative = formatTradingViewNativePriceTick(
+      largestNegativePrice,
+      4,
+      priceDecimalPlaces,
+    );
+    return getTradingViewNativeWidestDigitLabel(
+      positive.length >= negative.length ? positive : negative,
+    );
   }
 
   if (!hasFinitePrice) {
@@ -483,11 +519,13 @@ export function getTradingViewNativePriceAxisLabel(
 export function getTradingViewNativeScaledPriceAxisLabel({
   autoPriceRange,
   baseLabel = '',
+  priceDecimalPlaces,
   priceRangeScale,
   priceScaleMode,
 }: {
   autoPriceRange: ITradingViewNativePriceRange;
   baseLabel?: string;
+  priceDecimalPlaces?: number;
   priceRangeScale: number;
   priceScaleMode: ITradingViewNativePriceScaleMode;
 }) {
@@ -498,6 +536,19 @@ export function getTradingViewNativeScaledPriceAxisLabel({
     rangeScale: priceRangeScale,
     requestedMode: priceScaleMode,
   });
+  if (priceDecimalPlaces !== undefined) {
+    const candidates = [
+      baseLabel,
+      formatTradingViewNativePriceTick(minPrice, 4, priceDecimalPlaces),
+      formatTradingViewNativePriceTick(maxPrice, 4, priceDecimalPlaces),
+    ];
+    return getTradingViewNativeWidestDigitLabel(
+      candidates.reduce(
+        (longest, label) => (label.length > longest.length ? label : longest),
+        baseLabel,
+      ),
+    );
+  }
   let longestLabel = getTradingViewNativeLongerPriceAxisLabel(
     baseLabel,
     minPrice,
@@ -531,12 +582,13 @@ export function getTradingViewNativeScaledPriceAxisLabel({
 
 export function getTradingViewNativeCurrentPriceLabel(
   points: IMarketTokenKLineDataPoint[],
+  priceDecimalPlaces?: number,
 ) {
   'worklet';
 
   const currentPrice = points[points.length - 1]?.c;
   return typeof currentPrice === 'number' && Number.isFinite(currentPrice)
-    ? formatTradingViewNativePriceTick(currentPrice)
+    ? formatTradingViewNativePriceTick(currentPrice, 4, priceDecimalPlaces)
     : '';
 }
 
@@ -1304,4 +1356,92 @@ export function getTradingViewNativeCurrentPriceLayout({
     ),
     lineY,
   };
+}
+
+export function getTradingViewNativePriceLabelPositions({
+  labels,
+  anchorId,
+  labelHeight,
+  minTop,
+  maxBottom,
+}: {
+  labels: readonly { id: string; price: number; top: number }[];
+  anchorId?: string;
+  labelHeight: number;
+  minTop: number;
+  maxBottom: number;
+}): Record<string, number> {
+  'worklet';
+
+  const positions: Record<string, number> = {};
+  if (
+    !Number.isFinite(labelHeight) ||
+    !Number.isFinite(minTop) ||
+    !Number.isFinite(maxBottom) ||
+    labelHeight <= 0 ||
+    maxBottom < minTop
+  ) {
+    return positions;
+  }
+  const orderedLabels = labels.filter(
+    ({ price, top }) => Number.isFinite(price) && Number.isFinite(top),
+  );
+  orderedLabels.sort((left, right) => {
+    if (left.price !== right.price) return right.price - left.price;
+    if (left.id === right.id) return 0;
+    // Keep the anchor below equal-price references, as with Prev close.
+    if (left.id === anchorId) return 1;
+    if (right.id === anchorId) return -1;
+    return left.id < right.id ? -1 : 1;
+  });
+  if (orderedLabels.length === 0) return positions;
+
+  const maxTop = Math.max(minTop, maxBottom - labelHeight);
+  const spacing =
+    orderedLabels.length > 1
+      ? Math.min(labelHeight, (maxTop - minTop) / (orderedLabels.length - 1))
+      : 0;
+  const maxOffset = Math.max(
+    minTop,
+    maxTop - (orderedLabels.length - 1) * spacing,
+  );
+  const blocks: {
+    startIndex: number;
+    endIndex: number;
+    totalOffset: number;
+    anchorOffset?: number;
+    offset: number;
+  }[] = [];
+
+  orderedLabels.forEach((label, index) => {
+    // Removing each slot's spacing reduces collision avoidance to ordered offsets.
+    const targetOffset = label.top - index * spacing;
+    blocks.push({
+      startIndex: index,
+      endIndex: index,
+      totalOffset: targetOffset,
+      anchorOffset: label.id === anchorId ? targetOffset : undefined,
+      offset: Math.min(Math.max(targetOffset, minTop), maxOffset),
+    });
+    while (blocks.length > 1) {
+      const previous = blocks[blocks.length - 2];
+      const current = blocks[blocks.length - 1];
+      if (previous.offset <= current.offset) break;
+      previous.endIndex = current.endIndex;
+      previous.totalOffset += current.totalOffset;
+      previous.anchorOffset ??= current.anchorOffset;
+      // Colliding neighbors move together; the current-price anchor takes priority.
+      const preferredOffset =
+        previous.anchorOffset ??
+        previous.totalOffset / (previous.endIndex - previous.startIndex + 1);
+      previous.offset = Math.min(Math.max(preferredOffset, minTop), maxOffset);
+      blocks.pop();
+    }
+  });
+  blocks.forEach(({ startIndex, endIndex, offset }) => {
+    for (let index = startIndex; index <= endIndex; index += 1) {
+      positions[orderedLabels[index].id] = offset + index * spacing;
+    }
+  });
+  return positions;
 }

@@ -11,6 +11,7 @@ import type { IBorrowRewards } from '@onekeyhq/shared/types/staking';
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { buildBorrowTag } from '../../Staking/utils/utils';
 import { getBorrowEarnAccountId } from '../borrowEarnAccount';
+import { buildBorrowMarketKey } from '../borrowMarketKey';
 import { useBorrowContext } from '../BorrowProvider';
 import { useBorrowPlaceholderAmountText } from '../hooks/useBorrowPlaceholderAmountText';
 import { useLoadedOnce } from '../hooks/useLoadedOnce';
@@ -30,17 +31,18 @@ import type { IOverviewMetricProps } from './OverviewMetric';
  */
 export function BorrowRewardsMetric({
   borrowRewards,
+  isError = false,
   isLoading,
   onClaimed,
   widthMode,
 }: {
   borrowRewards?: IBorrowRewards | null;
+  isError?: boolean;
   isLoading?: boolean;
   onClaimed: () => void | Promise<void>;
   widthMode?: IOverviewMetricProps['widthMode'];
 }) {
   const intl = useIntl();
-  const hasLoadedRewardsOnce = useLoadedOnce(Boolean(borrowRewards));
   const placeholderAmountText = useBorrowPlaceholderAmountText();
   const { market, earnAccount, pendingTxs } = useBorrowContext();
 
@@ -48,6 +50,14 @@ export function BorrowRewardsMetric({
   const networkId = market?.networkId;
   const marketAddress = market?.marketAddress;
   const earnAccountId = getBorrowEarnAccountId(earnAccount.data);
+  const metricScopeKey = JSON.stringify([
+    buildBorrowMarketKey(market ?? undefined),
+    earnAccountId,
+  ]);
+  const hasLoadedRewardsOnce = useLoadedOnce(
+    Boolean(borrowRewards && !isError),
+    metricScopeKey,
+  );
 
   const pendingClaimIds = useMemo<string[]>(() => {
     if (!earnAccountId || !networkId || !provider || !marketAddress) {
@@ -69,6 +79,7 @@ export function BorrowRewardsMetric({
 
   const handleShowRewardsDialog = useCallback(() => {
     if (
+      isError ||
       !borrowRewards?.button ||
       !provider ||
       !marketAddress ||
@@ -136,6 +147,7 @@ export function BorrowRewardsMetric({
       },
     });
   }, [
+    isError,
     borrowRewards?.button,
     provider,
     marketAddress,
@@ -150,17 +162,21 @@ export function BorrowRewardsMetric({
   return (
     <OverviewMetric
       title={
-        borrowRewards?.title ?? {
+        (!isError && borrowRewards?.title) || {
           text: intl.formatMessage({
             id: ETranslations.defi_claimable_rewards,
           }),
         }
       }
-      text={borrowRewards?.description ?? placeholderAmountText}
-      isLoading={Boolean(isLoading && !hasLoadedRewardsOnce)}
+      text={
+        isError
+          ? { text: '-' }
+          : (borrowRewards?.description ?? placeholderAmountText)
+      }
+      isLoading={Boolean(!isError && isLoading && !hasLoadedRewardsOnce)}
       widthMode={widthMode}
       action={
-        borrowRewards && !borrowRewards.button.disabled ? (
+        !isError && borrowRewards && !borrowRewards.button.disabled ? (
           <Button
             testID={BorrowTestIDs.overviewClaimRewardsBtn}
             p="0"

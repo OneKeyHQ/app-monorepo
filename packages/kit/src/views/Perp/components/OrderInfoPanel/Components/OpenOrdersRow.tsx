@@ -195,7 +195,14 @@ const OpenOrdersRow = memo(
       const decimals = getValidPriceDecimals(price);
       const triggerCondition = order.triggerCondition;
       const origSizeBN = new BigNumber(origSize);
-      const origSizeFormatted = numberFormat(origSize, balanceFormatter);
+      // Zero sizes on position TP/SL orders follow the entire position.
+      const isPositionSized =
+        order.isPositionTpsl &&
+        origSizeBN.isZero() &&
+        new BigNumber(size).isZero();
+      const origSizeFormatted = isPositionSized
+        ? '--'
+        : numberFormat(origSize, balanceFormatter);
       const executePriceFormatted = new BigNumber(executePrice).toFixed(
         decimals,
       );
@@ -203,9 +210,13 @@ const OpenOrdersRow = memo(
         new BigNumber(executePriceLimit).toFixed(decimals),
       );
       const priceFormatted = new BigNumber(price).toFixed(decimals);
-      const sizeFormatted = numberFormat(size, balanceFormatter);
+      const sizeFormatted = isPositionSized
+        ? '--'
+        : numberFormat(size, balanceFormatter);
       const value = priceBN.times(origSizeBN).toFixed();
-      const valueFormatted = numberFormat(value, balanceCurrencyFormatter);
+      const valueFormatted = isPositionSized
+        ? '--'
+        : numberFormat(value, balanceCurrencyFormatter);
       return {
         triggerCondition,
         origSizeFormatted,
@@ -213,6 +224,9 @@ const OpenOrdersRow = memo(
         executePriceLimitFormatted,
         priceFormatted,
         sizeFormatted,
+        sizeSummary: isPositionSized
+          ? '--'
+          : `${sizeFormatted} / ${origSizeFormatted}`,
         valueFormatted,
       };
     }, [
@@ -221,6 +235,7 @@ const OpenOrdersRow = memo(
       order.origSz,
       order.triggerCondition,
       order.triggerPx,
+      order.isPositionTpsl,
     ]);
 
     const tpslInfo = useMemo(() => {
@@ -337,7 +352,7 @@ const OpenOrdersRow = memo(
               })}
             </SizableText>
             <SizableText size="$bodySm">
-              {`${orderBaseInfo.sizeFormatted} / ${orderBaseInfo.origSizeFormatted}`}
+              {orderBaseInfo.sizeSummary}
             </SizableText>
           </XStack>
           <XStack

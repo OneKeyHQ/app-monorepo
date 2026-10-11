@@ -436,6 +436,39 @@ describe('ServiceHardwareUI.withHardwareProcessing stage ownership', () => {
     expect(stage?.step).toBe('off');
   });
 
+  it('keeps a failed stage exit from replacing the result or skipping the wrapper bookkeeping', async () => {
+    const deviceParams: IWithHardwareProcessingOptions['deviceParams'] = {
+      dbDevice: {
+        id: 'test-device',
+        name: 'Test device',
+        features: '',
+        connectId: '',
+        uuid: 'test-device',
+        deviceId: 'test-device',
+        deviceType: EDeviceType.Pro,
+        settingsRaw: '',
+        createdAt: 0,
+        updatedAt: 0,
+        vendor: EHardwareVendor.onekey,
+      },
+    };
+    const onFinally = jest.fn();
+    const end = jest
+      .spyOn(service.deviceStageBurst, 'end')
+      .mockRejectedValueOnce(new Error('stage exit failed'));
+
+    await expect(
+      service.withHardwareProcessing(async () => 'signed', {
+        deviceParams,
+        skipCloseHardwareUiStateDialog: true,
+        onFinally,
+      }),
+    ).resolves.toBe('signed');
+    expect(end).toHaveBeenCalledTimes(1);
+    expect(onFinally).toHaveBeenCalledTimes(1);
+    expect(service.processingNestedNum).toBe(0);
+  });
+
   it.each([
     { vendor: EHardwareVendor.onekey, externalPending: false },
     { vendor: EHardwareVendor.ledger, externalPending: false },

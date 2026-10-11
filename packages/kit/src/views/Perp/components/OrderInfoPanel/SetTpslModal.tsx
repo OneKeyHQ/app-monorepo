@@ -834,7 +834,7 @@ const SetTpslForm = memo(
                     segments={4}
                     snapTapToSegment
                     sliderHeight={4}
-                    showBubble={false}
+                    showBubble
                   />
                 </YStack>
               </YStack>

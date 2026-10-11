@@ -15,27 +15,24 @@ import type {
   EModalMarketRoutes,
   IModalMarketParamList,
 } from '@onekeyhq/kit/src/views/Market/router/types';
-import {
-  useMarketTradingViewIndicatorSettingsPersistAtom,
-  useSwapTradingViewIndicatorSettingsPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSwapTradingViewIndicatorSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { getTradingViewNativeIndicatorSettingsValue } from './indicatorSettingsAdapter';
 import { localizeTradingViewNativeIndicatorSettingsValue } from './indicatorSettingsLocalization';
 import { mergeMobileIndicatorSettings } from './mobileIndicatorSettingsUtils';
 import { showTradingViewNativeIndicatorSettingsDialog } from './showTradingViewNativeIndicatorSettingsDialog';
+import { useTradingViewNativeIndicatorSettings } from './useTradingViewNativeSettings';
 import { useTradingViewPanelSettings } from './useTradingViewPanelSettings';
 import { isTradingViewNativeAnyIndicator } from './utils/chartIndicators';
 
+import type { ITradingViewNativeStorageNamespace } from './types';
 import type { RouteProp } from '@react-navigation/native';
 
 function IndicatorSettingsPageContent({
   settingsState,
 }: {
-  settingsState: ReturnType<
-    typeof useMarketTradingViewIndicatorSettingsPersistAtom
-  >;
+  settingsState: ReturnType<typeof useTradingViewNativeIndicatorSettings>;
 }) {
   const intl = useIntl();
   const [settings, setSettings] = settingsState;
@@ -125,15 +122,28 @@ function IndicatorSettingsPageContent({
   );
 }
 
-function PanelIndicatorSettingsPage({ panelId }: { panelId: string }) {
-  const { indicatorSettingsState } = useTradingViewPanelSettings(panelId);
+function PanelIndicatorSettingsPage({
+  panelId,
+  storageNamespace,
+}: {
+  panelId: string;
+  storageNamespace?: ITradingViewNativeStorageNamespace;
+}) {
+  const { indicatorSettingsState } = useTradingViewPanelSettings(
+    panelId,
+    storageNamespace,
+  );
   return (
     <IndicatorSettingsPageContent settingsState={indicatorSettingsState} />
   );
 }
 
-function MarketIndicatorSettingsPage() {
-  const settingsState = useMarketTradingViewIndicatorSettingsPersistAtom();
+function DefaultIndicatorSettingsPage({
+  storageNamespace,
+}: {
+  storageNamespace?: ITradingViewNativeStorageNamespace;
+}) {
+  const settingsState = useTradingViewNativeIndicatorSettings(storageNamespace);
   return <IndicatorSettingsPageContent settingsState={settingsState} />;
 }
 
@@ -151,11 +161,16 @@ export default function TradingViewMobileIndicatorSettingsPage() {
       >
     >();
   if (params?.panelId && params.storageNamespace !== 'swap') {
-    return <PanelIndicatorSettingsPage panelId={params.panelId} />;
+    return (
+      <PanelIndicatorSettingsPage
+        panelId={params.panelId}
+        storageNamespace={params.storageNamespace}
+      />
+    );
   }
   return params?.storageNamespace === 'swap' ? (
     <SwapIndicatorSettingsPage />
   ) : (
-    <MarketIndicatorSettingsPage />
+    <DefaultIndicatorSettingsPage storageNamespace={params?.storageNamespace} />
   );
 }

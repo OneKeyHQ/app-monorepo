@@ -46,6 +46,7 @@ function PageFirmwareUpdateChangeLog() {
   const connectId = route?.params?.connectId;
   const firmwareType = route?.params?.firmwareType;
   const baseReleaseInfo = route?.params?.baseReleaseInfo;
+  const usbSuggestionAcknowledged = route?.params?.usbSuggestionAcknowledged;
   const [activeConnectId, setActiveConnectId] = useState(connectId);
 
   const [stepInfo, setStepInfo] = useFirmwareUpdateStepInfoAtom();
@@ -190,6 +191,7 @@ function PageFirmwareUpdateChangeLog() {
         <FirmwareChangeLogView
           result={confirmUpdateResult.current}
           onRetryClick={retryInfo ? retryUpdate : undefined}
+          usbSuggestionAcknowledged={usbSuggestionAcknowledged}
         />
       );
     }
@@ -200,6 +202,7 @@ function PageFirmwareUpdateChangeLog() {
           onConfirmClick={() => {
             confirmUpdateResult.current = result;
           }}
+          usbSuggestionAcknowledged={usbSuggestionAcknowledged}
         />
       );
     }
@@ -215,6 +218,7 @@ function PageFirmwareUpdateChangeLog() {
     run,
     shouldShowChangeLog,
     stepInfo.payload,
+    usbSuggestionAcknowledged,
   ]);
 
   return (

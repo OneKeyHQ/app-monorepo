@@ -12,7 +12,7 @@ export type { ITradingViewNativeChartType } from '@onekeyhq/shared/types/trading
 
 export type ITradingViewNativeHyperliquidEnvironment = 'mainnet' | 'testnet';
 export type ITradingViewNativeChartDisplayMode = 'default' | 'compact';
-export type ITradingViewNativeStorageNamespace = 'market' | 'swap';
+export type ITradingViewNativeStorageNamespace = 'market' | 'perps' | 'swap';
 export type ITradingViewNativePriceScaleMode = 'linear' | 'logarithmic';
 
 export interface ITradingViewNativeCandleLabels {
@@ -93,9 +93,24 @@ export interface ITradingViewNativeReferenceLineComponent {
   props: {
     anchor: ITradingViewNativePriceChartAnchor;
     color: string;
-    interactive: false;
-    style: ITradingViewNativeChartLineStyle;
+    interactive: boolean;
+    cancelable?: boolean;
+    draggable?: boolean;
+    pending?: boolean;
+    style: ITradingViewNativeChartLineStyle | 'dotted';
     title: string;
+    /** Opt into an outlined label on the left, with an optional quantity segment. */
+    label?: {
+      variant?: 'order';
+      offset: number;
+      backgroundColor: string;
+      color: string;
+      quantity?: {
+        text: string;
+        backgroundColor: string;
+        color: string;
+      };
+    };
   };
 }
 
@@ -104,6 +119,11 @@ export interface ITradingViewNativeChartComponentGroup {
   type: 'group';
   children: readonly ITradingViewNativeChartComponentNode[];
 }
+
+export type ITradingViewNativeReferenceLineAction = {
+  id: string;
+  originalPrice: number;
+} & ({ type: 'cancel' } | { type: 'priceChange'; price: number });
 
 export interface ITradingViewNativeTradeMark {
   id: string;
@@ -137,6 +157,12 @@ export interface ITradingViewNativeAccountMarksContext {
 export interface ITradingViewNativeProps {
   testID?: string;
   source: ITradingViewNativeSource;
+  displayName?: string;
+  priceDecimalPlaces?: number;
+  onPriceSelect?: (selection: ITradingViewNativePriceSelection) => void;
+  priceSelectionLabel?: string;
+  onInteractionChange?: (isInteracting: boolean) => void;
+  useFullscreenOverlay?: boolean;
   storageNamespace?: ITradingViewNativeStorageNamespace;
   enableMultiChart?: boolean;
   /** Opt-in for drawing tools on full Market charts across all platforms. */
@@ -150,6 +176,9 @@ export interface ITradingViewNativeProps {
   onPresentationContentChange?: (content: ReactNode) => void;
   forcedChartType?: ITradingViewNativeChartType;
   chartComponents?: readonly ITradingViewNativeChartComponentNode[];
+  onReferenceLineAction?: (
+    action: ITradingViewNativeReferenceLineAction,
+  ) => Promise<void>;
   accountMarksContext?: ITradingViewNativeAccountMarksContext;
   /**
    * Opt-in for stock detail charts, which can anchor the Prev close line on the
@@ -188,4 +217,10 @@ export interface ITradingViewNativeProps {
   ) => void;
   onNativeChartFullscreenChange?: (isFullscreen: boolean) => void;
   onPriceUpdate?: (data: ITradingViewNativePriceUpdateData) => void;
+}
+
+export interface ITradingViewNativePriceSelection {
+  price: number;
+  screenX: number;
+  screenY: number;
 }

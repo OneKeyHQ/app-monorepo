@@ -22,6 +22,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IEventBusPayloadAccountUpdate } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   prefixOf,
@@ -29,6 +30,8 @@ import {
   swrCacheUtils,
   swrKeys,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+
+import { shouldInvalidateAccountScopedData } from './accountUpdate';
 
 const dropWalletListSwr = () =>
   swrCacheUtils.removeByPrefix(prefixOf(swrCacheNamespaces.walletListSideBar));
@@ -69,6 +72,18 @@ const dropDiscoveryBookmarksSwr = () =>
     prefixOf(swrCacheNamespaces.discoveryHomeBookmarks),
   );
 
+const dropAccountScopedSwr = () => {
+  [
+    swrCacheNamespaces.earnAccount,
+    swrCacheNamespaces.borrowReserves,
+    swrCacheNamespaces.borrowHealthFactor,
+    swrCacheNamespaces.borrowRewards,
+    swrCacheNamespaces.borrowEModeStatus,
+  ].forEach((namespace) => {
+    swrCacheUtils.removeByPrefix(prefixOf(namespace));
+  });
+};
+
 /**
  * Wait for the removal to reach disk, and record it when it did not.
  *
@@ -103,6 +118,7 @@ export async function dropSwrCacheForRemovedWallet(walletId: string) {
   dropWalletListSwr();
   dropAccountSelectorListSwr();
   dropBulkAddressSwr();
+  dropAccountScopedSwr();
   await persistRemoval('removedWallet');
 }
 
@@ -111,6 +127,7 @@ export async function dropSwrCacheForRemovedAccount() {
   dropAccountSelectorListSwr();
   dropAccountSelectorValuesSwr();
   dropBulkAddressSwr();
+  dropAccountScopedSwr();
   await persistRemoval('removedAccount');
 }
 
@@ -126,13 +143,28 @@ export function registerSwrCacheMutationInvalidation() {
     dropWalletListSwr();
     dropAccountSelectorListSwr();
     dropBulkAddressSwr();
+  };
+
+  const dropAccountShapeAndScopedSwr = (
+    payload: IEventBusPayloadAccountUpdate | undefined,
+  ) => {
+    dropAccountShapeSwr();
+    if (shouldInvalidateAccountScopedData(payload)) {
+      dropAccountScopedSwr();
+    }
     swrCacheUtils.flushNow();
   };
 
-  appEventBus.on(EAppEventBusNames.WalletUpdate, dropAccountShapeSwr);
-  appEventBus.on(EAppEventBusNames.AccountUpdate, dropAccountShapeSwr);
-  appEventBus.on(EAppEventBusNames.WalletRename, dropAccountShapeSwr);
-  appEventBus.on(EAppEventBusNames.AddDBAccountsToWallet, dropAccountShapeSwr);
+  appEventBus.on(EAppEventBusNames.WalletUpdate, dropAccountShapeAndScopedSwr);
+  appEventBus.on(EAppEventBusNames.AccountUpdate, dropAccountShapeAndScopedSwr);
+  appEventBus.on(EAppEventBusNames.WalletRename, () => {
+    dropAccountShapeSwr();
+    swrCacheUtils.flushNow();
+  });
+  appEventBus.on(EAppEventBusNames.AddDBAccountsToWallet, () => {
+    dropAccountShapeSwr();
+    swrCacheUtils.flushNow();
+  });
   appEventBus.on(EAppEventBusNames.RenameDBAccounts, () => {
     // The sidebar does not show account names, only the right panel's
     // sectionData does.
@@ -147,10 +179,12 @@ export function registerSwrCacheMutationInvalidation() {
     dropAccountSelectorListSwr();
     dropAccountSelectorValuesSwr();
     dropBulkAddressSwr();
+    dropAccountScopedSwr();
     swrCacheUtils.flushNow();
   });
   appEventBus.on(EAppEventBusNames.WalletRemove, ({ walletId }) => {
     swrCacheUtils.remove(swrKeys.accountSelectorValues({ walletId }));
+    dropAccountScopedSwr();
     swrCacheUtils.flushNow();
   });
   appEventBus.on(EAppEventBusNames.WalletClear, () => {

@@ -9,13 +9,13 @@ import {
   useAccountSelectorSceneInfo,
   useActiveAccount,
 } from '../../../states/jotai/contexts/accountSelector';
-import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
+import { useAccountSelectorLazyAction } from '../../../states/jotai/contexts/accountSelector/actionsLazy';
 
 import { useAccountSelectorAvailableNetworks } from './useAccountSelectorAvailableNetworks';
 
 export function useUnifiedNetworkSelectorTrigger({ num }: { num: number }) {
   const { activeAccount } = useActiveAccount({ num });
-  const actions = useAccountSelectorActions();
+  const runAccountSelectorAction = useAccountSelectorLazyAction();
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
   const { networkIds, defaultNetworkId } = useAccountSelectorAvailableNetworks({
     num,
@@ -34,7 +34,7 @@ export function useUnifiedNetworkSelectorTrigger({ num }: { num: number }) {
       defaultTab?: IUnifiedNetworkSelectorRouteParams['defaultTab'];
     } = {}) => {
       Haptics.selection();
-      actions.current.showUnifiedNetworkSelector({
+      void runAccountSelectorAction('showUnifiedNetworkSelector', {
         navigation,
         num,
         sceneName,
@@ -50,11 +50,11 @@ export function useUnifiedNetworkSelectorTrigger({ num }: { num: number }) {
       });
     },
     [
-      actions,
       defaultNetworkId,
       networkIds,
       navigation,
       num,
+      runAccountSelectorAction,
       sceneName,
       sceneUrl,
     ],

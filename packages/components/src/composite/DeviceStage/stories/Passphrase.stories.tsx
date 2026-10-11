@@ -27,6 +27,7 @@ const meta = {
   argTypes: {
     step: ARG_TYPES.step,
     deviceType: ARG_TYPES.deviceType,
+    deviceColor: ARG_TYPES.deviceColor,
     passphraseMode: ARG_TYPES.passphraseMode,
     replicaWidth: ARG_TYPES.replicaWidth,
   },

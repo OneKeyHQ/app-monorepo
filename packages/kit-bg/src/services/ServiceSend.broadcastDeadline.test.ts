@@ -237,6 +237,9 @@ function makeService() {
     refreshUnsignedTxBeforeBatchSign: jest.fn((tx: IUnsignedTxPro) =>
       Promise.resolve(tx),
     ),
+    refreshUnsignedTxBeforeSign: jest.fn((tx: IUnsignedTxPro) =>
+      Promise.resolve(tx),
+    ),
   };
   (vaultFactory.getVault as unknown as jest.Mock).mockResolvedValue(vault);
 
@@ -473,6 +476,38 @@ describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
       txid: '0xtxid',
     });
     expect(vault.broadcastTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  test('signs the vault-refreshed tx when the wallet broadcasts', async () => {
+    const { service, vault } = makeService();
+    const refreshedUnsignedTx = {
+      ...unsignedTx,
+      encodedTx: { refreshed: true },
+    } as IUnsignedTxPro;
+    vault.refreshUnsignedTxBeforeSign.mockResolvedValue(refreshedUnsignedTx);
+
+    await signAndSend(service);
+
+    expect(vault.refreshUnsignedTxBeforeSign).toHaveBeenCalledWith(unsignedTx);
+    expect(vault.signTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({ unsignedTx: refreshedUnsignedTx }),
+    );
+  });
+
+  test('leaves a sign-only tx untouched before signing', async () => {
+    const { service, vault } = makeService();
+
+    await service.signTransaction({
+      accountId,
+      networkId,
+      unsignedTx,
+      signOnly: true,
+    });
+
+    expect(vault.refreshUnsignedTxBeforeSign).not.toHaveBeenCalled();
+    expect(vault.signTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({ unsignedTx, signOnly: true }),
+    );
   });
 
   test('rejects and logs when dev sign-only would skip a Prime broadcast', async () => {
