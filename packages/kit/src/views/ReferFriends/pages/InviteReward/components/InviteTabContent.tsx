@@ -44,13 +44,13 @@ function InviteManageLinks({
   const links = [
     {
       testID: ReferFriendsTestIDs.inviteManageCodes,
-      icon: 'TicketOutline' as const,
+      icon: 'TagOutline' as const,
       title: ETranslations.referral_manage_codes__action,
       onPress: onManageCodes,
     },
     {
       testID: ReferFriendsTestIDs.inviteYourReferred,
-      icon: 'PeopleOutline' as const,
+      icon: 'PeopleTogetherOutline' as const,
       title: ETranslations.referral_referral_list,
       onPress: navigateToYourReferred,
     },
