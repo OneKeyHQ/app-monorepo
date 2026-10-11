@@ -30,6 +30,22 @@ const mockNativeEvents: {
   }) => void;
 } = {};
 
+jest.mock('react-native', () => {
+  const native =
+    jest.requireActual<typeof import('react-native')>('react-native');
+  const react = jest.requireActual<typeof import('react')>('react');
+  // The root Jest config also discovers the CLI shim, which has no View host.
+  const View = ({
+    children,
+    ...props
+  }: React.ComponentPropsWithRef<typeof native.View>) =>
+    react.createElement('View', props, children);
+  return new Proxy(native, {
+    get: (target, key): unknown =>
+      key === 'View' ? View : Reflect.get(target, key),
+  });
+});
+
 jest.mock(
   '@onekeyhq/components',
   () =>
