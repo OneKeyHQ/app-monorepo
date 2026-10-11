@@ -115,8 +115,9 @@ function InviteCodeRow({
           {item.note}
         </SizableText>
       ) : null}
-      {/* Separate text runs so a narrow row wraps between facts, not inside
-          one. */}
+      {/* What the code brought in, as separate text runs so a narrow row
+          wraps between facts, not inside one; when it was made goes on its
+          own line instead of trailing the run. */}
       <XStack ai="center" columnGap="$1" flexWrap="wrap">
         {[
           intl.formatMessage(
@@ -142,10 +143,6 @@ function InviteCodeRow({
               ),
             },
           ),
-          intl.formatMessage(
-            { id: ETranslations.referral_code_created__desc },
-            { date: formatDate(item.createdAt, { hideTimeForever: true }) },
-          ),
         ].map((fact, index) => (
           // oxlint-disable-next-line react/no-array-index-key
           <SizableText key={index} size="$bodySm" color="$textSubdued">
@@ -154,6 +151,12 @@ function InviteCodeRow({
           </SizableText>
         ))}
       </XStack>
+      <SizableText size="$bodySm" color="$textSubdued">
+        {intl.formatMessage(
+          { id: ETranslations.referral_code_created__desc },
+          { date: formatDate(item.createdAt, { hideTimeForever: true }) },
+        )}
+      </SizableText>
     </YStack>
   );
 
@@ -233,7 +236,8 @@ export function InviteCodeList({
 
   return (
     <YStack>
-      <SizableText size="$bodyMd" color="$textSubdued" pb="$2">
+      {/* Inset like the rows' text, so the page keeps one left edge. */}
+      <SizableText size="$bodyMd" color="$textSubdued" px="$4" pb="$2">
         {codeListData.remainingCodes > 0
           ? intl.formatMessage(
               { id: ETranslations.referral_codes_remaining__desc },
