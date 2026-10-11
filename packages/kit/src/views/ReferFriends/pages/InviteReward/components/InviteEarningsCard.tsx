@@ -37,6 +37,7 @@ import {
   COMPACT_ENTRY_TITLE_PROPS,
   COMPACT_ROW_BLEED_PROPS,
   INVITE_CARD_BORDER_COLOR,
+  PRESSABLE_SURFACE_PROPS,
   useInviteHomeCardStyle,
 } from './useInviteCardStyle';
 
@@ -263,6 +264,7 @@ function CompactEarnings({
   payoutNetworkId,
   addressVisibility,
   onEditAddress,
+  onOpenHistory,
 }: {
   earnings: IInviteEarnings;
   labels: IEarningsLabels;
@@ -271,9 +273,9 @@ function CompactEarnings({
   // Only a set address can be masked.
   addressVisibility?: IPayoutAddressVisibility;
   onEditAddress: () => void;
+  onOpenHistory: () => void;
 }) {
   return (
-    // Payout history lives with the page's other links at the bottom.
     <YStack>
       <SizableText size="$bodyMd" color="$textSubdued">
         {labels.cumulative}
@@ -290,18 +292,33 @@ function CompactEarnings({
         <ReferralUsdUnit />
       </XStack>
       <YStack pb="$3">
-        <CompactFieldRow
-          leading={<PartDot color="$iconSuccess" />}
-          label={labels.distributed}
+        {/* The paid amount opens its own record: the payout history. */}
+        <YStack
+          testID={ReferFriendsTestIDs.inviteRewardHistory}
+          {...COMPACT_ROW_BLEED_PROPS}
+          {...PRESSABLE_SURFACE_PROPS}
+          onPress={onOpenHistory}
         >
-          <Currency
-            {...REFERRAL_USD_CURRENCY_PROPS}
-            size="$bodyMdMedium"
-            numberOfLines={1}
+          <CompactFieldRow
+            leading={<PartDot color="$iconSuccess" />}
+            label={labels.distributed}
           >
-            {earnings.distributed}
-          </Currency>
-        </CompactFieldRow>
+            <Currency
+              {...REFERRAL_USD_CURRENCY_PROPS}
+              size="$bodyMdMedium"
+              numberOfLines={1}
+            >
+              {earnings.distributed}
+            </Currency>
+            {/* Same size and edge as the list drill-in chevrons. */}
+            <Icon
+              name="ChevronRightSmallOutline"
+              color="$iconSubdued"
+              mr="$-1.5"
+              flexShrink={0}
+            />
+          </CompactFieldRow>
+        </YStack>
         {/* The payout date sits under the amount it applies to. */}
         <CompactFieldRow
           leading={<PartDot color="$iconCaution" />}
@@ -422,6 +439,7 @@ export function InviteEarningsCard({
           payoutNetworkId={payoutNetworkId}
           addressVisibility={addressVisibility}
           onEditAddress={editPayoutAddress}
+          onOpenHistory={navigateToRewardHistory}
         />
       </YStack>
     );

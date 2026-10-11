@@ -132,9 +132,9 @@ function InviteOverviewSkeleton() {
   const heroHeight = getInviteCodeStepImageHeight(usePageWidth());
 
   if (md) {
-    // Compact content, built like the loaded page: the hero, the code card,
-    // the earnings card and the per-product rows, then the links card, with
-    // the page's 20px and 32px spacing.
+    // Compact content, built like the loaded page: the hero, the code card
+    // and its links card, then the earnings card and the per-product rows,
+    // with the page's 20px and 32px spacing.
     const listRow = (key: number) => (
       <XStack key={key} minHeight={48} ai="center" gap="$3">
         <Skeleton w={20} h={20} radius="round" />
@@ -168,6 +168,13 @@ function InviteOverviewSkeleton() {
               <Skeleton.BodyMd w={180} />
             </XStack>
           </YStack>
+          <YStack px="$4" py="$1" {...cardStyle}>
+            {[0, 1].map((index) => (
+              <XStack key={index} minHeight={48} ai="center">
+                <Skeleton.BodyMd w={120} />
+              </XStack>
+            ))}
+          </YStack>
         </YStack>
         <YStack gap="$5">
           <YStack px="$4" pt="$4" pb="$1" {...cardStyle}>
@@ -200,13 +207,6 @@ function InviteOverviewSkeleton() {
               {[0, 1, 2].map(listRow)}
             </YStack>
           </YStack>
-        </YStack>
-        <YStack px="$4" py="$1" {...cardStyle}>
-          {[0, 1, 2].map((index) => (
-            <XStack key={index} minHeight={48} ai="center">
-              <Skeleton.BodyMd w={120} />
-            </XStack>
-          ))}
         </YStack>
       </YStack>
     );

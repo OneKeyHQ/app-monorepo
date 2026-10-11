@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import { XStack, YStack, useMedia } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useNavigateToInviteCodes } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteCodes/hooks/useNavigateToInviteCodes';
-import { useNavigateToRewardHistory } from '@onekeyhq/kit/src/views/ReferFriends/pages/RewardDistributionHistory/hooks/useNavigateToRewardHistory';
 import { useNavigateToYourReferred } from '@onekeyhq/kit/src/views/ReferFriends/pages/YourReferred/hooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -29,10 +28,10 @@ import {
 
 import type { IInviteCardStyle } from './useInviteCardStyle';
 
-// Compact layouts keep the cards above to sharing and the money; the pages
-// people open less often sit together here, as rows, instead of as links on
-// every card's header.
-function InviteMoreLinks({
+// Compact layouts: the two pages about your invites (the codes, and the
+// wallets and orders they brought in) as rows under the code card, instead
+// of links on card headers. Payout history opens from the paid amount.
+function InviteManageLinks({
   cardStyle,
   onManageCodes,
 }: {
@@ -41,7 +40,6 @@ function InviteMoreLinks({
 }) {
   const intl = useIntl();
   const navigateToYourReferred = useNavigateToYourReferred();
-  const navigateToRewardHistory = useNavigateToRewardHistory();
   const links = [
     {
       testID: ReferFriendsTestIDs.inviteManageCodes,
@@ -52,11 +50,6 @@ function InviteMoreLinks({
       testID: ReferFriendsTestIDs.inviteYourReferred,
       title: ETranslations.referral_referral_list,
       onPress: navigateToYourReferred,
-    },
-    {
-      testID: ReferFriendsTestIDs.inviteRewardHistory,
-      title: ETranslations.referral_payout_history__title,
-      onPress: navigateToRewardHistory,
     },
   ];
   return (
@@ -107,10 +100,10 @@ export const InviteTabContent = memo(function InviteTabContent({
 
       {md ? (
         // Compact layouts open on inviting: the hero (illustration, what
-        // each side gets, the level) over the code card. The money follows
-        // a scroll away, then the less used pages as one list. Cards sit
-        // 20px apart inside a group, 32px between groups, roomy enough for
-        // touch. Sharing itself sits in the page footer.
+        // each side gets, the level) over the code card and the pages about
+        // your invites. The money follows a scroll away. Cards sit 20px
+        // apart inside a group, 32px between groups, roomy enough for touch.
+        // Sharing itself sits in the page footer.
         <YStack px="$pagePadding" gap="$8">
           <YStack gap="$5">
             <InviteCompactHero
@@ -124,6 +117,10 @@ export const InviteTabContent = memo(function InviteTabContent({
               inviteCode={summaryInfo.inviteCode}
               cardStyle={cardStyle}
             />
+            <InviteManageLinks
+              cardStyle={cardStyle}
+              onManageCodes={handleManageCodes}
+            />
           </YStack>
           <YStack gap="$5">
             <InviteEarningsCard
@@ -132,10 +129,6 @@ export const InviteTabContent = memo(function InviteTabContent({
             />
             <InviteRewardRows summaryInfo={summaryInfo} />
           </YStack>
-          <InviteMoreLinks
-            cardStyle={cardStyle}
-            onManageCodes={handleManageCodes}
-          />
         </YStack>
       ) : (
         <>
