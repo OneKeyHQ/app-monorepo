@@ -49,6 +49,15 @@ jobs:
           timeout: 20m0s
 
       - name: Upload SARIF results
+        # Skip on pull_request: the code-scanning results check that this
+        # upload creates should list only alerts inside the PR diff, but once
+        # a diff exceeds GitHub's processing limit it silently falls back to
+        # attributing every open alert on the merge ref to the PR (the check
+        # summary says "code changes were too large"). Big PRs then fail on
+        # baseline yarn.lock CVEs they never touched. Push and schedule scans
+        # keep the Security tab current; Socket and Snyk cover PR-level
+        # dependency review.
+        if: github.event_name != 'pull_request'
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-results.sarif
