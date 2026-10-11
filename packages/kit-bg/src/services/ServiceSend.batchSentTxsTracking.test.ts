@@ -67,6 +67,10 @@ function makeUnsignedTx(uuid: string): IUnsignedTxPro {
   } as unknown as IUnsignedTxPro;
 }
 
+function makeApproveTx(uuid: string): IUnsignedTxPro {
+  return { uuid, encodedTx: { to: '0xtoken' } } as unknown as IUnsignedTxPro;
+}
+
 function makeSignedTx(unsignedTx: IUnsignedTxPro): ISignedTxPro {
   return {
     encodedTx: unsignedTx.encodedTx,
@@ -148,7 +152,35 @@ describe('ServiceSend.batchSignAndSendTransaction sentTxsTrackingId', () => {
     const result = await sendFromUi(service, params);
 
     expect(sentUuids(signAndSend)).toEqual(['tx-1', 'tx-2', 'tx-2']);
-    expect(result.map((item) => item.signedTx.txid)).toEqual(['txid-tx-2']);
+    expect(result.map((item) => item.signedTx.txid)).toEqual([
+      'txid-tx-1',
+      'txid-tx-2',
+    ]);
+  });
+
+  test('retry after a lost response replays results without sending', async () => {
+    const { service, backgroundApi, signAndSend } = makeService();
+    const params: IBatchParams = {
+      accountId,
+      networkId,
+      unsignedTxs: [makeApproveTx('approve-1'), makeUnsignedTx('tx-1')],
+      signOnly: false,
+      transferPayload: undefined,
+      sentTxsTrackingId: 'screen-1',
+    };
+
+    const firstResult = await sendFromUi(service, params);
+    const retryResult = await sendFromUi(service, params);
+
+    expect(sentUuids(signAndSend)).toEqual(['approve-1', 'tx-1']);
+    expect(
+      backgroundApi.serviceHistory.saveSendConfirmHistoryTxs,
+    ).toHaveBeenCalledTimes(2);
+    // The approve tx stays out of multi-tx results on replay as well.
+    expect(retryResult.map((item) => item.signedTx.txid)).toEqual([
+      'txid-tx-1',
+    ]);
+    expect(retryResult).toEqual(firstResult);
   });
 
   test('retry finishes post-broadcast steps without broadcasting again', async () => {
@@ -192,7 +224,7 @@ describe('ServiceSend.batchSignAndSendTransaction sentTxsTrackingId', () => {
     );
     expect(result.map((item) => item.signedTx.txid)).toEqual(['txid-tx-1']);
 
-    await expect(sendFromUi(service, params)).resolves.toEqual([]);
+    await expect(sendFromUi(service, params)).resolves.toEqual(result);
     expect(signAndSend).toHaveBeenCalledTimes(1);
     expect(saveSendConfirmHistoryTxs).toHaveBeenCalledTimes(2);
   });

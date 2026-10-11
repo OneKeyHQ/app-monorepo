@@ -114,8 +114,10 @@ type IBatchSignedTx = ISignedTxPro & {
 // A tx that batchSignAndSendTransaction broadcast under a sentTxsTrackingId.
 // 'broadcasted' keeps what was actually broadcast until the decode/history
 // steps finish, so a retry can finish them without broadcasting again.
+// 'recorded' keeps the returned result, so a retry whose earlier response
+// was lost (or whose caller failed afterwards) still gets it.
 type IBatchBroadcastedTx =
-  | { status: 'recorded' }
+  | { status: 'recorded'; returnedData: ISendTxOnSuccessData | undefined }
   | {
       status: 'broadcasted';
       signedTx: IBatchSignedTx;
@@ -1319,8 +1321,12 @@ class ServiceSend extends ServiceBase {
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
       const txUuid = unsignedTxs[i].uuid;
       const broadcastedTx = txUuid ? broadcastedTxs?.get(txUuid) : undefined;
-      // Skip txs that an earlier attempt already broadcast and recorded.
-      if (broadcastedTx?.status !== 'recorded') {
+      if (broadcastedTx?.status === 'recorded') {
+        // An earlier attempt already broadcast and recorded this tx.
+        if (broadcastedTx.returnedData) {
+          result.push(broadcastedTx.returnedData);
+        }
+      } else {
         let unsignedTx = unsignedTxs[i];
         let feeInfo = sendSelectedFeeInfos?.[i];
         let signedTx: IBatchSignedTx;
@@ -1446,13 +1452,14 @@ class ServiceSend extends ServiceBase {
 
         // For batch approve+swap/staking: only return the swap/staking tx result
         // For bulk send and DeFi portfolio action batches: return all business tx results
-        if (
+        const shouldReturnData = Boolean(
           !isMultiTxs ||
           unsignedTx.swapInfo ||
           unsignedTx.stakingInfo ||
           unsignedTx.transfersInfo ||
-          hasDeFiActionInfo
-        ) {
+          hasDeFiActionInfo,
+        );
+        if (shouldReturnData) {
           result.push(data);
         }
 
@@ -1474,7 +1481,10 @@ class ServiceSend extends ServiceBase {
         }
 
         if (!signOnly && txUuid && broadcastedTxs) {
-          broadcastedTxs.set(txUuid, { status: 'recorded' });
+          broadcastedTxs.set(txUuid, {
+            status: 'recorded',
+            returnedData: shouldReturnData ? data : undefined,
+          });
         }
       }
     }
