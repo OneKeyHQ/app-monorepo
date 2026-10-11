@@ -10,7 +10,11 @@ import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 import { SwapStockTickerSelector } from './SwapStockTickerSelector';
 
 const mockClosePopover = jest.fn();
-const mockSelectStock = jest.fn();
+const mockSelectStock = jest.fn<
+  Promise<boolean>,
+  [IMarketStockPublicItem, string?]
+>();
+let mockSelectionError = false;
 const mockLoadMore = jest.fn();
 const mockStock: IMarketStockPublicItem = {
   stockId: 'AAPL',
@@ -117,7 +121,10 @@ jest.mock('../modal/SwapTokenSelectModal.utils', () => ({
   getSwapStockTokenDisplayName: () => 'Apple',
 }));
 jest.mock('./SwapStockMarketProvider', () => ({
-  useSwapStockSelection: () => ({ selectStock: mockSelectStock }),
+  useSwapStockSelection: () => ({
+    selectStock: mockSelectStock,
+    selectionError: mockSelectionError,
+  }),
 }));
 jest.mock('./SwapStockTradeProvider', () => ({
   useSwapStockTradeContext: () => ({ currentStockToken: undefined }),
@@ -127,6 +134,8 @@ describe('SwapStockTickerSelector', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    mockSelectStock.mockReset().mockResolvedValue(true);
+    mockSelectionError = false;
     mockListResult.items = [];
     mockListResult.canLoadMore = false;
     mockListResult.isLoadMoreError = false;
@@ -155,7 +164,7 @@ describe('SwapStockTickerSelector', () => {
     expect(screen.queryByTestId('swap-stock-ticker-load-more')).toBeNull();
   });
 
-  it('closes before selecting a stock from the debounced search results', () => {
+  it('closes after successfully selecting a stock from the debounced search results', async () => {
     mockListResult.items = [mockStock];
     render(<SwapStockTickerSelector />);
     const search = screen.getByTestId('swap-stock-ticker-search');
@@ -163,12 +172,51 @@ describe('SwapStockTickerSelector', () => {
     act(() => jest.advanceTimersByTime(500));
     fireEvent.change(search, { target: { value: 'aapl.d' } });
 
-    fireEvent.click(screen.getByTestId('swap-stock-ticker-AAPL'));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('swap-stock-ticker-AAPL'));
+    });
 
     expect(mockClosePopover).toHaveBeenCalledTimes(1);
     expect(mockSelectStock).toHaveBeenCalledWith(mockStock, 'aapl');
-    expect(mockClosePopover.mock.invocationCallOrder[0]).toBeLessThan(
-      mockSelectStock.mock.invocationCallOrder[0],
+    expect(mockSelectStock.mock.invocationCallOrder[0]).toBeLessThan(
+      mockClosePopover.mock.invocationCallOrder[0],
     );
+  });
+
+  it('keeps the list open while selection is pending', async () => {
+    let finishSelection: ((success: boolean) => void) | undefined;
+    mockSelectStock.mockReturnValueOnce(
+      new Promise<boolean>((resolve) => {
+        finishSelection = resolve;
+      }),
+    );
+    mockListResult.items = [mockStock];
+    render(<SwapStockTickerSelector />);
+    fireEvent.click(screen.getByTestId('swap-stock-ticker-AAPL'));
+    expect(mockClosePopover).not.toHaveBeenCalled();
+    await act(async () => finishSelection?.(true));
+    expect(mockClosePopover).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a failed selection visible and closes only after a successful retry', async () => {
+    mockSelectStock.mockImplementationOnce(async () => {
+      mockSelectionError = true;
+      return false;
+    });
+    mockListResult.items = [mockStock];
+    const { rerender } = render(<SwapStockTickerSelector />);
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('swap-stock-ticker-AAPL'));
+    });
+    rerender(<SwapStockTickerSelector />);
+    expect(mockClosePopover).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(ETranslations.global_unknown_error_retry_message),
+    ).toBeTruthy();
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('swap-stock-ticker-AAPL'));
+    });
+    expect(mockSelectStock).toHaveBeenCalledTimes(2);
+    expect(mockClosePopover).toHaveBeenCalledTimes(1);
   });
 });

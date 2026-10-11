@@ -164,10 +164,11 @@ function StockTickerList({ closePopover }: { closePopover: () => void }) {
                 bg={stock.stockId === stockId ? '$bgActive' : undefined}
                 hoverStyle={{ bg: '$bgHover' }}
                 cursor="pointer"
-                onPress={() => {
+                onPress={async () => {
                   if (!selection) return;
-                  closePopover();
-                  void selection.selectStock(stock, debouncedQuery);
+                  if (await selection.selectStock(stock, debouncedQuery)) {
+                    closePopover();
+                  }
                 }}
               >
                 {/*
