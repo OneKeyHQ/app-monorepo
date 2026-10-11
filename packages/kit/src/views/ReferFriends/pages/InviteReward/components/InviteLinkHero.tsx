@@ -274,9 +274,10 @@ export function InviteCompactCard({
     inviteCode,
   });
   return (
-    // 16px from the text to the card edge on every side, like the other
-    // cards: the rows' own 8px padding makes up the rest.
-    <YStack px="$4" pt="$2" pb="$2" {...cardStyle}>
+    // Like the other cards: rows sit 4px inside the card on every side, so
+    // a pressed row's surface keeps an even 4px gap, and the rows' own
+    // padding puts the text 16px from the card edge.
+    <YStack px="$4" py="$1" {...cardStyle}>
       {/* The code leads the card, its label right above it like the
           earnings card's total. A tap anywhere on them copies the code; the
           Copy button names that action, a step below the footer's. */}
@@ -284,10 +285,9 @@ export function InviteCompactCard({
         testID={ReferFriendsTestIDs.inviteCodeRow}
         ai="center"
         gap="$3"
-        // 16px from the card's top edge to the label, and from the code down
-        // to the hairline.
-        pt="$2"
-        pb="$4"
+        // With the card's and the hairline's 4px: 16px above the label and
+        // below the code.
+        py="$3"
         {...COMPACT_ROW_BLEED_PROPS}
         {...PRESSABLE_SURFACE_PROPS}
         onPress={handleCopy}
@@ -311,7 +311,7 @@ export function InviteCompactCard({
           {intl.formatMessage({ id: ETranslations.global_copy })}
         </Button>
       </XStack>
-      <Divider mb="$1" borderColor={INVITE_CARD_BORDER_COLOR} />
+      <Divider my="$1" borderColor={INVITE_CARD_BORDER_COLOR} />
       <YStack
         testID={ReferFriendsTestIDs.inviteLinkRow}
         {...COMPACT_ROW_BLEED_PROPS}
