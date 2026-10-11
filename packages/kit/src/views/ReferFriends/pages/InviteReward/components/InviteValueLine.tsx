@@ -233,10 +233,9 @@ function RateLine({
         size="$4"
         color="$iconSubdued"
         pointerEvents="none"
-        // Inline views sit on the baseline; this lowers the icon just enough
-        // to center its circle on the capitals (3 overshot it, below the
-        // baseline).
-        transform={[{ translateY: 1 }]}
+        // Inline views sit on the baseline; this centers the icon on the
+        // line.
+        transform={[{ translateY: 2 }]}
       />
     </SizableText>
   );
