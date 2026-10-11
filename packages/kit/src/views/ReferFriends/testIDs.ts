@@ -12,7 +12,6 @@ export const ReferFriendsTestIDs = {
   inviteFriendsFooterBtn: 'refer-friends-invite-friends-footer-btn',
   inviteTab: 'refer-friends-tab-invite',
   benefitsTab: 'refer-friends-tab-benefits',
-  inviteBindRow: 'refer-friends-invite-bind-row',
   inviteEarningsCard: 'refer-friends-invite-earnings-card',
   inviteLevelPill: 'refer-friends-invite-level-pill',
   inviteLevelDetailsBtn: 'refer-friends-invite-level-details-btn',

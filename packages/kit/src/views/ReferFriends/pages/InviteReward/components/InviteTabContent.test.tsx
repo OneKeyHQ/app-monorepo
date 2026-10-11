@@ -17,7 +17,6 @@ import { InviteTabContent } from './InviteTabContent';
 
 const mockCopyText = jest.fn();
 const mockCopyUrl = jest.fn();
-const mockBindWalletInviteCode = jest.fn();
 const mockNavigateToYourReferred = jest.fn();
 const mockNavigateToInviteCodes = jest.fn();
 const mockNavigateToEditAddress = jest.fn();
@@ -32,10 +31,6 @@ const mockHeroImageProps: Array<{
   controlRef?: unknown;
   preloadOtherStep?: boolean;
 }> = [];
-
-let mockWalletsWithStatus: Array<{ status: string }> | undefined = [
-  { status: 'bindable' },
-];
 
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -121,7 +116,6 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
       page: {
         copyReferralCode: jest.fn(),
         shareReferralLink: jest.fn(),
-        inviteBindRowShown: jest.fn(),
       },
     },
   },
@@ -167,19 +161,6 @@ jest.mock('@onekeyhq/kit/src/components/InfoIcon', () => ({
     <span data-testid={`info-${tooltip.title}`} />
   ),
 }));
-
-jest.mock(
-  '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode',
-  () => ({
-    useFetchWalletsWithBoundStatus: () => ({
-      walletsWithStatus: mockWalletsWithStatus,
-      refreshWalletsWithStatus: jest.fn(),
-    }),
-    useWalletBoundReferralCode: () => ({
-      bindWalletInviteCode: mockBindWalletInviteCode,
-    }),
-  }),
-);
 
 jest.mock(
   '@onekeyhq/kit/src/views/ReferFriends/pages/YourReferred/hooks',
@@ -293,7 +274,6 @@ describe('InviteTabContent entry points', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockMd = false;
-    mockWalletsWithStatus = [{ status: 'bindable' }];
   });
 
   it('copies the invite link and the invite code', () => {
@@ -410,34 +390,6 @@ describe('InviteTabContent entry points', () => {
     expect(props?.controlRef).toBe(controlRef);
     // The home shows one animation, so it skips the intro's other one.
     expect(props?.preloadOtherStep).toBe(false);
-  });
-
-  it.each([
-    { wallets: undefined, shown: false },
-    { wallets: [{ status: 'expired' }], shown: false },
-    { wallets: [{ status: 'bindable' }], shown: true },
-  ])(
-    'shows the bind prompt only when a wallet can bind (%#)',
-    ({ wallets, shown }) => {
-      mockWalletsWithStatus = wallets;
-      renderTab();
-
-      expect(
-        Boolean(screen.queryByTestId(ReferFriendsTestIDs.inviteBindRow)),
-      ).toBe(shown);
-    },
-  );
-
-  it('opens the bind referral code dialog', () => {
-    renderTab();
-
-    fireEvent.click(screen.getByTestId(ReferFriendsTestIDs.inviteBindRow));
-    expect(mockBindWalletInviteCode).toHaveBeenCalledWith(
-      expect.objectContaining({
-        source: 'invite_home',
-        preferredWalletId: 'hd-1',
-      }),
-    );
   });
 
   it.each([false, true])(

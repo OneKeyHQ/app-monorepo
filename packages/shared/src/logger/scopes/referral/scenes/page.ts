@@ -177,12 +177,6 @@ export class PageScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal({ level: 'info' })
-  public inviteBindRowShown(params: { status: 'bind' | 'bound' | 'empty' }) {
-    return params;
-  }
-
-  @LogToServer()
-  @LogToLocal({ level: 'info' })
   public referralBindFailed(params: {
     source?: IReferralBindSource;
     errorType: IReferralBindErrorType;

@@ -12,7 +12,6 @@ import type {
   IInviteSummary,
 } from '@onekeyhq/shared/src/referralCode/type';
 
-import { InviteBindRow } from './InviteBindRow';
 import { InviteCompactHero } from './InviteCompactHero';
 import { InviteEarningsCard } from './InviteEarningsCard';
 import {
@@ -73,7 +72,7 @@ export const InviteTabContent = memo(function InviteTabContent({
 
       {md ? (
         // Compact layouts open on inviting: the hero (illustration, what
-        // each side gets, the level) over the code card and the bind entry.
+        // each side gets, the level) over the code card.
         // The money follows under its own caption, with the referral list
         // beside it, a scroll away. Captions sit 8px over their card, cards
         // 20px apart inside a group, 32px between groups, roomy enough for
@@ -87,17 +86,12 @@ export const InviteTabContent = memo(function InviteTabContent({
               levelDetail={levelDetail}
               animationControlRef={heroAnimationControlRef}
             />
-            {/* The bind line belongs to the code card, so it sits closer to
-                it than the cards sit to each other. */}
-            <YStack gap="$3">
-              <InviteCompactCard
-                inviteUrl={inviteUrl}
-                inviteCode={summaryInfo.inviteCode}
-                cardStyle={cardStyle}
-                onManageCodes={handleManageCodes}
-              />
-              <InviteBindRow />
-            </YStack>
+            <InviteCompactCard
+              inviteUrl={inviteUrl}
+              inviteCode={summaryInfo.inviteCode}
+              cardStyle={cardStyle}
+              onManageCodes={handleManageCodes}
+            />
           </YStack>
           <YStack gap="$2">
             <InviteEarningsCaption />
@@ -131,7 +125,6 @@ export const InviteTabContent = memo(function InviteTabContent({
                   valueSummary={valueSummary}
                   onManageCodes={handleManageCodes}
                 />
-                <InviteBindRow divided />
               </YStack>
             </XStack>
           </XStack>
