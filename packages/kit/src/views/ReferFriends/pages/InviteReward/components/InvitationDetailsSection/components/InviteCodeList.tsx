@@ -167,7 +167,6 @@ function InviteCodeRow({
     return (
       <YStack
         gap="$3"
-        px="$4"
         py="$3.5"
         borderTopWidth={isFirst ? 0 : 1}
         borderColor={INVITE_CARD_BORDER_COLOR}
@@ -196,7 +195,6 @@ function InviteCodeRow({
     <XStack
       ai="center"
       gap="$6"
-      px="$4"
       py="$3.5"
       borderTopWidth={isFirst ? 0 : 1}
       borderColor={INVITE_CARD_BORDER_COLOR}
@@ -276,7 +274,9 @@ export function InviteCodeList({
               { max: codeListData.maxCodes },
             )}
       </SizableText>
-      <YStack overflow="hidden" {...cardStyle}>
+      {/* The card holds the side padding, so the rows' hairlines stop at
+          the text edge like the other cards' dividers. */}
+      <YStack px="$4" overflow="hidden" {...cardStyle}>
         {items.map((item, index) => (
           <InviteCodeRow
             key={item.code}
