@@ -47,7 +47,7 @@ const MarketSelectorDesktop = ({
         <SizableText
           size="$bodyMdMedium"
           textAlign="center"
-          color={isActive ? '$textInverse' : '$text'}
+          color={isActive ? '$text' : '$textSubdued'}
         >
           {intl.formatMessage({ id: messageId })}
         </SizableText>

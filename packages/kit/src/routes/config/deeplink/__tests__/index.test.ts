@@ -298,24 +298,27 @@ describe('stocks / perps universal links', () => {
     }
   });
 
-  it('opens a same-domain App Clip web campaign in the full-app WebView', async () => {
-    const { openWebView } = jest.requireMock(
-      '../../../../views/WebView/utils/webViewNavigation',
-    );
-    const webUrl = 'https://app.onekey.so/campaign/summer?source=app-clip';
-    handleDeepLinkUrl({
-      url: `https://app.onekey.so/clip/web/summer?web_url=${encodeURIComponent(
-        webUrl,
-      )}`,
-    });
-    await flushAsyncTasks();
+  it.each(['/clip/web', '/clip/web/summer'])(
+    'rejects the removed App Clip WebView universal link: %s',
+    async (path) => {
+      const originalIsNativeIOS = platformEnv.isNativeIOS;
+      platformEnv.isNativeIOS = true;
+      try {
+        handleDeepLinkUrl({
+          url: `https://app.onekey.so${path}?web_url=${encodeURIComponent(
+            'https://app.onekey.so/campaign/summer',
+          )}`,
+        });
+        await flushAsyncTasks();
 
-    expect(openWebView).toHaveBeenCalledWith({
-      appClipCampaign: true,
-      source: 'deeplink',
-      url: webUrl,
-    });
-  });
+        expect(navigate).not.toHaveBeenCalled();
+        expect(openWebViewOverlay).not.toHaveBeenCalled();
+        expect(reportInstallAttribution).not.toHaveBeenCalled();
+      } finally {
+        platformEnv.isNativeIOS = originalIsNativeIOS;
+      }
+    },
+  );
 
   it('routes an App Clip selection to the existing market detail page', async () => {
     handleDeepLinkUrl({
@@ -429,29 +432,11 @@ describe('stocks / perps universal links', () => {
     });
   });
 
-  it('unwraps a validated App Clip web handoff', async () => {
-    const { openWebView } = jest.requireMock(
-      '../../../../views/WebView/utils/webViewNavigation',
-    );
-    const webUrl = 'https://app.onekey.so/campaign/autumn?source=app-clip';
-    const canonicalUrl = `https://app.onekey.so/clip/web?web_url=${encodeURIComponent(
-      webUrl,
-    )}&utm_campaign=autumn`;
-    handleDeepLinkUrl({
-      url: `onekey-wallet://app-clip?url=${encodeURIComponent(canonicalUrl)}`,
-    });
-    await flushAsyncTasks();
-
-    expect(openWebView).toHaveBeenCalledWith({
-      appClipCampaign: true,
-      source: 'deeplink',
-      url: webUrl,
-    });
-  });
-
   it.each([
     'https://evil.example/clip/market?network=eth&address=0x1234',
     'https://app.onekey.so/settings',
+    'https://app.onekey.so/clip/web?web_url=https%3A%2F%2Fapp.onekey.so%2Fcampaign',
+    'https://app.onekey.so/clip/web/summer?web_url=https%3A%2F%2Fapp.onekey.so%2Fcampaign',
     'not-a-url',
   ])(
     'rejects an invalid App Clip custom-scheme handoff: %s',
@@ -498,26 +483,6 @@ describe('stocks / perps universal links', () => {
         screen: ETabMarketRoutes.TabMarket,
       },
     });
-  });
-
-  it.each([
-    'http://app.onekey.so/campaign',
-    'https://evil.example/campaign',
-    'https://user:secret@app.onekey.so/campaign',
-    'https://app.onekey.so/settings',
-    'https://app.onekey.so/campaigns',
-  ])('rejects an unsafe App Clip web campaign URL: %s', async (webUrl) => {
-    const { openWebView } = jest.requireMock(
-      '../../../../views/WebView/utils/webViewNavigation',
-    );
-    handleDeepLinkUrl({
-      url: `https://app.onekey.so/clip/web?web_url=${encodeURIComponent(
-        webUrl,
-      )}`,
-    });
-    await flushAsyncTasks();
-
-    expect(openWebView).not.toHaveBeenCalled();
   });
 
   it('routes earn detail universal link to EarnProtocolDetailsShare with vault', async () => {

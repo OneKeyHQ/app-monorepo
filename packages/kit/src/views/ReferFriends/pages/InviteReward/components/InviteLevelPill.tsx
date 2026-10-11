@@ -1,0 +1,197 @@
+import { useMemo } from 'react';
+
+import { useIntl } from 'react-intl';
+
+import {
+  Icon,
+  Image,
+  Popover,
+  SizableText,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
+import { CardTextAction } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CardTextAction';
+import { RetentionStatus } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferralLevel/components/LevelStatusCard';
+import {
+  formatLevelTargetRemaining,
+  getLevelTargetLabel,
+} from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferralLevel/components/UpgradeTargetsCard';
+import { getLevelOverview } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferralLevel/getLevelOverview';
+import type { ILevelOverview } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferralLevel/getLevelOverview';
+import { useNavigateToReferralLevel } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferralLevel/hooks/useNavigateToReferralLevel';
+import { getDisplayLabel } from '@onekeyhq/kit/src/views/ReferFriends/utils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IInviteLevelDetail } from '@onekeyhq/shared/src/referralCode/type';
+
+import { ReferFriendsTestIDs } from '../../../testIDs';
+
+import { useCurrentLevelCardFromDetail } from './CurrentLevelCard/hooks/useCurrentLevelCard';
+import {
+  INVITE_POPOVER_PANEL_PROPS,
+  PRESSABLE_SURFACE_PROPS,
+} from './useInviteCardStyle';
+
+import type { ICurrentLevelCardProps } from './CurrentLevelCard/types';
+
+// Desktop hover summary: whether the level holds this month and the gap to
+// the next one. The full breakdown stays on the level page.
+function LevelSummary({
+  overview,
+  onOpenLevel,
+}: {
+  overview: ILevelOverview;
+  onOpenLevel: () => void;
+}) {
+  const intl = useIntl();
+  const currencyCode = useCurrency().id.toUpperCase();
+  const { retentionStatus, nextLevel, upgradeTargets } = overview;
+
+  return (
+    <YStack px="$5" py="$4" gap="$3">
+      <RetentionStatus status={retentionStatus} />
+      {nextLevel && upgradeTargets.length > 0 ? (
+        <YStack gap="$1.5">
+          <YStack pb="$1">
+            <XStack ai="center" gap="$2">
+              {nextLevel.icon ? (
+                <Image w="$4" h="$4" src={nextLevel.icon} />
+              ) : null}
+              <SizableText size="$bodyMdMedium">
+                {intl.formatMessage(
+                  { id: ETranslations.referral_next_level__title },
+                  {
+                    level: getDisplayLabel(
+                      intl,
+                      nextLevel.labelKey,
+                      nextLevel.label,
+                    ),
+                  },
+                )}
+              </SizableText>
+            </XStack>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {upgradeTargets.length > 1
+                ? intl.formatMessage({
+                    id: ETranslations.referral_meet_any__desc,
+                  })
+                : intl.formatMessage({
+                    id: ETranslations.referral_meet_this__desc,
+                  })}
+            </SizableText>
+          </YStack>
+          {upgradeTargets.map((target) => (
+            // The amount stays on one line; a long target name wraps.
+            <XStack
+              key={target.subject}
+              ai="flex-start"
+              jc="space-between"
+              gap="$3"
+            >
+              <SizableText size="$bodyMd" flex={1} flexBasis={0} minWidth={0}>
+                {getLevelTargetLabel(intl, target)}
+              </SizableText>
+              <SizableText
+                flexShrink={0}
+                numberOfLines={1}
+                ta="right"
+                size="$bodyMdMedium"
+                color={target.isReached ? '$textSuccess' : '$text'}
+              >
+                {formatLevelTargetRemaining(intl, target, currencyCode)}
+              </SizableText>
+            </XStack>
+          ))}
+        </YStack>
+      ) : null}
+      {nextLevel ? null : (
+        <SizableText size="$bodyMdMedium">
+          {intl.formatMessage({ id: ETranslations.referral_top_level__msg })}
+        </SizableText>
+      )}
+      <XStack pt="$2">
+        <CardTextAction
+          testID={ReferFriendsTestIDs.inviteLevelDetailsBtn}
+          label={intl.formatMessage({
+            id: ETranslations.referral_level_details__action,
+          })}
+          onPress={onOpenLevel}
+        />
+      </XStack>
+    </YStack>
+  );
+}
+
+export function InviteLevelPill({
+  levelDetail,
+  ...props
+}: ICurrentLevelCardProps & {
+  levelDetail: IInviteLevelDetail | undefined;
+}) {
+  const { levelLabel, levelIcon } = useCurrentLevelCardFromDetail(
+    props,
+    levelDetail,
+  );
+  const navigateToReferralLevel = useNavigateToReferralLevel();
+  const { gtMd } = useMedia();
+  const overview = useMemo(
+    () => (levelDetail ? getLevelOverview(levelDetail) : undefined),
+    [levelDetail],
+  );
+
+  const pill = (
+    <XStack
+      testID={ReferFriendsTestIDs.inviteLevelPill}
+      ai="center"
+      gap="$1"
+      px="$2"
+      py="$1"
+      borderRadius="$full"
+      // The pill sits on the plain page canvas, so it takes a tinted surface.
+      bg="$bgSubdued"
+      flexShrink={1}
+      {...PRESSABLE_SURFACE_PROPS}
+      onPress={() => {
+        void navigateToReferralLevel();
+        // Returning false keeps a hover popover trigger from also opening.
+        return false;
+      }}
+    >
+      {/* Prefer the level's own artwork; the emoji is only a fallback. */}
+      {levelIcon ? <Image w="$4" h="$4" src={levelIcon} /> : null}
+      {!levelIcon && props.rebateConfig.emoji ? (
+        <SizableText size="$bodyMd">{props.rebateConfig.emoji}</SizableText>
+      ) : null}
+      <SizableText size="$bodyMdMedium" numberOfLines={1} flexShrink={1}>
+        {levelLabel}
+      </SizableText>
+      <Icon name="ChevronRightSmallOutline" size="$4" color="$iconSubdued" />
+    </XStack>
+  );
+
+  // Hover only exists with a pointer; touch layouts go straight to the page.
+  if (!gtMd || platformEnv.isNative || !overview?.currentLevel) {
+    return pill;
+  }
+
+  return (
+    <Popover
+      title={levelLabel}
+      hoverable
+      placement="bottom-end"
+      floatingPanelProps={INVITE_POPOVER_PANEL_PROPS}
+      renderTrigger={pill}
+      renderContent={({ closePopover }) => (
+        <LevelSummary
+          overview={overview}
+          onOpenLevel={() => {
+            closePopover();
+            void navigateToReferralLevel();
+          }}
+        />
+      )}
+    />
+  );
+}
