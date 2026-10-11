@@ -8,6 +8,7 @@ import {
   Divider,
   Icon,
   IconButton,
+  NATIVE_HIT_SLOP,
   SizableText,
   Stack,
   XStack,
@@ -277,26 +278,36 @@ export function InviteCompactCard({
     // cards: the rows' own 8px padding makes up the rest.
     <YStack px="$4" pt="$2" pb="$2" {...cardStyle}>
       {/* The code leads the card, its label right above it like the
-          earnings card's total. The two are one target: a tap anywhere on
-          them copies the code. */}
-      <YStack
+          earnings card's total. A tap anywhere on them copies the code; the
+          Copy button names that action, a step below the footer's. */}
+      <XStack
         testID={ReferFriendsTestIDs.inviteCodeRow}
+        ai="center"
+        gap="$3"
         py="$2"
-        gap="$1"
         {...COMPACT_ROW_BLEED_PROPS}
         {...PRESSABLE_SURFACE_PROPS}
         onPress={handleCopy}
       >
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.referral_your_code })}
-        </SizableText>
-        <XStack ai="center" gap="$2">
-          <SizableText size="$headingXl" numberOfLines={1} flexShrink={1}>
+        <YStack flex={1} minWidth={0} gap="$1">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.referral_your_code })}
+          </SizableText>
+          <SizableText size="$headingXl" numberOfLines={1}>
             {inviteCode}
           </SizableText>
-          <Icon name="Copy3Outline" size="$5" color="$iconSubdued" />
-        </XStack>
-      </YStack>
+        </YStack>
+        <Button
+          testID={ReferFriendsTestIDs.inviteCodeCopyBtn}
+          variant="secondary"
+          size="small"
+          icon="Copy3Outline"
+          hitSlop={NATIVE_HIT_SLOP}
+          onPress={handleCopy}
+        >
+          {intl.formatMessage({ id: ETranslations.global_copy })}
+        </Button>
+      </XStack>
       <Divider my="$1" borderColor={INVITE_CARD_BORDER_COLOR} />
       <YStack
         testID={ReferFriendsTestIDs.inviteLinkRow}
