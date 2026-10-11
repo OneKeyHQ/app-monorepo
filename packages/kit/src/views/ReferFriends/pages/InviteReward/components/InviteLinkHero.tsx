@@ -141,8 +141,8 @@ function InviteLinkActions({
   );
 }
 
-// Desktop puts the referral list beside the invite title; compact layouts
-// list it with the page's other links at the bottom.
+// Pointer layouts only: the referral list beside the invite title. Compact
+// layouts list it in InviteManageLinks.
 function ReferralListLink() {
   const intl = useIntl();
   const navigateToYourReferred = useNavigateToYourReferred();

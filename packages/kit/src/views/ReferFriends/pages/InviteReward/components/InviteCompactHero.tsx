@@ -40,12 +40,14 @@ export function InviteCompactHero({
 
   return (
     <YStack ai="center" gap="$3">
-      {/* A still of the intro's referral animation (its settled frame, both
-          hands in view), so the page loads no Lottie. Sized like the
+      {/* A still of the intro's referral animation (step 2, frame 324: its
+          settled frame, both hands in view; re-export it if that art
+          changes), so the page loads no Lottie. Sized like the
           animation, at page width: its art spans the whole canvas. The
           background is transparent, so it bleeds past the page padding
           unseen. */}
       <Image
+        testID={ReferFriendsTestIDs.inviteHeroImage}
         w={getInviteCodeStepImageWidth(pageWidth)}
         h={getInviteCodeStepImageHeight(pageWidth)}
         alignSelf="center"

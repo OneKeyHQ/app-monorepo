@@ -50,7 +50,10 @@ import {
   IS_BENEFITS_TAB_ENABLED,
   resolveReferralPageTab,
 } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/referralPageTab';
-import { getInviteCodeStepImageHeight } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferAFriend/components/InviteCodeStepImage';
+import {
+  getInviteCodeStepImageHeight,
+  getInviteCodeStepImageWidth,
+} from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferAFriend/components/InviteCodeStepImage';
 import { formatInviteUrlForDisplay } from '@onekeyhq/kit/src/views/ReferFriends/utils/inviteUrlUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -129,7 +132,8 @@ const ReferralPageHeader = memo(function ReferralPageHeader({
 function InviteOverviewSkeleton() {
   const { md } = useMedia();
   const cardStyle = useInviteHomeCardStyle();
-  const heroHeight = getInviteCodeStepImageHeight(usePageWidth());
+  const pageWidth = usePageWidth();
+  const heroHeight = getInviteCodeStepImageHeight(pageWidth);
 
   if (md) {
     // Compact content, built like the loaded page: the hero, the code card
@@ -148,7 +152,12 @@ function InviteOverviewSkeleton() {
       <YStack px="$pagePadding" gap="$8">
         <YStack gap="$5">
           <YStack ai="center" gap="$3">
-            <Skeleton w="100%" maxWidth={480} h={heroHeight} radius={16} />
+            <Skeleton
+              w="100%"
+              maxWidth={getInviteCodeStepImageWidth(pageWidth)}
+              h={heroHeight}
+              radius={16}
+            />
             <YStack ai="center" gap="$2">
               <Skeleton.Heading2Xl w={260} />
               <Skeleton.BodyMd w={220} />

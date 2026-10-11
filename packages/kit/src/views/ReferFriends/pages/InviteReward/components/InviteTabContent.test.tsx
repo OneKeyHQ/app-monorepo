@@ -28,8 +28,6 @@ const mockNavigateToSwapReward = jest.fn();
 const mockNavigateToEarnReward = jest.fn();
 let mockMd = false;
 
-const mockUseReferLottieSource = jest.fn();
-
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   const createComponent = (): unknown =>
@@ -74,17 +72,6 @@ jest.mock('@onekeyhq/components', () => {
     },
   );
 });
-
-jest.mock(
-  '@onekeyhq/kit/src/views/ReferFriends/hooks/useReferLottieSource',
-  () => ({
-    useReferLottieSource: (...args: unknown[]) => {
-      mockUseReferLottieSource(...args);
-      return null;
-    },
-    getReferLottieSource: () => Promise.resolve(null),
-  }),
-);
 
 jest.mock('@onekeyhq/kit/src/hooks/useThemeVariant', () => ({
   useThemeVariant: () => 'light',
@@ -401,11 +388,13 @@ describe('InviteTabContent entry points', () => {
     ).toBeTruthy();
   });
 
-  it('shows the hero as a still image without loading the animation', () => {
+  it('shows the hero as a still image on compact layouts', () => {
     mockMd = true;
     renderTab();
 
-    expect(mockUseReferLottieSource).not.toHaveBeenCalled();
+    expect(
+      screen.getByTestId(ReferFriendsTestIDs.inviteHeroImage),
+    ).toBeTruthy();
   });
 
   it.each([false, true])(

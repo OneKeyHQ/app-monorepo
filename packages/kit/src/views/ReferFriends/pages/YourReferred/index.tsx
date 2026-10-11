@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -35,21 +35,27 @@ function YourReferredPageWrapper() {
   const title = intl.formatMessage({
     id: ETranslations.referral_referral_list,
   });
-  const [activeList, setActiveList] = useState<'wallet' | 'hardware'>('wallet');
-  const lists = [
-    {
-      value: 'wallet' as const,
-      label: intl.formatMessage({ id: ETranslations.global_wallet }),
-      testID: ReferFriendsTestIDs.referralListWalletTab,
-      content: <ReferredWalletList />,
-    },
-    {
-      value: 'hardware' as const,
-      label: intl.formatMessage({ id: ETranslations.referral_referred_type_3 }),
-      testID: ReferFriendsTestIDs.referralListHardwareTab,
-      content: <ReferredHardwareOrders />,
-    },
-  ];
+  const [activeList, setActiveList] = useState<string | number>('wallet');
+  // Built once, so switching tabs does not re-render the hidden list.
+  const lists = useMemo(
+    () => [
+      {
+        value: 'wallet',
+        label: intl.formatMessage({ id: ETranslations.global_wallet }),
+        testID: ReferFriendsTestIDs.referralListWalletTab,
+        content: <ReferredWalletList />,
+      },
+      {
+        value: 'hardware',
+        label: intl.formatMessage({
+          id: ETranslations.referral_referred_type_3,
+        }),
+        testID: ReferFriendsTestIDs.referralListHardwareTab,
+        content: <ReferredHardwareOrders />,
+      },
+    ],
+    [intl],
+  );
 
   return (
     <Page>
@@ -69,9 +75,8 @@ function YourReferredPageWrapper() {
               <BreadcrumbSection secondItemLabel={title} />
             </YStack>
           ) : null}
-          {/* A plain switch rather than a swipeable pager: two short lists
-              have no header to collapse, and a pager could snap back to the
-              old tab when tapped mid-swipe. */}
+          {/* A plain switch: two short lists have no header to collapse, so
+              they need no swipeable pager. */}
           <YStack px="$pagePadding" pt="$3">
             <SegmentControl
               fullWidth
@@ -81,9 +86,7 @@ function YourReferredPageWrapper() {
                 label,
                 testID,
               }))}
-              onChange={(value) => {
-                setActiveList(value as 'wallet' | 'hardware');
-              }}
+              onChange={setActiveList}
             />
           </YStack>
           {/* Both lists stay mounted, so switching back keeps their data and

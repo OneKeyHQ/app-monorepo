@@ -33,6 +33,7 @@ export const ReferFriendsTestIDs = {
   inviteManageCodes: 'refer-friends-invite-manage-codes',
   inviteYourReferred: 'refer-friends-invite-your-referred',
   inviteHeroRate: 'refer-friends-invite-hero-rate',
+  inviteHeroImage: 'refer-friends-invite-hero-image',
   inviteRewardHistory: 'refer-friends-invite-reward-history',
   invitePayoutAddress: 'refer-friends-invite-payout-address',
   invitePayoutAddressVisibility:
