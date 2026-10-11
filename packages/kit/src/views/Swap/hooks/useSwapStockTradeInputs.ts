@@ -258,18 +258,10 @@ function useStockInputTokenBalance({
           tokenDetail: token,
         });
       }
-      const details = await runStockPayTokenDetailsRequest({
-        mode: requestMode,
-        scope: buildStockTokenDetailsRequestScope({
-          protocol: EProtocolOfExchange.STOCK,
-          networkId: token.networkId,
-          contractAddress: token.contractAddress,
-          accountId: networkAccount.id,
-          accountAddress: networkAccount.address,
-          currency: 'usd',
-        }),
-        request: () =>
-          backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+      try {
+        const details = await runStockPayTokenDetailsRequest({
+          mode: requestMode,
+          scope: buildStockTokenDetailsRequestScope({
             protocol: EProtocolOfExchange.STOCK,
             networkId: token.networkId,
             contractAddress: token.contractAddress,
@@ -277,14 +269,33 @@ function useStockInputTokenBalance({
             accountAddress: networkAccount.address,
             currency: 'usd',
           }),
-      });
-      const authoritativeBalance = details?.[0]?.balanceParsed;
-      return completeRequestScope({
-        scope: balanceScope,
-        balance: authoritativeBalance,
-        hasAuthoritativeBalance: authoritativeBalance !== undefined,
-        tokenDetail: markStockUsdPriceCurrency(details?.[0]),
-      });
+          request: () =>
+            backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+              protocol: EProtocolOfExchange.STOCK,
+              networkId: token.networkId,
+              contractAddress: token.contractAddress,
+              accountId: networkAccount.id,
+              accountAddress: networkAccount.address,
+              currency: 'usd',
+            }),
+        });
+        const authoritativeBalance = details?.[0]?.balanceParsed;
+        return completeRequestScope({
+          scope: balanceScope,
+          balance: authoritativeBalance,
+          hasAuthoritativeBalance: authoritativeBalance !== undefined,
+          tokenDetail: markStockUsdPriceCurrency(details?.[0]),
+        });
+      } catch {
+        // Publish a settled failure for this scope instead of letting the
+        // promise hook retain a previous successful result as authoritative.
+        return completeRequestScope({
+          scope: balanceScope,
+          balance: undefined as string | undefined,
+          hasAuthoritativeBalance: false,
+          tokenDetail: undefined as ISwapToken | undefined,
+        });
+      }
     },
     [
       balanceScope,
@@ -352,11 +363,23 @@ function useStockInputTokenBalance({
       : undefined;
   const authoritativeTokenDetail =
     authoritativeBalance !== undefined ? detailState.tokenDetail : undefined;
+  // A request for the current scope is in flight (including a manual refresh);
+  // `settledBalance` keeps the last figure on screen meanwhile.
+  const requestPending = Boolean(
+    enabled &&
+    token &&
+    (!detailResolved ||
+      networkAccountLoading ||
+      shouldWaitForNetworkAccount ||
+      detailLoading),
+  );
+  const requestSettled = Boolean(enabled && token && !requestPending);
   const balanceState = resolveStockBalanceSnapshot({
     authoritativeBalance,
     authoritativeTokenDetail,
     ownerScope: balanceOwnerScope,
     previousSnapshot: lastValidBalanceStateRef.current,
+    requestSettled,
     seededBalance: enabled ? seededBalance : undefined,
     seededTokenDetail: enabled ? token : undefined,
   });
@@ -404,17 +427,6 @@ function useStockInputTokenBalance({
     token,
   ]);
 
-  // A request for the current scope is in flight (including a manual refresh);
-  // `settledBalance` keeps the last figure on screen meanwhile.
-  const requestPending = Boolean(
-    enabled &&
-    token &&
-    (!detailResolved ||
-      networkAccountLoading ||
-      shouldWaitForNetworkAccount ||
-      detailLoading),
-  );
-
   return {
     authoritativeTokenDetail,
     balance: balanceViewState.balance,
@@ -425,6 +437,7 @@ function useStockInputTokenBalance({
     // Authoritative when resolved, otherwise the figure carried over from the
     // previous snapshot (same token + account) or seeded from the token.
     settledBalance: balanceState?.balance,
+    settledBalanceUnverified: balanceState?.unverified ?? false,
     tokenDetail: balanceViewState.tokenDetail,
     loading: isStockBalanceInitializing({
       balance: balanceViewState.displayBalance,
@@ -855,10 +868,11 @@ export function useSwapStockAmountInputState({
     stockInputTokenBalance.settledBalance,
   ]);
 
-  // Sync the settled figure so the action button keeps its verdict while a
-  // same-token refresh is in flight instead of dropping to "unknown".
+  // Keep the retained figure visible during refresh, but publish it to the
+  // action state only while it remains verified for the current owner.
   useSwapStockSelectedBalanceSync({
     balance: stockInputTokenBalance.settledBalance,
+    balanceVerified: !stockInputTokenBalance.settledBalanceUnverified,
     enabled: inputTokenReady,
     ownerScope: stockInputTokenBalance.ownerScope,
   });
