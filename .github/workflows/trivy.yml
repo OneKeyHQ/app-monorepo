@@ -22,6 +22,17 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  # Shared by every Trivy invocation below. trivy-action forwards TRIVY_*
+  # variables to the Trivy CLI, so the branch (SARIF) and pull-request (JSON)
+  # scans always run with identical settings.
+  TRIVY_SCANNERS: vuln,misconfig,secret
+  TRIVY_SEVERITY: HIGH,CRITICAL
+  TRIVY_IGNORE_UNFIXED: "true"
+  TRIVY_TIMEOUT: 20m0s
+  # Workspace sub-directory that receives the base-branch checkout on pull requests.
+  PR_BASE_DIR: .trivy-base
+
 jobs:
   trivy-security-scan:
     name: Trivy Security Scan
@@ -34,19 +45,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
+      # Branch pushes, the weekly schedule and manual runs publish SARIF so the
+      # Security tab and branch alerts stay current.
       - name: Run Trivy security scan
+        if: github.event_name != 'pull_request'
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scan-ref: .
-          scanners: vuln,misconfig,secret
-          severity: HIGH,CRITICAL
           limit-severities-for-sarif: true
-          ignore-unfixed: true
           format: sarif
           output: trivy-results.sarif
           exit-code: "0"
-          timeout: 20m0s
 
       - name: Upload SARIF results
         # Skip on pull_request: the code-scanning results check that this
@@ -54,11 +64,57 @@ jobs:
         # a diff exceeds GitHub's processing limit it silently falls back to
         # attributing every open alert on the merge ref to the PR (the check
         # summary says "code changes were too large"). Big PRs then fail on
-        # baseline yarn.lock CVEs they never touched. Push and schedule scans
-        # keep the Security tab current; Socket and Snyk cover PR-level
-        # dependency review.
+        # baseline yarn.lock CVEs they never touched. Pull requests are gated
+        # by the head-vs-base comparison below instead.
         if: github.event_name != 'pull_request'
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-results.sarif
           category: trivy
+
+      # Pull requests: scan the merge result and the base branch with the same
+      # settings, then fail only on findings the pull request introduces. New
+      # HIGH/CRITICAL vulnerabilities, misconfigurations and secrets stay
+      # visible before merge without relying on GitHub's diff attribution.
+      - name: Scan pull request head
+        if: github.event_name == 'pull_request'
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: json
+          output: trivy-head.json
+          exit-code: "0"
+
+      # Checked out after the head scan so the extra tree never ends up in it.
+      - name: Checkout base branch
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: ${{ env.PR_BASE_DIR }}
+
+      - name: Scan base branch
+        if: github.event_name == 'pull_request'
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: ${{ env.PR_BASE_DIR }}
+          format: json
+          output: trivy-base.json
+          exit-code: "0"
+
+      - name: Fail on findings new to this pull request
+        if: github.event_name == 'pull_request'
+        run: node .github/scripts/trivyNewFindings.js trivy-head.json trivy-base.json --strip-prefix "$PR_BASE_DIR"
+
+      - name: Upload pull request scan reports
+        if: github.event_name == 'pull_request' && !cancelled()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-pr-reports
+          path: |
+            trivy-head.json
+            trivy-base.json
+          retention-days: 14
+          if-no-files-found: ignore
