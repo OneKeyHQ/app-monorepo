@@ -1123,6 +1123,7 @@ export function HomePageView({
                 : null,
           }))}
           initialTabName={seedTabName}
+          headerHeightHint={nativeHeaderHeightHint}
           renderHeader={renderHeader}
           renderTabBar={renderTabBar}
           onTabChange={handleTabChange}

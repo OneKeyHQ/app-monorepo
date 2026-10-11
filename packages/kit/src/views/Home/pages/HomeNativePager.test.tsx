@@ -7,9 +7,14 @@ import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 import { HomeNativePager } from './HomeNativePager.native';
 
+import type { LayoutChangeEvent } from 'react-native';
+
 const mockSetPage = jest.fn();
 const mockSetPageWithoutAnimation = jest.fn();
+const mockHeaderHeightCommits: number[] = [];
 const mockNativeEvents: {
+  headerHeight?: number;
+  header?: React.ReactElement<{ onLayout: (event: LayoutChangeEvent) => void }>;
   onPageScroll?: (event: {
     nativeEvent: { position: number; offset: number };
   }) => void;
@@ -29,8 +34,13 @@ jest.mock('react-native-pager-view', () => ({
     ...events
   }: { ref: React.Ref<unknown> } & typeof mockNativeEvents) => {
     Object.assign(mockNativeEvents, events);
-    const { useImperativeHandle } =
+    const { useImperativeHandle, useLayoutEffect } =
       jest.requireActual<typeof import('react')>('react');
+    useLayoutEffect(() => {
+      if (events.headerHeight !== undefined) {
+        mockHeaderHeightCommits.push(events.headerHeight);
+      }
+    });
     useImperativeHandle(ref, () => ({
       setPage: mockSetPage,
       setPageWithoutAnimation: mockSetPageWithoutAnimation,
@@ -41,6 +51,76 @@ jest.mock('react-native-pager-view', () => ({
 jest.mock('react-native-reanimated', () => {
   const { useRef } = jest.requireActual<typeof import('react')>('react');
   return { useSharedValue: (value: unknown) => useRef({ value }).current };
+});
+
+const headerTestProps = {
+  tabs: [{ id: EHomeWalletTab.Portfolio, name: 'Spot', component: null }],
+  renderHeader: () => null,
+  renderTabBar: () => null,
+  onTabChange: jest.fn(),
+};
+const headerLayoutEvent = (height: number): LayoutChangeEvent =>
+  ({
+    nativeEvent: { layout: { x: 0, y: 0, width: 400, height } },
+  }) as LayoutChangeEvent;
+
+it.each([292, 236, undefined])(
+  'starts with header hint %s or the default height',
+  (headerHeightHint) => {
+    render(
+      <HomeNativePager
+        {...headerTestProps}
+        headerHeightHint={headerHeightHint}
+      />,
+    );
+    expect(mockNativeEvents.headerHeight).toBe(headerHeightHint ?? 182);
+  },
+);
+
+it('corrects the hint with layout and retains measurement for a stable hint', () => {
+  mockHeaderHeightCommits.length = 0;
+  const { rerender } = render(
+    <HomeNativePager {...headerTestProps} headerHeightHint={292} />,
+  );
+  act(() => mockNativeEvents.header?.props.onLayout(headerLayoutEvent(301.2)));
+  expect(mockNativeEvents.headerHeight).toBe(302);
+  rerender(<HomeNativePager {...headerTestProps} headerHeightHint={292} />);
+  expect(mockNativeEvents.headerHeight).toBe(302);
+
+  rerender(<HomeNativePager {...headerTestProps} headerHeightHint={240} />);
+  expect(mockNativeEvents.headerHeight).toBe(240);
+  act(() => mockNativeEvents.header?.props.onLayout(headerLayoutEvent(248.5)));
+  expect(mockNativeEvents.headerHeight).toBe(249);
+  rerender(<HomeNativePager {...headerTestProps} />);
+  expect(mockNativeEvents.headerHeight).toBe(182);
+  expect(mockHeaderHeightCommits).toEqual([292, 302, 302, 240, 249, 182]);
+});
+
+it('resets A -> B -> A without a B measurement and ignores stale layouts', () => {
+  mockHeaderHeightCommits.length = 0;
+  const { rerender } = render(
+    <HomeNativePager {...headerTestProps} headerHeightHint={292} />,
+  );
+  const oldAOnLayout = mockNativeEvents.header?.props.onLayout;
+  act(() => oldAOnLayout?.(headerLayoutEvent(310)));
+  expect(mockNativeEvents.headerHeight).toBe(310);
+
+  rerender(<HomeNativePager {...headerTestProps} headerHeightHint={240} />);
+  expect(mockNativeEvents.headerHeight).toBe(240);
+  const oldBOnLayout = mockNativeEvents.header?.props.onLayout;
+  act(() => oldAOnLayout?.(headerLayoutEvent(320)));
+  expect(mockNativeEvents.headerHeight).toBe(240);
+
+  rerender(<HomeNativePager {...headerTestProps} headerHeightHint={292} />);
+  expect(mockNativeEvents.headerHeight).toBe(292);
+  act(() => {
+    oldAOnLayout?.(headerLayoutEvent(320));
+    oldBOnLayout?.(headerLayoutEvent(250));
+  });
+  expect(mockNativeEvents.headerHeight).toBe(292);
+  act(() => mockNativeEvents.header?.props.onLayout(headerLayoutEvent(304)));
+  expect(mockNativeEvents.headerHeight).toBe(304);
+  expect(mockHeaderHeightCommits).toEqual([292, 310, 240, 292, 304]);
 });
 
 it.each([

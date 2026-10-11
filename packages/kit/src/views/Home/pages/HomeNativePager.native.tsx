@@ -23,6 +23,7 @@ export function HomeNativePager({
   ref,
   tabs,
   initialTabName,
+  headerHeightHint,
   renderHeader,
   renderTabBar,
   onTabChange,
@@ -37,7 +38,19 @@ export function HomeNativePager({
     0,
     tabs.findIndex((tab) => tab.id === selectedId),
   );
-  const [headerHeight, setHeaderHeight] = useState(182);
+  const [headerLayout, setHeaderLayout] = useState({
+    hint: headerHeightHint,
+    height: headerHeightHint ?? 182,
+    generation: 0,
+  });
+  if (headerLayout.hint !== headerHeightHint) {
+    // Reset before committing a new header variant, including A -> B -> A.
+    setHeaderLayout({
+      hint: headerHeightHint,
+      height: headerHeightHint ?? 182,
+      generation: headerLayout.generation + 1,
+    });
+  }
   const [stickyHeight, setStickyHeight] = useState(48);
   const pagerRef = useRef<CollapsiblePagerView>(null);
   const focusedTab = useSharedValue(tabs[initialIndex]?.name ?? '');
@@ -139,16 +152,21 @@ export function HomeNativePager({
       initialPage={initialIndex}
       nestedScrollEnabled
       nativeSmoothHeaderScrollEnabled
-      headerHeight={headerHeight}
+      headerHeight={headerLayout.height}
       stickyHeaderHeight={stickyHeight}
       // Spot remains the owner of shared asset loading even while offscreen.
       pageRetentionDistance={tabs.length}
       offscreenPageLimit={Math.max(1, tabs.length - 1)}
       header={
         <View
-          onLayout={(event) =>
-            setHeaderHeight(Math.ceil(event.nativeEvent.layout.height))
-          }
+          onLayout={(event) => {
+            const height = Math.ceil(event.nativeEvent.layout.height);
+            setHeaderLayout((current) =>
+              current.generation === headerLayout.generation
+                ? { ...current, height }
+                : current,
+            );
+          }}
         >
           {renderHeader()}
         </View>

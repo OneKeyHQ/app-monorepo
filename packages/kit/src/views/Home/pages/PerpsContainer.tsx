@@ -95,6 +95,9 @@ import type { View } from 'react-native';
 
 debugPerpsChain('module.evaluated');
 
+const isPerpsChainDebugEnabled =
+  process.env.NODE_ENV !== 'production' && platformEnv.isNative;
+
 const HYPER_EVM_LOGO_URI =
   'https://uni.onekey-asset.com/static/chain/hyper-evm.png';
 const SPAN_1: React.CSSProperties = { gridColumnEnd: 'span 1' };
@@ -566,17 +569,26 @@ function PerpsLoadingState() {
   return (
     <>
       <YStack
-        testID="perps-chain-skeleton"
-        ref={skeletonRef}
-        onLayout={(event) => {
-          if (process.env.NODE_ENV === 'production' || !platformEnv.isNative) {
-            return;
-          }
-          debugPerpsChain('skeleton.nativeLayout', event.nativeEvent.layout);
-          skeletonRef.current?.measureInWindow((x, y, width, height) =>
-            debugPerpsChain('skeleton.nativeWindow', { x, y, width, height }),
-          );
-        }}
+        testID={isPerpsChainDebugEnabled ? 'perps-chain-skeleton' : undefined}
+        ref={isPerpsChainDebugEnabled ? skeletonRef : undefined}
+        onLayout={
+          isPerpsChainDebugEnabled
+            ? (event) => {
+                debugPerpsChain(
+                  'skeleton.nativeLayout',
+                  event.nativeEvent.layout,
+                );
+                skeletonRef.current?.measureInWindow((x, y, width, height) =>
+                  debugPerpsChain('skeleton.nativeWindow', {
+                    x,
+                    y,
+                    width,
+                    height,
+                  }),
+                );
+              }
+            : undefined
+        }
         display="flex"
         $gtMd={{ display: 'none' }}
         gap="$3"
@@ -1659,11 +1671,17 @@ export function PerpsContainer() {
   return (
     <Stack flex={1}>
       <HomeScrollView
-        onLayout={(event) =>
-          debugPerpsChain('scroll.nativeLayout', event.nativeEvent.layout)
+        onLayout={
+          isPerpsChainDebugEnabled
+            ? (event) =>
+                debugPerpsChain('scroll.nativeLayout', event.nativeEvent.layout)
+            : undefined
         }
-        onContentSizeChange={(width, height) =>
-          debugPerpsChain('scroll.nativeContentSize', { width, height })
+        onContentSizeChange={
+          isPerpsChainDebugEnabled
+            ? (width, height) =>
+                debugPerpsChain('scroll.nativeContentSize', { width, height })
+            : undefined
         }
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: tabBarHeight }}
@@ -1675,11 +1693,14 @@ export function PerpsContainer() {
         }
       >
         <YStack
-          onLayout={(event) =>
-            debugPerpsChain('body.nativeLayout', {
-              ...event.nativeEvent.layout,
-              viewState,
-            })
+          onLayout={
+            isPerpsChainDebugEnabled
+              ? (event) =>
+                  debugPerpsChain('body.nativeLayout', {
+                    ...event.nativeEvent.layout,
+                    viewState,
+                  })
+              : undefined
           }
           px="$5"
           py="$3"

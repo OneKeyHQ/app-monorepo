@@ -9,6 +9,7 @@ export type IHomeNativePagerProps = {
   ref?: Ref<ITabContainerRef>;
   tabs: { id: EHomeWalletTab; name: string; component: ReactNode }[];
   initialTabName?: string;
+  headerHeightHint?: number;
   renderHeader: () => ReactNode;
   renderTabBar: (props: {
     focusedTab: SharedValue<string>;
