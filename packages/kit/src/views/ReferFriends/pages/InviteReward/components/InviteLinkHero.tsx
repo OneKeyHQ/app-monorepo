@@ -289,17 +289,20 @@ export function InviteCompactCard({
         <SizableText size="$bodyMdMedium" numberOfLines={1} flexShrink={1}>
           {inviteCodeUrl}
         </SizableText>
-        <ReferralLinkDropdown inviteUrl={inviteUrl} />
-        <IconButton
-          testID={ReferFriendsTestIDs.copyLinkBtn}
-          variant="tertiary"
-          size="small"
-          icon="Copy3Outline"
-          title={intl.formatMessage({
-            id: ETranslations.referral_copy_link__action,
-          })}
-          onPress={copyLink}
-        />
+        {/* Spaced so the two 44px touch areas do not overlap. */}
+        <XStack ai="center" gap="$3" pl="$1" flexShrink={0}>
+          <ReferralLinkDropdown inviteUrl={inviteUrl} />
+          <IconButton
+            testID={ReferFriendsTestIDs.copyLinkBtn}
+            variant="tertiary"
+            size="small"
+            icon="Copy3Outline"
+            title={intl.formatMessage({
+              id: ETranslations.referral_copy_link__action,
+            })}
+            onPress={copyLink}
+          />
+        </XStack>
       </CompactFieldRow>
     </YStack>
   );

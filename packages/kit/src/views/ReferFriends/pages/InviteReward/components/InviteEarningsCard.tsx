@@ -378,6 +378,8 @@ function CompactEarnings({
           size="$4"
           color="$iconSubdued"
           flexShrink={0}
+          // Clear of the eye button's touch area.
+          ml="$2"
         />
       </ListItem>
     </YStack>

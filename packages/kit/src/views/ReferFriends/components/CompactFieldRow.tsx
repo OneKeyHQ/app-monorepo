@@ -4,8 +4,8 @@ import { SizableText, XStack, YStack } from '@onekeyhq/components';
 
 // One label/value line of the compact referral cards: a subdued label (with
 // an optional leading mark) on the left, the value and its inline actions on
-// the right, and an optional hint under the value it explains. These rows
-// show facts rather than open pages, so they sit tighter than 44px list rows.
+// the right, and an optional hint under the value it explains. They hold
+// inline actions (copy, more links), so they keep the 44px touch row height.
 export function CompactFieldRow({
   label,
   leading,
@@ -18,7 +18,7 @@ export function CompactFieldRow({
   children: ReactNode;
 }) {
   return (
-    <XStack minHeight={36} py="$1" ai="center" gap="$3">
+    <XStack minHeight={44} py="$1" ai="center" gap="$3">
       <XStack flexShrink={0} ai="center" gap="$2">
         {leading}
         <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>

@@ -76,10 +76,10 @@ export const InviteTabContent = memo(function InviteTabContent({
         // each side gets, the level) over the code card and the bind entry.
         // The money follows under its own caption, with the referral list
         // beside it, a scroll away. Captions sit 8px over their card, cards
-        // 16px apart inside a group, 24px between groups. Sharing itself
-        // sits in the page footer.
-        <YStack px="$pagePadding" gap="$6">
-          <YStack gap="$4">
+        // 20px apart inside a group, 32px between groups, roomy enough for
+        // touch. Sharing itself sits in the page footer.
+        <YStack px="$pagePadding" gap="$8">
+          <YStack gap="$5">
             <InviteCompactHero
               valueSummary={valueSummary}
               rebateConfig={summaryInfo.rebateConfig}
@@ -89,7 +89,7 @@ export const InviteTabContent = memo(function InviteTabContent({
             />
             {/* The bind line belongs to the code card, so it sits closer to
                 it than the cards sit to each other. */}
-            <YStack gap="$2.5">
+            <YStack gap="$3">
               <InviteCompactCard
                 inviteUrl={inviteUrl}
                 inviteCode={summaryInfo.inviteCode}
@@ -101,7 +101,7 @@ export const InviteTabContent = memo(function InviteTabContent({
           </YStack>
           <YStack gap="$2">
             <InviteEarningsCaption />
-            <YStack gap="$4">
+            <YStack gap="$5">
               <InviteEarningsCard
                 summaryInfo={summaryInfo}
                 fetchSummaryInfo={fetchSummaryInfo}

@@ -323,11 +323,6 @@ const InviteShareFooter = memo(function InviteShareFooter({
     <Page.Footer>
       <Page.FooterActions
         bg={backgroundColor}
-        // Tighter than the default 20px: 12px above the button, and 12px
-        // below it plus the safe area, which still clears the home
-        // indicator; the content keeps the difference.
-        pt="$3"
-        pb="$3"
         onConfirm={handleInvite}
         onConfirmText={intl.formatMessage({
           id: ETranslations.referral_invite_friends__action,

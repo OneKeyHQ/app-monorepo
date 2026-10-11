@@ -263,6 +263,10 @@ export function RateLineTrigger({
           testID={testID}
           jc={centered ? 'center' : undefined}
           cursor="default"
+          // A single text line is too short to tap; the padding grows the
+          // touch area and the margin keeps the layout where it was.
+          py="$3"
+          my="$-3"
         >
           <RateLine
             summary={summary}

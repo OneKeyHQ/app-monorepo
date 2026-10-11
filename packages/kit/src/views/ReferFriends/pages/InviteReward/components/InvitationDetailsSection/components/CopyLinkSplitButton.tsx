@@ -15,6 +15,7 @@ import {
   REFERRAL_LINK_POPOVER_WIDTH,
   ReferralLinkPopoverContent,
 } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/shared';
+import { NATIVE_VERTICAL_HIT_SLOP } from '@onekeyhq/kit/src/views/ReferFriends/utils/touchTarget';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
@@ -45,6 +46,7 @@ export function CopyLinkSplitButton({ url }: ICopyLinkSplitButtonProps) {
         py="$1.5"
         hoverStyle={{ bg: '$bgHover' }}
         pressStyle={{ bg: '$bgActive' }}
+        hitSlop={NATIVE_VERTICAL_HIT_SLOP}
         onPress={() => {}}
       >
         <Icon name="ChevronDownSmallOutline" size="$4" color="$icon" />
@@ -64,6 +66,7 @@ export function CopyLinkSplitButton({ url }: ICopyLinkSplitButtonProps) {
         px="$2.5"
         py="$1.5"
         onPress={handleCopy}
+        hitSlop={NATIVE_VERTICAL_HIT_SLOP}
         hoverStyle={{ bg: '$bgHover' }}
         pressStyle={{ bg: '$bgActive' }}
         cursor="pointer"

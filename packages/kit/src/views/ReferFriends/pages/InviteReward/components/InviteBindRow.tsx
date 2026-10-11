@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Divider,
+  NATIVE_HIT_SLOP,
   SizableText,
   Skeleton,
   XStack,
@@ -103,6 +104,7 @@ export function InviteBindRow({
             // The question stays subdued; the action reads as the action.
             color="$text"
             iconAfter="ChevronRightSmallOutline"
+            hitSlop={NATIVE_HIT_SLOP}
             onPress={handlePress}
           >
             {intl.formatMessage({
