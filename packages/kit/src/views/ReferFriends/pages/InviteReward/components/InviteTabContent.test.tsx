@@ -17,6 +17,7 @@ import { InviteTabContent } from './InviteTabContent';
 
 const mockCopyText = jest.fn();
 const mockCopyUrl = jest.fn();
+const mockShowReferralShareDialog = jest.fn();
 const mockNavigateToYourReferred = jest.fn();
 const mockNavigateToInviteCodes = jest.fn();
 const mockNavigateToEditAddress = jest.fn();
@@ -189,6 +190,15 @@ jest.mock(
   () => ({ useNavigateToEarnReward: () => mockNavigateToEarnReward }),
 );
 
+jest.mock(
+  '@onekeyhq/kit/src/views/ReferFriends/components/ReferralShare',
+  () => ({
+    showReferralShareDialog: (data: unknown) => {
+      mockShowReferralShareDialog(data);
+    },
+    getReferralShareCopy: () => ({ headlineId: 'headline', shareText: '' }),
+  }),
+);
 jest.mock('./ReferralLinkDropdown', () => ({
   ReferralLinkDropdown: () => null,
 }));
@@ -297,6 +307,27 @@ describe('InviteTabContent entry points', () => {
     fireEvent.click(screen.getByTestId(ReferFriendsTestIDs.inviteCodeRow));
     expect(mockCopyText).toHaveBeenCalledTimes(1);
     expect(mockCopyText).toHaveBeenCalledWith(SUMMARY.inviteCode);
+  });
+
+  it('opens the share card from the desktop invite card', () => {
+    renderTab();
+
+    fireEvent.click(screen.getByTestId(ReferFriendsTestIDs.inviteShareCardBtn));
+    expect(mockShowReferralShareDialog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        inviteCode: SUMMARY.inviteCode,
+        inviteUrl: SUMMARY.inviteUrl,
+      }),
+    );
+  });
+
+  it('keeps the share card on the footer on compact layouts', () => {
+    mockMd = true;
+    renderTab();
+
+    expect(
+      screen.queryByTestId(ReferFriendsTestIDs.inviteShareCardBtn),
+    ).toBeNull();
   });
 
   it('opens the invite codes page from the code line', () => {

@@ -18,6 +18,7 @@ export const ReferFriendsTestIDs = {
   inviteAllLevelsBtn: 'refer-friends-invite-all-levels-btn',
   levelRulesBtn: 'refer-friends-level-rules-btn',
   inviteShareBtn: 'refer-friends-invite-share-btn',
+  inviteShareCardBtn: 'refer-friends-invite-share-card-btn',
   shareSaveBtn: 'refer-friends-share-save-btn',
   shareCopyLinkBtn: 'refer-friends-share-copy-link-btn',
   shareXBtn: 'refer-friends-share-x-btn',

@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -12,7 +13,12 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  getReferralShareCopy,
+  showReferralShareDialog,
+} from '@onekeyhq/kit/src/views/ReferFriends/components/ReferralShare';
 import { useNavigateToYourReferred } from '@onekeyhq/kit/src/views/ReferFriends/pages/YourReferred/hooks';
+import { formatInviteUrlForDisplay } from '@onekeyhq/kit/src/views/ReferFriends/utils/inviteUrlUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -74,12 +80,16 @@ function InviteLinkActions({
   copyLabel,
   copyLink,
   shareButton,
+  shareCardButton,
 }: {
   inviteUrl: string;
   displayUrl: string;
   copyLabel: string;
   copyLink: () => void;
   shareButton: ReactNode;
+  // Opens the share card (image, X, Telegram); desktop and web only, where
+  // there is no page footer to hold it.
+  shareCardButton: ReactNode;
 }) {
   const linkField = (
     <InviteLinkField inviteUrl={inviteUrl} displayUrl={displayUrl} grow />
@@ -106,11 +116,15 @@ function InviteLinkActions({
   );
 
   return (
-    <InviteLinkField
-      inviteUrl={inviteUrl}
-      displayUrl={displayUrl}
-      trailing={copyButton}
-    />
+    <XStack ai="center" gap="$2">
+      <InviteLinkField
+        inviteUrl={inviteUrl}
+        displayUrl={displayUrl}
+        trailing={copyButton}
+        grow
+      />
+      {shareCardButton}
+    </XStack>
   );
 }
 
@@ -146,21 +160,32 @@ export function InviteLinkHero({
       inviteUrl,
       inviteCode,
     });
+  const inviteeRate = valueSummary.summary?.friendRate;
+  const openShareCard = useCallback(() => {
+    showReferralShareDialog({
+      copy: getReferralShareCopy(intl, inviteeRate),
+      inviteCode,
+      inviteUrl,
+      displayUrl: formatInviteUrlForDisplay(inviteUrl),
+    });
+  }, [intl, inviteCode, inviteUrl, inviteeRate]);
 
   return (
     // Mirrors the earnings card beside it: header, the main block, then a
     // hairline and a label-over-value row at the bottom, so both cards'
     // hairlines and bottom rows line up.
     <YStack flex={1} gap="$4">
-      <XStack ai="flex-start" gap="$3">
-        <YStack flex={1} gap="$1">
-          <SizableText size="$headingLg">
+      {/* Built like the earnings card's header (the link centered on the
+          title row), so both cards' links sit at one height. */}
+      <YStack gap="$1">
+        <XStack ai="center" jc="space-between" gap="$3">
+          <SizableText size="$headingLg" flexShrink={1}>
             {intl.formatMessage({ id: ETranslations.referral_home__title })}
           </SizableText>
-          <RateLineTrigger valueSummary={valueSummary} />
-        </YStack>
-        <ReferralListLink />
-      </XStack>
+          <ReferralListLink />
+        </XStack>
+        <RateLineTrigger valueSummary={valueSummary} />
+      </YStack>
       <InviteLinkActions
         inviteUrl={inviteUrl}
         displayUrl={inviteCodeUrl}
@@ -177,20 +202,27 @@ export function InviteLinkHero({
             onPress={handleShare}
           />
         }
+        shareCardButton={
+          <IconButton
+            testID={ReferFriendsTestIDs.inviteShareCardBtn}
+            variant="secondary"
+            // As tall as the link field beside it.
+            size="large"
+            icon="ShareOutline"
+            title={intl.formatMessage({ id: ETranslations.explore_share })}
+            onPress={openShareCard}
+          />
+        }
       />
       <Divider mt="auto" borderColor={INVITE_CARD_BORDER_COLOR} />
-      <XStack ai="center" gap="$6">
+      <XStack ai="flex-start" gap="$6">
         <InviteStatCell
           testID={ReferFriendsTestIDs.inviteCodeLine}
           label={intl.formatMessage({ id: ETranslations.referral_your_code })}
           onPress={handleCopy}
         >
           <XStack ai="center" gap="$2" minWidth={0}>
-            <SizableText
-              size="$bodyLgMedium"
-              numberOfLines={1}
-              flexShrink={1}
-            >
+            <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={1}>
               {inviteCode}
             </SizableText>
             <Icon
@@ -201,13 +233,17 @@ export function InviteLinkHero({
             />
           </XStack>
         </InviteStatCell>
-        <CardTextAction
-          testID={ReferFriendsTestIDs.inviteManageCodes}
-          label={intl.formatMessage({
-            id: ETranslations.referral_manage_codes__action,
-          })}
-          onPress={onManageCodes}
-        />
+        {/* On the label's line (the cell's 4px padding plus its 20px
+            line), like the header links on theirs. */}
+        <XStack h={28} ai="center">
+          <CardTextAction
+            testID={ReferFriendsTestIDs.inviteManageCodes}
+            label={intl.formatMessage({
+              id: ETranslations.referral_manage_codes__action,
+            })}
+            onPress={onManageCodes}
+          />
+        </XStack>
       </XStack>
     </YStack>
   );

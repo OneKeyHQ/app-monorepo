@@ -12,6 +12,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components';
+import { canShareImageToSystem } from '@onekeyhq/kit/src/utils/shareUtils';
 import { useShareActions } from '@onekeyhq/kit/src/views/RookieGuide/components/RookieShare/useShareActions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -210,22 +211,27 @@ function ReferralShareContent({
           label={REFERRAL_SHARE_NAMES.telegram}
           onPress={handleTelegram}
         />
-        <ShareAction
-          testID={ReferFriendsTestIDs.shareMoreBtn}
-          icon="DotHorOutline"
-          label={intl.formatMessage({ id: ETranslations.global_more })}
-          disabled={isActionLoading}
-          onPress={() => {
-            void handleMore();
-          }}
-        />
+        {/* Without a system share sheet (most desktop and web hosts) it
+            would only repeat Save. */}
+        {canShareImageToSystem() ? (
+          <ShareAction
+            testID={ReferFriendsTestIDs.shareMoreBtn}
+            icon="DotHorOutline"
+            label={intl.formatMessage({ id: ETranslations.global_more })}
+            disabled={isActionLoading}
+            onPress={() => {
+              void handleMore();
+            }}
+          />
+        ) : null}
       </XStack>
     </YStack>
   );
 }
 
-// The invite footer's "Invite friends": a preview of the share card with
-// save, copy link, X, Telegram and the system share sheet.
+// The invite footer's "Invite friends" on phones and the share button on
+// desktop: a preview of the share card with save, copy link, X, Telegram
+// and, where the platform has one, the system share sheet.
 export function showReferralShareDialog(data: IReferralShareData) {
   if (isDialogShowing) {
     return null;
