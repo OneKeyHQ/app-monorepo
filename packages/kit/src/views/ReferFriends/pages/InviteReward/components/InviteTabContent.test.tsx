@@ -28,10 +28,7 @@ const mockNavigateToSwapReward = jest.fn();
 const mockNavigateToEarnReward = jest.fn();
 let mockMd = false;
 
-const mockHeroImageProps: Array<{
-  preloadOtherStep?: boolean;
-  still?: boolean;
-}> = [];
+const mockUseReferLottieSource = jest.fn();
 
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -67,6 +64,7 @@ jest.mock('@onekeyhq/components', () => {
   const hooks: Record<string, unknown> = {
     useMedia: () => ({ md: mockMd, gtMd: !mockMd }),
     useClipboard: () => ({ copyText: mockCopyText, copyUrl: mockCopyUrl }),
+    usePageWidth: () => 393,
   };
   return new Proxy(
     {},
@@ -78,14 +76,19 @@ jest.mock('@onekeyhq/components', () => {
 });
 
 jest.mock(
-  '@onekeyhq/kit/src/views/ReferFriends/pages/ReferAFriend/components/InviteCodeStepImage',
+  '@onekeyhq/kit/src/views/ReferFriends/hooks/useReferLottieSource',
   () => ({
-    InviteCodeStepImage: (props: (typeof mockHeroImageProps)[number]) => {
-      mockHeroImageProps.push(props);
+    useReferLottieSource: (...args: unknown[]) => {
+      mockUseReferLottieSource(...args);
       return null;
     },
+    getReferLottieSource: () => Promise.resolve(null),
   }),
 );
+
+jest.mock('@onekeyhq/kit/src/hooks/useThemeVariant', () => ({
+  useThemeVariant: () => 'light',
+}));
 
 jest.mock('@onekeyhq/kit/src/components/NetworkAvatar', () => ({
   NetworkAvatar: ({ networkId }: { networkId: string }) => (
@@ -398,15 +401,11 @@ describe('InviteTabContent entry points', () => {
     ).toBeTruthy();
   });
 
-  it('shows the hero illustration still', () => {
+  it('shows the hero as a still image without loading the animation', () => {
     mockMd = true;
-    mockHeroImageProps.length = 0;
     renderTab();
 
-    const props = mockHeroImageProps.at(-1);
-    expect(props?.still).toBe(true);
-    // The home shows one illustration, so it skips the intro's other one.
-    expect(props?.preloadOtherStep).toBe(false);
+    expect(mockUseReferLottieSource).not.toHaveBeenCalled();
   });
 
   it.each([false, true])(

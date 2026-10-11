@@ -1,7 +1,17 @@
 import { useIntl } from 'react-intl';
 
-import { SizableText, XStack, YStack } from '@onekeyhq/components';
-import { InviteCodeStepImage } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferAFriend/components/InviteCodeStepImage';
+import {
+  Image,
+  SizableText,
+  XStack,
+  YStack,
+  usePageWidth,
+} from '@onekeyhq/components';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import {
+  getInviteCodeStepImageHeight,
+  getInviteCodeStepImageWidth,
+} from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferAFriend/components/InviteCodeStepImage';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteLevelDetail } from '@onekeyhq/shared/src/referralCode/type';
 
@@ -25,14 +35,27 @@ export function InviteCompactHero({
   levelDetail: IInviteLevelDetail | undefined;
 }) {
   const intl = useIntl();
+  const isDark = useThemeVariant() === 'dark';
+  const pageWidth = usePageWidth();
 
   return (
     <YStack ai="center" gap="$3">
-      {/* The intro's referral illustration at page width: its frames span
-          the whole canvas, so a narrower box leaves half of it empty. It
-          shows still, on the frame with both hands in view. Its background
-          matches the canvas, so it bleeds past the page padding unseen. */}
-      <InviteCodeStepImage step={2} preloadOtherStep={false} still />
+      {/* A still of the intro's referral animation (its settled frame, both
+          hands in view), so the page loads no Lottie. Sized like the
+          animation, at page width: its art spans the whole canvas. The
+          background is transparent, so it bleeds past the page padding
+          unseen. */}
+      <Image
+        w={getInviteCodeStepImageWidth(pageWidth)}
+        h={getInviteCodeStepImageHeight(pageWidth)}
+        alignSelf="center"
+        resizeMode="contain"
+        source={
+          isDark
+            ? require('@onekeyhq/kit/assets/referral_invite_hero_dark.png')
+            : require('@onekeyhq/kit/assets/referral_invite_hero.png')
+        }
+      />
       <YStack ai="center" gap="$2">
         <SizableText size="$heading2xl" textAlign="center">
           {intl.formatMessage({ id: ETranslations.referral_home__title })}
