@@ -306,6 +306,19 @@ describe('InviteTabContent entry points', () => {
     expect(mockCopyText).toHaveBeenCalledWith(SUMMARY.inviteCode);
   });
 
+  it('copies the code and the link from their whole rows on compact', () => {
+    mockMd = true;
+    renderTab();
+
+    fireEvent.click(screen.getByTestId(ReferFriendsTestIDs.inviteLinkRow));
+    expect(mockCopyUrl).toHaveBeenCalledTimes(1);
+    expect(mockCopyUrl).toHaveBeenCalledWith(SUMMARY.inviteUrl);
+
+    fireEvent.click(screen.getByTestId(ReferFriendsTestIDs.inviteCodeRow));
+    expect(mockCopyText).toHaveBeenCalledTimes(1);
+    expect(mockCopyText).toHaveBeenCalledWith(SUMMARY.inviteCode);
+  });
+
   it('opens the invite codes page from the code line', () => {
     renderTab();
 

@@ -25,6 +25,8 @@ export const ReferFriendsTestIDs = {
   shareTelegramBtn: 'refer-friends-share-telegram-btn',
   shareMoreBtn: 'refer-friends-share-more-btn',
   inviteCodeLine: 'refer-friends-invite-code-line',
+  inviteCodeRow: 'refer-friends-invite-code-row',
+  inviteLinkRow: 'refer-friends-invite-link-row',
   inviteManageCodes: 'refer-friends-invite-manage-codes',
   inviteYourReferred: 'refer-friends-invite-your-referred',
   inviteHeroRate: 'refer-friends-invite-hero-rate',
