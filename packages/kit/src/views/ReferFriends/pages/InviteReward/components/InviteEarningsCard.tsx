@@ -114,10 +114,6 @@ function StatCell({
         </XStack>
         {children}
       </YStack>
-      {/* The only pressable cell is the payout address, which it edits. */}
-      {onPress ? (
-        <Icon name="PencilOutline" size="$5" color="$iconSubdued" />
-      ) : null}
     </XStack>
   );
 }
@@ -138,12 +134,14 @@ function PayoutAddressValue({
   size,
   color,
   visibility,
+  trailing,
 }: {
   address: string;
   networkId?: string;
   size: '$bodyLgMedium' | '$bodyMd';
   color?: '$textSubdued' | '$textCaution';
   visibility?: IPayoutAddressVisibility;
+  trailing?: ReactNode;
 }) {
   const isHidden = visibility ? !visibility.isVisible : false;
   return (
@@ -167,6 +165,7 @@ function PayoutAddressValue({
           onPress={visibility.onToggle}
         />
       ) : null}
+      {trailing}
     </XStack>
   );
 }
@@ -287,6 +286,16 @@ function DesktopEarnings({
             networkId={payoutNetworkId}
             size="$bodyLgMedium"
             visibility={addressVisibility}
+            // Right after the value it edits, not at the cell's far edge.
+            trailing={
+              <Icon
+                name="PencilOutline"
+                size="$5"
+                color="$iconSubdued"
+                flexShrink={0}
+                ml="$2"
+              />
+            }
           />
         </StatCell>
       </XStack>

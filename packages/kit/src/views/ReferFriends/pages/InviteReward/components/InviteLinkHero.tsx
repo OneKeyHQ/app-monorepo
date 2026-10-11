@@ -189,7 +189,9 @@ export function InviteLinkHero({
     });
 
   return (
-    <YStack gap="$4">
+    // Fills the card, which stretches to the earnings card's height; the
+    // code line sits at the bottom, level with the earnings figures.
+    <YStack flex={1} gap="$4">
       <XStack ai="flex-start" gap="$3">
         <YStack flex={1} gap="$1">
           <SizableText size="$headingLg">
@@ -216,17 +218,19 @@ export function InviteLinkHero({
           />
         }
       />
-      <InviteCodeLine
-        inviteCode={inviteCode}
-        codeLabel={intl.formatMessage({
-          id: ETranslations.referral_your_code,
-        })}
-        manageLabel={intl.formatMessage({
-          id: ETranslations.referral_manage_codes__action,
-        })}
-        onCopy={handleCopy}
-        onManage={onManageCodes}
-      />
+      <YStack mt="auto">
+        <InviteCodeLine
+          inviteCode={inviteCode}
+          codeLabel={intl.formatMessage({
+            id: ETranslations.referral_your_code,
+          })}
+          manageLabel={intl.formatMessage({
+            id: ETranslations.referral_manage_codes__action,
+          })}
+          onCopy={handleCopy}
+          onManage={onManageCodes}
+        />
+      </YStack>
     </YStack>
   );
 }
