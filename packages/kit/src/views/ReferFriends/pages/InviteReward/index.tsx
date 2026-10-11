@@ -133,8 +133,8 @@ function InviteOverviewSkeleton() {
 
   if (md) {
     // Compact content, built like the loaded page: the hero, the code card,
-    // then the earnings caption over the earnings card and the per-product
-    // rows, with the page's 20px and 32px spacing.
+    // the earnings card and the per-product rows, then the links card, with
+    // the page's 20px and 32px spacing.
     const listRow = (key: number) => (
       <XStack key={key} minHeight={48} ai="center" gap="$3">
         <Skeleton w={20} h={20} radius="round" />
@@ -158,10 +158,7 @@ function InviteOverviewSkeleton() {
             </YStack>
           </YStack>
           <YStack px="$4" pt="$4" pb="$2" {...cardStyle}>
-            <XStack jc="space-between" ai="center">
-              <Skeleton.BodyMd w={96} />
-              <Skeleton.BodyMd w={112} />
-            </XStack>
+            <Skeleton.BodyMd w={96} />
             <XStack minHeight={44} ai="center" my="$2">
               <Skeleton.HeadingXl w={140} />
             </XStack>
@@ -172,46 +169,44 @@ function InviteOverviewSkeleton() {
             </XStack>
           </YStack>
         </YStack>
-        <YStack gap="$2">
-          <XStack jc="space-between" ai="center">
-            <Skeleton.BodyMd w={72} />
+        <YStack gap="$5">
+          <YStack px="$4" pt="$4" pb="$1" {...cardStyle}>
             <Skeleton.BodyMd w={96} />
-          </XStack>
-          <YStack gap="$5">
-            <YStack px="$4" pt="$4" pb="$1" {...cardStyle}>
-              <XStack jc="space-between" ai="center">
-                <Skeleton.BodyMd w={96} />
-                <Skeleton.BodyMd w={96} />
-              </XStack>
-              <XStack pt="$1" pb="$3">
-                <Skeleton.Heading3Xl w={180} />
-              </XStack>
-              <YStack pb="$3">
-                {[0, 1].map((index) => (
-                  <XStack
-                    key={index}
-                    minHeight={44}
-                    ai="center"
-                    jc="space-between"
-                  >
-                    <Skeleton.BodyMd w={80} />
-                    <Skeleton.BodyMd w={96} />
-                  </XStack>
-                ))}
-              </YStack>
-              <Divider mb="$1" borderColor={INVITE_CARD_BORDER_COLOR} />
-              <XStack minHeight={48} ai="center" jc="space-between">
-                <Skeleton.BodyMd w={72} />
-                <Skeleton.BodyMd w={160} />
-              </XStack>
+            <XStack pt="$1" pb="$3">
+              <Skeleton.Heading3Xl w={180} />
+            </XStack>
+            <YStack pb="$3">
+              {[0, 1].map((index) => (
+                <XStack
+                  key={index}
+                  minHeight={44}
+                  ai="center"
+                  jc="space-between"
+                >
+                  <Skeleton.BodyMd w={80} />
+                  <Skeleton.BodyMd w={96} />
+                </XStack>
+              ))}
             </YStack>
-            <YStack gap="$2">
-              <Skeleton.BodyMd w={120} />
-              <YStack px="$4" py="$1" {...cardStyle}>
-                {[0, 1, 2].map(listRow)}
-              </YStack>
+            <Divider mb="$1" borderColor={INVITE_CARD_BORDER_COLOR} />
+            <XStack minHeight={48} ai="center" jc="space-between">
+              <Skeleton.BodyMd w={72} />
+              <Skeleton.BodyMd w={160} />
+            </XStack>
+          </YStack>
+          <YStack gap="$2">
+            <Skeleton.BodyMd w={120} />
+            <YStack px="$4" py="$1" {...cardStyle}>
+              {[0, 1, 2].map(listRow)}
             </YStack>
           </YStack>
+        </YStack>
+        <YStack px="$4" py="$1" {...cardStyle}>
+          {[0, 1, 2].map((index) => (
+            <XStack key={index} minHeight={48} ai="center">
+              <Skeleton.BodyMd w={120} />
+            </XStack>
+          ))}
         </YStack>
       </YStack>
     );

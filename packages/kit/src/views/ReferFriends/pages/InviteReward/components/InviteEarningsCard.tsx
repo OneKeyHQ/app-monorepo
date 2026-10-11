@@ -263,7 +263,6 @@ function CompactEarnings({
   payoutNetworkId,
   addressVisibility,
   onEditAddress,
-  onOpenHistory,
 }: {
   earnings: IInviteEarnings;
   labels: IEarningsLabels;
@@ -272,20 +271,13 @@ function CompactEarnings({
   // Only a set address can be masked.
   addressVisibility?: IPayoutAddressVisibility;
   onEditAddress: () => void;
-  onOpenHistory: () => void;
 }) {
   return (
+    // Payout history lives with the page's other links at the bottom.
     <YStack>
-      <XStack ai="center" jc="space-between" gap="$3">
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {labels.cumulative}
-        </SizableText>
-        <CardTextAction
-          testID={ReferFriendsTestIDs.inviteRewardHistory}
-          label={labels.history}
-          onPress={onOpenHistory}
-        />
-      </XStack>
+      <SizableText size="$bodyMd" color="$textSubdued">
+        {labels.cumulative}
+      </SizableText>
       <XStack ai="baseline" gap="$1.5" pt="$1" pb="$3">
         <Currency
           {...REFERRAL_USD_CURRENCY_PROPS}
@@ -430,7 +422,6 @@ export function InviteEarningsCard({
           payoutNetworkId={payoutNetworkId}
           addressVisibility={addressVisibility}
           onEditAddress={editPayoutAddress}
-          onOpenHistory={navigateToRewardHistory}
         />
       </YStack>
     );

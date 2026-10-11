@@ -141,8 +141,8 @@ function InviteLinkActions({
 }
 
 // Desktop puts the referral list beside the invite title; compact layouts
-// keep it on the earnings caption.
-export function ReferralListLink() {
+// list it with the page's other links at the bottom.
+function ReferralListLink() {
   const intl = useIntl();
   const navigateToYourReferred = useNavigateToYourReferred();
   return (
@@ -262,12 +262,10 @@ export function InviteCompactCard({
   inviteUrl,
   inviteCode,
   cardStyle,
-  onManageCodes,
 }: {
   inviteUrl: string;
   inviteCode: string;
   cardStyle: IInviteCardStyle;
-  onManageCodes: () => void;
 }) {
   const intl = useIntl();
   const { handleCopy, copyLink, inviteCodeUrl } = useReferralCodeCard({
@@ -278,23 +276,12 @@ export function InviteCompactCard({
     // 16px from the text to the card edge on every side, like the other
     // cards (the last row brings 8px of its own); 12px around the divider.
     <YStack px="$4" pt="$4" pb="$2" {...cardStyle}>
-      {/* Same header as the earnings card: the label with its one-step-away
-          entry beside it, so managing codes needs no row of its own. */}
-      <XStack ai="center" jc="space-between" gap="$3">
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.referral_your_code })}
-        </SizableText>
-        <CardTextAction
-          testID={ReferFriendsTestIDs.inviteManageCodes}
-          label={intl.formatMessage({
-            id: ETranslations.referral_manage_codes__action,
-          })}
-          onPress={onManageCodes}
-        />
-      </XStack>
-      {/* The code is what people share and type, so it leads the card. Its
-          row starts 8px under the header, clear of Manage codes' touch
-          area. */}
+      {/* The card only shares; managing codes lives with the page's other
+          links at the bottom. */}
+      <SizableText size="$bodyMd" color="$textSubdued">
+        {intl.formatMessage({ id: ETranslations.referral_your_code })}
+      </SizableText>
+      {/* The code is what people share and type, so it leads the card. */}
       <XStack
         testID={ReferFriendsTestIDs.inviteCodeRow}
         minHeight={44}
