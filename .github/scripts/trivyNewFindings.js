@@ -192,17 +192,27 @@ function renderSummary({ newFindings, headCounts, baseCounts }) {
   return lines.join('\n');
 }
 
+function countByKey(findings) {
+  const counts = new Map();
+  for (const finding of findings) {
+    counts.set(finding.key, (counts.get(finding.key) || 0) + 1);
+  }
+  return counts;
+}
+
+// Compare occurrences per fingerprint, not just fingerprint presence: a head
+// finding is new when the head has more occurrences of its fingerprint than
+// the base (for example a second secret matching the same rule in one file,
+// or a second affected version of the same package and CVE).
 function findNewFindings(headReport, baseReport, stripPrefix) {
   const headFindings = collectFindings(headReport, '');
   const baseFindings = collectFindings(baseReport, stripPrefix);
-  const baseKeys = new Set(baseFindings.map((finding) => finding.key));
-  const seen = new Set();
+  const baseOccurrences = countByKey(baseFindings);
+  const headOccurrences = new Map();
   const newFindings = headFindings.filter((finding) => {
-    if (baseKeys.has(finding.key) || seen.has(finding.key)) {
-      return false;
-    }
-    seen.add(finding.key);
-    return true;
+    const seen = (headOccurrences.get(finding.key) || 0) + 1;
+    headOccurrences.set(finding.key, seen);
+    return seen > (baseOccurrences.get(finding.key) || 0);
   });
   return {
     newFindings,
