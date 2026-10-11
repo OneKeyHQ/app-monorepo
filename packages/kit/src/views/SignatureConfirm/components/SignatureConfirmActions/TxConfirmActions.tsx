@@ -187,7 +187,7 @@ function TxConfirmActions(props: IProps) {
     updateTxFeeInfoInit,
     updateUnsignedTxs,
   } = useSignatureConfirmActions().current;
-  const successfullySentTxs = useRef<string[]>([]);
+  const [sentTxsTrackingId] = useState(() => generateUUID());
   // Identifies the current submit attempt so the background retry loop can be
   // aborted from the cancel handler. Rotated on every fresh submit; cleared
   // once the attempt has terminated (success / failure / cancel).
@@ -593,7 +593,7 @@ function TxConfirmActions(props: IProps) {
           sourceInfo,
           replaceTxInfo,
           transferPayload,
-          successfullySentTxs: successfullySentTxs.current,
+          sentTxsTrackingId,
           tronResourceRentalInfo,
           gasAccountUiState,
           gasAccountSubmitId: submitId,
@@ -856,6 +856,7 @@ function TxConfirmActions(props: IProps) {
     showFeeInfoOverflowConfirm,
     signOnly,
     transferPayload,
+    sentTxsTrackingId,
     handleGasAccountSubmitError,
     logGasAccountAction,
     logGasAccountSubmitFailed,

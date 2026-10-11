@@ -777,7 +777,12 @@ export interface IBatchSignTransactionParamsBase {
   sourceInfo?: IDappSourceInfo;
   replaceTxInfo?: IReplaceTxInfo;
   transferPayload: ITransferPayload | undefined;
-  successfullySentTxs?: string[];
+  // UI-generated id, stable across retries of one confirm screen. The
+  // background records broadcast tx uuids under it so a retry never broadcasts
+  // them again. It is an id rather than a mutable array because params are
+  // serialized on split runtimes (extension, native background thread), where
+  // background-side mutations never reach the UI.
+  sentTxsTrackingId?: string;
   tronResourceRentalInfo?: ITronResourceRentalInfo;
   gasAccountUiState?: IGasAccountUiState;
   // UI-generated token that identifies a single submit attempt. The background

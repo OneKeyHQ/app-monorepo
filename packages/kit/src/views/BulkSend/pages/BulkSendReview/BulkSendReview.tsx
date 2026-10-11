@@ -29,6 +29,7 @@ import {
   type IModalBulkSendParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -272,8 +273,8 @@ function BaseBulkSendReview({
   // Track how many txs were successfully sent (used by Tron one-by-one flow)
   const sentTxCountRef = useRef(0);
 
-  // Track successfully sent transaction UUIDs to prevent duplicate sends on retry
-  const successfullySentTxs = useRef<string[]>([]);
+  // Lets the background skip already broadcast txs when the user retries
+  const [sentTxsTrackingId] = useState(() => generateUUID());
 
   // Handle Tron transactions one by one
   const handleTronTxsOneByOne = useCallback(
@@ -576,7 +577,7 @@ function BaseBulkSendReview({
           feeInfos: feeState.feeInfos.slice(0, approveCount),
           signOnly: false,
           transferPayload: undefined,
-          successfullySentTxs: successfullySentTxs.current,
+          sentTxsTrackingId,
         });
         approveTxsSent = true;
       } catch (e: any) {
@@ -599,7 +600,7 @@ function BaseBulkSendReview({
         feeInfos: feeState.feeInfos.slice(approveCount),
         signOnly: false,
         transferPayload: undefined,
-        successfullySentTxs: successfullySentTxs.current,
+        sentTxsTrackingId,
       });
 
       // Step 6: Show success toast
@@ -659,6 +660,7 @@ function BaseBulkSendReview({
     intervalSettings,
     isInModal,
     isMaxMode,
+    sentTxsTrackingId,
   ]);
 
   // Determine if confirm button should be disabled
