@@ -274,31 +274,30 @@ export function InviteCompactCard({
   });
   return (
     // 16px from the text to the card edge on every side, like the other
-    // cards (the last row brings 8px of its own); 12px around the divider.
-    <YStack px="$4" pt="$4" pb="$2" {...cardStyle}>
-      {/* The card only shares; managing codes lives with the page's other
-          links at the bottom. */}
-      <SizableText size="$bodyMd" color="$textSubdued">
-        {intl.formatMessage({ id: ETranslations.referral_your_code })}
-      </SizableText>
-      {/* The code is what people share and type, so it leads the card. */}
-      <XStack
+    // cards: the rows' own 8px padding makes up the rest.
+    <YStack px="$4" pt="$2" pb="$2" {...cardStyle}>
+      {/* The code leads the card, its label right above it like the
+          earnings card's total. The two are one target: a tap anywhere on
+          them copies the code. */}
+      <YStack
         testID={ReferFriendsTestIDs.inviteCodeRow}
-        minHeight={44}
-        ai="center"
-        gap="$2"
-        mt="$2"
-        mb="$2"
+        py="$2"
+        gap="$1"
         {...COMPACT_ROW_BLEED_PROPS}
         {...PRESSABLE_SURFACE_PROPS}
         onPress={handleCopy}
       >
-        <SizableText size="$headingXl" numberOfLines={1} flexShrink={1}>
-          {inviteCode}
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.referral_your_code })}
         </SizableText>
-        <Icon name="Copy3Outline" size="$5" color="$iconSubdued" />
-      </XStack>
-      <Divider mb="$1" borderColor={INVITE_CARD_BORDER_COLOR} />
+        <XStack ai="center" gap="$2">
+          <SizableText size="$headingXl" numberOfLines={1} flexShrink={1}>
+            {inviteCode}
+          </SizableText>
+          <Icon name="Copy3Outline" size="$5" color="$iconSubdued" />
+        </XStack>
+      </YStack>
+      <Divider my="$1" borderColor={INVITE_CARD_BORDER_COLOR} />
       <YStack
         testID={ReferFriendsTestIDs.inviteLinkRow}
         {...COMPACT_ROW_BLEED_PROPS}
