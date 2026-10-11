@@ -1,15 +1,14 @@
-import { useMemo } from 'react';
-
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Button, SizableText, YStack, useMedia } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
-import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import {
   RewardHeaderLayout,
+  RewardSummaryCard,
   StatCard,
 } from '@onekeyhq/kit/src/views/ReferFriends/components';
+import { useNextDistributionLabel } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useNextDistributionLabel';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapCumulativeRewardsResponse } from '@onekeyhq/shared/src/referralCode/type';
 
@@ -40,19 +39,11 @@ export function SwapRewardHeader({
 }: ISwapRewardHeaderProps) {
   const intl = useIntl();
   const currencyInfo = useCurrency();
-  const { format } = useFormatDate();
   const { md } = useMedia();
-  const isWideScreen = !md;
 
-  const formattedNextDistributionDate = useMemo(() => {
-    const value = data?.nextDistribution;
-    if (!value) {
-      return '';
-    }
-
-    const formattedDate = format(value, 'MMM d');
-    return formattedDate === '-' ? value : formattedDate;
-  }, [data?.nextDistribution, format]);
+  const formattedNextDistributionDate = useNextDistributionLabel(
+    data?.nextDistribution,
+  );
 
   if (!data) {
     if (hasError && onRefresh) {
@@ -77,6 +68,63 @@ export function SwapRewardHeader({
 
   const invitedAddresses = data.invitedAddresses || 0;
   const walletCount = data.walletCount || 0;
+  const nextDistributionHint = formattedNextDistributionDate
+    ? intl.formatMessage(
+        { id: ETranslations.referral_next_payout__desc },
+        { date: formattedNextDistributionDate },
+      )
+    : undefined;
+  const walletsHint = intl.formatMessage(
+    { id: ETranslations.referral_perps_from_wallets },
+    { number: walletCount },
+  );
+
+  if (md) {
+    return (
+      <YStack px="$5" pb="$6">
+        <RewardSummaryCard
+          title={intl.formatMessage({
+            id: ETranslations.referral_undistributed,
+          })}
+          value={data.undistributedRewardFiatValue || '0'}
+          valueColor="$textSuccess"
+          hint={nextDistributionHint}
+          isLoading={isLoading}
+          onRefresh={onRefresh}
+          rows={[
+            {
+              label: intl.formatMessage({
+                id: ETranslations.referral_perps_total,
+              }),
+              value: data.totalRewardFiatValue || '0',
+            },
+            {
+              label: intl.formatMessage({
+                id: ETranslations.referral_perps_volume,
+              }),
+              value: data.totalVolumeFiatValue || '0',
+              hint: formatFiatSubtitle({
+                currencySymbol: currencyInfo.symbol,
+                label: intl.formatMessage({
+                  id: ETranslations.referral_perps_onekey_fee,
+                }),
+                value: data.totalFeeFiatValue,
+              }),
+            },
+            {
+              label: intl.formatMessage({
+                id: ETranslations.referral_perps_invited_addresses,
+              }),
+              value: String(invitedAddresses),
+              isCurrency: false,
+              hint: walletsHint,
+            },
+          ]}
+        />
+      </YStack>
+    );
+  }
+
   const primarySubtitle = [
     formatFiatSubtitle({
       currencySymbol: currencyInfo.symbol,
@@ -85,20 +133,13 @@ export function SwapRewardHeader({
       }),
       value: data.totalRewardFiatValue,
     }),
-    formattedNextDistributionDate
-      ? `${intl.formatMessage({
-          id: ETranslations.referral_next_distribution,
-        })}: ${formattedNextDistributionDate}`
-      : undefined,
+    nextDistributionHint,
   ]
     .filter(Boolean)
     .join('\n');
 
   const undistributedCard = (
     <StatCard
-      icon="CoinOutline"
-      iconBgColor="$bgSuccess"
-      iconColor="$iconSuccess"
       title={intl.formatMessage({
         id: ETranslations.referral_undistributed,
       })}
@@ -108,16 +149,11 @@ export function SwapRewardHeader({
       showRefreshButton
       isLoading={isLoading}
       onRefresh={onRefresh}
-      isWide={isWideScreen}
-      fullWidth={!isWideScreen}
     />
   );
 
   const volumeCard = (
     <StatCard
-      icon="ChartLineOutline"
-      iconBgColor="$bgStrong"
-      iconColor="$icon"
       title={intl.formatMessage({
         id: ETranslations.referral_perps_volume,
       })}
@@ -129,25 +165,17 @@ export function SwapRewardHeader({
         }),
         value: data.totalFeeFiatValue,
       })}
-      isWide={isWideScreen}
     />
   );
 
   const invitedAddressesCard = (
     <StatCard
-      icon="WalletOutline"
-      iconBgColor="$bgStrong"
-      iconColor="$icon"
       title={intl.formatMessage({
         id: ETranslations.referral_perps_invited_addresses,
       })}
       value={String(invitedAddresses)}
       isCurrency={false}
-      subtitle={intl.formatMessage(
-        { id: ETranslations.referral_perps_from_wallets },
-        { number: walletCount },
-      )}
-      isWide={isWideScreen}
+      subtitle={walletsHint}
     />
   );
 

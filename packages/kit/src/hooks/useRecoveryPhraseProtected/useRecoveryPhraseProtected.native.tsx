@@ -1,12 +1,12 @@
 import { useEffect, useRef } from 'react';
 import type { MutableRefObject } from 'react';
 
-import { debounce } from 'lodash';
-import { useIntl } from 'react-intl';
 import {
   CaptureEventType,
   CaptureProtection,
-} from 'react-native-capture-protection';
+} from '@onekeyfe/react-native-capture-protection';
+import { debounce } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import { Dialog, Icon, SizableText, Stack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
