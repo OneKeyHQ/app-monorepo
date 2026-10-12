@@ -64,9 +64,6 @@ import { ApprovalManagementTestIDs } from '../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
 
-// Hard-coded until the copy gets an i18n key.
-const BULK_REVOKE_START_TEXT = '开始批量取消';
-
 function getConfirmText({
   intl,
   progressState,
@@ -75,7 +72,9 @@ function getConfirmText({
   progressState: ERevokeProgressState;
 }) {
   if (progressState === ERevokeProgressState.NotStarted) {
-    return BULK_REVOKE_START_TEXT;
+    return intl.formatMessage({
+      id: ETranslations.global_bulk_revoke,
+    });
   }
   if (progressState === ERevokeProgressState.Finished) {
     return intl.formatMessage({
