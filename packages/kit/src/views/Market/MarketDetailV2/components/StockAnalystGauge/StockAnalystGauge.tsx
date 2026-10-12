@@ -143,6 +143,7 @@ function getZoneLabelColor(
 }
 
 export interface IStockAnalystGaugeProps {
+  width?: number;
   ratings?: IMarketStockAnalystRatings;
   // Parsed by the caller: the section footer reports the same total, so the
   // provider payload is only walked once.
@@ -152,7 +153,9 @@ export interface IStockAnalystGaugeProps {
 export function StockAnalystGauge({
   ratings,
   ratingCounts,
+  width = STOCK_ANALYST_GAUGE_WIDTH,
 }: IStockAnalystGaugeProps) {
+  const scale = width / STOCK_ANALYST_GAUGE_WIDTH;
   const intl = useIntl();
   const theme = useTheme();
   // SVG gradient ids share one namespace per document on web, so the id has to
@@ -219,122 +222,128 @@ export function StockAnalystGauge({
   return (
     <YStack
       testID="stock-analyst-gauge"
-      width={STOCK_ANALYST_GAUGE_WIDTH}
-      height={STOCK_ANALYST_GAUGE_HEIGHT}
+      width={width}
+      height={STOCK_ANALYST_GAUGE_HEIGHT * scale}
       flexShrink={0}
     >
-      <Stack
+      <YStack
         width={STOCK_ANALYST_GAUGE_WIDTH}
-        height={STOCK_ANALYST_GAUGE_DIAL_HEIGHT}
+        height={STOCK_ANALYST_GAUGE_HEIGHT}
+        style={{ transform: [{ scale }], transformOrigin: 'top left' }}
       >
-        <Svg
+        <Stack
           width={STOCK_ANALYST_GAUGE_WIDTH}
           height={STOCK_ANALYST_GAUGE_DIAL_HEIGHT}
         >
-          <Defs>
-            <LinearGradient
-              id={gradientId}
-              gradientUnits="userSpaceOnUse"
-              x1={DIAL_CENTER_X - DIAL_OUTER_RADIUS}
-              y1={0}
-              x2={DIAL_CENTER_X + DIAL_OUTER_RADIUS}
-              y2={0}
-            >
-              <Stop
-                offset={GRADIENT_CRITICAL_OFFSET}
-                stopColor={theme.bgCriticalStrong.val}
-              />
-              <Stop
-                offset={GRADIENT_TRACK_OFFSET}
-                stopColor={theme.neutral5.val}
-              />
-              <Stop
-                offset={GRADIENT_SUCCESS_OFFSET}
-                stopColor={theme.bgSuccessStrong.val}
-              />
-              <Stop
-                offset={GRADIENT_END_OFFSET}
-                stopColor={theme.bgSuccessStrong.val}
-              />
-            </LinearGradient>
-          </Defs>
-          <Path
-            d={trackPath}
-            fill="none"
-            stroke={theme.neutral5.val}
-            strokeWidth={DIAL_BAND_WIDTH}
-          />
-          {haloPath ? (
+          <Svg
+            width={STOCK_ANALYST_GAUGE_WIDTH}
+            height={STOCK_ANALYST_GAUGE_DIAL_HEIGHT}
+          >
+            <Defs>
+              <LinearGradient
+                id={gradientId}
+                gradientUnits="userSpaceOnUse"
+                x1={DIAL_CENTER_X - DIAL_OUTER_RADIUS}
+                y1={0}
+                x2={DIAL_CENTER_X + DIAL_OUTER_RADIUS}
+                y2={0}
+              >
+                <Stop
+                  offset={GRADIENT_CRITICAL_OFFSET}
+                  stopColor={theme.bgCriticalStrong.val}
+                />
+                <Stop
+                  offset={GRADIENT_TRACK_OFFSET}
+                  stopColor={theme.neutral5.val}
+                />
+                <Stop
+                  offset={GRADIENT_SUCCESS_OFFSET}
+                  stopColor={theme.bgSuccessStrong.val}
+                />
+                <Stop
+                  offset={GRADIENT_END_OFFSET}
+                  stopColor={theme.bgSuccessStrong.val}
+                />
+              </LinearGradient>
+            </Defs>
             <Path
-              d={haloPath}
+              d={trackPath}
               fill="none"
-              stroke={`url(#${gradientId})`}
-              strokeWidth={DIAL_HALO_WIDTH}
-              strokeOpacity={DIAL_HALO_OPACITY}
-            />
-          ) : null}
-          {bandPath ? (
-            <Path
-              d={bandPath}
-              fill="none"
-              stroke={`url(#${gradientId})`}
+              stroke={theme.neutral5.val}
               strokeWidth={DIAL_BAND_WIDTH}
             />
-          ) : null}
-          <Line
-            x1={DIAL_CENTER_X}
-            y1={DIAL_CENTER_Y}
-            x2={needleTip.x}
-            y2={needleTip.y}
-            stroke={theme.text.val}
-            strokeWidth={NEEDLE_WIDTH}
-            strokeLinecap="round"
-          />
-          <Circle
-            cx={DIAL_CENTER_X}
-            cy={DIAL_CENTER_Y}
-            r={NEEDLE_PIVOT_RADIUS}
-            fill={theme.text.val}
-          />
-        </Svg>
-        {STOCK_ANALYST_GAUGE_ZONE_LABEL_IDS.map((labelId, index) => {
-          const layout = ZONE_LABEL_LAYOUT[index];
-          return (
-            <Stack
-              key={labelId}
-              position="absolute"
-              left={layout.left}
-              right={layout.right}
-              top={layout.top}
-              bottom={layout.bottom}
-              width={layout.width}
-              pointerEvents="none"
-            >
-              <SizableText
-                size="$bodyMdMedium"
-                textAlign={layout.textAlign}
-                numberOfLines={layout.maxLines}
-                color={getZoneLabelColor(index, index === activeZoneIndex)}
+            {haloPath ? (
+              <Path
+                d={haloPath}
+                fill="none"
+                stroke={`url(#${gradientId})`}
+                strokeWidth={DIAL_HALO_WIDTH}
+                strokeOpacity={DIAL_HALO_OPACITY}
+              />
+            ) : null}
+            {bandPath ? (
+              <Path
+                d={bandPath}
+                fill="none"
+                stroke={`url(#${gradientId})`}
+                strokeWidth={DIAL_BAND_WIDTH}
+              />
+            ) : null}
+            <Line
+              x1={DIAL_CENTER_X}
+              y1={DIAL_CENTER_Y}
+              x2={needleTip.x}
+              y2={needleTip.y}
+              stroke={theme.text.val}
+              strokeWidth={NEEDLE_WIDTH}
+              strokeLinecap="round"
+            />
+            <Circle
+              cx={DIAL_CENTER_X}
+              cy={DIAL_CENTER_Y}
+              r={NEEDLE_PIVOT_RADIUS}
+              fill={theme.text.val}
+            />
+          </Svg>
+          {STOCK_ANALYST_GAUGE_ZONE_LABEL_IDS.map((labelId, index) => {
+            const layout = ZONE_LABEL_LAYOUT[index];
+            return (
+              <Stack
+                key={labelId}
+                position="absolute"
+                left={layout.left}
+                right={layout.right}
+                top={layout.top}
+                bottom={layout.bottom}
+                width={layout.width}
+                pointerEvents="none"
               >
-                {intl.formatMessage({ id: labelId })}
-              </SizableText>
-            </Stack>
-          );
-        })}
-      </Stack>
-      <YStack
-        pt={STOCK_ANALYST_GAUGE_CONSENSUS_TOP_GAP}
-        alignItems="center"
-        gap="$0"
-      >
-        <SizableText
-          testID="stock-analyst-consensus"
-          size="$headingMd"
-          color={consensusColor}
-          textAlign="center"
+                <SizableText
+                  size="$bodyMdMedium"
+                  textAlign={layout.textAlign}
+                  numberOfLines={layout.maxLines}
+                  color={getZoneLabelColor(index, index === activeZoneIndex)}
+                >
+                  {intl.formatMessage({ id: labelId })}
+                </SizableText>
+              </Stack>
+            );
+          })}
+        </Stack>
+        <YStack
+          pt={STOCK_ANALYST_GAUGE_CONSENSUS_TOP_GAP}
+          alignItems="center"
+          gap="$0"
         >
-          {formatStockAnalystConsensus({ intl, analystRatings: ratings })}
-        </SizableText>
+          <SizableText
+            testID="stock-analyst-consensus"
+            size="$headingMd"
+            color={consensusColor}
+            textAlign="center"
+          >
+            {formatStockAnalystConsensus({ intl, analystRatings: ratings })}
+          </SizableText>
+        </YStack>
       </YStack>
     </YStack>
   );

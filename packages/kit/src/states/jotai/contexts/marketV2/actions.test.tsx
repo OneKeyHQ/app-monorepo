@@ -203,6 +203,76 @@ describe('token detail refresh failures', () => {
 
   afterEach(() => jest.restoreAllMocks());
 
+  it.each(['changeActiveToken', 'fetchTokenDetail'] as const)(
+    'preserves the list first-trade time through %s and polling',
+    async (loadMethod) => {
+      const { store, Wrapper } = createWrapper();
+      const { result } = renderHook(() => useTokenDetailActions().current, {
+        wrapper: Wrapper,
+      });
+      const firstTradeTime = 1_700_000_000_000;
+      const preview: IMarketTokenDetailPreview = {
+        ...detail,
+        price: 1,
+        firstTradeTime,
+        selectedAt: Date.now(),
+      };
+      mockFetchMarketTokenDetailByTokenAddress.mockResolvedValue({
+        data: { token: detail, websocket, perpsInfo },
+      });
+      await act(async () => {
+        if (loadMethod === 'changeActiveToken') {
+          await result.current.changeActiveToken({
+            tokenAddress: detail.address,
+            networkId: detail.networkId,
+            isNative: false,
+            tokenDetailPreview: preview,
+          });
+        } else {
+          result.current.setTokenAddress(detail.address);
+          result.current.setNetworkId(detail.networkId);
+          result.current.prepareTokenDetailPreview(preview);
+          await result.current.fetchTokenDetail(
+            detail.address,
+            detail.networkId,
+          );
+        }
+      });
+      expect(store.get(tokenDetailPreviewAtom())).toBeUndefined();
+      expect(store.get(tokenDetailAtom())?.firstTradeTime).toBe(firstTradeTime);
+      await act(async () => {
+        await result.current.fetchTokenDetail(detail.address, detail.networkId);
+      });
+      expect(store.get(tokenDetailAtom())?.firstTradeTime).toBe(firstTradeTime);
+
+      // The response is authoritative when it supplies the timestamp.
+      mockFetchMarketTokenDetailByTokenAddress.mockResolvedValueOnce({
+        data: {
+          token: { ...detail, firstTradeTime: '1700000001000' },
+          websocket,
+        },
+      });
+      await act(async () => {
+        await result.current.fetchTokenDetail(detail.address, detail.networkId);
+      });
+      expect(store.get(tokenDetailAtom())?.firstTradeTime).toBe(
+        '1700000001000',
+      );
+
+      const nextDetail = { ...detail, address: '0xdef' };
+      mockFetchMarketTokenDetailByTokenAddress.mockResolvedValueOnce({
+        data: { token: nextDetail, websocket },
+      });
+      await act(async () => {
+        await result.current.changeActiveToken({
+          tokenAddress: nextDetail.address,
+          networkId: nextDetail.networkId,
+          isNative: false,
+        });
+      });
+      expect(store.get(tokenDetailAtom())?.firstTradeTime).toBeUndefined();
+    },
+  );
   it('does not rerender symbol consumers for live price or freshness updates', () => {
     const { store, Wrapper } = createWrapper();
     store.set(tokenDetailAtom(), detail);

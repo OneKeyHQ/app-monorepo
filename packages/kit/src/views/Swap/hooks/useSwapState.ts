@@ -84,7 +84,10 @@ import {
   shouldShowSwapQuoteRequestLoading,
 } from '../../../states/jotai/contexts/swap/quoteProgress';
 import { buildSwapBatchTransferType } from '../utils/buildSwapReviewState';
-import { shouldAllowSwapNoConnectWalletWarning } from '../utils/swapNoWalletWarningGuard';
+import {
+  isCurrentSwapAccountNetworkUnsupportedAlert,
+  shouldAllowSwapNoConnectWalletWarning,
+} from '../utils/swapNoWalletWarningGuard';
 import {
   getStockQuoteTradeControl,
   isStockQuoteInputAmountMatched,
@@ -92,7 +95,10 @@ import {
 
 import { hasValidStockBalanceForTrade } from './swapStockChannelUtils';
 import { useSwapAddressInfo } from './useSwapAccount';
-import { getSwapRecipientActionState } from './useSwapAccount.utils';
+import {
+  getSwapAccountNetworkWarningAccountId,
+  getSwapRecipientActionState,
+} from './useSwapAccount.utils';
 
 function useSwapWarningCheck() {
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
@@ -465,9 +471,44 @@ export function useSwapActionState() {
     toToken,
   ]);
 
-  const hasError = alerts.states.some(
-    (item) => item.alertLevel === ESwapAlertLevel.ERROR,
+  const hasCurrentAccountNetworkUnsupportedError = alerts.states.some(
+    (item) => {
+      if (
+        item.alertLevel !== ESwapAlertLevel.ERROR ||
+        !item.isAccountNetworkUnsupported
+      ) {
+        return false;
+      }
+      const directionType =
+        item.accountNetworkUnsupportedContext?.directionType ??
+        ESwapDirectionType.FROM;
+      const addressInfo =
+        directionType === ESwapDirectionType.TO
+          ? swapToAddressInfo
+          : swapFromAddressInfo;
+      const token =
+        directionType === ESwapDirectionType.TO ? toToken : fromToken;
+      return isCurrentSwapAccountNetworkUnsupportedAlert({
+        alert: item,
+        accountId: getSwapAccountNetworkWarningAccountId({
+          accountInfo: addressInfo.accountInfo,
+          activeAccount: addressInfo.activeAccount,
+        }),
+        walletId:
+          addressInfo.accountInfo?.wallet?.id ??
+          addressInfo.activeAccount?.wallet?.id,
+        networkId: token?.networkId,
+        directionType,
+      });
+    },
   );
+  const hasError =
+    hasCurrentAccountNetworkUnsupportedError ||
+    alerts.states.some(
+      (item) =>
+        item.alertLevel === ESwapAlertLevel.ERROR &&
+        !item.isAccountNetworkUnsupported,
+    );
   const quoteInputAmountNoMatch = useMemo(() => {
     const inputAmount =
       quoteCurrentSelect?.kind === ESwapQuoteKind.BUY
