@@ -119,6 +119,12 @@ export class PageScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal({ level: 'info' })
+  public toggleReceivingAddressVisibility(isVisible: boolean) {
+    return { isVisible };
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
   public referralPageOpen(params: IReferralPageOpenParams) {
     return params;
   }
@@ -166,12 +172,6 @@ export class PageScene extends BaseScene {
   @LogToServer()
   @LogToLocal({ level: 'info' })
   public inviteHomeShown(params: { hasEarnings: boolean }) {
-    return params;
-  }
-
-  @LogToServer()
-  @LogToLocal({ level: 'info' })
-  public inviteBindRowShown(params: { status: 'bind' | 'bound' | 'empty' }) {
     return params;
   }
 

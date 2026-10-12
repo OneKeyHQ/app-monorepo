@@ -340,7 +340,10 @@ function MarketDetail({
         {isChartFullscreen && !platformEnv.isNative ? (
           <Page.Header headerShown={false} />
         ) : (
-          <MarketDetailHeader showFavoriteButton={showFavoriteButton} />
+          <MarketDetailHeader
+            showFavoriteButton={showFavoriteButton}
+            marketTokenCategory={marketTokenCategory}
+          />
         )}
 
         <Page.Body

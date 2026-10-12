@@ -415,7 +415,13 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           tokenDetailAtom(),
           mergeMarketTokenDetailPrice({
             currentTokenDetail: get(tokenDetailAtom()),
-            tokenData: { ...responseData.data.token, networkId },
+            tokenData: {
+              ...responseData.data.token,
+              firstTradeTime:
+                responseData.data.token.firstTradeTime ??
+                nextPreview?.firstTradeTime,
+              networkId,
+            },
             requestStartedAt,
           }),
         );
@@ -542,9 +548,27 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           return;
         }
 
+        // First-trade time from the list must survive preview disposal and polling.
+        const currentPreview = get(tokenDetailPreviewAtom());
+        const matchingPreview =
+          currentPreview?.address === tokenAddress &&
+          currentPreview.networkId === networkId
+            ? currentPreview
+            : undefined;
+        const matchingDetail = isSameMarketTokenDetail({
+          tokenDetail: currentTokenDetail,
+          tokenAddress,
+          networkId,
+        })
+          ? currentTokenDetail
+          : undefined;
         // Extract token, websocket and perpsInfo from response format
         const tokenData = {
           ...responseData.data.token,
+          firstTradeTime:
+            responseData.data.token.firstTradeTime ??
+            matchingDetail?.firstTradeTime ??
+            matchingPreview?.firstTradeTime,
           networkId,
         };
         const websocketConfig = responseData.data.websocket;

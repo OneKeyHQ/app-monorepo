@@ -1,5 +1,4 @@
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { swapStockTokenListMaxCount } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapTabSwitchType,
@@ -39,8 +38,11 @@ export function buildSwapTokenFetchParams({
     lpToken,
     currency: requestCurrency,
     ...(keywords && !lpToken ? { onlySwapTokens: true } : {}),
-    ...(swapType === ESwapTabSwitchType.STOCK &&
-    networkUtils.isAllNetwork({ networkId: targetNetworkId })
+    // Stock selection needs the complete server-backed list for both the
+    // all-network and a concrete-network selector. The service defaults to
+    // 50 items; that silently makes later stocks impossible to pick on
+    // mobile, where the selector has no pagination affordance.
+    ...(swapType === ESwapTabSwitchType.STOCK
       ? { limit: swapStockTokenListMaxCount }
       : {}),
   };

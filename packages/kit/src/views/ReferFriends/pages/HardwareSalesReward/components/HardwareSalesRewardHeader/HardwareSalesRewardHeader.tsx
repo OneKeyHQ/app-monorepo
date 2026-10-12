@@ -49,7 +49,7 @@ export function HardwareSalesRewardHeader({
       <YStack px="$5" pb="$6">
         <RewardSummaryCard
           title={intl.formatMessage({
-            id: ETranslations.earn_referral_total_earned,
+            id: ETranslations.referral_cumulative_rewards,
           })}
           value={totalEarned}
           fixedCurrency={REFERRAL_USD_CURRENCY_PROPS.targetCurrency}
@@ -83,7 +83,7 @@ export function HardwareSalesRewardHeader({
         <StatCard
           fixedCurrency={REFERRAL_USD_CURRENCY_PROPS.targetCurrency}
           title={intl.formatMessage({
-            id: ETranslations.earn_referral_total_earned,
+            id: ETranslations.referral_cumulative_rewards,
           })}
           value={totalEarned}
           showRefreshButton

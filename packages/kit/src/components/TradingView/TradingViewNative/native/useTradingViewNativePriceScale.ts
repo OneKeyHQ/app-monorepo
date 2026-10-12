@@ -463,7 +463,10 @@ export function useTradingViewNativePriceScale({
     [hideForTouch, isPriceAxisPointer, showForTouch],
   );
 
+  const handlePriceRangePan = useCallback(() => setIsAutoScale(false), []);
+
   return {
+    handlePriceRangePan,
     handleAutoScalePress,
     handleLogScalePress,
     handlePointerLeave,

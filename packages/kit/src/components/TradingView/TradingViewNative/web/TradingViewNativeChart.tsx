@@ -45,7 +45,10 @@ import {
 } from '../utils/chartViewport';
 import { getTradingViewNativeMainPriceRange } from '../utils/mainPriceRange';
 import { getTradingViewNativeMainPriceAxisLayout } from '../utils/priceAxisScale';
-import { isTradingViewNativeLogPriceScaleAvailable } from '../utils/priceScale';
+import {
+  isTradingViewNativeLogPriceScaleAvailable,
+  panTradingViewNativePriceRange,
+} from '../utils/priceScale';
 import {
   getTradingViewNativeSubIndicatorAxisLabel,
   getTradingViewNativeSubIndicatorLegendIndicatorAtPoint,
@@ -87,6 +90,7 @@ import {
 import type { IDrawingProjection } from './drawings/model';
 import type { ITradingViewNativeChartProps } from '../TradingViewNativeChart.types';
 import type { ITradingViewNativeReferenceLineHitRegion } from '../utils/chartComponentScene';
+import type { ITradingViewNativePriceRange } from '../utils/chartViewport';
 import type { ITradingViewNativeSubIndicatorLegendHitRegion } from '../utils/subIndicatorRender';
 
 const ONEKEY_WATERMARK_ASSET =
@@ -98,6 +102,11 @@ const ONEKEY_WATERMARK_URI =
     ? ONEKEY_WATERMARK_ASSET
     : ONEKEY_WATERMARK_ASSET.default;
 interface IPointerPanDragState {
+  priceRange: ITradingViewNativePriceRange | null;
+  isPricePanActive: boolean;
+  priceChartHeight: number;
+  pricePanStartTranslationY: number;
+  pricePanLastTranslationY: number;
   currentClientX: number;
   pointerId: number;
   startClientX: number;
@@ -123,6 +132,7 @@ export const TradingViewNativeChart = memo(
     drawingStorageKey,
     enableDrawings: drawingsEnabled = false,
     candleIntervalSeconds,
+    candleTimeMode,
     chartComponents,
     onReferenceLineAction,
     onPriceSelect,
@@ -261,6 +271,7 @@ export const TradingViewNativeChart = memo(
       onInteractionChange?.(drawingInteraction || pointerInteraction);
     }, [drawingInteraction, onInteractionChange, pointerInteraction]);
     useEffect(() => () => onInteractionChange?.(false), [onInteractionChange]);
+    const priceChartHeightRef = useRef(0);
     const pointerPanDragStateRef = useRef<IPointerPanDragState | null>(null);
     const timeAxisPointerDragStateRef =
       useRef<ITimeAxisPointerDragState | null>(null);
@@ -417,6 +428,7 @@ export const TradingViewNativeChart = memo(
         const referenceLinePriceRange = getReferenceLinePriceRange();
         const scene = drawTradingViewNativeCanvasChart({
           candleIntervalSeconds,
+          candleTimeMode,
           canvas,
           chartComponents: getInteractiveChartComponents(),
           chartSettings,
@@ -485,6 +497,7 @@ export const TradingViewNativeChart = memo(
         if (context && drawingProjectionRef.current) {
           drawDrawings(context, drawingProjectionRef.current, background);
         }
+        priceChartHeightRef.current = scene?.layout?.priceChartHeight ?? 0;
         priceScaleModelRef.current.autoPriceRange =
           scene?.autoPriceRange ?? null;
         const nextChartWidth = getTradingViewNativeChartWidth(
@@ -502,6 +515,7 @@ export const TradingViewNativeChart = memo(
         axisText,
         background,
         candleIntervalSeconds,
+        candleTimeMode,
         getInteractiveChartComponents,
         getReferenceLinePriceRange,
         chartSettings,
@@ -804,6 +818,7 @@ export const TradingViewNativeChart = memo(
     }, [renderCurrentChart]);
 
     const {
+      handlePriceRangePan,
       finishPointerDrag: finishPriceScalePointerDrag,
       handleAutoScalePress,
       handleDoubleClick: handlePriceScaleDoubleClick,
@@ -871,6 +886,11 @@ export const TradingViewNativeChart = memo(
           renderChart();
         }
         pointerPanDragStateRef.current = {
+          isPricePanActive: false,
+          priceRange: null,
+          priceChartHeight: 0,
+          pricePanStartTranslationY: 0,
+          pricePanLastTranslationY: 0,
           currentClientX: event.clientX,
           pointerId: event.pointerId,
           startClientX: event.clientX,
@@ -908,6 +928,30 @@ export const TradingViewNativeChart = memo(
           }
           dragState.subIndicatorSettingsTarget = null;
           event.preventDefault();
+          const translationY = event.clientY - dragState.startClientY;
+          if (!dragState.isPricePanActive && Math.abs(translationY) > 4) {
+            dragState.priceRange =
+              priceScaleModelRef.current.pinnedPriceRange ??
+              priceScaleModelRef.current.autoPriceRange;
+            dragState.priceChartHeight = priceChartHeightRef.current;
+            dragState.pricePanStartTranslationY =
+              dragState.pricePanLastTranslationY;
+            dragState.isPricePanActive =
+              Boolean(dragState.priceRange) && dragState.priceChartHeight > 0;
+          }
+          dragState.pricePanLastTranslationY = translationY;
+          if (dragState.priceRange && dragState.isPricePanActive) {
+            handlePriceRangePan(
+              panTradingViewNativePriceRange({
+                priceRange: dragState.priceRange,
+                rangeScale: priceScaleModelRef.current.rangeScale,
+                mode: priceScaleModelRef.current.mode,
+                chartHeight: dragState.priceChartHeight,
+                translationY:
+                  translationY - dragState.pricePanStartTranslationY,
+              }),
+            );
+          }
           const chartWidth = getTradingViewNativeCanvasChartWidth(
             event.currentTarget,
             priceAxisLabels,
@@ -973,6 +1017,7 @@ export const TradingViewNativeChart = memo(
       },
       [
         chartSettings.options.crossLine,
+        handlePriceRangePan,
         handlePriceScalePointerLeave,
         pointCount,
         priceAxisFontSize,
@@ -1376,7 +1421,7 @@ export const TradingViewNativeChart = memo(
               cursor: 'crosshair',
               display: 'block',
               height: '100%',
-              touchAction: trackPointerInteraction ? 'none' : 'pan-y',
+              touchAction: 'none',
               userSelect: 'none',
               width: '100%',
               outline: 'none',
