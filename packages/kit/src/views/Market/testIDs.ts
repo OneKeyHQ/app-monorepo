@@ -4,6 +4,9 @@ export const MarketTestIDs = {
   searchBar: 'market-search-bar',
   marketTabs: 'market-tabs',
   compactNetworkSelector: 'market-compact-network-selector',
+  networkOption: (networkId: string) => `market-network-${networkId}`,
+  timeRangeDropdown: 'market-time-range-dropdown',
+  timeRangeOption: (range: string) => `market-time-range-${range}`,
 
   // Banner
   bannerDivider: 'market-banner-divider',

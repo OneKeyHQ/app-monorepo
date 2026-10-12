@@ -150,6 +150,8 @@ function useSwapWarningCheck() {
       accountInfo: undefined,
       activeAccount: undefined,
       isAddressInfoReady: false,
+      isRecipientValidationReady: false,
+      validationScopeKey: '',
     },
     swapToAddressInfo: {
       address: undefined,
@@ -157,6 +159,8 @@ function useSwapWarningCheck() {
       accountInfo: undefined,
       activeAccount: undefined,
       isAddressInfoReady: false,
+      isRecipientValidationReady: false,
+      validationScopeKey: '',
     },
   });
   const isFocused = useIsFocused();
