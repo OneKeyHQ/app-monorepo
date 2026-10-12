@@ -66,6 +66,7 @@ jest.mock('./quote', () => ({
 const {
   executeDustSweepItem,
   DustSweepUnknownSubmission,
+  DustSweepPaused,
   DustSweepRetryableError,
   DustSweepUserCanceled,
 } = require('./execution') as typeof import('./execution');
@@ -179,6 +180,78 @@ describe('Dust Sweep serial execution boundaries', () => {
       state: ESwapTxHistoryStatus.SUCCESS,
       dealReceiveAmount: '0.009',
     });
+  });
+
+  it('does not sign an old preparation after the queue has stopped', async () => {
+    let allowed = true;
+    mockBuild.mockImplementation(async () => {
+      allowed = false;
+      return { result: createQuote(), ctx: {} };
+    });
+    const options = { ...createOptions(), shouldContinue: () => allowed };
+    await expect(executeDustSweepItem(options)).rejects.toBeInstanceOf(
+      DustSweepPaused,
+    );
+    expect(mockSend).not.toHaveBeenCalled();
+    expect(options.onSigning).not.toHaveBeenCalled();
+  });
+
+  it('preserves a broadcast approval but stops before signing the swap', async () => {
+    mockAllowance.mockResolvedValue(
+      createAllowance({ isApproved: false, approveAmounted: '0' }),
+    );
+    let allowed = true;
+    const options = {
+      ...createOptions(),
+      shouldContinue: () => allowed,
+      onApprovalBroadcast: jest.fn(() => {
+        allowed = false;
+      }),
+    };
+    await expect(executeDustSweepItem(options)).rejects.toBeInstanceOf(
+      DustSweepPaused,
+    );
+    expect(options.onApprovalBroadcast).toHaveBeenCalledWith(['approval-0']);
+    expect(options.onSigning).toHaveBeenCalledTimes(1);
+    expect(options.onPrepared).toHaveBeenCalledTimes(1);
+    expect(options.onBroadcast).not.toHaveBeenCalled();
+  });
+
+  it('keeps tracking a broadcast swap after stopping the queue', async () => {
+    let allowed = true;
+    const options = {
+      ...createOptions(),
+      shouldContinue: () => allowed,
+      onBroadcast: jest.fn(() => {
+        allowed = false;
+      }),
+    };
+    await expect(executeDustSweepItem(options)).resolves.toMatchObject({
+      status: 'success',
+    });
+    expect(mockTxState).toHaveBeenCalledWith(
+      expect.objectContaining({ txId: 'swap' }),
+    );
+    expect(mockHistory).toHaveBeenCalledTimes(1);
+    expect(options.onSigning).toHaveBeenCalledTimes(1);
+  });
+
+  it('blocks a stopped retry after the SDK was already entered without a hash', async () => {
+    let allowed = true;
+    mockSend.mockImplementation(async (params) => {
+      await params.onBeforeSignAndSend?.();
+      allowed = false;
+      // A sponsored-send fallback may invoke the submission guard again.
+      await params.onBeforeSignAndSend?.();
+      return [];
+    });
+    const options = { ...createOptions(), shouldContinue: () => allowed };
+    await expect(executeDustSweepItem(options)).rejects.toBeInstanceOf(
+      DustSweepUnknownSubmission,
+    );
+    expect(options.onSigning).toHaveBeenCalledTimes(1);
+    expect(options.onPrepared).not.toHaveBeenCalled();
+    expect(options.onBroadcast).not.toHaveBeenCalled();
   });
 
   it('bundles the approval and swap under one final gas validation', async () => {

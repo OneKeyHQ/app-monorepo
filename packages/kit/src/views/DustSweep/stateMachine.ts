@@ -11,7 +11,6 @@ export type IDustSweepState = {
   phase:
     | 'selecting'
     | 'running'
-    | 'pausing'
     | 'paused'
     | 'blocked'
     | 'leaving'
@@ -92,11 +91,9 @@ export function dustSweepReducer(
         ),
       };
     case 'pause':
-      return state.phase === 'running' ? { ...state, phase: 'pausing' } : state;
+      return state.phase === 'running' ? { ...state, phase: 'paused' } : state;
     case 'paused':
-      return state.phase === 'pausing' || state.phase === 'running'
-        ? { ...state, phase: 'paused' }
-        : state;
+      return state.phase === 'running' ? { ...state, phase: 'paused' } : state;
     case 'resume':
       return state.phase === 'paused' &&
         state.items.every((item) => item.status !== 'unknown')

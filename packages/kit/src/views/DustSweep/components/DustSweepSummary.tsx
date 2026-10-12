@@ -506,10 +506,7 @@ export function DustSweepSummary({
         variant="primary"
         borderRadius="$3"
         disabled={
-          session.leaving ||
-          state.phase === 'left' ||
-          state.phase === 'pausing' ||
-          (selecting && !canStart)
+          session.leaving || state.phase === 'left' || (selecting && !canStart)
         }
         onPress={onPress}
       >

@@ -4,6 +4,7 @@ import { act, renderHook } from '@testing-library/react';
 import type { IDustSweepSnapshot } from '@onekeyhq/shared/types/swap/dustSweep';
 
 import {
+  DustSweepPaused,
   DustSweepRetryableError,
   DustSweepUnknownSubmission,
   DustSweepUserCanceled,
@@ -39,6 +40,7 @@ jest.mock('../utils/execution', () => ({
   DustSweepUnknownSubmission: jest.fn(),
   DustSweepUserCanceled: jest.fn(),
   DustSweepRetryableError: jest.fn(),
+  DustSweepPaused: jest.fn(),
 }));
 jest.mock('../utils/quote', () => ({ DustSweepSkip: jest.fn() }));
 
@@ -84,7 +86,7 @@ const success: IResult = {
 
 beforeEach(() => jest.clearAllMocks());
 
-it('settles the in-flight item before pausing, then continues only the waiting item', async () => {
+it('pauses immediately while retaining the broadcast worker and its eventual result', async () => {
   const first = deferred<IResult>();
   execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
     onSigning();
@@ -99,7 +101,12 @@ it('settles the in-flight item before pausing, then continues only the waiting i
   const { result } = renderHook(() => useDustSweepSession([]));
   act(() => result.current.start(snapshot));
   act(() => result.current.pause());
-  expect(result.current.state.phase).toBe('pausing');
+  expect(result.current.state.phase).toBe('paused');
+  expect(result.current.state.items[0]).toMatchObject({
+    status: 'broadcasted',
+    txId: 'tx-a',
+  });
+  expect(execute.mock.calls[0][0].signal.aborted).toBe(false);
   expect(execute).toHaveBeenCalledTimes(1);
   await act(async () => {
     first.resolve(success);
@@ -114,6 +121,104 @@ it('settles the in-flight item before pausing, then continues only the waiting i
   expect(result.current.state.phase).toBe('completed');
   expect(execute).toHaveBeenCalledTimes(2);
   expect(mockResultLog).toHaveBeenCalledTimes(1);
+});
+
+it('does not duplicate an active broadcast when resuming before it settles', async () => {
+  const first = deferred<IResult>();
+  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
+    onSigning();
+    onBroadcast('tx-a');
+    return first.promise;
+  });
+  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
+    onSigning();
+    onBroadcast('tx-b');
+    return success;
+  });
+  const { result } = renderHook(() => useDustSweepSession([]));
+  act(() => result.current.start(snapshot));
+  act(() => {
+    result.current.pause();
+    result.current.resume();
+    result.current.pause();
+    result.current.resume();
+  });
+  expect(execute).toHaveBeenCalledTimes(1);
+  expect(result.current.state.items[0].txId).toBe('tx-a');
+  await act(async () => first.resolve(success));
+  expect(execute).toHaveBeenCalledTimes(2);
+  expect(result.current.state.phase).toBe('completed');
+});
+
+it('invalidates old preparation even after a quick stop and resume', async () => {
+  const preparation = deferred<void>();
+  const signed = jest.fn();
+  execute.mockImplementationOnce(async ({ shouldContinue }) => {
+    await preparation.promise;
+    if (!shouldContinue?.()) throw new DustSweepPaused();
+    signed();
+    return success;
+  });
+  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
+    onSigning();
+    onBroadcast('fresh-tx');
+    return success;
+  });
+  const { result } = renderHook(() => useDustSweepSession([]));
+  act(() =>
+    result.current.start({ ...snapshot, tokens: [snapshot.tokens[0]] }),
+  );
+  act(() => {
+    result.current.pause();
+    result.current.resume();
+  });
+  await act(async () => preparation.resolve());
+  expect(signed).not.toHaveBeenCalled();
+  expect(execute).toHaveBeenCalledTimes(2);
+  expect(result.current.state.phase).toBe('completed');
+  expect(result.current.state.items[0].txId).toBe('fresh-tx');
+});
+
+it('preserves a late broadcast from signing after stop without starting the next item', async () => {
+  const signature = deferred<void>();
+  const settled = deferred<IResult>();
+  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
+    onSigning();
+    await signature.promise;
+    onBroadcast('late-tx');
+    return settled.promise;
+  });
+  const { result } = renderHook(() => useDustSweepSession([]));
+  act(() => result.current.start(snapshot));
+  act(() => result.current.pause());
+  expect(result.current.state.phase).toBe('paused');
+  expect(result.current.state.items[0].status).toBe('signing');
+  await act(async () => signature.resolve());
+  expect(result.current.state.items[0]).toMatchObject({
+    status: 'broadcasted',
+    txId: 'late-tx',
+  });
+  await act(async () => settled.resolve(success));
+  expect(result.current.state.phase).toBe('paused');
+  expect(result.current.state.items[1].status).toBe('waiting');
+  expect(execute).toHaveBeenCalledTimes(1);
+});
+
+it('blocks an uncertain SDK result after stopping instead of retrying the item', async () => {
+  const signature = deferred<void>();
+  execute.mockImplementationOnce(async ({ onSigning }) => {
+    onSigning();
+    await signature.promise;
+    throw new DustSweepUnknownSubmission();
+  });
+  const { result } = renderHook(() => useDustSweepSession([]));
+  act(() => result.current.start(snapshot));
+  act(() => result.current.pause());
+  await act(async () => signature.resolve());
+  expect(result.current.state.phase).toBe('blocked');
+  expect(result.current.state.items[0].status).toBe('unknown');
+  act(() => result.current.resume());
+  expect(execute).toHaveBeenCalledTimes(1);
 });
 it('waits for a background signing return on leave and never begins the next item', async () => {
   const first = deferred<IResult>();

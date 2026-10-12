@@ -33,6 +33,7 @@ import type {
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { DustSweepPaused } from './DustSweepPaused';
 import { DustSweepRetryableError } from './DustSweepRetryableError';
 import { DustSweepUserCanceled } from './DustSweepUserCanceled';
 import {
@@ -43,6 +44,7 @@ import {
 
 export { DustSweepUserCanceled } from './DustSweepUserCanceled';
 export { DustSweepRetryableError } from './DustSweepRetryableError';
+export { DustSweepPaused } from './DustSweepPaused';
 
 type IExecutionOptions = {
   snapshot: IDustSweepSnapshot;
@@ -53,6 +55,7 @@ type IExecutionOptions = {
   onApprovalBroadcast?: (txIds: string[]) => void;
   onBroadcast: (txId: string) => void;
   pendingApprovalTxIds?: string[];
+  shouldContinue?: () => boolean;
   generateSwapHistoryItem: Parameters<
     typeof completeBroadcastedSwapSuccess
   >[0]['generateSwapHistoryItem'];
@@ -94,6 +97,12 @@ function getSubmissionError(error: unknown, signing: boolean) {
 
 function assertActive(signal: AbortSignal) {
   if (signal.aborted) throw new OneKeyLocalError('Dust Sweep cancelled');
+}
+
+function assertCanSubmit(options: IExecutionOptions) {
+  assertActive(options.signal);
+  if (options.shouldContinue && !options.shouldContinue())
+    throw new DustSweepPaused();
 }
 
 export function waitDustSweepPoll(signal: AbortSignal) {
@@ -299,17 +308,20 @@ export async function executeDustSweepItem(
     pendingApprovalTxIds,
     generateSwapHistoryItem,
   } = options;
+  assertCanSubmit(options);
   if (pendingApprovalTxIds?.length)
     await waitForBroadcastedApprovals({
       approvalTxIds: pendingApprovalTxIds,
       snapshot,
       signal,
     });
+  assertCanSubmit(options);
   const quote = await fetchDustSweepQuote(token, snapshot, signal);
+  assertCanSubmit(options);
   const quoteRisk = getDustSweepQuoteRisk(quote, token, snapshot);
   if (quoteRisk) throw new DustSweepSkip(quoteRisk, quote.quoteShowTip?.detail);
   await checkInputAndOtherFeeBalances(quote, options);
-  assertActive(signal);
+  assertCanSubmit(options);
   const buildRes = await backgroundApiProxy.serviceSwap.fetchBuildTx({
     fromToken: token,
     toToken: snapshot.nativeToken,
@@ -326,7 +338,7 @@ export async function executeDustSweepItem(
     tradeSource: ESwapTradeSource.SWAP_BRIDGE,
     source: ESwapQuoteSource.SWEEP,
   });
-  assertActive(signal);
+  assertCanSubmit(options);
   if (!buildRes) throw new DustSweepSkip('noQuote');
   const risk = getDustSweepQuoteRisk(buildRes.result, token, snapshot);
   if (risk) throw new DustSweepSkip(risk, buildRes.result.quoteShowTip?.detail);
@@ -400,7 +412,7 @@ export async function executeDustSweepItem(
           });
           confirmedApprovalCount = broadcastedApprovalTxIds.length;
         }
-        assertActive(signal);
+        assertCanSubmit(options);
         if (!signing) {
           signing = true;
           onSigning();
@@ -423,6 +435,7 @@ export async function executeDustSweepItem(
     });
   } catch (error) {
     if (!txId) {
+      if (error instanceof DustSweepPaused && !signing) throw error;
       const submissionError = getSubmissionError(error, signing);
       if (submissionError instanceof DustSweepUserCanceled)
         options.onPrepared();

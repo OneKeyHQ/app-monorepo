@@ -14,6 +14,7 @@ import {
   initialDustSweepState,
 } from '../stateMachine';
 import {
+  DustSweepPaused,
   DustSweepRetryableError,
   DustSweepUnknownSubmission,
   DustSweepUserCanceled,
@@ -29,6 +30,7 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
   const mounted = useRef(true);
   const controller = useRef<AbortController | undefined>(undefined);
   const running = useRef<Promise<void> | undefined>(undefined);
+  const pauseRevision = useRef(0);
   const started = useRef(0);
   const reported = useRef(false);
   const send = useCallback((action: Parameters<typeof dustSweepReducer>[1]) => {
@@ -71,6 +73,7 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
           sessionId: snapshot.id,
           key: item.token.key,
         };
+        const attemptRevision = pauseRevision.current;
         send({ ...identity, status: 'preparing' });
         try {
           const result = await executeDustSweepItem({
@@ -78,6 +81,10 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
             token: item.token,
             signal,
             pendingApprovalTxIds: item.approvalTxIds,
+            shouldContinue: () =>
+              pauseRevision.current === attemptRevision &&
+              stateRef.current.phase === 'running' &&
+              stateRef.current.snapshot?.id === snapshot.id,
             onSigning: () => send({ ...identity, status: 'signing' }),
             onPrepared: () => send({ ...identity, status: 'preparing' }),
             onApprovalBroadcast: (approvalTxIds) =>
@@ -116,6 +123,10 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
           });
         } catch (error) {
           if (signal.aborted) break;
+          if (error instanceof DustSweepPaused) {
+            send({ ...identity, status: 'waiting' });
+            break;
+          }
           if (
             error instanceof DustSweepUserCanceled ||
             error instanceof DustSweepRetryableError
@@ -154,8 +165,6 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
             reason,
           });
         }
-        if ((stateRef.current as typeof state).phase === 'pausing')
-          send({ type: 'paused' });
       }
       if (stateRef.current.phase === 'completed') reportResult('completed');
     };
@@ -211,6 +220,9 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
     run();
   }, [run, send]);
   const pause = useCallback(() => {
+    if (stateRef.current.phase !== 'running') return;
+    // Invalidate preparation even if Continue arrives before it finishes.
+    pauseRevision.current += 1;
     send({ type: 'pause' });
   }, [send]);
   const reset = useCallback(() => {
