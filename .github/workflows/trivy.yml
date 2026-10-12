@@ -91,7 +91,7 @@ jobs:
         run: |
           if [ ! -f trusted/.github/scripts/trivy_gate.py ]; then
             echo '{"schemaVersion":1,"status":"incomplete","error":"trusted_policy_not_installed"}' > "$RUNNER_TEMP/trivy-evidence/result.json"
-            echo 'Trusted Trivy policy is not installed on the exact base. See the rollout notes.' >> "$GITHUB_STEP_SUMMARY"
+            echo 'Trusted Trivy policy is not installed on the exact base. See the PR description for rollout requirements.' >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
 
