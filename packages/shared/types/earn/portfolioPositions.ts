@@ -125,10 +125,11 @@ export type IEarnPositionExtension = {
    */
   manage: IEarnPositionManageTarget;
   /**
-   * The card's button. `manage` opens the detail page; `unstake` is the same
-   * page labelled for a provider whose only move left is leaving (Ethena);
-   * `claim` collects the position's principal on the card, through `claim`;
-   * `cancel` calls a withdrawal in progress back, through `cancel`.
+   * The card's button. `manage` opens the detail page, the way the detail
+   * page's own button does; `unstake` is reserved for a provider whose only
+   * move left is leaving (none sends it today); `claim` collects the
+   * position's principal on the card, through `claim`; `cancel` calls a
+   * withdrawal in progress back, through `cancel`.
    */
   action?: 'manage' | 'unstake' | 'claim' | 'cancel';
   /** locked positions: one per withdrawal in progress, dated when the provider knows */

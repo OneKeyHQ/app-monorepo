@@ -222,11 +222,12 @@ describe('earn position model: one card per stage of a position', () => {
     expect(cooldown.value.value).toBeCloseTo(0.045_88 * 0.9993, 9);
   });
 
-  it('labels the Ethena card Unstake, its only move left', () => {
+  it('keeps Manage on the Ethena card, as the detail page has it, under the Staked badge', () => {
     const ethena = card(protocolRow('evm--1-ethena'), 'ethena:evm--1:USDe');
     expect(ethena.stage).toBe('active');
+    expect(ethena.badgeLabel).toBe(ETranslations.earn_category_staked__title);
     expect(ethena.action).toEqual({
-      kind: 'unstake',
+      kind: 'manage',
       target: { networkId: 'evm--1', provider: 'ethena', symbol: 'USDe' },
     });
   });

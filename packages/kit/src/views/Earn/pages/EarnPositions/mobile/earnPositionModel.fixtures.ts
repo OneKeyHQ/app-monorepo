@@ -18,8 +18,8 @@ import type { IEarnCancelWithdrawalActionIcon } from '@onekeyhq/shared/types/sta
  * right — a staking position with principal out of its cooldown and two
  * withdrawals in progress (Lido), dated Pendle markets, the USDe cooled
  * down at Ethena that Pendle's sUSDe path reports, Morpho vaults on two
- * chains with a loan, Everstake with yield, an Ethena position whose only
- * move is unstaking, Stakefish on Solana. Rewards carry the claim the
+ * chains with a loan, Everstake with yield, USDe held at Ethena, Stakefish
+ * on Solana. Rewards carry the claim the
  * server attaches to a row the user collects by hand: Morpho's campaign
  * rows through the airdrop flow, Everstake's yield through the detail
  * row, and a Stakefish reward under its claim floor with the claim
@@ -423,16 +423,16 @@ const ETHEREUM_POSITIONS: IEarnPortfolioPosition[] = [
     ],
     earn: { action: 'claim', claim: CLAIM_BUTTON, claimSource: 'investment' },
   }),
-  // Ethena: deposits are closed, so the card's one button is Unstake.
+  // Ethena: USDe held at Ethena, badged Staked by the server, Manage like
+  // every other card (the detail page's own button).
   position({
     ...ethereum,
     protocol: 'ethena',
     protocolName: 'Ethena',
-    category: 'yield',
+    category: 'staked',
     groupId: 'ethena:evm--1:USDe',
     name: 'Ethena USDe',
     assets: [token({ symbol: 'USDe', amount: '12', price: 0.9993 })],
-    earn: { action: 'unstake' },
   }),
   // Native: the queued withdrawal can still be called back, so its locked
   // card carries Cancel instead of Manage.
