@@ -1,7 +1,12 @@
 import type { ReactNode } from 'react';
 
-import { render } from '@testing-library/react-native';
+import { act, render } from '@testing-library/react-native';
 
+import type { ITradingViewChartMode } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
+import type { ITradingViewNativeProps } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
+import type { IPerpsCustomSettings } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+
+import { PerpMarketWorkspacePanel } from './MarketDetail/PerpMarketWorkspacePanel';
 import { PerpCandles } from './PerpCandles';
 
 let mockAccountAddress: string | undefined;
@@ -9,10 +14,32 @@ let mockCoin = 'ETH';
 const mockChartMount = jest.fn();
 const mockChartUnmount = jest.fn();
 const mockSetLayoutState = jest.fn();
+let mockCustomSettings: Pick<
+  IPerpsCustomSettings,
+  'chartMode' | 'showChartLines'
+>;
+const mockSetCustomSettings = jest.fn(
+  (
+    update: (current: typeof mockCustomSettings) => typeof mockCustomSettings,
+  ) => {
+    mockCustomSettings = update(mockCustomSettings);
+  },
+);
+const mockNativeChart = jest.fn<null, [ITradingViewNativeProps]>(() => null);
+const mockChartModeSelect = jest.fn<
+  null,
+  [{ chartMode: ITradingViewChartMode; onChartSwitch: () => void }]
+>(() => null);
+
+jest.mock('react-intl', () => ({
+  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+}));
 
 jest.mock('@onekeyhq/components', () => ({
   Stack: ({ children }: { children?: ReactNode }) => children,
   XStack: ({ children }: { children?: ReactNode }) => children,
+  YStack: ({ children }: { children?: ReactNode }) => children,
+  SizableText: () => null,
   DebugRenderTracker: ({ children }: { children?: ReactNode }) => children,
   useMedia: () => ({ gtMd: true }),
 }));
@@ -25,13 +52,17 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   usePerpsActiveAccountAtom: () => [{ accountAddress: mockAccountAddress }],
   usePerpsCandlesWebviewReloadHookAtom: () => [{ reloadHook: 1 }],
   usePerpsLayoutStateAtom: () => [{ chartExpanded: false }, mockSetLayoutState],
+  usePerpsCustomSettingsAtom: () => [mockCustomSettings, mockSetCustomSettings],
 }));
 
 jest.mock(
   '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls',
   () => ({
     TRADING_VIEW_CHART_CONTROLS_HEIGHT: 40,
-    TradingViewChartModeSelect: () => null,
+    TradingViewChartModeSelect: (props: {
+      chartMode: ITradingViewChartMode;
+      onChartSwitch: () => void;
+    }) => mockChartModeSelect(props),
   }),
 );
 
@@ -41,7 +72,25 @@ jest.mock('@onekeyhq/kit/src/components/TradingView/TradingViewNative', () => ({
   >(
     '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/getTradingViewNativeSource',
   ).getTradingViewNativeSourceKey,
-  TradingViewNative: () => null,
+  TradingViewNative: (props: ITradingViewNativeProps) => mockNativeChart(props),
+}));
+
+jest.mock('../hooks/useActiveTradeDisplay', () => ({
+  useActiveTradeDisplay: () => ({
+    baseName: mockCoin,
+    coin: mockCoin,
+    displayName: mockCoin,
+    mode: 'perp',
+  }),
+}));
+
+jest.mock('./MarketDetail/PerpFundingChart', () => ({
+  PerpFundingChart: () => null,
+}));
+
+jest.mock('./MarketDetail/PerpMarketDetailContent', () => ({
+  PERP_MARKET_INFO_TAB_KEYS: [],
+  PerpMarketDetailContent: () => null,
 }));
 
 jest.mock('../hooks/usePerpsNativeChartLines', () => ({
@@ -82,13 +131,14 @@ function renderTradingViewCandles() {
   return render(<PerpCandles />);
 }
 
-describe('PerpCandles TradingView account isolation', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockAccountAddress = '0xABC';
-    mockCoin = 'ETH';
-  });
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockAccountAddress = '0xABC';
+  mockCoin = 'ETH';
+  mockCustomSettings = { showChartLines: false };
+});
 
+describe('PerpCandles TradingView account isolation', () => {
   it('discards the chart and all of its symbol caches when the account changes', () => {
     const { rerender } = renderTradingViewCandles();
     mockCoin = 'BTC';
@@ -136,5 +186,57 @@ describe('PerpCandles TradingView account isolation', () => {
     rerender(<PerpCandles />);
     expect(mockChartUnmount).not.toHaveBeenCalled();
     expect(mockChartMount).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe.each([
+  ['standalone chart', PerpCandles],
+  ['desktop workspace', PerpMarketWorkspacePanel],
+] as const)('%s chart mode preference', (_name, Chart) => {
+  it('restores a saved native chart preference', () => {
+    mockCustomSettings.chartMode = 'native';
+    render(<Chart />);
+
+    expect(mockNativeChart).toHaveBeenCalled();
+    expect(mockChartMount).not.toHaveBeenCalled();
+    expect(mockSetCustomSettings).not.toHaveBeenCalled();
+  });
+
+  it('remembers both choices across remounts and preserves other settings', () => {
+    const first = render(<Chart />);
+    expect(mockChartMount).toHaveBeenCalledTimes(1);
+    expect(mockChartModeSelect.mock.lastCall?.[0].chartMode).toBe(
+      'tradingView',
+    );
+
+    act(() => mockChartModeSelect.mock.lastCall?.[0].onChartSwitch());
+    first.rerender(<Chart />);
+    expect(mockNativeChart).toHaveBeenCalled();
+    expect(mockCustomSettings).toEqual({
+      chartMode: 'native',
+      showChartLines: false,
+    });
+    first.unmount();
+
+    const second = render(<Chart />);
+    expect(mockChartMount).toHaveBeenCalledTimes(1);
+    act(() => {
+      if (Chart === PerpCandles) {
+        mockNativeChart.mock.lastCall?.[0].onChartSwitch?.();
+      } else {
+        mockChartModeSelect.mock.lastCall?.[0].onChartSwitch();
+      }
+    });
+    second.unmount();
+
+    render(<Chart />);
+    expect(mockChartMount).toHaveBeenCalledTimes(2);
+    expect(mockChartModeSelect.mock.lastCall?.[0].chartMode).toBe(
+      'tradingView',
+    );
+    expect(mockCustomSettings).toEqual({
+      chartMode: 'tradingView',
+      showChartLines: false,
+    });
   });
 });

@@ -1,3 +1,5 @@
+import type { ComponentProps } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { Empty, type IYStackProps } from '@onekeyhq/components';
@@ -5,9 +7,14 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // `title` overrides the default holdings-semantics copy for flows that do not
-// care about holdings (e.g. Receive), keeping the shared illustration and the
-// Android height convention.
-function EmptyToken(props: IYStackProps & { title?: string }) {
+// care about holdings (e.g. Receive); `illustration` overrides the shared one
+// (search empties use SearchDocument). The Android height convention stays.
+function EmptyToken(
+  props: IYStackProps & {
+    title?: string;
+    illustration?: ComponentProps<typeof Empty>['illustration'];
+  },
+) {
   const intl = useIntl();
 
   return (
