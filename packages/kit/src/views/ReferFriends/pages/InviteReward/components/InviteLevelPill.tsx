@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import {
   Icon,
   Image,
+  NATIVE_HIT_SLOP,
   Popover,
   SizableText,
   XStack,
@@ -152,6 +153,7 @@ export function InviteLevelPill({
       // The pill sits on the plain page canvas, so it takes a tinted surface.
       bg="$bgSubdued"
       flexShrink={1}
+      hitSlop={NATIVE_HIT_SLOP}
       {...PRESSABLE_SURFACE_PROPS}
       onPress={() => {
         void navigateToReferralLevel();

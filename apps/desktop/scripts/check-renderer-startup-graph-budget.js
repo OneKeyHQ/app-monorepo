@@ -276,8 +276,11 @@ function main() {
   const initialScriptFiles = getInitialScriptFiles(html).filter((file) =>
     fs.existsSync(path.join(buildDir, file)),
   );
+  // release-meta.js is generated from build values, not compiled from a module.
   const missingSourceMaps = initialScriptFiles.filter(
-    (file) => !fs.existsSync(path.join(buildDir, `${file}.map`)),
+    (file) =>
+      file !== 'release-meta.js' &&
+      !fs.existsSync(path.join(buildDir, `${file}.map`)),
   );
   const initialScripts = getFileSizeRows(initialScriptFiles);
   const { rows: moduleRows, unmappedBytes } = getModuleRows(initialScriptFiles);

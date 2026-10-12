@@ -68,6 +68,10 @@ export const PerpTestIDs = {
   TradesHistoryTab: 'perp-trades-history-tab',
   AccountTab: 'perp-account-tab',
 
+  // -- Account overview --
+  MarginRatioRiskButton: 'perp-margin-ratio-risk-button',
+  MarginRatioRiskDialog: 'perp-margin-ratio-risk-dialog',
+
   // -- Positions list --
   PositionRow: 'perp-position-row',
   PositionCloseMarketButton: 'perp-position-close-market-button',
