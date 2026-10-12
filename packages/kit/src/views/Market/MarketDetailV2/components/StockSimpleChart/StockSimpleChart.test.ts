@@ -14,6 +14,7 @@ import {
   resolveStockSimpleChartMinRefreshMs,
   resolveStockSimpleChartPreviousClose,
   resolveStockSimpleChartPulseLastPoint,
+  resolveStockSimpleChartRangeForPriceMode,
   resolveStockSimpleChartRequestScope,
   shouldStoreStockSimpleChartSeries,
 } from './stockSimpleChartData';
@@ -109,6 +110,7 @@ describe('fetchStockSimpleChartPoints', () => {
     ['1W', '1w'],
     ['1M', '1m'],
     ['1Y', '1y'],
+    ['5Y', 'all'],
     ['All', 'all'],
   ] as const)(
     'requests %s without limiting or truncating points',
@@ -569,10 +571,26 @@ describe('fetchStockSimpleChartPoints', () => {
 });
 
 describe('stock simple chart request identity', () => {
-  it('exposes All for both token and share data sources', () => {
+  it('ends token ranges on All and share ranges on 5Y', () => {
     expect(TOKEN_SIMPLE_CHART_RANGES).toContain('All');
-    expect(STOCK_SHARE_SIMPLE_CHART_RANGES).toContain('All');
+    expect(TOKEN_SIMPLE_CHART_RANGES).not.toContain('5Y');
+    expect(STOCK_SHARE_SIMPLE_CHART_RANGES).toContain('5Y');
+    expect(STOCK_SHARE_SIMPLE_CHART_RANGES).not.toContain('All');
   });
+
+  it.each([
+    ['share', 'All', '5Y'],
+    ['token', '5Y', 'All'],
+    ['share', '1Y', '1Y'],
+    ['token', 'All', 'All'],
+  ] as const)(
+    'resolves a %s-mode %s selection to %s',
+    (priceMode, range, expected) => {
+      expect(
+        resolveStockSimpleChartRangeForPriceMode({ priceMode, range }),
+      ).toBe(expected);
+    },
+  );
 
   it('ignores token variants while showing share prices', () => {
     const firstVariant = resolveStockSimpleChartRequestScope({

@@ -21,7 +21,10 @@ import type {
 } from '@onekeyhq/components';
 import {
   Button,
+  ButtonGroup,
   DebugRenderTracker,
+  Dialog,
+  Icon,
   IconButton,
   Input,
   ListView,
@@ -305,6 +308,51 @@ const PaginationFooter = ({
     handleInputSubmit();
   };
 
+  const handleMobilePagePress = () => {
+    Dialog.show({
+      title: intl.formatMessage({
+        id: ETranslations.global_bulk_accounts_page_number,
+      }),
+      renderContent: (
+        <Dialog.Form
+          formProps={{ defaultValues: { page: String(currentPage) } }}
+        >
+          <Dialog.FormField
+            name="page"
+            rules={{
+              validate: (value: string) => {
+                const page = Number(value);
+                return (
+                  (Number.isInteger(page) && page >= 1 && page <= totalPages) ||
+                  intl.formatMessage({
+                    id: ETranslations.global_bulk_accounts_page_number_error,
+                  })
+                );
+              },
+            }}
+          >
+            <Input
+              testID="perp-pagination-page-input"
+              autoFocus
+              selectTextOnFocus
+              keyboardType="number-pad"
+              size="large"
+              maxLength={totalPages.toString().length}
+              placeholder={`1–${totalPages}`}
+            />
+          </Dialog.FormField>
+        </Dialog.Form>
+      ),
+      onConfirm: async ({ getForm, close }) => {
+        const values = getForm()?.getValues() as { page: string } | undefined;
+        if (values) {
+          onPageChange(Number(values.page));
+          await close();
+        }
+      },
+    });
+  };
+
   if (totalPages <= 1 && !onViewAll && !paginationAction) {
     return null;
   }
@@ -320,7 +368,50 @@ const PaginationFooter = ({
       borderTopWidth="$px"
       borderTopColor={borderColor}
     >
-      {totalPages > 1 ? (
+      {totalPages > 1 && isMobile ? (
+        <Stack borderRadius="$2" overflow="hidden">
+          <ButtonGroup>
+            <ButtonGroup.Item
+              testID="perp-pagination-prev"
+              opacity={1}
+              maxWidth={42}
+              disabled={currentPage === 1}
+              onPress={onPreviousPage}
+            >
+              <Icon
+                name="ChevronLeftSmallOutline"
+                size="$5"
+                ml="$1"
+                opacity={currentPage === 1 ? 0.5 : undefined}
+              />
+            </ButtonGroup.Item>
+            <ButtonGroup.Item
+              testID="perp-pagination-page-number"
+              px="$3"
+              onPress={handleMobilePagePress}
+            >
+              <SizableText size="$bodyLgMedium">
+                {currentPage} / {totalPages}
+              </SizableText>
+            </ButtonGroup.Item>
+            <ButtonGroup.Item
+              testID="perp-pagination-next"
+              opacity={1}
+              maxWidth={42}
+              disabled={currentPage === totalPages}
+              onPress={onNextPage}
+            >
+              <Icon
+                name="ChevronRightSmallOutline"
+                size="$5"
+                mr="$1"
+                opacity={currentPage === totalPages ? 0.5 : undefined}
+              />
+            </ButtonGroup.Item>
+          </ButtonGroup>
+        </Stack>
+      ) : null}
+      {totalPages > 1 && !isMobile ? (
         <>
           <IconButton
             testID="perp-handle-input-blur-icon-btn"
