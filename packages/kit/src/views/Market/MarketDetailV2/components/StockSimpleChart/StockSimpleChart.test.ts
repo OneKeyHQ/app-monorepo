@@ -6,12 +6,9 @@ import {
   STOCK_SIMPLE_CHART_POLLING_MS,
   TOKEN_SIMPLE_CHART_RANGES,
   buildStockSimpleChartScopeKey,
-  clipStockSimpleChartToActiveRange,
   fetchStockSimpleChartPoints,
   mergeStockSimpleChartLivePrice,
-  resolveStockSimpleChartActiveRangeStartSeconds,
   resolveStockSimpleChartBucketSeconds,
-  resolveStockSimpleChartClipKey,
   resolveStockSimpleChartDisplayPoints,
   resolveStockSimpleChartLivePrice,
   resolveStockSimpleChartMinRefreshMs,
@@ -61,6 +58,50 @@ describe('fetchStockSimpleChartPoints', () => {
   afterEach(() => {
     jest.restoreAllMocks();
   });
+
+  it.each([
+    ['1H', '1h'],
+    ['1D', '1d'],
+  ] as const)(
+    'preserves backend-filtered %s history during Sunday overnight',
+    async (range, period) => {
+      // Monday in Beijing is still Sunday overnight in New York.
+      const overnightNow = Date.parse('2026-09-28T03:23:09Z') / 1000;
+      const fridayClose = Date.parse('2026-09-26T00:00:00Z') / 1000;
+      jest.spyOn(Date, 'now').mockReturnValue(overnightNow * 1000);
+      const points = Array.from({ length: 60 }, (_, index) => ({
+        t: fridayClose - (59 - index) * 60,
+        o: 100,
+        h: 102,
+        l: 99,
+        c: 101,
+        v: 1,
+      }));
+      serviceMarketV2.fetchMarketStockChart.mockResolvedValue({
+        stockId: 'AAPL',
+        period,
+        currency: 'USD',
+        points,
+      });
+      const history = await fetchStockSimpleChartPoints({
+        isNative: false,
+        networkId: '',
+        priceMode: 'share',
+        range,
+        stockId: 'AAPL',
+        tokenAddress: '',
+      });
+      const displayed = resolveStockSimpleChartDisplayPoints({
+        livePrice: '101',
+        nowSeconds: overnightNow,
+        points: history,
+      });
+      expect(displayed).toEqual([
+        ...points.map((point) => [point.t, point.c]),
+        [overnightNow, 101],
+      ]);
+    },
+  );
 
   it.each([
     ['1H', '1h'],
@@ -845,241 +886,34 @@ describe('mergeStockSimpleChartLivePrice', () => {
   });
 });
 
-describe('clipStockSimpleChartToActiveRange', () => {
-  // Monday 2026-09-21 04:18 EDT — ~17 minutes into US pre-market.
-  const mondayPremarketNow = Date.parse('2026-09-21T08:18:00Z') / 1000;
-  const fridayLastHour = Date.parse('2026-09-18T19:30:00Z') / 1000;
-  const fridayClose = Date.parse('2026-09-18T20:00:00Z') / 1000;
-  const mondayPremarketOpen = Date.parse('2026-09-21T08:05:00Z') / 1000;
-  const mondayPremarketLater = Date.parse('2026-09-21T08:10:00Z') / 1000;
-  // Saturday 2026-09-19 10:00 EDT — weekend, last session must stay on screen.
-  const saturdayNow = Date.parse('2026-09-19T14:00:00Z') / 1000;
-
-  it('drops last Friday prints once Monday pre-market is open', () => {
-    const points: IMarketTokenChart = [
-      [fridayLastHour, 221],
-      [fridayClose, 222],
-      [mondayPremarketOpen, 223.1],
-      [mondayPremarketLater, 223.4],
-    ];
-
-    expect(
-      clipStockSimpleChartToActiveRange({
-        nowSeconds: mondayPremarketNow,
-        points,
-        priceMode: 'share',
-        range: '1D',
-      }),
-    ).toEqual([
-      [mondayPremarketOpen, 223.1],
-      [mondayPremarketLater, 223.4],
-    ]);
-    expect(
-      resolveStockSimpleChartActiveRangeStartSeconds({
-        nowSeconds: mondayPremarketNow,
-        priceMode: 'share',
-        range: '1H',
-      }),
-    ).toBe(mondayPremarketNow - 60 * 60);
-  });
-
-  it('keeps last Friday on the weekend, when the market is closed', () => {
-    const points: IMarketTokenChart = [
-      [fridayLastHour, 221],
-      [fridayClose, 222],
-    ];
-
-    expect(
-      clipStockSimpleChartToActiveRange({
-        nowSeconds: saturdayNow,
-        points,
-        priceMode: 'share',
-        range: '1D',
-      }),
-    ).toBe(points);
-    expect(
-      resolveStockSimpleChartActiveRangeStartSeconds({
-        nowSeconds: saturdayNow,
-        priceMode: 'share',
-        range: '1D',
-      }),
-    ).toBeUndefined();
-  });
-
-  it('does not clip longer ranges that are supposed to span sessions', () => {
-    const points: IMarketTokenChart = [
-      [fridayClose, 222],
-      [mondayPremarketLater, 223.4],
-    ];
-
-    expect(
-      clipStockSimpleChartToActiveRange({
-        nowSeconds: mondayPremarketNow,
-        points,
-        priceMode: 'share',
-        range: '1W',
-      }),
-    ).toBe(points);
-  });
-
-  it('does not clip token series', () => {
-    expect(
-      resolveStockSimpleChartActiveRangeStartSeconds({
-        nowSeconds: mondayPremarketNow,
-        priceMode: 'token',
-        range: '1H',
-      }),
-    ).toBeUndefined();
-  });
-
-  it('keeps last session on a weekday holiday when the backend is closed', () => {
-    // Thursday 2026-09-17 11:00 EDT — clock says regular session.
-    const holidayNow = Date.parse('2026-09-17T15:00:00Z') / 1000;
-    expect(
-      resolveStockSimpleChartActiveRangeStartSeconds({
-        isOpen: false,
-        nowSeconds: holidayNow,
-        priceMode: 'share',
-        range: '1H',
-      }),
-    ).toBeUndefined();
-  });
-
-  it('still clips through the Monday opening-cross gap while open', () => {
-    // Monday 2026-09-21 09:30:30 EDT — 09:30 opening cross.
-    const openingCrossNow = Date.parse('2026-09-21T13:30:30Z') / 1000;
-    const points: IMarketTokenChart = [
-      [fridayClose, 222],
-      [mondayPremarketLater, 223.4],
-    ];
-    expect(
-      resolveStockSimpleChartClipKey({
-        isOpen: true,
-        nowSeconds: openingCrossNow,
-        priceMode: 'share',
-        range: '1D',
-      }),
-    ).toBe('clip');
-    expect(
-      clipStockSimpleChartToActiveRange({
-        isOpen: true,
-        nowSeconds: openingCrossNow,
-        points,
-        priceMode: 'share',
-        range: '1D',
-      }),
-    ).toEqual([[mondayPremarketLater, 223.4]]);
-    expect(
-      clipStockSimpleChartToActiveRange({
-        isOpen: false,
-        nowSeconds: openingCrossNow,
-        points,
-        priceMode: 'share',
-        range: '1D',
-      }),
-    ).toBe(points);
-  });
-
-  it('does not truncate a closed holiday during a clock gap', () => {
-    // Thursday 2026-09-17 09:30:30 EDT — opening-cross gap on a closed day.
-    const holidayGapNow = Date.parse('2026-09-17T13:30:30Z') / 1000;
-    const points: IMarketTokenChart = [
-      [Date.parse('2026-09-16T08:05:00Z') / 1000, 220],
-      [Date.parse('2026-09-16T13:35:00Z') / 1000, 221],
-      [Date.parse('2026-09-16T20:00:00Z') / 1000, 222],
-    ];
-    expect(
-      clipStockSimpleChartToActiveRange({
-        isOpen: false,
-        nowSeconds: holidayGapNow,
-        points,
-        priceMode: 'share',
-        range: '1D',
-      }),
-    ).toBe(points);
-  });
-});
-
 describe('resolveStockSimpleChartDisplayPoints', () => {
-  const mondayPremarketNow = Date.parse('2026-09-21T08:18:00Z') / 1000;
-  const fridayClose = Date.parse('2026-09-18T20:00:00Z') / 1000;
-  const mondayPremarketOpen = Date.parse('2026-09-21T08:05:00Z') / 1000;
+  const mondayPreMarketNow = Date.parse('2026-09-21T08:18:00Z') / 1000;
+  const mondayPreMarketOpen = Date.parse('2026-09-21T08:05:00Z') / 1000;
 
-  it('does not draw Friday→Monday as one horizontal 1D segment', () => {
+  it('pins the live quote to the history already filtered by the backend', () => {
     expect(
       resolveStockSimpleChartDisplayPoints({
         livePrice: '223.58',
-        nowSeconds: mondayPremarketNow,
-        points: [
-          [fridayClose, 222],
-          [mondayPremarketOpen, 223.1],
-        ],
-        priceMode: 'share',
-        range: '1D',
+        nowSeconds: mondayPreMarketNow,
+        points: [[mondayPreMarketOpen, 223.1]],
       }),
     ).toEqual([
-      [mondayPremarketOpen, 223.1],
-      [mondayPremarketNow, 223.58],
+      [mondayPreMarketOpen, 223.1],
+      [mondayPreMarketNow, 223.58],
     ]);
-  });
-
-  it('pins a lone live point when last session is the only history', () => {
-    expect(
-      resolveStockSimpleChartDisplayPoints({
-        isOpen: true,
-        livePrice: '223.58',
-        nowSeconds: mondayPremarketNow,
-        points: [[fridayClose, 222]],
-        priceMode: 'share',
-        range: '1H',
-      }),
-    ).toEqual([[mondayPremarketNow, 223.58]]);
   });
 
   it('keeps last-session history until a live quote exists', () => {
-    const points: IMarketTokenChart = [[fridayClose, 222]];
+    const points: IMarketTokenChart = [
+      [Date.parse('2026-09-18T20:00:00Z') / 1000, 222],
+    ];
     expect(
       resolveStockSimpleChartDisplayPoints({
         livePrice: undefined,
-        nowSeconds: mondayPremarketNow,
+        nowSeconds: mondayPreMarketNow,
         points,
-        priceMode: 'share',
-        range: '1H',
       }),
     ).toBe(points);
-  });
-
-  it('keeps Friday through the Sunday 20:00 ET weekend-edge gap', () => {
-    // Sunday 2026-09-20 20:02 EDT — after weekendEnd, before overnight 20:05.
-    const sundayEdgeGapNow = Date.parse('2026-09-21T00:02:00Z') / 1000;
-    const points: IMarketTokenChart = [[fridayClose, 222]];
-    expect(
-      resolveStockSimpleChartDisplayPoints({
-        isOpen: false,
-        livePrice: '222.1',
-        nowSeconds: sundayEdgeGapNow,
-        points,
-        priceMode: 'share',
-        range: '1D',
-      }),
-    ).toEqual([...points, [sundayEdgeGapNow, 222.1]]);
-  });
-
-  it('keeps last session when a closed holiday sits in a clock gap', () => {
-    // Thursday 2026-09-17 09:30:30 EDT — opening-cross gap on a closed day.
-    const holidayGapNow = Date.parse('2026-09-17T13:30:30Z') / 1000;
-    const previousClose = Date.parse('2026-09-16T20:00:00Z') / 1000;
-    const points: IMarketTokenChart = [[previousClose, 222]];
-    expect(
-      resolveStockSimpleChartDisplayPoints({
-        isOpen: false,
-        livePrice: '222.1',
-        nowSeconds: holidayGapNow,
-        points,
-        priceMode: 'share',
-        range: '1H',
-      }),
-    ).toEqual([...points, [holidayGapNow, 222.1]]);
   });
 });
 
