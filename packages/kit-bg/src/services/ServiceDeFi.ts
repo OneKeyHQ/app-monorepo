@@ -254,6 +254,47 @@ class ServiceDeFi extends ServiceBase {
     };
   }
 
+  // The overview is a cache: a failed write must not discard the positions
+  // the request already returned.
+  private async _saveLocalDeFiOverview(params: {
+    accountAddress?: string;
+    xpub?: string;
+    overview: Record<
+      string,
+      ReturnType<ServiceDeFi['_buildLocalDeFiOverviewEntry']>
+    >;
+  }) {
+    try {
+      await this.updateAccountsLocalDeFiOverview({ ...params, merge: true });
+    } catch (error) {
+      console.error('[ServiceDeFi] local DeFi overview write failed', error);
+    }
+  }
+
+  // `meta.queriedNetworkIds` names the networks the backend actually handed
+  // to a provider (OK-63882). A requested network it omits was dropped before
+  // any fetch (not in the multi-chain allowlist, a capability gap, a provider
+  // skip), so its missing positions mean "never looked", not "holds nothing";
+  // a queried network with nothing is seeded as an empty bucket. Without the
+  // field every requested network counts as queried.
+  private _getNotQueriedNetworkIds({
+    networkIds,
+    resp,
+  }: {
+    networkIds: string[];
+    resp: Pick<IFetchAccountDeFiPositionsResp, 'data' | 'meta'>;
+  }) {
+    const queriedNetworkIds = resp.meta?.queriedNetworkIds;
+    if (!Array.isArray(queriedNetworkIds)) {
+      return [];
+    }
+    const queried = new Set(queriedNetworkIds);
+    return networkIds.filter(
+      (networkId) =>
+        !queried.has(networkId) && !resp.data?.positions?.[networkId],
+    );
+  }
+
   private _filterLowValueProtocols({
     protocols,
     protocolMap,
@@ -441,11 +482,18 @@ class ServiceDeFi extends ServiceBase {
         })
       : resp.data.data.data.totals;
 
-    if (saveToLocal && (accountAddress || xpub)) {
+    const isNetworkQueried =
+      this._getNotQueriedNetworkIds({
+        networkIds: [networkId],
+        resp: resp.data.data,
+      }).length === 0;
+    // A network the backend did not query keeps its last cached overview:
+    // the empty data returned for it is not a result.
+    if (saveToLocal && (accountAddress || xpub) && isNetworkQueried) {
       // Written under this call's own address/xpub. The previous shared,
       // debounced map was keyed by networkId only and flushed under the last
       // caller's address, misfiling other accounts' overviews.
-      await this.updateAccountsLocalDeFiOverview({
+      await this._saveLocalDeFiOverview({
         accountAddress,
         xpub,
         overview: {
@@ -455,7 +503,6 @@ class ServiceDeFi extends ServiceBase {
             targetCurrencyInfo,
           }),
         },
-        merge: true,
       });
     }
 
@@ -638,15 +685,33 @@ class ServiceDeFi extends ServiceBase {
         }
         return this._fetchAccountDeFiPositionsPerNetwork(resolvedParams);
       }
+      if (networkIds.length > 1 && !controller.signal.aborted) {
+        // Any other failure of the array request (timeout, 5xx, another
+        // business code) would drop every network of the batch at once.
+        // Serve them one by one, as each ran before batching, so only the
+        // networks that fail on their own are missing. The set is not
+        // remembered: the backend did not reject it, the request failed.
+        return this._fetchAccountDeFiPositionsPerNetwork(resolvedParams);
+      }
       throw error;
     }
 
-    const data = resp.data.data.data;
+    const body = resp.data.data;
+    const data = body.data;
+    const notQueriedNetworkIds = this._getNotQueriedNetworkIds({
+      networkIds,
+      resp: body,
+    });
+    const notQueried = new Set(notQueriedNetworkIds);
+    // A single network already went out as the string request the fallback
+    // would send: its empty result stands, only the cache write is skipped.
+    const refetchNetworkIds = networkIds.length > 1 ? notQueriedNetworkIds : [];
+    const refetch = new Set(refetchNetworkIds);
     const results: IFetchAccountDeFiPositionsResult[] = defiUtils
       .splitDeFiPositionsByNetwork({
         accountId,
         indexedAccountId,
-        networkIds,
+        networkIds: networkIds.filter((networkId) => !refetch.has(networkId)),
         positions: data?.positions,
       })
       .map(({ networkId, protocols, protocolMap, overview }) => {
@@ -675,12 +740,15 @@ class ServiceDeFi extends ServiceBase {
         };
       });
 
-    if (saveToLocal && (accountAddress || xpub)) {
-      await this.updateAccountsLocalDeFiOverview({
+    const persistedResults = results.filter(
+      (result) => !notQueried.has(result.networkId),
+    );
+    if (saveToLocal && (accountAddress || xpub) && persistedResults.length) {
+      await this._saveLocalDeFiOverview({
         accountAddress,
         xpub,
         overview: Object.fromEntries(
-          results.map((result) => [
+          persistedResults.map((result) => [
             result.networkId,
             this._buildLocalDeFiOverviewEntry({
               overview: result.overview,
@@ -689,11 +757,27 @@ class ServiceDeFi extends ServiceBase {
             }),
           ]),
         ),
-        merge: true,
       });
     }
 
-    return results;
+    if (refetchNetworkIds.length === 0) {
+      return results;
+    }
+    // The networks the array request did not query are served as string
+    // requests, which the backend routes through its single-chain providers;
+    // one that fails stays `undefined` and keeps its cached overview.
+    const fallbackResults = await this._fetchAccountDeFiPositionsPerNetwork({
+      ...resolvedParams,
+      networkIds: refetchNetworkIds,
+    });
+    const resultByNetworkId = new Map<
+      string,
+      IFetchAccountDeFiPositionsResult | undefined
+    >(results.map((result) => [result.networkId, result]));
+    fallbackResults.forEach((result, index) => {
+      resultByNetworkId.set(refetchNetworkIds[index], result);
+    });
+    return networkIds.map((networkId) => resultByNetworkId.get(networkId));
   }
 
   @backgroundMethod()

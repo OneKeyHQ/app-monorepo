@@ -64,6 +64,8 @@ jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => ({
 }));
 
 // eslint-disable-next-line import/first
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+// eslint-disable-next-line import/first
 import type { IDeFiPosition } from '@onekeyhq/shared/types/defi';
 
 // eslint-disable-next-line import/first
@@ -131,7 +133,7 @@ function multiChainResponse(networkIds: string[]) {
                 value: 50,
               }),
             ],
-          },
+          } as Record<string, IDeFiPosition[]>,
           totals: {
             totalValue: 150,
             totalDebt: 0,
@@ -170,7 +172,14 @@ function multiChainResponse(networkIds: string[]) {
 
 function makeService() {
   const post = jest.fn();
-  const updateAccountDeFiOverview = jest.fn(async () => undefined);
+  const updateAccountDeFiOverview = jest.fn(
+    async (_params: {
+      accountAddress?: string;
+      xpub?: string;
+      overview: Record<string, unknown>;
+      merge?: boolean;
+    }) => undefined,
+  );
   const service = new ServiceDeFi({
     backgroundApi: {
       serviceAccount: {
@@ -206,6 +215,30 @@ const baseParams = {
   saveToLocal: true,
   excludeLowValueProtocols: true,
 };
+
+function singleResult({
+  networkId,
+  netWorth,
+}: {
+  networkId: string;
+  netWorth: number;
+}) {
+  return {
+    overview: {
+      totalValue: netWorth,
+      totalDebt: 0,
+      totalReward: 0,
+      netWorth,
+      chains: [],
+      protocolCount: 0,
+      positionCount: 0,
+    },
+    protocols: [],
+    protocolMap: {},
+    isSameAllNetworksAccountData: true,
+    networkId,
+  } as unknown as Awaited<ReturnType<ServiceDeFi['fetchAccountDeFiPositions']>>;
+}
 
 describe('ServiceDeFi.fetchAccountDeFiPositionsBatch', () => {
   it('sends an array for several networks and returns per-network results in order', async () => {
@@ -255,8 +288,8 @@ describe('ServiceDeFi.fetchAccountDeFiPositionsBatch', () => {
     });
   });
 
-  it('sends a string for a single network and empties a network the backend skipped', async () => {
-    const { service, post } = makeService();
+  it('sends a string for a single network and empties a network the backend queried without positions', async () => {
+    const { service, post, updateAccountDeFiOverview } = makeService();
     post.mockResolvedValueOnce(multiChainResponse(['evm--1']));
 
     const [only] = await service.fetchAccountDeFiPositionsBatch({
@@ -266,16 +299,89 @@ describe('ServiceDeFi.fetchAccountDeFiPositionsBatch', () => {
     expect(post.mock.calls[0][1].networkId).toBe('evm--1');
     expect(only?.overview.netWorth).toBe(100);
 
-    post.mockResolvedValueOnce(multiChainResponse(['evm--1']));
+    // Queried (named in `meta.queriedNetworkIds`) but holding nothing: an
+    // empty result that is persisted as zero.
+    post.mockResolvedValueOnce(multiChainResponse(['evm--1', 'evm--137']));
     const results = await service.fetchAccountDeFiPositionsBatch({
       ...baseParams,
       networkIds: ['evm--1', 'evm--137'],
     });
+    expect(post).toHaveBeenCalledTimes(2);
     expect(results[1]).toMatchObject({
       networkId: 'evm--137',
       protocols: [],
       overview: { netWorth: 0 },
     });
+    expect(
+      Object.keys(updateAccountDeFiOverview.mock.calls[1][0].overview),
+    ).toEqual(['evm--1', 'evm--137']);
+  });
+
+  it('fetches a network the batch did not query one by one and keeps its cached overview', async () => {
+    const { service, post, updateAccountDeFiOverview } = makeService();
+    // `evm--137` is absent from `meta.queriedNetworkIds` and from `positions`:
+    // the backend never looked at it (OK-63882), so "no positions" is not a
+    // result for it.
+    post.mockResolvedValueOnce(multiChainResponse(['evm--1']));
+    const single = jest
+      .spyOn(service, 'fetchAccountDeFiPositions')
+      .mockImplementation(async ({ networkId }) =>
+        singleResult({ networkId, netWorth: 7 }),
+      );
+
+    const results = await service.fetchAccountDeFiPositionsBatch({
+      ...baseParams,
+      networkIds: ['evm--1', 'evm--137'],
+    });
+
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(single).toHaveBeenCalledTimes(1);
+    expect(single.mock.calls[0][0].networkId).toBe('evm--137');
+    expect(results.map((r) => r?.networkId)).toEqual(['evm--1', 'evm--137']);
+    expect(results[0]?.overview.netWorth).toBe(100);
+    expect(results[1]?.overview.netWorth).toBe(7);
+    // The batch persists only the networks it queried.
+    expect(updateAccountDeFiOverview).toHaveBeenCalledTimes(1);
+    expect(
+      Object.keys(updateAccountDeFiOverview.mock.calls[0][0].overview),
+    ).toEqual(['evm--1']);
+  });
+
+  it('leaves a network the batch did not query undefined when its own request fails', async () => {
+    const { service, post, updateAccountDeFiOverview } = makeService();
+    post.mockResolvedValueOnce(multiChainResponse(['evm--1']));
+    jest
+      .spyOn(service, 'fetchAccountDeFiPositions')
+      .mockRejectedValue(new Error('timeout'));
+
+    const results = await service.fetchAccountDeFiPositionsBatch({
+      ...baseParams,
+      networkIds: ['evm--1', 'evm--137'],
+    });
+
+    expect(results[0]?.overview.netWorth).toBe(100);
+    expect(results[1]).toBeUndefined();
+    expect(
+      Object.keys(updateAccountDeFiOverview.mock.calls[0][0].overview),
+    ).toEqual(['evm--1']);
+  });
+
+  it('does not re-request a single network the backend did not query and skips its cache write', async () => {
+    const { service, post, updateAccountDeFiOverview } = makeService();
+    const resp = multiChainResponse([]);
+    resp.data.data.data.positions = {};
+    post.mockResolvedValueOnce(resp);
+    const single = jest.spyOn(service, 'fetchAccountDeFiPositions');
+
+    const [only] = await service.fetchAccountDeFiPositionsBatch({
+      ...baseParams,
+      networkIds: ['evm--250'],
+    });
+
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(single).not.toHaveBeenCalled();
+    expect(only).toMatchObject({ networkId: 'evm--250', protocols: [] });
+    expect(updateAccountDeFiOverview).not.toHaveBeenCalled();
   });
 
   it('returns empty data without a request when the current network is not All Networks', async () => {
@@ -398,5 +504,162 @@ describe('ServiceDeFi.fetchAccountDeFiPositionsBatch', () => {
       networkIds: ['evm--1', 'evm--8453'],
     });
     expect(post).toHaveBeenCalledTimes(2);
+  });
+
+  it('falls back to single-network requests on a general batch error without remembering the set', async () => {
+    const { service, post } = makeService();
+    post.mockRejectedValueOnce(new Error('timeout'));
+    const single = jest
+      .spyOn(service, 'fetchAccountDeFiPositions')
+      .mockImplementation(async ({ networkId }) =>
+        singleResult({ networkId, netWorth: 1 }),
+      );
+
+    const results = await service.fetchAccountDeFiPositionsBatch({
+      ...baseParams,
+      networkIds: ['evm--1', 'evm--8453'],
+    });
+    expect(single).toHaveBeenCalledTimes(2);
+    expect(single.mock.calls.map(([p]) => p.networkId)).toEqual([
+      'evm--1',
+      'evm--8453',
+    ]);
+    expect(results.map((r) => r?.networkId)).toEqual(['evm--1', 'evm--8453']);
+
+    // The request failed, the set was not rejected: the next run arrays again.
+    post.mockResolvedValueOnce(multiChainResponse(['evm--1', 'evm--8453']));
+    await service.fetchAccountDeFiPositionsBatch({
+      ...baseParams,
+      networkIds: ['evm--1', 'evm--8453'],
+    });
+    expect(post).toHaveBeenCalledTimes(2);
+    expect(single).toHaveBeenCalledTimes(2);
+  });
+
+  it('rethrows an aborted batch request instead of falling back', async () => {
+    const { service, post } = makeService();
+    post.mockImplementationOnce(async () => {
+      await service.abortFetchAccountDeFiPositions();
+      throw new OneKeyLocalError('canceled');
+    });
+    const single = jest.spyOn(service, 'fetchAccountDeFiPositions');
+
+    await expect(
+      service.fetchAccountDeFiPositionsBatch({
+        ...baseParams,
+        networkIds: ['evm--1', 'evm--8453'],
+      }),
+    ).rejects.toThrow('canceled');
+    expect(single).not.toHaveBeenCalled();
+  });
+
+  it('rethrows a general error for a single network', async () => {
+    const { service, post } = makeService();
+    post.mockRejectedValueOnce(new Error('timeout'));
+    const single = jest.spyOn(service, 'fetchAccountDeFiPositions');
+
+    await expect(
+      service.fetchAccountDeFiPositionsBatch({
+        ...baseParams,
+        networkIds: ['evm--1'],
+      }),
+    ).rejects.toThrow('timeout');
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(single).not.toHaveBeenCalled();
+  });
+
+  it('returns the positions when the cache write fails', async () => {
+    const { service, post, updateAccountDeFiOverview } = makeService();
+    post.mockResolvedValueOnce(multiChainResponse(['evm--1', 'evm--8453']));
+    updateAccountDeFiOverview.mockRejectedValueOnce(new Error('db locked'));
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    const results = await service.fetchAccountDeFiPositionsBatch({
+      ...baseParams,
+      networkIds: ['evm--1', 'evm--8453'],
+    });
+
+    expect(results.map((r) => r?.overview.netWorth)).toEqual([100, 50]);
+    expect(consoleError).toHaveBeenCalledTimes(1);
+    consoleError.mockRestore();
+  });
+});
+
+describe('ServiceDeFi.fetchAccountDeFiPositions', () => {
+  function singleChainResponse({
+    networkId,
+    queried,
+  }: {
+    networkId: string;
+    queried: boolean;
+  }) {
+    const resp = multiChainResponse(queried ? [networkId] : []);
+    resp.data.data.data.positions = queried ? { [networkId]: [] } : {};
+    resp.data.data.data.totals = {
+      totalValue: 0,
+      totalDebt: 0,
+      totalReward: 0,
+      netWorth: 0,
+      chains: [],
+      protocolCount: 0,
+      positionCount: 0,
+    };
+    resp.data.data.data.protocolSummaries = [];
+    return resp;
+  }
+
+  it('persists the overview of a queried network', async () => {
+    const { service, post, updateAccountDeFiOverview } = makeService();
+    post.mockResolvedValueOnce(
+      singleChainResponse({ networkId: 'evm--250', queried: true }),
+    );
+
+    const result = await service.fetchAccountDeFiPositions({
+      ...baseParams,
+      networkId: 'evm--250',
+    });
+
+    expect(result.overview.netWorth).toBe(0);
+    expect(updateAccountDeFiOverview).toHaveBeenCalledTimes(1);
+    expect(
+      Object.keys(updateAccountDeFiOverview.mock.calls[0][0].overview),
+    ).toEqual(['evm--250']);
+  });
+
+  it('does not persist an overview for a network the backend did not query', async () => {
+    const { service, post, updateAccountDeFiOverview } = makeService();
+    post.mockResolvedValueOnce(
+      singleChainResponse({ networkId: 'evm--250', queried: false }),
+    );
+
+    const result = await service.fetchAccountDeFiPositions({
+      ...baseParams,
+      networkId: 'evm--250',
+    });
+
+    expect(result.protocols).toEqual([]);
+    expect(updateAccountDeFiOverview).not.toHaveBeenCalled();
+  });
+
+  it('returns the positions when the cache write fails', async () => {
+    const { service, post, updateAccountDeFiOverview } = makeService();
+    post.mockResolvedValueOnce(
+      singleChainResponse({ networkId: 'evm--250', queried: true }),
+    );
+    updateAccountDeFiOverview.mockRejectedValueOnce(new Error('db locked'));
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    const result = await service.fetchAccountDeFiPositions({
+      ...baseParams,
+      networkId: 'evm--250',
+    });
+
+    expect(result.overview.netWorth).toBe(0);
+    expect(consoleError).toHaveBeenCalledTimes(1);
+    consoleError.mockRestore();
   });
 });
