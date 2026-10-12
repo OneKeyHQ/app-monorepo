@@ -279,6 +279,10 @@ function BaseBulkSendReview({
 
   // Track how many txs were successfully sent (used by Tron one-by-one flow)
   const sentTxCountRef = useRef(0);
+  // Resolves once the Tron confirm page of the current tx is gone. A failed
+  // send keeps that page open, and a retry there still broadcasts with the
+  // round's free-trial usage.
+  const tronConfirmPageExitRef = useRef<Promise<void>>(Promise.resolve());
 
   // Lets the background skip already broadcast txs when the user retries
   const [sentTxsTrackingId] = useState(() => generateUUID());
@@ -344,6 +348,7 @@ function BaseBulkSendReview({
     ) => {
       const allResults: ISendTxOnSuccessData[] = [];
       sentTxCountRef.current = 0;
+      tronConfirmPageExitRef.current = Promise.resolve();
 
       for (let i = 0, len = txs.length; i < len; i += 1) {
         const unsignedTx = txs[i];
@@ -362,6 +367,10 @@ function BaseBulkSendReview({
           await waitAsync(300);
         }
 
+        let markConfirmPageExited: () => void = () => {};
+        tronConfirmPageExitRef.current = new Promise<void>((resolve) => {
+          markConfirmPageExited = resolve;
+        });
         const result: ISendTxOnSuccessData[] = await new Promise(
           (resolve, reject) => {
             navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
@@ -377,12 +386,15 @@ function BaseBulkSendReview({
                 // also covers broadcasts whose onSuccess never fires.
                 freeTrialUsage,
                 onSuccess: (data: ISendTxOnSuccessData[]) => {
+                  markConfirmPageExited();
                   resolve(data);
                 },
                 onFail: (error: Error) => {
                   reject(error);
                 },
+                // Also called when the page unmounts without a success.
                 onCancel: () => {
+                  markConfirmPageExited();
                   reject(new Error('User cancelled'));
                 },
               },
@@ -637,8 +649,12 @@ function BaseBulkSendReview({
         ) {
           startApprovalRecheck();
         }
-        // Settle before the cancel return: the round is over.
-        await settleFreeTrialRoundError(freeTrialUsageId, e);
+        // Settled once the confirm page is gone: a retry on a page left open
+        // by a failed send still broadcasts with this usage, and a settled
+        // usage would not count that broadcast.
+        void tronConfirmPageExitRef.current.then(() =>
+          settleFreeTrialRoundError(freeTrialUsageId, e),
+        );
         if (e instanceof Error && e.message === 'User cancelled') {
           return;
         }
