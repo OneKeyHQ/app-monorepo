@@ -25,7 +25,6 @@ import { TradingViewChartTypeSettingsRow } from '../TradingViewChartControls/cha
 
 import { normalizeTradingViewNativeChartSettings } from './chartSettingsAdapter';
 import { useTradingViewNativeChartSettings } from './useTradingViewNativeSettings';
-import { useTradingViewPanelSettings } from './useTradingViewPanelSettings';
 
 import type { ITradingViewNativeStorageNamespace } from './types';
 
@@ -97,7 +96,6 @@ function QuickSettingOption({
 }
 
 type IChartSettingsDialogProps = {
-  panelId?: string;
   storageNamespace?: ITradingViewNativeStorageNamespace;
   chartMode?: ITradingViewChartMode;
   isChartSwitchDisabled?: boolean;
@@ -106,34 +104,14 @@ type IChartSettingsDialogProps = {
   onOpenSettings: () => void;
 };
 
-function PanelChartSettingsDialogContent(
-  props: IChartSettingsDialogProps & { panelId: string },
+export function TradingViewMobileChartSettingsDialogContent(
+  props: IChartSettingsDialogProps,
 ) {
-  const { chartSettingsState } = useTradingViewPanelSettings(
-    props.panelId,
-    props.storageNamespace,
-  );
-  return (
-    <ChartSettingsDialogContent {...props} settingsState={chartSettingsState} />
-  );
-}
-
-function DefaultChartSettingsDialogContent(props: IChartSettingsDialogProps) {
   const settingsState = useTradingViewNativeChartSettings(
     props.storageNamespace,
   );
   return (
     <ChartSettingsDialogContent {...props} settingsState={settingsState} />
-  );
-}
-
-export function TradingViewMobileChartSettingsDialogContent(
-  props: IChartSettingsDialogProps,
-) {
-  return props.panelId ? (
-    <PanelChartSettingsDialogContent {...props} panelId={props.panelId} />
-  ) : (
-    <DefaultChartSettingsDialogContent {...props} />
   );
 }
 
