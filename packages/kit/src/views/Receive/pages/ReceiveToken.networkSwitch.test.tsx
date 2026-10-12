@@ -818,6 +818,36 @@ describe('ReceiveToken network switch', () => {
     expect(getByTestId('receive-card-network-avatar').textContent).toBe('Base');
   });
 
+  // The member on screen is the same asset as its group, so its logo stands
+  // in rather than the title losing its icon on a switch.
+  it('keeps a title logo after a switch when the group has none of its own', async () => {
+    mockRouteParams = buildParams('hd', {
+      token: member('evm--1', {
+        accountId: 'hd-1--evm1',
+        logoURI: 'https://logo/usdt-eth.png',
+      }),
+    });
+    const { getByTestId } = render(<ReceiveToken />);
+    await waitFor(() =>
+      expect(getByTestId('address').textContent).toBe('0xaaa'),
+    );
+
+    await openSelectorAndSelect(
+      getByTestId,
+      member('evm--8453', {
+        accountId: 'hd-1--base',
+        logoURI: 'https://logo/usdt-base.png',
+      }),
+    );
+    await waitFor(() =>
+      expect(getByTestId('address').textContent).toBe('0xbbb'),
+    );
+    expectTitleLogo(getByTestId, {
+      uri: 'https://logo/usdt-base.png',
+      symbol: 'USDT',
+    });
+  });
+
   it('shows no title logo on a page opened without a token', async () => {
     mockRouteParams = {
       networkId: 'evm--1',

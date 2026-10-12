@@ -60,7 +60,10 @@ export function resolveReceiveTitleIconURI({
   // and gets no logo.
   tokenLogoURI?: string;
   // Logo of the multi-chain group, passed only while the title shows the
-  // group's common symbol, so icon and symbol come from the same level.
+  // group's common symbol, so icon and symbol come from the same level. A
+  // group with no logo of its own falls back to the token's: the member on
+  // screen is the same asset, and the title should not lose its icon on a
+  // network switch.
   groupLogoURI?: string;
 }): string | undefined {
   if (isNetworkEntry) return undefined;
