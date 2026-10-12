@@ -44,7 +44,7 @@ export function InviteRewardAmount({
       formatter="value"
       numberOfLines={1}
       // `fiatValue` already arrives in the wallet currency.
-      {...(hasUsd ? REFERRAL_USD_SOURCE_PROPS : undefined)}
+      {...(hasUsd ? REFERRAL_USD_SOURCE_PROPS : {})}
     >
       {hasUsd ? summary.usdValue : summary.fiatValue}
     </Currency>
