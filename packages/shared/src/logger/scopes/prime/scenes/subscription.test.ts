@@ -50,6 +50,28 @@ describe('PrimeSubscriptionScene OneKey ID auth failure logging', () => {
     expect(JSON.stringify(serverCall)).not.toContain(secret);
     expect(serverCall?.[1]?.[0]).not.toHaveProperty('reason');
   });
+
+  it('reports which login step failed when the caller knows it', () => {
+    const { scene, emitLog } = createSceneWithSpy();
+
+    scene.onekeyIdLoginFailedReason({
+      reason:
+        'OneKey ID OAuth sign-in failed: name=AuthRetryableFetchError message=fetch failed code= status= requestId=',
+      step: 'auth',
+    });
+
+    const serverCall = emitLog.mock.calls.find(
+      ([methodName]) => methodName === 'onekeyIdLoginFailedReason',
+    );
+    expect(serverCall?.[1]).toEqual([
+      {
+        source: 'throwSite',
+        step: 'auth',
+        category: 'oauth',
+        errorName: 'AuthRetryableFetchError',
+      },
+    ]);
+  });
 });
 
 describe('PrimeSubscriptionScene sanitized event payloads', () => {
