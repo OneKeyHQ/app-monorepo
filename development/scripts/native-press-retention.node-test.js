@@ -25,7 +25,17 @@ function transpile(source, filename) {
   }).code;
 }
 
-function responder(entry, platform, { deferredMeasure = false, onPress } = {}) {
+function responder(
+  entry,
+  platform,
+  {
+    deferredMeasure = false,
+    manualGrant = false,
+    onPress,
+    externalOwnership = () => false,
+    userHandlers = {},
+  } = {},
+) {
   const filename = path.join(root, 'node_modules/@tamagui/web', entry);
   const module = { exports: {} };
   const measurements = [];
@@ -38,7 +48,7 @@ function responder(entry, platform, { deferredMeasure = false, onPress } = {}) {
       if (name === 'react') return { useRef: () => ({ current: null }) };
       if (name === 'react-native') return { Platform: { OS: platform } };
       if (name === '@tamagui/native') {
-        return { unstable_hasExternalPressOwnership: () => false };
+        return { unstable_hasExternalPressOwnership: externalOwnership };
       }
       throw new Error(`Unexpected dependency: ${name}`);
     },
@@ -52,7 +62,7 @@ function responder(entry, platform, { deferredMeasure = false, onPress } = {}) {
     },
     Date,
   });
-  const props = {};
+  const props = { ...userHandlers };
   const counts = { press: 0, out: 0, long: 0 };
   module.exports.useMainThreadPressEvents(
     {
@@ -82,7 +92,7 @@ function responder(entry, platform, { deferredMeasure = false, onPress } = {}) {
     },
     nativeEvent: { pageX: x, pageY: y },
   });
-  if (!deferredMeasure) props.onResponderGrant(event(60, 120));
+  if (!deferredMeasure && !manualGrant) props.onResponderGrant(event(60, 120));
   return {
     props,
     counts,
@@ -221,6 +231,147 @@ for (const platform of ['ios', 'android']) {
       assert.equal(h.counts.long, 1);
       h.props.onResponderRelease(h.event(60, 120));
       assert.equal(h.counts.press, 0);
+    });
+
+    test(`${platform} ${entry}: primary identifier owns retention regardless of touch order`, () => {
+      for (const otherX of [60, 400]) {
+        for (const primaryX of [60, 400]) {
+          const h = responder(entry, platform, { manualGrant: true });
+          const primary = { identifier: 0, pageX: 60, pageY: 120 };
+          const other = { identifier: 1, pageX: otherX, pageY: 120 };
+          const grant = h.event(60, 120);
+          grant.nativeEvent = {
+            ...primary,
+            touches: [other, primary],
+            changedTouches: [other],
+          };
+          h.props.onResponderGrant(grant);
+          const moved = { ...primary, pageX: primaryX };
+          const move = h.event(primaryX, 120);
+          move.nativeEvent = {
+            touches: [other, moved],
+            changedTouches: [moved],
+          };
+          h.props.onResponderMove(move);
+          move.nativeEvent.touches.reverse();
+          h.props.onResponderMove(move);
+          const release = h.event(primaryX, 120);
+          release.nativeEvent = { touches: [other], changedTouches: [moved] };
+          h.props.onResponderRelease(release);
+          assert.equal(h.counts.press, primaryX === 60 ? 1 : 0);
+          assert.equal(h.counts.out, 1);
+        }
+      }
+    });
+
+    test(`${platform} ${entry}: release uses primary changed touch instead of remaining or stale touch`, () => {
+      const h = responder(entry, platform, { manualGrant: true });
+      const primary = { identifier: 7, pageX: 60, pageY: 120 };
+      const grant = h.event(60, 120);
+      grant.nativeEvent = { touches: [], changedTouches: [primary] };
+      h.props.onResponderGrant(grant);
+      const release = h.event(60, 120);
+      release.nativeEvent = {
+        touches: [primary, { identifier: 8, pageX: 60, pageY: 120 }],
+        changedTouches: [{ ...primary, pageX: 400 }],
+      };
+      h.props.onResponderRelease(release);
+      assert.equal(h.counts.press, 0);
+      assert.equal(h.counts.out, 1);
+    });
+
+    test(`${platform} ${entry}: missing primary move is ignored and missing primary release cancels`, () => {
+      for (const outsideBeforeMissing of [false, true]) {
+        const h = responder(entry, platform, { manualGrant: true });
+        const primary = { identifier: 2, pageX: 60, pageY: 120 };
+        const grant = h.event(60, 120);
+        grant.nativeEvent = { ...primary, touches: [primary] };
+        h.props.onResponderGrant(grant);
+        if (outsideBeforeMissing) {
+          const move = h.event(400, 120);
+          move.nativeEvent = { touches: [{ ...primary, pageX: 400 }] };
+          h.props.onResponderMove(move);
+        }
+        const missing = h.event(400, 120);
+        missing.nativeEvent = {
+          touches: [{ identifier: 3, pageX: 400, pageY: 120 }],
+        };
+        h.props.onResponderMove(missing);
+        assert.equal(h.counts.out, outsideBeforeMissing ? 1 : 0);
+        missing.nativeEvent.touches[0].pageX = 60;
+        h.props.onResponderRelease(missing);
+        assert.equal(h.counts.press, 0);
+        assert.equal(h.counts.out, 1);
+      }
+    });
+
+    test(`${platform} ${entry}: another finger's release cannot release the primary`, () => {
+      const h = responder(entry, platform, { manualGrant: true });
+      const primary = { identifier: 0, pageX: 60, pageY: 120 };
+      const grant = h.event(60, 120);
+      grant.nativeEvent = { ...primary, touches: [primary] };
+      h.props.onResponderGrant(grant);
+      const release = h.event(60, 120);
+      release.nativeEvent = {
+        touches: [primary],
+        changedTouches: [{ identifier: 1, pageX: 60, pageY: 120 }],
+      };
+      h.props.onResponderRelease(release);
+      assert.equal(h.counts.press, 0);
+      assert.equal(h.counts.out, 1);
+      h.props.onResponderGrant(h.event(60, 120));
+      h.props.onResponderRelease(h.event(60, 120));
+      assert.equal(h.counts.press, 1);
+    });
+
+    test(`${platform} ${entry}: unidentified grant keeps single-touch fallback and release changed priority`, () => {
+      const h = responder(entry, platform);
+      const release = h.event(60, 120);
+      release.nativeEvent = {
+        touches: [{ pageX: 400, pageY: 120 }],
+        changedTouches: [{ pageX: 60, pageY: 120 }],
+      };
+      h.props.onResponderRelease(release);
+      assert.equal(h.counts.press, 1);
+    });
+
+    test(`${platform} ${entry}: terminate and external ownership clear identifier before next grant`, () => {
+      let owned = false;
+      const order = [];
+      const h = responder(entry, platform, {
+        manualGrant: true,
+        externalOwnership: () => owned,
+        userHandlers: {
+          onResponderGrant: () => order.push('grant'),
+          onResponderMove: () => order.push('move'),
+          onResponderRelease: () => order.push('release'),
+          onResponderTerminate: () => order.push('terminate'),
+        },
+        onPress: () => order.push('press'),
+      });
+      const grant = h.event(60, 120);
+      grant.nativeEvent.identifier = 4;
+      h.props.onResponderGrant(grant);
+      h.props.onResponderTerminate(grant);
+      h.props.onResponderGrant(h.event(60, 120));
+      h.props.onResponderMove(h.event(60, 120));
+      h.props.onResponderRelease(h.event(60, 120));
+      assert.equal(h.counts.press, 1);
+      assert.deepEqual(order, [
+        'grant',
+        'terminate',
+        'grant',
+        'move',
+        'release',
+        'press',
+      ]);
+      h.props.onResponderGrant(grant);
+      owned = true;
+      h.props.onResponderRelease(grant);
+      owned = false;
+      h.props.onResponderGrant(h.event(60, 120));
+      h.props.onResponderRelease(h.event(60, 120));
+      assert.equal(h.counts.press, 2);
     });
 
     test(`${platform} ${entry}: real pooled release survives useSharedPress debounce`, async () => {

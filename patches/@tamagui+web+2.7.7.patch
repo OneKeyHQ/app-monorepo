@@ -48,10 +48,10 @@ index 7384d83..90f4cf8 100644
            if (process.env.NODE_ENV === "development" && debug === "verbose") console.info("pseudo:", key, pseudoStyleObject, pseudoStyles);
            for (const psuedoStyle of pseudoStyles) {
 diff --git a/node_modules/@tamagui/web/dist/cjs/helpers/mainThreadPressEvents.native.js b/node_modules/@tamagui/web/dist/cjs/helpers/mainThreadPressEvents.native.js
-index b83ef32..a39a937 100644
+index b83ef32..0cedfc7 100644
 --- a/node_modules/@tamagui/web/dist/cjs/helpers/mainThreadPressEvents.native.js
 +++ b/node_modules/@tamagui/web/dist/cjs/helpers/mainThreadPressEvents.native.js
-@@ -29,8 +29,33 @@ __export(mainThreadPressEvents_native_exports, {
+@@ -29,8 +29,44 @@ __export(mainThreadPressEvents_native_exports, {
  module.exports = __toCommonJS(mainThreadPressEvents_native_exports);
  var import_native = require("@tamagui/native");
  var import_react = require("react");
@@ -66,13 +66,24 @@ index b83ef32..a39a937 100644
 +  right: 20,
 +  bottom: 30
 +};
-+// OneKey patch: same touch lookup as react-native Pressability
-+function getTouchFromPressEvent(e) {
-+  var nativeEvent = e === null || e === void 0 ? void 0 : e.nativeEvent;
-+  if (nativeEvent && nativeEvent.touches && nativeEvent.touches.length > 0) return nativeEvent.touches[0];
-+  if (nativeEvent && nativeEvent.changedTouches && nativeEvent.changedTouches.length > 0) return nativeEvent.changedTouches[0];
-+  return nativeEvent;
++// OneKey patch: retain the granting finger even when other touches remain.
++function getTouchFromPressEvent(e, identifier = null, phase = 'move') {
++  const nativeEvent = e?.nativeEvent
++  const touches = nativeEvent?.touches
++  const changedTouches = nativeEvent?.changedTouches
++  if (identifier != null && phase === 'release' && changedTouches?.length > 0) {
++    return changedTouches.find((touch) => touch.identifier === identifier) ?? null
++  }
++  const lists = phase === 'move' ? [touches, changedTouches] : [changedTouches, touches]
++  for (const list of lists) {
++    if (!list?.length) continue
++    if (identifier == null) return list[0]
++    const touch = list.find((item) => item.identifier === identifier)
++    if (touch) return touch
++  }
++  return identifier == null || nativeEvent?.identifier === identifier ? nativeEvent : null
 +}
++
 +// OneKey patch: hitSlop is either a number or a per-side rect
 +function getHitSlop(hitSlop, side) {
 +  if (typeof hitSlop === "number") return hitSlop;
@@ -85,7 +96,7 @@ index b83ef32..a39a937 100644
  function useMainThreadPressEvents(events, viewProps) {
    var enabled = arguments.length > 2 && arguments[2] !== void 0 ? arguments[2] : true,
      debugName = arguments.length > 3 ? arguments[3] : void 0;
-@@ -42,7 +67,12 @@ function useMainThreadPressEvents(events, viewProps) {
+@@ -42,7 +78,13 @@ function useMainThreadPressEvents(events, viewProps) {
        pressOutTimer: null,
        longPressTimer: null,
        activateTime: 0,
@@ -95,11 +106,12 @@ index b83ef32..a39a937 100644
 +      isOutsidePressRect: false,
 +      gestureGeneration: 0,
 +      latestTouch: null,
++      activeTouchIdentifier: null,
 +      latestTouchEvent: null
      };
    }
    if (!enabled || !events) return;
-@@ -54,9 +84,15 @@ function useMainThreadPressEvents(events, viewProps) {
+@@ -54,9 +96,15 @@ function useMainThreadPressEvents(events, viewProps) {
    var delayLongPress = Math.max(0, (_events_delayLongPress = events.delayLongPress) !== null && _events_delayLongPress !== void 0 ? _events_delayLongPress : DEFAULT_LONG_PRESS_DELAY);
    var _events_minPressDuration;
    var minPressDuration = Math.max(0, (_events_minPressDuration = events.minPressDuration) !== null && _events_minPressDuration !== void 0 ? _events_minPressDuration : DEFAULT_MIN_PRESS_DURATION);
@@ -115,10 +127,11 @@ index b83ef32..a39a937 100644
      ref.current.activateTime = Date.now();
      (_events_onPressIn = events.onPressIn) === null || _events_onPressIn === void 0 ? void 0 : _events_onPressIn.call(events, e);
    }
-@@ -80,6 +116,74 @@ function useMainThreadPressEvents(events, viewProps) {
+@@ -80,6 +128,75 @@ function useMainThreadPressEvents(events, viewProps) {
      ref.current.pressInTimer = null;
      ref.current.pressOutTimer = null;
      ref.current.longPressTimer = null;
++    ref.current.activeTouchIdentifier = null;
 +    ref.current.latestTouch = null;
 +    ref.current.latestTouchEvent = null;
 +  }
@@ -129,7 +142,7 @@ index b83ef32..a39a937 100644
 +  // (no retention) behavior.
 +  // OneKey patch: retain coordinates and event context for asynchronous measure.
 +  function rememberTouch(e) {
-+    var touch = getTouchFromPressEvent(e);
++    var touch = getTouchFromPressEvent(e, ref.current.activeTouchIdentifier);
 +    if (!touch || typeof touch.pageX !== "number" || typeof touch.pageY !== "number") return;
 +    ref.current.latestTouch = { pageX: touch.pageX, pageY: touch.pageY };
 +    ref.current.latestTouchEvent = Object.assign(
@@ -141,7 +154,7 @@ index b83ef32..a39a937 100644
 +    // OneKey patch: cancel native drags on both platforms; resolve Platform lazily.
 +    if (import_react_native.Platform?.OS !== "android" && import_react_native.Platform?.OS !== "ios") return;
 +    var target = e === null || e === void 0 ? void 0 : e.currentTarget;
-+    var touch = getTouchFromPressEvent(e);
++    var touch = getTouchFromPressEvent(e, ref.current.activeTouchIdentifier);
 +    if (!target || typeof target.measure !== "function") return;
 +    if (!touch || typeof touch.pageX !== "number" || typeof touch.pageY !== "number") return;
 +    var startTouch = {
@@ -169,7 +182,7 @@ index b83ef32..a39a937 100644
 +  function updatePressRect(e, measuredTouch) {
 +    var region = ref.current.responderRegion;
 +    if (!region || ref.current.state === "idle") return;
-+    var touch = measuredTouch || getTouchFromPressEvent(e);
++    var touch = measuredTouch || getTouchFromPressEvent(e, ref.current.activeTouchIdentifier);
 +    if (!touch || typeof touch.pageX !== "number" || typeof touch.pageY !== "number") return;
 +    var isOutside = !isTouchWithinPressRect(touch, region, hitSlop);
 +    if (isOutside === ref.current.isOutsidePressRect) return;
@@ -190,32 +203,46 @@ index b83ef32..a39a937 100644
    }
    var userStartShouldSet = viewProps.onStartShouldSetResponder;
    var userGrant = viewProps.onResponderGrant;
-@@ -93,6 +197,9 @@ function useMainThreadPressEvents(events, viewProps) {
+@@ -93,6 +210,10 @@ function useMainThreadPressEvents(events, viewProps) {
    };
    viewProps.onResponderGrant = function (e) {
      cleanup();
 +    ref.current.gestureGeneration += 1;
++    ref.current.activeTouchIdentifier = null;
 +    ref.current.latestTouch = null;
 +    ref.current.latestTouchEvent = null;
      if ((0, import_native.unstable_hasExternalPressOwnership)()) {
        ref.current.state = "idle";
        ref.current.blockedByExternalOwnership = true;
-@@ -101,6 +208,10 @@ function useMainThreadPressEvents(events, viewProps) {
+@@ -101,6 +222,12 @@ function useMainThreadPressEvents(events, viewProps) {
      userGrant === null || userGrant === void 0 ? void 0 : userGrant(e);
      ref.current.blockedByExternalOwnership = false;
      ref.current.state = "pressing";
 +    // OneKey patch
 +    ref.current.isOutsidePressRect = false;
++    const grantingTouch = getTouchFromPressEvent(e, e?.nativeEvent?.identifier ?? null, 'grant');
++    ref.current.activeTouchIdentifier = grantingTouch?.identifier ?? null;
 +    rememberTouch(e);
 +    measureResponderRegion(e);
      if (delayPressIn > 0) {
        ref.current.pressInTimer = setTimeout(function () {
          return activate(e);
-@@ -126,12 +237,23 @@ function useMainThreadPressEvents(events, viewProps) {
+@@ -126,12 +253,34 @@ function useMainThreadPressEvents(events, viewProps) {
        return;
      }
      userRelease === null || userRelease === void 0 ? void 0 : userRelease(e);
-+    updatePressRect(e);
++    const releaseTouch = getTouchFromPressEvent(e, ref.current.activeTouchIdentifier, 'release');
++    // OneKey patch: a missing primary release must never press using another finger.
++    if (ref.current.activeTouchIdentifier != null && !releaseTouch) {
++      cleanup();
++      if (!ref.current.isOutsidePressRect && (ref.current.state === 'active' || ref.current.state === 'longPressed')) {
++        deactivate(e);
++      }
++      ref.current.state = 'idle';
++      ref.current.isOutsidePressRect = false;
++      return;
++    }
++    updatePressRect(e, releaseTouch);
      var wasLongPressed = ref.current.state === "longPressed";
      cleanup();
 +    // OneKey patch: released outside the press rect, the press is cancelled and
@@ -235,7 +262,7 @@ index b83ef32..a39a937 100644
        var _events_onPress;
        (_events_onPress = events.onPress) === null || _events_onPress === void 0 ? void 0 : _events_onPress.call(events, e);
      }
-@@ -142,11 +264,14 @@ function useMainThreadPressEvents(events, viewProps) {
+@@ -142,11 +291,14 @@ function useMainThreadPressEvents(events, viewProps) {
    viewProps.onResponderTerminate = function (e) {
      userTerminate === null || userTerminate === void 0 ? void 0 : userTerminate(e);
      cleanup();
@@ -251,7 +278,7 @@ index b83ef32..a39a937 100644
    };
    viewProps.onResponderTerminationRequest = function (e) {
      if (userTerminationRequest) return userTerminationRequest(e);
-@@ -156,6 +281,9 @@ function useMainThreadPressEvents(events, viewProps) {
+@@ -156,6 +308,9 @@ function useMainThreadPressEvents(events, viewProps) {
      var _events_onPressMove;
      userMove === null || userMove === void 0 ? void 0 : userMove(e);
      (_events_onPressMove = events.onPressMove) === null || _events_onPressMove === void 0 ? void 0 : _events_onPressMove.call(events, e);
@@ -438,10 +465,10 @@ index abf7a63..cec9cf3 100644
            if (process.env.NODE_ENV === "development" && debug === "verbose") console.info("pseudo:", key, pseudoStyleObject, pseudoStyles);
            for (const psuedoStyle of pseudoStyles) {
 diff --git a/node_modules/@tamagui/web/dist/esm/helpers/mainThreadPressEvents.native.js b/node_modules/@tamagui/web/dist/esm/helpers/mainThreadPressEvents.native.js
-index bd0a1d6..0f2c7dc 100644
+index bd0a1d6..4fdd452 100644
 --- a/node_modules/@tamagui/web/dist/esm/helpers/mainThreadPressEvents.native.js
 +++ b/node_modules/@tamagui/web/dist/esm/helpers/mainThreadPressEvents.native.js
-@@ -1,7 +1,32 @@
+@@ -1,7 +1,43 @@
  import { unstable_hasExternalPressOwnership } from "@tamagui/native";
  import { useRef } from "react";
 +// OneKey patch
@@ -455,13 +482,24 @@ index bd0a1d6..0f2c7dc 100644
 +  right: 20,
 +  bottom: 30
 +};
-+// OneKey patch: same touch lookup as react-native Pressability
-+function getTouchFromPressEvent(e) {
-+  var nativeEvent = e === null || e === void 0 ? void 0 : e.nativeEvent;
-+  if (nativeEvent && nativeEvent.touches && nativeEvent.touches.length > 0) return nativeEvent.touches[0];
-+  if (nativeEvent && nativeEvent.changedTouches && nativeEvent.changedTouches.length > 0) return nativeEvent.changedTouches[0];
-+  return nativeEvent;
++// OneKey patch: retain the granting finger even when other touches remain.
++function getTouchFromPressEvent(e, identifier = null, phase = 'move') {
++  const nativeEvent = e?.nativeEvent
++  const touches = nativeEvent?.touches
++  const changedTouches = nativeEvent?.changedTouches
++  if (identifier != null && phase === 'release' && changedTouches?.length > 0) {
++    return changedTouches.find((touch) => touch.identifier === identifier) ?? null
++  }
++  const lists = phase === 'move' ? [touches, changedTouches] : [changedTouches, touches]
++  for (const list of lists) {
++    if (!list?.length) continue
++    if (identifier == null) return list[0]
++    const touch = list.find((item) => item.identifier === identifier)
++    if (touch) return touch
++  }
++  return identifier == null || nativeEvent?.identifier === identifier ? nativeEvent : null
 +}
++
 +// OneKey patch: hitSlop is either a number or a per-side rect
 +function getHitSlop(hitSlop, side) {
 +  if (typeof hitSlop === "number") return hitSlop;
@@ -474,7 +512,7 @@ index bd0a1d6..0f2c7dc 100644
  function useMainThreadPressEvents(events, viewProps) {
    var enabled = arguments.length > 2 && arguments[2] !== void 0 ? arguments[2] : true,
      debugName = arguments.length > 3 ? arguments[3] : void 0;
-@@ -13,7 +38,12 @@ function useMainThreadPressEvents(events, viewProps) {
+@@ -13,7 +49,13 @@ function useMainThreadPressEvents(events, viewProps) {
        pressOutTimer: null,
        longPressTimer: null,
        activateTime: 0,
@@ -484,11 +522,12 @@ index bd0a1d6..0f2c7dc 100644
 +      isOutsidePressRect: false,
 +      gestureGeneration: 0,
 +      latestTouch: null,
++      activeTouchIdentifier: null,
 +      latestTouchEvent: null
      };
    }
    if (!enabled || !events) return;
-@@ -25,9 +55,15 @@ function useMainThreadPressEvents(events, viewProps) {
+@@ -25,9 +67,15 @@ function useMainThreadPressEvents(events, viewProps) {
    var delayLongPress = Math.max(0, (_events_delayLongPress = events.delayLongPress) !== null && _events_delayLongPress !== void 0 ? _events_delayLongPress : DEFAULT_LONG_PRESS_DELAY);
    var _events_minPressDuration;
    var minPressDuration = Math.max(0, (_events_minPressDuration = events.minPressDuration) !== null && _events_minPressDuration !== void 0 ? _events_minPressDuration : DEFAULT_MIN_PRESS_DURATION);
@@ -504,10 +543,11 @@ index bd0a1d6..0f2c7dc 100644
      ref.current.activateTime = Date.now();
      (_events_onPressIn = events.onPressIn) === null || _events_onPressIn === void 0 ? void 0 : _events_onPressIn.call(events, e);
    }
-@@ -51,6 +87,74 @@ function useMainThreadPressEvents(events, viewProps) {
+@@ -51,6 +99,75 @@ function useMainThreadPressEvents(events, viewProps) {
      ref.current.pressInTimer = null;
      ref.current.pressOutTimer = null;
      ref.current.longPressTimer = null;
++    ref.current.activeTouchIdentifier = null;
 +    ref.current.latestTouch = null;
 +    ref.current.latestTouchEvent = null;
 +  }
@@ -518,7 +558,7 @@ index bd0a1d6..0f2c7dc 100644
 +  // (no retention) behavior.
 +  // OneKey patch: retain coordinates and event context for asynchronous measure.
 +  function rememberTouch(e) {
-+    var touch = getTouchFromPressEvent(e);
++    var touch = getTouchFromPressEvent(e, ref.current.activeTouchIdentifier);
 +    if (!touch || typeof touch.pageX !== "number" || typeof touch.pageY !== "number") return;
 +    ref.current.latestTouch = { pageX: touch.pageX, pageY: touch.pageY };
 +    ref.current.latestTouchEvent = Object.assign(
@@ -530,7 +570,7 @@ index bd0a1d6..0f2c7dc 100644
 +    // OneKey patch: cancel native drags on both platforms; resolve Platform lazily.
 +    if (Platform?.OS !== "android" && Platform?.OS !== "ios") return;
 +    var target = e === null || e === void 0 ? void 0 : e.currentTarget;
-+    var touch = getTouchFromPressEvent(e);
++    var touch = getTouchFromPressEvent(e, ref.current.activeTouchIdentifier);
 +    if (!target || typeof target.measure !== "function") return;
 +    if (!touch || typeof touch.pageX !== "number" || typeof touch.pageY !== "number") return;
 +    var startTouch = {
@@ -558,7 +598,7 @@ index bd0a1d6..0f2c7dc 100644
 +  function updatePressRect(e, measuredTouch) {
 +    var region = ref.current.responderRegion;
 +    if (!region || ref.current.state === "idle") return;
-+    var touch = measuredTouch || getTouchFromPressEvent(e);
++    var touch = measuredTouch || getTouchFromPressEvent(e, ref.current.activeTouchIdentifier);
 +    if (!touch || typeof touch.pageX !== "number" || typeof touch.pageY !== "number") return;
 +    var isOutside = !isTouchWithinPressRect(touch, region, hitSlop);
 +    if (isOutside === ref.current.isOutsidePressRect) return;
@@ -579,32 +619,46 @@ index bd0a1d6..0f2c7dc 100644
    }
    var userStartShouldSet = viewProps.onStartShouldSetResponder;
    var userGrant = viewProps.onResponderGrant;
-@@ -64,6 +168,9 @@ function useMainThreadPressEvents(events, viewProps) {
+@@ -64,6 +181,10 @@ function useMainThreadPressEvents(events, viewProps) {
    };
    viewProps.onResponderGrant = function (e) {
      cleanup();
 +    ref.current.gestureGeneration += 1;
++    ref.current.activeTouchIdentifier = null;
 +    ref.current.latestTouch = null;
 +    ref.current.latestTouchEvent = null;
      if (unstable_hasExternalPressOwnership()) {
        ref.current.state = "idle";
        ref.current.blockedByExternalOwnership = true;
-@@ -72,6 +179,10 @@ function useMainThreadPressEvents(events, viewProps) {
+@@ -72,6 +193,12 @@ function useMainThreadPressEvents(events, viewProps) {
      userGrant === null || userGrant === void 0 ? void 0 : userGrant(e);
      ref.current.blockedByExternalOwnership = false;
      ref.current.state = "pressing";
 +    // OneKey patch
 +    ref.current.isOutsidePressRect = false;
++    const grantingTouch = getTouchFromPressEvent(e, e?.nativeEvent?.identifier ?? null, 'grant');
++    ref.current.activeTouchIdentifier = grantingTouch?.identifier ?? null;
 +    rememberTouch(e);
 +    measureResponderRegion(e);
      if (delayPressIn > 0) {
        ref.current.pressInTimer = setTimeout(function () {
          return activate(e);
-@@ -97,12 +208,23 @@ function useMainThreadPressEvents(events, viewProps) {
+@@ -97,12 +224,34 @@ function useMainThreadPressEvents(events, viewProps) {
        return;
      }
      userRelease === null || userRelease === void 0 ? void 0 : userRelease(e);
-+    updatePressRect(e);
++    const releaseTouch = getTouchFromPressEvent(e, ref.current.activeTouchIdentifier, 'release');
++    // OneKey patch: a missing primary release must never press using another finger.
++    if (ref.current.activeTouchIdentifier != null && !releaseTouch) {
++      cleanup();
++      if (!ref.current.isOutsidePressRect && (ref.current.state === 'active' || ref.current.state === 'longPressed')) {
++        deactivate(e);
++      }
++      ref.current.state = 'idle';
++      ref.current.isOutsidePressRect = false;
++      return;
++    }
++    updatePressRect(e, releaseTouch);
      var wasLongPressed = ref.current.state === "longPressed";
      cleanup();
 +    // OneKey patch: released outside the press rect, the press is cancelled and
@@ -624,7 +678,7 @@ index bd0a1d6..0f2c7dc 100644
        var _events_onPress;
        (_events_onPress = events.onPress) === null || _events_onPress === void 0 ? void 0 : _events_onPress.call(events, e);
      }
-@@ -113,11 +235,14 @@ function useMainThreadPressEvents(events, viewProps) {
+@@ -113,11 +262,14 @@ function useMainThreadPressEvents(events, viewProps) {
    viewProps.onResponderTerminate = function (e) {
      userTerminate === null || userTerminate === void 0 ? void 0 : userTerminate(e);
      cleanup();
@@ -640,7 +694,7 @@ index bd0a1d6..0f2c7dc 100644
    };
    viewProps.onResponderTerminationRequest = function (e) {
      if (userTerminationRequest) return userTerminationRequest(e);
-@@ -127,6 +252,9 @@ function useMainThreadPressEvents(events, viewProps) {
+@@ -127,6 +279,9 @@ function useMainThreadPressEvents(events, viewProps) {
      var _events_onPressMove;
      userMove === null || userMove === void 0 ? void 0 : userMove(e);
      (_events_onPressMove = events.onPressMove) === null || _events_onPressMove === void 0 ? void 0 : _events_onPressMove.call(events, e);
@@ -815,7 +869,7 @@ index c91b74f..f93aa0b 100644
  
            if (process.env.NODE_ENV === 'development' && debug === 'verbose') {
 diff --git a/node_modules/@tamagui/web/src/helpers/mainThreadPressEvents.native.ts b/node_modules/@tamagui/web/src/helpers/mainThreadPressEvents.native.ts
-index 8ad8f79..a181058 100644
+index 8ad8f79..65f4d53 100644
 --- a/node_modules/@tamagui/web/src/helpers/mainThreadPressEvents.native.ts
 +++ b/node_modules/@tamagui/web/src/helpers/mainThreadPressEvents.native.ts
 @@ -8,6 +8,8 @@
@@ -842,7 +896,7 @@ index 8ad8f79..a181058 100644
  interface PressRef {
    state: PressState
    pressInTimer: ReturnType<typeof setTimeout> | null
-@@ -22,10 +32,42 @@ interface PressRef {
+@@ -22,10 +32,57 @@ interface PressRef {
    longPressTimer: ReturnType<typeof setTimeout> | null
    activateTime: number
    blockedByExternalOwnership: boolean
@@ -851,6 +905,7 @@ index 8ad8f79..a181058 100644
 +  isOutsidePressRect: boolean
 +  gestureGeneration: number
 +  latestTouch: { pageX: number; pageY: number } | null
++  activeTouchIdentifier: number | null
 +  latestTouchEvent: unknown | null
  }
  
@@ -859,12 +914,26 @@ index 8ad8f79..a181058 100644
 +// OneKey patch: same press retention offsets as react-native Pressability
 +const DEFAULT_PRESS_RECT_OFFSETS: PressRect = { top: 20, left: 20, right: 20, bottom: 30 }
 +
-+// OneKey patch: same touch lookup as react-native Pressability
-+function getTouchFromPressEvent(e: any) {
++// OneKey patch: retain the granting finger even when other touches remain.
++function getTouchFromPressEvent(
++  e: any,
++  identifier: number | null = null,
++  phase: 'grant' | 'move' | 'release' = 'move'
++) {
 +  const nativeEvent = e?.nativeEvent
-+  if (nativeEvent?.touches?.length > 0) return nativeEvent.touches[0]
-+  if (nativeEvent?.changedTouches?.length > 0) return nativeEvent.changedTouches[0]
-+  return nativeEvent
++  const touches = nativeEvent?.touches
++  const changedTouches = nativeEvent?.changedTouches
++  if (identifier != null && phase === 'release' && changedTouches?.length > 0) {
++    return changedTouches.find((touch: any) => touch.identifier === identifier) ?? null
++  }
++  const lists = phase === 'move' ? [touches, changedTouches] : [changedTouches, touches]
++  for (const list of lists) {
++    if (!list?.length) continue
++    if (identifier == null) return list[0]
++    const touch = list.find((item: any) => item.identifier === identifier)
++    if (touch) return touch
++  }
++  return identifier == null || nativeEvent?.identifier === identifier ? nativeEvent : null
 +}
 +
 +// OneKey patch: hitSlop is either a number or a per-side rect
@@ -885,7 +954,7 @@ index 8ad8f79..a181058 100644
  
  export function useMainThreadPressEvents(
    events: any,
-@@ -42,6 +84,11 @@ export function useMainThreadPressEvents(
+@@ -42,6 +99,12 @@ export function useMainThreadPressEvents(
        longPressTimer: null,
        activateTime: 0,
        blockedByExternalOwnership: false,
@@ -893,11 +962,12 @@ index 8ad8f79..a181058 100644
 +      isOutsidePressRect: false,
 +      gestureGeneration: 0,
 +      latestTouch: null,
++      activeTouchIdentifier: null,
 +      latestTouchEvent: null,
      }
    }
  
-@@ -54,9 +101,14 @@ export function useMainThreadPressEvents(
+@@ -54,9 +117,14 @@ export function useMainThreadPressEvents(
      0,
      events.minPressDuration ?? DEFAULT_MIN_PRESS_DURATION
    )
@@ -912,10 +982,11 @@ index 8ad8f79..a181058 100644
      ref.current.activateTime = Date.now()
      events.onPressIn?.(e)
    }
-@@ -81,6 +133,73 @@ export function useMainThreadPressEvents(
+@@ -81,6 +149,74 @@ export function useMainThreadPressEvents(
      ref.current.pressInTimer = null
      ref.current.pressOutTimer = null
      ref.current.longPressTimer = null
++    ref.current.activeTouchIdentifier = null
 +    ref.current.latestTouch = null
 +    ref.current.latestTouchEvent = null
 +  }
@@ -927,7 +998,7 @@ index 8ad8f79..a181058 100644
 +  // (no retention) behavior.
 +  // OneKey patch: retain coordinates and event context for asynchronous measure.
 +  function rememberTouch(e: any) {
-+    const touch = getTouchFromPressEvent(e)
++    const touch = getTouchFromPressEvent(e, ref.current.activeTouchIdentifier)
 +    if (typeof touch?.pageX !== 'number' || typeof touch?.pageY !== 'number') return
 +    ref.current.latestTouch = { pageX: touch.pageX, pageY: touch.pageY }
 +    ref.current.latestTouchEvent = Object.assign(
@@ -941,7 +1012,7 @@ index 8ad8f79..a181058 100644
 +    // Platform lazily because static extraction runs before RN initializes it.
 +    if (Platform?.OS !== 'android' && Platform?.OS !== 'ios') return
 +    const target = e?.currentTarget
-+    const touch = getTouchFromPressEvent(e)
++    const touch = getTouchFromPressEvent(e, ref.current.activeTouchIdentifier)
 +    if (typeof target?.measure !== 'function') return
 +    if (typeof touch?.pageX !== 'number' || typeof touch?.pageY !== 'number') return
 +    const startTouch = { pageX: touch.pageX, pageY: touch.pageY }
@@ -969,7 +1040,7 @@ index 8ad8f79..a181058 100644
 +  function updatePressRect(e: any, measuredTouch?: { pageX: number; pageY: number } | null) {
 +    const region = ref.current.responderRegion
 +    if (!region || ref.current.state === 'idle') return
-+    const touch = measuredTouch ?? getTouchFromPressEvent(e)
++    const touch = measuredTouch ?? getTouchFromPressEvent(e, ref.current.activeTouchIdentifier)
 +    if (typeof touch?.pageX !== 'number' || typeof touch?.pageY !== 'number') return
 +    const isOutside = !isTouchWithinPressRect(touch, region, hitSlop)
 +    if (isOutside === ref.current.isOutsidePressRect) return
@@ -986,33 +1057,47 @@ index 8ad8f79..a181058 100644
    }
  
    // user-supplied responder props (the View's raw RN gesture API) must keep
-@@ -102,6 +221,9 @@ export function useMainThreadPressEvents(
+@@ -102,6 +238,10 @@ export function useMainThreadPressEvents(
  
    viewProps.onResponderGrant = (e: any) => {
      cleanup()
 +    ref.current.gestureGeneration += 1
++    ref.current.activeTouchIdentifier = null
 +    ref.current.latestTouch = null
 +    ref.current.latestTouchEvent = null
  
      if (unstable_hasExternalPressOwnership()) {
        ref.current.state = 'idle'
-@@ -112,6 +234,10 @@ export function useMainThreadPressEvents(
+@@ -112,6 +252,12 @@ export function useMainThreadPressEvents(
      userGrant?.(e)
      ref.current.blockedByExternalOwnership = false
      ref.current.state = 'pressing'
 +    // OneKey patch
 +    ref.current.isOutsidePressRect = false
++    const grantingTouch = getTouchFromPressEvent(e, e?.nativeEvent?.identifier ?? null, 'grant')
++    ref.current.activeTouchIdentifier = grantingTouch?.identifier ?? null
 +    rememberTouch(e)
 +    measureResponderRegion(e)
  
      if (delayPressIn > 0) {
        ref.current.pressInTimer = setTimeout(() => activate(e), delayPressIn)
-@@ -138,15 +264,27 @@ export function useMainThreadPressEvents(
+@@ -138,15 +284,38 @@ export function useMainThreadPressEvents(
      }
  
      userRelease?.(e)
++    const releaseTouch = getTouchFromPressEvent(e, ref.current.activeTouchIdentifier, 'release')
++    // OneKey patch: a missing primary release must never press using another finger.
++    if (ref.current.activeTouchIdentifier != null && !releaseTouch) {
++      cleanup()
++      if (!ref.current.isOutsidePressRect && (ref.current.state === 'active' || ref.current.state === 'longPressed')) {
++        deactivate(e)
++      }
++      ref.current.state = 'idle'
++      ref.current.isOutsidePressRect = false
++      return
++    }
 +    // OneKey patch: include the release point when the final move was coalesced.
-+    updatePressRect(e)
++    updatePressRect(e, releaseTouch)
      const wasLongPressed = ref.current.state === 'longPressed'
      cleanup()
  
@@ -1035,7 +1120,7 @@ index 8ad8f79..a181058 100644
        events.onPress?.(e)
      }
  
-@@ -158,11 +296,17 @@ export function useMainThreadPressEvents(
+@@ -158,11 +327,17 @@ export function useMainThreadPressEvents(
    viewProps.onResponderTerminate = (e: any) => {
      userTerminate?.(e)
      cleanup()
@@ -1054,7 +1139,7 @@ index 8ad8f79..a181058 100644
    }
  
    viewProps.onResponderTerminationRequest = (e: any) => {
-@@ -173,5 +317,8 @@ export function useMainThreadPressEvents(
+@@ -173,5 +348,8 @@ export function useMainThreadPressEvents(
    viewProps.onResponderMove = (e: any) => {
      userMove?.(e)
      events.onPressMove?.(e)
