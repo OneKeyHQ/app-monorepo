@@ -1,9 +1,11 @@
 import ServiceThirdPartyHardware from '.';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
+import { HardwareErrorCode } from '@onekeyfe/hwk-adapter-core';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import localDb from '../../dbs/local/localDb';
 import ServiceBatchCreateAccount from '../ServiceBatchCreateAccount/ServiceBatchCreateAccount';
 import { HardwareAllNetworkGetAddressResponse } from '../ServiceHardware/HardwareAllNetworkGetAddressResponse';
 
@@ -181,6 +183,66 @@ describe('Keystone default account creation', () => {
       expect(destroy).toHaveBeenCalled();
     },
   );
+
+  describe('account key pinning on import', () => {
+    const ACCOUNT_PATH = "m/44'/60'/0'";
+
+    function withPinnedDevice(fixture: ReturnType<typeof buildService>) {
+      Object.assign(fixture.created.wallet, {
+        associatedDevice: 'keystone-db-device',
+      });
+      fixture.allNetworkGetAddress.mockResolvedValueOnce({
+        success: true,
+        payload: [
+          {
+            network: 'evm',
+            path: `${ACCOUNT_PATH}/0/0`,
+            success: true,
+            payload: {
+              address: `0x${'11'.repeat(20)}`,
+              deviceIdentity: {
+                type: 'walletId',
+                value: fixture.walletIdentity,
+              },
+              accountKey: {
+                path: ACCOUNT_PATH,
+                publicKey: '02aa',
+                chainCode: 'cc',
+              },
+            },
+          },
+        ],
+      });
+    }
+
+    it('refuses a re-import with another account key before replacing accounts', async () => {
+      const fixture = buildService();
+      withPinnedDevice(fixture);
+      const pin = jest
+        .spyOn(localDb, 'pinDeviceKeystoneAccountKeys')
+        .mockResolvedValue([`evm:${ACCOUNT_PATH}`]);
+
+      await expect(
+        fixture.service.createKeystoneWalletWithDefaultAccounts({}),
+      ).rejects.toMatchObject({ code: HardwareErrorCode.DeviceMismatch });
+      expect(pin).toHaveBeenCalledWith({
+        dbDeviceId: 'keystone-db-device',
+        keys: { [`evm:${ACCOUNT_PATH}`]: '02aa:cc' },
+      });
+      expect(fixture.batchBuildAccounts).not.toHaveBeenCalled();
+    });
+
+    it('pins the keys and creates the accounts when they match', async () => {
+      const fixture = buildService();
+      withPinnedDevice(fixture);
+      jest.spyOn(localDb, 'pinDeviceKeystoneAccountKeys').mockResolvedValue([]);
+
+      await expect(
+        fixture.service.createKeystoneWalletWithDefaultAccounts({}),
+      ).resolves.toMatchObject(fixture.created);
+      expect(fixture.batchBuildAccounts).toHaveBeenCalled();
+    });
+  });
 
   it('does not create a wallet when device interaction rejects', async () => {
     const fixture = buildService();

@@ -484,7 +484,12 @@ export type IHwAllNetworkPrepareAccountsItem =
       path?: string;
       rootFingerprint?: number;
       /** Keystone: the unsigned account-level key the address was derived from. */
-      accountKey?: { path: string; xpub?: string; publicKey?: string };
+      accountKey?: {
+        path: string;
+        publicKey: string;
+        chainCode?: string;
+        xpub?: string;
+      };
       deviceIdentity?:
         | {
             vendor: 'ledger';

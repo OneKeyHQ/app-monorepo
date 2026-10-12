@@ -31,6 +31,7 @@ import {
 
 import localDb from '../../dbs/local/localDb';
 import { thirdPartyHardwareUiStateAtom } from '../../states/jotai/atoms';
+import { pinKeystoneAccountKeys } from '../../vaults/base/keystoneAccountKeyUtils';
 import {
   thirdPartyCommonCallParamsForCreateScene,
   thirdPartyConnectionContextFromDevice,
@@ -1109,6 +1110,15 @@ class ServiceThirdPartyHardware extends ServiceBase {
       hardwareOperationContext,
     });
 
+    // A re-import replaces the wallet's accounts, so the export must match the keys pinned on
+    // the device record before anything is written.
+    if (created.wallet.associatedDevice) {
+      await pinKeystoneAccountKeys({
+        dbDeviceId: created.wallet.associatedDevice,
+        items,
+        vendorName,
+      });
+    }
     const prepared = new HardwareAllNetworkGetAddressResponse();
     prepared.bundleLength = bundle.length;
     prepared.onSdkResponse({ items, completed: true });
