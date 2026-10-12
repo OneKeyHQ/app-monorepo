@@ -9,6 +9,7 @@ import type {
   IDustSweepNetwork,
   IDustSweepRouteParams,
 } from '@onekeyhq/shared/types/swap/dustSweep';
+import { DUST_SWEEP_PROVIDER } from '@onekeyhq/shared/types/swap/dustSweep';
 
 import { buildDustSweepCandidates } from './candidates';
 
@@ -74,7 +75,7 @@ async function loadDustSweepNetworksInternal(
     accountUtils.isExternalAccount({ accountId: params.accountId })
   )
     throw new OneKeyLocalError('Account is unavailable');
-  const [networks, { accountsInfo }] = await Promise.all([
+  const [networks, { accountsInfo }, providers] = await Promise.all([
     backgroundApiProxy.serviceSwap.fetchSwapNetworks(),
     backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
       accountId: params.accountId,
@@ -87,11 +88,30 @@ async function loadDustSweepNetworksInternal(
       includingNonExistingAccount: false,
       includingNotEqualGlobalDeriveTypeAccount: Boolean(params.networkId),
     }),
+    backgroundApiProxy.serviceSwap.getSwapProviderManager(),
   ]);
+  const provider = providers.find(
+    (item) => item.providerInfo.provider === DUST_SWEEP_PROVIDER,
+  );
+  const supportedNetworkIds = new Set(
+    provider?.providerServiceDisable || provider?.isSupportSingleSwap === false
+      ? []
+      : provider?.supportSingleSwapNetworks?.map((item) => item.networkId),
+  );
+  const disabledNetworkIds = new Set(
+    provider?.serviceDisableNetworks?.map((item) => item.networkId),
+  );
+  const denySingleSwapProvider = providers
+    .map((item) => item.providerInfo.provider)
+    .filter((item) => item !== DUST_SWEEP_PROVIDER)
+    .toSorted()
+    .join(',');
   const limit = pLimit(4);
   const candidates = networks.filter(
     (network) =>
       network.supportSingleSwap &&
+      supportedNetworkIds.has(network.networkId) &&
+      !disabledNetworkIds.has(network.networkId) &&
       (!params.networkId || network.networkId === params.networkId) &&
       accountsInfo.some(
         (account) =>
@@ -165,6 +185,7 @@ async function loadDustSweepNetworksInternal(
           valueUsd: tokens
             .reduce((sum, token) => sum.plus(token.valueUsd), new BigNumber(0))
             .toFixed(),
+          denySingleSwapProvider,
         };
       }),
     ),

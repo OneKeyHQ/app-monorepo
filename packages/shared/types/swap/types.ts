@@ -664,6 +664,7 @@ export interface ISwapPreSwapData {
 
 export interface IFetchSwapQuoteParams {
   source?: ESwapQuoteSource;
+  denySingleSwapProvider?: string;
   fromToken: ISwapToken;
   toToken: ISwapToken;
   requestScopeKey?: string;

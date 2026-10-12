@@ -134,18 +134,22 @@ describe('Dust Sweep quote execution guards', () => {
     ).toBeUndefined();
   });
 
-  it.each(['okx', 'OKX', 'Swap0x'])(
-    'accepts provider %s from the quote contract',
-    (provider) => {
-      expect(
-        getDustSweepQuoteRisk(
-          { ...quote, info: { ...quote.info, provider } },
-          token,
-          snapshot,
-        ),
-      ).toBeUndefined();
-    },
-  );
+  it.each([
+    'okx',
+    'OKX',
+    'Swap0x',
+    'SwapLiquidMesh',
+    'SwapChangelly',
+    'wrapped',
+  ])('rejects provider %s outside the Dust Sweep contract', (provider) => {
+    expect(
+      getDustSweepQuoteRisk(
+        { ...quote, info: { ...quote.info, provider } },
+        token,
+        snapshot,
+      ),
+    ).toBe('noQuote');
+  });
 
   it.each(['Infinity', 'NaN', '0', '-1'])(
     'rejects invalid received amount %s',
@@ -273,7 +277,7 @@ describe('Dust Sweep quote stream ownership', () => {
     mockCancelFetchQuoteEvents.mockReset().mockResolvedValue(undefined);
   });
 
-  it('selects the first usable provider contract from a multi-provider stream', async () => {
+  it('waits for OKX rather than accepting another provider first', async () => {
     const operation = fetchDustSweepQuote(
       token,
       snapshot,
@@ -286,13 +290,15 @@ describe('Dust Sweep quote stream ownership', () => {
       }),
     );
     emitQuoteMessage(0, { totalQuoteCount: 10, eventId: 'info' });
-    const futureProviderQuote = {
+    const otherProviderQuote = {
       ...quote,
-      info: { provider: 'FutureProvider', providerName: 'Future Provider' },
+      info: { provider: 'SwapLiquidMesh', providerName: 'LiquidMesh' },
     };
-    emitQuoteMessage(0, { data: [futureProviderQuote] });
+    emitQuoteMessage(0, { data: [otherProviderQuote] });
+    expect(mockCancelFetchQuoteEvents).not.toHaveBeenCalled();
+    emitQuoteMessage(0, { data: [quote] });
     emitQuoteEvent(0, { type: 'done' });
-    await expect(operation).resolves.toEqual(futureProviderQuote);
+    await expect(operation).resolves.toEqual(quote);
     expect(mockCancelFetchQuoteEvents).toHaveBeenCalledTimes(1);
     expect(mockCancelFetchQuoteEvents).toHaveBeenCalledWith(
       mockFetchQuotesEvents.mock.calls[0][0].quoteRequestId,
@@ -309,12 +315,43 @@ describe('Dust Sweep quote stream ownership', () => {
       data: [{ ...quote, toAmount: '0', errorMessage: 'No liquidity' }],
     });
     expect(mockCancelFetchQuoteEvents).not.toHaveBeenCalled();
-    const usable = {
-      ...quote,
-      info: { provider: 'FutureProvider', providerName: 'Future Provider' },
-    };
+    const usable = { ...quote };
     emitQuoteMessage(0, { data: [usable] });
     await expect(operation).resolves.toEqual(usable);
+  });
+
+  it('does not fall back when only another provider can quote', async () => {
+    const operation = fetchDustSweepQuote(
+      token,
+      snapshot,
+      new AbortController().signal,
+    );
+    emitQuoteMessage(0, {
+      data: [
+        {
+          ...quote,
+          info: { provider: 'SwapLiquidMesh', providerName: 'LiquidMesh' },
+        },
+      ],
+    });
+    emitQuoteEvent(0, { type: 'done' });
+    await expect(operation).rejects.toMatchObject({ reason: 'noQuote' });
+  });
+
+  it('passes the Sweep source and provider restrictions on every quote', async () => {
+    const operation = fetchDustSweepQuote(
+      token,
+      { ...snapshot, denySingleSwapProvider: 'SwapLiquidMesh,Swap0x' },
+      new AbortController().signal,
+    );
+    expect(mockFetchQuotesEvents).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: 'Sweep',
+        denySingleSwapProvider: 'SwapLiquidMesh,Swap0x',
+      }),
+    );
+    emitQuoteMessage(0, { data: [quote] });
+    await expect(operation).resolves.toEqual(quote);
   });
 
   it('retains the risk reason if the stream ends with no executable quote', async () => {

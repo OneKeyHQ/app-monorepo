@@ -265,11 +265,11 @@ describe('Dust Sweep serial execution boundaries', () => {
     );
   });
 
-  it('polls the provider that owns the actual build instead of the preview provider', async () => {
+  it('polls with the provider and context of the actual OKX build', async () => {
     mockBuild.mockResolvedValue({
       result: {
         ...createQuote(),
-        info: { provider: 'SwapLiFi', providerName: 'LiFi' },
+        info: { provider: 'SwapOKX', providerName: 'OKX Dex' },
       },
       ctx: { build: 'actual' },
     });
@@ -279,10 +279,46 @@ describe('Dust Sweep serial execution boundaries', () => {
     expect(mockTxState).toHaveBeenCalledWith(
       expect.objectContaining({
         txId: 'swap',
-        provider: 'SwapLiFi',
+        provider: 'SwapOKX',
         ctx: { build: 'actual' },
       }),
     );
+  });
+
+  it('retains Sweep attribution when building each quoted token', async () => {
+    mockFetchQuote.mockResolvedValue({
+      ...createQuote(),
+      quoteResultCtx: { routeId: 'dust-route' },
+    });
+    await executeDustSweepItem(createOptions());
+    expect(mockBuild).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: 'Sweep',
+        tradeSource: 'swapBridge',
+        provider: 'SwapOKX',
+        quoteResultCtx: { routeId: 'dust-route' },
+        fromToken: token,
+        toToken: snapshot.nativeToken,
+        fromTokenAmount: token.amount,
+        userAddress: snapshot.address,
+        receivingAddress: snapshot.address,
+      }),
+    );
+  });
+
+  it('never prepares or signs a build that changes the provider from OKX', async () => {
+    mockBuild.mockResolvedValue({
+      result: {
+        ...createQuote(),
+        info: { provider: 'SwapLiquidMesh', providerName: 'LiquidMesh' },
+      },
+    });
+    await expect(executeDustSweepItem(createOptions())).rejects.toMatchObject({
+      reason: 'noQuote',
+    });
+    expect(mockPayload).not.toHaveBeenCalled();
+    expect(mockAllowance).not.toHaveBeenCalled();
+    expect(mockSend).not.toHaveBeenCalled();
   });
 
   it('waits for the initial approval before entering swap signing', async () => {

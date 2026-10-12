@@ -1,5 +1,7 @@
 import type { ISwapNetwork, ISwapToken } from './types';
 
+export const DUST_SWEEP_PROVIDER = 'SwapOKX';
+
 export type IDustSweepEntry = 'walletMore' | 'lowValueRow';
 export type IDustSweepRouteParams = {
   accountId?: string;
@@ -30,6 +32,7 @@ export type IDustSweepNetwork = {
   tokens: IDustSweepToken[];
   nativeToken: ISwapToken;
   valueUsd: string;
+  denySingleSwapProvider?: string;
 };
 export type IDustSweepItemStatus =
   | 'waiting'
@@ -60,4 +63,5 @@ export type IDustSweepSnapshot = {
   nativeToken: ISwapToken;
   slippage: number;
   tokens: IDustSweepToken[];
+  denySingleSwapProvider?: string;
 };

@@ -14,6 +14,7 @@ import type {
   IDustSweepSnapshot,
   IDustSweepToken,
 } from '@onekeyhq/shared/types/swap/dustSweep';
+import { DUST_SWEEP_PROVIDER } from '@onekeyhq/shared/types/swap/dustSweep';
 import type {
   IFetchQuoteResult,
   ISwapQuoteEventData,
@@ -27,13 +28,9 @@ import {
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
-/**
- * Dust Sweep receives a provider stream from the SWEEP quote contract. The
- * backend owns the provider allowlist; the client only requires an explicit
- * provider id so the selected provider can be carried through build/history.
- */
+// The backend source labels orders; Dust Sweep currently executes only OKX.
 export function isDustSweepQuoteCandidate(quote: IFetchQuoteResult) {
-  return Boolean(quote.info?.provider?.trim());
+  return quote.info?.provider === DUST_SWEEP_PROVIDER;
 }
 
 export class DustSweepSkip extends OneKeyLocalError {
@@ -232,6 +229,7 @@ export function fetchDustSweepQuote(
     void backgroundApiProxy.serviceSwap
       .fetchQuotesEvents({
         source: ESwapQuoteSource.SWEEP,
+        denySingleSwapProvider: snapshot.denySingleSwapProvider,
         fromToken: token,
         toToken: snapshot.nativeToken,
         fromTokenAmount: token.amount,
