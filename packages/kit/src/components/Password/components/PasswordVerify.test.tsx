@@ -426,6 +426,80 @@ describe('PasswordVerify biometric safety guard', () => {
     expect(onBiologyAuth).not.toHaveBeenCalled();
   });
 
+  it.each([EPasswordMode.PASSWORD, EPasswordMode.PASSCODE])(
+    'allows a fresh pageMode %s manual request after verification',
+    async (passwordMode) => {
+      const onBiologyAuth = jest.fn();
+      renderVerify({
+        pageMode: true,
+        passwordMode,
+        status: { value: EPasswordVerifyStatus.VERIFIED },
+        onBiologyAuth,
+      });
+      await act(async () => {
+        if (passwordMode === EPasswordMode.PASSWORD)
+          await captured().input.addOns[0].onPress();
+        else captured().icon.onPress();
+      });
+      expect(sdkCheck()).toHaveBeenCalledTimes(1);
+      expect(onBiologyAuth).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each([EPasswordMode.PASSWORD, EPasswordMode.PASSCODE])(
+    'blocks a non-pageMode %s manual request after verification',
+    async (passwordMode) => {
+      const onBiologyAuth = jest.fn();
+      renderVerify({
+        pageMode: false,
+        passwordMode,
+        status: { value: EPasswordVerifyStatus.VERIFIED },
+        onBiologyAuth,
+      });
+      await act(async () => {
+        if (passwordMode === EPasswordMode.PASSWORD)
+          await captured().input.addOns[0].onPress();
+        else captured().icon.onPress();
+      });
+      expect(onBiologyAuth).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([EPasswordMode.PASSWORD, EPasswordMode.PASSCODE])(
+    'blocks a pending pageMode %s request when verification completes',
+    async (passwordMode) => {
+      const check = deferred<boolean>();
+      sdkCheck().mockReturnValue(check.promise);
+      const onBiologyAuth = jest.fn();
+      const props: Omit<ComponentProps<typeof PasswordVerify>, 'status'> = {
+        authType: [],
+        isEnable: true,
+        pageMode: true,
+        passwordMode,
+        onPasswordChange: () => {},
+        onBiologyAuth,
+        onInputPasswordAuth: () => {},
+      };
+      const view = renderVerify(props);
+      await act(async () => {
+        if (passwordMode === EPasswordMode.PASSWORD)
+          void captured().input.addOns[0].onPress();
+        else captured().icon.onPress();
+      });
+      expect(sdkCheck()).toHaveBeenCalledTimes(1);
+      view.rerender(
+        <PasswordVerify
+          {...props}
+          status={{ value: EPasswordVerifyStatus.VERIFIED }}
+        />,
+      );
+      await act(async () => {
+        check.resolve(false);
+      });
+      expect(onBiologyAuth).not.toHaveBeenCalled();
+    },
+  );
+
   it.each(['disabled', 'input', 'verifying', 'verified', 'unmounted'] as const)(
     'does not authenticate after pending check becomes %s',
     async (change) => {

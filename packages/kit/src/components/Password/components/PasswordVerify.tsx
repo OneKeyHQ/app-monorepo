@@ -270,6 +270,7 @@ function PasswordVerify({
     const field =
       passwordMode === EPasswordMode.PASSWORD ? 'password' : 'passCode';
     const inputBeforeCheck = form.getValues(field);
+    const statusBeforeCheck = statusRef.current;
     const attempting = (async () => {
       const result =
         platformEnv.isNativeIOS || platformEnv.isDesktopMac
@@ -281,7 +282,8 @@ function PasswordVerify({
         isEnableRef.current &&
         form.getValues(field) === inputBeforeCheck &&
         statusRef.current !== EPasswordVerifyStatus.VERIFYING &&
-        statusRef.current !== EPasswordVerifyStatus.VERIFIED
+        (statusRef.current !== EPasswordVerifyStatus.VERIFIED ||
+          (pageMode && statusBeforeCheck === EPasswordVerifyStatus.VERIFIED))
       )
         await onBiologyAuth();
     })();
@@ -290,7 +292,7 @@ function PasswordVerify({
     });
     biometricAuthPromiseRef.current = tracked;
     return tracked;
-  }, [checkAuthChanged, onBiologyAuth, form, passwordMode]);
+  }, [checkAuthChanged, onBiologyAuth, form, passwordMode, pageMode]);
 
   useLayoutEffect(() => {
     void (async () => {
