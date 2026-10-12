@@ -63,6 +63,9 @@ const START_MAX_ATTEMPTS = 3;
 const START_REQUEST_TIMEOUT_MS = 10 * 1000;
 const REPORT_BACKOFF_BASE_MS = 5 * 1000;
 const REPORT_BACKOFF_MAX_MS = 30 * 60 * 1000;
+// How long an exhausted start waits for this device's pending releases to be
+// confirmed before it gives up and shows the exhausted feedback.
+const RELEASE_CONFIRM_TIMEOUT_MS = 5 * 1000;
 
 const USER_CHANGED_ERROR_MESSAGE = 'Prime free trial user changed';
 
@@ -203,7 +206,9 @@ class ServicePrimeFreeTrial extends ServiceBase {
     | Promise<IPrimeFreeTrialQuota | null | undefined>
     | undefined;
 
-  private reportingRecordKeys = new Set<string>();
+  // One finish request per record at a time. Callers that need its outcome
+  // (an exhausted start waiting for a release) await the same promise.
+  private reportingRecords = new Map<string, Promise<void>>();
 
   private reportRetryTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -666,9 +671,14 @@ class ServicePrimeFreeTrial extends ServiceBase {
   private async startUsageImpl({
     featureId,
     usageId,
+    retryAfterRelease = true,
   }: {
     featureId: IPrimeFreeTrialUsageFeatureId;
     usageId: string;
+    // An exhausted start may only see this device's own finished use that
+    // the server still counts as a reservation; it is asked once more after
+    // that release is confirmed.
+    retryAfterRelease?: boolean;
   }): Promise<IPrimeFreeTrialStartResult> {
     if (await this.isTravelMode()) {
       throw new OneKeyLocalError({
@@ -687,6 +697,17 @@ class ServicePrimeFreeTrial extends ServiceBase {
     const onekeyUserId = user.onekeyUserId;
     const startedAt = Date.now();
     let lastError: Error | undefined;
+    // Once an attempt's effect is unknown the server may hold a reservation
+    // for this id, so every exit without a grant releases it with cancelled.
+    let hadUncertainAttempt = false;
+    const releaseUncertainReservation = () =>
+      this.recordUsageResult({
+        onekeyUserId,
+        featureId,
+        usageId,
+        result: 'cancelled',
+        startedAt,
+      });
     for (let attempt = 0; attempt < START_MAX_ATTEMPTS; attempt += 1) {
       try {
         const response = await this.requestStart({
@@ -697,9 +718,11 @@ class ServicePrimeFreeTrial extends ServiceBase {
         if (!response || response.unlimited) {
           // The server sees an active subscription the local state has not
           // caught up with yet: run without metering.
-          void this.backgroundApi.servicePrime.apiFetchPrimeUserInfo({
-            forceRefresh: true,
-          });
+          void this.backgroundApi.servicePrime
+            .apiFetchPrimeUserInfo({
+              forceRefresh: true,
+            })
+            .catch(() => undefined);
           return { status: 'unlimited' };
         }
         const quota =
@@ -743,16 +766,37 @@ class ServicePrimeFreeTrial extends ServiceBase {
           featureId,
         });
         if (freeTrialError?.code === PRIME_FREE_TRIAL_QUOTA_EXHAUSTED_CODE) {
+          if (
+            retryAfterRelease &&
+            (await this.confirmPendingReleases({
+              onekeyUserId,
+              featureId,
+              exceptUsageId: usageId,
+            }))
+          ) {
+            return this.startUsageImpl({
+              featureId,
+              usageId,
+              retryAfterRelease: false,
+            });
+          }
           await this.applyQuotaExhaustedData(freeTrialError.data);
           return { status: 'exhausted', featureId, data: freeTrialError.data };
         }
         if (freeTrialError?.code === PRIME_FREE_TRIAL_NOT_OPEN_CODE) {
+          if (hadUncertainAttempt) {
+            await releaseUncertainReservation();
+          }
           await this.handleFreeTrialErrorFromServer(freeTrialError);
           return { status: 'notOpen', featureId };
         }
         if (!isUncertainRequestError(error)) {
+          if (hadUncertainAttempt) {
+            await releaseUncertainReservation();
+          }
           throw error;
         }
+        hadUncertainAttempt = true;
         lastError = error as Error;
         if (attempt < START_MAX_ATTEMPTS - 1) {
           await timerUtils.wait(1000 * (attempt + 1));
@@ -766,13 +810,7 @@ class ServicePrimeFreeTrial extends ServiceBase {
       stage: 'startUsage',
       reason: 'start result unknown, releasing with cancelled',
     });
-    await this.recordUsageResult({
-      onekeyUserId,
-      featureId,
-      usageId,
-      result: 'cancelled',
-      startedAt,
-    });
+    await releaseUncertainReservation();
     throw (
       lastError ??
       new OneKeyLocalError({
@@ -780,6 +818,49 @@ class ServicePrimeFreeTrial extends ServiceBase {
         autoToast: false,
       })
     );
+  }
+
+  // Sends (or joins) the finish of this user's failed / cancelled uses of the
+  // feature that the server may still count as live reservations. Resolves
+  // true when at least one release was confirmed within the timeout.
+  private async confirmPendingReleases({
+    onekeyUserId,
+    featureId,
+    exceptUsageId,
+  }: {
+    onekeyUserId: string;
+    featureId: IPrimeFreeTrialUsageFeatureId;
+    exceptUsageId: string;
+  }) {
+    const isPendingRelease = (record: IPrimeFreeTrialUsageRecord) =>
+      record.onekeyUserId === onekeyUserId &&
+      record.featureId === featureId &&
+      record.usageId !== exceptUsageId &&
+      record.result !== undefined &&
+      record.result !== 'success' &&
+      !record.reportedAt;
+    const pending = (
+      await this.backgroundApi.simpleDb.primeFreeTrial.getUsageRecords()
+    ).filter(isPendingRelease);
+    if (!pending.length) {
+      return false;
+    }
+    let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
+    await Promise.race([
+      Promise.allSettled(
+        pending.map((record) => this.reportUsageRecord(record)),
+      ),
+      new Promise<void>((resolve) => {
+        timeoutTimer = setTimeout(resolve, RELEASE_CONFIRM_TIMEOUT_MS);
+      }),
+    ]);
+    clearTimeout(timeoutTimer);
+    const stillPending = new Set(
+      (await this.backgroundApi.simpleDb.primeFreeTrial.getUsageRecords())
+        .filter(isPendingRelease)
+        .map((record) => record.usageId),
+    );
+    return pending.some((record) => !stillPending.has(record.usageId));
   }
 
   // start returns the feature quota; only write it when it belongs to the
@@ -1031,16 +1112,32 @@ class ServicePrimeFreeTrial extends ServiceBase {
     }
   }
 
-  private async reportUsageRecord(record: IPrimeFreeTrialUsageRecord) {
+  private reportUsageRecord(record: IPrimeFreeTrialUsageRecord) {
     const { result } = record;
     if (!result || !isPrimeFreeTrialUsageRecordReportable(record)) {
-      return;
+      return Promise.resolve();
     }
     const recordKey = buildPrimeFreeTrialUsageRecordKey(record);
-    if (this.reportingRecordKeys.has(recordKey)) {
-      return;
+    const inflight = this.reportingRecords.get(recordKey);
+    if (inflight) {
+      return inflight;
     }
-    this.reportingRecordKeys.add(recordKey);
+    const promise = this.reportUsageRecordImpl({ record, result }).finally(
+      () => {
+        this.reportingRecords.delete(recordKey);
+      },
+    );
+    this.reportingRecords.set(recordKey, promise);
+    return promise;
+  }
+
+  private async reportUsageRecordImpl({
+    record,
+    result,
+  }: {
+    record: IPrimeFreeTrialUsageRecord;
+    result: IPrimeFreeTrialUsageResult;
+  }) {
     const recordIdentity = {
       onekeyUserId: record.onekeyUserId,
       featureId: record.featureId,
@@ -1085,10 +1182,13 @@ class ServicePrimeFreeTrial extends ServiceBase {
         }
         if (
           isUserChangedError(error) ||
-          error instanceof OneKeyErrorPrimeLoginInvalidToken
+          error instanceof OneKeyErrorPrimeLoginInvalidToken ||
+          error instanceof OneKeyErrorPrimeLoginExceedDeviceLimit
         ) {
-          // Keep the record until the owner logs in again (login / network
-          // recovery flush it); no timer, so nothing spins meanwhile.
+          // Keep the record until the owner's session is usable again (user
+          // state change / network recovery flush it); no timer, so nothing
+          // spins meanwhile. Every device-limit reply also opens the
+          // device-limit page, so a timer would reopen it on each tick.
           await this.backgroundApi.simpleDb.primeFreeTrial.updateUsageRecord(
             recordIdentity,
             (current) =>
@@ -1124,8 +1224,6 @@ class ServicePrimeFreeTrial extends ServiceBase {
         stage: 'reportUsageRecord',
         reason: (error as Error | undefined)?.message,
       });
-    } finally {
-      this.reportingRecordKeys.delete(recordKey);
     }
   }
 

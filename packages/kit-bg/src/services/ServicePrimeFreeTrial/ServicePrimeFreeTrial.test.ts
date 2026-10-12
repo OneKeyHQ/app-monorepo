@@ -1,4 +1,5 @@
 import {
+  OneKeyErrorPrimeLoginExceedDeviceLimit,
   OneKeyErrorPrimeLoginInvalidToken,
   OneKeyErrorPrimePaidMembershipRequired,
   OneKeyServerApiError,
@@ -423,6 +424,211 @@ describe('ServicePrimeFreeTrial', () => {
       expect(mockOneKeyIdClient.post).not.toHaveBeenCalled();
     });
 
+    it('releases a possibly held reservation when a later attempt fails definitively', async () => {
+      const { service } = createService();
+      let startCount = 0;
+      mockOneKeyIdClient.post.mockImplementation(async (url: string) => {
+        if (url === '/prime/v1/free-trial/usage/start') {
+          startCount += 1;
+          throw startCount === 1 ? networkError() : serverError(90_001);
+        }
+        return { data: { code: 0, data: { unlimited: false } } };
+      });
+
+      await expect(
+        service.startUsage({
+          featureId: EPrimeFeatures.BulkSend,
+          usageId: 'usage-0009',
+        }),
+      ).rejects.toBeTruthy();
+      await flushPromises();
+
+      expect(startCount).toBe(2);
+      expect(finishCalls()).toEqual([
+        [
+          '/prime/v1/free-trial/usage/finish',
+          {
+            featureId: EPrimeFeatures.BulkSend,
+            usageId: 'usage-0009',
+            result: 'cancelled',
+          },
+          expect.anything(),
+        ],
+      ]);
+    });
+
+    it('releases a possibly held reservation when a later attempt says not open', async () => {
+      const { service } = createService();
+      let startCount = 0;
+      mockOneKeyIdClient.post.mockImplementation(async (url: string) => {
+        if (url === '/prime/v1/free-trial/usage/start') {
+          startCount += 1;
+          throw startCount === 1
+            ? networkError()
+            : serverError(PRIME_FREE_TRIAL_NOT_OPEN_CODE);
+        }
+        return { data: { code: 0, data: { unlimited: false } } };
+      });
+
+      await expect(
+        service.startUsage({
+          featureId: EPrimeFeatures.BulkSend,
+          usageId: 'usage-0010',
+        }),
+      ).resolves.toMatchObject({ status: 'notOpen' });
+      await flushPromises();
+
+      expect(finishCalls()).toEqual([
+        [
+          '/prime/v1/free-trial/usage/finish',
+          expect.objectContaining({
+            usageId: 'usage-0010',
+            result: 'cancelled',
+          }),
+          expect.anything(),
+        ],
+      ]);
+    });
+
+    it('does not release anything when the first attempt is already definitive', async () => {
+      const { service } = createService();
+      mockOneKeyIdClient.post.mockRejectedValue(serverError(90_001));
+
+      await expect(
+        service.startUsage({
+          featureId: EPrimeFeatures.BulkSend,
+          usageId: 'usage-0011',
+        }),
+      ).rejects.toBeTruthy();
+      await flushPromises();
+
+      expect(finishCalls()).toEqual([]);
+    });
+
+    describe('exhausted by a release of this device', () => {
+      function seedSettledUsage(
+        simpleDb: ReturnType<typeof createSimpleDbMock>,
+        usageId: string,
+      ) {
+        simpleDb.records.set(
+          recordKey({
+            onekeyUserId: 'user-a',
+            featureId: EPrimeFeatures.BulkSend,
+            usageId,
+          }),
+          {
+            onekeyUserId: 'user-a',
+            featureId: EPrimeFeatures.BulkSend,
+            usageId,
+            startedAt: Date.now(),
+            expiresAt: Date.now() + 30 * 60 * 1000,
+            result: 'failed',
+            resultAt: Date.now(),
+            reportAttempts: 0,
+          },
+        );
+      }
+
+      const grantedStart = {
+        data: {
+          code: 0,
+          data: {
+            unlimited: false,
+            featureId: EPrimeFeatures.BulkSend,
+            usageId: 'usage-0013',
+            quota: { ...quotaOfBulkSend, used: 1, remaining: 0 },
+            expiresAt: 1000,
+            resetAt: 2000,
+          },
+        },
+      };
+
+      it('confirms the pending release, then asks once more', async () => {
+        const { service, simpleDb } = createService();
+        seedSettledUsage(simpleDb, 'usage-0012');
+        let startCount = 0;
+        mockOneKeyIdClient.post.mockImplementation(async (url: string) => {
+          if (url === '/prime/v1/free-trial/usage/start') {
+            startCount += 1;
+            if (startCount === 1) {
+              throw serverError(PRIME_FREE_TRIAL_QUOTA_EXHAUSTED_CODE, {
+                ...quotaOfBulkSend,
+                resetAt: 2000,
+              });
+            }
+            return grantedStart;
+          }
+          return { data: { code: 0, data: { unlimited: false } } };
+        });
+
+        const result = await service.startUsage({
+          featureId: EPrimeFeatures.BulkSend,
+          usageId: 'usage-0013',
+        });
+
+        expect(result).toMatchObject({
+          status: 'granted',
+          usageId: 'usage-0013',
+        });
+        expect(startCount).toBe(2);
+        expect(finishCalls()).toEqual([
+          [
+            '/prime/v1/free-trial/usage/finish',
+            expect.objectContaining({
+              usageId: 'usage-0012',
+              result: 'failed',
+            }),
+            expect.anything(),
+          ],
+        ]);
+        expect(
+          simpleDb.records.get('user-a__BulkSend__usage-0012')?.reportedAt,
+        ).toEqual(expect.any(Number));
+      });
+
+      it('stays exhausted when the release cannot be confirmed', async () => {
+        const { service, simpleDb } = createService();
+        seedSettledUsage(simpleDb, 'usage-0014');
+        let startCount = 0;
+        mockOneKeyIdClient.post.mockImplementation(async (url: string) => {
+          if (url === '/prime/v1/free-trial/usage/start') {
+            startCount += 1;
+            throw serverError(PRIME_FREE_TRIAL_QUOTA_EXHAUSTED_CODE, {
+              ...quotaOfBulkSend,
+              resetAt: 2000,
+            });
+          }
+          throw networkError();
+        });
+
+        const result = await service.startUsage({
+          featureId: EPrimeFeatures.BulkSend,
+          usageId: 'usage-0015',
+        });
+
+        expect(result).toMatchObject({ status: 'exhausted' });
+        expect(startCount).toBe(1);
+      });
+
+      it('does not wait for anything without a pending release', async () => {
+        const { service } = createService();
+        mockOneKeyIdClient.post.mockRejectedValue(
+          serverError(PRIME_FREE_TRIAL_QUOTA_EXHAUSTED_CODE, {
+            ...quotaOfBulkSend,
+            resetAt: 2000,
+          }),
+        );
+
+        await expect(
+          service.startUsage({
+            featureId: EPrimeFeatures.BulkSend,
+            usageId: 'usage-0016',
+          }),
+        ).resolves.toMatchObject({ status: 'exhausted' });
+        expect(mockOneKeyIdClient.post).toHaveBeenCalledTimes(1);
+      });
+    });
+
     it('does not retry a definitive error', async () => {
       const { service } = createService();
       mockOneKeyIdClient.post.mockRejectedValue(serverError(90_001));
@@ -612,6 +818,29 @@ describe('ServicePrimeFreeTrial', () => {
       expect(
         simpleDb.records.get('user-a__BulkSend__usage-1007'),
       ).toMatchObject({ result: 'success', reportAttempts: 0 });
+      expect(jest.getTimerCount()).toBe(0);
+    });
+
+    it('keeps the record without a retry timer after a device-limit reply', async () => {
+      const { service, simpleDb } = createService();
+      seedStartedUsage(simpleDb, { usageId: 'usage-1010' });
+      mockOneKeyIdClient.post.mockRejectedValue(
+        new OneKeyErrorPrimeLoginExceedDeviceLimit(),
+      );
+
+      await service.markUsageSuccess({
+        featureId: EPrimeFeatures.BulkSend,
+        usageId: 'usage-1010',
+      });
+      await flushPromises();
+
+      expect(
+        simpleDb.records.get('user-a__BulkSend__usage-1010'),
+      ).toMatchObject({ result: 'success', reportAttempts: 0 });
+      expect(
+        simpleDb.records.get('user-a__BulkSend__usage-1010')?.nextReportAt,
+      ).toBeUndefined();
+      // No backoff timer: each retry would reopen the device-limit page.
       expect(jest.getTimerCount()).toBe(0);
     });
 

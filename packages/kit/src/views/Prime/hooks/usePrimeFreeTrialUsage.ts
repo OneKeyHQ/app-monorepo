@@ -38,6 +38,22 @@ const USER_CANCEL_CLASS_NAMES = new Set<string>([
   EOneKeyErrorClassNames.PasswordPromptDialogCancel,
 ]);
 
+// Settles still being written in the background, per feature, across pages
+// (a result page settles, then the review page may start again). A new start
+// waits for them, so the background already knows the previous round ended
+// and can confirm its release before asking for another reservation.
+const pendingSettles = new Map<
+  IPrimeFreeTrialUsageFeatureId,
+  Set<Promise<void>>
+>();
+
+async function waitForPendingSettles(featureId: IPrimeFreeTrialUsageFeatureId) {
+  const settles = pendingSettles.get(featureId);
+  if (settles?.size) {
+    await Promise.allSettled(settles);
+  }
+}
+
 // cancelled and failed both release the reservation; they only differ in
 // analytics, so a best-effort classification is enough.
 export function isPrimeFreeTrialUserCancelError(error: unknown) {
@@ -68,6 +84,7 @@ export function usePrimeFreeTrialUsage({
       if (isPrimeSubscriptionActive) {
         return { status: 'notMetered' };
       }
+      await waitForPendingSettles(featureId);
       // `allowLogin`: at most one login detour. The background reports a
       // missing login (e.g. the token was cleared after the page opened);
       // the unified gate asks the user to log in, then start runs once more.
@@ -162,18 +179,28 @@ export function usePrimeFreeTrialUsage({
       if (!usageId) {
         return;
       }
+      const settle = (async () => {
+        try {
+          await backgroundApiProxy.servicePrimeFreeTrial.settleUsage({
+            featureId,
+            usageId,
+            result,
+          });
+        } catch (error) {
+          defaultLogger.prime.subscription.primeFreeTrialTrace({
+            featureId,
+            stage: 'settleUsage',
+            reason: (error as Error | undefined)?.message,
+          });
+        }
+      })();
+      const settles = pendingSettles.get(featureId) ?? new Set();
+      settles.add(settle);
+      pendingSettles.set(featureId, settles);
       try {
-        await backgroundApiProxy.servicePrimeFreeTrial.settleUsage({
-          featureId,
-          usageId,
-          result,
-        });
-      } catch (error) {
-        defaultLogger.prime.subscription.primeFreeTrialTrace({
-          featureId,
-          stage: 'settleUsage',
-          reason: (error as Error | undefined)?.message,
-        });
+        await settle;
+      } finally {
+        settles.delete(settle);
       }
     },
     [featureId],

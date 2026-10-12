@@ -887,12 +887,17 @@ function BulkCopyAddresses({
   // result page opens; copying / exporting there is not metered again.
   const settleGenerateError = useCallback(
     async (usageId: string | undefined, error: unknown) => {
+      // ServiceBatchCreateAccount.checkIfCancelled throws the flow's own
+      // `errorMessage` (bulk copy passes its own copy), or the generic bulk
+      // accounts copy when none is given.
+      const message = (error as Error | undefined)?.message;
       const isCancelled =
         isPrimeFreeTrialUserCancelError(error) ||
-        (error as Error | undefined)?.message ===
-          intl.formatMessage({
-            id: ETranslations.global_bulk_accounts_loading_error,
-          });
+        (!!message &&
+          [
+            ETranslations.global_bulk_copy_addresses_loading_error,
+            ETranslations.global_bulk_accounts_loading_error,
+          ].some((id) => intl.formatMessage({ id }) === message));
       await settleUsage(usageId, isCancelled ? 'cancelled' : 'failed');
     },
     [intl, settleUsage],

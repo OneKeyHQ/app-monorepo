@@ -7848,3 +7848,141 @@ describe('ServicePrime hardware Prime gift orchestration', () => {
     expect(giftEventSpy).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('ServicePrime.apiTranslate free-trial batches', () => {
+  const ServicePrimeFreeTrial =
+    require('../ServicePrimeFreeTrial/ServicePrimeFreeTrial').default;
+
+  // 9 texts -> batches of 4, 4 and 1.
+  const texts = ['a1', 'a2', 'a3', 'a4', 'b1', 'b2', 'b3', 'b4', 'c1'];
+
+  function translated(batch: string[]) {
+    return batch.map((text) => `T(${text})`);
+  }
+
+  function createTranslateService(
+    replyOfBatch: (batch: string[]) => { code: number; data?: unknown },
+  ) {
+    const { service, backgroundApi } = createService();
+    // The real normalization (raw 90005 -> 90601, 90600 business data).
+    backgroundApi.servicePrimeFreeTrial.normalizeFreeTrialError = jest.fn(
+      (params: unknown) =>
+        ServicePrimeFreeTrial.prototype.normalizeFreeTrialError.call(
+          {},
+          params,
+        ),
+    );
+    const post = jest.fn(async (_url: string, body: { texts: string[] }) => {
+      const reply = replyOfBatch(body.texts);
+      return {
+        status: 200,
+        data: { message: `code ${reply.code}`, ...reply },
+      };
+    });
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+    return { service, backgroundApi, post };
+  }
+
+  function translate(service: any) {
+    return service.apiTranslate({
+      texts,
+      sourceLang: 'auto',
+      targetLang: 'zh',
+      engine: 'ai',
+    });
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      primeSubscription: { isActive: false },
+    });
+  });
+
+  it('keeps the billed batches when another batch is exhausted', async () => {
+    const { service, backgroundApi, post } = createTranslateService((batch) =>
+      batch[0] === 'b1'
+        ? {
+            code: 90_600,
+            data: { featureId: 'DAppTranslate', resetAt: 2000 },
+          }
+        : { code: 0, data: { translations: translated(batch) } },
+    );
+
+    const result = await translate(service);
+
+    expect(post).toHaveBeenCalledTimes(3);
+    expect(result.translations).toEqual([
+      ...translated(['a1', 'a2', 'a3', 'a4']),
+      'b1',
+      'b2',
+      'b3',
+      'b4',
+      ...translated(['c1']),
+    ]);
+    expect(result.hasBilledBatch).toBe(true);
+    expect(result.freeTrialError).toMatchObject({
+      code: 90_600,
+      data: { featureId: 'DAppTranslate', remaining: 0, resetAt: 2000 },
+    });
+    expect(
+      backgroundApi.servicePrimeFreeTrial.handleFreeTrialErrorFromServer,
+    ).toHaveBeenCalledTimes(1);
+  });
+
+  it('normalizes a raw 90005 to the client not-open code', async () => {
+    const { service } = createTranslateService(() => ({ code: 90_005 }));
+
+    const result = await translate(service);
+
+    expect(result.translations).toEqual(texts);
+    expect(result.hasBilledBatch).toBe(false);
+    expect(result.freeTrialError).toMatchObject({
+      code: 90_601,
+      data: { featureId: 'DAppTranslate' },
+    });
+  });
+
+  it('lets 90104 win over 90600 and skips the quota update', async () => {
+    const { service, backgroundApi } = createTranslateService((batch) => ({
+      code: batch[0] === 'a1' ? 90_104 : 90_600,
+    }));
+
+    await expect(translate(service)).rejects.toMatchObject({ code: 90_104 });
+    expect(
+      backgroundApi.servicePrimeFreeTrial.handleFreeTrialErrorFromServer,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('keeps the original fallback for a locally active subscription', async () => {
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      primeSubscription: { isActive: true },
+    });
+    const { service, backgroundApi } = createTranslateService(() => ({
+      code: 90_005,
+    }));
+
+    const result = await translate(service);
+
+    expect(result.translations).toEqual(texts);
+    expect(result.freeTrialError).toBeUndefined();
+    expect(
+      backgroundApi.servicePrimeFreeTrial.normalizeFreeTrialError,
+    ).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.servicePrimeFreeTrial.handleFreeTrialErrorFromServer,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('reports no billed batch when every batch falls back', async () => {
+    const { service } = createTranslateService(() => ({ code: 500 }));
+
+    const result = await translate(service);
+
+    expect(result.translations).toEqual(texts);
+    expect(result.hasBilledBatch).toBe(false);
+    expect(result.freeTrialError).toBeUndefined();
+  });
+});

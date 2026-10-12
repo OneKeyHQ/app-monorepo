@@ -1113,8 +1113,16 @@ class ServicePrime extends ServiceBase {
     // least one batch. Returned instead of thrown so translations of the
     // other, already billed batches are kept.
     freeTrialError?: IPrimeFreeTrialError;
+    // At least one batch was translated by the server (and so billed).
+    hasBilledBatch: boolean;
   }> {
     const client = await this.getPrimeClient();
+    // A locally active subscription keeps the original behavior (original
+    // text, no free-trial stop), even when the server already sees it as
+    // lapsed and the local state has not caught up yet.
+    const isLocalPrimeActive = Boolean(
+      (await primePersistAtom.get()).primeSubscription?.isActive,
+    );
     // API limit: max 4 texts per translate request
     const batches = chunk(texts, 4);
     const requestConfig: Parameters<typeof client.post>[2] & {
@@ -1123,6 +1131,7 @@ class ServicePrime extends ServiceBase {
       autoHandleError: false,
     };
     let freeTrialError: IPrimeFreeTrialError | undefined;
+    let hasBilledBatch = false;
     // allSettled: one batch failing must not drop the other batches' results.
     const settledResults = await Promise.allSettled(
       batches.map(async (batch): Promise<Array<string | null>> => {
@@ -1157,6 +1166,7 @@ class ServicePrime extends ServiceBase {
             });
           }
 
+          hasBilledBatch = true;
           const translations = res?.data?.data?.translations;
 
           return Array.isArray(translations) ? translations : batch;
@@ -1166,11 +1176,12 @@ class ServicePrime extends ServiceBase {
             throw error;
           }
 
-          const batchFreeTrialError =
-            this.backgroundApi.servicePrimeFreeTrial.normalizeFreeTrialError({
-              error,
-              featureId: EPrimeFeatures.DAppTranslate,
-            });
+          const batchFreeTrialError = isLocalPrimeActive
+            ? undefined
+            : this.backgroundApi.servicePrimeFreeTrial.normalizeFreeTrialError({
+                error,
+                featureId: EPrimeFeatures.DAppTranslate,
+              });
           if (batchFreeTrialError) {
             freeTrialError = freeTrialError ?? batchFreeTrialError;
             return batch;
@@ -1199,7 +1210,7 @@ class ServicePrime extends ServiceBase {
         freeTrialError,
       );
     }
-    return { translations: results.flat(), freeTrialError };
+    return { translations: results.flat(), freeTrialError, hasBilledBatch };
   }
 
   async deleteOneKeyIdAccountOnServer({

@@ -446,7 +446,9 @@ export function usePrimeFeatureAccess() {
           }
         }
         try {
-          await loginOneKeyId();
+          await loginOneKeyId({
+            keepFreeTrialPendingAction: extPopup?.mode === 'pendingAction',
+          });
         } catch (error) {
           if (error instanceof PrimeLoginHandedOffToExtExpandTabError) {
             // The expand tab continues the saved action after login.

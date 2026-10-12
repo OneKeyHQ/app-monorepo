@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -49,6 +49,9 @@ function useBulkRevoke() {
   });
 
   const [isBuildingRevokeTxs, setIsBuildingRevokeTxs] = useState(false);
+  // The method dialog hands the same pending close to every tap, so a double
+  // tap would otherwise start two usages and push two BulkRevoke pages.
+  const isStartingBulkRevokeRef = useRef(false);
   const navigation = useAppNavigation();
 
   const navigationToBulkRevoke = useCallback(
@@ -80,6 +83,10 @@ function useBulkRevoke() {
       unsignedTxs: (IUnsignedTxPro & IHasId)[];
       contractMap: Record<string, IAddressInfo>;
     }) => {
+      if (isStartingBulkRevokeRef.current) {
+        return;
+      }
+      isStartingBulkRevokeRef.current = true;
       if (!isPrimeUser) {
         defaultLogger.prime.subscription.primeEntryClick({
           featureName: EPrimeFeatures.BulkRevoke,
@@ -110,6 +117,7 @@ function useBulkRevoke() {
             outcome.status === 'granted' ? outcome.usageId : undefined;
         }
       } finally {
+        isStartingBulkRevokeRef.current = false;
         setIsBuildingRevokeTxs(false);
       }
       void navigationToBulkRevoke({

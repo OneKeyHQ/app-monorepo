@@ -135,9 +135,13 @@ export function useOneKeyAuth() {
   const showOneKeyIdLoginDialog = useCallback(
     async ({
       toOneKeyIdPageOnLoginSuccess,
+      keepFreeTrialPendingAction,
       renderContent,
     }: {
       toOneKeyIdPageOnLoginSuccess?: boolean;
+      // Extension popup only: the caller just saved the free-trial action
+      // the expand tab should continue after this login.
+      keepFreeTrialPendingAction?: boolean;
       renderContent: (params: {
         onComplete: () => Promise<void>;
         onLoginSuccess: () => Promise<void>;
@@ -164,6 +168,14 @@ export function useOneKeyAuth() {
       // local auth state, and settle this call as a cancel subclass that
       // callers can tell apart from a real user cancel.
       if (shouldRunOneKeyIdAuthInExtExpandTab()) {
+        if (!keepFreeTrialPendingAction) {
+          // This hand-off carries no free-trial action: drop one left by an
+          // abandoned earlier relay, or the expand tab would run it after
+          // this unrelated login.
+          await backgroundApiProxy.servicePrimeFreeTrial
+            .clearPendingActionCreatedBefore({ timestamp: Date.now() })
+            .catch(() => undefined);
+        }
         await redirectOneKeyIdAuthToExtExpandTab({
           flow: EExtOneKeyIdAuthFlow.Login,
           toOneKeyIdPageOnLoginSuccess,
@@ -245,8 +257,10 @@ export function useOneKeyAuth() {
   const loginOneKeyId = useCallback(
     async ({
       toOneKeyIdPageOnLoginSuccess,
+      keepFreeTrialPendingAction,
     }: {
       toOneKeyIdPageOnLoginSuccess?: boolean;
+      keepFreeTrialPendingAction?: boolean;
     } = {}) => {
       let localKeylessLoginPrepareResult: IOneKeyIdLoginWithLocalKeylessPrepareResult;
       let localKeylessLoginPrepareErrorMessage: string | undefined;
@@ -277,6 +291,7 @@ export function useOneKeyAuth() {
       }
       return showOneKeyIdLoginDialog({
         toOneKeyIdPageOnLoginSuccess,
+        keepFreeTrialPendingAction,
         renderContent: ({
           onComplete,
           onLoginSuccess,

@@ -54,7 +54,7 @@ jest.mock('@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth', () => ({
     isPrimeSubscriptionActive: mockHookPrime,
     isLoggedIn: true,
     user: { onekeyUserId: 'user-a' },
-    loginOneKeyId: () => mockLoginOneKeyId() as unknown,
+    loginOneKeyId: (params: unknown) => mockLoginOneKeyId(params) as unknown,
   }),
 }));
 
@@ -228,7 +228,32 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
       ).resolves.toEqual({ granted: false });
     });
     expect(mockSavePendingAction).toHaveBeenCalledWith(action);
+    // The hand-off keeps the action it just saved.
+    expect(mockLoginOneKeyId).toHaveBeenCalledWith({
+      keepFreeTrialPendingAction: true,
+    });
     expect(mockPushFullModal).not.toHaveBeenCalled();
+  });
+
+  it('lets a popup hand-off without an action drop an older one', async () => {
+    mockShouldRunInExpandTab = true;
+    mockIsLoggedIn.mockResolvedValue(false);
+    mockLoginOneKeyId.mockRejectedValue(
+      new PrimeLoginHandedOffToExtExpandTabError(),
+    );
+    const result = renderAccessHook();
+
+    await act(async () => {
+      await expect(
+        result.current.ensureFeatureAccess({
+          featureId: EPrimeFeatures.AddressRiskCheck,
+        }),
+      ).resolves.toEqual({ granted: false });
+    });
+    expect(mockSavePendingAction).not.toHaveBeenCalled();
+    expect(mockLoginOneKeyId).toHaveBeenCalledWith({
+      keepFreeTrialPendingAction: false,
+    });
   });
 
   it('lets bulk send through in the popup so the expand tab gates it', async () => {

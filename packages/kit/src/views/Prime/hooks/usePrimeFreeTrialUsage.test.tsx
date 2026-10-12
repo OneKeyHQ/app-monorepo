@@ -8,6 +8,7 @@ import { usePrimeFreeTrialUsage } from './usePrimeFreeTrialUsage';
 
 const mockStartUsage = jest.fn();
 const mockGetUsageResult = jest.fn();
+const mockSettleUsage = jest.fn();
 const mockEnsureFeatureAccess = jest.fn();
 const mockHandleStartRejected = jest.fn();
 const mockToastError = jest.fn();
@@ -21,7 +22,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       getUsageResult: (params: unknown) =>
         mockGetUsageResult(params) as unknown,
       markUsageSuccess: jest.fn(),
-      settleUsage: jest.fn(),
+      settleUsage: (params: unknown) => mockSettleUsage(params) as unknown,
     },
   },
 }));
@@ -67,6 +68,41 @@ describe('usePrimeFreeTrialUsage.startUsage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockIsPrimeSubscriptionActive = false;
+  });
+
+  it('waits for a settle still being written, even from another page', async () => {
+    let finishSettle!: () => void;
+    mockSettleUsage.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        finishSettle = resolve;
+      }),
+    );
+    mockStartUsage.mockImplementation(async ({ usageId }) => ({
+      status: 'granted',
+      usageId,
+    }));
+    // A result page settles its round; a review page starts again.
+    const resultPage = renderUsageHook();
+    const reviewPage = renderUsageHook();
+
+    let startPromise: Promise<unknown> | undefined;
+    await act(async () => {
+      void resultPage.current.settleUsage('usage-old', 'failed');
+      startPromise = reviewPage.current.startUsage();
+      await Promise.resolve();
+    });
+    expect(mockStartUsage).not.toHaveBeenCalled();
+
+    await act(async () => {
+      finishSettle();
+      await startPromise;
+    });
+    expect(mockSettleUsage).toHaveBeenCalledWith({
+      featureId: EPrimeFeatures.BulkSend,
+      usageId: 'usage-old',
+      result: 'failed',
+    });
+    expect(mockStartUsage).toHaveBeenCalledTimes(1);
   });
 
   it('never starts for a Prime user', async () => {
