@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -73,10 +74,11 @@ function ClaimableGroupTotal({ group }: { group: IClaimableRewardsGroup }) {
 }
 
 /**
- * The row's action: the claim the server attached to the reward, run by the
- * button the wide layout runs on that row (enabled or not, as sent). A
- * reward without a claim of its own is collected on the detail page, so
- * the way there stays on the row.
+ * The row's action: the claim the server attached to the reward, or Lista's
+ * Check, run by the button the wide layout runs on that row (enabled or
+ * not, as sent; the button carries its own label). A reward without a claim
+ * of its own is collected on the detail page, so the way there stays on the
+ * row.
  */
 function PositionRewardAction({
   row,
@@ -204,7 +206,8 @@ export function RewardsClaimableList({
                 }
                 subtitle={row.position.name}
                 fiatValue={
-                  isProtocolAssetValueUnavailable(row.asset)
+                  isProtocolAssetValueUnavailable(row.asset) ||
+                  !new BigNumber(row.asset.amount).gt(0)
                     ? undefined
                     : row.asset.value
                 }

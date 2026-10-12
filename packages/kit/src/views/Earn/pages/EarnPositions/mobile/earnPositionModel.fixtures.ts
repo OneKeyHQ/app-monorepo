@@ -11,7 +11,10 @@ import type {
   IEarnPositionRewardClaim,
 } from '@onekeyhq/shared/types/earn/portfolioPositions';
 import { EClaimType, EStakingActionType } from '@onekeyhq/shared/types/staking';
-import type { IEarnCancelWithdrawalActionIcon } from '@onekeyhq/shared/types/staking';
+import type {
+  IEarnCancelWithdrawalActionIcon,
+  IEarnListaCheckActionIcon,
+} from '@onekeyhq/shared/types/staking';
 
 /**
  * Mock response in the positions contract: the cases the page has to get
@@ -19,11 +22,12 @@ import type { IEarnCancelWithdrawalActionIcon } from '@onekeyhq/shared/types/sta
  * withdrawals in progress (Lido), dated Pendle markets, the USDe cooled
  * down at Ethena that Pendle's sUSDe path reports, Morpho vaults on two
  * chains with a loan, Everstake with yield, USDe held at Ethena, Stakefish
- * on Solana. Rewards carry the claim the
- * server attaches to a row the user collects by hand: Morpho's campaign
+ * on Solana, Lista on BNB Chain before its Check. Rewards carry the claim
+ * the server attaches to a row the user collects by hand: Morpho's campaign
  * rows through the airdrop flow, Everstake's yield through the detail
- * row, and a Stakefish reward under its claim floor with the claim
- * disabled. Owners are placeholders.
+ * row, a Stakefish reward under its claim floor with the claim disabled,
+ * and Lista's zero Check row carrying the signature button. Owners are
+ * placeholders.
  */
 
 const FETCHED_AT = '2026-09-28T03:40:00.000Z';
@@ -50,6 +54,21 @@ export const CANCEL_BUTTON: IEarnCancelWithdrawalActionIcon = {
   text: { text: 'Cancel' },
   disabled: false,
 };
+
+export const CHECK_BUTTON: IEarnListaCheckActionIcon = {
+  type: 'listaCheck',
+  disabled: false,
+  text: { text: 'Check' },
+};
+
+/** Lista's Check row before the signature: no amount yet, the button reveals it. */
+export function checkClaim(): IEarnPositionRewardClaim {
+  return {
+    button: CHECK_BUTTON,
+    claimSource: 'airdrop',
+    row: { title: { text: '0 LISTA' }, button: CHECK_BUTTON },
+  };
+}
 
 /** A campaign row claimed through the airdrop flow, as Morpho and Lista send it. */
 export function airdropClaim(
@@ -197,6 +216,7 @@ function summary(
 
 const ethereum = { networkId: 'evm--1', chain: 'evm' };
 const base = { networkId: 'evm--8453', chain: 'evm' };
+const bnb = { networkId: 'evm--56', chain: 'evm' };
 const solana = { networkId: 'sol--101', chain: 'sol' };
 
 export const LIDO_UNLOCK_AT = Date.parse('2026-10-02T08:00:00Z');
@@ -512,6 +532,34 @@ const BASE_POSITIONS: IEarnPortfolioPosition[] = [
   }),
 ];
 
+export const LISTA_VAULT = '0xd093bd337814b0d4741bc0bf076549a6eb8cfdf7';
+
+const BNB_POSITIONS: IEarnPortfolioPosition[] = [
+  // Lista before its Check: the LISTA reward is a zero row whose button is
+  // the signature that reveals the amount.
+  position({
+    ...bnb,
+    protocol: 'lista',
+    protocolName: 'Lista',
+    category: 'yield',
+    groupId: `lista:evm--56:USDT:${LISTA_VAULT}`,
+    name: 'Pangolins USDT',
+    assets: [token({ symbol: 'USDT', amount: '0.9', price: 1 })],
+    rewards: [
+      {
+        ...token({
+          symbol: 'LISTA',
+          amount: '0',
+          price: 0.2,
+          category: 'reward',
+        }),
+        claim: checkClaim(),
+      },
+    ],
+    earn: { symbol: 'USDT', vault: LISTA_VAULT },
+  }),
+];
+
 const SOLANA_POSITIONS: IEarnPortfolioPosition[] = [
   position({
     ...solana,
@@ -556,6 +604,7 @@ const SOLANA_POSITIONS: IEarnPortfolioPosition[] = [
 const ALL_POSITIONS = [
   ...ETHEREUM_POSITIONS,
   ...BASE_POSITIONS,
+  ...BNB_POSITIONS,
   ...SOLANA_POSITIONS,
 ];
 
@@ -564,6 +613,7 @@ export const EARN_PORTFOLIO_POSITIONS_FIXTURE: IEarnPortfolioPositionsResponse =
     positions: {
       'evm--1': ETHEREUM_POSITIONS,
       'evm--8453': BASE_POSITIONS,
+      'evm--56': BNB_POSITIONS,
       'sol--101': SOLANA_POSITIONS,
     },
     errors: [],
@@ -576,6 +626,7 @@ export const EARN_PORTFOLIO_POSITIONS_FIXTURE: IEarnPortfolioPositionsResponse =
       summary(ALL_POSITIONS, 'native', 'evm--1'),
       summary(ALL_POSITIONS, 'morpho', 'evm--8453'),
       summary(ALL_POSITIONS, 'pendle', 'evm--8453'),
+      summary(ALL_POSITIONS, 'lista', 'evm--56'),
       summary(ALL_POSITIONS, 'stakefish', 'sol--101'),
     ],
   };

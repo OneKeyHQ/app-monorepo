@@ -18,6 +18,7 @@ import {
   EARN_PORTFOLIO_POSITIONS_FIXTURE,
   LIDO_LATER_UNLOCK_AT,
   LIDO_UNLOCK_AT,
+  LISTA_VAULT,
   NATIVE_UNLOCK_AT,
   NATIVE_USDT_VAULT,
   SUSDE_VAULT,
@@ -58,6 +59,7 @@ describe('earn position model: protocol rows', () => {
       'evm--1-morpho',
       'evm--1-native',
       'evm--1-pendle',
+      'evm--56-lista',
       'evm--8453-morpho',
       'evm--8453-pendle',
       'sol--101-stakefish',
@@ -124,6 +126,7 @@ describe('earn position model: protocol rows', () => {
     );
     expect(countEarnPositionsByNetwork(view.protocols)).toEqual({
       'evm--1': 14,
+      'evm--56': 1,
       'evm--8453': 2,
       'sol--101': 2,
     });
@@ -371,12 +374,34 @@ describe('earn position model: rewards claimable stage', () => {
     expect(claimable.map((group) => group.key).toSorted()).toEqual([
       'evm--1-everstake',
       'evm--1-morpho',
+      'evm--56-lista',
       'sol--101-stakefish',
     ]);
     expect(sumEarnClaimableRewards(view.protocols)).toBeCloseTo(
       1.2 * 1.2 + 0.0213 * 1.2 + 3 * 0.05 + 0.001 * 3150 + 0.0001 * 110,
       9,
     );
+  });
+
+  it("keeps Lista's Check row off the card and on the list, its button the only way to the amount", () => {
+    const key = `lista:evm--56:USDT:${LISTA_VAULT}`;
+    const lista = card(protocolRow('evm--56-lista'), key);
+    // the card has no row buttons: no zero row, and the card's Claim never signs
+    expect(lista.sections.map((section) => section.kind)).toEqual([
+      'deposited',
+    ]);
+    expect(lista.claimableRewards).toEqual([]);
+    expect(lista.action?.kind).toBe('manage');
+    // the list offers the Check on the row, at zero, adding nothing to the header
+    const group = claimable.find((item) => item.key === 'evm--56-lista');
+    expect(
+      group?.rows.map((row) => [
+        row.position.key,
+        row.asset.amount,
+        row.asset.claim?.button.type,
+      ]),
+    ).toEqual([[key, '0', 'listaCheck']]);
+    expect(group?.value.value).toBe(0);
   });
 
   it('leaves a reward without an amount yet off the list', () => {

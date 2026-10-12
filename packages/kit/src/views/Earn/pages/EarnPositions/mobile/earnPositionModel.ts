@@ -248,7 +248,11 @@ function buildSections({
     }
   });
   source.debts.forEach((asset) => push('borrowed', asset));
-  source.rewards.forEach((asset) => push('rewards', asset));
+  source.rewards.forEach((asset) => {
+    if (!isCheckRow(asset)) {
+      push('rewards', asset);
+    }
+  });
   return SECTION_ORDER.filter((kind) => byKind.has(kind)).map((kind) => ({
     key: kind,
     kind,
@@ -279,10 +283,24 @@ function isClaimEnabled(button: IEarnActionIcon): boolean {
   return !('disabled' in button && button.disabled);
 }
 
+/**
+ * Lista's Check row: a zero reward whose button is the signature that
+ * reveals the amount. The Rewards list offers it on the row, the way the
+ * detail page does; the card, which has no row buttons, leaves it out, and
+ * the card's Claim never runs it.
+ */
+function isCheckRow(reward: IEarnPositionRewardAsset): boolean {
+  return reward.claim?.button.type === 'listaCheck';
+}
+
 function hasEnabledClaim(
   reward: IEarnPositionRewardAsset,
 ): reward is IEarnClaimableReward {
-  return reward.claim !== undefined && isClaimEnabled(reward.claim.button);
+  return (
+    reward.claim !== undefined &&
+    !isCheckRow(reward) &&
+    isClaimEnabled(reward.claim.button)
+  );
 }
 
 function stageOf(source: IEarnPortfolioPosition): IEarnPositionStage {
@@ -436,7 +454,7 @@ export type IEarnClaimableRewardRow = {
   /** `${position key}:${index}` */
   key: string;
   position: IEarnPositionView;
-  asset: IEarnPositionSectionAsset;
+  asset: IEarnPositionRewardAsset;
 };
 
 export type IEarnClaimableRewardGroup = {
@@ -459,22 +477,25 @@ export type IEarnClaimableRewardGroup = {
  * the position on DeFi Assets and never shows up here. Product rule: the
  * header Rewards figure equals what this list adds up to, so a reward the
  * server has not priced stays on the DeFi Assets card and out of this list.
+ * Lista's Check row is the one zero row listed: its button is the way to
+ * the amount.
  */
 export function buildEarnClaimableRewardGroups(
   protocols: IEarnProtocolView[],
 ): IEarnClaimableRewardGroup[] {
   return protocols
     .map((protocol) => {
+      // From the server rewards, not the card's sections: the card leaves
+      // Lista's Check row out, this list is where its button lives.
       const rows = protocol.positions.flatMap((position) =>
-        position.sections
-          .filter((section) => section.kind === 'rewards')
-          .flatMap((section) => section.assets)
+        position.source.rewards
           // No zero rows either: a reward the server lists but has not
-          // amounted yet (Lista before its Check) is nothing to claim.
+          // amounted yet is nothing to claim, unless its button is the point.
           .filter(
             (asset) =>
-              !isProtocolAssetValueUnavailable(asset) &&
-              new BigNumber(asset.amount).gt(0),
+              isCheckRow(asset) ||
+              (!isProtocolAssetValueUnavailable(asset) &&
+                new BigNumber(asset.amount).gt(0)),
           )
           .map((asset, index) => ({
             key: `${position.key}:${index}`,

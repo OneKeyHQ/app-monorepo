@@ -82,9 +82,10 @@ export type IEarnPositionAirdropRow = Pick<
 };
 
 /**
- * How a reward is claimed from the card: the row's own button and the flow
- * that runs it (`investment` is the detail row's claim, `airdrop` the
- * airdrop read's), with the row as the detail page lists it.
+ * How a reward is acted on from the list: the row's own button (a claim, or
+ * Lista's Check, the `listaCheck` signature that reveals the amount) and the
+ * flow that runs it (`investment` is the detail row's, `airdrop` the airdrop
+ * read's), with the row as the detail page lists it.
  */
 export type IEarnPositionRewardClaim = {
   button: IEarnActionIcon;
