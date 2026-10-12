@@ -17,6 +17,10 @@ import {
 import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  swapSlippageWillAheadMinValue,
+  swapSlippageWillFailMinValue,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
 import { useDustSweep } from '../DustSweepProvider';
@@ -37,6 +41,22 @@ function SlippageEditor({
   const [draft, setDraft] = useState(initialValue.toString());
   const valid = isValidDustSweepSlippage(draft);
   const inputHeight = mobile ? 44 : 38;
+  let message: string | undefined;
+  if (!valid) {
+    message = intl.formatMessage({
+      id: ETranslations.slippage_tolerance_error_message,
+    });
+  } else if (Number(draft) <= swapSlippageWillFailMinValue) {
+    message = intl.formatMessage(
+      { id: ETranslations.slippage_tolerance_warning_message_2 },
+      { number: swapSlippageWillFailMinValue },
+    );
+  } else if (Number(draft) >= swapSlippageWillAheadMinValue) {
+    message = intl.formatMessage(
+      { id: ETranslations.slippage_tolerance_warning_message_1 },
+      { number: swapSlippageWillAheadMinValue },
+    );
+  }
   return (
     <YStack
       testID="dust-sweep-slippage-editor"
@@ -115,11 +135,14 @@ function SlippageEditor({
           ))}
         </XStack>
       </XStack>
-      {!valid ? (
-        <SizableText mt="$2" size="$bodyMd" color="$textCritical">
-          {intl.formatMessage({
-            id: ETranslations.slippage_tolerance_error_message,
-          })}
+      {message ? (
+        <SizableText
+          testID="dust-sweep-slippage-message"
+          mt="$2"
+          size="$bodyMd"
+          color={valid ? '$textCaution' : '$textCritical'}
+        >
+          {message}
         </SizableText>
       ) : null}
       <Button
@@ -180,7 +203,14 @@ export function DustSweepSlippage() {
       onPress={mobile ? openEditor : undefined}
     >
       <XStack gap="$1" alignItems="center">
-        <SizableText size="$bodyMdMedium">{displayValue}</SizableText>
+        <SizableText
+          size="$bodyMdMedium"
+          color={
+            slippage > swapSlippageWillAheadMinValue ? '$textCaution' : '$text'
+          }
+        >
+          {displayValue}
+        </SizableText>
         <Icon name="ChevronRightSmallOutline" size="$4" />
       </XStack>
     </Button>

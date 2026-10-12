@@ -747,8 +747,8 @@ describe('Dust Sweep serial execution boundaries', () => {
     mockAllowance.mockResolvedValueOnce(
       createAllowance({ isApproved: false, shouldResetApprove: true }),
     );
-    let confirmReset: (value: { state: ESwapTxHistoryStatus }) => void =
-      () => undefined;
+    let confirmReset: (value: { state: ESwapTxHistoryStatus }) => void = () =>
+      undefined;
     mockTxState.mockImplementationOnce(
       () =>
         new Promise((resolve) => {

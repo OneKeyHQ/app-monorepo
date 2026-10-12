@@ -2,7 +2,6 @@ import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { HardwareErrorCode as ThirdPartyHardwareErrorCode } from '@onekeyfe/hwk-adapter-core/errors';
 import BigNumber from 'bignumber.js';
 
-import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { buildMarketExecutionPayload } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketBuildExecutionUtils';
 import { sendMarketDirectUnsignedTxs } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketDirectSendTx';
@@ -12,6 +11,7 @@ import {
   checkSwapLatestBalanceSufficient,
   getSwapRequiredNativeBalanceAmount,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils';
+import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -455,8 +455,7 @@ export async function executeDustSweepItem(
         () => prepareDustSweepItem(options),
         signal,
       );
-      if (prepared.approvalInfos.length)
-        throw new DustSweepRetryableError();
+      if (prepared.approvalInfos.length) throw new DustSweepRetryableError();
     }
     const { execution, buildRes } = prepared;
     await sendMarketDirectUnsignedTxs({
