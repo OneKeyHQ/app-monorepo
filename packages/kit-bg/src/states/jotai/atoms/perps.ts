@@ -45,7 +45,6 @@ import { globalAtom, globalAtomComputedR } from '../utils';
 
 import { hyperLiquidAgentPasswordStatusAtom } from './passwordLock';
 
-import type { IMarketTradingViewLayout } from './market';
 import type { IPerpDynamicTab } from '../../../services/ServiceWebviewPerp/ServiceWebviewPerp';
 import type { IAccountDeriveTypes } from '../../../vaults/types';
 
@@ -65,19 +64,6 @@ export const {
   persist: true,
   name: EAtomNames.perpsTradingViewIndicatorSettingsPersistAtom,
   initialValue: createTradingViewNativeIndicatorSettings(),
-});
-
-export const {
-  target: perpsTradingViewLayoutPersistAtom,
-  use: usePerpsTradingViewLayoutPersistAtom,
-} = globalAtom<IMarketTradingViewLayout>({
-  persist: true,
-  name: EAtomNames.perpsTradingViewLayoutPersistAtom,
-  initialValue: {
-    panelCount: 1,
-    panelOrder: ['main', 'panel-2', 'panel-3', 'panel-4'],
-    panelSettings: {},
-  },
 });
 
 // Shared by Market entries and Web Perps, including expanded extension windows.

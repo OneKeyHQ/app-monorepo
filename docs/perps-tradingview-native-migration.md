@@ -20,7 +20,7 @@ The compact mobile trading-panel chart in
   provider. Preserve identifiers such as `xyz:NVDA` and spot pair IDs; display
   names must not become API identifiers.
 - Reuse native history loading, realtime candles, intervals, indicators, drawing
-  tools, chart settings and multi-chart controls.
+  tools and chart settings in a single chart.
 - Key the chart by its data-source identity so switching instruments releases
   the previous chart and its subscriptions.
 - Connect desktop expand/collapse to the existing Perps layout state, including
@@ -28,10 +28,10 @@ The compact mobile trading-panel chart in
   shared chart presentation. Mobile web opts into a full-window portal whose
   DOM container moves between its inline host and the window while retaining
   the canvas and viewport. The portal container uses column flex layout so the
-  chart grid fills its height even when all panels are absolutely positioned.
+  chart fills its height.
   The collapse control and Escape exit web fullscreen;
   the Android back button exits native fullscreen.
-- Use the existing parent interaction lock during native multi-chart resizing,
+- Use the existing parent interaction lock during chart gestures and fullscreen,
   and release it on instrument change or unmount.
 - Mount the native chart when a coin is available; its readiness does not depend
   on the old WebView reload counter. The legacy branch retains its reload gate.
@@ -88,16 +88,15 @@ use the same layout after price-to-coordinate projection.
 Full-position TP/SL orders with zero order size reuse the current position size,
 as in the old chart. Invalid prices are not rendered. Lines follow the existing
 visible price range; they do not widen candle autoscaling. Theme changes update
-the colors, and all native chart panels receive the same active instrument's
+the colors, and the native chart receives the active instrument's
 lines. Account/line subscriptions for the native renderer are mounted only while
 that renderer is selected. Closing positions, removing orders, account changes,
 logout and disabling the setting update the declarative line list directly.
 
 On desktop layouts, limit and TP/SL lines now expose a cancel button and can be
 dragged to amend the limit or trigger price. Position and liquidation lines remain
-informational. The interaction works in single-chart and multi-chart layouts;
-mobile layouts continue to display the lines without trading actions, matching
-the legacy trading-UI gate.
+informational. Mobile layouts continue to display the lines without trading
+actions, matching the legacy trading-UI gate.
 
 `usePerpsChartLineActions.ts` reuses the existing trading-enabled flow and
 cancel/amend actions. It binds each action to the account, coin, order and
@@ -161,22 +160,22 @@ interaction and resumes afterward. Web chart pointers and drawing tools use
 the same page lock. Perps canvas and time-axis gestures disable browser touch
 scrolling; pointer release, cancellation, lost capture, window blur and unmount
 release the lock. Other chart consumers retain `pan-y` when they do not request
-interaction tracking. Multi-chart panels aggregate their locks, and fullscreen, gestures
-and panel resizing have separate owners. Closing the chart or changing the
-instrument releases the locks. The compact mobile trading-panel chart keeps
+interaction tracking. Fullscreen and gestures have separate owners. Closing the
+chart or changing the instrument releases the locks. The compact mobile trading-panel chart keeps
 its existing presentation; these Perps entry integrations target `PerpCandles`.
 
 ## Independent Perps preferences
 
 Both `PerpCandles` and the compact `PerpMobileChartPanel` use
-`storageNamespace="perps"`. Chart appearance/type, indicator selection/settings
-and multi-chart layout use separate Perps persistent atoms. Additional panels
-read and write their settings inside the Perps layout snapshot. Desktop dialogs,
-mobile quick settings and mobile settings routes retain the originating namespace.
+`storageNamespace="perps"`. Chart appearance/type and indicator selection/settings
+use separate Perps persistent atoms. Desktop dialogs, mobile quick settings and
+mobile settings routes retain the originating namespace.
 
-Intervals use a dedicated Perps storage key, including independent panel entries.
-Drawing keys include a `perps:` prefix before the existing source and panel ID;
+Intervals use a dedicated Perps storage key.
+Drawing keys include a `perps:` prefix before the existing source;
 indicator-pane heights and ordering use that same isolated key.
+The built-in multi-chart layout has been removed. Saved layout snapshots and
+per-panel preferences are ignored; the original chart's preferences still apply.
 Market and Swap keep their existing storage keys and settings. Perps starts with
 the standard defaults when its new keys are absent; no Market or legacy WebView
 settings or drawings are copied, read as a fallback, removed or migrated.
@@ -228,8 +227,8 @@ Manual pass conditions:
    switching. Check that removed orders and closed positions leave no stale lines.
 7. With account trade history, check historical B/S marks and tooltip details,
    realtime fills, the display setting, account/coin switching and reconnects.
-8. On desktop layouts, check order-line drag previews, Escape cancellation and
-   single/multi-chart interaction. Any submission checks must use a separately
+8. On desktop layouts, check order-line drag previews and Escape cancellation.
+   Any submission checks must use a separately
    authorized test environment: verify cancellation, limit/trigger amendments,
    error rollback and rejection after account/order changes.
 
