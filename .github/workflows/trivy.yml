@@ -25,6 +25,7 @@ permissions:
 jobs:
   trivy-security-scan:
     name: Trivy Security Scan
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     permissions:
       actions: read
@@ -33,6 +34,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Run Trivy security scan
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
@@ -53,3 +56,80 @@ jobs:
         with:
           sarif_file: trivy-results.sarif
           category: trivy
+
+  trivy-pr-gate:
+    name: Trivy PR incremental gate
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - name: Initialize safe failure evidence
+        run: |
+          mkdir -p "$RUNNER_TEMP/trivy-evidence"
+          echo '{"schemaVersion":1,"status":"incomplete","error":"setup_failed"}' > "$RUNNER_TEMP/trivy-evidence/result.json"
+
+      - name: Checkout exact test merge
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+          path: source
+
+      - name: Checkout trusted base policy
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+          path: trusted
+
+      # Never fall back to the PR's comparator. The introducing PR intentionally
+      # fails this bootstrap check until the policy exists on its base branch.
+      - name: Require trusted gate
+        run: |
+          if [ ! -f trusted/.github/scripts/trivy_gate.py ]; then
+            echo '{"schemaVersion":1,"status":"incomplete","error":"trusted_policy_not_installed"}' > "$RUNNER_TEMP/trivy-evidence/result.json"
+            echo 'Trusted Trivy policy is not installed on the exact base. See the rollout notes.' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      - name: Set up pinned Trivy
+        uses: aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514
+        with:
+          version: v0.70.0
+          cache: false
+
+      - name: Compare exact base and merge with frozen databases
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          MERGE_SHA: ${{ github.sha }}
+        run: |
+          python3 -I trusted/.github/scripts/trivy_gate.py \
+            --repo source --base "$BASE_SHA" --head "$HEAD_SHA" --merge "$MERGE_SHA" \
+            --output "$RUNNER_TEMP/trivy-evidence"
+
+      - name: Retain sanitized evidence on success and failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-pr-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/trivy-evidence/
+          retention-days: 14
+          if-no-files-found: error
+
+  trivy-gate-tests:
+    name: Trivy gate unit tests
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      # Candidate tests are untrusted and run in their own job, with no secrets
+      # or write permissions. They cannot supply data to the trusted gate.
+      - run: python3 -I .github/scripts/trivy_gate_test.py
