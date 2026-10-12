@@ -281,8 +281,6 @@ PODS:
   - ExpoImageManipulator (57.0.11):
     - ExpoModulesCore
     - SDWebImageWebPCoder
-  - ExpoImagePicker (57.0.11):
-    - ExpoModulesCore
   - ExpoKeepAwake (57.0.1):
     - ExpoModulesCore
   - ExpoLinearGradient (57.0.1):
@@ -294,9 +292,6 @@ PODS:
   - ExpoLocalization (57.0.1):
     - ExpoModulesCore
   - ExpoLogBox (57.0.3):
-    - React-Core
-  - ExpoMediaLibrary (57.0.4):
-    - ExpoModulesCore
     - React-Core
   - ExpoModulesCore (57.0.11):
     - ExpoModulesJSI
@@ -333,8 +328,6 @@ PODS:
     - ExpoModulesWorklets
     - RNWorklets
   - ExpoNotifications (57.0.12):
-    - ExpoModulesCore
-  - ExpoScreenCapture (57.0.2):
     - ExpoModulesCore
   - ExpoScreenOrientation (57.0.1):
     - ExpoModulesCore
@@ -2053,27 +2046,6 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - react-native-capture-protection (2.3.0):
-    - hermes-engine
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Core
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-ImageManager
-    - React-jsi
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-renderercss
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/bridging
-    - ReactCommon/turbomodule/core
-    - ReactNativeDependencies
-    - Yoga
   - react-native-compat (2.21.9):
     - hermes-engine
     - RCTRequired
@@ -2928,6 +2900,30 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - ReactNativeCaptureProtection (3.0.170):
+    - hermes-engine
+    - NitroModules
+    - RCTRequired
+    - RCTTypeSafety
+    - React-callinvoker
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - ReactNativeNativeLogger
+    - Yoga
   - ReactNativeCheckBiometricAuthChanged (3.0.170):
     - hermes-engine
     - NitroModules
@@ -3140,6 +3136,30 @@ PODS:
     - ReactNativeNativeLogger
     - Yoga
   - ReactNativePerfStats (3.0.170):
+    - hermes-engine
+    - NitroModules
+    - RCTRequired
+    - RCTTypeSafety
+    - React-callinvoker
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - ReactNativeNativeLogger
+    - Yoga
+  - ReactNativePhotoLibrary (3.0.170):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -3856,20 +3876,17 @@ DEPENDENCIES:
   - ExpoGlassEffect (from `../../../node_modules/expo-glass-effect/ios`)
   - ExpoHaptics (from `../../../node_modules/expo-haptics/ios`)
   - ExpoImageManipulator (from `../../../node_modules/expo-image-manipulator/ios`)
-  - ExpoImagePicker (from `../../../node_modules/expo-image-picker/ios`)
   - ExpoKeepAwake (from `../../../node_modules/expo-keep-awake/ios`)
   - ExpoLinearGradient (from `../../../node_modules/expo-linear-gradient/ios`)
   - ExpoLinking (from `../../../node_modules/expo-linking/ios`)
   - ExpoLocalAuthentication (from `../../../node_modules/expo-local-authentication/ios`)
   - ExpoLocalization (from `../../../node_modules/expo-localization/ios`)
   - "ExpoLogBox (from `../../../node_modules/@expo/log-box`)"
-  - ExpoMediaLibrary (from `../../../node_modules/expo-media-library/ios`)
   - ExpoModulesCore (from `../../../node_modules/expo-modules-core`)
   - ExpoModulesJSI (from `../../../node_modules/expo-modules-jsi/apple`)
   - ExpoModulesWorklets (from `../../../node_modules/expo-modules-core`)
   - ExpoModulesWorkletsAdapter (from `../../../node_modules/expo-modules-core`)
   - ExpoNotifications (from `../../../node_modules/expo-notifications/ios`)
-  - ExpoScreenCapture (from `../../../node_modules/expo-screen-capture/ios`)
   - ExpoScreenOrientation (from `../../../node_modules/expo-screen-orientation/ios`)
   - ExpoSecureStore (from `../../../node_modules/expo-secure-store/ios`)
   - ExpoSharing (from `../../../node_modules/expo-sharing/ios`)
@@ -3931,7 +3948,6 @@ DEPENDENCIES:
   - React-microtasksnativemodule (from `../../../node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)
   - React-mutationobservernativemodule (from `../../../node_modules/react-native/ReactCommon/react/nativemodule/mutationobserver`)
   - react-native-ble-plx (from `../../../node_modules/react-native-ble-plx`)
-  - react-native-capture-protection (from `../../../node_modules/react-native-capture-protection`)
   - "react-native-compat (from `../../../node_modules/@walletconnect/react-native-compat`)"
   - "react-native-document-picker (from `../../../node_modules/@react-native-documents/picker`)"
   - react-native-keyboard-controller (from `../../../node_modules/react-native-keyboard-controller`)
@@ -3984,6 +4000,7 @@ DEPENDENCIES:
   - "ReactNativeBundleCrypto (from `../../../node_modules/@onekeyfe/react-native-bundle-crypto`)"
   - "ReactNativeBundleUpdate (from `../../../node_modules/@onekeyfe/react-native-bundle-update`)"
   - ReactNativeCameraKit (from `../../../node_modules/react-native-camera-kit`)
+  - "ReactNativeCaptureProtection (from `../../../node_modules/@onekeyfe/react-native-capture-protection`)"
   - "ReactNativeCheckBiometricAuthChanged (from `../../../node_modules/@onekeyfe/react-native-check-biometric-auth-changed`)"
   - ReactNativeDependencies (from `../../../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec`)
   - "ReactNativeDeviceUtils (from `../../../node_modules/@onekeyfe/react-native-device-utils`)"
@@ -3996,6 +4013,7 @@ DEPENDENCIES:
   - ReactNativePasskeys (from `../../../node_modules/react-native-passkeys/ios`)
   - "ReactNativePerfMemory (from `../../../node_modules/@onekeyfe/react-native-perf-memory`)"
   - "ReactNativePerfStats (from `../../../node_modules/@onekeyfe/react-native-perf-stats`)"
+  - "ReactNativePhotoLibrary (from `../../../node_modules/@onekeyfe/react-native-photo-library`)"
   - "ReactNativeRangeDownloader (from `../../../node_modules/@onekeyfe/react-native-range-downloader`)"
   - "ReactNativeSplashScreen (from `../../../node_modules/@onekeyfe/react-native-splash-screen`)"
   - ReactNativeVideo (from `../../../node_modules/react-native-video`)
@@ -4112,8 +4130,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-haptics/ios"
   ExpoImageManipulator:
     :path: "../../../node_modules/expo-image-manipulator/ios"
-  ExpoImagePicker:
-    :path: "../../../node_modules/expo-image-picker/ios"
   ExpoKeepAwake:
     :path: "../../../node_modules/expo-keep-awake/ios"
   ExpoLinearGradient:
@@ -4126,8 +4142,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-localization/ios"
   ExpoLogBox:
     :path: "../../../node_modules/@expo/log-box"
-  ExpoMediaLibrary:
-    :path: "../../../node_modules/expo-media-library/ios"
   ExpoModulesCore:
     :path: "../../../node_modules/expo-modules-core"
   ExpoModulesJSI:
@@ -4138,8 +4152,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-modules-core"
   ExpoNotifications:
     :path: "../../../node_modules/expo-notifications/ios"
-  ExpoScreenCapture:
-    :path: "../../../node_modules/expo-screen-capture/ios"
   ExpoScreenOrientation:
     :path: "../../../node_modules/expo-screen-orientation/ios"
   ExpoSecureStore:
@@ -4261,8 +4273,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native/ReactCommon/react/nativemodule/mutationobserver"
   react-native-ble-plx:
     :path: "../../../node_modules/react-native-ble-plx"
-  react-native-capture-protection:
-    :path: "../../../node_modules/react-native-capture-protection"
   react-native-compat:
     :path: "../../../node_modules/@walletconnect/react-native-compat"
   react-native-document-picker:
@@ -4367,6 +4377,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/@onekeyfe/react-native-bundle-update"
   ReactNativeCameraKit:
     :path: "../../../node_modules/react-native-camera-kit"
+  ReactNativeCaptureProtection:
+    :path: "../../../node_modules/@onekeyfe/react-native-capture-protection"
   ReactNativeCheckBiometricAuthChanged:
     :path: "../../../node_modules/@onekeyfe/react-native-check-biometric-auth-changed"
   ReactNativeDependencies:
@@ -4391,6 +4403,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/@onekeyfe/react-native-perf-memory"
   ReactNativePerfStats:
     :path: "../../../node_modules/@onekeyfe/react-native-perf-stats"
+  ReactNativePhotoLibrary:
+    :path: "../../../node_modules/@onekeyfe/react-native-photo-library"
   ReactNativeRangeDownloader:
     :path: "../../../node_modules/@onekeyfe/react-native-range-downloader"
   ReactNativeSplashScreen:
@@ -4475,20 +4489,17 @@ SPEC CHECKSUMS:
   ExpoGlassEffect: 4b62afb489e6b84357701737ce002137c9d5fdbc
   ExpoHaptics: 4503d2da51ff7109712ccdfe0e4939f66818183e
   ExpoImageManipulator: 8d3f08457c2ed7fcf79b0a8d7bb5692a2f55687e
-  ExpoImagePicker: b6f0ce415819462b7cf28c47e7a9e147624ef29e
   ExpoKeepAwake: c26f14275017370cc8a4b7b43a0e23361f2053a5
   ExpoLinearGradient: 903b3f5fe566c666ff78b2599add51d094483613
   ExpoLinking: 2e8d88a5a386b47325d9500067c8e60dd4a94340
   ExpoLocalAuthentication: 96989637e567a10cdeabe61e5c6026d30c0dc53f
   ExpoLocalization: 659243b03b3a3e9589793cee2f728a899e181329
   ExpoLogBox: 2c4225a62f1cfb943e6b2df4fa4fe2d136e06fb6
-  ExpoMediaLibrary: 344f5b528a71f34794e9d7396e32589531df146e
   ExpoModulesCore: ad41dfb6ba0a673d0b295705b6341a238ddde0e3
   ExpoModulesJSI: b20fefa4cdd9097e7e6b715466d1900b8c5d4711
   ExpoModulesWorklets: eaf2898a6621e3c9a09c0479c1a4cb5f1b368d53
   ExpoModulesWorkletsAdapter: 32e81e9de62270a997a6730385edbebe213138bb
   ExpoNotifications: 68ff0e02eef93ccb6739317eae4bfee6ea737023
-  ExpoScreenCapture: 6b82aba55db3ecc6f124ebd45163d6db9b916b2d
   ExpoScreenOrientation: d8366e1bbdbe05b877d6c31ed97a00cbb74cfd81
   ExpoSecureStore: 94793113049a2d7478dfe1a13aa15081e9f61755
   ExpoSharing: 1a4831b3a52dead83c3ed6a8e1541b04fef02c1d
@@ -4562,7 +4573,6 @@ SPEC CHECKSUMS:
   React-microtasksnativemodule: fbca042172e65219501e792c0d088c17338a7bb2
   React-mutationobservernativemodule: c8a615cc141822983b343e6f1982d214b706246e
   react-native-ble-plx: 1c696efe881f1b519eab9efa2cd9308c007732c5
-  react-native-capture-protection: 41fa8b29a34f2d36199e6b44b41ba1836f567204
   react-native-compat: 27466917b93b2da7c1eed1022227dba8c69d4ef5
   react-native-document-picker: 598c549d1cbcc8c1f73abfbb5369d2faa10da242
   react-native-keyboard-controller: 2ef1abca0f1b5ffc41c282c9e5f9c5576f83a53d
@@ -4615,6 +4625,7 @@ SPEC CHECKSUMS:
   ReactNativeBundleCrypto: b6d9f51cce8a9507d848bf9471393559bf09f762
   ReactNativeBundleUpdate: 980fda580805d843af8aa35c4b39f84fe9450d9b
   ReactNativeCameraKit: 21f6c85397cfcb494dfa453a6fb4c9933a7c1bef
+  ReactNativeCaptureProtection: 17c9408c464cd01a4ed315066884c8dc53f218b9
   ReactNativeCheckBiometricAuthChanged: 098ae0464438860e3c04bcd565b0dca48d6bcd24
   ReactNativeDependencies: 2bd6854ade79bf1b60586d1ab7813a389df1b6bf
   ReactNativeDeviceUtils: bef4524622a1ebe909db3ed8711ae6ca822456c8
@@ -4627,6 +4638,7 @@ SPEC CHECKSUMS:
   ReactNativePasskeys: 9e950e8cbf0e7d6aad9df4dcd21cee0efeb4e5cd
   ReactNativePerfMemory: 3e6e93500bab17e8b95aeff44130c17ab247f2db
   ReactNativePerfStats: ff2e21e47cb4b3f214b40730a0dd47b4b1288f02
+  ReactNativePhotoLibrary: ab9c410a94adb179d27d5bfb3b28937e7a734d52
   ReactNativeRangeDownloader: 785ec97a0030e5fb103ac37032cfca211eda3042
   ReactNativeSplashScreen: 8c4e0d9a3a5be12715104fc6ac5ef976cc50fca8
   ReactNativeVideo: 36938964abd84cb1355c5844d89feb501f3fbf93

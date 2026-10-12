@@ -108,7 +108,7 @@ describe('TradingViewNative chart runtime', () => {
     expect(nextState.viewport).toEqual({ offset: 36, zoomScale: 1 });
   });
 
-  it('clamps panning and hides the crosshair when requested', () => {
+  it('allows panning past the latest candle and hides the crosshair when requested', () => {
     const state = {
       crosshair: { visible: true, x: 20, y: 30 },
       viewport: { offset: 10, zoomScale: 1 },
@@ -125,7 +125,7 @@ describe('TradingViewNative chart runtime', () => {
 
     expect(nextState).toEqual({
       crosshair: { visible: false, x: 20, y: 30 },
-      viewport: { offset: 0, zoomScale: 2 },
+      viewport: { offset: -50, zoomScale: 2 },
     });
   });
 
@@ -224,5 +224,23 @@ describe('TradingViewNative chart runtime', () => {
       endIndex: 100,
       startIndex: 57,
     });
+  });
+});
+
+describe('crosshair beyond the data', () => {
+  it('keeps the crosshair visible in empty chart space', () => {
+    const state = {
+      crosshair: { visible: false, x: 0, y: 0 },
+      viewport: { offset: -1000, zoomScale: 1 },
+    };
+    const result = reduceTradingViewNativeChartRuntime(state, {
+      type: 'crosshairMoved',
+      chartWidth: 300,
+      height: 200,
+      pointCount: 3,
+      x: 150,
+      y: 100,
+    });
+    expect(result.crosshair).toEqual({ visible: true, x: 150, y: 100 });
   });
 });
