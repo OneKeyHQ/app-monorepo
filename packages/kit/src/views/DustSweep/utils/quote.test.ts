@@ -77,6 +77,59 @@ describe('Dust Sweep quote execution guards', () => {
     expect(getDustSweepQuoteRisk(quote, token, snapshot)).toBeUndefined();
   });
 
+  it.each([
+    { ...snapshot.nativeToken, price: '1000' },
+    { ...token, contractAddress: '0xother', price: '1' },
+  ])(
+    'rejects undisclosed fees paid with an unselected token ($contractAddress)',
+    (feeToken) => {
+      expect(
+        getDustSweepQuoteRisk(
+          {
+            ...quote,
+            fee: {
+              percentageFee: 0,
+              otherFeeInfos: [{ token: feeToken, amount: '0.01' }],
+            },
+          },
+          token,
+          snapshot,
+        ),
+      ).toBe('unknown');
+      expect(
+        getDustSweepQuoteRisk(
+          {
+            ...quote,
+            fee: {
+              percentageFee: 0,
+              otherFeeInfos: [{ token: feeToken, amount: '0' }],
+            },
+          },
+          token,
+          snapshot,
+        ),
+      ).toBeUndefined();
+    },
+  );
+
+  it('allows selected-token fees for the subsequent combined balance check', () => {
+    expect(
+      getDustSweepQuoteRisk(
+        {
+          ...quote,
+          fee: {
+            percentageFee: 0,
+            otherFeeInfos: [
+              { token: { ...token, price: '1' }, amount: '0.01' },
+            ],
+          },
+        },
+        token,
+        snapshot,
+      ),
+    ).toBeUndefined();
+  });
+
   it.each([undefined, '', '0', '-1', 'NaN', 'Infinity'])(
     'uses matched quote prices when local prices are invalid (%s)',
     (price) => {

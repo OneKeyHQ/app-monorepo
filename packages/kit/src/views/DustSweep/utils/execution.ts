@@ -2,9 +2,15 @@ import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { HardwareErrorCode as ThirdPartyHardwareErrorCode } from '@onekeyfe/hwk-adapter-core/errors';
 import BigNumber from 'bignumber.js';
 
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { buildMarketExecutionPayload } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketBuildExecutionUtils';
-import { sendMarketDirectUnsignedTxs } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketDirectSendTx';
+import {
+  estimateMarketApproveGasInfos,
+  estimateMarketDirectGasInfos,
+  prepareMarketDirectUnsignedTx,
+  sendMarketDirectUnsignedTxs,
+} from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketDirectSendTx';
 import type { IMarketGasInfoEntry } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketDirectSendTx';
 import { completeBroadcastedSwapSuccess } from '@onekeyhq/kit/src/views/Swap/hooks/swapBroadcastSuccess';
 import {
@@ -12,6 +18,7 @@ import {
   getSwapRequiredNativeBalanceAmount,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import { BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE } from '@onekeyhq/shared/src/consts/walletConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -156,8 +163,7 @@ async function checkInputAndOtherFeeBalances(
         equalTokenNoCaseSensitive({ token1: entry.token, token2: fee.token }),
       );
       if (existing) existing.amount = amount.plus(existing.amount).toFixed();
-      else if (!fee.token.isNative) throw new DustSweepSkip('unknown');
-      else requirements.push({ token: fee.token, amount: amount.toFixed() });
+      else throw new DustSweepSkip('unknown');
     }
   }
   for (const requirement of requirements) {
@@ -368,6 +374,151 @@ async function prepareDustSweepItem(options: IExecutionOptions) {
   return { buildRes, execution, approvalInfos };
 }
 
+function increaseApprovalGasBudget(entry: IMarketGasInfoEntry) {
+  const { gas, gasEIP1559 } = entry.gasInfo;
+  const limit = new BigNumber(gas?.gasLimit ?? gasEIP1559?.gasLimit ?? '');
+  if (!limit.isFinite() || limit.lte(0)) throw new DustSweepSkip('unknown');
+  const gasLimit = limit
+    .times(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE)
+    .toFixed();
+  return {
+    ...entry,
+    gasInfo: {
+      ...entry.gasInfo,
+      gas: gas ? { ...gas, gasLimit, gasLimitForDisplay: gasLimit } : undefined,
+      gasEIP1559: gasEIP1559
+        ? { ...gasEIP1559, gasLimit, gasLimitForDisplay: gasLimit }
+        : undefined,
+    },
+  };
+}
+
+async function estimateApprovalBudget(
+  prepared: Awaited<ReturnType<typeof prepareDustSweepItem>>,
+  options: IExecutionOptions,
+) {
+  const { snapshot } = options;
+  const approveUnsignedTxArr: IUnsignedTxPro[] = [];
+  // These transactions are only for estimating the whole remaining budget.
+  // Actual sends rebuild each transaction with a fresh nonce and gas estimate.
+  for (const approveInfo of prepared.approvalInfos) {
+    assertCanSubmit(options);
+    approveUnsignedTxArr.push(
+      await prepareMarketDirectUnsignedTx({
+        accountId: snapshot.accountId,
+        networkId: snapshot.networkId,
+        approveUnsignedTxArr,
+        buildUnsignedParams: {
+          accountId: snapshot.accountId,
+          networkId: snapshot.networkId,
+          approveInfo,
+        },
+      }),
+    );
+  }
+  assertCanSubmit(options);
+  const { execution } = prepared;
+  const isTron = networkUtils.isTronNetworkByNetworkId(snapshot.networkId);
+  const approvalGasInfos = isTron
+    ? (
+        await estimateMarketApproveGasInfos({
+          accountId: snapshot.accountId,
+          accountAddress: snapshot.address,
+          networkId: snapshot.networkId,
+          approveUnsignedTxArr,
+        })
+      ).gasInfos
+    : [];
+  assertCanSubmit(options);
+  const estimateParams: Parameters<typeof estimateMarketDirectGasInfos>[0] = {
+    accountId: snapshot.accountId,
+    accountAddress: snapshot.address,
+    networkId: snapshot.networkId,
+    // The shared sequential fallback approximates EVM gas limits only. Tron
+    // needs its own swap estimate; approval energy is not a swap budget.
+    approveUnsignedTxArr: isTron ? undefined : approveUnsignedTxArr,
+    buildUnsignedParams: {
+      accountId: snapshot.accountId,
+      networkId: snapshot.networkId,
+      encodedTx: execution.encodedTx,
+      transfersInfo: execution.transferInfo
+        ? [execution.transferInfo]
+        : undefined,
+      swapInfo: execution.swapInfo,
+    },
+  };
+  let estimatedGasInfos: IMarketGasInfoEntry[];
+  try {
+    estimatedGasInfos = (await estimateMarketDirectGasInfos(estimateParams))
+      .gasInfos;
+  } catch (error) {
+    assertCanSubmit(options);
+    if (
+      !networkUtils.isEvmNetwork({ networkId: snapshot.networkId }) ||
+      prepared.approvalInfos.length !== 2 ||
+      prepared.approvalInfos[0].amount !== '0'
+    )
+      throw error;
+    // A reset-required grant cannot be simulated against the old allowance.
+    // Match the send-confirm estimate-only envelope until reset confirms.
+    const fallback = await estimateMarketDirectGasInfos({
+      ...estimateParams,
+      approveUnsignedTxArr: approveUnsignedTxArr.slice(0, 1),
+    });
+    assertCanSubmit(options);
+    const [resetGas, swapGas] = fallback.gasInfos;
+    if (!resetGas || !swapGas) throw error;
+    estimatedGasInfos = [
+      resetGas,
+      {
+        ...increaseApprovalGasBudget(resetGas),
+        encodeTx: approveUnsignedTxArr[1].encodedTx,
+      },
+      prepared.buildRes.result.gasLimit === undefined ||
+      prepared.buildRes.result.gasLimit === null
+        ? increaseApprovalGasBudget(swapGas)
+        : swapGas,
+    ];
+  }
+  assertCanSubmit(options);
+  const gasInfos = [...approvalGasInfos, ...estimatedGasInfos].map(
+    (entry, index) => {
+      if (!isTron || index === 0) return entry;
+      // Independent Tron estimates each subtract the same available resources.
+      // Reserve later steps at full burn cost instead of spending that credit twice.
+      const originalFee = new BigNumber(
+        entry.gasInfo.feeTron?.originalFee ?? '',
+      );
+      const common = entry.gasInfo.common;
+      const feeDecimals = common?.feeDecimals;
+      if (
+        !originalFee.isFinite() ||
+        originalFee.isNegative() ||
+        !common ||
+        feeDecimals === undefined ||
+        !Number.isInteger(feeDecimals)
+      )
+        throw new DustSweepSkip('unknown');
+      return {
+        ...entry,
+        gasInfo: {
+          ...entry.gasInfo,
+          gas: undefined,
+          gasEIP1559: undefined,
+          common: {
+            ...common,
+            baseFee: originalFee.shiftedBy(-feeDecimals).toFixed(),
+          },
+        },
+      };
+    },
+  );
+  if (gasInfos.length !== prepared.approvalInfos.length + 1)
+    throw new DustSweepSkip('unknown');
+  await checkNativeGasBalance(gasInfos, options, prepared.buildRes.result);
+  return gasInfos;
+}
+
 export async function executeDustSweepItem(
   options: IExecutionOptions,
 ): Promise<
@@ -405,7 +556,10 @@ export async function executeDustSweepItem(
       onSigning();
     }
   };
-  const sendApproval = async (approveInfo: IApproveInfo) => {
+  const sendApproval = async (
+    approveInfo: IApproveInfo,
+    remainingGasInfos: IMarketGasInfoEntry[],
+  ) => {
     assertCanSubmit(options);
     let approvalTxId: string | undefined;
     await sendMarketDirectUnsignedTxs({
@@ -419,7 +573,7 @@ export async function executeDustSweepItem(
       },
       validateFinalGasInfos: async (gasInfos) => {
         await checkNativeGasBalance(
-          gasInfos,
+          [...gasInfos, ...remainingGasInfos],
           options,
           prepared.buildRes.result,
         );
@@ -444,10 +598,14 @@ export async function executeDustSweepItem(
   };
   try {
     if (prepared.approvalInfos.length) {
+      const approvalBudget = await waitForDustSweepRead(
+        () => estimateApprovalBudget(prepared, options),
+        signal,
+      );
       // Build each approval only after the previous one confirms so its nonce
       // includes transactions sent by the same account while we were waiting.
-      for (const approveInfo of prepared.approvalInfos) {
-        await sendApproval(approveInfo);
+      for (const [index, approveInfo] of prepared.approvalInfos.entries()) {
+        await sendApproval(approveInfo, approvalBudget.slice(index + 1));
       }
       // Approval changes chain state and may outlive the quote. Rebuild before
       // estimating the actual swap, with no approval gas-limit approximation.

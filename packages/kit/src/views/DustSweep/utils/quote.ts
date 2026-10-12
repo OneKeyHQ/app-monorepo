@@ -115,6 +115,16 @@ export function getDustSweepQuoteRisk(
     tokenRebaseUtils.isScalingBalanceMultiplier(token.balanceMultiplier)
   )
     return 'unknown';
+  for (const fee of quote.fee?.otherFeeInfos ?? []) {
+    const amount = new BigNumber(fee.amount ?? '');
+    if (
+      !amount.isFinite() ||
+      amount.isNegative() ||
+      (amount.gt(0) &&
+        !isSameDustSweepToken({ quoteToken: fee.token, expectedToken: token }))
+    )
+      return 'unknown';
+  }
   const fromToken = {
     ...token,
     price: getUsablePrice(token.price, quote.fromTokenInfo.price),

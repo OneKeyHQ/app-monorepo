@@ -1,7 +1,14 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import type backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type { sendMarketDirectUnsignedTxs } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketDirectSendTx';
+import type {
+  IMarketGasInfoEntry,
+  estimateMarketApproveGasInfos,
+  estimateMarketDirectGasInfos,
+  prepareMarketDirectUnsignedTx,
+  sendMarketDirectUnsignedTxs,
+} from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketDirectSendTx';
+import type { getSwapRequiredNativeBalanceAmount } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type {
@@ -25,9 +32,18 @@ const mockTxState: jest.MockedFunction<
 const mockPayload = jest.fn();
 const mockSend: jest.MockedFunction<typeof sendMarketDirectUnsignedTxs> =
   jest.fn();
+const mockPrepare: jest.MockedFunction<typeof prepareMarketDirectUnsignedTx> =
+  jest.fn();
+const mockEstimate: jest.MockedFunction<typeof estimateMarketDirectGasInfos> =
+  jest.fn();
+const mockEstimateApprovals: jest.MockedFunction<
+  typeof estimateMarketApproveGasInfos
+> = jest.fn();
 const mockHistory = jest.fn();
 const mockBalance = jest.fn();
-const mockGasRequirement = jest.fn();
+const mockGasRequirement: jest.MockedFunction<
+  typeof getSwapRequiredNativeBalanceAmount
+> = jest.fn();
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -45,7 +61,12 @@ jest.mock(
 );
 jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketDirectSendTx',
-  () => ({ sendMarketDirectUnsignedTxs: mockSend }),
+  () => ({
+    sendMarketDirectUnsignedTxs: mockSend,
+    prepareMarketDirectUnsignedTx: mockPrepare,
+    estimateMarketDirectGasInfos: mockEstimate,
+    estimateMarketApproveGasInfos: mockEstimateApprovals,
+  }),
 );
 jest.mock('@onekeyhq/kit/src/views/Swap/hooks/swapBroadcastSuccess', () => ({
   completeBroadcastedSwapSuccess: mockHistory,
@@ -128,6 +149,61 @@ function createOptions() {
     generateSwapHistoryItem: jest.fn(),
   };
 }
+function createGasEntry(gasLimit = '100000'): IMarketGasInfoEntry {
+  return {
+    encodeTx: {},
+    gasInfo: {
+      common: {
+        feeDecimals: 9,
+        feeSymbol: 'Gwei',
+        nativeDecimals: 18,
+        nativeSymbol: 'ETH',
+      },
+      gas: { gasLimit, gasPrice: '10' },
+    },
+  };
+}
+function createTronGasEntry(
+  originalFee: number,
+  feeDecimals = 6,
+): IMarketGasInfoEntry {
+  return {
+    encodeTx: {},
+    gasInfo: {
+      common: {
+        feeDecimals,
+        feeSymbol: 'TRX',
+        nativeDecimals: 6,
+        nativeSymbol: 'TRX',
+        baseFee: '0',
+      },
+      feeTron: {
+        originalFee,
+        requiredEnergy: 65_000,
+        requiredBandwidth: 300,
+        accountInfo: {
+          energyTotal: 70_000,
+          energyUsed: 0,
+          freeEnergyTotal: 0,
+          freeEnergyUsed: 0,
+        },
+        balances: {},
+        tokenPrices: {},
+        info: {
+          orderPrice: 0,
+          prices: {},
+          ratio: '0',
+          pledgeMinute: 0,
+          payCoinAmt: 0,
+          payCoinCode: '',
+          extraTrxNum: 0,
+          purchaseTRXFee: 0,
+          exchangeFee: 0,
+        },
+      },
+    },
+  };
+}
 async function sendTransaction(params: ISendParams) {
   await params.validateFinalGasInfos?.([]);
   await params.onBeforeSignAndSend?.();
@@ -152,13 +228,27 @@ describe('Dust Sweep serial execution boundaries', () => {
       skipSendTransAction: false,
     });
     mockSend.mockReset().mockImplementation(sendTransaction);
+    mockPrepare.mockReset().mockResolvedValue({ encodedTx: {}, nonce: 100 });
+    mockEstimate.mockReset().mockImplementation(async (params) => ({
+      gasInfos: [
+        ...(params.approveUnsignedTxArr ?? []).map(() => createGasEntry()),
+        createGasEntry('500000'),
+      ],
+      preparedUnsignedTx: { encodedTx: {}, nonce: 101 },
+    }));
+    mockEstimateApprovals.mockReset().mockImplementation(async (params) => ({
+      gasInfos: params.approveUnsignedTxArr.map(() => createGasEntry()),
+    }));
     mockHistory.mockReset().mockResolvedValue(undefined);
     mockBalance
       .mockReset()
       .mockResolvedValue({ isSufficient: true, balance: '100' });
-    mockGasRequirement
-      .mockReset()
-      .mockReturnValue({ token: snapshot.nativeToken, amount: '0.1' });
+    mockGasRequirement.mockReset().mockReturnValue({
+      token: snapshot.nativeToken,
+      amount: '0.1',
+      reserveAmount: '0.1',
+      includesFromAmount: false,
+    });
     mockTxState.mockReset().mockResolvedValue({
       state: ESwapTxHistoryStatus.SUCCESS,
       dealReceiveAmount: '0.009',
@@ -749,15 +839,19 @@ describe('Dust Sweep serial execution boundaries', () => {
     );
     let confirmReset: (value: { state: ESwapTxHistoryStatus }) => void = () =>
       undefined;
+    let notifyResetStarted: () => void = () => undefined;
+    const resetStarted = new Promise<void>((resolve) => {
+      notifyResetStarted = resolve;
+    });
     mockTxState.mockImplementationOnce(
       () =>
         new Promise((resolve) => {
           confirmReset = resolve;
+          notifyResetStarted();
         }),
     );
     const completion = executeDustSweepItem(createOptions());
-    for (let turn = 0; turn < 30 && !mockTxState.mock.calls.length; turn += 1)
-      await Promise.resolve();
+    await resetStarted;
     expect(mockSend).toHaveBeenCalledTimes(1);
     expect(mockSend.mock.calls[0][0].buildUnsignedParams).toEqual({
       accountId: snapshot.accountId,
@@ -775,60 +869,132 @@ describe('Dust Sweep serial execution boundaries', () => {
     });
   });
 
-  it('supports quote-owned Tron approvals', async () => {
-    const tronToken = { ...token, networkId: 'tron--0x2b6653dc' };
-    const tronSnapshot = {
-      ...snapshot,
-      networkId: tronToken.networkId,
-      tokens: [tronToken],
-      nativeToken: {
-        ...snapshot.nativeToken,
+  it.each([
+    ['unavailable', 6],
+    ['insufficient', 6],
+    ['insufficient', 0],
+    ['missing-original', 6],
+    ['success', 6],
+  ] as const)(
+    'estimates Tron swap gas separately (%s, feeDecimals=%s)',
+    async (scenario, feeDecimals) => {
+      const tronToken = { ...token, networkId: 'tron--0x2b6653dc' };
+      const tronSnapshot = {
+        ...snapshot,
         networkId: tronToken.networkId,
-        symbol: 'TRX',
-        decimals: 6,
-      },
-    };
-    mockFetchQuote.mockResolvedValue({
-      ...createQuote('TSpender'),
-      fromTokenInfo: tronToken,
-      toTokenInfo: tronSnapshot.nativeToken,
-    });
-    mockBuild.mockResolvedValue({
-      result: {
+        tokens: [tronToken],
+        nativeToken: {
+          ...snapshot.nativeToken,
+          networkId: tronToken.networkId,
+          symbol: 'TRX',
+          decimals: 6,
+        },
+      };
+      mockFetchQuote.mockResolvedValue({
         ...createQuote('TSpender'),
         fromTokenInfo: tronToken,
         toTokenInfo: tronSnapshot.nativeToken,
-      },
-    });
-    mockAllowance.mockResolvedValueOnce(
-      createAllowance({
-        isApproved: false,
-        allowanceTarget: 'TSpender',
-        approveAmounted: '0',
-      }),
-    );
-    mockTxState
-      .mockResolvedValueOnce({ state: ESwapTxHistoryStatus.SUCCESS })
-      .mockResolvedValue({ state: ESwapTxHistoryStatus.FAILED });
-    await expect(
-      executeDustSweepItem({
+      });
+      mockBuild.mockResolvedValue({
+        result: {
+          ...createQuote('TSpender'),
+          fromTokenInfo: tronToken,
+          toTokenInfo: tronSnapshot.nativeToken,
+        },
+      });
+      mockAllowance.mockResolvedValueOnce(
+        createAllowance({
+          isApproved: false,
+          allowanceTarget: 'TSpender',
+          approveAmounted: '0',
+        }),
+      );
+      mockTxState
+        .mockResolvedValueOnce({ state: ESwapTxHistoryStatus.SUCCESS })
+        .mockResolvedValue({ state: ESwapTxHistoryStatus.FAILED });
+      const swapGas = createTronGasEntry(19_800_000, feeDecimals);
+      if (scenario === 'missing-original') swapGas.gasInfo.feeTron = undefined;
+      mockEstimateApprovals.mockResolvedValueOnce({
+        gasInfos: [createTronGasEntry(18_200_000, feeDecimals)],
+      });
+      mockEstimate.mockResolvedValueOnce({
+        gasInfos: [swapGas],
+        preparedUnsignedTx: { encodedTx: {} },
+      });
+      if (scenario === 'insufficient') {
+        mockGasRequirement.mockImplementation(
+          jest.requireActual<
+            typeof import('@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils')
+          >('@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils')
+            .getSwapRequiredNativeBalanceAmount,
+        );
+        mockBalance.mockImplementation(async ({ token: checked, amount }) => ({
+          isSufficient: !checked.isNative || Number(amount) <= 1,
+          balance: checked.isNative ? '1' : '10',
+        }));
+      }
+      const options = {
         ...createOptions(),
         snapshot: tronSnapshot,
         token: tronToken,
-      }),
-    ).resolves.toEqual({ status: 'failed', message: undefined });
-    expect(mockSend).toHaveBeenCalledWith(
-      expect.objectContaining({
-        networkId: tronToken.networkId,
-        buildUnsignedParams: expect.objectContaining({
-          approveInfo: expect.any(Object),
+      };
+      if (scenario === 'unavailable') {
+        mockEstimate.mockReset();
+        mockEstimate.mockRejectedValueOnce(
+          new Error('Swap estimation unavailable'),
+        );
+        await expect(
+          executeDustSweepItem({
+            ...createOptions(),
+            snapshot: tronSnapshot,
+            token: tronToken,
+          }),
+        ).rejects.toThrow('Swap estimation unavailable');
+        expect(mockEstimateApprovals).toHaveBeenCalledTimes(1);
+        expect(mockEstimate).toHaveBeenCalledWith(
+          expect.objectContaining({ approveUnsignedTxArr: undefined }),
+        );
+        expect(mockSend).not.toHaveBeenCalled();
+        return;
+      }
+      if (scenario === 'insufficient' || scenario === 'missing-original') {
+        await expect(executeDustSweepItem(options)).rejects.toMatchObject({
+          reason: scenario === 'insufficient' ? 'insufficientGas' : 'unknown',
+        });
+        if (scenario === 'insufficient') {
+          expect(mockBalance).toHaveBeenCalledWith(
+            expect.objectContaining({ amount: '19.8' }),
+          );
+        }
+        expect(swapGas.gasInfo.common?.baseFee).toBe('0');
+        expect(mockSend).not.toHaveBeenCalled();
+        expect(options.onSigning).not.toHaveBeenCalled();
+        return;
+      }
+      await expect(
+        executeDustSweepItem({
+          ...createOptions(),
+          snapshot: tronSnapshot,
+          token: tronToken,
         }),
-      }),
-    );
-    expect(mockSend.mock.calls[0][0].buildUnsignedParams.approveInfo).toEqual(
-      expect.objectContaining({ spender: 'TSpender', isMax: false }),
-    );
-  });
+      ).resolves.toEqual({ status: 'failed', message: undefined });
+      expect(mockSend).toHaveBeenCalledWith(
+        expect.objectContaining({
+          networkId: tronToken.networkId,
+          buildUnsignedParams: expect.objectContaining({
+            approveInfo: expect.any(Object),
+          }),
+        }),
+      );
+      expect(mockSend.mock.calls[0][0].buildUnsignedParams.approveInfo).toEqual(
+        expect.objectContaining({ spender: 'TSpender', isMax: false }),
+      );
+      expect(mockEstimateApprovals).toHaveBeenCalledTimes(1);
+      expect(mockEstimate).toHaveBeenCalledWith(
+        expect.objectContaining({ approveUnsignedTxArr: undefined }),
+      );
+    },
+  );
 
   it('checks native gas before signing an approval', async () => {
     mockAllowance.mockResolvedValueOnce(
@@ -844,6 +1010,141 @@ describe('Dust Sweep serial execution boundaries', () => {
       reason: 'insufficientGas',
     });
     expect(options.onSigning).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])(
+    'does not spend approval gas when the full budget is insufficient (reset=%s)',
+    async (shouldResetApprove) => {
+      mockAllowance.mockResolvedValueOnce(
+        createAllowance({ isApproved: false, shouldResetApprove }),
+      );
+      mockGasRequirement.mockImplementation(
+        jest.requireActual<
+          typeof import('@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils')
+        >('@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils')
+          .getSwapRequiredNativeBalanceAmount,
+      );
+      mockBalance.mockImplementation(async ({ token: checked, amount }) => ({
+        isSufficient: !checked.isNative || Number(amount) <= 0.003,
+        balance: checked.isNative ? '0.003' : '10',
+      }));
+      const options = createOptions();
+      await expect(executeDustSweepItem(options)).rejects.toMatchObject({
+        reason: 'insufficientGas',
+      });
+      expect(mockBalance).toHaveBeenCalledWith(
+        expect.objectContaining({
+          amount: shouldResetApprove ? '0.007' : '0.006',
+        }),
+      );
+      expect(mockSend).not.toHaveBeenCalled();
+      expect(options.onSigning).not.toHaveBeenCalled();
+      expect(options.onApprovalBroadcast).not.toHaveBeenCalled();
+    },
+  );
+
+  it('reserves only the remaining steps while refreshing each approval fee', async () => {
+    mockAllowance.mockResolvedValueOnce(
+      createAllowance({ isApproved: false, shouldResetApprove: true }),
+    );
+    mockSend.mockImplementation(async (params) => {
+      await params.validateFinalGasInfos?.([createGasEntry('200000')]);
+      return sendTransaction({ ...params, validateFinalGasInfos: undefined });
+    });
+    await executeDustSweepItem(createOptions());
+    expect(
+      mockGasRequirement.mock.calls.map(([params]) =>
+        params.gasInfos?.map((entry) => entry.gasInfo?.gas?.gasLimit),
+      ),
+    ).toEqual([
+      ['100000', '100000', '500000'],
+      ['200000', '100000', '500000'],
+      ['200000', '500000'],
+      ['200000'],
+    ]);
+    for (const [params] of mockSend.mock.calls) {
+      expect(params.buildUnsignedParams.prevNonce).toBeUndefined();
+      expect(params.approveUnsignedTxArr).toBeUndefined();
+      expect(params.gasInfos).toBeUndefined();
+    }
+  });
+
+  it('blocks an approval when refreshed gas exceeds the preflight budget', async () => {
+    mockAllowance.mockResolvedValueOnce(createAllowance({ isApproved: false }));
+    mockGasRequirement.mockImplementation(
+      jest.requireActual<
+        typeof import('@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils')
+      >('@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils')
+        .getSwapRequiredNativeBalanceAmount,
+    );
+    mockBalance.mockImplementation(async ({ token: checked, amount }) => ({
+      isSufficient: !checked.isNative || Number(amount) <= 0.007,
+      balance: checked.isNative ? '0.007' : '10',
+    }));
+    mockSend.mockImplementation(async (params) => {
+      await params.validateFinalGasInfos?.([createGasEntry('300000')]);
+      return sendTransaction({ ...params, validateFinalGasInfos: undefined });
+    });
+    const options = createOptions();
+    await expect(executeDustSweepItem(options)).rejects.toMatchObject({
+      reason: 'insufficientGas',
+    });
+    expect(options.onSigning).not.toHaveBeenCalled();
+    expect(options.onApprovalBroadcast).not.toHaveBeenCalled();
+  });
+
+  it('fails before approval if the combined gas estimate is incomplete', async () => {
+    mockAllowance.mockResolvedValueOnce(createAllowance({ isApproved: false }));
+    mockEstimate.mockResolvedValueOnce({
+      gasInfos: [createGasEntry()],
+      preparedUnsignedTx: { encodedTx: {} },
+    });
+    await expect(executeDustSweepItem(createOptions())).rejects.toMatchObject({
+      reason: 'unknown',
+    });
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it('reserves a grant envelope when reset-required approval cannot be simulated yet', async () => {
+    mockAllowance.mockResolvedValueOnce(
+      createAllowance({ isApproved: false, shouldResetApprove: true }),
+    );
+    mockEstimate.mockRejectedValueOnce(new Error('Non-zero allowance'));
+    await executeDustSweepItem(createOptions());
+    expect(mockEstimate).toHaveBeenCalledTimes(2);
+    expect(mockEstimate.mock.calls[1][0].approveUnsignedTxArr).toHaveLength(1);
+    expect(
+      mockGasRequirement.mock.calls[0][0].gasInfos?.map(
+        (entry) => entry.gasInfo?.gas?.gasLimit,
+      ),
+    ).toEqual(['100000', '200000', '1000000']);
+    expect(mockSend).toHaveBeenCalledTimes(3);
+    for (const [params] of mockSend.mock.calls) {
+      expect(params.gasInfos).toBeUndefined();
+      expect(params.approveUnsignedTxArr).toBeUndefined();
+      expect(params.buildUnsignedParams.prevNonce).toBeUndefined();
+    }
+  });
+
+  it('does not sign a reset when its fallback budget is insufficient', async () => {
+    mockAllowance.mockResolvedValueOnce(
+      createAllowance({ isApproved: false, shouldResetApprove: true }),
+    );
+    mockEstimate.mockRejectedValueOnce(new Error('Non-zero allowance'));
+    mockGasRequirement.mockImplementation(
+      jest.requireActual<
+        typeof import('@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils')
+      >('@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils')
+        .getSwapRequiredNativeBalanceAmount,
+    );
+    mockBalance.mockImplementation(async ({ token: checked, amount }) => ({
+      isSufficient: !checked.isNative || Number(amount) <= 0.007,
+      balance: checked.isNative ? '0.007' : '10',
+    }));
+    await expect(executeDustSweepItem(createOptions())).rejects.toMatchObject({
+      reason: 'insufficientGas',
+    });
+    expect(mockSend).not.toHaveBeenCalled();
   });
 
   it('includes same-token fees in the source balance check', async () => {
@@ -880,6 +1181,26 @@ describe('Dust Sweep serial execution boundaries', () => {
     });
     expect(mockSend).not.toHaveBeenCalled();
   });
+
+  it.each(['quote', 'build'] as const)(
+    'rejects undisclosed native fees in the %s before approval',
+    async (stage) => {
+      const feeQuote = {
+        ...createQuote(),
+        fee: {
+          otherFeeInfos: [{ token: snapshot.nativeToken, amount: '0.01' }],
+        },
+      };
+      if (stage === 'quote') mockFetchQuote.mockResolvedValue(feeQuote);
+      else mockBuild.mockResolvedValue({ result: feeQuote });
+      const options = createOptions();
+      await expect(executeDustSweepItem(options)).rejects.toMatchObject({
+        reason: 'unknown',
+      });
+      expect(mockSend).not.toHaveBeenCalled();
+      expect(options.onSigning).not.toHaveBeenCalled();
+    },
+  );
 
   it('distinguishes password cancellation from unknown post-sign transport errors', async () => {
     mockSend.mockImplementation(async (params: ISendParams) => {

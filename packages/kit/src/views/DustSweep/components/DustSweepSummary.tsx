@@ -83,104 +83,106 @@ export function DustSweepResult({
         .easing(Easing.out(Easing.cubic))
         .withInitialValues({ transform: [{ translateY: 24 }] });
   return (
-    <Animated.View entering={entering} style={{ width: '100%' }}>
-      <YStack
-        testID="dust-sweep-result"
-        height={desktop ? 320 : 420}
-        px={desktop ? 0 : '$5'}
-        pt={desktop ? 76 : 32}
-        alignItems="center"
-      >
-        <SwapTransactionResultStatus
-          status={outcome === 'partial' ? 'success' : outcome}
-          size={48}
-          animated={!reducedMotion}
-        />
-        <SizableText size="$headingLg" mt="$4" height={24}>
-          {intl.formatMessage({ id: resultTitleId })}
-        </SizableText>
-        <SizableText
-          testID="dust-sweep-result-amount"
-          size="$heading5xl"
-          fontSize={40}
-          lineHeight={48}
-          height={48}
-          mt={desktop ? 6 : 8}
-          numberOfLines={1}
+    <Stack width="100%" height={desktop ? 320 : 420} flexShrink={0}>
+      <Animated.View entering={entering} style={{ width: '100%' }}>
+        <YStack
+          testID="dust-sweep-result"
+          height={desktop ? 320 : 420}
+          px={desktop ? 0 : '$5'}
+          pt={desktop ? 76 : 32}
+          alignItems="center"
         >
-          {amount} {token?.symbol}
-        </SizableText>
-        <SizableText
-          size="$bodyLgMedium"
-          color="$textSubdued"
-          height={24}
-          mt={desktop ? 4 : 6}
-        >
-          {value}
-        </SizableText>
-        {desktop ? (
-          <Button
-            testID="dust-sweep-view-details"
-            mt="$4"
-            variant="tertiary"
-            onPress={onDetails}
+          <SwapTransactionResultStatus
+            status={outcome === 'partial' ? 'success' : outcome}
+            size={48}
+            animated={!reducedMotion}
+          />
+          <SizableText size="$headingLg" mt="$4" height={24}>
+            {intl.formatMessage({ id: resultTitleId })}
+          </SizableText>
+          <SizableText
+            testID="dust-sweep-result-amount"
+            size="$heading5xl"
+            fontSize={40}
+            lineHeight={48}
+            height={48}
+            mt={desktop ? 6 : 8}
+            numberOfLines={1}
           >
-            {intl.formatMessage({ id: ETranslations.global_details })}
-          </Button>
-        ) : (
-          <>
-            <YStack width="100%" mt="$8" gap="$4">
-              <XStack height={20} justifyContent="space-between">
-                <SizableText color="$textSubdued" size="$bodyMd">
-                  {intl.formatMessage({ id: ETranslations.label_converted })}
-                </SizableText>
-                <SizableText size="$bodyMdMedium">
-                  {totals.successCount}
-                </SizableText>
-              </XStack>
-              <XStack height={20} justifyContent="space-between">
-                <SizableText color="$textSubdued" size="$bodyMd">
-                  {intl.formatMessage({ id: ETranslations.label_skipped })}
-                  {totals.failedCount > 0 ? ' / ' : null}
-                  {totals.failedCount > 0
-                    ? intl.formatMessage({ id: ETranslations.global_failed })
-                    : null}
-                </SizableText>
-                <SizableText size="$bodyMdMedium">
-                  {totals.failedCount > 0
-                    ? `${totals.skippedCount} / ${totals.failedCount}`
-                    : totals.skippedCount}
-                </SizableText>
-              </XStack>
-            </YStack>
-            <YStack width="100%" mt="$6" gap="$2.5">
-              <Button
-                testID="dust-sweep-view-details"
-                height={46}
-                minHeight={46}
-                onPress={onDetails}
-              >
-                {intl.formatMessage({ id: ETranslations.global_details })}
-              </Button>
-              <Button
-                testID="dust-sweep-result-again"
-                height={46}
-                minHeight={46}
-                variant="primary"
-                onPress={onAgain}
-              >
-                {intl.formatMessage({
-                  id:
-                    state.phase === 'completed'
-                      ? ETranslations.sweep_sweep_again
-                      : ETranslations.global_done,
-                })}
-              </Button>
-            </YStack>
-          </>
-        )}
-      </YStack>
-    </Animated.View>
+            {amount} {token?.symbol}
+          </SizableText>
+          <SizableText
+            size="$bodyLgMedium"
+            color="$textSubdued"
+            height={24}
+            mt={desktop ? 4 : 6}
+          >
+            {value}
+          </SizableText>
+          {desktop ? (
+            <Button
+              testID="dust-sweep-view-details"
+              mt="$4"
+              variant="tertiary"
+              onPress={onDetails}
+            >
+              {intl.formatMessage({ id: ETranslations.global_details })}
+            </Button>
+          ) : (
+            <>
+              <YStack width="100%" mt="$8" gap="$4">
+                <XStack height={20} justifyContent="space-between">
+                  <SizableText color="$textSubdued" size="$bodyMd">
+                    {intl.formatMessage({ id: ETranslations.label_converted })}
+                  </SizableText>
+                  <SizableText size="$bodyMdMedium">
+                    {totals.successCount}
+                  </SizableText>
+                </XStack>
+                <XStack height={20} justifyContent="space-between">
+                  <SizableText color="$textSubdued" size="$bodyMd">
+                    {intl.formatMessage({ id: ETranslations.label_skipped })}
+                    {totals.failedCount > 0 ? ' / ' : null}
+                    {totals.failedCount > 0
+                      ? intl.formatMessage({ id: ETranslations.global_failed })
+                      : null}
+                  </SizableText>
+                  <SizableText size="$bodyMdMedium">
+                    {totals.failedCount > 0
+                      ? `${totals.skippedCount} / ${totals.failedCount}`
+                      : totals.skippedCount}
+                  </SizableText>
+                </XStack>
+              </YStack>
+              <YStack width="100%" mt="$6" gap="$2.5">
+                <Button
+                  testID="dust-sweep-view-details"
+                  height={46}
+                  minHeight={46}
+                  onPress={onDetails}
+                >
+                  {intl.formatMessage({ id: ETranslations.global_details })}
+                </Button>
+                <Button
+                  testID="dust-sweep-result-again"
+                  height={46}
+                  minHeight={46}
+                  variant="primary"
+                  onPress={onAgain}
+                >
+                  {intl.formatMessage({
+                    id:
+                      state.phase === 'completed'
+                        ? ETranslations.sweep_sweep_again
+                        : ETranslations.global_done,
+                  })}
+                </Button>
+              </YStack>
+            </>
+          )}
+        </YStack>
+      </Animated.View>
+    </Stack>
   );
 }
 
