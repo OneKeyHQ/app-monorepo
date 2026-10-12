@@ -3,9 +3,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { SizableText, XStack, YStack } from '@onekeyhq/components';
-import type { ITradingViewChartMode } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 import { TradingViewChartModeSelect } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
-import { usePerpsLayoutStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsCustomSettingsAtom,
+  usePerpsLayoutStateAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -69,8 +71,8 @@ export function PerpMarketWorkspacePanel({
   const intl = useIntl();
   const [activeView, setActiveView] =
     useState<IPerpMarketWorkspaceView>('chart');
-  const [chartMode, setChartMode] =
-    useState<ITradingViewChartMode>('tradingView');
+  const [{ chartMode = 'tradingView' }, setPerpsCustomSettings] =
+    usePerpsCustomSettingsAtom();
   const [, setLayoutState] = usePerpsLayoutStateAtom();
   const { baseName, coin, displayName, mode } = useActiveTradeDisplay();
   const visibleActiveView =
@@ -98,10 +100,11 @@ export function PerpMarketWorkspacePanel({
     setLayoutState((prev) =>
       prev.chartExpanded ? { ...prev, chartExpanded: false } : prev,
     );
-    setChartMode((current) =>
-      current === 'native' ? 'tradingView' : 'native',
-    );
-  }, [setLayoutState]);
+    void setPerpsCustomSettings((current) => ({
+      ...current,
+      chartMode: current.chartMode === 'native' ? 'tradingView' : 'native',
+    }));
+  }, [setLayoutState, setPerpsCustomSettings]);
 
   const handleChangeActiveView = useCallback(
     (view: IPerpMarketWorkspaceView) => {

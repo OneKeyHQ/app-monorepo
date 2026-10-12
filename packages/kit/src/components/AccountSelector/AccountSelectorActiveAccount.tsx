@@ -272,6 +272,7 @@ export function AccountSelectorActiveAccountHome({
           networkId: network.id,
           accountId: account.id,
           walletId: wallet.id,
+          source: 'accountSelector',
         },
       });
     } else if (

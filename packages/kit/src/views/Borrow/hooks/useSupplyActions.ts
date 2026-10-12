@@ -233,6 +233,7 @@ export const useSupplyActions = ({
             accountId: networkAccount.id,
             walletId,
             token: receiveToken,
+            source: 'borrow',
           },
         });
       } catch (error) {

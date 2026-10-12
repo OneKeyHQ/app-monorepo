@@ -26,7 +26,6 @@ function WebFullscreenPresentation({
     // Move the portal container to retain the canvas, viewport and React state.
     host.appendChild(container);
     Object.assign(container.style, {
-      // The chart grid needs a flex parent because its panels are absolutely positioned.
       display: 'flex',
       flexDirection: 'column',
       position: isFullscreen ? 'fixed' : 'relative',

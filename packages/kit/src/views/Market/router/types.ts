@@ -34,12 +34,10 @@ export type IModalMarketParamList = {
     | {
         // Only stock detail charts can offer Prev close.
         showPreviousClose?: boolean;
-        panelId?: string;
         storageNamespace?: ITradingViewNativeStorageNamespace;
       }
     | undefined;
   [EModalMarketRoutes.MarketIndicatorSettings]: {
     storageNamespace: ITradingViewNativeStorageNamespace;
-    panelId?: string;
   };
 };
