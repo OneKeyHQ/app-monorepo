@@ -510,6 +510,59 @@ describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
     );
   });
 
+  test.each([
+    [{ code: 'ETIMEDOUT' }, 'failed'],
+    [{ className: 'PasswordPromptDialogCancel' }, 'cancelled'],
+  ])(
+    'finishes with the refreshed Solana context when signing fails: %j',
+    async (error, status) => {
+      const { service, vault } = makeService();
+      Object.assign(vault, {
+        getTxDiagnosticContext: (tx: IUnsignedTxPro) => tx.solanaTxDiagnostic,
+      });
+      const logSpy = jest
+        .spyOn(defaultLogger.transaction.send, 'solanaTxDiagnostic')
+        .mockImplementation((event) => event);
+      vault.refreshUnsignedTxBeforeSign.mockImplementation(
+        async (tx: IUnsignedTxPro) => {
+          if (!tx.solanaTxDiagnostic)
+            throw new Error('Missing diagnostic context');
+          return {
+            ...tx,
+            solanaTxDiagnostic: {
+              ...tx.solanaTxDiagnostic,
+              recentBlockhash: '11111111111111111111111111111111',
+              lastValidBlockHeight: 999,
+              blockhashFetchedAt: 2000,
+            },
+          };
+        },
+      );
+      vault.signTransaction.mockRejectedValue(error);
+      await expect(
+        service.signAndSendTransaction({
+          accountId,
+          networkId: 'sol--101',
+          unsignedTx,
+          signOnly: false,
+        }),
+      ).rejects.toBe(error);
+      const summaries = logSpy.mock.calls
+        .map(([event]) => event)
+        .filter((event) => event.stage === 'finished');
+      expect(summaries).toEqual([
+        expect.objectContaining({
+          status,
+          recentBlockhash: '11111111111111111111111111111111',
+          lastValidBlockHeight: 999,
+          blockhashFetchedAt: 2000,
+          attempts: 0,
+        }),
+      ]);
+      expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+    },
+  );
+
   test('rejects and logs when dev sign-only would skip a Prime broadcast', async () => {
     const logSpy = jest
       .spyOn(defaultLogger.prime.subscription, 'primeCryptoPaymentFlow')

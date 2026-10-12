@@ -13,6 +13,7 @@ import type {
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
 import { getPbkdf2KdfParamsForNonDbTxNoCache } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
+import type { IAxiosResponse } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import {
   backgroundClass,
   backgroundMethod,
@@ -46,6 +47,11 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  createSolanaTxDiagnosticContext,
+  logSolanaTxDiagnostic,
+} from '@onekeyhq/shared/src/logger/solanaTxDiagnostics';
+import { getSolanaDiagnosticError } from '@onekeyhq/shared/src/utils/solanaTxDiagnostics';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -114,6 +120,13 @@ const assertAccountCanSign = (accountId: string) => {
       }),
     );
   }
+};
+
+type ISolanaSendDiagnosticState = {
+  context?: IUnsignedTxPro['solanaTxDiagnostic'];
+  attempts: number;
+  status: 'succeeded' | 'failed' | 'skipped' | 'cancelled';
+  reason?: 'signOnly' | 'externalAccount' | 'alwaysSignOnlySendTx';
 };
 
 @backgroundClass()
@@ -356,6 +369,18 @@ class ServiceSend extends ServiceBase {
       await this.backgroundApi.serviceCustomRpc.getCustomRpcForNetwork(
         params.networkId,
       );
+    logSolanaTxDiagnostic(signedTx.solanaTxDiagnostic, {
+      stage: 'rpcSelected',
+      status: 'succeeded',
+      rpcMode:
+        customRpcInfo?.rpc && customRpcInfo?.enabled && !useDefaultRpc
+          ? 'custom'
+          : 'default',
+      preflightCommitment:
+        customRpcInfo?.rpc && customRpcInfo?.enabled && !useDefaultRpc
+          ? 'confirmed'
+          : undefined,
+    });
     let disableBroadcast: boolean | undefined;
     let txid = '';
     // Use custom RPC only if it's enabled AND user hasn't chosen to use default RPC
@@ -387,36 +412,72 @@ class ServiceSend extends ServiceBase {
       tronResourceRentalInfo?.isResourceRentalEnabled;
 
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    const resp = await client.post<{
-      data: { result: string };
-    }>(
-      '/wallet/v1/account/send-transaction',
-      {
-        networkId,
-        accountAddress,
-        tx: signedTx.rawTx,
-        signature,
-        rawTxType,
-        disableBroadcast,
-        disableAntiMev: signedTx.disableMev,
-        hasEnergyRented,
-        ...(isPrivateSend ? { isPrivateSend } : {}),
-        ...(gasAccountUiState?.selectedPayer === 'gasAccount' &&
-        gasAccountUiState.gasAccountQuote?.quoteId
-          ? {
-              quoteId: gasAccountUiState.gasAccountQuote.quoteId,
-              idempotencyKey: gasAccountUiState.idempotencyKey,
-            }
-          : {}),
-      },
-      {
-        timeout: timerUtils.getTimeDurationMs({ seconds: 10 }),
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId,
-          }),
-      },
-    );
+    const walletTypeHeader =
+      await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+        accountId,
+      });
+    const requestStartedAt = Date.now();
+    const requestDiagnostic = {
+      stage: 'broadcastRequest' as const,
+      reportingOnly: Boolean(disableBroadcast),
+      rpcMode: disableBroadcast ? ('custom' as const) : ('default' as const),
+    };
+    logSolanaTxDiagnostic(signedTx.solanaTxDiagnostic, {
+      ...requestDiagnostic,
+      status: 'started',
+    });
+    const resp = await client
+      .post<
+        { data: { result: string } },
+        IAxiosResponse<{ data: { result: string } }>
+      >(
+        '/wallet/v1/account/send-transaction',
+        {
+          networkId,
+          accountAddress,
+          tx: signedTx.rawTx,
+          signature,
+          rawTxType,
+          disableBroadcast,
+          disableAntiMev: signedTx.disableMev,
+          hasEnergyRented,
+          ...(isPrivateSend ? { isPrivateSend } : {}),
+          ...(gasAccountUiState?.selectedPayer === 'gasAccount' &&
+          gasAccountUiState.gasAccountQuote?.quoteId
+            ? {
+                quoteId: gasAccountUiState.gasAccountQuote.quoteId,
+                idempotencyKey: gasAccountUiState.idempotencyKey,
+              }
+            : {}),
+        },
+        {
+          timeout: timerUtils.getTimeDurationMs({ seconds: 10 }),
+          headers: walletTypeHeader,
+        },
+      )
+      .then(
+        (response) => {
+          logSolanaTxDiagnostic(signedTx.solanaTxDiagnostic, {
+            ...requestDiagnostic,
+            status: 'succeeded',
+            httpRequestId: response.$requestId,
+            httpStatus: response.status,
+            durationMs: Date.now() - requestStartedAt,
+          });
+          return response;
+        },
+        (error: unknown) => {
+          // Capture the API's safe request identity before the vault normalizes
+          // a blockhash error; custom RPC reports are not another chain broadcast.
+          logSolanaTxDiagnostic(signedTx.solanaTxDiagnostic, {
+            ...requestDiagnostic,
+            status: 'failed',
+            durationMs: Date.now() - requestStartedAt,
+            ...getSolanaDiagnosticError(error),
+          });
+          throw error;
+        },
+      );
     if (!disableBroadcast) {
       txid = resp.data.data.result;
     }
@@ -475,62 +536,144 @@ class ServiceSend extends ServiceBase {
     params: ISendTxBaseParams &
       ISignTransactionParamsBase & {
         prefetchedCredentials?: ISignTransactionPrefetchedCredentials;
+        /** Request-local background state; never a main/bg shared object. */
+        diagnosticSendState?: ISolanaSendDiagnosticState;
         /** DeviceStage confirm channel: the fee the caller already
          * resolved, shown as the confirm card's fee row (OK-59934). */
         stageFeeInfo?: ISendSelectedFeeInfo;
       },
   ) {
     const { networkId, accountId, signOnly, stageFeeInfo } = params;
-    assertAccountCanSign(accountId);
-    const vault = await vaultFactory.getVault({ networkId, accountId });
-    const { password, deviceParams } =
-      params.prefetchedCredentials ??
-      (await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
-        accountId,
-        reason: EReasonForNeedPassword.CreateTransaction,
-      }));
-    // Re-stamp short-lived tx fields (e.g. the Solana blockhash) as late as
-    // possible: the password prompt above and the hardware PIN/passphrase/
-    // confirm below can outlive the validity window of a dApp- or
-    // server-built tx (OK-63381). Sign-only requests hand the tx back to the
-    // caller, so their payload stays byte-for-byte untouched.
-    const unsignedTx = signOnly
-      ? params.unsignedTx
-      : await vault.refreshUnsignedTxBeforeSign(params.unsignedTx);
-    // signTransaction
-    const tx =
-      await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-        async () => {
-          const signedTx = await vault.signTransaction({
-            unsignedTx,
-            password,
+    const diagnostic = networkUtils.isSolanaNetworkByNetworkId(networkId)
+      ? (params.unsignedTx.solanaTxDiagnostic ??
+        createSolanaTxDiagnosticContext())
+      : undefined;
+    let diagnosticUnsignedTx = diagnostic
+      ? { ...params.unsignedTx, solanaTxDiagnostic: diagnostic }
+      : params.unsignedTx;
+    logSolanaTxDiagnostic(diagnostic, {
+      stage: 'auth',
+      status: 'started',
+      signOnly: Boolean(signOnly),
+    });
+    let activeDiagnostic = diagnostic;
+    let diagnosticStage: 'auth' | 'refresh' | 'sign' = 'auth';
+    try {
+      assertAccountCanSign(accountId);
+      const vault = await vaultFactory.getVault({ networkId, accountId });
+      if (diagnostic) {
+        activeDiagnostic =
+          vault.getTxDiagnosticContext(diagnosticUnsignedTx) ?? diagnostic;
+        diagnosticUnsignedTx = {
+          ...diagnosticUnsignedTx,
+          solanaTxDiagnostic: activeDiagnostic,
+        };
+        if (params.diagnosticSendState) {
+          params.diagnosticSendState.context = activeDiagnostic;
+        }
+      }
+      const { password, deviceParams } =
+        params.prefetchedCredentials ??
+        (await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount(
+          {
+            accountId,
+            reason: EReasonForNeedPassword.CreateTransaction,
+          },
+        ));
+      logSolanaTxDiagnostic(activeDiagnostic, {
+        stage: 'auth',
+        status: 'succeeded',
+      });
+      diagnosticStage = 'refresh';
+      // Re-stamp short-lived tx fields (e.g. the Solana blockhash) as late as
+      // possible: the password prompt above and the hardware PIN/passphrase/
+      // confirm below can outlive the validity window of a dApp- or
+      // server-built tx (OK-63381). Sign-only requests hand the tx back to the
+      // caller, so their payload stays byte-for-byte untouched.
+      const unsignedTx = signOnly
+        ? diagnosticUnsignedTx
+        : await vault.refreshUnsignedTxBeforeSign(diagnosticUnsignedTx);
+      activeDiagnostic = unsignedTx.solanaTxDiagnostic;
+      if (params.diagnosticSendState) {
+        params.diagnosticSendState.context = activeDiagnostic;
+      }
+      if (signOnly) {
+        logSolanaTxDiagnostic(activeDiagnostic, {
+          stage: 'refresh',
+          status: 'skipped',
+          reason: 'signOnly',
+        });
+      }
+      diagnosticStage = 'sign';
+      logSolanaTxDiagnostic(activeDiagnostic, {
+        stage: 'sign',
+        status: 'started',
+      });
+      // signTransaction
+      const tx =
+        await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+          async () => {
+            const signedTx = await vault.signTransaction({
+              unsignedTx,
+              password,
+              deviceParams,
+              signOnly,
+            });
+            if (process.env.NODE_ENV !== 'production') {
+              console.log('signTx@vault.signTransaction', signedTx);
+            }
+            return signedTx;
+          },
+          {
             deviceParams,
-            signOnly,
-          });
-          if (process.env.NODE_ENV !== 'production') {
-            console.log('signTx@vault.signTransaction', signedTx);
-          }
-          return signedTx;
-        },
-        {
-          deviceParams,
-          debugMethodName: 'serviceSend.signTransaction',
-          stageConfirmContent: buildStageConfirmContentForSignTx(
-            unsignedTx,
-            stageFeeInfo,
-          ),
-        },
-      );
+            debugMethodName: 'serviceSend.signTransaction',
+            stageConfirmContent: buildStageConfirmContentForSignTx(
+              unsignedTx,
+              stageFeeInfo,
+            ),
+          },
+        );
 
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('signTx@serviceSend.signTransaction', tx);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('signTx@serviceSend.signTransaction', tx);
+      }
+
+      tx.swapInfo = unsignedTx.swapInfo;
+      tx.stakingInfo = unsignedTx.stakingInfo;
+      tx.disableMev = unsignedTx.disableMev;
+      tx.uuid = unsignedTx.uuid;
+      if (activeDiagnostic) tx.solanaTxDiagnostic = activeDiagnostic;
+      logSolanaTxDiagnostic(tx.solanaTxDiagnostic, {
+        stage: 'sign',
+        status: 'succeeded',
+      });
+      if (!params.diagnosticSendState) {
+        logSolanaTxDiagnostic(tx.solanaTxDiagnostic, {
+          stage: 'finished',
+          status: 'succeeded',
+          reason: signOnly ? 'signOnly' : undefined,
+          attempts: 0,
+        });
+      }
+      return tx;
+    } catch (error) {
+      const details = getSolanaDiagnosticError(error);
+      logSolanaTxDiagnostic(activeDiagnostic, {
+        stage: diagnosticStage,
+        status: details.errorCategory === 'cancelled' ? 'cancelled' : 'failed',
+        ...details,
+      });
+      if (!params.diagnosticSendState) {
+        logSolanaTxDiagnostic(activeDiagnostic, {
+          stage: 'finished',
+          status:
+            details.errorCategory === 'cancelled' ? 'cancelled' : 'failed',
+          attempts: 0,
+          ...details,
+        });
+      }
+      throw error;
     }
-
-    tx.swapInfo = unsignedTx.swapInfo;
-    tx.stakingInfo = unsignedTx.stakingInfo;
-    tx.disableMev = unsignedTx.disableMev;
-    tx.uuid = unsignedTx.uuid;
-    return tx;
   }
 
   private async validatePrimeInfiniPaymentBeforeBroadcast({
@@ -748,6 +891,42 @@ class ServiceSend extends ServiceBase {
   ): Promise<
     ISignedTxPro & { primeInfiniPayment?: IPrimeInfiniBeforeBroadcastAction }
   > {
+    const diagnosticState: ISolanaSendDiagnosticState = {
+      context: networkUtils.isSolanaNetworkByNetworkId(params.networkId)
+        ? (params.unsignedTx.solanaTxDiagnostic ??
+          createSolanaTxDiagnosticContext())
+        : undefined,
+      attempts: 0,
+      status: 'failed',
+    };
+    let errorDetails: ReturnType<typeof getSolanaDiagnosticError> | undefined;
+    try {
+      return await this.signAndSendTransactionWithDiagnostics(
+        params,
+        diagnosticState,
+      );
+    } catch (error) {
+      errorDetails = getSolanaDiagnosticError(error);
+      diagnosticState.status =
+        errorDetails.errorCategory === 'cancelled' ? 'cancelled' : 'failed';
+      throw error;
+    } finally {
+      logSolanaTxDiagnostic(diagnosticState.context, {
+        stage: 'finished',
+        status: diagnosticState.status,
+        reason: diagnosticState.reason,
+        attempts: diagnosticState.attempts,
+        ...errorDetails,
+      });
+    }
+  }
+
+  private async signAndSendTransactionWithDiagnostics(
+    params: Parameters<ServiceSend['signAndSendTransaction']>[0],
+    diagnosticState: ISolanaSendDiagnosticState,
+  ): Promise<
+    ISignedTxPro & { primeInfiniPayment?: IPrimeInfiniBeforeBroadcastAction }
+  > {
     const {
       networkId,
       accountId,
@@ -767,6 +946,7 @@ class ServiceSend extends ServiceBase {
       stageFeeInfo,
     } = params;
 
+    const diagnostic = diagnosticState.context;
     const replacementContext = await this.getPrimeInfiniReplacementContext({
       accountId,
       networkId,
@@ -851,11 +1031,15 @@ class ServiceSend extends ServiceBase {
     const signedTx = await this.signTransaction({
       networkId,
       accountId,
-      unsignedTx,
+      unsignedTx: diagnostic
+        ? { ...unsignedTx, solanaTxDiagnostic: diagnostic }
+        : unsignedTx,
       signOnly, // external account should send tx here
       stageFeeInfo,
+      ...(diagnostic ? { diagnosticSendState: diagnosticState } : {}),
     });
 
+    diagnosticState.context = signedTx.solanaTxDiagnostic ?? diagnostic;
     if (replacementContext) {
       this.assertPrimeInfiniReplacementTransaction({
         ...replacementContext,
@@ -919,7 +1103,9 @@ class ServiceSend extends ServiceBase {
     // skip external account send, as rawTx is empty
     if (!broadcastSkipReason) {
       const vaultSettings =
-        await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
+        await this.backgroundApi.serviceNetwork.getVaultSettings({
+          networkId,
+        });
       const vault = await vaultFactory.getVault({
         networkId,
         accountId,
@@ -1034,17 +1220,42 @@ class ServiceSend extends ServiceBase {
           });
         }
         hasAttemptedBroadcast = true;
-        return vault.broadcastTransaction({
-          accountId,
-          networkId,
-          accountAddress,
-          signedTx,
-          rawTxType,
-          tronResourceRentalInfo,
-          gasAccountUiState,
-          isPrivateSend,
-          useDefaultRpc,
+        diagnosticState.attempts += 1;
+        const broadcastStartedAt = Date.now();
+        logSolanaTxDiagnostic(diagnosticState.context, {
+          stage: 'broadcast',
+          status: 'started',
+          attempt: diagnosticState.attempts,
         });
+        try {
+          const result = await vault.broadcastTransaction({
+            accountId,
+            networkId,
+            accountAddress,
+            signedTx,
+            rawTxType,
+            tronResourceRentalInfo,
+            gasAccountUiState,
+            isPrivateSend,
+            useDefaultRpc,
+          });
+          logSolanaTxDiagnostic(diagnosticState.context, {
+            stage: 'broadcast',
+            status: 'succeeded',
+            attempt: diagnosticState.attempts,
+            durationMs: Date.now() - broadcastStartedAt,
+          });
+          return result;
+        } catch (error) {
+          logSolanaTxDiagnostic(diagnosticState.context, {
+            stage: 'broadcast',
+            status: 'failed',
+            attempt: diagnosticState.attempts,
+            durationMs: Date.now() - broadcastStartedAt,
+            ...getSolanaDiagnosticError(error),
+          });
+          throw error;
+        }
       };
 
       // 90212 GasAccountAdmissionOverloaded is a transient, idempotent retry
@@ -1211,13 +1422,20 @@ class ServiceSend extends ServiceBase {
       }
       if (!txid) {
         if (vaultSettings.withoutBroadcastTxId) {
+          diagnosticState.status = 'succeeded';
           return { ...signedTx, primeInfiniPayment: beforeBroadcastAction };
         }
         throw new OneKeyLocalError('Broadcast transaction failed.');
       }
+      diagnosticState.status = 'succeeded';
       return { ...signedTx, txid, primeInfiniPayment: beforeBroadcastAction };
     }
 
+    diagnosticState.status = 'skipped';
+    if (alwaysSignOnlySendTxInDev)
+      diagnosticState.reason = 'alwaysSignOnlySendTx';
+    else if (signOnly) diagnosticState.reason = 'signOnly';
+    else diagnosticState.reason = 'externalAccount';
     return { ...signedTx, primeInfiniPayment: beforeBroadcastAction };
   }
 

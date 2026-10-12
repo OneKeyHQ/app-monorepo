@@ -29,6 +29,7 @@ import {
   isFirmwareConfirmTip,
   setDeviceStageBurstActive,
 } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
+import { logSolanaTxDiagnostic } from '@onekeyhq/shared/src/logger/solanaTxDiagnostics';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
@@ -1686,8 +1687,10 @@ export class DeviceStageBurstScope {
   async qrShowCode({
     valueUr,
     sessionId,
+    diagnostic,
   }: {
     valueUr: IAirGapUrJson;
+    diagnostic?: IDeviceStageState['qrDiagnostic'];
     /** The session's tag, echoed back by the viewfinder's submit — a
      * stale frame must never answer a newer request (see ServiceQrWallet
      * stageAirGapSession). */
@@ -1697,6 +1700,7 @@ export class DeviceStageBurstScope {
     await this.setStep('showQr', {
       qrValueUr: valueUr,
       qrSessionId: sessionId,
+      qrDiagnostic: diagnostic,
     });
   }
 
@@ -1710,6 +1714,10 @@ export class DeviceStageBurstScope {
     }
     this.clearOffTimer();
     await this.setStep('scanQr', {});
+    logSolanaTxDiagnostic(prev.qrDiagnostic, {
+      stage: 'qrScanStarted',
+      status: 'started',
+    });
   }
 
   /** The escape hatch for a premature handoff: back to presenting the
@@ -1984,6 +1992,7 @@ export class DeviceStageBurstScope {
       btcHighIndexAccountIndex?: number;
       qrValueUr?: IDeviceStageState['qrValueUr'];
       qrSessionId?: number;
+      qrDiagnostic?: IDeviceStageState['qrDiagnostic'];
       resetOutcome?: boolean;
     },
   ) {
@@ -2083,6 +2092,11 @@ export class DeviceStageBurstScope {
         errorI18n: step === 'error' ? mergedExtras.errorI18n : undefined,
         doneI18n: step === 'done' ? mergedExtras.doneI18n : undefined,
         qrValueUr: pickQrScoped(step, mergedExtras.qrValueUr, base?.qrValueUr),
+        qrDiagnostic: pickQrScoped(
+          step,
+          mergedExtras.qrDiagnostic,
+          base?.qrDiagnostic,
+        ),
         qrSessionId: pickQrScoped(
           step,
           mergedExtras.qrSessionId,

@@ -65,6 +65,15 @@ import {
   OneKeyInternalError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import {
+  createSolanaTxDiagnosticContext,
+  logSolanaTxDiagnostic,
+} from '@onekeyhq/shared/src/logger/solanaTxDiagnostics';
+import { getSolanaDiagnosticError } from '@onekeyhq/shared/src/utils/solanaTxDiagnostics';
+import type {
+  ISolanaBlockhashDiagnostic,
+  ISolanaTxDiagnosticContext,
+} from '@onekeyhq/shared/types/solanaTxDiagnostics';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -117,6 +126,10 @@ import {
   truncateProofForCanopy,
 } from './sdkSol/bubblegum';
 import { ClientCustomRpcSol } from './sdkSol/ClientCustomRpcSol';
+import {
+  inspectSolTxDiagnostic,
+  withSolTxDiagnosticBlockhash,
+} from './solTxDiagnostics';
 import ClientSol, { EParamsEncodings } from './sdkSol/ClientSol';
 import {
   BASE_FEE,
@@ -217,6 +230,13 @@ function hasSolBlockhashExpiry(encodedTx: IDecodedTx['encodedTx']): boolean {
 }
 
 export default class Vault extends VaultBase {
+  override getTxDiagnosticContext(unsignedTx: IUnsignedTxPro) {
+    return withSolTxDiagnosticBlockhash(
+      unsignedTx.solanaTxDiagnostic,
+      unsignedTx.encodedTx,
+    );
+  }
+
   override coreApi = coreChainApi.sol.hd;
 
   override keyringMap: IKeyringMap = {
@@ -275,7 +295,7 @@ export default class Vault extends VaultBase {
   }
 
   override async buildEncodedTx(
-    params: IBuildEncodedTxParams,
+    params: IBuildEncodedTxParams & { diagnostic?: ISolanaTxDiagnosticContext },
   ): Promise<IEncodedTxSol> {
     const { transfersInfo } = params;
 
@@ -283,19 +303,27 @@ export default class Vault extends VaultBase {
       if (transfersInfo.length === 1) {
         return this._buildEncodedTxFromTransfer({
           transferInfo: transfersInfo[0],
+          diagnostic: params.diagnostic,
         });
       }
-      return this._buildEncodedTxFromBatchTransfer({ transfersInfo });
+      return this._buildEncodedTxFromBatchTransfer({
+        transfersInfo,
+        diagnostic: params.diagnostic,
+      });
     }
 
     throw new OneKeyInternalError();
   }
 
-  async _buildEncodedTxFromTransfer(params: { transferInfo: ITransferInfo }) {
+  async _buildEncodedTxFromTransfer(params: {
+    transferInfo: ITransferInfo;
+    diagnostic?: ISolanaTxDiagnosticContext;
+  }) {
     const { transferInfo } = params;
 
     return this._buildEncodedTxFromBatchTransfer({
       transfersInfo: [transferInfo],
+      diagnostic: params.diagnostic,
     });
   }
 
@@ -461,6 +489,7 @@ export default class Vault extends VaultBase {
 
   async _buildEncodedTxFromBatchTransfer(params: {
     transfersInfo: ITransferInfo[];
+    diagnostic?: ISolanaTxDiagnosticContext;
   }): Promise<IEncodedTxSol> {
     const { transfersInfo } = params;
     const transferInfo = transfersInfo[0];
@@ -477,7 +506,9 @@ export default class Vault extends VaultBase {
     const source = new PublicKey(from);
     const instructions: TransactionInstruction[] = [];
 
-    const { recentBlockhash } = await this._getRecentBlockHash();
+    const { recentBlockhash } = await this._getRecentBlockHash(
+      params.diagnostic,
+    );
 
     const devSettings =
       await this.backgroundApi.serviceDevSetting.getDevSetting();
@@ -730,7 +761,8 @@ export default class Vault extends VaultBase {
   ): Promise<IUnsignedTxPro> {
     const encodedTx = unsignedTx.encodedTx as IEncodedTxSol;
     const nativeTx = parseToNativeTx(encodedTx) as INativeTxSol;
-    const { recentBlockhash } = await this._getRecentBlockHash();
+    const fetched = await this._getRecentBlockHash();
+    const { recentBlockhash } = fetched;
 
     if (nativeTx instanceof Transaction) {
       nativeTx.recentBlockhash = recentBlockhash;
@@ -747,40 +779,74 @@ export default class Vault extends VaultBase {
       );
     }
 
-    return { ...unsignedTx, encodedTx: newEncodedTx };
+    const solanaTxDiagnostic = withSolTxDiagnosticBlockhash(
+      unsignedTx.solanaTxDiagnostic,
+      newEncodedTx,
+      fetched,
+    );
+    logSolanaTxDiagnostic(solanaTxDiagnostic, {
+      stage: 'refresh',
+      status: 'succeeded',
+    });
+    return { ...unsignedTx, encodedTx: newEncodedTx, solanaTxDiagnostic };
   }
 
   override async refreshUnsignedTxBeforeSign(
     unsignedTx: IUnsignedTxPro,
   ): Promise<IUnsignedTxPro> {
     const nativeTx = parseToNativeTx(unsignedTx.encodedTx as IEncodedTxSol);
+    const diagnostic = unsignedTx.solanaTxDiagnostic;
+    const details = inspectSolTxDiagnostic(unsignedTx.encodedTx);
     if (!nativeTx || !canRefreshSolTxBlockhash(nativeTx)) {
+      logSolanaTxDiagnostic(diagnostic, {
+        ...details,
+        stage: 'refresh',
+        status: 'skipped',
+      });
       return unsignedTx;
     }
-
+    const refreshStartedAt = Date.now();
+    logSolanaTxDiagnostic(diagnostic, {
+      ...details,
+      stage: 'refresh',
+      status: 'started',
+    });
+    let fetched: Awaited<ReturnType<Vault['_getRecentBlockHash']>>;
     let recentBlockhash: string;
     let lastValidBlockHeight: number;
     try {
-      ({ recentBlockhash, lastValidBlockHeight } =
-        await this._getRecentBlockHash());
+      fetched = await this._getRecentBlockHash(diagnostic);
+      ({ recentBlockhash, lastValidBlockHeight } = fetched);
     } catch (error) {
       // Signing with the original blockhash is still the best effort when
       // the RPC is unreachable; the broadcast reports the real outcome.
-      console.error(
-        'SOL refreshUnsignedTxBeforeSign: blockhash fetch failed',
-        error,
-      );
+      logSolanaTxDiagnostic(diagnostic, {
+        stage: 'refresh',
+        status: 'failed',
+        reason: 'fetchFailed',
+        durationMs: Date.now() - refreshStartedAt,
+        ...getSolanaDiagnosticError(error),
+      });
       return unsignedTx;
     }
 
-    return {
-      ...unsignedTx,
-      encodedTx: replaceSolTxRecentBlockhash({
-        nativeTx,
-        recentBlockhash,
-        lastValidBlockHeight,
-      }),
-    };
+    const encodedTx = replaceSolTxRecentBlockhash({
+      nativeTx,
+      recentBlockhash,
+      lastValidBlockHeight,
+    });
+    const solanaTxDiagnostic = withSolTxDiagnosticBlockhash(
+      diagnostic,
+      encodedTx,
+      fetched,
+    );
+    logSolanaTxDiagnostic(solanaTxDiagnostic, {
+      ...details,
+      stage: 'refresh',
+      status: 'succeeded',
+      durationMs: Date.now() - refreshStartedAt,
+    });
+    return { ...unsignedTx, encodedTx, solanaTxDiagnostic };
   }
 
   override async getDroppedPendingTxs({
@@ -834,37 +900,95 @@ export default class Vault extends VaultBase {
     return historyTx;
   }
 
-  async _getRecentBlockHash() {
+  async _getRecentBlockHash(diagnostic?: ISolanaTxDiagnosticContext): Promise<
+    {
+      recentBlockhash: string;
+      lastValidBlockHeight: number;
+    } & ISolanaBlockhashDiagnostic
+  > {
+    const fetchStartedAt = Date.now();
     let lastRpcErrorMessage = '';
+    let attempts = 0;
+    let lastError: unknown;
+    logSolanaTxDiagnostic(diagnostic, {
+      stage: 'blockhashFetch',
+      status: 'started',
+    });
+    try {
+      const client = await this.getClient();
 
-    const client = await this.getClient();
-
-    for (let i = 0; i < 5; i += 1) {
-      try {
-        const resp = await client.getLatestBlockHash();
-        if (!isNil(resp.recentBlockhash) && !isNil(resp.lastValidBlockHeight)) {
-          return resp;
-        }
-      } catch (e: any) {
-        const rpcErrorData = e?.data as
-          | {
-              code: number;
-              message: string;
-              data: any;
+      for (let i = 0; i < 5; i += 1) {
+        attempts = i + 1;
+        try {
+          const resp = await client.getLatestBlockHash();
+          if (
+            !isNil(resp.recentBlockhash) &&
+            !isNil(resp.lastValidBlockHeight)
+          ) {
+            const result = {
+              ...resp,
+              blockhashFetchedAt: Date.now(),
+              blockhashFetchAttempts: i + 1,
+              blockhashFetchDurationMs: Date.now() - fetchStartedAt,
+            };
+            // The context belongs only to this background request. UI receives
+            // a copy later; no cache or shared main/bg heap is assumed.
+            let fetchedDiagnostic: ISolanaTxDiagnosticContext | undefined;
+            if (diagnostic) {
+              try {
+                fetchedDiagnostic = {
+                  correlationId: diagnostic.correlationId,
+                  startedAt: diagnostic.startedAt,
+                  recentBlockhash: result.recentBlockhash,
+                  lastValidBlockHeight: result.lastValidBlockHeight,
+                  contextSlot: result.contextSlot,
+                  commitment: result.commitment,
+                  blockhashFetchedAt: result.blockhashFetchedAt,
+                  blockhashFetchAttempts: result.blockhashFetchAttempts,
+                  blockhashFetchDurationMs: result.blockhashFetchDurationMs,
+                };
+                Object.assign(diagnostic, fetchedDiagnostic);
+              } catch {
+                // A frozen diagnostic wrapper must not prevent signing.
+              }
             }
-          | undefined;
-        if (e && rpcErrorData) {
-          lastRpcErrorMessage = rpcErrorData.message;
+            logSolanaTxDiagnostic(fetchedDiagnostic, {
+              stage: 'blockhashFetch',
+              status: 'succeeded',
+            });
+            return result;
+          }
+        } catch (e: any) {
+          lastError = e;
+          const rpcErrorData = e?.data as
+            | {
+                code: number;
+                message: string;
+                data: any;
+              }
+            | undefined;
+          if (e && rpcErrorData) {
+            lastRpcErrorMessage = rpcErrorData.message;
+          }
         }
+        await timerUtils.wait(1000);
       }
-      await timerUtils.wait(1000);
-    }
 
-    throw new OneKeyLocalError(
-      `Solana getLatestBlockHash retry times exceeded: ${
-        lastRpcErrorMessage || ''
-      }`,
-    );
+      throw new OneKeyLocalError(
+        `Solana getLatestBlockHash retry times exceeded: ${
+          lastRpcErrorMessage || ''
+        }`,
+      );
+    } catch (error) {
+      logSolanaTxDiagnostic(diagnostic, {
+        stage: 'blockhashFetch',
+        status: 'failed',
+        attempts,
+        durationMs: Date.now() - fetchStartedAt,
+        ...getSolanaDiagnosticError(lastError ?? error),
+      });
+      throw error;
+    }
   }
 
   async _getTokenProgramId({
@@ -1823,22 +1947,54 @@ export default class Vault extends VaultBase {
   override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    const encodedTx = params.encodedTx ?? (await this.buildEncodedTx(params));
-    if (encodedTx) {
-      return this._buildUnsignedTxFromEncodedTx({
-        encodedTx: encodedTx as IEncodedTxSol,
-        swapInfo: params.swapInfo,
+    const diagnostic = createSolanaTxDiagnosticContext();
+    logSolanaTxDiagnostic(diagnostic, { stage: 'built', status: 'started' });
+    try {
+      const encodedTx =
+        params.encodedTx ??
+        (await this.buildEncodedTx({ ...params, diagnostic }));
+      if (encodedTx) {
+        const unsignedTx = await this._buildUnsignedTxFromEncodedTx({
+          encodedTx: encodedTx as IEncodedTxSol,
+          swapInfo: params.swapInfo,
+          diagnostic,
+        });
+        const solanaTxDiagnostic = withSolTxDiagnosticBlockhash(
+          diagnostic,
+          unsignedTx.encodedTx,
+        );
+        const details = inspectSolTxDiagnostic(unsignedTx.encodedTx);
+        let reason = details.reason;
+        if (!reason && solanaTxDiagnostic?.blockhashFetchedAt === undefined) {
+          reason = 'blockhashAcquisitionUnobserved';
+        }
+        logSolanaTxDiagnostic(solanaTxDiagnostic, {
+          ...details,
+          stage: 'built',
+          status: 'succeeded',
+          reason,
+        });
+        return { ...unsignedTx, solanaTxDiagnostic };
+      }
+      throw new OneKeyInternalError();
+    } catch (error) {
+      logSolanaTxDiagnostic(diagnostic, {
+        stage: 'built',
+        status: 'failed',
+        ...getSolanaDiagnosticError(error),
       });
+      throw error;
     }
-    throw new OneKeyInternalError();
   }
 
   async _buildUnsignedTxFromEncodedTx({
     encodedTx,
     swapInfo,
+    diagnostic,
   }: {
     encodedTx: IEncodedTxSol;
     swapInfo?: ISwapTxInfo;
+    diagnostic?: ISolanaTxDiagnosticContext;
   }) {
     const accountAddress = await this.getAccountAddress();
 
@@ -1848,7 +2004,7 @@ export default class Vault extends VaultBase {
     if (swapInfo && swapInfo.swapBuildResData.OKXTxObject) {
       const nativeTx = parseToNativeTx(encodedTx) as INativeTxSol;
       const { recentBlockhash, lastValidBlockHeight } =
-        await this._getRecentBlockHash();
+        await this._getRecentBlockHash(diagnostic);
 
       if (nativeTx instanceof Transaction) {
         nativeTx.recentBlockhash = recentBlockhash;

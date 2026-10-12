@@ -34,6 +34,7 @@ import {
   isDeviceStageMachineWaitStep,
   resolveDeviceStageBackPress,
 } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
+import { logSolanaTxDiagnostic } from '@onekeyhq/shared/src/logger/solanaTxDiagnostics';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -462,6 +463,26 @@ function DeviceStageContainerCmp() {
   // the viewfinder itself. The camera mounts only while the step is
   // scanQr — every visit a fresh session, no idle camera behind a
   // parked panel.
+  const renderedQrSessionRef = useRef<string | undefined>(undefined);
+  const handleQrRenderReady = useCallback(() => {
+    const current = stageRef.current;
+    const renderKey = `${current?.qrDiagnostic?.correlationId ?? ''}:${current?.qrSessionId ?? ''}`;
+    if (
+      current?.step !== 'showQr' ||
+      current.qrSessionId !== stage?.qrSessionId ||
+      current.qrDiagnostic?.correlationId !==
+        stage?.qrDiagnostic?.correlationId ||
+      current.qrSessionId === undefined ||
+      renderedQrSessionRef.current === renderKey
+    )
+      return;
+    renderedQrSessionRef.current = renderKey;
+    logSolanaTxDiagnostic(current.qrDiagnostic, {
+      stage: 'qrRenderReady',
+      status: 'succeeded',
+      runtime: 'main',
+    });
+  }, [stage?.qrSessionId, stage?.qrDiagnostic?.correlationId]);
   const handleQrNext = useCallback(() => {
     void serviceHardwareUI.deviceStageQrProceedToScan();
   }, [serviceHardwareUI]);
@@ -573,12 +594,19 @@ function DeviceStageContainerCmp() {
       confirmDescriptionDanger={stage?.confirmDescriptionDanger}
       confirmCount={stage?.confirmCount}
       qrValueUr={stage?.qrValueUr}
+      qrSessionId={stage?.qrSessionId}
+      qrRenderKey={
+        stage?.qrDiagnostic
+          ? `${stage.qrDiagnostic.correlationId}:${stage.qrSessionId ?? ''}`
+          : undefined
+      }
       qrScannerView={
         step === 'scanQr' ? (
           <DeviceStageQrScanner sessionId={stage?.qrSessionId} />
         ) : undefined
       }
       onQrNext={handleQrNext}
+      onQrRenderReady={handleQrRenderReady}
       onQrBack={handleQrBack}
       onClose={closable ? handleClose : undefined}
       onPinSubmit={handlePinSubmit}
