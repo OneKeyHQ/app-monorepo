@@ -5,7 +5,10 @@
 - Local patches: OK-64279, OK-64284, OK-64289, OK-64291, OK-64292, and OK-64308, embedded below;
   use the system
   frame when DWM accepts rounded corners, otherwise retain DuiLib region
-  clipping. Load window icons from the host EXE, including during un.onInit.
+  clipping without a border. Fill the opaque backdrop without antialiasing to
+  avoid partial coverage on its top and left edges, then restore antialiasing
+  for the decorative gradients and curves.
+  Load window icons from the host EXE, including during un.onInit.
   Center the minimize glyph horizontally and vertically in its button.
   Resolve installed UI fonts by locale, preserve custom theme font choices,
   and keep regular/bold weights consistent when fonts are rebuilt for DPI.
@@ -23,7 +26,7 @@
 - Target: Win32/x86 Unicode NSIS plug-in
 - Configuration: Release, static MSVC runtime (`/MT`)
 - Output: `out/build/windows-x86-ninja/Release/nsis-duilib-ui.dll`
-- SHA256: `75086815111a15fe5180875a9e26827d649861f4b31feb427885ecd836c27483`
+- SHA256: `bb694017d65b94a67faebead9f025bd044aa41dbde6298b58e25a55201d93007`
 
 Build and test from a clean checkout on Windows with Visual Studio 2022,
 CMake 3.24 or later, and Ninja:
@@ -206,7 +209,7 @@ index 48d051f..2f940b8 100644
    values.emplace("font.bodySize", std::to_string(package.typography.body_size));
    values.emplace("window.width", std::to_string(package.window.width));
 diff --git a/src/window.cpp b/src/window.cpp
-index e14e79c896..757ed83841 100644
+index 93c2ca2..ed312d6 100644
 --- a/src/window.cpp
 +++ b/src/window.cpp
 @@ -68,20 +68,23 @@ class ThreadDpiScope final {
@@ -247,7 +250,21 @@ index e14e79c896..757ed83841 100644
      }
      return true;
    }
-@@ -796,6 +799,12 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
+@@ -514,11 +517,12 @@ class LightBackdropControl final : public DuiLib::CControlUI {
+         static_cast<Gdiplus::REAL>(raw.right - raw.left),
+         static_cast<Gdiplus::REAL>(raw.bottom - raw.top));
+     Gdiplus::Graphics graphics(dc);
+-    graphics.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
++    graphics.SetSmoothingMode(Gdiplus::SmoothingModeNone);
+     graphics.SetCompositingQuality(Gdiplus::CompositingQualityHighQuality);
+
+     Gdiplus::SolidBrush canvas{Gdiplus::Color(canvas_)};
+     graphics.FillRectangle(&canvas, bounds);
++    graphics.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
+
+     Gdiplus::GraphicsPath bloom_path;
+     const Gdiplus::RectF bloom(bounds.X + bounds.Width * 0.18F,
+@@ -796,6 +800,12 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
      if (IsWindow(m_hWnd)) {
        DestroyWindow(m_hWnd);
      }
@@ -260,7 +277,7 @@ index e14e79c896..757ed83841 100644
    }
 
    [[nodiscard]] bool OpenHost(HWND owner) noexcept {
-@@ -814,7 +823,14 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
+@@ -814,7 +824,14 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
          return false;
        }
        CenterWindow();
@@ -276,7 +293,7 @@ index e14e79c896..757ed83841 100644
        return true;
      } catch (const std::exception& error) {
        error_ = error.what();
-@@ -846,17 +862,30 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
+@@ -846,17 +863,30 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
 
    void CloseInstaller() noexcept {
      if (IsWindow(m_hWnd)) {
@@ -308,7 +325,7 @@ index e14e79c896..757ed83841 100644
    void SetProgressValue(int progress) noexcept {
      state_.progress = (std::max)(state_.progress, std::clamp(progress, 0, 100));
      if (DuiLib::CControlUI* control = m_pm.FindControl(L"progress");
-@@ -969,9 +998,9 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
+@@ -969,9 +999,9 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
    void OpenLegalLink(const DuiLib::CDuiString& target) noexcept {
      const wchar_t* url = nullptr;
      if (_wcsicmp(target.GetData(), L"terms") == 0) {
@@ -320,7 +337,7 @@ index e14e79c896..757ed83841 100644
      }
      if (url != nullptr) {
        ShellExecuteW(m_hWnd, L"open", url, nullptr, nullptr, SW_SHOWNORMAL);
-@@ -1020,9 +1049,14 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
+@@ -1020,9 +1050,14 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
                     LPARAM,
                     BOOL& handled) override {
      handled = TRUE;
@@ -336,7 +353,7 @@ index e14e79c896..757ed83841 100644
 
      m_pm.Init(m_hWnd);
      const HMONITOR monitor =
-@@ -1042,10 +1076,26 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
+@@ -1042,10 +1077,26 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
      return 0;
    }
 
@@ -363,7 +380,7 @@ index e14e79c896..757ed83841 100644
      if (ShouldConfirmExit()) {
        QueuePageTransition(kShowExitConfirmation);
        handled = TRUE;
-@@ -1079,6 +1129,13 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
+@@ -1079,6 +1130,13 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
    LRESULT HandleMessage(UINT message,
                          WPARAM wparam,
                          LPARAM lparam) override {
@@ -377,7 +394,7 @@ index e14e79c896..757ed83841 100644
      if (message == kShowExitConfirmation) {
        page_transition_pending_ = false;
        ShowExitConfirmation();
-@@ -1141,6 +1198,10 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
+@@ -1141,6 +1199,10 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
        return;
      }
      const DuiLib::CDuiString name = message.pSender->GetName();
@@ -388,7 +405,7 @@ index e14e79c896..757ed83841 100644
      if (name == L"closebtn") {
        if (ShouldConfirmExit()) {
          QueuePageTransition(kShowExitConfirmation);
-@@ -1219,10 +1280,51 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
+@@ -1219,10 +1281,51 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
    }
 
   private:
@@ -440,7 +457,7 @@ index e14e79c896..757ed83841 100644
 
    [[nodiscard]] bool IsOperationPage() const noexcept {
      return page_name_ == "installing" || page_name_ == "uninstalling";
-@@ -1323,7 +1425,7 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
+@@ -1323,7 +1426,7 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
      button->SetBkColor(selected ? brand_soft : surface);
      button->SetBorderColor(selected ? brand : border);
      button->SetTextColor(text);
@@ -449,7 +466,7 @@ index e14e79c896..757ed83841 100644
      button->SetHotBkColor(selected ? brand_soft : brand_soft);
      button->SetPushedBkColor(selected ? brand_soft : 0xFFE6ECE9);
    }
-@@ -1398,11 +1500,15 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
+@@ -1398,11 +1501,15 @@ class InstallerWindow::Impl final : public DuiLib::WindowImplBase {
    ViewState state_;
    std::wstring rendered_xml_;
    std::string error_;
@@ -465,7 +482,7 @@ index e14e79c896..757ed83841 100644
    bool ready_ = false;
  };
 
-@@ -1493,6 +1599,10 @@ void InstallerWindow::PumpMessages() noexcept {
+@@ -1493,6 +1600,10 @@ void InstallerWindow::PumpMessages() noexcept {
    }
  }
 
@@ -693,7 +710,7 @@ state decision and control updates on the window's UI thread.
 Verify the vendored binary:
 
 ```powershell
-$expected = '75086815111a15fe5180875a9e26827d649861f4b31feb427885ecd836c27483'
+$expected = 'bb694017d65b94a67faebead9f025bd044aa41dbde6298b58e25a55201d93007'
 $actual = (Get-FileHash `
   ./apps/desktop/build/nsis-duilib-ui/plugin/x86-unicode/nsis-duilib-ui.dll `
   -Algorithm SHA256).Hash.ToLowerInvariant()
