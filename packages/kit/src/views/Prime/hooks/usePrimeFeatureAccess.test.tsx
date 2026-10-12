@@ -24,6 +24,10 @@ const mockGetHeldReservationEnd = jest.fn();
 const mockLoginOneKeyId = jest.fn();
 const mockPushFullModal = jest.fn();
 const mockToastMessage = jest.fn();
+const mockDialogClose = jest.fn(async () => undefined);
+const mockDialogLoading = jest.fn((_params: unknown) => ({
+  close: mockDialogClose,
+}));
 let mockShouldRunInExpandTab = false;
 let mockHookPrime = false;
 let mockAtom: IPrimeFreeTrialAtomData;
@@ -76,8 +80,15 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/prime', () => ({
 
 jest.mock('@onekeyhq/components', () => ({
   Button: () => null,
+  Dialog: {
+    loading: (params: unknown) => mockDialogLoading(params) as unknown,
+  },
   Toast: { message: (params: unknown) => mockToastMessage(params) as unknown },
   rootNavigationRef: { current: undefined },
+}));
+
+jest.mock('react-intl', () => ({
+  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
 
 jest.mock('@onekeyhq/shared/src/travelMode', () => ({
@@ -204,6 +215,119 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
         actions: expect.anything(),
       }),
     );
+  });
+
+  describe('slow gate requests', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('offers the login when the public config does not answer within 5s', async () => {
+      mockIsLoggedIn.mockResolvedValue(false);
+      mockGetPublicConfig.mockReturnValue(new Promise(() => {}));
+      mockLoginOneKeyId.mockRejectedValue(new PrimeLoginDialogCancelError());
+      const result = renderAccessHook();
+
+      let gate: Promise<unknown> | undefined;
+      act(() => {
+        gate = result.current.ensureFeatureAccess({
+          featureId: EPrimeFeatures.BulkSend,
+        });
+      });
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(4999);
+      });
+      expect(mockLoginOneKeyId).not.toHaveBeenCalled();
+      expect(mockDialogLoading).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(1);
+        await expect(gate).resolves.toEqual({ granted: false });
+      });
+      // An unknown config is never "not open": the login is offered, after
+      // the loading dialog was closed.
+      expect(mockPushFullModal).not.toHaveBeenCalled();
+      expect(mockLoginOneKeyId).toHaveBeenCalledTimes(1);
+      expect(mockDialogClose).toHaveBeenCalledTimes(1);
+      expect(mockDialogClose.mock.invocationCallOrder[0]).toBeLessThan(
+        mockLoginOneKeyId.mock.invocationCallOrder[0],
+      );
+    });
+
+    it('shows no loading when the gate answers quickly', async () => {
+      setSnapshot(quotaWith(0));
+      mockRefreshQuota.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            setTimeout(() => resolve(quotaWith(1)), 100);
+          }),
+      );
+      const result = renderAccessHook();
+
+      let gate: Promise<unknown> | undefined;
+      act(() => {
+        gate = result.current.ensureFeatureAccess({
+          featureId: EPrimeFeatures.BulkSend,
+        });
+      });
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(1000);
+        await expect(gate).resolves.toMatchObject({ granted: true });
+      });
+      expect(mockDialogLoading).not.toHaveBeenCalled();
+    });
+
+    it('leaves the loading to a caller that shows its own', async () => {
+      setSnapshot(quotaWith(0));
+      mockRefreshQuota.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            setTimeout(() => resolve(quotaWith(1)), 2000);
+          }),
+      );
+      const result = renderAccessHook();
+
+      let gate: Promise<unknown> | undefined;
+      act(() => {
+        gate = result.current.ensureFeatureAccess({
+          featureId: EPrimeFeatures.BulkSend,
+          showLoading: false,
+        });
+      });
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(3000);
+        await expect(gate).resolves.toMatchObject({ granted: true });
+      });
+      expect(mockDialogLoading).not.toHaveBeenCalled();
+    });
+
+    it('shows the loading for a slow quota refresh and closes it', async () => {
+      setSnapshot(quotaWith(0));
+      mockRefreshQuota.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            setTimeout(() => resolve(quotaWith(1)), 2000);
+          }),
+      );
+      const result = renderAccessHook();
+
+      let gate: Promise<unknown> | undefined;
+      act(() => {
+        gate = result.current.ensureFeatureAccess({
+          featureId: EPrimeFeatures.BulkSend,
+        });
+      });
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(3000);
+        await expect(gate).resolves.toMatchObject({ granted: true });
+      });
+      expect(mockDialogLoading).toHaveBeenCalledTimes(1);
+      expect(mockDialogClose).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('keeps the popup action and stays silent when the login is handed off', async () => {

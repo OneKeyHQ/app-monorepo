@@ -434,8 +434,16 @@ function SendDataInputContainer() {
         isPending: toPending,
       });
 
+  // The button stays on screen, so it shows the gate's loading itself and
+  // ignores presses until the gate settled.
+  const addressRiskAccessPendingRef = useRef(false);
+  const [isAddressRiskAccessPending, setIsAddressRiskAccessPending] =
+    useState(false);
   const handleAddressRiskCheck = useCallback(async () => {
-    if (addressRiskCheckButtonState !== 'enabled') {
+    if (
+      addressRiskCheckButtonState !== 'enabled' ||
+      addressRiskAccessPendingRef.current
+    ) {
       return;
     }
     defaultLogger.prime.subscription.primeEntryClick({
@@ -449,13 +457,23 @@ function SendDataInputContainer() {
     };
     // In the extension popup the login is handed off to the expand tab
     // without a continuation: this form state dies with the popup.
-    const access = await ensureFeatureAccess({
-      featureId: EPrimeFeatures.AddressRiskCheck,
-      networkId: currentAccount.networkId,
-      isContextValid: () =>
-        addressRiskContextRef.current.networkId === contextAtPress.networkId &&
-        addressRiskContextRef.current.address === contextAtPress.address,
-    });
+    addressRiskAccessPendingRef.current = true;
+    setIsAddressRiskAccessPending(true);
+    let access: Awaited<ReturnType<typeof ensureFeatureAccess>>;
+    try {
+      access = await ensureFeatureAccess({
+        featureId: EPrimeFeatures.AddressRiskCheck,
+        networkId: currentAccount.networkId,
+        isContextValid: () =>
+          addressRiskContextRef.current.networkId ===
+            contextAtPress.networkId &&
+          addressRiskContextRef.current.address === contextAtPress.address,
+        showLoading: false,
+      });
+    } finally {
+      addressRiskAccessPendingRef.current = false;
+      setIsAddressRiskAccessPending(false);
+    }
     if (!access.granted || !contextAtPress.address) {
       return;
     }
@@ -523,6 +541,7 @@ function SendDataInputContainer() {
           ? addressRiskCheckInteractionProps
           : {})}
         disabled={addressRiskCheckButtonState !== 'enabled'}
+        loading={isAddressRiskAccessPending}
         onPress={() => {
           void handleAddressRiskCheck();
         }}

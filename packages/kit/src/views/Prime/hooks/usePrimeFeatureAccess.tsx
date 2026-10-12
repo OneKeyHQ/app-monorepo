@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useRef } from 'react';
 
-import { Button, Toast, rootNavigationRef } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import { Button, Dialog, Toast, rootNavigationRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { shouldRunOneKeyIdAuthInExtExpandTab } from '@onekeyhq/kit/src/components/OneKeyAuth/extOneKeyIdAuthExpandTab';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
@@ -10,6 +12,7 @@ import {
   PrimeLoginDialogCancelError,
   PrimeLoginHandedOffToExtExpandTabError,
 } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
@@ -40,9 +43,14 @@ import { PRIME_FREE_TRIAL_COPY } from '../utils/primeFreeTrialCopy';
 
 import type { IPrimeFreeTrialAccess } from '../utils/primeFreeTrialAccess';
 
-// Upper bound for the quota refresh on feature entry. A slow request must not
-// block the entry: an unknown quota lets the user in and start decides.
-const ENTRY_QUOTA_REFRESH_TIMEOUT_MS = 5000;
+// Upper bound for each gate request on feature entry (public config, quota
+// refresh). A slow request must not block the entry: an unknown config still
+// offers the login and an unknown quota lets the user in, and start or the
+// metered API decides. The request keeps running and fills the cache.
+const ENTRY_REQUEST_TIMEOUT_MS = 5000;
+// Gate requests answered within this (cached or fast) show no loading, so the
+// loading dialog never just flashes.
+const ENTRY_LOADING_DELAY_MS = 300;
 
 export type IPrimeFeatureAccessResult =
   | {
@@ -86,6 +94,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number) {
 }
 
 export function usePrimeFeatureAccess() {
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const { isPrimeSubscriptionActive, isLoggedIn, user, loginOneKeyId } =
     useOneKeyAuth();
@@ -352,7 +361,7 @@ export function usePrimeFeatureAccess() {
   > => {
     const fresh = await withTimeout(
       backgroundApiProxy.servicePrimeFreeTrial.refreshQuota({ dedupe: true }),
-      ENTRY_QUOTA_REFRESH_TIMEOUT_MS,
+      ENTRY_REQUEST_TIMEOUT_MS,
     );
     if (fresh !== undefined) {
       return fresh;
@@ -364,16 +373,49 @@ export function usePrimeFeatureAccess() {
     });
   }, []);
 
-  const getPublicConfigWithRetry = useCallback(async () => {
-    const config =
-      await backgroundApiProxy.servicePrimeFreeTrial.getPublicConfig();
-    if (config) {
-      return config;
-    }
-    return backgroundApiProxy.servicePrimeFreeTrial.getPublicConfig({
-      forceRefresh: true,
-    });
-  }, []);
+  // Both attempts share one ENTRY_REQUEST_TIMEOUT_MS budget; a timeout is an
+  // unknown config, never "not open".
+  const getPublicConfigWithRetry = useCallback(
+    () =>
+      withTimeout(
+        (async () => {
+          const config =
+            await backgroundApiProxy.servicePrimeFreeTrial.getPublicConfig();
+          if (config) {
+            return config;
+          }
+          return backgroundApiProxy.servicePrimeFreeTrial.getPublicConfig({
+            forceRefresh: true,
+          });
+        })(),
+        ENTRY_REQUEST_TIMEOUT_MS,
+      ),
+    [],
+  );
+
+  // Most entries are menu items that close before the gate runs, so there
+  // is no pressed button left to spin: a slow gate request shows a loading
+  // dialog instead. It is closed before any login dialog or feedback.
+  const runWithEntryLoading = useCallback(
+    async <T,>(showLoading: boolean, task: () => Promise<T>): Promise<T> => {
+      if (!showLoading) {
+        return task();
+      }
+      let loadingDialog: ReturnType<typeof Dialog.loading> | undefined;
+      const timer = setTimeout(() => {
+        loadingDialog = Dialog.loading({
+          title: intl.formatMessage({ id: ETranslations.global_preparing }),
+        });
+      }, ENTRY_LOADING_DELAY_MS);
+      try {
+        return await task();
+      } finally {
+        clearTimeout(timer);
+        await loadingDialog?.close();
+      }
+    },
+    [intl],
+  );
 
   /**
    * Unified feature gate for Prime features with a free trial.
@@ -389,9 +431,13 @@ export function usePrimeFeatureAccess() {
       isContextValid,
       extPopup,
       onDenied,
+      showLoading = true,
     }: {
       featureId: IPrimeFreeTrialFeatureId;
       networkId?: string;
+      // false when the caller already shows its own loading, e.g. on the
+      // pressed button that stays on screen.
+      showLoading?: boolean;
       // Re-checked after an async login; false drops the continuation.
       isContextValid?: () => boolean | Promise<boolean>;
       extPopup?: IPrimeFeatureAccessExtPopupMode;
@@ -413,7 +459,10 @@ export function usePrimeFeatureAccess() {
 
       const loggedIn = await backgroundApiProxy.servicePrime.isLoggedIn();
       if (!loggedIn) {
-        const config = await getPublicConfigWithRetry();
+        const config = await runWithEntryLoading(
+          showLoading,
+          getPublicConfigWithRetry,
+        );
         const loggedOutAccess = resolvePrimeFreeTrialAccess({
           featureId,
           isPrimeSubscriptionActive: false,
@@ -511,13 +560,22 @@ export function usePrimeFeatureAccess() {
         }
       }
 
-      const quota = await loadQuotaOfLoggedInFreeUser();
-      // null for a free user: nothing may be open; the public config decides.
-      const config =
-        quota === null
-          ? ((await backgroundApiProxy.servicePrimeFreeTrial.getPublicConfig()) ??
-            freeTrialRef.current.config.data)
-          : undefined;
+      const { quota, config } = await runWithEntryLoading(
+        showLoading,
+        async () => {
+          const freshQuota = await loadQuotaOfLoggedInFreeUser();
+          // null for a free user: nothing may be open; the public config
+          // decides.
+          const publicConfig =
+            freshQuota === null
+              ? ((await withTimeout(
+                  backgroundApiProxy.servicePrimeFreeTrial.getPublicConfig(),
+                  ENTRY_REQUEST_TIMEOUT_MS,
+                )) ?? freeTrialRef.current.config.data)
+              : undefined;
+          return { quota: freshQuota, config: publicConfig };
+        },
+      );
       const access = resolvePrimeFreeTrialAccess({
         featureId,
         isPrimeSubscriptionActive: false,
@@ -554,6 +612,7 @@ export function usePrimeFeatureAccess() {
       loadQuotaOfLoggedInFreeUser,
       loginOneKeyId,
       openPrimeDashboard,
+      runWithEntryLoading,
       showActiveRejectedFeedback,
     ],
   );
