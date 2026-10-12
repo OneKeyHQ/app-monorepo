@@ -7,6 +7,7 @@ import {
 } from '../../../utils/marketSearchList';
 
 import { useMarketStockSelectorList } from './useMarketStockSelectorList';
+
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
 export function useMarketTokenSelectorSearchState(
