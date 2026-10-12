@@ -1,12 +1,12 @@
-import { RELAYER_EVENTS, Relayer } from '@walletconnect/core';
-import { createExpiringPromise } from '@walletconnect/utils';
-
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   WALLET_CONNECT_RELAY_URL,
   WALLET_CONNECT_RELAY_URLS,
 } from '@onekeyhq/shared/src/walletConnect/constant';
 
+import { RELAYER_EVENTS } from './walletConnectSdkEvents';
+
+import type { Relayer } from '@walletconnect/core';
 import type { IJsonRpcConnection } from '@walletconnect/jsonrpc-utils';
 import type { ICore } from '@walletconnect/types';
 
@@ -24,6 +24,54 @@ type IConnection = {
   settle: () => void;
   cleanup: () => void;
 };
+
+// Mirrors createExpiringPromise from '@walletconnect/utils'. Importing the
+// helper statically would drag the whole utils bundle (es-toolkit, ox, ...)
+// into the background startup graph.
+function createExpiringPromise<T>(
+  promise: Promise<T>,
+  expiry: number,
+  expireErrorMessage: string,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeout = setTimeout(
+      () => reject(new OneKeyLocalError(expireErrorMessage)),
+      expiry,
+    );
+    promise.then(
+      (result) => {
+        clearTimeout(timeout);
+        resolve(result);
+      },
+      (error) => {
+        clearTimeout(timeout);
+        reject(error);
+      },
+    );
+  });
+}
+
+// Structural stand-in for `relayer instanceof Relayer`: the class lives in the
+// SDK's single bundled entry, which must stay out of the background startup
+// graph. Every member the controller binds or patches has to be present.
+type ISdkRelayer = ICore['relayer'] & Pick<Relayer, 'transportDisconnect'>;
+function isSdkRelayer(relayer: ICore['relayer']): relayer is ISdkRelayer {
+  // Two @walletconnect/jsonrpc-types copies make IRelayer and Relayer
+  // non-overlapping for TS; the check below is purely structural.
+  const candidate = relayer as unknown as Partial<Relayer>;
+  return (
+    typeof candidate.transportOpen === 'function' &&
+    typeof candidate.transportClose === 'function' &&
+    typeof candidate.transportDisconnect === 'function' &&
+    typeof candidate.restartTransport === 'function' &&
+    typeof candidate.request === 'function' &&
+    typeof candidate.subscribe === 'function' &&
+    typeof candidate.on === 'function' &&
+    !!candidate.subscriber &&
+    !!candidate.logger &&
+    !!candidate.events
+  );
+}
 
 // Serialize public SDK operations around relay changes. A complete SDK retry
 // round finishes before the next endpoint is selected; SDK internals stay intact.
@@ -79,7 +127,7 @@ export class WalletConnectRelayController {
     this.closeTransport = relayer.transportClose.bind(relayer);
     const request = relayer.request.bind(relayer);
     const subscribe = relayer.subscribe.bind(relayer);
-    if (!(relayer instanceof Relayer)) {
+    if (!isSdkRelayer(relayer)) {
       throw new OneKeyLocalError('Expected the WalletConnect SDK relayer');
     }
     this.disconnectTransport = relayer.transportDisconnect.bind(relayer);

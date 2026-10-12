@@ -235,7 +235,7 @@ function RateLine({
         pointerEvents="none"
         // Inline views sit on the baseline; this centers the icon on the
         // line.
-        transform={[{ translateY: 3 }]}
+        transform={[{ translateY: 2 }]}
       />
     </SizableText>
   );
@@ -251,6 +251,7 @@ export function RateLineTrigger({
   testID?: string;
   centered?: boolean;
 }) {
+  const { md } = useMedia();
   const { summary } = valueSummary;
   if (!summary) {
     return null;
@@ -263,6 +264,11 @@ export function RateLineTrigger({
           testID={testID}
           jc={centered ? 'center' : undefined}
           cursor="default"
+          // On touch layouts a single text line is too short to tap; the
+          // padding grows the touch area to 44px and the margin keeps the
+          // layout where it was. Pointer layouts open it on hover, so the
+          // area stays on the text there.
+          {...(md ? { py: '$3', my: '$-3' } : null)}
         >
           <RateLine
             summary={summary}

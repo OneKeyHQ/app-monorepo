@@ -145,6 +145,10 @@ export function useSwapStockTokenDetail({
               tokenScope: tokenDetailScope,
             })
           : undefined,
+      // Same rule as the market stock detail cache: only a payload that
+      // actually carries a token may seed the next cold start. The empty
+      // fallback a failed tick returns must stay in this mount.
+      swrShouldPersist: (result) => Boolean(result?.token),
     },
   );
   useEffect(() => {

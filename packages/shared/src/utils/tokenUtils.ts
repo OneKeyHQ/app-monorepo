@@ -629,6 +629,23 @@ export function sortTokensByName({
   });
 }
 
+// Members of a multi-chain token: owned members first so their accountId /
+// balance win over the global config copy of the same network.
+export function mergeAggregateTokenMembers({
+  aggregateSubTokenList,
+  allAggregateTokenList,
+}: {
+  aggregateSubTokenList?: IAccountToken[];
+  allAggregateTokenList?: IAccountToken[];
+}): IAccountToken[] {
+  return uniqBy(
+    [...(aggregateSubTokenList ?? []), ...(allAggregateTokenList ?? [])].filter(
+      (token) => !!token.networkId,
+    ),
+    (token) => token.networkId,
+  );
+}
+
 export function sortTokensByOrder({ tokens }: { tokens: IAccountToken[] }) {
   return tokens.toSorted((a, b) => {
     if (!isNil(a.order) && !isNil(b.order)) {

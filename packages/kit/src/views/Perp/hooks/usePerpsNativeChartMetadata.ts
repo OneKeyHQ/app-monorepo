@@ -4,11 +4,8 @@ import {
   MAX_DECIMALS_SPOT,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
-import { useActiveTradeDisplay } from './useActiveTradeDisplay';
-
 export function usePerpsNativeChartMetadata() {
   const [instrument] = useActiveTradeInstrumentAtom();
-  const { displayName } = useActiveTradeDisplay();
   const isSpot = instrument.mode === 'spot';
   const szDecimals =
     instrument.mode === 'spot'
@@ -21,7 +18,6 @@ export function usePerpsNativeChartMetadata() {
   );
 
   return {
-    displayName,
     priceDecimalPlaces,
   };
 }

@@ -27,6 +27,7 @@ import type {
   IMarketDetailValue,
   IQRCodeHandlerParse,
   IUrlAccountValue,
+  IWalletConnectPayValue,
   IWalletConnectValue,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -48,6 +49,7 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
 import { marketNavigation } from '../../Market/marketUtils';
+import { openWcPayDialog } from '../../WalletConnectPay/dialog/wcPayDialogStore';
 import { getAccountIdOnNetwork } from '../utils/getAccountIdOnNetwork';
 import { parseOnChainAmount } from '../utils/parseOnChainAmount';
 
@@ -329,6 +331,40 @@ export async function parseQRCodeWithDeps(
         await closeScanPage();
         const wcValue = result.data as IWalletConnectValue;
         void connectWalletConnectToDapp(wcValue.wcUri);
+      }
+      break;
+    case EQRCodeHandlerType.WALLET_CONNECT_PAY:
+      {
+        await closeScanPage();
+        const wcPayValue = result.data as IWalletConnectPayValue;
+        // entry decision point: without durable progress no payment can
+        // complete (the options page would refuse every option upfront), so
+        // refuse explicitly here instead of opening a dead-end flow. The
+        // handler still recognized the link, so a wc: pay URI never
+        // degrades into a silently failing dapp pairing attempt
+        if (
+          !(await backgroundApiProxy.serviceWalletConnectPay.supportsDurableProgress())
+        ) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.wc_pay_onchain_unsupported_platform__msg,
+            }),
+          });
+          break;
+        }
+        // the pay flow is a global dialog, not a navigation route
+        const { opened } = openWcPayDialog({
+          paymentLink: wcPayValue.paymentLink,
+        });
+        if (!opened) {
+          // an in-flight payment is non-dismissible; a second link must not
+          // silently replace it (see wcPayDialogStore.openWcPayDialog)
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.wc_pay_payment_in_progress__msg,
+            }),
+          });
+        }
       }
       break;
     case EQRCodeHandlerType.ANIMATION_CODE: {

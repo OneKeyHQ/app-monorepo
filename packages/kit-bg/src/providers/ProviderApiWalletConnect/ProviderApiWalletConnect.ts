@@ -1,5 +1,3 @@
-import { getSdkError } from '@walletconnect/utils';
-
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   IMPL_ALGO,
@@ -186,7 +184,7 @@ class ProviderApiWalletConnect {
       );
       await this.rejectSession({
         id: proposal.id,
-        reason: getSdkError('UNSUPPORTED_CHAINS'),
+        reason: await walletConnectClient.getSdkErrorLazy('UNSUPPORTED_CHAINS'),
       });
       void this.backgroundApi.serviceApp.showToast({
         method: 'error',
@@ -284,7 +282,7 @@ class ProviderApiWalletConnect {
       console.error('onSessionProposal error: ', e);
       await this.rejectSession({
         id: proposal.id,
-        reason: getSdkError('USER_REJECTED'),
+        reason: await walletConnectClient.getSdkErrorLazy('USER_REJECTED'),
       });
       defaultLogger.discovery.dapp.dappUse({
         dappName: metadata.name,
@@ -315,18 +313,20 @@ class ProviderApiWalletConnect {
       request.params.chainId,
     );
     if (!chain) {
+      const unsupportedChainError =
+        await walletConnectClient.getSdkErrorLazy('UNSUPPORTED_CHAINS');
       walletConnectDiagnostics.record(
         'request',
         'unsupported_chain',
         request,
-        getSdkError('UNSUPPORTED_CHAINS'),
+        unsupportedChainError,
       );
       await this.respondSessionRequest({
         topic,
         response: {
           id,
           jsonrpc: '2.0',
-          error: getSdkError('UNSUPPORTED_CHAINS'),
+          error: unsupportedChainError,
         },
       });
       void this.backgroundApi.serviceApp.showToast({
@@ -343,18 +343,21 @@ class ProviderApiWalletConnect {
         request.params.request.method,
       ))
     ) {
+      const unsupportedMethodError = await walletConnectClient.getSdkErrorLazy(
+        'UNSUPPORTED_METHODS',
+      );
       walletConnectDiagnostics.record(
         'request',
         'unsupported_method',
         request,
-        getSdkError('UNSUPPORTED_METHODS'),
+        unsupportedMethodError,
       );
       await this.respondSessionRequest({
         topic,
         response: {
           id,
           jsonrpc: '2.0',
-          error: getSdkError('UNSUPPORTED_METHODS'),
+          error: unsupportedMethodError,
         },
       });
       return;
@@ -394,7 +397,10 @@ class ProviderApiWalletConnect {
       response = {
         id,
         jsonrpc: '2.0',
-        error: getSdkError('USER_REJECTED', (error as Error)?.message),
+        error: await walletConnectClient.getSdkErrorLazy(
+          'USER_REJECTED',
+          (error as Error)?.message,
+        ),
       };
     }
     // A transport failure cannot change the outcome of an executed request.
