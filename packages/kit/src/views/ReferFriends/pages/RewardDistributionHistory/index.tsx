@@ -21,6 +21,7 @@ import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils
 import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
 import { InviteWithdrawAddressRow } from '@onekeyhq/kit/src/views/ReferFriends/pages/RewardDistributionHistory/components/InviteWithdrawAddressRow';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IInvitePaidHistory,
   IInvitePaidItem,
@@ -194,13 +195,20 @@ function RewardDistributionHistoryPageWrapper() {
         title={intl.formatMessage({
           id: ETranslations.referral_payout_history__title,
         })}
+        // iOS 26 veils the first list row under the modal bar. Restate the
+        // hidden edge here; Page.Header replaces this option as a whole.
+        {...(platformEnv.isNativeIOS26Plus
+          ? { scrollEdgeEffects: { top: 'hidden' as const } }
+          : undefined)}
       />
       <Page.Body>
         <ReferFriendsPageContainer flex={1} position="relative">
           <SectionList
             flex={1}
-            // The address row scrolls with the records; as a sibling above
-            // the list it left a blank gap over the first section on phones.
+            // The address row is the list's first row, so the scroller must
+            // inset it below the modal header. A sibling above the list left
+            // that inset as a blank gap over the first section on phones.
+            contentInsetAdjustmentBehavior="automatic"
             ListHeaderComponent={<InviteWithdrawAddressRow />}
             refreshControl={
               <RefreshControl

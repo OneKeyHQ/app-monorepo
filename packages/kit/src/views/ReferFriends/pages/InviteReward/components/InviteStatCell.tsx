@@ -16,6 +16,7 @@ export function InviteStatCell({
   onPress,
   testID,
   share = 1,
+  shrink = true,
 }: {
   label: string;
   leading?: ReactNode;
@@ -26,14 +27,19 @@ export function InviteStatCell({
   // the address does not resize the cells. 'content' sizes the cell to what
   // it holds, so a lone pressable cell's hover surface stays on it.
   share?: number | 'content';
+  // When false, the cell keeps its content width and its neighbors shrink
+  // first. A payout address uses this so its tail is not the part cut off.
+  shrink?: boolean;
 }) {
-  const hug = share === 'content';
-  const sizing = hug ? { flexShrink: 1 } : { flex: share, flexBasis: 0 };
+  const hug = share === 'content' || !shrink;
+  const sizing = hug
+    ? { flexShrink: shrink ? 1 : 0 }
+    : { flex: share, flexBasis: 0 };
   return (
     <XStack
       testID={testID}
       {...sizing}
-      minWidth={0}
+      {...(shrink ? { minWidth: 0 } : null)}
       ai="center"
       gap="$2"
       py="$1"
@@ -44,7 +50,12 @@ export function InviteStatCell({
         : null)}
       onPress={onPress}
     >
-      <YStack flex={hug ? undefined : 1} flexShrink={1} gap="$1" minWidth={0}>
+      <YStack
+        flex={hug ? undefined : 1}
+        flexShrink={shrink ? 1 : 0}
+        gap="$1"
+        {...(shrink ? { minWidth: 0 } : null)}
+      >
         <XStack ai="center" gap="$2">
           {leading}
           <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
