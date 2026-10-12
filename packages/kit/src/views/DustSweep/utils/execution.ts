@@ -2,7 +2,7 @@ import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { HardwareErrorCode as ThirdPartyHardwareErrorCode } from '@onekeyfe/hwk-adapter-core/errors';
 import BigNumber from 'bignumber.js';
 
-import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { buildMarketExecutionPayload } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketBuildExecutionUtils';
 import { sendMarketDirectUnsignedTxs } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketDirectSendTx';
@@ -191,11 +191,11 @@ async function checkNativeGasBalance(
   }
 }
 
-async function prepareAllowanceUnsignedTxs(
+async function prepareAllowanceInfos(
   quote: IFetchQuoteResult,
   options: IExecutionOptions,
   requiredInputAmount = options.token.amount,
-): Promise<IUnsignedTxPro[]> {
+): Promise<IApproveInfo[]> {
   const { snapshot, token, signal } = options;
   const spender =
     quote.allowanceResult?.allowanceTarget ??
@@ -223,36 +223,22 @@ async function prepareAllowanceUnsignedTxs(
     );
   assertActive(signal);
   if (allowance.isApproved) return [];
-  const approveUnsignedTxArr: IUnsignedTxPro[] = [];
-  let prevNonce: number | undefined;
-  for (const amount of allowance.shouldResetApprove
+  const amounts = allowance.shouldResetApprove
     ? ['0', requiredInputAmount]
-    : [requiredInputAmount]) {
-    assertActive(signal);
-    const unsignedTx =
-      await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
-        accountId: snapshot.accountId,
-        networkId: snapshot.networkId,
-        prevNonce,
-        isInternalSwap: true,
-        approveInfo: {
-          owner: snapshot.address,
-          spender,
-          amount,
-          isMax: false,
-          tokenInfo: {
-            address: token.contractAddress,
-            decimals: token.decimals,
-            symbol: token.symbol,
-            name: token.name ?? token.symbol,
-            isNative: false,
-          },
-        },
-      });
-    prevNonce = unsignedTx.nonce;
-    approveUnsignedTxArr.push(unsignedTx);
-  }
-  return approveUnsignedTxArr;
+    : [requiredInputAmount];
+  return amounts.map((amount) => ({
+    owner: snapshot.address,
+    spender,
+    amount,
+    isMax: false,
+    tokenInfo: {
+      address: token.contractAddress,
+      decimals: token.decimals,
+      symbol: token.symbol,
+      name: token.name ?? token.symbol,
+      isNative: false,
+    },
+  }));
 }
 
 // Only detach preparation and status reads. Signing and history writes must finish
@@ -374,12 +360,12 @@ async function prepareDustSweepItem(options: IExecutionOptions) {
     buildRes.result.allowanceResult || buildRes.result.approvedInfo
       ? buildRes.result
       : quote;
-  const approveUnsignedTxArr = await prepareAllowanceUnsignedTxs(
+  const approvalInfos = await prepareAllowanceInfos(
     allowanceQuote,
     options,
     requiredInputAmount,
   );
-  return { buildRes, execution, approveUnsignedTxArr };
+  return { buildRes, execution, approvalInfos };
 }
 
 export async function executeDustSweepItem(
@@ -419,7 +405,7 @@ export async function executeDustSweepItem(
       onSigning();
     }
   };
-  const sendApproval = async (unsignedTx: IUnsignedTxPro) => {
+  const sendApproval = async (approveInfo: IApproveInfo) => {
     assertCanSubmit(options);
     let approvalTxId: string | undefined;
     await sendMarketDirectUnsignedTxs({
@@ -429,7 +415,7 @@ export async function executeDustSweepItem(
       buildUnsignedParams: {
         accountId: snapshot.accountId,
         networkId: snapshot.networkId,
-        unsignedTx,
+        approveInfo,
       },
       validateFinalGasInfos: async (gasInfos) => {
         await checkNativeGasBalance(
@@ -457,9 +443,11 @@ export async function executeDustSweepItem(
     assertCanSubmit(options);
   };
   try {
-    if (prepared.approveUnsignedTxArr.length) {
-      for (const unsignedTx of prepared.approveUnsignedTxArr) {
-        await sendApproval(unsignedTx);
+    if (prepared.approvalInfos.length) {
+      // Build each approval only after the previous one confirms so its nonce
+      // includes transactions sent by the same account while we were waiting.
+      for (const approveInfo of prepared.approvalInfos) {
+        await sendApproval(approveInfo);
       }
       // Approval changes chain state and may outlive the quote. Rebuild before
       // estimating the actual swap, with no approval gas-limit approximation.
@@ -467,7 +455,7 @@ export async function executeDustSweepItem(
         () => prepareDustSweepItem(options),
         signal,
       );
-      if (prepared.approveUnsignedTxArr.length)
+      if (prepared.approvalInfos.length)
         throw new DustSweepRetryableError();
     }
     const { execution, buildRes } = prepared;

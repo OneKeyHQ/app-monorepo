@@ -25,7 +25,6 @@ const mockTxState: jest.MockedFunction<
 const mockPayload = jest.fn();
 const mockSend: jest.MockedFunction<typeof sendMarketDirectUnsignedTxs> =
   jest.fn();
-const mockPrepareUnsigned = jest.fn();
 const mockHistory = jest.fn();
 const mockBalance = jest.fn();
 const mockGasRequirement = jest.fn();
@@ -37,9 +36,6 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       fetchApproveAllowanceForDisplay: mockAllowance,
       fetchBuildTx: mockBuild,
       fetchTxState: mockTxState,
-    },
-    serviceSend: {
-      prepareSendConfirmUnsignedTx: mockPrepareUnsigned,
     },
   },
 }));
@@ -135,9 +131,9 @@ function createOptions() {
 async function sendTransaction(params: ISendParams) {
   await params.validateFinalGasInfos?.([]);
   await params.onBeforeSignAndSend?.();
-  const approval = params.buildUnsignedParams.unsignedTx;
+  const approval = params.buildUnsignedParams.approveInfo;
   params.onBroadcast?.({
-    txid: approval ? `approval-${(approval.nonce ?? 1) - 1}` : 'swap',
+    txid: approval ? `approval-${mockSend.mock.calls.length - 1}` : 'swap',
     rawTx: '',
     encodedTx: null,
   });
@@ -156,12 +152,6 @@ describe('Dust Sweep serial execution boundaries', () => {
       skipSendTransAction: false,
     });
     mockSend.mockReset().mockImplementation(sendTransaction);
-    mockPrepareUnsigned
-      .mockReset()
-      .mockImplementation(async (params: { prevNonce?: number }) => ({
-        nonce: (params.prevNonce ?? 0) + 1,
-        encodedTx: { to: '0xapproval' },
-      }));
     mockHistory.mockReset().mockResolvedValue(undefined);
     mockBalance
       .mockReset()
@@ -262,7 +252,7 @@ describe('Dust Sweep serial execution boundaries', () => {
     expect(options.onSigning).toHaveBeenCalledTimes(2);
     expect(mockSend).toHaveBeenCalledTimes(2);
     expect(
-      mockSend.mock.calls[0][0].buildUnsignedParams.unsignedTx,
+      mockSend.mock.calls[0][0].buildUnsignedParams.approveInfo,
     ).toBeDefined();
     expect(mockSend.mock.calls[1][0].approveUnsignedTxArr).toBeUndefined();
     expect(mockAllowance).toHaveBeenCalledWith(
@@ -448,13 +438,11 @@ describe('Dust Sweep serial execution boundaries', () => {
       status: 'success',
     });
     expect(
-      mockSend.mock.calls[0][0].buildUnsignedParams.unsignedTx,
+      mockSend.mock.calls[0][0].buildUnsignedParams.approveInfo,
     ).toBeDefined();
     expect(mockSend.mock.calls[1][0].approveUnsignedTxArr).toBeUndefined();
-    expect(mockPrepareUnsigned).toHaveBeenCalledWith(
-      expect.objectContaining({
-        approveInfo: expect.objectContaining({ spender: '0xchanged' }),
-      }),
+    expect(mockSend.mock.calls[0][0].buildUnsignedParams.approveInfo).toEqual(
+      expect.objectContaining({ spender: '0xchanged' }),
     );
   });
 
@@ -728,9 +716,10 @@ describe('Dust Sweep serial execution boundaries', () => {
       ),
     ).toBe(true);
     expect(
-      mockPrepareUnsigned.mock.calls.map(
-        ([params]: [{ approveInfo: { amount: string } }]) =>
-          params.approveInfo.amount,
+      mockSend.mock.calls.flatMap(([params]) =>
+        params.buildUnsignedParams.approveInfo
+          ? [params.buildUnsignedParams.approveInfo.amount]
+          : [],
       ),
     ).toEqual(['0', '10']);
   });
@@ -752,6 +741,38 @@ describe('Dust Sweep serial execution boundaries', () => {
     expect(options.onApprovalBroadcast).toHaveBeenCalledWith(['approval-0']);
     expect(options.onSigning).toHaveBeenCalledTimes(1);
     expect(options.onBroadcast).not.toHaveBeenCalled();
+  });
+
+  it('builds the grant only after reset confirmation without freezing its nonce', async () => {
+    mockAllowance.mockResolvedValueOnce(
+      createAllowance({ isApproved: false, shouldResetApprove: true }),
+    );
+    let confirmReset: (value: { state: ESwapTxHistoryStatus }) => void =
+      () => undefined;
+    mockTxState.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          confirmReset = resolve;
+        }),
+    );
+    const completion = executeDustSweepItem(createOptions());
+    for (let turn = 0; turn < 30 && !mockTxState.mock.calls.length; turn += 1)
+      await Promise.resolve();
+    expect(mockSend).toHaveBeenCalledTimes(1);
+    expect(mockSend.mock.calls[0][0].buildUnsignedParams).toEqual({
+      accountId: snapshot.accountId,
+      networkId: snapshot.networkId,
+      approveInfo: expect.objectContaining({ amount: '0' }),
+    });
+    confirmReset({ state: ESwapTxHistoryStatus.SUCCESS });
+    await completion;
+    // The shared sender builds from current account state; neither a cached
+    // unsigned transaction nor a pre-reset nonce may reach the grant.
+    expect(mockSend.mock.calls[1][0].buildUnsignedParams).toEqual({
+      accountId: snapshot.accountId,
+      networkId: snapshot.networkId,
+      approveInfo: expect.objectContaining({ amount: '10' }),
+    });
   });
 
   it('supports quote-owned Tron approvals', async () => {
@@ -800,17 +821,12 @@ describe('Dust Sweep serial execution boundaries', () => {
       expect.objectContaining({
         networkId: tronToken.networkId,
         buildUnsignedParams: expect.objectContaining({
-          unsignedTx: expect.any(Object),
+          approveInfo: expect.any(Object),
         }),
       }),
     );
-    expect(mockPrepareUnsigned).toHaveBeenCalledWith(
-      expect.objectContaining({
-        approveInfo: expect.objectContaining({
-          spender: 'TSpender',
-          isMax: false,
-        }),
-      }),
+    expect(mockSend.mock.calls[0][0].buildUnsignedParams.approveInfo).toEqual(
+      expect.objectContaining({ spender: 'TSpender', isMax: false }),
     );
   });
 

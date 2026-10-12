@@ -222,6 +222,45 @@ describe('marketDirectSendTx', () => {
     mockGetNativeTokenAddress.mockResolvedValue('');
   });
 
+  it('uses the current nonce when building an approval after an earlier transaction', async () => {
+    const approveInfo = {
+      owner: '0xuser',
+      spender: '0xspender',
+      amount: '10',
+      isMax: false,
+      tokenInfo: {
+        address: '0xtoken',
+        decimals: 18,
+        symbol: 'DUST',
+        name: 'Dust',
+        isNative: false,
+      },
+    };
+    const unsignedTx = createUnsignedTx({ nonce: 12 });
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
+    await sendMarketDirectUnsignedTxs({
+      accountId: 'account',
+      accountAddress: '0xuser',
+      networkId: 'evm--1',
+      buildUnsignedParams: {
+        accountId: 'account',
+        networkId: 'evm--1',
+        approveInfo,
+      },
+    });
+    expect(mockPrepareSendConfirmUnsignedTx).toHaveBeenCalledWith({
+      accountId: 'account',
+      networkId: 'evm--1',
+      approveInfo,
+      isInternalSwap: true,
+    });
+    expect(mockSignAndSendTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        unsignedTx: expect.objectContaining({ nonce: 12 }),
+      }),
+    );
+  });
+
   it('estimates the approved swap instead of reusing its pre-approval provider gas limit', async () => {
     const unsignedTx = createSponsoredUnsignedTx();
     if (unsignedTx.swapInfo) {
