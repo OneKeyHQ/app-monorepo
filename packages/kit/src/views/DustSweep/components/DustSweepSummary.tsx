@@ -83,11 +83,11 @@ export function DustSweepResult({
         .easing(Easing.out(Easing.cubic))
         .withInitialValues({ transform: [{ translateY: 24 }] });
   return (
-    <Stack width="100%" height={desktop ? 320 : 420} flexShrink={0}>
+    <Stack width="100%" height={desktop ? 280 : 420} flexShrink={0}>
       <Animated.View entering={entering} style={{ width: '100%' }}>
         <YStack
           testID="dust-sweep-result"
-          height={desktop ? 320 : 420}
+          height={desktop ? 280 : 420}
           px={desktop ? 0 : '$5'}
           pt={desktop ? 76 : 32}
           alignItems="center"
@@ -119,16 +119,7 @@ export function DustSweepResult({
           >
             {value}
           </SizableText>
-          {desktop ? (
-            <Button
-              testID="dust-sweep-view-details"
-              mt="$4"
-              variant="tertiary"
-              onPress={onDetails}
-            >
-              {intl.formatMessage({ id: ETranslations.global_details })}
-            </Button>
-          ) : (
+          {!desktop ? (
             <>
               <YStack width="100%" mt="$8" gap="$4">
                 <XStack height={20} justifyContent="space-between">
@@ -179,7 +170,7 @@ export function DustSweepResult({
                 </Button>
               </YStack>
             </>
-          )}
+          ) : null}
         </YStack>
       </Animated.View>
     </Stack>
@@ -271,7 +262,7 @@ export function DustSweepSummary({
         : { borderTopWidth: 1, borderColor: '$borderSubdued' })}
     >
       {completed && desktop ? (
-        <DustSweepResult state={state} desktop onDetails={onDetails} />
+        <DustSweepResult state={state} desktop />
       ) : (
         <>
           {desktop ? (
