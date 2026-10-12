@@ -2,7 +2,7 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
 
-import { MARKET_LIST_FIRST_COLUMN_MIN_WIDTH } from '../../../marketDesktopLayoutConstants';
+import { MARKET_LIST_FIRST_COLUMN_MAX_WIDTH } from '../../../marketDesktopLayoutConstants';
 
 import type { IMarketToken } from '../../../MarketHomeV2/components/MarketTokenList/MarketTokenData';
 
@@ -37,19 +37,37 @@ export const TOKEN_SELECTOR_COLUMN_PADDING = '$2' as const;
 export const TOKEN_SELECTOR_POPOVER_WIDTH = 840;
 
 // The chip band under the tabs: 6px above and 10px below a 32px chip row.
-// Tabs without chips (Favorites) hand this height to their list instead, so
-// the popover keeps one height across tabs.
 export const TOKEN_SELECTOR_TOOLBAR_HEIGHT = 48;
 
-// The name column takes the Market list pages' narrowest first column rather
-// than the design's 288, leaving the metric columns more room. Every tab, the
-// stocks one included, uses the same width so they line up.
-export const TOKEN_SELECTOR_NAME_COLUMN_WIDTH =
-  MARKET_LIST_FIRST_COLUMN_MIN_WIDTH;
+// The popover's fixed height before and after typing; the list or search
+// results below the tabs fill whatever is left, so switching tabs, chips or
+// starting to type never resizes it.
+export const TOKEN_SELECTOR_POPOVER_HEIGHT = 600;
+
+// With results in more than one section, the search All tab previews this
+// many rows per section. A stock query rarely returns more than a couple of
+// listings, so the limit mostly lets the token section show the common
+// variants of one asset (chains, wrappers, issuers) before Show more.
+export const TOKEN_SELECTOR_SEARCH_SECTION_PREVIEW_ROWS = 5;
+
+// The design's `Left Fixed` name column. Every tab, the stocks one and the
+// search results included, uses the same width so the columns line up.
+export const TOKEN_SELECTOR_NAME_COLUMN_WIDTH = 288;
+
+// Search results put the full name and the address side by side, so their
+// name column takes the Market list pages' widest first column. Search tables
+// have four metric columns, which still leaves each about 124px.
+export const TOKEN_SELECTOR_SEARCH_NAME_COLUMN_WIDTH =
+  MARKET_LIST_FIRST_COLUMN_MAX_WIDTH;
+// The search name line can run to its copy button, so the column keeps 16px
+// on the right instead of 8px before the Liquidity value.
+export const TOKEN_SELECTOR_SEARCH_NAME_COLUMN_PADDING_RIGHT = '$4' as const;
 
 export type IMarketTokenSelectorMetricColumn =
   | 'price'
   | 'change'
+  // Price over its 24h change in one cell (search results).
+  | 'priceChange'
   | 'marketCap'
   | 'liquidity'
   | 'turnover';
@@ -62,7 +80,8 @@ export type IMarketTokenSelectorMetricColumn =
 export type IMarketTokenSelectorColumnVariant =
   | 'favorites'
   | 'coins'
-  | 'trending';
+  | 'trending'
+  | 'search';
 
 export const TOKEN_SELECTOR_METRIC_COLUMNS: Record<
   IMarketTokenSelectorColumnVariant,
@@ -71,6 +90,7 @@ export const TOKEN_SELECTOR_METRIC_COLUMNS: Record<
   favorites: ['price', 'change', 'turnover'],
   coins: ['price', 'change', 'marketCap', 'turnover'],
   trending: ['marketCap', 'price', 'change', 'liquidity', 'turnover'],
+  search: ['liquidity', 'priceChange', 'marketCap', 'turnover'],
 };
 
 /**
@@ -86,6 +106,8 @@ export const TOKEN_SELECTOR_METRIC_FLEX: Record<
   favorites: {},
   coins: {},
   trending: { price: 1.25, change: 1.25 },
+  // The price-over-change cell and its long header take a larger share.
+  search: { priceChange: 1.25 },
 };
 
 export interface IMarketTokenSelectorColumns {

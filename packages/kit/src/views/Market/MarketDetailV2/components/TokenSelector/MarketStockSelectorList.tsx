@@ -18,30 +18,30 @@ import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
 import {
   TOKEN_SELECTOR_HEADER_HEIGHT,
+  TOKEN_SELECTOR_POPOVER_HEIGHT,
   TOKEN_SELECTOR_POPOVER_WIDTH,
   TOKEN_SELECTOR_ROW_HEIGHT,
   TOKEN_SELECTOR_TABLE_PADDING,
 } from './constants';
 import { useMarketStockSelectorList } from './useMarketStockSelectorList';
 
-const STOCK_SELECTOR_LIST_HEIGHT = 350;
+type IMarketStockSelectorListResult = ReturnType<
+  typeof useMarketStockSelectorList
+>;
 
-const MarketStockSelectorList = memo(
+/**
+ * The stocks table itself, fed by a `useMarketStockSelectorList` result so the
+ * browse list and the search Stocks tab render identical rows.
+ */
+const MarketStockSelectorTable = memo(
   ({
-    query,
-    category,
+    result,
     onItemPress,
-    extraHeight = 0,
   }: {
-    query?: string;
-    category?: string;
+    result: IMarketStockSelectorListResult;
     onItemPress: (item: IMarketStockPublicItem) => void;
-    /** Height handed over when no chip band shows above the list. */
-    extraHeight?: number;
   }) => {
     const intl = useIntl();
-    const listHeight = STOCK_SELECTOR_LIST_HEIGHT + extraHeight;
-    const tableHeight = listHeight + TOKEN_SELECTOR_HEADER_HEIGHT;
     // The selector dropdown is a picker, not the full Market Stocks table, so
     // it drops the 24h price range sparkline column.
     const columns = useMarketStockColumns({
@@ -51,7 +51,6 @@ const MarketStockSelectorList = memo(
       showMarketTags: true,
       watchlistFrom: EWatchlistFrom.Search,
     });
-    const normalizedQuery = query?.trim() ?? '';
     const {
       items,
       isLoading,
@@ -62,10 +61,7 @@ const MarketStockSelectorList = memo(
       isRevalidatingFirstPage,
       loadMore,
       refresh: retry,
-    } = useMarketStockSelectorList({
-      query: normalizedQuery,
-      ...(category ? { category } : {}),
-    });
+    } = result;
     const handleEndReached = useCallback(() => {
       if (isLoadMoreError || isLoadingMore) {
         return;
@@ -120,7 +116,7 @@ const MarketStockSelectorList = memo(
       return (
         <YStack
           testID="market-stock-selector-loading"
-          height={tableHeight}
+          flex={1}
           alignItems="center"
           justifyContent="center"
         >
@@ -131,11 +127,7 @@ const MarketStockSelectorList = memo(
 
     if (isError) {
       return (
-        <YStack
-          height={tableHeight}
-          alignItems="center"
-          justifyContent="center"
-        >
+        <YStack flex={1} alignItems="center" justifyContent="center">
           <Empty
             illustration="QuestionMark"
             title={intl.formatMessage({
@@ -156,11 +148,7 @@ const MarketStockSelectorList = memo(
 
     if (items.length === 0 && !canLoadMore) {
       return (
-        <YStack
-          height={tableHeight}
-          alignItems="center"
-          justifyContent="center"
-        >
+        <YStack flex={1} alignItems="center" justifyContent="center">
           <Empty
             illustration="QuestionMark"
             title={intl.formatMessage({ id: ETranslations.global_no_results })}
@@ -170,7 +158,7 @@ const MarketStockSelectorList = memo(
     }
 
     return (
-      <YStack height={tableHeight} px={TOKEN_SELECTOR_TABLE_PADDING}>
+      <YStack flex={1} px={TOKEN_SELECTOR_TABLE_PADDING}>
         <Table<IMarketStockPublicItem>
           columns={columns}
           dataSource={items}
@@ -178,7 +166,7 @@ const MarketStockSelectorList = memo(
           estimatedItemSize={TOKEN_SELECTOR_ROW_HEIGHT}
           estimatedListSize={{
             width: TOKEN_SELECTOR_POPOVER_WIDTH,
-            height: listHeight,
+            height: TOKEN_SELECTOR_POPOVER_HEIGHT,
           }}
           rowProps={{
             bg: '$bg',
@@ -208,6 +196,28 @@ const MarketStockSelectorList = memo(
   },
 );
 
+MarketStockSelectorTable.displayName = 'MarketStockSelectorTable';
+
+const MarketStockSelectorList = memo(
+  ({
+    query,
+    category,
+    onItemPress,
+  }: {
+    query?: string;
+    category?: string;
+    onItemPress: (item: IMarketStockPublicItem) => void;
+  }) => {
+    const result = useMarketStockSelectorList({
+      query: query?.trim() ?? '',
+      ...(category ? { category } : {}),
+    });
+    return (
+      <MarketStockSelectorTable result={result} onItemPress={onItemPress} />
+    );
+  },
+);
+
 MarketStockSelectorList.displayName = 'MarketStockSelectorList';
 
-export { MarketStockSelectorList };
+export { MarketStockSelectorList, MarketStockSelectorTable };

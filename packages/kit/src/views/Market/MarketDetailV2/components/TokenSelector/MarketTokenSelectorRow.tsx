@@ -40,20 +40,27 @@ import {
   TOKEN_SELECTOR_ROW_HEIGHT,
   TOKEN_SELECTOR_STAR_COLUMN_WIDTH,
 } from './constants';
+import { SelectorPriceChangeCell } from './selectorTable';
 
 import type {
   IMarketTokenSelectorColumns,
   IMarketTokenSelectorMetricColumn,
 } from './constants';
+import type { ISelectorPadding } from './selectorTable';
 import type { IMarketToken } from '../../../MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import type { GestureResponderEvent } from 'react-native';
 
 /**
  * What the line under the symbol carries. Trending and Robinhood rows show the
  * token age then the copyable contract address; Favorites and Top Coins show
- * the full name (stock listings lead it with their market badges).
+ * the full name (stock listings lead it with their market badges); search
+ * results show the full name followed by the address.
  */
-export type IMarketTokenSelectorSubtitleVariant = 'ageAddress' | 'name';
+export type IMarketTokenSelectorSubtitleVariant =
+  | 'ageAddress'
+  | 'name'
+  // Search results: the full name, then the copyable address.
+  | 'nameAddress';
 
 interface IMarketTokenSelectorRowProps {
   item: IMarketToken & { selectorSubtitle?: string; marketAssetId?: string };
@@ -61,6 +68,8 @@ interface IMarketTokenSelectorRowProps {
   onPress: (item: IMarketToken) => void;
   subtitleVariant?: IMarketTokenSelectorSubtitleVariant;
   columns: IMarketTokenSelectorColumns;
+  nameColumnWidth?: number;
+  nameColumnPaddingRight?: ISelectorPadding;
 }
 
 const PRICE_LARGE_THRESHOLD = 1_000_000;
@@ -82,6 +91,8 @@ const MarketTokenSelectorRow = memo(
     onPress,
     subtitleVariant = 'name',
     columns,
+    nameColumnWidth = TOKEN_SELECTOR_NAME_COLUMN_WIDTH,
+    nameColumnPaddingRight = TOKEN_SELECTOR_COLUMN_PADDING,
   }: IMarketTokenSelectorRowProps) => {
     const { copyText } = useClipboard();
 
@@ -184,6 +195,17 @@ const MarketTokenSelectorRow = memo(
               {String(item.change24h)}
             </NumberSizeableText>
           );
+        case 'priceChange':
+          return (
+            <SelectorPriceChangeCell
+              price={Number.isFinite(item.price) ? item.price : undefined}
+              change={
+                item.priceChangeRaw === undefined || item.priceChangeRaw === '-'
+                  ? undefined
+                  : item.change24h
+              }
+            />
+          );
         case 'marketCap':
           return item.marketCap ? (
             <NumberSizeableText
@@ -224,8 +246,51 @@ const MarketTokenSelectorRow = memo(
       }
     };
 
+    const addressElement = shortenedAddress ? (
+      <XStack alignItems="center" gap="$0.5" flexShrink={0}>
+        <SizableText size="$bodySm" color="$textDisabled" numberOfLines={1}>
+          {shortenedAddress}
+        </SizableText>
+        <Stack
+          cursor="pointer"
+          hitSlop={NATIVE_HIT_SLOP}
+          hoverStyle={{ opacity: 0.75 }}
+          pressStyle={{ opacity: 0.5 }}
+          onPress={(e: GestureResponderEvent) => {
+            e.stopPropagation();
+            copyText(item.address);
+          }}
+        >
+          <Icon name="Copy3Outline" size="$3.5" color="$iconSubdued" />
+        </Stack>
+      </XStack>
+    ) : null;
+
     let subtitle: ReactNode = null;
-    if (subtitleVariant === 'ageAddress') {
+    if (subtitleVariant === 'nameAddress') {
+      const displayName = item.name.trim();
+      subtitle =
+        displayName || addressElement ? (
+          <XStack
+            height={SUBTITLE_LINE_HEIGHT}
+            alignItems="center"
+            gap="$1.5"
+            minWidth={0}
+          >
+            {displayName ? (
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                numberOfLines={1}
+                flexShrink={1}
+              >
+                {displayName}
+              </SizableText>
+            ) : null}
+            {addressElement}
+          </XStack>
+        ) : null;
+    } else if (subtitleVariant === 'ageAddress') {
       const ageLabel = getTokenAgeLabel(intl, item.firstTradeTime);
       subtitle =
         ageLabel || shortenedAddress ? (
@@ -240,29 +305,7 @@ const MarketTokenSelectorRow = memo(
                 {ageLabel}
               </SizableText>
             ) : null}
-            {shortenedAddress ? (
-              <XStack alignItems="center" gap="$0.5" flexShrink={0}>
-                <SizableText
-                  size="$bodySm"
-                  color="$textDisabled"
-                  numberOfLines={1}
-                >
-                  {shortenedAddress}
-                </SizableText>
-                <Stack
-                  cursor="pointer"
-                  hitSlop={NATIVE_HIT_SLOP}
-                  hoverStyle={{ opacity: 0.75 }}
-                  pressStyle={{ opacity: 0.5 }}
-                  onPress={(e: GestureResponderEvent) => {
-                    e.stopPropagation();
-                    copyText(item.address);
-                  }}
-                >
-                  <Icon name="Copy3Outline" size="$3.5" color="$iconSubdued" />
-                </Stack>
-              </XStack>
-            ) : null}
+            {addressElement}
           </XStack>
         ) : null;
     } else {
@@ -322,9 +365,10 @@ const MarketTokenSelectorRow = memo(
       >
         {/* Token info cell */}
         <XStack
-          width={TOKEN_SELECTOR_NAME_COLUMN_WIDTH}
+          width={nameColumnWidth}
           flexShrink={0}
-          px={TOKEN_SELECTOR_COLUMN_PADDING}
+          pl={TOKEN_SELECTOR_COLUMN_PADDING}
+          pr={nameColumnPaddingRight}
           gap={TOKEN_SELECTOR_NAME_GAP}
           alignItems="center"
           justifyContent="flex-start"

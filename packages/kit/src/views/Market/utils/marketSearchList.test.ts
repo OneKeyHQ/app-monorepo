@@ -19,6 +19,13 @@ describe('getDetailPopoverSearchTabs', () => {
       MARKET_SEARCH_TABS.tokens,
     ]);
   });
+
+  it('hides Tokens when no token matches', () => {
+    expect(getDetailPopoverSearchTabs(true, false)).toEqual([
+      MARKET_SEARCH_TABS.all,
+      MARKET_SEARCH_TABS.stocks,
+    ]);
+  });
 });
 
 describe('isDetailSearchChainToken', () => {

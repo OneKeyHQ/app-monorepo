@@ -3,14 +3,7 @@ import type { ReactElement, RefObject } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Empty,
-  ListView,
-  SizableText,
-  Spinner,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Empty, ListView, Spinner, YStack } from '@onekeyhq/components';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -26,19 +19,15 @@ import { isTrendingStyleSpotCategory } from '../../../MarketHomeV2/utils';
 import { buildMarketSearchTokenDetailPreview } from '../../utils/marketDetailPreview';
 
 import {
-  TOKEN_SELECTOR_COLUMN_PADDING,
-  TOKEN_SELECTOR_HEADER_HEIGHT,
   TOKEN_SELECTOR_METRIC_COLUMNS,
   TOKEN_SELECTOR_METRIC_FLEX,
-  TOKEN_SELECTOR_NAME_COLUMN_WIDTH,
-  TOKEN_SELECTOR_NAME_GAP,
   TOKEN_SELECTOR_POLLING_INTERVAL,
   TOKEN_SELECTOR_ROW_HEIGHT,
-  TOKEN_SELECTOR_STAR_COLUMN_WIDTH,
   TOKEN_SELECTOR_TABLE_PADDING,
   convertSearchTokenToMarketToken,
 } from './constants';
 import { MarketTokenSelectorRow } from './MarketTokenSelectorRow';
+import { SelectorTableHeader } from './selectorTable';
 
 import type {
   IMarketTokenSelectorColumnVariant,
@@ -53,13 +42,6 @@ type IMarketTokenSelectorItem = IMarketToken & {
   selectorSubtitle?: string;
   tokenDetailPreview?: IMarketTokenDetailPreview;
 };
-
-const TOKEN_SELECTOR_LIST_HEIGHT = 350;
-// The column header now scrolls inside the list instead of sitting above it, so
-// the scroll box absorbs the height the header used to take and the dropdown
-// keeps the same overall size as the stocks tab.
-const TOKEN_SELECTOR_LIST_CONTAINER_HEIGHT =
-  TOKEN_SELECTOR_LIST_HEIGHT + TOKEN_SELECTOR_HEADER_HEIGHT;
 
 // `VirtualizedList` (web/desktop/extension) maps sticky index 0 onto
 // `ListHeaderComponent`, which is what pins the column header while scrolling.
@@ -86,8 +68,6 @@ interface IMarketTokenSelectorListProps {
   searchResults?: (IMarketSearchV2Token & { networkLogoURI: string })[];
   dataOverride?: IMarketTokenSelectorItem[];
   dataOverrideLoading?: boolean;
-  /** Height handed over by a tab that shows no chip band above the list. */
-  extraHeight?: number;
 }
 
 // Shared ListView renderer to eliminate duplication across list variants
@@ -375,7 +355,6 @@ const MarketTokenSelectorList = memo(
     searchResults,
     dataOverride,
     dataOverrideLoading,
-    extraHeight = 0,
   }: IMarketTokenSelectorListProps) => {
     const intl = useIntl();
 
@@ -411,6 +390,12 @@ const MarketTokenSelectorList = memo(
           { id: ETranslations.market_change_in_range },
           { range: metricsTimeRange },
         ),
+        priceChange: `${intl.formatMessage({
+          id: ETranslations.global_price,
+        })} / ${intl.formatMessage(
+          { id: ETranslations.market_change_in_range },
+          { range: metricsTimeRange },
+        )}`,
         marketCap: intl.formatMessage({ id: ETranslations.global_market_cap }),
         liquidity: intl.formatMessage({ id: ETranslations.global_liquidity }),
         turnover: intl.formatMessage(
@@ -424,61 +409,24 @@ const MarketTokenSelectorList = memo(
     // Rendered inside the scroll container as the list header so it shares the
     // rows' content box. A vertical scrollbar that takes layout width (Windows
     // desktop, browser extension) then shrinks header and rows by the same
-    // amount and the percentage columns stay aligned.
+    // amount and the flex columns stay aligned.
     const listHeader = useMemo(
       () => (
-        <XStack
-          width="100%"
-          height={TOKEN_SELECTOR_HEADER_HEIGHT}
-          alignItems="center"
-          // Sticky headers scroll over the rows, so the header needs the
-          // popover panel background to stay opaque.
-          bg="$bg"
-        >
-          <XStack
-            width={TOKEN_SELECTOR_NAME_COLUMN_WIDTH}
-            flexShrink={0}
-            px={TOKEN_SELECTOR_COLUMN_PADDING}
-            alignItems="center"
-            gap={TOKEN_SELECTOR_NAME_GAP}
-          >
-            <SizableText
-              width={TOKEN_SELECTOR_STAR_COLUMN_WIDTH}
-              textAlign="center"
-              size="$bodySmMedium"
-              color="$textSubdued"
-            >
-              #
-            </SizableText>
-            <SizableText size="$bodySmMedium" color="$textSubdued">
-              {intl.formatMessage({ id: ETranslations.global_name })}
-            </SizableText>
-          </XStack>
-          {columns.metrics.map((metric) => (
-            <XStack
-              key={metric}
-              flex={columns.flex[metric] ?? 1}
-              flexBasis={0}
-              minWidth={0}
-              px={TOKEN_SELECTOR_COLUMN_PADDING}
-              alignItems="center"
-            >
-              <SizableText
-                size="$bodySmMedium"
-                color="$textSubdued"
-                numberOfLines={1}
-              >
-                {metricTitles[metric]}
-              </SizableText>
-            </XStack>
-          ))}
-        </XStack>
+        <SelectorTableHeader
+          nameTitle={intl.formatMessage({ id: ETranslations.global_name })}
+          cells={columns.metrics.map((metric) => ({
+            key: metric,
+            label: metricTitles[metric],
+            flex: columns.flex[metric],
+          }))}
+        />
       ),
       [columns, intl, metricTitles],
     );
 
     return (
-      <YStack height={TOKEN_SELECTOR_LIST_CONTAINER_HEIGHT + extraHeight}>
+      // Fills the popover body below the tabs and chips.
+      <YStack flex={1}>
         <ListContent
           searchQuery={searchQuery}
           searchResults={searchResults}

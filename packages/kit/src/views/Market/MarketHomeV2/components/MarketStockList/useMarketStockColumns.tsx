@@ -24,7 +24,6 @@ import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils'
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
 import {
-  MARKET_LIST_FIRST_COLUMN_MIN_WIDTH,
   MARKET_LIST_FIRST_COLUMN_WIDTH,
   MARKET_LIST_STAR_SLOT_TO_LOGO_GAP,
   MARKET_LIST_STAR_SLOT_WIDTH,
@@ -42,10 +41,10 @@ import { parseMarketStockNumber } from './utils';
 
 const EMPTY_VALUE = '--';
 
-// The selector dropdown's company column: the list pages' narrowest first
-// column, matching the selector's token tabs so every tab lines up. The metric
-// columns share the rest evenly, like the full table.
-const COMPACT_COMPANY_COLUMN_WIDTH = MARKET_LIST_FIRST_COLUMN_MIN_WIDTH;
+// The selector dropdown's `Left Fixed` company column (Figma 27032:41642),
+// matching the selector's token tabs so every tab lines up. The metric columns
+// share the rest evenly, like the full table.
+const COMPACT_COMPANY_COLUMN_WIDTH = 288;
 // `$bodySm`'s line box, the compact subtitle line.
 const COMPACT_SUBTITLE_LINE_HEIGHT = 16;
 

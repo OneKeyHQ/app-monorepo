@@ -8,7 +8,12 @@ import {
 
 import { useMarketStockSelectorList } from './useMarketStockSelectorList';
 
-export function useMarketTokenSelectorSearchState(query: string) {
+export function useMarketTokenSelectorSearchState(
+  query: string,
+  // True while tokens load or when there are any; hides the Tokens tab
+  // otherwise.
+  hasTokenResults = true,
+) {
   const [activeTab, setActiveTab] = useState<IMarketSearchTab>(
     MARKET_SEARCH_TABS.all,
   );
@@ -20,8 +25,8 @@ export function useMarketTokenSelectorSearchState(query: string) {
   });
   const hasStockResults = stockResult.items.length > 0;
   const visibleTabs = useMemo(
-    () => getDetailPopoverSearchTabs(hasStockResults),
-    [hasStockResults],
+    () => getDetailPopoverSearchTabs(hasStockResults, hasTokenResults),
+    [hasStockResults, hasTokenResults],
   );
   const hasQuery = Boolean(query.trim());
 

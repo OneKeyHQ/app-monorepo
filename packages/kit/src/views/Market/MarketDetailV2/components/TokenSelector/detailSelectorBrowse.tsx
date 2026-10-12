@@ -1,8 +1,7 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, XStack } from '@onekeyhq/components';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import type {
   IMarketCategoryItem,
@@ -15,6 +14,8 @@ import {
 } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/utils';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { SelectorTabBar } from './selectorTabBar';
 
 export type IDetailSelectorDefaultCategory =
   | 'trending'
@@ -72,44 +73,6 @@ function isDetailSelectorBrowseTab(
   return tabId === 'favorites' || tabId === 'stocks' || tabId === 'tokens';
 }
 
-const SelectorTabItem = memo(
-  ({
-    id,
-    name,
-    isFocused,
-    onPress,
-  }: {
-    id: IDetailSelectorBrowseTab;
-    name: string;
-    isFocused: boolean;
-    onPress: (id: IDetailSelectorBrowseTab) => void;
-  }) => {
-    const handlePress = useCallback(() => onPress(id), [id, onPress]);
-    return (
-      // Figma 27038:46877 / 27047:35021 — a 44px item whose 2px underline is
-      // always reserved, so switching tabs never shifts the label.
-      <XStack
-        testID={`market-token-selector-tab-${id}`}
-        height={44}
-        alignItems="center"
-        justifyContent="center"
-        borderBottomWidth="$0.5"
-        borderBottomColor={isFocused ? '$borderActive' : '$transparent'}
-        onPress={handlePress}
-        cursor="default"
-      >
-        <SizableText
-          size="$bodyLgMedium"
-          color={isFocused ? '$text' : '$textSubdued'}
-        >
-          {name}
-        </SizableText>
-      </XStack>
-    );
-  },
-);
-SelectorTabItem.displayName = 'SelectorTabItem';
-
 export function DetailSelectorBrowseTabs({
   value,
   onChange,
@@ -118,24 +81,21 @@ export function DetailSelectorBrowseTabs({
   onChange: (tabId: IDetailSelectorBrowseTab) => void;
 }) {
   const intl = useIntl();
+  const tabs = useMemo(
+    () =>
+      (['favorites', 'stocks', 'tokens'] as const).map((tabId) => ({
+        id: tabId,
+        label: intl.formatMessage({ id: BROWSE_TAB_LABELS[tabId] }),
+      })),
+    [intl],
+  );
   return (
-    <XStack
-      borderBottomWidth="$px"
-      borderBottomColor="$borderSubdued"
-      bg="$bg"
-      px="$5"
-      gap="$5"
-    >
-      {(['favorites', 'stocks', 'tokens'] as const).map((tabId) => (
-        <SelectorTabItem
-          key={tabId}
-          id={tabId}
-          name={intl.formatMessage({ id: BROWSE_TAB_LABELS[tabId] })}
-          isFocused={value === tabId}
-          onPress={onChange}
-        />
-      ))}
-    </XStack>
+    <SelectorTabBar
+      tabs={tabs}
+      value={value}
+      onChange={onChange}
+      testIDPrefix="market-token-selector-tab-"
+    />
   );
 }
 

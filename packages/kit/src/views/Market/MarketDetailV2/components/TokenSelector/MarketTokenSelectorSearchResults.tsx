@@ -1,22 +1,28 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Button,
   Empty,
+  ListView,
   ScrollView,
   SizableText,
-  Spinner,
-  Table,
+  Skeleton,
+  Stack,
+  XStack,
   YStack,
 } from '@onekeyhq/components';
-import { useMarketStockColumns } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/useMarketStockColumns';
-import { useMarketTokenColumns } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketTokenColumns';
+import { Token } from '@onekeyhq/kit/src/components/Token';
+import { MarketStockStar } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/MarketStockStar';
+import { parseMarketStockNumber } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/utils';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import { isDetailSearchChainToken } from '@onekeyhq/kit/src/views/Market/utils/marketSearchList';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
 import type {
   IMarketStockPublicItem,
@@ -26,19 +32,56 @@ import type {
 import { buildMarketSearchTokenDetailPreview } from '../../utils/marketDetailPreview';
 
 import {
+  TOKEN_SELECTOR_COLUMN_PADDING,
+  TOKEN_SELECTOR_CONTENT_GUTTER,
   TOKEN_SELECTOR_HEADER_HEIGHT,
-  TOKEN_SELECTOR_HIDDEN_DESKTOP_COLUMNS,
+  TOKEN_SELECTOR_METRIC_COLUMNS,
+  TOKEN_SELECTOR_METRIC_FLEX,
+  TOKEN_SELECTOR_NAME_GAP,
   TOKEN_SELECTOR_ROW_HEIGHT,
+  TOKEN_SELECTOR_SEARCH_NAME_COLUMN_PADDING_RIGHT,
+  TOKEN_SELECTOR_SEARCH_NAME_COLUMN_WIDTH,
+  TOKEN_SELECTOR_SEARCH_SECTION_PREVIEW_ROWS,
+  TOKEN_SELECTOR_STAR_COLUMN_WIDTH,
+  TOKEN_SELECTOR_TABLE_PADDING,
   convertSearchTokenToMarketToken,
 } from './constants';
+import { MarketStockSelectorTable } from './MarketStockSelectorList';
+import { MarketTokenSelectorRow } from './MarketTokenSelectorRow';
 import { MarketTokenSelectorSearchTabs } from './MarketTokenSelectorSearchTabs';
+import {
+  type ISelectorHeaderCell,
+  type ISelectorSortOrder,
+  SelectorAmountCell,
+  SelectorPriceChangeCell,
+  SelectorTableHeader,
+  getNextSelectorSortOrder,
+  sortSelectorRows,
+} from './selectorTable';
 import {
   MARKET_SEARCH_TABS,
   useMarketTokenSelectorSearchState,
 } from './useMarketTokenSelectorSearchState';
 
-const SEARCH_RESULTS_HEIGHT = 390;
-const SEARCH_SECTION_PREVIEW_LIMIT = 3;
+import type {
+  IMarketTokenSelectorColumns,
+  IMarketTokenSelectorMetricColumn,
+} from './constants';
+
+// With results in more than one section, All previews this many per section.
+const SEARCH_SECTION_PREVIEW_LIMIT = TOKEN_SELECTOR_SEARCH_SECTION_PREVIEW_ROWS;
+
+// `VirtualizedList` (web/desktop/extension) pins `ListHeaderComponent` at
+// sticky index 0; FlashList (native) would pin the first row instead.
+const STICKY_HEADER_INDICES = platformEnv.isNative ? undefined : [0];
+
+const SEARCH_TOKEN_COLUMNS: IMarketTokenSelectorColumns = {
+  metrics: TOKEN_SELECTOR_METRIC_COLUMNS.search,
+  flex: TOKEN_SELECTOR_METRIC_FLEX.search,
+};
+// The price-over-change column's share, shared by the stock section so its
+// columns stay under the token section's.
+const PRICE_CHANGE_FLEX = TOKEN_SELECTOR_METRIC_FLEX.search.priceChange;
 
 type IMarketSearchToken = IMarketSearchV2Token & {
   networkLogoURI: string;
@@ -47,18 +90,112 @@ type IMarketSearchResultToken = IMarketToken & {
   tokenDetailPreview?: IMarketTokenDetailPreview;
 };
 
-function SearchSectionTitle({ title }: { title?: string }) {
-  if (!title) {
-    return null;
-  }
+type ISearchTokenSortField = 'liquidity' | 'marketCap' | 'turnover';
+type ISearchTokenSort = {
+  field: ISearchTokenSortField;
+  order: ISelectorSortOrder;
+};
+
+function useSearchTokenHeaderCells(
+  sort?: ISearchTokenSort,
+  onSortPress?: (field: ISearchTokenSortField) => void,
+): ISelectorHeaderCell[] {
+  const intl = useIntl();
+  return useMemo(() => {
+    const sortProps = (field: ISearchTokenSortField) =>
+      onSortPress
+        ? {
+            sort: {
+              order: sort?.field === field ? sort.order : undefined,
+              onPress: () => onSortPress(field),
+            },
+          }
+        : {};
+    return [
+      {
+        key: 'liquidity',
+        label: intl.formatMessage({ id: ETranslations.global_liquidity }),
+        ...sortProps('liquidity'),
+      },
+      {
+        key: 'priceChange',
+        flex: PRICE_CHANGE_FLEX,
+        label: `${intl.formatMessage({
+          id: ETranslations.global_price,
+        })} / ${intl.formatMessage(
+          { id: ETranslations.market_change_in_range },
+          { range: '24h' },
+        )}`,
+      },
+      {
+        key: 'marketCap',
+        label: intl.formatMessage({ id: ETranslations.global_market_cap }),
+        ...sortProps('marketCap'),
+      },
+      {
+        key: 'turnover',
+        label: intl.formatMessage(
+          { id: ETranslations.market_volume_in_range },
+          { range: '24h' },
+        ),
+        ...sortProps('turnover'),
+      },
+    ];
+  }, [intl, onSortPress, sort]);
+}
+
+/**
+ * The All tab's stock header. Its first metric slot stays empty so price,
+ * market cap and volume line up with the token section's columns below.
+ */
+function useSearchStockHeaderCells(): ISelectorHeaderCell[] {
+  const intl = useIntl();
+  return useMemo(
+    () => [
+      { key: 'spacer' },
+      {
+        key: 'priceChange',
+        flex: PRICE_CHANGE_FLEX,
+        label: `${intl.formatMessage({
+          id: ETranslations.global_price,
+        })} / ${intl.formatMessage({
+          id: ETranslations.market_stock_change__title,
+        })}`,
+        tooltip: intl.formatMessage({
+          id: ETranslations.market_stock_price_underlying_tooltip,
+        }),
+      },
+      {
+        key: 'marketCap',
+        label: intl.formatMessage({ id: ETranslations.global_market_cap }),
+      },
+      {
+        key: 'volume',
+        label: intl.formatMessage({
+          id: ETranslations.market_stock_volume__title,
+        }),
+      },
+    ],
+    [intl],
+  );
+}
+
+function SectionTitle({ title }: { title: string }) {
   return (
-    <SizableText px="$3" py="$2" size="$headingSm">
+    <SizableText
+      px={TOKEN_SELECTOR_CONTENT_GUTTER}
+      py="$2"
+      size="$headingSm"
+      color="$textSubdued"
+      cursor="default"
+      userSelect="none"
+    >
       {title}
     </SizableText>
   );
 }
 
-function SearchMoreButton({
+function ShowMoreButton({
   testID,
   onPress,
 }: {
@@ -67,78 +204,285 @@ function SearchMoreButton({
 }) {
   const intl = useIntl();
   return (
-    <Button
-      testID={testID}
-      alignSelf="center"
-      mx="$0"
-      my="$2"
-      size="small"
-      variant="tertiary"
-      onPress={onPress}
-    >
-      {intl.formatMessage({ id: ETranslations.global_show_more })}
-    </Button>
+    <XStack px={TOKEN_SELECTOR_CONTENT_GUTTER} py="$2">
+      <Button
+        testID={testID}
+        size="small"
+        variant="tertiary"
+        iconAfter="ChevronRightSmallOutline"
+        onPress={onPress}
+      >
+        {intl.formatMessage({ id: ETranslations.global_show_more })}
+      </Button>
+    </XStack>
   );
 }
 
-function SearchSectionLoading() {
+const SKELETON_ROW_COUNT = 6;
+
+// A skeleton bar centred in the line box of the text it stands for, so the
+// placeholder sits where that text will render.
+function SkeletonLine({
+  lineHeight,
+  h,
+  w,
+}: {
+  lineHeight: number;
+  h: '$2.5' | '$3';
+  w: '$10' | '$14' | '$16' | '$32';
+}) {
   return (
-    <YStack height="$24" alignItems="center" justifyContent="center">
-      <Spinner size="large" />
+    <Stack height={lineHeight} justifyContent="center">
+      <Skeleton h={h} w={w} />
+    </Stack>
+  );
+}
+
+/**
+ * One table line in the real tables' frame — star slot, name column, then the
+ * search metric columns with their weights — so header and rows line up with
+ * the results that replace them.
+ */
+function SkeletonTableLine({
+  height,
+  star,
+  name,
+  renderMetric,
+}: {
+  height: number;
+  star: ReactNode;
+  name: ReactNode;
+  renderMetric: (metric: IMarketTokenSelectorMetricColumn) => ReactNode;
+}) {
+  return (
+    <XStack height={height} alignItems="center">
+      <XStack
+        width={TOKEN_SELECTOR_SEARCH_NAME_COLUMN_WIDTH}
+        flexShrink={0}
+        pl={TOKEN_SELECTOR_COLUMN_PADDING}
+        pr={TOKEN_SELECTOR_SEARCH_NAME_COLUMN_PADDING_RIGHT}
+        gap={TOKEN_SELECTOR_NAME_GAP}
+        alignItems="center"
+      >
+        <Stack
+          width={TOKEN_SELECTOR_STAR_COLUMN_WIDTH}
+          alignItems="center"
+          justifyContent="center"
+        >
+          {star}
+        </Stack>
+        {name}
+      </XStack>
+      {TOKEN_SELECTOR_METRIC_COLUMNS.search.map((metric) => (
+        <XStack
+          key={metric}
+          flex={TOKEN_SELECTOR_METRIC_FLEX.search[metric] ?? 1}
+          flexBasis={0}
+          minWidth={0}
+          px={TOKEN_SELECTOR_COLUMN_PADDING}
+        >
+          {renderMetric(metric)}
+        </XStack>
+      ))}
+    </XStack>
+  );
+}
+
+function SkeletonHeader() {
+  return (
+    <SkeletonTableLine
+      height={TOKEN_SELECTOR_HEADER_HEIGHT}
+      star={<Skeleton w="$2.5" h="$2.5" radius="round" />}
+      name={<SkeletonLine lineHeight={16} h="$2.5" w="$10" />}
+      renderMetric={() => <SkeletonLine lineHeight={16} h="$2.5" w="$14" />}
+    />
+  );
+}
+
+function SkeletonRow() {
+  return (
+    <SkeletonTableLine
+      height={TOKEN_SELECTOR_ROW_HEIGHT}
+      // The 16px star glyph inside its 24px slot.
+      star={<Skeleton w="$4" h="$4" radius="round" />}
+      name={
+        <XStack flex={1} alignItems="center" gap="$3">
+          <Skeleton w="$8" h="$8" radius="round" />
+          <YStack gap="$1">
+            <SkeletonLine lineHeight={20} h="$3" w="$16" />
+            <SkeletonLine lineHeight={16} h="$2.5" w="$32" />
+          </YStack>
+        </XStack>
+      }
+      renderMetric={() => <SkeletonLine lineHeight={20} h="$3" w="$16" />}
+    />
+  );
+}
+
+/**
+ * Shown for the whole result area until both the stock and the token search
+ * have answered, like universal search: the sections then appear at once
+ * instead of one pushing the other down when it lands later. It mirrors a
+ * section — title, column header, rows — in the tables' exact frame.
+ */
+function SearchResultsSkeleton() {
+  return (
+    <YStack pt="$2.5">
+      <XStack px={TOKEN_SELECTOR_CONTENT_GUTTER} py="$2">
+        <SkeletonLine lineHeight={20} h="$3" w="$16" />
+      </XStack>
+      <YStack px={TOKEN_SELECTOR_TABLE_PADDING}>
+        <SkeletonHeader />
+        {Array.from({ length: SKELETON_ROW_COUNT }, (_, index) => (
+          <SkeletonRow key={index} />
+        ))}
+      </YStack>
     </YStack>
   );
 }
 
-function StockSearchSection({
+const StockSearchRow = memo(
+  ({
+    item,
+    onPress,
+  }: {
+    item: IMarketStockPublicItem;
+    onPress: (item: IMarketStockPublicItem) => void;
+  }) => {
+    const handlePress = useCallback(() => onPress(item), [item, onPress]);
+    const marketTags = item.tags?.filter(Boolean) ?? [];
+    return (
+      <XStack
+        testID={`market-stock-selector-row-${item.stockId}`}
+        height={TOKEN_SELECTOR_ROW_HEIGHT}
+        alignItems="center"
+        borderRadius="$3"
+        borderCurve="continuous"
+        cursor="default"
+        hoverStyle={{ bg: '$bgHover' }}
+        pressStyle={{ bg: '$bgActive' }}
+        onPress={handlePress}
+      >
+        <XStack
+          width={TOKEN_SELECTOR_SEARCH_NAME_COLUMN_WIDTH}
+          flexShrink={0}
+          pl={TOKEN_SELECTOR_COLUMN_PADDING}
+          pr={TOKEN_SELECTOR_SEARCH_NAME_COLUMN_PADDING_RIGHT}
+          gap={TOKEN_SELECTOR_NAME_GAP}
+          alignItems="center"
+          minWidth={0}
+        >
+          <Stack
+            width={TOKEN_SELECTOR_STAR_COLUMN_WIDTH}
+            alignItems="center"
+            justifyContent="center"
+          >
+            <MarketStockStar stock={item} from={EWatchlistFrom.Search} />
+          </Stack>
+          <XStack flex={1} minWidth={0} alignItems="center" gap="$3">
+            <Token
+              size="md"
+              borderRadius="$full"
+              tokenImageUri={item.logoUrl}
+              fallbackIcon="CryptoCoinOutline"
+            />
+            <YStack flex={1} minWidth={0} gap="$1" justifyContent="center">
+              <SizableText size="$headingSm" numberOfLines={1}>
+                {item.symbol}
+              </SizableText>
+              <XStack height={16} alignItems="center" gap="$1.5" minWidth={0}>
+                {marketTags.map((tag) => (
+                  <Badge
+                    key={tag}
+                    badgeType="default"
+                    badgeSize="sm"
+                    px="$1"
+                    py="$0.5"
+                    flexShrink={0}
+                  >
+                    <Badge.Text size="$bodyXs" lineHeight={12}>
+                      {tag}
+                    </Badge.Text>
+                  </Badge>
+                ))}
+                <SizableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  numberOfLines={1}
+                  flexShrink={1}
+                >
+                  {item.name}
+                </SizableText>
+              </XStack>
+            </YStack>
+          </XStack>
+        </XStack>
+        {/* Empty slot under the token section's Liquidity column. It keeps
+           the cells' padding: flex shares grow from the padded base, so a
+           bare slot would come out narrower and pull the next columns left. */}
+        <Stack
+          flex={1}
+          flexBasis={0}
+          minWidth={0}
+          px={TOKEN_SELECTOR_COLUMN_PADDING}
+        />
+        <XStack
+          flex={PRICE_CHANGE_FLEX}
+          flexBasis={0}
+          minWidth={0}
+          px={TOKEN_SELECTOR_COLUMN_PADDING}
+        >
+          <SelectorPriceChangeCell
+            price={parseMarketStockNumber(item.price)}
+            change={parseMarketStockNumber(item.priceChange24hPercent)}
+          />
+        </XStack>
+        <XStack
+          flex={1}
+          flexBasis={0}
+          minWidth={0}
+          px={TOKEN_SELECTOR_COLUMN_PADDING}
+        >
+          <SelectorAmountCell value={parseMarketStockNumber(item.marketCap)} />
+        </XStack>
+        <XStack
+          flex={1}
+          flexBasis={0}
+          minWidth={0}
+          px={TOKEN_SELECTOR_COLUMN_PADDING}
+        >
+          <SelectorAmountCell value={parseMarketStockNumber(item.volume24h)} />
+        </XStack>
+      </XStack>
+    );
+  },
+);
+StockSearchRow.displayName = 'StockSearchRow';
+
+function StockSection({
   items,
-  isLoading,
   isError,
-  isLoadingMore,
-  isLoadMoreError,
-  canLoadMore,
-  showAll,
-  onShowAll,
-  onLoadMore,
+  showMore,
+  onShowMore,
   onRetry,
   onPress,
-  title,
 }: {
   items: IMarketStockPublicItem[];
-  isLoading: boolean;
   isError: boolean;
-  isLoadingMore: boolean;
-  isLoadMoreError: boolean;
-  canLoadMore: boolean;
-  showAll: boolean;
-  onShowAll: () => void;
-  onLoadMore: () => void;
+  showMore: boolean;
+  onShowMore: () => void;
   onRetry: () => void;
   onPress: (item: IMarketStockPublicItem) => void;
-  title?: string;
 }) {
   const intl = useIntl();
-  const columns = useMarketStockColumns({
-    compact: true,
-    showSparkline: false,
-    showWatchlist: true,
-    showMarketTags: true,
-    watchlistFrom: EWatchlistFrom.Search,
-  });
-  const visibleItems = showAll
-    ? items
-    : items.slice(0, SEARCH_SECTION_PREVIEW_LIMIT);
-  const tableHeight =
-    TOKEN_SELECTOR_HEADER_HEIGHT +
-    visibleItems.length * TOKEN_SELECTOR_ROW_HEIGHT;
-  const onRow = useCallback(
-    (item: IMarketStockPublicItem) => ({ onPress: () => onPress(item) }),
-    [onPress],
-  );
-
+  const headerCells = useSearchStockHeaderCells();
   return (
-    <YStack>
-      <SearchSectionTitle title={title} />
-      {isLoading && items.length === 0 ? <SearchSectionLoading /> : null}
+    <YStack pt="$2.5">
+      <SectionTitle
+        title={intl.formatMessage({
+          id: ETranslations.perps_token_selector_stocks,
+        })}
+      />
       {isError && items.length === 0 ? (
         <YStack py="$4" alignItems="center" gap="$2">
           <SizableText color="$textSubdued">
@@ -156,134 +500,161 @@ function StockSearchSection({
           </Button>
         </YStack>
       ) : null}
-      {visibleItems.length > 0 ? (
-        <YStack height={tableHeight}>
-          <Table<IMarketStockPublicItem>
-            stickyHeader
-            scrollEnabled={false}
-            columns={columns}
-            dataSource={visibleItems}
-            keyExtractor={(item) => item.stockId}
-            estimatedItemSize={TOKEN_SELECTOR_ROW_HEIGHT}
-            rowProps={{
-              bg: '$bg',
-              width: '100%',
-              height: TOKEN_SELECTOR_ROW_HEIGHT,
-              minHeight: TOKEN_SELECTOR_ROW_HEIGHT,
-              borderRadius: '$0',
-            }}
-            headerRowProps={{
-              height: TOKEN_SELECTOR_HEADER_HEIGHT,
-              minHeight: TOKEN_SELECTOR_HEADER_HEIGHT,
-            }}
-            onRow={onRow}
+      {items.length > 0 ? (
+        <YStack px={TOKEN_SELECTOR_TABLE_PADDING}>
+          <SelectorTableHeader
+            nameTitle={intl.formatMessage({
+              id: ETranslations.market_stock_company,
+            })}
+            cells={headerCells}
+            nameColumnWidth={TOKEN_SELECTOR_SEARCH_NAME_COLUMN_WIDTH}
+            nameColumnPaddingRight={
+              TOKEN_SELECTOR_SEARCH_NAME_COLUMN_PADDING_RIGHT
+            }
           />
+          {items.map((item) => (
+            <StockSearchRow key={item.stockId} item={item} onPress={onPress} />
+          ))}
         </YStack>
       ) : null}
-      {!showAll &&
-      (items.length > SEARCH_SECTION_PREVIEW_LIMIT || canLoadMore) ? (
-        <SearchMoreButton
+      {showMore ? (
+        <ShowMoreButton
           testID="market-token-selector-stock-search-show-more"
-          onPress={onShowAll}
-        />
-      ) : null}
-      {showAll && isLoadingMore ? (
-        <YStack py="$4" alignItems="center">
-          <Spinner size="small" />
-        </YStack>
-      ) : null}
-      {showAll && isLoadMoreError ? (
-        <Button
-          testID="market-token-selector-stock-search-load-more-retry"
-          alignSelf="flex-start"
-          size="small"
-          variant="tertiary"
-          onPress={onLoadMore}
-        >
-          {intl.formatMessage({ id: ETranslations.global_retry })}
-        </Button>
-      ) : null}
-      {showAll && canLoadMore && !isLoadingMore && !isLoadMoreError ? (
-        <SearchMoreButton
-          testID="market-token-selector-stock-search-load-more"
-          onPress={onLoadMore}
+          onPress={onShowMore}
         />
       ) : null}
     </YStack>
   );
 }
 
-function MarketSearchSection({
+function TokenSection({
   items,
-  isLoading,
-  showAll,
-  onShowAll,
+  showMore,
+  onShowMore,
   onPress,
-  title,
 }: {
   items: IMarketSearchResultToken[];
-  isLoading?: boolean;
-  showAll: boolean;
-  onShowAll: () => void;
+  showMore: boolean;
+  onShowMore: () => void;
   onPress: (item: IMarketSearchResultToken) => void;
-  title?: string;
 }) {
-  const columns = useMarketTokenColumns(
-    undefined,
-    false,
-    true,
-    EWatchlistFrom.Search,
-    undefined,
-    true,
-    true,
-    TOKEN_SELECTOR_HIDDEN_DESKTOP_COLUMNS,
-  );
-  const visibleItems = showAll
-    ? items
-    : items.slice(0, SEARCH_SECTION_PREVIEW_LIMIT);
-  const tableHeight =
-    TOKEN_SELECTOR_HEADER_HEIGHT +
-    visibleItems.length * TOKEN_SELECTOR_ROW_HEIGHT;
-  const onRow = useCallback(
-    (item: IMarketSearchResultToken) => ({ onPress: () => onPress(item) }),
-    [onPress],
-  );
-
+  const intl = useIntl();
+  const headerCells = useSearchTokenHeaderCells();
   return (
-    <YStack>
-      <SearchSectionTitle title={title} />
-      {isLoading && items.length === 0 ? <SearchSectionLoading /> : null}
-      {visibleItems.length > 0 ? (
-        <YStack height={tableHeight}>
-          <Table<IMarketSearchResultToken>
-            stickyHeader
-            scrollEnabled={false}
-            columns={columns}
-            dataSource={visibleItems}
-            keyExtractor={(item) => item.id}
-            estimatedItemSize={TOKEN_SELECTOR_ROW_HEIGHT}
-            rowProps={{
-              bg: '$bg',
-              width: '100%',
-              height: TOKEN_SELECTOR_ROW_HEIGHT,
-              minHeight: TOKEN_SELECTOR_ROW_HEIGHT,
-              borderRadius: '$0',
-            }}
-            headerRowProps={{
-              height: TOKEN_SELECTOR_HEADER_HEIGHT,
-              minHeight: TOKEN_SELECTOR_HEADER_HEIGHT,
-            }}
-            onRow={onRow}
+    <YStack pt="$2.5">
+      <SectionTitle
+        title={intl.formatMessage({
+          id: ETranslations.global_universal_search_tabs_tokens,
+        })}
+      />
+      {items.length > 0 ? (
+        <YStack px={TOKEN_SELECTOR_TABLE_PADDING}>
+          <SelectorTableHeader
+            nameTitle={intl.formatMessage({ id: ETranslations.global_name })}
+            cells={headerCells}
+            nameColumnWidth={TOKEN_SELECTOR_SEARCH_NAME_COLUMN_WIDTH}
+            nameColumnPaddingRight={
+              TOKEN_SELECTOR_SEARCH_NAME_COLUMN_PADDING_RIGHT
+            }
           />
+          {items.map((item) => (
+            <MarketTokenSelectorRow
+              key={item.id}
+              item={item}
+              onPress={onPress as (item: IMarketToken) => void}
+              subtitleVariant="nameAddress"
+              columns={SEARCH_TOKEN_COLUMNS}
+              nameColumnWidth={TOKEN_SELECTOR_SEARCH_NAME_COLUMN_WIDTH}
+              nameColumnPaddingRight={
+                TOKEN_SELECTOR_SEARCH_NAME_COLUMN_PADDING_RIGHT
+              }
+            />
+          ))}
         </YStack>
       ) : null}
-      {!showAll && items.length > SEARCH_SECTION_PREVIEW_LIMIT ? (
-        <SearchMoreButton
+      {showMore ? (
+        <ShowMoreButton
           testID="market-token-selector-market-search-show-more"
-          onPress={onShowAll}
+          onPress={onShowMore}
         />
       ) : null}
     </YStack>
+  );
+}
+
+const SORT_VALUE_GETTERS: Record<
+  ISearchTokenSortField,
+  (item: IMarketSearchResultToken) => number | undefined
+> = {
+  liquidity: (item) => item.liquidity,
+  marketCap: (item) => item.marketCap,
+  turnover: (item) => item.turnover,
+};
+
+/**
+ * The Tokens tab: every result in search relevance order, with Liquidity,
+ * Market cap and 24h volume sortable over the loaded rows.
+ */
+function TokenTabList({
+  items,
+  onPress,
+}: {
+  items: IMarketSearchResultToken[];
+  onPress: (item: IMarketSearchResultToken) => void;
+}) {
+  const intl = useIntl();
+  const [sort, setSort] = useState<ISearchTokenSort | undefined>(undefined);
+  const handleSortPress = useCallback((field: ISearchTokenSortField) => {
+    setSort((prev) => {
+      const order = getNextSelectorSortOrder(
+        prev?.field === field ? prev.order : undefined,
+      );
+      return order ? { field, order } : undefined;
+    });
+  }, []);
+  const headerCells = useSearchTokenHeaderCells(sort, handleSortPress);
+  const rows = useMemo(
+    () =>
+      sort
+        ? sortSelectorRows(items, SORT_VALUE_GETTERS[sort.field], sort.order)
+        : items,
+    [items, sort],
+  );
+  const listHeader = useMemo(
+    () => (
+      <SelectorTableHeader
+        nameTitle={intl.formatMessage({ id: ETranslations.global_name })}
+        cells={headerCells}
+        nameColumnWidth={TOKEN_SELECTOR_SEARCH_NAME_COLUMN_WIDTH}
+        nameColumnPaddingRight={TOKEN_SELECTOR_SEARCH_NAME_COLUMN_PADDING_RIGHT}
+      />
+    ),
+    [headerCells, intl],
+  );
+
+  return (
+    <ListView
+      estimatedItemSize={TOKEN_SELECTOR_ROW_HEIGHT}
+      data={rows}
+      keyExtractor={(item) => item.id}
+      ListHeaderComponent={listHeader}
+      stickyHeaderIndices={STICKY_HEADER_INDICES}
+      renderItem={({ item }) => (
+        <MarketTokenSelectorRow
+          item={item}
+          onPress={onPress as (item: IMarketToken) => void}
+          subtitleVariant="nameAddress"
+          columns={SEARCH_TOKEN_COLUMNS}
+          nameColumnWidth={TOKEN_SELECTOR_SEARCH_NAME_COLUMN_WIDTH}
+          nameColumnPaddingRight={
+            TOKEN_SELECTOR_SEARCH_NAME_COLUMN_PADDING_RIGHT
+          }
+        />
+      )}
+      contentContainerStyle={{
+        paddingHorizontal: TOKEN_SELECTOR_TABLE_PADDING,
+      }}
+    />
   );
 }
 
@@ -301,17 +672,6 @@ function MarketTokenSelectorSearchResults({
   onMarketPress: (item: IMarketSearchResultToken) => void;
 }) {
   const intl = useIntl();
-  const {
-    activeTab,
-    setActiveTab,
-    showAllStocks,
-    setShowAllStocks,
-    showAllTokens,
-    setShowAllTokens,
-    stockResult,
-    hasStockResults,
-    showSectionTitle,
-  } = useMarketTokenSelectorSearchState(query);
   const chainTokenItems = useMemo(
     () =>
       marketItems
@@ -322,72 +682,91 @@ function MarketTokenSelectorSearchResults({
         })),
     [marketItems],
   );
-  const isAllTab = activeTab === MARKET_SEARCH_TABS.all;
-  const isStocksTab = activeTab === MARKET_SEARCH_TABS.stocks;
-  const isTokensTab = activeTab === MARKET_SEARCH_TABS.tokens;
-  const showStockSection =
-    (isAllTab || isStocksTab) &&
-    (hasStockResults || stockResult.isLoading || stockResult.isError);
-  const showTokenSection =
-    (isAllTab || isTokensTab) &&
-    (Boolean(isMarketLoading) || chainTokenItems.length > 0);
+  const hasTokenResults = chainTokenItems.length > 0;
+  const { activeTab, setActiveTab, stockResult, hasStockResults } =
+    useMarketTokenSelectorSearchState(query, hasTokenResults);
+  // Results show only once both searches have answered.
+  const isSearching = Boolean(isMarketLoading) || stockResult.isLoading;
+
+  const showStockSection = hasStockResults || stockResult.isError;
+  const showTokenSection = hasTokenResults;
+  // Only previews when both sections have rows; a lone section lists all.
+  const isPreview = hasStockResults && hasTokenResults;
+  const stockRows = isPreview
+    ? stockResult.items.slice(0, SEARCH_SECTION_PREVIEW_LIMIT)
+    : stockResult.items;
+  const tokenRows = isPreview
+    ? chainTokenItems.slice(0, SEARCH_SECTION_PREVIEW_LIMIT)
+    : chainTokenItems;
+
+  let body: ReactNode;
+  if (isSearching) {
+    body = <SearchResultsSkeleton />;
+  } else if (!showStockSection && !showTokenSection) {
+    body = (
+      <YStack flex={1} alignItems="center" justifyContent="center">
+        <Empty
+          illustration="QuestionMark"
+          title={intl.formatMessage({ id: ETranslations.global_no_results })}
+        />
+      </YStack>
+    );
+  } else if (activeTab === MARKET_SEARCH_TABS.stocks) {
+    body = (
+      <YStack flex={1} pt="$2.5">
+        <MarketStockSelectorTable
+          result={stockResult}
+          onItemPress={onStockPress}
+        />
+      </YStack>
+    );
+  } else if (activeTab === MARKET_SEARCH_TABS.tokens) {
+    body = (
+      <YStack flex={1} pt="$2.5">
+        <TokenTabList items={chainTokenItems} onPress={onMarketPress} />
+      </YStack>
+    );
+  } else {
+    body = (
+      <ScrollView flex={1} contentContainerStyle={{ paddingBottom: 20 }}>
+        {showStockSection ? (
+          <StockSection
+            items={stockRows}
+            isError={stockResult.isError}
+            showMore={
+              isPreview &&
+              (stockResult.items.length > SEARCH_SECTION_PREVIEW_LIMIT ||
+                stockResult.canLoadMore)
+            }
+            onShowMore={() => setActiveTab(MARKET_SEARCH_TABS.stocks)}
+            onRetry={() => void stockResult.refresh()}
+            onPress={onStockPress}
+          />
+        ) : null}
+        {showTokenSection ? (
+          <TokenSection
+            items={tokenRows}
+            showMore={
+              isPreview && chainTokenItems.length > SEARCH_SECTION_PREVIEW_LIMIT
+            }
+            onShowMore={() => setActiveTab(MARKET_SEARCH_TABS.tokens)}
+            onPress={onMarketPress}
+          />
+        ) : null}
+      </ScrollView>
+    );
+  }
 
   return (
-    <YStack height={SEARCH_RESULTS_HEIGHT}>
+    <YStack flex={1}>
       <MarketTokenSelectorSearchTabs
         value={activeTab}
         onChange={setActiveTab}
-        hasStockResults={hasStockResults}
+        // Only All shows while searching; type tabs join with the results.
+        hasStockResults={!isSearching && hasStockResults}
+        hasTokenResults={!isSearching && hasTokenResults}
       />
-      {!showStockSection && !showTokenSection ? (
-        <YStack flex={1} alignItems="center" justifyContent="center">
-          <Empty
-            illustration="QuestionMark"
-            title={intl.formatMessage({ id: ETranslations.global_no_results })}
-          />
-        </YStack>
-      ) : (
-        <ScrollView flex={1}>
-          {showStockSection ? (
-            <StockSearchSection
-              items={stockResult.items}
-              isLoading={stockResult.isLoading}
-              isError={stockResult.isError}
-              isLoadingMore={stockResult.isLoadingMore}
-              isLoadMoreError={stockResult.isLoadMoreError}
-              canLoadMore={stockResult.canLoadMore}
-              showAll={isStocksTab || showAllStocks}
-              onShowAll={() => setShowAllStocks(true)}
-              onLoadMore={() => void stockResult.loadMore()}
-              onRetry={() => void stockResult.refresh()}
-              onPress={onStockPress}
-              title={
-                showSectionTitle
-                  ? intl.formatMessage({
-                      id: ETranslations.perps_token_selector_stocks,
-                    })
-                  : undefined
-              }
-            />
-          ) : null}
-          {showTokenSection ? (
-            <MarketSearchSection
-              items={chainTokenItems}
-              isLoading={isMarketLoading}
-              showAll={isTokensTab || showAllTokens}
-              onShowAll={() => setShowAllTokens(true)}
-              onPress={onMarketPress}
-              title={
-                showSectionTitle
-                  ? intl.formatMessage({
-                      id: ETranslations.global_universal_search_tabs_tokens,
-                    })
-                  : undefined
-              }
-            />
-          ) : null}
-        </ScrollView>
-      )}
+      <YStack flex={1}>{body}</YStack>
     </YStack>
   );
 }

@@ -43,6 +43,7 @@ import {
   ALL_NETWORK_ID,
   TOKEN_SELECTOR_CONTENT_GUTTER,
   TOKEN_SELECTOR_POLLING_INTERVAL,
+  TOKEN_SELECTOR_POPOVER_HEIGHT,
   TOKEN_SELECTOR_POPOVER_WIDTH,
   TOKEN_SELECTOR_TOOLBAR_HEIGHT,
 } from './constants';
@@ -301,8 +302,6 @@ function BaseMarketTokenSelectorContent({
   );
 
   const showChipBand = !searchQuery && subCategories.length > 0;
-  const listExtraHeight =
-    !searchQuery && !showChipBand ? TOKEN_SELECTOR_TOOLBAR_HEIGHT : 0;
 
   let selectorListContent: ReactElement;
   if (searchQuery) {
@@ -321,7 +320,6 @@ function BaseMarketTokenSelectorContent({
         query=""
         category={stockCategoryId}
         onItemPress={handleSelectStock}
-        extraHeight={listExtraHeight}
       />
     );
   } else {
@@ -336,14 +334,16 @@ function BaseMarketTokenSelectorContent({
         watchlistDataCacheRef={watchlistDataCacheRef}
         dataOverride={isTopCoinsSelection ? topCoinsSelectorData : undefined}
         dataOverrideLoading={isTopCoinsLoading}
-        extraHeight={listExtraHeight}
       />
     );
   }
 
   return (
     // Figma 27032:42467 — every block sits on the same 20px gutter.
-    <YStack testID="market-token-selector-content">
+    <YStack
+      testID="market-token-selector-content"
+      height={TOKEN_SELECTOR_POPOVER_HEIGHT}
+    >
       <XStack px={TOKEN_SELECTOR_CONTENT_GUTTER} pt="$5" pb="$2.5">
         <SearchBar
           testID="market-token-selector-search"
@@ -364,7 +364,7 @@ function BaseMarketTokenSelectorContent({
         />
       )}
 
-      <YStack pt={searchQuery ? undefined : '$2.5'}>
+      <YStack flex={1} pt={searchQuery ? undefined : '$2.5'}>
         {showChipBand ? (
           <YStack
             height={TOKEN_SELECTOR_TOOLBAR_HEIGHT}
