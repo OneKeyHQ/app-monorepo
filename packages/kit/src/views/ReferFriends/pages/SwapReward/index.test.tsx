@@ -124,6 +124,9 @@ jest.mock('../../components', () => ({
 }));
 
 jest.mock('../../hooks/useDatePresets', () => ({
+  ...jest.requireActual<typeof import('../../hooks/useDatePresets')>(
+    '../../hooks/useDatePresets',
+  ),
   useDatePresets: () => mockDatePresets,
 }));
 

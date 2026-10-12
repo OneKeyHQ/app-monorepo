@@ -41,7 +41,7 @@
       },
       {
         "pattern": "locale/enum/translations.ts",
-        "bytes": 524288
+        "bytes": 557056
       },
       {
         "pattern": "locale/json/",

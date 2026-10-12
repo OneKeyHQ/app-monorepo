@@ -67,6 +67,7 @@ import { checkIsEmptyData } from '@onekeyhq/shared/src/utils/evmUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { getTxnType } from '@onekeyhq/shared/src/utils/txActionUtils';
+import type { IWcPayPreBroadcastRecord } from '@onekeyhq/shared/src/walletConnect/payTypes';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import type { IGasAccountScenario } from '@onekeyhq/shared/types/fee';
@@ -109,6 +110,7 @@ type IProps = {
   broadcastDeadline?: number;
   beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
   freeTrialUsage?: IPrimeFreeTrialBroadcastUsage;
+  wcPayPreBroadcastRecord?: IWcPayPreBroadcastRecord;
   sourceInfo?: IDappSourceInfo;
   signOnly?: boolean;
   transferPayload?: ITransferPayload;
@@ -144,6 +146,7 @@ function TxConfirmActions(props: IProps) {
     broadcastDeadline,
     beforeBroadcastAction,
     freeTrialUsage,
+    wcPayPreBroadcastRecord,
     sourceInfo,
     signOnly,
     transferPayload,
@@ -603,6 +606,7 @@ function TxConfirmActions(props: IProps) {
           broadcastDeadline,
           beforeBroadcastAction,
           freeTrialUsage,
+          wcPayPreBroadcastRecord,
           useDefaultRpc: customRpcStatus?.useDefaultRpcOnce,
         });
 
@@ -851,6 +855,7 @@ function TxConfirmActions(props: IProps) {
     broadcastDeadline,
     beforeBroadcastAction,
     freeTrialUsage,
+    wcPayPreBroadcastRecord,
     onFail,
     dappApprove,
     tronResourceRentalInfo,

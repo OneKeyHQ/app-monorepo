@@ -1348,7 +1348,7 @@ export function LimitOrderForm({
         min={0}
         max={100}
         value={sliderValue}
-        showBubble={false}
+        showBubble
         onChange={handleSliderPercentChange}
         disabled={!sliderEnabled}
         segments={4}
@@ -1497,7 +1497,7 @@ export function LimitOrderForm({
               numberOfLines={1}
             >
               {intl.formatMessage({
-                id: ETranslations.global_top_up,
+                id: ETranslations.perp_trade_deposit,
               })}
             </SizableText>
           </Button>
