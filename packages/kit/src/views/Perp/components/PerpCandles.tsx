@@ -26,6 +26,7 @@ import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/con
 import {
   usePerpsActiveAccountAtom,
   usePerpsCandlesWebviewReloadHookAtom,
+  usePerpsCustomSettingsAtom,
   usePerpsLayoutStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -90,9 +91,11 @@ export function PerpCandles({
   }
   const [{ reloadHook }] = usePerpsCandlesWebviewReloadHookAtom();
   const [{ chartExpanded = false }, setLayoutState] = usePerpsLayoutStateAtom();
-  const [localChartMode, setLocalChartMode] =
-    useState<ITradingViewChartMode>('tradingView');
-  const isTradingViewNative = (chartMode ?? localChartMode) === 'native';
+  const [
+    { chartMode: savedChartMode = 'tradingView' },
+    setPerpsCustomSettings,
+  ] = usePerpsCustomSettingsAtom();
+  const isTradingViewNative = (chartMode ?? savedChartMode) === 'native';
   const showChartModeSelect = chartMode === undefined;
   const [isMobileChartFullscreen, setIsMobileChartFullscreen] = useState(false);
   const [isChartInteracting, setIsChartInteracting] = useState(false);
@@ -165,10 +168,15 @@ export function PerpCandles({
     handleFullscreenChange(false);
     onInteractionOverlayOpenChange?.(false);
     setIsChartInteracting(false);
-    setLocalChartMode((current) =>
-      current === 'native' ? 'tradingView' : 'native',
-    );
-  }, [handleFullscreenChange, onInteractionOverlayOpenChange]);
+    void setPerpsCustomSettings((current) => ({
+      ...current,
+      chartMode: current.chartMode === 'native' ? 'tradingView' : 'native',
+    }));
+  }, [
+    handleFullscreenChange,
+    onInteractionOverlayOpenChange,
+    setPerpsCustomSettings,
+  ]);
 
   useEffect(() => {
     if (collapseChartExpandSignal) {

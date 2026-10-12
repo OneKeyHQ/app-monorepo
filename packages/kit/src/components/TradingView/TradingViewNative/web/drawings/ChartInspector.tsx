@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 
-import { useTheme } from '@onekeyhq/components';
+import { Icon, useTheme } from '@onekeyhq/components';
 
 import { DrawingIcon } from './DrawingToolbar';
 import { DRAWING_TOOLS } from './model';
@@ -27,7 +27,6 @@ const inspectorCss = `
 .chart-object-row .chart-object-select { flex:1; min-width:0; justify-content:flex-start; gap:6px; text-align:left; }
 .chart-object-select span:last-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .chart-object-row > button:not(.chart-object-select) { width:25px; height:28px; }
-.chart-object-row > button:not(.chart-object-select) .chart-drawing-icon { width:22px !important; height:22px !important; }
 .chart-object-details { padding:10px; border-top:1px solid var(--inspector-border); }
 .chart-object-details label { display:flex; align-items:center; gap:8px; }
 .chart-object-details input { width:100%; min-width:0; color:inherit; background:var(--inspector-bg); border:1px solid var(--inspector-border); border-radius:4px; padding:6px; font:inherit; }
@@ -286,7 +285,11 @@ export function ChartInspector({
           aria-pressed={state.panel === 'objects'}
           onClick={() => controller.togglePanel('objects')}
         >
-          <DrawingIcon name="objects" />
+          <Icon
+            name="Layers3Outline"
+            size="$5"
+            color={state.panel === 'objects' ? '$iconActive' : '$iconSubdued'}
+          />
         </button>
         <button
           type="button"
@@ -295,7 +298,11 @@ export function ChartInspector({
           aria-pressed={state.panel === 'data'}
           onClick={() => controller.togglePanel('data')}
         >
-          <DrawingIcon name="data" />
+          <Icon
+            name="TableOutline"
+            size="$5"
+            color={state.panel === 'data' ? '$iconActive' : '$iconSubdued'}
+          />
         </button>
       </div>
     </div>
