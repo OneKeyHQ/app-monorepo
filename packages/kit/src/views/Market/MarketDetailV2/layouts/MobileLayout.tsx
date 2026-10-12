@@ -34,7 +34,10 @@ import {
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TradingViewChartLoadingMask } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartLoadingMask';
-import { TradingViewNative } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
+import {
+  TradingViewNative,
+  getTradingViewNativeSourceKey,
+} from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
 import { TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/chartConstants';
 import { getTradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
 import type { ITradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
@@ -50,6 +53,7 @@ import { usePerpTabConfig } from '@onekeyhq/kit/src/hooks/usePerpTabConfig';
 import {
   EJotaiContextStoreNames,
   useMarketDetailChartDisplayModePersistAtom,
+  useMarketPriceSourceAtom,
   useMarketTradingViewSubIndicatorCountPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IMarketTradingViewStorageNamespace } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -80,6 +84,7 @@ import { useMarketDetailDisplayData } from '../hooks/useMarketDetailDisplayData'
 import { useMarketKlineLivePrice } from '../hooks/useMarketKlineLivePrice';
 import { useMarketNativeChartLayout } from '../hooks/useMarketNativeChartLayout';
 import { useMarketNativeChartPriceUpdate } from '../hooks/useMarketNativeChartPriceUpdate';
+import { resolveDisplayedStockPriceMode } from '../hooks/useStockPriceSource';
 import { useMarketTradingViewParams } from '../hooks/useTokenDetail';
 import { useTradingViewSubIndicatorCount } from '../hooks/useTradingViewSubIndicatorCount';
 import { getMarketDetailTradingViewNativeSource } from '../utils/getMarketDetailTradingViewNativeSource';
@@ -349,7 +354,7 @@ export function MobileLayout({
   isInitialContentPending,
   disableTrade,
   isChartFullscreen,
-  isTradingViewNative,
+  isTradingViewNative: preferredIsTradingViewNative,
   onChartFullscreenChange,
   onChartSwitch,
   isNative: routeIsNative = false,
@@ -370,8 +375,22 @@ export function MobileLayout({
     perpsInfo,
     isStockToken,
   } = useMarketDetailDisplayData();
-  const { isStockRoute, selectedTokenVariant, stockDetail, stockId } =
-    useStockDetail();
+  const {
+    isStockRoute,
+    selectedTokenVariant,
+    stockDetail,
+    stockId,
+    isStockDetailError,
+  } = useStockDetail();
+  const [{ source: storedPriceMode }] = useMarketPriceSourceAtom();
+  const priceMode = resolveDisplayedStockPriceMode({
+    stockId,
+    isStockDetailError,
+    storedPriceMode,
+  });
+  // The legacy token-only chart cannot render the selected share series.
+  const isTradingViewNative =
+    preferredIsTradingViewNative || priceMode === 'share';
   const detailKind = resolveMarketMobileDetailKind({
     isStockToken: Boolean(isStockToken || isStockRoute),
     marketTokenCategory,
@@ -406,12 +425,10 @@ export function MobileLayout({
       ? routeIsNative
       : storeIsNative;
   const tokenSymbol = tokenDetail?.symbol;
-  // Stock detail charts offer Prev close; the mobile chart always plots the
-  // token price.
   const isStockDetailChart = isStockRoute && Boolean(stockId);
   const stockPreviousClose = isStockDetailChart
     ? getMarketStockChartPreviousClose({
-        priceSource: 'token',
+        priceSource: priceMode,
         stockDetail,
         selectedTokenVariant,
         tokenDetail,
@@ -421,7 +438,7 @@ export function MobileLayout({
   const handleNativeChartPriceUpdate = useMarketNativeChartPriceUpdate({
     networkId,
     tokenAddress,
-    enabled: active !== false && !isSimpleChart,
+    enabled: active !== false && !isSimpleChart && priceMode === 'token',
   });
   const marketTradingViewParams = useMarketTradingViewParams({
     tokenAddress,
@@ -432,14 +449,7 @@ export function MobileLayout({
     websocketConfig,
   });
   let marketTradingViewKey = 'v2';
-  if (isTradingViewNative) {
-    marketTradingViewKey = [
-      'native',
-      marketTokenId ?? '',
-      networkId,
-      tokenAddress,
-    ].join(':');
-  } else if (marketTradingViewParams) {
+  if (!isTradingViewNative && marketTradingViewParams) {
     marketTradingViewKey = [
       'v2',
       marketTokenId ?? '',
@@ -507,8 +517,12 @@ export function MobileLayout({
         networkId,
         symbol: tokenSymbol ?? '',
         tokenAddress,
+        stockId,
+        priceMode,
       }),
     [
+      stockId,
+      priceMode,
       marketTradingViewParams?.dataSource,
       nativeHyperliquidCoin,
       isNative,
@@ -517,6 +531,9 @@ export function MobileLayout({
       tokenSymbol,
     ],
   );
+  if (isTradingViewNative) {
+    marketTradingViewKey = `native:${marketTokenId ?? ''}:${getTradingViewNativeSourceKey(tradingViewNativeSource)}`;
+  }
   useMarketKlineLivePrice({
     enabled: resolveMarketNativeChartFallbackQuoteEnabled({
       active,
@@ -896,12 +913,17 @@ export function MobileLayout({
               <Stack h={tradingViewChartHeight} overflow="hidden">
                 {(() => {
                   if (isTradingViewNative) {
-                    return networkId ? (
+                    return networkId ||
+                      tradingViewNativeSource.kind === 'stock' ? (
                       <TradingViewNative
                         key={marketTradingViewKey}
                         testID={MarketTestIDs.detailChart}
                         source={tradingViewNativeSource}
-                        accountMarksContext={accountMarksContext}
+                        accountMarksContext={
+                          tradingViewNativeSource.kind === 'stock'
+                            ? undefined
+                            : accountMarksContext
+                        }
                         onPriceUpdate={handleNativeChartPriceUpdate}
                         enablePreviousClose={isStockDetailChart}
                         previousClose={stockPreviousClose}
@@ -924,7 +946,9 @@ export function MobileLayout({
                         nativeControlsLayoutMode="mobile"
                         mobileToolbarExtra={<MobileChartModeControl />}
                         isNativeChartFullscreen={isChartFullscreen}
-                        isChartSwitchDisabled={!marketTradingViewParams}
+                        isChartSwitchDisabled={
+                          priceMode === 'share' || !marketTradingViewParams
+                        }
                         onChartSwitch={onChartSwitch}
                         onNativeChartFullscreenChange={onChartFullscreenChange}
                       />
@@ -1040,6 +1064,7 @@ export function MobileLayout({
     onChartFullscreenChange,
     onChartSwitch,
     stockPreviousClose,
+    priceMode,
     tradingViewNativeSource,
     tradingViewChartHeight,
   ]);
