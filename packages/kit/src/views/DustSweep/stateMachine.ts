@@ -20,6 +20,12 @@ type IDustSweepAction =
   | { type: 'start'; snapshot: IDustSweepSnapshot }
   | { type: 'pause' | 'paused' | 'resume' | 'reset' }
   | {
+      type: 'approvalBroadcast';
+      sessionId: string;
+      key: string;
+      approvalTxIds: string[];
+    }
+  | {
       type: 'item';
       sessionId: string;
       key: string;
@@ -78,6 +84,19 @@ export function dustSweepReducer(
       return state.phase === 'completed' || state.phase === 'selecting'
         ? initialDustSweepState
         : state;
+    case 'approvalBroadcast': {
+      if (state.snapshot?.id !== action.sessionId) return state;
+      const current = state.items.find((item) => item.token.key === action.key);
+      if (!current || current.status !== 'signing') return state;
+      return {
+        ...state,
+        items: state.items.map((item) =>
+          item === current
+            ? { ...item, approvalTxIds: action.approvalTxIds }
+            : item,
+        ),
+      };
+    }
     case 'item': {
       if (state.snapshot?.id !== action.sessionId) return state;
       const current = state.items.find((item) => item.token.key === action.key);

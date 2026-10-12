@@ -56,14 +56,35 @@ describe('Dust Sweep terminal and retry boundaries', () => {
   it('retains already broadcast approvals across a retryable cancellation', () => {
     let state = signingState();
     state = dustSweepReducer(state, {
-      ...identity,
-      status: 'preparing',
+      type: 'approvalBroadcast',
+      sessionId: identity.sessionId,
+      key: identity.key,
       approvalTxIds: ['approval-0'],
     });
+    expect(state.items[0].status).toBe('signing');
     state = dustSweepReducer(state, { ...identity, status: 'waiting' });
     expect(state.items[0].approvalTxIds).toEqual(['approval-0']);
     state = dustSweepReducer(state, { type: 'paused' });
     expect(dustSweepReducer(state, { type: 'resume' }).phase).toBe('running');
+  });
+
+  it('keeps the signing state after an approval broadcast', () => {
+    const state = dustSweepReducer(signingState(), {
+      type: 'approvalBroadcast',
+      sessionId: identity.sessionId,
+      key: identity.key,
+      approvalTxIds: ['approval-0'],
+    });
+    const broadcasted = dustSweepReducer(state, {
+      ...identity,
+      status: 'broadcasted',
+      txId: 'swap-0',
+    });
+    expect(broadcasted.items[0]).toMatchObject({
+      status: 'broadcasted',
+      approvalTxIds: ['approval-0'],
+      txId: 'swap-0',
+    });
   });
 
   it('does not retry an unknown submission or reset it into a new queue', () => {

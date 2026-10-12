@@ -79,8 +79,9 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
             onPrepared: () => send({ ...identity, status: 'preparing' }),
             onApprovalBroadcast: (approvalTxIds) =>
               send({
-                ...identity,
-                status: 'preparing',
+                type: 'approvalBroadcast',
+                sessionId: identity.sessionId,
+                key: identity.key,
                 approvalTxIds,
               }),
             onBroadcast: (txId) =>
