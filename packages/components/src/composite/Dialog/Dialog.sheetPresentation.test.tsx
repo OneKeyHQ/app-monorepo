@@ -348,9 +348,12 @@ describe('Dialog sheet scroll view presentation', () => {
 });
 
 describe('Dialog native centered opt-in', () => {
-  it.each([false, true])(
-    'centers a bounded native dialog without sheet chrome (Android: %s)',
-    (isAndroid) => {
+  it.each([
+    ['iOS', false, 450, 347],
+    ['Android', true, 416, 381],
+  ] as const)(
+    'centers without sheet chrome and keeps safe-area and keyboard padding outside the card on %s',
+    (_name, isAndroid, expectedMaxHeight, expectedPaddingBottom) => {
       platformEnv.isNativeAndroid = isAndroid;
       platformEnv.isNativeIOS = !isAndroid;
       render(
@@ -369,29 +372,12 @@ describe('Dialog native centered opt-in', () => {
       expect(screen.queryByTestId('header-drag-zone')).toBeNull();
       expect(screen.queryByTestId('sheet-grabber')).toBeNull();
       expect(screen.getByTestId('dialog-bounded-close')).toBeTruthy();
-      const scroll = screen.getByTestId('dialog-bounded-scroll');
-      expect(scroll.getAttribute('data-scroll-kind')).toBe('plain');
-      expect(scroll.getAttribute('data-max-height')).toBe('750');
-      expect(scroll.getAttribute('data-height')).toBe('');
-      expect(
-        screen.getByTestId('floating-content').getAttribute('data-max-width'),
-      ).toBe('90%');
-    },
-  );
-
-  it.each([
-    ['iOS', false, 450, 347],
-    ['Android', true, 416, 381],
-  ] as const)(
-    'keeps safe-area and keyboard padding outside the centered card on %s',
-    (_name, isAndroid, expectedMaxHeight, expectedPaddingBottom) => {
-      platformEnv.isNativeAndroid = isAndroid;
-      platformEnv.isNativeIOS = !isAndroid;
-      render(<DialogContainer {...boundedDialogProps} nativeCentered />);
-
       const content = screen.getByTestId('floating-content');
       const frame = content.parentElement;
       const scroll = screen.getByTestId('dialog-bounded-scroll');
+      expect(scroll.getAttribute('data-scroll-kind')).toBe('plain');
+      expect(scroll.getAttribute('data-height')).toBe('');
+      expect(content.getAttribute('data-max-width')).toBe('90%');
       expect(frame?.getAttribute('data-padding-top')).toBe('47');
       expect(frame?.getAttribute('data-padding-bottom')).toBe('47');
       expect(

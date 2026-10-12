@@ -17,11 +17,7 @@ import {
   swapRefreshInterval,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 
-import {
-  DustSweepSkip,
-  fetchDustSweepQuote,
-  getDustSweepQuoteRisk,
-} from '../utils/quote';
+import { DustSweepSkip, fetchDustSweepQuote } from '../utils/quote';
 
 type IPreview = {
   identity: string;
@@ -92,14 +88,7 @@ export function useDustSweepPreview(
         snapshot.tokens.map((token) =>
           limit(async () => {
             if (controller.signal.aborted) return undefined;
-            const quote = await fetchDustSweepQuote(
-              token,
-              snapshot,
-              controller.signal,
-            );
-            const reason = getDustSweepQuoteRisk(quote, token, snapshot);
-            if (reason) throw new DustSweepSkip(reason);
-            return quote;
+            return fetchDustSweepQuote(token, snapshot, controller.signal);
           }),
         ),
       ).then((results) => {

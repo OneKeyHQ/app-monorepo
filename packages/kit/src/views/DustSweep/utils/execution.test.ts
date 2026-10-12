@@ -89,6 +89,8 @@ const {
   DustSweepUserCanceled,
 } = require('./execution') as typeof import('./execution');
 
+const { DustSweepSkip } = require('./quote') as typeof import('./quote');
+
 const { MarketDirectFeeOverflowError } =
   require('@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketDirectSendTx') as typeof import('@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketDirectSendTx');
 
@@ -331,30 +333,6 @@ describe('Dust Sweep serial execution boundaries', () => {
     expect(options.onBroadcast).not.toHaveBeenCalled();
   });
 
-  it('rebuilds after confirmed approval and sends the swap with fresh gas', async () => {
-    mockFetchQuote.mockResolvedValue(createQuote('0xfirst'));
-    mockAllowance.mockResolvedValueOnce(
-      createAllowance({
-        isApproved: false,
-        allowanceTarget: '0xfirst',
-        approveAmounted: '0',
-      }),
-    );
-    mockBuild.mockResolvedValue({ result: createQuote('0xfirst') });
-    const options = createOptions();
-    await executeDustSweepItem(options);
-    expect(options.onSigning).toHaveBeenCalledTimes(2);
-    expect(mockSend).toHaveBeenCalledTimes(2);
-    expect(
-      mockSend.mock.calls[0][0].buildUnsignedParams.approveInfo,
-    ).toBeDefined();
-    expect(mockSend.mock.calls[1][0].approveUnsignedTxArr).toBeUndefined();
-    expect(mockAllowance).toHaveBeenCalledWith(
-      expect.objectContaining({ spenderAddress: '0xfirst' }),
-    );
-    expect(mockFetchQuote).toHaveBeenCalledTimes(2);
-  });
-
   it('leaves a hung preparation and ignores its late build response', async () => {
     jest.useFakeTimers();
     const controller = new AbortController();
@@ -383,15 +361,30 @@ describe('Dust Sweep serial execution boundaries', () => {
     }
   });
 
-  it('uses only the refreshed build after approval confirmation', async () => {
-    mockAllowance.mockResolvedValueOnce(createAllowance({ isApproved: false }));
+  it('requotes after approval confirmation and sends only the fresh build with a new gas estimate', async () => {
+    mockFetchQuote
+      .mockResolvedValueOnce({
+        ...createQuote('0xfirst'),
+        quoteResultCtx: { quote: 'before' },
+      })
+      .mockResolvedValueOnce({
+        ...createQuote('0xfirst'),
+        quoteResultCtx: { quote: 'after' },
+      });
+    mockAllowance.mockResolvedValueOnce(
+      createAllowance({
+        isApproved: false,
+        allowanceTarget: '0xfirst',
+        approveAmounted: '0',
+      }),
+    );
     mockBuild
       .mockResolvedValueOnce({
-        result: createQuote(),
+        result: createQuote('0xfirst'),
         ctx: { order: 'before' },
       })
       .mockResolvedValueOnce({
-        result: createQuote(),
+        result: createQuote('0xfirst'),
         ctx: { order: 'after' },
       });
     mockPayload
@@ -407,6 +400,7 @@ describe('Dust Sweep serial execution boundaries', () => {
       });
     mockTxState.mockImplementation(async ({ txId }) => {
       if (txId === 'approval-0') {
+        expect(mockFetchQuote).toHaveBeenCalledTimes(1);
         expect(mockBuild).toHaveBeenCalledTimes(1);
         expect(mockSend).toHaveBeenCalledTimes(1);
       }
@@ -415,11 +409,30 @@ describe('Dust Sweep serial execution boundaries', () => {
         dealReceiveAmount: '0.009',
       };
     });
-    await executeDustSweepItem(createOptions());
+    const options = createOptions();
+    await executeDustSweepItem(options);
+    expect(options.onSigning).toHaveBeenCalledTimes(2);
+    expect(mockSend).toHaveBeenCalledTimes(2);
+    expect(mockFetchQuote).toHaveBeenCalledTimes(2);
+    expect(mockBuild).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ quoteResultCtx: { quote: 'before' } }),
+    );
+    expect(mockBuild).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ quoteResultCtx: { quote: 'after' } }),
+    );
+    expect(mockSend.mock.calls[0][0].buildUnsignedParams.approveInfo).toEqual(
+      expect.objectContaining({ spender: '0xfirst' }),
+    );
+    expect(mockAllowance).toHaveBeenCalledWith(
+      expect.objectContaining({ spenderAddress: '0xfirst' }),
+    );
     expect(mockSend.mock.calls[1][0]).toMatchObject({
       buildUnsignedParams: { encodedTx: { data: 'fresh' } },
     });
     expect(mockSend.mock.calls[1][0].gasInfos).toBeUndefined();
+    expect(mockSend.mock.calls[1][0].approveUnsignedTxArr).toBeUndefined();
     expect(mockTxState).toHaveBeenLastCalledWith(
       expect.objectContaining({ orderId: 'after', ctx: { order: 'after' } }),
     );
@@ -1186,7 +1199,12 @@ describe('Dust Sweep serial execution boundaries', () => {
   it('includes same-token fees in the source balance check', async () => {
     mockFetchQuote.mockResolvedValue({
       ...createQuote(),
-      fee: { otherFeeInfos: [{ token, amount: '1' }] },
+      fee: {
+        otherFeeInfos: [
+          { token, amount: '0.25' },
+          { token, amount: '0.75' },
+        ],
+      },
     });
     mockBalance.mockImplementation(async ({ amount }) => ({
       isSufficient: amount !== '11',
@@ -1201,16 +1219,18 @@ describe('Dust Sweep serial execution boundaries', () => {
     expect(mockSend).not.toHaveBeenCalled();
   });
 
-  it('rejects an undisclosed non-native fee token', async () => {
+  it('rejects an undisclosed non-native fee token in the build', async () => {
     const otherToken = {
       ...token,
       key: 'other',
       contractAddress: '0xother',
       symbol: 'OTHER',
     };
-    mockFetchQuote.mockResolvedValue({
-      ...createQuote(),
-      fee: { otherFeeInfos: [{ token: otherToken, amount: '1' }] },
+    mockBuild.mockResolvedValue({
+      result: {
+        ...createQuote(),
+        fee: { otherFeeInfos: [{ token: otherToken, amount: '1' }] },
+      },
     });
     await expect(executeDustSweepItem(createOptions())).rejects.toMatchObject({
       reason: 'unknown',
@@ -1218,25 +1238,32 @@ describe('Dust Sweep serial execution boundaries', () => {
     expect(mockSend).not.toHaveBeenCalled();
   });
 
-  it.each(['quote', 'build'] as const)(
-    'rejects undisclosed native fees in the %s before approval',
-    async (stage) => {
-      const feeQuote = {
+  it('preserves a quote rejection without building or signing', async () => {
+    const rejection = new DustSweepSkip('priceImpact');
+    mockFetchQuote.mockRejectedValueOnce(rejection);
+    const options = createOptions();
+    await expect(executeDustSweepItem(options)).rejects.toBe(rejection);
+    expect(mockBuild).not.toHaveBeenCalled();
+    expect(mockSend).not.toHaveBeenCalled();
+    expect(options.onSigning).not.toHaveBeenCalled();
+  });
+
+  it('rejects undisclosed native fees in the build before approval', async () => {
+    mockBuild.mockResolvedValue({
+      result: {
         ...createQuote(),
         fee: {
           otherFeeInfos: [{ token: snapshot.nativeToken, amount: '0.01' }],
         },
-      };
-      if (stage === 'quote') mockFetchQuote.mockResolvedValue(feeQuote);
-      else mockBuild.mockResolvedValue({ result: feeQuote });
-      const options = createOptions();
-      await expect(executeDustSweepItem(options)).rejects.toMatchObject({
-        reason: 'unknown',
-      });
-      expect(mockSend).not.toHaveBeenCalled();
-      expect(options.onSigning).not.toHaveBeenCalled();
-    },
-  );
+      },
+    });
+    const options = createOptions();
+    await expect(executeDustSweepItem(options)).rejects.toMatchObject({
+      reason: 'unknown',
+    });
+    expect(mockSend).not.toHaveBeenCalled();
+    expect(options.onSigning).not.toHaveBeenCalled();
+  });
 
   it('distinguishes password cancellation from unknown post-sign transport errors', async () => {
     mockSend.mockImplementation(async (params: ISendParams) => {

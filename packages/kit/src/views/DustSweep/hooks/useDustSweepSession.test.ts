@@ -292,7 +292,7 @@ it('never retries a submission whose broadcast status is unknown', async () => {
   expect(result.current.state.items[0].status).toBe('unknown');
   expect(execute).toHaveBeenCalledTimes(1);
 });
-it('returns a canceled password prompt to waiting and allows an explicit retry', async () => {
+it('pauses a canceled password prompt with its item waiting for explicit retry', async () => {
   execute.mockImplementationOnce(async ({ onSigning, onPrepared }) => {
     onSigning();
     onPrepared();

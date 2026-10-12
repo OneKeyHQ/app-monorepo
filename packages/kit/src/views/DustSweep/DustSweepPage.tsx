@@ -141,21 +141,21 @@ function DustSweepPageContent() {
   const { exit, continueRemoval, execution } = useDustSweepFlow();
   const media = useMedia();
   const desktop = !platformEnv.isNative && media.gtMd;
-  const [allowLeave, setAllowLeave] = useState(false);
-  const pendingAction = useRef<NavigationAction | undefined>(undefined);
+  const [approvedRemovalAction, setApprovedRemovalAction] = useState<
+    NavigationAction | undefined
+  >(undefined);
   const leaveDialog = useRef<ReturnType<typeof Dialog.show> | undefined>(
     undefined,
   );
-  const [hasLeaveDialog, setHasLeaveDialog] = useState(false);
+  const [visibleLeaveDialog, setVisibleLeaveDialog] = useState<
+    ReturnType<typeof Dialog.show> | undefined
+  >(undefined);
   const leavePending = useRef(false);
-  const mounted = useRef(true);
   const resultShown = useRef<string | undefined>(undefined);
   const resultDialog = useRef<ReturnType<typeof Dialog.show> | undefined>(
     undefined,
   );
   const { state } = session;
-  const currentSessionId = useRef(state.snapshot?.id);
-  currentSessionId.current = state.snapshot?.id;
   const { progress, unknown } = getDustSweepPresentation(state);
   const title = intl.formatMessage({ id: ETranslations.title_dust_sweep });
   let subtitle: string | undefined;
@@ -200,139 +200,136 @@ function DustSweepPageContent() {
     [subtitle, title],
   );
 
-  usePreventRemove(execution && !allowLeave && !selecting, ({ data }) => {
-    if (state.phase === 'completed') {
-      pendingAction.current = data.action;
-      setAllowLeave(true);
-      return;
-    }
-    if (leaveDialog.current) return;
-    const sessionId = state.snapshot?.id;
-    const leaveTitle = intl.formatMessage({
-      id: ETranslations.sweep_leave_dust_sweep_confirmation,
-    });
-    const leaveDescription = unknown
-      ? intl.formatMessage({
-          id: ETranslations.wallet_transaction_maybe_already_submitted_check_activity__msg,
-        })
-      : [
-          intl.formatMessage({
-            id: ETranslations.sweep_leave_dust_sweep_warning,
-          }),
-          state.items.some(
-            (item) =>
-              ['signing', 'broadcasted'].includes(item.status) ||
-              item.approvalTxIds?.length,
-          )
-            ? intl.formatMessage({
-                id: ETranslations.swap_review_tx_pending,
-              })
-            : undefined,
-        ]
-          .filter(Boolean)
-          .join('\n\n');
-    const dialog = Dialog.show({
-      nativeCentered: true,
-      floatingPanelProps: platformEnv.isNative ? { width: 350 } : undefined,
-      title: leaveTitle,
-      description: leaveDescription,
-      ...(platformEnv.isNative
-        ? {
-            showHeader: false,
-            contentContainerProps: { px: 20, pt: 20, pb: 38 },
-            renderContent: (
-              <YStack>
-                <SizableText size="$headingLg">{leaveTitle}</SizableText>
-                <SizableText
-                  size="$bodyMd"
-                  color="$textSubdued"
-                  mt="$2"
-                  minHeight={60}
-                >
-                  {leaveDescription}
-                </SizableText>
-              </YStack>
-            ),
-            footerProps: { flexDirection: 'row-reverse', gap: 12 },
-            cancelButtonProps: { height: 46, minHeight: 46, py: 10 },
-          }
-        : undefined),
-      onConfirmText: intl.formatMessage({
-        id: ETranslations.sweep_leave_dust_sweep,
-      }),
-      confirmButtonProps: {
-        testID: 'dust-sweep-confirm-leave',
+  usePreventRemove(
+    execution && !approvedRemovalAction && !selecting,
+    ({ data }) => {
+      if (state.phase === 'completed') {
+        setApprovedRemovalAction(data.action);
+        return;
+      }
+      if (leaveDialog.current || visibleLeaveDialog) return;
+      const leaveTitle = intl.formatMessage({
+        id: ETranslations.sweep_leave_dust_sweep_confirmation,
+      });
+      const leaveDescription = unknown
+        ? intl.formatMessage({
+            id: ETranslations.wallet_transaction_maybe_already_submitted_check_activity__msg,
+          })
+        : [
+            intl.formatMessage({
+              id: ETranslations.sweep_leave_dust_sweep_warning,
+            }),
+            state.items.some(
+              (item) =>
+                ['signing', 'broadcasted'].includes(item.status) ||
+                item.approvalTxIds?.length,
+            )
+              ? intl.formatMessage({
+                  id: ETranslations.swap_review_tx_pending,
+                })
+              : undefined,
+          ]
+            .filter(Boolean)
+            .join('\n\n');
+      const dialog = Dialog.show({
+        nativeCentered: true,
+        floatingPanelProps: platformEnv.isNative ? { width: 350 } : undefined,
+        title: leaveTitle,
+        description: leaveDescription,
         ...(platformEnv.isNative
-          ? { height: 46, minHeight: 46, py: 10 }
+          ? {
+              showHeader: false,
+              contentContainerProps: { px: 20, pt: 20, pb: 38 },
+              renderContent: (
+                <YStack>
+                  <SizableText size="$headingLg">{leaveTitle}</SizableText>
+                  <SizableText
+                    size="$bodyMd"
+                    color="$textSubdued"
+                    mt="$2"
+                    minHeight={60}
+                  >
+                    {leaveDescription}
+                  </SizableText>
+                </YStack>
+              ),
+              footerProps: { flexDirection: 'row-reverse', gap: 12 },
+              cancelButtonProps: { height: 46, minHeight: 46, py: 10 },
+            }
           : undefined),
-      },
-      tone: 'destructive',
-      onBeforeClose: () => !mounted.current || !leavePending.current,
-      onConfirm: async ({ preventClose }) => {
-        if (
-          !mounted.current ||
-          leaveDialog.current !== dialog ||
-          currentSessionId.current !== sessionId
-        )
-          return;
-        if (leavePending.current) {
-          preventClose();
-          return;
-        }
-        leavePending.current = true;
-        try {
-          const left = await session.leave();
-          if (!mounted.current || currentSessionId.current !== sessionId)
-            return;
-          if (left === false) {
-            Toast.warning({
-              title: intl.formatMessage({
-                id: ETranslations.wallet_transaction_maybe_already_submitted_check_activity__msg,
-              }),
-            });
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.sweep_leave_dust_sweep,
+        }),
+        confirmButtonProps: {
+          testID: 'dust-sweep-confirm-leave',
+          ...(platformEnv.isNative
+            ? { height: 46, minHeight: 46, py: 10 }
+            : undefined),
+        },
+        tone: 'destructive',
+        onBeforeClose: () =>
+          leaveDialog.current !== dialog || !leavePending.current,
+        onConfirm: async ({ preventClose }) => {
+          if (leaveDialog.current !== dialog) return;
+          if (leavePending.current) {
+            preventClose();
             return;
           }
-          pendingAction.current = data.action;
-          setAllowLeave(true);
-        } finally {
-          leavePending.current = false;
-        }
-      },
-      onClose: () => {
-        if (leaveDialog.current === dialog) {
-          leaveDialog.current = undefined;
-          if (mounted.current) setHasLeaveDialog(false);
-        }
-      },
-    });
-    leaveDialog.current = dialog;
-    setHasLeaveDialog(true);
-  });
+          leavePending.current = true;
+          try {
+            const left = await session.leave();
+            if (leaveDialog.current !== dialog) return;
+            if (left === false) {
+              Toast.warning({
+                title: intl.formatMessage({
+                  id: ETranslations.wallet_transaction_maybe_already_submitted_check_activity__msg,
+                }),
+              });
+              return;
+            }
+            setApprovedRemovalAction(data.action);
+          } finally {
+            leavePending.current = false;
+          }
+        },
+        onCloseStart: () => {
+          if (leaveDialog.current === dialog) leaveDialog.current = undefined;
+        },
+        onClose: () => {
+          setVisibleLeaveDialog((current) =>
+            current === dialog ? undefined : current,
+          );
+        },
+      });
+      leaveDialog.current = dialog;
+      setVisibleLeaveDialog(dialog);
+    },
+  );
+  const closeLeaveDialog = useCallback(() => {
+    const dialog = leaveDialog.current;
+    // Revoke callbacks immediately; the result waits for the closing animation.
+    leaveDialog.current = undefined;
+    void dialog?.close();
+  }, []);
   useEffect(() => {
     if (
       (!isFocused || selecting || state.phase === 'completed') &&
       !leavePending.current
     )
-      void leaveDialog.current?.close();
-  }, [isFocused, selecting, state.phase]);
+      closeLeaveDialog();
+  }, [isFocused, selecting, state.phase, closeLeaveDialog]);
+  useEffect(() => closeLeaveDialog, [closeLeaveDialog]);
   useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-      void leaveDialog.current?.close();
-      leaveDialog.current = undefined;
-    };
-  }, []);
-  useEffect(() => {
-    if (allowLeave && pendingAction.current) {
-      const action = pendingAction.current;
-      pendingAction.current = undefined;
-      continueRemoval(action);
-    }
-  }, [allowLeave, continueRemoval]);
+    if (approvedRemovalAction) continueRemoval(approvedRemovalAction);
+  }, [approvedRemovalAction, continueRemoval]);
   const showResult = useCallback(
     (details: boolean) => {
-      if (!state.snapshot || resultDialog.current || leaveDialog.current)
+      if (
+        !state.snapshot ||
+        resultDialog.current ||
+        visibleLeaveDialog ||
+        leaveDialog.current
+      )
         return;
       const dialog = Dialog.show({
         testID: 'dust-sweep-result-sheet',
@@ -341,7 +338,7 @@ function DustSweepPageContent() {
         showFooter: false,
         disableDrag: true,
         contentContainerProps: { px: 0, pb: 0 },
-        onClose: () => {
+        onCloseStart: () => {
           if (resultDialog.current === dialog) resultDialog.current = undefined;
         },
         renderContent: (
@@ -349,10 +346,12 @@ function DustSweepPageContent() {
             state={state}
             details={details}
             onClose={() => {
-              void dialog.close();
+              if (resultDialog.current === dialog) void dialog.close();
             }}
-            onAgain={async () => {
-              await dialog.close();
+            onAgain={() => {
+              if (resultDialog.current !== dialog) return;
+              resultDialog.current = undefined;
+              void dialog.close();
               sweepAgain();
             }}
           />
@@ -360,7 +359,7 @@ function DustSweepPageContent() {
       });
       resultDialog.current = dialog;
     },
-    [state, sweepAgain],
+    [state, sweepAgain, visibleLeaveDialog],
   );
   const onDetails = useCallback(
     () => showResult(state.phase !== 'completed'),
@@ -370,7 +369,7 @@ function DustSweepPageContent() {
     if (
       desktop ||
       !isFocused ||
-      hasLeaveDialog ||
+      visibleLeaveDialog ||
       state.phase !== 'completed' ||
       !state.snapshot ||
       resultShown.current === state.snapshot.id
@@ -378,17 +377,19 @@ function DustSweepPageContent() {
       return;
     resultShown.current = state.snapshot.id;
     showResult(false);
-  }, [desktop, isFocused, hasLeaveDialog, state, showResult]);
+  }, [desktop, isFocused, visibleLeaveDialog, state, showResult]);
   useEffect(() => {
     if (!isFocused || selecting) {
-      void resultDialog.current?.close();
+      const dialog = resultDialog.current;
       resultDialog.current = undefined;
+      void dialog?.close();
     }
   }, [isFocused, selecting]);
   useEffect(
     () => () => {
-      void resultDialog.current?.close();
+      const dialog = resultDialog.current;
       resultDialog.current = undefined;
+      void dialog?.close();
     },
     [desktop],
   );

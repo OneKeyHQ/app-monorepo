@@ -46,15 +46,6 @@ function signingState() {
 }
 
 describe('Dust Sweep terminal and retry boundaries', () => {
-  it('can pause and retry a known password cancellation', () => {
-    let state = signingState();
-    state = dustSweepReducer(state, { ...identity, status: 'preparing' });
-    state = dustSweepReducer(state, { ...identity, status: 'waiting' });
-    expect(state.items[0].status).toBe('waiting');
-    state = dustSweepReducer(state, { type: 'paused' });
-    expect(dustSweepReducer(state, { type: 'resume' }).phase).toBe('running');
-  });
-
   it('retains already broadcast approvals across a retryable cancellation', () => {
     let state = signingState();
     state = dustSweepReducer(state, {
@@ -68,7 +59,7 @@ describe('Dust Sweep terminal and retry boundaries', () => {
     state = dustSweepReducer(state, { ...identity, status: 'waiting' });
     expect(state.items[0].status).toBe('waiting');
     expect(state.items[0].approvalTxIds).toEqual(['approval-0']);
-    state = dustSweepReducer(state, { type: 'paused' });
+    state = dustSweepReducer(state, { type: 'pause' });
     expect(dustSweepReducer(state, { type: 'resume' }).phase).toBe('running');
   });
 
@@ -141,7 +132,7 @@ describe('Dust Sweep terminal and retry boundaries', () => {
       ...identity,
       status: 'unknown',
     });
-    state = dustSweepReducer(state, { type: 'paused' });
+    state = dustSweepReducer(state, { type: 'pause' });
     expect(dustSweepReducer(state, { type: 'resume' })).toBe(state);
     expect(dustSweepReducer(state, { type: 'reset' })).toBe(state);
     expect(dustSweepReducer(state, { ...identity, status: 'preparing' })).toBe(

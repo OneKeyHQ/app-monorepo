@@ -73,7 +73,6 @@ function waitForLoad<T>(promise: Promise<T>, signal: AbortSignal) {
 
 async function loadDustSweepNetworksInternal(
   params: IDustSweepRouteParams,
-  signal: AbortSignal,
 ): Promise<IDustSweepNetworksResult> {
   if (
     !params.accountId ||
@@ -142,7 +141,6 @@ async function loadDustSweepNetworksInternal(
   const results = await Promise.allSettled(
     candidates.map((network) =>
       limit(async (): Promise<IDustSweepNetwork | undefined> => {
-        if (signal.aborted) return undefined;
         const account = accountsInfo.find(
           (item) =>
             item.networkId === network.networkId &&
@@ -167,7 +165,7 @@ async function loadDustSweepNetworksInternal(
             networkId: network.networkId,
           }),
         ]);
-        if (!native || signal.aborted) return undefined;
+        if (!native) return undefined;
         if (
           [
             response.tokens,
@@ -239,8 +237,7 @@ export function loadDustSweepNetworks(
     // Keep the underlying request alive when one page instance unmounts. A
     // quick re-entry can adopt the same work instead of starting a duplicate
     // fan-out for every network.
-    const internalController = new AbortController();
-    load = loadDustSweepNetworksInternal(params, internalController.signal);
+    load = loadDustSweepNetworksInternal(params);
     inFlightLoads.set(key, load);
     void load.then(
       () => {

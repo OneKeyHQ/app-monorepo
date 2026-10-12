@@ -150,34 +150,25 @@ async function checkInputAndOtherFeeBalances(
   quote: IFetchQuoteResult,
   options: IExecutionOptions,
 ) {
-  const requirements: { token: ISwapToken; amount: string }[] = [
-    { token: options.token, amount: options.token.amount },
-  ];
+  let requiredInputAmount = options.token.amount;
   for (const fee of quote.fee?.otherFeeInfos ?? []) {
     const amount = new BigNumber(fee.amount ?? '');
     if (!amount.isFinite() || amount.isNegative())
       throw new DustSweepSkip('unknown');
     if (!amount.isZero()) {
-      if (fee.token.networkId !== options.snapshot.networkId)
+      if (
+        fee.token.networkId !== options.snapshot.networkId ||
+        !equalTokenNoCaseSensitive({
+          token1: options.token,
+          token2: fee.token,
+        })
+      )
         throw new DustSweepSkip('unknown');
-      const existing = requirements.find((entry) =>
-        equalTokenNoCaseSensitive({ token1: entry.token, token2: fee.token }),
-      );
-      if (existing) existing.amount = amount.plus(existing.amount).toFixed();
-      else throw new DustSweepSkip('unknown');
+      requiredInputAmount = amount.plus(requiredInputAmount).toFixed();
     }
   }
-  for (const requirement of requirements) {
-    await checkBalance(requirement.token, requirement.amount, options);
-  }
-  return (
-    requirements.find((entry) =>
-      equalTokenNoCaseSensitive({
-        token1: entry.token,
-        token2: options.token,
-      }),
-    )?.amount ?? options.token.amount
-  );
+  await checkBalance(options.token, requiredInputAmount, options);
+  return requiredInputAmount;
 }
 
 async function checkNativeGasBalance(
@@ -313,8 +304,6 @@ async function prepareDustSweepItem(options: IExecutionOptions) {
   assertCanSubmit(options);
   const quote = await fetchDustSweepQuote(token, snapshot, signal);
   assertCanSubmit(options);
-  const quoteRisk = getDustSweepQuoteRisk(quote, token, snapshot);
-  if (quoteRisk) throw new DustSweepSkip(quoteRisk, quote.quoteShowTip?.detail);
   await checkInputAndOtherFeeBalances(quote, options);
   assertCanSubmit(options);
   const buildRes = await backgroundApiProxy.serviceSwap.fetchBuildTx({

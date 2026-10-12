@@ -146,9 +146,6 @@ function useDustSweepController(params: IDustSweepRouteParams) {
       ),
     [visible, selection],
   );
-  const valueUsd = selected
-    .reduce((sum, token) => sum.plus(token.valueUsd), new BigNumber(0))
-    .toFixed();
   const snapshot = useMemo<IDustSweepSnapshot | undefined>(
     () =>
       current && selecting
@@ -300,7 +297,6 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     hidden,
     selected,
     includeHidden,
-    valueUsd,
     quotedValueUsd,
     canStart,
     isFocused,

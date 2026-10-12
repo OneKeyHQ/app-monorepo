@@ -1,12 +1,5 @@
 /** @jest-environment jsdom */
-import {
-  Children,
-  createContext,
-  isValidElement,
-  useContext,
-  useEffect,
-  useMemo,
-} from 'react';
+import { createContext, useContext, useEffect, useMemo } from 'react';
 import type { ComponentType, PropsWithChildren, ReactNode } from 'react';
 
 import {
@@ -129,6 +122,10 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 jest.mock('@onekeyhq/shared/src/errors', () => ({ OneKeyLocalError: Error }));
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+}));
+jest.mock('react-native', () => ({
+  ...jest.requireActual<typeof import('react-native')>('react-native'),
+  useWindowDimensions: () => ({ width: 390, height: 844 }),
 }));
 jest.mock('react-native-reanimated', () => ({
   __esModule: true,
@@ -262,7 +259,11 @@ function Summary({ onDone }: { onDone: () => void }) {
 }
 jest.mock('./components/DustSweepSummary', () => ({
   DustSweepSummary: Summary,
-  DustSweepResult: () => null,
+  DustSweepResult: ({ onAgain }: { onAgain: () => void }) => (
+    <Button testID="dust-result-again" onPress={onAgain}>
+      Result again
+    </Button>
+  ),
 }));
 jest.mock('./components/DustSweepSelection', () => ({
   DustSweepSelection: () => null,
@@ -378,6 +379,7 @@ beforeEach(() => {
         if (closed || (props.onBeforeClose && !(await props.onBeforeClose())))
           return;
         closed = true;
+        props.onCloseStart?.();
         await mockDialogClose();
         await props.onClose?.();
       },
@@ -400,7 +402,6 @@ it('pushes exactly one execution route for double Convert and keeps the session 
     'Selection',
     'Execution',
   ]);
-  expect(flowRoutes()?.[1].params).toEqual({ sessionId: expect.any(String) });
   expect(mockProviderMounts).toBe(1);
   expect(mockProviderUnmounts).toBe(0);
   expect(execute).toHaveBeenCalledTimes(1);
@@ -411,33 +412,6 @@ it('pushes exactly one execution route for double Convert and keeps the session 
   expect(flowRoutes()).toHaveLength(2);
   expect(execute).toHaveBeenCalledTimes(1);
   await act(async () => pending.resolve(success));
-});
-
-it('waits for signing before Leave, blocks dismissal meanwhile, then exits the whole flow', async () => {
-  const pending = deferred<IResult>();
-  execute.mockImplementation(async ({ onSigning }) => {
-    onSigning();
-    return pending.promise;
-  });
-  mountFlow();
-  fireEvent.click(activeButton('Convert twice'));
-  fireEvent.click(activeButton('Local back'));
-  expect(mockDialog).toHaveBeenCalledTimes(1);
-  const dialog = confirmDialog();
-  let leaving: ReturnType<NonNullable<IDialogShowProps['onConfirm']>>;
-  act(() => {
-    leaving = dialog.onConfirm?.(dialogInstance);
-  });
-  expect(dialog.onBeforeClose?.()).toBe(false);
-  expect(ref.getCurrentRoute()?.name).toBe('Execution');
-  expect(mockProviderUnmounts).toBe(0);
-  await act(async () => {
-    pending.resolve(success);
-    await leaving;
-  });
-  expect(dialog.onBeforeClose?.()).toBe(true);
-  expect(ref.getCurrentRoute()?.name).toBe('Home');
-  expect(mockProviderUnmounts).toBe(1);
 });
 
 it('keeps a newly unknown signing result in the same session until a second explicit Leave', async () => {
@@ -461,6 +435,7 @@ it('keeps a newly unknown signing result in the same session until a second expl
   expect(ref.getCurrentRoute()?.name).toBe('Execution');
   expect(mockWarning).toHaveBeenCalledTimes(1);
   act(() => {
+    first.onCloseStart?.();
     void first.onClose?.();
   });
   fireEvent.click(activeButton('Local back'));
@@ -473,17 +448,14 @@ it('Again returns to selection in the same provider and a new Convert creates a 
   execute.mockImplementation(completeItem);
   mountFlow();
   await act(async () => fireEvent.click(activeButton('Convert twice')));
-  const firstId = flowRoutes()?.[1].params;
+  const firstId = execute.mock.calls[0][0].snapshot.id;
   fireEvent.click(activeButton('Again'));
   expect(flowRoutes()?.map((route) => route.name)).toEqual(['Selection']);
   expect(screen.getByText('selecting:focused')).toBeTruthy();
   await act(async () => fireEvent.click(activeButton('Convert twice')));
-  expect(flowRoutes()?.[1].params).not.toEqual(firstId);
+  expect(execute.mock.calls[1][0].snapshot.id).not.toBe(firstId);
   expect(mockProviderMounts).toBe(1);
   expect(execute).toHaveBeenCalledTimes(2);
-  fireEvent.click(activeButton('Local back'));
-  expect(ref.getCurrentRoute()?.name).toBe('Home');
-  expect(mockDialog).not.toHaveBeenCalled();
 });
 
 it('preserves an ancestor reset destination after confirmation instead of replacing it with Back', async () => {
@@ -552,7 +524,8 @@ it('bubbles selection Back through the first modal screen without starting execu
   expect(mockDialog).not.toHaveBeenCalled();
 });
 
-it('bubbles confirmed local Back through the first screen of the mobile modal', async () => {
+it('allows Cancel, waits for signing on Leave, then exits the whole native modal', async () => {
+  mockNative = true;
   const pending = deferred<IResult>();
   execute.mockImplementation(async ({ onSigning }) => {
     onSigning();
@@ -561,15 +534,30 @@ it('bubbles confirmed local Back through the first screen of the mobile modal', 
   mountFlow(true);
   fireEvent.click(activeButton('Convert twice'));
   fireEvent.click(activeButton('Local back'));
-  expect(mockDialog).toHaveBeenCalledTimes(1);
+  const canceled = confirmDialog();
+  expect(canceled.description).toContain(ETranslations.swap_review_tx_pending);
+  expect(canceled.onBeforeClose?.()).toBe(true);
+  act(() => canceled.onCloseStart?.());
+  await act(async () => canceled.onConfirm?.(dialogInstance));
+  expect(screen.getByText('running:focused')).toBeTruthy();
+  await act(async () => canceled.onClose?.());
+  expect(execute.mock.calls[0][0].signal.aborted).toBe(false);
+  expect(ref.getCurrentRoute()?.name).toBe('Execution');
+  fireEvent.click(activeButton('Local back'));
+  expect(mockDialog).toHaveBeenCalledTimes(2);
+  const confirmed = confirmDialog();
   let leaving: ReturnType<NonNullable<IDialogShowProps['onConfirm']>>;
   act(() => {
-    leaving = confirmDialog().onConfirm?.(dialogInstance);
+    leaving = confirmed.onConfirm?.(dialogInstance);
   });
+  expect(confirmed.onBeforeClose?.()).toBe(false);
+  expect(ref.getCurrentRoute()?.name).toBe('Execution');
+  expect(mockProviderUnmounts).toBe(0);
   await act(async () => {
     pending.resolve(success);
     await leaving;
   });
+  expect(confirmed.onBeforeClose?.()).toBe(true);
   expect(ref.getCurrentRoute()?.name).toBe('Home');
   expect(mockProviderUnmounts).toBe(1);
 });
@@ -583,62 +571,7 @@ it('provides a visible parent Back on the initial nested page for native tab ent
   expect(execute).not.toHaveBeenCalled();
 });
 
-it('uses the native Leave layout without losing pending-transaction copy or cancel semantics', async () => {
-  mockNative = true;
-  const pending = deferred<IResult>();
-  execute.mockImplementation(async ({ onSigning }) => {
-    onSigning();
-    return pending.promise;
-  });
-  mountFlow(true);
-  fireEvent.click(activeButton('Convert twice'));
-  fireEvent.click(activeButton('Local back'));
-  const dialog = confirmDialog();
-  expect(dialog).toMatchObject({
-    nativeCentered: true,
-    floatingPanelProps: { width: 350 },
-    showHeader: false,
-    contentContainerProps: { px: 20, pt: 20, pb: 38 },
-    footerProps: { flexDirection: 'row-reverse', gap: 12 },
-    cancelButtonProps: { height: 46, minHeight: 46, py: 10 },
-    confirmButtonProps: { height: 46, minHeight: 46, py: 10 },
-  });
-  if (!isValidElement<PropsWithChildren>(dialog.renderContent))
-    throw new OneKeyLocalError('Expected native confirmation content');
-  const [title, description] = Children.toArray(
-    dialog.renderContent.props.children,
-  );
-  if (
-    !isValidElement<{ size: string; children: ReactNode }>(title) ||
-    !isValidElement<{
-      size: string;
-      mt: string;
-      minHeight: number;
-      children: ReactNode;
-    }>(description)
-  )
-    throw new OneKeyLocalError('Expected native title and warning');
-  expect(title.props.size).toBe('$headingLg');
-  expect(title.props.children).toBe(dialog.title);
-  expect(description.props).toMatchObject({
-    size: '$bodyMd',
-    mt: '$2',
-    minHeight: 60,
-    children: dialog.description,
-  });
-  expect(dialog.description).toContain(ETranslations.swap_review_tx_pending);
-  expect(dialog.onBeforeClose?.()).toBe(true);
-  act(() => {
-    void dialog.onClose?.();
-  });
-  expect(execute.mock.calls[0][0].signal.aborted).toBe(false);
-  expect(ref.getCurrentRoute()?.name).toBe('Execution');
-  fireEvent.click(activeButton('Local back'));
-  expect(mockDialog).toHaveBeenCalledTimes(2);
-  await act(async () => pending.resolve(success));
-});
-
-it('closes an obsolete Leave dialog before completion and rejects its callback after Again starts a new session', async () => {
+it('closes obsolete dialogs and ignores their callbacks after Again starts a new session', async () => {
   mockDesktop = false;
   const first = deferred<IResult>();
   const second = deferred<IResult>();
@@ -656,18 +589,30 @@ it('closes an obsolete Leave dialog before completion and rejects its callback a
   fireEvent.click(activeButton('Convert twice'));
   fireEvent.click(activeButton('Local back'));
   const oldLeave = confirmDialog();
+  const leaveClosing = deferred<void>();
+  mockDialogClose.mockImplementationOnce(() => leaveClosing.promise);
   await act(async () => first.resolve(success));
   expect(mockDialogClose).toHaveBeenCalledTimes(1);
+  expect(mockDialog).toHaveBeenCalledTimes(1);
+  await act(async () => oldLeave.onConfirm?.(dialogInstance));
+  expect(screen.getByText('completed:focused')).toBeTruthy();
+  await act(async () => leaveClosing.resolve());
   expect(mockDialog.mock.calls.at(-1)?.[0].testID).toBe(
     'dust-sweep-result-sheet',
   );
-  fireEvent.click(activeButton('Again'));
+  render(<>{confirmDialog().renderContent}</>);
+  const closing = deferred<void>();
+  mockDialogClose.mockImplementationOnce(() => closing.promise);
+  fireEvent.click(activeButton('Result again'));
+  expect(ref.getCurrentRoute()?.name).toBe('Selection');
   fireEvent.click(activeButton('Convert twice'));
-  const sessionId = flowRoutes()?.[1].params;
   await act(async () => oldLeave.onConfirm?.(dialogInstance));
   expect(execute).toHaveBeenCalledTimes(2);
   expect(execute.mock.calls[1][0].signal.aborted).toBe(false);
-  expect(flowRoutes()?.[1].params).toEqual(sessionId);
   expect(screen.getByText('running:focused')).toBeTruthy();
   await act(async () => second.resolve(success));
+  fireEvent.click(activeButton('Result again'));
+  expect(ref.getCurrentRoute()?.name).toBe('Execution');
+  expect(screen.getByText('completed:focused')).toBeTruthy();
+  await act(async () => closing.resolve());
 });

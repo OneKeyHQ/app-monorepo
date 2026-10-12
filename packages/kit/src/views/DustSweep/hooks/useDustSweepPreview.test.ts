@@ -11,13 +11,12 @@ import {
   swapRefreshInterval,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 
-import { fetchDustSweepQuote, getDustSweepQuoteRisk } from '../utils/quote';
+import { DustSweepSkip, fetchDustSweepQuote } from '../utils/quote';
 
 import { useDustSweepPreview } from './useDustSweepPreview';
 
 jest.mock('../utils/quote', () => ({
   fetchDustSweepQuote: jest.fn(),
-  getDustSweepQuoteRisk: jest.fn(),
   DustSweepSkip: class extends Error {
     reason: string;
     constructor(reason: string) {
@@ -28,7 +27,6 @@ jest.mock('../utils/quote', () => ({
 }));
 
 const mockFetchQuote = jest.mocked(fetchDustSweepQuote);
-const mockGetQuoteRisk = jest.mocked(getDustSweepQuoteRisk);
 
 const token: IDustSweepToken = {
   key: 'evm--1_0xtoken',
@@ -38,6 +36,7 @@ const token: IDustSweepToken = {
   decimals: 18,
   amount: '10',
   valueUsd: '10',
+  price: '1',
   suspicious: false,
 };
 const nativeToken = {
@@ -70,7 +69,6 @@ beforeEach(() => {
     fromAmount: token.amount,
     toAmount: '0.01',
   });
-  mockGetQuoteRisk.mockReturnValue(undefined);
 });
 
 afterEach(() => {
@@ -116,10 +114,12 @@ it('debounces rapid selection revisions to one current quote request', async () 
 });
 
 it('keeps partial availability and the reason for each unavailable token', async () => {
-  mockFetchQuote.mockRejectedValueOnce(new Error('Transport failed'));
+  mockFetchQuote
+    .mockRejectedValueOnce(new Error('Transport failed'))
+    .mockRejectedValueOnce(new DustSweepSkip('priceImpact'));
   const source = {
     ...snapshot('partial'),
-    tokens: [token, { ...token, key: 'second' }],
+    tokens: [token, { ...token, key: 'second' }, { ...token, key: 'third' }],
   };
   const { result } = renderHook(() => useDustSweepPreview(source));
   await act(async () => {
@@ -129,8 +129,8 @@ it('keeps partial availability and the reason for each unavailable token', async
     status: 'partial',
     quotedCount: 1,
     amount: '0.01',
-    availableKeys: ['second'],
-    unavailable: { [token.key]: 'noQuote' },
+    availableKeys: ['third'],
+    unavailable: { [token.key]: 'noQuote', second: 'priceImpact' },
   });
 });
 

@@ -147,7 +147,7 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
                   ? error.message
                   : undefined,
             });
-            send({ type: 'paused' });
+            send({ type: 'pause' });
             break;
           }
           const reason =

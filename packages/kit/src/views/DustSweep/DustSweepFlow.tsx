@@ -41,7 +41,7 @@ import type {
 
 type IDustSweepFlowParams = {
   Selection: undefined;
-  Execution: { sessionId: string };
+  Execution: undefined;
 };
 
 const FlowStack = createStackNavigator<IDustSweepFlowParams>();
@@ -85,7 +85,7 @@ function DustSweepFlowScreen({
   const start = useCallback(() => {
     if (!isFocused || route.name !== 'Selection') return undefined;
     const sessionId = model.start();
-    if (sessionId) navigation.push('Execution', { sessionId });
+    if (sessionId) navigation.push('Execution');
     return sessionId;
   }, [isFocused, model, navigation, route.name]);
   useEffect(() => {

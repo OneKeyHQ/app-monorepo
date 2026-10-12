@@ -30,14 +30,7 @@ type IDustSweepAction =
       unavailable?: Record<string, IDustSweepReason>;
     }
   | {
-      type:
-        | 'pause'
-        | 'paused'
-        | 'resume'
-        | 'reset'
-        | 'leave'
-        | 'left'
-        | 'leaveBlocked';
+      type: 'pause' | 'resume' | 'reset' | 'leave' | 'left' | 'leaveBlocked';
     }
   | {
       type: 'approvalBroadcast';
@@ -101,13 +94,8 @@ export function dustSweepReducer(
       };
     case 'pause':
       return state.phase === 'running' ? { ...state, phase: 'paused' } : state;
-    case 'paused':
-      return state.phase === 'running' ? { ...state, phase: 'paused' } : state;
     case 'resume':
-      return state.phase === 'paused' &&
-        state.items.every((item) => item.status !== 'unknown')
-        ? { ...state, phase: 'running' }
-        : state;
+      return state.phase === 'paused' ? { ...state, phase: 'running' } : state;
     case 'reset':
       return state.phase === 'completed' || state.phase === 'selecting'
         ? initialDustSweepState
