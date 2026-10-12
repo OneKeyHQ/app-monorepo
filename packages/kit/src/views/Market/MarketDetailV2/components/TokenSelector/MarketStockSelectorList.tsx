@@ -18,25 +18,30 @@ import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
 import {
   TOKEN_SELECTOR_HEADER_HEIGHT,
+  TOKEN_SELECTOR_POPOVER_WIDTH,
   TOKEN_SELECTOR_ROW_HEIGHT,
+  TOKEN_SELECTOR_TABLE_PADDING,
 } from './constants';
 import { useMarketStockSelectorList } from './useMarketStockSelectorList';
 
 const STOCK_SELECTOR_LIST_HEIGHT = 350;
-const STOCK_SELECTOR_TABLE_HEIGHT =
-  STOCK_SELECTOR_LIST_HEIGHT + TOKEN_SELECTOR_HEADER_HEIGHT;
 
 const MarketStockSelectorList = memo(
   ({
     query,
     category,
     onItemPress,
+    extraHeight = 0,
   }: {
     query?: string;
     category?: string;
     onItemPress: (item: IMarketStockPublicItem) => void;
+    /** Height handed over when no chip band shows above the list. */
+    extraHeight?: number;
   }) => {
     const intl = useIntl();
+    const listHeight = STOCK_SELECTOR_LIST_HEIGHT + extraHeight;
+    const tableHeight = listHeight + TOKEN_SELECTOR_HEADER_HEIGHT;
     // The selector dropdown is a picker, not the full Market Stocks table, so
     // it drops the 24h price range sparkline column.
     const columns = useMarketStockColumns({
@@ -115,7 +120,7 @@ const MarketStockSelectorList = memo(
       return (
         <YStack
           testID="market-stock-selector-loading"
-          height={STOCK_SELECTOR_TABLE_HEIGHT}
+          height={tableHeight}
           alignItems="center"
           justifyContent="center"
         >
@@ -127,7 +132,7 @@ const MarketStockSelectorList = memo(
     if (isError) {
       return (
         <YStack
-          height={STOCK_SELECTOR_TABLE_HEIGHT}
+          height={tableHeight}
           alignItems="center"
           justifyContent="center"
         >
@@ -152,7 +157,7 @@ const MarketStockSelectorList = memo(
     if (items.length === 0 && !canLoadMore) {
       return (
         <YStack
-          height={STOCK_SELECTOR_TABLE_HEIGHT}
+          height={tableHeight}
           alignItems="center"
           justifyContent="center"
         >
@@ -165,21 +170,21 @@ const MarketStockSelectorList = memo(
     }
 
     return (
-      <YStack height={STOCK_SELECTOR_TABLE_HEIGHT}>
+      <YStack height={tableHeight} px={TOKEN_SELECTOR_TABLE_PADDING}>
         <Table<IMarketStockPublicItem>
           columns={columns}
           dataSource={items}
           keyExtractor={(item) => item.stockId}
           estimatedItemSize={TOKEN_SELECTOR_ROW_HEIGHT}
-          estimatedListSize={{ width: 800, height: STOCK_SELECTOR_LIST_HEIGHT }}
+          estimatedListSize={{
+            width: TOKEN_SELECTOR_POPOVER_WIDTH,
+            height: listHeight,
+          }}
           rowProps={{
             bg: '$bg',
             width: '100%',
             height: TOKEN_SELECTOR_ROW_HEIGHT,
             minHeight: TOKEN_SELECTOR_ROW_HEIGHT,
-            // The Table bakes an $3 radius into every row; the selector rows
-            // hover edge-to-edge like the other tabs, so it is squared off.
-            borderRadius: '$0',
           }}
           // Table spreads rowProps into the header row before headerRowProps,
           // so the row minHeight must be overridden here or the header stays

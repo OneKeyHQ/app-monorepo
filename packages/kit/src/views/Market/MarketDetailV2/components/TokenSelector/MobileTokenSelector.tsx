@@ -1,31 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
-import { FlatList } from 'react-native';
 
-import {
-  Button,
-  Page,
-  ScrollView,
-  SearchBar,
-  SizableText,
-  Spinner,
-  Stack,
-  Toast,
-  YStack,
-} from '@onekeyhq/components';
+import { Page, SearchBar, Stack, Toast, YStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
 import { useToMarketStockDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/hooks/useToMarketStockDetailPage';
-import { MobileMarketStockListItem } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/MobileMarketStockListItem';
-import {
-  MarketNormalTokenList,
-  MarketWatchlistTokenList,
-} from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList';
-import { TokenListItem } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/components/TokenListItem';
 import { MarketStockCategorySelector } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketStockCategorySelector';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import {
@@ -43,10 +26,7 @@ import type {
   IMarketAssetListItem,
   IMarketSearchV2Token,
 } from '@onekeyhq/shared/types/market';
-import type {
-  IMarketStockPublicItem,
-  IMarketTokenDetailPreview,
-} from '@onekeyhq/shared/types/marketV2';
+import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
 import { prewarmMarketTokenImages } from '../../utils/marketDetailImagePreload';
 import {
@@ -54,18 +34,23 @@ import {
   buildMarketTokenDetailPreview,
 } from '../../utils/marketDetailPreview';
 
-import { ALL_NETWORK_ID, TOKEN_SELECTOR_POLLING_INTERVAL } from './constants';
 import {
+  DETAIL_SELECTOR_TOKEN_CATEGORY,
   DetailSelectorBrowseTabs,
   type IDetailSelectorBrowseTab,
   type IDetailSelectorDefaultCategory,
   useDetailSelectorBrowseState,
 } from './detailSelectorBrowse';
 import { dismissMobileTokenSelectorKeyboard } from './dismissMobileTokenSelectorKeyboard';
+import {
+  MobileSelectorCategoryTokenList,
+  MobileSelectorStockList,
+  MobileSelectorTopCoinsList,
+  MobileSelectorWatchlistList,
+} from './MobileMarketSelectorBrowseLists';
 import { MobileMarketTokenSelectorSearchResults } from './MobileMarketTokenSelectorSearchResults';
 import { navigateToMarketTokenDetail } from './navigateToMarketTokenDetail';
 import { useLiveTokenOverride } from './useLiveTokenOverride';
-import { useMarketStockSelectorList } from './useMarketStockSelectorList';
 import { useMobileStockSelectorNavigation } from './useMobileStockSelectorNavigation';
 
 function normalizeRouteBooleanParam(value: boolean | string | undefined) {
@@ -73,140 +58,6 @@ function normalizeRouteBooleanParam(value: boolean | string | undefined) {
     return value === 'true';
   }
   return value;
-}
-
-function toMobileTopCoin(item: IMarketAssetListItem): IMarketToken {
-  const price = Number(item.price);
-  const change24h = Number(item.priceChange24hPercent);
-  return {
-    id: item.assetId,
-    assetId: item.assetId,
-    name: item.symbol.toUpperCase(),
-    symbol: item.symbol.toUpperCase(),
-    address: '',
-    decimals: 0,
-    price: Number.isFinite(price) ? price : 0,
-    change24h: Number.isFinite(change24h) ? change24h : 0,
-    priceChangeRaw: item.priceChange24hPercent,
-    marketCap: Number(item.marketCap) || 0,
-    liquidity: 0,
-    transactions: 0,
-    uniqueTraders: 0,
-    holders: 0,
-    turnover: Number(item.volume24h) || 0,
-    tokenImageUri: item.logoUrl,
-    networkLogoUri: '',
-    networkId: '',
-  };
-}
-
-function MobileDetailStockBrowseList({
-  category,
-  onItemPress,
-}: {
-  category: string;
-  onItemPress: (item: IMarketStockPublicItem) => void;
-}) {
-  const intl = useIntl();
-  const {
-    items,
-    isLoading,
-    isError,
-    canLoadMore,
-    isLoadingMore,
-    loadMore,
-    refresh,
-  } = useMarketStockSelectorList({ query: '', category });
-
-  if (isLoading && items.length === 0) {
-    return (
-      <YStack flex={1} alignItems="center" justifyContent="center">
-        <Spinner size="large" />
-      </YStack>
-    );
-  }
-  if (isError && items.length === 0) {
-    return (
-      <YStack flex={1} alignItems="center" justifyContent="center" gap="$2">
-        <SizableText color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.global_connet_error_try_again,
-          })}
-        </SizableText>
-        <Button
-          size="small"
-          variant="tertiary"
-          testID="mobile-market-token-selector-stock-browse-retry"
-          onPress={() => void refresh()}
-        >
-          {intl.formatMessage({ id: ETranslations.global_retry })}
-        </Button>
-      </YStack>
-    );
-  }
-
-  return (
-    <ScrollView flex={1}>
-      {items.map((item) => (
-        <MobileMarketStockListItem
-          key={item.stockId}
-          item={item}
-          onPress={onItemPress}
-        />
-      ))}
-      {canLoadMore ? (
-        <Button
-          alignSelf="center"
-          my="$2"
-          size="small"
-          variant="tertiary"
-          testID="mobile-market-token-selector-stock-browse-show-more"
-          loading={isLoadingMore}
-          onPress={() => void loadMore()}
-        >
-          {intl.formatMessage({ id: ETranslations.global_show_more })}
-        </Button>
-      ) : null}
-    </ScrollView>
-  );
-}
-
-function MobileDetailTopCoinsList({
-  data,
-  isLoading,
-  onItemPress,
-}: {
-  data: IMarketAssetListItem[];
-  isLoading: boolean;
-  onItemPress: (item: IMarketAssetListItem) => void;
-}) {
-  const renderItem = useCallback(
-    ({ item }: { item: IMarketAssetListItem }) => (
-      <TokenListItem
-        item={toMobileTopCoin(item)}
-        onPress={() => onItemPress(item)}
-      />
-    ),
-    [onItemPress],
-  );
-  if (isLoading && data.length === 0) {
-    return (
-      <YStack flex={1} alignItems="center" justifyContent="center">
-        <Spinner size="large" />
-      </YStack>
-    );
-  }
-  return (
-    <FlatList
-      data={data}
-      keyExtractor={(item) => item.assetId}
-      renderItem={renderItem}
-      initialNumToRender={12}
-      maxToRenderPerBatch={20}
-      windowSize={7}
-      style={{ flex: 1 }}
-    />
-  );
 }
 
 function MobileTokenSelectorContent() {
@@ -386,6 +237,23 @@ function MobileTokenSelectorContent() {
     [navigateToTokenDetail],
   );
 
+  // The Trending chip names its fixed window, e.g. "24h Trending".
+  const chipCategories = useMemo(
+    () =>
+      subCategories.map((category) =>
+        category.id === DETAIL_SELECTOR_TOKEN_CATEGORY
+          ? {
+              ...category,
+              name: intl.formatMessage(
+                { id: ETranslations.market_trending_in_range },
+                { range: selectorTimeRange },
+              ),
+            }
+          : category,
+      ),
+    [intl, selectorTimeRange, subCategories],
+  );
+
   const handleSearchStockSelect = useMobileStockSelectorNavigation({
     navigate: toMarketStockDetailPage,
     requestIdRef: navigationRequestIdRef,
@@ -408,7 +276,7 @@ function MobileTokenSelectorContent() {
           <SearchBar
             autoFocus
             placeholder={intl.formatMessage({
-              id: ETranslations.global_search_asset,
+              id: ETranslations.market_search_token_stock_address,
             })}
             value={searchValue}
             onChangeText={setSearchValue}
@@ -429,24 +297,26 @@ function MobileTokenSelectorContent() {
               value={browseTab}
               onChange={handleBrowseTabChange}
             />
+            {/* Figma 26934:146096 — 16px above the chips and 10px below;
+               a tab without chips starts its list 10px under the tabs. */}
             {subCategories.length > 0 ? (
               <MarketStockCategorySelector
-                categories={subCategories}
+                categories={chipCategories}
                 selectedCategoryId={selectedSubCategoryId}
                 onSelectCategory={handleSubCategoryChange}
-                containerStyle={{ px: '$4', py: '$2' }}
+                containerStyle={{ px: '$5', pt: '$4', pb: '$2.5' }}
               />
-            ) : null}
+            ) : (
+              <YStack h="$2.5" />
+            )}
             {isFavoritesSelection ? (
-              <MarketWatchlistTokenList
+              <MobileSelectorWatchlistList
                 onItemPress={handleTokenSelect}
-                hidePerps
                 liveTokenOverride={liveTokenOverride}
-                pollingInterval={TOKEN_SELECTOR_POLLING_INTERVAL}
               />
             ) : null}
             {isStockSelection ? (
-              <MobileDetailStockBrowseList
+              <MobileSelectorStockList
                 category={stockCategoryId}
                 onItemPress={handleSearchStockSelect}
               />
@@ -454,7 +324,7 @@ function MobileTokenSelectorContent() {
             {!isFavoritesSelection &&
             !isStockSelection &&
             isTopCoinsSelection ? (
-              <MobileDetailTopCoinsList
+              <MobileSelectorTopCoinsList
                 data={topCoins}
                 isLoading={Boolean(isTopCoinsLoading)}
                 onItemPress={handleTopCoinSelect}
@@ -463,13 +333,11 @@ function MobileTokenSelectorContent() {
             {!isFavoritesSelection &&
             !isStockSelection &&
             !isTopCoinsSelection ? (
-              <MarketNormalTokenList
-                onItemPress={handleTokenSelect}
-                networkId={ALL_NETWORK_ID}
-                selectedCategory={tokenCategoryId}
+              <MobileSelectorCategoryTokenList
+                category={tokenCategoryId}
                 timeRange={selectorTimeRange}
+                onItemPress={handleTokenSelect}
                 liveTokenOverride={liveTokenOverride}
-                pollingInterval={TOKEN_SELECTOR_POLLING_INTERVAL}
               />
             ) : null}
           </>

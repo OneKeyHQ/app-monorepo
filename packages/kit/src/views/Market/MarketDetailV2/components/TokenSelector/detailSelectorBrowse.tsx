@@ -23,7 +23,7 @@ export type IDetailSelectorDefaultCategory =
 
 export type IDetailSelectorBrowseTab = 'favorites' | 'stocks' | 'tokens';
 
-const DETAIL_SELECTOR_TOKEN_CATEGORY = 'trending';
+export const DETAIL_SELECTOR_TOKEN_CATEGORY = 'trending';
 const DETAIL_SELECTOR_STOCK_CATEGORY = 'all';
 const EMPTY_DETAIL_SELECTOR_CATEGORIES: IMarketCategoryItem[] = [];
 
@@ -86,13 +86,15 @@ const SelectorTabItem = memo(
   }) => {
     const handlePress = useCallback(() => onPress(id), [id, onPress]);
     return (
+      // Figma 27038:46877 / 27047:35021 — a 44px item whose 2px underline is
+      // always reserved, so switching tabs never shifts the label.
       <XStack
         testID={`market-token-selector-tab-${id}`}
-        py="$3"
-        ml="$4"
-        mr="$2"
-        borderBottomWidth={isFocused ? '$0.5' : '$0'}
-        borderBottomColor="$borderActive"
+        height={44}
+        alignItems="center"
+        justifyContent="center"
+        borderBottomWidth="$0.5"
+        borderBottomColor={isFocused ? '$borderActive' : '$transparent'}
         onPress={handlePress}
         cursor="default"
       >
@@ -121,7 +123,8 @@ export function DetailSelectorBrowseTabs({
       borderBottomWidth="$px"
       borderBottomColor="$borderSubdued"
       bg="$bg"
-      px="$0"
+      px="$5"
+      gap="$5"
     >
       {(['favorites', 'stocks', 'tokens'] as const).map((tabId) => (
         <SelectorTabItem
@@ -224,8 +227,9 @@ export function useDetailSelectorBrowseState({
     !isFavoritesSelection &&
     !isStockSelection &&
     tokenCategoryId === MARKET_TOP_COINS_CATEGORY_ID;
-  const selectorTimeRange: IMarketTimeRangeValue =
-    isFavoritesSelection || isTopCoinsSelection ? '24h' : '1h';
+  // Every selector list ranks and reports on the 24h window, regardless of
+  // the time frame picked on the Market home.
+  const selectorTimeRange: IMarketTimeRangeValue = '24h';
 
   const handleBrowseTabChange = useCallback((tabId: string) => {
     if (!isDetailSelectorBrowseTab(tabId)) {

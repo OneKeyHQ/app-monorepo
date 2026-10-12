@@ -2,14 +2,23 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
 
+import { MARKET_LIST_FIRST_COLUMN_MIN_WIDTH } from '../../../marketDesktopLayoutConstants';
+
 import type { IMarketToken } from '../../../MarketHomeV2/components/MarketTokenList/MarketTokenData';
 
 export const TOKEN_SELECTOR_POLLING_INTERVAL = timerUtils.getTimeDurationMs({
   seconds: 15,
 });
 
-export const TOKEN_SELECTOR_HEADER_HEIGHT = 40;
-export const TOKEN_SELECTOR_ROW_HEIGHT = 56;
+// Figma 27032:42467 — a 16px label line inside 10px vertical padding, and
+// 64px body rows.
+export const TOKEN_SELECTOR_HEADER_HEIGHT = 36;
+export const TOKEN_SELECTOR_ROW_HEIGHT = 64;
+// The table sits 12px inside the popover so the rounded row hover leaves a
+// margin; the cells' own 8px padding lands the content on the 20px gutter the
+// search field, tabs and chips share.
+export const TOKEN_SELECTOR_TABLE_PADDING = 12;
+export const TOKEN_SELECTOR_CONTENT_GUTTER = '$5' as const;
 
 export const TOKEN_SELECTOR_HIDDEN_DESKTOP_COLUMNS = [
   'liquidity',
@@ -25,19 +34,18 @@ export const TOKEN_SELECTOR_STAR_COLUMN_WIDTH = 24;
 export const TOKEN_SELECTOR_NAME_GAP = '$1.5' as const;
 export const TOKEN_SELECTOR_COLUMN_PADDING = '$2' as const;
 
-// Same grid as the stocks tab: a 32% name column, the rest split evenly across
-// the metric columns of the active tab.
-const NAME_COLUMN_PERCENTAGE = 32;
+export const TOKEN_SELECTOR_POPOVER_WIDTH = 840;
 
-export function getTokenSelectorColumnWidths(metricColumnCount: number): {
-  nameColumnWidth: `${number}%`;
-  metricColumnWidth: `${number}%`;
-} {
-  return {
-    nameColumnWidth: `${NAME_COLUMN_PERCENTAGE}%`,
-    metricColumnWidth: `${(100 - NAME_COLUMN_PERCENTAGE) / metricColumnCount}%`,
-  };
-}
+// The chip band under the tabs: 6px above and 10px below a 32px chip row.
+// Tabs without chips (Favorites) hand this height to their list instead, so
+// the popover keeps one height across tabs.
+export const TOKEN_SELECTOR_TOOLBAR_HEIGHT = 48;
+
+// The name column takes the Market list pages' narrowest first column rather
+// than the design's 288, leaving the metric columns more room. Every tab, the
+// stocks one included, uses the same width so they line up.
+export const TOKEN_SELECTOR_NAME_COLUMN_WIDTH =
+  MARKET_LIST_FIRST_COLUMN_MIN_WIDTH;
 
 export type IMarketTokenSelectorMetricColumn =
   | 'price'
@@ -47,25 +55,42 @@ export type IMarketTokenSelectorMetricColumn =
   | 'turnover';
 
 /**
- * `coins` covers every 24h-metric data set (favorites, top coins, search),
- * `trending` covers the v2 category list whose metrics follow the requested
- * time frame. Header labels and row cells both map over these lists so the
- * two can never drift apart.
+ * `favorites` and `coins` (top coins, search) carry 24h listing metrics,
+ * `trending` covers the v2 category list (Trending / Robinhood). Header labels
+ * and row cells both map over these lists so the two can never drift apart.
  */
-export type IMarketTokenSelectorColumnVariant = 'coins' | 'trending';
+export type IMarketTokenSelectorColumnVariant =
+  | 'favorites'
+  | 'coins'
+  | 'trending';
 
 export const TOKEN_SELECTOR_METRIC_COLUMNS: Record<
   IMarketTokenSelectorColumnVariant,
   IMarketTokenSelectorMetricColumn[]
 > = {
+  favorites: ['price', 'change', 'turnover'],
   coins: ['price', 'change', 'marketCap', 'turnover'],
   trending: ['marketCap', 'price', 'change', 'liquidity', 'turnover'],
 };
 
+/**
+ * Relative widths of the metric columns; unlisted columns weigh 1. Trending
+ * and Robinhood fit five metrics, so the two whose values run widest — small
+ * prices like `$0.0004657` and changes like `+20,028.32%` — take a larger
+ * share than the compact `$1.2M`-style amounts beside them.
+ */
+export const TOKEN_SELECTOR_METRIC_FLEX: Record<
+  IMarketTokenSelectorColumnVariant,
+  Partial<Record<IMarketTokenSelectorMetricColumn, number>>
+> = {
+  favorites: {},
+  coins: {},
+  trending: { price: 1.25, change: 1.25 },
+};
+
 export interface IMarketTokenSelectorColumns {
-  nameColumnWidth: `${number}%`;
-  metricColumnWidth: `${number}%`;
   metrics: IMarketTokenSelectorMetricColumn[];
+  flex: Partial<Record<IMarketTokenSelectorMetricColumn, number>>;
 }
 
 // Default all-networks ID (constant, never changes)

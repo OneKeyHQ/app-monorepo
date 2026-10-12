@@ -22,25 +22,30 @@ import {
   type IMarketWatchlistDataCache,
   useMarketWatchlistTokenList,
 } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList';
+import { isTrendingStyleSpotCategory } from '../../../MarketHomeV2/utils';
 import { buildMarketSearchTokenDetailPreview } from '../../utils/marketDetailPreview';
 
 import {
   TOKEN_SELECTOR_COLUMN_PADDING,
   TOKEN_SELECTOR_HEADER_HEIGHT,
   TOKEN_SELECTOR_METRIC_COLUMNS,
+  TOKEN_SELECTOR_METRIC_FLEX,
+  TOKEN_SELECTOR_NAME_COLUMN_WIDTH,
   TOKEN_SELECTOR_NAME_GAP,
   TOKEN_SELECTOR_POLLING_INTERVAL,
   TOKEN_SELECTOR_ROW_HEIGHT,
   TOKEN_SELECTOR_STAR_COLUMN_WIDTH,
+  TOKEN_SELECTOR_TABLE_PADDING,
   convertSearchTokenToMarketToken,
-  getTokenSelectorColumnWidths,
 } from './constants';
 import { MarketTokenSelectorRow } from './MarketTokenSelectorRow';
 
 import type {
+  IMarketTokenSelectorColumnVariant,
   IMarketTokenSelectorColumns,
   IMarketTokenSelectorMetricColumn,
 } from './constants';
+import type { IMarketTokenSelectorSubtitleVariant } from './MarketTokenSelectorRow';
 import type { IMarketToken } from '../../../MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import type { IMarketTimeRangeValue } from '../../../MarketHomeV2/types';
 
@@ -81,6 +86,8 @@ interface IMarketTokenSelectorListProps {
   searchResults?: (IMarketSearchV2Token & { networkLogoURI: string })[];
   dataOverride?: IMarketTokenSelectorItem[];
   dataOverrideLoading?: boolean;
+  /** Height handed over by a tab that shows no chip band above the list. */
+  extraHeight?: number;
 }
 
 // Shared ListView renderer to eliminate duplication across list variants
@@ -90,7 +97,7 @@ function TokenSelectorListView({
   networkId,
   onItemPress,
   emptyMessage,
-  showAddress = true,
+  subtitleVariant = 'name',
   columns,
   listHeader,
 }: {
@@ -99,7 +106,7 @@ function TokenSelectorListView({
   networkId: string;
   onItemPress: (item: IMarketTokenSelectorItem) => void;
   emptyMessage?: string;
-  showAddress?: boolean;
+  subtitleVariant?: IMarketTokenSelectorSubtitleVariant;
   columns: IMarketTokenSelectorColumns;
   listHeader: ReactElement;
 }) {
@@ -107,7 +114,7 @@ function TokenSelectorListView({
   // themselves — it must never disappear while a tab is switching or empty.
   if (isLoading && data.length === 0) {
     return (
-      <YStack flex={1}>
+      <YStack flex={1} px={TOKEN_SELECTOR_TABLE_PADDING}>
         {listHeader}
         <YStack flex={1} justifyContent="center" alignItems="center">
           <Spinner size="large" />
@@ -118,7 +125,7 @@ function TokenSelectorListView({
 
   if (!isLoading && data.length === 0 && emptyMessage) {
     return (
-      <YStack flex={1}>
+      <YStack flex={1} px={TOKEN_SELECTOR_TABLE_PADDING}>
         {listHeader}
         <YStack flex={1} alignItems="center" justifyContent="center">
           <Empty illustration="QuestionMark" title={emptyMessage} />
@@ -139,11 +146,13 @@ function TokenSelectorListView({
           item={item}
           networkId={networkId}
           onPress={onItemPress}
-          showAddress={showAddress}
+          subtitleVariant={subtitleVariant}
           columns={columns}
         />
       )}
-      contentContainerStyle={{ paddingBottom: 10 }}
+      contentContainerStyle={{
+        paddingHorizontal: TOKEN_SELECTOR_TABLE_PADDING,
+      }}
     />
   );
 }
@@ -217,6 +226,9 @@ const CategoryTokenSelectorList = memo(
     const { data, isLoading } = useMarketTokenList({
       networkId,
       type: selectedCategory,
+      // Same request as the desktop Market home tab: Trending-style lists rank
+      // by the API's own order instead of a client sort field.
+      useApiDefaultSort: isTrendingStyleSpotCategory(selectedCategory),
       timeRange,
       pollingInterval: pollingInterval ?? TOKEN_SELECTOR_POLLING_INTERVAL,
     });
@@ -227,6 +239,7 @@ const CategoryTokenSelectorList = memo(
         isLoading={isLoading}
         networkId={networkId}
         onItemPress={onItemPress}
+        subtitleVariant="ageAddress"
         columns={columns}
         listHeader={listHeader}
       />
@@ -330,7 +343,6 @@ function ListContent({
         isLoading={dataOverrideLoading}
         networkId={networkId}
         onItemPress={onItemPress}
-        showAddress={false}
         columns={columns}
         listHeader={listHeader}
       />
@@ -363,6 +375,7 @@ const MarketTokenSelectorList = memo(
     searchResults,
     dataOverride,
     dataOverrideLoading,
+    extraHeight = 0,
   }: IMarketTokenSelectorListProps) => {
     const intl = useIntl();
 
@@ -372,15 +385,20 @@ const MarketTokenSelectorList = memo(
     const metricsTimeRange: IMarketTimeRangeValue = isCategoryList
       ? (timeRange ?? '24h')
       : '24h';
+    let columnVariant: IMarketTokenSelectorColumnVariant = 'coins';
+    if (isCategoryList) {
+      columnVariant = 'trending';
+    } else if (isWatchlistMode && !searchQuery) {
+      columnVariant = 'favorites';
+    }
 
-    const columns = useMemo<IMarketTokenSelectorColumns>(() => {
-      const metrics =
-        TOKEN_SELECTOR_METRIC_COLUMNS[isCategoryList ? 'trending' : 'coins'];
-      return {
-        ...getTokenSelectorColumnWidths(metrics.length),
-        metrics,
-      };
-    }, [isCategoryList]);
+    const columns = useMemo<IMarketTokenSelectorColumns>(
+      () => ({
+        metrics: TOKEN_SELECTOR_METRIC_COLUMNS[columnVariant],
+        flex: TOKEN_SELECTOR_METRIC_FLEX[columnVariant],
+      }),
+      [columnVariant],
+    );
 
     const metricTitles = useMemo<
       Record<IMarketTokenSelectorMetricColumn, string>
@@ -418,7 +436,8 @@ const MarketTokenSelectorList = memo(
           bg="$bg"
         >
           <XStack
-            width={columns.nameColumnWidth}
+            width={TOKEN_SELECTOR_NAME_COLUMN_WIDTH}
+            flexShrink={0}
             px={TOKEN_SELECTOR_COLUMN_PADDING}
             alignItems="center"
             gap={TOKEN_SELECTOR_NAME_GAP}
@@ -438,7 +457,9 @@ const MarketTokenSelectorList = memo(
           {columns.metrics.map((metric) => (
             <XStack
               key={metric}
-              width={columns.metricColumnWidth}
+              flex={columns.flex[metric] ?? 1}
+              flexBasis={0}
+              minWidth={0}
               px={TOKEN_SELECTOR_COLUMN_PADDING}
               alignItems="center"
             >
@@ -457,7 +478,7 @@ const MarketTokenSelectorList = memo(
     );
 
     return (
-      <YStack height={TOKEN_SELECTOR_LIST_CONTAINER_HEIGHT}>
+      <YStack height={TOKEN_SELECTOR_LIST_CONTAINER_HEIGHT + extraHeight}>
         <ListContent
           searchQuery={searchQuery}
           searchResults={searchResults}
