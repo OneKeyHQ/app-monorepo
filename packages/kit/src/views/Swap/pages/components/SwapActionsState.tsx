@@ -79,6 +79,7 @@ import {
   getSwapRecipientValidationAccountId,
   shouldShowSwapRecipientEntry,
 } from '../../hooks/useSwapAccount.utils';
+import { useSwapDepositEntryPress } from '../../hooks/useSwapDepositEntry';
 import {
   shouldBlockSwapActionForIncognitoRecipientInput,
   shouldEnableSwapIncognitoRecipientValidation,
@@ -188,8 +189,12 @@ const SwapActionsState = ({
       useCustomRecipientAddress: false,
     },
   );
-  const { cleanQuoteInterval, closeQuoteEvent, quoteAction } =
-    useSwapActions().current;
+  const {
+    cleanQuoteInterval,
+    closeQuoteEvent,
+    loadSwapSelectTokenDetail,
+    quoteAction,
+  } = useSwapActions().current;
   const swapActionState = useSwapActionState();
   const noConnectWallet = Boolean(
     forceNoConnectWallet || swapActionState.noConnectWallet,
@@ -479,6 +484,7 @@ const SwapActionsState = ({
   const shouldBlockIncognitoRecipientAction =
     shouldBlockSwapActionForIncognitoRecipientInput({
       inputText: incognitoRecipientInput.inputText,
+      isDepositAction: swapActionState.shouldDepositToTrade,
       isConnectWalletAction: noConnectWallet,
       loading: incognitoRecipientInput.loading,
       queryResult: incognitoRecipientInput.queryResult,
@@ -486,9 +492,29 @@ const SwapActionsState = ({
       visible: shouldShowIncognitoRecipientInput,
     });
 
+  const refreshFromTokenBalance = useCallback(() => {
+    void loadSwapSelectTokenDetail(
+      ESwapDirectionType.FROM,
+      swapFromAddressInfo,
+      true,
+    );
+  }, [loadSwapSelectTokenDetail, swapFromAddressInfo]);
+  // Withhold accountInfo while the cross-network account lookup is pending or
+  // has no target result, so a tap resolves the right account from
+  // activeAccount instead of opening Receive for the wrong network.
+  const onDepositToTrade = useSwapDepositEntryPress({
+    token: fromToken,
+    accountInfo: swapFromAddressInfo.isAddressInfoReady
+      ? swapFromAddressInfo.accountInfo
+      : undefined,
+    activeAccount: swapFromAddressInfo.activeAccount,
+    onClose: refreshFromTokenBalance,
+  });
+
   const shouldShowQuoteActionLoading =
     !noConnectWallet &&
     !swapActionState.isRefreshQuote &&
+    !swapActionState.shouldDepositToTrade &&
     (swapActionState.isQuoteActionLoading || Boolean(forceQuoteActionLoading));
   const isActionDisabled = noConnectWallet
     ? shouldRedirectOnboardingToTravelMode()
@@ -512,6 +538,10 @@ const SwapActionsState = ({
           },
         });
       }
+      return;
+    }
+    if (swapActionState.shouldDepositToTrade) {
+      onDepositToTrade();
       return;
     }
     if (shouldBlockIncognitoRecipientAction) {
@@ -542,6 +572,7 @@ const SwapActionsState = ({
     onPreSwap();
   }, [
     currentQuoteRes?.kind,
+    onDepositToTrade,
     navigation,
     onOpenRecipientAddress,
     onPreSwap,
@@ -550,6 +581,7 @@ const SwapActionsState = ({
     quoteActionLock.kind,
     shouldBlockIncognitoRecipientAction,
     swapActionState.isRefreshQuote,
+    swapActionState.shouldDepositToTrade,
     noConnectWallet,
     swapActionState.shouldEnterRecipient,
     swapIncognitoMode,
