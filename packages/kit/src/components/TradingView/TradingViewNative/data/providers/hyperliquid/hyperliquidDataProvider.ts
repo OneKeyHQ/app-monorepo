@@ -1,5 +1,8 @@
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketTokenKLineDataPoint,
+  IMarketTokenKLineResponse,
+} from '@onekeyhq/shared/types/marketV2';
 
 import { getTradingViewNativeSourceKey } from '../../getTradingViewNativeSource';
 
@@ -25,6 +28,7 @@ type IHyperliquidSource = Extract<
 >;
 
 const HYPERLIQUID_HISTORY_BATCH_SIZE = 5000;
+const CALENDAR_REFRESH_RETRY_DELAY_MS = 5000;
 
 async function subscribeCalendarCandles({
   source,
@@ -42,6 +46,7 @@ async function subscribeCalendarCandles({
     HYPERLIQUID_DAY_SECONDS;
   let refreshedThroughDay = -1;
   let refreshPromise: Promise<void> | undefined;
+  let nextRefreshAt = 0;
   let pendingPoint: IMarketTokenKLineDataPoint | undefined;
   let closed = false;
   const isActive = () => !closed && !signal.aborted;
@@ -64,6 +69,9 @@ async function subscribeCalendarCandles({
     if (refreshPromise) {
       return refreshPromise;
     }
+    if (Date.now() < nextRefreshAt) {
+      return Promise.resolve();
+    }
     refreshPromise = (async () => {
       while (isActive() && refreshedThroughDay < latestDay) {
         const requestedDay = latestDay;
@@ -76,16 +84,23 @@ async function subscribeCalendarCandles({
         const triggeringPoint = pendingPoint;
         pendingPoint = undefined;
         days = new Map();
-        const response = await tradingViewNativeHyperliquidGateway.fetchCandles(
-          {
+        let response: IMarketTokenKLineResponse;
+        try {
+          response = await tradingViewNativeHyperliquidGateway.fetchCandles({
             coin: source.coin,
             environment: source.environment,
             interval: '1d',
             signal,
             timeFrom: bucketStart,
             timeTo: requestedDay + HYPERLIQUID_DAY_SECONDS - 1,
-          },
-        );
+          });
+        } catch (error) {
+          // Keep observed frames for the retry; HTTP must not roll them back.
+          days = new Map([...previousDays, ...days]);
+          pendingPoint ??= triggeringPoint;
+          nextRefreshAt = Date.now() + CALENDAR_REFRESH_RETRY_DELAY_MS;
+          throw error;
+        }
         if (!isActive()) {
           return;
         }
@@ -111,6 +126,7 @@ async function subscribeCalendarCandles({
           ].filter(([timestamp]) => timestamp >= currentBucket),
         );
         refreshedThroughDay = requestedDay;
+        nextRefreshAt = 0;
       }
       publish();
     })().finally(() => {
@@ -223,7 +239,10 @@ export function createTradingViewNativeHyperliquidDataProvider(
         environment: source.environment,
         interval: '1d',
         signal,
-        timeFrom: getHyperliquidCalendarBucketStart(timeFrom, calendarInterval),
+        timeFrom: Math.max(
+          0,
+          getHyperliquidCalendarBucketStart(timeFrom, calendarInterval),
+        ),
         timeTo: Math.min(
           getHyperliquidCalendarBucketEnd(timeTo, calendarInterval),
           Math.floor(Date.now() / 1000),

@@ -119,6 +119,18 @@ describe('Hyperliquid native calendar provider', () => {
     },
   );
 
+  it('keeps weekly boundary prefetch within the SDK timestamp range', async () => {
+    await createTradingViewNativeHyperliquidDataProvider(source).fetchHistory({
+      interval: interval('1W'),
+      signal: new AbortController().signal,
+      timeFrom: 0,
+      timeTo: ts('2026-10-09'),
+    });
+    expect(gateway.fetchCandles.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ interval: '1d', timeFrom: 0 }),
+    );
+  });
+
   it('preserves normal interval history and subscription contracts', async () => {
     const provider = createTradingViewNativeHyperliquidDataProvider(source);
     const signal = new AbortController().signal;
@@ -238,6 +250,33 @@ describe('Hyperliquid native calendar provider', () => {
     await flush();
     expect(onPoint).toHaveBeenLastCalledWith(
       point('2026-10-05', { h: 180, c: 170, v: 50 }),
+    );
+  });
+
+  it('cools down failed daily refreshes and recovers with the latest frame', async () => {
+    const { onPoint, promise } = subscribe();
+    await promise;
+    onPoint.mockClear();
+    gateway.fetchCandles.mockRejectedValueOnce(new Error('rate limited'));
+    listener(point('2026-10-10', { c: 115 }));
+    await flush();
+
+    for (let tick = 0; tick < 5; tick += 1) {
+      listener(point('2026-10-10', { c: 120 + tick, v: 20 }));
+      await flush();
+    }
+    expect(gateway.fetchCandles.mock.calls).toHaveLength(2);
+    expect(onPoint).not.toHaveBeenCalled();
+
+    jest.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-10-09T12:00:05Z'));
+    gateway.fetchCandles.mockResolvedValueOnce(
+      response([point('2026-10-05'), point('2026-10-09'), point('2026-10-10')]),
+    );
+    listener(point('2026-10-10', { c: 125, v: 25 }));
+    await flush();
+    expect(gateway.fetchCandles.mock.calls).toHaveLength(3);
+    expect(onPoint).toHaveBeenLastCalledWith(
+      point('2026-10-05', { c: 125, v: 45 }),
     );
   });
 
