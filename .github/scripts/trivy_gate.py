@@ -16,6 +16,7 @@ import secrets
 import shutil
 import subprocess
 import tempfile
+from urllib.parse import urlsplit
 
 VERSION = '0.70.0'
 SEVERITIES = {'HIGH', 'CRITICAL'}
@@ -23,7 +24,7 @@ POLICY = {
     'version': VERSION, 'scanners': 'vuln,misconfig,secret',
     'severity': 'HIGH,CRITICAL', 'ignoreUnfixed': True,
     'includeDevDeps': False, 'vulnerableVersionReplacement': 'new',
-    'warningPolicy': 'fail', 'identityVersion': 1,
+    'warningPolicy': 'fail-except-unchanged-pinned-yarn-git', 'identityVersion': 1,
     'databases': ['ghcr.io/aquasecurity/trivy-db:2',
                   'ghcr.io/aquasecurity/trivy-java-db:1',
                   'ghcr.io/aquasecurity/trivy-checks:1'],
@@ -225,12 +226,101 @@ def scan_command(binary, root, output, cache, config, frozen):
     return args + ['.']
 
 
-def scan(binary, root, output, cache, config, env, frozen=True):
+def yarn_git_entries(root):
+    entries = {}
+    for file in root.rglob('yarn.lock'):
+        data = source_file(root, str(file.relative_to(root))).read_text()
+        headers = list(re.finditer(r'(?m)^[^\s#][^\n]*(?:\n|$)', data))
+        covered = []
+        for index, match in enumerate(headers):
+            header = match.group().rstrip()
+            protocols = set(re.findall(r'@([a-z][a-z0-9+.-]*):', header))
+            protocols -= {'npm', 'workspace', 'patch', 'file', 'link', 'portal'}
+            if not protocols:
+                continue
+            # Trivy skips Git sources. Admit only unchanged, commit-pinned
+            # GitHub entries; new/edited opaque code cannot be assessed safely.
+            require(protocols == {'https'}, 'unsupported_yarn_source')
+            end = headers[index + 1].start() if index + 1 < len(headers) else len(data)
+            block = data[match.start():end].rstrip('\r\n')
+            resolutions = re.findall(r'(?m)^  resolution: ("(?:[^"\\]|\\.)*")$', block)
+            require(len(resolutions) == 1, 'unsupported_yarn_source')
+            try:
+                resolution = json.loads(resolutions[0])
+                selector, suffix = json.JSONDecoder().raw_decode(header)
+                require(header[suffix:].lstrip().startswith(':'), 'unsupported_yarn_source')
+                patterns = selector.split(', ')
+            except ValueError:
+                raise GateError('unsupported_yarn_source') from None
+            package, separator, location = resolution.rpartition('@https://')
+            url = urlsplit('https://' + location)
+            require(separator and url.netloc == 'github.com' and not url.query
+                    and bool(re.fullmatch('commit=[0-9a-f]{40}', url.fragment)),
+                    'unsupported_yarn_source')
+            for pattern in patterns:
+                name, separator, location = pattern.rpartition('@https://')
+                source = urlsplit('https://' + location)
+                require(separator and name == package and source.netloc == url.netloc
+                        and source.path.removesuffix('.git') == url.path.removesuffix('.git')
+                        and not source.query,
+                        'unsupported_yarn_source')
+            identity = (str(file.relative_to(root)), header)
+            require(identity not in entries, 'unsupported_yarn_source')
+            entries[identity] = digest(block.encode())
+            covered.append((match.start(), end))
+        # Do not overlook sources in indented/nonstandard headers or dependency
+        # fields. Trivy silently skips some Git protocols without warning.
+        for match in re.finditer(r'@([a-z][a-z0-9+.-]*):', data):
+            if match[1] not in {'npm', 'workspace', 'patch', 'file', 'link', 'portal'}:
+                require(any(start <= match.start() < end for start, end in covered),
+                        'unsupported_yarn_source')
+        # YAML double-quoted strings can encode protocol characters. Decode
+        # JSON-compatible strings and reject unsupported escapes, failing closed.
+        quoted = r'"(?:[^"\\]|\\.)*"'
+        require('"' not in re.sub(quoted, '', data, flags=re.S), 'unsupported_yarn_source')
+        for match in re.finditer(quoted, data, flags=re.S):
+            try:
+                value = json.loads(match.group())
+            except ValueError:
+                raise GateError('unsupported_yarn_source') from None
+            protocols = set(re.findall(r'@([a-z][a-z0-9+.-]*):', value))
+            if protocols - {'npm', 'workspace', 'patch', 'file', 'link', 'portal'}:
+                require(any(start <= match.start() < end for start, end in covered),
+                        'unsupported_yarn_source')
+    return entries
+
+
+def yarn_git_warnings(base, merge):
+    entries = {name: yarn_git_entries(root) for name, root in (('base', base), ('merge', merge))}
+    require(all(entries['base'].get(identity) == value
+                for identity, value in entries['merge'].items()),
+            'changed_unsupported_dependency')
+    # Trivy strips the opening header quote before formatting this warning.
+    return {name: Counter("unknown protocol: 'https', line: " + header.removeprefix('"')
+                          for _, header in inventory)
+            for name, inventory in entries.items()}
+
+
+def scan(binary, root, output, cache, config, env, frozen=True, allowed_warnings=None):
     stdout, stderr = execute(scan_command(binary, root, output, cache, config, frozen),
                               cwd=root, env=env)
-    # Fail closed on parser/download/analyzer warnings; do not persist the text,
-    # since warnings may quote credentials or arbitrary input lines.
-    require(not re.search(rb'\b(WARN|ERROR|FATAL)\b', stdout + stderr), 'scanner_warning')
+    # Exceptions are exact parser messages derived from validated source pairs.
+    # Never persist warning text, which can quote credentials or arbitrary input.
+    remaining = Counter(allowed_warnings or {})
+    logs = []
+    for line in (stdout + stderr).splitlines():
+        match = re.fullmatch(rb'[0-9TZ:+. -]+\tWARN\t\[yarn\] Protocol error\terr=("(?:[^"\\]|\\.)*")', line)
+        if match and remaining:
+            try:
+                error = json.loads(match[1])
+            except (ValueError, UnicodeDecodeError):
+                raise GateError('scanner_warning') from None
+            if remaining[error] > 0:
+                remaining.subtract([error])
+                continue
+        logs.append(line)
+    require(not +remaining and not re.search(rb'\b(WARN|ERROR|FATAL)\b', b'\n'.join(logs)),
+            'scanner_warning')
     return read_json(output)
 
 
@@ -323,13 +413,20 @@ def run(args):
             scan(binary, empty, private / 'warmup.json', cache, config, env, frozen=False)
             database = snapshot(cache)
             key = secrets.token_bytes(32)
+            roots = {}
+            for name in ('base', 'merge'):
+                result['phase'] = name
+                roots[name] = private / name
+                export_tree(repo, expected[name], roots[name])
+            allowed_warnings = yarn_git_warnings(roots['base'], roots['merge'])
+            result['opaqueGitDependencyCount'] = sum(allowed_warnings['merge'].values())
             scans = {}
             for name in ('base', 'merge'):
                 result['phase'] = name
-                root = private / name
-                export_tree(repo, expected[name], root)
+                root = roots[name]
                 require(snapshot(cache) == database, 'database_changed')
-                report = scan(binary, root, private / (name + '.json'), cache, config, env)
+                report = scan(binary, root, private / (name + '.json'), cache, config, env,
+                              allowed_warnings=allowed_warnings[name])
                 require(snapshot(cache) == database, 'database_changed')
                 require(digest(binary.read_bytes()) == binary_hash, 'binary_changed')
                 scans[name] = collect(report, root, key)

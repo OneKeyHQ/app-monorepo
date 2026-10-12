@@ -25,7 +25,10 @@ permissions:
 jobs:
   trivy-security-scan:
     name: Trivy Security Scan
-    if: github.event_name != 'pull_request'
+    needs: trivy-pr-gate
+    # Keep the existing scan during first installation on a base branch.
+    # A failed incremental gate must never fall back to a non-blocking scan.
+    if: ${{ always() && !cancelled() && (github.event_name != 'pull_request' || (needs.trivy-pr-gate.result == 'success' && needs.trivy-pr-gate.outputs.policy_available == 'false')) }}
     runs-on: ubuntu-24.04
     permissions:
       actions: read
@@ -64,6 +67,8 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: read
+    outputs:
+      policy_available: ${{ steps.policy.outputs.available }}
     steps:
       - name: Initialize safe failure evidence
         run: |
@@ -85,23 +90,28 @@ jobs:
           persist-credentials: false
           path: trusted
 
-      # Never fall back to the PR's comparator. The introducing PR intentionally
-      # fails this bootstrap check until the policy exists on its base branch.
-      - name: Require trusted gate
+      # Never execute the PR's comparator. Until the exact base has the policy,
+      # the separate full-scan job retains the existing security checks.
+      - name: Select trusted gate or installation scan
+        id: policy
         run: |
-          if [ ! -f trusted/.github/scripts/trivy_gate.py ]; then
-            echo '{"schemaVersion":1,"status":"incomplete","error":"trusted_policy_not_installed"}' > "$RUNNER_TEMP/trivy-evidence/result.json"
-            echo 'Trusted Trivy policy is not installed on the exact base. See the PR description for rollout requirements.' >> "$GITHUB_STEP_SUMMARY"
-            exit 1
+          if [ -f trusted/.github/scripts/trivy_gate.py ]; then
+            echo 'available=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'available=false' >> "$GITHUB_OUTPUT"
+            echo '{"schemaVersion":1,"status":"installation","requiredCheck":"Trivy Security Scan"}' > "$RUNNER_TEMP/trivy-evidence/result.json"
+            echo 'The exact base does not yet contain the trusted Trivy policy. The existing full Trivy scan and SARIF checks are required for this installation PR.' >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Set up pinned Trivy
+        if: steps.policy.outputs.available == 'true'
         uses: aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514
         with:
           version: v0.70.0
           cache: false
 
       - name: Compare exact base and merge with frozen databases
+        if: steps.policy.outputs.available == 'true'
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}

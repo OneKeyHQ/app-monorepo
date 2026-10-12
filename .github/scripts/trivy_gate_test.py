@@ -164,6 +164,102 @@ class GateTests(unittest.TestCase):
                 with self.assertRaisesRegex(gate.GateError, '^scanner_warning$'):
                     gate.scan('trivy', self.root, self.root / 'out', self.root, self.root, {})
 
+    def git_lockfile(self, revision='a' * 40):
+        selector = 'example@https://github.com/example/project#' + 'a' * 40
+        return (json.dumps(selector) + ':\n  version: 1.0.0\n  resolution: '
+                + json.dumps('example@https://github.com/example/project#commit=' + revision)
+                + '\n  dependencies:\n    registry-package: "npm:^1"\n')
+
+    def yarn_warning(self, lockfile):
+        error = "unknown protocol: 'https', line: " + lockfile.splitlines()[0].removeprefix('"')
+        return ('2026-10-12T00:00:00Z\tWARN\t[yarn] Protocol error\terr='
+                + json.dumps(error) + '\n').encode()
+
+    def test_unchanged_pinned_git_dependency_allows_only_its_warning(self):
+        base, merge = self.root / 'base', self.root / 'merge'
+        base.mkdir()
+        merge.mkdir()
+        lockfile = self.git_lockfile()
+        (base / 'yarn.lock').write_text(lockfile)
+        (merge / 'yarn.lock').write_text(lockfile + '\n"registry-package@npm:^1":\n  version: 1.1.0\n')
+        allowed = gate.yarn_git_warnings(base, merge)
+        output = self.root / 'out'
+        output.write_text(json.dumps(self.report))
+        with patch.object(gate, 'execute', return_value=(b'', self.yarn_warning(lockfile))):
+            self.assertEqual(gate.scan('trivy', merge, output, self.root, self.root, {},
+                                      allowed_warnings=allowed['merge']), self.report)
+        for log in (self.yarn_warning(lockfile) + b'WARN another private error',
+                    self.yarn_warning(lockfile) * 2,
+                    self.yarn_warning(lockfile).replace(b'[yarn]', b'[npm]'), b''):
+            with self.subTest(log_shape=len(log)), \
+                 patch.object(gate, 'execute', return_value=(b'', log)), \
+                 self.assertRaisesRegex(gate.GateError, '^scanner_warning$'):
+                gate.scan('trivy', merge, output, self.root, self.root, {},
+                          allowed_warnings=allowed['merge'])
+
+    def test_changed_or_new_git_dependency_fails_coverage(self):
+        base, merge = self.root / 'base', self.root / 'merge'
+        base.mkdir()
+        merge.mkdir()
+        lockfile = self.git_lockfile()
+        (base / 'yarn.lock').write_text(lockfile)
+        for candidate in (self.git_lockfile('b' * 40),
+                          lockfile.replace('version: 1.0.0', 'version: 2.0.0'),
+                          lockfile.replace('"npm:^1"', '"npm:^2"'),
+                          lockfile + '\n' + lockfile.replace('example@', 'new-package@')):
+            (merge / 'yarn.lock').write_text(candidate)
+            with self.subTest(candidate_length=len(candidate)), \
+                 self.assertRaisesRegex(gate.GateError, '^changed_unsupported_dependency$'):
+                gate.yarn_git_warnings(base, merge)
+        (merge / 'yarn.lock').write_text('')
+        allowed = gate.yarn_git_warnings(base, merge)
+        self.assertEqual(sum(allowed['base'].values()), 1)
+        self.assertEqual(sum(allowed['merge'].values()), 0)
+
+    def test_unpinned_or_other_git_protocol_remains_unsupported(self):
+        base, merge = self.root / 'base', self.root / 'merge'
+        base.mkdir()
+        merge.mkdir()
+        for invalid in (self.git_lockfile('main'),
+                        self.git_lockfile().replace('https:', 'git+https:'),
+                        self.git_lockfile().replace('github.com', 'other.invalid')):
+            for root in (base, merge):
+                (root / 'yarn.lock').write_text(invalid)
+            with self.subTest(candidate_length=len(invalid)), \
+                 self.assertRaisesRegex(gate.GateError, '^unsupported_yarn_source$'):
+                gate.yarn_git_warnings(base, merge)
+
+    def test_yarn_git_url_canonicalization_retains_pinned_resolution(self):
+        base, merge = self.root / 'base', self.root / 'merge'
+        base.mkdir()
+        merge.mkdir()
+        lockfile = self.git_lockfile().replace('project#commit=', 'project.git#commit=')
+        for root in (base, merge):
+            (root / 'yarn.lock').write_text(lockfile)
+        allowed = gate.yarn_git_warnings(base, merge)
+        self.assertEqual(sum(allowed['merge'].values()), 1)
+
+    def test_new_silently_skipped_git_headers_cannot_hide_from_coverage(self):
+        base, merge = self.root / 'base', self.root / 'merge'
+        base.mkdir()
+        merge.mkdir()
+        lockfile = self.git_lockfile()
+        (base / 'yarn.lock').write_text(lockfile)
+        new = self.git_lockfile().replace('https:', 'git+https:')
+        for candidate in (new.replace(':\n', ': \n', 1),
+                          new.replace(':\n', ': # comment\n', 1), new.rstrip('\n'),
+                          new.replace('git+https:', 'git+http\\u0073:'),
+                          new.replace('@git+', '\\u0040git+'),
+                          '"registry-package@npm:^1":\n  version: 1\n  resolution: "example@ht\\\n    tps://github.com/example/project#commit=' + 'a' * 40 + '"\n',
+                          '"registry-package@npm:^1":\n  version: 1\n  resolution: "example@ht\\\n    tps://github.com/example/project#commit=' + 'a' * 40,
+                          '\n'.join('  ' + line for line in new.splitlines()),
+                          self.git_lockfile().replace('"example@https://github.com/example/project#' + 'a' * 40 + '"', '"example@npm:1.0.0"', 1),
+                          '"registry-package@npm:^1":\n  version: 1\n  dependency: "example@git+https://github.com/example/project"\n'):
+            (merge / 'yarn.lock').write_text(lockfile + '\n' + candidate)
+            with self.subTest(candidate_length=len(candidate)), \
+                 self.assertRaisesRegex(gate.GateError, '^(unsupported_yarn_source|changed_unsupported_dependency)$'):
+                gate.yarn_git_warnings(base, merge)
+
     def test_scan_failure_and_timeout(self):
         with self.assertRaises(gate.GateError):
             gate.execute(['/nonexistent/trivy'])
