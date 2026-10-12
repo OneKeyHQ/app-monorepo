@@ -404,10 +404,8 @@ describe('InviteTabContent entry points', () => {
       renderTab();
 
       fireEvent.click(screen.getByText(ETranslations.referral_referred_type_3));
-      fireEvent.click(screen.getByText(ETranslations.referral_perps));
-      fireEvent.click(
-        screen.getByText(ETranslations.swap_referral_link__title),
-      );
+      fireEvent.click(screen.getByText(ETranslations.perps_perps));
+      fireEvent.click(screen.getByText(ETranslations.global_swap));
       fireEvent.click(screen.getByText(ETranslations.referral_referred_type_2));
 
       expect(mockNavigateToHardwareSalesReward).toHaveBeenCalledTimes(1);
@@ -425,7 +423,7 @@ describe('InviteTabContent entry points', () => {
       Onchain: { ...SUMMARY.Onchain, available: [], swap: [] },
     } as unknown as IInviteSummary);
 
-    expect(screen.queryByText(ETranslations.referral_perps)).toBeNull();
+    expect(screen.queryByText(ETranslations.perps_perps)).toBeNull();
   });
 
   it('explains hardware pending rewards without repeating the payout date', () => {

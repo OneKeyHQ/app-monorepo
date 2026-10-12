@@ -23,7 +23,6 @@ import type {
 } from '@onekeyhq/shared/src/referralCode/type';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
-import { REFERRAL_USD_CURRENCY_PROPS } from '../../shared/getRewardSummary';
 import {
   INVITE_CARD_BORDER_COLOR,
   useInviteListCardStyle,
@@ -143,8 +142,6 @@ function InviteCodeRow({
               size="$bodyMdMedium"
               formatter="value"
               numberOfLines={1}
-              // Reward figures are shown in USD across the referral pages.
-              targetCurrency={REFERRAL_USD_CURRENCY_PROPS.targetCurrency}
             >
               {item.cumulativeRewardsFiatValue}
             </Currency>
@@ -190,7 +187,9 @@ function InviteCodeRow({
   }
 
   // Wide rows read across: the code with its note and date, the figures,
-  // then both actions.
+  // then both actions. Zero flex bases keep the columns the same width on
+  // every row, so a long code or note truncates instead of shifting the
+  // figures or pushing the actions out of view.
   return (
     <XStack
       ai="center"
@@ -199,12 +198,12 @@ function InviteCodeRow({
       borderTopWidth={isFirst ? 0 : 1}
       borderColor={INVITE_CARD_BORDER_COLOR}
     >
-      <YStack flex={1} minWidth={0} gap="$1">
+      <YStack flex={1} flexBasis={0} minWidth={0} gap="$1">
         {header}
         {note}
         {createdAt}
       </YStack>
-      <YStack flex={1.4} minWidth={0}>
+      <YStack flex={1.4} flexBasis={0} minWidth={0}>
         {stats}
       </YStack>
       <XStack ai="center" gap="$2" flexShrink={0}>

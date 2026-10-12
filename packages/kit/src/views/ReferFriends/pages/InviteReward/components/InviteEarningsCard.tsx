@@ -31,7 +31,7 @@ import { ReferFriendsTestIDs } from '../../../testIDs';
 import { CardTextAction } from './CardTextAction';
 import { getInviteEarningsState } from './getInviteEarningsState';
 import { InviteStatCell as StatCell } from './InviteStatCell';
-import { REFERRAL_USD_CURRENCY_PROPS } from './shared/getRewardSummary';
+import { REFERRAL_USD_SOURCE_PROPS } from './shared/getRewardSummary';
 import {
   COMPACT_ENTRY_TITLE_PROPS,
   COMPACT_ROW_BLEED_PROPS,
@@ -51,12 +51,11 @@ interface IEarningsLabels {
   nextPayout: string | null;
 }
 
-// Desktop's lead figure. Like every referral amount it stays in USD whatever
-// the wallet currency is, and its $ sign is the unit.
+// Desktop's lead figure, in the wallet currency like every referral amount.
 function LeadAmount({ amount }: { amount: string }) {
   return (
     <Currency
-      {...REFERRAL_USD_CURRENCY_PROPS}
+      {...REFERRAL_USD_SOURCE_PROPS}
       size="$heading4xl"
       numberOfLines={1}
       flexShrink={1}
@@ -75,7 +74,8 @@ interface IPayoutAddressVisibility {
 
 // The payout address with the chain it is paid on, so people can tell where
 // the rewards land; only shown once an address is set. A set address can be
-// masked with the eye button, whose press stays off the cell.
+// masked with the eye button, whose press stays off the cell. The mask covers
+// the address instead of replacing it, so the buttons keep their place.
 function PayoutAddressValue({
   address,
   networkId,
@@ -99,9 +99,29 @@ function PayoutAddressValue({
           size={size === '$bodyMd' ? '$3.5' : '$4'}
         />
       ) : null}
-      <SizableText size={size} color={color} numberOfLines={1} flexShrink={1}>
-        {isHidden ? HIDDEN_ADDRESS_MASK : address}
-      </SizableText>
+      <YStack flexShrink={1} minWidth={0}>
+        <SizableText
+          size={size}
+          color={color}
+          numberOfLines={1}
+          opacity={isHidden ? 0 : 1}
+        >
+          {address}
+        </SizableText>
+        {isHidden ? (
+          <SizableText
+            size={size}
+            color={color}
+            numberOfLines={1}
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+          >
+            {HIDDEN_ADDRESS_MASK}
+          </SizableText>
+        ) : null}
+      </YStack>
       {visibility ? (
         <IconButton
           testID={ReferFriendsTestIDs.invitePayoutAddressVisibility}
@@ -208,7 +228,7 @@ function DesktopEarnings({
           label={labels.distributed}
         >
           <Currency
-            {...REFERRAL_USD_CURRENCY_PROPS}
+            {...REFERRAL_USD_SOURCE_PROPS}
             size="$headingMd"
             numberOfLines={1}
           >
@@ -220,7 +240,7 @@ function DesktopEarnings({
           label={labels.undistributed}
         >
           <Currency
-            {...REFERRAL_USD_CURRENCY_PROPS}
+            {...REFERRAL_USD_SOURCE_PROPS}
             size="$headingMd"
             numberOfLines={1}
           >
@@ -279,7 +299,7 @@ function CompactEarnings({
             {labels.cumulative}
           </SizableText>
           <Currency
-            {...REFERRAL_USD_CURRENCY_PROPS}
+            {...REFERRAL_USD_SOURCE_PROPS}
             size="$heading3xl"
             numberOfLines={1}
             pt="$1"
@@ -302,7 +322,7 @@ function CompactEarnings({
           label={labels.distributed}
         >
           <Currency
-            {...REFERRAL_USD_CURRENCY_PROPS}
+            {...REFERRAL_USD_SOURCE_PROPS}
             size="$bodyMdMedium"
             numberOfLines={1}
           >
@@ -316,7 +336,7 @@ function CompactEarnings({
           hint={labels.nextPayout}
         >
           <Currency
-            {...REFERRAL_USD_CURRENCY_PROPS}
+            {...REFERRAL_USD_SOURCE_PROPS}
             size="$bodyMdMedium"
             numberOfLines={1}
           >
@@ -396,8 +416,14 @@ export function InviteEarningsCard({
   const payoutTarget = summaryInfo.withdrawAddresses[0];
   const withdrawAddress = payoutTarget?.address;
   const payoutNetworkId = withdrawAddress ? payoutTarget?.networkId : undefined;
+  // Short enough that the cell never clips it: people check an address by its
+  // last characters, so the tail must always show.
   const payoutAddress = withdrawAddress
-    ? accountUtils.shortenAddress({ address: withdrawAddress })
+    ? accountUtils.shortenAddress({
+        address: withdrawAddress,
+        leadingLength: 6,
+        trailingLength: 4,
+      })
     : intl.formatMessage({
         id: ETranslations.referral_reward_received_address_notset,
       });

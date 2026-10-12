@@ -196,24 +196,17 @@ function RewardDistributionHistoryPageWrapper() {
         })}
       />
       <Page.Body>
-        <InviteWithdrawAddressRow />
         <ReferFriendsPageContainer flex={1} position="relative">
           {sections === undefined ? (
-            <YStack
-              position="absolute"
-              top={0}
-              left={0}
-              right={0}
-              bottom={0}
-              ai="center"
-              jc="center"
-              flex={1}
-            >
+            <YStack flex={1} ai="center" jc="center">
               <Spinner size="large" />
             </YStack>
           ) : (
             <SectionList
               flex={1}
+              // The address row scrolls with the records; as a sibling above
+              // the list it left a blank gap over the first section on phones.
+              ListHeaderComponent={<InviteWithdrawAddressRow />}
               refreshControl={
                 <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
               }
