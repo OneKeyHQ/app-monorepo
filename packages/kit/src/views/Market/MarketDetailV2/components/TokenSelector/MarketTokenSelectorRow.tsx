@@ -7,7 +7,6 @@ import { useIntl } from 'react-intl';
 import {
   Badge,
   Icon,
-  IconButton,
   NATIVE_HIT_SLOP,
   NumberSizeableText,
   SizableText,
@@ -20,16 +19,10 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { getTokenAgeLabel } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketTokenColumns/tokenAgeLabel';
 import { MarketTestIDs } from '@onekeyhq/kit/src/views/Market/testIDs';
-import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { CommunityRecognizedBadge } from '../../../components/CommunityRecognizedBadge';
-import { MarketListingStar } from '../../../components/MarketListingStar';
-import {
-  usePerpsStarV2Checked,
-  useStarV2Checked,
-} from '../../../components/MarketStarV2';
 import { StockSourceLogo } from '../../../components/PerpsBadges';
 import { prewarmMarketTokenImages } from '../../utils/marketDetailImagePreload';
 
@@ -40,6 +33,7 @@ import {
   TOKEN_SELECTOR_ROW_HEIGHT,
   TOKEN_SELECTOR_STAR_COLUMN_WIDTH,
 } from './constants';
+import { SelectorTokenStar } from './selectorStar';
 import { SelectorPriceChangeCell } from './selectorTable';
 
 import type {
@@ -116,21 +110,6 @@ const MarketTokenSelectorRow = memo(
       priceChange: item.change24h,
     });
 
-    // Use hooks directly + custom IconButton to match perps FavoriteButton exactly
-    const spotStar = useStarV2Checked({
-      assetId: item.assetId,
-      stockId: item.stockId,
-      chainId: item.chainId ?? networkId ?? '',
-      contractAddress: item.address,
-      from: EWatchlistFrom.Search,
-      tokenSymbol: item.symbol,
-      isNative: item.isNative,
-    });
-    const perpsStar = usePerpsStarV2Checked({
-      perpsCoin: item.perpsCoin ?? '',
-    });
-    const star = item.perpsCoin ? perpsStar : spotStar;
-
     // Trending list items arrive with an empty networkLogoUri (the shared list
     // hook only fills it when a single network is selected), so the chain
     // corner badge resolves from the item's own networkId instead. Top Coins
@@ -149,23 +128,6 @@ const MarketTokenSelectorRow = memo(
           trailingLength: 4,
         })
       : '';
-
-    const starElement = useMemo(
-      () => (
-        <IconButton
-          testID={MarketTestIDs.tokenSelectorRowStarBtn}
-          icon={star.checked ? 'StarSolid' : 'StarOutline'}
-          variant="tertiary"
-          size="small"
-          iconProps={{
-            color: star.checked ? '$iconActive' : '$iconSubdued',
-            size: '$4',
-          }}
-          onPress={star.onPress}
-        />
-      ),
-      [star.checked, star.onPress],
-    );
 
     const renderMetric = (metric: IMarketTokenSelectorMetricColumn) => {
       switch (metric) {
@@ -382,15 +344,7 @@ const MarketTokenSelectorRow = memo(
             alignItems="center"
             justifyContent="center"
           >
-            {item.marketAssetId ? (
-              <MarketListingStar
-                kind="asset"
-                listingId={item.marketAssetId}
-                from={EWatchlistFrom.Search}
-              />
-            ) : (
-              starElement
-            )}
+            <SelectorTokenStar item={item} networkId={networkId} />
           </Stack>
           <XStack flex={1} minWidth={0} alignItems="center" gap="$3">
             <Token

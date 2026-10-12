@@ -18,6 +18,7 @@ import {
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import { MarketStockStar } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/MarketStockStar';
 import { parseMarketStockNumber } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/utils';
 import { applyMarketTokenListLiveOverrides } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketHomeTokenListWebSocket';
 import { useMarketTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketTokenList';
@@ -28,6 +29,7 @@ import type { IMarketTimeRangeValue } from '@onekeyhq/kit/src/views/Market/Marke
 import { isTrendingStyleSpotCategory } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/utils';
 import { MarketTestIDs } from '@onekeyhq/kit/src/views/Market/testIDs';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   NUMBER_FORMATTER,
@@ -38,9 +40,16 @@ import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
 import { CommunityRecognizedBadge } from '../../../components/CommunityRecognizedBadge';
+import { MarketListingStar } from '../../../components/MarketListingStar';
 import { prewarmMarketTokenImages } from '../../utils/marketDetailImagePreload';
 
-import { ALL_NETWORK_ID, TOKEN_SELECTOR_POLLING_INTERVAL } from './constants';
+import {
+  ALL_NETWORK_ID,
+  TOKEN_SELECTOR_NAME_GAP,
+  TOKEN_SELECTOR_POLLING_INTERVAL,
+  TOKEN_SELECTOR_STAR_COLUMN_WIDTH,
+} from './constants';
+import { SelectorTokenStar } from './selectorStar';
 import { useMarketStockSelectorList } from './useMarketStockSelectorList';
 
 import type { IMarketToken } from '../../../MarketHomeV2/components/MarketTokenList/MarketTokenData';
@@ -49,6 +58,12 @@ import type { IMarketToken } from '../../../MarketHomeV2/components/MarketTokenL
 // side padding, a 32px logo, the symbol over a 12px subtitle, and the price
 // over its 24h change on the right.
 const ROW_HEIGHT = 64;
+// The 16px star glyph sits centred in its 24px slot; pulling the slot left by
+// that 4px inset lines the glyph up with the 20px gutter the tabs, section
+// titles and search field share, and hands the space to the name.
+const STAR_GLYPH_SIZE = 16;
+const STAR_SLOT_GUTTER_OFFSET =
+  -(TOKEN_SELECTOR_STAR_COLUMN_WIDTH - STAR_GLYPH_SIZE) / 2;
 const SUBTITLE_LINE_HEIGHT = 16;
 
 function MissingValue({ size }: { size: '$bodyLgMedium' | '$bodySmMedium' }) {
@@ -160,6 +175,7 @@ function BasicMobileMarketSelectorListItem({
   onPressIn,
   height = ROW_HEIGHT,
   nameGap = '$1',
+  star,
 }: {
   testID?: string;
   tokenImageUri: string;
@@ -178,6 +194,8 @@ function BasicMobileMarketSelectorListItem({
   height?: number;
   /** Space between the symbol and what is under it. */
   nameGap?: '$0.5' | '$1';
+  /** The favorite star, drawn in the desktop selector's 24px star slot. */
+  star?: ReactNode;
 }) {
   // List rows may arrive without a chain logo (the all-networks list leaves it
   // empty), so it resolves from the row's own network instead.
@@ -204,13 +222,27 @@ function BasicMobileMarketSelectorListItem({
       onPress={onPress}
       onPressIn={onPressIn}
     >
-      <Token
-        size="md"
-        tokenImageUri={tokenImageUri}
-        tokenImageUris={tokenImageUris}
-        networkImageUri={networkId ? resolvedNetworkLogoUri : undefined}
-        fallbackIcon="CryptoCoinOutline"
-      />
+      {/* Star and logo keep the desktop selector's spacing: a 24px star
+         slot, then 6px to the logo. */}
+      <XStack alignItems="center" gap={TOKEN_SELECTOR_NAME_GAP}>
+        {star ? (
+          <Stack
+            width={TOKEN_SELECTOR_STAR_COLUMN_WIDTH}
+            ml={STAR_SLOT_GUTTER_OFFSET}
+            alignItems="center"
+            justifyContent="center"
+          >
+            {star}
+          </Stack>
+        ) : null}
+        <Token
+          size="md"
+          tokenImageUri={tokenImageUri}
+          tokenImageUris={tokenImageUris}
+          networkImageUri={networkId ? resolvedNetworkLogoUri : undefined}
+          fallbackIcon="CryptoCoinOutline"
+        />
+      </XStack>
       <YStack flex={1} minWidth={0} gap={nameGap} justifyContent="center">
         <XStack alignItems="center" gap="$1" minWidth={0}>
           <SizableText size="$headingMd" numberOfLines={1} flexShrink={1}>
@@ -312,6 +344,7 @@ const MobileSelectorTokenRow = memo(
         subtitle={subtitle}
         price={item.price}
         priceChange={getTokenPriceChange(item)}
+        star={<SelectorTokenStar item={item} />}
         onPress={handlePress}
         onPressIn={handlePressIn}
       />
@@ -500,6 +533,13 @@ const MobileSelectorTopCoinRow = memo(
         tokenImageUri={item.logoUrl}
         symbol={item.symbol.toUpperCase()}
         subtitle={<NameSubtitle name={item.name ?? ''} />}
+        star={
+          <MarketListingStar
+            kind="asset"
+            listingId={item.assetId}
+            from={EWatchlistFrom.Search}
+          />
+        }
         price={item.price ? price : undefined}
         priceChange={item.priceChange24hPercent ? priceChange : undefined}
         onPress={handlePress}
@@ -562,6 +602,7 @@ export const MobileSelectorStockRow = memo(
         tokenImageUri={item.logoUrl}
         symbol={item.symbol}
         subtitle={<StockSubtitle tags={item.tags} name={item.name} />}
+        star={<MarketStockStar stock={item} from={EWatchlistFrom.Search} />}
         price={parseMarketStockNumber(item.price)}
         priceChange={parseMarketStockNumber(item.priceChange24hPercent)}
         onPress={handlePress}
@@ -807,6 +848,7 @@ export const MobileSelectorSearchTokenRow = memo(
         price={item.price}
         priceChange={getTokenPriceChange(item)}
         height={isNativeCoin ? ROW_HEIGHT : SEARCH_TOKEN_ROW_HEIGHT}
+        star={<SelectorTokenStar item={item} />}
         nameGap={isNativeCoin ? '$1' : '$0.5'}
         onPress={onPress}
         onPressIn={handlePressIn}
@@ -854,7 +896,17 @@ export function MobileSelectorSearchSkeleton() {
           gap="$3"
           alignItems="center"
         >
-          <Skeleton w="$8" h="$8" radius="round" />
+          <XStack alignItems="center" gap={TOKEN_SELECTOR_NAME_GAP}>
+            <Stack
+              width={TOKEN_SELECTOR_STAR_COLUMN_WIDTH}
+              ml={STAR_SLOT_GUTTER_OFFSET}
+              alignItems="center"
+              justifyContent="center"
+            >
+              <Skeleton w="$4" h="$4" radius="round" />
+            </Stack>
+            <Skeleton w="$8" h="$8" radius="round" />
+          </XStack>
           <YStack flex={1} gap="$1">
             <SkeletonLine lineHeight={24} h="$3" w="$16" />
             <SkeletonLine lineHeight={16} h="$2.5" w="$32" />
