@@ -170,12 +170,15 @@ describe('Spotlight native scroll pause', () => {
     expect(visibilityChange).not.toHaveBeenCalled();
   });
 
-  it('stays paused until the UI thread initializes at the top', () => {
+  it('stays paused until the UI thread initializes and settles at the top', () => {
     mockDeferSharedWrites = true;
     mockDeferUI = true;
     renderHook(() => useSpotlightScrollPause(ref, true, visibilityChange));
     expect(visibilityChange.mock.calls).toEqual([[true]]);
     act(() => mockQueuedUI.splice(0).forEach((callback) => callback()));
+    act(() => jest.advanceTimersByTime(149));
+    expect(visibilityChange.mock.calls).toEqual([[true]]);
+    act(() => jest.advanceTimersByTime(1));
     expect(visibilityChange.mock.calls).toEqual([[true], [false]]);
     expect(mockQueuedSharedWrites).toHaveLength(0);
   });
@@ -190,6 +193,7 @@ describe('Spotlight native scroll pause', () => {
     };
     renderHook(() => useSpotlightScrollPause(ref, true, visibilityChange));
     expect(readRuntime.mock.calls).toEqual([[true]]);
+    act(() => jest.advanceTimersByTime(150));
     expect(visibilityChange.mock.calls).toEqual([[true], [false]]);
   });
 
@@ -210,6 +214,71 @@ describe('Spotlight native scroll pause', () => {
     expect(mockBridgeCall.mock.calls).toEqual([[false]]);
   });
 
+  it('waits for settling when the listener restarts as scrolling returns to the top', () => {
+    mockScrollY.value = 40;
+    const view = renderHook(
+      ({ onScrollChange }) =>
+        useSpotlightScrollPause(ref, true, onScrollChange),
+      { initialProps: { onScrollChange: visibilityChange } },
+    );
+    scrollTo(0);
+    act(() => jest.advanceTimersByTime(50));
+    const nextVisibilityChange = jest.fn<void, [boolean]>();
+    mockDeferUI = true;
+    view.rerender({ onScrollChange: nextVisibilityChange });
+    act(() => mockQueuedUI.splice(0).forEach((callback) => callback()));
+    act(() => jest.advanceTimersByTime(149));
+    expect(nextVisibilityChange).not.toHaveBeenCalledWith(false);
+    act(() => jest.advanceTimersByTime(1));
+    expect(nextVisibilityChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it.each([0, -24])(
+    'cancels initial settling if scrolling leaves the top from %s',
+    (offset) => {
+      mockScrollY.value = offset;
+      renderHook(() => useSpotlightScrollPause(ref, true, visibilityChange));
+      act(() => jest.advanceTimersByTime(100));
+      scrollTo(40);
+      act(() => jest.advanceTimersByTime(200));
+      expect(visibilityChange).not.toHaveBeenCalledWith(false);
+      scrollTo(0);
+      act(() => jest.advanceTimersByTime(149));
+      expect(visibilityChange).not.toHaveBeenCalledWith(false);
+      act(() => jest.advanceTimersByTime(1));
+      expect(visibilityChange).toHaveBeenLastCalledWith(false);
+    },
+  );
+
+  it('waits for settling again when re-enabled at the top', () => {
+    const view = renderHook(
+      ({ enabled }) => useSpotlightScrollPause(ref, enabled, visibilityChange),
+      { initialProps: { enabled: true } },
+    );
+    act(() => jest.advanceTimersByTime(100));
+    view.rerender({ enabled: false });
+    view.rerender({ enabled: true });
+    act(() => jest.advanceTimersByTime(149));
+    expect(visibilityChange).not.toHaveBeenCalledWith(false);
+    act(() => jest.advanceTimersByTime(1));
+    expect(visibilityChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it.each([null, undefined])(
+    'restarts initial settling on the first bounce sample with previous=%s',
+    (previous) => {
+      renderHook(() => useSpotlightScrollPause(ref, true, visibilityChange));
+      act(() => jest.advanceTimersByTime(100));
+      mockScrollY.value = -24;
+      act(() => mockExecuteUI(() => mockReact(mockPrepare(), previous)));
+      act(() => jest.advanceTimersByTime(149));
+      expect(visibilityChange).not.toHaveBeenCalledWith(false);
+      act(() => jest.advanceTimersByTime(1));
+      expect(visibilityChange).toHaveBeenLastCalledWith(false);
+      expect(mockBridgeCall.mock.calls).toEqual([[false]]);
+    },
+  );
+
   it('discards initialization queued before disable and re-enable', () => {
     mockDeferUI = true;
     mockQueueJS = true;
@@ -218,6 +287,7 @@ describe('Spotlight native scroll pause', () => {
       { initialProps: { enabled: true } },
     );
     act(() => mockQueuedUI.splice(0).forEach((callback) => callback()));
+    act(() => jest.advanceTimersByTime(150));
     view.rerender({ enabled: false });
     mockScrollY.value = 40;
     view.rerender({ enabled: true });
@@ -233,6 +303,7 @@ describe('Spotlight native scroll pause', () => {
     'pauses on a positive first sample even with previous=%s',
     (previous) => {
       renderHook(() => useSpotlightScrollPause(ref, true, visibilityChange));
+      act(() => jest.advanceTimersByTime(150));
       mockBridgeCall.mockClear();
       mockScrollY.value = 40;
       act(() => mockExecuteUI(() => mockReact(mockPrepare(), previous)));
@@ -259,6 +330,7 @@ describe('Spotlight native scroll pause', () => {
 
   it('notifies JS only when pausing and settling back at the top', () => {
     renderHook(() => useSpotlightScrollPause(ref, true, visibilityChange));
+    act(() => jest.advanceTimersByTime(150));
     mockBridgeCall.mockClear();
     for (let offset = 1; offset <= 60; offset += 1) scrollTo(offset);
     expect(mockBridgeCall.mock.calls).toEqual([[true]]);
@@ -275,6 +347,7 @@ describe('Spotlight native scroll pause', () => {
   it('accepts normalized inset/bounce offsets and waits for scrolling to settle', () => {
     mockScrollY.value = -24;
     renderHook(() => useSpotlightScrollPause(ref, true, visibilityChange));
+    act(() => jest.advanceTimersByTime(150));
     expect(visibilityChange).toHaveBeenLastCalledWith(false);
     mockBridgeCall.mockClear();
     scrollTo(-12);
@@ -320,6 +393,7 @@ describe('Spotlight native scroll pause', () => {
       ({ enabled }) => useSpotlightScrollPause(ref, enabled, visibilityChange),
       { initialProps: { enabled: true } },
     );
+    act(() => jest.advanceTimersByTime(150));
     mockQueueJS = true;
     scrollTo(20);
     scrollTo(0);
@@ -340,6 +414,7 @@ describe('Spotlight native scroll pause', () => {
     const view = renderHook(() =>
       useSpotlightScrollPause(ref, true, visibilityChange),
     );
+    act(() => jest.advanceTimersByTime(150));
     mockBridgeCall.mockClear();
     mockQueueJS = true;
     scrollTo(-12);

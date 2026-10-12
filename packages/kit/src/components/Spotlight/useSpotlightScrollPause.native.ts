@@ -38,6 +38,22 @@ export function useSpotlightScrollPause(
     },
     [session],
   );
+  const resumeAfterSettling = useCallback(() => {
+    'worklet';
+    settled.value = 0;
+    // Keep debounce on the UI thread; accessibility settings must not
+    // shorten this logical delay (there is no visual animation).
+    settled.value = withDelay(
+      150,
+      withTiming(1, { duration: 0 }, (finished) => {
+        if (finished && paused.value) {
+          paused.value = false;
+          runOnJS(notify)(false);
+        }
+      }),
+      ReduceMotion.Never,
+    );
+  }, [notify, paused, settled]);
   useEffect(() => {
     session.active = enabled;
     // Keep main JS blocked until the UI thread reads its current offset.
@@ -48,27 +64,36 @@ export function useSpotlightScrollPause(
         cancelAnimation(settled);
         // Tabs normalizes its content inset: zero is the expanded header,
         // negative values are pull-to-refresh bounce.
-        const isPaused = scrollY.value > 0;
-        paused.value = isPaused;
-        runOnJS(notify)(isPaused);
+        paused.value = true;
+        if (scrollY.value > 0) {
+          runOnJS(notify)(true);
+        } else {
+          // A restarted listener must not bypass an in-flight settling delay.
+          resumeAfterSettling();
+        }
       })();
     }
     return () => {
       session.active = false;
       cancelAnimation(settled);
     };
-  }, [enabled, notify, onScrollChange, paused, scrollY, session, settled]);
+  }, [
+    enabled,
+    notify,
+    onScrollChange,
+    paused,
+    resumeAfterSettling,
+    scrollY,
+    session,
+    settled,
+  ]);
 
   useAnimatedReaction(
     () => scrollY?.value,
     (current, previous) => {
       // A positive first sample must pause even if it arrives after
       // initialization but before this reaction has sampled the offset.
-      if (
-        current === undefined ||
-        (current <= 0 &&
-          (previous === null || previous === undefined || current === previous))
-      ) {
+      if (current === undefined || (current <= 0 && current === previous)) {
         return;
       }
       cancelAnimation(settled);
@@ -77,21 +102,9 @@ export function useSpotlightScrollPause(
         runOnJS(notify)(true);
       }
       if (current <= 0) {
-        settled.value = 0;
-        // Keep debounce on the UI thread; accessibility settings must not
-        // shorten this logical delay (there is no visual animation).
-        settled.value = withDelay(
-          150,
-          withTiming(1, { duration: 0 }, (finished) => {
-            if (finished && paused.value) {
-              paused.value = false;
-              runOnJS(notify)(false);
-            }
-          }),
-          ReduceMotion.Never,
-        );
+        resumeAfterSettling();
       }
     },
-    [scrollY, notify, paused, settled],
+    [scrollY, notify, paused, settled, resumeAfterSettling],
   );
 }
