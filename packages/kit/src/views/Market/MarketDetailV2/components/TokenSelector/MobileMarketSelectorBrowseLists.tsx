@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -9,7 +9,9 @@ import {
   Button,
   NumberSizeableText,
   SizableText,
+  Skeleton,
   Spinner,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -26,6 +28,7 @@ import type { IMarketTimeRangeValue } from '@onekeyhq/kit/src/views/Market/Marke
 import { isTrendingStyleSpotCategory } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/utils';
 import { MarketTestIDs } from '@onekeyhq/kit/src/views/Market/testIDs';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   NUMBER_FORMATTER,
   formatDisplayNumber,
@@ -106,26 +109,28 @@ function StockSubtitle({ tags, name }: { tags?: string[]; name: string }) {
   );
 }
 
+function formatCompactUsd(value: number): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const formatted = formatDisplayNumber(
+    NUMBER_FORMATTER.marketCap(String(value)),
+  );
+  return typeof formatted === 'string' ? `$${formatted}` : undefined;
+}
+
 function VolumeSubtitle({ volume }: { volume: number }) {
   const intl = useIntl();
-  if (!volume) {
-    return null;
-  }
-  // The amount is formatted to a string first so the whole "Vol $18.76M"
-  // phrase goes through one message and each locale can order it.
-  const formatted = formatDisplayNumber(
-    NUMBER_FORMATTER.marketCap(String(volume)),
-  );
-  if (typeof formatted !== 'string') {
+  // Formatted to a string first so the whole "Vol $18.76M" phrase goes
+  // through one message and each locale can order it.
+  const value = formatCompactUsd(volume);
+  if (!value) {
     return null;
   }
   return (
     <SubtitleLine>
       <SubtitleText>
-        {intl.formatMessage(
-          { id: ETranslations.market_vol_value },
-          { value: `$${formatted}` },
-        )}
+        {intl.formatMessage({ id: ETranslations.market_vol_value }, { value })}
       </SubtitleText>
     </SubtitleLine>
   );
@@ -153,6 +158,8 @@ function BasicMobileMarketSelectorListItem({
   priceChange,
   onPress,
   onPressIn,
+  height = ROW_HEIGHT,
+  nameGap = '$1',
 }: {
   testID?: string;
   tokenImageUri: string;
@@ -167,6 +174,10 @@ function BasicMobileMarketSelectorListItem({
   priceChange?: number;
   onPress: () => void;
   onPressIn?: () => void;
+  /** 74 for the three-line search token row, 64 otherwise. */
+  height?: number;
+  /** Space between the symbol and what is under it. */
+  nameGap?: '$0.5' | '$1';
 }) {
   // List rows may arrive without a chain logo (the all-networks list leaves it
   // empty), so it resolves from the row's own network instead.
@@ -184,9 +195,9 @@ function BasicMobileMarketSelectorListItem({
   return (
     <XStack
       testID={testID}
-      height={ROW_HEIGHT}
+      height={height}
       px="$5"
-      py="$2"
+      py={height > ROW_HEIGHT ? '$2.5' : '$2'}
       gap="$3"
       alignItems="center"
       pressStyle={{ opacity: 0.8 }}
@@ -200,7 +211,7 @@ function BasicMobileMarketSelectorListItem({
         networkImageUri={networkId ? resolvedNetworkLogoUri : undefined}
         fallbackIcon="CryptoCoinOutline"
       />
-      <YStack flex={1} minWidth={0} gap="$1" justifyContent="center">
+      <YStack flex={1} minWidth={0} gap={nameGap} justifyContent="center">
         <XStack alignItems="center" gap="$1" minWidth={0}>
           <SizableText size="$headingMd" numberOfLines={1} flexShrink={1}>
             {symbol}
@@ -536,7 +547,7 @@ export function MobileSelectorTopCoinsList({
   );
 }
 
-const MobileSelectorStockRow = memo(
+export const MobileSelectorStockRow = memo(
   ({
     item,
     onPress,
@@ -560,12 +571,19 @@ const MobileSelectorStockRow = memo(
 );
 MobileSelectorStockRow.displayName = 'MobileSelectorStockRow';
 
-/** Stocks: the Market home stock list for the chosen category, paginated. */
-export function MobileSelectorStockList({
-  category,
+type IMobileStockSelectorListResult = ReturnType<
+  typeof useMarketStockSelectorList
+>;
+
+/**
+ * The stock rows for a `useMarketStockSelectorList` result, so browsing a
+ * category and the search Stocks tab render the same list.
+ */
+export function MobileSelectorStockTable({
+  result,
   onItemPress,
 }: {
-  category: string;
+  result: IMobileStockSelectorListResult;
   onItemPress: (item: IMarketStockPublicItem) => void;
 }) {
   const intl = useIntl();
@@ -577,7 +595,7 @@ export function MobileSelectorStockList({
     canLoadMore,
     loadMore,
     refresh,
-  } = useMarketStockSelectorList({ query: '', category });
+  } = result;
   const renderItem = useCallback(
     ({ item }: { item: IMarketStockPublicItem }) => (
       <MobileSelectorStockRow item={item} onPress={onItemPress} />
@@ -637,5 +655,216 @@ export function MobileSelectorStockList({
       keyboardShouldPersistTaps="handled"
       style={LIST_STYLE}
     />
+  );
+}
+
+/** Stocks: the Market home stock list for the chosen category, paginated. */
+export function MobileSelectorStockList({
+  category,
+  onItemPress,
+}: {
+  category: string;
+  onItemPress: (item: IMarketStockPublicItem) => void;
+}) {
+  const result = useMarketStockSelectorList({ query: '', category });
+  return <MobileSelectorStockTable result={result} onItemPress={onItemPress} />;
+}
+
+// Figma 27058:37054 — a search token row is three lines tall: the symbol, the
+// full name with the short address, then its liquidity.
+export const SEARCH_TOKEN_ROW_HEIGHT = 74;
+
+/**
+ * Liquidity, then the 24h volume when the line has room for it. A missing
+ * value shows `--`: hiding it would make a token without data read like one
+ * that cannot have it. Liquidity always shows in full; the volume is dropped
+ * whole rather than cut to an ellipsis, which would carry no number at all.
+ */
+function LiquidityVolumeLine({
+  liquidity,
+  volume,
+}: {
+  liquidity: number;
+  volume: number;
+}) {
+  const intl = useIntl();
+  const [lineWidth, setLineWidth] = useState(0);
+  const [liquidityWidth, setLiquidityWidth] = useState(0);
+  const [volumeWidth, setVolumeWidth] = useState(0);
+  // Measured widths only; until all three are known the volume stays hidden
+  // so it never flashes in and back out.
+  const showVolume =
+    lineWidth > 0 &&
+    volumeWidth > 0 &&
+    liquidityWidth + volumeWidth <= lineWidth;
+  const liquidityText = `${intl.formatMessage({
+    id: ETranslations.dexmarket_search_result_liq,
+  })} ${formatCompactUsd(liquidity) ?? '--'}`;
+  const volumeValue = formatCompactUsd(volume);
+  const volumeText = volumeValue
+    ? intl.formatMessage(
+        { id: ETranslations.market_vol_value },
+        { value: volumeValue },
+      )
+    : intl.formatMessage(
+        { id: ETranslations.market_vol_value },
+        { value: '--' },
+      );
+
+  return (
+    <XStack
+      height={12}
+      alignItems="center"
+      minWidth={0}
+      overflow="hidden"
+      onLayout={(event) => setLineWidth(event.nativeEvent.layout.width)}
+    >
+      <XStack
+        flexShrink={0}
+        onLayout={(event) => setLiquidityWidth(event.nativeEvent.layout.width)}
+      >
+        <SizableText size="$bodyXs" color="$textSubdued" numberOfLines={1}>
+          {liquidityText}
+        </SizableText>
+      </XStack>
+      <XStack
+        alignItems="center"
+        flexShrink={0}
+        // Kept in layout while hidden so its width stays measured.
+        opacity={showVolume ? 1 : 0}
+        onLayout={(event) => setVolumeWidth(event.nativeEvent.layout.width)}
+      >
+        {/* A full bullet with 6px either side, like universal search's
+           Liq • Vol, reads as a separator next to the 11px figures. */}
+        <SizableText size="$bodyXs" color="$textSubdued" px="$1.5">
+          •
+        </SizableText>
+        <SizableText size="$bodyXs" color="$textSubdued" numberOfLines={1}>
+          {volumeText}
+        </SizableText>
+      </XStack>
+    </XStack>
+  );
+}
+
+/**
+ * A search result token. Mobile shows no copy button; a native coin (no
+ * contract address) keeps two lines — symbol and full name — with no address
+ * or liquidity and volume line.
+ */
+export const MobileSelectorSearchTokenRow = memo(
+  ({ item, onPress }: { item: IMarketToken; onPress: () => void }) => {
+    const handlePressIn = useCallback(
+      () => prewarmMarketTokenImages(item),
+      [item],
+    );
+    const displayName = item.name.trim();
+    const isNativeCoin = !item.address;
+    const subtitle = isNativeCoin ? (
+      <NameSubtitle name={displayName} />
+    ) : (
+      <YStack gap="$1" minWidth={0}>
+        <XStack height={12} alignItems="center" gap="$1.5" minWidth={0}>
+          {displayName ? (
+            <SizableText
+              size="$bodyXs"
+              color="$textSubdued"
+              numberOfLines={1}
+              flexShrink={1}
+            >
+              {displayName}
+            </SizableText>
+          ) : null}
+          <SizableText
+            size="$bodyXs"
+            color="$textDisabled"
+            numberOfLines={1}
+            flexShrink={0}
+          >
+            {accountUtils.shortenAddress({
+              address: item.address,
+              leadingLength: 6,
+              trailingLength: 4,
+            })}
+          </SizableText>
+        </XStack>
+        <LiquidityVolumeLine
+          liquidity={item.liquidity}
+          volume={item.turnover}
+        />
+      </YStack>
+    );
+    return (
+      <MobileMarketSelectorListItem
+        testID={MarketTestIDs.tokenListItem(item.symbol)}
+        tokenImageUri={item.tokenImageUri}
+        tokenImageUris={item.tokenImageUris}
+        networkLogoUri={item.networkLogoUri}
+        networkId={item.networkId}
+        symbol={item.symbol}
+        communityRecognized={item.communityRecognized}
+        subtitle={subtitle}
+        price={item.price}
+        priceChange={getTokenPriceChange(item)}
+        height={isNativeCoin ? ROW_HEIGHT : SEARCH_TOKEN_ROW_HEIGHT}
+        nameGap={isNativeCoin ? '$1' : '$0.5'}
+        onPress={onPress}
+        onPressIn={handlePressIn}
+      />
+    );
+  },
+);
+MobileSelectorSearchTokenRow.displayName = 'MobileSelectorSearchTokenRow';
+
+function SkeletonLine({
+  lineHeight,
+  h,
+  w,
+}: {
+  lineHeight: number;
+  h: '$2.5' | '$3';
+  w: '$12' | '$16' | '$32';
+}) {
+  return (
+    <Stack height={lineHeight} justifyContent="center">
+      <Skeleton h={h} w={w} />
+    </Stack>
+  );
+}
+
+const SEARCH_SKELETON_ROW_COUNT = 8;
+
+/**
+ * Shown for the whole result area until both searches answer, like
+ * universal search: the sections then appear at once instead of the late
+ * one pushing the other down. It mirrors a section title and the rows.
+ */
+export function MobileSelectorSearchSkeleton() {
+  return (
+    <YStack pt="$2.5">
+      <XStack px="$5" py="$2">
+        <SkeletonLine lineHeight={20} h="$3" w="$16" />
+      </XStack>
+      {Array.from({ length: SEARCH_SKELETON_ROW_COUNT }, (_, index) => (
+        <XStack
+          key={index}
+          height={ROW_HEIGHT}
+          px="$5"
+          py="$2"
+          gap="$3"
+          alignItems="center"
+        >
+          <Skeleton w="$8" h="$8" radius="round" />
+          <YStack flex={1} gap="$1">
+            <SkeletonLine lineHeight={24} h="$3" w="$16" />
+            <SkeletonLine lineHeight={16} h="$2.5" w="$32" />
+          </YStack>
+          <YStack alignItems="flex-end" gap="$1">
+            <SkeletonLine lineHeight={24} h="$3" w="$16" />
+            <SkeletonLine lineHeight={16} h="$2.5" w="$12" />
+          </YStack>
+        </XStack>
+      ))}
+    </YStack>
   );
 }
