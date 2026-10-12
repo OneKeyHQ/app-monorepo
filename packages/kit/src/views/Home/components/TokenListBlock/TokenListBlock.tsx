@@ -688,6 +688,7 @@ function TokenListBlock({
 
   const {
     updateAccountWorth,
+    retainAccountWorth,
     updateAccountOverviewState,
     updateAllNetworksState,
   } = useAccountOverviewActions().current;
@@ -1486,12 +1487,13 @@ function TokenListBlock({
       networkId,
       dbAccount,
       allNetworkDataInit,
+      isRunCurrent,
     }: {
       accountId: string;
       networkId: string;
       dbAccount?: IDBAccount;
       allNetworkDataInit?: boolean;
-      isSingleRequest?: boolean;
+      isRunCurrent?: () => boolean;
     }) => {
       const requestAccountEpoch = activeAccountEpoch;
       const homeRequest = homeRequestRef.current;
@@ -1662,12 +1664,15 @@ function TokenListBlock({
       // would land this owner's data on atoms already cleared and re-stamped
       // for the new owner — and the next same-owner stamp write would then
       // vouch for it.
+      // A run superseded by an enabled-network change must not merge its
+      // (possibly unchecked) network back into the worth map either.
       const isStaleOwnerRequest = () =>
         !isAccountEpochCurrent(requestAccountEpoch) ||
         !isHomeTokenRequestCurrent(homeRequest) ||
         !isHomeRequestCurrent() ||
         activeOwnerRef.current.accountId !== account?.id ||
-        activeOwnerRef.current.networkId !== network?.id;
+        activeOwnerRef.current.networkId !== network?.id ||
+        isRunCurrent?.() === false;
 
       if (
         !allNetworkDataInit &&
@@ -1717,7 +1722,9 @@ function TokenListBlock({
 
         // Re-check the owner — it can switch mid-flight.
         if (isStaleOwnerRequest()) {
-          isAllNetworkManualRefresh.current = false;
+          if (isRunCurrent?.() !== false) {
+            isAllNetworkManualRefresh.current = false;
+          }
           return r;
         }
 
@@ -1732,7 +1739,10 @@ function TokenListBlock({
         // effect.
       }
 
-      isAllNetworkManualRefresh.current = false;
+      // The run that superseded this one reads the flag for its own requests.
+      if (isRunCurrent?.() !== false) {
+        isAllNetworkManualRefresh.current = false;
+      }
       return r;
     },
     [
@@ -1752,7 +1762,25 @@ function TokenListBlock({
     ],
   );
 
+  // Only this list's All Networks requests: the superseded fan-out is the
+  // one issuing `home-token-list` requests with `isAllNetworks`, and a token
+  // selector, search or portfolio read running at the same time has no
+  // reason to lose its result over an enabled-network change.
+  const handleAbortSupersededRequests = useCallback(() => {
+    void backgroundApiProxy.serviceToken.abortFetchAccountTokens({
+      includedFlags: ['home-token-list'],
+      isAllNetworks: true,
+    });
+  }, []);
+
+  // Worth keys of the accounts in the current cold run, captured by its cache
+  // probe (`handleAllNetworkCacheRequestsBatch`) for `handleAllNetworkCacheChecked`.
+  const runAccountValueKeysRef = useRef<ReadonlySet<string> | undefined>(
+    undefined,
+  );
+
   const handleClearAllNetworkData = useCallback(() => {
+    runAccountValueKeysRef.current = undefined;
     // Reset the LWW view + drop a pending flush (design §2 facade). Does NOT bump
     // the epoch — that asymmetry is reserved for the authoritative commit (P1-g).
     resetPipeline();
@@ -1834,8 +1862,26 @@ function TokenListBlock({
         ownerKey: buildOverviewOwnerKey(accountId, networkId),
         hasCache,
       });
+      // A hit has just replaced the worth map with the cached networks
+      // (`handleAllNetworkCacheData`, `updateAll`). On a miss nothing replaces
+      // it before the fan-out's own commit — never, when every request fails —
+      // so a network disabled since the map was written would keep its worth
+      // in the header total. Drop what the run no longer covers; the networks
+      // it does cover keep their value, so the total does not dip.
+      const runAccountValueKeys = runAccountValueKeysRef.current;
+      if (!hasCache && runAccountValueKeys && worthOwnerAccountId) {
+        retainAccountWorth({
+          accountId: worthOwnerAccountId,
+          accountValueKeys: runAccountValueKeys,
+        });
+      }
     },
-    [setOverviewTokenCacheState, syncTokenFilterToOverview],
+    [
+      retainAccountWorth,
+      setOverviewTokenCacheState,
+      syncTokenFilterToOverview,
+      worthOwnerAccountId,
+    ],
   );
 
   const handleAllNetworkRequestsStarted = useCallback(
@@ -1843,10 +1889,12 @@ function TokenListBlock({
       accountId,
       networkId,
       allNetworkDataInit,
+      isRunCurrent,
     }: {
       accountId?: string;
       networkId?: string;
       allNetworkDataInit?: boolean;
+      isRunCurrent?: () => boolean;
     }) => {
       const requestAccountEpoch = activeAccountEpoch;
       if (!isHomeRequestCurrent()) return;
@@ -1898,6 +1946,14 @@ function TokenListBlock({
 
       perfTokenListView.markEnd('allNetworkRequestsStarted_getRawData');
 
+      // Superseded by an enabled-network change while the reads were in
+      // flight: the run that replaced this one reads for itself, and the
+      // refreshing state and cache flag below are its to set (and its
+      // `onFinished` to clear).
+      if (isRunCurrent?.() === false) {
+        return;
+      }
+
       if (!homeRequest && !a?.aggregateTokenConfigMap) {
         await backgroundApiProxy.serviceSetting.syncWalletConfig();
         a =
@@ -1916,7 +1972,11 @@ function TokenListBlock({
           });
       }
 
-      if (!isHomeRequestCurrent() || !isHomeTokenRequestCurrent(homeRequest))
+      if (
+        !isHomeRequestCurrent() ||
+        !isHomeTokenRequestCurrent(homeRequest) ||
+        isRunCurrent?.() === false
+      )
         return;
       aggregateTokenRawData.current = a ?? undefined;
 
@@ -1967,6 +2027,11 @@ function TokenListBlock({
       const homeRequest = homeRequestRef.current;
       if (!isHomeRequestCurrent() || !isHomeTokenRequestCurrent(homeRequest))
         return [];
+      runAccountValueKeysRef.current = new Set(
+        accounts.map(({ accountId, networkId }) =>
+          accountUtils.buildAccountValueKey({ accountId, networkId }),
+        ),
+      );
       const results =
         await backgroundApiProxy.serviceToken.getAccountsLocalTokens({
           homeRequest,
@@ -2079,6 +2144,7 @@ function TokenListBlock({
       accountId,
       networkId,
       generation,
+      isRunCurrent,
     }: {
       data: {
         homeRequest?: IHomeTokenRequest;
@@ -2100,6 +2166,7 @@ function TokenListBlock({
       accountId: string;
       networkId: string;
       generation: number;
+      isRunCurrent?: () => boolean;
     }) => {
       const requestAccountEpoch = activeAccountEpoch;
       const homeRequest = data[0]?.homeRequest;
@@ -2107,10 +2174,14 @@ function TokenListBlock({
 
       // onStarted already captured this round's config. Reuse it while the
       // cache and live branches consume the same snapshot.
+      // A run superseded by an enabled-network change must not seed the list
+      // and the total with the old enabled set either: the run that replaced
+      // it has already cleared both for its own seed.
       if (
         !isAccountEpochCurrent(requestAccountEpoch) ||
         !isHomeTokenRequestCurrent(homeRequest) ||
-        !isHomeRequestCurrent()
+        !isHomeRequestCurrent() ||
+        isRunCurrent?.() === false
       )
         return;
 
@@ -2201,7 +2272,11 @@ function TokenListBlock({
           networkId,
           generation,
         });
-        if (!isHomeRequestCurrent() || !isHomeTokenRequestCurrent(homeRequest))
+        if (
+          !isHomeRequestCurrent() ||
+          !isHomeTokenRequestCurrent(homeRequest) ||
+          isRunCurrent?.() === false
+        )
           return;
 
         perfTokenListView.markEnd('tokenListRefreshing_allNetworkCacheData');
@@ -2286,6 +2361,7 @@ function TokenListBlock({
 
   const {
     run: runAllNetworksRequests,
+    runAccountRequests: runAllNetworksAccountRequests,
     result: allNetworksResult,
     isEmptyAccount,
   } = useAllNetworkRequests<IAllNetworkTokenListResp>({
@@ -2299,6 +2375,7 @@ function TokenListBlock({
     allNetworkCacheData: handleAllNetworkCacheData,
     allNetworkAccountsData: handleAllNetworkAccountsData,
     clearAllNetworkData: handleClearAllNetworkData,
+    abortSupersededRequests: handleAbortSupersededRequests,
     onStarted: handleAllNetworkRequestsStarted,
     onFinished: handleAllNetworkRequestsFinished,
     onCacheChecked: handleAllNetworkCacheChecked,
@@ -3571,26 +3648,14 @@ function TokenListBlock({
     };
   }, [network?.isAllNetworks, runLpTokenList, showLpTokensOnly]);
 
+  // The changed accounts' networks are fetched through the All Networks hook
+  // so each settled round reaches the LWW view (`ingestLiveRound`) and the
+  // list re-materializes with the new balances; calling
+  // `handleAllNetworkRequests` directly fetched the network but dropped the
+  // round, leaving the sent token's row stale until the next full fan-out.
   const handleRefreshAllNetworkDataByAccounts = useCallback(
     async (accounts: { accountId: string; networkId: string }[]) => {
-      for (const { accountId, networkId } of accounts) {
-        try {
-          await handleAllNetworkRequests({
-            accountId,
-            networkId,
-            allNetworkDataInit: false,
-            isSingleRequest: true,
-          });
-        } catch (error) {
-          // A retired owner cancels the batch; one failed network does not.
-          if (isRequestCanceledError(error)) return;
-          defaultLogger.app.error.log(
-            `Home account token refresh failed (${networkId}): ${
-              error instanceof Error ? error.message : String(error)
-            }`,
-          );
-        }
-      }
+      await runAllNetworksAccountRequests(accounts);
       if (showLpTokensOnly) {
         try {
           await runLpTokenList({ alwaysSetState: true });
@@ -3606,7 +3671,7 @@ function TokenListBlock({
         }
       }
     },
-    [handleAllNetworkRequests, runLpTokenList, showLpTokensOnly],
+    [runAllNetworksAccountRequests, runLpTokenList, showLpTokensOnly],
   );
 
   usePromiseResult(

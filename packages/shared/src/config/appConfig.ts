@@ -111,14 +111,6 @@ export function buildReferralUrl({
   return `${baseUrl}/r/${code}${REFERRAL_LANDING_PATH[source]}`;
 }
 
-export const EXT_RATE_URL = {
-  'chrome':
-    'https://chrome.google.com/webstore/detail/onekey/jnmbobjmhlngoefaiojfljckilhhlhcj',
-  'firefox': 'https://addons.mozilla.org/zh-CN/firefox/addon/onekey/reviews/',
-  'edge':
-    'https://microsoftedge.microsoft.com/addons/detail/onekey/obffkkagpmohennipjokmpllocnlndac',
-};
-
 export const APP_STORE_APP_ID = '1609559473';
 const APP_STORE_BASE_LINK = `itms-apps://apps.apple.com/app/id${APP_STORE_APP_ID}`;
 export const APP_STORE_LINK = `${APP_STORE_BASE_LINK}?action=write-review`;
