@@ -170,6 +170,7 @@ import {
   isHyperLiquidAgentPasswordEncryptedCredential,
   shouldUseHyperLiquidAgentPasswordEncryption,
 } from './hyperLiquidAgentSecret';
+import { mergeKeystoneAccountKeys } from './keystoneAccountKeys';
 import { LocalDbBaseContainer } from './LocalDbBaseContainer';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 import {
@@ -6506,6 +6507,46 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         },
       });
     });
+  }
+
+  /**
+   * Keep the first Keystone account key seen per entry and report entries whose new key differs.
+   * Nothing is written when any entry differs.
+   */
+  async pinDeviceKeystoneAccountKeys({
+    dbDeviceId,
+    keys,
+  }: {
+    dbDeviceId: string;
+    keys: Record<string, string>;
+  }): Promise<string[]> {
+    let mismatched: string[] = [];
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Device,
+        ids: [dbDeviceId],
+        updater: async (item) => {
+          let settings: IDBDeviceSettings = {};
+          try {
+            settings = JSON.parse(item.settingsRaw || '{}');
+          } catch {
+            // ignore
+          }
+          const result = mergeKeystoneAccountKeys(
+            settings.keystoneAccountKeys ?? {},
+            keys,
+          );
+          mismatched = result.mismatched;
+          if (mismatched.length) return item;
+          settings.keystoneAccountKeys = result.merged;
+          item.settingsRaw = JSON.stringify(settings);
+          item.updatedAt = await this.timeNow();
+          return item;
+        },
+      });
+    });
+    return mismatched;
   }
 
   // Persist Trezor THP pairing credentials into the device's own settings.

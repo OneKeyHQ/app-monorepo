@@ -48,6 +48,7 @@ import {
 
 import localDb from '../../dbs/local/localDb';
 import { primeTransferAtom } from '../../states/jotai/atoms/prime';
+import { collectKeystoneAccountKeys } from '../../vaults/base/keystoneAccountKeyUtils';
 import {
   hasStoredLedgerChainFingerprint,
   isLedgerFingerprintChain,
@@ -1067,7 +1068,46 @@ class ServiceBatchCreateAccount extends ServiceBase {
       });
     }
 
+    if (vendor === EHardwareVendor.keystone && dbDeviceId) {
+      await this.pinKeystoneAccountKeys({
+        dbDeviceId,
+        items: payload,
+        vendorName,
+      });
+    }
+
     return payload;
+  }
+
+  // Refuse addresses derived from a Keystone account key other than the one first seen for it.
+  private async pinKeystoneAccountKeys({
+    dbDeviceId,
+    items,
+    vendorName,
+  }: {
+    dbDeviceId: string;
+    items: IHwAllNetworkPrepareAccountsItem[];
+    vendorName: string;
+  }) {
+    const { keys, conflicting } = collectKeystoneAccountKeys(items);
+    let mismatched = conflicting;
+    if (!mismatched.length && Object.keys(keys).length) {
+      mismatched = await localDb.pinDeviceKeystoneAccountKeys({
+        dbDeviceId,
+        keys,
+      });
+    }
+    if (mismatched.length) {
+      throw convertThirdPartyDeviceError(
+        {
+          code: ThirdPartyHwErrorCode.DeviceMismatch,
+          error: `Keystone returned a different account key than before for ${mismatched.join(
+            ', ',
+          )}`,
+        },
+        { vendor: vendorName },
+      );
+    }
   }
 
   private async persistLedgerAllNetworkFingerprints({
