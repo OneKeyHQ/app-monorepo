@@ -194,7 +194,12 @@ function createService() {
         };
       },
     ),
-    assertOneKeyIdAuthSnapshotUnchanged: jest.fn(async () => undefined),
+    assertOneKeyIdAuthSnapshotUnchanged: jest.fn(
+      async (_params: {
+        snapshot: { expectedOneKeyUserId: string };
+        createStateChangedError: () => Error;
+      }) => undefined,
+    ),
     apiFetchPrimeUserInfo: jest.fn(async () => undefined),
   };
   const service = new ServicePrimeFreeTrial({
@@ -521,6 +526,125 @@ describe('ServicePrimeFreeTrial', () => {
       await expect(
         service.getHeldReservationEnd({ featureId: EPrimeFeatures.BulkSend }),
       ).resolves.toBeUndefined();
+    });
+
+    it('never runs unmetered on a start reply without a grant', async () => {
+      const { service } = createService();
+      mockOneKeyIdClient.post.mockImplementation(async (url: string) => {
+        if (url === '/prime/v1/free-trial/usage/start') {
+          return { data: { code: 0, data: null } };
+        }
+        return { data: { code: 0, data: { unlimited: false } } };
+      });
+
+      await expect(
+        service.startUsage({
+          featureId: EPrimeFeatures.BulkSend,
+          usageId: 'usage-0020',
+        }),
+      ).rejects.toThrow('Invalid free trial start response');
+      await flushPromises();
+
+      const startCalls = mockOneKeyIdClient.post.mock.calls.filter(
+        ([url]) => url === '/prime/v1/free-trial/usage/start',
+      );
+      expect(startCalls).toHaveLength(3);
+      expect(finishCalls()).toEqual([
+        [
+          '/prime/v1/free-trial/usage/finish',
+          expect.objectContaining({
+            usageId: 'usage-0020',
+            result: 'cancelled',
+          }),
+          expect.anything(),
+        ],
+      ]);
+    });
+
+    describe('another user logged in during the start', () => {
+      function switchUserDuringStart(
+        servicePrime: ReturnType<typeof createService>['servicePrime'],
+        startData: unknown,
+      ) {
+        servicePrime.assertOneKeyIdAuthSnapshotUnchanged.mockImplementation(
+          async ({ snapshot, createStateChangedError }) => {
+            if (mockState.user.onekeyUserId !== snapshot.expectedOneKeyUserId) {
+              throw createStateChangedError();
+            }
+            return undefined;
+          },
+        );
+        mockOneKeyIdClient.post.mockImplementation(async (url: string) => {
+          if (url === '/prime/v1/free-trial/usage/start') {
+            mockState.user = {
+              isLoggedIn: true,
+              isLoggedInOnServer: true,
+              onekeyUserId: 'user-b',
+              primeSubscription: { isActive: false },
+            };
+            return { data: { code: 0, data: startData } };
+          }
+          return { data: { code: 0, data: { unlimited: false } } };
+        });
+      }
+
+      it('releases the grant as the user that started instead of running', async () => {
+        const { service, simpleDb, servicePrime } = createService();
+        switchUserDuringStart(servicePrime, {
+          unlimited: false,
+          featureId: EPrimeFeatures.BulkSend,
+          usageId: 'usage-0021',
+          quota: quotaOfBulkSend,
+          expiresAt: 1000,
+          resetAt: 2000,
+        });
+
+        await expect(
+          service.startUsage({
+            featureId: EPrimeFeatures.BulkSend,
+            usageId: 'usage-0021',
+          }),
+        ).rejects.toThrow('Prime free trial user changed');
+        await flushPromises();
+
+        // Never reported as user-b.
+        expect(finishCalls()).toHaveLength(0);
+        expect(
+          simpleDb.records.get('user-a__BulkSend__usage-0021'),
+        ).toMatchObject({ result: 'cancelled' });
+
+        mockState.user = {
+          isLoggedIn: true,
+          isLoggedInOnServer: true,
+          onekeyUserId: 'user-a',
+          primeSubscription: { isActive: false },
+        };
+        await service.flushPendingReports({ force: true });
+        await flushPromises();
+        expect(finishCalls()).toEqual([
+          [
+            '/prime/v1/free-trial/usage/finish',
+            expect.objectContaining({
+              usageId: 'usage-0021',
+              result: 'cancelled',
+            }),
+            expect.anything(),
+          ],
+        ]);
+      });
+
+      it('does not run unmetered on the Prime of the user that started', async () => {
+        const { service, simpleDb, servicePrime } = createService();
+        switchUserDuringStart(servicePrime, { unlimited: true });
+
+        await expect(
+          service.startUsage({
+            featureId: EPrimeFeatures.BulkSend,
+            usageId: 'usage-0022',
+          }),
+        ).rejects.toThrow('Prime free trial user changed');
+        expect(simpleDb.records.size).toBe(0);
+      });
     });
 
     it('does not release anything when the first attempt is already definitive', async () => {
@@ -1028,6 +1152,52 @@ describe('ServicePrimeFreeTrial', () => {
       expect(
         simpleDb.records.get('user-a__BulkSend__usage-1008')?.reportedAt,
       ).toEqual(expect.any(Number));
+    });
+
+    it('schedules a record that came due while a flush was reporting', async () => {
+      const { service, simpleDb } = createService();
+      const now = Date.now();
+      const seed = (usageId: string, nextReportAt: number) => {
+        simpleDb.records.set(`user-a__BulkSend__${usageId}`, {
+          onekeyUserId: 'user-a',
+          featureId: EPrimeFeatures.BulkSend,
+          usageId,
+          startedAt: now,
+          result: 'success',
+          resultAt: now,
+          reportAttempts: 1,
+          nextReportAt,
+        });
+      };
+      seed('usage-1013', now - 1);
+      seed('usage-1014', now + 100);
+      let resolveFirstFinish: ((value: unknown) => void) | undefined;
+      mockOneKeyIdClient.post
+        .mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              resolveFirstFinish = resolve;
+            }),
+        )
+        .mockResolvedValue({ data: { code: 0, data: { unlimited: false } } });
+
+      const flush = service.flushPendingReports();
+      await flushPromises();
+      // The second record comes due while the first one is being reported.
+      jest.advanceTimersByTime(200);
+      resolveFirstFinish?.({ data: { code: 0, data: { unlimited: false } } });
+      await flush;
+      await flushPromises();
+      expect(finishCalls().map(([, body]) => body.usageId)).toEqual([
+        'usage-1013',
+      ]);
+
+      jest.advanceTimersByTime(5000);
+      await flushPromises();
+      expect(finishCalls().map(([, body]) => body.usageId)).toEqual([
+        'usage-1013',
+        'usage-1014',
+      ]);
     });
 
     it('clears every record of a deleted account', async () => {

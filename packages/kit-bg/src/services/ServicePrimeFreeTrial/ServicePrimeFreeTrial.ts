@@ -624,20 +624,20 @@ class ServicePrimeFreeTrial extends ServiceBase {
     featureId: IPrimeFreeTrialUsageFeatureId;
     usageId: string;
   }) {
-    const { requestConfig } =
+    const { snapshot, requestConfig } =
       await this.backgroundApi.servicePrime.captureOneKeyIdAuthRequestConfig({
         expectedOneKeyUserId: onekeyUserId,
         createStateChangedError: createUserChangedError,
       });
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Prime);
     const res = await client.post<
-      IApiClientResponse<IPrimeFreeTrialStartResponse>
+      IApiClientResponse<IPrimeFreeTrialStartResponse | null | undefined>
     >(
       '/prime/v1/free-trial/usage/start',
       { featureId, usageId },
       { ...requestConfig, timeout: START_REQUEST_TIMEOUT_MS },
     );
-    return res.data.data;
+    return { response: res.data.data, snapshot };
   }
 
   // Reserves one use before the business runs. Exhausted / not open are
@@ -704,7 +704,8 @@ class ServicePrimeFreeTrial extends ServiceBase {
     // Once an attempt's effect is unknown the server may hold a reservation
     // for this id, so every exit without a grant releases it with cancelled.
     let hadUncertainAttempt = earlierAttempts?.hadUncertainAttempt ?? false;
-    const releaseUncertainReservation = () =>
+    // Recorded for the user that started, so it is only reported as them.
+    const releaseReservation = () =>
       this.recordUsageResult({
         onekeyUserId,
         featureId,
@@ -714,12 +715,27 @@ class ServicePrimeFreeTrial extends ServiceBase {
       });
     for (let attempt = 0; attempt < START_MAX_ATTEMPTS; attempt += 1) {
       try {
-        const response = await this.requestStart({
+        const { response, snapshot } = await this.requestStart({
           onekeyUserId,
           featureId,
           usageId,
         });
-        if (!response || response.unlimited) {
+        // The request was pinned to the user that started. If another user
+        // logged in meanwhile, its grant (or Prime) is not theirs to use.
+        try {
+          await this.backgroundApi.servicePrime.assertOneKeyIdAuthSnapshotUnchanged(
+            {
+              snapshot,
+              createStateChangedError: createUserChangedError,
+            },
+          );
+        } catch (error) {
+          if (response?.unlimited === false) {
+            await releaseReservation();
+          }
+          throw error;
+        }
+        if (response?.unlimited === true) {
           // The server sees an active subscription the local state has not
           // caught up with yet: run without metering.
           void this.backgroundApi.servicePrime
@@ -728,6 +744,14 @@ class ServicePrimeFreeTrial extends ServiceBase {
             })
             .catch(() => undefined);
           return { status: 'unlimited' };
+        }
+        if (response?.unlimited !== false) {
+          // A success reply without a grant: whether a use was reserved is
+          // unknown, and the business must not run without one.
+          throw new OneKeyLocalError({
+            message: 'Invalid free trial start response',
+            autoToast: false,
+          });
         }
         const quota =
           normalizeFeatureQuota(response.quota) ??
@@ -790,7 +814,7 @@ class ServicePrimeFreeTrial extends ServiceBase {
             // the quota is really used up. Release the id anyway in case the
             // unknown attempt took the last use, and wait for it: an
             // unreported release reads as a held reservation in the feedback.
-            await releaseUncertainReservation();
+            await releaseReservation();
             const released = await this.findUsageRecord({ featureId, usageId });
             if (released) {
               await this.waitForReports([released]);
@@ -801,14 +825,14 @@ class ServicePrimeFreeTrial extends ServiceBase {
         }
         if (freeTrialError?.code === PRIME_FREE_TRIAL_NOT_OPEN_CODE) {
           if (hadUncertainAttempt) {
-            await releaseUncertainReservation();
+            await releaseReservation();
           }
           await this.handleFreeTrialErrorFromServer(freeTrialError);
           return { status: 'notOpen', featureId };
         }
         if (!isUncertainRequestError(error)) {
           if (hadUncertainAttempt) {
-            await releaseUncertainReservation();
+            await releaseReservation();
           }
           throw error;
         }
@@ -826,7 +850,7 @@ class ServicePrimeFreeTrial extends ServiceBase {
       stage: 'startUsage',
       reason: 'start result unknown, releasing with cancelled',
     });
-    await releaseUncertainReservation();
+    await releaseReservation();
     throw (
       lastError ??
       new OneKeyLocalError({
@@ -1294,16 +1318,16 @@ class ServicePrimeFreeTrial extends ServiceBase {
   private scheduleReportRetry() {
     void (async () => {
       const user = await primePersistAtom.get();
-      const now = Date.now();
       const records =
         await this.backgroundApi.simpleDb.primeFreeTrial.getUsageRecords();
+      // Records already due count too: a flush takes its list once, so one
+      // that came due while it was reporting would otherwise never be sent.
       const nextAt = records
         .filter(
           (record) =>
             isPrimeFreeTrialUsageRecordReportable(record) &&
             record.onekeyUserId === user.onekeyUserId &&
-            record.nextReportAt &&
-            record.nextReportAt > now,
+            record.nextReportAt,
         )
         .map((record) => record.nextReportAt as number)
         .toSorted((a, b) => a - b)[0];
@@ -1314,12 +1338,15 @@ class ServicePrimeFreeTrial extends ServiceBase {
       if (!nextAt || !user.isLoggedIn) {
         return;
       }
+      const delay = nextAt - Date.now();
       this.reportRetryTimer = setTimeout(
         () => {
           this.reportRetryTimer = undefined;
           void this.flushPendingReports();
         },
-        Math.max(1000, nextAt - Date.now()),
+        // A due record waits the base backoff, so one that cannot move
+        // forward is never retried in a tight loop.
+        delay > 0 ? Math.max(1000, delay) : REPORT_BACKOFF_BASE_MS,
       );
     })().catch((error) => {
       this.trace({
