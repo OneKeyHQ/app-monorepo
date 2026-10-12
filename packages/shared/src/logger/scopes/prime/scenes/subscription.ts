@@ -7,7 +7,10 @@ import {
   getOneKeyIdAuthFailureServerParams,
   scrubSensitiveErrorMessageText,
 } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
-import type { IOneKeyIdAuthFailureLogSource } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
+import type {
+  IOneKeyIdAuthFailureLogSource,
+  IOneKeyIdAuthFailureStep,
+} from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import type { IPrimeInfiniPaymentSource } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { BaseScene } from '../../../base/baseScene';
@@ -712,10 +715,16 @@ export class PrimeSubscriptionScene extends BaseScene {
   // surfaces the failure — unlike onekeyIdLoginFailedToast above, which
   // strictly means "the fallback toast was shown".
   @LogToServer()
-  public onekeyIdLoginFailedReason({ reason }: { reason: string }) {
+  public onekeyIdLoginFailedReason({
+    reason,
+    step,
+  }: {
+    reason: string;
+    step?: IOneKeyIdAuthFailureStep;
+  }) {
     const source = 'throwSite';
     this.onekeyIdAuthFailureLocal({ source, reason });
-    return getOneKeyIdAuthFailureServerParams({ source, reason });
+    return getOneKeyIdAuthFailureServerParams({ source, reason, step });
   }
 
   // Keeps the scrubbed diagnostic text on the device. The corresponding

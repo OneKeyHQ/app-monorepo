@@ -61,6 +61,20 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: Added explicit loading, visible, and hidden quick bar states; reserve the slot only while loading or visible, and restore the chart height when the quick bar is hidden.
 **Catchable by**: Section 5: "Not loaded" versus intentionally unavailable state must be distinguished
 
+## Case: WalletConnect Pay expiry popStack dropped in-flight txid
+**Date**: 2026-08-18 | **Platforms**: mobile, desktop, web (hardware wallets especially)
+**Symptom**: If a WalletConnect Pay payment expired while an eth_sendTransaction confirmation was already submitting, the broadcast could succeed while the executor treated the wait as failed, so the txid was neither confirmed to the server nor stored for retry.
+**Root Cause**: confirmWithinDeadline closed the SignatureConfirm modal on expiry. TxConfirm only sets isSubmitted after broadcast returns, so unmount fired onCancel and rejected waitForConfirm. The late-persist `.then` on that promise never ran; onSuccess's resolve was a no-op.
+**Fix**: Persist the txid inside onSuccess, decoupled from waitForConfirm settling. The happy path still awaits that persist promise before the next action; expiry-during-broadcast relies on the fire-and-forget persist from onSuccess.
+**Catchable by**: Section 5: No race conditions in async operations — do not persist irreversible results through a promise that modal unmount can reject
+
+## Case: WalletConnect Pay KYC collected before platform broadcast refusal
+**Date**: 2026-08-18 | **Platforms**: web, desktop without safeStorage
+**Symptom**: Users on platforms without durable progress filled the hosted compliance form, submitted personal data to the merchant's KYC provider, then were told on-chain payments are not supported.
+**Root Cause**: supportsDurableProgress was checked only in getRequiredPaymentActions, which runs after handlePay's collectData step.
+**Fix**: Shared shouldRefuseWcPayWithoutDurableProgress helper; options page disables broadcast options and preflights before the form; getRequiredPaymentActions remains the backstop. Tests cover broadcast×durable combinations.
+**Catchable by**: Section 4: Data flow end-to-end — platform gates that abort a flow must run before side-effecting steps such as KYC submission
+
 ## Case: Swap invite history showed invite-code remarks unlike other rebate modules
 **Date**: 2026-08-18 | **Platforms**: mobile, desktop, web, extension
 **Symptom**: Rebate Swap invite history rendered the invite-code remark under the code badge; Perps and hardware invite/list rows only showed the invite code.

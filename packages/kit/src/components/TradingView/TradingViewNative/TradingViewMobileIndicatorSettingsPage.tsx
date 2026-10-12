@@ -23,7 +23,6 @@ import { localizeTradingViewNativeIndicatorSettingsValue } from './indicatorSett
 import { mergeMobileIndicatorSettings } from './mobileIndicatorSettingsUtils';
 import { showTradingViewNativeIndicatorSettingsDialog } from './showTradingViewNativeIndicatorSettingsDialog';
 import { useTradingViewNativeIndicatorSettings } from './useTradingViewNativeSettings';
-import { useTradingViewPanelSettings } from './useTradingViewPanelSettings';
 import { isTradingViewNativeAnyIndicator } from './utils/chartIndicators';
 
 import type { ITradingViewNativeStorageNamespace } from './types';
@@ -122,22 +121,6 @@ function IndicatorSettingsPageContent({
   );
 }
 
-function PanelIndicatorSettingsPage({
-  panelId,
-  storageNamespace,
-}: {
-  panelId: string;
-  storageNamespace?: ITradingViewNativeStorageNamespace;
-}) {
-  const { indicatorSettingsState } = useTradingViewPanelSettings(
-    panelId,
-    storageNamespace,
-  );
-  return (
-    <IndicatorSettingsPageContent settingsState={indicatorSettingsState} />
-  );
-}
-
 function DefaultIndicatorSettingsPage({
   storageNamespace,
 }: {
@@ -160,14 +143,6 @@ export default function TradingViewMobileIndicatorSettingsPage() {
         EModalMarketRoutes.MarketIndicatorSettings
       >
     >();
-  if (params?.panelId && params.storageNamespace !== 'swap') {
-    return (
-      <PanelIndicatorSettingsPage
-        panelId={params.panelId}
-        storageNamespace={params.storageNamespace}
-      />
-    );
-  }
   return params?.storageNamespace === 'swap' ? (
     <SwapIndicatorSettingsPage />
   ) : (
