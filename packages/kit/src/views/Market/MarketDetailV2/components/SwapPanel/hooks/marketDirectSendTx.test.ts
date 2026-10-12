@@ -352,6 +352,81 @@ describe('marketDirectSendTx', () => {
     expect(mockBatchEstimateFee).not.toHaveBeenCalled();
   });
 
+  it('awaits the next signing guard after persisting a broadcast approval', async () => {
+    const unsignedTx = createUnsignedTx();
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
+    let confirmApproval!: () => void;
+    const approvalConfirmed = new Promise<void>((resolve) => {
+      confirmApproval = resolve;
+    });
+    let enterSwapGuard!: () => void;
+    const swapGuardEntered = new Promise<void>((resolve) => {
+      enterSwapGuard = resolve;
+    });
+    const onBeforeSignAndSend = jest
+      .fn<Promise<void>, []>()
+      .mockResolvedValueOnce(undefined)
+      .mockImplementationOnce(async () => {
+        enterSwapGuard();
+        await approvalConfirmed;
+      });
+    const onBroadcast = jest.fn();
+    const operation = sendMarketDirectUnsignedTxs({
+      accountAddress: '0xuser',
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      buildUnsignedParams: {
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        encodedTx: unsignedTx.encodedTx,
+      },
+      approveUnsignedTxArr: [
+        createUnsignedTx({ encodedTx: { data: '0xapprove' } as never }),
+      ],
+      onBeforeSignAndSend,
+      onBroadcast,
+    });
+    await swapGuardEntered;
+    expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(1);
+    expect(onBroadcast).toHaveBeenCalledTimes(1);
+    expect(mockSaveSendConfirmHistoryTxs).toHaveBeenCalledTimes(1);
+    confirmApproval();
+    await expect(operation).resolves.toHaveLength(2);
+    expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(2);
+    expect(onBroadcast).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not sign the next transaction if its asynchronous guard rejects', async () => {
+    const unsignedTx = createUnsignedTx();
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
+    const approvalFailure = new Error('Approval failed');
+    const onBeforeSignAndSend = jest
+      .fn<Promise<void>, []>()
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(approvalFailure);
+    const onBroadcast = jest.fn();
+    await expect(
+      sendMarketDirectUnsignedTxs({
+        accountAddress: '0xuser',
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        buildUnsignedParams: {
+          accountId: 'account-1',
+          networkId: 'evm--1',
+          encodedTx: unsignedTx.encodedTx,
+        },
+        approveUnsignedTxArr: [
+          createUnsignedTx({ encodedTx: { data: '0xapprove' } as never }),
+        ],
+        onBeforeSignAndSend,
+        onBroadcast,
+      }),
+    ).rejects.toBe(approvalFailure);
+    expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(1);
+    expect(onBroadcast).toHaveBeenCalledTimes(1);
+    expect(mockSaveSendConfirmHistoryTxs).toHaveBeenCalledTimes(1);
+  });
+
   it('tracks Gas Account submission success without repeating the review decision', async () => {
     const sponsoredUnsignedTx = createSponsoredUnsignedTx();
     mockPrepareSendConfirmUnsignedTx.mockResolvedValue(sponsoredUnsignedTx);

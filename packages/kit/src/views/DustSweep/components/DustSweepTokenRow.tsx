@@ -37,7 +37,7 @@ export const dustSweepReasonMessageIds: Record<
   priceImpact: ETranslations.toast_price_impact_exceeded_skipped,
   valueDrop: ETranslations.swap_page_price_impact_title,
   noQuote: ETranslations.swap_page_provider_rate_unavailable,
-  insufficientGas: ETranslations.swap_page_toast_insufficient_balance_content,
+  insufficientGas: ETranslations.swap_page_button_insufficient_balance,
   txFailed: ETranslations.swap_review_transaction_failed,
   unknown: ETranslations.global_unknown_error,
 };

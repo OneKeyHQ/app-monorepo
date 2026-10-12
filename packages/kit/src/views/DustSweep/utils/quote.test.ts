@@ -77,6 +77,47 @@ describe('Dust Sweep quote execution guards', () => {
     expect(getDustSweepQuoteRisk(quote, token, snapshot)).toBeUndefined();
   });
 
+  it('uses prices from the matched quote when local prices are absent', () => {
+    const unpricedToken = { ...token, price: undefined };
+    const unpricedSnapshot = {
+      ...snapshot,
+      nativeToken: { ...snapshot.nativeToken, price: undefined },
+    };
+    expect(
+      getDustSweepQuoteRisk(quote, unpricedToken, unpricedSnapshot),
+    ).toBeUndefined();
+    expect(
+      getDustSweepQuoteRisk(
+        { ...quote, toAmount: '0.009' },
+        unpricedToken,
+        unpricedSnapshot,
+      ),
+    ).toBe('priceImpact');
+    expect(
+      getDustSweepQuoteRisk(
+        {
+          ...quote,
+          fromTokenInfo: unpricedToken,
+          toTokenInfo: unpricedSnapshot.nativeToken,
+        },
+        unpricedToken,
+        unpricedSnapshot,
+      ),
+    ).toBe('unknown');
+    expect(
+      getDustSweepQuoteRisk(
+        {
+          ...quote,
+          fromTokenInfo: unpricedToken,
+          toTokenInfo: unpricedSnapshot.nativeToken,
+          valueDropPercent: 0,
+        },
+        unpricedToken,
+        unpricedSnapshot,
+      ),
+    ).toBeUndefined();
+  });
+
   it('accepts native token address aliases returned by build-tx', () => {
     expect(
       getDustSweepQuoteRisk(

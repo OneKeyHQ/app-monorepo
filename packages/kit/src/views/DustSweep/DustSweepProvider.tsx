@@ -95,14 +95,18 @@ function useDustSweepController(params: IDustSweepRouteParams) {
         ),
     [networks, preferences.threshold],
   );
-  const current = networkId
-    ? orderedNetworks.find((entry) => entry.network.networkId === networkId)
-    : orderedNetworks[0];
+  const current =
+    orderedNetworks.find((entry) => entry.network.networkId === networkId) ??
+    (selecting ? orderedNetworks[0] : undefined);
   const currentNetworkId = current?.network.networkId;
   useEffect(() => {
-    if (currentNetworkId && currentNetworkId !== networkId)
-      setNetworkId(currentNetworkId);
-  }, [currentNetworkId, networkId]);
+    if (!selecting || !currentNetworkId || currentNetworkId === networkId)
+      return;
+    setNetworkId(currentNetworkId);
+    setSelection(undefined);
+    setIncludeHidden(false);
+    hiddenReported.current = false;
+  }, [currentNetworkId, networkId, selecting]);
   const { visible, hidden } = useMemo(
     () =>
       filterDustSweepCandidates(

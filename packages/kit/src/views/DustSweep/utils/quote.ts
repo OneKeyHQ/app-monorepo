@@ -127,8 +127,14 @@ export function getDustSweepQuoteRisk(
   const impactPercent =
     quotedImpact === undefined
       ? getActualPriceImpactPercent({
-          fromToken: token,
-          toToken: snapshot.nativeToken,
+          fromToken: {
+            ...token,
+            price: token.price ?? quote.fromTokenInfo.price,
+          },
+          toToken: {
+            ...snapshot.nativeToken,
+            price: snapshot.nativeToken.price ?? quote.toTokenInfo.price,
+          },
           fromAmount: token.amount,
           toAmount: quote.toAmount,
         })

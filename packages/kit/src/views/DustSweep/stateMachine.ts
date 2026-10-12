@@ -142,11 +142,7 @@ export function dustSweepReducer(
           ? {
               ...item,
               status: action.status,
-              approvalTxIds: ['success', 'skipped', 'failed'].includes(
-                action.status,
-              )
-                ? undefined
-                : (action.approvalTxIds ?? item.approvalTxIds),
+              approvalTxIds: action.approvalTxIds ?? item.approvalTxIds,
               txId: action.txId ?? item.txId,
               receivedAmount: action.receiptUnavailable
                 ? undefined

@@ -91,6 +91,51 @@ describe('Dust Sweep terminal and retry boundaries', () => {
     });
   });
 
+  it('retains approval hashes when confirmation fails before swap signing', () => {
+    let state = dustSweepReducer(signingState(), {
+      type: 'approvalBroadcast',
+      sessionId: identity.sessionId,
+      key: identity.key,
+      approvalTxIds: ['failed-approval'],
+    });
+    state = dustSweepReducer(state, { ...identity, status: 'preparing' });
+    state = dustSweepReducer(state, {
+      ...identity,
+      status: 'skipped',
+      reason: 'txFailed',
+    });
+    expect(state.items[0]).toMatchObject({
+      status: 'skipped',
+      approvalTxIds: ['failed-approval'],
+    });
+  });
+
+  it.each(['success', 'failed'] as const)(
+    'retains approval hashes in the %s swap details',
+    (status) => {
+      let state = dustSweepReducer(signingState(), {
+        type: 'approvalBroadcast',
+        sessionId: identity.sessionId,
+        key: identity.key,
+        approvalTxIds: ['approval'],
+      });
+      state = dustSweepReducer(state, {
+        ...identity,
+        status: 'broadcasted',
+        txId: 'swap',
+      });
+      state = dustSweepReducer(state, {
+        ...identity,
+        status,
+        receivedAmount: status === 'success' ? '1' : undefined,
+      });
+      expect(state.items[0]).toMatchObject({
+        status,
+        approvalTxIds: ['approval'],
+      });
+    },
+  );
+
   it('does not retry an unknown submission or reset it into a new queue', () => {
     let state = dustSweepReducer(signingState(), {
       ...identity,

@@ -8,6 +8,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import type {
   IDustSweepNetwork,
   IDustSweepRouteParams,
+  IDustSweepSnapshot,
   IDustSweepThreshold,
   IDustSweepToken,
 } from '@onekeyhq/shared/types/swap/dustSweep';
@@ -132,10 +133,10 @@ const routeParams: IDustSweepRouteParams = {
   entry: 'walletMore',
 };
 
-function renderController() {
+function renderController(params = routeParams) {
   function Wrapper({ children }: PropsWithChildren) {
     return (
-      <DustSweepProvider params={routeParams}>{children}</DustSweepProvider>
+      <DustSweepProvider params={params}>{children}</DustSweepProvider>
     );
   }
   return renderHook(() => useDustSweep(), { wrapper: Wrapper });
@@ -228,6 +229,95 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     expect(result.current.current?.network.networkId).toBe('evm--8453');
     expect(result.current.selected).toEqual([base.tokens[0]]);
   });
+
+  it('falls back to an available network after reload removes the selected network', async () => {
+    const remainingNetwork = network('evm--8453', ['2', '0.001']);
+    mockLoadNetworks
+      .mockResolvedValueOnce({
+        networks: [remainingNetwork, ethereumWithHidden],
+        partialError: false,
+      })
+      .mockResolvedValueOnce({
+        networks: [remainingNetwork],
+        partialError: true,
+      });
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+    expect(result.current.current?.network.networkId).toBe('evm--1');
+    act(() => result.current.addHidden());
+    expect(result.current.includeHidden).toBe(true);
+
+    act(() => result.current.retry());
+    await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+
+    expect(result.current.current?.network.networkId).toBe('evm--8453');
+    expect(result.current.current?.accountId).toBe(remainingNetwork.accountId);
+    expect(result.current.includeHidden).toBe(false);
+    expect(result.current.selected).toEqual([remainingNetwork.tokens[0]]);
+    expect(result.current.hidden).toEqual([remainingNetwork.tokens[1]]);
+    expect(result.current.partialError).toBe(true);
+  });
+
+  it('recovers an available network after a reload returns no networks', async () => {
+    mockLoadNetworks
+      .mockResolvedValueOnce({ networks: [ethereum], partialError: false })
+      .mockResolvedValueOnce({ networks: [], partialError: false })
+      .mockResolvedValueOnce({ networks: [base], partialError: false });
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+    act(() => result.current.toggle(ethereum.tokens[0].key));
+    expect(result.current.selected).toEqual([]);
+
+    act(() => result.current.retry());
+    await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+    expect(result.current.current).toBeUndefined();
+    act(() => result.current.start());
+    expect(result.current.session.state.snapshot).toBeUndefined();
+
+    act(() => result.current.retry());
+    await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+    expect(result.current.current?.network.networkId).toBe('evm--8453');
+    expect(result.current.selected).toEqual([base.tokens[0]]);
+  });
+
+  it.each(['running', 'paused', 'completed'] as const)(
+    'does not select another network when the %s session network is unavailable',
+    async (phase) => {
+      const snapshot: IDustSweepSnapshot = {
+        id: 'running-session',
+        accountId: ethereum.accountId,
+        address: ethereum.address,
+        networkId: ethereum.network.networkId,
+        nativeToken: ethereum.nativeToken,
+        slippage: 5,
+        tokens: ethereum.tokens,
+      };
+      mockUseSession.mockReturnValue({
+        state: { phase, snapshot, items: [] },
+        start: jest.fn(),
+        pause: jest.fn(),
+        resume: jest.fn(),
+        reset: jest.fn(),
+        leave: jest.fn().mockResolvedValue(undefined),
+        leaving: false,
+      });
+      mockLoadNetworks.mockResolvedValue({
+        networks: [base],
+        partialError: false,
+      });
+      const { result } = renderController({
+        ...routeParams,
+        networkId: ethereum.network.networkId,
+      });
+      await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+
+      act(() => result.current.selectNetwork(base.network.networkId));
+      expect(result.current.current).toBeUndefined();
+      expect(result.current.selecting).toBe(false);
+      expect(result.current.session.state.snapshot).toBe(snapshot);
+      expect(result.current.session.state.phase).toBe(phase);
+    },
+  );
 
   it('keeps Add anyway scoped to the active network and threshold', async () => {
     mockLoadNetworks.mockResolvedValue({

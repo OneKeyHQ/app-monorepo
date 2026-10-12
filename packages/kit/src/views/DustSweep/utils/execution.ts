@@ -368,6 +368,7 @@ export async function executeDustSweepItem(
   let txId: string | undefined;
   let broadcastCount = 0;
   const broadcastedApprovalTxIds: string[] = [];
+  let confirmedApprovalCount = 0;
   let signing = false;
   try {
     await sendMarketDirectUnsignedTxs({
@@ -388,7 +389,15 @@ export async function executeDustSweepItem(
         await checkNativeGasBalance(gasInfos, options, buildRes.result);
         await checkInputAndOtherFeeBalances(buildRes.result, options);
       },
-      onBeforeSignAndSend: () => {
+      onBeforeSignAndSend: async () => {
+        if (broadcastedApprovalTxIds.length > confirmedApprovalCount) {
+          await waitForBroadcastedApprovals({
+            approvalTxIds: broadcastedApprovalTxIds.slice(confirmedApprovalCount),
+            snapshot,
+            signal,
+          });
+          confirmedApprovalCount = broadcastedApprovalTxIds.length;
+        }
         assertActive(signal);
         if (!signing) {
           signing = true;
@@ -418,7 +427,8 @@ export async function executeDustSweepItem(
       if (
         !signing &&
         broadcastedApprovalTxIds.length &&
-        !(submissionError instanceof DustSweepUserCanceled)
+        !(submissionError instanceof DustSweepUserCanceled) &&
+        !(submissionError instanceof DustSweepSkip)
       )
         throw new DustSweepRetryableError(
           error instanceof Error ? error.message : undefined,
@@ -438,7 +448,7 @@ export async function executeDustSweepItem(
       const result = await backgroundApiProxy.serviceSwap.fetchTxState({
         txId,
         orderId: execution.orderId,
-        provider: quote.info.provider,
+        provider: buildRes.result.info.provider,
         networkId: snapshot.networkId,
         protocol: EProtocolOfExchange.SWAP,
         toTokenAddress: snapshot.nativeToken.contractAddress,

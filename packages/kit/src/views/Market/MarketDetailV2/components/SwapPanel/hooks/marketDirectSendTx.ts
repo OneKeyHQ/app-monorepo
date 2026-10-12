@@ -65,7 +65,7 @@ export type IMarketGasInfoEntry = {
 };
 
 type IMarketDirectSendParams = {
-  onBeforeSignAndSend?: () => void;
+  onBeforeSignAndSend?: () => void | Promise<void>;
   onBroadcast?: (signedTx: ISendTxOnSuccessData['signedTx']) => void;
   accountAddress: string;
   accountId: string;
@@ -1200,8 +1200,8 @@ async function updateUnsignedTxAndSendTx({
   const signedTx = await sendDirectSwapWithGasAccountAnalytics({
     context: gasAccountAnalyticsContext,
     gasAccountUiState,
-    send: (uiState) => {
-      onBeforeSignAndSend?.();
+    send: async (uiState) => {
+      await onBeforeSignAndSend?.();
       return backgroundApiProxy.serviceSend.signAndSendTransaction({
         ...sendTxParams,
         gasAccountUiState: uiState,
