@@ -79,3 +79,28 @@ export function useStockPriceSource() {
 
   return { priceMode, handlePriceModeChange, sharePriceAvailable };
 }
+
+export function useStockChartRenderer({
+  priceMode,
+  preferredIsTradingViewNative,
+  onChartSwitch,
+}: {
+  priceMode: IMarketPriceSource;
+  preferredIsTradingViewNative: boolean;
+  onChartSwitch: () => void;
+}) {
+  const requestedNativeRef = useRef(false);
+  // Keep the page's fullscreen/navigation owner on the same renderer as the
+  // share chart. Request once even when StrictMode replays layout effects.
+  useLayoutEffect(() => {
+    if (priceMode !== 'share' || preferredIsTradingViewNative) {
+      requestedNativeRef.current = false;
+      return;
+    }
+    if (!requestedNativeRef.current) {
+      requestedNativeRef.current = true;
+      onChartSwitch();
+    }
+  }, [onChartSwitch, preferredIsTradingViewNative, priceMode]);
+  return preferredIsTradingViewNative || priceMode === 'share';
+}

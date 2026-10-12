@@ -292,9 +292,7 @@ export function SwapStockVariantSelector() {
             compact
             fallbackToken={currentStockToken}
             forceLoading={variantLoading}
-            onOpenChange={(open) => {
-              if (open) selection?.cancelSelection();
-            }}
+            onOpenChange={selection?.onSelectorOpenChange}
             onSelect={selection?.selectVariant}
             portfolioData={portfolio?.portfolioData}
             resolvedVariantKeys={portfolio?.resolvedVariantKeys}

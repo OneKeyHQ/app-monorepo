@@ -10,6 +10,7 @@ import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 import { SwapStockTickerSelector } from './SwapStockTickerSelector';
 
 const mockClosePopover = jest.fn();
+const mockOnSelectorOpenChange = jest.fn();
 const mockSelectStock = jest.fn<
   Promise<boolean>,
   [IMarketStockPublicItem, string?]
@@ -102,9 +103,29 @@ jest.mock(
   () => ({
     StockSelectorPopover: ({
       renderContent: Content,
+      onOpenChange,
     }: {
       renderContent: ComponentType<{ closePopover: () => void }>;
-    }) => <Content closePopover={mockClosePopover} />,
+      onOpenChange?: (open: boolean) => void;
+    }) => (
+      <>
+        <button
+          type="button"
+          data-testid="open-selector"
+          onClick={() => onOpenChange?.(true)}
+        >
+          Open
+        </button>
+        <button
+          type="button"
+          data-testid="dismiss-selector"
+          onClick={() => onOpenChange?.(false)}
+        >
+          Dismiss
+        </button>
+        <Content closePopover={mockClosePopover} />
+      </>
+    ),
   }),
 );
 jest.mock(
@@ -123,6 +144,7 @@ jest.mock('../modal/SwapTokenSelectModal.utils', () => ({
 jest.mock('./SwapStockMarketProvider', () => ({
   useSwapStockSelection: () => ({
     selectStock: mockSelectStock,
+    onSelectorOpenChange: mockOnSelectorOpenChange,
     selectionError: mockSelectionError,
   }),
 }));
@@ -219,4 +241,14 @@ describe('SwapStockTickerSelector', () => {
     expect(mockSelectStock).toHaveBeenCalledTimes(2);
     expect(mockClosePopover).toHaveBeenCalledTimes(1);
   });
+});
+
+it('forwards both opening and user dismissal to the selection provider', () => {
+  render(<SwapStockTickerSelector />);
+  fireEvent.click(screen.getByTestId('open-selector'));
+  fireEvent.click(screen.getByTestId('dismiss-selector'));
+  expect(mockOnSelectorOpenChange.mock.calls.slice(-2)).toEqual([
+    [true],
+    [false],
+  ]);
 });

@@ -84,7 +84,10 @@ import { useMarketDetailDisplayData } from '../hooks/useMarketDetailDisplayData'
 import { useMarketKlineLivePrice } from '../hooks/useMarketKlineLivePrice';
 import { useMarketNativeChartLayout } from '../hooks/useMarketNativeChartLayout';
 import { useMarketNativeChartPriceUpdate } from '../hooks/useMarketNativeChartPriceUpdate';
-import { resolveDisplayedStockPriceMode } from '../hooks/useStockPriceSource';
+import {
+  resolveDisplayedStockPriceMode,
+  useStockChartRenderer,
+} from '../hooks/useStockPriceSource';
 import { useMarketTradingViewParams } from '../hooks/useTokenDetail';
 import { useTradingViewSubIndicatorCount } from '../hooks/useTradingViewSubIndicatorCount';
 import { getMarketDetailTradingViewNativeSource } from '../utils/getMarketDetailTradingViewNativeSource';
@@ -388,9 +391,11 @@ export function MobileLayout({
     isStockDetailError,
     storedPriceMode,
   });
-  // The legacy token-only chart cannot render the selected share series.
-  const isTradingViewNative =
-    preferredIsTradingViewNative || priceMode === 'share';
+  const isTradingViewNative = useStockChartRenderer({
+    priceMode,
+    preferredIsTradingViewNative,
+    onChartSwitch,
+  });
   const detailKind = resolveMarketMobileDetailKind({
     isStockToken: Boolean(isStockToken || isStockRoute),
     marketTokenCategory,
