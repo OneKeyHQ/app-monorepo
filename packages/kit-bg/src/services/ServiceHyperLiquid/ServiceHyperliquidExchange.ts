@@ -2092,9 +2092,15 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   @backgroundMethod()
   async withdraw(params: IWithdrawParams): Promise<void> {
     await this.checkAccountCanTrade();
-    await this.backgroundApi.serviceHyperliquid.updatePerpsConfigByServerSilently(
-      { ignoreCache: true },
-    );
+    const config =
+      await this.backgroundApi.serviceHyperliquid.updatePerpsConfigByServerSilently(
+        { ignoreCache: true },
+      );
+    if (!config) {
+      throw new OneKeyLocalError(
+        'Unable to refresh withdrawal configuration. Please try again.',
+      );
+    }
     const forceLegacyUsdcWithdraw = await this._isLegacyUsdcWithdrawForced();
     const destinationConfig = requireUsdcWithdrawDestination(
       params.destinationId,

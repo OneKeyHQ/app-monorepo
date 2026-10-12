@@ -73,6 +73,7 @@ describe('USDC withdrawal emergency policy', () => {
       proxyRPCCall,
       refreshConfig,
     ].forEach((mock) => mock.mockReset());
+    refreshConfig.mockResolvedValue({ data: { referrerConfig: {} } });
     policy.withdrawChannel = undefined;
     getAddress.mockResolvedValue(address);
     proxyRPCCall.mockResolvedValue(['0x30d40']);
@@ -114,6 +115,25 @@ describe('USDC withdrawal emergency policy', () => {
         service.getUsdcWithdrawRoute({ forceRefresh: true }),
       ).resolves.toBe('cctp');
       expect(refreshConfig).toHaveBeenCalledWith({ ignoreCache: true });
+    },
+  );
+
+  it.each(['cctp', 'legacy'] as const)(
+    'blocks signing when refreshing the cached %s policy fails',
+    async (withdrawChannel) => {
+      policy.withdrawChannel = withdrawChannel;
+      refreshConfig.mockResolvedValue(undefined);
+      await expect(
+        service.withdraw({
+          ...params,
+          expectedRoute: withdrawChannel === 'legacy' ? 'bridge' : 'cctp',
+          expectedCctpFee: '0.2',
+        }),
+      ).rejects.toThrow('Unable to refresh withdrawal configuration');
+      expect(getAddress).not.toHaveBeenCalled();
+      expect(withdraw3).not.toHaveBeenCalled();
+      expect(sendAsset).not.toHaveBeenCalled();
+      expect(sendToEvmWithData).not.toHaveBeenCalled();
     },
   );
 
