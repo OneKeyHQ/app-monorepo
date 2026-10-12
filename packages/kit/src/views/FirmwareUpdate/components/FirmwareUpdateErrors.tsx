@@ -254,6 +254,15 @@ export function useFirmwareUpdateErrors({
             message={presentation.message}
           />
         ),
+        detail: presentation.tutorialUrl ? (
+          <RichSizeableText
+            size="$bodyMd"
+            color="$textSubdued"
+            linkList={{ url: { url: presentation.tutorialUrl } }}
+          >
+            {ETranslations.update_follow_online_tutorial_to_proceed_manually}
+          </RichSizeableText>
+        ) : undefined,
         onRetryHandler:
           action.kind === 'link' ? () => openUrlExternal(action.url) : onRetry,
         retryText: action.kind === 'link' ? action.text : defaultRetryText,

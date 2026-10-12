@@ -6,7 +6,10 @@ import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { renderHook } from '@testing-library/react';
 import { IntlProvider, createIntl } from 'react-intl';
 
-import { LINUX_UDEV_HELP_URL } from '@onekeyhq/shared/src/config/appConfig';
+import {
+  HARDWARE_TROUBLESHOOTING_URL,
+  LINUX_UDEV_HELP_URL,
+} from '@onekeyhq/shared/src/config/appConfig';
 import { BluetoothUnavailableWhileUsbConnectedError } from '@onekeyhq/shared/src/errors';
 import { FirmwareUpdateTransferInterruptedError } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import {
@@ -117,6 +120,28 @@ describe('firmware update USB-priority errors', () => {
       ).toBe(key);
     },
   );
+
+  it('keeps the USB troubleshooting link and retry in the legacy error view', () => {
+    const onRetry = jest.fn();
+    const { result } = renderHook(
+      () =>
+        useLegacyFirmwareUpdateErrors({
+          error: convertDeviceError({
+            code: ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
+          }),
+          lastFirmwareTipMessage: undefined,
+          onRetry,
+          result: undefined,
+        }),
+      { wrapper: IntlWrapper },
+    );
+    const detail = result.current.detail as ReactElement<{
+      linkList: { url: { url: string } };
+    }>;
+
+    expect(detail.props.linkList.url.url).toBe(HARDWARE_TROUBLESHOOTING_URL);
+    expect(result.current.onRetryHandler).toBe(onRetry);
+  });
 
   it('links Linux permission failures to the existing udev help article', () => {
     const previous = platformEnv.isDesktopLinux;
