@@ -23,6 +23,7 @@ import type { IMarketSelectedDeriveType } from './marketDeriveType';
 const {
   Provider: ProviderJotaiContextMarketV2,
   contextAtom,
+  contextAtomComputed,
   contextAtomMethod,
   useContextData: useMarketV2ContextData,
 } = createJotaiContext();
@@ -47,6 +48,9 @@ export const { atom: marketWatchListV2RefreshRequestIdAtom } =
 export const { atom: tokenDetailAtom, use: useTokenDetailAtom } = contextAtom<
   IMarketTokenDetail | undefined
 >(undefined);
+
+export const { atom: tokenDetailSymbolAtom, use: useTokenDetailSymbolAtom } =
+  contextAtomComputed((get) => get(tokenDetailAtom())?.symbol);
 
 export const { atom: tokenDetailPreviewAtom, use: useTokenDetailPreviewAtom } =
   contextAtom<IMarketTokenDetailPreview | undefined>(undefined);

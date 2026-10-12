@@ -24,6 +24,7 @@ type IDustSweepAction =
       sessionId: string;
       key: string;
       status: IDustSweepItemStatus;
+      approvalTxIds?: string[];
       txId?: string;
       receivedAmount?: string;
       receiptUnavailable?: boolean;
@@ -96,6 +97,11 @@ export function dustSweepReducer(
           ? {
               ...item,
               status: action.status,
+              approvalTxIds: ['success', 'skipped', 'failed'].includes(
+                action.status,
+              )
+                ? undefined
+                : (action.approvalTxIds ?? item.approvalTxIds),
               txId: action.txId ?? item.txId,
               receivedAmount: action.receiptUnavailable
                 ? undefined

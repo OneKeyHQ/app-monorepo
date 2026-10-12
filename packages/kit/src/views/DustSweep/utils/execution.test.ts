@@ -1,3 +1,5 @@
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+
 import type backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { sendMarketDirectUnsignedTxs } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketDirectSendTx';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -23,6 +25,7 @@ const mockTxState: jest.MockedFunction<
 const mockPayload = jest.fn();
 const mockSend: jest.MockedFunction<typeof sendMarketDirectUnsignedTxs> =
   jest.fn();
+const mockPrepareUnsigned = jest.fn();
 const mockHistory = jest.fn();
 const mockBalance = jest.fn();
 const mockGasRequirement = jest.fn();
@@ -34,6 +37,9 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       fetchApproveAllowanceForDisplay: mockAllowance,
       fetchBuildTx: mockBuild,
       fetchTxState: mockTxState,
+    },
+    serviceSend: {
+      prepareSendConfirmUnsignedTx: mockPrepareUnsigned,
     },
   },
 }));
@@ -119,6 +125,7 @@ function createOptions() {
     signal: new AbortController().signal,
     onSigning: jest.fn(),
     onPrepared: jest.fn(),
+    onApprovalBroadcast: jest.fn(),
     onBroadcast: jest.fn(),
     generateSwapHistoryItem: jest.fn(),
   };
@@ -126,8 +133,15 @@ function createOptions() {
 async function sendTransaction(params: ISendParams) {
   await params.validateFinalGasInfos?.([]);
   params.onBeforeSignAndSend?.();
+  for (const [index] of (params.approveUnsignedTxArr ?? []).entries()) {
+    params.onBroadcast?.({
+      txid: `approval-${index}`,
+      rawTx: '',
+      encodedTx: null,
+    });
+  }
   params.onBroadcast?.({
-    txid: params.buildUnsignedParams.approveInfo ? 'approval' : 'swap',
+    txid: 'swap',
     rawTx: '',
     encodedTx: null,
   });
@@ -146,6 +160,12 @@ describe('Dust Sweep serial execution boundaries', () => {
       skipSendTransAction: false,
     });
     mockSend.mockReset().mockImplementation(sendTransaction);
+    mockPrepareUnsigned
+      .mockReset()
+      .mockImplementation(async (params: { prevNonce?: number }) => ({
+        nonce: (params.prevNonce ?? 0) + 1,
+        encodedTx: { to: '0xapproval' },
+      }));
     mockHistory.mockReset().mockResolvedValue(undefined);
     mockBalance
       .mockReset()
@@ -159,12 +179,27 @@ describe('Dust Sweep serial execution boundaries', () => {
     });
   });
 
-  it('re-quotes after approval and rechecks the new spender before building', async () => {
-    mockFetchQuote
-      .mockResolvedValueOnce(createQuote('0xfirst'))
-      .mockResolvedValue(createQuote('0xsecond'));
+  it('bundles the approval and swap under one final gas validation', async () => {
+    mockFetchQuote.mockResolvedValue(createQuote('0xfirst'));
+    mockAllowance.mockResolvedValue(
+      createAllowance({
+        isApproved: false,
+        allowanceTarget: '0xfirst',
+        approveAmounted: '0',
+      }),
+    );
+    mockBuild.mockResolvedValue({ result: createQuote('0xfirst') });
+    await executeDustSweepItem(createOptions());
+    expect(mockSend).toHaveBeenCalledTimes(1);
+    expect(mockSend.mock.calls[0][0].approveUnsignedTxArr).toHaveLength(1);
+    expect(mockAllowance).toHaveBeenCalledWith(
+      expect.objectContaining({ spenderAddress: '0xfirst' }),
+    );
+    expect(mockFetchQuote).toHaveBeenCalledTimes(1);
+  });
+
+  it('waits for a broadcast approval before retrying a canceled swap signature', async () => {
     mockAllowance
-      .mockResolvedValue(createAllowance({ allowanceTarget: '0xsecond' }))
       .mockResolvedValueOnce(
         createAllowance({
           isApproved: false,
@@ -172,34 +207,58 @@ describe('Dust Sweep serial execution boundaries', () => {
           approveAmounted: '0',
         }),
       )
-      .mockResolvedValueOnce(createAllowance({ allowanceTarget: '0xfirst' }));
-    mockBuild.mockResolvedValue({ result: createQuote('0xsecond') });
-    await executeDustSweepItem(createOptions());
-    expect(mockSend).toHaveBeenCalledTimes(2);
-    expect(mockAllowance).toHaveBeenCalledWith(
-      expect.objectContaining({ spenderAddress: '0xsecond' }),
+      .mockResolvedValueOnce(createAllowance());
+    mockSend.mockImplementationOnce(async (params) => {
+      await params.validateFinalGasInfos?.([]);
+      params.onBeforeSignAndSend?.();
+      params.onBroadcast?.({
+        txid: 'approval-0',
+        rawTx: '',
+        encodedTx: null,
+      });
+      throw Object.assign(new Error('user canceled'), {
+        className: EOneKeyErrorClassNames.PasswordPromptDialogCancel,
+      });
+    });
+    const options = createOptions();
+
+    await expect(executeDustSweepItem(options)).rejects.toBeInstanceOf(
+      DustSweepUserCanceled,
     );
-    expect(mockFetchQuote).toHaveBeenCalledTimes(2);
-    expect(mockAllowance.mock.invocationCallOrder[2]).toBeLessThan(
-      mockBuild.mock.invocationCallOrder[0],
-    );
+    expect(options.onApprovalBroadcast).toHaveBeenCalledWith(['approval-0']);
+
+    mockSend.mockImplementationOnce(sendTransaction);
+    await expect(
+      executeDustSweepItem({
+        ...options,
+        pendingApprovalTxIds: ['approval-0'],
+      }),
+    ).resolves.toMatchObject({ status: 'success' });
+    expect(mockTxState).toHaveBeenCalledWith({
+      txId: 'approval-0',
+      networkId: snapshot.networkId,
+    });
+    expect(mockSend.mock.calls[1][0].approveUnsignedTxArr).toHaveLength(0);
   });
 
-  it('does not approve a new spender introduced by the build response', async () => {
+  it('uses the build response spender when the provider changes it', async () => {
     mockBuild.mockResolvedValue({ result: createQuote('0xchanged') });
-    mockAllowance
-      .mockResolvedValueOnce(createAllowance())
-      .mockResolvedValueOnce(
-        createAllowance({
-          isApproved: false,
-          allowanceTarget: '0xchanged',
-          approveAmounted: '0',
-        }),
-      );
-    await expect(executeDustSweepItem(createOptions())).rejects.toMatchObject({
-      reason: 'unknown',
+    mockAllowance.mockResolvedValue(
+      createAllowance({
+        isApproved: false,
+        allowanceTarget: '0xchanged',
+        approveAmounted: '0',
+      }),
+    );
+    await expect(executeDustSweepItem(createOptions())).resolves.toMatchObject({
+      status: 'success',
     });
-    expect(mockSend).not.toHaveBeenCalled();
+    expect(mockSend.mock.calls[0][0].approveUnsignedTxArr).toHaveLength(1);
+    expect(mockPrepareUnsigned).toHaveBeenCalledWith(
+      expect.objectContaining({
+        approveInfo: expect.objectContaining({ spender: '0xchanged' }),
+      }),
+    );
   });
 
   it('accepts the latest explicit approved quote when no approval target is returned', async () => {
@@ -217,41 +276,35 @@ describe('Dust Sweep serial execution boundaries', () => {
     expect(mockSend).toHaveBeenCalledTimes(1);
   });
 
-  it('stops a failed approval without polling forever or sending the swap', async () => {
+  it('reports an on-chain swap failure after the bundled approval', async () => {
     mockAllowance.mockResolvedValueOnce(
       createAllowance({ isApproved: false, approveAmounted: '0' }),
     );
     mockTxState.mockResolvedValue({ state: ESwapTxHistoryStatus.FAILED });
-    await expect(executeDustSweepItem(createOptions())).rejects.toMatchObject({
-      reason: 'txFailed',
+    await expect(executeDustSweepItem(createOptions())).resolves.toEqual({
+      status: 'failed',
+      message: undefined,
     });
     expect(mockSend).toHaveBeenCalledTimes(1);
-    expect(mockBuild).not.toHaveBeenCalled();
+    expect(mockBuild).toHaveBeenCalledTimes(1);
   });
 
   it('settles a reset approval before granting the exact new allowance', async () => {
-    mockAllowance
-      .mockResolvedValueOnce(
-        createAllowance({
-          isApproved: false,
-          approveAmounted: '1',
-          shouldResetApprove: true,
-        }),
-      )
-      .mockResolvedValueOnce(
-        createAllowance({ isApproved: false, approveAmounted: '0' }),
-      )
-      .mockResolvedValueOnce(createAllowance());
-    await executeDustSweepItem(createOptions());
-    expect(
-      mockSend.mock.calls.map(
-        ([params]: [ISendParams]) =>
-          params.buildUnsignedParams.approveInfo?.amount,
-      ),
-    ).toEqual(['0', '10', undefined]);
-    expect(mockTxState.mock.invocationCallOrder[0]).toBeLessThan(
-      mockSend.mock.invocationCallOrder[1],
+    mockAllowance.mockResolvedValueOnce(
+      createAllowance({
+        isApproved: false,
+        approveAmounted: '1',
+        shouldResetApprove: true,
+      }),
     );
+    await executeDustSweepItem(createOptions());
+    expect(mockSend.mock.calls[0][0].approveUnsignedTxArr).toHaveLength(2);
+    expect(
+      mockPrepareUnsigned.mock.calls.map(
+        ([params]: [{ approveInfo: { amount: string } }]) =>
+          params.approveInfo.amount,
+      ),
+    ).toEqual(['0', '10']);
   });
 
   it('supports quote-owned Tron approvals', async () => {
@@ -272,6 +325,13 @@ describe('Dust Sweep serial execution boundaries', () => {
       fromTokenInfo: tronToken,
       toTokenInfo: tronSnapshot.nativeToken,
     });
+    mockBuild.mockResolvedValue({
+      result: {
+        ...createQuote('TSpender'),
+        fromTokenInfo: tronToken,
+        toTokenInfo: tronSnapshot.nativeToken,
+      },
+    });
     mockAllowance.mockResolvedValueOnce(
       createAllowance({
         isApproved: false,
@@ -286,15 +346,18 @@ describe('Dust Sweep serial execution boundaries', () => {
         snapshot: tronSnapshot,
         token: tronToken,
       }),
-    ).rejects.toMatchObject({ reason: 'txFailed' });
+    ).resolves.toEqual({ status: 'failed', message: undefined });
     expect(mockSend).toHaveBeenCalledWith(
       expect.objectContaining({
         networkId: tronToken.networkId,
-        buildUnsignedParams: expect.objectContaining({
-          approveInfo: expect.objectContaining({
-            spender: 'TSpender',
-            isMax: false,
-          }),
+        approveUnsignedTxArr: expect.arrayContaining([expect.any(Object)]),
+      }),
+    );
+    expect(mockPrepareUnsigned).toHaveBeenCalledWith(
+      expect.objectContaining({
+        approveInfo: expect.objectContaining({
+          spender: 'TSpender',
+          isMax: false,
         }),
       }),
     );
@@ -334,6 +397,23 @@ describe('Dust Sweep serial execution boundaries', () => {
     expect(mockSend).not.toHaveBeenCalled();
   });
 
+  it('rejects an undisclosed non-native fee token', async () => {
+    const otherToken = {
+      ...token,
+      key: 'other',
+      contractAddress: '0xother',
+      symbol: 'OTHER',
+    };
+    mockFetchQuote.mockResolvedValue({
+      ...createQuote(),
+      fee: { otherFeeInfos: [{ token: otherToken, amount: '1' }] },
+    });
+    await expect(executeDustSweepItem(createOptions())).rejects.toMatchObject({
+      reason: 'unknown',
+    });
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
   it('distinguishes password cancellation from unknown post-sign transport errors', async () => {
     mockSend.mockImplementation(async (params: ISendParams) => {
       params.onBeforeSignAndSend?.();
@@ -352,6 +432,28 @@ describe('Dust Sweep serial execution boundaries', () => {
     });
     await expect(executeDustSweepItem(createOptions())).rejects.toBeInstanceOf(
       DustSweepUnknownSubmission,
+    );
+  });
+
+  it('treats hardware and QR cancellation as user cancellation', async () => {
+    mockSend.mockImplementation(async (params: ISendParams) => {
+      params.onBeforeSignAndSend?.();
+      throw Object.assign(new Error('device rejected'), {
+        code: HardwareErrorCode.ActionCancelled,
+      });
+    });
+    await expect(executeDustSweepItem(createOptions())).rejects.toBeInstanceOf(
+      DustSweepUserCanceled,
+    );
+
+    mockSend.mockImplementation(async (params: ISendParams) => {
+      params.onBeforeSignAndSend?.();
+      throw Object.assign(new Error('qr closed'), {
+        className: EOneKeyErrorClassNames.SecureQRCodeDialogCancel,
+      });
+    });
+    await expect(executeDustSweepItem(createOptions())).rejects.toBeInstanceOf(
+      DustSweepUserCanceled,
     );
   });
 

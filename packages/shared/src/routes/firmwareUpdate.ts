@@ -14,6 +14,9 @@ export type IModalFirmwareUpdateParamList = {
     connectId: string | undefined;
     firmwareType: EFirmwareType | undefined;
     baseReleaseInfo?: AllFirmwareRelease;
+    // The entry already showed the desktop USB suggestion and the user chose
+    // to continue via Bluetooth, so the page does not ask again.
+    usbSuggestionAcknowledged?: boolean;
   };
   [EModalFirmwareUpdateRoutes.Install]: {
     result: ICheckAllFirmwareReleaseResult;

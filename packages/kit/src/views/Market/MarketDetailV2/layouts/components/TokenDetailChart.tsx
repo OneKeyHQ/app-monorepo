@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -96,7 +96,7 @@ function TokenChartModeControl({
   );
 }
 
-export function TokenDetailChart({
+function TokenDetailChartBase({
   active,
   chartContainerTestID,
   fullscreenStyle,
@@ -264,3 +264,5 @@ export function TokenDetailChart({
     </MarketDesktopChartContainer>
   );
 }
+
+export const TokenDetailChart = memo(TokenDetailChartBase);

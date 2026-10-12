@@ -41,7 +41,14 @@ function DustSweepResultDialog({
   onAgain: () => void | Promise<void>;
 }) {
   const [showDetails, setShowDetails] = useState(false);
-  if (showDetails) return <DustSweepDetails state={state} onClose={onClose} />;
+  if (showDetails)
+    return (
+      <DustSweepDetails
+        state={state}
+        onBack={() => setShowDetails(false)}
+        onDone={onClose}
+      />
+    );
   return (
     <DustSweepResult
       state={state}

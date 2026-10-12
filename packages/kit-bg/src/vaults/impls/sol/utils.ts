@@ -4,6 +4,8 @@ import {
   ComputeBudgetProgram,
   PACKET_DATA_SIZE,
   PublicKey,
+  SystemProgram,
+  Transaction,
   TransactionMessage,
   VersionedTransaction,
 } from '@solana/web3.js';
@@ -14,7 +16,10 @@ import {
   SPL_PROGRAM_IDS,
   SYSTEM_PROGRAM_IDS,
 } from '@onekeyhq/core/src/chains/sol/constants';
-import type { INativeTxSol } from '@onekeyhq/core/src/chains/sol/types';
+import type {
+  IEncodedTxSol,
+  INativeTxSol,
+} from '@onekeyhq/core/src/chains/sol/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { EParamsEncodings } from './sdkSol/ClientSol';
@@ -32,6 +37,8 @@ export const TOKEN_AUTH_RULES_ID = new PublicKey(
 
 export const MIN_PRIORITY_FEE = 100_000;
 export const DEFAULT_COMPUTE_UNIT_LIMIT = 200_000;
+// Runtime cap for a single transaction's compute unit limit.
+export const MAX_COMPUTE_UNIT_LIMIT = 1_400_000;
 export const BASE_FEE = 5000; // lamports
 export const COMPUTE_UNIT_PRICE_DECIMALS = 6;
 
@@ -160,7 +167,7 @@ export function parseComputeUnitPrice(instructions: TransactionInstruction[]) {
 }
 
 export function parseComputeUnitLimit(instructions: TransactionInstruction[]) {
-  let computeUnitLimit = DEFAULT_COMPUTE_UNIT_LIMIT;
+  let nonComputeBudgetInstructionCount = 0;
   for (const instruction of instructions) {
     if (
       instruction.programId.toString() ===
@@ -170,12 +177,19 @@ export function parseComputeUnitLimit(instructions: TransactionInstruction[]) {
       if (type === 'SetComputeUnitLimit') {
         const { units } =
           ComputeBudgetInstruction.decodeSetComputeUnitLimit(instruction);
-        computeUnitLimit = units;
-        break;
+        return units;
       }
+    } else {
+      nonComputeBudgetInstructionCount += 1;
     }
   }
-  return computeUnitLimit;
+  // Mirror the runtime default when no explicit limit is set: 200k CU per
+  // non-ComputeBudget instruction, capped at 1.4M. Builtin instructions reserve
+  // fewer CUs on newer runtimes, so this stays an upper bound for the max fee.
+  return Math.min(
+    MAX_COMPUTE_UNIT_LIMIT,
+    Math.max(nonComputeBudgetInstructionCount, 1) * DEFAULT_COMPUTE_UNIT_LIMIT,
+  );
 }
 
 export function isSystemBuiltinProgram(pid: string) {
@@ -196,4 +210,96 @@ export function isCustomProgram(pid: string) {
     isSplProgram(pid) ||
     isMetaplexProgram(pid)
   );
+}
+
+// System program instruction index of AdvanceNonceAccount (u32 LE prefix).
+const ADVANCE_NONCE_ACCOUNT_INSTRUCTION_INDEX = 4;
+
+function isAdvanceNonceInstruction({
+  programId,
+  data,
+}: {
+  programId: PublicKey;
+  data: Uint8Array;
+}): boolean {
+  return (
+    programId.equals(SystemProgram.programId) &&
+    data.length >= 4 &&
+    Buffer.from(data).readUInt32LE(0) ===
+      ADVANCE_NONCE_ACCOUNT_INSTRUCTION_INDEX
+  );
+}
+
+// A durable-nonce tx carries the nonce value in `recentBlockhash`; by
+// convention its first instruction is AdvanceNonceAccount.
+export function isDurableNonceSolTx(nativeTx: INativeTxSol): boolean {
+  if (nativeTx instanceof VersionedTransaction) {
+    const { message } = nativeTx;
+    const firstInstruction = message.compiledInstructions[0];
+    const programId = firstInstruction
+      ? message.staticAccountKeys[firstInstruction.programIdIndex]
+      : undefined;
+    return Boolean(
+      firstInstruction &&
+      programId &&
+      isAdvanceNonceInstruction({
+        programId,
+        data: firstInstruction.data,
+      }),
+    );
+  }
+  if (nativeTx.nonceInfo) {
+    return true;
+  }
+  const firstInstruction = nativeTx.instructions[0];
+  return Boolean(
+    firstInstruction && isAdvanceNonceInstruction(firstInstruction),
+  );
+}
+
+// `Transaction.from` maps an all-zero wire signature to `null`, while a
+// versioned tx keeps the raw 64 zero bytes for an unsigned slot.
+function hasPopulatedSolTxSignature(nativeTx: INativeTxSol): boolean {
+  if (nativeTx instanceof VersionedTransaction) {
+    return nativeTx.signatures.some((signature) =>
+      signature.some((byte) => byte !== 0),
+    );
+  }
+  return nativeTx.signatures.some(({ signature }) => signature !== null);
+}
+
+// Re-stamping the blockhash invalidates every existing signature, so only a
+// tx the wallet alone signs (single signer, nothing signed yet, no durable
+// nonce) may be refreshed. A pre-signed single-signer tx would otherwise fail
+// `Transaction.serialize` signature verification before signing starts.
+export function canRefreshSolTxBlockhash(nativeTx: INativeTxSol): boolean {
+  if (nativeTx.signatures.length > 1 || hasPopulatedSolTxSignature(nativeTx)) {
+    return false;
+  }
+  return !isDurableNonceSolTx(nativeTx);
+}
+
+export function serializeSolTx(nativeTx: INativeTxSol): IEncodedTxSol {
+  if (nativeTx instanceof VersionedTransaction) {
+    return bs58.encode(Buffer.from(nativeTx.serialize()));
+  }
+  return bs58.encode(nativeTx.serialize({ requireAllSignatures: false }));
+}
+
+export function replaceSolTxRecentBlockhash({
+  nativeTx,
+  recentBlockhash,
+  lastValidBlockHeight,
+}: {
+  nativeTx: INativeTxSol;
+  recentBlockhash: string;
+  lastValidBlockHeight?: number;
+}): IEncodedTxSol {
+  if (nativeTx instanceof Transaction) {
+    nativeTx.recentBlockhash = recentBlockhash;
+    nativeTx.lastValidBlockHeight = lastValidBlockHeight;
+  } else {
+    nativeTx.message.recentBlockhash = recentBlockhash;
+  }
+  return serializeSolTx(nativeTx);
 }

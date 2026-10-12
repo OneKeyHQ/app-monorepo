@@ -2,176 +2,145 @@ import { useMemo } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 
+import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   useActiveTradeInstrumentAtom,
   useTradingFormAtom,
-  useTradingFormComputedAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
-  usePerpsActiveAccountSummaryAtom,
+  usePerpsActiveAccountAtom,
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetDataAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  calculateLiquidationPrice,
-  computeMaxTradeSize,
-} from '@onekeyhq/shared/src/utils/perpsUtils';
+import { estimateLiquidationPrice } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useOrderPrice } from './useOrderPrice';
 import { usePerpsAccountScopedActivePositions } from './usePerpsAccountScopedActivePositions';
+import { usePerpsCrossAvailableAfterMaintenance } from './usePerpsCrossAvailableAfterMaintenance';
 
-export function useLiquidationPrice(
-  overrideSide?: 'long' | 'short',
-): BigNumber | null {
-  const [formData] = useTradingFormAtom();
-  const [tradingComputed] = useTradingFormComputedAtom();
+export function useLiquidationPrice({
+  side,
+  size,
+  formDataOverride,
+}: {
+  side: 'long' | 'short';
+  // Size the order would be submitted with for this side.
+  size: BigNumber;
+  // Snapshot ticket (chart popover) that carries its own price.
+  formDataOverride?: ITradingFormData;
+}): BigNumber | null {
+  const [atomFormData] = useTradingFormAtom();
+  const formData = formDataOverride ?? atomFormData;
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const [activeAccount] = usePerpsActiveAccountAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
-  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const perpsPositions = usePerpsAccountScopedActivePositions();
   const { coin, margin } = activeAsset;
-
-  const effectiveSide = overrideSide || formData.side;
-  const { price: orderReferencePrice } = useOrderPrice(effectiveSide);
-
-  const stableAccountValues = useMemo(
-    () => ({
-      crossAccountValue: accountSummary?.crossAccountValue || '0',
-      crossMaintenanceMarginUsed:
-        accountSummary?.crossMaintenanceMarginUsed || '0',
-    }),
-    [
-      accountSummary?.crossAccountValue,
-      accountSummary?.crossMaintenanceMarginUsed,
-    ],
+  const crossAvailableAfterMaintenance =
+    usePerpsCrossAvailableAfterMaintenance(coin);
+  const { price: formOrderPrice } = useOrderPrice(side);
+  const overridePrice = formDataOverride?.price;
+  const orderPrice = useMemo(
+    () =>
+      formDataOverride ? new BigNumber(overridePrice || 0) : formOrderPrice,
+    [formDataOverride, formOrderPrice, overridePrice],
   );
 
-  const leverage = useMemo(() => {
-    return (
-      activeAssetData?.leverage?.value || activeAsset?.universe?.maxLeverage
-    );
-  }, [activeAssetData?.leverage?.value, activeAsset?.universe?.maxLeverage]);
+  const currentCoinPosition = useMemo(
+    () => perpsPositions.find((pos) => pos.position.coin === coin)?.position,
+    [perpsPositions, coin],
+  );
 
-  const currentCoinPosition = useMemo(() => {
-    return perpsPositions.filter((pos) => pos.position.coin === coin)?.[0]
-      ?.position;
-  }, [perpsPositions, coin]);
-
-  const liquidationPrice: BigNumber | null = useMemo(() => {
-    if (activeTradeInstrument.mode === 'spot') {
-      return null;
-    }
-    if (!leverage || !activeAssetData?.leverage.type) return null;
-
-    const isTriggerMode = formData.orderMode === 'trigger';
-    if (isTriggerMode && formData.triggerReduceOnly) {
-      return null;
-    }
-
-    let positionSize = tradingComputed.computedSizeBN;
-    let referencePrice = orderReferencePrice;
-
-    if (isTriggerMode) {
-      const isLimitTrigger =
-        formData.triggerOrderType === ETriggerOrderType.TRIGGER_LIMIT;
-      const rawTriggerPrice = isLimitTrigger
-        ? formData.executionPrice?.trim()
-        : formData.triggerPrice?.trim();
-
-      if (!rawTriggerPrice) {
-        return null;
-      }
-
-      const triggerReferencePrice = new BigNumber(rawTriggerPrice);
-      if (!triggerReferencePrice.isFinite() || triggerReferencePrice.lte(0)) {
-        return null;
-      }
-
-      const previewMaxSize = computeMaxTradeSize({
-        side: effectiveSide,
-        price: triggerReferencePrice.toFixed(),
-        markPrice: activeAssetCtx?.ctx?.markPrice,
-        maxTradeSzs: activeAssetData?.maxTradeSzs,
-        leverageValue: activeAssetData?.leverage?.value,
-        fallbackLeverage: activeAsset?.universe?.maxLeverage,
-        szDecimals: activeAsset?.universe?.szDecimals,
-      });
-
-      if (!previewMaxSize.isFinite() || previewMaxSize.lte(0)) {
-        return null;
-      }
-
-      positionSize = positionSize.lte(previewMaxSize)
-        ? positionSize
-        : previewMaxSize;
-      referencePrice = triggerReferencePrice;
-    }
-
+  return useMemo(() => {
     if (
-      !positionSize.isFinite() ||
-      positionSize.lte(0) ||
-      !referencePrice.isFinite() ||
-      referencePrice.lte(0)
+      activeTradeInstrument.mode === 'spot' ||
+      formData.orderMode === 'scale' ||
+      formData.orderMode === 'twap'
     ) {
       return null;
     }
+    const accountAddress = activeAccount?.accountAddress?.toLowerCase();
+    const leverageType = activeAssetData?.leverage?.type;
+    if (
+      !accountAddress ||
+      !activeAssetData ||
+      activeAssetData.accountAddress?.toLowerCase() !== accountAddress ||
+      activeAssetData.coin !== coin ||
+      (leverageType !== 'cross' && leverageType !== 'isolated')
+    ) {
+      return null;
+    }
+    const leverage =
+      activeAssetData.leverage.value || activeAsset?.universe?.maxLeverage;
+    const markPrice = new BigNumber(activeAssetCtx?.ctx?.markPrice ?? 0);
+    if (!leverage || !markPrice.isFinite() || markPrice.lte(0)) {
+      return null;
+    }
 
-    const totalValue = positionSize.multipliedBy(referencePrice);
+    let priceMode: 'market' | 'limit' =
+      formData.type === 'market' ? 'market' : 'limit';
+    let referencePrice = orderPrice;
 
-    // Use unified function - it will automatically choose the optimal calculation path
-    const _liquidationPrice = calculateLiquidationPrice({
-      totalValue,
-      referencePrice,
-      clampToCurrentMark: !isTriggerMode,
-      markPrice: activeAssetCtx?.ctx?.markPrice
-        ? new BigNumber(activeAssetCtx.ctx.markPrice)
-        : undefined,
-      positionSize,
-      side: effectiveSide,
+    if (formData.orderMode === 'trigger') {
+      // Match Hyperliquid's ordinary market/limit preview; the trigger price
+      // controls activation only and does not enter the liquidation estimate.
+      const isLimit =
+        formData.triggerOrderType === ETriggerOrderType.TRIGGER_LIMIT;
+      priceMode = isLimit ? 'limit' : 'market';
+      if (isLimit) {
+        referencePrice = new BigNumber(formData.executionPrice?.trim() || 0);
+      }
+    }
+
+    if (!size.isFinite() || size.lte(0)) {
+      return null;
+    }
+
+    const positionLeverage = currentCoinPosition?.leverage;
+    const liquidationPrice = estimateLiquidationPrice({
+      side,
+      orderSize: size,
+      priceMode,
+      orderPrice: referencePrice,
+      markPrice,
+      reduceOnly:
+        formData.orderMode === 'trigger'
+          ? Boolean(formData.triggerReduceOnly)
+          : formData.orderMode === 'standard' && Boolean(formData.reduceOnly),
+      marginMode: leverageType,
       leverage,
-      mode: activeAssetData?.leverage.type,
       marginTiers: margin?.marginTiers,
       maxLeverage: activeAsset?.universe?.maxLeverage || 1,
-      crossMarginUsed: new BigNumber(stableAccountValues.crossAccountValue),
-      crossMaintenanceMarginUsed: new BigNumber(
-        stableAccountValues.crossMaintenanceMarginUsed,
-      ),
-      // Optional existing position parameters - function will check if they're meaningful
-      existingPositionSize: currentCoinPosition
-        ? new BigNumber(currentCoinPosition.szi)
-        : undefined,
-      existingEntryPrice: currentCoinPosition
-        ? new BigNumber(currentCoinPosition.entryPx)
-        : undefined,
-      newOrderSide: effectiveSide,
+      existingPositionSize: new BigNumber(currentCoinPosition?.szi ?? 0),
+      isolatedRawUsd:
+        positionLeverage?.type === 'isolated'
+          ? new BigNumber(positionLeverage.rawUsd)
+          : undefined,
+      crossAvailableAfterMaintenance,
     });
-    return _liquidationPrice?.gt(0) ? _liquidationPrice : null;
+    return liquidationPrice?.gt(0) ? liquidationPrice : null;
   }, [
-    activeTradeInstrument.mode,
+    activeAccount?.accountAddress,
     activeAsset?.universe?.maxLeverage,
     activeAssetCtx?.ctx?.markPrice,
-    activeAssetData?.leverage.type,
+    activeAssetData,
+    activeTradeInstrument.mode,
+    coin,
+    crossAvailableAfterMaintenance,
     currentCoinPosition,
-    effectiveSide,
     formData.executionPrice,
     formData.orderMode,
+    formData.reduceOnly,
     formData.triggerOrderType,
-    formData.triggerPrice,
     formData.triggerReduceOnly,
-    orderReferencePrice,
-    tradingComputed.computedSizeBN,
-    leverage,
-    activeAsset?.universe?.szDecimals,
-    activeAssetData?.maxTradeSzs,
-    activeAssetData?.leverage?.value,
+    formData.type,
     margin?.marginTiers,
-    stableAccountValues.crossAccountValue,
-    stableAccountValues.crossMaintenanceMarginUsed,
+    orderPrice,
+    side,
+    size,
   ]);
-
-  return liquidationPrice;
 }

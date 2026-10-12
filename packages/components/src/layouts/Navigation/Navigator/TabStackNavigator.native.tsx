@@ -176,6 +176,7 @@ export function TabStackNavigator<RouteName extends string>({
           // while react-native-bottom-tabs expects SFSymbol type from sf-symbols-typescript
           tabBarIcon: nativeTabBarIcon as any,
           tabBarLabel: intl.formatMessage({ id: translationId }),
+          tabBarButtonTestID: `bottom-tab-${name}`,
         };
 
         // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop

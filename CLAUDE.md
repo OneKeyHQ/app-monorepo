@@ -2,7 +2,7 @@
 
 OneKey is a TypeScript React/React Native monorepo for desktop, mobile, web,
 and browser extension wallet apps. Keep changes scoped, typed, cross-platform
-aware, and aligned with existing package boundaries.
+aware, and aligned with package boundaries.
 
 ## Core Rules
 
@@ -62,7 +62,7 @@ Never violate this dependency order:
 - Use `toLowerCase()` / `toUpperCase()`, never locale variants.
 - Load `@onekeyfe/hd-core` through `await CoreSDKLoader()`; never import it directly.
 - Use `localDb`, never import `localDbInstance` directly.
-- Do not commit code that fails lint or TypeScript checks.
+- Use yarn/oxfmt, not prettier; do not commit failing checks.
 
 ## Data And Dependencies
 

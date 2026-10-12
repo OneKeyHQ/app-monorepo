@@ -37,6 +37,9 @@ export function createWebConfig({
   switch (nodeEnv) {
     case 'production':
       return merge(baseConfig, createProductionConfig({ platform, basePath }), {
+        optimization: {
+          runtimeChunk: 'single',
+        },
         output: {
           crossOriginLoading: 'anonymous',
         },

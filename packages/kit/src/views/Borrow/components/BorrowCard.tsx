@@ -9,7 +9,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { EManagePositionType } from '../../Staking/pages/ManagePosition/hooks/useManagePage';
-import { isBorrowReservesPending } from '../borrowDataStatus';
+import {
+  hasBorrowReservesForMarket,
+  isBorrowReservesPending,
+} from '../borrowDataStatus';
+import { buildBorrowMarketKey } from '../borrowMarketKey';
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 
@@ -86,7 +90,13 @@ export const BorrowCard = () => {
     [navigation, market, gtMd, handleManageBorrow, accountId, indexedAccountId],
   );
 
-  const showLoading = isBorrowReservesPending(borrowDataStatus);
+  const showLoading =
+    isBorrowReservesPending(borrowDataStatus) ||
+    !hasBorrowReservesForMarket({
+      data: reserves.data,
+      ownerMarketKey: reserves.ownerMarketKey,
+      marketKey: market ? buildBorrowMarketKey(market) : undefined,
+    });
   const borrowAssets = useMemo(
     () =>
       filterUnsupportedAaveNativeReserveAssets({

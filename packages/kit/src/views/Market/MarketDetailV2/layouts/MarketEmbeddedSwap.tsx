@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import {
@@ -52,6 +52,8 @@ const LazyEmbeddedSwap = LazyLoad<IEmbeddedSwapProps>(
   undefined,
   <MarketEmbeddedSwapLoading />,
 );
+
+const MemoEmbeddedSwap = memo(LazyEmbeddedSwap);
 
 function MarketEmbeddedSwapLoading() {
   return (
@@ -247,7 +249,7 @@ function MarketEmbeddedSwapContent({
       minHeight={520}
       overflow="hidden"
     >
-      <LazyEmbeddedSwap
+      <MemoEmbeddedSwap
         storeName={EJotaiContextStoreNames.marketSwap}
         pageType={EPageType.modal}
         singleSwapBridgeHeader

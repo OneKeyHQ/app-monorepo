@@ -164,12 +164,14 @@ export function useSwapFromAccountNetworkSync() {
         await updateSelectedAccountNetwork({
           num: 0,
           networkId: fromTokenRef.current?.networkId,
+          reason: 'swapFromTokenNetworkSync',
         });
       }
       if (toTokenRef.current) {
         await updateSelectedAccountNetwork({
           num: 1,
           networkId: toTokenRef.current?.networkId,
+          reason: 'swapToTokenNetworkSync',
         });
       }
       if (fromTokenRef.current && toTokenRef.current) {
@@ -201,6 +203,7 @@ export function useSwapFromAccountNetworkSync() {
               void updateSelectedAccountNetwork({
                 num: 1,
                 networkId: toTokenRef.current?.networkId,
+                reason: 'swapRecipientNetworkSync',
               });
           }, 500);
         }

@@ -1,5 +1,5 @@
 import { WalletKit } from '@reown/walletkit';
-import { Core } from '@walletconnect/core';
+import { Core, WALLETCONNECT_CLIENT_ID } from '@walletconnect/core';
 import { KeyValueStorage } from '@walletconnect/keyvaluestorage';
 import SignClient, { SESSION_CONTEXT } from '@walletconnect/sign-client';
 import { isArray, isString } from 'lodash';
@@ -17,6 +17,13 @@ import type {
   IWalletConnectWeb3Wallet,
 } from '@onekeyhq/shared/src/walletConnect/types';
 
+import {
+  dappSideWalletConnectDiagnostics,
+  walletConnectDiagnostics,
+} from './WalletConnectDiagnostics';
+import { WalletConnectRelayController } from './WalletConnectRelayController';
+
+import type { WalletConnectDiagnostics } from './WalletConnectDiagnostics';
 import type { CoreTypes } from '@walletconnect/types';
 
 const sharedOptions: CoreTypes.Options = {
@@ -26,6 +33,7 @@ const sharedOptions: CoreTypes.Options = {
 };
 const DAPP_STORAGE_PREFIX = '1k-wc-dapp-kit';
 const WALLET_STORAGE_PREFIX = '1k-wc-wallet-kit';
+const cores = new Map<string, InstanceType<typeof Core>>();
 
 // TODO remove walletConnectStorage, use sharedStorage instead
 let sharedStorage: KeyValueStorage | undefined;
@@ -39,53 +47,92 @@ function getSharedStorage(): KeyValueStorage {
 async function coreInit({
   storage,
   customStoragePrefix,
+  diagnostics,
 }: {
   storage: KeyValueStorage;
   customStoragePrefix: string;
+  diagnostics: WalletConnectDiagnostics;
 }) {
   if (!customStoragePrefix) {
     throw new OneKeyLocalError('customStoragePrefix is required');
   }
-  const coreInstance = await Core.init({
+  const options = {
     customStoragePrefix,
     storage,
     ...sharedOptions,
-  });
+  };
+  // Attach before start so the first socket attempt and restored connection
+  // are counted. Preserve Core.init's client-ID storage initialization.
+  let coreInstance = cores.get(customStoragePrefix);
+  if (!coreInstance) {
+    coreInstance = new Core(options);
+    // Retain ownership before any async initialization, including failed starts.
+    // Do not depend on the SDK's optional global Core cache for retries.
+    cores.set(customStoragePrefix, coreInstance);
+    WalletConnectRelayController.attach(coreInstance);
+    diagnostics.attachCore(coreInstance);
+  }
+  await coreInstance.start();
+  await coreInstance.storage.setItem(
+    WALLETCONNECT_CLIENT_ID,
+    await coreInstance.crypto.getClientId(),
+  );
   return coreInstance;
 }
 
 let signClient: IWalletConnectSignClient | undefined;
+let initializingSignClient: Promise<IWalletConnectSignClient> | undefined;
 async function getDappSideClient(): Promise<IWalletConnectSignClient> {
-  if (!signClient) {
-    const core = await coreInit({
-      storage: getSharedStorage(),
-      customStoragePrefix: DAPP_STORAGE_PREFIX,
-    });
-    signClient = await SignClient.init({
-      ...sharedOptions,
-      core,
-      metadata: WALLET_CONNECT_CLIENT_META,
-      storage: getSharedStorage(),
-      customStoragePrefix: DAPP_STORAGE_PREFIX,
+  if (signClient) return signClient;
+  if (!initializingSignClient) {
+    initializingSignClient = (async () => {
+      const core = await coreInit({
+        storage: getSharedStorage(),
+        customStoragePrefix: DAPP_STORAGE_PREFIX,
+        diagnostics: dappSideWalletConnectDiagnostics,
+      });
+      signClient = await SignClient.init({
+        ...sharedOptions,
+        core,
+        metadata: WALLET_CONNECT_CLIENT_META,
+        storage: getSharedStorage(),
+        customStoragePrefix: DAPP_STORAGE_PREFIX,
+      });
+      return signClient;
+    })().finally(() => {
+      initializingSignClient = undefined;
     });
   }
-  return signClient;
+  return initializingSignClient;
 }
 
 let web3Wallet: IWalletConnectWeb3Wallet | undefined;
+let initializingWallet: Promise<IWalletConnectWeb3Wallet> | undefined;
 async function getWalletSideClient(): Promise<IWalletConnectWeb3Wallet> {
-  if (!web3Wallet) {
-    const core = await coreInit({
-      storage: getSharedStorage(),
-      customStoragePrefix: WALLET_STORAGE_PREFIX,
-    });
-    web3Wallet = await WalletKit.init({
-      ...sharedOptions,
-      core,
-      metadata: WALLET_CONNECT_CLIENT_META,
+  if (web3Wallet) return web3Wallet;
+  if (!initializingWallet) {
+    initializingWallet = (async () => {
+      walletConnectDiagnostics.record('connection', 'core_initializing');
+      const core = await coreInit({
+        storage: getSharedStorage(),
+        customStoragePrefix: WALLET_STORAGE_PREFIX,
+        diagnostics: walletConnectDiagnostics,
+      });
+      walletConnectDiagnostics.record('connection', 'core_initialized');
+      walletConnectDiagnostics.record('connection', 'walletkit_initializing');
+      web3Wallet = await WalletKit.init({
+        ...sharedOptions,
+        core,
+        metadata: WALLET_CONNECT_CLIENT_META,
+      });
+      walletConnectDiagnostics.attachWallet(web3Wallet);
+      walletConnectDiagnostics.record('connection', 'walletkit_initialized');
+      return web3Wallet;
+    })().finally(() => {
+      initializingWallet = undefined;
     });
   }
-  return web3Wallet;
+  return initializingWallet;
 }
 
 async function getStorageSessions({

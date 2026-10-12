@@ -208,7 +208,15 @@ export interface ISwapInitParams {
 
 export interface ISwapNetworkBase {
   networkId: string;
+  /** Whether this network is an L2 chain. */
+  isL2?: boolean;
+  /** The parent L1 network id for an L2 chain. */
+  parentNetworkId?: string;
   defaultSelectToken?: { from?: string; to?: string };
+  defaultSelectTokenDetail?: {
+    from?: ISwapToken;
+    to?: ISwapToken;
+  };
   supportCrossChainSwap?: boolean;
   supportSingleSwap?: boolean;
   supportLimit?: boolean;
@@ -755,6 +763,8 @@ export interface IFetchQuoteResult {
   providerDisableBatchTransfer?: boolean;
   buyTax?: number;
   sellTax?: number;
+  honeypot?: boolean;
+  lowLiquidity?: boolean;
 }
 
 export interface IAllowanceResult {
@@ -931,6 +941,7 @@ export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
   quoteResultCtx?: any;
   kind: ESwapQuoteKind;
   walletType?: string;
+  deviceType?: string;
   bindedAccountAddress?: string;
   bindedNetworkId?: string;
   rebateAddress?: string;

@@ -40,6 +40,7 @@ import {
   TRADING_VIEW_NATIVE_VOLUME_OPACITY as VOLUME_OPACITY,
 } from '../chartConstants';
 
+import { getTradingViewNativeCandleTimestampAtOffset } from './candleTime';
 import { appendTradingViewNativeChartComponentCommands } from './chartComponentScene';
 import { getTradingViewNativeChartComponentPriceAxisLabel } from './chartComponentTree';
 import {
@@ -98,6 +99,7 @@ import {
 } from './subIndicatorRender';
 import { appendTradingViewNativeTradeMarkCommands } from './tradeMarkScene';
 
+import type { ITradingViewNativeReferenceLineHitRegion } from './chartComponentScene';
 import type {
   ITradingViewNativeChartRuntimeCrosshair,
   ITradingViewNativeChartRuntimeViewport,
@@ -108,6 +110,7 @@ import type {
 } from './subIndicatorRender';
 import type {
   ITradingViewNativeCandleLabels,
+  ITradingViewNativeCandleTimeMode,
   ITradingViewNativeChartLeafComponent,
   ITradingViewNativeChartType,
   ITradingViewNativePriceScaleMode,
@@ -117,7 +120,9 @@ export type ITradingViewNativeChartSceneFont =
   | 'axis'
   | 'legend'
   | 'priceAxis'
-  | 'referenceLineLabel';
+  | 'referenceLineLabel'
+  | 'tradingLineLabel'
+  | 'orderLineLabel';
 
 export type ITradingViewNativeChartScenePaint =
   | 'axisText'
@@ -233,6 +238,14 @@ export type ITradingViewNativeChartSceneCommand =
       y: number;
     }
   | {
+      kind: 'tradeMarkLabel';
+      label: 'B' | 'S';
+      cx: number;
+      cy: number;
+      customPaintId?: string;
+      paint: ITradingViewNativeChartScenePaint;
+    }
+  | {
       kind: 'watermark';
       opacity: number;
       rect: ITradingViewNativeChartSceneRect;
@@ -240,6 +253,7 @@ export type ITradingViewNativeChartSceneCommand =
 
 export interface IBuildTradingViewNativeChartSceneOptions {
   candleIntervalSeconds: number;
+  candleTimeMode?: ITradingViewNativeCandleTimeMode;
   chartComponents?: readonly ITradingViewNativeChartLeafComponent[];
   chartSettings?: ITradingViewNativeChartSettings;
   chartType: ITradingViewNativeChartType;
@@ -255,6 +269,7 @@ export interface IBuildTradingViewNativeChartSceneOptions {
   ) => number;
   candleLabels: ITradingViewNativeCandleLabels;
   currentPriceLabel?: string;
+  priceDecimalPlaces?: number;
   points: IMarketTokenKLineDataPoint[];
   pinnedPriceRange?: ITradingViewNativePriceRange | null;
   priceAxisFontSize?: number;
@@ -298,6 +313,7 @@ export interface ITradingViewNativeChartScene {
   customPaintStyles: Record<string, ITradingViewNativeChartScenePaintStyle>;
   priceAxisWidth: number;
   subIndicatorLegendHitRegions: ITradingViewNativeSubIndicatorLegendHitRegion[];
+  referenceLineHitRegions?: ITradingViewNativeReferenceLineHitRegion[];
   viewport: ITradingViewNativeChartRuntimeViewport;
   visiblePointRange: ITradingViewNativeVisiblePointRange;
 }
@@ -657,6 +673,7 @@ function appendLegendCommands({
 
 export function buildTradingViewNativeChartScene({
   candleIntervalSeconds,
+  candleTimeMode,
   chartComponents = [],
   chartSettings,
   chartType,
@@ -669,6 +686,7 @@ export function buildTradingViewNativeChartScene({
   measureTextWidth,
   candleLabels,
   currentPriceLabel,
+  priceDecimalPlaces,
   points,
   pinnedPriceRange,
   priceAxisFontSize = AXIS_FONT_SIZE,
@@ -700,7 +718,8 @@ export function buildTradingViewNativeChartScene({
     chartSettings.grid.style === 'both' ||
     chartSettings.grid.style === 'vertical';
   const resolvedCurrentPriceLabel =
-    currentPriceLabel ?? getTradingViewNativeCurrentPriceLabel(points);
+    currentPriceLabel ??
+    getTradingViewNativeCurrentPriceLabel(points, priceDecimalPlaces);
   let resolvedPriceAxisWidth = showYAxis ? Math.max(priceAxisWidth ?? 0, 0) : 0;
   if (showYAxis && !Number.isFinite(priceAxisWidth)) {
     const volumeAxisLabel = hasVolume
@@ -710,7 +729,10 @@ export function buildTradingViewNativeChartScene({
       visibleSubIndicatorPanes,
     );
     const chartComponentPriceAxisLabel =
-      getTradingViewNativeChartComponentPriceAxisLabel(chartComponents);
+      getTradingViewNativeChartComponentPriceAxisLabel(
+        chartComponents,
+        priceDecimalPlaces,
+      );
     const widestSecondaryAxisLabel =
       subIndicatorAxisLabel.length > volumeAxisLabel.length
         ? subIndicatorAxisLabel
@@ -724,7 +746,7 @@ export function buildTradingViewNativeChartScene({
       ),
       widestPriceLabelWidth: Math.max(
         measureTextWidth(
-          getTradingViewNativePriceAxisLabel(points),
+          getTradingViewNativePriceAxisLabel(points, priceDecimalPlaces),
           'priceAxis',
         ),
         measureTextWidth(chartComponentPriceAxisLabel, 'priceAxis'),
@@ -947,7 +969,7 @@ export function buildTradingViewNativeChartScene({
     y2: timeAxisY,
   });
   for (const { price, y } of priceTicks) {
-    const text = formatTradingViewNativePriceTick(price);
+    const text = formatTradingViewNativePriceTick(price, 4, priceDecimalPlaces);
     if (showHorizontalGrid) {
       commands.push({
         ...(chartSettings ? { customPaintId: GRID_HORIZONTAL_PAINT_ID } : {}),
@@ -1118,7 +1140,11 @@ export function buildTradingViewNativeChartScene({
         anchorX >= CHART_HORIZONTAL_PADDING - pointRadius &&
         anchorX <= priceAxisX + pointRadius;
       if (isPointVisible) {
-        const text = formatTradingViewNativePriceTick(extremum.price);
+        const text = formatTradingViewNativePriceTick(
+          extremum.price,
+          4,
+          priceDecimalPlaces,
+        );
         const horizontalLayout =
           getTradingViewNativePriceExtremumHorizontalLayout({
             anchorX,
@@ -1160,10 +1186,27 @@ export function buildTradingViewNativeChartScene({
           zoomScale,
         })
       : null;
-  const crosshairPoint =
-    crosshairPointIndex === null ? null : points[crosshairPointIndex];
-  const crosshairX =
-    crosshairPointIndex === null ? null : getPointX(crosshairPointIndex);
+  let crosshairX: number | null = null;
+  let crosshairTimestamp: number | null = null;
+  if (crosshair.visible && (chartSettings?.options.crossLine ?? true)) {
+    if (crosshairPointIndex !== null) {
+      crosshairX = getPointX(crosshairPointIndex);
+      crosshairTimestamp = points[crosshairPointIndex].t;
+    } else {
+      crosshairX = crosshair.x;
+      const anchorIndex = crosshairX < getPointX(0) ? 0 : points.length - 1;
+      const distance = Math.round(
+        (crosshairX - getPointX(anchorIndex)) /
+          (TRADING_VIEW_NATIVE_CANDLE_STEP * zoomScale),
+      );
+      crosshairTimestamp = getTradingViewNativeCandleTimestampAtOffset({
+        timestamp: points[anchorIndex].t,
+        candleIntervalSeconds,
+        candleTimeMode,
+        offset: distance,
+      });
+    }
+  }
   const crosshairY =
     crosshairX === null ? null : Math.min(Math.max(crosshair.y, 0), timeAxisY);
   if (crosshairX !== null && crosshairY !== null) {
@@ -1206,10 +1249,11 @@ export function buildTradingViewNativeChartScene({
   const previousLegendPoint =
     legendPointIndex > 0 ? points[legendPointIndex - 1] : undefined;
   const legend = getTradingViewNativeChartLegend(
-    crosshairPoint ?? legendPoint,
+    legendPoint,
     candleLabels,
     chartType,
     previousLegendPoint?.c,
+    priceDecimalPlaces,
   );
   const trendValuePaint: ITradingViewNativeChartScenePaint = legend.isUp
     ? 'up'
@@ -1262,7 +1306,11 @@ export function buildTradingViewNativeChartScene({
               {
                 customPaintId: `${getMainIndicatorPaintId(series)}:legend`,
                 label: series.legendLabel,
-                value: formatTradingViewNativePriceTick(value),
+                value: formatTradingViewNativePriceTick(
+                  value,
+                  4,
+                  priceDecimalPlaces,
+                ),
               },
             ]
           : [];
@@ -1304,6 +1352,7 @@ export function buildTradingViewNativeChartScene({
     appendTradingViewNativeChartComponentCommands({
       commands,
       components: chartComponents,
+      priceDecimalPlaces,
       currentPriceLabel:
         showLatestPrice && showYAxis && currentPriceLayout
           ? { price: latestPoint.c, top: currentPriceLayout.labelTop }
@@ -1375,8 +1424,13 @@ export function buildTradingViewNativeChartScene({
     ...chartComponentCommandLayers.textLabelCommands,
   );
 
-  if (crosshairPoint && crosshairX !== null && crosshairY !== null) {
+  if (
+    crosshairTimestamp !== null &&
+    crosshairX !== null &&
+    crosshairY !== null
+  ) {
     const crosshairPrice = getTradingViewNativePriceAtY({
+      allowOutsideChart: crosshairY < (hasVolume ? volumeTop : mainChartBottom),
       maxPrice,
       minPrice,
       priceChartHeight,
@@ -1392,7 +1446,11 @@ export function buildTradingViewNativeChartScene({
     });
     let crosshairValueText: string | null = null;
     if (crosshairPrice !== null) {
-      crosshairValueText = formatTradingViewNativePriceTick(crosshairPrice);
+      crosshairValueText = formatTradingViewNativePriceTick(
+        crosshairPrice,
+        4,
+        priceDecimalPlaces,
+      );
     } else if (crosshairVolume !== null) {
       crosshairValueText = formatTradingViewNativeVolume(crosshairVolume);
     } else {
@@ -1435,7 +1493,7 @@ export function buildTradingViewNativeChartScene({
     }
 
     const timeLabel = formatTradingViewNativeCrosshairTime(
-      crosshairPoint.t,
+      crosshairTimestamp,
       candleIntervalSeconds,
     );
     const timeTextWidth = measureTextWidth(timeLabel, 'axis');
@@ -1486,6 +1544,7 @@ export function buildTradingViewNativeChartScene({
 
   appendTradingViewNativeTradeMarkCommands({
     candleIntervalSeconds,
+    candleTimeMode,
     commands,
     components: chartComponents,
     crosshair,
@@ -1509,6 +1568,7 @@ export function buildTradingViewNativeChartScene({
     customPaintStyles,
     priceAxisWidth: resolvedPriceAxisWidth,
     subIndicatorLegendHitRegions,
+    referenceLineHitRegions: chartComponentCommandLayers.hitRegions,
     viewport: normalizedViewport,
     visiblePointRange,
   };

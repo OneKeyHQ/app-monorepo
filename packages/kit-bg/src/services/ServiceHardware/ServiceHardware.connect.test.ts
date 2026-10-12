@@ -187,6 +187,94 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
     });
   });
 
+  it.each([true, false])(
+    'refreshes the V2 name on reconnect, unlocked=%s',
+    async (unlocked) => {
+      const service = new ServiceHardware({
+        backgroundApi: {} as IBackgroundApi,
+      });
+      jest.spyOn(service, 'getFeaturesWithoutCache').mockResolvedValue({
+        protocol: 'V2',
+        mode: 'normal',
+        unlocked,
+        label: 'Old label',
+        bleName: 'Old Bluetooth name',
+      } as Features);
+      const getDeviceState = jest
+        .spyOn(service, 'getDeviceState')
+        .mockResolvedValue({
+          protocol: 'V2',
+          identity: {
+            deviceType: 'pro2',
+            label: unlocked ? 'New label' : null,
+            bleName: 'Pro2 6136',
+          },
+          status: { mode: 'normal', unlocked },
+          versions: {},
+          settings: {},
+        } as Awaited<ReturnType<ServiceHardware['getDeviceState']>>);
+      const options = {
+        connectId: 'PRO2_BLE',
+        hardwareTransportType: EHardwareTransportType.BLE,
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+        params: {
+          connectProtocol: 'V2' as const,
+          forceProtocolDetection: true,
+        },
+      };
+
+      const features = await service.connectDevice(options);
+
+      expect(getDeviceState).toHaveBeenCalledWith({
+        ...options,
+        params: {
+          connectProtocol: 'V2',
+          forceProtocolDetection: false,
+          scope: unlocked ? 'settings' : 'runtime',
+          initSession: true,
+        },
+      });
+      expect(features.label).toBe(unlocked ? 'New label' : null);
+      expect(features.bleName).toBe('Pro2 6136');
+    },
+  );
+
+  it.each([
+    { protocol: 'V1' as const, mode: 'normal' as const, unlocked: true },
+    { protocol: 'V2' as const, mode: 'bootloader' as const, unlocked: true },
+    { protocol: 'V2' as const, mode: 'romloader' as const, unlocked: true },
+  ])('preserves the connection path for %j', async (features) => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    jest
+      .spyOn(service, 'getFeaturesWithoutCache')
+      .mockResolvedValue(features as Features);
+    const getDeviceState = jest.spyOn(service, 'getDeviceState');
+
+    expect(await service.connectDevice({ connectId: 'DEVICE' })).toBe(features);
+    expect(getDeviceState).not.toHaveBeenCalled();
+  });
+
+  it('preserves BLE connection-only calls without reading settings', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    jest.spyOn(service, 'getFeaturesWithoutCache').mockResolvedValue({
+      protocol: 'V2',
+      mode: 'normal',
+      unlocked: true,
+    } as Features);
+    const getDeviceState = jest.spyOn(service, 'getDeviceState');
+
+    await service.connectDevice({
+      connectId: 'PRO2_BLE',
+      params: { onlyConnectBleDevice: true },
+    });
+
+    expect(getDeviceState).not.toHaveBeenCalled();
+  });
+
   it('Protocol V2 硬件调用边界不再固定等待', async () => {
     const service = new ServiceHardware({
       backgroundApi: {} as IBackgroundApi,

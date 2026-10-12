@@ -30,14 +30,24 @@ import type {
 export const DUST_SWEEP_ROW_HEIGHT = 60;
 export const DUST_SWEEP_TOKEN_SIZE = 32;
 
-export const dustSweepReasonMessages: Record<IDustSweepReason, string> = {
-  priceImpact: 'Price impact exceeds slippage — skipped',
-  valueDrop: 'High value drop — skipped',
-  noQuote: 'No quote from provider — skipped',
-  insufficientGas: 'Insufficient balance for network fee — skipped',
-  txFailed: 'Transaction failed on-chain',
-  unknown: 'Unknown error — try a manual swap',
+export const dustSweepReasonMessageIds: Record<
+  IDustSweepReason,
+  ETranslations
+> = {
+  priceImpact: ETranslations.toast_price_impact_exceeded_skipped,
+  valueDrop: ETranslations.swap_page_price_impact_title,
+  noQuote: ETranslations.swap_page_provider_rate_unavailable,
+  insufficientGas: ETranslations.swap_page_toast_insufficient_balance_content,
+  txFailed: ETranslations.swap_review_transaction_failed,
+  unknown: ETranslations.global_unknown_error,
 };
+
+export function getDustSweepReasonMessage(
+  intl: ReturnType<typeof useIntl>,
+  reason: IDustSweepReason,
+) {
+  return intl.formatMessage({ id: dustSweepReasonMessageIds[reason] });
+}
 
 const DustSweepTokenRowBase = ({
   token,
@@ -53,10 +63,10 @@ const DustSweepTokenRowBase = ({
   onToggle?: (key: string) => void;
 }) => {
   const intl = useIntl();
-  const reasonText =
-    item?.status === 'unknown'
-      ? dustSweepReasonMessages.unknown
-      : dustSweepReasonMessages[item?.reason ?? 'unknown'];
+  const reasonText = getDustSweepReasonMessage(
+    intl,
+    item?.status === 'unknown' ? 'unknown' : (item?.reason ?? 'unknown'),
+  );
   const reasonDescription = reasonText;
   let statusIcon;
   if (item) {

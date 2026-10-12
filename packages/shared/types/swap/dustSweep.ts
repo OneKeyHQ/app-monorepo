@@ -26,6 +26,7 @@ export type IDustSweepNetwork = {
   network: ISwapNetwork;
   accountId: string;
   address: string;
+  deriveAddressEncoding?: string;
   tokens: IDustSweepToken[];
   nativeToken: ISwapToken;
   valueUsd: string;
@@ -42,6 +43,8 @@ export type IDustSweepItemStatus =
 export type IDustSweepItem = {
   token: IDustSweepToken;
   status: IDustSweepItemStatus;
+  /** Approval transactions already broadcast before a later signing cancel. */
+  approvalTxIds?: string[];
   txId?: string;
   receivedAmount?: string;
   receiptUnavailable?: boolean;
@@ -53,6 +56,7 @@ export type IDustSweepSnapshot = {
   accountId: string;
   address: string;
   networkId: string;
+  deriveAddressEncoding?: string;
   nativeToken: ISwapToken;
   slippage: number;
   tokens: IDustSweepToken[];

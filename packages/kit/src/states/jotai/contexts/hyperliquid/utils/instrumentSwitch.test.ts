@@ -47,20 +47,23 @@ describe('recoverSubscriptionsWithProof', () => {
 });
 
 describe('captureSubscriptionRecoveryProof', () => {
-  it('captures the bg generation while the UI source stays live', async () => {
-    await expect(
-      captureSubscriptionRecoveryProof({
-        source: 'token-selector',
-        isSourceLive: () => true,
-        isAppVisible: () => true,
-        isAppLocked: async () => false,
-        readDisabledCount: async () => 4,
-      }),
-    ).resolves.toEqual({
-      disabledCount: 4,
-      source: 'token-selector',
-    });
-  });
+  it.each(['token-selector', 'trade-history-details'] as const)(
+    'captures the bg generation while %s stays live',
+    async (source) => {
+      await expect(
+        captureSubscriptionRecoveryProof({
+          source,
+          isSourceLive: () => true,
+          isAppVisible: () => true,
+          isAppLocked: async () => false,
+          readDisabledCount: async () => 4,
+        }),
+      ).resolves.toEqual({
+        disabledCount: 4,
+        source,
+      });
+    },
+  );
 
   it('drops the proof when the UI source disappears during the bridge read', async () => {
     let live = true;
@@ -195,21 +198,25 @@ describe('publishLatestOrderBookOptions', () => {
 });
 
 describe('shouldSyncSubscriptionsAfterInstrumentChange', () => {
-  it('keeps a token-selector proof valid after the selector closes', () => {
-    expect(
-      shouldSyncSubscriptionsAfterInstrumentChange({
-        viewState: {
-          routeFocused: false,
-          tokenSelectorOpen: false,
-          tokenSelectorTab: 'perps',
-          infoPanelTab: 'Positions',
-          favoritesBarSpotActive: false,
-        },
-        recoveryProof: {
-          disabledCount: 3,
-          source: 'token-selector',
-        },
-      }),
-    ).toBe(true);
-  });
+  it.each(['token-selector', 'trade-history-details'] as const)(
+    'keeps a %s proof valid after the modal closes',
+    (source) => {
+      expect(
+        shouldSyncSubscriptionsAfterInstrumentChange({
+          viewState: {
+            routeFocused: false,
+            tokenSelectorOpen: false,
+            tradeHistoryDetailsOpen: false,
+            tokenSelectorTab: 'perps',
+            infoPanelTab: 'Positions',
+            favoritesBarSpotActive: false,
+          },
+          recoveryProof: {
+            disabledCount: 3,
+            source,
+          },
+        }),
+      ).toBe(true);
+    },
+  );
 });

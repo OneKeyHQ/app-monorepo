@@ -88,6 +88,7 @@ import {
   TokenListViewContext,
   useTokenListViewContext,
 } from './TokenListViewContext';
+import { getHomeTokenListRowKeys } from './utils';
 
 import type {
   IScopedActiveTokenList,
@@ -846,6 +847,17 @@ function TokenListViewCmp(props: IProps) {
     listStructure.generation,
   ]);
 
+  // Home plain-mode rows are keyed by ASSET so a shared token keeps its row
+  // (and decoded icon) mounted across an account switch (OK-63873). Only the
+  // home projection path: selector / scoped lists keep `$key` identity.
+  const homeRowKeys = useMemo(
+    () =>
+      isHomeProjectionPath && plainMode
+        ? getHomeTokenListRowKeys(listData)
+        : undefined,
+    [isHomeProjectionPath, plainMode, listData],
+  );
+
   // Selector search state (any scope): drives the unified "No result" /
   // search-error empty states. The jotai `searchKey` atom is NOT written by
   // TokenSelector, so this must key off the prop.
@@ -1205,7 +1217,7 @@ function TokenListViewCmp(props: IProps) {
             hideValue={hideValue}
             hideBalanceAndValue={hideBalanceAndValue}
             token={item}
-            key={item.$key}
+            key={homeRowKeys?.get(item.$key) ?? item.$key}
             onPress={onPressToken}
             tableLayout={tableLayout}
             withPrice={withPrice}

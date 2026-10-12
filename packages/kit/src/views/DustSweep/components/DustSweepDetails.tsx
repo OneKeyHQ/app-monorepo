@@ -13,7 +13,7 @@ import type { IDustSweepItem } from '@onekeyhq/shared/types/swap/dustSweep';
 
 import {
   DustSweepTokenRow,
-  dustSweepReasonMessages,
+  getDustSweepReasonMessage,
 } from './DustSweepTokenRow';
 
 import type { IDustSweepState } from '../stateMachine';
@@ -38,10 +38,12 @@ function getStatusLabel(
 
 export function DustSweepDetails({
   state,
-  onClose,
+  onBack,
+  onDone,
 }: {
   state: IDustSweepState;
-  onClose: () => void;
+  onBack: () => void;
+  onDone: () => void;
 }) {
   const intl = useIntl();
   return (
@@ -63,7 +65,7 @@ export function DustSweepDetails({
           mx={0}
           my={0}
           p={0}
-          onPress={onClose}
+          onPress={onBack}
           accessibilityLabel={intl.formatMessage({
             id: ETranslations.global_back,
           })}
@@ -76,7 +78,7 @@ export function DustSweepDetails({
         <YStack>
           {state.items.map((item) => {
             const reason = item.reason
-              ? item.message || dustSweepReasonMessages[item.reason]
+              ? item.message || getDustSweepReasonMessage(intl, item.reason)
               : undefined;
             return (
               <YStack
@@ -118,7 +120,7 @@ export function DustSweepDetails({
           variant="primary"
           height={46}
           minHeight={46}
-          onPress={onClose}
+          onPress={onDone}
         >
           {intl.formatMessage({ id: ETranslations.global_done })}
         </Button>

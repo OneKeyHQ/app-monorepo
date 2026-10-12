@@ -27,7 +27,14 @@ import {
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
-export const DUST_SWEEP_PROVIDER = 'SwapOKX';
+/**
+ * Dust Sweep receives a provider stream from the SWEEP quote contract. The
+ * backend owns the provider allowlist; the client only requires an explicit
+ * provider id so the selected provider can be carried through build/history.
+ */
+export function isDustSweepQuoteCandidate(quote: IFetchQuoteResult) {
+  return Boolean(quote.info?.provider?.trim());
+}
 
 export class DustSweepSkip extends OneKeyLocalError {
   reason: IDustSweepReason;
@@ -53,6 +60,24 @@ function isSameDustSweepToken({
   });
 }
 
+function getActualPriceImpactPercent({
+  fromToken,
+  toToken,
+  fromAmount,
+  toAmount,
+}: {
+  fromToken: IDustSweepToken;
+  toToken: IDustSweepSnapshot['nativeToken'];
+  fromAmount: string;
+  toAmount?: string;
+}) {
+  const fromValue = new BigNumber(fromAmount).times(fromToken.price ?? '');
+  const toValue = new BigNumber(toAmount ?? '').times(toToken.price ?? '');
+  if (!fromValue.isFinite() || !fromValue.gt(0) || !toValue.isFinite())
+    return undefined;
+  return fromValue.minus(toValue).dividedBy(fromValue).times(100);
+}
+
 export function getDustSweepQuoteRisk(
   quote: IFetchQuoteResult,
   token: IDustSweepToken,
@@ -60,7 +85,7 @@ export function getDustSweepQuoteRisk(
 ): IDustSweepReason | undefined {
   const toAmount = new BigNumber(quote.toAmount ?? '');
   if (
-    quote.info?.provider !== DUST_SWEEP_PROVIDER ||
+    !isDustSweepQuoteCandidate(quote) ||
     quote.errorMessage ||
     !toAmount.isFinite() ||
     !toAmount.gt(0)
@@ -97,12 +122,19 @@ export function getDustSweepQuoteRisk(
   });
   if (tip?.type === EQuoteShowTipType.PRICE_IMPACT) return 'valueDrop';
   if (tip) return 'unknown';
-  const impact = quote.valueDropPercent ?? quote.quoteShowTip?.priceImpact;
-  if (impact !== undefined) {
-    const impactPercent = new BigNumber(impact);
-    if (!impactPercent.isFinite()) return 'unknown';
-    if (impactPercent.gt(snapshot.slippage)) return 'priceImpact';
-  }
+  const quotedImpact =
+    quote.valueDropPercent ?? quote.quoteShowTip?.priceImpact;
+  const impactPercent =
+    quotedImpact === undefined
+      ? getActualPriceImpactPercent({
+          fromToken: token,
+          toToken: snapshot.nativeToken,
+          fromAmount: token.amount,
+          toAmount: quote.toAmount,
+        })
+      : new BigNumber(quotedImpact);
+  if (!impactPercent || !impactPercent.isFinite()) return 'unknown';
+  if (impactPercent.gt(snapshot.slippage)) return 'priceImpact';
   return undefined;
 }
 
@@ -147,9 +179,7 @@ export function fetchDustSweepQuote(
           String((event.event as { data?: string }).data),
         ) as ISwapQuoteEventData;
         if ('data' in payload && Array.isArray(payload.data)) {
-          const quote = payload.data.find(
-            (item) => item.info?.provider === DUST_SWEEP_PROVIDER,
-          );
+          const quote = payload.data.find(isDustSweepQuoteCandidate);
           if (quote) finishRef.current(undefined, quote);
         }
         if ('errorMessage' in payload && payload.errorMessage)

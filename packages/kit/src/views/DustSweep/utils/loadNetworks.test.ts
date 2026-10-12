@@ -81,4 +81,43 @@ describe('loadDustSweepNetworks request ownership', () => {
       partialError: false,
     });
   });
+
+  it('does not fall back to another account for a network-specific entry', async () => {
+    serviceSwap.fetchSwapNetworks.mockResolvedValue([
+      { networkId: 'evm--1', supportSingleSwap: true } as ISwapNetwork,
+    ]);
+    serviceAllNetwork.getAllNetworkAccounts.mockResolvedValue({
+      accountsInfo: [
+        {
+          networkId: 'evm--1',
+          accountId: 'hd-test--0-bip44',
+          apiAddress: '0xother',
+          accountXpub: undefined,
+          pub: undefined,
+          dbAccount: undefined,
+          isNftEnabled: false,
+          isBackendIndexed: false,
+          deriveType: undefined,
+          deriveInfo: undefined,
+          isTestnet: false,
+        },
+      ],
+      accountsInfoBackendIndexed: [],
+      accountsInfoBackendNotIndexed: [],
+      allAccountsInfo: [],
+    });
+
+    await expect(
+      loadDustSweepNetworks(
+        { ...params, networkId: 'evm--1' },
+        new AbortController().signal,
+      ),
+    ).rejects.toThrow('Selected network account is unavailable');
+    expect(serviceAllNetwork.getAllNetworkAccounts.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        includingNotEqualGlobalDeriveTypeAccount: true,
+        networksEnabledOnly: false,
+      }),
+    );
+  });
 });

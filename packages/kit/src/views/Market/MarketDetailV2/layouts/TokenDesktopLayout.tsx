@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import type { ComponentProps, ComponentType, ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -135,7 +135,7 @@ export function TokenPriceHeader() {
   );
 }
 
-export function TokenDesktopLayout({
+function TokenDesktopLayoutBase({
   active,
   marketTradingView,
   swapToken,
@@ -266,3 +266,5 @@ export function TokenDesktopLayout({
     </YStack>
   );
 }
+
+export const TokenDesktopLayout = memo(TokenDesktopLayoutBase);

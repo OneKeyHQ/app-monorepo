@@ -53,6 +53,19 @@ describe('Dust Sweep terminal and retry boundaries', () => {
     expect(dustSweepReducer(state, { type: 'resume' }).phase).toBe('running');
   });
 
+  it('retains already broadcast approvals across a retryable cancellation', () => {
+    let state = signingState();
+    state = dustSweepReducer(state, {
+      ...identity,
+      status: 'preparing',
+      approvalTxIds: ['approval-0'],
+    });
+    state = dustSweepReducer(state, { ...identity, status: 'waiting' });
+    expect(state.items[0].approvalTxIds).toEqual(['approval-0']);
+    state = dustSweepReducer(state, { type: 'paused' });
+    expect(dustSweepReducer(state, { type: 'resume' }).phase).toBe('running');
+  });
+
   it('does not retry an unknown submission or reset it into a new queue', () => {
     let state = dustSweepReducer(signingState(), {
       ...identity,

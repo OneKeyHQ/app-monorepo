@@ -101,6 +101,7 @@ function TokenListSettings() {
       indexedAccount,
       isOthersWallet,
       deriveType,
+      vaultSettings,
     },
   } = useActiveAccount({ num: 0 });
   const [tokenSelectorFilter, setTokenSelectorFilter] =
@@ -121,6 +122,7 @@ function TokenListSettings() {
     deriveType,
     indexedAccountId: indexedAccount?.id,
     isOthersWallet,
+    vaultSettings,
   });
 
   const handleLpTokenFilterChange = useCallback(

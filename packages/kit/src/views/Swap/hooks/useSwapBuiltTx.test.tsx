@@ -20,6 +20,7 @@ import type {
 import {
   EProtocolOfExchange,
   ESwapQuoteKind,
+  ESwapQuoteSource,
   ESwapRateDifferenceUnit,
   ESwapStepStatus,
   ESwapStepType,
@@ -29,6 +30,7 @@ import {
 import {
   ProviderJotaiContextSwap,
   swapFromTokenAmountAtom,
+  swapQuoteActionLockAtom,
   swapQuoteListAtom,
   swapStepsAtom,
   swapTypeSwitchAtom,
@@ -264,13 +266,21 @@ function renderExecutionReview({
   reviewQuote = quote,
   preSwapData = {},
   steps = [{ type: ESwapStepType.SEND_TX, status: ESwapStepStatus.READY }],
+  buildTxSource,
+  quoteSource,
 }: {
   reviewQuote?: IFetchQuoteResult;
   steps?: ISwapStep[];
   preSwapData?: ISwapPreSwapData;
+  buildTxSource?: ESwapQuoteSource;
+  quoteSource?: ESwapQuoteSource;
 } = {}) {
   const store = createStore();
   store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+  store.set(swapQuoteActionLockAtom(), (previous) => ({
+    ...previous,
+    source: quoteSource,
+  }));
   store.set(swapStepsAtom(), {
     steps,
     quoteResult: reviewQuote,
@@ -282,9 +292,12 @@ function renderExecutionReview({
       {children}
     </ProviderJotaiContextSwap>
   );
-  const hook = renderHook(() => useSwapBuildTx({ onSwapBroadcast }), {
-    wrapper: Wrapper,
-  });
+  const hook = renderHook(
+    () => useSwapBuildTx({ onSwapBroadcast, buildTxSource }),
+    {
+      wrapper: Wrapper,
+    },
+  );
   hook.result.current.beginSwapReview();
   return { ...hook, store, onSwapBroadcast };
 }
@@ -326,6 +339,83 @@ describe('useSwapBuildTx confirmed execution ownership', () => {
     mockGenerateSwapHistory.mockClear();
     mockNavigateTxConfirm.mockReset();
   });
+
+  it.each([
+    {
+      name: 'Desktop Market',
+      buildTxSource: ESwapQuoteSource.MARKET,
+      quoteSource: undefined,
+      protocol: EProtocolOfExchange.SWAP,
+      expectedSource: ESwapQuoteSource.MARKET,
+    },
+    {
+      name: 'Desktop Market Stock',
+      buildTxSource: ESwapQuoteSource.MARKET,
+      quoteSource: undefined,
+      protocol: EProtocolOfExchange.STOCK,
+      expectedSource: ESwapQuoteSource.MARKET,
+    },
+    {
+      name: 'ordinary Swap',
+      buildTxSource: undefined,
+      quoteSource: undefined,
+      protocol: EProtocolOfExchange.SWAP,
+      expectedSource: undefined,
+    },
+    {
+      name: 'existing Market quote',
+      buildTxSource: undefined,
+      quoteSource: ESwapQuoteSource.MARKET,
+      protocol: EProtocolOfExchange.SWAP,
+      expectedSource: ESwapQuoteSource.MARKET,
+    },
+    {
+      name: 'existing Sweep quote',
+      buildTxSource: undefined,
+      quoteSource: ESwapQuoteSource.SWEEP,
+      protocol: EProtocolOfExchange.SWAP,
+      expectedSource: ESwapQuoteSource.SWEEP,
+    },
+    {
+      name: 'locked source before Market entry fallback',
+      buildTxSource: ESwapQuoteSource.MARKET,
+      quoteSource: ESwapQuoteSource.SWEEP,
+      protocol: EProtocolOfExchange.SWAP,
+      expectedSource: ESwapQuoteSource.SWEEP,
+    },
+  ])(
+    'preserves build-only source attribution for $name through preview and rebuild',
+    async ({ buildTxSource, quoteSource, protocol, expectedSource }) => {
+      const reviewQuote = { ...quote, protocol };
+      const { result, store } = renderExecutionReview({
+        reviewQuote,
+        buildTxSource,
+        quoteSource,
+      });
+
+      await act(async () => {
+        await result.current.preSwapBeforeStepActions(
+          reviewQuote,
+          fromToken,
+          toToken,
+        );
+      });
+      expect(mockFetchBuildTx).toHaveBeenCalledTimes(1);
+      expect(mockFetchBuildTx.mock.calls[0][0]).toEqual(
+        expect.objectContaining({ source: expectedSource, protocol }),
+      );
+
+      await act(async () => {
+        await result.current.rebuildSwapWithSlippage({ slippagePercentage: 2 });
+      });
+      expect(mockFetchBuildTx).toHaveBeenCalledTimes(2);
+      expect(mockFetchBuildTx.mock.calls[1][0]).toEqual(
+        expect.objectContaining({ source: expectedSource, protocol }),
+      );
+      expect(store.get(swapQuoteActionLockAtom()).source).toBe(quoteSource);
+      expect(mockSignAndSendTransaction).not.toHaveBeenCalled();
+    },
+  );
 
   it.each(['unchanged', 'edited', 'reopened'])(
     'consumes only the submitted input after closing with %s input',

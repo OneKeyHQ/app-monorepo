@@ -196,10 +196,10 @@ function FundingHistoryExportAction({
         px="$2"
         py="$1"
         borderRadius="$4"
-        bg="$bgActive"
+        bg="$bgSubdued"
         opacity={!accountAddress ? 0.5 : 1}
-        hoverStyle={isDisabled ? undefined : { bg: '$bgStrongHover' }}
-        pressStyle={isDisabled ? undefined : { bg: '$bgStrongActive' }}
+        hoverStyle={isDisabled ? undefined : { bg: '$bgHover' }}
+        pressStyle={isDisabled ? undefined : { bg: '$bgActive' }}
         accessibilityLabel={actionLabel}
         onPress={isDisabled ? undefined : handleExport}
       >

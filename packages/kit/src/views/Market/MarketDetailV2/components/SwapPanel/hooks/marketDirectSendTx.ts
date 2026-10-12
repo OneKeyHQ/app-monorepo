@@ -380,6 +380,7 @@ async function resolveMarketGasInfosSequentially({
         gasInfos.push({
           encodeTx: unsignedTxItem.encodedTx,
           gasInfo: {
+            ...lastTxUseGasInfo,
             common: lastTxUseGasInfo?.common,
             gas: lastTxUseGasInfo?.gas
               ? {

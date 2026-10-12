@@ -33,7 +33,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   },
 }));
 
-const { DUST_SWEEP_PROVIDER, fetchDustSweepQuote, getDustSweepQuoteRisk } =
+const { fetchDustSweepQuote, getDustSweepQuoteRisk } =
   require('./quote') as typeof import('./quote');
 
 const token: IDustSweepToken = {
@@ -73,7 +73,7 @@ const quote: IFetchQuoteResult = {
 
 describe('Dust Sweep quote execution guards', () => {
   it('accepts the exact positive quote identity', () => {
-    expect(quote.info.provider).toBe(DUST_SWEEP_PROVIDER);
+    expect(quote.info.provider).toBe('SwapOKX');
     expect(getDustSweepQuoteRisk(quote, token, snapshot)).toBeUndefined();
   });
 
@@ -93,15 +93,18 @@ describe('Dust Sweep quote execution guards', () => {
     ).toBeUndefined();
   });
 
-  it.each(['okx', 'OKX', 'Swap0x'])('rejects provider %s', (provider) => {
-    expect(
-      getDustSweepQuoteRisk(
-        { ...quote, info: { ...quote.info, provider } },
-        token,
-        snapshot,
-      ),
-    ).toBe('noQuote');
-  });
+  it.each(['okx', 'OKX', 'Swap0x'])(
+    'accepts provider %s from the quote contract',
+    (provider) => {
+      expect(
+        getDustSweepQuoteRisk(
+          { ...quote, info: { ...quote.info, provider } },
+          token,
+          snapshot,
+        ),
+      ).toBeUndefined();
+    },
+  );
 
   it.each(['Infinity', 'NaN', '0', '-1'])(
     'rejects invalid received amount %s',
@@ -229,7 +232,7 @@ describe('Dust Sweep quote stream ownership', () => {
     mockCancelFetchQuoteEvents.mockReset().mockResolvedValue(undefined);
   });
 
-  it('selects the real SwapOKX contract from a multi-provider stream', async () => {
+  it('selects the first provider contract from a multi-provider stream', async () => {
     const operation = fetchDustSweepQuote(
       token,
       snapshot,
@@ -242,21 +245,38 @@ describe('Dust Sweep quote stream ownership', () => {
       }),
     );
     emitQuoteMessage(0, { totalQuoteCount: 10, eventId: 'info' });
-    emitQuoteMessage(0, {
-      data: [{ ...quote, info: { provider: 'Swap0x', providerName: '0x' } }],
-    });
-    expect(mockCancelFetchQuoteEvents).not.toHaveBeenCalled();
-    emitQuoteMessage(0, { data: [quote] });
+    const futureProviderQuote = {
+      ...quote,
+      info: { provider: 'FutureProvider', providerName: 'Future Provider' },
+    };
+    emitQuoteMessage(0, { data: [futureProviderQuote] });
     emitQuoteEvent(0, { type: 'done' });
-    await expect(operation).resolves.toEqual(quote);
+    await expect(operation).resolves.toEqual(futureProviderQuote);
     expect(mockCancelFetchQuoteEvents).toHaveBeenCalledTimes(1);
     expect(mockCancelFetchQuoteEvents).toHaveBeenCalledWith(
       mockFetchQuotesEvents.mock.calls[0][0].quoteRequestId,
     );
   });
 
+  it('keeps the slippage cap when the provider omits a numeric impact', () => {
+    expect(
+      getDustSweepQuoteRisk(
+        {
+          ...quote,
+          toAmount: '0.009',
+          quoteShowTip: {
+            type: EQuoteShowTipType.PRICE_IMPACT,
+            priceImpactLoss: 30,
+          },
+        },
+        token,
+        snapshot,
+      ),
+    ).toBe('priceImpact');
+  });
+
   it.each(['done', 'close'] as const)(
-    'settles an unavailable OKX quote immediately on %s',
+    'settles an unavailable provider quote immediately on %s',
     async (type) => {
       const operation = fetchDustSweepQuote(
         token,
@@ -265,7 +285,7 @@ describe('Dust Sweep quote stream ownership', () => {
       );
       emitQuoteMessage(0, { totalQuoteCount: 10, eventId: 'info' });
       emitQuoteMessage(0, {
-        data: [{ ...quote, info: { provider: 'Swap0x', providerName: '0x' } }],
+        data: [{ ...quote, info: { ...quote.info, provider: '' } }],
       });
       emitQuoteEvent(0, { type });
       await expect(operation).rejects.toMatchObject({ reason: 'noQuote' });

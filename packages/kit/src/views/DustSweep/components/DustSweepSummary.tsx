@@ -50,6 +50,15 @@ export function DustSweepResult({
   const intl = useIntl();
   const reducedMotion = useReducedMotion();
   const totals = getDustSweepTotals(state.items);
+  const hasIssues = totals.failedCount > 0 || totals.skippedCount > 0;
+  const hasHardFailures = totals.failedCount > 0;
+  const hasSuccess = totals.successCount > 0;
+  let resultTitleId = ETranslations.title_dust_swept;
+  if (hasIssues) {
+    resultTitleId = ETranslations.title_dust_sweep_completed;
+    if (!hasSuccess && hasHardFailures)
+      resultTitleId = ETranslations.global_failed;
+  }
   const token = state.snapshot?.nativeToken;
   const amount = totals.receiptUnavailable
     ? '—'
@@ -77,9 +86,13 @@ export function DustSweepResult({
         pt={desktop ? 76 : 32}
         alignItems="center"
       >
-        <Icon name="CheckRadioSolid" color="$iconSuccess" size="$12" />
+        <Icon
+          name={hasHardFailures ? 'InfoCircleSolid' : 'CheckRadioSolid'}
+          color={hasHardFailures ? '$iconCritical' : '$iconSuccess'}
+          size="$12"
+        />
         <SizableText size="$headingLg" mt="$4" height={24}>
-          {intl.formatMessage({ id: ETranslations.title_dust_swept })}
+          {intl.formatMessage({ id: resultTitleId })}
         </SizableText>
         <SizableText
           testID="dust-sweep-result-amount"
@@ -114,9 +127,15 @@ export function DustSweepResult({
               <XStack height={20} justifyContent="space-between">
                 <SizableText color="$textSubdued" size="$bodyMd">
                   {intl.formatMessage({ id: ETranslations.label_skipped })}
+                  {totals.failedCount > 0 ? ' / ' : null}
+                  {totals.failedCount > 0
+                    ? intl.formatMessage({ id: ETranslations.global_failed })
+                    : null}
                 </SizableText>
                 <SizableText size="$bodyMdMedium">
-                  {totals.skippedCount}
+                  {totals.failedCount > 0
+                    ? `${totals.skippedCount} / ${totals.failedCount}`
+                    : totals.skippedCount}
                 </SizableText>
               </XStack>
             </YStack>

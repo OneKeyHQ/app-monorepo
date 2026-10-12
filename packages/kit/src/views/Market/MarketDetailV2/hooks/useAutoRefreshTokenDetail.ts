@@ -3,7 +3,10 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import {
+  useTokenDetailActions,
+  useTokenDetailLoadingAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketAssetTokenDetailAction } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/marketAssetDetail';
 import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail';
 import {
@@ -107,17 +110,50 @@ export function useResolvedMarketAssetRouteIdentity({
   };
 }
 
+// Keep live quote mirroring in a leaf so price ticks do not render the page.
+export function useSyncMarketCurrentTokenLiveData() {
+  const { tokenDetail, networkId } = useTokenDetail();
+  const [, setCurrentTokenLiveData] = useMarketCurrentTokenLiveDataAtom();
+
+  useEffect(() => {
+    if (!tokenDetail || tokenDetail.address === undefined || !networkId) {
+      setCurrentTokenLiveData(undefined);
+      return;
+    }
+    const buy = toFiniteNumber(tokenDetail.buy24hCount);
+    const sell = toFiniteNumber(tokenDetail.sell24hCount);
+    setCurrentTokenLiveData({
+      networkId,
+      address: tokenDetail.address,
+      price: toFiniteNumber(tokenDetail.price),
+      change24h: toFiniteNumber(tokenDetail.priceChange24hPercent),
+      marketCap: toFiniteNumber(tokenDetail.marketCap),
+      liquidity: toFiniteNumber(tokenDetail.liquidity),
+      transactions: toFiniteNumber(tokenDetail.trade24hCount),
+      uniqueTraders: toFiniteNumber(tokenDetail.uniqueWallet24h),
+      holders: toFiniteNumber(tokenDetail.holders),
+      turnover: toFiniteNumber(tokenDetail.volume24h),
+      walletInfo:
+        buy !== undefined || sell !== undefined
+          ? { buy: buy ?? 0, sell: sell ?? 0 }
+          : undefined,
+    });
+  }, [tokenDetail, networkId, setCurrentTokenLiveData]);
+
+  useEffect(
+    () => () => {
+      setCurrentTokenLiveData(undefined);
+    },
+    [setCurrentTokenLiveData],
+  );
+}
+
 export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
   const active = data.active !== false;
   const { current: tokenDetailActions } = useTokenDetailActions();
   const fetchMarketAssetTokenDetail = useMarketAssetTokenDetailAction();
   const currencyInfo = useCurrency();
-  const {
-    tokenDetail,
-    networkId,
-    isLoading: isTokenDetailLoading,
-  } = useTokenDetail();
-  const [, setCurrentTokenLiveData] = useMarketCurrentTokenLiveDataAtom();
+  const [isTokenDetailLoading] = useTokenDetailLoadingAtom();
   const isMarketAssetRequest = Boolean(
     data.marketTokenCategory === MARKET_TOP_COINS_CATEGORY_ID &&
     data.marketTokenId,
@@ -174,41 +210,6 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
     | undefined
   >(undefined);
 
-  // Sync tokenDetail to global atom so mobile modal can read it
-  useEffect(() => {
-    if (!tokenDetail || tokenDetail.address === undefined || !networkId) {
-      setCurrentTokenLiveData(undefined);
-      return;
-    }
-    const buy = toFiniteNumber(tokenDetail.buy24hCount);
-    const sell = toFiniteNumber(tokenDetail.sell24hCount);
-    setCurrentTokenLiveData({
-      networkId,
-      address: tokenDetail.address,
-      price: toFiniteNumber(tokenDetail.price),
-      change24h: toFiniteNumber(tokenDetail.priceChange24hPercent),
-      marketCap: toFiniteNumber(tokenDetail.marketCap),
-      liquidity: toFiniteNumber(tokenDetail.liquidity),
-      transactions: toFiniteNumber(tokenDetail.trade24hCount),
-      uniqueTraders: toFiniteNumber(tokenDetail.uniqueWallet24h),
-      holders: toFiniteNumber(tokenDetail.holders),
-      turnover: toFiniteNumber(tokenDetail.volume24h),
-      walletInfo:
-        buy !== undefined || sell !== undefined
-          ? { buy: buy ?? 0, sell: sell ?? 0 }
-          : undefined,
-    });
-  }, [tokenDetail, networkId, setCurrentTokenLiveData]);
-
-  // Clear global atom only on unmount — separate from sync effect to avoid
-  // briefly setting undefined on every poll tick (cleanup runs before re-execute).
-  useEffect(
-    () => () => {
-      setCurrentTokenLiveData(undefined);
-    },
-    [setCurrentTokenLiveData],
-  );
-
   // Track previous price scope to avoid showing stale token or currency data.
   const prevTokenRef = useRef<
     | {
@@ -260,7 +261,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
   ]);
 
   // Set tokenAddress/networkId/isNative synchronously on prop change,
-  // NOT inside the polling callback. This prevents stale polling responses
+  // not inside the request callback. This prevents stale responses
   // from writing old token identifiers back into atoms after a token switch.
   useLayoutEffect(() => {
     if (!active) return;
@@ -391,10 +392,8 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
     ],
     {
       undefinedResultIfError: true,
-      // Keep the interval identity stable while a retained Desktop/Web route is
-      // inactive. usePromiseResult delays a changed interval by its full
-      // duration; a stable interval lets the active dependency refetch
-      // immediately when the user returns to the route.
+      // Refresh statistics and recover quotes when the chart feed becomes stale.
+      // A stable interval also lets retained routes refetch immediately on entry.
       pollingInterval: 6000,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,

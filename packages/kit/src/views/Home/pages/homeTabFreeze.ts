@@ -40,3 +40,19 @@ export function useHomeTabFreeze(isActive: boolean) {
   }, [isActive]);
   return isActive ? false : frozen;
 }
+
+// A frozen pane never re-renders, so a pane that feeds always-visible state
+// (the wallet pane feeds the header worth and WalletActions) would keep
+// serving the previous owner after an account switch made while another tab
+// is focused: no fetch starts, no replay lands, and the header stays stale
+// until the user returns to that tab. Report `true` for the render cycle in
+// which the owner changed so the pane thaws for one commit, lets its hooks
+// observe the new owner and start the refresh; the freeze delay then
+// re-freezes it. A same-owner network switch keeps its own refresh path.
+export function useHomeTabOwnerThaw(ownerKey: string | undefined) {
+  const [renderedOwnerKey, setRenderedOwnerKey] = useState(ownerKey);
+  useEffect(() => {
+    setRenderedOwnerKey(ownerKey);
+  }, [ownerKey]);
+  return renderedOwnerKey !== ownerKey;
+}

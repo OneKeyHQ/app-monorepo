@@ -1,5 +1,8 @@
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { HardwareErrorCode as ThirdPartyHardwareErrorCode } from '@onekeyfe/hwk-adapter-core/errors';
 import BigNumber from 'bignumber.js';
 
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { buildMarketExecutionPayload } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketBuildExecutionUtils';
 import { sendMarketDirectUnsignedTxs } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketDirectSendTx';
@@ -45,7 +48,9 @@ type IExecutionOptions = {
   signal: AbortSignal;
   onSigning: () => void;
   onPrepared: () => void;
+  onApprovalBroadcast?: (txIds: string[]) => void;
   onBroadcast: (txId: string) => void;
+  pendingApprovalTxIds?: string[];
   generateSwapHistoryItem: Parameters<
     typeof completeBroadcastedSwapSuccess
   >[0]['generateSwapHistoryItem'];
@@ -53,14 +58,33 @@ type IExecutionOptions = {
 
 export class DustSweepUnknownSubmission extends OneKeyLocalError {}
 
-function getSubmissionError(error: unknown, signing: boolean) {
-  // This error is raised by the password prompt before a signature exists.
+function isUserCancellationError(error: unknown) {
+  if (!error || typeof error !== 'object') return false;
+  const candidate = error as {
+    className?: unknown;
+    name?: unknown;
+    code?: unknown;
+  };
+  const className = candidate.className ?? candidate.name;
   if (
-    error &&
-    typeof error === 'object' &&
-    'className' in error &&
-    error.className === EOneKeyErrorClassNames.PasswordPromptDialogCancel
-  ) {
+    className === EOneKeyErrorClassNames.PasswordPromptDialogCancel ||
+    className === EOneKeyErrorClassNames.SecureQRCodeDialogCancel ||
+    className === EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel ||
+    className === EOneKeyErrorClassNames.HardwareUserCancelFromOutside
+  )
+    return true;
+  return [
+    HardwareErrorCode.PinCancelled,
+    HardwareErrorCode.ActionCancelled,
+    HardwareErrorCode.CallQueueActionCancelled,
+    ThirdPartyHardwareErrorCode.PinCancelled,
+    ThirdPartyHardwareErrorCode.UserRejected,
+    ThirdPartyHardwareErrorCode.UserAborted,
+  ].some((code) => code === candidate.code);
+}
+
+function getSubmissionError(error: unknown, signing: boolean) {
+  if (isUserCancellationError(error)) {
     return new DustSweepUserCanceled();
   }
   return signing ? new DustSweepUnknownSubmission() : error;
@@ -121,12 +145,21 @@ async function checkInputAndOtherFeeBalances(
         equalTokenNoCaseSensitive({ token1: entry.token, token2: fee.token }),
       );
       if (existing) existing.amount = amount.plus(existing.amount).toFixed();
+      else if (!fee.token.isNative) throw new DustSweepSkip('unknown');
       else requirements.push({ token: fee.token, amount: amount.toFixed() });
     }
   }
   for (const requirement of requirements) {
     await checkBalance(requirement.token, requirement.amount, options);
   }
+  return (
+    requirements.find((entry) =>
+      equalTokenNoCaseSensitive({
+        token1: entry.token,
+        token2: options.token,
+      }),
+    )?.amount ?? options.token.amount
+  );
 }
 
 async function checkNativeGasBalance(
@@ -147,23 +180,23 @@ async function checkNativeGasBalance(
   }
 }
 
-async function ensureAllowance(
+async function prepareAllowanceUnsignedTxs(
   quote: IFetchQuoteResult,
   options: IExecutionOptions,
-  allowSubmit = true,
-) {
-  const { snapshot, token, signal, onSigning, onPrepared } = options;
+  requiredInputAmount = options.token.amount,
+): Promise<IUnsignedTxPro[]> {
+  const { snapshot, token, signal } = options;
   const spender =
     quote.allowanceResult?.allowanceTarget ??
     quote.approvedInfo?.allowanceTarget;
   if (!spender) {
-    if (quote.approvedInfo?.isApproved) return false;
+    if (quote.approvedInfo?.isApproved) return [];
     if (
       networkUtils.isEvmNetwork({ networkId: snapshot.networkId }) ||
       networkUtils.isTronNetworkByNetworkId(snapshot.networkId)
     )
       throw new DustSweepSkip('unknown');
-    return false;
+    return [];
   }
   const params = {
     accountId: snapshot.accountId,
@@ -171,109 +204,81 @@ async function ensureAllowance(
     tokenAddress: token.contractAddress,
     spenderAddress: spender,
     walletAddress: snapshot.address,
-    amount: token.amount,
+    amount: requiredInputAmount,
   };
   const allowance =
     await backgroundApiProxy.serviceSwap.fetchApproveAllowanceForDisplay(
       params,
     );
   assertActive(signal);
-  if (allowance.isApproved) return false;
-  // A changed spender after build must go through a new review, never silently approve.
-  if (!allowSubmit) throw new DustSweepSkip('unknown');
+  if (allowance.isApproved) return [];
+  const approveUnsignedTxArr: IUnsignedTxPro[] = [];
+  let prevNonce: number | undefined;
   for (const amount of allowance.shouldResetApprove
-    ? ['0', token.amount]
-    : [token.amount]) {
+    ? ['0', requiredInputAmount]
+    : [requiredInputAmount]) {
     assertActive(signal);
-    let txId: string | undefined;
-    let signing = false;
-    try {
-      await sendMarketDirectUnsignedTxs({
+    const unsignedTx =
+      await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
         accountId: snapshot.accountId,
-        accountAddress: snapshot.address,
         networkId: snapshot.networkId,
-        buildUnsignedParams: {
-          accountId: snapshot.accountId,
-          networkId: snapshot.networkId,
-          approveInfo: {
-            owner: snapshot.address,
-            spender,
-            amount,
-            isMax: false,
-            tokenInfo: {
-              address: token.contractAddress,
-              decimals: token.decimals,
-              symbol: token.symbol,
-              name: token.name ?? token.symbol,
-              isNative: false,
-            },
+        prevNonce,
+        isInternalSwap: true,
+        approveInfo: {
+          owner: snapshot.address,
+          spender,
+          amount,
+          isMax: false,
+          tokenInfo: {
+            address: token.contractAddress,
+            decimals: token.decimals,
+            symbol: token.symbol,
+            name: token.name ?? token.symbol,
+            isNative: false,
           },
         },
-        validateFinalGasInfos: (gasInfos) =>
-          checkNativeGasBalance(gasInfos, options),
-        onBeforeSignAndSend: () => {
-          assertActive(signal);
-          signing = true;
-          onSigning();
-        },
-        onBroadcast: (signed) => {
-          txId = signed.txid;
-        },
       });
-    } catch (error) {
-      if (!txId) {
-        const submissionError = getSubmissionError(error, signing);
-        if (submissionError instanceof DustSweepUserCanceled) onPrepared();
-        throw submissionError;
-      }
-      // The approval is already broadcast; history errors must not repeat it.
-    }
-    if (!txId) throw new DustSweepUnknownSubmission();
-    let confirmedPolls = 0;
+    prevNonce = unsignedTx.nonce;
+    approveUnsignedTxArr.push(unsignedTx);
+  }
+  return approveUnsignedTxArr;
+}
+
+async function waitForBroadcastedApprovals({
+  approvalTxIds,
+  snapshot,
+  signal,
+}: {
+  approvalTxIds: string[];
+  snapshot: IDustSweepSnapshot;
+  signal: AbortSignal;
+}) {
+  for (const txId of approvalTxIds) {
     while (!signal.aborted) {
-      let approvalFailed = false;
-      let allowanceUnavailable = false;
       try {
-        const state = await backgroundApiProxy.serviceSwap.fetchTxState({
+        const result = await backgroundApiProxy.serviceSwap.fetchTxState({
           txId,
           networkId: snapshot.networkId,
         });
-        approvalFailed = [
-          ESwapTxHistoryStatus.FAILED,
-          ESwapTxHistoryStatus.CANCELED,
-          ESwapTxHistoryStatus.EXPIRED,
-          ESwapTxHistoryStatus.REFUNDED,
-        ].includes(state.state);
-        if (!approvalFailed && state.state === ESwapTxHistoryStatus.SUCCESS) {
-          confirmedPolls += 1;
-          const latest =
-            await backgroundApiProxy.serviceSwap.fetchApproveAllowanceForDisplay(
-              {
-                ...params,
-                amount,
-              },
-            );
-          const approved = new BigNumber(latest.approveAmounted ?? '');
-          if (
-            approved.isFinite() &&
-            (amount === '0' ? approved.isZero() : approved.gte(amount))
-          )
-            break;
-          // Allow the allowance index to catch up with a confirmed transaction.
-          // Stop this item instead of ever repeating an already broadcast approval.
-          allowanceUnavailable = confirmedPolls >= 10;
-        }
-      } catch {
-        /* A polling failure is not permission to submit again. */
+        if (result.state === ESwapTxHistoryStatus.SUCCESS) break;
+        if (
+          [
+            ESwapTxHistoryStatus.FAILED,
+            ESwapTxHistoryStatus.CANCELED,
+            ESwapTxHistoryStatus.EXPIRED,
+            ESwapTxHistoryStatus.REFUNDED,
+          ].includes(result.state)
+        )
+          throw new DustSweepSkip('txFailed');
+      } catch (error) {
+        if (error instanceof DustSweepSkip) throw error;
+        // Keep polling after a temporary status/transport failure. The tx was
+        // already broadcast, so a failed read must never authorize a resend.
       }
-      if (approvalFailed) throw new DustSweepSkip('txFailed');
-      if (allowanceUnavailable) throw new DustSweepSkip('unknown');
       await waitDustSweepPoll(signal);
     }
     assertActive(signal);
-    onPrepared();
   }
-  return true;
 }
 
 export async function executeDustSweepItem(
@@ -287,23 +292,15 @@ export async function executeDustSweepItem(
     token,
     signal,
     onSigning,
+    onApprovalBroadcast,
     onBroadcast,
+    pendingApprovalTxIds,
     generateSwapHistoryItem,
   } = options;
-  let quote: IFetchQuoteResult | undefined;
-  // Every newly approved route is re-quoted and checked again. Bound spender
-  // changes so a provider cannot keep requesting new approvals indefinitely.
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    const latestQuote = await fetchDustSweepQuote(token, snapshot, signal);
-    const risk = getDustSweepQuoteRisk(latestQuote, token, snapshot);
-    if (risk) throw new DustSweepSkip(risk, latestQuote.quoteShowTip?.detail);
-    await checkInputAndOtherFeeBalances(latestQuote, options);
-    if (!(await ensureAllowance(latestQuote, options, attempt < 2))) {
-      quote = latestQuote;
-      break;
-    }
-  }
-  if (!quote) throw new DustSweepSkip('unknown');
+  const quote = await fetchDustSweepQuote(token, snapshot, signal);
+  const quoteRisk = getDustSweepQuoteRisk(quote, token, snapshot);
+  if (quoteRisk) throw new DustSweepSkip(quoteRisk, quote.quoteShowTip?.detail);
+  await checkInputAndOtherFeeBalances(quote, options);
   assertActive(signal);
   const buildRes = await backgroundApiProxy.serviceSwap.fetchBuildTx({
     fromToken: token,
@@ -325,17 +322,14 @@ export async function executeDustSweepItem(
   if (!buildRes) throw new DustSweepSkip('noQuote');
   const risk = getDustSweepQuoteRisk(buildRes.result, token, snapshot);
   if (risk) throw new DustSweepSkip(risk, buildRes.result.quoteShowTip?.detail);
-  await checkInputAndOtherFeeBalances(buildRes.result, options);
-  await ensureAllowance(
-    buildRes.result.allowanceResult || buildRes.result.approvedInfo
-      ? buildRes.result
-      : quote,
+  const requiredInputAmount = await checkInputAndOtherFeeBalances(
+    buildRes.result,
     options,
-    false,
   );
   const execution = await buildMarketExecutionPayload({
     accountId: snapshot.accountId,
     buildRes,
+    deriveAddressEncoding: snapshot.deriveAddressEncoding,
     currentFromToken: token,
     currentToToken: snapshot.nativeToken,
     fromAmount: token.amount,
@@ -354,7 +348,24 @@ export async function executeDustSweepItem(
   assertActive(signal);
   if (execution.skipSendTransAction || !execution.encodedTx)
     throw new DustSweepSkip('unknown');
+  const allowanceQuote =
+    buildRes.result.allowanceResult || buildRes.result.approvedInfo
+      ? buildRes.result
+      : quote;
+  if (pendingApprovalTxIds?.length)
+    await waitForBroadcastedApprovals({
+      approvalTxIds: pendingApprovalTxIds,
+      snapshot,
+      signal,
+    });
+  const approveUnsignedTxArr = await prepareAllowanceUnsignedTxs(
+    allowanceQuote,
+    options,
+    requiredInputAmount,
+  );
   let txId: string | undefined;
+  let broadcastCount = 0;
+  const broadcastedApprovalTxIds: string[] = [];
   let signing = false;
   try {
     await sendMarketDirectUnsignedTxs({
@@ -370,18 +381,29 @@ export async function executeDustSweepItem(
           : undefined,
         swapInfo: execution.swapInfo,
       },
+      approveUnsignedTxArr,
       validateFinalGasInfos: async (gasInfos) => {
         await checkNativeGasBalance(gasInfos, options, buildRes.result);
         await checkInputAndOtherFeeBalances(buildRes.result, options);
       },
       onBeforeSignAndSend: () => {
         assertActive(signal);
-        signing = true;
-        onSigning();
+        if (!signing) {
+          signing = true;
+          onSigning();
+        }
       },
       onBroadcast: (signed) => {
-        txId = signed.txid;
-        onBroadcast(signed.txid);
+        broadcastCount += 1;
+        if (broadcastCount <= approveUnsignedTxArr.length) {
+          broadcastedApprovalTxIds.push(signed.txid);
+          onApprovalBroadcast?.([...broadcastedApprovalTxIds]);
+          return;
+        }
+        if (broadcastCount === approveUnsignedTxArr.length + 1) {
+          txId = signed.txid;
+          onBroadcast(signed.txid);
+        }
       },
     });
   } catch (error) {

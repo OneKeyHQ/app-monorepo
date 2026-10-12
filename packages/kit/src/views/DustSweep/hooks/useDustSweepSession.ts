@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import BigNumber from 'bignumber.js';
-
 import { generateSwapHistoryItemForContext } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapTxHistory';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
@@ -46,13 +44,7 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
         successCount: totals.successCount,
         skippedCount: totals.skippedCount,
         failedCount: totals.failedCount,
-        receivedAmount: totals.receiptUnavailable ? '' : totals.receivedAmount,
-        receivedUsd:
-          totals.receiptUnavailable || !current.snapshot.nativeToken.price
-            ? ''
-            : new BigNumber(totals.receivedAmount)
-                .times(current.snapshot.nativeToken.price ?? 0)
-                .toFixed(),
+        receiptAvailable: !totals.receiptUnavailable,
         durationSec: Math.floor((Date.now() - started.current) / 1000),
         endReason,
       });
@@ -82,8 +74,15 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
             snapshot,
             token: item.token,
             signal,
+            pendingApprovalTxIds: item.approvalTxIds,
             onSigning: () => send({ ...identity, status: 'signing' }),
             onPrepared: () => send({ ...identity, status: 'preparing' }),
+            onApprovalBroadcast: (approvalTxIds) =>
+              send({
+                ...identity,
+                status: 'preparing',
+                approvalTxIds,
+              }),
             onBroadcast: (txId) =>
               send({ ...identity, status: 'broadcasted', txId }),
             generateSwapHistoryItem: (params) =>
@@ -108,7 +107,6 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
           defaultLogger.dex.dustSweep.dustSweepItemResult({
             network: snapshot.networkId,
             tokenSymbol: item.token.symbol,
-            tokenValueUsd: item.token.valueUsd,
             status: result.status,
             reason: result.status === 'failed' ? 'txFailed' : '',
           });
@@ -135,7 +133,6 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
           defaultLogger.dex.dustSweep.dustSweepItemResult({
             network: snapshot.networkId,
             tokenSymbol: item.token.symbol,
-            tokenValueUsd: item.token.valueUsd,
             status: 'skipped',
             reason,
           });
@@ -160,9 +157,6 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
       defaultLogger.dex.dustSweep.dustSweepStart({
         network: snapshot.networkId,
         tokenCount: snapshot.tokens.length,
-        totalUsd: snapshot.tokens
-          .reduce((sum, token) => sum.plus(token.valueUsd), new BigNumber(0))
-          .toFixed(),
         slippage: snapshot.slippage,
       });
       defaultLogger.dex.dustSweep.dustSweepPageVisited({

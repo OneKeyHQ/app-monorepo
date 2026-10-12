@@ -520,6 +520,55 @@ describe('marketDirectSendTx', () => {
     expect(result.gasFeeFiatValue).toBeDefined();
   });
 
+  it('preserves non-EVM fee fields when deriving the final sequential swap gas', async () => {
+    const approveUnsignedTx = createUnsignedTx({
+      encodedTx: {
+        data: '0xtron-approve',
+      } as never,
+      nonce: 1,
+    });
+    const swapUnsignedTx = createUnsignedTx({
+      encodedTx: {
+        raw_data_hex: '0xtron-swap',
+      } as never,
+      nonce: 2,
+    });
+
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(swapUnsignedTx);
+    mockEstimateFee.mockResolvedValueOnce({
+      common: {
+        feeDecimals: 6,
+        feeSymbol: 'TRX',
+        nativeDecimals: 6,
+        nativeSymbol: 'TRX',
+      },
+      feeTron: [
+        {
+          requiredEnergy: '20',
+          requiredBandwidth: '200',
+        },
+      ],
+    });
+
+    const result = await estimateMarketDirectGasInfos({
+      accountAddress: 'TUser',
+      accountId: 'account-tron',
+      networkId: 'tron--0x2b6653dc',
+      buildUnsignedParams: {
+        accountId: 'account-tron',
+        networkId: 'tron--0x2b6653dc',
+        encodedTx: swapUnsignedTx.encodedTx,
+        isInternalSwap: true,
+      },
+      approveUnsignedTxArr: [approveUnsignedTx],
+    });
+
+    expect(result.gasInfos[1].gasInfo.feeTron).toEqual({
+      requiredEnergy: '20',
+      requiredBandwidth: '200',
+    });
+  });
+
   it('builds gas infos from the selected fee level', async () => {
     const preparedUnsignedTx = createUnsignedTx();
     mockPrepareSendConfirmUnsignedTx.mockResolvedValue(preparedUnsignedTx);

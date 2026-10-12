@@ -13,6 +13,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
   type ITokenSize,
+  getHomeTokenListImageResizeWidth,
   getTokenImageResizeWidth,
 } from '../components/Token/tokenSize';
 
@@ -274,7 +275,7 @@ function collectHeaderNetworkImageItemsFromActiveAccount({
   if (!isRecord(activeAccount) || !isRecord(activeAccount.network)) {
     return;
   }
-  const { network, wallet, indexedAccount } = activeAccount;
+  const { network, wallet } = activeAccount;
   const networkId = getSnapshotString(network.id);
   if (!networkId) {
     return;
@@ -288,6 +289,7 @@ function collectHeaderNetworkImageItemsFromActiveAccount({
   }
   // Mirrors AllNetworksManagerTrigger: others wallets skip the compat query
   // and render the static All Networks icon instead.
+  // The avatars come from the trigger's wallet-scoped query (no account).
   const walletId = isRecord(wallet) ? getSnapshotString(wallet.id) : undefined;
   if (!walletId || accountUtils.isOthersWallet({ walletId })) {
     return;
@@ -298,10 +300,6 @@ function collectHeaderNetworkImageItemsFromActiveAccount({
     swrKeys.allNetworksCompatible({
       walletId,
       networkId,
-      filterNetworksWithoutAccount: true,
-      indexedAccountId: isRecord(indexedAccount)
-        ? getSnapshotString(indexedAccount.id)
-        : undefined,
       withNetworksInfo: false,
       enabledNetworkIdsKey: '',
     }),
@@ -536,12 +534,26 @@ function collectColdStartImages(
     return { criticalItems: [], remainingUris: [] };
   }
   const criticalItems = getColdStartCriticalImageItemsFromSnapshot(snapshot);
-  collectWalletTokenImageUris({ uris, snapshot });
+  // Home token logos are prewarmed at the exact size the home list renders on
+  // this device (phones `lg`, tablets/desktop `md`): the native memory-cache
+  // key carries the decode thumbnail size, so a prewarm at any other width
+  // only fills the disk cache and the first row paint still shows an icon
+  // skeleton (OK-63873). Other logos keep the default width.
+  const walletTokenUris = new Set<string>();
+  collectWalletTokenImageUris({ uris: walletTokenUris, snapshot });
+  const walletTokenResizeWidth = getHomeTokenListImageResizeWidth();
+  const walletTokenItems: IImagePreloadItem[] = [...walletTokenUris].map(
+    (uri) => ({ uri, resizeWidth: walletTokenResizeWidth }),
+  );
   collectSwapImageUris({ uris, snapshot });
   collectPerpsImageUris({ uris, snapshot });
+  const remainingItems: IImagePreloadInput[] = [
+    ...walletTokenItems,
+    ...[...uris].filter((uri) => !walletTokenUris.has(uri)),
+  ];
   return {
     criticalItems: criticalItems.slice(0, limit),
-    remainingUris: [...uris].slice(
+    remainingUris: remainingItems.slice(
       0,
       Math.max(limit - criticalItems.length, 0),
     ),

@@ -196,8 +196,7 @@ it('does not report a partial receipt as the complete amount', async () => {
   expect(result.current.state.phase).toBe('completed');
   expect(mockResultLog).toHaveBeenCalledWith(
     expect.objectContaining({
-      receivedAmount: '',
-      receivedUsd: '',
+      receiptAvailable: false,
       successCount: 2,
     }),
   );

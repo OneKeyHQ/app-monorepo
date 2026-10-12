@@ -1,21 +1,28 @@
 import { useCallback } from 'react';
 import type { SetStateAction } from 'react';
 
-import {
-  useMarketTradingViewChartSettingsPersistAtom,
-  useMarketTradingViewIndicatorSettingsPersistAtom,
-  useMarketTradingViewLayoutPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   ITradingViewNativeChartSettings,
   ITradingViewNativeIndicatorSettings,
 } from '@onekeyhq/shared/types/tradingViewNative';
 
-export function useTradingViewPanelSettings(panelId: string) {
-  const [layout, setLayout] = useMarketTradingViewLayoutPersistAtom();
-  const [defaultChartSettings] = useMarketTradingViewChartSettingsPersistAtom();
+import {
+  useTradingViewNativeChartSettings,
+  useTradingViewNativeIndicatorSettings,
+  useTradingViewNativeLayout,
+} from './useTradingViewNativeSettings';
+
+import type { ITradingViewNativeStorageNamespace } from './types';
+
+export function useTradingViewPanelSettings(
+  panelId: string,
+  storageNamespace?: ITradingViewNativeStorageNamespace,
+) {
+  const [layout, setLayout] = useTradingViewNativeLayout(storageNamespace);
+  const [defaultChartSettings] =
+    useTradingViewNativeChartSettings(storageNamespace);
   const [defaultIndicatorSettings] =
-    useMarketTradingViewIndicatorSettingsPersistAtom();
+    useTradingViewNativeIndicatorSettings(storageNamespace);
   const settings = layout.panelSettings[panelId];
   const setChartSettings = useCallback(
     (update: SetStateAction<ITradingViewNativeChartSettings>) =>
@@ -64,10 +71,10 @@ export function useTradingViewPanelSettings(panelId: string) {
     [defaultChartSettings, defaultIndicatorSettings, panelId, setLayout],
   );
   const chartSettingsState: ReturnType<
-    typeof useMarketTradingViewChartSettingsPersistAtom
+    typeof useTradingViewNativeChartSettings
   > = [settings?.chartSettings ?? defaultChartSettings, setChartSettings];
   const indicatorSettingsState: ReturnType<
-    typeof useMarketTradingViewIndicatorSettingsPersistAtom
+    typeof useTradingViewNativeIndicatorSettings
   > = [
     settings?.indicatorSettings ?? defaultIndicatorSettings,
     setIndicatorSettings,

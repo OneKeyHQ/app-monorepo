@@ -80,23 +80,33 @@ async function loadDustSweepNetworksInternal(
       accountId: params.accountId,
       indexedAccountId: params.indexedAccountId,
       networkId: getNetworkIdsMap().onekeyall,
-      networksEnabledOnly: true,
+      // A single-network entry must resolve that network even when the user
+      // disabled it in the All Networks aggregate view.
+      networksEnabledOnly: !params.networkId,
       excludeTestNetwork: true,
       includingNonExistingAccount: false,
+      includingNotEqualGlobalDeriveTypeAccount: Boolean(params.networkId),
     }),
   ]);
   const limit = pLimit(4);
   const candidates = networks.filter(
     (network) =>
       network.supportSingleSwap &&
-      accountsInfo.some((account) => account.networkId === network.networkId),
+      (!params.networkId || network.networkId === params.networkId) &&
+      accountsInfo.some(
+        (account) =>
+          account.networkId === network.networkId &&
+          (!params.networkId || account.accountId === params.accountId),
+      ),
   );
   const results = await Promise.allSettled(
     candidates.map((network) =>
       limit(async (): Promise<IDustSweepNetwork | undefined> => {
         if (signal.aborted) return undefined;
         const account = accountsInfo.find(
-          (item) => item.networkId === network.networkId,
+          (item) =>
+            item.networkId === network.networkId &&
+            (!params.networkId || item.accountId === params.accountId),
         );
         if (!account) return undefined;
         const [response, native] = await Promise.all([
@@ -139,6 +149,7 @@ async function loadDustSweepNetworksInternal(
           network,
           accountId: account.accountId,
           address: account.apiAddress,
+          deriveAddressEncoding: account.deriveInfo?.addressEncoding,
           tokens,
           nativeToken: {
             networkId: network.networkId,
@@ -161,8 +172,15 @@ async function loadDustSweepNetworksInternal(
   const data = results.flatMap((result) =>
     result.status === 'fulfilled' && result.value ? [result.value] : [],
   );
-  if (!data.length && results.some((result) => result.status === 'rejected'))
-    throw new OneKeyLocalError('Unable to load balances');
+  if (
+    !data.length &&
+    (results.some((result) => result.status === 'rejected') || params.networkId)
+  )
+    throw new OneKeyLocalError(
+      params.networkId
+        ? 'Selected network account is unavailable'
+        : 'Unable to load balances',
+    );
   return {
     networks: data,
     partialError: results.some((result) => result.status === 'rejected'),

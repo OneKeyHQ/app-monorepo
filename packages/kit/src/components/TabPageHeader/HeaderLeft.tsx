@@ -66,6 +66,10 @@ const animatedTextStyles = StyleSheet.create({
   },
 });
 
+function getDiscoveryHeaderTabTestID(translationId: ETranslations) {
+  return `discovery-header-tab-${translationId.split('.').at(-1)}`;
+}
+
 function SegmentText({
   translationId,
   selected,
@@ -84,7 +88,11 @@ function SegmentText({
     });
   }, [translationId]);
   return (
-    <TouchableOpacity onPress={handlePress} activeOpacity={1}>
+    <TouchableOpacity
+      testID={getDiscoveryHeaderTabTestID(translationId)}
+      onPress={handlePress}
+      activeOpacity={1}
+    >
       <SizableText
         size="$headingXl"
         color={selected ? '$text' : '$textSubdued'}
@@ -130,7 +138,11 @@ function AnimatedSegmentText({
   });
 
   return (
-    <TouchableOpacity onPress={handlePress} activeOpacity={1}>
+    <TouchableOpacity
+      testID={getDiscoveryHeaderTabTestID(translationId)}
+      onPress={handlePress}
+      activeOpacity={1}
+    >
       <Animated.Text
         style={[animatedTextStyles.text, animatedColorStyle]}
         numberOfLines={1}

@@ -92,9 +92,9 @@ function useDustSweepController(params: IDustSweepRouteParams) {
         ),
     [networks, preferences.threshold],
   );
-  const current =
-    orderedNetworks.find((entry) => entry.network.networkId === networkId) ??
-    orderedNetworks[0];
+  const current = networkId
+    ? orderedNetworks.find((entry) => entry.network.networkId === networkId)
+    : orderedNetworks[0];
   const currentNetworkId = current?.network.networkId;
   useEffect(() => {
     if (currentNetworkId && currentNetworkId !== networkId)
@@ -131,6 +131,7 @@ function useDustSweepController(params: IDustSweepRouteParams) {
             accountId: current.accountId,
             address: current.address,
             networkId: current.network.networkId,
+            deriveAddressEncoding: current.deriveAddressEncoding,
             nativeToken: current.nativeToken,
             slippage,
             tokens: selected,
@@ -213,9 +214,6 @@ function useDustSweepController(params: IDustSweepRouteParams) {
       hiddenReported.current = true;
       defaultLogger.dex.dustSweep.dustSweepAddHidden({
         hiddenCount: selectableHidden.length,
-        hiddenTotalUsd: selectableHidden
-          .reduce((sum, token) => sum.plus(token.valueUsd), new BigNumber(0))
-          .toFixed(),
       });
     }
   }, [selecting, includeHidden, selected, selectableHidden]);
