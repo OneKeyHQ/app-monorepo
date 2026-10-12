@@ -19,6 +19,15 @@ const mockCreateAddressForNetwork = jest.fn<
   Promise<string | undefined>,
   [unknown]
 >();
+const mockGetAccount = jest.fn<
+  Promise<{ id: string }>,
+  [{ accountId: string; networkId: string }]
+>();
+const DEFAULT_COMPATIBLE_NETWORKS = [
+  { id: 'evm--1', name: 'Ethereum' },
+  { id: 'evm--42161', name: 'Arbitrum' },
+];
+let mockCompatibleNetworks = DEFAULT_COMPATIBLE_NETWORKS;
 let mockRouteParams: Record<string, unknown> = {};
 let mockActiveAccount: {
   wallet?: { id: string };
@@ -78,10 +87,7 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
     serviceNetwork: {
       getGlobalDeriveTypeOfNetwork: jest.fn(async () => 'default'),
       getChainSelectorNetworksCompatibleWithAccountId: jest.fn(async () => ({
-        mainnetItems: [
-          { id: 'evm--1', name: 'Ethereum' },
-          { id: 'evm--42161', name: 'Arbitrum' },
-        ],
+        mainnetItems: mockCompatibleNetworks,
         testnetItems: [],
         unavailableItems: [],
       })),
@@ -91,6 +97,8 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
         indexedAccountId?: string;
         networkId?: string;
       }) => mockGetNetworkAccount(params),
+      getAccount: (params: { accountId: string; networkId: string }) =>
+        mockGetAccount(params),
     },
     serviceAllNetwork: {
       getAllNetworksState: jest.fn(async () => ({
@@ -387,7 +395,9 @@ describe('AggregateTokenSelector', () => {
 
   beforeEach(() => {
     mockGetNetworkAccount.mockReset();
+    mockGetAccount.mockReset();
     mockCreateAddressForNetwork.mockReset();
+    mockCompatibleNetworks = DEFAULT_COMPATIBLE_NETWORKS;
     mockSubTokenFiat = undefined;
     mockActiveAccount = {
       wallet: { id: 'hd-1' },
@@ -431,6 +441,53 @@ describe('AggregateTokenSelector', () => {
         networkId: 'evm--1',
       }),
     );
+  });
+
+  it('resolves rows through the page account for a wallet without an indexed account and offers no creation', async () => {
+    // An imported EVM account: it exists on EVM networks as it is, and no
+    // address can be created for it anywhere.
+    mockActiveAccount = { wallet: { id: 'imported' } };
+    mockCompatibleNetworks = [
+      ...DEFAULT_COMPATIBLE_NETWORKS,
+      { id: 'sol--101', name: 'Solana' },
+    ];
+    mockGetAccount.mockImplementation(async ({ accountId, networkId }) =>
+      networkId.startsWith('evm--')
+        ? { id: accountId }
+        : Promise.reject(new Error('not compatible')),
+    );
+    const { row, onSelect, queryAllByTestId, queryByText } = renderSelector({
+      accountId: 'imported--60--0xabc',
+      indexedAccountId: '',
+      allAggregateTokenList: [
+        usdcOn('evm--1', 'Ethereum'),
+        usdcOn('evm--42161', 'Arbitrum'),
+        usdcOn('sol--101', 'Solana'),
+      ],
+    });
+
+    // The network it cannot be used on is not listed at all.
+    await waitFor(() => expect(queryAllByTestId('list-item')).toHaveLength(2));
+    expect(queryByText('Solana')).toBeNull();
+    for (const name of ['Ethereum', 'Arbitrum']) {
+      expect(row(name).querySelector('[data-testid="subtitle"]')).toBeNull();
+    }
+    expect(mockGetAccount).toHaveBeenCalledWith({
+      accountId: 'imported--60--0xabc',
+      networkId: 'evm--42161',
+    });
+    expect(mockGetNetworkAccount).not.toHaveBeenCalled();
+
+    fireEvent.click(row('Arbitrum'));
+    await waitFor(() => expect(onSelect).toHaveBeenCalledTimes(1));
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        networkId: 'evm--42161',
+        accountId: 'imported--60--0xabc',
+      }),
+      expect.anything(),
+    );
+    expect(mockCreateAddressForNetwork).not.toHaveBeenCalled();
   });
 
   it('does not report a network whose address finished creating after another network was picked', async () => {

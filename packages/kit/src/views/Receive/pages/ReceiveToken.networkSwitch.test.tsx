@@ -60,6 +60,7 @@ const NETWORKS: Record<string, { id: string; name: string; logoURI: string }> =
 type IMockAccount = {
   id: string;
   address: string;
+  impl?: string;
   indexedAccountId?: string;
   addressDetail: { receiveAddressPath: string };
 };
@@ -94,6 +95,13 @@ const ACCOUNTS: Record<string, IMockAccount> = {
     address: 'bc1ptaproot',
     indexedAccountId: 'hd-1--0',
     addressDetail: { receiveAddressPath: "m/86'/0'/0'/0/0" },
+  },
+  // An imported private key: one account, usable on every EVM network.
+  'imported--60--0xabc': {
+    id: 'imported--60--0xabc',
+    address: '0xabc',
+    impl: 'evm',
+    addressDetail: { receiveAddressPath: '' },
   },
 };
 
@@ -260,7 +268,15 @@ jest.mock('@onekeyhq/shared/src/utils/accountUtils', () => ({
       walletId.startsWith('qr-'),
     isHwWallet: ({ walletId }: { walletId: string }) =>
       walletId.startsWith('hw-'),
-    isOthersWallet: () => false,
+    isOthersWallet: ({ walletId }: { walletId: string }) =>
+      walletId.startsWith('imported'),
+    isAccountCompatibleWithNetwork: ({
+      account,
+      networkId,
+    }: {
+      account: { impl?: string };
+      networkId: string;
+    }) => networkId.startsWith(`${account.impl ?? ''}--`),
     getWalletIdFromAccountId: ({ accountId }: { accountId: string }) =>
       accountId.split('--')[0],
   },
@@ -924,6 +940,64 @@ describe('ReceiveToken network switch', () => {
     } finally {
       ACCOUNTS['hw-1--evm1'] = original;
     }
+  });
+
+  it('offers an imported account the switch only across networks it exists on', async () => {
+    // Entered from a search result: no members travel with the row, the
+    // page resolves the group itself.
+    const importedEntry = {
+      networkId: 'evm--1',
+      accountId: 'imported--60--0xabc',
+      walletId: 'imported',
+      indexedAccountId: '',
+      token: member('evm--1', { accountId: 'imported--60--0xabc' }),
+      switchEntry: 'token',
+      source: 'home',
+    };
+
+    // The token's other members are on networks this account does not exist
+    // on, and no address can be created for it: nothing to switch to.
+    mockFindAggregateGroup.mockResolvedValue({
+      aggregateToken: AGGREGATE_USDT,
+      members: [member('evm--1'), member('tron--0x2b6653dc')],
+    } as never);
+    mockRouteParams = importedEntry;
+    const first = render(<ReceiveToken />);
+    await waitFor(() =>
+      expect(first.getByTestId('address').textContent).toBe('0xabc'),
+    );
+    await waitFor(() => expect(mockFindAggregateGroup).toHaveBeenCalled());
+    await act(async () => {
+      await new Promise((resolve) => {
+        setTimeout(resolve, 0);
+      });
+    });
+    expect(first.queryByTestId('receive-card-network-trigger')).toBeNull();
+    first.unmount();
+
+    // With another EVM member the same account has an address there.
+    mockFindAggregateGroup.mockResolvedValue({
+      aggregateToken: AGGREGATE_USDT,
+      members: [
+        member('evm--1'),
+        member('evm--8453'),
+        member('tron--0x2b6653dc'),
+      ],
+    } as never);
+    mockRouteParams = importedEntry;
+    const second = render(<ReceiveToken />);
+    await waitFor(() =>
+      expect(second.getByTestId('receive-card-network-trigger')).not.toBeNull(),
+    );
+    fireEvent.click(second.getByTestId('receive-card-network-trigger'));
+    expect(mockPushModal).toHaveBeenCalledWith('ReceiveModal', {
+      screen: 'ReceiveSelectAggregateToken',
+      // The picker resolves its rows through this account.
+      params: expect.objectContaining({
+        accountId: 'imported--60--0xabc',
+        indexedAccountId: '',
+      }),
+    });
   });
 
   it('keeps the network on screen when it is picked again while a switch away is resolving', async () => {

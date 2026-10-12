@@ -108,6 +108,7 @@ export function AggregateTokenListItem({
   hideBalanceAndValue,
   walletId,
   indexedAccountId,
+  fallbackAccountId,
   createAddressForNetwork,
   beginSelection,
 }: {
@@ -136,6 +137,10 @@ export function AggregateTokenListItem({
   // a Receive page opened for another wallet must create addresses there.
   walletId: string | undefined;
   indexedAccountId: string | undefined;
+  // The page's own account. A wallet without an indexed account (imported,
+  // watch-only, external) has no other address: on a compatible network the
+  // row resolves to it, and nothing can be created for such a wallet.
+  fallbackAccountId?: string;
   createAddressForNetwork: ReturnType<
     typeof useCreateAddressForNetwork
   >['createAddressForNetwork'];
@@ -162,6 +167,22 @@ export function AggregateTokenListItem({
       return { accountId: token.accountId };
     }
 
+    if (!indexedAccountId) {
+      if (!fallbackAccountId) {
+        return { accountId: undefined };
+      }
+      try {
+        // Throws on a network the account is not compatible with.
+        const account = await backgroundApiProxy.serviceAccount.getAccount({
+          accountId: fallbackAccountId,
+          networkId: token.networkId ?? '',
+        });
+        return { accountId: account?.id };
+      } catch {
+        return { accountId: undefined };
+      }
+    }
+
     const deriveType =
       await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
         networkId: token.networkId ?? '',
@@ -180,8 +201,9 @@ export function AggregateTokenListItem({
     } catch {
       return { accountId: undefined };
     }
-  }, [indexedAccountId, token.networkId, token.accountId]);
+  }, [indexedAccountId, fallbackAccountId, token.networkId, token.accountId]);
   const accountId = networkAccountLookup?.accountId;
+  const canCreateAddress = !!indexedAccountId;
   // OK-61879: a network with no created address has no balance to show, so
   // the value column is dropped once the lookup settles without an account.
   // While pending it stays put, so rows that do have an address never blink
@@ -197,7 +219,7 @@ export function AggregateTokenListItem({
           accountId,
         },
       });
-    } else {
+    } else if (canCreateAddress) {
       try {
         setLoading(true);
         const networkId = token.networkId ?? network?.id ?? '';
@@ -235,6 +257,7 @@ export function AggregateTokenListItem({
   }, [
     accountId,
     beginSelection,
+    canCreateAddress,
     onPress,
     token,
     network?.id,
@@ -248,6 +271,11 @@ export function AggregateTokenListItem({
   ]);
 
   const showSpinner = loading || isCurrentTokenProcessing;
+
+  // No address here and none can be created: the row would only fail on tap.
+  if (isAddressMissing && !canCreateAddress) {
+    return null;
+  }
 
   return (
     <ListItem
@@ -639,6 +667,7 @@ function AggregateTokenSelector() {
         hideBalanceAndValue={hideBalanceAndValue}
         walletId={walletId}
         indexedAccountId={indexedAccountId}
+        fallbackAccountId={accountId}
         createAddressForNetwork={createAddressForNetwork}
         beginSelection={beginSelection}
       />
@@ -655,6 +684,7 @@ function AggregateTokenSelector() {
     hideBalanceAndValue,
     walletId,
     indexedAccountId,
+    accountId,
     createAddressForNetwork,
     beginSelection,
   ]);

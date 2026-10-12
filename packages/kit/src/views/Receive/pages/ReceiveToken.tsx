@@ -976,12 +976,32 @@ function ReceiveToken() {
     );
   }, [canShowShareEntry, handleSharePress, isPreparingShare, intl]);
 
+  // An imported, watch-only or external account only exists on the networks
+  // it is compatible with and cannot get an address anywhere else, so
+  // members on other networks are no target for a switch.
+  const switchTargetCount = useMemo(() => {
+    if (!accountUtils.isOthersWallet({ walletId })) {
+      return aggregateMembers.length;
+    }
+    if (!currentAccount) {
+      return 0;
+    }
+    return aggregateMembers.filter(
+      (member) =>
+        !!member.networkId &&
+        accountUtils.isAccountCompatibleWithNetwork({
+          account: currentAccount,
+          networkId: member.networkId,
+        }),
+    ).length;
+  }, [aggregateMembers, currentAccount, walletId]);
+
   const { isSwitchable: isNetworkSwitchable, isSwitchEnabled } =
     resolveReceiveNetworkSwitchable({
       switchEntry,
       exchangeSource,
       isBtcUsedAddressVerifyMode: !!isBtcUsedAddressVerifyMode,
-      memberCount: aggregateMembers.length,
+      memberCount: switchTargetCount,
       isVerifying,
       isPreparingShare,
     });
