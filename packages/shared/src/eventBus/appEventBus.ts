@@ -185,7 +185,11 @@ export interface IAppEventBusPayload {
     fromAmount: string;
     toAmount: string;
   };
-  [EAppEventBusNames.SwapStockTokenSelected]: ISwapToken;
+  [EAppEventBusNames.SwapStockTokenSelected]: {
+    token: ISwapToken;
+    /** Identifies the Swap provider instance that opened the selector. */
+    storeName: string;
+  };
   [EAppEventBusNames.WalletRemove]: {
     walletId: string;
   };

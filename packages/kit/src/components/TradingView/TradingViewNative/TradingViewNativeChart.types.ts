@@ -6,6 +6,7 @@ import type { ITradingViewNativeChartSettings } from '@onekeyhq/shared/types/tra
 import type { ITradingViewNativeChartRuntime } from './native/chartRuntime';
 import type {
   ITradingViewNativeCandleLabels,
+  ITradingViewNativeCandleTimeMode,
   ITradingViewNativeChartLeafComponent,
   ITradingViewNativeChartType,
   ITradingViewNativeInitialRightOffset,
@@ -32,6 +33,7 @@ export interface ITradingViewNativeChartProps {
     decayOffset: SharedValue<number>;
   } | null>;
   candleIntervalSeconds: number;
+  candleTimeMode?: ITradingViewNativeCandleTimeMode;
   chartComponents: readonly ITradingViewNativeChartLeafComponent[];
   onReferenceLineAction?: (
     action: ITradingViewNativeReferenceLineAction,

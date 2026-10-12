@@ -102,7 +102,7 @@ function buildAmountRow(
 
 // Backend rate subjects behind each reward row; DeFi rates may arrive under
 // either name.
-export const INVITE_REWARD_RATE_SUBJECTS: Record<
+const INVITE_REWARD_RATE_SUBJECTS: Record<
   IInviteRewardSubject,
   readonly string[]
 > = {

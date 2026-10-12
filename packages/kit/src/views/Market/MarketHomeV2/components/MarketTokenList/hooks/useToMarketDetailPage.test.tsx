@@ -572,6 +572,36 @@ describe('useToDetailPage', () => {
     mockedPlatformEnv.isExtensionUiPopup = true;
   });
 
+  it('navigates items whose stock id is only nested on stock', async () => {
+    const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+    };
+    mockedPlatformEnv.isExtensionUiPopup = false;
+    const { result } = renderHook(() => useToDetailPage());
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: '0xaapl',
+        networkId: 'evm--1',
+        symbol: 'AAPLon',
+        stock: {
+          subtitle: 'Apple Inc.',
+          sourceLogoUri: '',
+          stockId: 'aapl',
+        },
+      });
+    });
+
+    expect(mockNavigationPush).toHaveBeenCalledWith('MarketStockDetail', {
+      stockId: 'AAPL',
+      tokenAddress: '0xaapl',
+      network: 'eth',
+      isNative: undefined,
+      from: undefined,
+    });
+    mockedPlatformEnv.isExtensionUiPopup = true;
+  });
+
   it('navigates xStocks search items without a stock id to token detail', async () => {
     const mockedPlatformEnv = platformEnv as typeof platformEnv & {
       isExtensionUiPopup: boolean;
