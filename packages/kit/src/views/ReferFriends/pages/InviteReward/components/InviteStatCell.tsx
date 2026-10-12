@@ -35,11 +35,14 @@ export function InviteStatCell({
   minWidth?: number | `$${string}`;
 }) {
   const hug = share === 'content' || !shrink;
-  let sizing: { flexShrink: number } | { flex: number; flexBasis: number } | {
-    flexGrow: number;
-    flexShrink: number;
-    flexBasis: 'auto';
-  };
+  let sizing:
+    | { flexShrink: number }
+    | { flex: number; flexBasis: number }
+    | {
+        flexGrow: number;
+        flexShrink: number;
+        flexBasis: 'auto';
+      };
   if (!hug) {
     sizing = { flex: share, flexBasis: 0 };
   } else if (shrink) {
