@@ -1,14 +1,19 @@
 import { memo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
+  Button,
   DashText,
   Icon,
   NumberSizeableText,
   SizableText,
+  Spinner,
   Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import {
@@ -274,4 +279,41 @@ export function sortSelectorRows<T>(
       return diff === 0 ? a.index - b.index : diff;
     })
     .map(({ row }) => row);
+}
+
+/** The spinner or retry under a stock list that pages as All scrolls. */
+export function StockLoadMoreFooter({
+  isLoadingMore,
+  isLoadMoreError,
+  onRetry,
+  testID,
+}: {
+  isLoadingMore: boolean;
+  isLoadMoreError: boolean;
+  onRetry: () => void;
+  testID: string;
+}) {
+  const intl = useIntl();
+  if (isLoadingMore) {
+    return (
+      <YStack py="$4" alignItems="center">
+        <Spinner size="small" />
+      </YStack>
+    );
+  }
+  if (isLoadMoreError) {
+    return (
+      <YStack py="$2" alignItems="center">
+        <Button
+          testID={testID}
+          size="small"
+          variant="tertiary"
+          onPress={onRetry}
+        >
+          {intl.formatMessage({ id: ETranslations.global_retry })}
+        </Button>
+      </YStack>
+    );
+  }
+  return null;
 }

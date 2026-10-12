@@ -12,6 +12,7 @@ const mockStockPress = jest.fn();
 const mockMarketPress = jest.fn();
 const mockLoadMore = jest.fn(() => Promise.resolve());
 type IMockStockSelectorResult = {
+  isRevalidatingFirstPage?: boolean;
   items: IMarketStockPublicItem[];
   isLoading: boolean;
   isError: boolean;
@@ -72,7 +73,32 @@ jest.mock('@onekeyhq/components', () => {
   return {
     Button: Container,
     Empty: () => <div data-testid="empty" />,
-    ScrollView: Container,
+    ScrollView: ({
+      children,
+      onScroll,
+    }: {
+      children?: ReactNode;
+      onScroll?: (event: unknown) => void;
+    }) => (
+      <div>
+        {children}
+        {/* Fires a scroll that reaches the end of the content. */}
+        <button
+          data-testid="scroll-to-end"
+          aria-label="scroll to end"
+          type="button"
+          onClick={() =>
+            onScroll?.({
+              nativeEvent: {
+                contentOffset: { y: 1000 },
+                layoutMeasurement: { height: 500 },
+                contentSize: { height: 1500 },
+              },
+            })
+          }
+        />
+      </div>
+    ),
     SizableText: Container,
     XStack: Container,
     YStack: Container,
@@ -140,6 +166,26 @@ jest.mock('./MobileMarketSelectorBrowseLists', () => {
   };
 });
 
+jest.mock('./selectorTable', () => ({
+  StockLoadMoreFooter: ({
+    isLoadMoreError,
+    onRetry,
+    testID,
+  }: {
+    isLoadMoreError: boolean;
+    onRetry: () => void;
+    testID: string;
+  }) =>
+    isLoadMoreError ? (
+      <button
+        data-testid={testID}
+        aria-label="retry"
+        type="button"
+        onClick={onRetry}
+      />
+    ) : null,
+}));
+
 jest.mock('./useMarketStockSelectorList', () => ({
   useMarketStockSelectorList: (options: { query: string }) =>
     mockUseMarketStockSelectorList(options),
@@ -147,6 +193,18 @@ jest.mock('./useMarketStockSelectorList', () => ({
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
   useMarketWatchListV2Atom: () => [{ data: [] }],
 }));
+
+const mobileStockResultBase = {
+  items: [stock],
+  isLoading: false,
+  isError: false,
+  isLoadingMore: false,
+  isLoadMoreError: false,
+  isRevalidatingFirstPage: false,
+  canLoadMore: false,
+  loadMore: mockLoadMore,
+  refresh: jest.fn(),
+};
 
 describe('MobileMarketTokenSelectorSearchResults', () => {
   beforeEach(() => {
@@ -268,5 +326,61 @@ describe('MobileMarketTokenSelectorSearchResults', () => {
       query: '   ',
       searchOnly: true,
     });
+  });
+
+  it('loads the next stock page as All scrolls when stocks are the only section', () => {
+    mockUseMarketStockSelectorList.mockReturnValue({
+      ...mobileStockResultBase,
+      canLoadMore: true,
+    });
+    const { rerender } = render(
+      <MobileMarketTokenSelectorSearchResults
+        query="stock"
+        marketItems={[]}
+        onStockPress={mockStockPress}
+        onMarketPress={mockMarketPress}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('scroll-to-end'));
+    expect(mockLoadMore).toHaveBeenCalledTimes(1);
+
+    mockUseMarketStockSelectorList.mockReturnValue({
+      ...mobileStockResultBase,
+      canLoadMore: true,
+      isLoadMoreError: true,
+    });
+    rerender(
+      <MobileMarketTokenSelectorSearchResults
+        query="stock"
+        marketItems={[]}
+        onStockPress={mockStockPress}
+        onMarketPress={mockMarketPress}
+      />,
+    );
+    fireEvent.click(
+      screen.getByTestId(
+        'mobile-market-token-selector-stock-search-load-more-retry',
+      ),
+    );
+    expect(mockLoadMore).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not page stocks from All when tokens share the tab', () => {
+    mockUseMarketStockSelectorList.mockReturnValue({
+      ...mobileStockResultBase,
+      canLoadMore: true,
+    });
+    render(
+      <MobileMarketTokenSelectorSearchResults
+        query="aapl"
+        marketItems={[marketItem]}
+        onStockPress={mockStockPress}
+        onMarketPress={mockMarketPress}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('scroll-to-end'));
+    expect(mockLoadMore).not.toHaveBeenCalled();
   });
 });

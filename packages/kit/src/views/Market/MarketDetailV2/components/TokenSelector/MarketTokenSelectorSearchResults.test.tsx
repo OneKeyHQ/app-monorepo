@@ -104,7 +104,32 @@ jest.mock('@onekeyhq/components', () => {
     Empty: ({ title }: { title?: string }) => (
       <div data-testid="empty">{title}</div>
     ),
-    ScrollView: Container,
+    ScrollView: ({
+      children,
+      onScroll,
+    }: {
+      children?: ReactNode;
+      onScroll?: (event: unknown) => void;
+    }) => (
+      <div>
+        {children}
+        {/* Fires a scroll that reaches the end of the content. */}
+        <button
+          data-testid="scroll-to-end"
+          aria-label="scroll to end"
+          type="button"
+          onClick={() =>
+            onScroll?.({
+              nativeEvent: {
+                contentOffset: { y: 1000 },
+                layoutMeasurement: { height: 500 },
+                contentSize: { height: 1500 },
+              },
+            })
+          }
+        />
+      </div>
+    ),
     SizableText: Container,
     Spinner: () => <div data-testid="spinner" />,
     Table: ({
@@ -154,6 +179,23 @@ jest.mock('./selectorTable', () => ({
   SelectorAmountCell: () => null,
   getNextSelectorSortOrder: () => undefined,
   sortSelectorRows: (rows: unknown[]) => rows,
+  StockLoadMoreFooter: ({
+    isLoadMoreError,
+    onRetry,
+    testID,
+  }: {
+    isLoadMoreError: boolean;
+    onRetry: () => void;
+    testID: string;
+  }) =>
+    isLoadMoreError ? (
+      <button
+        data-testid={testID}
+        aria-label="retry"
+        type="button"
+        onClick={onRetry}
+      />
+    ) : null,
 }));
 // Rows render as plain buttons so the tests can press them by id.
 jest.mock('./MarketTokenSelectorRow', () => ({
@@ -490,5 +532,59 @@ describe('MarketTokenSelectorSearchResults', () => {
     expect(screen.queryByTestId('skeleton')).toBeNull();
     expect(screen.getByTestId('market-stock-selector-row-AAPL')).toBeTruthy();
     expect(screen.getByTestId('search-row-evm--1_0xaapl')).toBeTruthy();
+  });
+
+  it('loads the next stock page as All scrolls when stocks are the only section', () => {
+    mockUseMarketStockSelectorList.mockReturnValue({
+      ...defaultStockResult,
+      canLoadMore: true,
+    });
+    const { rerender } = render(
+      <MarketTokenSelectorSearchResults
+        query="stock"
+        marketItems={[]}
+        onStockPress={mockStockPress}
+        onMarketPress={mockMarketPress}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('scroll-to-end'));
+    expect(mockLoadMore).toHaveBeenCalledTimes(1);
+
+    mockUseMarketStockSelectorList.mockReturnValue({
+      ...defaultStockResult,
+      canLoadMore: true,
+      isLoadMoreError: true,
+    });
+    rerender(
+      <MarketTokenSelectorSearchResults
+        query="stock"
+        marketItems={[]}
+        onStockPress={mockStockPress}
+        onMarketPress={mockMarketPress}
+      />,
+    );
+    fireEvent.click(
+      screen.getByTestId('market-token-selector-stock-search-load-more-retry'),
+    );
+    expect(mockLoadMore).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not page stocks from All when tokens share the tab', () => {
+    mockUseMarketStockSelectorList.mockReturnValue({
+      ...defaultStockResult,
+      canLoadMore: true,
+    });
+    render(
+      <MarketTokenSelectorSearchResults
+        query="aapl"
+        marketItems={[marketItem]}
+        onStockPress={mockStockPress}
+        onMarketPress={mockMarketPress}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('scroll-to-end'));
+    expect(mockLoadMore).not.toHaveBeenCalled();
   });
 });

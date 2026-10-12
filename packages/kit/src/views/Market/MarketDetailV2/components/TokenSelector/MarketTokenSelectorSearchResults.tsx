@@ -55,12 +55,14 @@ import {
   SelectorAmountCell,
   SelectorPriceChangeCell,
   SelectorTableHeader,
+  StockLoadMoreFooter,
   getNextSelectorSortOrder,
   sortSelectorRows,
 } from './selectorTable';
 import {
   MARKET_SEARCH_TABS,
   useMarketTokenSelectorSearchState,
+  useStockLoadMoreOnScrollEnd,
 } from './useMarketTokenSelectorSearchState';
 
 import type {
@@ -692,6 +694,12 @@ function MarketTokenSelectorSearchResults({
   const showTokenSection = hasTokenResults;
   // Only previews when both sections have rows; a lone section lists all.
   const isPreview = hasStockResults && hasTokenResults;
+  // Stocks alone list every page, loading the next one as All scrolls.
+  const isLoneStockSection = hasStockResults && !hasTokenResults;
+  const handleAllScroll = useStockLoadMoreOnScrollEnd(
+    stockResult,
+    isLoneStockSection,
+  );
   const stockRows = isPreview
     ? stockResult.items.slice(0, SEARCH_SECTION_PREVIEW_LIMIT)
     : stockResult.items;
@@ -728,7 +736,12 @@ function MarketTokenSelectorSearchResults({
     );
   } else {
     body = (
-      <ScrollView flex={1} contentContainerStyle={{ paddingBottom: 20 }}>
+      <ScrollView
+        flex={1}
+        contentContainerStyle={{ paddingBottom: 20 }}
+        onScroll={handleAllScroll}
+        scrollEventThrottle={64}
+      >
         {showStockSection ? (
           <StockSection
             items={stockRows}
@@ -741,6 +754,14 @@ function MarketTokenSelectorSearchResults({
             onShowMore={() => setActiveTab(MARKET_SEARCH_TABS.stocks)}
             onRetry={() => void stockResult.refresh()}
             onPress={onStockPress}
+          />
+        ) : null}
+        {isLoneStockSection ? (
+          <StockLoadMoreFooter
+            isLoadingMore={stockResult.isLoadingMore}
+            isLoadMoreError={stockResult.isLoadMoreError}
+            onRetry={() => void stockResult.loadMore()}
+            testID="market-token-selector-stock-search-load-more-retry"
           />
         ) : null}
         {showTokenSection ? (

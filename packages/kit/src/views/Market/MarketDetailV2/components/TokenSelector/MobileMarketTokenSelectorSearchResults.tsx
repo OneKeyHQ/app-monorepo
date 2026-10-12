@@ -29,9 +29,11 @@ import {
   MobileSelectorStockRow,
   MobileSelectorStockTable,
 } from './MobileMarketSelectorBrowseLists';
+import { StockLoadMoreFooter } from './selectorTable';
 import {
   MARKET_SEARCH_TABS,
   useMarketTokenSelectorSearchState,
+  useStockLoadMoreOnScrollEnd,
 } from './useMarketTokenSelectorSearchState';
 
 const SEARCH_SECTION_PREVIEW_LIMIT = TOKEN_SELECTOR_SEARCH_SECTION_PREVIEW_ROWS;
@@ -132,6 +134,12 @@ function MobileMarketTokenSelectorSearchResults({
   const showStockSection = hasStockResults || stockResult.isError;
   // Only previews when both sections have rows; a lone section lists all.
   const isPreview = hasStockResults && hasTokenResults;
+  // Stocks alone list every page, loading the next one as All scrolls.
+  const isLoneStockSection = hasStockResults && !hasTokenResults;
+  const handleAllScroll = useStockLoadMoreOnScrollEnd(
+    stockResult,
+    isLoneStockSection,
+  );
   const stockRows = isPreview
     ? stockResult.items.slice(0, SEARCH_SECTION_PREVIEW_LIMIT)
     : stockResult.items;
@@ -187,6 +195,8 @@ function MobileMarketTokenSelectorSearchResults({
         flex={1}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ paddingBottom: 20 }}
+        onScroll={handleAllScroll}
+        scrollEventThrottle={64}
       >
         {showStockSection ? (
           <YStack pt="$2.5">
@@ -225,6 +235,14 @@ function MobileMarketTokenSelectorSearchResults({
               <ShowMoreButton
                 testID="mobile-market-token-selector-stock-search-show-more"
                 onPress={() => setActiveTab(MARKET_SEARCH_TABS.stocks)}
+              />
+            ) : null}
+            {isLoneStockSection ? (
+              <StockLoadMoreFooter
+                isLoadingMore={stockResult.isLoadingMore}
+                isLoadMoreError={stockResult.isLoadMoreError}
+                onRetry={() => void stockResult.loadMore()}
+                testID="mobile-market-token-selector-stock-search-load-more-retry"
               />
             ) : null}
           </YStack>
