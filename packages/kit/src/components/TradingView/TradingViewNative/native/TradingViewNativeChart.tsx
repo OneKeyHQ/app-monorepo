@@ -121,6 +121,7 @@ export const TradingViewNativeChart = memo(
     drawingStorageKey,
     enableDrawings = false,
     candleIntervalSeconds,
+    candleTimeMode = 'calendar',
     chartComponents,
     onInteractionChange,
     chartSettings,
@@ -178,6 +179,7 @@ export const TradingViewNativeChart = memo(
       const runtime = makeMutable(
         createTradingViewNativeChartRuntime({
           candleIntervalSeconds,
+          candleTimeMode,
           chartComponents,
           chartSettings,
           chartType,
@@ -479,6 +481,7 @@ export const TradingViewNativeChart = memo(
           };
         },
         candleIntervalSeconds: runtime.candleIntervalSeconds,
+        candleTimeMode: runtime.candleTimeMode,
         chartComponents: runtime.chartComponents,
         chartSettings: runtime.chartSettings,
         chartType: runtime.chartType,
@@ -741,6 +744,7 @@ export const TradingViewNativeChart = memo(
           ...runtime,
           ...nextRuntimeState,
           candleIntervalSeconds,
+          candleTimeMode,
           chartType,
           hasVolume,
           indicatorSeries: nextIndicatorSeries,
@@ -804,6 +808,7 @@ export const TradingViewNativeChart = memo(
       });
     }, [
       candleIntervalSeconds,
+      candleTimeMode,
       chartSize.height,
       chartType,
       chartRuntime,
@@ -909,6 +914,7 @@ export const TradingViewNativeChart = memo(
     ]);
 
     const {
+      handlePriceRangePan,
       handleAutoScalePress: handlePriceScaleAutoPress,
       handleLogScalePress: handlePriceScaleLogPress,
       handlePointerLeave: handleChartPointerLeave,
@@ -937,6 +943,7 @@ export const TradingViewNativeChart = memo(
     });
 
     const chartGestures = useTradingViewNativeChartGestures({
+      onPriceRangePan: handlePriceRangePan,
       chartRuntime,
       decayOffset,
       isClickInteractionEnabled: chartSettings.options.clickInteraction,

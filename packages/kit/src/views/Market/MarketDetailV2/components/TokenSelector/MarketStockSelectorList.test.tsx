@@ -44,6 +44,7 @@ const mockSelectorListResult = {
   isError: false,
   isLoadingMore: false,
   isLoadMoreError: false,
+  isImagePrewarming: false,
   canLoadMore: false,
   isRevalidatingFirstPage: false,
   loadMore: jest.fn(),
@@ -151,6 +152,7 @@ describe('MarketStockSelectorList', () => {
     mockSelectorListResult.items = [mockStock];
     mockSelectorListResult.isLoadMoreError = false;
     mockSelectorListResult.isLoadingMore = false;
+    mockSelectorListResult.isImagePrewarming = false;
     mockSelectorListResult.loadMore.mockClear();
   });
 
@@ -221,5 +223,14 @@ describe('MarketStockSelectorList', () => {
 
     expect(screen.getByTestId('stock-table')).toBeTruthy();
     expect(mockTableProps).toHaveBeenCalled();
+  });
+
+  it('keeps rows selectable while image prewarming is still pending', () => {
+    mockSelectorListResult.isImagePrewarming = true;
+    render(<MarketStockSelectorList onItemPress={mockOnItemPress} query="" />);
+
+    expect(screen.getByTestId('stock-table')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('stock-row-AAPL'));
+    expect(mockOnItemPress).toHaveBeenCalledWith(mockStock);
   });
 });

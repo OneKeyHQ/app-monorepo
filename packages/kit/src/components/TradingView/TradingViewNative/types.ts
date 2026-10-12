@@ -14,6 +14,7 @@ export type ITradingViewNativeHyperliquidEnvironment = 'mainnet' | 'testnet';
 export type ITradingViewNativeChartDisplayMode = 'default' | 'compact';
 export type ITradingViewNativeStorageNamespace = 'market' | 'perps' | 'swap';
 export type ITradingViewNativePriceScaleMode = 'linear' | 'logarithmic';
+export type ITradingViewNativeCandleTimeMode = 'calendar' | 'fixed';
 
 export interface ITradingViewNativeCandleLabels {
   close: string;
@@ -157,7 +158,6 @@ export interface ITradingViewNativeAccountMarksContext {
 export interface ITradingViewNativeProps {
   testID?: string;
   source: ITradingViewNativeSource;
-  displayName?: string;
   priceDecimalPlaces?: number;
   onPriceSelect?: (selection: ITradingViewNativePriceSelection) => void;
   priceSelectionLabel?: string;
@@ -190,6 +190,8 @@ export interface ITradingViewNativeProps {
   previousClose?: number;
   enableNativeChartSettings?: boolean;
   nativeChartSettingsInToolbar?: boolean;
+  /** Extra controls rendered in the mobile toolbar, to the left of settings. */
+  mobileToolbarExtra?: ReactNode;
   initialRightOffset?: ITradingViewNativeInitialRightOffset;
   nativeChartDisplayMode?: ITradingViewNativeChartDisplayMode;
   /** Limits new selections without hiding sub-indicators that are already active. */

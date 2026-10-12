@@ -25,8 +25,6 @@ struct AppClipRootView: View {
           marketList
         case .detail(let detail):
           marketDetail(detail)
-        case .web(let url):
-          webExperience(url)
         case .referral(let referral):
           referralLanding(referral)
         }
@@ -930,30 +928,6 @@ struct AppClipRootView: View {
       return nil
     }
     return model.candles.first { $0.id == selectedCandleID }
-  }
-
-  private func webExperience(_ url: URL) -> some View {
-    VStack(spacing: 0) {
-      simpleHeader(
-        title: String(localized: "campaign.title"),
-        subtitle: String(localized: "campaign.secure_webview")
-      )
-      CampaignWebView(url: url)
-      installFooter(asset: nil)
-    }
-  }
-
-  private func simpleHeader(title: String, subtitle: String) -> some View {
-    VStack(alignment: .leading, spacing: 8) {
-      Text(title)
-        .font(.system(size: 28, weight: .bold))
-      Text(subtitle)
-        .font(.system(size: 16))
-        .foregroundColor(.appClipSecondaryText)
-    }
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .padding(.horizontal, 20)
-    .padding(.vertical, 18)
   }
 
   private func retryButton(action: @escaping () -> Void) -> some View {

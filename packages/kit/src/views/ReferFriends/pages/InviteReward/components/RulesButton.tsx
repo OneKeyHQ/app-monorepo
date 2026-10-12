@@ -1,6 +1,7 @@
 import { useIntl } from 'react-intl';
 
 import { Button, IconButton, useMedia } from '@onekeyhq/components';
+import { NATIVE_MEDIUM_ICON_HIT_SLOP } from '@onekeyhq/kit/src/views/ReferFriends/utils/touchTarget';
 import { REFERRAL_HELP_LINK } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -29,6 +30,7 @@ export function RulesButton() {
         testID={ReferFriendsTestIDs.rulesBtn}
         variant="tertiary"
         icon="QuestionmarkOutline"
+        hitSlop={NATIVE_MEDIUM_ICON_HIT_SLOP}
         onPress={handlePress}
         title={label}
       />
