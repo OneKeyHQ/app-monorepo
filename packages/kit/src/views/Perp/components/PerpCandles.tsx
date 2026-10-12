@@ -99,7 +99,6 @@ export function PerpCandles({
   const showChartModeSelect = chartMode === undefined;
   const [isMobileChartFullscreen, setIsMobileChartFullscreen] = useState(false);
   const [isChartInteracting, setIsChartInteracting] = useState(false);
-  const [isChartResizing, setIsChartResizing] = useState(false);
   const { gtMd } = useMedia();
   const isDesktopLayout = gtMd && !platformEnv.isNative;
   // Perp layouts remount at this breakpoint; keep the legacy WebView URL stable.
@@ -143,14 +142,13 @@ export function PerpCandles({
   useEffect(() => {
     if (!isTradingViewNative) return;
     onInteractionOverlayOpenChange?.(
-      isMobileChartFullscreen || isChartInteracting || isChartResizing,
+      isMobileChartFullscreen || isChartInteracting,
     );
     return () => onInteractionOverlayOpenChange?.(false);
   }, [
     isTradingViewNative,
     isMobileChartFullscreen,
     isChartInteracting,
-    isChartResizing,
     onInteractionOverlayOpenChange,
   ]);
   useEffect(() => {
@@ -163,7 +161,6 @@ export function PerpCandles({
   }, [isMobileChartFullscreen, handleFullscreenChange]);
   useEffect(() => {
     setIsChartInteracting(false);
-    setIsChartResizing(false);
     setIsMobileChartFullscreen(false);
   }, [activeTradeInstrument.coin, isTradingViewNative]);
   const handleChartSwitch = useCallback(() => {
@@ -171,7 +168,6 @@ export function PerpCandles({
     handleFullscreenChange(false);
     onInteractionOverlayOpenChange?.(false);
     setIsChartInteracting(false);
-    setIsChartResizing(false);
     void setPerpsCustomSettings((current) => ({
       ...current,
       chartMode: current.chartMode === 'native' ? 'tradingView' : 'native',
@@ -220,7 +216,6 @@ export function PerpCandles({
           useFullscreenOverlay={!isDesktopLayout}
           onInteractionChange={setIsChartInteracting}
           enableNativeChartSettings
-          enableMultiChart
           enableDrawings
           nativeControlsLayoutMode={isDesktopLayout ? 'desktop' : 'mobile'}
           nativeChartSettingsInToolbar={platformEnv.isNative}
@@ -230,7 +225,6 @@ export function PerpCandles({
             isDesktopLayout ? chartExpanded : isMobileChartFullscreen
           }
           onNativeChartFullscreenChange={handleFullscreenChange}
-          onNativeMultiChartResizingChange={setIsChartResizing}
         />
       ) : null}
       {!isTradingViewNative && reloadHook > 0 && activeTradeInstrument.coin ? (

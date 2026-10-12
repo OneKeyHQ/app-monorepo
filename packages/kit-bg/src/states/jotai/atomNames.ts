@@ -135,7 +135,6 @@ export enum EAtomNames {
   perpsFavoritesOrderPersistAtom = 'perpsFavoritesOrderPersistAtom',
   perpsTradingViewChartSettingsPersistAtom = 'perpsTradingViewChartSettingsPersistAtom',
   perpsTradingViewIndicatorSettingsPersistAtom = 'perpsTradingViewIndicatorSettingsPersistAtom',
-  perpsTradingViewLayoutPersistAtom = 'perpsTradingViewLayoutPersistAtom',
   // network doctor
   networkDoctorStateAtom = 'networkDoctorStateAtom',
 
@@ -152,7 +151,6 @@ export enum EAtomNames {
   marketSelectedTabAtom = 'marketSelectedTabAtom',
   marketBannerListSortAtom = 'marketBannerListSortAtom',
   marketTokenSelectorConfigAtom = 'marketTokenSelectorConfigAtom',
-  marketTradingViewLayoutPersistAtom = 'marketTradingViewLayoutPersistAtom',
   marketTradingViewChartSettingsPersistAtom = 'marketTradingViewChartSettingsPersistAtom',
   marketTradingViewIndicatorSettingsPersistAtom = 'marketTradingViewIndicatorSettingsPersistAtom',
   marketTradingViewSubIndicatorCountPersistAtom = 'marketTradingViewSubIndicatorCountPersistAtom',
@@ -191,9 +189,6 @@ export const atomsConfig: Partial<
   [EAtomNames.marketTradingViewSubIndicatorCountPersistAtom]: {
     mergeInitialValue: false,
   },
-  [EAtomNames.marketTradingViewLayoutPersistAtom]: {
-    mergeInitialValue: false,
-  },
   [EAtomNames.marketTradingViewIndicatorSettingsPersistAtom]: {
     mergeInitialValue: false,
   },
@@ -201,9 +196,6 @@ export const atomsConfig: Partial<
     mergeInitialValue: false,
   },
   [EAtomNames.perpsTradingViewIndicatorSettingsPersistAtom]: {
-    mergeInitialValue: false,
-  },
-  [EAtomNames.perpsTradingViewLayoutPersistAtom]: {
     mergeInitialValue: false,
   },
   // These Perps states are written as complete snapshots. Lodash merge keeps
