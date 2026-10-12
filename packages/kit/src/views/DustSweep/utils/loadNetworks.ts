@@ -14,12 +14,14 @@ import type {
   IDustSweepRouteParams,
 } from '@onekeyhq/shared/types/swap/dustSweep';
 import { DUST_SWEEP_PROVIDER } from '@onekeyhq/shared/types/swap/dustSweep';
+import type { ISwapProviderInfo } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 
 import { buildDustSweepCandidates } from './candidates';
 
 type IDustSweepNetworksResult = {
   networks: IDustSweepNetwork[];
   partialError: boolean;
+  providerInfo?: ISwapProviderInfo;
 };
 
 const inFlightLoads = new Map<string, Promise<IDustSweepNetworksResult>>();
@@ -223,6 +225,7 @@ async function loadDustSweepNetworksInternal(
   return {
     networks: data,
     partialError: results.some((result) => result.status === 'rejected'),
+    providerInfo: provider?.providerInfo,
   };
 }
 

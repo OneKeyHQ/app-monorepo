@@ -38,6 +38,10 @@ function formatAmount(amount: string, decimals: number) {
   return new BigNumber(amount).decimalPlaces(decimals).toFormat();
 }
 
+function formatFiatAmount(amount: string) {
+  return new BigNumber(amount).toFormat(2);
+}
+
 export function DustSweepResult({
   state,
   desktop = false,
@@ -71,11 +75,10 @@ export function DustSweepResult({
   const value =
     totals.receiptUnavailable || !hasSuccess || !token?.price
       ? '—'
-      : `$${formatAmount(
+      : `$${formatFiatAmount(
           new BigNumber(totals.receivedAmount)
             .times(token?.price ?? 0)
             .toFixed(),
-          2,
         )}`;
   const entering = reducedMotion
     ? FadeIn.duration(300)
@@ -197,6 +200,7 @@ export function DustSweepSummary({
     canStart,
     isFocused,
     loadStatus,
+    providerInfo,
   } = model;
   const { state } = session;
   const intl = useIntl();
@@ -217,11 +221,13 @@ export function DustSweepSummary({
   const unavailableCount = Object.keys(preview.unavailable).length;
   const amountUnavailable =
     quoteUnavailable || (!selecting && (totals.receiptUnavailable || unknown));
+  const emptyProviderInfo =
+    selected.length === 0 && loadStatus === 'ready' ? providerInfo : undefined;
   let label = intl.formatMessage(
     { id: ETranslations.button_convert_tokens_estimated_amount },
     {
       count: preview.quotedCount,
-      amount: `$${formatAmount(quotedValueUsd, 2)}`,
+      amount: `$${formatFiatAmount(quotedValueUsd)}`,
     },
   );
   let onPress: () => void | Promise<void> = model.start;
@@ -307,11 +313,10 @@ export function DustSweepSummary({
                   <SizableText size="$bodyMd" color="$textSubdued" height={20}>
                     {amountUnavailable || !nativeToken?.price
                       ? '—'
-                      : `$${formatAmount(
+                      : `$${formatFiatAmount(
                           new BigNumber(amount)
                             .times(nativeToken?.price ?? 0)
                             .toFixed(),
-                          2,
                         )}`}
                   </SizableText>
                 </>
@@ -331,12 +336,14 @@ export function DustSweepSummary({
                   fromToken={selected[0]}
                   toToken={nativeToken}
                   providerIcon={
-                    !quoteUnavailable && preview.providers.length === 1
+                    emptyProviderInfo?.logo ??
+                    (!quoteUnavailable && preview.providers.length === 1
                       ? (preview.providers[0].providerLogo ?? '')
-                      : ''
+                      : '')
                   }
                   providerName={
-                    quoteUnavailable
+                    emptyProviderInfo?.providerName ??
+                    (quoteUnavailable
                       ? intl.formatMessage({
                           id: ETranslations.swap_page_provider_rate_unavailable,
                         })
@@ -345,8 +352,9 @@ export function DustSweepSummary({
                             (provider) =>
                               provider.providerName || provider.provider,
                           )
-                          .join(', ')
+                          .join(', '))
                   }
+                  allowProviderWithoutTokens={!!emptyProviderInfo}
                   isLoading={quoteLoading || loadStatus === 'loading'}
                   showEmptyPlaceholder
                   valueProps={{

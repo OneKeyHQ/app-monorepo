@@ -145,6 +145,22 @@ describe('loadDustSweepNetworks request ownership', () => {
     },
   );
 
+  it('retains server provider metadata when supported accounts have no tokens', async () => {
+    const provider = okxProvider();
+    provider.providerInfo.providerName = 'OKX from provider list';
+    provider.providerInfo.logo = 'https://example.com/provider-from-list.png';
+    serviceSwap.getSwapProviderManager.mockResolvedValue([provider]);
+
+    const result = await loadDustSweepNetworks(
+      params,
+      new AbortController().signal,
+    );
+
+    expect(result.networks[0].tokens).toEqual([]);
+    expect(result.providerInfo).toEqual(provider.providerInfo);
+    expect(serviceSwap.getSwapProviderManager.mock.calls).toHaveLength(1);
+  });
+
   it('shares an in-flight load across a rapid leave and re-entry', async () => {
     const networks = deferred<ISwapNetwork[]>();
     const accounts = deferred<IAllNetworkAccountsInfoResult>();
@@ -174,6 +190,7 @@ describe('loadDustSweepNetworks request ownership', () => {
     await expect(second).resolves.toEqual({
       networks: [],
       partialError: false,
+      providerInfo: okxProvider().providerInfo,
     });
   });
 
@@ -252,7 +269,11 @@ describe('loadDustSweepNetworks request ownership', () => {
     ]);
     await expect(
       loadDustSweepNetworks(params, new AbortController().signal),
-    ).resolves.toEqual({ networks: [], partialError: false });
+    ).resolves.toEqual({
+      networks: [],
+      partialError: false,
+      providerInfo: okxProvider().providerInfo,
+    });
     expect(serviceToken.fetchAccountTokens.mock.calls).toHaveLength(0);
   });
 

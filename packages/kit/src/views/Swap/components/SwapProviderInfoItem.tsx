@@ -36,6 +36,9 @@ interface ISwapProviderInfoItemProps {
   // Show an '--' placeholder (instead of nothing) while no provider info is
   // available; the row is not pressable in that state
   showEmptyPlaceholder?: boolean;
+  // Display configured provider metadata before a quote has token inputs.
+  // This never enables the provider action without both tokens.
+  allowProviderWithoutTokens?: boolean;
 }
 
 const SwapProviderInfoItemTitleContent = ({
@@ -88,6 +91,7 @@ const SwapProviderInfoItem = ({
   valueProps,
   compact,
   showEmptyPlaceholder,
+  allowProviderWithoutTokens = false,
 }: ISwapProviderInfoItemProps) => {
   const intl = useIntl();
   const logoSize = compact ? '$4' : '$5';
@@ -95,8 +99,11 @@ const SwapProviderInfoItem = ({
   // providerLogo is optional on quotes (and providerName can be absent on
   // malformed ones), so the row counts as empty only when BOTH are missing —
   // a partially-described provider still has a live quote and stays pressable
-  const isEmpty = (!providerName && !providerIcon) || !fromToken || !toToken;
-  const pressHandler = isEmpty ? undefined : onPress;
+  const hasTokens = !!fromToken && !!toToken;
+  const isEmpty =
+    (!providerName && !providerIcon) ||
+    (!hasTokens && !allowProviderWithoutTokens);
+  const pressHandler = !isEmpty && hasTokens ? onPress : undefined;
   return (
     <XStack
       testID={testID}

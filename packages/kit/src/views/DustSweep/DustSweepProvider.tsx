@@ -21,6 +21,7 @@ import type {
   IDustSweepSnapshot,
   IDustSweepThreshold,
 } from '@onekeyhq/shared/types/swap/dustSweep';
+import type { ISwapProviderInfo } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 
 import { useDustSweepPreview } from './hooks/useDustSweepPreview';
 import { useDustSweepSession } from './hooks/useDustSweepSession';
@@ -65,13 +66,28 @@ function useDustSweepController(params: IDustSweepRouteParams) {
       params.walletId,
     ],
   );
+  const [providerMetadata, setProviderMetadata] = useState<{
+    loadParams: typeof loadParams;
+    refresh: number;
+    info?: ISwapProviderInfo;
+  }>();
+  // Invalidate during render so a new account cannot briefly display the
+  // previous load's provider before the effect starts its replacement request.
+  const providerInfo =
+    providerMetadata?.loadParams === loadParams &&
+    providerMetadata.refresh === refresh &&
+    loadStatus === 'ready'
+      ? providerMetadata.info
+      : undefined;
   useEffect(() => {
     const controller = new AbortController();
     setLoadStatus('loading');
+    setProviderMetadata(undefined);
     void loadDustSweepNetworks(loadParams, controller.signal)
       .then((result) => {
         if (controller.signal.aborted) return;
         setNetworks(result.networks);
+        setProviderMetadata({ loadParams, refresh, info: result.providerInfo });
         setPartialError(result.partialError);
         setLoadStatus('ready');
       })
@@ -288,6 +304,7 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     isFocused,
     loadStatus,
     partialError,
+    providerInfo,
     threshold: preferences.threshold,
     slippage,
     setSlippage,
