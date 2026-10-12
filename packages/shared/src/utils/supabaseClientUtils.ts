@@ -1,21 +1,34 @@
 // https://supabase.com/docs/guides/auth/quickstarts/with-expo-react-native-social-auth?queryGroups=auth-store&auth-store=async-storage
 import { createClient } from '@supabase/supabase-js';
 
+import { ONEKEY_API_HOST } from '@onekeyhq/shared/src/config/appConfig';
 import {
   KEYLESS_SUPABASE_PROJECT_URL,
   KEYLESS_SUPABASE_PUBLIC_API_KEY,
   SUPABASE_PROJECT_URL,
   SUPABASE_PUBLIC_API_KEY,
 } from '@onekeyhq/shared/src/consts/authConsts';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv, { ERuntimeRole } from '@onekeyhq/shared/src/platformEnv';
+import {
+  isProxyActiveForUrl,
+  isSniSupported,
+  sniRequest,
+} from '@onekeyhq/shared/src/request/helpers/sniRequest';
+import requestHelper from '@onekeyhq/shared/src/request/requestHelper';
 import supabaseStorageInstance from '@onekeyhq/shared/src/storage/instance/supabaseStorageInstance';
 import {
   getKeylessSupabaseAuthSessionKey,
   getSupabaseAuthSessionKey,
 } from '@onekeyhq/shared/src/storage/SupabaseStorage/consts';
 
+import {
+  getSharedDomainIpTableCandidates,
+  isSupportIpTablePlatform,
+} from './ipTableUtils';
 import { isDefinitiveSupabaseRefreshTokenRejectionError } from './supabaseAuthErrorUtils';
 
+import type { ISniResponse } from '../request/types/ipTable';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // do not add this on web env
@@ -172,6 +185,9 @@ function classifyInterceptedResponseBody(bodyText: string | undefined): string {
  *                             itself (WAF / bot management);
  * - `cf-ray` + server!=cloudflare -> passed the edge, rejected by the origin
  *                             gateway/reverse proxy in front of GoTrue.
+ * Responses from the IP route (see supabaseSniFallbackFetch) are relayed by a
+ * CN CDN endpoint that keeps `cf-ray` but may rewrite `server`, so
+ * `server!=cloudflare` there does not single out the origin gateway.
  *
  * IMPORTANT: header evidence is only authoritative on NATIVE. On browser-CORS
  * runtimes (web / desktop renderer / extension) `server`/`cf-ray`/`cf-mitigated`
@@ -267,8 +283,196 @@ function isDefinitiveEmailOtpCooldownResponse({
   }
 }
 
+// The only Supabase host that the IP table's CN CDN endpoints serve.
+const SUPABASE_SNI_FALLBACK_HOST = 'auth.onekey.so';
+const SUPABASE_SNI_FALLBACK_MAX_CANDIDATES = 3;
+const SUPABASE_SNI_FALLBACK_TIMEOUT_MS = 10_000;
+
+// `null` while requests go to the domain, otherwise the index of the IP-table
+// candidate in use. One copy per JS runtime.
+let supabaseSniFallbackIndex: number | null = null;
+
+function setSupabaseSniFallbackIndex(index: number | null, reason: string) {
+  supabaseSniFallbackIndex = index;
+  defaultLogger.ipTable.request.info({
+    info: `[SupabaseSniFallback] route=${
+      index === null ? 'domain' : `sni candidate=${index}`
+    } reason=${reason}`,
+  });
+}
+
+// A late or concurrent failure on a candidate must advance the route only once.
+function advanceSupabaseSniFallback(index: number, reason: string) {
+  if (supabaseSniFallbackIndex === index) {
+    setSupabaseSniFallbackIndex(index + 1, reason);
+  }
+}
+
+function getSupabaseSniFallbackUrl(
+  input: RequestInfo | URL,
+  init: RequestInit | undefined,
+): URL | undefined {
+  if (
+    !isSupportIpTablePlatform() ||
+    !isSniSupported() ||
+    typeof Headers !== 'function' ||
+    typeof Response !== 'function'
+  ) {
+    return undefined;
+  }
+  // The SNI transport carries string bodies only.
+  if (typeof input !== 'string' && !(input instanceof URL)) {
+    return undefined;
+  }
+  if (
+    init?.body !== undefined &&
+    init.body !== null &&
+    typeof init.body !== 'string'
+  ) {
+    return undefined;
+  }
+  const url = getSupabaseRequestUrl(input);
+  return url?.protocol === 'https:' && url.host === SUPABASE_SNI_FALLBACK_HOST
+    ? url
+    : undefined;
+}
+
+async function getSupabaseSniFallbackCandidates(url: URL): Promise<string[]> {
+  try {
+    // Only a confirmed direct route may pin an IP. A proxy reaches the domain
+    // on its own, and this path carries tokens with no legacy SNI behavior to
+    // keep when the preflight cannot tell (null).
+    if ((await isProxyActiveForUrl(url.origin)) !== false) {
+      return [];
+    }
+    const devSettings = await requestHelper.getDevSettingsPersistAtom();
+    if (devSettings.settings?.disableIpTableInProd) {
+      return [];
+    }
+    const activeConfig = await requestHelper.getIpTableConfig();
+    if (activeConfig?.runtime?.enabled === false) {
+      return [];
+    }
+    return getSharedDomainIpTableCandidates({
+      hostname: url.hostname,
+      // Always the production table: this host is the production project
+      // even when the app points at the test API.
+      configKey: ONEKEY_API_HOST,
+      // The table's runtime preference is ranked against the API hosts and
+      // moves with every speed test. A fixed order keeps the working
+      // candidate where the stored index points.
+      activeConfig: null,
+      maxCandidates: SUPABASE_SNI_FALLBACK_MAX_CANDIDATES,
+    });
+  } catch {
+    return [];
+  }
+}
+
+async function fetchSupabaseDomain(
+  input: RequestInfo | URL,
+  init: RequestInit | undefined,
+  sniFallbackUrl: URL | undefined,
+): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch (error) {
+    // fetch rejects only for transport failures and caller aborts. A request
+    // that fails late must not undo a route that has moved on since.
+    if (
+      sniFallbackUrl &&
+      !init?.signal?.aborted &&
+      supabaseSniFallbackIndex === null
+    ) {
+      setSupabaseSniFallbackIndex(0, 'domain_failed');
+    }
+    throw error;
+  }
+}
+
+function buildSupabaseSniResponse(
+  sniResponse: ISniResponse,
+  method: string,
+): Response {
+  const status = sniResponse.statusCode;
+  const hasBody = method !== 'HEAD' && ![204, 205, 304].includes(status);
+  // An out-of-range status throws; the caller treats that as a transport
+  // failure.
+  return new Response(hasBody ? sniResponse.body : null, {
+    status,
+    statusText: sniResponse.statusText,
+    headers: sniResponse.headers,
+  });
+}
+
+/**
+ * auth.onekey.so is DNS-poisoned on some networks, where only the IP table's
+ * CN CDN endpoints can reach it.
+ *
+ * Every request is sent exactly once, because these include the POSTs that
+ * rotate the refresh token. A failure only moves the NEXT request to the next
+ * route (domain -> each IP-table candidate -> domain), and the route that
+ * works is kept. The failed request still rejects like a failed fetch, so
+ * auth-js keeps the session and retries on its own schedule.
+ */
+const supabaseSniFallbackFetch: typeof fetch = async (input, init) => {
+  const url = getSupabaseSniFallbackUrl(input, init);
+  const index = supabaseSniFallbackIndex;
+  if (!url || index === null) {
+    return fetchSupabaseDomain(input, init, url);
+  }
+  const ip = (await getSupabaseSniFallbackCandidates(url))[index];
+  if (!ip) {
+    if (supabaseSniFallbackIndex === index) {
+      setSupabaseSniFallbackIndex(null, 'no_candidate');
+    }
+    return fetchSupabaseDomain(input, init, url);
+  }
+  const method = (init?.method ?? 'GET').toUpperCase();
+  const headers: Record<string, string> = {};
+  new Headers(init?.headers).forEach((value, key) => {
+    headers[key] = value;
+  });
+  try {
+    const sniResponse = await sniRequest(
+      {
+        ip,
+        hostname: url.hostname,
+        path: `${url.pathname}${url.search}`,
+        method,
+        headers,
+        body: typeof init?.body === 'string' ? init.body : null,
+        timeout: SUPABASE_SNI_FALLBACK_TIMEOUT_MS,
+      },
+      init?.signal ? { signal: init.signal } : undefined,
+    );
+    if (!sniResponse) {
+      throw new TypeError('SNI transport returned no response');
+    }
+    const response = buildSupabaseSniResponse(sniResponse, method);
+    // A non-JSON answer that is not a success (an error page, or a redirect,
+    // which the SNI transport never follows) comes from an intermediary, not
+    // from GoTrue. It is no better than a transport failure: without this, a
+    // candidate that only serves such answers would hold the route for the
+    // whole runtime.
+    if (!response.ok && !isJsonParseableBody(sniResponse.body)) {
+      advanceSupabaseSniFallback(index, 'sni_error_page');
+    }
+    return response;
+  } catch {
+    if (init?.signal?.aborted) {
+      const abortError = new Error('Aborted');
+      abortError.name = 'AbortError';
+      throw abortError;
+    }
+    advanceSupabaseSniFallback(index, 'sni_failed');
+    // No transport detail: this message reaches logs and the failure toast.
+    throw new TypeError('Network request failed');
+  }
+};
+
 const sessionPreservingSupabaseFetch: typeof fetch = async (input, init) => {
-  const response = await fetch(input, init);
+  const response = await supabaseSniFallbackFetch(input, init);
   if (response.ok) {
     return response;
   }

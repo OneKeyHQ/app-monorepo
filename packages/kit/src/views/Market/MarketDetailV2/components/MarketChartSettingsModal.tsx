@@ -17,7 +17,6 @@ import {
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/chartSettingsAdapter';
 import type { ITradingViewNativeStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/types';
 import { useTradingViewNativeChartSettings } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/useTradingViewNativeSettings';
-import { useTradingViewPanelSettings } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/useTradingViewPanelSettings';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -60,32 +59,13 @@ type IMarketChartSettingsContentProps = {
   usePageFooter?: boolean;
   showPreviousClose?: boolean;
   onClose?: () => void;
-  panelId?: string;
 };
 
-function PanelChartSettingsContent(
-  props: IMarketChartSettingsContentProps & { panelId: string },
-) {
-  const { chartSettingsState } = useTradingViewPanelSettings(
-    props.panelId,
-    props.storageNamespace,
-  );
-  return <ChartSettingsContent {...props} settingsState={chartSettingsState} />;
-}
-
-function DefaultChartSettingsContent(props: IMarketChartSettingsContentProps) {
+function MarketChartSettingsContent(props: IMarketChartSettingsContentProps) {
   const settingsState = useTradingViewNativeChartSettings(
     props.storageNamespace,
   );
   return <ChartSettingsContent {...props} settingsState={settingsState} />;
-}
-
-function MarketChartSettingsContent(props: IMarketChartSettingsContentProps) {
-  return props.panelId ? (
-    <PanelChartSettingsContent {...props} panelId={props.panelId} />
-  ) : (
-    <DefaultChartSettingsContent {...props} />
-  );
 }
 
 function ChartSettingsContent({
@@ -145,18 +125,15 @@ function ChartSettingsContent({
 }
 
 export function showMarketChartSettingsDialog({
-  panelId,
   storageNamespace,
   showPreviousClose = false,
 }: {
   showPreviousClose?: boolean;
-  panelId?: string;
   storageNamespace?: ITradingViewNativeStorageNamespace;
 } = {}) {
   return showTradingViewChartSettingsDialog({
     renderContent: (closeDialog) => (
       <MarketChartSettingsContent
-        panelId={panelId}
         storageNamespace={storageNamespace}
         showPreviousClose={showPreviousClose}
         onClose={closeDialog}
@@ -181,7 +158,6 @@ export default function MarketChartSettingsModal() {
       />
       <Page.Body minHeight={0}>
         <MarketChartSettingsContent
-          panelId={route.params?.panelId}
           storageNamespace={route.params?.storageNamespace}
           usePageFooter={!md}
           mobileLayout={md}

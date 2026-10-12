@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 
-import { useTheme } from '@onekeyhq/components';
+import { Icon, useTheme } from '@onekeyhq/components';
 
 import { TRADING_VIEW_DRAWING_ICONS } from './icons';
 import {
@@ -34,23 +34,43 @@ export function DrawingIcon({
 }: {
   name: keyof typeof TRADING_VIEW_DRAWING_ICONS;
 }) {
-  const url = `url("data:image/svg+xml,${encodeURIComponent(TRADING_VIEW_DRAWING_ICONS[name])}")`;
+  const definition = TRADING_VIEW_DRAWING_ICONS[name];
   return (
     <span
       aria-hidden="true"
       className="chart-drawing-icon"
       style={{
-        display: 'inline-block',
-        width: name === 'chevron' ? 6 : 24,
-        height: name === 'chevron' ? 12 : 24,
-        backgroundColor: 'currentColor',
-        maskImage: url,
-        WebkitMaskImage: url,
-        maskSize: 'contain',
-        maskRepeat: 'no-repeat',
-        maskPosition: 'center',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+        pointerEvents: 'none',
+        width: name === 'chevron' ? 12 : 20,
+        height: name === 'chevron' ? 12 : 20,
       }}
-    />
+    >
+      {'icon' in definition ? (
+        <Icon
+          name={definition.icon}
+          size={name === 'chevron' ? '$3' : '$5'}
+          style={{ color: 'currentColor' }}
+        />
+      ) : (
+        <svg
+          width="100%"
+          height="100%"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          strokeLinecap="square"
+          strokeLinejoin="miter"
+          focusable="false"
+        >
+          <path d={definition.path} />
+        </svg>
+      )}
+    </span>
   );
 }
 
@@ -160,20 +180,20 @@ const toolbarCss = `
 .chart-drawing-toolbar[data-collapsed=true] { width:18px; }
 .chart-drawing-collapse { width:100%; height:22px; flex-shrink:0; }
 .chart-drawing-rail { flex:1; min-height:0; overflow-y:auto; scrollbar-width:none; display:flex; flex-direction:column; align-items:center; gap:0; }
-.chart-drawing-button { display:flex; align-items:center; justify-content:center; flex-shrink:0; width:36px; height:28px; border:0; border-radius:5px; background:transparent; color:inherit; cursor:pointer; padding:0; }
+.chart-drawing-button { display:flex; align-items:center; justify-content:center; flex-shrink:0; width:36px; height:28px; border:0; border-radius:5px; background:transparent; color:var(--drawing-icon); cursor:pointer; padding:0; }
 .chart-drawing-button:hover:not(:disabled), .chart-drawing-menu button:hover { background:var(--drawing-hover); }
-.chart-drawing-button:focus-visible, .chart-drawing-menu button:focus-visible { outline:2px solid #2962ff; outline-offset:-2px; }
-.chart-drawing-button[aria-pressed=true] { color:#2962ff; background:var(--drawing-active); }
+.chart-drawing-button:focus-visible, .chart-drawing-menu button:focus-visible { outline:2px solid var(--drawing-icon-active); outline-offset:-2px; }
+.chart-drawing-button[aria-pressed=true] { color:var(--drawing-icon-active); background:var(--drawing-active); }
 .chart-drawing-button:disabled { opacity:.3; cursor:default; }
 .chart-drawing-divider { width:28px; height:1px; background:var(--drawing-border); margin:3px 0; flex-shrink:0; }
-.chart-drawing-group { display:flex; align-items:center; }
-.chart-drawing-group > .chart-drawing-button:first-child { width:28px; }
-.chart-drawing-group > .chart-drawing-button:last-child { width:14px; }
-.chart-drawing-group > .chart-drawing-button:last-child .chart-drawing-icon { width:10px; }
+.chart-drawing-group { position:relative; display:flex; align-items:center; justify-content:center; width:100%; }
+.chart-drawing-group > .chart-drawing-button:last-child { position:absolute; right:0; width:12px; }
 .chart-drawing-menu { position:absolute; left:52px; top:8px; width:232px; max-height:calc(100% - 16px); overflow-y:auto; background:var(--drawing-bg); border:1px solid var(--drawing-border); border-radius:8px; box-shadow:0 6px 24px #0002; padding:6px; z-index:10; }
 .chart-drawing-menu-title { padding:9px 10px; font-size:11px; font-weight:600; color:var(--drawing-muted); text-transform:uppercase; letter-spacing:.8px; }
 .chart-drawing-menu button { display:flex; align-items:center; gap:14px; width:100%; height:38px; padding:0 10px; border:0; border-radius:4px; background:transparent; color:inherit; font:inherit; font-size:13px; cursor:pointer; text-align:left; }
-.chart-drawing-menu button[aria-checked=true] { color:#2962ff; background:var(--drawing-active); }
+.chart-drawing-menu .chart-drawing-icon { color:var(--drawing-icon); }
+.chart-drawing-menu button[aria-checked=true] { background:var(--drawing-active); }
+.chart-drawing-menu button[aria-checked=true] .chart-drawing-icon { color:var(--drawing-icon-active); }
 .chart-drawing-properties { position:absolute; top:8px; left:62px; display:flex; align-items:center; gap:6px; max-width:calc(100% - 136px); min-height:38px; padding:3px 6px; background:var(--drawing-bg); color:var(--drawing-text); border:1px solid var(--drawing-border); border-radius:7px; box-shadow:0 3px 12px #0001; z-index:3; }
 .chart-drawing-properties select, .chart-drawing-properties input { background:var(--drawing-bg); color:var(--drawing-text); border:1px solid var(--drawing-border); border-radius:4px; height:27px; font:inherit; font-size:12px; }
 .chart-drawing-properties input[type=color] { width:28px; padding:2px; cursor:pointer; }
@@ -345,6 +365,8 @@ export function DrawingToolbar({
           '--drawing-border': theme.borderSubdued.val,
           '--drawing-text': theme.text.val,
           '--drawing-muted': theme.textSubdued.val,
+          '--drawing-icon': theme.iconSubdued.val,
+          '--drawing-icon-active': theme.iconActive.val,
           '--drawing-hover': theme.bgHover.val,
           '--drawing-active': theme.bgActive.val,
         } as CSSProperties

@@ -162,7 +162,6 @@ export interface ITradingViewChartControlsProps {
   isFullscreen: boolean;
   fullscreenHeader?: ReactNode;
   rightControl?: ReactNode;
-  workspaceControls?: ReactNode;
   rightControlLabel?: string;
   chartMode?: ITradingViewChartMode;
   isChartSwitchDisabled?: boolean;
@@ -239,7 +238,6 @@ export const TradingViewChartControls = memo(
     isFullscreen,
     fullscreenHeader,
     rightControl,
-    workspaceControls,
     rightControlLabel,
     chartMode,
     isChartSwitchDisabled = false,
@@ -467,7 +465,6 @@ export const TradingViewChartControls = memo(
       !hasFullscreenControl &&
       !hasHistoryControls &&
       !rightControl &&
-      !workspaceControls &&
       !chartSwitchControl &&
       !desktopFullscreenHeader
     ) {
@@ -490,7 +487,6 @@ export const TradingViewChartControls = memo(
       !priceMarketCapControl &&
       !chartSwitchControl &&
       !fullscreenControl &&
-      !workspaceControls &&
       (!rightControl || hasCompactChartCloseControl) &&
       (!onRightControlPress || hasCompactChartCloseControl);
     const shouldStretchReadyControls =
@@ -607,12 +603,10 @@ export const TradingViewChartControls = memo(
               <XStack gap="$2" alignItems="center" flexShrink={0}>
                 {chartSwitchControl}
 
-                {chartSwitchControl &&
-                (workspaceControls || fullscreenControl) ? (
+                {chartSwitchControl && fullscreenControl ? (
                   <ToolbarSeparator />
                 ) : null}
 
-                {workspaceControls}
                 {fullscreenControl}
                 {rightControl}
                 {desktopToolbar}
@@ -675,18 +669,7 @@ export const TradingViewChartControls = memo(
               minWidth={0}
               alignItems="center"
             >
-              {workspaceControls ? (
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  flex={1}
-                  minWidth={0}
-                >
-                  {intervalSelector}
-                </ScrollView>
-              ) : (
-                intervalSelector
-              )}
+              {intervalSelector}
             </XStack>
 
             <XStack gap="$2" alignItems="center" justifyContent="flex-end">
@@ -711,7 +694,6 @@ export const TradingViewChartControls = memo(
             />
           ) : null}
 
-          {workspaceControls}
           <XStack
             testID={
               onRightControlPress

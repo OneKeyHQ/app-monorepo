@@ -80,6 +80,11 @@ export enum ENativeOAuthMethod {
 
 // 5 minutes OAuth timeout (used by web/desktop/ext flows)
 export const OAUTH_FLOW_TIMEOUT_MS = 5 * 60 * 1000;
+// Message of the error those flows reject with when the timeout fires.
+export const OAUTH_FLOW_TIMEOUT_ERROR_MESSAGE = 'OAuth sign-in timed out';
+// Desktop: how long the waiting dialog stays quiet before it suggests
+// checking the network.
+export const OAUTH_WAITING_HINT_DELAY_MS = 12 * 1000;
 
 // Popup sizing (web + extension OAuth windows)
 export const OAUTH_POPUP_WIDTH = 500;
