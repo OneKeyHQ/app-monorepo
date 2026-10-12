@@ -1,0 +1,19 @@
+[
+  {
+    "seq": 1,
+    "commit": "c928f2ca90279f15ba0d342b4f310ddb5fc57489",
+    "date": "2026-10-12T07:39:40Z",
+    "prs": [
+      "#13686",
+      "#13726",
+      "#13733",
+      "#13769",
+      "#13773",
+      "#13780",
+      "#13782",
+      "#13807",
+      "#13823"
+    ],
+    "notes": "feat: add email auth captcha support for release 6.6.0 (#13686), fix: keep recent network chip labels on one line(OK-64008) (#13726), fix: drop unchecked All Networks networks from the home total at once, block stale list writes, and stop the Tron resource card from flashing 0/0 on account switch (OK-64028 OK-64027) (#13733), fix: resync desktop title-bar drag holes when header controls resize(OK-63849) (#13769), fix: localize Stocks chart ranges and event details, and date the last-update time (#13773), fix: restore native checkbox square taps(OK-64030) (#13780), fix: scroll external wallet modal body(OK-53036) (#13782), fix: respect stock pro chart type selection (OK-64237) (#13807), fix: restrict App Clip universal links to market (#13823)"
+  }
+]
