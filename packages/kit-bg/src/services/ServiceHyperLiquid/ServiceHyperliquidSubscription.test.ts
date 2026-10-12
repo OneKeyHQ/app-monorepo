@@ -213,6 +213,35 @@ describe('ServiceHyperliquidSubscription resume stream liveness', () => {
     expect(wait).not.toHaveBeenCalled();
   });
 
+  it('ignores recovery from a retrying socket that has already been replaced', async () => {
+    const { service, force, reconcile } = setupOpenSocketService();
+    const internals = service as unknown as {
+      _client: unknown;
+      _recoverNotOpenSocketBeforeSubscriptionUpdate: (params: {
+        client: unknown;
+        reason: string;
+      }) => Promise<void>;
+    };
+    const oldClient = {
+      transport: {
+        socket: { readyState: WebSocket.CONNECTING, retryCount: 1 },
+      },
+    };
+    const replacement = {
+      transport: { socket: { readyState: WebSocket.OPEN, retryCount: 0 } },
+    };
+    internals._client = replacement;
+
+    await internals._recoverNotOpenSocketBeforeSubscriptionUpdate({
+      client: oldClient,
+      reason: 'stale_update',
+    });
+
+    expect(force).not.toHaveBeenCalled();
+    expect(reconcile).not.toHaveBeenCalled();
+    expect(internals._client).toBe(replacement);
+  });
+
   it('forces a reconnect when the open socket stream went stale', async () => {
     const { service, internals, force, reconcile } = setupOpenSocketService();
     internals._lastMessageAt = Date.now() - 60_000;

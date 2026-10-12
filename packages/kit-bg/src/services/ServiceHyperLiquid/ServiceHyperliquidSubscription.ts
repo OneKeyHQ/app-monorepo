@@ -1650,6 +1650,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
 
     this._subscriptionUpdateRecoveryPromise = (async () => {
+      if (params.client !== this._client) {
+        return;
+      }
       if (this._isSocketDisconnected(params.client)) {
         await this._forceReconnectTransport();
         return;
