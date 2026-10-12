@@ -321,20 +321,23 @@ describe('Dust Sweep serial execution boundaries', () => {
     ESwapTxHistoryStatus.CANCELED,
     ESwapTxHistoryStatus.EXPIRED,
     ESwapTxHistoryStatus.REFUNDED,
-  ])('never signs the swap after an initial approval becomes %s', async (state) => {
-    mockAllowance.mockResolvedValueOnce(
-      createAllowance({ isApproved: false, approveAmounted: '0' }),
-    );
-    mockTxState.mockResolvedValueOnce({ state });
-    const options = createOptions();
-    await expect(executeDustSweepItem(options)).rejects.toMatchObject({
-      reason: 'txFailed',
-    });
-    expect(options.onApprovalBroadcast).toHaveBeenCalledWith(['approval-0']);
-    expect(options.onSigning).toHaveBeenCalledTimes(1);
-    expect(options.onBroadcast).not.toHaveBeenCalled();
-    expect(mockHistory).not.toHaveBeenCalled();
-  });
+  ])(
+    'never signs the swap after an initial approval becomes %s',
+    async (state) => {
+      mockAllowance.mockResolvedValueOnce(
+        createAllowance({ isApproved: false, approveAmounted: '0' }),
+      );
+      mockTxState.mockResolvedValueOnce({ state });
+      const options = createOptions();
+      await expect(executeDustSweepItem(options)).rejects.toMatchObject({
+        reason: 'txFailed',
+      });
+      expect(options.onApprovalBroadcast).toHaveBeenCalledWith(['approval-0']);
+      expect(options.onSigning).toHaveBeenCalledTimes(1);
+      expect(options.onBroadcast).not.toHaveBeenCalled();
+      expect(mockHistory).not.toHaveBeenCalled();
+    },
+  );
 
   it('stops an aborted initial approval wait without starting a swap or resending', async () => {
     jest.useFakeTimers();

@@ -135,9 +135,7 @@ const routeParams: IDustSweepRouteParams = {
 
 function renderController(params = routeParams) {
   function Wrapper({ children }: PropsWithChildren) {
-    return (
-      <DustSweepProvider params={params}>{children}</DustSweepProvider>
-    );
+    return <DustSweepProvider params={params}>{children}</DustSweepProvider>;
   }
   return renderHook(() => useDustSweep(), { wrapper: Wrapper });
 }

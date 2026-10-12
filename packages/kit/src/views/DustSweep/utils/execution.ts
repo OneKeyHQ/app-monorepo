@@ -392,7 +392,9 @@ export async function executeDustSweepItem(
       onBeforeSignAndSend: async () => {
         if (broadcastedApprovalTxIds.length > confirmedApprovalCount) {
           await waitForBroadcastedApprovals({
-            approvalTxIds: broadcastedApprovalTxIds.slice(confirmedApprovalCount),
+            approvalTxIds: broadcastedApprovalTxIds.slice(
+              confirmedApprovalCount,
+            ),
             snapshot,
             signal,
           });
