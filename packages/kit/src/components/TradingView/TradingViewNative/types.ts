@@ -190,6 +190,8 @@ export interface ITradingViewNativeProps {
   previousClose?: number;
   enableNativeChartSettings?: boolean;
   nativeChartSettingsInToolbar?: boolean;
+  /** Extra controls rendered in the mobile toolbar, to the left of settings. */
+  mobileToolbarExtra?: ReactNode;
   initialRightOffset?: ITradingViewNativeInitialRightOffset;
   nativeChartDisplayMode?: ITradingViewNativeChartDisplayMode;
   /** Limits new selections without hiding sub-indicators that are already active. */

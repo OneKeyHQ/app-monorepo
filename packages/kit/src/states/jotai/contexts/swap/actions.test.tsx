@@ -2028,6 +2028,41 @@ describe('useSwapActions', () => {
     });
   });
 
+  it('keeps the account-network alert when Stock quote state is reset', async () => {
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+      storeInstance.set(swapAlertsAtom(), {
+        quoteId: 'stale-stock-quote',
+        states: [
+          {
+            message: 'Account does not support this network',
+            alertLevel: ESwapAlertLevel.ERROR,
+            isAccountNetworkUnsupported: true,
+          },
+          {
+            message: 'Min amount/request 10 USDC',
+          },
+        ],
+      });
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.resetQuoteAction();
+    });
+
+    expect(store.get(swapAlertsAtom())).toEqual({
+      quoteId: '',
+      states: [
+        expect.objectContaining({
+          isAccountNetworkUnsupported: true,
+        }),
+      ],
+    });
+  });
+
   it('keeps Stock current quote selected when service normalizes amount formatting', () => {
     const quote = {
       quoteId: 'stock-numeric-match-quote',
@@ -4857,6 +4892,75 @@ describe('useSwapActions', () => {
     );
   });
 
+  it('keeps a current Stock account-network alert when quote events fail', async () => {
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+      storeInstance.set(swapSelectFromTokenAtom(), usdcToken);
+      storeInstance.set(swapSelectToTokenAtom(), stockTokenA);
+      storeInstance.set(swapFromTokenAmountAtom(), {
+        value: '21',
+        isInput: true,
+      });
+      storeInstance.set(swapAlertsAtom(), {
+        quoteId: '',
+        states: [
+          {
+            message: 'Account does not support this network',
+            alertLevel: ESwapAlertLevel.ERROR,
+            isAccountNetworkUnsupported: true,
+            accountNetworkUnsupportedContext: {
+              accountId: activeAccountInfo.account?.id,
+              walletId: externalWallet.id,
+              networkId: usdcToken.networkId,
+            },
+          },
+        ],
+      });
+      storeInstance.set(swapQuoteActionLockAtom(), {
+        actionLock: true,
+        quoteRequestId: 'current-stock-error-with-account-alert',
+      });
+    });
+    const { result } = renderHook(
+      () => ({ actions: useSwapActions().current }),
+      { wrapper: Wrapper },
+    );
+    const quoteParams: IFetchQuotesParams = {
+      fromNetworkId: usdcToken.networkId,
+      fromTokenAddress: usdcToken.contractAddress,
+      fromTokenAmount: '21',
+      protocol: EProtocolOfExchange.STOCK,
+      slippagePercentage: 0.5,
+      toNetworkId: stockTokenA.networkId,
+      toTokenAddress: stockTokenA.contractAddress,
+    };
+
+    await act(async () => {
+      result.current.actions.quoteEventHandler({
+        event: {
+          data: JSON.stringify({
+            errorMessage: 'Provider error',
+            eventId: 'current-stock-error-with-account-alert-event',
+            isStock: true,
+          }),
+        } as ISwapQuoteEvent,
+        type: 'message',
+        params: quoteParams,
+        quoteRequestId: 'current-stock-error-with-account-alert',
+        tokenPairs: {
+          fromToken: usdcToken,
+          toToken: stockTokenA,
+        },
+      });
+    });
+
+    expect(store.get(swapAlertsAtom()).states).toEqual([
+      expect.objectContaining({
+        isAccountNetworkUnsupported: true,
+      }),
+    ]);
+  });
+
   it('does not emit or check unsupported-account alerts while addresses are resolving', async () => {
     mockCheckAccountNetworkNotSupported.mockResolvedValue(true);
     const resolvingAddressInfo = createExternalAddressInfo({
@@ -5316,6 +5420,208 @@ describe('useSwapActions', () => {
     expect(store.get(swapAlertsAtom()).states).toHaveLength(1);
   });
 
+  it('keeps the unsupported-account alert with an identity-only source account', async () => {
+    const identityOnlyAccountInfo = {
+      ...activeAccountInfo,
+      account: undefined,
+      wallet: externalWallet,
+    };
+    const identityOnlyAddressInfo: ISwapAddressInfo = {
+      ...fromAddressInfo,
+      address: undefined,
+      networkId: usdtToken.networkId,
+      accountInfo: identityOnlyAccountInfo,
+      activeAccount: identityOnlyAccountInfo,
+    };
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+      storeInstance.set(swapSelectFromTokenAtom(), usdtToken);
+      storeInstance.set(swapSelectToTokenAtom(), appleStockToken);
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+    mockCheckAccountNetworkNotSupported.mockResolvedValue(true);
+
+    await withMutedConsoleError(async () => {
+      await act(async () => {
+        await result.current.checkSwapWarning(
+          identityOnlyAddressInfo,
+          identityOnlyAddressInfo,
+          { allowNoConnectWallet: false },
+        );
+      });
+    });
+
+    expect(mockCheckAccountNetworkNotSupported).toHaveBeenCalledWith({
+      accountId: undefined,
+      activeNetworkId: usdtToken.networkId,
+      walletId: externalWallet.id,
+    });
+    expect(store.get(swapAlertsAtom()).states).toEqual([
+      expect.objectContaining({
+        isAccountNetworkUnsupported: true,
+      }),
+    ]);
+  });
+
+  it('retains the missing-target-account warning while waiting and removes stale contexts', async () => {
+    const missingTargetAddressInfo: ISwapAddressInfo = {
+      ...fromAddressInfo,
+      address: undefined,
+      networkId: usdtToken.networkId,
+      accountInfo: {
+        ...activeAccountInfo,
+        account: undefined,
+        wallet: externalWallet,
+      },
+      activeAccount: {
+        ...activeAccountInfo,
+        wallet: externalWallet,
+      },
+    };
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+      storeInstance.set(swapSelectFromTokenAtom(), usdtToken);
+      storeInstance.set(swapSelectToTokenAtom(), appleStockToken);
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+    mockCheckAccountNetworkNotSupported.mockResolvedValue(true);
+
+    await withMutedConsoleError(async () => {
+      await act(async () => {
+        await result.current.checkSwapWarning(
+          missingTargetAddressInfo,
+          missingTargetAddressInfo,
+          { allowNoConnectWallet: false },
+        );
+      });
+    });
+
+    expect(mockCheckAccountNetworkNotSupported).toHaveBeenCalledWith({
+      accountId: undefined,
+      activeNetworkId: usdtToken.networkId,
+      walletId: externalWallet.id,
+    });
+    const generatedAlerts = store.get(swapAlertsAtom());
+    expect(generatedAlerts.states).toEqual([
+      expect.objectContaining({
+        isAccountNetworkUnsupported: true,
+        accountNetworkUnsupportedContext: {
+          accountId: undefined,
+          walletId: externalWallet.id,
+          networkId: usdtToken.networkId,
+          directionType: ESwapDirectionType.FROM,
+        },
+      }),
+    ]);
+    const currentWarning = generatedAlerts.states[0];
+    store.set(swapAlertsAtom(), {
+      ...generatedAlerts,
+      states: [
+        currentWarning,
+        ...[
+          { accountId: activeAccountInfo.account?.id },
+          { walletId: 'previous-wallet' },
+          { networkId: 'evm--1' },
+          { directionType: ESwapDirectionType.TO },
+        ].map((staleContext) => ({
+          ...currentWarning,
+          accountNetworkUnsupportedContext: {
+            ...currentWarning.accountNetworkUnsupportedContext,
+            ...staleContext,
+          },
+        })),
+        { noConnectWallet: true },
+      ],
+    });
+    store.set(swapQuoteFetchingAtom(), true);
+    const serviceCallCount =
+      mockCheckAccountNetworkNotSupported.mock.calls.length;
+
+    await act(async () => {
+      await result.current.checkSwapWarning(
+        missingTargetAddressInfo,
+        missingTargetAddressInfo,
+        { allowNoConnectWallet: false },
+      );
+    });
+
+    expect(store.get(swapAlertsAtom())).toEqual(generatedAlerts);
+    expect(mockCheckAccountNetworkNotSupported).toHaveBeenCalledTimes(
+      serviceCallCount,
+    );
+  });
+
+  it('keeps the unsupported-account alert while Stock rebuilds the quote pair', async () => {
+    const unsupportedAddressInfo = createExternalAddressInfo({
+      address: undefined,
+      isAddressInfoReady: true,
+    });
+    const staleQuote = buildRecipientUnsupportedQuote({
+      fromToken: usdtToken,
+      toToken: appleStockToken,
+    });
+    const staleQuoteId = staleQuote.quoteId ?? 'stale-quote';
+    const staleFromAmount = staleQuote.fromAmount ?? '1';
+    const staleToAmount = staleQuote.toAmount ?? '1';
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+      storeInstance.set(swapSelectFromTokenAtom(), appleStockToken);
+      storeInstance.set(swapSelectToTokenAtom(), usdtToken);
+      storeInstance.set(swapFromTokenAmountAtom(), {
+        value: staleFromAmount,
+        isInput: true,
+      });
+      storeInstance.set(swapToTokenAmountAtom(), {
+        value: staleToAmount,
+        isInput: false,
+      });
+      storeInstance.set(swapQuoteListAtom(), [staleQuote]);
+      storeInstance.set(swapQuoteEventCompletedAtom(), true);
+      storeInstance.set(swapAlertsAtom(), {
+        states: [
+          {
+            message: 'Account does not support this network',
+            alertLevel: ESwapAlertLevel.ERROR,
+            isAccountNetworkUnsupported: true,
+            accountNetworkUnsupportedContext: {
+              accountId: unsupportedAddressInfo.accountInfo?.account?.id,
+              walletId: unsupportedAddressInfo.accountInfo?.wallet?.id,
+              networkId: appleStockToken.networkId,
+            },
+          },
+          {
+            message: 'Previous quote error',
+            alertLevel: ESwapAlertLevel.ERROR,
+          },
+        ],
+        quoteId: staleQuoteId,
+      });
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await withMutedConsoleError(async () => {
+      await act(async () => {
+        await result.current.checkSwapWarning(
+          unsupportedAddressInfo,
+          unsupportedAddressInfo,
+          { allowNoConnectWallet: true },
+        );
+      });
+    });
+
+    expect(store.get(swapAlertsAtom()).states).toEqual([
+      expect.objectContaining({
+        isAccountNetworkUnsupported: true,
+      }),
+    ]);
+  });
+
   it('does not keep noConnectWallet warning when native wallet readiness is not proven', async () => {
     const { store, Wrapper } = createWrapperWithStore();
     store.set(swapNetworks(), [evmSwapNetwork]);
@@ -5647,7 +5953,111 @@ describe('useSwapActions', () => {
     ).toBe('4');
   });
 
-  it('warms Swap and Stock owners through one network queue', async () => {
+  it('keeps the last successful positions visible during a background refresh', async () => {
+    const ownerKey = 'indexed-account__evm--1,evm--56__usd';
+    const previousEthToken = {
+      ...ethToken,
+      balanceParsed: '1',
+      fiatValue: '100',
+    };
+    const previousBnbToken = {
+      ...bnbToken,
+      balanceParsed: '2',
+      fiatValue: '50',
+    };
+    const updatedEthToken = {
+      ...previousEthToken,
+      balanceParsed: '3',
+      fiatValue: '300',
+    };
+    const updatedBnbToken = {
+      ...previousBnbToken,
+      balanceParsed: '4',
+      fiatValue: '200',
+    };
+    const ethRequest = createDeferred<ISwapToken[]>();
+    const bnbRequest = createDeferred<ISwapToken[]>();
+    mockGetSupportSwapAllAccounts.mockResolvedValue({
+      supportAccountsFetchFailed: false,
+      swapSupportAccounts: [
+        {
+          apiAddress: '0xaccount',
+          networkId: 'evm--1',
+          accountId: 'eth-account',
+        },
+        {
+          apiAddress: '0xaccount',
+          networkId: 'evm--56',
+          accountId: 'bnb-account',
+        },
+      ],
+    });
+    mockFetchSwapTokens.mockImplementation((params) => {
+      const { networkId } = params as { networkId: string };
+      return networkId === 'evm--1' ? ethRequest.promise : bnbRequest.promise;
+    });
+    const { store, Wrapper } = createWrapperWithStore();
+    store.set(swapProPositionsRuntimeDataAtom(), {
+      [ownerKey]: {
+        status: 'success',
+        tokens: [previousEthToken, previousBnbToken],
+        updatedAt: 0,
+      },
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    let loadPromise: Promise<void> | undefined;
+    act(() => {
+      loadPromise = result.current.swapProLoadSupportNetworksTokenList(
+        [
+          { networkId: 'evm--1', name: 'Ethereum', symbol: 'ETH' },
+          { networkId: 'evm--56', name: 'BNB Smart Chain', symbol: 'BNB' },
+        ],
+        'indexed-account',
+        undefined,
+        'usd',
+        { positionLoader: loadSwapProPositions },
+      );
+    });
+    await waitFor(() => {
+      expect(mockFetchSwapTokens).toHaveBeenCalledTimes(2);
+    });
+
+    expect(
+      store.get(swapProPositionsRuntimeDataAtom())[ownerKey],
+    ).toMatchObject({
+      status: 'refreshing',
+      tokens: [previousEthToken, previousBnbToken],
+    });
+
+    await act(async () => {
+      ethRequest.resolve([updatedEthToken]);
+      await Promise.resolve();
+    });
+
+    expect(
+      store.get(swapProPositionsRuntimeDataAtom())[ownerKey],
+    ).toMatchObject({
+      status: 'refreshing',
+      tokens: [updatedEthToken, previousBnbToken],
+    });
+
+    await act(async () => {
+      bnbRequest.resolve([updatedBnbToken]);
+      await loadPromise;
+    });
+
+    expect(
+      store.get(swapProPositionsRuntimeDataAtom())[ownerKey],
+    ).toMatchObject({
+      status: 'success',
+      tokens: [updatedEthToken, updatedBnbToken],
+    });
+  });
+
+  it('removes non-stock tokens from the Stock owner on forced refresh', async () => {
     const swapOwnerKey = 'indexed-account__evm--1,evm--56__usd';
     const stockOwnerKey = 'indexed-account__evm--56__usd__stock';
     const stockPositionToken = { ...stockTokenA, fiatValue: '10' };
@@ -5727,6 +6137,39 @@ describe('useSwapActions', () => {
       status: 'success',
       tokens: [{ ...stockPositionToken, isStock: true, stock }],
     });
+
+    act(() => {
+      result.current.updateSwapProPositionTokenBalances({
+        positionOwnerKey: stockOwnerKey,
+        tokens: [stablePositionToken],
+      });
+    });
+    expect(
+      store.get(swapProPositionsRuntimeDataAtom())[stockOwnerKey]?.tokens,
+    ).toHaveLength(2);
+
+    await act(async () => {
+      await result.current.swapProLoadSupportNetworksTokenList(
+        [{ networkId: 'evm--56', name: 'BNB Smart Chain', symbol: 'BNB' }],
+        'indexed-account',
+        undefined,
+        'usd',
+        {
+          forceRefresh: true,
+          positionLoader: loadSwapProPositions,
+          stockOnly: true,
+        },
+      );
+    });
+
+    expect(
+      store.get(swapProPositionsRuntimeDataAtom())[stockOwnerKey]?.tokens,
+    ).toEqual([{ ...stockPositionToken, isStock: true, stock }]);
+    expect(
+      store
+        .get(swapProPositionsCacheAtom())
+        .byOwner[stockOwnerKey]?.tokens.map((token) => token.symbol),
+    ).toEqual([stockPositionToken.symbol]);
   });
 
   it('keeps successful network positions when another network fails', async () => {

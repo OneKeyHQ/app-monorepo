@@ -9,6 +9,7 @@ import type { IMarketToken } from '../../MarketHomeV2/components/MarketTokenList
 type IBuildMarketTokenDetailPreviewInput = Pick<
   IMarketToken,
   | 'address'
+  | 'firstTradeTime'
   | 'networkId'
   | 'name'
   | 'symbol'
@@ -75,6 +76,7 @@ export function buildMarketTokenDetailPreview(
   token: IBuildMarketTokenDetailPreviewInput,
 ): IMarketTokenDetailPreview {
   return {
+    firstTradeTime: token.firstTradeTime,
     address: token.address,
     networkId: token.networkId,
     isNative: token.isNative,
