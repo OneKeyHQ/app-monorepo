@@ -459,10 +459,13 @@ function CheckAndUpdatePage({
             const result = await rebindDeviceAfterFirmwareUpdate(
               previousDevice,
               onConnectId,
+              // Give rebooting devices the full patient window before offering
+              // recovery for an interrupted update that left bootloader running.
+              { allowBootloaderRecovery: attemptCount === 11 },
             );
 
             console.log('Device connection successful after firmware update');
-            return result.device;
+            return result;
           },
           {
             retries: 10,
@@ -567,13 +570,34 @@ function CheckAndUpdatePage({
         watchdogConnectId = baseDevice.connectId ?? undefined;
         let latestDevice: SearchDevice;
         if (checkAfterUpdate) {
-          latestDevice = await retryDeviceConnectionAfterUpdate(
+          const result = await retryDeviceConnectionAfterUpdate(
             baseDevice as SearchDevice,
             isStale,
             (connectId) => {
               watchdogConnectId = connectId;
             },
           );
+          if (isStale()) {
+            return;
+          }
+          latestDevice = result.device;
+          if (result.features.bootloader_mode) {
+            deviceFeaturesRef.current = result.features;
+            hasUpgradeForceRef.current = true;
+            estimatedTransferBytesRef.current = undefined;
+            // Keep the pending reconnect armed for the next update/Retry. A
+            // bootloader is recoverable, but cannot pass the application check.
+            setSteps((prev) => {
+              const newSteps = [...prev];
+              newSteps[1] = {
+                ...newSteps[1],
+                state: ECheckAndUpdateStepState.Warning,
+                errorMessage: undefined,
+              };
+              return newSteps;
+            });
+            return;
+          }
         } else {
           await ensureActiveConnection(baseDevice as SearchDevice);
           latestDevice = (getActiveDevice() ?? baseDevice) as SearchDevice;
