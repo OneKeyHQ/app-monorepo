@@ -826,6 +826,9 @@ export interface ISwapState {
   isRefreshQuote?: boolean;
   isWaitingAutoSlippage?: boolean;
   shouldEnterRecipient?: boolean;
+  // From-token balance is a loaded zero: the action button becomes the
+  // deposit entry instead of a disabled "insufficient balance" label.
+  shouldDepositToTrade?: boolean;
 }
 
 export interface ISwapApproveAllowanceResponse {
@@ -877,6 +880,13 @@ export interface ISwapAlertState {
   alertLevel?: ESwapAlertLevel;
   inputShowError?: boolean;
   noConnectWallet?: boolean;
+  isAccountNetworkUnsupported?: boolean;
+  accountNetworkUnsupportedContext?: {
+    accountId?: string;
+    walletId?: IDBWalletId;
+    networkId?: string;
+    directionType?: ESwapDirectionType;
+  };
   action?: {
     actionType: ESwapAlertActionType;
     actionLabel?: string;
