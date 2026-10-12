@@ -487,8 +487,9 @@ class ServicePrimeFreeTrial extends ServiceBase {
   }) {
     const current = (await primeFreeTrialAtom.get()).quota;
     const currentData = current.data;
+    // Also written while a refresh is loading: that refresh may have been
+    // answered before this change, and its older sequence drops it now.
     if (
-      current.status !== 'success' ||
       current.onekeyUserId !== onekeyUserId ||
       !currentData ||
       (resetAt !== undefined && currentData.resetAt !== resetAt)
@@ -672,6 +673,7 @@ class ServicePrimeFreeTrial extends ServiceBase {
     featureId,
     usageId,
     retryAfterRelease = true,
+    earlierAttempts,
   }: {
     featureId: IPrimeFreeTrialUsageFeatureId;
     usageId: string;
@@ -679,6 +681,8 @@ class ServicePrimeFreeTrial extends ServiceBase {
     // the server still counts as a reservation; it is asked once more after
     // that release is confirmed.
     retryAfterRelease?: boolean;
+    // Attempts of this id made before asking once more.
+    earlierAttempts?: { startedAt: number; hadUncertainAttempt: boolean };
   }): Promise<IPrimeFreeTrialStartResult> {
     if (await this.isTravelMode()) {
       throw new OneKeyLocalError({
@@ -695,11 +699,11 @@ class ServicePrimeFreeTrial extends ServiceBase {
       return { status: 'unlimited' };
     }
     const onekeyUserId = user.onekeyUserId;
-    const startedAt = Date.now();
+    const startedAt = earlierAttempts?.startedAt ?? Date.now();
     let lastError: Error | undefined;
     // Once an attempt's effect is unknown the server may hold a reservation
     // for this id, so every exit without a grant releases it with cancelled.
-    let hadUncertainAttempt = false;
+    let hadUncertainAttempt = earlierAttempts?.hadUncertainAttempt ?? false;
     const releaseUncertainReservation = () =>
       this.recordUsageResult({
         onekeyUserId,
@@ -778,7 +782,19 @@ class ServicePrimeFreeTrial extends ServiceBase {
               featureId,
               usageId,
               retryAfterRelease: false,
+              earlierAttempts: { startedAt, hadUncertainAttempt },
             });
+          }
+          if (hadUncertainAttempt) {
+            // A retry of an id that holds a reservation is granted again, so
+            // the quota is really used up. Release the id anyway in case the
+            // unknown attempt took the last use, and wait for it: an
+            // unreported release reads as a held reservation in the feedback.
+            await releaseUncertainReservation();
+            const released = await this.findUsageRecord({ featureId, usageId });
+            if (released) {
+              await this.waitForReports([released]);
+            }
           }
           await this.applyQuotaExhaustedData(freeTrialError.data);
           return { status: 'exhausted', featureId, data: freeTrialError.data };
@@ -845,22 +861,28 @@ class ServicePrimeFreeTrial extends ServiceBase {
     if (!pending.length) {
       return false;
     }
-    let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
-    await Promise.race([
-      Promise.allSettled(
-        pending.map((record) => this.reportUsageRecord(record)),
-      ),
-      new Promise<void>((resolve) => {
-        timeoutTimer = setTimeout(resolve, RELEASE_CONFIRM_TIMEOUT_MS);
-      }),
-    ]);
-    clearTimeout(timeoutTimer);
+    await this.waitForReports(pending);
     const stillPending = new Set(
       (await this.backgroundApi.simpleDb.primeFreeTrial.getUsageRecords())
         .filter(isPendingRelease)
         .map((record) => record.usageId),
     );
     return pending.some((record) => !stillPending.has(record.usageId));
+  }
+
+  // Sends (or joins) the finish of these records and waits for them, at most
+  // RELEASE_CONFIRM_TIMEOUT_MS.
+  private async waitForReports(records: IPrimeFreeTrialUsageRecord[]) {
+    let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
+    await Promise.race([
+      Promise.allSettled(
+        records.map((record) => this.reportUsageRecord(record)),
+      ),
+      new Promise<void>((resolve) => {
+        timeoutTimer = setTimeout(resolve, RELEASE_CONFIRM_TIMEOUT_MS);
+      }),
+    ]);
+    clearTimeout(timeoutTimer);
   }
 
   // start returns the feature quota; only write it when it belongs to the
@@ -1170,7 +1192,7 @@ class ServicePrimeFreeTrial extends ServiceBase {
           },
           requestConfig,
         );
-        await this.markRecordReported(recordIdentity);
+        await this.markRecordReported(recordIdentity, result);
         // The finish quota has no period, so it is only a refresh signal.
         void this.refreshQuota();
       } catch (error) {
@@ -1227,19 +1249,44 @@ class ServicePrimeFreeTrial extends ServiceBase {
     }
   }
 
-  private async markRecordReported(recordIdentity: {
-    onekeyUserId: string;
-    featureId: IPrimeFreeTrialUsageFeatureId;
-    usageId: string;
-  }) {
+  // `acceptedResult`: the result the server just accepted. The first finish
+  // is final on the server, so it also replaces a success marked while that
+  // finish was in flight: the use was not charged, and a retry has to start
+  // a new one instead of reusing this id.
+  private async markRecordReported(
+    recordIdentity: {
+      onekeyUserId: string;
+      featureId: IPrimeFreeTrialUsageFeatureId;
+      usageId: string;
+    },
+    acceptedResult?: IPrimeFreeTrialUsageResult,
+  ) {
     const now = Date.now();
+    const replaced: { result?: IPrimeFreeTrialUsageResult } = {};
     await this.backgroundApi.simpleDb.primeFreeTrial.updateUsageRecord(
       recordIdentity,
-      (current) =>
-        current
-          ? { ...current, reportedAt: now, nextReportAt: undefined }
-          : current,
+      (current) => {
+        if (!current) {
+          return current;
+        }
+        if (acceptedResult && current.result !== acceptedResult) {
+          replaced.result = current.result;
+        }
+        return {
+          ...current,
+          result: acceptedResult ?? current.result,
+          reportedAt: now,
+          nextReportAt: undefined,
+        };
+      },
     );
+    if (acceptedResult && replaced.result) {
+      this.trace({
+        featureId: recordIdentity.featureId,
+        stage: 'reportUsageRecord',
+        reason: `kept the accepted ${acceptedResult} over ${replaced.result}`,
+      });
+    }
   }
 
   // Only the logged-in owner's pending retry timers are scheduled: records of

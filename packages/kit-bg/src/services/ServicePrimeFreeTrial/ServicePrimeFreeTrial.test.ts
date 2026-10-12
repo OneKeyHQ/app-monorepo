@@ -483,6 +483,46 @@ describe('ServicePrimeFreeTrial', () => {
       ]);
     });
 
+    it('releases a possibly held reservation when a later attempt says exhausted', async () => {
+      const { service } = createService();
+      let startCount = 0;
+      mockOneKeyIdClient.post.mockImplementation(async (url: string) => {
+        if (url === '/prime/v1/free-trial/usage/start') {
+          startCount += 1;
+          throw startCount === 1
+            ? networkError()
+            : serverError(PRIME_FREE_TRIAL_QUOTA_EXHAUSTED_CODE, {
+                ...quotaOfBulkSend,
+                resetAt: 2000,
+              });
+        }
+        return { data: { code: 0, data: { unlimited: false } } };
+      });
+
+      await expect(
+        service.startUsage({
+          featureId: EPrimeFeatures.BulkSend,
+          usageId: 'usage-0017',
+        }),
+      ).resolves.toMatchObject({ status: 'exhausted' });
+
+      // Reported before the result returns, so the feedback does not take
+      // this id for a held reservation.
+      expect(finishCalls()).toEqual([
+        [
+          '/prime/v1/free-trial/usage/finish',
+          expect.objectContaining({
+            usageId: 'usage-0017',
+            result: 'cancelled',
+          }),
+          expect.anything(),
+        ],
+      ]);
+      await expect(
+        service.getHeldReservationEnd({ featureId: EPrimeFeatures.BulkSend }),
+      ).resolves.toBeUndefined();
+    });
+
     it('does not release anything when the first attempt is already definitive', async () => {
       const { service } = createService();
       mockOneKeyIdClient.post.mockRejectedValue(serverError(90_001));
@@ -603,6 +643,40 @@ describe('ServicePrimeFreeTrial', () => {
         expect(startCount).toBe(1);
       });
 
+      it('still releases an unknown attempt after asking once more', async () => {
+        const { service, simpleDb } = createService();
+        seedSettledUsage(simpleDb, 'usage-0018');
+        let startCount = 0;
+        mockOneKeyIdClient.post.mockImplementation(async (url: string) => {
+          if (url === '/prime/v1/free-trial/usage/start') {
+            startCount += 1;
+            throw startCount === 1
+              ? networkError()
+              : serverError(PRIME_FREE_TRIAL_QUOTA_EXHAUSTED_CODE, {
+                  ...quotaOfBulkSend,
+                  resetAt: 2000,
+                });
+          }
+          return { data: { code: 0, data: { unlimited: false } } };
+        });
+
+        await expect(
+          service.startUsage({
+            featureId: EPrimeFeatures.BulkSend,
+            usageId: 'usage-0019',
+          }),
+        ).resolves.toMatchObject({ status: 'exhausted' });
+
+        expect(startCount).toBe(3);
+        expect(finishCalls().map(([, body]) => body)).toEqual([
+          expect.objectContaining({ usageId: 'usage-0018', result: 'failed' }),
+          expect.objectContaining({
+            usageId: 'usage-0019',
+            result: 'cancelled',
+          }),
+        ]);
+      });
+
       it('does not wait for anything without a pending release', async () => {
         const { service } = createService();
         mockOneKeyIdClient.post.mockRejectedValue(
@@ -699,6 +773,85 @@ describe('ServicePrimeFreeTrial', () => {
           usageId: 'usage-1001',
         }),
       ).resolves.toBe('success');
+    });
+
+    it('keeps the accepted failed when a success is marked during that finish', async () => {
+      const { service, simpleDb } = createService();
+      seedStartedUsage(simpleDb, { usageId: 'usage-1011' });
+      let resolveFinish: ((value: unknown) => void) | undefined;
+      mockOneKeyIdClient.post.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveFinish = resolve;
+          }),
+      );
+
+      await service.settleUsage({
+        featureId: EPrimeFeatures.BulkSend,
+        usageId: 'usage-1011',
+        result: 'failed',
+      });
+      await flushPromises();
+      await service.markBroadcastSuccess({
+        featureId: EPrimeFeatures.BulkSend,
+        usageId: 'usage-1011',
+      });
+      await flushPromises();
+      resolveFinish?.({ data: { code: 0, data: { unlimited: false } } });
+      await flushPromises();
+
+      expect(finishCalls()).toHaveLength(1);
+      expect(finishCalls()[0][1]).toMatchObject({ result: 'failed' });
+      // The first finish is final on the server: this use was not charged,
+      // so a retry must start a new one instead of reusing the id.
+      expect(
+        simpleDb.records.get('user-a__BulkSend__usage-1011'),
+      ).toMatchObject({ result: 'failed', reportedAt: expect.any(Number) });
+      await expect(
+        service.getUsageResult({
+          featureId: EPrimeFeatures.BulkSend,
+          usageId: 'usage-1011',
+        }),
+      ).resolves.toBe('failed');
+    });
+
+    it('reports a success marked during a failed finish the server did not record', async () => {
+      const { service, simpleDb } = createService();
+      seedStartedUsage(simpleDb, { usageId: 'usage-1012' });
+      let rejectFinish: ((error: unknown) => void) | undefined;
+      mockOneKeyIdClient.post.mockImplementationOnce(
+        () =>
+          new Promise((_resolve, reject) => {
+            rejectFinish = reject;
+          }),
+      );
+
+      await service.settleUsage({
+        featureId: EPrimeFeatures.BulkSend,
+        usageId: 'usage-1012',
+        result: 'failed',
+      });
+      await flushPromises();
+      await service.markBroadcastSuccess({
+        featureId: EPrimeFeatures.BulkSend,
+        usageId: 'usage-1012',
+      });
+      rejectFinish?.(serverError(90_000));
+      await flushPromises();
+
+      mockOneKeyIdClient.post.mockResolvedValue({
+        data: { code: 0, data: { unlimited: false } },
+      });
+      await service.flushPendingReports({ force: true });
+      await flushPromises();
+
+      expect(finishCalls().map(([, body]) => body.result)).toEqual([
+        'failed',
+        'success',
+      ]);
+      expect(
+        simpleDb.records.get('user-a__BulkSend__usage-1012'),
+      ).toMatchObject({ result: 'success', reportedAt: expect.any(Number) });
     });
 
     it('never reports again after the server confirmed (one mark per broadcast)', async () => {
@@ -986,6 +1139,53 @@ describe('ServicePrimeFreeTrial', () => {
         isPrimeSubscriptionActive: false,
       });
 
+      expect(mockState.freeTrial.quota.data?.features[0].remaining).toBe(0);
+    });
+
+    it('keeps the start quota over an older refresh still in flight', async () => {
+      const { service } = createService();
+      await service.applyQuotaFromPrimeUserInfo({
+        freeTrial: quota,
+        onekeyUserId: 'user-a',
+        requestSeq: service.allocateQuotaRequestSeq(),
+        isPrimeSubscriptionActive: false,
+      });
+      // Answered before the start reserved: still one use left.
+      let resolveRefresh: ((value: unknown) => void) | undefined;
+      mockOneKeyIdClient.get
+        .mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              resolveRefresh = resolve;
+            }),
+        )
+        .mockImplementation(() => new Promise(() => {}));
+      const refresh = service.refreshQuota();
+      await flushPromises();
+      mockOneKeyIdClient.post.mockResolvedValueOnce({
+        data: {
+          code: 0,
+          data: {
+            unlimited: false,
+            featureId: EPrimeFeatures.BulkSend,
+            usageId: 'usage-3001',
+            quota: quotaOfBulkSend,
+            expiresAt: 1000,
+            resetAt: quota.resetAt,
+          },
+        },
+      });
+
+      await service.startUsage({
+        featureId: EPrimeFeatures.BulkSend,
+        usageId: 'usage-3001',
+      });
+      await flushPromises();
+      expect(mockState.freeTrial.quota.data?.features[0].remaining).toBe(0);
+
+      resolveRefresh?.({ data: { code: 0, data: quota } });
+      await refresh;
+      await flushPromises();
       expect(mockState.freeTrial.quota.data?.features[0].remaining).toBe(0);
     });
 
