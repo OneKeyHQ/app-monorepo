@@ -27,6 +27,7 @@ POLICY = {
     'warningPolicy': 'fail-except-unchanged-pinned-yarn-git', 'identityVersion': 1,
     'yarnCoverage': 'complete-npm-inventory',
     'yarnProjection': 'omit-non-runtime-dependency-metadata',
+    'yarnPatchEdges': 'reject-unsupported-reachability',
     'databases': ['ghcr.io/aquasecurity/trivy-db:2',
                   'ghcr.io/aquasecurity/trivy-java-db:1',
                   'ghcr.io/aquasecurity/trivy-checks:1'],
@@ -333,6 +334,13 @@ def yarn_git_warnings(base, merge):
             for name, inventory in entries.items()}
 
 
+def supported_yarn_dependency(constraint):
+    require(isinstance(constraint, str), 'unsupported_yarn_source')
+    # Trivy drops patch edges even if the underlying package is in inventory;
+    # that can incorrectly retain its dev classification after a promotion.
+    require(not re.search(r'(?:^|@)patch:', constraint), 'unsupported_yarn_patch_dependency')
+
+
 def project_yarn(root, destination):
     require(not destination.resolve().is_relative_to(root.resolve()), 'invalid_projection_destination')
     destination.mkdir()
@@ -340,10 +348,19 @@ def project_yarn(root, destination):
         relative = str(file.relative_to(root))
         target = destination / relative
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(source_file(root, relative).read_bytes())
+        source = source_file(root, relative)
+        manifest = read_json(source)
+        require(isinstance(manifest, dict), 'unsupported_yarn_source')
+        for field in ('dependencies', 'optionalDependencies', 'devDependencies'):
+            dependencies = manifest.get(field, {})
+            require(isinstance(dependencies, dict), 'unsupported_yarn_source')
+            for constraint in dependencies.values():
+                supported_yarn_dependency(constraint)
+        target.write_bytes(source.read_bytes())
     for relative, data, _ in yarn_files(root):
         lines = []
         skipping = False
+        in_dependencies = False
         for line in data.splitlines(keepends=True):
             # These Yarn installation hints are not runtime dependencies. Trivy
             # otherwise interprets their descriptor keys as package headers.
@@ -354,6 +371,14 @@ def project_yarn(root, destination):
                 continue
             if line.strip() and not line.startswith('#'):
                 skipping = False
+            if line.startswith('  ') and not line.startswith('   '):
+                in_dependencies = line.rstrip() == '  dependencies:'
+            elif line.strip() and not line.startswith('    ') and not line.startswith('#'):
+                in_dependencies = False
+            if in_dependencies and line.startswith('    '):
+                dependency = re.fullmatch(r'    (?:"(?:[^"\\]|\\.)*"|[^\s:]+): ("(?:[^"\\]|\\.)*")\s*', line)
+                require(dependency is not None, 'unsupported_yarn_source')
+                supported_yarn_dependency(json.loads(dependency[1]))
             lines.append(line)
         target = destination / relative
         target.parent.mkdir(parents=True, exist_ok=True)

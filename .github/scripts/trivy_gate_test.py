@@ -395,6 +395,21 @@ class GateTests(unittest.TestCase):
         self.assertEqual((projected / 'yarn.lock').read_text(),
             self.npm_lockfile() + '  dependencies:\n    child: "npm:2"\n\n' + self.npm_lockfile('child', '2'))
 
+    def test_patch_dependency_edges_cannot_change_production_reachability(self):
+        destination = tempfile.TemporaryDirectory()
+        self.addCleanup(destination.cleanup)
+        constraint = 'patch:example@npm%3A1#./fixture.patch'
+        for field in ('dependencies', 'optionalDependencies', 'devDependencies'):
+            manifest = json.dumps({field: {'example': constraint}}).replace('patch:', 'p\\u0061tch:')
+            (self.root / 'package.json').write_text(manifest)
+            with self.subTest(field=field), self.assertRaisesRegex(gate.GateError, '^unsupported_yarn_patch_dependency$'):
+                gate.project_yarn(self.root, Path(destination.name) / field)
+        (self.root / 'package.json').write_text('{}')
+        (self.root / 'yarn.lock').write_text(self.npm_lockfile() + '\n' +
+            self.npm_lockfile('parent', '1') + '  dependencies:\n    example: ' + json.dumps(constraint) + '\n')
+        with self.assertRaisesRegex(gate.GateError, '^unsupported_yarn_patch_dependency$'):
+            gate.project_yarn(self.root, Path(destination.name) / 'transitive')
+
     def test_workflow_versions_and_target_revision_match_gate(self):
         directory = Path(__file__).parent.parent / 'workflows'
         candidate = (directory / 'trivy.yml').read_text()

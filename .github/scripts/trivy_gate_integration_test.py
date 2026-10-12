@@ -211,6 +211,26 @@ class RealScannerTests(unittest.TestCase):
         self.assertTrue(any(f['kind'] == 'secret' for f in report['findings']))
         self.assertNotIn(secret, json.dumps(report))
 
+    def test_patch_edge_cannot_hide_production_promotion_of_dev_package(self):
+        root = self.tree('patch-edge-promotion', lodash=True, dev=True)
+        manifest = root / 'package.json'
+        package = json.loads(manifest.read_text())
+        package['dependencies']['parent'] = '1.0.0'
+        manifest.write_text(json.dumps(package))
+        lock = root / 'yarn.lock'
+        lock.write_text(lock.read_text() + '\n' + npm('parent', '1.0.0') +
+            '  dependencies:\n    lodash: "patch:lodash@npm%3A4.17.20#./fixture.patch"\n\n'
+            '"lodash@patch:lodash@npm%3A4.17.20#./fixture.patch":\n  version: 4.17.20\n'
+            '  resolution: "lodash@patch:lodash@npm%3A4.17.20#./fixture.patch::version=4.17.20&hash=abcdef"\n')
+        (root / 'fixture.patch').write_text('')
+        inventory = self.scan(root, 'patch-edge-inventory', 'vuln', True)
+        production = self.scan(root, 'patch-edge-production', 'vuln')
+        packages = [p for r in inventory['Results'] for p in r.get('Packages', [])]
+        self.assertTrue(any(p['Name'] == 'lodash' and p.get('Dev') for p in packages))
+        self.assertFalse(any(p['Name'] == 'lodash' for r in production['Results'] for p in r.get('Packages', [])))
+        with self.assertRaisesRegex(gate.GateError, '^unsupported_yarn_patch_dependency$'):
+            self.assessed(root, 'patch-edge-assessed')
+
     def test_helm_entry_limit_rejected_by_warning_policy(self):
         for size in (1, 6):
             root = self.root / ('helm-' + str(size))
