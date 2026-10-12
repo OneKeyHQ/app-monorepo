@@ -77,7 +77,7 @@ export function DustSweepNetworks({ desktop = false }: { desktop?: boolean }) {
           my={0}
           testID="dust-sweep-network-menu"
           size="small"
-          variant="tertiary"
+          variant="secondary"
           disabled={!selecting}
         >
           <XStack gap="$1" alignItems="center">

@@ -3,7 +3,6 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Checkbox,
-  Empty,
   ScrollView,
   SizableText,
   XStack,
@@ -138,16 +137,18 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
           </YStack>
         ) : null}
         {!loading && loadStatus === 'ready' && !partialError && !rows.length ? (
-          <YStack height={330} justifyContent="center" px="$5">
-            <Empty
-              title={intl.formatMessage(
+          <YStack height={330} justifyContent="center" px="$10" gap="$1">
+            <SizableText size="$bodyLgMedium" textAlign="center">
+              {intl.formatMessage(
                 { id: ETranslations.sweep_no_small_balances_on_network },
                 { network: current?.network.name ?? '' },
               )}
-              description={intl.formatMessage({
+            </SizableText>
+            <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
+              {intl.formatMessage({
                 id: ETranslations.sweep_try_different_network_or_amount_range,
               })}
-            />
+            </SizableText>
           </YStack>
         ) : null}
         {selecting && !loading && hidden.length ? (
