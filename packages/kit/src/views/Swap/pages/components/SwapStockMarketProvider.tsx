@@ -53,6 +53,7 @@ import { useSwapStockTradeContext } from './SwapStockTradeProvider';
 type ISwapStockSelection = {
   storeName: EJotaiContextStoreNames;
   cancelSelection: () => void;
+  onSelectorOpenChange: (open: boolean) => void;
   selecting: boolean;
   stockSelectionPending: boolean;
   loadingScopes: ReturnType<typeof resolveSwapStockLoadingScopes>;
@@ -103,6 +104,7 @@ function SwapStockSelectionProvider({
   const [selectedStockPreview, setSelectedStockPreview] =
     useState<IMarketStockDetailPreview>();
   const requestRef = useRef(0);
+  const pendingSelectionRef = useRef(false);
   const retrySelectionRef = useRef<(() => Promise<boolean>) | undefined>(
     undefined,
   );
@@ -154,6 +156,7 @@ function SwapStockSelectionProvider({
   identityRef.current = identity;
   const cancelSelection = useCallback(() => {
     requestRef.current += 1;
+    pendingSelectionRef.current = false;
     setOperation({ phase: 'idle' });
     setSelectedStockPreview((preview) =>
       preview?.stockId.toUpperCase() ===
@@ -162,12 +165,21 @@ function SwapStockSelectionProvider({
         : undefined,
     );
   }, []);
+  const onSelectorOpenChange = useCallback(
+    (open: boolean) => {
+      // A successful choice or risk-modal handoff closes intentionally. Only
+      // invalidate a closing selector while its async lookup/check is pending.
+      if (open || pendingSelectionRef.current) cancelSelection();
+    },
+    [cancelSelection],
+  );
   const retrySelection = useCallback(() => {
     const retry = retrySelectionRef.current;
     return retry ? retry() : Promise.resolve(false);
   }, []);
   useEffect(() => {
     requestRef.current += 1;
+    pendingSelectionRef.current = false;
     setOperation((current) =>
       current.phase === 'applying' && current.tokenKey === identity
         ? current
@@ -195,6 +207,7 @@ function SwapStockSelectionProvider({
     ) => {
       requestRef.current += 1;
       const request = requestRef.current;
+      pendingSelectionRef.current = true;
       const initialIdentity = identityRef.current;
       setOperation({ phase: 'resolving', kind, stockPreview });
       try {
@@ -225,6 +238,7 @@ function SwapStockSelectionProvider({
         ) {
           return false;
         }
+        pendingSelectionRef.current = false;
         if (isRiskToken) {
           setOperation({ phase: 'idle' });
           navigation.pushModal(EModalRoutes.SwapModal, {
@@ -243,8 +257,10 @@ function SwapStockSelectionProvider({
         }
         return true;
       } catch (_error) {
-        if (request === requestRef.current)
+        if (request === requestRef.current) {
+          pendingSelectionRef.current = false;
           setOperation({ phase: 'failed', kind });
+        }
         return false;
       }
     },
@@ -286,6 +302,7 @@ function SwapStockSelectionProvider({
     () => ({
       storeName,
       cancelSelection,
+      onSelectorOpenChange,
       selecting,
       stockSelectionPending,
       loadingScopes,
@@ -303,6 +320,7 @@ function SwapStockSelectionProvider({
     [
       storeName,
       cancelSelection,
+      onSelectorOpenChange,
       selecting,
       stockSelectionPending,
       loadingScopes,
