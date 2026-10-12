@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Toast } from '@onekeyhq/components';
+import { Toast, rootNavigationRef } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePerpTabConfig } from '@onekeyhq/kit/src/hooks/usePerpTabConfig';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -15,6 +15,8 @@ import {
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
+import { dismissDiscoveryMarketDetailForTrade } from '../utils/marketDetailNavigation';
+
 export function usePerpsNavigation(source?: EPerpPageEnterSource) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -23,6 +25,7 @@ export function usePerpsNavigation(source?: EPerpPageEnterSource) {
   const navigateToPerps = useCallback(
     (coin: string) => {
       if (!coin.trim() || perpDisabled) return;
+      const entryRouteKey = rootNavigationRef.current?.getCurrentRoute()?.key;
       setTimeout(async () => {
         setPerpPageEnterSource(source ?? EPerpPageEnterSource.MarketList);
         // Prepare the target before mounting the tab. Web Perps requires this
@@ -55,6 +58,9 @@ export function usePerpsNavigation(source?: EPerpPageEnterSource) {
             );
             return;
           }
+        }
+        if (entryRouteKey) {
+          dismissDiscoveryMarketDetailForTrade(entryRouteKey);
         }
         if (perpTabShowWeb) {
           navigation.switchTab(ETabRoutes.WebviewPerpTrade);

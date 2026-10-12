@@ -292,6 +292,17 @@ const getEmptyEnabledNetworksResult = (): IEnabledNetworksCompatResult => ({
 //   return [...priorityItems, ...normalItems];
 // };
 
+// Identity of one per-network request of a run (`activeRunAccountKeysRef`).
+function buildRunAccountKey({
+  accountId,
+  networkId,
+}: {
+  accountId: string;
+  networkId: string;
+}) {
+  return `${accountId}__${networkId}`;
+}
+
 function useAllNetworkRequests<T>(params: {
   accountId: string | undefined;
   networkId: string | undefined;
@@ -305,11 +316,15 @@ function useAllNetworkRequests<T>(params: {
     networkId,
     dbAccount,
     allNetworkDataInit,
+    isRunCurrent,
   }: {
     accountId: string;
     networkId: string;
     dbAccount?: IDBAccount;
     allNetworkDataInit?: boolean;
+    // False once the run that issued this request has been superseded (see
+    // `activeRunGenerationRef`); consumers must skip their own writes then.
+    isRunCurrent?: () => boolean;
   }) => Promise<T | undefined>;
   allNetworkCacheRequests?: ({
     dbAccount,
@@ -332,6 +347,7 @@ function useAllNetworkRequests<T>(params: {
     accountId,
     networkId,
     generation,
+    isRunCurrent,
   }: {
     data: any;
     accountId: string;
@@ -340,6 +356,10 @@ function useAllNetworkRequests<T>(params: {
     // materialized view's `seedFloor` so a stale earlier run's cache seed can
     // never clobber a newer run's live result.
     generation: number;
+    // False once the run has been superseded. The hook re-checks it only when
+    // this callback returns, so a consumer that awaits inside must re-check
+    // it after every await, before writing.
+    isRunCurrent?: () => boolean;
   }) => Promise<void>;
   allNetworkAccountsData?: ({
     accounts,
@@ -350,6 +370,9 @@ function useAllNetworkRequests<T>(params: {
   }) => void;
   clearAllNetworkData: () => void;
   abortAllNetworkRequests?: () => void;
+  // Cancels the per-network requests of a run that an enabled-network change
+  // superseded, so they stop competing with the new run for the network.
+  abortSupersededRequests?: () => void;
   isNFTRequests?: boolean;
   isDeFiRequests?: boolean;
   disabled?: boolean;
@@ -358,10 +381,13 @@ function useAllNetworkRequests<T>(params: {
     accountId,
     networkId,
     allNetworkDataInit,
+    isRunCurrent,
   }: {
     accountId?: string;
     networkId?: string;
     allNetworkDataInit?: boolean;
+    // See `allNetworkCacheData`: re-check after every await before writing.
+    isRunCurrent?: () => boolean;
   }) => Promise<void>;
   onFinished?: ({
     accountId,
@@ -409,6 +435,7 @@ function useAllNetworkRequests<T>(params: {
     allNetworkCacheData,
     allNetworkAccountsData,
     abortAllNetworkRequests,
+    abortSupersededRequests,
     clearAllNetworkData,
     isNFTRequests,
     isDeFiRequests,
@@ -423,6 +450,15 @@ function useAllNetworkRequests<T>(params: {
     clearRetainedResultOnAcceptedRun = false,
   } = params;
   const allNetworkDataInit = useRef(false);
+  // Generation of the run that owns the fan-out (0: none). An enabled-network
+  // change supersedes a running fan-out instead of queuing behind it: waiting
+  // kept the unchecked network in the list and the total for as long as the
+  // old fan-out ran, and letting it finish re-armed `allNetworkDataInit` so the
+  // rerun skipped the clear (Slack 09-23 QA report). The superseded run's
+  // remaining requests are aborted or not started, and every write it would
+  // still make (consumer callbacks, per-request merges via `isRunCurrent`,
+  // publish, the `isFetching` release) is dropped.
+  const activeRunGenerationRef = useRef(0);
   const isFetching = useRef(false);
   // Reserve active debounce windows so a second manual refresh is queued by
   // runWithQueue instead of starting another usePromiseResult runner and
@@ -432,6 +468,12 @@ function useAllNetworkRequests<T>(params: {
   const runCountRef = useRef(0);
   // Never reset: consumers use this generation to reject stale writes.
   const runGenerationRef = useRef(0);
+  // The (account, network) set the run that owns the view fetched, stamped
+  // with that run's generation. A per-account refresh only fetches members
+  // of it (`runAccountRequests`).
+  const activeRunAccountKeysRef = useRef<
+    { generation: number; keys: Set<string> } | undefined
+  >(undefined);
   const [isEmptyAccount, setIsEmptyAccount] = useState(false);
   const [isLocked] = useAppIsLockedAtom();
   const isRouteFocused = useRouteIsFocused();
@@ -508,6 +550,21 @@ function useAllNetworkRequests<T>(params: {
   // `lastRunSignatureRef` is the owner identity of the last run that proceeded.
   const alwaysSetStateRef = useRef(false);
   const lastRunSignatureRef = useRef<string | null>(null);
+  const abortSupersededRequestsRef = useRef(abortSupersededRequests);
+  abortSupersededRequestsRef.current = abortSupersededRequests;
+  // Hands the fan-out over to the run started right after this; see
+  // `activeRunGenerationRef`.
+  const supersedeActiveRun = useCallback(() => {
+    if (!isFetching.current) {
+      return;
+    }
+    activeRunGenerationRef.current = 0;
+    isFetching.current = false;
+    // The fresh run covers anything queued behind the superseded one.
+    rerunAfterCurrentRef.current = false;
+    rerunConfigRef.current = undefined;
+    abortSupersededRequestsRef.current?.();
+  }, []);
 
   useEffect(() => {
     const onEnabledNetworksChanged = () => {
@@ -516,11 +573,16 @@ function useAllNetworkRequests<T>(params: {
       }
       allNetworkAccountsBaseCache.clear();
       allNetworkDataInit.current = false;
+      supersedeActiveRun();
+      // The retained snapshot was published for the previous enabled set; a
+      // rerun whose every request fails must not restore it.
+      lastPublishedResultRef.current = undefined;
       runCountRef.current = 0;
       setEnabledNetworksChangedNonce((v) => v + 1);
       // owner intentionally omitted (this appEventBus-listener effect must not
       // depend on the owner); it appears on the following `allnet.run` line.
-      void runWithQueueRef.current?.();
+      // Must-run so the fresh fan-out passes the redundant-run and focus gates.
+      void runWithQueueRef.current?.({ alwaysSetState: true });
     };
     appEventBus.on(
       EAppEventBusNames.EnabledNetworksChanged,
@@ -532,7 +594,7 @@ function useAllNetworkRequests<T>(params: {
         onEnabledNetworksChanged,
       );
     };
-  }, [isAllNetworks]);
+  }, [isAllNetworks, supersedeActiveRun]);
 
   useEffect(() => {
     if (!isAllNetworks || !isDeFiRequests) {
@@ -543,6 +605,10 @@ function useAllNetworkRequests<T>(params: {
       // config refresh. Rebuild the main-runtime fan-out so it deserializes
       // the current map and removes data for networks that were disabled.
       allNetworkDataInit.current = false;
+      supersedeActiveRun();
+      // The retained snapshot was published for the previous enabled set; a
+      // rerun whose every request fails must not restore it.
+      lastPublishedResultRef.current = undefined;
       runCountRef.current = 0;
       setEnabledNetworksChangedNonce((value) => value + 1);
       void runWithQueueRef.current?.({ alwaysSetState: true });
@@ -557,7 +623,7 @@ function useAllNetworkRequests<T>(params: {
         onDeFiEnabledNetworksChanged,
       );
     };
-  }, [isAllNetworks, isDeFiRequests]);
+  }, [isAllNetworks, isDeFiRequests, supersedeActiveRun]);
 
   // Hardware wallets create default network accounts in series after connect
   // (BTC -> EVM -> TRON -> SOL). The 15s account-list cache can otherwise
@@ -614,7 +680,14 @@ function useAllNetworkRequests<T>(params: {
   const { run, result, setResult } = usePromiseResult(
     async () => {
       let runCanceled = false;
-      const isCurrentRun = () => !runCanceled && (isRunCurrent?.() ?? true);
+      // Filled once this run owns the fan-out. An enabled-network change hands
+      // the fan-out to the run started right after (`supersedeActiveRun`).
+      const ownedRun: { generation?: number } = {};
+      const isSupersededRun = () =>
+        ownedRun.generation !== undefined &&
+        activeRunGenerationRef.current !== ownedRun.generation;
+      const isCurrentRun = () =>
+        !runCanceled && !isSupersededRun() && (isRunCurrent?.() ?? true);
       const runnerOwnerKey = buildAllNetworkRunOwnerKey({
         accountId: currentAccountId,
         networkId: currentNetworkId,
@@ -792,6 +865,13 @@ function useAllNetworkRequests<T>(params: {
       // (`allNetworkCacheData`) and the per-network settle (`onRequestSettled`)
       // so the consumer's LWW materialized view rejects a stale earlier run.
       const runGeneration = runGenerationRef.current;
+      activeRunGenerationRef.current = runGeneration;
+      ownedRun.generation = runGeneration;
+      const markDataInitialized = () => {
+        if (isCurrentRun()) {
+          allNetworkDataInit.current = true;
+        }
+      };
       isFetching.current = true;
 
       if (isAccountSwitchDiagnosticsEnabled()) {
@@ -825,7 +905,8 @@ function useAllNetworkRequests<T>(params: {
           return Promise.resolve(undefined);
         }
         if (isAccountSwitchDiagnosticsEnabled()) liveDispatchStarted += 1;
-        return allNetworkRequests(request);
+        // A consumer that awaits inside re-checks it before writing.
+        return allNetworkRequests({ ...request, isRunCurrent: isCurrentRun });
       };
       const publishRequestResult = (value: T, generation: number) => {
         if (isCurrentRun()) {
@@ -851,6 +932,7 @@ function useAllNetworkRequests<T>(params: {
             accountId: currentAccountId,
             networkId: currentNetworkId,
             allNetworkDataInit: allNetworkDataInit.current,
+            isRunCurrent: isCurrentRun,
           }).catch((err) => {
             onStartedError = err;
           });
@@ -946,6 +1028,14 @@ function useAllNetworkRequests<T>(params: {
           accounts: accountsInfo,
           allAccounts: allAccountsInfo,
         });
+        activeRunAccountKeysRef.current = {
+          generation: runGeneration,
+          keys: new Set(
+            accountsInfo.map(({ accountId, networkId }) =>
+              buildRunAccountKey({ accountId, networkId }),
+            ),
+          ),
+        };
 
         if (!accountsInfo || isEmpty(accountsInfo)) {
           setIsEmptyAccount(true);
@@ -1055,7 +1145,7 @@ function useAllNetworkRequests<T>(params: {
 
             if (cachedData && !isEmpty(cachedData)) {
               cacheHasData = true;
-              allNetworkDataInit.current = true;
+              markDataInitialized();
               if (isAccountSwitchDiagnosticsEnabled()) {
                 defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace(
                   {
@@ -1080,6 +1170,7 @@ function useAllNetworkRequests<T>(params: {
                 accountId: currentAccountId,
                 networkId: currentNetworkId,
                 generation: runGeneration,
+                isRunCurrent: isCurrentRun,
               });
             }
           } catch (e) {
@@ -1227,7 +1318,7 @@ function useAllNetworkRequests<T>(params: {
           return;
         }
         if (accountsInfo.length && accountsInfo.length > 0) {
-          allNetworkDataInit.current = true;
+          markDataInitialized();
         }
 
         if (isAccountSwitchDiagnosticsEnabled()) {
@@ -1248,6 +1339,8 @@ function useAllNetworkRequests<T>(params: {
         }
       } catch (error) {
         if (!isCurrentRun()) {
+          // Stale or superseded: the run that replaced it owns the published
+          // result.
           return;
         }
         if (clearRetainedResultOnAcceptedRun) {
@@ -1291,9 +1384,10 @@ function useAllNetworkRequests<T>(params: {
         } catch (e) {
           console.error(e);
         }
-        if (!isCurrentRun()) {
+        if (!isCurrentRun() && !isSupersededRun()) {
           // An epoch can change without changing the owner key. Its partial
           // run must not make the replacement look like a completed duplicate.
+          // (The run that superseded one has recorded its own signature.)
           lastRunSignatureRef.current = null;
         }
         if (isRunCurrent && isAccountSwitchDiagnosticsEnabled()) {
@@ -1315,9 +1409,15 @@ function useAllNetworkRequests<T>(params: {
             );
           }
         }
-        // Queue refreshes through cleanup to prevent stale publication.
-        isFetching.current = false;
-        hasQueuedRerun = scheduleQueuedRerun();
+        // A run an enabled-network change superseded leaves the `isFetching`
+        // release and the queue to the run that replaced it: that run holds
+        // the lock (`supersedeActiveRun`), and the change can land while
+        // `onFinished` waits above, so this is decided after it.
+        if (!isSupersededRun()) {
+          // Queue refreshes through cleanup to prevent stale publication.
+          isFetching.current = false;
+          hasQueuedRerun = scheduleQueuedRerun();
+        }
       }
 
       if (!isCurrentRun()) {
@@ -1414,11 +1514,25 @@ function useAllNetworkRequests<T>(params: {
 
   const runWithQueue = useCallback(
     async (config?: IAllNetworkRequestsRunConfig) => {
-      if (
-        isFetching.current ||
-        (clearRetainedResultOnAcceptedRun &&
-          debouncePendingCountRef.current > 0)
-      ) {
+      // No fan-out is running but a runner is waiting in the debounce window.
+      // It reads the relayed flags once the wait ends, so it absorbs this
+      // refresh; queuing a second must-run behind it instead kept the
+      // runner's own round unpublished and repeated the whole fan-out.
+      // `ignoreDisabled` is consumed before the wait, so it still queues.
+      const isDebounceWaiting =
+        !isFetching.current &&
+        clearRetainedResultOnAcceptedRun &&
+        debouncePendingCountRef.current > 0;
+      if (isDebounceWaiting && !config?.ignoreDisabled) {
+        if (config?.skipAccountsCache) {
+          skipAccountsCacheRef.current = true;
+        }
+        if (config?.alwaysSetState) {
+          alwaysSetStateRef.current = true;
+        }
+        return;
+      }
+      if (isFetching.current || isDebounceWaiting) {
         rerunAfterCurrentRef.current = true;
         rerunConfigRef.current = {
           ...rerunConfigRef.current,
@@ -1449,6 +1563,77 @@ function useAllNetworkRequests<T>(params: {
     [run, clearRetainedResultOnAcceptedRun],
   );
 
+  // Per-account refresh outside a fan-out. History reports the accounts whose
+  // transactions changed (`RefreshTokenList` with `accounts`) and only their
+  // networks are fetched again; each result is published through
+  // `onRequestSettled` under the run generation current when the batch was
+  // issued, so the consumer's LWW view replaces that network's round in place
+  // and re-materializes the list. The cells cutover (#12068) moved the merge
+  // out of the consumer's request callback, which had left this path fetching
+  // and dropping the result: a token sent under All Networks kept its old
+  // balance in the home list until the next full fan-out. A batch issued
+  // before the owner's fan-out initialized the view is skipped (that fan-out
+  // covers it), and one that a newer run, an enabled-network change or an
+  // owner change overtakes stops publishing: the newer run owns the view.
+  // Only members of the owning run's account set are fetched: an event
+  // raised for a network unchecked since then names an account the rerun
+  // dropped from the view, and publishing it would restore that network's
+  // row and worth.
+  const runAccountRequests = useCallback(
+    async (accounts: { accountId: string; networkId: string }[]) => {
+      if (!isAllNetworks || !allNetworkDataInit.current) {
+        return;
+      }
+      const ownerKey = liveRunOwnerKeyRef.current;
+      const generation = runGenerationRef.current;
+      // A newer run that has not resolved its accounts yet owns the view and
+      // covers the batch.
+      const runAccountKeys = activeRunAccountKeysRef.current;
+      if (!runAccountKeys || runAccountKeys.generation !== generation) {
+        return;
+      }
+      const isRequestCurrent = () =>
+        liveRunOwnerKeyRef.current === ownerKey &&
+        runGenerationRef.current === generation &&
+        allNetworkDataInit.current &&
+        (isRunCurrent?.() ?? true);
+      const memberAccounts = accounts.filter(({ accountId, networkId }) =>
+        runAccountKeys.keys.has(buildRunAccountKey({ accountId, networkId })),
+      );
+      for (const { accountId, networkId } of memberAccounts) {
+        if (!isRequestCurrent()) {
+          return;
+        }
+        let settledResult: T | undefined;
+        try {
+          settledResult = await allNetworkRequests({
+            accountId,
+            networkId,
+            allNetworkDataInit: false,
+            isRunCurrent: isRequestCurrent,
+          });
+        } catch (error) {
+          // A retired owner cancels the batch; one failed network does not.
+          if (isRequestCanceledError(error)) {
+            return;
+          }
+          defaultLogger.app.error.log(
+            `All Networks account refresh failed (${networkId}): ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        }
+        if (settledResult !== undefined) {
+          if (!isRequestCurrent()) {
+            return;
+          }
+          onRequestSettled?.(settledResult, generation);
+        }
+      }
+    },
+    [allNetworkRequests, isAllNetworks, isRunCurrent, onRequestSettled],
+  );
+
   applyResultRef.current = (nextResult) => setResult(nextResult);
   liveRunOwnerKeyRef.current = buildAllNetworkRunOwnerKey({
     accountId: currentAccountId,
@@ -1460,6 +1645,7 @@ function useAllNetworkRequests<T>(params: {
 
   return {
     run: runWithQueue,
+    runAccountRequests,
     result,
     isEmptyAccount,
   };

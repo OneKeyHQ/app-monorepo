@@ -868,4 +868,17 @@ export class SimpleDb {
     Object.defineProperty(this, 'rookieGuide', { value });
     return value;
   }
+
+  get walletConnectPay() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@walletConnectPay',
+      loader: () =>
+        import('../entity/SimpleDbEntityWalletConnectPay').then(
+          ({ SimpleDbEntityWalletConnectPay }) =>
+            new SimpleDbEntityWalletConnectPay(),
+        ),
+    });
+    Object.defineProperty(this, 'walletConnectPay', { value });
+    return value;
+  }
 }

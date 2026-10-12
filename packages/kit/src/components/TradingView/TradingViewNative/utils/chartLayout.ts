@@ -1237,12 +1237,14 @@ export function getTradingViewNativePriceY(
 }
 
 export function getTradingViewNativePriceAtY({
+  allowOutsideChart = false,
   maxPrice,
   minPrice,
   priceChartHeight,
   priceScaleMode = 'linear',
   y,
 }: {
+  allowOutsideChart?: boolean;
   maxPrice: number;
   minPrice: number;
   priceChartHeight: number;
@@ -1257,8 +1259,8 @@ export function getTradingViewNativePriceAtY({
     !Number.isFinite(minPrice) ||
     !Number.isFinite(y) ||
     priceChartHeight <= 0 ||
-    y < TRADING_VIEW_NATIVE_CHART_TOP_PADDING ||
-    y > chartBottom
+    (!allowOutsideChart &&
+      (y < TRADING_VIEW_NATIVE_CHART_TOP_PADDING || y > chartBottom))
   ) {
     return null;
   }
