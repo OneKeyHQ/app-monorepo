@@ -23483,6 +23483,7 @@
     "packages/kit/src/views/Prime/hooks/usePrimeAvailable.tsx": 984,
     "packages/kit/src/views/Prime/hooks/usePrimeFeatureAccess.tsx": 10064,
     "packages/kit/src/views/Prime/hooks/usePrimeFreeTrialPendingAction.ts": 7646,
+    "packages/kit/src/views/Prime/hooks/usePrimeFreeTrialUpgrade.ts": 10879,
     "packages/kit/src/views/Prime/hooks/usePrimeFreeTrialUsage.ts": 14199,
     "packages/kit/src/views/Prime/hooks/usePrimeGiftCampaignBannerImpression.ts": 18556,
     "packages/kit/src/views/Prime/hooks/usePrimeGiftClaim.ts": 16442,
