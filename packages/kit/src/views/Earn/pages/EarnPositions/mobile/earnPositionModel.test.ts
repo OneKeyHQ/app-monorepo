@@ -7,11 +7,12 @@ import type {
 } from '@onekeyhq/shared/types/earn/portfolioPositions';
 
 import {
-  buildEarnClaimableRewardsView,
+  buildEarnClaimableRewardGroups,
   buildEarnPortfolioView,
   countEarnPositionsByNetwork,
   filterEarnProtocolsByNetworks,
   sumEarnClaimableRewards,
+  sumEarnDefiAssets,
 } from './earnPositionModel';
 import {
   EARN_PORTFOLIO_POSITIONS_FIXTURE,
@@ -63,7 +64,7 @@ describe('earn position model: protocol rows', () => {
     ]);
   });
 
-  it('sorts rows by value and adds each row up from its cards', () => {
+  it('sorts rows by value and adds each row up from its cards, rewards included', () => {
     const values = view.protocols.map((protocol) => protocol.value.value);
     expect(values).toEqual(values.toSorted((a, b) => b - a));
     view.protocols.forEach((protocol) => {
@@ -73,11 +74,41 @@ describe('earn position model: protocol rows', () => {
       );
       expect(protocol.value.value).toBeCloseTo(cardSum, 9);
     });
+    // Everstake: 0.1 ETH staked + 0.001 ETH of yield
+    expect(protocolRow('evm--1-everstake').value.value).toBeCloseTo(
+      0.1 * 3150 + 0.001 * 3150 + 0.05 * 3150,
+      9,
+    );
+  });
+
+  it('leaves the rewards out of the header DeFi Assets figure, debts subtracted', () => {
     const rowSum = view.protocols.reduce(
       (sum, protocol) => sum + protocol.value.value,
       0,
     );
-    expect(view.totalValue).toBeCloseTo(rowSum, 9);
+    const rewardSum = view.protocols
+      .flatMap((protocol) => protocol.positions)
+      .flatMap((position) => position.sections)
+      .filter((section) => section.kind === 'rewards')
+      .flatMap((section) => section.assets)
+      .reduce((sum, asset) => sum + asset.value, 0);
+    expect(rewardSum).toBeGreaterThan(0);
+    expect(view.totalValue).toBeCloseTo(rowSum - rewardSum, 9);
+    expect(sumEarnDefiAssets(view.protocols)).toBe(view.totalValue);
+    // the loan: supplied minus borrowed, its MORPHO and KAT left out
+    expect(
+      sumEarnDefiAssets([
+        {
+          ...protocolRow('evm--1-morpho'),
+          positions: [
+            card(
+              protocolRow('evm--1-morpho'),
+              'morpho:evm--1:market:weth-usdc',
+            ),
+          ],
+        },
+      ]),
+    ).toBeCloseTo(0.02 * 3150 - 20.01, 9);
   });
 
   it('filters by network exactly and counts positions per network', () => {
@@ -220,8 +251,8 @@ describe('earn position model: one card per stage of a position', () => {
       ETranslations.wallet_defi_position_module_rewards,
     ]);
     expect(loan.meta).toEqual({ kind: 'healthFactor', healthFactor: 1.62 });
-    // 0.02 WETH * 3150 + 1.2 MORPHO * 1.2 - 20.01 USDC
-    expect(loan.value.value).toBeCloseTo(44.43, 9);
+    // 0.02 WETH * 3150 + 1.2 MORPHO * 1.2 + 3 KAT * 0.05 - 20.01 USDC
+    expect(loan.value.value).toBeCloseTo(44.58, 9);
   });
 
   it('keeps the rewards on the staked card, apart from the principal to collect', () => {
@@ -235,6 +266,61 @@ describe('earn position model: one card per stage of a position', () => {
       ['active', ['deposited', 'rewards']],
       ['claimable', ['claimable']],
     ]);
+  });
+
+  it('hands the card the rewards whose claim the server sent enabled', () => {
+    // one yield row claimed through the detail row: Claim beside Manage
+    const everstake = card(
+      protocolRow('evm--1-everstake'),
+      'everstake:evm--1:eth',
+    );
+    expect(everstake.action?.kind).toBe('manage');
+    expect(
+      everstake.claimableRewards.map((reward) => [
+        reward.symbol,
+        reward.claim.claimSource,
+      ]),
+    ).toEqual([['ETH', 'investment']]);
+    // two campaign tokens on one market: the sheet
+    const loan = card(
+      protocolRow('evm--1-morpho'),
+      'morpho:evm--1:market:weth-usdc',
+    );
+    expect(loan.claimableRewards.map((reward) => reward.symbol)).toEqual([
+      'MORPHO',
+      'KAT',
+    ]);
+    // a claim the server sent disabled (under the floor) is no Claim on the card
+    const stakefish = card(
+      protocolRow('sol--101-stakefish'),
+      'stakefish:sol--101:SOL',
+    );
+    expect(stakefish.source.rewards[0].claim?.button).toMatchObject({
+      disabled: true,
+    });
+    expect(stakefish.claimableRewards).toEqual([]);
+    // no rewards, no claim; principal and locked cards never carry one
+    expect(
+      card(protocolRow('evm--1-lido'), 'lido:evm--1:steth').claimableRewards,
+    ).toEqual([]);
+    expect(
+      card(protocolRow('evm--1-lido'), 'lido:evm--1:steth:claimable')
+        .claimableRewards,
+    ).toEqual([]);
+  });
+
+  it('carries the server PnL on the card it belongs to', () => {
+    const usd3 = card(protocolRow('evm--1-pendle'), 'pendle:evm--1:0xusd3');
+    expect(usd3.source.earn.pnl).toEqual({
+      amount: '0.0205',
+      symbol: 'USD3',
+      fiatValue: '0.02',
+      percent: '1.84',
+    });
+    expect(
+      card(protocolRow('evm--1-pendle'), 'pendle:evm--1:0xusdg').source.earn
+        .pnl,
+    ).toBeUndefined();
   });
 
   it('never merges positions that come without a groupId', () => {
@@ -257,33 +343,37 @@ describe('earn position model: one card per stage of a position', () => {
 });
 
 describe('earn position model: rewards claimable stage', () => {
-  const claimable = buildEarnClaimableRewardsView(view.protocols);
+  const claimable = buildEarnClaimableRewardGroups(view.protocols);
 
-  it('lists only positions with priced rewards, valued at the rewards alone', () => {
-    const morpho = claimable.find(
-      (protocol) => protocol.key === 'evm--1-morpho',
-    );
+  it('lists one row per priced reward under its protocol, valued at the rewards alone', () => {
+    const morpho = claimable.find((group) => group.key === 'evm--1-morpho');
     expect(
-      morpho?.positions.map((position) => position.key).toSorted(),
+      morpho?.rows.map((row) => [row.position.key, row.asset.symbol]),
     ).toEqual([
-      'morpho:evm--1:0xa71d08a159258553a5ac190d60fa919425ff02ea',
-      'morpho:evm--1:market:weth-usdc',
+      ['morpho:evm--1:0xa71d08a159258553a5ac190d60fa919425ff02ea', 'MORPHO'],
+      ['morpho:evm--1:market:weth-usdc', 'MORPHO'],
+      ['morpho:evm--1:market:weth-usdc', 'KAT'],
     ]);
-    // 1.2 MORPHO + 0.0213 MORPHO, both at $1.2
-    expect(morpho?.value.value).toBeCloseTo(1.2 * 1.2 + 0.0213 * 1.2, 9);
-    morpho?.positions.forEach((position) => {
-      expect(position.sections.map((section) => section.kind)).toEqual([
-        'rewards',
-      ]);
-      expect(position.variant).toBe('rewards');
-    });
-    // principal to collect is a DeFi Assets card, never a reward
-    expect(claimable.map((protocol) => protocol.key).toSorted()).toEqual([
+    // 0.0213 MORPHO + 1.2 MORPHO at $1.2, 3 KAT at $0.05
+    expect(morpho?.value.value).toBeCloseTo(
+      1.2 * 1.2 + 0.0213 * 1.2 + 3 * 0.05,
+      9,
+    );
+    // each row keeps the claim the server attached, so it claims in place
+    expect(morpho?.rows.map((row) => row.asset.claim?.claimSource)).toEqual([
+      'airdrop',
+      'airdrop',
+      'airdrop',
+    ]);
+    // principal to collect is a DeFi Assets card, never a reward; a reward
+    // under its claim floor still lists, with the claim disabled
+    expect(claimable.map((group) => group.key).toSorted()).toEqual([
       'evm--1-everstake',
       'evm--1-morpho',
+      'sol--101-stakefish',
     ]);
     expect(sumEarnClaimableRewards(view.protocols)).toBeCloseTo(
-      1.2 * 1.2 + 0.0213 * 1.2 + 0.001 * 3150,
+      1.2 * 1.2 + 0.0213 * 1.2 + 3 * 0.05 + 0.001 * 3150 + 0.0001 * 110,
       9,
     );
   });
@@ -310,8 +400,9 @@ describe('earn position model: rewards claimable stage', () => {
       errors: [],
     };
     const { protocols } = buildEarnPortfolioView({ response, translate });
-    const [row] = buildEarnClaimableRewardsView(protocols);
-    expect(row.positions.map((position) => position.key)).toEqual([
+    const [group] = buildEarnClaimableRewardGroups(protocols);
+    expect(group.rows.map((row) => row.position.key)).toEqual([
+      morpho.groupId,
       morpho.groupId,
     ]);
   });
@@ -340,8 +431,8 @@ describe('earn position model: rewards claimable stage', () => {
     };
     const { protocols } = buildEarnPortfolioView({ response, translate });
     expect(protocols[0].positions).toHaveLength(2);
-    const [row] = buildEarnClaimableRewardsView(protocols);
-    expect(row.positions.map((position) => position.key)).toEqual([
+    const [group] = buildEarnClaimableRewardGroups(protocols);
+    expect(group.rows.map((row) => row.position.key)).toEqual([
       everstake.groupId,
     ]);
   });

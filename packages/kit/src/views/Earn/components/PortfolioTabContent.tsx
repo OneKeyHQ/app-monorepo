@@ -145,7 +145,8 @@ export const PortfolioPendingTxsProvider = ({
   </PortfolioPendingTxsContext.Provider>
 );
 
-const usePortfolioPendingTxs = () => useContext(PortfolioPendingTxsContext);
+export const usePortfolioPendingTxs = () =>
+  useContext(PortfolioPendingTxsContext);
 
 const WrappedActionButtonCmp = ({
   asset,
@@ -153,6 +154,7 @@ const WrappedActionButtonCmp = ({
   claimSourceIdentity,
   rewardSymbol,
   buttonProps,
+  onBeforeAction,
 }: {
   asset:
     | IEarnPortfolioInvestment['assets'][number]
@@ -160,8 +162,10 @@ const WrappedActionButtonCmp = ({
   reward: IWrappedActionReward;
   claimSourceIdentity?: IPortfolioClaimProtocolIdentity | null;
   rewardSymbol?: string;
-  /** phone positions page: its claimable-principal card wants a primary, full-width button */
+  /** phone positions page: its cards want a medium, full-width button */
   buttonProps?: Partial<React.ComponentProps<typeof Button>>;
+  /** phone positions page: the claim sheet closes itself as a claim starts */
+  onBeforeAction?: () => void;
 }) => {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
@@ -269,6 +273,7 @@ const WrappedActionButtonCmp = ({
     const claimRequestType: IEarnClaimType | undefined =
       'claimType' in reward ? reward.claimType : undefined;
 
+    onBeforeAction?.();
     handleAction({
       actionIcon: reward.button,
       token: getRewardButtonToken(reward.button),
@@ -287,6 +292,7 @@ const WrappedActionButtonCmp = ({
     stakedSymbolForRefresh,
     rewardSymbol,
     isClaimIdentityUnavailable,
+    onBeforeAction,
   ]);
   const isDesktopLayout = useIsDesktopLayout();
 

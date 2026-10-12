@@ -1,5 +1,6 @@
 import { buildLocalTxStatusSyncId } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type { IEarnPortfolioPosition } from '@onekeyhq/shared/types/earn/portfolioPositions';
 import { EClaimType } from '@onekeyhq/shared/types/staking';
 import type {
   IEarnRewardsPortfolioGroup,
@@ -17,12 +18,19 @@ import {
   buildClaimSourceCandidates,
   buildNetworkInfoMap,
   hasPositionDetailPage,
+  mergeClaimableRewardGroups,
   positionPendingTag,
   sumRewardsHeaderFiat,
   toLedgerClaimAsset,
   toPositionCancel,
   toPositionClaim,
+  toPositionRewardClaim,
 } from './myPortfolio.utils';
+
+import type {
+  IEarnClaimableReward,
+  IEarnClaimableRewardGroup,
+} from './earnPositionModel';
 
 const POSITIONS = Object.values(
   EARN_PORTFOLIO_POSITIONS_FIXTURE.positions,
@@ -36,10 +44,27 @@ const lidoClaimable = POSITIONS.find(
 const cooldown = POSITIONS.find(
   (position) => position.groupId === `ethena:evm--1:${SUSDE_VAULT}:cooldown`,
 );
-if (!lido || !lidoClaimable || !cooldown) {
+const everstake = POSITIONS.find(
+  (position) => position.groupId === 'everstake:evm--1:eth',
+);
+const morphoLoan = POSITIONS.find(
+  (position) => position.groupId === 'morpho:evm--1:market:weth-usdc',
+);
+if (!lido || !lidoClaimable || !cooldown || !everstake || !morphoLoan) {
   throw new OneKeyLocalError(
-    'fixture changed: Lido or Ethena cooldown position missing',
+    'fixture changed: Lido, Ethena cooldown, Everstake or Morpho loan missing',
   );
+}
+
+function claimableReward(
+  position: IEarnPortfolioPosition,
+  index = 0,
+): IEarnClaimableReward {
+  const reward = position.rewards[index];
+  if (!reward.claim) {
+    throw new OneKeyLocalError('fixture changed: reward without a claim');
+  }
+  return { ...reward, claim: reward.claim };
 }
 
 describe('sumRewardsHeaderFiat', () => {
@@ -156,6 +181,150 @@ describe('toPositionClaim', () => {
 
   it('yields nothing for a position without a claim of its own', () => {
     expect(toPositionClaim(lido)).toBeUndefined();
+  });
+});
+
+describe('toPositionRewardClaim', () => {
+  it('runs a yield row claim as a normal asset keyed on the position, the row as the reward', () => {
+    const claim = toPositionRewardClaim(everstake, claimableReward(everstake));
+    expect(claim).toMatchObject({
+      asset: {
+        token: { info: { symbol: 'ETH' } },
+        metadata: {
+          protocol: {
+            providerDetail: { code: 'everstake', name: 'Everstake' },
+          },
+          network: { networkId: 'evm--1' },
+        },
+      },
+      reward: { title: { text: '0.001 ETH' }, button: CLAIM_BUTTON },
+      rewardSymbol: 'ETH',
+    });
+    expect(claim.asset).not.toHaveProperty('airdropAssets');
+  });
+
+  it('runs a campaign row claim as an airdrop row that names the position as its claim source', () => {
+    const claim = toPositionRewardClaim(
+      morphoLoan,
+      claimableReward(morphoLoan, 1),
+    );
+    expect(claim).toMatchObject({
+      asset: {
+        token: { info: { symbol: 'KAT' } },
+        airdropAssets: [
+          {
+            title: { text: '3 KAT' },
+            button: CLAIM_BUTTON,
+            claimType: 'normal',
+          },
+        ],
+        metadata: {
+          protocol: {
+            vault: 'market:weth-usdc',
+            claimSymbol: 'WETH',
+            providerDetail: { code: 'morpho', name: 'Morpho' },
+          },
+          network: { networkId: 'evm--1' },
+        },
+      },
+      reward: { title: { text: '3 KAT' }, button: CLAIM_BUTTON },
+      rewardSymbol: 'KAT',
+    });
+  });
+
+  it('matches the pending claim on the token the button pays out when it names one', () => {
+    const reward = claimableReward(morphoLoan);
+    const claim = toPositionRewardClaim(morphoLoan, {
+      ...reward,
+      claim: {
+        ...reward.claim,
+        button: {
+          ...CLAIM_BUTTON,
+          data: {
+            balance: '1.2',
+            token: {
+              price: '1.2',
+              info: { symbol: 'MORPHO-V2' } as never,
+            },
+          },
+        },
+      },
+    });
+    expect(claim.rewardSymbol).toBe('MORPHO-V2');
+  });
+});
+
+describe('mergeClaimableRewardGroups', () => {
+  const positionGroup: IEarnClaimableRewardGroup = {
+    key: 'evm--1-morpho',
+    protocol: 'morpho',
+    networkId: 'evm--1',
+    name: 'Morpho',
+    logoURI: 'm.png',
+    value: { value: 1.5, hasAvailableValue: true, hasUnavailableValue: false },
+    rows: [],
+  };
+  const ledgerGroup = (
+    overrides: Partial<IEarnRewardsPortfolioGroup>,
+  ): IEarnRewardsPortfolioGroup => ({
+    provider: 'morpho',
+    providerName: 'Morpho',
+    providerLogoURI: 'l.png',
+    networkId: 'evm--1',
+    total: { fiatValue: '2' },
+    items: [
+      { token: { info: { symbol: 'MORPHO' } } } as IEarnRewardsPortfolioItem,
+    ],
+    ...overrides,
+  });
+
+  it("puts a protocol's position rewards and ledger rewards in one group, highest first", () => {
+    const groups = mergeClaimableRewardGroups({
+      positionGroups: [positionGroup],
+      ledgerGroups: [
+        ledgerGroup({}),
+        ledgerGroup({
+          provider: 'native',
+          providerName: 'OneKey',
+          total: { fiatValue: '9' },
+        }),
+      ],
+    });
+    expect(
+      groups.map((group) => [group.key, group.name, group.value.value]),
+    ).toEqual([
+      ['evm--1|native', 'OneKey', 9],
+      ['evm--1|morpho', 'Morpho', 3.5],
+    ]);
+    const [, morpho] = groups;
+    // the protocol row's name and logo win; the ledger rows follow the positions'
+    expect(morpho.logoURI).toBe('m.png');
+    expect(morpho.ledgerItems).toHaveLength(1);
+    expect(morpho.value).toEqual({
+      value: 3.5,
+      hasAvailableValue: true,
+      hasUnavailableValue: false,
+    });
+  });
+
+  it('shows a ledger group nothing priced by its token amount', () => {
+    const [group] = mergeClaimableRewardGroups({
+      positionGroups: [],
+      ledgerGroups: [
+        ledgerGroup({
+          total: { fiatValue: '0', amount: '12', symbol: 'MORPHO' },
+        }),
+      ],
+    });
+    expect(group.amountOnly).toEqual({ amount: '12', symbol: 'MORPHO' });
+    expect(group.value).toEqual({
+      value: 0,
+      hasAvailableValue: false,
+      hasUnavailableValue: true,
+    });
+    expect(
+      mergeClaimableRewardGroups({ positionGroups: [], ledgerGroups: [] }),
+    ).toEqual([]);
   });
 });
 

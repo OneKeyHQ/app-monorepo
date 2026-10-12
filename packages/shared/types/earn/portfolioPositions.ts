@@ -1,4 +1,4 @@
-import type { IDeFiPosition, IProtocolSummary } from '../defi';
+import type { IDeFiAsset, IDeFiPosition, IProtocolSummary } from '../defi';
 import type {
   IEarnActionIcon,
   IEarnInvestmentItemV2,
@@ -22,9 +22,11 @@ import type {
  *     waiting to be collected (`claimable` assets, see
  *     IEarnPositionAssetCategory). The detail page shows what sits in the
  *     vault and its rewards, not principal on its way out;
- *   - the card has one button (`earn.action`): Manage or Unstake into the
- *     detail page, or Claim on a claimable position, which carries its claim
- *     in `earn.claim`;
+ *   - the card's principal button is `earn.action`: Manage or Unstake into
+ *     the detail page, or Claim on a claimable position, which carries its
+ *     claim in `earn.claim`; a reward the user collects by hand carries its
+ *     own claim on the reward asset (`rewards[].claim`), one per row the
+ *     detail page lists, so the card claims rewards in place;
  *   - the whole investment detail the position was cut from travels along in
  *     `earn.investment`, so nothing the older investment-detail page had is
  *     lost; the page reads what it renders and ignores the rest.
@@ -45,6 +47,20 @@ export type IEarnPositionAssetCategory =
   | 'unstaking'
   | 'reward';
 
+/**
+ * A position's PnL as numbers: the card prints it as fiat with the
+ * percentage of the cost basis ('1.69' for +1.69%), absent when the cost
+ * basis is zero. Only positions with a cost basis (Pendle markets) carry it.
+ */
+export type IEarnPositionPnl = {
+  /** accounting units (the market's accounting asset for Pendle) */
+  amount: string;
+  symbol?: string;
+  /** request currency */
+  fiatValue: string;
+  percent?: string;
+};
+
 /** The Earn detail page that Manage opens: this position's own page. */
 export type IEarnPositionManageTarget = {
   networkId: string;
@@ -63,6 +79,22 @@ export type IEarnPositionAirdropRow = Pick<
   description?: IEarnText;
   button?: IEarnActionIcon;
   claimType?: 'normal' | 'airdrop';
+};
+
+/**
+ * How a reward is claimed from the card: the row's own button and the flow
+ * that runs it (`investment` is the detail row's claim, `airdrop` the
+ * airdrop read's), with the row as the detail page lists it.
+ */
+export type IEarnPositionRewardClaim = {
+  button: IEarnActionIcon;
+  claimSource: 'investment' | 'airdrop';
+  row: IEarnPositionAirdropRow;
+};
+
+/** A reward row of a position; claimable by hand when it carries `claim`. */
+export type IEarnPositionRewardAsset = IDeFiAsset & {
+  claim?: IEarnPositionRewardClaim;
 };
 
 /** The investment detail this position was cut from, kept whole. */
@@ -121,6 +153,8 @@ export type IEarnPositionExtension = {
   network: { networkId: string; name: string; logoURI: string };
   /** principal still activating (staking providers); already inside the deposit asset */
   pendingActivation?: { amount: string; fiatValue: string };
+  /** active positions with a cost basis: the PnL the card prints under its value */
+  pnl?: IEarnPositionPnl;
   investment: IEarnPositionInvestment;
   /** the on-chain airdrop rows the server folded into `rewards` or cut this position from, kept whole */
   airdropRows?: IEarnPositionAirdropRow[];
@@ -128,8 +162,12 @@ export type IEarnPositionExtension = {
   airdropFiatValue?: string;
 };
 
-export type IEarnPortfolioPosition = Omit<IDeFiPosition, 'category'> & {
+export type IEarnPortfolioPosition = Omit<
+  IDeFiPosition,
+  'category' | 'rewards'
+> & {
   category: IEarnPositionCategory;
+  rewards: IEarnPositionRewardAsset[];
   earn: IEarnPositionExtension;
 };
 

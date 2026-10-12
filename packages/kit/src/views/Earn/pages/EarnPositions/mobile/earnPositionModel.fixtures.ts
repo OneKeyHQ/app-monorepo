@@ -7,6 +7,8 @@ import type {
   IEarnPositionAssetCategory,
   IEarnPositionCategory,
   IEarnPositionExtension,
+  IEarnPositionRewardAsset,
+  IEarnPositionRewardClaim,
 } from '@onekeyhq/shared/types/earn/portfolioPositions';
 import { EClaimType, EStakingActionType } from '@onekeyhq/shared/types/staking';
 import type { IEarnCancelWithdrawalActionIcon } from '@onekeyhq/shared/types/staking';
@@ -17,7 +19,11 @@ import type { IEarnCancelWithdrawalActionIcon } from '@onekeyhq/shared/types/sta
  * withdrawals in progress (Lido), dated Pendle markets, the USDe cooled
  * down at Ethena that Pendle's sUSDe path reports, Morpho vaults on two
  * chains with a loan, Everstake with yield, an Ethena position whose only
- * move is unstaking, Stakefish on Solana. Owners are placeholders.
+ * move is unstaking, Stakefish on Solana. Rewards carry the claim the
+ * server attaches to a row the user collects by hand: Morpho's campaign
+ * rows through the airdrop flow, Everstake's yield through the detail
+ * row, and a Stakefish reward under its claim floor with the claim
+ * disabled. Owners are placeholders.
  */
 
 const FETCHED_AT = '2026-09-28T03:40:00.000Z';
@@ -44,6 +50,33 @@ export const CANCEL_BUTTON: IEarnCancelWithdrawalActionIcon = {
   text: { text: 'Cancel' },
   disabled: false,
 };
+
+/** A campaign row claimed through the airdrop flow, as Morpho and Lista send it. */
+export function airdropClaim(
+  title: string,
+  disabled = false,
+): IEarnPositionRewardClaim {
+  const button = { ...CLAIM_BUTTON, disabled };
+  return {
+    button,
+    claimSource: 'airdrop',
+    row: { title: { text: title }, button, claimType: 'normal' },
+  };
+}
+
+/** A yield row claimed through the detail row's own button. */
+export function investmentClaim(
+  title: string,
+  amount: string,
+  disabled = false,
+): IEarnPositionRewardClaim {
+  const button = { ...CLAIM_BUTTON, disabled };
+  return {
+    button,
+    claimSource: 'investment',
+    row: { kind: 'reward', amount, title: { text: title }, button },
+  };
+}
 
 export function token({
   symbol,
@@ -97,7 +130,7 @@ export function position({
   name: string;
   assets?: IDeFiAsset[];
   debts?: IDeFiAsset[];
-  rewards?: IDeFiAsset[];
+  rewards?: IEarnPositionRewardAsset[];
   healthFactor?: number | null;
   /** the server fills every field; a fixture names what the case is about */
   earn?: Partial<IEarnPositionExtension>;
@@ -254,6 +287,13 @@ const ETHEREUM_POSITIONS: IEarnPortfolioPosition[] = [
       symbol: 'USD3',
       vault: '0xusd3',
       maturityAt: Date.parse('2026-12-17T00:00:00Z'),
+      // a cost basis: +$0.02 on $1.09 of cost
+      pnl: {
+        amount: '0.0205',
+        symbol: 'USD3',
+        fiatValue: '0.02',
+        percent: '1.84',
+      },
     },
   }),
   // The USDe cooled down at Ethena after a Pendle sUSDe redeem: filed under
@@ -297,12 +337,15 @@ const ETHEREUM_POSITIONS: IEarnPortfolioPosition[] = [
     name: 'Steakhouse USDC',
     assets: [token({ symbol: 'USDC', amount: '50', price: 1 })],
     rewards: [
-      token({
-        symbol: 'MORPHO',
-        amount: '0.0213',
-        price: 1.2,
-        category: 'reward',
-      }),
+      {
+        ...token({
+          symbol: 'MORPHO',
+          amount: '0.0213',
+          price: 1.2,
+          category: 'reward',
+        }),
+        claim: airdropClaim('0.0213 MORPHO'),
+      },
     ],
     earn: {
       symbol: 'USDC',
@@ -319,12 +362,26 @@ const ETHEREUM_POSITIONS: IEarnPortfolioPosition[] = [
     assets: [token({ symbol: 'WETH', amount: '0.02', price: 3150 })],
     debts: [token({ symbol: 'USDC', amount: '20.01', price: 1 })],
     rewards: [
-      token({
-        symbol: 'MORPHO',
-        amount: '1.2',
-        price: 1.2,
-        category: 'reward',
-      }),
+      {
+        ...token({
+          symbol: 'MORPHO',
+          amount: '1.2',
+          price: 1.2,
+          category: 'reward',
+        }),
+        claim: airdropClaim('1.2 MORPHO'),
+      },
+      // a second token on the same market (Morpho on Katana pays MORPHO and
+      // KAT): the card's Claim opens the sheet
+      {
+        ...token({
+          symbol: 'KAT',
+          amount: '3',
+          price: 0.05,
+          category: 'reward',
+        }),
+        claim: airdropClaim('3 KAT'),
+      },
     ],
     healthFactor: 1.62,
     earn: { symbol: 'WETH', vault: 'market:weth-usdc' },
@@ -338,12 +395,15 @@ const ETHEREUM_POSITIONS: IEarnPortfolioPosition[] = [
     name: 'Everstake ETH',
     assets: [token({ symbol: 'ETH', amount: '0.1', price: 3150 })],
     rewards: [
-      token({
-        symbol: 'ETH',
-        amount: '0.001',
-        price: 3150,
-        category: 'reward',
-      }),
+      {
+        ...token({
+          symbol: 'ETH',
+          amount: '0.001',
+          price: 3150,
+          category: 'reward',
+        }),
+        claim: investmentClaim('0.001 ETH', '0.001'),
+      },
     ],
   }),
   position({
@@ -461,6 +521,18 @@ const SOLANA_POSITIONS: IEarnPortfolioPosition[] = [
     groupId: 'stakefish:sol--101:SOL',
     name: 'Stakefish SOL',
     assets: [token({ symbol: 'SOL', amount: '0.008119', price: 110 })],
+    // yield under the claim floor: the claim travels disabled
+    rewards: [
+      {
+        ...token({
+          symbol: 'SOL',
+          amount: '0.0001',
+          price: 110,
+          category: 'reward',
+        }),
+        claim: investmentClaim('0.0001 SOL', '0.0001', true),
+      },
+    ],
   }),
   position({
     ...solana,

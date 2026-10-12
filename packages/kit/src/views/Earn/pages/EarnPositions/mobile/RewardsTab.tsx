@@ -20,7 +20,7 @@ import { RewardsClaimableList } from './RewardsClaimableList';
 import { RewardsLedgerList } from './RewardsLedgerList';
 
 import type { IEarnPositionCardHandlers } from './EarnPositionCard';
-import type { IEarnProtocolView } from './earnPositionModel';
+import type { IEarnClaimableRewardGroup } from './earnPositionModel';
 
 export const REWARDS_STAGES: IEarnRewardsPortfolioStage[] = [
   'claimable',
@@ -81,7 +81,7 @@ export function RewardsTab({
   rewards,
   isLoading,
   isLoadingMore = false,
-  claimableProtocols,
+  claimableGroups,
   positions,
   networkFilter,
   onManage,
@@ -92,8 +92,8 @@ export function RewardsTab({
   isLoading: boolean;
   /** a further ledger page is on its way; shown as a footer spinner */
   isLoadingMore?: boolean;
-  /** the positions' claimable rewards, already cut down to their Rewards sections */
-  claimableProtocols: IEarnProtocolView[];
+  /** the positions' claimable rewards, one group per protocol per network */
+  claimableGroups: IEarnClaimableRewardGroup[];
   /** every position the page holds; names networks and vaults for the ledger rows */
   positions: IEarnPortfolioPosition[];
   /** the page's network chip; sits under the stage pills on this tab */
@@ -121,7 +121,7 @@ export function RewardsTab({
   if (stage === 'claimable') {
     content = (
       <RewardsClaimableList
-        protocols={claimableProtocols}
+        positionGroups={claimableGroups}
         positions={positions}
         ledgerGroups={groups}
         isLoading={isStageLoading}
@@ -136,7 +136,8 @@ export function RewardsTab({
       </Stack>
     );
   } else if (groups.length === 0) {
-    content = <Empty icon="GiftOutline" title={emptyTitle} />;
+    // the design's empty state (figma 30189-10621): illustration and title only
+    content = <Empty illustration="BlockCoins" title={emptyTitle} />;
   } else {
     content = <RewardsLedgerList groups={groups} expansion={expansion} />;
   }

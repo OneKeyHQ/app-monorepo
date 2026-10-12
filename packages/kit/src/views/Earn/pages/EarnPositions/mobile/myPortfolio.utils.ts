@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 
+import type { IProtocolValueState } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
 import { buildLocalTxStatusSyncId } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IEarnPortfolioPosition } from '@onekeyhq/shared/types/earn/portfolioPositions';
@@ -11,6 +12,11 @@ import type {
   IEarnRewardsPortfolioItem,
 } from '@onekeyhq/shared/types/staking';
 
+import type {
+  IEarnClaimableReward,
+  IEarnClaimableRewardGroup,
+  IEarnClaimableRewardRow,
+} from './earnPositionModel';
 import type { IPortfolioClaimSourceCandidate } from '../../../utils/portfolioClaimUtils';
 
 /**
@@ -107,6 +113,30 @@ function positionClaimMetadata(position: IEarnPortfolioPosition) {
   };
 }
 
+/** The position as the normal asset the claim button reads its protocol, network and token off. */
+function toInvestmentAsset(
+  position: IEarnPortfolioPosition,
+): IEarnPortfolioAsset {
+  const { earn } = position;
+  const { investment } = earn;
+  const asset = position.assets[0];
+  return {
+    token: {
+      info: { symbol: earn.symbol, logoURI: asset?.meta.logoUrl ?? '' },
+    },
+    deposit: investment.deposit ?? {
+      title: EMPTY_TEXT,
+      description: EMPTY_TEXT,
+    },
+    earnings24h: investment.earnings24h ?? { title: EMPTY_TEXT },
+    ...(investment.totalReward ? { totalReward: investment.totalReward } : {}),
+    rewardAssets: [],
+    assetsStatus: [],
+    buttons: [],
+    metadata: positionClaimMetadata(position),
+  };
+}
+
 /** The investment detail's own row behind a card button, as a normal asset the button understands. */
 function toInvestmentRowAction({
   position,
@@ -125,23 +155,7 @@ function toInvestmentRowAction({
     ...(investment.assetsStatus ?? []),
   ].find((entry) => entry.kind === kind && entry.button);
   return {
-    asset: {
-      token: {
-        info: { symbol: earn.symbol, logoURI: asset?.meta.logoUrl ?? '' },
-      },
-      deposit: investment.deposit ?? {
-        title: EMPTY_TEXT,
-        description: EMPTY_TEXT,
-      },
-      earnings24h: investment.earnings24h ?? { title: EMPTY_TEXT },
-      ...(investment.totalReward
-        ? { totalReward: investment.totalReward }
-        : {}),
-      rewardAssets: [],
-      assetsStatus: [],
-      buttons: [],
-      metadata: positionClaimMetadata(position),
-    },
+    asset: toInvestmentAsset(position),
     reward: {
       ...row,
       title: row?.title ?? EMPTY_TEXT,
@@ -149,6 +163,66 @@ function toInvestmentRowAction({
       button,
     },
     rewardSymbol: asset?.symbol ?? earn.symbol,
+  };
+}
+
+/** The symbol a claim button pays out, when it names one; the pending claim's spinner is matched on it (OK-62924). */
+function claimButtonSymbol(button: IEarnActionIcon): string | undefined {
+  if (!('data' in button) || !button.data || !('token' in button.data)) {
+    return undefined;
+  }
+  return button.data.token?.info?.symbol;
+}
+
+/**
+ * A reward claimed from the card or the Rewards list, through the button the
+ * wide layout runs on that very row: the detail row's claim travels as a
+ * normal asset, the airdrop read's as an airdrop row keyed on the position
+ * (`claimSymbol`), so a reward split across two cards (Morpho pays per
+ * account and token) resolves to the card it was pressed on.
+ */
+export function toPositionRewardClaim(
+  position: IEarnPortfolioPosition,
+  reward: IEarnClaimableReward,
+): IEarnPositionClaim {
+  const { earn } = position;
+  const { button, row, claimSource } = reward.claim;
+  const rewardSymbol = claimButtonSymbol(button) ?? reward.symbol;
+  if (claimSource !== 'airdrop') {
+    return {
+      asset: toInvestmentAsset(position),
+      reward: {
+        ...row,
+        description: row.description ?? EMPTY_TEXT,
+        button,
+      },
+      rewardSymbol,
+    };
+  }
+  const metadata = positionClaimMetadata(position);
+  // The airdrop row type requires a tooltip the position row does not
+  // carry; the claim button never reads it, so the entry is built without one.
+  const airdropRow = {
+    ...row,
+    button,
+  } as IEarnPortfolioAirdropAsset['airdropAssets'][number];
+  return {
+    asset: {
+      token: {
+        info: {
+          symbol: reward.symbol,
+          logoURI: reward.meta?.logoUrl ?? '',
+          ...(reward.address ? { address: reward.address } : {}),
+        },
+      },
+      airdropAssets: [airdropRow],
+      metadata: {
+        ...metadata,
+        protocol: { ...metadata.protocol, claimSymbol: earn.symbol },
+      },
+    },
+    reward: airdropRow,
+    rewardSymbol,
   };
 }
 
@@ -254,6 +328,95 @@ export function buildNetworkInfoMap(
     }
   });
   return map;
+}
+
+/** One group on Rewards › Claimable: a protocol on one network, its position rewards and its ledger rewards together. */
+export type IClaimableRewardsGroup = {
+  /** `${networkId}|${provider}` */
+  key: string;
+  provider: string;
+  networkId: string;
+  name: string;
+  logoURI?: string;
+  /** fiat of every row; unavailable when nothing priced the group */
+  value: IProtocolValueState;
+  /** the group's token amount, for a ledger group nothing priced whose rows are one token */
+  amountOnly?: { amount: string; symbol: string };
+  positionRows: IEarnClaimableRewardRow[];
+  ledgerItems: {
+    group: IEarnRewardsPortfolioGroup;
+    item: IEarnRewardsPortfolioItem;
+  }[];
+};
+
+/**
+ * Rewards › Claimable (figma 30490-21537): one group per protocol per
+ * network, the positions' rewards first and the ledger's campaign rewards
+ * after them, highest total first. The ledger names its groups by provider
+ * and network, the same key the protocol rows use.
+ */
+export function mergeClaimableRewardGroups({
+  positionGroups,
+  ledgerGroups,
+}: {
+  positionGroups: IEarnClaimableRewardGroup[];
+  ledgerGroups: IEarnRewardsPortfolioGroup[];
+}): IClaimableRewardsGroup[] {
+  const byKey = new Map<string, IClaimableRewardsGroup>();
+  positionGroups.forEach((group) => {
+    const key = `${group.networkId}|${group.protocol}`;
+    byKey.set(key, {
+      key,
+      provider: group.protocol,
+      networkId: group.networkId,
+      name: group.name,
+      logoURI: group.logoURI,
+      value: { ...group.value },
+      positionRows: group.rows,
+      ledgerItems: [],
+    });
+  });
+  ledgerGroups.forEach((group) => {
+    const key = `${group.networkId}|${group.provider}`;
+    const fiat = new BigNumber(group.total.fiatValue || '0');
+    const hasFiat = fiat.gt(0);
+    const ledgerItems = group.items.map((item) => ({ group, item }));
+    const existing = byKey.get(key);
+    if (existing) {
+      existing.ledgerItems.push(...ledgerItems);
+      existing.value = {
+        value: new BigNumber(existing.value.value).plus(fiat).toNumber(),
+        hasAvailableValue: existing.value.hasAvailableValue || hasFiat,
+        hasUnavailableValue: existing.value.hasUnavailableValue || !hasFiat,
+      };
+      return;
+    }
+    byKey.set(key, {
+      key,
+      provider: group.provider,
+      networkId: group.networkId,
+      name: group.providerName,
+      logoURI: group.providerLogoURI,
+      value: {
+        value: fiat.toNumber(),
+        hasAvailableValue: hasFiat,
+        hasUnavailableValue: !hasFiat,
+      },
+      ...(!hasFiat && group.total.amount && group.total.symbol
+        ? {
+            amountOnly: {
+              amount: group.total.amount,
+              symbol: group.total.symbol,
+            },
+          }
+        : {}),
+      positionRows: [],
+      ledgerItems,
+    });
+  });
+  return Array.from(byKey.values()).toSorted(
+    (a, b) => b.value.value - a.value.value,
+  );
 }
 
 /**

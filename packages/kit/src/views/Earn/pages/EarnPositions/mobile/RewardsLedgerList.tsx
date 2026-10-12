@@ -6,7 +6,6 @@ import type { IEarnRewardsPortfolioGroup } from '@onekeyhq/shared/types/staking'
 
 import { GroupRow } from './GroupRow';
 import { LedgerRewardCard } from './LedgerRewardCard';
-import { LedgerRewardRow } from './LedgerRewardRow';
 
 import type { IGroupExpansion } from './GroupRow';
 
@@ -42,22 +41,17 @@ function LedgerGroupTotal({ group }: { group: IEarnRewardsPortfolioGroup }) {
 }
 
 /**
- * Ledger groups, one collapsible row per protocol on one network. Pending and
- * distributed rows render as the design's fact cards; claimable rows keep the
- * detail page's row layout with the inline Claim action (product asked for
- * the detail page's layout here).
+ * Ledger groups of the Pending and Distributed stages, one collapsible row
+ * per protocol on one network, each reward as the design's fact card.
+ * Claimable ledger rewards sit in RewardsClaimableList, one row each with
+ * their Claim, together with the positions' rewards.
  */
 export function RewardsLedgerList({
   groups,
   expansion,
-  renderAction,
 }: {
   groups: IEarnRewardsPortfolioGroup[];
   expansion: IGroupExpansion;
-  renderAction?: (
-    group: IEarnRewardsPortfolioGroup,
-    item: IEarnRewardsPortfolioGroup['items'][number],
-  ) => React.ReactNode;
 }) {
   return (
     <YStack gap="$4">
@@ -75,28 +69,13 @@ export function RewardsLedgerList({
           }
           total={<LedgerGroupTotal group={group} />}
         >
-          {group.items.map((item, itemIndex) => {
-            const key = `${item.token.info.symbol}-${item.vault ?? ''}-${item.txHash ?? itemIndex}`;
-            if (item.stage === 'claimable') {
-              return (
-                <YStack
-                  key={key}
-                  p="$3"
-                  borderRadius="$3"
-                  borderWidth="$px"
-                  borderColor="$borderSubdued"
-                  bg="$bg"
-                >
-                  <LedgerRewardRow
-                    item={item}
-                    group={group}
-                    action={renderAction?.(group, item)}
-                  />
-                </YStack>
-              );
-            }
-            return <LedgerRewardCard key={key} item={item} group={group} />;
-          })}
+          {group.items.map((item, itemIndex) => (
+            <LedgerRewardCard
+              key={`${item.token.info.symbol}-${item.vault ?? ''}-${item.txHash ?? itemIndex}`}
+              item={item}
+              group={group}
+            />
+          ))}
         </GroupRow>
       ))}
     </YStack>

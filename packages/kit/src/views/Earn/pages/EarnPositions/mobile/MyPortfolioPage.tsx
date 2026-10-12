@@ -30,7 +30,7 @@ import {
 
 import { DeFiAssetsTab } from './DeFiAssetsTab';
 import {
-  buildEarnClaimableRewardsView,
+  buildEarnClaimableRewardGroups,
   buildEarnPortfolioView,
   countEarnPositionsByNetwork,
   filterEarnProtocolsByNetworks,
@@ -167,8 +167,8 @@ export function MyPortfolioPage() {
     () => filterEarnProtocolsByNetworks(view.protocols, selectedNetworkIds),
     [view.protocols, selectedNetworkIds],
   );
-  const claimableProtocols = useMemo(
-    () => buildEarnClaimableRewardsView(visibleProtocols),
+  const claimableGroups = useMemo(
+    () => buildEarnClaimableRewardGroups(visibleProtocols),
     [visibleProtocols],
   );
   // Product rule: the header Rewards figure equals what the Claimable and
@@ -262,6 +262,7 @@ export function MyPortfolioPage() {
         >
           <PortfolioPendingTxsProvider value={{ onRefresh: refreshAll }}>
             <YStack py="$2">
+              {/* DeFi Assets leaves the positions' rewards out; Rewards counts them */}
               <PortfolioTotalsHeader
                 defiAssetsFiatValue={String(view.totalValue)}
                 rewardsFiatValue={rewardsHeaderFiat}
@@ -300,7 +301,7 @@ export function MyPortfolioPage() {
                   rewards={rewards}
                   isLoading={isRewardsLoading}
                   isLoadingMore={isRewardsLoadingMore}
-                  claimableProtocols={claimableProtocols}
+                  claimableGroups={claimableGroups}
                   positions={positions}
                   networkFilter={networkFilter}
                   onManage={handleManage}

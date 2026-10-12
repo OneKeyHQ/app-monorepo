@@ -26,7 +26,10 @@ import type {
   IEarnPortfolioPositionsResponse,
   IEarnPositionCategory,
   IEarnPositionManageTarget,
+  IEarnPositionRewardAsset,
+  IEarnPositionRewardClaim,
 } from '@onekeyhq/shared/types/earn/portfolioPositions';
+import type { IEarnActionIcon } from '@onekeyhq/shared/types/staking';
 
 /**
  * View model of the phone "My portfolio" DeFi Assets tab (OK-61377).
@@ -38,13 +41,16 @@ import type {
  * This file adds what the Earn design adds on top: the badge copy, the
  * sections a card shows (deposited, claimable, borrowed, rewards; one
  * unstaking section on a locked card), the locked card's name and the
- * card's single action. Product rules: the staked principal and its rewards
- * are one card with Manage (Unstake where leaving is the only move); each
- * withdrawal in progress is a locked card of its own (Cancel where the
- * provider lets it be called back), and principal out of its cooldown is a
- * claimable card of its own with Claim, as the wallet DeFi portfolio shows
- * them, since the detail page lists what sits in the vault and its rewards,
- * not principal on its way out.
+ * card's actions. Product rules: the staked principal and its rewards are
+ * one card with Manage (Unstake where leaving is the only move) and, when
+ * the server attached a claim to a reward, Claim beside it (figma
+ * 30490-21077: one claim goes straight to the confirm page, several open a
+ * sheet with one Claim each; a card left with rewards only shows Claim
+ * alone); each withdrawal in progress is a locked card of its own (Cancel
+ * where the provider lets it be called back), and principal out of its
+ * cooldown is a claimable card of its own with Claim, as the wallet DeFi
+ * portfolio shows them, since the detail page lists what sits in the vault
+ * and its rewards, not principal on its way out.
  */
 
 type ITranslate = (id: ETranslations) => string;
@@ -60,6 +66,13 @@ export type IEarnPositionSectionKind =
 export type IEarnPositionSectionAsset = IDeFiAsset & {
   /** ms; locked cards whose provider knows when the funds free up */
   unlockAt?: number;
+  /** reward rows: the claim the card runs, when the server attached one */
+  claim?: IEarnPositionRewardClaim;
+};
+
+/** A reward the card can collect: the reward row with the claim the server attached. */
+export type IEarnClaimableReward = IEarnPositionRewardAsset & {
+  claim: IEarnPositionRewardClaim;
 };
 
 export type IEarnPositionSectionView = {
@@ -94,15 +107,19 @@ export type IEarnPositionView = {
   value: IProtocolValueState;
   meta?: IEarnPositionMeta;
   sections: IEarnPositionSectionView[];
-  /** the card's single button */
+  /** the card's principal button */
   action?: IEarnPositionAction;
+  /**
+   * The rewards the card's Claim collects: every reward row whose claim the
+   * server sent enabled (figma 30490-21882: Claim shows only for those).
+   * Active cards only.
+   */
+  claimableRewards: IEarnClaimableReward[];
   stage: IEarnPositionStage;
   /** unstaking cards: when the funds free up, if the provider knows */
   locked?: { unlockAt?: number };
   /** the server position behind the card */
   source: IEarnPortfolioPosition;
-  /** Claimable stage: the card shows its rewards alone, no PnL line */
-  variant?: 'rewards';
 };
 
 export type IEarnProtocolView = {
@@ -257,6 +274,17 @@ function resolveAction(source: IEarnPortfolioPosition): IEarnPositionAction {
   };
 }
 
+/** A claim button the server sent disabled (a reward under its claim floor) is no Claim on the card. */
+function isClaimEnabled(button: IEarnActionIcon): boolean {
+  return !('disabled' in button && button.disabled);
+}
+
+function hasEnabledClaim(
+  reward: IEarnPositionRewardAsset,
+): reward is IEarnClaimableReward {
+  return reward.claim !== undefined && isClaimEnabled(reward.claim.button);
+}
+
 function stageOf(source: IEarnPortfolioPosition): IEarnPositionStage {
   if (source.earn.unstaking) {
     return 'unstaking';
@@ -313,6 +341,8 @@ function buildPositionView({
         : undefined,
     sections,
     action: resolveAction(source),
+    claimableRewards:
+      stage === 'active' ? source.rewards.filter(hasEnabledClaim) : [],
     stage,
     locked,
     source,
@@ -356,6 +386,20 @@ function byValueDesc(a: IEarnProtocolView, b: IEarnProtocolView) {
   return b.value.value - a.value.value;
 }
 
+/**
+ * Header "DeFi Assets": what the user holds, debts subtracted and rewards
+ * left out (figma 30490-21882: the cards and protocol rows include their
+ * rewards, the header figure does not — $58.28 = $68.90 − $10.62).
+ */
+export function sumEarnDefiAssets(protocols: IEarnProtocolView[]): number {
+  return getProtocolPositionSectionsValueState(
+    protocols
+      .flatMap((protocol) => protocol.positions)
+      .flatMap((position) => position.sections)
+      .filter((section) => section.kind !== 'rewards'),
+  ).value;
+}
+
 /** DeFi Assets tab: protocol rows (one per protocol per network) and the header total. */
 export function buildEarnPortfolioView({
   response,
@@ -384,65 +428,74 @@ export function buildEarnPortfolioView({
     )
     .filter((view) => view.positions.length > 0)
     .toSorted(byValueDesc);
-  const totalValue = views
-    .reduce((sum, view) => sum.plus(view.value.value), new BigNumber(0))
-    .toNumber();
-  return { protocols: views, totalValue };
+  return { protocols: views, totalValue: sumEarnDefiAssets(views) };
 }
+
+/** One reward on Rewards › Claimable: the row, and the card it came from. */
+export type IEarnClaimableRewardRow = {
+  /** `${position key}:${index}` */
+  key: string;
+  position: IEarnPositionView;
+  asset: IEarnPositionSectionAsset;
+};
+
+export type IEarnClaimableRewardGroup = {
+  /** the protocol row key, `${networkId}-${protocol}` */
+  key: string;
+  protocol: string;
+  networkId: string;
+  name: string;
+  logoURI?: string;
+  /** sum of its rows */
+  value: IProtocolValueState;
+  rows: IEarnClaimableRewardRow[];
+};
 
 /**
  * Rewards tab, Claimable stage (the protocol part; ledger rewards come from
- * their own endpoint): the same position cards with only their Rewards
- * section, so each card and each protocol row reads the rewards amount, never
- * the principal. Claimable principal is part of the position on DeFi Assets
- * and never shows up here. Product rule: the header Rewards figure equals
- * what this list adds up to, so a reward the server has not priced stays on
- * the DeFi Assets card and out of this list.
+ * their own endpoint): one row per reward of the positions, under one group
+ * per protocol per network (figma 30490-21537), each row claimed in place
+ * with the claim the server attached to it. Claimable principal is part of
+ * the position on DeFi Assets and never shows up here. Product rule: the
+ * header Rewards figure equals what this list adds up to, so a reward the
+ * server has not priced stays on the DeFi Assets card and out of this list.
  */
-export function buildEarnClaimableRewardsView(
+export function buildEarnClaimableRewardGroups(
   protocols: IEarnProtocolView[],
-): IEarnProtocolView[] {
+): IEarnClaimableRewardGroup[] {
   return protocols
     .map((protocol) => {
-      const positions = protocol.positions.flatMap<IEarnPositionView>(
-        (position) => {
+      const rows = protocol.positions.flatMap((position) =>
+        position.sections
+          .filter((section) => section.kind === 'rewards')
+          .flatMap((section) => section.assets)
           // No zero rows either: a reward the server lists but has not
           // amounted yet (Lista before its Check) is nothing to claim.
-          const sections = position.sections
-            .filter((section) => section.kind === 'rewards')
-            .map((section) => ({
-              ...section,
-              assets: section.assets.filter(
-                (asset) =>
-                  !isProtocolAssetValueUnavailable(asset) &&
-                  new BigNumber(asset.amount).gt(0),
-              ),
-            }))
-            .filter((section) => section.assets.length > 0);
-          if (sections.length === 0) {
-            return [];
-          }
-          return [
-            {
-              ...position,
-              meta: undefined,
-              sections,
-              value: getProtocolPositionSectionsValueState(sections),
-              variant: 'rewards' as const,
-            },
-          ];
-        },
+          .filter(
+            (asset) =>
+              !isProtocolAssetValueUnavailable(asset) &&
+              new BigNumber(asset.amount).gt(0),
+          )
+          .map((asset, index) => ({
+            key: `${position.key}:${index}`,
+            position,
+            asset,
+          })),
       );
       return {
-        ...protocol,
-        positions,
-        value: getProtocolPositionSectionsValueState(
-          positions.flatMap((position) => position.sections),
-        ),
+        key: protocol.key,
+        protocol: protocol.protocol,
+        networkId: protocol.networkId,
+        name: protocol.name,
+        logoURI: protocol.logoURI,
+        value: getProtocolPositionSectionsValueState([
+          { assetType: 'rewards', assets: rows.map((row) => row.asset) },
+        ]),
+        rows,
       };
     })
-    .filter((protocol) => protocol.positions.length > 0)
-    .toSorted(byValueDesc);
+    .filter((group) => group.rows.length > 0)
+    .toSorted((a, b) => b.value.value - a.value.value);
 }
 
 /**
@@ -452,8 +505,8 @@ export function buildEarnClaimableRewardsView(
 export function sumEarnClaimableRewards(
   protocols: IEarnProtocolView[],
 ): number {
-  return buildEarnClaimableRewardsView(protocols)
-    .reduce((sum, protocol) => sum.plus(protocol.value.value), new BigNumber(0))
+  return buildEarnClaimableRewardGroups(protocols)
+    .reduce((sum, group) => sum.plus(group.value.value), new BigNumber(0))
     .toNumber();
 }
 
