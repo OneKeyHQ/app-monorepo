@@ -171,6 +171,48 @@ describe('ServiceHyperliquidSubscription resume stream liveness', () => {
     }
   });
 
+  it.each([0, 1, 3])(
+    'resumes a CONNECTING socket with retryCount=%s',
+    async (retryCount) => {
+      const { service, internals, force, reconcile } = setupOpenSocketService();
+      jest.spyOn(internals, 'getWebSocketClient').mockResolvedValue({
+        transport: { socket: { readyState: WebSocket.CONNECTING, retryCount } },
+      });
+
+      await service.resumeSubscriptions();
+
+      expect(force).toHaveBeenCalledTimes(retryCount > 0 ? 1 : 0);
+      expect(reconcile).not.toHaveBeenCalled();
+    },
+  );
+
+  it('recovers a retrying socket before a subscription update without waiting', async () => {
+    const { service, force } = setupOpenSocketService();
+    const internals = service as unknown as {
+      _client: unknown;
+      _recoverNotOpenSocketBeforeSubscriptionUpdate: (params: {
+        client: unknown;
+        reason: string;
+      }) => Promise<void>;
+      _waitForOpenSocket: () => Promise<boolean>;
+    };
+    const client = {
+      transport: {
+        socket: { readyState: WebSocket.CONNECTING, retryCount: 1 },
+      },
+    };
+    internals._client = client;
+    const wait = jest.spyOn(internals, '_waitForOpenSocket');
+
+    await internals._recoverNotOpenSocketBeforeSubscriptionUpdate({
+      client,
+      reason: 'test',
+    });
+
+    expect(force).toHaveBeenCalledTimes(1);
+    expect(wait).not.toHaveBeenCalled();
+  });
+
   it('forces a reconnect when the open socket stream went stale', async () => {
     const { service, internals, force, reconcile } = setupOpenSocketService();
     internals._lastMessageAt = Date.now() - 60_000;
