@@ -108,7 +108,7 @@ describe('Dust Sweep candidate eligibility', () => {
     expect(token.valueUsd).toBe('4');
   });
 
-  it('keeps unverified tokens visible even below the hidden threshold', () => {
+  it('applies the hidden threshold to unverified tokens without changing their risk flag', () => {
     const tokens = buildDustSweepCandidates(
       response([
         { key: 'safe-hidden', value: '0.05' },
@@ -122,8 +122,16 @@ describe('Dust Sweep candidate eligibility', () => {
     );
     const result = filterDustSweepCandidates(tokens, 10, false);
 
-    expect(result.hidden.map((token) => token.key)).toEqual(['safe-hidden']);
-    expect(result.visible.map((token) => token.key)).toEqual(['risk-hidden']);
+    expect(result.hidden.map((token) => token.key)).toEqual([
+      'safe-hidden',
+      'risk-hidden',
+    ]);
+    expect(result.visible).toEqual([]);
+    const added = filterDustSweepCandidates(tokens, 10, true);
+    expect(added.hidden).toEqual([]);
+    expect(
+      added.visible.find((token) => token.key === 'risk-hidden')?.suspicious,
+    ).toBe(true);
   });
   it('does not expose scaled tokens that the existing Swap pipeline cannot execute', () => {
     expect(

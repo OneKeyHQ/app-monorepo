@@ -64,7 +64,10 @@ export type IMarketGasInfoEntry = {
   estimateFeeParams?: IEstimateFeeParams;
 };
 
+export class MarketDirectFeeOverflowError extends OneKeyError {}
+
 type IMarketDirectSendParams = {
+  rejectFeeInfoOverflow?: boolean;
   onBeforeSignAndSend?: () => void | Promise<void>;
   onBroadcast?: (signedTx: ISendTxOnSuccessData['signedTx']) => void;
   accountAddress: string;
@@ -1089,6 +1092,7 @@ async function updateUnsignedTxAndSendTx({
   gasAccountAnalytics,
   onBeforeSignAndSend,
   onBroadcast,
+  rejectFeeInfoOverflow,
 }: {
   accountId: string;
   networkId: string;
@@ -1101,6 +1105,7 @@ async function updateUnsignedTxAndSendTx({
   gasAccountAnalytics?: IMarketDirectSendParams['gasAccountAnalytics'];
   onBeforeSignAndSend?: IMarketDirectSendParams['onBeforeSignAndSend'];
   onBroadcast?: IMarketDirectSendParams['onBroadcast'];
+  rejectFeeInfoOverflow?: boolean;
 }): Promise<ISendTxOnSuccessData> {
   const feeInfo = buildMarketGasInfoFeeInfo(gasInfo);
 
@@ -1157,7 +1162,7 @@ async function updateUnsignedTxAndSendTx({
         tronResourceRentalInfo,
       }),
   });
-  await runDirectSwapGasAccountStep({
+  const feeVerification = await runDirectSwapGasAccountStep({
     context: gasAccountAnalyticsContext,
     failureStage: 'precheck',
     task: () =>
@@ -1165,14 +1170,22 @@ async function updateUnsignedTxAndSendTx({
         networkId,
         accountId,
         verifyTxTasks: ['feeInfo'],
+        skipVerifyError: rejectFeeInfoOverflow,
         verifyTxFeeInfoParams: {
           feeAmount: totalNative,
           feeTokenSymbol: feeInfo.common.nativeSymbol,
-          doubleConfirm: true,
+          doubleConfirm: !rejectFeeInfoOverflow,
         },
         encodedTx: updatedUnsignedTxItem.encodedTx,
       }),
   });
+  if (
+    rejectFeeInfoOverflow &&
+    (!feeVerification?.txFeeInfoVerifyResult?.checked ||
+      feeVerification.txFeeInfoVerifyResult.isFeeInfoOverflow)
+  ) {
+    throw new MarketDirectFeeOverflowError();
+  }
 
   const gasAccountUiState = buildDirectSwapGasAccountUiState({
     gasInfo,
@@ -1280,6 +1293,7 @@ export async function sendMarketDirectUnsignedTxs({
   gasAccountAnalytics,
   onBeforeSignAndSend,
   onBroadcast,
+  rejectFeeInfoOverflow,
 }: IMarketDirectSendParams): Promise<ISendTxOnSuccessData[]> {
   if (!accountId || !networkId || !accountAddress) {
     throw new OneKeyError('account error');
@@ -1341,6 +1355,7 @@ export async function sendMarketDirectUnsignedTxs({
 
     results.push(
       await updateUnsignedTxAndSendTx({
+        rejectFeeInfoOverflow,
         onBeforeSignAndSend,
         onBroadcast,
         accountId,

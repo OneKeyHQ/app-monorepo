@@ -6,6 +6,7 @@ import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { buildMarketExecutionPayload } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketBuildExecutionUtils';
 import {
+  MarketDirectFeeOverflowError,
   estimateMarketApproveGasInfos,
   estimateMarketDirectGasInfos,
   prepareMarketDirectUnsignedTx,
@@ -563,6 +564,7 @@ export async function executeDustSweepItem(
     assertCanSubmit(options);
     let approvalTxId: string | undefined;
     await sendMarketDirectUnsignedTxs({
+      rejectFeeInfoOverflow: true,
       accountId: snapshot.accountId,
       accountAddress: snapshot.address,
       networkId: snapshot.networkId,
@@ -617,6 +619,7 @@ export async function executeDustSweepItem(
     }
     const { execution, buildRes } = prepared;
     await sendMarketDirectUnsignedTxs({
+      rejectFeeInfoOverflow: true,
       accountId: snapshot.accountId,
       accountAddress: snapshot.address,
       networkId: snapshot.networkId,
@@ -641,6 +644,8 @@ export async function executeDustSweepItem(
     });
   } catch (error) {
     if (!txId) {
+      if (error instanceof MarketDirectFeeOverflowError)
+        throw new DustSweepSkip('unknown');
       if (error instanceof DustSweepPaused && !signing) throw error;
       const submissionError = getSubmissionError(error, signing);
       if (submissionError instanceof DustSweepUserCanceled)

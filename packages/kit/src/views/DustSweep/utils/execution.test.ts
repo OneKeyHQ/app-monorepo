@@ -63,6 +63,7 @@ jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketDirectSendTx',
   () => ({
     sendMarketDirectUnsignedTxs: mockSend,
+    MarketDirectFeeOverflowError: class extends Error {},
     prepareMarketDirectUnsignedTx: mockPrepare,
     estimateMarketDirectGasInfos: mockEstimate,
     estimateMarketApproveGasInfos: mockEstimateApprovals,
@@ -87,6 +88,9 @@ const {
   DustSweepRetryableError,
   DustSweepUserCanceled,
 } = require('./execution') as typeof import('./execution');
+
+const { MarketDirectFeeOverflowError } =
+  require('@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketDirectSendTx') as typeof import('@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketDirectSendTx');
 
 type ISendParams = Parameters<typeof sendMarketDirectUnsignedTxs>[0];
 const token: IDustSweepToken = {
@@ -670,6 +674,38 @@ describe('Dust Sweep serial execution boundaries', () => {
       jest.useRealTimers();
     }
   });
+
+  it.each([false, true])(
+    'skips excessive fees without signing, including after approval: %s',
+    async (afterApproval) => {
+      if (afterApproval) {
+        mockAllowance.mockResolvedValueOnce(
+          createAllowance({ isApproved: false, approveAmounted: '0' }),
+        );
+        mockSend.mockImplementationOnce(async (params) => {
+          expect(params.rejectFeeInfoOverflow).toBe(true);
+          await params.onBeforeSignAndSend?.();
+          params.onBroadcast?.({
+            txid: 'approval-known',
+            rawTx: '',
+            encodedTx: null,
+          });
+          return [];
+        });
+      }
+      mockSend.mockImplementationOnce(async (params) => {
+        expect(params.rejectFeeInfoOverflow).toBe(true);
+        throw new MarketDirectFeeOverflowError();
+      });
+      const options = createOptions();
+      await expect(executeDustSweepItem(options)).rejects.toMatchObject({
+        reason: 'unknown',
+      });
+      expect(options.onSigning).toHaveBeenCalledTimes(afterApproval ? 1 : 0);
+      expect(options.onBroadcast).not.toHaveBeenCalled();
+      expect(mockHistory).not.toHaveBeenCalled();
+    },
+  );
 
   it('keeps a known approval recoverable if its history write fails before swap signing', async () => {
     mockAllowance.mockResolvedValueOnce(

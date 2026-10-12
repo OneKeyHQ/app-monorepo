@@ -106,14 +106,24 @@ export function DustSweepDetails({
               });
             else if (item.reason)
               reason =
-                item.message || getDustSweepReasonMessage(intl, item.reason);
+                item.message && item.message !== item.reason
+                  ? item.message
+                  : getDustSweepReasonMessage(
+                      intl,
+                      item.reason,
+                      state.snapshot?.nativeToken.symbol,
+                    );
             return (
               <YStack
                 key={item.token.key}
                 borderBottomWidth={1}
                 borderColor="$borderSubdued"
               >
-                <DustSweepTokenRow token={item.token} item={item} />
+                <DustSweepTokenRow
+                  token={item.token}
+                  item={item}
+                  nativeTokenSymbol={state.snapshot?.nativeToken.symbol}
+                />
                 <YStack px="$5" pb="$3" gap="$1">
                   <XStack justifyContent="space-between" gap="$3">
                     <SizableText size="$bodyMd" color="$textSubdued">

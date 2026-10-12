@@ -210,10 +210,13 @@ export function DustSweepSummary({
     selecting &&
     (preview.status === 'loading' || preview.status === 'refreshing');
   const quoteError = selecting && preview.status === 'error';
+  const quoteUnavailable =
+    selecting && selected.length > 0 && preview.quotedCount === 0;
+  const quoteExpired = selecting && preview.status === 'expired';
   const partialQuote = selecting && preview.status === 'partial';
   const unavailableCount = Object.keys(preview.unavailable).length;
   const amountUnavailable =
-    quoteError || (!selecting && (totals.receiptUnavailable || unknown));
+    quoteUnavailable || (!selecting && (totals.receiptUnavailable || unknown));
   let label = intl.formatMessage(
     { id: ETranslations.button_convert_tokens_estimated_amount },
     {
@@ -241,6 +244,12 @@ export function DustSweepSummary({
     label = intl.formatMessage({
       id: ETranslations.swap_page_button_fetching_quotes,
     });
+  if (quoteExpired) {
+    label = intl.formatMessage({
+      id: ETranslations.swap_page_button_refresh_quotes,
+    });
+    onPress = model.retryPreview;
+  }
   let progressLabel = ETranslations.label_conversion_progress;
   if (unknown) {
     progressLabel = ETranslations.global_pending;
@@ -322,12 +331,12 @@ export function DustSweepSummary({
                   fromToken={selected[0]}
                   toToken={nativeToken}
                   providerIcon={
-                    !quoteError && preview.providers.length === 1
+                    !quoteUnavailable && preview.providers.length === 1
                       ? (preview.providers[0].providerLogo ?? '')
                       : ''
                   }
                   providerName={
-                    quoteError
+                    quoteUnavailable
                       ? intl.formatMessage({
                           id: ETranslations.swap_page_provider_rate_unavailable,
                         })
@@ -360,7 +369,8 @@ export function DustSweepSummary({
                     isRefreshQuote={quoteRefreshing}
                     isLoading={quoteRefreshing}
                     isFocused={isFocused}
-                    manualRefreshRequired={quoteError}
+                    manualRefreshRequired={quoteError || quoteExpired}
+                    autoRefreshTimerActive={preview.autoRefreshTimerActive}
                   />
                 </Stack>
               ) : null}
@@ -499,7 +509,9 @@ export function DustSweepSummary({
         variant="primary"
         borderRadius="$3"
         disabled={
-          session.leaving || state.phase === 'left' || (selecting && !canStart)
+          session.leaving ||
+          state.phase === 'left' ||
+          (selecting && !canStart && !quoteExpired)
         }
         onPress={onPress}
       >

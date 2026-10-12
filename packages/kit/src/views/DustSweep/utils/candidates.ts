@@ -85,14 +85,10 @@ export function filterDustSweepCandidates(
   const eligible = tokens.filter((token) =>
     new BigNumber(token.valueUsd).lt(threshold),
   );
-  // Keep unverified assets visible so they remain explicitly selectable while
-  // staying unchecked by default. Only safe assets can be hidden and bulk-added.
-  const hidden = eligible.filter(
-    (token) =>
-      !token.suspicious &&
-      new BigNumber(token.valueUsd).lt(
-        getDustSweepHiddenThreshold(token.networkId),
-      ),
+  const hidden = eligible.filter((token) =>
+    new BigNumber(token.valueUsd).lt(
+      getDustSweepHiddenThreshold(token.networkId),
+    ),
   );
   const hiddenKeys = new Set(hidden.map((token) => token.key));
   const visible = eligible.filter((token) => !hiddenKeys.has(token.key));

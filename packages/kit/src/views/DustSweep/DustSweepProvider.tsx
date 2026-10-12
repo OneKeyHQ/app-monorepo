@@ -37,7 +37,9 @@ function useDustSweepController(params: IDustSweepRouteParams) {
   const [partialError, setPartialError] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [networkId, setNetworkId] = useState(params.networkId);
-  const [includeHidden, setIncludeHidden] = useState(false);
+  const [networksWithHidden, setNetworksWithHidden] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [selection, setSelection] = useState<Set<string>>();
   const [slippage, setSlippage] = useState(5);
   const [previewRevision, setPreviewRevision] = useState(0);
@@ -99,12 +101,13 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     orderedNetworks.find((entry) => entry.network.networkId === networkId) ??
     (selecting ? orderedNetworks[0] : undefined);
   const currentNetworkId = current?.network.networkId;
+  const includeHidden =
+    !!currentNetworkId && networksWithHidden.has(currentNetworkId);
   useEffect(() => {
     if (!selecting || !currentNetworkId || currentNetworkId === networkId)
       return;
     setNetworkId(currentNetworkId);
     setSelection(undefined);
-    setIncludeHidden(false);
     hiddenReported.current = false;
   }, [currentNetworkId, networkId, selecting]);
   const { visible, hidden } = useMemo(
@@ -177,7 +180,6 @@ function useDustSweepController(params: IDustSweepRouteParams) {
       if (!selecting) return;
       setNetworkId(id);
       setSelection(undefined);
-      setIncludeHidden(false);
       hiddenReported.current = false;
     },
     [selecting],
@@ -187,8 +189,6 @@ function useDustSweepController(params: IDustSweepRouteParams) {
       if (!selecting) return;
       setPreferences((value) => ({ ...value, threshold }));
       setSelection(undefined);
-      setIncludeHidden(false);
-      hiddenReported.current = false;
     },
     [selecting, setPreferences],
   );
@@ -226,18 +226,25 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     setSelection(selectedKeys);
   }, [selecting, selected, visible]);
   const addHidden = useCallback(() => {
-    if (!selecting || includeHidden) return;
+    if (!selecting || includeHidden || !currentNetworkId) return;
     setSelection(
       new Set([...selected, ...selectableHidden].map((token) => token.key)),
     );
-    setIncludeHidden(true);
+    setNetworksWithHidden((value) => new Set(value).add(currentNetworkId));
     if (!hiddenReported.current) {
       hiddenReported.current = true;
       defaultLogger.dex.dustSweep.dustSweepAddHidden({
-        hiddenCount: selectableHidden.length,
+        hiddenCount: hidden.length,
       });
     }
-  }, [selecting, includeHidden, selected, selectableHidden]);
+  }, [
+    selecting,
+    includeHidden,
+    currentNetworkId,
+    selected,
+    selectableHidden,
+    hidden.length,
+  ]);
   const sweepAgain = useCallback(() => {
     if (
       session.state.phase !== 'completed' &&
@@ -246,7 +253,7 @@ function useDustSweepController(params: IDustSweepRouteParams) {
       return;
     resetSession();
     setSelection(undefined);
-    setIncludeHidden(false);
+    setNetworksWithHidden(new Set());
     hiddenReported.current = false;
     setRefresh((value) => value + 1);
     setNetworks([]);
@@ -272,7 +279,7 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     networks: orderedNetworks,
     current,
     visible,
-    hidden: selectableHidden,
+    hidden,
     selected,
     includeHidden,
     valueUsd,

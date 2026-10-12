@@ -3,6 +3,16 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePreventRemove, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
+import Animated, {
+  Easing,
+  cancelAnimation,
+  interpolate,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 
 import {
   Dialog,
@@ -34,6 +44,53 @@ import { DustSweepProvider, useDustSweep } from './DustSweepProvider';
 import { getDustSweepPresentation } from './stateMachine';
 
 import type { NavigationAction, RouteProp } from '@react-navigation/core';
+
+function DustSweepDirectionIcon({
+  desktop = false,
+  running,
+}: {
+  desktop?: boolean;
+  running: boolean;
+}) {
+  const reducedMotion = useReducedMotion();
+  const animated = running && !reducedMotion;
+  const progress = useSharedValue(0);
+  useEffect(() => {
+    progress.value = 0;
+    if (animated)
+      progress.value = withRepeat(
+        withTiming(1, { duration: 1200, easing: Easing.linear }),
+        -1,
+        false,
+      );
+    return () => cancelAnimation(progress);
+  }, [animated, progress]);
+  const style = useAnimatedStyle(() => {
+    const offset = animated
+      ? interpolate(progress.value, [0, 1], [-10, 10])
+      : 0;
+    return {
+      opacity: animated
+        ? interpolate(progress.value, [0, 0.25, 0.75, 1], [0, 1, 1, 0])
+        : 1,
+      transform: [
+        { translateX: desktop ? offset : 0 },
+        { translateY: desktop ? 0 : offset },
+      ],
+    };
+  }, [animated, desktop, progress]);
+  return (
+    <Stack width={20} height={20} overflow="hidden">
+      <Animated.View style={style}>
+        <Icon
+          name={desktop ? 'ArrowRightOutline' : 'ArrowBottomOutline'}
+          size="$5"
+          color="$iconSubdued"
+        />
+      </Animated.View>
+    </Stack>
+  );
+}
 
 function DustSweepResultDialog({
   state,
@@ -69,7 +126,9 @@ function DustSweepResultDialog({
     <ScrollView maxHeight={Math.min(420, maxHeight)}>
       <DustSweepResult
         state={state}
-        onDetails={() => setShowDetails(true)}
+        onDetails={
+          state.phase === 'completed' ? onClose : () => setShowDetails(true)
+        }
         onAgain={state.phase === 'completed' ? onAgain : onClose}
       />
     </ScrollView>
@@ -221,7 +280,10 @@ function DustSweepPageContent() {
     },
     [state, sweepAgain],
   );
-  const onDetails = useCallback(() => showResult(true), [showResult]);
+  const onDetails = useCallback(
+    () => showResult(state.phase !== 'completed'),
+    [showResult, state.phase],
+  );
   useEffect(() => {
     if (
       desktop ||
@@ -314,7 +376,10 @@ function DustSweepPageContent() {
                 alignItems="center"
                 justifyContent="center"
               >
-                <Icon name="ArrowRightOutline" size="$5" color="$iconSubdued" />
+                <DustSweepDirectionIcon
+                  desktop
+                  running={isFocused && state.phase === 'running'}
+                />
               </Stack>
             </XStack>
           </YStack>
@@ -346,7 +411,9 @@ function DustSweepPageContent() {
               alignItems="center"
               justifyContent="center"
             >
-              <Icon name="ArrowBottomOutline" size="$5" color="$iconSubdued" />
+              <DustSweepDirectionIcon
+                running={isFocused && state.phase === 'running'}
+              />
             </Stack>
           </YStack>
         </Page.Footer>

@@ -107,6 +107,11 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
               <DustSweepTokenRow
                 key={token.key}
                 token={token}
+                nativeTokenSymbol={
+                  selecting
+                    ? current?.nativeToken.symbol
+                    : session.state.snapshot?.nativeToken.symbol
+                }
                 selected={selected.some((item) => item.key === token.key)}
                 item={selecting ? undefined : session.state.items[index]}
                 quoteReason={

@@ -3,10 +3,19 @@ import { useEffect, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import pLimit from 'p-limit';
 
+import {
+  ESwapQuoteRefreshAction,
+  resolveSwapQuoteRefreshAction,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
 import type {
   IDustSweepReason,
   IDustSweepSnapshot,
 } from '@onekeyhq/shared/types/swap/dustSweep';
+import {
+  SWAP_QUOTE_INPUT_DEBOUNCE_MS,
+  swapQuoteIntervalMaxCount,
+  swapRefreshInterval,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 
 import {
   DustSweepSkip,
@@ -17,7 +26,15 @@ import {
 type IPreview = {
   identity: string;
   revision: number;
-  status: 'idle' | 'loading' | 'refreshing' | 'ready' | 'partial' | 'error';
+  status:
+    | 'idle'
+    | 'loading'
+    | 'refreshing'
+    | 'ready'
+    | 'partial'
+    | 'error'
+    | 'expired';
+  autoRefreshTimerActive: boolean;
   amount: string;
   quotedCount: number;
   availableKeys: string[];
@@ -40,19 +57,29 @@ export function useDustSweepPreview(
   useEffect(() => {
     if (!enabled || !snapshot || !snapshot.tokens.length) {
       setPreview((previous) =>
-        previous ? { ...previous, status: 'idle' } : previous,
+        previous
+          ? { ...previous, status: 'idle', autoRefreshTimerActive: false }
+          : previous,
       );
       return undefined;
     }
     const controller = new AbortController();
     const limit = pLimit(3);
+    let automaticRefreshCount = 0;
+    let timer: ReturnType<typeof setTimeout>;
     setPreview((previous) =>
       previous?.identity === snapshot.id
-        ? { ...previous, revision, status: 'refreshing' }
+        ? {
+            ...previous,
+            revision,
+            status: 'refreshing',
+            autoRefreshTimerActive: false,
+          }
         : {
             identity: snapshot.id,
             revision,
             status: 'loading',
+            autoRefreshTimerActive: false,
             amount: '0',
             quotedCount: 0,
             availableKeys: [],
@@ -60,7 +87,7 @@ export function useDustSweepPreview(
             providers: [],
           },
     );
-    const timer = setTimeout(() => {
+    const requestQuotes = () => {
       void Promise.allSettled(
         snapshot.tokens.map((token) =>
           limit(async () => {
@@ -102,10 +129,18 @@ export function useDustSweepPreview(
         let status: IPreview['status'] = 'error';
         if (quotes.length === snapshot.tokens.length) status = 'ready';
         else if (quotes.length) status = 'partial';
+        const refreshTransition = resolveSwapQuoteRefreshAction({
+          automaticRefreshCount,
+          maxAutomaticRefreshCount: swapQuoteIntervalMaxCount,
+        });
+        const expired =
+          refreshTransition.action ===
+          ESwapQuoteRefreshAction.RequireManualRefresh;
         setPreview({
           identity: snapshot.id,
           revision,
-          status,
+          status: expired ? 'expired' : status,
+          autoRefreshTimerActive: !expired,
           amount: quotes
             .reduce(
               (sum, quote) => sum.plus(quote.toAmount ?? 0),
@@ -117,14 +152,31 @@ export function useDustSweepPreview(
           unavailable,
           providers,
         });
+        if (expired) return;
+        timer = setTimeout(() => {
+          if (controller.signal.aborted) return;
+          automaticRefreshCount = refreshTransition.nextAutomaticRefreshCount;
+          setPreview((previous) =>
+            previous
+              ? {
+                  ...previous,
+                  status: 'refreshing',
+                  autoRefreshTimerActive: false,
+                }
+              : previous,
+          );
+          requestQuotes();
+        }, swapRefreshInterval);
       });
-    }, 300);
+    };
+    timer = setTimeout(requestQuotes, SWAP_QUOTE_INPUT_DEBOUNCE_MS);
     return () => {
       clearTimeout(timer);
       controller.abort();
     };
   }, [snapshot, enabled, revision]);
   const empty = {
+    autoRefreshTimerActive: false,
     amount: '0',
     quotedCount: 0,
     availableKeys: [],

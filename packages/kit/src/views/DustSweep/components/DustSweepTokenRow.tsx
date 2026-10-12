@@ -35,9 +35,9 @@ export const dustSweepReasonMessageIds: Record<
   ETranslations
 > = {
   priceImpact: ETranslations.toast_price_impact_exceeded_skipped,
-  valueDrop: ETranslations.swap_page_price_impact_title,
+  valueDrop: ETranslations.private_send_high_value_drop_title,
   noQuote: ETranslations.swap_page_provider_rate_unavailable,
-  insufficientGas: ETranslations.swap_page_button_insufficient_balance,
+  insufficientGas: ETranslations.insufficient_native_for_network_fees__msg,
   txFailed: ETranslations.swap_review_transaction_failed,
   unknown: ETranslations.global_unknown_error,
 };
@@ -45,7 +45,19 @@ export const dustSweepReasonMessageIds: Record<
 export function getDustSweepReasonMessage(
   intl: ReturnType<typeof useIntl>,
   reason: IDustSweepReason,
+  nativeTokenSymbol?: string,
 ) {
+  if (reason === 'insufficientGas') {
+    const symbol = nativeTokenSymbol?.trim();
+    return symbol
+      ? intl.formatMessage(
+          { id: dustSweepReasonMessageIds[reason] },
+          { symbol },
+        )
+      : intl.formatMessage({
+          id: ETranslations.swap_page_button_insufficient_balance,
+        });
+  }
   return intl.formatMessage({ id: dustSweepReasonMessageIds[reason] });
 }
 
@@ -56,6 +68,7 @@ const DustSweepTokenRowBase = ({
   paused,
   onToggle,
   quoteReason,
+  nativeTokenSymbol,
 }: {
   token?: IDustSweepToken;
   selected?: boolean;
@@ -63,11 +76,13 @@ const DustSweepTokenRowBase = ({
   paused?: boolean;
   onToggle?: (key: string) => void;
   quoteReason?: IDustSweepReason;
+  nativeTokenSymbol?: string;
 }) => {
   const intl = useIntl();
   const reasonText = getDustSweepReasonMessage(
     intl,
     item?.reason ?? quoteReason ?? 'unknown',
+    nativeTokenSymbol,
   );
   const reasonDescription =
     item?.status === 'unknown'
@@ -103,9 +118,10 @@ const DustSweepTokenRowBase = ({
                   ? 'ClockTimeHistoryOutline'
                   : 'XCircleSolid'
               }
-              iconColor={
-                item.status === 'unknown' ? '$iconSubdued' : '$iconCritical'
-              }
+              iconProps={{
+                color:
+                  item.status === 'unknown' ? '$iconSubdued' : '$iconCritical',
+              }}
               size="small"
               variant="tertiary"
               mx={0}

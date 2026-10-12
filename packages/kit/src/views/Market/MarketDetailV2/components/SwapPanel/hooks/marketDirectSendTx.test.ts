@@ -70,6 +70,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 }));
 
 const {
+  MarketDirectFeeOverflowError,
   buildMarketPresetFeeEstimateFakeTransferInfo,
   estimateMarketPresetGasFeeFiatValues,
   estimateMarketApproveGasInfos,
@@ -429,6 +430,65 @@ describe('marketDirectSendTx', () => {
     expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(1);
     expect(mockSaveSendConfirmHistoryTxs).toHaveBeenCalledTimes(1);
     expect(mockBatchEstimateFee).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { checked: true, isFeeInfoOverflow: true },
+    { checked: false, skipReason: 'fee unavailable' },
+  ])(
+    'rejects unconfirmed fee verification before signing: %j',
+    async (feeResult) => {
+      const unsignedTx = createUnsignedTx();
+      mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
+      mockVerifyTransaction.mockResolvedValue({
+        txFeeInfoVerifyResult: feeResult,
+      });
+      const onBeforeSignAndSend = jest.fn();
+      await expect(
+        sendMarketDirectUnsignedTxs({
+          accountAddress: '0xuser',
+          accountId: 'account-1',
+          networkId: 'evm--1',
+          buildUnsignedParams: {
+            accountId: 'account-1',
+            networkId: 'evm--1',
+            encodedTx: unsignedTx.encodedTx,
+          },
+          rejectFeeInfoOverflow: true,
+          onBeforeSignAndSend,
+        }),
+      ).rejects.toBeInstanceOf(MarketDirectFeeOverflowError);
+      expect(mockVerifyTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skipVerifyError: true,
+          verifyTxFeeInfoParams: expect.objectContaining({
+            doubleConfirm: false,
+          }),
+        }),
+      );
+      expect(onBeforeSignAndSend).not.toHaveBeenCalled();
+      expect(mockSignAndSendTransaction).not.toHaveBeenCalled();
+    },
+  );
+
+  it('sends a batch item only after its fees pass without additional confirmation', async () => {
+    const unsignedTx = createUnsignedTx();
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
+    mockVerifyTransaction.mockResolvedValue({
+      txFeeInfoVerifyResult: { checked: true, isFeeInfoOverflow: false },
+    });
+    await sendMarketDirectUnsignedTxs({
+      accountAddress: '0xuser',
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      buildUnsignedParams: {
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        encodedTx: unsignedTx.encodedTx,
+      },
+      rejectFeeInfoOverflow: true,
+    });
+    expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(1);
   });
 
   it('awaits the next signing guard after persisting a broadcast approval', async () => {

@@ -29,6 +29,7 @@ function useMockPreferences() {
 }
 
 const readyPreview: ReturnType<typeof useDustSweepPreview> = {
+  autoRefreshTimerActive: false,
   status: 'ready',
   amount: '0.01',
   quotedCount: 1,
@@ -317,7 +318,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     },
   );
 
-  it('keeps Add anyway scoped to the active network and threshold', async () => {
+  it('keeps Add anyway for each visited network until starting a new sweep', async () => {
     mockLoadNetworks.mockResolvedValue({
       networks: [base, ethereumWithHidden],
       partialError: false,
@@ -337,10 +338,12 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     act(() =>
       result.current.selectNetwork(ethereumWithHidden.network.networkId),
     );
-    act(() => result.current.addHidden());
     expect(result.current.includeHidden).toBe(true);
+    expect(result.current.hidden).toHaveLength(0);
     act(() => result.current.selectThreshold(1));
-    expect(result.current.includeHidden).toBe(false);
+    expect(result.current.includeHidden).toBe(true);
+    act(() => result.current.selectNetwork('evm--1'));
+    expect(result.current.includeHidden).toBe(true);
   });
 
   it('keeps suspicious tokens out of bulk selection while allowing explicit selection', async () => {
@@ -360,6 +363,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
       safeVisibleKey,
     ]);
     expect(result.current.hidden.map((token) => token.key)).toEqual([
+      suspiciousHiddenKey,
       safeHiddenKey,
     ]);
 
@@ -456,7 +460,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     expect(result.current.session.state.snapshot).toBe(snapshot);
   });
 
-  it.each(['idle', 'loading', 'refreshing', 'error'] as const)(
+  it.each(['idle', 'loading', 'refreshing', 'error', 'expired'] as const)(
     'does not start execution when the quote is %s',
     async (status) => {
       mockPreview = { ...readyPreview, status };

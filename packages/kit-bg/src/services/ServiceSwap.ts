@@ -1602,6 +1602,7 @@ export default class ServiceSwap extends ServiceBase {
     receivedAddress,
     orderId,
     ctx,
+    requestCurrency,
   }: {
     txId?: string;
     toTokenAddress?: string;
@@ -1611,6 +1612,7 @@ export default class ServiceSwap extends ServiceBase {
     provider?: string;
     orderId?: string;
     ctx?: any;
+    requestCurrency?: string;
   }): Promise<IFetchSwapTxHistoryStatusResponse> {
     const params = {
       txId,
@@ -1626,7 +1628,11 @@ export default class ServiceSwap extends ServiceBase {
 
     const { data } = await client.post<
       IFetchResponse<IFetchSwapTxHistoryStatusResponse>
-    >('/swap/v1/state-tx', params);
+    >('/swap/v1/state-tx', params, {
+      headers: requestCurrency
+        ? { 'x-onekey-request-currency': requestCurrency }
+        : undefined,
+    });
     return data?.data ?? { state: ESwapTxHistoryStatus.PENDING };
   }
 
@@ -2951,6 +2957,9 @@ export default class ServiceSwap extends ServiceBase {
     });
     return this.fetchTxState({
       txId: getSwapHistoryStateTxIdParam(currentSwapTxHistory),
+      // Status fees must use the persisted record's denomination, even after
+      // the user changes their display currency.
+      requestCurrency: currentSwapTxHistory.currencyId,
       provider: currentSwapTxHistory.swapInfo.provider.provider,
       protocol:
         currentSwapTxHistory.protocol ??
