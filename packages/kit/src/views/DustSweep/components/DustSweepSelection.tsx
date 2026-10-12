@@ -32,6 +32,7 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
     toggleAll,
     addHidden,
     retry,
+    preview,
   } = useDustSweep();
   const intl = useIntl();
   const rows = selecting
@@ -108,6 +109,9 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
                 token={token}
                 selected={selected.some((item) => item.key === token.key)}
                 item={selecting ? undefined : session.state.items[index]}
+                quoteReason={
+                  selecting ? preview.unavailable[token.key] : undefined
+                }
                 paused={
                   session.state.phase === 'paused'
                     ? session.state.items.findIndex(

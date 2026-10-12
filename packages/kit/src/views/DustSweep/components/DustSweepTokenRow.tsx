@@ -11,7 +11,6 @@ import {
   NumberSizeableText,
   SizableText,
   Skeleton,
-  Spinner,
   Stack,
   Tooltip,
   XStack,
@@ -19,6 +18,7 @@ import {
 } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { SwapStepStatusIcon } from '@onekeyhq/kit/src/views/Swap/components/PreSwapStep';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -55,26 +55,42 @@ const DustSweepTokenRowBase = ({
   item,
   paused,
   onToggle,
+  quoteReason,
 }: {
   token?: IDustSweepToken;
   selected?: boolean;
   item?: IDustSweepItem;
   paused?: boolean;
   onToggle?: (key: string) => void;
+  quoteReason?: IDustSweepReason;
 }) => {
   const intl = useIntl();
   const reasonText = getDustSweepReasonMessage(
     intl,
-    item?.status === 'unknown' ? 'unknown' : (item?.reason ?? 'unknown'),
+    item?.reason ?? quoteReason ?? 'unknown',
   );
-  const reasonDescription = reasonText;
+  const reasonDescription =
+    item?.status === 'unknown'
+      ? intl.formatMessage({ id: ETranslations.swap_review_tx_pending })
+      : reasonText;
+  let statusLabel = quoteReason ? reasonText : token?.name;
+  if (item?.status === 'preparing')
+    statusLabel = intl.formatMessage({ id: ETranslations.global_processing });
+  else if (item?.status === 'signing')
+    statusLabel = intl.formatMessage({
+      id: ETranslations.swap_review_sign_and_submit,
+    });
+  else if (item?.status === 'broadcasted' || item?.status === 'unknown')
+    statusLabel = intl.formatMessage({ id: ETranslations.global_pending });
   let statusIcon;
   if (item) {
     if (['preparing', 'signing', 'broadcasted'].includes(item.status))
-      statusIcon = <Spinner size="small" />;
+      statusIcon = (
+        <SwapStepStatusIcon isLoading success={false} failed={false} />
+      );
     else if (item.status === 'success')
       statusIcon = (
-        <Icon name="CheckRadioSolid" color="$iconSuccess" size="$5" />
+        <SwapStepStatusIcon isLoading={false} success failed={false} />
       );
     else if (['failed', 'skipped', 'unknown'].includes(item.status))
       statusIcon = (
@@ -173,7 +189,7 @@ const DustSweepTokenRowBase = ({
               {token.symbol}
             </SizableText>
             <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-              {token.name}
+              {statusLabel}
             </SizableText>
           </>
         ) : (

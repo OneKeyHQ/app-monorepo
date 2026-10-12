@@ -33,6 +33,7 @@ import type {
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { DustSweepRetryableError } from './DustSweepRetryableError';
 import { DustSweepUserCanceled } from './DustSweepUserCanceled';
 import {
   DustSweepSkip,
@@ -41,6 +42,7 @@ import {
 } from './quote';
 
 export { DustSweepUserCanceled } from './DustSweepUserCanceled';
+export { DustSweepRetryableError } from './DustSweepRetryableError';
 
 type IExecutionOptions = {
   snapshot: IDustSweepSnapshot;
@@ -297,6 +299,12 @@ export async function executeDustSweepItem(
     pendingApprovalTxIds,
     generateSwapHistoryItem,
   } = options;
+  if (pendingApprovalTxIds?.length)
+    await waitForBroadcastedApprovals({
+      approvalTxIds: pendingApprovalTxIds,
+      snapshot,
+      signal,
+    });
   const quote = await fetchDustSweepQuote(token, snapshot, signal);
   const quoteRisk = getDustSweepQuoteRisk(quote, token, snapshot);
   if (quoteRisk) throw new DustSweepSkip(quoteRisk, quote.quoteShowTip?.detail);
@@ -352,12 +360,6 @@ export async function executeDustSweepItem(
     buildRes.result.allowanceResult || buildRes.result.approvedInfo
       ? buildRes.result
       : quote;
-  if (pendingApprovalTxIds?.length)
-    await waitForBroadcastedApprovals({
-      approvalTxIds: pendingApprovalTxIds,
-      snapshot,
-      signal,
-    });
   const approveUnsignedTxArr = await prepareAllowanceUnsignedTxs(
     allowanceQuote,
     options,
@@ -396,8 +398,10 @@ export async function executeDustSweepItem(
       onBroadcast: (signed) => {
         broadcastCount += 1;
         if (broadcastCount <= approveUnsignedTxArr.length) {
+          signing = false;
           broadcastedApprovalTxIds.push(signed.txid);
           onApprovalBroadcast?.([...broadcastedApprovalTxIds]);
+          options.onPrepared();
           return;
         }
         if (broadcastCount === approveUnsignedTxArr.length + 1) {
@@ -411,6 +415,14 @@ export async function executeDustSweepItem(
       const submissionError = getSubmissionError(error, signing);
       if (submissionError instanceof DustSweepUserCanceled)
         options.onPrepared();
+      if (
+        !signing &&
+        broadcastedApprovalTxIds.length &&
+        !(submissionError instanceof DustSweepUserCanceled)
+      )
+        throw new DustSweepRetryableError(
+          error instanceof Error ? error.message : undefined,
+        );
       throw submissionError;
     }
   }

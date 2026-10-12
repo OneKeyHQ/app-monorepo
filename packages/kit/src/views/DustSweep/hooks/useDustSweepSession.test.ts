@@ -4,6 +4,7 @@ import { act, renderHook } from '@testing-library/react';
 import type { IDustSweepSnapshot } from '@onekeyhq/shared/types/swap/dustSweep';
 
 import {
+  DustSweepRetryableError,
   DustSweepUnknownSubmission,
   DustSweepUserCanceled,
   executeDustSweepItem,
@@ -37,6 +38,7 @@ jest.mock('../utils/execution', () => ({
   executeDustSweepItem: jest.fn(),
   DustSweepUnknownSubmission: jest.fn(),
   DustSweepUserCanceled: jest.fn(),
+  DustSweepRetryableError: jest.fn(),
 }));
 jest.mock('../utils/quote', () => ({ DustSweepSkip: jest.fn() }));
 
@@ -169,7 +171,7 @@ it('never retries a submission whose broadcast status is unknown', async () => {
   const { result } = renderHook(() => useDustSweepSession([]));
   await act(async () => result.current.start(snapshot));
   await act(async () => result.current.resume());
-  expect(result.current.state.phase).toBe('paused');
+  expect(result.current.state.phase).toBe('blocked');
   expect(result.current.state.items[0].status).toBe('unknown');
   expect(execute).toHaveBeenCalledTimes(1);
 });
@@ -200,4 +202,65 @@ it('does not report a partial receipt as the complete amount', async () => {
       successCount: 2,
     }),
   );
+});
+
+it('pauses a retryable preparation failure with approval identity intact', async () => {
+  execute.mockImplementationOnce(
+    async ({ onSigning, onApprovalBroadcast, onPrepared }) => {
+      onSigning();
+      onApprovalBroadcast?.(['approval-known']);
+      onPrepared();
+      throw new DustSweepRetryableError('History failed');
+    },
+  );
+  const { result } = renderHook(() => useDustSweepSession([]));
+  await act(async () => result.current.start(snapshot));
+  expect(result.current.state.phase).toBe('paused');
+  expect(result.current.state.items[0]).toMatchObject({
+    status: 'waiting',
+    approvalTxIds: ['approval-known'],
+  });
+});
+
+it('skips unavailable preview rows without entering the executor and rejects duplicate starts', async () => {
+  execute.mockImplementation(async ({ onSigning, onBroadcast }) => {
+    onSigning();
+    onBroadcast('tx');
+    return success;
+  });
+  const { result } = renderHook(() => useDustSweepSession([]));
+  await act(async () => {
+    result.current.start(snapshot, { b: 'noQuote' });
+    result.current.start(snapshot);
+  });
+  expect(execute).toHaveBeenCalledTimes(1);
+  expect(result.current.state.phase).toBe('completed');
+  expect(result.current.state.items[1]).toMatchObject({
+    status: 'skipped',
+    reason: 'noQuote',
+  });
+});
+
+it('isolates late callbacks even when a later run uses the same caller id', async () => {
+  let oldBroadcast: ((txId: string) => void) | undefined;
+  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
+    oldBroadcast = onBroadcast;
+    onSigning();
+    onBroadcast('first');
+    return success;
+  });
+  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
+    onSigning();
+    onBroadcast('second');
+    return success;
+  });
+  const { result } = renderHook(() => useDustSweepSession([]));
+  const single = { ...snapshot, tokens: [snapshot.tokens[0]] };
+  await act(async () => result.current.start(single));
+  const firstId = result.current.state.snapshot?.id;
+  act(() => result.current.reset());
+  await act(async () => result.current.start(single));
+  expect(result.current.state.snapshot?.id).not.toBe(firstId);
+  act(() => oldBroadcast?.('obsolete'));
+  expect(result.current.state.items[0].txId).toBe('second');
 });

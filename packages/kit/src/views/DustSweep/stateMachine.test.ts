@@ -6,6 +6,7 @@ import type {
 
 import {
   dustSweepReducer,
+  getDustSweepPresentation,
   getDustSweepTotals,
   initialDustSweepState,
 } from './stateMachine';
@@ -49,6 +50,7 @@ describe('Dust Sweep terminal and retry boundaries', () => {
     let state = signingState();
     state = dustSweepReducer(state, { ...identity, status: 'preparing' });
     state = dustSweepReducer(state, { ...identity, status: 'waiting' });
+    expect(state.items[0].status).toBe('waiting');
     state = dustSweepReducer(state, { type: 'paused' });
     expect(dustSweepReducer(state, { type: 'resume' }).phase).toBe('running');
   });
@@ -62,7 +64,9 @@ describe('Dust Sweep terminal and retry boundaries', () => {
       approvalTxIds: ['approval-0'],
     });
     expect(state.items[0].status).toBe('signing');
+    state = dustSweepReducer(state, { ...identity, status: 'preparing' });
     state = dustSweepReducer(state, { ...identity, status: 'waiting' });
+    expect(state.items[0].status).toBe('waiting');
     expect(state.items[0].approvalTxIds).toEqual(['approval-0']);
     state = dustSweepReducer(state, { type: 'paused' });
     expect(dustSweepReducer(state, { type: 'resume' }).phase).toBe('running');
@@ -165,5 +169,21 @@ describe('Dust Sweep terminal and retry boundaries', () => {
       failedCount: 1,
       settledCount: 2,
     });
+  });
+  it('presents pending and all-skipped sessions without claiming success', () => {
+    expect(
+      getDustSweepPresentation({
+        phase: 'completed',
+        snapshot,
+        items: [{ token, status: 'skipped', reason: 'noQuote' }],
+      }),
+    ).toMatchObject({ outcome: 'failed', completed: true });
+    expect(
+      getDustSweepPresentation({
+        phase: 'blocked',
+        snapshot,
+        items: [{ token, status: 'unknown' }],
+      }),
+    ).toMatchObject({ outcome: 'pending', unknown: true });
   });
 });

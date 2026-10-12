@@ -27,7 +27,7 @@ import {
   DustSweepSummary,
 } from './components/DustSweepSummary';
 import { DustSweepProvider, useDustSweep } from './DustSweepProvider';
-import { getDustSweepTotals } from './stateMachine';
+import { getDustSweepPresentation } from './stateMachine';
 
 import type { NavigationAction, RouteProp } from '@react-navigation/core';
 
@@ -35,12 +35,14 @@ function DustSweepResultDialog({
   state,
   onClose,
   onAgain,
+  details = false,
 }: {
   state: Parameters<typeof DustSweepResult>[0]['state'];
   onClose: () => void;
   onAgain: () => void | Promise<void>;
+  details?: boolean;
 }) {
-  const [showDetails, setShowDetails] = useState(false);
+  const [showDetails, setShowDetails] = useState(details);
   if (showDetails)
     return (
       <DustSweepDetails
@@ -53,13 +55,13 @@ function DustSweepResultDialog({
     <DustSweepResult
       state={state}
       onDetails={() => setShowDetails(true)}
-      onAgain={onAgain}
+      onAgain={state.phase === 'completed' ? onAgain : onClose}
     />
   );
 }
 
 function DustSweepPageContent() {
-  const { session, selecting, sweepAgain } = useDustSweep();
+  const { session, selecting, sweepAgain, isFocused } = useDustSweep();
   const intl = useIntl();
   const navigation = useAppNavigation();
   const media = useMedia();
@@ -68,24 +70,27 @@ function DustSweepPageContent() {
   const pendingAction = useRef<NavigationAction | undefined>(undefined);
   const leaveDialog = useRef(false);
   const resultShown = useRef<string | undefined>(undefined);
+  const resultDialog = useRef<ReturnType<typeof Dialog.show> | undefined>(
+    undefined,
+  );
   const { state } = session;
-  const totals = getDustSweepTotals(state.items);
+  const { progress, unknown } = getDustSweepPresentation(state);
   const title = intl.formatMessage({ id: ETranslations.title_dust_sweep });
-  const progress =
-    state.phase === 'paused'
-      ? totals.settledCount
-      : Math.min(totals.settledCount + 1, state.items.length);
   let subtitle: string | undefined;
   if (!selecting && state.phase !== 'completed') {
-    subtitle =
-      state.phase === 'paused'
-        ? `${intl.formatMessage({
-            id: ETranslations.sweep_dust_sweep_paused,
-          })} ${progress}/${state.items.length}`
-        : intl.formatMessage(
-            { id: ETranslations.sweep_dust_sweep_conversion_progress },
-            { current: progress, total: state.items.length },
-          );
+    if (unknown)
+      subtitle = intl.formatMessage({
+        id: ETranslations.global_pending,
+      });
+    else if (state.phase === 'paused')
+      subtitle = `${intl.formatMessage({
+        id: ETranslations.sweep_dust_sweep_paused,
+      })} ${progress}/${state.items.length}`;
+    else
+      subtitle = intl.formatMessage(
+        { id: ETranslations.sweep_dust_sweep_conversion_progress },
+        { current: progress, total: state.items.length },
+      );
   }
   const renderHeaderTitle = useCallback(
     () => (
@@ -145,36 +150,63 @@ function DustSweepPageContent() {
     if (allowLeave && pendingAction.current)
       navigation.dispatch(pendingAction.current);
   }, [allowLeave, navigation]);
+  const showResult = useCallback(
+    (details: boolean) => {
+      if (!state.snapshot || resultDialog.current) return;
+      const dialog = Dialog.show({
+        testID: 'dust-sweep-result-sheet',
+        nativeSheet: true,
+        showHeader: false,
+        showFooter: false,
+        disableDrag: true,
+        contentContainerProps: { px: 0, pb: 0 },
+        onClose: () => {
+          if (resultDialog.current === dialog) resultDialog.current = undefined;
+        },
+        renderContent: (
+          <DustSweepResultDialog
+            state={state}
+            details={details}
+            onClose={() => {
+              void dialog.close();
+            }}
+            onAgain={async () => {
+              await dialog.close();
+              sweepAgain();
+            }}
+          />
+        ),
+      });
+      resultDialog.current = dialog;
+    },
+    [state, sweepAgain],
+  );
+  const onDetails = useCallback(() => showResult(true), [showResult]);
   useEffect(() => {
     if (
       desktop ||
+      !isFocused ||
       state.phase !== 'completed' ||
       !state.snapshot ||
       resultShown.current === state.snapshot.id
     )
       return;
     resultShown.current = state.snapshot.id;
-    const dialog = Dialog.show({
-      testID: 'dust-sweep-result-sheet',
-      nativeSheet: true,
-      showHeader: false,
-      showFooter: false,
-      disableDrag: true,
-      contentContainerProps: { px: 0, pb: 0 },
-      renderContent: (
-        <DustSweepResultDialog
-          state={state}
-          onClose={() => {
-            void dialog.close();
-          }}
-          onAgain={async () => {
-            await dialog.close();
-            sweepAgain();
-          }}
-        />
-      ),
-    });
-  }, [desktop, state, sweepAgain]);
+    showResult(false);
+  }, [desktop, isFocused, state, showResult]);
+  useEffect(() => {
+    if (!isFocused || selecting) {
+      void resultDialog.current?.close();
+      resultDialog.current = undefined;
+    }
+  }, [isFocused, selecting]);
+  useEffect(
+    () => () => {
+      void resultDialog.current?.close();
+      resultDialog.current = undefined;
+    },
+    [desktop],
+  );
   const onDone = useCallback(() => navigation.pop(), [navigation]);
   return (
     <Page testID="dust-sweep-page">
@@ -222,7 +254,11 @@ function DustSweepPageContent() {
                 <DustSweepSelection desktop />
               </YStack>
               <YStack flex={1}>
-                <DustSweepSummary desktop onDone={onDone} />
+                <DustSweepSummary
+                  desktop
+                  onDone={onDone}
+                  onDetails={onDetails}
+                />
               </YStack>
               <Stack
                 position="absolute"
@@ -251,7 +287,11 @@ function DustSweepPageContent() {
       {desktop ? null : (
         <Page.Footer safeAreaBottomMode="container">
           <YStack position="relative" bg="$bgApp">
-            <DustSweepSummary desktop={false} onDone={onDone} />
+            <DustSweepSummary
+              desktop={false}
+              onDone={onDone}
+              onDetails={onDetails}
+            />
             <Stack
               position="absolute"
               left="50%"
@@ -297,9 +337,7 @@ export default function DustSweepPage() {
   }
   return (
     <DustSweepProvider
-      key={`${route.params.walletId}:${
-        route.params.indexedAccountId ?? route.params.accountId
-      }`}
+      key={`${route.params.walletId}:${route.params.indexedAccountId ?? ''}:${route.params.accountId}:${route.params.networkId ?? ''}`}
       params={route.params}
     >
       <DustSweepPageContent />

@@ -13,7 +13,6 @@ import {
   Divider,
   Icon,
   IconButton,
-  Image,
   SizableText,
   Skeleton,
   Stack,
@@ -22,11 +21,14 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { SwapTransactionResultStatus } from '@onekeyhq/kit/src/views/Swap/components/PreSwapConfirmResult';
+import SwapProviderInfoItem from '@onekeyhq/kit/src/views/Swap/components/SwapProviderInfoItem';
+import { SwapRefreshButtonBase } from '@onekeyhq/kit/src/views/Swap/components/SwapRefreshButton';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useDustSweep } from '../DustSweepProvider';
-import { getDustSweepTotals } from '../stateMachine';
+import { getDustSweepPresentation } from '../stateMachine';
 
 import { DustSweepSlippage } from './DustSweepSlippage';
 
@@ -49,22 +51,25 @@ export function DustSweepResult({
 }) {
   const intl = useIntl();
   const reducedMotion = useReducedMotion();
-  const totals = getDustSweepTotals(state.items);
+  const { totals, outcome } = getDustSweepPresentation(state);
   const hasIssues = totals.failedCount > 0 || totals.skippedCount > 0;
   const hasHardFailures = totals.failedCount > 0;
   const hasSuccess = totals.successCount > 0;
   let resultTitleId = ETranslations.title_dust_swept;
-  if (hasIssues) {
+  if (outcome === 'pending') resultTitleId = ETranslations.global_pending;
+  else if (!hasSuccess) resultTitleId = ETranslations.global_failed;
+  else if (hasIssues) {
     resultTitleId = ETranslations.title_dust_sweep_completed;
     if (!hasSuccess && hasHardFailures)
       resultTitleId = ETranslations.global_failed;
   }
   const token = state.snapshot?.nativeToken;
-  const amount = totals.receiptUnavailable
-    ? '—'
-    : `+${formatAmount(totals.receivedAmount, 6)}`;
+  const amount =
+    totals.receiptUnavailable || !hasSuccess
+      ? '—'
+      : `+${formatAmount(totals.receivedAmount, 6)}`;
   const value =
-    totals.receiptUnavailable || !token?.price
+    totals.receiptUnavailable || !hasSuccess || !token?.price
       ? '—'
       : `$${formatAmount(
           new BigNumber(totals.receivedAmount)
@@ -81,15 +86,15 @@ export function DustSweepResult({
     <Animated.View entering={entering} style={{ width: '100%' }}>
       <YStack
         testID="dust-sweep-result"
-        height={desktop ? 280 : 420}
+        height={desktop ? 320 : 420}
         px={desktop ? 0 : '$5'}
         pt={desktop ? 76 : 32}
         alignItems="center"
       >
-        <Icon
-          name={hasHardFailures ? 'InfoCircleSolid' : 'CheckRadioSolid'}
-          color={hasHardFailures ? '$iconCritical' : '$iconSuccess'}
-          size="$12"
+        <SwapTransactionResultStatus
+          status={outcome === 'partial' ? 'success' : outcome}
+          size={48}
+          animated={!reducedMotion}
         />
         <SizableText size="$headingLg" mt="$4" height={24}>
           {intl.formatMessage({ id: resultTitleId })}
@@ -113,7 +118,16 @@ export function DustSweepResult({
         >
           {value}
         </SizableText>
-        {desktop ? null : (
+        {desktop ? (
+          <Button
+            testID="dust-sweep-view-details"
+            mt="$4"
+            variant="tertiary"
+            onPress={onDetails}
+          >
+            {intl.formatMessage({ id: ETranslations.global_details })}
+          </Button>
+        ) : (
           <>
             <YStack width="100%" mt="$8" gap="$4">
               <XStack height={20} justifyContent="space-between">
@@ -155,7 +169,12 @@ export function DustSweepResult({
                 variant="primary"
                 onPress={onAgain}
               >
-                {intl.formatMessage({ id: ETranslations.sweep_sweep_again })}
+                {intl.formatMessage({
+                  id:
+                    state.phase === 'completed'
+                      ? ETranslations.sweep_sweep_again
+                      : ETranslations.global_done,
+                })}
               </Button>
             </YStack>
           </>
@@ -168,9 +187,11 @@ export function DustSweepResult({
 export function DustSweepSummary({
   desktop,
   onDone,
+  onDetails,
 }: {
   desktop: boolean;
   onDone: () => void;
+  onDetails: () => void;
 }) {
   const model = useDustSweep();
   const {
@@ -179,28 +200,33 @@ export function DustSweepSummary({
     current,
     preview,
     selected,
-    valueUsd,
+    quotedValueUsd,
+    canStart,
+    isFocused,
     loadStatus,
   } = model;
   const { state } = session;
   const intl = useIntl();
-  const totals = getDustSweepTotals(state.items);
+  const { totals, completed, unknown, progress } =
+    getDustSweepPresentation(state);
   const nativeToken = state.snapshot?.nativeToken ?? current?.nativeToken;
-  const completed = state.phase === 'completed';
-  const unknown = state.items.some((item) => item.status === 'unknown');
   const amount = selecting ? preview.amount : totals.receivedAmount;
   const quoteLoading =
     selecting && selected.length > 0 && preview.status === 'loading';
+  const quoteRefreshing =
+    selecting &&
+    (preview.status === 'loading' || preview.status === 'refreshing');
   const quoteError = selecting && preview.status === 'error';
+  const partialQuote = selecting && preview.status === 'partial';
+  const unavailableCount = Object.keys(preview.unavailable).length;
   const amountUnavailable =
-    quoteError || (!selecting && totals.receiptUnavailable);
-  const progress =
-    completed || state.phase === 'paused'
-      ? totals.settledCount
-      : Math.min(totals.settledCount + 1, state.items.length);
+    quoteError || (!selecting && (totals.receiptUnavailable || unknown));
   let label = intl.formatMessage(
     { id: ETranslations.button_convert_tokens_estimated_amount },
-    { count: selected.length, amount: `$${formatAmount(valueUsd, 2)}` },
+    {
+      count: preview.quotedCount,
+      amount: `$${formatAmount(quotedValueUsd, 2)}`,
+    },
   );
   let onPress: () => void | Promise<void> = model.start;
   if (completed) {
@@ -208,6 +234,9 @@ export function DustSweepSummary({
       id: desktop ? ETranslations.sweep_sweep_again : ETranslations.global_done,
     });
     onPress = desktop ? model.sweepAgain : onDone;
+  } else if (unknown) {
+    label = intl.formatMessage({ id: ETranslations.global_details });
+    onPress = onDetails;
   } else if (state.phase === 'paused') {
     label = intl.formatMessage({ id: ETranslations.global_continue });
     onPress = session.resume;
@@ -215,6 +244,10 @@ export function DustSweepSummary({
     label = intl.formatMessage({ id: ETranslations.button_stop_conversion });
     onPress = session.pause;
   }
+  if (selecting && quoteRefreshing)
+    label = intl.formatMessage({
+      id: ETranslations.swap_page_button_fetching_quotes,
+    });
   let progressLabel = ETranslations.label_conversion_progress;
   if (unknown) {
     progressLabel = ETranslations.global_pending;
@@ -226,7 +259,7 @@ export function DustSweepSummary({
   return (
     <YStack
       testID="dust-sweep-summary"
-      height={desktop ? 540 : 209}
+      height={desktop ? 540 : 209 + (partialQuote ? 28 : 0)}
       flexShrink={0}
       px="$5"
       pt={desktop ? '$5' : '$0'}
@@ -236,7 +269,7 @@ export function DustSweepSummary({
         : { borderTopWidth: 1, borderColor: '$borderSubdued' })}
     >
       {completed && desktop ? (
-        <DustSweepResult state={state} desktop />
+        <DustSweepResult state={state} desktop onDetails={onDetails} />
       ) : (
         <>
           {desktop ? (
@@ -289,77 +322,55 @@ export function DustSweepSummary({
       <YStack height={desktop ? 65 : 62} pt={desktop ? 16 : 14} gap="$2">
         {selecting ? (
           <>
-            <XStack
-              height={20}
-              justifyContent="space-between"
-              alignItems="center"
-            >
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.swap_page_provider_provider,
-                })}
-              </SizableText>
-              {quoteLoading || loadStatus === 'loading' ? (
-                <Skeleton width={54} height={16} />
-              ) : (
-                <XStack
-                  gap="$1"
-                  alignItems="center"
-                  flexShrink={1}
-                  minWidth={0}
+            <XStack height={20} alignItems="center" gap="$2">
+              <Stack flex={1} minWidth={0}>
+                <SwapProviderInfoItem
+                  testID="dust-sweep-provider"
+                  fromToken={selected[0]}
+                  toToken={nativeToken}
+                  providerIcon={
+                    !quoteError && preview.providers.length === 1
+                      ? (preview.providers[0].providerLogo ?? '')
+                      : ''
+                  }
+                  providerName={
+                    quoteError
+                      ? intl.formatMessage({
+                          id: ETranslations.swap_page_provider_rate_unavailable,
+                        })
+                      : preview.providers
+                          .map(
+                            (provider) =>
+                              provider.providerName || provider.provider,
+                          )
+                          .join(', ')
+                  }
+                  isLoading={quoteLoading || loadStatus === 'loading'}
+                  showEmptyPlaceholder
+                  valueProps={{
+                    numberOfLines: 1,
+                    maxWidth: desktop ? 180 : 164,
+                    flexShrink: 1,
+                  }}
+                />
+              </Stack>
+              {selected.length && loadStatus === 'ready' ? (
+                <Stack
+                  testID="dust-sweep-refresh-quotes"
+                  accessibilityLabel={intl.formatMessage({
+                    id: ETranslations.swap_page_button_refresh_quotes,
+                  })}
                 >
-                  {preview.providerLogo ? (
-                    <Stack position="relative" width={20} height={20}>
-                      <Image
-                        source={{ uri: preview.providerLogo }}
-                        width={20}
-                        height={20}
-                        borderRadius="$1"
-                      />
-                      <Stack
-                        position="absolute"
-                        top={0}
-                        left={0}
-                        right={0}
-                        bottom={0}
-                        borderRadius="$1"
-                        borderWidth="$px"
-                        borderColor="$borderSubdued"
-                        pointerEvents="none"
-                      />
-                    </Stack>
-                  ) : null}
-                  <SizableText
-                    size="$bodyMdMedium"
-                    numberOfLines={1}
-                    maxWidth="$64"
-                    flexShrink={1}
-                  >
-                    {preview.providerName || preview.provider || '—'}
-                  </SizableText>
-                  {quoteError ? (
-                    <IconButton
-                      testID="dust-sweep-refresh-quotes"
-                      icon="RotateClockwiseOutline"
-                      variant="tertiary"
-                      size="small"
-                      height={20}
-                      minHeight={20}
-                      width={20}
-                      p={0}
-                      mx={0}
-                      my={0}
-                      ml="$1"
-                      hitSlop={12}
-                      iconSize="$4"
-                      onPress={model.retryPreview}
-                      accessibilityLabel={intl.formatMessage({
-                        id: ETranslations.swap_page_button_refresh_quotes,
-                      })}
-                    />
-                  ) : null}
-                </XStack>
-              )}
+                  <SwapRefreshButtonBase
+                    refreshAction={model.retryPreview}
+                    disabled={quoteRefreshing || !isFocused}
+                    isRefreshQuote={quoteRefreshing}
+                    isLoading={quoteRefreshing}
+                    isFocused={isFocused}
+                    manualRefreshRequired={quoteError}
+                  />
+                </Stack>
+              ) : null}
             </XStack>
             <XStack
               height={20}
@@ -421,10 +432,7 @@ export function DustSweepSummary({
             gap="$2"
             mt={desktop ? 7 : 14}
           >
-            <SizableText
-              size="$bodyMd"
-              color={unknown ? '$textCritical' : '$textSubdued'}
-            >
+            <SizableText size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({ id: progressLabel })}
             </SizableText>
             <XStack alignItems="center" gap="$1" flexShrink={0}>
@@ -456,10 +464,40 @@ export function DustSweepSummary({
                   )
                 </SizableText>
               ) : null}
+              {completed && !desktop ? (
+                <IconButton
+                  testID="dust-sweep-reopen-details"
+                  icon="InfoCircleOutline"
+                  variant="tertiary"
+                  size="small"
+                  height={20}
+                  minHeight={20}
+                  width={20}
+                  p={0}
+                  mx={0}
+                  my={0}
+                  accessibilityLabel={intl.formatMessage({
+                    id: ETranslations.global_details,
+                  })}
+                  onPress={onDetails}
+                />
+              ) : null}
             </XStack>
           </XStack>
         )}
       </YStack>
+      {partialQuote ? (
+        <SizableText
+          testID="dust-sweep-partial-quotes"
+          size="$bodySm"
+          color="$textSubdued"
+          mt="$2"
+          height={20}
+        >
+          {unavailableCount}{' '}
+          {intl.formatMessage({ id: ETranslations.label_skipped })}
+        </SizableText>
+      ) : null}
       {desktop ? <Stack flex={1} /> : <Stack height={8} />}
       <Button
         testID="dust-sweep-action"
@@ -468,11 +506,10 @@ export function DustSweepSummary({
         variant="primary"
         borderRadius="$3"
         disabled={
-          unknown ||
           session.leaving ||
+          state.phase === 'left' ||
           state.phase === 'pausing' ||
-          (selecting &&
-            (loadStatus !== 'ready' || !selected.length || quoteLoading))
+          (selecting && !canStart)
         }
         onPress={onPress}
       >

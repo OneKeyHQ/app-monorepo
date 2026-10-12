@@ -142,13 +142,7 @@ export function DustSweepSlippage() {
   const intl = useIntl();
   const media = useMedia();
   const mobile = platformEnv.isNative || media.md;
-  const displayValue =
-    slippage === 5
-      ? intl.formatMessage(
-          { id: ETranslations.swap_page_provider_slippage_auto },
-          { number: slippage },
-        )
-      : `${slippage}%`;
+  const displayValue = `${slippage}%`;
   const openEditor = useCallback(() => {
     const dialog = Dialog.show({
       testID: 'dust-sweep-slippage-sheet',

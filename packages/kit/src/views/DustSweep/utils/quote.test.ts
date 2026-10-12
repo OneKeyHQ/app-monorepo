@@ -232,7 +232,7 @@ describe('Dust Sweep quote stream ownership', () => {
     mockCancelFetchQuoteEvents.mockReset().mockResolvedValue(undefined);
   });
 
-  it('selects the first provider contract from a multi-provider stream', async () => {
+  it('selects the first usable provider contract from a multi-provider stream', async () => {
     const operation = fetchDustSweepQuote(
       token,
       snapshot,
@@ -256,6 +256,35 @@ describe('Dust Sweep quote stream ownership', () => {
     expect(mockCancelFetchQuoteEvents).toHaveBeenCalledWith(
       mockFetchQuotesEvents.mock.calls[0][0].quoteRequestId,
     );
+  });
+
+  it('keeps the stream open after an unavailable provider until a usable quote arrives', async () => {
+    const operation = fetchDustSweepQuote(
+      token,
+      snapshot,
+      new AbortController().signal,
+    );
+    emitQuoteMessage(0, {
+      data: [{ ...quote, toAmount: '0', errorMessage: 'No liquidity' }],
+    });
+    expect(mockCancelFetchQuoteEvents).not.toHaveBeenCalled();
+    const usable = {
+      ...quote,
+      info: { provider: 'FutureProvider', providerName: 'Future Provider' },
+    };
+    emitQuoteMessage(0, { data: [usable] });
+    await expect(operation).resolves.toEqual(usable);
+  });
+
+  it('retains the risk reason if the stream ends with no executable quote', async () => {
+    const operation = fetchDustSweepQuote(
+      token,
+      snapshot,
+      new AbortController().signal,
+    );
+    emitQuoteMessage(0, { data: [{ ...quote, valueDropPercent: 20 }] });
+    emitQuoteEvent(0, { type: 'done' });
+    await expect(operation).rejects.toMatchObject({ reason: 'priceImpact' });
   });
 
   it('keeps the slippage cap when the provider omits a numeric impact', () => {

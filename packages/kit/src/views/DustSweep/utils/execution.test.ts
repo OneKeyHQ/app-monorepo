@@ -66,6 +66,7 @@ jest.mock('./quote', () => ({
 const {
   executeDustSweepItem,
   DustSweepUnknownSubmission,
+  DustSweepRetryableError,
   DustSweepUserCanceled,
 } = require('./execution') as typeof import('./execution');
 
@@ -132,14 +133,15 @@ function createOptions() {
 }
 async function sendTransaction(params: ISendParams) {
   await params.validateFinalGasInfos?.([]);
-  params.onBeforeSignAndSend?.();
   for (const [index] of (params.approveUnsignedTxArr ?? []).entries()) {
+    params.onBeforeSignAndSend?.();
     params.onBroadcast?.({
       txid: `approval-${index}`,
       rawTx: '',
       encodedTx: null,
     });
   }
+  params.onBeforeSignAndSend?.();
   params.onBroadcast?.({
     txid: 'swap',
     rawTx: '',
@@ -189,7 +191,9 @@ describe('Dust Sweep serial execution boundaries', () => {
       }),
     );
     mockBuild.mockResolvedValue({ result: createQuote('0xfirst') });
-    await executeDustSweepItem(createOptions());
+    const options = createOptions();
+    await executeDustSweepItem(options);
+    expect(options.onSigning).toHaveBeenCalledTimes(2);
     expect(mockSend).toHaveBeenCalledTimes(1);
     expect(mockSend.mock.calls[0][0].approveUnsignedTxArr).toHaveLength(1);
     expect(mockAllowance).toHaveBeenCalledWith(
@@ -259,6 +263,85 @@ describe('Dust Sweep serial execution boundaries', () => {
         approveInfo: expect.objectContaining({ spender: '0xchanged' }),
       }),
     );
+  });
+
+  it('keeps a known approval recoverable if its history write fails before swap signing', async () => {
+    mockAllowance.mockResolvedValue(
+      createAllowance({ isApproved: false, approveAmounted: '0' }),
+    );
+    mockSend.mockImplementationOnce(async (params) => {
+      params.onBeforeSignAndSend?.();
+      params.onBroadcast?.({
+        txid: 'approval-known',
+        rawTx: '',
+        encodedTx: null,
+      });
+      throw new OneKeyLocalError('Approval history unavailable');
+    });
+    const options = createOptions();
+    await expect(executeDustSweepItem(options)).rejects.toBeInstanceOf(
+      DustSweepRetryableError,
+    );
+    expect(options.onApprovalBroadcast).toHaveBeenCalledWith([
+      'approval-known',
+    ]);
+    expect(options.onPrepared).toHaveBeenCalledTimes(1);
+    expect(options.onBroadcast).not.toHaveBeenCalled();
+  });
+
+  it('still treats an unconfirmed swap signing attempt after a known approval as unknown', async () => {
+    mockAllowance.mockResolvedValue(
+      createAllowance({ isApproved: false, approveAmounted: '0' }),
+    );
+    mockSend.mockImplementationOnce(async (params) => {
+      params.onBeforeSignAndSend?.();
+      params.onBroadcast?.({
+        txid: 'approval-known',
+        rawTx: '',
+        encodedTx: null,
+      });
+      params.onBeforeSignAndSend?.();
+      throw new OneKeyLocalError('Swap transport unavailable');
+    });
+    await expect(executeDustSweepItem(createOptions())).rejects.toBeInstanceOf(
+      DustSweepUnknownSubmission,
+    );
+  });
+
+  it('obtains fresh quotes only after a pending approval settles', async () => {
+    jest.useFakeTimers();
+    mockTxState
+      .mockResolvedValueOnce({ state: ESwapTxHistoryStatus.PENDING })
+      .mockResolvedValue({
+        state: ESwapTxHistoryStatus.SUCCESS,
+        dealReceiveAmount: '0.009',
+      });
+    const operation = executeDustSweepItem({
+      ...createOptions(),
+      pendingApprovalTxIds: ['approval-pending'],
+    });
+    try {
+      await jest.advanceTimersByTimeAsync(0);
+      expect(mockFetchQuote).not.toHaveBeenCalled();
+      expect(mockBuild).not.toHaveBeenCalled();
+      await jest.advanceTimersByTimeAsync(3000);
+      await expect(operation).resolves.toMatchObject({ status: 'success' });
+      expect(mockFetchQuote).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('does not build or sign if a previously broadcast approval failed', async () => {
+    mockTxState.mockResolvedValueOnce({ state: ESwapTxHistoryStatus.FAILED });
+    await expect(
+      executeDustSweepItem({
+        ...createOptions(),
+        pendingApprovalTxIds: ['approval-failed'],
+      }),
+    ).rejects.toMatchObject({ reason: 'txFailed' });
+    expect(mockFetchQuote).not.toHaveBeenCalled();
+    expect(mockSend).not.toHaveBeenCalled();
   });
 
   it('accepts the latest explicit approved quote when no approval target is returned', async () => {

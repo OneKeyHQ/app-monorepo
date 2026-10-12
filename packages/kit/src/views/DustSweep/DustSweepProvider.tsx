@@ -11,6 +11,7 @@ import type { PropsWithChildren } from 'react';
 
 import BigNumber from 'bignumber.js';
 
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useDustSweepPreferencesPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -27,6 +28,7 @@ import { filterDustSweepCandidates } from './utils/candidates';
 import { loadDustSweepNetworks } from './utils/loadNetworks';
 
 function useDustSweepController(params: IDustSweepRouteParams) {
+  const isFocused = useRouteIsFocused();
   const [preferences, setPreferences] = useDustSweepPreferencesPersistAtom();
   const [networks, setNetworks] = useState<IDustSweepNetwork[]>([]);
   const [loadStatus, setLoadStatus] = useState<'loading' | 'ready' | 'error'>(
@@ -43,6 +45,7 @@ function useDustSweepController(params: IDustSweepRouteParams) {
   const firstVisit = useRef(true);
   const hiddenReported = useRef(false);
   const session = useDustSweepSession(networks);
+  const { reset: resetSession, start: startSession } = session;
   const selecting = session.state.phase === 'selecting';
   const loadParams = useMemo(
     () => ({
@@ -127,7 +130,7 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     () =>
       current && selecting
         ? {
-            id: `${current.accountId}:${current.network.networkId}:${slippage}:${selected.map((token) => `${token.key}=${token.amount}`).join('|')}:${previewRevision}`,
+            id: `${current.accountId}:${current.address}:${current.network.networkId}:${slippage}:${selected.map((token) => `${token.key}=${token.amount}`).join('|')}`,
             accountId: current.accountId,
             address: current.address,
             networkId: current.network.networkId,
@@ -137,9 +140,22 @@ function useDustSweepController(params: IDustSweepRouteParams) {
             tokens: selected,
           }
         : undefined,
-    [current, selecting, slippage, selected, previewRevision],
+    [current, selecting, slippage, selected],
   );
-  const preview = useDustSweepPreview(snapshot);
+  const preview = useDustSweepPreview(snapshot, {
+    enabled: selecting && isFocused && loadStatus === 'ready',
+    revision: previewRevision,
+  });
+  const canStart =
+    selecting &&
+    isFocused &&
+    loadStatus === 'ready' &&
+    (preview.status === 'ready' || preview.status === 'partial') &&
+    preview.quotedCount > 0;
+  const quotedValueUsd = selected
+    .filter((token) => preview.availableKeys.includes(token.key))
+    .reduce((sum, token) => sum.plus(token.valueUsd), new BigNumber(0))
+    .toFixed();
   useEffect(() => {
     if (loadStatus !== 'ready' || visited.current) return;
     visited.current = true;
@@ -218,7 +234,12 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     }
   }, [selecting, includeHidden, selected, selectableHidden]);
   const sweepAgain = useCallback(() => {
-    session.reset();
+    if (
+      session.state.phase !== 'completed' &&
+      session.state.phase !== 'selecting'
+    )
+      return;
+    resetSession();
     setSelection(undefined);
     setIncludeHidden(false);
     hiddenReported.current = false;
@@ -226,11 +247,21 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     setNetworks([]);
     setLoadStatus('loading');
     visited.current = false;
-  }, [session]);
+  }, [resetSession, session.state.phase]);
   const start = useCallback(() => {
-    if (snapshot && selected.length && loadStatus === 'ready')
-      session.start({ ...snapshot, id: `dust-${Date.now()}` });
-  }, [snapshot, selected.length, loadStatus, session]);
+    if (snapshot && canStart) startSession(snapshot, preview.unavailable);
+  }, [snapshot, canStart, preview.unavailable, startSession]);
+  const retryPreview = useCallback(() => {
+    if (
+      selecting &&
+      isFocused &&
+      selected.length &&
+      loadStatus === 'ready' &&
+      preview.status !== 'loading' &&
+      preview.status !== 'refreshing'
+    )
+      setPreviewRevision((value) => value + 1);
+  }, [selecting, isFocused, selected.length, loadStatus, preview.status]);
   return {
     params,
     networks: orderedNetworks,
@@ -240,6 +271,9 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     selected,
     includeHidden,
     valueUsd,
+    quotedValueUsd,
+    canStart,
+    isFocused,
     loadStatus,
     partialError,
     threshold: preferences.threshold,
@@ -258,7 +292,7 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     retry: () => {
       if (selecting) setRefresh((value) => value + 1);
     },
-    retryPreview: () => setPreviewRevision((value) => value + 1),
+    retryPreview,
   };
 }
 

@@ -8,7 +8,15 @@ import type {
 } from '@onekeyhq/shared/types/swap/dustSweep';
 
 export type IDustSweepState = {
-  phase: 'selecting' | 'running' | 'pausing' | 'paused' | 'completed';
+  phase:
+    | 'selecting'
+    | 'running'
+    | 'pausing'
+    | 'paused'
+    | 'blocked'
+    | 'leaving'
+    | 'left'
+    | 'completed';
   snapshot?: IDustSweepSnapshot;
   items: IDustSweepItem[];
 };
@@ -17,8 +25,12 @@ export const initialDustSweepState: IDustSweepState = {
   items: [],
 };
 type IDustSweepAction =
-  | { type: 'start'; snapshot: IDustSweepSnapshot }
-  | { type: 'pause' | 'paused' | 'resume' | 'reset' }
+  | {
+      type: 'start';
+      snapshot: IDustSweepSnapshot;
+      unavailable?: Record<string, IDustSweepReason>;
+    }
+  | { type: 'pause' | 'paused' | 'resume' | 'reset' | 'leave' | 'left' }
   | {
       type: 'approvalBroadcast';
       sessionId: string;
@@ -59,15 +71,25 @@ export function dustSweepReducer(
 ): IDustSweepState {
   switch (action.type) {
     case 'start':
-      if (state.phase !== 'selecting' || !action.snapshot.tokens.length)
+      if (
+        state.phase !== 'selecting' ||
+        !action.snapshot.tokens.some(
+          (token) => !action.unavailable?.[token.key],
+        )
+      )
         return state;
       return {
         phase: 'running',
         snapshot: action.snapshot,
-        items: action.snapshot.tokens.map((token) => ({
-          token,
-          status: 'waiting',
-        })),
+        items: action.snapshot.tokens.map((token) =>
+          action.unavailable?.[token.key]
+            ? {
+                token,
+                status: 'skipped',
+                reason: action.unavailable[token.key],
+              }
+            : { token, status: 'waiting' },
+        ),
       };
     case 'pause':
       return state.phase === 'running' ? { ...state, phase: 'pausing' } : state;
@@ -84,6 +106,10 @@ export function dustSweepReducer(
       return state.phase === 'completed' || state.phase === 'selecting'
         ? initialDustSweepState
         : state;
+    case 'leave':
+      return state.phase !== 'left' ? { ...state, phase: 'leaving' } : state;
+    case 'left':
+      return state.phase === 'leaving' ? { ...state, phase: 'left' } : state;
     case 'approvalBroadcast': {
       if (state.snapshot?.id !== action.sessionId) return state;
       const current = state.items.find((item) => item.token.key === action.key);
@@ -131,11 +157,12 @@ export function dustSweepReducer(
             }
           : item,
       );
-      return {
-        ...state,
-        items,
-        phase: items.every(isDustSweepItemTerminal) ? 'completed' : state.phase,
-      };
+      let phase = state.phase;
+      if (phase !== 'leaving' && phase !== 'left') {
+        if (items.some((item) => item.status === 'unknown')) phase = 'blocked';
+        else if (items.every(isDustSweepItemTerminal)) phase = 'completed';
+      }
+      return { ...state, items, phase };
     }
     default:
       return state;
@@ -157,4 +184,24 @@ export function getDustSweepTotals(items: IDustSweepItem[]) {
       )
       .toFixed(),
   };
+}
+
+export function getDustSweepPresentation(state: IDustSweepState) {
+  const totals = getDustSweepTotals(state.items);
+  const active = state.items.find((item) =>
+    ['preparing', 'signing', 'broadcasted', 'unknown'].includes(item.status),
+  );
+  const completed = state.phase === 'completed';
+  const unknown =
+    state.phase === 'blocked' ||
+    state.items.some((item) => item.status === 'unknown');
+  const progress =
+    completed || state.phase === 'paused' || unknown
+      ? totals.settledCount
+      : Math.min(totals.settledCount + 1, state.items.length);
+  let outcome: 'pending' | 'failed' | 'partial' | 'success' = 'success';
+  if (unknown) outcome = 'pending';
+  else if (!totals.successCount) outcome = 'failed';
+  else if (totals.failedCount || totals.skippedCount) outcome = 'partial';
+  return { totals, active, completed, unknown, progress, outcome } as const;
 }

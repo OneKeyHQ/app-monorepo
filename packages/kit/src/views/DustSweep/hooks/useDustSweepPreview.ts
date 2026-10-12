@@ -3,34 +3,63 @@ import { useEffect, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import pLimit from 'p-limit';
 
-import type { IDustSweepSnapshot } from '@onekeyhq/shared/types/swap/dustSweep';
+import type {
+  IDustSweepReason,
+  IDustSweepSnapshot,
+} from '@onekeyhq/shared/types/swap/dustSweep';
 
-import { fetchDustSweepQuote, getDustSweepQuoteRisk } from '../utils/quote';
+import {
+  DustSweepSkip,
+  fetchDustSweepQuote,
+  getDustSweepQuoteRisk,
+} from '../utils/quote';
 
 type IPreview = {
   identity: string;
-  status: 'loading' | 'ready' | 'error';
+  revision: number;
+  status: 'idle' | 'loading' | 'refreshing' | 'ready' | 'partial' | 'error';
   amount: string;
   quotedCount: number;
-  provider?: string;
-  providerName?: string;
-  providerLogo?: string;
+  availableKeys: string[];
+  unavailable: Record<string, IDustSweepReason>;
+  providers: {
+    provider: string;
+    providerName?: string;
+    providerLogo?: string;
+  }[];
 };
 
 export function useDustSweepPreview(
   snapshot: IDustSweepSnapshot | undefined,
-): Omit<IPreview, 'identity'> {
+  {
+    enabled = true,
+    revision = 0,
+  }: { enabled?: boolean; revision?: number } = {},
+): Omit<IPreview, 'identity' | 'revision'> {
   const [preview, setPreview] = useState<IPreview>();
   useEffect(() => {
-    if (!snapshot || !snapshot.tokens.length) return undefined;
+    if (!enabled || !snapshot || !snapshot.tokens.length) {
+      setPreview((previous) =>
+        previous ? { ...previous, status: 'idle' } : previous,
+      );
+      return undefined;
+    }
     const controller = new AbortController();
     const limit = pLimit(3);
-    setPreview({
-      identity: snapshot.id,
-      status: 'loading',
-      amount: '0',
-      quotedCount: 0,
-    });
+    setPreview((previous) =>
+      previous?.identity === snapshot.id
+        ? { ...previous, revision, status: 'refreshing' }
+        : {
+            identity: snapshot.id,
+            revision,
+            status: 'loading',
+            amount: '0',
+            quotedCount: 0,
+            availableKeys: [],
+            unavailable: {},
+            providers: [],
+          },
+    );
     const timer = setTimeout(() => {
       void Promise.allSettled(
         snapshot.tokens.map((token) =>
@@ -41,9 +70,9 @@ export function useDustSweepPreview(
               snapshot,
               controller.signal,
             );
-            return getDustSweepQuoteRisk(quote, token, snapshot)
-              ? undefined
-              : quote;
+            const reason = getDustSweepQuoteRisk(quote, token, snapshot);
+            if (reason) throw new DustSweepSkip(reason);
+            return quote;
           }),
         ),
       ).then((results) => {
@@ -51,9 +80,32 @@ export function useDustSweepPreview(
         const quotes = results.flatMap((result) =>
           result.status === 'fulfilled' && result.value ? [result.value] : [],
         );
+        const availableKeys: string[] = [];
+        const unavailable: Record<string, IDustSweepReason> = {};
+        results.forEach((result, index) => {
+          const key = snapshot.tokens[index].key;
+          if (result.status === 'fulfilled' && result.value) {
+            availableKeys.push(key);
+          } else {
+            unavailable[key] =
+              result.status === 'rejected' &&
+              result.reason instanceof DustSweepSkip
+                ? result.reason.reason
+                : 'noQuote';
+          }
+        });
+        const providers = Array.from(
+          new Map(
+            quotes.map((quote) => [quote.info.provider, quote.info]),
+          ).values(),
+        );
+        let status: IPreview['status'] = 'error';
+        if (quotes.length === snapshot.tokens.length) status = 'ready';
+        else if (quotes.length) status = 'partial';
         setPreview({
           identity: snapshot.id,
-          status: quotes.length === snapshot.tokens.length ? 'ready' : 'error',
+          revision,
+          status,
           amount: quotes
             .reduce(
               (sum, quote) => sum.plus(quote.toAmount ?? 0),
@@ -61,9 +113,9 @@ export function useDustSweepPreview(
             )
             .toFixed(),
           quotedCount: quotes.length,
-          provider: quotes[0]?.info.provider,
-          providerName: quotes[0]?.info.providerName,
-          providerLogo: quotes[0]?.info.providerLogo,
+          availableKeys,
+          unavailable,
+          providers,
         });
       });
     }, 300);
@@ -71,10 +123,18 @@ export function useDustSweepPreview(
       clearTimeout(timer);
       controller.abort();
     };
-  }, [snapshot]);
-  if (!snapshot?.tokens.length)
-    return { status: 'ready' as const, amount: '0', quotedCount: 0 };
-  if (preview?.identity !== snapshot.id)
-    return { status: 'loading' as const, amount: '0', quotedCount: 0 };
+  }, [snapshot, enabled, revision]);
+  const empty = {
+    amount: '0',
+    quotedCount: 0,
+    availableKeys: [],
+    unavailable: {},
+    providers: [],
+  };
+  if (!enabled || !snapshot?.tokens.length) return { ...empty, status: 'idle' };
+  if (preview?.identity !== snapshot.id) return { ...empty, status: 'loading' };
+  if (preview.revision !== revision)
+    return { ...preview, status: 'refreshing' };
+  if (preview.status === 'idle') return { ...preview, status: 'refreshing' };
   return preview;
 }

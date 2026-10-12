@@ -5,10 +5,13 @@ import {
   IconButton,
   ScrollView,
   SizableText,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IDustSweepItem } from '@onekeyhq/shared/types/swap/dustSweep';
 
 import {
@@ -46,6 +49,20 @@ export function DustSweepDetails({
   onDone: () => void;
 }) {
   const intl = useIntl();
+  const openTransaction = async (item: IDustSweepItem, txId: string) => {
+    try {
+      const url = await backgroundApiProxy.serviceExplorer.buildExplorerUrl({
+        networkId: item.token.networkId,
+        type: 'transaction',
+        param: txId,
+      });
+      if (url) openUrlExternal(url);
+    } catch {
+      Toast.error({
+        title: intl.formatMessage({ id: ETranslations.global_network_error }),
+      });
+    }
+  };
   return (
     <YStack testID="dust-sweep-details" width="100%" height={600}>
       <XStack
@@ -77,9 +94,14 @@ export function DustSweepDetails({
       <ScrollView flex={1}>
         <YStack>
           {state.items.map((item) => {
-            const reason = item.reason
-              ? item.message || getDustSweepReasonMessage(intl, item.reason)
-              : undefined;
+            let reason: string | undefined;
+            if (item.status === 'unknown')
+              reason = intl.formatMessage({
+                id: ETranslations.swap_review_tx_pending,
+              });
+            else if (item.reason)
+              reason =
+                item.message || getDustSweepReasonMessage(intl, item.reason);
             return (
               <YStack
                 key={item.token.key}
@@ -94,17 +116,48 @@ export function DustSweepDetails({
                     </SizableText>
                     {item.txId ? (
                       <SizableText
+                        testID={`dust-sweep-tx-${item.token.key}`}
                         size="$bodySm"
                         color="$textSubdued"
                         numberOfLines={1}
                         flexShrink={1}
+                        cursor="pointer"
+                        textDecorationLine="underline"
+                        onPress={() => {
+                          if (item.txId) void openTransaction(item, item.txId);
+                        }}
                       >
                         {shortenTransactionId(item.txId)}
                       </SizableText>
                     ) : null}
                   </XStack>
+                  {item.approvalTxIds?.map((txId) => (
+                    <SizableText
+                      key={txId}
+                      testID={`dust-sweep-approval-${txId}`}
+                      size="$bodySm"
+                      color="$textSubdued"
+                      cursor="pointer"
+                      textDecorationLine="underline"
+                      onPress={() => {
+                        void openTransaction(item, txId);
+                      }}
+                    >
+                      {intl.formatMessage({
+                        id: ETranslations.global_approval,
+                      })}{' '}
+                      · {shortenTransactionId(txId)}
+                    </SizableText>
+                  ))}
                   {reason ? (
-                    <SizableText size="$bodySm" color="$textCritical">
+                    <SizableText
+                      size="$bodySm"
+                      color={
+                        item.status === 'unknown'
+                          ? '$textSubdued'
+                          : '$textCritical'
+                      }
+                    >
                       {reason}
                     </SizableText>
                   ) : null}

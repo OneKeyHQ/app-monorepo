@@ -8,16 +8,16 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import type {
   IDustSweepNetwork,
   IDustSweepRouteParams,
-  IDustSweepSnapshot,
   IDustSweepThreshold,
   IDustSweepToken,
 } from '@onekeyhq/shared/types/swap/dustSweep';
 
 import { DustSweepProvider, useDustSweep } from './DustSweepProvider';
 import { useDustSweepSession } from './hooks/useDustSweepSession';
-import { initialDustSweepState } from './stateMachine';
+import { dustSweepReducer, initialDustSweepState } from './stateMachine';
 import { loadDustSweepNetworks } from './utils/loadNetworks';
 
+import type { useDustSweepPreview } from './hooks/useDustSweepPreview';
 import type { IDustSweepState } from './stateMachine';
 
 function useMockPreferences() {
@@ -26,6 +26,20 @@ function useMockPreferences() {
     entrySeen: false,
   });
 }
+
+const readyPreview: ReturnType<typeof useDustSweepPreview> = {
+  status: 'ready',
+  amount: '0.01',
+  quotedCount: 1,
+  availableKeys: ['evm--1:0'],
+  unavailable: {},
+  providers: [{ provider: 'OKX' }],
+};
+let mockPreview = readyPreview;
+let mockFocused = true;
+jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
+  useRouteIsFocused: () => mockFocused,
+}));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useDustSweepPreferencesPersistAtom: () => useMockPreferences(),
@@ -47,11 +61,7 @@ jest.mock('./utils/loadNetworks', () => ({
   loadDustSweepNetworks: jest.fn(),
 }));
 jest.mock('./hooks/useDustSweepPreview', () => ({
-  useDustSweepPreview: () => ({
-    status: 'ready',
-    amount: '0.01',
-    quotedCount: 1,
-  }),
+  useDustSweepPreview: () => mockPreview,
 }));
 jest.mock('./hooks/useDustSweepSession', () => ({
   useDustSweepSession: jest.fn(),
@@ -64,12 +74,10 @@ function useMockSession(): ReturnType<typeof useDustSweepSession> {
   const [state, setState] = useState<IDustSweepState>(initialDustSweepState);
   return {
     state,
-    start: (snapshot: IDustSweepSnapshot) =>
-      setState({
-        phase: 'running',
-        snapshot,
-        items: snapshot.tokens.map((token) => ({ token, status: 'waiting' })),
-      }),
+    start: (snapshot, unavailable) =>
+      setState((value) =>
+        dustSweepReducer(value, { type: 'start', snapshot, unavailable }),
+      ),
     pause: () => setState((value) => ({ ...value, phase: 'paused' })),
     resume: () => setState((value) => ({ ...value, phase: 'running' })),
     reset: () => setState(initialDustSweepState),
@@ -150,6 +158,8 @@ function deferredLoad() {
 describe('Dust Sweep Provider request and selection ownership', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPreview = readyPreview;
+    mockFocused = true;
     mockUseSession.mockImplementation(useMockSession);
     mockLoadNetworks.mockResolvedValue({
       networks: [base, ethereum],
@@ -356,5 +366,57 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     expect(mockLoadNetworks).toHaveBeenCalledTimes(1);
     expect(result.current.loadStatus).toBe('ready');
     expect(result.current.session.state.snapshot).toBe(snapshot);
+  });
+
+  it.each(['idle', 'loading', 'refreshing', 'error'] as const)(
+    'does not start execution when the quote is %s',
+    async (status) => {
+      mockPreview = { ...readyPreview, status };
+      mockLoadNetworks.mockResolvedValue({
+        networks: [ethereum],
+        partialError: false,
+      });
+      const { result } = renderController();
+      await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+
+      act(() => result.current.start());
+
+      expect(result.current.session.state.phase).toBe('selecting');
+      expect(result.current.session.state.snapshot).toBeUndefined();
+    },
+  );
+  it('executes a partial quote and freezes unavailable rows as skipped', async () => {
+    const source = network('evm--1', ['1', '2']);
+    mockPreview = {
+      ...readyPreview,
+      status: 'partial',
+      unavailable: { [source.tokens[1].key]: 'noQuote' },
+    };
+    mockLoadNetworks.mockResolvedValue({
+      networks: [source],
+      partialError: false,
+    });
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.canStart).toBe(true));
+    expect(result.current.quotedValueUsd).toBe('1');
+    act(() => result.current.start());
+    expect(
+      result.current.session.state.items.map((item) => item.status),
+    ).toEqual(['waiting', 'skipped']);
+    expect(result.current.session.state.items[1].reason).toBe('noQuote');
+  });
+  it('does not start while the route is hidden', async () => {
+    mockFocused = false;
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+    act(() => result.current.start());
+    expect(result.current.session.state.phase).toBe('selecting');
+  });
+  it('does not start a ready placeholder with zero available quotes', async () => {
+    mockPreview = { ...readyPreview, quotedCount: 0, availableKeys: [] };
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+    act(() => result.current.start());
+    expect(result.current.session.state.phase).toBe('selecting');
   });
 });

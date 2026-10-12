@@ -148,6 +148,7 @@ export function fetchDustSweepQuote(
   const quoteRequestId = `sweep-${snapshot.id}-${(quoteSequence += 1)}`;
   return new Promise((resolve, reject) => {
     let done = false;
+    let unavailableReason: IDustSweepReason = 'noQuote';
     const finishRef: {
       current: (error?: Error, quote?: IFetchQuoteResult) => void;
     } = {
@@ -169,7 +170,7 @@ export function fetchDustSweepQuote(
       if (event.type === 'done' || event.type === 'close') {
         // Native dispatches done immediately before error on dropped connections.
         void Promise.resolve().then(() =>
-          finishRef.current(new DustSweepSkip('noQuote')),
+          finishRef.current(new DustSweepSkip(unavailableReason)),
         );
         return;
       }
@@ -179,7 +180,15 @@ export function fetchDustSweepQuote(
           String((event.event as { data?: string }).data),
         ) as ISwapQuoteEventData;
         if ('data' in payload && Array.isArray(payload.data)) {
-          const quote = payload.data.find(isDustSweepQuoteCandidate);
+          const quote = payload.data.find((candidate) => {
+            const risk = getDustSweepQuoteRisk(candidate, token, snapshot);
+            if (risk) {
+              if (isDustSweepQuoteCandidate(candidate))
+                unavailableReason = risk;
+              return false;
+            }
+            return true;
+          });
           if (quote) finishRef.current(undefined, quote);
         }
         if ('errorMessage' in payload && payload.errorMessage)
@@ -191,7 +200,7 @@ export function fetchDustSweepQuote(
       }
     };
     const timeout = setTimeout(
-      () => finishRef.current(new DustSweepSkip('noQuote')),
+      () => finishRef.current(new DustSweepSkip(unavailableReason)),
       25_000,
     );
     const finish = (error?: Error, quote?: IFetchQuoteResult) => {

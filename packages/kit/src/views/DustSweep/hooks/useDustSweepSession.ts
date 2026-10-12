@@ -4,6 +4,7 @@ import { generateSwapHistoryItemForContext } from '@onekeyhq/kit/src/views/Swap/
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   IDustSweepNetwork,
+  IDustSweepReason,
   IDustSweepSnapshot,
 } from '@onekeyhq/shared/types/swap/dustSweep';
 
@@ -13,11 +14,14 @@ import {
   initialDustSweepState,
 } from '../stateMachine';
 import {
+  DustSweepRetryableError,
   DustSweepUnknownSubmission,
   DustSweepUserCanceled,
   executeDustSweepItem,
 } from '../utils/execution';
 import { DustSweepSkip } from '../utils/quote';
+
+let sessionSequence = 0;
 
 export function useDustSweepSession(networks: IDustSweepNetwork[]) {
   const [state, setState] = useState(initialDustSweepState);
@@ -27,7 +31,6 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
   const running = useRef<Promise<void> | undefined>(undefined);
   const started = useRef(0);
   const reported = useRef(false);
-  const [leaving, setLeaving] = useState(false);
   const send = useCallback((action: Parameters<typeof dustSweepReducer>[1]) => {
     stateRef.current = dustSweepReducer(stateRef.current, action);
     if (mounted.current) setState(stateRef.current);
@@ -113,14 +116,27 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
           });
         } catch (error) {
           if (signal.aborted) break;
-          if (error instanceof DustSweepUserCanceled) {
-            send({ ...identity, status: 'waiting' });
+          if (
+            error instanceof DustSweepUserCanceled ||
+            error instanceof DustSweepRetryableError
+          ) {
+            send({
+              ...identity,
+              status: 'waiting',
+              reason:
+                error instanceof DustSweepRetryableError
+                  ? 'unknown'
+                  : undefined,
+              message:
+                error instanceof DustSweepRetryableError
+                  ? error.message
+                  : undefined,
+            });
             send({ type: 'paused' });
             break;
           }
           if (error instanceof DustSweepUnknownSubmission) {
             send({ ...identity, status: 'unknown', reason: 'unknown' });
-            send({ type: 'paused' });
             break;
           }
           const reason =
@@ -143,18 +159,38 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
       }
       if (stateRef.current.phase === 'completed') reportResult('completed');
     };
-    running.current = task().finally(() => {
+    const ownedTask = task().finally(() => {
+      if (running.current !== ownedTask) return;
       running.current = undefined;
+      // A resume arriving before this worker releases ownership must still run.
+      if (
+        !signal.aborted &&
+        stateRef.current.phase === 'running' &&
+        stateRef.current.items.some((item) => item.status === 'waiting')
+      )
+        run();
     });
+    running.current = ownedTask;
   }, [networks, reportResult, send]);
 
   const start = useCallback(
-    (snapshot: IDustSweepSnapshot) => {
-      if (stateRef.current.phase !== 'selecting') return;
+    (
+      input: IDustSweepSnapshot,
+      unavailable?: Record<string, IDustSweepReason>,
+    ) => {
+      if (
+        !mounted.current ||
+        stateRef.current.phase !== 'selecting' ||
+        running.current ||
+        !input.tokens.some((token) => !unavailable?.[token.key])
+      )
+        return;
+      sessionSequence += 1;
+      const snapshot = { ...input, id: `${input.id}:${sessionSequence}` };
       controller.current = new AbortController();
       started.current = Date.now();
       reported.current = false;
-      send({ type: 'start', snapshot });
+      send({ type: 'start', snapshot, unavailable });
       defaultLogger.dex.dustSweep.dustSweepStart({
         network: snapshot.networkId,
         tokenCount: snapshot.tokens.length,
@@ -181,22 +217,31 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
     send({ type: 'reset' });
   }, [send]);
   const leave = useCallback(async () => {
-    setLeaving(true);
+    send({ type: 'leave' });
     controller.current?.abort();
     // A password/signing call already entered in background is not cancellable.
     // Keep this page alive until it returns; no later operation may start.
     await running.current;
     reportResult('left');
-    if (mounted.current) setLeaving(false);
-  }, [reportResult]);
+    send({ type: 'left' });
+  }, [reportResult, send]);
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
+      send({ type: 'leave' });
       controller.current?.abort();
       reportResult('left');
     };
-  }, [reportResult]);
+  }, [reportResult, send]);
 
-  return { state, start, pause, resume, reset, leave, leaving };
+  return {
+    state,
+    start,
+    pause,
+    resume,
+    reset,
+    leave,
+    leaving: state.phase === 'leaving',
+  };
 }
