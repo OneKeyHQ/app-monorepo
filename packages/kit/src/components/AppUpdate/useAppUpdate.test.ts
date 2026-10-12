@@ -196,6 +196,8 @@ jest.mock('@onekeyhq/components', () => {
     __reset: () => netInfoListeners.splice(0, netInfoListeners.length),
   };
   (globalThis as any).__mockGlobalNetInfo = globalNetInfo;
+  const guideBlockers = new Set<symbol>();
+  (globalThis as any).__mockGuideBlockers = guideBlockers;
   return {
     Dialog: { show: ds },
     Toast: { error: te },
@@ -203,6 +205,13 @@ jest.mock('@onekeyhq/components', () => {
     YStack: ({ children }: any) => children,
     useInTabDialog: () => ({ show: ds }),
     globalNetInfo,
+    acquireDeferredGuideBlocker: () => {
+      const blocker = Symbol('update-ui');
+      guideBlockers.add(blocker);
+      return () => {
+        guideBlockers.delete(blocker);
+      };
+    },
   };
 });
 
@@ -215,12 +224,14 @@ jest.mock(
   () => ({}),
 );
 
-jest.mock('../../hooks/useRunAfterTokensDone', () => ({
-  runAfterTokensDone: ({ onRun }: { onRun: (trigger: string) => void }) => {
+jest.mock('../../hooks/useRunAfterTokensDone', () => {
+  const run = jest.fn(({ onRun }: { onRun: (trigger: string) => void }) => {
     onRun('test');
     return () => {};
-  },
-}));
+  });
+  (globalThis as any).__mockRunAfterTokensDone = run;
+  return { runAfterTokensDone: run };
+});
 
 jest.mock('../../utils/passwordUtils', () => {
   const fn = jest.fn(() => Promise.resolve());
@@ -396,6 +407,11 @@ const mockOpenUrlExternal = g.__mockOpenUrlExternal;
 const mockPlatformEnv = g.__mockPlatformEnv;
 const mockAtomHolder = g.__mockAtomHolder;
 const mockWhenAppUnlocked = g.__mockWhenAppUnlocked;
+const mockGuideBlockers = g.__mockGuideBlockers as Set<symbol>;
+const mockRunAfterTokensDone = g.__mockRunAfterTokensDone as jest.Mock<
+  () => void,
+  [{ onRun: (trigger: string) => void }]
+>;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -412,6 +428,11 @@ function setAtom(partial: Record<string, any>) {
 
 function resetAllMocks() {
   jest.clearAllMocks();
+  mockGuideBlockers.clear();
+  mockRunAfterTokensDone.mockImplementation(({ onRun }) => {
+    onRun('test');
+    return () => {};
+  });
   setAtom({});
 
   // OK-58962: these are module-level and leak across tests if not reset —
@@ -2235,6 +2256,185 @@ describe('useAppUpdateInfo useEffect', () => {
     });
     return hooks;
   }
+
+  describe('deferred guide handoff', () => {
+    test('does not hold guides for consumers with automatic checks disabled', async () => {
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, false));
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(mockGuideBlockers.size).toBe(0);
+      expect(svc.reconcileAppShellPackage).not.toHaveBeenCalled();
+    });
+
+    test('holds guides while waiting for tokens and the first update response', async () => {
+      const tokenCallbacks: Array<() => void> = [];
+      mockRunAfterTokensDone.mockImplementation(({ onRun }) => {
+        tokenCallbacks.push(() => onRun('test'));
+        return () => {};
+      });
+      let resolveCheck: ((value: unknown) => void) | undefined;
+      svc.fetchAppUpdateInfo.mockImplementation(
+        () =>
+          new Promise<unknown>((resolve) => {
+            resolveCheck = resolve;
+          }),
+      );
+
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(mockGuideBlockers.size).toBe(1);
+      expect(svc.fetchAppUpdateInfo).not.toHaveBeenCalled();
+      await act(async () => {
+        tokenCallbacks.at(-1)?.();
+        await Promise.resolve();
+      });
+      expect(svc.fetchAppUpdateInfo).toHaveBeenCalledTimes(1);
+      expect(mockGuideBlockers.size).toBe(1);
+
+      await act(async () => {
+        resolveCheck?.(mockAtomHolder.value);
+        await Promise.resolve();
+      });
+      expect(mockGuideBlockers.size).toBe(0);
+    });
+
+    test('keeps the hold across update-confirmation delay until the update route opens', async () => {
+      setAtom({
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.manual,
+        latestVersion: '2.0.0',
+      });
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+      await act(async () => {
+        await jest.runAllTimersAsync();
+      });
+      expect(mockGuideBlockers.size).toBe(0);
+
+      const dialogParams = mockDialogShow.mock.calls.at(-1)?.[0] as {
+        onConfirm: () => void;
+      };
+      act(() => dialogParams.onConfirm());
+      expect(mockGuideBlockers.size).toBe(1);
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(119);
+      });
+      expect(nav.pushModal).not.toHaveBeenCalled();
+      expect(mockGuideBlockers.size).toBe(1);
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(1);
+      });
+      expect(nav.pushModal).toHaveBeenCalledWith(
+        'AppUpdateModal',
+        expect.objectContaining({ screen: 'DownloadVerify' }),
+      );
+      expect(mockGuideBlockers.size).toBe(0);
+    });
+
+    test('releases a cancelled startup wait without reacquiring on guarded remount', async () => {
+      mockRunAfterTokensDone.mockImplementation(() => () => {});
+      const hooks = requireFreshHooks();
+      const first = renderHook(() => hooks.useAppUpdateInfo(false, true));
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(mockGuideBlockers.size).toBe(1);
+
+      first.unmount();
+      expect(mockGuideBlockers.size).toBe(0);
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(mockGuideBlockers.size).toBe(0);
+      expect(svc.fetchAppUpdateInfo).not.toHaveBeenCalled();
+    });
+
+    test('releases a pending presentation hold while preserving its async error', async () => {
+      setAtom({
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.manual,
+        latestVersion: '2.0.0',
+      });
+      const timerSpy = jest.spyOn(globalThis, 'setTimeout');
+      try {
+        const hooks = requireFreshHooks();
+        renderHook(() => hooks.useAppUpdateInfo(false, true));
+        await act(async () => {
+          await Promise.resolve();
+        });
+
+        const scheduledTask = timerSpy.mock.calls.at(-1)?.[0] as
+          | (() => Promise<void>)
+          | undefined;
+        expect(scheduledTask).toBeDefined();
+        expect(mockGuideBlockers.size).toBe(1);
+        jest.clearAllTimers();
+        const error = new Error('Unlock state is unavailable');
+        mockWhenAppUnlocked.mockRejectedValueOnce(error);
+
+        await act(async () => {
+          await expect(scheduledTask?.()).rejects.toBe(error);
+        });
+        expect(mockGuideBlockers.size).toBe(0);
+        expect(mockDialogShow).not.toHaveBeenCalled();
+      } finally {
+        timerSpy.mockRestore();
+      }
+    });
+
+    test('releases a pending reconciliation hold on unmount without presenting late UI', async () => {
+      let resolveReconciliation: ((value: unknown) => void) | undefined;
+      svc.reconcileAppShellPackage.mockImplementation(
+        () =>
+          new Promise<unknown>((resolve) => {
+            resolveReconciliation = resolve;
+          }),
+      );
+      const hooks = requireFreshHooks();
+      const hook = renderHook(() => hooks.useAppUpdateInfo(false, true));
+      expect(mockGuideBlockers.size).toBe(1);
+
+      hook.unmount();
+      expect(mockGuideBlockers.size).toBe(0);
+      await act(async () => {
+        resolveReconciliation?.({
+          status: EAppUpdateStatus.ready,
+          updateStrategy: EUpdateStrategy.manual,
+          latestVersion: '2.0.0',
+        });
+        await jest.runAllTimersAsync();
+      });
+
+      expect(mockGuideBlockers.size).toBe(0);
+      expect(mockDialogShow).not.toHaveBeenCalled();
+      expect(nav.pushModal).not.toHaveBeenCalled();
+    });
+
+    test('releases the startup hold when no update UI or check is scheduled', async () => {
+      setAtom({
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.silent,
+        latestVersion: '2.0.0',
+      });
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+      await act(async () => {
+        await jest.runAllTimersAsync();
+      });
+
+      expect(mockGuideBlockers.size).toBe(0);
+      expect(mockDialogShow).not.toHaveBeenCalled();
+    });
+  });
 
   describe('status recovery on restart', () => {
     test('status=downloadPackage → resumes download', async () => {

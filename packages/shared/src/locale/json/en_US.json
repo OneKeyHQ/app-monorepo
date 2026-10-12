@@ -3778,6 +3778,7 @@
   "pin_verify_reminder_dialog_verified_toast": "PIN check handled on another device",
   "placeholder_search_networks": "Search networks",
   "placeholder_stock_search": "Search stocks",
+  "portfolio_spotlight__desc": "Keep your device’s Portfolio up to date. Update it here.",
   "portfolio_sync_to_device__action": "Update device portfolio",
   "portfolio_updated__title": "Portfolio updated",
   "position_changed_review_submit_again__msg": "The position changed. Please review and submit again.",
