@@ -18,6 +18,7 @@ import { isProtocolAssetValueUnavailable } from '@onekeyhq/kit/src/components/De
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
+import { EarnTooltip } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnTooltip';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -58,7 +59,9 @@ export type IEarnPositionCardHandlers = {
  * One block of the card (product 10-12): "Deposited | Amount" on a panel of
  * its own, the token rows under it, fiat over amount on the right. A
  * pending withdrawal row says when the funds free up, if the provider
- * knows. The rows carry no buttons: the detail page acts on them.
+ * knows; a reward the user cannot claim yet reads Pending, with the detail
+ * page's explanation behind an info icon. The rows carry no buttons: the
+ * detail page acts on them.
  */
 function PositionSection({
   section,
@@ -104,9 +107,27 @@ function PositionSection({
               networkId={networkId}
             />
             <YStack flexShrink={1} minWidth={0}>
-              <SizableText size="$bodyMdMedium" numberOfLines={1}>
-                {asset.symbol}
-              </SizableText>
+              <XStack ai="center" gap="$1">
+                <SizableText
+                  size="$bodyMdMedium"
+                  numberOfLines={1}
+                  flexShrink={1}
+                >
+                  {asset.symbol}
+                </SizableText>
+                {/* why a reward is not claimable yet, as the detail page explains it */}
+                {asset.tooltip ? <EarnTooltip tooltip={asset.tooltip} /> : null}
+              </XStack>
+              {/* a reward still accruing, or settled with the principal */}
+              {asset.status === 'pending' ? (
+                <SizableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  numberOfLines={1}
+                >
+                  {intl.formatMessage({ id: ETranslations.global_pending })}
+                </SizableText>
+              ) : null}
               {/* a withdrawal in progress: when the funds free up, if the provider knows */}
               {asset.unlockAt ? (
                 <SizableText

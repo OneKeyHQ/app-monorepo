@@ -26,7 +26,10 @@ import type {
   IEarnPositionRewardAsset,
   IEarnPositionRewardClaim,
 } from '@onekeyhq/shared/types/earn/portfolioPositions';
-import type { IEarnActionIcon } from '@onekeyhq/shared/types/staking';
+import type {
+  IEarnActionIcon,
+  IEarnTooltip,
+} from '@onekeyhq/shared/types/staking';
 
 /**
  * View model of the phone "My portfolio" DeFi Assets tab (OK-61377).
@@ -64,6 +67,10 @@ export type IEarnPositionSectionAsset = IDeFiAsset & {
   unlockAt?: number;
   /** reward rows: the claim the card runs, when the server attached one */
   claim?: IEarnPositionRewardClaim;
+  /** reward rows: `pending` when the user cannot claim the reward by itself yet */
+  status?: 'pending';
+  /** reward rows: the detail row's explanation, opened from an info icon */
+  tooltip?: IEarnTooltip;
 };
 
 /** A reward the card can collect: the reward row with the claim the server attached. */
@@ -490,15 +497,15 @@ export function buildEarnPortfolioView({
   return { protocols: views, totalValue: sumEarnDefiAssets(views) };
 }
 
-/** One reward on Rewards › Claimable: the row, and the card it came from. */
-export type IEarnClaimableRewardRow = {
+/** One reward on the Rewards tab (Claimable or Pending): the row, and the card it came from. */
+export type IEarnPositionRewardRow = {
   /** `${position key}:${index}` */
   key: string;
   position: IEarnPositionView;
   asset: IEarnPositionRewardAsset;
 };
 
-export type IEarnClaimableRewardGroup = {
+export type IEarnPositionRewardGroup = {
   /** the protocol row key, `${networkId}-${protocol}` */
   key: string;
   protocol: string;
@@ -507,43 +514,42 @@ export type IEarnClaimableRewardGroup = {
   logoURI?: string;
   /** sum of its rows */
   value: IProtocolValueState;
-  rows: IEarnClaimableRewardRow[];
+  rows: IEarnPositionRewardRow[];
 };
 
+/** A reward the server marked pending: accruing, or settled with the principal; never claimed here. */
+function isPendingReward(asset: IEarnPositionRewardAsset): boolean {
+  return asset.status === 'pending';
+}
+
+/** Priced and amounted: the rows the header figure can add up (product rule, see below). */
+function isPricedAmount(asset: IEarnPositionRewardAsset): boolean {
+  return (
+    !isProtocolAssetValueUnavailable(asset) && new BigNumber(asset.amount).gt(0)
+  );
+}
+
 /**
- * Rewards tab, Claimable stage (the protocol part; ledger rewards come from
- * their own endpoint): one row per reward of the positions, under one group
- * per protocol per network (figma 30490-21537), each row claimed in place
- * with the claim the server attached to it. Claimable principal is part of
- * the position on DeFi Assets and never shows up here. Product rule: the
- * header Rewards figure equals what this list adds up to, so a reward the
- * server has not priced stays on the DeFi Assets card and out of this list.
- * Lista's Check row is the one zero row listed: its button is the way to
- * the amount.
+ * One stage of the Rewards tab, the protocol part: the positions' reward
+ * rows the stage picks, one row each, under one group per protocol per
+ * network (figma 30490-21537), highest group first. From the server rewards
+ * of the holding's main position, not the card's sections: the card leaves
+ * Lista's Check row out, the list is where its button lives.
  */
-export function buildEarnClaimableRewardGroups(
+function buildEarnRewardGroups(
   protocols: IEarnProtocolView[],
-): IEarnClaimableRewardGroup[] {
+  pick: (asset: IEarnPositionRewardAsset) => boolean,
+): IEarnPositionRewardGroup[] {
   return protocols
     .map((protocol) => {
-      // From the server rewards of the holding's main position, not the
-      // card's sections: the card leaves Lista's Check row out, this list
-      // is where its button lives.
       const rows = protocol.positions.flatMap((position) =>
         position.source.rewards
-          // No zero rows either: a reward the server lists but has not
-          // amounted yet is nothing to claim, unless its button is the point.
-          .filter(
-            (asset) =>
-              isCheckRow(asset) ||
-              (!isProtocolAssetValueUnavailable(asset) &&
-                new BigNumber(asset.amount).gt(0)),
-          )
           .map((asset, index) => ({
             key: `${position.key}:${index}`,
             position,
             asset,
-          })),
+          }))
+          .filter((row) => pick(row.asset)),
       );
       return {
         key: protocol.key,
@@ -562,15 +568,61 @@ export function buildEarnClaimableRewardGroups(
 }
 
 /**
+ * Rewards tab, Claimable stage (the protocol part; ledger rewards come from
+ * their own endpoint): every reward the user claims by hand, claimed in
+ * place with the claim the server attached to it. Claimable principal is
+ * part of the position on DeFi Assets and never shows up here, and a reward
+ * the server marked pending sits on the Pending stage. Product rule: the
+ * header Rewards figure equals what the lists add up to, so a reward the
+ * server has not priced or amounted stays on the DeFi Assets card and out
+ * of the lists. Lista's Check row is the one zero row listed: its button is
+ * the way to the amount.
+ */
+export function buildEarnClaimableRewardGroups(
+  protocols: IEarnProtocolView[],
+): IEarnPositionRewardGroup[] {
+  return buildEarnRewardGroups(
+    protocols,
+    (asset) =>
+      !isPendingReward(asset) && (isCheckRow(asset) || isPricedAmount(asset)),
+  );
+}
+
+/**
+ * Rewards tab, Pending stage (the protocol part): the rewards the server
+ * marked pending — accruing until the next settlement (Morpho, Lista) or
+ * settled together with the principal (Bitway) — one row each with the
+ * explanation the detail page shows, nothing to press. Same pricing rule as
+ * Claimable, so the header adds up to the lists.
+ */
+export function buildEarnPendingRewardGroups(
+  protocols: IEarnProtocolView[],
+): IEarnPositionRewardGroup[] {
+  return buildEarnRewardGroups(
+    protocols,
+    (asset) => isPendingReward(asset) && isPricedAmount(asset),
+  );
+}
+
+function sumGroups(groups: IEarnPositionRewardGroup[]): number {
+  return groups
+    .reduce((sum, group) => sum.plus(group.value.value), new BigNumber(0))
+    .toNumber();
+}
+
+/**
  * Header "Rewards", protocol part: what the Claimable stage lists from the
  * positions, so the figure never carries a reward the list does not show.
  */
 export function sumEarnClaimableRewards(
   protocols: IEarnProtocolView[],
 ): number {
-  return buildEarnClaimableRewardGroups(protocols)
-    .reduce((sum, group) => sum.plus(group.value.value), new BigNumber(0))
-    .toNumber();
+  return sumGroups(buildEarnClaimableRewardGroups(protocols));
+}
+
+/** Header "Rewards", the other protocol part: what the Pending stage lists from the positions. */
+export function sumEarnPendingRewards(protocols: IEarnProtocolView[]): number {
+  return sumGroups(buildEarnPendingRewardGroups(protocols));
 }
 
 /** Network filter: protocol rows are per network, so the match is exact. */

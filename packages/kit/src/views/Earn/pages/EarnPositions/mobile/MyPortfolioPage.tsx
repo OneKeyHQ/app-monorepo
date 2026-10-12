@@ -31,10 +31,12 @@ import {
 import { DeFiAssetsTab } from './DeFiAssetsTab';
 import {
   buildEarnClaimableRewardGroups,
+  buildEarnPendingRewardGroups,
   buildEarnPortfolioView,
   countEarnPositionsByNetwork,
   filterEarnProtocolsByNetworks,
   sumEarnClaimableRewards,
+  sumEarnPendingRewards,
 } from './earnPositionModel';
 import { positionPendingTag, sumRewardsHeaderFiat } from './myPortfolio.utils';
 import { PortfolioTotalsHeader } from './PortfolioTotalsHeader';
@@ -171,6 +173,10 @@ export function MyPortfolioPage() {
     () => buildEarnClaimableRewardGroups(visibleProtocols),
     [visibleProtocols],
   );
+  const pendingGroups = useMemo(
+    () => buildEarnPendingRewardGroups(visibleProtocols),
+    [visibleProtocols],
+  );
   // Product rule: the header Rewards figure equals what the Claimable and
   // Pending lists add up to, filter aside — the ledger totals are over every
   // network, so the protocol part is summed over every protocol too.
@@ -178,7 +184,9 @@ export function MyPortfolioPage() {
     () =>
       sumRewardsHeaderFiat({
         ledgerRewardsFiatValue: rewards?.totals.rewards,
-        positionRewardsValue: sumEarnClaimableRewards(view.protocols),
+        positionRewardsValue:
+          sumEarnClaimableRewards(view.protocols) +
+          sumEarnPendingRewards(view.protocols),
       }),
     [rewards?.totals.rewards, view.protocols],
   );
@@ -302,6 +310,7 @@ export function MyPortfolioPage() {
                   isLoading={isRewardsLoading}
                   isLoadingMore={isRewardsLoadingMore}
                   claimableGroups={claimableGroups}
+                  pendingGroups={pendingGroups}
                   positions={positions}
                   networkFilter={networkFilter}
                   onManage={handleManage}

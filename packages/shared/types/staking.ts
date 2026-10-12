@@ -2148,7 +2148,9 @@ export type IEarnInvestmentRowKind =
   | 'pendingActivation'
   | 'unstaking'
   | 'claimablePrincipal'
-  | 'reward';
+  | 'reward'
+  /** a reward the user cannot claim by itself yet: accruing, or settled with the principal */
+  | 'pendingReward';
 
 export type IEarnInvestmentRowFacts = {
   kind?: IEarnInvestmentRowKind;

@@ -21416,6 +21416,7 @@
     "packages/kit/src/views/Earn/pages/EarnPositions/mobile/ProtocolGroupRow.tsx": 8774,
     "packages/kit/src/views/Earn/pages/EarnPositions/mobile/RewardsClaimableList.tsx": 15239,
     "packages/kit/src/views/Earn/pages/EarnPositions/mobile/RewardsLedgerList.tsx": 11827,
+    "packages/kit/src/views/Earn/pages/EarnPositions/mobile/RewardsPendingList.tsx": 21851,
     "packages/kit/src/views/Earn/pages/EarnPositions/mobile/RewardsTab.tsx": 10162,
     "packages/kit/src/views/Earn/pages/EarnPositions/mobile/UnderlineTabs.tsx": 17053,
     "packages/kit/src/views/Earn/pages/EarnPositions/mobile/earnPortfolioPositions.utils.ts": 4093,

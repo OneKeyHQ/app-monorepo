@@ -7,20 +7,24 @@ import type {
 
 import {
   buildEarnClaimableRewardGroups,
+  buildEarnPendingRewardGroups,
   buildEarnPortfolioView,
   countEarnPositionsByNetwork,
   filterEarnProtocolsByNetworks,
   holdingKeyOf,
   sumEarnClaimableRewards,
   sumEarnDefiAssets,
+  sumEarnPendingRewards,
 } from './earnPositionModel';
 import {
+  ACCRUING_TOOLTIP,
   EARN_PORTFOLIO_POSITIONS_FIXTURE,
   LIDO_LATER_UNLOCK_AT,
   LIDO_UNLOCK_AT,
   LISTA_VAULT,
   NATIVE_UNLOCK_AT,
   NATIVE_USDT_VAULT,
+  SETTLED_ON_REDEEM_TOOLTIP,
   SUSDE_VAULT,
 } from './earnPositionModel.fixtures';
 
@@ -218,6 +222,7 @@ describe('earn position model: one card per holding', () => {
     );
     expect(native.sections.map((section) => section.kind)).toEqual([
       'deposited',
+      'rewards',
       'pendingWithdrawal',
     ]);
     const [row] =
@@ -348,6 +353,38 @@ describe('earn position model: one card per holding', () => {
     ).toEqual([]);
   });
 
+  it('shows a reward the user cannot claim yet on the card, marked pending with its explanation, and never on its Claim', () => {
+    const native = card(
+      protocolRow('evm--1-native'),
+      `native:evm--1:${NATIVE_USDT_VAULT}`,
+    );
+    const rewards = native.sections.find(
+      (section) => section.kind === 'rewards',
+    );
+    expect(
+      rewards?.assets.map((asset) => [
+        asset.symbol,
+        asset.amount,
+        asset.status,
+        asset.tooltip?.type,
+      ]),
+    ).toEqual([['USDT', '0.0026', 'pending', 'text']]);
+    expect(native.hasRewards).toBe(true);
+    expect(native.claimableRewards).toEqual([]);
+    // the card's value counts it, the way it counts every reward, with the
+    // withdrawal in progress the holding folds in
+    expect(native.value.value).toBeCloseTo((2 + 0.0026 + 0.112) * 0.9992, 9);
+    const base = card(
+      protocolRow('evm--8453-morpho'),
+      'morpho:evm--8453:0xbase',
+    );
+    expect(base.sections.map((section) => section.kind)).toEqual([
+      'deposited',
+      'rewards',
+    ]);
+    expect(base.claimableRewards).toEqual([]);
+  });
+
   it('carries the server PnL on the card it belongs to', () => {
     const usd3 = card(protocolRow('evm--1-pendle'), 'pendle:evm--1:0xusd3');
     expect(usd3.source.earn.pnl).toEqual({
@@ -397,6 +434,50 @@ describe('earn position model: rewards claimable stage', () => {
     expect(sumEarnClaimableRewards(view.protocols)).toBeCloseTo(
       1.2 * 1.2 + 0.0213 * 1.2 + 3 * 0.05 + 0.001 * 3150 + 0.0001 * 110,
       9,
+    );
+  });
+
+  it('lists the rewards the server marked pending on the Pending stage, with their explanation, and keeps them off Claimable', () => {
+    const pending = buildEarnPendingRewardGroups(view.protocols);
+    expect(
+      pending.map((group) => [
+        group.key,
+        group.rows.map((row) => [
+          row.position.key,
+          row.asset.symbol,
+          row.asset.amount,
+          row.asset.tooltip,
+        ]),
+      ]),
+    ).toEqual([
+      [
+        'evm--1-native',
+        [
+          [
+            `native:evm--1:${NATIVE_USDT_VAULT}`,
+            'USDT',
+            '0.0026',
+            SETTLED_ON_REDEEM_TOOLTIP,
+          ],
+        ],
+      ],
+      [
+        'evm--8453-morpho',
+        [['morpho:evm--8453:0xbase', 'KAT', '0.05938', ACCRUING_TOOLTIP]],
+      ],
+    ]);
+    // nothing to press on a pending row
+    expect(
+      pending.flatMap((group) => group.rows).every((row) => !row.asset.claim),
+    ).toBe(true);
+    expect(sumEarnPendingRewards(view.protocols)).toBeCloseTo(
+      0.0026 * 0.9992 + 0.059_38 * 0.0046,
+      9,
+    );
+    // Claimable never lists them: the header adds up to the two lists
+    expect(claimable.map((group) => group.key)).not.toContain('evm--1-native');
+    expect(claimable.map((group) => group.key)).not.toContain(
+      'evm--8453-morpho',
     );
   });
 

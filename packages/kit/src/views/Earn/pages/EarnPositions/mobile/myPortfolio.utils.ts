@@ -14,8 +14,8 @@ import type {
 
 import type {
   IEarnClaimableReward,
-  IEarnClaimableRewardGroup,
-  IEarnClaimableRewardRow,
+  IEarnPositionRewardGroup,
+  IEarnPositionRewardRow,
 } from './earnPositionModel';
 import type { IPortfolioClaimSourceCandidate } from '../../../utils/portfolioClaimUtils';
 
@@ -34,7 +34,7 @@ import type { IPortfolioClaimSourceCandidate } from '../../../utils/portfolioCla
  * txs and opens its page through the provider that reads it (Pendle).
  */
 
-/** Header "Rewards": the ledger's claimable + pending, plus the positions' claimable rewards. */
+/** Header "Rewards": the ledger's claimable + pending, plus the positions' claimable and pending rewards. */
 export function sumRewardsHeaderFiat({
   ledgerRewardsFiatValue,
   positionRewardsValue,
@@ -308,8 +308,8 @@ export function buildNetworkInfoMap(
   return map;
 }
 
-/** One group on Rewards › Claimable: a protocol on one network, its position rewards and its ledger rewards together. */
-export type IClaimableRewardsGroup = {
+/** One group on Rewards › Claimable or Pending: a protocol on one network, its position rewards and its ledger rewards together. */
+export type IRewardsStageGroup = {
   /** `${networkId}|${provider}` */
   key: string;
   provider: string;
@@ -320,7 +320,7 @@ export type IClaimableRewardsGroup = {
   value: IProtocolValueState;
   /** the group's token amount, for a ledger group nothing priced whose rows are one token */
   amountOnly?: { amount: string; symbol: string };
-  positionRows: IEarnClaimableRewardRow[];
+  positionRows: IEarnPositionRewardRow[];
   ledgerItems: {
     group: IEarnRewardsPortfolioGroup;
     item: IEarnRewardsPortfolioItem;
@@ -328,19 +328,19 @@ export type IClaimableRewardsGroup = {
 };
 
 /**
- * Rewards › Claimable (figma 30490-21537): one group per protocol per
- * network, the positions' rewards first and the ledger's campaign rewards
- * after them, highest total first. The ledger names its groups by provider
- * and network, the same key the protocol rows use.
+ * Rewards › Claimable and Pending (figma 30490-21537): one group per
+ * protocol per network, the positions' rewards first and the ledger's
+ * rewards after them, highest total first. The ledger names its groups by
+ * provider and network, the same key the protocol rows use.
  */
-export function mergeClaimableRewardGroups({
+export function mergeRewardGroups({
   positionGroups,
   ledgerGroups,
 }: {
-  positionGroups: IEarnClaimableRewardGroup[];
+  positionGroups: IEarnPositionRewardGroup[];
   ledgerGroups: IEarnRewardsPortfolioGroup[];
-}): IClaimableRewardsGroup[] {
-  const byKey = new Map<string, IClaimableRewardsGroup>();
+}): IRewardsStageGroup[] {
+  const byKey = new Map<string, IRewardsStageGroup>();
   positionGroups.forEach((group) => {
     const key = `${group.networkId}|${group.protocol}`;
     byKey.set(key, {

@@ -30,20 +30,20 @@ import {
   buildClaimSourceCandidates,
   buildNetworkInfoMap,
   hasPositionDetailPage,
-  mergeClaimableRewardGroups,
+  mergeRewardGroups,
   toLedgerClaimAsset,
   toPositionRewardClaim,
 } from './myPortfolio.utils';
 
 import type { IEarnPositionCardHandlers } from './EarnPositionCard';
 import type {
-  IEarnClaimableRewardGroup,
-  IEarnClaimableRewardRow,
+  IEarnPositionRewardGroup,
+  IEarnPositionRewardRow,
 } from './earnPositionModel';
-import type { IClaimableRewardsGroup } from './myPortfolio.utils';
+import type { IRewardsStageGroup } from './myPortfolio.utils';
 
 /** The group's figure: fiat the way the protocol rows read, the token amount only when nothing priced it. */
-function ClaimableGroupTotal({ group }: { group: IClaimableRewardsGroup }) {
+export function RewardsGroupTotal({ group }: { group: IRewardsStageGroup }) {
   const intl = useIntl();
   const currencyInfo = useCurrency();
   if (group.amountOnly) {
@@ -83,7 +83,7 @@ function ClaimableGroupTotal({ group }: { group: IClaimableRewardsGroup }) {
 function PositionRewardAction({
   row,
   onManage,
-}: { row: IEarnClaimableRewardRow } & IEarnPositionCardHandlers) {
+}: { row: IEarnPositionRewardRow } & IEarnPositionCardHandlers) {
   const intl = useIntl();
   const { position, asset } = row;
   const { source, action } = position;
@@ -136,7 +136,7 @@ export function RewardsClaimableList({
   emptyTitle,
   onManage,
 }: {
-  positionGroups: IEarnClaimableRewardGroup[];
+  positionGroups: IEarnPositionRewardGroup[];
   positions: IEarnPortfolioPosition[];
   ledgerGroups: IEarnRewardsPortfolioGroup[];
   /** the ledger part is still on its way: no empty state yet */
@@ -153,7 +153,7 @@ export function RewardsClaimableList({
     [positions],
   );
   const groups = useMemo(
-    () => mergeClaimableRewardGroups({ positionGroups, ledgerGroups }),
+    () => mergeRewardGroups({ positionGroups, ledgerGroups }),
     [positionGroups, ledgerGroups],
   );
 
@@ -178,7 +178,7 @@ export function RewardsClaimableList({
           networkId={group.networkId}
           expanded={expansion.isExpanded(group.key)}
           onToggle={() => expansion.toggle(group.key)}
-          total={<ClaimableGroupTotal group={group} />}
+          total={<RewardsGroupTotal group={group} />}
         >
           <YStack
             px="$3"

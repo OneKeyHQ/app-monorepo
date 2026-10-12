@@ -14,6 +14,7 @@ import { EClaimType, EStakingActionType } from '@onekeyhq/shared/types/staking';
 import type {
   IEarnCancelWithdrawalActionIcon,
   IEarnListaCheckActionIcon,
+  IEarnTooltip,
 } from '@onekeyhq/shared/types/staking';
 
 /**
@@ -59,6 +60,26 @@ export const CHECK_BUTTON: IEarnListaCheckActionIcon = {
   type: 'listaCheck',
   disabled: false,
   text: { text: 'Check' },
+};
+
+/** Morpho's and Lista's next settlement: the reward still accruing, as the detail page explains it. */
+export const ACCRUING_TOOLTIP: IEarnTooltip = {
+  type: 'text',
+  data: {
+    title: { text: 'Protocol rewards' },
+    description: { text: 'Rewards are settled every 8 hours.' },
+  },
+};
+
+/** Bitway's yield: settled together with the principal, never claimed by itself. */
+export const SETTLED_ON_REDEEM_TOOLTIP: IEarnTooltip = {
+  type: 'text',
+  data: {
+    title: { text: 'Yield info' },
+    description: {
+      text: 'Rewards cannot be claimed separately and are settled together when the assets are redeemed',
+    },
+  },
 };
 
 /** Lista's Check row before the signature: no amount yet, the button reveals it. */
@@ -457,6 +478,8 @@ const ETHEREUM_POSITIONS: IEarnPortfolioPosition[] = [
   }),
   // Native: the queued withdrawal can still be called back; the server
   // sends the Cancel, the detail page runs it (the card shows the date).
+  // Its yield is settled with the principal (the Bitway shape): a pending
+  // reward with the detail row's explanation, never claimed by itself.
   position({
     ...ethereum,
     protocol: 'native',
@@ -465,6 +488,18 @@ const ETHEREUM_POSITIONS: IEarnPortfolioPosition[] = [
     groupId: `native:evm--1:${NATIVE_USDT_VAULT}`,
     name: 'Native USDT',
     assets: [token({ symbol: 'USDT', amount: '2', price: 0.9992 })],
+    rewards: [
+      {
+        ...token({
+          symbol: 'USDT',
+          amount: '0.0026',
+          price: 0.9992,
+          category: 'reward',
+        }),
+        status: 'pending',
+        tooltip: SETTLED_ON_REDEEM_TOOLTIP,
+      },
+    ],
     earn: { symbol: 'USDT', vault: NATIVE_USDT_VAULT },
   }),
   position({
@@ -515,6 +550,19 @@ const BASE_POSITIONS: IEarnPortfolioPosition[] = [
     groupId: 'morpho:evm--8453:0xbase',
     name: 'Moonwell USDC',
     assets: [token({ symbol: 'USDC', amount: '10', price: 1 })],
+    // the campaign token still accruing until the next settlement
+    rewards: [
+      {
+        ...token({
+          symbol: 'KAT',
+          amount: '0.05938',
+          price: 0.0046,
+          category: 'reward',
+        }),
+        status: 'pending',
+        tooltip: ACCRUING_TOOLTIP,
+      },
+    ],
     earn: { symbol: 'USDC', vault: '0xbase' },
   }),
   position({

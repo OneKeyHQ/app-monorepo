@@ -16,7 +16,7 @@ import {
   buildClaimSourceCandidates,
   buildNetworkInfoMap,
   hasPositionDetailPage,
-  mergeClaimableRewardGroups,
+  mergeRewardGroups,
   positionPendingTag,
   sumRewardsHeaderFiat,
   toLedgerClaimAsset,
@@ -26,7 +26,7 @@ import {
 
 import type {
   IEarnClaimableReward,
-  IEarnClaimableRewardGroup,
+  IEarnPositionRewardGroup,
 } from './earnPositionModel';
 
 const POSITIONS = Object.values(
@@ -251,8 +251,8 @@ describe('toPositionRewardClaim', () => {
   });
 });
 
-describe('mergeClaimableRewardGroups', () => {
-  const positionGroup: IEarnClaimableRewardGroup = {
+describe('mergeRewardGroups', () => {
+  const positionGroup: IEarnPositionRewardGroup = {
     key: 'evm--1-morpho',
     protocol: 'morpho',
     networkId: 'evm--1',
@@ -276,7 +276,7 @@ describe('mergeClaimableRewardGroups', () => {
   });
 
   it("puts a protocol's position rewards and ledger rewards in one group, highest first", () => {
-    const groups = mergeClaimableRewardGroups({
+    const groups = mergeRewardGroups({
       positionGroups: [positionGroup],
       ledgerGroups: [
         ledgerGroup({}),
@@ -305,7 +305,7 @@ describe('mergeClaimableRewardGroups', () => {
   });
 
   it('shows a ledger group nothing priced by its token amount', () => {
-    const [group] = mergeClaimableRewardGroups({
+    const [group] = mergeRewardGroups({
       positionGroups: [],
       ledgerGroups: [
         ledgerGroup({
@@ -319,9 +319,9 @@ describe('mergeClaimableRewardGroups', () => {
       hasAvailableValue: false,
       hasUnavailableValue: true,
     });
-    expect(
-      mergeClaimableRewardGroups({ positionGroups: [], ledgerGroups: [] }),
-    ).toEqual([]);
+    expect(mergeRewardGroups({ positionGroups: [], ledgerGroups: [] })).toEqual(
+      [],
+    );
   });
 });
 

@@ -18,9 +18,10 @@ import type {
 import { useGroupExpansion } from './GroupRow';
 import { RewardsClaimableList } from './RewardsClaimableList';
 import { RewardsLedgerList } from './RewardsLedgerList';
+import { RewardsPendingList } from './RewardsPendingList';
 
 import type { IEarnPositionCardHandlers } from './EarnPositionCard';
-import type { IEarnClaimableRewardGroup } from './earnPositionModel';
+import type { IEarnPositionRewardGroup } from './earnPositionModel';
 
 export const REWARDS_STAGES: IEarnRewardsPortfolioStage[] = [
   'claimable',
@@ -82,6 +83,7 @@ export function RewardsTab({
   isLoading,
   isLoadingMore = false,
   claimableGroups,
+  pendingGroups,
   positions,
   networkFilter,
   onManage,
@@ -93,7 +95,9 @@ export function RewardsTab({
   /** a further ledger page is on its way; shown as a footer spinner */
   isLoadingMore?: boolean;
   /** the positions' claimable rewards, one group per protocol per network */
-  claimableGroups: IEarnClaimableRewardGroup[];
+  claimableGroups: IEarnPositionRewardGroup[];
+  /** the positions' rewards the server marked pending, grouped the same way */
+  pendingGroups: IEarnPositionRewardGroup[];
   /** every position the page holds; names networks and vaults for the ledger rows */
   positions: IEarnPortfolioPosition[];
   /** the page's network chip; sits under the stage pills on this tab */
@@ -127,6 +131,16 @@ export function RewardsTab({
         isLoading={isStageLoading}
         emptyTitle={emptyTitle}
         onManage={onManage}
+      />
+    );
+  } else if (stage === 'pending') {
+    content = (
+      <RewardsPendingList
+        positionGroups={pendingGroups}
+        ledgerGroups={groups}
+        isLoading={isStageLoading}
+        emptyTitle={emptyTitle}
+        expansion={expansion}
       />
     );
   } else if (isStageLoading) {

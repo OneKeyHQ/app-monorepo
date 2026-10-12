@@ -5,6 +5,7 @@ import type {
   IEarnProtocolCategory,
   IEarnProtocolType,
   IEarnText,
+  IEarnTooltip,
 } from '../staking';
 
 /**
@@ -93,9 +94,16 @@ export type IEarnPositionRewardClaim = {
   row: IEarnPositionAirdropRow;
 };
 
-/** A reward row of a position; claimable by hand when it carries `claim`. */
+/**
+ * A reward row of a position: claimable by hand when it carries `claim`;
+ * `pending` when the user cannot claim it by itself yet (accruing until the
+ * next settlement at Morpho or Lista, settled with the principal at Bitway),
+ * with the detail row's tooltip saying why.
+ */
 export type IEarnPositionRewardAsset = IDeFiAsset & {
   claim?: IEarnPositionRewardClaim;
+  status?: 'pending';
+  tooltip?: IEarnTooltip;
 };
 
 /** The investment detail this position was cut from, kept whole. */
