@@ -24085,6 +24085,7 @@
     "packages/kit/src/views/SignatureConfirm/components/TxFee/presetFeeInfoUtils.ts": 23051,
     "packages/kit/src/views/SignatureConfirm/constants/gasAccountErrorCodes.ts": 2492,
     "packages/kit/src/views/SignatureConfirm/hooks/transactionSecurityCheck.ts": 14222,
+    "packages/kit/src/views/SignatureConfirm/hooks/txFeeOverflowConfirmPresence.ts": 7459,
     "packages/kit/src/views/SignatureConfirm/hooks/useGasAccountAnalyticsContext.ts": 6771,
     "packages/kit/src/views/SignatureConfirm/hooks/useHyperliquidReferralPromotion.ts": 15484,
     "packages/kit/src/views/SignatureConfirm/hooks/usePreCheckFeeInfo.tsx": 12616,
