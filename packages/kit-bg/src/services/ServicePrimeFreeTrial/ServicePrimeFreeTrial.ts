@@ -40,13 +40,11 @@ import {
   PRIME_FREE_TRIAL_QUOTA_EXHAUSTED_CODE,
   PRIME_FREE_TRIAL_RESERVATION_TTL_MS,
   PRIME_FREE_TRIAL_USAGE_REJECTED_CODE,
+  buildPrimeFreeTrialUsageRecordKey,
   isPrimeFreeTrialFeatureId,
+  isPrimeFreeTrialUsageRecordReportable,
 } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 
-import {
-  buildPrimeFreeTrialUsageRecordKey,
-  isPrimeFreeTrialUsageRecordReportable,
-} from '../../dbs/simple/entity/SimpleDbEntityPrimeFreeTrial';
 import {
   primeFreeTrialAtom,
   primeFreeTrialAtomInitialValue,

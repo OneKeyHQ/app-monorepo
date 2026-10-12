@@ -86,22 +86,6 @@ jest.mock('../../states/jotai/atoms/prime', () => ({
   },
 }));
 
-jest.mock('../../dbs/simple/entity/SimpleDbEntityPrimeFreeTrial', () => ({
-  buildPrimeFreeTrialUsageRecordKey: ({
-    onekeyUserId,
-    featureId,
-    usageId,
-  }: {
-    onekeyUserId: string;
-    featureId: string;
-    usageId: string;
-  }) => `${onekeyUserId}__${featureId}__${usageId}`,
-  isPrimeFreeTrialUsageRecordReportable: (record: {
-    result?: string;
-    reportedAt?: number;
-  }) => Boolean(record.result) && !record.reportedAt,
-}));
-
 jest.mock('@onekeyhq/shared/src/travelMode', () => ({
   travelModeManager: {
     getRuntimeEnvironment: async () => ({ profile: { kind: 'standard' } }),

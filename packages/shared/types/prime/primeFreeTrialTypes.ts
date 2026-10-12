@@ -220,6 +220,26 @@ export type IPrimeFreeTrialUsageRecord = {
   nextReportAt?: number;
 };
 
+// Kept out of the SimpleDB entity module: the background service needs them
+// at startup, while the entity implementation must stay lazily loaded.
+export function buildPrimeFreeTrialUsageRecordKey({
+  onekeyUserId,
+  featureId,
+  usageId,
+}: {
+  onekeyUserId: string;
+  featureId: IPrimeFreeTrialUsageFeatureId;
+  usageId: string;
+}) {
+  return `${onekeyUserId}__${featureId}__${usageId}`;
+}
+
+export function isPrimeFreeTrialUsageRecordReportable(
+  record: IPrimeFreeTrialUsageRecord,
+) {
+  return Boolean(record.result) && !record.reportedAt;
+}
+
 export type IPrimeFreeTrialLoadStatus =
   | 'idle'
   | 'loading'

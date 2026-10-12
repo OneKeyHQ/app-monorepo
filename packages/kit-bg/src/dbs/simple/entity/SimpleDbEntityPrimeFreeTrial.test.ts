@@ -1,5 +1,6 @@
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import type { IPrimeFreeTrialUsageRecord } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
+import { buildPrimeFreeTrialUsageRecordKey } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 
 import {
   type IPrimeFreeTrialDBStruct,
@@ -7,7 +8,6 @@ import {
   PRIME_FREE_TRIAL_SUCCESS_RECORD_RETENTION_MS,
   PRIME_FREE_TRIAL_USAGE_RECORDS_CAP_PER_USER,
   SimpleDbEntityPrimeFreeTrial,
-  buildPrimeFreeTrialUsageRecordKey,
 } from './SimpleDbEntityPrimeFreeTrial';
 
 const NOW = 1_800_000_000_000;

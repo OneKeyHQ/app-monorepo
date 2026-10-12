@@ -4,6 +4,7 @@ import type {
   IPrimeFreeTrialUsageFeatureId,
   IPrimeFreeTrialUsageRecord,
 } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
+import { buildPrimeFreeTrialUsageRecordKey } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
@@ -21,24 +22,6 @@ const RESERVATION_FALLBACK_TTL_MS = 30 * 60 * 1000;
 export interface IPrimeFreeTrialDBStruct {
   usageRecords?: Record<string, IPrimeFreeTrialUsageRecord>;
   pendingAction?: IPrimeFreeTrialPendingAction;
-}
-
-export function buildPrimeFreeTrialUsageRecordKey({
-  onekeyUserId,
-  featureId,
-  usageId,
-}: {
-  onekeyUserId: string;
-  featureId: IPrimeFreeTrialUsageFeatureId;
-  usageId: string;
-}) {
-  return `${onekeyUserId}__${featureId}__${usageId}`;
-}
-
-export function isPrimeFreeTrialUsageRecordReportable(
-  record: IPrimeFreeTrialUsageRecord,
-) {
-  return Boolean(record.result) && !record.reportedAt;
 }
 
 function isRecordExpired(record: IPrimeFreeTrialUsageRecord, now: number) {
