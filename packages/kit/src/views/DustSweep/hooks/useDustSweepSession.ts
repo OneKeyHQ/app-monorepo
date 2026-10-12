@@ -211,6 +211,7 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
         hiddenTokenCount: 0,
       });
       run();
+      return snapshot.id;
     },
     [run, send],
   );

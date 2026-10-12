@@ -22203,6 +22203,7 @@
     "packages/kit/src/views/Discovery/utils/searchDebugSnapshot.ts": 20539,
     "packages/kit/src/views/Discovery/utils/searchResultRanking.ts": 3194,
     "packages/kit/src/views/Discovery/utils/tabBarUtils.ts": 19240,
+    "packages/kit/src/views/DustSweep/DustSweepFlow.tsx": 20377,
     "packages/kit/src/views/DustSweep/DustSweepPage.tsx": 9561,
     "packages/kit/src/views/DustSweep/DustSweepProvider.tsx": 10707,
     "packages/kit/src/views/DustSweep/components/DustSweepDetails.tsx": 11607,

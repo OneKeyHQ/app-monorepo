@@ -277,7 +277,9 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     visited.current = false;
   }, [resetSession, session.state.phase]);
   const start = useCallback(() => {
-    if (snapshot && canStart) startSession(snapshot, preview.unavailable);
+    if (snapshot && canStart)
+      return startSession(snapshot, preview.unavailable);
+    return undefined;
   }, [snapshot, canStart, preview.unavailable, startSession]);
   const retryPreview = useCallback(() => {
     if (
@@ -328,6 +330,19 @@ function useDustSweepController(params: IDustSweepRouteParams) {
 const DustSweepContext = createContext<
   ReturnType<typeof useDustSweepController> | undefined
 >(undefined);
+
+export function DustSweepScreenProvider({
+  value,
+  children,
+}: PropsWithChildren<{
+  value: ReturnType<typeof useDustSweepController>;
+}>) {
+  return (
+    <DustSweepContext.Provider value={value}>
+      {children}
+    </DustSweepContext.Provider>
+  );
+}
 
 export function DustSweepProvider({
   params,

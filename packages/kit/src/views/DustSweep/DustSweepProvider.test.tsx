@@ -78,10 +78,12 @@ function useMockSession(): ReturnType<typeof useDustSweepSession> {
   const [state, setState] = useState<IDustSweepState>(initialDustSweepState);
   return {
     state,
-    start: (snapshot, unavailable) =>
+    start: (snapshot, unavailable) => {
       setState((value) =>
         dustSweepReducer(value, { type: 'start', snapshot, unavailable }),
-      ),
+      );
+      return snapshot.id;
+    },
     pause: () => setState((value) => ({ ...value, phase: 'paused' })),
     resume: () => setState((value) => ({ ...value, phase: 'running' })),
     reset: () => setState(initialDustSweepState),
@@ -297,7 +299,9 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     expect(result.current.selected.map((token) => token.key)).toEqual([
       ethereum.tokens[0].key,
     ]);
-    act(() => result.current.start());
+    act(() => {
+      result.current.start();
+    });
     expect(result.current.session.state.snapshot).toMatchObject({
       accountId: ethereum.accountId,
       address: ethereum.address,
@@ -378,7 +382,9 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     act(() => result.current.retry());
     await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
     expect(result.current.current).toBeUndefined();
-    act(() => result.current.start());
+    act(() => {
+      result.current.start();
+    });
     expect(result.current.session.state.snapshot).toBeUndefined();
 
     act(() => result.current.retry());
@@ -552,7 +558,9 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
     expect(result.current.partialError).toBe(true);
 
-    act(() => result.current.start());
+    act(() => {
+      result.current.start();
+    });
     const snapshot = result.current.session.state.snapshot;
     expect(result.current.session.state.phase).toBe('running');
     act(() => {
@@ -587,7 +595,9 @@ describe('Dust Sweep Provider request and selection ownership', () => {
       const { result } = renderController();
       await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
 
-      act(() => result.current.start());
+      act(() => {
+        result.current.start();
+      });
 
       expect(result.current.session.state.phase).toBe('selecting');
       expect(result.current.session.state.snapshot).toBeUndefined();
@@ -607,7 +617,9 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     const { result } = renderController();
     await waitFor(() => expect(result.current.canStart).toBe(true));
     expect(result.current.quotedValueUsd).toBe('1');
-    act(() => result.current.start());
+    act(() => {
+      result.current.start();
+    });
     expect(
       result.current.session.state.items.map((item) => item.status),
     ).toEqual(['waiting', 'skipped']);
@@ -617,14 +629,18 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     mockFocused = false;
     const { result } = renderController();
     await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
-    act(() => result.current.start());
+    act(() => {
+      result.current.start();
+    });
     expect(result.current.session.state.phase).toBe('selecting');
   });
   it('does not start a ready placeholder with zero available quotes', async () => {
     mockPreview = { ...readyPreview, quotedCount: 0, availableKeys: [] };
     const { result } = renderController();
     await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
-    act(() => result.current.start());
+    act(() => {
+      result.current.start();
+    });
     expect(result.current.session.state.phase).toBe('selecting');
   });
 });

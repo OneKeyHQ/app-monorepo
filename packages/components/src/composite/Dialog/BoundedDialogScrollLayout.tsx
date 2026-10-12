@@ -23,6 +23,8 @@ import { DialogScrollView } from './DialogScrollView';
  * `keyboardPaddingBottom` must be the same value DialogFrame applies as
  * paddingBottom — subtract it exactly once. Overflowing email/OTP content
  * is reached by scrolling the Sheet.ScrollView; there is no auto-reveal.
+ * Native centered dialogs place this offset outside the card and supply
+ * centeredInset for equal clearance above and below the available viewport.
  */
 export function BoundedDialogScrollLayout({
   chrome,
@@ -30,12 +32,14 @@ export function BoundedDialogScrollLayout({
   children,
   keyboardPaddingBottom,
   isCentered = false,
+  centeredInset,
 }: {
   chrome?: ReactNode;
   closeButton?: ReactNode;
   children: ReactNode;
   keyboardPaddingBottom: number;
   isCentered?: boolean;
+  centeredInset?: number;
 }) {
   const { height: windowHeight } = useWindowDimensions();
   const { top: topInset } = useSafeAreaInsets();
@@ -49,7 +53,7 @@ export function BoundedDialogScrollLayout({
   }, []);
   const scrollMaxHeight = getBoundedDialogScrollMaxHeight({
     windowHeight,
-    topInset,
+    topInset: isCentered ? (centeredInset ?? topInset) : topInset,
     keyboardPaddingBottom,
     isCentered,
   });

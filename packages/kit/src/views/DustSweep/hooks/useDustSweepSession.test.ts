@@ -99,7 +99,9 @@ it('pauses immediately while retaining the broadcast worker and its eventual res
     return success;
   });
   const { result } = renderHook(() => useDustSweepSession([]));
-  act(() => result.current.start(snapshot));
+  act(() => {
+    result.current.start(snapshot);
+  });
   act(() => result.current.pause());
   expect(result.current.state.phase).toBe('paused');
   expect(result.current.state.items[0]).toMatchObject({
@@ -136,7 +138,9 @@ it('does not duplicate an active broadcast when resuming before it settles', asy
     return success;
   });
   const { result } = renderHook(() => useDustSweepSession([]));
-  act(() => result.current.start(snapshot));
+  act(() => {
+    result.current.start(snapshot);
+  });
   act(() => {
     result.current.pause();
     result.current.resume();
@@ -165,9 +169,9 @@ it('invalidates old preparation even after a quick stop and resume', async () =>
     return success;
   });
   const { result } = renderHook(() => useDustSweepSession([]));
-  act(() =>
-    result.current.start({ ...snapshot, tokens: [snapshot.tokens[0]] }),
-  );
+  act(() => {
+    result.current.start({ ...snapshot, tokens: [snapshot.tokens[0]] });
+  });
   act(() => {
     result.current.pause();
     result.current.resume();
@@ -189,7 +193,9 @@ it('preserves a late broadcast from signing after stop without starting the next
     return settled.promise;
   });
   const { result } = renderHook(() => useDustSweepSession([]));
-  act(() => result.current.start(snapshot));
+  act(() => {
+    result.current.start(snapshot);
+  });
   act(() => result.current.pause());
   expect(result.current.state.phase).toBe('paused');
   expect(result.current.state.items[0].status).toBe('signing');
@@ -212,7 +218,9 @@ it('blocks an uncertain SDK result after stopping instead of retrying the item',
     throw new DustSweepUnknownSubmission();
   });
   const { result } = renderHook(() => useDustSweepSession([]));
-  act(() => result.current.start(snapshot));
+  act(() => {
+    result.current.start(snapshot);
+  });
   act(() => result.current.pause());
   await act(async () => signature.resolve());
   expect(result.current.state.phase).toBe('blocked');
@@ -229,7 +237,9 @@ it('waits for a background signing return on leave and never begins the next ite
     return completed;
   });
   const { result } = renderHook(() => useDustSweepSession([]));
-  act(() => result.current.start(snapshot));
+  act(() => {
+    result.current.start(snapshot);
+  });
   let leave: Promise<boolean> | undefined;
   act(() => {
     leave = result.current.leave();
@@ -255,7 +265,9 @@ it('reports leaving separately from stopping after a paused session', async () =
     return first.promise;
   });
   const { result } = renderHook(() => useDustSweepSession([]));
-  act(() => result.current.start(snapshot));
+  act(() => {
+    result.current.start(snapshot);
+  });
   act(() => result.current.pause());
   await act(async () => {
     first.resolve(success);
@@ -334,10 +346,15 @@ it('skips unavailable preview rows without entering the executor and rejects dup
     return success;
   });
   const { result } = renderHook(() => useDustSweepSession([]));
+  let acceptedId: string | undefined;
+  let duplicateId: string | undefined;
   await act(async () => {
-    result.current.start(snapshot, { b: 'noQuote' });
-    result.current.start(snapshot);
+    acceptedId = result.current.start(snapshot, { b: 'noQuote' });
+    duplicateId = result.current.start(snapshot);
   });
+  expect(acceptedId).toBe(result.current.state.snapshot?.id);
+  expect(acceptedId).toBeTruthy();
+  expect(duplicateId).toBeUndefined();
   expect(execute).toHaveBeenCalledTimes(1);
   expect(result.current.state.phase).toBe('completed');
   expect(result.current.state.items[1]).toMatchObject({
@@ -378,7 +395,9 @@ it('retains a submission that becomes unknown while leaving before allowing a se
     throw new DustSweepUnknownSubmission();
   });
   const { result } = renderHook(() => useDustSweepSession([]));
-  act(() => result.current.start(snapshot));
+  act(() => {
+    result.current.start(snapshot);
+  });
   let left: boolean | undefined;
   await act(async () => {
     const leaving = result.current.leave();

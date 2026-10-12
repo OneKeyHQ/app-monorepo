@@ -98,7 +98,7 @@ export function DustSweepResult({
           <SwapTransactionResultStatus
             status={outcome === 'partial' ? 'success' : outcome}
             size={48}
-            animated={!reducedMotion}
+            animated={false}
           />
           <SizableText size="$headingLg" mt="$4" height={24}>
             {intl.formatMessage({ id: resultTitleId })}
@@ -230,7 +230,9 @@ export function DustSweepSummary({
       amount: `$${formatFiatAmount(quotedValueUsd)}`,
     },
   );
-  let onPress: () => void | Promise<void> = model.start;
+  let onPress: () => void | Promise<void> = () => {
+    model.start();
+  };
   if (completed) {
     label = intl.formatMessage({
       id: desktop ? ETranslations.sweep_sweep_again : ETranslations.global_done,

@@ -46,7 +46,8 @@ export function SwapTransactionResultStatus({
           status === 'success' ? 'CheckRadioSolid' : 'ClockTimeHistoryOutline'
         }
         color={status === 'success' ? '$iconSuccess' : '$iconSubdued'}
-        size={size}
+        width={size}
+        height={size}
       />
     );
   return (
