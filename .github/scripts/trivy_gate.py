@@ -229,10 +229,13 @@ def scan_command(binary, root, output, cache, config, frozen):
 def yarn_git_entries(root):
     entries = {}
     for file in root.rglob('yarn.lock'):
-        data = source_file(root, str(file.relative_to(root))).read_text()
-        headers = list(re.finditer(r'(?m)^[^\s#][^\n]*(?:\n|$)', data))
+        with source_file(root, str(file.relative_to(root))).open(newline='') as source:
+            raw = source.read()
+        data = raw.replace('\r\n', '\n')
+        header_pattern = r'(?m)^[^\s#][^\n]*(?:\n|$)'
+        headers = list(re.finditer(header_pattern, data))
         covered = []
-        for index, match in enumerate(headers):
+        for match in headers:
             header = match.group().rstrip()
             protocols = set(re.findall(r'@([a-z][a-z0-9+.-]*):', header))
             protocols -= {'npm', 'workspace', 'patch', 'file', 'link', 'portal'}
@@ -241,7 +244,19 @@ def yarn_git_entries(root):
             # Trivy skips Git sources. Admit only unchanged, commit-pinned
             # GitHub entries; new/edited opaque code cannot be assessed safely.
             require(protocols == {'https'}, 'unsupported_yarn_source')
-            end = headers[index + 1].start() if index + 1 < len(headers) else len(data)
+            # Trivy skips physical blocks, delimited by an empty LF/CRLF line.
+            # Mixed line endings make its delimiter precedence ambiguous.
+            require('\r' not in data and ('\r' not in raw or raw == data.replace('\n', '\r\n')),
+                    'unsupported_yarn_block')
+            start = data.rfind('\n\n', 0, match.start())
+            start = start + 2 if start >= 0 else 0
+            end = data.find('\n\n', match.start())
+            end = end if end >= 0 else len(data)
+            # Trivy also parses indented headers; do not omit a hidden prefix.
+            require(len(re.findall(header_pattern, data[start:end])) == 1
+                    and all(not line.strip() or line.startswith('#')
+                            for line in data[start:match.start()].splitlines()),
+                    'unsupported_yarn_block')
             block = data[match.start():end].rstrip('\r\n')
             resolutions = re.findall(r'(?m)^  resolution: ("(?:[^"\\]|\\.)*")$', block)
             require(len(resolutions) == 1, 'unsupported_yarn_source')

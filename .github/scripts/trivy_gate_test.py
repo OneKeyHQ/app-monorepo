@@ -197,6 +197,41 @@ class GateTests(unittest.TestCase):
                 gate.scan('trivy', merge, output, self.root, self.root, {},
                           allowed_warnings=allowed['merge'])
 
+    def test_git_warning_cannot_hide_adjacent_npm_entries(self):
+        base, merge = self.root / 'base', self.root / 'merge'
+        base.mkdir()
+        merge.mkdir()
+        git_entry = self.git_lockfile()
+        npm_entry = ('"lodash@npm:4.17.20":\n  version: 4.17.20\n'
+                     '  resolution: "lodash@npm:4.17.20"\n')
+        (base / 'yarn.lock').write_text(git_entry)
+        for before in (False, True):
+            for separator in ('', '  \n', '# comment\n'):
+                candidate = (npm_entry + separator + git_entry if before
+                             else git_entry + separator + npm_entry)
+                (merge / 'yarn.lock').write_text(candidate)
+                with self.subTest(before=before, separator=repr(separator)), \
+                     self.assertRaisesRegex(gate.GateError, '^unsupported_yarn_block$'):
+                    gate.yarn_git_warnings(base, merge)
+            for newline in ('\n', '\r\n'):
+                candidate = (npm_entry + '\n' + git_entry if before
+                             else git_entry + '\n' + npm_entry)
+                (merge / 'yarn.lock').write_bytes(candidate.replace('\n', newline).encode())
+                allowed = gate.yarn_git_warnings(base, merge)
+                self.assertEqual(sum(allowed['merge'].values()), 1)
+        for indent in ('  ', '\t', '\u00a0'):
+            candidate = ''.join(indent + line + '\n' for line in npm_entry.splitlines()) + git_entry
+            (merge / 'yarn.lock').write_text(candidate)
+            with self.subTest(indent=repr(indent)), \
+                 self.assertRaisesRegex(gate.GateError, '^unsupported_yarn_block$'):
+                gate.yarn_git_warnings(base, merge)
+        for candidate in (git_entry.replace('\n', '\r\n') + '\r\n' + npm_entry + '\n',
+                          (git_entry + '\n' + npm_entry).replace('\n', '\r')):
+            (merge / 'yarn.lock').write_bytes(candidate.encode())
+            with self.subTest(newlines=repr(candidate[-5:])), \
+                 self.assertRaisesRegex(gate.GateError, '^unsupported_yarn_block$'):
+                gate.yarn_git_warnings(base, merge)
+
     def test_changed_or_new_git_dependency_fails_coverage(self):
         base, merge = self.root / 'base', self.root / 'merge'
         base.mkdir()
