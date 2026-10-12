@@ -1,12 +1,3 @@
-jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
-  __esModule: true,
-  default: {
-    isEvmNetwork: ({ networkId }: { networkId: string }) =>
-      networkId.startsWith('evm--'),
-  },
-}));
-
-// eslint-disable-next-line import/first
 import {
   buildAllNetworkRequestBatches,
   partitionAllNetworkRequestBatches,
@@ -71,7 +62,7 @@ describe('buildAllNetworkRequestBatches', () => {
     expect(a.map((chunk) => chunk.length)).toEqual([10, 10, 3]);
   });
 
-  it('keeps non-EVM networks and other addresses as single-item batches', () => {
+  it('keeps networks served by different accounts or addresses apart', () => {
     const items: IItem[] = [
       evm(1),
       {
@@ -96,6 +87,28 @@ describe('buildAllNetworkRequestBatches', () => {
       ['btc--0'],
     ]);
     expect(batches[2].accountXpub).toBe('xpub1');
+  });
+
+  it('batches any networks one account serves with the same address', () => {
+    const items: IItem[] = [
+      {
+        accountId: 'hd-1--aptos',
+        networkId: 'aptos--126',
+        apiAddress: '0xmove',
+        isBackendIndexed: true,
+      },
+      {
+        accountId: 'hd-1--aptos',
+        networkId: 'aptos--1',
+        apiAddress: '0xmove',
+        isBackendIndexed: true,
+      },
+    ];
+    expect(
+      buildAllNetworkRequestBatches(items).map((b) =>
+        b.items.map((i) => i.networkId),
+      ),
+    ).toEqual([['aptos--1', 'aptos--126']]);
   });
 
   it('drops placeholder rounds without account or address', () => {

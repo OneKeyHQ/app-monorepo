@@ -1,13 +1,15 @@
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-
 /**
  * Plans the All Networks live fan-out as request batches.
  *
- * The portfolio positions API accepts up to 10 EVM networks per request when
- * they share one address. Chunks are built from the sorted network ids of each
- * address so the same account set always yields the same batches: the backend
- * cache key is the sorted set of requested networks, and an unstable split
- * would miss it on every run.
+ * The portfolio positions API takes one `accountAddress` per request and up
+ * to 10 networks, so a batch can only hold networks that one account serves
+ * with the same address (today that is the EVM family). Grouping is by
+ * account and address alone: which network families may be arrayed is the
+ * backend's call, and an array it rejects falls back to single-network
+ * requests in `ServiceDeFi`. Chunks are built from the sorted network ids of
+ * each group so the same account set always yields the same batches: the
+ * backend cache key is the sorted set of requested networks, and an unstable
+ * split would miss it on every run.
  */
 
 export const ALL_NETWORK_REQUEST_BATCH_SIZE = 10;
@@ -41,16 +43,12 @@ export function buildAllNetworkRequestBatches<
   accounts: T[],
   options?: {
     maxBatchSize?: number;
-    canBatch?: (item: T) => boolean;
   },
 ): IAllNetworkRequestBatch<T>[] {
   const maxBatchSize = Math.max(
     1,
     options?.maxBatchSize ?? ALL_NETWORK_REQUEST_BATCH_SIZE,
   );
-  const canBatch =
-    options?.canBatch ??
-    ((item: T) => networkUtils.isEvmNetwork({ networkId: item.networkId }));
 
   const groups = new Map<
     string,
@@ -58,8 +56,7 @@ export function buildAllNetworkRequestBatches<
       accountId: string;
       apiAddress: string;
       accountXpub: string | undefined;
-      multi: T[];
-      singles: T[];
+      items: T[];
     }
   >();
   for (const item of accounts) {
@@ -77,36 +74,25 @@ export function buildAllNetworkRequestBatches<
         accountId: item.accountId,
         apiAddress: item.apiAddress,
         accountXpub: item.accountXpub,
-        multi: [],
-        singles: [],
+        items: [],
       };
       groups.set(key, group);
     }
-    if (canBatch(item)) {
-      group.multi.push(item);
-    } else {
-      group.singles.push(item);
-    }
+    group.items.push(item);
   }
 
   const batches: IAllNetworkRequestBatch<T>[] = [];
   for (const group of groups.values()) {
-    const base = {
-      accountId: group.accountId,
-      apiAddress: group.apiAddress,
-      accountXpub: group.accountXpub,
-    };
-    const sorted = [...group.multi].toSorted((a, b) =>
+    const sorted = [...group.items].toSorted((a, b) =>
       compareNetworkId(a.networkId, b.networkId),
     );
     for (let start = 0; start < sorted.length; start += maxBatchSize) {
       batches.push({
-        ...base,
+        accountId: group.accountId,
+        apiAddress: group.apiAddress,
+        accountXpub: group.accountXpub,
         items: sorted.slice(start, start + maxBatchSize),
       });
-    }
-    for (const item of group.singles) {
-      batches.push({ ...base, items: [item] });
     }
   }
   return batches;

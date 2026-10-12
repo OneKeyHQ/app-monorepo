@@ -45,13 +45,7 @@ jest.mock('@onekeyhq/shared/src/utils/accountUtils', () => ({
   __esModule: true,
   default: { isOthersAccount: () => false },
 }));
-jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
-  __esModule: true,
-  default: {
-    isEvmNetwork: ({ networkId }: { networkId: string }) =>
-      networkId.startsWith('evm--'),
-  },
-}));
+jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({}));
 jest.mock('@onekeyhq/shared/src/utils/swrCacheUtils', () => ({}));
 jest.mock('@onekeyhq/shared/src/errors', () => ({
   OneKeyLocalError: class extends Error {},

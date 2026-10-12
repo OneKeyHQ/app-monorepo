@@ -173,6 +173,29 @@ class ServiceDeFi extends ServiceBase {
 
   _fetchAccountDeFiPositionsControllers: AbortController[] = [];
 
+  // Sorted network sets the backend refused as one array (code 40115), keyed
+  // by their joined ids. Such a set goes straight to single-network requests
+  // until the entry expires, so a family the backend does not array costs one
+  // rejected request per window instead of one per run, and support added on
+  // the backend is picked up without a client change.
+  private _rejectedMultiChainSets = new Map<string, number>();
+
+  private readonly _rejectedMultiChainSetTtlMs = timerUtils.getTimeDurationMs({
+    hour: 1,
+  });
+
+  private _isMultiChainSetRejected(key: string) {
+    const rejectedAt = this._rejectedMultiChainSets.get(key);
+    if (rejectedAt === undefined) {
+      return false;
+    }
+    if (Date.now() - rejectedAt > this._rejectedMultiChainSetTtlMs) {
+      this._rejectedMultiChainSets.delete(key);
+      return false;
+    }
+    return true;
+  }
+
   private readonly _manualDeFiForceRefreshDefaultDailyLimit = 50;
 
   private readonly _manualDeFiForceRefreshDefaultMinIntervalMs = 15_000;
@@ -449,6 +472,34 @@ class ServiceDeFi extends ServiceBase {
     };
   }
 
+  // Single-network string requests are not subject to the multi-chain checks
+  // (allowlist, client version); one failed network does not fail the rest.
+  private async _fetchAccountDeFiPositionsPerNetwork(
+    params: IFetchAccountDeFiPositionsBatchParams,
+  ): Promise<Array<IFetchAccountDeFiPositionsResult | undefined>> {
+    const settled = await promiseAllSettledEnhanced(
+      params.networkIds.map((networkId) => async () => {
+        const r = await this.fetchAccountDeFiPositions({
+          ...params,
+          networkId,
+        });
+        return { ...r, networkId };
+      }),
+      { continueOnError: true, concurrency: 2 },
+    );
+    return settled.map((r) =>
+      r
+        ? {
+            networkId: r.networkId,
+            overview: r.overview,
+            protocols: r.protocols,
+            protocolMap: r.protocolMap,
+            isSameAllNetworksAccountData: !!r.isSameAllNetworksAccountData,
+          }
+        : undefined,
+    );
+  }
+
   /**
    * One request for up to 10 networks served by the same address/xpub
    * (All Networks fan-out). Returns one entry per `networkIds` element in the
@@ -523,6 +574,20 @@ class ServiceDeFi extends ServiceBase {
       xpub = x;
     }
 
+    const resolvedParams = {
+      ...params,
+      indexedAccountId,
+      accountAddress,
+      xpub,
+    };
+    const multiChainSetKey = networkIds.join(',');
+    if (
+      networkIds.length > 1 &&
+      this._isMultiChainSetRejected(multiChainSetKey)
+    ) {
+      return this._fetchAccountDeFiPositionsPerNetwork(resolvedParams);
+    }
+
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const controller = new AbortController();
     if (abortable) {
@@ -549,46 +614,29 @@ class ServiceDeFi extends ServiceBase {
       );
     } catch (error) {
       const code = (error as { code?: number } | undefined)?.code;
-      const retryParams = { ...params, indexedAccountId, accountAddress, xpub };
       if (code === 13_004 && networkIds.length > 1) {
         // Defensive: the planner never exceeds the limit. Halve and retry once.
         const middle = Math.ceil(networkIds.length / 2);
         const [head, tail] = await Promise.all([
           this.fetchAccountDeFiPositionsBatch({
-            ...retryParams,
+            ...resolvedParams,
             networkIds: networkIds.slice(0, middle),
           }),
           this.fetchAccountDeFiPositionsBatch({
-            ...retryParams,
+            ...resolvedParams,
             networkIds: networkIds.slice(middle),
           }),
         ]);
         return [...head, ...tail];
       }
       if (code === 40_115) {
-        // Array form rejected (no supported network / old client): single
-        // string requests are not subject to those checks.
-        const settled = await promiseAllSettledEnhanced(
-          networkIds.map((networkId) => async () => {
-            const r = await this.fetchAccountDeFiPositions({
-              ...retryParams,
-              networkId,
-            });
-            return { ...r, networkId };
-          }),
-          { continueOnError: true, concurrency: 2 },
-        );
-        return settled.map((r) =>
-          r
-            ? {
-                networkId: r.networkId,
-                overview: r.overview,
-                protocols: r.protocols,
-                protocolMap: r.protocolMap,
-                isSameAllNetworksAccountData: !!r.isSameAllNetworksAccountData,
-              }
-            : undefined,
-        );
+        // The backend does not array this network set (not in its multi-chain
+        // allowlist, or an old client): remember it and serve the networks
+        // one by one.
+        if (networkIds.length > 1) {
+          this._rejectedMultiChainSets.set(multiChainSetKey, Date.now());
+        }
+        return this._fetchAccountDeFiPositionsPerNetwork(resolvedParams);
       }
       throw error;
     }

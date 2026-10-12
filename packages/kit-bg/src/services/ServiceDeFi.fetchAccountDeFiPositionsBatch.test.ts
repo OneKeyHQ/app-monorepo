@@ -60,7 +60,7 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => ({
   __esModule: true,
-  default: { getTimeDurationMs: () => 10 },
+  default: { getTimeDurationMs: () => 3_600_000 },
 }));
 
 // eslint-disable-next-line import/first
@@ -345,5 +345,58 @@ describe('ServiceDeFi.fetchAccountDeFiPositionsBatch', () => {
       'evm--8453',
     ]);
     expect(results.map((r) => r?.networkId)).toEqual(['evm--1', 'evm--8453']);
+  });
+
+  it('serves a set the backend rejected one by one without retrying the array', async () => {
+    const { service, post } = makeService();
+    post.mockRejectedValueOnce(
+      Object.assign(new Error('invalid'), { code: 40_115 }),
+    );
+    const single = jest
+      .spyOn(service, 'fetchAccountDeFiPositions')
+      .mockImplementation(
+        async ({ networkId }) =>
+          ({
+            overview: {
+              totalValue: 0,
+              totalDebt: 0,
+              totalReward: 0,
+              netWorth: 0,
+              chains: [],
+              protocolCount: 0,
+              positionCount: 0,
+            },
+            protocols: [],
+            protocolMap: {},
+            isSameAllNetworksAccountData: true,
+            networkId,
+          }) as unknown as Awaited<
+            ReturnType<ServiceDeFi['fetchAccountDeFiPositions']>
+          >,
+      );
+
+    const rejected = ['aptos--1', 'aptos--126'];
+    await service.fetchAccountDeFiPositionsBatch({
+      ...baseParams,
+      networkIds: rejected,
+    });
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(single).toHaveBeenCalledTimes(2);
+
+    const again = await service.fetchAccountDeFiPositionsBatch({
+      ...baseParams,
+      networkIds: rejected,
+    });
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(single).toHaveBeenCalledTimes(4);
+    expect(again.map((r) => r?.networkId)).toEqual(rejected);
+
+    // Another set still gets its array attempt.
+    post.mockResolvedValueOnce(multiChainResponse(['evm--1', 'evm--8453']));
+    await service.fetchAccountDeFiPositionsBatch({
+      ...baseParams,
+      networkIds: ['evm--1', 'evm--8453'],
+    });
+    expect(post).toHaveBeenCalledTimes(2);
   });
 });
