@@ -33,7 +33,7 @@ describe('earnPortfolioBatch', () => {
     ).toBe(true);
   });
 
-  it('falls back to single requests when grouped requests share the same symbol', () => {
+  it('batches same-symbol vaults and matches each result to its own request', () => {
     const requestA = buildRequest({
       provider: 'pendle',
       symbol: 'sUSDe',
@@ -45,13 +45,80 @@ describe('earnPortfolioBatch', () => {
       vault: 'market-2',
     });
 
-    const { batchGroups, singleRequests } = buildEarnPortfolioBatchGroups({
+    const { batchGroups } = buildEarnPortfolioBatchGroups({
       requests: [requestA, requestB],
     });
 
-    expect(batchGroups).toHaveLength(0);
-    expect(singleRequests).toEqual([requestA, requestB]);
+    expect(batchGroups).toHaveLength(1);
+    expect(Array.from(batchGroups[0].requestsByKey.values())).toEqual([
+      requestA,
+      requestB,
+    ]);
+    for (const request of [requestB, requestA]) {
+      expect(
+        matchEarnPortfolioBatchRequest({
+          group: batchGroups[0],
+          symbol: request.symbol,
+          vault: request.vault,
+        }),
+      ).toEqual(request);
+    }
+    for (const vault of [undefined, '', 'unknown-market']) {
+      expect(
+        matchEarnPortfolioBatchRequest({
+          group: batchGroups[0],
+          symbol: requestA.symbol,
+          vault,
+        }),
+      ).toBeUndefined();
+    }
   });
+
+  it('keeps a large Pendle market list in one batch', () => {
+    const requests = Array.from({ length: 120 }, (_, index) =>
+      buildRequest({
+        provider: 'pendle',
+        symbol: 'sUSDe',
+        vault: `market-${index}`,
+      }),
+    );
+    const { batchGroups } = buildEarnPortfolioBatchGroups({ requests });
+    expect(batchGroups).toHaveLength(1);
+    expect(batchGroups[0].requestsByKey.size).toBe(120);
+  });
+
+  it.each([
+    { provider: 'other-provider' },
+    { networkId: 'evm--1' },
+    { accountAddress: 'other-account' },
+    { publicKey: 'other-public-key' },
+  ])('isolates batch request scope: %j', (overrides) => {
+    const { batchGroups } = buildEarnPortfolioBatchGroups({
+      requests: [buildRequest(), buildRequest(overrides)],
+    });
+    expect(batchGroups).toHaveLength(2);
+  });
+
+  it('rejects another vault even when only one request has that symbol', () => {
+    const request = buildRequest({ vault: 'requested-vault' });
+    const { batchGroups } = buildEarnPortfolioBatchGroups({
+      requests: [request],
+    });
+    expect(
+      matchEarnPortfolioBatchRequest({
+        group: batchGroups[0],
+        symbol: request.symbol,
+        vault: 'another-vault',
+      }),
+    ).toBeUndefined();
+  });
+
+  it.each([false, undefined])(
+    'respects disabled batch configuration: %s',
+    (enableBatch) => {
+      expect(shouldUseEarnPortfolioBatchFetch({ enableBatch })).toBe(false);
+    },
+  );
 
   it('matches a unique request when batch response omits the vault', () => {
     const request = buildRequest({

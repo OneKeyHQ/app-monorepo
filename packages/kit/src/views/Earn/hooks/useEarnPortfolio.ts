@@ -722,15 +722,8 @@ export const useEarnPortfolio = ({
           singlePairs.push(pair);
         });
 
-        const { batchGroups, singleRequests } = buildEarnPortfolioBatchGroups({
+        const { batchGroups } = buildEarnPortfolioBatchGroups({
           requests: batchCandidateRequests,
-        });
-
-        singleRequests.forEach((request) => {
-          singlePairs.push({
-            isAirdrop: false,
-            params: request,
-          });
         });
 
         const applyResult = (result: IEarnPortfolioInvestmentFetchResult) => {
@@ -839,6 +832,7 @@ export const useEarnPortfolio = ({
                 return;
               }
 
+              const resolvedKeys = new Set<string>();
               response.items.forEach((item) => {
                 const matchedRequest = matchEarnPortfolioBatchRequest({
                   group,
@@ -858,19 +852,14 @@ export const useEarnPortfolio = ({
                 }
 
                 applyResult(normalizeInvestmentResult(matchedRequest, item));
+                resolvedKeys.add(createEarnPortfolioRequestKey(matchedRequest));
               });
 
-              response.errors.forEach((errorItem) => {
-                const matchedRequest = matchEarnPortfolioBatchRequest({
-                  group,
-                  symbol: errorItem.symbol,
-                  vault: errorItem.vault,
-                });
-
-                if (matchedRequest) {
-                  normalKeysFailedInThisSession.add(
-                    createEarnPortfolioRequestKey(matchedRequest),
-                  );
+              // Errors, missing items and ambiguous vaults cannot prove an empty
+              // position. Keep the previous value until a matching result arrives.
+              group.requestsByKey.forEach((_request, key) => {
+                if (!resolvedKeys.has(key)) {
+                  normalKeysFailedInThisSession.add(key);
                 }
               });
             }),

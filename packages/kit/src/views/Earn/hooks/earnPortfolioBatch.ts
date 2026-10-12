@@ -74,6 +74,11 @@ export const matchEarnPortfolioBatchRequest = ({
     return exactRequest;
   }
 
+  // A returned vault is authoritative; never assign a different vault's result.
+  if (vault) {
+    return undefined;
+  }
+
   const symbolKeys = group.requestKeysBySymbol.get(symbol);
   if (symbolKeys?.size === 1) {
     const [matchedKey] = symbolKeys;
@@ -90,8 +95,7 @@ export const buildEarnPortfolioBatchGroups = ({
 }: {
   requests: IPortfolioFetchRequest[];
 }) => {
-  const initialGroups = new Map<string, IEarnPortfolioBatchTaskGroup>();
-  const singleRequests: IPortfolioFetchRequest[] = [];
+  const groups = new Map<string, IEarnPortfolioBatchTaskGroup>();
 
   requests.forEach((request) => {
     const key = createEarnPortfolioRequestKey(request);
@@ -102,7 +106,7 @@ export const buildEarnPortfolioBatchGroups = ({
       request.publicKey || '',
     ].join('_');
 
-    const existingGroup = initialGroups.get(groupKey);
+    const existingGroup = groups.get(groupKey);
     if (existingGroup) {
       addRequestToEarnPortfolioBatchGroup({
         group: existingGroup,
@@ -125,40 +129,10 @@ export const buildEarnPortfolioBatchGroups = ({
       key,
       request,
     });
-    initialGroups.set(groupKey, nextGroup);
-  });
-
-  const batchGroups: IEarnPortfolioBatchTaskGroup[] = [];
-  initialGroups.forEach((group) => {
-    const eligibleBatchGroup: IEarnPortfolioBatchTaskGroup = {
-      ...group,
-      requestsByKey: new Map(),
-      requestKeysBySymbol: new Map(),
-    };
-
-    group.requestsByKey.forEach((request, key) => {
-      const requestKeysForSymbol = group.requestKeysBySymbol.get(
-        request.symbol,
-      );
-      if ((requestKeysForSymbol?.size || 0) > 1) {
-        singleRequests.push(request);
-        return;
-      }
-
-      addRequestToEarnPortfolioBatchGroup({
-        group: eligibleBatchGroup,
-        key,
-        request,
-      });
-    });
-
-    if (eligibleBatchGroup.requestsByKey.size > 0) {
-      batchGroups.push(eligibleBatchGroup);
-    }
+    groups.set(groupKey, nextGroup);
   });
 
   return {
-    batchGroups,
-    singleRequests,
+    batchGroups: Array.from(groups.values()),
   };
 };
