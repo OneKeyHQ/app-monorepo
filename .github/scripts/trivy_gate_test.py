@@ -323,6 +323,49 @@ class GateTests(unittest.TestCase):
                 self.assertNotIn(target, stdout.getvalue())
                 self.assertNotIn(target, summary.read_text())
 
+    def test_removed_secret_result_is_not_lost_coverage(self):
+        self.check_disappearing_result('secret', None, 'passed')
+
+    def test_disappearing_package_or_config_result_is_lost_coverage(self):
+        for kind, ecosystem in (('lang-pkgs', 'yarn'), ('config', 'dockerfile')):
+            with self.subTest(kind=kind):
+                self.check_disappearing_result(kind, ecosystem, 'incomplete')
+
+    def check_disappearing_result(self, kind, ecosystem, expected_status):
+        target = 'retained-file.txt'
+        baseline = copy.deepcopy(self.report)
+        result = {'Target': target, 'Class': kind}
+        if ecosystem:
+            result['Type'] = ecosystem
+        if kind == 'secret':
+            result['Secrets'] = [{'RuleID': 'test-rule', 'Severity': 'HIGH',
+                                  'StartLine': 1, 'EndLine': 1}]
+        baseline['Results'].append(result)
+        args = SimpleNamespace(output=str(self.root / 'evidence'), repo=str(self.root),
+                               base='a' * 40, head='b' * 40, merge='c' * 40,
+                               trivy=str(self.root / 'scanner'))
+        (self.root / 'scanner').write_text('fake executable')
+        def export(repo, revision, destination):
+            destination.mkdir()
+            for entry in baseline['Results']:
+                file = destination / entry['Target']
+                file.parent.mkdir(parents=True, exist_ok=True)
+                file.write_text('fake credential\n' if revision == args.base else 'hello\n')
+        with patch.object(gate, 'verify_revisions'), \
+             patch.object(gate, 'execute', return_value=(b'Version: 0.70.0', b'')), \
+             patch.object(gate, 'snapshot', return_value='database'), \
+             patch.object(gate, 'export_tree', side_effect=export), \
+             patch.object(gate, 'scan', side_effect=[{}, baseline, self.report]), \
+             redirect_stdout(io.StringIO()), \
+             patch.dict(os.environ, {'GITHUB_STEP_SUMMARY': ''}):
+            self.assertEqual(gate.run(args), 0 if expected_status == 'passed' else 2)
+        saved = json.loads((self.root / 'evidence/result.json').read_text())
+        self.assertEqual(saved['status'], expected_status)
+        if expected_status == 'passed':
+            self.assertEqual(saved['newFindings'], [])
+        else:
+            self.assertEqual(saved['error'], 'lost_target_coverage')
+
 
 if __name__ == '__main__':
     unittest.main()
