@@ -16,6 +16,7 @@ import { useShareActions } from '@onekeyhq/kit/src/views/RookieGuide/components/
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   openSettings,
   openUrlExternal,
@@ -59,7 +60,9 @@ function ShareAction({
   onPress: () => void;
 }) {
   return (
-    <YStack flex={1} ai="center" gap="$1.5">
+    // Equal columns whatever the label length; a long label wraps instead
+    // of widening its column.
+    <YStack flex={1} flexBasis={0} minWidth={0} ai="center" gap="$1.5">
       <IconButton
         testID={testID}
         title={label}
@@ -69,7 +72,12 @@ function ShareAction({
         disabled={disabled}
         onPress={onPress}
       />
-      <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+      <SizableText
+        size="$bodySm"
+        color="$textSubdued"
+        textAlign="center"
+        numberOfLines={2}
+      >
         {label}
       </SizableText>
     </YStack>
@@ -210,22 +218,27 @@ function ReferralShareContent({
           label={REFERRAL_SHARE_NAMES.telegram}
           onPress={handleTelegram}
         />
-        <ShareAction
-          testID={ReferFriendsTestIDs.shareMoreBtn}
-          icon="DotHorOutline"
-          label={intl.formatMessage({ id: ETranslations.global_more })}
-          disabled={isActionLoading}
-          onPress={() => {
-            void handleMore();
-          }}
-        />
+        {/* Phones only: on desktop and web, Save already downloads the
+            image, so the system share sheet adds nothing. */}
+        {platformEnv.isNative ? (
+          <ShareAction
+            testID={ReferFriendsTestIDs.shareMoreBtn}
+            icon="DotHorOutline"
+            label={intl.formatMessage({ id: ETranslations.global_more })}
+            disabled={isActionLoading}
+            onPress={() => {
+              void handleMore();
+            }}
+          />
+        ) : null}
       </XStack>
     </YStack>
   );
 }
 
-// The invite footer's "Invite friends": a preview of the share card with
-// save, copy link, X, Telegram and the system share sheet.
+// The invite footer's "Invite friends" on phones and the share button on
+// desktop: a preview of the share card with save, copy link, X, Telegram
+// and, on phones, the system share sheet.
 export function showReferralShareDialog(data: IReferralShareData) {
   if (isDialogShowing) {
     return null;
