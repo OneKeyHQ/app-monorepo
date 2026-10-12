@@ -42,6 +42,7 @@ describe('buildSwapTokenFetchParams', () => {
       protocol: ESwapTabSwitchType.STOCK,
       networkId: 'evm--56',
       keywords: '',
+      limit: 200,
       accountAddress: '0xabc',
       accountNetworkId: 'evm--56',
       accountId: 'account-1',
@@ -66,6 +67,7 @@ describe('buildSwapTokenFetchParams', () => {
     ).toMatchObject({
       protocol: ESwapTabSwitchType.STOCK,
       networkId: 'evm--56',
+      limit: 200,
       accountAddress: '0xdef',
       accountNetworkId: 'evm--56',
       accountId: 'account-2',

@@ -3,7 +3,7 @@ import { runInNewContext } from 'vm';
 
 import { numberFormatAsRaw } from '@onekeyhq/shared/src/utils/numberUtils';
 
-import { formatChartPrice } from './formatChartPrice';
+import { formatChartPrice, formatStockChartPrice } from './formatChartPrice';
 
 const SUBSCRIPT_DIGITS = '₀₁₂₃₄₅₆₇₈₉';
 
@@ -27,6 +27,40 @@ function formatHeaderPrice(price: string): string {
     )
     .join('');
 }
+
+describe('formatStockChartPrice', () => {
+  it('keeps two decimals for stock quotes at or above one dollar', () => {
+    expect(formatStockChartPrice(341.7)).toBe('$341.70');
+    expect(formatStockChartPrice(342.5)).toBe('$342.50');
+    expect(formatStockChartPrice(342)).toBe('$342.00');
+    expect(formatStockChartPrice(-9.4)).toBe('-$9.40');
+  });
+
+  it.each([
+    [1.005, '$1.01'],
+    [2.675, '$2.68'],
+    [9.995, '$10.00'],
+    [999.995, '$1000.00'],
+    [-1.005, '-$1.01'],
+    [-9.995, '-$10.00'],
+    [1.0049, '$1.00'],
+    [1e21, '$1000000000000000000000.00'],
+  ])(
+    'rounds the stock quote %s half-up in both runtimes',
+    (price, expected) => {
+      const nativeFormatter = runInNewContext(
+        `(${readFileSync('packages/kit/src/components/LightweightChart/utils/formatChartPrice.text-js', 'utf8')})`,
+      ) as typeof formatChartPrice;
+      expect(formatStockChartPrice(price)).toBe(expected);
+      expect(nativeFormatter(price, 10, true)).toBe(expected);
+    },
+  );
+
+  it('keeps the compact form for sub-dollar quotes', () => {
+    expect(formatStockChartPrice(0.142_991)).toBe('$0.143');
+    expect(formatStockChartPrice(Number.NaN)).toBe('--');
+  });
+});
 
 describe('chart axis prices', () => {
   it('compresses deep decimals and prevents truncating all significant digits', () => {
@@ -104,6 +138,7 @@ describe('chart axis prices', () => {
     '0.0012345',
     '0.000000123456',
     '0.123456789',
+    '0.184056',
     '0.7',
     '0.700001',
     '12.34567',
