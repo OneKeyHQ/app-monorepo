@@ -87,11 +87,11 @@ function ClaimRow({ item }: { item: IPositionClaimSheetItem }) {
 
 /**
  * The Claimable rewards sheet a card's Claim opens when the holding has
- * several things to collect (figma 30490-21787, the sheet Borrow uses for
- * Kamino): the principal out of its cooldown and every reward with a claim,
- * one row each with its own Claim, Cancel below. Each Claim is the button
- * the wide layout runs on that row, so identity, pending spinner and
- * refresh stay the same; the sheet closes as a claim starts.
+ * several rewards to collect (figma 30490-21787, the sheet Borrow uses for
+ * Kamino): one row per reward with a claim, each with its own Claim, Cancel
+ * below. Each Claim is the button the wide layout runs on that row, so
+ * identity, pending spinner and refresh stay the same; the sheet closes as
+ * a claim starts.
  */
 export function showPositionClaimSheet({
   items,

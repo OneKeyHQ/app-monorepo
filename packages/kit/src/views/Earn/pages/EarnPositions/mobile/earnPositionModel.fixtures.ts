@@ -317,7 +317,8 @@ const ETHEREUM_POSITIONS: IEarnPortfolioPosition[] = [
     },
   }),
   // The USDe cooled down at Ethena after a Pendle sUSDe redeem: filed under
-  // Ethena, claimed on the card through Pendle, which reads it.
+  // Ethena, read through Pendle; with no detail page to go to, the card's
+  // Claim runs the redeem.
   position({
     ...ethereum,
     protocol: 'ethena',
@@ -454,8 +455,8 @@ const ETHEREUM_POSITIONS: IEarnPortfolioPosition[] = [
     name: 'Ethena USDe',
     assets: [token({ symbol: 'USDe', amount: '12', price: 0.9993 })],
   }),
-  // Native: the queued withdrawal can still be called back, so its locked
-  // card carries Cancel instead of Manage.
+  // Native: the queued withdrawal can still be called back; the server
+  // sends the Cancel, the detail page runs it (the card shows the date).
   position({
     ...ethereum,
     protocol: 'native',

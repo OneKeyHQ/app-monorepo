@@ -137,15 +137,13 @@ function toInvestmentAsset(
   };
 }
 
-/** The investment detail's own row behind a card button, as a normal asset the button understands. */
+/** The investment detail's claimable-principal row behind a card claim, as a normal asset the button understands. */
 function toInvestmentRowAction({
   position,
   button,
-  kind,
 }: {
   position: IEarnPortfolioPosition;
   button: IEarnActionIcon;
-  kind: 'claimablePrincipal' | 'unstaking';
 }): IEarnPositionClaim {
   const { earn } = position;
   const { investment } = earn;
@@ -153,7 +151,7 @@ function toInvestmentRowAction({
   const row = [
     ...(investment.rewardAssets ?? []),
     ...(investment.assetsStatus ?? []),
-  ].find((entry) => entry.kind === kind && entry.button);
+  ].find((entry) => entry.kind === 'claimablePrincipal' && entry.button);
   return {
     asset: toInvestmentAsset(position),
     reward: {
@@ -227,12 +225,14 @@ export function toPositionRewardClaim(
 }
 
 /**
- * A claimable position claims through the button the wide layout already
+ * A redeemable position claims through the button the wide layout already
  * runs on its rows: this rebuilds the asset that button reads its protocol,
  * network and token off, keyed on `earn.manage` and `earn.symbol` /
  * `earn.vault`. The investment detail's claim travels as a normal asset
  * row; the airdrop read's (the USDe cooled down at Ethena, reached through
  * Pendle) as an airdrop row, which Pendle resolves from symbol and vault.
+ * Product (10-12) redeems on the detail page; the card runs this only for
+ * a holding that has no page to go to.
  */
 export function toPositionClaim(
   position: IEarnPortfolioPosition,
@@ -243,11 +243,7 @@ export function toPositionClaim(
     return undefined;
   }
   if (earn.claimSource !== 'airdrop') {
-    return toInvestmentRowAction({
-      position,
-      button: claim,
-      kind: 'claimablePrincipal',
-    });
+    return toInvestmentRowAction({ position, button: claim });
   }
   const asset = position.assets[0];
   const rewardSymbol = asset?.symbol ?? earn.symbol;
@@ -277,24 +273,6 @@ export function toPositionClaim(
     reward: airdropRow,
     rewardSymbol,
   };
-}
-
-/**
- * A locked position whose withdrawal can be called back (Native) runs the
- * cancel the wide layout ran on that row, through the same button.
- */
-export function toPositionCancel(
-  position: IEarnPortfolioPosition,
-): IEarnPositionClaim | undefined {
-  const { cancel } = position.earn;
-  if (!cancel) {
-    return undefined;
-  }
-  return toInvestmentRowAction({
-    position,
-    button: cancel,
-    kind: 'unstaking',
-  });
 }
 
 /**

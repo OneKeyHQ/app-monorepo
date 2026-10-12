@@ -160,7 +160,7 @@ describe('earn position model: one card per holding', () => {
     );
   });
 
-  it('folds the staked principal, the principal to collect and each withdrawal in progress into one Lido card', () => {
+  it('folds the staked principal, each withdrawal in progress and the principal to redeem into one Lido card', () => {
     const lido = protocolRow('evm--1-lido');
     expect(lido.positions.map((position) => position.key)).toEqual([
       'lido:evm--1:steth',
@@ -176,20 +176,23 @@ describe('earn position model: one card per holding', () => {
       ]),
     ).toEqual([
       ['deposited', ETranslations.earn_deposited, ['4']],
-      ['claimable', ETranslations.earn_claimable, ['0.5']],
       // soonest unlock first
-      ['unstaking', ETranslations.earn_withdrawal_requested, ['0.25', '0.3']],
+      [
+        'pendingWithdrawal',
+        ETranslations.earn_withdrawal_requested,
+        ['0.25', '0.3'],
+      ],
+      ['redeemable', ETranslations.defi_redeemable, ['0.5']],
     ]);
-    const unstaking = deposit.sections.find(
-      (section) => section.kind === 'unstaking',
+    const pending = deposit.sections.find(
+      (section) => section.kind === 'pendingWithdrawal',
     );
-    expect(unstaking?.assets.map((asset) => asset.unlockAt)).toEqual([
+    expect(pending?.assets.map((asset) => asset.unlockAt)).toEqual([
       LIDO_UNLOCK_AT,
       LIDO_LATER_UNLOCK_AT,
     ]);
-    expect(unstaking?.assets.every((asset) => !asset.cancelSource)).toBe(true);
     expect(deposit.value.value).toBeCloseTo((4 + 0.5 + 0.25 + 0.3) * 3150, 6);
-    // the way into the detail page, and the principal to collect on the card
+    // the way into the detail page, where the principal is redeemed
     expect(deposit.action).toEqual({
       kind: 'manage',
       target: { networkId: 'evm--1', provider: 'lido', symbol: 'ETH' },
@@ -197,37 +200,32 @@ describe('earn position model: one card per holding', () => {
     expect(deposit.principalClaims.map((source) => source.groupId)).toEqual([
       'lido:evm--1:steth:claimable',
     ]);
-    expect(deposit.cancels).toEqual([]);
     expect(deposit.claimableRewards).toEqual([]);
     expect(deposit.sources).toHaveLength(4);
     expect(deposit.source.groupId).toBe('lido:evm--1:steth');
     expect([
       deposit.hasDeposit,
-      deposit.hasClaimable,
-      deposit.hasUnstaking,
       deposit.hasRewards,
-    ]).toEqual([true, true, true, false]);
+      deposit.hasPendingWithdrawal,
+      deposit.hasRedeemable,
+    ]).toEqual([true, false, true, true]);
   });
 
-  it('puts Cancel on the withdrawal row the provider lets be called back', () => {
+  it('dates the pending withdrawal row and keeps the category badge on a staked holding', () => {
     const native = card(
       protocolRow('evm--1-native'),
       `native:evm--1:${NATIVE_USDT_VAULT}`,
     );
     expect(native.sections.map((section) => section.kind)).toEqual([
       'deposited',
-      'unstaking',
+      'pendingWithdrawal',
     ]);
     const [row] =
-      native.sections.find((section) => section.kind === 'unstaking')?.assets ??
-      [];
+      native.sections.find((section) => section.kind === 'pendingWithdrawal')
+        ?.assets ?? [];
     expect(row.unlockAt).toBe(NATIVE_UNLOCK_AT);
-    expect(row.cancelSource?.groupId).toBe(
-      `native:evm--1:${NATIVE_USDT_VAULT}:unstaking:0`,
-    );
-    expect(native.cancels.map((source) => source.groupId)).toEqual([
-      `native:evm--1:${NATIVE_USDT_VAULT}:unstaking:0`,
-    ]);
+    // the row carries no Cancel: the detail page runs it
+    expect(row).not.toHaveProperty('cancelSource');
     // still a staked holding: the category badge, not Locked
     expect(native.badgeLabel).toBe(ETranslations.earn_yield);
   });
@@ -248,7 +246,7 @@ describe('earn position model: one card per holding', () => {
     expect(lido.positions[0].principalClaims).toEqual([]);
   });
 
-  it('files the USDe cooled down at Ethena under Ethena, claimed on the card through Pendle', () => {
+  it('files the USDe cooled down at Ethena under Ethena, redeemable through Pendle', () => {
     const ethena = protocolRow('evm--1-ethena');
     expect(ethena.positions.map((position) => position.key)).toEqual([
       'ethena:evm--1:USDe',
@@ -257,7 +255,7 @@ describe('earn position model: one card per holding', () => {
     const cooldown = card(ethena, `ethena:evm--1:${SUSDE_VAULT}:cooldown`);
     expect(cooldown.badgeLabel).toBe(ETranslations.earn_category_staked__title);
     expect(cooldown.sections.map((section) => section.kind)).toEqual([
-      'claimable',
+      'redeemable',
     ]);
     expect(cooldown.hasDeposit).toBe(false);
     expect(cooldown.principalClaims.map((source) => source.groupId)).toEqual([
@@ -300,7 +298,7 @@ describe('earn position model: one card per holding', () => {
     expect(loan.value.value).toBeCloseTo(44.58, 9);
   });
 
-  it('keeps the rewards and the principal to collect on the one Everstake card', () => {
+  it('keeps the rewards and the principal to redeem on the one Everstake card', () => {
     const everstake = protocolRow('evm--1-everstake');
     expect(everstake.positions.map((position) => position.key)).toEqual([
       'everstake:evm--1:eth',
@@ -308,8 +306,8 @@ describe('earn position model: one card per holding', () => {
     const [eth] = everstake.positions;
     expect(eth.sections.map((section) => section.kind)).toEqual([
       'deposited',
-      'claimable',
       'rewards',
+      'redeemable',
     ]);
     expect(eth.action?.kind).toBe('manage');
     expect(eth.principalClaims.map((source) => source.groupId)).toEqual([

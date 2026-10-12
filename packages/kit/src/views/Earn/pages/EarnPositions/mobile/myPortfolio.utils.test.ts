@@ -8,10 +8,8 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 
 import {
-  CANCEL_BUTTON,
   CLAIM_BUTTON,
   EARN_PORTFOLIO_POSITIONS_FIXTURE,
-  NATIVE_USDT_VAULT,
   SUSDE_VAULT,
 } from './earnPositionModel.fixtures';
 import {
@@ -22,7 +20,6 @@ import {
   positionPendingTag,
   sumRewardsHeaderFiat,
   toLedgerClaimAsset,
-  toPositionCancel,
   toPositionClaim,
   toPositionRewardClaim,
 } from './myPortfolio.utils';
@@ -325,33 +322,6 @@ describe('mergeClaimableRewardGroups', () => {
     expect(
       mergeClaimableRewardGroups({ positionGroups: [], ledgerGroups: [] }),
     ).toEqual([]);
-  });
-});
-
-describe('toPositionCancel', () => {
-  it('runs the withdrawal row cancel as a normal asset, keyed on the vault', () => {
-    const locked = POSITIONS.find(
-      (position) =>
-        position.groupId === `native:evm--1:${NATIVE_USDT_VAULT}:unstaking:0`,
-    );
-    if (!locked) {
-      throw new OneKeyLocalError('fixture changed: Native locked missing');
-    }
-    expect(toPositionCancel(locked)).toMatchObject({
-      asset: {
-        token: { info: { symbol: 'USDT' } },
-        metadata: {
-          protocol: {
-            vault: NATIVE_USDT_VAULT,
-            providerDetail: { code: 'native', name: 'Native' },
-          },
-          network: { networkId: 'evm--1' },
-        },
-      },
-      reward: { title: { text: '0.112 USDT' }, button: CANCEL_BUTTON },
-      rewardSymbol: 'USDT',
-    });
-    expect(toPositionCancel(lido)).toBeUndefined();
   });
 });
 

@@ -37,7 +37,6 @@ import { EarnTestIDs } from '../../../testIDs';
 import {
   hasPositionDetailPage,
   positionPendingTag,
-  toPositionCancel,
   toPositionClaim,
   toPositionRewardClaim,
 } from './myPortfolio.utils';
@@ -56,26 +55,11 @@ export type IEarnPositionCardHandlers = {
 };
 
 /**
- * A withdrawal in progress the provider lets be called back (Native) runs
- * the cancel the wide layout ran on that row, through the same button, on
- * the row itself.
+ * One block of the card (product 10-12): "Deposited | Amount" on a panel of
+ * its own, the token rows under it, fiat over amount on the right. A
+ * pending withdrawal row says when the funds free up, if the provider
+ * knows. The rows carry no buttons: the detail page acts on them.
  */
-function PositionCancelButton({ source }: { source: IEarnPortfolioPosition }) {
-  const action = toPositionCancel(source);
-  if (!action) {
-    return null;
-  }
-  return (
-    <WrappedActionButton
-      asset={action.asset}
-      reward={action.reward}
-      rewardSymbol={action.rewardSymbol}
-      buttonProps={{ size: 'small', variant: 'secondary' }}
-    />
-  );
-}
-
-/** "Deposited | Balance" and the token rows under it (figma 30292-17826). */
 function PositionSection({
   section,
   networkId,
@@ -91,13 +75,15 @@ function PositionSection({
     id: ETranslations.wallet_price_unavailable,
   });
   return (
-    <YStack gap="$1">
-      <XStack ai="center" jc="space-between" px="$1" pt="$2" pb="$1">
+    <YStack gap="$1" px="$3" py="$2" borderRadius="$3" bg="$bgSubdued">
+      <XStack ai="center" jc="space-between" py="$1">
         <SizableText size="$bodySmMedium" color="$textSubdued">
           {section.title}
         </SizableText>
         <SizableText size="$bodySmMedium" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.global_balance })}
+          {intl.formatMessage({
+            id: ETranslations.wallet_defi_portfolio_column_amount,
+          })}
         </SizableText>
       </XStack>
       {section.assets.map((asset, index) => (
@@ -107,7 +93,6 @@ function PositionSection({
           jc="space-between"
           gap="$3"
           minHeight={44}
-          px="$1"
           cursor={onPress ? 'pointer' : undefined}
           onPress={onPress}
         >
@@ -158,9 +143,6 @@ function PositionSection({
               {asset.amount}
             </NumberSizeableTextWrapper>
           </YStack>
-          {asset.cancelSource ? (
-            <PositionCancelButton source={asset.cancelSource} />
-          ) : null}
         </XStack>
       ))}
     </YStack>
@@ -247,36 +229,40 @@ function PositionPnlLine({ position }: { position: IEarnPortfolioPosition }) {
 }
 
 /**
- * Everything the card's Claim collects: the principal out of its cooldown
- * and every reward with an enabled claim, each as the row the sheet shows
- * and the claim the wide layout runs on it.
+ * What the card's Claim collects: every reward with an enabled claim, each
+ * as the row the sheet shows and the claim the wide layout runs on it. The
+ * principal out of its cooldown is redeemed on the detail page (product
+ * 10-12); only a holding with no page to go to (the USDe cooled down at
+ * Ethena, read through Pendle) collects it here too, or nothing could.
  */
 function buildClaimItems(
   position: IEarnPositionView,
 ): IPositionClaimSheetItem[] {
   const items: IPositionClaimSheetItem[] = [];
-  position.principalClaims.forEach((source) => {
-    const claim = toPositionClaim(source);
-    const asset = source.assets[0];
-    if (!claim || !asset) {
-      return;
-    }
-    const amount = source.assets
-      .reduce((sum, entry) => sum.plus(entry.amount), new BigNumber(0))
-      .toFixed();
-    const value = source.assets.reduce((sum, entry) => sum + entry.value, 0);
-    items.push({
-      key: source.groupId,
-      networkId: source.networkId,
-      symbol: asset.symbol,
-      logoUrl: asset.meta?.logoUrl,
-      amount,
-      value: source.assets.some(isProtocolAssetValueUnavailable)
-        ? undefined
-        : value,
-      claim,
+  if (!hasPositionDetailPage(position.source)) {
+    position.principalClaims.forEach((source) => {
+      const claim = toPositionClaim(source);
+      const asset = source.assets[0];
+      if (!claim || !asset) {
+        return;
+      }
+      const amount = source.assets
+        .reduce((sum, entry) => sum.plus(entry.amount), new BigNumber(0))
+        .toFixed();
+      const value = source.assets.reduce((sum, entry) => sum + entry.value, 0);
+      items.push({
+        key: source.groupId,
+        networkId: source.networkId,
+        symbol: asset.symbol,
+        logoUrl: asset.meta?.logoUrl,
+        amount,
+        value: source.assets.some(isProtocolAssetValueUnavailable)
+          ? undefined
+          : value,
+        claim,
+      });
     });
-  });
+  }
   position.claimableRewards.forEach((reward, index) => {
     items.push({
       key: `${position.key}:reward:${index}`,
@@ -350,14 +336,13 @@ function PositionClaimButton({
 }
 
 /**
- * One holding, the wallet DeFi Portfolio card in the Earn design (figma
- * 29180-108096, 30292-17104 and 30490-21077): badge and name, the value
- * with its PnL under it, an optional health factor line, one block per
- * section (deposited, claimable, unstaking with its unlock time and its
- * Cancel where the provider lets it be called back, borrowed, rewards) and
- * the buttons: Manage or Unstake into the detail page while something still
- * sits in the vault, Claim beside it for the principal out of its cooldown
- * and the rewards with a claim (Claim alone once that is all that is left).
+ * One holding, laid out the way product set it on 10-12: badge and name,
+ * the value with its PnL under it, an optional health factor line, one
+ * panel per section (Deposited or Supplied, Borrowed, Rewards, Pending
+ * withdrawal with its unlock time, Redeemable) and two buttons at most:
+ * Manage into the detail page, whose Portfolio tab runs Withdraw, Claim,
+ * Cancel and Redeem, and Claim beside it when the holding has rewards with
+ * a claim.
  */
 function EarnPositionCardCmp({
   position,
@@ -365,28 +350,16 @@ function EarnPositionCardCmp({
 }: { position: IEarnPositionView } & IEarnPositionCardHandlers) {
   const intl = useIntl();
   const currencyInfo = useCurrency();
-  const { value, meta, source, action, hasDeposit, hasUnstaking } = position;
+  const { value, meta, source, action, hasDeposit } = position;
   const canOpen =
     Boolean(action) && Boolean(onManage) && hasPositionDetailPage(source);
   const openDetail =
     canOpen && action ? () => onManage?.(action.target) : undefined;
   const claimItems = useMemo(() => buildClaimItems(position), [position]);
   const hasClaim = claimItems.length > 0;
-  // Manage while something still sits in the vault; once only the principal
-  // to collect or the rewards are left, Claim alone (figma 30490-21882).
-  // Without any claim the way to the detail page stays.
-  const showManage = canOpen && (hasDeposit || hasUnstaking || !hasClaim);
 
   return (
-    <YStack
-      gap="$2"
-      p="$3"
-      borderRadius="$3"
-      borderWidth="$px"
-      borderColor="$borderSubdued"
-      bg="$bg"
-      testID={EarnTestIDs.portfolioItem(source.protocolName)}
-    >
+    <YStack gap="$3" testID={EarnTestIDs.portfolioItem(source.protocolName)}>
       <XStack ai="flex-start" jc="space-between" gap="$2">
         <XStack ai="center" gap="$2" flex={1} minWidth={0} minHeight={28}>
           {/* one color for every badge: Locked is a state, not a warning */}
@@ -441,9 +414,9 @@ function EarnPositionCardCmp({
         />
       ))}
 
-      {showManage || hasClaim ? (
+      {canOpen || hasClaim ? (
         <XStack gap="$2">
-          {showManage ? (
+          {canOpen ? (
             <Button
               testID="earn-btn"
               flex={1}
@@ -451,12 +424,7 @@ function EarnPositionCardCmp({
               variant="secondary"
               onPress={openDetail}
             >
-              {intl.formatMessage({
-                id:
-                  action?.kind === 'unstake'
-                    ? ETranslations.defi_unstake
-                    : ETranslations.global_manage,
-              })}
+              {intl.formatMessage({ id: ETranslations.global_manage })}
             </Button>
           ) : null}
           {hasClaim ? (
