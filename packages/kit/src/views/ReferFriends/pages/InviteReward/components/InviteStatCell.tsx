@@ -17,6 +17,7 @@ export function InviteStatCell({
   testID,
   share = 1,
   shrink = true,
+  minWidth,
 }: {
   label: string;
   leading?: ReactNode;
@@ -27,19 +28,30 @@ export function InviteStatCell({
   // the address does not resize the cells. 'content' sizes the cell to what
   // it holds, so a lone pressable cell's hover surface stays on it.
   share?: number | 'content';
-  // When false, the cell keeps its content width and its neighbors shrink
-  // first. A payout address uses this so its tail is not the part cut off.
+  // When false, the cell prefers its content width and can still shrink
+  // inside the row, so the address controls stay in the card.
   shrink?: boolean;
+  // Floor for amount cells, so they do not collapse to nothing.
+  minWidth?: number | `$${string}`;
 }) {
   const hug = share === 'content' || !shrink;
-  const sizing = hug
-    ? { flexShrink: shrink ? 1 : 0 }
-    : { flex: share, flexBasis: 0 };
+  let sizing: { flexShrink: number } | { flex: number; flexBasis: number } | {
+    flexGrow: number;
+    flexShrink: number;
+    flexBasis: 'auto';
+  };
+  if (!hug) {
+    sizing = { flex: share, flexBasis: 0 };
+  } else if (shrink) {
+    sizing = { flexShrink: 1 };
+  } else {
+    sizing = { flexGrow: 0, flexShrink: 1, flexBasis: 'auto' };
+  }
   return (
     <XStack
       testID={testID}
       {...sizing}
-      {...(shrink ? { minWidth: 0 } : null)}
+      minWidth={minWidth ?? 0}
       ai="center"
       gap="$2"
       py="$1"
@@ -50,12 +62,7 @@ export function InviteStatCell({
         : null)}
       onPress={onPress}
     >
-      <YStack
-        flex={hug ? undefined : 1}
-        flexShrink={shrink ? 1 : 0}
-        gap="$1"
-        {...(shrink ? { minWidth: 0 } : null)}
-      >
+      <YStack flex={hug ? undefined : 1} flexShrink={1} gap="$1" minWidth={0}>
         <XStack ai="center" gap="$2">
           {leading}
           <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>

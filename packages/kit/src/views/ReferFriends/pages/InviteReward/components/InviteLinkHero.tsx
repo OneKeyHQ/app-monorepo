@@ -69,12 +69,7 @@ function InviteLinkField({
     >
       {/* The more-links menu sits right after the link it switches, the
           actions at the far end. */}
-      <SizableText
-        flexShrink={1}
-        minWidth={0}
-        numberOfLines={1}
-        size="$bodyLg"
-      >
+      <SizableText flexShrink={1} minWidth={0} numberOfLines={1} size="$bodyLg">
         {displayUrl}
       </SizableText>
       <ReferralLinkDropdown inviteUrl={inviteUrl} />

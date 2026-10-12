@@ -82,23 +82,16 @@ function PayoutAddressValue({
   size,
   color,
   visibility,
-  shrink = true,
 }: {
   address: string;
   networkId?: string;
   size: '$bodyLgMedium' | '$bodyMd';
   color?: '$textSubdued' | '$textCaution';
   visibility?: IPayoutAddressVisibility;
-  // When false, the shortened address keeps its tail instead of clipping it.
-  shrink?: boolean;
 }) {
   const isHidden = visibility ? !visibility.isVisible : false;
   return (
-    <XStack
-      ai="center"
-      gap="$1.5"
-      {...(shrink ? { flexShrink: 1, minWidth: 0 } : { flexShrink: 0 })}
-    >
+    <XStack ai="center" gap="$1.5" flexShrink={1} minWidth={0}>
       {networkId ? (
         <NetworkAvatar
           networkId={networkId}
@@ -106,9 +99,7 @@ function PayoutAddressValue({
           size={size === '$bodyMd' ? '$3.5' : '$4'}
         />
       ) : null}
-      <YStack
-        {...(shrink ? { flexShrink: 1, minWidth: 0 } : { flexShrink: 0 })}
-      >
+      <YStack flexShrink={1} minWidth={0}>
         <SizableText
           size={size}
           color={color}
@@ -238,6 +229,7 @@ function DesktopEarnings({
         <StatCell
           leading={<PartDot color="$iconSuccess" />}
           label={labels.distributed}
+          minWidth="$16"
         >
           <Currency
             {...REFERRAL_USD_SOURCE_PROPS}
@@ -250,6 +242,7 @@ function DesktopEarnings({
         <StatCell
           leading={<PartDot color="$iconCaution" />}
           label={labels.undistributed}
+          minWidth="$16"
         >
           <Currency
             {...REFERRAL_USD_SOURCE_PROPS}
@@ -272,7 +265,6 @@ function DesktopEarnings({
             networkId={payoutNetworkId}
             size="$bodyLgMedium"
             visibility={addressVisibility}
-            shrink={false}
           />
         </StatCell>
       </XStack>

@@ -250,11 +250,7 @@ function DesktopRewardRow({
       {columns.monthly ? (
         <DesktopCell>
           {row.monthlySalesFiatValue ? (
-            <Currency
-              size="$bodyLgMedium"
-              formatter="value"
-              numberOfLines={1}
-            >
+            <Currency size="$bodyLgMedium" formatter="value" numberOfLines={1}>
               {row.monthlySalesFiatValue}
             </Currency>
           ) : null}

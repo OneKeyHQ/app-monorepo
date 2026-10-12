@@ -138,11 +138,7 @@ function InviteCodeRow({
         {
           label: ETranslations.referral_order_reward,
           value: (
-            <Currency
-              size="$bodyMdMedium"
-              formatter="value"
-              numberOfLines={1}
-            >
+            <Currency size="$bodyMdMedium" formatter="value" numberOfLines={1}>
               {item.cumulativeRewardsFiatValue}
             </Currency>
           ),
