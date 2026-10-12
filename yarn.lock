@@ -9822,8 +9822,6 @@ __metadata:
   version: 3.0.170
   resolution: "@onekeyfe/react-native-network-throttle@npm:3.0.170"
   peerDependencies:
-    "@onekeyfe/react-native-image": 3.0.165
-    "@onekeyfe/react-native-native-logger": 3.0.165
     react: "*"
     react-native: "*"
   checksum: 10/0fdcf8f9f44b93951ae7df6be00b12566fb8abe63264d06a936744150d1c2481d503abd6e85280b10f4bd3118e62eeb30f87782b731dddea58f6454983a744ca
