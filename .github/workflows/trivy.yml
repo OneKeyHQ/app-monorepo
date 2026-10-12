@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -25,10 +25,10 @@ permissions:
 jobs:
   trivy-security-scan:
     name: Trivy Security Scan
-    needs: trivy-pr-gate
+    needs: trivy-policy-installation
     # Keep the existing scan during first installation on a base branch.
     # A failed incremental gate must never fall back to a non-blocking scan.
-    if: ${{ always() && !cancelled() && (github.event_name != 'pull_request' || (needs.trivy-pr-gate.result == 'success' && needs.trivy-pr-gate.outputs.policy_available == 'false')) }}
+    if: ${{ always() && !cancelled() && github.event_name != 'pull_request_target' && (github.event_name != 'pull_request' || (needs.trivy-policy-installation.result == 'success' && needs.trivy-policy-installation.outputs.policy_available == 'false')) }}
     runs-on: ubuntu-24.04
     permissions:
       actions: read
@@ -60,8 +60,8 @@ jobs:
           sarif_file: trivy-results.sarif
           category: trivy
 
-  trivy-pr-gate:
-    name: Trivy PR incremental gate
+  trivy-policy-installation:
+    name: Trivy policy installation
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -75,57 +75,33 @@ jobs:
           mkdir -p "$RUNNER_TEMP/trivy-evidence"
           echo '{"schemaVersion":1,"status":"incomplete","error":"setup_failed"}' > "$RUNNER_TEMP/trivy-evidence/result.json"
 
-      - name: Checkout exact test merge
+      - name: Check installed default-branch policy
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: ${{ github.sha }}
-          fetch-depth: 2
-          persist-credentials: false
-          path: source
-
-      - name: Checkout trusted base policy
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
           path: trusted
 
-      # Never execute the PR's comparator. Until the exact base has the policy,
+      # Never execute the PR's comparator. Until the default branch has the policy,
       # the separate full-scan job retains the existing security checks.
       - name: Select trusted gate or installation scan
         id: policy
         run: |
           if [ -f trusted/.github/scripts/trivy_gate.py ]; then
             echo 'available=true' >> "$GITHUB_OUTPUT"
+            echo '{"schemaVersion":1,"status":"delegated","requiredCheck":"Trivy PR incremental gate"}' > "$RUNNER_TEMP/trivy-evidence/result.json"
+            echo 'The incremental gate runs from the base-owned pull_request_target workflow.' >> "$GITHUB_STEP_SUMMARY"
           else
             echo 'available=false' >> "$GITHUB_OUTPUT"
             echo '{"schemaVersion":1,"status":"installation","requiredCheck":"Trivy Security Scan"}' > "$RUNNER_TEMP/trivy-evidence/result.json"
-            echo 'The exact base does not yet contain the trusted Trivy policy. The existing full Trivy scan and SARIF checks are required for this installation PR.' >> "$GITHUB_STEP_SUMMARY"
+            echo 'The default branch does not yet contain the trusted Trivy policy. The existing full Trivy scan and SARIF checks are required for this installation PR.' >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      - name: Set up pinned Trivy
-        if: steps.policy.outputs.available == 'true'
-        uses: aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514
-        with:
-          version: v0.70.0
-          cache: false
-
-      - name: Compare exact base and merge with frozen databases
-        if: steps.policy.outputs.available == 'true'
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          MERGE_SHA: ${{ github.sha }}
-        run: |
-          python3 -I trusted/.github/scripts/trivy_gate.py \
-            --repo source --base "$BASE_SHA" --head "$HEAD_SHA" --merge "$MERGE_SHA" \
-            --output "$RUNNER_TEMP/trivy-evidence"
-
-      - name: Retain sanitized evidence on success and failure
+      - name: Retain sanitized installation evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: trivy-pr-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          name: trivy-installation-evidence-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/trivy-evidence/
           retention-days: 14
           if-no-files-found: error

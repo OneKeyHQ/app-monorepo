@@ -1,4 +1,4 @@
-"""Trusted Trivy PR gate. Only this file from the exact base may run the gate.
+"""Trusted Trivy PR gate. Execute only from the trusted workflow revision.
 
 Raw scanner output is private temporary data. Published evidence contains only
 allowlisted fields and run-local HMAC identities, never source or scanner text.
