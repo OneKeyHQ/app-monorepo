@@ -108,6 +108,7 @@ import type {
   ITradingViewNativeSubIndicatorLegendHitRegion,
   ITradingViewNativeSubIndicatorRenderPane,
 } from './subIndicatorRender';
+import type { IDrawing } from '../drawings/model';
 import type {
   ITradingViewNativeCandleLabels,
   ITradingViewNativeCandleTimeMode,
@@ -255,6 +256,7 @@ export interface IBuildTradingViewNativeChartSceneOptions {
   candleIntervalSeconds: number;
   candleTimeMode?: ITradingViewNativeCandleTimeMode;
   chartComponents?: readonly ITradingViewNativeChartLeafComponent[];
+  chartDrawings?: readonly IDrawing[];
   chartSettings?: ITradingViewNativeChartSettings;
   chartType: ITradingViewNativeChartType;
   crosshair: ITradingViewNativeChartRuntimeCrosshair;
@@ -675,6 +677,7 @@ export function buildTradingViewNativeChartScene({
   candleIntervalSeconds,
   candleTimeMode,
   chartComponents = [],
+  chartDrawings = [],
   chartSettings,
   chartType,
   crosshair,
@@ -1358,9 +1361,11 @@ export function buildTradingViewNativeChartScene({
           ? { price: latestPoint.c, top: currentPriceLayout.labelTop }
           : undefined,
       customPaintStyles,
+      drawings: chartDrawings,
       maxPrice,
       measureTextWidth,
       minPrice,
+      priceAxisFontSize,
       priceAxisX,
       priceChartHeight,
       priceScaleMode: resolvedPriceScaleMode,

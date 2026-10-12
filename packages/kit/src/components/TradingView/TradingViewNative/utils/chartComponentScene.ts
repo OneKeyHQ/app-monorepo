@@ -28,6 +28,7 @@ import type {
   ITradingViewNativeChartScenePaintStyle,
   ITradingViewNativeChartSceneRect,
 } from './chartScene';
+import type { IDrawing } from '../drawings/model';
 import type {
   ITradingViewNativeChartLeafComponent,
   ITradingViewNativePriceScaleMode,
@@ -324,9 +325,11 @@ export function appendTradingViewNativeChartComponentCommands({
   components,
   currentPriceLabel,
   customPaintStyles,
+  drawings,
   maxPrice,
   measureTextWidth,
   minPrice,
+  priceAxisFontSize,
   priceAxisX,
   priceChartHeight,
   priceDecimalPlaces,
@@ -338,12 +341,14 @@ export function appendTradingViewNativeChartComponentCommands({
   components: readonly ITradingViewNativeChartLeafComponent[];
   currentPriceLabel?: { price: number; top: number };
   customPaintStyles: Record<string, ITradingViewNativeChartScenePaintStyle>;
+  drawings: readonly IDrawing[];
   maxPrice: number;
   measureTextWidth: (
     text: string,
     font: ITradingViewNativeChartSceneFont,
   ) => number;
   minPrice: number;
+  priceAxisFontSize: number;
   priceAxisX: number;
   priceChartHeight: number;
   priceDecimalPlaces?: number;
@@ -356,6 +361,35 @@ export function appendTradingViewNativeChartComponentCommands({
   const priceLabelCommands: ITradingViewNativeChartSceneCommand[] = [];
   const textLabelCommands: ITradingViewNativeChartSceneCommand[] = [];
   const hitRegions: ITradingViewNativeReferenceLineHitRegion[] = [];
+  const drawingLabels = drawings.flatMap((drawing) => {
+    const point = drawing.points[0];
+    if (
+      !showYAxis ||
+      drawing.hidden ||
+      !point ||
+      !['horizontal', 'horizontalRay', 'cross'].includes(drawing.tool)
+    ) {
+      return [];
+    }
+    const priceLayout = getTradingViewNativeCurrentPriceLayout({
+      labelHeight: PRICE_LABEL_HEIGHT,
+      maxPrice,
+      minPrice,
+      price: point.price,
+      priceChartHeight,
+      priceScaleMode,
+    });
+    return priceLayout
+      ? [
+          {
+            id: `drawing.${drawing.id}`,
+            color: drawing.color,
+            price: point.price,
+            priceLayout,
+          },
+        ]
+      : [];
+  });
   const referenceLines = components.flatMap((component) => {
     if (component.type !== 'referenceLine') {
       return [];
@@ -373,6 +407,11 @@ export function appendTradingViewNativeChartComponentCommands({
   const labelTops: Record<string, number> = showYAxis
     ? getTradingViewNativePriceLabelPositions({
         labels: [
+          ...drawingLabels.map(({ id, price, priceLayout }) => ({
+            id,
+            price,
+            top: priceLayout.labelTop,
+          })),
           ...referenceLines.map(({ component, priceLayout }) => ({
             id: component.id,
             price: component.props.anchor.price,
@@ -390,6 +429,39 @@ export function appendTradingViewNativeChartComponentCommands({
     : {};
   const currentPriceLabelTop =
     labelTops[CURRENT_PRICE_LABEL_ID] ?? currentPriceLabel?.top;
+  drawingLabels.forEach(({ id, color, price, priceLayout }) => {
+    const labelTop = labelTops[id] ?? priceLayout.labelTop;
+    const text = formatTradingViewNativePriceTick(price, 4, priceDecimalPlaces);
+    const labelWidth =
+      measureTextWidth(text, 'priceAxis') +
+      FLOATING_PRICE_LABEL_HORIZONTAL_PADDING * 2;
+    const labelLeft = Math.min(priceAxisX, width - labelWidth);
+    const paintId = `chart.${id}.label`;
+    customPaintStyles[paintId] = { color, opacity: 1 };
+    priceLabelCommands.push(
+      {
+        customPaintId: paintId,
+        kind: 'rect',
+        paint: 'background',
+        x: labelLeft,
+        y: labelTop,
+        width: labelWidth,
+        height: PRICE_LABEL_HEIGHT,
+      },
+      {
+        kind: 'text',
+        font: 'priceAxis',
+        paint: 'currentPriceLabelText',
+        text,
+        x: labelLeft + FLOATING_PRICE_LABEL_HORIZONTAL_PADDING,
+        y:
+          labelTop +
+          PRICE_LABEL_HEIGHT / 2 +
+          priceAxisFontSize / 2 +
+          PRICE_AXIS_TEXT_BASELINE_OFFSET,
+      },
+    );
+  });
   referenceLines.forEach(({ component, priceLayout }) => {
     const {
       anchor,
@@ -615,7 +687,7 @@ export function appendTradingViewNativeChartComponentCommands({
           y:
             labelTop +
             PRICE_LABEL_HEIGHT / 2 +
-            AXIS_FONT_SIZE / 2 +
+            priceAxisFontSize / 2 +
             PRICE_AXIS_TEXT_BASELINE_OFFSET,
         },
       );

@@ -406,6 +406,55 @@ it('locks restored drawings against edit and delete while allowing unlock', asyn
   expect(hook.result.current.state.history.present).toEqual([]);
 });
 
+it('keeps the move cursor over a cross line before selection, on its selected handle and while dragging', async () => {
+  const cross: IDrawing = {
+    ...DEFAULT_DRAWING_STYLE,
+    id: 'cross',
+    tool: 'cross',
+    points: [{ time: 1_700_001_200, price: 105 }],
+    locked: false,
+  };
+  stored.set(
+    'trading-view-web-drawings:v1:cross-cursor',
+    JSON.stringify([cross]),
+  );
+  const hook = setup('cross-cursor');
+  await waitFor(() => expect(hook.result.current.state.ready).toBe(true));
+  const point = drawingPointToScreen(cross.points[0], hook.projection);
+  const hover = hook.event('pointermove', point.x, point.y);
+  act(() => {
+    hook.result.current.onPointerMove(hover);
+  });
+  expect(hover.currentTarget.style.cursor).toBe('move');
+  act(() => {
+    hook.result.current.onPointerDown(
+      hook.event('pointerdown', point.x, point.y),
+    );
+    hook.result.current.onPointerUp(hook.event('pointerup', point.x, point.y));
+    hook.result.current.onPointerMove(hover);
+  });
+  expect(hook.result.current.state.selectedId).toBe(cross.id);
+  expect(hover.currentTarget.style.cursor).toBe('move');
+  act(() => {
+    hook.result.current.onPointerDown(
+      hook.event('pointerdown', point.x, point.y),
+    );
+    hook.result.current.onPointerMove(
+      hook.event('pointermove', point.x + 30, point.y + 20),
+    );
+    hook.result.current.onPointerUp(
+      hook.event('pointerup', point.x + 30, point.y + 20),
+    );
+  });
+  expect(hover.currentTarget.style.cursor).toBe('move');
+  const moved = drawingPointToScreen(
+    hook.result.current.state.history.present[0].points[0],
+    hook.projection,
+  );
+  expect(moved.x).toBeCloseTo(point.x + 30);
+  expect(moved.y).toBeCloseTo(point.y + 20);
+});
+
 it('renders a brush continuously before release and saves strokes ending at their starting point', async () => {
   const hook = setup('brush');
   await waitFor(() => expect(hook.result.current.state.ready).toBe(true));

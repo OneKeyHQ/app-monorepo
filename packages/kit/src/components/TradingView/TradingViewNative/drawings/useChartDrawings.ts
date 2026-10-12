@@ -482,7 +482,11 @@ export function useChartDrawings({
               event.touch ? 18 : 8,
             );
       if (hit && !hit.drawing.locked) {
-        event.setCursor?.(hit.handle === null ? 'move' : 'crosshair');
+        event.setCursor?.(
+          hit.handle === null || hit.drawing.tool === 'cross'
+            ? 'move'
+            : 'crosshair',
+        );
         return true;
       }
       return false;

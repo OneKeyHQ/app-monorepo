@@ -197,7 +197,11 @@ export const TradingViewNativeChart = memo(
       storageKey: drawingStorageKey,
       rootRef: drawingRootRef,
     });
-    const { draw: drawDrawings, updateData } = drawingController;
+    const {
+      draw: drawDrawings,
+      getRenderState: getDrawingRenderState,
+      updateData,
+    } = drawingController;
     const runtimeStateRef = useRef<ITradingViewNativeChartRuntimeState>(
       createTradingViewNativeChartRuntimeState({
         initialRightOffset,
@@ -431,6 +435,9 @@ export const TradingViewNativeChart = memo(
           candleTimeMode,
           canvas,
           chartComponents: getInteractiveChartComponents(),
+          chartDrawings: drawingsEnabled
+            ? getDrawingRenderState().drawings
+            : undefined,
           chartSettings,
           chartType,
           colors: {
@@ -517,6 +524,7 @@ export const TradingViewNativeChart = memo(
         candleIntervalSeconds,
         candleTimeMode,
         getInteractiveChartComponents,
+        getDrawingRenderState,
         getReferenceLinePriceRange,
         chartSettings,
         chartType,

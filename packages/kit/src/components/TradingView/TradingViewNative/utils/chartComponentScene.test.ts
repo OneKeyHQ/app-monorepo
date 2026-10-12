@@ -1,17 +1,22 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 import { createTradingViewNativeChartSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
 import {
   TRADING_VIEW_NATIVE_CHART_TOP_PADDING,
+  TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_HEIGHT,
   TRADING_VIEW_NATIVE_PREVIOUS_CLOSE_REFERENCE_LINE_ID,
   TRADING_VIEW_NATIVE_REFERENCE_LINE_LABEL_SEPARATOR_WIDTH,
 } from '../chartConstants';
+import { DEFAULT_DRAWING_STYLE } from '../drawings/model';
 
 import { getTradingViewNativeChartLayout } from './chartLayout';
 import {
   type IBuildTradingViewNativeChartSceneOptions,
   buildTradingViewNativeChartScene,
 } from './chartScene';
+
+import type { IDrawing } from '../drawings/model';
 
 const POINTS: IMarketTokenKLineDataPoint[] = [
   { c: 101, h: 103, l: 98, o: 100, t: 1_700_000_000, v: 10 },
@@ -57,6 +62,116 @@ function buildPreviousCloseScene(
 }
 
 describe('TradingViewNative chart component scene', () => {
+  const chartDrawings: IDrawing[] = (
+    ['horizontal', 'horizontalRay', 'cross'] as const
+  ).map((tool, index) => ({
+    ...DEFAULT_DRAWING_STYLE,
+    id: tool,
+    tool,
+    color: ['#2962FF', '#FF9800', '#9C27B0'][index],
+    points: [{ time: POINTS[1].t, price: 104.2 - index * 0.1 }],
+    locked: false,
+  }));
+
+  it.each([
+    { minPrice: 90, maxPrice: 110, priceScaleMode: 'linear' as const },
+    { minPrice: 90, maxPrice: 104.2, priceScaleMode: 'linear' as const },
+    { minPrice: 104, maxPrice: 110, priceScaleMode: 'linear' as const },
+    { minPrice: 90, maxPrice: 110, priceScaleMode: 'logarithmic' as const },
+  ])(
+    'docks drawing prices with current and reference prices without overlap: %o',
+    ({ priceScaleMode, ...pinnedPriceRange }) => {
+      const scene = buildPreviousCloseScene(104.15, {
+        chartDrawings,
+        pinnedPriceRange,
+        priceDecimalPlaces: 2,
+        priceAxisFontSize: 14,
+        priceScaleMode,
+      });
+      const baseline = buildPreviousCloseScene(104.15, {
+        pinnedPriceRange,
+        priceScaleMode,
+      });
+      const { layout } = scene;
+      if (!layout) throw new OneKeyLocalError('Expected chart layout');
+      const labels = scene.commands.flatMap((command) =>
+        command.kind === 'rect' && command.x === layout.priceAxisX
+          ? [command]
+          : [],
+      );
+      expect(labels).toHaveLength(5);
+      const orderedLabels = labels.toSorted((left, right) => left.y - right.y);
+      orderedLabels.forEach((label, index) => {
+        expect(label.y).toBeGreaterThanOrEqual(
+          TRADING_VIEW_NATIVE_CHART_TOP_PADDING,
+        );
+        expect(label.y + label.height).toBeLessThanOrEqual(
+          TRADING_VIEW_NATIVE_CHART_TOP_PADDING + layout.priceChartHeight,
+        );
+        expect(label.x + label.width).toBeLessThanOrEqual(320);
+        if (index > 0) {
+          expect(label.y - orderedLabels[index - 1].y).toBeGreaterThanOrEqual(
+            TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_HEIGHT,
+          );
+        }
+      });
+      expect(
+        orderedLabels.map((label) => label.customPaintId ?? label.paint),
+      ).toEqual([
+        'chart.drawing.horizontal.label',
+        `${PREVIOUS_CLOSE_PAINT_ID}.label`,
+        'chart.drawing.horizontalRay.label',
+        'chart.drawing.cross.label',
+        'up',
+      ]);
+      for (const drawing of chartDrawings) {
+        const labelIndex = scene.commands.findIndex(
+          (command) =>
+            command.kind === 'rect' &&
+            command.customPaintId === `chart.drawing.${drawing.id}.label`,
+        );
+        const rect = scene.commands[labelIndex];
+        if (rect.kind !== 'rect')
+          throw new OneKeyLocalError('Expected drawing price label');
+        expect(scene.customPaintStyles[rect.customPaintId ?? '']).toMatchObject(
+          {
+            color: drawing.color,
+            opacity: 1,
+          },
+        );
+        expect(scene.commands[labelIndex + 1]).toMatchObject({
+          kind: 'text',
+          font: 'priceAxis',
+          paint: 'currentPriceLabelText',
+          text: drawing.points[0].price.toFixed(2),
+        });
+      }
+      expect(scene.layout).toEqual(baseline.layout);
+      expect(
+        scene.commands.filter((command) => command.kind === 'line'),
+      ).toEqual(baseline.commands.filter((command) => command.kind === 'line'));
+    },
+  );
+
+  it('removes hidden, deleted and offscreen drawing labels from collision layout', () => {
+    const baseline = buildPreviousCloseScene(104.15);
+    const scene = buildPreviousCloseScene(104.15, {
+      chartDrawings: [
+        { ...chartDrawings[0], hidden: true },
+        { ...chartDrawings[1], points: [{ time: POINTS[1].t, price: 200 }] },
+        { ...chartDrawings[2], tool: 'vertical' },
+      ],
+    });
+    expect(scene.commands).toEqual(baseline.commands);
+    expect(scene.customPaintStyles).toEqual(baseline.customPaintStyles);
+    const chartSettings = createTradingViewNativeChartSettings();
+    chartSettings.options.yAxis = false;
+    expect(
+      buildPreviousCloseScene(104.15, { chartDrawings, chartSettings })
+        .commands,
+    ).toEqual(buildPreviousCloseScene(104.15, { chartSettings }).commands);
+  });
+
   it.each<{
     previousClose: number;
     position: 'above' | 'below';
