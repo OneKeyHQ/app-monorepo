@@ -89,7 +89,7 @@ describe('TradingViewNativeChart resizing', () => {
     );
   });
 
-  it('clamps the viewport and adjusts the gesture origin when a wider chart reaches the history boundary', () => {
+  it('preserves the viewport and gesture origin beyond the history boundary on resize', () => {
     const runtime = createRuntime();
     runtime.viewport.offset = 10_000;
     runtime.panGesture.startOffset = 10_000;
@@ -99,7 +99,7 @@ describe('TradingViewNativeChart resizing', () => {
       { width: 760, height: 300 },
       60,
     );
-    expect(resized.viewport.offset).toBeLessThan(10_000);
+    expect(resized.viewport.offset).toBe(10_000);
     expect(resized.panGesture.startOffset).toBe(resized.viewport.offset);
     expect(resized.crosshair.visible).toBe(false);
     expect(runtime.crosshair.visible).toBe(true);

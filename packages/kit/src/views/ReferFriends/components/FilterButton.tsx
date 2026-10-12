@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import type { IActionListItemProps } from '@onekeyhq/components';
 import { useInviteCodeList } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InvitationDetailsSection/hooks/useInviteCodeList';
+import { NATIVE_MEDIUM_ICON_HIT_SLOP } from '@onekeyhq/kit/src/views/ReferFriends/utils/touchTarget';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { EExportTimeRange } from '@onekeyhq/shared/src/referralCode/type';
 
@@ -167,6 +168,7 @@ export function FilterButton({
         testID={ReferFriendsTestIDs.filterBtn}
         icon="Filter1Outline"
         variant="tertiary"
+        hitSlop={NATIVE_MEDIUM_ICON_HIT_SLOP}
         title={intl.formatMessage({ id: ETranslations.referral_filter })}
         onPress={handleMobileClick}
       />

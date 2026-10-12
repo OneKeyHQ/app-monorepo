@@ -70,6 +70,8 @@ function assertFile(outputRoot, relativePath, label) {
 function collectManifestReferences(manifest) {
   const references = [
     manifest.background && manifest.background.service_worker,
+    manifest.background && manifest.background.page,
+    manifest.browser_action && manifest.browser_action.default_popup,
     manifest.action && manifest.action.default_popup,
     manifest.side_panel && manifest.side_panel.default_path,
     ...Object.values(manifest.chrome_url_overrides || {}),
@@ -78,7 +80,11 @@ function collectManifestReferences(manifest) {
     references.push(...(contentScript.js || []), ...(contentScript.css || []));
   }
   for (const resourceGroup of manifest.web_accessible_resources || []) {
-    references.push(...(resourceGroup.resources || []));
+    references.push(
+      ...(typeof resourceGroup === 'string'
+        ? [resourceGroup]
+        : resourceGroup.resources || []),
+    );
   }
   return references.filter(Boolean);
 }
@@ -193,6 +199,7 @@ function readBudget(name, fallback) {
 }
 
 function main() {
+  const isFirefox = getBrowser() === 'firefox';
   const outputRoot = path.join(buildRoot, `${getBrowser()}_v3`);
   const manifestPath = path.join(outputRoot, 'manifest.json');
   if (!fs.existsSync(manifestPath)) {
@@ -200,11 +207,92 @@ function main() {
   }
 
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-  if (manifest.manifest_version !== 3) {
-    throw new Error('Rspack extension output must use Manifest V3.');
+  const expectedManifestVersion = isFirefox ? 2 : 3;
+  if (manifest.manifest_version !== expectedManifestVersion) {
+    throw new Error(
+      `Unexpected extension manifest version: ${manifest.manifest_version} !== ${expectedManifestVersion}`,
+    );
   }
   for (const reference of collectManifestReferences(manifest)) {
     assertFile(outputRoot, reference, 'manifest.json');
+  }
+  const backgroundBootFiles = [
+    'release-meta.js',
+    'background-runtime.bundle.js',
+    'background-vendor.bundle.js',
+    'background.bundle.js',
+  ];
+  let backgroundScriptFiles = backgroundBootFiles;
+  for (const file of backgroundBootFiles) {
+    assertFile(outputRoot, file, 'background entrypoint');
+  }
+  if (isFirefox) {
+    if (manifest.background?.page !== 'background.html') {
+      throw new Error('Firefox background must use the background page.');
+    }
+    const backgroundHtml = fs.readFileSync(
+      path.join(outputRoot, manifest.background.page),
+      'utf8',
+    );
+    backgroundScriptFiles = [
+      ...backgroundHtml.matchAll(/<script[^>]+src=["']([^"']+)["']/g),
+    ].map((match) => match[1].replace(/^\//, '').split(/[?#]/)[0]);
+    const backgroundFiles = backgroundScriptFiles.filter((file) =>
+      backgroundBootFiles.includes(file),
+    );
+    if (
+      JSON.stringify(backgroundFiles) !== JSON.stringify(backgroundBootFiles)
+    ) {
+      throw new Error(
+        'Firefox background load order does not match its chunks.',
+      );
+    }
+  } else {
+    if (manifest.background?.service_worker !== 'background.bootstrap.js') {
+      throw new Error('Production background must use the split bootstrap.');
+    }
+    assertFile(outputRoot, 'background.bootstrap.js', 'background bootstrap');
+    const bootstrapSource = fs.readFileSync(
+      path.join(outputRoot, 'background.bootstrap.js'),
+      'utf8',
+    );
+    const bootstrapFiles = [
+      ...bootstrapSource.matchAll(/["']([^"']+\.js)["']/g),
+    ].map((match) => match[1]);
+    if (
+      !bootstrapSource.startsWith('importScripts(') ||
+      JSON.stringify(bootstrapFiles) !== JSON.stringify(backgroundBootFiles)
+    ) {
+      throw new Error(
+        'Background bootstrap load order does not match its chunks.',
+      );
+    }
+  }
+  const expectedContentFiles = [
+    'release-meta.js',
+    'content-script-runtime.bundle.js',
+    'content-script-vendor.bundle.js',
+    'content-script.bundle.js',
+  ];
+  if (
+    JSON.stringify(manifest.content_scripts?.[0]?.js) !==
+    JSON.stringify(expectedContentFiles)
+  ) {
+    throw new Error('Content script load order does not match its chunks.');
+  }
+  for (const compilerName of ['background', 'content-script']) {
+    const runtimePath = path.join(
+      outputRoot,
+      `${compilerName}-runtime.bundle.js`,
+    );
+    const entryPath = path.join(outputRoot, `${compilerName}.bundle.js`);
+    const chunkQueue = `rspackChunkonekey_ext_${compilerName.replace('-', '_')}`;
+    if (
+      !fs.readFileSync(runtimePath, 'utf8').includes(chunkQueue) ||
+      !fs.readFileSync(entryPath, 'utf8').includes(chunkQueue)
+    ) {
+      throw new Error(`${compilerName} runtime cannot register split chunks.`);
+    }
   }
 
   const files = walkFiles(outputRoot);
@@ -248,7 +336,14 @@ function main() {
     (total, file) => total + fs.statSync(file).size,
     0,
   );
-  const backgroundBytes = fs.statSync(backgroundPath).size;
+  const backgroundBytes =
+    (isFirefox
+      ? 0
+      : fs.statSync(path.join(outputRoot, 'background.bootstrap.js')).size) +
+    [...new Set(backgroundScriptFiles)].reduce(
+      (total, file) => total + fs.statSync(path.join(outputRoot, file)).size,
+      0,
+    );
   const budgets = {
     // The expected hardware onboarding assets raised Linux CI output to
     // 166931278 bytes (run 35951858232). Keep about 3.6% headroom for growth.
@@ -278,7 +373,7 @@ function main() {
   }
   if (backgroundBytes > budgets.backgroundBytes) {
     throw new Error(
-      `Background bundle exceeds size budget: ${backgroundBytes} > ${budgets.backgroundBytes}`,
+      `Background entrypoint exceeds size budget: ${backgroundBytes} > ${budgets.backgroundBytes}`,
     );
   }
 
