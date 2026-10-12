@@ -121,7 +121,7 @@ export async function resolveFirmwareReconnectDevice({
     if (!allowBootloaderRecovery) {
       throw new OneKeyLocalError('Firmware device is still in bootloader mode');
     }
-    // Bootloaders may expose only zero-filled placeholders. Keep the unique
+    // A bootloader may expose only zero-filled placeholders. Keep the unique
     // model/transport fallback for those, but reject conflicting real identities.
     const previousIdentifiers = new Set(getDeviceIdentifiers(previousDevice));
     const deviceIdentifiers = getDeviceIdentifiers(device);

@@ -6,11 +6,11 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
 
-import type { useDeviceConnect } from '../hooks/useDeviceConnect';
 import { OnboardingTestIDs } from '../testIDs';
 
 import CheckAndUpdate from './CheckAndUpdate';
 
+import type { useDeviceConnect } from '../hooks/useDeviceConnect';
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
 const mockDevice = {
@@ -30,8 +30,11 @@ const mockApplicationFeatures = {
   bootloader_mode: false,
   device_id: mockDevice.deviceId,
 } as IOneKeyDeviceFeatures;
-const mockGetFeatures = jest.fn();
-const mockCheckRelease = jest.fn();
+const mockGetFeatures = jest.fn<Promise<IOneKeyDeviceFeatures>, unknown[]>();
+const mockCheckRelease = jest.fn<
+  Promise<{ hasUpgrade: boolean; features: IOneKeyDeviceFeatures }>,
+  unknown[]
+>();
 const mockOpenChangeLog = jest.fn();
 const mockPrepareUSBConnect = jest.fn();
 const mockEventHandlers = new Map<string, () => void>();
@@ -72,10 +75,15 @@ jest.mock('@react-navigation/native', () => {
       React.useEffect(callback, [callback]),
   };
 });
-jest.mock('react-intl', () => ({
-  ...jest.requireActual('react-intl'),
-  useIntl: () => mockIntl,
-}));
+jest.mock('react-intl', () => {
+  const actual = jest.requireActual(
+    'react-intl',
+  ) as typeof import('react-intl');
+  return {
+    ...actual,
+    useIntl: () => mockIntl,
+  };
+});
 jest.mock('react-native', () => ({
   StyleSheet: { hairlineWidth: 1 },
 }));
