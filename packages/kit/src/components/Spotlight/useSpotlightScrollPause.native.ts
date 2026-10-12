@@ -5,6 +5,7 @@ import {
   ReduceMotion,
   cancelAnimation,
   runOnJS,
+  runOnUI,
   useAnimatedReaction,
   useSharedValue,
   withDelay,
@@ -39,27 +40,34 @@ export function useSpotlightScrollPause(
   );
   useEffect(() => {
     session.active = enabled;
-    cancelAnimation(settled);
-    // Tabs normalizes its content inset: zero is the expanded header,
-    // negative values are pull-to-refresh bounce. Stay clear of the fixed
-    // page header by showing this guide only at the top.
-    const isPaused = !scrollY || scrollY.value > 0;
-    paused.value = isPaused;
-    if (enabled) onScrollChange(isPaused);
+    // Keep main JS blocked until the UI thread reads its current offset.
+    if (enabled) onScrollChange(true);
+    if (scrollY) {
+      runOnUI(() => {
+        'worklet';
+        cancelAnimation(settled);
+        // Tabs normalizes its content inset: zero is the expanded header,
+        // negative values are pull-to-refresh bounce.
+        const isPaused = scrollY.value > 0;
+        paused.value = isPaused;
+        runOnJS(notify)(isPaused);
+      })();
+    }
     return () => {
       session.active = false;
       cancelAnimation(settled);
     };
-  }, [enabled, onScrollChange, paused, scrollY, session, settled]);
+  }, [enabled, notify, onScrollChange, paused, scrollY, session, settled]);
 
   useAnimatedReaction(
     () => scrollY?.value,
     (current, previous) => {
+      // A positive first sample must pause even if it arrives after
+      // initialization but before this reaction has sampled the offset.
       if (
         current === undefined ||
-        previous === null ||
-        previous === undefined ||
-        current === previous
+        (current <= 0 &&
+          (previous === null || previous === undefined || current === previous))
       ) {
         return;
       }
