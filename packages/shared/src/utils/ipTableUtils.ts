@@ -4,7 +4,10 @@ import stringify from 'fast-json-stable-stringify';
 
 import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
-import { CDN_SIGNER_ADDRESS } from '../request/constants/ipTableDefaults';
+import {
+  CDN_SIGNER_ADDRESS,
+  DEFAULT_IP_TABLE_CONFIG,
+} from '../request/constants/ipTableDefaults';
 
 import type {
   IIpTableConfigWithRuntime,
@@ -118,6 +121,105 @@ export function getOrderedIpTableCandidates(options: {
     0,
     options.maxCandidates ?? candidates.length,
   );
+}
+
+// Hosts under onekey.so are served by the CN CDN providers only. The
+// Cloudflare endpoints in the shared table belong to the API zone and are not
+// a supported route for them.
+export const SHARED_DOMAIN_EXCLUDED_PROVIDERS: readonly string[] = [
+  'cloudflare',
+];
+
+// The remote shape guard only validates `ip`, so `provider` may be absent.
+export function getIpTableEndpointProvider(endpoint: {
+  provider?: unknown;
+}): string {
+  return typeof endpoint.provider === 'string'
+    ? endpoint.provider.toLowerCase()
+    : '';
+}
+
+// Order `pool` behind `preferred` round-robin by provider, so one provider's
+// outage cannot use up every attempt. A provider already used by `preferred`
+// starts that many rounds behind.
+export function spreadIpTableCandidatesAcrossProviders(options: {
+  preferred: string[];
+  pool: string[];
+  providerByIp: Map<string, string>;
+}): string[] {
+  const { preferred, pool, providerByIp } = options;
+  const usedByProvider = new Map<string, number>();
+  const takeRound = (ip: string): number => {
+    const provider = providerByIp.get(ip) ?? '';
+    const round = usedByProvider.get(provider) ?? 0;
+    usedByProvider.set(provider, round + 1);
+    return round;
+  };
+  preferred.forEach(takeRound);
+  return [
+    ...preferred,
+    ...pool
+      .filter((ip) => !preferred.includes(ip))
+      .map((ip) => ({ ip, round: takeRound(ip) }))
+      .toSorted((left, right) => left.round - right.round)
+      .map(({ ip }) => ip),
+  ];
+}
+
+/**
+ * SNI candidates for a host that shares the IP table of `configKey` without
+ * being one of the API hosts the table is ranked against. The pool always
+ * comes from the builtin table; the active table only contributes provider
+ * labels and the runtime-preferred IPs it still endorses.
+ */
+export function getSharedDomainIpTableCandidates(options: {
+  hostname: string;
+  configKey: string;
+  activeConfig: IIpTableConfigWithRuntime | null | undefined;
+  maxCandidates: number;
+}): string[] {
+  const { hostname, configKey, activeConfig, maxCandidates } = options;
+  const activeEndpoints =
+    activeConfig?.config.domains[configKey]?.endpoints ?? [];
+  const endorsedIps = new Set(activeEndpoints.map((endpoint) => endpoint.ip));
+  const providerByIp = new Map<string, string>();
+  for (const endpoint of [
+    ...activeEndpoints,
+    ...(DEFAULT_IP_TABLE_CONFIG.domains[configKey]?.endpoints ?? []),
+  ]) {
+    // The first non-empty label wins: the active table, then the builtin one.
+    if (!providerByIp.get(endpoint.ip)) {
+      providerByIp.set(endpoint.ip, getIpTableEndpointProvider(endpoint));
+    }
+  }
+  const isUsable = (ip: string) =>
+    !SHARED_DOMAIN_EXCLUDED_PROVIDERS.includes(providerByIp.get(ip) ?? '');
+  const preferredCandidates = [
+    ...new Set(
+      [
+        activeConfig?.runtime?.selections?.[configKey],
+        activeConfig?.runtime?.lastBestIp?.[configKey],
+      ].filter(
+        (candidate): candidate is string =>
+          typeof candidate === 'string' &&
+          candidate.length > 0 &&
+          endorsedIps.has(candidate),
+      ),
+    ),
+  ].filter(isUsable);
+  const builtinCandidates = getOrderedIpTableCandidates({
+    hostname,
+    configKey,
+    configWithRuntime: {
+      config: DEFAULT_IP_TABLE_CONFIG,
+      runtime: undefined,
+    },
+  }).filter(isUsable);
+  return spreadIpTableCandidatesAcrossProviders({
+    preferred: preferredCandidates,
+    pool: builtinCandidates,
+    providerByIp,
+  }).slice(0, maxCandidates);
 }
 
 function logVerifyEvent(

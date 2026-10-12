@@ -11,6 +11,8 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 
 import { TradingViewMobileChartSettingsDialogContent } from './TradingViewMobileChartSettingsDialogContent';
 
+import type { ITradingViewNativeStorageNamespace } from './types';
+
 const SETTINGS_BUTTON_SIZE = 24;
 const PRICE_AXIS_FALLBACK_WIDTH = 52;
 
@@ -25,7 +27,7 @@ export function getTradingViewNativeChartSettingsButtonRight(
 }
 
 export function TradingViewNativeChartSettingsButton({
-  panelId,
+  storageNamespace,
   priceAxisWidth,
   enablePreviousClose = false,
   isChartSwitchDisabled = false,
@@ -33,7 +35,7 @@ export function TradingViewNativeChartSettingsButton({
   onBeforeOpenSettings,
   placement = 'chart',
 }: {
-  panelId?: string;
+  storageNamespace?: ITradingViewNativeStorageNamespace;
   priceAxisWidth: number;
   enablePreviousClose?: boolean;
   isChartSwitchDisabled?: boolean;
@@ -50,10 +52,10 @@ export function TradingViewNativeChartSettingsButton({
       screen: EModalMarketRoutes.MarketChartSettings,
       params: {
         showPreviousClose: enablePreviousClose,
-        ...(panelId ? { panelId } : {}),
+        ...(storageNamespace ? { storageNamespace } : {}),
       },
     });
-  }, [enablePreviousClose, navigation, onBeforeOpenSettings, panelId]);
+  }, [enablePreviousClose, navigation, onBeforeOpenSettings, storageNamespace]);
   const handlePress = useCallback(() => {
     Dialog.show({
       title: intl.formatMessage({ id: ETranslations.global_settings }),
@@ -61,7 +63,7 @@ export function TradingViewNativeChartSettingsButton({
       testID: 'trading-view-native-chart-settings-quick-dialog',
       renderContent: (
         <TradingViewMobileChartSettingsDialogContent
-          panelId={panelId}
+          storageNamespace={storageNamespace}
           chartMode="native"
           isChartSwitchDisabled={isChartSwitchDisabled}
           showPreviousClose={enablePreviousClose}
@@ -75,7 +77,7 @@ export function TradingViewNativeChartSettingsButton({
     intl,
     isChartSwitchDisabled,
     onChartSwitch,
-    panelId,
+    storageNamespace,
     openChartSettingsModal,
   ]);
 

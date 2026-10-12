@@ -41,6 +41,7 @@ import {
 } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { AccountSelectorMirrorInspectorTestIDs } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorMirrorInspectorTestIDs';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { Section } from '@onekeyhq/kit/src/components/Section';
@@ -208,6 +209,9 @@ const DevSettingsAccordionTrigger = ({
         <XStack alignItems="center" gap="$1">
           {onTogglePin ? (
             <IconButton
+              // Accordion.Trigger renders a native <button> on web; render the
+              // pin control as a span to avoid invalid nested buttons.
+              render="span"
               icon={pinned ? 'StarSolid' : 'StarOutline'}
               size="small"
               variant="tertiary"
@@ -1046,23 +1050,6 @@ const BaseDevSettingsSection = () => {
                             ? ONEKEY_TEST_API_HOST
                             : ONEKEY_API_HOST
                         }
-                        onBeforeValueChange={async () => {
-                          try {
-                            await backgroundApiProxy.serviceNotification.unregisterClient();
-                          } catch (error) {
-                            console.error(error);
-                          }
-                        }}
-                        onValueChange={async (enabled: boolean) => {
-                          if (platformEnv.isDesktop) {
-                            await globalThis.desktopApiProxy?.appUpdate?.useTestUpdateFeedUrl?.(
-                              enabled,
-                            );
-                          }
-                          setTimeout(() => {
-                            void backgroundApiProxy.serviceApp.restartApp();
-                          }, 300);
-                        }}
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
@@ -1772,6 +1759,24 @@ const BaseDevSettingsSection = () => {
                           />
                         </ListItem>
                       </SearchFilterItem>
+
+                      {platformEnv.isWeb &&
+                      (platformEnv.isDev || platformEnv.isE2E) ? (
+                        <SectionFieldItem
+                          icon="CodeOutline"
+                          name="showAccountSelectorMirrorInspector"
+                          title="Account Selector Mirror Inspector"
+                          subtitle="右下角显示实际 React Context 与 canonical store 的只读核对结果"
+                          searchKeywords="Account Selector Mirror React Context inspector E2E 探针 浮层"
+                        >
+                          <Switch
+                            size={ESwitchSize.small}
+                            testID={
+                              AccountSelectorMirrorInspectorTestIDs.settingsSwitch
+                            }
+                          />
+                        </SectionFieldItem>
+                      ) : null}
 
                       <SectionFieldItem
                         icon="CreditCardOutline"

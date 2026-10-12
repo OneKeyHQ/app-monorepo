@@ -859,30 +859,43 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
         (!allowSelectEmptyAccount && record.shouldShowCreateAddressButton)
       )
         return;
-      if (isOthersUniversal) {
-        let autoChangeToAccountMatchedNetworkId = record.avatarNetworkId;
-        if (
-          selectedAccount.networkId &&
-          networkUtils.isAllNetwork({ networkId: selectedAccount.networkId })
-        )
-          autoChangeToAccountMatchedNetworkId = selectedAccount.networkId;
-        await prewarmHomeTokenListBeforeSelect(record);
-        const confirmed = await actions.current.confirmAccountSelect({
-          num,
-          indexedAccount: undefined,
-          othersWalletAccount: record.account,
-          autoChangeToAccountMatchedNetworkId,
+      try {
+        if (isOthersUniversal) {
+          let autoChangeToAccountMatchedNetworkId = record.avatarNetworkId;
+          if (
+            selectedAccount.networkId &&
+            networkUtils.isAllNetwork({ networkId: selectedAccount.networkId })
+          )
+            autoChangeToAccountMatchedNetworkId = selectedAccount.networkId;
+          await prewarmHomeTokenListBeforeSelect(record);
+          const confirmed = await actions.current.confirmAccountSelect({
+            num,
+            indexedAccount: undefined,
+            othersWalletAccount: record.account,
+            autoChangeToAccountMatchedNetworkId,
+          });
+          if (!confirmed) return;
+        } else if (focusedWalletInfo) {
+          await prewarmHomeTokenListBeforeSelect(record);
+          const confirmed = await actions.current.confirmAccountSelect({
+            num,
+            indexedAccount: record.indexedAccount,
+            othersWalletAccount: undefined,
+            autoChangeToAccountMatchedNetworkId: undefined,
+          });
+          if (!confirmed) return;
+        }
+      } catch {
+        // Keep the selector open when the selection could not be saved.
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          }),
+          message: intl.formatMessage({
+            id: ETranslations.global_an_error_occurred_desc,
+          }),
         });
-        if (!confirmed) return;
-      } else if (focusedWalletInfo) {
-        await prewarmHomeTokenListBeforeSelect(record);
-        const confirmed = await actions.current.confirmAccountSelect({
-          num,
-          indexedAccount: record.indexedAccount,
-          othersWalletAccount: undefined,
-          autoChangeToAccountMatchedNetworkId: undefined,
-        });
-        if (!confirmed) return;
+        return;
       }
       resetAccountManagerStacksModal();
     },
@@ -890,6 +903,7 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
       actions,
       allowSelectEmptyAccount,
       focusedWalletInfo,
+      intl,
       isOthersUniversal,
       num,
       prewarmHomeTokenListBeforeSelect,

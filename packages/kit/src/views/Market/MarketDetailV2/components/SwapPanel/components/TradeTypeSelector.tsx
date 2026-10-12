@@ -132,12 +132,12 @@ export function TradeTypeSelector({
       }}
       options={options}
       backgroundColor="$neutral5"
+      activeBackgroundColor="$transparent"
       borderRadius="$2.5"
       h="auto"
       p="$0.5"
       fullWidth
       segmentControlItemStyleProps={{
-        bg: '$transparent',
         p: 0,
       }}
     />

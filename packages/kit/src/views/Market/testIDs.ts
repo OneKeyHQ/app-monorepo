@@ -1,4 +1,10 @@
+import testIDValues from './testIDValues.json';
+
 export const MarketTestIDs = {
+  // Shared with e2e suites through testIDValues.json (see
+  // apps/web/e2e/account-selector-test-ids.js).
+  ...testIDValues,
+
   // Main page
   marketPage: 'market-page',
   searchBar: 'market-search-bar',
@@ -42,6 +48,8 @@ export const MarketTestIDs = {
   detailChart: 'market-detail-chart',
   detailChartFullscreenInfo: 'market-detail-chart-fullscreen-info',
   detailBuyButton: 'market-detail-buy-button',
+  detailSellButton: 'market-detail-sell-button',
+  detailPerpsButton: 'market-detail-perps-button',
   detailSwapButton: 'market-detail-swap-button',
   detailEmbeddedSwap: 'market-detail-embedded-swap',
   detailAbout: 'market-detail-about',

@@ -136,7 +136,9 @@ function renderList(networkId = network.networkId) {
 
 describe('useSwapTokenList loading lifecycle', () => {
   beforeEach(() => {
-    appEventBus.emit(EAppEventBusNames.GlobalDeriveTypeUpdate, undefined);
+    appEventBus.emit(EAppEventBusNames.GlobalDeriveTypeUpdate, {
+      networkImpl: 'evm',
+    });
     jest.clearAllMocks();
     mockNetworks = [network];
     mockFocused = true;
@@ -291,14 +293,17 @@ describe('useSwapTokenList loading lifecycle', () => {
     const retry = deferred();
     mockFetchTokenList.mockImplementation(async () => retry.promise);
     const reopened = renderList(getNetworkIdsMap().onekeyall);
-    await waitFor(() =>
-      expect(mockGetSupportAccounts).toHaveBeenCalledTimes(2),
-    );
+    await waitFor(() => {
+      expect(mockGetSupportAccounts).toHaveBeenCalledTimes(2);
+      expect(mockFetchTokenList).toHaveBeenCalledTimes(2);
+    });
     expect(reopened.result.current.fetchLoading).toBe(true);
     await act(async () => {
       retry.resolve();
     });
-    expect(reopened.result.current.fetchLoading).toBe(false);
+    await waitFor(() => {
+      expect(reopened.result.current.fetchLoading).toBe(false);
+    });
     reopened.unmount();
   });
 

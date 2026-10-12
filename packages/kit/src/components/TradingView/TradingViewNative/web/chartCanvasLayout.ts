@@ -25,6 +25,7 @@ export interface ITradingViewNativeCanvasPriceAxisLabels {
   autoPriceRange: ITradingViewNativePriceRange | null;
   chartComponentPrice: string;
   currentPrice: string;
+  priceDecimalPlaces?: number;
   widestIndicatorPrice: string;
   widestPrice: string;
   widestSubIndicator: string;
@@ -57,6 +58,7 @@ export function getTradingViewNativeCanvasPriceAxisWidth(
     ? getTradingViewNativeScaledPriceAxisLabel({
         autoPriceRange: priceRange,
         baseLabel: labels.widestPrice,
+        priceDecimalPlaces: labels.priceDecimalPlaces,
         priceRangeScale: priceScale.rangeScale,
         priceScaleMode: priceScale.mode,
       })

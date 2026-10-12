@@ -1,17 +1,24 @@
 import { useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { IButtonProps } from '@onekeyhq/components';
 import {
   IconButton,
   SizableText,
   Stack,
+  Toast,
   XStack,
   resetAccountManagerStacksModal,
 } from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import type { IListItemTextProps } from '@onekeyhq/kit/src/components/ListItem';
+import {
+  useAccountSelectorSceneInfo,
+  useActiveAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import {
   HOME_TOKEN_LIST_PREWARM_TAP_TIMEOUT_MS,
@@ -34,9 +41,11 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { INetworkDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { AccountEditButton } from '../../../components/AccountEdit';
@@ -101,7 +110,10 @@ export function AccountSelectorAccountListItem({
   enabledNetworksCompatibleWithWalletId: IServerNetwork[];
   networkInfoMap: Record<string, INetworkDeriveInfo>;
 }) {
+  const intl = useIntl();
   const actions = useAccountSelectorActions();
+  const { sceneName } = useAccountSelectorSceneInfo();
+  const canPrewarmHomeTokenList = sceneName === EAccountSelectorSceneName.home;
   const {
     activeAccount: { network },
   } = useActiveAccount({
@@ -366,6 +378,52 @@ export function AccountSelectorAccountListItem({
     subTitleInfo.linkedNetworkId,
   ]);
 
+  // ListItem renders this prop as a component, so an inline arrow would be a
+  // new element type on every render and React would remount the whole text
+  // subtree instead of updating it in place.
+  const renderItemText = useCallback(
+    (textProps: IListItemTextProps) => (
+      <ListItem.Text
+        {...textProps}
+        flex={1}
+        // Without minWidth={0} the flex column keeps Yoga's default
+        // `min-width: auto`, so it can't shrink below the intrinsic width of
+        // its widest line (the value + address subtitle). On Android that
+        // forces the column to overflow and the name's numberOfLines={1}
+        // gets truncated against that inflated width — even short "Account #XX"
+        // names get cut off (OK-56318). iOS lays this out without the issue.
+        // Mirrors the working WebAccountPanelListItem pattern.
+        minWidth={0}
+        overflow="hidden"
+        pr="$8"
+        primary={
+          <SizableText size="$bodyLg" numberOfLines={1}>
+            {item.name}
+          </SizableText>
+        }
+        secondary={
+          <XStack
+            key={`${focusedWalletInfo?.wallet?.id || ''}-${item.id}-${
+              subTitleInfo.address
+            }`}
+            alignItems="center"
+          >
+            {renderAccountValue()}
+            {renderAccountAddress()}
+          </XStack>
+        }
+      />
+    ),
+    [
+      focusedWalletInfo?.wallet?.id,
+      item.id,
+      item.name,
+      renderAccountAddress,
+      renderAccountValue,
+      subTitleInfo.address,
+    ],
+  );
+
   return (
     <Stack>
       <ListItem
@@ -381,97 +439,91 @@ export function AccountSelectorAccountListItem({
             networkId={avatarNetworkId}
           />
         }
-        renderItemText={(textProps) => (
-          <ListItem.Text
-            {...textProps}
-            flex={1}
-            // Without minWidth={0} the flex column keeps Yoga's default
-            // `min-width: auto`, so it can't shrink below the intrinsic width of
-            // its widest line (the value + address subtitle). On Android that
-            // forces the column to overflow and the name's numberOfLines={1}
-            // gets truncated against that inflated width — even short "Account #XX"
-            // names get cut off (OK-56318). iOS lays this out without the issue.
-            // Mirrors the working WebAccountPanelListItem pattern.
-            minWidth={0}
-            overflow="hidden"
-            pr="$8"
-            primary={
-              <SizableText size="$bodyLg" numberOfLines={1}>
-                {item.name}
-              </SizableText>
-            }
-            secondary={
-              <XStack
-                key={`${focusedWalletInfo?.wallet?.id || ''}-${item.id}-${
-                  subTitleInfo.address
-                }`}
-                alignItems="center"
-              >
-                {renderAccountValue()}
-                {renderAccountAddress()}
-              </XStack>
-            }
-          />
-        )}
+        renderItemText={renderItemText}
         {...(canConfirmAccountSelectPress && {
           onPress: async () => {
             // show CreateAddress Button here, disabled confirmAccountSelect()
             if (!allowSelectEmptyAccount && shouldShowCreateAddressButton) {
               return;
             }
-            if (isOthersUniversal) {
-              let autoChangeToAccountMatchedNetworkId = avatarNetworkId;
-              if (
-                selectedAccount?.networkId &&
-                networkUtils.isAllNetwork({
-                  networkId: selectedAccount?.networkId,
-                })
-              ) {
-                autoChangeToAccountMatchedNetworkId =
-                  selectedAccount?.networkId;
+            try {
+              if (isOthersUniversal) {
+                let autoChangeToAccountMatchedNetworkId = avatarNetworkId;
+                if (
+                  selectedAccount?.networkId &&
+                  networkUtils.isAllNetwork({
+                    networkId: selectedAccount?.networkId,
+                  })
+                ) {
+                  autoChangeToAccountMatchedNetworkId =
+                    selectedAccount?.networkId;
+                }
+                // Only home consumes these frames; other scenes must not
+                // wait on home-only cache work before publishing selection.
+                if (canPrewarmHomeTokenList) {
+                  await prewarmHomeTokenListOwnerWithin(
+                    {
+                      networkId:
+                        autoChangeToAccountMatchedNetworkId ??
+                        selectedAccount?.networkId,
+                      deriveType: selectedAccount?.deriveType,
+                      othersWalletAccountId: account?.id,
+                      currencyId: currencyInfo.id,
+                    },
+                    HOME_TOKEN_LIST_PREWARM_TAP_TIMEOUT_MS,
+                  );
+                }
+                const confirmed = await actions.current.confirmAccountSelect({
+                  num,
+                  indexedAccount: undefined,
+                  othersWalletAccount: account,
+                  autoChangeToAccountMatchedNetworkId,
+                  entry: 'accountList:othersWallet',
+                  reason: 'userSelectAccount',
+                });
+                if (!confirmed) {
+                  return;
+                }
+              } else if (focusedWalletInfo) {
+                if (canPrewarmHomeTokenList) {
+                  await prewarmHomeTokenListOwnerWithin(
+                    {
+                      networkId: selectedAccount?.networkId,
+                      deriveType: selectedAccount?.deriveType,
+                      indexedAccountId: indexedAccount?.id,
+                      currencyId: currencyInfo.id,
+                    },
+                    HOME_TOKEN_LIST_PREWARM_TAP_TIMEOUT_MS,
+                  );
+                }
+                const confirmed = await actions.current.confirmAccountSelect({
+                  num,
+                  indexedAccount,
+                  othersWalletAccount: undefined,
+                  autoChangeToAccountMatchedNetworkId: undefined,
+                  entry: 'accountList:indexedAccount',
+                  reason: 'userSelectAccount',
+                });
+                if (!confirmed) {
+                  return;
+                }
               }
-              // Give the home token list the owner's local-cache frames before
-              // the publish so the switch paints without a skeleton (OK-63873);
-              // bounded so the selection never waits on it.
-              await prewarmHomeTokenListOwnerWithin(
-                {
-                  networkId:
-                    autoChangeToAccountMatchedNetworkId ??
-                    selectedAccount?.networkId,
-                  deriveType: selectedAccount?.deriveType,
-                  othersWalletAccountId: account?.id,
-                  currencyId: currencyInfo.id,
-                },
-                HOME_TOKEN_LIST_PREWARM_TAP_TIMEOUT_MS,
-              );
-              const confirmed = await actions.current.confirmAccountSelect({
-                num,
-                indexedAccount: undefined,
-                othersWalletAccount: account,
-                autoChangeToAccountMatchedNetworkId,
+            } catch {
+              // confirmAccountSelect rejects when persisting the selection
+              // fails. Keep the selector open - the selection is not saved
+              // yet, and on the extension popup a selection that never
+              // reached storage is lost once the popup is dismissed - and
+              // surface the failure instead of leaving an unhandled
+              // rejection behind a stuck modal.
+              Toast.error({
+                title: intl.formatMessage({
+                  id: ETranslations.global_an_error_occurred,
+                }),
+                message: intl.formatMessage({
+                  id: ETranslations.global_an_error_occurred_desc,
+                }),
               });
-              if (!confirmed) {
-                return;
-              }
-            } else if (focusedWalletInfo) {
-              await prewarmHomeTokenListOwnerWithin(
-                {
-                  networkId: selectedAccount?.networkId,
-                  deriveType: selectedAccount?.deriveType,
-                  indexedAccountId: indexedAccount?.id,
-                  currencyId: currencyInfo.id,
-                },
-                HOME_TOKEN_LIST_PREWARM_TAP_TIMEOUT_MS,
-              );
-              const confirmed = await actions.current.confirmAccountSelect({
-                num,
-                indexedAccount,
-                othersWalletAccount: undefined,
-                autoChangeToAccountMatchedNetworkId: undefined,
-              });
-              if (!confirmed) {
-                return;
-              }
+              return;
             }
             resetAccountManagerStacksModal();
           },

@@ -94,6 +94,8 @@ export function useMarketBasicConfig() {
       swrShouldPersist: (data) => Boolean(data),
       watchLoading: true,
       revalidateOnReconnect: true,
+      // Keep the last configuration (or defaults) while the server recovers.
+      keepResultIfError: true,
     },
   );
 

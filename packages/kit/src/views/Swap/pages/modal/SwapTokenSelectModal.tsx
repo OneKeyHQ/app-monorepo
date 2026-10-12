@@ -79,7 +79,6 @@ import {
   ESwapDirectionType,
   ESwapSelectTokenSource,
   ESwapTabSwitchType,
-  ETokenRiskLevel,
   type ISwapNetwork,
   type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
@@ -92,6 +91,7 @@ import {
   buildSwapTokenSelectorAssetNetworks,
 } from '../../components/SwapTokenSelectorDesktop';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
+import { useSwapTokenRiskCheck } from '../../hooks/useSwapTokenRiskCheck';
 import { useSwapTokenList } from '../../hooks/useSwapTokens';
 import {
   buildSwapNetworkReadyKey,
@@ -621,6 +621,7 @@ const SwapTokenSelectPage = ({
       void updateSelectedAccountNetwork({
         num: type === ESwapDirectionType.FROM ? 0 : 1,
         networkId: currentSelectNetwork?.networkId,
+        reason: 'swapTokenSelectNetworkSync',
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -783,31 +784,15 @@ const SwapTokenSelectPage = ({
     [displayTokens],
   );
 
-  const checkRiskToken = useCallback(
-    async (token: ISwapToken) => {
-      const isRiskLevel =
-        !token.isPopular &&
-        (!token.price ||
-          new BigNumber(token.price).isZero() ||
-          token.riskLevel === ETokenRiskLevel.SPAM ||
-          token.riskLevel === ETokenRiskLevel.MALICIOUS);
-      if (isRiskLevel) {
-        if (!settingsPersistAtom.tokenRiskReminder) return false;
-        const checkConfirmRiskToken =
-          await backgroundApiProxy.serviceSetting.checkConfirmedRiskToken(
-            `${token.networkId}_${token.contractAddress}`,
-          );
-        return !checkConfirmRiskToken;
-      }
-      return isRiskLevel;
-    },
-    [settingsPersistAtom.tokenRiskReminder],
-  );
+  const checkRiskToken = useSwapTokenRiskCheck();
 
   const selectTokenHandler = useCallback(
     (token: ISwapToken) => {
       if (isSwapStockSelectTarget) {
-        appEventBus.emit(EAppEventBusNames.SwapStockTokenSelected, token);
+        appEventBus.emit(EAppEventBusNames.SwapStockTokenSelected, {
+          token,
+          storeName: route.params.storeName,
+        });
         navigation.popStack();
         return;
       }
@@ -842,6 +827,7 @@ const SwapTokenSelectPage = ({
       setSwapSelectToToken,
       isSwapStockSelectTarget,
       type,
+      route.params.storeName,
     ],
   );
 

@@ -1463,9 +1463,10 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     const startedAt = Date.now();
 
     try {
-      const response = await convertHyperLiquidResponse(() =>
-        client.modify(requestPayload),
-      );
+      const response = await convertHyperLiquidResponse(() => {
+        this._assertExchangeUserAddress(expectedAccountAddress);
+        return client.modify(requestPayload);
+      });
       defaultLogger.perp.hyperliquid.modifyOrder({
         ...context,
         request: requestPayload,
@@ -1490,7 +1491,12 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  async cancelOrder(cancels: ICancelOrderParams[]): Promise<ICancelResponse> {
+  async cancelOrder(
+    cancels: ICancelOrderParams[],
+    options: IOrderAccountGuardOptions = {},
+  ): Promise<ICancelResponse> {
+    const expectedAccountAddress =
+      await this._resolveExpectedAccountAddress(options);
     await this.checkAccountCanTrade();
 
     const cancelParams = cancels.map((cancel) => ({
@@ -1498,7 +1504,9 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       o: cancel.oid,
     }));
 
-    const client = await this.getExchangeClientForTrading();
+    const client = await this.getExchangeClientForTrading({
+      expectedAccountAddress,
+    });
     const requestPayload = { cancels: cancelParams };
     const context = await this._buildLogContext();
     const extra = {
@@ -1507,9 +1515,10 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     };
     const startedAt = Date.now();
     try {
-      const response = await convertHyperLiquidResponse(() =>
-        client.cancel(requestPayload),
-      );
+      const response = await convertHyperLiquidResponse(() => {
+        this._assertExchangeUserAddress(expectedAccountAddress);
+        return client.cancel(requestPayload);
+      });
       defaultLogger.perp.hyperliquid.cancelOrder({
         ...context,
         request: requestPayload,

@@ -31,6 +31,8 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { filterTokenSelectorTokenDataByDappTokenFilterParams } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import {
+  buildAggregateTokenListMapKeyForTokenList,
+  buildAggregateTokenMapKeyForAggregateConfig,
   buildTokenSearchKeywordQueries,
   filterAccountTokenListByLimit,
   getEmptyTokenData,
@@ -80,7 +82,40 @@ type IFetchAccountTokensController = {
   controller: AbortController;
   flag?: string;
   homeRequest?: IHomeTokenRequest;
+  isAllNetworks?: boolean;
 };
+
+type IAbortFetchAccountTokensOptions = {
+  // Requests carrying one of these flags survive.
+  excludedFlags?: string[];
+  // Only requests carrying one of these flags are aborted.
+  includedFlags?: string[];
+  // Only requests issued with this `isAllNetworks` value are aborted.
+  isAllNetworks?: boolean;
+};
+
+function shouldKeepFetchAccountTokensController(
+  item: IFetchAccountTokensController,
+  options?: IAbortFetchAccountTokensOptions,
+): boolean {
+  if (item.flag && options?.excludedFlags?.includes(item.flag)) {
+    return true;
+  }
+  const includedFlags = options?.includedFlags ?? [];
+  if (
+    includedFlags.length > 0 &&
+    (!item.flag || !includedFlags.includes(item.flag))
+  ) {
+    return true;
+  }
+  if (
+    options?.isAllNetworks !== undefined &&
+    !!item.isAllNetworks !== options.isAllNetworks
+  ) {
+    return true;
+  }
+  return false;
+}
 
 @backgroundClass()
 class ServiceToken extends ServiceBase {
@@ -226,23 +261,13 @@ class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async abortFetchAccountTokens(options?: {
-    excludedFlags?: string[];
-    includedFlags?: string[];
-  }) {
-    const excludedFlags = options?.excludedFlags ?? [];
-    const includedFlags = options?.includedFlags ?? [];
+  public async abortFetchAccountTokens(
+    options?: IAbortFetchAccountTokensOptions,
+  ) {
     const nextControllers: IFetchAccountTokensController[] = [];
 
     this._fetchAccountTokensControllers.forEach((item) => {
-      if (
-        includedFlags.length > 0 &&
-        (!item.flag || !includedFlags.includes(item.flag))
-      ) {
-        nextControllers.push(item);
-        return;
-      }
-      if (item.flag && excludedFlags.includes(item.flag)) {
+      if (shouldKeepFetchAccountTokensController(item, options)) {
         nextControllers.push(item);
         return;
       }
@@ -365,6 +390,7 @@ class ServiceToken extends ServiceBase {
       controller,
       flag: params.flag,
       homeRequest: params.homeRequest,
+      isAllNetworks: !!params.isAllNetworks,
     });
     try {
       return await this.fetchAccountTokensInternal(params, controller);
@@ -1865,6 +1891,31 @@ class ServiceToken extends ServiceBase {
     );
   }
 
+  // Networks this build serves, or undefined when the registry is not
+  // authoritative yet (fail open). See getAllAggregateTokenInfo.
+  private async _getAggregateEligibleNetworkIds(): Promise<
+    Set<string> | undefined
+  > {
+    try {
+      const registryFilled =
+        await this.backgroundApi.serviceCustomRpc.isServerNetworkRegistryFilled();
+      if (registryFilled) {
+        const { networks: eligibleNetworks } =
+          await this.backgroundApi.serviceNetwork.getAllNetworks({
+            excludeCustomNetwork: true,
+            excludeAllNetworkItem: true,
+          });
+        return new Set(eligibleNetworks.map((n) => n.id));
+      }
+      // Kick the fill so the next read is gated; single-flight and
+      // fetch failures are swallowed inside.
+      void this.backgroundApi.serviceCustomRpc.ensureServerNetworksFetched();
+    } catch {
+      // fail open
+    }
+    return undefined;
+  }
+
   @backgroundMethod()
   public async getAllAggregateTokenInfo() {
     const rawData =
@@ -1885,25 +1936,7 @@ class ServiceToken extends ServiceBase {
     // record first and fail open (skip the filter) when it is unfilled or
     // unreadable. The write path awaits the fill instead; this runs on the
     // token-list hot path and must not block on a network request.
-    let eligibleNetworkIds: Set<string> | undefined;
-    try {
-      const registryFilled =
-        await this.backgroundApi.serviceCustomRpc.isServerNetworkRegistryFilled();
-      if (registryFilled) {
-        const { networks: eligibleNetworks } =
-          await this.backgroundApi.serviceNetwork.getAllNetworks({
-            excludeCustomNetwork: true,
-            excludeAllNetworkItem: true,
-          });
-        eligibleNetworkIds = new Set(eligibleNetworks.map((n) => n.id));
-      } else {
-        // Kick the fill so the next read is gated; single-flight and
-        // fetch failures are swallowed inside.
-        void this.backgroundApi.serviceCustomRpc.ensureServerNetworksFetched();
-      }
-    } catch {
-      eligibleNetworkIds = undefined;
-    }
+    const eligibleNetworkIds = await this._getAggregateEligibleNetworkIds();
     const allAggregateTokenMap: Record<string, { tokens: IAccountToken[] }> =
       {};
     Object.entries(rawData?.allAggregateTokenMap ?? {}).forEach(
@@ -1924,6 +1957,69 @@ class ServiceToken extends ServiceBase {
         (token) => allAggregateTokenMap[token.$key]?.tokens.length,
       ),
     };
+  }
+
+  // Resolves the multi-chain group a token belongs to from the synced wallet
+  // config, so a Receive page entered with a single-network token (token
+  // details member tab, single-network mode) can offer the same network
+  // switch as the Receive token list. The config map is keyed by
+  // network + lowercased contract address, and native coins are stored under
+  // an empty address. A native coin whose token carries a spelled-out address
+  // (e.g. "uatom") therefore also tries the empty key; a contract token
+  // matches its own address only, or it would resolve to the group of the
+  // network's native coin. One raw read (the entity is uncached) and only the
+  // matched group is filtered by the network registry. Returns undefined when
+  // the config has not synced yet or the token is not part of any group.
+  @backgroundMethod()
+  public async findAggregateGroupByNetworkAndAddress({
+    networkId,
+    address,
+    isNative,
+  }: {
+    networkId: string;
+    address?: string;
+    isNative?: boolean;
+  }): Promise<
+    { aggregateToken: IAccountToken; members: IAccountToken[] } | undefined
+  > {
+    const rawData =
+      await this.backgroundApi.simpleDb.aggregateToken.getRawData();
+    const configMap = rawData?.aggregateTokenConfigMap ?? {};
+    const tokenAddress = address ?? '';
+    const candidateAddresses =
+      tokenAddress && isNative ? [tokenAddress, ''] : [tokenAddress];
+    const commonSymbol = candidateAddresses
+      .map(
+        (candidateAddress) =>
+          configMap[
+            buildAggregateTokenMapKeyForAggregateConfig({
+              networkId,
+              tokenAddress: candidateAddress,
+            })
+          ]?.commonSymbol,
+      )
+      .find(Boolean);
+    if (!commonSymbol) {
+      return undefined;
+    }
+    const groupKey = buildAggregateTokenListMapKeyForTokenList({
+      commonSymbol,
+    });
+    const aggregateToken = rawData?.allAggregateTokens?.find(
+      (token) => token.$key === groupKey,
+    );
+    const eligibleNetworkIds = await this._getAggregateEligibleNetworkIds();
+    const members = (
+      rawData?.allAggregateTokenMap?.[groupKey]?.tokens ?? []
+    ).filter(
+      (token) =>
+        !!token.networkId &&
+        (!eligibleNetworkIds || eligibleNetworkIds.has(token.networkId)),
+    );
+    if (!aggregateToken || members.length === 0) {
+      return undefined;
+    }
+    return { aggregateToken, members };
   }
 
   @backgroundMethod()

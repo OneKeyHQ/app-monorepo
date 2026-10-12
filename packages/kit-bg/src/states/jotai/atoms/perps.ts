@@ -29,6 +29,12 @@ import {
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { IUsdcWithdrawDestinationId } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
+import {
+  type ITradingViewNativeChartSettings,
+  type ITradingViewNativeIndicatorSettings,
+  createTradingViewNativeChartSettings,
+  createTradingViewNativeIndicatorSettings,
+} from '@onekeyhq/shared/types/tradingViewNative';
 import type {
   IUnifoldDepositExecution,
   IUnifoldExecutionStatus,
@@ -41,6 +47,24 @@ import { hyperLiquidAgentPasswordStatusAtom } from './passwordLock';
 
 import type { IPerpDynamicTab } from '../../../services/ServiceWebviewPerp/ServiceWebviewPerp';
 import type { IAccountDeriveTypes } from '../../../vaults/types';
+
+export const {
+  target: perpsTradingViewChartSettingsPersistAtom,
+  use: usePerpsTradingViewChartSettingsPersistAtom,
+} = globalAtom<ITradingViewNativeChartSettings>({
+  persist: true,
+  name: EAtomNames.perpsTradingViewChartSettingsPersistAtom,
+  initialValue: createTradingViewNativeChartSettings(),
+});
+
+export const {
+  target: perpsTradingViewIndicatorSettingsPersistAtom,
+  use: usePerpsTradingViewIndicatorSettingsPersistAtom,
+} = globalAtom<ITradingViewNativeIndicatorSettings>({
+  persist: true,
+  name: EAtomNames.perpsTradingViewIndicatorSettingsPersistAtom,
+  initialValue: createTradingViewNativeIndicatorSettings(),
+});
 
 // Shared by Market entries and Web Perps, including expanded extension windows.
 export const {
@@ -1131,6 +1155,7 @@ export interface IPerpsCustomSettings {
   showTradeMarks: boolean;
   showChartLines: boolean;
   chartPosition?: IPerpsChartPosition;
+  chartMode?: 'native' | 'tradingView';
   hideSmallSpotHoldings: boolean;
   lastTriggerOrderType: ETriggerOrderType;
   lastAdvancedOrderType?: IPerpsLastAdvancedOrderType;
@@ -1147,6 +1172,7 @@ export const {
     showTradeMarks: true,
     showChartLines: true,
     chartPosition: 'bottom',
+    chartMode: 'tradingView',
     hideSmallSpotHoldings: true,
     lastTriggerOrderType: ETriggerOrderType.TRIGGER_MARKET,
     lastAdvancedOrderType: ETriggerOrderType.TRIGGER_MARKET,
