@@ -402,6 +402,7 @@ describe('CheckAndUpdate post-update bootloader recovery', () => {
   it('does not expose recovery for a different device reporting bootloader mode', async () => {
     await startUpdateAttempt();
     mockGetFeatures.mockResolvedValue({
+      ...mockApplicationFeatures,
       bootloader_mode: true,
       device_id: 'other-device-id',
     });
