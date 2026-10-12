@@ -1,10 +1,17 @@
-import type { Ref } from 'react';
-
 import { useIntl } from 'react-intl';
 
-import { SizableText, XStack, YStack } from '@onekeyhq/components';
-import { InviteCodeStepImage } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferAFriend/components/InviteCodeStepImage';
-import type { IInviteCodeStepImageControl } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferAFriend/components/InviteCodeStepImage';
+import {
+  Image,
+  SizableText,
+  XStack,
+  YStack,
+  usePageWidth,
+} from '@onekeyhq/components';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import {
+  getInviteCodeStepImageHeight,
+  getInviteCodeStepImageWidth,
+} from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferAFriend/components/InviteCodeStepImage';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteLevelDetail } from '@onekeyhq/shared/src/referralCode/type';
 
@@ -22,28 +29,34 @@ import type { IInviteValueSummaryResult } from './InviteValueLine';
 export function InviteCompactHero({
   valueSummary,
   levelDetail,
-  animationControlRef,
   ...levelProps
 }: ICurrentLevelCardProps & {
   valueSummary: IInviteValueSummaryResult;
   levelDetail: IInviteLevelDetail | undefined;
-  // The page holds the illustration still while it cannot be seen.
-  animationControlRef?: Ref<IInviteCodeStepImageControl>;
 }) {
   const intl = useIntl();
+  const isDark = useThemeVariant() === 'dark';
+  const pageWidth = usePageWidth();
 
   return (
     <YStack ai="center" gap="$3">
-      {/* The intro's referral animation at page width: its frames swap one
-          hand for another across the whole canvas, so a narrower box leaves
-          half of it empty. It plays its three rounds once and holds a frame
-          with both hands in view. The illustration's background matches the
-          canvas, so it bleeds past the page padding unseen. */}
-      <InviteCodeStepImage
-        step={2}
-        controlRef={animationControlRef}
-        preloadOtherStep={false}
-        playOnce
+      {/* A still of the intro's referral animation (step 2, frame 324: its
+          settled frame, both hands in view; re-export it if that art
+          changes), so the page loads no Lottie. Sized like the
+          animation, at page width: its art spans the whole canvas. The
+          background is transparent, so it bleeds past the page padding
+          unseen. */}
+      <Image
+        testID={ReferFriendsTestIDs.inviteHeroImage}
+        w={getInviteCodeStepImageWidth(pageWidth)}
+        h={getInviteCodeStepImageHeight(pageWidth)}
+        alignSelf="center"
+        resizeMode="contain"
+        source={
+          isDark
+            ? require('@onekeyhq/kit/assets/referral_invite_hero_dark.png')
+            : require('@onekeyhq/kit/assets/referral_invite_hero.png')
+        }
       />
       <YStack ai="center" gap="$2">
         <SizableText size="$heading2xl" textAlign="center">
@@ -54,7 +67,9 @@ export function InviteCompactHero({
           testID={ReferFriendsTestIDs.inviteHeroRate}
           centered
         />
-        <XStack pt="$1">
+        {/* Far enough below the rate line that their touch areas (the
+            line's padding, the pill's slop) do not meet. */}
+        <XStack pt="$3">
           <InviteLevelPill {...levelProps} levelDetail={levelDetail} />
         </XStack>
       </YStack>

@@ -209,6 +209,9 @@ const DevSettingsAccordionTrigger = ({
         <XStack alignItems="center" gap="$1">
           {onTogglePin ? (
             <IconButton
+              // Accordion.Trigger renders a native <button> on web; render the
+              // pin control as a span to avoid invalid nested buttons.
+              render="span"
               icon={pinned ? 'StarSolid' : 'StarOutline'}
               size="small"
               variant="tertiary"
@@ -1047,23 +1050,6 @@ const BaseDevSettingsSection = () => {
                             ? ONEKEY_TEST_API_HOST
                             : ONEKEY_API_HOST
                         }
-                        onBeforeValueChange={async () => {
-                          try {
-                            await backgroundApiProxy.serviceNotification.unregisterClient();
-                          } catch (error) {
-                            console.error(error);
-                          }
-                        }}
-                        onValueChange={async (enabled: boolean) => {
-                          if (platformEnv.isDesktop) {
-                            await globalThis.desktopApiProxy?.appUpdate?.useTestUpdateFeedUrl?.(
-                              enabled,
-                            );
-                          }
-                          setTimeout(() => {
-                            void backgroundApiProxy.serviceApp.restartApp();
-                          }, 300);
-                        }}
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>

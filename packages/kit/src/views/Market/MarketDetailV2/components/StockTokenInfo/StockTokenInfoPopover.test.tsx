@@ -2,12 +2,14 @@
 
 import type { ReactNode } from 'react';
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import type { IMarketStockTokenVariant } from '@onekeyhq/shared/types/marketV2';
 
 import { StockTokenInfoPopover } from './StockTokenInfoPopover';
 
+const mockClosePopover = jest.fn();
+const mockOpenUrlExternal = jest.fn();
 const useStockDetailMock = jest.fn<
   { selectedTokenVariant: IMarketStockTokenVariant; stockId: string },
   []
@@ -17,10 +19,19 @@ jest.mock('@onekeyhq/components', () => {
   const Stack = ({
     children,
     testID,
+    onPress,
   }: {
     children?: ReactNode;
     testID?: string;
-  }) => <div data-testid={testID}>{children}</div>;
+    onPress?: () => void;
+  }) =>
+    onPress ? (
+      <button type="button" data-testid={testID} onClick={onPress}>
+        {children}
+      </button>
+    ) : (
+      <div data-testid={testID}>{children}</div>
+    );
   return {
     Icon: Stack,
     IconButton: Stack,
@@ -29,8 +40,12 @@ jest.mock('@onekeyhq/components', () => {
     Stack,
     XStack: Stack,
     YStack: Stack,
-    Popover: ({ renderContent }: { renderContent: () => ReactNode }) =>
-      renderContent(),
+    Popover: ({
+      renderContent,
+    }: {
+      renderContent: (props: unknown) => ReactNode;
+    }) => renderContent({ closePopover: mockClosePopover }),
+    usePopoverContext: () => ({ closePopover: mockClosePopover }),
     useClipboard: () => ({ copyText: jest.fn() }),
   };
 });
@@ -44,7 +59,9 @@ jest.mock('@onekeyhq/shared/src/utils/accountUtils', () => ({
   default: { shortenAddress: ({ address }: { address: string }) => address },
 }));
 jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
-  openUrlExternal: jest.fn(),
+  openUrlExternal: (...args: unknown[]) => {
+    mockOpenUrlExternal(...args);
+  },
 }));
 jest.mock('../../hooks/StockDetailContext', () => ({
   useStockDetail: () => useStockDetailMock(),
@@ -70,6 +87,11 @@ const variant: IMarketStockTokenVariant = {
   status: 'active',
   tradingEnabled: true,
 };
+
+beforeEach(() => {
+  mockClosePopover.mockReset();
+  mockOpenUrlExternal.mockReset();
+});
 
 describe('StockTokenInfoPopover shares', () => {
   it.each([undefined, '', '  ', '0', '-1', 'NaN', 'Infinity', 'invalid'])(
@@ -103,4 +125,31 @@ describe('StockTokenInfoPopover shares', () => {
       ).toContain(`${ratio.trim()} AAPL`);
     },
   );
+});
+
+describe('StockTokenInfoPopover issuer link', () => {
+  it('closes the popover before opening the issuer website', async () => {
+    const interactionOrder: string[] = [];
+    mockClosePopover.mockImplementation(async () => {
+      interactionOrder.push('close');
+    });
+    mockOpenUrlExternal.mockImplementation(() => {
+      interactionOrder.push('open');
+    });
+    useStockDetailMock.mockReturnValue({
+      selectedTokenVariant: {
+        ...variant,
+        website: 'https://ondo.finance',
+      },
+      stockId: 'AAPL',
+    });
+
+    render(<StockTokenInfoPopover label="$319.97" />);
+    fireEvent.click(screen.getByTestId('stock-token-info-issuer-link'));
+
+    await waitFor(() => {
+      expect(mockOpenUrlExternal).toHaveBeenCalledWith('https://ondo.finance');
+    });
+    expect(interactionOrder).toEqual(['close', 'open']);
+  });
 });
