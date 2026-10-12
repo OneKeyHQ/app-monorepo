@@ -407,6 +407,15 @@ describe('HomePageView complete header authority', () => {
     return Stub;
   };
 
+  const awareScrollView = host('AwareScrollView');
+  const parentPlatform = {
+    isNative: true,
+    isNativeAndroid: true,
+    isNativeIOS: false,
+  };
+  let walletBackedUp = true;
+  let refreshModule: typeof import('../components/PullToRefresh');
+
   beforeAll(() => {
     // Keep React shared with the renderer while isolating the parent module's
     // business providers. Header callbacks and the native pager stay real.
@@ -432,7 +441,7 @@ describe('HomePageView complete header authority', () => {
             Body: host('Page.Body'),
             Container: host('Page.Container'),
           }),
-          Keyboard: { AwareScrollView: host('AwareScrollView') },
+          Keyboard: { AwareScrollView: awareScrollView },
           Icon: Object.assign(host('Icon'), { prefetch: noop }),
           useScrollContentTabBarOffset: () => 48,
           useMedia: () => ({ md: true }),
@@ -464,7 +473,7 @@ describe('HomePageView complete header authority', () => {
           WALLET_TYPE_WATCHING: 'watch',
         },
         '@onekeyhq/shared/src/platformEnv': {
-          default: { isNative: true, isNativeAndroid: true },
+          default: parentPlatform,
           __esModule: true,
         },
         '@onekeyhq/shared/src/locale': {
@@ -511,7 +520,7 @@ describe('HomePageView complete header authority', () => {
           useActiveAccount: () => ({
             activeAccount: {
               ready: true,
-              wallet: { id: 'test-hd', type: 'hd', backuped: true },
+              wallet: { id: 'test-hd', type: 'hd', backuped: walletBackedUp },
               account: { id: 'test-account' },
               network: { id: 'test-network' },
             },
@@ -620,6 +629,12 @@ describe('HomePageView complete header authority', () => {
               },
             ),
         );
+      jest.doMock('../components/PullToRefresh', () => {
+        refreshModule = jest.requireActual<
+          typeof import('../components/PullToRefresh')
+        >('../components/PullToRefresh');
+        return refreshModule;
+      });
       HomePage =
         jest.requireActual<typeof import('./HomePageView')>(
           './HomePageView',
@@ -628,6 +643,12 @@ describe('HomePageView complete header authority', () => {
   });
   beforeEach(() => {
     mockRenderParentHeader = true;
+    Object.assign(parentPlatform, {
+      isNative: true,
+      isNativeAndroid: true,
+      isNativeIOS: false,
+    });
+    walletBackedUp = true;
     measurements.length = 0;
     onFullLayout = undefined;
   });
@@ -646,6 +667,46 @@ describe('HomePageView complete header authority', () => {
         }),
       },
     );
+
+  it.each(['ios', 'android', 'web'] as const)(
+    'uses the native refresh control for an unbacked wallet on %s',
+    (platform) => {
+      Object.assign(parentPlatform, {
+        isNative: platform !== 'web',
+        isNativeAndroid: platform === 'android',
+        isNativeIOS: platform === 'ios',
+      });
+      walletBackedUp = false;
+      const screen = renderParent();
+      const scroll = screen.UNSAFE_getByType(awareScrollView);
+      expect(scroll.props.nestedScrollEnabled).toBe(platform === 'android');
+      if (platform === 'web') {
+        expect(scroll.props.refreshControl).toBeUndefined();
+      } else {
+        expect(scroll.props.refreshControl).toBeDefined();
+        expect(scroll.props.refreshControl.type).toBe(
+          refreshModule.PullToRefresh,
+        );
+        expect(scroll.props.refreshControl.props.onRefresh).toBe(
+          refreshModule.onHomePageRefresh,
+        );
+      }
+    },
+  );
+
+  it.each(['ios', 'android'] as const)(
+    'keeps the native pager for a backed wallet on %s',
+    (platform) => {
+      Object.assign(parentPlatform, {
+        isNative: true,
+        isNativeAndroid: platform === 'android',
+        isNativeIOS: platform === 'ios',
+      });
+      const screen = renderParent();
+      expect(screen.UNSAFE_queryByType(awareScrollView)).toBeNull();
+      expect(screen.UNSAFE_getByType(HomeNativePager)).toBeTruthy();
+    },
+  );
 
   it('keeps a complete fractional measurement when the inner layout arrives later', () => {
     renderParent();

@@ -77,6 +77,35 @@ const row = (tx: IAccountHistoryTx, tableLayout = true, isUTXO = true) =>
   }).row;
 
 describe('Home native history financial display parity', () => {
+  it.each([true, false])(
+    'marks failed and dropped rows in table layout %s',
+    (tableLayout) => {
+      for (const status of [
+        EDecodedTxStatus.Failed,
+        EDecodedTxStatus.Dropped,
+        EDecodedTxStatus.Confirmed,
+      ]) {
+        const tx = history([transfer('7')], []);
+        tx.decodedTx.status = status;
+        const result = row(tx, tableLayout);
+        expect(result.disabled).not.toBe(true);
+        expect(result.key).toBe('tx');
+        expect(result.presentation).toBe(tableLayout ? 'table' : 'stacked');
+        expect(result.badges).toEqual(
+          status === EDecodedTxStatus.Confirmed
+            ? []
+            : [
+                {
+                  key: 'failed',
+                  text: ETranslations.global_failed,
+                  tone: 'danger',
+                },
+              ],
+        );
+      }
+    },
+  );
+
   it('keeps a pure UTXO send amount instead of substituting nativeAmount', () => {
     expect(row(history([transfer('7')], [])).amounts[0].text).toContain('7');
   });

@@ -477,7 +477,7 @@ function buildHistoryActivityRowUnchecked({
       ),
       tone: 'info',
     });
-  if (status === EDecodedTxStatus.Failed)
+  if (status === EDecodedTxStatus.Failed || status === EDecodedTxStatus.Dropped)
     badges.push({
       key: 'failed',
       text: label(ETranslations.global_failed),

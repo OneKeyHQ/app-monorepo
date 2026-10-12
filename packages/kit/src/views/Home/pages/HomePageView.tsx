@@ -1089,7 +1089,7 @@ export function HomePageView({
           style={{ flex: 1 }}
           nestedScrollEnabled={platformEnv.isNativeAndroid}
           refreshControl={
-            platformEnv.isNativeAndroid ? (
+            platformEnv.isNative ? (
               <PullToRefresh onRefresh={onHomePageRefresh} />
             ) : undefined
           }
