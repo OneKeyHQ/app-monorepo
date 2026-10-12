@@ -211,7 +211,7 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
     expect(mockToastMessage).toHaveBeenCalledTimes(1);
     expect(mockToastMessage).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: 'Bulk send: no free uses left this month',
+        title: '批量转账：本月免费次数已用完',
         actions: expect.anything(),
       }),
     );
@@ -476,7 +476,7 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
     expect(mockPushFullModal).not.toHaveBeenCalled();
     expect(mockToastMessage).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: 'Bulk send: previous use not finished',
+        title: '批量转账：上次使用尚未结束',
       }),
     );
   });
@@ -506,6 +506,60 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
         }),
       ).resolves.toEqual({ granted: false });
     });
+    expect(dashboardReason()).toBe('notOpen');
+  });
+
+  it('lets a logged-in user with no uses left into the page on entry', async () => {
+    setSnapshot(quotaWith(0));
+    const result = renderAccessHook();
+
+    await act(async () => {
+      await expect(
+        result.current.ensureFeatureAccess({
+          featureId: EPrimeFeatures.BulkSend,
+          deferQuotaCheck: true,
+        }),
+      ).resolves.toEqual({ granted: true, entitlementSource: 'freeTrial' });
+    });
+    expect(mockRefreshQuota).not.toHaveBeenCalled();
+    expect(mockToastMessage).not.toHaveBeenCalled();
+    expect(mockPushFullModal).not.toHaveBeenCalled();
+    expect(mockDialogLoading).not.toHaveBeenCalled();
+  });
+
+  it('still asks to log in on entry, then lets the user in without a quota check', async () => {
+    mockIsLoggedIn.mockResolvedValueOnce(false).mockResolvedValue(true);
+    mockLoginOneKeyId.mockResolvedValue(undefined);
+    mockRefreshQuota.mockResolvedValue(quotaWith(0));
+    const result = renderAccessHook();
+
+    await act(async () => {
+      await expect(
+        result.current.ensureFeatureAccess({
+          featureId: EPrimeFeatures.BulkSend,
+          deferQuotaCheck: true,
+        }),
+      ).resolves.toEqual({ granted: true, entitlementSource: 'freeTrial' });
+    });
+    expect(mockLoginOneKeyId).toHaveBeenCalledTimes(1);
+    expect(mockRefreshQuota).not.toHaveBeenCalled();
+    expect(mockToastMessage).not.toHaveBeenCalled();
+  });
+
+  it('still opens the dashboard on entry when the trial is not open', async () => {
+    mockIsLoggedIn.mockResolvedValue(false);
+    mockGetPublicConfig.mockResolvedValue({ enabled: false, features: [] });
+    const result = renderAccessHook();
+
+    await act(async () => {
+      await expect(
+        result.current.ensureFeatureAccess({
+          featureId: EPrimeFeatures.BulkSend,
+          deferQuotaCheck: true,
+        }),
+      ).resolves.toEqual({ granted: false });
+    });
+    expect(mockLoginOneKeyId).not.toHaveBeenCalled();
     expect(dashboardReason()).toBe('notOpen');
   });
 });

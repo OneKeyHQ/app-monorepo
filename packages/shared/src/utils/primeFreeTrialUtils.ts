@@ -1,12 +1,11 @@
-import { format as fnsFormat } from 'date-fns';
-
 import {
   PRIME_FREE_TRIAL_NOT_OPEN_CODE,
   PRIME_FREE_TRIAL_QUOTA_EXHAUSTED_CODE,
   isPrimeFreeTrialFeatureId,
 } from '../../types/prime/primeFreeTrialTypes';
 import { OneKeyLocalError } from '../errors';
-import { DateLocaleMap } from '../locale/dateLocaleMap';
+
+import { formatDateFns } from './dateUtils';
 
 import type {
   IPrimeFreeTrialError,
@@ -62,26 +61,22 @@ export function getPrimeFreeTrialFeatureQuota({
   return quota?.features?.find((item) => item.featureId === featureId);
 }
 
-// Free-trial times are shown in a fixed English format (the free-trial copy
-// is hard-coded English), in the user's local time zone.
+// Free-trial times follow the app language (date-fns localized patterns, as
+// the Prime expiry date does), in the user's local time zone.
 function formatPrimeFreeTrialTime(time: number | undefined, pattern: string) {
   if (!time || !Number.isFinite(time)) {
     return undefined;
   }
-  try {
-    return fnsFormat(new Date(time), pattern, {
-      locale: DateLocaleMap['en-US'],
-    });
-  } catch {
-    return undefined;
-  }
+  const text = formatDateFns(new Date(time), pattern);
+  // formatDateFns returns '-' when formatting fails.
+  return text === '-' ? undefined : text;
 }
 
 export function formatPrimeFreeTrialResetDate(resetAt: number | undefined) {
-  return formatPrimeFreeTrialTime(resetAt, 'MMM d, HH:mm');
+  return formatPrimeFreeTrialTime(resetAt, 'PPp');
 }
 
 // A reservation ends at most 30 minutes later, so the time alone is enough.
 export function formatPrimeFreeTrialReservationEnd(end: number | undefined) {
-  return formatPrimeFreeTrialTime(end, 'HH:mm');
+  return formatPrimeFreeTrialTime(end, 'p');
 }

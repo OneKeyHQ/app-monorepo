@@ -298,7 +298,12 @@ export function useWebViewTranslate({
   // Electron fires did-finish-load / did-stop-loading / did-fail-load for the
   // same navigation; WebContent.desktop binds all three to the same callback,
   // so notifyTabNavigationEnd arrives multiple times. Consume once per nav.
-  const navEndConsumedRef = useRef(false);
+  // did-stop-loading / did-fail-load also fire for child frames (iframes)
+  // with no navigation of the page, so only the first end after a main-frame
+  // navigation counts, whether or not the tab was translating at that time.
+  // A stray end restarting the session would leave the page's script on the
+  // old session while the app tracks the new one.
+  const navEndConsumedRef = useRef(true);
   // Hold via ref so callers don't have to memoize the callback; otherwise a
   // fresh inline lambda would invalidate the downstream memo chain and
   // re-register nav handlers on every render.
@@ -684,10 +689,10 @@ export function useWebViewTranslate({
   useEffect(() => {
     onTabNavigationEnd(tabId, () => {
       if (navEndConsumedRef.current) return;
+      navEndConsumedRef.current = true;
       if (!translatingRef.current) return;
       const nextTargetLang = targetLangRef.current;
       if (!nextTargetLang) return;
-      navEndConsumedRef.current = true;
       // Fresh page — nothing to restore. Skip the bogus restore inject that
       // startTranslate would otherwise fire via its re-entry path.
       translatingRef.current = false;

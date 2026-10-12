@@ -19,8 +19,8 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { useWebViewTranslate } from '@onekeyhq/kit/src/components/WebView/useWebViewTranslate';
 import type { IFreeTrialTranslateStopPayload } from '@onekeyhq/kit/src/components/WebView/useWebViewTranslate';
-import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { DiscoveryTestIDs } from '@onekeyhq/kit/src/views/Discovery/testIDs';
+import { PrimeFreeTrialRemainingHint } from '@onekeyhq/kit/src/views/Prime/components/PrimeFreeTrialRemainingHint';
 import {
   isPrimeFreeTrialTravelMode,
   usePrimeFeatureAccess,
@@ -288,6 +288,7 @@ export function TranslatePopoverContent({
   const { isPrimeActive, isPrimeSubscriptionActive, isLoggedIn } =
     useOneKeyAuth();
   const isPrimeUser = Boolean(isPrimeSubscriptionActive);
+  const showPrimeBadge = !isTranslated && !isPrimeUser;
 
   // Mounted only while the popover is open (on every platform): refresh the
   // free quota so the "Translate" press below can judge an exhausted quota.
@@ -301,7 +302,6 @@ export function TranslatePopoverContent({
     // Only on open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const themeVariant = useThemeVariant();
   const targetLanguageLabel = useTargetLanguageLabel();
   const isNative = platformEnv.isNative;
   const actionButtonSize = isNative ? 'large' : 'medium';
@@ -314,10 +314,15 @@ export function TranslatePopoverContent({
     settingsContentPaddingTop = '$2';
   }
 
+  // Let the popover close before a page opens above it.
+  const closePopoverBeforeNavigation = useCallback(async () => {
+    closePopover();
+    await timerUtils.wait(150);
+  }, [closePopover]);
+
   const handleAction = useCallback(async () => {
     if (!isTranslated && !isPrimeUser) {
-      closePopover();
-      await timerUtils.wait(150);
+      await closePopoverBeforeNavigation();
       defaultLogger.prime.subscription.primeEntryClick({
         featureName: EPrimeFeatures.DAppTranslate,
         entryPoint: 'browserTranslate',
@@ -330,7 +335,14 @@ export function TranslatePopoverContent({
     }
     onTranslate();
     closePopover();
-  }, [closePopover, isPrimeActive, isPrimeUser, isTranslated, onTranslate]);
+  }, [
+    closePopover,
+    closePopoverBeforeNavigation,
+    isPrimeActive,
+    isPrimeUser,
+    isTranslated,
+    onTranslate,
+  ]);
 
   const handleRetranslatePress = useCallback(() => {
     onRetranslate?.();
@@ -385,7 +397,7 @@ export function TranslatePopoverContent({
           onPress={() => onShowSettingsChange(true)}
         />
       </XStack>
-      <Stack overflow="visible">
+      <YStack gap="$3">
         <XStack gap="$2" alignItems="center">
           <Button
             flex={1}
@@ -393,12 +405,33 @@ export function TranslatePopoverContent({
             size={actionButtonSize}
             onPress={handleAction}
             testID="discovery-btn"
+            // The Prime badge sits inline after the label.
+            childrenAsText={false}
           >
-            {intl.formatMessage({
-              id: isTranslated
-                ? ETranslations.browser_restore_original
-                : ETranslations.browser_translate_start,
-            })}
+            <SizableText size="$bodyLgMedium" color="$textInverse">
+              {intl.formatMessage({
+                id: isTranslated
+                  ? ETranslations.browser_restore_original
+                  : ETranslations.browser_translate_start,
+              })}
+            </SizableText>
+            {showPrimeBadge ? (
+              <Badge
+                testID="discovery-translate-prime-badge"
+                badgeSize="sm"
+                ml="$2"
+                // Translucent inverse tones read on the primary button in both
+                // themes.
+                bg="$bgInverseHover"
+                borderRadius="$full"
+              >
+                <Badge.Text color="$textInverseSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.prime_status_prime,
+                  })}
+                </Badge.Text>
+              </Badge>
+            ) : null}
           </Button>
           {isTranslated && onRetranslate ? (
             <IconButton
@@ -411,25 +444,13 @@ export function TranslatePopoverContent({
             />
           ) : null}
         </XStack>
-        {!isTranslated && !isPrimeUser ? (
-          <Stack position="absolute" right={-4} top={-8}>
-            <Badge
-              badgeSize="sm"
-              badgeType="default"
-              bg={themeVariant === 'light' ? '#F1F1F1' : '#3A3A3A'}
-              borderRadius="$full"
-              borderWidth="$px"
-              borderColor="$bgApp"
-            >
-              <Badge.Text size="$bodySmMedium">
-                {intl.formatMessage({
-                  id: ETranslations.prime_status_prime,
-                })}
-              </Badge.Text>
-            </Badge>
-          </Stack>
-        ) : null}
-      </Stack>
+        {/* Also shown while translated: the page keeps using the quota. */}
+        <PrimeFreeTrialRemainingHint
+          featureId={EPrimeFeatures.DAppTranslate}
+          justifyContent="center"
+          beforeGetPrime={closePopoverBeforeNavigation}
+        />
+      </YStack>
     </YStack>
   );
 }
@@ -479,6 +500,8 @@ export function TranslatePopoverTrigger({
           variant="tertiary"
           size={size}
           icon={isTranslated ? 'TranslateSolid' : 'TranslateOutline'}
+          // Highlighted while the page is in translate mode.
+          iconProps={isTranslated ? { color: '$iconSuccess' } : undefined}
           testID="browser-bar-translate"
         />
       }
@@ -531,11 +554,16 @@ export function usePageTranslation(tabId: string) {
   const { showQuotaExhaustedToast, openPrimeDashboard } =
     usePrimeFeatureAccess();
   // A running session hit the free-trial limit (or the trial was closed):
-  // the session was already stopped with the billed translations kept. Only
-  // this tab is switched off; no automatic jump to the dashboard.
+  // the session was already stopped with the billed translations kept. No
+  // automatic jump to the dashboard.
+  // Fixed toast ids, not per session: tabs translating at the same time run
+  // out together, and Toast skips an id that is still shown, so they show a
+  // single toast.
   const handleFreeTrialUnavailable = useCallback(
-    ({ freeTrialError, sessionId }: IFreeTrialTranslateStopPayload) => {
-      setIsTranslated(false);
+    ({ freeTrialError }: IFreeTrialTranslateStopPayload) => {
+      // Paused, not ended: the page keeps its translations and stays in
+      // translate mode, so "Show original" still restores it. New content is
+      // no longer translated, and opening another page leaves the mode.
       if (freeTrialError.code === PRIME_FREE_TRIAL_QUOTA_EXHAUSTED_CODE) {
         defaultLogger.prime.subscription.primeFreeTrialQuotaExhausted({
           featureName: EPrimeFeatures.DAppTranslate,
@@ -545,12 +573,12 @@ export function usePageTranslation(tabId: string) {
         showQuotaExhaustedToast({
           featureId: EPrimeFeatures.DAppTranslate,
           resetAt: freeTrialError.data.resetAt,
-          toastId: `discovery-free-trial-exhausted-${sessionId}`,
+          toastId: 'discovery-free-trial-exhausted',
         });
         return;
       }
       Toast.message({
-        toastId: `discovery-free-trial-not-open-${sessionId}`,
+        toastId: 'discovery-free-trial-not-open',
         title: PRIME_FREE_TRIAL_COPY.translateNoLongerAvailableTitle,
         actionsAlign: 'left',
         actions: (
@@ -578,7 +606,7 @@ export function usePageTranslation(tabId: string) {
     [openPrimeDashboard, showQuotaExhaustedToast],
   );
 
-  const { startTranslate, restoreOriginal, toggleTranslate, translatingRef } =
+  const { startTranslate, restoreOriginal, translatingRef } =
     useWebViewTranslate({
       tabId,
       onNavigate,
@@ -706,29 +734,44 @@ export function usePageTranslation(tabId: string) {
   ]);
 
   const handleTranslate = useCallback(() => {
-    const willTranslate = !translatingRef.current;
+    // Decided by the translate mode shown, not translatingRef: a page paused
+    // at the free-trial limit is still in translate mode, and the press
+    // restores the original.
+    const willTranslate = !isTranslatedRef.current;
     void (async () => {
-      if (willTranslate && !(await ensureTranslateAccess())) {
-        return;
+      if (willTranslate) {
+        if (!(await ensureTranslateAccess())) {
+          return;
+        }
+        startTranslate(resolvedTargetLang);
+      } else {
+        restoreOriginal();
       }
-      toggleTranslate(resolvedTargetLang);
       setIsTranslated(willTranslate);
       logToggle(willTranslate ? 'enable' : 'disable');
     })();
   }, [
     ensureTranslateAccess,
-    toggleTranslate,
-    translatingRef,
+    startTranslate,
+    restoreOriginal,
     resolvedTargetLang,
     logToggle,
   ]);
 
   const handleRetranslate = useCallback(() => {
-    restoreOriginal();
-    startTranslate(resolvedTargetLang, settings.engine);
-    setIsTranslated(true);
-    logToggle('enable');
+    void (async () => {
+      // Checked first: retranslating restores the original, so a page paused
+      // at the free-trial limit would lose its translations for nothing.
+      if (!(await ensureTranslateAccess())) {
+        return;
+      }
+      restoreOriginal();
+      startTranslate(resolvedTargetLang, settings.engine);
+      setIsTranslated(true);
+      logToggle('enable');
+    })();
   }, [
+    ensureTranslateAccess,
     restoreOriginal,
     startTranslate,
     resolvedTargetLang,

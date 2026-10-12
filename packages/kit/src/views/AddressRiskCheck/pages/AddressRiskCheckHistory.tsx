@@ -17,21 +17,22 @@ import { RecentCheckItem } from '../components/RecentCheckItem';
 import { useCheckAddressRisk } from '../hooks/useCheckAddressRisk';
 import { useRecentChecks } from '../hooks/useRecentChecks';
 
-// Page-level Prime gate: the history is a Prime benefit, also when the
-// route is opened directly. Free-trial users are sent to the dashboard.
+// Page-level gate: the history needs a OneKey ID login (Prime or free trial),
+// also when the route is opened directly. Logged-out users are sent to the
+// dashboard.
 function useAddressRiskCheckHistoryAccess() {
   const navigation = useAppNavigation();
-  const { isPrimeSubscriptionActive } = useOneKeyAuth();
+  const { isLoggedIn } = useOneKeyAuth();
   const { openPrimeDashboard } = usePrimeFeatureAccess();
   const checkedRef = useRef(false);
   useEffect(() => {
-    if (checkedRef.current || isPrimeSubscriptionActive) {
+    if (checkedRef.current || isLoggedIn) {
       return;
     }
     checkedRef.current = true;
     void (async () => {
       // The local projection may lag on a cold start.
-      if (await backgroundApiProxy.servicePrime.isPrimeSubscriptionActive()) {
+      if (await backgroundApiProxy.servicePrime.isLoggedIn()) {
         return;
       }
       navigation.pop();
@@ -44,7 +45,7 @@ function useAddressRiskCheckHistoryAccess() {
     // Runs once on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  return Boolean(isPrimeSubscriptionActive);
+  return Boolean(isLoggedIn);
 }
 
 function AddressRiskCheckHistory() {
@@ -55,7 +56,7 @@ function AddressRiskCheckHistory() {
 
   const handlePress = useCallback(
     (item: IAddressRiskCheckRecentItem) => {
-      void checkRisk({
+      checkRisk({
         networkId: item.networkId,
         address: item.address,
         entryPoint: 'historyList',

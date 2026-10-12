@@ -48,6 +48,7 @@ import type {
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { PrimeFreeTrialRemainingHint } from '../../../Prime/components/PrimeFreeTrialRemainingHint';
+import { usePrimeFeatureAccess } from '../../../Prime/hooks/usePrimeFeatureAccess';
 import BulkSendBar from '../../components/BulkSendBar';
 import BulkSendContentWrapper from '../../components/BulkSendContentWrapper';
 import BulkSendHeader from '../../components/BulkSendHeader';
@@ -656,7 +657,39 @@ function BaseBulkSendAddressesInput({
     intl,
   ]);
 
+  const { ensureFeatureAccess } = usePrimeFeatureAccess();
+  const [isCheckingAccess, setIsCheckingAccess] = useState(false);
+  const isCheckingAccessRef = useRef(false);
+  // The entry lets a free user in whatever the quota, so "Next" checks it:
+  // a user without uses left gets the exhausted toast before filling in the
+  // amounts. Start on the Review page stays the final judge.
+  const checkBulkSendAccess = useCallback(async () => {
+    if (platformEnv.isE2E) {
+      return true;
+    }
+    if (isCheckingAccessRef.current) {
+      return false;
+    }
+    isCheckingAccessRef.current = true;
+    setIsCheckingAccess(true);
+    try {
+      const access = await ensureFeatureAccess({
+        featureId: EPrimeFeatures.BulkSend,
+        networkId: selectedNetworkId,
+        // The Next button shows its loading.
+        showLoading: false,
+      });
+      return access.granted;
+    } finally {
+      isCheckingAccessRef.current = false;
+      setIsCheckingAccess(false);
+    }
+  }, [ensureFeatureAccess, selectedNetworkId]);
+
   const handleSubmit = useCallback(async () => {
+    if (!(await checkBulkSendAccess())) {
+      return;
+    }
     if (duplicateAddressCount > 0) {
       Dialog.show({
         icon: 'InfoCircleOutline',
@@ -680,7 +713,7 @@ function BaseBulkSendAddressesInput({
       return;
     }
     await navigateToNextStep();
-  }, [duplicateAddressCount, intl, navigateToNextStep]);
+  }, [checkBulkSendAccess, duplicateAddressCount, intl, navigateToNextStep]);
 
   const formSkeleton = useMemo(
     () => (
@@ -726,10 +759,6 @@ function BaseBulkSendAddressesInput({
           <BulkSendHeader
             bulkSendMode={bulkSendMode}
             onChangeBulkSendMode={handleChangeBulkSendMode}
-          />
-          <PrimeFreeTrialRemainingHint
-            featureId={EPrimeFeatures.BulkSend}
-            mb="$4"
           />
           <YStack gap="$6" $gtMd={{ gap: '$8' }}>
             <AssetSelectorTrigger
@@ -777,14 +806,24 @@ function BaseBulkSendAddressesInput({
         >
           <Page.FooterActions
             px="$0"
+            gap="$3"
+            // A column on wide screens too, so the hint sits above the button.
+            $gtMd={{ flexDirection: 'column', alignItems: 'flex-end' }}
             onConfirmText={intl.formatMessage({
               id: ETranslations.wallet_bulk_send_btn_next,
             })}
             confirmButtonProps={{
               onPress: handleSubmit,
-              disabled: isSubmitDisabled,
+              loading: isCheckingAccess,
+              disabled: isSubmitDisabled || isCheckingAccess,
             }}
-          />
+          >
+            <PrimeFreeTrialRemainingHint
+              featureId={EPrimeFeatures.BulkSend}
+              networkId={selectedNetworkId}
+              $md={{ alignSelf: 'center' }}
+            />
+          </Page.FooterActions>
         </BulkSendContentWrapper>
       </Page.Footer>
     </Page>

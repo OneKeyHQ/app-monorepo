@@ -415,10 +415,13 @@ function SendDataInputContainer() {
   const addressRiskCheckAccessStatus = getCachedAccess(
     EPrimeFeatures.AddressRiskCheck,
   ).status;
+  // A logged-in free user with no uses left also presses to check (the press
+  // shows the exhausted toast), so the button waits for an address as well.
   const canRunAddressRiskCheck =
     isPrimeUser ||
     (!isPrimeFreeTrialTravelMode() &&
-      addressRiskCheckAccessStatus === 'available');
+      (addressRiskCheckAccessStatus === 'available' ||
+        addressRiskCheckAccessStatus === 'exhausted'));
   addressRiskContextRef.current = {
     networkId: currentAccount.networkId,
     address: toResolved,
@@ -480,6 +483,7 @@ function SendDataInputContainer() {
     const checkedContext = {
       networkId: contextAtPress.networkId,
       address: contextAtPress.address,
+      entryPoint: 'sendAddressInput' as const,
     };
     navigation.pushModal(EModalRoutes.AddressRiskCheckModal, {
       screen: EModalAddressRiskCheckRoutes.AddressRiskCheckResult,

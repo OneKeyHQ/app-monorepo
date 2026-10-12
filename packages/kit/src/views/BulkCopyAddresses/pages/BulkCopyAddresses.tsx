@@ -1100,9 +1100,6 @@ function BulkCopyAddresses({
       />
       <Page.Body px="$5">
         <YStack gap="$5">
-          <PrimeFreeTrialRemainingHint
-            featureId={EPrimeFeatures.BulkCopyAddresses}
-          />
           <Form form={form}>
             <Form.Field
               name="selectedWalletId"
@@ -1219,78 +1216,84 @@ function BulkCopyAddresses({
         </YStack>
       </Page.Body>
       <Page.Footer>
-        <YStack
-          p="$5"
-          bg="$bgApp"
-          alignItems="center"
-          justifyContent="space-between"
-          flexDirection="row-reverse"
-          $md={{
-            flexDirection: 'column',
-            gap: '$5',
-            justifyContent: 'center',
-          }}
-        >
-          <Button
-            testID={BulkCopyAddressesTestIDs.exportBtn}
-            variant="primary"
-            size="medium"
-            onPress={() =>
-              handleExportAddresses({
-                exportWithoutDevice: false,
-              })
-            }
+        <YStack p="$5" bg="$bgApp" gap="$3">
+          <PrimeFreeTrialRemainingHint
+            featureId={EPrimeFeatures.BulkCopyAddresses}
+            networkId={selectedNetworkId}
+            alignSelf="flex-end"
+            $md={{ alignSelf: 'center' }}
+          />
+          <YStack
+            alignItems="center"
+            justifyContent="space-between"
+            flexDirection="row-reverse"
             $md={{
-              width: '100%',
-              size: 'large',
+              flexDirection: 'column',
+              gap: '$5',
+              justifyContent: 'center',
             }}
-            loading={isLoading}
-            disabled={isDisabled}
           >
-            {intl.formatMessage({
-              id: isHwWallet
-                ? ETranslations.global_action_verify_and_export
-                : ETranslations.global_export,
-            })}
-          </Button>
-          {isHwWallet && copyType === EBulkCopyType.Account ? (
             <Button
-              testID={BulkCopyAddressesTestIDs.exportWithoutDeviceBtn}
+              testID={BulkCopyAddressesTestIDs.exportBtn}
+              variant="primary"
               size="medium"
-              variant="tertiary"
-              disabled={isDisabled}
+              onPress={() =>
+                handleExportAddresses({
+                  exportWithoutDevice: false,
+                })
+              }
               $md={{
                 width: '100%',
+                size: 'large',
               }}
-              onPress={() => {
-                Dialog.confirm({
-                  icon: 'ErrorOutline',
-                  tone: 'warning',
-                  title: intl.formatMessage({
-                    id: ETranslations.global_receive_address_confirmation,
-                  }),
-                  description: intl.formatMessage({
-                    id: ETranslations.global_receive_address_confirmation_desc,
-                  }),
-                  onConfirmText: intl.formatMessage({
-                    id: ETranslations.global_receive_address_confirmation_button,
-                  }),
-                  onConfirm: () => {
-                    void handleExportAddresses({
-                      exportWithoutDevice: true,
-                    });
-                  },
-                  confirmButtonProps: {
-                    variant: 'secondary',
-                  },
-                });
-              }}
+              loading={isLoading}
+              disabled={isDisabled}
             >
               {intl.formatMessage({
-                id: ETranslations.global_bulk_copy_addresses_action_export_without_device,
+                id: isHwWallet
+                  ? ETranslations.global_action_verify_and_export
+                  : ETranslations.global_export,
               })}
             </Button>
-          ) : null}
+            {isHwWallet && copyType === EBulkCopyType.Account ? (
+              <Button
+                testID={BulkCopyAddressesTestIDs.exportWithoutDeviceBtn}
+                size="medium"
+                variant="tertiary"
+                disabled={isDisabled}
+                $md={{
+                  width: '100%',
+                }}
+                onPress={() => {
+                  Dialog.confirm({
+                    icon: 'ErrorOutline',
+                    tone: 'warning',
+                    title: intl.formatMessage({
+                      id: ETranslations.global_receive_address_confirmation,
+                    }),
+                    description: intl.formatMessage({
+                      id: ETranslations.global_receive_address_confirmation_desc,
+                    }),
+                    onConfirmText: intl.formatMessage({
+                      id: ETranslations.global_receive_address_confirmation_button,
+                    }),
+                    onConfirm: () => {
+                      void handleExportAddresses({
+                        exportWithoutDevice: true,
+                      });
+                    },
+                    confirmButtonProps: {
+                      variant: 'secondary',
+                    },
+                  });
+                }}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.global_bulk_copy_addresses_action_export_without_device,
+                })}
+              </Button>
+            ) : null}
+          </YStack>
         </YStack>
       </Page.Footer>
     </Page>

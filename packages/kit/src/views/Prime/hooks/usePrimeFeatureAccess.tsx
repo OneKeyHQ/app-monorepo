@@ -2,11 +2,10 @@ import { useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Dialog, Toast, rootNavigationRef } from '@onekeyhq/components';
+import { Button, Dialog, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { shouldRunOneKeyIdAuthInExtExpandTab } from '@onekeyhq/kit/src/components/OneKeyAuth/extOneKeyIdAuthExpandTab';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePrimeFreeTrialAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import {
   PrimeLoginDialogCancelError,
@@ -14,8 +13,6 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
-import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import {
   formatPrimeFreeTrialReservationEnd,
@@ -40,6 +37,8 @@ import {
   resolvePrimeFreeTrialAccess,
 } from '../utils/primeFreeTrialAccess';
 import { PRIME_FREE_TRIAL_COPY } from '../utils/primeFreeTrialCopy';
+
+import { usePrimeFreeTrialUpgrade } from './usePrimeFreeTrialUpgrade';
 
 import type { IPrimeFreeTrialAccess } from '../utils/primeFreeTrialAccess';
 
@@ -95,7 +94,6 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number) {
 
 export function usePrimeFeatureAccess() {
   const intl = useIntl();
-  const navigation = useAppNavigation();
   const { isPrimeSubscriptionActive, isLoggedIn, user, loginOneKeyId } =
     useOneKeyAuth();
   const [freeTrial] = usePrimeFreeTrialAtom();
@@ -123,39 +121,7 @@ export function usePrimeFeatureAccess() {
     ],
   );
 
-  const openPrimeDashboard = useCallback(
-    ({
-      featureId,
-      networkId,
-      freeTrialReason,
-      afterPageExit,
-    }: {
-      featureId: IPrimeFreeTrialFeatureId;
-      networkId?: string;
-      freeTrialReason?: 'exhausted' | 'notOpen';
-      // The calling page was just closed: its navigation object may no
-      // longer resolve the root stack, so navigate from the root ref.
-      afterPageExit?: boolean;
-    }) => {
-      const params = {
-        fromFeature: featureId,
-        networkId,
-        freeTrialReason,
-      };
-      if (afterPageExit) {
-        rootNavigationRef.current?.navigate(ERootRoutes.iOSFullScreen, {
-          screen: EModalRoutes.PrimeModal,
-          params: { screen: EPrimePages.PrimeDashboard, params },
-        });
-        return;
-      }
-      navigation.pushFullModal(EModalRoutes.PrimeModal, {
-        screen: EPrimePages.PrimeDashboard,
-        params,
-      });
-    },
-    [navigation],
-  );
+  const { openPrimeDashboard, getPrime } = usePrimeFreeTrialUpgrade();
 
   const renderGetPrimeButton = useCallback(
     ({
@@ -172,23 +138,12 @@ export function usePrimeFeatureAccess() {
         size="small"
         variant="tertiary"
         color="$textSuccess"
-        onPress={() => {
-          defaultLogger.prime.subscription.primeFreeTrialUpgradeClick({
-            featureName: featureId,
-            featureId,
-          });
-          openPrimeDashboard({
-            featureId,
-            networkId,
-            freeTrialReason: 'exhausted',
-            afterPageExit,
-          });
-        }}
+        onPress={() => getPrime({ featureId, networkId, afterPageExit })}
       >
         {PRIME_FREE_TRIAL_COPY.getPrime}
       </Button>
     ),
-    [openPrimeDashboard],
+    [getPrime],
   );
 
   // Exhausted quota: a toast with a "Get Prime" button. The dashboard only
@@ -423,6 +378,8 @@ export function usePrimeFeatureAccess() {
    * - Travel mode: legacy Prime behavior (dashboard).
    * - Logged out: open trial -> log in, then continue; not open -> dashboard.
    * - Logged-in free user: exhausted / not open -> dashboard, else granted.
+   *   With `deferQuotaCheck` (feature entries) the user is let in without a
+   *   quota check; the submit inside the page decides.
    */
   const ensureFeatureAccess = useCallback(
     async ({
@@ -432,12 +389,17 @@ export function usePrimeFeatureAccess() {
       extPopup,
       onDenied,
       showLoading = true,
+      deferQuotaCheck = false,
     }: {
       featureId: IPrimeFreeTrialFeatureId;
       networkId?: string;
       // false when the caller already shows its own loading, e.g. on the
       // pressed button that stays on screen.
       showLoading?: boolean;
+      // Feature entries: only log in here and let a logged-in free user in
+      // whatever the quota; the submit (start, the metered API or a check on
+      // the page's first step) shows the exhausted / not open feedback.
+      deferQuotaCheck?: boolean;
       // Re-checked after an async login; false drops the continuation.
       isContextValid?: () => boolean | Promise<boolean>;
       extPopup?: IPrimeFeatureAccessExtPopupMode;
@@ -532,6 +494,9 @@ export function usePrimeFeatureAccess() {
       // The hook value may lag right after a login or a purchase.
       if (await backgroundApiProxy.servicePrime.isPrimeSubscriptionActive()) {
         return { granted: true, entitlementSource: 'prime' };
+      }
+      if (deferQuotaCheck) {
+        return { granted: true, entitlementSource: 'freeTrial' };
       }
 
       // Fast path for a user who was already logged in: a snapshot that

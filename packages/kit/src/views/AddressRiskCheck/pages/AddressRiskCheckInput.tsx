@@ -50,13 +50,13 @@ function AddressRiskCheckInput() {
   const navigation = useAppNavigation();
   const openChainSelector = useConfigurableChainSelector();
   const { getClipboard } = useClipboard();
-  const { isChecking, checkRisk } = useCheckAddressRisk();
+  const { checkRisk } = useCheckAddressRisk();
   const { items: recentChecks, networkNameMap } = useRecentChecks({ limit: 3 });
-  // Check history (incl. the recent list here) stays a Prime benefit; free
-  // trial users only get the checks themselves.
-  const { isPrimeSubscriptionActive } = useOneKeyAuth();
-  const { openPrimeDashboard } = usePrimeFeatureAccess();
-  const canViewHistory = Boolean(isPrimeSubscriptionActive);
+  // Check history (incl. the recent list here) is open to any logged-in user,
+  // Prime or free trial.
+  const { isLoggedIn } = useOneKeyAuth();
+  const { ensureFeatureAccess } = usePrimeFeatureAccess();
+  const canViewHistory = Boolean(isLoggedIn);
 
   const route =
     useRoute<
@@ -196,20 +196,25 @@ function AddressRiskCheckInput() {
     }
   }, [getClipboard]);
 
-  const handleOpenHistory = useCallback(() => {
+  const handleOpenHistory = useCallback(async () => {
     if (!canViewHistory) {
-      openPrimeDashboard({
+      // Logged out (e.g. signed out while on this page): log in first, the
+      // same as the feature entry.
+      const access = await ensureFeatureAccess({
         featureId: EPrimeFeatures.AddressRiskCheck,
         networkId: activeNetworkId,
+        deferQuotaCheck: true,
       });
-      return;
+      if (!access.granted) {
+        return;
+      }
     }
     navigation.push(EModalAddressRiskCheckRoutes.AddressRiskCheckHistory);
-  }, [activeNetworkId, canViewHistory, navigation, openPrimeDashboard]);
+  }, [activeNetworkId, canViewHistory, ensureFeatureAccess, navigation]);
 
   const handleRecentPress = useCallback(
     (item: IAddressRiskCheckRecentItem) => {
-      void checkRisk({
+      checkRisk({
         networkId: item.networkId,
         address: item.address,
         entryPoint: 'inputRecentList',
@@ -222,7 +227,7 @@ function AddressRiskCheckInput() {
     if (!networkId || !canCheck) {
       return;
     }
-    void checkRisk({
+    checkRisk({
       networkId,
       address: addressState.checkAddress ?? trimmedAddress,
       entryPoint: 'inputManual',
@@ -261,10 +266,6 @@ function AddressRiskCheckInput() {
                 id: ETranslations.address_risk_check_intro__desc,
               })}
             </SizableText>
-            <PrimeFreeTrialRemainingHint
-              featureId={EPrimeFeatures.AddressRiskCheck}
-            />
-
             <YStack gap="$1.5">
               <SizableText size="$bodyMdMedium">
                 {intl.formatMessage({ id: ETranslations.global_network })}
@@ -436,13 +437,24 @@ function AddressRiskCheckInput() {
           ) : null}
         </ScrollView>
       </Page.Body>
-      <Page.Footer
-        onConfirmText={intl.formatMessage({
-          id: ETranslations.address_risk_check_check_risk__action,
-        })}
-        confirmButtonProps={{ loading: isChecking, disabled: !canCheck }}
-        onConfirm={handleCheck}
-      />
+      <Page.Footer>
+        <Page.FooterActions
+          gap="$3"
+          // A column on wide screens too, so the hint sits above the button.
+          $gtMd={{ flexDirection: 'column', alignItems: 'flex-end' }}
+          onConfirmText={intl.formatMessage({
+            id: ETranslations.address_risk_check_check_risk__action,
+          })}
+          confirmButtonProps={{ disabled: !canCheck }}
+          onConfirm={handleCheck}
+        >
+          <PrimeFreeTrialRemainingHint
+            featureId={EPrimeFeatures.AddressRiskCheck}
+            networkId={networkId}
+            $md={{ alignSelf: 'center' }}
+          />
+        </Page.FooterActions>
+      </Page.Footer>
     </Page>
   );
 }

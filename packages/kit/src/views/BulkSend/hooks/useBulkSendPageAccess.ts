@@ -16,9 +16,8 @@ import {
 // direct routes reach this page without the entry gate, so it re-checks on
 // mount:
 // 1. E2E and Prime pass.
-// 2. Logged-in free user: never asked to log in again; leaves only when the
-//    cached quota is known to be 0 (or the feature is not open), otherwise
-//    the start on the Review page decides.
+// 2. Logged-in free user: stays whatever the quota; "Next" checks it and the
+//    start on the Review page is the final judge.
 // 3. Logged out: log in in place; a cancel leaves the page.
 export function useBulkSendPageAccess({
   networkId,
@@ -29,7 +28,7 @@ export function useBulkSendPageAccess({
 }) {
   const navigation = useAppNavigation();
   const { isPrimeSubscriptionActive, isLoggedIn } = useOneKeyAuth();
-  const { getCachedAccess, ensureFeatureAccess, showActiveRejectedFeedback } =
+  const { ensureFeatureAccess, showActiveRejectedFeedback } =
     usePrimeFeatureAccess();
   const checkedRef = useRef(false);
 
@@ -66,22 +65,12 @@ export function useBulkSendPageAccess({
       const loggedIn =
         isLoggedIn && (await backgroundApiProxy.servicePrime.isLoggedIn());
       if (loggedIn) {
-        const access = getCachedAccess(EPrimeFeatures.BulkSend);
-        if (access.status === 'exhausted' || access.status === 'notOpen') {
-          await exitPage();
-          showActiveRejectedFeedback({
-            featureId: EPrimeFeatures.BulkSend,
-            reason: access.status,
-            resetAt: access.status === 'exhausted' ? access.resetAt : undefined,
-            networkId,
-            afterPageExit: true,
-          });
-        }
         return;
       }
       await ensureFeatureAccess({
         featureId: EPrimeFeatures.BulkSend,
         networkId,
+        deferQuotaCheck: true,
         onDenied: async () => {
           await exitPage();
         },

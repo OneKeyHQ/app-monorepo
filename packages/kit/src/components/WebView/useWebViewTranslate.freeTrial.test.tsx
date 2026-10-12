@@ -449,4 +449,98 @@ describe('useWebViewTranslate free-trial stop', () => {
     expect(onFreeTrialUnavailable).not.toHaveBeenCalled();
     expect(commands()).toEqual(['start']);
   });
+
+  it('keeps the session on a load end without a navigation', async () => {
+    const onFreeTrialUnavailable = jest.fn();
+    mockApiTranslate.mockResolvedValueOnce({
+      translations: ['a'],
+      freeTrialError: EXHAUSTED,
+    });
+    const { sessionId } = await startSession(onFreeTrialUnavailable);
+
+    // did-stop-loading / did-fail-load of an iframe: the page did not change,
+    // so the page's script keeps this session.
+    act(() => {
+      notifyTabNavigationEnd(TAB_ID);
+      jest.advanceTimersByTime(100);
+    });
+    expect(startedSessionIds()).toEqual([sessionId]);
+
+    await act(async () => {
+      request(sessionId, 'tr_1', ['a']);
+      await flush();
+    });
+    expect(onFreeTrialUnavailable).toHaveBeenCalledTimes(1);
+    expect(commands()).toEqual(['start', 'stop']);
+  });
+
+  it('ignores load ends after the page loaded untranslated', async () => {
+    const onFreeTrialUnavailable = jest.fn();
+    mockApiTranslate.mockResolvedValueOnce({
+      translations: ['a'],
+      freeTrialError: EXHAUSTED,
+    });
+    const { result } = renderHook(() =>
+      useWebViewTranslate({
+        tabId: TAB_ID,
+        dappUrl: 'https://app.example.com/swap',
+        currentTargetLang: 'zh',
+        onFreeTrialUnavailable,
+      }),
+    );
+    // The page loads before the user starts translating.
+    act(() => {
+      notifyTabNavigation(TAB_ID);
+      notifyTabNavigationEnd(TAB_ID);
+    });
+    act(() => {
+      result.current.startTranslate('zh');
+      jest.advanceTimersByTime(100);
+    });
+    const [sessionId] = startedSessionIds();
+
+    act(() => {
+      notifyTabNavigationEnd(TAB_ID);
+      jest.advanceTimersByTime(100);
+    });
+    expect(startedSessionIds()).toEqual([sessionId]);
+
+    await act(async () => {
+      request(sessionId, 'tr_1', ['a']);
+      await flush();
+    });
+    expect(onFreeTrialUnavailable).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports once when concurrent requests all run out', async () => {
+    const onFreeTrialUnavailable = jest.fn();
+    const pending = Array.from({ length: 12 }, () => deferred<unknown>());
+    pending.forEach((item) => {
+      mockApiTranslate.mockReturnValueOnce(item.promise);
+    });
+    const { sessionId } = await startSession(onFreeTrialUnavailable);
+
+    await act(async () => {
+      pending.forEach((_, i) => request(sessionId, `tr_${i}`, ['t']));
+      await flush();
+    });
+    await act(async () => {
+      pending.forEach((item) =>
+        item.resolve({ translations: ['t'], freeTrialError: EXHAUSTED }),
+      );
+      await flush();
+    });
+
+    expect(onFreeTrialUnavailable).toHaveBeenCalledTimes(1);
+    expect(commands()).toEqual(['start', 'stop']);
+    expect(responses()).toHaveLength(12);
+
+    // Content showing up after the pause is answered without a request.
+    await act(async () => {
+      request(sessionId, 'tr_late', ['late']);
+      await flush();
+    });
+    expect(mockApiTranslate).toHaveBeenCalledTimes(12);
+    expect(onFreeTrialUnavailable).toHaveBeenCalledTimes(1);
+  });
 });

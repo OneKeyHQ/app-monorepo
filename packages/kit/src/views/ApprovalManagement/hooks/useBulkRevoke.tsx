@@ -33,7 +33,6 @@ import { LinkedDeck } from '../../../hooks/useLinkedList';
 import { PrimeFreeTrialRemainingHint } from '../../Prime/components/PrimeFreeTrialRemainingHint';
 import { usePrimeAvailable } from '../../Prime/hooks/usePrimeAvailable';
 import { usePrimeFeatureAccess } from '../../Prime/hooks/usePrimeFeatureAccess';
-import { usePrimeFreeTrialUsage } from '../../Prime/hooks/usePrimeFreeTrialUsage';
 
 import type { IHasId } from '../../../hooks/useLinkedList';
 
@@ -44,9 +43,6 @@ function useBulkRevoke() {
   // Drives the Prime badge; access (incl. free trial) is checked on press.
   const isPrimeUser = Boolean(isPrimeSubscriptionActive);
   const { ensureFeatureAccess } = usePrimeFeatureAccess();
-  const { startUsage } = usePrimeFreeTrialUsage({
-    featureId: EPrimeFeatures.BulkRevoke,
-  });
 
   const [isBuildingRevokeTxs, setIsBuildingRevokeTxs] = useState(false);
   // The method dialog hands the same pending close to every tap, so a double
@@ -58,23 +54,20 @@ function useBulkRevoke() {
     async ({
       unsignedTxs,
       contractMap,
-      freeTrialUsageId,
     }: {
       unsignedTxs: (IUnsignedTxPro & IHasId)[];
       contractMap: Record<string, IAddressInfo>;
-      freeTrialUsageId?: string;
     }) => {
       navigation.push(EModalApprovalManagementRoutes.BulkRevoke, {
         unsignedTxs,
         contractMap,
-        freeTrialUsageId,
       });
     },
     [navigation],
   );
 
-  // BulkRevoke runs as soon as it mounts, so the free-trial use is reserved
-  // here, when the user picks the bulk method.
+  // Only the access gate runs here (login, quota). The free-trial use is
+  // reserved on the BulkRevoke page, when the user presses start.
   const startBulkRevokeWithAccess = useCallback(
     async ({
       unsignedTxs,
@@ -94,29 +87,19 @@ function useBulkRevoke() {
           isPrimeActive,
         });
       }
-      // The revoke button keeps its loading state while access and the
-      // free-trial start are checked.
+      // The revoke button keeps its loading state while access is checked.
       setIsBuildingRevokeTxs(true);
-      let freeTrialUsageId: string | undefined;
       try {
         const access = await ensureFeatureAccess({
           featureId: EPrimeFeatures.BulkRevoke,
           networkId: unsignedTxs[0]?.networkId,
           // The revoke button already shows its loading.
           showLoading: false,
+          // The start button on the bulk revoke page checks the quota.
+          deferQuotaCheck: true,
         });
         if (!access.granted) {
           return;
-        }
-        if (access.entitlementSource === 'freeTrial') {
-          const outcome = await startUsage({
-            networkId: unsignedTxs[0]?.networkId,
-          });
-          if (outcome.status === 'rejected' || outcome.status === 'error') {
-            return;
-          }
-          freeTrialUsageId =
-            outcome.status === 'granted' ? outcome.usageId : undefined;
         }
       } finally {
         isStartingBulkRevokeRef.current = false;
@@ -125,16 +108,9 @@ function useBulkRevoke() {
       void navigationToBulkRevoke({
         unsignedTxs,
         contractMap,
-        freeTrialUsageId,
       });
     },
-    [
-      ensureFeatureAccess,
-      isPrimeActive,
-      isPrimeUser,
-      navigationToBulkRevoke,
-      startUsage,
-    ],
+    [ensureFeatureAccess, isPrimeActive, isPrimeUser, navigationToBulkRevoke],
   );
 
   const navigationToOneByOneRevoke = useCallback(
@@ -388,14 +364,22 @@ function useBulkRevoke() {
                     ) : null}
                   </XStack>
                 }
-                secondary={intl.formatMessage({
-                  id: ETranslations.wallet_approval_bulk_revoke_method_bulk_desc,
-                })}
+                secondary={
+                  // The free uses only cover bulk revoke, so the hint lives
+                  // in its card rather than under both methods.
+                  <YStack gap="$1.5">
+                    <SizableText size="$bodyMd" color="$textSubdued">
+                      {intl.formatMessage({
+                        id: ETranslations.wallet_approval_bulk_revoke_method_bulk_desc,
+                      })}
+                    </SizableText>
+                    <PrimeFreeTrialRemainingHint
+                      featureId={EPrimeFeatures.BulkRevoke}
+                    />
+                  </YStack>
+                }
               />
             </ListItem>
-            <PrimeFreeTrialRemainingHint
-              featureId={EPrimeFeatures.BulkRevoke}
-            />
           </YStack>
         ),
         showCancelButton: false,

@@ -15,6 +15,7 @@ import { Dimensions, I18nManager } from 'react-native';
 
 import {
   Accordion,
+  Badge,
   Button,
   Checkbox,
   Dialog,
@@ -34,7 +35,7 @@ import {
   useClipboard,
   useInPageDialog,
 } from '@onekeyhq/components';
-import type { ICheckedState } from '@onekeyhq/components';
+import type { IBadgeType, ICheckedState } from '@onekeyhq/components';
 import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_TRANSFORM,
@@ -51,7 +52,12 @@ import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm
 import { navigateToReferralLanding } from '@onekeyhq/kit/src/routes/config/deeplink/referralLandingLink';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { WebEmbedDevConfig } from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WebEmbed';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getPrimeFreeTrialQuotaOfUser } from '@onekeyhq/kit/src/views/Prime/utils/primeFreeTrialAccess';
+import {
+  usePrimeFreeTrialAtom,
+  usePrimePersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   getDevSettingsNetworkThrottleEnabled,
   useDevSettingsPersistAtom,
@@ -86,6 +92,7 @@ import {
 } from '@onekeyhq/shared/src/modules3rdParty/webview-checker';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
 import {
@@ -99,6 +106,8 @@ import {
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
+import type { IPrimeFreeTrialFeatureId } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
+import { PRIME_FREE_TRIAL_FEATURE_IDS } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 
 import { showApiEndpointDialog } from '../../../components/ApiEndpointDialog';
 import { SettingTestIDs } from '../../../testIDs';
@@ -478,6 +487,183 @@ function TradingViewKLineEmptyMockIntervalsDialogContent({
   );
 }
 
+const PRIME_FREE_TRIAL_FEATURE_LABELS: Record<
+  IPrimeFreeTrialFeatureId,
+  string
+> = {
+  [EPrimeFeatures.BulkCopyAddresses]: '批量复制地址',
+  [EPrimeFeatures.BulkSend]: '批量转账',
+  [EPrimeFeatures.BulkRevoke]: '批量取消授权',
+  [EPrimeFeatures.AddressRiskCheck]: '地址风险检查',
+  [EPrimeFeatures.DAppTranslate]: 'AI 翻译',
+};
+
+function getPrimeFreeTrialFeatureLabels(
+  featureIds: IPrimeFreeTrialFeatureId[],
+) {
+  return featureIds
+    .map((featureId) => PRIME_FREE_TRIAL_FEATURE_LABELS[featureId])
+    .join('、');
+}
+
+function PrimeFreeTrialResetDialogContent({
+  onConfirm,
+}: {
+  onConfirm: (featureIds: IPrimeFreeTrialFeatureId[]) => Promise<void>;
+}) {
+  const [selectedFeatureIds, setSelectedFeatureIds] = useState<
+    IPrimeFreeTrialFeatureId[]
+  >(PRIME_FREE_TRIAL_FEATURE_IDS);
+  const [user] = usePrimePersistAtom();
+  const [{ quota }] = usePrimeFreeTrialAtom();
+  const isLoggedIn = Boolean(user?.isLoggedIn && user?.isLoggedInOnServer);
+  const isPrimeSubscriptionActive = Boolean(user?.primeSubscription?.isActive);
+  const quotaOfUser = getPrimeFreeTrialQuotaOfUser({
+    quota,
+    onekeyUserId: user?.onekeyUserId,
+  });
+
+  useEffect(() => {
+    void backgroundApiProxy.servicePrimeFreeTrial.refreshQuota({
+      dedupe: true,
+    });
+  }, []);
+
+  const getQuotaStatus = (
+    featureId: IPrimeFreeTrialFeatureId,
+  ): { text: string; badgeType: IBadgeType } => {
+    if (!isLoggedIn) {
+      return { text: '未登录 OneKey ID', badgeType: 'default' };
+    }
+    if (isPrimeSubscriptionActive) {
+      return { text: 'Prime 不限次数', badgeType: 'info' };
+    }
+    const featureQuota = quotaOfUser?.features.find(
+      (item) => item.featureId === featureId,
+    );
+    if (featureQuota) {
+      const unit = featureQuota.unit === 'token' ? ' token' : ' 次';
+      if (featureQuota.remaining <= 0) {
+        return {
+          text: `已用完 · 共 ${featureQuota.monthlyQuota}${unit}`,
+          badgeType: 'critical',
+        };
+      }
+      return {
+        text: `可用 ${featureQuota.remaining} / 共 ${featureQuota.monthlyQuota}${unit}`,
+        badgeType: 'success',
+      };
+    }
+    // A loaded quota without this feature (or null) means it is not open.
+    if (quotaOfUser !== undefined) {
+      return { text: '未开放免费试用', badgeType: 'default' };
+    }
+    return quota.status === 'error'
+      ? { text: '额度获取失败', badgeType: 'warning' }
+      : { text: '加载中…', badgeType: 'default' };
+  };
+  let selectAllValue: ICheckedState = false;
+  if (selectedFeatureIds.length === PRIME_FREE_TRIAL_FEATURE_IDS.length) {
+    selectAllValue = true;
+  } else if (selectedFeatureIds.length) {
+    selectAllValue = 'indeterminate';
+  }
+
+  // The checkbox reports !value, which is false for 'indeterminate'; a
+  // partial selection selects all instead.
+  const handleSelectAllChange = useCallback(() => {
+    setSelectedFeatureIds((prev) =>
+      prev.length === PRIME_FREE_TRIAL_FEATURE_IDS.length
+        ? []
+        : PRIME_FREE_TRIAL_FEATURE_IDS,
+    );
+  }, []);
+
+  const handleFeatureChange = useCallback(
+    (featureId: IPrimeFreeTrialFeatureId, checked: ICheckedState) => {
+      setSelectedFeatureIds((prev) =>
+        // Keeps the order of PRIME_FREE_TRIAL_FEATURE_IDS.
+        PRIME_FREE_TRIAL_FEATURE_IDS.filter((item) =>
+          item === featureId ? checked === true : prev.includes(item),
+        ),
+      );
+    },
+    [],
+  );
+
+  const handleConfirm = useCallback(
+    () => onConfirm(selectedFeatureIds),
+    [onConfirm, selectedFeatureIds],
+  );
+
+  return (
+    <YStack gap="$3">
+      <Checkbox
+        label="全选"
+        value={selectAllValue}
+        onChange={handleSelectAllChange}
+      />
+      <YStack gap="$2">
+        {PRIME_FREE_TRIAL_FEATURE_IDS.map((featureId) => {
+          const quotaStatus = getQuotaStatus(featureId);
+          return (
+            <XStack key={featureId} alignItems="center" gap="$3">
+              <Checkbox
+                label={PRIME_FREE_TRIAL_FEATURE_LABELS[featureId]}
+                description={featureId}
+                value={selectedFeatureIds.includes(featureId)}
+                onChange={(checked) => {
+                  handleFeatureChange(featureId, checked);
+                }}
+                containerProps={{ flex: 1 }}
+                labelContainerProps={{ flex: 1 }}
+              />
+              <Badge badgeType={quotaStatus.badgeType} badgeSize="sm">
+                {quotaStatus.text}
+              </Badge>
+            </XStack>
+          );
+        })}
+      </YStack>
+      <Dialog.Footer
+        showConfirmButton
+        showCancelButton
+        onConfirm={handleConfirm}
+        onConfirmText="重置"
+        confirmButtonProps={{
+          disabled: selectedFeatureIds.length === 0,
+        }}
+      />
+    </YStack>
+  );
+}
+
+async function resetPrimeFreeTrialUsage(
+  featureIds: IPrimeFreeTrialFeatureId[],
+) {
+  try {
+    const { failedFeatureIds, errorMessage } =
+      await backgroundApiProxy.servicePrimeFreeTrial.devResetFreeTrialUsage({
+        featureIds,
+      });
+    if (failedFeatureIds.length) {
+      Toast.error({
+        title: `重置失败：${getPrimeFreeTrialFeatureLabels(failedFeatureIds)}`,
+        message: errorMessage,
+      });
+      return;
+    }
+    Toast.success({
+      title: `已重置：${getPrimeFreeTrialFeatureLabels(featureIds)}`,
+    });
+  } catch (error) {
+    Toast.error({
+      title: '重置失败',
+      message: (error as Error | undefined)?.message,
+    });
+  }
+}
+
 const BaseDevSettingsSection = () => {
   const [settings] = useSettingsPersistAtom();
   const [devSettings, setDevSettings] = useDevSettingsPersistAtom();
@@ -691,6 +877,19 @@ const BaseDevSettingsSection = () => {
       ),
     });
   }, [mockTradingViewKLineEmptyEnabled, mockTradingViewKLineEmptyIntervals]);
+
+  const handleOpenPrimeFreeTrialResetDialog = useCallback(() => {
+    Dialog.show({
+      title: '重置 Prime 免费试用次数',
+      description:
+        '选择要重置的功能，重置当前 OneKey ID 的本月免费次数，仅测试环境生效。',
+      renderContent: (
+        <PrimeFreeTrialResetDialogContent
+          onConfirm={resetPrimeFreeTrialUsage}
+        />
+      ),
+    });
+  }, []);
 
   const forceIntoRTL = useCallback(() => {
     I18nManager.forceRTL(!I18nManager.isRTL);
@@ -906,7 +1105,7 @@ const BaseDevSettingsSection = () => {
         title: 'Account & Wallet & Prime & Network',
         description: '账户 钱包 Prime 链和网络',
         keywords:
-          '允许添加相同助记词HD钱包 启用Keyless调试信息 启用Keyless云端同步 允许重置Keyless钱包 Referral Bind Guard 10s Test Add ServerNetwork Test Data Create 1000 Wallets Accounts Large Data NativeList 性能 压力测试 开启Prime 开启Prime Sandbox付款 In-App-Purchase Mac 内购 首页导出私钥临时入口 Export Accounts Data',
+          '允许添加相同助记词HD钱包 启用Keyless调试信息 启用Keyless云端同步 允许重置Keyless钱包 Referral Bind Guard 10s Test Add ServerNetwork Test Data Create 1000 Wallets Accounts Large Data NativeList 性能 压力测试 开启Prime 开启Prime Sandbox付款 重置Prime免费试用次数 In-App-Purchase Mac 内购 首页导出私钥临时入口 Export Accounts Data',
       },
       {
         key: 'transaction',
@@ -2556,6 +2755,13 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
+                      <SectionPressItem
+                        icon="RefreshCcwOutline"
+                        title="重置 Prime 免费试用次数"
+                        subtitle="选择功能，重置当前 OneKey ID 的本月免费次数，仅测试环境生效"
+                        searchKeywords="Prime free trial reset quota 免费试用 免费次数 重置"
+                        onPress={handleOpenPrimeFreeTrialResetDialog}
+                      />
 
                       <SearchFilterItem keywords="TestAccounts 测试账户">
                         <TestAccountsDevSetting />

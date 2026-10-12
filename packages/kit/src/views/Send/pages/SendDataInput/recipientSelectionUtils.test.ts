@@ -111,7 +111,7 @@ describe('recipientSelectionUtils', () => {
       'enabled',
     ],
     [
-      'treats a free-trial user like Prime and disables without an address',
+      'treats a logged-in free user like Prime and disables without an address',
       { canRunCheck: true, resolvedAddress: undefined },
       'disabled',
     ],

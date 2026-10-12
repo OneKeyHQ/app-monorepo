@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -20,32 +20,27 @@ import {
 import { useClipboard } from '@onekeyhq/components/src/hooks/useClipboard';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes, EModalWebViewRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   EModalAddressRiskCheckRoutes,
   IModalAddressRiskCheckParamList,
 } from '@onekeyhq/shared/src/routes/addressRiskCheck';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
-import { getPrimeFreeTrialError } from '@onekeyhq/shared/src/utils/primeFreeTrialUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IAddressRiskCheckResult } from '@onekeyhq/shared/types/addressRiskCheck';
 import { EKytRiskLevel } from '@onekeyhq/shared/types/kyt';
 
-import { usePrimeFeatureAccess } from '../../Prime/hooks/usePrimeFeatureAccess';
-import { getPrimeEntitlementSource } from '../../Prime/utils/primeFreeTrialAccess';
+import { PRIME_FREE_TRIAL_COPY } from '../../Prime/utils/primeFreeTrialCopy';
 import { AddressRiskMoreAnalysis } from '../components/AddressRiskMoreAnalysis';
 import {
   CardRow,
   LEVEL_TEXT_COLOR,
   RiskFactorCard,
 } from '../components/RiskCheckShared';
-import { executeAddressRiskCheck } from '../hooks/useCheckAddressRisk';
+import { useAddressRiskCheckRequest } from '../hooks/useCheckAddressRisk';
 import { getAddressRiskCheckPendingMessageIds } from '../utils/addressRiskCheckResultUtils';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -91,13 +86,14 @@ function AddressRiskCheckResultContent({
   result,
   showMoreAnalysis,
   onContinue,
+  isHistoryResult,
 }: {
   result: IAddressRiskCheckResult;
   showMoreAnalysis: boolean;
   onContinue?: () => void | Promise<void>;
+  isHistoryResult?: boolean;
 }) {
   const intl = useIntl();
-  const navigation = useAppNavigation();
   const { copyText } = useClipboard();
   const [showAllFactors, setShowAllFactors] = useState(false);
   const canContinueToSend =
@@ -135,16 +131,10 @@ function AddressRiskCheckResultContent({
     if (!canViewReport || !result.reportUrl) {
       return;
     }
-    navigation.pushModal(EModalRoutes.WebViewModal, {
-      screen: EModalWebViewRoutes.WebView,
-      params: {
-        url: result.reportUrl,
-        title: intl.formatMessage({
-          id: ETranslations.kyt_view_report__action,
-        }),
-      },
-    });
-  }, [canViewReport, intl, navigation, result.reportUrl]);
+    // The report page is unstable in the in-app WebView, so it opens in the
+    // system browser.
+    openUrlExternal(result.reportUrl, { useSystemBrowser: true });
+  }, [canViewReport, result.reportUrl]);
 
   const handleCopyAddress = useCallback(() => {
     copyText(result.address);
@@ -199,6 +189,11 @@ function AddressRiskCheckResultContent({
                     id: levelContent.description,
                   })}
                 </SizableText>
+                {isHistoryResult ? (
+                  <SizableText size="$bodyMd" color="$textCaution" pt="$1.5">
+                    {PRIME_FREE_TRIAL_COPY.addressRiskCheckHistoryResult}
+                  </SizableText>
+                ) : null}
               </YStack>
 
               <YStack
@@ -437,59 +432,8 @@ function AddressRiskCheckResult() {
       >
     >();
   const { checkRequest, showMoreAnalysis, onContinue } = route.params;
-  const [result, setResult] = useState<IAddressRiskCheckResult | undefined>(
-    route.params.result,
-  );
-  const [isFailed, setIsFailed] = useState(false);
-  const requestNetworkId = checkRequest?.networkId;
-  const requestAddress = checkRequest?.address;
-  const navigation = useAppNavigation();
-  const { handleFreeTrialError } = usePrimeFeatureAccess();
-  const [primeUser] = usePrimePersistAtom();
-  const entitlementSource = getPrimeEntitlementSource(primeUser);
-
-  useEffect(() => {
-    if (!requestNetworkId || !requestAddress) {
-      return;
-    }
-    let isActive = true;
-    setIsFailed(false);
-    void executeAddressRiskCheck({
-      networkId: requestNetworkId,
-      address: requestAddress,
-      entryPoint: 'sendAddressInput',
-      entitlementSource,
-    }).then(
-      (nextResult) => {
-        if (isActive) {
-          setResult(nextResult);
-        }
-      },
-      async (error: unknown) => {
-        if (!isActive) {
-          return;
-        }
-        if (getPrimeFreeTrialError(error)) {
-          // Close this result modal first so the user is not left on a
-          // pending / failed page behind the Prime dashboard.
-          navigation.popStack();
-          await timerUtils.wait(300);
-          handleFreeTrialError({
-            error,
-            networkId: requestNetworkId,
-            afterPageExit: true,
-          });
-          return;
-        }
-        setIsFailed(true);
-      },
-    );
-    return () => {
-      isActive = false;
-    };
-    // Runs once per request; navigation / feedback helpers may change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [requestAddress, requestNetworkId]);
+  const { result, isHistoryResult, isFailed } =
+    useAddressRiskCheckRequest(checkRequest);
 
   if (!result) {
     return <AddressRiskCheckPending isFailed={isFailed} />;
@@ -500,6 +444,7 @@ function AddressRiskCheckResult() {
       result={result}
       showMoreAnalysis={showMoreAnalysis}
       onContinue={onContinue}
+      isHistoryResult={isHistoryResult}
     />
   );
 }

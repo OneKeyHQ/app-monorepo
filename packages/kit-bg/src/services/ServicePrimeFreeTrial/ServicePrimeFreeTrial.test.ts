@@ -86,6 +86,14 @@ jest.mock('../../states/jotai/atoms/prime', () => ({
   },
 }));
 
+const mockDevSettings = { enabled: true };
+
+jest.mock('../../states/jotai/atoms/devSettings', () => ({
+  devSettingsPersistAtom: {
+    get: async () => mockDevSettings,
+  },
+}));
+
 jest.mock('@onekeyhq/shared/src/travelMode', () => ({
   travelModeManager: {
     getRuntimeEnvironment: async () => ({ profile: { kind: 'standard' } }),
@@ -253,6 +261,7 @@ describe('ServicePrimeFreeTrial', () => {
       config: { status: 'idle' },
       quota: { status: 'idle' },
     };
+    mockDevSettings.enabled = true;
     mockOneKeyIdClient.get.mockResolvedValue({ data: { code: 0, data: null } });
   });
 
@@ -1102,6 +1111,68 @@ describe('ServicePrimeFreeTrial', () => {
       jest.setSystemTime(Date.now() + 11 * 60 * 1000);
 
       await expect(service.consumePendingAction()).resolves.toBeUndefined();
+    });
+  });
+
+  describe('devResetFreeTrialUsage', () => {
+    it('requires developer mode', async () => {
+      mockDevSettings.enabled = false;
+      const { service } = createService();
+
+      await expect(
+        service.devResetFreeTrialUsage({
+          featureIds: [EPrimeFeatures.BulkSend],
+        }),
+      ).rejects.toThrow('Developer mode is required');
+      expect(mockOneKeyIdClient.post).not.toHaveBeenCalled();
+    });
+
+    it('requires at least one feature', async () => {
+      const { service } = createService();
+
+      await expect(
+        service.devResetFreeTrialUsage({ featureIds: [] }),
+      ).rejects.toThrow('Select at least one feature');
+      expect(mockOneKeyIdClient.post).not.toHaveBeenCalled();
+    });
+
+    it('resets the selected features, refreshes the quota and reports failures', async () => {
+      const { service } = createService();
+      mockOneKeyIdClient.post.mockImplementation(
+        async (_url: string, body: { featureId: string }) => {
+          if (body.featureId === EPrimeFeatures.DAppTranslate) {
+            throw serverError(90_002);
+          }
+          return { data: { code: 0, data: {} } };
+        },
+      );
+
+      await expect(
+        service.devResetFreeTrialUsage({
+          featureIds: [EPrimeFeatures.DAppTranslate, EPrimeFeatures.BulkSend],
+        }),
+      ).resolves.toEqual({
+        failedFeatureIds: [EPrimeFeatures.DAppTranslate],
+        errorMessage: 'server 90002',
+      });
+      expect(
+        (mockOneKeyIdClient.post.mock.calls as Array<[string, unknown]>).map(
+          ([url, body]) => [url, body],
+        ),
+      ).toEqual([
+        [
+          '/prime/v1/free-trial/test/reset',
+          { featureId: EPrimeFeatures.BulkSend },
+        ],
+        [
+          '/prime/v1/free-trial/test/reset',
+          { featureId: EPrimeFeatures.DAppTranslate },
+        ],
+      ]);
+      expect(mockOneKeyIdClient.get).toHaveBeenCalledWith(
+        '/prime/v1/free-trial/quota',
+        expect.anything(),
+      );
     });
   });
 });

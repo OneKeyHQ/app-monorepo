@@ -716,7 +716,14 @@
   // ============================================================
 
   function startTranslation(lang, mode, session) {
-    if (isTranslating) return;
+    if (isTranslating) {
+      // The app started a new session on this same document (e.g. it took a
+      // load event for a navigation). Follow it, or the app would drop every
+      // result of the session this page keeps sending (free-trial stop, AI
+      // unavailable).
+      if (session) sessionId = session;
+      return;
+    }
     targetLang = lang || 'zh';
     displayMode = mode || 'replace';
     sessionId = session || '';

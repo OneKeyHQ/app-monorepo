@@ -51,6 +51,7 @@ export function WalletActionBulkSend({ onClose }: { onClose: () => void }) {
       const access = await ensureFeatureAccess({
         featureId: EPrimeFeatures.BulkSend,
         networkId: network?.id,
+        deferQuotaCheck: true,
         extPopup: { mode: 'passThrough' },
       });
       if (!access.granted) {

@@ -35,6 +35,7 @@ import type {
   IPrimeFreeTrialUsageResult,
 } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 import {
+  PRIME_FREE_TRIAL_FEATURE_IDS,
   PRIME_FREE_TRIAL_LEGACY_NOT_OPEN_SERVER_CODE,
   PRIME_FREE_TRIAL_NOT_OPEN_CODE,
   PRIME_FREE_TRIAL_QUOTA_EXHAUSTED_CODE,
@@ -45,6 +46,7 @@ import {
   isPrimeFreeTrialUsageRecordReportable,
 } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 
+import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
 import {
   primeFreeTrialAtom,
   primeFreeTrialAtomInitialValue,
@@ -1416,6 +1418,73 @@ class ServicePrimeFreeTrial extends ServiceBase {
       (current) =>
         current.createdAt < timestamp && (!type || current.type === type),
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Dev tools
+  // ---------------------------------------------------------------------------
+
+  // Dev settings: resets the logged-in user's free trial uses of the given
+  // features. The server only accepts it on the test environment.
+  @backgroundMethod()
+  async devResetFreeTrialUsage({
+    featureIds,
+  }: {
+    featureIds: IPrimeFreeTrialFeatureId[];
+  }): Promise<{
+    failedFeatureIds: IPrimeFreeTrialFeatureId[];
+    errorMessage?: string;
+  }> {
+    const devSettings = await devSettingsPersistAtom.get();
+    if (!devSettings.enabled) {
+      throw new OneKeyLocalError({
+        message: 'Developer mode is required',
+        autoToast: false,
+      });
+    }
+    const targetFeatureIds = PRIME_FREE_TRIAL_FEATURE_IDS.filter((featureId) =>
+      featureIds.includes(featureId),
+    );
+    if (!targetFeatureIds.length) {
+      throw new OneKeyLocalError({
+        message: 'Select at least one feature',
+        autoToast: false,
+      });
+    }
+    const user = await primePersistAtom.get();
+    if (!user.isLoggedIn || !user.isLoggedInOnServer || !user.onekeyUserId) {
+      throw new OneKeyLocalError({
+        message: 'Log in to OneKey ID first',
+        autoToast: false,
+      });
+    }
+    const { requestConfig } =
+      await this.backgroundApi.servicePrime.captureOneKeyIdAuthRequestConfig({
+        expectedOneKeyUserId: user.onekeyUserId,
+        createStateChangedError: createUserChangedError,
+      });
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Prime);
+    const results = await Promise.allSettled(
+      targetFeatureIds.map((featureId) =>
+        client.post<IApiClientResponse<unknown>>(
+          '/prime/v1/free-trial/test/reset',
+          { featureId },
+          requestConfig,
+        ),
+      ),
+    );
+    // Refresh even after a partial failure so the UI shows the server state.
+    await this.refreshQuota();
+    const failedFeatureIds = targetFeatureIds.filter(
+      (_, index) => results[index].status === 'rejected',
+    );
+    const firstFailure = results.find(
+      (result): result is PromiseRejectedResult => result.status === 'rejected',
+    );
+    return {
+      failedFeatureIds,
+      errorMessage: (firstFailure?.reason as Error | undefined)?.message,
+    };
   }
 }
 

@@ -57,8 +57,9 @@ export function getSendAddressRiskCheckButtonState({
   currentNetworkId: string;
   supportNetworkId: string;
   isSupported: boolean;
-  // Prime, or a logged-in free user whose free trial may still allow a check.
-  // Otherwise the button is an upsell (dashboard / login) and stays enabled.
+  // Prime, or a logged-in free user with the feature open (uses left or not):
+  // the press checks the address. Otherwise the button is an upsell
+  // (dashboard / login) and stays enabled.
   canRunCheck: boolean;
   resolvedAddress?: string;
   isPending?: boolean;
