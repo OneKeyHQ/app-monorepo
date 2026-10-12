@@ -39,6 +39,7 @@ import {
   TRADING_VIEW_NATIVE_VOLUME_LEGEND_TOP_PADDING as VOLUME_LEGEND_TOP_PADDING,
   TRADING_VIEW_NATIVE_VOLUME_OPACITY as VOLUME_OPACITY,
 } from '../chartConstants';
+import { drawingPointToScreen } from '../drawings/model';
 
 import { getTradingViewNativeCandleTimestampAtOffset } from './candleTime';
 import { appendTradingViewNativeChartComponentCommands } from './chartComponentScene';
@@ -1361,7 +1362,19 @@ export function buildTradingViewNativeChartScene({
           ? { price: latestPoint.c, top: currentPriceLayout.labelTop }
           : undefined,
       customPaintStyles,
-      drawings: chartDrawings,
+      drawings: chartDrawings.filter((drawing) => {
+        if (drawing.tool !== 'horizontalRay') return true;
+        const anchor = drawing.points[0];
+        return (
+          anchor &&
+          drawingPointToScreen(anchor, {
+            layout,
+            points,
+            interval: candleIntervalSeconds,
+            viewport: normalizedViewport,
+          }).x <= priceAxisX
+        );
+      }),
       maxPrice,
       measureTextWidth,
       minPrice,
