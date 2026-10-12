@@ -20,10 +20,10 @@ import { useNextDistributionLabel } from '@onekeyhq/kit/src/views/ReferFriends/h
 import { useNavigateToEditAddress } from '@onekeyhq/kit/src/views/ReferFriends/pages/EditAddress/hooks/useNavigateToEditAddress';
 import { useNavigateToRewardHistory } from '@onekeyhq/kit/src/views/ReferFriends/pages/RewardDistributionHistory/hooks/useNavigateToRewardHistory';
 import { openInviteWithdrawAddressEditor } from '@onekeyhq/kit/src/views/ReferFriends/pages/RewardDistributionHistory/openInviteWithdrawAddressEditor';
+import { shortenPayoutAddress } from '@onekeyhq/kit/src/views/ReferFriends/utils/shortenPayoutAddress';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { CompactFieldRow } from '../../../components/CompactFieldRow';
 import { ReferFriendsTestIDs } from '../../../testIDs';
@@ -105,6 +105,9 @@ function PayoutAddressValue({
           color={color}
           numberOfLines={1}
           opacity={isHidden ? 0 : 1}
+          // Hidden means hidden from screen readers and selection too.
+          aria-hidden={isHidden}
+          userSelect={isHidden ? 'none' : undefined}
         >
           {address}
         </SizableText>
@@ -416,14 +419,8 @@ export function InviteEarningsCard({
   const payoutTarget = summaryInfo.withdrawAddresses[0];
   const withdrawAddress = payoutTarget?.address;
   const payoutNetworkId = withdrawAddress ? payoutTarget?.networkId : undefined;
-  // Short enough that the cell never clips it: people check an address by its
-  // last characters, so the tail must always show.
   const payoutAddress = withdrawAddress
-    ? accountUtils.shortenAddress({
-        address: withdrawAddress,
-        leadingLength: 6,
-        trailingLength: 4,
-      })
+    ? shortenPayoutAddress(withdrawAddress)
     : intl.formatMessage({
         id: ETranslations.referral_reward_received_address_notset,
       });

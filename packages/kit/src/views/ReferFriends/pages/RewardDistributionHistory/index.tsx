@@ -197,21 +197,26 @@ function RewardDistributionHistoryPageWrapper() {
       />
       <Page.Body>
         <ReferFriendsPageContainer flex={1} position="relative">
-          {sections === undefined ? (
-            <YStack flex={1} ai="center" jc="center">
-              <Spinner size="large" />
-            </YStack>
-          ) : (
-            <SectionList
-              flex={1}
-              // The address row scrolls with the records; as a sibling above
-              // the list it left a blank gap over the first section on phones.
-              ListHeaderComponent={<InviteWithdrawAddressRow />}
-              refreshControl={
-                <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
-              }
-              contentContainerStyle={{ pb: '$10' }}
-              ListEmptyComponent={
+          <SectionList
+            flex={1}
+            // The address row scrolls with the records; as a sibling above
+            // the list it left a blank gap over the first section on phones.
+            ListHeaderComponent={<InviteWithdrawAddressRow />}
+            refreshControl={
+              <RefreshControl
+                // The first load shows its own spinner in the list.
+                refreshing={isLoading && sections !== undefined}
+                onRefresh={onRefresh}
+              />
+            }
+            contentContainerStyle={{ pb: '$10' }}
+            // Loading shows in the list, so the address row above stays.
+            ListEmptyComponent={
+              sections === undefined ? (
+                <YStack py="$10" ai="center">
+                  <Spinner size="large" />
+                </YStack>
+              ) : (
                 <Empty
                   mt={34}
                   illustration="QuestionMark"
@@ -219,14 +224,14 @@ function RewardDistributionHistoryPageWrapper() {
                     id: ETranslations.global_no_data,
                   })}
                 />
-              }
-              sections={sections}
-              renderSectionHeader={renderSectionHeader}
-              estimatedItemSize={60}
-              renderItem={renderItem}
-              // onEndReached={fetchMore}
-            />
-          )}
+              )
+            }
+            sections={sections ?? []}
+            renderSectionHeader={renderSectionHeader}
+            estimatedItemSize={60}
+            renderItem={renderItem}
+            // onEndReached={fetchMore}
+          />
         </ReferFriendsPageContainer>
       </Page.Body>
     </Page>
