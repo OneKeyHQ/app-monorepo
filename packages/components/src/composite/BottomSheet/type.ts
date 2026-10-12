@@ -16,6 +16,12 @@ export interface IBottomSheetProps {
    * given, the caller takes the height over: the sheet rests at these
    * stops, draggable between them, and the content measurement stands
    * down.
+   *
+   * Honored on iOS only. The Android face deliberately leaves these out:
+   * Material 3's ModalBottomSheet knows just two stops (half/full), so a
+   * fixed or fractional height would silently snap to the nearest one
+   * instead of resting where asked. On Android the sheet always sizes
+   * itself to its content, whatever is passed here.
    */
   snapPoints?: ComponentProps<typeof ExpoBottomSheet>['snapPoints'];
   /**
