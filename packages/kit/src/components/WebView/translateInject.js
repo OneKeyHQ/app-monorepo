@@ -91,6 +91,7 @@
           resolve(result);
         },
         timer: timer,
+        sessionId: sessionId,
       };
 
       sendToNative({
@@ -127,9 +128,14 @@
     }
 
     if (data.type === '$$ONEKEY_TRANSLATE_RESPONSE') {
-      // Ignore stale responses from previous translation sessions
-      if (data.sessionId && data.sessionId !== sessionId) return;
       const entry = pendingResolvers[data.id];
+      // Matched against the session that sent the request, not the current
+      // one: after the page follows a new session on this document, the
+      // requests already sent are still answered (and billed). Requests of a
+      // stopped session have no entry anymore.
+      if (entry && data.sessionId && data.sessionId !== entry.sessionId) {
+        return;
+      }
       if (entry) {
         entry.resolve(data.translations);
         delete pendingResolvers[data.id];
