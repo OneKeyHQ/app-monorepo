@@ -339,8 +339,10 @@ function getSupabaseSniFallbackUrl(
 
 async function getSupabaseSniFallbackCandidates(url: URL): Promise<string[]> {
   try {
-    // A proxy reaches the domain on its own, and a pinned IP would bypass it.
-    if (await isProxyActiveForUrl(url.origin)) {
+    // Only a confirmed direct route may pin an IP. A proxy reaches the domain
+    // on its own, and this path carries tokens with no legacy SNI behavior to
+    // keep when the preflight cannot tell (null).
+    if ((await isProxyActiveForUrl(url.origin)) !== false) {
       return [];
     }
     const devSettings = await requestHelper.getDevSettingsPersistAtom();
@@ -448,10 +450,12 @@ const supabaseSniFallbackFetch: typeof fetch = async (input, init) => {
       throw new TypeError('SNI transport returned no response');
     }
     const response = buildSupabaseSniResponse(sniResponse, method);
-    // A non-JSON error is an intermediary page, not a GoTrue verdict. It is no
-    // better than a transport failure: without this, a candidate that only
-    // serves error pages would hold the route for the whole runtime.
-    if (response.status >= 400 && !isJsonParseableBody(sniResponse.body)) {
+    // A non-JSON answer that is not a success (an error page, or a redirect,
+    // which the SNI transport never follows) comes from an intermediary, not
+    // from GoTrue. It is no better than a transport failure: without this, a
+    // candidate that only serves such answers would hold the route for the
+    // whole runtime.
+    if (!response.ok && !isJsonParseableBody(sniResponse.body)) {
       advanceSupabaseSniFallback(index, 'sni_error_page');
     }
     return response;

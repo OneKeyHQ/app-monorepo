@@ -1,3 +1,4 @@
+/* cspell:ignore apikey */
 import { OneKeyLocalError } from '../errors';
 
 import type { ISniRequestConfig, ISniResponse } from '../request/types/ipTable';
@@ -349,6 +350,10 @@ describe('supabase SNI fallback', () => {
       () => mockIsProxyActiveForUrl.mockRejectedValue(new Error('preflight')),
     ],
     [
+      'the platform cannot tell whether a proxy is active',
+      () => mockIsProxyActiveForUrl.mockResolvedValue(null),
+    ],
+    [
       'the IP table is disabled in dev settings',
       () =>
         mockGetDevSettingsPersistAtom.mockResolvedValue({
@@ -375,17 +380,6 @@ describe('supabase SNI fallback', () => {
     );
 
     expect(mockSniRequest).not.toHaveBeenCalled();
-  });
-
-  test('keeps using SNI when the platform has no proxy preflight', async () => {
-    mockIsProxyActiveForUrl.mockResolvedValue(null);
-    mockSniRequest.mockResolvedValue(sniOk());
-    const guardedFetch = await getGuardedFetch();
-    await failDomainOnce(guardedFetch);
-
-    await guardedFetch(REFRESH_URL, refreshInit());
-
-    expect(getSniIps()).toEqual([FIRST_IP]);
   });
 
   test('sends requests the SNI transport cannot carry to the domain', async () => {
@@ -498,6 +492,25 @@ describe('supabase SNI fallback', () => {
 
     // Each request was sent once; the page-serving candidates were left.
     expect(getSniIps()).toEqual([FIRST_IP, SECOND_IP, THIRD_IP]);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  test('moves on from a candidate that answers with a redirect, without following it', async () => {
+    mockSniRequest.mockResolvedValueOnce({
+      statusCode: 302,
+      headers: { location: 'https://example.com/login' },
+      body: '',
+    });
+    mockSniRequest.mockResolvedValue(sniOk());
+    const guardedFetch = await getGuardedFetch();
+    await failDomainOnce(guardedFetch);
+
+    await expect(guardedFetch(REFRESH_URL, refreshInit())).rejects.toThrow(
+      /Supabase non-JSON HTTP 302/,
+    );
+    await guardedFetch(REFRESH_URL, refreshInit());
+
+    expect(getSniIps()).toEqual([FIRST_IP, SECOND_IP]);
     expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
