@@ -261,6 +261,68 @@ class GateTests(unittest.TestCase):
         for sensitive in ('credential', '***', 'Match', 'synthetic-credential'):
             self.assertNotIn(sensitive, serialized)
 
+    def test_sensitive_target_names_use_run_local_path_ids(self):
+        target = 'synthetic-private-client-name.txt'
+        (self.root / target).write_text('fake credential\n')
+        for category, finding in (
+            ('Vulnerabilities', vulnerability()),
+            ('Misconfigurations', {'ID': 'AVD-1', 'Severity': 'HIGH',
+                                   'CauseMetadata': {'Resource': 'USER'}}),
+            ('Secrets', {'RuleID': 'test-rule', 'Severity': 'HIGH',
+                         'StartLine': 1, 'EndLine': 1}),
+        ):
+            with self.subTest(category=category):
+                report = copy.deepcopy(self.report)
+                report['Results'].append({'Target': target, 'Class': 'lang-pkgs',
+                                          'Type': 'yarn', category: [finding]})
+                first = self.collect(report)['findings'][0]
+                second = self.collect(report)['findings'][0]
+                other_run = gate.collect(report, self.root, b'other-run-key')['findings'][0]
+                self.assertNotIn(target, json.dumps(first))
+                self.assertNotIn('path', first)
+                self.assertRegex(first['pathId'], '^[0-9a-f]{64}$')
+                self.assertEqual(first['pathId'], second['pathId'])
+                self.assertNotEqual(first['pathId'], other_run['pathId'])
+
+    def test_sensitive_target_names_never_reach_published_evidence(self):
+        target = 'synthetic-private-client-name.txt'
+        report = self.secret_report()
+        report['Results'][-1]['Target'] = target
+        args = SimpleNamespace(output=str(self.root / 'evidence'), repo=str(self.root),
+                               base='a' * 40, head='b' * 40, merge='c' * 40,
+                               trivy=str(self.root / 'scanner'))
+        (self.root / 'scanner').write_text('fake executable')
+        def export(repo, revision, destination):
+            destination.mkdir()
+            for result in report['Results']:
+                file = destination / result['Target']
+                file.parent.mkdir(parents=True, exist_ok=True)
+                file.write_text('fake credential\n')
+        for outcome in ('passed', 'new_findings', 'incomplete'):
+            with self.subTest(outcome=outcome):
+                baseline = copy.deepcopy(report)
+                if outcome == 'new_findings':
+                    baseline['Results'][-1]['Secrets'] = []
+                candidate = gate.GateError('scanner_warning') if outcome == 'incomplete' else report
+                stdout = io.StringIO()
+                summary = self.root / 'step-summary.txt'
+                summary.write_text('')
+                with patch.object(gate, 'verify_revisions'), \
+                     patch.object(gate, 'execute', return_value=(b'Version: 0.70.0', b'')), \
+                     patch.object(gate, 'snapshot', return_value='database'), \
+                     patch.object(gate, 'export_tree', side_effect=export), \
+                     patch.object(gate, 'scan', side_effect=[{}, baseline, candidate]), \
+                     redirect_stdout(stdout), \
+                     patch.dict(os.environ, {'GITHUB_STEP_SUMMARY': str(summary)}):
+                    self.assertEqual(gate.run(args), {'passed': 0, 'new_findings': 1,
+                                                     'incomplete': 2}[outcome])
+                saved = json.loads((self.root / 'evidence/result.json').read_text())
+                self.assertEqual(saved['status'], outcome)
+                for artifact in (self.root / 'evidence').iterdir():
+                    self.assertNotIn(target, artifact.read_text())
+                self.assertNotIn(target, stdout.getvalue())
+                self.assertNotIn(target, summary.read_text())
+
 
 if __name__ == '__main__':
     unittest.main()

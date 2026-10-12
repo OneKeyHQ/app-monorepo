@@ -125,6 +125,7 @@ def collect(report, root, key):
         require(isinstance(result, dict), 'invalid_result')
         target = text(result, 'Target')
         source_file(root, target)
+        path_id = hmac.new(key, b'path\0' + target.encode(), 'sha256').hexdigest()
         kind = text(result, 'Class')
         ecosystem = 'secret' if kind == 'secret' else text(result, 'Type')
         require(not result.get('Error') and not result.get('Errors'), 'result_error')
@@ -158,11 +159,11 @@ def collect(report, root, key):
                 else:
                     identity += [text(finding, 'RuleID'),
                                  source_identity(root, target, finding, key)]
-                # Hash the comparison key. Only allowlisted location metadata
-                # is published; no messages, matches, titles, or code snippets.
+                # File names can contain secrets. Publish only run-local HMACs
+                # for locations and findings, never raw paths or scanner text.
                 fingerprint = hmac.new(key, canonical(identity), 'sha256').hexdigest()
                 findings.append({'kind': category, 'severity': severity,
-                                 'fingerprint': fingerprint, 'path': target,
+                                 'fingerprint': fingerprint, 'pathId': path_id,
                                  'rule': finding.get('VulnerabilityID') or finding.get('ID')
                                          or finding.get('RuleID')})
     # These are the two Yarn inventories the existing workflow scans. Require
