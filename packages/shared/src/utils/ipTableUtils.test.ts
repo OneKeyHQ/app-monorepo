@@ -5,15 +5,23 @@ import {
 } from '../request/constants/ipTableDefaults';
 
 import {
+  SHARED_DOMAIN_EXCLUDED_PROVIDERS,
   computeIpTableConfigHash,
+  getIpTableEndpointProvider,
+  getSharedDomainIpTableCandidates,
   isIpTableConfigRegression,
   isValidIpTableRemoteConfigShape,
   pruneIpTableRuntimeSelections,
+  spreadIpTableCandidatesAcrossProviders,
   verifyIpTableConfigSignature,
   verifyIpTableConfigSignatureDetailed,
 } from './ipTableUtils';
 
-import type { IIpTableRemoteConfig } from '../request/types/ipTable';
+import type {
+  IIpTableConfigWithRuntime,
+  IIpTableRemoteConfig,
+  IIpTableRuntime,
+} from '../request/types/ipTable';
 
 describe('verifyIpTableConfigSignature', () => {
   test('returns false when signature is missing', async () => {
@@ -440,5 +448,273 @@ describe('pruneIpTableRuntimeSelections', () => {
     expect(result.selections).toEqual({});
     expect(result.lastBestIp).toEqual({});
     expect(result.prunedCount).toBe(0);
+  });
+});
+
+describe('getIpTableEndpointProvider', () => {
+  test('lower-cases the label', () => {
+    expect(getIpTableEndpointProvider({ provider: 'EdgeOne' })).toBe('edgeone');
+    expect(getIpTableEndpointProvider({ provider: 'CLOUDFLARE' })).toBe(
+      'cloudflare',
+    );
+  });
+
+  test('returns an empty label when absent or not a string', () => {
+    expect(getIpTableEndpointProvider({})).toBe('');
+    expect(getIpTableEndpointProvider({ provider: undefined })).toBe('');
+    expect(getIpTableEndpointProvider({ provider: 42 })).toBe('');
+  });
+});
+
+describe('spreadIpTableCandidatesAcrossProviders', () => {
+  const providerByIp = new Map<string, string>([
+    ['1.1.1.1', 'a'],
+    ['1.1.1.2', 'a'],
+    ['1.1.1.3', 'a'],
+    ['2.2.2.1', 'b'],
+  ]);
+
+  test('interleaves providers while keeping the pool order inside a provider', () => {
+    expect(
+      spreadIpTableCandidatesAcrossProviders({
+        preferred: [],
+        pool: ['1.1.1.1', '1.1.1.2', '1.1.1.3', '2.2.2.1'],
+        providerByIp,
+      }),
+    ).toEqual(['1.1.1.1', '2.2.2.1', '1.1.1.2', '1.1.1.3']);
+  });
+
+  test('a provider used by a preferred ip starts one round behind', () => {
+    expect(
+      spreadIpTableCandidatesAcrossProviders({
+        preferred: ['1.1.1.2'],
+        pool: ['1.1.1.1', '1.1.1.2', '1.1.1.3', '2.2.2.1'],
+        providerByIp,
+      }),
+    ).toEqual(['1.1.1.2', '2.2.2.1', '1.1.1.1', '1.1.1.3']);
+  });
+
+  test('unlabelled ips share one bucket', () => {
+    expect(
+      spreadIpTableCandidatesAcrossProviders({
+        preferred: [],
+        pool: ['9.9.9.1', '9.9.9.2', '2.2.2.1'],
+        providerByIp,
+      }),
+    ).toEqual(['9.9.9.1', '2.2.2.1', '9.9.9.2']);
+  });
+});
+
+describe('getSharedDomainIpTableCandidates', () => {
+  const hostname = 'data.onekey.so';
+  const configKey = 'onekeycn.com';
+  const builtinEndpoints = DEFAULT_IP_TABLE_CONFIG.domains[configKey].endpoints;
+
+  function makeActiveConfig(options: {
+    endpoints?: Array<{ ip: string; provider?: string }>;
+    selection?: string;
+    lastBestIp?: string;
+  }): IIpTableConfigWithRuntime {
+    const runtime: IIpTableRuntime = {
+      enabled: true,
+      lastUpdated: 0,
+      lastRegionCheck: 0,
+      selections:
+        options.selection === undefined
+          ? {}
+          : { [configKey]: options.selection },
+      lastBestIp:
+        options.lastBestIp === undefined
+          ? undefined
+          : { [configKey]: options.lastBestIp },
+    };
+    return {
+      config: {
+        ...DEFAULT_IP_TABLE_CONFIG,
+        domains: {
+          ...DEFAULT_IP_TABLE_CONFIG.domains,
+          [configKey]: {
+            // A remote table may omit `provider`: the shape guard only
+            // validates `ip`.
+            endpoints: (options.endpoints ??
+              builtinEndpoints) as typeof builtinEndpoints,
+          },
+        },
+      },
+      runtime,
+    };
+  }
+
+  function getCandidates(
+    activeConfig: IIpTableConfigWithRuntime | null | undefined,
+    maxCandidates = 3,
+  ) {
+    return getSharedDomainIpTableCandidates({
+      hostname,
+      configKey,
+      activeConfig,
+      maxCandidates,
+    });
+  }
+
+  test('excludes the Cloudflare provider', () => {
+    expect(SHARED_DOMAIN_EXCLUDED_PROVIDERS).toEqual(['cloudflare']);
+  });
+
+  test('production table without an active config spreads the CN CDN providers', () => {
+    expect(getCandidates(undefined)).toEqual([
+      '216.19.3.115',
+      '43.168.19.96',
+      '216.19.2.116',
+    ]);
+  });
+
+  test('maxCandidates bounds the list', () => {
+    expect(getCandidates(undefined, 4)).toEqual([
+      '216.19.3.115',
+      '43.168.19.96',
+      '216.19.2.116',
+      '216.19.4.106',
+    ]);
+    expect(getCandidates(undefined, 10)).toHaveLength(4);
+    expect(getCandidates(undefined, 1)).toEqual(['216.19.3.115']);
+  });
+
+  test('null active config (main runtime) matches a missing one', () => {
+    expect(getCandidates(null, 4)).toEqual(getCandidates(undefined, 4));
+  });
+
+  test('test table keeps only the EdgeOne endpoints', () => {
+    expect(
+      getSharedDomainIpTableCandidates({
+        hostname,
+        configKey: 'onekeytest.com',
+        activeConfig: null,
+        maxCandidates: 3,
+      }),
+    ).toEqual(['43.168.24.171', '43.168.19.96']);
+  });
+
+  test('unknown configKey yields no candidates', () => {
+    expect(
+      getSharedDomainIpTableCandidates({
+        hostname,
+        configKey: 'onekey.so',
+        activeConfig: makeActiveConfig({ selection: '43.168.19.96' }),
+        maxCandidates: 3,
+      }),
+    ).toEqual([]);
+  });
+
+  test('mixed-case provider labels are matched case-insensitively', () => {
+    const activeConfig = makeActiveConfig({
+      endpoints: [
+        { ip: '216.19.3.115', provider: 'CloudFlare' },
+        { ip: '43.168.19.96', provider: 'EDGEONE' },
+      ],
+      selection: '216.19.3.115',
+    });
+    expect(getCandidates(activeConfig, 4)).toEqual([
+      '216.19.2.116',
+      '43.168.19.96',
+      '216.19.4.106',
+    ]);
+  });
+
+  test('a missing active label falls back to the builtin label', () => {
+    const activeConfig = makeActiveConfig({
+      endpoints: [{ ip: '104.18.20.233' }, { ip: '43.168.19.96' }],
+      selection: '104.18.20.233',
+      lastBestIp: '43.168.19.96',
+    });
+    expect(getCandidates(activeConfig)).toEqual([
+      '43.168.19.96',
+      '216.19.3.115',
+      '216.19.2.116',
+    ]);
+  });
+
+  test('an active label overrides the builtin label', () => {
+    const activeConfig = makeActiveConfig({
+      endpoints: [
+        { ip: '104.18.20.233', provider: 'volcengine' },
+        { ip: '43.168.19.96', provider: 'cloudflare' },
+      ],
+    });
+    const candidates = getCandidates(activeConfig, 10);
+    expect(candidates).toContain('104.18.20.233');
+    expect(candidates).not.toContain('43.168.19.96');
+    expect(candidates).not.toContain('104.18.21.233');
+  });
+
+  test('a preferred ip endorsed by the active table goes first', () => {
+    expect(
+      getCandidates(makeActiveConfig({ selection: '216.19.4.106' })),
+    ).toEqual(['216.19.4.106', '43.168.19.96', '216.19.3.115']);
+    expect(
+      getCandidates(makeActiveConfig({ lastBestIp: '43.168.19.96' })),
+    ).toEqual(['43.168.19.96', '216.19.3.115', '216.19.2.116']);
+  });
+
+  test('selection is ordered before lastBestIp', () => {
+    expect(
+      getCandidates(
+        makeActiveConfig({
+          selection: '216.19.4.106',
+          lastBestIp: '43.168.19.96',
+        }),
+        4,
+      ),
+    ).toEqual(['216.19.4.106', '43.168.19.96', '216.19.3.115', '216.19.2.116']);
+  });
+
+  test('a preferred ip the active table does not endorse is ignored', () => {
+    const baseline = getCandidates(undefined, 4);
+    // Not in any table.
+    expect(
+      getCandidates(makeActiveConfig({ selection: '9.9.9.9' }), 4),
+    ).toEqual(baseline);
+    // In the builtin table, but revoked from the active one.
+    expect(
+      getCandidates(
+        makeActiveConfig({
+          endpoints: builtinEndpoints.filter(
+            (endpoint) => endpoint.ip !== '216.19.4.106',
+          ),
+          selection: '216.19.4.106',
+          lastBestIp: '216.19.4.106',
+        }),
+        4,
+      ),
+    ).toEqual(baseline);
+    // The explicit "use the domain" choice is not an ip.
+    expect(getCandidates(makeActiveConfig({ selection: '' }), 4)).toEqual(
+      baseline,
+    );
+  });
+
+  test('a preferred Cloudflare ip is never used', () => {
+    const candidates = getCandidates(
+      makeActiveConfig({
+        selection: '104.18.20.233',
+        lastBestIp: '104.18.21.233',
+      }),
+      10,
+    );
+    expect(candidates).toEqual(getCandidates(undefined, 10));
+    expect(candidates).not.toContain('104.18.20.233');
+    expect(candidates).not.toContain('104.18.21.233');
+  });
+
+  test('a selection equal to lastBestIp appears once', () => {
+    expect(
+      getCandidates(
+        makeActiveConfig({
+          selection: '43.168.19.96',
+          lastBestIp: '43.168.19.96',
+        }),
+        10,
+      ),
+    ).toEqual(['43.168.19.96', '216.19.3.115', '216.19.2.116', '216.19.4.106']);
   });
 });
