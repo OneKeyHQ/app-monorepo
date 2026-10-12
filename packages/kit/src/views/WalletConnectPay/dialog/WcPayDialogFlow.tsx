@@ -367,8 +367,9 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
     },
     [],
   );
-  // The password prompt and the hardware dialogs/toasts are RN-layer surfaces
-  // the system sheet covers on native: park it while one is up, reveal it
+  // The password prompt, the hardware dialogs/toasts and the fee-overflow
+  // double confirm are RN-layer surfaces the system sheet covers on native:
+  // park it while one is up, reveal it
   // when it clears (web/desktop already paint those above the DialogV2 popup,
   // so the rule is native-only — see isWcPayPromptParkingEnabled). Reveal
   // ownership is split — this hook only undoes its OWN park, and only while

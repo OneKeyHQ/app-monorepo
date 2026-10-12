@@ -437,6 +437,10 @@ export async function wcPayInlineSendTx({
   // declined dialog surfaces as a plain error (not a cancel type), which is
   // the right outcome here: the user rejected this fee, so the payment moves
   // to the confirm page where the fee can be edited.
+  // The dialog is an RN-layer surface raised before any password/hardware
+  // prompt, i.e. while the pay sheet is still up and non-dismissible on
+  // native; the sheet parks for it through useWcPayPromptParking, which
+  // subscribes to the dialog's presence (txFeeOverflowConfirmPresence).
   const verifyResult = await runWcPayInlineStage({
     stage: 'prepare',
     disposition: 'fallback',

@@ -752,7 +752,11 @@ class ServiceWalletConnectPay extends ServiceBase {
    * re-executed transaction to the recorded nonce
    * (getBroadcastMetaByTxid + prepareSendConfirmUnsignedTx nonceInfo) so
    * a misjudgment can only produce a nonce conflict where one tx lands —
-   * never a second payment at nonce+1.
+   * never a second payment at nonce+1. For the same reason they must leave
+   * the stored entry in place until the replacement's own pre-broadcast
+   * write overwrites it: a re-execution the user cancels (or that dies
+   * before signing) must hand the next resume the same nonce to pin, not
+   * an empty record that re-derives one through getNextNonce().
    */
   @backgroundMethod()
   async isTxNeverBroadcast({
@@ -849,9 +853,12 @@ class ServiceWalletConnectPay extends ServiceBase {
 
   /**
    * Pre-broadcast metadata recorded for a txid (sender + nonce), if any.
-   * Read it BEFORE invalidating stored progress — invalidation truncates
-   * the entry that holds it — so the re-executed action can be pinned to
-   * the same nonce (see prepareSendConfirmUnsignedTx nonceInfo).
+   * The executor pins a rolled-back action's re-execution to this nonce
+   * (prepareSendConfirmUnsignedTx nonceInfo). The entry holding it stays in
+   * stored progress until the replacement's pre-broadcast write overwrites
+   * it (saveActionResult at the same index drops the stale metadata), so a
+   * re-execution that ends without a replacement — cancelled signing,
+   * failed prep, app death — leaves the next resume this same nonce.
    */
   @backgroundMethod()
   async getBroadcastMetaByTxid({

@@ -8,10 +8,12 @@ import { renderHook } from '@testing-library/react-native';
 import type { IHardwareUiState } from '@onekeyhq/kit-bg/src/states/jotai/atoms/hardware';
 import { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 
-// The two prompt atoms are the only inputs; they are mocked as plain module
-// state so a rerender can move them without a jotai provider.
+// The two prompt atoms and the fee-confirm presence are the only inputs;
+// they are mocked as plain module state so a rerender can move them without
+// a jotai provider or a real dialog.
 let passwordPrompt: unknown;
 let hardwareState: unknown;
+let isFeeOverflowConfirmOpen = false;
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock', () => ({
   __esModule: true,
@@ -23,6 +25,13 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/hardware', () => ({
   __esModule: true,
   useHardwareUiStateAtom: () => [hardwareState],
 }));
+jest.mock(
+  '../../../SignatureConfirm/hooks/txFeeOverflowConfirmPresence',
+  () => ({
+    __esModule: true,
+    useIsTxFeeOverflowConfirmOpen: () => isFeeOverflowConfirmOpen,
+  }),
+);
 
 import {
   isWcPayHardwarePromptActive,
@@ -49,6 +58,45 @@ describe('useWcPayPromptParking', () => {
   beforeEach(() => {
     passwordPrompt = undefined;
     hardwareState = undefined;
+    isFeeOverflowConfirmOpen = false;
+  });
+
+  it('parks for the fee-overflow double confirm and reveals when it settles', () => {
+    // The inline send raises this dialog BEFORE signing, so no password or
+    // hardware atom is set yet; the dialog's own presence must park the
+    // sheet, or it sits under the non-dismissible paying sheet with the
+    // background waiting on an answer the user cannot give.
+    const { park, reveal, rerender } = setup();
+    isFeeOverflowConfirmOpen = true;
+    rerender({ enabled: true });
+    rerender({ enabled: true });
+    expect(park).toHaveBeenCalledTimes(1);
+    expect(reveal).not.toHaveBeenCalled();
+
+    isFeeOverflowConfirmOpen = false;
+    rerender({ enabled: true });
+
+    expect(reveal).toHaveBeenCalledTimes(1);
+  });
+
+  it('parks once for a fee confirm followed by the password prompt, revealing after both', () => {
+    // Confirming the fee lets signing start, which may raise the password
+    // prompt while the dialog is still tearing down: one park, no reveal
+    // until the last prompt clears.
+    const { park, reveal, rerender } = setup();
+    isFeeOverflowConfirmOpen = true;
+    rerender({ enabled: true });
+    passwordPrompt = { idNumber: 1 };
+    rerender({ enabled: true });
+    isFeeOverflowConfirmOpen = false;
+    rerender({ enabled: true });
+    expect(park).toHaveBeenCalledTimes(1);
+    expect(reveal).not.toHaveBeenCalled();
+
+    passwordPrompt = undefined;
+    rerender({ enabled: true });
+
+    expect(reveal).toHaveBeenCalledTimes(1);
   });
 
   it('parks once when the password prompt appears', () => {

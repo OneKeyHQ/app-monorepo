@@ -488,7 +488,7 @@ export function useWcPayActionExecutor() {
       // (startIndex === actions.length), or a phantom txid would be handed
       // to confirmPayment unchecked
       let effectiveStartIndex = startIndex;
-      // nonce to pin when re-executing an invalidated broadcast action: the
+      // nonce to pin when re-executing a rolled-back broadcast action: the
       // never-broadcast verdict is fallible (the tx may merely be invisible
       // to the probe pool), so the re-executed tx must reuse the recorded
       // nonce — a misjudgment then yields a nonce conflict where only one
@@ -520,13 +520,27 @@ export function useWcPayActionExecutor() {
                 },
               );
             if (isNeverBroadcast) {
-              // read the recorded nonce BEFORE invalidation — truncating
-              // stored progress deletes the entry that holds it
+              // Roll the action back IN MEMORY ONLY — the stored entry (txid
+              // + broadcastMeta) is deliberately not discarded here. It is
+              // the only durable copy of the nonce the replacement must be
+              // pinned to, and this re-execution can still end without a
+              // replacement: the user cancels at the signing prompt, the
+              // prep fails, the app dies. Had the entry been truncated
+              // first, the next resume would find no record, start over
+              // through getNextNonce(), and — whenever this verdict was a
+              // probe-pool misjudgment and the original tx lands after all
+              // — pay a second time at nonce+1. Kept, the entry makes every
+              // later resume run this same probe and pin this same nonce,
+              // until the replacement's pre-broadcast write
+              // (recordPreBroadcastTxid at this index) overwrites it, so
+              // the stale txid never outlives its substitute. Discarding
+              // stays reserved for a CONFIRMED revert (onActionInvalidated
+              // below), where the nonce is consumed and there is nothing
+              // left to pin.
               const broadcastMeta =
                 await backgroundApiProxy.serviceWalletConnectPay.getBroadcastMetaByTxid(
                   { txid: prevTxid },
                 );
-              await onActionInvalidated?.({ index: prevIndex });
               results.length = prevIndex;
               effectiveStartIndex = prevIndex;
               if (broadcastMeta) {

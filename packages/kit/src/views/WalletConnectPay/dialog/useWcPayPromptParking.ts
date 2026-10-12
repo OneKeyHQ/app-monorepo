@@ -5,6 +5,8 @@ import type { IHardwareUiState } from '@onekeyhq/kit-bg/src/states/jotai/atoms/h
 import { usePasswordPromptPromiseTriggerAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 
+import { useIsTxFeeOverflowConfirmOpen } from '../../SignatureConfirm/hooks/txFeeOverflowConfirmPresence';
+
 /**
  * Hardware UI states that render NOTHING the user must see or answer. Mirrors
  * the exclusion lists of `hasDialogAction` / `hasToastAction` in
@@ -92,6 +94,18 @@ export function isWcPayPromptParkingEnabled({
  * sheet up. Native only — see isWcPayPromptParkingEnabled for why the hook is
  * left disabled on web/desktop rather than made harmless there.
  *
+ * The fee-overflow double confirm is the third prompt in this lifecycle. The
+ * background's verifyTransactionFeeInfo (doubleConfirm) raises it — through
+ * the one-shot doubleConfirmTxFeeInfo event, answered by VerifyTxContainer's
+ * plain Dialog.show() — when the fee overflows OR the fee precheck itself
+ * fails, and then blocks on the answer. The inline send runs that check
+ * BEFORE signing (wcPayInlineSendTx), so neither the password nor the
+ * hardware atom has parked the sheet yet; without its own signal the dialog
+ * would sit under the non-dismissible paying sheet with the background
+ * waiting forever (reported on Android, where the sheet is a separate
+ * window). The dialog publishes its presence (txFeeOverflowConfirmPresence)
+ * and parks the sheet like the other two.
+ *
  * The parking is REACTIVE, and that is a known timing caveat: the pipelines
  * emit `onPhase('signingMessage')` fire-and-forget and there is no awaited
  * hook at the prompt boundary, so the prompt mounts UNDER the sheet first and
@@ -119,9 +133,11 @@ export function useWcPayPromptParking({
   const [{ passwordPromptPromiseTriggerData }] =
     usePasswordPromptPromiseTriggerAtom();
   const [hardwareUiState] = useHardwareUiStateAtom();
+  const isFeeOverflowConfirmOpen = useIsTxFeeOverflowConfirmOpen();
   const isPromptActive =
     Boolean(passwordPromptPromiseTriggerData) ||
-    isWcPayHardwarePromptActive(hardwareUiState);
+    isWcPayHardwarePromptActive(hardwareUiState) ||
+    isFeeOverflowConfirmOpen;
   const parkedRef = useRef(false);
   useEffect(() => {
     if (!enabled) {

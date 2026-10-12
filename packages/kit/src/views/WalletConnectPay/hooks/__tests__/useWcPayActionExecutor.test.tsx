@@ -391,6 +391,9 @@ describe('useWcPayActionExecutor sequence invariants', () => {
 
   const services = jest.requireMock<{
     default: {
+      serviceSend: {
+        prepareSendConfirmUnsignedTx: jest.Mock;
+      };
       serviceWalletConnectPay: {
         waitForTxMined: jest.Mock;
         isTxNeverBroadcast: jest.Mock;
@@ -398,8 +401,9 @@ describe('useWcPayActionExecutor sequence invariants', () => {
       };
     };
   }>('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default;
-  const { waitForTxMined, isTxNeverBroadcast } =
+  const { waitForTxMined, isTxNeverBroadcast, getBroadcastMetaByTxid } =
     services.serviceWalletConnectPay;
+  const { prepareSendConfirmUnsignedTx } = services.serviceSend;
   const { wcPayInlineSendTx } = jest.requireMock<{
     wcPayInlineSendTx: jest.Mock;
   }>('../wcPayInlineSendTx');
@@ -410,6 +414,10 @@ describe('useWcPayActionExecutor sequence invariants', () => {
     waitForTxMined.mockResolvedValue({ isReverted: false });
     isTxNeverBroadcast.mockReset();
     isTxNeverBroadcast.mockResolvedValue(false);
+    getBroadcastMetaByTxid.mockReset();
+    getBroadcastMetaByTxid.mockResolvedValue(undefined);
+    // keeps the factory's resolved value, drops the call history
+    prepareSendConfirmUnsignedTx.mockClear();
     wcPayInlineSendTx.mockReset();
     wcPayInlineSendTx.mockResolvedValue({ status: 'ok', txid: '0xinline' });
     // every confirm modal settles successfully, whichever kind it is
@@ -506,8 +514,9 @@ describe('useWcPayActionExecutor sequence invariants', () => {
   // rolled-back action is re-executed in THIS run, so its earlier spend is
   // not spent any more. Seeding from the raw stored length instead would
   // silently refuse to inline the very action being re-executed.
-  it('re-inlines an action the resume probe rolled back', async () => {
+  it('re-inlines an action the resume probe rolled back, pinned to its recorded nonce', async () => {
     isTxNeverBroadcast.mockResolvedValue(true);
+    getBroadcastMetaByTxid.mockResolvedValue({ sender: SENDER, nonce: 7 });
     const onActionInvalidated = jest.fn();
     const { result } = renderHook(() => useWcPayActionExecutor());
 
@@ -521,8 +530,59 @@ describe('useWcPayActionExecutor sequence invariants', () => {
       onActionInvalidated,
     });
 
-    expect(onActionInvalidated).toHaveBeenCalledWith({ index: 0 });
+    // The rollback is in memory only. The stored entry is the sole durable
+    // copy of the nonce the replacement is pinned to, and must survive until
+    // that replacement's pre-broadcast write overwrites it; discarding is
+    // reserved for a confirmed revert.
+    expect(onActionInvalidated).not.toHaveBeenCalled();
+    expect(prepareSendConfirmUnsignedTx).toHaveBeenCalledTimes(1);
+    expect(prepareSendConfirmUnsignedTx).toHaveBeenCalledWith(
+      expect.objectContaining({ nonceInfo: { nonce: 7 } }),
+    );
     expect(wcPayInlineSendTx).toHaveBeenCalledTimes(1);
+    expect(signatures).toEqual(['0xinline', '0xsig-permit']);
+  });
+
+  // Regression for resume → cancel → resume. The first re-execution ends in
+  // a user cancel at the signing prompt, so no replacement was ever
+  // persisted; the caller's record (modelled by handing back the same
+  // completedResults) must still be intact, and the second resume must pin
+  // the SAME nonce. A fresh getNextNonce() here would pay a second time at
+  // nonce+1 whenever the never-broadcast verdict was a probe-pool
+  // misjudgment and the original tx lands after all.
+  it('keeps the recorded nonce across resume → cancel → resume', async () => {
+    isTxNeverBroadcast.mockResolvedValue(true);
+    getBroadcastMetaByTxid.mockResolvedValue({ sender: SENDER, nonce: 7 });
+    wcPayInlineSendTx.mockRejectedValueOnce(
+      new WcPayUserCancelledError('User canceled payment'),
+    );
+    const onActionInvalidated = jest.fn();
+    const { result } = renderHook(() => useWcPayActionExecutor());
+    const resume = () =>
+      result.current.executeActions({
+        actions: [buildTransferAction(), typedDataAction],
+        accountId: 'account-1',
+        completedResults: ['0xtxid-prev'],
+        option,
+        inlineController: buildController(),
+        onActionInvalidated,
+      });
+
+    await expect(resume()).rejects.toBeInstanceOf(WcPayUserCancelledError);
+    // nothing was signed, so nothing may have asked the caller to drop the
+    // record that holds the nonce
+    expect(onActionInvalidated).not.toHaveBeenCalled();
+
+    const signatures = await resume();
+
+    expect(onActionInvalidated).not.toHaveBeenCalled();
+    expect(prepareSendConfirmUnsignedTx).toHaveBeenCalledTimes(2);
+    for (const [params] of prepareSendConfirmUnsignedTx.mock.calls) {
+      expect(params).toEqual(
+        expect.objectContaining({ nonceInfo: { nonce: 7 } }),
+      );
+    }
+    expect(wcPayInlineSendTx).toHaveBeenCalledTimes(2);
     expect(signatures).toEqual(['0xinline', '0xsig-permit']);
   });
 
