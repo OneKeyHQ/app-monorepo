@@ -16,15 +16,17 @@ import secrets
 import shutil
 import subprocess
 import tempfile
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
-VERSION = '0.70.0'
+VERSION = '0.71.0'
 SEVERITIES = {'HIGH', 'CRITICAL'}
 POLICY = {
     'version': VERSION, 'scanners': 'vuln,misconfig,secret',
     'severity': 'HIGH,CRITICAL', 'ignoreUnfixed': True,
     'includeDevDeps': False, 'vulnerableVersionReplacement': 'new',
     'warningPolicy': 'fail-except-unchanged-pinned-yarn-git', 'identityVersion': 1,
+    'yarnCoverage': 'complete-npm-inventory',
+    'yarnProjection': 'omit-non-runtime-dependency-metadata',
     'databases': ['ghcr.io/aquasecurity/trivy-db:2',
                   'ghcr.io/aquasecurity/trivy-java-db:1',
                   'ghcr.io/aquasecurity/trivy-checks:1'],
@@ -211,11 +213,12 @@ def snapshot(cache):
     return digest(canonical(result))
 
 
-def scan_command(binary, root, output, cache, config, frozen):
+def scan_command(binary, root, output, cache, config, frozen,
+                 scanners=None, include_dev_deps=False):
     args = [str(binary), 'fs', '--config', str(config / 'trivy.yaml'),
             '--cache-dir', str(cache), '--cache-backend', 'memory',
-            '--scanners', POLICY['scanners'], '--severity', POLICY['severity'],
-            '--ignore-unfixed', '--include-dev-deps=false', '--list-all-pkgs',
+            '--scanners', scanners or POLICY['scanners'], '--severity', POLICY['severity'],
+            '--ignore-unfixed', '--include-dev-deps=' + str(include_dev_deps).lower(), '--list-all-pkgs',
             '--ignorefile', str(config / 'ignore'),
             '--secret-config', str(config / 'secret.yaml'),
             '--format', 'json', '--output', str(output), '--exit-code', '0',
@@ -226,14 +229,39 @@ def scan_command(binary, root, output, cache, config, frozen):
     return args + ['.']
 
 
-def yarn_git_entries(root):
-    entries = {}
+def yarn_files(root):
     for file in root.rglob('yarn.lock'):
         with source_file(root, str(file.relative_to(root))).open(newline='') as source:
             raw = source.read()
         data = raw.replace('\r\n', '\n')
+        # Trivy prioritizes LF delimiters over CRLF delimiters in a buffer.
+        require('\r' not in data and ('\r' not in raw or raw == data.replace('\n', '\r\n')),
+                'unsupported_yarn_block')
         header_pattern = r'(?m)^[^\s#][^\n]*(?:\n|$)'
+        for block in data.split('\n\n'):
+            meaningful = [line for line in block.splitlines()
+                          if line.strip() and not line.startswith('#')]
+            if not meaningful:
+                continue
+            matches = list(re.finditer(header_pattern, block))
+            require(len(matches) == 1 and meaningful[0] == matches[0].group().rstrip(),
+                    'unsupported_yarn_block')
+            for line in meaningful[1:]:
+                require(line.startswith('  ') and not line.startswith('  \t'),
+                        'unsupported_yarn_block')
+                if not line.startswith('   '):
+                    require(bool(re.match(r'^  [a-zA-Z][a-zA-Z0-9]*:', line)),
+                            'unsupported_yarn_block')
+                if meaningful[0] == '__metadata:':
+                    require(bool(re.match(r'^  (?:version|cacheKey): ', line)),
+                            'unsupported_yarn_block')
         headers = list(re.finditer(header_pattern, data))
+        yield str(file.relative_to(root)), data, headers
+
+
+def yarn_git_entries(root):
+    entries = {}
+    for relative, data, headers in yarn_files(root):
         covered = []
         for match in headers:
             header = match.group().rstrip()
@@ -244,19 +272,8 @@ def yarn_git_entries(root):
             # Trivy skips Git sources. Admit only unchanged, commit-pinned
             # GitHub entries; new/edited opaque code cannot be assessed safely.
             require(protocols == {'https'}, 'unsupported_yarn_source')
-            # Trivy skips physical blocks, delimited by an empty LF/CRLF line.
-            # Mixed line endings make its delimiter precedence ambiguous.
-            require('\r' not in data and ('\r' not in raw or raw == data.replace('\n', '\r\n')),
-                    'unsupported_yarn_block')
-            start = data.rfind('\n\n', 0, match.start())
-            start = start + 2 if start >= 0 else 0
             end = data.find('\n\n', match.start())
             end = end if end >= 0 else len(data)
-            # Trivy also parses indented headers; do not omit a hidden prefix.
-            require(len(re.findall(header_pattern, data[start:end])) == 1
-                    and all(not line.strip() or line.startswith('#')
-                            for line in data[start:match.start()].splitlines()),
-                    'unsupported_yarn_block')
             block = data[match.start():end].rstrip('\r\n')
             resolutions = re.findall(r'(?m)^  resolution: ("(?:[^"\\]|\\.)*")$', block)
             require(len(resolutions) == 1, 'unsupported_yarn_source')
@@ -279,7 +296,7 @@ def yarn_git_entries(root):
                         and source.path.removesuffix('.git') == url.path.removesuffix('.git')
                         and not source.query,
                         'unsupported_yarn_source')
-            identity = (str(file.relative_to(root)), header)
+            identity = (relative, header)
             require(identity not in entries, 'unsupported_yarn_source')
             entries[identity] = digest(block.encode())
             covered.append((match.start(), end))
@@ -316,8 +333,116 @@ def yarn_git_warnings(base, merge):
             for name, inventory in entries.items()}
 
 
-def scan(binary, root, output, cache, config, env, frozen=True, allowed_warnings=None):
-    stdout, stderr = execute(scan_command(binary, root, output, cache, config, frozen),
+def project_yarn(root, destination):
+    require(not destination.resolve().is_relative_to(root.resolve()), 'invalid_projection_destination')
+    destination.mkdir()
+    for file in root.rglob('package.json'):
+        relative = str(file.relative_to(root))
+        target = destination / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(source_file(root, relative).read_bytes())
+    for relative, data, _ in yarn_files(root):
+        lines = []
+        skipping = False
+        for line in data.splitlines(keepends=True):
+            # These Yarn installation hints are not runtime dependencies. Trivy
+            # otherwise interprets their descriptor keys as package headers.
+            if re.fullmatch(r'  (?:dependenciesMeta|peerDependenciesMeta):\s*', line):
+                skipping = True
+                continue
+            if skipping and line.startswith('   '):
+                continue
+            if line.strip() and not line.startswith('#'):
+                skipping = False
+            lines.append(line)
+        target = destination / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(''.join(lines))
+
+
+def yarn_packages(root):
+    expected = {}
+    for relative, data, headers in yarn_files(root):
+        expected[relative] = set()
+        for match in headers:
+            header = match.group().rstrip()
+            if header == '__metadata:':
+                continue
+            try:
+                selector, suffix = json.JSONDecoder().raw_decode(header)
+                require(isinstance(selector, str) and header[suffix:].strip() == ':',
+                        'unsupported_yarn_source')
+            except ValueError:
+                raise GateError('unsupported_yarn_source') from None
+            end = data.find('\n\n', match.start())
+            block = data[match.start():end if end >= 0 else len(data)]
+            resolutions = re.findall(r'(?m)^  resolution: ("(?:[^"\\]|\\.)*")$', block)
+            require(len(resolutions) == 1, 'unsupported_yarn_source')
+            resolution = json.loads(resolutions[0])
+            if '@workspace:' in resolution:
+                continue
+            names = {pattern.split('@npm:', 1)[0] for pattern in selector.split(', ')
+                     if '@npm:' in pattern}
+            package_name = r'((?:@[^/@\s:]+/)?[^/@\s:]+)'
+            npm_resolution = re.fullmatch(package_name + r'@npm:(.+)', resolution)
+            if '@patch:' in resolution:
+                patched = re.fullmatch(package_name + r'@patch:([^#]+)#.+', resolution)
+                require(patched is not None, 'unsupported_yarn_source')
+                npm_resolution = re.fullmatch(package_name + r'@npm:(.+)', unquote(patched[2]))
+                require(npm_resolution is not None and patched[1] == npm_resolution[1]
+                        and all(pattern.startswith(patched[1] + '@patch:')
+                                for pattern in selector.split(', ')), 'unsupported_yarn_source')
+                # Trivy skips patch descriptors. The underlying npm version
+                # must still appear in its inventory, or coverage is incomplete.
+            if npm_resolution:
+                names.add(npm_resolution[1])
+            if not names:
+                continue
+            versions = re.findall(r'(?m)^  version: (.+)$', block)
+            require(len(versions) == 1, 'unsupported_yarn_source')
+            version = json.loads(versions[0]) if versions[0].startswith('"') else versions[0]
+            require(isinstance(version, str) and bool(version), 'unsupported_yarn_source')
+            if npm_resolution:
+                require(version == npm_resolution[2], 'unsupported_yarn_source')
+                for pattern in selector.split(', '):
+                    name, separator, constraint = pattern.partition('@npm:')
+                    require(not separator or name == npm_resolution[1]
+                            or constraint.startswith(npm_resolution[1] + '@'), 'unsupported_yarn_source')
+            first = selector.split(', ')[0]
+            identity = re.match(r'^((?:@[^/@\s:]+/)?[^/@\s:]+)@', first)
+            require(identity is not None, 'unsupported_yarn_source')
+            expected[relative].add((identity[1] + '@' + version, version))
+    return expected
+
+
+def verify_yarn_coverage(root, inventory, production):
+    for report in (inventory, production):
+        require(isinstance(report, dict) and report.get('SchemaVersion') == 2
+                and report.get('ArtifactType') == 'filesystem'
+                and report.get('Trivy', {}).get('Version') == VERSION
+                and isinstance(report.get('Results'), list), 'invalid_inventory_report')
+    for target, expected in yarn_packages(root).items():
+        matches = []
+        for report in (inventory, production):
+            results = [r for r in report['Results'] if isinstance(r, dict)
+                       and r.get('Target') == target and r.get('Class') == 'lang-pkgs'
+                       and r.get('Type') == 'yarn']
+            require(len(results) == 1 and not results[0].get('Error')
+                    and not results[0].get('Errors'), 'missing_lockfile_inventory')
+            matches.append(list_field(results[0], 'Packages'))
+        # ID retains the selector name when Trivy rewrites npm alias Names.
+        # A canonical Name/Version cannot stand in for a missing alias instance.
+        seen = {(text(p, 'ID'), p.get('Version', '')) for p in matches[0]}
+        require(expected <= seen, 'missing_yarn_package')
+        production_ids = {(text(p, 'ID'), p.get('Version', '')) for p in matches[1]}
+        require(all((text(p, 'ID'), p.get('Version', '')) in production_ids
+                    for p in matches[0] if not p.get('Dev')), 'missing_production_package')
+
+
+def scan(binary, root, output, cache, config, env, frozen=True, allowed_warnings=None,
+         scanners=None, include_dev_deps=False):
+    stdout, stderr = execute(scan_command(binary, root, output, cache, config, frozen,
+                                         scanners, include_dev_deps),
                               cwd=root, env=env)
     # Exceptions are exact parser messages derived from validated source pairs.
     # Never persist warning text, which can quote credentials or arbitrary input.
@@ -413,6 +538,13 @@ def run(args):
             (config / 'trivy.yaml').write_text('{}\n')
             (config / 'secret.yaml').write_text('{}\n')
             (config / 'ignore').write_text('')
+            roots = {}
+            for name in ('base', 'merge'):
+                result['phase'] = name
+                roots[name] = private / name
+                export_tree(repo, expected[name], roots[name])
+            allowed_warnings = yarn_git_warnings(roots['base'], roots['merge'])
+            result['opaqueGitDependencyCount'] = sum(allowed_warnings['merge'].values())
             result['phase'] = 'database'
             cache = private / 'cache'
             cache.mkdir()
@@ -428,13 +560,6 @@ def run(args):
             scan(binary, empty, private / 'warmup.json', cache, config, env, frozen=False)
             database = snapshot(cache)
             key = secrets.token_bytes(32)
-            roots = {}
-            for name in ('base', 'merge'):
-                result['phase'] = name
-                roots[name] = private / name
-                export_tree(repo, expected[name], roots[name])
-            allowed_warnings = yarn_git_warnings(roots['base'], roots['merge'])
-            result['opaqueGitDependencyCount'] = sum(allowed_warnings['merge'].values())
             scans = {}
             for name in ('base', 'merge'):
                 result['phase'] = name
@@ -442,6 +567,28 @@ def run(args):
                 require(snapshot(cache) == database, 'database_changed')
                 report = scan(binary, root, private / (name + '.json'), cache, config, env,
                               allowed_warnings=allowed_warnings[name])
+                require(isinstance(report, dict) and isinstance(report.get('Results'), list),
+                        'missing_results')
+                require(all(isinstance(r, dict) and not r.get('Error') and not r.get('Errors')
+                            for r in report['Results']), 'result_error')
+                projected = private / (name + '-yarn')
+                project_yarn(root, projected)
+                inventory = scan(binary, projected, private / (name + '-inventory.json'),
+                                 cache, config, env, allowed_warnings=allowed_warnings[name],
+                                 scanners='vuln', include_dev_deps=True)
+                production = scan(binary, projected, private / (name + '-production.json'),
+                                  cache, config, env, allowed_warnings=allowed_warnings[name],
+                                  scanners='vuln')
+                verify_yarn_coverage(root, inventory, production)
+                # Original trees retain secret/misconfiguration and other ecosystem
+                # coverage. Only Yarn vulnerability Results use the projection.
+                yarn_targets = {r['Target'] for r in production['Results']
+                                if r.get('Class') == 'lang-pkgs' and r.get('Type') == 'yarn'}
+                report = dict(report, Results=[r for r in report['Results']
+                    if not (r.get('Class') == 'lang-pkgs' and r.get('Type') == 'yarn'
+                            and r.get('Target') in yarn_targets)]
+                    + [r for r in production['Results']
+                       if r.get('Class') == 'lang-pkgs' and r.get('Type') == 'yarn'])
                 require(snapshot(cache) == database, 'database_changed')
                 require(digest(binary.read_bytes()) == binary_hash, 'binary_changed')
                 scans[name] = collect(report, root, key)

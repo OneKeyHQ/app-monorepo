@@ -6,6 +6,8 @@ import io
 import json
 import os
 from pathlib import Path
+import re
+import subprocess
 import tempfile
 import sys
 import unittest
@@ -33,12 +35,13 @@ class GateTests(unittest.TestCase):
         for name in ('yarn.lock', 'apps/desktop/app/yarn.lock', 'source.txt', 'Dockerfile'):
             file = self.root / name
             file.parent.mkdir(parents=True, exist_ok=True)
-            file.write_text('first fake credential\nsecond fake credential\n')
+            file.write_text(self.npm_lockfile() if name.endswith('yarn.lock')
+                            else 'first fake credential\nsecond fake credential\n')
         self.key = b'ephemeral-test-key'
         self.report = {'SchemaVersion': 2, 'ArtifactType': 'filesystem',
                        'Trivy': {'Version': gate.VERSION}, 'Results': [
             {'Target': name, 'Class': 'lang-pkgs', 'Type': 'yarn',
-             'Packages': [{'Name': 'example', 'Version': '1'}], 'Vulnerabilities': []}
+             'Packages': [{'ID': 'example@1', 'Name': 'example', 'Version': '1'}], 'Vulnerabilities': []}
             for name in ('yarn.lock', 'apps/desktop/app/yarn.lock')]}
 
     def collect(self, report):
@@ -164,6 +167,11 @@ class GateTests(unittest.TestCase):
                 with self.assertRaisesRegex(gate.GateError, '^scanner_warning$'):
                     gate.scan('trivy', self.root, self.root / 'out', self.root, self.root, {})
 
+    def npm_lockfile(self, name='example', version='1'):
+        identity = name + '@npm:' + version
+        return (json.dumps(identity) + ':\n  version: ' + version
+                + '\n  resolution: ' + json.dumps(identity) + '\n')
+
     def git_lockfile(self, revision='a' * 40):
         selector = 'example@https://github.com/example/project#' + 'a' * 40
         return (json.dumps(selector) + ':\n  version: 1.0.0\n  resolution: '
@@ -232,6 +240,22 @@ class GateTests(unittest.TestCase):
                  self.assertRaisesRegex(gate.GateError, '^unsupported_yarn_block$'):
                 gate.yarn_git_warnings(base, merge)
 
+    def test_every_yarn_block_requires_entry_separators(self):
+        base, merge = self.root / 'base', self.root / 'merge'
+        base.mkdir()
+        merge.mkdir()
+        npm = '"lodash@npm:4.17.20":\n  version: 4.17.20\n  resolution: "lodash@npm:4.17.20"\n'
+        metadata = '__metadata:\n  version: 8\n  cacheKey: 10c0\n'
+        for prefix in (metadata, self.npm_lockfile('is-number', '7.0.0'),
+                       '"local@workspace:.":\n  version: 0.0.0-use.local\n',
+                       '"local@file:.":\n  version: 1\n'):
+            (base / 'yarn.lock').write_text(metadata + '\n' + npm)
+            for separator in ('', '  \n', '# comment\n'):
+                (merge / 'yarn.lock').write_text(prefix + separator + npm)
+                with self.subTest(prefix=prefix.splitlines()[0], separator=repr(separator)), \
+                     self.assertRaisesRegex(gate.GateError, '^unsupported_yarn_block$'):
+                    gate.yarn_git_warnings(base, merge)
+
     def test_changed_or_new_git_dependency_fails_coverage(self):
         base, merge = self.root / 'base', self.root / 'merge'
         base.mkdir()
@@ -292,7 +316,7 @@ class GateTests(unittest.TestCase):
                           '"registry-package@npm:^1":\n  version: 1\n  dependency: "example@git+https://github.com/example/project"\n'):
             (merge / 'yarn.lock').write_text(lockfile + '\n' + candidate)
             with self.subTest(candidate_length=len(candidate)), \
-                 self.assertRaisesRegex(gate.GateError, '^(unsupported_yarn_source|changed_unsupported_dependency)$'):
+                 self.assertRaisesRegex(gate.GateError, '^(unsupported_yarn_block|unsupported_yarn_source|changed_unsupported_dependency)$'):
                 gate.yarn_git_warnings(base, merge)
 
     def test_scan_failure_and_timeout(self):
@@ -306,6 +330,108 @@ class GateTests(unittest.TestCase):
         for flag in ('--skip-db-update', '--skip-java-db-update', '--skip-check-update',
                      '--secret-config', '--ignorefile', '--config', '--list-all-pkgs'):
             self.assertIn(flag, command)
+
+    def test_complete_inventory_requires_expected_packages_and_versions(self):
+        (self.root / 'yarn.lock').write_text(self.npm_lockfile() + '\n' + self.npm_lockfile('added', '2'))
+        with self.assertRaisesRegex(gate.GateError, '^missing_yarn_package$'):
+            gate.verify_yarn_coverage(self.root, self.report, self.report)
+        inventory = copy.deepcopy(self.report)
+        inventory['Results'][0]['Packages'].append({'ID': 'added@3', 'Name': 'added', 'Version': '3', 'Dev': True})
+        with self.assertRaisesRegex(gate.GateError, '^missing_yarn_package$'):
+            gate.verify_yarn_coverage(self.root, inventory, self.report)
+        inventory['Results'][0]['Packages'][-1]['Version'] = '2'
+        inventory['Results'][0]['Packages'][-1]['ID'] = 'added@2'
+        gate.verify_yarn_coverage(self.root, inventory, self.report)
+        inventory['Results'][0]['Packages'][-1]['Dev'] = False
+        with self.assertRaisesRegex(gate.GateError, '^missing_production_package$'):
+            gate.verify_yarn_coverage(self.root, inventory, self.report)
+
+    def test_npm_resolution_must_match_version_and_explicit_alias(self):
+        for candidate in (self.npm_lockfile().replace('  version: 1', '  version: 2'),
+                          self.npm_lockfile().replace('resolution: "example@', 'resolution: "other@')):
+            (self.root / 'yarn.lock').write_text(candidate)
+            with self.assertRaisesRegex(gate.GateError, '^unsupported_yarn_source$'):
+                gate.yarn_packages(self.root)
+        alias = self.npm_lockfile().replace('"example@npm:1":', '"alias@npm:example@1":')
+        (self.root / 'yarn.lock').write_text(alias)
+        with self.assertRaisesRegex(gate.GateError, '^missing_yarn_package$'):
+            gate.verify_yarn_coverage(self.root, self.report, self.report)
+        aliased = copy.deepcopy(self.report)
+        aliased['Results'][0]['Packages'][0]['ID'] = 'alias@1'
+        gate.verify_yarn_coverage(self.root, aliased, aliased)
+
+    def test_patch_wrapped_npm_still_requires_underlying_inventory(self):
+        patch_entry = ('"added@patch:added@npm%3A2#./fixture.patch":\n'
+                       '  version: 2\n'
+                       '  resolution: "added@patch:added@npm%3A2#./fixture.patch::version=2&hash=abcdef"\n')
+        (self.root / 'yarn.lock').write_text(self.npm_lockfile() + '\n' + patch_entry)
+        with self.assertRaisesRegex(gate.GateError, '^missing_yarn_package$'):
+            gate.verify_yarn_coverage(self.root, self.report, self.report)
+        inventory = copy.deepcopy(self.report)
+        inventory['Results'][0]['Packages'].append({'ID': 'added@2', 'Name': 'added', 'Version': '2'})
+        gate.verify_yarn_coverage(self.root, inventory, inventory)
+        for invalid in (patch_entry.replace('  version: 2', '  version: 3'),
+                        patch_entry.replace('@patch:added@', '@patch:other@'),
+                        patch_entry.replace('npm%3A2', 'file%3A.')):
+            (self.root / 'yarn.lock').write_text(invalid)
+            with self.assertRaisesRegex(gate.GateError, '^unsupported_yarn_source$'):
+                gate.yarn_packages(self.root)
+
+    def test_yarn_projection_preserves_dependency_fields_and_manifest_bytes(self):
+        manifest = b'{"dependencies":{"example":"1"},"optionalDependencies":{"optional":"2"}}\n'
+        (self.root / 'package.json').write_bytes(manifest)
+        original = self.npm_lockfile() + ('  dependencies:\n    child: "npm:2"\n'
+            '  dependenciesMeta:\n    "shadow@1":\n      unplugged: true\n'
+            '  peerDependenciesMeta:\n    child:\n      optional: true\n')
+        (self.root / 'yarn.lock').write_text(original + '\n' + self.npm_lockfile('child', '2'))
+        with self.assertRaisesRegex(gate.GateError, '^invalid_projection_destination$'):
+            gate.project_yarn(self.root, self.root / 'projection')
+        destination = tempfile.TemporaryDirectory()
+        self.addCleanup(destination.cleanup)
+        projected = Path(destination.name) / 'projection'
+        gate.project_yarn(self.root, projected)
+        self.assertEqual((projected / 'package.json').read_bytes(), manifest)
+        self.assertEqual((self.root / 'yarn.lock').read_text(), original + '\n' + self.npm_lockfile('child', '2'))
+        self.assertEqual((projected / 'yarn.lock').read_text(),
+            self.npm_lockfile() + '  dependencies:\n    child: "npm:2"\n\n' + self.npm_lockfile('child', '2'))
+
+    def test_workflow_versions_and_target_revision_match_gate(self):
+        directory = Path(__file__).parent.parent / 'workflows'
+        candidate = (directory / 'trivy.yml').read_text()
+        trusted = (directory / 'trivy-pr-gate.yml').read_text()
+        self.assertEqual(re.findall(r'(?m)^ +version: v([0-9.]+)$', candidate + trusted), [gate.VERSION] * 3)
+        checkout = candidate.split('- name: Check installed PR-target policy\n', 1)[1].split('- name:', 1)[0]
+        self.assertIn('ref: ${{ github.event.pull_request.base.sha }}', checkout)
+        self.assertNotIn('default_branch', checkout)
+
+    def test_installation_routing_requires_target_workflow_and_policy(self):
+        workflow = (Path(__file__).parent.parent / 'workflows/trivy.yml').read_text()
+        selection = workflow.split('- name: Select trusted gate or installation scan\n', 1)[1]
+        script = selection.split('run: |\n', 1)[1].split('      - name:', 1)[0]
+        script = '\n'.join(line[10:] for line in script.splitlines())
+        for installed_workflow, installed_policy in ((False, False), (False, True), (True, True), (True, False)):
+            with self.subTest(workflow=installed_workflow, policy=installed_policy), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                for branch, present_workflow, present_policy in (
+                    ('trusted', installed_workflow, installed_policy), ('default', True, True)):
+                    for path, present in (('.github/workflows/trivy-pr-gate.yml', present_workflow),
+                                          ('.github/scripts/trivy_gate.py', present_policy)):
+                        if present:
+                            file = root / branch / path
+                            file.parent.mkdir(parents=True, exist_ok=True)
+                            file.write_text('fixture')
+                (root / 'trivy-evidence').mkdir()
+                output, summary = root / 'output', root / 'summary'
+                output.write_text('')
+                result = subprocess.run(['/bin/bash', '-e', '-c', script], cwd=root, capture_output=True,
+                    env={'PATH': '/usr/bin:/bin', 'RUNNER_TEMP': str(root),
+                         'GITHUB_OUTPUT': str(output), 'GITHUB_STEP_SUMMARY': str(summary)}, check=False)
+                if installed_workflow and not installed_policy:
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(output.read_text(), '')
+                else:
+                    self.assertEqual(result.returncode, 0)
+                    self.assertEqual(output.read_text(), f'available={str(installed_workflow).lower()}\n')
 
     def test_failure_retains_only_safe_evidence(self):
         args = SimpleNamespace(output=str(self.root / 'evidence'), repo=str(self.root),
@@ -360,12 +486,13 @@ class GateTests(unittest.TestCase):
             for name in ('yarn.lock', 'apps/desktop/app/yarn.lock'):
                 file = target / name
                 file.parent.mkdir(parents=True, exist_ok=True)
-                file.write_text('fixture')
+                file.write_text(self.npm_lockfile())
         with patch.object(gate, 'verify_revisions'), \
-             patch.object(gate, 'execute', return_value=(b'Version: 0.70.0', b'')), \
+             patch.object(gate, 'execute', return_value=(('Version: ' + gate.VERSION).encode(), b'')), \
              patch.object(gate, 'snapshot', return_value='database'), \
              patch.object(gate, 'export_tree', side_effect=export), \
-             patch.object(gate, 'scan', side_effect=[{}, self.report, gate.GateError('scanner_warning')]), \
+             patch.object(gate, 'scan', side_effect=[{}, self.report, self.report, self.report,
+                                                    gate.GateError('scanner_warning')]), \
              redirect_stdout(io.StringIO()), \
              patch.dict(os.environ, {'GITHUB_STEP_SUMMARY': ''}):
             self.assertEqual(gate.run(args), 2)
@@ -428,7 +555,8 @@ class GateTests(unittest.TestCase):
             for result in report['Results']:
                 file = destination / result['Target']
                 file.parent.mkdir(parents=True, exist_ok=True)
-                file.write_text('fake credential\n')
+                file.write_text(self.npm_lockfile() if result['Target'].endswith('yarn.lock')
+                                else 'fake credential\n')
         for outcome in ('passed', 'new_findings', 'incomplete'):
             with self.subTest(outcome=outcome):
                 baseline = copy.deepcopy(report)
@@ -439,10 +567,11 @@ class GateTests(unittest.TestCase):
                 summary = self.root / 'step-summary.txt'
                 summary.write_text('')
                 with patch.object(gate, 'verify_revisions'), \
-                     patch.object(gate, 'execute', return_value=(b'Version: 0.70.0', b'')), \
+                     patch.object(gate, 'execute', return_value=(('Version: ' + gate.VERSION).encode(), b'')), \
                      patch.object(gate, 'snapshot', return_value='database'), \
                      patch.object(gate, 'export_tree', side_effect=export), \
-                     patch.object(gate, 'scan', side_effect=[{}, baseline, candidate]), \
+                     patch.object(gate, 'scan', side_effect=[{}, baseline, self.report, self.report,
+                                                            candidate, self.report, self.report]), \
                      redirect_stdout(stdout), \
                      patch.dict(os.environ, {'GITHUB_STEP_SUMMARY': str(summary)}):
                     self.assertEqual(gate.run(args), {'passed': 0, 'new_findings': 1,
@@ -481,12 +610,14 @@ class GateTests(unittest.TestCase):
             for entry in baseline['Results']:
                 file = destination / entry['Target']
                 file.parent.mkdir(parents=True, exist_ok=True)
-                file.write_text('fake credential\n' if revision == args.base else 'hello\n')
+                file.write_text(self.npm_lockfile() if entry['Target'].endswith('yarn.lock')
+                                else 'fake credential\n' if revision == args.base else 'hello\n')
         with patch.object(gate, 'verify_revisions'), \
-             patch.object(gate, 'execute', return_value=(b'Version: 0.70.0', b'')), \
+             patch.object(gate, 'execute', return_value=(('Version: ' + gate.VERSION).encode(), b'')), \
              patch.object(gate, 'snapshot', return_value='database'), \
              patch.object(gate, 'export_tree', side_effect=export), \
-             patch.object(gate, 'scan', side_effect=[{}, baseline, self.report]), \
+             patch.object(gate, 'scan', side_effect=[{}, baseline, self.report, self.report,
+                                                    self.report, self.report, self.report]), \
              redirect_stdout(io.StringIO()), \
              patch.dict(os.environ, {'GITHUB_STEP_SUMMARY': ''}):
             self.assertEqual(gate.run(args), 0 if expected_status == 'passed' else 2)

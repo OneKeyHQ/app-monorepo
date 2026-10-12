@@ -43,6 +43,7 @@ jobs:
       - name: Run Trivy security scan
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
+          version: v0.71.0
           scan-type: fs
           scan-ref: .
           scanners: vuln,misconfig,secret
@@ -75,26 +76,27 @@ jobs:
           mkdir -p "$RUNNER_TEMP/trivy-evidence"
           echo '{"schemaVersion":1,"status":"incomplete","error":"setup_failed"}' > "$RUNNER_TEMP/trivy-evidence/result.json"
 
-      - name: Check installed default-branch policy
+      - name: Check installed PR-target policy
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: ${{ github.event.repository.default_branch }}
+          ref: ${{ github.event.pull_request.base.sha }}
           persist-credentials: false
           path: trusted
 
-      # Never execute the PR's comparator. Until the default branch has the policy,
+      # Never execute the PR's comparator. Until the PR target has the workflow,
       # the separate full-scan job retains the existing security checks.
       - name: Select trusted gate or installation scan
         id: policy
         run: |
-          if [ -f trusted/.github/scripts/trivy_gate.py ]; then
+          if [ -f trusted/.github/workflows/trivy-pr-gate.yml ]; then
+            test -f trusted/.github/scripts/trivy_gate.py
             echo 'available=true' >> "$GITHUB_OUTPUT"
             echo '{"schemaVersion":1,"status":"delegated","requiredCheck":"Trivy PR incremental gate"}' > "$RUNNER_TEMP/trivy-evidence/result.json"
             echo 'The incremental gate runs from the base-owned pull_request_target workflow.' >> "$GITHUB_STEP_SUMMARY"
           else
             echo 'available=false' >> "$GITHUB_OUTPUT"
             echo '{"schemaVersion":1,"status":"installation","requiredCheck":"Trivy Security Scan"}' > "$RUNNER_TEMP/trivy-evidence/result.json"
-            echo 'The default branch does not yet contain the trusted Trivy policy. The existing full Trivy scan and SARIF checks are required for this installation PR.' >> "$GITHUB_STEP_SUMMARY"
+            echo 'The PR target revision does not yet contain the trusted Trivy workflow. The existing full Trivy scan and SARIF checks are required for this installation PR.' >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Retain sanitized installation evidence
@@ -119,3 +121,10 @@ jobs:
       # Candidate tests are untrusted and run in their own job, with no secrets
       # or write permissions. They cannot supply data to the trusted gate.
       - run: python3 -I .github/scripts/trivy_gate_test.py
+      - name: Set up pinned Trivy for scanner regressions
+        uses: aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514
+        with:
+          version: v0.71.0
+          cache: false
+      - name: Run real-scanner coverage regressions
+        run: python3 -I .github/scripts/trivy_gate_integration_test.py
