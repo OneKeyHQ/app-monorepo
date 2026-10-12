@@ -13,11 +13,9 @@ import {
   Icon,
   Image,
   Page,
-  QRCode,
   SizableText,
   Skeleton,
   Stack,
-  Theme,
   Toast,
   XStack,
   YStack,
@@ -64,21 +62,29 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import AddressTypeSelector from '../../../components/AddressTypeSelector/AddressTypeSelector';
 import { HighlightAddress } from '../../../components/HighlightAddress';
 import { FormatHyperlinkText } from '../../../components/HyperlinkText';
-import { NetworkAvatar } from '../../../components/NetworkAvatar';
-import { Token } from '../../../components/Token';
+import {
+  NetworkAvatar,
+  NetworkAvatarBase,
+} from '../../../components/NetworkAvatar';
 import { useAccountData } from '../../../hooks/useAccountData';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useCopyAddressWithDeriveType } from '../../../hooks/useCopyAccountAddress';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useWalletBanner } from '../../../hooks/useWalletBanner';
 import { ReceiveCard, ReceiveCardCell } from '../components/ReceiveCard';
+import { ReceiveQRCode } from '../components/ReceiveQRCode';
 import {
   ShareImageGenerator,
   showReceiveShareDialog,
 } from '../components/ReceiveShare';
+import { ReceiveTitle } from '../components/ReceiveTitle';
 import { ReceiveTestIDs } from '../testIDs';
 import { EAddressState } from '../types';
 import { resolveReceiveNetworkSwitchable } from '../utils/receiveNetworkSwitchUtils';
+import {
+  buildReceiveTitleLogo,
+  resolveReceiveTitleIconURI,
+} from '../utils/receiveTitleUtils';
 
 import type {
   IReceiveShareData,
@@ -255,13 +261,6 @@ function ReceiveToken() {
     routeToken?.address,
     routeToken?.isNative,
   ]);
-
-  const { result: nativeToken } = usePromiseResult(async () => {
-    return backgroundApiProxy.serviceToken.getNativeToken({
-      accountId,
-      networkId,
-    });
-  }, [accountId, networkId]);
 
   // Server overrides for the arrival ETA and protocol-standard label.
   // Resolves to undefined on fetch failure so the bundled defaults apply.
@@ -888,6 +887,30 @@ function ReceiveToken() {
           ),
     [switchEntry, intl, titleSymbol],
   );
+  // The token logo in the title: only for a token the page was opened with,
+  // and taken from the same level as the symbol it sits next to.
+  const isGroupSymbolShown =
+    hasSwitched && Boolean(aggregateGroup.aggregateToken?.commonSymbol);
+  const titleIconURI = resolveReceiveTitleIconURI({
+    isNetworkEntry: switchEntry === 'network',
+    tokenLogoURI: token?.logoURI,
+    groupLogoURI: isGroupSymbolShown
+      ? aggregateGroup.aggregateToken?.logoURI
+      : undefined,
+  });
+  const titleLogo = useMemo(
+    () =>
+      buildReceiveTitleLogo({
+        uri: titleIconURI,
+        symbol: titleSymbol,
+        formatTitle: (tokenText) =>
+          intl.formatMessage(
+            { id: ETranslations.receive_token__title },
+            { token: tokenText },
+          ),
+      }),
+    [titleIconURI, intl, titleSymbol],
+  );
 
   // e.g. "Ethereum (ERC20)" — shown for native coins and tokens alike
   const networkDisplayName = useMemo(
@@ -912,28 +935,21 @@ function ReceiveToken() {
     if (!network || !displayAddress) return null;
     return {
       title: pageTitleText,
+      titleLogo,
       subtitle: intl.formatMessage(
         { id: ETranslations.receive_send_asset_warning_message },
         { network: networkDisplayName },
       ),
       networkName: networkDisplayName,
       address: displayAddress,
-      // Network entry: a single network logo on the share image too.
-      tokenLogoURI:
-        switchEntry === 'network'
-          ? network.logoURI
-          : (token?.logoURI ?? nativeToken?.logoURI),
-      networkLogoURI: switchEntry === 'network' ? undefined : network.logoURI,
     };
   }, [
     network,
     displayAddress,
     pageTitleText,
+    titleLogo,
     networkDisplayName,
     intl,
-    token?.logoURI,
-    nativeToken?.logoURI,
-    switchEntry,
   ]);
 
   const canShowShareEntry = shouldShowQRCode && !!displayAddress && !!shareData;
@@ -1362,17 +1378,29 @@ function ReceiveToken() {
     const label = arrivalTimeText
       ? `${network.name} (${arrivalTimeText})`
       : network.name;
+    // Same avatar as the rows of the network pickers this header opens.
+    const avatar = (
+      <NetworkAvatarBase
+        logoURI={network.logoURI}
+        isCustomNetwork={network.isCustomNetwork}
+        networkName={network.name}
+        size="$5"
+      />
+    );
 
     if (!isNetworkSwitchable) {
       return (
-        <SizableText
-          testID={ReceiveTestIDs.CardHeaderNetworkEta}
-          size="$bodyMdMedium"
-          numberOfLines={1}
-          flexShrink={1}
-        >
-          {label}
-        </SizableText>
+        <XStack flexShrink={1} alignItems="center" gap="$2">
+          {avatar}
+          <SizableText
+            testID={ReceiveTestIDs.CardHeaderNetworkEta}
+            size="$bodyMdMedium"
+            numberOfLines={1}
+            flexShrink={1}
+          >
+            {label}
+          </SizableText>
+        </XStack>
       );
     }
 
@@ -1384,7 +1412,7 @@ function ReceiveToken() {
         testID={ReceiveTestIDs.CardHeaderNetworkTrigger}
         flexShrink={1}
         alignItems="center"
-        gap="$0.5"
+        gap="$2"
         h="$8"
         mx={-8}
         px="$2"
@@ -1403,15 +1431,18 @@ function ReceiveToken() {
           outlineStyle: 'solid',
         }}
       >
-        <SizableText
-          testID={ReceiveTestIDs.CardHeaderNetworkEta}
-          size="$bodyMdMedium"
-          numberOfLines={1}
-          flexShrink={1}
-        >
-          {label}
-        </SizableText>
-        <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
+        {avatar}
+        <XStack flexShrink={1} alignItems="center" gap="$0.5">
+          <SizableText
+            testID={ReceiveTestIDs.CardHeaderNetworkEta}
+            size="$bodyMdMedium"
+            numberOfLines={1}
+            flexShrink={1}
+          >
+            {label}
+          </SizableText>
+          <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
+        </XStack>
       </XStack>
     );
   }, [
@@ -1595,49 +1626,10 @@ function ReceiveToken() {
       >
         {shouldShowQRCode ? (
           <YStack testID={ReceiveTestIDs.QRCode}>
-            <QRCode
+            <ReceiveQRCode
               value={displayAddress}
               size={platformEnv.isNative ? 208 : 176}
             />
-            {network.isCustomNetwork ? null : (
-              // The overlay sits on the QR plate, which is always light, so
-              // resolve theme tokens (the network badge ring and its icon
-              // backing use $bgApp) against the light theme the same way the
-              // QRCode component does for the plate itself.
-              <Theme name="light">
-                {/* full-bleed overlay + flex centering: percentage translate
-                    is unreliable on native, so avoid left/top 50% -50% here */}
-                <YStack
-                  position="absolute"
-                  top={0}
-                  left={0}
-                  right={0}
-                  bottom={0}
-                  alignItems="center"
-                  justifyContent="center"
-                >
-                  <YStack
-                    borderWidth={4}
-                    borderColor="white"
-                    borderRadius="$full"
-                    bg="white"
-                  >
-                    {switchEntry === 'network' ? (
-                      // Entered by network: the page is not bound to a
-                      // token, so the plate carries the network logo alone.
-                      <Token size="lg" tokenImageUri={network.logoURI} />
-                    ) : (
-                      <Token
-                        size="lg"
-                        tokenImageUri={token?.logoURI ?? nativeToken?.logoURI}
-                        networkImageUri={network.logoURI}
-                        networkId={networkId}
-                      />
-                    )}
-                  </YStack>
-                </YStack>
-              </Theme>
-            )}
           </YStack>
         ) : (
           <Empty
@@ -1665,10 +1657,6 @@ function ReceiveToken() {
     shouldShowQRCode,
     handleVerifyOnDevicePressDebounced,
     isVerifying,
-    token?.logoURI,
-    networkId,
-    nativeToken?.logoURI,
-    switchEntry,
   ]);
 
   const isPressable = useMemo(() => {
@@ -1688,13 +1676,11 @@ function ReceiveToken() {
       <Page.Body px="$5" py="$5" $md={{ py: '$0' }}>
         <YStack width="100%" maxWidth={384} alignSelf="center" gap="$5">
           <YStack gap="$2" alignItems="center">
-            <SizableText
+            <ReceiveTitle
               testID={ReceiveTestIDs.PageHeading}
-              size="$heading2xl"
-              textAlign="center"
-            >
-              {pageTitleText}
-            </SizableText>
+              title={pageTitleText}
+              logo={titleLogo}
+            />
             {network ? (
               <SizableText
                 size="$bodyMd"

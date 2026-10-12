@@ -226,3 +226,56 @@ describe('useReceiveToken token list selection', () => {
     expect(pushed).not.toHaveProperty('skipAggregateLookup');
   });
 });
+
+describe('useReceiveToken on a single-token network', () => {
+  const tokens = { data: [TOKEN], keys: '', map: {} } as unknown as NonNullable<
+    Parameters<typeof useReceiveToken>[0]['tokens']
+  >;
+
+  beforeEach(() => {
+    mockPush.mockReset();
+    mockPushModal.mockReset();
+  });
+
+  // Receive from the home of such a network names no token; the page is
+  // still for the network's one coin, whichever address layout it has.
+  it.each([
+    ['with address types', { mergeDeriveAssetsEnabled: true }, true],
+    ['with one address', {}, false],
+  ])(
+    'opens the page for the network coin %s',
+    async (_name, vaultSettings, isMultipleDerive) => {
+      mockVaultSettings = { isSingleToken: true, ...vaultSettings };
+      const { result } = renderReceive({ tokens, isMultipleDerive });
+
+      await act(async () => {
+        await result.current.handleOnReceive({});
+      });
+      expect(mockPushModal).toHaveBeenLastCalledWith('ReceiveModal', {
+        screen: 'ReceiveToken',
+        params: expect.objectContaining({ token: TOKEN }),
+      });
+
+      await act(async () => {
+        await result.current.handleOnReceive({ sameModal: true });
+      });
+      expect(mockPush).toHaveBeenLastCalledWith(
+        'ReceiveToken',
+        expect.objectContaining({ token: TOKEN }),
+      );
+    },
+  );
+
+  it('opens it without a token while the home list is still empty', async () => {
+    mockVaultSettings = { isSingleToken: true };
+    const { result } = renderReceive();
+
+    await act(async () => {
+      await result.current.handleOnReceive({});
+    });
+    expect(mockPushModal).toHaveBeenLastCalledWith('ReceiveModal', {
+      screen: 'ReceiveToken',
+      params: expect.objectContaining({ token: undefined }),
+    });
+  });
+});
