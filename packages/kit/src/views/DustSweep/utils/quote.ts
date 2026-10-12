@@ -57,6 +57,11 @@ function isSameDustSweepToken({
   });
 }
 
+function getUsablePrice(localPrice?: string, quotePrice?: string) {
+  const price = new BigNumber(localPrice ?? '');
+  return price.isFinite() && price.gt(0) ? localPrice : quotePrice;
+}
+
 function getActualPriceImpactPercent({
   fromToken,
   toToken,
@@ -110,10 +115,18 @@ export function getDustSweepQuoteRisk(
     tokenRebaseUtils.isScalingBalanceMultiplier(token.balanceMultiplier)
   )
     return 'unknown';
+  const fromToken = {
+    ...token,
+    price: getUsablePrice(token.price, quote.fromTokenInfo.price),
+  };
+  const toToken = {
+    ...snapshot.nativeToken,
+    price: getUsablePrice(snapshot.nativeToken.price, quote.toTokenInfo.price),
+  };
   const tip = resolveQuoteShowTip({
     quoteShowTip: quote.quoteShowTip,
-    fromToken: token,
-    toToken: snapshot.nativeToken,
+    fromToken,
+    toToken,
     fromAmount: token.amount,
     toAmount: quote.toAmount,
   });
@@ -124,14 +137,8 @@ export function getDustSweepQuoteRisk(
   const impactPercent =
     quotedImpact === undefined
       ? getActualPriceImpactPercent({
-          fromToken: {
-            ...token,
-            price: token.price ?? quote.fromTokenInfo.price,
-          },
-          toToken: {
-            ...snapshot.nativeToken,
-            price: snapshot.nativeToken.price ?? quote.toTokenInfo.price,
-          },
+          fromToken,
+          toToken,
           fromAmount: token.amount,
           toAmount: quote.toAmount,
         })

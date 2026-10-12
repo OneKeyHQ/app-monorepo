@@ -8,6 +8,9 @@ import { loadDustSweepNetworks } from './loadNetworks';
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
+    simpleDb: {
+      swapConfigs: { getSwapProviderManager: jest.fn() },
+    },
     serviceAllNetwork: {
       getAllNetworkAccounts: jest.fn(),
     },
@@ -30,6 +33,7 @@ jest.mock('@onekeyhq/shared/src/utils/accountUtils', () => ({
 }));
 
 const serviceSwap = jest.mocked(backgroundApiProxy.serviceSwap);
+const swapConfigs = jest.mocked(backgroundApiProxy.simpleDb.swapConfigs);
 const serviceAllNetwork = jest.mocked(backgroundApiProxy.serviceAllNetwork);
 const serviceToken = jest.mocked(backgroundApiProxy.serviceToken);
 
@@ -98,6 +102,7 @@ const params = {
 describe('loadDustSweepNetworks request ownership', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    swapConfigs.getSwapProviderManager.mockResolvedValue([]);
     serviceSwap.getSwapProviderManager.mockResolvedValue([okxProvider()]);
     serviceSwap.fetchSwapNetworks.mockResolvedValue([ethereum, otherNetwork]);
     serviceAllNetwork.getAllNetworkAccounts.mockResolvedValue(accountsInfo());
@@ -114,6 +119,31 @@ describe('loadDustSweepNetworks request ownership', () => {
       decimals: 18,
     });
   });
+
+  it.each([
+    { enable: false },
+    { singleSwapEnable: false },
+    { singleSwapDisableNetworks: [ethereum] },
+    { disableNetworks: [ethereum] },
+  ])(
+    'excludes OKX networks disabled in saved Swap settings (%j)',
+    async (settings) => {
+      swapConfigs.getSwapProviderManager.mockResolvedValue([
+        {
+          providerInfo: okxProvider().providerInfo,
+          enable: true,
+          supportNetworks: [ethereum],
+          ...settings,
+        },
+      ]);
+      const result = await loadDustSweepNetworks(
+        params,
+        new AbortController().signal,
+      );
+      expect(result.networks).toEqual([]);
+      expect(serviceToken.fetchAccountTokens.mock.calls).toHaveLength(0);
+    },
+  );
 
   it('shares an in-flight load across a rapid leave and re-entry', async () => {
     const networks = deferred<ISwapNetwork[]>();

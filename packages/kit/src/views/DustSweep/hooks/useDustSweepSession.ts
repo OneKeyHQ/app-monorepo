@@ -122,6 +122,10 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
             reason: result.status === 'failed' ? 'txFailed' : '',
           });
         } catch (error) {
+          if (error instanceof DustSweepUnknownSubmission) {
+            send({ ...identity, status: 'unknown', reason: 'unknown' });
+            break;
+          }
           if (signal.aborted) break;
           if (error instanceof DustSweepPaused) {
             send({ ...identity, status: 'waiting' });
@@ -144,10 +148,6 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
                   : undefined,
             });
             send({ type: 'paused' });
-            break;
-          }
-          if (error instanceof DustSweepUnknownSubmission) {
-            send({ ...identity, status: 'unknown', reason: 'unknown' });
             break;
           }
           const reason =
@@ -229,13 +229,24 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
     send({ type: 'reset' });
   }, [send]);
   const leave = useCallback(async () => {
+    const alreadyUnknown = stateRef.current.items.some(
+      (item) => item.status === 'unknown',
+    );
     send({ type: 'leave' });
     controller.current?.abort();
     // A password/signing call already entered in background is not cancellable.
     // Keep this page alive until it returns; no later operation may start.
     await running.current;
+    if (
+      !alreadyUnknown &&
+      stateRef.current.items.some((item) => item.status === 'unknown')
+    ) {
+      send({ type: 'leaveBlocked' });
+      return false;
+    }
     reportResult('left');
     send({ type: 'left' });
+    return true;
   }, [reportResult, send]);
   useEffect(() => {
     mounted.current = true;

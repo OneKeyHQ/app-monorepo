@@ -77,43 +77,66 @@ describe('Dust Sweep quote execution guards', () => {
     expect(getDustSweepQuoteRisk(quote, token, snapshot)).toBeUndefined();
   });
 
-  it('uses prices from the matched quote when local prices are absent', () => {
-    const unpricedToken = { ...token, price: undefined };
-    const unpricedSnapshot = {
-      ...snapshot,
-      nativeToken: { ...snapshot.nativeToken, price: undefined },
-    };
-    expect(
-      getDustSweepQuoteRisk(quote, unpricedToken, unpricedSnapshot),
-    ).toBeUndefined();
-    expect(
-      getDustSweepQuoteRisk(
-        { ...quote, toAmount: '0.009' },
-        unpricedToken,
-        unpricedSnapshot,
-      ),
-    ).toBe('priceImpact');
+  it.each([undefined, '', '0', '-1', 'NaN', 'Infinity'])(
+    'uses matched quote prices when local prices are invalid (%s)',
+    (price) => {
+      const unpricedToken = { ...token, price };
+      const unpricedSnapshot = {
+        ...snapshot,
+        nativeToken: { ...snapshot.nativeToken, price },
+      };
+      expect(
+        getDustSweepQuoteRisk(quote, unpricedToken, unpricedSnapshot),
+      ).toBeUndefined();
+      expect(
+        getDustSweepQuoteRisk(
+          { ...quote, toAmount: '0.009' },
+          unpricedToken,
+          unpricedSnapshot,
+        ),
+      ).toBe('priceImpact');
+      expect(
+        getDustSweepQuoteRisk(
+          {
+            ...quote,
+            fromTokenInfo: unpricedToken,
+            toTokenInfo: unpricedSnapshot.nativeToken,
+          },
+          unpricedToken,
+          unpricedSnapshot,
+        ),
+      ).toBe('unknown');
+      expect(
+        getDustSweepQuoteRisk(
+          {
+            ...quote,
+            fromTokenInfo: unpricedToken,
+            toTokenInfo: unpricedSnapshot.nativeToken,
+            valueDropPercent: 0,
+          },
+          unpricedToken,
+          unpricedSnapshot,
+        ),
+      ).toBeUndefined();
+    },
+  );
+
+  it('clears an unknown-value tip using valid prices from the matched quote', () => {
     expect(
       getDustSweepQuoteRisk(
         {
           ...quote,
-          fromTokenInfo: unpricedToken,
-          toTokenInfo: unpricedSnapshot.nativeToken,
+          quoteShowTip: {
+            type: EQuoteShowTipType.TRADE_UNKNOWN,
+            title: 'Unknown',
+            detail: 'Unknown value',
+          },
         },
-        unpricedToken,
-        unpricedSnapshot,
-      ),
-    ).toBe('unknown');
-    expect(
-      getDustSweepQuoteRisk(
+        { ...token, price: '0' },
         {
-          ...quote,
-          fromTokenInfo: unpricedToken,
-          toTokenInfo: unpricedSnapshot.nativeToken,
-          valueDropPercent: 0,
+          ...snapshot,
+          nativeToken: { ...snapshot.nativeToken, price: '' },
         },
-        unpricedToken,
-        unpricedSnapshot,
       ),
     ).toBeUndefined();
   });

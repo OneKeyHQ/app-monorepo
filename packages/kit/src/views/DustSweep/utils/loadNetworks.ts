@@ -5,6 +5,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import {
+  buildUnifiedSwapProviderManagers,
+  getDenySwapProviderString,
+} from '@onekeyhq/shared/src/utils/swapProviderManagerUtils';
 import type {
   IDustSweepNetwork,
   IDustSweepRouteParams,
@@ -75,21 +79,23 @@ async function loadDustSweepNetworksInternal(
     accountUtils.isExternalAccount({ accountId: params.accountId })
   )
     throw new OneKeyLocalError('Account is unavailable');
-  const [networks, { accountsInfo }, providers] = await Promise.all([
-    backgroundApiProxy.serviceSwap.fetchSwapNetworks(),
-    backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
-      accountId: params.accountId,
-      indexedAccountId: params.indexedAccountId,
-      networkId: getNetworkIdsMap().onekeyall,
-      // A single-network entry must resolve that network even when the user
-      // disabled it in the All Networks aggregate view.
-      networksEnabledOnly: !params.networkId,
-      excludeTestNetwork: true,
-      includingNonExistingAccount: false,
-      includingNotEqualGlobalDeriveTypeAccount: Boolean(params.networkId),
-    }),
-    backgroundApiProxy.serviceSwap.getSwapProviderManager(),
-  ]);
+  const [networks, { accountsInfo }, providers, savedProviders] =
+    await Promise.all([
+      backgroundApiProxy.serviceSwap.fetchSwapNetworks(),
+      backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
+        accountId: params.accountId,
+        indexedAccountId: params.indexedAccountId,
+        networkId: getNetworkIdsMap().onekeyall,
+        // A single-network entry must resolve that network even when the user
+        // disabled it in the All Networks aggregate view.
+        networksEnabledOnly: !params.networkId,
+        excludeTestNetwork: true,
+        includingNonExistingAccount: false,
+        includingNotEqualGlobalDeriveTypeAccount: Boolean(params.networkId),
+      }),
+      backgroundApiProxy.serviceSwap.getSwapProviderManager(),
+      backgroundApiProxy.simpleDb.swapConfigs.getSwapProviderManager(),
+    ]);
   const provider = providers.find(
     (item) => item.providerInfo.provider === DUST_SWEEP_PROVIDER,
   );
@@ -106,12 +112,24 @@ async function loadDustSweepNetworksInternal(
     .filter((item) => item !== DUST_SWEEP_PROVIDER)
     .toSorted()
     .join(',');
+  const enabledProviders = buildUnifiedSwapProviderManagers({
+    serverProviders: providers,
+    swapProviderManagers: savedProviders,
+    bridgeProviderManagers: [],
+  });
   const limit = pLimit(4);
   const candidates = networks.filter(
     (network) =>
       network.supportSingleSwap &&
       supportedNetworkIds.has(network.networkId) &&
       !disabledNetworkIds.has(network.networkId) &&
+      !getDenySwapProviderString({
+        providerManagers: enabledProviders,
+        fromNetworkId: network.networkId,
+        toNetworkId: network.networkId,
+      })
+        ?.split(',')
+        .includes(DUST_SWEEP_PROVIDER) &&
       (!params.networkId || network.networkId === params.networkId) &&
       accountsInfo.some(
         (account) =>

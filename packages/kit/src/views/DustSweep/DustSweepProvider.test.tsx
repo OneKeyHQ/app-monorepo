@@ -82,7 +82,7 @@ function useMockSession(): ReturnType<typeof useDustSweepSession> {
     pause: () => setState((value) => ({ ...value, phase: 'paused' })),
     resume: () => setState((value) => ({ ...value, phase: 'running' })),
     reset: () => setState(initialDustSweepState),
-    leave: async () => undefined,
+    leave: async () => true,
     leaving: false,
   };
 }

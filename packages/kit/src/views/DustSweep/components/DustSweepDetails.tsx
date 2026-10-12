@@ -9,9 +9,8 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IDustSweepItem } from '@onekeyhq/shared/types/swap/dustSweep';
 
 import {
@@ -43,20 +42,21 @@ export function DustSweepDetails({
   state,
   onBack,
   onDone,
+  maxHeight = 600,
 }: {
   state: IDustSweepState;
   onBack: () => void;
   onDone: () => void;
+  maxHeight?: number;
 }) {
   const intl = useIntl();
   const openTransaction = async (item: IDustSweepItem, txId: string) => {
     try {
-      const url = await backgroundApiProxy.serviceExplorer.buildExplorerUrl({
+      await openTransactionDetailsUrl({
         networkId: item.token.networkId,
-        type: 'transaction',
-        param: txId,
+        txid: txId,
+        openInExternal: true,
       });
-      if (url) openUrlExternal(url);
     } catch {
       Toast.error({
         title: intl.formatMessage({ id: ETranslations.global_network_error }),
@@ -64,9 +64,14 @@ export function DustSweepDetails({
     }
   };
   return (
-    <YStack testID="dust-sweep-details" width="100%" height={600}>
+    <YStack
+      testID="dust-sweep-details"
+      width="100%"
+      height={Math.min(600, maxHeight)}
+    >
       <XStack
         height={56}
+        flexShrink={0}
         px="$5"
         alignItems="center"
         borderBottomWidth={1}
@@ -91,7 +96,7 @@ export function DustSweepDetails({
           {intl.formatMessage({ id: ETranslations.global_details })}
         </SizableText>
       </XStack>
-      <ScrollView flex={1}>
+      <ScrollView flex={1} minHeight={0}>
         <YStack>
           {state.items.map((item) => {
             let reason: string | undefined;
@@ -167,7 +172,7 @@ export function DustSweepDetails({
           })}
         </YStack>
       </ScrollView>
-      <YStack px="$5" py="$4">
+      <YStack px="$5" py="$4" flexShrink={0}>
         <Button
           testID="dust-sweep-details-done"
           variant="primary"

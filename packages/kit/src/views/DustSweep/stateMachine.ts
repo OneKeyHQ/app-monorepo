@@ -29,7 +29,16 @@ type IDustSweepAction =
       snapshot: IDustSweepSnapshot;
       unavailable?: Record<string, IDustSweepReason>;
     }
-  | { type: 'pause' | 'paused' | 'resume' | 'reset' | 'leave' | 'left' }
+  | {
+      type:
+        | 'pause'
+        | 'paused'
+        | 'resume'
+        | 'reset'
+        | 'leave'
+        | 'left'
+        | 'leaveBlocked';
+    }
   | {
       type: 'approvalBroadcast';
       sessionId: string;
@@ -105,6 +114,11 @@ export function dustSweepReducer(
         : state;
     case 'leave':
       return state.phase !== 'left' ? { ...state, phase: 'leaving' } : state;
+    case 'leaveBlocked':
+      return state.phase === 'leaving' &&
+        state.items.some((item) => item.status === 'unknown')
+        ? { ...state, phase: 'blocked' }
+        : state;
     case 'left':
       return state.phase === 'leaving' ? { ...state, phase: 'left' } : state;
     case 'approvalBroadcast': {

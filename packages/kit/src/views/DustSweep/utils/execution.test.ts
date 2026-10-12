@@ -134,17 +134,10 @@ function createOptions() {
 }
 async function sendTransaction(params: ISendParams) {
   await params.validateFinalGasInfos?.([]);
-  for (const [index] of (params.approveUnsignedTxArr ?? []).entries()) {
-    await params.onBeforeSignAndSend?.();
-    params.onBroadcast?.({
-      txid: `approval-${index}`,
-      rawTx: '',
-      encodedTx: null,
-    });
-  }
   await params.onBeforeSignAndSend?.();
+  const approval = params.buildUnsignedParams.unsignedTx;
   params.onBroadcast?.({
-    txid: 'swap',
+    txid: approval ? `approval-${(approval.nonce ?? 1) - 1}` : 'swap',
     rawTx: '',
     encodedTx: null,
   });
@@ -197,7 +190,7 @@ describe('Dust Sweep serial execution boundaries', () => {
   });
 
   it('preserves a broadcast approval but stops before signing the swap', async () => {
-    mockAllowance.mockResolvedValue(
+    mockAllowance.mockResolvedValueOnce(
       createAllowance({ isApproved: false, approveAmounted: '0' }),
     );
     let allowed = true;
@@ -254,9 +247,9 @@ describe('Dust Sweep serial execution boundaries', () => {
     expect(options.onBroadcast).not.toHaveBeenCalled();
   });
 
-  it('bundles the approval and swap under one final gas validation', async () => {
+  it('rebuilds after confirmed approval and sends the swap with fresh gas', async () => {
     mockFetchQuote.mockResolvedValue(createQuote('0xfirst'));
-    mockAllowance.mockResolvedValue(
+    mockAllowance.mockResolvedValueOnce(
       createAllowance({
         isApproved: false,
         allowanceTarget: '0xfirst',
@@ -267,13 +260,137 @@ describe('Dust Sweep serial execution boundaries', () => {
     const options = createOptions();
     await executeDustSweepItem(options);
     expect(options.onSigning).toHaveBeenCalledTimes(2);
-    expect(mockSend).toHaveBeenCalledTimes(1);
-    expect(mockSend.mock.calls[0][0].approveUnsignedTxArr).toHaveLength(1);
+    expect(mockSend).toHaveBeenCalledTimes(2);
+    expect(
+      mockSend.mock.calls[0][0].buildUnsignedParams.unsignedTx,
+    ).toBeDefined();
+    expect(mockSend.mock.calls[1][0].approveUnsignedTxArr).toBeUndefined();
     expect(mockAllowance).toHaveBeenCalledWith(
       expect.objectContaining({ spenderAddress: '0xfirst' }),
     );
-    expect(mockFetchQuote).toHaveBeenCalledTimes(1);
+    expect(mockFetchQuote).toHaveBeenCalledTimes(2);
   });
+
+  it('leaves a hung preparation and ignores its late build response', async () => {
+    jest.useFakeTimers();
+    const controller = new AbortController();
+    let resolveBuild: (value: unknown) => void = () => undefined;
+    mockBuild.mockReturnValue(
+      new Promise((resolve) => {
+        resolveBuild = resolve;
+      }),
+    );
+    const options = { ...createOptions(), signal: controller.signal };
+    const completion = executeDustSweepItem(options).catch(
+      (error: unknown) => error,
+    );
+    try {
+      await jest.advanceTimersByTimeAsync(0);
+      expect(mockBuild).toHaveBeenCalledTimes(1);
+      controller.abort();
+      expect(await completion).toBeInstanceOf(Error);
+      resolveBuild({ result: createQuote() });
+      await jest.advanceTimersByTimeAsync(0);
+      expect(mockPayload).not.toHaveBeenCalled();
+      expect(mockSend).not.toHaveBeenCalled();
+    } finally {
+      controller.abort();
+      jest.useRealTimers();
+    }
+  });
+
+  it('uses only the refreshed build after approval confirmation', async () => {
+    mockAllowance.mockResolvedValueOnce(createAllowance({ isApproved: false }));
+    mockBuild
+      .mockResolvedValueOnce({
+        result: createQuote(),
+        ctx: { order: 'before' },
+      })
+      .mockResolvedValueOnce({
+        result: createQuote(),
+        ctx: { order: 'after' },
+      });
+    mockPayload
+      .mockResolvedValueOnce({
+        encodedTx: { data: 'old' },
+        swapInfo: {},
+        orderId: 'before',
+      })
+      .mockResolvedValueOnce({
+        encodedTx: { data: 'fresh' },
+        swapInfo: {},
+        orderId: 'after',
+      });
+    mockTxState.mockImplementation(async ({ txId }) => {
+      if (txId === 'approval-0') {
+        expect(mockBuild).toHaveBeenCalledTimes(1);
+        expect(mockSend).toHaveBeenCalledTimes(1);
+      }
+      return {
+        state: ESwapTxHistoryStatus.SUCCESS,
+        dealReceiveAmount: '0.009',
+      };
+    });
+    await executeDustSweepItem(createOptions());
+    expect(mockSend.mock.calls[1][0]).toMatchObject({
+      buildUnsignedParams: { encodedTx: { data: 'fresh' } },
+    });
+    expect(mockSend.mock.calls[1][0].gasInfos).toBeUndefined();
+    expect(mockTxState).toHaveBeenLastCalledWith(
+      expect.objectContaining({ orderId: 'after', ctx: { order: 'after' } }),
+    );
+  });
+
+  it('pauses instead of sending if the rebuilt route requires another approval', async () => {
+    mockAllowance.mockResolvedValue(createAllowance({ isApproved: false }));
+    const options = createOptions();
+    await expect(executeDustSweepItem(options)).rejects.toBeInstanceOf(
+      DustSweepRetryableError,
+    );
+    expect(mockSend).toHaveBeenCalledTimes(1);
+    expect(options.onBroadcast).not.toHaveBeenCalled();
+  });
+
+  it('keeps earlier approval hashes when a resumed item grants its allowance', async () => {
+    mockAllowance.mockResolvedValueOnce(createAllowance({ isApproved: false }));
+    const options = {
+      ...createOptions(),
+      pendingApprovalTxIds: ['reset-known'],
+    };
+    await executeDustSweepItem(options);
+    expect(options.onApprovalBroadcast).toHaveBeenLastCalledWith([
+      'reset-known',
+      'approval-0',
+    ]);
+  });
+
+  it.each(['approval', 'swap'] as const)(
+    'can leave a hung %s status request without a resend',
+    async (stage) => {
+      jest.useFakeTimers();
+      const controller = new AbortController();
+      if (stage === 'approval')
+        mockAllowance.mockResolvedValueOnce(
+          createAllowance({ isApproved: false }),
+        );
+      mockTxState.mockImplementation(() => new Promise(() => undefined));
+      const options = { ...createOptions(), signal: controller.signal };
+      const completion = executeDustSweepItem(options).catch(
+        (error: unknown) => error,
+      );
+      try {
+        await jest.advanceTimersByTimeAsync(0);
+        expect(mockTxState).toHaveBeenCalledTimes(1);
+        controller.abort();
+        expect(await completion).toBeInstanceOf(Error);
+        expect(mockSend).toHaveBeenCalledTimes(1);
+        expect(options.onSigning).toHaveBeenCalledTimes(1);
+      } finally {
+        controller.abort();
+        jest.useRealTimers();
+      }
+    },
+  );
 
   it('waits for a broadcast approval before retrying a canceled swap signature', async () => {
     mockAllowance
@@ -315,12 +432,12 @@ describe('Dust Sweep serial execution boundaries', () => {
       txId: 'approval-0',
       networkId: snapshot.networkId,
     });
-    expect(mockSend.mock.calls[1][0].approveUnsignedTxArr).toHaveLength(0);
+    expect(mockSend.mock.calls[1][0].approveUnsignedTxArr).toBeUndefined();
   });
 
   it('uses the build response spender when the provider changes it', async () => {
     mockBuild.mockResolvedValue({ result: createQuote('0xchanged') });
-    mockAllowance.mockResolvedValue(
+    mockAllowance.mockResolvedValueOnce(
       createAllowance({
         isApproved: false,
         allowanceTarget: '0xchanged',
@@ -330,7 +447,10 @@ describe('Dust Sweep serial execution boundaries', () => {
     await expect(executeDustSweepItem(createOptions())).resolves.toMatchObject({
       status: 'success',
     });
-    expect(mockSend.mock.calls[0][0].approveUnsignedTxArr).toHaveLength(1);
+    expect(
+      mockSend.mock.calls[0][0].buildUnsignedParams.unsignedTx,
+    ).toBeDefined();
+    expect(mockSend.mock.calls[1][0].approveUnsignedTxArr).toBeUndefined();
     expect(mockPrepareUnsigned).toHaveBeenCalledWith(
       expect.objectContaining({
         approveInfo: expect.objectContaining({ spender: '0xchanged' }),
@@ -474,7 +594,7 @@ describe('Dust Sweep serial execution boundaries', () => {
   });
 
   it('keeps a known approval recoverable if its history write fails before swap signing', async () => {
-    mockAllowance.mockResolvedValue(
+    mockAllowance.mockResolvedValueOnce(
       createAllowance({ isApproved: false, approveAmounted: '0' }),
     );
     mockSend.mockImplementationOnce(async (params) => {
@@ -498,7 +618,7 @@ describe('Dust Sweep serial execution boundaries', () => {
   });
 
   it('still treats an unconfirmed swap signing attempt after a known approval as unknown', async () => {
-    mockAllowance.mockResolvedValue(
+    mockAllowance.mockResolvedValueOnce(
       createAllowance({ isApproved: false, approveAmounted: '0' }),
     );
     mockSend.mockImplementationOnce(async (params) => {
@@ -508,6 +628,9 @@ describe('Dust Sweep serial execution boundaries', () => {
         rawTx: '',
         encodedTx: null,
       });
+      return [];
+    });
+    mockSend.mockImplementationOnce(async (params) => {
       await params.onBeforeSignAndSend?.();
       throw new OneKeyLocalError('Swap transport unavailable');
     });
@@ -567,7 +690,7 @@ describe('Dust Sweep serial execution boundaries', () => {
     expect(mockSend).toHaveBeenCalledTimes(1);
   });
 
-  it('reports an on-chain swap failure after the bundled approval', async () => {
+  it('reports an on-chain swap failure after the confirmed approval', async () => {
     mockAllowance.mockResolvedValueOnce(
       createAllowance({ isApproved: false, approveAmounted: '0' }),
     );
@@ -578,8 +701,8 @@ describe('Dust Sweep serial execution boundaries', () => {
       status: 'failed',
       message: undefined,
     });
-    expect(mockSend).toHaveBeenCalledTimes(1);
-    expect(mockBuild).toHaveBeenCalledTimes(1);
+    expect(mockSend).toHaveBeenCalledTimes(2);
+    expect(mockBuild).toHaveBeenCalledTimes(2);
   });
 
   it('settles a reset approval before granting the exact new allowance', async () => {
@@ -598,7 +721,12 @@ describe('Dust Sweep serial execution boundaries', () => {
       'approval-1',
       'swap',
     ]);
-    expect(mockSend.mock.calls[0][0].approveUnsignedTxArr).toHaveLength(2);
+    expect(mockSend).toHaveBeenCalledTimes(3);
+    expect(
+      mockSend.mock.calls.every(
+        ([params]) => !params.approveUnsignedTxArr?.length,
+      ),
+    ).toBe(true);
     expect(
       mockPrepareUnsigned.mock.calls.map(
         ([params]: [{ approveInfo: { amount: string } }]) =>
@@ -671,7 +799,9 @@ describe('Dust Sweep serial execution boundaries', () => {
     expect(mockSend).toHaveBeenCalledWith(
       expect.objectContaining({
         networkId: tronToken.networkId,
-        approveUnsignedTxArr: expect.arrayContaining([expect.any(Object)]),
+        buildUnsignedParams: expect.objectContaining({
+          unsignedTx: expect.any(Object),
+        }),
       }),
     );
     expect(mockPrepareUnsigned).toHaveBeenCalledWith(

@@ -230,7 +230,7 @@ it('waits for a background signing return on leave and never begins the next ite
   });
   const { result } = renderHook(() => useDustSweepSession([]));
   act(() => result.current.start(snapshot));
-  let leave: Promise<void> | undefined;
+  let leave: Promise<boolean> | undefined;
   act(() => {
     leave = result.current.leave();
   });
@@ -368,4 +368,31 @@ it('isolates late callbacks even when a later run uses the same caller id', asyn
   expect(result.current.state.snapshot?.id).not.toBe(firstId);
   act(() => oldBroadcast?.('obsolete'));
   expect(result.current.state.items[0].txId).toBe('second');
+});
+
+it('retains a submission that becomes unknown while leaving before allowing a second explicit leave', async () => {
+  const settle = deferred<void>();
+  execute.mockImplementationOnce(async ({ onSigning }) => {
+    onSigning();
+    await settle.promise;
+    throw new DustSweepUnknownSubmission();
+  });
+  const { result } = renderHook(() => useDustSweepSession([]));
+  act(() => result.current.start(snapshot));
+  let left: boolean | undefined;
+  await act(async () => {
+    const leaving = result.current.leave();
+    settle.resolve();
+    left = await leaving;
+  });
+  expect(left).toBe(false);
+  expect(result.current.state.phase).toBe('blocked');
+  expect(result.current.state.items[0].status).toBe('unknown');
+  act(() => result.current.resume());
+  expect(execute).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    left = await result.current.leave();
+  });
+  expect(left).toBe(true);
+  expect(result.current.state.phase).toBe('left');
 });

@@ -255,6 +255,25 @@ async function prepareAllowanceUnsignedTxs(
   return approveUnsignedTxArr;
 }
 
+// Only detach preparation and status reads. Signing and history writes must finish
+// before the session owner releases a worker that may already have broadcast.
+async function waitForDustSweepRead<T>(
+  request: () => Promise<T>,
+  signal: AbortSignal,
+) {
+  assertActive(signal);
+  let onAbort: () => void = () => undefined;
+  const aborted = new Promise<never>((_resolve, reject) => {
+    onAbort = () => reject(new OneKeyLocalError('Dust Sweep cancelled'));
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+  try {
+    return await Promise.race([request(), aborted]);
+  } finally {
+    signal.removeEventListener('abort', onAbort);
+  }
+}
+
 async function waitForBroadcastedApprovals({
   approvalTxIds,
   snapshot,
@@ -267,10 +286,14 @@ async function waitForBroadcastedApprovals({
   for (const txId of approvalTxIds) {
     while (!signal.aborted) {
       try {
-        const result = await backgroundApiProxy.serviceSwap.fetchTxState({
-          txId,
-          networkId: snapshot.networkId,
-        });
+        const result = await waitForDustSweepRead(
+          () =>
+            backgroundApiProxy.serviceSwap.fetchTxState({
+              txId,
+              networkId: snapshot.networkId,
+            }),
+          signal,
+        );
         if (result.state === ESwapTxHistoryStatus.SUCCESS) break;
         if (
           [
@@ -292,29 +315,8 @@ async function waitForBroadcastedApprovals({
   }
 }
 
-export async function executeDustSweepItem(
-  options: IExecutionOptions,
-): Promise<
-  | { status: 'success'; receivedAmount?: string; receiptUnavailable: boolean }
-  | { status: 'failed'; message?: string }
-> {
-  const {
-    snapshot,
-    token,
-    signal,
-    onSigning,
-    onApprovalBroadcast,
-    onBroadcast,
-    pendingApprovalTxIds,
-    generateSwapHistoryItem,
-  } = options;
-  assertCanSubmit(options);
-  if (pendingApprovalTxIds?.length)
-    await waitForBroadcastedApprovals({
-      approvalTxIds: pendingApprovalTxIds,
-      snapshot,
-      signal,
-    });
+async function prepareDustSweepItem(options: IExecutionOptions) {
+  const { snapshot, token, signal } = options;
   assertCanSubmit(options);
   const quote = await fetchDustSweepQuote(token, snapshot, signal);
   assertCanSubmit(options);
@@ -377,12 +379,98 @@ export async function executeDustSweepItem(
     options,
     requiredInputAmount,
   );
+  return { buildRes, execution, approveUnsignedTxArr };
+}
+
+export async function executeDustSweepItem(
+  options: IExecutionOptions,
+): Promise<
+  | { status: 'success'; receivedAmount?: string; receiptUnavailable: boolean }
+  | { status: 'failed'; message?: string }
+> {
+  const {
+    snapshot,
+    signal,
+    onSigning,
+    onApprovalBroadcast,
+    onBroadcast,
+    pendingApprovalTxIds,
+    generateSwapHistoryItem,
+  } = options;
+  assertCanSubmit(options);
+  if (pendingApprovalTxIds?.length)
+    await waitForBroadcastedApprovals({
+      approvalTxIds: pendingApprovalTxIds,
+      snapshot,
+      signal,
+    });
+  assertCanSubmit(options);
+  let prepared = await waitForDustSweepRead(
+    () => prepareDustSweepItem(options),
+    signal,
+  );
   let txId: string | undefined;
-  let broadcastCount = 0;
-  const broadcastedApprovalTxIds: string[] = [];
-  let confirmedApprovalCount = 0;
+  const broadcastedApprovalTxIds = [...(pendingApprovalTxIds ?? [])];
   let signing = false;
+  const onBeforeSignAndSend = () => {
+    assertCanSubmit(options);
+    if (!signing) {
+      signing = true;
+      onSigning();
+    }
+  };
+  const sendApproval = async (unsignedTx: IUnsignedTxPro) => {
+    assertCanSubmit(options);
+    let approvalTxId: string | undefined;
+    await sendMarketDirectUnsignedTxs({
+      accountId: snapshot.accountId,
+      accountAddress: snapshot.address,
+      networkId: snapshot.networkId,
+      buildUnsignedParams: {
+        accountId: snapshot.accountId,
+        networkId: snapshot.networkId,
+        unsignedTx,
+      },
+      validateFinalGasInfos: async (gasInfos) => {
+        await checkNativeGasBalance(
+          gasInfos,
+          options,
+          prepared.buildRes.result,
+        );
+        await checkInputAndOtherFeeBalances(prepared.buildRes.result, options);
+      },
+      onBeforeSignAndSend,
+      onBroadcast: (signed) => {
+        signing = false;
+        approvalTxId = signed.txid;
+        broadcastedApprovalTxIds.push(signed.txid);
+        onApprovalBroadcast?.([...broadcastedApprovalTxIds]);
+        options.onPrepared();
+      },
+    });
+    if (!approvalTxId) throw new DustSweepUnknownSubmission();
+    await waitForBroadcastedApprovals({
+      approvalTxIds: [approvalTxId],
+      snapshot,
+      signal,
+    });
+    assertCanSubmit(options);
+  };
   try {
+    if (prepared.approveUnsignedTxArr.length) {
+      for (const unsignedTx of prepared.approveUnsignedTxArr) {
+        await sendApproval(unsignedTx);
+      }
+      // Approval changes chain state and may outlive the quote. Rebuild before
+      // estimating the actual swap, with no approval gas-limit approximation.
+      prepared = await waitForDustSweepRead(
+        () => prepareDustSweepItem(options),
+        signal,
+      );
+      if (prepared.approveUnsignedTxArr.length)
+        throw new DustSweepRetryableError();
+    }
+    const { execution, buildRes } = prepared;
     await sendMarketDirectUnsignedTxs({
       accountId: snapshot.accountId,
       accountAddress: snapshot.address,
@@ -396,41 +484,14 @@ export async function executeDustSweepItem(
           : undefined,
         swapInfo: execution.swapInfo,
       },
-      approveUnsignedTxArr,
       validateFinalGasInfos: async (gasInfos) => {
         await checkNativeGasBalance(gasInfos, options, buildRes.result);
         await checkInputAndOtherFeeBalances(buildRes.result, options);
       },
-      onBeforeSignAndSend: async () => {
-        if (broadcastedApprovalTxIds.length > confirmedApprovalCount) {
-          await waitForBroadcastedApprovals({
-            approvalTxIds: broadcastedApprovalTxIds.slice(
-              confirmedApprovalCount,
-            ),
-            snapshot,
-            signal,
-          });
-          confirmedApprovalCount = broadcastedApprovalTxIds.length;
-        }
-        assertCanSubmit(options);
-        if (!signing) {
-          signing = true;
-          onSigning();
-        }
-      },
+      onBeforeSignAndSend,
       onBroadcast: (signed) => {
-        broadcastCount += 1;
-        if (broadcastCount <= approveUnsignedTxArr.length) {
-          signing = false;
-          broadcastedApprovalTxIds.push(signed.txid);
-          onApprovalBroadcast?.([...broadcastedApprovalTxIds]);
-          options.onPrepared();
-          return;
-        }
-        if (broadcastCount === approveUnsignedTxArr.length + 1) {
-          txId = signed.txid;
-          onBroadcast(signed.txid);
-        }
+        txId = signed.txid;
+        onBroadcast(signed.txid);
       },
     });
   } catch (error) {
@@ -452,24 +513,27 @@ export async function executeDustSweepItem(
     }
   }
   if (!txId) throw new DustSweepUnknownSubmission();
+  const { execution, buildRes } = prepared;
   await completeBroadcastedSwapSuccess({
     txId,
     swapInfo: execution.swapInfo,
     generateSwapHistoryItem,
   });
+  const fetchState = () =>
+    backgroundApiProxy.serviceSwap.fetchTxState({
+      txId,
+      orderId: execution.orderId,
+      provider: buildRes.result.info.provider,
+      networkId: snapshot.networkId,
+      protocol: EProtocolOfExchange.SWAP,
+      toTokenAddress: snapshot.nativeToken.contractAddress,
+      receivedAddress: snapshot.address,
+      ctx: buildRes.ctx,
+    });
   // Pending and transport errors remain pending; no timeout ever authorizes a resend.
   while (!signal.aborted) {
     try {
-      const result = await backgroundApiProxy.serviceSwap.fetchTxState({
-        txId,
-        orderId: execution.orderId,
-        provider: buildRes.result.info.provider,
-        networkId: snapshot.networkId,
-        protocol: EProtocolOfExchange.SWAP,
-        toTokenAddress: snapshot.nativeToken.contractAddress,
-        receivedAddress: snapshot.address,
-        ctx: buildRes.ctx,
-      });
+      const result = await waitForDustSweepRead(fetchState, signal);
       if (result.state === ESwapTxHistoryStatus.SUCCESS) {
         const received = new BigNumber(result.dealReceiveAmount ?? '');
         const receiptUnavailable =

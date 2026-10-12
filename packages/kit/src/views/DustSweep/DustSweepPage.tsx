@@ -2,17 +2,21 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { usePreventRemove, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import {
   Dialog,
   Icon,
   IconButton,
   Page,
+  ScrollView,
   SizableText,
   Stack,
+  Toast,
   XStack,
   YStack,
   useMedia,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -43,20 +47,32 @@ function DustSweepResultDialog({
   details?: boolean;
 }) {
   const [showDetails, setShowDetails] = useState(details);
+  const { height } = useWindowDimensions();
+  const { top, bottom } = useSafeAreaInsets();
+  const maxHeight = Math.max(
+    0,
+    platformEnv.isNative
+      ? Math.min(Math.floor(height * 0.92), height - top - bottom)
+      : height - 48,
+  );
+
   if (showDetails)
     return (
       <DustSweepDetails
         state={state}
+        maxHeight={maxHeight}
         onBack={() => setShowDetails(false)}
         onDone={onClose}
       />
     );
   return (
-    <DustSweepResult
-      state={state}
-      onDetails={() => setShowDetails(true)}
-      onAgain={state.phase === 'completed' ? onAgain : onClose}
-    />
+    <ScrollView maxHeight={Math.min(420, maxHeight)}>
+      <DustSweepResult
+        state={state}
+        onDetails={() => setShowDetails(true)}
+        onAgain={state.phase === 'completed' ? onAgain : onClose}
+      />
+    </ScrollView>
   );
 }
 
@@ -127,16 +143,40 @@ function DustSweepPageContent() {
         title: intl.formatMessage({
           id: ETranslations.sweep_leave_dust_sweep_confirmation,
         }),
-        description: intl.formatMessage({
-          id: ETranslations.sweep_leave_dust_sweep_warning,
-        }),
+        description: unknown
+          ? intl.formatMessage({
+              id: ETranslations.wallet_transaction_maybe_already_submitted_check_activity__msg,
+            })
+          : [
+              intl.formatMessage({
+                id: ETranslations.sweep_leave_dust_sweep_warning,
+              }),
+              state.items.some(
+                (item) =>
+                  ['signing', 'broadcasted'].includes(item.status) ||
+                  item.approvalTxIds?.length,
+              )
+                ? intl.formatMessage({
+                    id: ETranslations.swap_review_tx_pending,
+                  })
+                : undefined,
+            ]
+              .filter(Boolean)
+              .join('\n\n'),
         onConfirmText: intl.formatMessage({
           id: ETranslations.sweep_leave_dust_sweep,
         }),
         confirmButtonProps: { testID: 'dust-sweep-confirm-leave' },
         tone: 'destructive',
         onConfirm: async () => {
-          await session.leave();
+          if ((await session.leave()) === false) {
+            Toast.warning({
+              title: intl.formatMessage({
+                id: ETranslations.wallet_transaction_maybe_already_submitted_check_activity__msg,
+              }),
+            });
+            return;
+          }
           pendingAction.current = data.action;
           setAllowLeave(true);
         },
@@ -209,7 +249,7 @@ function DustSweepPageContent() {
   );
   const onDone = useCallback(() => navigation.pop(), [navigation]);
   return (
-    <Page testID="dust-sweep-page">
+    <Page testID="dust-sweep-page" scrollEnabled={desktop}>
       <Page.Header
         title={title}
         headerTitle={renderHeaderTitle}
@@ -220,11 +260,11 @@ function DustSweepPageContent() {
           <YStack
             flex={1}
             width="100%"
-            maxWidth={960}
+            maxWidth={1048}
             alignSelf="center"
             pt={56}
             pb="$6"
-            px="$0"
+            px={44}
           >
             <XStack height={28} alignItems="center" position="relative" mb={14}>
               <IconButton

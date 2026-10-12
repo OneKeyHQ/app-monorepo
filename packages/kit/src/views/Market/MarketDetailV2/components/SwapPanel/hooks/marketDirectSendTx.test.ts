@@ -222,6 +222,46 @@ describe('marketDirectSendTx', () => {
     mockGetNativeTokenAddress.mockResolvedValue('');
   });
 
+  it('estimates the approved swap instead of reusing its pre-approval provider gas limit', async () => {
+    const unsignedTx = createSponsoredUnsignedTx();
+    if (unsignedTx.swapInfo) {
+      unsignedTx.swapInfo.swapBuildResData.result.gasAccountEnabled = false;
+      unsignedTx.swapInfo.swapBuildResData.result.gasLimit = 243_000;
+    }
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
+    const estimated = createEstimateFeeResult();
+    estimated.gas[1].gasLimit = '385198';
+    mockEstimateFee.mockResolvedValue(estimated);
+    await sendMarketDirectUnsignedTxs({
+      accountId: 'account',
+      accountAddress: '0xuser',
+      networkId: 'evm--4663',
+      buildUnsignedParams: {
+        accountId: 'account',
+        networkId: 'evm--4663',
+        unsignedTx,
+      },
+    });
+    expect(mockBatchEstimateFee).not.toHaveBeenCalled();
+    expect(mockEstimateFee).toHaveBeenCalledTimes(1);
+    expect(mockUpdateUnsignedTx).toHaveBeenCalledWith(
+      expect.objectContaining({
+        feeInfo: expect.objectContaining({
+          gas: expect.objectContaining({ gasLimit: '385198' }),
+        }),
+      }),
+    );
+    expect(mockSignAndSendTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stageFeeInfo: expect.objectContaining({
+          feeInfo: expect.objectContaining({
+            gas: expect.objectContaining({ gasLimit: '385198' }),
+          }),
+        }),
+      }),
+    );
+  });
+
   it('builds market preset fake transfer info as an isolated self-transfer', () => {
     const transferInfo = buildMarketPresetFeeEstimateFakeTransferInfo({
       accountAddress: '0xuser',
