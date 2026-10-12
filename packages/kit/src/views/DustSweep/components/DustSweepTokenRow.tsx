@@ -145,6 +145,11 @@ const DustSweepTokenRowBase = ({
           <Checkbox
             testID={`dust-sweep-select-${token.key}`}
             value={!!selected}
+            width={20}
+            height={20}
+            minHeight={20}
+            flexShrink={0}
+            containerProps={{ py: '$1', flexShrink: 0 }}
             onChange={() => onToggle?.(token.key)}
           />
         ) : null}

@@ -265,30 +265,10 @@ export function DustSweepSummary({
                 </>
               ) : (
                 <>
-                  <XStack height={24} gap="$1" alignItems="center">
-                    <IconButton
-                      testID="dust-sweep-refresh-quotes"
-                      icon="RotateClockwiseOutline"
-                      variant="tertiary"
-                      width={24}
-                      height={24}
-                      minHeight={24}
-                      p={0}
-                      mx={0}
-                      my={0}
-                      opacity={quoteError ? 1 : 0}
-                      disabled={!quoteError}
-                      pointerEvents={quoteError ? 'auto' : 'none'}
-                      onPress={model.retryPreview}
-                      accessibilityLabel={intl.formatMessage({
-                        id: ETranslations.swap_page_button_refresh_quotes,
-                      })}
-                    />
-                    <SizableText size="$bodyLgMedium" height={24}>
-                      {amountUnavailable ? '—' : formatAmount(amount, 6)}{' '}
-                      {nativeToken?.symbol}
-                    </SizableText>
-                  </XStack>
+                  <SizableText size="$bodyLgMedium" height={24}>
+                    {amountUnavailable ? '—' : formatAmount(amount, 6)}{' '}
+                    {nativeToken?.symbol}
+                  </SizableText>
                   <SizableText size="$bodyMd" color="$textSubdued" height={20}>
                     {amountUnavailable || !nativeToken?.price
                       ? '—'
@@ -319,37 +299,67 @@ export function DustSweepSummary({
                   id: ETranslations.swap_page_provider_provider,
                 })}
               </SizableText>
-              <XStack gap="$1" alignItems="center" flexShrink={1} minWidth={0}>
-                {preview.providerLogo ? (
-                  <Stack position="relative" width={20} height={20}>
-                    <Image
-                      source={{ uri: preview.providerLogo }}
-                      width={20}
-                      height={20}
-                      borderRadius="$1"
-                    />
-                    <Stack
-                      position="absolute"
-                      top={0}
-                      left={0}
-                      right={0}
-                      bottom={0}
-                      borderRadius="$1"
-                      borderWidth="$px"
-                      borderColor="$borderSubdued"
-                      pointerEvents="none"
-                    />
-                  </Stack>
-                ) : null}
-                <SizableText
-                  size="$bodyMdMedium"
-                  numberOfLines={1}
-                  maxWidth="$64"
+              {quoteLoading || loadStatus === 'loading' ? (
+                <Skeleton width={54} height={16} />
+              ) : (
+                <XStack
+                  gap="$1"
+                  alignItems="center"
                   flexShrink={1}
+                  minWidth={0}
                 >
-                  {preview.providerName || preview.provider || '—'}
-                </SizableText>
-              </XStack>
+                  {preview.providerLogo ? (
+                    <Stack position="relative" width={20} height={20}>
+                      <Image
+                        source={{ uri: preview.providerLogo }}
+                        width={20}
+                        height={20}
+                        borderRadius="$1"
+                      />
+                      <Stack
+                        position="absolute"
+                        top={0}
+                        left={0}
+                        right={0}
+                        bottom={0}
+                        borderRadius="$1"
+                        borderWidth="$px"
+                        borderColor="$borderSubdued"
+                        pointerEvents="none"
+                      />
+                    </Stack>
+                  ) : null}
+                  <SizableText
+                    size="$bodyMdMedium"
+                    numberOfLines={1}
+                    maxWidth="$64"
+                    flexShrink={1}
+                  >
+                    {preview.providerName || preview.provider || '—'}
+                  </SizableText>
+                  {quoteError ? (
+                    <IconButton
+                      testID="dust-sweep-refresh-quotes"
+                      icon="RotateClockwiseOutline"
+                      variant="tertiary"
+                      size="small"
+                      height={20}
+                      minHeight={20}
+                      width={20}
+                      p={0}
+                      mx={0}
+                      my={0}
+                      ml="$1"
+                      hitSlop={12}
+                      iconSize="$4"
+                      onPress={model.retryPreview}
+                      accessibilityLabel={intl.formatMessage({
+                        id: ETranslations.swap_page_button_refresh_quotes,
+                      })}
+                    />
+                  ) : null}
+                </XStack>
+              )}
             </XStack>
             <XStack
               height={20}

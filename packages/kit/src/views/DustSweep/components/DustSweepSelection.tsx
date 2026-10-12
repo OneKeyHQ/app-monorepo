@@ -84,6 +84,12 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
             <Checkbox
               testID="dust-sweep-select-all"
               value={selectAllValue}
+              width={20}
+              height={20}
+              minHeight={20}
+              flexShrink={0}
+              borderRadius={6}
+              containerProps={{ py: '$1', flexShrink: 0 }}
               disabled={!selecting || loading || !selectableVisibleCount}
               onChange={toggleAll}
             />
