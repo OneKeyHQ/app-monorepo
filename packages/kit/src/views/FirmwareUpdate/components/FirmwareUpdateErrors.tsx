@@ -633,12 +633,13 @@ function WorkflowErrors({
   result: ICheckAllFirmwareReleaseResult | undefined;
 }) {
   const intl = useIntl();
-  const { onRetryHandler, content, retryText } = useFirmwareUpdateErrors({
-    error,
-    onRetry,
-    result,
-    lastFirmwareTipMessage: undefined,
-  });
+  const { onRetryHandler, content, detail, retryText } =
+    useFirmwareUpdateErrors({
+      error,
+      onRetry,
+      result,
+      lastFirmwareTipMessage: undefined,
+    });
   return (
     <>
       <FirmwareUpdatePageFooter
@@ -651,6 +652,7 @@ function WorkflowErrors({
         }}
       />
       {content}
+      {detail}
     </>
   );
 }

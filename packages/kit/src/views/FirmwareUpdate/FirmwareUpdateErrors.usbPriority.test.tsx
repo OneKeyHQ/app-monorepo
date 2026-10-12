@@ -3,7 +3,7 @@
 import type { ReactElement, ReactNode } from 'react';
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
-import { renderHook } from '@testing-library/react';
+import { fireEvent, render, renderHook, screen } from '@testing-library/react';
 import { IntlProvider, createIntl } from 'react-intl';
 
 import {
@@ -21,7 +21,10 @@ import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErro
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useFirmwareUpdateErrors as useLegacyFirmwareUpdateErrors } from './components/FirmwareUpdateErrors';
+import {
+  FirmwareUpdateErrors,
+  useFirmwareUpdateErrors as useLegacyFirmwareUpdateErrors,
+} from './components/FirmwareUpdateErrors';
 import { resolveFirmwareUpdateErrorPresentation } from './componentsV2/firmwareUpdateErrorPresentation';
 
 jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
@@ -31,8 +34,30 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {},
 }));
+jest.mock('@onekeyhq/components', () => ({
+  RichSizeableText: ({
+    children,
+    linkList,
+  }: {
+    children: ReactNode;
+    linkList: { url: { url: string } };
+  }) => <a href={linkList.url.url}>{children}</a>,
+}));
+jest.mock('./components/FirmwareUpdateBaseMessageView', () => ({
+  FirmwareUpdateBaseMessageView: () => null,
+}));
 jest.mock('./components/FirmwareUpdatePageLayout', () => ({
-  FirmwareUpdatePageFooter: () => null,
+  FirmwareUpdatePageFooter: ({
+    onConfirm,
+    onConfirmText,
+  }: {
+    onConfirm?: () => void;
+    onConfirmText: string;
+  }) => (
+    <button type="button" onClick={onConfirm}>
+      {onConfirmText}
+    </button>
+  ),
 }));
 jest.mock('@onekeyhq/kit/src/components/HyperlinkText', () => ({
   HyperlinkText: () => null,
@@ -141,6 +166,26 @@ describe('firmware update USB-priority errors', () => {
 
     expect(detail.props.linkList.url.url).toBe(HARDWARE_TROUBLESHOOTING_URL);
     expect(result.current.onRetryHandler).toBe(onRetry);
+  });
+
+  it('renders the USB troubleshooting link and retry on changelog errors', () => {
+    const onRetry = jest.fn();
+    render(
+      <FirmwareUpdateErrors.WorkflowErrors
+        error={convertDeviceError({
+          code: ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
+        })}
+        onRetry={onRetry}
+        result={undefined}
+      />,
+      { wrapper: IntlWrapper },
+    );
+
+    expect(screen.getByRole('link').getAttribute('href')).toBe(
+      HARDWARE_TROUBLESHOOTING_URL,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
   it('links Linux permission failures to the existing udev help article', () => {
