@@ -158,7 +158,6 @@ export interface ITradingViewNativeAccountMarksContext {
 export interface ITradingViewNativeProps {
   testID?: string;
   source: ITradingViewNativeSource;
-  displayName?: string;
   priceDecimalPlaces?: number;
   onPriceSelect?: (selection: ITradingViewNativePriceSelection) => void;
   priceSelectionLabel?: string;

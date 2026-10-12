@@ -210,7 +210,6 @@ const TradingViewNativeContent = memo(
   ({
     testID,
     source,
-    displayName,
     priceDecimalPlaces,
     onPriceSelect,
     priceSelectionLabel,
@@ -1023,18 +1022,6 @@ const TradingViewNativeContent = memo(
                 : onNativeChartFullscreenChange
             }
           />
-          {displayName ? (
-            <SizableText
-              px="$2"
-              py="$1"
-              size="$bodySmMedium"
-              color="$textSubdued"
-              numberOfLines={1}
-              testID="trading-view-native-instrument-name"
-            >
-              {displayName}
-            </SizableText>
-          ) : null}
           <Stack flex={1} position="relative" onLayout={handleChartAreaLayout}>
             <TradingViewNativeChart
               key={`${dataProviderKey}:${candleIntervalSeconds}`}
