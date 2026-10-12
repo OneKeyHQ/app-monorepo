@@ -27,6 +27,7 @@ type ISwapToAddressState = {
 
 type IHookProps = {
   accountId?: string;
+  validationScopeKey?: string;
   address?: string;
   clearRecipientAddressOnHide?: boolean;
   networkId?: string;
@@ -526,6 +527,39 @@ describe('useSwapIncognitoRecipientInput', () => {
 
     await flushDebounce();
     expect(mockQueryAddressWithFallback).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects an old fallback response when the source changes on the same network', async () => {
+    const oldResponse = createDeferred<IAddressQueryResult>();
+    const newResponse = createDeferred<IAddressQueryResult>();
+    mockQueryAddressWithFallback
+      .mockReturnValueOnce(oldResponse.promise)
+      .mockReturnValueOnce(newResponse.promise);
+    const props: IHookProps = {
+      visible: true,
+      validationEnabled: true,
+      accountId: undefined,
+      validationScopeKey: 'source-a|evm--1',
+      networkId: 'evm--1',
+      swapToAnotherAccountSwitchOn: false,
+    };
+    const { result, rerender } = renderUseSwapIncognitoRecipientInput(props);
+    act(() => result.current.onInputChange('0xrecipient'));
+    await flushDebounce();
+    rerender({ ...props, validationScopeKey: 'source-b|evm--1' });
+    await flushDebounce();
+    expect(mockQueryAddressWithFallback).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      oldResponse.resolve({ validStatus: 'valid', validAddress: '0xold' });
+    });
+    expect(result.current.queryResult.validStatus).toBeUndefined();
+    expect(result.current.loading).toBe(true);
+    expect(mockSwapToAddressState.address).toBeUndefined();
+    await act(async () => {
+      newResponse.resolve({ validStatus: 'valid', validAddress: '0xnew' });
+    });
+    expect(mockSwapToAddressState.address).toBe('0xnew');
+    expect(result.current.loading).toBe(false);
   });
 
   it('revalidates the current input when only the validation account changes', async () => {

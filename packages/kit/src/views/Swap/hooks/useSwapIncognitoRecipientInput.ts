@@ -16,11 +16,13 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 type IUseSwapIncognitoRecipientInputParams = {
+  isActive?: boolean;
   visible: boolean;
   validationEnabled: boolean;
   clearRecipientAddressOnHide?: boolean;
   networkId?: string;
   accountId?: string;
+  validationScopeKey?: string;
   accountInfo?: IAccountSelectorActiveAccountInfo;
   address?: string;
   swapToAnotherAccountSwitchOn: boolean;
@@ -52,6 +54,7 @@ type IShouldShowSwapIncognitoRecipientInputParams = {
 
 type IAddressValidationContext = {
   accountId?: string;
+  validationScopeKey?: string;
   enabled: boolean;
   networkId?: string;
   queryText: string;
@@ -64,6 +67,7 @@ function isSameAddressValidationContext(
 ) {
   return (
     left.accountId === right.accountId &&
+    left.validationScopeKey === right.validationScopeKey &&
     left.enabled === right.enabled &&
     left.networkId === right.networkId &&
     left.queryText === right.queryText &&
@@ -126,11 +130,13 @@ export function shouldShowSwapIncognitoRecipientInput({
 }
 
 export function useSwapIncognitoRecipientInput({
+  isActive = true,
   visible,
   validationEnabled,
   clearRecipientAddressOnHide,
   networkId,
   accountId,
+  validationScopeKey,
   accountInfo,
   address,
   swapToAnotherAccountSwitchOn,
@@ -145,6 +151,7 @@ export function useSwapIncognitoRecipientInput({
   const validationSessionIdRef = useRef(0);
   const validationContextRef = useRef<IAddressValidationContext>({
     accountId,
+    validationScopeKey,
     enabled: false,
     networkId,
     queryText: '',
@@ -153,12 +160,14 @@ export function useSwapIncognitoRecipientInput({
   const validationScopeRef = useRef<{
     accountId?: string;
     networkId?: string;
+    validationScopeKey?: string;
   }>({
     accountId,
     networkId,
+    validationScopeKey,
   });
 
-  const enabled = visible && validationEnabled && !!networkId;
+  const enabled = isActive && visible && validationEnabled && !!networkId;
   const validatedInputRef = useRef<
     | {
         networkId: string;
@@ -169,6 +178,7 @@ export function useSwapIncognitoRecipientInput({
 
   validationContextRef.current = {
     accountId,
+    validationScopeKey,
     enabled,
     networkId,
     queryText: inputText.trim(),
@@ -211,6 +221,7 @@ export function useSwapIncognitoRecipientInput({
   const queryAddress = useDebouncedCallback(async (currentText: string) => {
     const requestContext = {
       accountId,
+      validationScopeKey,
       enabled,
       networkId,
       queryText: currentText,
@@ -313,10 +324,17 @@ export function useSwapIncognitoRecipientInput({
   );
 
   useEffect(() => {
+    // Inactive Swap surfaces must not reset another surface's shared recipient switch.
+    if (!isActive) {
+      resetValidationState();
+      return;
+    }
+
     if (!visible) {
       validationScopeRef.current = {
         accountId,
         networkId,
+        validationScopeKey,
       };
       resetValidationState({
         clearInput: true,
@@ -329,6 +347,7 @@ export function useSwapIncognitoRecipientInput({
       validationScopeRef.current = {
         accountId,
         networkId,
+        validationScopeKey,
       };
       resetValidationState({
         clearRecipientAddress: true,
@@ -340,6 +359,7 @@ export function useSwapIncognitoRecipientInput({
     const nextScope = {
       accountId,
       networkId,
+      validationScopeKey,
     };
     const validatedInput = validatedInputRef.current;
     const isValidatedNetworkChanged =
@@ -350,6 +370,7 @@ export function useSwapIncognitoRecipientInput({
 
     if (
       prevScope.accountId === nextScope.accountId &&
+      prevScope.validationScopeKey === nextScope.validationScopeKey &&
       prevScope.networkId === nextScope.networkId &&
       !isValidatedNetworkChanged
     ) {
@@ -362,8 +383,10 @@ export function useSwapIncognitoRecipientInput({
     });
   }, [
     accountId,
+    validationScopeKey,
     clearRecipientAddressOnHide,
     enabled,
+    isActive,
     networkId,
     resetValidationState,
     visible,
@@ -400,7 +423,14 @@ export function useSwapIncognitoRecipientInput({
     }
 
     void queryAddress(inputText.trim());
-  }, [accountId, enabled, inputText, networkId, queryAddress]);
+  }, [
+    accountId,
+    enabled,
+    inputText,
+    networkId,
+    queryAddress,
+    validationScopeKey,
+  ]);
 
   useEffect(() => () => queryAddress.cancel(), [queryAddress]);
 
