@@ -341,6 +341,10 @@ def run(args):
             verify_pair(scans['base'], scans['merge'], expected)
             # A surviving target disappearing from results is a coverage failure.
             for target in set(scans['base']['targets']) - set(scans['merge']['targets']):
+                # Secret results exist only for files with matches; removing
+                # the last secret removes the result while retaining the file.
+                if target[1] == 'secret':
+                    continue
                 require(not (private / 'merge' / target[0]).exists(), 'lost_target_coverage')
             result['phase'] = 'comparison'
             result['newFindings'] = compare(scans['base'], scans['merge'])
