@@ -10,14 +10,11 @@ import {
   type ILocalizedProtocolPositionItem,
   type IProtocolPositionSectionAssetType,
   buildLocalizedProtocolPositionItems,
-  getProtocolPositionDisplayName,
 } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import type {
   IDeFiAsset,
-  IDeFiPosition,
   IDeFiProtocol,
   IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
@@ -34,23 +31,21 @@ import type { IEarnActionIcon } from '@onekeyhq/shared/types/staking';
 /**
  * View model of the phone "My portfolio" DeFi Assets tab (OK-61377).
  *
- * What a position is comes from the server and the wallet DeFi Portfolio
- * code, unchanged: defiUtils.transformDeFiData groups positions into one
- * protocol per network and keys each position by groupId, and
- * buildLocalizedProtocolPositionItems gives its value and health factor.
- * This file adds what the Earn design adds on top: the badge copy, the
- * sections a card shows (deposited, claimable, borrowed, rewards; one
- * unstaking section on a locked card), the locked card's name and the
- * card's actions. Product rules: the staked principal and its rewards are
- * one card with Manage (Unstake where leaving is the only move) and, when
- * the server attached a claim to a reward, Claim beside it (figma
- * 30490-21077: one claim goes straight to the confirm page, several open a
- * sheet with one Claim each; a card left with rewards only shows Claim
- * alone); each withdrawal in progress is a locked card of its own (Cancel
- * where the provider lets it be called back), and principal out of its
- * cooldown is a claimable card of its own with Claim, as the wallet DeFi
- * portfolio shows them, since the detail page lists what sits in the vault
- * and its rewards, not principal on its way out.
+ * The server sends one position per state of a holding (the staked
+ * principal with its rewards, the principal out of its cooldown, one
+ * position per withdrawal in progress), the way the wallet DeFi portfolio
+ * keys positions. Product (10-12): one holding is one card. So the states
+ * of one holding — same protocol, network, provider, symbol and vault — are
+ * folded into one card here, as its sections (deposited, claimable,
+ * unstaking, borrowed, rewards), and the card's actions come from all of
+ * them: Manage (Unstake where leaving is the only move) while something
+ * still sits in the vault, Claim for the principal out of its cooldown and
+ * for every reward the server attached a claim to (one claim goes straight
+ * to the confirm page, several open a sheet with one Claim each), and
+ * Cancel on a withdrawal the provider lets be called back. The wallet DeFi
+ * Portfolio code still does the grouping and the valuation:
+ * defiUtils.transformDeFiData groups positions into one protocol per
+ * network, buildLocalizedProtocolPositionItems gives the health factor.
  */
 
 type ITranslate = (id: ETranslations) => string;
@@ -64,8 +59,10 @@ export type IEarnPositionSectionKind =
   | 'rewards';
 
 export type IEarnPositionSectionAsset = IDeFiAsset & {
-  /** ms; locked cards whose provider knows when the funds free up */
+  /** ms; unstaking rows whose provider knows when the funds free up */
   unlockAt?: number;
+  /** unstaking rows the provider lets be called back: the server position carrying the Cancel */
+  cancelSource?: IEarnPortfolioPosition;
   /** reward rows: the claim the card runs, when the server attached one */
   claim?: IEarnPositionRewardClaim;
 };
@@ -86,20 +83,14 @@ export type IEarnPositionSectionView = {
 
 export type IEarnPositionMeta = { kind: 'healthFactor'; healthFactor: number };
 
-export type IEarnPositionAction =
-  | { kind: 'manage' | 'unstake'; target: IEarnPositionManageTarget }
-  | { kind: 'claim' }
-  | { kind: 'cancel' };
-
-/**
- * active: the staked principal and its rewards; unstaking: a withdrawal in
- * progress, a locked card named after its unlock time; claimable: principal
- * out of its cooldown, collected on the card.
- */
-export type IEarnPositionStage = 'active' | 'unstaking' | 'claimable';
+/** Manage, or Unstake where leaving is the only move, into the detail page. */
+export type IEarnPositionAction = {
+  kind: 'manage' | 'unstake';
+  target: IEarnPositionManageTarget;
+};
 
 export type IEarnPositionView = {
-  /** the position's groupId */
+  /** the holding's main server position's groupId */
   key: string;
   badgeLabel: string;
   name?: string;
@@ -107,19 +98,26 @@ export type IEarnPositionView = {
   value: IProtocolValueState;
   meta?: IEarnPositionMeta;
   sections: IEarnPositionSectionView[];
-  /** the card's principal button */
+  /** the way into the detail page; the card shows it while something still sits in the vault */
   action?: IEarnPositionAction;
+  /** principal out of its cooldown: the server positions carrying `earn.claim`, collected on the card */
+  principalClaims: IEarnPortfolioPosition[];
   /**
    * The rewards the card's Claim collects: every reward row whose claim the
    * server sent enabled (figma 30490-21882: Claim shows only for those).
-   * Active cards only.
    */
   claimableRewards: IEarnClaimableReward[];
-  stage: IEarnPositionStage;
-  /** unstaking cards: when the funds free up, if the provider knows */
-  locked?: { unlockAt?: number };
-  /** the server position behind the card */
+  /** withdrawals in progress the provider lets be called back */
+  cancels: IEarnPortfolioPosition[];
+  /** what the holding holds, for the card's buttons and PnL line */
+  hasDeposit: boolean;
+  hasClaimable: boolean;
+  hasUnstaking: boolean;
+  hasRewards: boolean;
+  /** the holding's main server position: the staked one, else the one with rewards, else the first */
   source: IEarnPortfolioPosition;
+  /** every server position folded into the card */
+  sources: IEarnPortfolioPosition[];
 };
 
 export type IEarnProtocolView = {
@@ -178,104 +176,30 @@ function isEarnCategory(category: string): category is IEarnPositionCategory {
   return category in BADGE_LABEL_IDS;
 }
 
-function isEarnPosition(
-  source: IDeFiPosition,
-): source is IEarnPortfolioPosition {
-  return 'earn' in source;
+/**
+ * The holding a server position belongs to: the protocol it is filed under
+ * and the detail page it manages (network, provider, symbol, vault). Every
+ * state of one holding — staked, claimable, each withdrawal in progress —
+ * shares it, so the wallet grouping folds them into one card. Bitway's U
+ * and USDT run on one contract and stay apart by symbol; the USDe cooling
+ * down at Ethena is filed under Ethena and managed through Pendle, apart
+ * from Pendle's own markets by symbol and vault.
+ */
+export function holdingKeyOf(position: IEarnPortfolioPosition): string {
+  const { manage } = position.earn;
+  return [
+    position.protocol,
+    manage.networkId,
+    manage.provider,
+    manage.symbol,
+    manage.vault ?? '',
+  ].join('|');
 }
 
-// Every entry of one groupId carries the same `earn` block.
-function readEarnPosition(
-  sourcePositions: IDeFiPosition[] | undefined,
-): IEarnPortfolioPosition | undefined {
-  return sourcePositions?.find(isEarnPosition);
-}
-
-/** "Unlock time: 2026-10-12", the locked card's name; plain "Locked" without a date. */
-function lockedName({
-  unlockAt,
-  translate,
-}: {
-  unlockAt?: number;
-  translate: ITranslate;
-}): string {
-  if (!unlockAt) {
-    return translate(ETranslations.wallet_defi_position_module_locked);
-  }
-  return `${translate(ETranslations.earn_unlock_time)}: ${formatDate(
-    new Date(unlockAt),
-    { hideTimeForever: true },
-  )}`;
-}
-
-function buildSections({
-  source,
-  translate,
-}: {
-  source: IEarnPortfolioPosition;
-  translate: ITranslate;
-}): IEarnPositionSectionView[] {
-  const byKind = new Map<
-    IEarnPositionSectionKind,
-    IEarnPositionSectionAsset[]
-  >();
-  const push = (
-    kind: IEarnPositionSectionKind,
-    asset: IEarnPositionSectionAsset,
-  ) => {
-    const list = byKind.get(kind);
-    if (list) {
-      list.push(asset);
-    } else {
-      byKind.set(kind, [asset]);
-    }
-  };
-  const principalKind: IEarnPositionSectionKind =
-    source.category === 'lending' ? 'supplied' : 'deposited';
-  source.assets.forEach((asset) => {
-    switch (asset.category) {
-      case 'claimable':
-        push('claimable', asset);
-        break;
-      case 'unstaking':
-        push('unstaking', {
-          ...asset,
-          unlockAt: source.earn.unstaking?.unlockAt,
-        });
-        break;
-      default:
-        push(principalKind, asset);
-    }
-  });
-  source.debts.forEach((asset) => push('borrowed', asset));
-  source.rewards.forEach((asset) => {
-    if (!isCheckRow(asset)) {
-      push('rewards', asset);
-    }
-  });
-  return SECTION_ORDER.filter((kind) => byKind.has(kind)).map((kind) => ({
-    key: kind,
-    kind,
-    assetType: SECTION_ASSET_TYPES[kind],
-    title: translate(SECTION_TITLE_IDS[kind]),
-    assets: byKind.get(kind) ?? [],
-  }));
-}
-
-// The server attaches `claim` and `cancel` to the positions acted on from
-// the card alone: principal to collect, a withdrawal that can be called back.
-function resolveAction(source: IEarnPortfolioPosition): IEarnPositionAction {
-  const { earn } = source;
-  if (earn.claim) {
-    return { kind: 'claim' };
-  }
-  if (earn.cancel) {
-    return { kind: 'cancel' };
-  }
-  return {
-    kind: earn.action === 'unstake' ? 'unstake' : 'manage',
-    target: earn.manage,
-  };
+function hasDepositAsset(position: IEarnPortfolioPosition): boolean {
+  return position.assets.some(
+    (asset) => asset.category !== 'claimable' && asset.category !== 'unstaking',
+  );
 }
 
 /** A claim button the server sent disabled (a reward under its claim floor) is no Claim on the card. */
@@ -303,82 +227,180 @@ function hasEnabledClaim(
   );
 }
 
-function stageOf(source: IEarnPortfolioPosition): IEarnPositionStage {
-  if (source.earn.unstaking) {
-    return 'unstaking';
-  }
-  const principalOut =
-    source.assets.length > 0 &&
-    source.assets.every((asset) => asset.category === 'claimable');
-  return principalOut && source.rewards.length === 0 ? 'claimable' : 'active';
-}
-
-/** The badge: Locked on a withdrawal in progress, else the Earn category. */
-function badgeLabelOf({
-  item,
-  locked,
+/**
+ * The card's sections, from every state of the holding: the staked
+ * principal (Supplied on a loan), the principal out of its cooldown, each
+ * withdrawal in progress dated when the provider knows (soonest first, with
+ * its Cancel where the provider lets it be called back), the debts, and the
+ * rewards (figma 30292-17826).
+ */
+function buildSections({
+  sources,
+  category,
   translate,
 }: {
-  item: ILocalizedProtocolPositionItem;
-  locked: boolean;
+  sources: IEarnPortfolioPosition[];
+  category: IEarnPositionCategory;
   translate: ITranslate;
-}): string {
-  if (locked) {
-    return translate(ETranslations.wallet_defi_position_module_locked);
+}): IEarnPositionSectionView[] {
+  const byKind = new Map<
+    IEarnPositionSectionKind,
+    IEarnPositionSectionAsset[]
+  >();
+  const push = (
+    kind: IEarnPositionSectionKind,
+    asset: IEarnPositionSectionAsset,
+  ) => {
+    const list = byKind.get(kind);
+    if (list) {
+      list.push(asset);
+    } else {
+      byKind.set(kind, [asset]);
+    }
+  };
+  const principalKind: IEarnPositionSectionKind =
+    category === 'lending' ? 'supplied' : 'deposited';
+  sources.forEach((source) => {
+    source.assets.forEach((asset) => {
+      switch (asset.category) {
+        case 'claimable':
+          push('claimable', asset);
+          break;
+        case 'unstaking':
+          push('unstaking', {
+            ...asset,
+            unlockAt: source.earn.unstaking?.unlockAt,
+            ...(source.earn.cancel ? { cancelSource: source } : {}),
+          });
+          break;
+        default:
+          push(principalKind, asset);
+      }
+    });
+    source.debts.forEach((asset) => push('borrowed', asset));
+    source.rewards.forEach((asset) => {
+      if (!isCheckRow(asset)) {
+        push('rewards', asset);
+      }
+    });
+  });
+  const unstaking = byKind.get('unstaking');
+  if (unstaking) {
+    // Soonest unlock first; rows without a date (Bitway) after the dated ones.
+    byKind.set(
+      'unstaking',
+      unstaking.toSorted(
+        (a, b) =>
+          (a.unlockAt ?? Number.MAX_SAFE_INTEGER) -
+          (b.unlockAt ?? Number.MAX_SAFE_INTEGER),
+      ),
+    );
   }
-  if (isEarnCategory(item.category)) {
-    return translate(BADGE_LABEL_IDS[item.category]);
-  }
-  return item.categoryLabel;
+  return SECTION_ORDER.filter((kind) => byKind.has(kind)).map((kind) => ({
+    key: kind,
+    kind,
+    assetType: SECTION_ASSET_TYPES[kind],
+    title: translate(SECTION_TITLE_IDS[kind]),
+    assets: byKind.get(kind) ?? [],
+  }));
 }
+
+/**
+ * The holding's main server position: the staked one carries the name, the
+ * detail page, the PnL and the rewards; without one, the position with
+ * rewards (principal withdrawn, yield left), else the first.
+ */
+function primaryOf(sources: IEarnPortfolioPosition[]): IEarnPortfolioPosition {
+  return (
+    sources.find(hasDepositAsset) ??
+    sources.find((source) => source.rewards.length > 0) ??
+    sources[0]
+  );
+}
+
+/** The server positions of each holding, in the server's order, keyed by holdingKeyOf. */
+type ISourcesByHolding = Map<string, IEarnPortfolioPosition[]>;
 
 function buildPositionView({
   item,
+  sourcesByHolding,
   translate,
 }: {
   item: ILocalizedProtocolPositionItem;
+  sourcesByHolding: ISourcesByHolding;
   translate: ITranslate;
 }): IEarnPositionView | undefined {
-  const source = readEarnPosition(item.sourcePositions);
-  if (!source) {
+  // The wallet grouping keyed the item by the holding; the server positions
+  // behind it, untouched, come from the same key.
+  const sources = sourcesByHolding.get(item.groupId) ?? [];
+  if (sources.length === 0) {
     return undefined;
   }
-  const sections = buildSections({ source, translate });
-  const stage = stageOf(source);
-  const locked = stage === 'unstaking' ? source.earn.unstaking : undefined;
+  const source = primaryOf(sources);
+  const category = isEarnCategory(source.category)
+    ? source.category
+    : undefined;
+  const sections = buildSections({
+    sources,
+    category: category ?? 'yield',
+    translate,
+  });
+  const has = (kind: IEarnPositionSectionKind) =>
+    sections.some((section) => section.kind === kind);
+  const hasDeposit = has('deposited') || has('supplied');
+  const hasClaimable = has('claimable');
+  const hasUnstaking = has('unstaking');
+  const hasRewards = has('rewards');
+  // A holding that is nothing but withdrawals in progress reads Locked, a
+  // state; otherwise the Earn category. One color for every badge.
+  let badgeLabel: string;
+  if (hasUnstaking && !hasDeposit && !hasClaimable && !hasRewards) {
+    badgeLabel = translate(ETranslations.wallet_defi_position_module_locked);
+  } else if (category) {
+    badgeLabel = translate(BADGE_LABEL_IDS[category]);
+  } else {
+    badgeLabel = item.categoryLabel;
+  }
   return {
-    key: item.positionKey,
-    badgeLabel: badgeLabelOf({ item, locked: Boolean(locked), translate }),
-    name: locked
-      ? lockedName({ unlockAt: locked.unlockAt, translate })
-      : getProtocolPositionDisplayName(item),
+    key: source.groupId,
+    badgeLabel,
+    name: source.name || undefined,
     value: getProtocolPositionSectionsValueState(sections),
     meta:
       typeof item.healthFactor === 'number'
         ? { kind: 'healthFactor', healthFactor: item.healthFactor }
         : undefined,
     sections,
-    action: resolveAction(source),
-    claimableRewards:
-      stage === 'active' ? source.rewards.filter(hasEnabledClaim) : [],
-    stage,
-    locked,
+    action: {
+      kind: source.earn.action === 'unstake' ? 'unstake' : 'manage',
+      target: source.earn.manage,
+    },
+    principalClaims: sources.filter((entry) => entry.earn.claim),
+    claimableRewards: source.rewards.filter(hasEnabledClaim),
+    cancels: sources.filter((entry) => entry.earn.cancel),
+    hasDeposit,
+    hasClaimable,
+    hasUnstaking,
+    hasRewards,
     source,
+    sources,
   };
 }
 
 function buildProtocolView({
   protocol,
   summary,
+  sourcesByHolding,
   translate,
 }: {
   protocol: IDeFiProtocol;
   summary: IProtocolSummary | undefined;
+  sourcesByHolding: ISourcesByHolding;
   translate: ITranslate;
 }): IEarnProtocolView {
   // Wallet order inside a protocol: value, highest first.
   const positions = buildLocalizedProtocolPositionItems({ protocol, translate })
-    .map((item) => buildPositionView({ item, translate }))
+    .map((item) => buildPositionView({ item, sourcesByHolding, translate }))
     .filter((view): view is IEarnPositionView => Boolean(view));
   return {
     key: defiUtils.buildProtocolMapKey({
@@ -426,8 +448,26 @@ export function buildEarnPortfolioView({
   response: IEarnPortfolioPositionsResponse;
   translate: ITranslate;
 }): { protocols: IEarnProtocolView[]; totalValue: number } {
+  // One holding is one card: the server's per-state positions take the
+  // holding as their groupId, and the wallet grouping folds them together.
+  const sourcesByHolding: ISourcesByHolding = new Map();
+  const positions = Object.fromEntries(
+    Object.entries(response.positions).map(([networkId, list]) => [
+      networkId,
+      list.map((position) => {
+        const groupId = holdingKeyOf(position);
+        const sources = sourcesByHolding.get(groupId);
+        if (sources) {
+          sources.push(position);
+        } else {
+          sourcesByHolding.set(groupId, [position]);
+        }
+        return { ...position, groupId };
+      }),
+    ]),
+  );
   const { protocols, protocolMap } = defiUtils.transformDeFiData({
-    positions: response.positions,
+    positions,
     protocolSummaries: response.protocolSummaries,
   });
   const views = protocols
@@ -441,6 +481,7 @@ export function buildEarnPortfolioView({
               networkId: protocol.networkId,
             })
           ],
+        sourcesByHolding,
         translate,
       }),
     )
@@ -485,8 +526,9 @@ export function buildEarnClaimableRewardGroups(
 ): IEarnClaimableRewardGroup[] {
   return protocols
     .map((protocol) => {
-      // From the server rewards, not the card's sections: the card leaves
-      // Lista's Check row out, this list is where its button lives.
+      // From the server rewards of the holding's main position, not the
+      // card's sections: the card leaves Lista's Check row out, this list
+      // is where its button lives.
       const rows = protocol.positions.flatMap((position) =>
         position.source.rewards
           // No zero rows either: a reward the server lists but has not

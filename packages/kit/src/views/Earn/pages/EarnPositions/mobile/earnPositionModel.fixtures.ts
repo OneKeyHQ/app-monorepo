@@ -443,13 +443,13 @@ const ETHEREUM_POSITIONS: IEarnPortfolioPosition[] = [
     ],
     earn: { action: 'claim', claim: CLAIM_BUTTON, claimSource: 'investment' },
   }),
-  // Ethena: USDe held at Ethena, badged Staked by the server, Manage like
-  // every other card (the detail page's own button).
+  // Ethena: USDe held at Ethena, Manage like every other card (the detail
+  // page's own button), the listing category as its badge.
   position({
     ...ethereum,
     protocol: 'ethena',
     protocolName: 'Ethena',
-    category: 'staked',
+    category: 'yield',
     groupId: 'ethena:evm--1:USDe',
     name: 'Ethena USDe',
     assets: [token({ symbol: 'USDe', amount: '12', price: 0.9993 })],

@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import {
   Dialog,
@@ -9,14 +9,12 @@ import {
 import { useDialogInstance } from '@onekeyhq/components/src/composite/Dialog/hooks';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
-import { isProtocolAssetValueUnavailable } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IEarnPortfolioPosition } from '@onekeyhq/shared/types/earn/portfolioPositions';
 
 import {
   PortfolioPendingTxsProvider,
@@ -24,25 +22,25 @@ import {
 } from '../../../components/PortfolioTabContent';
 import { EarnProviderMirror } from '../../../EarnProviderMirror';
 
-import { toPositionRewardClaim } from './myPortfolio.utils';
-
-import type { IEarnClaimableReward } from './earnPositionModel';
+import type { IEarnPositionClaim } from './myPortfolio.utils';
 import type { IRefreshOptions } from '../../../hooks/useEarnPortfolio';
 
-/** One reward of the sheet: token, amount and fiat, and its own Claim (figma 30490-21787). */
-function ClaimRow({
-  position,
-  reward,
-}: {
-  position: IEarnPortfolioPosition;
-  reward: IEarnClaimableReward;
-}) {
+/** One claim a card can run: what the row shows, and the claim its button runs. */
+export type IPositionClaimSheetItem = {
+  key: string;
+  networkId: string;
+  symbol: string;
+  logoUrl?: string;
+  amount: string;
+  /** request currency; undefined when the server has not priced it */
+  value?: number;
+  claim: IEarnPositionClaim;
+};
+
+/** One claim of the sheet: token, amount and fiat, and its own Claim (figma 30490-21787). */
+function ClaimRow({ item }: { item: IPositionClaimSheetItem }) {
   const currencyInfo = useCurrency();
   const dialog = useDialogInstance();
-  const claim = useMemo(
-    () => toPositionRewardClaim(position, reward),
-    [position, reward],
-  );
   // The claim goes on to its own confirm page; the sheet has done its part.
   const closeSheet = useCallback(() => {
     void dialog.close();
@@ -51,21 +49,21 @@ function ClaimRow({
     <XStack ai="center" gap="$3" py="$2">
       <Token
         size="md"
-        tokenImageUri={reward.meta?.logoUrl}
+        tokenImageUri={item.logoUrl}
         showNetworkIcon
-        networkId={position.networkId}
+        networkId={item.networkId}
       />
       <YStack flex={1} minWidth={0} gap="$0.5">
         <NumberSizeableTextWrapper
           hideValue
           size="$bodyMdMedium"
           formatter="balance"
-          formatterOptions={{ tokenSymbol: reward.symbol }}
+          formatterOptions={{ tokenSymbol: item.symbol }}
           numberOfLines={1}
         >
-          {reward.amount}
+          {item.amount}
         </NumberSizeableTextWrapper>
-        {isProtocolAssetValueUnavailable(reward) ? null : (
+        {item.value === undefined ? null : (
           <NumberSizeableText
             size="$bodySm"
             color="$textSubdued"
@@ -73,14 +71,14 @@ function ClaimRow({
             formatterOptions={{ currency: currencyInfo.symbol }}
             numberOfLines={1}
           >
-            {reward.value}
+            {item.value}
           </NumberSizeableText>
         )}
       </YStack>
       <WrappedActionButton
-        asset={claim.asset}
-        reward={claim.reward}
-        rewardSymbol={claim.rewardSymbol}
+        asset={item.claim.asset}
+        reward={item.claim.reward}
+        rewardSymbol={item.claim.rewardSymbol}
         onBeforeAction={closeSheet}
       />
     </XStack>
@@ -88,19 +86,18 @@ function ClaimRow({
 }
 
 /**
- * The Claimable rewards sheet a card's Claim opens when its rewards are
- * claimed one by one (figma 30490-21787, the sheet Borrow uses for Kamino):
- * one row per reward with its own Claim, Cancel below. Each Claim is the
- * button the wide layout runs on that row, so identity, pending spinner and
+ * The Claimable rewards sheet a card's Claim opens when the holding has
+ * several things to collect (figma 30490-21787, the sheet Borrow uses for
+ * Kamino): the principal out of its cooldown and every reward with a claim,
+ * one row each with its own Claim, Cancel below. Each Claim is the button
+ * the wide layout runs on that row, so identity, pending spinner and
  * refresh stay the same; the sheet closes as a claim starts.
  */
-export function showPositionRewardsClaimSheet({
-  position,
-  rewards,
+export function showPositionClaimSheet({
+  items,
   onRefresh,
 }: {
-  position: IEarnPortfolioPosition;
-  rewards: IEarnClaimableReward[];
+  items: IPositionClaimSheetItem[];
   onRefresh?: (options?: IRefreshOptions) => Promise<void>;
 }) {
   return Dialog.show({
@@ -121,12 +118,8 @@ export function showPositionRewardsClaimSheet({
         <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
           <PortfolioPendingTxsProvider value={{ onRefresh }}>
             <YStack>
-              {rewards.map((reward, index) => (
-                <ClaimRow
-                  key={`${reward.symbol}-${index}`}
-                  position={position}
-                  reward={reward}
-                />
+              {items.map((item) => (
+                <ClaimRow key={item.key} item={item} />
               ))}
             </YStack>
           </PortfolioPendingTxsProvider>

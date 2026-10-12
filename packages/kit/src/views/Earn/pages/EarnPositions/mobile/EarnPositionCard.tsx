@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -19,6 +19,7 @@ import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeab
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
   IEarnPortfolioPosition,
@@ -40,19 +41,39 @@ import {
   toPositionClaim,
   toPositionRewardClaim,
 } from './myPortfolio.utils';
-import { showPositionRewardsClaimSheet } from './PositionRewardsClaimSheet';
+import { showPositionClaimSheet } from './PositionRewardsClaimSheet';
 
 import type {
-  IEarnClaimableReward,
   IEarnPositionSectionView,
   IEarnPositionView,
 } from './earnPositionModel';
+import type { IPositionClaimSheetItem } from './PositionRewardsClaimSheet';
 import type { IStakePendingTx } from '../../../hooks/useStakingPendingTxs';
 
 export type IEarnPositionCardHandlers = {
   /** opens the position's own Earn detail page (EarnNavigation.pushToEarnProtocolDetails) */
   onManage?: (target: IEarnPositionManageTarget) => void;
 };
+
+/**
+ * A withdrawal in progress the provider lets be called back (Native) runs
+ * the cancel the wide layout ran on that row, through the same button, on
+ * the row itself.
+ */
+function PositionCancelButton({ source }: { source: IEarnPortfolioPosition }) {
+  const action = toPositionCancel(source);
+  if (!action) {
+    return null;
+  }
+  return (
+    <WrappedActionButton
+      asset={action.asset}
+      reward={action.reward}
+      rewardSymbol={action.rewardSymbol}
+      buttonProps={{ size: 'small', variant: 'secondary' }}
+    />
+  );
+}
 
 /** "Deposited | Balance" and the token rows under it (figma 30292-17826). */
 function PositionSection({
@@ -97,9 +118,25 @@ function PositionSection({
               showNetworkIcon
               networkId={networkId}
             />
-            <SizableText size="$bodyMdMedium" numberOfLines={1} flexShrink={1}>
-              {asset.symbol}
-            </SizableText>
+            <YStack flexShrink={1} minWidth={0}>
+              <SizableText size="$bodyMdMedium" numberOfLines={1}>
+                {asset.symbol}
+              </SizableText>
+              {/* a withdrawal in progress: when the funds free up, if the provider knows */}
+              {asset.unlockAt ? (
+                <SizableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  numberOfLines={1}
+                >
+                  {`${intl.formatMessage({
+                    id: ETranslations.earn_unlock_time,
+                  })}: ${formatDate(new Date(asset.unlockAt), {
+                    hideTimeForever: true,
+                  })}`}
+                </SizableText>
+              ) : null}
+            </YStack>
           </XStack>
           <YStack ai="flex-end" flexShrink={0}>
             <ProtocolValueCell
@@ -121,6 +158,9 @@ function PositionSection({
               {asset.amount}
             </NumberSizeableTextWrapper>
           </YStack>
+          {asset.cancelSource ? (
+            <PositionCancelButton source={asset.cancelSource} />
+          ) : null}
         </XStack>
       ))}
     </YStack>
@@ -207,51 +247,68 @@ function PositionPnlLine({ position }: { position: IEarnPortfolioPosition }) {
 }
 
 /**
- * A claimable position collects its principal on the card, and a locked
- * position whose withdrawal can be called back cancels it there, through
- * the button the wide layout already runs on those rows (identity, pending
- * spinner, refresh included).
+ * Everything the card's Claim collects: the principal out of its cooldown
+ * and every reward with an enabled claim, each as the row the sheet shows
+ * and the claim the wide layout runs on it.
  */
-function PositionRowButton({
-  position,
-  kind,
-}: {
-  position: IEarnPortfolioPosition;
-  kind: 'claim' | 'cancel';
-}) {
-  const action =
-    kind === 'claim' ? toPositionClaim(position) : toPositionCancel(position);
-  if (!action) {
-    return null;
-  }
-  return (
-    <WrappedActionButton
-      asset={action.asset}
-      reward={action.reward}
-      rewardSymbol={action.rewardSymbol}
-      buttonProps={{ size: 'medium', variant: 'secondary' }}
-    />
-  );
+function buildClaimItems(
+  position: IEarnPositionView,
+): IPositionClaimSheetItem[] {
+  const items: IPositionClaimSheetItem[] = [];
+  position.principalClaims.forEach((source) => {
+    const claim = toPositionClaim(source);
+    const asset = source.assets[0];
+    if (!claim || !asset) {
+      return;
+    }
+    const amount = source.assets
+      .reduce((sum, entry) => sum.plus(entry.amount), new BigNumber(0))
+      .toFixed();
+    const value = source.assets.reduce((sum, entry) => sum + entry.value, 0);
+    items.push({
+      key: source.groupId,
+      networkId: source.networkId,
+      symbol: asset.symbol,
+      logoUrl: asset.meta?.logoUrl,
+      amount,
+      value: source.assets.some(isProtocolAssetValueUnavailable)
+        ? undefined
+        : value,
+      claim,
+    });
+  });
+  position.claimableRewards.forEach((reward, index) => {
+    items.push({
+      key: `${position.key}:reward:${index}`,
+      networkId: position.source.networkId,
+      symbol: reward.symbol,
+      logoUrl: reward.meta?.logoUrl,
+      amount: reward.amount,
+      value: isProtocolAssetValueUnavailable(reward) ? undefined : reward.value,
+      claim: toPositionRewardClaim(position.source, reward),
+    });
+  });
+  return items;
 }
 
 /**
- * Claim on an active card (figma 30490-21882): one reward goes straight to
- * the confirm page through the claim button the wide layout runs on that
- * row; several open the Claimable rewards sheet, one Claim per reward. The
- * sheet's button spins while any claim of this position is in flight, the
+ * Claim on a card (figma 30490-21882): one thing to collect goes straight
+ * to the confirm page through the claim button the wide layout runs on that
+ * row; several open the Claimable rewards sheet, one Claim per row. The
+ * sheet's button spins while any claim of this holding is in flight, the
  * same tag the claim stamps on its transaction, so a claim cannot be sent
  * twice before the reward leaves the data.
  */
-function RewardsClaimButton({
+function PositionClaimButton({
   position,
-  rewards,
+  items,
 }: {
-  position: IEarnPortfolioPosition;
-  rewards: IEarnClaimableReward[];
+  position: IEarnPositionView;
+  items: IPositionClaimSheetItem[];
 }) {
   const intl = useIntl();
   const { onRefresh } = usePortfolioPendingTxs();
-  const tag = positionPendingTag(position);
+  const tag = positionPendingTag(position.source);
   const pendingTxsFilter = useCallback(
     (tx: IStakePendingTx) =>
       tx.stakingInfo.label === EEarnLabels.Claim &&
@@ -262,11 +319,11 @@ function RewardsClaimButton({
     filter: pendingTxsFilter,
   });
   const openSheet = useCallback(() => {
-    showPositionRewardsClaimSheet({ position, rewards, onRefresh });
-  }, [position, rewards, onRefresh]);
+    showPositionClaimSheet({ items, onRefresh });
+  }, [items, onRefresh]);
 
-  if (rewards.length === 1) {
-    const claim = toPositionRewardClaim(position, rewards[0]);
+  if (items.length === 1) {
+    const { claim } = items[0];
     return (
       <WrappedActionButton
         asset={claim.asset}
@@ -293,14 +350,14 @@ function RewardsClaimButton({
 }
 
 /**
- * One position, the wallet DeFi Portfolio card in the Earn design (figma
- * 29180-108096, 30292-17104 and 30490-21077): badge and name, the position
- * value with its PnL under it, an optional health factor line, one block per
- * section (deposited, borrowed, rewards; a locked card shows its withdrawal,
- * a claimable card the principal to collect) and the actions: Manage or
- * Unstake into the detail page with Claim beside it when a reward can be
- * collected (Claim alone once only rewards are left), Claim on a claimable
- * card, or Cancel on a withdrawal that can be called back.
+ * One holding, the wallet DeFi Portfolio card in the Earn design (figma
+ * 29180-108096, 30292-17104 and 30490-21077): badge and name, the value
+ * with its PnL under it, an optional health factor line, one block per
+ * section (deposited, claimable, unstaking with its unlock time and its
+ * Cancel where the provider lets it be called back, borrowed, rewards) and
+ * the buttons: Manage or Unstake into the detail page while something still
+ * sits in the vault, Claim beside it for the principal out of its cooldown
+ * and the rewards with a claim (Claim alone once that is all that is left).
  */
 function EarnPositionCardCmp({
   position,
@@ -308,17 +365,17 @@ function EarnPositionCardCmp({
 }: { position: IEarnPositionView } & IEarnPositionCardHandlers) {
   const intl = useIntl();
   const currencyInfo = useCurrency();
-  const { value, meta, source, action, claimableRewards } = position;
-  const opensDetail = action?.kind === 'manage' || action?.kind === 'unstake';
+  const { value, meta, source, action, hasDeposit, hasUnstaking } = position;
   const canOpen =
-    opensDetail && Boolean(onManage) && hasPositionDetailPage(source);
+    Boolean(action) && Boolean(onManage) && hasPositionDetailPage(source);
   const openDetail =
-    canOpen && opensDetail ? () => onManage?.(action.target) : undefined;
-  const hasClaim = claimableRewards.length > 0;
-  // Only rewards left (the principal was withdrawn): Claim alone, no Manage.
-  // Without a claim the way to the detail page stays.
-  const rewardsOnly = position.stage === 'active' && source.assets.length === 0;
-  const showManage = canOpen && !(rewardsOnly && hasClaim);
+    canOpen && action ? () => onManage?.(action.target) : undefined;
+  const claimItems = useMemo(() => buildClaimItems(position), [position]);
+  const hasClaim = claimItems.length > 0;
+  // Manage while something still sits in the vault; once only the principal
+  // to collect or the rewards are left, Claim alone (figma 30490-21882).
+  // Without any claim the way to the detail page stays.
+  const showManage = canOpen && (hasDeposit || hasUnstaking || !hasClaim);
 
   return (
     <YStack
@@ -332,7 +389,7 @@ function EarnPositionCardCmp({
     >
       <XStack ai="flex-start" jc="space-between" gap="$2">
         <XStack ai="center" gap="$2" flex={1} minWidth={0} minHeight={28}>
-          {/* one color for every stage: Locked is a state, not a warning */}
+          {/* one color for every badge: Locked is a state, not a warning */}
           <Badge badgeType="success" badgeSize="sm" flexShrink={0}>
             <Badge.Text>{position.badgeLabel}</Badge.Text>
           </Badge>
@@ -367,9 +424,7 @@ function EarnPositionCardCmp({
               numberOfLines={1}
             />
           </XStack>
-          {position.stage === 'active' ? (
-            <PositionPnlLine position={source} />
-          ) : null}
+          {hasDeposit ? <PositionPnlLine position={source} /> : null}
         </YStack>
       </XStack>
 
@@ -405,12 +460,9 @@ function EarnPositionCardCmp({
             </Button>
           ) : null}
           {hasClaim ? (
-            <RewardsClaimButton position={source} rewards={claimableRewards} />
+            <PositionClaimButton position={position} items={claimItems} />
           ) : null}
         </XStack>
-      ) : null}
-      {action?.kind === 'claim' || action?.kind === 'cancel' ? (
-        <PositionRowButton position={source} kind={action.kind} />
       ) : null}
     </YStack>
   );
