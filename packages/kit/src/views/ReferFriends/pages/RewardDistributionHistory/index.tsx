@@ -33,8 +33,6 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { ReferFriendsPageContainer } from '../../components';
 
-import { mockInvitePaidList, mockSummaryInfo } from './mockPayoutHistory';
-
 type ISectionListItem = {
   title?: string;
   data: number[];
@@ -96,9 +94,7 @@ function RewardDistributionHistoryPageWrapper() {
     { title: string; data: IInvitePaidHistory['items'] }[] | undefined
   >(undefined);
   const fetchInvitePaidList = useCallback(() => {
-    return mockInvitePaidList(() =>
-      backgroundApiProxy.serviceReferralCode.getInvitePaidList(),
-    );
+    return backgroundApiProxy.serviceReferralCode.getInvitePaidList();
   }, []);
 
   const [summaryInfo, setSummaryInfo] = useState<IInviteSummary>();
@@ -106,9 +102,7 @@ function RewardDistributionHistoryPageWrapper() {
   const fetchSummaryInfo = useCallback(async () => {
     try {
       setSummaryInfo(
-        await mockSummaryInfo(() =>
-          backgroundApiProxy.serviceReferralCode.getSummaryInfo(),
-        ),
+        await backgroundApiProxy.serviceReferralCode.getSummaryInfo(),
       );
     } catch {
       // ignore
@@ -121,9 +115,7 @@ function RewardDistributionHistoryPageWrapper() {
     setIsLoading(true);
     void Promise.allSettled([
       fetchInvitePaidList(),
-      mockSummaryInfo(() =>
-        backgroundApiProxy.serviceReferralCode.getSummaryInfo(),
-      ),
+      backgroundApiProxy.serviceReferralCode.getSummaryInfo(),
     ]).then(([list, summary]) => {
       if (list.status === 'fulfilled') {
         const data = list.value;
