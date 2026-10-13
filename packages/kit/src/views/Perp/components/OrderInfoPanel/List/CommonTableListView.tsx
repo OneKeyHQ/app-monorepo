@@ -351,7 +351,7 @@ const PaginationFooter = ({
           >
             <Input
               testID="perp-pagination-page-input"
-              autoFocus
+              autoFocus={!platformEnv.isNative}
               keyboardType="number-pad"
               size="large"
               maxLength={totalPages.toString().length}
