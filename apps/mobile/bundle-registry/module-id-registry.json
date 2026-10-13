@@ -23204,6 +23204,7 @@
     "packages/kit/src/views/Perp/components/OrderInfoPanel/Components/MobileTwapOpenOrdersRow.tsx": 1393,
     "packages/kit/src/views/Perp/components/OrderInfoPanel/Components/OpenOrdersRow.tsx": 8560,
     "packages/kit/src/views/Perp/components/OrderInfoPanel/Components/OrderInfoSubTabs.tsx": 14540,
+    "packages/kit/src/views/Perp/components/OrderInfoPanel/Components/OrderInfoTabBar.tsx": 3121,
     "packages/kit/src/views/Perp/components/OrderInfoPanel/Components/PerpDesktopEmptyState.tsx": 22324,
     "packages/kit/src/views/Perp/components/OrderInfoPanel/Components/PerpHoldingsEmptyState.tsx": 10665,
     "packages/kit/src/views/Perp/components/OrderInfoPanel/Components/PerpMobileEmptyState.tsx": 17457,
