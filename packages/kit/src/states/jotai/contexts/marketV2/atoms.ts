@@ -10,6 +10,7 @@ import {
   EAmountEnterType,
   ESlippageSetting,
 } from '@onekeyhq/shared/src/logger/scopes/dex/types';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketWatchListDataV2 } from '@onekeyhq/shared/types/market';
 import type {
   IMarketPerpsInfo,
@@ -100,10 +101,28 @@ export const {
   const detail = get(tokenDetailAtom());
   const hasRetainedDetail =
     resolution?.status === 'resolved' &&
-    detail?.networkId === resolution.networkId &&
-    detail?.address === resolution.tokenAddress;
-  return resolution?.networkId === get(networkIdAtom()) &&
-    resolution?.tokenAddress === get(tokenAddressAtom()) &&
+    Boolean(detail) &&
+    equalTokenNoCaseSensitive({
+      token1: {
+        networkId: detail?.networkId,
+        contractAddress: detail?.address,
+      },
+      token2: {
+        networkId: resolution.networkId,
+        contractAddress: resolution.tokenAddress,
+      },
+    });
+  return resolution &&
+    equalTokenNoCaseSensitive({
+      token1: {
+        networkId: resolution.networkId,
+        contractAddress: resolution.tokenAddress,
+      },
+      token2: {
+        networkId: get(networkIdAtom()),
+        contractAddress: get(tokenAddressAtom()),
+      },
+    }) &&
     (resolution?.requestId === get(tokenDetailRequestIdAtom()) ||
       hasRetainedDetail)
     ? resolution.status

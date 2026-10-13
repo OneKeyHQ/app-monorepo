@@ -16,6 +16,7 @@ import {
   ProviderJotaiContextMarketV2,
   isNativeAtom,
   marketPerpsInfoStatusAtom,
+  marketPerpsResolutionAtom,
   marketV2StorageReadyAtom,
   marketWatchListV2Atom,
   networkIdAtom,
@@ -476,6 +477,36 @@ describe('retained token navigation identity', () => {
 
 describe('stock navigation identity', () => {
   beforeEach(() => jest.clearAllMocks());
+
+  it.each([
+    ['evm--1', '0xAbCd', '0xabcd', 'resolved'],
+    ['sol--101', 'AbCd', 'abcd', 'pending'],
+    ['evm--1', '0xAbCd', '0xother', 'pending'],
+  ])(
+    'matches retained Perps metadata using the address rules for %s (%s -> %s)',
+    (networkId, tokenAddress, responseAddress, expectedStatus) => {
+      const { store } = createWrapper();
+      store.set(networkIdAtom(), networkId);
+      store.set(tokenAddressAtom(), tokenAddress);
+      store.set(tokenDetailRequestIdAtom(), 2);
+      store.set(marketPerpsResolutionAtom(), {
+        networkId,
+        tokenAddress,
+        requestId: 1,
+        status: 'resolved',
+      });
+      store.set(tokenDetailAtom(), {
+        networkId,
+        address: responseAddress,
+        name: 'Token',
+        symbol: 'TOKEN',
+        decimals: 18,
+        logoUrl: '',
+        price: '1',
+      });
+      expect(store.get(marketPerpsInfoStatusAtom())).toBe(expectedStatus);
+    },
+  );
 
   it.each([true, false])(
     'resolves the stock button group together with hasPerps=%s and preserves it during polling',
@@ -1340,6 +1371,35 @@ describe('marketV2 asset token detail actions', () => {
     });
     expect(store.get(tokenDetailAtom())).toBeUndefined();
     expect(store.get(tokenDetailLoadingAtom())).toBe(false);
+    expect(store.get(marketPerpsInfoStatusAtom())).toBe('error');
+  });
+
+  it('settles Perps loading when the asset response has the wrong variant', async () => {
+    const { store, Wrapper } = createWrapper();
+    store.set(networkIdAtom(), 'doge--0');
+    mockFetchMarketAssetDetail.mockResolvedValueOnce({
+      ...dogeAssetDetail,
+      selectedVariant: {
+        ...dogeAssetDetail.selectedVariant,
+        variantId: 'wrong-variant',
+      },
+    });
+    const { result } = renderHook(() => useMarketAssetTokenDetailAction(), {
+      wrapper: Wrapper,
+    });
+    await act(async () => {
+      await expect(
+        result.current({
+          assetId: 'doge',
+          variantId: 'doge-doge--0-1',
+          tokenAddress: '',
+          networkId: 'doge--0',
+        }),
+      ).rejects.toThrow('Market asset detail variant does not match');
+    });
+    expect(store.get(marketPerpsInfoStatusAtom())).toBe('error');
+    expect(store.get(tokenDetailLoadingAtom())).toBe(false);
+    expect(mockResolveMarketPerpsInfoBySymbol).not.toHaveBeenCalled();
   });
 
   it('preserves the last successful asset detail when polling fails', async () => {

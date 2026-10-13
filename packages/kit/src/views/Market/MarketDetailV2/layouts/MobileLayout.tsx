@@ -353,6 +353,7 @@ export function MobileLayout({
   active,
   isLayoutPending,
   isInitialContentPending,
+  disablePerpsBanner = false,
   disableTrade,
   isChartFullscreen,
   isTradingViewNative: preferredIsTradingViewNative,
@@ -405,6 +406,7 @@ export function MobileLayout({
   const footerMode = resolveMarketDetailFooterMode(
     !perpDisabled && Boolean(perpsInfo?.hlTicker),
     isPerpsInfoPending,
+    disablePerpsBanner,
   );
   const { navigateToPerps } = usePerpsNavigation(
     EPerpPageEnterSource.MarketBanner,

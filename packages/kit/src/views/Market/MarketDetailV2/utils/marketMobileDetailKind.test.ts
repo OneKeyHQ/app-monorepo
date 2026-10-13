@@ -62,6 +62,10 @@ describe('resolveMarketMobileTradeDestination', () => {
 });
 
 describe('resolveMarketDetailFooterMode', () => {
+  it('shows the trade footer when the route skips Perps metadata requests', () => {
+    expect(resolveMarketDetailFooterMode(false, true, true)).toBe('buy-sell');
+    expect(resolveMarketDetailFooterMode(true, true, true)).toBe('buy-sell');
+  });
   it('shows Buy and Sell when Perps is unavailable', () => {
     expect(resolveMarketDetailFooterMode(false)).toBe('buy-sell');
   });

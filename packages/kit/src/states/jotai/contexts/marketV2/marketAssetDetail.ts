@@ -271,6 +271,12 @@ async function fetchMarketAssetTokenDetail(
       isStale = true;
     }
     if (!isStale) {
+      if (get(marketPerpsResolutionAtom())?.status === 'pending') {
+        set(marketPerpsResolutionAtom(), {
+          ...resolution,
+          status: 'error',
+        });
+      }
       defaultLogger.app.error.log(
         `Failed to fetch market asset detail: ${String(error)}`,
       );
