@@ -20,6 +20,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   HISTORY_CONSTS,
+  IMPL_ALPH,
   IMPL_TON,
   SEND_TX_SERVER_ERROR_CODES,
 } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -1417,7 +1418,9 @@ class ServiceSend extends ServiceBase {
           networkId,
           accountId,
           unsignedTx:
-            networkUtils.getNetworkImpl({ networkId }) === IMPL_TON &&
+            [IMPL_TON, IMPL_ALPH].includes(
+              networkUtils.getNetworkImpl({ networkId }),
+            ) &&
             accountUtils.isHwAccount({ accountId }) &&
             signedTx.encodedTx
               ? { ...unsignedTx, encodedTx: signedTx.encodedTx }

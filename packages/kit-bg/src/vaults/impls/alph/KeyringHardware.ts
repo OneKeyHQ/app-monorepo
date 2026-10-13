@@ -20,7 +20,7 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
-import { checkAlphHardwareInputLimit } from './sdkAlph/hardwareInputLimit';
+import { prepareAlphHardwareTransaction } from './sdkAlph/hardwareInputLimit';
 import {
   deserializeUnsignedTransaction,
   serializeUnsignedTransaction,
@@ -156,21 +156,22 @@ export class KeyringHardware extends KeyringHardwareBase {
     if (!account.pub) {
       throw new OneKeyInternalError('Account pub not found');
     }
-    const { unsignedTx: rawTx } = await serializeUnsignedTransaction({
+    const transaction = await serializeUnsignedTransaction({
       encodedTx,
       publicKey: account.pub,
       backgroundApi: this.vault.backgroundApi,
       networkId: this.vault.networkId,
     });
-    await checkAlphHardwareInputLimit({
-      unsignedTx: rawTx,
-      encodedTx,
-      backgroundApi: this.vault.backgroundApi,
-      networkId: this.vault.networkId,
-      accountId: account.id,
-      deviceType: dbDevice.deviceType,
-      publicKey: account.pub,
-    });
+    const { unsignedTx: rawTx, encodedTx: hardwareEncodedTx } =
+      await prepareAlphHardwareTransaction({
+        unsignedTx: transaction.unsignedTx,
+        encodedTx,
+        backgroundApi: this.vault.backgroundApi,
+        networkId: this.vault.networkId,
+        accountId: account.id,
+        deviceType: dbDevice.deviceType,
+        publicKey: account.pub,
+      });
     const {
       unsignedTx: { scriptOpt },
     } = await deserializeUnsignedTransaction({
@@ -206,7 +207,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         unsignedTx: rawTx,
         signature: res.signature,
       }),
-      encodedTx: unsignedTx.encodedTx,
+      encodedTx: hardwareEncodedTx,
       signature: res.signature,
     };
   }

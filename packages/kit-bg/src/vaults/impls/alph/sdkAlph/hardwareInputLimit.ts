@@ -1,4 +1,5 @@
 import {
+  DEFAULT_GAS_AMOUNT,
   DUST_AMOUNT,
   TransactionBuilder,
   addressFromTokenId,
@@ -43,49 +44,105 @@ function getTokenAmount(utxo: node.UTXO, tokenId: string): bigint {
   );
 }
 
-function getAmountHint({
+function compareAmounts(a: bigint, b: bigint): number {
+  if (a === b) return 0;
+  return a > b ? -1 : 1;
+}
+
+function hasEnoughP2pkhGas(
+  transaction: ReturnType<typeof codec.unsignedTxCodec.decode>,
+): boolean {
+  if (
+    transaction.statefulScript.kind !== 'None' ||
+    transaction.inputs[0]?.unlockScript.kind !== 'P2PKH' ||
+    transaction.inputs
+      .slice(1)
+      .some((input) => input.unlockScript.kind !== 'SameAsPrevious')
+  ) {
+    return false;
+  }
+  // Standard P2PKH gas: base 1000, input 2000, output 4500,
+  // and 2060 for the first public-key unlock. Other scripts are excluded.
+  return (
+    transaction.gasAmount >=
+    Math.max(
+      DEFAULT_GAS_AMOUNT,
+      1000 +
+        transaction.inputs.length * 2000 +
+        transaction.fixedOutputs.length * 4500 +
+        2060,
+    )
+  );
+}
+
+function selectLargestInputs({
   inputs,
   params,
   limit,
   fee,
-  changeDust,
 }: {
   inputs: node.UTXO[];
   params: SignTransferTxParams;
   limit: number;
   fee: bigint;
-  changeDust: bigint;
-}): { amount: bigint; tokenId?: string } {
+}): { inputs: node.UTXO[]; amount: bigint; tokenId?: string } | undefined {
   const destination = params.destinations[0];
   const token = destination.tokens?.[0];
+  const requiredAlph = BigInt(destination.attoAlphAmount.toString()) + fee;
   if (!token) {
-    // The node selects smaller UTXOs first. Preserve the actual input order;
-    // the largest 16 would advertise an amount its default selector cannot sign.
-    const amount = sumAlph(inputs.slice(0, limit)) - fee - changeDust;
-    return { amount: amount > 0n ? amount : 0n };
-  }
-
-  const tokenInputs = inputs.filter(
-    (input) => getTokenAmount(input, token.id) > 0n,
-  );
-  const feeInputs = inputs.filter(
-    (input) => getTokenAmount(input, token.id) === 0n,
-  );
-  const requiredAlph =
-    BigInt(destination.attoAlphAmount.toString()) + fee + changeDust;
-  for (let count = Math.min(limit, tokenInputs.length); count > 0; count -= 1) {
-    const selected = tokenInputs.slice(0, count);
-    let alph = sumAlph(selected);
-    let inputCount = count;
-    for (const input of feeInputs) {
-      if (alph >= requiredAlph || inputCount === limit) {
+    const selected: node.UTXO[] = [];
+    let amount = 0n;
+    for (const input of inputs.toSorted((a, b) =>
+      compareAmounts(BigInt(a.amount), BigInt(b.amount)),
+    )) {
+      if (selected.length === limit || amount >= requiredAlph + DUST_AMOUNT) {
         break;
       }
-      alph += BigInt(input.amount);
-      inputCount += 1;
+      selected.push(input);
+      amount += BigInt(input.amount);
     }
-    if (alph >= requiredAlph) {
+    return { inputs: selected, amount: amount - fee - DUST_AMOUNT };
+  }
+
+  const tokenInputs = inputs
+    .filter((input) => getTokenAmount(input, token.id) > 0n)
+    .toSorted(
+      (a, b) =>
+        compareAmounts(
+          getTokenAmount(a, token.id),
+          getTokenAmount(b, token.id),
+        ) || compareAmounts(BigInt(a.amount), BigInt(b.amount)),
+    );
+  let count = 0;
+  let tokens = 0n;
+  while (
+    count < Math.min(limit, tokenInputs.length) &&
+    tokens < BigInt(token.amount.toString())
+  ) {
+    tokens += getTokenAmount(tokenInputs[count], token.id);
+    count += 1;
+  }
+  // Reserve separate native and token change outputs. The retry never pulls
+  // unrelated tokens into the transaction, so two dust amounts are sufficient.
+  for (; count > 0; count -= 1) {
+    const selected = tokenInputs.slice(0, count);
+    let alph = sumAlph(selected);
+    const feeInputs = inputs
+      .filter((input) => !selected.includes(input))
+      .toSorted((a, b) => compareAmounts(BigInt(a.amount), BigInt(b.amount)));
+    for (const input of feeInputs) {
+      if (
+        selected.length === limit ||
+        alph >= requiredAlph + 2n * DUST_AMOUNT
+      ) {
+        break;
+      }
+      selected.push(input);
+      alph += BigInt(input.amount);
+    }
+    if (alph >= requiredAlph + 2n * DUST_AMOUNT) {
       return {
+        inputs: selected,
         amount: selected.reduce(
           (sum, input) => sum + getTokenAmount(input, token.id),
           0n,
@@ -94,10 +151,10 @@ function getAmountHint({
       };
     }
   }
-  return { amount: 0n, tokenId: token.id };
+  return undefined;
 }
 
-export async function checkAlphHardwareInputLimit({
+export async function prepareAlphHardwareTransaction({
   unsignedTx,
   encodedTx,
   backgroundApi,
@@ -113,16 +170,17 @@ export async function checkAlphHardwareInputLimit({
   accountId: string;
   deviceType?: IDBDevice['deviceType'];
   publicKey: string;
-}): Promise<void> {
+}): Promise<{ unsignedTx: string; encodedTx: IEncodedTxAlph }> {
+  const original = { unsignedTx, encodedTx };
   const limit = getAlphHardwareInputLimit(deviceType);
   if (!limit) {
-    return;
+    return original;
   }
   const transaction = codec.unsignedTxCodec.decode(
     Buffer.from(unsignedTx, 'hex'),
   );
   if (transaction.inputs.length <= limit) {
-    return;
+    return original;
   }
   const fallbackError = new TooManyTransactionInputs({
     info: { number: transaction.inputs.length, max: limit },
@@ -131,9 +189,9 @@ export async function checkAlphHardwareInputLimit({
     throw fallbackError;
   }
   const params = encodedTx.params as SignTransferTxParams;
-  // Explicit input sets and multi-asset calls cannot be repaired by reducing
-  // one transfer amount. Do not give them a misleading amount suggestion.
   if (
+    !hasEnoughP2pkhGas(transaction) ||
+    (params.signerKeyType && params.signerKeyType !== 'default') ||
     params.utxos ||
     params.destinations.length !== 1 ||
     (params.destinations[0].tokens?.length ?? 0) > 1 ||
@@ -142,97 +200,109 @@ export async function checkAlphHardwareInputLimit({
   ) {
     throw fallbackError;
   }
-
+  const destination = params.destinations[0];
+  const tokenId = destination.tokens?.[0]?.id;
   const provider = new Provider({ backgroundApi, networkId });
   const { utxos } = await provider.addresses.getAddressesAddressUtxos(
     params.signerAddress,
   );
-  const values = new Map(
-    utxos.map((utxo) => [
-      `${utxo.ref.hint}:${utxo.ref.key.toLowerCase()}`,
-      utxo,
-    ]),
-  );
-  const inputs: node.UTXO[] = [];
-  for (const input of transaction.inputs) {
-    const utxo = values.get(
-      `${input.hint}:${Buffer.from(input.key).toString('hex')}`,
-    );
-    if (!utxo) {
-      // The input may have been spent since the transaction was built.
-      throw fallbackError;
+  const seen = new Set<string>();
+  const inputs = utxos.filter((utxo) => {
+    const key = `${utxo.ref.hint}:${utxo.ref.key.toLowerCase()}`;
+    // Explicit input builds do not apply the node's default lock-time filter.
+    // Keep other assets out of the retry to bound change dust and output count.
+    if (
+      seen.has(key) ||
+      (utxo.lockTime ?? 0) > Date.now() ||
+      utxo.tokens?.some((token) => token.id !== tokenId)
+    ) {
+      return false;
     }
-    inputs.push(utxo);
+    seen.add(key);
+    return true;
+  });
+  const selected = selectLargestInputs({
+    inputs,
+    params,
+    limit,
+    fee: BigInt(transaction.gasAmount) * transaction.gasPrice,
+  });
+  if (
+    !selected ||
+    selected.amount <= 0n ||
+    (!tokenId && selected.amount < DUST_AMOUNT)
+  ) {
+    throw fallbackError;
   }
-  const builder = TransactionBuilder.from(provider);
-  const destination = params.destinations[0];
   const requestedAmount = BigInt(
     (destination.tokens?.[0]?.amount ?? destination.attoAlphAmount).toString(),
   );
-  let hint: ReturnType<typeof getAmountHint> | undefined;
-  let lastAmount: bigint | undefined;
-  for (let budget = limit; budget > 0; budget -= 1) {
-    const candidate = getAmountHint({
-      inputs,
-      params,
-      limit: budget,
-      fee: BigInt(transaction.gasAmount) * transaction.gasPrice,
-      changeDust:
-        DUST_AMOUNT * BigInt(Math.max(1, transaction.fixedOutputs.length - 1)),
-    });
-    if (
-      candidate.amount <= 0n ||
-      (!candidate.tokenId && candidate.amount < DUST_AMOUNT)
-    ) {
-      break;
-    }
-    if (candidate.amount < requestedAmount && candidate.amount !== lastAmount) {
-      lastAmount = candidate.amount;
-      // A lower token amount can change the ALPH funding inputs. Only advertise
-      // a candidate after the same node builder proves it stays within the limit.
-      const rebuilt = await builder.buildTransferTx(
-        {
-          ...params,
-          gasAmount: transaction.gasAmount,
-          gasPrice: transaction.gasPrice,
-          destinations: [
-            candidate.tokenId
-              ? {
-                  ...destination,
-                  tokens: [
-                    {
-                      ...destination.tokens?.[0],
-                      id: candidate.tokenId,
-                      amount: candidate.amount,
-                    },
-                  ],
-                }
-              : { ...destination, attoAlphAmount: candidate.amount },
-          ],
-        },
-        publicKey,
-      );
-      const rebuiltTransaction = codec.unsignedTxCodec.decode(
-        Buffer.from(rebuilt.unsignedTx, 'hex'),
-      );
-      if (rebuiltTransaction.inputs.length <= limit) {
-        hint = candidate;
-        break;
-      }
-    }
-  }
-  if (!hint) {
+  const reduced = selected.amount < requestedAmount;
+  const retryParams: SignTransferTxParams = {
+    ...params,
+    utxos: selected.inputs.map((input) => input.ref),
+    // Preserve the fee already shown to the user when only the inputs change.
+    gasAmount: transaction.gasAmount,
+    gasPrice: transaction.gasPrice.toString(),
+    destinations: reduced
+      ? [
+          tokenId
+            ? {
+                ...destination,
+                tokens: [{ id: tokenId, amount: selected.amount.toString() }],
+              }
+            : { ...destination, attoAlphAmount: selected.amount.toString() },
+        ]
+      : params.destinations,
+  };
+  const rebuilt = await TransactionBuilder.from(provider).buildTransferTx(
+    retryParams,
+    publicKey,
+  );
+  const rebuiltTransaction = codec.unsignedTxCodec.decode(
+    Buffer.from(rebuilt.unsignedTx, 'hex'),
+  );
+  const selectedRefs = new Set(
+    selected.inputs.map(
+      (input) => `${input.ref.hint}:${input.ref.key.toLowerCase()}`,
+    ),
+  );
+  const rebuiltRefs = new Set(
+    rebuiltTransaction.inputs.map(
+      (input) => `${input.hint}:${Buffer.from(input.key).toString('hex')}`,
+    ),
+  );
+  if (
+    !hasEnoughP2pkhGas(rebuiltTransaction) ||
+    rebuiltTransaction.inputs.length > limit ||
+    rebuiltTransaction.inputs.length !== selectedRefs.size ||
+    rebuiltRefs.size !== selectedRefs.size ||
+    rebuiltTransaction.gasAmount !== transaction.gasAmount ||
+    rebuiltTransaction.gasPrice !== transaction.gasPrice ||
+    rebuiltTransaction.inputs.some(
+      (input) =>
+        !selectedRefs.has(
+          `${input.hint}:${Buffer.from(input.key).toString('hex')}`,
+        ),
+    )
+  ) {
     throw fallbackError;
   }
+  if (!reduced) {
+    return {
+      unsignedTx: rebuilt.unsignedTx,
+      encodedTx: { ...encodedTx, params: retryParams },
+    };
+  }
   const network = await backgroundApi.serviceNetwork.getNetwork({ networkId });
-  const token = hint.tokenId
+  const token = tokenId
     ? await backgroundApi.serviceToken.getToken({
         accountId,
         networkId,
-        tokenIdOnNetwork: addressFromTokenId(hint.tokenId),
+        tokenIdOnNetwork: addressFromTokenId(tokenId),
       })
     : undefined;
-  if (hint.tokenId && !token) {
+  if (tokenId && !token) {
     throw fallbackError;
   }
   throw new OneKeyLocalError(
@@ -241,11 +311,11 @@ export async function checkAlphHardwareInputLimit({
       {
         amount: token
           ? chainValueUtils.convertTokenChainValueToAmount({
-              value: hint.amount.toString(),
+              value: selected.amount.toString(),
               token,
             })
           : chainValueUtils.convertChainValueToAmount({
-              value: hint.amount.toString(),
+              value: selected.amount.toString(),
               network,
             }),
         symbol: token?.symbol ?? network.symbol,

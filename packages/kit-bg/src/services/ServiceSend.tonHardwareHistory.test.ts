@@ -1,3 +1,5 @@
+import { EAlphTxType } from '@onekeyhq/core/src/chains/alph/types';
+import type { IEncodedTxAlph } from '@onekeyhq/core/src/chains/alph/types';
 import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
@@ -39,7 +41,7 @@ jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
 
 afterEach(() => jest.restoreAllMocks());
 
-describe('TON hardware history uses the actual signed transaction', () => {
+describe('TON and ALPH hardware history use the actual signed transaction', () => {
   it.each([
     {
       networkId: 'ton--mainnet',
@@ -56,10 +58,20 @@ describe('TON hardware history uses the actual signed transaction', () => {
       accountId: "hw-test--m/44'/60'/0'/0/0",
       useSigned: false,
     },
+    {
+      networkId: 'alph--mainnet',
+      accountId: "hw-test--m/44'/1234'/0'",
+      useSigned: true,
+    },
+    {
+      networkId: 'alph--mainnet',
+      accountId: "hd-1--m/44'/1234'/0'",
+      useSigned: false,
+    },
   ])(
     'selects the correct history source for $networkId / $accountId',
     async ({ networkId, accountId, useSigned }) => {
-      const requested: IEncodedTxTon = {
+      const requestedTon: IEncodedTxTon = {
         from: `0:${'11'.repeat(32)}`,
         messages: [
           {
@@ -69,11 +81,30 @@ describe('TON hardware history uses the actual signed transaction', () => {
           },
         ],
       };
-      const signed: IEncodedTxTon = {
-        ...requested,
+      const signedTon: IEncodedTxTon = {
+        ...requestedTon,
         sequenceNo: 7,
-        messages: [{ ...requested.messages[0], payload: 'device-layout' }],
+        messages: [{ ...requestedTon.messages[0], payload: 'device-layout' }],
       };
+      const requestedAlph = {
+        type: EAlphTxType.Transfer,
+        params: {
+          signerAddress: 'test-sender',
+          destinations: [{ address: 'test-recipient', attoAlphAmount: '1000' }],
+          gasAmount: 70_000,
+          gasPrice: '100000000000',
+        },
+      } satisfies IEncodedTxAlph;
+      const signedAlph: IEncodedTxAlph = {
+        ...requestedAlph,
+        params: {
+          ...requestedAlph.params,
+          utxos: [{ hint: 1, key: '11'.repeat(32) }],
+        },
+      };
+      const requested =
+        networkId === 'alph--mainnet' ? requestedAlph : requestedTon;
+      const signed = networkId === 'alph--mainnet' ? signedAlph : signedTon;
       const unsignedTx: IUnsignedTxPro = {
         encodedTx: requested,
         uuid: 'transaction-context',
