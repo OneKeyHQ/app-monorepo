@@ -2,11 +2,13 @@ import { decodeToDataItem } from '@keystonehq/bc-ur-registry';
 import { isString } from 'lodash';
 
 import { AirGapUR, AirGapURDecoder, AirGapUREncoder } from './AirGapUR';
+import { assertBoundedCbor, assertBoundedUrPart } from './boundedUr';
 
 import type { IAirGapUrJson } from './AirGapUR';
 
 function decodeUrToDataItem(cbor: string) {
   const cborBuffer = Buffer.from(cbor, 'hex');
+  assertBoundedCbor(cborBuffer);
   return decodeToDataItem(cborBuffer);
 }
 
@@ -36,9 +38,13 @@ function createAnimatedURDecoder() {
       reject(new Error('AnimatedURDecode aborted'));
     };
     receivePart = (data: string) => {
+      // A scanned frame is untrusted until bounded; the vendor decoder is not.
+      assertBoundedUrPart(data);
       decoder.receivePart(data);
       if (decoder.isComplete()) {
-        resolve(decoder.resultUR());
+        const ur = decoder.resultUR();
+        assertBoundedCbor(ur.cbor);
+        resolve(ur);
       }
     };
   });

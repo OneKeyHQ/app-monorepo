@@ -1,6 +1,10 @@
 import { URDecoder, UREncoder } from '@ngraveio/bc-ur';
 
-import { airGapUrUtils } from '@onekeyhq/qr-wallet-sdk';
+import {
+  airGapUrUtils,
+  assertBoundedCbor,
+  assertBoundedUrPart,
+} from '@onekeyhq/qr-wallet-sdk';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
 import type { IAnimationValue, IQRCodeHandler } from '../type';
@@ -21,6 +25,9 @@ const animation: IQRCodeHandler<IAnimationValue> = async (value) => {
   //   decoder = new URDecoder();
   // }
   if (parts.findIndex((part) => part === value) === -1) {
+    // A scanned frame is untrusted: bound it before the vendor decoder parses it. A throw here
+    // leaves the frame out and the scan going.
+    assertBoundedUrPart(value);
     decoder.receivePart(value);
     parts.push(value);
   }
@@ -43,6 +50,7 @@ const animation: IQRCodeHandler<IAnimationValue> = async (value) => {
   }
   if (decoder.isSuccess()) {
     const ur = decoder.resultUR();
+    assertBoundedCbor(ur.cbor);
     animationData.parts = parts;
     animationData.fullUr = airGapUrUtils.urToJson({ ur });
     animationData.fullData = UREncoder.encodeSinglePart(ur).toUpperCase();

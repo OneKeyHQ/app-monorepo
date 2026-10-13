@@ -5,3 +5,4 @@ export * from './AirGapSdk';
 export * from './types';
 export * from './AirGapUR';
 export { airGapUrUtils };
+export { assertBoundedCbor, assertBoundedUrPart } from './boundedUr';
