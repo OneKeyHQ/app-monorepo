@@ -6,9 +6,30 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { CSSProperties, PointerEvent, ReactNode } from 'react';
+import type {
+  InputHTMLAttributes,
+  PointerEvent,
+  ReactNode,
+  SelectHTMLAttributes,
+} from 'react';
 
-import { Icon, useTheme } from '@onekeyhq/components';
+import {
+  Button,
+  ButtonFrame,
+  Icon,
+  IconButton,
+  ScrollView,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+  useTheme,
+} from '@onekeyhq/components';
+import type {
+  IButtonProps,
+  ISizableTextProps,
+  IXStackProps,
+} from '@onekeyhq/components';
 
 import { TRADING_VIEW_DRAWING_ICONS } from './icons';
 import {
@@ -34,35 +55,155 @@ type IActionIcon =
   | 'show'
   | 'delete'
   | 'stay'
+  | 'objects'
+  | 'data'
   | 'chevron';
 
 type IPropertiesPosition = { left: number; top: number };
 
+function DrawingButton({
+  active,
+  disabled,
+  menuItem,
+  ...props
+}: Omit<IButtonProps, 'color'> & { active?: boolean; menuItem?: boolean }) {
+  // Preserve the radio role on a menu item's rendered button.
+  const roleProps = menuItem ? { role: undefined } : {};
+  return (
+    <ButtonFrame
+      {...roleProps}
+      width={36}
+      height={28}
+      minWidth={0}
+      flexShrink={0}
+      padding={0}
+      borderWidth={0}
+      borderRadius={5}
+      backgroundColor={active ? '$bgActive' : '$transparent'}
+      cursor={disabled ? 'default' : 'pointer'}
+      opacity={disabled ? 0.3 : 1}
+      disabled={disabled}
+      hoverStyle={disabled ? undefined : { backgroundColor: '$bgHover' }}
+      focusVisibleStyle={{
+        outlineColor: '$iconActive',
+        outlineWidth: 2,
+        outlineStyle: 'solid',
+        outlineOffset: -2,
+      }}
+      {...props}
+    />
+  );
+}
+
+function DrawingDivider() {
+  return (
+    <Stack
+      width={28}
+      height={1}
+      flexShrink={0}
+      backgroundColor="$borderSubdued"
+      marginVertical={3}
+    />
+  );
+}
+
+function DrawingFieldLabel(props: IXStackProps) {
+  return (
+    <XStack
+      render="label"
+      alignItems="center"
+      gap={8}
+      marginVertical={6}
+      {...props}
+    />
+  );
+}
+
+function DrawingField(props: ISizableTextProps) {
+  return (
+    <SizableText
+      color="$text"
+      backgroundColor="$bg"
+      borderColor="$borderSubdued"
+      borderWidth={1}
+      borderRadius={4}
+      fontSize={12}
+      lineHeight={18}
+      {...props}
+    />
+  );
+}
+
+function DrawingSelect({
+  expanded = false,
+  children,
+  ...props
+}: SelectHTMLAttributes<HTMLSelectElement> & { expanded?: boolean }) {
+  return (
+    <DrawingField
+      render={<select {...props} />}
+      height={expanded ? 30 : 27}
+      minWidth={expanded ? 72 : undefined}
+      paddingHorizontal={expanded ? 8 : undefined}
+    >
+      {children}
+    </DrawingField>
+  );
+}
+
+function DrawingInput({
+  expanded = false,
+  flexible = false,
+  ...props
+}: InputHTMLAttributes<HTMLInputElement> & {
+  expanded?: boolean;
+  flexible?: boolean;
+}) {
+  const isColor = props.type === 'color';
+  let width = flexible ? 0 : 180;
+  let height: number | undefined;
+  if (isColor) {
+    width = expanded ? 48 : 28;
+    height = expanded ? 30 : 27;
+  }
+  return (
+    <DrawingField
+      render={<input {...props} />}
+      width={width}
+      minWidth={0}
+      flex={flexible ? 1 : undefined}
+      flexShrink={isColor ? 0 : undefined}
+      height={height}
+      padding={isColor ? 2 : 5}
+      cursor={isColor ? 'pointer' : undefined}
+    />
+  );
+}
+
 export function DrawingIcon({
   name,
+  color = 'currentColor',
 }: {
   name: keyof typeof TRADING_VIEW_DRAWING_ICONS;
+  color?: string;
 }) {
   const definition = TRADING_VIEW_DRAWING_ICONS[name];
   return (
-    <span
-      aria-hidden="true"
-      className="chart-drawing-icon"
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-        pointerEvents: 'none',
-        width: name === 'chevron' ? 12 : 20,
-        height: name === 'chevron' ? 12 : 20,
-      }}
+    <Stack
+      render="span"
+      aria-hidden
+      alignItems="center"
+      justifyContent="center"
+      flexShrink={0}
+      pointerEvents="none"
+      width={name === 'chevron' ? 12 : 20}
+      height={name === 'chevron' ? 12 : 20}
     >
       {'icon' in definition ? (
         <Icon
           name={definition.icon}
           size={name === 'chevron' ? '$3' : '$5'}
-          style={{ color: 'currentColor' }}
+          style={{ color }}
         />
       ) : (
         <svg
@@ -70,7 +211,7 @@ export function DrawingIcon({
           height="100%"
           viewBox="0 0 24 24"
           fill="none"
-          stroke="currentColor"
+          stroke={color}
           strokeWidth={2}
           strokeLinecap="square"
           strokeLinejoin="miter"
@@ -79,7 +220,7 @@ export function DrawingIcon({
           <path d={definition.path} />
         </svg>
       )}
-    </span>
+    </Stack>
   );
 }
 
@@ -90,6 +231,8 @@ function ToolButton({
   disabled,
   onClick,
   children,
+  testID,
+  compact = false,
 }: {
   label: string;
   icon?: IDrawingTool | IActionIcon;
@@ -97,19 +240,30 @@ function ToolButton({
   disabled?: boolean;
   onClick: () => void;
   children?: ReactNode;
+  testID?: string;
+  compact?: boolean;
 }) {
+  const theme = useTheme();
   return (
-    <button
-      type="button"
-      className="chart-drawing-button"
-      title={label}
+    <DrawingButton
+      render={<button type="button" title={label} aria-label={label} />}
+      testID={testID}
       aria-label={label}
       aria-pressed={active}
+      active={active}
       disabled={disabled}
-      onClick={onClick}
+      width={compact ? 28 : 36}
+      onPress={onClick}
     >
-      {icon ? <DrawingIcon name={icon} /> : children}
-    </button>
+      {icon ? (
+        <DrawingIcon
+          name={icon}
+          color={active ? theme.iconActive.val : theme.iconSubdued.val}
+        />
+      ) : (
+        children
+      )}
+    </DrawingButton>
   );
 }
 
@@ -118,14 +272,17 @@ function FontSizeSelect({
   value = DEFAULT_DRAWING_FONT_SIZE,
   disabled,
   onChange,
+  expanded,
 }: {
   id?: string;
   value?: number;
   disabled: boolean;
   onChange: (fontSize: number) => void;
+  expanded?: boolean;
 }) {
   return (
-    <select
+    <DrawingSelect
+      expanded={expanded}
       id={id}
       aria-label="Font size"
       data-testid="chart-drawing-font-size"
@@ -139,7 +296,7 @@ function FontSizeSelect({
           {fontSize}
         </option>
       ))}
-    </select>
+    </DrawingSelect>
   );
 }
 
@@ -154,7 +311,7 @@ function LineStyleControls({
 }) {
   return (
     <>
-      <select
+      <DrawingSelect
         aria-label="Line width"
         value={style.width}
         disabled={disabled}
@@ -165,8 +322,8 @@ function LineStyleControls({
             {width} px
           </option>
         ))}
-      </select>
-      <select
+      </DrawingSelect>
+      <DrawingSelect
         aria-label="Line style"
         value={style.dash}
         disabled={disabled}
@@ -179,56 +336,10 @@ function LineStyleControls({
         <option value="solid">Solid</option>
         <option value="dashed">Dashed</option>
         <option value="dotted">Dotted</option>
-      </select>
+      </DrawingSelect>
     </>
   );
 }
-
-const toolbarCss = `
-.chart-drawing-toolbar { width:48px; flex-shrink:0; display:flex; flex-direction:column; border-right:1px solid var(--drawing-border); padding:2px 0; box-sizing:border-box; background:var(--drawing-bg); color:var(--drawing-text); z-index:4; }
-.chart-drawing-toolbar[data-collapsed=true] { width:18px; }
-.chart-drawing-collapse { width:100%; height:22px; flex-shrink:0; }
-.chart-drawing-rail { flex:1; min-height:0; overflow-y:auto; scrollbar-width:none; display:flex; flex-direction:column; align-items:center; gap:0; }
-.chart-drawing-button { display:flex; align-items:center; justify-content:center; flex-shrink:0; width:36px; height:28px; border:0; border-radius:5px; background:transparent; color:var(--drawing-icon); cursor:pointer; padding:0; }
-.chart-drawing-button:hover:not(:disabled), .chart-drawing-menu button:hover { background:var(--drawing-hover); }
-.chart-drawing-button:focus-visible, .chart-drawing-menu button:focus-visible { outline:2px solid var(--drawing-icon-active); outline-offset:-2px; }
-.chart-drawing-button[aria-pressed=true] { color:var(--drawing-icon-active); background:var(--drawing-active); }
-.chart-drawing-button:disabled { opacity:.3; cursor:default; }
-.chart-drawing-divider { width:28px; height:1px; background:var(--drawing-border); margin:3px 0; flex-shrink:0; }
-.chart-drawing-group { position:relative; display:flex; align-items:center; justify-content:center; width:100%; }
-.chart-drawing-group > .chart-drawing-button:last-child { position:absolute; right:0; width:12px; }
-.chart-drawing-menu { position:absolute; left:52px; top:8px; width:232px; max-height:calc(100% - 16px); overflow-y:auto; background:var(--drawing-bg); border:1px solid var(--drawing-border); border-radius:8px; box-shadow:0 6px 24px #0002; padding:6px; z-index:10; }
-.chart-drawing-menu-title { padding:9px 10px; font-size:11px; font-weight:600; color:var(--drawing-muted); text-transform:uppercase; letter-spacing:.8px; }
-.chart-drawing-menu button { display:flex; align-items:center; gap:14px; width:100%; height:38px; padding:0 10px; border:0; border-radius:4px; background:transparent; color:inherit; font:inherit; font-size:13px; cursor:pointer; text-align:left; }
-.chart-drawing-menu .chart-drawing-icon { color:var(--drawing-icon); }
-.chart-drawing-menu button[aria-checked=true] { background:var(--drawing-active); }
-.chart-drawing-menu button[aria-checked=true] .chart-drawing-icon { color:var(--drawing-icon-active); }
-.chart-drawing-properties { position:absolute; top:8px; left:62px; display:flex; align-items:center; gap:6px; width:max-content; max-width:calc(100% - 136px); overflow-x:auto; min-height:38px; padding:3px 6px; background:var(--drawing-bg); color:var(--drawing-text); border:1px solid var(--drawing-border); border-radius:7px; box-shadow:0 3px 12px #0001; z-index:3; }
-.chart-drawing-properties select, .chart-drawing-properties input { background:var(--drawing-bg); color:var(--drawing-text); border:1px solid var(--drawing-border); border-radius:4px; height:27px; font:inherit; font-size:12px; }
-.chart-drawing-properties input[type=color] { width:28px; padding:2px; cursor:pointer; }
-.chart-drawing-properties .chart-drawing-button { width:28px; height:28px; }
-.chart-drawing-properties .chart-drawing-drag-handle { width:20px; color:var(--drawing-muted); cursor:grab; touch-action:none; user-select:none; }
-.chart-drawing-properties .chart-drawing-drag-handle:active { cursor:grabbing; }
-.chart-drawing-properties-label { font-size:12px; margin:0 4px; white-space:nowrap; }
-.chart-drawing-coordinates { position:absolute; box-sizing:border-box; max-height:calc(100% - 90px); overflow:auto; background:var(--drawing-bg); border:1px solid var(--drawing-border); border-radius:7px; padding:12px; box-shadow:0 3px 12px #0001; z-index:4; font-size:12px; }
-.chart-drawing-coordinates label { display:flex; align-items:center; gap:8px; margin:6px 0; }
-.chart-drawing-coordinates input { width:180px; background:var(--drawing-bg); color:var(--drawing-text); border:1px solid var(--drawing-border); padding:5px; border-radius:4px; }
-.chart-drawing-text-settings { overflow:hidden; display:flex; flex-direction:column; width:300px; max-width:calc(100% - 100px); box-sizing:border-box; }
-.chart-drawing-settings-body { display:contents; }
-.chart-drawing-text-settings .chart-drawing-settings-body { display:block; min-height:0; overflow-y:auto; }
-.chart-drawing-text-settings .chart-drawing-settings-done { align-self:flex-end; flex-shrink:0; }
-.chart-drawing-text-settings .chart-drawing-text-content { display:flex; flex-direction:column; align-items:stretch; gap:6px; margin:10px 0; }
-.chart-drawing-text-settings textarea { box-sizing:border-box; width:100%; min-height:72px; resize:vertical; padding:10px; background:var(--drawing-bg); color:var(--drawing-text); border:1px solid var(--drawing-border); border-radius:5px; font:inherit; line-height:1.5; }
-.chart-drawing-text-appearance { display:flex; align-items:center; gap:20px; margin-bottom:12px; }
-.chart-drawing-text-appearance label { flex-direction:column; align-items:flex-start; }
-.chart-drawing-text-settings select { min-width:72px; height:30px; padding:0 8px; background:var(--drawing-bg); color:var(--drawing-text); border:1px solid var(--drawing-border); border-radius:4px; font:inherit; }
-.chart-drawing-text-appearance input[type=color] { width:48px; height:30px; padding:2px; cursor:pointer; }
-.chart-drawing-text-position { border-top:1px solid var(--drawing-border); padding-top:10px; margin-bottom:8px; }
-.chart-drawing-text-position summary { cursor:pointer; font-weight:600; }
-.chart-drawing-text-settings input:not([type=color]) { min-width:0; width:0; flex:1; }
-.chart-drawing-shortcut { margin-left:auto; color:var(--drawing-muted); font-size:10px; }
-.chart-drawing-hint { position:absolute; left:62px; bottom:32px; padding:5px 9px; border-radius:4px; background:var(--drawing-bg); color:var(--drawing-muted); font-size:11px; pointer-events:none; z-index:2; }
-`;
 
 export function DrawingToolbar({
   controller,
@@ -240,6 +351,7 @@ export function DrawingToolbar({
   const rootRef = useRef<HTMLDivElement>(null);
   const propertiesRef = useRef<HTMLDivElement>(null);
   const coordinatesRef = useRef<HTMLDivElement>(null);
+  const settingsBodyRef = useRef<HTMLDivElement>(null);
   const propertiesDragRef = useRef<{
     pointerId: number;
     startX: number;
@@ -249,6 +361,7 @@ export function DrawingToolbar({
   const [propertiesPosition, setPropertiesPosition] =
     useState<IPropertiesPosition>({ left: 62, top: 8 });
   const [collapsed, setCollapsed] = useState(false);
+  const [positionExpanded, setPositionExpanded] = useState(false);
   const [menu, setMenu] = useState<string | null>(null);
   const [lastTools, setLastTools] = useState<Record<string, IDrawingTool>>({
     Lines: 'trend',
@@ -318,9 +431,7 @@ export function DrawingToolbar({
       !(container instanceof HTMLElement)
     )
       return undefined;
-    const body = dialog.querySelector<HTMLElement>(
-      '.chart-drawing-settings-body',
-    );
+    const body = settingsBodyRef.current;
     const updateSettingsPosition = () => {
       const minLeft = (rootRef.current?.offsetWidth ?? 48) + 8;
       dialog.style.maxWidth = `${Math.max(0, container.clientWidth - minLeft - 8)}px`;
@@ -355,12 +466,16 @@ export function DrawingToolbar({
     if (body) resizeObserver.observe(body);
     const textArea = dialog.querySelector('textarea');
     if (textArea) resizeObserver.observe(textArea);
-    dialog.addEventListener('toggle', updateSettingsPosition, true);
     return () => {
       resizeObserver.disconnect();
-      dialog.removeEventListener('toggle', updateSettingsPosition, true);
     };
-  }, [propertiesPosition, selected?.id, selected?.text, settingsVisible]);
+  }, [
+    positionExpanded,
+    propertiesPosition,
+    selected?.id,
+    selected?.text,
+    settingsVisible,
+  ]);
   const finishPropertiesDrag = (event: PointerEvent<HTMLButtonElement>) => {
     if (propertiesDragRef.current?.pointerId !== event.pointerId) return;
     propertiesDragRef.current = null;
@@ -389,10 +504,11 @@ export function DrawingToolbar({
               index === selected.points.length - 1,
           )
           .map(({ point, index }) => (
-            <div key={`${selected.id}-${index}`}>
-              <label>
-                Point {index + 1}
-                <input
+            <YStack key={`${selected.id}-${index}`}>
+              <DrawingFieldLabel>
+                <SizableText fontSize={12}>Point {index + 1}</SizableText>
+                <DrawingInput
+                  flexible={hasText}
                   aria-label={`Point ${index + 1} price`}
                   key={point.price}
                   type="number"
@@ -406,10 +522,11 @@ export function DrawingToolbar({
                       });
                   }}
                 />
-              </label>
-              <label>
-                Time (UTC)
-                <input
+              </DrawingFieldLabel>
+              <DrawingFieldLabel>
+                <SizableText fontSize={12}>Time (UTC)</SizableText>
+                <DrawingInput
+                  flexible={hasText}
                   aria-label={`Point ${index + 1} time`}
                   key={point.time}
                   type="datetime-local"
@@ -426,8 +543,8 @@ export function DrawingToolbar({
                       });
                   }}
                 />
-              </label>
-            </div>
+              </DrawingFieldLabel>
+            </YStack>
           ))}
       </>
     ) : null;
@@ -484,30 +601,26 @@ export function DrawingToolbar({
     };
   }, [menu]);
   return (
-    <div
-      ref={rootRef}
-      className="chart-drawing-toolbar"
-      data-testid="chart-drawing-toolbar"
-      data-collapsed={collapsed}
+    <YStack
+      render={<div ref={rootRef} data-collapsed={collapsed} />}
+      testID="chart-drawing-toolbar"
       role="group"
       aria-label="Chart drawings"
-      style={
-        {
-          '--drawing-bg': theme.bg.val,
-          '--drawing-border': theme.borderSubdued.val,
-          '--drawing-text': theme.text.val,
-          '--drawing-muted': theme.textSubdued.val,
-          '--drawing-icon': theme.iconSubdued.val,
-          '--drawing-icon-active': theme.iconActive.val,
-          '--drawing-hover': theme.bgHover.val,
-          '--drawing-active': theme.bgActive.val,
-        } as CSSProperties
-      }
+      position="static"
+      width={collapsed ? 18 : 48}
+      flexShrink={0}
+      borderRightWidth={collapsed ? 0 : 1}
+      borderColor="$borderSubdued"
+      paddingVertical={2}
+      backgroundColor="$transparent"
+      zIndex={4}
     >
-      <style>{toolbarCss}</style>
-      <div
-        style={{ display: collapsed ? 'none' : undefined }}
-        className="chart-drawing-rail"
+      <ScrollView
+        display={collapsed ? 'none' : 'flex'}
+        flex={1}
+        minHeight={0}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ alignItems: 'center' }}
         role="toolbar"
         aria-label="Drawing tools"
         aria-orientation="vertical"
@@ -521,7 +634,7 @@ export function DrawingToolbar({
             setMenu(null);
           }}
         />
-        <div className="chart-drawing-divider" />
+        <DrawingDivider />
         {groups.map((group) => {
           const tool =
             lastTools[group] ??
@@ -530,7 +643,12 @@ export function DrawingToolbar({
             ) ??
             'trend';
           return (
-            <div key={group} className="chart-drawing-group">
+            <XStack
+              key={group}
+              alignItems="center"
+              justifyContent="center"
+              width="100%"
+            >
               <ToolButton
                 label={DRAWING_TOOLS[tool].label}
                 icon={tool}
@@ -544,22 +662,25 @@ export function DrawingToolbar({
                   setMenu(null);
                 }}
               />
-              <button
-                className="chart-drawing-button"
-                type="button"
-                title={group}
+              <DrawingButton
+                render={
+                  <button type="button" title={group} aria-label={group} />
+                }
+                position="absolute"
+                right={0}
+                width={12}
                 aria-label={group}
                 aria-haspopup="menu"
                 aria-expanded={menu === group}
                 disabled={disabled}
-                onClick={() => setMenu(menu === group ? null : group)}
+                onPress={() => setMenu(menu === group ? null : group)}
               >
-                <DrawingIcon name="chevron" />
-              </button>
-            </div>
+                <DrawingIcon name="chevron" color={theme.iconSubdued.val} />
+              </DrawingButton>
+            </XStack>
           );
         })}
-        <div className="chart-drawing-divider" />
+        <DrawingDivider />
         <ToolButton
           label="Magnet mode"
           icon="magnet"
@@ -584,7 +705,7 @@ export function DrawingToolbar({
           active={state.hidden}
           onClick={() => controller.toggle('hidden')}
         />
-        <div className="chart-drawing-divider" />
+        <DrawingDivider />
         <ToolButton
           label="Undo drawing (Ctrl/⌘ Z)"
           icon="undo"
@@ -606,141 +727,256 @@ export function DrawingToolbar({
           }
           onClick={controller.clear}
         />
-      </div>
-      <button
-        type="button"
-        className="chart-drawing-button chart-drawing-collapse"
-        aria-label={
-          collapsed ? 'Expand drawing toolbar' : 'Collapse drawing toolbar'
-        }
-        title={
-          collapsed ? 'Expand drawing toolbar' : 'Collapse drawing toolbar'
-        }
-        aria-expanded={!collapsed}
-        onClick={() => {
-          setCollapsed(!collapsed);
-          setMenu(null);
-        }}
-      >
-        <span
-          style={{
-            display: 'flex',
-            transform: collapsed ? undefined : 'rotate(180deg)',
+        <ToolButton
+          label="Object Tree"
+          icon="objects"
+          testID="chart-object-tree-toggle"
+          active={state.panel === 'objects'}
+          onClick={() => {
+            controller.togglePanel('objects');
+            setMenu(null);
           }}
-        >
-          <DrawingIcon name="chevron" />
-        </span>
-      </button>
+        />
+        <ToolButton
+          label="Data Window"
+          icon="data"
+          testID="chart-data-window-toggle"
+          active={state.panel === 'data'}
+          onClick={() => {
+            controller.togglePanel('data');
+            setMenu(null);
+          }}
+        />
+      </ScrollView>
+      <Stack
+        position="absolute"
+        left={collapsed ? 10 : 39}
+        bottom={32}
+        width={16}
+        height={32}
+        borderRadius="$full"
+        backgroundColor="$bg"
+        zIndex={5}
+      >
+        <IconButton
+          testID="chart-drawing-toolbar-toggle"
+          aria-label={
+            collapsed ? 'Expand drawing toolbar' : 'Collapse drawing toolbar'
+          }
+          title={
+            collapsed ? 'Expand drawing toolbar' : 'Collapse drawing toolbar'
+          }
+          aria-expanded={!collapsed}
+          icon={
+            collapsed ? 'ChevronRightSmallOutline' : 'ChevronLeftSmallOutline'
+          }
+          iconSize="$3"
+          iconProps={{ color: '$text' }}
+          hotKey
+          width={16}
+          height={32}
+          padding={0}
+          borderWidth={1}
+          borderColor="$borderSubdued"
+          borderRadius="$full"
+          backgroundColor="$transparent"
+          hoverStyle={{ backgroundColor: '$bgHover' }}
+          pressStyle={{ backgroundColor: '$bgActive' }}
+          onPress={() => {
+            setCollapsed(!collapsed);
+            setMenu(null);
+          }}
+        />
+      </Stack>
       {menu ? (
-        <div className="chart-drawing-menu" role="menu" aria-label={menu}>
-          <div className="chart-drawing-menu-title">{menu}</div>
+        <ScrollView
+          position="absolute"
+          left={52}
+          top={8}
+          width={232}
+          maxHeight="calc(100% - 16px)"
+          backgroundColor="$bg"
+          borderWidth={1}
+          borderColor="$borderSubdued"
+          borderRadius={8}
+          shadowColor="#000000"
+          shadowOffset={{ width: 0, height: 6 }}
+          shadowRadius={24}
+          shadowOpacity={0.13}
+          contentContainerStyle={{ padding: 6 }}
+          zIndex={10}
+          role="menu"
+          aria-label={menu}
+        >
+          <SizableText
+            paddingVertical={9}
+            paddingHorizontal={10}
+            fontSize={11}
+            fontWeight="600"
+            color="$textSubdued"
+            textTransform="uppercase"
+            letterSpacing={0.8}
+          >
+            {menu}
+          </SizableText>
           {(Object.keys(DRAWING_TOOLS) as IDrawingTool[])
             .filter((tool) => DRAWING_TOOLS[tool].group === menu)
             .map((tool) => (
-              <button
-                type="button"
+              <DrawingButton
                 key={tool}
-                role="menuitemradio"
+                menuItem
+                render={
+                  <button
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={state.tool === tool}
+                    aria-label={DRAWING_TOOLS[tool].label}
+                  />
+                }
                 aria-label={DRAWING_TOOLS[tool].label}
                 aria-checked={state.tool === tool}
-                onClick={() => {
+                active={state.tool === tool}
+                width="100%"
+                height={38}
+                paddingHorizontal={10}
+                justifyContent="flex-start"
+                gap={14}
+                borderRadius={4}
+                onPress={() => {
                   controller.selectTool(tool);
                   setLastTools((current) => ({ ...current, [menu]: tool }));
                   setMenu(null);
                 }}
               >
-                <DrawingIcon name={tool} />
-                <span>{DRAWING_TOOLS[tool].label}</span>
-                <span className="chart-drawing-shortcut">
+                <DrawingIcon
+                  name={tool}
+                  color={
+                    state.tool === tool
+                      ? theme.iconActive.val
+                      : theme.iconSubdued.val
+                  }
+                />
+                <SizableText fontSize={13}>
+                  {DRAWING_TOOLS[tool].label}
+                </SizableText>
+                <SizableText
+                  marginLeft="auto"
+                  color="$textSubdued"
+                  fontSize={10}
+                >
                   {shortcuts[tool]}
-                </span>
-              </button>
+                </SizableText>
+              </DrawingButton>
             ))}
-        </div>
+        </ScrollView>
       ) : null}
       {propertiesVisible ? (
-        <div
-          ref={propertiesRef}
-          className="chart-drawing-properties"
-          data-testid="chart-drawing-properties"
+        <XStack
+          render={<div ref={propertiesRef} />}
+          testID="chart-drawing-properties"
           role="toolbar"
           aria-label="Drawing properties"
-          style={propertiesPosition}
+          position="absolute"
+          left={propertiesPosition.left}
+          top={propertiesPosition.top}
+          width="max-content"
+          maxWidth="calc(100% - 136px)"
+          minHeight={46}
+          alignItems="center"
+          gap={6}
+          paddingVertical={3}
+          paddingHorizontal={6}
+          backgroundColor="$bg"
+          borderWidth={1}
+          borderColor="$borderSubdued"
+          borderRadius={7}
+          shadowColor="#000000"
+          shadowOffset={{ width: 0, height: 3 }}
+          shadowRadius={12}
+          shadowOpacity={0.07}
+          overflowX="auto"
+          zIndex={3}
         >
-          <button
-            type="button"
-            className="chart-drawing-button chart-drawing-drag-handle"
-            data-testid="chart-drawing-properties-drag-handle"
-            aria-label="Move drawing properties"
-            title="Drag to move"
-            onPointerDown={(event) => {
-              const panel = propertiesRef.current;
-              if (event.button !== 0 || !event.isPrimary || !panel) return;
-              event.preventDefault();
-              event.stopPropagation();
-              event.currentTarget.setPointerCapture(event.pointerId);
-              propertiesDragRef.current = {
-                pointerId: event.pointerId,
-                startX: event.clientX,
-                startY: event.clientY,
-                position: { left: panel.offsetLeft, top: panel.offsetTop },
-              };
-            }}
-            onPointerMove={(event) => {
-              const drag = propertiesDragRef.current;
-              if (!drag || drag.pointerId !== event.pointerId) return;
-              event.preventDefault();
-              event.stopPropagation();
-              setPropertiesPosition(
-                clampPropertiesPosition({
-                  left: drag.position.left + event.clientX - drag.startX,
-                  top: drag.position.top + event.clientY - drag.startY,
-                }),
-              );
-            }}
-            onPointerUp={finishPropertiesDrag}
-            onPointerCancel={finishPropertiesDrag}
-            onLostPointerCapture={() => {
-              propertiesDragRef.current = null;
-            }}
-            onKeyDown={(event) => {
-              const x =
-                Number(event.key === 'ArrowRight') -
-                Number(event.key === 'ArrowLeft');
-              const y =
-                Number(event.key === 'ArrowDown') -
-                Number(event.key === 'ArrowUp');
-              if (!x && !y) return;
-              event.preventDefault();
-              event.stopPropagation();
-              setPropertiesPosition((current) =>
-                clampPropertiesPosition({
-                  left: current.left + x * 10,
-                  top: current.top + y * 10,
-                }),
-              );
-            }}
-          >
-            <span
-              aria-hidden="true"
-              style={{ display: 'flex', pointerEvents: 'none' }}
-            >
-              <Icon
-                name="DragOutline"
-                size="$4"
-                style={{ color: 'currentColor' }}
+          <DrawingButton
+            width={20}
+            cursor="grab"
+            pressStyle={{ cursor: 'grabbing' }}
+            userSelect="none"
+            render={
+              <button
+                type="button"
+                style={{ touchAction: 'none' }}
+                data-testid="chart-drawing-properties-drag-handle"
+                aria-label="Move drawing properties"
+                title="Drag to move"
+                onPointerDown={(event) => {
+                  const panel = propertiesRef.current;
+                  if (event.button !== 0 || !event.isPrimary || !panel) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  event.currentTarget.setPointerCapture(event.pointerId);
+                  propertiesDragRef.current = {
+                    pointerId: event.pointerId,
+                    startX: event.clientX,
+                    startY: event.clientY,
+                    position: { left: panel.offsetLeft, top: panel.offsetTop },
+                  };
+                }}
+                onPointerMove={(event) => {
+                  const drag = propertiesDragRef.current;
+                  if (!drag || drag.pointerId !== event.pointerId) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setPropertiesPosition(
+                    clampPropertiesPosition({
+                      left: drag.position.left + event.clientX - drag.startX,
+                      top: drag.position.top + event.clientY - drag.startY,
+                    }),
+                  );
+                }}
+                onPointerUp={finishPropertiesDrag}
+                onPointerCancel={finishPropertiesDrag}
+                onLostPointerCapture={() => {
+                  propertiesDragRef.current = null;
+                }}
+                onKeyDown={(event) => {
+                  const x =
+                    Number(event.key === 'ArrowRight') -
+                    Number(event.key === 'ArrowLeft');
+                  const y =
+                    Number(event.key === 'ArrowDown') -
+                    Number(event.key === 'ArrowUp');
+                  if (!x && !y) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setPropertiesPosition((current) =>
+                    clampPropertiesPosition({
+                      left: current.left + x * 10,
+                      top: current.top + y * 10,
+                    }),
+                  );
+                }}
               />
-            </span>
-          </button>
-          <span className="chart-drawing-properties-label">
+            }
+          >
+            <Stack aria-hidden pointerEvents="none">
+              <Icon name="DragOutline" size="$4" color="$textSubdued" />
+            </Stack>
+          </DrawingButton>
+          <SizableText
+            fontSize={12}
+            marginHorizontal={4}
+            whiteSpace="nowrap"
+            flexShrink={0}
+          >
             {
               DRAWING_TOOLS[
                 selected?.tool ??
                   (state.tool === 'cursor' ? 'trend' : state.tool)
               ].label
             }
-          </span>
-          <input
+          </SizableText>
+          <DrawingInput
             type="color"
             aria-label="Drawing color"
             title="Color"
@@ -766,15 +1002,17 @@ export function DrawingToolbar({
           ) : null}
           {selected ? (
             <>
-              <button
-                type="button"
-                className="chart-drawing-button"
-                style={{ width: 'auto', padding: '0 5px', fontSize: 12 }}
-                onClick={controller.toggleCoordinates}
+              <DrawingButton
+                width="auto"
+                paddingHorizontal={5}
+                onPress={controller.toggleCoordinates}
               >
-                Settings
-              </button>
+                <SizableText fontSize={12} color="$iconSubdued">
+                  Settings
+                </SizableText>
+              </DrawingButton>
               <ToolButton
+                compact
                 label={selected.locked ? 'Unlock drawing' : 'Lock drawing'}
                 icon={selected.locked ? 'lock' : 'unlock'}
                 active={selected.locked}
@@ -782,6 +1020,7 @@ export function DrawingToolbar({
                 onClick={controller.toggleSelectedLock}
               />
               <ToolButton
+                compact
                 label="Delete drawing"
                 icon="delete"
                 disabled={styleDisabled}
@@ -789,108 +1028,193 @@ export function DrawingToolbar({
               />
             </>
           ) : null}
-        </div>
+        </XStack>
       ) : null}
       {selected && settingsVisible ? (
-        <div
-          ref={coordinatesRef}
-          className={`chart-drawing-coordinates${hasText ? ' chart-drawing-text-settings' : ''}`}
-          data-testid="chart-drawing-settings"
+        <YStack
+          render={<div ref={coordinatesRef} />}
+          testID="chart-drawing-settings"
           role="dialog"
           aria-label="Drawing settings"
+          position="absolute"
+          width={hasText ? 300 : undefined}
+          maxWidth={hasText ? 'calc(100% - 100px)' : undefined}
+          maxHeight="calc(100% - 90px)"
+          overflow="hidden"
+          backgroundColor="$bg"
+          borderWidth={1}
+          borderColor="$borderSubdued"
+          borderRadius={7}
+          padding={12}
+          shadowColor="#000000"
+          shadowOffset={{ width: 0, height: 3 }}
+          shadowRadius={12}
+          shadowOpacity={0.07}
+          zIndex={4}
         >
-          <strong>{DRAWING_TOOLS[selected.tool].label}</strong>
-          <div className="chart-drawing-settings-body">
+          <SizableText fontSize={12} fontWeight="600" flexShrink={0}>
+            {DRAWING_TOOLS[selected.tool].label}
+          </SizableText>
+          <YStack
+            render={<div ref={settingsBodyRef} />}
+            minHeight={0}
+            flexShrink={1}
+            overflowY="auto"
+          >
             {selected.tool === 'text' || selected.tool === 'callout' ? (
-              <label className="chart-drawing-text-content">
-                Content
-                <textarea
-                  aria-label="Drawing text"
-                  data-testid="chart-drawing-text"
+              <YStack render="label" gap={6} marginVertical={10}>
+                <SizableText fontSize={12}>Content</SizableText>
+                <DrawingField
                   key={`${selected.id}-text-${selected.text ?? ''}`}
-                  maxLength={500}
-                  defaultValue={selected.text ?? 'Text'}
-                  disabled={styleDisabled}
-                  onBlur={(event) =>
-                    controller.changeStyle({ text: event.target.value })
+                  width="100%"
+                  minHeight={72}
+                  padding={10}
+                  borderRadius={5}
+                  render={
+                    <textarea
+                      aria-label="Drawing text"
+                      data-testid="chart-drawing-text"
+                      maxLength={500}
+                      defaultValue={selected.text ?? 'Text'}
+                      disabled={styleDisabled}
+                      style={{ resize: 'vertical' }}
+                      onBlur={(event) =>
+                        controller.changeStyle({ text: event.target.value })
+                      }
+                    />
                   }
                 />
-              </label>
+              </YStack>
             ) : null}
             {hasText ? (
-              <>
-                <div className="chart-drawing-text-appearance">
-                  <label>
-                    Text color
-                    <input
-                      type="color"
-                      aria-label="Text color"
-                      value={style.color}
-                      disabled={styleDisabled}
-                      onChange={(event) =>
-                        controller.changeStyle({ color: event.target.value })
-                      }
-                    />
-                  </label>
-                  <label htmlFor={fontSizeControlId}>
-                    Font size
-                    <FontSizeSelect
-                      id={fontSizeControlId}
-                      value={style.fontSize}
-                      disabled={styleDisabled}
-                      onChange={(fontSize) =>
-                        controller.changeStyle({ fontSize })
-                      }
-                    />
-                  </label>
-                </div>
-              </>
+              <XStack alignItems="center" gap={20} marginBottom={12}>
+                <DrawingFieldLabel
+                  flexDirection="column"
+                  alignItems="flex-start"
+                >
+                  <SizableText fontSize={12}>Text color</SizableText>
+                  <DrawingInput
+                    expanded
+                    type="color"
+                    aria-label="Text color"
+                    value={style.color}
+                    disabled={styleDisabled}
+                    onChange={(event) =>
+                      controller.changeStyle({ color: event.target.value })
+                    }
+                  />
+                </DrawingFieldLabel>
+                <DrawingFieldLabel
+                  render={
+                    <label htmlFor={fontSizeControlId} aria-label="Font size" />
+                  }
+                  flexDirection="column"
+                  alignItems="flex-start"
+                >
+                  <SizableText fontSize={12}>Font size</SizableText>
+                  <FontSizeSelect
+                    expanded
+                    id={fontSizeControlId}
+                    value={style.fontSize}
+                    disabled={styleDisabled}
+                    onChange={(fontSize) =>
+                      controller.changeStyle({ fontSize })
+                    }
+                  />
+                </DrawingFieldLabel>
+              </XStack>
             ) : null}
             {activeTool === 'callout' ? (
-              <div className="chart-drawing-text-position">
-                <div style={{ marginBottom: 8, fontWeight: 600 }}>
+              <YStack
+                borderTopWidth={1}
+                borderColor="$borderSubdued"
+                paddingTop={10}
+                marginBottom={8}
+              >
+                <SizableText fontSize={12} marginBottom={8} fontWeight="600">
                   Connection line
-                </div>
-                <LineStyleControls
-                  style={style}
-                  disabled={styleDisabled}
-                  onChange={controller.changeStyle}
-                />
-              </div>
+                </SizableText>
+                <XStack gap={6}>
+                  <LineStyleControls
+                    style={style}
+                    disabled={styleDisabled}
+                    onChange={controller.changeStyle}
+                  />
+                </XStack>
+              </YStack>
             ) : null}
             {hasText ? (
-              <details className="chart-drawing-text-position">
-                <summary>Position</summary>
-                {pointFields}
-              </details>
+              <YStack
+                borderTopWidth={1}
+                borderColor="$borderSubdued"
+                paddingTop={10}
+                marginBottom={8}
+              >
+                <DrawingButton
+                  aria-expanded={positionExpanded}
+                  width="auto"
+                  alignSelf="flex-start"
+                  gap={4}
+                  onPress={() => setPositionExpanded(!positionExpanded)}
+                >
+                  <Icon
+                    name={
+                      positionExpanded
+                        ? 'ChevronDownSmallOutline'
+                        : 'ChevronRightSmallOutline'
+                    }
+                    size="$3"
+                    color="$textSubdued"
+                  />
+                  <SizableText fontSize={12} fontWeight="600">
+                    Position
+                  </SizableText>
+                </DrawingButton>
+                {positionExpanded ? pointFields : null}
+              </YStack>
             ) : (
               pointFields
             )}
-          </div>
-          <button
-            className="chart-drawing-settings-done"
-            type="button"
-            onClick={controller.toggleCoordinates}
-            style={{
-              color: 'inherit',
-              background: 'transparent',
-              border: '1px solid var(--drawing-border)',
-              borderRadius: 4,
-              padding: '5px 12px',
-              marginTop: 6,
-            }}
+          </YStack>
+          <Button
+            testID="chart-drawing-settings-done"
+            onPress={controller.toggleCoordinates}
+            size="small"
+            alignSelf="flex-end"
+            flexShrink={0}
+            backgroundColor="$transparent"
+            borderWidth={1}
+            borderColor="$borderSubdued"
+            borderRadius={4}
+            paddingVertical={5}
+            paddingHorizontal={12}
+            marginTop={6}
+            childrenAsText={false}
           >
-            Done
-          </button>
-        </div>
+            <SizableText fontSize={12}>Done</SizableText>
+          </Button>
+        </YStack>
       ) : null}
       {state.saveFailed ||
       state.history.present.length >= MAX_DRAWINGS ||
       state.tool !== 'cursor' ? (
-        <div className="chart-drawing-hint" role="status">
+        <SizableText
+          role="status"
+          position="absolute"
+          left={62}
+          bottom={32}
+          paddingVertical={5}
+          paddingHorizontal={9}
+          borderRadius={4}
+          backgroundColor="$bg"
+          color="$textSubdued"
+          fontSize={11}
+          pointerEvents="none"
+          zIndex={2}
+        >
           {hint}
-        </div>
+        </SizableText>
       ) : null}
-    </div>
+    </YStack>
   );
 }
