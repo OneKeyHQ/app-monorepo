@@ -1,5 +1,12 @@
 import { Image } from 'react-native';
 
+// The OneKey mark in the middle of a receive QR code, on the page and in both
+// share-image renderers. Do not grow the plate: on the shortest addresses (34
+// characters) it already spends most of what error-correction level H can
+// restore in one block.
+export const RECEIVE_QR_MARK_SIZE = 40;
+export const RECEIVE_QR_MARK_PLATE_SIZE = 48;
+
 // The share card is always rendered in light appearance regardless of the
 // app theme, so colors are fixed literals instead of theme tokens.
 export const SHARE_CARD_CONFIG = {
@@ -16,6 +23,11 @@ export const SHARE_CARD_CONFIG = {
     weight: 600,
     lineHeight: 24,
     color: 'rgba(0,0,0,0.88)',
+    // token logo right before the symbol, when the title carries one
+    iconSize: 20,
+    iconGap: 5,
+    // between the words and the icon + symbol, where the sentence has a space
+    blockGap: 6,
   },
   subtitle: {
     size: 12,
@@ -41,10 +53,8 @@ export const SHARE_CARD_CONFIG = {
   qr: {
     size: 192,
     cellPaddingY: 25,
-    logoPlateSize: 48,
-    logoSize: 40,
-    networkBadgeIconSize: 14,
-    networkBadgePadding: 2,
+    logoPlateSize: RECEIVE_QR_MARK_PLATE_SIZE,
+    logoSize: RECEIVE_QR_MARK_SIZE,
   },
   addressCell: {
     paddingX: 17,
