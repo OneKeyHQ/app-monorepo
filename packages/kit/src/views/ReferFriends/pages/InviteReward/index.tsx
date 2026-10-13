@@ -232,8 +232,9 @@ function InviteOverviewSkeleton() {
 
   // Pointer layouts: the earnings card (label and history link, the total
   // with its payout pill beside the coin art, then its parts and the payout
-  // address on a hairline, 1:1:2), the invite card built the same way, and
-  // the earnings table with its column labels and product rows.
+  // address on a hairline; the address keeps its width), the invite card
+  // built the same way, and the earnings table with its column labels and
+  // product rows.
   const earningsCard = (
     <YStack flex={1} gap="$4" p="$5" {...cardStyle}>
       <YStack gap="$1">
@@ -251,12 +252,23 @@ function InviteOverviewSkeleton() {
       </YStack>
       <Divider mt="auto" borderColor={INVITE_CARD_BORDER_COLOR} />
       <XStack gap="$6">
-        {[1, 1, 2].map((share, index) => (
-          <YStack key={index} flex={share} flexBasis={0} gap="$1" py="$1">
+        {[0, 1].map((index) => (
+          <YStack
+            key={index}
+            flex={1}
+            flexBasis={0}
+            minWidth={0}
+            gap="$1"
+            py="$1"
+          >
             <Skeleton.BodyMd w={72} />
-            <Skeleton.HeadingMd w={share > 1 ? 180 : 96} />
+            <Skeleton.HeadingMd w={96} />
           </YStack>
         ))}
+        <YStack flexShrink={0} gap="$1" py="$1">
+          <Skeleton.BodyMd w={72} />
+          <Skeleton.HeadingMd w={180} />
+        </YStack>
       </XStack>
     </YStack>
   );
