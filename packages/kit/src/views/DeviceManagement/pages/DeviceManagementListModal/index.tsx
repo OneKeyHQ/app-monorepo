@@ -35,6 +35,7 @@ import {
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
@@ -542,7 +543,8 @@ function DeviceManagementV2ListWeb() {
               bg="$bgApp"
               $gtMd={{
                 px: '$pagePadding',
-                py: '$8',
+                pt: platformEnv.isExtensionUiSidePanel ? '$2' : '$8',
+                pb: '$8',
               }}
             >
               <SectionHeader />
