@@ -1500,7 +1500,7 @@ export const TradingViewNativeChart = memo(
             />
           ) : null}
         </Stack>
-        {drawingsEnabled ? (
+        {drawingsEnabled && drawingController.state.panel ? (
           <ChartInspector controller={drawingController} />
         ) : null}
       </div>

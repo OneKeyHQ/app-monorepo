@@ -120,6 +120,7 @@ function ReceiveToken() {
     aggregateToken: routeAggregateToken,
     aggregateSubTokenList: routeAggregateSubTokenList,
     allAggregateTokenList: routeAllAggregateTokenList,
+    showDoneButton,
   } = route.params;
 
   // The route only seeds the page. Everything the QR code, the hardware
@@ -974,23 +975,53 @@ function ReceiveToken() {
     });
   }, [shareData, isPreparingShare]);
 
+  const handleDonePress = useCallback(() => {
+    navigation.popStack();
+  }, [navigation]);
+
   const renderHeaderRight = useCallback(() => {
-    if (platformEnv.isNative || !canShowShareEntry) {
+    const shareButton =
+      platformEnv.isNative || !canShowShareEntry ? null : (
+        <Button
+          testID={ReceiveTestIDs.ShareButton}
+          variant="secondary"
+          size="small"
+          icon="ShareOutline"
+          loading={isPreparingShare}
+          onPress={handleSharePress}
+        >
+          {intl.formatMessage({ id: ETranslations.explore_share })}
+        </Button>
+      );
+    // Deposit entries such as Swap's "Deposit to Trade" ask for a one-tap way
+    // back to the caller: Done closes the whole receive modal at once.
+    const doneButton = showDoneButton ? (
+      <Button
+        testID={ReceiveTestIDs.DoneButton}
+        variant="primary"
+        size="small"
+        onPress={handleDonePress}
+      >
+        {intl.formatMessage({ id: ETranslations.global_done })}
+      </Button>
+    ) : null;
+    if (!shareButton && !doneButton) {
       return null;
     }
     return (
-      <Button
-        testID={ReceiveTestIDs.ShareButton}
-        variant="secondary"
-        size="small"
-        icon="ShareOutline"
-        loading={isPreparingShare}
-        onPress={handleSharePress}
-      >
-        {intl.formatMessage({ id: ETranslations.explore_share })}
-      </Button>
+      <XStack alignItems="center" gap="$2">
+        {shareButton}
+        {doneButton}
+      </XStack>
     );
-  }, [canShowShareEntry, handleSharePress, isPreparingShare, intl]);
+  }, [
+    canShowShareEntry,
+    handleDonePress,
+    handleSharePress,
+    isPreparingShare,
+    intl,
+    showDoneButton,
+  ]);
 
   // An imported, watch-only or external account only exists on the networks
   // it is compatible with and cannot get an address anywhere else, so

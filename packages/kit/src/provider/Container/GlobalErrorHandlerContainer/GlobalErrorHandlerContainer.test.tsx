@@ -171,7 +171,7 @@ describe('passphrase-disabled recovery dialog', () => {
         { silentMode: true },
       );
       appEventBus.emit(EAppEventBusNames.ShowHardwareErrorDialog, {
-        errorType: HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR,
+        errorType: HARDWARE_ERROR_DIALOG_TYPES.NEED_ONEKEY_BRIDGE,
       });
     });
 
