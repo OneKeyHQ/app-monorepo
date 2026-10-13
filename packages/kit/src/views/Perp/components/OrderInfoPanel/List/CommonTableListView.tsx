@@ -38,6 +38,7 @@ import {
   XStack,
   YStack,
   useIsKeyboardShown,
+  useMedia,
 } from '@onekeyhq/components';
 import { FixedColumnShadowOverlay } from '@onekeyhq/kit/src/components/FixedColumnShadowOverlay';
 import {
@@ -285,6 +286,8 @@ const PaginationFooter = ({
   paginationAction?: ReactElement | null;
 }) => {
   const intl = useIntl();
+  const { md } = useMedia();
+  const shouldFocusAfterSheetOpen = platformEnv.isNative && md;
   const [inputValue, setInputValue] = useState(currentPage.toString());
 
   useEffect(() => {
@@ -316,7 +319,7 @@ const PaginationFooter = ({
       }),
       // Let the input own initial focus; the web focus scope can also select text.
       onOpenAutoFocus: (event) => event.preventDefault(),
-      sheetProps: platformEnv.isNative
+      sheetProps: shouldFocusAfterSheetOpen
         ? {
             onAnimationComplete: ({ open }) => {
               if (!open || hasFocusedPageInput) {
@@ -351,7 +354,7 @@ const PaginationFooter = ({
           >
             <Input
               testID="perp-pagination-page-input"
-              autoFocus={!platformEnv.isNative}
+              autoFocus={!shouldFocusAfterSheetOpen}
               keyboardType="number-pad"
               size="large"
               maxLength={totalPages.toString().length}
