@@ -454,8 +454,14 @@ def yarn_resolutions(manifest):
     """Parse manifest resolutions as (parent, reference, name, range, value)."""
     resolutions = manifest.get('resolutions') or {}
     require(isinstance(resolutions, dict), 'unsupported_yarn_source')
+    # Object.entries lists array-index keys in ascending order before other
+    # keys in insertion order, and the first matching pattern wins.
+    def order(key):
+        index = re.fullmatch(r'0|[1-9][0-9]{0,9}', key) and int(key) < 2 ** 32 - 1
+        return (0, int(key)) if index else (1, 0)
     patterns = []
-    for key, value in resolutions.items():
+    for key in sorted(resolutions, key=order):
+        value = resolutions[key]
         # The manifest skips non-string values and keys it cannot parse.
         parsed = yarn_resolution_key(key) if isinstance(value, str) else None
         if parsed is not None:

@@ -555,6 +555,16 @@ class GateTests(unittest.TestCase):
                                 ('\x854.17.21', '\x854.17.21'), ('\x1c4.17.21', '\x1c4.17.21')):
             with self.subTest(value=value):
                 self.assertEqual(gate.yarn_range(value), expected)
+        # Patterns follow Object.entries order: array-index keys ascending, then
+        # other keys in insertion order, so the global '123' override wins.
+        patterns = gate.yarn_resolutions({'resolutions': {
+            'fx/123': 'npm:lodash@4.17.21', '123': 'npm:lodash@4.17.20', 'b': '1', '01': '1',
+            '4294967295': '1', '4294967294': '1', '0': '1'}})
+        self.assertEqual([(parent, name) for parent, _, name, _, _ in patterns],
+                         [(None, '0'), (None, '123'), (None, '4294967294'), ('fx', '123'), (None, 'b'),
+                          (None, '01'), (None, '4294967295')])
+        self.assertEqual(gate.yarn_edge(patterns, ('fx', 'workspace:.'), '123', 'npm:lodash@4.17.20'),
+                         '123@npm:lodash@4.17.20')
 
     def test_yarn_git_url_canonicalization_retains_pinned_resolution(self):
         base, merge = self.root / 'base', self.root / 'merge'
