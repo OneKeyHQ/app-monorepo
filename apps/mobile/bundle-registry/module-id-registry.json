@@ -23820,6 +23820,7 @@
     "packages/kit/src/views/ReferFriends/utils/installReferralAutoFill.ts": 5163,
     "packages/kit/src/views/ReferFriends/utils/inviteUrlUtils.ts": 2850,
     "packages/kit/src/views/ReferFriends/utils/labelUtils.ts": 8865,
+    "packages/kit/src/views/ReferFriends/utils/shortenPayoutAddress.ts": 1107,
     "packages/kit/src/views/ReferFriends/utils/touchTarget.ts": 4803,
     "packages/kit/src/views/RewardCenter/pages/RewardCenter.tsx": 20053,
     "packages/kit/src/views/RewardCenter/router/index.ts": 21177,
