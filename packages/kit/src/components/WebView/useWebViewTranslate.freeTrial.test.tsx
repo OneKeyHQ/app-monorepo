@@ -441,6 +441,63 @@ describe('useWebViewTranslate free-trial stop', () => {
     expect(mockFreeTrialUsageSuccess).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps the billed answer of the previous session on the same page', async () => {
+    const onFreeTrialUnavailable = jest.fn();
+    const first = deferred<unknown>();
+    mockApiTranslate.mockReturnValueOnce(first.promise).mockResolvedValueOnce({
+      translations: ['b'],
+      freeTrialError: EXHAUSTED,
+    });
+    const { result } = renderHook(() =>
+      useWebViewTranslate({
+        tabId: TAB_ID,
+        dappUrl: 'https://app.example.com/swap',
+        currentTargetLang: 'zh',
+        onFreeTrialUnavailable,
+      }),
+    );
+    // The translation starts while the page is still loading.
+    act(() => {
+      notifyTabNavigation(TAB_ID);
+      result.current.startTranslate('zh');
+    });
+    act(() => {
+      jest.advanceTimersByTime(100);
+    });
+    const firstSessionId = startedSessionIds()[0];
+    await act(async () => {
+      request(firstSessionId, 'tr_a', ['a']);
+      await flush();
+    });
+
+    // The load ends: the same document continues in a new session.
+    act(() => {
+      notifyTabNavigationEnd(TAB_ID);
+    });
+    act(() => {
+      jest.advanceTimersByTime(100);
+    });
+    const nextSessionId = startedSessionIds()[1];
+    expect(nextSessionId).toBeTruthy();
+    expect(nextSessionId).not.toEqual(firstSessionId);
+    await act(async () => {
+      request(nextSessionId, 'tr_b', ['b']);
+      await flush();
+    });
+    // The new session ran out, but tr_a is still pending in the page.
+    expect(onFreeTrialUnavailable).toHaveBeenCalledTimes(1);
+    expect(commands()).toEqual(['start', 'start']);
+
+    await act(async () => {
+      first.resolve({ translations: ['A'] });
+      await flush();
+    });
+    expect(responses().find((m) => m.id === 'tr_a')?.translations).toEqual([
+      'A',
+    ]);
+    expect(commands()).toEqual(['start', 'start', 'stop']);
+  });
+
   it('keeps the next page session running after a navigation', async () => {
     const onFreeTrialUnavailable = jest.fn();
     const old = deferred<unknown>();

@@ -324,10 +324,12 @@ export function useWebViewTranslate({
   // the wait cap), so a request finishing after the cap sends no second one.
   // Session ids are unique, so it never needs a reset.
   const freeTrialStopSentSessionRef = useRef<string | null>(null);
-  const inFlightRequestsRef = useRef<{ sessionId: string; count: number }>({
-    sessionId: '',
-    count: 0,
-  });
+  // Requests in flight on the current document, per session. A load end can
+  // start a new session on the same document while the previous session's
+  // requests are still answered (and billed), and `stop` drops every pending
+  // response of the page, so it waits for all of them. Only a document
+  // navigation clears it; ends of sessions it no longer holds are ignored.
+  const inFlightRequestsRef = useRef(new Map<string, number>());
   const freeTrialStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -350,7 +352,7 @@ export function useWebViewTranslate({
       // The old page (and its injected script) is gone: an old session's
       // free-trial stop must not touch the new page.
       freeTrialStoppedSessionRef.current = null;
-      inFlightRequestsRef.current = { sessionId: '', count: 0 };
+      inFlightRequestsRef.current = new Map();
       clearFreeTrialStopTimer();
       if (startTimerRef.current) {
         clearTimeout(startTimerRef.current);
@@ -440,8 +442,8 @@ export function useWebViewTranslate({
   }, [tabId, clearFreeTrialStopTimer]);
 
   // Sends `stop` (keeps the written translations, unlike `restore`) once the
-  // stopped session has no request in flight: `stop` drops the script's
-  // pending responses, so sending it early would lose billed results.
+  // page has no request in flight: `stop` drops the script's pending
+  // responses, so sending it early would lose billed results.
   const finishFreeTrialStop = useCallback(
     (sessionId: string) => {
       if (
@@ -476,22 +478,24 @@ export function useWebViewTranslate({
 
   const onRequestStart = useCallback((sessionId?: string) => {
     if (!sessionId) return;
-    const current = inFlightRequestsRef.current;
-    inFlightRequestsRef.current =
-      current.sessionId === sessionId
-        ? { sessionId, count: current.count + 1 }
-        : { sessionId, count: 1 };
+    const inFlight = inFlightRequestsRef.current;
+    inFlight.set(sessionId, (inFlight.get(sessionId) ?? 0) + 1);
   }, []);
 
   const onRequestEnd = useCallback(
     (sessionId?: string) => {
       if (!sessionId) return;
-      const current = inFlightRequestsRef.current;
-      if (current.sessionId !== sessionId) return;
-      const count = Math.max(0, current.count - 1);
-      inFlightRequestsRef.current = { sessionId, count };
-      if (count === 0 && freeTrialStoppedSessionRef.current === sessionId) {
-        finishFreeTrialStop(sessionId);
+      const inFlight = inFlightRequestsRef.current;
+      const count = inFlight.get(sessionId);
+      if (count === undefined) return;
+      if (count > 1) {
+        inFlight.set(sessionId, count - 1);
+      } else {
+        inFlight.delete(sessionId);
+      }
+      const stoppedSessionId = freeTrialStoppedSessionRef.current;
+      if (inFlight.size === 0 && stoppedSessionId) {
+        finishFreeTrialStop(stoppedSessionId);
       }
     },
     [finishFreeTrialStop],
