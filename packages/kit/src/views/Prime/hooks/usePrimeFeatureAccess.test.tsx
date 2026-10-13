@@ -427,6 +427,59 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
     });
   });
 
+  describe('context changed while a logged-in user waited', () => {
+    it('drops the grant after the quota refresh', async () => {
+      setSnapshot(quotaWith(0));
+      mockRefreshQuota.mockResolvedValue(quotaWith(1));
+      const onDenied = jest.fn();
+      const result = renderAccessHook();
+
+      await act(async () => {
+        await expect(
+          result.current.ensureFeatureAccess({
+            featureId: EPrimeFeatures.BulkSend,
+            isContextValid: () => false,
+            onDenied,
+          }),
+        ).resolves.toEqual({ granted: false });
+      });
+      expect(mockRefreshQuota).toHaveBeenCalled();
+      expect(onDenied).toHaveBeenCalledWith('contextChanged');
+    });
+
+    it('drops the grant on the fast path and on entry', async () => {
+      setSnapshot(quotaWith(1));
+      mockRefreshQuota.mockReturnValue(new Promise(() => {}));
+      const result = renderAccessHook();
+
+      for (const deferQuotaCheck of [false, true]) {
+        await act(async () => {
+          await expect(
+            result.current.ensureFeatureAccess({
+              featureId: EPrimeFeatures.BulkSend,
+              deferQuotaCheck,
+              isContextValid: () => false,
+            }),
+          ).resolves.toEqual({ granted: false });
+        });
+      }
+    });
+
+    it('drops a Prime grant found by the background re-check', async () => {
+      mockIsPrimeSubscriptionActive.mockResolvedValue(true);
+      const result = renderAccessHook();
+
+      await act(async () => {
+        await expect(
+          result.current.ensureFeatureAccess({
+            featureId: EPrimeFeatures.BulkSend,
+            isContextValid: async () => false,
+          }),
+        ).resolves.toEqual({ granted: false });
+      });
+    });
+  });
+
   it('lets a logged-in user with uses left in without waiting', async () => {
     setSnapshot(quotaWith(1));
     mockRefreshQuota.mockReturnValue(new Promise(() => {}));

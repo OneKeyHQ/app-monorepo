@@ -400,7 +400,8 @@ export function usePrimeFeatureAccess() {
       // whatever the quota; the submit (start, the metered API or a check on
       // the page's first step) shows the exhausted / not open feedback.
       deferQuotaCheck?: boolean;
-      // Re-checked after an async login; false drops the continuation.
+      // Re-checked before granting after any async step (login, background
+      // checks, quota refresh); false drops the continuation.
       isContextValid?: () => boolean | Promise<boolean>;
       extPopup?: IPrimeFeatureAccessExtPopupMode;
       // Runs before any dashboard / toast feedback, e.g. to leave the page
@@ -412,6 +413,17 @@ export function usePrimeFeatureAccess() {
       if (isPrimeSubscriptionActive) {
         return { granted: true, entitlementSource: 'prime' };
       }
+      // The wallet, network or input the caller acts on may change while
+      // this waits; a grant for a stale context is dropped.
+      const grantIfContextValid = async (
+        result: Extract<IPrimeFeatureAccessResult, { granted: true }>,
+      ): Promise<IPrimeFeatureAccessResult> => {
+        if (isContextValid && !(await isContextValid())) {
+          await onDenied?.('contextChanged');
+          return { granted: false };
+        }
+        return result;
+      };
       const afterPageExit = Boolean(onDenied);
       if (isPrimeFreeTrialTravelMode()) {
         await onDenied?.('notOpen');
@@ -444,11 +456,11 @@ export function usePrimeFeatureAccess() {
         }
         if (shouldRunOneKeyIdAuthInExtExpandTab()) {
           if (extPopup?.mode === 'passThrough') {
-            return {
+            return grantIfContextValid({
               granted: true,
               entitlementSource: 'freeTrial',
               deferredToExpandTab: true,
-            };
+            });
           }
           if (extPopup?.mode === 'pendingAction') {
             await backgroundApiProxy.servicePrimeFreeTrial.savePendingAction(
@@ -493,10 +505,16 @@ export function usePrimeFeatureAccess() {
 
       // The hook value may lag right after a login or a purchase.
       if (await backgroundApiProxy.servicePrime.isPrimeSubscriptionActive()) {
-        return { granted: true, entitlementSource: 'prime' };
+        return grantIfContextValid({
+          granted: true,
+          entitlementSource: 'prime',
+        });
       }
       if (deferQuotaCheck) {
-        return { granted: true, entitlementSource: 'freeTrial' };
+        return grantIfContextValid({
+          granted: true,
+          entitlementSource: 'freeTrial',
+        });
       }
 
       // Fast path for a user who was already logged in: a snapshot that
@@ -521,7 +539,10 @@ export function usePrimeFeatureAccess() {
           void backgroundApiProxy.servicePrimeFreeTrial.refreshQuota({
             dedupe: true,
           });
-          return { granted: true, entitlementSource: 'freeTrial' };
+          return grantIfContextValid({
+            granted: true,
+            entitlementSource: 'freeTrial',
+          });
         }
       }
 
@@ -569,7 +590,10 @@ export function usePrimeFeatureAccess() {
         });
         return { granted: false };
       }
-      return { granted: true, entitlementSource: 'freeTrial' };
+      return grantIfContextValid({
+        granted: true,
+        entitlementSource: 'freeTrial',
+      });
     },
     [
       getPublicConfigWithRetry,
