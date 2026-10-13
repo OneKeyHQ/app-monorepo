@@ -106,9 +106,17 @@ const dragRegionStyle = {
   WebkitAppRegion: 'drag',
 } as any;
 
+// Routes inside one modal stack can declare different
+// `modalContentMaxWidth/Height` (e.g. Swap main 640 -> token selector 880x700).
+// They share a single container, so animating max-width/max-height morphs the
+// card between sizes instead of snapping. Must be appended to every transition
+// string assigned to the container, since each assignment replaces the whole
+// `transition` value.
+const modalSizeTransition =
+  'max-width .25s cubic-bezier(0.4, 0, 0.2, 1), max-height .25s cubic-bezier(0.4, 0, 0.2, 1)';
+
 const modalStyleGtMd = {
-  transition:
-    'opacity .25s cubic-bezier(0.175, 0.885, 0.32, 1.275), transform .25s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+  transition: `opacity .25s cubic-bezier(0.175, 0.885, 0.32, 1.275), transform .25s cubic-bezier(0.175, 0.885, 0.32, 1.275), ${modalSizeTransition}`,
   willChange: 'opacity, transform',
 };
 
@@ -264,10 +272,8 @@ function WebModalNavigator({
             newIndex >= 1 ? 1 : 0;
         }
 
-        const bounceIn =
-          'opacity .25s cubic-bezier(0.175, 0.885, 0.32, 1.275), transform .25s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
-        const easeOut =
-          'opacity .2s cubic-bezier(0, 0, 0.2, 1), transform .2s cubic-bezier(0, 0, 0.2, 1)';
+        const bounceIn = `opacity .25s cubic-bezier(0.175, 0.885, 0.32, 1.275), transform .25s cubic-bezier(0.175, 0.885, 0.32, 1.275), ${modalSizeTransition}`;
+        const easeOut = `opacity .2s cubic-bezier(0, 0, 0.2, 1), transform .2s cubic-bezier(0, 0, 0.2, 1), ${modalSizeTransition}`;
 
         MODAL_ANIMATED_VIEW_REF_LIST.forEach((element, index) => {
           const isHidden = newIndex < index;
@@ -296,6 +302,20 @@ function WebModalNavigator({
             // @ts-expect-error
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             element.style.transform = nextTransform;
+            // Mirror of the enter morph: a dismissed modal shrinks back to the
+            // size of the modal it was stacked on. Same-size stacks are a no-op.
+            // Clear the override when the modal is visible again (pop back).
+            const underlying = MODAL_ANIMATED_VIEW_REF_LIST[index - 1] as
+              | HTMLElement
+              | undefined;
+            const htmlElement = element as unknown as HTMLElement;
+            if (isHidden && underlying) {
+              htmlElement.style.maxWidth = `${underlying.offsetWidth}px`;
+              htmlElement.style.maxHeight = `${underlying.offsetHeight}px`;
+            } else {
+              htmlElement.style.maxWidth = '';
+              htmlElement.style.maxHeight = '';
+            }
           } else {
             // @ts-expect-error
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -321,6 +341,9 @@ function WebModalNavigator({
   const disableEnterScaleAnimation = state.routes.some(
     (route) => !!descriptors[route.key]?.options?.disableEnterScaleAnimation,
   );
+  const hasCustomContentSize =
+    !!descriptor.options.modalContentMaxHeight ||
+    !!descriptor.options.modalContentMaxWidth;
   const modalScreenGtMdStyleMemo = useMemo(
     () => ({
       ...modalScreenGtMdStyle,
@@ -343,9 +366,22 @@ function WebModalNavigator({
       return;
     }
     const el = element as HTMLElement;
+    // A modal pushed on top of another modal with a different declared size
+    // (e.g. Swap 640 -> token selector 880x700) starts at the underlying
+    // modal's size and grows to its own, instead of popping in at full size.
+    // offsetWidth/Height ignore the 0.95 peek scale already applied below.
+    const underlying = MODAL_ANIMATED_VIEW_REF_LIST[currentRouteIndex - 1] as
+      | HTMLElement
+      | undefined;
+    const morphFromUnderlying =
+      media.gtMd && hasCustomContentSize && underlying && underlying !== el;
     if (media.gtMd) {
       el.style.opacity = '0';
       el.style.transform = disableEnterScaleAnimation ? '' : 'scale(0.95)';
+      if (morphFromUnderlying) {
+        el.style.maxWidth = `${underlying.offsetWidth}px`;
+        el.style.maxHeight = `${underlying.offsetHeight}px`;
+      }
     } else if (!disableModalAnimation) {
       el.style.transform = `translateY(${screenHeight}px)`;
     }
@@ -356,6 +392,12 @@ function WebModalNavigator({
       if (media.gtMd) {
         el.style.opacity = '1';
         el.style.transform = '';
+        if (morphFromUnderlying) {
+          // Release the inline override so the route's own max size takes
+          // over through the max-width/max-height transition.
+          el.style.maxWidth = '';
+          el.style.maxHeight = '';
+        }
         if (MODAL_ANIMATED_BACKDROP_VIEW_REF) {
           (
             MODAL_ANIMATED_BACKDROP_VIEW_REF as unknown as HTMLElement
