@@ -381,6 +381,8 @@ export interface IPerpServerBannerConfig {
 }
 
 export interface IPerpCommonConfig {
+  // Only legacy overrides Hyperliquid's withdrawal routing.
+  withdrawChannel?: 'cctp' | 'legacy';
   disablePerp?: boolean;
   usePerpWeb?: boolean;
   disablePerpActionPerp?: boolean;
