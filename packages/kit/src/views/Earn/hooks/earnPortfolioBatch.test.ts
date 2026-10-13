@@ -19,6 +19,83 @@ const buildRequest = (
 });
 
 describe('earnPortfolioBatch', () => {
+  it('matches EVM vaults with different casing without changing request addresses', () => {
+    const requests = [
+      buildRequest({
+        networkId: 'evm--1',
+        provider: 'pendle',
+        symbol: 'sUSDe',
+        vault: '0xAbCd000000000000000000000000000000000001',
+      }),
+      buildRequest({
+        networkId: 'evm--1',
+        provider: 'pendle',
+        symbol: 'sUSDe',
+        vault: '0xAbCd000000000000000000000000000000000002',
+      }),
+    ];
+    const { batchGroups } = buildEarnPortfolioBatchGroups({ requests });
+
+    for (const request of requests.toReversed()) {
+      const lowerCaseVault = request.vault?.toLowerCase();
+      expect(createEarnPortfolioRequestKey(request)).toBe(
+        createEarnPortfolioRequestKey({ ...request, vault: lowerCaseVault }),
+      );
+      expect(
+        matchEarnPortfolioBatchRequest({
+          group: batchGroups[0],
+          symbol: request.symbol,
+          vault: lowerCaseVault,
+        }),
+      ).toBe(request);
+    }
+    expect(batchGroups[0].requestsByKey.size).toBe(2);
+    expect(requests[0].vault).toBe(
+      '0xAbCd000000000000000000000000000000000001',
+    );
+  });
+
+  it('deduplicates aliases of the same EVM vault', () => {
+    const request = buildRequest({
+      networkId: 'evm--1',
+      vault: '0xAbCd000000000000000000000000000000000001',
+    });
+    const lowerCaseRequest = {
+      ...request,
+      vault: request.vault?.toLowerCase(),
+    };
+    const { batchGroups } = buildEarnPortfolioBatchGroups({
+      requests: [request, lowerCaseRequest],
+    });
+
+    expect(batchGroups[0].requestsByKey.size).toBe(1);
+    expect(batchGroups[0].requestKeysBySymbol.get(request.symbol)?.size).toBe(
+      1,
+    );
+  });
+
+  it.each(['sol--101', 'tron--0x2b6653dc', 'cosmos--cosmoshub-4'])(
+    'keeps non-EVM vault casing significant on %s',
+    (networkId) => {
+      const request = buildRequest({ networkId, vault: 'VaultAbC' });
+      const differentCaseRequest = { ...request, vault: 'vaultabc' };
+      const { batchGroups } = buildEarnPortfolioBatchGroups({
+        requests: [request],
+      });
+
+      expect(createEarnPortfolioRequestKey(request)).not.toBe(
+        createEarnPortfolioRequestKey(differentCaseRequest),
+      );
+      expect(
+        matchEarnPortfolioBatchRequest({
+          group: batchGroups[0],
+          symbol: request.symbol,
+          vault: differentCaseRequest.vault,
+        }),
+      ).toBeUndefined();
+    },
+  );
+
   it('disables batch fetch for ptAddress-backed requests', () => {
     expect(
       shouldUseEarnPortfolioBatchFetch({

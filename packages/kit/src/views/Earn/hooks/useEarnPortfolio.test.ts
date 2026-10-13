@@ -2,7 +2,10 @@
 
 import { act, renderHook } from '@testing-library/react';
 
-import type { IEarnInvestmentItemV2 } from '@onekeyhq/shared/types/staking';
+import type {
+  IEarnInvestmentItemV2,
+  IEarnPortfolioInvestment,
+} from '@onekeyhq/shared/types/staking';
 
 import { useEarnPortfolio } from './useEarnPortfolio';
 
@@ -12,7 +15,7 @@ const mockStaking = {
   fetchInvestmentBatchDetail: jest.fn(),
   fetchInvestmentDetailV2: jest.fn(),
 };
-const mockCache = {};
+const mockCache: Record<string, IEarnPortfolioInvestment[]> = {};
 const mockSetCache = jest.fn();
 const mockActions = {
   current: { getEarnAccount: jest.fn(), updateEarnAccounts: jest.fn() },
@@ -92,6 +95,7 @@ const assets = ['market-a', 'market-b'].map((vault) => ({
 describe('useEarnPortfolio batch refresh', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    delete mockCache.account;
     mockStaking.getAvailableAssetsV2.mockResolvedValue(assets);
     mockStaking.getEarnAvailableAccountsParams.mockResolvedValue([
       { networkId: 'evm--1', accountAddress: 'address' },
@@ -108,6 +112,92 @@ describe('useEarnPortfolio batch refresh', () => {
     expect(mockStaking.fetchInvestmentBatchDetail).toHaveBeenCalledTimes(1);
     expect(mockStaking.fetchInvestmentDetailV2).not.toHaveBeenCalled();
     expect(result.current.earnTotalFiatValue.toFixed()).toBe('20');
+  });
+
+  it('updates and clears the same EVM vault across mixed-case full and partial refreshes', async () => {
+    const vaults = [
+      '0xAbCd000000000000000000000000000000000001',
+      '0xAbCd000000000000000000000000000000000002',
+    ];
+    mockStaking.getAvailableAssetsV2.mockResolvedValue(
+      assets.map((asset, index) => ({ ...asset, vault: vaults[index] })),
+    );
+    mockStaking.fetchInvestmentBatchDetail.mockResolvedValueOnce({
+      items: [
+        investment(vaults[1].toLowerCase(), '20'),
+        investment(vaults[0].toLowerCase(), '10'),
+      ],
+      errors: [],
+    });
+
+    const { result } = renderHook(() => useEarnPortfolio());
+    await act(async () => result.current.refresh());
+    expect(result.current.earnTotalFiatValue.toFixed()).toBe('30');
+    expect(
+      result.current.investments.flatMap((item) => item.assets),
+    ).toHaveLength(2);
+
+    mockStaking.fetchInvestmentBatchDetail.mockResolvedValueOnce({
+      items: [investment(vaults[0], '15'), investment(vaults[1], '22')],
+      errors: [],
+    });
+    await act(async () => result.current.refresh({ provider: 'pendle' }));
+    expect(result.current.earnTotalFiatValue.toFixed()).toBe('37');
+    expect(
+      result.current.investments.flatMap((item) => item.assets),
+    ).toHaveLength(2);
+
+    mockStaking.fetchInvestmentBatchDetail.mockResolvedValueOnce({
+      items: [
+        investment(vaults[0].toLowerCase(), '0'),
+        investment(vaults[1].toLowerCase(), '25'),
+      ],
+      errors: [],
+    });
+    await act(async () => result.current.refresh());
+    expect(result.current.earnTotalFiatValue.toFixed()).toBe('25');
+    expect(
+      result.current.investments.flatMap((item) => item.assets),
+    ).toHaveLength(1);
+    expect(mockStaking.fetchInvestmentDetailV2).not.toHaveBeenCalled();
+  });
+
+  it('hydrates mixed-case EVM cached vaults and replaces them after a failed refresh', async () => {
+    const vault = '0xAbCd000000000000000000000000000000000001';
+    const cached = investment(vault, '10');
+    mockCache.account = [
+      {
+        ...cached,
+        airdropAssets: [],
+        assets: cached.assets.map((asset) => ({
+          ...asset,
+          metadata: { protocol: cached.protocol, network: cached.network },
+        })),
+      },
+    ];
+    mockStaking.getAvailableAssetsV2.mockResolvedValue([
+      { ...assets[0], vault: vault.toLowerCase() },
+    ]);
+    mockStaking.fetchInvestmentBatchDetail.mockResolvedValueOnce({
+      items: [],
+      errors: [
+        { symbol: 'sUSDe', vault: vault.toLowerCase(), errorCode: 'TIMEOUT' },
+      ],
+    });
+
+    const { result } = renderHook(() => useEarnPortfolio());
+    await act(async () => result.current.refresh());
+    expect(result.current.earnTotalFiatValue.toFixed()).toBe('10');
+
+    mockStaking.fetchInvestmentBatchDetail.mockResolvedValueOnce({
+      items: [investment(vault.toLowerCase(), '15')],
+      errors: [],
+    });
+    await act(async () => result.current.refresh({ provider: 'pendle' }));
+    expect(result.current.earnTotalFiatValue.toFixed()).toBe('15');
+    expect(
+      result.current.investments.flatMap((item) => item.assets),
+    ).toHaveLength(1);
   });
 
   it.each([

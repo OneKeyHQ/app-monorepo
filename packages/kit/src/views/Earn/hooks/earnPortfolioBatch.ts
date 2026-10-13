@@ -1,3 +1,6 @@
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
+
 export type IPortfolioFetchRequest = {
   accountId: string;
   accountAddress: string;
@@ -23,8 +26,15 @@ export const createEarnPortfolioRequestKey = (
     IPortfolioFetchRequest,
     'provider' | 'symbol' | 'vault' | 'networkId'
   >,
-) =>
-  `${request.provider}_${request.symbol}_${request.vault || ''}_${request.networkId}`;
+) => {
+  const vault = networkUtils.isEvmNetwork({ networkId: request.networkId })
+    ? normalizeTokenContractAddress({
+        networkId: request.networkId,
+        contractAddress: request.vault,
+      })
+    : request.vault;
+  return `${request.provider}_${request.symbol}_${vault || ''}_${request.networkId}`;
+};
 
 export const shouldUseEarnPortfolioBatchFetch = ({
   enableBatch,

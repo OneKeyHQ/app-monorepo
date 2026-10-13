@@ -71,14 +71,6 @@ interface IAccountAssetPair {
 // Pure Utility Functions
 // ============================================================================
 
-const createInvestmentKey = (item: {
-  provider: string;
-  symbol: string;
-  vault?: string;
-  networkId: string;
-}): string =>
-  `${item.provider}_${item.symbol}_${item.vault || ''}_${item.networkId}`;
-
 const resolveVault = ({
   protocolVault,
   requestVault,
@@ -142,7 +134,7 @@ const createInvestmentKeyFromInvestment = (
     protocolVault: investment.protocol.vault,
     requestVault: firstAsset?.metadata?.protocol?.vault,
   });
-  return createInvestmentKey({
+  return createEarnPortfolioRequestKey({
     provider: investment.protocol.providerDetail.code,
     symbol: investment.protocol.symbol || firstAsset?.token.info.symbol || '',
     vault: resolvedVault,
@@ -215,7 +207,7 @@ function normalizeAirdropInvestmentResult(
     ...(resolvedVault ? { vault: resolvedVault } : {}),
   };
 
-  const key = createInvestmentKey({
+  const key = createEarnPortfolioRequestKey({
     provider: result.protocol.providerDetail.code,
     symbol: params.symbol,
     vault: resolvedVault,
@@ -260,7 +252,7 @@ function normalizeInvestmentResult(
     symbol: params.symbol,
   };
 
-  const key = createInvestmentKey({
+  const key = createEarnPortfolioRequestKey({
     provider: result.protocol.providerDetail.code,
     symbol: params.symbol,
     vault: resolvedProtocolVault,
