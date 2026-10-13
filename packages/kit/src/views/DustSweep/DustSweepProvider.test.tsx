@@ -598,7 +598,12 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     mockPreview = {
       ...readyPreview,
       status: 'partial',
-      unavailable: { [source.tokens[1].key]: 'noQuote' },
+      unavailable: {
+        [source.tokens[1].key]: {
+          reason: 'noQuote',
+          providerErrorMessage: '请增加金额后重试',
+        },
+      },
     };
     mockLoadNetworks.mockResolvedValue({
       networks: [source],
@@ -613,7 +618,10 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     expect(
       result.current.session.state.items.map((item) => item.status),
     ).toEqual(['waiting', 'skipped']);
-    expect(result.current.session.state.items[1].reason).toBe('noQuote');
+    expect(result.current.session.state.items[1]).toMatchObject({
+      reason: 'noQuote',
+      providerErrorMessage: '请增加金额后重试',
+    });
   });
   it('does not start while the route is hidden', async () => {
     mockFocused = false;

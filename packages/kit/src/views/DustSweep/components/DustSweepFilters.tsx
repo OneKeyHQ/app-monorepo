@@ -2,15 +2,14 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
-  Icon,
-  Popover,
   ScrollView,
   SizableText,
   Skeleton,
   XStack,
-  YStack,
 } from '@onekeyhq/components';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import { NetworksFilterItem } from '@onekeyhq/kit/src/components/NetworksFilterItem';
+import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useDustSweep } from '../DustSweepProvider';
@@ -19,7 +18,9 @@ export function DustSweepNetworks({ desktop = false }: { desktop?: boolean }) {
   const { networks, current, selecting, selectNetwork, loadStatus } =
     useDustSweep();
   const intl = useIntl();
+  const openChainSelector = useConfigurableChainSelector();
   const title = intl.formatMessage({ id: ETranslations.global_select_network });
+  const networkSelectionDisabled = !selecting || !networks.length;
   if (desktop)
     return (
       <ScrollView
@@ -68,51 +69,40 @@ export function DustSweepNetworks({ desktop = false }: { desktop?: boolean }) {
       </ScrollView>
     );
   return (
-    <Popover
-      title={title}
-      sheetProps={{ disableDrag: true }}
-      renderTrigger={
-        <Button
-          mx={0}
-          my={0}
-          testID="dust-sweep-network-menu"
-          size="small"
-          variant="secondary"
-          disabled={!selecting}
-        >
-          <XStack gap="$1" alignItems="center">
-            {current ? (
-              <NetworkAvatar networkId={current.network.networkId} size="$4" />
-            ) : null}
-            <SizableText size="$bodyMd" numberOfLines={1}>
-              {current?.network.shortcode ?? title}
-            </SizableText>
-            <Icon name="ChevronDownSmallOutline" size="$4" />
-          </XStack>
-        </Button>
+    <NetworksFilterItem
+      testID="dust-sweep-network-menu"
+      role="button"
+      accessibilityLabel={current?.network.name ?? title}
+      accessibilityState={{ disabled: networkSelectionDisabled }}
+      networkImageUri={current?.network.logoURI}
+      networkImageSize="$4"
+      keepNetworkImageSize
+      networkName={current?.network.shortcode ?? title}
+      networkNameProps={{ size: '$bodyMd', color: '$text', flexShrink: 1 }}
+      iconAfter="ChevronDownSmallOutline"
+      width={108}
+      height={30}
+      py={0}
+      gap="$1"
+      alignItems="center"
+      borderRadius="$full"
+      borderColor="$transparent"
+      bg="$bgStrong"
+      disabled={networkSelectionDisabled}
+      focusable={!networkSelectionDisabled}
+      onPress={
+        networkSelectionDisabled
+          ? undefined
+          : () =>
+              openChainSelector({
+                title,
+                defaultNetworkId: current?.network.networkId,
+                networkIds: networks.map((entry) => entry.network.networkId),
+                grouped: false,
+                excludeAllNetworkItem: true,
+                onSelect: (network) => selectNetwork(network.id),
+              })
       }
-      renderContent={({ closePopover }) => (
-        <ScrollView maxHeight={400}>
-          <YStack p="$4" gap="$2">
-            {networks.map((entry) => (
-              <Button
-                mx={0}
-                my={0}
-                testID={`dust-sweep-network-${entry.network.networkId}`}
-                key={entry.network.networkId}
-                variant={entry === current ? 'secondary' : 'tertiary'}
-                justifyContent="flex-start"
-                onPress={() => {
-                  selectNetwork(entry.network.networkId);
-                  closePopover();
-                }}
-              >
-                {entry.network.name}
-              </Button>
-            ))}
-          </YStack>
-        </ScrollView>
-      )}
     />
   );
 }

@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 import type {
   IDustSweepItem,
   IDustSweepItemStatus,
+  IDustSweepQuoteFailure,
   IDustSweepReason,
   IDustSweepSnapshot,
 } from '@onekeyhq/shared/types/swap/dustSweep';
@@ -27,7 +28,7 @@ type IDustSweepAction =
   | {
       type: 'start';
       snapshot: IDustSweepSnapshot;
-      unavailable?: Record<string, IDustSweepReason>;
+      unavailable?: Record<string, IDustSweepQuoteFailure>;
     }
   | {
       type: 'pause' | 'resume' | 'reset' | 'leave' | 'left' | 'leaveBlocked';
@@ -49,6 +50,7 @@ type IDustSweepAction =
       receiptUnavailable?: boolean;
       reason?: IDustSweepReason;
       message?: string;
+      providerErrorMessage?: string;
     };
 
 export function isDustSweepItemTerminal(item: IDustSweepItem) {
@@ -87,7 +89,7 @@ export function dustSweepReducer(
             ? {
                 token,
                 status: 'skipped',
-                reason: action.unavailable[token.key],
+                ...action.unavailable[token.key],
               }
             : { token, status: 'waiting' },
         ),
@@ -149,6 +151,7 @@ export function dustSweepReducer(
               receiptUnavailable: action.receiptUnavailable,
               reason: action.reason,
               message: action.message,
+              providerErrorMessage: action.providerErrorMessage,
             }
           : item,
       );

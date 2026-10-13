@@ -35,6 +35,9 @@ export function isDustSweepQuoteCandidate(quote: IFetchQuoteResult) {
 
 export class DustSweepSkip extends OneKeyLocalError {
   reason: IDustSweepReason;
+  // Only a matching provider response may supply user-facing error text.
+  providerErrorMessage?: string;
+
   constructor(reason: IDustSweepReason, message?: string) {
     super(message ?? reason);
     this.reason = reason;
@@ -168,7 +171,7 @@ export function fetchDustSweepQuote(
   const quoteRequestId = `sweep-${snapshot.id}-${(quoteSequence += 1)}`;
   return new Promise((resolve, reject) => {
     let done = false;
-    let unavailableReason: IDustSweepReason = 'noQuote';
+    let unavailable = new DustSweepSkip('noQuote');
     const finishRef: {
       current: (error?: Error, quote?: IFetchQuoteResult) => void;
     } = {
@@ -189,9 +192,7 @@ export function fetchDustSweepQuote(
       }
       if (event.type === 'done' || event.type === 'close') {
         // Native dispatches done immediately before error on dropped connections.
-        void Promise.resolve().then(() =>
-          finishRef.current(new DustSweepSkip(unavailableReason)),
-        );
+        void Promise.resolve().then(() => finishRef.current(unavailable));
         return;
       }
       if (event.type !== 'message') return;
@@ -203,8 +204,21 @@ export function fetchDustSweepQuote(
           const quote = payload.data.find((candidate) => {
             const risk = getDustSweepQuoteRisk(candidate, token, snapshot);
             if (risk) {
-              if (isDustSweepQuoteCandidate(candidate))
-                unavailableReason = risk;
+              if (isDustSweepQuoteCandidate(candidate)) {
+                unavailable = new DustSweepSkip(risk);
+                if (
+                  risk === 'noQuote' &&
+                  isSameDustSweepToken({
+                    quoteToken: candidate.fromTokenInfo,
+                    expectedToken: token,
+                  }) &&
+                  isSameDustSweepToken({
+                    quoteToken: candidate.toTokenInfo,
+                    expectedToken: snapshot.nativeToken,
+                  })
+                )
+                  unavailable.providerErrorMessage = candidate.errorMessage;
+              }
               return false;
             }
             return true;
@@ -219,10 +233,7 @@ export function fetchDustSweepQuote(
         finishRef.current(new DustSweepSkip('noQuote'));
       }
     };
-    const timeout = setTimeout(
-      () => finishRef.current(new DustSweepSkip(unavailableReason)),
-      25_000,
-    );
+    const timeout = setTimeout(() => finishRef.current(unavailable), 25_000);
     const finish = (error?: Error, quote?: IFetchQuoteResult) => {
       if (done) return;
       done = true;

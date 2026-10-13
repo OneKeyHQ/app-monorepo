@@ -10,6 +10,7 @@ import {
   DustSweepUserCanceled,
   executeDustSweepItem,
 } from '../utils/execution';
+import { DustSweepSkip } from '../utils/quote';
 
 import { useDustSweepSession } from './useDustSweepSession';
 
@@ -42,7 +43,15 @@ jest.mock('../utils/execution', () => ({
   DustSweepRetryableError: jest.fn(),
   DustSweepPaused: jest.fn(),
 }));
-jest.mock('../utils/quote', () => ({ DustSweepSkip: jest.fn() }));
+jest.mock('../utils/quote', () => ({
+  DustSweepSkip: class extends Error {
+    reason: string;
+    constructor(reason: string) {
+      super(reason);
+      this.reason = reason;
+    }
+  },
+}));
 
 const snapshot: IDustSweepSnapshot = {
   id: 'session',
@@ -339,7 +348,10 @@ it('pauses a retryable preparation failure with approval identity intact', async
   });
 });
 
-it('skips unavailable preview rows without entering the executor and rejects duplicate starts', async () => {
+it('preserves preview and execution quote failures while rejecting duplicate starts', async () => {
+  const providerFailure = new DustSweepSkip('noQuote');
+  providerFailure.providerErrorMessage = 'Execution provider error';
+  execute.mockRejectedValueOnce(providerFailure);
   execute.mockImplementation(async ({ onSigning, onBroadcast }) => {
     onSigning();
     onBroadcast('tx');
@@ -349,17 +361,38 @@ it('skips unavailable preview rows without entering the executor and rejects dup
   let acceptedId: string | undefined;
   let duplicateId: string | undefined;
   await act(async () => {
-    acceptedId = result.current.start(snapshot, { b: 'noQuote' });
+    acceptedId = result.current.start(
+      {
+        ...snapshot,
+        tokens: [...snapshot.tokens, { ...snapshot.tokens[0], key: 'c' }],
+      },
+      {
+        b: {
+          reason: 'noQuote',
+          providerErrorMessage: 'Preview provider error',
+        },
+      },
+    );
     duplicateId = result.current.start(snapshot);
   });
   expect(acceptedId).toBe(result.current.state.snapshot?.id);
   expect(acceptedId).toBeTruthy();
   expect(duplicateId).toBeUndefined();
-  expect(execute).toHaveBeenCalledTimes(1);
+  expect(execute).toHaveBeenCalledTimes(2);
+  expect(execute.mock.calls.map(([{ token }]) => token.key)).toEqual([
+    'a',
+    'c',
+  ]);
   expect(result.current.state.phase).toBe('completed');
+  expect(result.current.state.items[0]).toMatchObject({
+    status: 'skipped',
+    reason: 'noQuote',
+    providerErrorMessage: 'Execution provider error',
+  });
   expect(result.current.state.items[1]).toMatchObject({
     status: 'skipped',
     reason: 'noQuote',
+    providerErrorMessage: 'Preview provider error',
   });
 });
 

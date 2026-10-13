@@ -35,7 +35,7 @@ jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
 jest.mock('./SwapServiceFeeOverview', () => ({
-  SwapServiceFeeOverview: () => null,
+  SwapServiceFeeOverview: () => <span data-testid="provider-fee-help" />,
 }));
 
 const token: ISwapToken = {
@@ -65,6 +65,7 @@ it.each(missingInputs)(
     );
 
     expect(screen.queryByText('Configured provider')).toBeNull();
+    expect(screen.getByTestId('provider-fee-help')).toBeTruthy();
     fireEvent.click(screen.getByText('--'));
     expect(onPress).not.toHaveBeenCalled();
     expect(screen.queryByTestId('provider-chevron')).toBeNull();

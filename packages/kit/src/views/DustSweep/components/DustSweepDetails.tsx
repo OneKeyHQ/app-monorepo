@@ -105,14 +105,12 @@ export function DustSweepDetails({
                 id: ETranslations.swap_review_tx_pending,
               });
             else if (item.reason)
-              reason =
-                item.message && item.message !== item.reason
-                  ? item.message
-                  : getDustSweepReasonMessage(
-                      intl,
-                      item.reason,
-                      state.snapshot?.nativeToken.symbol,
-                    );
+              reason = getDustSweepReasonMessage(
+                intl,
+                item.reason,
+                state.snapshot?.nativeToken.symbol,
+                item.providerErrorMessage,
+              );
             return (
               <YStack
                 key={item.token.key}

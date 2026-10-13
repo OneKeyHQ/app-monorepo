@@ -4,7 +4,7 @@ import { generateSwapHistoryItemForContext } from '@onekeyhq/kit/src/views/Swap/
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   IDustSweepNetwork,
-  IDustSweepReason,
+  IDustSweepQuoteFailure,
   IDustSweepSnapshot,
 } from '@onekeyhq/shared/types/swap/dustSweep';
 
@@ -157,6 +157,10 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
             status: 'skipped',
             reason,
             message: error instanceof Error ? error.message : undefined,
+            providerErrorMessage:
+              error instanceof DustSweepSkip
+                ? error.providerErrorMessage
+                : undefined,
           });
           defaultLogger.dex.dustSweep.dustSweepItemResult({
             network: snapshot.networkId,
@@ -185,7 +189,7 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
   const start = useCallback(
     (
       input: IDustSweepSnapshot,
-      unavailable?: Record<string, IDustSweepReason>,
+      unavailable?: Record<string, IDustSweepQuoteFailure>,
     ) => {
       if (
         !mounted.current ||

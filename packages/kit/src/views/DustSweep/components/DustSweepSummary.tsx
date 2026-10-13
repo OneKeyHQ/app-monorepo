@@ -9,23 +9,21 @@ import Animated, {
 
 import {
   Button,
-  Dialog,
   Divider,
   Icon,
   IconButton,
   SizableText,
   Skeleton,
   Stack,
-  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { SwapTransactionResultStatus } from '@onekeyhq/kit/src/views/Swap/components/PreSwapConfirmResult';
+import SwapCommonInfoItem from '@onekeyhq/kit/src/views/Swap/components/SwapCommonInfoItem';
 import SwapProviderInfoItem from '@onekeyhq/kit/src/views/Swap/components/SwapProviderInfoItem';
 import { SwapRefreshButtonBase } from '@onekeyhq/kit/src/views/Swap/components/SwapRefreshButton';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useDustSweep } from '../DustSweepProvider';
 import { getDustSweepPresentation } from '../stateMachine';
@@ -335,6 +333,7 @@ export function DustSweepSummary({
               <Stack flex={1} minWidth={0}>
                 <SwapProviderInfoItem
                   testID="dust-sweep-provider"
+                  showFeeInfo={false}
                   fromToken={selected[0]}
                   toToken={nativeToken}
                   providerIcon={
@@ -385,57 +384,20 @@ export function DustSweepSummary({
                 </Stack>
               ) : null}
             </XStack>
-            <XStack
-              height={20}
-              justifyContent="space-between"
-              alignItems="center"
-            >
-              <XStack gap="$1" alignItems="center">
-                <SizableText size="$bodyMd" color="$textSubdued">
+            <SwapCommonInfoItem
+              containerProps={{ height: 20 }}
+              title={intl.formatMessage({
+                id: ETranslations.slippage_tolerance_title,
+              })}
+              questionMarkContent={
+                <SizableText p="$4" $gtMd={{ size: '$bodyMd' }}>
                   {intl.formatMessage({
-                    id: ETranslations.slippage_tolerance_title,
-                  })}
-                </SizableText>
-                <Tooltip
-                  renderTrigger={
-                    <IconButton
-                      testID="dust-sweep-slippage-help"
-                      icon="QuestionmarkOutline"
-                      iconProps={{ color: '$iconSubdued', size: '$5' }}
-                      variant="tertiary"
-                      width={20}
-                      height={20}
-                      minHeight={20}
-                      p={0}
-                      mx={0}
-                      my={0}
-                      accessibilityLabel={intl.formatMessage({
-                        id: ETranslations.slippage_tolerance_title,
-                      })}
-                      onPress={
-                        platformEnv.isNative
-                          ? () => {
-                              Dialog.show({
-                                title: intl.formatMessage({
-                                  id: ETranslations.slippage_tolerance_title,
-                                }),
-                                description: intl.formatMessage({
-                                  id: ETranslations.slippage_tolerance_popover,
-                                }),
-                                showFooter: false,
-                              });
-                            }
-                          : undefined
-                      }
-                    />
-                  }
-                  renderContent={intl.formatMessage({
                     id: ETranslations.slippage_tolerance_popover,
                   })}
-                />
-              </XStack>
-              <DustSweepSlippage />
-            </XStack>
+                </SizableText>
+              }
+              valueComponent={<DustSweepSlippage />}
+            />
           </>
         ) : (
           <XStack

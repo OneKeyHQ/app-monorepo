@@ -20,6 +20,22 @@ jest.mock('@onekeyhq/kit/src/views/Swap/components/PreSwapStep', () => ({
 }));
 
 describe('Dust Sweep reason messages', () => {
+  it('uses provider text only for noQuote and keeps the localized fallback otherwise', async () => {
+    const messages = await LOCALE_LOADERS['en-US']();
+    const intl = createIntl({ locale: 'en-US', messages });
+    expect(
+      getDustSweepReasonMessage(intl, 'noQuote', 'ETH', '请增加金额后重试'),
+    ).toBe('请增加金额后重试');
+    for (const message of [undefined, '', '  ']) {
+      expect(getDustSweepReasonMessage(intl, 'noQuote', 'ETH', message)).toBe(
+        messages[dustSweepReasonMessageIds.noQuote],
+      );
+    }
+    expect(
+      getDustSweepReasonMessage(intl, 'unknown', 'ETH', '请增加金额后重试'),
+    ).toBe(messages[dustSweepReasonMessageIds.unknown]);
+  });
+
   it.each(Object.entries(LOCALE_LOADERS))(
     'formats reasons with the native token symbol in %s',
     async (locale, loadMessages) => {

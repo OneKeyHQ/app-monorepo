@@ -113,7 +113,7 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
                 }
                 selected={selected.some((item) => item.key === token.key)}
                 item={selecting ? undefined : session.state.items[index]}
-                quoteReason={
+                quoteFailure={
                   selecting ? preview.unavailable[token.key] : undefined
                 }
                 paused={

@@ -396,7 +396,7 @@ describe('Dust Sweep quote stream ownership', () => {
     await expect(operation).resolves.toEqual(usable);
   });
 
-  it('does not fall back when only another provider can quote', async () => {
+  it('does not fall back to another provider or surface its error message', async () => {
     const operation = fetchDustSweepQuote(
       token,
       snapshot,
@@ -407,11 +407,15 @@ describe('Dust Sweep quote stream ownership', () => {
         {
           ...quote,
           info: { provider: 'SwapLiquidMesh', providerName: 'LiquidMesh' },
+          errorMessage: 'Another provider error',
         },
       ],
     });
     emitQuoteEvent(0, { type: 'done' });
-    await expect(operation).rejects.toMatchObject({ reason: 'noQuote' });
+    await expect(operation).rejects.toMatchObject({
+      reason: 'noQuote',
+      providerErrorMessage: undefined,
+    });
   });
 
   it('passes the Sweep source and provider restrictions on every quote', async () => {
@@ -436,9 +440,15 @@ describe('Dust Sweep quote stream ownership', () => {
       snapshot,
       new AbortController().signal,
     );
+    emitQuoteMessage(0, {
+      data: [{ ...quote, errorMessage: 'Previous provider error' }],
+    });
     emitQuoteMessage(0, { data: [{ ...quote, valueDropPercent: 20 }] });
     emitQuoteEvent(0, { type: 'done' });
-    await expect(operation).rejects.toMatchObject({ reason: 'priceImpact' });
+    await expect(operation).rejects.toMatchObject({
+      reason: 'priceImpact',
+      providerErrorMessage: undefined,
+    });
   });
 
   it('keeps the slippage cap when the provider omits a numeric impact', () => {
@@ -459,19 +469,29 @@ describe('Dust Sweep quote stream ownership', () => {
   });
 
   it.each(['done', 'close'] as const)(
-    'settles an unavailable provider quote immediately on %s',
+    'preserves the selected provider error message on %s without changing the reason',
     async (type) => {
       const operation = fetchDustSweepQuote(
         token,
         snapshot,
         new AbortController().signal,
       );
-      emitQuoteMessage(0, { totalQuoteCount: 10, eventId: 'info' });
+      emitQuoteMessage(0, { totalQuoteCount: 1, eventId: 'info' });
       emitQuoteMessage(0, {
-        data: [{ ...quote, info: { ...quote.info, provider: '' } }],
+        data: [
+          {
+            ...quote,
+            toAmount: undefined,
+            toAmountSlippage: -1,
+            errorMessage: '请增加金额后重试',
+          },
+        ],
       });
       emitQuoteEvent(0, { type });
-      await expect(operation).rejects.toMatchObject({ reason: 'noQuote' });
+      await expect(operation).rejects.toMatchObject({
+        reason: 'noQuote',
+        providerErrorMessage: '请增加金额后重试',
+      });
       expect(mockCancelFetchQuoteEvents).toHaveBeenCalledTimes(1);
     },
   );
@@ -482,6 +502,9 @@ describe('Dust Sweep quote stream ownership', () => {
       snapshot,
       new AbortController().signal,
     );
+    emitQuoteMessage(0, {
+      data: [{ ...quote, errorMessage: 'Previous provider error' }],
+    });
     emitQuoteEvent(0, { type: 'done' });
     emitQuoteEvent(0, {
       type: 'error',
@@ -492,6 +515,7 @@ describe('Dust Sweep quote stream ownership', () => {
     await expect(operation).rejects.toMatchObject({
       reason: 'noQuote',
       message: 'Connection dropped',
+      providerErrorMessage: undefined,
     });
     expect(mockCancelFetchQuoteEvents).toHaveBeenCalledTimes(1);
   });
@@ -504,6 +528,11 @@ describe('Dust Sweep quote stream ownership', () => {
       snapshot,
       new AbortController().signal,
     );
+    emitQuoteMessage(0, {
+      data: [
+        { ...quote, toAmount: undefined, errorMessage: 'Old quote error' },
+      ],
+    });
     emitQuoteMessage(1, { data: [quote] });
     await expect(second).resolves.toEqual(quote);
     expect(mockCancelFetchQuoteEvents).toHaveBeenCalledTimes(1);
@@ -512,5 +541,27 @@ describe('Dust Sweep quote stream ownership', () => {
       message: 'Dust Sweep cancelled',
     });
     expect(mockCancelFetchQuoteEvents).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not surface provider messages belonging to another token pair', async () => {
+    const operation = fetchDustSweepQuote(
+      token,
+      snapshot,
+      new AbortController().signal,
+    );
+    emitQuoteMessage(0, {
+      data: [
+        {
+          ...quote,
+          fromTokenInfo: { ...token, contractAddress: '0xother' },
+          errorMessage: 'Another token error',
+        },
+      ],
+    });
+    emitQuoteEvent(0, { type: 'done' });
+    await expect(operation).rejects.toMatchObject({
+      reason: 'noQuote',
+      providerErrorMessage: undefined,
+    });
   });
 });

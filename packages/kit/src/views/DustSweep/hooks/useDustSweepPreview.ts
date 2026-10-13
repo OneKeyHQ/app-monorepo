@@ -8,7 +8,7 @@ import {
   resolveSwapQuoteRefreshAction,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
 import type {
-  IDustSweepReason,
+  IDustSweepQuoteFailure,
   IDustSweepSnapshot,
 } from '@onekeyhq/shared/types/swap/dustSweep';
 import {
@@ -34,7 +34,7 @@ type IPreview = {
   amount: string;
   quotedCount: number;
   availableKeys: string[];
-  unavailable: Record<string, IDustSweepReason>;
+  unavailable: Record<string, IDustSweepQuoteFailure>;
   providers: {
     provider: string;
     providerName?: string;
@@ -97,7 +97,7 @@ export function useDustSweepPreview(
           result.status === 'fulfilled' && result.value ? [result.value] : [],
         );
         const availableKeys: string[] = [];
-        const unavailable: Record<string, IDustSweepReason> = {};
+        const unavailable: Record<string, IDustSweepQuoteFailure> = {};
         results.forEach((result, index) => {
           const key = snapshot.tokens[index].key;
           if (result.status === 'fulfilled' && result.value) {
@@ -106,8 +106,11 @@ export function useDustSweepPreview(
             unavailable[key] =
               result.status === 'rejected' &&
               result.reason instanceof DustSweepSkip
-                ? result.reason.reason
-                : 'noQuote';
+                ? {
+                    reason: result.reason.reason,
+                    providerErrorMessage: result.reason.providerErrorMessage,
+                  }
+                : { reason: 'noQuote' };
           }
         });
         const providers = Array.from(

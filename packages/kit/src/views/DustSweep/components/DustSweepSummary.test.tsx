@@ -1,5 +1,5 @@
 /** @jest-environment jsdom */
-import type { PropsWithChildren } from 'react';
+import type { PropsWithChildren, ReactNode } from 'react';
 
 import { fireEvent, render, screen } from '@testing-library/react';
 
@@ -26,10 +26,12 @@ jest.mock('@onekeyhq/components', () => {
     testID,
     disabled,
     onPress,
+    accessibilityLabel,
   }: PropsWithChildren<{
     testID?: string;
     disabled?: boolean;
     onPress?: () => void;
+    accessibilityLabel?: string;
   }>) {
     return (
       <button
@@ -37,6 +39,7 @@ jest.mock('@onekeyhq/components', () => {
         data-testid={testID}
         disabled={disabled}
         onClick={onPress}
+        aria-label={accessibilityLabel}
       >
         {children}
       </button>
@@ -51,6 +54,9 @@ jest.mock('@onekeyhq/components', () => {
     IconButton: MockButton,
     Image: ({ source }: { source?: { uri?: string } }) => (
       <span data-testid="provider-icon" data-uri={source?.uri} />
+    ),
+    Popover: ({ renderTrigger }: { renderTrigger: ReactNode }) => (
+      <>{renderTrigger}</>
     ),
     SizableText: MockStack,
     Skeleton: () => <div data-testid="skeleton" />,
@@ -86,7 +92,7 @@ jest.mock(
 jest.mock(
   '@onekeyhq/kit/src/views/Swap/components/SwapServiceFeeOverview',
   () => ({
-    SwapServiceFeeOverview: () => null,
+    SwapServiceFeeOverview: () => <span data-testid="provider-fee-help" />,
   }),
 );
 jest.mock('@onekeyhq/kit/src/views/Swap/components/SwapRefreshButton', () => ({
@@ -100,7 +106,7 @@ const unavailablePreview: IPreview = {
   amount: '0',
   quotedCount: 0,
   availableKeys: [],
-  unavailable: { token: 'noQuote' },
+  unavailable: { token: { reason: 'noQuote' } },
   providers: [],
   autoRefreshTimerActive: false,
 };
@@ -167,6 +173,17 @@ beforeEach(() => {
   mockLoadStatus = 'ready';
   mockQuotedValueUsd = '10';
   jest.clearAllMocks();
+});
+
+it('keeps slippage help accessible without provider fee help in Dust', () => {
+  render(<DustSweepSummary desktop onDone={jest.fn()} onDetails={jest.fn()} />);
+
+  expect(
+    screen.getByRole('button', {
+      name: ETranslations.slippage_tolerance_title,
+    }),
+  ).toBeTruthy();
+  expect(screen.queryByTestId('provider-fee-help')).toBeNull();
 });
 
 it.each([true, false])(

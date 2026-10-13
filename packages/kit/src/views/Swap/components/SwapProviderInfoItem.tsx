@@ -29,6 +29,7 @@ interface ISwapProviderInfoItemProps {
   testID?: string;
   percentageFee?: number;
   percentOriginFee?: number;
+  showFeeInfo?: boolean;
   titleProps?: ISizableTextProps;
   valueProps?: ISizableTextProps;
   // Smaller provider logo for tight layouts like Pro mode info rows
@@ -45,9 +46,10 @@ const SwapProviderInfoItemTitleContent = ({
   percentageFee,
   percentOriginFee,
   titleProps,
+  showFeeInfo = true,
 }: Pick<
   ISwapProviderInfoItemProps,
-  'percentageFee' | 'percentOriginFee' | 'titleProps'
+  'percentageFee' | 'percentOriginFee' | 'titleProps' | 'showFeeInfo'
 >) => {
   const intl = useIntl();
 
@@ -64,10 +66,12 @@ const SwapProviderInfoItemTitleContent = ({
           id: ETranslations.swap_page_provider_provider,
         })}
       </SizableText>
-      <SwapServiceFeeOverview
-        percentageFee={percentageFee}
-        percentOriginFee={percentOriginFee}
-      />
+      {showFeeInfo ? (
+        <SwapServiceFeeOverview
+          percentageFee={percentageFee}
+          percentOriginFee={percentOriginFee}
+        />
+      ) : null}
     </XStack>
   );
 };
@@ -87,6 +91,7 @@ const SwapProviderInfoItem = ({
   testID,
   percentageFee,
   percentOriginFee,
+  showFeeInfo,
   titleProps,
   valueProps,
   compact,
@@ -114,6 +119,7 @@ const SwapProviderInfoItem = ({
       <SwapProviderInfoItemTitleContentMemo
         percentageFee={percentageFee}
         percentOriginFee={percentOriginFee}
+        showFeeInfo={showFeeInfo}
         titleProps={titleProps}
       />
       {isLoading ? (

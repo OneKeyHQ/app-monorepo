@@ -23,6 +23,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IDustSweepItem,
+  IDustSweepQuoteFailure,
   IDustSweepReason,
   IDustSweepToken,
 } from '@onekeyhq/shared/types/swap/dustSweep';
@@ -46,7 +47,10 @@ export function getDustSweepReasonMessage(
   intl: ReturnType<typeof useIntl>,
   reason: IDustSweepReason,
   nativeTokenSymbol?: string,
+  providerErrorMessage?: string,
 ) {
+  if (reason === 'noQuote' && providerErrorMessage?.trim())
+    return providerErrorMessage;
   if (reason === 'insufficientGas') {
     const symbol = nativeTokenSymbol?.trim();
     return symbol
@@ -67,7 +71,7 @@ const DustSweepTokenRowBase = ({
   item,
   paused,
   onToggle,
-  quoteReason,
+  quoteFailure,
   nativeTokenSymbol,
 }: {
   token?: IDustSweepToken;
@@ -75,20 +79,21 @@ const DustSweepTokenRowBase = ({
   item?: IDustSweepItem;
   paused?: boolean;
   onToggle?: (key: string) => void;
-  quoteReason?: IDustSweepReason;
+  quoteFailure?: IDustSweepQuoteFailure;
   nativeTokenSymbol?: string;
 }) => {
   const intl = useIntl();
   const reasonText = getDustSweepReasonMessage(
     intl,
-    item?.reason ?? quoteReason ?? 'unknown',
+    item?.reason ?? quoteFailure?.reason ?? 'unknown',
     nativeTokenSymbol,
+    item?.providerErrorMessage ?? quoteFailure?.providerErrorMessage,
   );
   const reasonDescription =
     item?.status === 'unknown'
       ? intl.formatMessage({ id: ETranslations.swap_review_tx_pending })
       : reasonText;
-  let statusLabel = quoteReason ? reasonText : token?.name;
+  let statusLabel = quoteFailure ? reasonText : token?.name;
   if (item?.status === 'preparing')
     statusLabel = intl.formatMessage({ id: ETranslations.global_processing });
   else if (item?.status === 'signing')

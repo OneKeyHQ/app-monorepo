@@ -4,6 +4,7 @@ import { memo, useMemo } from 'react';
 import {
   type ISizableTextProps,
   Icon,
+  IconButton,
   Popover,
   SizableText,
   Skeleton,
@@ -36,12 +37,23 @@ const SwapCommonInfoItemTitleContent = ({
     () => (
       <Popover
         title={title}
+        mountNativePortalBeforeOpen
         renderTrigger={
-          <Icon
-            name="InfoCircleOutline"
-            size="$3.5"
-            cursor="pointer"
-            color="$iconSubdued"
+          <IconButton
+            testID="swap-common-info-help"
+            icon="InfoCircleOutline"
+            iconSize="$3.5"
+            iconProps={{ color: '$iconSubdued' }}
+            accessibilityLabel={title}
+            variant="tertiary"
+            size="small"
+            hotKey
+            width="$3.5"
+            height="$3.5"
+            minHeight="$3.5"
+            borderWidth={0}
+            p={0}
+            m={0}
           />
         }
         renderContent={<Stack>{questionMarkContent}</Stack>}

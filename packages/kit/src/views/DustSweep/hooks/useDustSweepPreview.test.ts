@@ -114,12 +114,20 @@ it('debounces rapid selection revisions to one current quote request', async () 
 });
 
 it('keeps partial availability and the reason for each unavailable token', async () => {
+  const providerFailure = new DustSweepSkip('noQuote');
+  providerFailure.providerErrorMessage = '请增加金额后重试';
   mockFetchQuote
     .mockRejectedValueOnce(new Error('Transport failed'))
-    .mockRejectedValueOnce(new DustSweepSkip('priceImpact'));
+    .mockRejectedValueOnce(new DustSweepSkip('priceImpact'))
+    .mockRejectedValueOnce(providerFailure);
   const source = {
     ...snapshot('partial'),
-    tokens: [token, { ...token, key: 'second' }, { ...token, key: 'third' }],
+    tokens: [
+      token,
+      { ...token, key: 'second' },
+      { ...token, key: 'third' },
+      { ...token, key: 'fourth' },
+    ],
   };
   const { result } = renderHook(() => useDustSweepPreview(source));
   await act(async () => {
@@ -129,9 +137,20 @@ it('keeps partial availability and the reason for each unavailable token', async
     status: 'partial',
     quotedCount: 1,
     amount: '0.01',
-    availableKeys: ['third'],
-    unavailable: { [token.key]: 'noQuote', second: 'priceImpact' },
+    availableKeys: ['fourth'],
   });
+  expect(result.current.unavailable).toEqual({
+    [token.key]: { reason: 'noQuote' },
+    second: { reason: 'priceImpact' },
+    third: {
+      reason: 'noQuote',
+      providerErrorMessage: '请增加金额后重试',
+    },
+  });
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(swapRefreshInterval);
+  });
+  expect(result.current).toMatchObject({ status: 'ready', unavailable: {} });
 });
 
 it('uses the Swap refresh budget and requires a fresh manual quote when it expires', async () => {
@@ -270,14 +289,12 @@ it('retains display during manual refresh but revokes the old quote after failur
   });
 });
 
-it('cancels hidden requests and ignores a late result after the scope changes', async () => {
-  let resolveOld!: (
-    quote: Awaited<ReturnType<typeof fetchDustSweepQuote>>,
-  ) => void;
+it('cancels hidden requests and ignores a late provider error after the scope changes', async () => {
+  let rejectOld!: (error: DustSweepSkip) => void;
   mockFetchQuote.mockImplementationOnce(
     () =>
-      new Promise((resolve) => {
-        resolveOld = resolve;
+      new Promise((_resolve, reject) => {
+        rejectOld = reject;
       }),
   );
   const { result, rerender } = renderHook(
@@ -296,16 +313,14 @@ it('cancels hidden requests and ignores a late result after the scope changes', 
     await jest.advanceTimersByTimeAsync(SWAP_QUOTE_INPUT_DEBOUNCE_MS);
   });
   await act(async () => {
-    resolveOld({
-      info: { provider: 'Old', providerName: 'Old' },
-      toAmount: '10',
-      fromTokenInfo: token,
-      toTokenInfo: nativeToken,
-    });
+    const error = new DustSweepSkip('noQuote');
+    error.providerErrorMessage = 'Old provider error';
+    rejectOld(error);
   });
   expect(result.current).toMatchObject({
     status: 'ready',
     amount: '0.01',
     providers: [{ provider: 'SwapOKX' }],
+    unavailable: {},
   });
 });
