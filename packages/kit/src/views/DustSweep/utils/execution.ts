@@ -299,6 +299,20 @@ async function waitForBroadcastedApprovals({
   }
 }
 
+function assertDustSweepEvmZeroValue(encodedTx: unknown) {
+  if (!encodedTx || typeof encodedTx !== 'object' || Array.isArray(encodedTx))
+    throw new DustSweepSkip('unknown');
+  const value = 'value' in encodedTx ? encodedTx.value : undefined;
+  // Sweep sells non-native tokens and never confirms additional native spend.
+  if (
+    value === undefined ||
+    value === 0 ||
+    (typeof value === 'string' && /^(?:0+|0x0+)$/i.test(value))
+  )
+    return;
+  throw new DustSweepSkip('unknown');
+}
+
 async function prepareDustSweepItem(options: IExecutionOptions) {
   const { snapshot, token, signal } = options;
   assertCanSubmit(options);
@@ -330,6 +344,10 @@ async function prepareDustSweepItem(options: IExecutionOptions) {
     buildRes.result,
     options,
   );
+  const isEvm = networkUtils.isEvmNetwork({ networkId: snapshot.networkId });
+  // Validate before the shared builder can round fractional values to zero.
+  if (isEvm && buildRes.tx !== undefined)
+    assertDustSweepEvmZeroValue(buildRes.tx);
   const execution = await buildMarketExecutionPayload({
     accountId: snapshot.accountId,
     buildRes,
@@ -352,6 +370,7 @@ async function prepareDustSweepItem(options: IExecutionOptions) {
   assertActive(signal);
   if (execution.skipSendTransAction || !execution.encodedTx)
     throw new DustSweepSkip('unknown');
+  if (isEvm) assertDustSweepEvmZeroValue(execution.encodedTx);
   const allowanceQuote =
     buildRes.result.allowanceResult || buildRes.result.approvedInfo
       ? buildRes.result

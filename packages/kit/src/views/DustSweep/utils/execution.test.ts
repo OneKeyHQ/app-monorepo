@@ -1265,6 +1265,145 @@ describe('Dust Sweep serial execution boundaries', () => {
     expect(options.onSigning).not.toHaveBeenCalled();
   });
 
+  it.each([
+    '1000000000000000000',
+    '0xde0b6b3a7640000',
+    '1',
+    '0.1',
+    '-0.1',
+    '0x0.1',
+    '1e-1000000001',
+    '-1',
+    'NaN',
+    'Infinity',
+    '',
+    '0x',
+    null,
+    false,
+  ])(
+    'rejects raw EVM value %p before preparing any approval',
+    async (value) => {
+      mockBuild.mockResolvedValue({
+        result: { ...createQuote(), fee: { otherFeeInfos: [] } },
+        tx: { to: '0xother', data: '0x', value },
+      });
+      mockAllowance.mockResolvedValue(createAllowance({ isApproved: false }));
+      const options = createOptions();
+      await expect(executeDustSweepItem(options)).rejects.toMatchObject({
+        reason: 'unknown',
+      });
+      expect(mockPayload).not.toHaveBeenCalled();
+      expect(mockAllowance).not.toHaveBeenCalled();
+      expect(mockPrepare).not.toHaveBeenCalled();
+      expect(mockSend).not.toHaveBeenCalled();
+      expect(options.onSigning).not.toHaveBeenCalled();
+      expect(mockHistory).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    { value: '1000000000000000000' },
+    { value: '0xde0b6b3a7640000' },
+    { value: '0.1' },
+    { value: 'NaN' },
+    { value: null },
+    '0xserialized',
+    [],
+  ])(
+    'rejects invalid final EVM payload %p from an adapter',
+    async (encodedTx) => {
+      mockBuild.mockResolvedValue({
+        result: createQuote(),
+        tx: { to: '0xrouter', data: '0x', value: '0' },
+      });
+      mockPayload.mockResolvedValue({
+        encodedTx,
+        swapInfo: {},
+        skipSendTransAction: false,
+      });
+      const options = createOptions();
+      await expect(executeDustSweepItem(options)).rejects.toMatchObject({
+        reason: 'unknown',
+      });
+      expect(mockAllowance).not.toHaveBeenCalled();
+      expect(mockSend).not.toHaveBeenCalled();
+      expect(options.onSigning).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([undefined, 0, '0', '00', '0x0', '0x00', '0X0'])(
+    'accepts zero EVM value %p through the real payload builder',
+    async (value) => {
+      mockPayload.mockImplementation(
+        jest.requireActual<
+          typeof import('@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketBuildExecutionUtils')
+        >(
+          '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketBuildExecutionUtils',
+        ).buildMarketExecutionPayload,
+      );
+      mockBuild.mockResolvedValue({
+        result: createQuote(),
+        tx: { to: '0xrouter', data: '0x', value },
+      });
+      await expect(
+        executeDustSweepItem(createOptions()),
+      ).resolves.toMatchObject({
+        status: 'success',
+      });
+      expect(mockSend).toHaveBeenCalledTimes(1);
+      expect(
+        mockSend.mock.calls[0][0].buildUnsignedParams.encodedTx,
+      ).toMatchObject({
+        to: '0xrouter',
+        value: '0x0',
+      });
+    },
+  );
+
+  it('rejects undisclosed native spend in the rebuild after a confirmed approval', async () => {
+    mockAllowance.mockResolvedValueOnce(createAllowance({ isApproved: false }));
+    mockPayload
+      .mockResolvedValueOnce({ encodedTx: { value: '0x0' }, swapInfo: {} })
+      .mockResolvedValueOnce({ encodedTx: { value: '0x1' }, swapInfo: {} });
+    const options = createOptions();
+    await expect(executeDustSweepItem(options)).rejects.toMatchObject({
+      reason: 'unknown',
+    });
+    expect(mockPayload).toHaveBeenCalledTimes(2);
+    expect(mockSend).toHaveBeenCalledTimes(1);
+    expect(
+      mockSend.mock.calls[0][0].buildUnsignedParams.approveInfo,
+    ).toBeDefined();
+    expect(options.onSigning).toHaveBeenCalledTimes(1);
+    expect(mockHistory).not.toHaveBeenCalled();
+  });
+
+  it('does not apply EVM value semantics to a Tron payload', async () => {
+    const tronToken = { ...token, networkId: 'tron--0x2b6653dc' };
+    const tronSnapshot = {
+      ...snapshot,
+      networkId: tronToken.networkId,
+      tokens: [tronToken],
+      nativeToken: { ...snapshot.nativeToken, networkId: tronToken.networkId },
+    };
+    const tronQuote = {
+      ...createQuote(),
+      fromTokenInfo: tronToken,
+      toTokenInfo: tronSnapshot.nativeToken,
+    };
+    mockFetchQuote.mockResolvedValue(tronQuote);
+    mockBuild.mockResolvedValue({ result: tronQuote });
+    mockPayload.mockResolvedValue({ encodedTx: { value: '1' }, swapInfo: {} });
+    await expect(
+      executeDustSweepItem({
+        ...createOptions(),
+        token: tronToken,
+        snapshot: tronSnapshot,
+      }),
+    ).resolves.toMatchObject({ status: 'success' });
+    expect(mockSend).toHaveBeenCalledTimes(1);
+  });
+
   it('distinguishes password cancellation from unknown post-sign transport errors', async () => {
     mockSend.mockImplementation(async (params: ISendParams) => {
       await params.onBeforeSignAndSend?.();
