@@ -23,18 +23,22 @@ jobs:
   # Runs unionBuild to produce allocation reports, then validates
   # forbidden packages, module budgets, and architectural rules.
   native-startup-graph-budget:
-    name: Native
+    name: Native startup graph budget
     runs-on: ubuntu-24.04
+
+    strategy:
+      matrix:
+        node-version: [24.x]
 
     steps:
       - uses: actions/checkout@v4
         with:
           lfs: true
 
-      - name: Use Node.js 24.x
+      - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v6
         with:
-          node-version: 24.x
+          node-version: ${{ matrix.node-version }}
           cache: 'yarn'
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
@@ -101,18 +105,22 @@ jobs:
           retention-days: 30
 
   web-startup-graph-budget:
-    name: Web
+    name: Web startup graph budget
     runs-on: ubuntu-24.04
+
+    strategy:
+      matrix:
+        node-version: [24.x]
 
     steps:
       - uses: actions/checkout@v4
         with:
           lfs: true
 
-      - name: Use Node.js 24.x
+      - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v6
         with:
-          node-version: 24.x
+          node-version: ${{ matrix.node-version }}
           cache: 'yarn'
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
@@ -193,7 +201,6 @@ jobs:
 
   desktop-startup-budget:
     name: Desktop startup budget
-    if: github.event_name != 'pull_request' || github.base_ref == 'x'
     runs-on: ubuntu-24.04
 
     strategy:
@@ -251,7 +258,6 @@ jobs:
 
   ext-build-budget:
     name: Extension build budget
-    if: github.event_name != 'pull_request' || github.base_ref == 'x'
     runs-on: ubuntu-24.04
 
     strategy:
