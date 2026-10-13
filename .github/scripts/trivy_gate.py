@@ -29,6 +29,7 @@ POLICY = {
     'yarnProjection': 'omit-non-runtime-dependency-metadata',
     'yarnPatchEdges': 'reject-unsupported-reachability',
     'yarnLocalSources': 'reject',
+    'yarnGitPromotion': 'reject',
     'yarnAliases': 'per-selector-instances-assessed-by-resolved-name',
     'databases': ['ghcr.io/aquasecurity/trivy-db:2',
                   'ghcr.io/aquasecurity/trivy-java-db:1',
@@ -344,6 +345,69 @@ def yarn_git_warnings(base, merge):
     return {name: Counter("unknown protocol: 'https', line: " + header.removeprefix('"')
                           for _, header in inventory)
             for name, inventory in entries.items()}
+
+
+def yarn_git_production(root, inventory):
+    """Return admitted Git entries reachable from production dependencies.
+
+    Trivy skips Git blocks and drops edges to them, so an unchanged entry can
+    move from development to production without any scanner signal.
+    """
+    git = {}
+    for relative, header in yarn_git_entries(root):
+        selector, _ = json.JSONDecoder().raw_decode(header)
+        for pattern in selector.split(', '):
+            git[(relative, pattern)] = (relative, header)
+    production = set()
+    for relative, data, _ in yarn_files(root):
+        results = [r for r in inventory['Results'] if r.get('Target') == relative
+                   and r.get('Class') == 'lang-pkgs' and r.get('Type') == 'yarn']
+        dev = {text(p, 'ID'): p.get('Dev') is True for r in results for p in list_field(r, 'Packages')}
+        parents = []
+        for block in data.split('\n\n'):
+            header = next((line for line in block.split('\n') if re.match(r'[^\s#]', line)), '')
+            if not header.startswith('"'):
+                continue
+            selector, _ = json.JSONDecoder().raw_decode(header)
+            resolution = re.search(r'(?m)^  resolution: ("(?:[^"\\]|\\.)*")$', block)
+            version = re.search(r'(?m)^  version: (.+)$', block)
+            section, edges = None, []
+            for line in block.split('\n'):
+                if line.startswith('  ') and not line.startswith('   '):
+                    section = line.strip()
+                elif section == 'dependencies:' and line.startswith('    '):
+                    edge = re.fullmatch(r'    ("(?:[^"\\]|\\.)*"|[^\s:]+): ("(?:[^"\\]|\\.)*")\s*', line)
+                    require(edge is not None, 'unsupported_yarn_source')
+                    name = json.loads(edge[1]) if edge[1].startswith('"') else edge[1]
+                    edges.append((name, git.get((relative, name + '@' + json.loads(edge[2])))))
+            edges = [(name, target) for name, target in edges if target]
+            if not edges:
+                continue
+            workspace = re.fullmatch(YARN_NAME + r'@workspace:(.+)',
+                                     json.loads(resolution[1]) if resolution else '')
+            if workspace:
+                # Workspace blocks merge dev and production edges; the manifest decides.
+                manifest = read_json(source_file(root, str(PurePosixPath(relative).parent
+                                                           / workspace[2] / 'package.json')))
+                require(isinstance(manifest, dict), 'unsupported_yarn_source')
+                names = {name for field in ('dependencies', 'optionalDependencies')
+                         for name in manifest.get(field) or {}}
+                production.update(target for name, target in edges if name in names)
+                continue
+            version = version[1].strip('"') if version else ''
+            ids = {yarn_selector_name(pattern) + '@' + version for pattern in selector.split(', ')}
+            git_parent = git.get((relative, selector.split(', ')[0]))
+            # A parent missing from the inventory counts as production.
+            parents.append((git_parent, any(not dev.get(i, False) for i in ids),
+                            {target for _, target in edges}))
+        changed = True
+        while changed:
+            changed = False
+            for git_parent, reachable, targets in parents:
+                if (git_parent in production if git_parent else reachable) and targets - production:
+                    production |= targets
+                    changed = True
+    return production
 
 
 def supported_yarn_dependency(constraint):
@@ -713,6 +777,7 @@ def run(args):
             database = snapshot(cache)
             key = secrets.token_bytes(32)
             scans = {}
+            git_production = {}
             for name in ('base', 'merge'):
                 result['phase'] = name
                 root = roots[name]
@@ -732,6 +797,7 @@ def run(args):
                                   cache, config, env, allowed_warnings=allowed_warnings[name],
                                   scanners='vuln')
                 aliases = verify_yarn_coverage(root, inventory, production)
+                git_production[name] = yarn_git_production(root, inventory)
                 if any(aliases.values()):
                     production = assess_yarn_aliases(binary, production, aliases,
                                                      private / (name + '-aliases'),
@@ -754,6 +820,9 @@ def run(args):
                 # Persist only the sanitized schema, including when scan two fails.
                 result[name] = {k: v for k, v in scans[name].items() if k != 'targets'}
             verify_pair(scans['base'], scans['merge'], expected)
+            # Unscanned Git sources must not become production-reachable.
+            require(git_production['merge'] <= git_production['base'],
+                    'promoted_unsupported_dependency')
             # A surviving target disappearing from results is a coverage failure.
             for target in set(scans['base']['targets']) - set(scans['merge']['targets']):
                 # Secret results exist only for files with matches; removing

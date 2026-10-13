@@ -266,6 +266,35 @@ class RealScannerTests(unittest.TestCase):
                         <= set(report['targets']))
         self.assertEqual(report['findings'], [])
 
+    def test_git_dependency_promotion_through_parent_is_detected(self):
+        sha = 'a' * 40
+        source = 'https://github.com/example/child#' + sha
+        production = {}
+        for name, field in (('git-promotion-base', 'devDependencies'),
+                            ('git-promotion-merge', 'dependencies')):
+            root = self.tree(name)
+            manifest = root / 'package.json'
+            package = json.loads(manifest.read_text())
+            package.setdefault(field, {})['parent'] = '1.0.0'
+            manifest.write_text(json.dumps(package))
+            lock = root / 'yarn.lock'
+            # The Git block and the edge to it are byte-identical in both trees.
+            lock.write_text(lock.read_text() + '\n' + npm('parent', '1.0.0')
+                + '  dependencies:\n    child: ' + json.dumps(source) + '\n\n'
+                + json.dumps('child@' + source) + ':\n  version: 1.0.0\n  resolution: '
+                + json.dumps('child@https://github.com/example/child#commit=' + sha) + '\n')
+            projected = self.root / (name + '-projected')
+            gate.project_yarn(root, projected)
+            warnings = gate.yarn_git_warnings(root, root)['merge']
+            inventory = gate.scan(self.binary, projected, self.root / (name + '-inventory.json'),
+                                  self.cache, self.config, self.env, allowed_warnings=warnings,
+                                  scanners='vuln', include_dev_deps=True)
+            self.assertFalse(any(p['Name'] == 'child' for r in inventory['Results']
+                                 for p in r.get('Packages', [])))
+            production[name] = gate.yarn_git_production(root, inventory)
+        self.assertEqual(production['git-promotion-base'], set())
+        self.assertEqual(len(production['git-promotion-merge']), 1)
+
     def test_separated_dependency_exposes_new_high_findings(self):
         base = self.tree('control-base')
         candidate = self.tree('control-candidate', lodash=True)

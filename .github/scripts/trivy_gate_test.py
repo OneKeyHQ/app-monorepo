@@ -325,6 +325,39 @@ class GateTests(unittest.TestCase):
                      self.assertRaisesRegex(gate.GateError, '^unsupported_yarn_source$'):
                     gate.yarn_git_warnings(base, merge)
 
+    def test_git_entries_production_reachability(self):
+        def git(name):
+            return (json.dumps(name + '@https://github.com/example/' + name + '#' + 'a' * 40)
+                    + ':\n  version: 1.0.0\n  resolution: '
+                    + json.dumps(name + '@https://github.com/example/' + name + '#commit=' + 'a' * 40) + '\n')
+        def edge(name):
+            return '    ' + name + ': ' + json.dumps('https://github.com/example/' + name + '#' + 'a' * 40) + '\n'
+        lockfile = ('"fixture@workspace:.":\n  version: 0.0.0-use.local\n  resolution: "fixture@workspace:."\n'
+                    '  dependencies:\n' + edge('direct') + '    parent: "npm:1"\n\n'
+                    + self.npm_lockfile('parent', '1') + '  dependencies:\n' + edge('child') + '\n'
+                    + git('direct') + '  dependencies:\n' + edge('nested') + '\n'
+                    + git('child') + '\n' + git('nested'))
+        root = self.root / 'git-reachability'
+        root.mkdir()
+        (root / 'yarn.lock').write_text(lockfile)
+        def production(manifest, parent_dev):
+            (root / 'package.json').write_text(json.dumps(manifest))
+            packages = [] if parent_dev is None else [{'ID': 'parent@1', 'Name': 'parent', 'Dev': parent_dev}]
+            inventory = {'Results': [{'Target': 'yarn.lock', 'Class': 'lang-pkgs', 'Type': 'yarn',
+                                      'Packages': packages}]}
+            return {json.loads(header[:-1]).split('@https')[0]
+                    for _, header in gate.yarn_git_production(root, inventory)}
+        dev = {'devDependencies': {'direct': 'x', 'parent': '1'}}
+        self.assertEqual(production(dev, True), set())
+        # A direct production edge also promotes the Git entries it depends on.
+        self.assertEqual(production({'dependencies': {'direct': 'x'}, 'devDependencies': {'parent': '1'}}, True),
+                         {'direct', 'nested'})
+        self.assertEqual(production({'optionalDependencies': {'direct': 'x'}}, True), {'direct', 'nested'})
+        # Transitive promotion follows Trivy's classification of the parent.
+        self.assertEqual(production(dev, False), {'child'})
+        # A parent missing from the inventory is treated as production.
+        self.assertEqual(production(dev, None), {'child'})
+
     def test_yarn_git_url_canonicalization_retains_pinned_resolution(self):
         base, merge = self.root / 'base', self.root / 'merge'
         base.mkdir()
