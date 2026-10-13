@@ -1196,8 +1196,7 @@ export class NetworkDoctor {
         .map((probe) => new URL(probe.url).hostname),
     );
     const proxiedHosts: string[] = results.proxiedCaptchaHosts ?? [];
-    const extraTcpChecks: ITcpConnectionResult[] =
-      results.extraTcpChecks ?? [];
+    const extraTcpChecks: ITcpConnectionResult[] = results.extraTcpChecks ?? [];
     const unreachableHosts = extraTcpChecks
       .filter(
         (check) =>

@@ -459,9 +459,7 @@ describe('NetworkDoctor native diagnostics', () => {
   ])(
     'reports a CAPTCHA page with $failure when its host accepts TCP connections',
     async ({ status, connectivityLevel, summary, assessment }) => {
-      jest
-        .mocked(getIpAddressesForHostname)
-        .mockResolvedValue(['203.0.113.5']);
+      jest.mocked(getIpAddressesForHostname).mockResolvedValue(['203.0.113.5']);
       mockReachableHosts.add('challenges.cloudflare.com');
       mockReachableHosts.add('login.onekey.so');
       mockClientGet.mockResolvedValue({ status: 200, data: 'ok' });
@@ -495,9 +493,7 @@ describe('NetworkDoctor native diagnostics', () => {
     'treats a direct Turnstile TCP failure with proxy state $proxyState as healthy: $healthy',
     async ({ proxyState, healthy }) => {
       const turnstileHost = 'challenges.cloudflare.com';
-      jest
-        .mocked(getIpAddressesForHostname)
-        .mockResolvedValue(['203.0.113.5']);
+      jest.mocked(getIpAddressesForHostname).mockResolvedValue(['203.0.113.5']);
       mockReachableHosts.add('login.onekey.so');
       mockClientGet.mockResolvedValue({ status: 200, data: 'ok' });
       jest.spyOn(axios, 'get').mockResolvedValue({ status: 200, data: 'ok' });
