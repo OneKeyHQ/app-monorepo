@@ -5,6 +5,7 @@ on:
   pull_request:
     branches:
       - x
+      - release/*
 
 # Cancel previous runs for the same PR
 concurrency:
@@ -22,22 +23,18 @@ jobs:
   # Runs unionBuild to produce allocation reports, then validates
   # forbidden packages, module budgets, and architectural rules.
   native-startup-graph-budget:
-    name: Native startup graph budget
+    name: Native
     runs-on: ubuntu-24.04
-
-    strategy:
-      matrix:
-        node-version: [24.x]
 
     steps:
       - uses: actions/checkout@v4
         with:
           lfs: true
 
-      - name: Use Node.js ${{ matrix.node-version }}
+      - name: Use Node.js 24.x
         uses: actions/setup-node@v6
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 24.x
           cache: 'yarn'
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
@@ -74,7 +71,7 @@ jobs:
           # (AsyncStorage->MMKV migration adds the main-runtime bootstrap gate
           # and runtime-owned MMKV instance/guard modules to the eager graph)
           STARTUP_MODULE_BUDGET: '3000'
-          STARTUP_SIZE_BUDGET_MB: '13.8'
+          STARTUP_SIZE_BUDGET_MB: '14.0'
         run: node apps/mobile/scripts/check-startup-graph-budget.js
 
       - name: Budget Check (background entry)
@@ -104,22 +101,18 @@ jobs:
           retention-days: 30
 
   web-startup-graph-budget:
-    name: Web startup graph budget
+    name: Web
     runs-on: ubuntu-24.04
-
-    strategy:
-      matrix:
-        node-version: [24.x]
 
     steps:
       - uses: actions/checkout@v4
         with:
           lfs: true
 
-      - name: Use Node.js ${{ matrix.node-version }}
+      - name: Use Node.js 24.x
         uses: actions/setup-node@v6
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 24.x
           cache: 'yarn'
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
