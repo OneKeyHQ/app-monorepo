@@ -181,7 +181,12 @@ function MobileTokenSelectorContent() {
     ],
   );
 
-  const { data: topCoins, isLoading: isTopCoinsLoading } = useMarketTopCoins();
+  const {
+    data: topCoins,
+    isLoading: isTopCoinsLoading,
+    isError: isTopCoinsError,
+    refresh: refreshTopCoins,
+  } = useMarketTopCoins();
   const handleTopCoinSelect = useCallback(
     (item: IMarketAssetListItem) => {
       if (isMarketTopCoinNavigationSuppressed()) {
@@ -327,6 +332,8 @@ function MobileTokenSelectorContent() {
               <MobileSelectorTopCoinsList
                 data={topCoins}
                 isLoading={Boolean(isTopCoinsLoading)}
+                isError={isTopCoinsError}
+                onRetry={() => void refreshTopCoins()}
                 onItemPress={handleTopCoinSelect}
               />
             ) : null}

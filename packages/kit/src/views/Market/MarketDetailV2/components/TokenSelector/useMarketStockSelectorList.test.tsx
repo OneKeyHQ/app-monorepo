@@ -517,3 +517,28 @@ it('keeps the same table during pagination with the real selector hook', async (
   await waitFor(() => expect(table.textContent).toContain('MSFT'));
   expect(screen.getByTestId('stock-table')).toBe(table);
 });
+
+it('keeps home category cache rows when the selector first request fails', async () => {
+  const queryKey = buildMarketStockListQueryKey({
+    locale: 'en-US',
+    category: 'ai-tech',
+  });
+  swrCacheUtils.set(swrKeys.marketHomeStocks(queryKey), {
+    queryKey,
+    response: firstPage,
+  });
+  fetchList.mockRejectedValue(new Error('offline'));
+
+  const { result } = renderHook(() =>
+    useMarketStockSelectorList({ category: 'ai-tech' }),
+  );
+  expect(result.current.items).toEqual(firstPage.items);
+  await waitFor(() =>
+    expect(fetchList).toHaveBeenCalledWith({ limit: 20, category: 'ai-tech' }),
+  );
+  await waitFor(() =>
+    expect(result.current.isRevalidatingFirstPage).toBe(false),
+  );
+  expect(result.current.items).toEqual(firstPage.items);
+  expect(result.current.isError).toBe(false);
+});

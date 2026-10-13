@@ -7,14 +7,21 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import {
   MobileSelectorCategoryTokenList,
   MobileSelectorSearchTokenRow,
+  MobileSelectorStockTable,
+  MobileSelectorTopCoinsList,
   MobileSelectorWatchlistList,
 } from './MobileMarketSelectorBrowseLists';
 
+import type { useMarketStockSelectorList } from './useMarketStockSelectorList';
 import type { IMarketToken } from '../../../MarketHomeV2/components/MarketTokenList/MarketTokenData';
 
 const mockRefreshWatchListV2 = jest.fn(() => Promise.resolve());
 const mockRefetch = jest.fn(() => Promise.resolve());
 let mockListState: { isError: boolean } = { isError: false };
+const mockLoadMore = jest.fn(() => Promise.resolve());
+let mockBrowseData: IMarketToken[] = [];
+let mockIsLoadMoreError = false;
+let mockWatchlistCount = 0;
 const mockEventHandlers = new Map<string, () => Promise<void>>();
 const mockOn = jest.fn((name: string, handler: () => Promise<void>) => {
   mockEventHandlers.set(name, handler);
@@ -31,10 +38,24 @@ jest.mock('react-native', () => ({
   FlatList: ({
     data,
     renderItem,
+    ListFooterComponent,
+    onEndReached,
   }: {
     data: unknown[];
     renderItem: (info: { item: unknown }) => ReactNode;
-  }) => <div>{data.map((item) => renderItem({ item }))}</div>,
+    ListFooterComponent?: ReactNode;
+    onEndReached?: () => void;
+  }) => (
+    <div>
+      {data.map((item, index) => (
+        <div key={index}>{renderItem({ item })}</div>
+      ))}
+      {ListFooterComponent}
+      <button type="button" onClick={onEndReached}>
+        Reach end
+      </button>
+    </div>
+  ),
 }));
 
 jest.mock('@onekeyhq/components', () => {
@@ -77,7 +98,9 @@ jest.mock('@onekeyhq/kit/src/hooks/useNetworkLogoUri', () => ({
   useNetworkLogoUri: () => undefined,
 }));
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
-  useMarketWatchListV2Atom: () => [{ data: [] }],
+  useMarketWatchListV2Atom: () => [
+    { data: Array.from({ length: mockWatchlistCount }, () => ({})) },
+  ],
   useWatchListV2Actions: () => ({
     current: { refreshWatchListV2: mockRefreshWatchListV2 },
   }),
@@ -98,9 +121,13 @@ jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketTokenList',
   () => ({
     useMarketTokenList: () => ({
-      data: [],
+      data: mockBrowseData,
       isLoading: false,
       isError: mockListState.isError,
+      isLoadMoreError: mockIsLoadMoreError,
+      isLoadingMore: false,
+      canLoadMore: true,
+      loadMore: mockLoadMore,
       refetch: mockRefetch,
     }),
   }),
@@ -108,8 +135,8 @@ jest.mock(
 jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList',
   () => ({
-    useMarketWatchlistTokenList: () => ({
-      data: [],
+    useMarketWatchlistTokenList: ({ pageSize }: { pageSize: number }) => ({
+      data: mockBrowseData.slice(0, pageSize),
       isLoading: false,
       isError: mockListState.isError,
       refetch: mockRefetch,
@@ -259,5 +286,98 @@ describe('mobile selector list load failures', () => {
       screen.getByTestId('mobile-market-token-selector-category-retry'),
     );
     expect(mockRefetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('mobile selector review regressions', () => {
+  beforeEach(() => {
+    mockListState = { isError: false };
+    mockBrowseData = [];
+    mockIsLoadMoreError = false;
+    mockWatchlistCount = 0;
+    mockLoadMore.mockClear();
+  });
+
+  it('offers a retry for an empty failed Top Coins list', () => {
+    const retry = jest.fn();
+    render(
+      <MobileSelectorTopCoinsList
+        data={[]}
+        isLoading={false}
+        isError
+        onRetry={retry}
+        onItemPress={jest.fn()}
+      />,
+    );
+    fireEvent.click(
+      screen.getByTestId('mobile-market-token-selector-top-coins-retry'),
+    );
+    expect(retry).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps favorites beyond the first 100 rows available', () => {
+    mockWatchlistCount = 101;
+    mockBrowseData = Array.from({ length: 101 }, (_, index) => ({
+      ...searchToken,
+      id: String(index),
+      symbol: `TOKEN${index}`,
+    }));
+    render(<MobileSelectorWatchlistList onItemPress={jest.fn()} />);
+    expect(screen.getByText('TOKEN100')).toBeTruthy();
+  });
+
+  it('keeps token rows visible and retries a failed page on demand', () => {
+    mockBrowseData = [searchToken];
+    mockIsLoadMoreError = true;
+    render(
+      <MobileSelectorCategoryTokenList
+        category="trending"
+        timeRange="24h"
+        onItemPress={jest.fn()}
+      />,
+    );
+    expect(screen.getByText('AAPLx')).toBeTruthy();
+    fireEvent.click(screen.getByText('Reach end'));
+    expect(mockLoadMore).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByTestId(
+        'mobile-market-token-selector-category-load-more-retry',
+      ),
+    );
+    expect(mockLoadMore).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps stock rows visible and retries a failed page on demand', () => {
+    const result: ReturnType<typeof useMarketStockSelectorList> = {
+      items: [
+        {
+          stockId: 'AAPL',
+          symbol: 'AAPL',
+          name: 'Apple',
+          logoUrl: '',
+          assetType: 'stock',
+          currency: 'USD',
+        },
+      ],
+      total: 2,
+      isLoading: false,
+      isError: false,
+      isLoadingMore: false,
+      isLoadMoreError: true,
+      canLoadMore: true,
+      isRevalidatingFirstPage: false,
+      loadMore: mockLoadMore,
+      refresh: jest.fn(),
+    };
+    render(
+      <MobileSelectorStockTable result={result} onItemPress={jest.fn()} />,
+    );
+    expect(screen.getByText('AAPL')).toBeTruthy();
+    fireEvent.click(screen.getByText('Reach end'));
+    expect(mockLoadMore).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByTestId('mobile-market-token-selector-stock-load-more-retry'),
+    );
+    expect(mockLoadMore).toHaveBeenCalledTimes(1);
   });
 });

@@ -405,6 +405,34 @@ function LoadErrorMessage({
   );
 }
 
+function LoadMoreFooter({
+  isLoading,
+  isError,
+  testID,
+  onRetry,
+}: {
+  isLoading: boolean;
+  isError: boolean;
+  testID: string;
+  onRetry: () => void;
+}) {
+  if (isLoading) {
+    return (
+      <YStack py="$4" alignItems="center">
+        <Spinner size="small" />
+      </YStack>
+    );
+  }
+  if (isError) {
+    return (
+      <YStack py="$4">
+        <LoadErrorMessage testID={testID} onRetry={onRetry} />
+      </YStack>
+    );
+  }
+  return null;
+}
+
 function TokenRowsList({
   data,
   tokenSubtitle,
@@ -493,6 +521,7 @@ export function MobileSelectorWatchlistList({
   }, [watchListActions]);
   const { data, isLoading, isError, refetch } = useMarketWatchlistTokenList({
     watchlist: watchListData ?? [],
+    pageSize: Math.max(watchListData?.length ?? 0, 1),
     pollingInterval: TOKEN_SELECTOR_POLLING_INTERVAL,
   });
   const spotData = useMemo(
@@ -543,6 +572,7 @@ export function MobileSelectorCategoryTokenList({
     isLoading,
     isError,
     isLoadingMore,
+    isLoadMoreError,
     canLoadMore,
     loadMore,
     refetch,
@@ -555,10 +585,10 @@ export function MobileSelectorCategoryTokenList({
   });
   const rows = useLiveOverriddenTokens(data, liveTokenOverride);
   const handleEndReached = useCallback(() => {
-    if (canLoadMore && !isLoadingMore) {
+    if (canLoadMore && !isLoadingMore && !isLoadMoreError) {
       void loadMore();
     }
-  }, [canLoadMore, isLoadingMore, loadMore]);
+  }, [canLoadMore, isLoadingMore, isLoadMoreError, loadMore]);
 
   if (isLoading && rows.length === 0) {
     return <CenteredSpinner />;
@@ -578,11 +608,12 @@ export function MobileSelectorCategoryTokenList({
       onItemPress={onItemPress}
       onEndReached={handleEndReached}
       footer={
-        isLoadingMore ? (
-          <YStack py="$4" alignItems="center">
-            <Spinner size="small" />
-          </YStack>
-        ) : null
+        <LoadMoreFooter
+          isLoading={isLoadingMore}
+          isError={isLoadMoreError}
+          testID="mobile-market-token-selector-category-load-more-retry"
+          onRetry={() => void loadMore()}
+        />
       }
     />
   );
@@ -625,10 +656,14 @@ MobileSelectorTopCoinRow.displayName = 'MobileSelectorTopCoinRow';
 export function MobileSelectorTopCoinsList({
   data,
   isLoading,
+  isError,
+  onRetry,
   onItemPress,
 }: {
   data: IMarketAssetListItem[];
   isLoading: boolean;
+  isError: boolean;
+  onRetry: () => void;
   onItemPress: (item: IMarketAssetListItem) => void;
 }) {
   const renderItem = useCallback(
@@ -639,6 +674,14 @@ export function MobileSelectorTopCoinsList({
   );
   if (isLoading && data.length === 0) {
     return <CenteredSpinner />;
+  }
+  if (isError && data.length === 0) {
+    return (
+      <LoadErrorMessage
+        testID="mobile-market-token-selector-top-coins-retry"
+        onRetry={onRetry}
+      />
+    );
   }
   return (
     <FlatList
@@ -705,6 +748,7 @@ export function MobileSelectorStockTable({
     isLoading,
     isError,
     isLoadingMore,
+    isLoadMoreError,
     canLoadMore,
     loadMore,
     refresh,
@@ -716,10 +760,10 @@ export function MobileSelectorStockTable({
     [onItemPress],
   );
   const handleEndReached = useCallback(() => {
-    if (canLoadMore && !isLoadingMore) {
+    if (canLoadMore && !isLoadingMore && !isLoadMoreError) {
       void loadMore();
     }
-  }, [canLoadMore, isLoadingMore, loadMore]);
+  }, [canLoadMore, isLoadingMore, isLoadMoreError, loadMore]);
 
   if (isLoading && items.length === 0) {
     return <CenteredSpinner />;
@@ -759,11 +803,12 @@ export function MobileSelectorStockTable({
       onEndReached={handleEndReached}
       onEndReachedThreshold={0.4}
       ListFooterComponent={
-        isLoadingMore ? (
-          <YStack py="$4" alignItems="center">
-            <Spinner size="small" />
-          </YStack>
-        ) : null
+        <LoadMoreFooter
+          isLoading={isLoadingMore}
+          isError={isLoadMoreError}
+          testID="mobile-market-token-selector-stock-load-more-retry"
+          onRetry={() => void loadMore()}
+        />
       }
       keyboardShouldPersistTaps="handled"
       style={LIST_STYLE}
