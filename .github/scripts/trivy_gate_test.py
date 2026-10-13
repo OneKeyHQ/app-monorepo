@@ -394,15 +394,16 @@ class GateTests(unittest.TestCase):
             return (json.dumps(name + '@workspace:' + path) + ':\n  version: 0.0.0-use.local\n  resolution: '
                     + json.dumps(name + '@workspace:' + path) + '\n  dependencies:\n' + edges)
         (root / 'package.json').write_text(json.dumps({
-            'name': 'fixture', 'dependencies': {'parent': '1', 'pinned': '1'},
+            'name': 'fixture', 'dependencies': {'parent': '1'},
             'devDependencies': {'alias': 'npm:example@1', 'example': '1'},
             'resolutions': {'parent/pinned': '2'}}))
         (root / 'packages/ws/package.json').write_text(json.dumps({'name': 'ws', 'dependencies': {'alias': 'npm:example@1'}}))
         (root / 'yarn.lock').write_text(
             workspace('fixture', '.', '    alias: "npm:example@1"\n    example: "npm:1"\n'
-                      '    parent: "npm:1"\n    pinned: "npm:1"\n') + '\n'
+                      '    parent: "npm:1"\n') + '\n'
             + workspace('ws', 'packages/ws', '    alias: "npm:example@1"\n') + '\n'
-            + self.npm_lockfile('parent', '1') + '  dependencies:\n    child: "npm:^\\u0031"\n\n'
+            + self.npm_lockfile('parent', '1') + '  dependencies:\n    child: "npm:^\\u0031"\n'
+            + '    pinned: "npm:1"\n\n'
             + '"alias@npm:example@1":\n  version: 1\n  resolution: "example@npm:1"\n\n'
             + '"child@npm:^1":\n  version: 1\n  resolution: "child@npm:1"\n\n'
             + '"pinned@npm:2":\n  version: 2\n  resolution: "pinned@npm:2"\n\n'
@@ -427,6 +428,60 @@ class GateTests(unittest.TestCase):
             '    child: "npm:^\\u0031"\n', '    child: "npm:^\\u0031"\n    unknown: "npm:1"\n'))
         with self.assertRaisesRegex(gate.GateError, '^unsupported_yarn_reachability$'):
             gate.promote_yarn_reachability(root, inventory, production)
+
+    def test_resolutions_apply_to_matching_parent_and_range_only(self):
+        # Layouts and outcomes match Yarn 4.12 lockfiles and `yarn why`.
+        def tree(name, dependencies, resolutions, edges, entries):
+            root = self.root / name
+            root.mkdir()
+            (root / 'package.json').write_text(json.dumps({
+                'name': 'fx', 'dependencies': dependencies,
+                'devDependencies': {} if 'lodash' in dependencies else {'lodash': '4.17.21'},
+                'resolutions': resolutions}))
+            (root / 'yarn.lock').write_text(
+                '"fx@workspace:.":\n  version: 0.0.0-use.local\n  resolution: "fx@workspace:."\n'
+                '  dependencies:\n' + edges + '\n'
+                + self.npm_lockfile('async', '2.6.4') + '  dependencies:\n    lodash: "npm:^4.17.14"\n\n'
+                + '\n'.join(entries))
+            return root
+        exact = [self.npm_lockfile('lodash', version) for version in ('4.17.20', '4.17.21')]
+        ranged = '"lodash@npm:^4.17.14":\n  version: 4.18.1\n  resolution: "lodash@npm:4.18.1"\n'
+        async_edges = '    async: "npm:2.6.4"\n    lodash: "npm:4.17.21"\n'
+        cases = {
+            # An override for a parent that is not installed changes nothing.
+            'other-parent': ({'async': '2.6.4'}, {'async/lodash': '4.17.21', 'lodash-cli/lodash': '4.17.20'},
+                             async_edges, exact, '4.17.21'),
+            # A scoped override takes precedence over an existing descriptor.
+            'scoped': ({'async': '2.6.4'}, {'async/lodash': '4.17.20'}, async_edges, exact + [ranged], '4.17.20'),
+            'parent-version': ({'async': '2.6.4'}, {'async@2.6.4/lodash': '4.17.20'}, async_edges,
+                               exact + [ranged], '4.17.20'),
+            # A parent range never matches the parent's locator.
+            'parent-range': ({'async': '2.6.4'}, {'async@^2.0.0/lodash': '4.17.20'}, async_edges,
+                             exact[1:] + [ranged], '4.18.1'),
+            'dependency-range': ({'async': '2.6.4'}, {'lodash@^4.17.14': '4.17.20'}, async_edges, exact, '4.17.20'),
+            'other-range': ({'async': '2.6.4'}, {'lodash@^4.0.0': '4.17.20'}, async_edges,
+                            exact[1:] + [ranged], '4.18.1'),
+            # The first matching pattern wins.
+            'first-match': ({'async': '2.6.4'}, {'lodash': '4.17.20', 'async/lodash': '4.17.21'},
+                            '    async: "npm:2.6.4"\n', exact[:1], '4.17.20'),
+        }
+        dev = {'async@2.6.4': False, 'lodash@4.17.20': True, 'lodash@4.17.21': True, 'lodash@4.18.1': True}
+        inventory = {'Results': [{'Target': 'yarn.lock', 'Class': 'lang-pkgs', 'Type': 'yarn',
+            'Packages': [{'ID': i, 'Dev': d} for i, d in dev.items()]}]}
+        for case, (dependencies, resolutions, edges, entries, expected) in cases.items():
+            with self.subTest(case=case):
+                root = tree(case, dependencies, resolutions, edges, entries)
+                instances, _ = gate.yarn_production(root, inventory)
+                self.assertEqual(instances, {('yarn.lock', 'async@2.6.4'), ('yarn.lock', 'lodash@' + expected)})
+        # A workspace is the parent of its own dependency edges.
+        root = tree('workspace-parent', {'async': '2.6.4', 'lodash': '^4.17.14'}, {'fx/lodash': '4.17.20'},
+                    '    async: "npm:2.6.4"\n    lodash: "npm:^4.17.14"\n', exact[:1] + [ranged])
+        self.assertEqual(gate.yarn_production(root, inventory)[0],
+                         {('yarn.lock', 'async@2.6.4'), ('yarn.lock', 'lodash@4.17.20'),
+                          ('yarn.lock', 'lodash@4.18.1')})
+        for key in ('**/lodash', 'a b/lodash', 'async/lodash/extra'):
+            with self.subTest(key=key), self.assertRaisesRegex(gate.GateError, '^unsupported_yarn_source$'):
+                gate.yarn_resolutions({'resolutions': {key: '1.0.0'}})
 
     def test_yarn_git_url_canonicalization_retains_pinned_resolution(self):
         base, merge = self.root / 'base', self.root / 'merge'

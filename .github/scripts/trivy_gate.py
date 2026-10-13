@@ -368,11 +368,41 @@ def yarn_git_warnings(base, merge):
             for name, inventory in entries.items()}
 
 
-def yarn_resolution_name(key):
-    # Keys are 'name', 'name@range' or 'parent(@range)/name'; keep the scope.
-    parts = key.split('/')
-    name = parts[-2] + '/' + parts[-1] if len(parts) > 1 and parts[-2].startswith('@') else parts[-1]
-    return yarn_selector_name(name + '@')
+def yarn_range(value):
+    # Configuration.normalizeDependency gives semver ranges and tags npm:.
+    if ':' not in value and re.fullmatch(r'[0-9A-Za-z.^~<>=|*+ -]+', value):
+        return 'npm:' + value
+    return value
+
+
+def yarn_resolutions(manifest):
+    """Parse manifest resolutions as (parent, reference, name, range, value)."""
+    resolutions = manifest.get('resolutions', {})
+    require(isinstance(resolutions, dict), 'unsupported_yarn_source')
+    spec = YARN_NAME + r'(?:@([^/\s]+))?'
+    patterns = []
+    for key, value in resolutions.items():
+        match = re.fullmatch(r'(?:' + spec + r'/)?' + spec, key)
+        require(match is not None and '**' not in key and isinstance(value, str),
+                'unsupported_yarn_source')
+        patterns.append((match[1], match[2] and yarn_range(match[2]), match[3],
+                         match[4] and yarn_range(match[4]), yarn_range(value)))
+    return patterns
+
+
+def yarn_edge(patterns, parent, name, constraint):
+    """Return the lockfile descriptor Yarn resolves for a dependency edge.
+
+    Mirrors Project's reduceDependency: the first pattern whose parent
+    matches the exact locator and whose dependency matches the edge's range
+    replaces it. The lockfile edge keeps the original range.
+    """
+    for parent_name, reference, child, child_range, value in patterns:
+        if parent_name is not None and (parent_name, reference or parent[1]) != parent:
+            continue
+        if child == name and child_range in (None, constraint):
+            return name + '@' + value
+    return name + '@' + constraint
 
 
 def yarn_production(root, inventory):
@@ -391,20 +421,19 @@ def yarn_production(root, inventory):
         results = [r for r in inventory['Results'] if r.get('Target') == relative
                    and r.get('Class') == 'lang-pkgs' and r.get('Type') == 'yarn']
         dev = {text(p, 'ID'): p.get('Dev') is True for r in results for p in list_field(r, 'Packages')}
-        blocks, descriptors, overrides = [], {}, {}
+        blocks, descriptors = [], {}
         manifest = PurePosixPath(relative).parent / 'package.json'
         manifest = read_json(source_file(root, str(manifest))) if (root / manifest).is_file() else {}
-        require(isinstance(manifest, dict) and isinstance(manifest.get('resolutions', {}), dict),
-                'unsupported_yarn_source')
-        for key, value in manifest.get('resolutions', {}).items():
-            require(isinstance(value, str), 'unsupported_yarn_source')
-            overrides.setdefault(yarn_resolution_name(key), []).append(value)
+        require(isinstance(manifest, dict), 'unsupported_yarn_source')
+        patterns = yarn_resolutions(manifest)
         for block in data.split('\n\n'):
             header = next((line for line in block.split('\n') if re.match(r'[^\s#]', line)), '')
             if not header.startswith('"'):
                 continue
             selector, _ = json.JSONDecoder().raw_decode(header)
             resolution = re.search(r'(?m)^  resolution: ("(?:[^"\\]|\\.)*")$', block)
+            locator = re.fullmatch(YARN_NAME + r'@(.+)', json.loads(resolution[1]) if resolution else '')
+            require(locator is not None, 'unsupported_yarn_source')
             version = re.search(r'(?m)^  version: (.+)$', block)
             section, edges = None, []
             for line in block.split('\n'):
@@ -414,13 +443,12 @@ def yarn_production(root, inventory):
                     edge = re.fullmatch(r'    ("(?:[^"\\]|\\.)*"|[^\s:]+): ("(?:[^"\\]|\\.)*")\s*', line)
                     require(edge is not None, 'unsupported_yarn_source')
                     name = json.loads(edge[1]) if edge[1].startswith('"') else edge[1]
-                    edges.append((name, name + '@' + json.loads(edge[2])))
-            workspace = re.fullmatch(YARN_NAME + r'@workspace:(.+)',
-                                     json.loads(resolution[1]) if resolution else '')
+                    edges.append((name, json.loads(edge[2])))
+            workspace = re.fullmatch(r'workspace:(.+)', locator[2])
             if workspace:
                 # Workspace blocks merge dev and production edges; the manifest decides.
                 manifest = read_json(source_file(root, str(PurePosixPath(relative).parent
-                                                           / workspace[2] / 'package.json')))
+                                                           / workspace[1] / 'package.json')))
                 require(isinstance(manifest, dict), 'unsupported_yarn_source')
                 names = {name for field in ('dependencies', 'optionalDependencies')
                          for name in manifest.get(field) or {}}
@@ -430,6 +458,7 @@ def yarn_production(root, inventory):
                 descriptors[pattern] = (len(blocks), yarn_selector_name(pattern))
             blocks.append({'git': (relative, header) if (relative, header) in git_entries else None,
                            'workspace': bool(workspace), 'version': version, 'edges': edges,
+                           'locator': (locator[1], locator[2]),
                            'names': {yarn_selector_name(p) for p in selector.split(', ')}})
         queue = []
         for index, block in enumerate(blocks):
@@ -449,18 +478,10 @@ def yarn_production(root, inventory):
                 git.add(block['git'])
             elif name:
                 instances.add((relative, name + '@' + block['version']))
-            for edge, descriptor in block['edges']:
-                if descriptor in descriptors:
-                    queue.append(descriptors[descriptor])
-                    continue
-                # Manifest resolutions replace the edge's range; the edge keeps
-                # the original one. Use the overriding entry, else every entry
-                # of that name. Any other unknown descriptor fails closed.
-                values = overrides.get(edge)
-                require(values is not None, 'unsupported_yarn_reachability')
-                targets = [descriptors[d] for v in values for d in (edge + '@' + v, edge + '@npm:' + v)
-                           if d in descriptors]
-                queue += targets or [(i, edge) for i, b in enumerate(blocks) if edge in b['names']]
+            for edge, constraint in block['edges']:
+                descriptor = yarn_edge(patterns, block['locator'], edge, constraint)
+                require(descriptor in descriptors, 'unsupported_yarn_reachability')
+                queue.append(descriptors[descriptor])
     return instances, git
 
 

@@ -344,6 +344,37 @@ class RealScannerTests(unittest.TestCase):
                          if v['InstalledVersion'] == '4.17.20' and v['Severity'] == 'HIGH']
                 self.assertEqual(len(found), 2)
 
+    def test_scoped_resolutions_follow_yarn_parent_matching(self):
+        # Lockfile layouts produced by Yarn 4.12 for these manifests.
+        def tree(name, development, resolutions, lodash):
+            root = self.tree(name)
+            (root / 'package.json').write_text(json.dumps({
+                'name': 'fx', 'version': '1.0.0', 'dependencies': {'async': '2.6.4'},
+                'devDependencies': {'lodash': development}, 'resolutions': resolutions}))
+            (root / 'yarn.lock').write_text(
+                '__metadata:\n  version: 8\n  cacheKey: 10c0\n\n'
+                + npm('async', '2.6.4') + '  dependencies:\n    lodash: "npm:^4.17.14"\n\n'
+                + '"fx@workspace:.":\n  version: 0.0.0-use.local\n  resolution: "fx@workspace:."\n'
+                + '  dependencies:\n    async: "npm:2.6.4"\n    lodash: ' + json.dumps('npm:' + development)
+                + '\n' + ''.join('\n' + entry for entry in lodash))
+            return self.assessed(root, name)[0]
+        ranged = '"lodash@npm:^4.17.14":\n  version: 4.18.1\n  resolution: "lodash@npm:4.18.1"\n'
+        exact = [npm('lodash', '4.17.20'), npm('lodash', '4.17.21')]
+        # An override for a parent that is not installed leaves the
+        # development-only lodash 4.17.20 out of production.
+        base = tree('scoped-base', '4.17.20', {'async/lodash': '4.17.21'}, exact)
+        merge = tree('scoped-other-parent', '4.17.20',
+                     {'async/lodash': '4.17.21', 'lodash-cli/lodash': '4.17.20'}, exact)
+        self.assertEqual(gate.compare(base, merge), [])
+        # A scoped override gives production async lodash 4.17.20 although
+        # its edge range also has a lockfile entry; Trivy classifies 4.17.20
+        # as development.
+        base = tree('scoped-unpinned', '^4.17.14', {}, [ranged])
+        merge = tree('scoped-pinned', '^4.17.14', {'async/lodash': '4.17.20'}, exact[:1] + [ranged])
+        new = gate.compare(base, merge)
+        self.assertEqual(len(new), 2)
+        self.assertTrue(all(finding['severity'] == 'HIGH' for finding in new))
+
     def test_secret_replaced_after_bare_cr_is_new(self):
         reports = []
         for seed in (1, 2):
