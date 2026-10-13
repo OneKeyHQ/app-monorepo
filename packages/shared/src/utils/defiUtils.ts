@@ -9,6 +9,20 @@ import {
 } from '../../types/defi';
 
 import { normalizeDeFiPositionMetadata } from './defiPositionMetadataUtils';
+import { parseUrl } from './uriUtils';
+
+// Protocol site links come from upstream aggregator data and end up behind a
+// clickable icon that opens them in the discovery browser or a new tab, so
+// only HTTP(S) URLs are kept; any other scheme is dropped before it reaches a
+// summary.
+function sanitizeProtocolUrl(url: string | undefined): string {
+  const trimmedUrl = url?.trim() ?? '';
+  if (!trimmedUrl) {
+    return '';
+  }
+  const urlSchema = parseUrl(trimmedUrl)?.urlSchema;
+  return urlSchema === 'http' || urlSchema === 'https' ? trimmedUrl : '';
+}
 
 function extractParenthesizedContent(input: string) {
   const startIndex = input.indexOf('(');
@@ -242,7 +256,10 @@ function transformDeFiData({
         protocol: summary.protocol,
         networkId: summary.networkIds[0],
       })
-    ] = summary;
+    ] = {
+      ...summary,
+      protocolUrl: sanitizeProtocolUrl(summary.protocolUrl),
+    };
   });
 
   Object.values(positions).forEach((networkPositions) => {
@@ -392,7 +409,7 @@ function transformDeFiData({
       positionCount: groupedPositions.length,
       positionIndices: [],
       protocolLogo: firstSourcePosition?.protocolLogo ?? '',
-      protocolUrl: firstSourcePosition?.protocolUrl ?? '',
+      protocolUrl: sanitizeProtocolUrl(firstSourcePosition?.protocolUrl),
     };
   });
 

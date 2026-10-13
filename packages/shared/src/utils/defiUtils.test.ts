@@ -292,6 +292,95 @@ describe('defiUtils.transformDeFiData fallback summary', () => {
       netWorth: 10,
     });
   });
+
+  it('drops a non-HTTP(S) protocol url from the fallback summary', () => {
+    const position: IDeFiPosition = {
+      ...makePosition({
+        category: 'lending',
+        groupId: 'aave-group',
+        name: 'Aave V3',
+        assets: [
+          makeAsset({
+            symbol: 'USDC',
+            address: '0xusdc',
+            value: 10,
+            category: 'supplied',
+          }),
+        ],
+        debts: [],
+        rewards: [],
+        protocol: 'aave-v3',
+        protocolName: 'Aave V3',
+      }),
+      protocolLogo: 'https://logo/aave.png',
+      // eslint-disable-next-line no-script-url
+      protocolUrl: 'javascript:alert(1)',
+    };
+
+    const { protocolMap } = defiUtils.transformDeFiData({
+      positions: { 'evm--1': [position] },
+      protocolSummaries: [],
+    });
+
+    expect(protocolMap['evm--1-aave-v3']).toMatchObject({
+      protocolLogo: 'https://logo/aave.png',
+      protocolUrl: '',
+    });
+  });
+
+  it('drops a non-HTTP(S) protocol url from a server protocol summary', () => {
+    const summary: IProtocolSummary = {
+      protocol: 'aave-v3',
+      protocolName: 'Aave V3',
+      totalValue: 10,
+      totalDebt: 0,
+      totalReward: 0,
+      netWorth: 10,
+      networkIds: ['evm--1'],
+      positionCount: 1,
+      positionIndices: [],
+      protocolLogo: '',
+      protocolUrl: 'onekey-wallet://open',
+    };
+
+    const { protocolMap } = defiUtils.transformDeFiData({
+      positions: { 'evm--1': [] },
+      protocolSummaries: [summary],
+    });
+
+    expect(protocolMap['evm--1-aave-v3']).toMatchObject({
+      protocolName: 'Aave V3',
+      netWorth: 10,
+      protocolUrl: '',
+    });
+  });
+
+  it('keeps http and https protocol urls', () => {
+    const summaries: IProtocolSummary[] = [
+      'http://aave.com',
+      'https://aave.com/',
+    ].map((protocolUrl, index) => ({
+      protocol: `aave-${index}`,
+      protocolName: 'Aave',
+      totalValue: 0,
+      totalDebt: 0,
+      totalReward: 0,
+      netWorth: 0,
+      networkIds: ['evm--1'],
+      positionCount: 0,
+      positionIndices: [],
+      protocolLogo: '',
+      protocolUrl,
+    }));
+
+    const { protocolMap } = defiUtils.transformDeFiData({
+      positions: { 'evm--1': [] },
+      protocolSummaries: summaries,
+    });
+
+    expect(protocolMap['evm--1-aave-0'].protocolUrl).toBe('http://aave.com');
+    expect(protocolMap['evm--1-aave-1'].protocolUrl).toBe('https://aave.com/');
+  });
 });
 
 describe('defiUtils.splitDeFiPositionsByNetwork', () => {
