@@ -1,4 +1,5 @@
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { EAccountSelectorSceneName } from '../../types';
@@ -137,6 +138,27 @@ function buildGlobalDeriveTypesMapKey({ networkId }: { networkId: string }) {
   // return key;
 }
 
+// The persisted map only holds derive types the user saved explicitly. BTC
+// defaults to Taproot (BIP86) without such an entry, and every reader of the
+// raw map must apply that same default, or a scene seeded from the raw map
+// ends up on Nested SegWit while home shows Taproot (OK-64269).
+function getGlobalDeriveTypeFromMap({
+  networkId,
+  globalDeriveTypesMap,
+}: {
+  networkId: string;
+  globalDeriveTypesMap:
+    | Partial<Record<string, IAccountDeriveTypes | undefined>>
+    | undefined;
+}): IAccountDeriveTypes | undefined {
+  const key = buildGlobalDeriveTypesMapKey({ networkId });
+  const deriveType = globalDeriveTypesMap?.[key];
+  if (deriveType === undefined && networkUtils.isBTCNetwork(networkId)) {
+    return 'BIP86'; // Taproot
+  }
+  return deriveType;
+}
+
 function isSceneCanPersist({
   sceneName,
 }: {
@@ -230,6 +252,7 @@ export default {
   buildAccountSelectorSceneId,
   buildMergedSelectedAccount,
   buildGlobalDeriveTypesMapKey,
+  getGlobalDeriveTypeFromMap,
   isSceneCanAutoSelect,
   isSceneCanPersist,
   isSceneUseGlobalDeriveType,
