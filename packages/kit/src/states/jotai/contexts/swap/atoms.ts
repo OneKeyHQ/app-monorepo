@@ -570,6 +570,35 @@ export const {
   to: false,
 });
 
+// Bookkeeping for the stored From/To balance: which token + account it was
+// fetched for (see buildSwapBalanceOwner in swapBalanceOwnerUtils), and whether
+// the stored figure is only a fallback (the fetch failed, or the response
+// carried no balance) rather than an authoritative amount; callers must not
+// read such a '0' as a real zero. A reload for the same owner keeps the figure
+// on screen while it refreshes; a different owner clears it so a stale number
+// is never shown for the new selection, and readers ignore a figure whose
+// owner is not the current selection (resolveVerifiedSwapBalance).
+export interface ISwapSelectedTokenBalanceMeta {
+  tokenKey?: string;
+  // Lower-cased; only ever compared with itself.
+  accountAddress?: string;
+  // Network-agnostic account identity (wallet + indexed/db account) the figure
+  // was fetched for; see buildSwapBalanceAccountIdentity. It decides before the
+  // address resolves, so another account never inherits this figure while its
+  // own cross-network lookup is still pending.
+  accountIdentity?: string;
+  unverified: boolean;
+}
+export const EMPTY_SWAP_SELECTED_TOKEN_BALANCE_META: ISwapSelectedTokenBalanceMeta =
+  { unverified: false };
+export const {
+  atom: swapSelectedTokenBalanceMetaAtom,
+  use: useSwapSelectedTokenBalanceMetaAtom,
+} = contextAtom<Record<ESwapDirectionType, ISwapSelectedTokenBalanceMeta>>({
+  from: EMPTY_SWAP_SELECTED_TOKEN_BALANCE_META,
+  to: EMPTY_SWAP_SELECTED_TOKEN_BALANCE_META,
+});
+
 export const { atom: swapSelectTokenDetailRequestIdAtom } = contextAtom<
   Record<ESwapDirectionType, number>
 >({ from: 0, to: 0 });
