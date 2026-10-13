@@ -25,10 +25,8 @@ permissions:
 jobs:
   trivy-security-scan:
     name: Trivy Security Scan
-    needs: trivy-policy-installation
-    # Keep the existing scan during first installation on a base branch.
-    # A failed incremental gate must never fall back to a non-blocking scan.
-    if: ${{ always() && !cancelled() && github.event_name != 'pull_request_target' && (github.event_name != 'pull_request' || (needs.trivy-policy-installation.result == 'success' && needs.trivy-policy-installation.outputs.policy_available == 'false')) }}
+    # Publish SARIF for every event, including PRs. Once installed on the PR
+    # target, the trusted incremental gate is the blocking PR check.
     runs-on: ubuntu-24.04
     permissions:
       actions: read
@@ -68,8 +66,6 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: read
-    outputs:
-      policy_available: ${{ steps.policy.outputs.available }}
     steps:
       - name: Initialize safe failure evidence
         run: |
@@ -84,7 +80,7 @@ jobs:
           path: trusted
 
       # Never execute the PR's comparator. Until the PR target has the workflow,
-      # the separate full-scan job retains the existing security checks.
+      # the full scan and its SARIF checks remain the required security checks.
       - name: Select trusted gate or installation scan
         id: policy
         run: |

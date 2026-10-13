@@ -489,6 +489,12 @@ class GateTests(unittest.TestCase):
         self.assertIn('ref: ${{ github.event.pull_request.base.sha }}', checkout)
         self.assertNotIn('default_branch', checkout)
 
+    def test_pull_requests_retain_sarif_publication(self):
+        workflow = (Path(__file__).parent.parent / 'workflows/trivy.yml').read_text()
+        job = workflow.split('  trivy-security-scan:\n', 1)[1].split('\n  trivy-', 1)[0]
+        self.assertIn('upload-sarif', job)
+        self.assertIsNone(re.search(r'(?m)^    (?:if|needs):', job))
+        self.assertIn('  pull_request:\n', workflow.split('jobs:', 1)[0])
 
     def test_installation_routing_requires_target_workflow_and_policy(self):
         workflow = (Path(__file__).parent.parent / 'workflows/trivy.yml').read_text()
