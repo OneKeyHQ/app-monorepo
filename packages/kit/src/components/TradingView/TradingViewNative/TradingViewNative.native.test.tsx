@@ -90,7 +90,7 @@ describe('TradingViewNative screen orientation', () => {
     expect(mockStatusBar).not.toHaveBeenCalled();
   });
 
-  it('preserves caller drawing settings when the native toolbar is hidden', () => {
+  it('preserves the caller drawing configuration', () => {
     const { rerender } = render(
       <TradingViewNative source={source} enableDrawings />,
     );

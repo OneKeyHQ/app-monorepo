@@ -92,6 +92,7 @@ import {
   createTradingViewNativeSkiaResources,
   getTradingViewNativeSkiaLegendText,
 } from './chartSkiaRenderer';
+import { NativeDrawingToolbar } from './NativeDrawingToolbar';
 import { TradingViewNativePriceScaleControls } from './TradingViewNativePriceScaleControls';
 import { useNativeChartDrawings } from './useNativeChartDrawings';
 import { useTradingViewNativeChartGestures } from './useTradingViewNativeChartGestures';
@@ -1004,6 +1005,9 @@ export const TradingViewNativeChart = memo(
 
     return (
       <Stack flex={1} minHeight={0} flexDirection="row" position="relative">
+        {enableDrawings ? (
+          <NativeDrawingToolbar controller={drawingController} />
+        ) : null}
         <Stack
           flex={1}
           minHeight={0}

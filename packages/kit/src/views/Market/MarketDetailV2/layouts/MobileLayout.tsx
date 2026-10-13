@@ -913,7 +913,7 @@ export function MobileLayout({
                         enablePreviousClose={isStockDetailChart}
                         previousClose={stockPreviousClose}
                         enableNativeChartSettings
-                        enableDrawings
+                        enableDrawings={!platformEnv.isNative}
                         prioritizePageScroll
                         nativeChartSettingsInToolbar={platformEnv.isNative}
                         showNativeIndicatorQuickBar={platformEnv.isNative}
