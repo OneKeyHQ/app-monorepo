@@ -357,10 +357,10 @@ export function ChartInspector({
           <XStack render="label" alignItems="center" gap={8}>
             <SizableText fontSize={12}>Name</SizableText>
             <SizableText
+              key={`${selected.id}-${selected.name ?? ''}`}
               render={
                 <input
                   aria-label="Object name"
-                  key={`${selected.id}-${selected.name ?? ''}`}
                   maxLength={100}
                   defaultValue={
                     selected.name ?? DRAWING_TOOLS[selected.tool].label

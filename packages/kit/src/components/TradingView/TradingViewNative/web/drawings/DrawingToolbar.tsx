@@ -894,7 +894,7 @@ export function DrawingToolbar({
           shadowOffset={{ width: 0, height: 3 }}
           shadowRadius={12}
           shadowOpacity={0.07}
-          overflow="scroll"
+          overflowX="auto"
           zIndex={3}
         >
           <DrawingButton
@@ -1059,12 +1059,13 @@ export function DrawingToolbar({
             render={<div ref={settingsBodyRef} />}
             minHeight={0}
             flexShrink={1}
-            overflow="scroll"
+            overflowY="auto"
           >
             {selected.tool === 'text' || selected.tool === 'callout' ? (
               <YStack render="label" gap={6} marginVertical={10}>
                 <SizableText fontSize={12}>Content</SizableText>
                 <DrawingField
+                  key={`${selected.id}-text-${selected.text ?? ''}`}
                   width="100%"
                   minHeight={72}
                   padding={10}
@@ -1073,7 +1074,6 @@ export function DrawingToolbar({
                     <textarea
                       aria-label="Drawing text"
                       data-testid="chart-drawing-text"
-                      key={`${selected.id}-text-${selected.text ?? ''}`}
                       maxLength={500}
                       defaultValue={selected.text ?? 'Text'}
                       disabled={styleDisabled}
