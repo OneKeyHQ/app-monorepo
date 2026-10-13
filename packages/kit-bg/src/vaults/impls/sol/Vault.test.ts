@@ -548,6 +548,16 @@ describe('SolVault.checkShouldRetryBroadcastTx', () => {
     ).toBe(false);
     expect(wait).not.toHaveBeenCalled();
   });
+
+  it('stops retrying a blockhash-not-found rejection after the second attempt', async () => {
+    const { vault } = buildVault();
+    const wait = jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+
+    expect(
+      await vault.checkShouldRetryBroadcastTx(buildError({ code: 40_028 }, 3)),
+    ).toBe(false);
+    expect(wait).not.toHaveBeenCalled();
+  });
 });
 
 describe('SolVault broadcast error copy', () => {
@@ -582,7 +592,8 @@ describe('SolVault broadcast error copy', () => {
     });
 
     await expect(promise).rejects.toMatchObject({
-      message: 'Transaction expired, please try again.',
+      message:
+        'Transaction expired. Retry and confirm on your device within 30s.',
       code: 40_028,
     });
   });
@@ -598,7 +609,8 @@ describe('SolVault broadcast error copy', () => {
     await expect(
       vault.broadcastTransaction(broadcastParams),
     ).rejects.toMatchObject({
-      message: 'Transaction expired, please try again.',
+      message:
+        'Transaction expired. Retry and confirm on your device within 30s.',
       code: 40_028,
     });
   });

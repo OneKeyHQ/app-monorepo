@@ -150,15 +150,25 @@ import type { AccountInfo, TransactionInstruction } from '@solana/web3.js';
 import type { FailedAttemptError } from 'p-retry';
 
 // A pending Solana tx that never reached the ledger leaves no signature
-// status. Its blockhash lives ~150 slots (60-90 s) and the broadcast retries
-// add up to ~45 s more, so an unseen tx older than this window is dropped.
+// status. Its blockhash lives 150 blocks (~30 s at 200 ms slots, up to ~60 s
+// on slower cadences) and the broadcast retries add a few seconds more, so an
+// unseen tx older than this window is dropped.
 const SOL_PENDING_TX_DROPPED_TIMEOUT_MS = timerUtils.getTimeDurationMs({
   minute: 3,
 });
 // Preflight rejection text shared by the proxy (code 40028) and custom RPCs.
 const SOL_BLOCKHASH_NOT_FOUND_MESSAGE = 'Blockhash not found';
-// TODO(OK-63381): move to an ETranslations key once the copy lands in Lokalise.
-const SOL_TX_EXPIRED_MESSAGE = 'Transaction expired, please try again.';
+// TODO(OK-64558): hardcoded English until product supplies the final copy
+// and an ETranslations key. Solana mainnet runs 200 ms slots since 2026-10-09,
+// so a blockhash is only valid for ~30 s; hardware/QR signing slower than that
+// lands here, and the copy has to tell the user to confirm faster next time.
+const SOL_TX_EXPIRED_MESSAGE =
+  'Transaction expired. Retry and confirm on your device within 30s.';
+// A fresh blockhash can trail a lagging node by a slot or two, which clears in
+// a few seconds; an expired one never comes back. Two retries cover the lag
+// case without making the user wait a minute for a verdict that was already
+// final on the first attempt.
+const SOL_BLOCKHASH_NOT_FOUND_MAX_RETRY_ATTEMPTS = 2;
 
 function isSolBlockhashNotFoundError(error: unknown): boolean {
   return (
@@ -2032,7 +2042,11 @@ export default class Vault extends VaultBase {
     // slots behind rejects it transiently the same way the proxy does with
     // 40028; retry both alike.
     if (isSolBlockhashNotFoundError(error)) {
-      await timerUtils.wait((error?.attemptNumber || 1) * 1000);
+      const attemptNumber = error?.attemptNumber || 1;
+      if (attemptNumber > SOL_BLOCKHASH_NOT_FOUND_MAX_RETRY_ATTEMPTS) {
+        return false;
+      }
+      await timerUtils.wait(attemptNumber * 1000);
       return true;
     }
     return false;
