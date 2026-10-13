@@ -314,7 +314,9 @@ const PaginationFooter = ({
       title: intl.formatMessage({
         id: ETranslations.global_bulk_accounts_page_number,
       }),
-      sheetProps: platformEnv.isNativeIOS
+      // Let the input own initial focus; the web focus scope can also select text.
+      onOpenAutoFocus: (event) => event.preventDefault(),
+      sheetProps: platformEnv.isNative
         ? {
             onAnimationComplete: ({ open }) => {
               if (!open || hasFocusedPageInput) {
@@ -350,7 +352,6 @@ const PaginationFooter = ({
             <Input
               testID="perp-pagination-page-input"
               autoFocus
-              selectTextOnFocus={!platformEnv.isNativeIOS}
               keyboardType="number-pad"
               size="large"
               maxLength={totalPages.toString().length}
