@@ -66,6 +66,14 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   default: () => ({ push: mockPush, pop: mockPop, popStack: mockPopStack }),
 }));
 
+let mockIsFocused = true;
+jest.mock('@react-navigation/core', () => ({
+  ...jest.requireActual<typeof import('@react-navigation/core')>(
+    '@react-navigation/core',
+  ),
+  useNavigation: () => ({ isFocused: () => mockIsFocused }),
+}));
+
 jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => ({
   __esModule: true,
   default: { wait: () => Promise.resolve() },
@@ -104,6 +112,7 @@ function buildFreeTrialError(code = 90_600) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockIsFocused = true;
   mockCheckAddressRisk.mockResolvedValue(riskResult);
   mockAddCheck.mockResolvedValue(undefined);
   mockGetCheck.mockResolvedValue(undefined);
@@ -389,6 +398,25 @@ describe('useAddressRiskCheckRequest', () => {
     await waitFor(() => expect(mockHandleFreeTrialError).toHaveBeenCalled());
     expect(mockPopStack).toHaveBeenCalledTimes(1);
     expect(mockPop).not.toHaveBeenCalled();
+  });
+
+  it('only gives the feedback when the page is already closing', async () => {
+    mockIsFocused = false;
+    const freeTrialError = buildFreeTrialError();
+    mockCheckAddressRisk.mockRejectedValueOnce(
+      freeTrialError as unknown as Error,
+    );
+    renderHook(() => useAddressRiskCheckRequest(historyRequest));
+
+    await waitFor(() =>
+      expect(mockHandleFreeTrialError).toHaveBeenCalledWith({
+        error: freeTrialError,
+        networkId: riskResult.networkId,
+        afterPageExit: true,
+      }),
+    );
+    expect(mockPop).not.toHaveBeenCalled();
+    expect(mockPopStack).not.toHaveBeenCalled();
   });
 
   it('shows the failed state for other failures', async () => {

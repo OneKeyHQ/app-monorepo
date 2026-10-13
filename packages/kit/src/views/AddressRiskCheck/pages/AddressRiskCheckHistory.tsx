@@ -18,21 +18,22 @@ import { useCheckAddressRisk } from '../hooks/useCheckAddressRisk';
 import { useRecentChecks } from '../hooks/useRecentChecks';
 
 // Page-level gate: the history needs a OneKey ID login (Prime or free trial),
-// also when the route is opened directly. Logged-out users are sent to the
-// dashboard.
-function useAddressRiskCheckHistoryAccess() {
+// also when the route is opened directly or the user is logged out while on
+// it. Logged-out users are sent to the dashboard.
+export function useAddressRiskCheckHistoryAccess() {
   const navigation = useAppNavigation();
   const { isLoggedIn } = useOneKeyAuth();
   const { openPrimeDashboard } = usePrimeFeatureAccess();
-  const checkedRef = useRef(false);
+  const exitingRef = useRef(false);
   useEffect(() => {
-    if (checkedRef.current || isLoggedIn) {
+    if (isLoggedIn || exitingRef.current) {
       return;
     }
-    checkedRef.current = true;
+    exitingRef.current = true;
     void (async () => {
       // The local projection may lag on a cold start.
       if (await backgroundApiProxy.servicePrime.isLoggedIn()) {
+        exitingRef.current = false;
         return;
       }
       navigation.pop();
@@ -42,9 +43,9 @@ function useAddressRiskCheckHistoryAccess() {
         afterPageExit: true,
       });
     })();
-    // Runs once on mount.
+    // Runs on mount and whenever the login state changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isLoggedIn]);
   return Boolean(isLoggedIn);
 }
 

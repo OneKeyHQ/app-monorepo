@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
@@ -178,6 +180,7 @@ export function useAddressRiskCheckRequest(
   const [isHistoryResult, setIsHistoryResult] = useState(false);
   const [isFailed, setIsFailed] = useState(false);
   const navigation = useAppNavigation();
+  const reactNavigation = useNavigation();
   const { handleFreeTrialError } = usePrimeFeatureAccess();
   const [primeUser] = usePrimePersistAtom();
   const entitlementSource = getPrimeEntitlementSource(primeUser);
@@ -206,12 +209,16 @@ export function useAddressRiskCheckRequest(
           // Leave this pending page first so the user is not left on it
           // behind the feedback: the Send page check closes the whole modal,
           // a check inside the feature goes back to the input / history page.
-          if (entryPoint === 'sendAddressInput') {
-            navigation.popStack();
-          } else {
-            navigation.pop();
+          // Only a page still on top leaves: one already closing (mounted
+          // during its close animation) or covered would pop another page.
+          if (reactNavigation.isFocused()) {
+            if (entryPoint === 'sendAddressInput') {
+              navigation.popStack();
+            } else {
+              navigation.pop();
+            }
+            await timerUtils.wait(300);
           }
-          await timerUtils.wait(300);
           handleFreeTrialError({ error, networkId, afterPageExit: true });
           return;
         }
