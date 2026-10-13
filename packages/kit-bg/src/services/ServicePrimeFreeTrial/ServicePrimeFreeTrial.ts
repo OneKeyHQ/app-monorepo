@@ -19,6 +19,7 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import type {
   EPrimeFreeTrialPendingActionType,
+  IPrimeFreeTrialAtomData,
   IPrimeFreeTrialBroadcastUsage,
   IPrimeFreeTrialError,
   IPrimeFreeTrialFeatureId,
@@ -191,11 +192,16 @@ class ServicePrimeFreeTrial extends ServiceBase {
   }
 
   // Monotonic sequence of quota writers (/user/info, /free-trial/quota,
-  // metering responses, 90600 data). A response may only overwrite the
-  // snapshot when its sequence is newer than the last applied one.
+  // metering responses, 90600 data). A full snapshot may only overwrite the
+  // snapshot when its sequence is newer than the last applied full one.
   private quotaRequestSeq = 0;
 
   private lastAppliedQuotaRequestSeq = 0;
+
+  // Sequence of the last single-feature write (start / 90600) per feature. A
+  // full snapshot requested before that write keeps the written value of the
+  // feature and still updates every other feature.
+  private featureQuotaWriteSeq = new Map<IPrimeFreeTrialFeatureId, number>();
 
   private startRequests = new Map<
     string,
@@ -319,16 +325,61 @@ class ServicePrimeFreeTrial extends ServiceBase {
       quota: {
         status: 'success',
         onekeyUserId,
-        data,
+        data: this.keepLaterFeatureWrites({
+          data,
+          current: v.quota,
+          onekeyUserId,
+          requestSeq,
+        }),
         updatedAt: Date.now(),
       },
     }));
     return true;
   }
 
+  // A feature written on its own after this snapshot was requested keeps
+  // that value (same user and month): the snapshot may predate that change.
+  private keepLaterFeatureWrites({
+    data,
+    current,
+    onekeyUserId,
+    requestSeq,
+  }: {
+    data: IPrimeFreeTrialQuota | null;
+    current: IPrimeFreeTrialAtomData['quota'];
+    onekeyUserId: string;
+    requestSeq: number;
+  }): IPrimeFreeTrialQuota | null {
+    const currentData =
+      current.onekeyUserId === onekeyUserId ? current.data : undefined;
+    if (!data || !currentData || currentData.resetAt !== data.resetAt) {
+      return data;
+    }
+    const laterFeatures = currentData.features.filter(
+      (item) =>
+        (this.featureQuotaWriteSeq.get(item.featureId) ?? 0) > requestSeq,
+    );
+    if (!laterFeatures.length) {
+      return data;
+    }
+    const laterById = new Map(
+      laterFeatures.map((item) => [item.featureId, item]),
+    );
+    const features = data.features.map(
+      (item) => laterById.get(item.featureId) ?? item,
+    );
+    laterFeatures.forEach((item) => {
+      if (!data.features.some((f) => f.featureId === item.featureId)) {
+        features.push(item);
+      }
+    });
+    return { ...data, features };
+  }
+
   private async clearQuotaSnapshot() {
     // Invalidate every in-flight quota request as well.
     this.lastAppliedQuotaRequestSeq = this.allocateQuotaRequestSeq();
+    this.featureQuotaWriteSeq.clear();
     const current = await primeFreeTrialAtom.get();
     if (
       current.quota.status === 'idle' &&
@@ -459,7 +510,9 @@ class ServicePrimeFreeTrial extends ServiceBase {
         // Nothing open for this free user: load which features are closed.
         await this.getPublicConfig();
       }
-      return data;
+      // The written snapshot, which keeps features written after this
+      // request (callers joining this refresh decide access on it).
+      return (await primeFreeTrialAtom.get()).quota.data;
     } catch (error) {
       this.trace({
         stage: 'refreshQuota',
@@ -485,30 +538,44 @@ class ServicePrimeFreeTrial extends ServiceBase {
     resetAt: number | undefined;
     featureQuota: IPrimeFreeTrialFeatureQuota;
   }) {
-    const current = (await primeFreeTrialAtom.get()).quota;
-    const currentData = current.data;
-    // Also written while a refresh is loading: that refresh may have been
-    // answered before this change, and its older sequence drops it now.
-    if (
-      current.onekeyUserId !== onekeyUserId ||
-      !currentData ||
-      (resetAt !== undefined && currentData.resetAt !== resetAt)
-    ) {
+    const user = await primePersistAtom.get();
+    if (!user.isLoggedIn || user.onekeyUserId !== onekeyUserId) {
       return false;
     }
-    const requestSeq = this.allocateQuotaRequestSeq();
-    const features = currentData.features.some(
-      (item) => item.featureId === featureQuota.featureId,
-    )
-      ? currentData.features.map((item) =>
-          item.featureId === featureQuota.featureId ? featureQuota : item,
-        )
-      : [...currentData.features, featureQuota];
-    return this.writeQuotaSnapshot({
-      requestSeq,
-      onekeyUserId,
-      data: { ...currentData, features },
+    const { featureId } = featureQuota;
+    const writeSeq = this.allocateQuotaRequestSeq();
+    let applied = false;
+    // Only this feature changes, also while a full refresh is loading: that
+    // refresh may have been answered before this change, so it keeps this
+    // value and still updates the other features.
+    await primeFreeTrialAtom.set((v) => {
+      const currentData = v.quota.data;
+      if (
+        v.quota.onekeyUserId !== onekeyUserId ||
+        !currentData ||
+        (resetAt !== undefined && currentData.resetAt !== resetAt)
+      ) {
+        return v;
+      }
+      applied = true;
+      this.featureQuotaWriteSeq.set(featureId, writeSeq);
+      const features = currentData.features.some(
+        (item) => item.featureId === featureId,
+      )
+        ? currentData.features.map((item) =>
+            item.featureId === featureId ? featureQuota : item,
+          )
+        : [...currentData.features, featureQuota];
+      return {
+        ...v,
+        quota: {
+          ...v.quota,
+          data: { ...currentData, features },
+          updatedAt: Date.now(),
+        },
+      };
     });
+    return applied;
   }
 
   // 90600 carries the authoritative quota of the exhausted feature.

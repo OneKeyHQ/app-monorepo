@@ -1359,6 +1359,84 @@ describe('ServicePrimeFreeTrial', () => {
       expect(mockState.freeTrial.quota.data?.features[0].remaining).toBe(0);
     });
 
+    it('keeps the other features of a refresh that was in flight during a start', async () => {
+      const { service } = createService();
+      const bulkRevokeQuota: IPrimeFreeTrialFeatureQuota = {
+        featureId: EPrimeFeatures.BulkRevoke,
+        unit: 'count',
+        monthlyQuota: 1,
+        used: 0,
+        remaining: 1,
+      };
+      await service.applyQuotaFromPrimeUserInfo({
+        freeTrial: {
+          ...quota,
+          features: [quotaOfBulkSend, bulkRevokeQuota],
+        },
+        onekeyUserId: 'user-a',
+        requestSeq: service.allocateQuotaRequestSeq(),
+        isPrimeSubscriptionActive: false,
+      });
+      // Requested after a BulkSend release: its use is back.
+      let resolveRefresh: ((value: unknown) => void) | undefined;
+      mockOneKeyIdClient.get
+        .mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              resolveRefresh = resolve;
+            }),
+        )
+        .mockImplementation(() => new Promise(() => {}));
+      const refresh = service.refreshQuota();
+      await flushPromises();
+      // A BulkRevoke start reply lands first.
+      mockOneKeyIdClient.post.mockResolvedValueOnce({
+        data: {
+          code: 0,
+          data: {
+            unlimited: false,
+            featureId: EPrimeFeatures.BulkRevoke,
+            usageId: 'usage-3002',
+            quota: { ...bulkRevokeQuota, used: 1, remaining: 0 },
+            expiresAt: 1000,
+            resetAt: quota.resetAt,
+          },
+        },
+      });
+      await service.startUsage({
+        featureId: EPrimeFeatures.BulkRevoke,
+        usageId: 'usage-3002',
+      });
+      await flushPromises();
+
+      resolveRefresh?.({
+        data: {
+          code: 0,
+          data: {
+            ...quota,
+            features: [
+              { ...quotaOfBulkSend, used: 0, remaining: 1 },
+              bulkRevokeQuota,
+            ],
+          },
+        },
+      });
+      const refreshed = await refresh;
+      await flushPromises();
+
+      const remainingOf = (
+        data: IPrimeFreeTrialQuota | null | undefined,
+        featureId: EPrimeFeatures,
+      ) =>
+        data?.features.find((item) => item.featureId === featureId)?.remaining;
+      const snapshot = mockState.freeTrial.quota.data;
+      expect(remainingOf(snapshot, EPrimeFeatures.BulkSend)).toBe(1);
+      expect(remainingOf(snapshot, EPrimeFeatures.BulkRevoke)).toBe(0);
+      // A caller that joined the refresh decides on the same snapshot.
+      expect(remainingOf(refreshed, EPrimeFeatures.BulkSend)).toBe(1);
+      expect(remainingOf(refreshed, EPrimeFeatures.BulkRevoke)).toBe(0);
+    });
+
     it('keeps the snapshot when freeTrial is missing and clears it on null', async () => {
       const { service } = createService();
       await service.applyQuotaFromPrimeUserInfo({
