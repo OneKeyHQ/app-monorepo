@@ -104,6 +104,8 @@ export function DustSweepDetails({
               reason = intl.formatMessage({
                 id: ETranslations.swap_review_tx_pending,
               });
+            else if (item.status === 'failed' && item.message?.trim())
+              reason = item.message;
             else if (item.reason)
               reason = getDustSweepReasonMessage(
                 intl,
