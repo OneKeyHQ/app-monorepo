@@ -24,6 +24,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IProtocolPositionActionSuccessParams } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionDialog';
 import { EmptyDeFi } from '@onekeyhq/kit/src/components/Empty';
+import type { IAllNetworkRequestBatch } from '@onekeyhq/kit/src/hooks/buildAllNetworkRequestBatches';
 import { useAllNetworkRequests } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { runAfterTokensDone } from '@onekeyhq/kit/src/hooks/useRunAfterTokensDone';
@@ -63,6 +64,7 @@ import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 import type {
+  IDeFiOverviewTotals,
   IDeFiProtocol,
   IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
@@ -747,37 +749,23 @@ function DeFiListBlock({
     resetRunOverview();
   }, [resetRunOverview, updateAllNetworkData]);
 
-  const handleAllNetworkRequests = useCallback(
-    async ({
-      accountId,
-      networkId,
+  // Shared by the per-network and the batched request paths: every guard and
+  // accumulation step is per network result, so a batch is merged item by item.
+  const mergeAllNetworkResult = useCallback(
+    ({
+      result: r,
       allNetworkDataInit,
       isRunCurrent,
     }: {
-      accountId: string;
-      networkId: string;
+      result: {
+        overview: IDeFiOverviewTotals;
+        protocols: IDeFiProtocol[];
+        protocolMap: Record<string, IProtocolSummary>;
+        isSameAllNetworksAccountData?: boolean;
+      };
       allNetworkDataInit?: boolean;
       isRunCurrent?: () => boolean;
     }) => {
-      if (refreshCacheOnly) {
-        return;
-      }
-
-      const shouldForceInitialRefresh = !allNetworkDataInit;
-      const r = await backgroundApiProxy.serviceDeFi.fetchAccountDeFiPositions({
-        accountId,
-        indexedAccountId: account?.indexedAccountId,
-        networkId,
-        isAllNetworks: true,
-        allNetworksAccountId: account?.id,
-        allNetworksNetworkId: network?.id,
-        saveToLocal: true,
-        excludeLowValueProtocols: true,
-        sourceCurrencyInfo,
-        targetCurrencyInfo,
-        isForceRefresh:
-          allNetworkManualForceRefreshRef.current || shouldForceInitialRefresh,
-      });
       // Not for a superseded run either: the run that replaced it would then
       // finish believing positions are on the way and never settle its empty
       // state.
@@ -834,16 +822,106 @@ function DeFiListBlock({
         });
         updateAllNetworkData();
       }
+    },
+    [currentOwnerKey, updateAllNetworkData, updateDeFiListProtocolMap],
+  );
 
+  const handleAllNetworkRequests = useCallback(
+    async ({
+      accountId,
+      networkId,
+      allNetworkDataInit,
+      isRunCurrent,
+    }: {
+      accountId: string;
+      networkId: string;
+      allNetworkDataInit?: boolean;
+      isRunCurrent?: () => boolean;
+    }) => {
+      if (refreshCacheOnly) {
+        return;
+      }
+
+      const shouldForceInitialRefresh = !allNetworkDataInit;
+      const r = await backgroundApiProxy.serviceDeFi.fetchAccountDeFiPositions({
+        accountId,
+        indexedAccountId: account?.indexedAccountId,
+        networkId,
+        isAllNetworks: true,
+        allNetworksAccountId: account?.id,
+        allNetworksNetworkId: network?.id,
+        saveToLocal: true,
+        excludeLowValueProtocols: true,
+        sourceCurrencyInfo,
+        targetCurrencyInfo,
+        isForceRefresh:
+          allNetworkManualForceRefreshRef.current || shouldForceInitialRefresh,
+      });
+      mergeAllNetworkResult({ result: r, allNetworkDataInit, isRunCurrent });
       return r;
     },
     [
       account?.id,
       account?.indexedAccountId,
       network?.id,
-      currentOwnerKey,
-      updateAllNetworkData,
-      updateDeFiListProtocolMap,
+      mergeAllNetworkResult,
+      sourceCurrencyInfo,
+      targetCurrencyInfo,
+      refreshCacheOnly,
+    ],
+  );
+
+  // One request per planned batch (same address, up to 10 EVM networks); each
+  // per-network entry is merged exactly like a per-network response.
+  const handleAllNetworkRequestsBatch = useCallback(
+    async ({
+      batch,
+      allNetworkDataInit,
+      isRunCurrent,
+    }: {
+      batch: IAllNetworkRequestBatch<IAllNetworkAccountInfo>;
+      allNetworkDataInit?: boolean;
+      isRunCurrent?: () => boolean;
+    }) => {
+      if (refreshCacheOnly) {
+        return [];
+      }
+
+      const shouldForceInitialRefresh = !allNetworkDataInit;
+      const results =
+        await backgroundApiProxy.serviceDeFi.fetchAccountDeFiPositionsBatch({
+          accountId: batch.accountId,
+          indexedAccountId: account?.indexedAccountId,
+          networkIds: batch.items.map((item) => item.networkId),
+          accountAddress: batch.apiAddress,
+          xpub: batch.accountXpub,
+          isAllNetworks: true,
+          allNetworksAccountId: account?.id,
+          allNetworksNetworkId: network?.id,
+          saveToLocal: true,
+          excludeLowValueProtocols: true,
+          sourceCurrencyInfo,
+          targetCurrencyInfo,
+          isForceRefresh:
+            allNetworkManualForceRefreshRef.current ||
+            shouldForceInitialRefresh,
+        });
+      for (const r of results) {
+        if (r) {
+          mergeAllNetworkResult({
+            result: r,
+            allNetworkDataInit,
+            isRunCurrent,
+          });
+        }
+      }
+      return results;
+    },
+    [
+      account?.id,
+      account?.indexedAccountId,
+      network?.id,
+      mergeAllNetworkResult,
       sourceCurrencyInfo,
       targetCurrencyInfo,
       refreshCacheOnly,
@@ -1249,6 +1327,7 @@ function DeFiListBlock({
     allNetworkCacheRequestsBatch: handleAllNetworkCacheRequestsBatch,
     allNetworkCacheData: handleAllNetworkCacheData,
     allNetworkRequests: handleAllNetworkRequests,
+    allNetworkRequestsBatch: handleAllNetworkRequestsBatch,
     clearAllNetworkData: handleClearAllNetworkData,
     abortSupersededRequests: handleAbortSupersededRequests,
     isDeFiRequests: true,
