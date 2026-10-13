@@ -1,5 +1,5 @@
 import BigNumber from 'bignumber.js';
-import { debounce, isEmpty, isEqual, isUndefined } from 'lodash';
+import { isEmpty, isEqual, isUndefined } from 'lodash';
 
 import { settingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -17,15 +17,19 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
 import type {
   IDeFiBuildTransactionParams,
   IDeFiBuildTransactionResp,
   IDeFiEvmTransaction,
+  IDeFiOverviewTotals,
   IDeFiProtocol,
+  IFetchAccountDeFiPositionsBatchParams,
   IFetchAccountDeFiPositionsParams,
   IFetchAccountDeFiPositionsResp,
+  IFetchAccountDeFiPositionsResult,
   IGetSupportedDeFiProtocolsResp,
   IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
@@ -169,6 +173,29 @@ class ServiceDeFi extends ServiceBase {
 
   _fetchAccountDeFiPositionsControllers: AbortController[] = [];
 
+  // Sorted network sets the backend refused as one array (code 40115), keyed
+  // by their joined ids. Such a set goes straight to single-network requests
+  // until the entry expires, so a family the backend does not array costs one
+  // rejected request per window instead of one per run, and support added on
+  // the backend is picked up without a client change.
+  private _rejectedMultiChainSets = new Map<string, number>();
+
+  private readonly _rejectedMultiChainSetTtlMs = timerUtils.getTimeDurationMs({
+    hour: 1,
+  });
+
+  private _isMultiChainSetRejected(key: string) {
+    const rejectedAt = this._rejectedMultiChainSets.get(key);
+    if (rejectedAt === undefined) {
+      return false;
+    }
+    if (Date.now() - rejectedAt > this._rejectedMultiChainSetTtlMs) {
+      this._rejectedMultiChainSets.delete(key);
+      return false;
+    }
+    return true;
+  }
+
   private readonly _manualDeFiForceRefreshDefaultDailyLimit = 50;
 
   private readonly _manualDeFiForceRefreshDefaultMinIntervalMs = 15_000;
@@ -181,40 +208,6 @@ class ServiceDeFi extends ServiceBase {
     string,
     ReturnType<typeof setTimeout>[]
   >();
-
-  _localDeFiOverviewCache: Record<
-    string,
-    {
-      totalValue: number;
-      totalDebt: number;
-      totalReward: number;
-      netWorth: number;
-      currency: string;
-    }
-  > = {};
-
-  _updateAccountDeFiOverviewDebounced = debounce(
-    async ({
-      accountAddress,
-      xpub,
-    }: {
-      accountAddress?: string;
-      xpub?: string;
-    }) => {
-      await this.updateAccountsLocalDeFiOverview({
-        accountAddress,
-        xpub,
-        overview: this._localDeFiOverviewCache,
-        merge: true,
-      });
-      this._localDeFiOverviewCache = {};
-    },
-    3000,
-    {
-      leading: false,
-      trailing: true,
-    },
-  );
 
   private _fixCurrencyValue = ({
     sourceCurrencyInfo,
@@ -236,6 +229,112 @@ class ServiceDeFi extends ServiceBase {
     }
     return new BigNumber(value ?? 0);
   };
+
+  private _buildLocalDeFiOverviewEntry({
+    overview,
+    sourceCurrencyInfo,
+    targetCurrencyInfo,
+  }: {
+    overview: IDeFiOverviewTotals;
+    sourceCurrencyInfo?: ICurrencyItem;
+    targetCurrencyInfo?: ICurrencyItem;
+  }) {
+    const fix = (value: number) =>
+      this._fixCurrencyValue({
+        sourceCurrencyInfo,
+        targetCurrencyInfo,
+        value,
+      }).toNumber();
+    return {
+      totalValue: fix(overview.totalValue),
+      totalDebt: fix(overview.totalDebt),
+      totalReward: fix(overview.totalReward),
+      netWorth: fix(overview.netWorth),
+      currency: targetCurrencyInfo?.id ?? '',
+    };
+  }
+
+  // The overview is a cache: a failed write must not discard the positions
+  // the request already returned.
+  private async _saveLocalDeFiOverview(params: {
+    accountAddress?: string;
+    xpub?: string;
+    overview: Record<
+      string,
+      ReturnType<ServiceDeFi['_buildLocalDeFiOverviewEntry']>
+    >;
+  }) {
+    try {
+      await this.updateAccountsLocalDeFiOverview({ ...params, merge: true });
+    } catch (error) {
+      console.error('[ServiceDeFi] local DeFi overview write failed', error);
+    }
+  }
+
+  // `meta.queriedNetworkIds` names the networks the backend actually handed
+  // to a provider (OK-63882). A requested network it omits was dropped before
+  // any fetch (not in the multi-chain allowlist, a capability gap, a provider
+  // skip), so its missing positions mean "never looked", not "holds nothing";
+  // a queried network with nothing is seeded as an empty bucket. Without the
+  // field every requested network counts as queried.
+  private _getNotQueriedNetworkIds({
+    networkIds,
+    resp,
+  }: {
+    networkIds: string[];
+    resp: Pick<IFetchAccountDeFiPositionsResp, 'data' | 'meta'>;
+  }) {
+    const queriedNetworkIds = resp.meta?.queriedNetworkIds;
+    if (!Array.isArray(queriedNetworkIds)) {
+      return [];
+    }
+    const queried = new Set(queriedNetworkIds);
+    return networkIds.filter(
+      (networkId) =>
+        !queried.has(networkId) && !resp.data?.positions?.[networkId],
+    );
+  }
+
+  private _filterLowValueProtocols({
+    protocols,
+    protocolMap,
+    sourceCurrencyInfo,
+    targetCurrencyInfo,
+    lowValueProtocolsThresholdUsd,
+  }: {
+    protocols: IDeFiProtocol[];
+    protocolMap: Record<string, IProtocolSummary>;
+    sourceCurrencyInfo?: ICurrencyItem;
+    targetCurrencyInfo?: ICurrencyItem;
+    lowValueProtocolsThresholdUsd: number;
+  }) {
+    return protocols.filter((protocol) => {
+      const sourceTotal =
+        protocolMap[
+          defiUtils.buildProtocolMapKey({
+            protocol: protocol.protocol,
+            networkId: protocol.networkId,
+          })
+        ];
+      const toTarget = (value: number) =>
+        this._fixCurrencyValue({
+          sourceCurrencyInfo,
+          targetCurrencyInfo,
+          value,
+        });
+      return (
+        toTarget(sourceTotal?.totalValue ?? 0).gte(
+          lowValueProtocolsThresholdUsd,
+        ) ||
+        toTarget(sourceTotal?.totalDebt ?? 0).gte(
+          lowValueProtocolsThresholdUsd,
+        ) ||
+        toTarget(sourceTotal?.totalReward ?? 0).gte(
+          lowValueProtocolsThresholdUsd,
+        )
+      );
+    });
+  }
 
   @backgroundMethod()
   public async abortFetchAccountDeFiPositions() {
@@ -366,44 +465,12 @@ class ServiceDeFi extends ServiceBase {
     });
 
     if (excludeLowValueProtocols) {
-      parsedData.protocols = parsedData.protocols.filter((protocol) => {
-        const sourceTotal =
-          parsedData.protocolMap[
-            defiUtils.buildProtocolMapKey({
-              protocol: protocol.protocol,
-              networkId: protocol.networkId,
-            })
-          ];
-
-        const sourceTotalValue = new BigNumber(sourceTotal?.totalValue ?? 0);
-        const sourceTotalDebt = new BigNumber(sourceTotal?.totalDebt ?? 0);
-        const sourceTotalReward = new BigNumber(sourceTotal?.totalReward ?? 0);
-
-        let targetTotalValue = sourceTotalValue;
-        let targetTotalDebt = sourceTotalDebt;
-        let targetTotalReward = sourceTotalReward;
-
-        if (
-          sourceCurrencyInfo &&
-          targetCurrencyInfo &&
-          sourceCurrencyInfo?.id !== targetCurrencyInfo?.id
-        ) {
-          targetTotalValue = sourceTotalValue
-            .div(new BigNumber(sourceCurrencyInfo.value))
-            .times(new BigNumber(targetCurrencyInfo.value));
-          targetTotalDebt = sourceTotalDebt
-            .div(new BigNumber(sourceCurrencyInfo.value))
-            .times(new BigNumber(targetCurrencyInfo.value));
-          targetTotalReward = sourceTotalReward
-            .div(new BigNumber(sourceCurrencyInfo.value))
-            .times(new BigNumber(targetCurrencyInfo.value));
-        }
-
-        return (
-          targetTotalValue.gte(lowValueProtocolsThresholdUsd) ||
-          targetTotalDebt.gte(lowValueProtocolsThresholdUsd) ||
-          targetTotalReward.gte(lowValueProtocolsThresholdUsd)
-        );
+      parsedData.protocols = this._filterLowValueProtocols({
+        protocols: parsedData.protocols,
+        protocolMap: parsedData.protocolMap,
+        sourceCurrencyInfo,
+        targetCurrencyInfo,
+        lowValueProtocolsThresholdUsd,
       });
     }
 
@@ -415,36 +482,27 @@ class ServiceDeFi extends ServiceBase {
         })
       : resp.data.data.data.totals;
 
-    if (saveToLocal) {
-      this._localDeFiOverviewCache = {
-        ...this._localDeFiOverviewCache,
-        [networkId]: {
-          totalValue: this._fixCurrencyValue({
-            sourceCurrencyInfo,
-            targetCurrencyInfo,
-            value: overview.totalValue,
-          }).toNumber(),
-          totalDebt: this._fixCurrencyValue({
-            sourceCurrencyInfo,
-            targetCurrencyInfo,
-            value: overview.totalDebt,
-          }).toNumber(),
-          totalReward: this._fixCurrencyValue({
-            sourceCurrencyInfo,
-            targetCurrencyInfo,
-            value: overview.totalReward,
-          }).toNumber(),
-          netWorth: this._fixCurrencyValue({
-            sourceCurrencyInfo,
-            targetCurrencyInfo,
-            value: overview.netWorth,
-          }).toNumber(),
-          currency: targetCurrencyInfo?.id ?? '',
-        },
-      };
-      await this._updateAccountDeFiOverviewDebounced({
+    const isNetworkQueried =
+      this._getNotQueriedNetworkIds({
+        networkIds: [networkId],
+        resp: resp.data.data,
+      }).length === 0;
+    // A network the backend did not query keeps its last cached overview:
+    // the empty data returned for it is not a result.
+    if (saveToLocal && (accountAddress || xpub) && isNetworkQueried) {
+      // Written under this call's own address/xpub. The previous shared,
+      // debounced map was keyed by networkId only and flushed under the last
+      // caller's address, misfiling other accounts' overviews.
+      await this._saveLocalDeFiOverview({
         accountAddress,
         xpub,
+        overview: {
+          [networkId]: this._buildLocalDeFiOverviewEntry({
+            overview,
+            sourceCurrencyInfo,
+            targetCurrencyInfo,
+          }),
+        },
       });
     }
 
@@ -459,6 +517,267 @@ class ServiceDeFi extends ServiceBase {
         allNetworksNetworkId === currentNetworkId
       ),
     };
+  }
+
+  // Single-network string requests are not subject to the multi-chain checks
+  // (allowlist, client version); one failed network does not fail the rest.
+  private async _fetchAccountDeFiPositionsPerNetwork(
+    params: IFetchAccountDeFiPositionsBatchParams,
+  ): Promise<Array<IFetchAccountDeFiPositionsResult | undefined>> {
+    const settled = await promiseAllSettledEnhanced(
+      params.networkIds.map((networkId) => async () => {
+        const r = await this.fetchAccountDeFiPositions({
+          ...params,
+          networkId,
+        });
+        return { ...r, networkId };
+      }),
+      { continueOnError: true, concurrency: 2 },
+    );
+    return settled.map((r) =>
+      r
+        ? {
+            networkId: r.networkId,
+            overview: r.overview,
+            protocols: r.protocols,
+            protocolMap: r.protocolMap,
+            isSameAllNetworksAccountData: !!r.isSameAllNetworksAccountData,
+          }
+        : undefined,
+    );
+  }
+
+  /**
+   * One request for up to 10 networks served by the same address/xpub
+   * (All Networks fan-out). Returns one entry per `networkIds` element in the
+   * same order; `undefined` marks a network whose fallback request failed.
+   */
+  @backgroundMethod()
+  public async fetchAccountDeFiPositionsBatch(
+    params: IFetchAccountDeFiPositionsBatchParams,
+  ): Promise<Array<IFetchAccountDeFiPositionsResult | undefined>> {
+    const {
+      accountId,
+      networkIds,
+      isAllNetworks,
+      allNetworksAccountId,
+      allNetworksNetworkId,
+      excludeLowValueProtocols,
+      lowValueProtocolsThresholdUsd = 0.01,
+      sourceCurrencyInfo,
+      targetCurrencyInfo,
+      saveToLocal,
+      isForceRefresh,
+      abortable = true,
+    } = params;
+    if (networkIds.length === 0) {
+      return [];
+    }
+
+    const isUrlAccount = accountUtils.isUrlAccountFn({ accountId });
+    const currentNetworkId = isUrlAccount
+      ? this._currentUrlNetworkId
+      : this._currentNetworkId;
+    const currentAccountId = isUrlAccount
+      ? this._currentUrlAccountId
+      : this._currentAccountId;
+    const isSameAllNetworksAccountData = !!(
+      allNetworksAccountId &&
+      allNetworksNetworkId &&
+      allNetworksAccountId === currentAccountId &&
+      allNetworksNetworkId === currentNetworkId
+    );
+
+    if (isAllNetworks && currentNetworkId !== getNetworkIdsMap().onekeyall) {
+      return networkIds.map((networkId) => ({
+        ...defiUtils.getEmptyDeFiData(),
+        networkId,
+        isSameAllNetworksAccountData: false,
+      }));
+    }
+
+    const indexedAccountId =
+      params.indexedAccountId ??
+      (
+        await this.backgroundApi.serviceAccount.getDBAccountSafe({
+          accountId,
+        })
+      )?.indexedAccountId;
+
+    let accountAddress = params.accountAddress;
+    let xpub = params.xpub;
+    if (!accountAddress && !xpub) {
+      const [a, x] = await Promise.all([
+        this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          accountId,
+          networkId: networkIds[0],
+        }),
+        this.backgroundApi.serviceAccount.getAccountXpub({
+          accountId,
+          networkId: networkIds[0],
+        }),
+      ]);
+      accountAddress = a;
+      xpub = x;
+    }
+
+    const resolvedParams = {
+      ...params,
+      indexedAccountId,
+      accountAddress,
+      xpub,
+    };
+    const multiChainSetKey = networkIds.join(',');
+    if (
+      networkIds.length > 1 &&
+      this._isMultiChainSetRejected(multiChainSetKey)
+    ) {
+      return this._fetchAccountDeFiPositionsPerNetwork(resolvedParams);
+    }
+
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const controller = new AbortController();
+    if (abortable) {
+      this._fetchAccountDeFiPositionsControllers.push(controller);
+    }
+
+    let resp: { data: { data: IFetchAccountDeFiPositionsResp } };
+    try {
+      resp = await client.post<{ data: IFetchAccountDeFiPositionsResp }>(
+        '/wallet/v1/portfolio/positions',
+        {
+          // Contract: one network is a string, several are an array.
+          networkId: networkIds.length === 1 ? networkIds[0] : networkIds,
+          accountAddress,
+          isForceRefresh,
+        },
+        {
+          signal: controller.signal,
+          headers:
+            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+              { accountId },
+            ),
+        },
+      );
+    } catch (error) {
+      const code = (error as { code?: number } | undefined)?.code;
+      if (code === 13_004 && networkIds.length > 1) {
+        // Defensive: the planner never exceeds the limit. Halve and retry once.
+        const middle = Math.ceil(networkIds.length / 2);
+        const [head, tail] = await Promise.all([
+          this.fetchAccountDeFiPositionsBatch({
+            ...resolvedParams,
+            networkIds: networkIds.slice(0, middle),
+          }),
+          this.fetchAccountDeFiPositionsBatch({
+            ...resolvedParams,
+            networkIds: networkIds.slice(middle),
+          }),
+        ]);
+        return [...head, ...tail];
+      }
+      if (code === 40_115) {
+        // The backend does not array this network set (not in its multi-chain
+        // allowlist, or an old client): remember it and serve the networks
+        // one by one.
+        if (networkIds.length > 1) {
+          this._rejectedMultiChainSets.set(multiChainSetKey, Date.now());
+        }
+        return this._fetchAccountDeFiPositionsPerNetwork(resolvedParams);
+      }
+      if (networkIds.length > 1 && !controller.signal.aborted) {
+        // Any other failure of the array request (timeout, 5xx, another
+        // business code) would drop every network of the batch at once.
+        // Serve them one by one, as each ran before batching, so only the
+        // networks that fail on their own are missing. The set is not
+        // remembered: the backend did not reject it, the request failed.
+        return this._fetchAccountDeFiPositionsPerNetwork(resolvedParams);
+      }
+      throw error;
+    }
+
+    const body = resp.data.data;
+    const data = body.data;
+    const notQueriedNetworkIds = this._getNotQueriedNetworkIds({
+      networkIds,
+      resp: body,
+    });
+    const notQueried = new Set(notQueriedNetworkIds);
+    // A single network already went out as the string request the fallback
+    // would send: its empty result stands, only the cache write is skipped.
+    const refetchNetworkIds = networkIds.length > 1 ? notQueriedNetworkIds : [];
+    const refetch = new Set(refetchNetworkIds);
+    const results: IFetchAccountDeFiPositionsResult[] = defiUtils
+      .splitDeFiPositionsByNetwork({
+        accountId,
+        indexedAccountId,
+        networkIds: networkIds.filter((networkId) => !refetch.has(networkId)),
+        positions: data?.positions,
+      })
+      .map(({ networkId, protocols, protocolMap, overview }) => {
+        const visibleProtocols = excludeLowValueProtocols
+          ? this._filterLowValueProtocols({
+              protocols,
+              protocolMap,
+              sourceCurrencyInfo,
+              targetCurrencyInfo,
+              lowValueProtocolsThresholdUsd,
+            })
+          : protocols;
+        const visibleOverview = excludeLowValueProtocols
+          ? buildVisibleDeFiOverview({
+              overview,
+              protocolMap,
+              protocols: visibleProtocols,
+            })
+          : overview;
+        return {
+          networkId,
+          overview: visibleOverview,
+          protocols: visibleProtocols,
+          protocolMap,
+          isSameAllNetworksAccountData,
+        };
+      });
+
+    const persistedResults = results.filter(
+      (result) => !notQueried.has(result.networkId),
+    );
+    if (saveToLocal && (accountAddress || xpub) && persistedResults.length) {
+      await this._saveLocalDeFiOverview({
+        accountAddress,
+        xpub,
+        overview: Object.fromEntries(
+          persistedResults.map((result) => [
+            result.networkId,
+            this._buildLocalDeFiOverviewEntry({
+              overview: result.overview,
+              sourceCurrencyInfo,
+              targetCurrencyInfo,
+            }),
+          ]),
+        ),
+      });
+    }
+
+    if (refetchNetworkIds.length === 0) {
+      return results;
+    }
+    // The networks the array request did not query are served as string
+    // requests, which the backend routes through its single-chain providers;
+    // one that fails stays `undefined` and keeps its cached overview.
+    const fallbackResults = await this._fetchAccountDeFiPositionsPerNetwork({
+      ...resolvedParams,
+      networkIds: refetchNetworkIds,
+    });
+    const resultByNetworkId = new Map<
+      string,
+      IFetchAccountDeFiPositionsResult | undefined
+    >(results.map((result) => [result.networkId, result]));
+    fallbackResults.forEach((result, index) => {
+      resultByNetworkId.set(refetchNetworkIds[index], result);
+    });
+    return networkIds.map((networkId) => resultByNetworkId.get(networkId));
   }
 
   @backgroundMethod()
@@ -594,13 +913,7 @@ class ServiceDeFi extends ServiceBase {
         excludeLowValueProtocols: true,
         sourceCurrencyInfo,
         targetCurrencyInfo,
-        // Do NOT use saveToLocal here. The shared `_localDeFiOverviewCache`
-        // is keyed only by networkId and the debounced flush writes against
-        // the last `accountAddress/xpub` it sees, so concurrent background
-        // refreshes for different accounts on the same network — or a
-        // background refresh racing with a foreground UI fetch — would
-        // overwrite each other's per-account local overview. Write this
-        // single account's overview directly below instead.
+        // Written directly below with this account's address/xpub.
         saveToLocal: false,
         isForceRefresh: true,
         // Do not share the abort pool: a UI-initiated
