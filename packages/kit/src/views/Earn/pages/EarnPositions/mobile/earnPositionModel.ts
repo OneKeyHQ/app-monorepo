@@ -22,6 +22,7 @@ import type {
   IEarnPortfolioPosition,
   IEarnPortfolioPositionsResponse,
   IEarnPositionCategory,
+  IEarnPositionEffectiveDeposit,
   IEarnPositionManageTarget,
   IEarnPositionRewardAsset,
   IEarnPositionRewardClaim,
@@ -117,6 +118,11 @@ export type IEarnPositionView = {
    * server sent enabled (figma 30490-21882: Claim shows only for those).
    */
   claimableRewards: IEarnClaimableReward[];
+  /**
+   * The part of the deposit that came through OneKey, under a campaign paid
+   * only on that part (Spark); the Deposited panel shows it under the tokens.
+   */
+  effectiveDeposit?: IEarnPositionEffectiveDeposit;
   /** what the holding holds, for the badge and the PnL line */
   hasDeposit: boolean;
   hasRewards: boolean;
@@ -385,6 +391,9 @@ function buildPositionView({
     },
     principalClaims: sources.filter((entry) => entry.earn.claim),
     claimableRewards: source.rewards.filter(hasEnabledClaim),
+    ...(source.earn.effectiveDeposit
+      ? { effectiveDeposit: source.earn.effectiveDeposit }
+      : {}),
     hasDeposit,
     hasRewards,
     hasPendingWithdrawal,

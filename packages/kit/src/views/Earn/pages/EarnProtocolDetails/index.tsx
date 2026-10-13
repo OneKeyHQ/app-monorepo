@@ -11,7 +11,6 @@ import {
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useIntl } from 'react-intl';
 import { View } from 'react-native';
-import Svg, { Line } from 'react-native-svg';
 
 import {
   Badge,
@@ -31,7 +30,6 @@ import {
   useScrollContentTabBarOffset,
   useScrollView,
   useShare,
-  useTheme,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -85,6 +83,10 @@ import {
   PageFrame,
   isLoadingState,
 } from '../../../Staking/components/PageFrame';
+import {
+  DOTTED_UNDERLINE_PROPS,
+  DottedRule,
+} from '../../../Staking/components/ProtocolDetails/DottedUnderline';
 import { EarnActionIcon } from '../../../Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnAlert } from '../../../Staking/components/ProtocolDetails/EarnAlert';
 import { EarnIcon } from '../../../Staking/components/ProtocolDetails/EarnIcon';
@@ -132,7 +134,6 @@ import {
 } from './mobile/yieldSegments.utils';
 
 import type { RouteProp } from '@react-navigation/core';
-import type { LayoutChangeEvent } from 'react-native';
 
 function ManagersSection({
   managers,
@@ -161,44 +162,10 @@ function ManagersSection({
   ) : null;
 }
 
-// Android's Text ignores textDecorationStyle, so the dotted rule under the
-// APY figure came out as a solid underline there (OK-62943). Android draws
-// the rule as an SVG line under the figure instead; iOS and web keep the text
-// decoration that already matches the design.
-const APY_UNDERLINE_PROPS = platformEnv.isNativeAndroid
-  ? {}
-  : ({
-      textDecorationLine: 'underline',
-      textDecorationStyle: 'dotted',
-      textDecorationColor: '$borderStrong',
-    } as const);
-
-function ApyDottedRule() {
-  const theme = useTheme();
-  const [width, setWidth] = useState(0);
-  const handleLayout = useCallback(
-    (event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width),
-    [],
-  );
-  return (
-    <Stack w="100%" h={3} onLayout={handleLayout}>
-      {width > 0 ? (
-        <Svg width={width} height={3}>
-          <Line
-            x1={1}
-            y1={1.5}
-            x2={width - 1}
-            y2={1.5}
-            stroke={theme.borderStrong.val}
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeDasharray="0.1 4"
-          />
-        </Svg>
-      ) : null}
-    </Stack>
-  );
-}
+// The dotted rule under the APY figure: text decoration on iOS and web, an
+// SVG line on Android (OK-62943), shared with the other tooltip triggers.
+const APY_UNDERLINE_PROPS = DOTTED_UNDERLINE_PROPS;
+const ApyDottedRule = DottedRule;
 
 const ProtocolHeader = ({
   symbol,

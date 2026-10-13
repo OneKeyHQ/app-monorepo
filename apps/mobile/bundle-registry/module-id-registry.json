@@ -23184,6 +23184,7 @@
     "packages/kit/src/views/Staking/components/OptionList/index.tsx": 8196,
     "packages/kit/src/views/Staking/components/PageFrame/index.tsx": 23009,
     "packages/kit/src/views/Staking/components/ProtocolDetails/AlertSection.tsx": 21704,
+    "packages/kit/src/views/Staking/components/ProtocolDetails/DottedUnderline.tsx": 9720,
     "packages/kit/src/views/Staking/components/ProtocolDetails/EarnActionIcon.tsx": 18560,
     "packages/kit/src/views/Staking/components/ProtocolDetails/EarnAlert.tsx": 15268,
     "packages/kit/src/views/Staking/components/ProtocolDetails/EarnAmountText.tsx": 6778,

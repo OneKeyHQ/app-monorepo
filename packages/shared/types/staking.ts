@@ -965,6 +965,8 @@ export interface IEarnTextTooltip {
     title?: IEarnText;
     description?: IEarnText;
     items?: IEarnTooltipComparisonItem[];
+    /** what the items add up to, under a divider, with how (Spark effective APY: base + bonus × share) */
+    total?: { title: IEarnText; description: IEarnText; subtitle?: IEarnText };
   };
 }
 
@@ -2150,7 +2152,9 @@ export type IEarnInvestmentRowKind =
   | 'claimablePrincipal'
   | 'reward'
   /** a reward the user cannot claim by itself yet: accruing, or settled with the principal */
-  | 'pendingReward';
+  | 'pendingReward'
+  /** the part of the principal deposited through OneKey, the only part a campaign bonus is paid on */
+  | 'effectiveDeposit';
 
 export type IEarnInvestmentRowFacts = {
   kind?: IEarnInvestmentRowKind;

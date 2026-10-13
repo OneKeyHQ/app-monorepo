@@ -62,6 +62,21 @@ export type IEarnPositionPnl = {
   percent?: string;
 };
 
+/**
+ * The part of a deposit that came through OneKey, under a campaign paid only
+ * on that part (Spark): OneKey net inflow capped at the balance, with the
+ * label and explanation the server words.
+ */
+export type IEarnPositionEffectiveDeposit = {
+  /** token units */
+  amount: string;
+  symbol: string;
+  /** request currency */
+  fiatValue?: string;
+  label: IEarnText;
+  tooltip?: IEarnTooltip;
+};
+
 /** The Earn detail page that Manage opens: this position's own page. */
 export type IEarnPositionManageTarget = {
   networkId: string;
@@ -165,6 +180,8 @@ export type IEarnPositionExtension = {
   pendingActivation?: { amount: string; fiatValue: string };
   /** active positions with a cost basis: the PnL the card prints under its value */
   pnl?: IEarnPositionPnl;
+  /** active positions under a campaign paid on OneKey deposits only (Spark) */
+  effectiveDeposit?: IEarnPositionEffectiveDeposit;
   investment: IEarnPositionInvestment;
   /** the on-chain airdrop rows the server folded into `rewards` or cut this position from, kept whole */
   airdropRows?: IEarnPositionAirdropRow[];

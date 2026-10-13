@@ -17,6 +17,7 @@ import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolVal
 import { isProtocolAssetValueUnavailable } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { DottedUnderlineText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/DottedUnderline';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnTooltip';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -24,6 +25,7 @@ import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
   IEarnPortfolioPosition,
+  IEarnPositionEffectiveDeposit,
   IEarnPositionManageTarget,
 } from '@onekeyhq/shared/types/earn/portfolioPositions';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
@@ -56,6 +58,51 @@ export type IEarnPositionCardHandlers = {
 };
 
 /**
+ * The part of the deposit that came through OneKey (Spark), under the
+ * tokens of the Deposited panel: the label marked as the way to its
+ * explanation, the token amount on the right, hidden with the balances.
+ */
+function EffectiveDepositRow({
+  effectiveDeposit,
+}: {
+  effectiveDeposit: IEarnPositionEffectiveDeposit;
+}) {
+  const { label, tooltip } = effectiveDeposit;
+  return (
+    <XStack ai="center" jc="space-between" gap="$3" minHeight={32}>
+      {tooltip ? (
+        <EarnTooltip
+          title={label.text}
+          tooltip={tooltip}
+          renderTrigger={
+            <DottedUnderlineText
+              size="$bodyMd"
+              color="$textSubdued"
+              numberOfLines={1}
+            >
+              {label.text}
+            </DottedUnderlineText>
+          }
+        />
+      ) : (
+        <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+          {label.text}
+        </SizableText>
+      )}
+      <NumberSizeableTextWrapper
+        hideValue
+        size="$bodyMdMedium"
+        formatter="balance"
+        formatterOptions={{ tokenSymbol: effectiveDeposit.symbol }}
+        numberOfLines={1}
+      >
+        {effectiveDeposit.amount}
+      </NumberSizeableTextWrapper>
+    </XStack>
+  );
+}
+
+/**
  * One block of the card (product 10-12): "Deposited | Amount" on a panel of
  * its own, the token rows under it, fiat over amount on the right. A
  * pending withdrawal row says when the funds free up, if the provider
@@ -67,10 +114,13 @@ function PositionSection({
   section,
   networkId,
   onPress,
+  footer,
 }: {
   section: IEarnPositionSectionView;
   networkId: string;
   onPress?: () => void;
+  /** a line under the token rows (the effective deposit, on Deposited) */
+  footer?: React.ReactNode;
 }) {
   const intl = useIntl();
   const currencyInfo = useCurrency();
@@ -166,6 +216,7 @@ function PositionSection({
           </YStack>
         </XStack>
       ))}
+      {footer}
     </YStack>
   );
 }
@@ -432,6 +483,14 @@ function EarnPositionCardCmp({
           section={section}
           networkId={source.networkId}
           onPress={openDetail}
+          footer={
+            position.effectiveDeposit &&
+            (section.kind === 'deposited' || section.kind === 'supplied') ? (
+              <EffectiveDepositRow
+                effectiveDeposit={position.effectiveDeposit}
+              />
+            ) : undefined
+          }
         />
       ))}
 

@@ -385,6 +385,39 @@ describe('earn position model: one card per holding', () => {
     expect(base.claimableRewards).toEqual([]);
   });
 
+  it('hands the card the effective deposit the server sends, and nothing without one', () => {
+    const usd3 = fixturePosition('pendle:evm--1:0xusd3');
+    const effectiveDeposit = {
+      amount: '20.2148',
+      symbol: 'USDC',
+      fiatValue: '20.21',
+      label: { text: 'Effective deposits' },
+      tooltip: {
+        type: 'text' as const,
+        data: {
+          title: { text: 'Effective deposits' },
+          description: { text: 'Only these earn the platform bonus.' },
+        },
+      },
+    };
+    const response: IEarnPortfolioPositionsResponse = {
+      positions: {
+        'evm--1': [{ ...usd3, earn: { ...usd3.earn, effectiveDeposit } }],
+      },
+      protocolSummaries: [],
+      errors: [],
+    };
+    const [protocol] = buildEarnPortfolioView({
+      response,
+      translate,
+    }).protocols;
+    expect(protocol.positions[0].effectiveDeposit).toEqual(effectiveDeposit);
+    expect(
+      card(protocolRow('evm--1-pendle'), 'pendle:evm--1:0xusd3')
+        .effectiveDeposit,
+    ).toBeUndefined();
+  });
+
   it('carries the server PnL on the card it belongs to', () => {
     const usd3 = card(protocolRow('evm--1-pendle'), 'pendle:evm--1:0xusd3');
     expect(usd3.source.earn.pnl).toEqual({
