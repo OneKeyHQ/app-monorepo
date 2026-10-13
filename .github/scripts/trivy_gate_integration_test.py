@@ -89,6 +89,7 @@ class RealScannerTests(unittest.TestCase):
         gate.project_yarn(root, projected)
         inventory = self.scan(projected, name + '-inventory', 'vuln', True)
         production = self.scan(projected, name + '-production', 'vuln')
+        production, _ = gate.promote_yarn_reachability(root, inventory, production)
         aliases = gate.verify_yarn_coverage(root, inventory, production)
         if any(aliases.values()):
             production = gate.assess_yarn_aliases(self.binary, production, aliases,
@@ -292,9 +293,86 @@ class RealScannerTests(unittest.TestCase):
                                   scanners='vuln', include_dev_deps=True)
             self.assertFalse(any(p['Name'] == 'child' for r in inventory['Results']
                                  for p in r.get('Packages', [])))
-            production[name] = gate.yarn_git_production(root, inventory)
+            production[name] = gate.yarn_production(root, inventory)[1]
         self.assertEqual(production['git-promotion-base'], set())
         self.assertEqual(len(production['git-promotion-merge']), 1)
+
+    def workspace_tree(self, name, root_manifest, workspace_manifest, entries):
+        root = self.tree(name)
+        package = json.loads((root / 'package.json').read_text())
+        package.update(root_manifest, workspaces=['packages/*'])
+        (root / 'package.json').write_text(json.dumps(package))
+        (root / 'packages/ws').mkdir(parents=True)
+        (root / 'packages/ws/package.json').write_text(json.dumps(dict({'name': 'ws', 'version': '1.0.0'},
+                                                                       **workspace_manifest)))
+        lock = root / 'yarn.lock'
+        lock.write_text(lock.read_text() + ''.join('\n' + entry for entry in entries))
+        return root
+
+    def test_production_reachability_corrects_trivy_dev_classification(self):
+        def workspace(name, path, edges):
+            return (json.dumps(name + '@workspace:' + path) + ':\n  version: 0.0.0-use.local\n  resolution: '
+                    + json.dumps(name + '@workspace:' + path) + '\n' + ('  dependencies:\n' + edges if edges else ''))
+        alias_entry = '"alias@npm:lodash@4.17.20":\n  version: 4.17.20\n  resolution: "lodash@npm:4.17.20"\n'
+        cases = {
+            # Trivy renames the root's development alias, then cannot match it
+            # by name in the workspace that uses it in production.
+            'alias': ({'devDependencies': {'alias': 'npm:lodash@4.17.20'}},
+                      {'dependencies': {'alias': 'npm:lodash@4.17.20'}},
+                      [workspace('fixture', '.', '    alias: "npm:lodash@4.17.20"\n    is-number: "npm:7.0.0"\n'),
+                       workspace('ws', 'packages/ws', '    alias: "npm:lodash@4.17.20"\n'), alias_entry]),
+            # Trivy does not decode a JSON-escaped range from a production parent.
+            'escaped': ({'devDependencies': {'lodash': '4.17.20'}, 'dependencies': {'parent': '1.0.0'}}, {},
+                        [workspace('fixture', '.', '    is-number: "npm:7.0.0"\n    lodash: "npm:4.17.20"\n'
+                                   '    parent: "npm:1.0.0"\n'),
+                         workspace('ws', 'packages/ws', ''),
+                         npm('parent', '1.0.0') + '  dependencies:\n    lodash: "npm:4.17.\\u00320"\n',
+                         npm('lodash', '4.17.20')]),
+        }
+        for case, (root_manifest, workspace_manifest, entries) in cases.items():
+            with self.subTest(case=case):
+                root = self.workspace_tree('reachability-' + case, root_manifest, workspace_manifest, entries)
+                projected = self.root / ('reachability-' + case + '-projected')
+                gate.project_yarn(root, projected)
+                inventory = self.scan(projected, 'reachability-' + case + '-inventory', 'vuln', True)
+                production = self.scan(projected, 'reachability-' + case + '-production', 'vuln')
+                lost = [v for r in production['Results'] for v in r.get('Vulnerabilities', [])
+                        if v['InstalledVersion'] == '4.17.20']
+                self.assertEqual(lost, [])
+                promoted, _ = gate.promote_yarn_reachability(root, inventory, production)
+                found = [v for r in promoted['Results'] for v in r.get('Vulnerabilities', [])
+                         if v['InstalledVersion'] == '4.17.20' and v['Severity'] == 'HIGH']
+                self.assertEqual(len(found), 2)
+
+    def test_secret_replaced_after_bare_cr_is_new(self):
+        reports = []
+        for seed in (1, 2):
+            root = self.tree('cr-secret-%d' % seed)
+            secret = 'AKIA' + ''.join(random.Random(seed).sample('ABCDEFGHIJKLMNOPQRSTUVWXYZ234567', 16))
+            (root / 'settings.txt').write_bytes(b'prefix\raws_access_key_id = "' + secret.encode() + b'"\n')
+            report, _, _ = self.assessed(root, 'cr-secret-%d' % seed)
+            self.assertEqual([(f['kind'], f['severity']) for f in report['findings']], [('secret', 'CRITICAL')])
+            reports.append(report)
+        self.assertEqual(sum(f['count'] for f in gate.compare(*reports)), 1)
+
+    def test_terraform_module_deleted_with_its_last_file(self):
+        reports, roots = [], []
+        for name, files in (('terraform-delete-base', ('main.tf', 'README.md')),
+                            ('terraform-delete-merge', ('README.md',))):
+            root = self.tree(name)
+            (root / 'infra').mkdir()
+            for file in files:
+                (root / 'infra' / file).write_text('resource "null_resource" "example" {}\n'
+                                                   if file.endswith('.tf') else 'module notes\n')
+            report, _, _ = self.assessed(root, name)
+            reports.append(report)
+            roots.append(root)
+        self.assertIn(('infra', 'config', 'terraform'), reports[0]['targets'])
+        self.assertNotIn(('infra', 'config', 'terraform'), reports[1]['targets'])
+        gate.verify_target_coverage(reports[0]['targets'], reports[1]['targets'], roots[1])
+        (roots[1] / 'infra/other.tf').write_text('resource "null_resource" "other" {}\n')
+        with self.assertRaisesRegex(gate.GateError, '^lost_target_coverage$'):
+            gate.verify_target_coverage(reports[0]['targets'], reports[1]['targets'], roots[1])
 
     def test_separated_dependency_exposes_new_high_findings(self):
         base = self.tree('control-base')

@@ -30,6 +30,7 @@ POLICY = {
     'yarnPatchEdges': 'reject-unsupported-reachability',
     'yarnLocalSources': 'reject',
     'yarnGitPromotion': 'reject',
+    'yarnProduction': 'trivy-or-manifest-lockfile-reachability',
     'yarnAliases': 'per-selector-instances-assessed-by-resolved-name',
     'databases': ['ghcr.io/aquasecurity/trivy-db:2',
                   'ghcr.io/aquasecurity/trivy-java-db:1',
@@ -117,7 +118,9 @@ def source_identity(root, target, finding, key):
     start, end = finding.get('StartLine'), finding.get('EndLine')
     require(type(start) is int and type(end) is int and 0 < start <= end,
             'missing_source_range')
-    lines = source_file(root, target).read_bytes().splitlines()
+    # Scanners number lines by LF only; splitlines() would also split at a
+    # bare CR and hash only part of the reported line.
+    lines = source_file(root, target).read_bytes().split(b'\n')
     require(end <= len(lines), 'invalid_source_range')
     # Never use redacted Match: different credentials can have identical Match.
     # Whole finding lines are conservative: edits on the same line count as new.
@@ -217,6 +220,22 @@ def verify_pair(base, merge, expected):
         require(meta['policy'] == digest(canonical(POLICY)), 'policy_mismatch')
     for field in ('database', 'binary', 'policy'):
         require(base['metadata'][field] == merge['metadata'][field], field + '_mismatch')
+
+
+def verify_target_coverage(base, merge, root):
+    """A surviving target disappearing from results is a coverage failure."""
+    for target, kind, ecosystem in set(map(tuple, base)) - set(map(tuple, merge)):
+        # Secret results exist only for files with matches; removing the last
+        # secret removes the result while retaining the file.
+        if kind == 'secret':
+            continue
+        path = root / target
+        if ecosystem == 'terraform' and path.is_dir() and not path.is_symlink():
+            # A module Result disappears with the module's last Terraform file.
+            require(not any(f.is_file() and f.name.endswith(('.tf', '.tf.json'))
+                            for f in path.iterdir()), 'lost_target_coverage')
+            continue
+        require(not path.exists(), 'lost_target_coverage')
 
 
 def snapshot(cache):
@@ -349,23 +368,37 @@ def yarn_git_warnings(base, merge):
             for name, inventory in entries.items()}
 
 
-def yarn_git_production(root, inventory):
-    """Return admitted Git entries reachable from production dependencies.
+def yarn_resolution_name(key):
+    # Keys are 'name', 'name@range' or 'parent(@range)/name'; keep the scope.
+    parts = key.split('/')
+    name = parts[-2] + '/' + parts[-1] if len(parts) > 1 and parts[-2].startswith('@') else parts[-1]
+    return yarn_selector_name(name + '@')
 
-    Trivy skips Git blocks and drops edges to them, so an unchanged entry can
-    move from development to production without any scanner signal.
+
+def yarn_production(root, inventory):
+    """Return (lockfile, ID) instances and admitted Git entries in production.
+
+    Trivy's dev classification can lose production edges: it skips Git blocks
+    and edges to them, matches a renamed alias by its resolved name in later
+    workspaces, and does not decode JSON-escaped ranges. Reachability is
+    computed independently from workspace manifests and decoded lockfile
+    edges, seeded also with every package Trivy itself classifies as
+    production (a package missing from the inventory counts as production).
     """
-    git = {}
-    for relative, header in yarn_git_entries(root):
-        selector, _ = json.JSONDecoder().raw_decode(header)
-        for pattern in selector.split(', '):
-            git[(relative, pattern)] = (relative, header)
-    production = set()
+    git_entries = set(yarn_git_entries(root))
+    instances, git = set(), set()
     for relative, data, _ in yarn_files(root):
         results = [r for r in inventory['Results'] if r.get('Target') == relative
                    and r.get('Class') == 'lang-pkgs' and r.get('Type') == 'yarn']
         dev = {text(p, 'ID'): p.get('Dev') is True for r in results for p in list_field(r, 'Packages')}
-        parents = []
+        blocks, descriptors, overrides = [], {}, {}
+        manifest = PurePosixPath(relative).parent / 'package.json'
+        manifest = read_json(source_file(root, str(manifest))) if (root / manifest).is_file() else {}
+        require(isinstance(manifest, dict) and isinstance(manifest.get('resolutions', {}), dict),
+                'unsupported_yarn_source')
+        for key, value in manifest.get('resolutions', {}).items():
+            require(isinstance(value, str), 'unsupported_yarn_source')
+            overrides.setdefault(yarn_resolution_name(key), []).append(value)
         for block in data.split('\n\n'):
             header = next((line for line in block.split('\n') if re.match(r'[^\s#]', line)), '')
             if not header.startswith('"'):
@@ -381,10 +414,7 @@ def yarn_git_production(root, inventory):
                     edge = re.fullmatch(r'    ("(?:[^"\\]|\\.)*"|[^\s:]+): ("(?:[^"\\]|\\.)*")\s*', line)
                     require(edge is not None, 'unsupported_yarn_source')
                     name = json.loads(edge[1]) if edge[1].startswith('"') else edge[1]
-                    edges.append((name, git.get((relative, name + '@' + json.loads(edge[2])))))
-            edges = [(name, target) for name, target in edges if target]
-            if not edges:
-                continue
+                    edges.append((name, name + '@' + json.loads(edge[2])))
             workspace = re.fullmatch(YARN_NAME + r'@workspace:(.+)',
                                      json.loads(resolution[1]) if resolution else '')
             if workspace:
@@ -394,22 +424,74 @@ def yarn_git_production(root, inventory):
                 require(isinstance(manifest, dict), 'unsupported_yarn_source')
                 names = {name for field in ('dependencies', 'optionalDependencies')
                          for name in manifest.get(field) or {}}
-                production.update(target for name, target in edges if name in names)
-                continue
+                edges = [(name, target) for name, target in edges if name in names]
             version = version[1].strip('"') if version else ''
-            ids = {yarn_selector_name(pattern) + '@' + version for pattern in selector.split(', ')}
-            git_parent = git.get((relative, selector.split(', ')[0]))
-            # A parent missing from the inventory counts as production.
-            parents.append((git_parent, any(not dev.get(i, False) for i in ids),
-                            {target for _, target in edges}))
-        changed = True
-        while changed:
-            changed = False
-            for git_parent, reachable, targets in parents:
-                if (git_parent in production if git_parent else reachable) and targets - production:
-                    production |= targets
-                    changed = True
-    return production
+            for pattern in selector.split(', '):
+                descriptors[pattern] = (len(blocks), yarn_selector_name(pattern))
+            blocks.append({'git': (relative, header) if (relative, header) in git_entries else None,
+                           'workspace': bool(workspace), 'version': version, 'edges': edges,
+                           'names': {yarn_selector_name(p) for p in selector.split(', ')}})
+        queue = []
+        for index, block in enumerate(blocks):
+            if block['workspace']:
+                queue.append((index, None))
+            elif not block['git']:
+                queue += [(index, name) for name in block['names']
+                          if not dev.get(name + '@' + block['version'], False)]
+        seen = set()
+        while queue:
+            index, name = queue.pop()
+            if (index, name) in seen:
+                continue
+            seen.add((index, name))
+            block = blocks[index]
+            if block['git']:
+                git.add(block['git'])
+            elif name:
+                instances.add((relative, name + '@' + block['version']))
+            for edge, descriptor in block['edges']:
+                if descriptor in descriptors:
+                    queue.append(descriptors[descriptor])
+                    continue
+                # Manifest resolutions replace the edge's range; the edge keeps
+                # the original one. Use the overriding entry, else every entry
+                # of that name. Any other unknown descriptor fails closed.
+                values = overrides.get(edge)
+                require(values is not None, 'unsupported_yarn_reachability')
+                targets = [descriptors[d] for v in values for d in (edge + '@' + v, edge + '@npm:' + v)
+                           if d in descriptors]
+                queue += targets or [(i, edge) for i, b in enumerate(blocks) if edge in b['names']]
+    return instances, git
+
+
+def promote_yarn_reachability(root, inventory, production):
+    """Treat every production-reachable package instance as production.
+
+    Returns the corrected production report and the admitted Git entries
+    reachable from production. Promoted instances take their findings from
+    the complete inventory scan, which includes development dependencies.
+    """
+    instances, git = yarn_production(root, inventory)
+    results = []
+    for result in production['Results']:
+        if (isinstance(result, dict) and result.get('Class') == 'lang-pkgs'
+                and result.get('Type') == 'yarn'):
+            assessed = {text(p, 'ID') for p in list_field(result, 'Packages')}
+            missing = {i for t, i in instances if t == result.get('Target')} - assessed
+            if missing:
+                source = [r for r in inventory['Results'] if isinstance(r, dict)
+                          and r.get('Target') == result.get('Target')
+                          and r.get('Class') == 'lang-pkgs' and r.get('Type') == 'yarn']
+                require(len(source) == 1, 'missing_lockfile_inventory')
+                packages = [dict(p, Dev=False) for p in list_field(source[0], 'Packages')
+                            if text(p, 'ID') in missing]
+                require(len(packages) == len(missing), 'missing_yarn_package')
+                result = dict(result, Packages=list_field(result, 'Packages') + packages,
+                              Vulnerabilities=list_field(result, 'Vulnerabilities')
+                              + [v for v in list_field(source[0], 'Vulnerabilities')
+                                 if isinstance(v, dict) and v.get('PkgID') in missing])
+        results.append(result)
+    return dict(production, Results=results), git
 
 
 def supported_yarn_dependency(constraint):
@@ -799,8 +881,9 @@ def run(args):
                 production = scan(binary, projected, private / (name + '-production.json'),
                                   cache, config, env, allowed_warnings=allowed_warnings[name],
                                   scanners='vuln')
+                production, git_production[name] = promote_yarn_reachability(
+                    root, inventory, production)
                 aliases = verify_yarn_coverage(root, inventory, production)
-                git_production[name] = yarn_git_production(root, inventory)
                 if any(aliases.values()):
                     production = assess_yarn_aliases(binary, production, aliases,
                                                      private / (name + '-aliases'),
@@ -826,13 +909,8 @@ def run(args):
             # Unscanned Git sources must not become production-reachable.
             require(git_production['merge'] <= git_production['base'],
                     'promoted_unsupported_dependency')
-            # A surviving target disappearing from results is a coverage failure.
-            for target in set(scans['base']['targets']) - set(scans['merge']['targets']):
-                # Secret results exist only for files with matches; removing
-                # the last secret removes the result while retaining the file.
-                if target[1] == 'secret':
-                    continue
-                require(not (private / 'merge' / target[0]).exists(), 'lost_target_coverage')
+            verify_target_coverage(scans['base']['targets'], scans['merge']['targets'],
+                                   private / 'merge')
             result['phase'] = 'comparison'
             result['newFindings'] = compare(scans['base'], scans['merge'])
             result['status'] = 'new_findings' if result['newFindings'] else 'passed'

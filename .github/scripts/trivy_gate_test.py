@@ -100,6 +100,35 @@ class GateTests(unittest.TestCase):
             with self.subTest(start=start, end=end), self.assertRaises(gate.GateError):
                 self.collect(self.secret_report(start, end))
 
+    def test_secret_identity_uses_lf_lines_only(self):
+        finding = {'StartLine': 1, 'EndLine': 1}
+        identities = []
+        for credential in (b'first', b'second'):
+            (self.root / 'source.txt').write_bytes(b'prefix\r' + credential + b'\n')
+            identities.append(gate.source_identity(self.root, 'source.txt', finding, self.key))
+        self.assertNotEqual(identities[0], identities[1])
+        (self.root / 'source.txt').write_bytes(b'one\r\nfake credential\r\n')
+        second = gate.source_identity(self.root, 'source.txt', {'StartLine': 2, 'EndLine': 2}, self.key)
+        (self.root / 'source.txt').write_bytes(b'one\r\nother credential\r\n')
+        self.assertNotEqual(second, gate.source_identity(self.root, 'source.txt',
+                                                         {'StartLine': 2, 'EndLine': 2}, self.key))
+
+    def test_terraform_module_result_may_disappear_with_its_last_file(self):
+        module = self.root / 'infra'
+        module.mkdir()
+        (module / 'README.md').write_text('module notes\n')
+        base = [('infra', 'config', 'terraform'), ('yarn.lock', 'lang-pkgs', 'yarn')]
+        merge = [('yarn.lock', 'lang-pkgs', 'yarn')]
+        gate.verify_target_coverage(base, merge, self.root)
+        for name in ('main.tf', 'main.tf.json'):
+            (module / name).write_text('{}\n')
+            with self.subTest(name=name), self.assertRaisesRegex(gate.GateError, '^lost_target_coverage$'):
+                gate.verify_target_coverage(base, merge, self.root)
+            (module / name).unlink()
+        # File Targets still count as lost coverage while the file exists.
+        with self.assertRaisesRegex(gate.GateError, '^lost_target_coverage$'):
+            gate.verify_target_coverage([('Dockerfile', 'config', 'dockerfile')], [], self.root)
+
     def test_misconfiguration_resource_identity(self):
         a = copy.deepcopy(self.report)
         a['Results'].append({'Target': 'Dockerfile', 'Class': 'config', 'Type': 'dockerfile',
@@ -346,7 +375,7 @@ class GateTests(unittest.TestCase):
             inventory = {'Results': [{'Target': 'yarn.lock', 'Class': 'lang-pkgs', 'Type': 'yarn',
                                       'Packages': packages}]}
             return {json.loads(header[:-1]).split('@https')[0]
-                    for _, header in gate.yarn_git_production(root, inventory)}
+                    for _, header in gate.yarn_production(root, inventory)[1]}
         dev = {'devDependencies': {'direct': 'x', 'parent': '1'}}
         self.assertEqual(production(dev, True), set())
         # A direct production edge also promotes the Git entries it depends on.
@@ -357,6 +386,47 @@ class GateTests(unittest.TestCase):
         self.assertEqual(production(dev, False), {'child'})
         # A parent missing from the inventory is treated as production.
         self.assertEqual(production(dev, None), {'child'})
+
+    def test_production_reachable_packages_are_promoted(self):
+        root = self.root / 'promotion'
+        (root / 'packages/ws').mkdir(parents=True)
+        def workspace(name, path, edges):
+            return (json.dumps(name + '@workspace:' + path) + ':\n  version: 0.0.0-use.local\n  resolution: '
+                    + json.dumps(name + '@workspace:' + path) + '\n  dependencies:\n' + edges)
+        (root / 'package.json').write_text(json.dumps({
+            'name': 'fixture', 'dependencies': {'parent': '1', 'pinned': '1'},
+            'devDependencies': {'alias': 'npm:example@1', 'example': '1'},
+            'resolutions': {'parent/pinned': '2'}}))
+        (root / 'packages/ws/package.json').write_text(json.dumps({'name': 'ws', 'dependencies': {'alias': 'npm:example@1'}}))
+        (root / 'yarn.lock').write_text(
+            workspace('fixture', '.', '    alias: "npm:example@1"\n    example: "npm:1"\n'
+                      '    parent: "npm:1"\n    pinned: "npm:1"\n') + '\n'
+            + workspace('ws', 'packages/ws', '    alias: "npm:example@1"\n') + '\n'
+            + self.npm_lockfile('parent', '1') + '  dependencies:\n    child: "npm:^\\u0031"\n\n'
+            + '"alias@npm:example@1":\n  version: 1\n  resolution: "example@npm:1"\n\n'
+            + '"child@npm:^1":\n  version: 1\n  resolution: "child@npm:1"\n\n'
+            + '"pinned@npm:2":\n  version: 2\n  resolution: "pinned@npm:2"\n\n'
+            + self.npm_lockfile('example', '1'))
+        packages = {'alias@1': True, 'child@1': True, 'example@1': True, 'parent@1': False, 'pinned@2': True}
+        inventory = {'Results': [{'Target': 'yarn.lock', 'Class': 'lang-pkgs', 'Type': 'yarn',
+            'Packages': [{'ID': i, 'Name': i.split('@')[0], 'Version': i.split('@')[1], 'Dev': d}
+                         for i, d in packages.items()],
+            'Vulnerabilities': [dict(vulnerability('CVE-' + i), PkgID=i) for i in packages]}]}
+        production = {'Results': [{'Target': 'yarn.lock', 'Class': 'lang-pkgs', 'Type': 'yarn',
+            'Packages': [{'ID': 'parent@1', 'Name': 'parent', 'Version': '1'}],
+            'Vulnerabilities': [dict(vulnerability('CVE-parent@1'), PkgID='parent@1')]}]}
+        promoted, _ = gate.promote_yarn_reachability(root, inventory, production)
+        # Trivy loses a workspace's production alias, an escaped edge and a
+        # resolutions override; example@1 stays development-only.
+        self.assertEqual(sorted(v['PkgID'] for v in promoted['Results'][0]['Vulnerabilities']),
+                         ['alias@1', 'child@1', 'parent@1', 'pinned@2'])
+        self.assertEqual(sorted(p['ID'] for p in promoted['Results'][0]['Packages']),
+                         ['alias@1', 'child@1', 'parent@1', 'pinned@2'])
+        # An edge with no lockfile entry and no resolutions override fails closed.
+        (root / 'yarn.lock').write_text((root / 'yarn.lock').read_text().replace(
+            '    child: "npm:^\\u0031"\n', '    child: "npm:^\\u0031"\n    unknown: "npm:1"\n'))
+        with self.assertRaisesRegex(gate.GateError, '^unsupported_yarn_reachability$'):
+            gate.promote_yarn_reachability(root, inventory, production)
 
     def test_yarn_git_url_canonicalization_retains_pinned_resolution(self):
         base, merge = self.root / 'base', self.root / 'merge'
