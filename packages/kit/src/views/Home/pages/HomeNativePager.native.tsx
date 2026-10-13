@@ -13,11 +13,13 @@ import { useSharedValue } from 'react-native-reanimated';
 
 import { useTheme } from '@onekeyhq/components';
 
+import { SpotlightScrollStateContext } from '../../../components/Spotlight/SpotlightScrollStateContext';
 import { HomeNativeTabContext } from '../hooks/useHomeTab.native';
 
 import { debugPerpsChain } from './perpsChainTrace';
 
 import type { IHomeNativePagerProps } from './HomeNativePager';
+import type { ISpotlightScrollState } from '../../../components/Spotlight/SpotlightScrollStateContext';
 
 export function HomeNativePager({
   ref,
@@ -57,6 +59,13 @@ export function HomeNativePager({
   const indexDecimal = useSharedValue(initialIndex);
   const theme = useTheme();
   const selectedIndexRef = useRef(selectedIndex);
+  const mountedPageKeysRef = useRef<{
+    tabIdentity: string;
+    keys: readonly string[];
+  } | null>(null);
+  const [spotlightScrollState, setSpotlightScrollState] = useState<
+    (ISpotlightScrollState & { tabIdentity: string }) | null
+  >(null);
   const followsPageScrollRef = useRef(true);
   const dragRef = useRef<{
     startIndex: number;
@@ -68,6 +77,7 @@ export function HomeNativePager({
     (index: number) => {
       debugPerpsChain('pager.command', { index });
       if (!tabs[index]) return;
+      setSpotlightScrollState(null);
       dragRef.current = null;
       if (Math.abs(index - selectedIndexRef.current) > 1) {
         // Immediate jumps may omit progress events; ignore queued old progress
@@ -89,6 +99,7 @@ export function HomeNativePager({
     [setIndex, tabs],
   );
   const syncCurrentPage = useCallback(() => {
+    setSpotlightScrollState(null);
     dragRef.current = null;
     followsPageScrollRef.current = false;
     indexDecimal.value = selectedIndexRef.current;
@@ -113,6 +124,8 @@ export function HomeNativePager({
   useEffect(() => {
     if (previousTabIdentity.current === tabIdentity) return;
     previousTabIdentity.current = tabIdentity;
+    mountedPageKeysRef.current = null;
+    setSpotlightScrollState(null);
     dragRef.current = null;
     const selectedTab = tabs[selectedIndex];
     if (selectedTab && selectedTab.id !== selectedId) {
@@ -168,7 +181,17 @@ export function HomeNativePager({
             );
           }}
         >
-          {renderHeader()}
+          <SpotlightScrollStateContext.Provider
+            value={
+              spotlightScrollState?.tabIdentity === tabIdentity &&
+              spotlightScrollState.pageKey ===
+                mountedPageKeysRef.current?.keys[selectedIndex]
+                ? spotlightScrollState
+                : null
+            }
+          >
+            {renderHeader()}
+          </SpotlightScrollStateContext.Provider>
         </View>
       }
       stickyHeader={
@@ -181,6 +204,38 @@ export function HomeNativePager({
           {renderTabBar(tabBarProps)}
         </View>
       }
+      onMountedPagesChanged={({ pageKeys }) => {
+        const previous = mountedPageKeysRef.current;
+        if (
+          previous?.tabIdentity !== tabIdentity ||
+          previous.keys.length !== pageKeys.length ||
+          previous.keys.some((key, index) => key !== pageKeys[index])
+        ) {
+          setSpotlightScrollState(null);
+        }
+        mountedPageKeysRef.current = { tabIdentity, keys: pageKeys };
+      }}
+      onCollapsibleStateChanged={({ nativeEvent }) => {
+        const mounted = mountedPageKeysRef.current;
+        if (
+          mounted?.tabIdentity !== tabIdentity ||
+          nativeEvent.position !== selectedIndexRef.current ||
+          mounted.keys[nativeEvent.position] !== nativeEvent.pageKey
+        )
+          return;
+        const settled = nativeEvent.headerSettledAtTop;
+        setSpotlightScrollState((previous) =>
+          previous?.tabIdentity === tabIdentity &&
+          previous.pageKey === nativeEvent.pageKey &&
+          previous.headerSettledAtTop === settled
+            ? previous
+            : {
+                tabIdentity,
+                pageKey: nativeEvent.pageKey,
+                headerSettledAtTop: settled,
+              },
+        );
+      }}
       onPageScroll={({ nativeEvent }) => {
         const progress = nativeEvent.position + nativeEvent.offset;
         if (followsPageScrollRef.current) {
@@ -203,6 +258,8 @@ export function HomeNativePager({
         }
       }}
       onPageScrollStateChanged={({ nativeEvent }) => {
+        if (nativeEvent.pageScrollState !== 'idle')
+          setSpotlightScrollState(null);
         if (nativeEvent.pageScrollState === 'dragging') {
           followsPageScrollRef.current = true;
           dragRef.current = {
@@ -225,6 +282,8 @@ export function HomeNativePager({
         });
         const tab = tabs[nativeEvent.position];
         if (!tab) return;
+        selectedIndexRef.current = nativeEvent.position;
+        setSpotlightScrollState(null);
         setSelectedId(tab.id);
         focusedTab.value = tab.name;
         onTabChange({ tabName: tab.name });

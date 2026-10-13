@@ -8,9 +8,12 @@ import type { ITabContainerRef } from '@onekeyhq/components';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
+import { SpotlightScrollStateContext } from '../../../components/Spotlight/SpotlightScrollStateContext';
+
 import { HomeNativePager } from './HomeNativePager.native';
 
 import type { IHomeHeaderContainerProps } from './HomeHeaderContainer';
+import type { ISpotlightScrollState } from '../../../components/Spotlight/SpotlightScrollStateContext';
 import type { LayoutChangeEvent } from 'react-native';
 
 let mockRenderParentHeader = false;
@@ -19,6 +22,15 @@ const mockSetPage = jest.fn();
 const mockSetPageWithoutAnimation = jest.fn();
 const mockHeaderHeightCommits: number[] = [];
 const mockNativeEvents: {
+  onMountedPagesChanged?: (event: { pageKeys: readonly string[] }) => void;
+  onCollapsibleStateChanged?: (event: {
+    nativeEvent: {
+      position: number;
+      pageKey: string;
+      headerOffset: number;
+      headerSettledAtTop: boolean;
+    };
+  }) => void;
   headerHeight?: number;
   header?: React.ReactElement<{ onLayout: (event: LayoutChangeEvent) => void }>;
   onPageScroll?: (event: {
@@ -736,5 +748,127 @@ describe('HomePageView complete header authority', () => {
     act(() => onFullLayout?.(headerLayoutEvent(192.8)));
     act(() => measurements[3](0, 0, 400, 182.2));
     expect(mockNativeEvents.headerHeight).toBe(193);
+  });
+});
+
+describe('native header Spotlight ownership', () => {
+  let currentState: ISpotlightScrollState | null | undefined;
+  const pageKeys = [
+    'native-spot',
+    'native-perps',
+    'native-nft',
+    'native-history',
+  ];
+  const HeaderProbe = () => {
+    currentState = React.useContext(SpotlightScrollStateContext);
+    return null;
+  };
+  const mountPager = () => {
+    const ref = createRef<ITabContainerRef>();
+    render(
+      <HomeNativePager
+        ref={ref}
+        tabs={[
+          { id: EHomeWalletTab.Portfolio, name: 'Spot', component: null },
+          { id: EHomeWalletTab.Perps, name: 'Perps', component: null },
+          { id: EHomeWalletTab.NFT, name: 'NFT', component: null },
+          { id: EHomeWalletTab.History, name: 'History', component: null },
+        ]}
+        renderHeader={() => <HeaderProbe />}
+        renderTabBar={() => null}
+        onTabChange={jest.fn()}
+      />,
+    );
+    return ref;
+  };
+  const emitSettled = (position: number, pageKey = pageKeys[position]) => {
+    act(() =>
+      mockNativeEvents.onCollapsibleStateChanged?.({
+        nativeEvent: {
+          position,
+          pageKey,
+          headerOffset: 0,
+          headerSettledAtTop: true,
+        },
+      }),
+    );
+  };
+
+  beforeEach(() => {
+    mockRenderParentHeader = true;
+    currentState = undefined;
+  });
+  afterEach(() => {
+    mockRenderParentHeader = false;
+  });
+
+  it('keeps unknown or mismatched page identities paused', () => {
+    mountPager();
+    emitSettled(0);
+    expect(currentState).toBeNull();
+    act(() => mockNativeEvents.onMountedPagesChanged?.({ pageKeys }));
+    emitSettled(0, String(EHomeWalletTab.Portfolio));
+    expect(currentState).toBeNull();
+    emitSettled(1);
+    expect(currentState).toBeNull();
+    emitSettled(0);
+    expect(currentState).toMatchObject({
+      pageKey: pageKeys[0],
+      headerSettledAtTop: true,
+    });
+  });
+
+  it('accepts a fresh same-page snapshot after repeated commands without idle', () => {
+    const ref = mountPager();
+    act(() => mockNativeEvents.onMountedPagesChanged?.({ pageKeys }));
+    emitSettled(0);
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      act(() => ref.current?.setIndex(0));
+      expect(currentState).toBeNull();
+      emitSettled(0);
+      expect(currentState?.headerSettledAtTop).toBe(true);
+    }
+    act(() => ref.current?.syncCurrentPage?.());
+    expect(currentState).toBeNull();
+    emitSettled(0);
+    expect(currentState?.headerSettledAtTop).toBe(true);
+  });
+
+  it('accepts a selected-page ready snapshot in the same JS batch', () => {
+    mountPager();
+    act(() => mockNativeEvents.onMountedPagesChanged?.({ pageKeys }));
+    act(() => {
+      mockNativeEvents.onPageSelected?.({ nativeEvent: { position: 3 } });
+      mockNativeEvents.onCollapsibleStateChanged?.({
+        nativeEvent: {
+          position: 3,
+          pageKey: pageKeys[3],
+          headerOffset: 0,
+          headerSettledAtTop: true,
+        },
+      });
+    });
+    expect(currentState).toMatchObject({
+      pageKey: pageKeys[3],
+      headerSettledAtTop: true,
+    });
+  });
+
+  it('accepts the selected far-jump snapshot without a horizontal idle event', () => {
+    const ref = mountPager();
+    act(() => mockNativeEvents.onMountedPagesChanged?.({ pageKeys }));
+    emitSettled(0);
+    act(() => ref.current?.setIndex(3));
+    expect(currentState).toBeNull();
+    act(() =>
+      mockNativeEvents.onPageSelected?.({ nativeEvent: { position: 3 } }),
+    );
+    emitSettled(0);
+    expect(currentState).toBeNull();
+    emitSettled(3);
+    expect(currentState).toMatchObject({
+      pageKey: pageKeys[3],
+      headerSettledAtTop: true,
+    });
   });
 });
