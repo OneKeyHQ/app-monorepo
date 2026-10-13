@@ -56,10 +56,11 @@ targets receive DNS and TCP 443 checks without downloading the Turnstile SDK.
 Explicit target arrays replace the defaults for that probe type. If the Wallet
 health check passes but the CAPTCHA page request fails, the conclusion reports
 the CAPTCHA failure instead of a healthy result: an HTTP error response is a
-service error, and a request without a response is reported as blocked. Direct
-DNS/TCP results only refine that layer for the page's host, unless the system
-routes it through a proxy. On their own they are informational, because they
-bypass proxies and the iOS TCP probe cannot connect to IPv6 addresses.
+service error, and a request without a response is reported as blocked. A
+failed direct DNS lookup for the page's host reports that block at the DNS
+layer, unless the system routes the host through a proxy. Direct TCP results,
+and DNS results on their own, are informational, because they bypass proxies
+and the iOS TCP probe cannot connect to IPv6 addresses.
 
 ```typescript
 import { NetworkDoctor } from '@onekeyhq/shared/src/modules/NetworkDoctor';

@@ -499,14 +499,14 @@ describe('NetworkDoctor native diagnostics', () => {
 
   it.each([
     {
-      hostState: 'unreachable over TCP',
+      hostState: 'unreachable over TCP only',
       dnsFails: false,
       proxyState: false,
-      failureLayer: 'tcp',
-      oneKeyFailureReason: EOneKeyFailureReason.TCP_HANDSHAKE_FAILED,
+      failureLayer: 'http',
+      oneKeyFailureReason: EOneKeyFailureReason.HTTP_REQUEST_FAILED,
     },
     {
-      hostState: 'unresolvable and unreachable',
+      hostState: 'unresolvable',
       dnsFails: true,
       proxyState: false,
       failureLayer: 'dns',
@@ -520,21 +520,21 @@ describe('NetworkDoctor native diagnostics', () => {
       oneKeyFailureReason: EOneKeyFailureReason.HTTP_REQUEST_FAILED,
     },
     {
-      hostState: 'without a proxy preflight',
-      dnsFails: false,
+      hostState: 'unresolvable without a proxy preflight',
+      dnsFails: true,
       proxyState: null,
-      failureLayer: 'tcp',
-      oneKeyFailureReason: EOneKeyFailureReason.TCP_HANDSHAKE_FAILED,
+      failureLayer: 'dns',
+      oneKeyFailureReason: EOneKeyFailureReason.DNS_RESOLUTION_FAILED,
     },
     {
-      hostState: 'with a failed proxy preflight',
-      dnsFails: false,
+      hostState: 'unresolvable with a failed proxy preflight',
+      dnsFails: true,
       proxyState: 'error',
-      failureLayer: 'tcp',
-      oneKeyFailureReason: EOneKeyFailureReason.TCP_HANDSHAKE_FAILED,
+      failureLayer: 'dns',
+      oneKeyFailureReason: EOneKeyFailureReason.DNS_RESOLUTION_FAILED,
     },
   ])(
-    'refines a CAPTCHA page connection failure when its host is $hostState',
+    'classifies a CAPTCHA page connection failure when its host is $hostState',
     async ({ dnsFails, proxyState, failureLayer, oneKeyFailureReason }) => {
       const captchaHost = 'login.onekey.so';
       jest

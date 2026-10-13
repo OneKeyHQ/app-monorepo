@@ -938,11 +938,10 @@ export class NetworkDoctor {
           connectivityLevel: isBlocking
             ? ENetworkConnectivityLevel.ONEKEY_BLOCKED
             : ENetworkConnectivityLevel.ONEKEY_SERVICE_ERROR,
-          oneKeyFailureReason: {
-            dns: EOneKeyFailureReason.DNS_RESOLUTION_FAILED,
-            tcp: EOneKeyFailureReason.TCP_HANDSHAKE_FAILED,
-            http: EOneKeyFailureReason.HTTP_REQUEST_FAILED,
-          }[layer],
+          oneKeyFailureReason:
+            layer === 'dns'
+              ? EOneKeyFailureReason.DNS_RESOLUTION_FAILED
+              : EOneKeyFailureReason.HTTP_REQUEST_FAILED,
           failureLayer: layer,
           summary: this.t(
             isBlocking
@@ -1179,13 +1178,14 @@ export class NetworkDoctor {
   }
 
   /**
-   * Classify a failed CAPTCHA page request. Direct DNS/TCP probes only refine
-   * the layer for that page's host: they bypass proxies, and the iOS TCP probe
-   * cannot connect to IPv6 addresses, so on their own they are informational.
+   * Classify a failed CAPTCHA page request. A failed direct DNS lookup refines
+   * a connection failure to the DNS layer unless the host is proxied. Direct
+   * TCP probes are informational only: they bypass proxies, and the iOS probe
+   * cannot connect to IPv6 addresses.
    */
   private detectCaptchaFailure(
     results: any,
-  ): { layer: 'dns' | 'tcp' | 'http'; isBlocking: boolean } | null {
+  ): { layer: 'dns' | 'http'; isBlocking: boolean } | null {
     const failedPage = (results.publicHttpChecks as IHttpProbeResult[]).find(
       (probe) => probe.label === CAPTCHA_PAGE_PROBE_LABEL && !probe.success,
     );
@@ -1199,20 +1199,14 @@ export class NetworkDoctor {
 
     const host = new URL(failedPage.url).hostname;
     const proxiedHosts: string[] = results.proxiedCaptchaHosts ?? [];
-    const extraTcpChecks: ITcpConnectionResult[] = results.extraTcpChecks ?? [];
-    const isTcpFailure =
-      !proxiedHosts.includes(host) &&
-      extraTcpChecks.some((check) => check.host === host && !check.success);
-    if (!isTcpFailure) {
-      return { layer: 'http', isBlocking: true };
-    }
-
     const extraDnsChecks: IDnsResult[] = results.extraDnsChecks ?? [];
-    const isDnsFailure = extraDnsChecks.some(
-      (check) =>
-        check.hostname === host && (!!check.error || check.ips.length === 0),
-    );
-    return { layer: isDnsFailure ? 'dns' : 'tcp', isBlocking: true };
+    const isDnsFailure =
+      !proxiedHosts.includes(host) &&
+      extraDnsChecks.some(
+        (check) =>
+          check.hostname === host && (!!check.error || check.ips.length === 0),
+      );
+    return { layer: isDnsFailure ? 'dns' : 'http', isBlocking: true };
   }
 
   /**
