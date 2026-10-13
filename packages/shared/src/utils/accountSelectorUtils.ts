@@ -1,5 +1,4 @@
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { EAccountSelectorSceneName } from '../../types';
@@ -142,15 +141,15 @@ function buildGlobalDeriveTypesMapKey({ networkId }: { networkId: string }) {
 // defaults to Taproot (BIP86) without such an entry, and every reader of the
 // raw map must apply that same default, or a scene seeded from the raw map
 // ends up on Nested SegWit while home shows Taproot (OK-64269).
-function getGlobalDeriveTypeFromMap({
+// The derive type union lives in kit-bg, which shared must not import, so the
+// helper is typed by the caller's map instead.
+function getGlobalDeriveTypeFromMap<T extends string>({
   networkId,
   globalDeriveTypesMap,
 }: {
   networkId: string;
-  globalDeriveTypesMap:
-    | Partial<Record<string, IAccountDeriveTypes | undefined>>
-    | undefined;
-}): IAccountDeriveTypes | undefined {
+  globalDeriveTypesMap: Partial<Record<string, T | undefined>> | undefined;
+}): T | 'BIP86' | undefined {
   const key = buildGlobalDeriveTypesMapKey({ networkId });
   const deriveType = globalDeriveTypesMap?.[key];
   if (deriveType === undefined && networkUtils.isBTCNetwork(networkId)) {
