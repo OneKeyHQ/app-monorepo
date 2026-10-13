@@ -1711,6 +1711,125 @@ describe('useAccountSelectorActions', () => {
     expect(atomUpdates).toHaveLength(1);
   });
 
+  it('resolves a BTC dApp derive type from the global Taproot default when home is on All Networks', async () => {
+    // OK-64269: the home selection cannot be inherited (All Networks is not a
+    // dApp network), and the user never saved an explicit BTC derive type, so
+    // the persisted map has no 'btc' entry. Every other global reader treats
+    // that as Taproot; the dApp sync must not fall through to Nested SegWit.
+    const sceneUrl = 'https://staking.babylonlabs.io';
+    const sourceSelectedAccount: ISelectedAccount = {
+      ...defaultSelectedAccount(),
+      walletId: 'hd-1',
+      indexedAccountId: 'hd-1--0',
+      networkId: getNetworkIdsMap().onekeyall,
+      deriveType: undefined,
+      focusedWallet: 'hd-1',
+    };
+    mockGetSelectedAccount.mockResolvedValue(sourceSelectedAccount);
+    mockGetAccountSelectorRawData.mockResolvedValue({
+      globalDeriveTypesMap: {
+        global: {},
+      },
+    });
+    mockShouldUseGlobalDeriveType.mockResolvedValue(false);
+
+    const { store, Wrapper } = createWrapper({
+      sceneName: EAccountSelectorSceneName.discover,
+      sceneUrl,
+    });
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.syncFromScene({
+        from: {
+          sceneName: EAccountSelectorSceneName.home,
+          sceneNum: 0,
+        },
+        num: 0,
+        targetSceneName: EAccountSelectorSceneName.discover,
+        withNetworkSync: true,
+        availableNetworks: {
+          networkIds: [
+            getNetworkIdsMap().btc,
+            getNetworkIdsMap().tbtc,
+            getNetworkIdsMap().sbtc,
+          ],
+        },
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]).toEqual({
+      ...sourceSelectedAccount,
+      networkId: getNetworkIdsMap().btc,
+      deriveType: 'BIP86',
+    });
+  });
+
+  it('prefers the global derive type over a stale dApp selection when home cannot be synced', async () => {
+    // A disconnected dApp keeps its last discover selection in storage. Syncing
+    // from home must still apply the derive type the user chose as default,
+    // exactly as it would if home were on that network itself.
+    const sceneUrl = 'https://staking.babylonlabs.io';
+    const sourceSelectedAccount: ISelectedAccount = {
+      ...defaultSelectedAccount(),
+      walletId: 'hd-1',
+      indexedAccountId: 'hd-1--0',
+      networkId: getNetworkIdsMap().onekeyall,
+      deriveType: undefined,
+      focusedWallet: 'hd-1',
+    };
+    mockGetSelectedAccount.mockResolvedValue(sourceSelectedAccount);
+    mockGetAccountSelectorRawData.mockResolvedValue({
+      globalDeriveTypesMap: {
+        global: {
+          btc: 'BIP44',
+        },
+      },
+    });
+    mockShouldUseGlobalDeriveType.mockResolvedValue(false);
+
+    const { store, Wrapper } = createWrapper({
+      sceneName: EAccountSelectorSceneName.discover,
+      sceneUrl,
+    });
+    store.set(selectedAccountsAtom(), {
+      0: {
+        ...defaultSelectedAccount(),
+        walletId: 'hd-2',
+        indexedAccountId: 'hd-2--0',
+        focusedWallet: 'hd-2',
+        networkId: getNetworkIdsMap().btc,
+        deriveType: 'default',
+      },
+    });
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.syncFromScene({
+        from: {
+          sceneName: EAccountSelectorSceneName.home,
+          sceneNum: 0,
+        },
+        num: 0,
+        targetSceneName: EAccountSelectorSceneName.discover,
+        withNetworkSync: true,
+        availableNetworks: {
+          networkIds: [getNetworkIdsMap().btc, getNetworkIdsMap().tbtc],
+        },
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]).toEqual({
+      ...sourceSelectedAccount,
+      networkId: getNetworkIdsMap().btc,
+      deriveType: 'BIP44',
+    });
+  });
+
   it('preserves the target network and derive type when network sync is disabled', async () => {
     const sourceSelectedAccount: ISelectedAccount = {
       ...defaultSelectedAccount(),
