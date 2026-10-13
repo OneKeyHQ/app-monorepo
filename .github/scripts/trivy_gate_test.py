@@ -509,6 +509,12 @@ class GateTests(unittest.TestCase):
             # The first matching pattern wins.
             'first-match': ({'async': '2.6.4'}, {'lodash': '4.17.20', 'async/lodash': '4.17.21'},
                             '    async: "npm:2.6.4"\n', exact[:1], '4.17.20'),
+            # Keys Yarn skips (globs, incomplete parses, non-string values) or
+            # that match nothing leave the lockfile resolution unchanged.
+            'skipped-keys': ({'async': '2.6.4'}, {'async/lodash': '4.17.21', 'lodash@>=4.17.0 <5.0.0': '4.17.20',
+                                                  '**/lodash': '4.17.20', 'async/lodash/extra': '4.17.20',
+                                                  'async/lodash@': '4.17.20', 'a b/lodash': '4.17.20',
+                                                  'lodash': 4}, async_edges, exact, '4.17.21'),
         }
         dev = {'async@2.6.4': False, 'lodash@4.17.20': True, 'lodash@4.17.21': True, 'lodash@4.18.1': True}
         inventory = {'Results': [{'Target': 'yarn.lock', 'Class': 'lang-pkgs', 'Type': 'yarn',
@@ -524,9 +530,21 @@ class GateTests(unittest.TestCase):
         self.assertEqual(gate.yarn_production(root, inventory)[0],
                          {('yarn.lock', 'async@2.6.4'), ('yarn.lock', 'lodash@4.17.20'),
                           ('yarn.lock', 'lodash@4.18.1')})
-        for key in ('**/lodash', 'a b/lodash', 'async/lodash/extra'):
-            with self.subTest(key=key), self.assertRaisesRegex(gate.GateError, '^unsupported_yarn_source$'):
-                gate.yarn_resolutions({'resolutions': {key: '1.0.0'}})
+        # Ranges may contain spaces and are compared exactly, as Yarn does.
+        compound = '    async: "npm:2.6.4"\n    lodash: "npm:>=4.17.0 <5.0.0"\n'
+        for spacing, expected in ((' ', '4.17.20'), ('  ', '4.18.1')):
+            with self.subTest(spacing=spacing):
+                root = tree('compound' + str(len(spacing)), {'async': '2.6.4', 'lodash': '>=4.17.0 <5.0.0'},
+                            {'lodash@>=4.17.0' + spacing + '<5.0.0': '4.17.20'}, compound,
+                            exact[:1] + [ranged, '"lodash@npm:>=4.17.0 <5.0.0":\n  version: 4.18.1\n'
+                                         '  resolution: "lodash@npm:4.18.1"\n'])
+                self.assertEqual(gate.yarn_production(root, inventory)[0],
+                                 {('yarn.lock', 'async@2.6.4'), ('yarn.lock', 'lodash@' + expected),
+                                  ('yarn.lock', 'lodash@4.18.1')})
+        self.assertEqual(gate.yarn_resolutions({'resolutions': {
+            'async@>=2 <3/lodash': '4.17.20 ', '@s/a@1/@s/b@^2': 'npm:2.0.0', 'lodash': ''}}),
+            [('async', 'npm:>=2 <3', 'lodash', None, 'npm:4.17.20 '),
+             ('@s/a', 'npm:1', '@s/b', 'npm:^2', 'npm:2.0.0'), (None, None, 'lodash', None, 'npm:')])
 
     def test_yarn_git_url_canonicalization_retains_pinned_resolution(self):
         base, merge = self.root / 'base', self.root / 'merge'

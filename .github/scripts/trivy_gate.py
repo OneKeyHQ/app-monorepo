@@ -407,24 +407,57 @@ def yarn_git_warnings(base, merge):
 
 
 def yarn_range(value):
-    # Configuration.normalizeDependency gives semver ranges and tags npm:.
-    if ':' not in value and re.fullmatch(r'[0-9A-Za-z.^~<>=|*+ -]+', value):
+    # normalizeDependency and normalizeLocator prefix npm: to semver ranges and
+    # tags, never to values with a protocol. The spelling, including any
+    # whitespace, is kept and compared exactly. Other strings of these
+    # characters cannot resolve, so no lockfile edge or locator carries them.
+    if ':' not in value and re.fullmatch(r'[\s0-9A-Za-z.^~<>=|*+_-]*', value):
         return 'npm:' + value
     return value
 
 
+def yarn_resolution_key(key):
+    """Parse a resolutions key with Yarn's grammar; None where Yarn skips it.
+
+    resolution := specifier '/' specifier | specifier
+    specifier := fullName '@' description | fullName
+    fullName := '@' ident '/' ident | ident; ident := [^/@]+; description := [^/]+
+    """
+    def specifier(start):
+        name = re.match(r'@[^/@]+/[^/@]+|[^/@]+', key[start:])
+        if name is None:
+            return None
+        end = start + name.end()
+        description = re.match(r'@([^/]+)', key[end:])
+        if description:
+            return (name[0], description[1]), end + description.end()
+        return (name[0], None), end
+    # Yarn rejects legacy glob keys; like keys that do not parse completely,
+    # the manifest then skips them.
+    if re.match(r'\*{1,2}/', key):
+        return None
+    first = specifier(0)
+    if first is None:
+        return None
+    if key[first[1]:first[1] + 1] == '/':
+        second = specifier(first[1] + 1)
+        if second is not None:
+            return (first[0], second[0]) if second[1] == len(key) else None
+    return ((None, None), first[0]) if first[1] == len(key) else None
+
+
 def yarn_resolutions(manifest):
     """Parse manifest resolutions as (parent, reference, name, range, value)."""
-    resolutions = manifest.get('resolutions', {})
+    resolutions = manifest.get('resolutions') or {}
     require(isinstance(resolutions, dict), 'unsupported_yarn_source')
-    spec = YARN_NAME + r'(?:@([^/\s]+))?'
     patterns = []
     for key, value in resolutions.items():
-        match = re.fullmatch(r'(?:' + spec + r'/)?' + spec, key)
-        require(match is not None and '**' not in key and isinstance(value, str),
-                'unsupported_yarn_source')
-        patterns.append((match[1], match[2] and yarn_range(match[2]), match[3],
-                         match[4] and yarn_range(match[4]), yarn_range(value)))
+        # The manifest skips non-string values and keys it cannot parse.
+        parsed = yarn_resolution_key(key) if isinstance(value, str) else None
+        if parsed is not None:
+            (parent, reference), (name, constraint) = parsed
+            patterns.append((parent, reference and yarn_range(reference), name,
+                             constraint and yarn_range(constraint), yarn_range(value)))
     return patterns
 
 
