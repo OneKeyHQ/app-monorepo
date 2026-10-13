@@ -357,6 +357,7 @@ export function useDeviceConnect({
     async (
       previousDevice: SearchDevice,
       onConnectId?: (connectId: string) => void,
+      options?: { allowBootloaderRecovery: boolean },
     ) => {
       wasInBootloaderModeRef.current = true;
       await ensureStopScan();
@@ -380,11 +381,14 @@ export function useDeviceConnect({
             },
           }),
         onConnectId,
+        allowBootloaderRecovery: options?.allowBootloaderRecovery,
       });
       activeDeviceRef.current = { ...result.device };
       activeFeaturesRef.current = result.features;
-      wasInBootloaderModeRef.current = false;
-      await bootloaderModeDialogManager.close();
+      wasInBootloaderModeRef.current = Boolean(result.features.bootloader_mode);
+      if (!wasInBootloaderModeRef.current) {
+        await bootloaderModeDialogManager.close();
+      }
       setCurrentDevice?.(result.device);
       defaultLogger.hardware.sdkLog.log(
         'Firmware reconnect succeeded',
