@@ -12,6 +12,7 @@ import {
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IEarnPositionManageTarget } from '@onekeyhq/shared/types/earn/portfolioPositions';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
@@ -51,6 +52,9 @@ import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
 type IPrimaryTab = 'assets' | 'rewards';
 
+// One stable empty selection: the rewards request keys on the array.
+const ALL_NETWORKS: string[] = [];
+
 /**
  * The phone "My portfolio" page (OK-61377, figma 29180-108096).
  *
@@ -83,7 +87,30 @@ export function MyPortfolioPage() {
 
   const [primaryTab, setPrimaryTab] = useState<IPrimaryTab>('assets');
   const [stage, setStage] = useState<IEarnRewardsPortfolioStage>('claimable');
-  const [selectedNetworkIds, setSelectedNetworkIds] = useState<string[]>([]);
+  // The network filter belongs to the account it was picked on (OK-64596):
+  // another account opens on All networks, in the same render, instead of
+  // keeping a network it may hold nothing on. The account is the indexed
+  // account when there is one, so changing the wallet's network alone keeps
+  // the filter.
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const filterAccountKey =
+    activeAccount.account?.indexedAccountId ||
+    activeAccount.indexedAccount?.id ||
+    activeAccount.account?.id ||
+    '';
+  const [networkSelection, setNetworkSelection] = useState<{
+    accountKey: string;
+    networkIds: string[];
+  }>({ accountKey: '', networkIds: ALL_NETWORKS });
+  const selectedNetworkIds =
+    networkSelection.accountKey === filterAccountKey
+      ? networkSelection.networkIds
+      : ALL_NETWORKS;
+  const setSelectedNetworkIds = useCallback(
+    (networkIds: string[]) =>
+      setNetworkSelection({ accountKey: filterAccountKey, networkIds }),
+    [filterAccountKey],
+  );
 
   const {
     response,
