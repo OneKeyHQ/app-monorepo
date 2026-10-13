@@ -134,7 +134,7 @@ async function startSession(
     onAITranslateUnavailable?: jest.Mock;
   } = {},
 ) {
-  const { result } = renderHook(() =>
+  const { result, unmount } = renderHook(() =>
     useWebViewTranslate({
       tabId: TAB_ID,
       engine,
@@ -152,7 +152,7 @@ async function startSession(
     jest.advanceTimersByTime(100);
   });
   const sessionId = startedSessionIds()[0];
-  return { result, sessionId };
+  return { result, sessionId, unmount };
 }
 
 function requestMessage(sessionId: string, id: string, texts: string[]) {
@@ -266,6 +266,56 @@ describe('useWebViewTranslate free-trial stop', () => {
     ]);
     expect(commands()).toEqual(['start', 'stop']);
     expect(onFreeTrialUnavailable).toHaveBeenCalledTimes(1);
+  });
+
+  describe('closed tab reopened with the same tabId', () => {
+    it('sends no stop when a request runs out after the close', async () => {
+      const onFreeTrialUnavailable = jest.fn();
+      const pending = deferred<unknown>();
+      mockApiTranslate.mockReturnValueOnce(pending.promise);
+      const { sessionId, unmount } = await startSession(onFreeTrialUnavailable);
+
+      await act(async () => {
+        request(sessionId, 'tr_1', ['a']);
+        await flush();
+      });
+      unmount();
+      await act(async () => {
+        pending.resolve({ translations: ['A'], freeTrialError: EXHAUSTED });
+        await flush();
+      });
+
+      expect(commands()).toEqual(['start']);
+      expect(onFreeTrialUnavailable).not.toHaveBeenCalled();
+    });
+
+    it('sends no stop when the last request returns after the close', async () => {
+      const onFreeTrialUnavailable = jest.fn();
+      const second = deferred<unknown>();
+      mockApiTranslate
+        .mockResolvedValueOnce({
+          translations: ['A'],
+          freeTrialError: EXHAUSTED,
+        })
+        .mockReturnValueOnce(second.promise);
+      const { sessionId, unmount } = await startSession(onFreeTrialUnavailable);
+
+      await act(async () => {
+        request(sessionId, 'tr_1', ['a']);
+        request(sessionId, 'tr_2', ['b']);
+        await flush();
+      });
+      // The stop waits for tr_2 when the tab closes.
+      expect(commands()).toEqual(['start']);
+      unmount();
+      await act(async () => {
+        second.resolve({ translations: ['B'] });
+        await flush();
+        jest.advanceTimersByTime(20_000);
+      });
+
+      expect(commands()).toEqual(['start']);
+    });
   });
 
   it('forces stop after 15s when a request never returns', async () => {

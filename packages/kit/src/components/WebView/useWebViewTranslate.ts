@@ -372,6 +372,12 @@ export function useWebViewTranslate({
         startTimerRef.current = null;
       }
       clearFreeTrialStopTimer();
+      // A closed tab can come back with the same tabId (reopen the last
+      // closed tab). Requests still in flight for this instance must not
+      // stop, restore or report on the new page, which commands reach by
+      // tabId; without a session they are all ignored.
+      activeSessionIdRef.current = null;
+      freeTrialStoppedSessionRef.current = null;
     },
     [clearFreeTrialStopTimer],
   );

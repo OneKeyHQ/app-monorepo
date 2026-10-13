@@ -184,6 +184,29 @@ describe('usePageTranslation free-trial pause', () => {
     });
   });
 
+  it('translates nothing for a tab closed during the login check', async () => {
+    let resolveCheck: ((value: boolean) => void) | undefined;
+    mockIsLoggedIn.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveCheck = resolve;
+      }),
+    );
+    const { result, unmount } = renderHook(() => usePageTranslation('tab-1'));
+
+    act(() => {
+      result.current.handleTranslate();
+    });
+    // Reopening the closed tab would give a new page the same tabId.
+    unmount();
+    await act(async () => {
+      resolveCheck?.(true);
+      await flush();
+    });
+
+    expect(mockStartTranslate).not.toHaveBeenCalled();
+    expect(mockShowActiveRejectedFeedback).not.toHaveBeenCalled();
+  });
+
   it('stays in translate mode when the quota runs out mid-session', async () => {
     const { result } = await startThenRunOut();
 

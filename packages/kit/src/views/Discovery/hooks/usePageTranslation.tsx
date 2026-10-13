@@ -542,6 +542,16 @@ export function usePageTranslation(tabId: string) {
   activeTabIdRef.current = activeTabId;
   currentTabUrlRef.current = tab?.url;
   isTranslatedRef.current = isTranslated;
+  // A closed tab can come back with the same tabId (reopen the last closed
+  // tab): a press of this closed instance must not translate the new page,
+  // which reaches the WebView by tabId and has its own state.
+  const isUnmountedRef = useRef(false);
+  useEffect(() => {
+    isUnmountedRef.current = false;
+    return () => {
+      isUnmountedRef.current = true;
+    };
+  }, []);
 
   const onNavigate = useCallback((stillTranslating: boolean) => {
     pageContextVersionRef.current += 1;
@@ -686,7 +696,11 @@ export function usePageTranslation(tabId: string) {
       return false;
     }
     try {
-      if (await backgroundApiProxy.servicePrime.isLoggedIn()) {
+      const loggedIn = await backgroundApiProxy.servicePrime.isLoggedIn();
+      if (isUnmountedRef.current) {
+        return false;
+      }
+      if (loggedIn) {
         const access = getCachedAccess(EPrimeFeatures.DAppTranslate);
         if (access.status === 'exhausted' || access.status === 'notOpen') {
           showActiveRejectedFeedback({
@@ -704,6 +718,7 @@ export function usePageTranslation(tabId: string) {
         featureId: EPrimeFeatures.DAppTranslate,
         // Same tab and page after the login, or the translate is dropped.
         isContextValid: () =>
+          !isUnmountedRef.current &&
           pageContextVersionRef.current === pageContextVersionAtPress &&
           activeTabIdRef.current === tabId &&
           currentTabUrlRef.current === pageUrlAtPress,
@@ -740,7 +755,7 @@ export function usePageTranslation(tabId: string) {
     const willTranslate = !isTranslatedRef.current;
     void (async () => {
       if (willTranslate) {
-        if (!(await ensureTranslateAccess())) {
+        if (!(await ensureTranslateAccess()) || isUnmountedRef.current) {
           return;
         }
         startTranslate(resolvedTargetLang);
@@ -762,7 +777,7 @@ export function usePageTranslation(tabId: string) {
     void (async () => {
       // Checked first: retranslating restores the original, so a page paused
       // at the free-trial limit would lose its translations for nothing.
-      if (!(await ensureTranslateAccess())) {
+      if (!(await ensureTranslateAccess()) || isUnmountedRef.current) {
         return;
       }
       restoreOriginal();
