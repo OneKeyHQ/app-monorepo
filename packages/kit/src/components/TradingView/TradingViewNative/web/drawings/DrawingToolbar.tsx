@@ -1,5 +1,12 @@
-import { useEffect, useId, useRef, useState } from 'react';
-import type { CSSProperties, ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
+import type { CSSProperties, PointerEvent, ReactNode } from 'react';
 
 import { Icon, useTheme } from '@onekeyhq/components';
 
@@ -28,6 +35,8 @@ type IActionIcon =
   | 'delete'
   | 'stay'
   | 'chevron';
+
+type IPropertiesPosition = { left: number; top: number };
 
 export function DrawingIcon({
   name,
@@ -194,12 +203,14 @@ const toolbarCss = `
 .chart-drawing-menu .chart-drawing-icon { color:var(--drawing-icon); }
 .chart-drawing-menu button[aria-checked=true] { background:var(--drawing-active); }
 .chart-drawing-menu button[aria-checked=true] .chart-drawing-icon { color:var(--drawing-icon-active); }
-.chart-drawing-properties { position:absolute; top:8px; left:62px; display:flex; align-items:center; gap:6px; max-width:calc(100% - 136px); min-height:38px; padding:3px 6px; background:var(--drawing-bg); color:var(--drawing-text); border:1px solid var(--drawing-border); border-radius:7px; box-shadow:0 3px 12px #0001; z-index:3; }
+.chart-drawing-properties { position:absolute; top:8px; left:62px; display:flex; align-items:center; gap:6px; width:max-content; max-width:calc(100% - 136px); overflow-x:auto; min-height:38px; padding:3px 6px; background:var(--drawing-bg); color:var(--drawing-text); border:1px solid var(--drawing-border); border-radius:7px; box-shadow:0 3px 12px #0001; z-index:3; }
 .chart-drawing-properties select, .chart-drawing-properties input { background:var(--drawing-bg); color:var(--drawing-text); border:1px solid var(--drawing-border); border-radius:4px; height:27px; font:inherit; font-size:12px; }
 .chart-drawing-properties input[type=color] { width:28px; padding:2px; cursor:pointer; }
 .chart-drawing-properties .chart-drawing-button { width:28px; height:28px; }
+.chart-drawing-properties .chart-drawing-drag-handle { width:20px; color:var(--drawing-muted); cursor:grab; touch-action:none; user-select:none; }
+.chart-drawing-properties .chart-drawing-drag-handle:active { cursor:grabbing; }
 .chart-drawing-properties-label { font-size:12px; margin:0 4px; white-space:nowrap; }
-.chart-drawing-coordinates { position:absolute; top:52px; left:62px; max-height:calc(100% - 90px); overflow:auto; background:var(--drawing-bg); border:1px solid var(--drawing-border); border-radius:7px; padding:12px; box-shadow:0 3px 12px #0001; z-index:4; font-size:12px; }
+.chart-drawing-coordinates { position:absolute; box-sizing:border-box; max-height:calc(100% - 90px); overflow:auto; background:var(--drawing-bg); border:1px solid var(--drawing-border); border-radius:7px; padding:12px; box-shadow:0 3px 12px #0001; z-index:4; font-size:12px; }
 .chart-drawing-coordinates label { display:flex; align-items:center; gap:8px; margin:6px 0; }
 .chart-drawing-coordinates input { width:180px; background:var(--drawing-bg); color:var(--drawing-text); border:1px solid var(--drawing-border); padding:5px; border-radius:4px; }
 .chart-drawing-text-settings { overflow:hidden; display:flex; flex-direction:column; width:300px; max-width:calc(100% - 100px); box-sizing:border-box; }
@@ -227,6 +238,16 @@ export function DrawingToolbar({
   const theme = useTheme();
   const fontSizeControlId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
+  const propertiesRef = useRef<HTMLDivElement>(null);
+  const coordinatesRef = useRef<HTMLDivElement>(null);
+  const propertiesDragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    position: IPropertiesPosition;
+  } | null>(null);
+  const [propertiesPosition, setPropertiesPosition] =
+    useState<IPropertiesPosition>({ left: 62, top: 8 });
   const [collapsed, setCollapsed] = useState(false);
   const [menu, setMenu] = useState<string | null>(null);
   const [lastTools, setLastTools] = useState<Record<string, IDrawingTool>>({
@@ -236,6 +257,117 @@ export function DrawingToolbar({
   const selected = state.history.present.find(
     (drawing) => drawing.id === state.selectedId,
   );
+  const propertiesVisible =
+    !menu && !state.hidden && Boolean(selected || state.tool !== 'cursor');
+  const settingsVisible =
+    propertiesVisible && Boolean(selected && state.editingCoordinates);
+  const clampPropertiesPosition = useCallback(
+    (position: IPropertiesPosition): IPropertiesPosition => {
+      const panel = propertiesRef.current;
+      const container = panel?.offsetParent;
+      if (!panel || !(container instanceof HTMLElement)) return position;
+      const minLeft = (rootRef.current?.offsetWidth ?? 48) + 8;
+      return {
+        left: Math.max(
+          minLeft,
+          Math.min(
+            position.left,
+            container.clientWidth - panel.offsetWidth - 8,
+          ),
+        ),
+        top: Math.max(
+          8,
+          Math.min(
+            position.top,
+            container.clientHeight - panel.offsetHeight - 8,
+          ),
+        ),
+      };
+    },
+    [],
+  );
+  useEffect(() => {
+    const panel = propertiesRef.current;
+    const container = panel?.offsetParent;
+    if (!propertiesVisible || !panel || !(container instanceof HTMLElement))
+      return undefined;
+    const resizeObserver = new ResizeObserver(() => {
+      setPropertiesPosition((current) => {
+        const next = clampPropertiesPosition(current);
+        return next.left === current.left && next.top === current.top
+          ? current
+          : next;
+      });
+    });
+    resizeObserver.observe(panel);
+    resizeObserver.observe(container);
+    if (rootRef.current) resizeObserver.observe(rootRef.current);
+    return () => {
+      resizeObserver.disconnect();
+      propertiesDragRef.current = null;
+    };
+  }, [clampPropertiesPosition, propertiesVisible]);
+  useLayoutEffect(() => {
+    const panel = propertiesRef.current;
+    const dialog = coordinatesRef.current;
+    const container = panel?.offsetParent;
+    if (
+      !settingsVisible ||
+      !panel ||
+      !dialog ||
+      !(container instanceof HTMLElement)
+    )
+      return undefined;
+    const body = dialog.querySelector<HTMLElement>(
+      '.chart-drawing-settings-body',
+    );
+    const updateSettingsPosition = () => {
+      const minLeft = (rootRef.current?.offsetWidth ?? 48) + 8;
+      dialog.style.maxWidth = `${Math.max(0, container.clientWidth - minLeft - 8)}px`;
+      const belowTop = panel.offsetTop + panel.offsetHeight + 6;
+      const spaceBelow = Math.max(0, container.clientHeight - belowTop - 8);
+      const spaceAbove = Math.max(0, panel.offsetTop - 6 - 8);
+      // Include the text body's scroll overflow when deciding whether to flip.
+      const contentHeight =
+        dialog.scrollHeight +
+        dialog.offsetHeight -
+        dialog.clientHeight +
+        (body ? Math.max(0, body.scrollHeight - body.clientHeight) : 0);
+      const below = contentHeight <= spaceBelow || spaceBelow >= spaceAbove;
+      dialog.style.maxHeight = `${below ? spaceBelow : spaceAbove}px`;
+      dialog.style.left = `${Math.max(
+        minLeft,
+        Math.min(
+          panel.offsetLeft,
+          container.clientWidth - dialog.offsetWidth - 8,
+        ),
+      )}px`;
+      dialog.style.top = below ? `${belowTop}px` : 'auto';
+      dialog.style.bottom = below
+        ? 'auto'
+        : `${container.clientHeight - panel.offsetTop + 6}px`;
+    };
+    updateSettingsPosition();
+    const resizeObserver = new ResizeObserver(updateSettingsPosition);
+    resizeObserver.observe(panel);
+    resizeObserver.observe(dialog);
+    resizeObserver.observe(container);
+    if (body) resizeObserver.observe(body);
+    const textArea = dialog.querySelector('textarea');
+    if (textArea) resizeObserver.observe(textArea);
+    dialog.addEventListener('toggle', updateSettingsPosition, true);
+    return () => {
+      resizeObserver.disconnect();
+      dialog.removeEventListener('toggle', updateSettingsPosition, true);
+    };
+  }, [propertiesPosition, selected?.id, selected?.text, settingsVisible]);
+  const finishPropertiesDrag = (event: PointerEvent<HTMLButtonElement>) => {
+    if (propertiesDragRef.current?.pointerId !== event.pointerId) return;
+    propertiesDragRef.current = null;
+    event.stopPropagation();
+    if (event.currentTarget.hasPointerCapture(event.pointerId))
+      event.currentTarget.releasePointerCapture(event.pointerId);
+  };
   const style = selected ?? state.style;
   const activeTool = selected?.tool ?? state.tool;
   const hasText = isTextDrawingTool(activeTool);
@@ -526,12 +658,80 @@ export function DrawingToolbar({
             ))}
         </div>
       ) : null}
-      {!menu && !state.hidden && (selected || state.tool !== 'cursor') ? (
+      {propertiesVisible ? (
         <div
+          ref={propertiesRef}
           className="chart-drawing-properties"
+          data-testid="chart-drawing-properties"
           role="toolbar"
           aria-label="Drawing properties"
+          style={propertiesPosition}
         >
+          <button
+            type="button"
+            className="chart-drawing-button chart-drawing-drag-handle"
+            data-testid="chart-drawing-properties-drag-handle"
+            aria-label="Move drawing properties"
+            title="Drag to move"
+            onPointerDown={(event) => {
+              const panel = propertiesRef.current;
+              if (event.button !== 0 || !event.isPrimary || !panel) return;
+              event.preventDefault();
+              event.stopPropagation();
+              event.currentTarget.setPointerCapture(event.pointerId);
+              propertiesDragRef.current = {
+                pointerId: event.pointerId,
+                startX: event.clientX,
+                startY: event.clientY,
+                position: { left: panel.offsetLeft, top: panel.offsetTop },
+              };
+            }}
+            onPointerMove={(event) => {
+              const drag = propertiesDragRef.current;
+              if (!drag || drag.pointerId !== event.pointerId) return;
+              event.preventDefault();
+              event.stopPropagation();
+              setPropertiesPosition(
+                clampPropertiesPosition({
+                  left: drag.position.left + event.clientX - drag.startX,
+                  top: drag.position.top + event.clientY - drag.startY,
+                }),
+              );
+            }}
+            onPointerUp={finishPropertiesDrag}
+            onPointerCancel={finishPropertiesDrag}
+            onLostPointerCapture={() => {
+              propertiesDragRef.current = null;
+            }}
+            onKeyDown={(event) => {
+              const x =
+                Number(event.key === 'ArrowRight') -
+                Number(event.key === 'ArrowLeft');
+              const y =
+                Number(event.key === 'ArrowDown') -
+                Number(event.key === 'ArrowUp');
+              if (!x && !y) return;
+              event.preventDefault();
+              event.stopPropagation();
+              setPropertiesPosition((current) =>
+                clampPropertiesPosition({
+                  left: current.left + x * 10,
+                  top: current.top + y * 10,
+                }),
+              );
+            }}
+          >
+            <span
+              aria-hidden="true"
+              style={{ display: 'flex', pointerEvents: 'none' }}
+            >
+              <Icon
+                name="DragOutline"
+                size="$4"
+                style={{ color: 'currentColor' }}
+              />
+            </span>
+          </button>
           <span className="chart-drawing-properties-label">
             {
               DRAWING_TOOLS[
@@ -591,9 +791,11 @@ export function DrawingToolbar({
           ) : null}
         </div>
       ) : null}
-      {selected && state.editingCoordinates && !state.hidden && !menu ? (
+      {selected && settingsVisible ? (
         <div
+          ref={coordinatesRef}
           className={`chart-drawing-coordinates${hasText ? ' chart-drawing-text-settings' : ''}`}
+          data-testid="chart-drawing-settings"
           role="dialog"
           aria-label="Drawing settings"
         >
