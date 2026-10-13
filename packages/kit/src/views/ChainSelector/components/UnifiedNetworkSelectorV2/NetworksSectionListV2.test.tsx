@@ -145,10 +145,14 @@ function HarnessV2({
   networks = mockNetworks,
   values = mockValues,
   isCreatingMissingAddresses = false,
+  walletId = 'wallet',
+  indexedAccountId,
 }: {
   networks?: IServerNetworkMatch[];
   values?: Record<string, string>;
   isCreatingMissingAddresses?: boolean;
+  walletId?: string;
+  indexedAccountId?: string;
 }) {
   const [state, setState] = useState(mockState);
   mockState = state;
@@ -165,9 +169,9 @@ function HarnessV2({
   );
   const value = useMemo<IContextValueV2>(
     () => ({
-      walletId: 'wallet',
+      walletId,
       accountId: undefined,
-      indexedAccountId: undefined,
+      indexedAccountId,
       networks: networkCollection,
       networksState: state,
       setNetworksState: setState,
@@ -189,6 +193,8 @@ function HarnessV2({
       enabledNetworks,
       values,
       isCreatingMissingAddresses,
+      walletId,
+      indexedAccountId,
     ],
   );
   return (
@@ -232,6 +238,36 @@ describe('portfolio NativeList selection adapter V2', () => {
     mockIsMissingNetworksReady = true;
     view.rerender(<HarnessV2 values={{ ...mockValues, b: '9' }} />);
     expect(mockMissingCount).toHaveBeenLastCalledWith(2);
+  });
+
+  it('resets the retained missing-address count when the account scope changes', () => {
+    // Retaining the previous count across a pending check is only valid for
+    // toggles within the same wallet / indexed-account scope; another
+    // account's count would label the footer for the wrong account.
+    const view = render(<HarnessV2 indexedAccountId="indexed-1" />);
+    expect(mockMissingCount).toHaveBeenLastCalledWith(1);
+    mockMissingNetworks = [];
+    mockIsMissingNetworksReady = false;
+    view.rerender(<HarnessV2 indexedAccountId="indexed-2" />);
+    expect(mockMissingCount).toHaveBeenLastCalledWith(0);
+    mockMissingCount.mockClear();
+    view.rerender(
+      <HarnessV2
+        indexedAccountId="indexed-2"
+        values={{ ...mockValues, b: '8' }}
+      />,
+    );
+    expect(mockMissingCount).not.toHaveBeenCalled();
+    mockMissingNetworks = [{ networkId: 'a' }, { networkId: 'b' }];
+    mockIsMissingNetworksReady = true;
+    view.rerender(<HarnessV2 indexedAccountId="indexed-2" />);
+    expect(mockMissingCount).toHaveBeenLastCalledWith(2);
+    mockMissingNetworks = [];
+    mockIsMissingNetworksReady = false;
+    view.rerender(
+      <HarnessV2 walletId="wallet-2" indexedAccountId="indexed-2" />,
+    );
+    expect(mockMissingCount).toHaveBeenLastCalledWith(0);
   });
 
   it('preserves selections outside the search result and writes both state maps', () => {
