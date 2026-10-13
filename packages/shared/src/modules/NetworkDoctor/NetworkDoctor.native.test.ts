@@ -449,13 +449,13 @@ describe('NetworkDoctor native diagnostics', () => {
       summary: 'auth_captcha_load_failed__msg',
       assessment: 'blocked',
     },
-    {
-      failure: 'a 503 response',
-      status: 503,
+    ...[404, 429, 503].map((status) => ({
+      failure: `a ${status} response`,
+      status,
       connectivityLevel: ENetworkConnectivityLevel.ONEKEY_SERVICE_ERROR,
       summary: 'auth_captcha_unavailable__msg',
       assessment: 'degraded',
-    },
+    })),
   ])(
     'reports a CAPTCHA page with $failure when its host accepts TCP connections',
     async ({ status, connectivityLevel, summary, assessment }) => {

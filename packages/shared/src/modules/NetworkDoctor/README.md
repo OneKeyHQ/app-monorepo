@@ -57,7 +57,7 @@ Explicit target arrays replace the defaults for that probe type. If the Wallet
 health check passes but a CAPTCHA target is unreachable, the conclusion reports
 the failing CAPTCHA layer instead of a healthy result. Direct DNS/TCP failures
 are ignored for CAPTCHA hosts that the system routes through a proxy, and a
-CAPTCHA page 5xx response is reported as a service error.
+CAPTCHA page HTTP error response is reported as a service error.
 
 ```typescript
 import { NetworkDoctor } from '@onekeyhq/shared/src/modules/NetworkDoctor';

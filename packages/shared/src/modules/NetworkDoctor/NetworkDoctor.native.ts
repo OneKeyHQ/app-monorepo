@@ -1221,9 +1221,8 @@ export class NetworkDoctor {
     if (!failedPage) {
       return null;
     }
-    // A 5xx response proves the network path works; the service failed.
-    const isServerError = (failedPage.status ?? 0) >= 500;
-    return { layer: 'http', isBlocking: !isServerError };
+    // Any HTTP response proves the network path works; the service failed.
+    return { layer: 'http', isBlocking: failedPage.status === undefined };
   }
 
   /**
