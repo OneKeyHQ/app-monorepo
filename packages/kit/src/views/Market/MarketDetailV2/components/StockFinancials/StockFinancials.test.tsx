@@ -323,6 +323,56 @@ it('switches each chart independently and displays fiscal quarter data', () => {
   ).toBeTruthy();
 });
 
+it('keeps the chart mounted and clears its tooltip when the period changes', () => {
+  renderFinancials();
+  const chart = screen.getByTestId('stock-financials-debt-chart');
+  const svg = chart.querySelector('svg');
+  expect(svg).not.toBeNull();
+  fireEvent.click(screen.getByTestId('stock-financials-debt-chart-point-0'));
+  expect(
+    screen.getByTestId('stock-financials-debt-chart-tooltip'),
+  ).toBeTruthy();
+
+  fireEvent.click(screen.getByTestId('stock-financials-debt-quarter'));
+  expect(screen.getByTestId('stock-financials-debt-chart')).toBe(chart);
+  expect(chart.querySelector('svg')).toBe(svg);
+  expect(
+    screen.queryByTestId('stock-financials-debt-chart-tooltip'),
+  ).toBeNull();
+
+  fireEvent.click(screen.getByTestId('stock-financials-debt-chart-point-0'));
+  expect(
+    screen.getByTestId('stock-financials-debt-chart-tooltip'),
+  ).toBeTruthy();
+  fireEvent.click(screen.getByTestId('stock-financials-debt-annual'));
+  expect(chart.querySelector('svg')).toBe(svg);
+  expect(
+    screen.queryByTestId('stock-financials-debt-chart-tooltip'),
+  ).toBeNull();
+});
+
+it('preserves the pinned tooltip when the same financial data rerenders', () => {
+  const { rerender } = renderFinancials();
+  const chart = screen.getByTestId('stock-financials-debt-chart');
+  fireEvent.click(screen.getByTestId('stock-financials-debt-chart-point-0'));
+  const tooltip = screen.getByTestId('stock-financials-debt-chart-tooltip');
+
+  rerender(
+    <IntlProvider locale="en" messages={intlMessages}>
+      <StockFinancials stockId="AAPL" labels={labels} />
+    </IntlProvider>,
+  );
+
+  expect(screen.getByTestId('stock-financials-debt-chart')).toBe(chart);
+  expect(screen.getByTestId('stock-financials-debt-chart-tooltip')).toBe(
+    tooltip,
+  );
+  fireEvent.click(screen.getByTestId('stock-financials-debt-chart-point-0'));
+  expect(
+    screen.queryByTestId('stock-financials-debt-chart-tooltip'),
+  ).toBeNull();
+});
+
 it('hides the quarterly control when the server sends FY rows for quarter', () => {
   mockResult.quarter.data = { ...annual, period: 'quarter' };
   renderFinancials();

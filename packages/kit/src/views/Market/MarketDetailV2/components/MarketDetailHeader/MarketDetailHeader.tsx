@@ -192,7 +192,6 @@ export function MarketDetailHeader({
       >
         <Token
           size={platformEnv.isNativeIOS26Plus ? 'sm' : 'md'}
-          borderRadius={useListingStockHeader ? '$full' : undefined}
           tokenImageUri={headerIdentity.logoUrl}
           tokenImageUris={headerIdentity.logoUrls}
           networkImageUri={headerNetworkLogoUri}
@@ -306,7 +305,6 @@ export function MarketDetailHeader({
       headerIdentity.logoUrl,
       headerIdentity.logoUrls,
       headerIdentity.symbol,
-      useListingStockHeader,
       detailKind,
       headerSubtitle,
       tokenAgeLabel,
@@ -425,7 +423,6 @@ export function MarketDetailHeader({
             <XStack flex={1} ai="center" gap="$2">
               <Token
                 size="md"
-                borderRadius={useListingStockHeader ? '$full' : undefined}
                 tokenImageUri={headerIdentity.logoUrl}
                 tokenImageUris={headerIdentity.logoUrls}
                 networkImageUri={headerNetworkLogoUri}

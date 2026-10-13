@@ -9,6 +9,7 @@ import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 import { getTradingViewNativeChartLayout } from '../../utils/chartLayout';
 import { createTradingViewNativeChartRuntimeState } from '../../utils/chartRuntime';
+import { buildTradingViewNativeChartScene } from '../../utils/chartScene';
 
 import { DEFAULT_DRAWING_STYLE, drawingPointToScreen } from './model';
 import { useChartDrawings } from './useChartDrawings';
@@ -119,6 +120,82 @@ beforeEach(() => {
     stored.set(key, value);
   });
 });
+
+it.each(
+  (['horizontal', 'horizontalRay', 'cross'] as const).flatMap((tool) => [
+    { tool, modifier: 'ctrlKey' as const },
+    { tool, modifier: 'metaKey' as const },
+  ]),
+)(
+  'keeps both price labels visible while cloning $tool with $modifier',
+  async ({ tool, modifier }) => {
+    const hook = setup();
+    await waitFor(() => expect(hook.result.current.state.ready).toBe(true));
+    act(() => hook.result.current.selectTool(tool));
+    act(() => {
+      hook.result.current.onPointerDown(hook.event('pointerdown', 200, 200));
+      hook.result.current.onPointerUp(hook.event('pointerup', 200, 200));
+    });
+    const original = hook.result.current.state.history.present[0];
+    act(() => {
+      hook.result.current.onPointerDown(
+        hook.event('pointerdown', 350, 200, { [modifier]: true }),
+      );
+      hook.result.current.onPointerMove(
+        hook.event('pointermove', 350, 230, { [modifier]: true }),
+      );
+    });
+    const { drawings } = hook.result.current.getRenderState();
+    expect(drawings).toHaveLength(2);
+    expect(drawings[0]).toEqual(original);
+    expect(drawings[1].points[0].price).not.toBe(original.points[0].price);
+    expect(hook.result.current.state.history.present).toEqual([original]);
+    const scene = buildTradingViewNativeChartScene({
+      candleIntervalSeconds: hook.projection.interval,
+      candleLabels: { open: 'O', high: 'H', low: 'L', close: 'C' },
+      chartDrawings: drawings,
+      chartType: 'candlestick',
+      crosshair: { visible: false, x: 0, y: 0 },
+      hasVolume: false,
+      height: 400,
+      width: 800,
+      points: hook.projection.points,
+      priceAxisWidth: 60,
+      priceDecimalPlaces: 2,
+      viewport: hook.projection.viewport,
+      measureTextWidth: (text) => text.length * 6,
+      watermarkOpacity: 0.16,
+    });
+    const labels = scene.commands.flatMap((command) =>
+      command.kind === 'rect' &&
+      command.customPaintId?.startsWith('chart.drawing.')
+        ? [command]
+        : [],
+    );
+    expect(labels).toHaveLength(2);
+    expect(Math.abs(labels[0].y - labels[1].y)).toBeGreaterThanOrEqual(
+      labels[0].height,
+    );
+    const prices = scene.commands.flatMap((command) =>
+      command.kind === 'text' && command.font === 'priceAxis'
+        ? [command.text]
+        : [],
+    );
+    expect(prices).toEqual(
+      expect.arrayContaining(
+        drawings.map((drawing) => drawing.points[0].price.toFixed(2)),
+      ),
+    );
+    act(() => {
+      hook.result.current.onPointerUp(hook.event('pointerup', 350, 230));
+    });
+    const saved = hook.result.current.state.history.present;
+    expect(saved).toHaveLength(2);
+    expect(saved[0]).toEqual(original);
+    expect(saved[1].id).not.toBe(original.id);
+    expect(saved[1].points).toEqual(drawings[1].points);
+  },
+);
 
 it('does not load drawings or intercept chart gestures while disabled', () => {
   const hook = setup('disabled', false);
@@ -405,6 +482,99 @@ it('locks restored drawings against edit and delete while allowing unlock', asyn
   void act(() => hook.result.current.removeSelected());
   expect(hook.result.current.state.history.present).toEqual([]);
 });
+
+it('keeps the move cursor over a cross line before selection, on its selected handle and while dragging', async () => {
+  const cross: IDrawing = {
+    ...DEFAULT_DRAWING_STYLE,
+    id: 'cross',
+    tool: 'cross',
+    points: [{ time: 1_700_001_200, price: 105 }],
+    locked: false,
+  };
+  stored.set(
+    'trading-view-web-drawings:v1:cross-cursor',
+    JSON.stringify([cross]),
+  );
+  const hook = setup('cross-cursor');
+  await waitFor(() => expect(hook.result.current.state.ready).toBe(true));
+  const point = drawingPointToScreen(cross.points[0], hook.projection);
+  const hover = hook.event('pointermove', point.x, point.y);
+  act(() => {
+    hook.result.current.onPointerMove(hover);
+  });
+  expect(hover.currentTarget.style.cursor).toBe('move');
+  act(() => {
+    hook.result.current.onPointerDown(
+      hook.event('pointerdown', point.x, point.y),
+    );
+    hook.result.current.onPointerUp(hook.event('pointerup', point.x, point.y));
+    hook.result.current.onPointerMove(hover);
+  });
+  expect(hook.result.current.state.selectedId).toBe(cross.id);
+  expect(hover.currentTarget.style.cursor).toBe('move');
+  act(() => {
+    hook.result.current.onPointerDown(
+      hook.event('pointerdown', point.x, point.y),
+    );
+    hook.result.current.onPointerMove(
+      hook.event('pointermove', point.x + 30, point.y + 20),
+    );
+    hook.result.current.onPointerUp(
+      hook.event('pointerup', point.x + 30, point.y + 20),
+    );
+  });
+  expect(hover.currentTarget.style.cursor).toBe('move');
+  const moved = drawingPointToScreen(
+    hook.result.current.state.history.present[0].points[0],
+    hook.projection,
+  );
+  expect(moved.x).toBeCloseTo(point.x + 30);
+  expect(moved.y).toBeCloseTo(point.y + 20);
+});
+
+it.each([0, 40])(
+  'sets the move cursor when a selected cross starts dragging without hover at x offset %s',
+  async (offsetX) => {
+    const cross: IDrawing = {
+      ...DEFAULT_DRAWING_STYLE,
+      id: 'cross',
+      tool: 'cross',
+      points: [{ time: 1_700_001_200, price: 105 }],
+      locked: false,
+    };
+    stored.set(
+      'trading-view-web-drawings:v1:cross-no-hover',
+      JSON.stringify([cross]),
+    );
+    const hook = setup('cross-no-hover');
+    await waitFor(() => expect(hook.result.current.state.ready).toBe(true));
+    act(() => hook.result.current.selectDrawing(cross.id));
+    const point = drawingPointToScreen(cross.points[0], hook.projection);
+    const down = hook.event('pointerdown', point.x + offsetX, point.y);
+    down.currentTarget.style.cursor = 'crosshair';
+    act(() => {
+      hook.result.current.onPointerDown(down);
+    });
+    expect(down.currentTarget.style.cursor).toBe('move');
+    act(() => {
+      hook.result.current.onPointerMove(
+        hook.event('pointermove', point.x + offsetX + 30, point.y + 20),
+      );
+    });
+    expect(down.currentTarget.style.cursor).toBe('move');
+    act(() => {
+      hook.result.current.onPointerUp(
+        hook.event('pointerup', point.x + offsetX + 30, point.y + 20),
+      );
+    });
+    const moved = drawingPointToScreen(
+      hook.result.current.state.history.present[0].points[0],
+      hook.projection,
+    );
+    expect(moved.x).toBeCloseTo(point.x + 30);
+    expect(moved.y).toBeCloseTo(point.y + 20);
+  },
+);
 
 it('renders a brush continuously before release and saves strokes ending at their starting point', async () => {
   const hook = setup('brush');

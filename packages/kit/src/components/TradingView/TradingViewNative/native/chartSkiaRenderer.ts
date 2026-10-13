@@ -614,6 +614,7 @@ export function createTradingViewNativeSkiaPicture({
 
   const scene = buildTradingViewNativeChartScene({
     ...sceneOptions,
+    chartDrawings: drawings?.drawings,
     measureTextWidth: (text, font) =>
       getTradingViewNativeSkiaTextFont(
         text,

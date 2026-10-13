@@ -11,6 +11,7 @@ import {
   getTradingViewNativeCanvasFont,
 } from './chartCanvasRenderer';
 
+import type { IDrawing } from '../drawings/model';
 import type {
   ITradingViewNativeCandleLabels,
   ITradingViewNativeCandleTimeMode,
@@ -28,6 +29,7 @@ interface IDrawTradingViewNativeCanvasChartOptions {
   candleTimeMode?: ITradingViewNativeCandleTimeMode;
   canvas: HTMLCanvasElement;
   chartComponents: readonly ITradingViewNativeChartLeafComponent[];
+  chartDrawings?: readonly IDrawing[];
   chartSettings: ITradingViewNativeChartSettings;
   chartType: ITradingViewNativeChartType;
   colors: ITradingViewNativeChartSceneColors;
@@ -60,6 +62,7 @@ export function drawTradingViewNativeCanvasChart({
   candleTimeMode,
   canvas,
   chartComponents,
+  chartDrawings,
   chartSettings,
   chartType,
   colors,
@@ -109,6 +112,7 @@ export function drawTradingViewNativeCanvasChart({
     candleIntervalSeconds,
     candleTimeMode,
     chartComponents,
+    chartDrawings,
     chartSettings,
     chartType,
     crosshair: runtimeState.crosshair,

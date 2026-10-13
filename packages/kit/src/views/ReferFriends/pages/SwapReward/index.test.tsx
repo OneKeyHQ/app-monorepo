@@ -293,7 +293,7 @@ describe('SwapReward refresh feedback', () => {
 
     expect(mockReferFriendsDetailHeader).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: ETranslations.swap_referral_link__title,
+        title: ETranslations.global_swap,
       }),
     );
   });
