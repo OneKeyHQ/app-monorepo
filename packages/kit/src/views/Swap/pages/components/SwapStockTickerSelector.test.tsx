@@ -164,7 +164,7 @@ describe('SwapStockTickerSelector', () => {
     expect(screen.queryByTestId('swap-stock-ticker-load-more')).toBeNull();
   });
 
-  it('closes after successfully selecting a stock from the debounced search results', async () => {
+  it('starts selecting the debounced search result before closing', async () => {
     mockListResult.items = [mockStock];
     render(<SwapStockTickerSelector />);
     const search = screen.getByTestId('swap-stock-ticker-search');
@@ -183,40 +183,42 @@ describe('SwapStockTickerSelector', () => {
     );
   });
 
-  it('keeps the list open while selection is pending', async () => {
-    let finishSelection: ((success: boolean) => void) | undefined;
-    mockSelectStock.mockReturnValueOnce(
-      new Promise<boolean>((resolve) => {
-        finishSelection = resolve;
-      }),
-    );
-    mockListResult.items = [mockStock];
-    render(<SwapStockTickerSelector />);
-    fireEvent.click(screen.getByTestId('swap-stock-ticker-AAPL'));
-    expect(mockClosePopover).not.toHaveBeenCalled();
-    await act(async () => finishSelection?.(true));
-    expect(mockClosePopover).toHaveBeenCalledTimes(1);
-  });
+  it.each([true, false])(
+    'closes while selection is pending without closing again when it settles to %s',
+    async (success) => {
+      let finishSelection: ((success: boolean) => void) | undefined;
+      mockSelectStock.mockReturnValueOnce(
+        new Promise<boolean>((resolve) => {
+          finishSelection = resolve;
+        }),
+      );
+      mockListResult.items = [mockStock];
+      render(<SwapStockTickerSelector />);
+      fireEvent.click(screen.getByTestId('swap-stock-ticker-AAPL'));
+      expect(mockClosePopover).toHaveBeenCalledTimes(1);
+      expect(mockSelectStock).toHaveBeenCalledWith(mockStock, '');
+      await act(async () => finishSelection?.(success));
+      expect(mockClosePopover).toHaveBeenCalledTimes(1);
+    },
+  );
 
-  it('keeps a failed selection visible and closes only after a successful retry', async () => {
+  it('closes on a failed selection and allows selecting again after reopening', async () => {
     mockSelectStock.mockImplementationOnce(async () => {
       mockSelectionError = true;
       return false;
     });
     mockListResult.items = [mockStock];
-    const { rerender } = render(<SwapStockTickerSelector />);
+    const first = render(<SwapStockTickerSelector />);
     await act(async () => {
       fireEvent.click(screen.getByTestId('swap-stock-ticker-AAPL'));
     });
-    rerender(<SwapStockTickerSelector />);
-    expect(mockClosePopover).not.toHaveBeenCalled();
-    expect(
-      screen.getByText(ETranslations.global_unknown_error_retry_message),
-    ).toBeTruthy();
+    expect(mockClosePopover).toHaveBeenCalledTimes(1);
+    first.unmount();
+    render(<SwapStockTickerSelector />);
     await act(async () => {
       fireEvent.click(screen.getByTestId('swap-stock-ticker-AAPL'));
     });
     expect(mockSelectStock).toHaveBeenCalledTimes(2);
-    expect(mockClosePopover).toHaveBeenCalledTimes(1);
+    expect(mockClosePopover).toHaveBeenCalledTimes(2);
   });
 });

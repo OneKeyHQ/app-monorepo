@@ -7,7 +7,6 @@ import {
   Button,
   DebugRenderTracker,
   Icon,
-  ScrollView,
   SizableText,
   Stack,
   XStack,
@@ -45,6 +44,7 @@ import { getPerpsAccountScopedListData } from '../../utils/accountScopedData';
 
 import { FundingHistoryFilterToolbar } from './Components/FundingHistoryFilterToolbar';
 import { HideSmallSpotHoldingsCheckbox } from './Components/HideSmallSpotHoldingsCheckbox';
+import { OrderInfoTabBar } from './Components/OrderInfoTabBar';
 import { TradesHistoryFilterToolbar } from './Components/TradesHistoryFilterToolbar';
 import {
   type IFundingHistoryMarketOption,
@@ -81,7 +81,11 @@ const ORDER_INFO_TABS = [
 
 type IOrderInfoTabName = (typeof ORDER_INFO_TABS)[number];
 
-function DesktopHoldingsTabCount() {
+function DesktopHoldingsTabCount({
+  isHighlighted,
+}: {
+  isHighlighted: boolean;
+}) {
   const [{ balances }] = useSpotBalancesAtom();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
@@ -103,7 +107,14 @@ function DesktopHoldingsTabCount() {
     return null;
   }
 
-  return <SizableText size="$bodyMdMedium">{`(${holdingsCount})`}</SizableText>;
+  return (
+    <SizableText
+      size="$bodyMdMedium"
+      color={isHighlighted ? '$text' : '$textSubdued'}
+    >
+      {`(${holdingsCount})`}
+    </SizableText>
+  );
 }
 
 function TabBarItem({
@@ -116,6 +127,10 @@ function TabBarItem({
   onPress: (name: string) => void;
 }) {
   const intl = useIntl();
+  const [isHovered, setIsHovered] = useState(false);
+  const handleHoverIn = useCallback(() => setIsHovered(true), []);
+  const handleHoverOut = useCallback(() => setIsHovered(false), []);
+  const isHighlighted = isFocused || isHovered;
 
   const [perpOpenOrdersState] = usePerpsActiveOpenOrdersAtom();
   const [spotOpenOrdersState] = useSpotActiveOpenOrdersAtom();
@@ -182,13 +197,32 @@ function TabBarItem({
         py="$3"
         ml="$5"
         mr="$2"
-        borderBottomWidth={isFocused ? '$0.5' : '$0'}
-        borderBottomColor="$borderActive"
+        position="relative"
         onPress={() => onPress(name)}
+        onHoverIn={handleHoverIn}
+        onHoverOut={handleHoverOut}
         cursor="pointer"
       >
-        <SizableText size="$bodyMdMedium">{displayTitle}</SizableText>
-        {name === 'Balances' ? <DesktopHoldingsTabCount /> : null}
+        <SizableText
+          size="$bodyMdMedium"
+          color={isHighlighted ? '$text' : '$textSubdued'}
+        >
+          {displayTitle}
+        </SizableText>
+        {name === 'Balances' ? (
+          <DesktopHoldingsTabCount isHighlighted={isHighlighted} />
+        ) : null}
+        {isFocused ? (
+          <Stack
+            position="absolute"
+            bottom={0}
+            left={0}
+            right={0}
+            height="$0.5"
+            bg="$borderActive"
+            pointerEvents="none"
+          />
+        ) : null}
       </XStack>
     </DebugRenderTracker>
   );
@@ -335,7 +369,7 @@ function PerpOrderInfoPanel() {
       >
         {/* Scroll instead of clipping when the pane is narrower than the tab
             list (OK-61160). */}
-        <ScrollView
+        <OrderInfoTabBar
           horizontal
           flex={1}
           minWidth={0}
@@ -350,7 +384,7 @@ function PerpOrderInfoPanel() {
               onPress={handleTabPress}
             />
           ))}
-        </ScrollView>
+        </OrderInfoTabBar>
         {activeTab === 'Balances' ? (
           <XStack mr="$3" alignItems="center">
             <HideSmallSpotHoldingsCheckbox />
