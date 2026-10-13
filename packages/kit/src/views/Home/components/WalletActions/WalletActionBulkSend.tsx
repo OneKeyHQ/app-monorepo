@@ -4,7 +4,9 @@ import { useIntl } from 'react-intl';
 
 import { ActionList, Badge } from '@onekeyhq/components';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useAccountSelectorLazyAction } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actionsLazy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -20,7 +22,8 @@ import { usePrimeFeatureAccess } from '../../../Prime/hooks/usePrimeFeatureAcces
 export function WalletActionBulkSend({ onClose }: { onClose: () => void }) {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const { network, account, indexedAccount } = activeAccount;
+  const { network, account, indexedAccount, wallet } = activeAccount;
+  const runAccountSelectorAction = useAccountSelectorLazyAction();
 
   const { user, isPrimeActive, isPrimeSubscriptionActive } = useOneKeyAuth();
   // Access without free-trial metering (E2E / Prime); free users go through
@@ -52,6 +55,17 @@ export function WalletActionBulkSend({ onClose }: { onClose: () => void }) {
         featureId: EPrimeFeatures.BulkSend,
         networkId: network?.id,
         deferQuotaCheck: true,
+        // A wallet or network switched while the gate waited drops the
+        // press. This item unmounts with the menu, so the latest selection
+        // is read from the account selector store.
+        isContextValid: async () => {
+          const latest: IAccountSelectorActiveAccountInfo =
+            await runAccountSelectorAction('getActiveAccount', { num: 0 });
+          return (
+            latest.wallet?.id === wallet?.id &&
+            latest.network?.id === network?.id
+          );
+        },
         extPopup: { mode: 'passThrough' },
       });
       if (!access.granted) {
@@ -76,6 +90,8 @@ export function WalletActionBulkSend({ onClose }: { onClose: () => void }) {
     navigateToBulkSend,
     showBulkSendModeDialog,
     ensureFeatureAccess,
+    runAccountSelectorAction,
+    wallet?.id,
     network?.id,
     account?.id,
     indexedAccount?.id,
