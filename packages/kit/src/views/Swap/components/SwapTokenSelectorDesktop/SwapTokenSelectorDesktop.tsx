@@ -1,5 +1,5 @@
 import type { MutableRefObject, ReactElement } from 'react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -105,10 +105,12 @@ function NetworkRow({
       alignItems="center"
       height={44}
       px={9}
-      pl={indented ? 29 : 9}
+      // Indent child rows with margin, not padding, so the selected
+      // border/background starts right of the group guide line.
+      ml={indented ? 26 : 0}
       gap="$2"
       borderWidth={1}
-      borderColor={selected ? '$borderActive' : '$transparent'}
+      borderColor={selected ? '$border' : '$transparent'}
       borderRadius="$3"
       bg={selected ? '$bgSubdued' : undefined}
       opacity={disabled ? 0.5 : 1}
@@ -122,16 +124,6 @@ function NetworkRow({
       }}
       onPress={onPress}
     >
-      {indented ? (
-        <Stack
-          position="absolute"
-          left={20}
-          top="$0"
-          bottom="$0"
-          width={1.5}
-          bg="$borderSubdued"
-        />
-      ) : null}
       <NetworkLogo network={network} />
       <SizableText size="$bodyMdMedium" flex={1} numberOfLines={1}>
         {network.name}
@@ -284,6 +276,19 @@ export function SwapTokenSelectorDesktop({
   const showNetworkSearchEmpty = hasNetworkSearch && networkGroups.length === 0;
   const selectedNetworkId = selectedNetwork?.networkId;
   const selectedIsAllNetworks = selectedNetwork?.isAllNetworks;
+  // The same-chain shortcut duplicates a network that also lives in the
+  // lists below. The selected state follows the row the user pressed, so the
+  // same network never shows two highlights; before any press (or after
+  // pressing the shortcut) the shortcut row holds it.
+  const [listPickedNetworkId, setListPickedNetworkId] = useState<string>();
+  const sameChainNetworkId = sameChainNetwork?.networkId;
+  const sameChainRowSelected =
+    selectedNetworkId !== undefined &&
+    selectedNetworkId === sameChainNetworkId &&
+    listPickedNetworkId !== sameChainNetworkId;
+  const isListRowSelected = (networkId: string) =>
+    selectedNetworkId === networkId &&
+    !(sameChainRowSelected && networkId === sameChainNetworkId);
 
   return (
     <XStack testID="swap-token-selector-desktop" flex={1} minHeight={0}>
@@ -350,7 +355,7 @@ export function SwapTokenSelectorDesktop({
                 </NetworkSectionLabel>
                 <NetworkRow
                   network={sameChainNetwork}
-                  selected={selectedNetworkId === sameChainNetwork.networkId}
+                  selected={sameChainRowSelected}
                   disabled={disableNetworks.includes(
                     sameChainNetwork.networkId,
                   )}
@@ -360,6 +365,7 @@ export function SwapTokenSelectorDesktop({
                     if (disableNetworks.includes(sameChainNetwork.networkId)) {
                       onDisableNetworksClick();
                     } else {
+                      setListPickedNetworkId(undefined);
                       onSelectNetwork(sameChainNetwork);
                     }
                   }}
@@ -377,7 +383,7 @@ export function SwapTokenSelectorDesktop({
                   <NetworkRow
                     key={`asset-${network.networkId}`}
                     network={network}
-                    selected={selectedNetworkId === network.networkId}
+                    selected={isListRowSelected(network.networkId)}
                     disabled={disableNetworks.includes(network.networkId)}
                     fiatValue={fiatValue}
                     currencySymbol={currencySymbol}
@@ -385,6 +391,7 @@ export function SwapTokenSelectorDesktop({
                       if (disableNetworks.includes(network.networkId)) {
                         onDisableNetworksClick();
                       } else {
+                        setListPickedNetworkId(network.networkId);
                         onSelectNetwork(network);
                       }
                     }}
@@ -401,34 +408,50 @@ export function SwapTokenSelectorDesktop({
               <YStack key={network.networkId}>
                 <NetworkRow
                   network={network}
-                  selected={selectedNetworkId === network.networkId}
+                  selected={isListRowSelected(network.networkId)}
                   disabled={disableNetworks.includes(network.networkId)}
                   currencySymbol={currencySymbol}
                   onPress={() => {
                     if (disableNetworks.includes(network.networkId)) {
                       onDisableNetworksClick();
                     } else {
+                      setListPickedNetworkId(network.networkId);
                       onSelectNetwork(network);
                     }
                   }}
                 />
-                {children.map((child) => (
-                  <NetworkRow
-                    key={child.networkId}
-                    network={child}
-                    selected={selectedNetworkId === child.networkId}
-                    disabled={disableNetworks.includes(child.networkId)}
-                    indented
-                    currencySymbol={currencySymbol}
-                    onPress={() => {
-                      if (disableNetworks.includes(child.networkId)) {
-                        onDisableNetworksClick();
-                      } else {
-                        onSelectNetwork(child);
-                      }
-                    }}
-                  />
-                ))}
+                {children.length > 0 ? (
+                  <YStack>
+                    {/* One continuous guide line for the whole child group,
+                        centered under the parent network logo. */}
+                    <Stack
+                      position="absolute"
+                      left={20}
+                      top="$0"
+                      bottom="$0"
+                      width={1.5}
+                      bg="$borderSubdued"
+                    />
+                    {children.map((child) => (
+                      <NetworkRow
+                        key={child.networkId}
+                        network={child}
+                        selected={isListRowSelected(child.networkId)}
+                        disabled={disableNetworks.includes(child.networkId)}
+                        indented
+                        currencySymbol={currencySymbol}
+                        onPress={() => {
+                          if (disableNetworks.includes(child.networkId)) {
+                            onDisableNetworksClick();
+                          } else {
+                            setListPickedNetworkId(child.networkId);
+                            onSelectNetwork(child);
+                          }
+                        }}
+                      />
+                    ))}
+                  </YStack>
+                ) : null}
               </YStack>
             ))}
           </ScrollView>
