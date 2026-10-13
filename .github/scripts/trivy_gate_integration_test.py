@@ -518,6 +518,33 @@ class RealScannerTests(unittest.TestCase):
             else:
                 self.assertTrue(self.scan(root, 'helm-small').get('Results'))
 
+    def test_helm_archive_templates_are_collected(self):
+        pod = ('apiVersion: v1\nkind: Pod\nmetadata:\n  name: {}\nspec:\n  containers:\n'
+               '    - name: app\n      image: nginx:1.25\n      securityContext:\n        privileged: true\n')
+        def chart(name, version, templates):
+            root = self.tree(name)
+            with tarfile.open(root / 'fixture.tgz', 'w:gz') as archive:
+                files = dict({'Chart.yaml': 'apiVersion: v2\nname: fixture\nversion: ' + version + '\n'},
+                             **{'templates/' + t: body for t, body in templates.items()})
+                for path, body in files.items():
+                    entry = tarfile.TarInfo('fixture/' + path)
+                    entry.size = len(body.encode())
+                    archive.addfile(entry, io.BytesIO(body.encode()))
+            return self.assessed(root, name)[0]
+        namespace = 'apiVersion: v1\nkind: Namespace\nmetadata:\n  name: fixture\n'
+        # Trivy reports archive templates as '<archive>:<template>' Targets.
+        clean = chart('helm-namespace', '1.0.0', {'namespace.yaml': namespace})
+        self.assertIn(('fixture.tgz:templates/namespace.yaml', 'config', 'helm'), clean['targets'])
+        base = chart('helm-base', '1.0.0', {'namespace.yaml': namespace, 'pod.yaml': pod.format('a')})
+        self.assertEqual(len([f for f in base['findings'] if f['kind'] == 'misconfiguration']), 3)
+        # A version bump and shifted rendered lines keep existing findings.
+        moved = chart('helm-moved', '1.1.0', {'namespace.yaml': namespace,
+                                              'pod.yaml': '# fixture\n' + pod.format('a')})
+        self.assertEqual(gate.compare(base, moved), [])
+        added = chart('helm-added', '1.0.0', {'namespace.yaml': namespace, 'pod.yaml': pod.format('a'),
+                                              'second.yaml': pod.format('b')})
+        self.assertEqual(len(gate.compare(base, added)), 3)
+
 
 if __name__ == '__main__':
     unittest.main(argv=[sys.argv[0]])

@@ -187,6 +187,51 @@ class GateTests(unittest.TestCase):
             with self.subTest(target=target), self.assertRaisesRegex(gate.GateError, '^' + error + '$'):
                 self.collect(report)
 
+    def test_helm_archive_targets_use_rendered_lines(self):
+        (self.root / 'charts').mkdir()
+        (self.root / 'charts/app.tgz').write_bytes(b'archive')
+        (self.root / 'link.tgz').symlink_to(self.root / 'charts/app.tgz')
+        def finding(start, lines, rule='KSV-0017'):
+            return {'ID': rule, 'Severity': 'HIGH', 'CauseMetadata': {
+                'StartLine': start, 'EndLine': start + len(lines) - 1,
+                'Code': {'Lines': [{'Number': start + i, 'Content': line} for i, line in enumerate(lines)]}}}
+        def helm(target, *misconfigurations):
+            report = copy.deepcopy(self.report)
+            report['Results'].append({'Target': target, 'Class': 'config', 'Type': 'helm',
+                                      'Misconfigurations': list(misconfigurations)})
+            return report
+        privileged = ['    - name: app', '      securityContext:', '        privileged: true']
+        base = self.collect(helm('charts/app.tgz:templates/pod.yaml', finding(8, privileged)))
+        self.assertIn(('charts/app.tgz:templates/pod.yaml', 'config', 'helm'), base['targets'])
+        # Rendered lines that move keep their identity; changed lines do not.
+        moved = self.collect(helm('charts/app.tgz:templates/pod.yaml', finding(12, privileged)))
+        self.assertEqual(gate.compare(base, moved), [])
+        changed = self.collect(helm('charts/app.tgz:templates/pod.yaml',
+                                    finding(8, privileged[:2] + ['        privileged: yes'])))
+        self.assertEqual(len(gate.compare(base, changed)), 1)
+        # Reported lines must cover exactly the finding range.
+        partial = finding(8, privileged)
+        partial['CauseMetadata']['EndLine'] = 11
+        missing = finding(8, privileged)
+        del missing['CauseMetadata']['Code']
+        for broken in (partial, missing):
+            with self.subTest(broken=broken), self.assertRaisesRegex(gate.GateError, '^missing_source_range$'):
+                self.collect(helm('charts/app.tgz:templates/pod.yaml', broken))
+        for target, error in (('charts/app.tgz:../pod.yaml', 'invalid_target'),
+                              ('charts/missing.tgz:templates/pod.yaml', 'missing_target'),
+                              ('link.tgz:templates/pod.yaml', 'missing_target'),
+                              ('charts/app.zip:templates/pod.yaml', 'missing_target')):
+            with self.subTest(target=target), self.assertRaisesRegex(gate.GateError, '^' + error + '$'):
+                self.collect(helm(target))
+        # A rendered template counts as removed only with its archive.
+        lost = [('charts/app.tgz:templates/pod.yaml', 'config', 'helm')]
+        with self.assertRaisesRegex(gate.GateError, '^lost_target_coverage$'):
+            gate.verify_target_coverage(lost, [], self.root)
+        (self.root / 'link.tgz').unlink()
+        (self.root / 'charts/app.tgz').unlink()
+        gate.verify_target_coverage(lost, [], self.root)
+        gate.verify_target_coverage([('charts/app/templates/pod.yaml', 'config', 'helm')], [], self.root)
+
     def test_path_escape(self):
         for target in ('../secret', '/etc/passwd'):
             with self.assertRaises(gate.GateError):

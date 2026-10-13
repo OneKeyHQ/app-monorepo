@@ -114,6 +114,32 @@ def source_file(root, target):
     return file
 
 
+def helm_archive(target):
+    # Trivy names templates rendered from a chart archive '<archive>:<template>'.
+    match = re.fullmatch(r'(.+?\.(?:tgz|tar\.gz|tar)):(.+)', target)
+    if match is None:
+        return None
+    template = PurePosixPath(match[2])
+    require(not template.is_absolute() and '..' not in template.parts, 'invalid_target')
+    return match[1]
+
+
+def rendered_identity(finding, key):
+    # Helm findings number lines in the rendered manifest, which exists only in
+    # the scanner; hash its reported lines for the whole finding range.
+    start, end = finding.get('StartLine'), finding.get('EndLine')
+    require(type(start) is int and type(end) is int and 0 < start <= end,
+            'missing_source_range')
+    code = finding.get('Code')
+    lines = code.get('Lines') if isinstance(code, dict) else None
+    require(isinstance(lines, list) and all(isinstance(line, dict) for line in lines)
+            and [line.get('Number') for line in lines] == list(range(start, end + 1))
+            and all(isinstance(line.get('Content'), str) for line in lines),
+            'missing_source_range')
+    return hmac.new(key, '\n'.join(line['Content'] for line in lines).encode(),
+                    'sha256').hexdigest()
+
+
 def source_identity(root, target, finding, key):
     start, end = finding.get('StartLine'), finding.get('EndLine')
     require(type(start) is int and type(end) is int and 0 < start <= end,
@@ -146,10 +172,16 @@ def collect(report, root, key):
     for result in report['Results']:
         require(isinstance(result, dict), 'invalid_result')
         target = text(result, 'Target')
-        source_path(root, target)
-        path_id = hmac.new(key, b'path\0' + target.encode(), 'sha256').hexdigest()
         kind = text(result, 'Class')
         ecosystem = 'secret' if kind == 'secret' else text(result, 'Type')
+        rendered = kind == 'config' and ecosystem == 'helm' and not (root / target).exists()
+        if rendered:
+            archive = helm_archive(target)
+            require(archive is not None, 'missing_target')
+            source_file(root, archive)
+        else:
+            source_path(root, target)
+        path_id = hmac.new(key, b'path\0' + target.encode(), 'sha256').hexdigest()
         require(not result.get('Error') and not result.get('Errors'), 'result_error')
         targets.add((target, kind, ecosystem))
         packages = list_field(result, 'Packages')
@@ -174,7 +206,8 @@ def collect(report, root, key):
                     require(isinstance(cause, dict), 'missing_resource_identity')
                     resource = cause.get('Resource')
                     if not resource and cause.get('StartLine'):
-                        resource = source_identity(root, target, cause, key)
+                        resource = (rendered_identity(cause, key) if rendered
+                                    else source_identity(root, target, cause, key))
                     # Some Docker checks apply to the entire file (e.g. missing
                     # USER) and intentionally have neither resource nor range.
                     identity += [text(finding, 'ID'), resource or 'whole-file']
@@ -230,6 +263,11 @@ def verify_target_coverage(base, merge, root):
         if kind == 'secret':
             continue
         path = root / target
+        archive = helm_archive(target) if kind == 'config' and ecosystem == 'helm' else None
+        if archive and not path.exists():
+            # A rendered template can be verified gone only with its archive.
+            require(not (root / archive).exists(), 'lost_target_coverage')
+            continue
         if ecosystem == 'terraform' and path.is_dir() and not path.is_symlink():
             # A module Result disappears with the module's last Terraform file.
             require(not any(f.is_file() and f.name.endswith(('.tf', '.tf.json'))
