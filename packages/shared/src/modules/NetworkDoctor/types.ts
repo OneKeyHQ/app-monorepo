@@ -328,5 +328,7 @@ export interface IMergedConfig {
   extraHttpProbes: Array<{ label: string; url: string }>;
   enableNetworkLogger: boolean;
   maxNetworkLogs: number;
+  /** Hosts whose failures mean the login CAPTCHA cannot load */
+  captchaHosts: string[];
   onProgress?: IProgressCallback;
 }

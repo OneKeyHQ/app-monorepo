@@ -31,7 +31,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
-import { mergeConfig } from './config';
+import { CAPTCHA_PAGE_PROBE_LABEL, mergeConfig } from './config';
 import {
   EDiagnosticPhase,
   ENetworkConnectivityLevel,
@@ -89,10 +89,7 @@ export class NetworkDoctor {
    * Initialize endpoint, client and health check URL from service configuration
    */
   private async initialize(): Promise<void> {
-    if (this.endpoint && this.client) {
-      return; // Already initialized
-    }
-
+    // Resolve on every run so reused instances follow server settings changes.
     try {
       // Get endpoint from service configuration
       this.endpoint = await getEndpointByServiceName(
@@ -298,10 +295,11 @@ export class NetworkDoctor {
       defaultLogger.networkDoctor.log.info({
         info: '[DR] Phase 4: Ping Tests',
       });
-      const pingDomain = await this.testPing(this.targetDomain ?? '');
-      const pingIp =
-        dns.ips.length > 0 ? await this.testPing(dns.ips[0]) : undefined;
-      const extraPings = await this.testExtraPings();
+      const [pingDomain, pingIp, extraPings] = await Promise.all([
+        this.testPing(this.targetDomain ?? ''),
+        dns.ips.length > 0 ? this.testPing(dns.ips[0]) : undefined,
+        this.testExtraPings(),
+      ]);
 
       // ========== Phase 5: HTTP Tests ==========
       this.emitProgress(
@@ -688,11 +686,10 @@ export class NetworkDoctor {
   }
 
   private async testExtraPings(): Promise<IPingResult[]> {
-    const results: IPingResult[] = [];
-    for (const target of this.config.extraPingTargets) {
-      results.push(await this.testPing(target));
-    }
-    return results;
+    // Each native ping owns its socket, so timeouts on blocked ICMP overlap.
+    return Promise.all(
+      this.config.extraPingTargets.map((target) => this.testPing(target)),
+    );
   }
 
   private async testHealthCheck(): Promise<IHttpProbeResult> {
@@ -897,6 +894,34 @@ export class NetworkDoctor {
 
     if (isOneKeyHealthy) {
       const intermediateIssues = this.detectIntermediateIssues(results);
+      const captchaFailureLayer = this.detectCaptchaFailureLayer(results);
+
+      if (captchaFailureLayer) {
+        defaultLogger.networkDoctor.log.warn({
+          info: `[Diagnosis] 🚨 CAPTCHA_UNREACHABLE - Health check succeeded, layer: ${captchaFailureLayer}`,
+        });
+
+        return {
+          connectivityLevel: ENetworkConnectivityLevel.ONEKEY_BLOCKED,
+          oneKeyFailureReason: {
+            dns: EOneKeyFailureReason.DNS_RESOLUTION_FAILED,
+            tcp: EOneKeyFailureReason.TCP_HANDSHAKE_FAILED,
+            http: EOneKeyFailureReason.HTTP_REQUEST_FAILED,
+          }[captchaFailureLayer],
+          failureLayer: captchaFailureLayer,
+          summary: this.t(ETranslations.auth_captcha_load_failed__msg),
+          suggestedActions: [
+            this.t(ETranslations.global_network_doctor_action_check_proxy),
+            this.t(
+              ETranslations.global_network_doctor_action_switch_network_tcp,
+            ),
+            this.t(ETranslations.global_network_doctor_action_try_later),
+          ],
+          assessment: 'blocked',
+          intermediateIssues:
+            intermediateIssues.length > 0 ? intermediateIssues : undefined,
+        };
+      }
 
       const issuesSummary =
         intermediateIssues.length > 0 ? intermediateIssues.join('; ') : 'none';
@@ -1104,6 +1129,45 @@ export class NetworkDoctor {
         this.t(ETranslations.global_network_doctor_action_try_later),
       ],
     };
+  }
+
+  /**
+   * Find the deepest failing layer among CAPTCHA checks.
+   * A host counts as unreachable only when TCP 443 fails and no HTTPS request
+   * reached it; a DNS lookup error alone can be a false positive.
+   */
+  private detectCaptchaFailureLayer(
+    results: any,
+  ): 'dns' | 'tcp' | 'http' | null {
+    const captchaPages = (
+      results.publicHttpChecks as IHttpProbeResult[]
+    ).filter((probe) => probe.label === CAPTCHA_PAGE_PROBE_LABEL);
+    const reachableHosts = new Set(
+      captchaPages
+        .filter((probe) => probe.success)
+        .map((probe) => new URL(probe.url).hostname),
+    );
+    const extraTcpChecks: ITcpConnectionResult[] = results.extraTcpChecks ?? [];
+    const unreachableHosts = extraTcpChecks
+      .filter(
+        (check) =>
+          this.config.captchaHosts.includes(check.host) &&
+          !check.success &&
+          !reachableHosts.has(check.host),
+      )
+      .map((check) => check.host);
+
+    if (unreachableHosts.length > 0) {
+      const extraDnsChecks: IDnsResult[] = results.extraDnsChecks ?? [];
+      const isDnsFailure = extraDnsChecks.some(
+        (check) =>
+          unreachableHosts.includes(check.hostname) &&
+          (!!check.error || check.ips.length === 0),
+      );
+      return isDnsFailure ? 'dns' : 'tcp';
+    }
+
+    return captchaPages.some((probe) => !probe.success) ? 'http' : null;
   }
 
   /**

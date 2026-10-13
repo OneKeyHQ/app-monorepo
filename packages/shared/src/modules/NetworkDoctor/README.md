@@ -53,7 +53,9 @@ console.log('Network Status:', report.summary.assessment);
 The default connectivity targets include `challenges.cloudflare.com` and the
 hostname of the CAPTCHA page selected by the active server settings. These
 targets receive DNS and TCP 443 checks without downloading the Turnstile SDK.
-Explicit target arrays replace the defaults for that probe type.
+Explicit target arrays replace the defaults for that probe type. If the Wallet
+health check passes but a CAPTCHA target is unreachable, the conclusion reports
+the failing CAPTCHA layer instead of a healthy result.
 
 ```typescript
 import { NetworkDoctor } from '@onekeyhq/shared/src/modules/NetworkDoctor';

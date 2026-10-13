@@ -6,6 +6,7 @@ import { stopNetworkLogging } from 'react-native-network-logger';
 import { Ping } from 'react-native-ping';
 import TcpSocket from 'react-native-tcp-socket';
 
+import { getEndpointByServiceName } from '@onekeyhq/shared/src/config/endpointsMap';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import requestHelper from '@onekeyhq/shared/src/request/requestHelper';
 
@@ -218,6 +219,9 @@ describe('NetworkDoctor native diagnostics', () => {
           .mocked(getIpAddressesForHostname)
           .mockRejectedValue(new Error('DNS lookup failed'));
       }
+      mockReachableHosts.add('challenges.cloudflare.com');
+      mockReachableHosts.add('login.onekey.so');
+      jest.spyOn(axios, 'get').mockResolvedValue({ status: 200, data: 'ok' });
       mockClientGet.mockResolvedValue({ status: 200, data: 'ok' });
 
       const report = await new NetworkDoctor({}).run();
@@ -414,8 +418,75 @@ describe('NetworkDoctor native diagnostics', () => {
           success: true,
         }),
       );
+      expect(report.summary.allCriticalChecksPassed).toBe(turnstileReachable);
+      expect(report.summary.conclusion).toMatchObject(
+        turnstileReachable
+          ? {
+              connectivityLevel: ENetworkConnectivityLevel.HEALTHY,
+              failureLayer: null,
+            }
+          : {
+              connectivityLevel: ENetworkConnectivityLevel.ONEKEY_BLOCKED,
+              oneKeyFailureReason: EOneKeyFailureReason.TCP_HANDSHAKE_FAILED,
+              failureLayer: 'tcp',
+              summary: 'auth_captcha_load_failed__msg',
+            },
+      );
     },
   );
+
+  it('reports a CAPTCHA page failure when its host accepts TCP connections', async () => {
+    jest.mocked(getIpAddressesForHostname).mockResolvedValue(['203.0.113.5']);
+    mockReachableHosts.add('challenges.cloudflare.com');
+    mockReachableHosts.add('login.onekey.so');
+    mockClientGet.mockResolvedValue({ status: 200, data: 'ok' });
+    jest.spyOn(axios, 'get').mockImplementation(async (url) => {
+      if (url === 'https://login.onekey.so/captcha') {
+        throw new OneKeyError('Request failed with status code 503');
+      }
+      return { status: 200, data: 'ok' };
+    });
+
+    const report = await new NetworkDoctor({}).run();
+
+    expect(report.summary.allCriticalChecksPassed).toBe(false);
+    expect(report.summary.conclusion).toMatchObject({
+      connectivityLevel: ENetworkConnectivityLevel.ONEKEY_BLOCKED,
+      oneKeyFailureReason: EOneKeyFailureReason.HTTP_REQUEST_FAILED,
+      failureLayer: 'http',
+      summary: 'auth_captcha_load_failed__msg',
+    });
+  });
+
+  it('starts every ping before any ping settles', async () => {
+    jest.mocked(getIpAddressesForHostname).mockResolvedValue(['203.0.113.5']);
+    const releasePings: Array<() => void> = [];
+    const pingSpy = jest.spyOn(Ping, 'start').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releasePings.push(() => resolve(12));
+        }),
+    );
+    const extraPingTargets = ['1.1.1.1', '8.8.8.8', 'baidu.com'];
+    // Domain, resolved IP, and every extra target.
+    const expectedPings = extraPingTargets.length + 2;
+
+    const pending = new NetworkDoctor({ extraPingTargets }).run();
+    for (
+      let i = 0;
+      i < 50 && pingSpy.mock.calls.length < expectedPings;
+      i += 1
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+
+    expect(pingSpy).toHaveBeenCalledTimes(expectedPings);
+    releasePings.forEach((release) => release());
+    const report = await pending;
+    expect(report.results.extraPings).toEqual(
+      extraPingTargets.map((target) => ({ target, success: true, timeMs: 12 })),
+    );
+  });
 
   it('records a Turnstile DNS failure and still completes without an SDK request', async () => {
     const turnstileHost = 'challenges.cloudflare.com';
@@ -458,6 +529,12 @@ describe('NetworkDoctor native diagnostics', () => {
         percentage: 100,
       }),
     );
+    expect(report.summary.allCriticalChecksPassed).toBe(false);
+    expect(report.summary.conclusion).toMatchObject({
+      connectivityLevel: ENetworkConnectivityLevel.ONEKEY_BLOCKED,
+      oneKeyFailureReason: EOneKeyFailureReason.DNS_RESOLUTION_FAILED,
+      failureLayer: 'dns',
+    });
   });
 
   it('waits for the active settings before starting network probes', async () => {
@@ -502,10 +579,18 @@ describe('NetworkDoctor native diagnostics', () => {
       enabled: true,
       settings: { enableTestEndpoint: true },
     });
+    jest
+      .mocked(getEndpointByServiceName)
+      .mockResolvedValueOnce('https://wallet.onekeytest.com');
     const httpSpy = jest.spyOn(axios, 'get').mockClear();
     const pingSpy = jest.spyOn(Ping, 'start').mockClear();
 
     const second = await doctor.run();
+
+    expect(second.config).toEqual({
+      targetDomain: 'wallet.onekeytest.com',
+      healthCheckUrl: 'https://wallet.onekeytest.com/health',
+    });
 
     expect(second.results.publicHttpChecks).toContainEqual(
       expect.objectContaining({ url: 'https://login.onekeytest.com/captcha' }),

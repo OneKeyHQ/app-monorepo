@@ -8,6 +8,8 @@ import type { IDefaultConfig, IDoctorConfig, IMergedConfig } from './types';
 
 const TURNSTILE_HOST = 'challenges.cloudflare.com';
 
+export const CAPTCHA_PAGE_PROBE_LABEL = 'onekey_captcha_page';
+
 /**
  * Default Configuration
  */
@@ -50,7 +52,7 @@ export function mergeConfig(
     ? [new URL(captchaPageUrl).hostname]
     : [];
   const captchaHttpProbes = captchaPageUrl
-    ? [{ label: 'onekey_captcha_page', url: captchaPageUrl }]
+    ? [{ label: CAPTCHA_PAGE_PROBE_LABEL, url: captchaPageUrl }]
     : [];
 
   return {
@@ -73,6 +75,7 @@ export function mergeConfig(
     enableNetworkLogger:
       userConfig.enableNetworkLogger ?? DEFAULT_CONFIG.enableNetworkLogger,
     maxNetworkLogs: userConfig.maxNetworkLogs ?? DEFAULT_CONFIG.maxNetworkLogs,
+    captchaHosts: [TURNSTILE_HOST, ...captchaPingTargets],
     onProgress: userConfig.onProgress,
   };
 }
