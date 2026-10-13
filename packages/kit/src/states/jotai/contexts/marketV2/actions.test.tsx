@@ -15,6 +15,7 @@ import { useTokenDetailActions, useWatchListV2Actions } from './actions';
 import {
   ProviderJotaiContextMarketV2,
   isNativeAtom,
+  marketPerpsInfoStatusAtom,
   marketV2StorageReadyAtom,
   marketWatchListV2Atom,
   networkIdAtom,
@@ -475,6 +476,69 @@ describe('retained token navigation identity', () => {
 
 describe('stock navigation identity', () => {
   beforeEach(() => jest.clearAllMocks());
+
+  it.each([true, false])(
+    'resolves the stock button group together with hasPerps=%s and preserves it during polling',
+    async (hasPerps) => {
+      const { store, Wrapper } = createWrapper();
+      const { result } = renderHook(() => useTokenDetailActions().current, {
+        wrapper: Wrapper,
+      });
+      const target = { networkId: 'sol--101', tokenAddress: 'AAPLx' };
+      const response = createDeferred<unknown>();
+      mockFetchMarketTokenDetailByTokenAddress.mockReturnValueOnce(
+        response.promise,
+      );
+      act(() => result.current.prepareStockTokenDetail(target));
+      let request: Promise<unknown> | undefined;
+      act(() => {
+        request = result.current.fetchTokenDetail(
+          target.tokenAddress,
+          target.networkId,
+        );
+      });
+      expect(store.get(marketPerpsInfoStatusAtom())).toBe('pending');
+      expect(store.get(perpsInfoAtom())).toBeUndefined();
+
+      await act(async () => {
+        response.resolve({
+          data: {
+            token: {
+              address: target.tokenAddress,
+              name: 'Apple xStock',
+              symbol: 'AAPLx',
+              decimals: 8,
+              logoUrl: '',
+              price: '318',
+            },
+            perpsInfo: hasPerps ? { hlTicker: 'xyz:AAPL' } : undefined,
+          },
+        });
+        await request;
+      });
+      expect(store.get(marketPerpsInfoStatusAtom())).toBe('resolved');
+      expect(store.get(tokenDetailAtom())?.symbol).toBe('AAPLx');
+      expect(store.get(perpsInfoAtom())).toEqual(
+        hasPerps ? { hlTicker: 'xyz:AAPL' } : undefined,
+      );
+
+      const refresh = createDeferred<unknown>();
+      mockFetchMarketTokenDetailByTokenAddress.mockReturnValueOnce(
+        refresh.promise,
+      );
+      act(() => {
+        request = result.current.fetchTokenDetail(
+          target.tokenAddress,
+          target.networkId,
+        );
+      });
+      expect(store.get(marketPerpsInfoStatusAtom())).toBe('resolved');
+      await act(async () => {
+        refresh.resolve({ data: {} });
+        await request;
+      });
+    },
+  );
 
   it('preserves loaded state when re-entering the same stock variant', () => {
     const { store, Wrapper } = createWrapper();
@@ -982,6 +1046,9 @@ describe('marketV2 asset token detail actions', () => {
       });
       if (delayedRequest === 'decimals') {
         expect(mockFetchTokenInfoOnly).toHaveBeenCalledTimes(1);
+        expect(mockResolveMarketPerpsInfoBySymbol).toHaveBeenCalledWith({
+          symbol: 'DOGE',
+        });
       }
       act(() => {
         result.current.actions.applyChartPriceUpdate({
@@ -1099,6 +1166,87 @@ describe('marketV2 asset token detail actions', () => {
     });
 
     expect(store.get(perpsInfoAtom())).toEqual({ hlTicker: 'DOGE' });
+  });
+
+  it.each(['supported', 'unsupported', 'error'] as const)(
+    'keeps Perps support pending independently of detail loading until %s is known',
+    async (outcome) => {
+      const response = createDeferred<{ hlTicker: string } | undefined>();
+      mockResolveMarketPerpsInfoBySymbol.mockReturnValueOnce(response.promise);
+      const { store, Wrapper } = createWrapper();
+      store.set(networkIdAtom(), 'doge--0');
+      const { result } = renderHook(() => useMarketAssetTokenDetailAction(), {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await result.current({
+          assetId: 'doge',
+          tokenAddress: '',
+          networkId: 'doge--0',
+        });
+      });
+
+      expect(store.get(tokenDetailLoadingAtom())).toBe(false);
+      expect(store.get(tokenDetailAtom())?.symbol).toBe('DOGE');
+      expect(store.get(marketPerpsInfoStatusAtom())).toBe('pending');
+      expect(store.get(perpsInfoAtom())).toBeUndefined();
+
+      await act(async () => {
+        if (outcome === 'error') {
+          response.reject(new Error('Perps metadata unavailable'));
+        } else {
+          response.resolve(
+            outcome === 'supported' ? { hlTicker: 'DOGE' } : undefined,
+          );
+        }
+      });
+
+      expect(store.get(marketPerpsInfoStatusAtom())).toBe(
+        outcome === 'error' ? 'error' : 'resolved',
+      );
+      expect(store.get(perpsInfoAtom())).toEqual(
+        outcome === 'supported' ? { hlTicker: 'DOGE' } : undefined,
+      );
+    },
+  );
+
+  it('ignores a Perps response after the active token changes', async () => {
+    const response = createDeferred<{ hlTicker: string } | undefined>();
+    mockResolveMarketPerpsInfoBySymbol.mockReturnValueOnce(response.promise);
+    const { store, Wrapper } = createWrapper();
+    store.set(networkIdAtom(), 'doge--0');
+    const { result } = renderHook(
+      () => ({
+        actions: useTokenDetailActions().current,
+        fetchAssetTokenDetail: useMarketAssetTokenDetailAction(),
+      }),
+      { wrapper: Wrapper },
+    );
+    await act(async () => {
+      await result.current.fetchAssetTokenDetail({
+        assetId: 'doge',
+        tokenAddress: '',
+        networkId: 'doge--0',
+      });
+    });
+    act(() => {
+      result.current.actions.prepareTokenDetailPreview({
+        address: '',
+        networkId: 'evm--1',
+        isNative: true,
+        name: 'Ethereum',
+        symbol: 'ETH',
+        decimals: 18,
+        selectedAt: Date.now(),
+      });
+    });
+    await act(async () => {
+      response.resolve({ hlTicker: 'DOGE' });
+    });
+
+    expect(store.get(perpsInfoAtom())).toBeUndefined();
+    expect(store.get(marketPerpsInfoStatusAtom())).toBe('pending');
   });
 
   it('uses local network decimals for a preview-less native asset', async () => {

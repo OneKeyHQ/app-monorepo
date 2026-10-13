@@ -69,6 +69,16 @@ describe('resolveMarketDetailFooterMode', () => {
   it('adds Perps when the current token supports it', () => {
     expect(resolveMarketDetailFooterMode(true)).toBe('perps-buy-sell');
   });
+
+  it('waits for the complete button group without displaying an unknown Perps entry', () => {
+    expect(resolveMarketDetailFooterMode(false, true)).toBeUndefined();
+    expect(resolveMarketDetailFooterMode(false, false)).toBe('buy-sell');
+    expect(resolveMarketDetailFooterMode(true, false)).toBe('perps-buy-sell');
+  });
+
+  it('keeps a confirmed Perps entry visible during revalidation', () => {
+    expect(resolveMarketDetailFooterMode(true, true)).toBe('perps-buy-sell');
+  });
 });
 
 describe('resolveMobileInformationColumnHeader', () => {

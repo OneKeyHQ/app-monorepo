@@ -23,20 +23,16 @@ import {
   prepareStockSwapEntry,
   prepareTopCoinSwapEntry,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/prepareSwapProEntry';
-import { dismissDiscoveryMarketDetailForTrade } from '@onekeyhq/kit/src/views/Market/utils/marketDetailNavigation';
-import {
-  ESwapProJumpTokenDirection,
-  useSwapFromMarketJumpTokenAtom,
-  useSwapProJumpTokenAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms/swap';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
 import { MarketTestIDs } from '../../../testIDs';
 import {
@@ -160,9 +156,6 @@ export function SwapPanel({
     };
   }, [portfolioData, swapToken.contractAddress, swapToken.networkId]);
 
-  const [, setSwapProJumpTokenAtom] = useSwapProJumpTokenAtom();
-  const [, setSwapFromMarketJumpToken] = useSwapFromMarketJumpTokenAtom();
-
   const handleTrade = useCallback(
     (direction: 'from' | 'to') => {
       // Swap needs the token's decimals; the buttons are disabled until then,
@@ -173,35 +166,26 @@ export function SwapPanel({
       const tradeDestination = swapToken.isStock
         ? 'stock'
         : resolveMarketMobileTradeDestination(detailKind ?? 'trending');
+      const entryParams = {
+        token: swapToken,
+        direction,
+        storeName: EJotaiContextStoreNames.swapModal as const,
+      };
       const swapEntry =
         tradeDestination === 'stock'
-          ? prepareStockSwapEntry({ token: swapToken, direction })
-          : prepareTopCoinSwapEntry({ token: swapToken, direction });
-      // Focus sync can clear the pair before the Swap page paints. Re-apply it
-      // after that sync, once swap networks are available.
-      setSwapFromMarketJumpToken({
-        token: swapToken,
-        otherToken:
-          direction === 'to' ? swapEntry.fromToken : swapEntry.toToken,
-        type: swapEntry.swapType,
-        direction,
+          ? prepareStockSwapEntry(entryParams)
+          : prepareTopCoinSwapEntry(entryParams);
+      navigation.pushModal(EModalRoutes.SwapModal, {
+        screen: EModalSwapRoutes.SwapMainLand,
+        params: {
+          importFromToken: swapEntry.fromToken,
+          importToToken: swapEntry.toToken,
+          swapTabSwitchType: swapEntry.swapType,
+          swapSource: ESwapSource.MARKET,
+        },
       });
-      // A pending pro intent would switch the Swap tab back to Limit.
-      setSwapProJumpTokenAtom({
-        token: undefined,
-        direction: ESwapProJumpTokenDirection.BUY,
-      });
-      dismissDiscoveryMarketDetailForTrade();
-      navigation.switchTab(ETabRoutes.Swap);
     },
-    [
-      detailKind,
-      executionReady,
-      setSwapFromMarketJumpToken,
-      setSwapProJumpTokenAtom,
-      swapToken,
-      navigation,
-    ],
+    [detailKind, executionReady, swapToken, navigation],
   );
 
   const handleBuy = useCallback(() => handleTrade('to'), [handleTrade]);

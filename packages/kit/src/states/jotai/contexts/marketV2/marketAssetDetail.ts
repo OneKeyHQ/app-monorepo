@@ -13,6 +13,7 @@ import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 import {
   contextAtomMethod,
   isNativeAtom,
+  marketPerpsResolutionAtom,
   networkIdAtom,
   perpsInfoAtom,
   tokenAddressAtom,
@@ -73,17 +74,22 @@ export function buildMarketAssetTokenDetail({
   };
 }
 
-// The asset detail response has no perps field, so the Hyperliquid counterpart
-// is resolved separately. Kept off the detail render path: the banner appearing
-// a beat late is better than delaying price and chart data behind it.
+// Resolve support independently of chart readiness. The footer reserves the
+// entry until this request settles without blocking the asset detail response.
 async function applyMarketAssetPerpsInfo({
   set,
   symbol,
   isCurrentIdentity,
+  resolution,
 }: {
   set: IJotaiSetter;
   symbol: string;
   isCurrentIdentity: () => boolean;
+  resolution: {
+    networkId: string;
+    tokenAddress: string;
+    requestId: number;
+  };
 }) {
   try {
     const perpsInfo =
@@ -96,7 +102,19 @@ async function applyMarketAssetPerpsInfo({
     if (perpsInfo && isCurrentIdentity()) {
       set(perpsInfoAtom(), perpsInfo);
     }
+    if (isCurrentIdentity()) {
+      set(marketPerpsResolutionAtom(), {
+        ...resolution,
+        status: 'resolved',
+      });
+    }
   } catch (error) {
+    if (isCurrentIdentity()) {
+      set(marketPerpsResolutionAtom(), {
+        ...resolution,
+        status: 'error',
+      });
+    }
     defaultLogger.app.error.log(
       `Failed to resolve market perps info: ${String(error)}`,
     );
@@ -119,6 +137,17 @@ async function fetchMarketAssetTokenDetail(
   const requestStartedAt = Date.now();
   const requestId = get(tokenDetailRequestIdAtom()) + 1;
   set(tokenDetailRequestIdAtom(), requestId);
+  const previousResolution = get(marketPerpsResolutionAtom());
+  const resolution = { networkId, tokenAddress, requestId };
+  set(marketPerpsResolutionAtom(), {
+    ...resolution,
+    status:
+      previousResolution?.networkId === networkId &&
+      previousResolution.tokenAddress === tokenAddress &&
+      previousResolution.status === 'resolved'
+        ? 'resolved'
+        : 'pending',
+  });
   let isStale = false;
   const isCurrentIdentity = () =>
     get(tokenDetailRequestIdAtom()) === requestId &&
@@ -159,6 +188,13 @@ async function fetchMarketAssetTokenDetail(
         'Market asset detail variant does not match the active route',
       );
     }
+
+    void applyMarketAssetPerpsInfo({
+      set,
+      symbol: assetDetail.asset.symbol.toUpperCase(),
+      isCurrentIdentity,
+      resolution,
+    });
 
     const currentTokenDetail = get(tokenDetailAtom());
     const tokenDetailPreview = get(tokenDetailPreviewAtom());
@@ -228,11 +264,6 @@ async function fetchMarketAssetTokenDetail(
     set(tokenDetailPreviewAtom(), undefined);
     set(tokenDetailWebsocketAtom(), undefined);
     set(isNativeAtom(), selectedVariant.isNative);
-    void applyMarketAssetPerpsInfo({
-      set,
-      symbol: finalTokenData.symbol,
-      isCurrentIdentity,
-    });
 
     return assetDetail;
   } catch (error) {

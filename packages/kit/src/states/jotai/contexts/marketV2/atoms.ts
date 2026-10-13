@@ -76,11 +76,39 @@ export const { atom: perpsInfoAtom, use: usePerpsInfoAtom } = contextAtom<
   IMarketPerpsInfo | undefined
 >(undefined);
 
+export const { atom: marketPerpsResolutionAtom } = contextAtom<
+  | {
+      networkId: string;
+      tokenAddress: string;
+      requestId: number;
+      status: 'pending' | 'resolved' | 'error';
+    }
+  | undefined
+>(undefined);
+
 export const { atom: tokenAddressAtom, use: useTokenAddressAtom } =
   contextAtom<string>('');
 
 export const { atom: networkIdAtom, use: useNetworkIdAtom } =
   contextAtom<string>('');
+
+export const {
+  atom: marketPerpsInfoStatusAtom,
+  use: useMarketPerpsInfoStatusAtom,
+} = contextAtomComputed((get) => {
+  const resolution = get(marketPerpsResolutionAtom());
+  const detail = get(tokenDetailAtom());
+  const hasRetainedDetail =
+    resolution?.status === 'resolved' &&
+    detail?.networkId === resolution.networkId &&
+    detail?.address === resolution.tokenAddress;
+  return resolution?.networkId === get(networkIdAtom()) &&
+    resolution?.tokenAddress === get(tokenAddressAtom()) &&
+    (resolution?.requestId === get(tokenDetailRequestIdAtom()) ||
+      hasRetainedDetail)
+    ? resolution.status
+    : 'pending';
+});
 
 export const { atom: isNativeAtom, use: useIsNativeAtom } =
   contextAtom<boolean>(false);

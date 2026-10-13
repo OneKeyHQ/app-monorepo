@@ -35,7 +35,11 @@ export function resolveMarketMobileDetailKind({
 
 export function resolveMarketDetailFooterMode(
   hasPerps: boolean,
-): IMarketDetailFooterMode {
+  isPerpsInfoPending = false,
+): IMarketDetailFooterMode | undefined {
+  if (!hasPerps && isPerpsInfoPending) {
+    return undefined;
+  }
   return hasPerps ? 'perps-buy-sell' : 'buy-sell';
 }
 
