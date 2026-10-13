@@ -55,7 +55,9 @@ hostname of the CAPTCHA page selected by the active server settings. These
 targets receive DNS and TCP 443 checks without downloading the Turnstile SDK.
 Explicit target arrays replace the defaults for that probe type. If the Wallet
 health check passes but a CAPTCHA target is unreachable, the conclusion reports
-the failing CAPTCHA layer instead of a healthy result.
+the failing CAPTCHA layer instead of a healthy result. Direct DNS/TCP failures
+are ignored for CAPTCHA hosts that the system routes through a proxy, and a
+CAPTCHA page 5xx response is reported as a service error.
 
 ```typescript
 import { NetworkDoctor } from '@onekeyhq/shared/src/modules/NetworkDoctor';
@@ -205,6 +207,7 @@ interface NetworkCheckup {
     extraDnsChecks?: DnsResult[];
     tcpTests: ConnectivityComparison;
     extraTcpChecks?: TcpConnectionResult[];
+    proxiedCaptchaHosts?: string[];
     tlsTest: TlsHandshakeResult;
     pingDomain: PingResult;
     pingIp?: PingResult;

@@ -8,6 +8,7 @@ import TcpSocket from 'react-native-tcp-socket';
 
 import { getEndpointByServiceName } from '@onekeyhq/shared/src/config/endpointsMap';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { isProxyActiveForUrl } from '@onekeyhq/shared/src/request/helpers/sniRequest';
 import requestHelper from '@onekeyhq/shared/src/request/requestHelper';
 
 import { NetworkDoctor } from './NetworkDoctor.native';
@@ -83,6 +84,10 @@ jest.mock('@onekeyhq/shared/src/config/endpointsMap', () => ({
     .mockResolvedValue('https://wallet.example.com'),
 }));
 
+jest.mock('@onekeyhq/shared/src/request/helpers/sniRequest', () => ({
+  isProxyActiveForUrl: jest.fn(),
+}));
+
 jest.mock('@onekeyhq/shared/src/request/requestHelper', () => ({
   __esModule: true,
   default: { getDevSettingsPersistAtom: jest.fn() },
@@ -135,6 +140,7 @@ describe('NetworkDoctor native diagnostics', () => {
       .mockReset()
       .mockRejectedValue(new Error('Network unreachable'));
     jest.mocked(getIpAddressesForHostname).mockReset();
+    jest.mocked(isProxyActiveForUrl).mockReset().mockResolvedValue(false);
     jest
       .mocked(TcpSocket.createConnection)
       .mockImplementation((options, onConnect) => {
@@ -435,28 +441,91 @@ describe('NetworkDoctor native diagnostics', () => {
     },
   );
 
-  it('reports a CAPTCHA page failure when its host accepts TCP connections', async () => {
-    jest.mocked(getIpAddressesForHostname).mockResolvedValue(['203.0.113.5']);
-    mockReachableHosts.add('challenges.cloudflare.com');
-    mockReachableHosts.add('login.onekey.so');
-    mockClientGet.mockResolvedValue({ status: 200, data: 'ok' });
-    jest.spyOn(axios, 'get').mockImplementation(async (url) => {
-      if (url === 'https://login.onekey.so/captcha') {
-        throw new OneKeyError('Request failed with status code 503');
-      }
-      return { status: 200, data: 'ok' };
-    });
-
-    const report = await new NetworkDoctor({}).run();
-
-    expect(report.summary.allCriticalChecksPassed).toBe(false);
-    expect(report.summary.conclusion).toMatchObject({
+  it.each([
+    {
+      failure: 'a connection error',
+      status: undefined,
       connectivityLevel: ENetworkConnectivityLevel.ONEKEY_BLOCKED,
-      oneKeyFailureReason: EOneKeyFailureReason.HTTP_REQUEST_FAILED,
-      failureLayer: 'http',
       summary: 'auth_captcha_load_failed__msg',
-    });
-  });
+      assessment: 'blocked',
+    },
+    {
+      failure: 'a 503 response',
+      status: 503,
+      connectivityLevel: ENetworkConnectivityLevel.ONEKEY_SERVICE_ERROR,
+      summary: 'auth_captcha_unavailable__msg',
+      assessment: 'degraded',
+    },
+  ])(
+    'reports a CAPTCHA page with $failure when its host accepts TCP connections',
+    async ({ status, connectivityLevel, summary, assessment }) => {
+      jest
+        .mocked(getIpAddressesForHostname)
+        .mockResolvedValue(['203.0.113.5']);
+      mockReachableHosts.add('challenges.cloudflare.com');
+      mockReachableHosts.add('login.onekey.so');
+      mockClientGet.mockResolvedValue({ status: 200, data: 'ok' });
+      jest.spyOn(axios, 'get').mockImplementation(async (url) => {
+        if (url === 'https://login.onekey.so/captcha') {
+          throw Object.assign(new OneKeyError('CAPTCHA page failed'), {
+            response: status ? { status } : undefined,
+          });
+        }
+        return { status: 200, data: 'ok' };
+      });
+
+      const report = await new NetworkDoctor({}).run();
+
+      expect(report.summary.allCriticalChecksPassed).toBe(false);
+      expect(report.summary.conclusion).toMatchObject({
+        connectivityLevel,
+        oneKeyFailureReason: EOneKeyFailureReason.HTTP_REQUEST_FAILED,
+        failureLayer: 'http',
+        summary,
+        assessment,
+      });
+    },
+  );
+
+  it.each([
+    { proxyState: true, healthy: true },
+    { proxyState: null, healthy: false },
+    { proxyState: 'error', healthy: false },
+  ])(
+    'treats a direct Turnstile TCP failure with proxy state $proxyState as healthy: $healthy',
+    async ({ proxyState, healthy }) => {
+      const turnstileHost = 'challenges.cloudflare.com';
+      jest
+        .mocked(getIpAddressesForHostname)
+        .mockResolvedValue(['203.0.113.5']);
+      mockReachableHosts.add('login.onekey.so');
+      mockClientGet.mockResolvedValue({ status: 200, data: 'ok' });
+      jest.spyOn(axios, 'get').mockResolvedValue({ status: 200, data: 'ok' });
+      jest.mocked(isProxyActiveForUrl).mockImplementation(async (url) => {
+        if (url !== `https://${turnstileHost}/`) {
+          return false;
+        }
+        if (proxyState === 'error') {
+          throw new OneKeyError('Proxy preflight failed');
+        }
+        return proxyState as boolean | null;
+      });
+
+      const report = await new NetworkDoctor({}).run();
+
+      expect(report.results.extraTcpChecks).toContainEqual(
+        expect.objectContaining({ host: turnstileHost, success: false }),
+      );
+      expect(report.results.proxiedCaptchaHosts).toEqual(
+        healthy ? [turnstileHost] : [],
+      );
+      expect(report.summary.conclusion.connectivityLevel).toBe(
+        healthy
+          ? ENetworkConnectivityLevel.HEALTHY
+          : ENetworkConnectivityLevel.ONEKEY_BLOCKED,
+      );
+    },
+  );
 
   it('starts every ping before any ping settles', async () => {
     jest.mocked(getIpAddressesForHostname).mockResolvedValue(['203.0.113.5']);

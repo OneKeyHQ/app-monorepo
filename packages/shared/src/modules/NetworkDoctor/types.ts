@@ -281,6 +281,8 @@ export interface INetworkCheckup {
     extraDnsChecks?: IDnsResult[];
     tcpTests: IConnectivityComparison;
     extraTcpChecks?: ITcpConnectionResult[];
+    /** CAPTCHA hosts that the native HTTP stack routes through a proxy */
+    proxiedCaptchaHosts?: string[];
     tlsTest: ITlsHandshakeResult;
     pingDomain: IPingResult;
     pingIp?: IPingResult;
