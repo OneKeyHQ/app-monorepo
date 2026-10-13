@@ -12,6 +12,7 @@ export enum ESpotlightTour {
   perpLayoutSettingsMenu = 'perpLayoutSettingsMenu',
   perpLayoutSettings = 'perpLayoutSettings',
   perpDesktopChartResize = 'perpDesktopChartResize',
+  portfolioMoreMenu = 'portfolioMoreMenu',
 }
 
 export type ITourTripTimes = number;

@@ -43,11 +43,18 @@ import {
   resolveAllNetworkPublishedResult,
 } from './allNetworkRunResultUtils';
 import { registerAllNetworksCompatCacheInvalidation } from './allNetworksCompatCacheInvalidation';
+import {
+  buildAllNetworkRequestBatches,
+  partitionAllNetworkRequestBatches,
+} from './buildAllNetworkRequestBatches';
+import { makeBatchRequestFactory } from './makeBatchRequestFactory';
 import { makeColdRequestFactory } from './makeColdRequestFactory';
 import { reorderNetworksByCachePriority } from './reorderNetworksByCachePriority';
 import { shouldSkipRedundantAllNetworkRun } from './shouldSkipRedundantAllNetworkRun';
 import { usePromiseResult } from './usePromiseResult';
 import { useRouteIsFocused } from './useRouteIsFocused';
+
+import type { IAllNetworkRequestBatch } from './buildAllNetworkRequestBatches';
 
 // Enabled-set changes must evict every account's cached compat entry, not
 // only the scope that is currently mounted; see the module for why.
@@ -326,6 +333,16 @@ function useAllNetworkRequests<T>(params: {
     // `activeRunGenerationRef`); consumers must skip their own writes then.
     isRunCurrent?: () => boolean;
   }) => Promise<T | undefined>;
+  // Batch dispatch mode. When provided, the live fan-out sends one request per
+  // planned batch (see `buildAllNetworkRequestBatches`) instead of one per
+  // account; results are still fed per network. `allNetworkRequests` stays
+  // in use for per-account refreshes (`runAccountRequests`).
+  allNetworkRequestsBatch?: (params: {
+    batch: IAllNetworkRequestBatch<IAllNetworkAccountInfo>;
+    allNetworkDataInit?: boolean;
+    isRunCurrent?: () => boolean;
+  }) => Promise<Array<T | undefined>>;
+  requestBatchSize?: number;
   allNetworkCacheRequests?: ({
     dbAccount,
     accountId,
@@ -430,6 +447,8 @@ function useAllNetworkRequests<T>(params: {
     isAllNetworks,
     isRunCurrent,
     allNetworkRequests,
+    allNetworkRequestsBatch,
+    requestBatchSize,
     allNetworkCacheRequests,
     allNetworkCacheRequestsBatch,
     allNetworkCacheData,
@@ -913,6 +932,39 @@ function useAllNetworkRequests<T>(params: {
           onRequestSettled?.(value, generation);
         }
       };
+      const batchRequestIfCurrent: NonNullable<
+        typeof allNetworkRequestsBatch
+      > = (request) => {
+        if (!allNetworkRequestsBatch || !isCurrentRun()) {
+          if (isAccountSwitchDiagnosticsEnabled()) {
+            liveDispatchDropped += request.batch.items.length;
+          }
+          return Promise.resolve([]);
+        }
+        if (isAccountSwitchDiagnosticsEnabled()) {
+          liveDispatchStarted += request.batch.items.length;
+        }
+        return allNetworkRequestsBatch({
+          ...request,
+          isRunCurrent: isCurrentRun,
+        });
+      };
+      const makeBatchFactory = (
+        batch: IAllNetworkRequestBatch<IAllNetworkAccountInfo>,
+      ) =>
+        makeBatchRequestFactory<
+          T,
+          IAllNetworkRequestBatch<IAllNetworkAccountInfo>
+        >({
+          batch,
+          allNetworkRequestsBatch: batchRequestIfCurrent,
+          onRequestSettled: publishRequestResult,
+          runGeneration,
+          getAllNetworkDataInit: () => allNetworkDataInit.current,
+        });
+      const countBatchNetworks = (
+        batches: IAllNetworkRequestBatch<IAllNetworkAccountInfo>[],
+      ) => batches.reduce((sum, batch) => sum + batch.items.length, 0);
 
       try {
         if (!allNetworkDataInit.current) {
@@ -1220,96 +1272,150 @@ function useAllNetworkRequests<T>(params: {
             accountsInfo,
             cachePriorityNetworkIds,
           );
-          const requestFactories = allNetworks.map((networkDataString) => {
-            const { accountId, networkId, dbAccount } = networkDataString;
-            return () =>
-              requestIfCurrent({
-                accountId,
-                networkId,
-                dbAccount,
-                allNetworkDataInit: allNetworkDataInit.current,
-              });
-          });
+          if (allNetworkRequestsBatch) {
+            const batches = buildAllNetworkRequestBatches(allNetworks, {
+              maxBatchSize: requestBatchSize,
+            });
+            const batchFactories = batches.map(makeBatchFactory);
+            fanOutRequestCount = countBatchNetworks(batches);
+            try {
+              // Items are fed by the factory itself; no `onSettled` here so
+              // nothing is published twice.
+              completedResult = (
+                await promiseAllSettledSlidingWindow(batchFactories, {
+                  continueOnError: true,
+                  concurrency: getTokenListFanOutConcurrencyLimit(
+                    batchFactories.length,
+                  ),
+                })
+              ).flatMap((settledBatch) => settledBatch ?? []);
+            } catch (e) {
+              console.error(e);
+              completedResult = null;
+              abortAllNetworkRequests?.();
+            }
+          } else {
+            const requestFactories = allNetworks.map((networkDataString) => {
+              const { accountId, networkId, dbAccount } = networkDataString;
+              return () =>
+                requestIfCurrent({
+                  accountId,
+                  networkId,
+                  dbAccount,
+                  allNetworkDataInit: allNetworkDataInit.current,
+                });
+            });
 
-          fanOutRequestCount = requestFactories.length;
-          try {
-            // L4a: sliding-window executor (worker-pool) replaces the
-            // batch-barrier so a slow network no longer idles the rest of its
-            // wave — the next network starts the instant a slot frees.
-            // L4b: a dedicated native cap (iOS 16 / Android 8) drains the waves
-            // faster on iOS without touching the shared PROMISE_CONCURRENCY_LIMIT.
-            completedResult = (
-              await promiseAllSettledSlidingWindow(requestFactories, {
-                continueOnError: true,
-                concurrency: getTokenListFanOutConcurrencyLimit(
-                  requestFactories.length,
-                ),
-                // L2: hand each network's result to the consumer the instant it
-                // settles, so it can paint progressively instead of waiting for
-                // the whole fan-out.
-                onSettled: (settledResult) => {
-                  if (settledResult) {
-                    publishRequestResult(settledResult, runGeneration);
-                  }
-                },
-              })
-            ).filter(Boolean);
-          } catch (e) {
-            console.error(e);
-            completedResult = null;
-            abortAllNetworkRequests?.();
+            fanOutRequestCount = requestFactories.length;
+            try {
+              // L4a: sliding-window executor (worker-pool) replaces the
+              // batch-barrier so a slow network no longer idles the rest of its
+              // wave — the next network starts the instant a slot frees.
+              // L4b: a dedicated native cap (iOS 16 / Android 8) drains the waves
+              // faster on iOS without touching the shared PROMISE_CONCURRENCY_LIMIT.
+              completedResult = (
+                await promiseAllSettledSlidingWindow(requestFactories, {
+                  continueOnError: true,
+                  concurrency: getTokenListFanOutConcurrencyLimit(
+                    requestFactories.length,
+                  ),
+                  // L2: hand each network's result to the consumer the instant it
+                  // settles, so it can paint progressively instead of waiting for
+                  // the whole fan-out.
+                  onSettled: (settledResult) => {
+                    if (settledResult) {
+                      publishRequestResult(settledResult, runGeneration);
+                    }
+                  },
+                })
+              ).filter(Boolean);
+            } catch (e) {
+              console.error(e);
+              completedResult = null;
+              abortAllNetworkRequests?.();
+            }
           }
         } else {
           const respTemp: Array<T> = [];
-          // Fix A: the COLD path must feed the progressive-paint pipeline the
-          // same way the WARM path does via `onSettled`. `promiseAllSettledEnhanced`
-          // has no `onSettled`, so each factory calls `onRequestSettled` itself
-          // when it resolves (see `makeColdRequestFactory` for the full rationale
-          // + the placeholder filter — extracted there so it is unit-tested).
-          const makeColdFactory = (networkDataString: IAllNetworkAccountInfo) =>
-            makeColdRequestFactory<T>({
-              networkInfo: networkDataString,
-              allNetworkRequests: requestIfCurrent,
-              onRequestSettled: publishRequestResult,
-              runGeneration,
-              getAllNetworkDataInit: () => allNetworkDataInit.current,
-            });
-          try {
-            const factories = Array.from(accountsInfoBackendIndexed).map(
-              makeColdFactory,
+          if (allNetworkRequestsBatch) {
+            // Planned over the full set so cold and warm runs chunk identically
+            // (backend cache keys are the sorted set per request); the two
+            // phases only order the batches.
+            const { indexed, notIndexed } = partitionAllNetworkRequestBatches(
+              buildAllNetworkRequestBatches(accountsInfo, {
+                maxBatchSize: requestBatchSize,
+              }),
             );
-            fanOutRequestCount += factories.length;
-            const r = (
-              await promiseAllSettledEnhanced(factories, {
-                continueOnError: true,
-                concurrency: getAllNetworkTaskConcurrencyLimit(
-                  factories.length,
-                ),
-              })
-            ).filter(Boolean) as Array<T>;
-            respTemp.push(...r);
-          } catch (e) {
-            console.error(e);
-            // pass
-          }
+            for (const phase of [indexed, notIndexed]) {
+              const batchFactories = phase.map(makeBatchFactory);
+              fanOutRequestCount += countBatchNetworks(phase);
+              try {
+                const r = await promiseAllSettledEnhanced(batchFactories, {
+                  continueOnError: true,
+                  concurrency: getAllNetworkTaskConcurrencyLimit(
+                    batchFactories.length,
+                  ),
+                });
+                respTemp.push(
+                  ...r.flatMap((settledBatch) => settledBatch ?? []),
+                );
+              } catch (e) {
+                console.error(e);
+              }
+            }
+          } else {
+            // Fix A: the COLD path must feed the progressive-paint pipeline the
+            // same way the WARM path does via `onSettled`. `promiseAllSettledEnhanced`
+            // has no `onSettled`, so each factory calls `onRequestSettled` itself
+            // when it resolves (see `makeColdRequestFactory` for the full rationale
+            // + the placeholder filter — extracted there so it is unit-tested).
+            const makeColdFactory = (
+              networkDataString: IAllNetworkAccountInfo,
+            ) =>
+              makeColdRequestFactory<T>({
+                networkInfo: networkDataString,
+                allNetworkRequests: requestIfCurrent,
+                onRequestSettled: publishRequestResult,
+                runGeneration,
+                getAllNetworkDataInit: () => allNetworkDataInit.current,
+              });
+            try {
+              const factories = Array.from(accountsInfoBackendIndexed).map(
+                makeColdFactory,
+              );
+              fanOutRequestCount += factories.length;
+              const r = (
+                await promiseAllSettledEnhanced(factories, {
+                  continueOnError: true,
+                  concurrency: getAllNetworkTaskConcurrencyLimit(
+                    factories.length,
+                  ),
+                })
+              ).filter(Boolean) as Array<T>;
+              respTemp.push(...r);
+            } catch (e) {
+              console.error(e);
+              // pass
+            }
 
-          try {
-            const factories = Array.from(accountsInfoBackendNotIndexed).map(
-              makeColdFactory,
-            );
-            fanOutRequestCount += factories.length;
-            const r = (
-              await promiseAllSettledEnhanced(factories, {
-                continueOnError: true,
-                concurrency: getAllNetworkTaskConcurrencyLimit(
-                  factories.length,
-                ),
-              })
-            ).filter(Boolean) as Array<T>;
-            respTemp.push(...r);
-          } catch (e) {
-            console.error(e);
-            // pass
+            try {
+              const factories = Array.from(accountsInfoBackendNotIndexed).map(
+                makeColdFactory,
+              );
+              fanOutRequestCount += factories.length;
+              const r = (
+                await promiseAllSettledEnhanced(factories, {
+                  continueOnError: true,
+                  concurrency: getAllNetworkTaskConcurrencyLimit(
+                    factories.length,
+                  ),
+                })
+              ).filter(Boolean) as Array<T>;
+              respTemp.push(...r);
+            } catch (e) {
+              console.error(e);
+              // pass
+            }
           }
           completedResult = respTemp.length ? respTemp : null;
         }
@@ -1500,6 +1606,8 @@ function useAllNetworkRequests<T>(params: {
       allNetworkCacheRequestsBatch,
       allNetworkCacheData,
       allNetworkRequests,
+      allNetworkRequestsBatch,
+      requestBatchSize,
       onRequestSettled,
       onResultPublished,
       clearRetainedResultOnAcceptedRun,
