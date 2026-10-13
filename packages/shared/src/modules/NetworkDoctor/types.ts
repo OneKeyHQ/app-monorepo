@@ -55,6 +55,11 @@ export interface IDoctorConfig {
   extraPingTargets?: string[];
 
   /**
+   * Additional hostnames or IP addresses to check with DNS and TCP 443
+   */
+  extraConnectivityTargets?: string[];
+
+  /**
    * Extra HTTP probe endpoints (optional)
    */
   extraHttpProbes?: Array<{
@@ -273,7 +278,9 @@ export interface INetworkCheckup {
     netInfo: INetInfoSnapshot;
     networkEnv: INetworkEnvironment;
     dns: IDnsResult;
+    extraDnsChecks?: IDnsResult[];
     tcpTests: IConnectivityComparison;
+    extraTcpChecks?: ITcpConnectionResult[];
     tlsTest: ITlsHandshakeResult;
     pingDomain: IPingResult;
     pingIp?: IPingResult;
@@ -304,6 +311,7 @@ export interface INetworkCheckup {
 export interface IDefaultConfig {
   timeouts: Required<NonNullable<IDoctorConfig['timeouts']>>;
   extraPingTargets: string[];
+  extraConnectivityTargets: string[];
   extraHttpProbes: Array<{ label: string; url: string }>;
   enableNetworkLogger: boolean;
   maxNetworkLogs: number;
@@ -316,6 +324,7 @@ export interface IDefaultConfig {
 export interface IMergedConfig {
   timeouts: Required<NonNullable<IDoctorConfig['timeouts']>>;
   extraPingTargets: string[];
+  extraConnectivityTargets: string[];
   extraHttpProbes: Array<{ label: string; url: string }>;
   enableNetworkLogger: boolean;
   maxNetworkLogs: number;

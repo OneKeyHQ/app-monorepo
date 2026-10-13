@@ -18,12 +18,13 @@ import {
   startNetworkLogging,
   stopNetworkLogging,
 } from 'react-native-network-logger';
-import Ping from 'react-native-ping';
+import { Ping } from 'react-native-ping';
 import TcpSocket from 'react-native-tcp-socket';
 
 import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import { ONEKEY_HEALTH_CHECK_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { getEndpointByServiceName } from '@onekeyhq/shared/src/config/endpointsMap';
+import { getOneKeyIdAuthConfig } from '@onekeyhq/shared/src/config/oneKeyIdAuth';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -54,6 +55,8 @@ import type {
 } from './types';
 
 export class NetworkDoctor {
+  private readonly userConfig: IDoctorConfig;
+
   private config: IMergedConfig;
 
   private endpoint: string | null = null;
@@ -67,6 +70,7 @@ export class NetworkDoctor {
   private startTime = 0;
 
   constructor(userConfig: IDoctorConfig) {
+    this.userConfig = userConfig;
     this.config = mergeConfig(userConfig);
 
     defaultLogger.networkDoctor.log.info({
@@ -205,6 +209,10 @@ export class NetworkDoctor {
       this.t(ETranslations.global_network_doctor_progress_initializing),
     );
 
+    // Read the active CAPTCHA environment for every run, including reused instances.
+    const { captcha } = await getOneKeyIdAuthConfig();
+    this.config = mergeConfig(this.userConfig, captcha.pageUrl);
+
     // Initialize endpoint, client and health check URL
     await this.initialize();
 
@@ -253,7 +261,14 @@ export class NetworkDoctor {
       defaultLogger.networkDoctor.log.info({
         info: '[DR] Phase 2: DNS Resolution',
       });
-      const dns = await this.testDns();
+      const [dns, extraDnsChecks] = await Promise.all([
+        this.testDns(),
+        Promise.all(
+          this.config.extraConnectivityTargets.map((hostname) =>
+            this.testDns(hostname),
+          ),
+        ),
+      ]);
 
       // ========== Phase 3: TCP + TLS Tests (Parallel) ==========
       this.emitProgress(
@@ -264,9 +279,14 @@ export class NetworkDoctor {
       defaultLogger.networkDoctor.log.info({
         info: '[DR] Phase 3: TCP & TLS Tests',
       });
-      const [tcpTests, tlsTest] = await Promise.all([
+      const [tcpTests, tlsTest, extraTcpChecks] = await Promise.all([
         this.testTcpConnectivity(dns.ips[0]),
         this.testTlsHandshake(),
+        Promise.all(
+          this.config.extraConnectivityTargets.map((host) =>
+            this.testTcpConnection(host, 443, this.config.timeouts.tcp),
+          ),
+        ),
       ]);
 
       // ========== Phase 4: Ping Tests ==========
@@ -317,7 +337,9 @@ export class NetworkDoctor {
         netInfo,
         networkEnv,
         dns,
+        extraDnsChecks,
         tcpTests,
+        extraTcpChecks,
         tlsTest,
         pingDomain,
         pingIp,
@@ -390,9 +412,10 @@ export class NetworkDoctor {
     }
   }
 
-  private async testDns(): Promise<IDnsResult> {
+  private async testDns(
+    hostname = this.targetDomain ?? '',
+  ): Promise<IDnsResult> {
     const startTime = Date.now();
-    const hostname = this.targetDomain ?? '';
     try {
       const { getIpAddressesForHostname } =
         await import('react-native-dns-lookup');
@@ -526,7 +549,8 @@ export class NetworkDoctor {
   private async testTcpConnectivity(
     apiIp?: string,
   ): Promise<IConnectivityComparison> {
-    const targetHost = apiIp;
+    // DNS failures must not prevent the remaining connectivity checks.
+    const targetHost = apiIp || this.targetDomain;
     const timeout = this.config.timeouts.tcp || 10_000;
 
     if (!targetHost) {
@@ -643,8 +667,7 @@ export class NetworkDoctor {
     try {
       const timeMs = await Ping.start(target, {
         timeout,
-        interval: 1000,
-      } as any);
+      });
       const result = { target, success: true, timeMs };
       defaultLogger.networkDoctor.log.info({
         info: `[PING] ✓ ${target} - time: ${timeMs}ms`,

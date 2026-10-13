@@ -50,6 +50,11 @@ console.log('Network Status:', report.summary.assessment);
 
 ### Full Configuration
 
+The default connectivity targets include `challenges.cloudflare.com` and the
+hostname of the CAPTCHA page selected by the active server settings. These
+targets receive DNS and TCP 443 checks without downloading the Turnstile SDK.
+Explicit target arrays replace the defaults for that probe type.
+
 ```typescript
 import { NetworkDoctor } from '@onekeyhq/shared/src/modules/NetworkDoctor';
 
@@ -65,6 +70,9 @@ const doctor = new NetworkDoctor({
 
   // Optional: extra ping targets
   extraPingTargets: ['1.1.1.1', '8.8.8.8', 'custom.server.com'],
+
+  // Optional: hostnames or IP addresses for DNS and TCP 443 checks
+  extraConnectivityTargets: ['custom.server.com', '203.0.113.10'],
 
   // Optional: extra HTTP probe endpoints
   extraHttpProbes: [
@@ -132,6 +140,7 @@ interface IDoctorConfig {
     ping?: number;
   };
   extraPingTargets?: string[];            // Optional: extra ping targets
+  extraConnectivityTargets?: string[];    // Optional: DNS and TCP 443 targets
   extraHttpProbes?: Array<{               // Optional: extra HTTP probes
     label: string;
     url: string;
@@ -191,7 +200,9 @@ interface NetworkCheckup {
     netInfo: NetInfoSnapshot;
     networkEnv: NetworkEnvironment;
     dns: DnsResult;
+    extraDnsChecks?: DnsResult[];
     tcpTests: ConnectivityComparison;
+    extraTcpChecks?: TcpConnectionResult[];
     tlsTest: TlsHandshakeResult;
     pingDomain: PingResult;
     pingIp?: PingResult;

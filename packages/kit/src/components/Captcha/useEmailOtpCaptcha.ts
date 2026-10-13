@@ -182,6 +182,7 @@ export function useEmailOtpCaptcha({
     takeCaptchaToken,
     cancelCaptcha,
     isWaiting,
+    errorKey,
     errorMessage: errorKey ? intl.formatMessage({ id: errorKey }) : undefined,
   };
 }
