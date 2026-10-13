@@ -352,6 +352,7 @@ export function useTradingViewNativeChartGestures({
         'worklet';
 
         const runtime = chartRuntime.value;
+        const translationX = event.translationX - panStartTranslationX.value;
         const nextRuntimeState = reduceTradingViewNativeChartRuntime(runtime, {
           chartWidth: getTradingViewNativeChartWidth(
             runtime.size.width,
@@ -360,8 +361,7 @@ export function useTradingViewNativeChartGestures({
           hideCrosshair: true,
           offset:
             runtime.panGesture.startOffset +
-            (event.translationX - panStartTranslationX.value) *
-              TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
+            translationX * TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
           pointCount: runtime.points.length,
           type: 'panMoved',
         });
@@ -435,7 +435,7 @@ export function useTradingViewNativeChartGestures({
           pinnedPriceRange,
           panGesture: {
             ...runtime.panGesture,
-            translationX: event.translationX,
+            translationX,
           },
         };
       })

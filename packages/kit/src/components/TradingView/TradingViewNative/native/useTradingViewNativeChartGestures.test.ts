@@ -15,6 +15,9 @@ import {
   TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
   TRADING_VIEW_NATIVE_SUB_INDICATOR_LEGEND_TAP_MAX_DISTANCE,
 } from '../chartConstants';
+import { getTradingViewNativeChartWidth } from '../utils/chartLayout';
+import { reduceTradingViewNativeChartRuntime } from '../utils/chartRuntime';
+import { getTradingViewNativePanStartOffsetAfterViewportPreservation } from '../utils/chartViewport';
 import {
   getTradingViewNativeSubIndicatorLegendHitRegions,
   getTradingViewNativeSubIndicatorLegendIndicatorAtPoint,
@@ -457,6 +460,56 @@ describe('free chart panning', () => {
       contentPanGesture.requireExternalGestureToFail,
     ).not.toHaveBeenCalled();
   });
+
+  it.each([-24, 0, 24])(
+    'keeps panning continuous after history preserves the viewport (activation at %i px)',
+    (activationTranslationX) => {
+      const { chartRuntime, contentPanGesture } = renderChartGestures({
+        headerScrollGestures: [Gesture.Pan()],
+        prioritizePageScroll: activationTranslationX !== 0,
+      });
+      const direction = Math.sign(activationTranslationX) || 1;
+      const translationX = activationTranslationX + direction * 40;
+      contentPanGesture.handlers.onStart?.({
+        translationX: activationTranslationX,
+      });
+      contentPanGesture.handlers.onUpdate?.({ translationX, translationY: 0 });
+
+      // Apply the viewport rebase used when history preserves the visible anchor.
+      const runtime = chartRuntime.value;
+      const nextRuntimeState = reduceTradingViewNativeChartRuntime(runtime, {
+        chartWidth: getTradingViewNativeChartWidth(runtime.size.width, 44),
+        pointCount: runtime.points.length,
+        pointRange: { firstIndex: 40, fitRange: false, lastIndex: 40 },
+        type: 'viewportRequested',
+      });
+      const preservedOffset = nextRuntimeState.viewport.offset;
+      chartRuntime.value = {
+        ...runtime,
+        ...nextRuntimeState,
+        panGesture: {
+          ...runtime.panGesture,
+          startOffset:
+            getTradingViewNativePanStartOffsetAfterViewportPreservation({
+              currentTranslationX: runtime.panGesture.translationX,
+              dragRatio: TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
+              preservedOffset,
+            }),
+        },
+      };
+
+      contentPanGesture.handlers.onUpdate?.({ translationX, translationY: 0 });
+      expect(chartRuntime.value.viewport.offset).toBeCloseTo(preservedOffset);
+
+      contentPanGesture.handlers.onUpdate?.({
+        translationX: translationX + direction * 10,
+        translationY: 0,
+      });
+      expect(chartRuntime.value.viewport.offset).toBeCloseTo(
+        preservedOffset + direction * 10 * TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
+      );
+    },
+  );
 
   it('moves both axes and restores the vertical origin when a drag returns', () => {
     const { chartRuntime } = renderChartGestures();
