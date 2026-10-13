@@ -149,7 +149,11 @@ export function buildOrderLine(
     side,
     label: { left: labelText },
     editable: order.orderType === 'Limit',
-    meta: { orderId: String(order.oid), orderType: order.orderType },
+    meta: {
+      orderId: String(order.oid),
+      orderType: order.orderType,
+      coin: order.coin,
+    },
     version: getNextVersion(),
   };
 }
@@ -227,7 +231,11 @@ export function buildTpSlLine(
     side,
     label: { left: labelText },
     editable: true, // Drag moves the trigger price; amend modifies in place.
-    meta: { orderId: String(order.oid), orderType: order.orderType },
+    meta: {
+      orderId: String(order.oid),
+      orderType: order.orderType,
+      coin: order.coin,
+    },
     version: getNextVersion(),
   };
 }

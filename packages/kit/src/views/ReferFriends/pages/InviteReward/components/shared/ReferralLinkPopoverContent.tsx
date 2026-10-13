@@ -45,6 +45,10 @@ function ReferralLinkItem({
       alignItems="center"
       borderRadius="$3"
       borderCurve="continuous"
+      // The whole row copies; keep the arrow cursor and no text selection
+      // over its labels.
+      cursor="default"
+      userSelect="none"
       onPress={onCopy}
       {...(!md && {
         hoverStyle: {

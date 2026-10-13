@@ -7,6 +7,7 @@ export interface ISimpleTabsProps<T extends string = string> {
   tabs: Array<{
     value: T;
     label: string;
+    testID?: string;
   }>;
   containerStyle?: IXStackProps;
 }
@@ -25,6 +26,7 @@ export function SimpleTabs<T extends string = string>({
         return (
           <XStack
             key={tab.value}
+            testID={tab.testID}
             px="$2"
             py="$1.5"
             mr="$1"

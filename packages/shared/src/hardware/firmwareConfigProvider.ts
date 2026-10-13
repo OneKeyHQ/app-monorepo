@@ -1,7 +1,6 @@
 import axios from 'axios';
 
 import { defaultLogger } from '../logger/logger';
-import { DEFAULT_IP_TABLE_CONFIG } from '../request/constants/ipTableDefaults';
 import {
   getMappedDomainForIpLookup,
   isIpTableTransportError,
@@ -15,7 +14,7 @@ import {
   sniRequest,
 } from '../request/helpers/sniRequest';
 import requestHelper from '../request/requestHelper';
-import { getOrderedIpTableCandidates } from '../utils/ipTableUtils';
+import { getSharedDomainIpTableCandidates } from '../utils/ipTableUtils';
 
 import type { RemoteConfigResponse } from '@onekeyfe/hd-core';
 
@@ -82,30 +81,14 @@ async function getConfigSniCandidates(options: {
   } catch {
     activeConfig = null;
   }
-  const activeEndpoints =
-    activeConfig?.config.domains[configKey]?.endpoints ?? [];
-  const endorsedIps = new Set(activeEndpoints.map((endpoint) => endpoint.ip));
-  const preferredCandidates = [
-    activeConfig?.runtime?.selections?.[configKey],
-    activeConfig?.runtime?.lastBestIp?.[configKey],
-  ].filter(
-    (candidate): candidate is string =>
-      typeof candidate === 'string' &&
-      candidate.length > 0 &&
-      endorsedIps.has(candidate),
-  );
-  const builtinCandidates = getOrderedIpTableCandidates({
+  // The shared table is ranked against the API hosts. The firmware config
+  // host resolves to the CN CDN providers, so Cloudflare endpoints are skipped.
+  return getSharedDomainIpTableCandidates({
     hostname,
     configKey,
-    configWithRuntime: {
-      config: DEFAULT_IP_TABLE_CONFIG,
-      runtime: undefined,
-    },
+    activeConfig,
+    maxCandidates: CONFIG_FETCH_MAX_SNI_CANDIDATES,
   });
-  return [...new Set([...preferredCandidates, ...builtinCandidates])].slice(
-    0,
-    CONFIG_FETCH_MAX_SNI_CANDIDATES,
-  );
 }
 
 async function fetchFirmwareConfigWithinDeadline({

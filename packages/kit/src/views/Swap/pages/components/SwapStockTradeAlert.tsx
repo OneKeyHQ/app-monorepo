@@ -18,6 +18,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import type {
+  ESwapDirectionType,
   IFetchQuoteResult,
   ISwapAlertState,
 } from '@onekeyhq/shared/types/swap/types';
@@ -34,6 +35,8 @@ import { getStockQuoteTradeControl } from '../../utils/swapStockTradeControl';
 import SwapAlertContainer from './SwapAlertContainer';
 import { SwapSmoothReveal } from './SwapSmoothReveal';
 import {
+  type IStockAccountNetworkContext,
+  filterStockAccountNetworkAlerts,
   getStockErrorAlertLevel,
   getStockTradeAlertType,
   isCurrentStockMarketClosedQuoteEventError,
@@ -52,6 +55,10 @@ type ISwapStockTradeAlertProps = {
   quoteLoading: boolean;
   quoteResult?: IFetchQuoteResult;
   stockChannel: IUseSwapStockChannelReturn;
+  accountNetworkContexts: Record<
+    ESwapDirectionType,
+    IStockAccountNetworkContext
+  >;
   /** px value of the hosting Stack gap, offset by SwapSmoothReveal */
   parentGap: number;
 };
@@ -105,6 +112,7 @@ function BasicSwapStockTradeAlert({
   quoteLoading,
   quoteResult,
   stockChannel,
+  accountNetworkContexts,
   parentGap,
 }: ISwapStockTradeAlertProps) {
   const intl = useIntl();
@@ -173,11 +181,26 @@ function BasicSwapStockTradeAlert({
     quoteEventError?.message,
   ]);
 
+  const currentAlerts = filterStockAccountNetworkAlerts({
+    alerts: alerts.states,
+    accountNetworkContexts,
+  });
+  const currentUnsupportedAlerts = currentAlerts.filter(
+    (item) => item.isAccountNetworkUnsupported,
+  );
+  const hasAccountNetworkUnsupportedAlert = currentUnsupportedAlerts.length > 0;
+  const isQuoteInFlight = quoteLoading || quoteEventFetching;
+  const hasQuoteMismatch = alerts.quoteId !== (quoteResult?.quoteId ?? '');
+  const visibleAlerts =
+    hasAccountNetworkUnsupportedAlert && (isQuoteInFlight || hasQuoteMismatch)
+      ? currentUnsupportedAlerts
+      : currentAlerts;
   const shouldShowSwapAlerts =
-    alerts.states.length > 0 &&
-    !quoteLoading &&
-    !quoteEventFetching &&
-    alerts.quoteId === (quoteResult?.quoteId ?? '');
+    visibleAlerts.length > 0 &&
+    (hasAccountNetworkUnsupportedAlert ||
+      (!quoteLoading &&
+        !quoteEventFetching &&
+        alerts.quoteId === (quoteResult?.quoteId ?? '')));
   const stockPrimaryAlert = stockQuoteAlert ?? stockEventAlert;
   const stockTradeDisabled =
     isStockMarketClosed ||
@@ -188,10 +211,10 @@ function BasicSwapStockTradeAlert({
     if (!shouldShowSwapAlerts) {
       return [];
     }
-    return alerts.states.filter(
+    return visibleAlerts.filter(
       (item) => !isSameAlertMessage(item.message, stockPrimaryAlert?.message),
     );
-  }, [alerts.states, shouldShowSwapAlerts, stockPrimaryAlert?.message]);
+  }, [shouldShowSwapAlerts, stockPrimaryAlert?.message, visibleAlerts]);
 
   const mergedQuoteAlerts = useMemo(() => {
     if (stockPrimaryAlert) {

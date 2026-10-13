@@ -12,17 +12,14 @@ import type {
   ITradingViewNativeStorageNamespace,
 } from '../types';
 
-type ITradingViewNativeBaseIntervalStorageNamespace =
+export type ITradingViewNativeIntervalStorageNamespace =
   | 'asset'
   | 'market-hyperliquid'
+  | 'perps'
   | 'native'
   | 'stock'
   | 'swap'
   | 'token';
-
-export type ITradingViewNativeIntervalStorageNamespace =
-  | ITradingViewNativeBaseIntervalStorageNamespace
-  | `${ITradingViewNativeBaseIntervalStorageNamespace}:panel:${string}`;
 
 interface IStoredTradingViewNativeInterval {
   interval: ITradingViewNativeChartInterval;
@@ -31,7 +28,10 @@ interface IStoredTradingViewNativeInterval {
 }
 
 function getStorageKey(namespace: ITradingViewNativeIntervalStorageNamespace) {
-  return namespace === 'swap' || namespace.startsWith('swap:panel:')
+  if (namespace === 'perps') {
+    return EAppSyncStorageKeys.onekey_perps_trading_view_native_active_intervals_v1;
+  }
+  return namespace === 'swap'
     ? EAppSyncStorageKeys.onekey_swap_trading_view_native_active_intervals_v1
     : EAppSyncStorageKeys.onekey_trading_view_native_active_intervals_v1;
 }
@@ -39,13 +39,12 @@ function getStorageKey(namespace: ITradingViewNativeIntervalStorageNamespace) {
 export function getTradingViewNativeIntervalStorageNamespace(
   source: ITradingViewNativeSource,
   storageNamespace?: ITradingViewNativeStorageNamespace,
-  panelId?: string,
 ): ITradingViewNativeIntervalStorageNamespace {
-  if (panelId) {
-    return `${getTradingViewNativeIntervalStorageNamespace(source, storageNamespace)}:panel:${panelId}`;
-  }
   if (storageNamespace === 'swap') {
     return 'swap';
+  }
+  if (storageNamespace === 'perps') {
+    return 'perps';
   }
   if (source.kind === 'hyperliquid') {
     return 'market-hyperliquid';
