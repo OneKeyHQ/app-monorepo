@@ -3,7 +3,7 @@ import type { ReactElement, RefObject } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Empty, ListView, Spinner, YStack } from '@onekeyhq/components';
+import { Button, Empty, ListView, Spinner, YStack } from '@onekeyhq/components';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -80,9 +80,14 @@ function TokenSelectorListView({
   subtitleVariant = 'name',
   columns,
   listHeader,
+  isError,
+  onRetry,
 }: {
   data: IMarketTokenSelectorItem[];
   isLoading?: boolean;
+  /** A failed first load with nothing to show offers a retry. */
+  isError?: boolean;
+  onRetry?: () => void;
   networkId: string;
   onItemPress: (item: IMarketTokenSelectorItem) => void;
   emptyMessage?: string;
@@ -90,6 +95,7 @@ function TokenSelectorListView({
   columns: IMarketTokenSelectorColumns;
   listHeader: ReactElement;
 }) {
+  const intl = useIntl();
   // The loading and empty states are not lists, so they carry the header
   // themselves — it must never disappear while a tab is switching or empty.
   if (isLoading && data.length === 0) {
@@ -98,6 +104,30 @@ function TokenSelectorListView({
         {listHeader}
         <YStack flex={1} justifyContent="center" alignItems="center">
           <Spinner size="large" />
+        </YStack>
+      </YStack>
+    );
+  }
+
+  if (isError && data.length === 0 && onRetry) {
+    return (
+      <YStack flex={1} px={TOKEN_SELECTOR_TABLE_PADDING}>
+        {listHeader}
+        <YStack flex={1} alignItems="center" justifyContent="center" gap="$2">
+          <Empty
+            illustration="QuestionMark"
+            title={intl.formatMessage({
+              id: ETranslations.global_connet_error_try_again,
+            })}
+          />
+          <Button
+            testID="market-token-selector-list-retry"
+            size="small"
+            variant="secondary"
+            onPress={onRetry}
+          >
+            {intl.formatMessage({ id: ETranslations.global_retry })}
+          </Button>
         </YStack>
       </YStack>
     );
@@ -156,7 +186,7 @@ const WatchlistTokenSelectorList = memo(
     const intl = useIntl();
     const [{ data: watchListData }] = useMarketWatchListV2Atom();
 
-    const { data, isLoading } = useMarketWatchlistTokenList({
+    const { data, isLoading, isError, refetch } = useMarketWatchlistTokenList({
       watchlist: watchListData ?? [],
       pollingInterval: pollingInterval ?? TOKEN_SELECTOR_POLLING_INTERVAL,
       dataCacheRef,
@@ -178,6 +208,8 @@ const WatchlistTokenSelectorList = memo(
         })}
         columns={columns}
         listHeader={listHeader}
+        isError={isError}
+        onRetry={() => void refetch()}
       />
     );
   },
@@ -203,7 +235,7 @@ const CategoryTokenSelectorList = memo(
     columns: IMarketTokenSelectorColumns;
     listHeader: ReactElement;
   }) => {
-    const { data, isLoading } = useMarketTokenList({
+    const { data, isLoading, isError, refetch } = useMarketTokenList({
       networkId,
       type: selectedCategory,
       // Same request as the desktop Market home tab: Trending-style lists rank
@@ -222,6 +254,8 @@ const CategoryTokenSelectorList = memo(
         subtitleVariant="ageAddress"
         columns={columns}
         listHeader={listHeader}
+        isError={isError}
+        onRetry={() => void refetch()}
       />
     );
   },

@@ -382,6 +382,29 @@ function CenteredMessage({ children }: { children: ReactNode }) {
 
 const LIST_STYLE = { flex: 1 } as const;
 
+/** A first load that failed with nothing to show: say so and offer a retry. */
+function LoadErrorMessage({
+  testID,
+  onRetry,
+}: {
+  testID: string;
+  onRetry: () => void;
+}) {
+  const intl = useIntl();
+  return (
+    <CenteredMessage>
+      <SizableText color="$textSubdued">
+        {intl.formatMessage({
+          id: ETranslations.global_connet_error_try_again,
+        })}
+      </SizableText>
+      <Button size="small" variant="tertiary" testID={testID} onPress={onRetry}>
+        {intl.formatMessage({ id: ETranslations.global_retry })}
+      </Button>
+    </CenteredMessage>
+  );
+}
+
 function TokenRowsList({
   data,
   tokenSubtitle,
@@ -468,7 +491,7 @@ export function MobileSelectorWatchlistList({
       appEventBus.off(EAppEventBusNames.MarketWatchListV2Changed, refresh);
     };
   }, [watchListActions]);
-  const { data, isLoading } = useMarketWatchlistTokenList({
+  const { data, isLoading, isError, refetch } = useMarketWatchlistTokenList({
     watchlist: watchListData ?? [],
     pollingInterval: TOKEN_SELECTOR_POLLING_INTERVAL,
   });
@@ -480,6 +503,14 @@ export function MobileSelectorWatchlistList({
 
   if (isLoading && rows.length === 0) {
     return <CenteredSpinner />;
+  }
+  if (isError && rows.length === 0) {
+    return (
+      <LoadErrorMessage
+        testID="mobile-market-token-selector-favorites-retry"
+        onRetry={() => void refetch()}
+      />
+    );
   }
   if (rows.length === 0) {
     return (
@@ -507,14 +538,21 @@ export function MobileSelectorCategoryTokenList({
   onItemPress: (item: IMarketToken) => void;
   liveTokenOverride?: IMarketTokenListLiveOverride;
 }) {
-  const { data, isLoading, isLoadingMore, canLoadMore, loadMore } =
-    useMarketTokenList({
-      networkId: ALL_NETWORK_ID,
-      type: category,
-      useApiDefaultSort: isTrendingStyleSpotCategory(category),
-      timeRange,
-      pollingInterval: TOKEN_SELECTOR_POLLING_INTERVAL,
-    });
+  const {
+    data,
+    isLoading,
+    isError,
+    isLoadingMore,
+    canLoadMore,
+    loadMore,
+    refetch,
+  } = useMarketTokenList({
+    networkId: ALL_NETWORK_ID,
+    type: category,
+    useApiDefaultSort: isTrendingStyleSpotCategory(category),
+    timeRange,
+    pollingInterval: TOKEN_SELECTOR_POLLING_INTERVAL,
+  });
   const rows = useLiveOverriddenTokens(data, liveTokenOverride);
   const handleEndReached = useCallback(() => {
     if (canLoadMore && !isLoadingMore) {
@@ -524,6 +562,14 @@ export function MobileSelectorCategoryTokenList({
 
   if (isLoading && rows.length === 0) {
     return <CenteredSpinner />;
+  }
+  if (isError && rows.length === 0) {
+    return (
+      <LoadErrorMessage
+        testID="mobile-market-token-selector-category-retry"
+        onRetry={() => void refetch()}
+      />
+    );
   }
   return (
     <TokenRowsList

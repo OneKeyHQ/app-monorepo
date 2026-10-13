@@ -2,9 +2,10 @@
 
 import type { ReactNode } from 'react';
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 
 import {
+  MobileSelectorCategoryTokenList,
   MobileSelectorSearchTokenRow,
   MobileSelectorWatchlistList,
 } from './MobileMarketSelectorBrowseLists';
@@ -12,6 +13,8 @@ import {
 import type { IMarketToken } from '../../../MarketHomeV2/components/MarketTokenList/MarketTokenData';
 
 const mockRefreshWatchListV2 = jest.fn(() => Promise.resolve());
+const mockRefetch = jest.fn(() => Promise.resolve());
+let mockListState: { isError: boolean } = { isError: false };
 const mockEventHandlers = new Map<string, () => Promise<void>>();
 const mockOn = jest.fn((name: string, handler: () => Promise<void>) => {
   mockEventHandlers.set(name, handler);
@@ -40,7 +43,19 @@ jest.mock('@onekeyhq/components', () => {
   );
   return {
     Badge: Object.assign(Container, { Text: Container }),
-    Button: Container,
+    Button: ({
+      children,
+      onPress,
+      testID,
+    }: {
+      children?: ReactNode;
+      onPress?: () => void;
+      testID?: string;
+    }) => (
+      <button data-testid={testID} type="button" onClick={onPress}>
+        {children}
+      </button>
+    ),
     NumberSizeableText: ({ children }: { children?: ReactNode }) => (
       <span data-testid="number">{children}</span>
     ),
@@ -81,12 +96,24 @@ jest.mock(
 );
 jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketTokenList',
-  () => ({ useMarketTokenList: () => ({ data: [] }) }),
+  () => ({
+    useMarketTokenList: () => ({
+      data: [],
+      isLoading: false,
+      isError: mockListState.isError,
+      refetch: mockRefetch,
+    }),
+  }),
 );
 jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList',
   () => ({
-    useMarketWatchlistTokenList: () => ({ data: [], isLoading: false }),
+    useMarketWatchlistTokenList: () => ({
+      data: [],
+      isLoading: false,
+      isError: mockListState.isError,
+      refetch: mockRefetch,
+    }),
   }),
 );
 jest.mock('@onekeyhq/kit/src/views/Market/MarketHomeV2/utils', () => ({
@@ -196,5 +223,41 @@ describe('MobileSelectorWatchlistList', () => {
 
     unmount();
     expect(mockEventHandlers.size).toBe(0);
+  });
+});
+
+describe('mobile selector list load failures', () => {
+  beforeEach(() => {
+    mockRefetch.mockClear();
+    mockListState = { isError: true };
+  });
+
+  afterAll(() => {
+    mockListState = { isError: false };
+  });
+
+  it('offers a retry when Favorites fail to load', () => {
+    render(<MobileSelectorWatchlistList onItemPress={jest.fn()} />);
+
+    expect(screen.queryByText('market.favorites_empty')).toBeNull();
+    fireEvent.click(
+      screen.getByTestId('mobile-market-token-selector-favorites-retry'),
+    );
+    expect(mockRefetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers a retry when a token category fails to load', () => {
+    render(
+      <MobileSelectorCategoryTokenList
+        category="trending"
+        timeRange="24h"
+        onItemPress={jest.fn()}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByTestId('mobile-market-token-selector-category-retry'),
+    );
+    expect(mockRefetch).toHaveBeenCalledTimes(1);
   });
 });
