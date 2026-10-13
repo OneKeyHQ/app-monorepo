@@ -718,6 +718,10 @@ function BaseBulkSendReview({
         sentTxsTrackingId,
         freeTrialUsage,
       });
+      // A resubmit that only finished broadcasts of an earlier attempt
+      // (replayed through sentTxsTrackingId) used nothing, so this round's
+      // usage is released. One a broadcast already marked stays charged.
+      void settleUsage(freeTrialUsageId, 'cancelled');
 
       // Step 6: Show success toast
       Toast.success({
@@ -779,6 +783,7 @@ function BaseBulkSendReview({
     isMaxMode,
     prepareFreeTrialUsage,
     settleFreeTrialRoundError,
+    settleUsage,
     sentTxsTrackingId,
   ]);
 
