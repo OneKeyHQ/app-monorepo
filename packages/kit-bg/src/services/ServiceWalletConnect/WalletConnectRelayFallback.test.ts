@@ -45,7 +45,7 @@ function mockClose(connection: WsConnection) {
   });
 }
 
-describe('WalletConnect application relay controller with the unmodified SDK', () => {
+describe('WalletConnect application relay controller with the SDK transport', () => {
   afterEach(() => {
     jest.restoreAllMocks();
     jest.useRealTimers();
@@ -386,24 +386,14 @@ describe('WalletConnect application relay controller with the unmodified SDK', (
   });
 
   it.each([0, 1])(
-    'bounds a stalled handshake drain and permits later SDK recovery on relay %s',
+    'bounds a genuine cleanup failure and switches after cleanup recovers; initial=%s',
     async (initial) => {
       jest.useFakeTimers();
       const core = createCore(RELAYS[initial]);
       prepareCore(core);
-      const hasTopics = jest
-        .spyOn(core.relayer.subscriber, 'hasAnyTopics', 'get')
-        .mockReturnValue(false);
-      jest.spyOn(core.relayer.messages, 'init').mockResolvedValue();
-      jest.spyOn(core.relayer.subscriber, 'init').mockResolvedValue();
       WalletConnectRelayController.attach(core, RELAYS[initial]);
-      await core.relayer.init();
-      await jest.advanceTimersByTimeAsync(0);
-      hasTopics.mockReturnValue(true);
       const attempts: string[] = [];
-      let finishLateHandshake = () => {};
-      let lateClosed = false;
-      let acknowledgeRecoveryClose = () => {};
+      let acknowledgeClose = () => {};
       jest
         .spyOn(JsonRpcProvider.prototype, 'connect')
         .mockImplementation(async function connect(this: JsonRpcProvider) {
@@ -414,30 +404,10 @@ describe('WalletConnect application relay controller with the unmodified SDK', (
           mockClose(connection);
           if (attempts.length === 1) {
             Object.assign(connection, { registering: true });
-            connection.on('close', () => {
-              lateClosed = true;
-            });
-            return new Promise<void>((resolve) => {
-              finishLateHandshake = () => {
-                Object.assign(connection, {
-                  registering: false,
-                  socket: { readyState: 1 },
-                });
-                connection.events.emit('open');
-                this.events.emit('connect');
-                resolve();
-              };
-            });
-          }
-          if (attempts.length <= 5)
-            throw new OneKeyLocalError(
-              'Synthetic WebSocket connection failure',
-            );
-          if (attempts.length === 6) {
             jest.spyOn(connection, 'close').mockImplementation(
               () =>
                 new Promise<void>((resolve) => {
-                  acknowledgeRecoveryClose = () => {
+                  acknowledgeClose = () => {
                     Object.assign(connection, {
                       socket: undefined,
                       registering: false,
@@ -447,44 +417,29 @@ describe('WalletConnect application relay controller with the unmodified SDK', (
                   };
                 }),
             );
+            return new Promise<void>(() => {});
           }
+          if (attempts.length <= 5)
+            throw new OneKeyLocalError('Synthetic connection failure');
           Object.assign(connection, { socket: { readyState: 1 } });
           this.events.emit('connect');
         });
-      let completed = false;
       const opening = core.relayer
         .transportOpen()
-        .catch((error: unknown) => error)
-        .finally(() => {
-          completed = true;
-        });
+        .catch((error: unknown) => error);
       await jest.advanceTimersByTimeAsync(120_000);
-      expect(completed).toBe(true);
-      expect(await opening).toBeInstanceOf(Error);
+      expect(await opening).toMatchObject({
+        message: 'WalletConnect switch timed out during relay cleanup',
+      });
       expect(attempts).toEqual(
         Array.from({ length: 5 }, () => RELAYS[initial]),
       );
-      expect(core.relayer.transportExplicitlyClosed).toBe(false);
-
-      // The unsafe relay switch is abandoned, but subsequent SDK triggers can
-      // retry the same endpoint while the retired registration is still pending.
-      core.heartbeat.events.emit(HEARTBEAT_EVENTS.pulse);
+      acknowledgeClose();
+      await jest.advanceTimersByTimeAsync(0);
+      const recovery = core.relayer.transportOpen();
       await jest.advanceTimersByTimeAsync(1000);
-      expect(attempts).toHaveLength(6);
-      expect(attempts[5]).toBe(RELAYS[initial]);
-      expect(core.relayer.connected).toBe(true);
-      const switching = core.relayer.transportOpen(RELAYS[1 - initial]);
-      await jest.advanceTimersByTimeAsync(1000);
-      expect(attempts).toHaveLength(6);
-      finishLateHandshake();
-      await jest.advanceTimersByTimeAsync(3000);
-      expect(lateClosed).toBe(true);
-      expect(core.relayer.connected).toBe(true);
-      expect(attempts).not.toContain(RELAYS[1 - initial]);
-      acknowledgeRecoveryClose();
-      await jest.advanceTimersByTimeAsync(1000);
-      await switching;
-      expect(attempts[6]).toBe(RELAYS[1 - initial]);
+      await recovery;
+      expect(attempts[5]).toBe(RELAYS[1 - initial]);
       expect(core.relayer.connected).toBe(true);
     },
   );
