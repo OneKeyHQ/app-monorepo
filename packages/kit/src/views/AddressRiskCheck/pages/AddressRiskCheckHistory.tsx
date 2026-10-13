@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -17,13 +17,12 @@ import { RecentCheckItem } from '../components/RecentCheckItem';
 import { useCheckAddressRisk } from '../hooks/useCheckAddressRisk';
 import { useRecentChecks } from '../hooks/useRecentChecks';
 
-// A failed check counts as logged out, as the local state already says: the
-// page still exits and the dashboard still asks for the login.
-async function isLoggedInInBackground() {
+// undefined: the background could not tell.
+async function getBackgroundLoginState() {
   try {
     return await backgroundApiProxy.servicePrime.isLoggedIn();
   } catch {
-    return false;
+    return undefined;
   }
 }
 
@@ -34,24 +33,31 @@ export function useAddressRiskCheckHistoryAccess() {
   const navigation = useAppNavigation();
   const { isLoggedIn } = useOneKeyAuth();
   const { openPrimeDashboard } = usePrimeFeatureAccess();
-  const isLoggedInRef = useRef(isLoggedIn);
-  isLoggedInRef.current = isLoggedIn;
-  const exitingRef = useRef(false);
   useEffect(() => {
-    if (isLoggedIn || exitingRef.current) {
+    if (isLoggedIn) {
       return;
     }
-    exitingRef.current = true;
+    // Set when the page closes or the login state changes. Until the exit
+    // starts, that ends this check: a page the user already left is not
+    // popped again, and no dashboard opens over the page they went to.
+    let isStopped = false;
     void (async () => {
-      // The local projection may lag on a cold start, and the login may come
-      // back while this waits.
-      if ((await isLoggedInInBackground()) || isLoggedInRef.current) {
-        exitingRef.current = false;
+      // The local projection may lag on a cold start. A failed check is
+      // asked once more, so a single failure does not close the page of a
+      // logged-in user; a check that keeps failing trusts the local logout.
+      let loggedIn = await getBackgroundLoginState();
+      if (loggedIn === undefined && !isStopped) {
+        await timerUtils.wait(1000);
+        loggedIn = await getBackgroundLoginState();
+      }
+      if (isStopped || loggedIn) {
         return;
       }
       navigation.pop();
       await timerUtils.wait(300);
-      if (await isLoggedInInBackground()) {
+      // Found logged out above: only a login that came back skips the
+      // dashboard, a failed check here still opens it.
+      if (await getBackgroundLoginState()) {
         return;
       }
       openPrimeDashboard({
@@ -59,6 +65,9 @@ export function useAddressRiskCheckHistoryAccess() {
         afterPageExit: true,
       });
     })();
+    return () => {
+      isStopped = true;
+    };
     // Runs on mount and whenever the login state changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn]);

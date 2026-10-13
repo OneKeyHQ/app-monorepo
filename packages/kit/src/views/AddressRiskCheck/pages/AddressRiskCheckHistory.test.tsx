@@ -64,6 +64,16 @@ jest.mock('../hooks/useRecentChecks', () => ({
   useRecentChecks: () => ({ items: [] }),
 }));
 
+// Runs every pending step of the exit; the waits are mocked to resolve
+// at once.
+async function flushExitSteps() {
+  await act(async () => {
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+  });
+}
+
 function expectDashboardOpened() {
   expect(mockPop).toHaveBeenCalledTimes(1);
   expect(mockOpenPrimeDashboard).toHaveBeenCalledWith({
@@ -151,13 +161,46 @@ describe('useAddressRiskCheckHistoryAccess', () => {
     expectDashboardOpened();
   });
 
-  it('still exits when the background check fails', async () => {
-    mockBackgroundIsLoggedIn.mockRejectedValueOnce(new Error('bridge failed'));
+  it('still exits when the background check keeps failing', async () => {
+    mockBackgroundIsLoggedIn.mockRejectedValue(new Error('bridge failed'));
     mockIsLoggedIn = false;
     renderHook(() => useAddressRiskCheckHistoryAccess());
 
     await waitFor(() => expect(mockOpenPrimeDashboard).toHaveBeenCalled());
     expectDashboardOpened();
+  });
+
+  it('stays when a failed check finds the login on the retry', async () => {
+    mockBackgroundIsLoggedIn
+      .mockRejectedValueOnce(new Error('bridge failed'))
+      .mockResolvedValueOnce(true);
+    mockIsLoggedIn = false;
+    renderHook(() => useAddressRiskCheckHistoryAccess());
+
+    await flushExitSteps();
+    expect(mockBackgroundIsLoggedIn).toHaveBeenCalledTimes(2);
+    expect(mockPop).not.toHaveBeenCalled();
+    expect(mockOpenPrimeDashboard).not.toHaveBeenCalled();
+  });
+
+  it('opens nothing when the page closed before the check returned', async () => {
+    let resolveCheck: ((value: boolean) => void) | undefined;
+    mockBackgroundIsLoggedIn.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveCheck = resolve;
+      }),
+    );
+    mockIsLoggedIn = false;
+    const { unmount } = renderHook(() => useAddressRiskCheckHistoryAccess());
+
+    // The user leaves through the header back button.
+    unmount();
+    resolveCheck?.(false);
+    await flushExitSteps();
+
+    expect(mockBackgroundIsLoggedIn).toHaveBeenCalledTimes(1);
+    expect(mockPop).not.toHaveBeenCalled();
+    expect(mockOpenPrimeDashboard).not.toHaveBeenCalled();
   });
 
   it('stays while the background still has the login', async () => {
