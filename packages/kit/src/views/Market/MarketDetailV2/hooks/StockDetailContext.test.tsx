@@ -1424,11 +1424,14 @@ describe('Stock detail status freshness', () => {
     expect(result.current.stockDetail).toBeUndefined();
   });
 
-  it('expires status while a refresh remains in flight', async () => {
+  it('exposes retry after status expires during a hanging refresh and recovers', async () => {
     jest.useFakeTimers({ now: 1_800_000_000_000 });
+    const pendingRefresh = createDeferred<IMarketStockPublicDetail>();
+    const refreshedDetail = { ...detail, marketStatus: { isOpen: true } };
     service.fetchMarketStockDetail
       .mockResolvedValueOnce(detail)
-      .mockReturnValue(createDeferred<IMarketStockPublicDetail>().promise);
+      .mockReturnValueOnce(pendingRefresh.promise)
+      .mockResolvedValue(refreshedDetail);
     const { result, unmount } = renderHook(() => useStockDetail(), { wrapper });
     await act(async () => jest.advanceTimersByTimeAsync(0));
     expect(result.current.isStockDetailReady).toBe(true);
@@ -1437,7 +1440,25 @@ describe('Stock detail status freshness', () => {
     expect(result.current.isStockDetailLoading).toBe(true);
     await act(async () => jest.advanceTimersByTimeAsync(45_000));
     expect(result.current.isStockDetailReady).toBe(false);
+    expect(result.current.isStockDetailStatusError).toBe(true);
     expect(result.current.stockDetail).toEqual(detail);
+    expect(result.current.isStockDetailLoading).toBe(true);
+
+    await act(async () => result.current.retryStockDetail());
+    expect(service.fetchMarketStockDetail.mock.calls).toHaveLength(3);
+    expect(result.current.isStockDetailReady).toBe(true);
+    expect(result.current.isStockDetailStatusError).toBe(false);
+    expect(result.current.stockDetail).toEqual(refreshedDetail);
+
+    await act(async () => pendingRefresh.resolve(detail));
+    expect(result.current.stockDetail).toEqual(refreshedDetail);
+    expect(result.current.isStockDetailReady).toBe(true);
+
+    service.fetchMarketStockDetail.mockRejectedValueOnce(new Error('offline'));
+    await act(async () => result.current.retryStockDetail());
+    expect(result.current.stockDetail).toEqual(refreshedDetail);
+    expect(result.current.isStockDetailReady).toBe(true);
+    expect(result.current.isStockDetailStatusError).toBe(false);
     unmount();
   });
 });

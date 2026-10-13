@@ -221,6 +221,7 @@ export function StockDetailProvider({
     }
     return seeded;
   });
+  const stockDetailRequestNonceRef = useRef(0);
 
   const {
     result: stockDetailResult,
@@ -229,6 +230,8 @@ export function StockDetailProvider({
   } = usePromiseResult<IStockDetailRequestResult>(
     async () => {
       if (!normalizedStockId || !stockDetailSwrKey) return {};
+      stockDetailRequestNonceRef.current += 1;
+      const requestNonce = stockDetailRequestNonceRef.current;
       try {
         const data =
           await backgroundApiProxy.serviceMarketV2.fetchMarketStockDetail({
@@ -243,7 +246,10 @@ export function StockDetailProvider({
           fetchedAt: Date.now(),
           fetchedInSession: stockDetailSessionId,
         };
-        successfulStockDetails.set(stockDetailSwrKey, result);
+        // Retry can finish before an older request; only its result owns fallback.
+        if (requestNonce === stockDetailRequestNonceRef.current) {
+          successfulStockDetails.set(stockDetailSwrKey, result);
+        }
         return result;
       } catch (_error) {
         // Preserve display data, but a fallback must not refresh its successful
@@ -329,13 +335,11 @@ export function StockDetailProvider({
       ? stockDetailResult?.data
       : undefined;
   const [statusNow, setStatusNow] = useState(() => Date.now());
+  const stockDetailStatusNow = Math.max(statusNow, Date.now());
   const isStockDetailReady = Boolean(
     normalizedStockId &&
     stockDetailResult?.stockId === normalizedStockId &&
-    isStockDetailStatusFresh(
-      stockDetailResult,
-      Math.max(statusNow, Date.now()),
-    ),
+    isStockDetailStatusFresh(stockDetailResult, stockDetailStatusNow),
   );
   const statusFetchedAt = stockDetailResult?.fetchedAt;
   useEffect(() => {
@@ -347,11 +351,18 @@ export function StockDetailProvider({
     );
     return () => clearTimeout(timer);
   }, [isStockDetailReady, statusFetchedAt, stockDetailSwrKey]);
+  const isStockDetailStatusExpired = Boolean(
+    stockDetailResult?.fetchedInSession === stockDetailSessionId &&
+    statusFetchedAt !== undefined &&
+    stockDetailStatusNow - statusFetchedAt >= STOCK_DETAIL_STATUS_TTL_MS,
+  );
   const isStockDetailStatusError = Boolean(
     normalizedStockId &&
     stockDetailResult?.stockId === normalizedStockId &&
     !isStockDetailReady &&
-    (stockDetailResult.failed || stockDetailResult.requestFailed),
+    (stockDetailResult.failed ||
+      stockDetailResult.requestFailed ||
+      isStockDetailStatusExpired),
   );
   const hasCurrentTokenVariants =
     tokenVariantResult?.stockId === normalizedStockId;
