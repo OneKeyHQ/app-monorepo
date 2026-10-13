@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useContext, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -33,8 +33,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 import { HomeTestIDs } from '../../testIDs';
+import { HomeStickyHeaderContext } from '../HomeStickyHeaderContext';
 import { HomeTokenListProviderMirrorWrapper } from '../HomeTokenListProvider';
 
 import { RawActions } from './RawActions';
@@ -52,6 +54,7 @@ import { WalletActionSignAndVerify } from './WalletActionSignAndVerify';
 import { WalletActionSwap } from './WalletActionSwap';
 import { WalletActionViewInExplorer } from './WalletActionViewInExplorer';
 import { WalletActionVote } from './WalletActionVote';
+import { WalletPortfolioSpotlight } from './WalletPortfolioSpotlight';
 
 type IRenderMoreItemsParams = {
   handleActionListClose: () => void;
@@ -107,6 +110,7 @@ function WalletActionDustSweep({ onClose }: { onClose: () => void }) {
 export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
   const [devSettings] = useDevSettingsPersistAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const activeTabId = useContext(HomeStickyHeaderContext)?.activeTabId;
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
   const { account, network, indexedAccount } = activeAccount;
   const dustSweepAccountId =
@@ -495,12 +499,19 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
   );
 
   return (
-    <RawActions.More
-      renderItems={platformEnv.isNative ? renderItems : undefined}
-      renderItemsAsync={renderItemsAsync}
-      testID={HomeTestIDs.moreButton}
-      iconOnly={iconOnly}
-      showDot={showRiskApprovalsDot && isApprovalEnabled}
-    />
+    <HomeTokenListProviderMirrorWrapper accountId={account?.id ?? ''}>
+      <WalletPortfolioSpotlight
+        enabled={activeTabId === EHomeWalletTab.Portfolio}
+        iconOnly={iconOnly}
+      >
+        <RawActions.More
+          renderItems={platformEnv.isNative ? renderItems : undefined}
+          renderItemsAsync={renderItemsAsync}
+          testID={HomeTestIDs.moreButton}
+          iconOnly={iconOnly}
+          showDot={showRiskApprovalsDot && isApprovalEnabled}
+        />
+      </WalletPortfolioSpotlight>
+    </HomeTokenListProviderMirrorWrapper>
   );
 }

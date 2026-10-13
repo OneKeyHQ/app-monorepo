@@ -1,5 +1,10 @@
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import { ESwapNetworkFeeLevel } from '@onekeyhq/shared/types/swap/types';
+import evmSettings from '@onekeyhq/kit-bg/src/vaults/impls/evm/settings';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  EProtocolOfExchange,
+  ESwapNetworkFeeLevel,
+} from '@onekeyhq/shared/types/swap/types';
 
 const mockPrepareSendConfirmUnsignedTx = jest.fn();
 const mockBuildUnsignedTx = jest.fn();
@@ -19,6 +24,7 @@ const mockFetchSwapTokenDetails = jest.fn();
 const mockGetNativeTokenAddress = jest.fn();
 const mockGasAccountDecision = jest.fn();
 const mockGasAccountAction = jest.fn();
+const mockGetCustomRpcForNetwork = jest.fn();
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
@@ -65,6 +71,9 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     },
     serviceToken: {
       getNativeTokenAddress: mockGetNativeTokenAddress,
+    },
+    serviceCustomRpc: {
+      getCustomRpcForNetwork: mockGetCustomRpcForNetwork,
     },
   },
 }));
@@ -194,6 +203,7 @@ describe('marketDirectSendTx', () => {
     mockGetNativeTokenAddress.mockReset();
     mockGasAccountDecision.mockReset();
     mockGasAccountAction.mockReset();
+    mockGetCustomRpcForNetwork.mockReset();
 
     mockGetVaultSettings.mockResolvedValue({});
     mockBuildUnsignedTx.mockResolvedValue(createUnsignedTx());
@@ -221,6 +231,7 @@ describe('marketDirectSendTx', () => {
     mockAfterSendTxAction.mockResolvedValue(undefined);
     mockFetchSwapTokenDetails.mockResolvedValue([{ balanceParsed: '0.005' }]);
     mockGetNativeTokenAddress.mockResolvedValue('');
+    mockGetCustomRpcForNetwork.mockResolvedValue(undefined);
   });
 
   it('uses the current nonce when building an approval after an earlier transaction', async () => {
@@ -640,6 +651,120 @@ describe('marketDirectSendTx', () => {
     expect(mockGasAccountDecision).not.toHaveBeenCalled();
   });
 
+  it('requests Gas Account sponsorship for a single swap tx on the default RPC', async () => {
+    const sponsoredUnsignedTx = createSponsoredUnsignedTx();
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(sponsoredUnsignedTx);
+
+    await estimateMarketDirectGasInfos({
+      accountAddress: '0xuser',
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      buildUnsignedParams: {
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        encodedTx: sponsoredUnsignedTx.encodedTx,
+        swapInfo: sponsoredUnsignedTx.swapInfo,
+        isInternalSwap: true,
+      },
+    });
+
+    expect(mockGetCustomRpcForNetwork).toHaveBeenCalledWith('evm--1');
+    expect(mockEstimateFee).toHaveBeenCalledWith(
+      expect.objectContaining({ gasAccountEnabled: true, scenario: 'swap' }),
+    );
+  });
+
+  it('does not request Gas Account sponsorship when a custom RPC is enabled', async () => {
+    const sponsoredUnsignedTx = createSponsoredUnsignedTx();
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(sponsoredUnsignedTx);
+    mockGetCustomRpcForNetwork.mockResolvedValue({
+      rpc: 'https://rpc.example.com',
+      enabled: true,
+    });
+
+    await estimateMarketDirectGasInfos({
+      accountAddress: '0xuser',
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      buildUnsignedParams: {
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        encodedTx: sponsoredUnsignedTx.encodedTx,
+        swapInfo: sponsoredUnsignedTx.swapInfo,
+        isInternalSwap: true,
+      },
+    });
+
+    expect(mockEstimateFee).toHaveBeenCalledWith(
+      expect.objectContaining({ gasAccountEnabled: false }),
+    );
+  });
+
+  it('does not request Gas Account sponsorship while the review quote still needs an allowance', async () => {
+    const sponsoredUnsignedTx = createSponsoredUnsignedTx();
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(sponsoredUnsignedTx);
+
+    await estimateMarketDirectGasInfos({
+      accountAddress: '0xuser',
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      buildUnsignedParams: {
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        encodedTx: sponsoredUnsignedTx.encodedTx,
+        swapInfo: sponsoredUnsignedTx.swapInfo,
+        isInternalSwap: true,
+      },
+      quoteResult: {
+        allowanceResult: { allowanceTarget: '0xspender', amount: '10' },
+      } as never,
+    });
+
+    expect(mockGetCustomRpcForNetwork).not.toHaveBeenCalled();
+    expect(mockEstimateFee).toHaveBeenCalledWith(
+      expect.objectContaining({ gasAccountEnabled: false }),
+    );
+  });
+
+  it('reuses the preview gas for a swap sent after a standalone approve instead of re-estimating for sponsorship', async () => {
+    const sponsoredUnsignedTx = createSponsoredUnsignedTx();
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(sponsoredUnsignedTx);
+
+    await sendMarketDirectUnsignedTxs({
+      accountAddress: '0xuser',
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      buildUnsignedParams: {
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        encodedTx: sponsoredUnsignedTx.encodedTx,
+        swapInfo: sponsoredUnsignedTx.swapInfo,
+        isInternalSwap: true,
+      },
+      quoteResult: {
+        allowanceResult: { allowanceTarget: '0xspender', amount: '10' },
+      } as never,
+      gasInfos: [
+        {
+          encodeTx: sponsoredUnsignedTx.encodedTx,
+          gasInfo: {
+            common: createEstimateFeeResult().common,
+            gas: {
+              gasPrice: '2',
+              gasLimit: '22000',
+            },
+          } as never,
+        },
+      ],
+    });
+
+    expect(mockEstimateFee).not.toHaveBeenCalled();
+    expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(1);
+    expect(mockSignAndSendTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({ gasAccountUiState: undefined }),
+    );
+  });
+
   it('sends batch approve plus swap with batch fee estimation when supported', async () => {
     const approveUnsignedTx = createUnsignedTx({
       encodedTx: {
@@ -655,11 +780,7 @@ describe('marketDirectSendTx', () => {
     });
 
     mockPrepareSendConfirmUnsignedTx.mockResolvedValue(swapUnsignedTx);
-    mockGetVaultSettings.mockResolvedValue({
-      supportBatchEstimateFee: {
-        'evm--1': true,
-      },
-    });
+    mockGetVaultSettings.mockResolvedValue(evmSettings);
     mockBatchEstimateFee.mockResolvedValue({
       common: createEstimateFeeResult().common,
       txFees: [createEstimateFeeResult(), createEstimateFeeResult()],
@@ -685,6 +806,91 @@ describe('marketDirectSendTx', () => {
     expect(mockUpdateUnsignedTx).toHaveBeenCalledTimes(2);
     expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(2);
     expect(mockSaveSendConfirmHistoryTxs).toHaveBeenCalledTimes(2);
+  });
+
+  it('bypasses batch estimation for Blast approvals and preserves the built swap gas limit', async () => {
+    const networkId = getNetworkIdsMap().blast;
+    const fromToken = createMarketPresetToken({
+      networkId,
+      contractAddress: '0xtoken',
+      isNative: false,
+      symbol: 'USDC',
+      decimals: 6,
+    });
+    const toToken = createMarketPresetToken({ networkId });
+    const approveUnsignedTx = createUnsignedTx({
+      encodedTx: {
+        from: '0xuser',
+        to: '0xtoken',
+        value: '0',
+        data: '0xapprove',
+      },
+    });
+    const swapUnsignedTx = createUnsignedTx({
+      encodedTx: {
+        from: '0xuser',
+        to: '0xrouter',
+        value: '0',
+        data: '0xswap',
+      },
+      nonce: 2,
+      swapInfo: {
+        protocol: EProtocolOfExchange.SWAP,
+        sender: {
+          amount: '10',
+          token: fromToken,
+          accountInfo: { networkId },
+        },
+        receiver: {
+          amount: '0.003',
+          token: toToken,
+          accountInfo: { networkId },
+        },
+        accountAddress: '0xuser',
+        receivingAddress: '0xuser',
+        swapBuildResData: {
+          result: {
+            info: { provider: 'Uniswap', providerName: 'Uniswap' },
+            fromTokenInfo: fromToken,
+            toTokenInfo: toToken,
+            gasLimit: 145_000,
+          },
+        },
+      },
+    });
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(swapUnsignedTx);
+    mockGetVaultSettings.mockResolvedValue(evmSettings);
+    mockBatchEstimateFee.mockRejectedValue(new Error('batch unavailable'));
+
+    const result = await estimateMarketDirectGasInfos({
+      accountAddress: '0xuser',
+      accountId: 'account-1',
+      networkId,
+      networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM,
+      buildUnsignedParams: {
+        accountId: 'account-1',
+        networkId,
+        encodedTx: swapUnsignedTx.encodedTx,
+        swapInfo: swapUnsignedTx.swapInfo,
+        isInternalSwap: true,
+      },
+      approveUnsignedTxArr: [approveUnsignedTx],
+    });
+
+    expect(mockBatchEstimateFee).not.toHaveBeenCalled();
+    expect(mockEstimateFee).toHaveBeenCalledTimes(1);
+    expect(mockEstimateFee).toHaveBeenCalledWith(
+      expect.objectContaining({
+        networkId,
+        encodedTx: approveUnsignedTx.encodedTx,
+      }),
+    );
+    expect(result.gasInfos).toHaveLength(2);
+    expect(result.gasInfos[1].gasInfo.gas).toEqual({
+      gasPrice: '2',
+      gasLimit: '145000',
+    });
+    expect(result.gasFeeFiatValue).toBeDefined();
   });
 
   it('falls back to sequential estimation when batch tx fee results are shorter than expected for direct send', async () => {
