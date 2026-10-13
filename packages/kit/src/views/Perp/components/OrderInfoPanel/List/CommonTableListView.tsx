@@ -309,10 +309,26 @@ const PaginationFooter = ({
   };
 
   const handleMobilePagePress = () => {
-    Dialog.show({
+    let hasFocusedPageInput = false;
+    const dialog = Dialog.show({
       title: intl.formatMessage({
         id: ETranslations.global_bulk_accounts_page_number,
       }),
+      sheetProps: platformEnv.isNativeIOS
+        ? {
+            onAnimationComplete: ({ open }) => {
+              if (!open || hasFocusedPageInput) {
+                return;
+              }
+              const form = dialog.getForm();
+              if (form) {
+                // Focus after presentation, only once so keyboard resizing cannot steal focus.
+                hasFocusedPageInput = true;
+                form.setFocus('page', { shouldSelect: false });
+              }
+            },
+          }
+        : undefined,
       renderContent: (
         <Dialog.Form
           formProps={{ defaultValues: { page: String(currentPage) } }}
@@ -334,7 +350,7 @@ const PaginationFooter = ({
             <Input
               testID="perp-pagination-page-input"
               autoFocus
-              selectTextOnFocus
+              selectTextOnFocus={!platformEnv.isNativeIOS}
               keyboardType="number-pad"
               size="large"
               maxLength={totalPages.toString().length}
