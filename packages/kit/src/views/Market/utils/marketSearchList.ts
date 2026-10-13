@@ -9,17 +9,23 @@ export const MARKET_SEARCH_TABS = {
 export type IMarketSearchTab =
   (typeof MARKET_SEARCH_TABS)[keyof typeof MARKET_SEARCH_TABS];
 
+/**
+ * A type tab shows only when it has results; All is always first. Pass
+ * `hasTokenResults` as true while tokens are still loading so the tab does not
+ * flicker away and back.
+ */
 export function getDetailPopoverSearchTabs(
   hasStockResults: boolean,
+  hasTokenResults = true,
 ): IMarketSearchTab[] {
+  const tabs: IMarketSearchTab[] = [MARKET_SEARCH_TABS.all];
   if (hasStockResults) {
-    return [
-      MARKET_SEARCH_TABS.all,
-      MARKET_SEARCH_TABS.stocks,
-      MARKET_SEARCH_TABS.tokens,
-    ];
+    tabs.push(MARKET_SEARCH_TABS.stocks);
   }
-  return [MARKET_SEARCH_TABS.all, MARKET_SEARCH_TABS.tokens];
+  if (hasTokenResults) {
+    tabs.push(MARKET_SEARCH_TABS.tokens);
+  }
+  return tabs;
 }
 
 export function isDetailSearchChainToken(item: {

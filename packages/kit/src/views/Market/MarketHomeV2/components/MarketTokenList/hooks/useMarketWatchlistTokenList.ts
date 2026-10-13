@@ -547,6 +547,7 @@ export function useMarketWatchlistTokenList({
             uniqueTraders: 0,
             holders: 0,
             tokenImageUri: quote?.logoUrl ?? '',
+            stockTags: quote?.tags,
             stockVariants: quote?.variants,
             networkLogoUri: '',
             sortIndex: watchlistItem.sortIndex ?? 0,

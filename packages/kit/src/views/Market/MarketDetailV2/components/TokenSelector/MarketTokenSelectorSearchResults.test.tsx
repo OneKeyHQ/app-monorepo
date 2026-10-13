@@ -13,6 +13,7 @@ const mockMarketPress = jest.fn();
 const mockRefresh = jest.fn();
 const mockLoadMore = jest.fn(() => Promise.resolve());
 type IMockStockSelectorResult = {
+  isRevalidatingFirstPage: boolean;
   items: IMarketStockPublicItem[];
   isLoading: boolean;
   isError: boolean;
@@ -37,6 +38,7 @@ const createStock = (stockId: string): IMarketStockPublicItem => ({
 });
 
 const defaultStockResult = {
+  isRevalidatingFirstPage: false,
   items: [createStock('AAPL')],
   isLoading: false,
   isError: false,
@@ -69,6 +71,23 @@ jest.mock('@onekeyhq/components', () => {
       <div data-testid={testID}>{children}</div>
     );
   return {
+    Badge: Object.assign(Container, { Text: Container }),
+    ListView: ({
+      data,
+      renderItem,
+      ListHeaderComponent,
+    }: {
+      data: unknown[];
+      renderItem: (info: { item: unknown }) => ReactNode;
+      ListHeaderComponent?: ReactNode;
+    }) => (
+      <div>
+        {ListHeaderComponent}
+        {data.map((item) => renderItem({ item }))}
+      </div>
+    ),
+    Stack: Container,
+    Skeleton: () => <div data-testid="skeleton" />,
     Button: ({
       children,
       onPress,
@@ -85,7 +104,32 @@ jest.mock('@onekeyhq/components', () => {
     Empty: ({ title }: { title?: string }) => (
       <div data-testid="empty">{title}</div>
     ),
-    ScrollView: Container,
+    ScrollView: ({
+      children,
+      onScroll,
+    }: {
+      children?: ReactNode;
+      onScroll?: (event: unknown) => void;
+    }) => (
+      <div>
+        {children}
+        {/* Fires a scroll that reaches the end of the content. */}
+        <button
+          data-testid="scroll-to-end"
+          aria-label="scroll to end"
+          type="button"
+          onClick={() =>
+            onScroll?.({
+              nativeEvent: {
+                contentOffset: { y: 1000 },
+                layoutMeasurement: { height: 500 },
+                contentSize: { height: 1500 },
+              },
+            })
+          }
+        />
+      </div>
+    ),
     SizableText: Container,
     Spinner: () => <div data-testid="spinner" />,
     Table: ({
@@ -113,7 +157,22 @@ jest.mock('@onekeyhq/components', () => {
         })}
       </div>
     ),
-    XStack: Container,
+    Icon: () => null,
+    // Forwards press props so a pressable row, like Show more, can be clicked.
+    XStack: ({
+      children,
+      onPress,
+      testID,
+    }: {
+      children?: ReactNode;
+      onPress?: () => void;
+      testID?: string;
+    }) => (
+      // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+      <div data-testid={testID} onClick={onPress}>
+        {children}
+      </div>
+    ),
     YStack: Container,
   };
 });
@@ -122,10 +181,55 @@ jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/useMarketStockColumns',
   () => ({ useMarketStockColumns: () => [] }),
 );
+jest.mock('@onekeyhq/kit/src/components/Token', () => ({
+  Token: () => null,
+}));
 jest.mock(
-  '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketTokenColumns',
-  () => ({ useMarketTokenColumns: () => [] }),
+  '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/MarketStockStar',
+  () => ({ MarketStockStar: () => null }),
 );
+jest.mock('./selectorTable', () => ({
+  SelectorTableHeader: () => null,
+  SelectorPriceChangeCell: () => null,
+  SelectorAmountCell: () => null,
+  getNextSelectorSortOrder: () => undefined,
+  sortSelectorRows: (rows: unknown[]) => rows,
+  StockLoadMoreFooter: ({
+    isLoadMoreError,
+    onRetry,
+    testID,
+  }: {
+    isLoadMoreError: boolean;
+    onRetry: () => void;
+    testID: string;
+  }) =>
+    isLoadMoreError ? (
+      <button
+        data-testid={testID}
+        aria-label="retry"
+        type="button"
+        onClick={onRetry}
+      />
+    ) : null,
+}));
+// Rows render as plain buttons so the tests can press them by id.
+jest.mock('./MarketTokenSelectorRow', () => ({
+  MarketTokenSelectorRow: ({
+    item,
+    onPress,
+  }: {
+    item: { id: string };
+    onPress: (item: { id: string }) => void;
+  }) => (
+    <button
+      data-testid={`search-row-${item.id}`}
+      type="button"
+      onClick={() => onPress(item)}
+    >
+      {item.id}
+    </button>
+  ),
+}));
 jest.mock('./useMarketStockSelectorList', () => ({
   useMarketStockSelectorList: (options: { query: string }) =>
     mockUseMarketStockSelectorList(options),
@@ -180,7 +284,7 @@ describe('MarketTokenSelectorSearchResults', () => {
     expect(
       screen.queryByTestId('market-token-selector-search-tab-watchlist'),
     ).toBeNull();
-    expect(screen.getByTestId('search-row-AAPL')).toBeTruthy();
+    expect(screen.getByTestId('market-stock-selector-row-AAPL')).toBeTruthy();
     expect(mockUseMarketStockSelectorList).toHaveBeenCalledWith({
       query: 'aapl',
       searchOnly: true,
@@ -232,7 +336,7 @@ describe('MarketTokenSelectorSearchResults', () => {
         onMarketPress={mockMarketPress}
       />,
     );
-    expect(screen.getByTestId('search-row-AAPL')).toBeTruthy();
+    expect(screen.getByTestId('market-stock-selector-row-AAPL')).toBeTruthy();
     expect(screen.getByTestId('search-row-evm--1_0xaapl')).toBeTruthy();
   });
 
@@ -280,12 +384,12 @@ describe('MarketTokenSelectorSearchResults', () => {
     expect(screen.queryByTestId('search-row-evm--1_0xaapl')).toBeNull();
   });
 
-  it('loads and retries additional stock search pages', () => {
+  it('renders the Stocks tab with the shared stock table and its paging', () => {
     mockUseMarketStockSelectorList.mockReturnValue({
       ...defaultStockResult,
       canLoadMore: true,
     });
-    const { rerender } = render(
+    render(
       <MarketTokenSelectorSearchResults
         query="stock"
         marketItems={[]}
@@ -296,31 +400,11 @@ describe('MarketTokenSelectorSearchResults', () => {
     fireEvent.click(
       screen.getByTestId('market-token-selector-search-tab-stocks'),
     );
-    fireEvent.click(
-      screen.getByTestId('market-token-selector-stock-search-load-more'),
-    );
-    expect(mockLoadMore).toHaveBeenCalledTimes(1);
-
-    mockUseMarketStockSelectorList.mockReturnValue({
-      ...defaultStockResult,
-      canLoadMore: true,
-      isLoadMoreError: true,
-    });
-    rerender(
-      <MarketTokenSelectorSearchResults
-        query="stock"
-        marketItems={[]}
-        onStockPress={mockStockPress}
-        onMarketPress={mockMarketPress}
-      />,
-    );
-    fireEvent.click(
-      screen.getByTestId('market-token-selector-stock-search-load-more-retry'),
-    );
-    expect(mockLoadMore).toHaveBeenCalledTimes(2);
+    fireEvent.click(screen.getByTestId('search-row-AAPL'));
+    expect(mockStockPress).toHaveBeenCalledWith(defaultStockResult.items[0]);
   });
 
-  it('previews three chain tokens on All and hides Stocks for a non-stock query', () => {
+  it('lists every token on All when tokens are the only section', () => {
     mockUseMarketStockSelectorList.mockReturnValue({
       ...defaultStockResult,
       items: [],
@@ -343,13 +427,53 @@ describe('MarketTokenSelectorSearchResults', () => {
     expect(
       screen.queryByTestId('market-token-selector-search-tab-stocks'),
     ).toBeNull();
-    expect(screen.getByTestId('search-row-evm--1_0x1')).toBeTruthy();
-    expect(screen.getByTestId('search-row-evm--1_0x3')).toBeTruthy();
-    expect(screen.queryByTestId('search-row-evm--1_0x4')).toBeNull();
+    expect(screen.getByTestId('search-row-evm--1_0x4')).toBeTruthy();
+    expect(
+      screen.queryByTestId('market-token-selector-market-search-show-more'),
+    ).toBeNull();
+  });
+
+  it('previews five per section and jumps to the tab on Show more', () => {
+    const tokens = ['1', '2', '3', '4', '5', '6'].map((suffix) => ({
+      ...marketItem,
+      address: `0x${suffix}`,
+      symbol: `BTC${suffix}`,
+    }));
+
+    render(
+      <MarketTokenSelectorSearchResults
+        query="btc"
+        marketItems={tokens}
+        onStockPress={mockStockPress}
+        onMarketPress={mockMarketPress}
+      />,
+    );
+
+    expect(screen.getByTestId('search-row-evm--1_0x5')).toBeTruthy();
+    expect(screen.queryByTestId('search-row-evm--1_0x6')).toBeNull();
     fireEvent.click(
       screen.getByTestId('market-token-selector-market-search-show-more'),
     );
-    expect(screen.getByTestId('search-row-evm--1_0x4')).toBeTruthy();
+    expect(screen.getByTestId('search-row-evm--1_0x6')).toBeTruthy();
+    expect(screen.queryByTestId('market-stock-selector-row-AAPL')).toBeNull();
+  });
+
+  it('hides the Tokens tab when only stocks match', () => {
+    render(
+      <MarketTokenSelectorSearchResults
+        query="aapl"
+        marketItems={[]}
+        onStockPress={mockStockPress}
+        onMarketPress={mockMarketPress}
+      />,
+    );
+
+    expect(
+      screen.queryByTestId('market-token-selector-search-tab-tokens'),
+    ).toBeNull();
+    expect(
+      screen.getByTestId('market-token-selector-search-tab-stocks'),
+    ).toBeTruthy();
   });
 
   it('keeps a bare stock listing out of the Tokens list', () => {
@@ -393,5 +517,89 @@ describe('MarketTokenSelectorSearchResults', () => {
       query: '   ',
       searchOnly: true,
     });
+  });
+
+  it('shows one skeleton for the whole area until both searches answer', () => {
+    const { rerender } = render(
+      <MarketTokenSelectorSearchResults
+        query="aapl"
+        marketItems={[]}
+        isMarketLoading
+        onStockPress={mockStockPress}
+        onMarketPress={mockMarketPress}
+      />,
+    );
+
+    expect(screen.getAllByTestId('skeleton').length).toBeGreaterThan(0);
+    expect(screen.queryByTestId('market-stock-selector-row-AAPL')).toBeNull();
+    expect(
+      screen.queryByTestId('market-token-selector-search-tab-stocks'),
+    ).toBeNull();
+
+    rerender(
+      <MarketTokenSelectorSearchResults
+        query="aapl"
+        marketItems={[marketItem]}
+        onStockPress={mockStockPress}
+        onMarketPress={mockMarketPress}
+      />,
+    );
+    expect(screen.queryByTestId('skeleton')).toBeNull();
+    expect(screen.getByTestId('market-stock-selector-row-AAPL')).toBeTruthy();
+    expect(screen.getByTestId('search-row-evm--1_0xaapl')).toBeTruthy();
+  });
+
+  it('loads the next stock page as All scrolls when stocks are the only section', () => {
+    mockUseMarketStockSelectorList.mockReturnValue({
+      ...defaultStockResult,
+      canLoadMore: true,
+    });
+    const { rerender } = render(
+      <MarketTokenSelectorSearchResults
+        query="stock"
+        marketItems={[]}
+        onStockPress={mockStockPress}
+        onMarketPress={mockMarketPress}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('scroll-to-end'));
+    expect(mockLoadMore).toHaveBeenCalledTimes(1);
+
+    mockUseMarketStockSelectorList.mockReturnValue({
+      ...defaultStockResult,
+      canLoadMore: true,
+      isLoadMoreError: true,
+    });
+    rerender(
+      <MarketTokenSelectorSearchResults
+        query="stock"
+        marketItems={[]}
+        onStockPress={mockStockPress}
+        onMarketPress={mockMarketPress}
+      />,
+    );
+    fireEvent.click(
+      screen.getByTestId('market-token-selector-stock-search-load-more-retry'),
+    );
+    expect(mockLoadMore).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not page stocks from All when tokens share the tab', () => {
+    mockUseMarketStockSelectorList.mockReturnValue({
+      ...defaultStockResult,
+      canLoadMore: true,
+    });
+    render(
+      <MarketTokenSelectorSearchResults
+        query="aapl"
+        marketItems={[marketItem]}
+        onStockPress={mockStockPress}
+        onMarketPress={mockMarketPress}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('scroll-to-end'));
+    expect(mockLoadMore).not.toHaveBeenCalled();
   });
 });

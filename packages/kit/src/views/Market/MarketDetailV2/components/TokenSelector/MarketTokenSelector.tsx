@@ -39,7 +39,14 @@ import { useMarketDetailHeaderDisplayData } from '../../hooks/useMarketDetailDis
 import { buildMarketTokenDetailPreview } from '../../utils/marketDetailPreview';
 import { resolveMarketStockId } from '../../utils/resolveIsStockToken';
 
-import { ALL_NETWORK_ID, TOKEN_SELECTOR_POLLING_INTERVAL } from './constants';
+import {
+  ALL_NETWORK_ID,
+  TOKEN_SELECTOR_CONTENT_GUTTER,
+  TOKEN_SELECTOR_POLLING_INTERVAL,
+  TOKEN_SELECTOR_POPOVER_HEIGHT,
+  TOKEN_SELECTOR_POPOVER_WIDTH,
+  TOKEN_SELECTOR_TOOLBAR_HEIGHT,
+} from './constants';
 import {
   DetailSelectorBrowseTabs,
   type IDetailSelectorDefaultCategory,
@@ -294,6 +301,8 @@ function BaseMarketTokenSelectorContent({
     [closePopover, toMarketStockDetailPage],
   );
 
+  const showChipBand = !searchQuery && subCategories.length > 0;
+
   let selectorListContent: ReactElement;
   if (searchQuery) {
     selectorListContent = (
@@ -330,40 +339,44 @@ function BaseMarketTokenSelectorContent({
   }
 
   return (
-    <YStack testID="market-token-selector-content">
-      <YStack gap="$1">
-        <XStack px="$2" pt="$2">
-          <SearchBar
-            testID="market-token-selector-search"
-            containerProps={{
-              borderRadius: '$2',
-              mx: '$2',
-              mt: '$2',
-              flex: 1,
-            }}
-            autoFocus
-            placeholder={intl.formatMessage({
-              id: ETranslations.global_search_asset,
-            })}
-            value={searchValue}
-            onChangeText={setSearchValue}
-          />
-        </XStack>
+    // Figma 27032:42467 — every block sits on the same 20px gutter.
+    <YStack
+      testID="market-token-selector-content"
+      height={TOKEN_SELECTOR_POPOVER_HEIGHT}
+    >
+      <XStack px={TOKEN_SELECTOR_CONTENT_GUTTER} pt="$5" pb="$2.5">
+        <SearchBar
+          testID="market-token-selector-search"
+          containerProps={{ flex: 1 }}
+          autoFocus
+          placeholder={intl.formatMessage({
+            id: ETranslations.market_search_token_stock_address,
+          })}
+          value={searchValue}
+          onChangeText={setSearchValue}
+        />
+      </XStack>
 
-        {searchQuery ? null : (
-          <DetailSelectorBrowseTabs
-            value={browseTab}
-            onChange={handleBrowseTabChange}
-          />
-        )}
+      {searchQuery ? null : (
+        <DetailSelectorBrowseTabs
+          value={browseTab}
+          onChange={handleBrowseTabChange}
+        />
+      )}
 
-        {!searchQuery && subCategories.length > 0 ? (
-          <MarketStockCategorySelector
-            categories={subCategories}
-            selectedCategoryId={selectedSubCategoryId}
-            onSelectCategory={handleSubCategoryChange}
-            containerStyle={{ px: '$4', py: '$2' }}
-          />
+      <YStack flex={1} pt={searchQuery ? undefined : '$2.5'}>
+        {showChipBand ? (
+          <YStack
+            height={TOKEN_SELECTOR_TOOLBAR_HEIGHT}
+            pt="$1.5"
+            px={TOKEN_SELECTOR_CONTENT_GUTTER}
+          >
+            <MarketStockCategorySelector
+              categories={subCategories}
+              selectedCategoryId={selectedSubCategoryId}
+              onSelectCategory={handleSubCategoryChange}
+            />
+          </YStack>
         ) : null}
 
         {selectorListContent}
@@ -482,7 +495,7 @@ function BaseMarketTokenSelector({
     () => (
       <Popover
         title={intl.formatMessage({ id: ETranslations.global_search })}
-        floatingPanelProps={{ width: 800 }}
+        floatingPanelProps={{ width: TOKEN_SELECTOR_POPOVER_WIDTH }}
         open={isOpen}
         onOpenChange={setIsOpen}
         placement="bottom-start"

@@ -18,22 +18,32 @@ import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
 import {
   TOKEN_SELECTOR_HEADER_HEIGHT,
+  TOKEN_SELECTOR_LIST_PADDING_BOTTOM,
+  TOKEN_SELECTOR_POPOVER_HEIGHT,
+  TOKEN_SELECTOR_POPOVER_WIDTH,
   TOKEN_SELECTOR_ROW_HEIGHT,
+  TOKEN_SELECTOR_TABLE_PADDING,
 } from './constants';
 import { useMarketStockSelectorList } from './useMarketStockSelectorList';
 
-const STOCK_SELECTOR_LIST_HEIGHT = 350;
-const STOCK_SELECTOR_TABLE_HEIGHT =
-  STOCK_SELECTOR_LIST_HEIGHT + TOKEN_SELECTOR_HEADER_HEIGHT;
+type IMarketStockSelectorListResult = ReturnType<
+  typeof useMarketStockSelectorList
+>;
 
-const MarketStockSelectorList = memo(
+/**
+ * The stocks table itself, fed by a `useMarketStockSelectorList` result so the
+ * browse list and the search Stocks tab render identical rows.
+ */
+const STOCK_TABLE_CONTENT_STYLE = {
+  paddingBottom: TOKEN_SELECTOR_LIST_PADDING_BOTTOM,
+};
+
+const MarketStockSelectorTable = memo(
   ({
-    query,
-    category,
+    result,
     onItemPress,
   }: {
-    query?: string;
-    category?: string;
+    result: IMarketStockSelectorListResult;
     onItemPress: (item: IMarketStockPublicItem) => void;
   }) => {
     const intl = useIntl();
@@ -46,7 +56,6 @@ const MarketStockSelectorList = memo(
       showMarketTags: true,
       watchlistFrom: EWatchlistFrom.Search,
     });
-    const normalizedQuery = query?.trim() ?? '';
     const {
       items,
       isLoading,
@@ -57,10 +66,7 @@ const MarketStockSelectorList = memo(
       isRevalidatingFirstPage,
       loadMore,
       refresh: retry,
-    } = useMarketStockSelectorList({
-      query: normalizedQuery,
-      ...(category ? { category } : {}),
-    });
+    } = result;
     const handleEndReached = useCallback(() => {
       if (isLoadMoreError || isLoadingMore) {
         return;
@@ -115,7 +121,7 @@ const MarketStockSelectorList = memo(
       return (
         <YStack
           testID="market-stock-selector-loading"
-          height={STOCK_SELECTOR_TABLE_HEIGHT}
+          flex={1}
           alignItems="center"
           justifyContent="center"
         >
@@ -126,11 +132,7 @@ const MarketStockSelectorList = memo(
 
     if (isError) {
       return (
-        <YStack
-          height={STOCK_SELECTOR_TABLE_HEIGHT}
-          alignItems="center"
-          justifyContent="center"
-        >
+        <YStack flex={1} alignItems="center" justifyContent="center">
           <Empty
             illustration="QuestionMark"
             title={intl.formatMessage({
@@ -151,11 +153,7 @@ const MarketStockSelectorList = memo(
 
     if (items.length === 0 && !canLoadMore) {
       return (
-        <YStack
-          height={STOCK_SELECTOR_TABLE_HEIGHT}
-          alignItems="center"
-          justifyContent="center"
-        >
+        <YStack flex={1} alignItems="center" justifyContent="center">
           <Empty
             illustration="QuestionMark"
             title={intl.formatMessage({ id: ETranslations.global_no_results })}
@@ -165,21 +163,21 @@ const MarketStockSelectorList = memo(
     }
 
     return (
-      <YStack height={STOCK_SELECTOR_TABLE_HEIGHT}>
+      <YStack flex={1} px={TOKEN_SELECTOR_TABLE_PADDING}>
         <Table<IMarketStockPublicItem>
           columns={columns}
           dataSource={items}
           keyExtractor={(item) => item.stockId}
           estimatedItemSize={TOKEN_SELECTOR_ROW_HEIGHT}
-          estimatedListSize={{ width: 800, height: STOCK_SELECTOR_LIST_HEIGHT }}
+          estimatedListSize={{
+            width: TOKEN_SELECTOR_POPOVER_WIDTH,
+            height: TOKEN_SELECTOR_POPOVER_HEIGHT,
+          }}
           rowProps={{
             bg: '$bg',
             width: '100%',
             height: TOKEN_SELECTOR_ROW_HEIGHT,
             minHeight: TOKEN_SELECTOR_ROW_HEIGHT,
-            // The Table bakes an $3 radius into every row; the selector rows
-            // hover edge-to-edge like the other tabs, so it is squared off.
-            borderRadius: '$0',
           }}
           // Table spreads rowProps into the header row before headerRowProps,
           // so the row minHeight must be overridden here or the header stays
@@ -191,6 +189,7 @@ const MarketStockSelectorList = memo(
           onEndReached={handleEndReached}
           onEndReachedThreshold={0.2}
           TableFooterComponent={tableFooterComponent}
+          contentContainerStyle={STOCK_TABLE_CONTENT_STYLE}
           onRow={(item) => ({
             onPress: () => onItemPress(item),
             rowProps: {
@@ -203,6 +202,28 @@ const MarketStockSelectorList = memo(
   },
 );
 
+MarketStockSelectorTable.displayName = 'MarketStockSelectorTable';
+
+const MarketStockSelectorList = memo(
+  ({
+    query,
+    category,
+    onItemPress,
+  }: {
+    query?: string;
+    category?: string;
+    onItemPress: (item: IMarketStockPublicItem) => void;
+  }) => {
+    const result = useMarketStockSelectorList({
+      query: query?.trim() ?? '',
+      ...(category ? { category } : {}),
+    });
+    return (
+      <MarketStockSelectorTable result={result} onItemPress={onItemPress} />
+    );
+  },
+);
+
 MarketStockSelectorList.displayName = 'MarketStockSelectorList';
 
-export { MarketStockSelectorList };
+export { MarketStockSelectorList, MarketStockSelectorTable };

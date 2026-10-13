@@ -1,8 +1,7 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, XStack } from '@onekeyhq/components';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import type {
   IMarketCategoryItem,
@@ -16,6 +15,8 @@ import {
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { SelectorTabBar } from './selectorTabBar';
+
 export type IDetailSelectorDefaultCategory =
   | 'trending'
   | 'top_coins'
@@ -23,7 +24,7 @@ export type IDetailSelectorDefaultCategory =
 
 export type IDetailSelectorBrowseTab = 'favorites' | 'stocks' | 'tokens';
 
-const DETAIL_SELECTOR_TOKEN_CATEGORY = 'trending';
+export const DETAIL_SELECTOR_TOKEN_CATEGORY = 'trending';
 const DETAIL_SELECTOR_STOCK_CATEGORY = 'all';
 const EMPTY_DETAIL_SELECTOR_CATEGORIES: IMarketCategoryItem[] = [];
 
@@ -72,42 +73,6 @@ function isDetailSelectorBrowseTab(
   return tabId === 'favorites' || tabId === 'stocks' || tabId === 'tokens';
 }
 
-const SelectorTabItem = memo(
-  ({
-    id,
-    name,
-    isFocused,
-    onPress,
-  }: {
-    id: IDetailSelectorBrowseTab;
-    name: string;
-    isFocused: boolean;
-    onPress: (id: IDetailSelectorBrowseTab) => void;
-  }) => {
-    const handlePress = useCallback(() => onPress(id), [id, onPress]);
-    return (
-      <XStack
-        testID={`market-token-selector-tab-${id}`}
-        py="$3"
-        ml="$4"
-        mr="$2"
-        borderBottomWidth={isFocused ? '$0.5' : '$0'}
-        borderBottomColor="$borderActive"
-        onPress={handlePress}
-        cursor="default"
-      >
-        <SizableText
-          size="$bodyLgMedium"
-          color={isFocused ? '$text' : '$textSubdued'}
-        >
-          {name}
-        </SizableText>
-      </XStack>
-    );
-  },
-);
-SelectorTabItem.displayName = 'SelectorTabItem';
-
 export function DetailSelectorBrowseTabs({
   value,
   onChange,
@@ -116,23 +81,21 @@ export function DetailSelectorBrowseTabs({
   onChange: (tabId: IDetailSelectorBrowseTab) => void;
 }) {
   const intl = useIntl();
+  const tabs = useMemo(
+    () =>
+      (['favorites', 'stocks', 'tokens'] as const).map((tabId) => ({
+        id: tabId,
+        label: intl.formatMessage({ id: BROWSE_TAB_LABELS[tabId] }),
+      })),
+    [intl],
+  );
   return (
-    <XStack
-      borderBottomWidth="$px"
-      borderBottomColor="$borderSubdued"
-      bg="$bg"
-      px="$0"
-    >
-      {(['favorites', 'stocks', 'tokens'] as const).map((tabId) => (
-        <SelectorTabItem
-          key={tabId}
-          id={tabId}
-          name={intl.formatMessage({ id: BROWSE_TAB_LABELS[tabId] })}
-          isFocused={value === tabId}
-          onPress={onChange}
-        />
-      ))}
-    </XStack>
+    <SelectorTabBar
+      tabs={tabs}
+      value={value}
+      onChange={onChange}
+      testIDPrefix="market-token-selector-tab-"
+    />
   );
 }
 
@@ -224,8 +187,9 @@ export function useDetailSelectorBrowseState({
     !isFavoritesSelection &&
     !isStockSelection &&
     tokenCategoryId === MARKET_TOP_COINS_CATEGORY_ID;
-  const selectorTimeRange: IMarketTimeRangeValue =
-    isFavoritesSelection || isTopCoinsSelection ? '24h' : '1h';
+  // Every selector list ranks and reports on the 24h window, regardless of
+  // the time frame picked on the Market home.
+  const selectorTimeRange: IMarketTimeRangeValue = '24h';
 
   const handleBrowseTabChange = useCallback((tabId: string) => {
     if (!isDetailSelectorBrowseTab(tabId)) {
