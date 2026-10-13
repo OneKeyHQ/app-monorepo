@@ -168,14 +168,14 @@ function CheckAndUpdatePage({
   // round owns — step state alone can't tell two rounds apart.
   const firmwareCheckRunIdRef = useRef(0);
   // One-shot timestamp for the focus-effect recheck after firmware runtime state
-  // changes. Clear it when the timer fires or the user explicitly skips; it only
+  // may change. Clear it when the timer fires or the user explicitly skips; it only
   // drives scheduling and delay calculations.
   const [firmwareRuntimeChangeTime, setFirmwareRuntimeChangeTime] = useState<
     number | null
   >(null);
   const firmwareRecheckCancelRef = useRef<(() => void) | null>(null);
   // Track "the device may still be rebooting" separately. Set it when an update
-  // succeeds, and clear it only after a check completes successfully.
+  // starts, and clear it only after a check completes successfully.
   // While set, every check, including manual retries, uses the patient reconnect path.
   const pendingPostUpdateReconnectRef = useRef(false);
   const bootloaderDialogHostRef = useRef<IBootloaderModeDialogHost>(null);
@@ -459,10 +459,13 @@ function CheckAndUpdatePage({
             const result = await rebindDeviceAfterFirmwareUpdate(
               previousDevice,
               onConnectId,
+              // Give rebooting devices the full patient window before offering
+              // recovery for an interrupted update that left bootloader running.
+              { allowBootloaderRecovery: attemptCount === 11 },
             );
 
             console.log('Device connection successful after firmware update');
-            return result.device;
+            return result;
           },
           {
             retries: 10,
@@ -567,13 +570,34 @@ function CheckAndUpdatePage({
         watchdogConnectId = baseDevice.connectId ?? undefined;
         let latestDevice: SearchDevice;
         if (checkAfterUpdate) {
-          latestDevice = await retryDeviceConnectionAfterUpdate(
+          const result = await retryDeviceConnectionAfterUpdate(
             baseDevice as SearchDevice,
             isStale,
             (connectId) => {
               watchdogConnectId = connectId;
             },
           );
+          if (isStale()) {
+            return;
+          }
+          latestDevice = result.device;
+          if (result.features.bootloader_mode) {
+            deviceFeaturesRef.current = result.features;
+            hasUpgradeForceRef.current = true;
+            estimatedTransferBytesRef.current = undefined;
+            // Keep the pending reconnect armed for the next update/Retry. A
+            // bootloader is recoverable, but cannot pass the application check.
+            setSteps((prev) => {
+              const newSteps = [...prev];
+              newSteps[1] = {
+                ...newSteps[1],
+                state: ECheckAndUpdateStepState.Warning,
+                errorMessage: undefined,
+              };
+              return newSteps;
+            });
+            return;
+          }
         } else {
           await ensureActiveConnection(baseDevice as SearchDevice);
           latestDevice = (getActiveDevice() ?? baseDevice) as SearchDevice;
@@ -694,20 +718,29 @@ function CheckAndUpdatePage({
 
   const FIRMWARE_RECHECK_DELAY = 10_000; // 10 seconds
 
-  // Refresh the live runtime state after an update succeeds.
+  // A failed or cancelled update can still change the device's firmware.
+  // Arm the return-time recheck when it starts, even if no success event follows.
   useEffect(() => {
     const handleFirmwareRuntimeChanged = () => {
-      console.log('Firmware update runtime changed, recording timestamp...');
+      console.log('Firmware update attempt recorded for recheck...');
       setFirmwareRuntimeChangeTime(Date.now());
       pendingPostUpdateReconnectRef.current = true;
     };
 
+    appEventBus.on(
+      EAppEventBusNames.BeginFirmwareUpdate,
+      handleFirmwareRuntimeChanged,
+    );
     appEventBus.on(
       EAppEventBusNames.FinishFirmwareUpdate,
       handleFirmwareRuntimeChanged,
     );
 
     return () => {
+      appEventBus.off(
+        EAppEventBusNames.BeginFirmwareUpdate,
+        handleFirmwareRuntimeChanged,
+      );
       appEventBus.off(
         EAppEventBusNames.FinishFirmwareUpdate,
         handleFirmwareRuntimeChanged,
