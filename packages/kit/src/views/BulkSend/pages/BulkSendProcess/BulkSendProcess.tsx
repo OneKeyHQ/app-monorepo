@@ -1063,6 +1063,8 @@ function BulkSendProcessContent({
       usageId: freeTrialUsageIdRef.current,
       succeededLocally: freeTrialUsageSucceededRef.current,
       networkId,
+      // Set on unmount: a page left while starting runs no retry.
+      isCallerGone: () => isAborted.current,
     });
     if (prepared.isNewUsage) {
       freeTrialUsageIdRef.current = prepared.usageId;

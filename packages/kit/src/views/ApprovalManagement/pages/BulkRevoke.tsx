@@ -645,6 +645,15 @@ function BulkRevoke() {
     progressStateRef.current = progressState;
   }, [progressState]);
 
+  // Leaving the page stops the loop right away and keeps a start still
+  // pending from running a round.
+  useEffect(() => {
+    isAborted.current = false;
+    return () => {
+      isAborted.current = true;
+    };
+  }, []);
+
   useEffect(() => {
     const handleVisibilityStateChange = (visible: boolean) => {
       if (
@@ -751,6 +760,7 @@ function BulkRevoke() {
     const prepared = await prepareRetryFreeTrialUsage({
       usageId: freeTrialUsageIdRef.current,
       succeededLocally: freeTrialUsageSucceededRef.current,
+      isCallerGone: () => isAborted.current,
     });
     if (prepared.isNewUsage) {
       freeTrialUsageIdRef.current = prepared.usageId;

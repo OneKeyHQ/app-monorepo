@@ -147,6 +147,15 @@ function BulkCopyAddresses({
   const exportInFlightRef = useRef(false);
   // Covers the free-trial start before any generation dialog shows up.
   const [isExporting, setIsExporting] = useState(false);
+  // A start or generation can take a while; a page closed meanwhile neither
+  // uses the free use nor opens the result page.
+  const isUnmountedRef = useRef(false);
+  useEffect(() => {
+    isUnmountedRef.current = false;
+    return () => {
+      isUnmountedRef.current = true;
+    };
+  }, []);
   const sharedStyles = getSharedInputStyles({
     size: 'large',
   });
@@ -938,7 +947,10 @@ function BulkCopyAddresses({
           enumeratedAccounts = fresh.networkAccountsByDeriveType;
           enumeratedNetworkAccounts = fresh.networkAccounts;
         }
-        const usage = await startUsage({ networkId: selectedNetworkId });
+        const usage = await startUsage({
+          networkId: selectedNetworkId,
+          isCallerGone: () => isUnmountedRef.current,
+        });
         if (usage.status === 'rejected' || usage.status === 'error') {
           return;
         }
@@ -968,6 +980,10 @@ function BulkCopyAddresses({
           }
         }
 
+        if (isUnmountedRef.current) {
+          await settleUsage(usageId, 'cancelled');
+          return;
+        }
         await settleGenerateResult(usageId, accountsData);
         navigation.push(EModalBulkCopyAddressesRoutes.ExportAddressesModal, {
           walletId: selectedWalletId,
@@ -977,7 +993,10 @@ function BulkCopyAddresses({
           exportWithoutDevice,
         });
       } else if (copyType === EBulkCopyType.Range) {
-        const usage = await startUsage({ networkId: selectedNetworkId });
+        const usage = await startUsage({
+          networkId: selectedNetworkId,
+          isCallerGone: () => isUnmountedRef.current,
+        });
         if (usage.status === 'rejected' || usage.status === 'error') {
           return;
         }
@@ -988,6 +1007,10 @@ function BulkCopyAddresses({
         } catch (error) {
           await settleGenerateError(usageId, error);
           throw error;
+        }
+        if (isUnmountedRef.current) {
+          await settleUsage(usageId, 'cancelled');
+          return;
         }
         await settleGenerateResult(usageId, resp);
         navigation.push(EModalBulkCopyAddressesRoutes.ExportAddressesModal, {
@@ -1014,6 +1037,7 @@ function BulkCopyAddresses({
       handleGenerateAddressesByRange,
       isHwWallet,
       startUsage,
+      settleUsage,
       settleGenerateError,
       settleGenerateResult,
     ],

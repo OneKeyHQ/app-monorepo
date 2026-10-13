@@ -23,7 +23,8 @@ export type IPrimeFreeTrialUsageStartOutcome =
   | { status: 'notMetered' }
   // Free user with a reservation: run and settle this usage id.
   | { status: 'granted'; usageId: string }
-  // Exhausted / not open: feedback already shown, do not run.
+  // Exhausted / not open (feedback already shown), or the page closed while
+  // starting: do not run.
   | { status: 'rejected' }
   // Start failed or stayed unknown: do not run.
   | { status: 'error'; error: unknown };
@@ -76,11 +77,50 @@ export function usePrimeFreeTrialUsage({
   const { isPrimeSubscriptionActive } = useOneKeyAuth();
   const { handleStartRejected, ensureFeatureAccess } = usePrimeFeatureAccess();
 
+  const settleUsage = useCallback(
+    async (
+      usageId: string | undefined,
+      result: Exclude<IPrimeFreeTrialUsageResult, 'success'>,
+    ) => {
+      if (!usageId) {
+        return;
+      }
+      const settle = (async () => {
+        try {
+          await backgroundApiProxy.servicePrimeFreeTrial.settleUsage({
+            featureId,
+            usageId,
+            result,
+          });
+        } catch (error) {
+          defaultLogger.prime.subscription.primeFreeTrialTrace({
+            featureId,
+            stage: 'settleUsage',
+            reason: (error as Error | undefined)?.message,
+          });
+        }
+      })();
+      const settles = pendingSettles.get(featureId) ?? new Set();
+      settles.add(settle);
+      pendingSettles.set(featureId, settles);
+      try {
+        await settle;
+      } finally {
+        settles.delete(settle);
+      }
+    },
+    [featureId],
+  );
+
   const startUsage = useCallback(
     async ({
       networkId,
+      isCallerGone,
     }: {
       networkId?: string;
+      // True once the page that starts has closed: a use granted meanwhile
+      // is released, and the caller is told not to run.
+      isCallerGone?: () => boolean;
     } = {}): Promise<IPrimeFreeTrialUsageStartOutcome> => {
       if (isPrimeSubscriptionActive) {
         return { status: 'notMetered' };
@@ -136,7 +176,17 @@ export function usePrimeFreeTrialUsage({
           return { status: 'error', error };
         }
       };
-      return startOnce(true);
+      const outcome = await startOnce(true);
+      if (
+        isCallerGone?.() &&
+        (outcome.status === 'granted' || outcome.status === 'notMetered')
+      ) {
+        if (outcome.status === 'granted') {
+          await settleUsage(outcome.usageId, 'cancelled');
+        }
+        return { status: 'rejected' };
+      }
+      return outcome;
     },
     [
       ensureFeatureAccess,
@@ -144,6 +194,7 @@ export function usePrimeFreeTrialUsage({
       handleStartRejected,
       intl,
       isPrimeSubscriptionActive,
+      settleUsage,
     ],
   );
 
@@ -163,41 +214,6 @@ export function usePrimeFreeTrialUsage({
           stage: 'markUsageSuccess',
           reason: (error as Error | undefined)?.message,
         });
-      }
-    },
-    [featureId],
-  );
-
-  const settleUsage = useCallback(
-    async (
-      usageId: string | undefined,
-      result: Exclude<IPrimeFreeTrialUsageResult, 'success'>,
-    ) => {
-      if (!usageId) {
-        return;
-      }
-      const settle = (async () => {
-        try {
-          await backgroundApiProxy.servicePrimeFreeTrial.settleUsage({
-            featureId,
-            usageId,
-            result,
-          });
-        } catch (error) {
-          defaultLogger.prime.subscription.primeFreeTrialTrace({
-            featureId,
-            stage: 'settleUsage',
-            reason: (error as Error | undefined)?.message,
-          });
-        }
-      })();
-      const settles = pendingSettles.get(featureId) ?? new Set();
-      settles.add(settle);
-      pendingSettles.set(featureId, settles);
-      try {
-        await settle;
-      } finally {
-        settles.delete(settle);
       }
     },
     [featureId],
@@ -231,10 +247,12 @@ export function usePrimeFreeTrialUsage({
       usageId,
       succeededLocally,
       networkId,
+      isCallerGone,
     }: {
       usageId: string | undefined;
       succeededLocally: boolean;
       networkId?: string;
+      isCallerGone?: () => boolean;
     }): Promise<{
       proceed: boolean;
       usageId: string | undefined;
@@ -246,7 +264,7 @@ export function usePrimeFreeTrialUsage({
       ) {
         return { proceed: true, usageId, isNewUsage: false };
       }
-      const outcome = await startUsage({ networkId });
+      const outcome = await startUsage({ networkId, isCallerGone });
       if (outcome.status === 'rejected' || outcome.status === 'error') {
         return { proceed: false, usageId, isNewUsage: false };
       }

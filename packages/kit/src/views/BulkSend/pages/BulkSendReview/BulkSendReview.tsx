@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -295,6 +295,14 @@ function BaseBulkSendReview({
     featureId: EPrimeFeatures.BulkSend,
   });
   const reviewUsageIdRef = useRef<string | undefined>(undefined);
+  // A start can take a while; a page closed meanwhile must not send.
+  const isUnmountedRef = useRef(false);
+  useEffect(() => {
+    isUnmountedRef.current = false;
+    return () => {
+      isUnmountedRef.current = true;
+    };
+  }, []);
 
   // `usageId` is the usage of this round (undefined: not metered);
   // `prepared: false` means the round must not run.
@@ -315,7 +323,10 @@ function BaseBulkSendReview({
       ) {
         return { prepared: true, usageId: previousUsageId };
       }
-      const outcome = await startUsage({ networkId });
+      const outcome = await startUsage({
+        networkId,
+        isCallerGone: () => isUnmountedRef.current,
+      });
       if (outcome.status === 'rejected' || outcome.status === 'error') {
         return { prepared: false };
       }

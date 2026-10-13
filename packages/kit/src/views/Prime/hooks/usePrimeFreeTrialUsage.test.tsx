@@ -117,6 +117,37 @@ describe('usePrimeFreeTrialUsage.startUsage', () => {
     expect(mockStartUsage).not.toHaveBeenCalled();
   });
 
+  it('releases a use granted after the page closed instead of running', async () => {
+    mockStartUsage.mockImplementation(async ({ usageId }) => ({
+      status: 'granted',
+      usageId,
+    }));
+    const result = renderUsageHook();
+
+    let outcome: unknown;
+    await act(async () => {
+      outcome = await result.current.startUsage({ isCallerGone: () => true });
+    });
+    expect(outcome).toEqual({ status: 'rejected' });
+    expect(mockSettleUsage).toHaveBeenCalledWith({
+      featureId: EPrimeFeatures.BulkSend,
+      usageId: mockStartUsage.mock.calls[0][0].usageId,
+      result: 'cancelled',
+    });
+  });
+
+  it('does not run a start without metering for a page that closed', async () => {
+    mockStartUsage.mockResolvedValue({ status: 'unlimited' });
+    const result = renderUsageHook();
+
+    await act(async () => {
+      await expect(
+        result.current.startUsage({ isCallerGone: () => true }),
+      ).resolves.toEqual({ status: 'rejected' });
+    });
+    expect(mockSettleUsage).not.toHaveBeenCalled();
+  });
+
   it('returns the granted usage id', async () => {
     mockStartUsage.mockImplementation(async ({ usageId }) => ({
       status: 'granted',
@@ -355,6 +386,34 @@ describe('usePrimeFreeTrialUsage.prepareRetryUsage', () => {
     });
     expect(prepared!).toMatchObject({ proceed: true, isNewUsage: true });
     expect(prepared!.usageId).not.toBe('usage-1');
+  });
+
+  it('keeps the result page and releases the new use when it closed while starting', async () => {
+    mockGetUsageResult.mockResolvedValue('failed');
+    mockStartUsage.mockImplementation(async ({ usageId }) => ({
+      status: 'granted',
+      usageId,
+    }));
+    const result = renderUsageHook();
+
+    await act(async () => {
+      await expect(
+        result.current.prepareRetryUsage({
+          usageId: 'usage-1',
+          succeededLocally: false,
+          isCallerGone: () => true,
+        }),
+      ).resolves.toEqual({
+        proceed: false,
+        usageId: 'usage-1',
+        isNewUsage: false,
+      });
+    });
+    expect(mockSettleUsage).toHaveBeenCalledWith({
+      featureId: EPrimeFeatures.BulkSend,
+      usageId: mockStartUsage.mock.calls[0][0].usageId,
+      result: 'cancelled',
+    });
   });
 
   it('keeps the result page when the new start is rejected', async () => {
