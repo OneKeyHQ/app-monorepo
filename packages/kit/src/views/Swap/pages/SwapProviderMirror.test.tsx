@@ -5,9 +5,11 @@ import { act, render } from '@testing-library/react';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import {
+  swapFromTokenAmountAtom,
   swapInitialSelectedTokensSyncedAtom,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
+  swapToTokenAmountAtom,
 } from '../../../states/jotai/contexts/swap/atoms';
 import { prepareTopCoinSwapEntry } from '../../../states/jotai/contexts/swap/prepareSwapProEntry';
 import { jotaiContextStore } from '../../../states/jotai/utils/jotaiContextStore';
@@ -35,6 +37,41 @@ describe('Market modal initial token selection', () => {
     jotaiContextStore.storeCache.clear();
     jotaiContextStore.storeResetRequests.clear();
   });
+
+  it.each([false, true])(
+    'preserves amounts only for the same pair (changed=%s)',
+    (changed) => {
+      const storeName = EJotaiContextStoreNames.swapModal;
+      const token = {
+        networkId: 'evm--1',
+        contractAddress: '0xmarket',
+        symbol: 'MARKET',
+        decimals: 18,
+      };
+      prepareTopCoinSwapEntry({ direction: 'from', storeName, token });
+      const store = jotaiContextStore.getOrCreateStore({ storeName });
+      store.set(swapFromTokenAmountAtom(), { value: '12', isInput: true });
+      store.set(swapToTokenAmountAtom(), { value: '24', isInput: false });
+      const entry = prepareTopCoinSwapEntry({
+        direction: 'from',
+        storeName,
+        token: changed ? { ...token, contractAddress: '0xother' } : token,
+      });
+      const view = render(
+        <SwapProviderMirror
+          storeName={storeName}
+          initialSelectedTokensOnInit={{ ...entry, preserveInputAmounts: true }}
+        />,
+      );
+      expect(store.get(swapFromTokenAmountAtom()).value).toBe(
+        changed ? '' : '12',
+      );
+      expect(store.get(swapToTokenAmountAtom()).value).toBe(
+        changed ? '' : '24',
+      );
+      view.unmount();
+    },
+  );
 
   it.each(['from', 'to'] as const)(
     'keeps the %s trade pair after the no-wallet cold-start read completes',

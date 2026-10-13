@@ -77,20 +77,37 @@ export function buildMarketAssetTokenDetail({
 // Resolve support independently of chart readiness. The footer reserves the
 // entry until this request settles without blocking the asset detail response.
 async function applyMarketAssetPerpsInfo({
+  get,
   set,
   symbol,
-  isCurrentIdentity,
   resolution,
 }: {
+  get: IJotaiGetter;
   set: IJotaiSetter;
   symbol: string;
-  isCurrentIdentity: () => boolean;
   resolution: {
     networkId: string;
     tokenAddress: string;
     requestId: number;
   };
 }) {
+  const isCurrentIdentity = () =>
+    get(marketPerpsResolutionAtom())?.lookupRequestId ===
+      resolution.requestId &&
+    get(marketPerpsResolutionAtom())?.requestId ===
+      get(tokenDetailRequestIdAtom()) &&
+    get(tokenAddressAtom()) === resolution.tokenAddress &&
+    get(networkIdAtom()) === resolution.networkId;
+  const settle = (status: 'resolved' | 'error') => {
+    const current = get(marketPerpsResolutionAtom());
+    if (current && isCurrentIdentity()) {
+      set(marketPerpsResolutionAtom(), {
+        ...current,
+        lookupRequestId: undefined,
+        status,
+      });
+    }
+  };
   try {
     const perpsInfo =
       await backgroundApiProxy.serviceHyperliquid.resolveMarketPerpsInfoBySymbol(
@@ -102,19 +119,9 @@ async function applyMarketAssetPerpsInfo({
     if (perpsInfo && isCurrentIdentity()) {
       set(perpsInfoAtom(), perpsInfo);
     }
-    if (isCurrentIdentity()) {
-      set(marketPerpsResolutionAtom(), {
-        ...resolution,
-        status: 'resolved',
-      });
-    }
+    settle('resolved');
   } catch (error) {
-    if (isCurrentIdentity()) {
-      set(marketPerpsResolutionAtom(), {
-        ...resolution,
-        status: 'error',
-      });
-    }
+    settle('error');
     defaultLogger.app.error.log(
       `Failed to resolve market perps info: ${String(error)}`,
     );
@@ -139,12 +146,17 @@ async function fetchMarketAssetTokenDetail(
   set(tokenDetailRequestIdAtom(), requestId);
   const previousResolution = get(marketPerpsResolutionAtom());
   const resolution = { networkId, tokenAddress, requestId };
+  const sameResolutionIdentity =
+    previousResolution?.networkId === networkId &&
+    previousResolution.tokenAddress === tokenAddress &&
+    previousResolution.requestId === requestId - 1;
   set(marketPerpsResolutionAtom(), {
     ...resolution,
+    lookupRequestId: sameResolutionIdentity
+      ? previousResolution?.lookupRequestId
+      : undefined,
     status:
-      previousResolution?.networkId === networkId &&
-      previousResolution.tokenAddress === tokenAddress &&
-      previousResolution.status === 'resolved'
+      sameResolutionIdentity && previousResolution?.status === 'resolved'
         ? 'resolved'
         : 'pending',
   });
@@ -189,12 +201,21 @@ async function fetchMarketAssetTokenDetail(
       );
     }
 
-    void applyMarketAssetPerpsInfo({
-      set,
-      symbol: assetDetail.asset.symbol.toUpperCase(),
-      isCurrentIdentity,
-      resolution,
-    });
+    // Asset polling must not invalidate an in-flight lookup for the same token.
+    const currentResolution = get(marketPerpsResolutionAtom());
+    if (currentResolution?.lookupRequestId === undefined) {
+      set(marketPerpsResolutionAtom(), {
+        ...resolution,
+        status: currentResolution?.status ?? 'pending',
+        lookupRequestId: requestId,
+      });
+      void applyMarketAssetPerpsInfo({
+        get,
+        set,
+        symbol: assetDetail.asset.symbol.toUpperCase(),
+        resolution,
+      });
+    }
 
     const currentTokenDetail = get(tokenDetailAtom());
     const tokenDetailPreview = get(tokenDetailPreviewAtom());
@@ -271,9 +292,10 @@ async function fetchMarketAssetTokenDetail(
       isStale = true;
     }
     if (!isStale) {
-      if (get(marketPerpsResolutionAtom())?.status === 'pending') {
+      const currentResolution = get(marketPerpsResolutionAtom());
+      if (currentResolution?.status === 'pending') {
         set(marketPerpsResolutionAtom(), {
-          ...resolution,
+          ...currentResolution,
           status: 'error',
         });
       }

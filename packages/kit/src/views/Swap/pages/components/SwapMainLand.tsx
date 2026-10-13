@@ -1878,6 +1878,8 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
     swapInitParams?.swapSource === ESwapSource.MARKET &&
     (swapInitParams.importFromToken || swapInitParams.importToToken),
   );
+  const preserveMarketModalAmounts =
+    shouldSeedMarketPair && pageType === EPageType.modal;
   const initialSelectedTokensOnInit =
     (swapInitParams?.swapSource === ESwapSource.WALLET_HOME_TOKEN_LIST &&
       Boolean(swapInitParams?.importNetworkId)) ||
@@ -1887,11 +1889,15 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
           fromToken: swapInitParams?.importFromToken,
           toToken: swapInitParams?.importToToken,
           inputAmountDraft: shouldSeedMarketPair
-            ? (initialInputAmountDraft ?? {
-                fromTokenAmount: { value: '', isInput: false },
-                toTokenAmount: { value: '', isInput: false },
-              })
+            ? (initialInputAmountDraft ??
+              (preserveMarketModalAmounts
+                ? undefined
+                : {
+                    fromTokenAmount: { value: '', isInput: false },
+                    toTokenAmount: { value: '', isInput: false },
+                  }))
             : undefined,
+          preserveInputAmounts: preserveMarketModalAmounts,
           swapType:
             swapInitParams?.swapTabSwitchType ?? ESwapTabSwitchType.SWAP,
         }

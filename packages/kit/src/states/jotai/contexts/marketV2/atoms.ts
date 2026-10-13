@@ -82,6 +82,7 @@ export const { atom: marketPerpsResolutionAtom } = contextAtom<
       networkId: string;
       tokenAddress: string;
       requestId: number;
+      lookupRequestId?: number;
       status: 'pending' | 'resolved' | 'error';
     }
   | undefined

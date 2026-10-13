@@ -1280,6 +1280,45 @@ describe('marketV2 asset token detail actions', () => {
     expect(store.get(marketPerpsInfoStatusAtom())).toBe('pending');
   });
 
+  it.each(['supported', 'unsupported', 'error'] as const)(
+    'settles a slow Perps lookup after repeated asset polling: %s',
+    async (outcome) => {
+      const response = createDeferred<{ hlTicker: string } | undefined>();
+      mockResolveMarketPerpsInfoBySymbol.mockReturnValueOnce(response.promise);
+      const { store, Wrapper } = createWrapper();
+      store.set(networkIdAtom(), 'doge--0');
+      const { result } = renderHook(() => useMarketAssetTokenDetailAction(), {
+        wrapper: Wrapper,
+      });
+      for (let poll = 0; poll < 3; poll += 1) {
+        await act(async () => {
+          await result.current({
+            assetId: 'doge',
+            tokenAddress: '',
+            networkId: 'doge--0',
+          });
+        });
+      }
+      expect(mockResolveMarketPerpsInfoBySymbol).toHaveBeenCalledTimes(1);
+      expect(store.get(marketPerpsInfoStatusAtom())).toBe('pending');
+      await act(async () => {
+        if (outcome === 'error') {
+          response.reject(new Error('Perps metadata unavailable'));
+        } else {
+          response.resolve(
+            outcome === 'supported' ? { hlTicker: 'DOGE' } : undefined,
+          );
+        }
+      });
+      expect(store.get(marketPerpsInfoStatusAtom())).toBe(
+        outcome === 'error' ? 'error' : 'resolved',
+      );
+      expect(store.get(perpsInfoAtom())).toEqual(
+        outcome === 'supported' ? { hlTicker: 'DOGE' } : undefined,
+      );
+    },
+  );
+
   it('uses local network decimals for a preview-less native asset', async () => {
     const { store, Wrapper } = createWrapper();
     const { result } = renderHook(
