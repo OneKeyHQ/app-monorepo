@@ -60,6 +60,7 @@ import { isBulkSendTokenDetailsMatched } from '../../utils';
 import { parseBulkSendAddressLines } from './addressLineUtils';
 import {
   buildBulkSendFallbackSeed,
+  buildBulkSendNextContextKey,
   buildBulkSendSeedSource,
   buildBulkSendSeedTokenKey,
   computeBulkSendNextDisabled,
@@ -660,6 +661,36 @@ function BaseBulkSendAddressesInput({
   const { ensureFeatureAccess } = usePrimeFeatureAccess();
   const [isCheckingAccess, setIsCheckingAccess] = useState(false);
   const isCheckingAccessRef = useRef(false);
+  // The latest inputs and page state, read when the access check returns.
+  const nextContextRef = useRef({
+    selectedNetworkId,
+    selectedAccountId,
+    selectedToken,
+    bulkSendMode,
+  });
+  nextContextRef.current = {
+    selectedNetworkId,
+    selectedAccountId,
+    selectedToken,
+    bulkSendMode,
+  };
+  const isUnmountedRef = useRef(false);
+  useEffect(() => {
+    isUnmountedRef.current = false;
+    return () => {
+      isUnmountedRef.current = true;
+    };
+  }, []);
+  const getNextContextKey = useCallback(() => {
+    const latest = nextContextRef.current;
+    return buildBulkSendNextContextKey({
+      networkId: latest.selectedNetworkId,
+      accountId: latest.selectedAccountId,
+      token: latest.selectedToken,
+      mode: latest.bulkSendMode,
+      values: form.getValues(),
+    });
+  }, [form]);
   // The entry lets a free user in whatever the quota, so "Next" checks it:
   // a user without uses left gets the exhausted toast before filling in the
   // amounts. Start on the Review page stays the final judge.
@@ -673,18 +704,23 @@ function BaseBulkSendAddressesInput({
     isCheckingAccessRef.current = true;
     setIsCheckingAccess(true);
     try {
+      const contextKeyAtPress = getNextContextKey();
       const access = await ensureFeatureAccess({
         featureId: EPrimeFeatures.BulkSend,
         networkId: selectedNetworkId,
         // The Next button shows its loading.
         showLoading: false,
+        // Only Next is disabled while this waits: a page left or an input
+        // changed meanwhile drops the press, and the user submits again.
+        isContextValid: () =>
+          !isUnmountedRef.current && getNextContextKey() === contextKeyAtPress,
       });
       return access.granted;
     } finally {
       isCheckingAccessRef.current = false;
       setIsCheckingAccess(false);
     }
-  }, [ensureFeatureAccess, selectedNetworkId]);
+  }, [ensureFeatureAccess, getNextContextKey, selectedNetworkId]);
 
   const handleSubmit = useCallback(async () => {
     if (!(await checkBulkSendAccess())) {
