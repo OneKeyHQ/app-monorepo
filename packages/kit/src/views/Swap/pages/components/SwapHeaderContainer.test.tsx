@@ -109,6 +109,10 @@ jest.mock('@onekeyhq/components', () => {
     useMedia: () => ({ gtLg: false }),
   };
 });
+jest.mock('@onekeyhq/kit/src/components/ScrollableFilterBar', () => ({
+  ScrollableFilterBar: ({ children }: { children?: ReactNode }) => children,
+  useScrollableFilterBar: () => ({ handleItemLayout: jest.fn() }),
+}));
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
   default: () => ({ setParams: mockSetParams }),

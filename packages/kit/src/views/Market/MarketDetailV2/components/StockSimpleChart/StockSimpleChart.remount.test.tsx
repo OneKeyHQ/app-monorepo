@@ -211,3 +211,56 @@ it('does not restore an older series after a newer same-scope request reports no
   expect(screen.getByTestId('stock-simple-chart-loading')).toBeTruthy();
   expect(screen.queryByTestId('drawn-series')).toBeNull();
 });
+
+it('keeps the current line on failed polls without replaying it past five minutes', async () => {
+  jest.useFakeTimers({ now: 1_800_000_600_000 });
+  try {
+    mockFetchPoints
+      .mockResolvedValueOnce(points)
+      .mockRejectedValue(new Error('offline'));
+    const first = render(
+      <StockSimpleChartContent {...base} stockId="EXPIRED-FAILURES" />,
+    );
+    await act(async () => jest.advanceTimersByTimeAsync(0));
+    await act(async () => jest.advanceTimersByTimeAsync(6 * 60_000));
+    expect(mockFetchPoints.mock.calls.length).toBeGreaterThan(2);
+    expect(screen.getByTestId('drawn-series').textContent).toBe(
+      JSON.stringify(points),
+    );
+    expect(screen.queryByTestId('stock-simple-chart-error')).toBeNull();
+    first.unmount();
+    mockFetchPoints.mockReturnValueOnce(deferred<IMarketTokenChart>().promise);
+    const second = render(
+      <StockSimpleChartContent {...base} stockId="EXPIRED-FAILURES" />,
+    );
+    expect(screen.queryByTestId('drawn-series')).toBeNull();
+    expect(screen.getByTestId('stock-simple-chart-loading')).toBeTruthy();
+    second.unmount();
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+it('expires replay data even when a pending request renewed the cache entry', async () => {
+  let now = 1_800_000_600_000;
+  jest.spyOn(Date, 'now').mockImplementation(() => now);
+  mockFetchPoints.mockResolvedValueOnce(points);
+  const first = render(
+    <StockSimpleChartContent {...base} stockId="EXPIRED-PENDING" />,
+  );
+  await waitFor(() => expect(screen.getByTestId('drawn-series')).toBeTruthy());
+  first.unmount();
+  now += 299_000;
+  mockFetchPoints.mockReturnValueOnce(deferred<IMarketTokenChart>().promise);
+  const second = render(
+    <StockSimpleChartContent {...base} stockId="EXPIRED-PENDING" />,
+  );
+  expect(screen.getByTestId('drawn-series')).toBeTruthy();
+  await waitFor(() => expect(mockFetchPoints).toHaveBeenCalledTimes(2));
+  second.unmount();
+  now += 2000;
+  mockFetchPoints.mockReturnValueOnce(deferred<IMarketTokenChart>().promise);
+  render(<StockSimpleChartContent {...base} stockId="EXPIRED-PENDING" />);
+  expect(screen.queryByTestId('drawn-series')).toBeNull();
+  expect(screen.getByTestId('stock-simple-chart-loading')).toBeTruthy();
+});

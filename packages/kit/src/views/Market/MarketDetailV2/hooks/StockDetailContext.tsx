@@ -12,6 +12,7 @@ import type { PropsWithChildren } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import {
   swrCacheUtils,
   swrKeys,
@@ -41,6 +42,7 @@ type IStockDetailContextValue = {
   isStockDetailReady: boolean;
   isStockDetailLoading: boolean;
   isStockDetailError: boolean;
+  isStockDetailStatusError: boolean;
   retryStockDetail: () => Promise<void>;
   tokenVariants: IMarketStockTokenVariant[];
   isTokenVariantsLoading: boolean;
@@ -61,6 +63,7 @@ const StockDetailContext = createContext<IStockDetailContextValue>({
   isStockDetailReady: false,
   isStockDetailLoading: false,
   isStockDetailError: false,
+  isStockDetailStatusError: false,
   retryStockDetail: async () => undefined,
   tokenVariants: [],
   isTokenVariantsLoading: false,
@@ -74,12 +77,34 @@ const StockDetailContext = createContext<IStockDetailContextValue>({
 // refreshing while the page stays open. 15s: a stock quote does not need the
 // 6s cadence the on-chain token detail polls at.
 const STOCK_DETAIL_POLLING_INTERVAL = 15 * 1000;
+// Four polling ticks tolerate transient failures without trusting an old session.
+const STOCK_DETAIL_STATUS_TTL_MS = 60 * 1000;
+const stockDetailSessionId = generateUUID();
 
 type IStockDetailRequestResult = {
   stockId?: string;
   data?: IMarketStockPublicDetail | null;
   failed?: boolean;
+  requestFailed?: boolean;
+  // SWR re-stamps fallback writes, so freshness belongs to the real response.
+  fetchedAt?: number;
+  fetchedInSession?: string;
 };
+
+function isStockDetailStatusFresh(
+  result?: IStockDetailRequestResult,
+  now = Date.now(),
+) {
+  const age = now - (result?.fetchedAt ?? 0);
+  return Boolean(
+    result?.data &&
+    !result.failed &&
+    result.fetchedInSession === stockDetailSessionId &&
+    result.fetchedAt !== undefined &&
+    age >= 0 &&
+    age < STOCK_DETAIL_STATUS_TTL_MS,
+  );
+}
 
 type IStockTokenVariantsRequestResult = {
   stockId?: string;
@@ -130,16 +155,6 @@ export function StockDetailProvider({
         })
       : initialTokenAddress,
   ]);
-  // A cached detail can be rendered synchronously while its first request for
-  // the current stock is still revalidating. Keep that cached payload useful
-  // for quotes, but do not let its market status drive the header until the
-  // current stock has completed one request in this provider instance.
-  const stockDetailObservedKeyRef = useRef(stockDetailSwrKey);
-  const stockDetailReadyKeyRef = useRef<string | undefined>(undefined);
-  if (stockDetailObservedKeyRef.current !== stockDetailSwrKey) {
-    stockDetailObservedKeyRef.current = stockDetailSwrKey;
-    stockDetailReadyKeyRef.current = undefined;
-  }
   // Pick the variant from cached variants during the first render, so a
   // revisit knows its token identity before any request settles.
   const [initialSelectedTokenId] = useState(() => {
@@ -179,12 +194,13 @@ export function StockDetailProvider({
       : undefined;
     if (
       normalizedStockId &&
+      stockDetailSwrKey &&
       cached &&
       !cached.failed &&
       cached.data &&
       cached.stockId === normalizedStockId
     ) {
-      seeded.set(normalizedStockId, cached);
+      seeded.set(stockDetailSwrKey, cached);
     }
     return seeded;
   });
@@ -212,7 +228,7 @@ export function StockDetailProvider({
     run: retryStockDetail,
   } = usePromiseResult<IStockDetailRequestResult>(
     async () => {
-      if (!normalizedStockId) return {};
+      if (!normalizedStockId || !stockDetailSwrKey) return {};
       try {
         const data =
           await backgroundApiProxy.serviceMarketV2.fetchMarketStockDetail({
@@ -221,22 +237,20 @@ export function StockDetailProvider({
         if (data === null) {
           return { stockId: normalizedStockId, failed: true };
         }
-        const result = { stockId: normalizedStockId, data };
-        successfulStockDetails.set(normalizedStockId, result);
-        if (stockDetailObservedKeyRef.current === stockDetailSwrKey) {
-          stockDetailReadyKeyRef.current = stockDetailSwrKey;
-        }
+        const result: IStockDetailRequestResult = {
+          stockId: normalizedStockId,
+          data,
+          fetchedAt: Date.now(),
+          fetchedInSession: stockDetailSessionId,
+        };
+        successfulStockDetails.set(stockDetailSwrKey, result);
         return result;
       } catch (_error) {
-        // A polling tick that fails must not turn a loaded page into an error
-        // page: keep the last good payload and retry silently on the next
-        // tick. Only a stock we never loaded surfaces the retryable error.
-        const lastStockDetail = successfulStockDetails.get(normalizedStockId);
+        // Preserve display data, but a fallback must not refresh its successful
+        // timestamp or grant status readiness to a cold or expired snapshot.
+        const lastStockDetail = successfulStockDetails.get(stockDetailSwrKey);
         if (lastStockDetail) {
-          if (stockDetailObservedKeyRef.current === stockDetailSwrKey) {
-            stockDetailReadyKeyRef.current = stockDetailSwrKey;
-          }
-          return lastStockDetail;
+          return { ...lastStockDetail, requestFailed: true };
         }
         return { stockId: normalizedStockId, failed: true };
       }
@@ -261,7 +275,7 @@ export function StockDetailProvider({
         : undefined,
       revalidateOnReconnect: true,
       swrKey: stockDetailSwrKey,
-      swrShouldPersist: (r) => !r.failed && Boolean(r.data),
+      swrShouldPersist: (r) => !r.failed && !r.requestFailed && Boolean(r.data),
     },
   );
 
@@ -314,6 +328,31 @@ export function StockDetailProvider({
     stockDetailResult?.stockId === normalizedStockId
       ? stockDetailResult?.data
       : undefined;
+  const [statusNow, setStatusNow] = useState(() => Date.now());
+  const isStockDetailReady = Boolean(
+    normalizedStockId &&
+    stockDetailResult?.stockId === normalizedStockId &&
+    isStockDetailStatusFresh(
+      stockDetailResult,
+      Math.max(statusNow, Date.now()),
+    ),
+  );
+  const statusFetchedAt = stockDetailResult?.fetchedAt;
+  useEffect(() => {
+    if (!isStockDetailReady || statusFetchedAt === undefined) return;
+    // Expire status even when the next request hangs instead of settling a poll.
+    const timer = setTimeout(
+      () => setStatusNow(Date.now()),
+      Math.max(0, statusFetchedAt + STOCK_DETAIL_STATUS_TTL_MS - Date.now()),
+    );
+    return () => clearTimeout(timer);
+  }, [isStockDetailReady, statusFetchedAt, stockDetailSwrKey]);
+  const isStockDetailStatusError = Boolean(
+    normalizedStockId &&
+    stockDetailResult?.stockId === normalizedStockId &&
+    !isStockDetailReady &&
+    (stockDetailResult.failed || stockDetailResult.requestFailed),
+  );
   const hasCurrentTokenVariants =
     tokenVariantResult?.stockId === normalizedStockId;
   const tokenVariants = useMemo(
@@ -410,16 +449,14 @@ export function StockDetailProvider({
       isStockRoute: Boolean(normalizedStockId),
       stockPreview,
       stockDetail: currentStockDetail,
-      isStockDetailReady: Boolean(
-        normalizedStockId &&
-        stockDetailReadyKeyRef.current === stockDetailSwrKey,
-      ),
+      isStockDetailReady,
       isStockDetailLoading: Boolean(normalizedStockId && isStockDetailLoading),
       isStockDetailError: Boolean(
         normalizedStockId &&
         stockDetailResult?.stockId === normalizedStockId &&
         stockDetailResult.failed,
       ),
+      isStockDetailStatusError,
       retryStockDetail,
       tokenVariants,
       isTokenVariantPending: Boolean(
@@ -451,6 +488,8 @@ export function StockDetailProvider({
       hasCurrentTokenVariants,
       initialNetworkId,
       isStockDetailLoading,
+      isStockDetailReady,
+      isStockDetailStatusError,
       isTokenVariantsLoading,
       isPreservedTokenResolutionPending,
       handleSetSelectedTokenId,
@@ -461,7 +500,6 @@ export function StockDetailProvider({
       selectedTokenId,
       selectedTokenVariant,
       stockPreview,
-      stockDetailSwrKey,
       stockDetailResult?.failed,
       stockDetailResult?.stockId,
       tokenVariantResult?.failed,

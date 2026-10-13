@@ -2,9 +2,22 @@
 
 import type { ReactNode } from 'react';
 
-import { render, screen } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { useStockDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/StockDetailContext';
+import { StockDetailProvider } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/StockDetailContext';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type {
   IMarketStockInfo,
   IMarketStockPublicDetail,
@@ -37,6 +50,7 @@ function createStockDetailState(): ReturnType<typeof useStockDetail> {
     isStockDetailReady: false,
     isStockDetailLoading: true,
     isStockDetailError: false,
+    isStockDetailStatusError: false,
     retryStockDetail: jest.fn<Promise<void>, []>().mockResolvedValue(undefined),
     tokenVariants: [],
     isTokenVariantsLoading: false,
@@ -51,15 +65,34 @@ function createStockDetailState(): ReturnType<typeof useStockDetail> {
 
 let mockStockDetailState = createStockDetailState();
 let mockStockSelectionPending = false;
+let mockUseRealStockDetail = false;
+const initialPlatformEnv = {
+  isDesktop: platformEnv.isDesktop,
+  isWeb: platformEnv.isWeb,
+};
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
-  default: {},
+  default: {
+    serviceMarketV2: {
+      fetchMarketStockDetail: jest.fn(),
+      fetchMarketStockTokenVariants: jest.fn(),
+    },
+  },
+}));
+jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
+  useLocaleVariant: () => 'en-US',
+}));
+jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
+  useRouteIsFocusedWhenEnabled: () => true,
 }));
 jest.mock('@onekeyhq/components', () => {
+  const deferredModule = jest.requireActual<
+    typeof import('@onekeyhq/components/src/hooks/useDeferredPromise')
+  >('../../../../../../components/src/hooks/useDeferredPromise');
   const Frame = ({
     children,
     testID,
@@ -68,7 +101,23 @@ jest.mock('@onekeyhq/components', () => {
     testID?: string;
   }) => <div data-testid={testID}>{children}</div>;
   return {
-    Button: Frame,
+    Button: ({
+      children,
+      testID,
+      onPress,
+    }: {
+      children?: ReactNode;
+      testID?: string;
+      onPress?: () => void;
+    }) => (
+      <button data-testid={testID} onClick={onPress}>
+        {children}
+      </button>
+    ),
+    getCurrentVisibilityState: () => true,
+    onVisibilityStateChange: () => () => undefined,
+    useDeferredPromise: deferredModule.useDeferredPromise,
+    useNetInfo: () => ({ isRawInternetReachable: true }),
     NumberSizeableText: Frame,
     SizableText: Frame,
     Stack: Frame,
@@ -132,7 +181,16 @@ jest.mock(
 );
 jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/StockDetailContext',
-  () => ({ useStockDetail: () => mockStockDetailState }),
+  () => {
+    const actual = jest.requireActual<
+      typeof import('@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/StockDetailContext')
+    >('@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/StockDetailContext');
+    return {
+      ...actual,
+      useStockDetail: () =>
+        mockUseRealStockDetail ? actual.useStockDetail() : mockStockDetailState,
+    };
+  },
 );
 jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketDetailV2/layouts/components/StockChartModeControl',
@@ -183,7 +241,7 @@ jest.mock('./SwapStockTradeProvider', () => ({
   }),
 }));
 
-describe.each(['mobile', 'desktop'] as const)(
+describe.each(['mobile', 'desktop', 'web', 'extension'] as const)(
   'Swap Stock %s market status',
   (surface) => {
     const renderSurface = () =>
@@ -198,22 +256,32 @@ describe.each(['mobile', 'desktop'] as const)(
     beforeEach(() => {
       mockStockDetailState = createStockDetailState();
       mockStockSelectionPending = false;
+      platformEnv.isDesktop = surface === 'desktop';
+      platformEnv.isWeb = surface === 'web';
     });
 
-    it('shows the matching cached public status while remount revalidation is pending', () => {
+    afterEach(() => {
+      Object.assign(platformEnv, initialPlatformEnv);
+    });
+
+    it('waits for authoritative status on every surface', () => {
       renderSurface();
 
-      expect(screen.queryByTestId('stock-status-loading')).toBeNull();
-      const status = screen.getByTestId('stock-status');
-      expect(status.getAttribute('data-title')).toBe('AAPL');
-      expect(status.getAttribute('data-is-open')).toBe('false');
-      expect(status.getAttribute('data-updated-at')).toBe(
-        publicStockDetail.priceUpdatedAt,
-      );
+      expect(screen.getByTestId('stock-status-loading')).toBeTruthy();
+      expect(screen.queryByTestId('stock-status')).toBeNull();
     });
 
     it('matches cached public stock identity without case sensitivity', () => {
       mockStockDetailState.stockId = 'aapl';
+      mockStockDetailState.isStockDetailReady = true;
+      renderSurface();
+
+      expect(screen.queryByTestId('stock-status-loading')).toBeNull();
+      expect(screen.getByTestId('stock-status')).toBeTruthy();
+    });
+
+    it('shows the settled public status on every surface', () => {
+      mockStockDetailState.isStockDetailReady = true;
       renderSurface();
 
       expect(screen.queryByTestId('stock-status-loading')).toBeNull();
@@ -243,5 +311,95 @@ describe.each(['mobile', 'desktop'] as const)(
       expect(screen.getByTestId('stock-status-loading')).toBeTruthy();
       expect(screen.queryByTestId('stock-status')).toBeNull();
     });
+
+    it('offers retry instead of an endless skeleton after status fails', () => {
+      mockStockDetailState.isStockDetailStatusError = true;
+      renderSurface();
+
+      expect(screen.queryByTestId('stock-status-loading')).toBeNull();
+      expect(screen.queryByTestId('stock-status')).toBeNull();
+      fireEvent.click(screen.getByTestId('swap-stock-status-retry'));
+      expect(mockStockDetailState.retryStockDetail).toHaveBeenCalledTimes(1);
+    });
   },
 );
+
+describe('Swap Stock status with the real provider', () => {
+  const service = jest.mocked(backgroundApiProxy.serviceMarketV2);
+  const stockKey = swrKeys.marketStockDetail({
+    stockId: 'AAPL',
+    locale: 'en-us',
+  });
+  const App = ({ stockTab }: { stockTab: boolean }) =>
+    stockTab ? (
+      <StockDetailProvider stockId="AAPL">
+        <SwapStockMobileHeader />
+      </StockDetailProvider>
+    ) : null;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    swrCacheUtils.clearAll();
+    mockUseRealStockDetail = true;
+    mockStockSelectionPending = false;
+    service.fetchMarketStockTokenVariants.mockResolvedValue({
+      stockId: 'AAPL',
+      items: [],
+    });
+  });
+
+  afterEach(() => {
+    mockUseRealStockDetail = false;
+    swrCacheUtils.clearAll();
+    swrCacheUtils.flushNow();
+  });
+
+  it('does not flash a skeleton when returning to a freshly loaded stock', async () => {
+    service.fetchMarketStockDetail.mockResolvedValueOnce(publicStockDetail);
+    const app = render(<App stockTab />);
+    await waitFor(() =>
+      expect(screen.getByTestId('stock-status')).toBeTruthy(),
+    );
+    app.rerender(<App stockTab={false} />);
+    service.fetchMarketStockDetail.mockReturnValueOnce(
+      new Promise(() => undefined),
+    );
+    app.rerender(<App stockTab />);
+
+    expect(screen.queryByTestId('stock-status-loading')).toBeNull();
+    expect(screen.getByTestId('stock-status')).toBeTruthy();
+    await waitFor(() =>
+      expect(service.fetchMarketStockDetail.mock.calls).toHaveLength(2),
+    );
+    expect(screen.queryByTestId('stock-status-loading')).toBeNull();
+  });
+
+  it('does not show a cold cached status when the first request fails', async () => {
+    swrCacheUtils.set(stockKey, {
+      stockId: 'AAPL',
+      data: publicStockDetail,
+      fetchedAt: Date.now(),
+      fetchedInSession: 'previous-ui-session',
+    });
+    service.fetchMarketStockDetail.mockRejectedValue(new Error('offline'));
+    render(<App stockTab />);
+
+    expect(screen.getByTestId('stock-status-loading')).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.getByTestId('swap-stock-status-retry')).toBeTruthy(),
+    );
+    expect(screen.queryByTestId('stock-status')).toBeNull();
+    service.fetchMarketStockDetail.mockResolvedValue({
+      ...publicStockDetail,
+      marketStatus: { isOpen: true },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('swap-stock-status-retry'));
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByTestId('stock-status').getAttribute('data-is-open'),
+      ).toBe('true'),
+    );
+  });
+});

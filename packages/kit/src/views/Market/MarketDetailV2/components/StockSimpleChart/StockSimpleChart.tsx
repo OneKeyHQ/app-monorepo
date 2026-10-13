@@ -66,11 +66,18 @@ type IStockSimpleChartSeries = {
 
 // Swap's keyed content remounts on tab changes. Retain only public series in
 // the UI runtime; no storage writes or background-runtime ownership are needed.
+const STOCK_SIMPLE_CHART_CACHE_TTL_MS = 5 * 60 * 1000;
 const stockSimpleChartSeriesCache = new LRUCache<
   string,
   { requestedSeq: number; series?: IStockSimpleChartSeries }
->({ max: 20, ttl: 5 * 60 * 1000 });
+>({ max: 20, ttl: STOCK_SIMPLE_CHART_CACHE_TTL_MS });
 let stockSimpleChartRequestSeq = 0;
+
+function getFreshStockSimpleChartSeries(series?: IStockSimpleChartSeries) {
+  if (!series) return undefined;
+  const age = Date.now() - series.loadedAt;
+  return age >= 0 && age < STOCK_SIMPLE_CHART_CACHE_TTL_MS ? series : undefined;
+}
 
 type IStockSimpleChartProps = {
   active?: boolean;
@@ -213,7 +220,9 @@ export function StockSimpleChartContent({
   const remountCacheKey = JSON.stringify([scopeKey, requestIsNative]);
   const [initialSeries] = useState(() =>
     retainOnRemount
-      ? stockSimpleChartSeriesCache.get(remountCacheKey)?.series
+      ? getFreshStockSimpleChartSeries(
+          stockSimpleChartSeriesCache.get(remountCacheKey)?.series,
+        )
       : undefined,
   );
   // Keyed by scope so a failed refresh can fall back to the line already on
@@ -267,7 +276,7 @@ export function StockSimpleChartContent({
         const previous = stockSimpleChartSeriesCache.get(remountCacheKey);
         stockSimpleChartSeriesCache.set(remountCacheKey, {
           requestedSeq: seq,
-          series: previous?.series,
+          series: getFreshStockSimpleChartSeries(previous?.series),
         });
       }
 
