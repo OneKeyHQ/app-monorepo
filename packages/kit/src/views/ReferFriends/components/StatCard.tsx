@@ -14,8 +14,8 @@ export interface IStatCardProps {
   title: string;
   value: string;
   isCurrency?: boolean;
-  // Show `value` in this currency instead of the wallet currency.
-  fixedCurrency?: string;
+  // The currency `value` arrives in; it is shown in the wallet currency.
+  sourceCurrency?: string;
   prefix?: string;
   subtitle?: string;
   showRefreshButton?: boolean;
@@ -30,7 +30,7 @@ export function StatCard({
   title,
   value,
   isCurrency = true,
-  fixedCurrency,
+  sourceCurrency,
   prefix,
   subtitle,
   showRefreshButton,
@@ -70,7 +70,7 @@ export function StatCard({
           <RewardValue
             value={value}
             isCurrency={isCurrency}
-            fixedCurrency={fixedCurrency}
+            sourceCurrency={sourceCurrency}
             prefix={prefix}
             // Three tiles share the row; mid-size windows step the figure down.
             size={xl ? '$heading3xl' : '$heading4xl'}

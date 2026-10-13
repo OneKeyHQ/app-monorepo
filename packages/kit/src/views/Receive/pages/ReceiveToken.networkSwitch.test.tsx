@@ -191,12 +191,9 @@ jest.mock('@onekeyhq/components', () => {
       React.createElement('span', { 'data-testid': `icon-${name}` }),
     Image: () => null,
     Page: Object.assign(Box, { Header: () => null, Body: Box, Footer }),
-    QRCode: ({ value }: { value: string }) =>
-      React.createElement('span', { 'data-testid': 'qr-value' }, value),
     SizableText: Text,
     Skeleton: () => React.createElement('span', { 'data-testid': 'skeleton' }),
     Stack: Box,
-    Theme: Box,
     Toast: {
       error: (params: unknown) => mockToastError(params),
       success: jest.fn(),
@@ -315,7 +312,6 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceToken: {
-      getNativeToken: jest.fn(async () => ({ logoURI: '' })),
       findAggregateGroupByNetworkAndAddress: (params: unknown) =>
         mockFindAggregateGroup(params),
     },
@@ -373,13 +369,18 @@ jest.mock('../../../components/HyperlinkText', () => ({
   FormatHyperlinkText: () => null,
 }));
 
-jest.mock('../../../components/NetworkAvatar', () => ({
-  NetworkAvatar: () => null,
-}));
-
-jest.mock('../../../components/Token', () => ({
-  Token: () => null,
-}));
+jest.mock('../../../components/NetworkAvatar', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    NetworkAvatar: () => null,
+    NetworkAvatarBase: ({ networkName }: { networkName?: string }) =>
+      React.createElement(
+        'span',
+        { 'data-testid': 'receive-card-network-avatar' },
+        networkName,
+      ),
+  };
+});
 
 // Synchronous stand-in keyed by the ids the page asks for: the page must
 // not rely on the hook's previous result after a switch, so a lookup for
@@ -484,10 +485,69 @@ jest.mock('../components/ReceiveCard', () => {
   };
 });
 
-jest.mock('../components/ReceiveShare', () => ({
-  ShareImageGenerator: () => null,
-  showReceiveShareDialog: jest.fn(),
-}));
+jest.mock('../components/ReceiveQRCode', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    ReceiveQRCode: ({ value }: { value: string }) =>
+      React.createElement('span', { 'data-testid': 'qr-value' }, value),
+  };
+});
+
+// The heading and the share image expose the title logo they were handed;
+// how each draws it is its own business.
+jest.mock('../components/ReceiveShare', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    ShareImageGenerator: ({
+      data,
+    }: {
+      data: { titleLogo?: { uri: string; symbol: string } };
+    }) =>
+      React.createElement('span', {
+        'data-testid': 'share-image',
+        'data-icon': data.titleLogo?.uri,
+        'data-symbol': data.titleLogo?.symbol,
+      }),
+    showReceiveShareDialog: jest.fn(),
+  };
+});
+
+jest.mock('../components/ReceiveTitle', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    ReceiveTitle: ({
+      title,
+      logo,
+      testID,
+    }: {
+      title: string;
+      logo?: { uri: string; symbol: string };
+      testID?: string;
+    }) =>
+      React.createElement(
+        'span',
+        {
+          'data-testid': testID,
+          'data-icon': logo?.uri,
+          'data-symbol': logo?.symbol,
+        },
+        title,
+      ),
+  };
+});
+
+// The title logo reaches the heading and the share image as one value, so
+// the two can never disagree.
+function expectTitleLogo(
+  getByTestId: (id: string) => HTMLElement,
+  logo: { uri: string; symbol: string } | null,
+) {
+  for (const testID of ['receive-page-heading', 'share-image']) {
+    const element = getByTestId(testID);
+    expect(element.getAttribute('data-icon')).toBe(logo?.uri ?? null);
+    expect(element.getAttribute('data-symbol')).toBe(logo?.symbol ?? null);
+  }
+}
 
 function member(
   networkId: string,
@@ -715,6 +775,94 @@ describe('ReceiveToken network switch', () => {
     );
     expect(getByTestId('receive-page-heading').textContent).toBe(
       'receive_address__title',
+    );
+    expectTitleLogo(getByTestId, null);
+  });
+
+  it('keeps the title logo and the header avatar in step with a switch', async () => {
+    mockRouteParams = buildParams('hd', {
+      token: member('evm--1', {
+        accountId: 'hd-1--evm1',
+        logoURI: 'https://logo/usdt-eth.png',
+      }),
+      aggregateToken: { ...AGGREGATE_USDT, logoURI: 'https://logo/usdt.png' },
+    });
+    const { getByTestId } = render(<ReceiveToken />);
+    await waitFor(() =>
+      expect(getByTestId('address').textContent).toBe('0xaaa'),
+    );
+    // the token the user came in with
+    expectTitleLogo(getByTestId, {
+      uri: 'https://logo/usdt-eth.png',
+      symbol: 'USDT',
+    });
+    expect(getByTestId('receive-card-network-avatar').textContent).toBe(
+      'Ethereum',
+    );
+
+    await openSelectorAndSelect(
+      getByTestId,
+      member('evm--8453', {
+        accountId: 'hd-1--base',
+        logoURI: 'https://logo/usdt-base.png',
+      }),
+    );
+    await waitFor(() =>
+      expect(getByTestId('address').textContent).toBe('0xbbb'),
+    );
+    // the title now shows the group's symbol, so the group's logo with it
+    expectTitleLogo(getByTestId, {
+      uri: 'https://logo/usdt.png',
+      symbol: 'USDT',
+    });
+    expect(getByTestId('receive-card-network-avatar').textContent).toBe('Base');
+  });
+
+  // The member on screen is the same asset as its group, so its logo stands
+  // in rather than the title losing its icon on a switch.
+  it('keeps a title logo after a switch when the group has none of its own', async () => {
+    mockRouteParams = buildParams('hd', {
+      token: member('evm--1', {
+        accountId: 'hd-1--evm1',
+        logoURI: 'https://logo/usdt-eth.png',
+      }),
+    });
+    const { getByTestId } = render(<ReceiveToken />);
+    await waitFor(() =>
+      expect(getByTestId('address').textContent).toBe('0xaaa'),
+    );
+
+    await openSelectorAndSelect(
+      getByTestId,
+      member('evm--8453', {
+        accountId: 'hd-1--base',
+        logoURI: 'https://logo/usdt-base.png',
+      }),
+    );
+    await waitFor(() =>
+      expect(getByTestId('address').textContent).toBe('0xbbb'),
+    );
+    expectTitleLogo(getByTestId, {
+      uri: 'https://logo/usdt-base.png',
+      symbol: 'USDT',
+    });
+  });
+
+  it('shows no title logo on a page opened without a token', async () => {
+    mockRouteParams = {
+      networkId: 'evm--1',
+      accountId: 'hd-1--evm1',
+      walletId: 'hd-1',
+      indexedAccountId: 'hd-1--0',
+      source: 'copyAddress',
+    };
+    const { getByTestId } = render(<ReceiveToken />);
+    await waitFor(() =>
+      expect(getByTestId('address').textContent).toBe('0xaaa'),
+    );
+    expectTitleLogo(getByTestId, null);
+    expect(getByTestId('receive-card-network-avatar').textContent).toBe(
+      'Ethereum',
     );
   });
 
