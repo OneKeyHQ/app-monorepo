@@ -1,3 +1,5 @@
+import { Address } from '@ton/core';
+
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => () => undefined,
   backgroundMethod:
@@ -50,6 +52,7 @@ import type { ISendSelectedFeeInfo } from '@onekeyhq/shared/types/fee';
 // eslint-disable-next-line import-js/order, import/first
 import {
   EParseTxComponentType,
+  EParseTxComponentRole,
   EParseTxType,
   type IDisplayComponent,
   type IDisplayComponentAddress,
@@ -345,6 +348,92 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
       expect(post).not.toHaveBeenCalled();
     },
   );
+
+  it('keeps TON payload-derived transfer facts while retaining server risks', async () => {
+    const recipient = Address.parse(`0:${'22'.repeat(32)}`).toString({
+      bounceable: false,
+    });
+    const forged = Address.parse(`0:${'33'.repeat(32)}`).toString({
+      bounceable: false,
+    });
+    const risk = {
+      value: 'Risky address',
+      displayType: 'critical',
+    } as IDisplayComponentAddress['tags'][number];
+    const parsedTx = buildParsedTx({
+      components: [
+        {
+          type: EParseTxComponentType.Address,
+          label: 'Recipient',
+          address: forged,
+          role: EParseTxComponentRole.SwapReceiver,
+          tags: [risk],
+        },
+        {
+          type: EParseTxComponentType.Address,
+          label: 'Recipient',
+          address: Address.parse(recipient).toString({ bounceable: true }),
+          tags: [risk],
+        },
+        { type: EParseTxComponentType.Default, label: 'Amount', value: '999' },
+      ],
+      alerts: ['Server risk alert'],
+    });
+    const service = buildService(parsedTx);
+    const local = buildLocalDecodedTx();
+    local.networkId = 'ton--mainnet';
+    local.actions = [
+      {
+        type: EDecodedTxActionType.ASSET_TRANSFER,
+        assetTransfer: {
+          from: accountAddress,
+          to: recipient,
+          receives: [],
+          sends: [
+            {
+              from: accountAddress,
+              to: recipient,
+              amount: '1.5',
+              name: 'Jetton',
+              symbol: 'JETTON',
+              icon: '',
+              isNative: false,
+              tokenIdOnNetwork: `0:${'44'.repeat(32)}`,
+            },
+          ],
+        },
+      },
+    ];
+    mockGetVault.mockResolvedValue({
+      buildDecodedTx: jest.fn().mockResolvedValue(local),
+    });
+    const decoded = await service.buildDecodedTx({
+      networkId: 'ton--mainnet',
+      accountId,
+      accountAddress,
+      unsignedTx: { encodedTx: {} },
+    });
+    expect(decoded.isLocalParsed).toBe(true);
+    expect(decoded.hasServerSecurityAnalysis).toBe(true);
+    expect(decoded.txDisplay?.alerts).toEqual(['Server risk alert']);
+    expect(decoded.txDisplay?.components).toContainEqual(
+      expect.objectContaining({ address: recipient, tags: [risk] }),
+    );
+    expect(decoded.txDisplay?.components).not.toContainEqual(
+      expect.objectContaining({ address: forged, label: 'Recipient' }),
+    );
+    expect(decoded.txDisplay?.components).not.toContainEqual(
+      expect.objectContaining({ label: 'Amount', value: '999' }),
+    );
+    expect(decoded.txDisplay?.components).toContainEqual(
+      expect.objectContaining({
+        address: forged,
+        label: 'global.address',
+        role: undefined,
+        tags: [risk],
+      }),
+    );
+  });
 
   it('keeps server simulation and alerts when an unknown staking tx uses local display', async () => {
     const simulation: IDisplayComponentSimulation = {
