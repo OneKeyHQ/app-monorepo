@@ -275,6 +275,7 @@ export function TradingViewIndicatorSettingsDialog({
         </Stack>
         <XStack
           testID="trading-view-mobile-indicator-settings-footer"
+          px="$5"
           gap="$3"
           flexShrink={0}
         >

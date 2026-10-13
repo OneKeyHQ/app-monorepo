@@ -62,7 +62,8 @@ export function showTradingViewNativeIndicatorSettingsDialog({
         container.focus({ preventScroll: true });
       }
     },
-    contentContainerProps: isFocused ? undefined : { p: '$0' },
+    // Settings rows provide their own horizontal padding.
+    contentContainerProps: isFocused ? { px: '$0' } : { p: '$0' },
     floatingPanelProps: {
       width: isFocused
         ? '100%'
