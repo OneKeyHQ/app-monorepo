@@ -4,6 +4,7 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  canReuseSwapReviewGasInfo,
   isSwapGasAccountCandidate,
   isSwapGasAccountSponsored,
   isSwapGasSponsored,
@@ -201,5 +202,75 @@ describe('shouldRequestSwapGasAccount (OK-62562)', () => {
       }),
     ).resolves.toBe(false);
     expect(mockGetCustomRpcForNetwork).not.toHaveBeenCalled();
+  });
+});
+
+describe('canReuseSwapReviewGasInfo (OK-62562)', () => {
+  const userPaidGasInfo = {
+    payer: 'user',
+    gas: { gasPrice: '1', gasLimit: '21000' },
+  } as const;
+  const gasAccountSponsoredGasInfo = {
+    payer: 'gasAccount',
+    gasAccountEligible: true,
+    gasAccountQuote: {
+      quoteId: 'review-quote-id',
+      maxFee: '1',
+      expiresAt: String(Date.now() + 60_000),
+    },
+  } as const;
+
+  it('reuses a user-paid review gas when the send requests no sponsorship', () => {
+    expect(
+      canReuseSwapReviewGasInfo({
+        cachedGasInfo: userPaidGasInfo,
+        isGasAccountEnabled: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('re-estimates when there is no cached gas or the step needs fresh gas', () => {
+    expect(
+      canReuseSwapReviewGasInfo({
+        cachedGasInfo: undefined,
+        isGasAccountEnabled: false,
+      }),
+    ).toBe(false);
+    expect(
+      canReuseSwapReviewGasInfo({
+        cachedGasInfo: userPaidGasInfo,
+        needFetchGas: true,
+        isGasAccountEnabled: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('re-estimates for a fresh quote when the send requests Gas Account', () => {
+    expect(
+      canReuseSwapReviewGasInfo({
+        cachedGasInfo: gasAccountSponsoredGasInfo,
+        isGasAccountEnabled: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('never reuses a cached Gas Account sponsorship once the send stops requesting it', () => {
+    // e.g. a custom RPC was enabled after the review: the review quote must
+    // not reach the custom RPC broadcast, so the send re-estimates user-paid.
+    expect(
+      canReuseSwapReviewGasInfo({
+        cachedGasInfo: gasAccountSponsoredGasInfo,
+        isGasAccountEnabled: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps reusing a MegaFuel review gas, which needs no fresh quote', () => {
+    expect(
+      canReuseSwapReviewGasInfo({
+        cachedGasInfo: { payer: 'megafuel' },
+        isGasAccountEnabled: false,
+      }),
+    ).toBe(true);
   });
 });

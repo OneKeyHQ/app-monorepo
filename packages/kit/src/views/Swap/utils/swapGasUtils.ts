@@ -27,6 +27,31 @@ export function isSwapGasSponsored(gasInfo?: ISwapGasInfo) {
 }
 
 /**
+ * Whether the send step may reuse the gas estimated for the review instead of
+ * re-estimating. A swap that requests Gas Account at send time always
+ * re-estimates for a fresh quote. A cached Gas Account sponsorship must not be
+ * reused once this send no longer requests it (for example a custom RPC was
+ * enabled after the review): the stale quote would reach a broadcast that
+ * cannot honor it, and the native balance precheck would skip the real fee.
+ */
+export function canReuseSwapReviewGasInfo({
+  cachedGasInfo,
+  needFetchGas,
+  isGasAccountEnabled,
+}: {
+  cachedGasInfo?: ISwapGasInfo;
+  needFetchGas?: boolean;
+  isGasAccountEnabled: boolean;
+}) {
+  return Boolean(
+    cachedGasInfo &&
+    !needFetchGas &&
+    !isGasAccountEnabled &&
+    !isSwapGasAccountSponsored(cachedGasInfo),
+  );
+}
+
+/**
  * Whether this swap may ask estimate-fee for Gas Account sponsorship
  * (OK-62562). The backend `gasAccountEnabled` flag on quote / build-tx is only
  * a provider-level pre-check; sponsorship is limited to a single swap tx

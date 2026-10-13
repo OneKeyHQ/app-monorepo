@@ -149,6 +149,7 @@ import {
   validateSwapBtcOutputs,
 } from '../utils/swapBalanceUtils';
 import {
+  canReuseSwapReviewGasInfo,
   isSwapGasSponsored,
   shouldRequestSwapGasAccount,
 } from '../utils/swapGasUtils';
@@ -1912,9 +1913,12 @@ export function useSwapBuildTx({
           }
         }
       } else if (
-        findGasInfo(stepGasInfos ?? [], unsignedTx.encodedTx) &&
-        !needFetchGas &&
-        !isGasAccountEnabled
+        canReuseSwapReviewGasInfo({
+          cachedGasInfo: findGasInfo(stepGasInfos ?? [], unsignedTx.encodedTx)
+            ?.gasInfo,
+          needFetchGas,
+          isGasAccountEnabled,
+        })
       ) {
         const gasInfoFinal = findGasInfo(
           stepGasInfos ?? [],
