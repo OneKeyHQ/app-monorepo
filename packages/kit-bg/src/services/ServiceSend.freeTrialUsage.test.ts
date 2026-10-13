@@ -96,6 +96,11 @@ function makeService() {
     servicePrimeFreeTrial: {
       markBroadcastSuccess: jest.fn().mockResolvedValue(undefined),
     },
+    serviceDevSetting: {
+      getDevSetting: jest
+        .fn()
+        .mockResolvedValue({ enabled: false, settings: {} }),
+    },
   };
   const Ctor = ServiceSend as unknown as new (args: {
     backgroundApi: unknown;
@@ -203,6 +208,27 @@ describe('ServiceSend.batchSignAndSendTransaction freeTrialUsage', () => {
       unsignedTxs: [makeUnsignedTx('tx-2')],
       signOnly: false,
       transferPayload: undefined,
+    });
+
+    expect(
+      backgroundApi.servicePrimeFreeTrial.markBroadcastSuccess,
+    ).not.toHaveBeenCalled();
+  });
+
+  test('never marks a send that developer mode keeps sign-only', async () => {
+    const { service, backgroundApi } = makeService();
+    backgroundApi.serviceDevSetting.getDevSetting.mockResolvedValue({
+      enabled: true,
+      settings: { alwaysSignOnlySendTx: true },
+    });
+
+    await sendFromUi(service, {
+      accountId,
+      networkId,
+      unsignedTxs: [makeUnsignedTx('tx-1')],
+      signOnly: false,
+      transferPayload: undefined,
+      freeTrialUsage,
     });
 
     expect(

@@ -1303,6 +1303,15 @@ class ServiceSend extends ServiceBase {
     return newUnsignedTxs;
   }
 
+  // Same rule as the broadcast skip in signAndSendTransaction.
+  private async isAlwaysSignOnlySendTxInDev() {
+    const devSetting =
+      await this.backgroundApi.serviceDevSetting.getDevSetting();
+    return Boolean(
+      devSetting?.enabled && devSetting?.settings?.alwaysSignOnlySendTx,
+    );
+  }
+
   @backgroundMethod()
   @toastIfError()
   public async batchSignAndSendTransaction(
@@ -1327,6 +1336,12 @@ class ServiceSend extends ServiceBase {
       useDefaultRpc,
       freeTrialUsage,
     } = params;
+    // Decided before any broadcast: nothing may throw after one. Developer
+    // mode "always sign only" signs without broadcasting, so it uses nothing.
+    const broadcastUsage =
+      freeTrialUsage && !signOnly && !(await this.isAlwaysSignOnlySendTxInDev())
+        ? freeTrialUsage
+        : undefined;
 
     const isMultiTxs = unsignedTxs.length > 1;
     if (
@@ -1476,9 +1491,9 @@ class ServiceSend extends ServiceBase {
           // consumed before any later step (decode, history) can throw. A
           // retry that only finishes an earlier broadcast was marked then.
           // Never awaits the network and never alters the send result.
-          if (freeTrialUsage && !signOnly) {
+          if (broadcastUsage) {
             await this.backgroundApi.servicePrimeFreeTrial.markBroadcastSuccess(
-              freeTrialUsage,
+              broadcastUsage,
             );
           }
         }
