@@ -6,6 +6,17 @@ const singlePart = (cborHex: string) =>
   UREncoder.encodeSinglePart(new UR(Buffer.from(cborHex, 'hex'), 'bytes'));
 
 describe('animated QR handler', () => {
+  it('ends the scan for a code beyond the size or part limits', async () => {
+    resetAnimationQrcodeScan();
+    const urWords = (await import('@ngraveio/bc-ur/dist/bytewords')).default;
+    // [seqNum 1, seqLen 100000, messageLen 1000000, checksum 0, 10-byte fragment]
+    const cbor = `85011a000186a01a000f4240004a${'07'.repeat(10)}`;
+    const body = urWords.encode(cbor, urWords.STYLES.MINIMAL);
+    await expect(
+      animation(`ur:bytes/1-100000/${body}`, {} as never),
+    ).rejects.toThrow(/too large to scan/);
+  });
+
   beforeEach(() => resetAnimationQrcodeScan());
 
   it.each([

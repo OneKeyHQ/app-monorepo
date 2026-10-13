@@ -6,7 +6,10 @@ export * from './types';
 export * from './AirGapUR';
 export { airGapUrUtils };
 export {
+  MAX_UR_MESSAGE_BYTES,
+  MAX_UR_SEQ_LENGTH,
   assertBoundedCbor,
-  assertBoundedUrPart,
-  isBoundedUrPart,
+  checkUrPart,
+  urTooLargeError,
 } from './boundedUr';
+export type { IUrPartVerdict } from './boundedUr';

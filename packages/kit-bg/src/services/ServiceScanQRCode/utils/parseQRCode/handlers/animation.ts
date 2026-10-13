@@ -3,7 +3,8 @@ import { URDecoder, UREncoder } from '@ngraveio/bc-ur';
 import {
   airGapUrUtils,
   assertBoundedCbor,
-  isBoundedUrPart,
+  checkUrPart,
+  urTooLargeError,
 } from '@onekeyhq/qr-wallet-sdk';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
@@ -24,14 +25,16 @@ const animation: IQRCodeHandler<IAnimationValue> = async (value) => {
   //   parts = [];
   //   decoder = new URDecoder();
   // }
-  // A scanned frame is untrusted: one that fails the bounds is dropped and the scan goes on, as
-  // the vendor decoder does for a bad checksum. Only a completed code is judged as a whole.
-  if (
-    parts.findIndex((part) => part === value) === -1 &&
-    isBoundedUrPart(value)
-  ) {
-    decoder.receivePart(value);
-    parts.push(value);
+  // A scanned frame is untrusted. A malformed one is dropped and the scan goes on, as the vendor
+  // decoder does for a bad checksum; a code beyond the size or part limits ends the scan instead
+  // of leaving it waiting for frames that will never be accepted.
+  if (parts.findIndex((part) => part === value) === -1) {
+    const verdict = checkUrPart(value);
+    if (verdict === 'too-large') throw urTooLargeError();
+    if (verdict === 'ok') {
+      decoder.receivePart(value);
+      parts.push(value);
+    }
   }
 
   const partSize = decoder.expectedPartCount();

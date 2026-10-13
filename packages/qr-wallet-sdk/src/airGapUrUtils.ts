@@ -2,7 +2,7 @@ import { decodeToDataItem } from '@keystonehq/bc-ur-registry';
 import { isString } from 'lodash';
 
 import { AirGapUR, AirGapURDecoder, AirGapUREncoder } from './AirGapUR';
-import { assertBoundedCbor, isBoundedUrPart } from './boundedUr';
+import { assertBoundedCbor, checkUrPart, urTooLargeError } from './boundedUr';
 
 import type { IAirGapUrJson } from './AirGapUR';
 
@@ -38,9 +38,14 @@ function createAnimatedURDecoder() {
       reject(new Error('AnimatedURDecode aborted'));
     };
     receivePart = (data: string) => {
-      // A scanned frame is untrusted until bounded; one that fails is dropped and the scan goes
-      // on, as the vendor decoder does for a bad checksum.
-      if (!isBoundedUrPart(data)) return;
+      // A scanned frame is untrusted until bounded. A malformed one is dropped and the scan goes
+      // on, as the vendor decoder does for a bad checksum; a code beyond the limits ends it.
+      const verdict = checkUrPart(data);
+      if (verdict === 'too-large') {
+        reject(urTooLargeError());
+        return;
+      }
+      if (verdict === 'malformed') return;
       decoder.receivePart(data);
       if (decoder.isComplete()) {
         const ur = decoder.resultUR();
