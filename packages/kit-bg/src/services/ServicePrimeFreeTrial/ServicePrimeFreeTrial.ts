@@ -29,6 +29,7 @@ import type {
   IPrimeFreeTrialPublicConfig,
   IPrimeFreeTrialQuota,
   IPrimeFreeTrialQuotaExhaustedData,
+  IPrimeFreeTrialReservation,
   IPrimeFreeTrialStartResponse,
   IPrimeFreeTrialStartResult,
   IPrimeFreeTrialUsageFeatureId,
@@ -127,6 +128,22 @@ function isUncertainRequestError(error: unknown) {
   return true;
 }
 
+// Keeps the server's reservation fields only when present, so an older
+// server's quota still reads as "unknown" rather than "nothing held".
+function normalizeReservation(
+  item: IPrimeFreeTrialReservation | undefined,
+): IPrimeFreeTrialReservation {
+  const reserved = Number(item?.reserved);
+  if (item?.reserved === undefined || !Number.isFinite(reserved)) {
+    return {};
+  }
+  const reservationExpiresAt = Number(item.reservationExpiresAt);
+  return {
+    reserved: Math.max(0, reserved),
+    ...(reservationExpiresAt > 0 ? { reservationExpiresAt } : {}),
+  };
+}
+
 function normalizeFeatureQuota(
   item: Partial<IPrimeFreeTrialFeatureQuota> | undefined,
 ): IPrimeFreeTrialFeatureQuota | undefined {
@@ -144,6 +161,7 @@ function normalizeFeatureQuota(
     monthlyQuota,
     used,
     remaining,
+    ...normalizeReservation(item),
   };
 }
 
@@ -604,6 +622,7 @@ class ServicePrimeFreeTrial extends ServiceBase {
       monthlyQuota: Number.isFinite(monthlyQuota) ? monthlyQuota : 0,
       used: Number(data.used ?? previous?.used ?? monthlyQuota) || 0,
       remaining: 0,
+      ...normalizeReservation(data),
     };
     const applied = await this.updateFeatureQuotaInSnapshot({
       onekeyUserId,

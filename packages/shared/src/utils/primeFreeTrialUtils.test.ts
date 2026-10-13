@@ -3,6 +3,8 @@ import { appLocale } from '../locale/appLocale';
 import {
   formatPrimeFreeTrialReservationEnd,
   formatPrimeFreeTrialResetDate,
+  getPrimeFreeTrialHeldReservationEnd,
+  hasPrimeFreeTrialReservationInfo,
 } from './primeFreeTrialUtils';
 
 import type { ILocaleSymbol } from '../locale';
@@ -47,5 +49,33 @@ describe('primeFreeTrialUtils time formatting', () => {
     expect(formatPrimeFreeTrialResetDate(undefined)).toBeUndefined();
     expect(formatPrimeFreeTrialResetDate(Number.NaN)).toBeUndefined();
     expect(formatPrimeFreeTrialReservationEnd(0)).toBeUndefined();
+  });
+});
+
+describe('primeFreeTrialUtils reservation', () => {
+  it('reads a held reservation only while it lasts', () => {
+    const now = 1000;
+    expect(
+      getPrimeFreeTrialHeldReservationEnd(
+        { reserved: 1, reservationExpiresAt: 2000 },
+        now,
+      ),
+    ).toBe(2000);
+    // Ended, or nothing reserved.
+    expect(
+      getPrimeFreeTrialHeldReservationEnd(
+        { reserved: 1, reservationExpiresAt: 900 },
+        now,
+      ),
+    ).toBeUndefined();
+    expect(
+      getPrimeFreeTrialHeldReservationEnd({ reserved: 0 }, now),
+    ).toBeUndefined();
+  });
+
+  it('tells an older server without the fields from "nothing held"', () => {
+    expect(hasPrimeFreeTrialReservationInfo({ reserved: 0 })).toBe(true);
+    expect(hasPrimeFreeTrialReservationInfo({})).toBe(false);
+    expect(hasPrimeFreeTrialReservationInfo(undefined)).toBe(false);
   });
 });

@@ -12,6 +12,7 @@ import type {
   IPrimeFreeTrialFeatureId,
   IPrimeFreeTrialFeatureQuota,
   IPrimeFreeTrialQuota,
+  IPrimeFreeTrialReservation,
 } from '../../types/prime/primeFreeTrialTypes';
 
 // Reads a normalized free-trial error from anything that crossed the
@@ -49,6 +50,26 @@ export function buildPrimeFreeTrialLocalError(
     data: freeTrialError.data,
     autoToast: false,
   });
+}
+
+// Whether the server said anything about reservations. Older servers omit
+// the fields, and then only this device's own records can tell.
+export function hasPrimeFreeTrialReservationInfo(
+  reservation: IPrimeFreeTrialReservation | undefined,
+) {
+  return typeof reservation?.reserved === 'number';
+}
+
+// End of a live reservation that holds the quota, from the server's fields:
+// undefined when nothing is held or the end has already passed.
+export function getPrimeFreeTrialHeldReservationEnd(
+  reservation: IPrimeFreeTrialReservation | undefined,
+  now = Date.now(),
+): number | undefined {
+  const end = Number(reservation?.reservationExpiresAt);
+  return Number(reservation?.reserved) > 0 && Number.isFinite(end) && end > now
+    ? end
+    : undefined;
 }
 
 export function getPrimeFreeTrialFeatureQuota({

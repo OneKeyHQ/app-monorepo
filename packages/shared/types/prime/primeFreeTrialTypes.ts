@@ -87,10 +87,18 @@ export type IPrimeFreeTrialPublicConfig = {
   features: IPrimeFreeTrialPublicFeature[];
 };
 
+// Live reservations of a count feature: uses started and not yet finished or
+// expired. They are already counted in `used`. Older servers omit both.
+export type IPrimeFreeTrialReservation = {
+  reserved?: number;
+  // Earliest end (ms) of the live reservations; omitted when reserved is 0.
+  reservationExpiresAt?: number;
+};
+
 export type IPrimeFreeTrialFeatureQuota = IPrimeFreeTrialPublicFeature & {
   used: number;
   remaining: number;
-};
+} & IPrimeFreeTrialReservation;
 
 // GET /prime/v1/free-trial/quota and `freeTrial` of GET /prime/v1/user/info.
 // `null` means a Prime user or no open feature at all.
@@ -141,7 +149,7 @@ export type IPrimeFreeTrialQuotaExhaustedData = {
   used?: number;
   remaining?: number;
   resetAt?: number;
-};
+} & IPrimeFreeTrialReservation;
 
 export type IPrimeFreeTrialNotOpenReason =
   | 'trialNotOpen'

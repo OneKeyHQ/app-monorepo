@@ -1633,6 +1633,51 @@ describe('ServicePrimeFreeTrial', () => {
       expect(mockState.freeTrial.quota.data?.features[0].remaining).toBe(0);
     });
 
+    it('keeps the server reservation fields of the quota and of a 90600', async () => {
+      const { service } = createService();
+      mockOneKeyIdClient.get.mockResolvedValueOnce({
+        data: {
+          code: 0,
+          data: {
+            ...quota,
+            features: [
+              {
+                ...quotaOfBulkSend,
+                used: 1,
+                remaining: 0,
+                reserved: 1,
+                reservationExpiresAt: 5000,
+              },
+            ],
+          },
+        },
+      });
+      await service.refreshQuota();
+      expect(mockState.freeTrial.quota.data?.features[0]).toMatchObject({
+        reserved: 1,
+        reservationExpiresAt: 5000,
+      });
+
+      await service.applyQuotaExhaustedData(
+        { ...quotaOfBulkSend, resetAt: 2000, reserved: 0 },
+        { onekeyUserId: 'user-a' },
+      );
+      const afterExhausted = mockState.freeTrial.quota.data?.features[0];
+      expect(afterExhausted?.reserved).toBe(0);
+      expect(afterExhausted?.reservationExpiresAt).toBeUndefined();
+    });
+
+    it('leaves the reservation unknown for an older server', async () => {
+      const { service } = createService();
+      mockOneKeyIdClient.get.mockResolvedValueOnce({
+        data: { code: 0, data: quota },
+      });
+      await service.refreshQuota();
+      expect(mockState.freeTrial.quota.data?.features[0]).not.toHaveProperty(
+        'reserved',
+      );
+    });
+
     it('never writes the quota of another account', async () => {
       const { service } = createService();
       await service.applyQuotaFromPrimeUserInfo({
