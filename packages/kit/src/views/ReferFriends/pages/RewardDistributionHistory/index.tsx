@@ -16,7 +16,6 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
 import { InviteWithdrawAddressRow } from '@onekeyhq/kit/src/views/ReferFriends/pages/RewardDistributionHistory/components/InviteWithdrawAddressRow';
@@ -26,6 +25,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IInvitePaidHistory,
   IInvitePaidItem,
+  IInviteSummary,
 } from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -97,24 +97,26 @@ function RewardDistributionHistoryPageWrapper() {
     return backgroundApiProxy.serviceReferralCode.getInvitePaidList();
   }, []);
 
-  const {
-    result: summaryInfo,
-    run: fetchSummaryInfo,
-    isLoading: isSummaryLoading,
-  } = usePromiseResult(
-    async () => backgroundApiProxy.serviceReferralCode.getSummaryInfo(),
-    [],
-    {
-      undefinedResultIfError: true,
-      // Picks up the address after it is edited from this page.
-      revalidateOnFocus: true,
-      watchLoading: true,
-    },
-  );
+  const [summaryInfo, setSummaryInfo] = useState<IInviteSummary>();
+  // Refetched after the address is edited; a failure keeps the shown address.
+  const fetchSummaryInfo = useCallback(async () => {
+    try {
+      setSummaryInfo(
+        await backgroundApiProxy.serviceReferralCode.getSummaryInfo(),
+      );
+    } catch {
+      // ignore
+    }
+  }, []);
 
+  // Both requests settle in one commit, so the list mounts once with its final
+  // header and rows instead of growing under the modal header (OK-64624).
   const onRefresh = useCallback(() => {
     setIsLoading(true);
-    void Promise.allSettled([fetchInvitePaidList()]).then(([list]) => {
+    void Promise.allSettled([
+      fetchInvitePaidList(),
+      backgroundApiProxy.serviceReferralCode.getSummaryInfo(),
+    ]).then(([list, summary]) => {
       if (list.status === 'fulfilled') {
         const data = list.value;
         setSections(formatSections(data.items));
@@ -123,31 +125,14 @@ function RewardDistributionHistoryPageWrapper() {
         // Leave the skeleton for the empty state if the first load fails.
         setSections((prev) => prev ?? []);
       }
+      // A failed summary only drops the address row.
+      if (summary.status === 'fulfilled') {
+        setSummaryInfo(summary.value);
+      }
 
       setIsLoading(false);
     });
   }, [fetchInvitePaidList]);
-
-  const onPullToRefresh = useCallback(() => {
-    onRefresh();
-    void fetchSummaryInfo();
-  }, [fetchSummaryInfo, onRefresh]);
-
-  // Render the list only once both requests settle, so it mounts with its
-  // final header and rows. Growing them after mount pushed the address row
-  // under the modal header and froze the list on the first open (OK-64624).
-  // `isSummaryLoading` is undefined until the first request starts; a failed
-  // summary only drops the address row. Latched so a refocus refetch never
-  // swaps the list back to the skeleton.
-  const [isFirstLoadDone, setIsFirstLoadDone] = useState(false);
-  useEffect(() => {
-    if (
-      sections !== undefined &&
-      (summaryInfo !== undefined || isSummaryLoading === false)
-    ) {
-      setIsFirstLoadDone(true);
-    }
-  }, [isSummaryLoading, sections, summaryInfo]);
 
   const listHeader = useMemo(
     () =>
@@ -266,7 +251,7 @@ function RewardDistributionHistoryPageWrapper() {
       />
       <Page.Body>
         <ReferFriendsPageContainer flex={1} position="relative">
-          {isFirstLoadDone ? (
+          {sections ? (
             <SectionList
               flex={1}
               // The address row is the list's first row, so the scroller must
@@ -278,7 +263,7 @@ function RewardDistributionHistoryPageWrapper() {
               refreshControl={
                 <RefreshControl
                   refreshing={isLoading}
-                  onRefresh={onPullToRefresh}
+                  onRefresh={onRefresh}
                 />
               }
               contentContainerStyle={{ pb: '$10' }}
@@ -291,7 +276,7 @@ function RewardDistributionHistoryPageWrapper() {
                   })}
                 />
               }
-              sections={sections ?? []}
+              sections={sections}
               renderSectionHeader={renderSectionHeader}
               estimatedItemSize={60}
               renderItem={renderItem}
