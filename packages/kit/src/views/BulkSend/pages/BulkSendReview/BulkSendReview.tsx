@@ -291,11 +291,12 @@ function BaseBulkSendReview({
   // for a resubmit (e.g. transfer failed after the approve went through)
   // while it is already consumed, so the transfer can still be sent with a
   // single monthly free use. Leaving the page starts a new usage next time.
-  const { startUsage, settleUsage, getUsageResult } = usePrimeFreeTrialUsage({
+  const { settleUsage, prepareRetryUsage } = usePrimeFreeTrialUsage({
     featureId: EPrimeFeatures.BulkSend,
   });
   const reviewUsageIdRef = useRef<string | undefined>(undefined);
-  // A start can take a while; a page closed meanwhile must not send.
+  // Starting or checking a usage can take a while; a page closed meanwhile
+  // must not send.
   const isUnmountedRef = useRef(false);
   useEffect(() => {
     isUnmountedRef.current = false;
@@ -305,7 +306,9 @@ function BaseBulkSendReview({
   }, []);
 
   // `usageId` is the usage of this round (undefined: not metered);
-  // `prepared: false` means the round must not run.
+  // `prepared: false` means the round must not run. The shared retry
+  // preparation reuses a consumed usage or starts a new one, and runs no
+  // round for a page closed meanwhile on either path.
   const prepareFreeTrialUsage = useCallback(
     async ({
       allowReuse,
@@ -315,27 +318,21 @@ function BaseBulkSendReview({
       if (platformEnv.isE2E) {
         return { prepared: true };
       }
-      const previousUsageId = reviewUsageIdRef.current;
-      if (
-        allowReuse &&
-        previousUsageId &&
-        (await getUsageResult(previousUsageId)) === 'success'
-      ) {
-        return { prepared: true, usageId: previousUsageId };
-      }
-      const outcome = await startUsage({
+      const { proceed, usageId, isNewUsage } = await prepareRetryUsage({
+        usageId: allowReuse ? reviewUsageIdRef.current : undefined,
+        succeededLocally: false,
         networkId,
         isCallerGone: () => isUnmountedRef.current,
       });
-      if (outcome.status === 'rejected' || outcome.status === 'error') {
+      if (!proceed) {
         return { prepared: false };
       }
-      const usageId =
-        outcome.status === 'granted' ? outcome.usageId : undefined;
-      reviewUsageIdRef.current = usageId;
+      if (isNewUsage) {
+        reviewUsageIdRef.current = usageId;
+      }
       return { prepared: true, usageId };
     },
-    [getUsageResult, networkId, startUsage],
+    [networkId, prepareRetryUsage],
   );
 
   // Settles a round that ended with an error. Ignored by the background
