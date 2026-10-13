@@ -577,11 +577,20 @@ class ServicePrimeFreeTrial extends ServiceBase {
     return applied;
   }
 
-  // 90600 carries the authoritative quota of the exhausted feature.
+  // 90600 carries the authoritative quota of the exhausted feature, for the
+  // user the request was sent as: a user who logged in while it was in
+  // flight keeps their own quota.
   @backgroundMethod()
-  async applyQuotaExhaustedData(data: IPrimeFreeTrialQuotaExhaustedData) {
+  async applyQuotaExhaustedData(
+    data: IPrimeFreeTrialQuotaExhaustedData,
+    { onekeyUserId }: { onekeyUserId: string | undefined },
+  ) {
     const user = await primePersistAtom.get();
-    if (!user.isLoggedIn || !user.onekeyUserId) {
+    if (
+      !user.isLoggedIn ||
+      !onekeyUserId ||
+      user.onekeyUserId !== onekeyUserId
+    ) {
       return;
     }
     const current = (await primeFreeTrialAtom.get()).quota;
@@ -597,7 +606,7 @@ class ServicePrimeFreeTrial extends ServiceBase {
       remaining: 0,
     };
     const applied = await this.updateFeatureQuotaInSnapshot({
-      onekeyUserId: user.onekeyUserId,
+      onekeyUserId,
       resetAt: data.resetAt,
       featureQuota,
     });
@@ -607,11 +616,17 @@ class ServicePrimeFreeTrial extends ServiceBase {
   }
 
   // Background-only: reacts to a normalized free-trial error from any
-  // free-trial aware endpoint.
-  async handleFreeTrialErrorFromServer(freeTrialError: IPrimeFreeTrialError) {
+  // free-trial aware endpoint. `onekeyUserId` is the user the request was
+  // sent as.
+  async handleFreeTrialErrorFromServer(
+    freeTrialError: IPrimeFreeTrialError,
+    { onekeyUserId }: { onekeyUserId: string | undefined },
+  ) {
     try {
       if (freeTrialError.code === PRIME_FREE_TRIAL_QUOTA_EXHAUSTED_CODE) {
-        await this.applyQuotaExhaustedData(freeTrialError.data);
+        await this.applyQuotaExhaustedData(freeTrialError.data, {
+          onekeyUserId,
+        });
         return;
       }
       // The feature was turned off: drop cached config and quota.
@@ -748,15 +763,39 @@ class ServicePrimeFreeTrial extends ServiceBase {
     // that release is confirmed.
     retryAfterRelease?: boolean;
     // Attempts of this id made before asking once more.
-    earlierAttempts?: { startedAt: number; hadUncertainAttempt: boolean };
+    earlierAttempts?: {
+      onekeyUserId: string;
+      startedAt: number;
+      hadUncertainAttempt: boolean;
+    };
   }): Promise<IPrimeFreeTrialStartResult> {
+    const user = await primePersistAtom.get();
+    if (
+      earlierAttempts &&
+      (!user.isLoggedIn ||
+        !user.isLoggedInOnServer ||
+        user.onekeyUserId !== earlierAttempts.onekeyUserId)
+    ) {
+      // The user that started logged out, or another user logged in, while
+      // the release was confirmed: release their unknown attempt as them and
+      // start nothing for anyone else.
+      if (earlierAttempts.hadUncertainAttempt) {
+        await this.recordUsageResult({
+          onekeyUserId: earlierAttempts.onekeyUserId,
+          featureId,
+          usageId,
+          result: 'cancelled',
+          startedAt: earlierAttempts.startedAt,
+        });
+      }
+      throw createUserChangedError();
+    }
     if (await this.isTravelMode()) {
       throw new OneKeyLocalError({
         message: 'Prime free trial is unavailable in travel mode',
         autoToast: false,
       });
     }
-    const user = await primePersistAtom.get();
     if (!user.isLoggedIn || !user.isLoggedInOnServer || !user.onekeyUserId) {
       return { status: 'loginRequired', featureId };
     }
@@ -874,7 +913,7 @@ class ServicePrimeFreeTrial extends ServiceBase {
               featureId,
               usageId,
               retryAfterRelease: false,
-              earlierAttempts: { startedAt, hadUncertainAttempt },
+              earlierAttempts: { onekeyUserId, startedAt, hadUncertainAttempt },
             });
           }
           if (hadUncertainAttempt) {
@@ -888,14 +927,18 @@ class ServicePrimeFreeTrial extends ServiceBase {
               await this.waitForReports([released]);
             }
           }
-          await this.applyQuotaExhaustedData(freeTrialError.data);
+          await this.applyQuotaExhaustedData(freeTrialError.data, {
+            onekeyUserId,
+          });
           return { status: 'exhausted', featureId, data: freeTrialError.data };
         }
         if (freeTrialError?.code === PRIME_FREE_TRIAL_NOT_OPEN_CODE) {
           if (hadUncertainAttempt) {
             await releaseReservation();
           }
-          await this.handleFreeTrialErrorFromServer(freeTrialError);
+          await this.handleFreeTrialErrorFromServer(freeTrialError, {
+            onekeyUserId,
+          });
           return { status: 'notOpen', featureId };
         }
         if (!isUncertainRequestError(error)) {

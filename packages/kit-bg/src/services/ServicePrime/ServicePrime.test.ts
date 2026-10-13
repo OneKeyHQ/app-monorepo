@@ -7967,6 +7967,33 @@ describe('ServicePrime.apiTranslate free-trial batches', () => {
     ).toHaveBeenCalledTimes(1);
   });
 
+  it('hands a 90600 over for the user the requests were sent as', async () => {
+    const { service, backgroundApi } = createTranslateService(() => ({
+      code: 90_600,
+      data: { featureId: 'DAppTranslate', resetAt: 2000 },
+    }));
+    mockPrimePersistAtom.get
+      .mockResolvedValueOnce({
+        isLoggedIn: true,
+        onekeyUserId: 'user-a',
+        primeSubscription: { isActive: false },
+      })
+      // Another user is logged in by the time the replies arrive.
+      .mockResolvedValue({
+        isLoggedIn: true,
+        onekeyUserId: 'user-b',
+        primeSubscription: { isActive: false },
+      });
+
+    await translate(service);
+
+    expect(
+      backgroundApi.servicePrimeFreeTrial.handleFreeTrialErrorFromServer,
+    ).toHaveBeenCalledWith(expect.objectContaining({ code: 90_600 }), {
+      onekeyUserId: 'user-a',
+    });
+  });
+
   it('normalizes a raw 90005 to the client not-open code', async () => {
     const { service } = createTranslateService(() => ({ code: 90_005 }));
 

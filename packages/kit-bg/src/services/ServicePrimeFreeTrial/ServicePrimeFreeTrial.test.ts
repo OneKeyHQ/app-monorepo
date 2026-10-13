@@ -327,6 +327,37 @@ describe('ServicePrimeFreeTrial', () => {
       });
     });
 
+    it('keeps the 90600 of a start off the quota of a user who logged in meanwhile', async () => {
+      const { service } = createService();
+      mockState.freeTrial = {
+        config: { status: 'idle' },
+        quota: {
+          status: 'success',
+          onekeyUserId: 'user-b',
+          data: {
+            period: '2026-10',
+            resetAt: 2000,
+            features: [{ ...quotaOfBulkSend, used: 0, remaining: 1 }],
+          },
+        },
+      };
+      mockOneKeyIdClient.post.mockImplementationOnce(async () => {
+        mockState.user = { ...mockState.user, onekeyUserId: 'user-b' };
+        throw serverError(PRIME_FREE_TRIAL_QUOTA_EXHAUSTED_CODE, {
+          ...quotaOfBulkSend,
+          resetAt: 2000,
+        });
+      });
+
+      await expect(
+        service.startUsage({
+          featureId: EPrimeFeatures.BulkSend,
+          usageId: 'usage-0031',
+        }),
+      ).resolves.toMatchObject({ status: 'exhausted' });
+      expect(mockState.freeTrial.quota.data?.features[0].remaining).toBe(1);
+    });
+
     it('treats the rewritten 90005 and a raw 90601 as not open', async () => {
       const { service } = createService();
       mockOneKeyIdClient.post
@@ -818,6 +849,41 @@ describe('ServicePrimeFreeTrial', () => {
             result: 'cancelled',
           }),
         ]);
+      });
+
+      it('releases as the user that started when another user logged in before asking once more', async () => {
+        const { service, simpleDb } = createService();
+        seedSettledUsage(simpleDb, 'usage-0020');
+        let startCount = 0;
+        mockOneKeyIdClient.post.mockImplementation(async (url: string) => {
+          if (url === '/prime/v1/free-trial/usage/start') {
+            startCount += 1;
+            throw startCount === 1
+              ? networkError()
+              : serverError(PRIME_FREE_TRIAL_QUOTA_EXHAUSTED_CODE, {
+                  ...quotaOfBulkSend,
+                  resetAt: 2000,
+                });
+          }
+          // The pending release is confirmed, then another user logs in.
+          mockState.user = { ...mockState.user, onekeyUserId: 'user-b' };
+          return { data: { code: 0, data: { unlimited: false } } };
+        });
+
+        await expect(
+          service.startUsage({
+            featureId: EPrimeFeatures.BulkSend,
+            usageId: 'usage-0021',
+          }),
+        ).rejects.toThrow('Prime free trial user changed');
+
+        expect(startCount).toBe(2);
+        expect(
+          simpleDb.records.get('user-a__BulkSend__usage-0021')?.result,
+        ).toBe('cancelled');
+        expect(
+          simpleDb.records.get('user-b__BulkSend__usage-0021'),
+        ).toBeUndefined();
       });
 
       it('does not wait for anything without a pending release', async () => {
@@ -1542,6 +1608,29 @@ describe('ServicePrimeFreeTrial', () => {
         isPrimeSubscriptionActive: false,
       });
       expect(mockState.freeTrial.quota.data).toBeNull();
+    });
+
+    it('writes a 90600 only for the user the request was sent as', async () => {
+      const { service } = createService();
+      mockState.user.onekeyUserId = 'user-b';
+      await service.applyQuotaFromPrimeUserInfo({
+        freeTrial: quota,
+        onekeyUserId: 'user-b',
+        requestSeq: service.allocateQuotaRequestSeq(),
+        isPrimeSubscriptionActive: false,
+      });
+
+      await service.applyQuotaExhaustedData(
+        { ...quotaOfBulkSend, resetAt: 2000 },
+        { onekeyUserId: 'user-a' },
+      );
+      expect(mockState.freeTrial.quota.data?.features[0].remaining).toBe(1);
+
+      await service.applyQuotaExhaustedData(
+        { ...quotaOfBulkSend, resetAt: 2000 },
+        { onekeyUserId: 'user-b' },
+      );
+      expect(mockState.freeTrial.quota.data?.features[0].remaining).toBe(0);
     });
 
     it('never writes the quota of another account', async () => {

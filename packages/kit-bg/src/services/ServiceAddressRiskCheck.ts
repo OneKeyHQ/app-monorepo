@@ -14,6 +14,8 @@ import type {
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 
+import { primePersistAtom } from '../states/jotai/atoms/prime';
+
 import ServiceBase from './ServiceBase';
 
 @backgroundClass()
@@ -80,6 +82,8 @@ class ServiceAddressRiskCheck extends ServiceBase {
   // error) are re-thrown with the normalized code and autoToast off, so the
   // UI shows one unified feedback instead of a background toast.
   private async withFreeTrialErrorHandling<T>(fn: () => Promise<T>) {
+    // The user the request is sent as; a 90600 only updates their quota.
+    const { onekeyUserId } = await primePersistAtom.get();
     try {
       return await fn();
     } catch (error) {
@@ -91,6 +95,7 @@ class ServiceAddressRiskCheck extends ServiceBase {
       if (freeTrialError) {
         await this.backgroundApi.servicePrimeFreeTrial.handleFreeTrialErrorFromServer(
           freeTrialError,
+          { onekeyUserId },
         );
         throw buildPrimeFreeTrialLocalError(freeTrialError);
       }

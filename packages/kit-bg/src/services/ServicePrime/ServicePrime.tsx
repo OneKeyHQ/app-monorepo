@@ -1117,12 +1117,11 @@ class ServicePrime extends ServiceBase {
     hasBilledBatch: boolean;
   }> {
     const client = await this.getPrimeClient();
+    const primeUser = await primePersistAtom.get();
     // A locally active subscription keeps the original behavior (original
     // text, no free-trial stop), even when the server already sees it as
     // lapsed and the local state has not caught up yet.
-    const isLocalPrimeActive = Boolean(
-      (await primePersistAtom.get()).primeSubscription?.isActive,
-    );
+    const isLocalPrimeActive = Boolean(primeUser.primeSubscription?.isActive);
     // API limit: max 4 texts per translate request
     const batches = chunk(texts, 4);
     const requestConfig: Parameters<typeof client.post>[2] & {
@@ -1208,6 +1207,7 @@ class ServicePrime extends ServiceBase {
     if (freeTrialError) {
       await this.backgroundApi.servicePrimeFreeTrial.handleFreeTrialErrorFromServer(
         freeTrialError,
+        { onekeyUserId: primeUser.onekeyUserId },
       );
     }
     return { translations: results.flat(), freeTrialError, hasBilledBatch };
