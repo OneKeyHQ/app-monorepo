@@ -416,12 +416,14 @@ function SendDataInputContainer() {
     EPrimeFeatures.AddressRiskCheck,
   ).status;
   // A logged-in free user with no uses left also presses to check (the press
-  // shows the exhausted toast), so the button waits for an address as well.
+  // shows the exhausted toast), and a logged-out user logs in on the press
+  // and is checked right after, so the button waits for an address as well.
   const canRunAddressRiskCheck =
     isPrimeUser ||
     (!isPrimeFreeTrialTravelMode() &&
       (addressRiskCheckAccessStatus === 'available' ||
-        addressRiskCheckAccessStatus === 'exhausted'));
+        addressRiskCheckAccessStatus === 'exhausted' ||
+        addressRiskCheckAccessStatus === 'loginRequired'));
   addressRiskContextRef.current = {
     networkId: currentAccount.networkId,
     address: toResolved,

@@ -106,12 +106,12 @@ describe('recipientSelectionUtils', () => {
       'loading',
     ],
     [
-      'keeps the Prime upsell actionable without an address',
+      'keeps the dashboard upsell actionable without an address',
       { canRunCheck: false, resolvedAddress: undefined },
       'enabled',
     ],
     [
-      'treats a logged-in free user like Prime and disables without an address',
+      'treats a free user the press checks for like Prime and disables without an address',
       { canRunCheck: true, resolvedAddress: undefined },
       'disabled',
     ],
