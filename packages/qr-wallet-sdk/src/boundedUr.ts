@@ -6,8 +6,9 @@ const MAX_CBOR_DEPTH = 64;
 /** Larger than any scanned payload, including big PSBTs. */
 const MAX_CBOR_BYTES = 8 * 1024 * 1024;
 /**
- * Animated codes stay far below this; the fountain decoder allocates per declared part, so an
- * unbounded count in one scanned frame exhausts memory before any check could run.
+ * Animated codes stay far below this (4096 parts of 200 bytes is about 800 KB); the fountain
+ * decoder allocates per declared part, so an unbounded count in one scanned frame exhausts memory
+ * before any check could run.
  */
 const MAX_UR_SEQ_LENGTH = 4096;
 /** Argument bytes for additional info 24, 25, 26 and 27. */
@@ -90,4 +91,17 @@ export function assertBoundedUrPart(part: string): void {
     urWords.STYLES.MINIMAL,
   );
   assertBoundedCbor(Buffer.from(payloadHex, 'hex'));
+}
+
+/**
+ * A frame that fails the bounds is dropped, as the vendor decoder drops a frame with a bad
+ * checksum: one misread frame must not end a scan.
+ */
+export function isBoundedUrPart(part: string): boolean {
+  try {
+    assertBoundedUrPart(part);
+    return true;
+  } catch {
+    return false;
+  }
 }

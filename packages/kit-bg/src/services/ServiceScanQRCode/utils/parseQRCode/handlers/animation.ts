@@ -3,7 +3,7 @@ import { URDecoder, UREncoder } from '@ngraveio/bc-ur';
 import {
   airGapUrUtils,
   assertBoundedCbor,
-  assertBoundedUrPart,
+  isBoundedUrPart,
 } from '@onekeyhq/qr-wallet-sdk';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
@@ -24,10 +24,12 @@ const animation: IQRCodeHandler<IAnimationValue> = async (value) => {
   //   parts = [];
   //   decoder = new URDecoder();
   // }
-  if (parts.findIndex((part) => part === value) === -1) {
-    // A scanned frame is untrusted: bound it before the vendor decoder parses it. A throw here
-    // leaves the frame out and the scan going.
-    assertBoundedUrPart(value);
+  // A scanned frame is untrusted: one that fails the bounds is dropped and the scan goes on, as
+  // the vendor decoder does for a bad checksum. Only a completed code is judged as a whole.
+  if (
+    parts.findIndex((part) => part === value) === -1 &&
+    isBoundedUrPart(value)
+  ) {
     decoder.receivePart(value);
     parts.push(value);
   }

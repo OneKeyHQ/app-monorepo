@@ -2,29 +2,28 @@ import { UR, UREncoder } from '@ngraveio/bc-ur';
 
 import animation, { resetAnimationQrcodeScan } from './animation';
 
+const singlePart = (cborHex: string) =>
+  UREncoder.encodeSinglePart(new UR(Buffer.from(cborHex, 'hex'), 'bytes'));
+
 describe('animated QR handler', () => {
   beforeEach(() => resetAnimationQrcodeScan());
 
-  it('refuses a frame declaring more parts than any code has', async () => {
-    await expect(
-      animation('ur:bytes/1-5000/lpadaxcsencylobemohsgm', {} as never),
-    ).rejects.toThrow(/Malformed QR payload/);
-  });
+  it.each([
+    [
+      'declaring more parts than any code has',
+      'ur:bytes/1-5000/lpadaxcsencylobemohsgm',
+    ],
+    ['whose payload is not bounded CBOR', singlePart('9f')],
+    ['with a broken checksum', `${singlePart('44deadbeef').slice(0, -2)}aa`],
+  ])('drops a frame %s and keeps scanning', async (_case, frame) => {
+    const dropped = await animation(frame, {} as never);
+    expect(dropped?.data.fullUr).toBeUndefined();
 
-  it('refuses a frame whose payload is not bounded CBOR', async () => {
-    await expect(
-      animation(
-        UREncoder.encodeSinglePart(new UR(Buffer.from('9f', 'hex'), 'bytes')),
-        {} as never,
-      ),
-    ).rejects.toThrow(/Malformed QR payload/);
-  });
-
-  it('still completes a well-formed code', async () => {
-    const part = UREncoder.encodeSinglePart(
-      new UR(Buffer.from('44deadbeef', 'hex'), 'bytes'),
-    );
-    const result = await animation(part, {} as never);
-    expect(result?.data.fullUr).toEqual({ type: 'bytes', cbor: '44deadbeef' });
+    // The next good frame still completes the scan.
+    const completed = await animation(singlePart('44deadbeef'), {} as never);
+    expect(completed?.data.fullUr).toEqual({
+      type: 'bytes',
+      cbor: '44deadbeef',
+    });
   });
 });

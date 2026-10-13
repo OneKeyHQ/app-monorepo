@@ -56,3 +56,14 @@ describe('assertBoundedUrPart', () => {
     expect(() => assertBoundedUrPart(part())).toThrow();
   });
 });
+
+describe('scanning with airGapUrUtils', () => {
+  it('drops a bad frame and still decodes the code that follows', async () => {
+    const { default: airGapUrUtils } = await import('./airGapUrUtils');
+    const ur = await airGapUrUtils.qrcodeToUr([
+      'ur:bytes/1-5000/lpadaxcsencylobemohsgm',
+      singlePart('44deadbeef'),
+    ]);
+    expect(ur.cbor.toString('hex')).toBe('44deadbeef');
+  });
+});
