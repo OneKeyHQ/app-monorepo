@@ -21,6 +21,7 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
+import deriveTypeCollapseUtils from '@onekeyhq/shared/src/utils/deriveTypeCollapseUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   PROMISE_CONCURRENCY_LIMIT,
@@ -77,6 +78,7 @@ import type {
   ISimpleDBLocalTokens,
 } from '../dbs/simple/entity/SimpleDbEntityLocalTokens';
 import type { IRiskTokenManagementDBStruct } from '../dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
+import type { IAccountDeriveTypes } from '../vaults/types';
 
 type IFetchAccountTokensController = {
   controller: AbortController;
@@ -1673,6 +1675,89 @@ class ServiceToken extends ServiceBase {
       accountId,
       networkId,
     };
+  }
+
+  // Whether this account shows only its default address type on the network.
+  // Decided from balances Home has already read (pending or persisted); this
+  // never fetches. Anything unknown or failing resolves to not collapsed, so
+  // the worst case is the existing multi-type UI.
+  @backgroundMethod()
+  public async getDeriveTypesCollapseState({
+    networkId,
+    indexedAccountId,
+  }: {
+    networkId: string;
+    indexedAccountId: string | undefined;
+  }): Promise<{
+    collapsed: boolean;
+    defaultDeriveType: IAccountDeriveTypes | undefined;
+  }> {
+    if (
+      !indexedAccountId ||
+      !deriveTypeCollapseUtils.isDeriveTypeCollapseSupportedNetwork({
+        networkId,
+      })
+    ) {
+      return { collapsed: false, defaultDeriveType: undefined };
+    }
+
+    const { serviceAccount, serviceNetwork, simpleDb } = this.backgroundApi;
+    let defaultDeriveType: IAccountDeriveTypes | undefined;
+    try {
+      defaultDeriveType = await serviceNetwork.getGlobalDeriveTypeOfNetwork({
+        networkId,
+      });
+      const { networkAccounts } =
+        await serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+          { networkId, indexedAccountId },
+        );
+      // Cheap exit before the local tokens blob is read and parsed.
+      if (networkAccounts.some((item) => !item.account)) {
+        return { collapsed: false, defaultDeriveType };
+      }
+
+      const rawData = await simpleDb.localTokens.getRawData();
+      const deriveTypeStates = await Promise.all(
+        networkAccounts.map(async (item) => {
+          const accountId = item.account?.id ?? '';
+          const [xpub, accountAddress] = await Promise.all([
+            serviceAccount.getAccountXpub({ accountId, networkId }),
+            serviceAccount.getAccountAddressForApi({ accountId, networkId }),
+          ]);
+          const key = accountUtils.buildAccountLocalAssetsKey({
+            networkId,
+            accountAddress,
+            xpub,
+          });
+          // A response waiting for the debounced write is newer than storage.
+          const record = [
+            this.homeLocalAccountTokensCache,
+            this.localAccountTokensCache,
+            rawData,
+          ].find((source) =>
+            Object.prototype.hasOwnProperty.call(source?.tokenList ?? {}, key),
+          );
+          return {
+            deriveType: item.deriveType,
+            hasAccount: true,
+            hasBalanceRecord: !!record,
+            hasAssets: deriveTypeCollapseUtils.hasAssetsInTokenListMap({
+              tokenListMap: record?.tokenListMap?.[key],
+            }),
+          };
+        }),
+      );
+
+      return {
+        collapsed: deriveTypeCollapseUtils.shouldCollapseDeriveTypes({
+          defaultDeriveType,
+          deriveTypeStates,
+        }),
+        defaultDeriveType,
+      };
+    } catch (_error) {
+      return { collapsed: false, defaultDeriveType };
+    }
   }
 
   @backgroundMethod()
