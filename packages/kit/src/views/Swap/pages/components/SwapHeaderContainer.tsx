@@ -126,6 +126,7 @@ interface ISwapHeaderContainerProps {
   storeName?: EJotaiContextStoreNames;
   pageType?: EPageType;
   defaultSwapType?: ESwapTabSwitchType;
+  onSwapTypeSwitch?: (nextType: ESwapTabSwitchType) => void;
   showSwapPro?: boolean;
   /** Hide right action buttons (settings/history) - used when they're shown elsewhere in desktop layout */
   hideRightActions?: boolean;
@@ -141,6 +142,7 @@ const SwapHeaderContainer = ({
   storeName,
   pageType,
   defaultSwapType,
+  onSwapTypeSwitch,
   showSwapPro,
   hideRightActions,
   singleSwapBridgeTab,
@@ -272,6 +274,8 @@ const SwapHeaderContainer = ({
           : (value as ESwapTabSwitchType);
       if (swapTypeSwitch === newType) return;
 
+      onSwapTypeSwitch?.(newType);
+
       defaultLogger.swap.tradeCategorySwitch.tradeCategorySwitch({
         fromCategory: getSwapAnalyticsCategoryFromSwapType(
           swapTypeSwitch,
@@ -325,6 +329,7 @@ const SwapHeaderContainer = ({
     [
       swapTypeSwitch,
       swapTypeSwitchAction,
+      onSwapTypeSwitch,
       syncRouteTabParam,
       networkId,
       fromToken?.networkId,
