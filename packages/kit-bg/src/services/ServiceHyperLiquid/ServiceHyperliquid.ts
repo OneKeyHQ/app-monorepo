@@ -168,6 +168,12 @@ import { resolvePerpsDepositSelectedToken } from '../ServiceWebviewPerp/utils/de
 
 import { hyperLiquidApiClients } from './hyperLiquidApiClients';
 import hyperLiquidCache from './hyperLiquidCache';
+import {
+  getLiquidationRiskGeneration,
+  invalidatePerpsLiquidationRiskInputs,
+  setPerpsAbstractionModeWithRiskInvalidation,
+  updatePerpsLiquidationRiskInputs,
+} from './liquidationRiskInputs';
 import { shouldRefreshMarketPerpsUniverse } from './marketPerpsUniverse';
 import {
   createFetchUserAbstractionRawWithCache,
@@ -2267,6 +2273,7 @@ export default class ServiceHyperliquid extends ServiceBase {
   async updateActiveAccountSummaryFromClearinghouseState(
     data: IWsAllDexsClearinghouseState,
   ) {
+    const generation = getLiquidationRiskGeneration();
     const activeAccount = await perpsActiveAccountAtom.get();
     const activeAddress = activeAccount?.accountAddress?.toLowerCase();
     const dataUser = data?.user?.toLowerCase();
@@ -2287,11 +2294,11 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
 
     const crossMarginByDex = buildPerpsCrossMarginByDex(clearinghouseStates);
-    await perpsLiquidationRiskInputsAtom.set((prev) => ({
-      ...(prev?.accountAddress === activeAddress ? prev : {}),
+    await updatePerpsLiquidationRiskInputs({
+      generation,
       accountAddress: activeAddress as IHex,
       crossMarginByDex,
-    }));
+    });
 
     // Aggregate all DEXs (HL perps + xyz) using BigNumber
     const aggregated = clearinghouseStates.reduce(
@@ -2386,6 +2393,7 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   async updateSpotBalances(spotStateData: IWsSpotStateWithAvailability) {
+    const generation = getLiquidationRiskGeneration();
     const activeAccount = await perpsActiveAccountAtom.get();
     const activeAddress = activeAccount?.accountAddress?.toLowerCase();
     const dataUser = spotStateData?.user?.toLowerCase();
@@ -2397,11 +2405,11 @@ export default class ServiceHyperliquid extends ServiceBase {
       buildTokenAvailableAfterMaintenanceMap(
         spotStateData.spotState?.tokenToAvailableAfterMaintenance,
       );
-    await perpsLiquidationRiskInputsAtom.set((prev) => ({
-      ...(prev?.accountAddress === activeAddress ? prev : {}),
+    await updatePerpsLiquidationRiskInputs({
+      generation,
       accountAddress: activeAddress as IHex,
       tokenToAvailableAfterMaintenance,
-    }));
+    });
 
     const balances = spotStateData?.spotState?.balances || [];
 
@@ -2908,6 +2916,10 @@ export default class ServiceHyperliquid extends ServiceBase {
       previousAddress === newAddress;
 
     if (!isSameAddress) {
+      await invalidatePerpsLiquidationRiskInputs();
+      if (!this.isLatestActivePerpsAccountChange(requestId)) {
+        return undefined;
+      }
       await perpsAbstractionModeAtom.set((prev) =>
         this.isLatestActivePerpsAccountChange(requestId) ? undefined : prev,
       );
@@ -3254,7 +3266,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         ) {
           return undefined;
         }
-        await perpsAbstractionModeAtom.set(undefined);
+        await setPerpsAbstractionModeWithRiskInvalidation(undefined);
         return undefined;
       }
 
@@ -3262,7 +3274,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         userAddress,
         mode,
       );
-      await perpsAbstractionModeAtom.set({
+      await setPerpsAbstractionModeWithRiskInvalidation({
         accountAddress: lowerUserAddress,
         mode: mode as EHyperLiquidAbstractionMode,
         source: 'live',
@@ -3294,7 +3306,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         return undefined;
       }
       if (cached) {
-        await perpsAbstractionModeAtom.set({
+        await setPerpsAbstractionModeWithRiskInvalidation({
           accountAddress: lowerUserAddress,
           mode: cached as EHyperLiquidAbstractionMode,
           source: 'cache',
@@ -3329,7 +3341,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       lowerUserAddress,
       confirmedMode,
     );
-    await perpsAbstractionModeAtom.set({
+    await setPerpsAbstractionModeWithRiskInvalidation({
       accountAddress: lowerUserAddress,
       mode: confirmedMode as EHyperLiquidAbstractionMode,
       source: 'live',
