@@ -66,8 +66,8 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import {
-  checkAlphHardwareInputLimit,
   getAlphHardwareInputLimit,
+  prepareAlphHardwareTransaction,
 } from './sdkAlph/hardwareInputLimit';
 import { MAX_GAS_AMOUNT, serializeUnsignedTransaction } from './sdkAlph/utils';
 
@@ -605,27 +605,33 @@ export default class Vault extends VaultBase {
       }
     }
 
-    if (encodedTx && accountUtils.isHwAccount({ accountId: this.accountId })) {
+    if (
+      encodedTx &&
+      estimateParams &&
+      accountUtils.isHwAccount({ accountId: this.accountId })
+    ) {
       const device =
         await this.backgroundApi.serviceAccount.getAccountDeviceSafe({
           accountId: this.accountId,
         });
       if (getAlphHardwareInputLimit(device?.deviceType)) {
+        const estimateEncodedTx = { ...encodedTx, params: estimateParams };
         const transaction = await serializeUnsignedTransaction({
-          encodedTx,
+          encodedTx: estimateEncodedTx,
           publicKey: account.pub ?? '',
           networkId: this.networkId,
           backgroundApi: this.backgroundApi,
         });
-        await checkAlphHardwareInputLimit({
+        const prepared = await prepareAlphHardwareTransaction({
           unsignedTx: transaction.unsignedTx,
-          encodedTx,
+          encodedTx: estimateEncodedTx,
           backgroundApi: this.backgroundApi,
           networkId: this.networkId,
           accountId: this.accountId,
           deviceType: device?.deviceType,
           publicKey: account.pub ?? '',
         });
+        estimateParams = prepared.encodedTx.params;
       }
     }
 

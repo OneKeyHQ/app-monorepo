@@ -99,8 +99,18 @@ function setup(deviceType: EDeviceType, count = 17, hardware = true) {
         const required = amount + BigInt(gasAmount) * gasPrice;
         let total = 0n;
         const selected: node.UTXO[] = [];
-        for (const utxo of utxos) {
-          if (total >= required) break;
+        const pool = data.utxos
+          ? data.utxos.map((ref) => {
+              const utxo = utxos.find(
+                (item) =>
+                  item.ref.key === ref.key && item.ref.hint === ref.hint,
+              );
+              if (!utxo) throw new OneKeyLocalError('UTXO already spent');
+              return utxo;
+            })
+          : utxos;
+        for (const utxo of pool) {
+          if (!data.utxos && total >= required) break;
           selected.push(utxo);
           total += BigInt(utxo.amount);
         }
@@ -154,12 +164,15 @@ function setup(deviceType: EDeviceType, count = 17, hardware = true) {
         ];
       },
     );
+  const fetchAccountNativeBalance = jest
+    .fn()
+    .mockResolvedValue({ balance: '0' });
   const backgroundApi = {
     serviceAccount: { getAccountDeviceSafe },
     serviceNetwork: { getNetwork },
     serviceAccountProfile: {
       sendProxyRequest,
-      fetchAccountNativeBalance: jest.fn().mockResolvedValue({ balance: '0' }),
+      fetchAccountNativeBalance,
     },
   } as unknown as IBackgroundApi;
   const vault = Object.assign(Object.create(AlphVault.prototype), {
@@ -195,10 +208,12 @@ function setup(deviceType: EDeviceType, count = 17, hardware = true) {
   return {
     vault,
     keyring,
+    utxos,
     encodedTx,
     params,
     signParams,
     sendProxyRequest,
+    fetchAccountNativeBalance,
     getAccountDeviceSafe,
     alephiumGetAddress,
     alephiumSignTransaction,
@@ -217,6 +232,48 @@ beforeEach(() => {
 afterEach(() => jest.restoreAllMocks());
 
 describe('Alephium amount checks before hardware signing', () => {
+  it.each(
+    [EDeviceType.Classic1s, EDeviceType.ClassicPure].flatMap((deviceType) =>
+      ['159000000000000000', '158000000000000000'].map((amount) => ({
+        deviceType,
+        amount,
+      })),
+    ),
+  )(
+    'reserves estimate-only gas headroom for $amount on $deviceType',
+    async ({ deviceType, amount }) => {
+      const {
+        vault,
+        encodedTx,
+        params,
+        fetchAccountNativeBalance,
+        sendProxyRequest,
+        alephiumSignTransaction,
+      } = setup(deviceType, 16);
+      params.destinations[0].attoAlphAmount = amount;
+      fetchAccountNativeBalance.mockResolvedValue({
+        balance: '160000000000000000',
+      });
+
+      const estimate = await vault.buildEstimateFeeParams({ encodedTx });
+
+      expect(estimate.encodedTx).toMatchObject({
+        type: 'buildTransferTx',
+        destinations: [{ address: TO, attoAlphAmount: '149000000000000000' }],
+      });
+      const buildRequest = sendProxyRequest.mock.calls.find(
+        ([request]) =>
+          request.body[0].params.method === 'postTransactionsBuild',
+      );
+      expect(buildRequest?.[0].body[0].params.params[0]).toMatchObject({
+        destinations: [{ address: TO, attoAlphAmount: '149000000000000000' }],
+      });
+      expect(params.destinations[0].attoAlphAmount).toBe(amount);
+      expect(params.utxos).toBeUndefined();
+      expect(alephiumSignTransaction).not.toHaveBeenCalled();
+    },
+  );
+
   it.each([EDeviceType.Classic1s, EDeviceType.ClassicPure])(
     'reports an executable amount during fee estimation on %s',
     async (deviceType) => {
@@ -243,6 +300,61 @@ describe('Alephium amount checks before hardware signing', () => {
       );
       expect(alephiumGetAddress).not.toHaveBeenCalled();
       expect(alephiumSignTransaction).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([EDeviceType.Classic1s, EDeviceType.ClassicPure])(
+    'uses a large input for fee estimation and signs the same amount on %s',
+    async (deviceType) => {
+      const {
+        vault,
+        keyring,
+        encodedTx,
+        signParams,
+        utxos,
+        params,
+        alephiumSignTransaction,
+        sendProxyRequest,
+      } = setup(deviceType);
+      const large = {
+        ref: { hint: 1, key: 'ff'.repeat(32) },
+        amount: '1000000000000000000',
+      };
+      utxos.push(large);
+      const originalAmount = params.destinations[0].attoAlphAmount;
+      const fee = await vault.buildEstimateFeeParams({ encodedTx });
+      expect(() => JSON.stringify(fee.encodedTx)).not.toThrow();
+      expect(fee.encodedTx).toMatchObject({
+        utxos: [large.ref],
+        gasAmount: GAS_AMOUNT,
+        gasPrice: GAS_PRICE.toString(),
+      });
+      const signed = await keyring.signTransaction(signParams);
+      const raw = alephiumSignTransaction.mock.calls[0][2].rawTx as string;
+      const decoded = codec.unsignedTxCodec.decode(Buffer.from(raw, 'hex'));
+      expect(decoded.inputs).toHaveLength(1);
+      expect(Buffer.from(decoded.inputs[0].key).toString('hex')).toBe(
+        large.ref.key,
+      );
+      expect(decoded.fixedOutputs[0].amount.toString()).toBe(originalAmount);
+      expect(decoded.gasAmount).toBe(GAS_AMOUNT);
+      expect(decoded.gasPrice).toBe(GAS_PRICE);
+      expect(signed.encodedTx).toMatchObject({
+        params: {
+          utxos: [large.ref],
+          gasAmount: GAS_AMOUNT,
+          gasPrice: GAS_PRICE.toString(),
+          destinations: params.destinations,
+        },
+      });
+      expect(JSON.parse(signed.rawTx).unsignedTx).toBe(raw);
+      expect(params.utxos).toBeUndefined();
+      expect(
+        sendProxyRequest.mock.calls.filter(
+          ([request]) =>
+            request.body[0].params.method === 'postTransactionsBuild',
+        ),
+      ).toHaveLength(4);
     },
   );
 
