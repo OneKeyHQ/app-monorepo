@@ -407,7 +407,7 @@ function PerpsRewardPageWrapper() {
   return (
     <Page>
       <ReferFriendsDetailHeader
-        title={intl.formatMessage({ id: ETranslations.global_perp })}
+        title={intl.formatMessage({ id: ETranslations.perps_perps })}
         toolbar={toolbar}
       />
       <Page.Body>
