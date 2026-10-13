@@ -570,9 +570,30 @@ class GateTests(unittest.TestCase):
 
     def test_inline_suppression_is_coverage_failure(self):
         entry = b'100644 blob ' + b'a' * 40 + b'\tDockerfile\0'
-        with patch.object(gate, 'git', side_effect=[entry, b'# trivy:ignore:DS002']), \
+        # Directives are assembled at runtime so this file itself never holds one.
+        def directive(tool, sections='ignore:DS002'):
+            return (tool + ':' + sections).encode()
+        with patch.object(gate, 'git', side_effect=[entry, b'# ' + directive('trivy')]), \
              self.assertRaisesRegex(gate.GateError, 'inline_suppression'):
             gate.export_tree(self.root, 'a' * 40, self.root / 'export')
+        # Mirror the pinned parser: any line, tfsec or trivy prefix, leading #, / or *,
+        # end-of-line placement, and an ignore key after other sections.
+        for data in (b'Resources:\n  #' + directive('tfsec', 'ignore:*') + b'\n',
+                     b'Resources: # ' + directive('trivy', 'ignore:*') + b'\n',
+                     b'bucket = "x" /* ' + directive('trivy', 'ignore:AVD-1') + b' */\n',
+                     b'//' + directive('trivy', 'exp:2030-01-01:ignore:AVD-1') + b'\n',
+                     b'*' + directive('tfsec') + b'\r\n', directive('trivy') + b'\n'):
+            with self.subTest(data=data):
+                self.assertTrue(gate.inline_suppression(data))
+        for data in (b'trivy: enabled\n', b'name: ' + directive('trivy', 'scan') + b'\n',
+                     b'value: "' + directive('trivy', 'ignore:*') + b'"\n',
+                     b'x' + directive('tfsec') + b'\n'):
+            with self.subTest(data=data):
+                self.assertFalse(gate.inline_suppression(data))
+        sources = Path(__file__).parent
+        for file in (sources / 'trivy_gate.py', Path(__file__),
+                     sources / 'trivy_gate_integration_test.py'):
+            self.assertFalse(gate.inline_suppression(file.read_bytes()), file.name)
 
     def test_missing_report_after_successful_process(self):
         with patch.object(gate, 'execute', return_value=(b'', b'')), \

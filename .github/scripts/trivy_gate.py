@@ -594,6 +594,15 @@ def scan(binary, root, output, cache, config, env, frozen=True, allowed_warnings
     return read_json(output)
 
 
+def inline_suppression(data):
+    # Mirror the pinned IaC ignore parser: on any line, a space-separated token
+    # that starts with the tfsec or trivy prefix after optional leading '#', '/'
+    # or '*' characters, with an ignore key among its colon-separated sections.
+    # Splitting on all whitespace keeps this a superset of the parser.
+    return any(b'ignore' in match[1].split(b':')[0::2]
+               for match in re.finditer(rb'(?<!\S)[#/*]*(?:tfsec|trivy):(\S*)', data))
+
+
 def export_tree(repo, revision, destination):
     destination.mkdir()
     # git archive honors export-ignore attributes. Export tracked blobs instead,
@@ -612,8 +621,7 @@ def export_tree(repo, revision, destination):
         data = git(repo, 'cat-file', 'blob', oid.decode())
         # Inline suppressions cannot be redirected by --ignorefile. Treat them
         # as unsupported coverage rather than silently accepting suppression.
-        require(not re.search(rb'(?m)^\s*(?:#|//|;)\s*trivy:ignore', data),
-                'inline_suppression')
+        require(not inline_suppression(data), 'inline_suppression')
         if mode == b'120000':
             # Preserve safe links, reject links escaping the exported source.
             link = os.fsdecode(data)

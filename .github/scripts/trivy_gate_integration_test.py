@@ -229,6 +229,31 @@ class RealScannerTests(unittest.TestCase):
         with self.assertRaisesRegex(gate.GateError, '^ambiguous_yarn_package$'):
             gate.yarn_packages(root)
 
+    def test_cloudformation_inline_suppressions_rejected(self):
+        template = ('AWSTemplateFormatVersion: "2010-09-09"\nResources:{}\n  Bucket:\n'
+                    '    Type: AWS::S3::Bucket\n    Properties:\n      AccessControl: AuthenticatedRead\n')
+        def misconfigurations(name, suffix):
+            root = self.root / name
+            root.mkdir()
+            (root / 'main.yaml').write_text(template.format(suffix))
+            report = self.scan(root, name, 'misconfig')
+            return root, sum(1 for r in report['Results'] for m in r.get('Misconfigurations', [])
+                             if m.get('Status') == 'FAIL')
+        _, plain = misconfigurations('cfn-plain', '')
+        self.assertGreater(plain, 0)
+        # Directives are assembled at runtime so this file itself never holds one.
+        for name, suffix in (('cfn-tfsec', '\n  #' + 'tfsec' + ':ignore:*'),
+                             ('cfn-end-of-line', ' # ' + 'trivy' + ':ignore:*')):
+            root, suppressed = misconfigurations(name, suffix)
+            self.assertEqual(suppressed, 0)
+            self.fixture_git(root, 'init', '--quiet')
+            self.fixture_git(root, 'add', '.')
+            self.fixture_git(root, 'commit', '--quiet', '-m', 'fixture')
+            with self.subTest(name=name), \
+                 self.assertRaisesRegex(gate.GateError, '^inline_suppression$'):
+                gate.export_tree(root, self.fixture_git(root, 'rev-parse', 'HEAD'),
+                                 self.root / (name + '-export'))
+
     def test_separated_dependency_exposes_new_high_findings(self):
         base = self.tree('control-base')
         candidate = self.tree('control-candidate', lodash=True)
