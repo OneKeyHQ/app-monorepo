@@ -279,10 +279,12 @@ export function SwapTokenSelectorDesktop({
   // The same-chain shortcut duplicates a network that also lives in the
   // lists below. The selected state follows the row the user pressed, so the
   // same network never shows two highlights; before any press (or after
-  // pressing the shortcut) the shortcut row holds it.
+  // pressing the shortcut) the shortcut row holds it. The shortcut row is
+  // hidden while searching, so it must not claim the highlight then.
   const [listPickedNetworkId, setListPickedNetworkId] = useState<string>();
   const sameChainNetworkId = sameChainNetwork?.networkId;
   const sameChainRowSelected =
+    !hasNetworkSearch &&
     selectedNetworkId !== undefined &&
     selectedNetworkId === sameChainNetworkId &&
     listPickedNetworkId !== sameChainNetworkId;
