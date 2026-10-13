@@ -77,17 +77,38 @@ jest.mock('@onekeyhq/components', () => {
       children,
     );
   return {
-    SegmentControl: Container,
+    SegmentControl: ({
+      options,
+      onChange,
+    }: {
+      options?: Array<{
+        label: ReactNode;
+        testID?: string;
+        value: string | number;
+      }>;
+      onChange?: (value: string | number) => void;
+    }) =>
+      createElement(
+        'div',
+        null,
+        options?.map((option) =>
+          createElement(
+            'button',
+            {
+              key: String(option.value),
+              'data-testid': option.testID,
+              onClick: () => onChange?.(option.value),
+            },
+            option.label,
+          ),
+        ),
+      ),
     SizableText: Container,
     Stack: Container,
     XStack: Container,
     useMedia: () => ({ gtLg: false }),
   };
 });
-jest.mock('@onekeyhq/kit/src/components/ScrollableFilterBar', () => ({
-  ScrollableFilterBar: ({ children }: { children?: ReactNode }) => children,
-  useScrollableFilterBar: () => ({ handleItemLayout: jest.fn() }),
-}));
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
   default: () => ({ setParams: mockSetParams }),
@@ -224,6 +245,21 @@ describe('SwapHeaderContainer', () => {
       networkId: mockFromToken.networkId,
       reason: 'swapTypeNetworkSync',
     });
+  });
+
+  it('notifies the content before switching the active Swap type', () => {
+    const onSwapTypeSwitch = jest.fn();
+    const { getByTestId } = render(
+      <SwapHeaderContainer
+        showSwapPro
+        hideRightActions
+        onSwapTypeSwitch={onSwapTypeSwitch}
+      />,
+    );
+
+    fireEvent.click(getByTestId(`swap-type-tab-${ESwapTabSwitchType.SWAP}`));
+
+    expect(onSwapTypeSwitch).toHaveBeenCalledWith(ESwapTabSwitchType.SWAP);
   });
 
   it('hides the Swap & Bridge title in the Market embedded header', () => {

@@ -11,9 +11,11 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { StockPriceLineChart } from '@onekeyhq/kit/src/components/StockPriceLineChart';
+import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IMarketPriceSource } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 import type {
   IMarketStockPublicDetail,
@@ -55,6 +57,21 @@ type IStockSimpleChartState = {
   range: IStockSimpleChartRange;
 };
 
+type IStockSimpleChartSeries = {
+  key: string;
+  data: IMarketTokenChart;
+  loadedAt: number;
+  seq: number;
+};
+
+// Swap's keyed content remounts on tab changes. Retain only public series in
+// the UI runtime; no storage writes or background-runtime ownership are needed.
+const stockSimpleChartSeriesCache = new LRUCache<
+  string,
+  { requestedSeq: number; series?: IStockSimpleChartSeries }
+>({ max: 20, ttl: 5 * 60 * 1000 });
+let stockSimpleChartRequestSeq = 0;
+
 type IStockSimpleChartProps = {
   active?: boolean;
   coinGeckoId?: string;
@@ -95,6 +112,7 @@ export function StockSimpleChartContent({
   requestError = false,
   onRequestRetry,
   retainPreviousRange = false,
+  retainOnRemount = false,
   isNative,
   networkId,
   tokenAddress,
@@ -105,6 +123,7 @@ export function StockSimpleChartContent({
 }: IStockSimpleChartProps & {
   updateMarketDetail?: boolean;
   retainPreviousRange?: boolean;
+  retainOnRemount?: boolean;
   isNative: boolean;
   networkId: string;
   tokenAddress: string;
@@ -113,6 +132,7 @@ export function StockSimpleChartContent({
   stockId?: string;
 }) {
   const intl = useIntl();
+  const isMountedRef = useIsMounted();
   const [chartHeight, setChartHeight] = useState(
     STOCK_SIMPLE_CHART_INITIAL_HEIGHT,
   );
@@ -190,12 +210,17 @@ export function StockSimpleChartContent({
     stockId: requestStockId,
     tokenAddress: requestTokenAddress,
   });
+  const remountCacheKey = JSON.stringify([scopeKey, requestIsNative]);
+  const [initialSeries] = useState(() =>
+    retainOnRemount
+      ? stockSimpleChartSeriesCache.get(remountCacheKey)?.series
+      : undefined,
+  );
   // Keyed by scope so a failed refresh can fall back to the line already on
   // screen, while a range or token switch never redraws the previous asset.
-  const lastLoadedRef = useRef<
-    | { key: string; data: IMarketTokenChart; loadedAt: number; seq: number }
-    | undefined
-  >(undefined);
+  const lastLoadedRef = useRef<IStockSimpleChartSeries | undefined>(
+    initialSeries,
+  );
   // A late response from a scope the user already left must not overwrite the
   // fallback that belongs to the current one.
   const scopeKeyRef = useRef(scopeKey);
@@ -203,7 +228,6 @@ export function StockSimpleChartContent({
   // Two refreshes of the same scope can overlap, and the later one can answer
   // first. Ordering the writes keeps an older series from being restored by the
   // paced polls that read this fallback.
-  const requestSeqRef = useRef(0);
   const minRefreshMs = resolveStockSimpleChartMinRefreshMs({
     range: requestRange,
   });
@@ -231,12 +255,20 @@ export function StockSimpleChartContent({
         return { data: [], ...stateScope, status: 'pending' };
       }
 
-      requestSeqRef.current += 1;
-      const seq = requestSeqRef.current;
+      stockSimpleChartRequestSeq += 1;
+      const seq = stockSimpleChartRequestSeq;
       // One polling interval serves every range, so the per-range pace is
       // enforced here. A scope change skips this and reloads immediately.
       if (isCachedScope && Date.now() - cached.loadedAt < minRefreshMs) {
         return { data: cached.data, ...stateScope, status: 'success' };
+      }
+
+      if (retainOnRemount) {
+        const previous = stockSimpleChartSeriesCache.get(remountCacheKey);
+        stockSimpleChartSeriesCache.set(remountCacheKey, {
+          requestedSeq: seq,
+          series: previous?.series,
+        });
       }
 
       try {
@@ -265,6 +297,17 @@ export function StockSimpleChartContent({
             loadedAt: Date.now(),
             seq,
           };
+          if (
+            retainOnRemount &&
+            isMountedRef.current &&
+            stockSimpleChartSeriesCache.get(remountCacheKey)?.requestedSeq ===
+              seq
+          ) {
+            stockSimpleChartSeriesCache.set(remountCacheKey, {
+              requestedSeq: seq,
+              series: data.length > 0 ? lastLoadedRef.current : undefined,
+            });
+          }
         }
         return {
           data,
@@ -293,16 +336,19 @@ export function StockSimpleChartContent({
       requestStockId,
       requestTokenAddress,
       minRefreshMs,
+      retainOnRemount,
+      isMountedRef,
+      remountCacheKey,
       scopeKey,
       assetKey,
     ],
     {
       initResult: {
-        data: [],
-        scopeKey: '',
-        assetKey: '',
+        data: initialSeries?.data ?? [],
+        scopeKey: initialSeries ? scopeKey : '',
+        assetKey: initialSeries ? assetKey : '',
         range: requestRange,
-        status: 'pending',
+        status: initialSeries ? 'success' : 'pending',
       },
       watchLoading: true,
       checkIsFocused: false,

@@ -236,11 +236,12 @@ function StockPrice({
 
 export function SwapStockMobileHeader() {
   const { status } = useSwapStockPrice('share');
-  const { isStockDetailReady, stockDetail, stockId } = useStockDetail();
+  const { stockDetail, stockId } = useStockDetail();
   const selection = useSwapStockSelection();
+  // A matching public detail is replayed by SWR on remount. Keep its status
+  // visible while revalidating instead of waiting for this mount's first fetch.
   const hasCurrentStockDetail = Boolean(
     stockDetail &&
-    isStockDetailReady &&
     stockId &&
     stockDetail.stockId.toUpperCase() === stockId.toUpperCase(),
   );
@@ -254,7 +255,9 @@ export function SwapStockMobileHeader() {
       </XStack>
       <Stack minHeight={20}>
         {isStatusLoading ? (
-          <Skeleton width={220} height={20} />
+          <Stack testID="swap-stock-market-status-loading">
+            <Skeleton width={220} height={20} />
+          </Stack>
         ) : (
           <StockMarketStatusBadge stock={status} variant="inline" />
         )}
@@ -358,7 +361,6 @@ export function SwapStockMarketPanel() {
   const {
     stockDetail,
     stockId,
-    isStockDetailReady,
     selectedTokenVariant,
     isStockDetailError,
     retryStockDetail,
@@ -382,7 +384,6 @@ export function SwapStockMarketPanel() {
   const { status } = useSwapStockPrice(priceMode);
   const hasCurrentStockDetail = Boolean(
     stockDetail &&
-    isStockDetailReady &&
     stockId &&
     stockDetail.stockId.toUpperCase() === stockId.toUpperCase(),
   );
@@ -440,7 +441,9 @@ export function SwapStockMarketPanel() {
             <StockPrice priceMode={priceMode} />
             <Stack minHeight={20}>
               {isStatusLoading ? (
-                <Skeleton width={220} height={20} />
+                <Stack testID="swap-stock-market-status-loading">
+                  <Skeleton width={220} height={20} />
+                </Stack>
               ) : (
                 <StockMarketStatusBadge
                   stock={status}
@@ -481,6 +484,7 @@ export function SwapStockMarketPanel() {
             ) : null}
             {!selection?.stockSelectionPending && isSimpleChart ? (
               <StockSimpleChartContent
+                retainOnRemount
                 priceMode={priceMode}
                 range={range}
                 stockId={stockId}
