@@ -395,6 +395,24 @@ class GateTests(unittest.TestCase):
         # Ungrouped lockfiles keep their exact bytes.
         self.assertEqual((projected / 'apps/desktop/app/yarn.lock').read_text(), self.npm_lockfile())
 
+    def test_distinct_packages_sharing_one_trivy_id_fail_closed(self):
+        def entry(selector, resolution):
+            return (json.dumps(selector) + ':\n  version: 1\n  resolution: '
+                    + json.dumps(resolution) + '\n')
+        for second in (entry('alias@npm:other@1', 'other@npm:1'),
+                       entry('example@npm:other@1', 'other@npm:1')):
+            first = (entry('alias@npm:example@1', 'example@npm:1') if second.startswith('"alias')
+                     else self.npm_lockfile())
+            (self.root / 'yarn.lock').write_text(first + '\n' + second)
+            with self.subTest(second=second.splitlines()[0]), \
+                 self.assertRaisesRegex(gate.GateError, '^ambiguous_yarn_package$'):
+                gate.yarn_packages(self.root)
+        # The same package reached through separate blocks remains one instance.
+        patch_entry = ('"example@patch:example@npm%3A1#./fixture.patch":\n  version: 1\n'
+                       '  resolution: "example@patch:example@npm%3A1#./fixture.patch::version=1&hash=abcdef"\n')
+        (self.root / 'yarn.lock').write_text(self.npm_lockfile() + '\n' + patch_entry)
+        self.assertEqual(gate.yarn_packages(self.root)['yarn.lock'], {('example@1', '1'): 'example'})
+
     def test_alias_instances_without_resolved_name_use_resolved_advisories(self):
         alias = ('"alias@npm:example@1":\n  version: 1\n  resolution: "example@npm:1"\n')
         (self.root / 'yarn.lock').write_text(self.npm_lockfile() + '\n' + alias)

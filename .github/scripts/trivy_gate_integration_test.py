@@ -203,6 +203,32 @@ class RealScannerTests(unittest.TestCase):
         self.assertEqual(sum(f['count'] for f in findings), 2)
         self.assertTrue(all(f['severity'] == 'HIGH' for f in findings))
 
+    def test_same_name_aliases_to_distinct_packages_fail_closed(self):
+        root = self.tree('alias-collision')
+        manifest = root / 'package.json'
+        package = json.loads(manifest.read_text())
+        package['workspaces'] = ['packages/*']
+        package['dependencies']['alias'] = 'npm:lodash@3.10.1'
+        manifest.write_text(json.dumps(package))
+        workspace = root / 'packages/ws'
+        workspace.mkdir(parents=True)
+        (workspace / 'package.json').write_text(json.dumps(
+            {'name': 'ws', 'version': '1.0.0', 'devDependencies': {'alias': 'npm:zod@3.10.1'}}))
+        lock = root / 'yarn.lock'
+        lock.write_text(lock.read_text() + '\n'
+            '"alias@npm:lodash@3.10.1":\n  version: 3.10.1\n  resolution: "lodash@npm:3.10.1"\n\n'
+            '"alias@npm:zod@3.10.1":\n  version: 3.10.1\n  resolution: "zod@npm:3.10.1"\n\n'
+            '"ws@workspace:packages/ws":\n  version: 0.0.0-use.local\n  resolution: "ws@workspace:packages/ws"\n'
+            '  dependencies:\n    alias: "npm:zod@3.10.1"\n')
+        projected = self.root / 'alias-collision-projected'
+        gate.project_yarn(root, projected)
+        production = self.scan(projected, 'alias-collision-production', 'vuln')
+        # Trivy merges both locators into one ID; only one package is assessed.
+        self.assertEqual([p['Name'] for r in production['Results'] for p in r.get('Packages', [])
+                          if p['ID'] == 'alias@3.10.1'], ['lodash'])
+        with self.assertRaisesRegex(gate.GateError, '^ambiguous_yarn_package$'):
+            gate.yarn_packages(root)
+
     def test_separated_dependency_exposes_new_high_findings(self):
         base = self.tree('control-base')
         candidate = self.tree('control-candidate', lodash=True)

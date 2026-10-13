@@ -478,8 +478,12 @@ def yarn_packages(root):
             # The projection gives every selector name its own Trivy instance.
             for pattern in selector.split(', '):
                 name = yarn_selector_name(pattern)
-                expected[relative][(name + '@' + version, version)] = (
-                    npm_resolution[1] if npm_resolution else name)
+                resolved = npm_resolution[1] if npm_resolution else name
+                # Trivy keys packages by name@version. Different packages behind
+                # one ID (e.g. two same-name aliases) merge into one instance.
+                require(expected[relative].setdefault((name + '@' + version, version),
+                                                      resolved) == resolved,
+                        'ambiguous_yarn_package')
     return expected
 
 
