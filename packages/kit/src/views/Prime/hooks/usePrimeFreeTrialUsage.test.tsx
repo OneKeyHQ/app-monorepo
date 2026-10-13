@@ -388,6 +388,27 @@ describe('usePrimeFreeTrialUsage.prepareRetryUsage', () => {
     expect(prepared!.usageId).not.toBe('usage-1');
   });
 
+  it('runs no retry of a reused usage for a page that closed meanwhile', async () => {
+    mockGetUsageResult.mockResolvedValue('success');
+    const result = renderUsageHook();
+
+    await act(async () => {
+      await expect(
+        result.current.prepareRetryUsage({
+          usageId: 'usage-1',
+          succeededLocally: false,
+          isCallerGone: () => true,
+        }),
+      ).resolves.toEqual({
+        proceed: false,
+        usageId: 'usage-1',
+        isNewUsage: false,
+      });
+    });
+    expect(mockStartUsage).not.toHaveBeenCalled();
+    expect(mockSettleUsage).not.toHaveBeenCalled();
+  });
+
   it('keeps the result page and releases the new use when it closed while starting', async () => {
     mockGetUsageResult.mockResolvedValue('failed');
     mockStartUsage.mockImplementation(async ({ usageId }) => ({

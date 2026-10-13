@@ -262,7 +262,13 @@ export function usePrimeFreeTrialUsage({
         usageId &&
         (succeededLocally || (await getUsageResult(usageId)) === 'success')
       ) {
-        return { proceed: true, usageId, isNewUsage: false };
+        // A reused usage is never released, but a page closed meanwhile
+        // runs no retry.
+        return {
+          proceed: !isCallerGone?.(),
+          usageId,
+          isNewUsage: false,
+        };
       }
       const outcome = await startUsage({ networkId, isCallerGone });
       if (outcome.status === 'rejected' || outcome.status === 'error') {
