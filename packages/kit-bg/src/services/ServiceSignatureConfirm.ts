@@ -4,6 +4,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { IMPL_TON } from '@onekeyhq/shared/src/engine/engineConsts';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -62,6 +63,7 @@ import {
 } from '../dbs/simple/entity/SimpleDbEntityRecentRecipients';
 import { primePersistAtom } from '../states/jotai/atoms/prime';
 import { vaultFactory } from '../vaults/factory';
+import { normalizeTonAddress } from '../vaults/impls/ton/sdkTon/transactionParser';
 
 import ServiceBase from './ServiceBase';
 import { checksumDisplayComponentAddresses } from './utils/displayComponentAddressUtils';
@@ -453,11 +455,15 @@ class ServiceSignatureConfirm extends ServiceBase {
     // force the local path. Server risk alerts are retained below.
     const hasScalingRebaseAction =
       checkDecodedTxHasScalingBalanceMultiplier(decodedTx);
+    const forceLocalTonTransfer =
+      networkUtils.getNetworkImpl({ networkId }) === IMPL_TON &&
+      decodedTx.actions.some((action) => Boolean(action.assetTransfer));
 
     if (
       parsedTx?.display &&
       !shouldUseLocalDisplay &&
-      !hasScalingRebaseAction
+      !hasScalingRebaseAction &&
+      !forceLocalTonTransfer
     ) {
       decodedTx.txDisplay = parsedTx.display;
     } else {
@@ -474,11 +480,11 @@ class ServiceSignatureConfirm extends ServiceBase {
           isUTXO: vaultSettings.isUtxo,
         });
 
-      // Rebase-forced local display: the server parse ran but the rebase
-      // condition (not shouldUseLocalDisplay) forced the local path.
-      const isRebaseForcedLocal =
-        hasScalingRebaseAction &&
-        !shouldUseLocalDisplay &&
+      // Signed TON transfer facts and scaled amounts remain local. Server
+      // analysis contributes risk information without replacing those facts.
+      const isPayloadForcedLocal =
+        ((hasScalingRebaseAction && !shouldUseLocalDisplay) ||
+          forceLocalTonTransfer) &&
         Boolean(parsedTx?.display);
 
       // The rebase-forced path did not receive `parsedTx.display` above
@@ -489,7 +495,7 @@ class ServiceSignatureConfirm extends ServiceBase {
       // Simulation panel carries raw (non-multiplied) server amounts and
       // would reintroduce the display/raw mismatch this mechanism removes —
       // do not "restore" it for the rebase-forced case.
-      const rebaseDisplayExtras = isRebaseForcedLocal
+      const rebaseDisplayExtras = isPayloadForcedLocal
         ? getPermit2ServerDisplayExtras(parsedTx?.display)
         : undefined;
 
@@ -497,10 +503,18 @@ class ServiceSignatureConfirm extends ServiceBase {
       // (no `display.alerts`); local Address components carry `tags: []`,
       // so merge the server risk tags back or SecurityCheckCard would
       // report "No issues" for a flagged address on the rebase-forced path.
-      const rebaseMergedComponents = isRebaseForcedLocal
+      const rebaseMergedComponents = isPayloadForcedLocal
         ? mergeServerAddressRiskTagsIntoComponents({
             localComponents: txDisplayComponents,
             serverComponents: parsedTx?.display?.components,
+            normalizeAddress: forceLocalTonTransfer
+              ? normalizeTonAddress
+              : undefined,
+            unmatchedAddressLabel: forceLocalTonTransfer
+              ? appLocale.intl.formatMessage({
+                  id: ETranslations.global_address,
+                })
+              : undefined,
           })
         : txDisplayComponents;
 
@@ -515,7 +529,7 @@ class ServiceSignatureConfirm extends ServiceBase {
       // Scaled-UI forced-local: the server parse ran and its alerts are
       // retained above — mark it so SecurityCheckCard does not report a
       // false "Unverified" for this tx.
-      if (isRebaseForcedLocal) {
+      if (isPayloadForcedLocal) {
         decodedTx.hasServerSecurityAnalysis = true;
       }
     }

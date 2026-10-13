@@ -244,9 +244,13 @@ export const ADDRESS_RISK_TAG_DISPLAY_TYPES: ReadonlySet<string> = new Set([
 export function mergeServerAddressRiskTagsIntoComponents({
   localComponents,
   serverComponents,
+  normalizeAddress = (address) => address.toLowerCase(),
+  unmatchedAddressLabel,
 }: {
   localComponents: IDisplayComponent[];
   serverComponents: IDisplayComponent[] | undefined;
+  normalizeAddress?: (address: string) => string;
+  unmatchedAddressLabel?: string;
 }): IDisplayComponent[] {
   const serverRiskAddressComponents = (serverComponents ?? []).filter(
     (component): component is IDisplayComponentAddress =>
@@ -265,7 +269,7 @@ export function mergeServerAddressRiskTagsIntoComponents({
     const riskTags = (component.tags ?? []).filter((tag) =>
       ADDRESS_RISK_TAG_DISPLAY_TYPES.has(tag.displayType),
     );
-    const key = component.address.toLowerCase();
+    const key = normalizeAddress(component.address);
     const existing = riskTagsByAddress.get(key) ?? [];
     const existingKeys = new Set(
       existing.map((tag) => `${tag.displayType}:${tag.value}`),
@@ -285,7 +289,7 @@ export function mergeServerAddressRiskTagsIntoComponents({
           component.type === EParseTxComponentType.Address &&
           Boolean(component.address),
       )
-      .map((component) => component.address.toLowerCase()),
+      .map((component) => normalizeAddress(component.address)),
   );
 
   const merged = localComponents.map((component) => {
@@ -293,7 +297,7 @@ export function mergeServerAddressRiskTagsIntoComponents({
       return component;
     }
     const serverRiskTags = component.address
-      ? riskTagsByAddress.get(component.address.toLowerCase())
+      ? riskTagsByAddress.get(normalizeAddress(component.address))
       : undefined;
     if (!serverRiskTags?.length) {
       return component;
@@ -311,10 +315,22 @@ export function mergeServerAddressRiskTagsIntoComponents({
   });
 
   const unmatchedServerRiskComponents = serverRiskAddressComponents.filter(
-    (component) => !localAddressKeys.has(component.address.toLowerCase()),
+    (component) => !localAddressKeys.has(normalizeAddress(component.address)),
   );
 
-  return [...merged, ...unmatchedServerRiskComponents];
+  return [
+    ...merged,
+    ...unmatchedServerRiskComponents.map((component) =>
+      unmatchedAddressLabel
+        ? {
+            ...component,
+            label: unmatchedAddressLabel,
+            role: undefined,
+            highlight: false,
+          }
+        : component,
+    ),
+  ];
 }
 
 export function isSendNativeTokenAction(action: IDecodedTxAction) {
