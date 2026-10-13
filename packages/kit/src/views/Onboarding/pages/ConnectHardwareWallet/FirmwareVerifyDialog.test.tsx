@@ -458,7 +458,6 @@ describe('DeviceStage certificate error classification', () => {
   );
 
   it.each([
-    HardwareErrorCode.BleDeviceBondError,
     HardwareErrorCode.BlePermissionError,
     HardwareErrorCode.DeviceNotOpenedPassphrase,
   ])(
@@ -494,7 +493,7 @@ describe('DeviceStage certificate error classification', () => {
     // silently.
     mockFirmwareAuthenticate.mockRejectedValueOnce({
       className: EOneKeyErrorClassNames.OneKeyServerApiError,
-      code: HardwareErrorCode.BleDeviceBondError,
+      code: HardwareErrorCode.BlePermissionError,
       message: 'Forbidden',
     });
     const { result } = renderHook(() => useDeviceStageFirmwareVerify());
