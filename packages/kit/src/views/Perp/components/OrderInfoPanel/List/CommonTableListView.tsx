@@ -17,6 +17,7 @@ import type {
   IDebugRenderTrackerProps,
   IElement,
   IInputProps,
+  IInputRef,
   IXStackProps,
 } from '@onekeyhq/components';
 import {
@@ -312,25 +313,32 @@ const PaginationFooter = ({
   };
 
   const handleMobilePagePress = () => {
+    let pageInput: IInputRef | null = null;
+    let isSheetOpen = false;
+    let isClosing = false;
     let hasFocusedPageInput = false;
-    const dialog = Dialog.show({
+    const focusPageInputWhenReady = () => {
+      if (!isSheetOpen || !pageInput || isClosing || hasFocusedPageInput) {
+        return;
+      }
+      // The lazy field and sheet animation can become ready in either order.
+      hasFocusedPageInput = true;
+      pageInput.focus();
+    };
+    Dialog.show({
       title: intl.formatMessage({
         id: ETranslations.global_bulk_accounts_page_number,
       }),
       // Let the input own initial focus; the web focus scope can also select text.
       onOpenAutoFocus: (event) => event.preventDefault(),
+      onCloseRequested: () => {
+        isClosing = true;
+      },
       sheetProps: shouldFocusAfterSheetOpen
         ? {
             onAnimationComplete: ({ open }) => {
-              if (!open || hasFocusedPageInput) {
-                return;
-              }
-              const form = dialog.getForm();
-              if (form) {
-                // Focus after presentation, only once so keyboard resizing cannot steal focus.
-                hasFocusedPageInput = true;
-                form.setFocus('page', { shouldSelect: false });
-              }
+              isSheetOpen = open;
+              focusPageInputWhenReady();
             },
           }
         : undefined,
@@ -353,6 +361,10 @@ const PaginationFooter = ({
             }}
           >
             <Input
+              ref={(instance) => {
+                pageInput = instance;
+                focusPageInputWhenReady();
+              }}
               testID="perp-pagination-page-input"
               autoFocus={!shouldFocusAfterSheetOpen}
               keyboardType="number-pad"
