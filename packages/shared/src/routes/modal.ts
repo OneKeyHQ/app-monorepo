@@ -8,6 +8,7 @@ import type { IAppUpdatePagesParamList } from './appUpdate';
 import type { IModalAssetDetailsParamList } from './assetDetails';
 import type { IModalAssetListParamList } from './assetList';
 import type { IAssetSelectorParamList } from './assetSelector';
+import type { IModalBinanceDepositParamList } from './binanceDeposit';
 import type { IModalBulkCopyAddressesParamList } from './bulkCopyAddresses';
 import type { IModalBulkExportHistoryParamList } from './bulkExportHistory';
 import type { IModalBulkSendParamList } from './bulkSend';
@@ -87,6 +88,7 @@ export enum EModalRoutes {
   SignAndVerifyModal = 'SignAndVerifyModal',
   NetworkDoctorModal = 'NetworkDoctorModal',
   AddressRiskCheckModal = 'AddressRiskCheckModal',
+  BinanceDepositModal = 'BinanceDepositModal',
 }
 
 export type IModalParamList = {
@@ -135,4 +137,5 @@ export type IModalParamList = {
   [EModalRoutes.PerpModal]: IModalPerpParamList;
   [EModalRoutes.NetworkDoctorModal]: IModalNetworkDoctorParamList;
   [EModalRoutes.AddressRiskCheckModal]: IModalAddressRiskCheckParamList;
+  [EModalRoutes.BinanceDepositModal]: IModalBinanceDepositParamList;
 };

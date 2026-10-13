@@ -2049,6 +2049,11 @@ class ServiceToken extends ServiceBase {
   );
 
   @backgroundMethod()
+  public async clearBinanceSupportedAssetsCache() {
+    void this._getBinanceSupportedAssetsMemo.clear();
+  }
+
+  @backgroundMethod()
   public async createBinancePreOrder(
     params: IBinancePreOrderParams,
   ): Promise<IBinancePreOrderResponse> {

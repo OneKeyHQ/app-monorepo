@@ -4,6 +4,7 @@ export * from './appUpdate';
 export * from './assetDetails';
 export * from './assetList';
 export * from './assetSelector';
+export * from './binanceDeposit';
 export * from './chainSelector';
 export * from './cloudBackup';
 export * from './dAppConnection';

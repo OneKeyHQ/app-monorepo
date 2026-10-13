@@ -17,6 +17,7 @@ import { AddressRiskCheckModalRouter } from '../../views/AddressRiskCheck/router
 import { ModalApprovalManagementStack } from '../../views/ApprovalManagement/router';
 import { AppUpdateRouter } from '../../views/AppUpdate/router';
 import { AssetSelectorRouter } from '../../views/AssetSelector/router';
+import { BinanceDepositModalRouter } from '../../views/BinanceDeposit/router';
 import { BulkCopyAddressesModalRouter } from '../../views/BulkCopyAddresses/router';
 import { BulkExportHistoryModalRouter } from '../../views/BulkExportHistory/router';
 import { BulkSendModalRouter } from '../../views/BulkSend/router';
@@ -250,6 +251,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.AddressRiskCheckModal,
     children: AddressRiskCheckModalRouter,
+  },
+  {
+    name: EModalRoutes.BinanceDepositModal,
+    children: BinanceDepositModalRouter,
   },
 ];
 

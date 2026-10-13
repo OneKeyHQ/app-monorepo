@@ -65,6 +65,9 @@ jest.mock('../../../../background/instance/backgroundApiProxy', () => ({
       isPaymentLink: jest.fn(async () => false),
       supportsDurableProgress: jest.fn(async () => true),
     },
+    serviceBinanceDeposit: {
+      handleDepositReturn: jest.fn(async () => ({ accepted: true })),
+    },
   },
 }));
 
@@ -116,6 +119,16 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
 jest.mock('../../../../utils/passwordUtils', () => ({
   whenAppUnlocked: jest.fn(async () => {}),
 }));
+
+// The generic entry is on the startup path of every platform and may only
+// import the small URL check. Requiring the return handler, or the utils it
+// brings along, from anywhere in this suite's import graph fails the suite.
+jest.mock('../binanceDepositReturn', () => {
+  throw new TypeError('binanceDepositReturn was loaded by the generic entry');
+});
+jest.mock('@onekeyhq/shared/src/utils/binanceDepositUtils', () => {
+  throw new TypeError('binanceDepositUtils was loaded by the generic entry');
+});
 
 jest.mock('../referralLandingLink', () => ({
   handleReferralLandingUrl: jest.fn(async () => false),
@@ -188,6 +201,105 @@ describe('handleDeepLinkUrl', () => {
     await flushAsyncTasks();
 
     expect(mockedNavigateToReferralLanding).not.toHaveBeenCalled();
+  });
+});
+
+describe('binance deposit return urls', () => {
+  const nonce = '0123456789abcdefghijklmnopqrstuvwxyzABCDE-_';
+  const returnUrl = `onekey-wallet://binance-connect/deposit-return?rn=${nonce}`;
+  const mockedBackgroundApiProxy = (
+    jest.requireMock('../../../../background/instance/backgroundApiProxy') as {
+      default: Record<string, Record<string, jest.Mock<unknown, unknown[]>>>;
+    }
+  ).default;
+  const mockedLinkingParse = (
+    jest.requireMock('expo-linking') as { parse: jest.Mock }
+  ).parse;
+  const getBackgroundCalls = (): unknown[][] =>
+    Object.values(mockedBackgroundApiProxy).flatMap((service) =>
+      Object.values(service).flatMap((method) => method.mock.calls),
+    );
+  const originalRootAppNavigation = appGlobals.$rootAppNavigation;
+  let consoleSpies: jest.SpyInstance[] = [];
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // With a navigation object in place the pipeline finishes within the
+    // test instead of scheduling retries.
+    appGlobals.$rootAppNavigation =
+      {} as unknown as typeof appGlobals.$rootAppNavigation;
+    consoleSpies = (['log', 'info', 'warn', 'error', 'debug'] as const).map(
+      (method) => jest.spyOn(console, method).mockImplementation(() => {}),
+    );
+  });
+
+  afterEach(() => {
+    appGlobals.$rootAppNavigation = originalRootAppNavigation;
+    consoleSpies.forEach((spy) => spy.mockRestore());
+  });
+
+  // Only the OS entry (handler.native.ts) may consume the return. Fed in
+  // through the generic entry (DApp browser, webview, banner href) it must
+  // vanish without a trace.
+  it.each([
+    { url: returnUrl },
+    { url: returnUrl, isColdStartup: true },
+    { url: '', argv: [returnUrl] },
+    { url: `${returnUrl}&utm_source=binance&state=1` },
+    { url: `ONEKEY-WALLET://Binance-Connect/deposit-return/?rn=${nonce}` },
+    { url: 'onekey-wallet://binance-connect/deposit-return?rn=malformed' },
+    { url: `onekey-wallet://binance-connect/other-path?rn=${nonce}` },
+    { url: `onekey-wallet://binance-connect?rn=${nonce}` },
+  ])('drops %j without logging or calling background', async (data) => {
+    handleDeepLinkUrl(data);
+    await flushAsyncTasks();
+    await flushAsyncTasks();
+
+    expect(getBackgroundCalls()).toEqual([]);
+    expect(mockedLinkingParse).not.toHaveBeenCalled();
+    expect(mockedHandleReferralLandingUrl).not.toHaveBeenCalled();
+    consoleSpies.forEach((spy) => expect(spy).not.toHaveBeenCalled());
+  });
+
+  it('still processes the other urls of the same event', async () => {
+    const otherUrl = 'onekey-wallet://unknown_path';
+
+    handleDeepLinkUrl({ url: returnUrl, argv: [otherUrl] });
+    await flushAsyncTasks();
+    await flushAsyncTasks();
+
+    expect(mockedHandleReferralLandingUrl).toHaveBeenCalledTimes(1);
+    expect(mockedHandleReferralLandingUrl).toHaveBeenCalledWith({
+      url: otherUrl,
+    });
+    expect(JSON.stringify(getBackgroundCalls())).not.toContain(nonce);
+    const printed = JSON.stringify(
+      consoleSpies.map((spy): unknown[] => spy.mock.calls),
+    );
+    expect(printed).toContain(otherUrl);
+    expect(printed).not.toContain(nonce);
+  });
+
+  // Guards the assertions above: a url of the same shape on another host
+  // does go through the pipeline, is logged and reaches background.
+  it('lets a look-alike host through the generic pipeline', async () => {
+    const lookAlikeUrl = `onekey-wallet://binance-connect-other/deposit-return?rn=${nonce}`;
+
+    handleDeepLinkUrl({ url: lookAlikeUrl });
+    await flushAsyncTasks();
+    await flushAsyncTasks();
+
+    expect(mockedLinkingParse).toHaveBeenCalledWith(lookAlikeUrl);
+    expect(
+      mockedBackgroundApiProxy.serviceDevSetting.getDevSetting,
+    ).toHaveBeenCalled();
+    expect(
+      mockedBackgroundApiProxy.serviceBinanceDeposit.handleDepositReturn,
+    ).not.toHaveBeenCalled();
+    expect(consoleSpies[0]).toHaveBeenCalledWith(
+      expect.any(String),
+      lookAlikeUrl,
+    );
   });
 });
 

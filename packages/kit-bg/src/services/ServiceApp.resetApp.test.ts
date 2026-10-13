@@ -68,6 +68,7 @@ jest.mock(
   }),
 );
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EAppRestartMode } from '@onekeyhq/shared/src/modules3rdParty/appRestart/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
@@ -279,5 +280,74 @@ describe('ServiceApp.resetApp', () => {
     ).toHaveBeenCalledTimes(2);
     expect(resetLocalDb).toHaveBeenCalledTimes(2);
     expect(restartApp).not.toHaveBeenCalled();
+  });
+
+  describe('Binance deposit session keys', () => {
+    function createResetHarness({ purgeFails }: { purgeFails: boolean }) {
+      platformEnv.isNative = true;
+      const order: string[] = [];
+      const purge = jest.fn<Promise<void>, []>(async () => {
+        order.push('purge:start');
+        await Promise.resolve();
+        if (purgeFails) {
+          throw new OneKeyLocalError('purge failed');
+        }
+        order.push('purge:end');
+      });
+      const service = new ServiceApp({
+        backgroundApi: {
+          serviceIdentityExit: {
+            prepareIdentityAuthForAppReset: jest
+              .fn()
+              .mockResolvedValue(undefined),
+          },
+          serviceNotification: {
+            unregisterClient: jest.fn().mockResolvedValue(undefined),
+          },
+          serviceBinanceDeposit: { purgeAllSessionKeysForReset: purge },
+        },
+      });
+      jest.spyOn(appStorage, 'clear').mockImplementation(() => {
+        order.push('appStorage.clear');
+        return Promise.resolve();
+      });
+      jest
+        .spyOn(appStorage.syncStorage, 'clearAll')
+        .mockResolvedValue(undefined);
+      jest
+        .spyOn(biologyAuthUtils, 'deletePassword')
+        .mockResolvedValue(undefined);
+      const resetLocalDb = jest.spyOn(localDb, 'reset');
+      const restartApp = jest
+        .spyOn(service, 'restartApp')
+        .mockResolvedValue(undefined);
+      jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+      jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      return { service, order, purge, resetLocalDb, restartApp };
+    }
+
+    test('are purged before the storage that indexes them is cleared', async () => {
+      const harness = createResetHarness({ purgeFails: false });
+
+      await harness.service.resetApp();
+
+      expect(harness.purge).toHaveBeenCalledTimes(1);
+      expect(harness.order).toEqual([
+        'purge:start',
+        'purge:end',
+        'appStorage.clear',
+      ]);
+      expect(harness.restartApp).toHaveBeenCalledTimes(1);
+    });
+
+    test('do not stop the reset when their cleanup fails', async () => {
+      const harness = createResetHarness({ purgeFails: true });
+
+      await expect(harness.service.resetApp()).resolves.toBeUndefined();
+
+      expect(harness.order).toEqual(['purge:start', 'appStorage.clear']);
+      expect(harness.resetLocalDb).toHaveBeenCalledTimes(1);
+      expect(harness.restartApp).toHaveBeenCalledTimes(1);
+    });
   });
 });

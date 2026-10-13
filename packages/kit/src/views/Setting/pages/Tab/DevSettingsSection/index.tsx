@@ -85,7 +85,11 @@ import {
   openWebViewInGooglePlay,
 } from '@onekeyhq/shared/src/modules3rdParty/webview-checker';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalBinanceDepositRoutes,
+  EModalRoutes,
+  EModalSettingRoutes,
+} from '@onekeyhq/shared/src/routes';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
 import {
@@ -913,7 +917,7 @@ const BaseDevSettingsSection = () => {
         title: 'Transaction & Signature',
         description: '交易 签名',
         keywords:
-          'Sign Message 禁用Solana交易优先费 模拟交易费过高 始终只签名不广播 严格的签名Alert展示 signTypedData',
+          'Sign Message 禁用Solana交易优先费 模拟交易费过高 始终只签名不广播 严格的签名Alert展示 signTypedData Binance Deposit (self-test) Binance Connect',
       },
     ],
     [],
@@ -2633,6 +2637,24 @@ const BaseDevSettingsSection = () => {
                         subtitle="Sign Message"
                         onPress={handleSignMessage}
                       />
+                      {platformEnv.isNative ? (
+                        <SectionPressItem
+                          icon="LabOutline"
+                          title="Binance Deposit (self-test)"
+                          subtitle="Create a session, authorize in Binance, bind, send and report"
+                          searchKeywords="binance deposit connect self-test session bind report"
+                          testID="binance-deposit-self-test-menu"
+                          onPress={() => {
+                            navigation.pushModal(
+                              EModalRoutes.BinanceDepositModal,
+                              {
+                                screen:
+                                  EModalBinanceDepositRoutes.BinanceDepositHome,
+                              },
+                            );
+                          }}
+                        />
+                      ) : null}
                       <SectionFieldItem
                         icon="SolanaIllus"
                         name="disableSolanaPriorityFee"

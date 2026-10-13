@@ -113,6 +113,14 @@ class ServiceApp extends ServiceBase {
     //   v4migrationPersistData?.v4migrationAutoStartDisabled;
     // ----------------------------------------------
 
+    // Binance deposit session keys live in secure storage and are indexed only
+    // by simpleDb records, so they have to go before that storage is cleared.
+    try {
+      await this.backgroundApi.serviceBinanceDeposit.purgeAllSessionKeysForReset();
+    } catch {
+      // The reset goes on without this cleanup.
+    }
+
     // clean app storage
     try {
       await appStorage.clear();

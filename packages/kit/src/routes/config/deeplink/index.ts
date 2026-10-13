@@ -54,6 +54,9 @@ import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAc
 import { marketNavigation } from '../../../views/Market/marketUtils';
 import { captureAndReportLoggerUtmParamsFromUrl } from '../loggerUtmParams';
 
+// Only this small check may be imported here: the return handler itself must
+// not enter the startup graph (it is loaded on demand in handler.native.ts).
+import { isBinanceConnectDeepLink } from './binanceConnectDeepLink';
 import { registerHandler } from './handler';
 import {
   handleReferralLandingUrl,
@@ -685,6 +688,9 @@ const processDeepLinkUrl = memoizee(
   ): Promise<IDeepLinkUrlParsedResult | undefined> => {
     // handle deepLink URL
     if (!url) return;
+    // Second guard for the rule in handleDeepLinkUrl: nothing below may see
+    // a Binance deposit return.
+    if (isBinanceConnectDeepLink(url)) return;
 
     try {
       // An open SFSafariViewController would cover any navigation this deep
@@ -752,6 +758,13 @@ export const handleDeepLinkUrl = (data: IDesktopOpenUrlEventData) => {
     (item) => !!item && isString(item),
   );
   urls.forEach((url) => {
+    // A Binance deposit return carries a one-time nonce and is consumed at
+    // the OS entry only (handler.native.ts). Whatever feeds the same URL
+    // shape in here (DApp browser, webview, banner href) is dropped before it
+    // can be logged, sent to UTM capture or forwarded to bg.
+    if (isBinanceConnectDeepLink(url)) {
+      return;
+    }
     console.log('processDeepLinkUrl >>>>>> ', url);
     void processDeepLinkUrl(url);
   });
