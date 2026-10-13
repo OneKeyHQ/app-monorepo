@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,16 +10,17 @@ import {
   RefreshControl,
   SectionList,
   SizableText,
-  Spinner,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
 import { InviteWithdrawAddressRow } from '@onekeyhq/kit/src/views/ReferFriends/pages/RewardDistributionHistory/components/InviteWithdrawAddressRow';
+import { PayoutHistorySkeleton } from '@onekeyhq/kit/src/views/ReferFriends/pages/RewardDistributionHistory/components/PayoutHistorySkeleton';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -37,12 +38,10 @@ type ISectionListItem = {
   data: number[];
 };
 
-// FlashList v2 enables maintainVisibleContentPosition by default. This list
-// mounts empty, then the address header and the sections resolve on their
-// own; mVCP re-anchors the offset on each swap and, with the automatic modal
-// inset, leaves the address row under the header and the list stuck on the
-// first open. Typed loosely: the web ListView is a FlatList whose prop of the
-// same name has a different shape.
+// FlashList v2 enables maintainVisibleContentPosition by default. Pull to
+// refresh replaces every section, and mVCP would re-anchor the offset against
+// the automatic modal inset. Typed loosely: the web ListView is a FlatList
+// whose prop of the same name has a different shape.
 const listScrollBehaviorProps: Record<string, unknown> = platformEnv.isNative
   ? {
       maintainVisibleContentPosition: {
@@ -98,6 +97,21 @@ function RewardDistributionHistoryPageWrapper() {
     return backgroundApiProxy.serviceReferralCode.getInvitePaidList();
   }, []);
 
+  const {
+    result: summaryInfo,
+    run: fetchSummaryInfo,
+    isLoading: isSummaryLoading,
+  } = usePromiseResult(
+    async () => backgroundApiProxy.serviceReferralCode.getSummaryInfo(),
+    [],
+    {
+      undefinedResultIfError: true,
+      // Picks up the address after it is edited from this page.
+      revalidateOnFocus: true,
+      watchLoading: true,
+    },
+  );
+
   const onRefresh = useCallback(() => {
     setIsLoading(true);
     void Promise.allSettled([fetchInvitePaidList()]).then(([list]) => {
@@ -105,11 +119,46 @@ function RewardDistributionHistoryPageWrapper() {
         const data = list.value;
         setSections(formatSections(data.items));
         originalData.current.push(...data.items);
+      } else {
+        // Leave the skeleton for the empty state if the first load fails.
+        setSections((prev) => prev ?? []);
       }
 
       setIsLoading(false);
     });
   }, [fetchInvitePaidList]);
+
+  const onPullToRefresh = useCallback(() => {
+    onRefresh();
+    void fetchSummaryInfo();
+  }, [fetchSummaryInfo, onRefresh]);
+
+  // Render the list only once both requests settle, so it mounts with its
+  // final header and rows. Growing them after mount pushed the address row
+  // under the modal header and froze the list on the first open (OK-64624).
+  // `isSummaryLoading` is undefined until the first request starts; a failed
+  // summary only drops the address row. Latched so a refocus refetch never
+  // swaps the list back to the skeleton.
+  const [isFirstLoadDone, setIsFirstLoadDone] = useState(false);
+  useEffect(() => {
+    if (
+      sections !== undefined &&
+      (summaryInfo !== undefined || isSummaryLoading === false)
+    ) {
+      setIsFirstLoadDone(true);
+    }
+  }, [isSummaryLoading, sections, summaryInfo]);
+
+  const listHeader = useMemo(
+    () =>
+      summaryInfo ? (
+        <InviteWithdrawAddressRow
+          summaryInfo={summaryInfo}
+          fetchSummaryInfo={fetchSummaryInfo}
+        />
+      ) : null,
+    [fetchSummaryInfo, summaryInfo],
+  );
 
   useEffect(() => {
     onRefresh();
@@ -217,29 +266,23 @@ function RewardDistributionHistoryPageWrapper() {
       />
       <Page.Body>
         <ReferFriendsPageContainer flex={1} position="relative">
-          <SectionList
-            flex={1}
-            // The address row is the list's first row, so the scroller must
-            // inset it below the modal header. A sibling above the list left
-            // that inset as a blank gap over the first section on phones.
-            contentInsetAdjustmentBehavior="automatic"
-            {...listScrollBehaviorProps}
-            ListHeaderComponent={<InviteWithdrawAddressRow />}
-            refreshControl={
-              <RefreshControl
-                // The first load shows its own spinner in the list.
-                refreshing={isLoading && sections !== undefined}
-                onRefresh={onRefresh}
-              />
-            }
-            contentContainerStyle={{ pb: '$10' }}
-            // Loading shows in the list, so the address row above stays.
-            ListEmptyComponent={
-              sections === undefined ? (
-                <YStack py="$10" ai="center">
-                  <Spinner size="large" />
-                </YStack>
-              ) : (
+          {isFirstLoadDone ? (
+            <SectionList
+              flex={1}
+              // The address row is the list's first row, so the scroller must
+              // inset it below the modal header. A sibling above the list left
+              // that inset as a blank gap over the first section on phones.
+              contentInsetAdjustmentBehavior="automatic"
+              {...listScrollBehaviorProps}
+              ListHeaderComponent={listHeader}
+              refreshControl={
+                <RefreshControl
+                  refreshing={isLoading}
+                  onRefresh={onPullToRefresh}
+                />
+              }
+              contentContainerStyle={{ pb: '$10' }}
+              ListEmptyComponent={
                 <Empty
                   mt={34}
                   illustration="QuestionMark"
@@ -247,14 +290,16 @@ function RewardDistributionHistoryPageWrapper() {
                     id: ETranslations.global_no_data,
                   })}
                 />
-              )
-            }
-            sections={sections ?? []}
-            renderSectionHeader={renderSectionHeader}
-            estimatedItemSize={60}
-            renderItem={renderItem}
-            // onEndReached={fetchMore}
-          />
+              }
+              sections={sections ?? []}
+              renderSectionHeader={renderSectionHeader}
+              estimatedItemSize={60}
+              renderItem={renderItem}
+              // onEndReached={fetchMore}
+            />
+          ) : (
+            <PayoutHistorySkeleton />
+          )}
         </ReferFriendsPageContainer>
       </Page.Body>
     </Page>
