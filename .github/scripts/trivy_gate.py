@@ -698,6 +698,9 @@ def assess_yarn_aliases(binary, production, aliases, destination, cache, config,
                   cache, config, env, scanners='vuln')
     require(isinstance(report, dict) and isinstance(report.get('Results'), list),
             'invalid_inventory_report')
+    # A partial result could replace alias findings with an incomplete list.
+    require(all(isinstance(r, dict) and not r.get('Error') and not r.get('Errors')
+                for r in report['Results']), 'result_error')
     results = []
     for result in production['Results']:
         instances = aliases.get(result.get('Target')) if (

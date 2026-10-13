@@ -570,6 +570,14 @@ class GateTests(unittest.TestCase):
              self.assertRaisesRegex(gate.GateError, '^missing_yarn_package$'):
             gate.assess_yarn_aliases('trivy', production, aliases,
                                      Path(destination.name) / 'missing', None, None, {})
+        for index, field in enumerate(('Error', 'Errors')):
+            partial = copy.deepcopy(resolved)
+            partial['Results'][0]['Vulnerabilities'] = []
+            partial['Results'][0][field] = 'partial'
+            with patch.object(gate, 'scan', return_value=partial), \
+                 self.assertRaisesRegex(gate.GateError, '^result_error$'):
+                gate.assess_yarn_aliases('trivy', production, aliases,
+                                         Path(destination.name) / f'partial{index}', None, None, {})
 
     def test_patch_wrapped_npm_still_requires_underlying_inventory(self):
         patch_entry = ('"added@patch:added@npm%3A2#./fixture.patch":\n'
