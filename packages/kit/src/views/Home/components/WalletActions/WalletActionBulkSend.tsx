@@ -55,15 +55,17 @@ export function WalletActionBulkSend({ onClose }: { onClose: () => void }) {
         featureId: EPrimeFeatures.BulkSend,
         networkId: network?.id,
         deferQuotaCheck: true,
-        // A wallet or network switched while the gate waited drops the
-        // press. This item unmounts with the menu, so the latest selection
-        // is read from the account selector store.
+        // A wallet, network or account switched while the gate waited drops
+        // the press. This item unmounts with the menu, so the latest
+        // selection is read from the account selector store.
         isContextValid: async () => {
           const latest: IAccountSelectorActiveAccountInfo =
             await runAccountSelectorAction('getActiveAccount', { num: 0 });
           return (
             latest.wallet?.id === wallet?.id &&
-            latest.network?.id === network?.id
+            latest.network?.id === network?.id &&
+            latest.account?.id === account?.id &&
+            latest.indexedAccount?.id === indexedAccount?.id
           );
         },
         extPopup: { mode: 'passThrough' },

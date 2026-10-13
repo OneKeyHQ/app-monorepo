@@ -145,6 +145,13 @@ describe('WalletActionBulkSend free trial gate', () => {
       network: { id: 'evm--56' },
     };
     await expect(isContextValid()).resolves.toBe(false);
+    // Another account of the same wallet on the same network.
+    mockLatestActiveAccount = {
+      ...mockPressedActiveAccount,
+      account: { id: 'account-2' },
+      indexedAccount: { id: 'indexed-2' },
+    };
+    await expect(isContextValid()).resolves.toBe(false);
   });
 
   it('opens bulk send for the pressed account once granted', async () => {

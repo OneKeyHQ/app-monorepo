@@ -1176,6 +1176,13 @@ function MoreActionGeneralGrid() {
   );
 }
 
+type IMoreActionActiveContext = {
+  walletId?: string;
+  networkId?: string;
+  accountId?: string;
+  indexedAccountId?: string;
+};
+
 const MoreActionWalletGrid = () => {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -1216,17 +1223,21 @@ const MoreActionWalletGrid = () => {
     activeAccount: { account, network, wallet, indexedAccount },
   } = useActiveAccount({ num: 0 });
   const { ensureFeatureAccess } = usePrimeFeatureAccess();
-  // Latest wallet / network, compared after an async login so a changed
-  // context does not continue the old action.
-  const activeContextRef = useRef({
+  // Latest selection, compared after the gate's async steps so a changed
+  // context does not continue the old action. Each entry passes the parts it
+  // acts on.
+  const activeContextRef = useRef<IMoreActionActiveContext>({});
+  activeContextRef.current = {
     walletId: wallet?.id,
     networkId: network?.id,
-  });
-  activeContextRef.current = { walletId: wallet?.id, networkId: network?.id };
+    accountId: account?.id,
+    indexedAccountId: indexedAccount?.id,
+  };
   const isSameActiveContext = useCallback(
-    (context: { walletId?: string; networkId?: string }) => () =>
-      activeContextRef.current.walletId === context.walletId &&
-      activeContextRef.current.networkId === context.networkId,
+    (context: IMoreActionActiveContext) => () =>
+      (Object.keys(context) as (keyof IMoreActionActiveContext)[]).every(
+        (key) => activeContextRef.current[key] === context[key],
+      ),
     [],
   );
   const openBulkCopyAddressesModule = useCallback(async () => {
@@ -1279,9 +1290,12 @@ const MoreActionWalletGrid = () => {
         featureId: EPrimeFeatures.BulkSend,
         networkId: network?.id,
         deferQuotaCheck: true,
+        // Bulk send opens with this account as the sender.
         isContextValid: isSameActiveContext({
           walletId: wallet?.id,
           networkId: network?.id,
+          accountId: account?.id,
+          indexedAccountId: indexedAccount?.id,
         }),
         extPopup: { mode: 'passThrough' },
       });
