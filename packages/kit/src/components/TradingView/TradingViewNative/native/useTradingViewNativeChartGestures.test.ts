@@ -14,6 +14,7 @@ import {
 import { useTradingViewNativeChartGestures } from './useTradingViewNativeChartGestures';
 
 import type { ITradingViewNativePriceRange } from '../utils/chartViewport';
+import type { GestureType } from 'react-native-gesture-handler';
 
 type IMockGestureHandler = (...args: unknown[]) => void;
 
@@ -33,6 +34,15 @@ const mockGetSubIndicatorLegendHitRegions = jest.mocked(
   getTradingViewNativeSubIndicatorLegendHitRegions,
 );
 
+jest.mock(
+  '@onekeyhq/components/src/composite/Tabs/HeaderScrollGestureContext',
+  () => ({
+    HeaderScrollGestureContext: jest
+      .requireActual<typeof import('react')>('react')
+      .createContext<GestureType[]>([]),
+  }),
+);
+
 function mockCreateGestureBuilder(): IMockGestureBuilder {
   const handlers: Record<string, IMockGestureHandler> = {};
   const builder = { handlers } as IMockGestureBuilder;
@@ -44,6 +54,7 @@ function mockCreateGestureBuilder(): IMockGestureBuilder {
     'maxDistance',
     'minDistance',
     'maxPointers',
+    'requireExternalGestureToFail',
     'onBegin',
     'onEnd',
     'onFinalize',

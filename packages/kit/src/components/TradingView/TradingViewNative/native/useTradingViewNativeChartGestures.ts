@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useContext, useMemo } from 'react';
 
 import { Gesture } from 'react-native-gesture-handler';
 import {
@@ -7,6 +7,8 @@ import {
   withDecay,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
+
+import { HeaderScrollGestureContext } from '@onekeyhq/components/src/composite/Tabs/HeaderScrollGestureContext';
 
 import {
   TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
@@ -81,6 +83,7 @@ export function useTradingViewNativeChartGestures({
   resources: SharedValue<ITradingViewNativeSkiaResources>;
   timeAxisHeight: number;
 }) {
+  const headerScrollGestures = useContext(HeaderScrollGestureContext);
   const pressedSubIndicatorSettingsTarget =
     useSharedValue<ITradingViewNativeSubIndicator | null>(null);
 
@@ -288,6 +291,8 @@ export function useTradingViewNativeChartGestures({
     const panGesture = Gesture.Pan()
       .minDistance(4)
       .maxPointers(1)
+      // Let the page claim vertical drags before panning an embedded chart.
+      .requireExternalGestureToFail(...headerScrollGestures)
       .onTouchesDown((event, stateManager) => {
         'worklet';
 
@@ -649,6 +654,7 @@ export function useTradingViewNativeChartGestures({
     isPricePanActive,
     chartRuntime,
     decayOffset,
+    headerScrollGestures,
     isClickInteractionEnabled,
     isCrosshairEnabled,
     onSubIndicatorSettingsPress,

@@ -100,7 +100,7 @@ export function TradingViewNative(props: ITradingViewNativeProps) {
   return (
     <>
       {shouldHideStatusBar ? <StatusBar hidden /> : null}
-      <TradingViewNativeContainer {...props} />
+      <TradingViewNativeContainer {...props} enableDrawings={false} />
     </>
   );
 }
