@@ -46,16 +46,19 @@ export function usePrimeFreeTrialUpgrade() {
     [navigation],
   );
 
-  // "Get Prime" of the exhausted toast and of the used-up hint.
+  // "Get Prime" of the exhausted toast and of the remaining hint (used up, or
+  // no free trial for the feature).
   const getPrime = useCallback(
     ({
       featureId,
       networkId,
       afterPageExit,
+      freeTrialReason = 'exhausted',
     }: {
       featureId: IPrimeFreeTrialFeatureId;
       networkId?: string;
       afterPageExit?: boolean;
+      freeTrialReason?: 'exhausted' | 'notOpen';
     }) => {
       defaultLogger.prime.subscription.primeFreeTrialUpgradeClick({
         featureName: featureId,
@@ -64,7 +67,7 @@ export function usePrimeFreeTrialUpgrade() {
       openPrimeDashboard({
         featureId,
         networkId,
-        freeTrialReason: 'exhausted',
+        freeTrialReason,
         afterPageExit,
       });
     },

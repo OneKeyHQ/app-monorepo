@@ -1,6 +1,8 @@
 /** @jest-environment jsdom */
 
-import { act, renderHook } from '@testing-library/react';
+import type { ReactElement } from 'react';
+
+import { act, renderHook, waitFor } from '@testing-library/react';
 
 import {
   PrimeLoginDialogCancelError,
@@ -143,6 +145,21 @@ function dashboardReason() {
 
 function renderAccessHook() {
   return renderHook(() => usePrimeFeatureAccess()).result;
+}
+
+function toastAt(index: number) {
+  return mockToastMessage.mock.calls[index]?.[0] as
+    | { title?: string; message?: string; actions?: ReactElement }
+    | undefined;
+}
+
+function pressGetPrimeOf(index: number) {
+  const actions = toastAt(index)?.actions as
+    | ReactElement<{ onPress: () => void }>
+    | undefined;
+  act(() => {
+    actions?.props.onPress();
+  });
 }
 
 describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
@@ -596,6 +613,12 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
         }),
       ).resolves.toEqual({ granted: false });
     });
+    // Judged on the local quota: the client sentence, and no dashboard until
+    // "Get Prime" is pressed.
+    expect(mockPushFullModal).not.toHaveBeenCalled();
+    expect(toastAt(0)?.title).toBe('批量转账：暂未开放免费体验');
+    expect(toastAt(0)?.message).toBeUndefined();
+    pressGetPrimeOf(0);
     expect(dashboardReason()).toBe('notOpen');
   });
 
@@ -651,5 +674,137 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
     });
     expect(mockLoginOneKeyId).not.toHaveBeenCalled();
     expect(dashboardReason()).toBe('notOpen');
+  });
+});
+
+describe('usePrimeFeatureAccess rejection feedback', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockHookPrime = false;
+    mockGetHeldReservationEnd.mockResolvedValue(undefined);
+    setSnapshot(undefined);
+  });
+
+  it('titles a not-open toast with the client sentence and no body', () => {
+    const result = renderAccessHook();
+
+    act(() => {
+      result.current.handleFreeTrialError({
+        error: {
+          code: 90_601,
+          data: {
+            featureId: EPrimeFeatures.AddressRiskCheck,
+            reason: 'trialNotOpen',
+          },
+        },
+      });
+    });
+
+    expect(mockPushFullModal).not.toHaveBeenCalled();
+    expect(toastAt(0)?.title).toBe('地址风险检查：暂未开放免费体验');
+    expect(toastAt(0)?.message).toBeUndefined();
+    pressGetPrimeOf(0);
+    expect(dashboardReason()).toBe('notOpen');
+  });
+
+  it('says why the details of an unchecked address are refused', () => {
+    const result = renderAccessHook();
+
+    act(() => {
+      result.current.handleFreeTrialError({
+        error: {
+          code: 90_601,
+          data: {
+            featureId: EPrimeFeatures.AddressRiskCheck,
+            reason: 'detailsNotEligible',
+          },
+        },
+      });
+    });
+
+    expect(toastAt(0)?.title).toBe(
+      '地址风险检查：本月检查过的地址才能查看详情',
+    );
+  });
+
+  it('titles an exhausted toast by feature with the local reset date', async () => {
+    const result = renderAccessHook();
+
+    act(() => {
+      result.current.handleFreeTrialError({
+        error: {
+          code: 90_600,
+          data: {
+            featureId: EPrimeFeatures.AddressRiskCheck,
+            remaining: 0,
+            resetAt: RESET_AT,
+          },
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(toastAt(0)).toMatchObject({
+        title: '地址风险检查：本月免费次数已用完',
+        message: expect.stringMatching(/^将于 .+ 重置。$/),
+      });
+    });
+    pressGetPrimeOf(0);
+    expect(dashboardReason()).toBe('exhausted');
+  });
+
+  it('explains a reservation the server reports, from any device', async () => {
+    const result = renderAccessHook();
+
+    act(() => {
+      result.current.handleStartRejected({
+        result: {
+          status: 'exhausted',
+          featureId: EPrimeFeatures.BulkSend,
+          data: {
+            featureId: EPrimeFeatures.BulkSend,
+            remaining: 0,
+            reserved: 1,
+            reservationExpiresAt: Date.now() + 10 * 60 * 1000,
+          },
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(toastAt(0)).toMatchObject({
+        title: '批量转账：上次使用尚未结束',
+        message: expect.stringMatching(/^如已中断，免费次数将在 .+ 前恢复。$/),
+      });
+    });
+    // The server knows every device's reservations: no local lookup.
+    expect(mockGetHeldReservationEnd).not.toHaveBeenCalled();
+  });
+
+  it('trusts the server when it reports nothing held', async () => {
+    // A stale local record must not turn a real exhaustion into "held".
+    mockGetHeldReservationEnd.mockResolvedValue(Date.now() + 10 * 60 * 1000);
+    const result = renderAccessHook();
+
+    act(() => {
+      result.current.handleStartRejected({
+        result: {
+          status: 'exhausted',
+          featureId: EPrimeFeatures.BulkSend,
+          data: {
+            featureId: EPrimeFeatures.BulkSend,
+            remaining: 0,
+            reserved: 0,
+          },
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(toastAt(0)).toMatchObject({
+        title: '批量转账：本月免费次数已用完',
+      });
+    });
+    expect(mockGetHeldReservationEnd).not.toHaveBeenCalled();
   });
 });

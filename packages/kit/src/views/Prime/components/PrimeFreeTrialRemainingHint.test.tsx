@@ -18,6 +18,7 @@ const mockDialogClose = jest.fn();
 const mockUpgradeClick = jest.fn();
 const mockParentPress = jest.fn();
 let mockQuota: IPrimeFreeTrialAtomData['quota'];
+let mockConfig: IPrimeFreeTrialAtomData['config'];
 
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -66,7 +67,7 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/prime', () => ({
       primeSubscription: { isActive: false },
     },
   ],
-  usePrimeFreeTrialAtom: () => [{ quota: mockQuota }],
+  usePrimeFreeTrialAtom: () => [{ quota: mockQuota, config: mockConfig }],
 }));
 
 jest.mock('../hooks/usePrimeFeatureAccess', () => ({
@@ -118,9 +119,79 @@ function setTranslateRemaining(remaining: number) {
   });
 }
 
+function setQuotaData(data: IPrimeFreeTrialAtomData['quota']['data']) {
+  mockQuota = {
+    status: 'success',
+    onekeyUserId: 'user-1',
+    updatedAt: Date.now(),
+    data,
+  };
+}
+
 describe('PrimeFreeTrialRemainingHint', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockConfig = { status: 'idle' };
+  });
+
+  it('says Prime is needed when the feature has no free trial', () => {
+    // Open features only: bulk send is missing, so it is not open.
+    setRemaining(2);
+    render(
+      <div role="presentation" onClick={mockParentPress}>
+        <PrimeFreeTrialRemainingHint
+          featureId={EPrimeFeatures.AddressRiskCheck}
+          networkId="evm--1"
+        />
+      </div>,
+    );
+
+    // Not open has no reset date: the exact sentence, nothing appended.
+    expect(screen.getByText('暂未开放免费体验')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('prime-free-trial-hint-get-prime-btn'));
+
+    expect(mockUpgradeClick).toHaveBeenCalledWith({
+      featureName: EPrimeFeatures.AddressRiskCheck,
+      featureId: EPrimeFeatures.AddressRiskCheck,
+    });
+    expect(mockPushFullModal).toHaveBeenCalledWith(EModalRoutes.PrimeModal, {
+      screen: EPrimePages.PrimeDashboard,
+      params: {
+        fromFeature: EPrimeFeatures.AddressRiskCheck,
+        networkId: 'evm--1',
+        freeTrialReason: 'notOpen',
+      },
+    });
+    expect(mockDialogClose).toHaveBeenCalledTimes(1);
+    expect(mockParentPress).not.toHaveBeenCalled();
+  });
+
+  it('reads a null quota by the public config', () => {
+    setQuotaData(null);
+    mockConfig = {
+      status: 'success',
+      data: { enabled: false, features: [] },
+    };
+    const { rerender } = render(
+      <PrimeFreeTrialRemainingHint featureId={EPrimeFeatures.BulkSend} />,
+    );
+    expect(screen.getByText('暂未开放免费体验')).toBeTruthy();
+
+    // An unknown config is never read as not open.
+    mockConfig = { status: 'error' };
+    rerender(
+      <PrimeFreeTrialRemainingHint featureId={EPrimeFeatures.BulkSend} />,
+    );
+    expect(screen.queryByText('暂未开放免费体验')).toBeNull();
+    expect(screen.queryByText('获取 Prime')).toBeNull();
+  });
+
+  it('hides while the quota is unknown', () => {
+    mockQuota = { status: 'error', onekeyUserId: 'user-1' };
+    render(<PrimeFreeTrialRemainingHint featureId={EPrimeFeatures.BulkSend} />);
+
+    expect(screen.queryByText('暂未开放免费体验')).toBeNull();
+    expect(screen.queryByText('获取 Prime')).toBeNull();
   });
 
   it('shows the remaining uses while some are left', () => {
@@ -143,7 +214,7 @@ describe('PrimeFreeTrialRemainingHint', () => {
       </div>,
     );
 
-    expect(screen.getByText('本月免费次数已用完')).toBeTruthy();
+    expect(screen.getByText(/^本月免费次数已用完，将于 .+ 重置$/)).toBeTruthy();
     fireEvent.click(screen.getByTestId('prime-free-trial-hint-get-prime-btn'));
 
     expect(mockUpgradeClick).toHaveBeenCalledWith({
@@ -160,6 +231,40 @@ describe('PrimeFreeTrialRemainingHint', () => {
     });
     expect(mockDialogClose).toHaveBeenCalledTimes(1);
     expect(mockParentPress).not.toHaveBeenCalled();
+  });
+
+  it('says when a quota held by a live reservation comes back', () => {
+    setFeatureQuota({
+      featureId: EPrimeFeatures.BulkSend,
+      unit: 'count',
+      monthlyQuota: 1,
+      used: 1,
+      remaining: 0,
+      reserved: 1,
+      reservationExpiresAt: Date.now() + 10 * 60 * 1000,
+    });
+    render(<PrimeFreeTrialRemainingHint featureId={EPrimeFeatures.BulkSend} />);
+
+    expect(
+      screen.getByText(/^上次使用尚未结束，如已中断，免费次数将在 .+ 前恢复$/),
+    ).toBeTruthy();
+    expect(screen.queryByText(/^本月免费次数已用完/)).toBeNull();
+    expect(screen.getByText('获取 Prime')).toBeTruthy();
+  });
+
+  it('reads an ended reservation as used up', () => {
+    setFeatureQuota({
+      featureId: EPrimeFeatures.BulkSend,
+      unit: 'count',
+      monthlyQuota: 1,
+      used: 1,
+      remaining: 0,
+      reserved: 1,
+      reservationExpiresAt: Date.now() - 1000,
+    });
+    render(<PrimeFreeTrialRemainingHint featureId={EPrimeFeatures.BulkSend} />);
+
+    expect(screen.getByText(/^本月免费次数已用完，将于 .+ 重置$/)).toBeTruthy();
   });
 
   it('shows the remaining share of a token quota', () => {
@@ -183,7 +288,7 @@ describe('PrimeFreeTrialRemainingHint', () => {
       <PrimeFreeTrialRemainingHint featureId={EPrimeFeatures.DAppTranslate} />,
     );
 
-    expect(screen.getByText('本月免费额度已用完')).toBeTruthy();
+    expect(screen.getByText(/^本月免费额度已用完，将于 .+ 重置$/)).toBeTruthy();
     expect(screen.getByText('获取 Prime')).toBeTruthy();
   });
 

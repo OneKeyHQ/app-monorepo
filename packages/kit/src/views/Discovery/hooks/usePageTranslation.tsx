@@ -26,7 +26,6 @@ import {
   usePrimeFeatureAccess,
 } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimeFeatureAccess';
 import { getPrimeFreeTrialErrorToastTitle } from '@onekeyhq/kit/src/views/Prime/utils/primeFreeTrialAccess';
-import { PRIME_FREE_TRIAL_COPY } from '@onekeyhq/kit/src/views/Prime/utils/primeFreeTrialCopy';
 import { useTranslateSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 // import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations, LOCALES_OPTION } from '@onekeyhq/shared/src/locale';
@@ -552,8 +551,7 @@ export function usePageTranslation(tabId: string) {
   }, []);
 
   const { isPrimeSubscriptionActive } = useOneKeyAuth();
-  const { showQuotaExhaustedToast, openPrimeDashboard } =
-    usePrimeFeatureAccess();
+  const { showFreeTrialNoticeToast } = usePrimeFeatureAccess();
   // A running session hit the free-trial limit (or the trial was closed):
   // the session was already stopped with the billed translations kept. No
   // automatic jump to the dashboard.
@@ -571,40 +569,21 @@ export function usePageTranslation(tabId: string) {
           featureId: EPrimeFeatures.DAppTranslate,
           trigger: 'auto',
         });
-        showQuotaExhaustedToast({
+        showFreeTrialNoticeToast({
           featureId: EPrimeFeatures.DAppTranslate,
-          resetAt: freeTrialError.data.resetAt,
+          notice: { kind: 'exhausted', resetAt: freeTrialError.data.resetAt },
           toastId: 'discovery-free-trial-exhausted',
         });
         return;
       }
-      Toast.message({
+      showFreeTrialNoticeToast({
+        featureId: EPrimeFeatures.DAppTranslate,
+        // Closed while translating: "no longer" fits better than "not open".
+        notice: { kind: 'noLongerAvailable' },
         toastId: 'discovery-free-trial-not-open',
-        title: PRIME_FREE_TRIAL_COPY.translateNoLongerAvailableTitle,
-        actionsAlign: 'left',
-        actions: (
-          <Button
-            testID="discovery-free-trial-get-prime-btn"
-            size="small"
-            variant="tertiary"
-            color="$textSuccess"
-            onPress={() => {
-              defaultLogger.prime.subscription.primeFreeTrialUpgradeClick({
-                featureName: EPrimeFeatures.DAppTranslate,
-                featureId: EPrimeFeatures.DAppTranslate,
-              });
-              openPrimeDashboard({
-                featureId: EPrimeFeatures.DAppTranslate,
-                freeTrialReason: 'notOpen',
-              });
-            }}
-          >
-            {PRIME_FREE_TRIAL_COPY.getPrime}
-          </Button>
-        ),
       });
     },
-    [openPrimeDashboard, showQuotaExhaustedToast],
+    [showFreeTrialNoticeToast],
   );
 
   const { startTranslate, restoreOriginal, translatingRef } =
@@ -689,8 +668,12 @@ export function usePageTranslation(tabId: string) {
     [settings.engine, settings.displayMode, resolvedTargetLang, tab?.url],
   );
 
-  const { getCachedAccess, ensureFeatureAccess, showActiveRejectedFeedback } =
-    usePrimeFeatureAccess();
+  const {
+    getCachedAccess,
+    ensureFeatureAccess,
+    showActiveRejectedFeedback,
+    openPrimeDashboard,
+  } = usePrimeFeatureAccess();
   // Free-trial gate of a "Translate" press by a non-Prime user. Active
   // exhaustion is judged at press time on the quota refreshed when the
   // popover opened; a session that hits the limit later only gets a toast.

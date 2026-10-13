@@ -17,7 +17,7 @@ const mockTranslatingRef = { current: false };
 let mockOnFreeTrialUnavailable:
   | ((payload: IFreeTrialTranslateStopPayload) => void)
   | undefined;
-const mockShowQuotaExhaustedToast = jest.fn();
+const mockShowFreeTrialNoticeToast = jest.fn();
 const mockShowActiveRejectedFeedback = jest.fn();
 const mockToastMessage = jest.fn();
 const mockToastError = jest.fn();
@@ -85,8 +85,8 @@ jest.mock(
 jest.mock('@onekeyhq/kit/src/views/Prime/hooks/usePrimeFeatureAccess', () => ({
   isPrimeFreeTrialTravelMode: () => false,
   usePrimeFeatureAccess: () => ({
-    showQuotaExhaustedToast: (...args: unknown[]) => {
-      mockShowQuotaExhaustedToast(...args);
+    showFreeTrialNoticeToast: (...args: unknown[]) => {
+      mockShowFreeTrialNoticeToast(...args);
     },
     showActiveRejectedFeedback: (...args: unknown[]) => {
       mockShowActiveRejectedFeedback(...args);
@@ -189,9 +189,9 @@ describe('usePageTranslation free-trial pause', () => {
 
     expect(result.current.isTranslated).toBe(true);
     expect(mockRestoreOriginal).not.toHaveBeenCalled();
-    expect(mockShowQuotaExhaustedToast).toHaveBeenCalledWith({
+    expect(mockShowFreeTrialNoticeToast).toHaveBeenCalledWith({
       featureId: EPrimeFeatures.DAppTranslate,
-      resetAt: 1_793_491_200_000,
+      notice: { kind: 'exhausted', resetAt: 1_793_491_200_000 },
       // One id for every tab and session.
       toastId: 'discovery-free-trial-exhausted',
     });
@@ -237,8 +237,10 @@ describe('usePageTranslation free-trial pause', () => {
     });
 
     expect(result.current.isTranslated).toBe(true);
-    expect(mockToastMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ toastId: 'discovery-free-trial-not-open' }),
-    );
+    expect(mockShowFreeTrialNoticeToast).toHaveBeenCalledWith({
+      featureId: EPrimeFeatures.DAppTranslate,
+      notice: { kind: 'noLongerAvailable' },
+      toastId: 'discovery-free-trial-not-open',
+    });
   });
 });

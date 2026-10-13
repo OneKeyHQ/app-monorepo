@@ -28,8 +28,7 @@ export function useBulkSendPageAccess({
 }) {
   const navigation = useAppNavigation();
   const { isPrimeSubscriptionActive, isLoggedIn } = useOneKeyAuth();
-  const { ensureFeatureAccess, showActiveRejectedFeedback } =
-    usePrimeFeatureAccess();
+  const { ensureFeatureAccess, openPrimeDashboard } = usePrimeFeatureAccess();
   const checkedRef = useRef(false);
 
   // Leave the whole bulk send stack: the Home tab route on wide screens (and
@@ -54,9 +53,8 @@ export function useBulkSendPageAccess({
       if (isPrimeFreeTrialTravelMode()) {
         // Legacy behavior: Prime only.
         await exitPage();
-        showActiveRejectedFeedback({
+        openPrimeDashboard({
           featureId: EPrimeFeatures.BulkSend,
-          reason: 'notOpen',
           networkId,
           afterPageExit: true,
         });
