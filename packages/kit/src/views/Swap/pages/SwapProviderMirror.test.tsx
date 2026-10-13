@@ -74,6 +74,49 @@ describe('Market modal initial token selection', () => {
   );
 
   it.each(['from', 'to'] as const)(
+    'preserves an entered amount when reopening the same incomplete pair with %s missing',
+    (missingSide) => {
+      const storeName = EJotaiContextStoreNames.swapModal;
+      const token = {
+        networkId: 'evm--1',
+        contractAddress: '0xmarket',
+        symbol: 'MARKET',
+        decimals: 18,
+      };
+      const entry = {
+        fromToken: missingSide === 'from' ? undefined : token,
+        toToken: missingSide === 'to' ? undefined : token,
+        preserveInputAmounts: true,
+      };
+      const first = render(
+        <SwapProviderMirror
+          storeName={storeName}
+          initialSelectedTokensOnInit={entry}
+        />,
+      );
+      const store = jotaiContextStore.getOrCreateStore({ storeName });
+      store.set(swapFromTokenAmountAtom(), { value: '12', isInput: true });
+      store.set(swapToTokenAmountAtom(), { value: '24', isInput: false });
+      first.unmount();
+      const reopened = render(
+        <SwapProviderMirror
+          storeName={storeName}
+          initialSelectedTokensOnInit={entry}
+        />,
+      );
+      expect(store.get(swapFromTokenAmountAtom())).toEqual({
+        value: '12',
+        isInput: true,
+      });
+      expect(store.get(swapToTokenAmountAtom())).toEqual({
+        value: '24',
+        isInput: false,
+      });
+      reopened.unmount();
+    },
+  );
+
+  it.each(['from', 'to'] as const)(
     'keeps the %s trade pair after the no-wallet cold-start read completes',
     async (direction) => {
       const storeName = EJotaiContextStoreNames.swapModal;

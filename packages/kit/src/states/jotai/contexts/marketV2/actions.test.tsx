@@ -205,6 +205,50 @@ describe('token detail refresh failures', () => {
 
   afterEach(() => jest.restoreAllMocks());
 
+  it('retains the error footer during a token refresh without Perps support', async () => {
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useTokenDetailActions().current, {
+      wrapper: Wrapper,
+    });
+    store.set(networkIdAtom(), detail.networkId);
+    store.set(tokenAddressAtom(), detail.address);
+    mockFetchMarketTokenDetailByTokenAddress.mockResolvedValueOnce({
+      data: { token: detail, websocket },
+    });
+    await act(async () => {
+      await result.current.fetchTokenDetail(detail.address, detail.networkId);
+    });
+    mockFetchMarketTokenDetailByTokenAddress.mockRejectedValueOnce(
+      new Error('refresh failed'),
+    );
+    await act(async () => {
+      await expect(
+        result.current.fetchTokenDetail(detail.address, detail.networkId),
+      ).rejects.toThrow('refresh failed');
+    });
+    expect(store.get(marketPerpsInfoStatusAtom())).toBe('error');
+    const response = createDeferred<{
+      data: { token: typeof detail; websocket: typeof websocket };
+    }>();
+    mockFetchMarketTokenDetailByTokenAddress.mockReturnValueOnce(
+      response.promise,
+    );
+    let refresh: ReturnType<typeof result.current.fetchTokenDetail>;
+    act(() => {
+      refresh = result.current.fetchTokenDetail(
+        detail.address,
+        detail.networkId,
+      );
+    });
+    expect(store.get(marketPerpsInfoStatusAtom())).toBe('error');
+    expect(store.get(perpsInfoAtom())).toBeUndefined();
+    await act(async () => {
+      response.resolve({ data: { token: detail, websocket } });
+      await refresh;
+    });
+    expect(store.get(marketPerpsInfoStatusAtom())).toBe('resolved');
+  });
+
   it.each(['changeActiveToken', 'fetchTokenDetail'] as const)(
     'preserves the list first-trade time through %s and polling',
     async (loadMethod) => {
@@ -1241,6 +1285,76 @@ describe('marketV2 asset token detail actions', () => {
       );
     },
   );
+
+  it.each(['supported', 'unsupported', 'error'] as const)(
+    'keeps a live Perps lookup pending after an asset poll fails: %s',
+    async (outcome) => {
+      const response = createDeferred<{ hlTicker: string } | undefined>();
+      mockResolveMarketPerpsInfoBySymbol.mockReturnValueOnce(response.promise);
+      const { store, Wrapper } = createWrapper();
+      store.set(networkIdAtom(), 'doge--0');
+      const { result } = renderHook(() => useMarketAssetTokenDetailAction(), {
+        wrapper: Wrapper,
+      });
+      const payload = {
+        assetId: 'doge',
+        tokenAddress: '',
+        networkId: 'doge--0',
+      };
+      await act(async () => {
+        await result.current(payload);
+      });
+      mockFetchMarketAssetDetail.mockRejectedValueOnce(
+        new Error('poll failed'),
+      );
+      await act(async () => {
+        await expect(result.current(payload)).rejects.toThrow('poll failed');
+      });
+      expect(store.get(marketPerpsInfoStatusAtom())).toBe('pending');
+      expect(store.get(tokenDetailLoadingAtom())).toBe(false);
+      expect(mockResolveMarketPerpsInfoBySymbol).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        if (outcome === 'error') response.reject(new Error('lookup failed'));
+        else
+          response.resolve(
+            outcome === 'supported' ? { hlTicker: 'DOGE' } : undefined,
+          );
+      });
+      expect(store.get(marketPerpsInfoStatusAtom())).toBe(
+        outcome === 'error' ? 'error' : 'resolved',
+      );
+      expect(store.get(perpsInfoAtom())).toEqual(
+        outcome === 'supported' ? { hlTicker: 'DOGE' } : undefined,
+      );
+    },
+  );
+
+  it('retains the error footer while retrying an asset Perps lookup', async () => {
+    mockResolveMarketPerpsInfoBySymbol.mockRejectedValueOnce(
+      new Error('lookup failed'),
+    );
+    const { store, Wrapper } = createWrapper();
+    store.set(networkIdAtom(), 'doge--0');
+    const { result } = renderHook(() => useMarketAssetTokenDetailAction(), {
+      wrapper: Wrapper,
+    });
+    const payload = { assetId: 'doge', tokenAddress: '', networkId: 'doge--0' };
+    await act(async () => {
+      await result.current(payload);
+    });
+    expect(store.get(marketPerpsInfoStatusAtom())).toBe('error');
+    const response = createDeferred<{ hlTicker: string } | undefined>();
+    mockResolveMarketPerpsInfoBySymbol.mockReturnValueOnce(response.promise);
+    await act(async () => {
+      await result.current(payload);
+    });
+    expect(store.get(marketPerpsInfoStatusAtom())).toBe('error');
+    expect(store.get(perpsInfoAtom())).toBeUndefined();
+    await act(async () => {
+      response.resolve(undefined);
+    });
+    expect(store.get(marketPerpsInfoStatusAtom())).toBe('resolved');
+  });
 
   it('ignores a Perps response after the active token changes', async () => {
     const response = createDeferred<{ hlTicker: string } | undefined>();

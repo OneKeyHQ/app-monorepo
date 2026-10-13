@@ -155,10 +155,9 @@ async function fetchMarketAssetTokenDetail(
     lookupRequestId: sameResolutionIdentity
       ? previousResolution?.lookupRequestId
       : undefined,
-    status:
-      sameResolutionIdentity && previousResolution?.status === 'resolved'
-        ? 'resolved'
-        : 'pending',
+    status: sameResolutionIdentity
+      ? (previousResolution?.status ?? 'pending')
+      : 'pending',
   });
   let isStale = false;
   const isCurrentIdentity = () =>
@@ -293,7 +292,10 @@ async function fetchMarketAssetTokenDetail(
     }
     if (!isStale) {
       const currentResolution = get(marketPerpsResolutionAtom());
-      if (currentResolution?.status === 'pending') {
+      if (
+        currentResolution?.status === 'pending' &&
+        currentResolution.lookupRequestId === undefined
+      ) {
         set(marketPerpsResolutionAtom(), {
           ...currentResolution,
           status: 'error',

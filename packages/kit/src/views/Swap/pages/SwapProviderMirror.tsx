@@ -159,8 +159,9 @@ export const SwapProviderMirror = memo(
         const shouldPreserveInputAmounts =
           initialSelectedTokensOnInit.preserveInputAmounts &&
           !initialSelectedTokensOnInit.inputAmountDraft &&
-          shouldKeepFromBalance &&
-          shouldKeepToBalance &&
+          (shouldKeepFromBalance ||
+            (!cachedFromToken && !initialSelectedTokensOnInit.fromToken)) &&
+          (shouldKeepToBalance || (!cachedToToken && !initialToToken)) &&
           store.get(swapTypeSwitchAtom()) === initialSwapType;
         if (!shouldPreserveInputAmounts) {
           store.set(

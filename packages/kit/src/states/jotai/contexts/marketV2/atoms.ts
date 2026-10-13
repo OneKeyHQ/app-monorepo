@@ -101,7 +101,8 @@ export const {
   const resolution = get(marketPerpsResolutionAtom());
   const detail = get(tokenDetailAtom());
   const hasRetainedDetail =
-    resolution?.status === 'resolved' &&
+    resolution &&
+    resolution.status !== 'pending' &&
     Boolean(detail) &&
     equalTokenNoCaseSensitive({
       token1: {
