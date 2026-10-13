@@ -1,10 +1,12 @@
 /** @jest-environment jsdom */
 import { cleanup, render } from '@testing-library/react';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 import TxConfirmAlert from './TxConfirmAlert';
 
-const SOL_SIGN_WINDOW_HINT =
-  'Solana transactions expire 30s after signing starts. Confirm on your device promptly.';
+// react-intl is mocked to echo the message id, so the rendered text is the key.
+const SOL_SIGN_WINDOW_HINT = ETranslations.wallet_sol_hw_sign_time_limit__desc;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),

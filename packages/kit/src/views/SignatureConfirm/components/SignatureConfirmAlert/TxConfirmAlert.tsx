@@ -35,13 +35,6 @@ import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import type { IGasAccountScenario } from '@onekeyhq/shared/types/fee';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-// TODO(OK-64558): hardcoded English until product supplies the final copy and
-// an ETranslations key. Solana mainnet runs 200 ms slots since 2026-10-09, so a
-// blockhash stays valid for only ~30 s; a hardware or QR signing round trip
-// that takes longer is rejected at broadcast ("Blockhash not found").
-const SOL_SIGN_WINDOW_HINT =
-  'Solana transactions expire 30s after signing starts. Confirm on your device promptly.';
-
 interface IProps {
   accountId: string;
   networkId: string;
@@ -346,11 +339,21 @@ function TxConfirmAlert(props: IProps) {
   }, [intl, customRpcStatus, handleSwitchToOneKeyRpc]);
 
   const renderChainSpecialAlert = useCallback(() => {
+    // Solana mainnet runs 200 ms slots since 2026-10-09, so a blockhash stays
+    // valid for only ~30 s; a hardware or QR signing round trip that takes
+    // longer is rejected at broadcast ("Blockhash not found").
     if (
       networkUtils.isSolanaNetworkByNetworkId(networkId) &&
       accountUtils.isHwOrQrAccount({ accountId })
     ) {
-      return <Alert type="warning" title={SOL_SIGN_WINDOW_HINT} />;
+      return (
+        <Alert
+          type="warning"
+          title={intl.formatMessage({
+            id: ETranslations.wallet_sol_hw_sign_time_limit__desc,
+          })}
+        />
+      );
     }
 
     if (

@@ -65,6 +65,8 @@ import {
   OneKeyInternalError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -158,12 +160,6 @@ const SOL_PENDING_TX_DROPPED_TIMEOUT_MS = timerUtils.getTimeDurationMs({
 });
 // Preflight rejection text shared by the proxy (code 40028) and custom RPCs.
 const SOL_BLOCKHASH_NOT_FOUND_MESSAGE = 'Blockhash not found';
-// TODO(OK-64558): hardcoded English until product supplies the final copy
-// and an ETranslations key. Solana mainnet runs 200 ms slots since 2026-10-09,
-// so a blockhash is only valid for ~30 s; hardware/QR signing slower than that
-// lands here, and the copy has to tell the user to confirm faster next time.
-const SOL_TX_EXPIRED_MESSAGE =
-  'Transaction expired. Retry and confirm on your device within 30s.';
 // A fresh blockhash can trail a lagging node by a slot or two, which clears in
 // a few seconds; an expired one never comes back. Two retries cover the lag
 // case without making the user wait a minute for a verdict that was already
@@ -184,13 +180,18 @@ function isSolBlockhashNotFoundError(error: unknown): boolean {
 
 // Both broadcast paths surface the raw node text ("Error JSON RPC response:
 // Transaction simulation failed: Blockhash not found"); replace it with the
-// user-facing copy while keeping the code the retry check matches on.
+// user-facing copy while keeping the code the retry check matches on. Solana
+// mainnet runs 200 ms slots since 2026-10-09, so a blockhash is only valid for
+// ~30 s; hardware/QR signing slower than that lands here, and the copy tells
+// the user to confirm faster next time.
 function normalizeSolBroadcastError(error: unknown): unknown {
   if (!isSolBlockhashNotFoundError(error)) {
     return error;
   }
   return new OneKeyLocalError({
-    message: SOL_TX_EXPIRED_MESSAGE,
+    message: appLocale.intl.formatMessage({
+      id: ETranslations.wallet_sol_tx_expired__msg,
+    }),
     code: BLOCK_HASH_NOT_FOUND_ERROR_CODE,
   });
 }

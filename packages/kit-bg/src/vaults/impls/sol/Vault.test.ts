@@ -21,6 +21,8 @@ import bs58 from 'bs58';
 import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
 import type { IEncodedTxSol } from '@onekeyhq/core/src/chains/sol/types';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
@@ -576,6 +578,12 @@ describe('SolVault broadcast error copy', () => {
     'Error JSON RPC response: Transaction simulation failed: Blockhash not found',
   );
 
+  beforeEach(() => {
+    jest
+      .spyOn(appLocale.intl, 'formatMessage')
+      .mockImplementation((descriptor) => `t:${String(descriptor.id)}`);
+  });
+
   afterEach(() => {
     jest.restoreAllMocks();
   });
@@ -592,8 +600,7 @@ describe('SolVault broadcast error copy', () => {
     });
 
     await expect(promise).rejects.toMatchObject({
-      message:
-        'Transaction expired. Retry and confirm on your device within 30s.',
+      message: `t:${ETranslations.wallet_sol_tx_expired__msg}`,
       code: 40_028,
     });
   });
@@ -609,8 +616,7 @@ describe('SolVault broadcast error copy', () => {
     await expect(
       vault.broadcastTransaction(broadcastParams),
     ).rejects.toMatchObject({
-      message:
-        'Transaction expired. Retry and confirm on your device within 30s.',
+      message: `t:${ETranslations.wallet_sol_tx_expired__msg}`,
       code: 40_028,
     });
   });
