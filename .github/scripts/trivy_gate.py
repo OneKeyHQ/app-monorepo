@@ -35,6 +35,8 @@ POLICY = {
                   'ghcr.io/aquasecurity/trivy-java-db:1',
                   'ghcr.io/aquasecurity/trivy-checks:1'],
 }
+# Go's unicode.IsSpace set, which strings.TrimSpace removes in the IaC parser.
+GO_SPACE = '\t\n\v\f\r \x85\xa0                　'
 # Trivy silently skips file:, link: and portal: entries; they fail closed.
 YARN_PROTOCOLS = {'npm', 'workspace', 'patch'}
 YARN_NAME = r'((?:@[^/@\s:]+/)?[^/@\s:]+)'
@@ -666,18 +668,19 @@ def scan(binary, root, output, cache, config, env, frozen=True, allowed_warnings
 
 
 def inline_suppression(data):
-    # Mirror the pinned IaC ignore parser: on any line, a space-separated token
-    # that starts with the tfsec or trivy prefix after optional leading '#', '/'
-    # or '*' characters, with an ignore key among its colon-separated sections.
-    # The parser trims Unicode whitespace (e.g. NBSP) around tokens; splitting
-    # decoded text on all Unicode whitespace keeps this a superset of it.
+    # Mirror the pinned IaC ignore parser: on any line, a token separated by
+    # ASCII spaces and trimmed with Go's strings.TrimSpace that starts with the
+    # tfsec or trivy prefix after optional leading '#', '/' or '*' characters,
+    # with an ignore key among its colon-separated sections. Unicode whitespace
+    # inside a token (e.g. NBSP in a section value) does not split it.
     if b'tfsec:' not in data and b'trivy:' not in data:
         return False
-    for token in data.decode('utf-8', 'surrogateescape').split():
-        token = token.lstrip('#/*')
-        for prefix in ('tfsec:', 'trivy:'):
-            if token.startswith(prefix) and 'ignore' in token[len(prefix):].split(':')[0::2]:
-                return True
+    for line in data.decode('utf-8', 'surrogateescape').split('\n'):
+        for token in line.strip(GO_SPACE).split(' '):
+            token = token.strip(GO_SPACE).lstrip('#/*')
+            for prefix in ('tfsec:', 'trivy:'):
+                if token.startswith(prefix) and 'ignore' in token[len(prefix):].split(':')[0::2]:
+                    return True
     return False
 
 

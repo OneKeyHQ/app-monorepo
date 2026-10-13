@@ -245,7 +245,8 @@ class RealScannerTests(unittest.TestCase):
         for name, suffix in (('cfn-tfsec', '\n  #' + 'tfsec' + ':ignore:*'),
                              ('cfn-end-of-line', ' # ' + 'trivy' + ':ignore:*'),
                              ('cfn-nbsp', ' #  ' + 'trivy' + ':ignore:*'),
-                             ('cfn-ideographic-space', ' # 　' + 'trivy' + ':ignore:*')):
+                             ('cfn-ideographic-space', ' # 　' + 'trivy' + ':ignore:*'),
+                             ('cfn-internal-nbsp', ' # ' + 'trivy' + ':scan:a b:ignore:*')):
             root, suppressed = misconfigurations(name, suffix)
             self.assertEqual(suppressed, 0)
             self.fixture_git(root, 'init', '--quiet')

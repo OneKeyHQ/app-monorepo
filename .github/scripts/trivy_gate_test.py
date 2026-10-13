@@ -641,14 +641,19 @@ class GateTests(unittest.TestCase):
                      b'\xc2\xa0' + directive('trivy', 'ignore:*') + b'\n',
                      b'# \xe3\x80\x80' + directive('tfsec') + b'\n',
                      b'# \xc2\x85' + directive('trivy') + b'\n',
-                     b'\xff\xfe ' + directive('trivy') + b'\n'):
+                     b'\xff\xfe ' + directive('trivy') + b'\n',
+                     # Only ASCII spaces split tokens: an NBSP inside a value does not.
+                     b'# ' + directive('trivy', 'scan:a b:ignore:*') + b'\n'):
             with self.subTest(data=data):
                 self.assertTrue(gate.inline_suppression(data))
         for data in (b'trivy: enabled\n', b'name: ' + directive('trivy', 'scan') + b'\n',
                      b'value: "' + directive('trivy', 'ignore:*') + b'"\n',
                      b'x' + directive('tfsec') + b'\n',
-                     # The parser does not trim zero-width spaces.
-                     b'# \xe2\x80\x8b' + directive('trivy') + b'\n'):
+                     # The parser does not trim zero-width spaces or C0 separators,
+                     # nor split on Unicode whitespace inside a token.
+                     b'# \xe2\x80\x8b' + directive('trivy') + b'\n',
+                     b'# foo\x1c' + directive('trivy') + b'\n',
+                     b'#\xc2\xa0' + directive('trivy') + b'\n'):
             with self.subTest(data=data):
                 self.assertFalse(gate.inline_suppression(data))
         sources = Path(__file__).parent
