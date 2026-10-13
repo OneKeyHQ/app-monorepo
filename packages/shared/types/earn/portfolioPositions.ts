@@ -33,7 +33,7 @@ import type {
  *     lost; the page reads what it renders and ignores the rest.
  */
 
-/** Wallet position categories the Earn page uses; each maps to one badge. */
+/** Wallet position categories the Earn page uses; lending is the one the card badges apart (Lending). */
 export type IEarnPositionCategory = 'yield' | 'staked' | 'lending';
 
 /**

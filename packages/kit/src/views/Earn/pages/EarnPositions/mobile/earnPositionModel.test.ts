@@ -170,7 +170,9 @@ describe('earn position model: one card per holding', () => {
       'lido:evm--1:steth',
     ]);
     const [deposit] = lido.positions;
-    expect(deposit.badgeLabel).toBe(ETranslations.earn_category_staked__title);
+    expect(deposit.badgeLabel).toBe(
+      ETranslations.wallet_defi_position_module_deposit,
+    );
     expect(deposit.name).toBe('Lido staked ETH');
     expect(
       deposit.sections.map((section) => [
@@ -232,7 +234,9 @@ describe('earn position model: one card per holding', () => {
     // the row carries no Cancel: the detail page runs it
     expect(row).not.toHaveProperty('cancelSource');
     // still a staked holding: the category badge, not Locked
-    expect(native.badgeLabel).toBe(ETranslations.earn_yield);
+    expect(native.badgeLabel).toBe(
+      ETranslations.wallet_defi_position_module_deposit,
+    );
   });
 
   it('reads Locked when a holding is nothing but withdrawals in progress', () => {
@@ -258,7 +262,10 @@ describe('earn position model: one card per holding', () => {
       `ethena:evm--1:${SUSDE_VAULT}:cooldown`,
     ]);
     const cooldown = card(ethena, `ethena:evm--1:${SUSDE_VAULT}:cooldown`);
-    expect(cooldown.badgeLabel).toBe(ETranslations.earn_category_staked__title);
+    // nothing left in the vault but the principal to redeem: still Deposit
+    expect(cooldown.badgeLabel).toBe(
+      ETranslations.wallet_defi_position_module_deposit,
+    );
     expect(cooldown.sections.map((section) => section.kind)).toEqual([
       'redeemable',
     ]);
@@ -270,9 +277,11 @@ describe('earn position model: one card per holding', () => {
     expect(cooldown.value.value).toBeCloseTo(0.045_88 * 0.9993, 9);
   });
 
-  it('keeps Manage on the Ethena card, as the detail page has it, under the listing category', () => {
+  it('keeps Manage on the Ethena card, as the detail page has it, badged Deposit like every holding', () => {
     const ethena = card(protocolRow('evm--1-ethena'), 'ethena:evm--1:USDe');
-    expect(ethena.badgeLabel).toBe(ETranslations.earn_yield);
+    expect(ethena.badgeLabel).toBe(
+      ETranslations.wallet_defi_position_module_deposit,
+    );
     expect(ethena.action).toEqual({
       kind: 'manage',
       target: { networkId: 'evm--1', provider: 'ethena', symbol: 'USDe' },
@@ -292,7 +301,9 @@ describe('earn position model: one card per holding', () => {
       protocolRow('evm--1-morpho'),
       'morpho:evm--1:market:weth-usdc',
     );
-    expect(loan.badgeLabel).toBe(ETranslations.earn_loans);
+    expect(loan.badgeLabel).toBe(
+      ETranslations.wallet_defi_position_module_lending,
+    );
     expect(loan.sections.map((section) => section.title)).toEqual([
       ETranslations.wallet_defi_asset_type_supplied,
       ETranslations.wallet_defi_asset_type_borrowed,

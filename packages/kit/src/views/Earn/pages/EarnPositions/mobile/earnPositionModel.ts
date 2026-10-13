@@ -146,11 +146,11 @@ export type IEarnProtocolView = {
   positions: IEarnPositionView[];
 };
 
-const BADGE_LABEL_IDS: Record<IEarnPositionCategory, ETranslations> = {
-  yield: ETranslations.earn_yield,
-  staked: ETranslations.earn_category_staked__title,
-  lending: ETranslations.earn_loans,
-};
+const EARN_CATEGORIES: ReadonlySet<string> = new Set<IEarnPositionCategory>([
+  'yield',
+  'staked',
+  'lending',
+]);
 
 // Pending withdrawal reuses the status the detail page prints on these very
 // rows ("Withdrawal requested"); a dedicated "Pending withdrawal" key is
@@ -188,7 +188,7 @@ const SECTION_ORDER: IEarnPositionSectionKind[] = [
 ];
 
 function isEarnCategory(category: string): category is IEarnPositionCategory {
-  return category in BADGE_LABEL_IDS;
+  return EARN_CATEGORIES.has(category);
 }
 
 /**
@@ -365,16 +365,24 @@ function buildPositionView({
   const hasRewards = has('rewards');
   const hasPendingWithdrawal = has('pendingWithdrawal');
   const hasRedeemable = has('redeemable');
-  // A holding that is nothing but withdrawals in progress reads Locked, a
-  // state; otherwise the Earn category. One color for every badge.
-  let badgeLabel: string;
-  if (hasPendingWithdrawal && !hasDeposit && !hasRedeemable && !hasRewards) {
-    badgeLabel = translate(ETranslations.wallet_defi_position_module_locked);
-  } else if (category) {
-    badgeLabel = translate(BADGE_LABEL_IDS[category]);
+  // Product (10-13): a holding reads as what the user put in, Deposit for
+  // every protocol, the label the wallet DeFi page gives deposit positions;
+  // a loan reads Lending, and a holding that is nothing but withdrawals in
+  // progress reads Locked, a state. One color for every badge.
+  let badgeId: ETranslations;
+  if (category === 'lending') {
+    badgeId = ETranslations.wallet_defi_position_module_lending;
+  } else if (
+    hasPendingWithdrawal &&
+    !hasDeposit &&
+    !hasRedeemable &&
+    !hasRewards
+  ) {
+    badgeId = ETranslations.wallet_defi_position_module_locked;
   } else {
-    badgeLabel = item.categoryLabel;
+    badgeId = ETranslations.wallet_defi_position_module_deposit;
   }
+  const badgeLabel = translate(badgeId);
   return {
     key: source.groupId,
     badgeLabel,
