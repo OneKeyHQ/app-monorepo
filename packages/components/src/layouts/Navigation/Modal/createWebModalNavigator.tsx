@@ -115,6 +115,17 @@ const dragRegionStyle = {
 const modalSizeTransition =
   'max-width .25s cubic-bezier(0.4, 0, 0.2, 1), max-height .25s cubic-bezier(0.4, 0, 0.2, 1)';
 
+// MODAL_ANIMATED_VIEW_REF_LIST is indexed by root route and never cleared on
+// unmount, and the root route below may not be a modal at all (FullScreenPush,
+// onboarding, ...). Only morph from a slot that is still mounted and laid out,
+// otherwise the size would animate from / to 0x0.
+const canMorphFrom = (
+  element: TamaguiElement | undefined,
+): element is TamaguiElement => {
+  const el = element as unknown as HTMLElement | undefined;
+  return !!el && el.isConnected && el.offsetWidth > 0 && el.offsetHeight > 0;
+};
+
 const modalStyleGtMd = {
   transition: `opacity .25s cubic-bezier(0.175, 0.885, 0.32, 1.275), transform .25s cubic-bezier(0.175, 0.885, 0.32, 1.275), ${modalSizeTransition}`,
   willChange: 'opacity, transform',
@@ -305,13 +316,12 @@ function WebModalNavigator({
             // Mirror of the enter morph: a dismissed modal shrinks back to the
             // size of the modal it was stacked on. Same-size stacks are a no-op.
             // Clear the override when the modal is visible again (pop back).
-            const underlying = MODAL_ANIMATED_VIEW_REF_LIST[index - 1] as
-              | HTMLElement
-              | undefined;
+            const underlying = MODAL_ANIMATED_VIEW_REF_LIST[index - 1];
             const htmlElement = element as unknown as HTMLElement;
-            if (isHidden && underlying) {
-              htmlElement.style.maxWidth = `${underlying.offsetWidth}px`;
-              htmlElement.style.maxHeight = `${underlying.offsetHeight}px`;
+            if (isHidden && canMorphFrom(underlying)) {
+              const underlyingEl = underlying as unknown as HTMLElement;
+              htmlElement.style.maxWidth = `${underlyingEl.offsetWidth}px`;
+              htmlElement.style.maxHeight = `${underlyingEl.offsetHeight}px`;
             } else {
               htmlElement.style.maxWidth = '';
               htmlElement.style.maxHeight = '';
@@ -370,17 +380,19 @@ function WebModalNavigator({
     // (e.g. Swap 640 -> token selector 880x700) starts at the underlying
     // modal's size and grows to its own, instead of popping in at full size.
     // offsetWidth/Height ignore the 0.95 peek scale already applied below.
-    const underlying = MODAL_ANIMATED_VIEW_REF_LIST[currentRouteIndex - 1] as
-      | HTMLElement
-      | undefined;
+    const underlying = MODAL_ANIMATED_VIEW_REF_LIST[currentRouteIndex - 1];
     const morphFromUnderlying =
-      media.gtMd && hasCustomContentSize && underlying && underlying !== el;
+      media.gtMd &&
+      hasCustomContentSize &&
+      canMorphFrom(underlying) &&
+      underlying !== element;
     if (media.gtMd) {
       el.style.opacity = '0';
       el.style.transform = disableEnterScaleAnimation ? '' : 'scale(0.95)';
       if (morphFromUnderlying) {
-        el.style.maxWidth = `${underlying.offsetWidth}px`;
-        el.style.maxHeight = `${underlying.offsetHeight}px`;
+        const underlyingEl = underlying as unknown as HTMLElement;
+        el.style.maxWidth = `${underlyingEl.offsetWidth}px`;
+        el.style.maxHeight = `${underlyingEl.offsetHeight}px`;
       }
     } else if (!disableModalAnimation) {
       el.style.transform = `translateY(${screenHeight}px)`;
