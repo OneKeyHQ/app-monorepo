@@ -3,6 +3,7 @@ import type { PropsWithChildren, ReactNode } from 'react';
 
 import { fireEvent, render, screen } from '@testing-library/react';
 
+import SwapCommonInfoItem from '@onekeyhq/kit/src/views/Swap/components/SwapCommonInfoItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IDustSweepToken } from '@onekeyhq/shared/types/swap/dustSweep';
 import type { ISwapProviderInfo } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
@@ -50,13 +51,24 @@ jest.mock('@onekeyhq/components', () => {
     Button: MockButton,
     Dialog: { show: jest.fn() },
     Divider: () => null,
-    Icon: () => null,
+    Icon: ({ name }: { name: string }) => <span data-testid={name} />,
     IconButton: MockButton,
     Image: ({ source }: { source?: { uri?: string } }) => (
       <span data-testid="provider-icon" data-uri={source?.uri} />
     ),
-    Popover: ({ renderTrigger }: { renderTrigger: ReactNode }) => (
-      <>{renderTrigger}</>
+    Popover: ({
+      renderTrigger,
+      mountNativePortalBeforeOpen,
+    }: {
+      renderTrigger: ReactNode;
+      mountNativePortalBeforeOpen?: boolean;
+    }) => (
+      <div
+        data-testid="help-popover"
+        data-mount-before-open={mountNativePortalBeforeOpen}
+      >
+        {renderTrigger}
+      </div>
     ),
     SizableText: MockStack,
     Skeleton: () => <div data-testid="skeleton" />,
@@ -183,7 +195,41 @@ it('keeps slippage help accessible without provider fee help in Dust', () => {
       name: ETranslations.slippage_tolerance_title,
     }),
   ).toBeTruthy();
+  expect(
+    screen.getByTestId('help-popover').getAttribute('data-mount-before-open'),
+  ).toBe('true');
   expect(screen.queryByTestId('provider-fee-help')).toBeNull();
+});
+
+it('preserves shared help defaults when Dust options are absent or removed', () => {
+  const props = { title: 'Slippage', questionMarkContent: 'Help' };
+  const { rerender } = render(<SwapCommonInfoItem {...props} />);
+  const expectDefaultHelp = () => {
+    expect(screen.getByTestId('InfoCircleOutline')).toBeTruthy();
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(
+      screen.getByTestId('help-popover').getAttribute('data-mount-before-open'),
+    ).toBeNull();
+  };
+  expectDefaultHelp();
+
+  rerender(
+    <SwapCommonInfoItem
+      {...props}
+      questionMarkPopoverProps={{
+        mountNativePortalBeforeOpen: true,
+        renderTrigger: <button type="button">Slippage help</button>,
+      }}
+    />,
+  );
+  expect(screen.getByRole('button', { name: 'Slippage help' })).toBeTruthy();
+  expect(screen.queryByTestId('InfoCircleOutline')).toBeNull();
+  expect(
+    screen.getByTestId('help-popover').getAttribute('data-mount-before-open'),
+  ).toBe('true');
+
+  rerender(<SwapCommonInfoItem {...props} />);
+  expectDefaultHelp();
 });
 
 it.each([true, false])(

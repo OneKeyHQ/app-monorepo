@@ -389,6 +389,29 @@ export function DustSweepSummary({
               title={intl.formatMessage({
                 id: ETranslations.slippage_tolerance_title,
               })}
+              questionMarkPopoverProps={{
+                mountNativePortalBeforeOpen: true,
+                renderTrigger: (
+                  <IconButton
+                    testID="dust-sweep-slippage-help"
+                    icon="InfoCircleOutline"
+                    iconSize="$3.5"
+                    iconProps={{ color: '$iconSubdued' }}
+                    accessibilityLabel={intl.formatMessage({
+                      id: ETranslations.slippage_tolerance_title,
+                    })}
+                    variant="tertiary"
+                    size="small"
+                    hotKey
+                    width="$3.5"
+                    height="$3.5"
+                    minHeight="$3.5"
+                    borderWidth={0}
+                    p={0}
+                    m={0}
+                  />
+                ),
+              }}
               questionMarkContent={
                 <SizableText p="$4" $gtMd={{ size: '$bodyMd' }}>
                   {intl.formatMessage({

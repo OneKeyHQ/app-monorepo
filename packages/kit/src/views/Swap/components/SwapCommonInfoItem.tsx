@@ -4,7 +4,6 @@ import { memo, useMemo } from 'react';
 import {
   type ISizableTextProps,
   Icon,
-  IconButton,
   Popover,
   SizableText,
   Skeleton,
@@ -18,6 +17,10 @@ interface ISwapCommonInfoItemProps {
   valueComponent?: ReactNode;
   onPress?: () => void;
   questionMarkContent?: ReactNode;
+  questionMarkPopoverProps?: Pick<
+    ComponentProps<typeof Popover>,
+    'renderTrigger' | 'mountNativePortalBeforeOpen'
+  >;
   isLoading?: boolean;
   titleProps?: ISizableTextProps;
   valueProps?: ISizableTextProps;
@@ -27,39 +30,29 @@ interface ISwapCommonInfoItemProps {
 const SwapCommonInfoItemTitleContent = ({
   title,
   questionMarkContent,
+  questionMarkPopoverProps,
   titleProps,
-}: {
-  title: string;
-  questionMarkContent?: ReactNode;
-  titleProps?: ISizableTextProps;
-}) => {
+}: Pick<
+  ISwapCommonInfoItemProps,
+  'title' | 'questionMarkContent' | 'questionMarkPopoverProps' | 'titleProps'
+>) => {
   const questionMarkComponent = useMemo(
     () => (
       <Popover
         title={title}
-        mountNativePortalBeforeOpen
         renderTrigger={
-          <IconButton
-            testID="swap-common-info-help"
-            icon="InfoCircleOutline"
-            iconSize="$3.5"
-            iconProps={{ color: '$iconSubdued' }}
-            accessibilityLabel={title}
-            variant="tertiary"
-            size="small"
-            hotKey
-            width="$3.5"
-            height="$3.5"
-            minHeight="$3.5"
-            borderWidth={0}
-            p={0}
-            m={0}
+          <Icon
+            name="InfoCircleOutline"
+            size="$3.5"
+            cursor="pointer"
+            color="$iconSubdued"
           />
         }
         renderContent={<Stack>{questionMarkContent}</Stack>}
+        {...questionMarkPopoverProps}
       />
     ),
-    [questionMarkContent, title],
+    [questionMarkContent, questionMarkPopoverProps, title],
   );
   return (
     <XStack alignItems="center">
@@ -86,6 +79,7 @@ const SwapCommonInfoItem = ({
   isLoading,
   valueComponent,
   questionMarkContent,
+  questionMarkPopoverProps,
   titleProps,
   valueProps,
   containerProps,
@@ -128,6 +122,7 @@ const SwapCommonInfoItem = ({
       <SwapCommonInfoItemTitleContentMemo
         title={title}
         questionMarkContent={questionMarkContent}
+        questionMarkPopoverProps={questionMarkPopoverProps}
         titleProps={titleProps}
       />
 
