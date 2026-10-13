@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,22 +10,21 @@ import {
   RefreshControl,
   SectionList,
   SizableText,
+  Spinner,
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
-import { InviteWithdrawAddressRow } from '@onekeyhq/kit/src/views/ReferFriends/pages/RewardDistributionHistory/components/InviteWithdrawAddressRow';
 import { PayoutHistorySkeleton } from '@onekeyhq/kit/src/views/ReferFriends/pages/RewardDistributionHistory/components/PayoutHistorySkeleton';
+import { usePayoutHistoryData } from '@onekeyhq/kit/src/views/ReferFriends/pages/RewardDistributionHistory/hooks/usePayoutHistoryData';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IInvitePaidHistory,
   IInvitePaidItem,
-  IInviteSummary,
 } from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -37,18 +36,6 @@ type ISectionListItem = {
   title?: string;
   data: number[];
 };
-
-// FlashList v2 enables maintainVisibleContentPosition by default. Pull to
-// refresh replaces every section, and mVCP would re-anchor the offset against
-// the automatic modal inset. Typed loosely: the web ListView is a FlatList
-// whose prop of the same name has a different shape.
-const listScrollBehaviorProps: Record<string, unknown> = platformEnv.isNative
-  ? {
-      maintainVisibleContentPosition: {
-        disabled: true,
-      },
-    }
-  : {};
 
 const formatSections = (items: IInvitePaidHistory['items']) => {
   const groupedData: Record<string, IInvitePaidHistory['items']> = items.reduce<
@@ -88,66 +75,19 @@ function RewardDistributionHistoryPageWrapper() {
   // Redirect to ReferAFriend page if user is not logged in
   useRedirectWhenNotLoggedIn();
 
-  const originalData = useRef<IInvitePaidHistory['items']>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [sections, setSections] = useState<
-    { title: string; data: IInvitePaidHistory['items'] }[] | undefined
-  >(undefined);
-  const fetchInvitePaidList = useCallback(() => {
-    return backgroundApiProxy.serviceReferralCode.getInvitePaidList();
-  }, []);
-
-  const [summaryInfo, setSummaryInfo] = useState<IInviteSummary>();
-  // Fetched again after the address is edited; a failure keeps it as is.
-  const fetchSummaryInfo = useCallback(async () => {
-    try {
-      setSummaryInfo(
-        await backgroundApiProxy.serviceReferralCode.getSummaryInfo(),
-      );
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  // Both requests settle in one commit, so the list mounts once with its final
-  // header and rows instead of growing under the modal header (OK-64624).
-  const onRefresh = useCallback(() => {
-    setIsLoading(true);
-    void Promise.allSettled([
-      fetchInvitePaidList(),
-      backgroundApiProxy.serviceReferralCode.getSummaryInfo(),
-    ]).then(([list, summary]) => {
-      if (list.status === 'fulfilled') {
-        const data = list.value;
-        setSections(formatSections(data.items));
-        originalData.current.push(...data.items);
-      } else {
-        // Leave the skeleton for the empty state if the first load fails.
-        setSections((prev) => prev ?? []);
-      }
-      // A failed summary only drops the address row.
-      if (summary.status === 'fulfilled') {
-        setSummaryInfo(summary.value);
-      }
-
-      setIsLoading(false);
-    });
-  }, [fetchInvitePaidList]);
-
-  const listHeader = useMemo(
-    () =>
-      summaryInfo ? (
-        <InviteWithdrawAddressRow
-          summaryInfo={summaryInfo}
-          fetchSummaryInfo={fetchSummaryInfo}
-        />
-      ) : null,
-    [fetchSummaryInfo, summaryInfo],
+  const {
+    items,
+    isLoading,
+    onRefresh,
+    listHeader,
+    isListReady,
+    listScrollProps,
+  } = usePayoutHistoryData();
+  const sections = useMemo(
+    () => (items ? formatSections(items) : undefined),
+    [items],
   );
 
-  useEffect(() => {
-    onRefresh();
-  }, [fetchInvitePaidList, onRefresh]);
   const renderSectionHeader = useCallback(
     (item: { section: ISectionListItem }) => {
       if (item.section.title) {
@@ -251,29 +191,40 @@ function RewardDistributionHistoryPageWrapper() {
       />
       <Page.Body>
         <ReferFriendsPageContainer flex={1} position="relative">
-          {sections ? (
+          {isListReady ? (
             <SectionList
               flex={1}
               // The address row is the list's first row, so the scroller must
               // inset it below the modal header. A sibling above the list left
               // that inset as a blank gap over the first section on phones.
               contentInsetAdjustmentBehavior="automatic"
-              {...listScrollBehaviorProps}
+              {...listScrollProps}
               ListHeaderComponent={listHeader}
               refreshControl={
-                <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
-              }
-              contentContainerStyle={{ pb: '$10' }}
-              ListEmptyComponent={
-                <Empty
-                  mt={34}
-                  illustration="QuestionMark"
-                  title={intl.formatMessage({
-                    id: ETranslations.global_no_data,
-                  })}
+                <RefreshControl
+                  // The first load shows its own spinner in the list.
+                  refreshing={isLoading && sections !== undefined}
+                  onRefresh={onRefresh}
                 />
               }
-              sections={sections}
+              contentContainerStyle={{ pb: '$10' }}
+              // Loading shows in the list, so the address row above stays.
+              ListEmptyComponent={
+                sections === undefined ? (
+                  <YStack py="$10" ai="center">
+                    <Spinner size="large" />
+                  </YStack>
+                ) : (
+                  <Empty
+                    mt={34}
+                    illustration="QuestionMark"
+                    title={intl.formatMessage({
+                      id: ETranslations.global_no_data,
+                    })}
+                  />
+                )
+              }
+              sections={sections ?? []}
               renderSectionHeader={renderSectionHeader}
               estimatedItemSize={60}
               renderItem={renderItem}
