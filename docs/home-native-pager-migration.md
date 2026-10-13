@@ -9,6 +9,20 @@
 - Runtime: Home renders in `main`; `bg` has a separate JS heap and initializes independently. Existing background proxies continue to transfer data. Scroll and pager views belong to mounted UI instances, not a shared background singleton.
 - Native code is first tested in this worktree's installed packages. Native `@onekeyfe/*` patches must not be committed; deliver those sources through an isolated app-modules branch and PR, then integrate a published version.
 
+The published 3.0.174 contract uses a shared native header collapse C and per-tab
+sticky-body memory B. Selecting by tap, horizontal swipe or programmatic command
+keeps C fixed. At full collapse it restores the destination B; while expanded or
+partially collapsed it displays body start and suspends the saved B. Only real
+vertical consumption or a valid owned native scroll command takes over that
+memory. Cancellation restores the source's actual presentation, and loading,
+inset alignment or prefetch does not create a new reading position. Published-package source, native builds and device acceptance are recorded
+separately.
+For an owned vertical LinearLayoutManager RecyclerView, saved reading positions
+use the first visible adapter position and its decorated top relative to padding;
+scrollbar estimates do not determine anchor restoration completion. Horizontal
+cancellation preserves unreachable reading intent until real vertical consumption
+or a valid command takes over; later usable geometry may resume it.
+
 Failure conditions: unintended horizontal page changes during vertical/diagonal drags, blank retained pages, header/offset jumps, broken refresh, stale account/network content, lost transaction actions, or accidental Web behavior changes.
 
 Passing conditions: the intended active page and content remain aligned through gestures, refresh, navigation and identity changes; iOS and Android receive independent evidence. Static checks, compilation, simulator interaction and physical-device performance are reported separately.
@@ -291,3 +305,12 @@ Normal acceptance launches must use `--shell local --vendor local` while install
 - Registry integrity and source audits pass: Pager has 70 matching tracked files and NativeList 203. All 99 Pager and 358 NativeList installed files match their npm tarballs. Production source matches the previously accepted local source; only the intentionally excluded Pager JS test file disappears on reinstall. Audit evidence is under `ignore/independent-native-scroller/release-audit/`.
 - The new dependency pins remove the need for installed-package source overrides. This publication turn verifies packaging and integration, not a fresh npm-only native binary or another complete simulator acceptance matrix. Earlier device results remain scoped to the byte-identical production source recorded above.
 - Source CI run `36425318407` passes Android, Kotlin and Swift checks, plus the nine NativeScroller iOS tests. The overall iOS job fails 17 assertions in the direct press-cancellation fixture; the three real wiring tests pass. Fixture investigation and rerun are tracked separately; this is not an all-green native CI claim. PRs remain drafts.
+
+### Current-page top methods (3.0.174)
+
+The Pager ref exposes `scrollToPageTop({ animated?: boolean })` for an expanded
+header and body start, and `scrollToStickyTop({ animated?: boolean })` for a
+fully collapsed header and body start. Both default to animation, affect only
+the attached current page, cancel its previous native command/restoration, and
+leave other page reading positions intact. Existing child scroll coordinates
+are unchanged; these methods also work without smooth-header mode.
