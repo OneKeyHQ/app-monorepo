@@ -154,6 +154,8 @@ import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controlle
 interface ISwapStockDesktopContainerProps {
   pageType?: EPageType;
   headerContent?: ReactNode;
+  hasExternalHeader?: boolean;
+  hideSwapTips?: boolean;
   storeName: EJotaiContextStoreNames;
   onSelectToken: (type: ESwapDirectionType) => void;
   onTokenPress?: (token: ISwapToken) => void;
@@ -1287,6 +1289,8 @@ function useSwapStockRecentTokenPairs() {
 function SwapStockDesktopContent({
   pageType,
   headerContent,
+  hasExternalHeader,
+  hideSwapTips,
   storeName,
   onSelectToken,
   fetchLoading,
@@ -1328,7 +1332,7 @@ function SwapStockDesktopContent({
   let contentTopPadding: '$0' | '$5' | undefined;
   if (embedded) {
     contentTopPadding = '$0';
-  } else if (!headerContent) {
+  } else if (!headerContent && !hasExternalHeader) {
     contentTopPadding = '$5';
   }
 
@@ -1409,9 +1413,11 @@ function SwapStockDesktopContent({
   );
   return (
     <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
-      {embedded ? null : <SwapTipsContainer pageType={pageType} />}
+      {embedded || hideSwapTips ? null : (
+        <SwapTipsContainer pageType={pageType} />
+      )}
       <YStack width="100%" alignItems="center" pb="$5" pt={contentTopPadding}>
-        {!embedded && headerContent ? (
+        {!embedded && headerContent && !hasExternalHeader ? (
           <YStack {...STOCK_DESKTOP_HEADER_SLOT_PROPS}>{headerContent}</YStack>
         ) : null}
         {embedded ? (

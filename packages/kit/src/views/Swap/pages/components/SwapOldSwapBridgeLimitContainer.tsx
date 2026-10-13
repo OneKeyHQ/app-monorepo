@@ -74,6 +74,8 @@ interface ISwapOldSwapBridgeLimitContainerProps {
   fromTokenAmountValue: string;
   swapRecentTokenPairs: { fromToken: ISwapToken; toToken: ISwapToken }[];
   headerContent?: ReactNode;
+  hasExternalHeader?: boolean;
+  hideSwapTips?: boolean;
   hideRecentTokenPairs?: boolean;
 }
 
@@ -99,6 +101,8 @@ const SwapOldSwapBridgeLimitContainer = ({
   fromTokenAmountValue,
   swapRecentTokenPairs,
   headerContent,
+  hasExternalHeader,
+  hideSwapTips,
   hideRecentTokenPairs,
 }: ISwapOldSwapBridgeLimitContainerProps) => {
   const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
@@ -267,8 +271,8 @@ const SwapOldSwapBridgeLimitContainer = ({
     );
     return (
       <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
-        <SwapTipsContainer pageType={pageType} />
-        {headerContent ? (
+        {hideSwapTips ? null : <SwapTipsContainer pageType={pageType} />}
+        {headerContent && !hasExternalHeader ? (
           <YStack pt="$8" pb="$4">
             {headerContent}
           </YStack>
@@ -295,8 +299,8 @@ const SwapOldSwapBridgeLimitContainer = ({
   if (showLimitDesktopCard) {
     return (
       <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
-        <SwapTipsContainer pageType={pageType} />
-        {headerContent ? (
+        {hideSwapTips ? null : <SwapTipsContainer pageType={pageType} />}
+        {headerContent && !hasExternalHeader ? (
           <YStack pt="$8" pb="$4">
             {headerContent}
           </YStack>
@@ -378,8 +382,8 @@ const SwapOldSwapBridgeLimitContainer = ({
       ref={scrollViewRef}
       bottomOffset={bottomOffset}
     >
-      <SwapTipsContainer pageType={pageType} />
-      {headerContent ? (
+      {hideSwapTips ? null : <SwapTipsContainer pageType={pageType} />}
+      {headerContent && !hasExternalHeader ? (
         <YStack pt="$8" pb="$4">
           {headerContent}
         </YStack>
