@@ -208,8 +208,11 @@ describe('usePrimeFreeTrialUsage.startUsage', () => {
 
   it('shows an error unless the background proxy already toasted it', async () => {
     mockStartUsage
-      .mockRejectedValueOnce({ message: 'Network Error' })
-      .mockRejectedValueOnce({ message: 'server says no', autoToast: true });
+      .mockRejectedValueOnce({
+        message: 'server says no',
+        className: 'OneKeyServerApiError',
+      })
+      .mockRejectedValueOnce({ message: 'toasted', autoToast: true });
     const result = renderUsageHook();
 
     await act(async () => {
@@ -217,7 +220,30 @@ describe('usePrimeFreeTrialUsage.startUsage', () => {
       await result.current.startUsage();
     });
     expect(mockToastError).toHaveBeenCalledTimes(1);
-    expect(mockToastError).toHaveBeenCalledWith({ title: 'Network Error' });
+    expect(mockToastError).toHaveBeenCalledWith({ title: 'server says no' });
+  });
+
+  it('never shows a timeout or a developer message as it is', async () => {
+    mockStartUsage
+      .mockRejectedValueOnce({
+        message: 'timeout of 10000ms exceeded',
+        code: 'ECONNABORTED',
+      })
+      .mockRejectedValueOnce({
+        message: 'Invalid free trial start response',
+        className: 'OneKeyLocalError',
+        autoToast: false,
+      });
+    const result = renderUsageHook();
+
+    await act(async () => {
+      await result.current.startUsage();
+      await result.current.startUsage();
+    });
+    expect(mockToastError.mock.calls).toEqual([
+      [{ title: 'global.network_error' }],
+      [{ title: 'global.an_error_occurred' }],
+    ]);
   });
 });
 

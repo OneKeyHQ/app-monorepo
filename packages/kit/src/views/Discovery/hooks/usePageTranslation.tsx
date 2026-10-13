@@ -25,6 +25,7 @@ import {
   isPrimeFreeTrialTravelMode,
   usePrimeFeatureAccess,
 } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimeFeatureAccess';
+import { getPrimeFreeTrialErrorToastTitle } from '@onekeyhq/kit/src/views/Prime/utils/primeFreeTrialAccess';
 import { PRIME_FREE_TRIAL_COPY } from '@onekeyhq/kit/src/views/Prime/utils/primeFreeTrialCopy';
 import { useTranslateSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 // import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
@@ -701,32 +702,48 @@ export function usePageTranslation(tabId: string) {
       openPrimeDashboard({ featureId: EPrimeFeatures.DAppTranslate });
       return false;
     }
-    if (await backgroundApiProxy.servicePrime.isLoggedIn()) {
-      const access = getCachedAccess(EPrimeFeatures.DAppTranslate);
-      if (access.status === 'exhausted' || access.status === 'notOpen') {
-        showActiveRejectedFeedback({
-          featureId: EPrimeFeatures.DAppTranslate,
-          reason: access.status,
-          resetAt: access.status === 'exhausted' ? access.resetAt : undefined,
-        });
-        return false;
+    try {
+      if (await backgroundApiProxy.servicePrime.isLoggedIn()) {
+        const access = getCachedAccess(EPrimeFeatures.DAppTranslate);
+        if (access.status === 'exhausted' || access.status === 'notOpen') {
+          showActiveRejectedFeedback({
+            featureId: EPrimeFeatures.DAppTranslate,
+            reason: access.status,
+            resetAt: access.status === 'exhausted' ? access.resetAt : undefined,
+          });
+          return false;
+        }
+        return true;
       }
-      return true;
+      const pageContextVersionAtPress = pageContextVersionRef.current;
+      const pageUrlAtPress = currentTabUrlRef.current;
+      const access = await ensureFeatureAccess({
+        featureId: EPrimeFeatures.DAppTranslate,
+        // Same tab and page after the login, or the translate is dropped.
+        isContextValid: () =>
+          pageContextVersionRef.current === pageContextVersionAtPress &&
+          activeTabIdRef.current === tabId &&
+          currentTabUrlRef.current === pageUrlAtPress,
+      });
+      return access.granted;
+    } catch (error) {
+      // A failed background check must not leave the press without feedback.
+      defaultLogger.prime.subscription.primeFreeTrialTrace({
+        featureId: EPrimeFeatures.DAppTranslate,
+        stage: 'ensureTranslateAccess',
+        reason: (error as Error | undefined)?.message,
+      });
+      if (!(error as { autoToast?: boolean } | undefined)?.autoToast) {
+        Toast.error({
+          title: getPrimeFreeTrialErrorToastTitle({ error, intl }),
+        });
+      }
+      return false;
     }
-    const pageContextVersionAtPress = pageContextVersionRef.current;
-    const pageUrlAtPress = currentTabUrlRef.current;
-    const access = await ensureFeatureAccess({
-      featureId: EPrimeFeatures.DAppTranslate,
-      // Same tab and page after the login, or the translate is dropped.
-      isContextValid: () =>
-        pageContextVersionRef.current === pageContextVersionAtPress &&
-        activeTabIdRef.current === tabId &&
-        currentTabUrlRef.current === pageUrlAtPress,
-    });
-    return access.granted;
   }, [
     ensureFeatureAccess,
     getCachedAccess,
+    intl,
     isPrimeSubscriptionActive,
     openPrimeDashboard,
     showActiveRejectedFeedback,

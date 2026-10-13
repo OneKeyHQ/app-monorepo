@@ -7,13 +7,14 @@ import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type {
   IPrimeFreeTrialUsageFeatureId,
   IPrimeFreeTrialUsageResult,
 } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
+
+import { getPrimeFreeTrialErrorToastTitle } from '../utils/primeFreeTrialAccess';
 
 import { usePrimeFeatureAccess } from './usePrimeFeatureAccess';
 
@@ -129,11 +130,7 @@ export function usePrimeFreeTrialUsage({
           // proxy; never leave the press without any feedback.
           if (!(error as { autoToast?: boolean } | undefined)?.autoToast) {
             Toast.error({
-              title:
-                (error as Error | undefined)?.message ||
-                intl.formatMessage({
-                  id: ETranslations.global_an_error_occurred,
-                }),
+              title: getPrimeFreeTrialErrorToastTitle({ error, intl }),
             });
           }
           return { status: 'error', error };

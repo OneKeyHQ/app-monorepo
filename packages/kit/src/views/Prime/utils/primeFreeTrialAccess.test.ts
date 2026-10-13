@@ -5,9 +5,12 @@ import type {
 } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 
 import {
+  getPrimeFreeTrialErrorToastTitle,
   getPrimeFreeTrialQuotaOfUser,
   resolvePrimeFreeTrialAccess,
 } from './primeFreeTrialAccess';
+
+import type { IntlShape } from 'react-intl';
 
 const openConfig: IPrimeFreeTrialPublicConfig = {
   enabled: true,
@@ -181,5 +184,47 @@ describe('getPrimeFreeTrialQuotaOfUser', () => {
         now: quota.resetAt,
       }),
     ).toBeUndefined();
+  });
+});
+
+describe('getPrimeFreeTrialErrorToastTitle', () => {
+  const intl = {
+    formatMessage: ({ id }: { id: string }) => id,
+  } as unknown as IntlShape;
+
+  it('shows the server message and the localized network error as they are', () => {
+    expect(
+      getPrimeFreeTrialErrorToastTitle({
+        error: {
+          message: '额度服务暂不可用',
+          className: 'OneKeyServerApiError',
+        },
+        intl,
+      }),
+    ).toBe('额度服务暂不可用');
+    expect(
+      getPrimeFreeTrialErrorToastTitle({
+        error: { message: '网络错误', className: 'AxiosNetworkError' },
+        intl,
+      }),
+    ).toBe('网络错误');
+  });
+
+  it('localizes a timeout and any other message', () => {
+    expect(
+      getPrimeFreeTrialErrorToastTitle({
+        error: { message: 'timeout of 10000ms exceeded', code: 'ETIMEDOUT' },
+        intl,
+      }),
+    ).toBe('global.network_error');
+    expect(
+      getPrimeFreeTrialErrorToastTitle({
+        error: { message: 'Prime free trial user changed' },
+        intl,
+      }),
+    ).toBe('global.an_error_occurred');
+    expect(getPrimeFreeTrialErrorToastTitle({ error: undefined, intl })).toBe(
+      'global.an_error_occurred',
+    );
   });
 });

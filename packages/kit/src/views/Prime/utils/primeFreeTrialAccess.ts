@@ -1,3 +1,6 @@
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IPrimeFreeTrialAtomData,
   IPrimeFreeTrialFeatureId,
@@ -6,6 +9,11 @@ import type {
   IPrimeFreeTrialQuota,
 } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
+
+import type { IntlShape } from 'react-intl';
+
+// axios timeouts (ECONNABORTED, or ETIMEDOUT with clarifyTimeoutError).
+const REQUEST_TIMEOUT_ERROR_CODES = new Set(['ECONNABORTED', 'ETIMEDOUT']);
 
 export type IPrimeFreeTrialAccess =
   // Active subscription: run directly, no free-trial metering.
@@ -119,4 +127,37 @@ export function resolvePrimeFreeTrialAccess({
     return { status: 'notOpen' };
   }
   return { status: 'available', featureQuota: undefined };
+}
+
+// Toast title for an error a free-trial flow did not expect. Only messages
+// written for users are shown as they are: the server's own and the localized
+// network error. A timeout or a background check's developer message gets
+// localized text instead.
+export function getPrimeFreeTrialErrorToastTitle({
+  error,
+  intl,
+}: {
+  error: unknown;
+  intl: IntlShape;
+}) {
+  const { message, code } =
+    (error as { message?: unknown; code?: unknown } | undefined) ?? {};
+  if (
+    typeof message === 'string' &&
+    message &&
+    errorUtils.isErrorByClassName({
+      error,
+      className: [
+        EOneKeyErrorClassNames.OneKeyServerApiError,
+        EOneKeyErrorClassNames.AxiosNetworkError,
+      ],
+    })
+  ) {
+    return message;
+  }
+  return intl.formatMessage({
+    id: REQUEST_TIMEOUT_ERROR_CODES.has(String(code))
+      ? ETranslations.global_network_error
+      : ETranslations.global_an_error_occurred,
+  });
 }

@@ -20,6 +20,8 @@ let mockOnFreeTrialUnavailable:
 const mockShowQuotaExhaustedToast = jest.fn();
 const mockShowActiveRejectedFeedback = jest.fn();
 const mockToastMessage = jest.fn();
+const mockToastError = jest.fn();
+const mockIsLoggedIn = jest.fn();
 let mockCachedAccessStatus: 'available' | 'exhausted' = 'available';
 
 jest.mock('react-intl', () => ({
@@ -34,13 +36,16 @@ jest.mock('@onekeyhq/components', () => ({
     message: (...args: unknown[]) => {
       mockToastMessage(...args);
     },
+    error: (...args: unknown[]) => {
+      mockToastError(...args);
+    },
   },
 }));
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
-    servicePrime: { isLoggedIn: async () => true },
+    servicePrime: { isLoggedIn: () => mockIsLoggedIn() as unknown },
     servicePrimeFreeTrial: { refreshQuota: jest.fn() },
   },
 }));
@@ -102,7 +107,12 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
     discovery: { translation: { dappTranslateToggle: jest.fn() } },
-    prime: { subscription: { primeFreeTrialQuotaExhausted: jest.fn() } },
+    prime: {
+      subscription: {
+        primeFreeTrialQuotaExhausted: jest.fn(),
+        primeFreeTrialTrace: jest.fn(),
+      },
+    },
   },
 }));
 
@@ -155,6 +165,23 @@ describe('usePageTranslation free-trial pause', () => {
     jest.clearAllMocks();
     mockTranslatingRef.current = false;
     mockCachedAccessStatus = 'available';
+    mockIsLoggedIn.mockResolvedValue(true);
+  });
+
+  it('gives feedback instead of translating when the access check fails', async () => {
+    mockIsLoggedIn.mockRejectedValueOnce(new Error('token read failed'));
+    const { result } = renderHook(() => usePageTranslation('tab-1'));
+
+    await act(async () => {
+      result.current.handleTranslate();
+      await flush();
+    });
+
+    expect(mockStartTranslate).not.toHaveBeenCalled();
+    expect(result.current.isTranslated).toBe(false);
+    expect(mockToastError).toHaveBeenCalledWith({
+      title: 'global.an_error_occurred',
+    });
   });
 
   it('stays in translate mode when the quota runs out mid-session', async () => {
