@@ -98,7 +98,7 @@ function RewardDistributionHistoryPageWrapper() {
   }, []);
 
   const [summaryInfo, setSummaryInfo] = useState<IInviteSummary>();
-  // Refetched after the address is edited; a failure keeps the shown address.
+  // Fetched again after the address is edited; a failure keeps it as is.
   const fetchSummaryInfo = useCallback(async () => {
     try {
       setSummaryInfo(
@@ -261,10 +261,7 @@ function RewardDistributionHistoryPageWrapper() {
               {...listScrollBehaviorProps}
               ListHeaderComponent={listHeader}
               refreshControl={
-                <RefreshControl
-                  refreshing={isLoading}
-                  onRefresh={onRefresh}
-                />
+                <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
               }
               contentContainerStyle={{ pb: '$10' }}
               ListEmptyComponent={
