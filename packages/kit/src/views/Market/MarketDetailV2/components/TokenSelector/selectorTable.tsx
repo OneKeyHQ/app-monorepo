@@ -26,8 +26,6 @@ import {
 
 export type ISelectorSortOrder = 'asc' | 'desc';
 
-export type ISelectorPadding = '$2' | '$4';
-
 export interface ISelectorHeaderCell {
   key: string;
   /** Omitted for a spacer that only keeps the columns aligned. */
@@ -107,12 +105,10 @@ function BasicSelectorTableHeader({
   nameTitle,
   cells,
   nameColumnWidth = TOKEN_SELECTOR_NAME_COLUMN_WIDTH,
-  nameColumnPaddingRight = TOKEN_SELECTOR_COLUMN_PADDING,
 }: {
   nameTitle: string;
   cells: ISelectorHeaderCell[];
   nameColumnWidth?: number;
-  nameColumnPaddingRight?: ISelectorPadding;
 }) {
   return (
     <XStack
@@ -128,8 +124,7 @@ function BasicSelectorTableHeader({
       <XStack
         width={nameColumnWidth}
         flexShrink={0}
-        pl={TOKEN_SELECTOR_COLUMN_PADDING}
-        pr={nameColumnPaddingRight}
+        px={TOKEN_SELECTOR_COLUMN_PADDING}
         alignItems="center"
         gap={TOKEN_SELECTOR_NAME_GAP}
       >
@@ -160,12 +155,16 @@ function BasicSelectorTableHeader({
           minWidth={0}
           px={TOKEN_SELECTOR_COLUMN_PADDING}
           alignItems="center"
+          // Figures read right-aligned; only the name column stays left.
+          justifyContent="flex-end"
           gap="$0.5"
           cursor={cell.sort ? 'pointer' : 'default'}
           onPress={cell.sort?.onPress}
         >
-          <HeaderLabel cell={cell} />
+          {/* The chevron leads, as in the shared Table's right-aligned
+              headers, so the label ends flush with the figures below. */}
           {cell.sort ? <SortIcon order={cell.sort.order} /> : null}
+          <HeaderLabel cell={cell} />
         </XStack>
       ))}
     </XStack>
@@ -191,7 +190,7 @@ export function SelectorPriceChangeCell({
   const hasPrice = price !== undefined && Number.isFinite(price);
   const hasChange = change !== undefined && Number.isFinite(change);
   return (
-    <YStack gap="$1" justifyContent="center" minWidth={0}>
+    <YStack gap="$1" justifyContent="center" alignItems="flex-end" minWidth={0}>
       {hasPrice ? (
         <NumberSizeableText
           size="$bodyMdMedium"

@@ -157,7 +157,22 @@ jest.mock('@onekeyhq/components', () => {
         })}
       </div>
     ),
-    XStack: Container,
+    Icon: () => null,
+    // Forwards press props so a pressable row, like Show more, can be clicked.
+    XStack: ({
+      children,
+      onPress,
+      testID,
+    }: {
+      children?: ReactNode;
+      onPress?: () => void;
+      testID?: string;
+    }) => (
+      // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+      <div data-testid={testID} onClick={onPress}>
+        {children}
+      </div>
+    ),
     YStack: Container,
   };
 });

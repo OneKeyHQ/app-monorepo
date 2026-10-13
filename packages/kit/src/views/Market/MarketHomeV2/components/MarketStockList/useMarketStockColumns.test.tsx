@@ -168,7 +168,7 @@ describe('useMarketStockColumns', () => {
 
     const columns = result.current;
     expect(columns).toHaveLength(5);
-    expect(columns[0]?.columnWidth).toBe(288);
+    expect(columns[0]?.columnWidth).toBe(256);
     expect(columns.slice(1).map((column) => column.columnWidth)).toEqual([
       '25%',
       '25%',

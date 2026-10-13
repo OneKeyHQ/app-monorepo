@@ -19,6 +19,7 @@ import { isTrendingStyleSpotCategory } from '../../../MarketHomeV2/utils';
 import { buildMarketSearchTokenDetailPreview } from '../../utils/marketDetailPreview';
 
 import {
+  TOKEN_SELECTOR_LIST_PADDING_BOTTOM,
   TOKEN_SELECTOR_METRIC_COLUMNS,
   TOKEN_SELECTOR_METRIC_FLEX,
   TOKEN_SELECTOR_POLLING_INTERVAL,
@@ -162,6 +163,7 @@ function TokenSelectorListView({
       )}
       contentContainerStyle={{
         paddingHorizontal: TOKEN_SELECTOR_TABLE_PADDING,
+        paddingBottom: TOKEN_SELECTOR_LIST_PADDING_BOTTOM,
       }}
     />
   );

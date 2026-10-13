@@ -2,8 +2,6 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
 
-import { MARKET_LIST_FIRST_COLUMN_MAX_WIDTH } from '../../../marketDesktopLayoutConstants';
-
 import type { IMarketToken } from '../../../MarketHomeV2/components/MarketTokenList/MarketTokenData';
 
 export const TOKEN_SELECTOR_POLLING_INTERVAL = timerUtils.getTimeDurationMs({
@@ -19,6 +17,10 @@ export const TOKEN_SELECTOR_ROW_HEIGHT = 64;
 // search field, tabs and chips share.
 export const TOKEN_SELECTOR_TABLE_PADDING = 12;
 export const TOKEN_SELECTOR_CONTENT_GUTTER = '$5' as const;
+// Space under the last row of a scrolled-to-end list, matching the gutter.
+export const TOKEN_SELECTOR_LIST_PADDING_BOTTOM = 20;
+// The search sections' full-width Show more row.
+export const TOKEN_SELECTOR_SHOW_MORE_HEIGHT = 44;
 
 export const TOKEN_SELECTOR_HIDDEN_DESKTOP_COLUMNS = [
   'liquidity',
@@ -34,7 +36,7 @@ export const TOKEN_SELECTOR_STAR_COLUMN_WIDTH = 24;
 export const TOKEN_SELECTOR_NAME_GAP = '$1.5' as const;
 export const TOKEN_SELECTOR_COLUMN_PADDING = '$2' as const;
 
-export const TOKEN_SELECTOR_POPOVER_WIDTH = 840;
+export const TOKEN_SELECTOR_POPOVER_WIDTH = 800;
 
 // The chip band under the tabs: 6px above and 10px below a 32px chip row.
 export const TOKEN_SELECTOR_TOOLBAR_HEIGHT = 48;
@@ -50,18 +52,14 @@ export const TOKEN_SELECTOR_POPOVER_HEIGHT = 600;
 // variants of one asset (chains, wrappers, issuers) before Show more.
 export const TOKEN_SELECTOR_SEARCH_SECTION_PREVIEW_ROWS = 5;
 
-// The design's `Left Fixed` name column. Every tab, the stocks one and the
-// search results included, uses the same width so the columns line up.
-export const TOKEN_SELECTOR_NAME_COLUMN_WIDTH = 288;
+// The browse lists' name column. With the figures right-aligned the name has
+// room to spare, so it runs narrower than the design's 288 `Left Fixed` frame.
+// The stocks table keeps the same width so the tabs line up.
+export const TOKEN_SELECTOR_NAME_COLUMN_WIDTH = 256;
 
 // Search results put the full name and the address side by side, so their
-// name column takes the Market list pages' widest first column. Search tables
-// have four metric columns, which still leaves each about 124px.
-export const TOKEN_SELECTOR_SEARCH_NAME_COLUMN_WIDTH =
-  MARKET_LIST_FIRST_COLUMN_MAX_WIDTH;
-// The search name line can run to its copy button, so the column keeps 16px
-// on the right instead of 8px before the Liquidity value.
-export const TOKEN_SELECTOR_SEARCH_NAME_COLUMN_PADDING_RIGHT = '$4' as const;
+// name column runs wider than the browse lists'.
+export const TOKEN_SELECTOR_SEARCH_NAME_COLUMN_WIDTH = 312;
 
 export type IMarketTokenSelectorMetricColumn =
   | 'price'

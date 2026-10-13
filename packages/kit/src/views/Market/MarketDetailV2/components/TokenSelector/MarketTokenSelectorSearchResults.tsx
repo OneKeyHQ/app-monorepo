@@ -7,6 +7,7 @@ import {
   Badge,
   Button,
   Empty,
+  Icon,
   ListView,
   ScrollView,
   SizableText,
@@ -35,13 +36,14 @@ import {
   TOKEN_SELECTOR_COLUMN_PADDING,
   TOKEN_SELECTOR_CONTENT_GUTTER,
   TOKEN_SELECTOR_HEADER_HEIGHT,
+  TOKEN_SELECTOR_LIST_PADDING_BOTTOM,
   TOKEN_SELECTOR_METRIC_COLUMNS,
   TOKEN_SELECTOR_METRIC_FLEX,
   TOKEN_SELECTOR_NAME_GAP,
   TOKEN_SELECTOR_ROW_HEIGHT,
-  TOKEN_SELECTOR_SEARCH_NAME_COLUMN_PADDING_RIGHT,
   TOKEN_SELECTOR_SEARCH_NAME_COLUMN_WIDTH,
   TOKEN_SELECTOR_SEARCH_SECTION_PREVIEW_ROWS,
+  TOKEN_SELECTOR_SHOW_MORE_HEIGHT,
   TOKEN_SELECTOR_STAR_COLUMN_WIDTH,
   TOKEN_SELECTOR_TABLE_PADDING,
   convertSearchTokenToMarketToken,
@@ -197,6 +199,10 @@ function SectionTitle({ title }: { title: string }) {
   );
 }
 
+/**
+ * A full-width row, like Universal Search's Show more, inset to the table so
+ * its label starts on the name column's edge.
+ */
 function ShowMoreButton({
   testID,
   onPress,
@@ -206,16 +212,27 @@ function ShowMoreButton({
 }) {
   const intl = useIntl();
   return (
-    <XStack px={TOKEN_SELECTOR_CONTENT_GUTTER} py="$2">
-      <Button
+    <XStack px={TOKEN_SELECTOR_TABLE_PADDING} pt="$1">
+      <XStack
         testID={testID}
-        size="small"
-        variant="tertiary"
-        iconAfter="ChevronRightSmallOutline"
         onPress={onPress}
+        flex={1}
+        height={TOKEN_SELECTOR_SHOW_MORE_HEIGHT}
+        px={TOKEN_SELECTOR_COLUMN_PADDING}
+        alignItems="center"
+        gap="$2"
+        borderRadius="$3"
+        borderCurve="continuous"
+        hoverStyle={{ bg: '$bgHover' }}
+        pressStyle={{ bg: '$bgActive' }}
+        cursor="default"
+        userSelect="none"
       >
-        {intl.formatMessage({ id: ETranslations.global_show_more })}
-      </Button>
+        <SizableText size="$bodyMdMedium" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.global_show_more })}
+        </SizableText>
+        <Icon name="ChevronRightSmallOutline" size="$4" color="$iconSubdued" />
+      </XStack>
     </XStack>
   );
 }
@@ -261,8 +278,7 @@ function SkeletonTableLine({
       <XStack
         width={TOKEN_SELECTOR_SEARCH_NAME_COLUMN_WIDTH}
         flexShrink={0}
-        pl={TOKEN_SELECTOR_COLUMN_PADDING}
-        pr={TOKEN_SELECTOR_SEARCH_NAME_COLUMN_PADDING_RIGHT}
+        px={TOKEN_SELECTOR_COLUMN_PADDING}
         gap={TOKEN_SELECTOR_NAME_GAP}
         alignItems="center"
       >
@@ -282,6 +298,7 @@ function SkeletonTableLine({
           flexBasis={0}
           minWidth={0}
           px={TOKEN_SELECTOR_COLUMN_PADDING}
+          justifyContent="flex-end"
         >
           {renderMetric(metric)}
         </XStack>
@@ -368,8 +385,7 @@ const StockSearchRow = memo(
         <XStack
           width={TOKEN_SELECTOR_SEARCH_NAME_COLUMN_WIDTH}
           flexShrink={0}
-          pl={TOKEN_SELECTOR_COLUMN_PADDING}
-          pr={TOKEN_SELECTOR_SEARCH_NAME_COLUMN_PADDING_RIGHT}
+          px={TOKEN_SELECTOR_COLUMN_PADDING}
           gap={TOKEN_SELECTOR_NAME_GAP}
           alignItems="center"
           minWidth={0}
@@ -433,6 +449,7 @@ const StockSearchRow = memo(
           flexBasis={0}
           minWidth={0}
           px={TOKEN_SELECTOR_COLUMN_PADDING}
+          justifyContent="flex-end"
         >
           <SelectorPriceChangeCell
             price={parseMarketStockNumber(item.price)}
@@ -444,6 +461,7 @@ const StockSearchRow = memo(
           flexBasis={0}
           minWidth={0}
           px={TOKEN_SELECTOR_COLUMN_PADDING}
+          justifyContent="flex-end"
         >
           <SelectorAmountCell value={parseMarketStockNumber(item.marketCap)} />
         </XStack>
@@ -452,6 +470,7 @@ const StockSearchRow = memo(
           flexBasis={0}
           minWidth={0}
           px={TOKEN_SELECTOR_COLUMN_PADDING}
+          justifyContent="flex-end"
         >
           <SelectorAmountCell value={parseMarketStockNumber(item.volume24h)} />
         </XStack>
@@ -510,9 +529,6 @@ function StockSection({
             })}
             cells={headerCells}
             nameColumnWidth={TOKEN_SELECTOR_SEARCH_NAME_COLUMN_WIDTH}
-            nameColumnPaddingRight={
-              TOKEN_SELECTOR_SEARCH_NAME_COLUMN_PADDING_RIGHT
-            }
           />
           {items.map((item) => (
             <StockSearchRow key={item.stockId} item={item} onPress={onPress} />
@@ -555,9 +571,6 @@ function TokenSection({
             nameTitle={intl.formatMessage({ id: ETranslations.global_name })}
             cells={headerCells}
             nameColumnWidth={TOKEN_SELECTOR_SEARCH_NAME_COLUMN_WIDTH}
-            nameColumnPaddingRight={
-              TOKEN_SELECTOR_SEARCH_NAME_COLUMN_PADDING_RIGHT
-            }
           />
           {items.map((item) => (
             <MarketTokenSelectorRow
@@ -567,9 +580,6 @@ function TokenSection({
               subtitleVariant="nameAddress"
               columns={SEARCH_TOKEN_COLUMNS}
               nameColumnWidth={TOKEN_SELECTOR_SEARCH_NAME_COLUMN_WIDTH}
-              nameColumnPaddingRight={
-                TOKEN_SELECTOR_SEARCH_NAME_COLUMN_PADDING_RIGHT
-              }
             />
           ))}
         </YStack>
@@ -628,7 +638,6 @@ function TokenTabList({
         nameTitle={intl.formatMessage({ id: ETranslations.global_name })}
         cells={headerCells}
         nameColumnWidth={TOKEN_SELECTOR_SEARCH_NAME_COLUMN_WIDTH}
-        nameColumnPaddingRight={TOKEN_SELECTOR_SEARCH_NAME_COLUMN_PADDING_RIGHT}
       />
     ),
     [headerCells, intl],
@@ -648,13 +657,11 @@ function TokenTabList({
           subtitleVariant="nameAddress"
           columns={SEARCH_TOKEN_COLUMNS}
           nameColumnWidth={TOKEN_SELECTOR_SEARCH_NAME_COLUMN_WIDTH}
-          nameColumnPaddingRight={
-            TOKEN_SELECTOR_SEARCH_NAME_COLUMN_PADDING_RIGHT
-          }
         />
       )}
       contentContainerStyle={{
         paddingHorizontal: TOKEN_SELECTOR_TABLE_PADDING,
+        paddingBottom: TOKEN_SELECTOR_LIST_PADDING_BOTTOM,
       }}
     />
   );
@@ -738,7 +745,9 @@ function MarketTokenSelectorSearchResults({
     body = (
       <ScrollView
         flex={1}
-        contentContainerStyle={{ paddingBottom: 20 }}
+        contentContainerStyle={{
+          paddingBottom: TOKEN_SELECTOR_LIST_PADDING_BOTTOM,
+        }}
         onScroll={handleAllScroll}
         scrollEventThrottle={64}
       >

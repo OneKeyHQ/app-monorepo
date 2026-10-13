@@ -18,6 +18,7 @@ import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
 import {
   TOKEN_SELECTOR_HEADER_HEIGHT,
+  TOKEN_SELECTOR_LIST_PADDING_BOTTOM,
   TOKEN_SELECTOR_POPOVER_HEIGHT,
   TOKEN_SELECTOR_POPOVER_WIDTH,
   TOKEN_SELECTOR_ROW_HEIGHT,
@@ -33,6 +34,10 @@ type IMarketStockSelectorListResult = ReturnType<
  * The stocks table itself, fed by a `useMarketStockSelectorList` result so the
  * browse list and the search Stocks tab render identical rows.
  */
+const STOCK_TABLE_CONTENT_STYLE = {
+  paddingBottom: TOKEN_SELECTOR_LIST_PADDING_BOTTOM,
+};
+
 const MarketStockSelectorTable = memo(
   ({
     result,
@@ -184,6 +189,7 @@ const MarketStockSelectorTable = memo(
           onEndReached={handleEndReached}
           onEndReachedThreshold={0.2}
           TableFooterComponent={tableFooterComponent}
+          contentContainerStyle={STOCK_TABLE_CONTENT_STYLE}
           onRow={(item) => ({
             onPress: () => onItemPress(item),
             rowProps: {

@@ -41,10 +41,10 @@ import { parseMarketStockNumber } from './utils';
 
 const EMPTY_VALUE = '--';
 
-// The selector dropdown's `Left Fixed` company column (Figma 27032:41642),
-// matching the selector's token tabs so every tab lines up. The metric columns
-// share the rest evenly, like the full table.
-const COMPACT_COMPANY_COLUMN_WIDTH = 288;
+// The selector dropdown's company column, matching the selector's token tabs
+// (`TOKEN_SELECTOR_NAME_COLUMN_WIDTH`) so every tab lines up. The metric
+// columns share the rest evenly, like the full table.
+const COMPACT_COMPANY_COLUMN_WIDTH = 256;
 // `$bodySm`'s line box, the compact subtitle line.
 const COMPACT_SUBTITLE_LINE_HEIGHT = 16;
 
@@ -406,6 +406,13 @@ export function useMarketStockColumns({
           ),
         renderSkeleton: () => <Skeleton width={132} height={40} />,
       });
+    }
+    // The selector's compact table right-aligns its figures; the company
+    // column stays left.
+    if (compact) {
+      return columns.map((column, index) =>
+        index === 0 ? column : { ...column, align: 'right' as const },
+      );
     }
     return columns;
   }, [

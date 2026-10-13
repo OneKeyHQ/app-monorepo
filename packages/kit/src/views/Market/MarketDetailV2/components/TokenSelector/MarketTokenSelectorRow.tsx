@@ -40,7 +40,6 @@ import type {
   IMarketTokenSelectorColumns,
   IMarketTokenSelectorMetricColumn,
 } from './constants';
-import type { ISelectorPadding } from './selectorTable';
 import type { IMarketToken } from '../../../MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import type { GestureResponderEvent } from 'react-native';
 
@@ -63,7 +62,6 @@ interface IMarketTokenSelectorRowProps {
   subtitleVariant?: IMarketTokenSelectorSubtitleVariant;
   columns: IMarketTokenSelectorColumns;
   nameColumnWidth?: number;
-  nameColumnPaddingRight?: ISelectorPadding;
 }
 
 const PRICE_LARGE_THRESHOLD = 1_000_000;
@@ -86,7 +84,6 @@ const MarketTokenSelectorRow = memo(
     subtitleVariant = 'name',
     columns,
     nameColumnWidth = TOKEN_SELECTOR_NAME_COLUMN_WIDTH,
-    nameColumnPaddingRight = TOKEN_SELECTOR_COLUMN_PADDING,
   }: IMarketTokenSelectorRowProps) => {
     const { copyText } = useClipboard();
 
@@ -329,8 +326,7 @@ const MarketTokenSelectorRow = memo(
         <XStack
           width={nameColumnWidth}
           flexShrink={0}
-          pl={TOKEN_SELECTOR_COLUMN_PADDING}
-          pr={nameColumnPaddingRight}
+          px={TOKEN_SELECTOR_COLUMN_PADDING}
           gap={TOKEN_SELECTOR_NAME_GAP}
           alignItems="center"
           justifyContent="flex-start"
@@ -374,7 +370,7 @@ const MarketTokenSelectorRow = memo(
             minWidth={0}
             px={TOKEN_SELECTOR_COLUMN_PADDING}
             alignItems="center"
-            justifyContent="flex-start"
+            justifyContent="flex-end"
           >
             {renderMetric(metric)}
           </XStack>
