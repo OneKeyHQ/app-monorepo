@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -17,7 +17,10 @@ import {
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
-import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import {
+  useMarketWatchListV2Atom,
+  useWatchListV2Actions,
+} from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { MarketStockStar } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/MarketStockStar';
 import { parseMarketStockNumber } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/utils';
 import { applyMarketTokenListLiveOverrides } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketHomeTokenListWebSocket';
@@ -28,6 +31,10 @@ import { getMarketWatchlistRowKind } from '@onekeyhq/kit/src/views/Market/Market
 import type { IMarketTimeRangeValue } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/types';
 import { isTrendingStyleSpotCategory } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/utils';
 import { MarketTestIDs } from '@onekeyhq/kit/src/views/Market/testIDs';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -286,8 +293,12 @@ export const MobileMarketSelectorListItem = memo(
   BasicMobileMarketSelectorListItem,
 );
 
+// No change data reads as `--`, like the desktop rows: the feed either omits
+// the field (normalized to 0 on conversion) or sends '-'. A real '0' stays 0%.
 function getTokenPriceChange(item: IMarketToken) {
-  return item.priceChangeRaw === '-' ? undefined : item.change24h;
+  return item.priceChangeRaw === undefined || item.priceChangeRaw === '-'
+    ? undefined
+    : item.change24h;
 }
 
 /**
@@ -442,6 +453,21 @@ export function MobileSelectorWatchlistList({
 }) {
   const intl = useIntl();
   const [{ data: watchListData }] = useMarketWatchListV2Atom();
+  const watchListActions = useWatchListV2Actions();
+  // Favorites changed elsewhere (home, another detail page) while the modal is
+  // open: reload the watchlist so these rows do not go stale, as the Market
+  // home watchlist does.
+  useEffect(() => {
+    const refresh = async () => {
+      await watchListActions.current.refreshWatchListV2();
+    };
+    appEventBus.on(EAppEventBusNames.RefreshMarketWatchList, refresh);
+    appEventBus.on(EAppEventBusNames.MarketWatchListV2Changed, refresh);
+    return () => {
+      appEventBus.off(EAppEventBusNames.RefreshMarketWatchList, refresh);
+      appEventBus.off(EAppEventBusNames.MarketWatchListV2Changed, refresh);
+    };
+  }, [watchListActions]);
   const { data, isLoading } = useMarketWatchlistTokenList({
     watchlist: watchListData ?? [],
     pollingInterval: TOKEN_SELECTOR_POLLING_INTERVAL,
