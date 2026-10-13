@@ -11,6 +11,7 @@ import {
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import type {
   IPrimeFreeTrialAtomData,
+  IPrimeFreeTrialFeatureId,
   IPrimeFreeTrialQuota,
 } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 import { EPrimeFreeTrialPendingActionType } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
@@ -109,13 +110,16 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => {
 
 const RESET_AT = Date.now() + 10 * 24 * 60 * 60 * 1000;
 
-function quotaWith(remaining: number): IPrimeFreeTrialQuota {
+function quotaWith(
+  remaining: number,
+  featureId: IPrimeFreeTrialFeatureId = EPrimeFeatures.BulkSend,
+): IPrimeFreeTrialQuota {
   return {
     period: '2026-10',
     resetAt: RESET_AT,
     features: [
       {
-        featureId: EPrimeFeatures.BulkSend,
+        featureId,
         unit: 'count',
         monthlyQuota: 1,
         used: 1 - remaining,
@@ -707,24 +711,67 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
     expect(dashboardReason()).toBe('notOpen');
   });
 
-  it('says why the details of an unchecked address are refused', () => {
-    const result = renderAccessHook();
+  describe('details of an address not checked this month', () => {
+    const detailsNotEligibleError = {
+      code: 90_601,
+      data: {
+        featureId: EPrimeFeatures.AddressRiskCheck,
+        reason: 'detailsNotEligible',
+      },
+    };
 
-    act(() => {
-      result.current.handleFreeTrialError({
-        error: {
-          code: 90_601,
-          data: {
-            featureId: EPrimeFeatures.AddressRiskCheck,
-            reason: 'detailsNotEligible',
-          },
-        },
+    it('shows the exhausted toast when the snapshot has no use left', async () => {
+      setSnapshot(quotaWith(0, EPrimeFeatures.AddressRiskCheck));
+      const result = renderAccessHook();
+
+      act(() => {
+        result.current.handleFreeTrialError({
+          error: detailsNotEligibleError,
+        });
       });
+
+      await waitFor(() => {
+        expect(toastAt(0)).toMatchObject({
+          title: '地址风险检查：本月免费次数已用完',
+          message: expect.stringMatching(/^将于 .+ 重置。$/),
+        });
+      });
+      pressGetPrimeOf(0);
+      expect(dashboardReason()).toBe('exhausted');
     });
 
-    expect(toastAt(0)?.title).toBe(
-      '地址风险检查：本月检查过的地址才能查看详情',
-    );
+    it('shows the exhausted toast, without a date, when the quota is unknown', async () => {
+      const result = renderAccessHook();
+
+      act(() => {
+        result.current.handleFreeTrialError({
+          error: detailsNotEligibleError,
+        });
+      });
+
+      await waitFor(() => {
+        expect(toastAt(0)?.title).toBe('地址风险检查：本月免费次数已用完');
+      });
+      expect(toastAt(0)?.message).toBeUndefined();
+      pressGetPrimeOf(0);
+      expect(dashboardReason()).toBe('exhausted');
+    });
+
+    it('keeps the details sentence while the snapshot has uses left', () => {
+      setSnapshot(quotaWith(1, EPrimeFeatures.AddressRiskCheck));
+      const result = renderAccessHook();
+
+      act(() => {
+        result.current.handleFreeTrialError({
+          error: detailsNotEligibleError,
+        });
+      });
+
+      expect(toastAt(0)?.title).toBe(
+        '地址风险检查：本月检查过的地址才能查看详情',
+      );
+      expect(toastAt(0)?.message).toBeUndefined();
+    });
   });
 
   it('titles an exhausted toast by feature with the local reset date', async () => {

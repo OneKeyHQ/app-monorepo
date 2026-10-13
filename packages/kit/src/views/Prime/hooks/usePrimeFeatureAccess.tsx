@@ -332,18 +332,40 @@ export function usePrimeFeatureAccess() {
           afterPageExit,
           reservation: freeTrialError.data,
         });
-      } else {
-        showActiveRejectedFeedback({
-          featureId: freeTrialError.data.featureId,
-          reason: 'notOpen',
-          networkId,
-          afterPageExit,
-          notOpenReason: freeTrialError.data.reason,
-        });
+        return freeTrialError;
       }
+      const { featureId, reason } = freeTrialError.data;
+      if (reason === 'detailsNotEligible') {
+        // Details are only for addresses checked this month. With no use left
+        // in the local snapshot, or an unknown quota, the address cannot be
+        // checked again either, so this is the exhausted feedback. Uses left
+        // (e.g. the month turned while the result page stayed open) keep the
+        // details sentence. Feedback only: the local quota stays as it is.
+        const access = getCachedAccess(featureId);
+        const hasUsesLeft =
+          access.status === 'available' &&
+          (access.featureQuota?.remaining ?? 0) > 0;
+        if (!hasUsesLeft) {
+          showActiveRejectedFeedback({
+            featureId,
+            reason: 'exhausted',
+            resetAt: access.status === 'exhausted' ? access.resetAt : undefined,
+            networkId,
+            afterPageExit,
+          });
+          return freeTrialError;
+        }
+      }
+      showActiveRejectedFeedback({
+        featureId,
+        reason: 'notOpen',
+        networkId,
+        afterPageExit,
+        notOpenReason: reason,
+      });
       return freeTrialError;
     },
-    [getResetAtOfSnapshot, showActiveRejectedFeedback],
+    [getCachedAccess, getResetAtOfSnapshot, showActiveRejectedFeedback],
   );
 
   // A refresh that fails or does not answer in time leaves the quota unknown,
