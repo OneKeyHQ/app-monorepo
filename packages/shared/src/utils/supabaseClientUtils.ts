@@ -365,9 +365,13 @@ async function getSupabaseSniFallbackCandidates(url: URL): Promise<string[]> {
 }
 
 // Whether sending the request twice is harmless: a read, or one of the two
-// token grants GoTrue accepts again. It answers a refresh token it has already
-// rotated with the active one, and an ID token is not single-use. One-time
-// codes (OTP, PKCE) are not: a second copy fails after the first was accepted.
+// token grants GoTrue accepts again. A refresh token one generation behind
+// the active one is answered with the active one at any time (the direct
+// parent rule of the v1 algorithm, a counter difference of 1 in v2; the
+// reuse interval only governs older tokens), and a copy sent here is never
+// further behind, because the stored token only advances on a response. An
+// ID token is not single-use. One-time codes (OTP, PKCE) are: a second copy
+// fails after the first was accepted.
 function isSupabaseRequestRepeatable(
   url: URL,
   init: RequestInit | undefined,
@@ -398,15 +402,40 @@ async function fetchSupabaseDomainWithin(
   }
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    // On success the listener stays: the caller's abort must still reach the
-    // body read.
     return await fetch(input, { ...init, signal: controller.signal });
-  } catch (error) {
-    callerSignal?.removeEventListener?.('abort', forwardAbort);
-    throw error;
   } finally {
     clearTimeout(timer);
+    // Once the headers are in, the small JSON body is read without an abort.
+    // Keeping the listener would hold this request for as long as a reused
+    // caller signal lives.
+    callerSignal?.removeEventListener?.('abort', forwardAbort);
   }
+}
+
+function buildSupabaseAbortError(): Error {
+  const abortError = new Error('Aborted');
+  abortError.name = 'AbortError';
+  return abortError;
+}
+
+type ISupabaseAuthRoute = { index: number | null; ip?: string };
+
+// The route to try first, then the others: the domain before the candidates,
+// or after them once a candidate is in use.
+function getSupabaseAuthRoutes(
+  candidates: string[],
+  pointer: number | null,
+): ISupabaseAuthRoute[] {
+  const domainRoute: ISupabaseAuthRoute = { index: null };
+  const candidateRoutes = candidates.map((ip, index) => ({ index, ip }));
+  const lastRoute = candidateRoutes.find((route) => route.index === pointer);
+  return lastRoute
+    ? [
+        lastRoute,
+        ...candidateRoutes.filter((route) => route !== lastRoute),
+        domainRoute,
+      ]
+    : [domainRoute, ...candidateRoutes];
 }
 
 function buildSupabaseSniResponse(
@@ -424,14 +453,19 @@ function buildSupabaseSniResponse(
   });
 }
 
-// Resolves with `null` for a non-JSON answer that is not a success: an error
-// page, or a redirect, which the SNI transport never follows. That comes from
-// an intermediary, not from GoTrue, so the route counts as failed.
+type ISupabaseRouteAnswer = {
+  response: Response;
+  // False for a non-JSON answer that is not a success: an error page, or a
+  // redirect, which the SNI transport never follows. That comes from an
+  // intermediary, not from GoTrue, so the route counts as failed.
+  fromAuthServer: boolean;
+};
+
 async function fetchSupabaseSniCandidate(
   url: URL,
   init: RequestInit | undefined,
   ip: string,
-): Promise<Response | null> {
+): Promise<ISupabaseRouteAnswer> {
   const method = (init?.method ?? 'GET').toUpperCase();
   const headers: Record<string, string> = {};
   new Headers(init?.headers).forEach((value, key) => {
@@ -453,24 +487,77 @@ async function fetchSupabaseSniCandidate(
     throw new TypeError('SNI transport returned no response');
   }
   const response = buildSupabaseSniResponse(sniResponse, method);
-  return !response.ok && !isJsonParseableBody(sniResponse.body)
-    ? null
-    : response;
+  return {
+    response,
+    fromAuthServer: response.ok || isJsonParseableBody(sniResponse.body),
+  };
+}
+
+// A one-time request is sent once, like a plain fetch, and its outcome is
+// returned as is. A failure only moves the NEXT request to the next route
+// (domain -> each candidate -> domain); concurrent failures move it once.
+async function fetchSupabaseRouteOnce({
+  url,
+  input,
+  init,
+  route,
+  pointer,
+  candidateCount,
+}: {
+  url: URL;
+  input: RequestInfo | URL;
+  init: RequestInit | undefined;
+  route: ISupabaseAuthRoute;
+  pointer: number | null;
+  candidateCount: number;
+}): Promise<Response> {
+  const moveOn = (reason: string) => {
+    if (supabaseSniFallbackIndex !== pointer) {
+      return;
+    }
+    const nextIndex = route.index === null ? 0 : route.index + 1;
+    setSupabaseSniFallbackIndex(
+      nextIndex < candidateCount ? nextIndex : null,
+      reason,
+    );
+  };
+  if (!route.ip) {
+    try {
+      return await fetch(input, init);
+    } catch (error) {
+      if (!init?.signal?.aborted) {
+        moveOn('domain_failed');
+      }
+      throw error;
+    }
+  }
+  try {
+    const answer = await fetchSupabaseSniCandidate(url, init, route.ip);
+    if (!answer.fromAuthServer) {
+      moveOn('sni_error_page');
+    }
+    return answer.response;
+  } catch {
+    if (init?.signal?.aborted) {
+      throw buildSupabaseAbortError();
+    }
+    moveOn('sni_failed');
+    // No transport detail: this message reaches logs and the failure toast.
+    throw new TypeError('Network request failed');
+  }
 }
 
 /**
  * auth.onekey.so is DNS-poisoned on some networks, where only the IP table's
  * CN CDN endpoints can reach it.
  *
- * Each request tries the route that answered last, then the others in order
- * (the domain, then each IP-table candidate; the domain goes last once a
- * candidate is in use), and the route that answers is kept. Without a
- * candidate to fall back to, the request goes to the domain untouched.
- *
- * A request can therefore reach the auth server twice, when a route took it
- * and failed before answering. So only a request that is harmless to repeat
- * is cut short on the domain; any other waits for the domain to answer or
- * fail by itself, as it always did.
+ * A request that is harmless to repeat (see isSupabaseRequestRepeatable)
+ * tries the route that answered last, then the others (the domain, where it
+ * waits a few seconds at most, then each IP-table candidate; the domain goes
+ * last once a candidate is in use), and the route that answers is kept. Any
+ * other request is sent once, to the route in use, and a failure moves the
+ * next request on. Without a candidate to fall back to, every request goes
+ * to the domain untouched.
  */
 const supabaseSniFallbackFetch: typeof fetch = async (input, init) => {
   const url = getSupabaseSniFallbackUrl(input, init);
@@ -481,33 +568,33 @@ const supabaseSniFallbackFetch: typeof fetch = async (input, init) => {
     }
     return fetch(input, init);
   }
-  const domainRoute: { index: number | null; ip?: string } = { index: null };
-  const candidateRoutes = candidates.map((ip, index) => ({ index, ip }));
-  const lastRoute = candidateRoutes.find(
-    (route) => route.index === supabaseSniFallbackIndex,
-  );
-  const routes = lastRoute
-    ? [
-        lastRoute,
-        ...candidateRoutes.filter((route) => route !== lastRoute),
-        domainRoute,
-      ]
-    : [domainRoute, ...candidateRoutes];
-  const sendToDomain = () =>
-    isSupabaseRequestRepeatable(url, init)
-      ? fetchSupabaseDomainWithin(
-          input,
-          init,
-          SUPABASE_SNI_FALLBACK_DOMAIN_TIMEOUT_MS,
-        )
-      : fetch(input, init);
+  const pointer = supabaseSniFallbackIndex;
+  const routes = getSupabaseAuthRoutes(candidates, pointer);
+  if (!isSupabaseRequestRepeatable(url, init)) {
+    return fetchSupabaseRouteOnce({
+      url,
+      input,
+      init,
+      route: routes[0],
+      pointer,
+      candidateCount: candidates.length,
+    });
+  }
   let firstFailure: string | undefined;
   for (const route of routes) {
     let failure = 'sni_error_page';
     try {
-      const response = route.ip
-        ? await fetchSupabaseSniCandidate(url, init, route.ip)
-        : await sendToDomain();
+      let response: Response | undefined;
+      if (route.ip) {
+        const answer = await fetchSupabaseSniCandidate(url, init, route.ip);
+        response = answer.fromAuthServer ? answer.response : undefined;
+      } else {
+        response = await fetchSupabaseDomainWithin(
+          input,
+          init,
+          SUPABASE_SNI_FALLBACK_DOMAIN_TIMEOUT_MS,
+        );
+      }
       if (response) {
         if (supabaseSniFallbackIndex !== route.index) {
           setSupabaseSniFallbackIndex(route.index, firstFailure ?? 'answered');
@@ -516,12 +603,7 @@ const supabaseSniFallbackFetch: typeof fetch = async (input, init) => {
       }
     } catch (error) {
       if (init?.signal?.aborted) {
-        if (!route.ip) {
-          throw error;
-        }
-        const abortError = new Error('Aborted');
-        abortError.name = 'AbortError';
-        throw abortError;
+        throw route.ip ? buildSupabaseAbortError() : error;
       }
       failure = route.ip ? 'sni_failed' : 'domain_failed';
     }
@@ -642,9 +724,10 @@ const sessionPreservingSupabaseFetch: typeof fetch = async (input, init) => {
  * session store (supabaseStorageInstance). Every runtime used to construct
  * its Supabase client with `autoRefreshToken: true`, so two runtimes'
  * auto-refresh tickers could independently rotate the SAME refresh token.
- * GoTrue's reuse detection allows re-using a rotated refresh token only
- * within a short (~10s) window; a second refresh with the stale token after
- * that window revokes the whole token family, and auth-js then removes the
+ * GoTrue answers a rotated refresh token that is one generation behind with
+ * the active one, but allows re-using an older one only within a short (~10s)
+ * window; a second refresh with such a stale token after that window revokes
+ * the whole token family, and auth-js then removes the
  * session from the shared store — a spurious full logout. Therefore exactly
  * one runtime per platform — the background runtime — owns token refresh.
  *

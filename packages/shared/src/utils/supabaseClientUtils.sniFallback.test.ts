@@ -248,52 +248,274 @@ describe('supabase SNI fallback', () => {
     },
   );
 
-  test.each<[string, string, string]>([
-    [
-      'an OTP send',
-      'https://auth.onekey.so/auth/v1/otp',
-      '{"email":"a@example.com"}',
-    ],
-    [
-      'an OTP verification',
-      'https://auth.onekey.so/auth/v1/verify',
-      '{"type":"email","token":"123456"}',
-    ],
-    [
-      'a PKCE code exchange',
-      'https://auth.onekey.so/auth/v1/token?grant_type=pkce',
-      '{"auth_code":"c","code_verifier":"v"}',
-    ],
-  ])(
-    'never cuts short %s, which must not be sent twice',
-    async (_name, url, body) => {
-      jest.useFakeTimers();
-      let rejectDomain: (error: Error) => void = () => undefined;
-      mockFetch.mockImplementation(
-        () =>
-          new Promise<Response>((_resolve, reject) => {
-            rejectDomain = reject;
-          }),
-      );
-      mockSniRequest.mockResolvedValue(sniOk());
+  test('a slow domain and failing candidates reject like a network failure, with the same token sent to every route', async () => {
+    jest.useFakeTimers();
+    const domain = hangDomainUntilAborted();
+    mockSniRequest.mockRejectedValue(new Error('SNI_REQUEST_TIMEOUT'));
+    const guardedFetch = await getGuardedFetch();
+    const init = refreshInit();
+
+    const pending = guardedFetch(REFRESH_URL, init);
+    // The rejection fires while the timers advance; handle it before then.
+    pending.catch(() => undefined);
+    await jest.advanceTimersByTimeAsync(5000);
+    // auth-js keeps the session on this rejection and retries by itself.
+    await expect(pending).rejects.toThrow(/^Network request failed$/);
+
+    expect(domain.signal?.aborted).toBe(true);
+    expect(getSniIps()).toEqual([FIRST_IP, SECOND_IP, THIRD_IP]);
+    expect(mockSniRequest.mock.calls.map(([config]) => config.body)).toEqual(
+      Array(3).fill(init.body),
+    );
+    expect(mockLogInfo).not.toHaveBeenCalled();
+  });
+
+  describe('one-time requests', () => {
+    const ONE_TIME_REQUESTS: [string, string, string][] = [
+      [
+        'an OTP send',
+        'https://auth.onekey.so/auth/v1/otp',
+        '{"email":"a@example.com"}',
+      ],
+      [
+        'an OTP verification',
+        'https://auth.onekey.so/auth/v1/verify',
+        '{"type":"email","token":"123456"}',
+      ],
+      [
+        'a PKCE code exchange',
+        'https://auth.onekey.so/auth/v1/token?grant_type=pkce',
+        '{"auth_code":"c","code_verifier":"v"}',
+      ],
+    ];
+
+    test.each(ONE_TIME_REQUESTS)(
+      'sends %s to the domain untouched and only moves the next request on when it fails',
+      async (_name, url, body) => {
+        jest.useFakeTimers();
+        let rejectDomain: (error: Error) => void = () => undefined;
+        mockFetch.mockImplementation(
+          () =>
+            new Promise<Response>((_resolve, reject) => {
+              rejectDomain = reject;
+            }),
+        );
+        mockSniRequest.mockResolvedValue(sniOk());
+        const guardedFetch = await getGuardedFetch();
+        const init: RequestInit = { method: 'POST', body };
+
+        const pending = guardedFetch(url, init);
+        await jest.advanceTimersByTimeAsync(120_000);
+
+        // No abort signal of ours is attached, and no candidate is tried.
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+        expect(mockFetch.mock.calls[0]?.[1]).toBe(init);
+        expect(mockSniRequest).not.toHaveBeenCalled();
+
+        const domainError = networkError();
+        rejectDomain(domainError);
+        await expect(pending).rejects.toBe(domainError);
+        expect(mockSniRequest).not.toHaveBeenCalled();
+        expect(getLogLines()).toEqual([
+          '[SupabaseSniFallback] route=sni candidate=0 reason=domain_failed',
+        ]);
+
+        // The next request starts from the first candidate.
+        await guardedFetch(url, { method: 'POST', body });
+        expect(getSniIps()).toEqual([FIRST_IP]);
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+      },
+    );
+
+    test('sends a one-time request once to the candidate in use and keeps it when it answers', async () => {
       const guardedFetch = await getGuardedFetch();
-      const init: RequestInit = { method: 'POST', body };
+      await moveToFirstCandidate(guardedFetch);
+      mockSniRequest.mockResolvedValue({
+        statusCode: 400,
+        headers: { 'content-type': 'application/json' },
+        body: '{"code":"otp_expired"}',
+      });
 
-      const pending = guardedFetch(url, init);
-      await jest.advanceTimersByTimeAsync(120_000);
+      const response = await guardedFetch(
+        'https://auth.onekey.so/auth/v1/verify',
+        { method: 'POST', body: '{"type":"email","token":"123456"}' },
+      );
 
-      // Sent untouched: no abort signal of ours is attached.
-      expect(mockFetch).toHaveBeenCalledTimes(1);
-      expect(mockFetch.mock.calls[0]?.[1]).toBe(init);
-      expect(mockSniRequest).not.toHaveBeenCalled();
-
-      // Once the domain fails by itself, the candidates still take over.
-      rejectDomain(networkError());
-      const response = await pending;
-      expect(response.status).toBe(200);
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toEqual({ code: 'otp_expired' });
       expect(getSniIps()).toEqual([FIRST_IP]);
-    },
-  );
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(mockLogInfo).not.toHaveBeenCalled();
+    });
+
+    test('never resends a one-time request that failed on a candidate; the next request moves on', async () => {
+      const guardedFetch = await getGuardedFetch();
+      await moveToFirstCandidate(guardedFetch);
+      mockSniRequest
+        .mockRejectedValueOnce(
+          Object.assign(new Error('SNI_TLS_FAILED: 216.19.3.115'), {
+            code: 'SNI_TLS_FAILED',
+          }),
+        )
+        .mockResolvedValue(sniOk());
+      const init: RequestInit = {
+        method: 'POST',
+        body: '{"auth_code":"c","code_verifier":"v"}',
+      };
+
+      const failure = guardedFetch(
+        'https://auth.onekey.so/auth/v1/token?grant_type=pkce',
+        init,
+      );
+      await expect(failure).rejects.toBeInstanceOf(TypeError);
+      await expect(failure).rejects.toThrow(/^Network request failed$/);
+      expect(getSniIps()).toEqual([FIRST_IP]);
+      expect(mockFetch).not.toHaveBeenCalled();
+
+      await guardedFetch('https://auth.onekey.so/auth/v1/otp', {
+        method: 'POST',
+        body: '{"email":"a@example.com"}',
+      });
+
+      expect(getSniIps()).toEqual([FIRST_IP, SECOND_IP]);
+      expect(getLogLines()).toEqual([
+        '[SupabaseSniFallback] route=sni candidate=1 reason=sni_failed',
+      ]);
+    });
+
+    test('returns an intermediary page from the candidate as is and moves the next request on', async () => {
+      const guardedFetch = await getGuardedFetch();
+      await moveToFirstCandidate(guardedFetch);
+      mockSniRequest
+        .mockResolvedValueOnce({
+          statusCode: 403,
+          headers: { 'content-type': 'text/html', server: 'cloudflare' },
+          body: '<!DOCTYPE html><title>Attention Required</title>',
+        })
+        .mockResolvedValue(sniOk());
+
+      // The persistent clients' guard masks the page with its fingerprint.
+      await expect(
+        guardedFetch('https://auth.onekey.so/auth/v1/otp', {
+          method: 'POST',
+          body: '{"email":"a@example.com"}',
+        }),
+      ).rejects.toThrow(/Supabase non-JSON HTTP 403 .*server=cloudflare/);
+      await guardedFetch('https://auth.onekey.so/auth/v1/otp', {
+        method: 'POST',
+        body: '{"email":"a@example.com"}',
+      });
+
+      expect(getSniIps()).toEqual([FIRST_IP, SECOND_IP]);
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    test('goes back to the domain after the last candidate fails', async () => {
+      const guardedFetch = await getGuardedFetch();
+      await moveToFirstCandidate(guardedFetch);
+      // Two candidates fail in turn, so the third is in use.
+      mockSniRequest
+        .mockRejectedValueOnce(new Error('SNI_REQUEST_FAILED'))
+        .mockRejectedValueOnce(new Error('SNI_REQUEST_FAILED'))
+        .mockRejectedValueOnce(new Error('SNI_REQUEST_FAILED'))
+        .mockResolvedValue(sniOk());
+      const init: RequestInit = {
+        method: 'POST',
+        body: '{"email":"a@example.com"}',
+      };
+      const otpUrl = 'https://auth.onekey.so/auth/v1/otp';
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        await expect(guardedFetch(otpUrl, init)).rejects.toThrow(
+          'Network request failed',
+        );
+      }
+      const response = new Response('{}', { status: 200 });
+      mockFetch.mockResolvedValue(response);
+
+      await expect(guardedFetch(otpUrl, init)).resolves.toBe(response);
+
+      expect(getSniIps()).toEqual([FIRST_IP, SECOND_IP, THIRD_IP]);
+      expect(mockFetch.mock.calls[0]?.[1]).toBe(init);
+      expect(getLogLines()).toEqual([
+        '[SupabaseSniFallback] route=sni candidate=1 reason=sni_failed',
+        '[SupabaseSniFallback] route=sni candidate=2 reason=sni_failed',
+        '[SupabaseSniFallback] route=domain reason=sni_failed',
+      ]);
+    });
+
+    test('concurrent one-time failures on the same candidate move the route on once', async () => {
+      const guardedFetch = await getGuardedFetch();
+      await moveToFirstCandidate(guardedFetch);
+      mockSniRequest
+        .mockRejectedValueOnce(new Error('SNI_REQUEST_FAILED'))
+        .mockRejectedValueOnce(new Error('SNI_REQUEST_FAILED'))
+        .mockResolvedValue(sniOk());
+      const init: RequestInit = {
+        method: 'POST',
+        body: '{"email":"a@example.com"}',
+      };
+      const otpUrl = 'https://auth.onekey.so/auth/v1/otp';
+
+      await Promise.allSettled([
+        guardedFetch(otpUrl, init),
+        guardedFetch(otpUrl, init),
+      ]);
+      await guardedFetch(otpUrl, init);
+
+      expect(getSniIps()).toEqual([FIRST_IP, FIRST_IP, SECOND_IP]);
+      expect(getLogLines()).toEqual([
+        '[SupabaseSniFallback] route=sni candidate=1 reason=sni_failed',
+      ]);
+    });
+
+    test('keeps the route when the caller aborts a one-time request', async () => {
+      const controller = new AbortController();
+      const guardedFetch = await getGuardedFetch();
+      await moveToFirstCandidate(guardedFetch);
+      mockSniRequest
+        .mockImplementationOnce(async () => {
+          controller.abort();
+          throw new OneKeyLocalError('SNI_CANCELLED: Request cancelled');
+        })
+        .mockResolvedValue(sniOk());
+      const otpUrl = 'https://auth.onekey.so/auth/v1/otp';
+
+      await expect(
+        guardedFetch(otpUrl, {
+          method: 'POST',
+          body: '{"email":"a@example.com"}',
+          signal: controller.signal,
+        }),
+      ).rejects.toMatchObject({ name: 'AbortError' });
+      await guardedFetch(otpUrl, {
+        method: 'POST',
+        body: '{"email":"a@example.com"}',
+      });
+
+      expect(getSniIps()).toEqual([FIRST_IP, FIRST_IP]);
+      expect(mockLogInfo).not.toHaveBeenCalled();
+    });
+  });
+
+  test('lets go of the caller signal once the domain has answered', async () => {
+    const controller = new AbortController();
+    let domainSignal: AbortSignal | null | undefined;
+    mockFetch.mockImplementation(
+      async (_input: unknown, init?: RequestInit) => {
+        domainSignal = init?.signal;
+        return new Response('{}', { status: 200 });
+      },
+    );
+    const guardedFetch = await getGuardedFetch();
+
+    const response = await guardedFetch(USER_URL, {
+      signal: controller.signal,
+    });
+    controller.abort();
+
+    expect(response.status).toBe(200);
+    expect(domainSignal?.aborted).toBe(false);
+  });
 
   test('walks the candidates in order and keeps the one that answers', async () => {
     mockFetch.mockRejectedValueOnce(networkError());
