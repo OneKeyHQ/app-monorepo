@@ -31,6 +31,10 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import type { IDeferredPromise, IElement } from '@onekeyhq/components';
+import {
+  useDeferredGuideBlocker,
+  useIsDeferredGuideBlocked,
+} from '@onekeyhq/components/src/hooks/useDeferredGuideBlocker';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import { useSpotlightPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spotlight';
@@ -40,11 +44,23 @@ import type { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
+import { useSpotlightAnchorVisibility } from './useSpotlightAnchorVisibility';
+
 import type { View as NativeView } from 'react-native';
 
 export type ISpotlightViewProps = PropsWithChildren<{
+  anchorRef?: RefObject<IElement | null>;
+  onAnchorLayout?: () => void;
   containerProps?: Omit<ComponentProps<typeof View>, 'children'>;
   content: ReactElement;
+  cardBorderRadius?: number;
+  highlightBorderRadius?: number;
+  confirmButtonBorderRadius?: ComponentProps<typeof Button>['borderRadius'];
+  confirmButtonPaddingHorizontal?: number;
+  cardPadding?: number;
+  cardPaddingBottom?: number;
+  cardGap?: number;
+  cardMaxWidth?: number;
   childrenPaddingVertical?: number;
   childrenPaddingHorizontal?: number;
   showHighlightBackground?: boolean;
@@ -52,6 +68,10 @@ export type ISpotlightViewProps = PropsWithChildren<{
   floatingOffset?: number;
   visible: boolean;
   onConfirm?: () => void;
+  confirmText?: string;
+  closeOnBackdropPress?: boolean;
+  matchTriggerSize?: boolean;
+  deferUntilIdle?: boolean;
   replaceChildren?: ReactElement;
 }>;
 
@@ -73,6 +93,17 @@ export type ISpotlightProps = PropsWithChildren<{
   containerProps?: ISpotlightViewProps['containerProps'];
   isVisible?: boolean;
   message: string;
+  illustration?: ReactElement;
+  illustrationGap?: number;
+  cardBorderRadius?: number;
+  highlightBorderRadius?: number;
+  confirmButtonBorderRadius?: ISpotlightViewProps['confirmButtonBorderRadius'];
+  confirmButtonPaddingHorizontal?: number;
+  cardPadding?: number;
+  cardPaddingBottom?: number;
+  cardGap?: number;
+  cardMaxWidth?: number;
+  confirmText?: string;
   tourName: ESpotlightTour;
   delayMs?: number;
   floatingOffset?: number;
@@ -81,6 +112,10 @@ export type ISpotlightProps = PropsWithChildren<{
   showHighlightBackground?: boolean;
   highlightBackgroundOpacity?: number;
   replaceChildren?: ReactElement;
+  closeOnBackdropPress?: boolean;
+  matchTriggerSize?: boolean;
+  deferUntilIdle?: boolean;
+  requireVisibleAnchor?: boolean;
 }>;
 
 function SpotlightContent({
@@ -94,6 +129,7 @@ function SpotlightContent({
   }>;
 }) {
   const intl = useIntl();
+  const isGuideBlocked = useIsDeferredGuideBlocked();
 
   const { gtMd } = useMedia();
   const [props, setProps] = useState(initProps);
@@ -117,7 +153,7 @@ function SpotlightContent({
       initProps.triggerRef.current?.measureInWindow((x, y, width, height) => {
         if (
           floatingPosition.x === x &&
-          floatingPosition.y === y &&
+          floatingPosition.y === y + extraY &&
           floatingPosition.width === width &&
           floatingPosition.height === height
         ) {
@@ -151,7 +187,19 @@ function SpotlightContent({
     visible,
     children,
     content,
+    cardBorderRadius,
+    highlightBorderRadius,
+    confirmButtonBorderRadius,
+    confirmButtonPaddingHorizontal,
+    cardPadding,
+    cardPaddingBottom,
+    cardGap,
+    cardMaxWidth,
     onConfirm,
+    confirmText,
+    closeOnBackdropPress = false,
+    matchTriggerSize = false,
+    deferUntilIdle = false,
     floatingOffset,
     childrenPaddingHorizontal = 8,
     childrenPaddingVertical = 8,
@@ -178,7 +226,7 @@ function SpotlightContent({
               childrenPaddingVertical,
             left: gtMd ? floatingPosition.x - childrenPaddingHorizontal : '$4',
             right: gtMd ? undefined : '$4',
-            maxWidth: gtMd ? 354 : undefined,
+            maxWidth: cardMaxWidth ?? (gtMd ? 354 : undefined),
           }
         : undefined,
     [
@@ -190,12 +238,13 @@ function SpotlightContent({
       childrenPaddingVertical,
       gtMd,
       childrenPaddingHorizontal,
+      cardMaxWidth,
     ],
   );
 
   const handleBackPress = useCallback(() => true, []);
   useBackHandler(handleBackPress);
-  if (visible && isRendered)
+  if (visible && isRendered && !(deferUntilIdle && isGuideBlocked))
     return (
       <Stack
         testID="spotlight-content"
@@ -213,11 +262,29 @@ function SpotlightContent({
         exitStyle={{ opacity: 0 }}
       >
         <Stack
+          testID="spotlight-backdrop"
+          position="absolute"
+          inset={0}
+          onPress={closeOnBackdropPress ? onConfirm : undefined}
+          accessible={false}
+        />
+        <Stack
+          testID="spotlight-highlight"
           position="absolute"
           pointerEvents="none"
           top={floatingPosition.y - childrenPaddingVertical}
           left={floatingPosition.x - childrenPaddingHorizontal}
-          borderRadius="$3"
+          width={
+            matchTriggerSize
+              ? floatingPosition.width + childrenPaddingHorizontal * 2
+              : undefined
+          }
+          height={
+            matchTriggerSize
+              ? floatingPosition.height + childrenPaddingVertical * 2
+              : undefined
+          }
+          borderRadius={highlightBorderRadius ?? '$3'}
           px={childrenPaddingHorizontal}
           py={childrenPaddingVertical}
           overflow="hidden"
@@ -233,12 +300,14 @@ function SpotlightContent({
           {children}
         </Stack>
         <YStack
+          testID="spotlight-card"
           position="absolute"
           bg="$bg"
-          px="$4"
-          py="$3.5"
-          gap="$3.5"
-          borderRadius="$3"
+          px={cardPadding ?? '$4'}
+          py={cardPadding ?? '$3.5'}
+          pb={cardPaddingBottom ?? cardPadding ?? '$3.5'}
+          gap={cardGap ?? '$3.5'}
+          borderRadius={cardBorderRadius ?? '$3'}
           outlineColor="$borderSubdued"
           outlineStyle="solid"
           outlineWidth="$px"
@@ -250,11 +319,13 @@ function SpotlightContent({
             <Button
               testID="spotlight-btn"
               variant="primary"
-              borderRadius="$2"
+              borderRadius={confirmButtonBorderRadius ?? '$2'}
+              px={confirmButtonPaddingHorizontal}
               size="small"
               onPress={onConfirm}
             >
-              {intl.formatMessage({ id: ETranslations.global_done })}
+              {confirmText ??
+                intl.formatMessage({ id: ETranslations.global_done })}
             </Button>
           </XStack>
         </YStack>
@@ -265,10 +336,20 @@ function SpotlightContent({
 }
 
 export function SpotlightView({
+  anchorRef,
+  onAnchorLayout,
   containerProps,
   children,
   replaceChildren,
   content,
+  cardBorderRadius,
+  highlightBorderRadius,
+  confirmButtonBorderRadius,
+  confirmButtonPaddingHorizontal,
+  cardPadding,
+  cardPaddingBottom,
+  cardGap,
+  cardMaxWidth,
   childrenPaddingVertical,
   childrenPaddingHorizontal,
   showHighlightBackground,
@@ -276,9 +357,15 @@ export function SpotlightView({
   floatingOffset = 12,
   visible = false,
   onConfirm,
+  confirmText,
+  closeOnBackdropPress,
+  matchTriggerSize,
+  deferUntilIdle,
 }: ISpotlightViewProps) {
+  useDeferredGuideBlocker(visible && !deferUntilIdle);
   const defer = useDeferredPromise();
-  const triggerRef = useRef<IElement | null>(null);
+  const localTriggerRef = useRef<IElement | null>(null);
+  const triggerRef = anchorRef ?? localTriggerRef;
   const triggerPropsRef = useRef<{
     trigger: ((props: ISpotlightContentEvent) => void) | undefined;
     defer: IDeferredPromise<unknown>;
@@ -287,14 +374,28 @@ export function SpotlightView({
     defer,
   });
   useEffect(() => {
-    setTimeout(async () => {
+    let cancelled = false;
+    const timer = setTimeout(async () => {
       await defer.promise;
+      if (cancelled) return;
       triggerPropsRef.current.trigger?.({
         visible,
         children: replaceChildren || children,
         content,
+        cardBorderRadius,
+        highlightBorderRadius,
+        confirmButtonBorderRadius,
+        confirmButtonPaddingHorizontal,
+        cardPadding,
+        cardPaddingBottom,
+        cardGap,
+        cardMaxWidth,
         onConfirm,
-        triggerRef: triggerRef as any,
+        confirmText,
+        closeOnBackdropPress,
+        matchTriggerSize,
+        deferUntilIdle,
+        triggerRef: triggerRef as RefObject<NativeView>,
         floatingOffset,
         childrenPaddingVertical,
         childrenPaddingHorizontal,
@@ -302,28 +403,56 @@ export function SpotlightView({
         highlightBackgroundOpacity,
       });
     });
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [
     children,
     content,
+    cardBorderRadius,
+    highlightBorderRadius,
+    confirmButtonBorderRadius,
+    confirmButtonPaddingHorizontal,
+    cardPadding,
+    cardPaddingBottom,
+    cardGap,
+    cardMaxWidth,
     defer,
     floatingOffset,
     onConfirm,
+    confirmText,
+    closeOnBackdropPress,
+    matchTriggerSize,
+    deferUntilIdle,
     replaceChildren,
     visible,
     childrenPaddingVertical,
     childrenPaddingHorizontal,
     showHighlightBackground,
     highlightBackgroundOpacity,
+    triggerRef,
   ]);
 
   return (
     <>
-      <View ref={triggerRef} collapsable={false} {...containerProps}>
-        {children}
-      </View>
+      {onAnchorLayout ? (
+        <Stack
+          ref={triggerRef}
+          collapsable={false}
+          onLayout={onAnchorLayout}
+          {...containerProps}
+        >
+          {children}
+        </Stack>
+      ) : (
+        <View ref={triggerRef} collapsable={false} {...containerProps}>
+          {children}
+        </View>
+      )}
       {visible ? (
         <Portal.Body
-          destroyDelayMs={1200}
+          destroyDelayMs={deferUntilIdle ? 0 : 1200}
           container={EPortalContainerConstantName.SPOTLIGHT_OVERLAY_PORTAL}
         >
           <SpotlightContent
@@ -332,13 +461,25 @@ export function SpotlightView({
               visible,
               children: replaceChildren || children,
               content,
+              cardBorderRadius,
+              highlightBorderRadius,
+              confirmButtonBorderRadius,
+              confirmButtonPaddingHorizontal,
+              cardPadding,
+              cardPaddingBottom,
+              cardGap,
+              cardMaxWidth,
               onConfirm,
+              confirmText,
+              closeOnBackdropPress,
+              matchTriggerSize,
+              deferUntilIdle,
               floatingOffset,
               childrenPaddingVertical,
               childrenPaddingHorizontal,
               showHighlightBackground,
               highlightBackgroundOpacity,
-              triggerRef: triggerRef as any,
+              triggerRef: triggerRef as RefObject<NativeView>,
             }}
           />
         </Portal.Body>
@@ -374,6 +515,17 @@ export function Spotlight(props: ISpotlightProps) {
     isVisible,
     tourName,
     message,
+    illustration,
+    illustrationGap,
+    cardBorderRadius,
+    highlightBorderRadius,
+    confirmButtonBorderRadius,
+    confirmButtonPaddingHorizontal,
+    cardPadding,
+    cardPaddingBottom,
+    cardGap,
+    cardMaxWidth,
+    confirmText,
     children,
     containerProps,
     delayMs = 0,
@@ -383,26 +535,85 @@ export function Spotlight(props: ISpotlightProps) {
     showHighlightBackground,
     highlightBackgroundOpacity,
     replaceChildren,
+    closeOnBackdropPress,
+    matchTriggerSize,
+    deferUntilIdle = false,
+    requireVisibleAnchor = false,
   } = props;
   const [isLocked] = useAppIsLockedAtom();
+  const isGuideBlocked = useIsDeferredGuideBlocked();
   const { isFirstVisit, tourVisited } = useSpotlight(tourName);
+  const triggerRef = useRef<IElement | null>(null);
+  const shouldCheckAnchor =
+    requireVisibleAnchor && !!isVisible && isFirstVisit && !isLocked;
+  const { isAnchorVisible, measureAnchor } = useSpotlightAnchorVisibility(
+    triggerRef,
+    shouldCheckAnchor,
+  );
+  const checkAnchorVisibility = requireVisibleAnchor
+    ? measureAnchor
+    : undefined;
+  const canShow =
+    !!isVisible &&
+    !(deferUntilIdle && isGuideBlocked) &&
+    (!requireVisibleAnchor || isAnchorVisible);
+  const onAnchorLayout = useCallback(() => {
+    if (shouldCheckAnchor) measureAnchor();
+  }, [measureAnchor, shouldCheckAnchor]);
   const [isShow, setIsShow] = useState(false);
+  useLayoutEffect(() => {
+    if (deferUntilIdle && !canShow) setIsShow(false);
+  }, [canShow, deferUntilIdle]);
   useEffect(() => {
+    let cancelled = false;
     const timerId = setTimeout(
       () => {
-        setIsShow(!!isVisible);
+        if (checkAnchorVisibility && canShow) {
+          checkAnchorVisibility((isInViewport) => {
+            if (!cancelled) setIsShow(isInViewport);
+          });
+        } else {
+          setIsShow(canShow);
+        }
       },
-      isVisible ? delayMs : 0,
+      canShow ? delayMs : 0,
     );
-    return () => clearTimeout(timerId);
-  }, [delayMs, isVisible]);
-  const visible = isFirstVisit && isShow && !isLocked;
+    return () => {
+      cancelled = true;
+      clearTimeout(timerId);
+    };
+  }, [delayMs, canShow, checkAnchorVisibility]);
+  const visible =
+    isFirstVisit && isShow && !isLocked && (!deferUntilIdle || canShow);
 
   return (
     <SpotlightView
+      anchorRef={triggerRef}
+      onAnchorLayout={requireVisibleAnchor ? onAnchorLayout : undefined}
       visible={visible}
-      content={<SizableText size="$bodyMd">{message}</SizableText>}
+      cardBorderRadius={cardBorderRadius}
+      highlightBorderRadius={highlightBorderRadius}
+      confirmButtonBorderRadius={confirmButtonBorderRadius}
+      confirmButtonPaddingHorizontal={confirmButtonPaddingHorizontal}
+      cardPadding={cardPadding}
+      cardPaddingBottom={cardPaddingBottom}
+      cardGap={cardGap}
+      cardMaxWidth={cardMaxWidth}
+      content={
+        illustration ? (
+          <YStack gap={illustrationGap ?? '$3'}>
+            {illustration}
+            <SizableText size="$bodyMd">{message}</SizableText>
+          </YStack>
+        ) : (
+          <SizableText size="$bodyMd">{message}</SizableText>
+        )
+      }
       onConfirm={() => tourVisited()}
+      confirmText={confirmText}
+      closeOnBackdropPress={closeOnBackdropPress}
+      matchTriggerSize={matchTriggerSize}
+      deferUntilIdle={deferUntilIdle}
       containerProps={containerProps}
       floatingOffset={floatingOffset}
       childrenPaddingVertical={childrenPaddingVertical}
