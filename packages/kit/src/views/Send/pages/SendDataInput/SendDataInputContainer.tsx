@@ -186,6 +186,15 @@ function SendDataInputContainer() {
     networkId: string;
     address?: string;
   }>({ networkId });
+  // A risk check granted after the send page closed must not push its
+  // result over the page the user went to.
+  const isUnmountedRef = useRef(false);
+  useEffect(() => {
+    isUnmountedRef.current = false;
+    return () => {
+      isUnmountedRef.current = true;
+    };
+  }, []);
 
   const { hiddenTabs: recipientHiddenTabs, keylessWalletsOnly } =
     useWebDappRecipientOptions();
@@ -470,6 +479,7 @@ function SendDataInputContainer() {
         featureId: EPrimeFeatures.AddressRiskCheck,
         networkId: currentAccount.networkId,
         isContextValid: () =>
+          !isUnmountedRef.current &&
           addressRiskContextRef.current.networkId ===
             contextAtPress.networkId &&
           addressRiskContextRef.current.address === contextAtPress.address,

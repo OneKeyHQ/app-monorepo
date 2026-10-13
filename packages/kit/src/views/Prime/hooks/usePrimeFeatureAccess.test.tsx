@@ -456,16 +456,113 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
 
   it('drops the continuation when the context changed during login', async () => {
     mockIsLoggedIn.mockResolvedValueOnce(false).mockResolvedValue(true);
-    mockLoginOneKeyId.mockResolvedValue(undefined);
+    let isValid = true;
+    mockLoginOneKeyId.mockImplementationOnce(async () => {
+      isValid = false;
+    });
     const result = renderAccessHook();
 
     await act(async () => {
       await expect(
         result.current.ensureFeatureAccess({
           featureId: EPrimeFeatures.BulkSend,
-          isContextValid: () => false,
+          isContextValid: () => isValid,
         }),
       ).resolves.toEqual({ granted: false });
+    });
+    expect(mockLoginOneKeyId).toHaveBeenCalledTimes(1);
+  });
+
+  describe('context gone before any feedback', () => {
+    it('opens no dashboard when the trial is not open', async () => {
+      mockIsLoggedIn.mockResolvedValue(false);
+      mockGetPublicConfig.mockResolvedValue({ enabled: false, features: [] });
+      const onDenied = jest.fn();
+      const result = renderAccessHook();
+
+      await act(async () => {
+        await expect(
+          result.current.ensureFeatureAccess({
+            featureId: EPrimeFeatures.BulkSend,
+            isContextValid: () => false,
+            onDenied,
+          }),
+        ).resolves.toEqual({ granted: false });
+      });
+      expect(onDenied).toHaveBeenCalledTimes(1);
+      expect(onDenied).toHaveBeenCalledWith('contextChanged');
+      expect(mockPushFullModal).not.toHaveBeenCalled();
+    });
+
+    it('asks for no login', async () => {
+      mockIsLoggedIn.mockResolvedValue(false);
+      const result = renderAccessHook();
+
+      await act(async () => {
+        await expect(
+          result.current.ensureFeatureAccess({
+            featureId: EPrimeFeatures.BulkSend,
+            isContextValid: () => false,
+          }),
+        ).resolves.toEqual({ granted: false });
+      });
+      expect(mockLoginOneKeyId).not.toHaveBeenCalled();
+    });
+
+    it('shows no exhausted toast after the quota refresh', async () => {
+      setSnapshot(quotaWith(0));
+      mockRefreshQuota.mockResolvedValue(quotaWith(0));
+      const onDenied = jest.fn();
+      const result = renderAccessHook();
+
+      await act(async () => {
+        await expect(
+          result.current.ensureFeatureAccess({
+            featureId: EPrimeFeatures.BulkSend,
+            isContextValid: () => false,
+            onDenied,
+          }),
+        ).resolves.toEqual({ granted: false });
+      });
+      expect(onDenied).toHaveBeenCalledWith('contextChanged');
+      expect(mockToastMessage).not.toHaveBeenCalled();
+    });
+
+    it('still hands off to the dashboard after the gate left its page', async () => {
+      mockIsLoggedIn.mockResolvedValue(false);
+      mockGetPublicConfig.mockResolvedValue({ enabled: false, features: [] });
+      let isPageOpen = true;
+      const onDenied = jest.fn(async () => {
+        isPageOpen = false;
+      });
+      // After a page exit the dashboard opens from the root ref.
+      const rootNavigate = jest.fn();
+      const { rootNavigationRef } = jest.requireMock<{
+        rootNavigationRef: { current: unknown };
+      }>('@onekeyhq/components');
+      rootNavigationRef.current = { navigate: rootNavigate };
+      const result = renderAccessHook();
+
+      try {
+        await act(async () => {
+          await result.current.ensureFeatureAccess({
+            featureId: EPrimeFeatures.BulkSend,
+            isContextValid: () => isPageOpen,
+            onDenied,
+          });
+        });
+      } finally {
+        rootNavigationRef.current = undefined;
+      }
+      expect(onDenied).toHaveBeenCalledWith('notOpen');
+      expect(rootNavigate).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          params: expect.objectContaining({
+            params: expect.objectContaining({ freeTrialReason: 'notOpen' }),
+          }),
+        }),
+      );
     });
   });
 

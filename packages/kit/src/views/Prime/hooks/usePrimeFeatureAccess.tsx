@@ -466,12 +466,16 @@ export function usePrimeFeatureAccess() {
       if (isPrimeSubscriptionActive) {
         return { granted: true, entitlementSource: 'prime' };
       }
-      // The wallet, network or input the caller acts on may change while
-      // this waits; a grant for a stale context is dropped.
+      // The wallet, network or input the caller acts on, or its page, may be
+      // gone after any wait: a stale context gets no login, no grant and no
+      // denied feedback. Checked before onDenied, so a gate that leaves the
+      // page itself still hands off to the dashboard.
+      const isContextGone = async () =>
+        isContextValid ? !(await isContextValid()) : false;
       const grantIfContextValid = async (
         result: Extract<IPrimeFeatureAccessResult, { granted: true }>,
       ): Promise<IPrimeFeatureAccessResult> => {
-        if (isContextValid && !(await isContextValid())) {
+        if (await isContextGone()) {
           await onDenied?.('contextChanged');
           return { granted: false };
         }
@@ -490,6 +494,10 @@ export function usePrimeFeatureAccess() {
           showLoading,
           getPublicConfigWithRetry,
         );
+        if (await isContextGone()) {
+          await onDenied?.('contextChanged');
+          return { granted: false };
+        }
         const loggedOutAccess = resolvePrimeFreeTrialAccess({
           featureId,
           isPrimeSubscriptionActive: false,
@@ -548,7 +556,7 @@ export function usePrimeFeatureAccess() {
           result: 'success',
         });
         if (
-          (isContextValid && !(await isContextValid())) ||
+          (await isContextGone()) ||
           !(await backgroundApiProxy.servicePrime.isLoggedIn())
         ) {
           await onDenied?.('contextChanged');
@@ -615,6 +623,10 @@ export function usePrimeFeatureAccess() {
           return { quota: freshQuota, config: publicConfig };
         },
       );
+      if (await isContextGone()) {
+        await onDenied?.('contextChanged');
+        return { granted: false };
+      }
       const access = resolvePrimeFreeTrialAccess({
         featureId,
         isPrimeSubscriptionActive: false,

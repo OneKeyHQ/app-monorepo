@@ -30,6 +30,15 @@ export function useBulkSendPageAccess({
   const { isPrimeSubscriptionActive, isLoggedIn } = useOneKeyAuth();
   const { ensureFeatureAccess, openPrimeDashboard } = usePrimeFeatureAccess();
   const checkedRef = useRef(false);
+  // The user may leave while the check waits: a late answer must not pop
+  // the page they went to or open the dashboard over it.
+  const isUnmountedRef = useRef(false);
+  useEffect(() => {
+    isUnmountedRef.current = false;
+    return () => {
+      isUnmountedRef.current = true;
+    };
+  }, []);
 
   // Leave the whole bulk send stack: the Home tab route on wide screens (and
   // the extension expand tab), the BulkSendModal on narrow screens.
@@ -62,14 +71,18 @@ export function useBulkSendPageAccess({
       }
       const loggedIn =
         isLoggedIn && (await backgroundApiProxy.servicePrime.isLoggedIn());
-      if (loggedIn) {
+      if (loggedIn || isUnmountedRef.current) {
         return;
       }
       await ensureFeatureAccess({
         featureId: EPrimeFeatures.BulkSend,
         networkId,
         deferQuotaCheck: true,
+        isContextValid: () => !isUnmountedRef.current,
         onDenied: async () => {
+          if (isUnmountedRef.current) {
+            return;
+          }
           await exitPage();
         },
       });
