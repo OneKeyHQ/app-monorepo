@@ -2,7 +2,13 @@
 
 import type { ReactNode } from 'react';
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
@@ -17,6 +23,7 @@ const mockPushFullModal = jest.fn();
 const mockDialogClose = jest.fn();
 const mockUpgradeClick = jest.fn();
 const mockParentPress = jest.fn();
+const mockRefreshQuota = jest.fn();
 let mockQuota: IPrimeFreeTrialAtomData['quota'];
 let mockConfig: IPrimeFreeTrialAtomData['config'];
 
@@ -49,7 +56,9 @@ jest.mock('@onekeyhq/components', () => {
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
-    servicePrimeFreeTrial: { refreshQuota: jest.fn() },
+    servicePrimeFreeTrial: {
+      refreshQuota: (params: unknown) => mockRefreshQuota(params) as unknown,
+    },
   },
 }));
 
@@ -265,6 +274,62 @@ describe('PrimeFreeTrialRemainingHint', () => {
     render(<PrimeFreeTrialRemainingHint featureId={EPrimeFeatures.BulkSend} />);
 
     expect(screen.getByText(/^本月免费次数已用完，将于 .+ 重置$/)).toBeTruthy();
+  });
+
+  describe('refresh when a reservation ends', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    function setReservationEnd(reservationExpiresAt: number) {
+      setFeatureQuota({
+        featureId: EPrimeFeatures.BulkSend,
+        unit: 'count',
+        monthlyQuota: 1,
+        used: 1,
+        remaining: 0,
+        reserved: 1,
+        reservationExpiresAt,
+      });
+    }
+
+    it('still refreshes when the hint re-renders after the end', () => {
+      setReservationEnd(Date.now() + 1000);
+      const { rerender } = render(
+        <PrimeFreeTrialRemainingHint featureId={EPrimeFeatures.BulkSend} />,
+      );
+
+      // The reservation ends, and the hint re-renders before the refresh,
+      // which waits a grace period after the end.
+      act(() => {
+        jest.advanceTimersByTime(1500);
+      });
+      rerender(
+        <PrimeFreeTrialRemainingHint featureId={EPrimeFeatures.BulkSend} />,
+      );
+      expect(mockRefreshQuota).not.toHaveBeenCalled();
+
+      act(() => {
+        jest.advanceTimersByTime(1500);
+      });
+      expect(mockRefreshQuota).toHaveBeenCalledTimes(1);
+    });
+
+    it('refreshes a snapshot whose reservation already ended', () => {
+      setReservationEnd(Date.now() - 1000);
+      render(
+        <PrimeFreeTrialRemainingHint featureId={EPrimeFeatures.BulkSend} />,
+      );
+
+      act(() => {
+        jest.advanceTimersByTime(2000);
+      });
+      expect(mockRefreshQuota).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('shows the remaining share of a token quota', () => {

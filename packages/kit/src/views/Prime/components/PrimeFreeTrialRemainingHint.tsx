@@ -124,8 +124,18 @@ export function PrimeFreeTrialRemainingHint({
       ? getPrimeFreeTrialHeldReservationEnd(featureQuota)
       : undefined;
   // Refresh once the reservation ends, so the hint does not stay on "held".
+  // Keyed on the snapshot's end, not on heldUntil: heldUntil turns undefined
+  // as soon as the end passes, so a render in the grace period would cancel
+  // the refresh and leave the hint on "used up". A snapshot whose end has
+  // already passed refreshes after the grace.
+  const reservationEnd =
+    featureQuota &&
+    featureQuota.remaining <= 0 &&
+    Number(featureQuota.reserved) > 0
+      ? featureQuota.reservationExpiresAt
+      : undefined;
   useEffect(() => {
-    if (!isFreeUser || !heldUntil) {
+    if (!isFreeUser || !reservationEnd) {
       return;
     }
     const timer = setTimeout(
@@ -134,11 +144,11 @@ export function PrimeFreeTrialRemainingHint({
           dedupe: true,
         });
       },
-      Math.min(Math.max(heldUntil - Date.now(), 0), RESERVATION_MAX_MS) +
+      Math.min(Math.max(reservationEnd - Date.now(), 0), RESERVATION_MAX_MS) +
         RESERVATION_END_GRACE_MS,
     );
     return () => clearTimeout(timer);
-  }, [heldUntil, isFreeUser]);
+  }, [reservationEnd, isFreeUser]);
 
   if (!isFreeUser || isPrimeFreeTrialTravelMode()) {
     return null;
