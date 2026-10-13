@@ -102,6 +102,44 @@ describe('useAddressRiskCheckHistoryAccess', () => {
     expectDashboardOpened();
   });
 
+  it('stays when the login comes back while the background check is pending', async () => {
+    let resolveCheck: ((value: boolean) => void) | undefined;
+    mockBackgroundIsLoggedIn.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveCheck = resolve;
+      }),
+    );
+    mockIsLoggedIn = false;
+    const { rerender } = renderHook(() => useAddressRiskCheckHistoryAccess());
+
+    mockIsLoggedIn = true;
+    rerender();
+    await act(async () => {
+      resolveCheck?.(false);
+      await Promise.resolve();
+    });
+
+    expect(mockPop).not.toHaveBeenCalled();
+    expect(mockOpenPrimeDashboard).not.toHaveBeenCalled();
+  });
+
+  it('opens no dashboard when the login comes back during the exit', async () => {
+    mockBackgroundIsLoggedIn
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+    mockIsLoggedIn = false;
+    renderHook(() => useAddressRiskCheckHistoryAccess());
+
+    await waitFor(() =>
+      expect(mockBackgroundIsLoggedIn).toHaveBeenCalledTimes(2),
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockPop).toHaveBeenCalledTimes(1);
+    expect(mockOpenPrimeDashboard).not.toHaveBeenCalled();
+  });
+
   it('stays while the background still has the login', async () => {
     mockIsLoggedIn = false;
     mockBackgroundIsLoggedIn.mockResolvedValue(true);

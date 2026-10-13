@@ -24,6 +24,8 @@ export function useAddressRiskCheckHistoryAccess() {
   const navigation = useAppNavigation();
   const { isLoggedIn } = useOneKeyAuth();
   const { openPrimeDashboard } = usePrimeFeatureAccess();
+  const isLoggedInRef = useRef(isLoggedIn);
+  isLoggedInRef.current = isLoggedIn;
   const exitingRef = useRef(false);
   useEffect(() => {
     if (isLoggedIn || exitingRef.current) {
@@ -31,13 +33,20 @@ export function useAddressRiskCheckHistoryAccess() {
     }
     exitingRef.current = true;
     void (async () => {
-      // The local projection may lag on a cold start.
-      if (await backgroundApiProxy.servicePrime.isLoggedIn()) {
+      // The local projection may lag on a cold start, and the login may come
+      // back while this waits.
+      if (
+        (await backgroundApiProxy.servicePrime.isLoggedIn()) ||
+        isLoggedInRef.current
+      ) {
         exitingRef.current = false;
         return;
       }
       navigation.pop();
       await timerUtils.wait(300);
+      if (await backgroundApiProxy.servicePrime.isLoggedIn()) {
+        return;
+      }
       openPrimeDashboard({
         featureId: EPrimeFeatures.AddressRiskCheck,
         afterPageExit: true,
