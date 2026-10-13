@@ -286,9 +286,12 @@ function isDefinitiveEmailOtpCooldownResponse({
 const SUPABASE_SNI_FALLBACK_HOST = 'auth.onekey.so';
 const SUPABASE_SNI_FALLBACK_MAX_CANDIDATES = 3;
 const SUPABASE_SNI_FALLBACK_TIMEOUT_MS = 10_000;
+// The native fetch has no request timeout: when the connection is silently
+// dropped, the OS takes over a minute to report the failure.
+const SUPABASE_SNI_FALLBACK_DOMAIN_TIMEOUT_MS = 5000;
 
-// `null` while requests go to the domain, otherwise the index of the IP-table
-// candidate in use. One copy per JS runtime.
+// The route that answered last: `null` for the domain, otherwise the index of
+// the IP-table candidate. One copy per JS runtime.
 let supabaseSniFallbackIndex: number | null = null;
 
 function setSupabaseSniFallbackIndex(index: number | null, reason: string) {
@@ -298,13 +301,6 @@ function setSupabaseSniFallbackIndex(index: number | null, reason: string) {
       index === null ? 'domain' : `sni candidate=${index}`
     } reason=${reason}`,
   });
-}
-
-// A late or concurrent failure on a candidate must advance the route only once.
-function advanceSupabaseSniFallback(index: number, reason: string) {
-  if (supabaseSniFallbackIndex === index) {
-    setSupabaseSniFallbackIndex(index + 1, reason);
-  }
 }
 
 function getSupabaseSniFallbackUrl(
@@ -368,24 +364,48 @@ async function getSupabaseSniFallbackCandidates(url: URL): Promise<string[]> {
   }
 }
 
-async function fetchSupabaseDomain(
+// Whether sending the request twice is harmless: a read, or one of the two
+// token grants GoTrue accepts again. It answers a refresh token it has already
+// rotated with the active one, and an ID token is not single-use. One-time
+// codes (OTP, PKCE) are not: a second copy fails after the first was accepted.
+function isSupabaseRequestRepeatable(
+  url: URL,
+  init: RequestInit | undefined,
+): boolean {
+  if ((init?.method ?? 'GET').toUpperCase() === 'GET') {
+    return true;
+  }
+  const grantType = url.pathname.endsWith('/auth/v1/token')
+    ? url.searchParams.get('grant_type')
+    : null;
+  return grantType === 'refresh_token' || grantType === 'id_token';
+}
+
+// Sends to the domain and gives up after the timeout, so the next route can
+// be tried. The caller's own abort still cancels the request.
+async function fetchSupabaseDomainWithin(
   input: RequestInfo | URL,
   init: RequestInit | undefined,
-  sniFallbackUrl: URL | undefined,
+  timeoutMs: number,
 ): Promise<Response> {
+  const controller = new AbortController();
+  const callerSignal = init?.signal;
+  const forwardAbort = () => controller.abort();
+  if (callerSignal?.aborted) {
+    controller.abort();
+  } else {
+    callerSignal?.addEventListener?.('abort', forwardAbort, { once: true });
+  }
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(input, init);
+    // On success the listener stays: the caller's abort must still reach the
+    // body read.
+    return await fetch(input, { ...init, signal: controller.signal });
   } catch (error) {
-    // fetch rejects only for transport failures and caller aborts. A request
-    // that fails late must not undo a route that has moved on since.
-    if (
-      sniFallbackUrl &&
-      !init?.signal?.aborted &&
-      supabaseSniFallbackIndex === null
-    ) {
-      setSupabaseSniFallbackIndex(0, 'domain_failed');
-    }
+    callerSignal?.removeEventListener?.('abort', forwardAbort);
     throw error;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -404,70 +424,111 @@ function buildSupabaseSniResponse(
   });
 }
 
-/**
- * auth.onekey.so is DNS-poisoned on some networks, where only the IP table's
- * CN CDN endpoints can reach it.
- *
- * Every request is sent exactly once, because these include the POSTs that
- * rotate the refresh token. A failure only moves the NEXT request to the next
- * route (domain -> each IP-table candidate -> domain), and the route that
- * works is kept. The failed request still rejects like a failed fetch, so
- * auth-js keeps the session and retries on its own schedule.
- */
-const supabaseSniFallbackFetch: typeof fetch = async (input, init) => {
-  const url = getSupabaseSniFallbackUrl(input, init);
-  const index = supabaseSniFallbackIndex;
-  if (!url || index === null) {
-    return fetchSupabaseDomain(input, init, url);
-  }
-  const ip = (await getSupabaseSniFallbackCandidates(url))[index];
-  if (!ip) {
-    if (supabaseSniFallbackIndex === index) {
-      setSupabaseSniFallbackIndex(null, 'no_candidate');
-    }
-    return fetchSupabaseDomain(input, init, url);
-  }
+// Resolves with `null` for a non-JSON answer that is not a success: an error
+// page, or a redirect, which the SNI transport never follows. That comes from
+// an intermediary, not from GoTrue, so the route counts as failed.
+async function fetchSupabaseSniCandidate(
+  url: URL,
+  init: RequestInit | undefined,
+  ip: string,
+): Promise<Response | null> {
   const method = (init?.method ?? 'GET').toUpperCase();
   const headers: Record<string, string> = {};
   new Headers(init?.headers).forEach((value, key) => {
     headers[key] = value;
   });
-  try {
-    const sniResponse = await sniRequest(
-      {
-        ip,
-        hostname: url.hostname,
-        path: `${url.pathname}${url.search}`,
-        method,
-        headers,
-        body: typeof init?.body === 'string' ? init.body : null,
-        timeout: SUPABASE_SNI_FALLBACK_TIMEOUT_MS,
-      },
-      init?.signal ? { signal: init.signal } : undefined,
-    );
-    if (!sniResponse) {
-      throw new TypeError('SNI transport returned no response');
-    }
-    const response = buildSupabaseSniResponse(sniResponse, method);
-    // A non-JSON answer that is not a success (an error page, or a redirect,
-    // which the SNI transport never follows) comes from an intermediary, not
-    // from GoTrue. It is no better than a transport failure: without this, a
-    // candidate that only serves such answers would hold the route for the
-    // whole runtime.
-    if (!response.ok && !isJsonParseableBody(sniResponse.body)) {
-      advanceSupabaseSniFallback(index, 'sni_error_page');
-    }
-    return response;
-  } catch {
-    if (init?.signal?.aborted) {
-      const abortError = new Error('Aborted');
-      abortError.name = 'AbortError';
-      throw abortError;
-    }
-    advanceSupabaseSniFallback(index, 'sni_failed');
-    // No transport detail: this message reaches logs and the failure toast.
-    throw new TypeError('Network request failed');
+  const sniResponse = await sniRequest(
+    {
+      ip,
+      hostname: url.hostname,
+      path: `${url.pathname}${url.search}`,
+      method,
+      headers,
+      body: typeof init?.body === 'string' ? init.body : null,
+      timeout: SUPABASE_SNI_FALLBACK_TIMEOUT_MS,
+    },
+    init?.signal ? { signal: init.signal } : undefined,
+  );
+  if (!sniResponse) {
+    throw new TypeError('SNI transport returned no response');
   }
+  const response = buildSupabaseSniResponse(sniResponse, method);
+  return !response.ok && !isJsonParseableBody(sniResponse.body)
+    ? null
+    : response;
+}
+
+/**
+ * auth.onekey.so is DNS-poisoned on some networks, where only the IP table's
+ * CN CDN endpoints can reach it.
+ *
+ * Each request tries the route that answered last, then the others in order
+ * (the domain, then each IP-table candidate; the domain goes last once a
+ * candidate is in use), and the route that answers is kept. Without a
+ * candidate to fall back to, the request goes to the domain untouched.
+ *
+ * A request can therefore reach the auth server twice, when a route took it
+ * and failed before answering. So only a request that is harmless to repeat
+ * is cut short on the domain; any other waits for the domain to answer or
+ * fail by itself, as it always did.
+ */
+const supabaseSniFallbackFetch: typeof fetch = async (input, init) => {
+  const url = getSupabaseSniFallbackUrl(input, init);
+  const candidates = url ? await getSupabaseSniFallbackCandidates(url) : [];
+  if (!url || !candidates.length) {
+    if (url && supabaseSniFallbackIndex !== null) {
+      setSupabaseSniFallbackIndex(null, 'no_candidate');
+    }
+    return fetch(input, init);
+  }
+  const domainRoute: { index: number | null; ip?: string } = { index: null };
+  const candidateRoutes = candidates.map((ip, index) => ({ index, ip }));
+  const lastRoute = candidateRoutes.find(
+    (route) => route.index === supabaseSniFallbackIndex,
+  );
+  const routes = lastRoute
+    ? [
+        lastRoute,
+        ...candidateRoutes.filter((route) => route !== lastRoute),
+        domainRoute,
+      ]
+    : [domainRoute, ...candidateRoutes];
+  const sendToDomain = () =>
+    isSupabaseRequestRepeatable(url, init)
+      ? fetchSupabaseDomainWithin(
+          input,
+          init,
+          SUPABASE_SNI_FALLBACK_DOMAIN_TIMEOUT_MS,
+        )
+      : fetch(input, init);
+  let firstFailure: string | undefined;
+  for (const route of routes) {
+    let failure = 'sni_error_page';
+    try {
+      const response = route.ip
+        ? await fetchSupabaseSniCandidate(url, init, route.ip)
+        : await sendToDomain();
+      if (response) {
+        if (supabaseSniFallbackIndex !== route.index) {
+          setSupabaseSniFallbackIndex(route.index, firstFailure ?? 'answered');
+        }
+        return response;
+      }
+    } catch (error) {
+      if (init?.signal?.aborted) {
+        if (!route.ip) {
+          throw error;
+        }
+        const abortError = new Error('Aborted');
+        abortError.name = 'AbortError';
+        throw abortError;
+      }
+      failure = route.ip ? 'sni_failed' : 'domain_failed';
+    }
+    firstFailure ??= failure;
+  }
+  // No transport detail: this message reaches logs and the failure toast.
+  throw new TypeError('Network request failed');
 };
 
 const sessionPreservingSupabaseFetch: typeof fetch = async (input, init) => {
@@ -699,6 +760,11 @@ export function createTemporarySupabaseClient() {
     KEYLESS_SUPABASE_PROJECT_URL ?? '',
     KEYLESS_SUPABASE_PUBLIC_API_KEY ?? '',
     {
+      global: {
+        // Sign-in must reach the auth host where only the IP route works.
+        // There is no persisted session here for the guarded fetch to protect.
+        fetch: supabaseSniFallbackFetch,
+      },
       auth: {
         autoRefreshToken: false,
         persistSession: false, // Don't persist session automatically
