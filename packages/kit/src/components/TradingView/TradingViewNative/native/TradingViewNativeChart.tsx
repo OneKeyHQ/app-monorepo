@@ -92,7 +92,6 @@ import {
   createTradingViewNativeSkiaResources,
   getTradingViewNativeSkiaLegendText,
 } from './chartSkiaRenderer';
-import { NativeDrawingToolbar } from './NativeDrawingToolbar';
 import { TradingViewNativePriceScaleControls } from './TradingViewNativePriceScaleControls';
 import { useNativeChartDrawings } from './useNativeChartDrawings';
 import { useTradingViewNativeChartGestures } from './useTradingViewNativeChartGestures';
@@ -120,6 +119,7 @@ export const TradingViewNativeChart = memo(
   ({
     drawingStorageKey,
     enableDrawings = false,
+    prioritizePageScroll = false,
     candleIntervalSeconds,
     candleTimeMode = 'calendar',
     chartComponents,
@@ -943,6 +943,7 @@ export const TradingViewNativeChart = memo(
     });
 
     const chartGestures = useTradingViewNativeChartGestures({
+      prioritizePageScroll,
       onPriceRangePan: handlePriceRangePan,
       chartRuntime,
       decayOffset,
@@ -1003,9 +1004,6 @@ export const TradingViewNativeChart = memo(
 
     return (
       <Stack flex={1} minHeight={0} flexDirection="row" position="relative">
-        {enableDrawings ? (
-          <NativeDrawingToolbar controller={drawingController} />
-        ) : null}
         <Stack
           flex={1}
           minHeight={0}

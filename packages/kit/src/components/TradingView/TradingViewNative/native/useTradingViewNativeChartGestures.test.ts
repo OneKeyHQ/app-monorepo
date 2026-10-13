@@ -2,10 +2,19 @@
  * @jest-environment jsdom
  */
 
+import { createElement } from 'react';
+import type { PropsWithChildren } from 'react';
+
 import { renderHook } from '@testing-library/react';
+import { Gesture } from 'react-native-gesture-handler';
 import { scheduleOnRN } from 'react-native-worklets';
 
-import { TRADING_VIEW_NATIVE_SUB_INDICATOR_LEGEND_TAP_MAX_DISTANCE } from '../chartConstants';
+import { HeaderScrollGestureContext } from '@onekeyhq/components/src/composite/Tabs/HeaderScrollGestureContext';
+
+import {
+  TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
+  TRADING_VIEW_NATIVE_SUB_INDICATOR_LEGEND_TAP_MAX_DISTANCE,
+} from '../chartConstants';
 import {
   getTradingViewNativeSubIndicatorLegendHitRegions,
   getTradingViewNativeSubIndicatorLegendIndicatorAtPoint,
@@ -22,6 +31,7 @@ interface IMockGestureBuilder {
   [key: string]: unknown;
   handlers: Record<string, IMockGestureHandler>;
   maxDistance: jest.Mock;
+  requireExternalGestureToFail: jest.Mock;
 }
 
 const mockTapGestures: IMockGestureBuilder[] = [];
@@ -151,7 +161,13 @@ function renderSettingsGesture(
   return settingsGesture as IMockGestureBuilder;
 }
 
-function renderChartGestures() {
+function renderChartGestures({
+  headerScrollGestures = [],
+  prioritizePageScroll = false,
+}: {
+  headerScrollGestures?: GestureType[];
+  prioritizePageScroll?: boolean;
+} = {}) {
   const chartRuntime = {
     value: {
       crosshair: { visible: true, x: 0, y: 0 },
@@ -195,6 +211,7 @@ function renderChartGestures() {
   const props = {
     chartRuntime,
     decayOffset,
+    prioritizePageScroll,
     isClickInteractionEnabled: true,
     isCrosshairEnabled: true,
     onSubIndicatorSettingsPress: jest.fn(),
@@ -213,8 +230,20 @@ function renderChartGestures() {
     timeAxisHeight: 20,
   } as unknown as Parameters<typeof useTradingViewNativeChartGestures>[0];
 
-  renderHook(() => useTradingViewNativeChartGestures(props));
-  return { chartRuntime, decayOffset };
+  const initialPanGestureCount = mockPanGestures.length;
+  renderHook(() => useTradingViewNativeChartGestures(props), {
+    wrapper: ({ children }: PropsWithChildren) =>
+      createElement(
+        HeaderScrollGestureContext.Provider,
+        { value: headerScrollGestures },
+        children,
+      ),
+  });
+  return {
+    chartRuntime,
+    decayOffset,
+    contentPanGesture: mockPanGestures[initialPanGestureCount + 1],
+  };
 }
 
 describe('useTradingViewNativeChartGestures', () => {
@@ -381,6 +410,54 @@ describe('free chart panning', () => {
     mockPanGestures.length = 0;
     mockTapGestures.length = 0;
   });
+  it('keeps other embedded charts independent of parent scroll thresholds', () => {
+    const headerScrollGesture = Gesture.Pan();
+    const { contentPanGesture } = renderChartGestures({
+      headerScrollGestures: [headerScrollGesture],
+    });
+
+    expect(
+      contentPanGesture.requireExternalGestureToFail,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('waits for page direction selection without jumping on activation', () => {
+    const headerScrollGesture = Gesture.Pan();
+    const { chartRuntime, contentPanGesture } = renderChartGestures({
+      headerScrollGestures: [headerScrollGesture],
+      prioritizePageScroll: true,
+    });
+
+    expect(contentPanGesture.requireExternalGestureToFail).toHaveBeenCalledWith(
+      headerScrollGesture,
+    );
+    const startOffset = chartRuntime.value.viewport.offset;
+    contentPanGesture.handlers.onStart?.({ translationX: -12 });
+    contentPanGesture.handlers.onUpdate?.({
+      translationX: -12,
+      translationY: 0,
+    });
+    expect(chartRuntime.value.viewport.offset).toBe(startOffset);
+
+    contentPanGesture.handlers.onUpdate?.({
+      translationX: -32,
+      translationY: 0,
+    });
+    expect(chartRuntime.value.viewport.offset).toBeCloseTo(
+      startOffset - 20 * TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
+    );
+  });
+
+  it('does not wait for a page when no enclosing scroll gesture exists', () => {
+    const { contentPanGesture } = renderChartGestures({
+      prioritizePageScroll: true,
+    });
+
+    expect(
+      contentPanGesture.requireExternalGestureToFail,
+    ).not.toHaveBeenCalled();
+  });
+
   it('moves both axes and restores the vertical origin when a drag returns', () => {
     const { chartRuntime } = renderChartGestures();
     const pan = mockPanGestures[1];

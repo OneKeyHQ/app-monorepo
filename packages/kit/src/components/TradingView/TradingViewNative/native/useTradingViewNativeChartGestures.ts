@@ -65,6 +65,7 @@ export function useTradingViewNativeChartGestures({
   priceAxisResetGesture,
   priceAxisScaleGesture,
   priceAxisWidth,
+  prioritizePageScroll = false,
   resources,
   timeAxisHeight,
 }: {
@@ -80,10 +81,13 @@ export function useTradingViewNativeChartGestures({
   priceAxisResetGesture: GestureType;
   priceAxisScaleGesture: GestureType;
   priceAxisWidth: SharedValue<number>;
+  prioritizePageScroll?: boolean;
   resources: SharedValue<ITradingViewNativeSkiaResources>;
   timeAxisHeight: number;
 }) {
   const headerScrollGestures = useContext(HeaderScrollGestureContext);
+  const shouldWaitForPageScroll =
+    prioritizePageScroll && headerScrollGestures.length > 0;
   const pressedSubIndicatorSettingsTarget =
     useSharedValue<ITradingViewNativeSubIndicator | null>(null);
 
@@ -91,6 +95,7 @@ export function useTradingViewNativeChartGestures({
     null,
   );
   const panPriceHeight = useSharedValue(0);
+  const panStartTranslationX = useSharedValue(0);
   const panPriceStartTranslationY = useSharedValue(0);
   const panPriceLastTranslationY = useSharedValue(0);
   const isPricePanActive = useSharedValue(false);
@@ -291,8 +296,6 @@ export function useTradingViewNativeChartGestures({
     const panGesture = Gesture.Pan()
       .minDistance(4)
       .maxPointers(1)
-      // Let the page claim vertical drags before panning an embedded chart.
-      .requireExternalGestureToFail(...headerScrollGestures)
       .onTouchesDown((event, stateManager) => {
         'worklet';
 
@@ -310,10 +313,14 @@ export function useTradingViewNativeChartGestures({
 
         cancelAnimation(decayOffset);
       })
-      .onStart(() => {
+      .onStart((event) => {
         'worklet';
         setInteraction(2, true);
 
+        // Discard movement accumulated while the page decided the drag direction.
+        panStartTranslationX.value = shouldWaitForPageScroll
+          ? event.translationX
+          : 0;
         const runtime = chartRuntime.value;
         const nextChartWidth = getTradingViewNativeChartWidth(
           runtime.size.width,
@@ -353,7 +360,8 @@ export function useTradingViewNativeChartGestures({
           hideCrosshair: true,
           offset:
             runtime.panGesture.startOffset +
-            event.translationX * TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
+            (event.translationX - panStartTranslationX.value) *
+              TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
           pointCount: runtime.points.length,
           type: 'panMoved',
         });
@@ -454,6 +462,10 @@ export function useTradingViewNativeChartGestures({
           },
         };
       });
+
+    if (shouldWaitForPageScroll) {
+      panGesture.requireExternalGestureToFail(...headerScrollGestures);
+    }
 
     const timeAxisScaleGesture = Gesture.Pan()
       .activeOffsetX([-4, 4])
@@ -649,12 +661,14 @@ export function useTradingViewNativeChartGestures({
     activeGestures,
     panPriceRange,
     panPriceHeight,
+    panStartTranslationX,
     panPriceStartTranslationY,
     panPriceLastTranslationY,
     isPricePanActive,
     chartRuntime,
     decayOffset,
     headerScrollGestures,
+    shouldWaitForPageScroll,
     isClickInteractionEnabled,
     isCrosshairEnabled,
     onSubIndicatorSettingsPress,

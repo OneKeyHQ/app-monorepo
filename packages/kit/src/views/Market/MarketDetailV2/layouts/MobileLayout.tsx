@@ -879,7 +879,7 @@ export function MobileLayout({
           {isSimpleChart ? null : (
             <HeaderScrollGestureWrapper
               disabled={isChartFullscreen || isTradingViewScrollLocked}
-              panActiveOffsetY={[-4, 4]}
+              panActiveOffsetY={isTradingViewNative ? [-12, 12] : [-4, 4]}
               panFailOffsetX={chartAreaPanFailOffsetX}
               excludeRightEdgeRatio={chartAreaExcludeRightEdgeRatio}
               excludeBottomEdgeHeight={
@@ -914,6 +914,7 @@ export function MobileLayout({
                         previousClose={stockPreviousClose}
                         enableNativeChartSettings
                         enableDrawings
+                        prioritizePageScroll
                         nativeChartSettingsInToolbar={platformEnv.isNative}
                         showNativeIndicatorQuickBar={platformEnv.isNative}
                         onNativeIndicatorQuickBarChange={
