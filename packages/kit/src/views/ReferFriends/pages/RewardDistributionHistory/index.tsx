@@ -37,6 +37,20 @@ type ISectionListItem = {
   data: number[];
 };
 
+// FlashList v2 enables maintainVisibleContentPosition by default. This list
+// mounts empty, then the address header and the sections resolve on their
+// own; mVCP re-anchors the offset on each swap and, with the automatic modal
+// inset, leaves the address row under the header and the list stuck on the
+// first open. Typed loosely: the web ListView is a FlatList whose prop of the
+// same name has a different shape.
+const listScrollBehaviorProps: Record<string, unknown> = platformEnv.isNative
+  ? {
+      maintainVisibleContentPosition: {
+        disabled: true,
+      },
+    }
+  : {};
+
 const formatSections = (items: IInvitePaidHistory['items']) => {
   const groupedData: Record<string, IInvitePaidHistory['items']> = items.reduce<
     Record<string, any[]>
@@ -209,6 +223,7 @@ function RewardDistributionHistoryPageWrapper() {
             // inset it below the modal header. A sibling above the list left
             // that inset as a blank gap over the first section on phones.
             contentInsetAdjustmentBehavior="automatic"
+            {...listScrollBehaviorProps}
             ListHeaderComponent={<InviteWithdrawAddressRow />}
             refreshControl={
               <RefreshControl
