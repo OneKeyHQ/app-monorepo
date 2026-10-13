@@ -49,6 +49,7 @@ const mockPresentation = {
   getNetworkLeading: mockGetNetworkLeading,
 };
 let mockMissingNetworks = [{ networkId: 'a' }];
+let mockIsMissingNetworksReady = true;
 let mockSearch = '';
 let mockIsNative = false;
 let mockIsDesktop = false;
@@ -98,7 +99,11 @@ jest.mock('@onekeyhq/kit/src/hooks/useAllNetwork', () => ({
     useEffect(() => {
       mockRun();
     }, [enabledNetworks]);
-    return { enabledNetworksWithoutAccount: mockMissingNetworks, run: mockRun };
+    return {
+      enabledNetworksWithoutAccount: mockMissingNetworks,
+      isReady: mockIsMissingNetworksReady,
+      run: mockRun,
+    };
   },
 }));
 jest.mock('../../hooks/usePureChainSelectorSections', () => ({
@@ -208,7 +213,25 @@ describe('portfolio NativeList selection adapter V2', () => {
     mockIsNative = false;
     mockIsDesktop = false;
     mockMissingNetworks = [{ networkId: 'a' }];
+    mockIsMissingNetworksReady = true;
     mockState = { enabledNetworks: { a: true }, disabledNetworks: {} };
+  });
+
+  it('keeps the missing-address count while the check for a new selection is pending', () => {
+    // OK-64148: the compatibility check is keyed by the enabled set, so every
+    // toggle opens a new scope whose result is the empty placeholder until the
+    // background call resolves. Publishing that placeholder emptied the footer
+    // line and flipped the button label for a frame, which moved the button.
+    const view = render(<HarnessV2 />);
+    expect(mockMissingCount).toHaveBeenLastCalledWith(1);
+    mockMissingNetworks = [];
+    mockIsMissingNetworksReady = false;
+    view.rerender(<HarnessV2 values={{ ...mockValues, b: '8' }} />);
+    expect(mockMissingCount).toHaveBeenLastCalledWith(1);
+    mockMissingNetworks = [{ networkId: 'a' }, { networkId: 'b' }];
+    mockIsMissingNetworksReady = true;
+    view.rerender(<HarnessV2 values={{ ...mockValues, b: '9' }} />);
+    expect(mockMissingCount).toHaveBeenLastCalledWith(2);
   });
 
   it('preserves selections outside the search result and writes both state maps', () => {

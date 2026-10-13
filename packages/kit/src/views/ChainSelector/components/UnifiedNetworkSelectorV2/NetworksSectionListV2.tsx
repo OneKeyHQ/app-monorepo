@@ -80,7 +80,7 @@ export default function NetworksSectionListV2({
     accountDeFiOverview,
   });
 
-  const { enabledNetworksWithoutAccount } =
+  const { enabledNetworksWithoutAccount, isReady: isMissingAddressCheckReady } =
     useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
       walletId: walletId ?? '',
       indexedAccountId,
@@ -88,8 +88,20 @@ export default function NetworksSectionListV2({
       enabledNetworks,
     });
   useEffect(() => {
+    // The check is keyed by the enabled set, so every toggle opens a new scope
+    // whose result is the empty placeholder until the background call
+    // resolves. Publishing that placeholder emptied the footer's missing
+    // address line and flipped the button label for a frame, which moved the
+    // button (OK-64148). Keep the previous count until the new one is in.
+    if (!isMissingAddressCheckReady) {
+      return;
+    }
     setMissingAddressCount(enabledNetworksWithoutAccount.length);
-  }, [enabledNetworksWithoutAccount.length, setMissingAddressCount]);
+  }, [
+    enabledNetworksWithoutAccount.length,
+    isMissingAddressCheckReady,
+    setMissingAddressCount,
+  ]);
 
   const selectedIds = useMemo(
     () =>
