@@ -339,6 +339,8 @@ class ServicePrimeFreeTrial extends ServiceBase {
 
   // A feature written on its own after this snapshot was requested keeps
   // that value (same user and month): the snapshot may predate that change.
+  // Only for features the snapshot still lists: one it no longer lists was
+  // closed, and a start reply never reopens it.
   private keepLaterFeatureWrites({
     data,
     current,
@@ -365,15 +367,12 @@ class ServicePrimeFreeTrial extends ServiceBase {
     const laterById = new Map(
       laterFeatures.map((item) => [item.featureId, item]),
     );
-    const features = data.features.map(
-      (item) => laterById.get(item.featureId) ?? item,
-    );
-    laterFeatures.forEach((item) => {
-      if (!data.features.some((f) => f.featureId === item.featureId)) {
-        features.push(item);
-      }
-    });
-    return { ...data, features };
+    return {
+      ...data,
+      features: data.features.map(
+        (item) => laterById.get(item.featureId) ?? item,
+      ),
+    };
   }
 
   private async clearQuotaSnapshot() {
@@ -797,7 +796,9 @@ class ServicePrimeFreeTrial extends ServiceBase {
             },
           );
         } catch (error) {
-          if (response?.unlimited === false) {
+          // A grant, or a reply without one (effect unknown), may hold a
+          // reservation of the user that started.
+          if (response?.unlimited !== true) {
             await releaseReservation();
           }
           throw error;

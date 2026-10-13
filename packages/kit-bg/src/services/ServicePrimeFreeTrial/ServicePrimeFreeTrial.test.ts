@@ -633,6 +633,25 @@ describe('ServicePrimeFreeTrial', () => {
         ]);
       });
 
+      it('releases a reply without a grant as the user that started', async () => {
+        const { service, simpleDb, servicePrime } = createService();
+        switchUserDuringStart(servicePrime, null);
+
+        await expect(
+          service.startUsage({
+            featureId: EPrimeFeatures.BulkSend,
+            usageId: 'usage-0023',
+          }),
+        ).rejects.toThrow('Prime free trial user changed');
+        await flushPromises();
+
+        // Whether it reserved is unknown: released, never reported as user-b.
+        expect(
+          simpleDb.records.get('user-a__BulkSend__usage-0023'),
+        ).toMatchObject({ result: 'cancelled' });
+        expect(finishCalls()).toHaveLength(0);
+      });
+
       it('does not run unmetered on the Prime of the user that started', async () => {
         const { service, simpleDb, servicePrime } = createService();
         switchUserDuringStart(servicePrime, { unlimited: true });
@@ -1435,6 +1454,69 @@ describe('ServicePrimeFreeTrial', () => {
       // A caller that joined the refresh decides on the same snapshot.
       expect(remainingOf(refreshed, EPrimeFeatures.BulkSend)).toBe(1);
       expect(remainingOf(refreshed, EPrimeFeatures.BulkRevoke)).toBe(0);
+    });
+
+    it('drops a feature a refresh no longer lists, even after a start', async () => {
+      const { service } = createService();
+      const bulkRevokeQuota: IPrimeFreeTrialFeatureQuota = {
+        featureId: EPrimeFeatures.BulkRevoke,
+        unit: 'count',
+        monthlyQuota: 1,
+        used: 0,
+        remaining: 1,
+      };
+      await service.applyQuotaFromPrimeUserInfo({
+        freeTrial: {
+          ...quota,
+          features: [quotaOfBulkSend, bulkRevokeQuota],
+        },
+        onekeyUserId: 'user-a',
+        requestSeq: service.allocateQuotaRequestSeq(),
+        isPrimeSubscriptionActive: false,
+      });
+      let resolveRefresh: ((value: unknown) => void) | undefined;
+      mockOneKeyIdClient.get
+        .mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              resolveRefresh = resolve;
+            }),
+        )
+        .mockImplementation(() => new Promise(() => {}));
+      const refresh = service.refreshQuota();
+      await flushPromises();
+      mockOneKeyIdClient.post.mockResolvedValueOnce({
+        data: {
+          code: 0,
+          data: {
+            unlimited: false,
+            featureId: EPrimeFeatures.BulkRevoke,
+            usageId: 'usage-3003',
+            quota: { ...bulkRevokeQuota, used: 1, remaining: 0 },
+            expiresAt: 1000,
+            resetAt: quota.resetAt,
+          },
+        },
+      });
+      await service.startUsage({
+        featureId: EPrimeFeatures.BulkRevoke,
+        usageId: 'usage-3003',
+      });
+      await flushPromises();
+
+      // BulkRevoke was closed meanwhile.
+      resolveRefresh?.({
+        data: { code: 0, data: { ...quota, features: [quotaOfBulkSend] } },
+      });
+      const refreshed = await refresh;
+      await flushPromises();
+
+      const featureIds = (data: IPrimeFreeTrialQuota | null | undefined) =>
+        data?.features.map((item) => item.featureId);
+      expect(featureIds(mockState.freeTrial.quota.data)).toEqual([
+        EPrimeFeatures.BulkSend,
+      ]);
+      expect(featureIds(refreshed)).toEqual([EPrimeFeatures.BulkSend]);
     });
 
     it('keeps the snapshot when freeTrial is missing and clears it on null', async () => {
