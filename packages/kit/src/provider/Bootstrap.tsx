@@ -95,6 +95,7 @@ import useAppNavigation from '../hooks/useAppNavigation';
 import { useOnLock } from '../hooks/useOnLock';
 import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
 import { useTrayDataProvider } from '../hooks/useTrayDataProvider';
+import { registerHomeTokenListOwnerCacheInvalidation } from '../states/jotai/contexts/tokenList/cells/ownerCacheInvalidation';
 import { registerSwrCacheMutationInvalidation } from '../utils/swrCacheMutationInvalidation';
 
 import { preloadComponentsOnIdle } from './preloadComponents';
@@ -115,6 +116,15 @@ const LazyExtensionMarketTokenDetailHashNavigation =
         const { ExtensionMarketTokenDetailHashNavigation } =
           await import('./useExtensionMarketTokenDetailHashNavigation');
         return { default: ExtensionMarketTokenDetailHashNavigation };
+      })
+    : null;
+
+const LazyExtPrimeSubscriptionHandoffOnMount =
+  platformEnv.isExtensionUiExpandTab
+    ? lazy(async () => {
+        const { ExtPrimeSubscriptionHandoffOnMount } =
+          await import('../routes/config/deeplink/ExtPrimeSubscriptionHandoffOnMount');
+        return { default: ExtPrimeSubscriptionHandoffOnMount };
       })
     : null;
 
@@ -836,6 +846,9 @@ function DesktopTrayDataProvider() {
 // listens for can arrive before this component mounts, and a dropped one
 // leaves a renamed or deleted entity in the snapshot store.
 registerSwrCacheMutationInvalidation();
+// Same for the home token list's per-owner caches: a removal made before the
+// home token list first runs must still drop them.
+registerHomeTokenListOwnerCacheInvalidation();
 
 export function Bootstrap() {
   const navigation = useAppNavigation();
@@ -1117,6 +1130,11 @@ export function Bootstrap() {
       {LazyExtensionMarketTokenDetailHashNavigation ? (
         <Suspense fallback={null}>
           <LazyExtensionMarketTokenDetailHashNavigation />
+        </Suspense>
+      ) : null}
+      {LazyExtPrimeSubscriptionHandoffOnMount ? (
+        <Suspense fallback={null}>
+          <LazyExtPrimeSubscriptionHandoffOnMount />
         </Suspense>
       ) : null}
       {platformEnv.isDesktopMac ? <DesktopTrayDataProvider /> : null}

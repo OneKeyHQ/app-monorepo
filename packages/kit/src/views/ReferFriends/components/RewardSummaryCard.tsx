@@ -15,26 +15,26 @@ export interface IRewardSummaryRow {
   value: string;
   // Plain text (counts) instead of a fiat amount.
   isCurrency?: boolean;
-  // Show `value` in this currency instead of the wallet currency.
-  fixedCurrency?: string;
+  // The currency `value` arrives in; it is shown in the wallet currency.
+  sourceCurrency?: string;
   prefix?: string;
   // A quiet line under the value it explains.
   hint?: string;
 }
 
 // A reward figure: an optional prefix ("~"), then the amount in the wallet
-// currency (or `fixedCurrency`), or plain text for counts.
+// currency (converted from `sourceCurrency`), or plain text for counts.
 export function RewardValue({
   value,
   isCurrency = true,
-  fixedCurrency,
+  sourceCurrency,
   prefix,
   size,
   color = '$text',
 }: {
   value: string;
   isCurrency?: boolean;
-  fixedCurrency?: string;
+  sourceCurrency?: string;
   prefix?: string;
   size: ISizableTextProps['size'];
   color?: ColorTokens;
@@ -51,8 +51,7 @@ export function RewardValue({
         color={color}
         formatter="value"
         numberOfLines={1}
-        sourceCurrency={fixedCurrency}
-        targetCurrency={fixedCurrency}
+        sourceCurrency={sourceCurrency}
       >
         {value}
       </Currency>
@@ -78,7 +77,7 @@ export function RewardSummaryCard({
   value,
   valueText,
   valueColor,
-  fixedCurrency,
+  sourceCurrency,
   hint,
   rows = [],
   isLoading,
@@ -89,7 +88,7 @@ export function RewardSummaryCard({
   // Replaces the formatted amount, e.g. "< $0.01".
   valueText?: string;
   valueColor?: ColorTokens;
-  fixedCurrency?: string;
+  sourceCurrency?: string;
   hint?: string;
   rows?: IRewardSummaryRow[];
   isLoading?: boolean;
@@ -127,7 +126,7 @@ export function RewardSummaryCard({
       ) : (
         <RewardValue
           value={value}
-          fixedCurrency={fixedCurrency}
+          sourceCurrency={sourceCurrency}
           size="$heading3xl"
           color={valueColor}
         />
@@ -144,7 +143,7 @@ export function RewardSummaryCard({
               <RewardValue
                 value={row.value}
                 isCurrency={row.isCurrency}
-                fixedCurrency={row.fixedCurrency}
+                sourceCurrency={row.sourceCurrency}
                 prefix={row.prefix}
                 size="$bodyMdMedium"
               />

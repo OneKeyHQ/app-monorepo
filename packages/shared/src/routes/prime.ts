@@ -57,6 +57,7 @@ export type IPrimeParamList = {
     fromFeature?: EPrimeFeatures;
     // Set when a free-trial entry opened the dashboard (analytics only)
     freeTrialReason?: 'exhausted' | 'notOpen';
+    fromDeepLink?: boolean;
   };
   [EPrimePages.PrimeDeviceLimit]: {
     isExceedDeviceLimit?: boolean;

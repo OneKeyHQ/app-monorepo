@@ -9,9 +9,9 @@ describe('getInviteEarningsState', () => {
       }),
     ).toEqual({
       isZero: true,
-      undistributed: '0.00',
-      distributed: '0.00',
-      cumulative: '0.00',
+      undistributed: '0',
+      distributed: '0',
+      cumulative: '0',
     });
     expect(getInviteEarningsState(undefined).isZero).toBe(true);
     expect(getInviteEarningsState(null).isZero).toBe(true);
@@ -26,8 +26,22 @@ describe('getInviteEarningsState', () => {
     ).toEqual({
       isZero: false,
       undistributed: '239.35',
-      distributed: '4409.70',
+      distributed: '4409.7',
       cumulative: '4649.05',
+    });
+  });
+
+  it('keeps a sub-cent amount so wallet-currency conversion is not zero', () => {
+    expect(
+      getInviteEarningsState({
+        distributed: '0.004',
+        undistributed: '0',
+      }),
+    ).toEqual({
+      isZero: false,
+      undistributed: '0',
+      distributed: '0.004',
+      cumulative: '0.004',
     });
   });
 
@@ -37,7 +51,7 @@ describe('getInviteEarningsState', () => {
       undistributed: '0',
     });
     expect(distributedOnly.isZero).toBe(false);
-    expect(distributedOnly.cumulative).toBe('12.50');
+    expect(distributedOnly.cumulative).toBe('12.5');
 
     const pendingOnly = getInviteEarningsState({
       distributed: '',
@@ -45,9 +59,9 @@ describe('getInviteEarningsState', () => {
     });
     expect(pendingOnly).toMatchObject({
       isZero: true,
-      undistributed: '0.00',
-      distributed: '0.00',
-      cumulative: '0.00',
+      undistributed: '0',
+      distributed: '0',
+      cumulative: '0',
     });
   });
 });

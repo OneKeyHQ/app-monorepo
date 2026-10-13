@@ -36,10 +36,12 @@ export function validateAppName(appName: string): void {
   }
 }
 
-// Empty is valid (info ends with variable-length context).
 export function parseHexContext(context: string): Uint8Array {
   if (typeof context !== 'string') {
     throw new OneKeyLocalError('Context must be a string');
+  }
+  if (context.length === 0) {
+    throw new OneKeyLocalError('Context must be non-empty');
   }
   if (context.startsWith('0x') || context.startsWith('0X')) {
     throw new OneKeyLocalError('Context must not have a 0x prefix');
@@ -52,7 +54,7 @@ export function parseHexContext(context: string): Uint8Array {
       'Context must not exceed 2048 hex characters (1024 bytes)',
     );
   }
-  if (context.length > 0 && !/^[0-9a-f]+$/.test(context)) {
+  if (!/^[0-9a-f]+$/.test(context)) {
     throw new OneKeyLocalError('Context must be a lowercase hex string');
   }
   const bytes = new Uint8Array(context.length / 2);

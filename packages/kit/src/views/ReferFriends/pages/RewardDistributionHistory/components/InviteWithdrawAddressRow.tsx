@@ -7,9 +7,9 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useNavigateToEditAddress } from '@onekeyhq/kit/src/views/ReferFriends/pages/EditAddress/hooks/useNavigateToEditAddress';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { ReferFriendsTestIDs } from '../../../testIDs';
+import { shortenPayoutAddress } from '../../../utils/shortenPayoutAddress';
 import { openInviteWithdrawAddressEditor } from '../openInviteWithdrawAddressEditor';
 
 export function InviteWithdrawAddressRow() {
@@ -50,7 +50,7 @@ export function InviteWithdrawAddressRow() {
       })}
       subtitle={
         withdrawAddress
-          ? accountUtils.shortenAddress({ address: withdrawAddress.address })
+          ? shortenPayoutAddress(withdrawAddress.address)
           : intl.formatMessage({
               id: ETranslations.referral_reward_received_address_notset,
             })
