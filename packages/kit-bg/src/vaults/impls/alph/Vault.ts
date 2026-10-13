@@ -26,6 +26,7 @@ import {
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import type {
@@ -64,6 +65,10 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+import {
+  checkAlphHardwareInputLimit,
+  getAlphHardwareInputLimit,
+} from './sdkAlph/hardwareInputLimit';
 import { MAX_GAS_AMOUNT, serializeUnsignedTransaction } from './sdkAlph/utils';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
@@ -597,6 +602,30 @@ export default class Vault extends VaultBase {
             ...otherDestinations,
           ],
         };
+      }
+    }
+
+    if (encodedTx && accountUtils.isHwAccount({ accountId: this.accountId })) {
+      const device =
+        await this.backgroundApi.serviceAccount.getAccountDeviceSafe({
+          accountId: this.accountId,
+        });
+      if (getAlphHardwareInputLimit(device?.deviceType)) {
+        const transaction = await serializeUnsignedTransaction({
+          encodedTx,
+          publicKey: account.pub ?? '',
+          networkId: this.networkId,
+          backgroundApi: this.backgroundApi,
+        });
+        await checkAlphHardwareInputLimit({
+          unsignedTx: transaction.unsignedTx,
+          encodedTx,
+          backgroundApi: this.backgroundApi,
+          networkId: this.networkId,
+          accountId: this.accountId,
+          deviceType: device?.deviceType,
+          publicKey: account.pub ?? '',
+        });
       }
     }
 
