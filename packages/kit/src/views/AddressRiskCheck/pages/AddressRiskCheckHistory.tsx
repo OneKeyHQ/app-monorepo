@@ -17,6 +17,16 @@ import { RecentCheckItem } from '../components/RecentCheckItem';
 import { useCheckAddressRisk } from '../hooks/useCheckAddressRisk';
 import { useRecentChecks } from '../hooks/useRecentChecks';
 
+// A failed check counts as logged out, as the local state already says: the
+// page still exits and the dashboard still asks for the login.
+async function isLoggedInInBackground() {
+  try {
+    return await backgroundApiProxy.servicePrime.isLoggedIn();
+  } catch {
+    return false;
+  }
+}
+
 // Page-level gate: the history needs a OneKey ID login (Prime or free trial),
 // also when the route is opened directly or the user is logged out while on
 // it. Logged-out users are sent to the dashboard.
@@ -35,16 +45,13 @@ export function useAddressRiskCheckHistoryAccess() {
     void (async () => {
       // The local projection may lag on a cold start, and the login may come
       // back while this waits.
-      if (
-        (await backgroundApiProxy.servicePrime.isLoggedIn()) ||
-        isLoggedInRef.current
-      ) {
+      if ((await isLoggedInInBackground()) || isLoggedInRef.current) {
         exitingRef.current = false;
         return;
       }
       navigation.pop();
       await timerUtils.wait(300);
-      if (await backgroundApiProxy.servicePrime.isLoggedIn()) {
+      if (await isLoggedInInBackground()) {
         return;
       }
       openPrimeDashboard({

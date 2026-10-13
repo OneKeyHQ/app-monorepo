@@ -140,6 +140,26 @@ describe('useAddressRiskCheckHistoryAccess', () => {
     expect(mockOpenPrimeDashboard).not.toHaveBeenCalled();
   });
 
+  it('still opens the dashboard when the check after the exit fails', async () => {
+    mockBackgroundIsLoggedIn
+      .mockResolvedValueOnce(false)
+      .mockRejectedValueOnce(new Error('bridge failed'));
+    mockIsLoggedIn = false;
+    renderHook(() => useAddressRiskCheckHistoryAccess());
+
+    await waitFor(() => expect(mockOpenPrimeDashboard).toHaveBeenCalled());
+    expectDashboardOpened();
+  });
+
+  it('still exits when the background check fails', async () => {
+    mockBackgroundIsLoggedIn.mockRejectedValueOnce(new Error('bridge failed'));
+    mockIsLoggedIn = false;
+    renderHook(() => useAddressRiskCheckHistoryAccess());
+
+    await waitFor(() => expect(mockOpenPrimeDashboard).toHaveBeenCalled());
+    expectDashboardOpened();
+  });
+
   it('stays while the background still has the login', async () => {
     mockIsLoggedIn = false;
     mockBackgroundIsLoggedIn.mockResolvedValue(true);
