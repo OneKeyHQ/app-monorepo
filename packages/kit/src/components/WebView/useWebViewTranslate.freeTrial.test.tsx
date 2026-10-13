@@ -498,6 +498,40 @@ describe('useWebViewTranslate free-trial stop', () => {
     expect(commands()).toEqual(['start', 'start', 'stop']);
   });
 
+  it('does not wait for requests a retranslate restored away', async () => {
+    const onFreeTrialUnavailable = jest.fn();
+    const old = deferred<unknown>();
+    mockApiTranslate.mockReturnValueOnce(old.promise).mockResolvedValueOnce({
+      translations: ['b'],
+      freeTrialError: EXHAUSTED,
+    });
+    const { result, sessionId } = await startSession(onFreeTrialUnavailable);
+    await act(async () => {
+      request(sessionId, 'tr_old', ['a']);
+      await flush();
+    });
+
+    // Retranslate: the restore drops tr_old's pending response in the page.
+    act(() => {
+      result.current.startTranslate('zh');
+    });
+    act(() => {
+      jest.advanceTimersByTime(100);
+    });
+    const nextSessionId = startedSessionIds()[1];
+    await act(async () => {
+      request(nextSessionId, 'tr_new', ['b']);
+      await flush();
+    });
+    expect(commands()).toEqual(['start', 'restore', 'start', 'stop']);
+
+    await act(async () => {
+      old.resolve({ translations: ['A'] });
+      await flush();
+    });
+    expect(commands()).toEqual(['start', 'restore', 'start', 'stop']);
+  });
+
   it('keeps the next page session running after a navigation', async () => {
     const onFreeTrialUnavailable = jest.fn();
     const old = deferred<unknown>();

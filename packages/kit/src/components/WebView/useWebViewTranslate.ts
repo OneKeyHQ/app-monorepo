@@ -427,6 +427,9 @@ export function useWebViewTranslate({
     }
     clearFreeTrialStopTimer();
     freeTrialStoppedSessionRef.current = null;
+    // `restore` drops every pending response of the page, so the requests
+    // still in flight no longer hold back a later stop.
+    inFlightRequestsRef.current = new Map();
     injectScript(
       tabId,
       createMessageInjectedScript({
