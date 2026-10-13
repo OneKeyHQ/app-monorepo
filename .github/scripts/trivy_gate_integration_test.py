@@ -235,7 +235,7 @@ class RealScannerTests(unittest.TestCase):
         def misconfigurations(name, suffix):
             root = self.root / name
             root.mkdir()
-            (root / 'main.yaml').write_text(template.format(suffix))
+            (root / 'main.yaml').write_text(template.format(suffix), encoding='utf-8')
             report = self.scan(root, name, 'misconfig')
             return root, sum(1 for r in report['Results'] for m in r.get('Misconfigurations', [])
                              if m.get('Status') == 'FAIL')
@@ -243,7 +243,9 @@ class RealScannerTests(unittest.TestCase):
         self.assertGreater(plain, 0)
         # Directives are assembled at runtime so this file itself never holds one.
         for name, suffix in (('cfn-tfsec', '\n  #' + 'tfsec' + ':ignore:*'),
-                             ('cfn-end-of-line', ' # ' + 'trivy' + ':ignore:*')):
+                             ('cfn-end-of-line', ' # ' + 'trivy' + ':ignore:*'),
+                             ('cfn-nbsp', ' #  ' + 'trivy' + ':ignore:*'),
+                             ('cfn-ideographic-space', ' # 　' + 'trivy' + ':ignore:*')):
             root, suppressed = misconfigurations(name, suffix)
             self.assertEqual(suppressed, 0)
             self.fixture_git(root, 'init', '--quiet')

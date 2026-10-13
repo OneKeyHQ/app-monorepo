@@ -605,9 +605,16 @@ def inline_suppression(data):
     # Mirror the pinned IaC ignore parser: on any line, a space-separated token
     # that starts with the tfsec or trivy prefix after optional leading '#', '/'
     # or '*' characters, with an ignore key among its colon-separated sections.
-    # Splitting on all whitespace keeps this a superset of the parser.
-    return any(b'ignore' in match[1].split(b':')[0::2]
-               for match in re.finditer(rb'(?<!\S)[#/*]*(?:tfsec|trivy):(\S*)', data))
+    # The parser trims Unicode whitespace (e.g. NBSP) around tokens; splitting
+    # decoded text on all Unicode whitespace keeps this a superset of it.
+    if b'tfsec:' not in data and b'trivy:' not in data:
+        return False
+    for token in data.decode('utf-8', 'surrogateescape').split():
+        token = token.lstrip('#/*')
+        for prefix in ('tfsec:', 'trivy:'):
+            if token.startswith(prefix) and 'ignore' in token[len(prefix):].split(':')[0::2]:
+                return True
+    return False
 
 
 def export_tree(repo, revision, destination):
