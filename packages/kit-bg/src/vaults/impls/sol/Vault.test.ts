@@ -330,6 +330,31 @@ describe('SolVault.refreshUnsignedTxBeforeSign', () => {
   });
 });
 
+describe('SolVault.getSignatureStatuses', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('splits the lookup into batches of 256 and keeps the result order', async () => {
+    const { vault } = buildVault();
+    const clientLookup = jest.fn(async (batch: string[]) =>
+      batch.map((signature) => ({ confirmationStatus: signature })),
+    );
+    vault.getClient = async () =>
+      ({ getSignatureStatuses: clientLookup }) as unknown as ClientSol;
+    const signatures = Array.from({ length: 300 }, (_, i) => `sig-${i}`);
+
+    const statuses = await vault.getSignatureStatuses(signatures);
+
+    expect(clientLookup).toHaveBeenCalledTimes(2);
+    expect(clientLookup.mock.calls[0][0]).toHaveLength(256);
+    expect(clientLookup.mock.calls[1][0]).toHaveLength(44);
+    expect(statuses?.map((status) => status?.confirmationStatus)).toEqual(
+      signatures,
+    );
+  });
+});
+
 describe('SolVault.getDroppedPendingTxs', () => {
   const now = 1_700_000_000_000;
   const oldEnough = now - timerUtils.getTimeDurationMs({ minute: 3 });

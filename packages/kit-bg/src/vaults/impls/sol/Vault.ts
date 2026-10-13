@@ -42,7 +42,7 @@ import {
 } from '@solana/web3.js';
 import BigNumber from 'bignumber.js';
 import bs58 from 'bs58';
-import { isEmpty, isNil } from 'lodash';
+import { chunk as chunkArray, isEmpty, isNil } from 'lodash';
 
 import { BLOCK_HASH_NOT_FOUND_ERROR_CODE } from '@onekeyhq/core/src/chains/sol/constants';
 import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
@@ -165,6 +165,8 @@ const SOL_BLOCKHASH_NOT_FOUND_MESSAGE = 'Blockhash not found';
 // case without making the user wait a minute for a verdict that was already
 // final on the first attempt.
 const SOL_BLOCKHASH_NOT_FOUND_MAX_RETRY_ATTEMPTS = 2;
+// getSignatureStatuses accepts at most 256 signatures per request.
+const SOL_SIGNATURE_STATUSES_MAX_PER_CALL = 256;
 
 function isSolBlockhashNotFoundError(error: unknown): boolean {
   return (
@@ -247,7 +249,14 @@ export default class Vault extends VaultBase {
     ({ err?: unknown; confirmationStatus?: string | null } | null)[] | undefined
   > {
     const client = await this.getClient();
-    return client.getSignatureStatuses(signatures);
+    // The RPC rejects more than 256 signatures per call; batch and keep the
+    // caller's order so the result still lines up with the input.
+    const batches = await Promise.all(
+      chunkArray(signatures, SOL_SIGNATURE_STATUSES_MAX_PER_CALL).map((batch) =>
+        client.getSignatureStatuses(batch),
+      ),
+    );
+    return batches.flat();
   }
 
   override async buildAccountAddressDetail(
