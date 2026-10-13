@@ -39,6 +39,7 @@ import {
   TRADING_VIEW_NATIVE_VOLUME_LEGEND_TOP_PADDING as VOLUME_LEGEND_TOP_PADDING,
   TRADING_VIEW_NATIVE_VOLUME_OPACITY as VOLUME_OPACITY,
 } from '../chartConstants';
+import { drawingPointToScreen } from '../drawings/model';
 
 import { getTradingViewNativeCandleTimestampAtOffset } from './candleTime';
 import { appendTradingViewNativeChartComponentCommands } from './chartComponentScene';
@@ -108,6 +109,7 @@ import type {
   ITradingViewNativeSubIndicatorLegendHitRegion,
   ITradingViewNativeSubIndicatorRenderPane,
 } from './subIndicatorRender';
+import type { IDrawing } from '../drawings/model';
 import type {
   ITradingViewNativeCandleLabels,
   ITradingViewNativeCandleTimeMode,
@@ -255,6 +257,7 @@ export interface IBuildTradingViewNativeChartSceneOptions {
   candleIntervalSeconds: number;
   candleTimeMode?: ITradingViewNativeCandleTimeMode;
   chartComponents?: readonly ITradingViewNativeChartLeafComponent[];
+  chartDrawings?: readonly IDrawing[];
   chartSettings?: ITradingViewNativeChartSettings;
   chartType: ITradingViewNativeChartType;
   crosshair: ITradingViewNativeChartRuntimeCrosshair;
@@ -675,6 +678,7 @@ export function buildTradingViewNativeChartScene({
   candleIntervalSeconds,
   candleTimeMode,
   chartComponents = [],
+  chartDrawings = [],
   chartSettings,
   chartType,
   crosshair,
@@ -1358,9 +1362,23 @@ export function buildTradingViewNativeChartScene({
           ? { price: latestPoint.c, top: currentPriceLayout.labelTop }
           : undefined,
       customPaintStyles,
+      drawings: chartDrawings.filter((drawing) => {
+        if (drawing.tool !== 'horizontalRay') return true;
+        const anchor = drawing.points[0];
+        return (
+          anchor &&
+          drawingPointToScreen(anchor, {
+            layout,
+            points,
+            interval: candleIntervalSeconds,
+            viewport: normalizedViewport,
+          }).x <= priceAxisX
+        );
+      }),
       maxPrice,
       measureTextWidth,
       minPrice,
+      priceAxisFontSize,
       priceAxisX,
       priceChartHeight,
       priceScaleMode: resolvedPriceScaleMode,

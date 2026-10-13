@@ -14,8 +14,8 @@ export const LEVEL_SUBJECT_SHORT_LABEL_IDS: Partial<
   Record<string, ETranslations>
 > = {
   HardwareSales: ETranslations.referral_subject_hardware__title,
-  Perp: ETranslations.referral_perps,
-  Swap: ETranslations.swap_referral_link__title,
+  Perp: ETranslations.perps_perps,
+  Swap: ETranslations.global_swap,
   Earn: ETranslations.referral_referred_type_2,
   Onchain: ETranslations.referral_referred_type_2,
 };

@@ -16,6 +16,8 @@ export function InviteStatCell({
   onPress,
   testID,
   share = 1,
+  shrink = true,
+  minWidth,
 }: {
   label: string;
   leading?: ReactNode;
@@ -26,14 +28,33 @@ export function InviteStatCell({
   // the address does not resize the cells. 'content' sizes the cell to what
   // it holds, so a lone pressable cell's hover surface stays on it.
   share?: number | 'content';
+  // When false, the cell prefers its content width and can still shrink
+  // inside the row, so the address controls stay in the card.
+  shrink?: boolean;
+  // Floor for amount cells, so they do not collapse to nothing.
+  minWidth?: number | `$${string}`;
 }) {
-  const hug = share === 'content';
-  const sizing = hug ? { flexShrink: 1 } : { flex: share, flexBasis: 0 };
+  const hug = share === 'content' || !shrink;
+  let sizing:
+    | { flexShrink: number }
+    | { flex: number; flexBasis: number }
+    | {
+        flexGrow: number;
+        flexShrink: number;
+        flexBasis: 'auto';
+      };
+  if (!hug) {
+    sizing = { flex: share, flexBasis: 0 };
+  } else if (shrink) {
+    sizing = { flexShrink: 1 };
+  } else {
+    sizing = { flexGrow: 0, flexShrink: 1, flexBasis: 'auto' };
+  }
   return (
     <XStack
       testID={testID}
       {...sizing}
-      minWidth={0}
+      minWidth={minWidth ?? 0}
       ai="center"
       gap="$2"
       py="$1"

@@ -121,6 +121,9 @@ function useReceiveToken({
       }
 
       if (vaultSettings?.isSingleToken || token) {
+        // Opened without a token, this is a single-token network: the page
+        // is for its one coin, the only row of the home list.
+        const receiveToken = token ?? tokens?.data?.[0];
         if (
           isMultipleDerive &&
           !accountUtils.isOthersWallet({ walletId }) &&
@@ -131,7 +134,7 @@ function useReceiveToken({
               networkId,
               accountId: '',
               walletId,
-              token: token ?? tokens?.data?.[0],
+              token: receiveToken,
               indexedAccountId,
               switchEntry: resolvedSwitchEntry,
               source,
@@ -145,7 +148,7 @@ function useReceiveToken({
               networkId,
               accountId: '',
               walletId,
-              token: token ?? tokens?.data?.[0],
+              token: receiveToken,
               indexedAccountId,
               switchEntry: resolvedSwitchEntry,
               source,
@@ -160,7 +163,7 @@ function useReceiveToken({
             networkId,
             accountId,
             walletId,
-            token,
+            token: receiveToken,
             indexedAccountId,
             disableSelector: true,
             switchEntry: resolvedSwitchEntry,
@@ -174,7 +177,7 @@ function useReceiveToken({
               networkId,
               accountId,
               walletId,
-              token,
+              token: receiveToken,
               indexedAccountId,
               disableSelector: true,
               switchEntry: resolvedSwitchEntry,

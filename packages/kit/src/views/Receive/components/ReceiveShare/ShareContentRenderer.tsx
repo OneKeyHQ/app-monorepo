@@ -2,13 +2,10 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Image } from 'react-native';
 
-import {
-  QRCode,
-  SizableText,
-  Stack,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { SizableText, XStack, YStack } from '@onekeyhq/components';
+
+import { ReceiveQRCode } from '../ReceiveQRCode';
+import { ReceiveTitleBlocks } from '../ReceiveTitle';
 
 import {
   ONEKEY_LOGO_URL,
@@ -23,17 +20,12 @@ interface IShareContentRendererProps {
   onImagesReady?: () => void;
 }
 
+const HIDDEN_TITLE_PROPS = { position: 'absolute', opacity: 0 } as const;
+
 // memoized: rendered inside the permanently-mounted offscreen generator
 export const ShareContentRenderer = memo(
   ({ data, onImagesReady }: IShareContentRendererProps) => {
-    const {
-      title,
-      subtitle,
-      networkName,
-      address,
-      tokenLogoURI,
-      networkLogoURI,
-    } = data;
+    const { title, titleLogo, subtitle, networkName, address } = data;
     const {
       width,
       minHeight,
@@ -60,13 +52,10 @@ export const ShareContentRenderer = memo(
       };
     }, [subtitle, networkName]);
 
-    const imageCount = useMemo(
-      () =>
-        // +1: the QR code signals once its lazily-loaded encoder has drawn
-        // the symbol, so a ViewShot capture can't run against an empty code
-        2 + (tokenLogoURI ? 1 : 0) + (tokenLogoURI && networkLogoURI ? 1 : 0),
-      [tokenLogoURI, networkLogoURI],
-    );
+    // the QR code with its mark (the lazily-loaded encoder has to draw it
+    // before a ViewShot capture), the footer logo, and the title logo when
+    // there is one
+    const imageCount = 2 + (titleLogo ? 1 : 0);
     const loadedCountRef = useRef(0);
     const handleImageLoaded = useCallback(() => {
       loadedCountRef.current += 1;
@@ -75,15 +64,27 @@ export const ShareContentRenderer = memo(
       }
     }, [imageCount, onImagesReady]);
 
-    // The white plate must only appear once the token logo actually rendered;
-    // on load failure/timeout the QR stays clean and scannable (web parity).
-    const [isTokenLogoLoaded, setIsTokenLogoLoaded] = useState(false);
+    // The title shows its logo only once the logo has loaded. Until then,
+    // and if it never does, the card carries the plain title: a capture that
+    // gives up waiting must not show an empty slot beside the symbol.
+    const [isTitleLogoLoaded, setIsTitleLogoLoaded] = useState(false);
+    const handleTitleLogoLoaded = useCallback(
+      () => setIsTitleLogoLoaded(true),
+      [],
+    );
     useEffect(() => {
-      // signal readiness only after the commit that reveals the plate
-      if (isTokenLogoLoaded) {
+      // signal readiness only after the commit that reveals the logo
+      if (isTitleLogoLoaded) {
         handleImageLoaded();
       }
-    }, [isTokenLogoLoaded, handleImageLoaded]);
+    }, [isTitleLogoLoaded, handleImageLoaded]);
+
+    const titleTextProps = {
+      color: titleStyle.color,
+      fontSize: titleStyle.size,
+      lineHeight: titleStyle.lineHeight,
+      fontWeight: '600',
+    } as const;
 
     return (
       <YStack width={width} minHeight={minHeight} bg={backgroundColor}>
@@ -93,15 +94,37 @@ export const ShareContentRenderer = memo(
           flex={1}
           alignItems="center"
         >
-          <SizableText
-            textAlign="center"
-            color={titleStyle.color}
-            fontSize={titleStyle.size}
-            lineHeight={titleStyle.lineHeight}
-            fontWeight="600"
-          >
-            {title}
-          </SizableText>
+          {isTitleLogoLoaded ? null : (
+            <SizableText textAlign="center" {...titleTextProps}>
+              {title}
+            </SizableText>
+          )}
+          {titleLogo ? (
+            <ReceiveTitleBlocks
+              // Laid out from the start but kept out of sight until its logo
+              // has loaded, so the one image that loads is the one captured.
+              {...(isTitleLogoLoaded ? undefined : HIDDEN_TITLE_PROPS)}
+              logo={titleLogo}
+              textProps={titleTextProps}
+              blockGap={titleStyle.blockGap}
+              iconGap={titleStyle.iconGap}
+              icon={
+                <Image
+                  source={{ uri: titleLogo.uri }}
+                  style={{
+                    width: titleStyle.iconSize,
+                    height: titleStyle.iconSize,
+                    borderRadius: titleStyle.iconSize / 2,
+                  }}
+                  // Android fades images in for 300ms after onLoad;
+                  // ViewShot must never capture mid-fade (OK-58189)
+                  fadeDuration={0}
+                  onLoad={handleTitleLogoLoaded}
+                  onError={handleImageLoaded}
+                />
+              }
+            />
+          ) : null}
           <SizableText
             mt={subtitleStyle.gapAboveTitle}
             textAlign="center"
@@ -143,73 +166,11 @@ export const ShareContentRenderer = memo(
               justifyContent="center"
               py={qr.cellPaddingY}
             >
-              <YStack>
-                <QRCode
-                  value={address}
-                  size={qr.size}
-                  onRenderReady={handleImageLoaded}
-                />
-                {tokenLogoURI ? (
-                  // full-bleed overlay + flex centering: percentage translate
-                  // is unreliable on native, so avoid left/top 50% -50% here
-                  <YStack
-                    position="absolute"
-                    top={0}
-                    left={0}
-                    right={0}
-                    bottom={0}
-                    alignItems="center"
-                    justifyContent="center"
-                  >
-                    <YStack
-                      width={qr.logoPlateSize}
-                      height={qr.logoPlateSize}
-                      borderRadius="$full"
-                      bg="white"
-                      alignItems="center"
-                      justifyContent="center"
-                      opacity={isTokenLogoLoaded ? 1 : 0}
-                    >
-                      <Image
-                        source={{ uri: tokenLogoURI }}
-                        style={{
-                          width: qr.logoSize,
-                          height: qr.logoSize,
-                          borderRadius: qr.logoSize / 2,
-                        }}
-                        // Android fades images in for 300ms after onLoad;
-                        // ViewShot must never capture mid-fade (OK-58189)
-                        fadeDuration={0}
-                        onLoad={() => setIsTokenLogoLoaded(true)}
-                        onError={handleImageLoaded}
-                      />
-                      {networkLogoURI ? (
-                        <Stack
-                          position="absolute"
-                          right={0}
-                          bottom={0}
-                          p={qr.networkBadgePadding}
-                          bg="white"
-                          borderRadius="$full"
-                          opacity={isTokenLogoLoaded ? 1 : 0}
-                        >
-                          <Image
-                            source={{ uri: networkLogoURI }}
-                            style={{
-                              width: qr.networkBadgeIconSize,
-                              height: qr.networkBadgeIconSize,
-                              borderRadius: qr.networkBadgeIconSize / 2,
-                            }}
-                            fadeDuration={0}
-                            onLoad={handleImageLoaded}
-                            onError={handleImageLoaded}
-                          />
-                        </Stack>
-                      ) : null}
-                    </YStack>
-                  </YStack>
-                ) : null}
-              </YStack>
+              <ReceiveQRCode
+                value={address}
+                size={qr.size}
+                onRenderReady={handleImageLoaded}
+              />
             </YStack>
             <YStack
               bg={cell.backgroundColor}
