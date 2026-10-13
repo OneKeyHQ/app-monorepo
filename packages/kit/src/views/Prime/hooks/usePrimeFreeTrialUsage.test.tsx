@@ -227,7 +227,8 @@ describe('usePrimeFreeTrialUsage.prepareRetryUsage', () => {
     mockIsPrimeSubscriptionActive = false;
   });
 
-  it('does not meter a page without a usage', async () => {
+  it('keeps an unmetered round unmetered for a Prime user', async () => {
+    mockIsPrimeSubscriptionActive = true;
     const result = renderUsageHook();
     await act(async () => {
       await expect(
@@ -238,10 +239,58 @@ describe('usePrimeFreeTrialUsage.prepareRetryUsage', () => {
       ).resolves.toEqual({
         proceed: true,
         usageId: undefined,
-        isNewUsage: false,
+        isNewUsage: true,
       });
     });
     expect(mockStartUsage).not.toHaveBeenCalled();
+    expect(mockGetUsageResult).not.toHaveBeenCalled();
+  });
+
+  it('starts a usage to retry an unmetered round once Prime lapsed', async () => {
+    mockStartUsage.mockImplementation(async ({ usageId }) => ({
+      status: 'granted',
+      usageId,
+    }));
+    const result = renderUsageHook();
+
+    let prepared: { proceed: boolean; usageId?: string; isNewUsage: boolean };
+    await act(async () => {
+      prepared = await result.current.prepareRetryUsage({
+        usageId: undefined,
+        // Broadcasts of the Prime round do not make the retry free.
+        succeededLocally: true,
+      });
+    });
+    expect(mockStartUsage).toHaveBeenCalledTimes(1);
+    expect(prepared!).toEqual({
+      proceed: true,
+      usageId: mockStartUsage.mock.calls[0][0].usageId,
+      isNewUsage: true,
+    });
+    expect(mockGetUsageResult).not.toHaveBeenCalled();
+  });
+
+  it('keeps the result page when the start for an unmetered round is rejected', async () => {
+    mockStartUsage.mockResolvedValue({
+      status: 'exhausted',
+      featureId: 'BulkSend',
+      data: {},
+    });
+    const result = renderUsageHook();
+
+    await act(async () => {
+      await expect(
+        result.current.prepareRetryUsage({
+          usageId: undefined,
+          succeededLocally: true,
+        }),
+      ).resolves.toEqual({
+        proceed: false,
+        usageId: undefined,
+        isNewUsage: false,
+      });
+    });
+    expect(mockHandleStartRejected).toHaveBeenCalledTimes(1);
   });
 
   it('reuses a usage that already broadcast', async () => {

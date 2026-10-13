@@ -33,6 +33,7 @@ import { isHardwareInterruptErrorByCode } from '@onekeyhq/shared/src/errors/util
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   type EModalBulkSendRoutes,
   type IModalBulkSendParamList,
@@ -1054,6 +1055,10 @@ function BulkSendProcessContent({
   // usage without one needs a new start, and a rejected start keeps the
   // result page untouched.
   const prepareRetryUsage = useCallback(async () => {
+    // E2E rounds are not metered, as on the Review page.
+    if (platformEnv.isE2E) {
+      return true;
+    }
     const prepared = await prepareRetryFreeTrialUsage({
       usageId: freeTrialUsageIdRef.current,
       succeededLocally: freeTrialUsageSucceededRef.current,

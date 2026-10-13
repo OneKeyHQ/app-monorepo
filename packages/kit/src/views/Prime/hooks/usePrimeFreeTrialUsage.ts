@@ -226,7 +226,9 @@ export function usePrimeFreeTrialUsage({
   // "Retry failed items" on a result page. A usage that already broadcast is
   // reused (no new start, no second charge); a settled usage without any
   // broadcast needs a new start, and `proceed: false` keeps the result page
-  // as it is. `usageId` undefined means the page is not metered.
+  // as it is. `usageId` undefined means the round was not metered: the start
+  // checks again, as a Prime subscription may have lapsed since, and a Prime
+  // user is still not metered.
   const prepareRetryUsage = useCallback(
     async ({
       usageId,
@@ -241,10 +243,10 @@ export function usePrimeFreeTrialUsage({
       usageId: string | undefined;
       isNewUsage: boolean;
     }> => {
-      if (!usageId) {
-        return { proceed: true, usageId: undefined, isNewUsage: false };
-      }
-      if (succeededLocally || (await getUsageResult(usageId)) === 'success') {
+      if (
+        usageId &&
+        (succeededLocally || (await getUsageResult(usageId)) === 'success')
+      ) {
         return { proceed: true, usageId, isNewUsage: false };
       }
       const outcome = await startUsage({ networkId });
