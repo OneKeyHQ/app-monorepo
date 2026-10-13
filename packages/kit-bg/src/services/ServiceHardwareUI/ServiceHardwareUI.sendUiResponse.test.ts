@@ -2,9 +2,9 @@ import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import {
   BluetoothUnavailableWhileUsbConnectedError,
-  DeviceBondError,
   DeviceNotFound,
   NotInBootLoaderMode,
+  OneKeyHardwareError,
   OneKeyLocalError,
   UserCancel,
 } from '@onekeyhq/shared/src/errors';
@@ -469,6 +469,65 @@ describe('ServiceHardwareUI.withHardwareProcessing stage ownership', () => {
     expect(service.processingNestedNum).toBe(0);
   });
 
+  it.each([EHardwareVendor.onekey, EHardwareVendor.trezor])(
+    'requests Bluetooth settings for a direct powered-off error from %s before the stage ends',
+    async (vendor) => {
+      const error = new OneKeyHardwareError({
+        code: HardwareErrorCode.BlePoweredOff,
+        payload: { code: HardwareErrorCode.BlePoweredOff },
+      });
+      const emit = jest.spyOn(appEventBus, 'emit');
+      const end = jest
+        .spyOn(service.deviceStageBurst, 'end')
+        .mockResolvedValue();
+      await expect(
+        service.withHardwareProcessing(
+          async () => {
+            throw error;
+          },
+          {
+            deviceParams: {
+              dbDevice: {
+                id: 'test-device',
+                name: 'Test device',
+                features: '',
+                connectId: '',
+                uuid: 'test-device',
+                deviceId: 'test-device',
+                deviceType: EDeviceType.Pro,
+                settingsRaw: '',
+                createdAt: 0,
+                updatedAt: 0,
+                vendor,
+              },
+            },
+            skipCloseHardwareUiStateDialog: true,
+          },
+        ),
+      ).rejects.toBe(error);
+
+      const dialogCall = emit.mock.calls.findIndex(
+        ([event]) => event === EAppEventBusNames.RequestHardwareUIDialog,
+      );
+      if (vendor === EHardwareVendor.onekey) {
+        expect(emit).toHaveBeenCalledWith(
+          EAppEventBusNames.RequestHardwareUIDialog,
+          { uiRequestType: 'ui-bluetooth_permission' },
+        );
+        expect(
+          emit.mock.calls.filter(
+            ([event]) => event === EAppEventBusNames.RequestHardwareUIDialog,
+          ),
+        ).toHaveLength(1);
+        expect(emit.mock.invocationCallOrder[dialogCall]).toBeLessThan(
+          end.mock.invocationCallOrder[0],
+        );
+      } else {
+        expect(dialogCall).toBe(-1);
+      }
+    },
+  );
+
   it.each([
     { vendor: EHardwareVendor.onekey, externalPending: false },
     { vendor: EHardwareVendor.ledger, externalPending: false },
@@ -610,6 +669,54 @@ describe('ServiceHardwareUI bootloader recovery handoff', () => {
 });
 
 describe('ServiceHardwareUI.withHardwareProcessing USB-priority cleanup', () => {
+  it('recovers Linux USB permissions after a failed operation without replaying it', async () => {
+    const previous = platformEnv.isDesktopLinux;
+    Object.assign(platformEnv, { isDesktopLinux: true });
+    const recovery = jest.fn().mockResolvedValue(true);
+    const error = new OneKeyHardwareError({
+      code: HardwareErrorCode.BridgeNeedsPermission,
+      payload: { code: HardwareErrorCode.BridgeNeedsPermission },
+    });
+    const operation = jest.fn().mockRejectedValue(error);
+    const service = new ServiceHardwareUI({
+      backgroundApi: {
+        serviceHardware: {
+          invalidatePendingCancel: jest.fn(),
+          getFeaturesMutex: { isLocked: () => false, waitForUnlock: jest.fn() },
+          handleLinuxWebUsbAccessDeniedError: recovery,
+        },
+        serviceFirmwareUpdate: {
+          delayShouldDetectTimeCheckWithDelay: jest.fn(),
+          delayShouldDetectTimeCheck: jest.fn(),
+        },
+        serviceAccount: { generateHwWalletsMissingXfp: jest.fn() },
+      },
+    });
+    jest
+      .spyOn(service, 'closeHardwareUiStateDialog')
+      .mockResolvedValue(undefined);
+    const internals = service as unknown as {
+      withHardwareProcessingInternal(
+        operation: () => Promise<unknown>,
+        options: {
+          deviceParams: { dbDevice: { connectId: string } };
+          hideCheckingDeviceLoading: boolean;
+        },
+      ): Promise<unknown>;
+    };
+    try {
+      await expect(
+        internals.withHardwareProcessingInternal(operation, {
+          deviceParams: { dbDevice: { connectId: 'mock-usb' } },
+          hideCheckingDeviceLoading: true,
+        }),
+      ).rejects.toBe(error);
+      expect(recovery).toHaveBeenCalledWith({ error });
+      expect(operation).toHaveBeenCalledTimes(1);
+    } finally {
+      Object.assign(platformEnv, { isDesktopLinux: previous });
+    }
+  });
   it('does not send a follow-up cancel after BLE is disabled by USB priority', async () => {
     jest.mocked(firmwareUpdateWorkflowRunningAtom.get).mockResolvedValue(false);
     const service = new ServiceHardwareUI({
@@ -737,75 +844,6 @@ describe('ServiceHardwareUI.withHardwareProcessing USB-priority cleanup', () => 
 
     expect(closeHardwareUiStateDialog).toHaveBeenCalledWith({
       connectId: 'PRO2_USB',
-      deviceResetToHome: false,
-      skipDeviceCancel: true,
-      deviceType: EDeviceType.Pro2,
-    });
-  });
-
-  it('does not send a follow-up cancel after a BLE bond error', async () => {
-    jest.mocked(firmwareUpdateWorkflowRunningAtom.get).mockResolvedValue(false);
-    const service = new ServiceHardwareUI({
-      backgroundApi: {
-        serviceHardware: {
-          cancelTimer: undefined,
-          invalidatePendingCancel: jest.fn(),
-          getFeaturesMutex: {
-            isLocked: jest.fn(() => false),
-            waitForUnlock: jest.fn(),
-          },
-        },
-        serviceAccount: {
-          generateHwWalletsMissingXfp: jest.fn(),
-        },
-        serviceFirmwareUpdate: {
-          delayShouldDetectTimeCheck: jest.fn(),
-          delayShouldDetectTimeCheckWithDelay: jest.fn(),
-        },
-      },
-    });
-    const closeHardwareUiStateDialog = jest
-      .spyOn(service, 'closeHardwareUiStateDialog')
-      .mockResolvedValue(undefined);
-    const serviceInternals = service as unknown as {
-      withHardwareProcessingInternal: <T>(
-        operation: () => Promise<T>,
-        options: {
-          deviceParams: {
-            dbDevice: {
-              connectId: string;
-              deviceType: EDeviceType;
-            };
-          };
-          hideCheckingDeviceLoading: boolean;
-        },
-      ) => Promise<T>;
-    };
-
-    await expect(
-      serviceInternals.withHardwareProcessingInternal(
-        async () => {
-          throw new DeviceBondError({
-            payload: {
-              connectId: 'PRO2_BLE_ID',
-              code: HardwareErrorCode.BleDeviceBondError,
-            },
-          });
-        },
-        {
-          deviceParams: {
-            dbDevice: {
-              connectId: 'PRO2_BLE_ID',
-              deviceType: EDeviceType.Pro2,
-            },
-          },
-          hideCheckingDeviceLoading: true,
-        },
-      ),
-    ).rejects.toBeInstanceOf(DeviceBondError);
-
-    expect(closeHardwareUiStateDialog).toHaveBeenCalledWith({
-      connectId: 'PRO2_BLE_ID',
       deviceResetToHome: false,
       skipDeviceCancel: true,
       deviceType: EDeviceType.Pro2,
