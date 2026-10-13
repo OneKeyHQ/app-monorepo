@@ -154,6 +154,8 @@ function BaseMarketTokenSelectorContent({
     data: topCoins,
     handleItemPress: handleTopCoinPress,
     isLoading: isTopCoinsLoading,
+    isError: isTopCoinsError,
+    refresh: refreshTopCoins,
   } = useMarketTopCoins({ replaceCurrentDetail: true });
   const topCoinsSelectorData = useMemo(
     () => topCoins.map(convertTopCoinToSelectorToken),
@@ -334,6 +336,8 @@ function BaseMarketTokenSelectorContent({
         watchlistDataCacheRef={watchlistDataCacheRef}
         dataOverride={isTopCoinsSelection ? topCoinsSelectorData : undefined}
         dataOverrideLoading={isTopCoinsLoading}
+        dataOverrideError={isTopCoinsError}
+        onDataOverrideRetry={() => void refreshTopCoins()}
       />
     );
   }

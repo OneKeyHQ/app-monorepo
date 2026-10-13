@@ -111,7 +111,7 @@ describe('useMobileStockSelectorNavigation', () => {
   );
 
   it.each([true, false])(
-    'preserves navigation identity but skips selector effects after unmount (success: %s)',
+    'cancels pending navigation after unmount (success: %s)',
     async (success) => {
       let complete = () => {};
       navigate.mockImplementationOnce(
@@ -128,10 +128,30 @@ describe('useMobileStockSelectorNavigation', () => {
       const requestId = requestIdRef.current;
       unmount();
       expect(requestIdRef.current).toBe(requestId);
-      expect(navigate.mock.calls[0][1]?.isCurrentRequest()).toBe(true);
+      expect(navigate.mock.calls[0][1]?.isCurrentRequest()).toBe(false);
       await act(async () => complete());
       expect(closeSelector).not.toHaveBeenCalled();
       expect(onError).not.toHaveBeenCalled();
     },
   );
+
+  it('preserves committed navigation when switching tabs unmounts the selector', async () => {
+    let complete = (_success: boolean) => {};
+    navigate.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          complete = resolve;
+        }),
+    );
+    const { result, unmount } = renderHook(() =>
+      useMobileStockSelectorNavigation(options),
+    );
+    act(() => result.current(stock));
+    navigate.mock.calls[0][1]?.onNavigationStart?.();
+    unmount();
+    expect(navigate.mock.calls[0][1]?.isCurrentRequest()).toBe(true);
+    await act(async () => complete(true));
+    expect(closeSelector).not.toHaveBeenCalled();
+    expect(onError).not.toHaveBeenCalled();
+  });
 });
