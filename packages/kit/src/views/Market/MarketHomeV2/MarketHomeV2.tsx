@@ -21,11 +21,9 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { LazyPageContainer } from '../../../components/LazyPageContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
-import {
-  useSelectedNetworkIdAtom,
-  useWatchListV2Actions,
-} from '../../../states/jotai/contexts/marketV2';
+import { useWatchListV2Actions } from '../../../states/jotai/contexts/marketV2';
 import { useMarketBasicConfig } from '../hooks';
+import { resolveMarketHomeNetworkSelection } from '../hooks/marketNetworkUtils';
 import { useMarketHomePageEnterAnalytics } from '../hooks/useMarketEnterAnalytics';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
@@ -39,6 +37,7 @@ import {
 } from './components/MarketBanner/MarketBannerList';
 import { MarketHomeLoadingFallback } from './components/MarketHomeLoadingFallback';
 import { useNetworkAnalytics, useTabAnalytics } from './hooks';
+import { useMarketHomeSelection } from './hooks/useMarketHomeSelection';
 import { DesktopLayout } from './layouts/DesktopLayout';
 import { shouldRestoreSpotCategoryFromAtom } from './layouts/marketTabSelectionGuards';
 import { MobileLayout } from './layouts/MobileLayout';
@@ -48,7 +47,6 @@ import {
   isMarketStockCategory,
 } from './utils';
 
-import type { ITimeRangeSelectorValue } from './components/TimeRangeSelector';
 import type { ILiquidityFilter, IMarketCategoryItem } from './types';
 
 markMarketPerf('market-home-module-eval');
@@ -75,13 +73,23 @@ const useMarketHomeLayoutProps = () => {
     spotCategories: apiSpotCategories,
     stockCategories: apiStockCategories,
     assetCategories: apiAssetCategories,
+    networkList,
     isLoading: isMarketBasicConfigLoading,
   } = useMarketBasicConfig();
-  const [selectedNetworkId, setSelectedNetworkId] = useSelectedNetworkIdAtom();
-  const effectiveSelectedNetworkId =
-    platformEnv.isWeb && !selectedNetworkId
-      ? getNetworkIdsMap().onekeyall
-      : selectedNetworkId;
+  const [savedNetworkId, setSelectedNetworkId] = useMarketHomeSelection(
+    'selectedNetworkId',
+    getNetworkIdsMap().onekeyall,
+  );
+  const selectedNetworkId = resolveMarketHomeNetworkSelection({
+    selectedNetworkId: savedNetworkId,
+    networkList,
+    isConfigLoading: isMarketBasicConfigLoading,
+  });
+  useEffect(() => {
+    if (savedNetworkId !== selectedNetworkId) {
+      setSelectedNetworkId(selectedNetworkId);
+    }
+  }, [savedNetworkId, selectedNetworkId, setSelectedNetworkId]);
   const [
     { tab: selectedMarketTab, selectedSpotCategory, spotCategoryToSelect },
     setMarketSelectedTab,
@@ -92,20 +100,7 @@ const useMarketHomeLayoutProps = () => {
 
   // Market analytics hooks
   const { handleTabChange } = useTabAnalytics();
-  const { handleNetworkChange } = useNetworkAnalytics(
-    effectiveSelectedNetworkId,
-  );
-
-  // Initialize with "All Networks" as default (only when not yet initialized)
-  useEffect(() => {
-    // Only initialize if selectedNetworkId is empty (not yet set)
-    if (!selectedNetworkId) {
-      // Default to "All Networks"
-      const allNetworkId = getNetworkIdsMap().onekeyall;
-      markMarketPerf('market-home-selected-network-init', { allNetworkId });
-      setSelectedNetworkId(allNetworkId);
-    }
-  }, [selectedNetworkId, setSelectedNetworkId]);
+  const { handleNetworkChange } = useNetworkAnalytics(selectedNetworkId);
 
   const [liquidityFilter, setLiquidityFilter] = useState<ILiquidityFilter>({
     min: '5K',
@@ -117,7 +112,7 @@ const useMarketHomeLayoutProps = () => {
       setLiquidityFilter({ min: formattedMinLiquidity });
     }
   }, [formattedMinLiquidity, liquidityFilter.min]);
-  const [timeRange, setTimeRange] = useState<ITimeRangeSelectorValue>('1h');
+  const [timeRange, setTimeRange] = useMarketHomeSelection('timeRange', '1h');
 
   const [selectedCategory, setSelectedCategory] = useState(
     selectedSpotCategory || 'trending',
@@ -304,7 +299,7 @@ const useMarketHomeLayoutProps = () => {
   const layoutProps = useMemo(
     () => ({
       filterBarProps: {
-        selectedNetworkId: effectiveSelectedNetworkId,
+        selectedNetworkId,
         timeRange,
         liquidityFilter,
         onNetworkIdChange: handleNetworkIdChange,
@@ -314,15 +309,17 @@ const useMarketHomeLayoutProps = () => {
         categories,
         stockCategories,
         topCoinsCategories,
+        isCategoryConfigLoading: isMarketBasicConfigLoading,
         onCategoryChange: applySelectedCategory,
       },
-      selectedNetworkId: effectiveSelectedNetworkId,
+      selectedNetworkId,
       liquidityFilter,
       onTabChange: handleTabChange,
     }),
     [
-      effectiveSelectedNetworkId,
+      selectedNetworkId,
       timeRange,
+      setTimeRange,
       liquidityFilter,
       handleNetworkIdChange,
       handleTabChange,
@@ -330,6 +327,7 @@ const useMarketHomeLayoutProps = () => {
       categories,
       stockCategories,
       topCoinsCategories,
+      isMarketBasicConfigLoading,
       applySelectedCategory,
     ],
   );

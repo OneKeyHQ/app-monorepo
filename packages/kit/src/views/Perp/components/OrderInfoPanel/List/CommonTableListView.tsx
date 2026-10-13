@@ -17,6 +17,7 @@ import type {
   IDebugRenderTrackerProps,
   IElement,
   IInputProps,
+  IInputRef,
   IXStackProps,
 } from '@onekeyhq/components';
 import {
@@ -38,6 +39,7 @@ import {
   XStack,
   YStack,
   useIsKeyboardShown,
+  useMedia,
 } from '@onekeyhq/components';
 import { FixedColumnShadowOverlay } from '@onekeyhq/kit/src/components/FixedColumnShadowOverlay';
 import {
@@ -285,6 +287,8 @@ const PaginationFooter = ({
   paginationAction?: ReactElement | null;
 }) => {
   const intl = useIntl();
+  const { md } = useMedia();
+  const shouldFocusAfterSheetOpen = platformEnv.isNative && md;
   const [inputValue, setInputValue] = useState(currentPage.toString());
 
   useEffect(() => {
@@ -309,10 +313,35 @@ const PaginationFooter = ({
   };
 
   const handleMobilePagePress = () => {
+    let pageInput: IInputRef | null = null;
+    let isSheetOpen = false;
+    let isClosing = false;
+    let hasFocusedPageInput = false;
+    const focusPageInputWhenReady = () => {
+      if (!isSheetOpen || !pageInput || isClosing || hasFocusedPageInput) {
+        return;
+      }
+      // The lazy field and sheet animation can become ready in either order.
+      hasFocusedPageInput = true;
+      pageInput.focus();
+    };
     Dialog.show({
       title: intl.formatMessage({
         id: ETranslations.global_bulk_accounts_page_number,
       }),
+      // Let the input own initial focus; the web focus scope can also select text.
+      onOpenAutoFocus: (event) => event.preventDefault(),
+      onCloseRequested: () => {
+        isClosing = true;
+      },
+      sheetProps: shouldFocusAfterSheetOpen
+        ? {
+            onAnimationComplete: ({ open }) => {
+              isSheetOpen = open;
+              focusPageInputWhenReady();
+            },
+          }
+        : undefined,
       renderContent: (
         <Dialog.Form
           formProps={{ defaultValues: { page: String(currentPage) } }}
@@ -332,9 +361,12 @@ const PaginationFooter = ({
             }}
           >
             <Input
+              ref={(instance) => {
+                pageInput = instance;
+                focusPageInputWhenReady();
+              }}
               testID="perp-pagination-page-input"
-              autoFocus
-              selectTextOnFocus
+              autoFocus={!shouldFocusAfterSheetOpen}
               keyboardType="number-pad"
               size="large"
               maxLength={totalPages.toString().length}
