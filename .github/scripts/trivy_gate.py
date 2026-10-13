@@ -93,13 +93,20 @@ def text(obj, key):
     return value
 
 
-def source_file(root, target):
+def source_path(root, target):
     require(isinstance(target, str) and bool(target), 'invalid_target')
     path = PurePosixPath(target)
     require(not path.is_absolute() and '..' not in path.parts, 'invalid_target')
     file = root / path
     require(file.resolve().is_relative_to(root.resolve()), 'target_outside_tree')
-    require(file.is_file() and not file.is_symlink(), 'missing_target')
+    # Module scanners such as Terraform report directory Targets (e.g. '.').
+    require((file.is_file() or file.is_dir()) and not file.is_symlink(), 'missing_target')
+    return file
+
+
+def source_file(root, target):
+    file = source_path(root, target)
+    require(file.is_file(), 'missing_target')
     return file
 
 
@@ -133,7 +140,7 @@ def collect(report, root, key):
     for result in report['Results']:
         require(isinstance(result, dict), 'invalid_result')
         target = text(result, 'Target')
-        source_file(root, target)
+        source_path(root, target)
         path_id = hmac.new(key, b'path\0' + target.encode(), 'sha256').hexdigest()
         kind = text(result, 'Class')
         ecosystem = 'secret' if kind == 'secret' else text(result, 'Type')

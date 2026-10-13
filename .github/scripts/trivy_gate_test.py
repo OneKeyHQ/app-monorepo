@@ -138,6 +138,26 @@ class GateTests(unittest.TestCase):
         with self.assertRaisesRegex(gate.GateError, '^missing_or_invalid_report$'):
             gate.read_json(self.root / 'bad.json')
 
+    def test_directory_targets_are_in_tree_module_results(self):
+        (self.root / 'infra').mkdir()
+        (self.root / 'outside').symlink_to(self.root.parent)
+        for target in ('.', 'infra'):
+            report = copy.deepcopy(self.report)
+            report['Results'].append({'Target': target, 'Class': 'config', 'Type': 'terraform',
+                                      'Misconfigurations': []})
+            with self.subTest(target=target):
+                self.assertIn((target, 'config', 'terraform'), self.collect(report)['targets'])
+                report['Results'][-1]['Misconfigurations'] = [
+                    {'ID': 'AVD-1', 'Severity': 'HIGH', 'CauseMetadata': {'StartLine': 1, 'EndLine': 1}}]
+                # Findings that need source lines still require a regular file.
+                with self.assertRaisesRegex(gate.GateError, '^missing_target$'):
+                    self.collect(report)
+        for target, error in (('missing-module', 'missing_target'), ('outside', 'target_outside_tree')):
+            report = copy.deepcopy(self.report)
+            report['Results'].append({'Target': target, 'Class': 'config', 'Type': 'terraform'})
+            with self.subTest(target=target), self.assertRaisesRegex(gate.GateError, '^' + error + '$'):
+                self.collect(report)
+
     def test_path_escape(self):
         for target in ('../secret', '/etc/passwd'):
             with self.assertRaises(gate.GateError):

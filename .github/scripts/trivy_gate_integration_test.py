@@ -254,6 +254,16 @@ class RealScannerTests(unittest.TestCase):
                 gate.export_tree(root, self.fixture_git(root, 'rev-parse', 'HEAD'),
                                  self.root / (name + '-export'))
 
+    def test_clean_terraform_module_directory_target_is_collected(self):
+        root = self.tree('terraform-module')
+        for directory in (root, root / 'infra'):
+            directory.mkdir(exist_ok=True)
+            (directory / 'main.tf').write_text('resource "null_resource" "example" {}\n')
+        report, _, _ = self.assessed(root, 'terraform-module')
+        self.assertTrue({('.', 'config', 'terraform'), ('infra', 'config', 'terraform')}
+                        <= set(report['targets']))
+        self.assertEqual(report['findings'], [])
+
     def test_separated_dependency_exposes_new_high_findings(self):
         base = self.tree('control-base')
         candidate = self.tree('control-candidate', lodash=True)
