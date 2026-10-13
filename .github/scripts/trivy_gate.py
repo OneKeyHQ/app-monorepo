@@ -28,10 +28,15 @@ POLICY = {
     'yarnCoverage': 'complete-npm-inventory',
     'yarnProjection': 'omit-non-runtime-dependency-metadata',
     'yarnPatchEdges': 'reject-unsupported-reachability',
+    'yarnLocalSources': 'reject',
+    'yarnAliases': 'per-selector-instances-assessed-by-resolved-name',
     'databases': ['ghcr.io/aquasecurity/trivy-db:2',
                   'ghcr.io/aquasecurity/trivy-java-db:1',
                   'ghcr.io/aquasecurity/trivy-checks:1'],
 }
+# Trivy silently skips file:, link: and portal: entries; they fail closed.
+YARN_PROTOCOLS = {'npm', 'workspace', 'patch'}
+YARN_NAME = r'((?:@[^/@\s:]+/)?[^/@\s:]+)'
 
 
 class GateError(Exception):
@@ -267,7 +272,7 @@ def yarn_git_entries(root):
         for match in headers:
             header = match.group().rstrip()
             protocols = set(re.findall(r'@([a-z][a-z0-9+.-]*):', header))
-            protocols -= {'npm', 'workspace', 'patch', 'file', 'link', 'portal'}
+            protocols -= YARN_PROTOCOLS
             if not protocols:
                 continue
             # Trivy skips Git sources. Admit only unchanged, commit-pinned
@@ -304,7 +309,7 @@ def yarn_git_entries(root):
         # Do not overlook sources in indented/nonstandard headers or dependency
         # fields. Trivy silently skips some Git protocols without warning.
         for match in re.finditer(r'@([a-z][a-z0-9+.-]*):', data):
-            if match[1] not in {'npm', 'workspace', 'patch', 'file', 'link', 'portal'}:
+            if match[1] not in YARN_PROTOCOLS:
                 require(any(start <= match.start() < end for start, end in covered),
                         'unsupported_yarn_source')
         # YAML double-quoted strings can encode protocol characters. Decode
@@ -317,7 +322,7 @@ def yarn_git_entries(root):
             except ValueError:
                 raise GateError('unsupported_yarn_source') from None
             protocols = set(re.findall(r'@([a-z][a-z0-9+.-]*):', value))
-            if protocols - {'npm', 'workspace', 'patch', 'file', 'link', 'portal'}:
+            if protocols - YARN_PROTOCOLS:
                 require(any(start <= match.start() < end for start, end in covered),
                         'unsupported_yarn_source')
     return entries
@@ -341,6 +346,43 @@ def supported_yarn_dependency(constraint):
     require(not re.search(r'(?:^|@)patch:', constraint), 'unsupported_yarn_patch_dependency')
 
 
+def yarn_selector_name(pattern):
+    name = re.match(YARN_NAME + '@', pattern)
+    require(name is not None, 'unsupported_yarn_source')
+    return name[1]
+
+
+def split_yarn_groups(data):
+    # Trivy names a block and all of its patterns after the first selector, so
+    # edges and direct dependencies through other names (npm aliases) are lost
+    # and can hide production paths. Give each selector name its own block.
+    blocks = []
+    split = False
+    for block in data.rstrip('\n').split('\n\n'):
+        lines = block.split('\n')
+        index = next((i for i, line in enumerate(lines) if re.match(r'[^\s#]', line)), None)
+        if index is None or not lines[index].startswith('"'):
+            blocks.append(block)
+            continue
+        try:
+            selector, suffix = json.JSONDecoder().raw_decode(lines[index])
+        except ValueError:
+            raise GateError('unsupported_yarn_source') from None
+        require(isinstance(selector, str), 'unsupported_yarn_source')
+        groups = {}
+        for pattern in selector.split(', '):
+            groups.setdefault(yarn_selector_name(pattern), []).append(pattern)
+        if len(groups) == 1:
+            blocks.append(block)
+            continue
+        split = True
+        tail = lines[index][suffix:]
+        for patterns in groups.values():
+            lines[index] = json.dumps(', '.join(patterns)) + tail
+            blocks.append('\n'.join(lines))
+    return '\n\n'.join(blocks) + '\n' if split else data
+
+
 def project_yarn(root, destination):
     require(not destination.resolve().is_relative_to(root.resolve()), 'invalid_projection_destination')
     destination.mkdir()
@@ -361,7 +403,7 @@ def project_yarn(root, destination):
         lines = []
         skipping = False
         in_dependencies = False
-        for line in data.splitlines(keepends=True):
+        for line in split_yarn_groups(data).splitlines(keepends=True):
             # These Yarn installation hints are not runtime dependencies. Trivy
             # otherwise interprets their descriptor keys as package headers.
             if re.fullmatch(r'  (?:dependenciesMeta|peerDependenciesMeta):\s*', line):
@@ -386,9 +428,10 @@ def project_yarn(root, destination):
 
 
 def yarn_packages(root):
+    """Map each expected Trivy (ID, version) to the resolved npm package name."""
     expected = {}
     for relative, data, headers in yarn_files(root):
-        expected[relative] = set()
+        expected[relative] = {}
         for match in headers:
             header = match.group().rstrip()
             if header == '__metadata:':
@@ -408,12 +451,11 @@ def yarn_packages(root):
                 continue
             names = {pattern.split('@npm:', 1)[0] for pattern in selector.split(', ')
                      if '@npm:' in pattern}
-            package_name = r'((?:@[^/@\s:]+/)?[^/@\s:]+)'
-            npm_resolution = re.fullmatch(package_name + r'@npm:(.+)', resolution)
+            npm_resolution = re.fullmatch(YARN_NAME + r'@npm:(.+)', resolution)
             if '@patch:' in resolution:
-                patched = re.fullmatch(package_name + r'@patch:([^#]+)#.+', resolution)
+                patched = re.fullmatch(YARN_NAME + r'@patch:([^#]+)#.+', resolution)
                 require(patched is not None, 'unsupported_yarn_source')
-                npm_resolution = re.fullmatch(package_name + r'@npm:(.+)', unquote(patched[2]))
+                npm_resolution = re.fullmatch(YARN_NAME + r'@npm:(.+)', unquote(patched[2]))
                 require(npm_resolution is not None and patched[1] == npm_resolution[1]
                         and all(pattern.startswith(patched[1] + '@patch:')
                                 for pattern in selector.split(', ')), 'unsupported_yarn_source')
@@ -433,19 +475,22 @@ def yarn_packages(root):
                     name, separator, constraint = pattern.partition('@npm:')
                     require(not separator or name == npm_resolution[1]
                             or constraint.startswith(npm_resolution[1] + '@'), 'unsupported_yarn_source')
-            first = selector.split(', ')[0]
-            identity = re.match(r'^((?:@[^/@\s:]+/)?[^/@\s:]+)@', first)
-            require(identity is not None, 'unsupported_yarn_source')
-            expected[relative].add((identity[1] + '@' + version, version))
+            # The projection gives every selector name its own Trivy instance.
+            for pattern in selector.split(', '):
+                name = yarn_selector_name(pattern)
+                expected[relative][(name + '@' + version, version)] = (
+                    npm_resolution[1] if npm_resolution else name)
     return expected
 
 
 def verify_yarn_coverage(root, inventory, production):
+    """Return production alias instances Trivy did not assess by resolved name."""
     for report in (inventory, production):
         require(isinstance(report, dict) and report.get('SchemaVersion') == 2
                 and report.get('ArtifactType') == 'filesystem'
                 and report.get('Trivy', {}).get('Version') == VERSION
                 and isinstance(report.get('Results'), list), 'invalid_inventory_report')
+    aliases = {}
     for target, expected in yarn_packages(root).items():
         matches = []
         for report in (inventory, production):
@@ -458,10 +503,66 @@ def verify_yarn_coverage(root, inventory, production):
         # ID retains the selector name when Trivy rewrites npm alias Names.
         # A canonical Name/Version cannot stand in for a missing alias instance.
         seen = {(text(p, 'ID'), p.get('Version', '')) for p in matches[0]}
-        require(expected <= seen, 'missing_yarn_package')
+        require(expected.keys() <= seen, 'missing_yarn_package')
         production_ids = {(text(p, 'ID'), p.get('Version', '')) for p in matches[1]}
         require(all((text(p, 'ID'), p.get('Version', '')) in production_ids
                     for p in matches[0] if not p.get('Dev')), 'missing_production_package')
+        # Trivy renames only direct aliases. Transitive or resolutions-only
+        # aliases keep the selector Name, so advisories would be looked up for
+        # the wrong package.
+        aliases[target] = {}
+        for package in matches[1]:
+            key = (text(package, 'ID'), package.get('Version', ''))
+            if key in expected and package.get('Name') != expected[key]:
+                aliases[target][key[0]] = (expected[key], key[1])
+    return aliases
+
+
+def assess_yarn_aliases(binary, production, aliases, destination, cache, config, env):
+    """Replace wrong-name advisories of alias instances with resolved-name ones."""
+    destination.mkdir()
+    for target, instances in aliases.items():
+        if not instances:
+            continue
+        entries = []
+        for name, version in sorted(set(instances.values())):
+            require(bool(re.fullmatch(YARN_NAME, name))
+                    and bool(re.fullmatch(r'[0-9A-Za-z][0-9A-Za-z.+-]*', version)),
+                    'unsupported_yarn_source')
+            identity = json.dumps(name + '@npm:' + version)
+            entries.append(f'{identity}:\n  version: {version}\n  resolution: {identity}\n')
+        lockfile = destination / target
+        lockfile.parent.mkdir(parents=True, exist_ok=True)
+        # No manifest: every resolved package is assessed as production.
+        lockfile.write_text('\n'.join(entries))
+    report = scan(binary, destination, destination.parent / (destination.name + '.json'),
+                  cache, config, env, scanners='vuln')
+    require(isinstance(report, dict) and isinstance(report.get('Results'), list),
+            'invalid_inventory_report')
+    results = []
+    for result in production['Results']:
+        instances = aliases.get(result.get('Target')) if (
+            result.get('Class') == 'lang-pkgs' and result.get('Type') == 'yarn') else None
+        if instances:
+            assessed = [r for r in report['Results'] if isinstance(r, dict)
+                        and r.get('Target') == result['Target']
+                        and r.get('Class') == 'lang-pkgs' and r.get('Type') == 'yarn']
+            require(len(assessed) == 1, 'missing_lockfile_inventory')
+            packages = {(text(p, 'ID'), p.get('Version', ''))
+                        for p in list_field(assessed[0], 'Packages')}
+            require(all((name + '@' + version, version) in packages
+                        for name, version in instances.values()), 'missing_yarn_package')
+            advisories = list_field(assessed[0], 'Vulnerabilities')
+            vulnerabilities = [v for v in list_field(result, 'Vulnerabilities')
+                               if not isinstance(v, dict) or v.get('PkgID') not in instances]
+            # Each alias instance retains its own findings, as direct aliases do.
+            for package, (name, version) in sorted(instances.items()):
+                vulnerabilities += [dict(v, PkgID=package) for v in advisories
+                                    if isinstance(v, dict)
+                                    and v.get('PkgID') == name + '@' + version]
+            result = dict(result, Vulnerabilities=vulnerabilities)
+        results.append(result)
+    return dict(production, Results=results)
 
 
 def scan(binary, root, output, cache, config, env, frozen=True, allowed_warnings=None,
@@ -604,7 +705,11 @@ def run(args):
                 production = scan(binary, projected, private / (name + '-production.json'),
                                   cache, config, env, allowed_warnings=allowed_warnings[name],
                                   scanners='vuln')
-                verify_yarn_coverage(root, inventory, production)
+                aliases = verify_yarn_coverage(root, inventory, production)
+                if any(aliases.values()):
+                    production = assess_yarn_aliases(binary, production, aliases,
+                                                     private / (name + '-aliases'),
+                                                     cache, config, env)
                 # Original trees retain secret/misconfiguration and other ecosystem
                 # coverage. Only Yarn vulnerability Results use the projection.
                 yarn_targets = {r['Target'] for r in production['Results']

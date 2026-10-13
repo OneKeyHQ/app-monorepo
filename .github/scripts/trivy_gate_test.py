@@ -288,6 +288,23 @@ class GateTests(unittest.TestCase):
                  self.assertRaisesRegex(gate.GateError, '^unsupported_yarn_source$'):
                 gate.yarn_git_warnings(base, merge)
 
+    def test_local_yarn_sources_fail_closed_even_when_unchanged(self):
+        base, merge = self.root / 'base', self.root / 'merge'
+        base.mkdir()
+        merge.mkdir()
+        for protocol, location in (('file', './vendor/lodash.tgz'), ('link', './vendor/lodash'),
+                                   ('portal', './vendor/lodash')):
+            entry = (json.dumps('lodash@' + protocol + ':' + location + '::locator=fixture%40workspace%3A.')
+                     + ':\n  version: 4.17.20\n  resolution: '
+                     + json.dumps('lodash@' + protocol + ':' + location + '::locator=fixture%40workspace%3A.')
+                     + '\n')
+            for base_lockfile in (self.npm_lockfile(), self.npm_lockfile() + '\n' + entry):
+                (base / 'yarn.lock').write_text(base_lockfile)
+                (merge / 'yarn.lock').write_text(self.npm_lockfile() + '\n' + entry)
+                with self.subTest(protocol=protocol, unchanged=entry in base_lockfile), \
+                     self.assertRaisesRegex(gate.GateError, '^unsupported_yarn_source$'):
+                    gate.yarn_git_warnings(base, merge)
+
     def test_yarn_git_url_canonicalization_retains_pinned_resolution(self):
         base, merge = self.root / 'base', self.root / 'merge'
         base.mkdir()
@@ -360,6 +377,59 @@ class GateTests(unittest.TestCase):
         aliased['Results'][0]['Packages'][0]['ID'] = 'alias@1'
         gate.verify_yarn_coverage(self.root, aliased, aliased)
 
+    def test_grouped_selectors_require_and_project_one_instance_per_name(self):
+        grouped = ('"example@npm:1, example@npm:^1, zalias@npm:example@1":\n  version: 1\n'
+                   '  resolution: "example@npm:1"\n  dependencies:\n    child: "npm:2"\n')
+        (self.root / 'yarn.lock').write_text(grouped)
+        self.assertEqual(gate.yarn_packages(self.root)['yarn.lock'],
+                         {('example@1', '1'): 'example', ('zalias@1', '1'): 'example'})
+        with self.assertRaisesRegex(gate.GateError, '^missing_yarn_package$'):
+            gate.verify_yarn_coverage(self.root, self.report, self.report)
+        destination = tempfile.TemporaryDirectory()
+        self.addCleanup(destination.cleanup)
+        projected = Path(destination.name) / 'projection'
+        gate.project_yarn(self.root, projected)
+        body = '  version: 1\n  resolution: "example@npm:1"\n  dependencies:\n    child: "npm:2"\n'
+        self.assertEqual((projected / 'yarn.lock').read_text(),
+                         '"example@npm:1, example@npm:^1":\n' + body + '\n"zalias@npm:example@1":\n' + body)
+        # Ungrouped lockfiles keep their exact bytes.
+        self.assertEqual((projected / 'apps/desktop/app/yarn.lock').read_text(), self.npm_lockfile())
+
+    def test_alias_instances_without_resolved_name_use_resolved_advisories(self):
+        alias = ('"alias@npm:example@1":\n  version: 1\n  resolution: "example@npm:1"\n')
+        (self.root / 'yarn.lock').write_text(self.npm_lockfile() + '\n' + alias)
+        production = copy.deepcopy(self.report)
+        production['Results'][0]['Packages'].append({'ID': 'alias@1', 'Name': 'alias', 'Version': '1'})
+        production['Results'][0]['Vulnerabilities'] = [
+            dict(vulnerability('CVE-WRONG-NAME'), PkgID='alias@1', PkgName='alias'),
+            dict(vulnerability('CVE-CANONICAL'), PkgID='example@1')]
+        aliases = gate.verify_yarn_coverage(self.root, production, production)
+        self.assertEqual(aliases, {'yarn.lock': {'alias@1': ('example', '1')},
+                                   'apps/desktop/app/yarn.lock': {}})
+        renamed = copy.deepcopy(production)
+        renamed['Results'][0]['Packages'][-1]['Name'] = 'example'
+        self.assertEqual(gate.verify_yarn_coverage(self.root, renamed, renamed)['yarn.lock'], {})
+        resolved = copy.deepcopy(self.report)
+        resolved['Results'][0]['Vulnerabilities'] = [dict(vulnerability('CVE-RESOLVED'), PkgID='example@1')]
+        destination = tempfile.TemporaryDirectory()
+        self.addCleanup(destination.cleanup)
+        with patch.object(gate, 'scan', return_value=resolved) as scan:
+            assessed = gate.assess_yarn_aliases('trivy', production, aliases,
+                                                Path(destination.name) / 'aliases', None, None, {})
+        lockfile = scan.call_args.args[1] / 'yarn.lock'
+        self.assertEqual(lockfile.read_text(), self.npm_lockfile())
+        self.assertFalse((scan.call_args.args[1] / 'apps').exists())
+        self.assertEqual(sorted((v['VulnerabilityID'], v['PkgID'])
+                                for v in assessed['Results'][0]['Vulnerabilities']),
+                         [('CVE-CANONICAL', 'example@1'), ('CVE-RESOLVED', 'alias@1')])
+        self.assertEqual(len(gate.compare(self.collect(production), self.collect(assessed))), 1)
+        missing = copy.deepcopy(resolved)
+        missing['Results'][0]['Packages'] = []
+        with patch.object(gate, 'scan', return_value=missing), \
+             self.assertRaisesRegex(gate.GateError, '^missing_yarn_package$'):
+            gate.assess_yarn_aliases('trivy', production, aliases,
+                                     Path(destination.name) / 'missing', None, None, {})
+
     def test_patch_wrapped_npm_still_requires_underlying_inventory(self):
         patch_entry = ('"added@patch:added@npm%3A2#./fixture.patch":\n'
                        '  version: 2\n'
@@ -418,6 +488,7 @@ class GateTests(unittest.TestCase):
         checkout = candidate.split('- name: Check installed PR-target policy\n', 1)[1].split('- name:', 1)[0]
         self.assertIn('ref: ${{ github.event.pull_request.base.sha }}', checkout)
         self.assertNotIn('default_branch', checkout)
+
 
     def test_installation_routing_requires_target_workflow_and_policy(self):
         workflow = (Path(__file__).parent.parent / 'workflows/trivy.yml').read_text()

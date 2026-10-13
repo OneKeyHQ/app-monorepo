@@ -89,7 +89,11 @@ class RealScannerTests(unittest.TestCase):
         gate.project_yarn(root, projected)
         inventory = self.scan(projected, name + '-inventory', 'vuln', True)
         production = self.scan(projected, name + '-production', 'vuln')
-        gate.verify_yarn_coverage(root, inventory, production)
+        aliases = gate.verify_yarn_coverage(root, inventory, production)
+        if any(aliases.values()):
+            production = gate.assess_yarn_aliases(self.binary, production, aliases,
+                                                  self.root / (name + '-aliases'),
+                                                  self.cache, self.config, self.env)
         report = dict(original, Results=[r for r in original['Results'] if r.get('Class') != 'lang-pkgs']
                       + [r for r in production['Results'] if r.get('Type') == 'yarn'])
         return gate.collect(report, root, b'private-regression-key'), inventory, production
@@ -136,6 +140,68 @@ class RealScannerTests(unittest.TestCase):
         code, evidence = self.cli(root, revisions, 'metadata-cli')
         self.assertEqual(code, 2)
         self.assertEqual(evidence['error'], 'unsupported_yarn_block')
+
+    def test_local_source_rejected_by_complete_cli(self):
+        root = self.tree('local-source-cli')
+        def change(candidate):
+            package = json.loads((candidate / 'package.json').read_text())
+            package['dependencies']['lodash'] = 'file:./vendor/lodash.tgz'
+            (candidate / 'package.json').write_text(json.dumps(package))
+            (candidate / 'vendor').mkdir()
+            (candidate / 'vendor/lodash.tgz').write_bytes(b'')
+            descriptor = 'lodash@file:./vendor/lodash.tgz::locator=fixture%40workspace%3A.'
+            with (candidate / 'yarn.lock').open('a') as lock:
+                lock.write('\n' + json.dumps(descriptor) + ':\n  version: 4.17.20\n  resolution: '
+                           + json.dumps(descriptor.replace('::', '#./vendor/lodash.tgz::hash=abcdef&')) + '\n')
+        revisions = self.revisions(root, change)
+        raw = self.scan(root, 'local-source-raw', 'vuln', True)
+        self.assertFalse(any(p['Name'] == 'lodash' for r in raw['Results'] for p in r.get('Packages', [])))
+        code, evidence = self.cli(root, revisions, 'local-source-cli')
+        self.assertEqual(code, 2)
+        self.assertEqual(evidence['error'], 'unsupported_yarn_source')
+
+    def test_grouped_alias_cannot_hide_production_promotion(self):
+        base = self.tree('grouped-alias-base', lodash=True, dev=True)
+        candidate = self.tree('grouped-alias-candidate', lodash=True, dev=True)
+        manifest = candidate / 'package.json'
+        package = json.loads(manifest.read_text())
+        package['dependencies']['zalias'] = 'npm:lodash@4.17.20'
+        manifest.write_text(json.dumps(package))
+        lock = candidate / 'yarn.lock'
+        # Yarn groups descriptors resolving to one locator into a single block.
+        lock.write_text(lock.read_text().replace(
+            '"lodash@npm:4.17.20":', '"lodash@npm:4.17.20, zalias@npm:lodash@4.17.20":'))
+        raw = self.scan(candidate, 'grouped-alias-raw', 'vuln')
+        self.assertFalse(any(p['Version'] == '4.17.20' for r in raw['Results'] for p in r.get('Packages', [])))
+        a, _, _ = self.assessed(base, 'grouped-alias-base')
+        b, _, production = self.assessed(candidate, 'grouped-alias-candidate')
+        self.assertIn(('zalias@4.17.20', 'lodash'), {(p['ID'], p['Name']) for r in production['Results']
+                                                     for p in r.get('Packages', [])})
+        self.assertEqual(sum(f['count'] for f in gate.compare(a, b)), 2)
+
+    def test_transitive_alias_assessed_by_resolved_name(self):
+        base = self.tree('transitive-alias-base')
+        candidate = self.tree('transitive-alias-candidate')
+        for root in (base, candidate):
+            manifest = root / 'package.json'
+            package = json.loads(manifest.read_text())
+            package['dependencies']['parent'] = '1.0.0'
+            manifest.write_text(json.dumps(package))
+            lock = root / 'yarn.lock'
+            lock.write_text(lock.read_text() + '\n' + npm('parent', '1.0.0'))
+        lock = candidate / 'yarn.lock'
+        lock.write_text(lock.read_text() + '  dependencies:\n    alias: "npm:lodash@4.17.20"\n\n'
+                        '"alias@npm:lodash@4.17.20":\n  version: 4.17.20\n'
+                        '  resolution: "lodash@npm:4.17.20"\n')
+        raw = self.scan(candidate, 'transitive-alias-raw', 'vuln')
+        self.assertTrue(any(p['ID'] == 'alias@4.17.20' and p['Name'] == 'alias'
+                            for r in raw['Results'] for p in r.get('Packages', [])))
+        self.assertFalse(any(r.get('Vulnerabilities') for r in raw['Results']))
+        a, _, _ = self.assessed(base, 'transitive-alias-base')
+        b, _, _ = self.assessed(candidate, 'transitive-alias-candidate')
+        findings = gate.compare(a, b)
+        self.assertEqual(sum(f['count'] for f in findings), 2)
+        self.assertTrue(all(f['severity'] == 'HIGH' for f in findings))
 
     def test_separated_dependency_exposes_new_high_findings(self):
         base = self.tree('control-base')
