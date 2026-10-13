@@ -511,6 +511,11 @@ class GateTests(unittest.TestCase):
                             '    async: "npm:2.6.4"\n', exact[:1], '4.17.20'),
             # Keys Yarn skips (globs, incomplete parses, non-string values) or
             # that match nothing leave the lockfile resolution unchanged.
+            # Yarn 4.12 writes '\ufeff4.17.21' as npm:, like any semver range
+            # bounded by JavaScript whitespace.
+            'js-space': ({'async': '2.6.4'}, {'async/lodash': '\ufeff4.17.21'}, async_edges,
+                         exact[:1] + ['"lodash@npm:\ufeff4.17.21":\n  version: 4.17.21\n'
+                                      '  resolution: "lodash@npm:4.17.21"\n'], '4.17.21'),
             'skipped-keys': ({'async': '2.6.4'}, {'async/lodash': '4.17.21', 'lodash@>=4.17.0 <5.0.0': '4.17.20',
                                                   '**/lodash': '4.17.20', 'async/lodash/extra': '4.17.20',
                                                   'async/lodash@': '4.17.20', 'a b/lodash': '4.17.20',
@@ -545,6 +550,11 @@ class GateTests(unittest.TestCase):
             'async@>=2 <3/lodash': '4.17.20 ', '@s/a@1/@s/b@^2': 'npm:2.0.0', 'lodash': ''}}),
             [('async', 'npm:>=2 <3', 'lodash', None, 'npm:4.17.20 '),
              ('@s/a', 'npm:1', '@s/b', 'npm:^2', 'npm:2.0.0'), (None, None, 'lodash', None, 'npm:')])
+        # JavaScript whitespace differs from Python's \s in both directions.
+        for value, expected in (('\ufeff4.17.21', 'npm:\ufeff4.17.21'), ('\u00a04.17.21', 'npm:\u00a04.17.21'),
+                                ('\x854.17.21', '\x854.17.21'), ('\x1c4.17.21', '\x1c4.17.21')):
+            with self.subTest(value=value):
+                self.assertEqual(gate.yarn_range(value), expected)
 
     def test_yarn_git_url_canonicalization_retains_pinned_resolution(self):
         base, merge = self.root / 'base', self.root / 'merge'

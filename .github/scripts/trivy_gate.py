@@ -41,6 +41,9 @@ GO_SPACE = '\t\n\v\f\r \x85\xa0                �
 # Trivy silently skips file:, link: and portal: entries; they fail closed.
 YARN_PROTOCOLS = {'npm', 'workspace', 'patch'}
 YARN_NAME = r'((?:@[^/@\s:]+/)?[^/@\s:]+)'
+# JavaScript's \s as a regex character-class body; semver trims and splits
+# ranges on it. Python's \s also matches \x1c-\x1f and \x85 but not \ufeff.
+JS_SPACE = '\t\n\v\f\r \u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff'
 
 
 class GateError(Exception):
@@ -408,10 +411,11 @@ def yarn_git_warnings(base, merge):
 
 def yarn_range(value):
     # normalizeDependency and normalizeLocator prefix npm: to semver ranges and
-    # tags, never to values with a protocol. The spelling, including any
-    # whitespace, is kept and compared exactly. Other strings of these
-    # characters cannot resolve, so no lockfile edge or locator carries them.
-    if ':' not in value and re.fullmatch(r'[\s0-9A-Za-z.^~<>=|*+_-]*', value):
+    # tags, never to values with a protocol. Ranges may contain JavaScript
+    # whitespace (JS_SPACE), whose spelling is kept and compared exactly. Other
+    # strings of these characters cannot resolve, so no lockfile edge or
+    # locator carries them.
+    if ':' not in value and re.fullmatch('[' + JS_SPACE + r'0-9A-Za-z.^~<>=|*+_-]*', value):
         return 'npm:' + value
     return value
 
