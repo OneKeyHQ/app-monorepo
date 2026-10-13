@@ -1,10 +1,8 @@
 import {
   useMarketTradingViewChartSettingsPersistAtom,
   useMarketTradingViewIndicatorSettingsPersistAtom,
-  useMarketTradingViewLayoutPersistAtom,
   usePerpsTradingViewChartSettingsPersistAtom,
   usePerpsTradingViewIndicatorSettingsPersistAtom,
-  usePerpsTradingViewLayoutPersistAtom,
   useSwapTradingViewChartSettingsPersistAtom,
   useSwapTradingViewIndicatorSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -31,14 +29,4 @@ export function useTradingViewNativeIndicatorSettings(
     swap: useSwapTradingViewIndicatorSettingsPersistAtom,
   }[namespace];
   return useSettingsAtom();
-}
-
-export function useTradingViewNativeLayout(
-  namespace: ITradingViewNativeStorageNamespace = 'market',
-) {
-  const useLayoutAtom =
-    namespace === 'perps'
-      ? usePerpsTradingViewLayoutPersistAtom
-      : useMarketTradingViewLayoutPersistAtom;
-  return useLayoutAtom();
 }

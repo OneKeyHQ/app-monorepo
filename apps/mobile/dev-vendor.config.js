@@ -78,6 +78,7 @@ const nativeContractDependencies = {
   shared: [
     '@expo/dom-webview',
     '@expo/log-box',
+    '@expo/ui',
     '@notifee/react-native',
     '@onekeyfe/react-native-app-update',
     '@onekeyfe/react-native-auto-size-input',

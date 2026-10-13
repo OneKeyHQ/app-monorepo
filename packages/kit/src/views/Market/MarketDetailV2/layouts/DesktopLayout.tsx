@@ -511,7 +511,6 @@ export function DesktopLayout({
           previousClose={stockPreviousClose}
           onPriceUpdate={handleNativeChartPriceUpdate}
           enableNativeChartSettings
-          enableMultiChart
           enableDrawings
           nativeControlsLayoutMode="desktop"
           isNativeChartFullscreen={isChartFullscreen}

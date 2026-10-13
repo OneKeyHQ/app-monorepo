@@ -26,6 +26,7 @@ import { StockSimpleChartContent } from '@onekeyhq/kit/src/views/Market/MarketDe
 import {
   STOCK_SHARE_SIMPLE_CHART_RANGES,
   TOKEN_SIMPLE_CHART_RANGES,
+  resolveStockSimpleChartRangeForPriceMode,
 } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/StockSimpleChart/stockSimpleChartData';
 import { StockTokenInfoPopover } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/StockTokenInfo/StockTokenInfoPopover';
 import { StockTokenVariantSelector } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/StockTokenVariantSelector';
@@ -66,6 +67,7 @@ const STOCK_CHART_RANGE_LABELS: Record<IStockSimpleChartRange, ETranslations> =
     '1W': ETranslations.market_1w,
     '1M': ETranslations.market_1m,
     '1Y': ETranslations.market_1y,
+    '5Y': ETranslations.market_5y,
     All: ETranslations.global_all,
   };
 
@@ -344,7 +346,11 @@ export function SwapStockVariantSelector() {
 export function SwapStockMarketPanel() {
   const intl = useIntl();
   const [priceMode, setPriceMode] = useState<'share' | 'token'>('share');
-  const [range, setRange] = useState<IStockSimpleChartRange>('1D');
+  const [selectedRange, setRange] = useState<IStockSimpleChartRange>('1D');
+  const range = resolveStockSimpleChartRangeForPriceMode({
+    priceMode,
+    range: selectedRange,
+  });
   // Shared with the Market stock detail chart, so the choice follows the user
   // between the two surfaces.
   const [{ mode: chartMode }, setChartDisplayMode] =
