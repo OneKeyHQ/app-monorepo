@@ -1179,50 +1179,40 @@ export class NetworkDoctor {
   }
 
   /**
-   * Find the deepest failing layer among CAPTCHA checks.
-   * A host counts as unreachable only when TCP 443 fails, no HTTPS request
-   * reached it, and it is not proxied; a DNS lookup error alone can be a false
-   * positive.
+   * Classify a failed CAPTCHA page request. Direct DNS/TCP probes only refine
+   * the layer for that page's host: they bypass proxies, and the iOS TCP probe
+   * cannot connect to IPv6 addresses, so on their own they are informational.
    */
   private detectCaptchaFailure(
     results: any,
   ): { layer: 'dns' | 'tcp' | 'http'; isBlocking: boolean } | null {
-    const captchaPages = (
-      results.publicHttpChecks as IHttpProbeResult[]
-    ).filter((probe) => probe.label === CAPTCHA_PAGE_PROBE_LABEL);
-    const reachableHosts = new Set(
-      captchaPages
-        .filter((probe) => probe.success)
-        .map((probe) => new URL(probe.url).hostname),
+    const failedPage = (results.publicHttpChecks as IHttpProbeResult[]).find(
+      (probe) => probe.label === CAPTCHA_PAGE_PROBE_LABEL && !probe.success,
     );
-    const proxiedHosts: string[] = results.proxiedCaptchaHosts ?? [];
-    const extraTcpChecks: ITcpConnectionResult[] = results.extraTcpChecks ?? [];
-    const unreachableHosts = extraTcpChecks
-      .filter(
-        (check) =>
-          this.config.captchaHosts.includes(check.host) &&
-          !check.success &&
-          !reachableHosts.has(check.host) &&
-          !proxiedHosts.includes(check.host),
-      )
-      .map((check) => check.host);
-
-    if (unreachableHosts.length > 0) {
-      const extraDnsChecks: IDnsResult[] = results.extraDnsChecks ?? [];
-      const isDnsFailure = extraDnsChecks.some(
-        (check) =>
-          unreachableHosts.includes(check.hostname) &&
-          (!!check.error || check.ips.length === 0),
-      );
-      return { layer: isDnsFailure ? 'dns' : 'tcp', isBlocking: true };
-    }
-
-    const failedPage = captchaPages.find((probe) => !probe.success);
     if (!failedPage) {
       return null;
     }
     // Any HTTP response proves the network path works; the service failed.
-    return { layer: 'http', isBlocking: failedPage.status === undefined };
+    if (failedPage.status !== undefined) {
+      return { layer: 'http', isBlocking: false };
+    }
+
+    const host = new URL(failedPage.url).hostname;
+    const proxiedHosts: string[] = results.proxiedCaptchaHosts ?? [];
+    const extraTcpChecks: ITcpConnectionResult[] = results.extraTcpChecks ?? [];
+    const isTcpFailure =
+      !proxiedHosts.includes(host) &&
+      extraTcpChecks.some((check) => check.host === host && !check.success);
+    if (!isTcpFailure) {
+      return { layer: 'http', isBlocking: true };
+    }
+
+    const extraDnsChecks: IDnsResult[] = results.extraDnsChecks ?? [];
+    const isDnsFailure = extraDnsChecks.some(
+      (check) =>
+        check.hostname === host && (!!check.error || check.ips.length === 0),
+    );
+    return { layer: isDnsFailure ? 'dns' : 'tcp', isBlocking: true };
   }
 
   /**

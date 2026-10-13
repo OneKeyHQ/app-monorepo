@@ -54,10 +54,12 @@ The default connectivity targets include `challenges.cloudflare.com` and the
 hostname of the CAPTCHA page selected by the active server settings. These
 targets receive DNS and TCP 443 checks without downloading the Turnstile SDK.
 Explicit target arrays replace the defaults for that probe type. If the Wallet
-health check passes but a CAPTCHA target is unreachable, the conclusion reports
-the failing CAPTCHA layer instead of a healthy result. Direct DNS/TCP failures
-are ignored for CAPTCHA hosts that the system routes through a proxy, and a
-CAPTCHA page HTTP error response is reported as a service error.
+health check passes but the CAPTCHA page request fails, the conclusion reports
+the CAPTCHA failure instead of a healthy result: an HTTP error response is a
+service error, and a request without a response is reported as blocked. Direct
+DNS/TCP results only refine that layer for the page's host, unless the system
+routes it through a proxy. On their own they are informational, because they
+bypass proxies and the iOS TCP probe cannot connect to IPv6 addresses.
 
 ```typescript
 import { NetworkDoctor } from '@onekeyhq/shared/src/modules/NetworkDoctor';

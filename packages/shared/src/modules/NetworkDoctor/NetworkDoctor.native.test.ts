@@ -424,22 +424,34 @@ describe('NetworkDoctor native diagnostics', () => {
           success: true,
         }),
       );
-      expect(report.summary.allCriticalChecksPassed).toBe(turnstileReachable);
-      expect(report.summary.conclusion).toMatchObject(
-        turnstileReachable
-          ? {
-              connectivityLevel: ENetworkConnectivityLevel.HEALTHY,
-              failureLayer: null,
-            }
-          : {
-              connectivityLevel: ENetworkConnectivityLevel.ONEKEY_BLOCKED,
-              oneKeyFailureReason: EOneKeyFailureReason.TCP_HANDSHAKE_FAILED,
-              failureLayer: 'tcp',
-              summary: 'auth_captcha_load_failed__msg',
-            },
+      // A direct Turnstile TCP result alone is informational.
+      expect(report.summary.allCriticalChecksPassed).toBe(true);
+      expect(report.summary.conclusion.connectivityLevel).toBe(
+        ENetworkConnectivityLevel.HEALTHY,
       );
     },
   );
+
+  it('stays healthy when HTTPS succeeds but every direct TCP probe fails', async () => {
+    // The iOS TCP probe fails for hosts that resolve to IPv6 first.
+    jest.mocked(getIpAddressesForHostname).mockResolvedValue(['2001:db8::1']);
+    mockClientGet.mockResolvedValue({ status: 200, data: 'ok' });
+    jest.spyOn(axios, 'get').mockResolvedValue({ status: 200, data: 'ok' });
+
+    const report = await new NetworkDoctor({}).run();
+
+    expect(report.results.extraTcpChecks).toEqual([
+      expect.objectContaining({
+        host: 'challenges.cloudflare.com',
+        success: false,
+      }),
+      expect.objectContaining({ host: 'login.onekey.so', success: false }),
+    ]);
+    expect(report.summary.allCriticalChecksPassed).toBe(true);
+    expect(report.summary.conclusion.connectivityLevel).toBe(
+      ENetworkConnectivityLevel.HEALTHY,
+    );
+  });
 
   it.each([
     {
@@ -486,19 +498,63 @@ describe('NetworkDoctor native diagnostics', () => {
   );
 
   it.each([
-    { proxyState: true, healthy: true },
-    { proxyState: null, healthy: false },
-    { proxyState: 'error', healthy: false },
+    {
+      hostState: 'unreachable over TCP',
+      dnsFails: false,
+      proxyState: false,
+      failureLayer: 'tcp',
+      oneKeyFailureReason: EOneKeyFailureReason.TCP_HANDSHAKE_FAILED,
+    },
+    {
+      hostState: 'unresolvable and unreachable',
+      dnsFails: true,
+      proxyState: false,
+      failureLayer: 'dns',
+      oneKeyFailureReason: EOneKeyFailureReason.DNS_RESOLUTION_FAILED,
+    },
+    {
+      hostState: 'proxied',
+      dnsFails: true,
+      proxyState: true,
+      failureLayer: 'http',
+      oneKeyFailureReason: EOneKeyFailureReason.HTTP_REQUEST_FAILED,
+    },
+    {
+      hostState: 'without a proxy preflight',
+      dnsFails: false,
+      proxyState: null,
+      failureLayer: 'tcp',
+      oneKeyFailureReason: EOneKeyFailureReason.TCP_HANDSHAKE_FAILED,
+    },
+    {
+      hostState: 'with a failed proxy preflight',
+      dnsFails: false,
+      proxyState: 'error',
+      failureLayer: 'tcp',
+      oneKeyFailureReason: EOneKeyFailureReason.TCP_HANDSHAKE_FAILED,
+    },
   ])(
-    'treats a direct Turnstile TCP failure with proxy state $proxyState as healthy: $healthy',
-    async ({ proxyState, healthy }) => {
-      const turnstileHost = 'challenges.cloudflare.com';
-      jest.mocked(getIpAddressesForHostname).mockResolvedValue(['203.0.113.5']);
-      mockReachableHosts.add('login.onekey.so');
+    'refines a CAPTCHA page connection failure when its host is $hostState',
+    async ({ dnsFails, proxyState, failureLayer, oneKeyFailureReason }) => {
+      const captchaHost = 'login.onekey.so';
+      jest
+        .mocked(getIpAddressesForHostname)
+        .mockImplementation(async (hostname) => {
+          if (dnsFails && hostname === captchaHost) {
+            throw new OneKeyError('CAPTCHA DNS lookup failed');
+          }
+          return ['203.0.113.5'];
+        });
+      mockReachableHosts.add('challenges.cloudflare.com');
       mockClientGet.mockResolvedValue({ status: 200, data: 'ok' });
-      jest.spyOn(axios, 'get').mockResolvedValue({ status: 200, data: 'ok' });
+      jest.spyOn(axios, 'get').mockImplementation(async (url) => {
+        if (url === `https://${captchaHost}/captcha`) {
+          throw new OneKeyError('Network Error');
+        }
+        return { status: 200, data: 'ok' };
+      });
       jest.mocked(isProxyActiveForUrl).mockImplementation(async (url) => {
-        if (url !== `https://${turnstileHost}/`) {
+        if (url !== `https://${captchaHost}/`) {
           return false;
         }
         if (proxyState === 'error') {
@@ -509,17 +565,15 @@ describe('NetworkDoctor native diagnostics', () => {
 
       const report = await new NetworkDoctor({}).run();
 
-      expect(report.results.extraTcpChecks).toContainEqual(
-        expect.objectContaining({ host: turnstileHost, success: false }),
-      );
       expect(report.results.proxiedCaptchaHosts).toEqual(
-        healthy ? [turnstileHost] : [],
+        proxyState === true ? [captchaHost] : [],
       );
-      expect(report.summary.conclusion.connectivityLevel).toBe(
-        healthy
-          ? ENetworkConnectivityLevel.HEALTHY
-          : ENetworkConnectivityLevel.ONEKEY_BLOCKED,
-      );
+      expect(report.summary.conclusion).toMatchObject({
+        connectivityLevel: ENetworkConnectivityLevel.ONEKEY_BLOCKED,
+        oneKeyFailureReason,
+        failureLayer,
+        summary: 'auth_captcha_load_failed__msg',
+      });
     },
   );
 
@@ -553,7 +607,7 @@ describe('NetworkDoctor native diagnostics', () => {
     );
   });
 
-  it('records a Turnstile DNS failure and still completes without an SDK request', async () => {
+  it('records a Turnstile DNS failure as informational without an SDK request', async () => {
     const turnstileHost = 'challenges.cloudflare.com';
     jest
       .mocked(getIpAddressesForHostname)
@@ -563,8 +617,11 @@ describe('NetworkDoctor native diagnostics', () => {
         }
         return ['203.0.113.5'];
       });
+    mockReachableHosts.add('login.onekey.so');
     mockClientGet.mockResolvedValue({ status: 200, data: 'ok' });
-    const httpSpy = jest.spyOn(axios, 'get');
+    const httpSpy = jest
+      .spyOn(axios, 'get')
+      .mockResolvedValue({ status: 200, data: 'ok' });
     const onProgress = jest.fn();
 
     const report = await new NetworkDoctor({ onProgress }).run();
@@ -594,12 +651,10 @@ describe('NetworkDoctor native diagnostics', () => {
         percentage: 100,
       }),
     );
-    expect(report.summary.allCriticalChecksPassed).toBe(false);
-    expect(report.summary.conclusion).toMatchObject({
-      connectivityLevel: ENetworkConnectivityLevel.ONEKEY_BLOCKED,
-      oneKeyFailureReason: EOneKeyFailureReason.DNS_RESOLUTION_FAILED,
-      failureLayer: 'dns',
-    });
+    expect(report.summary.allCriticalChecksPassed).toBe(true);
+    expect(report.summary.conclusion.connectivityLevel).toBe(
+      ENetworkConnectivityLevel.HEALTHY,
+    );
   });
 
   it('waits for the active settings before starting network probes', async () => {
