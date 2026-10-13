@@ -12,8 +12,8 @@ describe('buildReferralLinks', () => {
       }).map(({ titleId, pathSuffix }) => [titleId, pathSuffix]),
     ).toEqual([
       [ETranslations.referral_link_hw_title, '/shop'],
-      [ETranslations.referral_link_perps_title, '/app/perps'],
-      [ETranslations.swap_referral_link__title, '/app/swap'],
+      [ETranslations.perps_perps, '/app/perps'],
+      [ETranslations.global_swap, '/app/swap'],
       [ETranslations.referral_link_defi_title, '/app/defi'],
     ]);
   });

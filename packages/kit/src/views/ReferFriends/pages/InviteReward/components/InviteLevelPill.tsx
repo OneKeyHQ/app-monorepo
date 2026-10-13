@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -141,6 +141,9 @@ export function InviteLevelPill({
     () => (levelDetail ? getLevelOverview(levelDetail) : undefined),
     [levelDetail],
   );
+  // Controlled so a press can close the hover summary at once; left to the
+  // hover delay it lingers over the level page.
+  const [isSummaryOpen, setIsSummaryOpen] = useState(false);
 
   const pill = (
     <XStack
@@ -156,6 +159,7 @@ export function InviteLevelPill({
       hitSlop={NATIVE_HIT_SLOP}
       {...PRESSABLE_SURFACE_PROPS}
       onPress={() => {
+        setIsSummaryOpen(false);
         void navigateToReferralLevel();
         // Returning false keeps a hover popover trigger from also opening.
         return false;
@@ -182,6 +186,8 @@ export function InviteLevelPill({
     <Popover
       title={levelLabel}
       hoverable
+      open={isSummaryOpen}
+      onOpenChange={setIsSummaryOpen}
       placement="bottom-end"
       floatingPanelProps={INVITE_POPOVER_PANEL_PROPS}
       renderTrigger={pill}

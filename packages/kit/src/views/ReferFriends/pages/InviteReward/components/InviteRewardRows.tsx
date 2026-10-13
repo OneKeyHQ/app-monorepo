@@ -32,7 +32,6 @@ import {
 } from './getInviteRewardRows';
 import { InviteRewardAmount } from './InviteRewardAmount';
 import { useReferralCodeCard } from './ReferralCodeCard/hooks/useReferralCodeCard';
-import { REFERRAL_USD_CURRENCY_PROPS } from './shared/getRewardSummary';
 import {
   COMPACT_ENTRY_TITLE_PROPS,
   COMPACT_ROW_BLEED_PROPS,
@@ -43,10 +42,12 @@ import {
 
 import type { IInviteCardStyle } from './useInviteCardStyle';
 
+// Product names match the level targets and rates ("Perps volume", "Swap
+// fees"), so each product reads the same everywhere on the referral pages.
 const SUBJECT_TITLE: Record<IInviteRewardSubject, ETranslations> = {
   hardware: ETranslations.referral_referred_type_3,
-  perps: ETranslations.referral_perps,
-  swap: ETranslations.swap_referral_link__title,
+  perps: ETranslations.perps_perps,
+  swap: ETranslations.global_swap,
   defi: ETranslations.referral_referred_type_2,
 };
 
@@ -249,13 +250,7 @@ function DesktopRewardRow({
       {columns.monthly ? (
         <DesktopCell>
           {row.monthlySalesFiatValue ? (
-            <Currency
-              size="$bodyLgMedium"
-              formatter="value"
-              numberOfLines={1}
-              // Sales arrive in the wallet currency; show them in USD too.
-              targetCurrency={REFERRAL_USD_CURRENCY_PROPS.targetCurrency}
-            >
+            <Currency size="$bodyLgMedium" formatter="value" numberOfLines={1}>
               {row.monthlySalesFiatValue}
             </Currency>
           ) : null}

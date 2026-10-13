@@ -76,10 +76,11 @@ function YourReferredPageWrapper() {
             </YStack>
           ) : null}
           {/* A plain switch: two short lists have no header to collapse, so
-              they need no swipeable pager. */}
+              they need no swipeable pager. Compact layouts fill the row;
+              wider layouts hug the two labels and stay left-aligned. */}
           <YStack px="$pagePadding" pt="$3">
             <SegmentControl
-              fullWidth
+              fullWidth={md}
               value={activeList}
               options={lists.map(({ value, label, testID }) => ({
                 value,
