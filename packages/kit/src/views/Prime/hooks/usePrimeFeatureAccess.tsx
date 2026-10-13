@@ -311,22 +311,17 @@ export function usePrimeFeatureAccess() {
     [getResetAtOfSnapshot, showActiveRejectedFeedback],
   );
 
-  const loadQuotaOfLoggedInFreeUser = useCallback(async (): Promise<
-    IPrimeFreeTrialQuota | null | undefined
-  > => {
-    const fresh = await withTimeout(
-      backgroundApiProxy.servicePrimeFreeTrial.refreshQuota({ dedupe: true }),
-      ENTRY_REQUEST_TIMEOUT_MS,
-    );
-    if (fresh !== undefined) {
-      return fresh;
-    }
-    const localUser = await backgroundApiProxy.servicePrime.getLocalUserInfo();
-    return getPrimeFreeTrialQuotaOfUser({
-      quota: freeTrialRef.current.quota,
-      onekeyUserId: localUser.onekeyUserId,
-    });
-  }, []);
+  // A refresh that fails or does not answer in time leaves the quota unknown,
+  // which lets the user in. The cached snapshot is not used instead: its 0
+  // may be a use released since.
+  const loadQuotaOfLoggedInFreeUser = useCallback(
+    async (): Promise<IPrimeFreeTrialQuota | null | undefined> =>
+      withTimeout(
+        backgroundApiProxy.servicePrimeFreeTrial.refreshQuota({ dedupe: true }),
+        ENTRY_REQUEST_TIMEOUT_MS,
+      ),
+    [],
+  );
 
   // Both attempts share one ENTRY_REQUEST_TIMEOUT_MS budget; a timeout is an
   // unknown config, never "not open".

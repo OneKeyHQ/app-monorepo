@@ -305,6 +305,27 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
       expect(mockDialogLoading).not.toHaveBeenCalled();
     });
 
+    it('lets the user in when the refresh of a cached 0 does not answer within 5s', async () => {
+      setSnapshot(quotaWith(0));
+      mockRefreshQuota.mockReturnValue(new Promise(() => {}));
+      const result = renderAccessHook();
+
+      let gate: Promise<unknown> | undefined;
+      act(() => {
+        gate = result.current.ensureFeatureAccess({
+          featureId: EPrimeFeatures.BulkSend,
+        });
+      });
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(5000);
+        await expect(gate).resolves.toEqual({
+          granted: true,
+          entitlementSource: 'freeTrial',
+        });
+      });
+      expect(mockToastMessage).not.toHaveBeenCalled();
+    });
+
     it('shows the loading for a slow quota refresh and closes it', async () => {
       setSnapshot(quotaWith(0));
       mockRefreshQuota.mockImplementation(
@@ -545,6 +566,22 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
         }),
       ).resolves.toEqual({ granted: true, entitlementSource: 'freeTrial' });
     });
+  });
+
+  it('lets the user in when the refresh of a cached 0 fails', async () => {
+    setSnapshot(quotaWith(0));
+    mockRefreshQuota.mockResolvedValue(undefined);
+    const result = renderAccessHook();
+
+    await act(async () => {
+      await expect(
+        result.current.ensureFeatureAccess({
+          featureId: EPrimeFeatures.BulkSend,
+        }),
+      ).resolves.toEqual({ granted: true, entitlementSource: 'freeTrial' });
+    });
+    expect(mockToastMessage).not.toHaveBeenCalled();
+    expect(mockPushFullModal).not.toHaveBeenCalled();
   });
 
   it('treats a null quota with a closed feature as not open', async () => {
