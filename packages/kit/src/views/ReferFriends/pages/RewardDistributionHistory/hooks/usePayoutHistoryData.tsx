@@ -37,6 +37,9 @@ export function usePayoutHistoryData(): IPayoutHistoryData {
       if (list.status === 'fulfilled') {
         setItems(list.value.items);
         originalData.current.push(...list.value.items);
+      } else {
+        // Swap the loading spinner for the empty state if the first load fails.
+        setItems((prev) => prev ?? []);
       }
 
       setIsLoading(false);
