@@ -25340,6 +25340,7 @@
     "packages/shared/src/utils/defiPermitUtils.ts": 14013,
     "packages/shared/src/utils/defiPositionMetadataUtils.ts": 21185,
     "packages/shared/src/utils/defiUtils.ts": 14296,
+    "packages/shared/src/utils/deriveTypeCollapseUtils.ts": 17484,
     "packages/shared/src/utils/devModeUtils.ts": 23227,
     "packages/shared/src/utils/deviceHomeScreenUtils.ts": 6192,
     "packages/shared/src/utils/deviceUtils.ts": 15191,
