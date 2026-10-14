@@ -16,7 +16,6 @@ import {
   useThemeName,
 } from '@onekeyhq/components';
 import { RootModalNavigator } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
-import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
@@ -92,7 +91,6 @@ function TravelModeOnboardingRedirect() {
 
 function StandardOnboardingNavigator() {
   const isFocused = useIsFocused();
-  const [isLocked] = useAppIsLockedAtom();
   // Tamagui's native useMedia subscribes in a passive effect, so screens that
   // mount in the same commit as the real-width hold miss its refresh and keep
   // the clamped breakpoints. Mount them only once the hold is in place; the
@@ -185,7 +183,7 @@ function StandardOnboardingNavigator() {
             left={0}
             right={0}
             h="$8"
-            disabled={!isFocused || isLocked}
+            disabled={!isFocused}
           />
         </Stack>
       ) : (
