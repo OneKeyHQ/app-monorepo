@@ -191,7 +191,7 @@ export function PerpCandles({
 
   const content = (
     <Stack w="100%" h="100%" flex={1} minHeight={0}>
-      {!isTradingViewNative && showChartModeSelect ? (
+      {!isTradingViewNative && showChartModeSelect && !isDesktopLayout ? (
         <XStack
           h={TRADING_VIEW_CHART_CONTROLS_HEIGHT}
           px="$2"
@@ -235,6 +235,12 @@ export function PerpCandles({
           webviewKey={reloadHook.toString()}
           userAddress={currentAccount?.accountAddress}
           enablePerpsTradingUi={enablePerpsTradingUi}
+          enableNativeChartControls={isDesktopLayout}
+          isNativeChartFullscreen={chartExpanded}
+          onNativeChartFullscreenChange={
+            isDesktopLayout ? handleFullscreenChange : undefined
+          }
+          onChartSwitch={showChartModeSelect ? handleChartSwitch : undefined}
           reloadOnSymbolChange={platformEnv.isNativeAndroid}
           symbol={activeTradeInstrument.coin}
           displayPair={displayPair}

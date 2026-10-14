@@ -16,6 +16,8 @@ export enum ERevokeTxStatus {
 }
 
 export enum ERevokeProgressState {
+  // Waiting for the user to start; nothing runs before that.
+  NotStarted = 'NotStarted',
   InProgress = 'InProgress',
   Finished = 'Finished',
   Aborted = 'Aborted',

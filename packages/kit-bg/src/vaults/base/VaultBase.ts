@@ -1214,6 +1214,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return action;
   }
 
+  getTxDiagnosticContext(unsignedTx: IUnsignedTxPro) {
+    return unsignedTx.solanaTxDiagnostic;
+  }
+
   // DO NOT override this method
   async signTransaction(params: ISignTransactionParams): Promise<ISignedTxPro> {
     const { unsignedTx } = params;
