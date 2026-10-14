@@ -29,6 +29,7 @@ export function HeaderScrollGestureWrapper({
   disableMomentum = false,
   panActiveOffsetY = [-10, 10],
   panFailOffsetX = [-10, 10],
+  verticalPanMinVelocity = 0,
   verticalPanMaxPointers,
   excludeRightEdgeRatio = 0,
   scrollScale = 1,
@@ -54,6 +55,11 @@ export function HeaderScrollGestureWrapper({
   const isVerticalPanPointerCountExceeded = useSharedValue(false);
   const hasNotifiedGestureActive = useSharedValue(false);
   const hasTriggeredRefreshHaptic = useSharedValue(false);
+  const pendingPanStart = useSharedValue<{
+    x: number;
+    y: number;
+    time: number;
+  } | null>(null);
   const [measuredWidth, setMeasuredWidth] = useState(0);
 
   const triggerRefreshHaptic = useCallback(() => {
@@ -127,24 +133,86 @@ export function HeaderScrollGestureWrapper({
       return false;
     };
 
+    // Keep native recognition behind the same touch slop as the speed decision.
+    // Otherwise UIKit can start its pan before a slow drag is released to a child.
     let verticalPanGesture = Gesture.Pan()
       .enabled(!disabled && !disableVerticalScroll)
       .activeOffsetY(panActiveOffsetY)
       .failOffsetX(panFailOffsetX);
 
-    if (verticalPanMaxPointers !== undefined) {
+    if (verticalPanMinVelocity > 0) {
       verticalPanGesture = verticalPanGesture
-        .maxPointers(verticalPanMaxPointers)
-        .onTouchesDown((event) => {
+        .manualActivation(true)
+        .onTouchesMove((event, manager) => {
+          'worklet';
+
+          const start = pendingPanStart.value;
+          const touch = event.allTouches[0];
+          if (!start || !touch) {
+            return;
+          }
+          const dx = touch.absoluteX - start.x;
+          const dy = touch.absoluteY - start.y;
+          if (dx < panFailOffsetX[0] || dx > panFailOffsetX[1]) {
+            pendingPanStart.value = null;
+            manager.fail();
+            return;
+          }
+          if (dy >= panActiveOffsetY[0] && dy <= panActiveOffsetY[1]) {
+            return;
+          }
+
+          // Decide once, after touch slop, so a chart drag cannot turn into
+          // a page scroll when the finger accelerates later in the gesture.
+          const velocityY =
+            (Math.abs(dy) * 1000) / Math.max(1, Date.now() - start.time);
+          pendingPanStart.value = null;
+          if (velocityY >= verticalPanMinVelocity) {
+            manager.activate();
+          } else {
+            manager.fail();
+          }
+        });
+    }
+
+    if (verticalPanMaxPointers !== undefined) {
+      verticalPanGesture = verticalPanGesture.maxPointers(
+        verticalPanMaxPointers,
+      );
+    }
+    if (verticalPanMaxPointers !== undefined || verticalPanMinVelocity > 0) {
+      verticalPanGesture = verticalPanGesture.onTouchesDown(
+        (event, manager) => {
           'worklet';
 
           // maxPointers only rejects extra pointers before activation, so
           // latch an active page pan off for the rest of a multi-touch gesture.
-          if (event.numberOfTouches > verticalPanMaxPointers) {
+          if (
+            verticalPanMaxPointers !== undefined &&
+            event.numberOfTouches > verticalPanMaxPointers
+          ) {
             isVerticalPanPointerCountExceeded.value = true;
             cancelAnimation(targetScrollY);
+            if (pendingPanStart.value) {
+              pendingPanStart.value = null;
+              manager.fail();
+            }
+            return;
           }
-        });
+          if (verticalPanMinVelocity > 0 && event.numberOfTouches === 1) {
+            const touch = event.changedTouches[0];
+            if (!touch || shouldIgnoreByStartPoint(touch.x, touch.y)) {
+              manager.fail();
+              return;
+            }
+            pendingPanStart.value = {
+              x: touch.absoluteX,
+              y: touch.absoluteY,
+              time: Date.now(),
+            };
+          }
+        },
+      );
     }
 
     if (gestureHitSlop) {
@@ -218,6 +286,7 @@ export function HeaderScrollGestureWrapper({
           runOnJS(onGestureActiveChange)(false);
         }
         hasNotifiedGestureActive.value = false;
+        pendingPanStart.value = null;
         isVerticalPanPointerCountExceeded.value = false;
         isGestureEnabled.value = true;
       });
@@ -289,6 +358,7 @@ export function HeaderScrollGestureWrapper({
     disableMomentum,
     panActiveOffsetY,
     panFailOffsetX,
+    verticalPanMinVelocity,
     verticalPanMaxPointers,
     excludeRightEdgeRatio,
     excludeBottomEdgeHeight,
@@ -308,6 +378,7 @@ export function HeaderScrollGestureWrapper({
     isVerticalPanPointerCountExceeded,
     hasNotifiedGestureActive,
     hasTriggeredRefreshHaptic,
+    pendingPanStart,
     triggerRefreshHaptic,
   ]);
 

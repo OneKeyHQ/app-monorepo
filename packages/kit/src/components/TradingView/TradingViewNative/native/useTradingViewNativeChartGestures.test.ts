@@ -424,7 +424,7 @@ describe('free chart panning', () => {
     ).not.toHaveBeenCalled();
   });
 
-  it('waits for page direction selection without jumping on activation', () => {
+  it('waits for page gesture selection without jumping on activation', () => {
     const headerScrollGesture = Gesture.Pan();
     const { chartRuntime, contentPanGesture } = renderChartGestures({
       headerScrollGestures: [headerScrollGesture],
@@ -435,7 +435,10 @@ describe('free chart panning', () => {
       headerScrollGesture,
     );
     const startOffset = chartRuntime.value.viewport.offset;
-    contentPanGesture.handlers.onStart?.({ translationX: -12 });
+    contentPanGesture.handlers.onStart?.({
+      translationX: -12,
+      translationY: 0,
+    });
     contentPanGesture.handlers.onUpdate?.({
       translationX: -12,
       translationY: 0,
@@ -450,6 +453,45 @@ describe('free chart panning', () => {
       startOffset - 20 * TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
     );
   });
+
+  it.each([-18, 18])(
+    'starts slow vertical chart panning without a jump (activation at %i px)',
+    (activationTranslationY) => {
+      const { chartRuntime, contentPanGesture } = renderChartGestures({
+        headerScrollGestures: [Gesture.Pan()],
+        prioritizePageScroll: true,
+      });
+      contentPanGesture.handlers.onStart?.({
+        translationX: 0,
+        translationY: activationTranslationY,
+      });
+      contentPanGesture.handlers.onUpdate?.({
+        translationX: 0,
+        translationY: activationTranslationY,
+      });
+      expect(chartRuntime.value.pinnedPriceRange).toBeNull();
+
+      const direction = Math.sign(activationTranslationY);
+      contentPanGesture.handlers.onUpdate?.({
+        translationX: 0,
+        translationY: activationTranslationY + direction * 30,
+      });
+
+      const uninterrupted = renderChartGestures();
+      uninterrupted.contentPanGesture.handlers.onStart?.({
+        translationX: 0,
+        translationY: 0,
+      });
+      uninterrupted.contentPanGesture.handlers.onUpdate?.({
+        translationX: 0,
+        translationY: direction * 30,
+      });
+      expect(chartRuntime.value.pinnedPriceRange).not.toBeNull();
+      expect(chartRuntime.value.pinnedPriceRange).toEqual(
+        uninterrupted.chartRuntime.value.pinnedPriceRange,
+      );
+    },
+  );
 
   it('does not wait for a page when no enclosing scroll gesture exists', () => {
     const { contentPanGesture } = renderChartGestures({
@@ -472,6 +514,7 @@ describe('free chart panning', () => {
       const translationX = activationTranslationX + direction * 40;
       contentPanGesture.handlers.onStart?.({
         translationX: activationTranslationX,
+        translationY: 0,
       });
       contentPanGesture.handlers.onUpdate?.({ translationX, translationY: 0 });
 

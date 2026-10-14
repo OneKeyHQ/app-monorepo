@@ -96,6 +96,7 @@ export function useTradingViewNativeChartGestures({
   );
   const panPriceHeight = useSharedValue(0);
   const panStartTranslationX = useSharedValue(0);
+  const panStartTranslationY = useSharedValue(0);
   const panPriceStartTranslationY = useSharedValue(0);
   const panPriceLastTranslationY = useSharedValue(0);
   const isPricePanActive = useSharedValue(false);
@@ -317,9 +318,12 @@ export function useTradingViewNativeChartGestures({
         'worklet';
         setInteraction(2, true);
 
-        // Discard movement accumulated while the page decided the drag direction.
+        // Discard movement accumulated while the page decided gesture ownership.
         panStartTranslationX.value = shouldWaitForPageScroll
           ? event.translationX
+          : 0;
+        panStartTranslationY.value = shouldWaitForPageScroll
+          ? event.translationY
           : 0;
         const runtime = chartRuntime.value;
         const nextChartWidth = getTradingViewNativeChartWidth(
@@ -353,6 +357,7 @@ export function useTradingViewNativeChartGestures({
 
         const runtime = chartRuntime.value;
         const translationX = event.translationX - panStartTranslationX.value;
+        const translationY = event.translationY - panStartTranslationY.value;
         const nextRuntimeState = reduceTradingViewNativeChartRuntime(runtime, {
           chartWidth: getTradingViewNativeChartWidth(
             runtime.size.width,
@@ -365,7 +370,7 @@ export function useTradingViewNativeChartGestures({
           pointCount: runtime.points.length,
           type: 'panMoved',
         });
-        if (!isPricePanActive.value && Math.abs(event.translationY) > 4) {
+        if (!isPricePanActive.value && Math.abs(translationY) > 4) {
           const visiblePointRange = getTradingViewNativeVisiblePointRange({
             ...runtime.viewport,
             chartWidth: getTradingViewNativeChartWidth(
@@ -411,7 +416,7 @@ export function useTradingViewNativeChartGestures({
           isPricePanActive.value =
             Boolean(panPriceRange.value) && panPriceHeight.value > 0;
         }
-        panPriceLastTranslationY.value = event.translationY;
+        panPriceLastTranslationY.value = translationY;
         const priceRange = panPriceRange.value;
         const pinnedPriceRange =
           priceRange && isPricePanActive.value
@@ -420,8 +425,7 @@ export function useTradingViewNativeChartGestures({
                 rangeScale: runtime.priceRangeScale,
                 mode: runtime.priceScaleMode,
                 chartHeight: panPriceHeight.value,
-                translationY:
-                  event.translationY - panPriceStartTranslationY.value,
+                translationY: translationY - panPriceStartTranslationY.value,
               })
             : runtime.pinnedPriceRange;
         if (pinnedPriceRange && !runtime.pinnedPriceRange && onPriceRangePan) {
@@ -662,6 +666,7 @@ export function useTradingViewNativeChartGestures({
     panPriceRange,
     panPriceHeight,
     panStartTranslationX,
+    panStartTranslationY,
     panPriceStartTranslationY,
     panPriceLastTranslationY,
     isPricePanActive,
