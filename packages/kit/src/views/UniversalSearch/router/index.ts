@@ -3,7 +3,6 @@ import type { ITestModalPagesParam } from '@onekeyhq/shared/src/routes';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
-import { TOKEN_SELECTOR_POPOVER_WIDTH } from '../../Market/MarketDetailV2/components/TokenSelector/constants';
 
 const UniversalSearchPage = LazyLoadPage(
   () => import('../pages/UniversalSearch'),
@@ -20,9 +19,6 @@ export const UniversalSearchRouter: IModalFlowNavigatorConfig<
   {
     name: EUniversalSearchPages.UniversalSearch,
     component: UniversalSearchPage,
-    // Stock and token results use the Market detail selector's tables, laid
-    // out for its width. The page narrows it back for a dApp-only search.
-    modalContentMaxWidth: TOKEN_SELECTOR_POPOVER_WIDTH,
   },
   {
     name: EUniversalSearchPages.MarketDetail,
