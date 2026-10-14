@@ -1287,13 +1287,19 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     await this._resumeRecoveryPromise;
   }
 
-  private _isSocketClosedOrClosing(): boolean {
-    const readyState = this._client?.transport?.socket?.readyState;
-    return readyState === WebSocket.CLOSED || readyState === WebSocket.CLOSING;
+  private _isSocketDisconnected(client = this._client): boolean {
+    const socket = client?.transport?.socket;
+    const readyState = socket?.readyState;
+    // rews v4 reports CONNECTING during retry backoff as well as connection setup.
+    return (
+      readyState === WebSocket.CLOSED ||
+      readyState === WebSocket.CLOSING ||
+      (readyState === WebSocket.CONNECTING && (socket?.retryCount ?? 0) > 0)
+    );
   }
 
-  private async _reconnectClosedOrClosingSocket(): Promise<boolean> {
-    if (!this._isSocketClosedOrClosing()) {
+  private async _reconnectDisconnectedSocket(): Promise<boolean> {
+    if (!this._isSocketDisconnected()) {
       return false;
     }
     console.log('updateSubscriptions__force_reconnect_closed_socket');
@@ -1395,8 +1401,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     const readyState = client?.transport?.socket?.readyState;
     const action = getSubscriptionResumeAction({
       isOpen: readyState === WebSocket.OPEN,
-      isClosedOrClosing:
-        readyState === WebSocket.CLOSED || readyState === WebSocket.CLOSING,
+      isClosedOrClosing: this._isSocketDisconnected(client),
       isStreamStale: this._isResumeStreamStale(),
     });
     if (action === 'reconnect') {
@@ -1549,7 +1554,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   @backgroundMethod()
   async connect(): Promise<void> {
     const client = await this.getWebSocketClient();
-    if (await this._reconnectClosedOrClosingSocket()) {
+    if (await this._reconnectDisconnectedSocket()) {
       return;
     }
     const readyState = client.transport?.socket?.readyState;
@@ -1645,8 +1650,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
 
     this._subscriptionUpdateRecoveryPromise = (async () => {
-      const readyState = params.client.transport?.socket?.readyState;
-      if (readyState === WebSocket.CLOSED || readyState === WebSocket.CLOSING) {
+      if (params.client !== this._client) {
+        return;
+      }
+      if (this._isSocketDisconnected(params.client)) {
         await this._forceReconnectTransport();
         return;
       }
@@ -1669,7 +1676,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
       if (
         params.client === this._client &&
-        (platformEnv.isNative || platformEnv.isNativeBackgroundThread)
+        (this._isSocketDisconnected(params.client) ||
+          platformEnv.isNative ||
+          platformEnv.isNativeBackgroundThread)
       ) {
         // Native main/BG restart can leave the first sync request racing a
         // stuck CONNECTING transport; recreating it lets socketOpenHandler own
@@ -1699,7 +1708,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       if (readyState === WebSocket.OPEN) {
         return true;
       }
-      if (readyState === WebSocket.CLOSED || readyState === WebSocket.CLOSING) {
+      if (this._isSocketDisconnected(params.client)) {
         return false;
       }
       await timerUtils.wait(100);

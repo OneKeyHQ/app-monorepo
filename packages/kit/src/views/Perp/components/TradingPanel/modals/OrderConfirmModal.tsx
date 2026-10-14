@@ -27,7 +27,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
-  formatTwapEstimatedSliceNotional,
+  formatTwapEstimatedSliceSize,
   formatTwapPriceForOrder,
 } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import {
@@ -44,8 +44,8 @@ import {
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useOrderConfirm, useTradingCalculationsForSide } from '../../../hooks';
+import { useActiveTradeDisplay } from '../../../hooks/useActiveTradeDisplay';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
-import { useTwapReferencePrice } from '../../../hooks/useTwapReferencePrice';
 import { PerpsAccountSelectorProviderMirror } from '../../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import {
@@ -244,7 +244,10 @@ function OrderConfirmContent({
   const shouldShowStandardLimitTif =
     !isSpot && !isTriggerMode && !isAlgoOrderMode && formData.type === 'limit';
 
-  const { midPriceBN } = useTradingPrice();
+  const { baseName: activeBaseName } = useActiveTradeDisplay();
+  const { midPriceBN } = useTradingPrice({
+    allowSpotMarkPriceFallback: !isTwapMode,
+  });
 
   const triggerTypeLabel = useMemo(() => {
     if (!isTriggerMode) return null;
@@ -294,16 +297,13 @@ function OrderConfirmContent({
     isTwapMode,
     szDecimals,
   ]);
-  const twapReferencePriceBN = useTwapReferencePrice({
-    midPriceBN,
-    enabled: isTwapMode,
-  });
-  const twapEstimatedSliceNotionalDisplay = useMemo(
+  const twapEstimatedSliceSizeDisplay = useMemo(
     () =>
       isTwapMode
-        ? formatTwapEstimatedSliceNotional({
+        ? formatTwapEstimatedSliceSize({
             size: computedSizeForSide,
-            price: twapReferencePriceBN,
+            midPrice: midPriceBN,
+            symbol: activeBaseName,
             szDecimals,
             durationMinutes: Number(formData.twapDurationMinutes ?? ''),
           })
@@ -313,7 +313,8 @@ function OrderConfirmContent({
       formData.twapDurationMinutes,
       isTwapMode,
       szDecimals,
-      twapReferencePriceBN,
+      midPriceBN,
+      activeBaseName,
     ],
   );
 
@@ -869,7 +870,7 @@ function OrderConfirmContent({
           </XStack>
         ) : null}
 
-        {twapEstimatedSliceNotionalDisplay ? (
+        {twapEstimatedSliceSizeDisplay ? (
           <XStack justifyContent="space-between" alignItems="center">
             <DashText
               size="$bodyMd"
@@ -888,7 +889,7 @@ function OrderConfirmContent({
               })}
             </DashText>
             <SizableText size="$bodyMdMedium">
-              {twapEstimatedSliceNotionalDisplay}
+              {twapEstimatedSliceSizeDisplay}
             </SizableText>
           </XStack>
         ) : null}

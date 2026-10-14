@@ -1086,6 +1086,24 @@ function SideButtonInternal({
       }
 
       const isSliderMode = latestFormData.sizeInputMode === 'slider';
+      if (latestIsTwapMode) {
+        if (
+          !isTwapTotalNotionalValid({
+            size: latestComputedSizeForSide,
+            price: latestTwapTriggerReferencePriceBN,
+            szDecimals: latestSzDecimals,
+          })
+        ) {
+          Toast.message({
+            title: intl.formatMessage(
+              { id: ETranslations.perp_twap_min_order_notional__msg },
+              { amount: TWAP_MIN_ORDER_NOTIONAL },
+            ),
+          });
+          return 'invalidTwapConfig' as const;
+        }
+      }
+
       const hasSizeEmpty = isSliderMode
         ? !latestFormData.sizePercent || latestFormData.sizePercent <= 0
         : !latestFormData.size || latestFormData.size.trim() === '';
@@ -1147,24 +1165,6 @@ function SideButtonInternal({
             }),
           });
           return 'invalidScaleConfig' as const;
-        }
-      }
-
-      if (latestIsTwapMode) {
-        if (
-          !isTwapTotalNotionalValid({
-            size: latestComputedSizeForSide,
-            price: latestTwapTriggerReferencePriceBN,
-            szDecimals: latestSzDecimals,
-          })
-        ) {
-          Toast.message({
-            title: intl.formatMessage(
-              { id: ETranslations.perp_twap_min_order_notional__msg },
-              { amount: TWAP_MIN_ORDER_NOTIONAL },
-            ),
-          });
-          return 'invalidTwapConfig' as const;
         }
       }
 

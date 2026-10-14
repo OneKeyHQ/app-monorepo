@@ -3,11 +3,13 @@ import {
   TWAP_MIN_DURATION_MINUTES,
   TWAP_MIN_ORDER_NOTIONAL,
   buildActiveTwapRuntimeInfoByKey,
+  formatTwapEstimatedSliceSize,
   formatTwapPriceForDisplay,
   formatTwapPriceForOrder,
   getActiveTwapRuntimeStatus,
   getTwapElapsedMs,
   getTwapEstimatedSliceNotional,
+  getTwapEstimatedSliceSize,
   getTwapTriggerAbove,
   getTwapTriggerReferencePrice,
   isTerminalTwapStatus,
@@ -17,6 +19,62 @@ import {
 } from './hyperliquidTwapUtils';
 
 describe('hyperliquidTwapUtils', () => {
+  it.each([
+    ['1', '10000', 60, '0.00826446'],
+    ['1', '10000', 5760, '0.00100000'],
+    ['1', '20000', 5760, '0.00050000'],
+    ['0.012199', '10000', 5, '0.00110000'],
+    ['0.0005', '10000', 5, '0.00050000'],
+  ])(
+    'estimates coin quantity for size %s at mid %s over %s minutes',
+    (size, midPrice, durationMinutes, expected) => {
+      expect(
+        getTwapEstimatedSliceSize({
+          size,
+          midPrice,
+          durationMinutes,
+          szDecimals: 4,
+        })?.toFixed(8),
+      ).toBe(expected);
+    },
+  );
+
+  it('formats the estimate in the traded coin and preserves an empty amount', () => {
+    expect(
+      formatTwapEstimatedSliceSize({
+        size: '1',
+        midPrice: '10000',
+        durationMinutes: 5760,
+        szDecimals: 4,
+        symbol: 'BTC',
+      }),
+    ).toBe('≈ 0.001 BTC');
+    expect(
+      formatTwapEstimatedSliceSize({
+        size: '0',
+        midPrice: '0',
+        durationMinutes: 360,
+        szDecimals: 4,
+        symbol: 'ETH',
+      }),
+    ).toBe('≈ 0 ETH');
+  });
+
+  it.each(['0', '-1', 'NaN', ''])(
+    'does not estimate from unavailable mid %s',
+    (midPrice) => {
+      expect(
+        formatTwapEstimatedSliceSize({
+          size: '1',
+          midPrice,
+          durationMinutes: 360,
+          szDecimals: 4,
+          symbol: 'ETH',
+        }),
+      ).toBeUndefined();
+    },
+  );
+
   it('accepts integer durations from 5 minutes through 7 days', () => {
     expect(TWAP_MIN_DURATION_MINUTES).toBe(5);
     expect(TWAP_MAX_DURATION_MINUTES).toBe(10_080);

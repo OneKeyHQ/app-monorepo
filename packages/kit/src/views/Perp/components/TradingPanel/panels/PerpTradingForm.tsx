@@ -69,7 +69,7 @@ import {
 import {
   TWAP_MAX_DURATION_MINUTES,
   TWAP_MIN_DURATION_MINUTES,
-  formatTwapEstimatedSliceNotional,
+  formatTwapEstimatedSliceSize,
   isValidTwapDuration,
 } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -509,6 +509,7 @@ function PerpTradingForm({
   const { baseName: activeBaseName } = useActiveTradeDisplay();
   const { midPrice, midPriceBN } = useTradingPrice({
     source: tradingPriceSource,
+    allowSpotMarkPriceFallback: !isTwapMode,
   });
   const twapReferencePriceBN = useTwapReferencePrice({
     midPriceBN,
@@ -1060,13 +1061,14 @@ function PerpTradingForm({
     }
   }, [formData.twapDurationMinutes, intl, isTwapMode]);
 
-  const twapEstimatedSliceNotionalDisplay = useMemo(() => {
+  const twapEstimatedSliceSizeDisplay = useMemo(() => {
     if (!isTwapMode) {
       return undefined;
     }
-    return formatTwapEstimatedSliceNotional({
+    return formatTwapEstimatedSliceSize({
       size: advancedComputedSizeBN,
-      price: twapReferencePriceBN,
+      midPrice: midPriceBN,
+      symbol: activeBaseName || perpsSelectedDisplayName,
       szDecimals: sizeSzDecimals,
       durationMinutes: Number(formData.twapDurationMinutes ?? ''),
     });
@@ -1075,7 +1077,9 @@ function PerpTradingForm({
     formData.twapDurationMinutes,
     isTwapMode,
     sizeSzDecimals,
-    twapReferencePriceBN,
+    midPriceBN,
+    activeBaseName,
+    perpsSelectedDisplayName,
   ]);
 
   const [twapDurationHoursInput, setTwapDurationHoursInput] = useState('');
@@ -2609,7 +2613,8 @@ function PerpTradingForm({
               color="$text"
               numberOfLines={1}
             >
-              {twapEstimatedSliceNotionalDisplay ?? '≈ 0 USDC'}
+              {twapEstimatedSliceSizeDisplay ??
+                `-- ${activeBaseName || perpsSelectedDisplayName}`}
             </SizableText>
           </XStack>
         </YStack>

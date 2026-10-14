@@ -171,6 +171,77 @@ describe('ServiceHyperliquidSubscription resume stream liveness', () => {
     }
   });
 
+  it.each([0, 1, 3])(
+    'resumes a CONNECTING socket with retryCount=%s',
+    async (retryCount) => {
+      const { service, internals, force, reconcile } = setupOpenSocketService();
+      jest.spyOn(internals, 'getWebSocketClient').mockResolvedValue({
+        transport: { socket: { readyState: WebSocket.CONNECTING, retryCount } },
+      });
+
+      await service.resumeSubscriptions();
+
+      expect(force).toHaveBeenCalledTimes(retryCount > 0 ? 1 : 0);
+      expect(reconcile).not.toHaveBeenCalled();
+    },
+  );
+
+  it('recovers a retrying socket before a subscription update without waiting', async () => {
+    const { service, force } = setupOpenSocketService();
+    const internals = service as unknown as {
+      _client: unknown;
+      _recoverNotOpenSocketBeforeSubscriptionUpdate: (params: {
+        client: unknown;
+        reason: string;
+      }) => Promise<void>;
+      _waitForOpenSocket: () => Promise<boolean>;
+    };
+    const client = {
+      transport: {
+        socket: { readyState: WebSocket.CONNECTING, retryCount: 1 },
+      },
+    };
+    internals._client = client;
+    const wait = jest.spyOn(internals, '_waitForOpenSocket');
+
+    await internals._recoverNotOpenSocketBeforeSubscriptionUpdate({
+      client,
+      reason: 'test',
+    });
+
+    expect(force).toHaveBeenCalledTimes(1);
+    expect(wait).not.toHaveBeenCalled();
+  });
+
+  it('ignores recovery from a retrying socket that has already been replaced', async () => {
+    const { service, force, reconcile } = setupOpenSocketService();
+    const internals = service as unknown as {
+      _client: unknown;
+      _recoverNotOpenSocketBeforeSubscriptionUpdate: (params: {
+        client: unknown;
+        reason: string;
+      }) => Promise<void>;
+    };
+    const oldClient = {
+      transport: {
+        socket: { readyState: WebSocket.CONNECTING, retryCount: 1 },
+      },
+    };
+    const replacement = {
+      transport: { socket: { readyState: WebSocket.OPEN, retryCount: 0 } },
+    };
+    internals._client = replacement;
+
+    await internals._recoverNotOpenSocketBeforeSubscriptionUpdate({
+      client: oldClient,
+      reason: 'stale_update',
+    });
+
+    expect(force).not.toHaveBeenCalled();
+    expect(reconcile).not.toHaveBeenCalled();
+    expect(internals._client).toBe(replacement);
+  });
+
   it('forces a reconnect when the open socket stream went stale', async () => {
     const { service, internals, force, reconcile } = setupOpenSocketService();
     internals._lastMessageAt = Date.now() - 60_000;

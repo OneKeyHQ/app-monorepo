@@ -221,6 +221,39 @@ export function formatTwapEstimatedSliceNotional(
   })} USDC`;
 }
 
+export function getTwapEstimatedSliceSize({
+  midPrice,
+  ...params
+}: Omit<Parameters<typeof getTwapEstimatedSliceNotional>[0], 'price'> & {
+  midPrice: BigNumber.Value;
+}): BigNumber | undefined {
+  const midPriceBN = new BigNumber(midPrice);
+  const notionalBN = getTwapEstimatedSliceNotional({
+    ...params,
+    price: midPriceBN,
+  });
+  return notionalBN?.dividedBy(midPriceBN);
+}
+
+export function formatTwapEstimatedSliceSize({
+  symbol,
+  ...params
+}: Parameters<typeof getTwapEstimatedSliceSize>[0] & {
+  symbol: string;
+}): string | undefined {
+  const sizeBN = new BigNumber(params.size);
+  if (sizeBN.isZero()) {
+    return `≈ 0 ${symbol}`;
+  }
+  const sliceSizeBN = getTwapEstimatedSliceSize(params);
+  if (!sliceSizeBN) {
+    return undefined;
+  }
+  return `≈ ${numberFormat(sliceSizeBN.toFixed(), {
+    formatter: 'balance',
+  })} ${symbol}`;
+}
+
 export function getTwapTriggerAbove({
   triggerPrice,
   markPrice,

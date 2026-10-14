@@ -355,9 +355,10 @@ function useOrderConfirmWithMarketDataFreshness({
         if (!twapSize.isFinite() || twapSize.lte(0)) {
           Toast.error({
             title: intl.formatMessage({ id: ETranslations.global_failed }),
-            message: intl.formatMessage({
-              id: ETranslations.perp_scale_order_size_too_small__msg,
-            }),
+            message: intl.formatMessage(
+              { id: ETranslations.perp_twap_min_order_notional__msg },
+              { amount: TWAP_MIN_ORDER_NOTIONAL },
+            ),
           });
           return;
         }
