@@ -5479,6 +5479,7 @@
   "transfer.web_only_supports_watch_only_transfer": "Web hanya mendukung transfer untuk dompet Watch-Only.",
   "transfer_data_too_large__msg": "Data transfer terlalu besar ({size}). Batas untuk transfer ini adalah {limit}.",
   "transfer_exit_import__desc": "Keluar dapat mengganggu proses impor. Item yang sudah diimpor akan tetap tersimpan di perangkat ini.",
+  "transfer_import_some_accounts_failed__msg": "Beberapa akun tidak dapat dibuat.",
   "transfer_keep_foreground__desc": "Biarkan perangkat tetap terbuka kuncinya dan aplikasi OneKey tetap terbuka di latar depan hingga transfer selesai.",
   "transfer_keep_unlocked__desc": "Pastikan perangkat tetap terbuka kuncinya dan aplikasi OneKey tetap terbuka di latar depan hingga impor selesai.",
   "travel_mode__about__title": "Apa itu Mode Perjalanan?",
