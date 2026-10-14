@@ -795,11 +795,17 @@ export function MobileSelectorStockTable({
       data={items}
       keyExtractor={(item) => item.stockId}
       renderItem={renderItem}
-      getItemLayout={(_, index) => ({
-        length: ROW_HEIGHT,
-        offset: ROW_HEIGHT * index,
-        index,
-      })}
+      // A list header shifts every row, so the fixed row layout only holds
+      // without one.
+      getItemLayout={
+        listHeader
+          ? undefined
+          : (_, index) => ({
+              length: ROW_HEIGHT,
+              offset: ROW_HEIGHT * index,
+              index,
+            })
+      }
       initialNumToRender={12}
       maxToRenderPerBatch={20}
       windowSize={7}

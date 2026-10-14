@@ -138,6 +138,8 @@ interface IUniversalSection {
 
 // Matches the Market detail selector's search delay.
 const SEARCH_DEBOUNCE_MS = 500;
+// The longest the other results wait for the stock search's first page.
+const STOCK_FIRST_PAGE_WAIT_MS = 3000;
 // The modal width every other modal opens at.
 const DEFAULT_MODAL_CONTENT_MAX_WIDTH = 640;
 const LIQUID_GLASS_SEARCH_BAR_CONTAINER_PROPS = {
@@ -406,11 +408,24 @@ export function UniversalSearch({
     );
   }, [displaySections, tabTitles]);
 
-  // Results show only once the stock search has answered too, so a stock
-  // section landing later never pushes the other results down.
+  // Results wait for the stock search too, so a stock section landing later
+  // does not push the other results down; but a slow stock search holds them
+  // for at most STOCK_FIRST_PAGE_WAIT_MS after the rest have arrived.
   const isAwaitingStockFirstPage = Boolean(stockQuery) && stockResult.isLoading;
+  const [stockWaitExpiredQuery, setStockWaitExpiredQuery] = useState('');
+  const isHoldingForStocks =
+    searchStatus === ESearchStatus.done && isAwaitingStockFirstPage;
+  useEffect(() => {
+    if (!isHoldingForStocks) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      setStockWaitExpiredQuery(stockQuery);
+    }, STOCK_FIRST_PAGE_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [isHoldingForStocks, stockQuery]);
   const resultStatus =
-    searchStatus === ESearchStatus.done && isAwaitingStockFirstPage
+    isHoldingForStocks && stockWaitExpiredQuery !== stockQuery
       ? ESearchStatus.loading
       : searchStatus;
 
