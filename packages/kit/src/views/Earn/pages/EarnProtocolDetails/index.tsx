@@ -311,9 +311,11 @@ const ProtocolHeader = ({
                   <>
                     <YStack>
                       <XStack ai="baseline">
+                        {/* The design's success/10 green, the base segment's
+                            color in the Yield sheet (OK-64551). */}
                         <SizableText
                           size="$heading2xl"
-                          color="$textSuccess"
+                          color="$success10"
                           {...APY_UNDERLINE_PROPS}
                         >
                           {headlineApyParts.base}
@@ -331,7 +333,7 @@ const ProtocolHeader = ({
                       {platformEnv.isNativeAndroid ? <ApyDottedRule /> : null}
                     </YStack>
                     {headlineApyParts.unit ? (
-                      <SizableText size="$heading2xl" color="$textSuccess">
+                      <SizableText size="$heading2xl" color="$success10">
                         {` ${headlineApyParts.unit}`}
                       </SizableText>
                     ) : null}
@@ -523,8 +525,8 @@ function ChartSection({
   const secondaryLineColor = isPendleProvider
     ? undefined
     : // Campaign orange vs protocol-reward blue, matching the Yield sheet's
-      // segment colors. TODO(design): confirm the exact orange against Figma.
-      (extraApyKind === 'reward' && '#0177E5') || '#DD7B22';
+      // segment colors: the design's Orange/10 (OK-64551).
+      (extraApyKind === 'reward' && '#0177E5') || '#ED5F00';
 
   // Both lines used to read "APY" in the tooltip, which left the reader with no
   // way to tell the vault's own yield from the bonus on top of it.
