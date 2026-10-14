@@ -166,6 +166,7 @@ import type {
   SearchDevice,
   UiEvent,
   UiResponseEvent,
+  UsbDeviceIdentity,
 } from '@onekeyfe/hd-core';
 import type { HardwareConnectProtocol } from '@onekeyfe/hd-shared';
 import type { DeviceSessionPinType } from '@onekeyfe/hd-transport';
@@ -1101,8 +1102,7 @@ class ServiceHardware extends ServiceBase {
           HARDWARE_CONNECT_PROTOCOL_UNAVAILABLE_MESSAGE,
         );
       }
-      // Auto routing may search USB through getSDKInstance with an explicit
-      // transport. Resolve it before taking the non-reentrant lifecycle lock.
+      // Identity discovery uses an independent transport before SDK selection.
       const { targetType } =
         await this.connectionManager.shouldSwitchTransportType({
           connectId: options.connectId,
@@ -1282,6 +1282,9 @@ class ServiceHardware extends ServiceBase {
       });
 
       this.activeHardwareTransportType = hardwareTransportType;
+      this.backgroundApi.serviceHardwareUI?.hardwareProcessingManager?.rememberOneKeyOperationTransport(
+        hardwareTransportType,
+      );
 
       // TODO re-register events when hardwareConnectSrc or isPreRelease changed
       await this.registerSdkEvents(instance, { showSdkDebugLogs });
@@ -4630,6 +4633,17 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async probeUsbDeviceIdentities({
+    commType,
+  }: {
+    commType: UsbDeviceIdentity['commType'];
+  }): Promise<UsbDeviceIdentity[]> {
+    if (!platformEnv.isDesktop) return [];
+    const sdk = await import('@onekeyfe/hd-common-connect-sdk');
+    return sdk.probeUsbDeviceIdentities({ commType });
+  }
+
+  @backgroundMethod()
   async repairBleConnectIdWithProgress({
     connectId,
     featuresDeviceId,
@@ -5242,6 +5256,9 @@ class ServiceHardware extends ServiceBase {
         });
       if (params.persistTransportType !== false) {
         await this.connectionManager.setCurrentTransportType(targetType);
+        this.backgroundApi.serviceHardwareUI?.hardwareProcessingManager?.rememberOneKeyOperationTransport(
+          targetType,
+        );
       }
       return targetType;
     }

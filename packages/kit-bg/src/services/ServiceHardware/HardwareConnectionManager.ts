@@ -361,23 +361,32 @@ export class HardwareConnectionManager {
             });
           if (!device?.vendor || device.vendor === EHardwareVendor.onekey) {
             const result =
-              await this.backgroundApi.serviceHardware.searchDevices({
-                connectProtocol,
-                transportType: 'usb',
-              });
-            const target = connectId.trim().toLowerCase();
+              await this.backgroundApi.serviceHardware.probeUsbDeviceIdentities(
+                { commType: mode === 'bridge' ? 'bridge' : 'webusb' },
+              );
+            const normalize = (id?: string | null) => id?.trim().toLowerCase();
+            const serial = normalize(
+              deviceUtils.getDeviceSerialNoFromDbDevice(device) ||
+                deviceUtils.getDeviceSerialNoFromFeatures(device?.featuresInfo),
+            );
+            const walletId = normalize(
+              device?.deviceStateInfo?.identity.deviceId || device?.deviceId,
+            );
+            const target = normalize(connectId);
             targetOnUSB =
-              result?.success === true &&
-              result.payload.filter(
-                (known) =>
-                  known.commType === mode &&
-                  [
-                    known.connectId,
-                    known.serialNo,
-                    known.uuid,
-                    known.deviceId,
-                  ].some((id) => id?.trim().toLowerCase() === target),
-              ).length === 1;
+              result.filter((known) => {
+                if (
+                  known.commType !== mode ||
+                  (connectProtocol && known.connectProtocol !== connectProtocol)
+                )
+                  return false;
+                if (serial) return normalize(known.serialNo) === serial;
+                if (walletId) return normalize(known.deviceId) === walletId;
+                return (
+                  normalize(known.serialNo) === target ||
+                  normalize(known.deviceId) === target
+                );
+              }).length === 1;
           } else {
             targetOnUSB = await this.detectUSBDeviceAvailability(
               connectId,
@@ -486,11 +495,17 @@ export class HardwareConnectionManager {
         };
       }
 
-      const optimalType = await this.determineOptimalTransportType(
-        hardwareCallContext,
-        connectId,
-        connectProtocol,
-      );
+      const pinnedTransport =
+        hardwareCallContext === EHardwareCallContext.UPDATE_FIRMWARE
+          ? undefined
+          : this.backgroundApi.serviceHardwareUI?.hardwareProcessingManager?.getOneKeyOperationTransport();
+      const optimalType =
+        pinnedTransport ??
+        (await this.determineOptimalTransportType(
+          hardwareCallContext,
+          connectId,
+          connectProtocol,
+        ));
       const shouldSwitch = this.actualTransportType !== optimalType;
 
       console.log(
@@ -514,6 +529,8 @@ export class HardwareConnectionManager {
           args[0].hardwareCallContext || 'default',
           args[0].connectProtocol || '',
           args[0].connectId || '',
+          this.backgroundApi.serviceHardwareUI?.hardwareProcessingManager?.getOneKeyOperationGeneration(),
+          this.backgroundApi.serviceHardwareUI?.hardwareProcessingManager?.getOneKeyOperationTransport(),
         ]),
     },
   );
@@ -528,6 +545,9 @@ export class HardwareConnectionManager {
   }> {
     const result = await this.shouldSwitchTransportType(params);
     await this.setCurrentTransportType(result.targetType);
+    this.backgroundApi.serviceHardwareUI?.hardwareProcessingManager?.rememberOneKeyOperationTransport(
+      result.targetType,
+    );
     return result;
   }
 
