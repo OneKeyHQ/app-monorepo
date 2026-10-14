@@ -90,9 +90,17 @@ jest.mock('@onekeyhq/components', () => ({
   rootNavigationRef: { current: undefined },
 }));
 
-jest.mock('react-intl', () => ({
-  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
-}));
+// Toast titles read the feature names from the zh-CN catalog.
+jest.mock('react-intl', () => {
+  const catalog: Record<string, string> = jest.requireActual(
+    '@onekeyhq/shared/src/locale/json/zh_CN.json',
+  );
+  return {
+    useIntl: () => ({
+      formatMessage: ({ id }: { id: string }) => catalog[id] ?? id,
+    }),
+  };
+});
 
 jest.mock('@onekeyhq/shared/src/travelMode', () => ({
   travelModeManager: {
@@ -227,13 +235,15 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
     // Retried once before falling back to "unknown".
     expect(mockGetPublicConfig).toHaveBeenCalledTimes(2);
     expect(mockLoginOneKeyId).toHaveBeenCalledTimes(1);
-    // Exhausted: a toast with a button, never an automatic dashboard.
-    expect(mockPushFullModal).not.toHaveBeenCalled();
+    // Exhausted: the dashboard opens right away, with a toast saying why
+    // and no button.
+    expect(mockPushFullModal).toHaveBeenCalledTimes(1);
+    expect(dashboardReason()).toBe('exhausted');
     expect(mockToastMessage).toHaveBeenCalledTimes(1);
     expect(mockToastMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         title: '批量转账：本月免费次数已用完',
-        actions: expect.anything(),
+        actions: undefined,
       }),
     );
   });
@@ -831,9 +841,9 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
         expect(toastAt(0)).toMatchObject({
           title: '地址风险检查：本月免费次数已用完',
           message: expect.stringMatching(/^将于 .+ 重置。$/),
+          actions: undefined,
         });
       });
-      pressGetPrimeOf(0);
       expect(dashboardReason()).toBe('exhausted');
     });
 
@@ -850,7 +860,7 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
         expect(toastAt(0)?.title).toBe('地址风险检查：本月免费次数已用完');
       });
       expect(toastAt(0)?.message).toBeUndefined();
-      pressGetPrimeOf(0);
+      expect(toastAt(0)?.actions).toBeUndefined();
       expect(dashboardReason()).toBe('exhausted');
     });
 
@@ -891,9 +901,10 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
       expect(toastAt(0)).toMatchObject({
         title: '地址风险检查：本月免费次数已用完',
         message: expect.stringMatching(/^将于 .+ 重置。$/),
+        actions: undefined,
       });
     });
-    pressGetPrimeOf(0);
+    expect(mockPushFullModal).toHaveBeenCalledTimes(1);
     expect(dashboardReason()).toBe('exhausted');
   });
 

@@ -27,6 +27,10 @@ const mockRefreshQuota = jest.fn();
 let mockQuota: IPrimeFreeTrialAtomData['quota'];
 let mockConfig: IPrimeFreeTrialAtomData['config'];
 
+jest.mock('react-intl', () => ({
+  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+}));
+
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   function Container({

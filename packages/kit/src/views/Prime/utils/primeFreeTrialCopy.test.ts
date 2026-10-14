@@ -1,4 +1,5 @@
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import zhCatalog from '@onekeyhq/shared/src/locale/json/zh_CN.json';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import type { IPrimeFreeTrialFeatureId } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 
@@ -22,7 +23,7 @@ const CASES: Array<{
     [
       [EPrimeFeatures.BulkCopyAddresses, '批量复制地址'],
       [EPrimeFeatures.BulkSend, '批量转账'],
-      [EPrimeFeatures.BulkRevoke, '批量取消授权'],
+      [EPrimeFeatures.BulkRevoke, '批量取消'],
       [EPrimeFeatures.AddressRiskCheck, '地址风险检查'],
     ] as const
   ).flatMap(([featureId, name]) => [
@@ -30,8 +31,8 @@ const CASES: Array<{
       featureId,
       notice: { kind: 'exhausted', resetAt: RESET_AT } as const,
       toastTitle: `${name}：本月免费次数已用完`,
-      toastMessage: '将于 2026-11-01 上午 8:00 重置。',
-      hint: '本月免费次数已用完，将于 2026-11-01 上午 8:00 重置',
+      toastMessage: '将于 2026-11-01 重置。',
+      hint: '本月免费次数已用完，将于 2026-11-01 重置',
     },
     {
       featureId,
@@ -44,7 +45,7 @@ const CASES: Array<{
     [
       [EPrimeFeatures.BulkCopyAddresses, '批量复制地址'],
       [EPrimeFeatures.BulkSend, '批量转账'],
-      [EPrimeFeatures.BulkRevoke, '批量取消授权'],
+      [EPrimeFeatures.BulkRevoke, '批量取消'],
     ] as const
   ).map(([featureId, name]) => ({
     featureId,
@@ -57,8 +58,8 @@ const CASES: Array<{
     featureId: EPrimeFeatures.DAppTranslate,
     notice: { kind: 'exhausted', resetAt: RESET_AT },
     toastTitle: 'AI 翻译：本月免费额度已用完',
-    toastMessage: '将于 2026-11-01 上午 8:00 重置。',
-    hint: '本月免费额度已用完，将于 2026-11-01 上午 8:00 重置',
+    toastMessage: '将于 2026-11-01 重置。',
+    hint: '本月免费额度已用完，将于 2026-11-01 重置',
   },
   {
     featureId: EPrimeFeatures.DAppTranslate,
@@ -84,7 +85,7 @@ describe('getPrimeFreeTrialNoticeCopy', () => {
   beforeAll(() => {
     appLocale.setLocale(
       'zh-CN',
-      {} as Parameters<typeof appLocale.setLocale>[1],
+      zhCatalog as Parameters<typeof appLocale.setLocale>[1],
     );
   });
 
@@ -98,7 +99,13 @@ describe('getPrimeFreeTrialNoticeCopy', () => {
   it.each(CASES)(
     '$featureId $notice.kind',
     ({ featureId, notice, toastTitle, toastMessage, hint }) => {
-      expect(getPrimeFreeTrialNoticeCopy({ featureId, notice })).toEqual({
+      expect(
+        getPrimeFreeTrialNoticeCopy({
+          intl: appLocale.intl,
+          featureId,
+          notice,
+        }),
+      ).toEqual({
         toastTitle,
         toastMessage,
         hint,
@@ -111,7 +118,11 @@ describe('getPrimeFreeTrialNoticeCopy', () => {
   it.each(CASES)(
     'keeps the hint of $featureId $notice.kind in line with its toast',
     ({ featureId, notice }) => {
-      const copy = getPrimeFreeTrialNoticeCopy({ featureId, notice });
+      const copy = getPrimeFreeTrialNoticeCopy({
+        intl: appLocale.intl,
+        featureId,
+        notice,
+      });
       const status = copy.toastTitle.slice(copy.toastTitle.indexOf('：') + 1);
       expect(copy.hint).toBe(
         copy.toastMessage
@@ -129,6 +140,7 @@ describe('getPrimeFreeTrialNoticeCopy', () => {
     ] as const) {
       expect(
         getPrimeFreeTrialNoticeCopy({
+          intl: appLocale.intl,
           featureId: EPrimeFeatures.BulkSend,
           notice: { kind },
         }).toastMessage,
@@ -137,6 +149,7 @@ describe('getPrimeFreeTrialNoticeCopy', () => {
     // A used-up quota without a known reset time has no body either.
     expect(
       getPrimeFreeTrialNoticeCopy({
+        intl: appLocale.intl,
         featureId: EPrimeFeatures.BulkSend,
         notice: { kind: 'exhausted' },
       }),

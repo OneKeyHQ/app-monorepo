@@ -1,3 +1,4 @@
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import {
   formatPrimeFreeTrialReservationEnd,
@@ -8,16 +9,19 @@ import type {
   IPrimeFreeTrialUnit,
 } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 
+import type { IntlShape } from 'react-intl';
+
 // Free-trial copy is hard-coded Chinese for now (no i18n keys yet). Keep every
 // string here so the later i18n migration only has to replace this file.
 
-// Feature names, written once: every toast title is "<feature>：<status>".
-const FEATURE_NAME: Record<IPrimeFreeTrialFeatureId, string> = {
-  [EPrimeFeatures.BulkCopyAddresses]: '批量复制地址',
-  [EPrimeFeatures.BulkSend]: '批量转账',
-  [EPrimeFeatures.BulkRevoke]: '批量取消授权',
-  [EPrimeFeatures.AddressRiskCheck]: '地址风险检查',
-  [EPrimeFeatures.DAppTranslate]: 'AI 翻译',
+// Feature names reuse the titles the Prime feature list already shows
+// (PRIME_FEATURE_INTROS): every toast title is "<feature>：<status>".
+const FEATURE_NAME: Record<IPrimeFreeTrialFeatureId, ETranslations> = {
+  [EPrimeFeatures.BulkCopyAddresses]: ETranslations.global_bulk_copy_addresses,
+  [EPrimeFeatures.BulkSend]: ETranslations.wallet_bulk_send_title,
+  [EPrimeFeatures.BulkRevoke]: ETranslations.global_bulk_revoke,
+  [EPrimeFeatures.AddressRiskCheck]: ETranslations.address_risk_check__title,
+  [EPrimeFeatures.DAppTranslate]: ETranslations.prime_ai_translate_title,
 };
 
 // Translate is metered in tokens, every other feature in uses.
@@ -82,15 +86,17 @@ function getNoticeParts(
 // - remaining hint (the page already names the feature): the title without
 //   the feature name, then the detail, in one line
 export function getPrimeFreeTrialNoticeCopy({
+  intl,
   featureId,
   notice,
 }: {
+  intl: IntlShape;
   featureId: IPrimeFreeTrialFeatureId;
   notice: IPrimeFreeTrialNotice;
 }) {
   const { status, detail } = getNoticeParts(featureId, notice);
   return {
-    toastTitle: `${FEATURE_NAME[featureId]}：${status}`,
+    toastTitle: `${intl.formatMessage({ id: FEATURE_NAME[featureId] })}：${status}`,
     toastMessage: detail ? `${detail}。` : undefined,
     hint: detail ? `${status}，${detail}` : status,
   };

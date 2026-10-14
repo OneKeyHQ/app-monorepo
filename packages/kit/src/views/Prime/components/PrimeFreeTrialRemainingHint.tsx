@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { useEffect } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Icon,
   SizableText,
@@ -84,6 +86,7 @@ export function PrimeFreeTrialRemainingHint({
   const onekeyUserId = user?.onekeyUserId;
   const isFreeUser = isLoggedIn && !isPrimeSubscriptionActive;
   const { getPrime } = usePrimeFreeTrialUpgrade();
+  const intl = useIntl();
   // Empty outside a dialog, where close does nothing.
   const dialog = useDialogInstance();
 
@@ -202,7 +205,7 @@ export function PrimeFreeTrialRemainingHint({
     content = (
       <>
         <SizableText size="$bodyMd" color="$textSubdued">
-          {getPrimeFreeTrialNoticeCopy({ featureId, notice }).hint}
+          {getPrimeFreeTrialNoticeCopy({ intl, featureId, notice }).hint}
         </SizableText>
         {renderGetPrime(notice.kind === 'notOpen' ? 'notOpen' : 'exhausted')}
       </>

@@ -156,9 +156,8 @@ export function usePrimeFeatureAccess() {
     [getPrime],
   );
 
-  // A rejection toast: the notice copy (shared with the remaining hint) and a
-  // "Get Prime" button. The dashboard only opens on that press, never
-  // automatically.
+  // A rejection toast: the notice copy (shared with the remaining hint) and,
+  // unless the dashboard is already open, a "Get Prime" button.
   const showFreeTrialNoticeToast = useCallback(
     ({
       featureId,
@@ -166,14 +165,17 @@ export function usePrimeFeatureAccess() {
       networkId,
       toastId,
       afterPageExit,
+      withGetPrime = true,
     }: {
       featureId: IPrimeFreeTrialFeatureId;
       notice: IPrimeFreeTrialNotice;
       networkId?: string;
       toastId?: string;
       afterPageExit?: boolean;
+      withGetPrime?: boolean;
     }) => {
       const { toastTitle, toastMessage } = getPrimeFreeTrialNoticeCopy({
+        intl,
         featureId,
         notice,
       });
@@ -182,25 +184,27 @@ export function usePrimeFeatureAccess() {
         title: toastTitle,
         message: toastMessage,
         actionsAlign: 'left',
-        actions: renderGetPrimeButton({
-          featureId,
-          networkId,
-          afterPageExit,
-          freeTrialReason:
-            notice.kind === 'exhausted' || notice.kind === 'reservationHeld'
-              ? 'exhausted'
-              : 'notOpen',
-        }),
+        actions: withGetPrime
+          ? renderGetPrimeButton({
+              featureId,
+              networkId,
+              afterPageExit,
+              freeTrialReason:
+                notice.kind === 'exhausted' || notice.kind === 'reservationHeld'
+                  ? 'exhausted'
+                  : 'notOpen',
+            })
+          : undefined,
       });
     },
-    [renderGetPrimeButton],
+    [intl, renderGetPrimeButton],
   );
 
   // Feedback after the user actively tried a feature that is exhausted or
-  // not open: a toast with a "Get Prime" button, never the dashboard by
-  // itself. When the quota is only held by live reservations of earlier uses,
-  // the toast says so instead, since nothing was used up and it comes back by
-  // itself. The server's reservation fields cover every device; an older
+  // not open. Used up: the dashboard opens right away, with a toast saying
+  // why. Not open: a toast with a "Get Prime" button. When the quota is only
+  // held by live reservations of earlier uses, the toast says so instead,
+  // since nothing was used up and it comes back by itself. The server's reservation fields cover every device; an older
   // server without them falls back to this device's own records.
   const showActiveRejectedFeedback = useCallback(
     ({
@@ -265,15 +269,22 @@ export function usePrimeFeatureAccess() {
           featureId,
           trigger: 'active',
         });
+        openPrimeDashboard({
+          featureId,
+          networkId,
+          freeTrialReason: 'exhausted',
+          afterPageExit,
+        });
         showFreeTrialNoticeToast({
           featureId,
           notice: { kind: 'exhausted', resetAt },
           networkId,
           afterPageExit,
+          withGetPrime: false,
         });
       })();
     },
-    [showFreeTrialNoticeToast],
+    [openPrimeDashboard, showFreeTrialNoticeToast],
   );
 
   const getResetAtOfSnapshot = useCallback(
