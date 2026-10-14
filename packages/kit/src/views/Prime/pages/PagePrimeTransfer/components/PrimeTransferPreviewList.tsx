@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Checkbox,
+  ListView,
   SizableText,
   Stack,
   Toast,
@@ -13,6 +14,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
+import { TokenListViewContext } from '@onekeyhq/kit/src/components/TokenListView/TokenListViewContext';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import type {
   IDBAccount,
@@ -26,6 +28,8 @@ import type {
   IPrimeTransferSelectedItemMap,
   IPrimeTransferSelectedItemMapInfo,
 } from '@onekeyhq/shared/types/prime/primeTransferTypes';
+
+import { usePrimeTransferPreviewNetworks } from './usePrimeTransferPreviewNetworks';
 
 import type { IPrimeTransferPreviewListProps } from './PrimeTransferPreviewList.types';
 
@@ -78,7 +82,9 @@ function PreviewItem({
   account,
   onSelect,
   selectedItemMapInfo,
+  networkId,
 }: {
+  networkId?: string;
   wallet?: IPrimeTransferHDWallet;
   account?: IPrimeTransferAccount;
   onSelect: (id: string) => void;
@@ -118,10 +124,7 @@ function PreviewItem({
           <WalletAvatar wallet={wallet as unknown as IDBWallet} />
         ) : null}
         {account ? (
-          <AccountAvatar
-            account={account as any}
-            networkId={account.createAtNetwork}
-          />
+          <AccountAvatar account={account as any} networkId={networkId} />
         ) : null}
         <YStack flex={1}>
           <SizableText
@@ -186,6 +189,30 @@ const walletSortFn = (a: IPrimeTransferHDWallet, b: IPrimeTransferHDWallet) =>
     b.walletOrder ?? b.walletOrderSaved ?? 0,
   );
 
+type IGroup = keyof IPrimeTransferSelectedItemMap;
+type IPreviewRow =
+  | {
+      kind: 'header';
+      key: string;
+      type: IGroup;
+      title: string;
+      isFirst: boolean;
+    }
+  | {
+      kind: 'wallet';
+      key: string;
+      type: 'wallet';
+      wallet: IPrimeTransferHDWallet;
+    }
+  | {
+      kind: 'account';
+      key: string;
+      type: 'importedAccount' | 'watchingAccount';
+      account: IPrimeTransferAccount;
+    };
+const LIST_CONTENT_STYLE = { paddingHorizontal: 20, paddingBottom: 20 };
+const previewRowKey = (row: IPreviewRow) => row.key;
+
 export function PrimeTransferPreviewList({
   data,
   selectedItemMap,
@@ -193,17 +220,13 @@ export function PrimeTransferPreviewList({
   onGroupSelectChange,
 }: IPrimeTransferPreviewListProps) {
   const { wallets, importedAccounts, watchingAccounts } = useMemo(() => {
-    const _wallets = Object.values(data.privateData.wallets);
-    const _importedAccounts = Object.values(data.privateData.importedAccounts);
-    const _watchingAccounts = Object.values(data.privateData.watchingAccounts);
+    const walletItems = Object.values(data.privateData.wallets);
+    const importedItems = Object.values(data.privateData.importedAccounts);
+    const watchingItems = Object.values(data.privateData.watchingAccounts);
     return {
-      wallets: _wallets.toSorted((a, b) => walletSortFn(a, b)),
-      importedAccounts: _importedAccounts.toSorted((a, b) =>
-        accountSortFn(a, b),
-      ),
-      watchingAccounts: _watchingAccounts.toSorted((a, b) =>
-        accountSortFn(a, b),
-      ),
+      wallets: walletItems.toSorted((a, b) => walletSortFn(a, b)),
+      importedAccounts: importedItems.toSorted((a, b) => accountSortFn(a, b)),
+      watchingAccounts: watchingItems.toSorted((a, b) => accountSortFn(a, b)),
     };
   }, [data]);
 
@@ -226,88 +249,113 @@ export function PrimeTransferPreviewList({
     [selectedItemMap],
   );
 
-  const walletGroupStatus = getGroupSelectStatus('wallet');
-  const importedAccountGroupStatus = getGroupSelectStatus('importedAccount');
-  const watchingAccountGroupStatus = getGroupSelectStatus('watchingAccount');
+  const networksMap = usePrimeTransferPreviewNetworks(data);
+  const networkContext = useMemo(() => ({ networksMap }), [networksMap]);
+  const rows = useMemo(() => {
+    const result: IPreviewRow[] = [];
+    const addGroup = (type: IGroup, title: string, items: IPreviewRow[]) => {
+      if (!items.length) return;
+      result.push({
+        kind: 'header',
+        key: `header:${type}`,
+        type,
+        title,
+        isFirst: result.length === 0,
+      });
+      for (const item of items) result.push(item);
+    };
+    addGroup(
+      'wallet',
+      intl.formatMessage({ id: ETranslations.global_software_wallet }),
+      wallets.map((wallet) => ({
+        kind: 'wallet',
+        key: `wallet:${wallet.id}`,
+        type: 'wallet',
+        wallet,
+      })),
+    );
+    addGroup(
+      'importedAccount',
+      intl.formatMessage({ id: ETranslations.wallet_label_private_key }),
+      importedAccounts.map((account) => ({
+        kind: 'account',
+        key: `importedAccount:${account.id}`,
+        type: 'importedAccount',
+        account,
+      })),
+    );
+    addGroup(
+      'watchingAccount',
+      intl.formatMessage({ id: ETranslations.global_watched }),
+      watchingAccounts.map((account) => ({
+        kind: 'account',
+        key: `watchingAccount:${account.id}`,
+        type: 'watchingAccount',
+        account,
+      })),
+    );
+    return result;
+  }, [wallets, importedAccounts, watchingAccounts, intl]);
+  const renderItem = useCallback(
+    ({ item }: { item: IPreviewRow }) => {
+      if (item.kind === 'header') {
+        const { isAllSelected } = getGroupSelectStatus(item.type);
+        return (
+          <PreviewHeader
+            title={item.title}
+            isFirst={item.isFirst}
+            buttonProps={{
+              isAllSelected,
+              onPress: () =>
+                onGroupSelectChange?.({
+                  type: item.type,
+                  selectAll: !isAllSelected,
+                }),
+            }}
+          />
+        );
+      }
+      const account = item.kind === 'account' ? item.account : undefined;
+      // Do not mount per-row network lookups while the batch is pending or absent.
+      const networkId = account?.createAtNetwork;
+      return (
+        <Stack pb={1}>
+          <PreviewItem
+            wallet={item.kind === 'wallet' ? item.wallet : undefined}
+            account={account}
+            networkId={
+              networkId && networksMap[networkId] ? networkId : undefined
+            }
+            selectedItemMapInfo={selectedItemMap[item.type]}
+            onSelect={(id) => onItemSelectChange?.({ type: item.type, id })}
+          />
+        </Stack>
+      );
+    },
+    [
+      getGroupSelectStatus,
+      networksMap,
+      onGroupSelectChange,
+      onItemSelectChange,
+      selectedItemMap,
+    ],
+  );
 
   return (
-    <Stack gap={1}>
-      {wallets?.length ? (
-        <PreviewHeader
-          title={intl.formatMessage({
-            id: ETranslations.global_software_wallet,
-          })}
-          isFirst
-          buttonProps={{
-            isAllSelected: walletGroupStatus.isAllSelected,
-            onPress: () =>
-              onGroupSelectChange?.({
-                type: 'wallet',
-                selectAll: !walletGroupStatus.isAllSelected,
-              }),
-          }}
-        />
-      ) : null}
-      {wallets.map((wallet) => (
-        <PreviewItem
-          key={wallet.id}
-          wallet={wallet}
-          selectedItemMapInfo={selectedItemMap.wallet}
-          onSelect={(id) => onItemSelectChange?.({ type: 'wallet', id })}
-        />
-      ))}
-
-      {importedAccounts?.length ? (
-        <PreviewHeader
-          title={intl.formatMessage({
-            id: ETranslations.wallet_label_private_key,
-          })}
-          buttonProps={{
-            isAllSelected: importedAccountGroupStatus.isAllSelected,
-            onPress: () =>
-              onGroupSelectChange?.({
-                type: 'importedAccount',
-                selectAll: !importedAccountGroupStatus.isAllSelected,
-              }),
-          }}
-        />
-      ) : null}
-      {importedAccounts.map((account) => (
-        <PreviewItem
-          key={account.id}
-          account={account}
-          selectedItemMapInfo={selectedItemMap.importedAccount}
-          onSelect={(id) =>
-            onItemSelectChange?.({ type: 'importedAccount', id })
-          }
-        />
-      ))}
-
-      {watchingAccounts?.length ? (
-        <PreviewHeader
-          title={intl.formatMessage({
-            id: ETranslations.global_watched,
-          })}
-          buttonProps={{
-            isAllSelected: watchingAccountGroupStatus.isAllSelected,
-            onPress: () =>
-              onGroupSelectChange?.({
-                type: 'watchingAccount',
-                selectAll: !watchingAccountGroupStatus.isAllSelected,
-              }),
-          }}
-        />
-      ) : null}
-      {watchingAccounts.map((account) => (
-        <PreviewItem
-          key={account.id}
-          account={account}
-          selectedItemMapInfo={selectedItemMap.watchingAccount}
-          onSelect={(id) =>
-            onItemSelectChange?.({ type: 'watchingAccount', id })
-          }
-        />
-      ))}
-    </Stack>
+    <TokenListViewContext.Provider value={networkContext}>
+      <ListView<IPreviewRow>
+        testID="prime-transfer-preview-list"
+        flex={1}
+        minHeight={0}
+        data={rows}
+        renderItem={renderItem}
+        keyExtractor={previewRowKey}
+        extraData={selectedItemMap}
+        initialNumToRender={12}
+        maxToRenderPerBatch={12}
+        windowSize={5}
+        contentContainerStyle={LIST_CONTENT_STYLE}
+      />
+    </TokenListViewContext.Provider>
   );
 }

@@ -459,19 +459,14 @@ export default function PagePrimeTransferPreview() {
   ]);
 
   return (
-    <Page scrollEnabled={!platformEnv.isNative}>
+    <Page>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.transfer_transfer_data_preview,
         })}
       />
       <Page.Body>
-        <Stack
-          flex={platformEnv.isNative ? 1 : undefined}
-          px={platformEnv.isNative ? undefined : '$5'}
-          pt="$2"
-          gap="$5"
-        >
+        <Stack flex={1} minHeight={0} pt="$2" gap="$5">
           {walletListView}
           {debugButtons}
         </Stack>

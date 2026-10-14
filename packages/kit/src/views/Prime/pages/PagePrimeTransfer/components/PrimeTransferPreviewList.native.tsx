@@ -4,8 +4,6 @@ import { NativeList } from '@onekeyfe/react-native-native-list';
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   accountSelectorAccountVisualV2,
   accountSelectorWalletVisualV2,
@@ -18,7 +16,12 @@ import type {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type { IPrimeTransferSelectedItemMap } from '@onekeyhq/shared/types/prime/primeTransferTypes';
+import type {
+  IPrimeTransferAccount,
+  IPrimeTransferSelectedItemMap,
+} from '@onekeyhq/shared/types/prime/primeTransferTypes';
+
+import { usePrimeTransferPreviewNetworks } from './usePrimeTransferPreviewNetworks';
 
 import type { IPrimeTransferPreviewListProps } from './PrimeTransferPreviewList.types';
 import type {
@@ -41,42 +44,13 @@ export function PrimeTransferPreviewList({
 }: IPrimeTransferPreviewListProps) {
   const intl = useIntl();
   const theme = useAccountSelectorNativeListThemeV2();
-  const accounts = useMemo(
-    () => [
-      ...Object.values(data.privateData.importedAccounts),
-      ...Object.values(data.privateData.watchingAccounts),
-    ],
-    [data],
-  );
-  const networkIds = useMemo(
-    () => [
-      ...new Set(
-        accounts
-          .map((account) => account.createAtNetwork)
-          .filter((id): id is string => !!id),
-      ),
-    ],
-    [accounts],
-  );
-  // Resolve badges once per network, not once per mounted account row.
-  const { result: networks } = usePromiseResult(
-    async () =>
-      networkIds.length
-        ? (
-            await backgroundApiProxy.serviceNetwork.getNetworksByIds({
-              networkIds,
-            })
-          ).networks
-        : [],
-    [networkIds],
-  );
-  const networksById = useMemo(
-    () => new Map(networks?.map((network) => [network.id, network])),
-    [networks],
-  );
+  const networksById = usePrimeTransferPreviewNetworks(data);
   const groups = useMemo(() => {
     const compare = natsort({ insensitive: true });
-    const accountRows = (items: typeof accounts, type: IGroup): IPreviewRow[] =>
+    const accountRows = (
+      items: IPrimeTransferAccount[],
+      type: IGroup,
+    ): IPreviewRow[] =>
       items
         .toSorted((a, b) =>
           compare(
@@ -101,7 +75,7 @@ export function PrimeTransferPreviewList({
             leading: accountSelectorAccountVisualV2({
               account: account as IDBAccount,
               network: account.createAtNetwork
-                ? (networksById.get(account.createAtNetwork) ??
+                ? (networksById[account.createAtNetwork] ??
                   networkUtils.getLocalNetworkInfo(account.createAtNetwork))
                 : undefined,
               theme,
