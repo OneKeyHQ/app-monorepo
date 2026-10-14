@@ -54,7 +54,7 @@ function AddressRiskCheckInput() {
   const { items: recentChecks, networkNameMap } = useRecentChecks({ limit: 3 });
   // Check history (incl. the recent list here) is open to any logged-in user,
   // Prime or free trial.
-  const { isLoggedIn } = useOneKeyAuth();
+  const { isLoggedIn, isPrimeSubscriptionActive } = useOneKeyAuth();
   const { ensureFeatureAccess } = usePrimeFeatureAccess();
   const canViewHistory = Boolean(isLoggedIn);
 
@@ -440,18 +440,21 @@ function AddressRiskCheckInput() {
       <Page.Footer>
         <Page.FooterActions
           gap="$3"
-          // A column on wide screens too, so the hint sits above the button.
-          $gtMd={{ flexDirection: 'column', alignItems: 'flex-end' }}
           onConfirmText={intl.formatMessage({
             id: ETranslations.address_risk_check_check_risk__action,
           })}
-          confirmButtonProps={{ disabled: !canCheck }}
+          confirmButtonProps={{
+            disabled: !canCheck,
+            iconAfter: isPrimeSubscriptionActive ? undefined : 'PrimeOutline',
+          }}
           onConfirm={handleCheck}
         >
+          {/* Left of the button on wide screens, above it on narrow ones. */}
           <PrimeFreeTrialRemainingHint
             featureId={EPrimeFeatures.AddressRiskCheck}
             networkId={networkId}
             $md={{ alignSelf: 'center' }}
+            $gtMd={{ flex: 1, justifyContent: 'flex-end' }}
           />
         </Page.FooterActions>
       </Page.Footer>

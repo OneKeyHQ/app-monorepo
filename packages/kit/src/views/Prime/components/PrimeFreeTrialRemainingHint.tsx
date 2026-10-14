@@ -3,12 +3,7 @@ import { useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Icon,
-  SizableText,
-  XStack,
-  useDialogInstance,
-} from '@onekeyhq/components';
+import { SizableText, XStack, useDialogInstance } from '@onekeyhq/components';
 import type { IXStackProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
@@ -206,7 +201,6 @@ export function PrimeFreeTrialRemainingHint({
   }
   return (
     <XStack gap="$1.5" alignItems="center" flexWrap="wrap" {...rest}>
-      <Icon name="PrimeOutline" size="$4" color="$iconSubdued" />
       {content}
     </XStack>
   );
