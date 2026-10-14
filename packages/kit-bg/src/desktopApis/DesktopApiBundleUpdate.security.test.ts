@@ -115,6 +115,14 @@ test.each([
         signature: 'signature',
       }),
     ).rejects.toThrow('Invalid bundle version');
+    await expect(
+      api.installBundle({
+        latestVersion: version,
+        bundleVersion: '123',
+        signature: 'signature',
+      }),
+    ).rejects.toThrow('Invalid bundle version');
+    expect(mockStore.setUpdateBundleData).not.toHaveBeenCalled();
     expect(mockDownload).not.toHaveBeenCalled();
     expect(fs.readFileSync(sentinel, 'utf8')).toBe('untouched');
     expect(fs.existsSync(path.join(mockUserData, 'onekey-bundle'))).toBe(false);
@@ -166,32 +174,45 @@ test('rejects an outside downloadedFile before hashing, parsing or deleting it',
   expect(fs.existsSync(path.join(mockUserData, 'onekey-bundle'))).toBe(false);
 });
 
-test('rejects poisoned fallback versions before changing active state or deleting files', async () => {
-  const params = {
-    latestVersion: '6.6.0',
-    bundleVersion: '123',
-    signature: 'signature',
-  };
-  fs.mkdirSync(
-    getBundleExtractDir({
-      appVersion: params.latestVersion,
-      bundleVersion: params.bundleVersion,
-    }),
-  );
-  mockStore.getFallbackUpdateBundleData.mockReturnValue([
-    {
-      appVersion: '6.6.0',
-      bundleVersion: '/../../outside',
+test.each([
+  {
+    fallback: [
+      {
+        appVersion: '6.6.0',
+        bundleVersion: '/../../outside',
+        signature: 'signature',
+      },
+    ],
+  },
+  { fallback: [null] },
+  { fallback: [{}] },
+  { fallback: 'invalid persisted array' },
+])(
+  'discards malformed fallback case %# without blocking a legal install',
+  async ({ fallback }) => {
+    const params = {
+      latestVersion: '6.6.0',
+      bundleVersion: '123',
       signature: 'signature',
-    },
-  ]);
-  await expect(api.installBundle(params)).rejects.toThrow(
-    'Invalid bundle version',
-  );
-  expect(mockStore.setUpdateBundleData).not.toHaveBeenCalled();
-  expect(restartSpy).not.toHaveBeenCalled();
-  expect(fs.readFileSync(sentinel, 'utf8')).toBe('untouched');
-});
+    };
+    fs.mkdirSync(
+      getBundleExtractDir({
+        appVersion: params.latestVersion,
+        bundleVersion: params.bundleVersion,
+      }),
+    );
+    mockStore.getFallbackUpdateBundleData.mockReturnValue(fallback);
+    await api.installBundle(params);
+    expect(mockStore.setUpdateBundleData).toHaveBeenCalledWith({
+      appVersion: '6.6.0',
+      bundleVersion: '123',
+      signature: 'signature',
+    });
+    expect(mockStore.setFallbackUpdateBundleData).toHaveBeenCalledWith([]);
+    expect(restartSpy).toHaveBeenCalledTimes(1);
+    expect(fs.readFileSync(sentinel, 'utf8')).toBe('untouched');
+  },
+);
 
 test('installs a legal bundle and prunes only a validated fallback directory', async () => {
   fs.mkdirSync(
@@ -256,5 +277,31 @@ test('keeps diagnostic methods available only in development builds', async () =
   await expect(api.getSha256FromFilePath(sentinel)).rejects.toThrow(
     'unavailable',
   );
+  expect(fs.readFileSync(sentinel, 'utf8')).toBe('untouched');
+});
+
+test('keeps legal fallbacks and omits a poisoned active pointer during installation', async () => {
+  fs.mkdirSync(
+    getBundleExtractDir({ appVersion: '6.6.0', bundleVersion: 'new' }),
+  );
+  const valid = {
+    appVersion: '6.6.0',
+    bundleVersion: 'old',
+    signature: 'signature',
+  };
+  const poisoned = {
+    appVersion: '6.6.0',
+    bundleVersion: '/../../outside',
+    signature: 'signature',
+  };
+  mockStore.getUpdateBundleData.mockReturnValue(poisoned);
+  mockStore.getFallbackUpdateBundleData.mockReturnValue([poisoned, valid]);
+  await api.installBundle({
+    latestVersion: '6.6.0',
+    bundleVersion: 'new',
+    signature: 'signature',
+  });
+  expect(mockStore.setFallbackUpdateBundleData).toHaveBeenCalledWith([valid]);
+  expect(restartSpy).toHaveBeenCalledTimes(1);
   expect(fs.readFileSync(sentinel, 'utf8')).toBe('untouched');
 });

@@ -899,19 +899,27 @@ class DesktopApiAppBundleUpdate {
       });
       throw new OneKeyLocalError('Invalid parameters');
     }
-    const currentUpdateBundleData = store.getUpdateBundleData();
-    const fallbackUpdateBundleData = store.getFallbackUpdateBundleData();
-    for (const entry of fallbackUpdateBundleData) {
-      assertSafeBundleVersion(entry?.appVersion);
-      assertSafeBundleVersion(entry?.bundleVersion);
-    }
-    if (
-      currentUpdateBundleData?.appVersion ||
-      currentUpdateBundleData?.bundleVersion
-    ) {
-      assertSafeBundleVersion(currentUpdateBundleData.appVersion);
-      assertSafeBundleVersion(currentUpdateBundleData.bundleVersion);
-    }
+    const isValidStoredBundle = (
+      entry: IDesktopStoreUpdateBundleData | undefined,
+    ) => {
+      try {
+        assertSafeBundleVersion(entry?.appVersion);
+        assertSafeBundleVersion(entry?.bundleVersion);
+        return true;
+      } catch {
+        logger.warn('bundle-install', 'Discarding invalid stored bundle');
+        return false;
+      }
+    };
+    const storedCurrentBundle = store.getUpdateBundleData();
+    const currentUpdateBundleData =
+      storedCurrentBundle && isValidStoredBundle(storedCurrentBundle)
+        ? storedCurrentBundle
+        : undefined;
+    const storedFallbacks = store.getFallbackUpdateBundleData();
+    const fallbackUpdateBundleData = Array.isArray(storedFallbacks)
+      ? storedFallbacks.filter(isValidStoredBundle)
+      : [];
 
     // Security: Verify bundle directory exists before updating store
     const extractDir = getBundleExtractDir({ appVersion, bundleVersion });

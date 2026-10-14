@@ -254,26 +254,6 @@ export default function DesktopApiProxyTestDevSettings() {
   }, []);
 
   // Storage Tests - Individual Methods
-  const testStorageSetItem = useCallback(async () => {
-    try {
-      await globalThis.desktopApiProxy.storage.storeSetItemAsync(
-        EDesktopStoreKeys.AppInstanceMetaBackup,
-        {
-          instanceId: 'desktop-api-test',
-          sensitiveEncodeKey: '',
-          instanceIdBackup: undefined,
-        },
-      );
-      Dialog.debugMessage({
-        debugMessage: { result: 'storeSetItemAsync() called successfully' },
-      });
-    } catch (error) {
-      Dialog.debugMessage({
-        debugMessage: { error: (error as Error)?.message },
-      });
-    }
-  }, []);
-
   const testStorageGetItem = useCallback(async () => {
     try {
       const value = await globalThis.desktopApiProxy.storage.storeGetItemAsync(
@@ -281,21 +261,6 @@ export default function DesktopApiProxyTestDevSettings() {
       );
       Dialog.debugMessage({
         debugMessage: { getValue: value },
-      });
-    } catch (error) {
-      Dialog.debugMessage({
-        debugMessage: { error: (error as Error)?.message },
-      });
-    }
-  }, []);
-
-  const testStorageDelItem = useCallback(async () => {
-    try {
-      await globalThis.desktopApiProxy.storage.storeDelItemAsync(
-        EDesktopStoreKeys.AppInstanceMetaBackup,
-      );
-      Dialog.debugMessage({
-        debugMessage: { result: 'storeDelItemAsync() called successfully' },
       });
     } catch (error) {
       Dialog.debugMessage({
@@ -786,24 +751,10 @@ export default function DesktopApiProxyTestDevSettings() {
         />
 
         <ListItem
-          title="storeSetItemAsync()"
-          subtitle="Set item in desktop store"
-          drillIn
-          onPress={testStorageSetItem}
-        />
-
-        <ListItem
           title="storeGetItemAsync()"
           subtitle="Get item from desktop store"
           drillIn
           onPress={testStorageGetItem}
-        />
-
-        <ListItem
-          title="storeDelItemAsync()"
-          subtitle="Delete item from desktop store"
-          drillIn
-          onPress={testStorageDelItem}
         />
 
         <ListItem
