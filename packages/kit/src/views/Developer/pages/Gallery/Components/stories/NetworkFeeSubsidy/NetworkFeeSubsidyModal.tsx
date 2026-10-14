@@ -14,6 +14,7 @@ import {
   ScrollView,
   SizableText,
   Stack,
+  Toast,
   XStack,
   YStack,
   useInModalDialog,
@@ -25,6 +26,7 @@ import type {
   ITestModalPagesParam,
 } from '@onekeyhq/shared/src/routes';
 
+import { DemoOneKeyIdLoginContent } from './DemoOneKeyIdLoginContent';
 import { EnergyArtwork } from './EnergyArtwork';
 import { TronClaimContent } from './TronClaimContent';
 import {
@@ -168,12 +170,11 @@ function SubsidyRecordList({ items }: { items: ISubsidyRecord[] }) {
           <Stack
             width="$8"
             height="$8"
-            bg="$bg"
-            borderRadius="$full"
+            flexShrink={0}
             alignItems="center"
             justifyContent="center"
           >
-            <Icon name={record.icon} size="$4" color="$iconSubdued" />
+            <Icon name={record.icon} size="$6" color="$iconSubdued" />
           </Stack>
           <YStack flex={1} minWidth={0} gap="$1">
             <XStack alignItems="baseline" gap="$3">
@@ -438,18 +439,25 @@ function NetworkFeeSubsidy() {
     [showRules],
   );
 
-  const showTronClaim = () => {
-    if (!signedIn) {
-      dialog.show({
-        title: '登录 OneKey ID',
-        description: '登录后选择 TRON 账户领取免费资源。',
-        nativeSheet: true,
-        boundedSheetLayout: true,
-        onConfirmText: '登录',
-        onConfirm: () => setSignedIn(true),
-      });
-      return;
-    }
+  const showLogin = (onSuccess?: () => void) => {
+    const loginDialog = dialog.show({
+      nativeSheet: true,
+      boundedSheetLayout: true,
+      showFooter: false,
+      renderContent: (
+        <DemoOneKeyIdLoginContent
+          onComplete={async () => {
+            await loginDialog.close();
+            setSignedIn(true);
+            onSuccess?.();
+            Toast.success({ title: '登录成功' });
+          }}
+        />
+      ),
+    });
+  };
+
+  const openTronClaim = () => {
     dialog.show({
       title: '领取 TRON 免费资源',
       nativeSheet: true,
@@ -461,19 +469,31 @@ function NetworkFeeSubsidy() {
     });
   };
 
+  const showTronClaim = () => {
+    if (!signedIn) {
+      showLogin(openTronClaim);
+      return;
+    }
+    openTronClaim();
+  };
+
   const showDetails = (benefit: IBenefit) => {
     if (benefit.id === 'tron') {
       showTronClaim();
       return;
     }
-    dialog.show({
+    const detailsDialog = dialog.show({
       title: benefit.title,
       nativeSheet: true,
       boundedSheetLayout: true,
       showCancelButton: false,
       onConfirmText: signedIn ? '知道了' : '登录 OneKey ID',
-      onConfirm: () => {
-        if (!signedIn) setSignedIn(true);
+      onConfirm: async ({ preventClose }) => {
+        if (!signedIn) {
+          preventClose();
+          await detailsDialog.close();
+          showLogin();
+        }
       },
       renderContent: (
         <YStack gap="$5" testID={`subsidy-drawer-${benefit.id}`}>
@@ -510,7 +530,7 @@ function NetworkFeeSubsidy() {
 
   return (
     <Page>
-      <Page.Header title="网络费补贴" headerRight={renderHeaderRight} />
+      <Page.Header title="补贴中心" headerRight={renderHeaderRight} />
       <Page.Body>
         <ScrollView
           flex={1}
@@ -532,10 +552,10 @@ function NetworkFeeSubsidy() {
                 width={240}
                 height={240}
                 mt={-24}
-                mb={-92}
+                mb={-116}
                 zIndex={1}
                 pointerEvents="none"
-                $gtMd={{ width: 280, height: 280, mt: -28, mb: -108 }}
+                $gtMd={{ width: 280, height: 280, mt: -28, mb: -136 }}
               >
                 <EnergyArtwork />
               </Stack>
@@ -544,9 +564,9 @@ function NetworkFeeSubsidy() {
                 borderRadius="$6"
                 borderCurve="continuous"
                 p="$4"
-                pt={80}
+                pt={96}
                 gap="$5"
-                $gtMd={{ pt: 92 }}
+                $gtMd={{ pt: 112 }}
               >
                 <YStack alignItems="center" gap="$2">
                   {signedIn ? (
@@ -565,18 +585,13 @@ function NetworkFeeSubsidy() {
                       </SizableText>
                     </>
                   ) : (
-                    <>
-                      <SizableText size="$headingXl" textAlign="center">
-                        网络费补贴
-                      </SizableText>
-                      <SizableText
-                        size="$bodyMd"
-                        color="$textSubdued"
-                        textAlign="center"
-                      >
-                        登录后查看并使用可用补贴。
-                      </SizableText>
-                    </>
+                    <SizableText
+                      size="$bodyLgMedium"
+                      textAlign="center"
+                      py="$2"
+                    >
+                      登录后即可享受网络费补贴
+                    </SizableText>
                   )}
                 </YStack>
                 {signedIn ? (
@@ -611,7 +626,7 @@ function NetworkFeeSubsidy() {
                     testID="subsidy-mock-login"
                     variant="accent"
                     size="large"
-                    onPress={() => setSignedIn(true)}
+                    onPress={() => showLogin()}
                   >
                     登录 OneKey ID
                   </Button>
@@ -687,6 +702,7 @@ function NetworkFeeSubsidy() {
                   <SizableText size="$headingMd">补贴记录</SizableText>
                   <Button
                     testID="subsidy-view-all-records"
+                    childrenAsText={false}
                     variant="tertiary"
                     size="small"
                     mx="$0"
@@ -711,7 +727,16 @@ function NetworkFeeSubsidy() {
                       });
                     }}
                   >
-                    查看更多
+                    <XStack alignItems="center" gap="$1">
+                      <SizableText size="$bodySm" color="$textDisabled">
+                        查看更多
+                      </SizableText>
+                      <Icon
+                        name="ChevronRightSmallOutline"
+                        size="$4"
+                        color="$iconDisabled"
+                      />
+                    </XStack>
                   </Button>
                 </XStack>
                 <SubsidyRecordList items={records.slice(0, 6)} />
