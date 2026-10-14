@@ -7,8 +7,7 @@ import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import type { IPrimeFreeTrialFeatureId } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 
-// Opening the Prime dashboard from the free-trial feedback. Needs no auth
-// provider, so the remaining-uses hint can use it inside dialogs.
+// Opening the Prime dashboard from the free-trial feedback.
 export function usePrimeFreeTrialUpgrade() {
   const navigation = useAppNavigation();
 
@@ -46,8 +45,7 @@ export function usePrimeFreeTrialUpgrade() {
     [navigation],
   );
 
-  // "Get Prime" of the exhausted toast and of the remaining hint (used up, or
-  // no free trial for the feature).
+  // "Get Prime" of the free-trial toasts.
   const getPrime = useCallback(
     ({
       featureId,

@@ -10,13 +10,13 @@ import {
   usePrimePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { getPrimeFreeTrialHeldReservationEnd } from '@onekeyhq/shared/src/utils/primeFreeTrialUtils';
 import type { IPrimeFreeTrialFeatureId } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 
 import { isPrimeFreeTrialTravelMode } from '../hooks/usePrimeFeatureAccess';
 import {
   getPrimeFreeTrialQuotaOfUser,
+  isPrimeFreeTrialStayOnPageFeature,
   resolvePrimeFreeTrialAccess,
 } from '../utils/primeFreeTrialAccess';
 import { getPrimeFreeTrialNoticeCopy } from '../utils/primeFreeTrialCopy';
@@ -121,7 +121,7 @@ export function PrimeFreeTrialRemainingHint({
   if (
     !isFreeUser ||
     isPrimeFreeTrialTravelMode() ||
-    featureId === EPrimeFeatures.DAppTranslate
+    isPrimeFreeTrialStayOnPageFeature(featureId)
   ) {
     return null;
   }
@@ -129,23 +129,24 @@ export function PrimeFreeTrialRemainingHint({
     return null;
   }
   // Rejection states read the same notice copy as the toasts.
-  let notice: IPrimeFreeTrialNotice | undefined;
+  const noticeHint = (notice: IPrimeFreeTrialNotice) =>
+    getPrimeFreeTrialNoticeCopy({ intl, featureId, notice }).hint;
+  let text: string;
   if (!featureQuota) {
-    notice = { kind: 'notOpen' };
+    text = noticeHint({ kind: 'notOpen' });
   } else if (heldUntil) {
-    notice = { kind: 'reservationHeld', heldUntil };
+    text = noticeHint({ kind: 'reservationHeld', heldUntil });
   } else if (featureQuota.remaining <= 0) {
-    notice = {
+    text = noticeHint({
       kind: 'exhausted',
       resetAt: access.status === 'exhausted' ? access.resetAt : undefined,
-    };
+    });
+  } else {
+    text = intl.formatMessage(
+      { id: ETranslations.prime_free_trial_remaining_uses__desc },
+      { count: featureQuota.remaining },
+    );
   }
-  const text = notice
-    ? getPrimeFreeTrialNoticeCopy({ intl, featureId, notice }).hint
-    : intl.formatMessage(
-        { id: ETranslations.prime_free_trial_remaining_uses__desc },
-        { count: featureQuota?.remaining ?? 0 },
-      );
   return (
     <SizableText size="$bodyMd" color="$textSubdued" {...rest}>
       {text}

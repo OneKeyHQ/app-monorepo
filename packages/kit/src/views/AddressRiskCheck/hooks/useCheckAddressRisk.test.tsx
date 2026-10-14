@@ -30,7 +30,7 @@ const mockHandleFreeTrialError = jest.fn<unknown, [unknown]>();
 const mockGetCachedAccess = jest.fn<{ status: string; resetAt?: number }, []>(
   () => ({ status: 'available' }),
 );
-const mockShowActiveRejectedFeedback = jest.fn<void, [unknown]>();
+const mockShowRejectedFeedbackOfAccess = jest.fn<void, [unknown, unknown]>();
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/prime', () => ({
   usePrimePersistAtom: () => [
@@ -46,8 +46,8 @@ jest.mock('../../Prime/hooks/usePrimeFeatureAccess', () => ({
   usePrimeFeatureAccess: () => ({
     handleFreeTrialError: (params: unknown) => mockHandleFreeTrialError(params),
     getCachedAccess: () => mockGetCachedAccess(),
-    showActiveRejectedFeedback: (params: unknown) =>
-      mockShowActiveRejectedFeedback(params),
+    showRejectedFeedbackOfAccess: (access: unknown, params: unknown) =>
+      mockShowRejectedFeedbackOfAccess(access, params),
   }),
 }));
 
@@ -352,8 +352,9 @@ describe('useCheckAddressRisk', () => {
     });
 
     await waitFor(() => {
-      expect(mockShowActiveRejectedFeedback).toHaveBeenCalledWith(
-        expect.objectContaining({ reason: 'exhausted', resetAt: 1000 }),
+      expect(mockShowRejectedFeedbackOfAccess).toHaveBeenCalledWith(
+        { status: 'exhausted', resetAt: 1000 },
+        expect.objectContaining({ networkId: riskResult.networkId }),
       );
     });
     expect(mockPush).not.toHaveBeenCalled();
@@ -361,7 +362,7 @@ describe('useCheckAddressRisk', () => {
 
   it('still opens the page of an address with a history result', async () => {
     mockPush.mockClear();
-    mockShowActiveRejectedFeedback.mockClear();
+    mockShowRejectedFeedbackOfAccess.mockClear();
     mockGetCachedAccess.mockReturnValueOnce({ status: 'exhausted' });
     mockGetCheck.mockResolvedValueOnce({ result: riskResult });
     const { result } = renderHook(() => useCheckAddressRisk());
@@ -377,7 +378,7 @@ describe('useCheckAddressRisk', () => {
     await waitFor(() => {
       expect(mockPush).toHaveBeenCalledTimes(1);
     });
-    expect(mockShowActiveRejectedFeedback).not.toHaveBeenCalled();
+    expect(mockShowRejectedFeedbackOfAccess).not.toHaveBeenCalled();
   });
 });
 

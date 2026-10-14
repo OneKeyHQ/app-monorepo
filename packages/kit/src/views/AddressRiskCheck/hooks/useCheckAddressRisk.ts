@@ -145,7 +145,7 @@ const OPEN_RESULT_GUARD_MS = 1000;
 export function useCheckAddressRisk() {
   const navigation = useAppNavigation();
   const lastOpenedAtRef = useRef(0);
-  const { getCachedAccess, showActiveRejectedFeedback } =
+  const { getCachedAccess, showRejectedFeedbackOfAccess } =
     usePrimeFeatureAccess();
 
   const checkRisk = useCallback(
@@ -179,17 +179,13 @@ export function useCheckAddressRisk() {
           openResult();
           return;
         }
-        showActiveRejectedFeedback({
+        showRejectedFeedbackOfAccess(access, {
           featureId: EPrimeFeatures.AddressRiskCheck,
-          reason: access.status,
-          resetAt: access.status === 'exhausted' ? access.resetAt : undefined,
           networkId,
-          reservation:
-            access.status === 'exhausted' ? access.featureQuota : undefined,
         });
       })();
     },
-    [getCachedAccess, navigation, showActiveRejectedFeedback],
+    [getCachedAccess, navigation, showRejectedFeedbackOfAccess],
   );
 
   return { checkRisk };

@@ -12,9 +12,6 @@ import type {
 
 import { PrimeFreeTrialRemainingHint } from './PrimeFreeTrialRemainingHint';
 
-const mockPushFullModal = jest.fn();
-const mockDialogClose = jest.fn();
-const mockUpgradeClick = jest.fn();
 const mockRefreshQuota = jest.fn();
 let mockQuota: IPrimeFreeTrialAtomData['quota'];
 let mockConfig: IPrimeFreeTrialAtomData['config'];
@@ -31,27 +28,9 @@ jest.mock('react-intl', () => {
 
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
-  function Container({
-    children,
-    testID,
-    onPress,
-  }: {
-    children?: ReactNode;
-    testID?: string;
-    onPress?: (event: { stopPropagation: () => void }) => void;
-  }) {
-    return React.createElement(
-      onPress ? 'button' : 'span',
-      { 'data-testid': testID, onClick: onPress },
-      children,
-    );
-  }
   return {
-    Icon: () => null,
-    SizableText: Container,
-    XStack: Container,
-    useDialogInstance: () => ({ close: mockDialogClose }),
-    rootNavigationRef: { current: undefined },
+    SizableText: ({ children }: { children?: ReactNode }) =>
+      React.createElement('span', null, children),
   };
 });
 
@@ -62,11 +41,6 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       refreshQuota: (params: unknown) => mockRefreshQuota(params) as unknown,
     },
   },
-}));
-
-jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
-  __esModule: true,
-  default: () => ({ pushFullModal: mockPushFullModal }),
 }));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/prime', () => ({
@@ -83,18 +57,6 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/prime', () => ({
 
 jest.mock('../hooks/usePrimeFeatureAccess', () => ({
   isPrimeFreeTrialTravelMode: () => false,
-}));
-
-jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
-  defaultLogger: {
-    prime: {
-      subscription: {
-        primeFreeTrialUpgradeClick: (...args: unknown[]) => {
-          mockUpgradeClick(...args);
-        },
-      },
-    },
-  },
 }));
 
 function setFeatureQuota(feature: IPrimeFreeTrialFeatureQuota) {
@@ -202,7 +164,6 @@ describe('PrimeFreeTrialRemainingHint', () => {
 
     expect(screen.getByText(/^本月免费次数已用完。.+ 重置$/)).toBeTruthy();
     expect(screen.queryByText('获取 Prime')).toBeNull();
-    expect(mockPushFullModal).not.toHaveBeenCalled();
   });
 
   it('says when a quota held by a live reservation comes back', () => {

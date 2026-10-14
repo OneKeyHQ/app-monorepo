@@ -69,14 +69,14 @@ export function getPrimeFreeTrialNoticeCopy({
             )
           : undefined,
         // Translate shows no remaining hint, so the hint is always in uses.
-        hint: date
-          ? intl.formatMessage(
-              { id: ETranslations.prime_free_trial_no_uses_left_resets__desc },
-              { date },
-            )
-          : intl.formatMessage({
-              id: ETranslations.prime_free_trial_no_uses_left__desc,
-            }),
+        hint: intl.formatMessage(
+          {
+            id: date
+              ? ETranslations.prime_free_trial_no_uses_left_resets__desc
+              : ETranslations.prime_free_trial_no_uses_left__desc,
+          },
+          { date },
+        ),
       };
     }
     case 'reservationHeld': {
@@ -95,16 +95,14 @@ export function getPrimeFreeTrialNoticeCopy({
               { time },
             )
           : undefined,
-        hint: time
-          ? intl.formatMessage(
-              {
-                id: ETranslations.prime_free_trial_use_in_progress_returns__desc,
-              },
-              { time },
-            )
-          : intl.formatMessage({
-              id: ETranslations.prime_free_trial_use_in_progress__desc,
-            }),
+        hint: intl.formatMessage(
+          {
+            id: time
+              ? ETranslations.prime_free_trial_use_in_progress_returns__desc
+              : ETranslations.prime_free_trial_use_in_progress__desc,
+          },
+          { time },
+        ),
       };
     }
     case 'notOpen':
