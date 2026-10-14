@@ -39,7 +39,9 @@ import {
   TRADING_VIEW_NATIVE_VOLUME_LEGEND_TOP_PADDING as VOLUME_LEGEND_TOP_PADDING,
   TRADING_VIEW_NATIVE_VOLUME_OPACITY as VOLUME_OPACITY,
 } from '../chartConstants';
+import { drawingPointToScreen } from '../drawings/model';
 
+import { getTradingViewNativeCandleTimestampAtOffset } from './candleTime';
 import { appendTradingViewNativeChartComponentCommands } from './chartComponentScene';
 import { getTradingViewNativeChartComponentPriceAxisLabel } from './chartComponentTree';
 import {
@@ -107,8 +109,10 @@ import type {
   ITradingViewNativeSubIndicatorLegendHitRegion,
   ITradingViewNativeSubIndicatorRenderPane,
 } from './subIndicatorRender';
+import type { IDrawing } from '../drawings/model';
 import type {
   ITradingViewNativeCandleLabels,
+  ITradingViewNativeCandleTimeMode,
   ITradingViewNativeChartLeafComponent,
   ITradingViewNativeChartType,
   ITradingViewNativePriceScaleMode,
@@ -251,7 +255,9 @@ export type ITradingViewNativeChartSceneCommand =
 
 export interface IBuildTradingViewNativeChartSceneOptions {
   candleIntervalSeconds: number;
+  candleTimeMode?: ITradingViewNativeCandleTimeMode;
   chartComponents?: readonly ITradingViewNativeChartLeafComponent[];
+  chartDrawings?: readonly IDrawing[];
   chartSettings?: ITradingViewNativeChartSettings;
   chartType: ITradingViewNativeChartType;
   crosshair: ITradingViewNativeChartRuntimeCrosshair;
@@ -670,7 +676,9 @@ function appendLegendCommands({
 
 export function buildTradingViewNativeChartScene({
   candleIntervalSeconds,
+  candleTimeMode,
   chartComponents = [],
+  chartDrawings = [],
   chartSettings,
   chartType,
   crosshair,
@@ -1182,10 +1190,27 @@ export function buildTradingViewNativeChartScene({
           zoomScale,
         })
       : null;
-  const crosshairPoint =
-    crosshairPointIndex === null ? null : points[crosshairPointIndex];
-  const crosshairX =
-    crosshairPointIndex === null ? null : getPointX(crosshairPointIndex);
+  let crosshairX: number | null = null;
+  let crosshairTimestamp: number | null = null;
+  if (crosshair.visible && (chartSettings?.options.crossLine ?? true)) {
+    if (crosshairPointIndex !== null) {
+      crosshairX = getPointX(crosshairPointIndex);
+      crosshairTimestamp = points[crosshairPointIndex].t;
+    } else {
+      crosshairX = crosshair.x;
+      const anchorIndex = crosshairX < getPointX(0) ? 0 : points.length - 1;
+      const distance = Math.round(
+        (crosshairX - getPointX(anchorIndex)) /
+          (TRADING_VIEW_NATIVE_CANDLE_STEP * zoomScale),
+      );
+      crosshairTimestamp = getTradingViewNativeCandleTimestampAtOffset({
+        timestamp: points[anchorIndex].t,
+        candleIntervalSeconds,
+        candleTimeMode,
+        offset: distance,
+      });
+    }
+  }
   const crosshairY =
     crosshairX === null ? null : Math.min(Math.max(crosshair.y, 0), timeAxisY);
   if (crosshairX !== null && crosshairY !== null) {
@@ -1228,7 +1253,7 @@ export function buildTradingViewNativeChartScene({
   const previousLegendPoint =
     legendPointIndex > 0 ? points[legendPointIndex - 1] : undefined;
   const legend = getTradingViewNativeChartLegend(
-    crosshairPoint ?? legendPoint,
+    legendPoint,
     candleLabels,
     chartType,
     previousLegendPoint?.c,
@@ -1337,9 +1362,23 @@ export function buildTradingViewNativeChartScene({
           ? { price: latestPoint.c, top: currentPriceLayout.labelTop }
           : undefined,
       customPaintStyles,
+      drawings: chartDrawings.filter((drawing) => {
+        if (drawing.tool !== 'horizontalRay') return true;
+        const anchor = drawing.points[0];
+        return (
+          anchor &&
+          drawingPointToScreen(anchor, {
+            layout,
+            points,
+            interval: candleIntervalSeconds,
+            viewport: normalizedViewport,
+          }).x <= priceAxisX
+        );
+      }),
       maxPrice,
       measureTextWidth,
       minPrice,
+      priceAxisFontSize,
       priceAxisX,
       priceChartHeight,
       priceScaleMode: resolvedPriceScaleMode,
@@ -1403,8 +1442,13 @@ export function buildTradingViewNativeChartScene({
     ...chartComponentCommandLayers.textLabelCommands,
   );
 
-  if (crosshairPoint && crosshairX !== null && crosshairY !== null) {
+  if (
+    crosshairTimestamp !== null &&
+    crosshairX !== null &&
+    crosshairY !== null
+  ) {
     const crosshairPrice = getTradingViewNativePriceAtY({
+      allowOutsideChart: crosshairY < (hasVolume ? volumeTop : mainChartBottom),
       maxPrice,
       minPrice,
       priceChartHeight,
@@ -1467,7 +1511,7 @@ export function buildTradingViewNativeChartScene({
     }
 
     const timeLabel = formatTradingViewNativeCrosshairTime(
-      crosshairPoint.t,
+      crosshairTimestamp,
       candleIntervalSeconds,
     );
     const timeTextWidth = measureTextWidth(timeLabel, 'axis');
@@ -1518,6 +1562,7 @@ export function buildTradingViewNativeChartScene({
 
   appendTradingViewNativeTradeMarkCommands({
     candleIntervalSeconds,
+    candleTimeMode,
     commands,
     components: chartComponents,
     crosshair,

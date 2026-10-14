@@ -17,7 +17,7 @@ import { InviteTabContent } from './InviteTabContent';
 
 const mockCopyText = jest.fn();
 const mockCopyUrl = jest.fn();
-const mockBindWalletInviteCode = jest.fn();
+const mockShowReferralShareDialog = jest.fn();
 const mockNavigateToYourReferred = jest.fn();
 const mockNavigateToInviteCodes = jest.fn();
 const mockNavigateToEditAddress = jest.fn();
@@ -27,15 +27,6 @@ const mockNavigateToPerpsReward = jest.fn();
 const mockNavigateToSwapReward = jest.fn();
 const mockNavigateToEarnReward = jest.fn();
 let mockMd = false;
-
-const mockHeroImageProps: Array<{
-  controlRef?: unknown;
-  preloadOtherStep?: boolean;
-}> = [];
-
-let mockWalletsWithStatus: Array<{ status: string }> | undefined = [
-  { status: 'bindable' },
-];
 
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -71,6 +62,7 @@ jest.mock('@onekeyhq/components', () => {
   const hooks: Record<string, unknown> = {
     useMedia: () => ({ md: mockMd, gtMd: !mockMd }),
     useClipboard: () => ({ copyText: mockCopyText, copyUrl: mockCopyUrl }),
+    usePageWidth: () => 393,
   };
   return new Proxy(
     {},
@@ -81,26 +73,14 @@ jest.mock('@onekeyhq/components', () => {
   );
 });
 
-jest.mock(
-  '@onekeyhq/kit/src/views/ReferFriends/pages/ReferAFriend/components/InviteCodeStepImage',
-  () => ({
-    InviteCodeStepImage: (props: (typeof mockHeroImageProps)[number]) => {
-      mockHeroImageProps.push(props);
-      return null;
-    },
-  }),
-);
+jest.mock('@onekeyhq/kit/src/hooks/useThemeVariant', () => ({
+  useThemeVariant: () => 'light',
+}));
 
 jest.mock('@onekeyhq/kit/src/components/NetworkAvatar', () => ({
   NetworkAvatar: ({ networkId }: { networkId: string }) => (
     <div data-testid={`network-avatar-${networkId}`} />
   ),
-}));
-
-jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
-  useActiveAccount: () => ({
-    activeAccount: { wallet: { id: 'hd-1' } },
-  }),
 }));
 
 jest.mock('react-intl', () => ({
@@ -121,7 +101,6 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
       page: {
         copyReferralCode: jest.fn(),
         shareReferralLink: jest.fn(),
-        inviteBindRowShown: jest.fn(),
       },
     },
   },
@@ -169,19 +148,6 @@ jest.mock('@onekeyhq/kit/src/components/InfoIcon', () => ({
 }));
 
 jest.mock(
-  '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode',
-  () => ({
-    useFetchWalletsWithBoundStatus: () => ({
-      walletsWithStatus: mockWalletsWithStatus,
-      refreshWalletsWithStatus: jest.fn(),
-    }),
-    useWalletBoundReferralCode: () => ({
-      bindWalletInviteCode: mockBindWalletInviteCode,
-    }),
-  }),
-);
-
-jest.mock(
   '@onekeyhq/kit/src/views/ReferFriends/pages/YourReferred/hooks',
   () => ({ useNavigateToYourReferred: () => mockNavigateToYourReferred }),
 );
@@ -208,6 +174,15 @@ jest.mock(
   () => ({ useNavigateToEarnReward: () => mockNavigateToEarnReward }),
 );
 
+jest.mock(
+  '@onekeyhq/kit/src/views/ReferFriends/components/ReferralShare',
+  () => ({
+    showReferralShareDialog: (data: unknown) => {
+      mockShowReferralShareDialog(data);
+    },
+    getReferralShareCopy: () => ({ headlineId: 'headline', shareText: '' }),
+  }),
+);
 jest.mock('./ReferralLinkDropdown', () => ({
   ReferralLinkDropdown: () => null,
 }));
@@ -293,7 +268,6 @@ describe('InviteTabContent entry points', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockMd = false;
-    mockWalletsWithStatus = [{ status: 'bindable' }];
   });
 
   it('copies the invite link and the invite code', () => {
@@ -304,6 +278,40 @@ describe('InviteTabContent entry points', () => {
 
     fireEvent.click(screen.getByTestId(ReferFriendsTestIDs.inviteCodeLine));
     expect(mockCopyText).toHaveBeenCalledWith(SUMMARY.inviteCode);
+  });
+
+  it('copies the code and the link from their whole rows on compact', () => {
+    mockMd = true;
+    renderTab();
+
+    fireEvent.click(screen.getByTestId(ReferFriendsTestIDs.inviteLinkRow));
+    expect(mockCopyUrl).toHaveBeenCalledTimes(1);
+    expect(mockCopyUrl).toHaveBeenCalledWith(SUMMARY.inviteUrl);
+
+    fireEvent.click(screen.getByTestId(ReferFriendsTestIDs.inviteCodeRow));
+    expect(mockCopyText).toHaveBeenCalledTimes(1);
+    expect(mockCopyText).toHaveBeenCalledWith(SUMMARY.inviteCode);
+  });
+
+  it('opens the share card from the desktop invite card', () => {
+    renderTab();
+
+    fireEvent.click(screen.getByTestId(ReferFriendsTestIDs.inviteShareCardBtn));
+    expect(mockShowReferralShareDialog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        inviteCode: SUMMARY.inviteCode,
+        inviteUrl: SUMMARY.inviteUrl,
+      }),
+    );
+  });
+
+  it('keeps the share card on the footer on compact layouts', () => {
+    mockMd = true;
+    renderTab();
+
+    expect(
+      screen.queryByTestId(ReferFriendsTestIDs.inviteShareCardBtn),
+    ).toBeNull();
   });
 
   it('opens the invite codes page from the code line', () => {
@@ -380,51 +388,13 @@ describe('InviteTabContent entry points', () => {
     ).toBeTruthy();
   });
 
-  it('hands the hero animation control to the page', () => {
+  it('shows the hero as a still image on compact layouts', () => {
     mockMd = true;
-    mockHeroImageProps.length = 0;
-    const controlRef = { current: null };
-    render(
-      <InviteTabContent
-        summaryInfo={SUMMARY}
-        fetchSummaryInfo={jest.fn()}
-        levelDetail={undefined}
-        heroAnimationControlRef={controlRef}
-      />,
-    );
-
-    const props = mockHeroImageProps.at(-1);
-    expect(props?.controlRef).toBe(controlRef);
-    // The home shows one animation, so it skips the intro's other one.
-    expect(props?.preloadOtherStep).toBe(false);
-  });
-
-  it.each([
-    { wallets: undefined, shown: false },
-    { wallets: [{ status: 'expired' }], shown: false },
-    { wallets: [{ status: 'bindable' }], shown: true },
-  ])(
-    'shows the bind prompt only when a wallet can bind (%#)',
-    ({ wallets, shown }) => {
-      mockWalletsWithStatus = wallets;
-      renderTab();
-
-      expect(
-        Boolean(screen.queryByTestId(ReferFriendsTestIDs.inviteBindRow)),
-      ).toBe(shown);
-    },
-  );
-
-  it('opens the bind referral code dialog', () => {
     renderTab();
 
-    fireEvent.click(screen.getByTestId(ReferFriendsTestIDs.inviteBindRow));
-    expect(mockBindWalletInviteCode).toHaveBeenCalledWith(
-      expect.objectContaining({
-        source: 'invite_home',
-        preferredWalletId: 'hd-1',
-      }),
-    );
+    expect(
+      screen.getByTestId(ReferFriendsTestIDs.inviteHeroImage),
+    ).toBeTruthy();
   });
 
   it.each([false, true])(
@@ -434,10 +404,8 @@ describe('InviteTabContent entry points', () => {
       renderTab();
 
       fireEvent.click(screen.getByText(ETranslations.referral_referred_type_3));
-      fireEvent.click(screen.getByText(ETranslations.referral_perps));
-      fireEvent.click(
-        screen.getByText(ETranslations.swap_referral_link__title),
-      );
+      fireEvent.click(screen.getByText(ETranslations.perps_perps));
+      fireEvent.click(screen.getByText(ETranslations.global_swap));
       fireEvent.click(screen.getByText(ETranslations.referral_referred_type_2));
 
       expect(mockNavigateToHardwareSalesReward).toHaveBeenCalledTimes(1);
@@ -455,7 +423,7 @@ describe('InviteTabContent entry points', () => {
       Onchain: { ...SUMMARY.Onchain, available: [], swap: [] },
     } as unknown as IInviteSummary);
 
-    expect(screen.queryByText(ETranslations.referral_perps)).toBeNull();
+    expect(screen.queryByText(ETranslations.perps_perps)).toBeNull();
   });
 
   it('explains hardware pending rewards without repeating the payout date', () => {

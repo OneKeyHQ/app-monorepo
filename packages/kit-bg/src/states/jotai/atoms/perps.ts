@@ -45,7 +45,6 @@ import { globalAtom, globalAtomComputedR } from '../utils';
 
 import { hyperLiquidAgentPasswordStatusAtom } from './passwordLock';
 
-import type { IMarketTradingViewLayout } from './market';
 import type { IPerpDynamicTab } from '../../../services/ServiceWebviewPerp/ServiceWebviewPerp';
 import type { IAccountDeriveTypes } from '../../../vaults/types';
 
@@ -65,19 +64,6 @@ export const {
   persist: true,
   name: EAtomNames.perpsTradingViewIndicatorSettingsPersistAtom,
   initialValue: createTradingViewNativeIndicatorSettings(),
-});
-
-export const {
-  target: perpsTradingViewLayoutPersistAtom,
-  use: usePerpsTradingViewLayoutPersistAtom,
-} = globalAtom<IMarketTradingViewLayout>({
-  persist: true,
-  name: EAtomNames.perpsTradingViewLayoutPersistAtom,
-  initialValue: {
-    panelCount: 1,
-    panelOrder: ['main', 'panel-2', 'panel-3', 'panel-4'],
-    panelSettings: {},
-  },
 });
 
 // Shared by Market entries and Web Perps, including expanded extension windows.
@@ -249,17 +235,18 @@ export function getPerpsAccountDisplaySnapshotEntry({
 // #region Abstraction Mode
 export type IPerpsAbstractionModeSource = 'live' | 'cache';
 
-export const {
-  target: perpsAbstractionModeAtom,
-  use: usePerpsAbstractionModeAtom,
-} = globalAtom<
+export type IPerpsAbstractionModeAtom =
   | {
       accountAddress: IHex | undefined;
       mode: EHyperLiquidAbstractionMode | undefined;
       source?: IPerpsAbstractionModeSource;
     }
-  | undefined
->({
+  | undefined;
+
+export const {
+  target: perpsAbstractionModeAtom,
+  use: usePerpsAbstractionModeAtom,
+} = globalAtom<IPerpsAbstractionModeAtom>({
   name: EAtomNames.perpsAbstractionModeAtom,
   initialValue: undefined,
 });
@@ -376,6 +363,7 @@ export const { target: perpsSpotBalancesAtom, use: usePerpsSpotBalancesAtom } =
 export type IPerpsLiquidationRiskInputsAtom =
   | {
       accountAddress: IHex;
+      abstractionMode: EHyperLiquidAbstractionMode;
       tokenToAvailableAfterMaintenance?: Record<number, string>;
       crossMarginByDex?: Record<string, IPerpsDexCrossMargin>;
     }
@@ -1169,6 +1157,7 @@ export interface IPerpsCustomSettings {
   showTradeMarks: boolean;
   showChartLines: boolean;
   chartPosition?: IPerpsChartPosition;
+  chartMode?: 'native' | 'tradingView';
   hideSmallSpotHoldings: boolean;
   lastTriggerOrderType: ETriggerOrderType;
   lastAdvancedOrderType?: IPerpsLastAdvancedOrderType;
@@ -1185,6 +1174,7 @@ export const {
     showTradeMarks: true,
     showChartLines: true,
     chartPosition: 'bottom',
+    chartMode: 'tradingView',
     hideSmallSpotHoldings: true,
     lastTriggerOrderType: ETriggerOrderType.TRIGGER_MARKET,
     lastAdvancedOrderType: ETriggerOrderType.TRIGGER_MARKET,

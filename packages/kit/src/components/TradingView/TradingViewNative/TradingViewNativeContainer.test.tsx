@@ -3,11 +3,18 @@
  */
 
 import type { ReactElement, ReactNode, SetStateAction } from 'react';
-import { Suspense, startTransition, use, useState } from 'react';
+import {
+  Suspense,
+  isValidElement,
+  startTransition,
+  use,
+  useState,
+} from 'react';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import { getMarketDetailTradingViewNativeSource } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/getMarketDetailTradingViewNativeSource';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 import {
   type ITradingViewNativeChartSettings,
@@ -721,14 +728,39 @@ describe('TradingViewNativeContainer', () => {
         -1,
       )?.[0] as {
         mobileSettingsControl: ReactElement<{
-          onBeforeOpenSettings: () => void;
+          children?: ReactNode;
+          onBeforeOpenSettings?: () => void;
         }>;
       };
       return props.mobileSettingsControl;
     };
+    const getSettingsAction = (
+      control: ReactElement<{
+        children?: ReactNode;
+        onBeforeOpenSettings?: () => void;
+      }>,
+    ) => {
+      if (typeof control.props.onBeforeOpenSettings === 'function') {
+        return control.props.onBeforeOpenSettings;
+      }
+      const children = Array.isArray(control.props.children)
+        ? control.props.children
+        : [control.props.children];
+      const settingsButton = children.find(
+        (child): child is ReactElement<{ onBeforeOpenSettings: () => void }> =>
+          isValidElement<{ onBeforeOpenSettings?: () => void }>(child) &&
+          typeof child.props.onBeforeOpenSettings === 'function',
+      );
+      if (!settingsButton) {
+        throw new OneKeyLocalError('Missing toolbar settings button');
+      }
+      return settingsButton.props.onBeforeOpenSettings;
+    };
     const { rerender } = render(chart());
     const settingsControl = getSettingsControl();
-    act(() => settingsControl.props.onBeforeOpenSettings());
+    act(() => {
+      getSettingsAction(settingsControl)();
+    });
     expect(onFullscreenChange).not.toHaveBeenCalled();
 
     mockPoints = [{ o: 100, h: 110, l: 99, c: 105, v: 10, t: 1000 }];
@@ -736,7 +768,9 @@ describe('TradingViewNativeContainer', () => {
     expect(getSettingsControl()).toBe(settingsControl);
 
     rerender(chart(true));
-    act(() => getSettingsControl().props.onBeforeOpenSettings());
+    act(() => {
+      getSettingsAction(getSettingsControl())();
+    });
     expect(onFullscreenChange).toHaveBeenCalledWith(false);
   });
 

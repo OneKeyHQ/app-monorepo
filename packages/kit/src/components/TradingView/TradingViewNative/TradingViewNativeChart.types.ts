@@ -6,6 +6,7 @@ import type { ITradingViewNativeChartSettings } from '@onekeyhq/shared/types/tra
 import type { ITradingViewNativeChartRuntime } from './native/chartRuntime';
 import type {
   ITradingViewNativeCandleLabels,
+  ITradingViewNativeCandleTimeMode,
   ITradingViewNativeChartLeafComponent,
   ITradingViewNativeChartType,
   ITradingViewNativeInitialRightOffset,
@@ -26,12 +27,14 @@ import type { SharedValue } from 'react-native-reanimated';
 export interface ITradingViewNativeChartProps {
   drawingStorageKey?: string;
   enableDrawings?: boolean;
+  prioritizePageScroll?: boolean;
   /** Owned by the data controller so native presentation changes retain the viewport. */
   runtimeRef?: RefObject<{
     runtime: SharedValue<ITradingViewNativeChartRuntime>;
     decayOffset: SharedValue<number>;
   } | null>;
   candleIntervalSeconds: number;
+  candleTimeMode?: ITradingViewNativeCandleTimeMode;
   chartComponents: readonly ITradingViewNativeChartLeafComponent[];
   onReferenceLineAction?: (
     action: ITradingViewNativeReferenceLineAction,

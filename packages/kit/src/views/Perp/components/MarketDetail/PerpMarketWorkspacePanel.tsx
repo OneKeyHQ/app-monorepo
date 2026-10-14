@@ -3,8 +3,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { SizableText, XStack, YStack } from '@onekeyhq/components';
-import type { ITradingViewChartMode } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
-import { TradingViewChartModeSelect } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 import { usePerpsLayoutStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
@@ -69,8 +67,6 @@ export function PerpMarketWorkspacePanel({
   const intl = useIntl();
   const [activeView, setActiveView] =
     useState<IPerpMarketWorkspaceView>('chart');
-  const [chartMode, setChartMode] =
-    useState<ITradingViewChartMode>('tradingView');
   const [, setLayoutState] = usePerpsLayoutStateAtom();
   const { baseName, coin, displayName, mode } = useActiveTradeDisplay();
   const visibleActiveView =
@@ -93,15 +89,6 @@ export function PerpMarketWorkspacePanel({
     string | undefined
   >();
   const [collapseChartExpandSignal, setCollapseChartExpandSignal] = useState(0);
-
-  const handleChartSwitch = useCallback(() => {
-    setLayoutState((prev) =>
-      prev.chartExpanded ? { ...prev, chartExpanded: false } : prev,
-    );
-    setChartMode((current) =>
-      current === 'native' ? 'tradingView' : 'native',
-    );
-  }, [setLayoutState]);
 
   const handleChangeActiveView = useCallback(
     (view: IPerpMarketWorkspaceView) => {
@@ -182,14 +169,6 @@ export function PerpMarketWorkspacePanel({
             onPress={() => handleChangeActiveView(item.key)}
           />
         ))}
-        {visibleActiveView === 'chart' ? (
-          <XStack marginLeft="auto" alignItems="center">
-            <TradingViewChartModeSelect
-              chartMode={chartMode}
-              onChartSwitch={handleChartSwitch}
-            />
-          </XStack>
-        ) : null}
       </XStack>
 
       <YStack flex={1} minHeight={0} position="relative">
@@ -199,7 +178,6 @@ export function PerpMarketWorkspacePanel({
           display={visibleActiveView === 'chart' ? 'flex' : 'none'}
         >
           <PerpCandles
-            chartMode={chartMode}
             collapseChartExpandSignal={collapseChartExpandSignal}
             onTouchScroll={onTouchScroll}
           />

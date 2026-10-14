@@ -1,8 +1,17 @@
+// oxlint-disable no-template-curly-in-string -- electron-builder template syntax
+// The supplemental runtime is absent from dll/arm64 because Microsoft's ARM64
+// redistributable provides an AMD64 copy and no packaged ARM64 binary imports it.
 const DLLs = [
-  { from: 'dll/msvcp140.dll', to: 'msvcp140.dll' },
-  { from: 'dll/vccorlib140.dll', to: 'vccorlib140.dll' },
-  { from: 'dll/vcruntime140_1.dll', to: 'vcruntime140_1.dll' },
-  { from: 'dll/vcruntime140.dll', to: 'vcruntime140.dll' },
+  {
+    from: 'dll/${arch}',
+    to: '.',
+    filter: [
+      'msvcp140.dll',
+      'vccorlib140.dll',
+      'vcruntime140_1.dll',
+      'vcruntime140.dll',
+    ],
+  },
 ];
 
 module.exports = DLLs;

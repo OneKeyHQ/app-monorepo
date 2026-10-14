@@ -23,7 +23,6 @@ import type {
 } from '@onekeyhq/shared/src/referralCode/type';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
-import { REFERRAL_USD_CURRENCY_PROPS } from '../../shared/getRewardSummary';
 import {
   INVITE_CARD_BORDER_COLOR,
   useInviteListCardStyle,
@@ -79,109 +78,134 @@ function InviteCodeRow({
   );
   const copyLinkButton = <CopyLinkSplitButton url={item.inviteUrl} />;
 
-  const details = (
-    <YStack flex={1} gap="$1" minWidth={0}>
-      <XStack ai="center" gap="$1.5">
-        <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={1}>
-          {item.code}
-        </SizableText>
-        <IconButton
-          testID={ReferFriendsTestIDs.codeCellCopyBtn}
-          variant="tertiary"
-          size="small"
-          icon="Copy3Outline"
-          title={intl.formatMessage({ id: ETranslations.global_copy })}
-          onPress={() => {
-            void copyText(item.code);
-          }}
-        />
-        {item.isPrimary ? (
-          // The invite page shows this code.
-          <Badge badgeType="default" badgeSize="sm">
-            {intl.formatMessage({
-              id: ETranslations.referral_code_default__title,
-            })}
-          </Badge>
-        ) : null}
-        {md ? (
-          <>
-            <Stack flex={1} />
-            {editButton}
-          </>
-        ) : null}
-      </XStack>
-      {item.note ? (
-        <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-          {item.note}
-        </SizableText>
+  const header = (
+    <XStack ai="center" gap="$1.5">
+      <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={1}>
+        {item.code}
+      </SizableText>
+      <IconButton
+        testID={ReferFriendsTestIDs.codeCellCopyBtn}
+        variant="tertiary"
+        size="small"
+        icon="Copy3Outline"
+        title={intl.formatMessage({ id: ETranslations.global_copy })}
+        onPress={() => {
+          void copyText(item.code);
+        }}
+      />
+      {item.isPrimary ? (
+        // The invite page shows this code.
+        <Badge badgeType="default" badgeSize="sm">
+          {intl.formatMessage({
+            id: ETranslations.referral_code_default__title,
+          })}
+        </Badge>
       ) : null}
-      {/* Separate text runs so a narrow row wraps between facts, not inside
-          one. */}
-      <XStack ai="center" columnGap="$1" flexWrap="wrap">
-        {[
-          intl.formatMessage(
-            { id: ETranslations.referral_code_orders__desc },
-            { count: item.salesOrders },
+    </XStack>
+  );
+  const note = item.note ? (
+    <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+      {item.note}
+    </SizableText>
+  ) : null;
+  const createdAt = (
+    <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+      {intl.formatMessage(
+        { id: ETranslations.referral_code_created__desc },
+        { date: formatDate(item.createdAt, { hideTimeForever: true }) },
+      )}
+    </SizableText>
+  );
+  // What the code brought in, as equal columns of a label over its figure,
+  // so codes compare at a glance down the list.
+  const stats = (
+    <XStack gap="$4">
+      {[
+        {
+          label: ETranslations.referral_code_list_sales,
+          value: (
+            <SizableText size="$bodyMdMedium">{item.salesOrders}</SizableText>
           ),
-          intl.formatMessage(
-            { id: ETranslations.referral_code_wallets__desc },
-            { count: item.onchainWallets },
+        },
+        {
+          label: ETranslations.referral_code_list_wallets,
+          value: (
+            <SizableText size="$bodyMdMedium">
+              {item.onchainWallets}
+            </SizableText>
           ),
-          intl.formatMessage(
-            { id: ETranslations.referral_code_earned__desc },
-            {
-              amount: (
-                <Currency
-                  size="$bodySmMedium"
-                  formatter="value"
-                  // Reward figures are shown in USD across the referral pages.
-                  targetCurrency={REFERRAL_USD_CURRENCY_PROPS.targetCurrency}
-                >
-                  {item.cumulativeRewardsFiatValue}
-                </Currency>
-              ),
-            },
+        },
+        {
+          label: ETranslations.referral_order_reward,
+          value: (
+            <Currency size="$bodyMdMedium" formatter="value" numberOfLines={1}>
+              {item.cumulativeRewardsFiatValue}
+            </Currency>
           ),
-          intl.formatMessage(
-            { id: ETranslations.referral_code_created__desc },
-            { date: formatDate(item.createdAt, { hideTimeForever: true }) },
-          ),
-        ].map((fact, index) => (
-          // oxlint-disable-next-line react/no-array-index-key
-          <SizableText key={index} size="$bodySm" color="$textSubdued">
-            {index > 0 ? '· ' : null}
-            {fact}
+        },
+      ].map((stat) => (
+        <YStack key={stat.label} flex={1} flexBasis={0} minWidth={0} gap="$0.5">
+          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+            {intl.formatMessage({ id: stat.label })}
           </SizableText>
-        ))}
-      </XStack>
-    </YStack>
+          {stat.value}
+        </YStack>
+      ))}
+    </XStack>
   );
 
-  // Compact rows stack the link action under the details so the stats keep
-  // the full row width; wide rows keep both actions on the right.
+  if (md) {
+    // Compact rows stack: the code with its edit action, the figures, then
+    // the date with the link action, which share one line.
+    return (
+      <YStack
+        gap="$3"
+        py="$3.5"
+        borderTopWidth={isFirst ? 0 : 1}
+        borderColor={INVITE_CARD_BORDER_COLOR}
+      >
+        <YStack gap="$1">
+          <XStack ai="center" gap="$3">
+            <XStack flex={1} minWidth={0}>
+              {header}
+            </XStack>
+            {editButton}
+          </XStack>
+          {note}
+        </YStack>
+        {stats}
+        <XStack ai="center" jc="space-between" gap="$3">
+          {createdAt}
+          {copyLinkButton}
+        </XStack>
+      </YStack>
+    );
+  }
+
+  // Wide rows read across: the code with its note and date, the figures,
+  // then both actions. Zero flex bases keep the columns the same width on
+  // every row, so a long code or note truncates instead of shifting the
+  // figures or pushing the actions out of view.
   return (
     <XStack
       ai="center"
-      gap="$3"
-      px="$4"
+      gap="$6"
       py="$3.5"
       borderTopWidth={isFirst ? 0 : 1}
       borderColor={INVITE_CARD_BORDER_COLOR}
     >
-      {md ? (
-        <YStack flex={1} gap="$3" minWidth={0}>
-          {details}
-          <XStack>{copyLinkButton}</XStack>
-        </YStack>
-      ) : (
-        <>
-          {details}
-          <XStack ai="center" gap="$2" flexShrink={0}>
-            {copyLinkButton}
-            {editButton}
-          </XStack>
-        </>
-      )}
+      <YStack flex={1} flexBasis={0} minWidth={0} gap="$1">
+        {header}
+        {note}
+        {createdAt}
+      </YStack>
+      <YStack flex={1.4} flexBasis={0} minWidth={0}>
+        {stats}
+      </YStack>
+      <XStack ai="center" gap="$2" flexShrink={0}>
+        {copyLinkButton}
+        {editButton}
+      </XStack>
     </XStack>
   );
 }
@@ -233,7 +257,8 @@ export function InviteCodeList({
 
   return (
     <YStack>
-      <SizableText size="$bodyMd" color="$textSubdued" pb="$2">
+      {/* Inset like the rows' text, so the page keeps one left edge. */}
+      <SizableText size="$bodyMd" color="$textSubdued" px="$4" pb="$2">
         {codeListData.remainingCodes > 0
           ? intl.formatMessage(
               { id: ETranslations.referral_codes_remaining__desc },
@@ -244,7 +269,9 @@ export function InviteCodeList({
               { max: codeListData.maxCodes },
             )}
       </SizableText>
-      <YStack overflow="hidden" {...cardStyle}>
+      {/* The card holds the side padding, so the rows' hairlines stop at
+          the text edge like the other cards' dividers. */}
+      <YStack px="$4" overflow="hidden" {...cardStyle}>
         {items.map((item, index) => (
           <InviteCodeRow
             key={item.code}

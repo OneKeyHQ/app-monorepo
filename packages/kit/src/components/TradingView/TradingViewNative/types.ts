@@ -14,6 +14,7 @@ export type ITradingViewNativeHyperliquidEnvironment = 'mainnet' | 'testnet';
 export type ITradingViewNativeChartDisplayMode = 'default' | 'compact';
 export type ITradingViewNativeStorageNamespace = 'market' | 'perps' | 'swap';
 export type ITradingViewNativePriceScaleMode = 'linear' | 'logarithmic';
+export type ITradingViewNativeCandleTimeMode = 'calendar' | 'fixed';
 
 export interface ITradingViewNativeCandleLabels {
   close: string;
@@ -157,23 +158,16 @@ export interface ITradingViewNativeAccountMarksContext {
 export interface ITradingViewNativeProps {
   testID?: string;
   source: ITradingViewNativeSource;
-  displayName?: string;
   priceDecimalPlaces?: number;
   onPriceSelect?: (selection: ITradingViewNativePriceSelection) => void;
   priceSelectionLabel?: string;
   onInteractionChange?: (isInteracting: boolean) => void;
   useFullscreenOverlay?: boolean;
   storageNamespace?: ITradingViewNativeStorageNamespace;
-  enableMultiChart?: boolean;
   /** Opt-in for drawing tools on full Market charts across all platforms. */
   enableDrawings?: boolean;
-  /** Stable workspace panel identity; omitted for the original chart. */
-  panelId?: string;
-  onNativeMultiChartCountChange?: (count: number) => void;
-  onNativeMultiChartResizingChange?: (isResizing: boolean) => void;
-  /** The workspace owns fullscreen presentation for all its panels. */
-  isPresentationManaged?: boolean;
-  onPresentationContentChange?: (content: ReactNode) => void;
+  /** Let the enclosing page claim vertical drags on an embedded native chart. */
+  prioritizePageScroll?: boolean;
   forcedChartType?: ITradingViewNativeChartType;
   chartComponents?: readonly ITradingViewNativeChartComponentNode[];
   onReferenceLineAction?: (
@@ -190,12 +184,13 @@ export interface ITradingViewNativeProps {
   previousClose?: number;
   enableNativeChartSettings?: boolean;
   nativeChartSettingsInToolbar?: boolean;
+  /** Extra controls rendered in the mobile toolbar, to the left of settings. */
+  mobileToolbarExtra?: ReactNode;
   initialRightOffset?: ITradingViewNativeInitialRightOffset;
   nativeChartDisplayMode?: ITradingViewNativeChartDisplayMode;
   /** Limits new selections without hiding sub-indicators that are already active. */
   maxSelectableSubIndicatorCount?: number;
   nativeControlsLayoutMode?: 'mobile' | 'desktop';
-  nativeChartWorkspaceControls?: ReactNode;
   /**
    * Drops the desktop controls row's own horizontal inset so its first control
    * lines up with the leading edge of the plot below it. For assemblies that

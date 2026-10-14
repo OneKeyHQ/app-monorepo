@@ -12,6 +12,7 @@ import type {
   IUnsignedMessage,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
+import type { IAxiosResponse } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import { getPbkdf2KdfParamsForNonDbTxNoCache } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import {
   backgroundClass,
@@ -46,7 +47,12 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  createSolanaTxDiagnosticContext,
+  logSolanaTxDiagnostic,
+} from '@onekeyhq/shared/src/logger/solanaTxDiagnostics';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -60,6 +66,7 @@ import {
   getPrimeInfiniPaymentValidationFailure,
 } from '@onekeyhq/shared/src/utils/primeInfiniPaymentValidation';
 import { hasUnconfirmedPrimeInfiniPaymentWarnings } from '@onekeyhq/shared/src/utils/primeInfiniPaymentWarnings';
+import { getSolanaDiagnosticError } from '@onekeyhq/shared/src/utils/solanaTxDiagnostics';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
@@ -106,6 +113,24 @@ import type {
   IUpdateUnsignedTxParams,
 } from '../vaults/types';
 
+type IBatchSignedTx = ISignedTxPro & {
+  primeInfiniPayment?: IPrimeInfiniBeforeBroadcastAction;
+};
+
+// A tx that batchSignAndSendTransaction broadcast under a sentTxsTrackingId.
+// 'broadcasted' keeps what was actually broadcast until the decode/history
+// steps finish, so a retry can finish them without broadcasting again.
+// 'recorded' keeps the returned result, so a retry whose earlier response
+// was lost (or whose caller failed afterwards) still gets it.
+type IBatchBroadcastedTx =
+  | { status: 'recorded'; returnedData: ISendTxOnSuccessData | undefined }
+  | {
+      status: 'broadcasted';
+      signedTx: IBatchSignedTx;
+      unsignedTx: IUnsignedTxPro;
+      feeInfo: ISendSelectedFeeInfo | undefined;
+    };
+
 const assertAccountCanSign = (accountId: string) => {
   if (accountUtils.isWatchingAccount({ accountId })) {
     throw new OneKeyInternalError(
@@ -114,6 +139,13 @@ const assertAccountCanSign = (accountId: string) => {
       }),
     );
   }
+};
+
+type ISolanaSendDiagnosticState = {
+  context?: IUnsignedTxPro['solanaTxDiagnostic'];
+  attempts: number;
+  status: 'succeeded' | 'failed' | 'skipped' | 'cancelled';
+  reason?: 'signOnly' | 'externalAccount' | 'alwaysSignOnlySendTx';
 };
 
 @backgroundClass()
@@ -127,6 +159,26 @@ class ServiceSend extends ServiceBase {
   // cleared in its `finally`. UI calls `abortGasAccountSubmit` to break the
   // loop when the user cancels the confirm screen.
   private gasAccountSubmitAborters: Map<string, AbortController> = new Map();
+
+  // sentTxsTrackingId → (tx uuid → broadcast record). Held in the background
+  // so retries from the same confirm screen see it on every runtime. The UI
+  // never clears its entry, hence the bound.
+  private batchBroadcastedTxs = new cacheUtils.LRUCache<
+    string,
+    Map<string, IBatchBroadcastedTx>
+  >({
+    max: 50,
+    ttl: timerUtils.getTimeDurationMs({ day: 1 }),
+  });
+
+  private getBatchBroadcastedTxs(sentTxsTrackingId: string) {
+    let broadcastedTxs = this.batchBroadcastedTxs.get(sentTxsTrackingId);
+    if (!broadcastedTxs) {
+      broadcastedTxs = new Map();
+      this.batchBroadcastedTxs.set(sentTxsTrackingId, broadcastedTxs);
+    }
+    return broadcastedTxs;
+  }
 
   private async getPrimeInfiniReplacementContext({
     accountId,
@@ -356,6 +408,18 @@ class ServiceSend extends ServiceBase {
       await this.backgroundApi.serviceCustomRpc.getCustomRpcForNetwork(
         params.networkId,
       );
+    logSolanaTxDiagnostic(signedTx.solanaTxDiagnostic, {
+      stage: 'rpcSelected',
+      status: 'succeeded',
+      rpcMode:
+        customRpcInfo?.rpc && customRpcInfo?.enabled && !useDefaultRpc
+          ? 'custom'
+          : 'default',
+      preflightCommitment:
+        customRpcInfo?.rpc && customRpcInfo?.enabled && !useDefaultRpc
+          ? 'confirmed'
+          : undefined,
+    });
     let disableBroadcast: boolean | undefined;
     let txid = '';
     // Use custom RPC only if it's enabled AND user hasn't chosen to use default RPC
@@ -387,36 +451,72 @@ class ServiceSend extends ServiceBase {
       tronResourceRentalInfo?.isResourceRentalEnabled;
 
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    const resp = await client.post<{
-      data: { result: string };
-    }>(
-      '/wallet/v1/account/send-transaction',
-      {
-        networkId,
-        accountAddress,
-        tx: signedTx.rawTx,
-        signature,
-        rawTxType,
-        disableBroadcast,
-        disableAntiMev: signedTx.disableMev,
-        hasEnergyRented,
-        ...(isPrivateSend ? { isPrivateSend } : {}),
-        ...(gasAccountUiState?.selectedPayer === 'gasAccount' &&
-        gasAccountUiState.gasAccountQuote?.quoteId
-          ? {
-              quoteId: gasAccountUiState.gasAccountQuote.quoteId,
-              idempotencyKey: gasAccountUiState.idempotencyKey,
-            }
-          : {}),
-      },
-      {
-        timeout: timerUtils.getTimeDurationMs({ seconds: 10 }),
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId,
-          }),
-      },
-    );
+    const walletTypeHeader =
+      await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+        accountId,
+      });
+    const requestStartedAt = Date.now();
+    const requestDiagnostic = {
+      stage: 'broadcastRequest' as const,
+      reportingOnly: Boolean(disableBroadcast),
+      rpcMode: disableBroadcast ? ('custom' as const) : ('default' as const),
+    };
+    logSolanaTxDiagnostic(signedTx.solanaTxDiagnostic, {
+      ...requestDiagnostic,
+      status: 'started',
+    });
+    const resp = await client
+      .post<
+        { data: { result: string } },
+        IAxiosResponse<{ data: { result: string } }>
+      >(
+        '/wallet/v1/account/send-transaction',
+        {
+          networkId,
+          accountAddress,
+          tx: signedTx.rawTx,
+          signature,
+          rawTxType,
+          disableBroadcast,
+          disableAntiMev: signedTx.disableMev,
+          hasEnergyRented,
+          ...(isPrivateSend ? { isPrivateSend } : {}),
+          ...(gasAccountUiState?.selectedPayer === 'gasAccount' &&
+          gasAccountUiState.gasAccountQuote?.quoteId
+            ? {
+                quoteId: gasAccountUiState.gasAccountQuote.quoteId,
+                idempotencyKey: gasAccountUiState.idempotencyKey,
+              }
+            : {}),
+        },
+        {
+          timeout: timerUtils.getTimeDurationMs({ seconds: 10 }),
+          headers: walletTypeHeader,
+        },
+      )
+      .then(
+        (response) => {
+          logSolanaTxDiagnostic(signedTx.solanaTxDiagnostic, {
+            ...requestDiagnostic,
+            status: 'succeeded',
+            httpRequestId: response.$requestId,
+            httpStatus: response.status,
+            durationMs: Date.now() - requestStartedAt,
+          });
+          return response;
+        },
+        (error: unknown) => {
+          // Capture the API's safe request identity before the vault normalizes
+          // a blockhash error; custom RPC reports are not another chain broadcast.
+          logSolanaTxDiagnostic(signedTx.solanaTxDiagnostic, {
+            ...requestDiagnostic,
+            status: 'failed',
+            durationMs: Date.now() - requestStartedAt,
+            ...getSolanaDiagnosticError(error),
+          });
+          throw error;
+        },
+      );
     if (!disableBroadcast) {
       txid = resp.data.data.result;
     }
@@ -475,62 +575,144 @@ class ServiceSend extends ServiceBase {
     params: ISendTxBaseParams &
       ISignTransactionParamsBase & {
         prefetchedCredentials?: ISignTransactionPrefetchedCredentials;
+        /** Request-local background state; never a main/bg shared object. */
+        diagnosticSendState?: ISolanaSendDiagnosticState;
         /** DeviceStage confirm channel: the fee the caller already
          * resolved, shown as the confirm card's fee row (OK-59934). */
         stageFeeInfo?: ISendSelectedFeeInfo;
       },
   ) {
     const { networkId, accountId, signOnly, stageFeeInfo } = params;
-    assertAccountCanSign(accountId);
-    const vault = await vaultFactory.getVault({ networkId, accountId });
-    const { password, deviceParams } =
-      params.prefetchedCredentials ??
-      (await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
-        accountId,
-        reason: EReasonForNeedPassword.CreateTransaction,
-      }));
-    // Re-stamp short-lived tx fields (e.g. the Solana blockhash) as late as
-    // possible: the password prompt above and the hardware PIN/passphrase/
-    // confirm below can outlive the validity window of a dApp- or
-    // server-built tx (OK-63381). Sign-only requests hand the tx back to the
-    // caller, so their payload stays byte-for-byte untouched.
-    const unsignedTx = signOnly
-      ? params.unsignedTx
-      : await vault.refreshUnsignedTxBeforeSign(params.unsignedTx);
-    // signTransaction
-    const tx =
-      await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-        async () => {
-          const signedTx = await vault.signTransaction({
-            unsignedTx,
-            password,
+    const diagnostic = networkUtils.isSolanaNetworkByNetworkId(networkId)
+      ? (params.unsignedTx.solanaTxDiagnostic ??
+        createSolanaTxDiagnosticContext())
+      : undefined;
+    let diagnosticUnsignedTx = diagnostic
+      ? { ...params.unsignedTx, solanaTxDiagnostic: diagnostic }
+      : params.unsignedTx;
+    logSolanaTxDiagnostic(diagnostic, {
+      stage: 'auth',
+      status: 'started',
+      signOnly: Boolean(signOnly),
+    });
+    let activeDiagnostic = diagnostic;
+    let diagnosticStage: 'auth' | 'refresh' | 'sign' = 'auth';
+    try {
+      assertAccountCanSign(accountId);
+      const vault = await vaultFactory.getVault({ networkId, accountId });
+      if (diagnostic) {
+        activeDiagnostic =
+          vault.getTxDiagnosticContext(diagnosticUnsignedTx) ?? diagnostic;
+        diagnosticUnsignedTx = {
+          ...diagnosticUnsignedTx,
+          solanaTxDiagnostic: activeDiagnostic,
+        };
+        if (params.diagnosticSendState) {
+          params.diagnosticSendState.context = activeDiagnostic;
+        }
+      }
+      const { password, deviceParams } =
+        params.prefetchedCredentials ??
+        (await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount(
+          {
+            accountId,
+            reason: EReasonForNeedPassword.CreateTransaction,
+          },
+        ));
+      logSolanaTxDiagnostic(activeDiagnostic, {
+        stage: 'auth',
+        status: 'succeeded',
+      });
+      diagnosticStage = 'refresh';
+      // Re-stamp short-lived tx fields (e.g. the Solana blockhash) as late as
+      // possible: the password prompt above and the hardware PIN/passphrase/
+      // confirm below can outlive the validity window of a dApp- or
+      // server-built tx (OK-63381). Sign-only requests hand the tx back to the
+      // caller, so their payload stays byte-for-byte untouched.
+      const unsignedTx = signOnly
+        ? diagnosticUnsignedTx
+        : await vault.refreshUnsignedTxBeforeSign(diagnosticUnsignedTx);
+      activeDiagnostic = unsignedTx.solanaTxDiagnostic;
+      if (params.diagnosticSendState) {
+        params.diagnosticSendState.context = activeDiagnostic;
+      }
+      if (signOnly) {
+        logSolanaTxDiagnostic(activeDiagnostic, {
+          stage: 'refresh',
+          status: 'skipped',
+          reason: 'signOnly',
+        });
+      }
+      diagnosticStage = 'sign';
+      logSolanaTxDiagnostic(activeDiagnostic, {
+        stage: 'sign',
+        status: 'started',
+      });
+      // signTransaction
+      const tx =
+        await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+          async () => {
+            const signedTx = await vault.signTransaction({
+              unsignedTx,
+              password,
+              deviceParams,
+              signOnly,
+            });
+            if (process.env.NODE_ENV !== 'production') {
+              console.log('signTx@vault.signTransaction', signedTx);
+            }
+            return signedTx;
+          },
+          {
             deviceParams,
-            signOnly,
-          });
-          if (process.env.NODE_ENV !== 'production') {
-            console.log('signTx@vault.signTransaction', signedTx);
-          }
-          return signedTx;
-        },
-        {
-          deviceParams,
-          debugMethodName: 'serviceSend.signTransaction',
-          stageConfirmContent: buildStageConfirmContentForSignTx(
-            unsignedTx,
-            stageFeeInfo,
-          ),
-        },
-      );
+            debugMethodName: 'serviceSend.signTransaction',
+            stageConfirmContent: buildStageConfirmContentForSignTx(
+              unsignedTx,
+              stageFeeInfo,
+            ),
+          },
+        );
 
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('signTx@serviceSend.signTransaction', tx);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('signTx@serviceSend.signTransaction', tx);
+      }
+
+      tx.swapInfo = unsignedTx.swapInfo;
+      tx.stakingInfo = unsignedTx.stakingInfo;
+      tx.disableMev = unsignedTx.disableMev;
+      tx.uuid = unsignedTx.uuid;
+      if (activeDiagnostic) tx.solanaTxDiagnostic = activeDiagnostic;
+      logSolanaTxDiagnostic(tx.solanaTxDiagnostic, {
+        stage: 'sign',
+        status: 'succeeded',
+      });
+      if (!params.diagnosticSendState) {
+        logSolanaTxDiagnostic(tx.solanaTxDiagnostic, {
+          stage: 'finished',
+          status: 'succeeded',
+          reason: signOnly ? 'signOnly' : undefined,
+          attempts: 0,
+        });
+      }
+      return tx;
+    } catch (error) {
+      const details = getSolanaDiagnosticError(error);
+      logSolanaTxDiagnostic(activeDiagnostic, {
+        stage: diagnosticStage,
+        status: details.errorCategory === 'cancelled' ? 'cancelled' : 'failed',
+        ...details,
+      });
+      if (!params.diagnosticSendState) {
+        logSolanaTxDiagnostic(activeDiagnostic, {
+          stage: 'finished',
+          status:
+            details.errorCategory === 'cancelled' ? 'cancelled' : 'failed',
+          attempts: 0,
+          ...details,
+        });
+      }
+      throw error;
     }
-
-    tx.swapInfo = unsignedTx.swapInfo;
-    tx.stakingInfo = unsignedTx.stakingInfo;
-    tx.disableMev = unsignedTx.disableMev;
-    tx.uuid = unsignedTx.uuid;
-    return tx;
   }
 
   private async validatePrimeInfiniPaymentBeforeBroadcast({
@@ -739,11 +921,48 @@ class ServiceSend extends ServiceBase {
         gasAccountSubmitId?: IBatchSignTransactionParamsBase['gasAccountSubmitId'];
         broadcastDeadline?: IBatchSignTransactionParamsBase['broadcastDeadline'];
         beforeBroadcastAction?: IBatchSignTransactionParamsBase['beforeBroadcastAction'];
+        wcPayPreBroadcastRecord?: IBatchSignTransactionParamsBase['wcPayPreBroadcastRecord'];
         transferPayload?: IBatchSignTransactionParamsBase['transferPayload'];
         replaceTxInfo?: IReplaceTxInfo;
         isPrivateSend?: boolean;
         stageFeeInfo?: ISendSelectedFeeInfo;
       },
+  ): Promise<
+    ISignedTxPro & { primeInfiniPayment?: IPrimeInfiniBeforeBroadcastAction }
+  > {
+    const diagnosticState: ISolanaSendDiagnosticState = {
+      context: networkUtils.isSolanaNetworkByNetworkId(params.networkId)
+        ? (params.unsignedTx.solanaTxDiagnostic ??
+          createSolanaTxDiagnosticContext())
+        : undefined,
+      attempts: 0,
+      status: 'failed',
+    };
+    let errorDetails: ReturnType<typeof getSolanaDiagnosticError> | undefined;
+    try {
+      return await this.signAndSendTransactionWithDiagnostics(
+        params,
+        diagnosticState,
+      );
+    } catch (error) {
+      errorDetails = getSolanaDiagnosticError(error);
+      diagnosticState.status =
+        errorDetails.errorCategory === 'cancelled' ? 'cancelled' : 'failed';
+      throw error;
+    } finally {
+      logSolanaTxDiagnostic(diagnosticState.context, {
+        stage: 'finished',
+        status: diagnosticState.status,
+        reason: diagnosticState.reason,
+        attempts: diagnosticState.attempts,
+        ...errorDetails,
+      });
+    }
+  }
+
+  private async signAndSendTransactionWithDiagnostics(
+    params: Parameters<ServiceSend['signAndSendTransaction']>[0],
+    diagnosticState: ISolanaSendDiagnosticState,
   ): Promise<
     ISignedTxPro & { primeInfiniPayment?: IPrimeInfiniBeforeBroadcastAction }
   > {
@@ -759,12 +978,14 @@ class ServiceSend extends ServiceBase {
       broadcastDeadline,
       beforeBroadcastAction: requestedBeforeBroadcastAction,
       replaceTxInfo,
+      wcPayPreBroadcastRecord,
       transferPayload,
       isPrivateSend,
       useDefaultRpc,
       stageFeeInfo,
     } = params;
 
+    const diagnostic = diagnosticState.context;
     const replacementContext = await this.getPrimeInfiniReplacementContext({
       accountId,
       networkId,
@@ -834,14 +1055,30 @@ class ServiceSend extends ServiceBase {
       });
     }
 
+    // The WC Pay pre-broadcast boundary requires the local
+    // sign-then-broadcast pipeline below. An external account broadcasts
+    // inside its connected wallet during the "signing" step, where no txid
+    // can be durably recorded first — fail explicitly (before that signing
+    // starts) instead of silently skipping the duplicate-payment boundary.
+    if (wcPayPreBroadcastRecord && isExternalAccount) {
+      throw new OneKeyLocalError({
+        message: 'WalletConnect Pay does not support external accounts',
+        autoToast: false,
+      });
+    }
+
     const signedTx = await this.signTransaction({
       networkId,
       accountId,
-      unsignedTx,
+      unsignedTx: diagnostic
+        ? { ...unsignedTx, solanaTxDiagnostic: diagnostic }
+        : unsignedTx,
       signOnly, // external account should send tx here
       stageFeeInfo,
+      ...(diagnostic ? { diagnosticSendState: diagnosticState } : {}),
     });
 
+    diagnosticState.context = signedTx.solanaTxDiagnostic ?? diagnostic;
     if (replacementContext) {
       this.assertPrimeInfiniReplacementTransaction({
         ...replacementContext,
@@ -891,10 +1128,23 @@ class ServiceSend extends ServiceBase {
       });
     }
 
+    // A skipped broadcast would return a txid that was neither recorded at
+    // the pre-broadcast boundary below nor sent; the executor would persist
+    // it as a completed action and hand it to WalletConnect Pay as if it
+    // were on chain. Same rule as Prime: fail loudly instead.
+    if (wcPayPreBroadcastRecord && broadcastSkipReason) {
+      throw new OneKeyLocalError({
+        message: 'WalletConnect Pay requires a real broadcast',
+        autoToast: false,
+      });
+    }
+
     // skip external account send, as rawTx is empty
     if (!broadcastSkipReason) {
       const vaultSettings =
-        await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
+        await this.backgroundApi.serviceNetwork.getVaultSettings({
+          networkId,
+        });
       const vault = await vaultFactory.getVault({
         networkId,
         accountId,
@@ -951,6 +1201,49 @@ class ServiceSend extends ServiceBase {
         });
       }
 
+      // WalletConnect Pay duplicate-payment boundary. The durable progress
+      // store exists because the UI runtime can be reclaimed while a
+      // broadcast is confirming, yet the executor-side record only lands
+      // after the whole confirm round-trip settles in the UI. Record the
+      // txid here instead — in the background, after signing (an EVM txid is
+      // fixed by the signed bytes) and before broadcast — so a resumed
+      // attempt always knows the transfer was already sent. The write is
+      // awaited and any failure aborts the broadcast: failing closed costs
+      // one retry, broadcasting unrecorded can charge a merchant payment
+      // twice. Deliberately independent of the Prime hook above — its
+      // threat model excludes externally supplied encodedTx, which is
+      // exactly what WalletConnect Pay transactions are.
+      if (wcPayPreBroadcastRecord) {
+        ensureBroadcastDeadline();
+        // sender + nonce give the phantom-txid recovery check a
+        // propagation-independent criterion (confirmed on-chain tx count vs
+        // this nonce). EVM signing guarantees the nonce on the signed
+        // encodedTx (packTransaction requires it), and WC Pay broadcast
+        // actions are EVM-only. The sender is deliberately NOT read from
+        // encodedTx.from — that field is server-supplied, never validated
+        // and never part of what gets signed (the actual sender is the key
+        // behind accountId) — so the resolved signing account's address is
+        // the one eth_getTransactionCount must be asked about.
+        const wcPayEvmTxFields = signedTx.encodedTx as {
+          nonce?: number | string;
+        } | null;
+        const wcPayBroadcastNonce = new BigNumber(
+          wcPayEvmTxFields?.nonce ?? NaN,
+        );
+        await this.backgroundApi.serviceWalletConnectPay.recordPreBroadcastTxid(
+          {
+            record: wcPayPreBroadcastRecord,
+            txid: signedTx.txid,
+            broadcastMeta: wcPayBroadcastNonce.isInteger()
+              ? {
+                  sender: accountAddress,
+                  nonce: wcPayBroadcastNonce.toNumber(),
+                }
+              : undefined,
+          },
+        );
+      }
+
       let hasAttemptedBroadcast = false;
       const broadcastOnce = async () => {
         ensureBroadcastDeadline();
@@ -966,17 +1259,42 @@ class ServiceSend extends ServiceBase {
           });
         }
         hasAttemptedBroadcast = true;
-        return vault.broadcastTransaction({
-          accountId,
-          networkId,
-          accountAddress,
-          signedTx,
-          rawTxType,
-          tronResourceRentalInfo,
-          gasAccountUiState,
-          isPrivateSend,
-          useDefaultRpc,
+        diagnosticState.attempts += 1;
+        const broadcastStartedAt = Date.now();
+        logSolanaTxDiagnostic(diagnosticState.context, {
+          stage: 'broadcast',
+          status: 'started',
+          attempt: diagnosticState.attempts,
         });
+        try {
+          const result = await vault.broadcastTransaction({
+            accountId,
+            networkId,
+            accountAddress,
+            signedTx,
+            rawTxType,
+            tronResourceRentalInfo,
+            gasAccountUiState,
+            isPrivateSend,
+            useDefaultRpc,
+          });
+          logSolanaTxDiagnostic(diagnosticState.context, {
+            stage: 'broadcast',
+            status: 'succeeded',
+            attempt: diagnosticState.attempts,
+            durationMs: Date.now() - broadcastStartedAt,
+          });
+          return result;
+        } catch (error) {
+          logSolanaTxDiagnostic(diagnosticState.context, {
+            stage: 'broadcast',
+            status: 'failed',
+            attempt: diagnosticState.attempts,
+            durationMs: Date.now() - broadcastStartedAt,
+            ...getSolanaDiagnosticError(error),
+          });
+          throw error;
+        }
       };
 
       // 90212 GasAccountAdmissionOverloaded is a transient, idempotent retry
@@ -1143,13 +1461,20 @@ class ServiceSend extends ServiceBase {
       }
       if (!txid) {
         if (vaultSettings.withoutBroadcastTxId) {
+          diagnosticState.status = 'succeeded';
           return { ...signedTx, primeInfiniPayment: beforeBroadcastAction };
         }
         throw new OneKeyLocalError('Broadcast transaction failed.');
       }
+      diagnosticState.status = 'succeeded';
       return { ...signedTx, txid, primeInfiniPayment: beforeBroadcastAction };
     }
 
+    diagnosticState.status = 'skipped';
+    if (alwaysSignOnlySendTxInDev)
+      diagnosticState.reason = 'alwaysSignOnlySendTx';
+    else if (signOnly) diagnosticState.reason = 'signOnly';
+    else diagnosticState.reason = 'externalAccount';
     return { ...signedTx, primeInfiniPayment: beforeBroadcastAction };
   }
 
@@ -1196,6 +1521,15 @@ class ServiceSend extends ServiceBase {
     return newUnsignedTxs;
   }
 
+  // Same rule as the broadcast skip in signAndSendTransaction.
+  private async isAlwaysSignOnlySendTxInDev() {
+    const devSetting =
+      await this.backgroundApi.serviceDevSetting.getDevSetting();
+    return Boolean(
+      devSetting?.enabled && devSetting?.settings?.alwaysSignOnlySendTx,
+    );
+  }
+
   @backgroundMethod()
   @toastIfError()
   public async batchSignAndSendTransaction(
@@ -1210,14 +1544,22 @@ class ServiceSend extends ServiceBase {
       feeInfos: sendSelectedFeeInfos,
       replaceTxInfo,
       transferPayload,
-      successfullySentTxs,
+      sentTxsTrackingId,
       tronResourceRentalInfo,
       gasAccountUiState,
       gasAccountSubmitId,
       broadcastDeadline,
       beforeBroadcastAction,
+      wcPayPreBroadcastRecord,
       useDefaultRpc,
+      freeTrialUsage,
     } = params;
+    // Decided before any broadcast: nothing may throw after one. Developer
+    // mode "always sign only" signs without broadcasting, so it uses nothing.
+    const broadcastUsage =
+      freeTrialUsage && !signOnly && !(await this.isAlwaysSignOnlySendTxInDev())
+        ? freeTrialUsage
+        : undefined;
 
     const isMultiTxs = unsignedTxs.length > 1;
     if (
@@ -1231,6 +1573,13 @@ class ServiceSend extends ServiceBase {
     ) {
       throw new OneKeyLocalError({
         message: 'Infini payment supports exactly one transaction',
+        autoToast: false,
+      });
+    }
+    // one durable slot records exactly one txid; a batch cannot share it
+    if (wcPayPreBroadcastRecord && isMultiTxs) {
+      throw new OneKeyLocalError({
+        message: 'WalletConnect Pay supports exactly one transaction',
         autoToast: false,
       });
     }
@@ -1275,65 +1624,96 @@ class ServiceSend extends ServiceBase {
       }
     }
 
+    const broadcastedTxs = sentTxsTrackingId
+      ? this.getBatchBroadcastedTxs(sentTxsTrackingId)
+      : undefined;
     const result: ISendTxOnSuccessData[] = [];
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
-      let unsignedTx = unsignedTxs[i];
-      const feeInfo = sendSelectedFeeInfos?.[i];
-      if (
-        !successfullySentTxs ||
-        !unsignedTx.uuid ||
-        !successfullySentTxs.includes(unsignedTx.uuid)
-      ) {
-        if (isMultiTxs && i > 0) {
-          unsignedTx = await vault.refreshUnsignedTxBeforeBatchSign(unsignedTx);
+      const txUuid = unsignedTxs[i].uuid;
+      const broadcastedTx = txUuid ? broadcastedTxs?.get(txUuid) : undefined;
+      if (broadcastedTx?.status === 'recorded') {
+        // An earlier attempt already broadcast and recorded this tx.
+        if (broadcastedTx.returnedData) {
+          result.push(broadcastedTx.returnedData);
         }
-        const buildSignedTx = () =>
-          signOnly && !beforeBroadcastAction && !replaceTxInfo
-            ? this.signTransaction({
-                unsignedTx,
+      } else {
+        let unsignedTx = unsignedTxs[i];
+        let feeInfo = sendSelectedFeeInfos?.[i];
+        let signedTx: IBatchSignedTx;
+        if (broadcastedTx?.status === 'broadcasted') {
+          // An earlier attempt broadcast this tx and then failed; finish the
+          // remaining steps with what was actually broadcast.
+          ({ unsignedTx, feeInfo, signedTx } = broadcastedTx);
+        } else {
+          if (isMultiTxs && i > 0) {
+            unsignedTx =
+              await vault.refreshUnsignedTxBeforeBatchSign(unsignedTx);
+          }
+          const buildSignedTx = () =>
+            signOnly && !beforeBroadcastAction && !replaceTxInfo
+              ? this.signTransaction({
+                  unsignedTx,
+                  accountId,
+                  networkId,
+                  signOnly: true,
+                  stageFeeInfo: feeInfo,
+                })
+              : this.signAndSendTransaction({
+                  unsignedTx,
+                  networkId,
+                  accountId,
+                  signOnly: Boolean(signOnly),
+                  stageFeeInfo: feeInfo,
+                  tronResourceRentalInfo,
+                  gasAccountUiState: effectiveGasAccountUiState,
+                  gasAccountSubmitId: effectiveGasAccountSubmitId,
+                  broadcastDeadline,
+                  beforeBroadcastAction,
+                  wcPayPreBroadcastRecord,
+                  replaceTxInfo,
+                  transferPayload,
+                  isPrivateSend,
+                  useDefaultRpc,
+                });
+          try {
+            signedTx = await buildSignedTx();
+          } catch (error) {
+            // Safety net for the residual race between the pre-broadcast nonce
+            // check and the actual broadcast: the backend rejected the replace
+            // because the nonce is already used. Clean up the stale pending tx
+            // and surface a friendly message instead of the raw backend error.
+            if (
+              replaceTxInfo &&
+              (this.isReplaceTxNonceAlreadyUsedServerError(error) ||
+                this.isReplaceTxNonceAlreadyUsedRpcError(error))
+            ) {
+              await this.cleanupStaleReplaceTxAndThrow({
                 accountId,
                 networkId,
-                signOnly: true,
-                stageFeeInfo: feeInfo,
-              })
-            : this.signAndSendTransaction({
-                unsignedTx,
-                networkId,
-                accountId,
-                signOnly: Boolean(signOnly),
-                stageFeeInfo: feeInfo,
-                tronResourceRentalInfo,
-                gasAccountUiState: effectiveGasAccountUiState,
-                gasAccountSubmitId: effectiveGasAccountSubmitId,
-                broadcastDeadline,
-                beforeBroadcastAction,
-                replaceTxInfo,
-                transferPayload,
-                isPrivateSend,
-                useDefaultRpc,
+                replaceHistoryId: replaceTxInfo.replaceHistoryId,
               });
-        let signedTx: ISignedTxPro & {
-          primeInfiniPayment?: IPrimeInfiniBeforeBroadcastAction;
-        };
-        try {
-          signedTx = await buildSignedTx();
-        } catch (error) {
-          // Safety net for the residual race between the pre-broadcast nonce
-          // check and the actual broadcast: the backend rejected the replace
-          // because the nonce is already used. Clean up the stale pending tx and
-          // surface a friendly message instead of the raw backend error.
-          if (
-            replaceTxInfo &&
-            (this.isReplaceTxNonceAlreadyUsedServerError(error) ||
-              this.isReplaceTxNonceAlreadyUsedRpcError(error))
-          ) {
-            await this.cleanupStaleReplaceTxAndThrow({
-              accountId,
-              networkId,
-              replaceHistoryId: replaceTxInfo.replaceHistoryId,
+            }
+            throw error;
+          }
+          if (!signOnly && txUuid && broadcastedTxs) {
+            // Record before the decode/history steps below, which can still
+            // throw after a successful broadcast.
+            broadcastedTxs.set(txUuid, {
+              status: 'broadcasted',
+              signedTx,
+              unsignedTx,
+              feeInfo,
             });
           }
-          throw error;
+          // Free-trial metering: this call just broadcast, so mark the usage
+          // consumed before any later step (decode, history) can throw. A
+          // retry that only finishes an earlier broadcast was marked then.
+          // Never awaits the network and never alters the send result.
+          if (broadcastUsage) {
+            await this.backgroundApi.servicePrimeFreeTrial.markBroadcastSuccess(
+              broadcastUsage,
+            );
+          }
         }
         const decodedTx = await this.buildDecodedTx({
           networkId,
@@ -1392,13 +1772,14 @@ class ServiceSend extends ServiceBase {
 
         // For batch approve+swap/staking: only return the swap/staking tx result
         // For bulk send and DeFi portfolio action batches: return all business tx results
-        if (
+        const shouldReturnData = Boolean(
           !isMultiTxs ||
           unsignedTx.swapInfo ||
           unsignedTx.stakingInfo ||
           unsignedTx.transfersInfo ||
-          hasDeFiActionInfo
-        ) {
+          hasDeFiActionInfo,
+        );
+        if (shouldReturnData) {
           result.push(data);
         }
 
@@ -1419,8 +1800,11 @@ class ServiceSend extends ServiceBase {
           });
         }
 
-        if (!signOnly && unsignedTx.uuid && successfullySentTxs) {
-          successfullySentTxs.push(unsignedTx.uuid);
+        if (!signOnly && txUuid && broadcastedTxs) {
+          broadcastedTxs.set(txUuid, {
+            status: 'recorded',
+            returnedData: shouldReturnData ? data : undefined,
+          });
         }
       }
     }
@@ -1717,7 +2101,14 @@ class ServiceSend extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async prepareSendConfirmUnsignedTx(
-    params: ISendTxBaseParams & IBuildUnsignedTxParams,
+    params: ISendTxBaseParams &
+      IBuildUnsignedTxParams & {
+        // pin the tx to this exact nonce instead of deriving the next one;
+        // used when re-executing a possibly-broadcast action so a
+        // misjudged "never broadcast" can only produce a nonce conflict
+        // (one tx lands), never a second payment at nonce+1
+        nonceInfo?: { nonce: number };
+      },
   ) {
     const {
       networkId,
@@ -1737,6 +2128,7 @@ class ServiceSend extends ServiceBase {
       disableMev,
       withoutNonce,
       withUuid,
+      nonceInfo,
       prefetchedOnChainNonce,
     } = params;
 
@@ -1791,24 +2183,29 @@ class ServiceSend extends ServiceBase {
       })
     ).nonceRequired;
 
-    if (
-      isNonceRequired &&
-      new BigNumber(newUnsignedTx.nonce ?? 0).isZero() &&
-      !withoutNonce
-    ) {
-      const nonce = await this.backgroundApi.serviceSend.getNextNonce({
-        accountId,
-        networkId,
-        accountAddress: account.address,
-        prefetchedOnChainNonce,
-      });
+    if (isNonceRequired && !withoutNonce) {
+      if (nonceInfo) {
+        newUnsignedTx = await this.backgroundApi.serviceSend.updateUnsignedTx({
+          accountId,
+          networkId,
+          unsignedTx: newUnsignedTx,
+          nonceInfo,
+        });
+      } else if (new BigNumber(newUnsignedTx.nonce ?? 0).isZero()) {
+        const nonce = await this.backgroundApi.serviceSend.getNextNonce({
+          accountId,
+          networkId,
+          accountAddress: account.address,
+          prefetchedOnChainNonce,
+        });
 
-      newUnsignedTx = await this.backgroundApi.serviceSend.updateUnsignedTx({
-        accountId,
-        networkId,
-        unsignedTx: newUnsignedTx,
-        nonceInfo: { nonce },
-      });
+        newUnsignedTx = await this.backgroundApi.serviceSend.updateUnsignedTx({
+          accountId,
+          networkId,
+          unsignedTx: newUnsignedTx,
+          nonceInfo: { nonce },
+        });
+      }
     }
 
     if (withUuid) {

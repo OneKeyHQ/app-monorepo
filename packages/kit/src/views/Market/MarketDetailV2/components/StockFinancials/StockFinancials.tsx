@@ -137,7 +137,7 @@ function FinancialCard({
       {!annual && isLoading ? <Skeleton height={300} width="100%" /> : null}
       {annual && hasData ? (
         <FinancialChart
-          key={`${kind}-${period}`}
+          period={period}
           rows={chart.rows}
           series={chart.series}
           currency={chart.currency}

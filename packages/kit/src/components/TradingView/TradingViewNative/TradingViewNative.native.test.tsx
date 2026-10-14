@@ -6,13 +6,17 @@ import { act, render, waitFor } from '@testing-library/react';
 
 import { TradingViewNative } from './TradingViewNative.native';
 
-import type { ITradingViewNativeSource } from './types';
+import type {
+  ITradingViewNativeProps,
+  ITradingViewNativeSource,
+} from './types';
 
 const mockLockAsync = jest.fn<Promise<void>, [string]>(async () => undefined);
 const mockAppStateSubscriptionRemove = jest.fn();
 const mockIsSpanning = jest.fn(() => false);
 const mockStatusBar = jest.fn<null, [{ hidden?: boolean }]>(() => null);
 const mockWindowDimensions = { height: 844, width: 390 };
+const mockContainer = jest.fn<null, [ITradingViewNativeProps]>(() => null);
 let mockAppStateChangeHandler:
   | ((nextState: 'active' | 'background' | 'inactive') => void)
   | undefined;
@@ -57,7 +61,8 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 }));
 
 jest.mock('./TradingViewNativeContainer', () => ({
-  TradingViewNativeContainer: () => null,
+  TradingViewNativeContainer: (props: ITradingViewNativeProps) =>
+    mockContainer(props),
 }));
 
 const source: ITradingViewNativeSource = {
@@ -83,6 +88,20 @@ describe('TradingViewNative screen orientation', () => {
 
     expect(mockLockAsync).not.toHaveBeenCalled();
     expect(mockStatusBar).not.toHaveBeenCalled();
+  });
+
+  it('preserves the caller drawing configuration', () => {
+    const { rerender } = render(
+      <TradingViewNative source={source} enableDrawings />,
+    );
+    expect(mockContainer).toHaveBeenLastCalledWith(
+      expect.objectContaining({ enableDrawings: true }),
+    );
+
+    rerender(<TradingViewNative source={source} enableDrawings={false} />);
+    expect(mockContainer).toHaveBeenLastCalledWith(
+      expect.objectContaining({ enableDrawings: false }),
+    );
   });
 
   it('locks landscape only while fullscreen and restores portrait on exit', async () => {

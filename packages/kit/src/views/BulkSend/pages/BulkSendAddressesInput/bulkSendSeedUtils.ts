@@ -7,7 +7,10 @@ import type {
 } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-import type { ITokenDetailsState } from './components/Context';
+import type {
+  IBulkSendAddressesFormValues,
+  ITokenDetailsState,
+} from './components/Context';
 
 export type IBulkSendHomeSeedAccount = {
   accountId: string | undefined;
@@ -133,6 +136,34 @@ export function computeBulkSendNextDisabled({
     return baseDisabled || isTokenLoading;
   }
   return baseDisabled;
+}
+
+/**
+ * Everything a "Next" press acts on. The inputs stay editable while the
+ * press waits for the free-trial access check, so a different key afterwards
+ * drops that press and the user submits the new input.
+ */
+export function buildBulkSendNextContextKey({
+  networkId,
+  accountId,
+  token,
+  mode,
+  values,
+}: {
+  networkId: string | undefined;
+  accountId: string | undefined;
+  token: IToken | undefined;
+  mode: EBulkSendMode;
+  values: IBulkSendAddressesFormValues;
+}): string {
+  return JSON.stringify([
+    networkId ?? '',
+    accountId ?? '',
+    buildBulkSendSeedTokenKey(token),
+    mode,
+    values.senderAddresses ?? '',
+    values.receiverAddresses ?? '',
+  ]);
 }
 
 /**

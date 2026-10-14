@@ -44,14 +44,16 @@ import {
   useInviteHomeCardStyle,
   useInvitePageCanvas,
 } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteCardStyle';
-import { useInviteHeroAnimation } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteHeroAnimation';
 import {
   EReferralPageTab,
   type IReferralPageTab,
   IS_BENEFITS_TAB_ENABLED,
   resolveReferralPageTab,
 } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/referralPageTab';
-import { getInviteCodeStepImageHeight } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferAFriend/components/InviteCodeStepImage';
+import {
+  getInviteCodeStepImageHeight,
+  getInviteCodeStepImageWidth,
+} from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferAFriend/components/InviteCodeStepImage';
 import { formatInviteUrlForDisplay } from '@onekeyhq/kit/src/views/ReferFriends/utils/inviteUrlUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -128,59 +130,100 @@ const ReferralPageHeader = memo(function ReferralPageHeader({
 function InviteOverviewSkeleton() {
   const { md } = useMedia();
   const cardStyle = useInviteHomeCardStyle();
-  const heroHeight = getInviteCodeStepImageHeight(usePageWidth());
+  const pageWidth = usePageWidth();
+  const heroHeight = getInviteCodeStepImageHeight(pageWidth);
 
   if (md) {
-    // Compact content: the hero, the code card and the bind line, then the
-    // earnings caption and card, spaced like the loaded page's groups.
+    // Compact content, built like the loaded page: the hero, the code card
+    // and its links card, then the earnings card and the per-product rows,
+    // with the page's 20px and 32px spacing.
+    const listRow = (key: number) => (
+      <XStack key={key} minHeight={48} ai="center" gap="$3">
+        <Skeleton w={20} h={20} radius="round" />
+        <YStack flex={1}>
+          <Skeleton.BodyMd w={96} />
+        </YStack>
+        <Skeleton.BodyMd w={72} />
+      </XStack>
+    );
     return (
-      <YStack px="$pagePadding" gap="$6">
-        <YStack gap="$4">
+      <YStack px="$pagePadding" gap="$8">
+        <YStack gap="$5">
           <YStack ai="center" gap="$3">
-            <Skeleton w="100%" maxWidth={480} h={heroHeight} radius={16} />
+            <Skeleton
+              w="100%"
+              maxWidth={getInviteCodeStepImageWidth(pageWidth)}
+              h={heroHeight}
+              radius={16}
+            />
             <YStack ai="center" gap="$2">
               <Skeleton.Heading2Xl w={260} />
               <Skeleton.BodyMd w={220} />
-              <Skeleton w={96} h={28} radius="round" />
+              <XStack pt="$3">
+                <Skeleton w={96} h={28} radius="round" />
+              </XStack>
             </YStack>
           </YStack>
-          <YStack gap="$4" p="$4" {...cardStyle}>
-            <YStack gap="$1">
-              <XStack jc="space-between">
-                <Skeleton.BodyMd w={96} />
-                <Skeleton.BodyMd w={112} />
+          <YStack gap="$3">
+            <YStack px="$4" py="$1" {...cardStyle}>
+              <XStack py="$3" ai="center" jc="space-between">
+                <YStack gap="$1.5">
+                  <Skeleton.BodyMd w={96} />
+                  <Skeleton.HeadingXl w={140} />
+                </YStack>
+                <Skeleton w={72} h={28} radius="round" />
               </XStack>
-              <Skeleton.HeadingXl w={120} />
+              <Divider my="$1" borderColor={INVITE_CARD_BORDER_COLOR} />
+              <XStack minHeight={44} ai="center" jc="space-between">
+                <Skeleton.BodyMd w={72} />
+                <Skeleton.BodyMd w={180} />
+              </XStack>
             </YStack>
-            <Divider borderColor={INVITE_CARD_BORDER_COLOR} />
-            <XStack jc="space-between">
-              <Skeleton.BodyMd w={96} />
+            <YStack px="$4" py="$1" {...cardStyle}>
+              {[0, 1].map((index) => (
+                <XStack key={index} minHeight={48} ai="center" gap="$3">
+                  <Skeleton w={20} h={20} radius="round" />
+                  <Skeleton.BodyMd w={120} />
+                </XStack>
+              ))}
+            </YStack>
+          </YStack>
+        </YStack>
+        <YStack gap="$5">
+          <YStack px="$4" pt="$4" pb="$1" {...cardStyle}>
+            <XStack ai="flex-start" jc="space-between" pb="$3">
+              <YStack gap="$1">
+                <Skeleton.BodyMd w={96} />
+                <Skeleton.Heading3Xl w={180} />
+              </YStack>
+              <Skeleton w={20} h={20} radius="round" />
+            </XStack>
+            <YStack pb="$3">
+              {[0, 1].map((index) => (
+                <XStack
+                  key={index}
+                  minHeight={44}
+                  ai="center"
+                  jc="space-between"
+                >
+                  <Skeleton.BodyMd w={80} />
+                  <Skeleton.BodyMd w={96} />
+                </XStack>
+              ))}
+            </YStack>
+            <Divider mb="$1" borderColor={INVITE_CARD_BORDER_COLOR} />
+            <XStack minHeight={48} ai="center" jc="space-between">
+              <Skeleton.BodyMd w={72} />
               <Skeleton.BodyMd w={160} />
             </XStack>
           </YStack>
-          <Skeleton.BodyMd w={220} />
-        </YStack>
-        <YStack gap="$2">
-          <XStack jc="space-between" ai="center" h={32}>
-            <Skeleton.BodyMd w={72} />
-            <Skeleton.BodyMd w={96} />
-          </XStack>
-          <YStack gap="$4" p="$4" {...cardStyle}>
-            <YStack gap="$1">
-              <Skeleton.BodyMd />
-              <Skeleton.Heading3Xl />
-            </YStack>
-            {[0, 1].map((index) => (
-              <XStack key={index} jc="space-between">
-                <Skeleton.BodyMd w={96} />
-                <Skeleton.BodyMd w={88} />
-              </XStack>
-            ))}
-            <Divider borderColor={INVITE_CARD_BORDER_COLOR} />
-            <XStack jc="space-between">
+          <YStack gap="$2">
+            <XStack px="$4">
               <Skeleton.BodyMd w={120} />
-              <Skeleton.BodyMd w={96} />
             </XStack>
+            <YStack px="$4" py="$1" {...cardStyle}>
+              {[0, 1, 2].map(listRow)}
+            </YStack>
           </YStack>
         </YStack>
       </YStack>
@@ -188,13 +231,14 @@ function InviteOverviewSkeleton() {
   }
 
   // Pointer layouts: the earnings card (label and history link, the total
-  // with its payout pill beside the coin art, then the three parts on a
-  // hairline), the invite card, and the earnings table with its column
-  // labels and product rows.
+  // with its payout pill beside the coin art, then its parts and the payout
+  // address on a hairline; the address keeps its width), the invite card
+  // built the same way, and the earnings table with its column labels and
+  // product rows.
   const earningsCard = (
     <YStack flex={1} gap="$4" p="$5" {...cardStyle}>
       <YStack gap="$1">
-        <XStack jc="space-between" ai="center" h={32}>
+        <XStack jc="space-between" ai="center">
           <Skeleton.BodyLg w={112} />
           <Skeleton.BodyMd w={112} />
         </XStack>
@@ -208,32 +252,47 @@ function InviteOverviewSkeleton() {
       </YStack>
       <Divider mt="auto" borderColor={INVITE_CARD_BORDER_COLOR} />
       <XStack gap="$6">
-        {[0, 1, 2].map((index) => (
-          <YStack key={index} flex={1} gap="$1">
+        {[0, 1].map((index) => (
+          <YStack
+            key={index}
+            flex={1}
+            flexBasis={0}
+            minWidth={0}
+            gap="$1"
+            py="$1"
+          >
             <Skeleton.BodyMd w={72} />
             <Skeleton.HeadingMd w={96} />
           </YStack>
         ))}
+        <YStack flexShrink={0} gap="$1" py="$1">
+          <Skeleton.BodyMd w={72} />
+          <Skeleton.HeadingMd w={180} />
+        </YStack>
       </XStack>
     </YStack>
   );
 
   const inviteCard = (
     <YStack flex={1} gap="$4" p="$5" {...cardStyle}>
-      <XStack jc="space-between" ai="flex-start" gap="$3">
-        <YStack gap="$1">
+      <YStack gap="$1">
+        <XStack jc="space-between" ai="center" gap="$3">
           <Skeleton.HeadingLg w={220} />
-          <Skeleton.BodyMd w={280} />
-        </YStack>
-        <Skeleton.BodyMd w={96} />
-      </XStack>
+          <Skeleton.BodyMd w={96} />
+        </XStack>
+        <Skeleton.BodyMd w={280} />
+      </YStack>
       <Skeleton w="100%" h={48} radius="round" />
-      <XStack jc="space-between" ai="center" h={32}>
-        <Skeleton.BodyMd w={180} />
-        <Skeleton.BodyMd w={112} />
+      <Divider mt="auto" borderColor={INVITE_CARD_BORDER_COLOR} />
+      <XStack jc="space-between" ai="flex-start" gap="$6">
+        <YStack gap="$1" py="$1">
+          <Skeleton.BodyMd w={72} />
+          <Skeleton.BodyLg w={120} />
+        </YStack>
+        <XStack h={28} ai="center">
+          <Skeleton.BodyMd w={96} />
+        </XStack>
       </XStack>
-      <Divider borderColor={INVITE_CARD_BORDER_COLOR} />
-      <Skeleton.BodyMd w={260} />
     </YStack>
   );
 
@@ -253,10 +312,7 @@ function InviteOverviewSkeleton() {
           <XStack key={index} gap="$4" py="$3" ai="center">
             <XStack flex={1.4} flexBasis={0} gap="$3" ai="center">
               <Skeleton w={40} h={40} radius="round" />
-              <YStack gap="$1">
-                <Skeleton.BodyLg w={120} />
-                <Skeleton.BodyMd w={88} />
-              </YStack>
+              <Skeleton.BodyLg w={120} />
             </XStack>
             {[0, 1, 2].map((cell) => (
               <XStack key={cell} flex={1} flexBasis={0}>
@@ -323,11 +379,6 @@ const InviteShareFooter = memo(function InviteShareFooter({
     <Page.Footer>
       <Page.FooterActions
         bg={backgroundColor}
-        // Tighter than the default 20px: 12px above the button, and 12px
-        // below it plus the safe area, which still clears the home
-        // indicator; the content keeps the difference.
-        pt="$3"
-        pb="$3"
         onConfirm={handleInvite}
         onConfirmText={intl.formatMessage({
           id: ETranslations.referral_invite_friends__action,
@@ -472,17 +523,13 @@ function InviteRewardPage() {
     }
   }, [refreshAll]);
   const scrollFadeRef = useRef<IScrollEdgeFadeControl>(null);
-  const heroAnimation = useInviteHeroAnimation(isInviteTab);
-  const { onScrollOffset: onHeroScrollOffset } = heroAnimation;
-  // Drives the fade and the hero animation through refs: scrolling never
-  // re-renders the page.
+  // Drives the fade through a ref: scrolling never re-renders the page.
   const handleScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const offsetY = event.nativeEvent.contentOffset.y;
       scrollFadeRef.current?.setVisible(offsetY > 0);
-      onHeroScrollOffset(offsetY);
     },
-    [onHeroScrollOffset],
+    [],
   );
 
   const showInviteFooter =
@@ -519,13 +566,12 @@ function InviteRewardPage() {
         <Page.Container padded={false}>
           {summaryInfo ? (
             // Keep the invite tab mounted so switching tabs does not
-            // refetch its data or replay the illustration.
+            // refetch its data.
             <YStack display={isInviteTab ? 'flex' : 'none'}>
               <InviteTabContent
                 summaryInfo={summaryInfo}
                 fetchSummaryInfo={fetchSummaryInfo}
                 levelDetail={levelDetail}
-                heroAnimationControlRef={heroAnimation.controlRef}
               />
             </YStack>
           ) : null}

@@ -28,6 +28,7 @@ import type {
   ITradingViewNativeChartScenePaintStyle,
   ITradingViewNativeChartSceneRect,
 } from './chartScene';
+import type { IDrawing } from '../drawings/model';
 import type {
   ITradingViewNativeChartLeafComponent,
   ITradingViewNativePriceScaleMode,
@@ -54,6 +55,20 @@ function getReferenceLinePaintId(id: string, part: 'label' | 'line' | 'text') {
   'worklet';
 
   return `chart.component.referenceLine.${id}.${part}`;
+}
+
+function getDrawingPriceLabelTextColor(color: string) {
+  'worklet';
+
+  const [red, green, blue] = [1, 3, 5].map((offset) => {
+    const channel = Number.parseInt(color.slice(offset, offset + 2), 16) / 255;
+    return channel <= 0.040_45
+      ? channel / 12.92
+      : ((channel + 0.055) / 1.055) ** 2.4;
+  });
+  const luminance = red * 0.2126 + green * 0.7152 + blue * 0.0722;
+  // This threshold selects the higher contrast of black and white text.
+  return luminance > 0.179 ? '#000000' : PRICE_LABEL_TEXT_COLOR;
 }
 
 function appendTradingLineLabelCommands({
@@ -324,9 +339,11 @@ export function appendTradingViewNativeChartComponentCommands({
   components,
   currentPriceLabel,
   customPaintStyles,
+  drawings,
   maxPrice,
   measureTextWidth,
   minPrice,
+  priceAxisFontSize,
   priceAxisX,
   priceChartHeight,
   priceDecimalPlaces,
@@ -338,12 +355,14 @@ export function appendTradingViewNativeChartComponentCommands({
   components: readonly ITradingViewNativeChartLeafComponent[];
   currentPriceLabel?: { price: number; top: number };
   customPaintStyles: Record<string, ITradingViewNativeChartScenePaintStyle>;
+  drawings: readonly IDrawing[];
   maxPrice: number;
   measureTextWidth: (
     text: string,
     font: ITradingViewNativeChartSceneFont,
   ) => number;
   minPrice: number;
+  priceAxisFontSize: number;
   priceAxisX: number;
   priceChartHeight: number;
   priceDecimalPlaces?: number;
@@ -356,6 +375,36 @@ export function appendTradingViewNativeChartComponentCommands({
   const priceLabelCommands: ITradingViewNativeChartSceneCommand[] = [];
   const textLabelCommands: ITradingViewNativeChartSceneCommand[] = [];
   const hitRegions: ITradingViewNativeReferenceLineHitRegion[] = [];
+  const drawingLabels = drawings.flatMap((drawing, renderIndex) => {
+    const point = drawing.points[0];
+    if (
+      !showYAxis ||
+      drawing.hidden ||
+      !point ||
+      !['horizontal', 'horizontalRay', 'cross'].includes(drawing.tool)
+    ) {
+      return [];
+    }
+    const priceLayout = getTradingViewNativeCurrentPriceLayout({
+      labelHeight: PRICE_LABEL_HEIGHT,
+      maxPrice,
+      minPrice,
+      price: point.price,
+      priceChartHeight,
+      priceScaleMode,
+    });
+    return priceLayout
+      ? [
+          {
+            // Clone previews retain the source ID until the drag is committed.
+            id: `drawing.${drawing.id}.${renderIndex}`,
+            color: drawing.color,
+            price: point.price,
+            priceLayout,
+          },
+        ]
+      : [];
+  });
   const referenceLines = components.flatMap((component) => {
     if (component.type !== 'referenceLine') {
       return [];
@@ -370,9 +419,24 @@ export function appendTradingViewNativeChartComponentCommands({
     });
     return priceLayout ? [{ component, priceLayout }] : [];
   });
+  const drawingLabelCapacity = Math.max(
+    0,
+    Math.floor(priceChartHeight / PRICE_LABEL_HEIGHT) -
+      referenceLines.length -
+      (currentPriceLabel ? 1 : 0),
+  );
+  // Reserve space for market prices and keep the topmost drawings when full.
+  const visibleDrawingLabels = drawingLabels.slice(
+    Math.max(0, drawingLabels.length - drawingLabelCapacity),
+  );
   const labelTops: Record<string, number> = showYAxis
     ? getTradingViewNativePriceLabelPositions({
         labels: [
+          ...visibleDrawingLabels.map(({ id, price, priceLayout }) => ({
+            id,
+            price,
+            top: priceLayout.labelTop,
+          })),
           ...referenceLines.map(({ component, priceLayout }) => ({
             id: component.id,
             price: component.props.anchor.price,
@@ -390,6 +454,45 @@ export function appendTradingViewNativeChartComponentCommands({
     : {};
   const currentPriceLabelTop =
     labelTops[CURRENT_PRICE_LABEL_ID] ?? currentPriceLabel?.top;
+  visibleDrawingLabels.forEach(({ id, color, price, priceLayout }) => {
+    const labelTop = labelTops[id] ?? priceLayout.labelTop;
+    const text = formatTradingViewNativePriceTick(price, 4, priceDecimalPlaces);
+    const labelWidth =
+      measureTextWidth(text, 'priceAxis') +
+      FLOATING_PRICE_LABEL_HORIZONTAL_PADDING * 2;
+    const labelLeft = Math.min(priceAxisX, width - labelWidth);
+    const paintId = `chart.${id}.label`;
+    const textPaintId = `chart.${id}.text`;
+    customPaintStyles[paintId] = { color, opacity: 1 };
+    customPaintStyles[textPaintId] = {
+      color: getDrawingPriceLabelTextColor(color),
+      opacity: 1,
+    };
+    priceLabelCommands.push(
+      {
+        customPaintId: paintId,
+        kind: 'rect',
+        paint: 'background',
+        x: labelLeft,
+        y: labelTop,
+        width: labelWidth,
+        height: PRICE_LABEL_HEIGHT,
+      },
+      {
+        customPaintId: textPaintId,
+        kind: 'text',
+        font: 'priceAxis',
+        paint: 'currentPriceLabelText',
+        text,
+        x: labelLeft + FLOATING_PRICE_LABEL_HORIZONTAL_PADDING,
+        y:
+          labelTop +
+          PRICE_LABEL_HEIGHT / 2 +
+          priceAxisFontSize / 2 +
+          PRICE_AXIS_TEXT_BASELINE_OFFSET,
+      },
+    );
+  });
   referenceLines.forEach(({ component, priceLayout }) => {
     const {
       anchor,
@@ -615,7 +718,7 @@ export function appendTradingViewNativeChartComponentCommands({
           y:
             labelTop +
             PRICE_LABEL_HEIGHT / 2 +
-            AXIS_FONT_SIZE / 2 +
+            priceAxisFontSize / 2 +
             PRICE_AXIS_TEXT_BASELINE_OFFSET,
         },
       );

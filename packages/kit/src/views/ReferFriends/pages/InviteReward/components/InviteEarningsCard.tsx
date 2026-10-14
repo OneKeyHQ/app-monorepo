@@ -1,11 +1,11 @@
-import { useCallback, useMemo } from 'react';
-import type { ReactNode } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
   Divider,
   Icon,
+  IconButton,
   Illustration,
   SizableText,
   XStack,
@@ -20,22 +20,22 @@ import { useNextDistributionLabel } from '@onekeyhq/kit/src/views/ReferFriends/h
 import { useNavigateToEditAddress } from '@onekeyhq/kit/src/views/ReferFriends/pages/EditAddress/hooks/useNavigateToEditAddress';
 import { useNavigateToRewardHistory } from '@onekeyhq/kit/src/views/ReferFriends/pages/RewardDistributionHistory/hooks/useNavigateToRewardHistory';
 import { openInviteWithdrawAddressEditor } from '@onekeyhq/kit/src/views/ReferFriends/pages/RewardDistributionHistory/openInviteWithdrawAddressEditor';
+import { shortenPayoutAddress } from '@onekeyhq/kit/src/views/ReferFriends/utils/shortenPayoutAddress';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { CompactFieldRow } from '../../../components/CompactFieldRow';
 import { ReferFriendsTestIDs } from '../../../testIDs';
 
 import { CardTextAction } from './CardTextAction';
 import { getInviteEarningsState } from './getInviteEarningsState';
-import { REFERRAL_USD_CURRENCY_PROPS } from './shared/getRewardSummary';
+import { InviteStatCell as StatCell } from './InviteStatCell';
+import { REFERRAL_USD_SOURCE_PROPS } from './shared/getRewardSummary';
 import {
   COMPACT_ENTRY_TITLE_PROPS,
   COMPACT_ROW_BLEED_PROPS,
   INVITE_CARD_BORDER_COLOR,
-  POINTER_ROW_BLEED_PROPS,
-  PRESSABLE_SURFACE_PROPS,
   useInviteHomeCardStyle,
 } from './useInviteCardStyle';
 
@@ -51,82 +51,45 @@ interface IEarningsLabels {
   nextPayout: string | null;
 }
 
-// Desktop's lead figure with its fixed "USD" unit: the amount stays in USD
-// whatever the wallet currency is.
+// Desktop's lead figure, in the wallet currency like every referral amount.
 function LeadAmount({ amount }: { amount: string }) {
   return (
-    <XStack ai="baseline" gap="$1.5">
-      <Currency
-        {...REFERRAL_USD_CURRENCY_PROPS}
-        size="$heading4xl"
-        numberOfLines={1}
-        flexShrink={1}
-      >
-        {amount}
-      </Currency>
-      <SizableText size="$bodyLg" color="$textSubdued">
-        USD
-      </SizableText>
-    </XStack>
+    <Currency
+      {...REFERRAL_USD_SOURCE_PROPS}
+      size="$heading4xl"
+      numberOfLines={1}
+      flexShrink={1}
+    >
+      {amount}
+    </Currency>
   );
 }
 
-function StatCell({
-  label,
-  leading,
-  children,
-  onPress,
-  testID,
-}: {
-  label: string;
-  leading?: ReactNode;
-  children: ReactNode;
-  onPress?: () => void;
-  testID?: string;
-}) {
-  return (
-    <XStack
-      testID={testID}
-      flex={1}
-      ai="center"
-      gap="$2"
-      py="$1"
-      borderRadius="$2"
-      // Pressable cells get a padded hover surface that keeps text aligned.
-      {...(onPress
-        ? { ...PRESSABLE_SURFACE_PROPS, ...POINTER_ROW_BLEED_PROPS }
-        : null)}
-      onPress={onPress}
-    >
-      <YStack flex={1} gap="$1" minWidth={0}>
-        <XStack ai="center" gap="$2">
-          {leading}
-          <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-            {label}
-          </SizableText>
-        </XStack>
-        {children}
-      </YStack>
-      {onPress ? (
-        <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
-      ) : null}
-    </XStack>
-  );
+const HIDDEN_ADDRESS_MASK = '**********';
+
+interface IPayoutAddressVisibility {
+  isVisible: boolean;
+  onToggle: () => void;
 }
 
 // The payout address with the chain it is paid on, so people can tell where
-// the rewards land; only shown once an address is set.
+// the rewards land; only shown once an address is set. A set address can be
+// masked with the eye button, whose press stays off the cell. The mask covers
+// the address instead of replacing it, so the buttons keep their place.
 function PayoutAddressValue({
   address,
   networkId,
   size,
   color,
+  visibility,
 }: {
   address: string;
   networkId?: string;
   size: '$bodyLgMedium' | '$bodyMd';
   color?: '$textSubdued' | '$textCaution';
+  visibility?: IPayoutAddressVisibility;
 }) {
+  const isHidden = visibility ? !visibility.isVisible : false;
   return (
     <XStack ai="center" gap="$1.5" flexShrink={1} minWidth={0}>
       {networkId ? (
@@ -136,9 +99,50 @@ function PayoutAddressValue({
           size={size === '$bodyMd' ? '$3.5' : '$4'}
         />
       ) : null}
-      <SizableText size={size} color={color} numberOfLines={1} flexShrink={1}>
-        {address}
-      </SizableText>
+      <YStack flexShrink={1} minWidth={0}>
+        <SizableText
+          size={size}
+          color={color}
+          numberOfLines={1}
+          opacity={isHidden ? 0 : 1}
+          // Hidden means hidden from screen readers and selection too.
+          aria-hidden={isHidden}
+          userSelect={isHidden ? 'none' : undefined}
+        >
+          {address}
+        </SizableText>
+        {isHidden ? (
+          <SizableText
+            size={size}
+            color={color}
+            numberOfLines={1}
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+          >
+            {HIDDEN_ADDRESS_MASK}
+          </SizableText>
+        ) : null}
+      </YStack>
+      {visibility ? (
+        <IconButton
+          testID={ReferFriendsTestIDs.invitePayoutAddressVisibility}
+          icon={visibility.isVisible ? 'EyeOffOutline' : 'EyeOutline'}
+          variant="tertiary"
+          size="small"
+          onPress={visibility.onToggle}
+        />
+      ) : null}
+      {/* The cell edits the address; the pencil sits right after it, clear
+          of the eye button's touch area. */}
+      <Icon
+        name="PencilOutline"
+        size="$5"
+        color="$iconSubdued"
+        flexShrink={0}
+        ml="$2"
+      />
     </XStack>
   );
 }
@@ -176,6 +180,7 @@ function DesktopEarnings({
   labels,
   payoutAddress,
   payoutNetworkId,
+  addressVisibility,
   onOpenHistory,
   onEditAddress,
 }: {
@@ -183,6 +188,7 @@ function DesktopEarnings({
   labels: IEarningsLabels;
   payoutAddress: string;
   payoutNetworkId?: string;
+  addressVisibility?: IPayoutAddressVisibility;
   onOpenHistory: () => void;
   onEditAddress: () => void;
 }) {
@@ -223,9 +229,10 @@ function DesktopEarnings({
         <StatCell
           leading={<PartDot color="$iconSuccess" />}
           label={labels.distributed}
+          minWidth="$16"
         >
           <Currency
-            {...REFERRAL_USD_CURRENCY_PROPS}
+            {...REFERRAL_USD_SOURCE_PROPS}
             size="$headingMd"
             numberOfLines={1}
           >
@@ -235,9 +242,10 @@ function DesktopEarnings({
         <StatCell
           leading={<PartDot color="$iconCaution" />}
           label={labels.undistributed}
+          minWidth="$16"
         >
           <Currency
-            {...REFERRAL_USD_CURRENCY_PROPS}
+            {...REFERRAL_USD_SOURCE_PROPS}
             size="$headingMd"
             numberOfLines={1}
           >
@@ -246,6 +254,9 @@ function DesktopEarnings({
         </StatCell>
         <StatCell
           testID={ReferFriendsTestIDs.invitePayoutAddress}
+          // The shortened address keeps its tail. The paid and unpaid
+          // amounts are the cells that give up width.
+          shrink={false}
           label={labels.payoutAddress}
           onPress={onEditAddress}
         >
@@ -253,6 +264,7 @@ function DesktopEarnings({
             address={payoutAddress}
             networkId={payoutNetworkId}
             size="$bodyLgMedium"
+            visibility={addressVisibility}
           />
         </StatCell>
       </XStack>
@@ -269,7 +281,7 @@ function CompactEarnings({
   labels,
   payoutAddress,
   payoutNetworkId,
-  isPayoutAddressSet,
+  addressVisibility,
   onEditAddress,
   onOpenHistory,
 }: {
@@ -277,38 +289,45 @@ function CompactEarnings({
   labels: IEarningsLabels;
   payoutAddress: string;
   payoutNetworkId?: string;
-  isPayoutAddressSet: boolean;
+  // Only a set address can be masked.
+  addressVisibility?: IPayoutAddressVisibility;
   onEditAddress: () => void;
   onOpenHistory: () => void;
 }) {
   return (
     <YStack>
-      <XStack ai="center" jc="space-between" gap="$3">
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {labels.cumulative}
-        </SizableText>
-        <CardTextAction
+      {/* Payout history sits on the total it explains, as the app's usual
+          history clock, level with the label. */}
+      <XStack ai="flex-start" gap="$3" pb="$3">
+        <YStack flex={1} minWidth={0}>
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {labels.cumulative}
+          </SizableText>
+          <Currency
+            {...REFERRAL_USD_SOURCE_PROPS}
+            size="$heading3xl"
+            numberOfLines={1}
+            pt="$1"
+          >
+            {earnings.cumulative}
+          </Currency>
+        </YStack>
+        <IconButton
           testID={ReferFriendsTestIDs.inviteRewardHistory}
-          label={labels.history}
+          variant="tertiary"
+          size="small"
+          icon="ClockTimeHistoryOutline"
+          title={labels.history}
           onPress={onOpenHistory}
         />
       </XStack>
-      <Currency
-        {...REFERRAL_USD_CURRENCY_PROPS}
-        size="$heading3xl"
-        numberOfLines={1}
-        pt="$1"
-        pb="$3"
-      >
-        {earnings.cumulative}
-      </Currency>
       <YStack pb="$3">
         <CompactFieldRow
           leading={<PartDot color="$iconSuccess" />}
           label={labels.distributed}
         >
           <Currency
-            {...REFERRAL_USD_CURRENCY_PROPS}
+            {...REFERRAL_USD_SOURCE_PROPS}
             size="$bodyMdMedium"
             numberOfLines={1}
           >
@@ -322,7 +341,7 @@ function CompactEarnings({
           hint={labels.nextPayout}
         >
           <Currency
-            {...REFERRAL_USD_CURRENCY_PROPS}
+            {...REFERRAL_USD_SOURCE_PROPS}
             size="$bodyMdMedium"
             numberOfLines={1}
           >
@@ -336,14 +355,14 @@ function CompactEarnings({
         {...COMPACT_ROW_BLEED_PROPS}
         titleProps={COMPACT_ENTRY_TITLE_PROPS}
         title={labels.payoutAddress}
-        drillIn
         onPress={onEditAddress}
       >
         <PayoutAddressValue
           address={payoutAddress}
           networkId={payoutNetworkId}
           size="$bodyMd"
-          color={isPayoutAddressSet ? '$textSubdued' : '$textCaution'}
+          color={addressVisibility ? '$textSubdued' : '$textCaution'}
+          visibility={addressVisibility}
         />
       </ListItem>
     </YStack>
@@ -384,7 +403,7 @@ export function InviteEarningsCard({
     }),
     distributed: intl.formatMessage({ id: ETranslations.referral_distributed }),
     cumulative: intl.formatMessage({
-      id: ETranslations.earn_referral_total_earned,
+      id: ETranslations.referral_cumulative_rewards,
     }),
     history: intl.formatMessage({
       id: ETranslations.referral_payout_history__title,
@@ -403,10 +422,20 @@ export function InviteEarningsCard({
   const withdrawAddress = payoutTarget?.address;
   const payoutNetworkId = withdrawAddress ? payoutTarget?.networkId : undefined;
   const payoutAddress = withdrawAddress
-    ? accountUtils.shortenAddress({ address: withdrawAddress })
+    ? shortenPayoutAddress(withdrawAddress)
     : intl.formatMessage({
         id: ETranslations.referral_reward_received_address_notset,
       });
+  const [isAddressVisible, setIsAddressVisible] = useState(true);
+  const toggleAddressVisibility = useCallback(() => {
+    const nextVisible = !isAddressVisible;
+    setIsAddressVisible(nextVisible);
+    defaultLogger.referral.page.toggleReceivingAddressVisibility(nextVisible);
+  }, [isAddressVisible]);
+  const addressVisibility: IPayoutAddressVisibility | undefined =
+    withdrawAddress
+      ? { isVisible: isAddressVisible, onToggle: toggleAddressVisibility }
+      : undefined;
   const cardStyle = useInviteHomeCardStyle();
 
   if (md) {
@@ -423,7 +452,7 @@ export function InviteEarningsCard({
           labels={labels}
           payoutAddress={payoutAddress}
           payoutNetworkId={payoutNetworkId}
-          isPayoutAddressSet={Boolean(withdrawAddress)}
+          addressVisibility={addressVisibility}
           onEditAddress={editPayoutAddress}
           onOpenHistory={navigateToRewardHistory}
         />
@@ -443,6 +472,7 @@ export function InviteEarningsCard({
         labels={labels}
         payoutAddress={payoutAddress}
         payoutNetworkId={payoutNetworkId}
+        addressVisibility={addressVisibility}
         onOpenHistory={navigateToRewardHistory}
         onEditAddress={editPayoutAddress}
       />
