@@ -110,12 +110,21 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
     onNavigation({ id, loading: true });
   }, [id, onNavigation]);
   const onDidStartNavigation = useCallback(
-    ({ url: willNavigationUrl, isMainFrame }: DidStartNavigationEvent) => {
+    ({
+      url: willNavigationUrl,
+      isMainFrame,
+      isInPlace,
+    }: DidStartNavigationEvent) => {
       if (isMainFrame) {
         setNavigationBlockAccessView(false);
         setNavigationUrlValidateState(undefined);
         setNavigationBlockedUrl(undefined);
-        notifyTabNavigation(id);
+        // An in-page navigation (pushState / hash) keeps the document and
+        // the injected translate script, so the translate session goes on;
+        // no did-finish-load follows it either.
+        if (!isInPlace) {
+          notifyTabNavigation(id);
+        }
         onNavigation({
           id,
           url: willNavigationUrl,

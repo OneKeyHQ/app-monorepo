@@ -102,7 +102,7 @@ function contentRange(value: string | string[] | undefined) {
   };
 }
 
-function stripSensitiveHeaders(headers: Record<string, string>) {
+export function stripSensitiveHeaders(headers: Record<string, string>) {
   const allowed = new Set([
     'user-agent',
     'accept',

@@ -34,6 +34,7 @@ import {
   YStack,
 } from '../../primitives';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '../../utils/animationConstants';
+import { Checkbox } from '../Checkbox';
 import { Input } from '../Input';
 import { TextArea, TextAreaInput } from '../TextArea';
 
@@ -168,6 +169,22 @@ const getChildProps = (
         ...baseProps,
         onChange: field.onChange,
         onChangeText: handleChange,
+      };
+    }
+    case Checkbox: {
+      const handleChange = platformEnv.isNative
+        ? (value: unknown) => {
+            field.onChange(value);
+            // Native Checkbox completes interaction on press, without a
+            // focusable inner square to notify RHF that the field was touched.
+            field.onBlur();
+          }
+        : field.onChange;
+      return {
+        ...baseProps,
+        onChange: onChange
+          ? composeEventHandlers(onChange, handleChange)
+          : handleChange,
       };
     }
     default: {

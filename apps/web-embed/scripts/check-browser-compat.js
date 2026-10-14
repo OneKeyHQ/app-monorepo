@@ -245,17 +245,24 @@ function inspectHtmlScripts(failures) {
   const entryScripts = scripts.filter((script) =>
     getScriptAttribute(script.attributes, 'src'),
   );
-  if (entryScripts.length !== 2) {
+  if (entryScripts.length !== 5) {
     throw new Error(
-      `Expected two web-embed entry scripts, found ${entryScripts.length}`,
+      `Expected release metadata, runtime, vendor and two web-embed entry scripts, found ${entryScripts.length}`,
     );
   }
-  entryScripts.forEach((script) => {
+  const expectedSources = [
+    './release-meta.js',
+    './web-embed.runtime.',
+    './web-embed.vendor.',
+    './web-embed.sentry.',
+    './web-embed.main.',
+  ];
+  entryScripts.forEach((script, index) => {
     const source = getScriptAttribute(script.attributes, 'src');
     const type = getScriptAttribute(script.attributes, 'type');
-    if (!source?.startsWith('./web-embed.')) {
+    if (!source?.startsWith(expectedSources[index])) {
       throw new Error(
-        `Web-embed entry scripts must use relative file URLs: ${source}`,
+        `Web-embed scripts must load in release metadata, runtime, vendor, Sentry and main order: ${source}`,
       );
     }
     if (type?.toLowerCase() === 'module') {

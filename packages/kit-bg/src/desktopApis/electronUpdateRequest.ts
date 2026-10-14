@@ -2,6 +2,8 @@ import { net } from 'electron';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import { stripSensitiveHeaders } from './nodeDownload';
+
 import type { IncomingHttpHeaders } from 'http';
 import type { Readable } from 'stream';
 
@@ -16,19 +18,6 @@ export interface IUpdateResponse {
     [Symbol.asyncIterator]: () => AsyncIterator<Buffer>;
   };
   url: string;
-}
-
-function stripSensitiveHeaders(headers: Record<string, string>) {
-  const allowed = new Set([
-    'user-agent',
-    'accept',
-    'accept-encoding',
-    'range',
-    'if-range',
-  ]);
-  return Object.fromEntries(
-    Object.entries(headers).filter(([name]) => allowed.has(name.toLowerCase())),
-  );
 }
 
 export async function requestUpdateUrl(

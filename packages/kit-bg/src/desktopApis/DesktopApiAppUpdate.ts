@@ -34,7 +34,7 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { getDownloadedFileAvailability } from './appUpdatePackageAvailability';
 import { requestUpdateUrl } from './electronUpdateRequest';
-import { downloadNodeFile } from './nodeDownload';
+import { downloadNodeFile, stripSensitiveHeaders } from './nodeDownload';
 
 import type { IDesktopApi } from './base/types';
 
@@ -558,6 +558,7 @@ class DesktopApiAppUpdate {
       isManualCheck: isManual,
     };
     this.requestHeaders = headers;
+    this.requestHeadersOrigin = new URL(feedUrl).origin;
     this.getMainWindow()?.webContents.send(
       ipcMessageKeys.UPDATE_DOWNLOAD_FILE_INFO,
       artifact.url,
@@ -566,6 +567,14 @@ class DesktopApiAppUpdate {
   }
 
   private requestHeaders: Record<string, string> = {};
+
+  private requestHeadersOrigin: string | undefined;
+
+  private getArtifactRequestHeaders(url: string): Record<string, string> {
+    return new URL(url).origin === this.requestHeadersOrigin
+      ? this.requestHeaders
+      : stripSensitiveHeaders(this.requestHeaders);
+  }
 
   private emitProgress(progress: IUpdateProgressUpdate): void {
     this.getMainWindow()?.webContents.send(
@@ -622,7 +631,7 @@ class DesktopApiAppUpdate {
             url: artifact.url,
             targetPath,
             identity: `${artifact.version}:${artifact.platform}:${artifact.arch}:${artifact.url}:${artifact.sha512}`,
-            headers: this.requestHeaders,
+            headers: this.getArtifactRequestHeaders(artifact.url),
             expectedSha512: artifact.sha512,
             expectedBytes: artifact.size,
             transport: requestUpdateUrl,
@@ -752,7 +761,7 @@ class DesktopApiAppUpdate {
     ascUrl.pathname += '.SHA256SUMS.asc';
     const headers = await withCustomUAHeaders(
       ascUrl.toString(),
-      this.requestHeaders,
+      this.getArtifactRequestHeaders(ascUrl.toString()),
     );
     if (metadataGeneration !== this.metadataGeneration) {
       throw new OneKeyLocalError('Download cancelled');

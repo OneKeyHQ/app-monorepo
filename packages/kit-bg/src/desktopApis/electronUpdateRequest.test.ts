@@ -162,3 +162,57 @@ test('times out a response body that stalls after delivering its first chunk', a
   expect(request.abort).toHaveBeenCalledTimes(1);
   expect(incoming.destroyed).toBe(true);
 });
+
+test.each([
+  ['same origin', 'https://origin.test/package.zip', true],
+  ['cross origin', 'https://cdn.fixture.test/package.zip', false],
+  ['different port', 'https://origin.test:444/package.zip', false],
+])(
+  'preserves private headers only on %s redirects',
+  async (_label, destination, sameOrigin) => {
+    mockRequest.mockImplementation(({ url }) => {
+      const request = requestFor(url);
+      request.end.mockImplementation(() => {
+        setImmediate(() => {
+          if (url === 'https://origin.test/entry')
+            request.emit('redirect', 302, 'GET', destination, {});
+          else request.emit('response', response(200, 'package'));
+        });
+      });
+      return request;
+    });
+    const { response: body } = await requestUpdateUrl(
+      'https://origin.test/entry',
+      {
+        Authorization: 'private-fixture',
+        Cookie: 'private-cookie',
+        'X-Onekey-Instance-Id': 'private-instance',
+        'User-Agent': 'OneKey-test',
+        Range: 'bytes=0-0',
+      },
+    );
+    for await (const _chunk of body) {
+      /* Complete the response and release its watchdog. */
+    }
+    const redirected = mockRequest.mock.results[1].value as ReturnType<
+      typeof requestFor
+    >;
+    for (const name of ['Authorization', 'Cookie', 'X-Onekey-Instance-Id']) {
+      if (sameOrigin)
+        expect(redirected.setHeader).toHaveBeenCalledWith(
+          name,
+          expect.any(String),
+        );
+      else
+        expect(redirected.setHeader).not.toHaveBeenCalledWith(
+          name,
+          expect.any(String),
+        );
+    }
+    expect(redirected.setHeader).toHaveBeenCalledWith(
+      'User-Agent',
+      'OneKey-test',
+    );
+    expect(redirected.setHeader).toHaveBeenCalledWith('Range', 'bytes=0-0');
+  },
+);

@@ -94,6 +94,8 @@ export type IDeFiPosition = {
   owner: string;
   protocol: string;
   protocolName: string;
+  protocolLogo?: string;
+  protocolUrl?: string;
   chain: string;
   category: string;
   assets: IDeFiAsset[];
@@ -138,6 +140,7 @@ export type IFetchAccountDeFiPositionsResp = {
       chains: string[];
       protocolCount: number;
       positionCount: number;
+      unrepresentedValue?: number;
     };
     protocolSummaries: IProtocolSummary[];
   };
@@ -153,7 +156,31 @@ export type IFetchAccountDeFiPositionsResp = {
     cached: boolean;
     degraded: boolean;
     warnings: string[];
+    queriedNetworkIds?: string[];
+    lastUpdatedAt?: string;
+    summaryOnly?: boolean;
+    currencyInfo?: { requested: string; actual: string; source: string };
   };
+};
+
+export type IDeFiOverviewTotals =
+  IFetchAccountDeFiPositionsResp['data']['totals'];
+
+export type IFetchAccountDeFiPositionsBatchParams = Omit<
+  IFetchAccountDeFiPositionsParams,
+  'networkId'
+> & {
+  // Sorted network ids served by one address/xpub; 1..10 entries. A single
+  // entry is sent as a string, more are sent as an array.
+  networkIds: string[];
+};
+
+export type IFetchAccountDeFiPositionsResult = {
+  networkId: string;
+  overview: IDeFiOverviewTotals;
+  protocols: IDeFiProtocol[];
+  protocolMap: Record<string, IProtocolSummary>;
+  isSameAllNetworksAccountData: boolean;
 };
 
 export type IDeFiProtocol = {

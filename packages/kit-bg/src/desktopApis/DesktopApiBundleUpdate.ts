@@ -33,7 +33,7 @@ import type {
 import type { IDesktopStoreUpdateBundleData } from '@onekeyhq/shared/types/desktop';
 
 import { requestUpdateUrl } from './electronUpdateRequest';
-import { downloadNodeFile } from './nodeDownload';
+import { downloadNodeFile, stripSensitiveHeaders } from './nodeDownload';
 
 import type { IDesktopApi } from './base/types';
 import type { BrowserWindow } from 'electron';
@@ -353,7 +353,7 @@ class DesktopApiAppBundleUpdate {
         url: downloadUrl,
         targetPath: filePath,
         identity: `bundle:${latestVersion}:${bundleVersion}:${downloadUrl}:${sha256}`,
-        headers,
+        headers: stripSensitiveHeaders(headers ?? {}),
         expectedBytes:
           typeof fileSize === 'number' &&
           Number.isSafeInteger(fileSize) &&

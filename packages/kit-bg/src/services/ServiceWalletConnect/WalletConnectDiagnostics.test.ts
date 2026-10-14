@@ -3,6 +3,7 @@ import { EventEmitter } from 'events';
 import { RELAYER_EVENTS, SUBSCRIBER_EVENTS } from '@walletconnect/core';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { WalletConnectDiagnostics } from './WalletConnectDiagnostics';
 
@@ -31,6 +32,102 @@ function createCore() {
 }
 
 describe('WalletConnect wallet diagnostics', () => {
+  it('writes production connection events through LogToLocal', () => {
+    const previous = process.env.NODE_ENV;
+    const emit = jest
+      .spyOn(defaultLogger.app.background, '_emitLog')
+      .mockImplementation(() => undefined);
+    try {
+      process.env.NODE_ENV = 'production';
+      new WalletConnectDiagnostics('dapp').record(
+        'connection',
+        'initialize_ready',
+      );
+      expect(emit).toHaveBeenCalledWith(
+        'walletConnectConnection',
+        [expect.objectContaining({ role: 'dapp', event: 'initialize_ready' })],
+        [expect.objectContaining({ type: 'local', level: 'info' })],
+      );
+    } finally {
+      process.env.NODE_ENV = previous;
+      emit.mockRestore();
+    }
+  });
+
+  it.each(['wallet', 'dapp'] as const)(
+    'persists safe attempt, target and cleanup context for the %s role',
+    (role) => {
+      const log = jest
+        .spyOn(defaultLogger.app.background, 'walletConnectConnection')
+        .mockImplementation((params) => params);
+      try {
+        const diagnostics = new WalletConnectDiagnostics(role);
+        const { core, relayer } = createCore();
+        diagnostics.attachCore(core);
+        relayer.emit('onekey_relay_diagnostic', {
+          event: 'relay_round_started',
+          cycleId: 3,
+          round: 2,
+        });
+        relayer.logger.debug(
+          'Connecting to wss://relay.walletconnect.com?auth=secret-token, attempt: 1...',
+        );
+        relayer.emit('onekey_relay_switch_waiting', {
+          relayUrl: 'wss://relay.walletconnect.com',
+          targetRelayUrl: 'wss://relay.walletconnect.org',
+          operation: 'switch',
+          uri: 'wc:secret?symKey=secret-token',
+        });
+        expect(diagnostics.getSnapshot()).toMatchObject({
+          relayUrl: 'wss://relay.walletconnect.com',
+          targetRelayUrl: 'wss://relay.walletconnect.org',
+        });
+        relayer.emit('onekey_relay_diagnostic', {
+          event: 'relay_cleanup_failed',
+          operation: 'restart',
+          cleanupPhase: 'cancel_registration',
+          connectionId: 9,
+          pendingConnections: 5,
+          elapsedMs: 15_000,
+          cycleId: 3,
+          round: 2,
+          error: new Error('socket timeout: secret-token'),
+          topic: 'secret-topic',
+          request: { data: 'secret-token' },
+        });
+        expect(log).toHaveBeenCalledWith(
+          expect.objectContaining({
+            role,
+            event: 'relay_connecting',
+            cycleId: 3,
+            round: 2,
+            attempt: 1,
+            sdkAttempt: 1,
+            relayUrl: 'wss://relay.walletconnect.com',
+          }),
+        );
+        expect(log).toHaveBeenLastCalledWith(
+          expect.objectContaining({
+            role,
+            event: 'relay_cleanup_failed',
+            operation: 'restart',
+            cleanupPhase: 'cancel_registration',
+            connectionId: 9,
+            pendingConnections: 5,
+            elapsedMs: 15_000,
+            errorCategory: 'Timeout / expired',
+          }),
+        );
+        expect(JSON.stringify(log.mock.calls)).not.toContain('secret');
+        expect(JSON.stringify(diagnostics.getSnapshot())).not.toContain(
+          'secret',
+        );
+      } finally {
+        log.mockRestore();
+      }
+    },
+  );
+
   it.each([false, true])(
     'does not treat SDK lifecycle warnings as failed connections (previous error: %s)',
     (previousError) => {
@@ -133,7 +230,7 @@ describe('WalletConnect wallet diagnostics', () => {
       connectionSuccesses: 2,
       disconnections: 1,
       relaySwitches: 1,
-      relayUrl: 'wss://relay.walletconnect.org',
+      relayUrl: 'wss://relay.walletconnect.com',
       lastConnectedAt: expect.any(Number),
       events: [],
     });

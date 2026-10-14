@@ -54,6 +54,9 @@ jest.mock('@onekeyhq/desktop/app/windowProgressBar', () => ({
   updateWindowProgressBar: jest.fn(),
 }));
 jest.mock('./nodeDownload', () => ({
+  stripSensitiveHeaders:
+    jest.requireActual<typeof import('./nodeDownload')>('./nodeDownload')
+      .stripSensitiveHeaders,
   downloadNodeFile: (opts: { targetPath: string }) => mockDownload(opts),
 }));
 jest.mock('./electronUpdateRequest', () => ({ requestUpdateUrl: jest.fn() }));

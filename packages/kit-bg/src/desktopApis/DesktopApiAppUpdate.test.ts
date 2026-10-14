@@ -73,7 +73,12 @@ jest.mock('child_process', () => ({
   ...jest.requireActual<typeof import('child_process')>('child_process'),
   spawn: mockSpawn,
 }));
-jest.mock('./nodeDownload', () => ({ downloadNodeFile: mockDownloadNodeFile }));
+jest.mock('./nodeDownload', () => ({
+  downloadNodeFile: mockDownloadNodeFile,
+  stripSensitiveHeaders:
+    jest.requireActual<typeof import('./nodeDownload')>('./nodeDownload')
+      .stripSensitiveHeaders,
+}));
 jest.mock('./electronUpdateRequest', () => ({
   requestUpdateUrl: mockRequestUpdateUrl,
 }));
@@ -112,7 +117,7 @@ jest.mock('@onekeyhq/shared/src/request/customUA', () => ({
   withCustomUAHeaders: jest.fn(
     async (_url: string, headers: Record<string, string>) => ({
       ...headers,
-      'X-OneKey': 'desktop-test',
+      'User-Agent': 'OneKey-test',
     }),
   ),
 }));
@@ -282,7 +287,7 @@ afterEach(async () => {
   else process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION = originalSkipGPG;
 });
 
-test('selects the chosen-version macOS ZIP and forwards feed and artifact headers', async () => {
+test('selects the chosen-version macOS ZIP and keeps feed headers for same-origin artifacts', async () => {
   const api = createApi('darwin');
   const get = mockHttpsResponse(
     feed('6.0.0', [
@@ -298,7 +303,7 @@ test('selects the chosen-version macOS ZIP and forwards feed and artifact header
   expect(artifact?.fileName).toBe(`OneKey-6.0.0-${process.arch}.zip`);
   expect(get).toHaveBeenCalledWith(
     expect.stringMatching(/^https:/),
-    { Authorization: 'test-token', 'X-OneKey': 'desktop-test' },
+    { Authorization: 'test-token', 'User-Agent': 'OneKey-test' },
     expect.any(AbortSignal),
     30_000,
   );
@@ -306,7 +311,7 @@ test('selects the chosen-version macOS ZIP and forwards feed and artifact header
   expect(mockDownloadNodeFile).toHaveBeenCalledWith(
     expect.objectContaining({
       url: artifact?.url,
-      headers: { Authorization: 'test-token', 'X-OneKey': 'desktop-test' },
+      headers: { Authorization: 'test-token', 'User-Agent': 'OneKey-test' },
       expectedSha512: mockSha512,
     }),
   );
@@ -837,3 +842,57 @@ test('Linux retains the old package until startup and drops the candidate if the
   expect(fs.existsSync(destination)).toBe(false);
   expect(mockStore.setUpdateBuildNumber).not.toHaveBeenCalled();
 });
+
+test.each([
+  ['same origin', 'https://updates.onekey.test', true],
+  ['normalized same origin', 'https://UPDATES.onekey.test:443', true],
+  ['external CDN', 'https://cdn.fixture.test', false],
+  ['lookalike host', 'https://updates.onekey.test.external.test', false],
+  ['different port', 'https://updates.onekey.test:444', false],
+])(
+  'binds artifact and ASC headers to the feed origin: %s',
+  async (_label, origin, sameOrigin) => {
+    const api = createApi('darwin');
+    const headers = {
+      Authorization: 'private-fixture',
+      Cookie: 'private-cookie',
+      'X-Onekey-Instance-Id': 'private-instance',
+      'X-Onekey-Locale': 'private-locale',
+      'X-Onekey-Currency': 'private-currency',
+      'X-Onekey-Platform': 'private-platform',
+      Accept: 'application/octet-stream',
+    };
+    const metadataRequest = mockHttpsResponse(
+      feed('6.0.0', [`${origin}/OneKey-6.0.0-${process.arch}.zip`]),
+    );
+    const artifact = await api.checkForUpdates(false, headers, '6.0.0');
+    expect(metadataRequest).toHaveBeenCalledWith(
+      expect.stringContaining('https://updates.onekey.test/'),
+      { ...headers, 'User-Agent': 'OneKey-test' },
+      expect.any(AbortSignal),
+      30_000,
+    );
+    await api.downloadUpdate();
+    const expectedHeaders = sameOrigin
+      ? { ...headers, 'User-Agent': 'OneKey-test' }
+      : { Accept: 'application/octet-stream', 'User-Agent': 'OneKey-test' };
+    expect(mockDownloadNodeFile).toHaveBeenCalledWith(
+      expect.objectContaining({ url: artifact?.url, headers: expectedHeaders }),
+    );
+    const ascRequest = mockHttpsResponse('signed checksums');
+    expect(
+      await api.downloadASC({
+        buildNumber: '123',
+        downloadedFile: api.downloadedEvent?.downloadedFile,
+        downloadUrl: artifact?.url,
+        skipGPGVerification: false,
+      }),
+    ).toBe(true);
+    expect(ascRequest).toHaveBeenLastCalledWith(
+      expect.stringContaining('.zip.SHA256SUMS.asc'),
+      expectedHeaders,
+      expect.any(AbortSignal),
+      30_000,
+    );
+  },
+);

@@ -20,6 +20,9 @@ jest.mock('./electronUpdateRequest', () => ({
   requestUpdateUrl: mockRequestUpdateUrl,
 }));
 jest.mock('./nodeDownload', () => ({
+  stripSensitiveHeaders:
+    jest.requireActual<typeof import('./nodeDownload')>('./nodeDownload')
+      .stripSensitiveHeaders,
   downloadNodeFile: mockDownloadNodeFile,
 }));
 jest.mock('electron-log/main', () => ({
@@ -41,7 +44,12 @@ const params = {
   bundleVersion: '123',
   downloadUrl: 'https://updates.onekey.test/bundle.zip',
   sha256: 'a'.repeat(64),
-  headers: { Authorization: 'bundle-token' },
+  headers: {
+    Authorization: 'bundle-token',
+    'X-Onekey-Instance-Id': 'fixture-instance',
+    'User-Agent': 'OneKey-test',
+    Accept: 'application/zip',
+  },
 };
 
 async function createApi() {
@@ -62,12 +70,12 @@ afterEach(() => {
   fs.rmSync(mockUserData, { recursive: true, force: true });
 });
 
-test('bundle production download forwards headers, size, and Electron transport', async () => {
+test('bundle production download forwards only public headers, size, and Electron transport', async () => {
   const api = await createApi();
   await api.downloadBundle({ ...params, fileSize: 3 * 1024 * 1024 });
   expect(mockDownloadNodeFile).toHaveBeenCalledWith(
     expect.objectContaining({
-      headers: params.headers,
+      headers: { 'User-Agent': 'OneKey-test', Accept: 'application/zip' },
       expectedBytes: 3 * 1024 * 1024,
       expectedSha256: params.sha256,
       transport: mockRequestUpdateUrl,
@@ -290,3 +298,34 @@ test('concurrent bundle progress identifies its destination versions', async () 
     globalThis.$desktopMainAppFunctions = previous;
   }
 });
+
+test.each([
+  'Authorization',
+  'authorization',
+  'Cookie',
+  'Proxy-Authorization',
+  'X-Onekey-Instance-Id',
+  'X-Onekey-Locale',
+  'X-Onekey-Currency',
+  'X-Onekey-Platform',
+  'X-Api-Key',
+  'Host',
+])(
+  'strips renderer-supplied %s before the initial bundle request',
+  async (name) => {
+    const api = await createApi();
+    await api.downloadBundle({
+      ...params,
+      downloadUrl: 'https://external.fixture.test/bundle.zip',
+      headers: {
+        [name]: 'private-fixture',
+        'User-Agent': 'OneKey-test',
+        Accept: 'application/zip',
+      },
+    });
+    expect(mockDownloadNodeFile.mock.calls[0][0].headers).toEqual({
+      'User-Agent': 'OneKey-test',
+      Accept: 'application/zip',
+    });
+  },
+);

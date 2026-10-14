@@ -214,3 +214,10 @@ Sensitive public method inventory for this review:
 - Fixed OS targets: `system.openPreferences`, `system.openPrivacyPanel`,
   `system.openAppStoreSubscriptions`, `bluetooth.openBluetoothSettings`,
   `bluetooth.openPrivacySettings`.
+
+Bundle requests never forward renderer credentials, instance identifiers or
+settings headers; only User-Agent, Accept, Accept-Encoding, Range and If-Range
+are eligible. App-shell feed headers are bound to the main-derived feed origin:
+same-origin package/ASC requests keep them, while cross-origin requests use the
+same public-header filter. Redirects and redirected range probes apply that
+filter as well. No credential origin is supplied or overridden by the renderer.

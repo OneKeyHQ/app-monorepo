@@ -1,5 +1,6 @@
 import {
   type IQRCodeErrorCorrectionLevel,
+  QR_CODE_BRAND_MARK,
   QR_CODE_DOT_RADIUS_RATIO,
   ensureQRCodeUtilLoaded,
   generateMatrix,
@@ -128,4 +129,22 @@ export async function drawDotQRCodeOnCanvas(
     // so the context has to come back balanced even when this throws
     ctx.restore();
   }
+}
+
+// Canvas twin of the component's `brandMark`: the OneKey mark filling a
+// square of `size` at (x, y). The caller paints the plate under it.
+export function drawQRCodeBrandMark(
+  ctx: CanvasRenderingContext2D,
+  { x, y, size }: { x: number; y: number; size: number },
+) {
+  const scale = size / QR_CODE_BRAND_MARK.size;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  ctx.translate(-QR_CODE_BRAND_MARK.inset, -QR_CODE_BRAND_MARK.inset);
+  QR_CODE_BRAND_MARK.shapes.forEach((shape) => {
+    ctx.fillStyle = shape.fill;
+    ctx.fill(new Path2D(shape.d), shape.fillRule ?? 'nonzero');
+  });
+  ctx.restore();
 }

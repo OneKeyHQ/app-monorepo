@@ -193,9 +193,7 @@ describe('DesktopApiBundleUpdate public download integration', () => {
         server.requests.filter((request) => request.range).length,
       ).toBeGreaterThanOrEqual(9);
       expect(
-        server.requests.every(
-          (request) => request.authorization === 'bundle-test-token',
-        ),
+        server.requests.every((request) => request.authorization === undefined),
       ).toBe(true);
     } finally {
       await server.close();

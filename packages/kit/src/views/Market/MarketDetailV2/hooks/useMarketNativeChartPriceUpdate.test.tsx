@@ -368,3 +368,31 @@ describe('useMarketNativeChartPriceUpdate', () => {
     expect(store.get(tokenDetailAtom())).toEqual(tokenDetail);
   });
 });
+
+describe('mobile Share/Token × Simple/Pro price ownership', () => {
+  it('updates token prices only in Token Pro and discards callbacks across switches', () => {
+    const { result, rerender, store } = renderNativePriceHook({
+      initialProps: { ...defaultProps, enabled: false },
+    });
+    let staleCallback = result.current.onPriceUpdate;
+    let expectedPrice = tokenDetail.price;
+    for (const [priceMode, chartMode] of [
+      ['share', 'simple'],
+      ['share', 'pro'],
+      ['token', 'pro'],
+      ['share', 'pro'],
+      ['token', 'simple'],
+      ['token', 'pro'],
+    ] as const) {
+      const enabled = priceMode === 'token' && chartMode === 'pro';
+      rerender({ ...defaultProps, enabled });
+      const previousCallback = staleCallback;
+      act(() => previousCallback({ ...realtimeUpdate, price: 999 }));
+      expect(store.get(tokenDetailAtom())?.price).toBe(expectedPrice);
+      act(() => result.current.onPriceUpdate(realtimeUpdate));
+      if (enabled) expectedPrice = '2';
+      expect(store.get(tokenDetailAtom())?.price).toBe(expectedPrice);
+      staleCallback = result.current.onPriceUpdate;
+    }
+  });
+});

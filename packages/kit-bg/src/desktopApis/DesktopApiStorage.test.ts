@@ -12,9 +12,7 @@ const mockStore = {
   clear: jest.fn(),
 };
 jest.mock('@onekeyhq/desktop/app/libs/store', () => ({
-  get instance() {
-    return mockStore;
-  },
+  getStoreForKey: () => mockStore,
   clear: () => {
     mockStore.clear();
   },

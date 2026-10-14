@@ -23,21 +23,21 @@ class DesktopApiStorage {
     value: IDesktopStoreMap[T],
   ): Promise<void> {
     this.assertAllowedKey(key);
-    store.instance.set(key, value);
+    store.getStoreForKey(key).set(key, value);
   }
 
   async storeGetItemAsync<T extends EDesktopStoreKeys.AppInstanceMetaBackup>(
     key: T,
   ): Promise<IDesktopStoreMap[T]> {
     this.assertAllowedKey(key);
-    return store.instance.get(key);
+    return store.getStoreForKey(key).get(key);
   }
 
   async storeDelItemAsync<T extends EDesktopStoreKeys.AppInstanceMetaBackup>(
     key: T,
   ): Promise<void> {
     this.assertAllowedKey(key);
-    store.instance.delete(key);
+    store.getStoreForKey(key).delete(key);
   }
 
   async resetAppConfiguration(): Promise<void> {

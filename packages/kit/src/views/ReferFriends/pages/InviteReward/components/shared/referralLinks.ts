@@ -12,14 +12,14 @@ const REFERRAL_LINKS = [
   {
     subject: 'Perp',
     pathSuffix: '/app/perps',
-    titleId: ETranslations.referral_link_perps_title,
+    titleId: ETranslations.perps_perps,
     descId: ETranslations.referral_link_perps_desc,
     useWebAppUrl: true,
   },
   {
     subject: 'Swap',
     pathSuffix: '/app/swap',
-    titleId: ETranslations.swap_referral_link__title,
+    titleId: ETranslations.global_swap,
     descId: ETranslations.swap_referral_link__desc,
     useWebAppUrl: true,
   },

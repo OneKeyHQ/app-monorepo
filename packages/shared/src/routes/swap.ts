@@ -6,6 +6,7 @@ import type {
   ESwapSource,
   ESwapTabSwitchType,
   IFetchLimitOrderRes,
+  IFetchQuoteResult,
   IMarketPresetTokenContext,
   ISwapNetwork,
   ISwapToken,
@@ -56,7 +57,18 @@ export type IModalSwapParamList = {
     setCurrentSelectNetwork: (network: ISwapNetwork) => void;
     storeName: EJotaiContextStoreNames;
   };
-  [EModalSwapRoutes.SwapProviderSelect]: { storeName: EJotaiContextStoreNames };
+  [EModalSwapRoutes.SwapProviderSelect]: {
+    storeName: EJotaiContextStoreNames;
+    providerSelect?: {
+      quotes: IFetchQuoteResult[];
+      fromToken?: ISwapToken;
+      toToken?: ISwapToken;
+      fromTokenAmount?: string;
+      selectedQuote?: IFetchQuoteResult;
+      currencySymbol: string;
+      onSelectQuote: (quote: IFetchQuoteResult) => void;
+    };
+  };
   [EModalSwapRoutes.SwapHistoryList]: {
     type?: EProtocolOfExchange;
     storeName: EJotaiContextStoreNames;
@@ -77,7 +89,7 @@ export type IModalSwapParamList = {
   [EModalSwapRoutes.TokenRiskReminder]: {
     storeName: EJotaiContextStoreNames;
     token: ISwapToken;
-    onConfirm: () => void;
+    onConfirm: (close: () => void) => void;
   };
   [EModalSwapRoutes.SwapLazyMarketModal]: {
     coinGeckoId: string;
@@ -96,6 +108,7 @@ export type IModalSwapParamList = {
   [EModalSwapRoutes.SwapProMarketDetail]: {
     tokenAddress: string;
     network: string;
+    stockId?: string;
     isNative?: boolean;
     from?: EEnterWay;
     disableTrade?: boolean;

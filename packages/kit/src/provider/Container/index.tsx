@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 
 import { RootSiblingParent } from 'react-native-root-siblings';
 
@@ -46,6 +46,16 @@ import { VerifyTxContainer } from './VerifyTxContainer';
 import { WalletBackupPreCheckContainerLazy } from './WalletBackupPreCheckContainerLazy';
 import { WebPerformanceMonitorContainer } from './WebPerformanceMonitor';
 
+// Lazy on purpose: this host is the startup graph's only sync importer of
+// wcPayDialogStore, so deferring it keeps the whole pay entry off the main
+// startup graph. The store holds state (not events): a payment link that lands
+// before the host is resident is picked up on its first render.
+const WalletConnectPayDialogContainerLazy = lazy(() =>
+  import('./WalletConnectPayDialogContainer').then((m) => ({
+    default: m.WalletConnectPayDialogContainer,
+  })),
+);
+
 function GlobalRootAppNavigationUpdate() {
   const navigation = useAppNavigation();
   appGlobals.$rootAppNavigation = navigation;
@@ -88,6 +98,9 @@ function DetailRouter() {
       <WebPerformanceMonitorContainer />
       <PasswordVerifyPortalContainer />
       <RookieShareContainerLazy />
+      <Suspense fallback={null}>
+        <WalletConnectPayDialogContainerLazy />
+      </Suspense>
     </NavigationContainer>
   );
 }

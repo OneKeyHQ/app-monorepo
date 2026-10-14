@@ -5,6 +5,11 @@ import { app, safeStorage } from 'electron';
 import logger from 'electron-log/main';
 import Store from 'electron-store';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  SECURE_STORAGE_PERMANENT_READ_ERROR_NAME,
+  buildSecureStoragePermanentReadErrorMessage,
+} from '@onekeyhq/shared/src/storage/secureStorage/types';
 import { EDesktopStoreKeys } from '@onekeyhq/shared/types/desktop';
 import type {
   IDesktopStoreFallbackUpdateBundleData,
@@ -16,7 +21,44 @@ import type {
 
 import { assertSafeBundleVersion } from './bundlePaths';
 
+// OneKey.json is frozen: do not add fields. Put new state in a dedicated store.
+// Keep existing preferences, encrypted data, and instance metadata here.
+// Native upgrades invalidate old bundles; disposable legacy state starts fresh.
 const store = new Store<IDesktopStoreMap>({ name: 'OneKey' });
+const updateStateStore = new Store<IDesktopStoreMap>({
+  name: 'OneKey-update-state',
+  clearInvalidConfig: true,
+  cwd: path.dirname(store.path),
+});
+const runtimeStateStore = new Store<IDesktopStoreMap>({
+  name: 'OneKey-runtime-state',
+  clearInvalidConfig: true,
+  cwd: path.dirname(store.path),
+});
+
+const storeByKey = {
+  [EDesktopStoreKeys.WinBounds]: store,
+  [EDesktopStoreKeys.UpdateSettings]: store,
+  [EDesktopStoreKeys.DevTools]: store,
+  [EDesktopStoreKeys.Theme]: store,
+  [EDesktopStoreKeys.EncryptedData]: store,
+  [EDesktopStoreKeys.Language]: store,
+  [EDesktopStoreKeys.DisableKeyboardShortcuts]: store,
+  [EDesktopStoreKeys.AppInstanceMetaBackup]: store,
+  [EDesktopStoreKeys.NetworkThrottle]: store,
+  [EDesktopStoreKeys.ASCFile]: updateStateStore,
+  [EDesktopStoreKeys.UpdateBuildNumber]: updateStateStore,
+  [EDesktopStoreKeys.UpdateBundleData]: updateStateStore,
+  [EDesktopStoreKeys.FallbackUpdateBundleData]: updateStateStore,
+  [EDesktopStoreKeys.NativeVersion]: updateStateStore,
+  [EDesktopStoreKeys.NativeBuildNumber]: updateStateStore,
+  [EDesktopStoreKeys.GPUCrashCount]: runtimeStateStore,
+  [EDesktopStoreKeys.LastGPUCrashTime]: runtimeStateStore,
+  [EDesktopStoreKeys.ConsecutiveBootFailCount]: runtimeStateStore,
+  [EDesktopStoreKeys.BootFailAppVersion]: runtimeStateStore,
+} satisfies Record<EDesktopStoreKeys, Store<IDesktopStoreMap>>;
+
+export const getStoreForKey = (key: keyof IDesktopStoreMap) => storeByKey[key];
 
 export type ILocalStore = {
   getUpdateSettings(): IDesktopStoreUpdateSettings;
@@ -28,6 +70,8 @@ export const instance = store;
 
 export const clear = () => {
   store.clear();
+  updateStateStore.clear();
+  runtimeStateStore.clear();
 };
 
 export const getUpdateSettings = () =>
@@ -86,21 +130,29 @@ export const getLanguage = () =>
 export const setLanguage = (lang: string) =>
   store.set(EDesktopStoreKeys.Language, lang);
 
-export const getWinBounds = (): Electron.Rectangle =>
-  store.get(EDesktopStoreKeys.WinBounds, {} as any);
+export const getWinBounds = (): Electron.Rectangle => {
+  return store.get(EDesktopStoreKeys.WinBounds, {} as Electron.Rectangle);
+};
 
-export const setWinBounds = (bounds: Electron.Rectangle) =>
+export const setWinBounds = (bounds: Electron.Rectangle) => {
   store.set(EDesktopStoreKeys.WinBounds, bounds);
+};
 
 export const clearUpdateSettings = () => {
   store.delete(EDesktopStoreKeys.UpdateSettings);
 };
 
+// Failures must THROW, never collapse into the absent-value `undefined`:
+// callers (e.g. the WalletConnect Pay durable-progress store) need to tell
+// "no ciphertext stored" from "cannot read right now" — treating a decrypt
+// failure (key rotation, Linux keyring change, copied config dir) as absent
+// makes them destroy still-intact encrypted records. Only a genuinely
+// missing value returns undefined.
 export const getSecureItem = (key: string) => {
   const available = safeStorage.isEncryptionAvailable();
   if (!available) {
     logger.error('safeStorage is not available');
-    return undefined;
+    throw new OneKeyLocalError('safeStorage is not available');
   }
   const item = store.get(EDesktopStoreKeys.EncryptedData, {});
   const value = item[key];
@@ -109,24 +161,49 @@ export const getSecureItem = (key: string) => {
       const result = safeStorage.decryptString(Buffer.from(value, 'hex'));
       return result;
     } catch (_e) {
-      logger.error(`failed to decrypt ${key}`);
-      return undefined;
+      logger.error(`failed to decrypt ${key}`, _e);
+      // encryption IS available (checked above) yet this value does not
+      // decrypt: the blob was sealed with a different safeStorage key, which
+      // no retry on this installation can fix. Label it permanent so
+      // consumers of re-obtainable values (supabase sessions) may map it to
+      // absent; the environmental !available failure above stays unlabeled
+      // (transient).
+      // The sentinel must ride in the MESSAGE: the DESKTOP_API_CALL IPC
+      // boundary preserves only `message` (makeIpcSafeError in app.ts →
+      // unwrapElectronIpcError rebuilds the error under its own name), and
+      // the renderer-side adapter (secureStorage/index.desktop.ts) re-tags
+      // `name` from it. The in-process `name` tag below is for main-side
+      // consumers only. Assigned through the Error base type: OneKey errors
+      // type `name` as their class-name enum.
+      const decryptError = new OneKeyLocalError(
+        buildSecureStoragePermanentReadErrorMessage(
+          'failed to decrypt secure item',
+        ),
+      );
+      (decryptError as Error).name = SECURE_STORAGE_PERMANENT_READ_ERROR_NAME;
+      throw decryptError;
     }
   }
+  return undefined;
 };
 
+// Same contract on the write side: a swallowed encrypt/persist failure lets
+// callers believe the payload landed (WalletConnect Pay writes its plaintext
+// index only after this succeeds — a silent failure here would leave an
+// index whose missing ciphertext later reads as confirmed-absent).
 export const setSecureItem = (key: string, value: string): void => {
   const available = safeStorage.isEncryptionAvailable();
   if (!available) {
     logger.error('safeStorage is not available');
-    return undefined;
+    throw new OneKeyLocalError('safeStorage is not available');
   }
   try {
     const items = store.get(EDesktopStoreKeys.EncryptedData, {});
     items[key] = safeStorage.encryptString(value).toString('hex');
     store.set(EDesktopStoreKeys.EncryptedData, items);
   } catch (_e) {
-    logger.error(`failed to encrypt ${key}`);
+    logger.error(`failed to encrypt ${key}`, _e);
+    throw new OneKeyLocalError('failed to encrypt secure item');
   }
 };
 
@@ -156,24 +233,25 @@ export const isSecureStorageAvailable = (): boolean => {
 };
 
 export const setASCFile = (ascFile: string) => {
-  store.set(EDesktopStoreKeys.ASCFile, ascFile);
+  updateStateStore.set(EDesktopStoreKeys.ASCFile, ascFile);
 };
 
-export const getASCFile = () => store.get(EDesktopStoreKeys.ASCFile, '');
+export const getASCFile = () =>
+  updateStateStore.get(EDesktopStoreKeys.ASCFile, '');
 
 export const clearASCFile = () => {
-  store.delete(EDesktopStoreKeys.ASCFile);
+  updateStateStore.delete(EDesktopStoreKeys.ASCFile);
 };
 
 export const setUpdateBuildNumber = (buildNumber: string) => {
-  store.set(EDesktopStoreKeys.UpdateBuildNumber, buildNumber);
+  updateStateStore.set(EDesktopStoreKeys.UpdateBuildNumber, buildNumber);
 };
 
 export const getUpdateBuildNumber = () =>
-  store.get(EDesktopStoreKeys.UpdateBuildNumber, '');
+  updateStateStore.get(EDesktopStoreKeys.UpdateBuildNumber, '');
 
 export const clearUpdateBuildNumber = () => {
-  store.delete(EDesktopStoreKeys.UpdateBuildNumber);
+  updateStateStore.delete(EDesktopStoreKeys.UpdateBuildNumber);
 };
 
 export const setUpdateBundleData = (
@@ -181,17 +259,17 @@ export const setUpdateBundleData = (
 ) => {
   assertSafeBundleVersion(updateBundleData.appVersion);
   assertSafeBundleVersion(updateBundleData.bundleVersion);
-  store.set(EDesktopStoreKeys.UpdateBundleData, updateBundleData);
+  updateStateStore.set(EDesktopStoreKeys.UpdateBundleData, updateBundleData);
 };
 
 export const getUpdateBundleData = () =>
-  store.get(
+  updateStateStore.get(
     EDesktopStoreKeys.UpdateBundleData,
     {} as IDesktopStoreUpdateBundleData,
   );
 
 export const clearUpdateBundleData = () => {
-  store.delete(EDesktopStoreKeys.UpdateBundleData);
+  updateStateStore.delete(EDesktopStoreKeys.UpdateBundleData);
 };
 
 export const setFallbackUpdateBundleData = (
@@ -201,78 +279,78 @@ export const setFallbackUpdateBundleData = (
     assertSafeBundleVersion(entry.appVersion);
     assertSafeBundleVersion(entry.bundleVersion);
   }
-  store.set(
+  updateStateStore.set(
     EDesktopStoreKeys.FallbackUpdateBundleData,
     fallbackUpdateBundleData,
   );
 };
 
 export const getFallbackUpdateBundleData = () =>
-  store.get(
+  updateStateStore.get(
     EDesktopStoreKeys.FallbackUpdateBundleData,
     [] as IDesktopStoreFallbackUpdateBundleData,
   );
 
 export const clearFallbackUpdateBundleData = () => {
-  store.delete(EDesktopStoreKeys.FallbackUpdateBundleData);
+  updateStateStore.delete(EDesktopStoreKeys.FallbackUpdateBundleData);
 };
 
 export const setNativeVersion = (nativeVersion: string) => {
-  store.set(EDesktopStoreKeys.NativeVersion, nativeVersion);
+  updateStateStore.set(EDesktopStoreKeys.NativeVersion, nativeVersion);
 };
 
 export const getNativeVersion = () =>
-  store.get(EDesktopStoreKeys.NativeVersion, '');
+  updateStateStore.get(EDesktopStoreKeys.NativeVersion, '');
 
 export const setNativeBuildNumber = (buildNumber: string) => {
-  store.set(EDesktopStoreKeys.NativeBuildNumber, buildNumber);
+  updateStateStore.set(EDesktopStoreKeys.NativeBuildNumber, buildNumber);
 };
 
 export const getNativeBuildNumber = () =>
-  store.get(EDesktopStoreKeys.NativeBuildNumber, '');
+  updateStateStore.get(EDesktopStoreKeys.NativeBuildNumber, '');
 
 // ==================== GPU Crash Statistics ====================
 // Functions for tracking GPU crash events
 export const recordGPUCrash = () => {
-  const crashes = store.get(EDesktopStoreKeys.GPUCrashCount, 0);
+  const crashes = runtimeStateStore.get(EDesktopStoreKeys.GPUCrashCount, 0);
   const newCount = crashes + 1;
-  store.set(EDesktopStoreKeys.GPUCrashCount, newCount);
-  store.set(EDesktopStoreKeys.LastGPUCrashTime, Date.now());
+  runtimeStateStore.set(EDesktopStoreKeys.GPUCrashCount, newCount);
+  runtimeStateStore.set(EDesktopStoreKeys.LastGPUCrashTime, Date.now());
   logger.error(`GPU crash recorded. Total crashes: ${newCount}`);
 };
 
 export const getGPUCrashStats = () => ({
-  count: store.get(EDesktopStoreKeys.GPUCrashCount, 0),
-  lastCrashTime: store.get(EDesktopStoreKeys.LastGPUCrashTime, 0),
+  count: runtimeStateStore.get(EDesktopStoreKeys.GPUCrashCount, 0),
+  lastCrashTime: runtimeStateStore.get(EDesktopStoreKeys.LastGPUCrashTime, 0),
 });
 
 export const clearGPUCrashStats = () => {
-  store.delete(EDesktopStoreKeys.GPUCrashCount);
-  store.delete(EDesktopStoreKeys.LastGPUCrashTime);
+  runtimeStateStore.delete(EDesktopStoreKeys.GPUCrashCount);
+  runtimeStateStore.delete(EDesktopStoreKeys.LastGPUCrashTime);
   logger.info('GPU crash statistics cleared');
 };
 
 // ==================== Boot Recovery ====================
 export const getConsecutiveBootFailCount = () =>
-  store.get(EDesktopStoreKeys.ConsecutiveBootFailCount, 0);
+  runtimeStateStore.get(EDesktopStoreKeys.ConsecutiveBootFailCount, 0);
 
 export const incrementConsecutiveBootFailCount = () => {
   const newCount = getConsecutiveBootFailCount() + 1;
-  store.set(EDesktopStoreKeys.ConsecutiveBootFailCount, newCount);
+  runtimeStateStore.set(EDesktopStoreKeys.ConsecutiveBootFailCount, newCount);
   return newCount;
 };
 
 export const resetConsecutiveBootFailCount = () =>
-  store.set(EDesktopStoreKeys.ConsecutiveBootFailCount, 0);
+  runtimeStateStore.set(EDesktopStoreKeys.ConsecutiveBootFailCount, 0);
 
 export const setConsecutiveBootFailCount = (count: number) =>
-  store.set(EDesktopStoreKeys.ConsecutiveBootFailCount, count);
+  runtimeStateStore.set(EDesktopStoreKeys.ConsecutiveBootFailCount, count);
 
 export const getBootFailAppVersion = () =>
-  store.get(EDesktopStoreKeys.BootFailAppVersion, '');
+  runtimeStateStore.get(EDesktopStoreKeys.BootFailAppVersion, '');
 
 export const setBootFailAppVersion = (version: string) =>
-  store.set(EDesktopStoreKeys.BootFailAppVersion, version);
+  runtimeStateStore.set(EDesktopStoreKeys.BootFailAppVersion, version);
 
 // ==================== MMKV Persistent Store ====================
 const mmkvAppSettingStore = new Store({ name: 'mmkv-onekey-app-setting' });

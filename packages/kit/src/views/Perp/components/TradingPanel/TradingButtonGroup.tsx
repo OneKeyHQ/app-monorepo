@@ -106,7 +106,7 @@ import {
   getEnableTradingDialogConfirmDecision,
   shouldShowPerpsFirstDepositPrompt,
 } from '../../utils/enableTradingDialogConfirm';
-import { shouldApplyMinimumOrderGuard } from '../../utils/minimumOrderGuard';
+import { isBelowMinimumOrderValue } from '../../utils/minimumOrderGuard';
 import {
   type IPerpsMobileLayoutTraceRect,
   getPerpsMobileLayoutTraceRect,
@@ -548,27 +548,10 @@ function SideButtonInternal({
 
   const marginRequired = useDebounce(marginRequiredRaw, 100);
 
-  const isMinimumOrderNotMetForSide = useMemo(() => {
-    if (
-      !shouldApplyMinimumOrderGuard({
-        isSpot,
-        orderMode: formData.orderMode,
-        orderType: formData.type,
-        hasBboPriceMode: Boolean(formData.bboPriceMode),
-      })
-    ) {
-      return false;
-    }
-    if (!orderValue || !orderValue.isFinite() || orderValue.lte(0))
-      return false;
-    return orderValue.lt(10);
-  }, [
-    formData.bboPriceMode,
-    formData.orderMode,
-    formData.type,
-    isSpot,
-    orderValue,
-  ]);
+  const isMinimumOrderNotMetForSide = useMemo(
+    () => isBelowMinimumOrderValue(orderValue),
+    [orderValue],
+  );
 
   const isAccountLoading = useMemo<boolean>(() => {
     return (
@@ -2667,7 +2650,7 @@ function TradingButtonGroup({
               numberOfLines={1}
             >
               {intl.formatMessage({
-                id: ETranslations.global_top_up,
+                id: ETranslations.perp_trade_deposit,
               })}
             </SizableText>
           </YStack>

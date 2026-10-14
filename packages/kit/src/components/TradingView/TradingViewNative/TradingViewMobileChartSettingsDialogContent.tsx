@@ -11,7 +11,6 @@ import {
   YStack,
   useDialogInstance,
 } from '@onekeyhq/components';
-import { useMarketTradingViewChartSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   ITradingViewNativeChartSettingsOptions,
@@ -25,7 +24,9 @@ import {
 import { TradingViewChartTypeSettingsRow } from '../TradingViewChartControls/chartSettings';
 
 import { normalizeTradingViewNativeChartSettings } from './chartSettingsAdapter';
-import { useTradingViewPanelSettings } from './useTradingViewPanelSettings';
+import { useTradingViewNativeChartSettings } from './useTradingViewNativeSettings';
+
+import type { ITradingViewNativeStorageNamespace } from './types';
 
 type IQuickSettingOptions = Pick<
   ITradingViewNativeChartSettingsOptions,
@@ -95,7 +96,7 @@ function QuickSettingOption({
 }
 
 type IChartSettingsDialogProps = {
-  panelId?: string;
+  storageNamespace?: ITradingViewNativeStorageNamespace;
   chartMode?: ITradingViewChartMode;
   isChartSwitchDisabled?: boolean;
   showPreviousClose?: boolean;
@@ -103,29 +104,14 @@ type IChartSettingsDialogProps = {
   onOpenSettings: () => void;
 };
 
-function PanelChartSettingsDialogContent(
-  props: IChartSettingsDialogProps & { panelId: string },
-) {
-  const { chartSettingsState } = useTradingViewPanelSettings(props.panelId);
-  return (
-    <ChartSettingsDialogContent {...props} settingsState={chartSettingsState} />
-  );
-}
-
-function DefaultChartSettingsDialogContent(props: IChartSettingsDialogProps) {
-  const settingsState = useMarketTradingViewChartSettingsPersistAtom();
-  return (
-    <ChartSettingsDialogContent {...props} settingsState={settingsState} />
-  );
-}
-
 export function TradingViewMobileChartSettingsDialogContent(
   props: IChartSettingsDialogProps,
 ) {
-  return props.panelId ? (
-    <PanelChartSettingsDialogContent {...props} panelId={props.panelId} />
-  ) : (
-    <DefaultChartSettingsDialogContent {...props} />
+  const settingsState = useTradingViewNativeChartSettings(
+    props.storageNamespace,
+  );
+  return (
+    <ChartSettingsDialogContent {...props} settingsState={settingsState} />
   );
 }
 
@@ -137,9 +123,7 @@ function ChartSettingsDialogContent({
   onChartSwitch,
   onOpenSettings,
 }: IChartSettingsDialogProps & {
-  settingsState: ReturnType<
-    typeof useMarketTradingViewChartSettingsPersistAtom
-  >;
+  settingsState: ReturnType<typeof useTradingViewNativeChartSettings>;
 }) {
   const intl = useIntl();
   const dialog = useDialogInstance();

@@ -1193,6 +1193,16 @@ export const swrKeys = {
   // (OK-61505). scopeKey = buildHomeWalletTabSupportScopeKey().
   homeWalletTabSupport: ({ scopeKey }: { scopeKey: string }) =>
     [NS.homeWalletTabSupport, 'v1', scopeKey].join(':'),
+  // Home Tron energy / bandwidth card, one entry per account (OK-64027). An
+  // account switch paints that account's last figures at once — never the
+  // previous account's, never a 0/0 placeholder — while the fresh read lands.
+  tronAccountResources: ({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) => [NS.tronAccountResources, 'v1', networkId, accountId].join(':'),
   discoveryHomePageData: () => [NS.discoveryHomePageData, 'v1'].join(':'),
   discoveryHomeBookmarks: () => [NS.discoveryHomeBookmarks, 'v1'].join(':'),
   // Account selector left sidebar wallet list. One slot per
@@ -1416,6 +1426,11 @@ export const swrKeys = {
     ].join(':'),
   swapStockTokenDetail: ({ tokenScope }: { tokenScope: string }) =>
     [NS.swapStockTokenDetail, 'v1', tokenScope].join(':'),
+  // The stock identity behind a swap stock token (contract -> stockId). Only
+  // tokens persisted before `stockId` existed need the lookup, and persisting
+  // what it resolves keeps that round trip off the next mount's critical path.
+  swapStockTokenIdentity: ({ tokenScope }: { tokenScope: string }) =>
+    [NS.swapStockTokenIdentity, 'v1', tokenScope].join(':'),
   // Keep the existing unversioned key stable so users retain the history
   // snapshot that already powers the ordinary Swap first frame.
   swapHistoryPreviewList: () => NS.swapHistoryPreviewList,
@@ -1444,7 +1459,7 @@ export const swrKeys = {
   swapStockSpeedConfig: ({ networkId }: { networkId: string }) =>
     [NS.swapStockSpeedConfig, 'v1', networkId].join(':'),
   swapStockPayTokenDetails: ({ scope }: { scope: string }) =>
-    [NS.swapStockPayTokenDetails, 'v1', scope].join(':'),
+    [NS.swapStockPayTokenDetails, 'v2', scope].join(':'),
   borrowMarkets: () => [NS.borrowMarkets, 'v1'].join(':'),
   borrowReserves: (params: IBorrowScopedSWRKeyParams) =>
     buildBorrowScopedSWRKey(NS.borrowReserves, params),
