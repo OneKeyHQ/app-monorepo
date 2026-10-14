@@ -59,7 +59,9 @@ const animation: IQRCodeHandler<IAnimationValue> = async (value) => {
     try {
       assertBoundedCbor(ur.cbor);
     } catch (error) {
-      throw new UrScanRejectedError((error as Error).message);
+      throw new UrScanRejectedError(
+        error instanceof Error ? error.message : String(error),
+      );
     }
     animationData.parts = parts;
     animationData.fullUr = airGapUrUtils.urToJson({ ur });
