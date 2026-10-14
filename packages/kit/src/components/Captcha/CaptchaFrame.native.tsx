@@ -45,25 +45,27 @@ function NativeCaptchaFrame({ url, requestId, onResult }: ICaptchaFrameProps) {
 
   return (
     <Stack position="relative" height={65}>
-      {!ready ? (
-        <XStack
-          testID="email-otp-captcha-loading"
-          position="absolute"
-          inset={0}
-          alignItems="center"
-          justifyContent="center"
-          gap="$2"
-          bg="$bgSubdued"
-          borderRadius="$2"
-        >
-          <Spinner size="small" />
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.auth_captcha_loading__msg,
-            })}
-          </SizableText>
-        </XStack>
-      ) : null}
+      {/* The provider sends ready before its iframe paints. Keep loading beneath
+          the transparent WebView until the widget itself covers it. */}
+      <XStack
+        testID="email-otp-captcha-loading"
+        position="absolute"
+        inset={0}
+        alignItems="center"
+        justifyContent="center"
+        gap="$2"
+        bg="$bgSubdued"
+        borderRadius="$2"
+        pointerEvents="none"
+        aria-hidden={ready}
+      >
+        <Spinner size="small" />
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.auth_captcha_loading__msg,
+          })}
+        </SizableText>
+      </XStack>
       <WebView
         testID="email-otp-captcha-frame"
         source={{ uri: url }}
