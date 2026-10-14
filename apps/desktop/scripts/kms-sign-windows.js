@@ -1,20 +1,25 @@
 /* eslint-disable onekey/no-raw-error -- standalone build script without app runtime dependencies */
 const { execFileSync } = require('node:child_process');
+const { X509Certificate } = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
 const desktopDir = path.resolve(__dirname, '..');
-const cert = path.join(
-  desktopDir,
-  'resources/windows/code-signing/onekey-limited.cer',
-);
+const certDir = path.join(desktopDir, 'resources/windows/code-signing');
+// Leaf first, then intermediates, as Jsign expects for --certfile.
+const certChain = [
+  'onekey-limited.cer',
+  'globalsign-intermediate.cer',
+  'globalsign-cross.cer',
+];
+const awsRegion = 'ap-southeast-1';
 const outputDir = path.join(desktopDir, 'build-electron');
 const helperDir = path.join(desktopDir, 'app/build/static/bin');
 
 function requiredEnv(name) {
   const value = process.env[name];
   if (!value) {
-    throw new Error(`${name} is required for Windows HSM signing`);
+    throw new Error(`${name} is required for Windows AWS KMS signing`);
   }
   return value;
 }
@@ -27,24 +32,54 @@ function verify(file) {
   runSignTool(['verify', '/pa', '/all', '/v', file]);
 }
 
+function certChainFile() {
+  const file = path.join(
+    requiredEnv('RUNNER_TEMP'),
+    'onekey-codesign-chain.pem',
+  );
+  if (!fs.existsSync(file)) {
+    const pem = certChain
+      .map((name) =>
+        new X509Certificate(
+          fs.readFileSync(path.join(certDir, name)),
+        ).toString(),
+      )
+      .join('');
+    fs.writeFileSync(file, pem);
+  }
+  return file;
+}
+
 function signFile(file) {
-  runSignTool([
-    'sign',
-    '/v',
-    '/fd',
-    'SHA256',
-    '/tr',
-    'http://timestamp.digicert.com',
-    '/td',
-    'SHA256',
-    '/f',
-    cert,
-    '/csp',
-    'Google Cloud KMS Provider',
-    '/kc',
-    requiredEnv('WIN_CODESIGN_KEY_VERSION'),
-    file,
-  ]);
+  // Jsign reads AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_SESSION_TOKEN
+  // from the environment set by aws-actions/configure-aws-credentials.
+  const javaHome = process.env.JAVA_HOME;
+  const java = javaHome ? path.join(javaHome, 'bin', 'java') : 'java';
+  execFileSync(
+    java,
+    [
+      '-jar',
+      requiredEnv('WIN_JSIGN_JAR'),
+      '--storetype',
+      'AWS',
+      '--keystore',
+      awsRegion,
+      '--alias',
+      requiredEnv('WIN_KMS_KEY_ID'),
+      '--certfile',
+      certChainFile(),
+      '--alg',
+      'SHA-256',
+      '--tsaurl',
+      'http://timestamp.digicert.com',
+      '--tsmode',
+      'RFC3161',
+      '--tsretries',
+      '3',
+      file,
+    ],
+    { stdio: 'inherit' },
+  );
   verify(file);
   const manifest = path.join(
     requiredEnv('RUNNER_TEMP'),
@@ -137,7 +172,7 @@ function verifyNsisOutput() {
   }
 }
 
-module.exports = async function signWithCloudHsm(configuration) {
+module.exports = async function signWithAwsKms(configuration) {
   if (configuration.hash !== 'sha256') {
     throw new Error(`Unsupported Windows signing hash: ${configuration.hash}`);
   }
