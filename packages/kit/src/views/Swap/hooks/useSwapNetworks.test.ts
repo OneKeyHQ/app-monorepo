@@ -19,7 +19,7 @@ const mockSetNetworkCache = jest.fn<
 >();
 const mockFetchNetworks = jest.fn<
   Promise<ISwapNetwork[]>,
-  [{ refreshClientNetworks: boolean }]
+  [{ refreshClientNetworks: boolean; autoHandleError?: boolean }]
 >();
 
 jest.mock('../../../background/instance/backgroundApiProxy', () => ({
@@ -33,8 +33,10 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
       },
     },
     serviceSwap: {
-      fetchSwapNetworks: (options: { refreshClientNetworks: boolean }) =>
-        mockFetchNetworks(options),
+      fetchSwapNetworks: (options: {
+        refreshClientNetworks: boolean;
+        autoHandleError?: boolean;
+      }) => mockFetchNetworks(options),
     },
   },
 }));
@@ -127,16 +129,27 @@ describe('useSwapNetworks configuration lifecycle', () => {
       const { result } = renderHook(useSwapNetworks);
       await act(async () => {});
       expect(result.current.defaultConfigStatus).toBe('failed');
+      expect(mockFetchNetworks).toHaveBeenNthCalledWith(1, {
+        refreshClientNetworks: true,
+      });
       expect(result.current.swapNetworks).toEqual(
         hasCache ? [cachedNetwork] : [],
       );
 
       await act(async () => jest.advanceTimersByTime(30_000));
       expect(mockFetchNetworks).toHaveBeenCalledTimes(2);
+      expect(mockFetchNetworks).toHaveBeenNthCalledWith(2, {
+        refreshClientNetworks: true,
+        autoHandleError: false,
+      });
       expect(result.current.defaultConfigStatus).toBe('failed');
 
       await act(async () => jest.advanceTimersByTime(30_000));
       expect(mockFetchNetworks).toHaveBeenCalledTimes(3);
+      expect(mockFetchNetworks).toHaveBeenNthCalledWith(3, {
+        refreshClientNetworks: true,
+        autoHandleError: false,
+      });
       expect(result.current.defaultConfigStatus).toBe('success');
       expect(result.current.swapNetworks).toEqual([freshNetwork]);
 

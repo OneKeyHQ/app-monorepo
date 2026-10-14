@@ -19,6 +19,7 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -724,63 +725,71 @@ export default class ServiceSwap extends ServiceBase {
   @toastIfError()
   async fetchSwapNetworks(options?: {
     refreshClientNetworks?: boolean;
+    autoHandleError?: boolean;
   }): Promise<ISwapNetwork[]> {
-    const protocol = EProtocolOfExchange.ALL;
-    const requestParams = {
-      protocol,
-    };
-    const client = await this.getClient(EServiceEndpointEnum.Swap);
-    const { data } = await client.get<IFetchResponse<ISwapNetworkBase[]>>(
-      '/swap/v1/networks',
-      // Abort the request before releasing local default-token fallbacks.
-      { params: requestParams, timeout: 10_000 },
-    );
-    const allClientSupportNetworks =
-      await this.backgroundApi.serviceNetwork.getAllNetworks({
-        clearCache: options?.refreshClientNetworks,
-      });
-    const deFiEnabledNetworksMapState =
-      await this.backgroundApi.serviceDeFi.getDeFiEnabledNetworksMapState({
-        syncIfEmpty: false,
-      });
-    const swapNetworks = data?.data
-      ?.map((network) => {
-        const clientNetwork = allClientSupportNetworks.networks.find(
-          (n) => n.id === network.networkId,
-        );
-        if (clientNetwork) {
-          return {
-            name: clientNetwork.name,
-            symbol: clientNetwork.symbol,
-            shortcode: clientNetwork.shortcode,
-            logoURI: clientNetwork.logoURI,
-            backendIndex: clientNetwork.backendIndex ?? false,
-            ...(deFiEnabledNetworksMapState.isReady
-              ? {
-                  isDeFiEnabled:
-                    !!deFiEnabledNetworksMapState.enabledNetworksMap[
-                      network.networkId
-                    ],
-                }
-              : {}),
-            networkId: network.networkId,
-            isL2: network.isL2 ?? false,
-            ...(network.parentNetworkId
-              ? { parentNetworkId: network.parentNetworkId }
-              : {}),
-            defaultSelectToken: network.defaultSelectToken,
-            defaultSelectTokenDetail: network.defaultSelectTokenDetail,
-            supportCrossChainSwap: network.supportCrossChainSwap,
-            supportSingleSwap: network.supportSingleSwap,
-            supportLimit: network.supportLimit,
-            supportPrivateSend: network.supportPrivateSend,
-            supportStock: network.supportStock,
-          };
-        }
-        return null;
-      })
-      .filter(Boolean);
-    return swapNetworks ?? [];
+    try {
+      const protocol = EProtocolOfExchange.ALL;
+      const requestParams = {
+        protocol,
+      };
+      const client = await this.getClient(EServiceEndpointEnum.Swap);
+      const { data } = await client.get<IFetchResponse<ISwapNetworkBase[]>>(
+        '/swap/v1/networks',
+        // Abort the request before releasing local default-token fallbacks.
+        { params: requestParams, timeout: 10_000 },
+      );
+      const allClientSupportNetworks =
+        await this.backgroundApi.serviceNetwork.getAllNetworks({
+          clearCache: options?.refreshClientNetworks,
+        });
+      const deFiEnabledNetworksMapState =
+        await this.backgroundApi.serviceDeFi.getDeFiEnabledNetworksMapState({
+          syncIfEmpty: false,
+        });
+      const swapNetworks = data?.data
+        ?.map((network) => {
+          const clientNetwork = allClientSupportNetworks.networks.find(
+            (n) => n.id === network.networkId,
+          );
+          if (clientNetwork) {
+            return {
+              name: clientNetwork.name,
+              symbol: clientNetwork.symbol,
+              shortcode: clientNetwork.shortcode,
+              logoURI: clientNetwork.logoURI,
+              backendIndex: clientNetwork.backendIndex ?? false,
+              ...(deFiEnabledNetworksMapState.isReady
+                ? {
+                    isDeFiEnabled:
+                      !!deFiEnabledNetworksMapState.enabledNetworksMap[
+                        network.networkId
+                      ],
+                  }
+                : {}),
+              networkId: network.networkId,
+              isL2: network.isL2 ?? false,
+              ...(network.parentNetworkId
+                ? { parentNetworkId: network.parentNetworkId }
+                : {}),
+              defaultSelectToken: network.defaultSelectToken,
+              defaultSelectTokenDetail: network.defaultSelectTokenDetail,
+              supportCrossChainSwap: network.supportCrossChainSwap,
+              supportSingleSwap: network.supportSingleSwap,
+              supportLimit: network.supportLimit,
+              supportPrivateSend: network.supportPrivateSend,
+              supportStock: network.supportStock,
+            };
+          }
+          return null;
+        })
+        .filter(Boolean);
+      return swapNetworks ?? [];
+    } catch (error) {
+      if (options?.autoHandleError === false) {
+        errorToastUtils.toastIfErrorDisable(error);
+      }
+      throw error;
+    }
   }
 
   @backgroundMethod()

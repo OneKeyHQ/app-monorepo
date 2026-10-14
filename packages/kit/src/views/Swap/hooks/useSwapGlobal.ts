@@ -1296,22 +1296,6 @@ export function useSwapInit(params?: ISwapInitParams) {
       }
     }
     if (
-      shouldPreserveUserInputAmount() &&
-      (!hasSelectedTokens ||
-        getSelectedTokensColdStartChannelSupport({
-          swapType: swapTypeSwitchRef.current,
-          fromToken: fromTokenRef.current,
-          toToken: toTokenRef.current,
-          swapNetworks: swapNetworksRef.current,
-        }) !== false)
-    ) {
-      if (hasSelectedTokens) {
-        syncSelectedTokensColdStartSwapType();
-      }
-      finishSwapInitParamsSync();
-      return;
-    }
-    if (
       hasSelectedTokens &&
       shouldPreserveUserInputSelectedTokens() &&
       getSelectedTokensColdStartChannelSupport({
@@ -1568,7 +1552,6 @@ export function useSwapInit(params?: ISwapInitParams) {
     markSwapInitParamsConsumed,
     finishSwapInitParamsSync,
     getCurrentSelectedTokensColdStartContext,
-    shouldPreserveUserInputAmount,
     switchSwapTypeIfNeeded,
     syncSwapSelectedAccountFromLatestHomeStorage,
     shouldPreserveUserInputSelectedTokens,
