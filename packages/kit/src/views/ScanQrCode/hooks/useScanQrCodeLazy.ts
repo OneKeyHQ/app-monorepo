@@ -55,18 +55,25 @@ export default function useScanQrCodeLazy() {
                 if (value?.length > 0) {
                   const { parseQRCodeWithDeps } =
                     await parseQRCodeModulePromise;
-                  const parseValue = await parseQRCodeWithDeps(
-                    value,
-                    {
-                      autoExecuteParsedAction,
-                      handlers,
-                      account,
-                      network,
-                      tokens,
-                      popNavigation,
-                    },
-                    { navigation, clipboard, intl },
-                  );
+                  let parseValue: IQRCodeHandlerParseResult<IBaseValue>;
+                  try {
+                    parseValue = await parseQRCodeWithDeps(
+                      value,
+                      {
+                        autoExecuteParsedAction,
+                        handlers,
+                        account,
+                        network,
+                        tokens,
+                        popNavigation,
+                      },
+                      { navigation, clipboard, intl },
+                    );
+                  } catch (error) {
+                    // The parse closed the scan page; end the scan with its error.
+                    reject(error);
+                    return {};
+                  }
                   if (parseValue.type === EQRCodeHandlerType.ANIMATION_CODE) {
                     const animationValue = parseValue.data as IAnimationValue;
                     if (animationValue.fullData) {

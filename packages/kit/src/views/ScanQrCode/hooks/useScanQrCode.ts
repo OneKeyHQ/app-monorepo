@@ -48,14 +48,21 @@ export default function useScanQrCode() {
               showProTutorial,
               callback: async ({ value, popNavigation }) => {
                 if (value?.length > 0) {
-                  const parseValue = await parseQRCode.parse(value, {
-                    autoExecuteParsedAction,
-                    handlers,
-                    account,
-                    network,
-                    tokens,
-                    popNavigation,
-                  });
+                  let parseValue: IQRCodeHandlerParseResult<IBaseValue>;
+                  try {
+                    parseValue = await parseQRCode.parse(value, {
+                      autoExecuteParsedAction,
+                      handlers,
+                      account,
+                      network,
+                      tokens,
+                      popNavigation,
+                    });
+                  } catch (error) {
+                    // The parse closed the scan page; end the scan with its error.
+                    reject(error);
+                    return {};
+                  }
                   if (parseValue.type === EQRCodeHandlerType.ANIMATION_CODE) {
                     const animationValue = parseValue.data as IAnimationValue;
                     if (animationValue.fullData) {

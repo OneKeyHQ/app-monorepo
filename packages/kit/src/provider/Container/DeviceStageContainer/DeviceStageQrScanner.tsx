@@ -55,11 +55,26 @@ export function DeviceStageQrScanner({
         });
     }
     await resetPromiseRef.current;
-    const parsed = await backgroundApiProxy.serviceScanQRCode.parse(value, {
-      handlers: [EQRCodeHandlerNames.animation],
-      qrWalletScene: true,
-      autoExecuteParsedAction: false,
-    });
+    let parsed: Awaited<
+      ReturnType<typeof backgroundApiProxy.serviceScanQRCode.parse>
+    >;
+    try {
+      parsed = await backgroundApiProxy.serviceScanQRCode.parse(value, {
+        handlers: [EQRCodeHandlerNames.animation],
+        qrWalletScene: true,
+        autoExecuteParsedAction: false,
+      });
+    } catch {
+      // A code the scan can never accept (its error toasts itself): end the
+      // scan rather than fail every further frame of the same code.
+      if (!submittedRef.current) {
+        submittedRef.current = true;
+        await backgroundApiProxy.serviceQrWallet.cancelStageAirGapScan({
+          scanning: true,
+        });
+      }
+      return {};
+    }
     if (submittedRef.current) {
       // A slower frame racing the one that completed the set.
       return {};

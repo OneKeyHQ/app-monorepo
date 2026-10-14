@@ -1,6 +1,7 @@
 import { URDecoder, UREncoder } from '@ngraveio/bc-ur';
 
 import {
+  UrScanRejectedError,
   airGapUrUtils,
   assertBoundedCbor,
   checkUrPart,
@@ -55,7 +56,11 @@ const animation: IQRCodeHandler<IAnimationValue> = async (value) => {
   }
   if (decoder.isSuccess()) {
     const ur = decoder.resultUR();
-    assertBoundedCbor(ur.cbor);
+    try {
+      assertBoundedCbor(ur.cbor);
+    } catch (error) {
+      throw new UrScanRejectedError((error as Error).message);
+    }
     animationData.parts = parts;
     animationData.fullUr = airGapUrUtils.urToJson({ ur });
     animationData.fullData = UREncoder.encodeSinglePart(ur).toUpperCase();

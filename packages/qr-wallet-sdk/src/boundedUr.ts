@@ -165,9 +165,17 @@ export function checkUrPart(part: string): IUrPartVerdict {
   return 'ok';
 }
 
+/**
+ * A scanned code the scan must end on rather than keep waiting for more frames: one beyond the
+ * size or part-count limits, or one that completed into a payload failing the CBOR bounds.
+ */
+export class UrScanRejectedError extends Error {
+  override name = 'UrScanRejectedError';
+}
+
 /** The error a scan ends with when a code exceeds the size or part-count limits. */
-export function urTooLargeError(): Error {
-  return new Error(
+export function urTooLargeError(): UrScanRejectedError {
+  return new UrScanRejectedError(
     `QR code is too large to scan (over ${MAX_UR_MESSAGE_BYTES} bytes or ${MAX_UR_SEQ_LENGTH} parts)`,
   );
 }

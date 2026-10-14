@@ -122,10 +122,16 @@ export async function parseQRCodeWithDeps(
     }
   };
 
-  const result = await backgroundApiProxy.serviceScanQRCode.parse(
-    value,
-    options,
-  );
+  let result: Awaited<
+    ReturnType<typeof backgroundApiProxy.serviceScanQRCode.parse>
+  >;
+  try {
+    result = await backgroundApiProxy.serviceScanQRCode.parse(value, options);
+  } catch (error) {
+    // A code the scan can never accept (the error toasts itself): end the scan.
+    await closeScanPage();
+    throw error;
+  }
 
   // Manual mode: close scanner overlays and return parsed data to caller.
   if (!options?.autoExecuteParsedAction) {
