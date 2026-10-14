@@ -16,7 +16,6 @@ import {
   SizableText,
   Skeleton,
   Stack,
-  Tabs,
   YStack,
   useMedia,
   useScrollContentTabBarOffset,
@@ -56,6 +55,7 @@ import {
 } from '../components/DeFiListBlock';
 import { buildPortfolioStats } from '../components/DeFiListBlock/DeFiPortfolioStats';
 import { formatPortfolioTotal } from '../components/DeFiListBlock/formatPortfolioTotal';
+import { HomeScrollView } from '../components/HomeScrollView';
 import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
@@ -810,7 +810,7 @@ function DeFiContainerScrollable() {
 
   return (
     <Stack flex={1}>
-      <Tabs.ScrollView
+      <HomeScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: tabBarOffset }}
         nestedScrollEnabled={platformEnv.isNativeAndroid}
@@ -821,7 +821,7 @@ function DeFiContainerScrollable() {
         }
       >
         <DeFiContainer />
-      </Tabs.ScrollView>
+      </HomeScrollView>
     </Stack>
   );
 }

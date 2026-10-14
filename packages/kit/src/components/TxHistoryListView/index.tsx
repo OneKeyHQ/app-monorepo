@@ -657,4 +657,4 @@ function BaseTxHistoryListView(props: IProps) {
 
 const TxHistoryListView = withBrowserProvider<IProps>(BaseTxHistoryListView);
 
-export { TxHistoryListView };
+export { TxHistoryListView, ListFooterComponent };

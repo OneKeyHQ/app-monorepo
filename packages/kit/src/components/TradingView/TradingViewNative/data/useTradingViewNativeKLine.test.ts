@@ -73,6 +73,18 @@ let mockHistoryBatchSize = 1;
 let mockHistoryRequestCandleCount = 1;
 let mockRealtimeInterval: ITradingViewNativeDataProvider['realtimeInterval'];
 let mockCandleTimeMode: ITradingViewNativeCandleTimeMode = 'calendar';
+const mockIntervalStorage = new Map<string, unknown>();
+
+jest.mock('@onekeyhq/shared/src/storage/appStorage', () => ({
+  __esModule: true,
+  default: {
+    syncStorage: {
+      getObject: (key: string) => mockIntervalStorage.get(key),
+      setObject: (key: string, value: unknown) =>
+        mockIntervalStorage.set(key, value),
+    },
+  },
+}));
 
 jest.mock('@onekeyhq/components/src/hooks/useVisibilityChange', () => ({
   getCurrentVisibilityState: () => mockCurrentVisibility,
@@ -240,6 +252,7 @@ function updateVisibility(isVisible: boolean) {
 describe('TradingViewNative K-line data state machine', () => {
   beforeEach(() => {
     clearTradingViewNativeHistoryBoundaryPrefetchCache();
+    mockIntervalStorage.clear();
     jest.clearAllMocks();
     mockFetchHistory.mockReset();
     mockReadTradingViewNativeActiveInterval.mockReset();
@@ -746,6 +759,46 @@ describe('TradingViewNative K-line data state machine', () => {
       namespace: 'token',
     });
   });
+
+  it.each(['3', '2H', '8H', '12H', '3D'])(
+    'preserves TradingView interval %s through Original loading until the user selects a new interval',
+    async (interval) => {
+      const storage = jest.requireActual<
+        typeof import('./tradingViewNativeIntervalStorage')
+      >('./tradingViewNativeIntervalStorage');
+      mockReadTradingViewNativeActiveInterval.mockImplementation(
+        storage.readTradingViewNativeActiveInterval,
+      );
+      mockSaveTradingViewNativeActiveInterval.mockImplementation(
+        storage.saveTradingViewNativeActiveInterval,
+      );
+      await storage.saveTradingViewActiveInterval({
+        interval,
+        namespace: 'perps',
+      });
+      mockFetchHistory.mockResolvedValue(buildResponse(100, 100_000));
+      const { result } = renderHook(() =>
+        useTradingViewNativeKLine({
+          source: { kind: 'hyperliquid', coin: 'BTC', environment: 'mainnet' },
+          storageNamespace: 'perps',
+        }),
+      );
+
+      await waitFor(() => expect(result.current.points).toHaveLength(1));
+      expect(result.current.intervalConfig.activeInterval).toBe('60');
+      expect(storage.readStoredTradingViewActiveInterval('perps')).toBe(
+        storage.normalizeTradingViewStoredInterval(interval),
+      );
+
+      act(() => result.current.handleIntervalChange('60'));
+      expect(storage.readStoredTradingViewActiveInterval('perps')).toBe('60');
+      act(() => result.current.handleIntervalChange('240'));
+      await waitFor(() =>
+        expect(result.current.intervalConfig.activeInterval).toBe('240'),
+      );
+      expect(storage.readStoredTradingViewActiveInterval('perps')).toBe('240');
+    },
+  );
 
   it('persists a selected interval before its history request finishes', async () => {
     mockFetchHistory

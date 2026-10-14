@@ -476,10 +476,13 @@ function prepareSceneSyncSelectedAccount({
         : defaultNetworkId || usableNetworkIds[0];
 
       selectedAccount.networkId = resolvedNetworkId;
-      selectedAccount.deriveType =
-        resolvedNetworkId && resolvedNetworkId === targetNetworkId
-          ? targetDeriveType
-          : undefined;
+      // Home keeps its derive type in step with the global one, so the derive
+      // type home would hold on the resolved network IS the global one. Resolve
+      // it below rather than inheriting whatever the target scene last held: an
+      // auto-select artifact or a stale selection of a disconnected dApp, which
+      // connected a dApp with Nested SegWit while the user's default was
+      // Taproot (OK-64269).
+      selectedAccount.deriveType = undefined;
       if (!resolvedNetworkId) {
         networkResolution = 'none';
       } else if (resolvedNetworkId === targetNetworkId) {
@@ -489,7 +492,7 @@ function prepareSceneSyncSelectedAccount({
       } else {
         networkResolution = 'first';
       }
-      deriveResolution = selectedAccount.deriveType ? 'target' : 'none';
+      deriveResolution = 'none';
     }
 
     if (
@@ -505,10 +508,19 @@ function prepareSceneSyncSelectedAccount({
   }
 
   if (selectedAccount.networkId && !selectedAccount.deriveType) {
-    const key = accountSelectorUtils.buildGlobalDeriveTypesMapKey({
-      networkId: selectedAccount.networkId,
-    });
-    const globalDeriveType = globalDeriveTypesMap?.[key];
+    // Same read as serviceAccountSelector.getGlobalDeriveType: others-wallet
+    // accounts carry no global derive type, and the shared helper applies the
+    // BTC Taproot default the raw map lacks.
+    const isOthersWallet = Boolean(
+      selectedAccount.walletId &&
+      accountUtils.isOthersWallet({ walletId: selectedAccount.walletId }),
+    );
+    const globalDeriveType = isOthersWallet
+      ? undefined
+      : accountSelectorUtils.getGlobalDeriveTypeFromMap({
+          networkId: selectedAccount.networkId,
+          globalDeriveTypesMap,
+        });
     selectedAccount.deriveType = globalDeriveType || 'default';
     deriveResolution = globalDeriveType ? 'global' : 'default';
   }

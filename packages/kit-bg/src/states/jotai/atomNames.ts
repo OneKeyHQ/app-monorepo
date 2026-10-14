@@ -67,6 +67,7 @@ export enum EAtomNames {
   primeInitAtom = 'primeInitAtom',
   primeLoginDialogAtom = 'primeLoginDialogAtom',
   primeTransferAtom = 'primeTransferAtom',
+  primeFreeTrialAtom = 'primeFreeTrialAtom',
   keylessPinConfirmStatusAtom = 'keylessPinConfirmStatusAtom',
   keylessLastCancelVerifyPinTimeAtom = 'keylessLastCancelVerifyPinTimeAtom',
   keylessBackendShareV2MigrationPersistAtom = 'keylessBackendShareV2MigrationPersistAtom',
@@ -142,6 +143,7 @@ export enum EAtomNames {
   translateSettingsPersistAtom = 'translateSettingsPersistAtom',
 
   // swap
+  dustSweepPreferencesPersistAtom = 'dustSweepPreferencesPersistAtom',
   swapProJumpTokenAtom = 'swapProJumpTokenAtom',
   swapFromMarketJumpTokenAtom = 'swapFromMarketJumpTokenAtom',
   swapTradingViewChartSettingsPersistAtom = 'swapTradingViewChartSettingsPersistAtom',
@@ -149,6 +151,7 @@ export enum EAtomNames {
   // market
   marketDesktopLayoutAtom = 'marketDesktopLayoutAtom',
   marketSelectedTabAtom = 'marketSelectedTabAtom',
+  marketHomePreferencesAtom = 'marketHomePreferencesAtom',
   marketBannerListSortAtom = 'marketBannerListSortAtom',
   marketTokenSelectorConfigAtom = 'marketTokenSelectorConfigAtom',
   marketTradingViewChartSettingsPersistAtom = 'marketTradingViewChartSettingsPersistAtom',

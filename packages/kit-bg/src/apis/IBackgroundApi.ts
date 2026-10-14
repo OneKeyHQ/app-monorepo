@@ -77,6 +77,7 @@ import type ServicePassword from '../services/ServicePassword';
 import type { ServicePendingInstallTask } from '../services/servicePendingInstallTask';
 import type ServicePrime from '../services/ServicePrime';
 import type ServicePrimeCloudSync from '../services/ServicePrimeCloudSync';
+import type ServicePrimeFreeTrial from '../services/ServicePrimeFreeTrial';
 import type ServicePrimeTransfer from '../services/ServicePrimeTransfer';
 import type ServicePromise from '../services/ServicePromise';
 import type ServiceQrWallet from '../services/ServiceQrWallet';
@@ -221,6 +222,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceIdentityExit: ILazyServiceProxy<ServiceIdentityExit>;
   servicePrime: ServicePrime;
   servicePrimeCloudSync: ServicePrimeCloudSync;
+  servicePrimeFreeTrial: ServicePrimeFreeTrial;
   serviceHardwarePortfolioSync: ServiceHardwarePortfolioSync;
   serviceKeylessCloudSync: ServiceKeylessCloudSync;
   serviceQrWallet: ServiceQrWallet;

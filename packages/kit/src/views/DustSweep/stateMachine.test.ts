@@ -1,0 +1,225 @@
+import type {
+  IDustSweepItem,
+  IDustSweepSnapshot,
+  IDustSweepToken,
+} from '@onekeyhq/shared/types/swap/dustSweep';
+
+import {
+  dustSweepReducer,
+  getDustSweepPresentation,
+  getDustSweepTotals,
+  initialDustSweepState,
+} from './stateMachine';
+
+const token: IDustSweepToken = {
+  key: 'dust',
+  networkId: 'evm--1',
+  contractAddress: '0xtoken',
+  symbol: 'DUST',
+  decimals: 18,
+  amount: '10',
+  valueUsd: '1',
+  suspicious: false,
+};
+const snapshot: IDustSweepSnapshot = {
+  id: 'session',
+  accountId: 'account',
+  address: '0xuser',
+  networkId: 'evm--1',
+  nativeToken: { ...token, contractAddress: '', isNative: true },
+  slippage: 5,
+  tokens: [token],
+};
+const identity = {
+  type: 'item' as const,
+  sessionId: snapshot.id,
+  key: token.key,
+};
+
+function signingState() {
+  let state = dustSweepReducer(initialDustSweepState, {
+    type: 'start',
+    snapshot,
+  });
+  state = dustSweepReducer(state, { ...identity, status: 'preparing' });
+  return dustSweepReducer(state, { ...identity, status: 'signing' });
+}
+
+describe('Dust Sweep terminal and retry boundaries', () => {
+  it('retains already broadcast approvals across a retryable cancellation', () => {
+    let state = signingState();
+    state = dustSweepReducer(state, {
+      type: 'approvalBroadcast',
+      sessionId: identity.sessionId,
+      key: identity.key,
+      approvalTxIds: ['approval-0'],
+    });
+    expect(state.items[0].status).toBe('signing');
+    state = dustSweepReducer(state, { ...identity, status: 'preparing' });
+    state = dustSweepReducer(state, { ...identity, status: 'waiting' });
+    expect(state.items[0].status).toBe('waiting');
+    expect(state.items[0].approvalTxIds).toEqual(['approval-0']);
+    state = dustSweepReducer(state, { type: 'pause' });
+    expect(dustSweepReducer(state, { type: 'resume' }).phase).toBe('running');
+  });
+
+  it('keeps the signing state after an approval broadcast', () => {
+    const state = dustSweepReducer(signingState(), {
+      type: 'approvalBroadcast',
+      sessionId: identity.sessionId,
+      key: identity.key,
+      approvalTxIds: ['approval-0'],
+    });
+    const broadcasted = dustSweepReducer(state, {
+      ...identity,
+      status: 'broadcasted',
+      txId: 'swap-0',
+    });
+    expect(broadcasted.items[0]).toMatchObject({
+      status: 'broadcasted',
+      approvalTxIds: ['approval-0'],
+      txId: 'swap-0',
+    });
+  });
+
+  it('retains approval hashes when confirmation fails before swap signing', () => {
+    let state = dustSweepReducer(signingState(), {
+      type: 'approvalBroadcast',
+      sessionId: identity.sessionId,
+      key: identity.key,
+      approvalTxIds: ['failed-approval'],
+    });
+    state = dustSweepReducer(state, { ...identity, status: 'preparing' });
+    state = dustSweepReducer(state, {
+      ...identity,
+      status: 'skipped',
+      reason: 'txFailed',
+    });
+    expect(state.items[0]).toMatchObject({
+      status: 'skipped',
+      approvalTxIds: ['failed-approval'],
+    });
+  });
+
+  it.each(['success', 'failed'] as const)(
+    'retains approval hashes in the %s swap details',
+    (status) => {
+      let state = dustSweepReducer(signingState(), {
+        type: 'approvalBroadcast',
+        sessionId: identity.sessionId,
+        key: identity.key,
+        approvalTxIds: ['approval'],
+      });
+      state = dustSweepReducer(state, {
+        ...identity,
+        status: 'broadcasted',
+        txId: 'swap',
+      });
+      state = dustSweepReducer(state, {
+        ...identity,
+        status,
+        receivedAmount: status === 'success' ? '1' : undefined,
+      });
+      expect(state.items[0]).toMatchObject({
+        status,
+        approvalTxIds: ['approval'],
+      });
+    },
+  );
+
+  it('does not retry an unknown submission or reset it into a new queue', () => {
+    let state = dustSweepReducer(signingState(), {
+      ...identity,
+      status: 'unknown',
+    });
+    state = dustSweepReducer(state, { type: 'pause' });
+    expect(dustSweepReducer(state, { type: 'resume' })).toBe(state);
+    expect(dustSweepReducer(state, { type: 'reset' })).toBe(state);
+    expect(dustSweepReducer(state, { ...identity, status: 'preparing' })).toBe(
+      state,
+    );
+  });
+
+  it('finishes confirmed success with an explicitly unavailable receipt', () => {
+    const broadcasted = dustSweepReducer(signingState(), {
+      ...identity,
+      status: 'broadcasted',
+      txId: 'tx',
+    });
+    expect(
+      dustSweepReducer(broadcasted, { ...identity, status: 'success' }),
+    ).toBe(broadcasted);
+    const completed = dustSweepReducer(broadcasted, {
+      ...identity,
+      status: 'success',
+      receiptUnavailable: true,
+    });
+    expect(completed.phase).toBe('completed');
+    expect(completed.items[0].receivedAmount).toBeUndefined();
+    expect(getDustSweepTotals(completed.items)).toMatchObject({
+      receiptUnavailable: true,
+      successCount: 1,
+    });
+  });
+
+  it('rejects stale session updates and duplicate settlement', () => {
+    const broadcasted = dustSweepReducer(signingState(), {
+      ...identity,
+      status: 'broadcasted',
+      txId: 'tx',
+    });
+    expect(
+      dustSweepReducer(broadcasted, {
+        ...identity,
+        sessionId: 'old',
+        status: 'success',
+        receivedAmount: '1',
+      }),
+    ).toBe(broadcasted);
+    const completed = dustSweepReducer(broadcasted, {
+      ...identity,
+      status: 'success',
+      receivedAmount: '1',
+    });
+    expect(
+      dustSweepReducer(completed, {
+        ...identity,
+        status: 'success',
+        receivedAmount: '2',
+      }),
+    ).toBe(completed);
+    expect(getDustSweepTotals(completed.items).receivedAmount).toBe('1');
+  });
+
+  it('keeps on-chain failures out of the skipped total', () => {
+    const items: IDustSweepItem[] = [
+      { token, status: 'failed', txId: 'tx-failed', reason: 'txFailed' },
+      {
+        token: { ...token, key: 'skipped' },
+        status: 'skipped',
+        reason: 'noQuote',
+      },
+    ];
+    expect(getDustSweepTotals(items)).toMatchObject({
+      skippedCount: 1,
+      failedCount: 1,
+      settledCount: 2,
+    });
+  });
+  it('presents pending and all-skipped sessions without claiming success', () => {
+    expect(
+      getDustSweepPresentation({
+        phase: 'completed',
+        snapshot,
+        items: [{ token, status: 'skipped', reason: 'noQuote' }],
+      }),
+    ).toMatchObject({ outcome: 'failed', completed: true });
+    expect(
+      getDustSweepPresentation({
+        phase: 'blocked',
+        snapshot,
+        items: [{ token, status: 'unknown' }],
+      }),
+    ).toMatchObject({ outcome: 'pending', unknown: true });
+  });
+});

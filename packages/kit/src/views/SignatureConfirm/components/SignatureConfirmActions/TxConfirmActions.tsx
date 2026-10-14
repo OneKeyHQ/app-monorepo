@@ -72,6 +72,7 @@ import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import type { IGasAccountScenario } from '@onekeyhq/shared/types/fee';
 import type { IEncodedTxLightning } from '@onekeyhq/shared/types/lightning';
+import type { IPrimeFreeTrialBroadcastUsage } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 import type { IPrimeInfiniBeforeBroadcastAction } from '@onekeyhq/shared/types/prime/primeTypes';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import {
@@ -108,6 +109,7 @@ type IProps = {
   onBeforeSend?: () => void | Promise<void>;
   broadcastDeadline?: number;
   beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
+  freeTrialUsage?: IPrimeFreeTrialBroadcastUsage;
   wcPayPreBroadcastRecord?: IWcPayPreBroadcastRecord;
   sourceInfo?: IDappSourceInfo;
   signOnly?: boolean;
@@ -143,6 +145,7 @@ function TxConfirmActions(props: IProps) {
     onBeforeSend,
     broadcastDeadline,
     beforeBroadcastAction,
+    freeTrialUsage,
     wcPayPreBroadcastRecord,
     sourceInfo,
     signOnly,
@@ -190,7 +193,7 @@ function TxConfirmActions(props: IProps) {
     updateTxFeeInfoInit,
     updateUnsignedTxs,
   } = useSignatureConfirmActions().current;
-  const successfullySentTxs = useRef<string[]>([]);
+  const [sentTxsTrackingId] = useState(() => generateUUID());
   // Identifies the current submit attempt so the background retry loop can be
   // aborted from the cancel handler. Rotated on every fresh submit; cleared
   // once the attempt has terminated (success / failure / cancel).
@@ -596,12 +599,13 @@ function TxConfirmActions(props: IProps) {
           sourceInfo,
           replaceTxInfo,
           transferPayload,
-          successfullySentTxs: successfullySentTxs.current,
+          sentTxsTrackingId,
           tronResourceRentalInfo,
           gasAccountUiState,
           gasAccountSubmitId: submitId,
           broadcastDeadline,
           beforeBroadcastAction,
+          freeTrialUsage,
           wcPayPreBroadcastRecord,
           useDefaultRpc: customRpcStatus?.useDefaultRpcOnce,
         });
@@ -850,6 +854,7 @@ function TxConfirmActions(props: IProps) {
     onBeforeSend,
     broadcastDeadline,
     beforeBroadcastAction,
+    freeTrialUsage,
     wcPayPreBroadcastRecord,
     onFail,
     dappApprove,
@@ -861,6 +866,7 @@ function TxConfirmActions(props: IProps) {
     showFeeInfoOverflowConfirm,
     signOnly,
     transferPayload,
+    sentTxsTrackingId,
     handleGasAccountSubmitError,
     logGasAccountAction,
     logGasAccountSubmitFailed,

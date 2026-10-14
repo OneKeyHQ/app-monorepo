@@ -42,6 +42,7 @@ import { buildStockInfoFromPublicDetail } from '@onekeyhq/kit/src/views/Market/M
 import { useToMarketStockDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/hooks/useToMarketStockDetailPage';
 import { useMarketDetailChartDisplayModePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SwapTestIDs } from '../../testIDs';
 import {
@@ -234,9 +235,54 @@ function StockPrice({
   );
 }
 
+function SwapStockMarketStatus({
+  isLoading,
+  isError,
+  onRetry,
+  status,
+  showLastUpdate,
+}: {
+  isLoading: boolean;
+  isError: boolean;
+  onRetry: () => Promise<void>;
+  status: ReturnType<typeof useSwapStockPrice>['status'];
+  showLastUpdate?: boolean;
+}) {
+  const intl = useIntl();
+  if (isLoading) {
+    if (isError) {
+      return (
+        <Button
+          testID="swap-stock-status-retry"
+          size="small"
+          variant="tertiary"
+          alignSelf="flex-start"
+          onPress={() => void onRetry()}
+        >
+          {intl.formatMessage({ id: ETranslations.global_retry })}
+        </Button>
+      );
+    }
+    return <Skeleton width={220} height={20} />;
+  }
+  return (
+    <StockMarketStatusBadge
+      stock={status}
+      variant="inline"
+      showLastUpdate={showLastUpdate}
+    />
+  );
+}
+
 export function SwapStockMobileHeader() {
   const { status } = useSwapStockPrice('share');
-  const { isStockDetailReady, stockDetail, stockId } = useStockDetail();
+  const {
+    isStockDetailReady,
+    isStockDetailStatusError,
+    stockDetail,
+    stockId,
+    retryStockDetail,
+  } = useStockDetail();
   const selection = useSwapStockSelection();
   const hasCurrentStockDetail = Boolean(
     stockDetail &&
@@ -252,12 +298,23 @@ export function SwapStockMobileHeader() {
       <XStack alignItems="center" justifyContent="space-between" gap="$3">
         <SwapStockTickerSelector />
       </XStack>
-      <Stack minHeight={20}>
-        {isStatusLoading ? (
-          <Skeleton width={220} height={20} />
-        ) : (
-          <StockMarketStatusBadge stock={status} variant="inline" />
-        )}
+      <Stack
+        minHeight={20}
+        testID={
+          isStatusLoading &&
+          (!isStockDetailStatusError || selection?.stockSelectionPending)
+            ? 'swap-stock-status-loading'
+            : undefined
+        }
+      >
+        <SwapStockMarketStatus
+          isLoading={isStatusLoading}
+          isError={Boolean(
+            isStockDetailStatusError && !selection?.stockSelectionPending,
+          )}
+          onRetry={retryStockDetail}
+          status={status}
+        />
       </Stack>
     </YStack>
   );
@@ -345,6 +402,7 @@ export function SwapStockVariantSelector() {
 
 export function SwapStockMarketPanel() {
   const intl = useIntl();
+  const retainOnRemount = platformEnv.isDesktop || platformEnv.isWeb;
   const [priceMode, setPriceMode] = useState<'share' | 'token'>('share');
   const [selectedRange, setRange] = useState<IStockSimpleChartRange>('1D');
   const range = resolveStockSimpleChartRangeForPriceMode({
@@ -359,6 +417,7 @@ export function SwapStockMarketPanel() {
     stockDetail,
     stockId,
     isStockDetailReady,
+    isStockDetailStatusError,
     selectedTokenVariant,
     isStockDetailError,
     retryStockDetail,
@@ -438,16 +497,24 @@ export function SwapStockMarketPanel() {
         >
           <YStack gap="$2">
             <StockPrice priceMode={priceMode} />
-            <Stack minHeight={20}>
-              {isStatusLoading ? (
-                <Skeleton width={220} height={20} />
-              ) : (
-                <StockMarketStatusBadge
-                  stock={status}
-                  variant="inline"
-                  showLastUpdate={priceMode === 'share'}
-                />
-              )}
+            <Stack
+              minHeight={20}
+              testID={
+                isStatusLoading &&
+                (!isStockDetailStatusError || selection?.stockSelectionPending)
+                  ? 'swap-stock-status-loading'
+                  : undefined
+              }
+            >
+              <SwapStockMarketStatus
+                isLoading={isStatusLoading}
+                isError={Boolean(
+                  isStockDetailStatusError && !selection?.stockSelectionPending,
+                )}
+                onRetry={retryStockDetail}
+                status={status}
+                showLastUpdate={priceMode === 'share'}
+              />
             </Stack>
           </YStack>
           <XStack py="$1" gap="$0.5">
@@ -481,6 +548,7 @@ export function SwapStockMarketPanel() {
             ) : null}
             {!selection?.stockSelectionPending && isSimpleChart ? (
               <StockSimpleChartContent
+                retainOnRemount={retainOnRemount}
                 priceMode={priceMode}
                 range={range}
                 stockId={stockId}

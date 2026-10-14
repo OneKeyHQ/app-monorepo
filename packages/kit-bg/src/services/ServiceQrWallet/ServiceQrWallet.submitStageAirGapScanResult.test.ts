@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/unbound-method -- Jest mock functions do not use this binding. */
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { logSolanaTxDiagnostic } from '@onekeyhq/shared/src/logger/solanaTxDiagnostics';
 
 import ServiceQrWallet from './ServiceQrWallet';
 
@@ -39,6 +40,11 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
       },
     },
   },
+}));
+
+// The scan-result path never touches the vault graph or the wallet SDK;
+jest.mock('@onekeyhq/shared/src/logger/solanaTxDiagnostics', () => ({
+  logSolanaTxDiagnostic: jest.fn(),
 }));
 
 // The scan-result path never touches the vault graph or the wallet SDK;
@@ -250,4 +256,42 @@ describe('ServiceQrWallet.startTwoWayAirGapScanUr stage bracket', () => {
     expect(createCallback).not.toHaveBeenCalled();
     expect(sessions.stageAirGapSession).toBeUndefined();
   });
+
+  it.each([false, true])(
+    'reports an invalid response as failed only, stage enabled: %s',
+    async (isEnabled) => {
+      const sdk = jest.requireMock<{
+        airGapUrUtils: { qrcodeToUr: jest.Mock };
+      }>('@onekeyhq/qr-wallet-sdk');
+      sdk.airGapUrUtils.qrcodeToUr.mockRejectedValueOnce(
+        new Error('synthetic-private-QR-value'),
+      );
+      const diagnostic = {
+        correlationId: '11111111-2222-4333-8444-555555555555',
+        startedAt: 1000,
+      };
+      const { service } = createStageService({
+        isEnabled,
+        begin: jest.fn<Promise<boolean>, []>().mockResolvedValue(true),
+      });
+      await expect(
+        service.startTwoWayAirGapScanUr({ requestUr: {} as never, diagnostic }),
+      ).rejects.toThrow();
+      const responses = jest
+        .mocked(logSolanaTxDiagnostic)
+        .mock.calls.filter(([, details]) => details.stage === 'qrResponse');
+      expect(responses).toEqual([
+        [
+          diagnostic,
+          {
+            stage: 'qrResponse',
+            status: 'failed',
+            reason: isEnabled ? 'stage' : 'legacy',
+            errorCategory: 'invalidQrOrSignature',
+          },
+        ],
+      ]);
+      expect(JSON.stringify(responses)).not.toContain('synthetic-private');
+    },
+  );
 });

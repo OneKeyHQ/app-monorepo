@@ -1,5 +1,36 @@
 export type IWalletConnectDiagnosticLevel = 'info' | 'error';
 
+export type IWalletConnectRelayOperation = 'switch' | 'close' | 'restart';
+export type IWalletConnectRelayCleanupPhase =
+  | 'disconnect_transport'
+  | 'cancel_registration'
+  | 'wait_registration'
+  | 'close_socket'
+  | 'complete';
+
+export type IWalletConnectConnectionLog = {
+  role: 'wallet' | 'dapp';
+  event: string;
+  sequence: number;
+  level: IWalletConnectDiagnosticLevel;
+  relayUrl: string;
+  previousRelayUrl?: string;
+  targetRelayUrl?: string;
+  cycleId?: number;
+  round?: number;
+  attempt?: number;
+  sdkAttempt?: number;
+  operation?: IWalletConnectRelayOperation;
+  cleanupPhase?: IWalletConnectRelayCleanupPhase;
+  connectionId?: number;
+  pendingConnections?: number;
+  elapsedMs?: number;
+  connected?: boolean;
+  connecting?: boolean;
+  errorCode?: number;
+  errorCategory?: string;
+};
+
 export type IWalletConnectDappConnectionProgress = {
   attemptId?: number;
   attempt: number;
@@ -24,7 +55,7 @@ export type IWalletConnectDiagnosticEvent = {
   errorCategory?: string;
   previousRelayUrl?: string;
   relayUrl?: string;
-};
+} & Partial<Omit<IWalletConnectConnectionLog, 'role'>>;
 
 export type IWalletConnectDiagnosticSession = {
   topic?: string;
@@ -58,6 +89,7 @@ export type IWalletConnectDiagnostics = {
   relaySwitches: number;
   relaySwitchPending: boolean;
   relayUrl: string;
+  targetRelayUrl?: string;
   connected?: boolean;
   connecting?: boolean;
   providerConnecting?: boolean;

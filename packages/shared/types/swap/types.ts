@@ -664,6 +664,7 @@ export interface ISwapPreSwapData {
 
 export interface IFetchSwapQuoteParams {
   source?: ESwapQuoteSource;
+  denySingleSwapProvider?: string;
   fromToken: ISwapToken;
   toToken: ISwapToken;
   requestScopeKey?: string;
@@ -839,6 +840,9 @@ export interface ISwapState {
   isRefreshQuote?: boolean;
   isWaitingAutoSlippage?: boolean;
   shouldEnterRecipient?: boolean;
+  // From-token balance is a loaded zero: the action button becomes the
+  // deposit entry instead of a disabled "insufficient balance" label.
+  shouldDepositToTrade?: boolean;
 }
 
 export interface ISwapApproveAllowanceResponse {
@@ -938,6 +942,7 @@ export type ISwapQuoteEventData =
 
 // build_tx
 export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
+  source?: ESwapQuoteSource;
   userAddress: string;
   receivingAddress: string;
   slippagePercentage: number;
@@ -948,7 +953,6 @@ export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
   kind: ESwapQuoteKind;
   walletType?: string;
   deviceType?: string;
-  source?: ESwapQuoteSource;
   bindedAccountAddress?: string;
   bindedNetworkId?: string;
   rebateAddress?: string;

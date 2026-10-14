@@ -137,6 +137,27 @@ function buildGlobalDeriveTypesMapKey({ networkId }: { networkId: string }) {
   // return key;
 }
 
+// The persisted map only holds derive types the user saved explicitly. BTC
+// defaults to Taproot (BIP86) without such an entry, and every reader of the
+// raw map must apply that same default, or a scene seeded from the raw map
+// ends up on Nested SegWit while home shows Taproot (OK-64269).
+// The derive type union lives in kit-bg, which shared must not import, so the
+// helper is typed by the caller's map instead.
+function getGlobalDeriveTypeFromMap<T extends string>({
+  networkId,
+  globalDeriveTypesMap,
+}: {
+  networkId: string;
+  globalDeriveTypesMap: Partial<Record<string, T | undefined>> | undefined;
+}): T | 'BIP86' | undefined {
+  const key = buildGlobalDeriveTypesMapKey({ networkId });
+  const deriveType = globalDeriveTypesMap?.[key];
+  if (deriveType === undefined && networkUtils.isBTCNetwork(networkId)) {
+    return 'BIP86'; // Taproot
+  }
+  return deriveType;
+}
+
 function isSceneCanPersist({
   sceneName,
 }: {
@@ -262,6 +283,7 @@ export default {
   buildAccountSelectorSceneId,
   buildMergedSelectedAccount,
   buildGlobalDeriveTypesMapKey,
+  getGlobalDeriveTypeFromMap,
   isSceneCanAutoSelect,
   isSceneCanPersist,
   isSceneUseGlobalDeriveType,

@@ -1,5 +1,6 @@
 import type { EModalBulkSendRoutes, IModalBulkSendParamList } from './bulkSend';
 import type { EBulkSendMode } from '../../types/bulkSend';
+import type { IDustSweepRouteParams } from '../../types/swap/dustSweep';
 import type { IToken, ITokenFiat } from '../../types/token';
 
 export enum ETabHomeRoutes {
@@ -16,6 +17,7 @@ export enum ETabHomeRoutes {
   TabHomeBulkSendAmountsInput = 'TabHomeBulkSendAmountsInput',
   TabHomeBulkSendProcess = 'TabHomeBulkSendProcess',
   TabHomeApprovalList = 'TabHomeApprovalList',
+  TabHomeDustSweep = 'TabHomeDustSweep',
 }
 
 export const PRIME_REDEEM_LANDING_PATH = '/prime/redeem';
@@ -30,6 +32,7 @@ export type ITabHomeUrlAccountParamList = {
 
 export type ITabHomeParamList = {
   [ETabHomeRoutes.TabHome]: undefined;
+  [ETabHomeRoutes.TabHomeDustSweep]: IDustSweepRouteParams | undefined;
   [ETabHomeRoutes.TabHomeUrlAccountLanding]: {
     networkId: string;
     address: string;

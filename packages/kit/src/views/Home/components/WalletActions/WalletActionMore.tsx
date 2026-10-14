@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useContext, useMemo } from 'react';
 
-import { Divider } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import { ActionList, Badge, Divider } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
@@ -17,25 +19,31 @@ import {
   useActiveAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { shouldHideBotWalletExport } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
+import { useNavigateToDustSweep } from '@onekeyhq/kit/src/views/DustSweep/hooks/useNavigateToDustSweep';
 import {
   useDevSettingsPersistAtom,
+  useDustSweepPreferencesPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IVaultSettings } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 import { HomeTestIDs } from '../../testIDs';
+import { HomeStickyHeaderContext } from '../HomeStickyHeaderContext';
 import { HomeTokenListProviderMirrorWrapper } from '../HomeTokenListProvider';
 
+import { LazyWalletActionBulkSend } from './LazyWalletActionBulkSend';
 import { RawActions } from './RawActions';
 import { useWalletActionConfig } from './useWalletActionConfig';
 import { WalletActionAddressList } from './WalletActionAddressList';
 import { WalletActionApprovals } from './WalletActionApprovals';
-import { WalletActionBulkSend } from './WalletActionBulkSend';
 import { WalletActionBuy } from './WalletActionBuy';
 import { WalletActionCoins } from './WalletActionCoins';
 import { WalletActionCopy } from './WalletActionCopy';
@@ -46,6 +54,7 @@ import { WalletActionSignAndVerify } from './WalletActionSignAndVerify';
 import { WalletActionSwap } from './WalletActionSwap';
 import { WalletActionViewInExplorer } from './WalletActionViewInExplorer';
 import { WalletActionVote } from './WalletActionVote';
+import { WalletPortfolioSpotlight } from './WalletPortfolioSpotlight';
 
 type IRenderMoreItemsParams = {
   handleActionListClose: () => void;
@@ -53,11 +62,59 @@ type IRenderMoreItemsParams = {
   resolvedIsBotWalletDeactivated?: boolean;
 };
 
+function WalletActionDustSweep({ onClose }: { onClose: () => void }) {
+  const intl = useIntl();
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const [{ entrySeen }] = useDustSweepPreferencesPersistAtom();
+  const navigateToDustSweep = useNavigateToDustSweep();
+  const { account, wallet, network, indexedAccount } = activeAccount;
+  const handlePress = useCallback(async () => {
+    onClose();
+    await timerUtils.wait(150);
+    await navigateToDustSweep({
+      accountId: account?.id,
+      walletId: wallet?.id,
+      indexedAccountId: indexedAccount?.id,
+      networkId: network?.isAllNetworks ? undefined : network?.id,
+      entry: 'walletMore',
+    });
+  }, [
+    onClose,
+    navigateToDustSweep,
+    account?.id,
+    wallet?.id,
+    indexedAccount?.id,
+    network?.id,
+    network?.isAllNetworks,
+  ]);
+
+  return (
+    <ActionList.Item
+      testID="wallet-action-dust-sweep"
+      trackID="wallet-action-dust-sweep"
+      icon="BroomOutline"
+      label={intl.formatMessage({ id: ETranslations.title_dust_sweep })}
+      onClose={() => {}}
+      onPress={handlePress}
+      extra={
+        entrySeen ? null : (
+          <Badge badgeSize="sm" badgeType="default">
+            {intl.formatMessage({ id: ETranslations.explore_badge_new })}
+          </Badge>
+        )
+      }
+    />
+  );
+}
+
 export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
   const [devSettings] = useDevSettingsPersistAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const activeTabId = useContext(HomeStickyHeaderContext)?.activeTabId;
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
-  const { account, network } = activeAccount;
+  const { account, network, indexedAccount } = activeAccount;
+  const dustSweepAccountId =
+    account?.id ?? (network?.isAllNetworks ? indexedAccount?.id : undefined);
   // Read here, not in the item: menu items render outside this context.
   const [{ ownerKey: approvalsOwnerKey, showRiskApprovalsDot: ownerDot }] =
     useApprovalsInfoAtom();
@@ -249,7 +306,7 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
               );
             case 'bulkSend':
               return (
-                <WalletActionBulkSend
+                <LazyWalletActionBulkSend
                   key="bulkSend"
                   onClose={handleActionListClose}
                 />
@@ -335,6 +392,15 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
         elements.push(...tradingElements);
       }
 
+      if (dustSweepAccountId && activeAccount?.wallet?.id) {
+        elements.push(
+          <WalletActionDustSweep
+            key="dust-sweep"
+            onClose={handleActionListClose}
+          />,
+        );
+      }
+
       const toolsElements = renderToolsGroup();
       if (toolsElements.length > 0) {
         if (elements.length > 0) {
@@ -376,6 +442,7 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
       getMoreActionGroups,
       account?.id,
       activeAccount?.wallet?.id,
+      dustSweepAccountId,
       network?.id,
       config.moreActions,
       show,
@@ -432,12 +499,19 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
   );
 
   return (
-    <RawActions.More
-      renderItems={platformEnv.isNative ? renderItems : undefined}
-      renderItemsAsync={renderItemsAsync}
-      testID={HomeTestIDs.moreButton}
-      iconOnly={iconOnly}
-      showDot={showRiskApprovalsDot && isApprovalEnabled}
-    />
+    <HomeTokenListProviderMirrorWrapper accountId={account?.id ?? ''}>
+      <WalletPortfolioSpotlight
+        enabled={activeTabId === EHomeWalletTab.Portfolio}
+        iconOnly={iconOnly}
+      >
+        <RawActions.More
+          renderItems={platformEnv.isNative ? renderItems : undefined}
+          renderItemsAsync={renderItemsAsync}
+          testID={HomeTestIDs.moreButton}
+          iconOnly={iconOnly}
+          showDot={showRiskApprovalsDot && isApprovalEnabled}
+        />
+      </WalletPortfolioSpotlight>
+    </HomeTokenListProviderMirrorWrapper>
   );
 }

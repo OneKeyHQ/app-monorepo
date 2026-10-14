@@ -3,9 +3,11 @@ import type {
   IBulkSendAddressesInputSeed,
   IBulkSendAddressesInputSeedSender,
 } from '@onekeyhq/shared/types/bulkSend';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 import {
   buildBulkSendFallbackSeed,
+  buildBulkSendNextContextKey,
   buildBulkSendSeedSource,
   buildSeededSenderBadgeLabel,
   computeBulkSendNextDisabled,
@@ -338,5 +340,51 @@ describe('resolveBulkSendSeedApplyPlan', () => {
         selectedAccountId: undefined,
       }),
     ).toEqual({ action: 'apply', keepUserToken: false });
+  });
+});
+
+describe('buildBulkSendNextContextKey', () => {
+  const ethToken: IToken = {
+    address: '',
+    name: 'Ethereum',
+    symbol: 'ETH',
+    decimals: 18,
+    isNative: true,
+    networkId: 'evm--1',
+  };
+  const pressed = {
+    networkId: 'evm--1',
+    accountId: ETH_ACCOUNT_ID,
+    token: ethToken,
+    mode: EBulkSendMode.OneToMany,
+    values: { senderAddresses: '0xabc', receiverAddresses: '0x1,1\n0x2,2' },
+  };
+
+  it('stays the same for the same input', () => {
+    expect(buildBulkSendNextContextKey({ ...pressed })).toBe(
+      buildBulkSendNextContextKey({
+        ...pressed,
+        token: { ...pressed.token },
+        values: { ...pressed.values },
+      }),
+    );
+  });
+
+  it('changes when the asset, mode, addresses, network or sender change', () => {
+    const atPress = buildBulkSendNextContextKey(pressed);
+    const changed = [
+      { ...pressed, token: { ...pressed.token, address: '0xusdt' } },
+      { ...pressed, mode: EBulkSendMode.ManyToOne },
+      {
+        ...pressed,
+        values: { ...pressed.values, receiverAddresses: '0x3,1' },
+      },
+      { ...pressed, values: { ...pressed.values, senderAddresses: '0xdef' } },
+      { ...pressed, networkId: 'evm--56' },
+      { ...pressed, accountId: "hd-1--m/44'/60'/0'/0/1" },
+    ];
+    changed.forEach((input) => {
+      expect(buildBulkSendNextContextKey(input)).not.toBe(atPress);
+    });
   });
 });
