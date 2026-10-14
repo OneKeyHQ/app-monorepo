@@ -59,6 +59,7 @@ export function useConnectExternalWallet() {
   setLoadingRef.current = setLoading;
   const loadingRef = useRef(loading);
   loadingRef.current = loading;
+  const connectGenerationRef = useRef(0);
 
   const hideLoadingTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
@@ -115,6 +116,8 @@ export function useConnectExternalWallet() {
       connectionInfo: IExternalConnectionInfo,
       options?: IConnectToWalletOptions,
     ) => {
+      connectGenerationRef.current += 1;
+      const generation = connectGenerationRef.current;
       try {
         const beforeConnectInfo = getExternalWalletConnectionDetails({
           externalConnectionInfo: connectionInfo,
@@ -224,7 +227,10 @@ export function useConnectExternalWallet() {
         });
         return true;
       } finally {
-        hideLoading();
+        // A superseded request must not clear the newer retry's loading state.
+        if (generation === connectGenerationRef.current) {
+          hideLoading();
+        }
       }
     },
     [
