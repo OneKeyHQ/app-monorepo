@@ -40,21 +40,19 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useLanguageSelectorWithoutAuto } from '../../Setting/hooks/useLanguageSelector';
 import { OnboardingTestIDs } from '../testIDs';
 
-// Electron drag-region helpers. On desktop, the header container is a window
-// drag handle; interactive children opt out so they remain clickable.
+// Electron drag-region helper. On desktop, only the top blank inset strip
+// above the header bar acts as the window drag handle; the header action row
+// (Back button, title, language selector) is outside the drag region.
 const DRAG_STYLE = (
   platformEnv.isDesktop ? { WebkitAppRegion: 'drag' } : undefined
-) as any;
-
-const NO_DRAG_STYLE = (
-  platformEnv.isDesktop ? { WebkitAppRegion: 'no-drag' } : undefined
 ) as any;
 
 export const LayoutHeader = memo(
   ({ children, style, ...rest }: IXStackProps) => {
     const { top } = useSafeAreaInsets();
     return (
-      <YStack pt={top || '$12'} style={DRAG_STYLE}>
+      <YStack>
+        <YStack h={top || '$12'} style={DRAG_STYLE} />
         <XStack
           h={52}
           px="$5"
@@ -96,7 +94,6 @@ export const LayoutHeaderBack = memo(({ exit }: { exit?: boolean }) => {
         variant="tertiary"
         onPress={handleBack}
         zIndex={1}
-        style={NO_DRAG_STYLE}
       >
         {intl.formatMessage({ id: ETranslations.wallet_bulk_send_btn_back })}
       </Button>
@@ -111,7 +108,6 @@ export const LayoutHeaderBack = memo(({ exit }: { exit?: boolean }) => {
       variant="tertiary"
       onPress={handleBack}
       zIndex={1}
-      style={NO_DRAG_STYLE}
     />
   );
 });
@@ -126,6 +122,7 @@ export const LayoutHeaderTitle = memo(
       justifyContent="center"
       alignItems="center"
       px="$16"
+      pointerEvents="none"
     >
       <SizableText size="$headingLg" textAlign="center" numberOfLines={1}>
         {children}
@@ -150,7 +147,7 @@ export const LayoutHeaderLanguageSelector = memo(() => {
   );
 
   return (
-    <YStack ml="auto" style={NO_DRAG_STYLE}>
+    <YStack ml="auto">
       <Select
         testID={OnboardingTestIDs.layoutHeaderLanguageSelector}
         offset={{ mainAxis: 8, crossAxis: 8 }}

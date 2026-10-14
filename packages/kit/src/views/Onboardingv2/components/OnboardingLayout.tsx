@@ -67,7 +67,7 @@ const OnboardingLayoutLanguageSelector = memo(() => {
   );
 
   return (
-    <YStack ml="auto">
+    <YStack ml="auto" zIndex={1}>
       <Select
         testID="onboardingv2-handle-language-change-select"
         offset={{ mainAxis: 8, crossAxis: 8 }}
@@ -113,6 +113,7 @@ const OnboardingLayoutTitle = memo(
       zIndex={0}
       justifyContent="center"
       alignItems="center"
+      pointerEvents="none"
     >
       <SizableText size="$headingLg" textAlign="center">
         {children}
@@ -326,8 +327,12 @@ const OnboardingLayoutRoot = memo(
             top={0}
             left={0}
             right={0}
-            h={80}
+            h={34}
+            $gtMd={{
+              h: '$12',
+            }}
             zIndex={9999}
+            pointerEvents="none"
             style={DESKTOP_DRAGGABLE_STYLE}
           />
         ) : null}
