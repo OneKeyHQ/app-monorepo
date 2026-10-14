@@ -113,8 +113,8 @@ export interface IHardwareDeviceProps {
   shadow?: boolean;
   /**
    * The device's finish, as its serial number names it (see
-   * shared/utils/hardwareDeviceColors). Only the Pro 2 comes in more
-   * than one; the other models take it and ignore it. Omitted or unknown:
+   * shared/utils/hardwareDeviceColors). Classic 1s / Pure support transparent
+   * shells, and Pro 2 supports its colored shells. Omitted or unknown:
    * the model's default, black.
    */
   color?: IHardwareDeviceColor;
