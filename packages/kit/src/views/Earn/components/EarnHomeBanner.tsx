@@ -44,25 +44,19 @@ const BANNER_SHADOW_ROOM = '$2';
 // The pager clips at its own bounds, so it is made this much taller than the
 // card for BANNER_SHADOW to fall into (y offset + blur + spread = 12).
 const BANNER_SHADOW_ROOM_BOTTOM = 12;
-// Each dot keeps a $0.5 pad as its tap target. Pulling the row back up over
-// the shadow room lands the dots themselves 8pt under the card, as in Figma:
-// 12 (room) - 6 (offset) + 2 (pad) = 8.
-const BANNER_PAGINATION_OFFSET = -6;
-// Soft lift for light mode, written as a CSS box-shadow so it renders on
-// Android 9+ as well: the shadow* props it replaces only ever drew on iOS. A
-// tight contact layer for the edge, plus a wider one whose negative spread
-// keeps it within 8pt of the sides and 12pt below, the room the pager leaves
-// before it clips. Dark mode has nothing light for a shadow to fall on.
+// Pulls the dots back up over the shadow room so they sit 8pt under the card,
+// as in Figma: 12 (room) - 4 (offset) = 8.
+const BANNER_PAGINATION_OFFSET = -4;
+// Light mode only. A CSS box-shadow also renders on Android 9+, where the
+// shadow* props never drew. The wider layer's negative spread keeps it within
+// the 8pt side and 12pt bottom room the pager leaves before it clips.
 const BANNER_SHADOW =
   '0px 1px 2px rgba(0, 0, 0, 0.06), 0px 4px 12px -4px rgba(0, 0, 0, 0.16)';
-// Figma's copy column is 183pt of the 350pt card. Kept as a share of the card
-// rather than a fixed width: the artwork is cropped to the card's width, so
-// its focal point (the coin, from ~58% across) moves with it, and the column
-// has to stop short of it on every screen size.
+// Figma's 183pt of the 350pt card, as a share because the artwork scales with
+// the card and its focal point (the coin, from ~58% across) moves with it.
 const BANNER_COPY_WIDTH = '52%';
-// Figma (30705:41176) gives the bottom bar as Hug 60px: the 40pt icon plus
-// 10pt above and below it. Pinned rather than hugged so the bar keeps its
-// height on an icon-less slide and does not jump as the carousel pages.
+// Figma (30705:41176): the 40pt icon plus 10pt above and below. Pinned so an
+// icon-less slide keeps the same height and the bar doesn't jump on paging.
 const BANNER_INFO_HEIGHT = 60;
 // Dark frosted material. A frosted pane is blur *plus* a tint layer, never
 // plain transparency, so the bar always has a color — the only question is
@@ -82,10 +76,9 @@ const BANNER_INFO_GLASS_MATERIAL = 'systemUltraThinMaterialDark' as const;
 // overlay's alpha. Figma's frost is light (8), so the material is only partly
 // applied and the veil below does the darkening.
 const BANNER_INFO_GLASS_INTENSITY = 30;
-// Figma's veil over the glass: a 31% black fill above the blur, keeping light
-// copy legible over light artwork too. Not iOS 26 Liquid Glass: its clear
-// style barely frosts busy artwork and its regular style adapts to a milky
-// pane that no tint darkens, neither of which is Figma's frosted dark bar.
+// Figma's veil: 31% black above the blur, so light copy stays legible over
+// light artwork. iOS 26 Liquid Glass can't give this frosted dark bar: its
+// styles either barely frost or adapt to a milky pane no tint darkens.
 const BANNER_INFO_GLASS_TINT = 'rgba(0, 0, 0, 0.31)';
 // Specular highlight along the bar's top edge — the strongest "this is glass"
 // cue in Apple's materials. Without it the pane reads as translucent plastic
@@ -121,16 +114,13 @@ const BANNER_DEFAULT_COLORS = {
 } as const;
 
 const NO_BREAK_SPACE = '\u00A0';
-// Longest last-two-word pair bindLastTwoWords may join, per text style. A
-// joined pair wider than the copy column breaks mid-word, and the column is
-// ~174pt at its narrowest (375pt-wide phones). Measured in Roobert, all-caps
-// pairs at these lengths average ~139pt (title) and ~149pt (subtitle); only a
-// pair of mostly wide letters would overflow.
+// Longest pair bindLastTwoWords may join. A pair wider than the copy column
+// (~174pt at its narrowest) would break mid-word; all-caps Roobert pairs at
+// these lengths average ~139pt (title) and ~149pt (subtitle).
 const BANNER_TITLE_MAX_BOUND_PAIR = 14;
 const BANNER_SUBTITLE_MAX_BOUND_PAIR = 20;
-// How long the card stays one shimmer waiting for its artwork. Past this the
-// bar shows anyway: a stalled image can take ~30s to fail on iOS, and never
-// does on Android, whose image client has no network timeout.
+// After this long without artwork the bar shows anyway: a stalled image takes
+// ~30s to fail on iOS and never fails on Android (no network timeout).
 const BANNER_ARTWORK_PATIENCE_MS = 3000;
 
 type IBannerArtworkState = {
@@ -139,11 +129,10 @@ type IBannerArtworkState = {
   status: 'displayed' | 'failed' | 'slow';
 };
 
-// iOS text layout has no balanced line breaking, so wrapped copy can end on a
-// lone word ("…APR with / Bitway"). Joining the last two words of the last
-// line with one no-break space moves the break one word earlier. Copy without
-// spaces (CJK) keeps its own break points, and an ops-forced newline still
-// starts a new line.
+// iOS has no balanced line breaking, so wrapped copy can end on a lone word
+// ("…APR with / Bitway"). A no-break space between the last two words moves
+// the break one word earlier. CJK copy and ops-forced newlines keep their own
+// breaks.
 function bindLastTwoWords(text: string, maxPairLength: number) {
   const copy = text.trimEnd();
   // `\S` excludes newlines, so the pair never spans a line break.
@@ -247,12 +236,10 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
     }, BANNER_ARTWORK_PATIENCE_MS);
     return () => clearTimeout(timer);
   }, [artworkStatus, item.backgroundImage]);
-  // Until the artwork is on screen the card stays one shimmer, continuous
-  // with the cold-start skeleton, instead of drawing copy over a placeholder
-  // it was never colored for. The image copy only ever reads against its
-  // artwork, so a failed or slow image drops it and keeps the self-contained
-  // bar. A hidden layer takes no touches and stays out of the accessibility
-  // tree, and the card only becomes a button once it shows something.
+  // Until the artwork shows, the card stays one shimmer, like the cold-start
+  // skeleton. The copy only reads against its artwork, so a failed or slow
+  // image gets just the bar. Hidden layers take no touches or screen-reader
+  // focus, and the card is only a button once it shows something.
   const showImageCopy = artworkStatus === 'displayed';
   const showInfoContent = artworkStatus !== 'loading';
   const isPressable = Boolean(item.href) && showInfoContent;
@@ -321,24 +308,16 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
             onError={handleArtworkError}
           />
         </YStack>
-        {/* Campaign copy, vertically centered in the artwork above the bar
-            and wrapped inside a column that stops short of the artwork's
-            focal point. Long i18n copy: line clamps keep the block (at most
-            3 x 24 + 2 x 16) inside the 140pt it is centered in. Android
-            balances the lines and bindLastTwoWords keeps iOS from ending on a
-            lone word; ops can still force a break with a newline in the copy.
-            Color double fallback: prefer admin-configured colors, else Figma
-            default dark. Keep the copy shadow-free so dark text does not look
-            embossed. */}
+        {/* Campaign copy, centered in the 140pt above the bar; line clamps
+            keep even long i18n copy (at most 3 x 24 + 2 x 16) inside it.
+            Colors: admin-configured first, else Figma's default dark. No text
+            shadow, so dark text doesn't look embossed. */}
         <YStack
           flex={1}
           jc="center"
           pointerEvents="none"
           opacity={showImageCopy ? 1 : 0}
-          accessibilityElementsHidden={!showImageCopy}
-          importantForAccessibility={
-            showImageCopy ? 'auto' : 'no-hide-descendants'
-          }
+          aria-hidden={!showImageCopy}
           transition={contentTransition}
           animateOnly={ANIMATE_ONLY_OPACITY}
         >
@@ -378,10 +357,9 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
             </YStack>
           ) : null}
         </YStack>
-        {/* Bottom bar: flush to the bottom, glass over the artwork. Pinned to
-            the dark theme because the glass is always a dark pane, whatever
-            the app theme: the Join label and its pressed state resolve the
-            same in both themes, as in Figma. */}
+        {/* Bottom bar, glass over the artwork. The glass is always dark, so
+            the bar is pinned to the dark theme and the Join pill looks the
+            same in both app themes, as in Figma. */}
         <Theme name="dark">
           <YStack h={BANNER_INFO_HEIGHT}>
             {/* The glass mounts once the artwork settles rather than fading
@@ -395,10 +373,7 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
               ai="center"
               opacity={showInfoContent ? 1 : 0}
               pointerEvents={showInfoContent ? 'auto' : 'none'}
-              accessibilityElementsHidden={!showInfoContent}
-              importantForAccessibility={
-                showInfoContent ? 'auto' : 'no-hide-descendants'
-              }
+              aria-hidden={!showInfoContent}
               transition={contentTransition}
               animateOnly={ANIMATE_ONLY_OPACITY}
             >
@@ -538,24 +513,16 @@ export function EarnHomeBanner({
         showPagination={validBanners.length > 1}
         containerStyle={{ height: BANNER_HEIGHT + BANNER_SHADOW_ROOM_BOTTOM }}
         paginationContainerStyle={{ mt: BANNER_PAGINATION_OFFSET }}
-        // 6pt dots 6pt apart, as in production (the dots in the Figma
-        // reference are a production screenshot). The default item pads each
-        // dot by $1, 8pt apart; a $0.5 pad plus a $0.5 margin keeps the 6pt
-        // gap and still gives each dot more to tap than the bare dot.
         renderPaginationItem={({ activeDotStyle, onPress }, index) => (
           <YStack
-            key={index}
-            p="$0.5"
-            mr={index === validBanners.length - 1 ? '$0' : '$0.5'}
+            key={validBanners[index]?.bannerId ?? index}
+            w="$1.5"
+            h="$1.5"
+            mr={index === validBanners.length - 1 ? '$0' : '$1.5'}
+            borderRadius="$full"
+            bg={activeDotStyle ? '$bgPrimary' : '$neutral5'}
             onPress={onPress}
-          >
-            <YStack
-              w="$1.5"
-              h="$1.5"
-              borderRadius="$full"
-              bg={activeDotStyle ? '$bgPrimary' : '$neutral5'}
-            />
-          </YStack>
+          />
         )}
       />
     </YStack>

@@ -26,7 +26,7 @@ jest.mock('@onekeyhq/components', () => {
     testID,
     opacity,
     pointerEvents,
-    accessibilityElementsHidden,
+    'aria-hidden': ariaHidden,
     transition,
     onPress,
   }: {
@@ -34,7 +34,7 @@ jest.mock('@onekeyhq/components', () => {
     testID?: string;
     opacity?: number;
     pointerEvents?: string;
-    accessibilityElementsHidden?: boolean;
+    'aria-hidden'?: boolean;
     transition?: string;
     onPress?: () => unknown;
   }) => {
@@ -46,7 +46,7 @@ jest.mock('@onekeyhq/components', () => {
         data-testid={testID}
         data-opacity={opacity}
         data-pointer-events={pointerEvents}
-        data-a11y-hidden={accessibilityElementsHidden}
+        aria-hidden={ariaHidden}
         data-transition={transition}
       >
         {children}
@@ -234,12 +234,12 @@ describe('EarnHomeBanner', () => {
 
     expect(mockPressHandlers[cardTestID]).toBeUndefined();
     expect(barLayer?.getAttribute('data-pointer-events')).toBe('none');
-    expect(barLayer?.getAttribute('data-a11y-hidden')).toBe('true');
+    expect(barLayer?.getAttribute('aria-hidden')).toBe('true');
 
     showArtwork();
 
     expect(barLayer?.getAttribute('data-pointer-events')).toBe('auto');
-    expect(barLayer?.getAttribute('data-a11y-hidden')).toBe('false');
+    expect(barLayer?.getAttribute('aria-hidden')).toBe('false');
     await act(async () => {
       await mockPressHandlers[cardTestID]?.();
     });
