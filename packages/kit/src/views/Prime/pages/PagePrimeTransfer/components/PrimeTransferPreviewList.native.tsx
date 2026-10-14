@@ -155,8 +155,7 @@ export function PrimeTransferPreviewList({
     const allSelected = new Map<IGroup, boolean>();
     const selectedKeys: string[] = [];
     const rows: RowModel[] = [];
-    for (const group of groups) {
-      if (!group.items.length) continue;
+    for (const group of groups.filter(({ items }) => items.length > 0)) {
       let enabledCount = 0;
       let checkedCount = 0;
       for (const { id, row } of group.items) {
@@ -168,9 +167,11 @@ export function PrimeTransferPreviewList({
         });
         if (state && !state.disabled) {
           enabledCount += 1;
-          if (state.checked) checkedCount += 1;
+          if (state.checked) {
+            checkedCount += 1;
+            selectedKeys.push(row.key);
+          }
         }
-        if (state?.checked) selectedKeys.push(row.key);
       }
       const isAllSelected = enabledCount > 0 && checkedCount === enabledCount;
       allSelected.set(group.type, isAllSelected);
@@ -196,7 +197,8 @@ export function PrimeTransferPreviewList({
           trailing: [
             {
               kind: 'checkbox',
-              state: state?.checked ? 'checked' : 'unchecked',
+              state:
+                state?.checked && !state.disabled ? 'checked' : 'unchecked',
               disabled: !state || state.disabled,
               target: { scope: 'row' },
             },

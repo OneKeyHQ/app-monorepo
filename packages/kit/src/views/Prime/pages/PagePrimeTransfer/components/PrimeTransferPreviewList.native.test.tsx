@@ -312,3 +312,24 @@ test('skips network RPC when preview accounts have no network IDs', async () => 
   await act(async () => undefined);
   expect(mockGetNetworksByIds).not.toHaveBeenCalled();
 });
+
+test.each(['wallet', 'importedAccount', 'watchingAccount'] as const)(
+  'excludes checked-but-disabled %s rows from native selection',
+  (type) => {
+    const props = fixture(1);
+    const id = Object.keys(props.selectedItemMap[type])[0];
+    props.selectedItemMap[type][id] = { checked: true, disabled: true };
+    render(<PrimeTransferPreviewList {...props} />);
+    const key = `${type}:${id}`;
+    expect(mockListProps.snapshot.selection?.selectedKeys).not.toContain(key);
+    const row = mockListProps.snapshot.rows.find((item) => item.key === key);
+    expect(row?.disabled).toBe(true);
+    expect(
+      row?.type === 'identity' ? row.trailing?.[0] : undefined,
+    ).toMatchObject({
+      kind: 'checkbox',
+      state: 'unchecked',
+      disabled: true,
+    });
+  },
+);
