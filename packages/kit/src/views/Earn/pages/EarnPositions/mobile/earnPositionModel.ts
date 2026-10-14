@@ -39,15 +39,14 @@ import type {
  * principal with its rewards, the principal out of its cooldown, one
  * position per withdrawal in progress), the way the wallet DeFi portfolio
  * keys positions. Product (10-12): one holding is one card, made of the
- * four things a position can hold — Deposited (withdrawn on the detail
- * page), Rewards (claimed), Pending withdrawal (one row per withdrawal in
- * progress, cancelled on the detail page) and Redeemable (the principal out
- * of its cooldown, redeemed on the detail page). So the states of one
- * holding — same protocol, network, provider, symbol and vault — are folded
- * into one card here, as those sections, and the card has two buttons:
- * Manage into the detail page, where Withdraw, Cancel and Redeem live, and
- * Claim for the rewards the server attached a claim to (one claim goes
- * straight to the confirm page, several open a sheet with one Claim each).
+ * four things a position can hold — Deposited, Rewards, Pending withdrawal
+ * (one row per withdrawal in progress) and Redeemable (the principal out of
+ * its cooldown). So the states of one holding — same protocol, network,
+ * provider, symbol and vault — are folded into one card here, as those
+ * sections. Product (10-14): the detail page's Balance and Rewards are this
+ * very card, so each row carries the server position it came from and the
+ * shared sections act on it in place (Redeem, Claim, Check, Cancel); the
+ * card keeps Manage as its way into the detail page.
  * The wallet DeFi Portfolio code still does the grouping and the valuation:
  * defiUtils.transformDeFiData groups positions into one protocol per
  * network, buildLocalizedProtocolPositionItems gives the health factor.
@@ -64,6 +63,13 @@ export type IEarnPositionSectionKind =
   | 'redeemable';
 
 export type IEarnPositionSectionAsset = IDeFiAsset & {
+  /** the server position the row came from: its claim, cancel and identity */
+  origin: IEarnPortfolioPosition;
+  /**
+   * the first row its server position put in the section: a claim or a
+   * cancel acts on the whole position, so only that row carries the button
+   */
+  isOriginLead: boolean;
   /** ms; pending withdrawal rows whose provider knows when the funds free up */
   unlockAt?: number;
   /** reward rows: the claim the card runs, when the server attached one */
@@ -224,9 +230,8 @@ function isClaimEnabled(button: IEarnActionIcon): boolean {
 
 /**
  * Lista's Check row: a zero reward whose button is the signature that
- * reveals the amount. The Rewards list offers it on the row, the way the
- * detail page does; the card, which has no row buttons, leaves it out, and
- * the card's Claim never runs it.
+ * reveals the amount. The rows offer it the way the detail page does; it is
+ * never one of the rewards a claim collects.
  */
 function isCheckRow(reward: IEarnPositionRewardAsset): boolean {
   return reward.claim?.button.type === 'listaCheck';
@@ -244,10 +249,11 @@ function hasEnabledClaim(
 
 /**
  * The card's sections, from every state of the holding: the staked
- * principal (Supplied on a loan) with its debts, the rewards, each
- * withdrawal in progress dated when the provider knows (soonest first), and
- * the principal out of its cooldown, ready to redeem. The rows carry no
- * buttons: the detail page acts on them.
+ * principal (Supplied on a loan) with its debts, the rewards (Lista's Check
+ * row included, its button being the way to the amount), each withdrawal in
+ * progress dated when the provider knows (soonest first), and the principal
+ * out of its cooldown, ready to redeem. Each row keeps its server position
+ * so the shared sections can act on it.
  */
 function buildSections({
   sources,
@@ -262,15 +268,25 @@ function buildSections({
     IEarnPositionSectionKind,
     IEarnPositionSectionAsset[]
   >();
+  const leads = new Set<string>();
   const push = (
     kind: IEarnPositionSectionKind,
-    asset: IEarnPositionSectionAsset,
+    source: IEarnPortfolioPosition,
+    asset: Omit<IEarnPositionSectionAsset, 'origin' | 'isOriginLead'>,
   ) => {
+    const leadKey = `${kind}|${source.groupId}`;
+    const isOriginLead = !leads.has(leadKey);
+    leads.add(leadKey);
+    const row: IEarnPositionSectionAsset = {
+      ...asset,
+      origin: source,
+      isOriginLead,
+    };
     const list = byKind.get(kind);
     if (list) {
-      list.push(asset);
+      list.push(row);
     } else {
-      byKind.set(kind, [asset]);
+      byKind.set(kind, [row]);
     }
   };
   const principalKind: IEarnPositionSectionKind =
@@ -279,24 +295,20 @@ function buildSections({
     source.assets.forEach((asset) => {
       switch (asset.category) {
         case 'claimable':
-          push('redeemable', asset);
+          push('redeemable', source, asset);
           break;
         case 'unstaking':
-          push('pendingWithdrawal', {
+          push('pendingWithdrawal', source, {
             ...asset,
             unlockAt: source.earn.unstaking?.unlockAt,
           });
           break;
         default:
-          push(principalKind, asset);
+          push(principalKind, source, asset);
       }
     });
-    source.debts.forEach((asset) => push('borrowed', asset));
-    source.rewards.forEach((asset) => {
-      if (!isCheckRow(asset)) {
-        push('rewards', asset);
-      }
-    });
+    source.debts.forEach((asset) => push('borrowed', source, asset));
+    source.rewards.forEach((asset) => push('rewards', source, asset));
   });
   const pending = byKind.get('pendingWithdrawal');
   if (pending) {
@@ -512,6 +524,40 @@ export function buildEarnPortfolioView({
     .filter((view) => view.positions.length > 0)
     .toSorted(byValueDesc);
   return { protocols: views, totalValue: sumEarnDefiAssets(views) };
+}
+
+/**
+ * The card of one holding, for the detail page that manages it: the same
+ * view the DeFi Assets tab builds, from the holding's server positions. A
+ * holding filed under another protocol as well (the USDe cooling down at
+ * Ethena, managed through Pendle) yields one card per protocol; the one
+ * under the page's own provider wins.
+ */
+export function buildHoldingView({
+  sources,
+  provider,
+  translate,
+}: {
+  sources: IEarnPortfolioPosition[];
+  provider: string;
+  translate: ITranslate;
+}): IEarnPositionView | undefined {
+  if (sources.length === 0) {
+    return undefined;
+  }
+  const positions: IEarnPortfolioPositionsResponse['positions'] = {};
+  sources.forEach((position) => {
+    (positions[position.networkId] ??= []).push(position);
+  });
+  const cards = buildEarnPortfolioView({
+    response: { positions, protocolSummaries: [], errors: [] },
+    translate,
+  }).protocols.flatMap((protocol) => protocol.positions);
+  return (
+    cards.find(
+      (card) => card.source.protocol.toLowerCase() === provider.toLowerCase(),
+    ) ?? cards[0]
+  );
 }
 
 /** One reward on the Rewards tab (Claimable or Pending): the row, and the card it came from. */

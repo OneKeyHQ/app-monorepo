@@ -16,6 +16,9 @@ import type {
   IEarnClaimableReward,
   IEarnPositionRewardGroup,
   IEarnPositionRewardRow,
+  IEarnPositionSectionAsset,
+  IEarnPositionSectionKind,
+  IEarnPositionView,
 } from './earnPositionModel';
 import type { IPortfolioClaimSourceCandidate } from '../../../utils/portfolioClaimUtils';
 
@@ -273,6 +276,87 @@ export function toPositionClaim(
     reward: airdropRow,
     rewardSymbol,
   };
+}
+
+/**
+ * What a row of the shared holding sections offers (product 10-14: the
+ * detail page's Balance and Rewards are the card): the principal row the
+ * page's Redeem, a reward its claim or Lista's Check, a withdrawal in
+ * progress the Cancel the server sent for it (Native), the principal out of
+ * its cooldown its claim. A claim or cancel acts on its whole server
+ * position, so only the position's first row in the section carries it.
+ */
+export type IEarnHoldingRowAction =
+  | { kind: 'redeem' }
+  | { kind: 'button'; claim: IEarnPositionClaim };
+
+export function holdingRowActionOf({
+  kind,
+  asset,
+  index,
+}: {
+  kind: IEarnPositionSectionKind;
+  asset: IEarnPositionSectionAsset;
+  /** the row's place in its section */
+  index: number;
+}): IEarnHoldingRowAction | undefined {
+  const { origin } = asset;
+  switch (kind) {
+    case 'deposited':
+      return index === 0 ? { kind: 'redeem' } : undefined;
+    case 'rewards':
+      return asset.claim
+        ? {
+            kind: 'button',
+            claim: toPositionRewardClaim(origin, {
+              ...asset,
+              claim: asset.claim,
+            }),
+          }
+        : undefined;
+    case 'pendingWithdrawal': {
+      const { cancel } = origin.earn;
+      return cancel && asset.isOriginLead
+        ? {
+            kind: 'button',
+            claim: toInvestmentRowAction({ position: origin, button: cancel }),
+          }
+        : undefined;
+    }
+    case 'redeemable': {
+      const claim = asset.isOriginLead ? toPositionClaim(origin) : undefined;
+      return claim ? { kind: 'button', claim } : undefined;
+    }
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * The card's Redeem on its principal row, mirroring the detail page footer:
+ * a holding with principal and a page to go to, except Ethena's USDe, which
+ * the page only manages, and a loan, which the card does not unfold. Pendle
+ * sells PT until the market matures, then redeems.
+ */
+export function cardRedeemKindOf(
+  position: IEarnPositionView,
+): 'redeem' | 'sellEarly' | undefined {
+  const { source } = position;
+  const { earn } = source;
+  if (
+    !position.sections.some((section) => section.kind === 'deposited') ||
+    !hasPositionDetailPage(source) ||
+    earn.symbol.toUpperCase() === 'USDE'
+  ) {
+    return undefined;
+  }
+  if (
+    earnUtils.isPendleProvider({ providerName: earn.manage.provider }) &&
+    !earn.matured
+  ) {
+    return 'sellEarly';
+  }
+  return 'redeem';
 }
 
 /**

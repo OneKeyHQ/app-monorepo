@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -26,9 +26,14 @@ import type {
   IStakeEarnDetail,
 } from '@onekeyhq/shared/types/staking';
 
+import { PortfolioPendingTxsProvider } from '../../../components/PortfolioTabContent';
 import { EarnTestIDs } from '../../../testIDs';
+import { EarnHoldingSections } from '../../EarnPositions/mobile/EarnHoldingSections';
 
 import { TransactionLink } from './TransactionLink';
+
+import type { IEarnHoldingRedeem } from '../../EarnPositions/mobile/EarnHoldingSections';
+import type { IEarnPositionView } from '../../EarnPositions/mobile/earnPositionModel';
 
 type IMobilePortfolio = NonNullable<IStakeEarnDetail['mobilePortfolio']>;
 type IPortfolioGroup = IMobilePortfolio['groups'][number];
@@ -150,6 +155,8 @@ export function PortfolioTab({
   onActionSuccess,
   onRedeem,
   canRedeem,
+  holding,
+  holdingRedeem,
 }: {
   portfolio: IMobilePortfolio;
   networkId: string;
@@ -167,6 +174,12 @@ export function PortfolioTab({
   // Whether the active row offers Redeem; the page decides, since a provider
   // that hides its wide-layout actions (Native) sends no redeem capability.
   canRedeem?: boolean;
+  // The holding as the My portfolio card shows it (product 10-14). When
+  // known, Balance and Rewards are that card's sections instead of the
+  // server's groups, so the two pages cannot disagree.
+  holding?: IEarnPositionView;
+  // The principal row's Redeem: the footer's, with its label and state.
+  holdingRedeem?: IEarnHoldingRedeem;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -200,6 +213,15 @@ export function PortfolioTab({
     });
   }, [navigation, accountId, networkId, symbol, provider, vault]);
 
+  const pendingTxsValue = useMemo(
+    () => ({
+      onRefresh: async () => {
+        onActionSuccess?.();
+      },
+    }),
+    [onActionSuccess],
+  );
+
   return (
     <YStack gap="$6">
       {portfolio.summary?.items?.length ? (
@@ -232,37 +254,46 @@ export function PortfolioTab({
         </YStack>
       ) : null}
 
-      {portfolio.groups.map((group) => (
-        <YStack
-          key={group.key}
-          gap="$3"
-          bg="$bgSubdued"
-          borderRadius="$3"
-          p="$4"
-        >
-          <EarnText text={group.title} size="$bodyMd" color="$textSubdued" />
-          {group.items.map((item, index) => (
-            <PortfolioRow
-              key={`${group.key}-${index}`}
-              item={item}
-              networkId={networkId}
-              protocolInfo={protocolInfo}
-              tokenInfo={tokenInfo}
-              onPress={
-                item.status === 'distributed' && accountId
-                  ? openPayoutHistory
-                  : undefined
-              }
-              onRedeem={
-                item.redeemable && (canRedeem ?? portfolio.capabilities.redeem)
-                  ? onRedeem
-                  : undefined
-              }
-              onActionSuccess={onActionSuccess}
-            />
-          ))}
-        </YStack>
-      ))}
+      {holding ? (
+        <PortfolioPendingTxsProvider value={pendingTxsValue}>
+          <YStack gap="$3">
+            <EarnHoldingSections position={holding} redeem={holdingRedeem} />
+          </YStack>
+        </PortfolioPendingTxsProvider>
+      ) : (
+        portfolio.groups.map((group) => (
+          <YStack
+            key={group.key}
+            gap="$3"
+            bg="$bgSubdued"
+            borderRadius="$3"
+            p="$4"
+          >
+            <EarnText text={group.title} size="$bodyMd" color="$textSubdued" />
+            {group.items.map((item, index) => (
+              <PortfolioRow
+                key={`${group.key}-${index}`}
+                item={item}
+                networkId={networkId}
+                protocolInfo={protocolInfo}
+                tokenInfo={tokenInfo}
+                onPress={
+                  item.status === 'distributed' && accountId
+                    ? openPayoutHistory
+                    : undefined
+                }
+                onRedeem={
+                  item.redeemable &&
+                  (canRedeem ?? portfolio.capabilities.redeem)
+                    ? onRedeem
+                    : undefined
+                }
+                onActionSuccess={onActionSuccess}
+              />
+            ))}
+          </YStack>
+        ))
+      )}
     </YStack>
   );
 }

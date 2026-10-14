@@ -525,13 +525,21 @@ describe('earn position model: rewards claimable stage', () => {
     );
   });
 
-  it("keeps Lista's Check row off the card and on the list, its button the only way to the amount", () => {
+  it("offers Lista's Check on the card's row and on the list, its button the only way to the amount", () => {
     const key = `lista:evm--56:USDT:${LISTA_VAULT}`;
     const lista = card(protocolRow('evm--56-lista'), key);
-    // the card has no row buttons: no zero row, and the card's Claim never signs
+    // the card's rows act like the detail page's: the zero row carries the Check
     expect(lista.sections.map((section) => section.kind)).toEqual([
       'deposited',
+      'rewards',
     ]);
+    const rewards = lista.sections.find(
+      (section) => section.kind === 'rewards',
+    );
+    expect(
+      rewards?.assets.map((asset) => [asset.amount, asset.claim?.button.type]),
+    ).toEqual([['0', 'listaCheck']]);
+    // it is never one of the rewards a claim collects
     expect(lista.claimableRewards).toEqual([]);
     expect(lista.action?.kind).toBe('manage');
     // the list offers the Check on the row, at zero, adding nothing to the header

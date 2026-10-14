@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -14,212 +14,28 @@ import {
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { DeFiPositionHealthFactorRow } from '@onekeyhq/kit/src/components/DeFi/DeFiPositionHealthFactorRow';
 import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
-import { isProtocolAssetValueUnavailable } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
-import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
-import { Token } from '@onekeyhq/kit/src/components/Token';
-import { DottedUnderlineText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/DottedUnderline';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
-import { EarnTooltip } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnTooltip';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
   IEarnPortfolioPosition,
-  IEarnPositionEffectiveDeposit,
   IEarnPositionManageTarget,
 } from '@onekeyhq/shared/types/earn/portfolioPositions';
-import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
-import {
-  WrappedActionButton,
-  usePortfolioPendingTxs,
-} from '../../../components/PortfolioTabContent';
-import { useStakingPendingTxsByInfo } from '../../../hooks/useStakingPendingTxs';
 import { EarnTestIDs } from '../../../testIDs';
 
-import {
-  hasPositionDetailPage,
-  positionPendingTag,
-  toPositionClaim,
-  toPositionRewardClaim,
-} from './myPortfolio.utils';
-import { showPositionClaimSheet } from './PositionRewardsClaimSheet';
+import { EarnHoldingSections } from './EarnHoldingSections';
+import { cardRedeemKindOf, hasPositionDetailPage } from './myPortfolio.utils';
 
-import type {
-  IEarnPositionSectionView,
-  IEarnPositionView,
-} from './earnPositionModel';
-import type { IPositionClaimSheetItem } from './PositionRewardsClaimSheet';
-import type { IStakePendingTx } from '../../../hooks/useStakingPendingTxs';
+import type { IEarnHoldingRedeem } from './EarnHoldingSections';
+import type { IEarnPositionView } from './earnPositionModel';
 
 export type IEarnPositionCardHandlers = {
   /** opens the position's own Earn detail page (EarnNavigation.pushToEarnProtocolDetails) */
   onManage?: (target: IEarnPositionManageTarget) => void;
+  /** opens the withdrawal of the position's principal, where the detail page's Redeem goes */
+  onRedeem?: (target: IEarnPositionManageTarget) => void;
 };
-
-/**
- * The part of the deposit that came through OneKey (Spark), under the
- * tokens of the Deposited panel: the label marked as the way to its
- * explanation, the token amount on the right, hidden with the balances.
- */
-function EffectiveDepositRow({
-  effectiveDeposit,
-}: {
-  effectiveDeposit: IEarnPositionEffectiveDeposit;
-}) {
-  const { label, tooltip } = effectiveDeposit;
-  return (
-    <XStack ai="center" jc="space-between" gap="$3" minHeight={32}>
-      {tooltip ? (
-        <EarnTooltip
-          title={label.text}
-          tooltip={tooltip}
-          renderTrigger={
-            <DottedUnderlineText
-              size="$bodyMd"
-              color="$textSubdued"
-              numberOfLines={1}
-            >
-              {label.text}
-            </DottedUnderlineText>
-          }
-        />
-      ) : (
-        <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-          {label.text}
-        </SizableText>
-      )}
-      <NumberSizeableTextWrapper
-        hideValue
-        size="$bodyMdMedium"
-        formatter="balance"
-        formatterOptions={{ tokenSymbol: effectiveDeposit.symbol }}
-        numberOfLines={1}
-      >
-        {effectiveDeposit.amount}
-      </NumberSizeableTextWrapper>
-    </XStack>
-  );
-}
-
-/**
- * One block of the card (product 10-12): "Deposited | Amount" on a panel of
- * its own, the token rows under it, fiat over amount on the right. A
- * pending withdrawal row says when the funds free up, if the provider
- * knows; a reward the user cannot claim yet reads Pending, with the detail
- * page's explanation behind an info icon. The rows carry no buttons: the
- * detail page acts on them.
- */
-function PositionSection({
-  section,
-  networkId,
-  onPress,
-  footer,
-}: {
-  section: IEarnPositionSectionView;
-  networkId: string;
-  onPress?: () => void;
-  /** a line under the token rows (the effective deposit, on Deposited) */
-  footer?: React.ReactNode;
-}) {
-  const intl = useIntl();
-  const currencyInfo = useCurrency();
-  const priceUnavailableLabel = intl.formatMessage({
-    id: ETranslations.wallet_price_unavailable,
-  });
-  return (
-    <YStack gap="$1" px="$3" py="$2" borderRadius="$3" bg="$bgSubdued">
-      <XStack ai="center" jc="space-between" py="$1">
-        <SizableText size="$bodySmMedium" color="$textSubdued">
-          {section.title}
-        </SizableText>
-        <SizableText size="$bodySmMedium" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.wallet_defi_portfolio_column_amount,
-          })}
-        </SizableText>
-      </XStack>
-      {section.assets.map((asset, index) => (
-        <XStack
-          key={`${section.key}-${asset.symbol}-${index}`}
-          ai="center"
-          jc="space-between"
-          gap="$3"
-          minHeight={44}
-          cursor={onPress ? 'pointer' : undefined}
-          onPress={onPress}
-        >
-          <XStack ai="center" gap="$2" flex={1} minWidth={0}>
-            <Token
-              size="md"
-              tokenImageUri={asset.meta?.logoUrl}
-              showNetworkIcon
-              networkId={networkId}
-            />
-            <YStack flexShrink={1} minWidth={0}>
-              <XStack ai="center" gap="$1">
-                <SizableText
-                  size="$bodyMdMedium"
-                  numberOfLines={1}
-                  flexShrink={1}
-                >
-                  {asset.symbol}
-                </SizableText>
-                {/* why a reward is not claimable yet, as the detail page explains it */}
-                {asset.tooltip ? <EarnTooltip tooltip={asset.tooltip} /> : null}
-              </XStack>
-              {/* a reward still accruing, or settled with the principal */}
-              {asset.status === 'pending' ? (
-                <SizableText
-                  size="$bodySm"
-                  color="$textSubdued"
-                  numberOfLines={1}
-                >
-                  {intl.formatMessage({ id: ETranslations.global_pending })}
-                </SizableText>
-              ) : null}
-              {/* a withdrawal in progress: when the funds free up, if the provider knows */}
-              {asset.unlockAt ? (
-                <SizableText
-                  size="$bodySm"
-                  color="$textSubdued"
-                  numberOfLines={1}
-                >
-                  {`${intl.formatMessage({
-                    id: ETranslations.earn_unlock_time,
-                  })}: ${formatDate(new Date(asset.unlockAt), {
-                    hideTimeForever: true,
-                  })}`}
-                </SizableText>
-              ) : null}
-            </YStack>
-          </XStack>
-          <YStack ai="flex-end" flexShrink={0}>
-            <ProtocolValueCell
-              value={asset.value}
-              currencySymbol={currencyInfo.symbol}
-              priceUnavailableLabel={priceUnavailableLabel}
-              isUnavailable={isProtocolAssetValueUnavailable(asset)}
-              size="$bodyMdMedium"
-              textAlign="right"
-              numberOfLines={1}
-            />
-            <NumberSizeableTextWrapper
-              hideValue
-              size="$bodySm"
-              color="$textSubdued"
-              formatter="balance"
-              numberOfLines={1}
-            >
-              {asset.amount}
-            </NumberSizeableTextWrapper>
-          </YStack>
-        </XStack>
-      ))}
-      {footer}
-    </YStack>
-  );
-}
 
 /**
  * The PnL under the card value (figma 30490-21077): "+$0.84 (+1.69%)",
@@ -301,124 +117,16 @@ function PositionPnlLine({ position }: { position: IEarnPortfolioPosition }) {
 }
 
 /**
- * What the card's Claim collects: every reward with an enabled claim, each
- * as the row the sheet shows and the claim the wide layout runs on it. The
- * principal out of its cooldown is redeemed on the detail page (product
- * 10-12); only a holding with no page to go to (the USDe cooled down at
- * Ethena, read through Pendle) collects it here too, or nothing could.
- */
-function buildClaimItems(
-  position: IEarnPositionView,
-): IPositionClaimSheetItem[] {
-  const items: IPositionClaimSheetItem[] = [];
-  if (!hasPositionDetailPage(position.source)) {
-    position.principalClaims.forEach((source) => {
-      const claim = toPositionClaim(source);
-      const asset = source.assets[0];
-      if (!claim || !asset) {
-        return;
-      }
-      const amount = source.assets
-        .reduce((sum, entry) => sum.plus(entry.amount), new BigNumber(0))
-        .toFixed();
-      const value = source.assets.reduce((sum, entry) => sum + entry.value, 0);
-      items.push({
-        key: source.groupId,
-        networkId: source.networkId,
-        symbol: asset.symbol,
-        logoUrl: asset.meta?.logoUrl,
-        amount,
-        value: source.assets.some(isProtocolAssetValueUnavailable)
-          ? undefined
-          : value,
-        claim,
-      });
-    });
-  }
-  position.claimableRewards.forEach((reward, index) => {
-    items.push({
-      key: `${position.key}:reward:${index}`,
-      networkId: position.source.networkId,
-      symbol: reward.symbol,
-      logoUrl: reward.meta?.logoUrl,
-      amount: reward.amount,
-      value: isProtocolAssetValueUnavailable(reward) ? undefined : reward.value,
-      claim: toPositionRewardClaim(position.source, reward),
-    });
-  });
-  return items;
-}
-
-/**
- * Claim on a card (figma 30490-21882): one thing to collect goes straight
- * to the confirm page through the claim button the wide layout runs on that
- * row; several open the Claimable rewards sheet, one Claim per row. The
- * sheet's button spins while any claim of this holding is in flight, the
- * same tag the claim stamps on its transaction, so a claim cannot be sent
- * twice before the reward leaves the data.
- */
-function PositionClaimButton({
-  position,
-  items,
-}: {
-  position: IEarnPositionView;
-  items: IPositionClaimSheetItem[];
-}) {
-  const intl = useIntl();
-  const { onRefresh } = usePortfolioPendingTxs();
-  const tag = positionPendingTag(position.source);
-  const pendingTxsFilter = useCallback(
-    (tx: IStakePendingTx) =>
-      tx.stakingInfo.label === EEarnLabels.Claim &&
-      Boolean(tx.stakingInfo.tags?.includes(tag)),
-    [tag],
-  );
-  const { filteredTxs: pendingTxs = [] } = useStakingPendingTxsByInfo({
-    filter: pendingTxsFilter,
-  });
-  const openSheet = useCallback(() => {
-    showPositionClaimSheet({ items, onRefresh });
-  }, [items, onRefresh]);
-
-  if (items.length === 1) {
-    const { claim } = items[0];
-    return (
-      <WrappedActionButton
-        asset={claim.asset}
-        reward={claim.reward}
-        rewardSymbol={claim.rewardSymbol}
-        buttonProps={{ size: 'medium', variant: 'secondary', flex: 1 }}
-      />
-    );
-  }
-  const isPending = pendingTxs.length > 0;
-  return (
-    <Button
-      testID={EarnTestIDs.portfolioClaimButton}
-      flex={1}
-      size="medium"
-      variant="secondary"
-      loading={isPending}
-      disabled={isPending}
-      onPress={openSheet}
-    >
-      {intl.formatMessage({ id: ETranslations.earn_claim })}
-    </Button>
-  );
-}
-
-/**
  * One holding, laid out the way product set it on 10-12: badge and name,
- * the value with its PnL under it, an optional health factor line, one
- * panel per section (Deposited or Supplied, Borrowed, Rewards, Pending
- * withdrawal with its unlock time, Redeemable) and two buttons at most:
- * Manage into the detail page, whose Portfolio tab runs Withdraw, Claim,
- * Cancel and Redeem, and Claim beside it when the holding has rewards with
- * a claim.
+ * the value with its PnL under it, an optional health factor line, then
+ * the holding's sections as the detail page shows them (product 10-14), each
+ * row with its own button (Redeem, Claim, Check, Cancel), and Manage into
+ * the detail page.
  */
 function EarnPositionCardCmp({
   position,
   onManage,
+  onRedeem,
 }: { position: IEarnPositionView } & IEarnPositionCardHandlers) {
   const intl = useIntl();
   const currencyInfo = useCurrency();
@@ -427,8 +135,19 @@ function EarnPositionCardCmp({
     Boolean(action) && Boolean(onManage) && hasPositionDetailPage(source);
   const openDetail =
     canOpen && action ? () => onManage?.(action.target) : undefined;
-  const claimItems = useMemo(() => buildClaimItems(position), [position]);
-  const hasClaim = claimItems.length > 0;
+  const redeemKind = cardRedeemKindOf(position);
+  const redeem: IEarnHoldingRedeem | undefined =
+    redeemKind && onRedeem
+      ? {
+          label: intl.formatMessage({
+            id:
+              redeemKind === 'sellEarly'
+                ? ETranslations.defi_sell_early
+                : ETranslations.earn_redeem,
+          }),
+          onPress: () => onRedeem(source.earn.manage),
+        }
+      : undefined;
 
   return (
     <YStack gap="$3" testID={EarnTestIDs.portfolioItem(source.protocolName)}>
@@ -477,40 +196,21 @@ function EarnPositionCardCmp({
         <DeFiPositionHealthFactorRow healthFactor={meta.healthFactor} />
       ) : null}
 
-      {position.sections.map((section) => (
-        <PositionSection
-          key={section.key}
-          section={section}
-          networkId={source.networkId}
-          onPress={openDetail}
-          footer={
-            position.effectiveDeposit &&
-            (section.kind === 'deposited' || section.kind === 'supplied') ? (
-              <EffectiveDepositRow
-                effectiveDeposit={position.effectiveDeposit}
-              />
-            ) : undefined
-          }
-        />
-      ))}
+      <EarnHoldingSections
+        position={position}
+        redeem={redeem}
+        onRowPress={openDetail}
+      />
 
-      {canOpen || hasClaim ? (
-        <XStack gap="$2">
-          {canOpen ? (
-            <Button
-              testID="earn-btn"
-              flex={1}
-              size="medium"
-              variant="secondary"
-              onPress={openDetail}
-            >
-              {intl.formatMessage({ id: ETranslations.global_manage })}
-            </Button>
-          ) : null}
-          {hasClaim ? (
-            <PositionClaimButton position={position} items={claimItems} />
-          ) : null}
-        </XStack>
+      {canOpen ? (
+        <Button
+          testID="earn-btn"
+          size="medium"
+          variant="secondary"
+          onPress={openDetail}
+        >
+          {intl.formatMessage({ id: ETranslations.global_manage })}
+        </Button>
       ) : null}
     </YStack>
   );

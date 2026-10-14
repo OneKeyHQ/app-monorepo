@@ -1,10 +1,14 @@
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IEarnAvailableAssetV2 } from '@onekeyhq/shared/types/earn';
 import type { IEarnPortfolioPositionsResponse } from '@onekeyhq/shared/types/earn/portfolioPositions';
 
 import {
   buildPositionsRequests,
+  holdingPositionsOf,
   mergePortfolioPositionsResponses,
+  positionsScopeKey,
 } from './earnPortfolioPositions.utils';
+import { buildHoldingView } from './earnPositionModel';
 import { EARN_PORTFOLIO_POSITIONS_FIXTURE } from './earnPositionModel.fixtures';
 
 const asset = (
@@ -100,5 +104,71 @@ describe('mergePortfolioPositionsResponses', () => {
     expect(merged.positions['evm--8453']).toEqual([]);
     expect(merged.protocolSummaries).toHaveLength(2);
     expect(merged.errors).toHaveLength(1);
+  });
+});
+
+describe('detail page holding', () => {
+  const translate = (id: ETranslations) => id as string;
+
+  it('keys a scope the way the page caches it', () => {
+    expect(
+      positionsScopeKey({
+        networkId: 'evm--1',
+        provider: 'lido',
+        accountAddress: '0xme',
+      }),
+    ).toBe('evm--1_lido_0xme_');
+  });
+
+  it("picks every state of the page's holding, and folds them into the card the page shows", () => {
+    const sources = holdingPositionsOf([EARN_PORTFOLIO_POSITIONS_FIXTURE], {
+      networkId: 'evm--1',
+      provider: 'LIDO',
+      symbol: 'eth',
+    });
+    expect(sources.map((source) => source.groupId)).toEqual([
+      'lido:evm--1:steth',
+      'lido:evm--1:steth:claimable',
+      'lido:evm--1:steth:unstaking:0',
+      'lido:evm--1:steth:unstaking:1',
+    ]);
+    const view = buildHoldingView({ sources, provider: 'lido', translate });
+    expect(view?.key).toBe('lido:evm--1:steth');
+    expect(view?.sections.map((section) => section.kind)).toEqual([
+      'deposited',
+      'pendingWithdrawal',
+      'redeemable',
+    ]);
+  });
+
+  it('matches the vault without case, and keeps a holding filed under another protocol (the USDe cooling down at Ethena)', () => {
+    const cooldown = Object.values(EARN_PORTFOLIO_POSITIONS_FIXTURE.positions)
+      .flat()
+      .find((position) => position.groupId.endsWith(':cooldown'));
+    const sources = holdingPositionsOf([EARN_PORTFOLIO_POSITIONS_FIXTURE], {
+      networkId: 'evm--1',
+      provider: 'pendle',
+      symbol: 'USDe',
+      vault: cooldown?.earn.manage.vault?.toUpperCase(),
+    });
+    expect(sources.map((source) => source.groupId)).toEqual([
+      cooldown?.groupId,
+    ]);
+    const view = buildHoldingView({ sources, provider: 'pendle', translate });
+    expect(view?.source.protocol).toBe('ethena');
+  });
+
+  it('yields no card for a holding the wallet does not have', () => {
+    expect(
+      holdingPositionsOf([EARN_PORTFOLIO_POSITIONS_FIXTURE], {
+        networkId: 'evm--1',
+        provider: 'lido',
+        symbol: 'ETH',
+        vault: '0xother',
+      }),
+    ).toEqual([]);
+    expect(
+      buildHoldingView({ sources: [], provider: 'lido', translate }),
+    ).toBeUndefined();
   });
 });

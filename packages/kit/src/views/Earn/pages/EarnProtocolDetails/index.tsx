@@ -114,6 +114,7 @@ import {
 } from './components/ProtocolIntroSection';
 import { ProtocolTipsSection } from './components/ProtocolTipsSection';
 import { YieldBreakdownSheet } from './components/YieldBreakdownSheet';
+import { useDetailHoldingPosition } from './hooks/useDetailHoldingPosition';
 import { useProtocolDetailBreadcrumb } from './hooks/useProtocolDetailBreadcrumb';
 import { useProtocolDetailData } from './hooks/useProtocolDetailData';
 import { MobileDetailTabs } from './mobile/MobileDetailTabs';
@@ -133,6 +134,8 @@ import {
   isYieldSheetAvailable,
 } from './mobile/yieldSegments.utils';
 
+import type { IEarnHoldingRedeem } from '../EarnPositions/mobile/EarnHoldingSections';
+import type { IEarnPositionView } from '../EarnPositions/mobile/earnPositionModel';
 import type { RouteProp } from '@react-navigation/core';
 
 function ManagersSection({
@@ -865,6 +868,8 @@ const DetailsPartComponent = ({
   scrollToPortfolio,
   onRedeem,
   onActionSuccess,
+  holding,
+  holdingRedeem,
 }: {
   detailInfo: IStakeEarnDetail | undefined;
   tokenInfo?: IEarnTokenInfo;
@@ -890,6 +895,9 @@ const DetailsPartComponent = ({
   // A claim, stake or withdraw broadcast from the Portfolio tab. Falls back
   // to onRefresh for callers that only have the plain reload.
   onActionSuccess?: () => void;
+  // phone: the holding as the My portfolio card shows it, and its row Redeem
+  holding?: IEarnPositionView;
+  holdingRedeem?: IEarnHoldingRedeem;
 }) => {
   const now = useMemo(() => Date.now(), []);
 
@@ -1013,7 +1021,8 @@ const DetailsPartComponent = ({
                 <MobileDetailTabs
                   hasPortfolio={Boolean(hasPortfolio)}
                   portfolioContent={
-                    detailInfo.mobilePortfolio?.groups?.length ? (
+                    detailInfo.mobilePortfolio &&
+                    (detailInfo.mobilePortfolio.groups?.length || holding) ? (
                       <PortfolioTab
                         portfolio={detailInfo.mobilePortfolio}
                         networkId={networkId}
@@ -1025,6 +1034,8 @@ const DetailsPartComponent = ({
                         canRedeem={canRedeem}
                         protocolInfo={protocolInfo}
                         tokenInfo={tokenInfo}
+                        holding={holding}
+                        holdingRedeem={holdingRedeem}
                       />
                     ) : null
                   }
@@ -1315,6 +1326,29 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     }
     return hasPortfolio;
   }, [detailInfo?.mobilePortfolio, hasPortfolio]);
+
+  // The Portfolio tab's Balance and Rewards are the My portfolio card of
+  // this holding (product 10-14): read from the card's cache, then the
+  // holding's own positions scope each time the page itself reloads.
+  const holdingIdentity = useMemo(
+    () => ({
+      networkId,
+      provider,
+      symbol,
+      vault: detailInfo?.protocol?.vault ?? vault,
+    }),
+    [networkId, provider, symbol, detailInfo?.protocol?.vault, vault],
+  );
+  const { holding, refresh: refreshHolding } = useDetailHoldingPosition({
+    identity: holdingIdentity,
+    earnAccount: protocolInfo?.earnAccount,
+    enabled: Boolean(isMobileLayout),
+  });
+  useEffect(() => {
+    if (detailInfo) {
+      void refreshHolding();
+    }
+  }, [detailInfo, refreshHolding]);
 
   useUnsupportedProtocol({
     detailInfo,
@@ -1614,6 +1648,47 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
 
   const tabBarHeight = useScrollContentTabBarOffset();
 
+  // Per the design, Redeem shows once the user has a position and Deposit
+  // stands alone before that (OK-64550): a Redeem with nothing to redeem
+  // only ever sat there disabled. With a position, Redeem follows the
+  // server's withdraw action, disabled when it cannot be used right now
+  // (OK-62406), and Pendle's Sell early / Redeem follows the same rule. A
+  // protocol whose actions carry no deposit/withdraw at all (hold-to-earn)
+  // keeps the single primary button it always had. The footer and the
+  // principal row of the Portfolio tab share this one Redeem (product 10-14:
+  // both stay).
+  const redeemControl = useMemo<IEarnHoldingRedeem | undefined>(() => {
+    const isPendle = earnUtils.isPendleProvider({ providerName: provider });
+    const showRedeem =
+      isMobileLayout &&
+      hasDeposit &&
+      (Boolean(redeemAction) || isPendle || redeemWithoutActions);
+    if (!showRedeem) {
+      return undefined;
+    }
+    const isMatured = Boolean(detailInfo?.maturity?.isMatured);
+    return {
+      label: intl.formatMessage({
+        id:
+          isPendle && !isMatured
+            ? ETranslations.defi_sell_early
+            : ETranslations.earn_redeem,
+      }),
+      disabled: isPendle ? !hasPortfolio : Boolean(redeemAction?.disabled),
+      onPress: handleOpenRedeem,
+    };
+  }, [
+    intl,
+    provider,
+    isMobileLayout,
+    hasDeposit,
+    hasPortfolio,
+    redeemAction,
+    redeemWithoutActions,
+    detailInfo?.maturity?.isMatured,
+    handleOpenRedeem,
+  ]);
+
   const pageFooter = useMemo(() => {
     if (gtMd) {
       return null;
@@ -1642,31 +1717,11 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
       ? () => handleOpenManageModal()
       : () => handleOpenManageModal('deposit');
 
-    // Per the design, the footer gains Redeem once the user has a position and
-    // shows Deposit alone before that (OK-64550): a Redeem with nothing to
-    // redeem only ever sat there disabled. With a position, Redeem follows the
-    // server's withdraw action, disabled when it cannot be used right now
-    // (OK-62406), and Pendle's Sell early / Redeem follows the same rule. A
-    // protocol whose actions carry no deposit/withdraw at all (hold-to-earn)
-    // keeps the single primary button it always had.
     const depositAction = detailInfo?.actions?.find(
       (action) => action.type === 'deposit',
     );
-    const showRedeem =
-      isMobileLayout &&
-      hasDeposit &&
-      (Boolean(redeemAction) || isPendle || redeemWithoutActions);
     const depositDisabled =
       Boolean(depositAction?.disabled) || (isPendle && isMatured);
-    const withdrawDisabled = isPendle
-      ? !hasPortfolio
-      : Boolean(redeemAction?.disabled);
-    const redeemText = intl.formatMessage({
-      id:
-        isPendle && !isMatured
-          ? ETranslations.defi_sell_early
-          : ETranslations.earn_redeem,
-    });
 
     return (
       <Page.Footer
@@ -1677,13 +1732,13 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
           disabled: depositDisabled,
           mb: tabBarHeight,
         }}
-        {...(showRedeem
+        {...(redeemControl
           ? {
-              onCancelText: redeemText,
+              onCancelText: redeemControl.label,
               cancelButtonProps: {
                 variant: 'secondary',
-                disabled: withdrawDisabled,
-                onPress: handleOpenRedeem,
+                disabled: redeemControl.disabled,
+                onPress: redeemControl.onPress,
                 mb: tabBarHeight,
               },
             }
@@ -1694,16 +1749,12 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     gtMd,
     intl,
     handleOpenManageModal,
-    handleOpenRedeem,
-    redeemAction,
+    redeemControl,
     tabBarHeight,
     isCustomProtocol,
     isMobileLayout,
     detailInfo,
     provider,
-    hasPortfolio,
-    hasDeposit,
-    redeemWithoutActions,
   ]);
 
   return (
@@ -1749,6 +1800,8 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
             canRedeem={canRedeem}
             scrollToPortfolio={resolvedParams.scrollToPortfolio}
             onRedeem={handleOpenRedeem}
+            holding={holding}
+            holdingRedeem={redeemControl}
           />
         </Stack>
         {gtMd ? (

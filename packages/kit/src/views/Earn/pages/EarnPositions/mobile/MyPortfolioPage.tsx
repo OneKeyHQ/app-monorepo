@@ -14,6 +14,7 @@ import {
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type { IEarnPositionManageTarget } from '@onekeyhq/shared/types/earn/portfolioPositions';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type { IEarnRewardsPortfolioStage } from '@onekeyhq/shared/types/staking';
@@ -61,9 +62,9 @@ const ALL_NETWORKS: string[] = [];
  * Two sources, two tabs: the positions endpoint (DeFi Assets, one card per
  * position under one row per protocol per network, the wallet DeFi
  * Portfolio contract) and the ledger rewards endpoint (Rewards, three
- * stages). Every action lives on the protocol detail page — the card's
- * Manage button is the way in — except the claims the server attaches to a
- * row (withdrawn principal, ledger campaigns), which run right here.
+ * stages). A card is the detail page's Balance and Rewards (product 10-14):
+ * its rows redeem, claim, check and cancel right here, and Manage opens the
+ * detail page for the rest.
  *
  * Deliberately not here, per product: the hide-small-assets switch (the
  * shared setting still exists for the wide layout; this page never applies
@@ -230,6 +231,29 @@ export function MyPortfolioPage() {
     [navigation],
   );
 
+  // A card's Redeem opens the withdrawal the detail page's Redeem opens:
+  // the manage page's withdraw tab, which hands per-position providers to
+  // their position picker itself. The card's provider refreshes once the
+  // withdrawal is sent.
+  const handleRedeem = useCallback(
+    (target: IEarnPositionManageTarget) => {
+      navigation.pushModal(EModalRoutes.StakingModal, {
+        screen: EModalStakingRoutes.ManagePosition,
+        params: {
+          networkId: target.networkId,
+          symbol: target.symbol,
+          provider: target.provider,
+          vault: target.vault,
+          tab: 'withdraw',
+          onStakeWithdrawSuccess: () => {
+            void refreshAll({ provider: target.provider });
+          },
+        },
+      });
+    },
+    [navigation, refreshAll],
+  );
+
   // Ledger paging: the next page loads as the Rewards tab nears the bottom
   // (same threshold as the referral reward pages). Only the ledger pages;
   // DeFi Assets holds every position already.
@@ -328,6 +352,7 @@ export function MyPortfolioPage() {
                   pendingCountByProvider={pendingCountByProvider}
                   networkFilter={networkFilter}
                   onManage={handleManage}
+                  onRedeem={handleRedeem}
                 />
               ) : (
                 <RewardsTab

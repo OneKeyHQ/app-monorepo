@@ -1,5 +1,6 @@
 import { buildLocalTxStatusSyncId } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IEarnPortfolioPosition } from '@onekeyhq/shared/types/earn/portfolioPositions';
 import { EClaimType } from '@onekeyhq/shared/types/staking';
 import type {
@@ -7,15 +8,20 @@ import type {
   IEarnRewardsPortfolioItem,
 } from '@onekeyhq/shared/types/staking';
 
+import { buildEarnPortfolioView } from './earnPositionModel';
 import {
   CLAIM_BUTTON,
   EARN_PORTFOLIO_POSITIONS_FIXTURE,
+  LISTA_VAULT,
+  NATIVE_USDT_VAULT,
   SUSDE_VAULT,
 } from './earnPositionModel.fixtures';
 import {
   buildClaimSourceCandidates,
   buildNetworkInfoMap,
+  cardRedeemKindOf,
   hasPositionDetailPage,
+  holdingRowActionOf,
   mergeRewardGroups,
   positionPendingTag,
   sumRewardsHeaderFiat,
@@ -27,6 +33,7 @@ import {
 import type {
   IEarnClaimableReward,
   IEarnPositionRewardGroup,
+  IEarnPositionView,
 } from './earnPositionModel';
 
 const POSITIONS = Object.values(
@@ -397,6 +404,126 @@ describe('toLedgerClaimAsset', () => {
         networkName: '',
         networkLogoURI: '',
       }),
+    ).toBeUndefined();
+  });
+});
+
+describe('holding sections: row actions', () => {
+  const translate = (id: ETranslations) => id as string;
+  const cards = buildEarnPortfolioView({
+    response: EARN_PORTFOLIO_POSITIONS_FIXTURE,
+    translate,
+  }).protocols.flatMap((protocol) => protocol.positions);
+  const holding = (key: string): IEarnPositionView => {
+    const found = cards.find((card) => card.key === key);
+    if (!found) {
+      throw new OneKeyLocalError(`fixture changed: ${key} missing`);
+    }
+    return found;
+  };
+  const actionsOf = (view: IEarnPositionView) =>
+    view.sections.map((section) => [
+      section.kind,
+      section.assets.map((asset, index) => {
+        const action = holdingRowActionOf({
+          kind: section.kind,
+          asset,
+          index,
+        });
+        if (!action) {
+          return null;
+        }
+        return action.kind === 'redeem'
+          ? 'redeem'
+          : action.claim.reward.button.type;
+      }),
+    ]);
+
+  it('gives the principal Redeem, a withdrawal in progress nothing, and the principal to collect its claim (Lido)', () => {
+    expect(actionsOf(holding('lido:evm--1:steth'))).toEqual([
+      ['deposited', ['redeem']],
+      ['pendingWithdrawal', [null, null]],
+      ['redeemable', ['claimOrder']],
+    ]);
+  });
+
+  it('runs the cancel the server sent on its withdrawal in progress (Native)', () => {
+    const native = holding(`native:evm--1:${NATIVE_USDT_VAULT}`);
+    expect(actionsOf(native)).toEqual([
+      ['deposited', ['redeem']],
+      ['rewards', [null]],
+      ['pendingWithdrawal', ['cancelWithdrawal']],
+    ]);
+  });
+
+  it("offers Lista's Check on its zero reward row", () => {
+    expect(actionsOf(holding(`lista:evm--56:USDT:${LISTA_VAULT}`))).toEqual([
+      ['deposited', ['redeem']],
+      ['rewards', ['listaCheck']],
+    ]);
+  });
+
+  it('claims each reward of a vault on its own row, through the airdrop read it came from (Morpho)', () => {
+    const morpho = holding(
+      'morpho:evm--1:0xa71d08a159258553a5ac190d60fa919425ff02ea',
+    );
+    const rewards = morpho.sections.find(
+      (section) => section.kind === 'rewards',
+    );
+    const action = rewards
+      ? holdingRowActionOf({
+          kind: 'rewards',
+          asset: rewards.assets[0],
+          index: 0,
+        })
+      : undefined;
+    expect(
+      action?.kind === 'button' && 'airdropAssets' in action.claim.asset,
+    ).toBe(true);
+  });
+});
+
+describe('cardRedeemKindOf', () => {
+  const translate = (id: ETranslations) => id as string;
+  const cardOf = (positions: IEarnPortfolioPosition[]) =>
+    buildEarnPortfolioView({
+      response: {
+        positions: { 'evm--1': positions },
+        protocolSummaries: [],
+        errors: [],
+      },
+      translate,
+    }).protocols[0].positions[0];
+  const byId = (groupId: string) => {
+    const found = POSITIONS.find((position) => position.groupId === groupId);
+    if (!found) {
+      throw new OneKeyLocalError(`fixture changed: ${groupId} missing`);
+    }
+    return found;
+  };
+
+  it('redeems a holding with principal and sells a Pendle market early until it matures', () => {
+    expect(cardRedeemKindOf(cardOf([byId('lido:evm--1:steth')]))).toBe(
+      'redeem',
+    );
+    const pendle = byId('pendle:evm--1:0xusd3');
+    expect(cardRedeemKindOf(cardOf([pendle]))).toBe('sellEarly');
+    expect(
+      cardRedeemKindOf(
+        cardOf([{ ...pendle, earn: { ...pendle.earn, matured: true } }]),
+      ),
+    ).toBe('redeem');
+  });
+
+  it("offers none for Ethena's USDe, a loan, or a holding with no principal left", () => {
+    expect(
+      cardRedeemKindOf(cardOf([byId('ethena:evm--1:USDe')])),
+    ).toBeUndefined();
+    expect(
+      cardRedeemKindOf(cardOf([byId('morpho:evm--1:market:weth-usdc')])),
+    ).toBeUndefined();
+    expect(
+      cardRedeemKindOf(cardOf([byId('lido:evm--1:steth:claimable')])),
     ).toBeUndefined();
   });
 });
