@@ -5,7 +5,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
-  Button,
+  Icon,
   NumberSizeableText,
   SizableText,
   XStack,
@@ -25,7 +25,7 @@ import type {
 import { EarnTestIDs } from '../../../testIDs';
 
 import { EarnHoldingSections } from './EarnHoldingSections';
-import { cardRedeemKindOf, hasPositionDetailPage } from './myPortfolio.utils';
+import { canRedeemFromCard, hasPositionDetailPage } from './myPortfolio.utils';
 
 import type { IEarnHoldingRedeem } from './EarnHoldingSections';
 import type { IEarnPositionView } from './earnPositionModel';
@@ -117,11 +117,10 @@ function PositionPnlLine({ position }: { position: IEarnPortfolioPosition }) {
 }
 
 /**
- * One holding, laid out the way product set it on 10-12: badge and name,
- * the value with its PnL under it, an optional health factor line, then
- * the holding's sections as the detail page shows them (product 10-14), each
- * row with its own button (Redeem, Claim, Check, Cancel), and Manage into
- * the detail page.
+ * One holding (product 10-14): badge, name, value and a chevron on the
+ * header line, which opens the detail page, the PnL under it, an optional
+ * health factor line, then the panels, each row with its own action. No
+ * Manage or Claim under the card: every action sits on its row.
  */
 function EarnPositionCardCmp({
   position,
@@ -135,41 +134,43 @@ function EarnPositionCardCmp({
     Boolean(action) && Boolean(onManage) && hasPositionDetailPage(source);
   const openDetail =
     canOpen && action ? () => onManage?.(action.target) : undefined;
-  const redeemKind = cardRedeemKindOf(position);
   const redeem: IEarnHoldingRedeem | undefined =
-    redeemKind && onRedeem
+    onRedeem && canRedeemFromCard(position)
       ? {
-          label: intl.formatMessage({
-            id:
-              redeemKind === 'sellEarly'
-                ? ETranslations.defi_sell_early
-                : ETranslations.earn_redeem,
-          }),
+          label: intl.formatMessage({ id: ETranslations.earn_redeem }),
           onPress: () => onRedeem(source.earn.manage),
         }
       : undefined;
 
   return (
     <YStack gap="$3" testID={EarnTestIDs.portfolioItem(source.protocolName)}>
-      <XStack ai="flex-start" jc="space-between" gap="$2">
-        <XStack ai="center" gap="$2" flex={1} minWidth={0} minHeight={28}>
-          {/* one color for every badge: Locked is a state, not a warning */}
-          <Badge badgeType="success" badgeSize="sm" flexShrink={0}>
-            <Badge.Text>{position.badgeLabel}</Badge.Text>
-          </Badge>
-          {position.name ? (
-            <SizableText
-              size="$bodyMd"
-              color="$textSubdued"
-              numberOfLines={1}
-              flex={1}
-            >
-              {position.name}
-            </SizableText>
-          ) : null}
-        </XStack>
-        <YStack ai="flex-end" flexShrink={0}>
-          <XStack ai="center" minHeight={28}>
+      <YStack
+        {...(openDetail
+          ? {
+              onPress: openDetail,
+              cursor: 'pointer',
+              pressStyle: { opacity: 0.6 },
+            }
+          : {})}
+      >
+        <XStack ai="center" jc="space-between" gap="$2" minHeight={28}>
+          <XStack ai="center" gap="$2" flex={1} minWidth={0}>
+            {/* one color for every badge: Locked is a state, not a warning */}
+            <Badge badgeType="success" badgeSize="sm" flexShrink={0}>
+              <Badge.Text>{position.badgeLabel}</Badge.Text>
+            </Badge>
+            {position.name ? (
+              <SizableText
+                size="$bodyMd"
+                color="$textSubdued"
+                numberOfLines={1}
+                flex={1}
+              >
+                {position.name}
+              </SizableText>
+            ) : null}
+          </XStack>
+          <XStack ai="center" gap="$1" flexShrink={0}>
             <ProtocolValueCell
               value={value.value}
               currencySymbol={currencyInfo.symbol}
@@ -187,31 +188,30 @@ function EarnPositionCardCmp({
               textAlign="right"
               numberOfLines={1}
             />
+            {openDetail ? (
+              <Icon
+                name="ChevronRightSmallOutline"
+                size="$5"
+                color="$iconSubdued"
+              />
+            ) : null}
           </XStack>
-          {hasDeposit ? <PositionPnlLine position={source} /> : null}
-        </YStack>
-      </XStack>
+        </XStack>
+        {hasDeposit ? (
+          // Right-aligned under the value (the padding skips the chevron),
+          // on a line of its own: a long "Total earned" takes the room under
+          // the name instead of squeezing the badge and name out.
+          <XStack jc="flex-end" pr={openDetail ? '$6' : undefined}>
+            <PositionPnlLine position={source} />
+          </XStack>
+        ) : null}
+      </YStack>
 
       {meta?.kind === 'healthFactor' ? (
         <DeFiPositionHealthFactorRow healthFactor={meta.healthFactor} />
       ) : null}
 
-      <EarnHoldingSections
-        position={position}
-        redeem={redeem}
-        onRowPress={openDetail}
-      />
-
-      {canOpen ? (
-        <Button
-          testID="earn-btn"
-          size="medium"
-          variant="secondary"
-          onPress={openDetail}
-        >
-          {intl.formatMessage({ id: ETranslations.global_manage })}
-        </Button>
-      ) : null}
+      <EarnHoldingSections position={position} redeem={redeem} />
     </YStack>
   );
 }

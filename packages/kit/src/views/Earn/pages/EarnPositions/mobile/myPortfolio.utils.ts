@@ -140,13 +140,15 @@ function toInvestmentAsset(
   };
 }
 
-/** The investment detail's claimable-principal row behind a card claim, as a normal asset the button understands. */
+/** The investment detail's own row behind a card row's button, as a normal asset the button understands. */
 function toInvestmentRowAction({
   position,
   button,
+  kind,
 }: {
   position: IEarnPortfolioPosition;
   button: IEarnActionIcon;
+  kind: 'claimablePrincipal' | 'unstaking';
 }): IEarnPositionClaim {
   const { earn } = position;
   const { investment } = earn;
@@ -154,7 +156,7 @@ function toInvestmentRowAction({
   const row = [
     ...(investment.rewardAssets ?? []),
     ...(investment.assetsStatus ?? []),
-  ].find((entry) => entry.kind === 'claimablePrincipal' && entry.button);
+  ].find((entry) => entry.kind === kind && entry.button);
   return {
     asset: toInvestmentAsset(position),
     reward: {
@@ -246,7 +248,11 @@ export function toPositionClaim(
     return undefined;
   }
   if (earn.claimSource !== 'airdrop') {
-    return toInvestmentRowAction({ position, button: claim });
+    return toInvestmentRowAction({
+      position,
+      button: claim,
+      kind: 'claimablePrincipal',
+    });
   }
   const asset = position.assets[0];
   const rewardSymbol = asset?.symbol ?? earn.symbol;
@@ -279,32 +285,54 @@ export function toPositionClaim(
 }
 
 /**
- * What a row of the shared holding sections offers (product 10-14: the
- * detail page's Balance and Rewards are the card): the principal row the
- * page's Redeem, a reward its claim or Lista's Check, a withdrawal in
- * progress the Cancel the server sent for it (Native), the principal out of
- * its cooldown its claim. A claim or cancel acts on its whole server
- * position, so only the position's first row in the section carries it.
+ * A withdrawal in progress the provider lets be called back (Native): the
+ * Pending withdrawal row runs the cancel the wide layout runs on that row,
+ * through the same button.
+ */
+export function toPositionCancel(
+  position: IEarnPortfolioPosition,
+): IEarnPositionClaim | undefined {
+  const { cancel } = position.earn;
+  if (!cancel) {
+    return undefined;
+  }
+  return toInvestmentRowAction({ position, button: cancel, kind: 'unstaking' });
+}
+
+/**
+ * What a row of the shared holding sections offers (product 10-14, the way
+ * the detail page's Portfolio row does): Redeem on the deposit, the server's
+ * claim (or Lista's Check) on a reward, a Pending badge on a reward the user
+ * cannot claim yet, Cancel on a withdrawal the provider lets be called back
+ * (Native), and the claim on the principal out of its cooldown. A loan's
+ * Supplied and Borrowed rows carry none: taking collateral out or repaying
+ * moves the health factor, which the Borrow flows handle. A claim or cancel
+ * acts on its whole server position, so only the position's first row in
+ * the section carries it.
  */
 export type IEarnHoldingRowAction =
   | { kind: 'redeem' }
-  | { kind: 'button'; claim: IEarnPositionClaim };
+  | { kind: 'button'; claim: IEarnPositionClaim }
+  | { kind: 'pending' };
 
 export function holdingRowActionOf({
   kind,
   asset,
-  index,
+  redeemable,
 }: {
   kind: IEarnPositionSectionKind;
   asset: IEarnPositionSectionAsset;
-  /** the row's place in its section */
-  index: number;
+  /** whether the deposit rows offer Redeem here: the card does, the detail page keeps it in its footer */
+  redeemable: boolean;
 }): IEarnHoldingRowAction | undefined {
   const { origin } = asset;
   switch (kind) {
     case 'deposited':
-      return index === 0 ? { kind: 'redeem' } : undefined;
-    case 'rewards':
+      return redeemable ? { kind: 'redeem' } : undefined;
+    case 'rewards': {
+      if (asset.status === 'pending') {
+        return { kind: 'pending' };
+      }
       return asset.claim
         ? {
             kind: 'button',
@@ -314,16 +342,12 @@ export function holdingRowActionOf({
             }),
           }
         : undefined;
-    case 'pendingWithdrawal': {
-      const { cancel } = origin.earn;
-      return cancel && asset.isOriginLead
-        ? {
-            kind: 'button',
-            claim: toInvestmentRowAction({ position: origin, button: cancel }),
-          }
-        : undefined;
     }
-    case 'redeemable': {
+    case 'pendingWithdrawal': {
+      const cancel = asset.isOriginLead ? toPositionCancel(origin) : undefined;
+      return cancel ? { kind: 'button', claim: cancel } : undefined;
+    }
+    case 'claimable': {
       const claim = asset.isOriginLead ? toPositionClaim(origin) : undefined;
       return claim ? { kind: 'button', claim } : undefined;
     }
@@ -333,30 +357,21 @@ export function holdingRowActionOf({
 }
 
 /**
- * The card's Redeem on its principal row, mirroring the detail page footer:
- * a holding with principal and a page to go to, except Ethena's USDe, which
- * the page only manages, and a loan, which the card does not unfold. Pendle
- * sells PT until the market matures, then redeems.
+ * Whether the card's deposit row offers Redeem, mirroring the detail page's
+ * footer: a holding with principal and a page to go to. Pendle sells its PT
+ * instead (Sell early, or Redeem once the market matured, on its own page),
+ * Ethena's USDe is managed rather than redeemed, and a loan does not unfold
+ * here.
  */
-export function cardRedeemKindOf(
-  position: IEarnPositionView,
-): 'redeem' | 'sellEarly' | undefined {
+export function canRedeemFromCard(position: IEarnPositionView): boolean {
   const { source } = position;
-  const { earn } = source;
-  if (
-    !position.sections.some((section) => section.kind === 'deposited') ||
-    !hasPositionDetailPage(source) ||
-    earn.symbol.toUpperCase() === 'USDE'
-  ) {
-    return undefined;
-  }
-  if (
-    earnUtils.isPendleProvider({ providerName: earn.manage.provider }) &&
-    !earn.matured
-  ) {
-    return 'sellEarly';
-  }
-  return 'redeem';
+  const { manage } = source.earn;
+  return (
+    position.sections.some((section) => section.kind === 'deposited') &&
+    hasPositionDetailPage(source) &&
+    !earnUtils.isPendleProvider({ providerName: manage.provider }) &&
+    manage.symbol.toUpperCase() !== 'USDE'
+  );
 }
 
 /**

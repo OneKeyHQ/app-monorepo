@@ -137,7 +137,7 @@ describe('detail page holding', () => {
     expect(view?.sections.map((section) => section.kind)).toEqual([
       'deposited',
       'pendingWithdrawal',
-      'redeemable',
+      'claimable',
     ]);
   });
 

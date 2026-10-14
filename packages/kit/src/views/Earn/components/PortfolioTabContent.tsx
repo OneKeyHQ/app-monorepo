@@ -113,7 +113,7 @@ const getRewardButtonDisabled = (button: IWrappedActionButton) => {
   return 'disabled' in button ? button.disabled : undefined;
 };
 
-const getRewardButtonText = (
+export const getRewardButtonText = (
   button: IWrappedActionButton,
 ): IEarnText | undefined => {
   if (!('text' in button) || !button.text) {

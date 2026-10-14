@@ -63,8 +63,8 @@ const ALL_NETWORKS: string[] = [];
  * position under one row per protocol per network, the wallet DeFi
  * Portfolio contract) and the ledger rewards endpoint (Rewards, three
  * stages). A card is the detail page's Balance and Rewards (product 10-14):
- * its rows redeem, claim, check and cancel right here, and Manage opens the
- * detail page for the rest.
+ * its rows redeem, claim, check and cancel right here, and its header line
+ * opens the detail page.
  *
  * Deliberately not here, per product: the hide-small-assets switch (the
  * shared setting still exists for the wide layout; this page never applies
@@ -219,8 +219,8 @@ export function MyPortfolioPage() {
     [rewards?.totals.rewards, view.protocols],
   );
 
-  // Manage and a tapped row open the position's own detail page, where every
-  // other action lives, landing on its Portfolio tab.
+  // The card's header line opens the position's own detail page, landing on
+  // its Portfolio tab.
   const handleManage = useCallback(
     (target: IEarnPositionManageTarget) => {
       void EarnNavigation.pushToEarnProtocolDetails(navigation, {

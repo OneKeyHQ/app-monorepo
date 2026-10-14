@@ -188,7 +188,7 @@ describe('earn position model: one card per holding', () => {
         ETranslations.earn_withdrawal_requested,
         ['0.25', '0.3'],
       ],
-      ['redeemable', ETranslations.defi_redeemable, ['0.5']],
+      ['claimable', ETranslations.earn_claimable, ['0.5']],
     ]);
     const pending = deposit.sections.find(
       (section) => section.kind === 'pendingWithdrawal',
@@ -213,7 +213,7 @@ describe('earn position model: one card per holding', () => {
       deposit.hasDeposit,
       deposit.hasRewards,
       deposit.hasPendingWithdrawal,
-      deposit.hasRedeemable,
+      deposit.hasClaimable,
     ]).toEqual([true, false, true, true]);
   });
 
@@ -267,7 +267,7 @@ describe('earn position model: one card per holding', () => {
       ETranslations.wallet_defi_position_module_deposit,
     );
     expect(cooldown.sections.map((section) => section.kind)).toEqual([
-      'redeemable',
+      'claimable',
     ]);
     expect(cooldown.hasDeposit).toBe(false);
     expect(cooldown.principalClaims.map((source) => source.groupId)).toEqual([
@@ -323,7 +323,7 @@ describe('earn position model: one card per holding', () => {
     expect(eth.sections.map((section) => section.kind)).toEqual([
       'deposited',
       'rewards',
-      'redeemable',
+      'claimable',
     ]);
     expect(eth.action?.kind).toBe('manage');
     expect(eth.principalClaims.map((source) => source.groupId)).toEqual([

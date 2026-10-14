@@ -21439,6 +21439,7 @@
     "packages/kit/src/views/Earn/pages/EarnProtocolDetails/mobile/MobileDetailTabs.tsx": 11504,
     "packages/kit/src/views/Earn/pages/EarnProtocolDetails/mobile/PortfolioTab.tsx": 18528,
     "packages/kit/src/views/Earn/pages/EarnProtocolDetails/mobile/TransactionLink.tsx": 22499,
+    "packages/kit/src/views/Earn/pages/EarnProtocolDetails/mobile/holdingInvestmentCells.utils.ts": 8815,
     "packages/kit/src/views/Earn/pages/EarnProtocolDetails/mobile/mobileDetailTabs.utils.ts": 9777,
     "packages/kit/src/views/Earn/pages/EarnProtocolDetails/mobile/providerSubtitle.utils.ts": 2205,
     "packages/kit/src/views/Earn/pages/EarnProtocolDetails/mobile/settleRefresh.utils.ts": 20276,

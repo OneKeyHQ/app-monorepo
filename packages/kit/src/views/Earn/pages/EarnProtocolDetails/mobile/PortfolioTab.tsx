@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -12,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import type { IBadgeType } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
+import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EarnActionIcon } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnActionIcon';
@@ -30,9 +32,10 @@ import { PortfolioPendingTxsProvider } from '../../../components/PortfolioTabCon
 import { EarnTestIDs } from '../../../testIDs';
 import { EarnHoldingSections } from '../../EarnPositions/mobile/EarnHoldingSections';
 
+import { pickHoldingInvestmentCells } from './holdingInvestmentCells.utils';
 import { TransactionLink } from './TransactionLink';
 
-import type { IEarnHoldingRedeem } from '../../EarnPositions/mobile/EarnHoldingSections';
+import type { IHoldingInvestmentCell } from './holdingInvestmentCells.utils';
 import type { IEarnPositionView } from '../../EarnPositions/mobile/earnPositionModel';
 
 type IMobilePortfolio = NonNullable<IStakeEarnDetail['mobilePortfolio']>;
@@ -144,6 +147,82 @@ function PortfolioRow({
   );
 }
 
+/**
+ * My investment over the holding's card (product 10-14): the balance and
+ * the 24h earnings first, then the cells the server made for the phone
+ * (Spark's Effective APY). The APY cell that repeated the headline is gone.
+ */
+function HoldingInvestment({
+  holding,
+  cells,
+}: {
+  holding: IEarnPositionView;
+  cells: IHoldingInvestmentCell[];
+}) {
+  const intl = useIntl();
+  const currencyInfo = useCurrency();
+  const earnings24h = new BigNumber(
+    holding.source.earn.investment.earnings24hFiatValue || '0',
+  );
+  return (
+    <YStack gap="$2">
+      <SizableText size="$headingMd" color="$text">
+        {intl.formatMessage({
+          id: ETranslations.wallet_defi_position_module_investment,
+        })}
+      </SizableText>
+      <XStack flexWrap="wrap" m="$-3">
+        <GridItem
+          title={{
+            text: intl.formatMessage({ id: ETranslations.global_balance }),
+          }}
+          descriptionComponent={
+            <NumberSizeableTextWrapper
+              hideValue
+              size="$bodyLgMedium"
+              formatter="value"
+              formatterOptions={{ currency: currencyInfo.symbol }}
+              numberOfLines={1}
+            >
+              {String(holding.value.value)}
+            </NumberSizeableTextWrapper>
+          }
+        />
+        <GridItem
+          title={{
+            text: intl.formatMessage({ id: ETranslations.earn_24h_earnings }),
+          }}
+          descriptionComponent={
+            <NumberSizeableTextWrapper
+              hideValue
+              size="$bodyLgMedium"
+              color={earnings24h.gt(0) ? '$textSuccess' : '$text'}
+              formatter="value"
+              formatterOptions={{
+                currency: currencyInfo.symbol,
+                showPlusMinusSigns: earnings24h.gt(0),
+              }}
+              numberOfLines={1}
+            >
+              {earnings24h.toFixed()}
+            </NumberSizeableTextWrapper>
+          }
+        />
+        {cells.map((cell, index) => (
+          <GridItem
+            key={cell.title?.text || `cell-${index}`}
+            title={cell.title}
+            description={cell.description}
+            tooltip={cell.tooltip}
+            tooltipTrigger="title"
+            type={cell.type}
+          />
+        ))}
+      </XStack>
+    </YStack>
+  );
+}
+
 export function PortfolioTab({
   portfolio,
   networkId,
@@ -156,7 +235,6 @@ export function PortfolioTab({
   onRedeem,
   canRedeem,
   holding,
-  holdingRedeem,
 }: {
   portfolio: IMobilePortfolio;
   networkId: string;
@@ -175,11 +253,10 @@ export function PortfolioTab({
   // that hides its wide-layout actions (Native) sends no redeem capability.
   canRedeem?: boolean;
   // The holding as the My portfolio card shows it (product 10-14). When
-  // known, Balance and Rewards are that card's sections instead of the
-  // server's groups, so the two pages cannot disagree.
+  // known, Balance and Rewards are that card's panels instead of the
+  // server's groups, so the two pages cannot disagree; Redeem stays in the
+  // page footer, so the deposit row carries none.
   holding?: IEarnPositionView;
-  // The principal row's Redeem: the footer's, with its label and state.
-  holdingRedeem?: IEarnHoldingRedeem;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -224,7 +301,16 @@ export function PortfolioTab({
 
   return (
     <YStack gap="$6">
-      {portfolio.summary?.items?.length ? (
+      {holding ? (
+        <HoldingInvestment
+          holding={holding}
+          cells={pickHoldingInvestmentCells(
+            portfolio.summary?.items,
+            holding.effectiveDeposit?.label.text,
+          )}
+        />
+      ) : null}
+      {!holding && portfolio.summary?.items?.length ? (
         <YStack gap="$2">
           <SizableText size="$headingMd" color="$text">
             {intl.formatMessage({
@@ -256,9 +342,7 @@ export function PortfolioTab({
 
       {holding ? (
         <PortfolioPendingTxsProvider value={pendingTxsValue}>
-          <YStack gap="$3">
-            <EarnHoldingSections position={holding} redeem={holdingRedeem} />
-          </YStack>
+          <EarnHoldingSections position={holding} />
         </PortfolioPendingTxsProvider>
       ) : (
         portfolio.groups.map((group) => (

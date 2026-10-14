@@ -869,7 +869,6 @@ const DetailsPartComponent = ({
   onRedeem,
   onActionSuccess,
   holding,
-  holdingRedeem,
 }: {
   detailInfo: IStakeEarnDetail | undefined;
   tokenInfo?: IEarnTokenInfo;
@@ -895,9 +894,8 @@ const DetailsPartComponent = ({
   // A claim, stake or withdraw broadcast from the Portfolio tab. Falls back
   // to onRefresh for callers that only have the plain reload.
   onActionSuccess?: () => void;
-  // phone: the holding as the My portfolio card shows it, and its row Redeem
+  // phone: the holding as the My portfolio card shows it (product 10-14)
   holding?: IEarnPositionView;
-  holdingRedeem?: IEarnHoldingRedeem;
 }) => {
   const now = useMemo(() => Date.now(), []);
 
@@ -1035,7 +1033,6 @@ const DetailsPartComponent = ({
                         protocolInfo={protocolInfo}
                         tokenInfo={tokenInfo}
                         holding={holding}
-                        holdingRedeem={holdingRedeem}
                       />
                     ) : null
                   }
@@ -1302,31 +1299,6 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     ],
   );
 
-  // The portfolio tab needs the account-scoped response, so it stays hidden
-  // until the server says there is something to show. Falls back to the balance
-  // when the server predates the mobile read model.
-  const hasPortfolio = useMemo(() => {
-    if (detailInfo?.mobilePortfolio) {
-      return detailInfo.mobilePortfolio.hasPosition;
-    }
-    const balance = Number(tokenInfo?.balanceParsed ?? '0');
-    return Number.isFinite(balance) && balance > 0;
-  }, [detailInfo?.mobilePortfolio, tokenInfo?.balanceParsed]);
-
-  // A position, for the footer's Redeem, is principal in the protocol
-  // (OK-64550): the Portfolio tab's Balance group, which holds the active
-  // principal, redemptions in flight and matured principal to collect.
-  // Rewards alone do not make one. A server without the read model falls back
-  // to hasPortfolio's balance check.
-  const hasDeposit = useMemo(() => {
-    if (detailInfo?.mobilePortfolio) {
-      return detailInfo.mobilePortfolio.groups.some(
-        (group) => group.key === 'balance' && group.items.length > 0,
-      );
-    }
-    return hasPortfolio;
-  }, [detailInfo?.mobilePortfolio, hasPortfolio]);
-
   // The Portfolio tab's Balance and Rewards are the My portfolio card of
   // this holding (product 10-14): read from the card's cache, then the
   // holding's own positions scope each time the page itself reloads.
@@ -1349,6 +1321,37 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
       void refreshHolding();
     }
   }, [detailInfo, refreshHolding]);
+
+  // The portfolio tab needs the account-scoped response, so it stays hidden
+  // until the server says there is something to show. Falls back to the balance
+  // when the server predates the mobile read model.
+  const hasPortfolio = useMemo(() => {
+    if (holding) {
+      return true;
+    }
+    if (detailInfo?.mobilePortfolio) {
+      return detailInfo.mobilePortfolio.hasPosition;
+    }
+    const balance = Number(tokenInfo?.balanceParsed ?? '0');
+    return Number.isFinite(balance) && balance > 0;
+  }, [holding, detailInfo?.mobilePortfolio, tokenInfo?.balanceParsed]);
+
+  // A position, for the footer's Redeem, is principal in the protocol
+  // (OK-64550): the Portfolio tab's Balance group, which holds the active
+  // principal, redemptions in flight and matured principal to collect.
+  // Rewards alone do not make one. A server without the read model falls back
+  // to hasPortfolio's balance check.
+  const hasDeposit = useMemo(() => {
+    if (holding) {
+      return holding.hasDeposit;
+    }
+    if (detailInfo?.mobilePortfolio) {
+      return detailInfo.mobilePortfolio.groups.some(
+        (group) => group.key === 'balance' && group.items.length > 0,
+      );
+    }
+    return hasPortfolio;
+  }, [holding, detailInfo?.mobilePortfolio, hasPortfolio]);
 
   useUnsupportedProtocol({
     detailInfo,
@@ -1801,7 +1804,6 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
             scrollToPortfolio={resolvedParams.scrollToPortfolio}
             onRedeem={handleOpenRedeem}
             holding={holding}
-            holdingRedeem={redeemControl}
           />
         </Stack>
         {gtMd ? (

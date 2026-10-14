@@ -19,7 +19,7 @@ import {
 import {
   buildClaimSourceCandidates,
   buildNetworkInfoMap,
-  cardRedeemKindOf,
+  canRedeemFromCard,
   hasPositionDetailPage,
   holdingRowActionOf,
   mergeRewardGroups,
@@ -421,37 +421,43 @@ describe('holding sections: row actions', () => {
     }
     return found;
   };
-  const actionsOf = (view: IEarnPositionView) =>
+  const actionsOf = (view: IEarnPositionView, redeemable = true) =>
     view.sections.map((section) => [
       section.kind,
-      section.assets.map((asset, index) => {
+      section.assets.map((asset) => {
         const action = holdingRowActionOf({
           kind: section.kind,
           asset,
-          index,
+          redeemable,
         });
         if (!action) {
           return null;
         }
-        return action.kind === 'redeem'
-          ? 'redeem'
-          : action.claim.reward.button.type;
+        return action.kind === 'button'
+          ? action.claim.reward.button.type
+          : action.kind;
       }),
     ]);
 
-  it('gives the principal Redeem, a withdrawal in progress nothing, and the principal to collect its claim (Lido)', () => {
+  it('gives the deposit Redeem, a withdrawal in progress nothing, and the principal to collect its claim (Lido)', () => {
     expect(actionsOf(holding('lido:evm--1:steth'))).toEqual([
       ['deposited', ['redeem']],
       ['pendingWithdrawal', [null, null]],
-      ['redeemable', ['claimOrder']],
+      ['claimable', ['claimOrder']],
     ]);
   });
 
-  it('runs the cancel the server sent on its withdrawal in progress (Native)', () => {
-    const native = holding(`native:evm--1:${NATIVE_USDT_VAULT}`);
-    expect(actionsOf(native)).toEqual([
+  it('leaves the deposit without Redeem where the page keeps it in its footer', () => {
+    expect(actionsOf(holding('lido:evm--1:steth'), false)[0]).toEqual([
+      'deposited',
+      [null],
+    ]);
+  });
+
+  it('marks a reward the user cannot claim yet Pending, and runs the cancel the server sent on its withdrawal in progress (Native)', () => {
+    expect(actionsOf(holding(`native:evm--1:${NATIVE_USDT_VAULT}`))).toEqual([
       ['deposited', ['redeem']],
-      ['rewards', [null]],
+      ['rewards', ['pending']],
       ['pendingWithdrawal', ['cancelWithdrawal']],
     ]);
   });
@@ -474,7 +480,7 @@ describe('holding sections: row actions', () => {
       ? holdingRowActionOf({
           kind: 'rewards',
           asset: rewards.assets[0],
-          index: 0,
+          redeemable: true,
         })
       : undefined;
     expect(
@@ -483,7 +489,7 @@ describe('holding sections: row actions', () => {
   });
 });
 
-describe('cardRedeemKindOf', () => {
+describe('canRedeemFromCard', () => {
   const translate = (id: ETranslations) => id as string;
   const cardOf = (positions: IEarnPortfolioPosition[]) =>
     buildEarnPortfolioView({
@@ -502,28 +508,24 @@ describe('cardRedeemKindOf', () => {
     return found;
   };
 
-  it('redeems a holding with principal and sells a Pendle market early until it matures', () => {
-    expect(cardRedeemKindOf(cardOf([byId('lido:evm--1:steth')]))).toBe(
-      'redeem',
-    );
-    const pendle = byId('pendle:evm--1:0xusd3');
-    expect(cardRedeemKindOf(cardOf([pendle]))).toBe('sellEarly');
-    expect(
-      cardRedeemKindOf(
-        cardOf([{ ...pendle, earn: { ...pendle.earn, matured: true } }]),
-      ),
-    ).toBe('redeem');
+  it('redeems a holding with principal and a page to go to', () => {
+    expect(canRedeemFromCard(cardOf([byId('lido:evm--1:steth')]))).toBe(true);
   });
 
-  it("offers none for Ethena's USDe, a loan, or a holding with no principal left", () => {
+  it("offers none for Pendle, which sells its PT on its own page, Ethena's USDe, a loan, or a holding with no principal left", () => {
+    const pendle = byId('pendle:evm--1:0xusd3');
+    expect(canRedeemFromCard(cardOf([pendle]))).toBe(false);
     expect(
-      cardRedeemKindOf(cardOf([byId('ethena:evm--1:USDe')])),
-    ).toBeUndefined();
+      canRedeemFromCard(
+        cardOf([{ ...pendle, earn: { ...pendle.earn, matured: true } }]),
+      ),
+    ).toBe(false);
+    expect(canRedeemFromCard(cardOf([byId('ethena:evm--1:USDe')]))).toBe(false);
     expect(
-      cardRedeemKindOf(cardOf([byId('morpho:evm--1:market:weth-usdc')])),
-    ).toBeUndefined();
+      canRedeemFromCard(cardOf([byId('morpho:evm--1:market:weth-usdc')])),
+    ).toBe(false);
     expect(
-      cardRedeemKindOf(cardOf([byId('lido:evm--1:steth:claimable')])),
-    ).toBeUndefined();
+      canRedeemFromCard(cardOf([byId('lido:evm--1:steth:claimable')])),
+    ).toBe(false);
   });
 });
