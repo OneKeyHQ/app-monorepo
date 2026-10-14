@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import type { IXStackProps, IYStackProps } from '@onekeyhq/components';
 import {
   Button,
-  DesktopDragZoneBox,
   IconButton,
   KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
   Keyboard,
@@ -21,7 +20,6 @@ import {
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -294,7 +292,6 @@ OnboardingLayoutFooter.displayName = 'OnboardingLayoutFooter';
 
 const OnboardingLayoutRoot = memo(
   ({ children }: { children: React.ReactNode }) => {
-    const [isLocked] = useAppIsLockedAtom();
     const { top, bottom } = useSafeAreaInsets();
     // iOS 26 renders a transparent native glass header that overlays the top of
     // the card; reserve room for it via the shared inset instead of the small
@@ -305,8 +302,7 @@ const OnboardingLayoutRoot = memo(
       : top + 10;
 
     return (
-      <DesktopDragZoneBox
-        disabled={isLocked}
+      <YStack
         h="100%"
         $platform-web={{
           height: '100vh',
@@ -356,7 +352,6 @@ const OnboardingLayoutRoot = memo(
           >
             <YStack
               h="100%"
-              className="app-region-no-drag"
               gap="$5"
               mx="$-5"
               $gtMd={{
@@ -368,7 +363,7 @@ const OnboardingLayoutRoot = memo(
             </YStack>
           </YStack>
         </YStack>
-      </DesktopDragZoneBox>
+      </YStack>
     );
   },
 );

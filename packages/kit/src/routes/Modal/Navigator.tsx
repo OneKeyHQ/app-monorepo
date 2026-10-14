@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 
 import {
+  DesktopDragZoneBox,
   EPageType,
   Spinner,
   Stack,
@@ -15,6 +16,7 @@ import {
   useThemeName,
 } from '@onekeyhq/components';
 import { RootModalNavigator } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
+import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
@@ -90,6 +92,7 @@ function TravelModeOnboardingRedirect() {
 
 function StandardOnboardingNavigator() {
   const isFocused = useIsFocused();
+  const [isLocked] = useAppIsLockedAtom();
   // Tamagui's native useMedia subscribes in a passive effect, so screens that
   // mount in the same commit as the real-width hold miss its refresh and keep
   // the clamped breakpoints. Mount them only once the hold is in place; the
@@ -164,14 +167,30 @@ function StandardOnboardingNavigator() {
       setSystemBarsOverride(null);
     };
   }, []);
+  const navigator = isMediaReady ? (
+    <RootModalNavigator<EOnboardingV2Routes>
+      config={onboardingRouterV2Config}
+      pageType={EPageType.onboarding}
+    />
+  ) : null;
+
   return (
     <Theme name="dark">
-      {isMediaReady ? (
-        <RootModalNavigator<EOnboardingV2Routes>
-          config={onboardingRouterV2Config}
-          pageType={EPageType.onboarding}
-        />
-      ) : null}
+      {platformEnv.isDesktop ? (
+        <Stack flex={1}>
+          {navigator}
+          <DesktopDragZoneBox
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+            h="$8"
+            disabled={!isFocused || isLocked}
+          />
+        </Stack>
+      ) : (
+        navigator
+      )}
     </Theme>
   );
 }

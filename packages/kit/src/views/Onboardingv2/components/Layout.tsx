@@ -14,7 +14,6 @@ import type {
 } from '@onekeyhq/components';
 import {
   Button,
-  DesktopDragZoneBox,
   Divider,
   Icon,
   IconButton,
@@ -45,7 +44,7 @@ export const LayoutHeader = memo(
   ({ children, style, ...rest }: IXStackProps) => {
     const { top } = useSafeAreaInsets();
     return (
-      <DesktopDragZoneBox pt={top || '$12'}>
+      <YStack pt={top || '$12'}>
         <XStack
           h={52}
           px="$5"
@@ -58,7 +57,7 @@ export const LayoutHeader = memo(
         >
           {children}
         </XStack>
-      </DesktopDragZoneBox>
+      </YStack>
     );
   },
 );
