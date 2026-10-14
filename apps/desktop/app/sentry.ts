@@ -45,7 +45,7 @@ export const initSentry = () => {
     },
     integrations: (defaultIntegrations) => [
       // Drop only the native minidump integration (native crashes are covered
-      // by the Electron crashReporter / our own native pipeline). The rest of
+      // locally by Electron crashReporter; only allowlisted JSON is exported). The rest of
       // @sentry/electron's default set is kept. Note: @sentry/node's backend
       // OpenTelemetry auto-instrumentations (express/mongo/redis/…) are NOT in
       // this default set — electron-main's getDefaultIntegrations() hardcodes a

@@ -90,6 +90,7 @@ const serviceFiles = glob
 const entryPoints = {
   app: path.join(electronSource, 'appBootstrap.ts'),
   preload: path.join(electronSource, 'preload.ts'),
+  nativeCrashWorker: path.join(electronSource, 'nativeCrashWorker.ts'),
   ...Object.fromEntries(
     serviceFiles.map((file) => [
       `service/${path.basename(file, '.ts')}`,
