@@ -122,21 +122,26 @@ export function HomeNativePager({
   const pageIdentity = JSON.stringify(tabs.map((tab) => tab.id));
   const tabIdentity = tabs.map((tab) => `${tab.id}:${tab.name}`).join('|');
   const previousTabIdentity = useRef(tabIdentity);
+  const previousPageIdentity = useRef(pageIdentity);
   useEffect(() => {
     if (previousTabIdentity.current === tabIdentity) return;
     previousTabIdentity.current = tabIdentity;
-    dragRef.current = null;
+    const pagesChanged = previousPageIdentity.current !== pageIdentity;
+    previousPageIdentity.current = pageIdentity;
     const selectedTab = tabs[selectedIndex];
     if (selectedTab && selectedTab.id !== selectedId) {
       setSelectedId(selectedTab.id);
       onTabChange({ tabName: selectedTab.name });
     }
     focusedTab.value = selectedTab?.name ?? '';
+    if (!pagesChanged) return;
+    dragRef.current = null;
     followsPageScrollRef.current = false;
     indexDecimal.value = selectedIndex;
     pagerRef.current?.setPageWithoutAnimation(selectedIndex);
   }, [
     tabIdentity,
+    pageIdentity,
     tabs,
     selectedId,
     selectedIndex,

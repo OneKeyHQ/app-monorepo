@@ -952,9 +952,13 @@ describe('native header Spotlight ownership', () => {
       ).key,
     );
     emitSettled(0, actualKey);
+    const immediateCalls = mockSetPageWithoutAnimation.mock.calls.length;
+    const animatedCalls = mockSetPage.mock.calls.length;
     screen.rerender(
       <HomeNativePager {...props} tabs={[{ ...spot, name: 'Portfolio' }]} />,
     );
+    expect(mockSetPageWithoutAnimation).toHaveBeenCalledTimes(immediateCalls);
+    expect(mockSetPage).toHaveBeenCalledTimes(animatedCalls);
     expect(currentState?.headerSettledAtTop).toBe(true);
   });
 
