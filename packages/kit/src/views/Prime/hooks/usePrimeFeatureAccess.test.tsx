@@ -90,16 +90,14 @@ jest.mock('@onekeyhq/components', () => ({
   rootNavigationRef: { current: undefined },
 }));
 
-// Toast titles read the feature names from the zh-CN catalog.
+// Toasts read their copy from the zh-CN catalog.
 jest.mock('react-intl', () => {
-  const catalog: Record<string, string> = jest.requireActual(
-    '@onekeyhq/shared/src/locale/json/zh_CN.json',
-  );
-  return {
-    useIntl: () => ({
-      formatMessage: ({ id }: { id: string }) => catalog[id] ?? id,
-    }),
-  };
+  const actual: typeof import('react-intl') = jest.requireActual('react-intl');
+  const intl = actual.createIntl({
+    locale: 'zh-CN',
+    messages: jest.requireActual('@onekeyhq/shared/src/locale/json/zh_CN.json'),
+  });
+  return { useIntl: () => intl };
 });
 
 jest.mock('@onekeyhq/shared/src/travelMode', () => ({
@@ -242,7 +240,7 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
     expect(mockToastMessage).toHaveBeenCalledTimes(1);
     expect(mockToastMessage).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: '批量转账：本月免费次数已用完',
+        title: '批量转账本月免费次数已用完',
         actions: undefined,
       }),
     );
@@ -678,7 +676,7 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
     expect(mockPushFullModal).not.toHaveBeenCalled();
     expect(mockToastMessage).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: '批量转账：上次使用尚未结束',
+        title: '批量转账上次使用未结束',
       }),
     );
   });
@@ -727,7 +725,7 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
     // Judged on the local quota: the client sentence, and no dashboard until
     // "Get Prime" is pressed.
     expect(mockPushFullModal).not.toHaveBeenCalled();
-    expect(toastAt(0)?.title).toBe('批量转账：暂未开放免费体验');
+    expect(toastAt(0)?.title).toBe('批量转账暂未开放免费体验');
     expect(toastAt(0)?.message).toBeUndefined();
     pressGetPrimeOf(0);
     expect(dashboardReason()).toBe('notOpen');
@@ -812,7 +810,7 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
     });
 
     expect(mockPushFullModal).not.toHaveBeenCalled();
-    expect(toastAt(0)?.title).toBe('地址风险检查：暂未开放免费体验');
+    expect(toastAt(0)?.title).toBe('地址风险检查暂未开放免费体验');
     expect(toastAt(0)?.message).toBeUndefined();
     pressGetPrimeOf(0);
     expect(dashboardReason()).toBe('notOpen');
@@ -839,8 +837,8 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
 
       await waitFor(() => {
         expect(toastAt(0)).toMatchObject({
-          title: '地址风险检查：本月免费次数已用完',
-          message: expect.stringMatching(/^将于 .+ 重置。$/),
+          title: '地址风险检查本月免费次数已用完',
+          message: expect.stringMatching(/^.+ 重置$/),
           actions: undefined,
         });
       });
@@ -857,7 +855,7 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
       });
 
       await waitFor(() => {
-        expect(toastAt(0)?.title).toBe('地址风险检查：本月免费次数已用完');
+        expect(toastAt(0)?.title).toBe('地址风险检查本月免费次数已用完');
       });
       expect(toastAt(0)?.message).toBeUndefined();
       expect(toastAt(0)?.actions).toBeUndefined();
@@ -874,9 +872,7 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
         });
       });
 
-      expect(toastAt(0)?.title).toBe(
-        '地址风险检查：本月检查过的地址才能查看详情',
-      );
+      expect(toastAt(0)?.title).toBe('仅可查看本月检查过的地址详情');
       expect(toastAt(0)?.message).toBeUndefined();
     });
   });
@@ -899,8 +895,8 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
 
     await waitFor(() => {
       expect(toastAt(0)).toMatchObject({
-        title: '地址风险检查：本月免费次数已用完',
-        message: expect.stringMatching(/^将于 .+ 重置。$/),
+        title: '地址风险检查本月免费次数已用完',
+        message: expect.stringMatching(/^.+ 重置$/),
         actions: undefined,
       });
     });
@@ -928,8 +924,8 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
 
     await waitFor(() => {
       expect(toastAt(0)).toMatchObject({
-        title: '批量转账：上次使用尚未结束',
-        message: expect.stringMatching(/^如已中断，免费次数将在 .+ 前恢复。$/),
+        title: '批量转账上次使用未结束',
+        message: expect.stringMatching(/^若已中断，.+ 前退回次数$/),
       });
     });
     // The server knows every device's reservations: no local lookup.
@@ -957,7 +953,7 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
 
     await waitFor(() => {
       expect(toastAt(0)).toMatchObject({
-        title: '批量转账：本月免费次数已用完',
+        title: '批量转账本月免费次数已用完',
       });
     });
     expect(mockGetHeldReservationEnd).not.toHaveBeenCalled();

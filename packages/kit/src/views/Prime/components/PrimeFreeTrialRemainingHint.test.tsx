@@ -27,9 +27,15 @@ const mockRefreshQuota = jest.fn();
 let mockQuota: IPrimeFreeTrialAtomData['quota'];
 let mockConfig: IPrimeFreeTrialAtomData['config'];
 
-jest.mock('react-intl', () => ({
-  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
-}));
+// The hint reads its copy from the zh-CN catalog.
+jest.mock('react-intl', () => {
+  const actual: typeof import('react-intl') = jest.requireActual('react-intl');
+  const intl = actual.createIntl({
+    locale: 'zh-CN',
+    messages: jest.requireActual('@onekeyhq/shared/src/locale/json/zh_CN.json'),
+  });
+  return { useIntl: () => intl };
+});
 
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -227,7 +233,7 @@ describe('PrimeFreeTrialRemainingHint', () => {
       </div>,
     );
 
-    expect(screen.getByText(/^本月免费次数已用完，将于 .+ 重置$/)).toBeTruthy();
+    expect(screen.getByText(/^本月免费次数已用完。.+ 重置$/)).toBeTruthy();
     fireEvent.click(screen.getByTestId('prime-free-trial-hint-get-prime-btn'));
 
     expect(mockUpgradeClick).toHaveBeenCalledWith({
@@ -259,7 +265,7 @@ describe('PrimeFreeTrialRemainingHint', () => {
     render(<PrimeFreeTrialRemainingHint featureId={EPrimeFeatures.BulkSend} />);
 
     expect(
-      screen.getByText(/^上次使用尚未结束，如已中断，免费次数将在 .+ 前恢复$/),
+      screen.getByText(/^上次使用未结束。若已中断，.+ 前退回次数$/),
     ).toBeTruthy();
     expect(screen.queryByText(/^本月免费次数已用完/)).toBeNull();
     expect(screen.getByText('获取 Prime')).toBeTruthy();
@@ -277,7 +283,7 @@ describe('PrimeFreeTrialRemainingHint', () => {
     });
     render(<PrimeFreeTrialRemainingHint featureId={EPrimeFeatures.BulkSend} />);
 
-    expect(screen.getByText(/^本月免费次数已用完，将于 .+ 重置$/)).toBeTruthy();
+    expect(screen.getByText(/^本月免费次数已用完。.+ 重置$/)).toBeTruthy();
   });
 
   describe('refresh when a reservation ends', () => {
@@ -336,33 +342,22 @@ describe('PrimeFreeTrialRemainingHint', () => {
     });
   });
 
-  it('shows the remaining share of a token quota', () => {
-    setTranslateRemaining(6329);
-    const { rerender } = render(
-      <PrimeFreeTrialRemainingHint featureId={EPrimeFeatures.DAppTranslate} />,
-    );
-    expect(screen.getByText('本月免费额度剩余 63%')).toBeTruthy();
-
-    // A usable quota is never shown as 0%.
-    setTranslateRemaining(12);
-    rerender(
-      <PrimeFreeTrialRemainingHint featureId={EPrimeFeatures.DAppTranslate} />,
-    );
-    expect(screen.getByText('本月免费额度剩余 1%')).toBeTruthy();
-  });
-
-  it('says the token quota is used up at 0', () => {
-    setTranslateRemaining(0);
-    render(
-      <PrimeFreeTrialRemainingHint featureId={EPrimeFeatures.DAppTranslate} />,
-    );
-
-    expect(screen.getByText(/^本月免费额度已用完，将于 .+ 重置$/)).toBeTruthy();
-    expect(screen.getByText('获取 Prime')).toBeTruthy();
-  });
+  // Translate shows no hint at all, whatever its token quota.
+  it.each([6329, 0])(
+    'renders nothing for translate (%i tokens left)',
+    (left) => {
+      setTranslateRemaining(left);
+      const { container } = render(
+        <PrimeFreeTrialRemainingHint
+          featureId={EPrimeFeatures.DAppTranslate}
+        />,
+      );
+      expect(container.textContent).toBe('');
+    },
+  );
 
   it('opens the dashboard after beforeGetPrime settles', async () => {
-    setTranslateRemaining(0);
+    setRemaining(0);
     let closePopover: () => void = () => {};
     const beforeGetPrime = jest.fn(
       () =>
@@ -372,7 +367,7 @@ describe('PrimeFreeTrialRemainingHint', () => {
     );
     render(
       <PrimeFreeTrialRemainingHint
-        featureId={EPrimeFeatures.DAppTranslate}
+        featureId={EPrimeFeatures.BulkSend}
         beforeGetPrime={beforeGetPrime}
       />,
     );
@@ -386,7 +381,7 @@ describe('PrimeFreeTrialRemainingHint', () => {
       expect(mockPushFullModal).toHaveBeenCalledWith(EModalRoutes.PrimeModal, {
         screen: EPrimePages.PrimeDashboard,
         params: {
-          fromFeature: EPrimeFeatures.DAppTranslate,
+          fromFeature: EPrimeFeatures.BulkSend,
           networkId: undefined,
           freeTrialReason: 'exhausted',
         },

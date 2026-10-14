@@ -15,11 +15,10 @@ import {
   usePrimeFreeTrialAtom,
   usePrimePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { getPrimeFreeTrialHeldReservationEnd } from '@onekeyhq/shared/src/utils/primeFreeTrialUtils';
-import type {
-  IPrimeFreeTrialFeatureId,
-  IPrimeFreeTrialFeatureQuota,
-} from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
+import type { IPrimeFreeTrialFeatureId } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 
 import { isPrimeFreeTrialTravelMode } from '../hooks/usePrimeFeatureAccess';
 import { usePrimeFreeTrialUpgrade } from '../hooks/usePrimeFreeTrialUpgrade';
@@ -27,10 +26,7 @@ import {
   getPrimeFreeTrialQuotaOfUser,
   resolvePrimeFreeTrialAccess,
 } from '../utils/primeFreeTrialAccess';
-import {
-  PRIME_FREE_TRIAL_COPY,
-  getPrimeFreeTrialNoticeCopy,
-} from '../utils/primeFreeTrialCopy';
+import { getPrimeFreeTrialNoticeCopy } from '../utils/primeFreeTrialCopy';
 
 import type { IPrimeFreeTrialNotice } from '../utils/primeFreeTrialCopy';
 import type { GestureResponderEvent } from 'react-native';
@@ -43,24 +39,8 @@ const SNAPSHOT_FRESH_MS = 30 * 1000;
 const RESERVATION_MAX_MS = 30 * 60 * 1000;
 const RESERVATION_END_GRACE_MS = 2000;
 
-// Token quotas (translate) show the remaining share: a raw token count means
-// little to users. A usable quota is never rounded down to 0%.
-function getRemainingText({
-  unit,
-  remaining,
-  monthlyQuota,
-}: IPrimeFreeTrialFeatureQuota) {
-  if (unit === 'count') {
-    return PRIME_FREE_TRIAL_COPY.remainingUses(remaining);
-  }
-  const percent = Math.floor((remaining / monthlyQuota) * 100);
-  return PRIME_FREE_TRIAL_COPY.remainingQuotaPercent(
-    Math.min(100, Math.max(1, percent)),
-  );
-}
-
-// Remaining free quota of a feature: uses, or a share of translate's tokens.
-// Rendered only for logged-in free users with a known quota. Used up, held by
+// Remaining free uses of a feature. Rendered only for logged-in free users
+// with a known quota, and never for token quotas (translate shows no hint). Used up, held by
 // live reservations, or without a free trial (the entry lets the user in, so
 // nobody fills in the page first), it shows the same notice as the toast a
 // submit would get, with the same "Get Prime".
@@ -153,7 +133,11 @@ export function PrimeFreeTrialRemainingHint({
     return () => clearTimeout(timer);
   }, [reservationEnd, isFreeUser]);
 
-  if (!isFreeUser || isPrimeFreeTrialTravelMode()) {
+  if (
+    !isFreeUser ||
+    isPrimeFreeTrialTravelMode() ||
+    featureId === EPrimeFeatures.DAppTranslate
+  ) {
     return null;
   }
   if (access.status !== 'notOpen' && !featureQuota) {
@@ -184,7 +168,7 @@ export function PrimeFreeTrialRemainingHint({
           openDashboard();
         }}
       >
-        {PRIME_FREE_TRIAL_COPY.getPrime}
+        {intl.formatMessage({ id: ETranslations.prime_get_prime })}
       </SizableText>
     );
   };
@@ -213,7 +197,10 @@ export function PrimeFreeTrialRemainingHint({
   } else if (featureQuota) {
     content = (
       <SizableText size="$bodyMd" color="$textSubdued">
-        {getRemainingText(featureQuota)}
+        {intl.formatMessage(
+          { id: ETranslations.prime_free_trial_remaining_uses__desc },
+          { count: featureQuota.remaining },
+        )}
       </SizableText>
     );
   }

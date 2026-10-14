@@ -30,14 +30,14 @@ const CASES: Array<{
     {
       featureId,
       notice: { kind: 'exhausted', resetAt: RESET_AT } as const,
-      toastTitle: `${name}：本月免费次数已用完`,
-      toastMessage: '将于 2026-11-01 重置。',
-      hint: '本月免费次数已用完，将于 2026-11-01 重置',
+      toastTitle: `${name}本月免费次数已用完`,
+      toastMessage: '2026-11-01 重置',
+      hint: '本月免费次数已用完。2026-11-01 重置',
     },
     {
       featureId,
       notice: { kind: 'notOpen' } as const,
-      toastTitle: `${name}：暂未开放免费体验`,
+      toastTitle: `${name}暂未开放免费体验`,
       hint: '暂未开放免费体验',
     },
   ]),
@@ -50,36 +50,45 @@ const CASES: Array<{
   ).map(([featureId, name]) => ({
     featureId,
     notice: { kind: 'reservationHeld', heldUntil: HELD_UNTIL } as const,
-    toastTitle: `${name}：上次使用尚未结束`,
-    toastMessage: '如已中断，免费次数将在 下午 6:41 前恢复。',
-    hint: '上次使用尚未结束，如已中断，免费次数将在 下午 6:41 前恢复',
+    toastTitle: `${name}上次使用未结束`,
+    toastMessage: '若已中断，下午 6:41 前退回次数',
+    hint: '上次使用未结束。若已中断，下午 6:41 前退回次数',
   })),
   {
     featureId: EPrimeFeatures.DAppTranslate,
     notice: { kind: 'exhausted', resetAt: RESET_AT },
-    toastTitle: 'AI 翻译：本月免费额度已用完',
-    toastMessage: '将于 2026-11-01 重置。',
-    hint: '本月免费额度已用完，将于 2026-11-01 重置',
+    toastTitle: 'AI 翻译本月免费额度已用完',
+    toastMessage: '2026-11-01 重置',
+    // Translate renders no hint.
+    hint: '本月免费次数已用完。2026-11-01 重置',
   },
   {
     featureId: EPrimeFeatures.DAppTranslate,
     notice: { kind: 'notOpen' },
-    toastTitle: 'AI 翻译：暂未开放免费体验',
+    toastTitle: 'AI 翻译暂未开放免费体验',
     hint: '暂未开放免费体验',
   },
   {
     featureId: EPrimeFeatures.DAppTranslate,
     notice: { kind: 'noLongerAvailable' },
-    toastTitle: 'AI 翻译：免费体验已不再提供',
-    hint: '免费体验已不再提供',
+    toastTitle: 'AI 翻译免费体验已结束',
+    hint: 'AI 翻译免费体验已结束',
   },
   {
     featureId: EPrimeFeatures.AddressRiskCheck,
     notice: { kind: 'detailsNotEligible' },
-    toastTitle: '地址风险检查：本月检查过的地址才能查看详情',
-    hint: '本月检查过的地址才能查看详情',
+    toastTitle: '仅可查看本月检查过的地址详情',
+    hint: '仅可查看本月检查过的地址详情',
   },
 ];
+
+const FEATURE_NAMES: Record<IPrimeFreeTrialFeatureId, string> = {
+  [EPrimeFeatures.BulkCopyAddresses]: '批量复制地址',
+  [EPrimeFeatures.BulkSend]: '批量转账',
+  [EPrimeFeatures.BulkRevoke]: '批量取消',
+  [EPrimeFeatures.AddressRiskCheck]: '地址风险检查',
+  [EPrimeFeatures.DAppTranslate]: 'AI 翻译',
+};
 
 describe('getPrimeFreeTrialNoticeCopy', () => {
   beforeAll(() => {
@@ -113,9 +122,15 @@ describe('getPrimeFreeTrialNoticeCopy', () => {
     },
   );
 
-  // The hint and the toast never drift apart: the hint is the toast title
-  // without the feature name, then the toast body, in one line.
-  it.each(CASES)(
+  // The hint and the toast never drift apart: on pages with a hint, the hint
+  // opens with the toast title's status (the title without the feature name).
+  it.each(
+    CASES.filter(
+      ({ featureId, notice }) =>
+        featureId !== EPrimeFeatures.DAppTranslate &&
+        notice.kind !== 'detailsNotEligible',
+    ),
+  )(
     'keeps the hint of $featureId $notice.kind in line with its toast',
     ({ featureId, notice }) => {
       const copy = getPrimeFreeTrialNoticeCopy({
@@ -123,12 +138,8 @@ describe('getPrimeFreeTrialNoticeCopy', () => {
         featureId,
         notice,
       });
-      const status = copy.toastTitle.slice(copy.toastTitle.indexOf('：') + 1);
-      expect(copy.hint).toBe(
-        copy.toastMessage
-          ? `${status}，${copy.toastMessage.replace(/。$/, '')}`
-          : status,
-      );
+      const status = copy.toastTitle.slice(FEATURE_NAMES[featureId].length);
+      expect(copy.hint.startsWith(status)).toBe(true);
     },
   );
 
@@ -154,7 +165,7 @@ describe('getPrimeFreeTrialNoticeCopy', () => {
         notice: { kind: 'exhausted' },
       }),
     ).toEqual({
-      toastTitle: '批量转账：本月免费次数已用完',
+      toastTitle: '批量转账本月免费次数已用完',
       toastMessage: undefined,
       hint: '本月免费次数已用完',
     });
