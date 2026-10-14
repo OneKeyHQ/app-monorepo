@@ -947,7 +947,9 @@ export class TrezorAdapter
   ): Promise<Response<IThirdPartyConnectedDevicePayload>> {
     this.activeOperationId = undefined;
     defaultLogger.hardware.sdkLog.log(
-      `[3rdPartyHW][Trezor] connectDevice searchTargetId=${searchTargetId}`,
+      `[3rdPartyHW][Trezor] connectDevice hasSearchTarget=${String(
+        Boolean(searchTargetId),
+      )}`,
     );
     void this.publishUiState({
       action: EThirdPartyHardwareUiAction.connecting,

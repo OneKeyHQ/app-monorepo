@@ -345,7 +345,9 @@ export class LedgerAdapter
     let connected = false;
     let operationId: string | undefined;
     defaultLogger.hardware.sdkLog.log(
-      `[3rdPartyHW][Ledger] connectDevice searchTargetId=${searchTargetId}`,
+      `[3rdPartyHW][Ledger] connectDevice hasSearchTarget=${String(
+        Boolean(searchTargetId),
+      )}`,
     );
     try {
       if (operationContext && !this.hw.acquireOperation) {

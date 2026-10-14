@@ -347,10 +347,9 @@ export function createTrezorBlePairingIpcMain(
               // is being debugged; the Trezor line is its pairing aid.
               logger.info(
                 scanOptions?.vendor === 'ledger'
-                  ? `[LedgerBLE] scan detail ${d.id}: ${JSON.stringify({
+                  ? `[LedgerBLE] scan detail: ${JSON.stringify({
                       name: d.name,
                       localName: d.localName,
-                      address: d.address,
                       addressType: d.addressType,
                       serviceUuids: d.advertisedServiceUuids,
                       serviceData: d.serviceData,
