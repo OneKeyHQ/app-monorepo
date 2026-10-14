@@ -10,29 +10,22 @@ import {
   Stack,
   XStack,
   YStack,
-  rootNavigationRef,
   useClipboard,
   useMedia,
 } from '@onekeyhq/components';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
-import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { CommunityRecognizedBadge } from '@onekeyhq/kit/src/views/Market/components/CommunityRecognizedBadge';
 import {
   StockSourceLogo,
   SubtitleBadge,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { TokenTagsPopover } from '@onekeyhq/kit/src/views/Market/components/TokenTagsPopover';
-import { buildMarketSearchTokenDetailPreview } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPreview';
-import { useToDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   ECopyFrom,
-  EEnterWay,
   EWatchlistFrom,
 } from '@onekeyhq/shared/src/logger/scopes/dex';
-import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import { isMarketSearchStockListing } from '@onekeyhq/shared/src/utils/marketSearchStock';
 import {
@@ -48,6 +41,7 @@ import type {
 import { MarketStarV2Deferred } from '../../../Market/components/MarketStarV2Deferred';
 import { MarketTokenIcon } from '../../../Market/components/MarketTokenIcon';
 import { BaseMarketTokenPrice } from '../../../Market/components/MarketTokenPrice';
+import { useUniversalSearchMarketPress } from '../../hooks/useUniversalSearchMarketPress';
 import { getMarketSearchMetricAmount } from '../marketSearchMetric';
 import { MARKET_DATA_COLUMN_WIDTH } from '../MarketTableHeader';
 
@@ -173,13 +167,6 @@ export function UniversalSearchV2MarketTokenItem({
   // Ensure market watch list atom is initialized
   const [{ isMounted }] = useMarketWatchListV2Atom();
   const { gtMd } = useMedia();
-  const appNavigation = useAppNavigation();
-  const universalSearchActions = useUniversalSearchActions();
-  const toMarketDetailPage = useToDetailPage({
-    switchToMarketTabFirst: true,
-    from: EEnterWay.Search,
-    resolveMarketAsset: true,
-  });
 
   const {
     logoUrl,
@@ -231,79 +218,15 @@ export function UniversalSearchV2MarketTokenItem({
     [priceChange24hPercent],
   );
 
-  const handlePress = useCallback(() => {
-    const searchText = getSearchInput?.();
-    if (searchText) {
-      defaultLogger.universalSearch.search.universalSearchClick({
-        source,
-        searchText,
-        type: item.type,
-        itemId: listingStockId || address || symbol || '',
-        itemTitle: symbol ?? '',
-      });
-    }
-
-    if (isLegacyNavigation) {
-      // Legacy trending item: address contains coingeckoId, use legacy navigation
-      setTimeout(async () => {
-        appNavigation.push(EUniversalSearchPages.MarketDetail, {
-          token: address,
-        });
-        defaultLogger.market.token.searchToken({
-          tokenSymbol: symbol,
-          from: 'trendingList',
-        });
-      }, 80);
-    } else {
-      rootNavigationRef.current?.goBack();
-      setTimeout(async () => {
-        void toMarketDetailPage({
-          tokenAddress: address,
-          networkId: network,
-          name,
-          symbol,
-          isNative,
-          stockId: listingStockId,
-          stock: isStockListing ? stock : undefined,
-          tokenDetailPreview: buildMarketSearchTokenDetailPreview(item.payload),
-        });
-
-        defaultLogger.market.token.searchToken({
-          tokenSymbol: symbol,
-          from: isTrending ? 'trendingList' : 'searchList',
-        });
-
-        if (!isTrending && symbol?.trim()) {
-          setTimeout(() => {
-            universalSearchActions.current.addIntoRecentSearchList({
-              id: listingStockId ? `stock:${listingStockId}` : address,
-              text: symbol,
-              type: item.type,
-              timestamp: Date.now(),
-            });
-          }, 10);
-        }
-      }, 80);
-    }
-  }, [
-    getSearchInput,
-    isLegacyNavigation,
-    isStockListing,
-    isTrending,
-    address,
-    network,
-    name,
-    symbol,
-    isNative,
-    stock,
-    listingStockId,
-    universalSearchActions,
-    item.type,
-    item.payload,
-    toMarketDetailPage,
-    appNavigation,
+  const pressMarketItem = useUniversalSearchMarketPress({
     source,
-  ]);
+    getSearchInput,
+    isTrending,
+  });
+  const handlePress = useCallback(
+    () => pressMarketItem(item),
+    [item, pressMarketItem],
+  );
 
   if (!isMounted) {
     return null;

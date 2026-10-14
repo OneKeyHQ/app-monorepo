@@ -20,7 +20,10 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { MarketStockStar } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/MarketStockStar';
 import { parseMarketStockNumber } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/utils';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
-import { isDetailSearchChainToken } from '@onekeyhq/kit/src/views/Market/utils/marketSearchList';
+import {
+  applyMarketSectionPreview,
+  isDetailSearchChainToken,
+} from '@onekeyhq/kit/src/views/Market/utils/marketSearchList';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -42,6 +45,7 @@ import {
   TOKEN_SELECTOR_NAME_GAP,
   TOKEN_SELECTOR_ROW_HEIGHT,
   TOKEN_SELECTOR_SEARCH_NAME_COLUMN_WIDTH,
+  TOKEN_SELECTOR_SEARCH_SECTION_GAP,
   TOKEN_SELECTOR_SEARCH_SECTION_PREVIEW_ROWS,
   TOKEN_SELECTOR_SHOW_MORE_HEIGHT,
   TOKEN_SELECTOR_STAR_COLUMN_WIDTH,
@@ -74,6 +78,10 @@ import type {
 
 // With results in more than one section, All previews this many per section.
 const SEARCH_SECTION_PREVIEW_LIMIT = TOKEN_SELECTOR_SEARCH_SECTION_PREVIEW_ROWS;
+// Section keys for the shared All preview rule.
+const STOCK_SECTION_INDEX = 0;
+const TOKEN_SECTION_INDEX = 1;
+const SECTION_TITLE_POSITION = platformEnv.isNative ? 'relative' : 'sticky';
 
 // `VirtualizedList` (web/desktop/extension) pins `ListHeaderComponent` at
 // sticky index 0; FlashList (native) would pin the first row instead.
@@ -90,7 +98,7 @@ const PRICE_CHANGE_FLEX = TOKEN_SELECTOR_METRIC_FLEX.search.priceChange;
 type IMarketSearchToken = IMarketSearchV2Token & {
   networkLogoURI: string;
 };
-type IMarketSearchResultToken = IMarketToken & {
+export type IMarketSearchResultToken = IMarketToken & {
   tokenDetailPreview?: IMarketTokenDetailPreview;
 };
 
@@ -184,9 +192,30 @@ function useSearchStockHeaderCells(): ISelectorHeaderCell[] {
   );
 }
 
-function SectionTitle({ title }: { title: string }) {
+/**
+ * A search All section title. It sticks while its own section is in view; the
+ * desktop search only renders on web, where the shared ScrollView's
+ * `stickyHeaderIndices` cannot reach its children (they sit inside a context
+ * provider), so it sticks through CSS.
+ */
+export function MarketSearchSectionTitle({
+  title,
+  bg = '$bg',
+}: {
+  title: string;
+  // Matches the surface it scrolls over: the selector popover or the
+  // universal search modal.
+  bg?: '$bg' | '$bgApp';
+}) {
   return (
     <SizableText
+      position={SECTION_TITLE_POSITION}
+      top={0}
+      // Above row content that layers itself, like the account avatar
+      // badge (`zIndex="$1"`).
+      zIndex="$2"
+      // Opaque so the rows scroll under it while it sticks.
+      bg={bg}
       px={TOKEN_SELECTOR_CONTENT_GUTTER}
       py="$2"
       size="$headingSm"
@@ -203,7 +232,7 @@ function SectionTitle({ title }: { title: string }) {
  * A full-width row, like Universal Search's Show more, inset to the table so
  * its label starts on the name column's edge.
  */
-function ShowMoreButton({
+export function MarketSearchShowMoreButton({
   testID,
   onPress,
 }: {
@@ -344,7 +373,7 @@ function SkeletonRow() {
  * instead of one pushing the other down when it lands later. It mirrors a
  * section — title, column header, rows — in the tables' exact frame.
  */
-function SearchResultsSkeleton() {
+export function SearchResultsSkeleton() {
   return (
     <YStack pt="$2.5">
       <XStack px={TOKEN_SELECTOR_CONTENT_GUTTER} py="$2">
@@ -480,13 +509,39 @@ const StockSearchRow = memo(
 );
 StockSearchRow.displayName = 'StockSearchRow';
 
-function StockSection({
+/** The stock section's body when its first page failed to load. */
+export function StockSearchError({
+  testID,
+  onRetry,
+}: {
+  testID: string;
+  onRetry: () => void;
+}) {
+  const intl = useIntl();
+  return (
+    <YStack py="$4" alignItems="center" gap="$2">
+      <SizableText color="$textSubdued">
+        {intl.formatMessage({
+          id: ETranslations.global_connet_error_try_again,
+        })}
+      </SizableText>
+      <Button testID={testID} size="small" variant="tertiary" onPress={onRetry}>
+        {intl.formatMessage({ id: ETranslations.global_retry })}
+      </Button>
+    </YStack>
+  );
+}
+
+/** The stock section of a search All tab, shared with universal search. */
+export function MarketSearchStockSection({
   items,
   isError,
   showMore,
   onShowMore,
   onRetry,
   onPress,
+  loadMore,
+  titleBg,
 }: {
   items: IMarketStockPublicItem[];
   isError: boolean;
@@ -494,32 +549,29 @@ function StockSection({
   onShowMore: () => void;
   onRetry: () => void;
   onPress: (item: IMarketStockPublicItem) => void;
+  // Set when the section lists every stock and pages as All scrolls.
+  loadMore?: {
+    isLoadingMore: boolean;
+    isLoadMoreError: boolean;
+    onRetry: () => void;
+  };
+  titleBg?: '$bg' | '$bgApp';
 }) {
   const intl = useIntl();
   const headerCells = useSearchStockHeaderCells();
   return (
-    <YStack pt="$2.5">
-      <SectionTitle
+    <YStack>
+      <MarketSearchSectionTitle
         title={intl.formatMessage({
           id: ETranslations.perps_token_selector_stocks,
         })}
+        bg={titleBg}
       />
       {isError && items.length === 0 ? (
-        <YStack py="$4" alignItems="center" gap="$2">
-          <SizableText color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.global_connet_error_try_again,
-            })}
-          </SizableText>
-          <Button
-            testID="market-token-selector-stock-search-retry"
-            size="small"
-            variant="tertiary"
-            onPress={onRetry}
-          >
-            {intl.formatMessage({ id: ETranslations.global_retry })}
-          </Button>
-        </YStack>
+        <StockSearchError
+          testID="market-token-selector-stock-search-retry"
+          onRetry={onRetry}
+        />
       ) : null}
       {items.length > 0 ? (
         <YStack px={TOKEN_SELECTOR_TABLE_PADDING}>
@@ -535,8 +587,16 @@ function StockSection({
           ))}
         </YStack>
       ) : null}
+      {loadMore ? (
+        <StockLoadMoreFooter
+          isLoadingMore={loadMore.isLoadingMore}
+          isLoadMoreError={loadMore.isLoadMoreError}
+          onRetry={loadMore.onRetry}
+          testID="market-token-selector-stock-search-load-more-retry"
+        />
+      ) : null}
       {showMore ? (
-        <ShowMoreButton
+        <MarketSearchShowMoreButton
           testID="market-token-selector-stock-search-show-more"
           onPress={onShowMore}
         />
@@ -545,25 +605,29 @@ function StockSection({
   );
 }
 
-function TokenSection({
+/** The token section of a search All tab, shared with universal search. */
+export function MarketSearchTokenSection({
   items,
   showMore,
   onShowMore,
   onPress,
+  titleBg,
 }: {
   items: IMarketSearchResultToken[];
   showMore: boolean;
   onShowMore: () => void;
   onPress: (item: IMarketSearchResultToken) => void;
+  titleBg?: '$bg' | '$bgApp';
 }) {
   const intl = useIntl();
   const headerCells = useSearchTokenHeaderCells();
   return (
-    <YStack pt="$2.5">
-      <SectionTitle
+    <YStack>
+      <MarketSearchSectionTitle
         title={intl.formatMessage({
           id: ETranslations.global_universal_search_tabs_tokens,
         })}
+        bg={titleBg}
       />
       {items.length > 0 ? (
         <YStack px={TOKEN_SELECTOR_TABLE_PADDING}>
@@ -585,7 +649,7 @@ function TokenSection({
         </YStack>
       ) : null}
       {showMore ? (
-        <ShowMoreButton
+        <MarketSearchShowMoreButton
           testID="market-token-selector-market-search-show-more"
           onPress={onShowMore}
         />
@@ -607,7 +671,7 @@ const SORT_VALUE_GETTERS: Record<
  * The Tokens tab: every result in search relevance order, with Liquidity,
  * Market cap and 24h volume sortable over the loaded rows.
  */
-function TokenTabList({
+export function TokenTabList({
   items,
   onPress,
 }: {
@@ -699,20 +763,31 @@ function MarketTokenSelectorSearchResults({
 
   const showStockSection = hasStockResults || stockResult.isError;
   const showTokenSection = hasTokenResults;
-  // Only previews when both sections have rows; a lone section lists all.
-  const isPreview = hasStockResults && hasTokenResults;
+  // Only the preview lengths and Show more are read back, so the two
+  // sections' row types need not match.
+  const [stockPreview, tokenPreview] = applyMarketSectionPreview<{
+    tabIndex: number;
+    data: unknown[];
+    sliceData?: unknown[];
+    showMore?: boolean;
+  }>(
+    [
+      { tabIndex: STOCK_SECTION_INDEX, data: stockResult.items },
+      { tabIndex: TOKEN_SECTION_INDEX, data: chainTokenItems },
+    ],
+    {
+      stockTabIndex: STOCK_SECTION_INDEX,
+      tokenTabIndex: TOKEN_SECTION_INDEX,
+      previewLimit: SEARCH_SECTION_PREVIEW_LIMIT,
+      stockCanLoadMore: stockResult.canLoadMore,
+    },
+  );
   // Stocks alone list every page, loading the next one as All scrolls.
   const isLoneStockSection = hasStockResults && !hasTokenResults;
   const handleAllScroll = useStockLoadMoreOnScrollEnd(
     stockResult,
     isLoneStockSection,
   );
-  const stockRows = isPreview
-    ? stockResult.items.slice(0, SEARCH_SECTION_PREVIEW_LIMIT)
-    : stockResult.items;
-  const tokenRows = isPreview
-    ? chainTokenItems.slice(0, SEARCH_SECTION_PREVIEW_LIMIT)
-    : chainTokenItems;
 
   let body: ReactNode;
   if (isSearching) {
@@ -742,48 +817,58 @@ function MarketTokenSelectorSearchResults({
       </YStack>
     );
   } else {
+    // The 10px under the tab bar stays put, as above the Stocks and Tokens
+    // tables; titles stick below it and only the space between sections
+    // scrolls.
     body = (
-      <ScrollView
-        flex={1}
-        contentContainerStyle={{
-          paddingBottom: TOKEN_SELECTOR_LIST_PADDING_BOTTOM,
-        }}
-        onScroll={handleAllScroll}
-        scrollEventThrottle={64}
-      >
-        {showStockSection ? (
-          <StockSection
-            items={stockRows}
-            isError={stockResult.isError}
-            showMore={
-              isPreview &&
-              (stockResult.items.length > SEARCH_SECTION_PREVIEW_LIMIT ||
-                stockResult.canLoadMore)
-            }
-            onShowMore={() => setActiveTab(MARKET_SEARCH_TABS.stocks)}
-            onRetry={() => void stockResult.refresh()}
-            onPress={onStockPress}
-          />
-        ) : null}
-        {isLoneStockSection ? (
-          <StockLoadMoreFooter
-            isLoadingMore={stockResult.isLoadingMore}
-            isLoadMoreError={stockResult.isLoadMoreError}
-            onRetry={() => void stockResult.loadMore()}
-            testID="market-token-selector-stock-search-load-more-retry"
-          />
-        ) : null}
-        {showTokenSection ? (
-          <TokenSection
-            items={tokenRows}
-            showMore={
-              isPreview && chainTokenItems.length > SEARCH_SECTION_PREVIEW_LIMIT
-            }
-            onShowMore={() => setActiveTab(MARKET_SEARCH_TABS.tokens)}
-            onPress={onMarketPress}
-          />
-        ) : null}
-      </ScrollView>
+      <YStack flex={1} pt="$2.5">
+        <ScrollView
+          flex={1}
+          contentContainerStyle={{
+            paddingBottom: TOKEN_SELECTOR_LIST_PADDING_BOTTOM,
+          }}
+          onScroll={handleAllScroll}
+          scrollEventThrottle={64}
+        >
+          {showStockSection ? (
+            <>
+              <MarketSearchStockSection
+                items={stockResult.items.slice(
+                  0,
+                  stockPreview.sliceData?.length,
+                )}
+                isError={stockResult.isError}
+                showMore={Boolean(stockPreview.showMore)}
+                onShowMore={() => setActiveTab(MARKET_SEARCH_TABS.stocks)}
+                onRetry={() => void stockResult.refresh()}
+                onPress={onStockPress}
+                loadMore={
+                  isLoneStockSection
+                    ? {
+                        isLoadingMore: stockResult.isLoadingMore,
+                        isLoadMoreError: stockResult.isLoadMoreError,
+                        onRetry: () => void stockResult.loadMore(),
+                      }
+                    : undefined
+                }
+              />
+            </>
+          ) : null}
+          {showTokenSection ? (
+            <>
+              {showStockSection ? (
+                <Stack height={TOKEN_SELECTOR_SEARCH_SECTION_GAP} />
+              ) : null}
+              <MarketSearchTokenSection
+                items={chainTokenItems.slice(0, tokenPreview.sliceData?.length)}
+                showMore={Boolean(tokenPreview.showMore)}
+                onShowMore={() => setActiveTab(MARKET_SEARCH_TABS.tokens)}
+                onPress={onMarketPress}
+              />
+            </>
+          ) : null}
+        </ScrollView>
+      </YStack>
     );
   }
 

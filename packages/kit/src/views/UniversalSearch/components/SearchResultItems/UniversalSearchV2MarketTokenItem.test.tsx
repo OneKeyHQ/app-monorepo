@@ -12,6 +12,8 @@ import { UniversalSearchV2MarketTokenItem } from './UniversalSearchV2MarketToken
 
 const mockToMarketDetailPage = jest.fn();
 const mockGoBack = jest.fn();
+const mockPush = jest.fn();
+const mockAddIntoRecentSearchList = jest.fn();
 
 jest.mock('@onekeyhq/components', () => {
   const ReactModule = jest.requireActual<typeof import('react')>('react');
@@ -50,7 +52,7 @@ jest.mock('@onekeyhq/components', () => {
 
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
-  default: () => ({ push: jest.fn() }),
+  default: () => ({ push: mockPush }),
 }));
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms', () => ({
@@ -59,7 +61,7 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms', () => ({
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/universalSearch', () => ({
   useUniversalSearchActions: () => ({
-    current: { addIntoRecentSearchList: jest.fn() },
+    current: { addIntoRecentSearchList: mockAddIntoRecentSearchList },
   }),
 }));
 
@@ -225,6 +227,91 @@ describe('UniversalSearchV2MarketTokenItem', () => {
         selectedAt: expect.any(Number),
       }),
     });
+  });
+
+  it('opens asset-only results through their asset id', () => {
+    const item: IUniversalSearchV2MarketToken = {
+      type: EUniversalSearchType.V2MarketToken,
+      payload: {
+        assetId: 'bitcoin',
+        name: 'Bitcoin',
+        price: '65000',
+        symbol: 'BTC',
+        address: '',
+        network: '',
+        logoUrl: '',
+        isNative: false,
+        decimals: 8,
+        liquidity: '0',
+        volume_24h: '0',
+      },
+    };
+
+    const { getByTestId } = render(
+      <UniversalSearchV2MarketTokenItem
+        item={item}
+        getSearchInput={() => 'btc'}
+        source={EUniversalSearchSource.Market}
+      />,
+    );
+
+    fireEvent.click(getByTestId('market-search-result'));
+    act(() => {
+      jest.advanceTimersByTime(100);
+    });
+
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(mockGoBack).toHaveBeenCalledTimes(1);
+    expect(mockToMarketDetailPage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        assetId: 'bitcoin',
+        tokenAddress: '',
+        networkId: '',
+      }),
+    );
+    expect(mockAddIntoRecentSearchList).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'asset:bitcoin', text: 'BTC' }),
+    );
+  });
+
+  it('keeps a chain token on its own chain even when it has an asset id', () => {
+    const item: IUniversalSearchV2MarketToken = {
+      type: EUniversalSearchType.V2MarketToken,
+      payload: {
+        assetId: 'ethereum',
+        name: 'Wrapped Ether',
+        price: '3000',
+        symbol: 'WETH',
+        address: '0xweth',
+        network: 'evm--1',
+        logoUrl: '',
+        isNative: false,
+        decimals: 18,
+        liquidity: '0',
+        volume_24h: '0',
+      },
+    };
+
+    const { getByTestId } = render(
+      <UniversalSearchV2MarketTokenItem
+        item={item}
+        getSearchInput={() => 'weth'}
+        source={EUniversalSearchSource.Market}
+      />,
+    );
+
+    fireEvent.click(getByTestId('market-search-result'));
+    act(() => {
+      jest.advanceTimersByTime(80);
+    });
+
+    expect(mockToMarketDetailPage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        assetId: undefined,
+        tokenAddress: '0xweth',
+        networkId: 'evm--1',
+      }),
+    );
   });
 
   it('opens stock listings from the stock search endpoint', () => {
