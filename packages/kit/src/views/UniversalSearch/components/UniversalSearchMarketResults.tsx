@@ -63,11 +63,7 @@ export function useUniversalSearchSelectorTokens(
       const token = toSelectorSearchToken(item);
       itemByTokenId.set(token.id, item);
       tokens.push(token);
-      entries.push({
-        key: `${item.payload.network}:${item.payload.address}`,
-        raw: item,
-        token,
-      });
+      entries.push({ key: token.id, raw: item, token });
     });
     return { tokens, entries, itemByTokenId };
   }, [items]);
