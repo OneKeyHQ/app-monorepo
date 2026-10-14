@@ -77,7 +77,10 @@ import {
   swapSlippageWillAheadMinValue,
   swapSlippageWillFailMinValue,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
+import type {
+  ISwapSlippageSegmentItem,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
   ESwapProTradeType,
@@ -94,6 +97,7 @@ import { useSwapActivityHubPendingRouteSwapType } from '../../components/Invitee
 import { getSwapActivityHubActionPlacement } from '../../components/InviteeReward/utils';
 import { resolveStockKLineToken } from '../../hooks/swapStockChannelUtils';
 import { useSwapLimitOrdersLocalDataVisibility } from '../../hooks/useSwapLocalDataVisibility';
+import { useSwapMarketDetailToken } from '../../hooks/useSwapMarketDetailToken';
 import { useSwapSlippagePercentageModeInfo } from '../../hooks/useSwapState';
 import { SwapTestIDs } from '../../testIDs';
 import { buildSwapRecipientAddressSettingsUpdate } from '../../utils/incognitoSettings';
@@ -107,7 +111,10 @@ import { prefetchSwapKLineMetadata } from '../modal/swapKLineTokenUtils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import ProviderManageContainer from './ProviderManageContainer';
-import { resolveSwapHeaderMarketDetail } from './swapHeaderMarketDetail';
+import {
+  resolveSwapHeaderMarketDetail,
+  resolveSwapHeaderMarketToken,
+} from './swapHeaderMarketDetail';
 
 import type { IMarketPresetSettingsState } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings';
 
@@ -659,7 +666,6 @@ const StockKLineHeaderButton = ({
   const isNative = stockToken?.isNative;
   const networkId = stockToken?.networkId ?? '';
   const tokenAddress = stockToken?.contractAddress ?? '';
-  const stockId = resolveMarketStockId(stockToken ?? {});
   const network = useMemo(
     () =>
       networkUtils.getNetworkShortCode({
@@ -673,32 +679,36 @@ const StockKLineHeaderButton = ({
     !networkId ||
     (!tokenAddress && !isNative);
 
-  const onOpenStockMarketDetail = useCallback(() => {
-    if (disabled || shouldRedirectOnboardingToTravelMode()) {
-      return;
-    }
-
-    dismissKeyboard();
-    navigation.pushModal(EModalRoutes.SwapModal, {
-      screen: EModalSwapRoutes.SwapProMarketDetail,
-      params: {
-        tokenAddress,
-        network,
-        ...(stockId ? { stockId } : undefined),
-        isNative,
-        from: EEnterWay.SwapPro,
-        disableTrade: true,
-        showFavoriteButton: false,
-      },
-    });
-  }, [disabled, isNative, navigation, network, stockId, tokenAddress]);
+  const openStockMarketDetail = useCallback(
+    (resolvedToken: ISwapToken) => {
+      dismissKeyboard();
+      navigation.pushModal(EModalRoutes.SwapModal, {
+        screen: EModalSwapRoutes.SwapProMarketDetail,
+        params: {
+          tokenAddress,
+          network,
+          stockId: resolveMarketStockId(resolvedToken),
+          isNative,
+          from: EEnterWay.SwapPro,
+          disableTrade: true,
+          showFavoriteButton: false,
+        },
+      });
+    },
+    [isNative, navigation, network, tokenAddress],
+  );
+  const { onOpenMarketDetail, isLoading } = useSwapMarketDetailToken({
+    token: stockToken,
+    onOpen: openStockMarketDetail,
+  });
 
   return (
     <HeaderIconButton
       testID={SwapTestIDs.kLineButton}
       icon="TradingViewCandlesOutline"
-      onPress={onOpenStockMarketDetail}
-      disabled={disabled}
+      onPress={onOpenMarketDetail}
+      disabled={disabled || isLoading}
+      loading={isLoading}
       iconProps={{ size: iconSize, color: iconColor ?? '$icon' }}
       size={buttonSize}
     />
@@ -821,11 +831,11 @@ const MobileSwapKLineHeaderButton = ({
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
-  const marketDetail = useMemo(
+  const marketToken = useMemo(
     () =>
       isPro
-        ? resolveSwapHeaderMarketDetail(swapProSelectToken)
-        : resolveSwapHeaderMarketDetail(toToken, fromToken),
+        ? resolveSwapHeaderMarketToken(swapProSelectToken)
+        : resolveSwapHeaderMarketToken(toToken, fromToken),
     [fromToken, isPro, swapProSelectToken, toToken],
   );
   const toMarketDetail = useToDetailPage({
@@ -834,26 +844,33 @@ const MobileSwapKLineHeaderButton = ({
     from: isPro ? EEnterWay.SwapPro : EEnterWay.Others,
   });
   const toStockDetail = useToMarketStockDetailPage();
-  const disabled = shouldRedirectOnboardingToTravelMode() || !marketDetail;
+  const disabled = shouldRedirectOnboardingToTravelMode() || !marketToken;
 
-  const onOpenMarketDetail = useCallback(() => {
-    if (!marketDetail || shouldRedirectOnboardingToTravelMode()) {
-      return;
-    }
-    dismissKeyboard();
-    if (marketDetail.kind === 'stock') {
-      void toStockDetail(marketDetail.target);
-    } else {
-      void toMarketDetail(marketDetail.target);
-    }
-  }, [marketDetail, toMarketDetail, toStockDetail]);
+  const openMarketDetail = useCallback(
+    async (resolvedToken: ISwapToken) => {
+      const marketDetail = resolveSwapHeaderMarketDetail(resolvedToken);
+      if (!marketDetail) return;
+      dismissKeyboard();
+      if (marketDetail.kind === 'stock') {
+        await toStockDetail(marketDetail.target);
+      } else {
+        await toMarketDetail(marketDetail.target);
+      }
+    },
+    [toMarketDetail, toStockDetail],
+  );
+  const { onOpenMarketDetail, isLoading } = useSwapMarketDetailToken({
+    token: marketToken,
+    onOpen: openMarketDetail,
+  });
 
   return (
     <HeaderIconButton
       testID={SwapTestIDs.kLineButton}
       icon="TradingViewCandlesOutline"
       onPress={onOpenMarketDetail}
-      disabled={disabled}
+      disabled={disabled || isLoading}
+      loading={isLoading}
       iconProps={{ size: iconSize, color: iconColor ?? '$icon' }}
       size={buttonSize}
     />

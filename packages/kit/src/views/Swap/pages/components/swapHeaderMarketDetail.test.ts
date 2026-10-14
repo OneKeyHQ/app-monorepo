@@ -2,6 +2,7 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import {
   resolveSwapHeaderMarketDetail,
+  resolveSwapHeaderMarketToken,
   resolveSwapStockMarketDetailTarget,
   resolveSwapToTokenMarketDetail,
 } from './swapHeaderMarketDetail';
@@ -63,6 +64,16 @@ describe('resolveSwapHeaderMarketDetail', () => {
     expect(resolveSwapHeaderMarketDetail(undefined)).toBeUndefined();
     expect(
       resolveSwapHeaderMarketDetail(buildToken({ symbol: '' })),
+    ).toBeUndefined();
+  });
+
+  it('keeps a legacy stock as the target until its identity resolves instead of opening the pay token', () => {
+    const legacyStock = buildToken({ isStock: true });
+    expect(resolveSwapHeaderMarketToken(legacyStock, fromToken)).toBe(
+      legacyStock,
+    );
+    expect(
+      resolveSwapHeaderMarketDetail(legacyStock, fromToken),
     ).toBeUndefined();
   });
 });
@@ -146,7 +157,7 @@ describe('resolveSwapStockMarketDetailTarget', () => {
     });
   });
 
-  it('falls back to the underlying ticker when stockId is missing', () => {
+  it('does not substitute an underlying ticker for the canonical stock id', () => {
     expect(
       resolveSwapStockMarketDetailTarget(
         buildToken({
@@ -164,13 +175,7 @@ describe('resolveSwapStockMarketDetailTarget', () => {
           },
         }),
       ),
-    ).toEqual({
-      stockId: 'NVDA',
-      symbol: 'NVDA',
-      name: 'NVIDIA',
-      logoUrl: '',
-      isNative: undefined,
-    });
+    ).toBeUndefined();
   });
 
   it('returns undefined without a stock identity', () => {

@@ -599,6 +599,25 @@ describe('swapStockChannelUtils', () => {
     });
   });
 
+  it('backfills the stock id even when the localized subtitle has not changed', () => {
+    const cachedToken = {
+      ...appleStockToken,
+      stock: { subtitle: 'Apple', sourceLogoUri: '' },
+    };
+    expect(
+      resolveStockExecutionTokenMetadata({
+        token: cachedToken,
+        tokenDetail: {
+          ...cachedToken,
+          stock: { ...cachedToken.stock, stockId: 'AAPL' },
+        },
+      }),
+    ).toEqual({
+      ...cachedToken,
+      stock: { ...cachedToken.stock, stockId: 'AAPL' },
+    });
+  });
+
   it('keeps the current token reference when partial Stock detail adds no data', () => {
     const cachedToken = {
       ...appleStockToken,

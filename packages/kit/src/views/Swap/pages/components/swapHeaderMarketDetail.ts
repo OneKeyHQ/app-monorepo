@@ -1,5 +1,7 @@
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
+import { resolveMarketStockId } from '../../../Market/MarketDetailV2/utils/resolveIsStockToken';
+
 export type ISwapToTokenMarketDetail = {
   tokenAddress: string;
   address: string;
@@ -20,19 +22,6 @@ export type ISwapStockMarketDetailTarget = {
   networkId?: string;
   isNative?: boolean;
 };
-
-function readSwapStockMarketId(token: ISwapToken) {
-  // Swap stock payloads often carry the listing ticker without a market stockId.
-  const stockId = token.stock?.stockId?.trim();
-  if (stockId) {
-    return stockId.toUpperCase();
-  }
-  const ticker = token.stock?.underlyingAssetTicker?.trim();
-  if (ticker) {
-    return ticker.toUpperCase();
-  }
-  return undefined;
-}
 
 export function resolveSwapToTokenMarketDetail(
   token: ISwapToken | undefined,
@@ -64,7 +53,7 @@ export function resolveSwapStockMarketDetailTarget(
   if (!token?.isStock) {
     return undefined;
   }
-  const stockId = readSwapStockMarketId(token);
+  const stockId = resolveMarketStockId(token);
   if (!stockId) {
     return undefined;
   }
@@ -88,15 +77,23 @@ export function resolveSwapHeaderMarketDetail(
   | { kind: 'token'; target: ISwapToTokenMarketDetail }
   | { kind: 'stock'; target: ISwapStockMarketDetailTarget }
   | undefined {
-  for (const token of tokens) {
-    const stockTarget = resolveSwapStockMarketDetailTarget(token);
-    if (stockTarget) {
-      return { kind: 'stock', target: stockTarget };
-    }
-    const tokenTarget = resolveSwapToTokenMarketDetail(token);
-    if (tokenTarget) {
-      return { kind: 'token', target: tokenTarget };
-    }
+  const token = resolveSwapHeaderMarketToken(...tokens);
+  if (token?.isStock) {
+    const target = resolveSwapStockMarketDetailTarget(token);
+    return target ? { kind: 'stock', target } : undefined;
   }
-  return undefined;
+  const target = resolveSwapToTokenMarketDetail(token);
+  return target ? { kind: 'token', target } : undefined;
+}
+
+export function resolveSwapHeaderMarketToken(
+  ...tokens: (ISwapToken | undefined)[]
+): ISwapToken | undefined {
+  return tokens.find(
+    (token) =>
+      token &&
+      token.symbol.trim() &&
+      token.networkId.trim() &&
+      (token.contractAddress.trim() || token.isNative),
+  );
 }
