@@ -20784,6 +20784,7 @@
     "packages/kit/src/components/SplitViewPrompt/SplitViewPrompt.tsx": 22110,
     "packages/kit/src/components/SplitViewPrompt/index.ts": 7755,
     "packages/kit/src/components/SplitViewPrompt/showSplitViewPromptDialog.tsx": 19025,
+    "packages/kit/src/components/Spotlight/SpotlightScrollStateContext.ts": 3443,
     "packages/kit/src/components/Spotlight/index.tsx": 9346,
     "packages/kit/src/components/Spotlight/useSpotlightAnchorVisibility.ts": 129,
     "packages/kit/src/components/Spotlight/useSpotlightScrollPause.native.ts": 13034,

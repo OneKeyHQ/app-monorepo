@@ -60,11 +60,11 @@ export function HomeNativePager({
   const theme = useTheme();
   const selectedIndexRef = useRef(selectedIndex);
   const mountedPageKeysRef = useRef<{
-    tabIdentity: string;
+    pageIdentity: string;
     keys: readonly string[];
   } | null>(null);
   const [spotlightScrollState, setSpotlightScrollState] = useState<
-    (ISpotlightScrollState & { tabIdentity: string }) | null
+    (ISpotlightScrollState & { pageIdentity: string }) | null
   >(null);
   const followsPageScrollRef = useRef(true);
   const dragRef = useRef<{
@@ -119,13 +119,12 @@ export function HomeNativePager({
 
   // Dynamic network capabilities may remove or reorder tabs. Restore the
   // selected business key instead of leaving native selection at an old index.
+  const pageIdentity = JSON.stringify(tabs.map((tab) => tab.id));
   const tabIdentity = tabs.map((tab) => `${tab.id}:${tab.name}`).join('|');
   const previousTabIdentity = useRef(tabIdentity);
   useEffect(() => {
     if (previousTabIdentity.current === tabIdentity) return;
     previousTabIdentity.current = tabIdentity;
-    mountedPageKeysRef.current = null;
-    setSpotlightScrollState(null);
     dragRef.current = null;
     const selectedTab = tabs[selectedIndex];
     if (selectedTab && selectedTab.id !== selectedId) {
@@ -183,7 +182,7 @@ export function HomeNativePager({
         >
           <SpotlightScrollStateContext.Provider
             value={
-              spotlightScrollState?.tabIdentity === tabIdentity &&
+              spotlightScrollState?.pageIdentity === pageIdentity &&
               spotlightScrollState.pageKey ===
                 mountedPageKeysRef.current?.keys[selectedIndex]
                 ? spotlightScrollState
@@ -207,30 +206,30 @@ export function HomeNativePager({
       onMountedPagesChanged={({ pageKeys }) => {
         const previous = mountedPageKeysRef.current;
         if (
-          previous?.tabIdentity !== tabIdentity ||
+          previous?.pageIdentity !== pageIdentity ||
           previous.keys.length !== pageKeys.length ||
           previous.keys.some((key, index) => key !== pageKeys[index])
         ) {
           setSpotlightScrollState(null);
         }
-        mountedPageKeysRef.current = { tabIdentity, keys: pageKeys };
+        mountedPageKeysRef.current = { pageIdentity, keys: pageKeys };
       }}
       onCollapsibleStateChanged={({ nativeEvent }) => {
         const mounted = mountedPageKeysRef.current;
         if (
-          mounted?.tabIdentity !== tabIdentity ||
+          mounted?.pageIdentity !== pageIdentity ||
           nativeEvent.position !== selectedIndexRef.current ||
           mounted.keys[nativeEvent.position] !== nativeEvent.pageKey
         )
           return;
         const settled = nativeEvent.headerSettledAtTop;
         setSpotlightScrollState((previous) =>
-          previous?.tabIdentity === tabIdentity &&
+          previous?.pageIdentity === pageIdentity &&
           previous.pageKey === nativeEvent.pageKey &&
           previous.headerSettledAtTop === settled
             ? previous
             : {
-                tabIdentity,
+                pageIdentity,
                 pageKey: nativeEvent.pageKey,
                 headerSettledAtTop: settled,
               },

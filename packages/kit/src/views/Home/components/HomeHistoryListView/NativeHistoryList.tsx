@@ -603,7 +603,8 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
                           },
                         ).text
                       : undefined,
-                    hidden: info?.vault.hideFeeInfoInHistoryList,
+                    hidden:
+                      !info?.vault || !!info.vault.hideFeeInfoInHistoryList,
                   }
                 : undefined,
             };

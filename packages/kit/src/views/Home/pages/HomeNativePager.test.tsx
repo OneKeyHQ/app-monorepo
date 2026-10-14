@@ -17,6 +17,8 @@ import type { ISpotlightScrollState } from '../../../components/Spotlight/Spotli
 import type { LayoutChangeEvent } from 'react-native';
 
 let mockRenderParentHeader = false;
+let mockMountedPageLifecycle = false;
+let mockReadyWithMapping = false;
 let mockParentComponentLookup: ((key: PropertyKey) => unknown) | undefined;
 const mockSetPage = jest.fn();
 const mockSetPageWithoutAnimation = jest.fn();
@@ -76,13 +78,36 @@ jest.mock('react-native-pager-view', () => ({
   CollapsiblePagerView: ({
     ref,
     ...events
-  }: { ref: React.Ref<unknown> } & typeof mockNativeEvents) => {
+  }: {
+    ref: React.Ref<unknown>;
+    children?: React.ReactNode;
+  } & typeof mockNativeEvents) => {
     Object.assign(mockNativeEvents, events);
-    const { useImperativeHandle, useLayoutEffect } =
+    const { useImperativeHandle, useLayoutEffect, useRef } =
       jest.requireActual<typeof import('react')>('react');
+    const mountSignature = useRef('');
     useLayoutEffect(() => {
       if (events.headerHeight !== undefined) {
         mockHeaderHeightCommits.push(events.headerHeight);
+      }
+      if (mockMountedPageLifecycle) {
+        const pageKeys = React.Children.toArray(events.children).map((child) =>
+          String((child as React.ReactElement).key),
+        );
+        const signature = JSON.stringify(pageKeys);
+        if (signature !== mountSignature.current) {
+          mountSignature.current = signature;
+          events.onMountedPagesChanged?.({ pageKeys });
+          if (mockReadyWithMapping)
+            events.onCollapsibleStateChanged?.({
+              nativeEvent: {
+                position: 0,
+                pageKey: pageKeys[0],
+                headerOffset: 0,
+                headerSettledAtTop: true,
+              },
+            });
+        }
       }
     });
     useImperativeHandle(ref, () => ({
@@ -666,6 +691,8 @@ describe('HomePageView complete header authority', () => {
   });
   afterEach(() => {
     mockRenderParentHeader = false;
+    mockMountedPageLifecycle = false;
+    mockReadyWithMapping = false;
   });
   const renderParent = () =>
     render(
@@ -800,6 +827,8 @@ describe('native header Spotlight ownership', () => {
   });
   afterEach(() => {
     mockRenderParentHeader = false;
+    mockMountedPageLifecycle = false;
+    mockReadyWithMapping = false;
   });
 
   it('keeps unknown or mismatched page identities paused', () => {
@@ -870,5 +899,82 @@ describe('native header Spotlight ownership', () => {
       pageKey: pageKeys[3],
       headerSettledAtTop: true,
     });
+  });
+
+  it('preserves a child-committed mapping while tabs are added and removed', () => {
+    mockMountedPageLifecycle = true;
+    const spot = {
+      id: EHomeWalletTab.Portfolio,
+      name: 'Spot',
+      component: null,
+    };
+    const nft = { id: EHomeWalletTab.NFT, name: 'NFT', component: null };
+    const props = {
+      renderHeader: () => <HeaderProbe />,
+      renderTabBar: () => null,
+      onTabChange: jest.fn(),
+    };
+    const screen = render(<HomeNativePager {...props} tabs={[spot]} />);
+    const actualKey = String(
+      (
+        React.Children.toArray([
+          <React.Fragment key={spot.id} />,
+        ])[0] as React.ReactElement
+      ).key,
+    );
+    emitSettled(0, actualKey);
+    expect(currentState?.headerSettledAtTop).toBe(true);
+    for (const tabs of [[spot, nft], [spot]]) {
+      screen.rerender(<HomeNativePager {...props} tabs={tabs} />);
+      emitSettled(0, actualKey);
+      expect(currentState?.headerSettledAtTop).toBe(true);
+    }
+  });
+
+  it('keeps a deduplicated page mapping across label-only changes', () => {
+    mockMountedPageLifecycle = true;
+    const spot = {
+      id: EHomeWalletTab.Portfolio,
+      name: 'Spot',
+      component: null,
+    };
+    const props = {
+      renderHeader: () => <HeaderProbe />,
+      renderTabBar: () => null,
+      onTabChange: jest.fn(),
+    };
+    const screen = render(<HomeNativePager {...props} tabs={[spot]} />);
+    const actualKey = String(
+      (
+        React.Children.toArray([
+          <React.Fragment key={spot.id} />,
+        ])[0] as React.ReactElement
+      ).key,
+    );
+    emitSettled(0, actualKey);
+    screen.rerender(
+      <HomeNativePager {...props} tabs={[{ ...spot, name: 'Portfolio' }]} />,
+    );
+    expect(currentState?.headerSettledAtTop).toBe(true);
+  });
+
+  it('preserves child mapping and readiness committed before the parent effect', () => {
+    mockMountedPageLifecycle = true;
+    mockReadyWithMapping = true;
+    const spot = {
+      id: EHomeWalletTab.Portfolio,
+      name: 'Spot',
+      component: null,
+    };
+    const nft = { id: EHomeWalletTab.NFT, name: 'NFT', component: null };
+    const props = {
+      renderHeader: () => <HeaderProbe />,
+      renderTabBar: () => null,
+      onTabChange: jest.fn(),
+    };
+    const screen = render(<HomeNativePager {...props} tabs={[spot]} />);
+    expect(currentState?.headerSettledAtTop).toBe(true);
+    screen.rerender(<HomeNativePager {...props} tabs={[spot, nft]} />);
+    expect(currentState?.headerSettledAtTop).toBe(true);
   });
 });
