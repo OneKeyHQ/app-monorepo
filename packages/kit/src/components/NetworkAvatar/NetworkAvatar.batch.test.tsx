@@ -5,6 +5,9 @@ import { render } from '@testing-library/react';
 import { NetworkAvatar } from './NetworkAvatar';
 
 const mockGetNetwork = jest.fn(async (_params: unknown) => undefined);
+const mockResolveLogo = jest.fn(
+  (_params: { skipFetch?: boolean }) => 'fixture-preset-or-cached-logo',
+);
 let mockMetadataProvided = false;
 let mockNetworks = {};
 const mockLoaders: Array<() => Promise<unknown>> = [];
@@ -28,7 +31,8 @@ jest.mock('../../background/instance/backgroundApiProxy', () => ({
   },
 }));
 jest.mock('../../hooks/useNetworkLogoUri', () => ({
-  useNetworkLogoUri: () => 'fixture-preset-or-cached-logo',
+  useNetworkLogoUri: (params: { skipFetch?: boolean }) =>
+    mockResolveLogo(params),
 }));
 jest.mock('../../hooks/usePromiseResult', () => ({
   usePromiseResult: (method: () => Promise<unknown>) => {
@@ -51,6 +55,7 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
 beforeEach(() => {
   mockLoaders.length = 0;
   mockGetNetwork.mockClear();
+  mockResolveLogo.mockClear();
   mockMetadataProvided = false;
   mockNetworks = {};
 });
@@ -65,6 +70,9 @@ test('a host-owned empty cache keeps logo rendering without per-avatar metadata 
   );
   await Promise.all(mockLoaders.map((method) => method()));
   expect(mockGetNetwork).not.toHaveBeenCalled();
+  expect(mockResolveLogo).toHaveBeenCalledWith(
+    expect.objectContaining({ skipFetch: true }),
+  );
   expect(
     view.container.querySelectorAll(
       'img[data-src="fixture-preset-or-cached-logo"]',

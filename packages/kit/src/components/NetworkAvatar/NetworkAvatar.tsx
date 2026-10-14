@@ -122,6 +122,7 @@ export function NetworkAvatar({
   const effectiveLogoURI = useNetworkLogoUri({
     logoUri: network?.logoURI,
     networkId,
+    skipFetch: networkMetadataProvided,
   });
 
   if (isCustomNetwork) {
