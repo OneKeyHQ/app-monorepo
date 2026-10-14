@@ -545,14 +545,6 @@ jobs:
           name: desktop-renderer-${{ github.sha }}
           path: ./apps/desktop/app/build/
 
-      - name: Authenticate to AWS for Windows signing
-        if: env.WIN_HSM_SIGNING_ENABLED == 'true'
-        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
-        with:
-          role-to-assume: ${{ secrets.AWS_SIGNING_ROLE_ARN }}
-          aws-region: ap-southeast-1
-          mask-aws-account-id: true
-
       - name: Install Jsign for AWS KMS signing
         if: env.WIN_HSM_SIGNING_ENABLED == 'true'
         shell: pwsh
@@ -586,13 +578,26 @@ jobs:
           yarn build:main
           yarn install-app-deps
 
-      - name: Sign bundled Windows helper executables
+      # Assume the signing role right before packaging, without exporting the
+      # session to the job environment. Only the packaging step below receives
+      # the short-lived credentials, so build steps never see them.
+      - name: Authenticate to AWS for Windows signing
+        id: phase1_aws
         if: env.WIN_HSM_SIGNING_ENABLED == 'true'
-        run: node apps/desktop/scripts/kms-sign-windows.js sign-helpers
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ secrets.AWS_SIGNING_ROLE_ARN }}
+          aws-region: ap-southeast-1
+          mask-aws-account-id: true
+          output-env-credentials: false
+          output-credentials: true
 
       - name: 'Package Windows NSIS'
         id: phase1_nsis
         env:
+          AWS_ACCESS_KEY_ID: ${{ steps.phase1_aws.outputs.aws-access-key-id }}
+          AWS_SECRET_ACCESS_KEY: ${{ steps.phase1_aws.outputs.aws-secret-access-key }}
+          AWS_SESSION_TOKEN: ${{ steps.phase1_aws.outputs.aws-session-token }}
           NODE_OPTIONS: '--max_old_space_size=8192'
           APPLEID: ${{ secrets.APPLEID }}
           APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
@@ -689,11 +694,6 @@ jobs:
 
       # ── Phase 2: Windows Microsoft Store ──
 
-      - name: Restore unsigned helpers for Microsoft Store package
-        id: phase2_restore
-        if: always() && env.WIN_HSM_SIGNING_ENABLED == 'true'
-        run: node apps/desktop/scripts/kms-sign-windows.js restore-helpers
-
       - name: Clean build-electron for WinMS
         if: always()
         shell: pwsh
@@ -709,27 +709,29 @@ jobs:
           cd apps/desktop
           yarn build:main
 
-      - name: Refresh AWS credentials for Windows Store signing
+      # Assume the signing role right before packaging, without exporting the
+      # session to the job environment. Only the packaging step below receives
+      # the short-lived credentials, so build steps never see them.
+      - name: Authenticate to AWS for Windows Store signing
         id: phase2_aws
-        if: always() && env.WIN_HSM_SIGNING_ENABLED == 'true' && steps.phase2_restore.outcome == 'success' && steps.phase2_main.outcome == 'success'
+        if: always() && env.WIN_HSM_SIGNING_ENABLED == 'true' && steps.phase2_main.outcome == 'success'
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ secrets.AWS_SIGNING_ROLE_ARN }}
           aws-region: ap-southeast-1
           mask-aws-account-id: true
+          output-env-credentials: false
+          output-credentials: true
 
-      - name: Sign bundled Windows Store helper executables
-        id: phase2_helpers
+      - name: Reset Windows signing manifest for Microsoft Store package
+        id: phase2_manifest
         if: always() && env.WIN_HSM_SIGNING_ENABLED == 'true' && steps.phase2_aws.outcome == 'success'
         shell: pwsh
-        run: |
-          Remove-Item -LiteralPath (Join-Path $env:RUNNER_TEMP 'onekey-windows-signed.jsonl') -Force -ErrorAction SilentlyContinue
-          node apps/desktop/scripts/kms-sign-windows.js sign-helpers
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        run: Remove-Item -LiteralPath (Join-Path $env:RUNNER_TEMP 'onekey-windows-signed.jsonl') -Force -ErrorAction SilentlyContinue
 
       - name: 'Package Windows Microsoft Store'
         id: phase2_winms
-        if: always() && steps.phase2_main.outcome == 'success' && (env.WIN_HSM_SIGNING_ENABLED != 'true' || steps.phase2_helpers.outcome == 'success')
+        if: always() && steps.phase2_main.outcome == 'success' && (env.WIN_HSM_SIGNING_ENABLED != 'true' || steps.phase2_manifest.outcome == 'success')
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           APPLEID: ${{ secrets.APPLEID }}
@@ -738,6 +740,9 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DESK_CHANNEL: ms-store
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          AWS_ACCESS_KEY_ID: ${{ steps.phase2_aws.outputs.aws-access-key-id }}
+          AWS_SECRET_ACCESS_KEY: ${{ steps.phase2_aws.outputs.aws-secret-access-key }}
+          AWS_SESSION_TOKEN: ${{ steps.phase2_aws.outputs.aws-session-token }}
         run: |
           cd apps/desktop
           $builderArgs = @('electron-builder', 'build', '-w', '--config', 'electron-builder-ms.config.js', '--publish', 'never')
@@ -804,14 +809,14 @@ jobs:
         if: always()
         shell: bash
         run: |
+          [[ "${{ steps.phase1_aws.outcome }}" == "failure" ]] && exit 1
           [[ "${{ steps.phase1_nsis.outcome }}" == "failure" ]] && exit 1
           [[ "${{ steps.phase1_signature.outcome }}" == "failure" ]] && exit 1
           [[ "${{ steps.phase1_runtime_integrity.outcome }}" == "failure" ]] && exit 1
-          [[ "${{ steps.phase2_restore.outcome }}" == "failure" ]] && exit 1
           [[ "${{ steps.phase2_main.outcome }}" == "failure" ]] && exit 1
           [[ "${{ steps.phase2_winms.outcome }}" == "failure" ]] && exit 1
           [[ "${{ steps.phase2_aws.outcome }}" == "failure" ]] && exit 1
-          [[ "${{ steps.phase2_helpers.outcome }}" == "failure" ]] && exit 1
+          [[ "${{ steps.phase2_manifest.outcome }}" == "failure" ]] && exit 1
           [[ "${{ steps.phase2_signature.outcome }}" == "failure" ]] && exit 1
           [[ "${{ steps.phase2_runtime_integrity.outcome }}" == "failure" ]] && exit 1
           exit 0
