@@ -681,6 +681,11 @@ class DesktopApiAppUpdate {
       downloadedFile: record.downloadedFile,
       downloadUrl: record.url,
     };
+    this.emitDownloadedFromEvent();
+  }
+
+  private emitDownloadedFromEvent(): void {
+    if (!this.downloadedEvent) return;
     this.getMainWindow()?.webContents.send(
       ipcMessageKeys.UPDATE_DOWNLOADED,
       this.downloadedEvent,
@@ -701,7 +706,13 @@ class DesktopApiAppUpdate {
     if (this.installInProgress) {
       throw new OneKeyLocalError('App update installation is in progress');
     }
-    if (this.isDownloading) return;
+    if (this.isDownloading) {
+      if (this.activeDownload) {
+        await this.activeDownload;
+        this.emitDownloadedFromEvent();
+      }
+      return;
+    }
     const artifact = this.selectedArtifact;
     if (!artifact)
       throw new OneKeyLocalError('App update artifact was not selected');

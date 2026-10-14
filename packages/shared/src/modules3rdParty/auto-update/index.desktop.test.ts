@@ -14,13 +14,17 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 
 jest.mock('./electronUpdateListeners', () => {
   const onUpdateError = jest.fn();
+  const onDownloaded = jest.fn();
   (globalThis as any).__mockOnUpdateError = onUpdateError;
+  (globalThis as any).__mockOnDownloaded = onDownloaded;
   return {
-    electronUpdateListeners: { onUpdateError },
+    electronUpdateListeners: { onUpdateError, onDownloaded },
   };
 });
 
 describe('desktop app update adapter', () => {
+  const checkForUpdates = jest.fn();
+  const downloadUpdate = jest.fn();
   const getDownloadedFileAvailability = jest.fn();
   const installPackage = jest.fn();
   const manualInstallPackage = jest.fn();
@@ -32,12 +36,21 @@ describe('desktop app update adapter', () => {
       >;
     }
   ).__mockOnUpdateError;
+  const onDownloaded = (
+    globalThis as unknown as {
+      __mockOnDownloaded: jest.MockedFunction<
+        (callback: (params: any) => void) => () => void
+      >;
+    }
+  ).__mockOnDownloaded;
 
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
     (globalThis as any).desktopApiProxy = {
       appUpdate: {
+        checkForUpdates,
+        downloadUpdate,
         getDownloadedFileAvailability,
         installPackage,
         manualInstallPackage,
@@ -47,11 +60,69 @@ describe('desktop app update adapter', () => {
     getDownloadedFileAvailability.mockResolvedValue({ status: 'available' });
     installPackage.mockResolvedValue(true);
     onUpdateError.mockReturnValue(jest.fn());
+    onDownloaded.mockReturnValue(jest.fn());
   });
 
   afterEach(() => {
     jest.runOnlyPendingTimers();
     jest.useRealTimers();
+  });
+
+  test('downloadPackage resolves downloaded event even when downloadedFile is provided and ignores bundle events', async () => {
+    const unsubscribeDownloaded = jest.fn();
+    let emitDownloaded: (params: any) => void = () => {};
+    onDownloaded.mockImplementationOnce((callback) => {
+      emitDownloaded = callback;
+      return unsubscribeDownloaded;
+    });
+    checkForUpdates.mockResolvedValueOnce({ version: '6.6.0' });
+    downloadUpdate.mockImplementationOnce(async () => {
+      // Bundle event should be ignored
+      emitDownloaded({
+        bundleVersion: '100',
+        downloadedFile: '/tmp/bundle.zip',
+      });
+      // App update event should resolve
+      emitDownloaded({
+        version: '6.6.0',
+        downloadedFile: '/tmp/app.zip',
+        downloadUrl: 'https://example.com/app.zip',
+      });
+    });
+
+    const result = await AppUpdate.downloadPackage({
+      downloadedFile: '/tmp/app.zip',
+      latestVersion: '6.6.0',
+    } as any);
+
+    expect(result).toEqual({
+      version: '6.6.0',
+      downloadedFile: '/tmp/app.zip',
+      downloadUrl: 'https://example.com/app.zip',
+    });
+    expect(unsubscribeDownloaded).toHaveBeenCalledTimes(1);
+  });
+
+  test('downloadPackage cleans up onDownloaded listener when onUpdateError rejects', async () => {
+    const unsubscribeDownloaded = jest.fn();
+    onDownloaded.mockReturnValueOnce(unsubscribeDownloaded);
+    let emitUpdateError: (error: Error) => void = () => {};
+    onUpdateError.mockImplementationOnce((callback) => {
+      emitUpdateError = callback;
+      return jest.fn();
+    });
+    checkForUpdates.mockResolvedValueOnce({ version: '6.6.0' });
+    downloadUpdate.mockReturnValueOnce(new Promise(() => {}));
+
+    const promise = AppUpdate.downloadPackage({
+      latestVersion: '6.6.0',
+    } as any);
+    await Promise.resolve();
+    await Promise.resolve();
+    emitUpdateError(new Error('network error'));
+
+    await expect(promise).rejects.toThrow('network error');
+    expect(unsubscribeDownloaded).toHaveBeenCalledTimes(1);
   });
 
   test('waits for both IPC completion and the minimum transition duration', async () => {

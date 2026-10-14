@@ -48,6 +48,20 @@ private enum NitroModuleBridge {
     guard cls.responds(to: selector) else { return nil }
     return cls.perform(selector)?.takeUnretainedValue() as? String
   }
+
+  static func currentBundleVersion() -> String? {
+    guard let cls = NSClassFromString("ReactNativeBundleUpdate.BundleUpdateStore") as? NSObject.Type else { return nil }
+    let selector = NSSelectorFromString("currentBundleVersion")
+    guard cls.responds(to: selector) else { return nil }
+    return cls.perform(selector)?.takeUnretainedValue() as? String
+  }
+
+  static func clearUpdateBundleData() {
+    guard let cls = NSClassFromString("ReactNativeBundleUpdate.BundleUpdateStore") as? NSObject.Type else { return }
+    let selector = NSSelectorFromString("clearUpdateBundleData")
+    guard cls.responds(to: selector) else { return }
+    cls.perform(selector)
+  }
 }
 
 private enum BackgroundThreadBridge {
@@ -236,14 +250,24 @@ class AppDelegate: ExpoAppDelegate {
     let isHarnessMode = defaults.bool(forKey: "onekey_harness_mode")
 
     if !isHarnessMode && newCount >= 3 {
-      // Skip super.application() and React Native initialization entirely.
-      // Create our own window — this replaces the system launch storyboard.
-      // Do NOT call super here: ExpoAppDelegate.super would start the RN engine
-      // and show the Expo splash screen overlay, which would cover recovery UI.
-      window = UIWindow(frame: UIScreen.main.bounds)
-      window?.rootViewController = RecoveryViewController()
-      window?.makeKeyAndVisible()
-      return true
+      if let activeOtaVersion = NitroModuleBridge.currentBundleVersion(), !activeOtaVersion.isEmpty {
+        NitroModuleBridge.clearUpdateBundleData()
+        defaults.set(1, forKey: BootRecoveryKeys.consecutiveBootFailCount)
+        defaults.synchronize()
+        NitroModuleBridge.logInfo(
+          "BootRecovery",
+          "Rolled back active OTA bundle (\(activeOtaVersion)) after \(newCount) consecutive boot failures; continuing normal boot with built-in bundle"
+        )
+      } else {
+        // Skip super.application() and React Native initialization entirely.
+        // Create our own window — this replaces the system launch storyboard.
+        // Do NOT call super here: ExpoAppDelegate.super would start the RN engine
+        // and show the Expo splash screen overlay, which would cover recovery UI.
+        window = UIWindow(frame: UIScreen.main.bounds)
+        window?.rootViewController = RecoveryViewController()
+        window?.makeKeyAndVisible()
+        return true
+      }
     }
 
     // The migration bridge uses MMKV's Objective-C wrapper, whose

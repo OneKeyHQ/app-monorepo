@@ -889,7 +889,7 @@ describe('processPendingInstallTask', () => {
     expect(appUpdateState.fullFlowRetryByTarget?.['2.0.0:1']?.count).toBe(1);
   });
 
-  test('app-install in applied_waiting_verify within grace period is skipped', async () => {
+  test('app-install in applied_waiting_verify immediately fails without grace period when target is not aligned', async () => {
     resetPendingTask({
       taskId: 'appShell:2.0.0:direct',
       revision: 1,
@@ -903,7 +903,7 @@ describe('processPendingInstallTask', () => {
       expiresAt: Date.now() + 60_000,
       retryCount: 0,
       status: 'applied_waiting_verify',
-      runningStartedAt: Date.now() - 60_000, // 1 minute ago, within 10min grace
+      runningStartedAt: Date.now() - 60_000,
       payload: {
         latestVersion: '2.0.0',
         channel: 'direct',
@@ -913,10 +913,11 @@ describe('processPendingInstallTask', () => {
 
     await service.processPendingInstallTask();
 
-    // Task should still be in applied_waiting_verify, not failed
     expect(pendingTaskValue).toMatchObject({
-      status: 'applied_waiting_verify',
+      status: 'pending',
       type: 'app-install',
+      retryCount: 1,
+      lastError: 'VERIFY_AFTER_RESTART_MISMATCH',
     });
   });
 });

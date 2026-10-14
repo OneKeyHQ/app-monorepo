@@ -535,6 +535,20 @@ public class BaseMainApplication extends Application implements ReactApplication
     // triggers recovery. MainLauncherActivity records the user launch and
     // routes to RecoveryActivity without constructing a ReactActivity.
     int windowedFailures = BootRecoveryStore.readWindowedCount(prefs);
+    String activeOtaVersion = BundleUpdateStoreAndroid.INSTANCE.getCurrentBundleVersion(this);
+    if (!isHarnessMode
+        && activeOtaVersion != null
+        && !activeOtaVersion.isEmpty()
+        && windowedFailures >= BootRecoveryKeys.RECOVERY_THRESHOLD - 1) {
+      BundleUpdateStoreAndroid.INSTANCE.clearUpdateBundleData(this);
+      BootRecoveryStore.reset(prefs);
+      windowedFailures = 0;
+      OneKeyLog.info(
+        "BootRecovery",
+        "Rolled back active OTA bundle (" + activeOtaVersion
+          + ") after consecutive boot failures; continuing normal boot with built-in bundle"
+      );
+    }
     shouldShowRecovery = !isHarnessMode
         && windowedFailures >= BootRecoveryKeys.RECOVERY_THRESHOLD;
 

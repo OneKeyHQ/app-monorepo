@@ -949,3 +949,42 @@ test.each([
     );
   },
 );
+
+test('concurrent downloadUpdate calls await activeDownload and emit UPDATE_DOWNLOADED', async () => {
+  const api = createApi('darwin');
+  mockHttpsResponse(feed('6.0.0', [`OneKey-6.0.0-${process.arch}.zip`]));
+  await api.checkForUpdates(false, {}, '6.0.0');
+
+  let finishDownload!: () => void;
+  mockDownloadNodeFile.mockImplementationOnce(
+    async ({ targetPath }: { targetPath: string }) =>
+      new Promise<void>((resolve) => {
+        finishDownload = () => {
+          fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+          fs.writeFileSync(targetPath, mockPackage);
+          resolve();
+        };
+      }),
+  );
+
+  let secondResolved = false;
+  const first = api.downloadUpdate();
+  const second = api.downloadUpdate().then(() => {
+    secondResolved = true;
+  });
+
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  expect(secondResolved).toBe(false);
+
+  finishDownload();
+  await Promise.all([first, second]);
+  expect(secondResolved).toBe(true);
+  expect(mockDownloadNodeFile).toHaveBeenCalledTimes(1);
+  expect(mockMainWindow.webContents.send).toHaveBeenCalledWith(
+    'UPDATE_DOWNLOADED',
+    expect.objectContaining({
+      version: '6.0.0',
+      downloadedFile: expect.stringContaining('.zip'),
+    }),
+  );
+});

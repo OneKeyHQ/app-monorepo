@@ -1442,7 +1442,7 @@ describe('useDownloadPackage', () => {
       expect(appUpd.downloadPackage).not.toHaveBeenCalled();
     });
 
-    test('download returns null → does not call updateDownloadedEvent', async () => {
+    test('download returns null → calls downloadPackageFailed and does not call updateDownloadedEvent', async () => {
       svc.getUpdateInfo.mockResolvedValue({
         latestVersion: '2.0.0',
         downloadUrl: 'https://example.com/app.zip',
@@ -1457,6 +1457,63 @@ describe('useDownloadPackage', () => {
       });
 
       expect(svc.updateDownloadedEvent).not.toHaveBeenCalled();
+      expect(svc.downloadPackageFailed).toHaveBeenCalled();
+    });
+
+    test('reads getDownloadEvent before downloadPackage and aborts when downloadPackage returns false', async () => {
+      const callOrder: string[] = [];
+      svc.getUpdateInfo.mockResolvedValue({
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://example.com/app.zip',
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      svc.getDownloadEvent.mockImplementation(async () => {
+        callOrder.push('getDownloadEvent');
+        return { downloadedFile: '/tmp/resume.zip' };
+      });
+      svc.downloadPackage.mockImplementation(async () => {
+        callOrder.push('downloadPackage');
+        return false;
+      });
+
+      const { result } = renderHook(() => useDownloadPackage());
+
+      await act(async () => {
+        await result.current.downloadPackage();
+      });
+
+      expect(callOrder).toEqual(['getDownloadEvent', 'downloadPackage']);
+      expect(appUpd.downloadPackage).not.toHaveBeenCalled();
+      expect(bundleUpd.downloadBundle).not.toHaveBeenCalled();
+    });
+
+    test('native file-not-found error during verifyPackage recovers instead of wedging in verifyPackageFailed', async () => {
+      mockPlatformEnv.isNative = true;
+      svc.getUpdateInfo.mockResolvedValue({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.verifyPackage,
+        updateStrategy: EUpdateStrategy.seamless,
+      });
+      svc.getDownloadEvent.mockResolvedValue({ downloadedFile: '/tmp/a.apk' });
+      svc.reconcileAppShellPackage.mockResolvedValue({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.notify,
+      });
+      appUpd.verifyPackage.mockRejectedValue(
+        new Error('ENOENT: no such file or directory'),
+      );
+
+      const { result } = renderHook(() => useDownloadPackage());
+      await act(async () => {
+        await result.current.verifyPackage();
+      });
+
+      expect(svc.reconcileAppShellPackage).toHaveBeenCalledWith({
+        forceMissing: true,
+        allowJsBundle: true,
+      });
+      expect(svc.verifyPackageFailed).not.toHaveBeenCalled();
+      mockPlatformEnv.isNative = false;
     });
 
     test('download throws → calls downloadPackageFailed', async () => {
@@ -3881,6 +3938,23 @@ describe('onUpdateActionDirect', () => {
       'AppUpdateModal',
       expect.objectContaining({ screen: 'ManualInstall' }),
     );
+  });
+
+  test('appShell + non-HTTPS storeUrl → does NOT open store url', () => {
+    setAtom({
+      status: EAppUpdateStatus.notify,
+      latestVersion: '2.0.0',
+      storeUrl: 'http://evil.com/store',
+    });
+
+    const hooks = requireFreshHooks();
+    const { result } = renderHook(() => hooks.useAppUpdateInfo(false, false));
+
+    act(() => {
+      result.current.onUpdateActionDirect();
+    });
+
+    expect(mockOpenUrlExternal).not.toHaveBeenCalled();
   });
 });
 

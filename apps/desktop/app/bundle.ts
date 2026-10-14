@@ -75,23 +75,29 @@ export const readMetadataFileSha256 = async (
   if (typeof json?.sha256 !== 'string' || !json.sha256) {
     throw new OneKeyLocalError('Invalid signed metadata sha256');
   }
-  if (json.fileName !== undefined && json.fileName !== 'metadata.json') {
+  if (
+    (expected !== undefined || json.fileName !== undefined) &&
+    json.fileName !== 'metadata.json'
+  ) {
     throw new OneKeyLocalError('Invalid signed metadata fileName');
   }
-  if (json.appType !== undefined && json.appType !== 'electron') {
+  if (
+    (expected !== undefined || json.appType !== undefined) &&
+    json.appType !== 'electron'
+  ) {
     throw new OneKeyLocalError('Invalid signed metadata appType');
   }
   if (
     expected?.appVersion &&
-    json.appVersion !== undefined &&
-    String(json.appVersion) !== String(expected.appVersion)
+    (json.appVersion === undefined ||
+      String(json.appVersion) !== String(expected.appVersion))
   ) {
     throw new OneKeyLocalError('Signed metadata appVersion mismatch');
   }
   if (
     expected?.bundleVersion &&
-    json.bundleVersion !== undefined &&
-    String(json.bundleVersion) !== String(expected.bundleVersion)
+    (json.bundleVersion === undefined ||
+      String(json.bundleVersion) !== String(expected.bundleVersion))
   ) {
     throw new OneKeyLocalError('Signed metadata bundleVersion mismatch');
   }
@@ -298,9 +304,13 @@ export const getBundleIndexHtmlPath = ({
 };
 
 export const checkFileSha512 = (filePath: string, sha512: string) => {
-  const file = fs.readFileSync(filePath);
-  const hash = crypto.createHash('sha512').update(file).digest('hex');
-  return hash === sha512;
+  try {
+    const file = fs.readFileSync(filePath);
+    const hash = crypto.createHash('sha512').update(file).digest('hex');
+    return hash === sha512;
+  } catch {
+    return false;
+  }
 };
 
 const getMetadataFilePath = ({
@@ -333,9 +343,7 @@ export const verifyMetadataFileSha256 = async ({
     bundleVersion,
   });
   logger.info('bundle-verifyBundleASC', metadataFilePath);
-  const targetAppVersion =
-    expectedAppVersion ??
-    (appVersion.startsWith('verify_temp_') ? undefined : appVersion);
+  const targetAppVersion = expectedAppVersion ?? appVersion;
   const metadataFilesSha256 = await readMetadataFileSha256(signature, {
     appVersion: targetAppVersion,
     bundleVersion,
@@ -413,6 +421,7 @@ export const testExtractedSha256FromVerifyAscFile = async () => {
 };
 
 const unmatchedFileDialog = (): void => {
+  clearUpdateBundleData();
   setTimeout(() => {
     void dialog
       .showMessageBox({
@@ -423,6 +432,7 @@ const unmatchedFileDialog = (): void => {
       })
       .then((selection) => {
         if (selection.response === 0) {
+          clearUpdateBundleData();
           app.exit();
         }
       });

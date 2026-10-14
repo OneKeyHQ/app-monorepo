@@ -1463,21 +1463,6 @@ class ServicePendingInstallTask {
           });
           return;
         }
-        // Target not aligned yet — apply grace period before marking failed,
-        // because platformEnv may not be fully initialized right after restart.
-        if (task.runningStartedAt) {
-          const gracePeriodMs = timerUtils.getTimeDurationMs({ minute: 10 });
-          if (now - task.runningStartedAt < gracePeriodMs) {
-            defaultLogger.app.appUpdate.pendingTaskValidation({
-              traceId,
-              requestSeq,
-              isValid: true,
-              invalidReason: 'applied_verify_grace_period',
-              ...this.buildTaskLogFields(task),
-            });
-            return;
-          }
-        }
         defaultLogger.app.appUpdate.pendingVerifyAfterRestart(
           {
             traceId,

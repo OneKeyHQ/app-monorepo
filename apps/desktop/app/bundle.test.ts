@@ -48,6 +48,7 @@ import * as openpgp from 'openpgp';
 import {
   TEST_SIGNATURE,
   calculateSHA256,
+  checkFileHash,
   checkFileSha512,
   getBundleIndexHtmlPath,
   lastSHA256FailureReason,
@@ -211,6 +212,10 @@ describe('checkFileSha512', () => {
       cleanupTempFile(filePath);
     }
   });
+
+  test('returns false without throwing when file does not exist', () => {
+    expect(checkFileSha512('/non/existent/file.js', 'some_hash')).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -269,7 +274,7 @@ describe('testExtractedSha256FromVerifyAscFile', () => {
     ).rejects.toThrow('Signed metadata bundleVersion mismatch');
   });
 
-  test('rejects invalid signed fileName or appType', async () => {
+  test('rejects invalid or missing signed fileName, appType, appVersion, or bundleVersion when expected is provided', async () => {
     const readSpy = jest.spyOn(openpgp, 'readCleartextMessage');
     try {
       readSpy.mockResolvedValueOnce({
@@ -303,10 +308,61 @@ describe('testExtractedSha256FromVerifyAscFile', () => {
       await expect(readMetadataFileSha256('signed-msg')).rejects.toThrow(
         'Invalid signed metadata appType',
       );
+
+      // Missing appVersion when expected.appVersion is provided
+      readSpy.mockResolvedValueOnce({
+        verify: async () => [{ verified: Promise.resolve(true) }],
+        getText: () =>
+          JSON.stringify({
+            fileName: 'metadata.json',
+            sha256:
+              'bf3734ac6e59388fe23c40ce2960b6fd197c596af05dd08b3ccc8b201b78c52b',
+            bundleVersion: '7701116',
+            appType: 'electron',
+          }),
+      } as unknown as openpgp.CleartextMessage);
+      await expect(
+        readMetadataFileSha256('signed-msg', {
+          appVersion: '6.1.0',
+          bundleVersion: '7701116',
+        }),
+      ).rejects.toThrow('Signed metadata appVersion mismatch');
+
+      // Missing bundleVersion when expected.bundleVersion is provided
+      readSpy.mockResolvedValueOnce({
+        verify: async () => [{ verified: Promise.resolve(true) }],
+        getText: () =>
+          JSON.stringify({
+            fileName: 'metadata.json',
+            sha256:
+              'bf3734ac6e59388fe23c40ce2960b6fd197c596af05dd08b3ccc8b201b78c52b',
+            appVersion: '6.1.0',
+            appType: 'electron',
+          }),
+      } as unknown as openpgp.CleartextMessage);
+      await expect(
+        readMetadataFileSha256('signed-msg', {
+          appVersion: '6.1.0',
+          bundleVersion: '7701116',
+        }),
+      ).rejects.toThrow('Signed metadata bundleVersion mismatch');
     } finally {
       readSpy.mockRestore();
     }
   });
+});
+
+test('checkFileHash clears update bundle data when tampered or missing file is detected', () => {
+  jest.mocked(clearUpdateBundleData).mockClear();
+  expect(() =>
+    checkFileHash({
+      bundleDirPath: '/non/existent/bundle/build',
+      metadata: { 'index.html': 'expected_sha512' },
+      driveLetter: '',
+      url: 'index.html',
+    }),
+  ).toThrow('File index.html sha512 mismatch');
+  expect(clearUpdateBundleData).toHaveBeenCalled();
 });
 
 test.each(['../outside', 'bad/version', 'a..b'])(

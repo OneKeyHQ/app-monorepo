@@ -413,6 +413,8 @@ export const processPreLaunchPendingTask = (): boolean => {
     // Extract payload
     const { appVersion, bundleVersion, signature } = task.payload || {};
     if (!appVersion || !bundleVersion || !signature) return false;
+    assertSafeBundleVersion(appVersion);
+    assertSafeBundleVersion(bundleVersion);
 
     // Verify bundle directory and entry file exist
     const bundleDirName = path.join(app.getPath('userData'), 'onekey-bundle');

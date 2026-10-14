@@ -4,6 +4,7 @@ import os from 'os';
 import path from 'path';
 
 import AdmZip from 'adm-zip';
+import * as openpgp from 'openpgp';
 
 import {
   TEST_SIGNATURE,
@@ -98,6 +99,44 @@ const previousNodeEnv = process.env.NODE_ENV;
 let api: DesktopApiBundleUpdate;
 let restartSpy: jest.SpyInstance;
 let sentinel: string;
+
+function prepareValidExtractedBundle(
+  appVersion: string,
+  bundleVersion: string,
+) {
+  const extractDir = getBundleExtractDir({ appVersion, bundleVersion });
+  const buildDir = path.join(extractDir, 'build');
+  fs.mkdirSync(buildDir, { recursive: true });
+  const indexHtmlContent = '<html>valid bundle</html>';
+  fs.writeFileSync(path.join(buildDir, 'index.html'), indexHtmlContent, 'utf8');
+  const indexSha512 = crypto
+    .createHash('sha512')
+    .update(indexHtmlContent)
+    .digest('hex');
+  const metadataContent = JSON.stringify({ 'index.html': indexSha512 });
+  fs.writeFileSync(
+    path.join(extractDir, 'metadata.json'),
+    metadataContent,
+    'utf8',
+  );
+  const metadataSha256 = crypto
+    .createHash('sha256')
+    .update(metadataContent)
+    .digest('hex');
+  jest.spyOn(openpgp, 'readCleartextMessage').mockResolvedValueOnce({
+    verify: async () => [{ verified: Promise.resolve(true) }],
+    getText: () =>
+      JSON.stringify({
+        fileName: 'metadata.json',
+        sha256: metadataSha256,
+        appVersion,
+        bundleVersion,
+        appType: 'electron',
+      }),
+  } as unknown as openpgp.CleartextMessage);
+  return { extractDir, buildDir, metadataSha256 };
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   mockUserData = fs.mkdtempSync(path.join(os.tmpdir(), 'bundle-boundary-'));
@@ -228,12 +267,7 @@ test.each([
       bundleVersion: '123',
       signature: 'signature',
     };
-    fs.mkdirSync(
-      getBundleExtractDir({
-        appVersion: params.latestVersion,
-        bundleVersion: params.bundleVersion,
-      }),
-    );
+    prepareValidExtractedBundle(params.latestVersion, params.bundleVersion);
     mockStore.getFallbackUpdateBundleData.mockReturnValue(fallback);
     await api.installBundle(params);
     expect(mockStore.setUpdateBundleData).toHaveBeenCalledWith({
@@ -248,9 +282,7 @@ test.each([
 );
 
 test('installs a legal bundle and prunes only a validated fallback directory', async () => {
-  fs.mkdirSync(
-    getBundleExtractDir({ appVersion: '6.6.0', bundleVersion: 'new' }),
-  );
+  prepareValidExtractedBundle('6.6.0', 'new');
   const fallback = ['old', 'two', 'three', 'four'].map((bundleVersion) => ({
     appVersion: '6.6.0',
     bundleVersion,
@@ -314,9 +346,7 @@ test('keeps diagnostic methods available only in development builds', async () =
 });
 
 test('keeps legal fallbacks and omits a poisoned active pointer during installation', async () => {
-  fs.mkdirSync(
-    getBundleExtractDir({ appVersion: '6.6.0', bundleVersion: 'new' }),
-  );
+  prepareValidExtractedBundle('6.6.0', 'new');
   const valid = {
     appVersion: '6.6.0',
     bundleVersion: 'old',
@@ -508,4 +538,63 @@ test('verifyBundleASC rejects invalid or replayed PGP signature before full zip 
   expect(
     fs.existsSync(getBundleExtractDir({ appVersion, bundleVersion })),
   ).toBe(false);
+});
+
+test('installBundle rejects mismatched appVersion, missing files, invalid signature, and tampered extracted files before updating store', async () => {
+  // 1. Mismatched appVersion
+  await expect(
+    api.installBundle({
+      latestVersion: '6.5.0',
+      bundleVersion: '100',
+      signature: 'signature',
+    }),
+  ).rejects.toThrow('Bundle appVersion mismatch');
+  expect(mockStore.setUpdateBundleData).not.toHaveBeenCalled();
+
+  // 2. Missing build/index.html
+  const extractDir = getBundleExtractDir({
+    appVersion: '6.6.0',
+    bundleVersion: '100',
+  });
+  fs.mkdirSync(extractDir, { recursive: true });
+  await expect(
+    api.installBundle({
+      latestVersion: '6.6.0',
+      bundleVersion: '100',
+      signature: 'signature',
+    }),
+  ).rejects.toThrow('Bundle index.html not found');
+  expect(mockStore.setUpdateBundleData).not.toHaveBeenCalled();
+
+  // 3. Missing metadata.json
+  const buildDir = path.join(extractDir, 'build');
+  fs.mkdirSync(buildDir, { recursive: true });
+  fs.writeFileSync(path.join(buildDir, 'index.html'), '<html>ok</html>');
+  await expect(
+    api.installBundle({
+      latestVersion: '6.6.0',
+      bundleVersion: '100',
+      signature: 'signature',
+    }),
+  ).rejects.toThrow('metadata.json not found in bundle');
+  expect(mockStore.setUpdateBundleData).not.toHaveBeenCalled();
+
+  // 4. Tampered file in extractDir (TOCTOU between verifyBundleASC and installBundle)
+  const { buildDir: validBuildDir } = prepareValidExtractedBundle(
+    '6.6.0',
+    '101',
+  );
+  fs.writeFileSync(
+    path.join(validBuildDir, 'index.html'),
+    '<html>tampered</html>',
+  );
+  await expect(
+    api.installBundle({
+      latestVersion: '6.6.0',
+      bundleVersion: '101',
+      signature: 'signature',
+    }),
+  ).rejects.toThrow('SHA512 mismatch for file index.html');
+  expect(mockStore.setUpdateBundleData).not.toHaveBeenCalled();
+  expect(restartSpy).not.toHaveBeenCalled();
 });

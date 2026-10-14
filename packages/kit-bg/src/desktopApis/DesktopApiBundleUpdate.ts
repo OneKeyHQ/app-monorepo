@@ -4,6 +4,7 @@ import path from 'path';
 import AdmZip from 'adm-zip';
 import { app } from 'electron';
 import logger from 'electron-log/main';
+import semver from 'semver';
 
 import {
   calculateSHA256,
@@ -952,6 +953,13 @@ class DesktopApiAppBundleUpdate {
       });
       throw new OneKeyLocalError('Invalid parameters');
     }
+    if (!semver.eq(appVersion, app.getVersion())) {
+      logger.error('bundle-install', 'Bundle appVersion mismatch', {
+        appVersion,
+        currentAppVersion: app.getVersion(),
+      });
+      throw new OneKeyLocalError('Bundle appVersion mismatch');
+    }
     const isValidStoredBundle = (
       entry: IDesktopStoreUpdateBundleData | undefined,
     ) => {
@@ -974,7 +982,7 @@ class DesktopApiAppBundleUpdate {
       ? storedFallbacks.filter(isValidStoredBundle)
       : [];
 
-    // Security: Verify bundle directory exists before updating store
+    // Security: Verify bundle directory and integrity before updating store
     const extractDir = getBundleExtractDir({ appVersion, bundleVersion });
     if (!fs.existsSync(extractDir)) {
       logger.error(
@@ -985,6 +993,36 @@ class DesktopApiAppBundleUpdate {
         `Bundle directory not found: ${appVersion}-${bundleVersion}`,
       );
     }
+    const indexHtmlPath = path.join(extractDir, 'build', 'index.html');
+    if (!fs.existsSync(indexHtmlPath)) {
+      logger.error(
+        'bundle-install',
+        `Bundle index.html not found: ${indexHtmlPath}`,
+      );
+      throw new OneKeyLocalError('Bundle index.html not found');
+    }
+    const metadataFilePath = this.getMetadataFilePath({
+      appVersion,
+      bundleVersion,
+    });
+    if (!fs.existsSync(metadataFilePath)) {
+      logger.error(
+        'bundle-install',
+        `metadata.json not found in bundle: ${metadataFilePath}`,
+      );
+      throw new OneKeyLocalError('metadata.json not found in bundle');
+    }
+    if (!allowSkipGPG) {
+      await verifyMetadataFileSha256({
+        appVersion,
+        expectedAppVersion: appVersion,
+        bundleVersion,
+        signature: signature!,
+      });
+    }
+    const metadataContent = fs.readFileSync(metadataFilePath, 'utf8');
+    const metadata = JSON.parse(metadataContent) as Record<string, string>;
+    this.verifyAllExtractedFiles(extractDir, metadata, extractDir);
 
     store.setUpdateBundleData({
       appVersion,

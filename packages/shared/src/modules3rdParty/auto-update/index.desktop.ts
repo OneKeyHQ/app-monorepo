@@ -49,50 +49,45 @@ const withUpdateError = <T>(callback: () => Promise<T>): Promise<T> =>
   });
 
 const downloadPackage: IDownloadPackage = async ({
-  downloadedFile,
   headers,
   latestVersion,
 }) => {
-  const isDownloading =
-    await globalThis.desktopApiProxy.appUpdate.isDownloadingPackage();
-  if (isDownloading) {
-    return;
-  }
-  if (downloadedFile) {
-    const isFileExists =
-      await globalThis.desktopApiProxy.appUpdate.checkDownloadedFileExists(
-        downloadedFile,
-      );
-    if (isFileExists) {
-      return;
-    }
-  }
-  const result = await withUpdateError(async () => {
-    const updateInfo =
-      await globalThis.desktopApiProxy.appUpdate.checkForUpdates(
-        false,
-        headers,
-        latestVersion || '',
-      );
-    if (!updateInfo) {
-      return null;
-    }
-    return new Promise<IUpdateDownloadedEvent>((resolve, reject) => {
-      const onDownloadedSubscription = electronUpdateListeners.onDownloaded?.(
-        (params) => {
-          onDownloadedSubscription?.();
-          resolve(params);
-        },
-      );
-      void globalThis.desktopApiProxy.appUpdate
-        .downloadUpdate()
-        .catch((error) => {
-          onDownloadedSubscription?.();
-          reject(error);
-        });
+  let onDownloadedSubscription: (() => void) | undefined;
+  try {
+    const result = await withUpdateError(async () => {
+      const updateInfo =
+        await globalThis.desktopApiProxy.appUpdate.checkForUpdates(
+          false,
+          headers,
+          latestVersion || '',
+        );
+      if (!updateInfo) {
+        return null;
+      }
+      return new Promise<IUpdateDownloadedEvent>((resolve, reject) => {
+        onDownloadedSubscription = electronUpdateListeners.onDownloaded?.(
+          (params) => {
+            if (params?.bundleVersion) {
+              return;
+            }
+            onDownloadedSubscription?.();
+            onDownloadedSubscription = undefined;
+            resolve(params);
+          },
+        );
+        void globalThis.desktopApiProxy.appUpdate
+          .downloadUpdate()
+          .catch((error) => {
+            onDownloadedSubscription?.();
+            onDownloadedSubscription = undefined;
+            reject(error);
+          });
+      });
     });
-  });
-  return result;
+    return result;
+  } finally {
+    onDownloadedSubscription?.();
+  }
 };
 
 const downloadASC: IDownloadASC = async (params) => {

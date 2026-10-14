@@ -16,6 +16,7 @@ import {
   EAppUpdateStatus,
   EUpdateFileType,
   getUpdateFileType,
+  isAutoUpdateStrategy,
 } from '@onekeyhq/shared/src/appUpdate';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { resolveErrorI18nMessage } from '@onekeyhq/shared/src/errors/utils/electronIpcError';
@@ -54,12 +55,41 @@ import { DownloadGaveUpError, runDownloadWithRetry } from './updateRetry';
 import { isShowToastError } from './updateStrategy';
 
 const MIN_EXECUTION_DURATION = 3000; // 3 seconds minimum execution time
+const PACKAGE_RECOVERY_RETRY_KEY_PREFIX = 'app-shell-package-recovery:';
+const MAX_FULL_FLOW_RETRY = 3;
 
 function isAppShellPackageInvalidError(errorCode?: string) {
   return (
     errorCode === EAppUpdatePackageErrorCode.packageMissing ||
     errorCode === EAppUpdatePackageErrorCode.packageUnavailable ||
     errorCode === EAppUpdatePackageErrorCode.packageNotPrepared
+  );
+}
+
+function isNativeFileNotFoundError(errorCode?: string, error?: unknown) {
+  if (errorCode?.startsWith('HTTP_')) {
+    return false;
+  }
+  if (errorCode === EAppUpdatePackageErrorCode.packageMissing) {
+    return true;
+  }
+  if (
+    errorCode &&
+    /\b(?:FILE_NOT_FOUND|SHA256_FILE_NOT_FOUND|IO_FileNotFoundException)\b/i.test(
+      errorCode,
+    )
+  ) {
+    return true;
+  }
+  const msg =
+    typeof error === 'string'
+      ? error
+      : ((error as { message?: string } | null)?.message ?? '');
+  if (!msg || /^\d{3}$/.test(msg.trim()) || /\bHTTP[\s_]+\d{3}\b/i.test(msg)) {
+    return false;
+  }
+  return /\b(?:FILE_NOT_FOUND|ENOENT|ENOTDIR|NOT_FOUND_PACKAGE|NOT_FOUND_FILE|FileNotFoundException)\b|no such file|does not exist|not found/i.test(
+    msg,
   );
 }
 
@@ -92,28 +122,57 @@ export const useDownloadPackage = () => {
     async ({
       fileType,
       errorCode,
+      error,
       showIncompleteDialog,
     }: {
       fileType: EUpdateFileType;
       errorCode?: string;
+      error?: unknown;
       showIncompleteDialog: boolean;
     }): Promise<EAppUpdateStatus | undefined> => {
-      if (
-        !platformEnv.isDesktop ||
-        fileType !== EUpdateFileType.appShell ||
-        !isAppShellPackageInvalidError(errorCode)
-      ) {
+      const isDesktopAppShellInvalid =
+        platformEnv.isDesktop &&
+        fileType === EUpdateFileType.appShell &&
+        isAppShellPackageInvalidError(errorCode);
+      const isNativeMissingFile =
+        Boolean(platformEnv.isNative) &&
+        Boolean(error) &&
+        isNativeFileNotFoundError(errorCode, error);
+
+      if (!isDesktopAppShellInvalid && !isNativeMissingFile) {
         return undefined;
       }
       try {
         const info =
-          await backgroundApiProxy.serviceAppUpdate.reconcileAppShellPackage();
-        const recoveredStatus =
-          info.status === EAppUpdateStatus.updateIncomplete ||
-          info.status === EAppUpdateStatus.notify ||
-          info.status === EAppUpdateStatus.downloadPackage
+          await backgroundApiProxy.serviceAppUpdate.reconcileAppShellPackage(
+            isNativeMissingFile
+              ? { forceMissing: true, allowJsBundle: true }
+              : undefined,
+          );
+        let recoveredStatus =
+          info?.status === EAppUpdateStatus.updateIncomplete ||
+          info?.status === EAppUpdateStatus.notify ||
+          info?.status === EAppUpdateStatus.downloadPackage
             ? info.status
             : undefined;
+        if (!recoveredStatus && isNativeMissingFile) {
+          const currentInfo =
+            await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+          const isAuto = isAutoUpdateStrategy(currentInfo?.updateStrategy);
+          const targetKey = `${currentInfo?.latestVersion ?? ''}:${
+            currentInfo?.jsBundleVersion ||
+            String(platformEnv.bundleVersion || '')
+          }`;
+          const retryKey = `${PACKAGE_RECOVERY_RETRY_KEY_PREFIX}${targetKey}`;
+          const retryCount =
+            (currentInfo?.fullFlowRetryByTarget?.[retryKey]?.count ?? 0) + 1;
+          if (isAuto && retryCount <= MAX_FULL_FLOW_RETRY) {
+            recoveredStatus = EAppUpdateStatus.notify;
+          } else {
+            await backgroundApiProxy.serviceAppUpdate.resetToInComplete();
+            recoveredStatus = EAppUpdateStatus.updateIncomplete;
+          }
+        }
         if (
           showIncompleteDialog &&
           recoveredStatus === EAppUpdateStatus.updateIncomplete
@@ -168,6 +227,7 @@ export const useDownloadPackage = () => {
         const recoveredStatus = await recoverAppShellPackage({
           fileType,
           errorCode,
+          error: e,
           showIncompleteDialog: false,
         });
         if (recoveredStatus) {
@@ -241,6 +301,7 @@ export const useDownloadPackage = () => {
       const recoveredStatus = await recoverAppShellPackage({
         fileType,
         errorCode,
+        error: e,
         showIncompleteDialog: true,
       });
       if (recoveredStatus) {
@@ -306,6 +367,7 @@ export const useDownloadPackage = () => {
       const recoveredStatus = await recoverAppShellPackage({
         fileType,
         errorCode,
+        error: e,
         showIncompleteDialog: true,
       });
       if (recoveredStatus) {
@@ -376,6 +438,7 @@ export const useDownloadPackage = () => {
       const recoveredStatus = await recoverAppShellPackage({
         fileType,
         errorCode,
+        error: e,
         showIncompleteDialog: true,
       });
       if (recoveredStatus) {
@@ -415,13 +478,17 @@ export const useDownloadPackage = () => {
       );
       const showToastError = isShowToastError(params.updateStrategy);
       try {
-        await backgroundApiProxy.serviceAppUpdate.downloadPackage();
+        const updateEvent =
+          await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
+        const canStart =
+          await backgroundApiProxy.serviceAppUpdate.downloadPackage();
+        if (canStart === false) {
+          return;
+        }
         const { latestVersion, jsBundleVersion, jsBundle, downloadUrl } =
           params;
         const isJsBundle = fileType === EUpdateFileType.jsBundle;
         const skipGPGVerification = await getSkipGPGVerification(isJsBundle);
-        const updateEvent =
-          await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
         const headers = await getRequestHeaders();
         const downloadParams: IDownloadPackageParams = {
           ...updateEvent,
@@ -494,6 +561,9 @@ export const useDownloadPackage = () => {
         );
         defaultLogger.app.appUpdate.endDownload(result || {});
         if (!result) {
+          await backgroundApiProxy.serviceAppUpdate.downloadPackageFailed({
+            message: ETranslations.update_network_exception_check_connection,
+          });
           return;
         }
         await backgroundApiProxy.serviceAppUpdate.updateDownloadedEvent({

@@ -957,18 +957,20 @@ describe('servicePendingInstallTask', () => {
     });
   });
 
-  test('jsbundle-switch in applied_waiting_verify within grace period is skipped', async () => {
+  test('jsbundle-switch in applied_waiting_verify immediately fails without grace period when target is not aligned', async () => {
     const service = createService();
     pendingTaskValue = makeSwitchTask({
       status: 'applied_waiting_verify',
-      runningStartedAt: Date.now() - 60_000, // 1 minute ago, within 10min grace
+      runningStartedAt: Date.now() - 60_000,
     });
 
     await service.processPendingInstallTask();
 
     expect(pendingTaskValue).toMatchObject({
-      status: 'applied_waiting_verify',
+      status: 'pending',
       type: 'jsbundle-switch',
+      retryCount: 1,
+      lastError: 'VERIFY_AFTER_RESTART_MISMATCH',
     });
   });
 

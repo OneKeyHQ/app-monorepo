@@ -1696,6 +1696,59 @@ describe('ServiceAppUpdate state transitions', () => {
         'https://cdn.onekey.so/bundle.zip',
       );
     });
+
+    test('rejects appShell with HTTP downloadUrl', async () => {
+      mockFetchConfigResponse({
+        version: '2.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+        downloadUrl: 'http://evil.com/app.dmg',
+      });
+
+      const result = await service.fetchConfig();
+
+      expect(result).toBeUndefined();
+    });
+
+    test('accepts appShell with HTTPS downloadUrl', async () => {
+      mockFetchConfigResponse({
+        version: '2.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+        downloadUrl: 'https://cdn.onekey.so/app.dmg',
+      });
+
+      const result = await service.fetchConfig();
+
+      expect(result).toBeDefined();
+      expect(result?.downloadUrl).toBe('https://cdn.onekey.so/app.dmg');
+    });
+
+    test('clears non-HTTPS storeUrl', async () => {
+      mockFetchConfigResponse({
+        version: '2.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+        storeUrl: 'http://evil.com/store',
+      });
+
+      const result = await service.fetchConfig();
+
+      expect(result).toBeDefined();
+      expect(result?.storeUrl).toBeUndefined();
+    });
+
+    test('accepts HTTPS storeUrl', async () => {
+      mockFetchConfigResponse({
+        version: '2.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+        storeUrl: 'https://apps.apple.com/app/onekey/id1609559473',
+      });
+
+      const result = await service.fetchConfig();
+
+      expect(result).toBeDefined();
+      expect(result?.storeUrl).toBe(
+        'https://apps.apple.com/app/onekey/id1609559473',
+      );
+    });
   });
 
   // =========================================================================
@@ -1972,7 +2025,7 @@ describe('ServiceAppUpdate state transitions', () => {
       expect(atomValue.summary).toBe('New features');
     });
 
-    test('does not override status when already updating', async () => {
+    test('does not override status or corrupt target metadata when already downloading a non-force update', async () => {
       resetAtom({
         status: EAppUpdateStatus.downloadPackage,
         latestVersion: '2.0.0',
@@ -1987,10 +2040,64 @@ describe('ServiceAppUpdate state transitions', () => {
 
       await service.fetchAppUpdateInfo(true);
 
-      // Status should stay downloadPackage, not change to notify
+      // Status and in-flight target metadata stay intact during active download
       expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackage);
-      // But latestVersion is updated
-      expect(atomValue.latestVersion).toBe('3.0.0');
+      expect(atomValue.latestVersion).toBe('2.0.0');
+    });
+
+    test('preempts ready state to notify and clears downloadedEvent when server returns a different target', async () => {
+      resetAtom({
+        status: EAppUpdateStatus.ready,
+        latestVersion: '1.0.0',
+        jsBundleVersion: '2',
+        downloadedEvent: {
+          downloadedFile: '/tmp/bundle-2.zip',
+          bundleVersion: '2',
+        },
+        updateAt: 0,
+      });
+      mockLatestInfo({
+        version: '2.0.0',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.dmg',
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+
+      await service.fetchAppUpdateInfo(true);
+
+      expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+      expect(atomValue.latestVersion).toBe('2.0.0');
+      expect(atomValue.jsBundleVersion).toBeUndefined();
+      expect(atomValue.downloadedEvent).toBeUndefined();
+    });
+
+    test('does not overwrite active update or persisted target with staleRemote / no-update response', async () => {
+      resetAtom({
+        status: EAppUpdateStatus.ready,
+        latestVersion: '1.0.0',
+        jsBundleVersion: '5',
+        downloadedEvent: {
+          downloadedFile: '/tmp/bundle-5.zip',
+          bundleVersion: '5',
+        },
+        updateStrategy: EUpdateStrategy.seamless,
+        updateAt: 0,
+      });
+      mockLatestInfo({
+        version: '0.9.0',
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+
+      await service.fetchAppUpdateInfo(true);
+
+      expect(atomValue.status).toBe(EAppUpdateStatus.ready);
+      expect(atomValue.latestVersion).toBe('1.0.0');
+      expect(atomValue.jsBundleVersion).toBe('5');
+      expect(atomValue.downloadedEvent).toEqual({
+        downloadedFile: '/tmp/bundle-5.zip',
+        bundleVersion: '5',
+      });
     });
 
     test('does not reset when no version info from server', async () => {
@@ -2492,7 +2599,7 @@ describe('ServiceAppUpdate state transitions', () => {
       );
     });
 
-    test('simultaneous version + jsBundle update: both fields stored', async () => {
+    test('simultaneous version + jsBundle update: appShellUpdate strips jsBundle fields to prevent target pollution', async () => {
       resetAtom({ status: EAppUpdateStatus.done, updateAt: 0 });
       mockLatestInfo({
         version: '2.0.0',
@@ -2512,10 +2619,8 @@ describe('ServiceAppUpdate state transitions', () => {
 
       expect(atomValue.status).toBe(EAppUpdateStatus.notify);
       expect(atomValue.latestVersion).toBe('2.0.0');
-      expect(atomValue.jsBundleVersion).toBe('3');
-      expect(atomValue.jsBundle?.downloadUrl).toBe(
-        'https://cdn.onekey.so/bundle-v3.zip',
-      );
+      expect(atomValue.jsBundleVersion).toBeUndefined();
+      expect(atomValue.jsBundle).toBeUndefined();
       expect(atomValue.updateStrategy).toBe(EUpdateStrategy.force);
     });
 
@@ -2535,7 +2640,7 @@ describe('ServiceAppUpdate state transitions', () => {
       expect(atomValue.status).toBe(EAppUpdateStatus.done);
     });
 
-    test('skips fetch when pending install task has not executed yet (status=pending)', async () => {
+    test('skips fetch when pending install task has not executed yet and server returns same non-urgent target (status=pending)', async () => {
       resetAtom({ status: EAppUpdateStatus.done, updateAt: 0 });
       resetPendingTask({
         taskId: 'task-v101',
@@ -2556,14 +2661,53 @@ describe('ServiceAppUpdate state transitions', () => {
           signature: 'sig',
         },
       });
-      const mockLatest = jest.spyOn(service, 'getAppLatestInfo');
+      const mockLatest = jest
+        .spyOn(service, 'getAppLatestInfo')
+        .mockResolvedValue({
+          version: '1.0.0',
+          jsBundleVersion: '101',
+          updateStrategy: EUpdateStrategy.seamless,
+        } as any);
 
       await service.fetchAppUpdateInfo(true);
 
-      // Should NOT have called getAppLatestInfo — fetch was skipped
-      expect(mockLatest).not.toHaveBeenCalled();
-      // Atom should remain unchanged
+      expect(mockLatest).toHaveBeenCalled();
+      // Atom should remain unchanged because pending task matches the non-urgent target
       expect(atomValue.status).toBe(EAppUpdateStatus.done);
+    });
+
+    test('preempts pending install task when server returns a newer target or force update', async () => {
+      resetAtom({ status: EAppUpdateStatus.done, updateAt: 0 });
+      resetPendingTask({
+        taskId: 'task-v101',
+        revision: 1,
+        action: EPendingInstallTaskAction.switchBundle,
+        type: EPendingInstallTaskType.jsBundleSwitch,
+        targetAppVersion: '1.0.0',
+        targetBundleVersion: '101',
+        scheduledEnvAppVersion: '1.0.0',
+        scheduledEnvBundleVersion: '1',
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 86_400_000,
+        retryCount: 0,
+        status: EPendingInstallTaskStatus.pending,
+        payload: {
+          appVersion: '1.0.0',
+          bundleVersion: '101',
+          signature: 'sig',
+        },
+      });
+      mockLatestInfo({
+        version: '2.0.0',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.dmg',
+        updateStrategy: EUpdateStrategy.force,
+      });
+
+      await service.fetchAppUpdateInfo(true);
+
+      expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+      expect(atomValue.latestVersion).toBe('2.0.0');
+      expect(atomValue.updateStrategy).toBe(EUpdateStrategy.force);
     });
 
     test('skips fetch when pending install task is running', async () => {

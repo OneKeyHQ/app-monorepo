@@ -793,8 +793,22 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     );
   }
   store.setBootFailAppVersion(currentAppVersion);
-  const bootFailCount = store.incrementConsecutiveBootFailCount();
+  let bootFailCount = store.incrementConsecutiveBootFailCount();
   logger.info('Boot fail count:', bootFailCount, { isSoftRestart });
+  const activeOtaBundleVersion = store.getUpdateBundleData()?.bundleVersion;
+  if (bootFailCount >= 2 && activeOtaBundleVersion) {
+    logger.warn(
+      'Consecutive boot failures detected with active OTA bundle, rolling back to built-in bundle',
+      {
+        bootFailCount,
+        bundleVersion: activeOtaBundleVersion,
+        appVersion: currentAppVersion,
+      },
+    );
+    store.clearUpdateBundleData();
+    store.resetConsecutiveBootFailCount();
+    bootFailCount = store.incrementConsecutiveBootFailCount();
+  }
   if (bootFailCount >= 3) {
     logger.error('Recovery page triggered', {
       crashCount: bootFailCount,
@@ -881,7 +895,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   store.processPreLaunchPendingTask();
   const bundleData = store.getUpdateBundleData();
   logger.info('bundleData >>>> ', bundleData);
-  const bundleIndexHtmlPath = getBundleIndexHtmlPath(bundleData);
+  let bundleIndexHtmlPath = getBundleIndexHtmlPath(bundleData);
   logger.info('bundleIndexHtmlPath >>>> ', bundleIndexHtmlPath);
 
   globalThis.$desktopMainAppFunctions = {
@@ -988,8 +1002,6 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   if (isDevServer && !isDesktopE2EMode) {
     browserWindow.webContents.openDevTools();
   }
-
-  void browserWindow.loadURL(src);
 
   // Set main window reference for OAuth server
   setMainWindowForOAuthServer(browserWindow);
@@ -1613,7 +1625,6 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     let useJsBundle = globalThis.$desktopMainAppFunctions?.useJsBundle?.();
     const bundleDirPath = getBundleDirPath();
     let metadata: Record<string, string> = {};
-    let metadataFailed = false;
     if (bundleDirPath) {
       try {
         metadata = await getMetadata({
@@ -1623,11 +1634,28 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
           signature: bundleData.signature,
         });
       } catch (e) {
-        // GPG verification failed or metadata unreadable — disable JS bundle
-        // so the interceptor falls back to the builtin bundle in the asar.
+        // GPG verification failed or metadata unreadable — clear broken OTA
+        // bundle pointer and disable JS bundle so the interceptor falls back
+        // to the builtin bundle in the asar.
         logger.error('getMetadata failed, falling back to builtin bundle:', e);
+        store.clearUpdateBundleData();
+        bundleIndexHtmlPath = undefined;
         useJsBundle = false;
-        metadataFailed = true;
+        /* eslint-disable no-nested-ternary */
+        src = isPerfCiMode
+          ? formatUrl({
+              pathname: perfIndexHtmlPath,
+              protocol: PROTOCOL,
+              slashes: true,
+            })
+          : isDev
+            ? process.env.DESKTOP_E2E_RENDERER_URL || 'http://localhost:3001/'
+            : formatUrl({
+                pathname: 'index.html',
+                protocol: PROTOCOL,
+                slashes: true,
+              });
+        /* eslint-enable no-nested-ternary */
       }
     }
     uninterceptFileProtocolIfNeeded();
@@ -1652,6 +1680,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
                 'checkFileHash error in js-sdk:',
                 `${key}:  ${filePath} not matched ${sha512}`,
               );
+              store.clearUpdateBundleData();
               throw new OneKeyLocalError(`File ${key} sha512 mismatch`);
             }
             callback(filePath);
@@ -1715,17 +1744,6 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         }
       },
     );
-    // When getMetadata failed, src still points to the bundle path which the
-    // interceptor cannot resolve with useJsBundle=false. Recompute and reload
-    // now that the interceptor is registered and will serve builtin files.
-    if (metadataFailed) {
-      src = formatUrl({
-        pathname: 'index.html',
-        protocol: PROTOCOL,
-        slashes: true,
-      });
-      void browserWindow.loadURL(src);
-    }
     const safelyBrowserWindow = getSafelyBrowserWindow();
     safelyBrowserWindow?.webContents.on(
       'did-fail-load',
@@ -1748,6 +1766,8 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
       },
     );
   }
+
+  void getSafelyBrowserWindow()?.loadURL(src);
 
   // @ts-expect-error
   browserWindow.on('close', (event: Event) => {
@@ -2047,14 +2067,6 @@ app.on('before-quit', (event) => {
 
   if (isMac) {
     destroyTrayManager();
-  }
-
-  // Reset crash counter on graceful shutdown so normal close
-  // is not mistaken for a crash on next boot.
-  // Skip reset when in recovery mode (count >= 3) so recovery is still
-  // offered if the user closes the recovery window without resolving.
-  if (store.getConsecutiveBootFailCount() < 3) {
-    store.resetConsecutiveBootFailCount();
   }
 
   if (systemIdleInterval) {

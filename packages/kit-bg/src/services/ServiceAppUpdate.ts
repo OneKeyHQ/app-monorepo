@@ -422,26 +422,36 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  async reconcileAppShellPackage() {
+  async reconcileAppShellPackage(options?: {
+    forceMissing?: boolean;
+    allowJsBundle?: boolean;
+  }) {
     await this.cleanupUpdateControlState();
     const snapshot = await appUpdatePersistAtom.get();
     if (
       !APP_SHELL_PACKAGE_RECONCILE_STATUSES.has(snapshot.status) ||
       isFirstLaunchAfterUpdated(snapshot) ||
       snapshot.storeUrl ||
-      getUpdateFileType(snapshot) !== EUpdateFileType.appShell
+      (!options?.allowJsBundle &&
+        getUpdateFileType(snapshot) !== EUpdateFileType.appShell)
     ) {
       return snapshot;
     }
 
     let availability: IAppUpdatePackageAvailability;
-    try {
-      availability = await AppUpdate.checkPackageAvailability(snapshot);
-    } catch {
-      defaultLogger.app.appUpdate.log(
-        'reconcileAppShellPackage: package availability check failed',
-      );
-      return snapshot;
+    if (options?.forceMissing) {
+      availability = {
+        status: EAppUpdatePackageAvailabilityStatus.missing,
+      };
+    } else {
+      try {
+        availability = await AppUpdate.checkPackageAvailability(snapshot);
+      } catch {
+        defaultLogger.app.appUpdate.log(
+          'reconcileAppShellPackage: package availability check failed',
+        );
+        return snapshot;
+      }
     }
     if (
       availability.status !== EAppUpdatePackageAvailabilityStatus.missing &&
@@ -513,7 +523,10 @@ class ServiceAppUpdate extends ServiceBase {
       ) {
         const pendingTask = await getPendingInstallTask();
         if (
-          pendingTask?.type === EPendingInstallTaskType.appInstall &&
+          pendingTask &&
+          (pendingTask.type === EPendingInstallTaskType.appInstall ||
+            (options?.allowJsBundle &&
+              pendingTask.type === EPendingInstallTaskType.jsBundleSwitch)) &&
           pendingTask.targetAppVersion === snapshot.latestVersion
         ) {
           await clearPendingInstallTask();
@@ -624,6 +637,27 @@ class ServiceAppUpdate extends ServiceBase {
           ),
         );
         return this.cachedUpdateInfo;
+      }
+      // Security: Validate downloadUrl and storeUrl use HTTPS
+      if (
+        normalizedData.downloadUrl &&
+        !normalizedData.downloadUrl.startsWith('https://')
+      ) {
+        defaultLogger.app.appUpdate.endInstallPackage(
+          false,
+          new Error('downloadUrl must use HTTPS'),
+        );
+        return this.cachedUpdateInfo;
+      }
+      if (
+        normalizedData.storeUrl &&
+        !normalizedData.storeUrl.startsWith('https://')
+      ) {
+        defaultLogger.app.appUpdate.endInstallPackage(
+          false,
+          new Error('storeUrl must use HTTPS'),
+        );
+        normalizedData.storeUrl = undefined;
       }
       // Security: Validate jsBundle fields if present
       if (normalizedData.jsBundle) {
@@ -953,13 +987,13 @@ class ServiceAppUpdate extends ServiceBase {
   ];
 
   @backgroundMethod()
-  public async downloadPackage() {
+  public async downloadPackage(): Promise<boolean> {
     const { status } = await appUpdatePersistAtom.get();
     if (!ServiceAppUpdate.DOWNLOAD_ENTRY_STATUSES.includes(status)) {
       defaultLogger.app.appUpdate.log(
         `downloadPackage: rejected, current status=${status}`,
       );
-      return;
+      return false;
     }
     clearTimeout(downloadTimeoutId);
     clearTimeout(failedRecoveryTimerId);
@@ -976,6 +1010,7 @@ class ServiceAppUpdate extends ServiceBase {
       downloadedEvent: undefined,
       status: EAppUpdateStatus.downloadPackage,
     }));
+    return true;
   }
 
   /**
@@ -1769,20 +1804,17 @@ class ServiceAppUpdate extends ServiceBase {
       // ignore — proceed with normal flow
     }
 
-    // If a pending install task exists but hasn't been executed yet,
-    // skip the fetch to prevent the atom / pending task from being
-    // overwritten with newer server data before the scheduled task runs.
-    // This avoids a race where:
-    //   1. v101 pending task is waiting for next cold start
-    //   2. fetchAppUpdateInfo gets v102, updates atom to v102
-    //   3. App restarts → v101 task executes, but atom says v102
-    // By blocking the fetch, we ensure the pending task completes first.
+    // If a pending install task is currently running, skip the fetch before
+    // hitting the server. When a task is in `pending` state (waiting for next
+    // cold start), still fetch releaseInfo so urgent updates (force, newer
+    // target, rollback) can preempt it, while skipping if the server still
+    // points to the exact same non-urgent pending target.
+    let pendingTask: IPendingInstallTask | undefined;
     try {
-      const pendingTask = await getPendingInstallTask();
+      pendingTask = (await getPendingInstallTask()) ?? undefined;
       if (
         pendingTask &&
-        (pendingTask.status === EPendingInstallTaskStatus.pending ||
-          pendingTask.status === EPendingInstallTaskStatus.running)
+        pendingTask.status === EPendingInstallTaskStatus.running
       ) {
         defaultLogger.app.appUpdate.appUpdateFetchResult({
           traceId,
@@ -1951,16 +1983,52 @@ class ServiceAppUpdate extends ServiceBase {
         return latest;
       }
 
+      if (pendingTask?.status === EPendingInstallTaskStatus.pending) {
+        const isSameTarget =
+          pendingTask.targetAppVersion === releaseInfo.version &&
+          (pendingTask.type === EPendingInstallTaskType.appInstall
+            ? decision.decision === 'appShellUpdate'
+            : pendingTask.targetBundleVersion ===
+              String(releaseInfo.jsBundleVersion || ''));
+        const isForceUpdate =
+          releaseInfo.updateStrategy === EUpdateStrategy.force;
+        const isRollback =
+          decision.decision === 'jsBundleRollback' ||
+          (releaseInfo.jsBundleCount ?? 1) === 0;
+        if (isSameTarget && !isForceUpdate && !isRollback) {
+          const latest = await appUpdatePersistAtom.get();
+          defaultLogger.app.appUpdate.appUpdateFetchResult({
+            traceId,
+            requestSeq,
+            hasReleaseInfo: !!releaseInfo,
+            httpStatus: null,
+            reason: 'skip_pending_task_not_executed',
+            finalStatus: latest.status,
+          });
+          return latest;
+        }
+      }
+
+      const effectiveJsBundleVersion =
+        decision.decision === 'appShellUpdate'
+          ? undefined
+          : releaseInfo.jsBundleVersion || undefined;
+      const effectiveJsBundle =
+        decision.decision === 'appShellUpdate'
+          ? undefined
+          : releaseInfo.jsBundle || undefined;
+
       let shouldUpdate = this.shouldUpdateFromReleaseInfo(
         releaseInfo,
         hasActiveCustomBundle,
       );
+      let blockedByControl = false;
       if (
         (decision.decision === 'jsBundleUpgrade' ||
           decision.decision === 'jsBundleRollback' ||
           decision.decision === 'appShellUpdate') &&
         releaseInfo.version &&
-        (releaseInfo.jsBundleVersion || decision.decision === 'appShellUpdate')
+        (effectiveJsBundleVersion || decision.decision === 'appShellUpdate')
       ) {
         // Must use the same bundleVersion fallback as
         // buildPendingAppShellTask (which uses platformEnv.bundleVersion)
@@ -1969,11 +2037,10 @@ class ServiceAppUpdate extends ServiceBase {
           targetAppVersion: releaseInfo.version,
           targetBundleVersion:
             decision.decision === 'appShellUpdate'
-              ? releaseInfo.jsBundleVersion ||
-                String(platformEnv.bundleVersion || '')
-              : releaseInfo.jsBundleVersion!,
+              ? String(platformEnv.bundleVersion || '')
+              : effectiveJsBundleVersion!,
         });
-        const blockedByControl = await this.shouldSkipTargetByControl(
+        blockedByControl = await this.shouldSkipTargetByControl(
           targetKey,
           traceId,
           requestSeq,
@@ -1993,12 +2060,85 @@ class ServiceAppUpdate extends ServiceBase {
 
       await appUpdatePersistAtom.set((prev) => {
         const isUpdating = prev.status !== EAppUpdateStatus.done;
+        const isFailed = ServiceAppUpdate.FAILED_STATUSES.includes(prev.status);
+        const isRollbackDecision = decision.decision === 'jsBundleRollback';
+        const prevTargetBundle = prev.jsBundleVersion || undefined;
+        const nextTargetBundle = effectiveJsBundleVersion;
+        const isDifferentTarget =
+          prev.latestVersion !== releaseInfo.version ||
+          prevTargetBundle !== nextTargetBundle ||
+          Boolean(prev.isRollbackTarget) !== isRollbackDecision;
+
+        // Bug B: When !shouldUpdate, never overwrite an active update's state
+        // or pollute the persisted atom with invalid/stale/blocked remote data.
+        if (
+          !shouldUpdate &&
+          (isUpdating ||
+            decision.decision === 'invalidRemote' ||
+            decision.decision === 'staleRemote' ||
+            decision.decision === 'invalidLocal' ||
+            blockedByControl)
+        ) {
+          defaultLogger.app.appUpdate.pendingTaskUpsertDecision({
+            traceId,
+            requestSeq,
+            upsertAction: 'noop',
+            reason: 'status_kept',
+            decision: 'no_update',
+            prevStatus: prev.status,
+            nextStatus: prev.status,
+            prevLatestVersion: prev.latestVersion ?? null,
+            nextVersion: prev.latestVersion ?? null,
+            prevBundleVersion: prev.jsBundleVersion ?? null,
+            nextBundleVersion: prev.jsBundleVersion ?? null,
+          });
+          return {
+            ...prev,
+            updateAt: Date.now(),
+          };
+        }
+
+        // Bug C (in-flight transfer): When an active download/verify is in
+        // flight for `prev` and a different non-force target arrives, preserve
+        // `prev` unchanged (only updating `updateAt`) to prevent mid-download
+        // metadata corruption.
+        const isInFlightTransferOrVerify = [
+          EAppUpdateStatus.downloadPackage,
+          EAppUpdateStatus.downloadASC,
+          EAppUpdateStatus.verifyASC,
+          EAppUpdateStatus.verifyPackage,
+        ].includes(prev.status);
+        if (
+          shouldUpdate &&
+          isUpdating &&
+          !isFailed &&
+          isDifferentTarget &&
+          isInFlightTransferOrVerify &&
+          releaseInfo.updateStrategy !== EUpdateStrategy.force
+        ) {
+          defaultLogger.app.appUpdate.pendingTaskUpsertDecision({
+            traceId,
+            requestSeq,
+            upsertAction: 'noop',
+            reason: 'status_kept',
+            decision: 'should_update',
+            prevStatus: prev.status,
+            nextStatus: prev.status,
+            prevLatestVersion: prev.latestVersion ?? null,
+            nextVersion: prev.latestVersion ?? null,
+            prevBundleVersion: prev.jsBundleVersion ?? null,
+            nextBundleVersion: prev.jsBundleVersion ?? null,
+          });
+          return {
+            ...prev,
+            updateAt: Date.now(),
+          };
+        }
 
         // Check if the current state is a failed state and the server has
-        // a newer version than the one we were trying to update to.
+        // a different version/target than the one we were trying to update to.
         // In that case, reset to notify so the user gets the new version
         // instead of retrying a stale download.
-        const isFailed = ServiceAppUpdate.FAILED_STATUSES.includes(prev.status);
         let isDifferentFromAttempted = false;
         if (isFailed && releaseInfo.version && prev.latestVersion) {
           try {
@@ -2018,28 +2158,42 @@ class ServiceAppUpdate extends ServiceBase {
         if (isFailed && !isDifferentFromAttempted) {
           isDifferentFromAttempted = (() => {
             const prevBundle = Number(prev.jsBundleVersion);
-            const remoteBundle = Number(releaseInfo.jsBundleVersion);
-            return (
+            const remoteBundle = Number(effectiveJsBundleVersion);
+            if (
               prev.jsBundleVersion !== null &&
               prev.jsBundleVersion !== undefined &&
-              releaseInfo.jsBundleVersion !== null &&
-              releaseInfo.jsBundleVersion !== undefined &&
+              effectiveJsBundleVersion !== null &&
+              effectiveJsBundleVersion !== undefined &&
               Number.isFinite(prevBundle) &&
-              Number.isFinite(remoteBundle) &&
-              remoteBundle !== prevBundle
-            );
+              Number.isFinite(remoteBundle)
+            ) {
+              return remoteBundle !== prevBundle;
+            }
+            return prevTargetBundle !== nextTargetBundle;
           })();
         }
         const shouldResetFailed = isFailed && isDifferentFromAttempted;
-        // Corrupted/tampered packages must be re-downloaded
+        const shouldPreemptReadyOrPendingTarget =
+          shouldUpdate &&
+          isUpdating &&
+          !isFailed &&
+          isDifferentTarget &&
+          (prev.status === EAppUpdateStatus.ready ||
+            prev.status === EAppUpdateStatus.manualInstall ||
+            prev.status === EAppUpdateStatus.notify);
+        // Corrupted/tampered packages or superseded targets must be re-downloaded
         const shouldClearDownloadedEvent =
-          shouldResetFailed &&
-          (ServiceAppUpdate.VERIFY_FAILED_STATUSES.includes(prev.status) ||
-            prev.status === EAppUpdateStatus.failed ||
-            prev.status === EAppUpdateStatus.updateIncomplete);
+          shouldPreemptReadyOrPendingTarget ||
+          (shouldResetFailed &&
+            (ServiceAppUpdate.VERIFY_FAILED_STATUSES.includes(prev.status) ||
+              prev.status === EAppUpdateStatus.failed ||
+              prev.status === EAppUpdateStatus.updateIncomplete));
 
         const shouldTransitionToNotify =
-          shouldUpdate && (!isUpdating || shouldResetFailed);
+          shouldUpdate &&
+          (!isUpdating ||
+            shouldResetFailed ||
+            shouldPreemptReadyOrPendingTarget);
         const nextStatus = shouldTransitionToNotify
           ? EAppUpdateStatus.notify
           : prev.status;
@@ -2057,8 +2211,7 @@ class ServiceAppUpdate extends ServiceBase {
           prevLatestVersion: prev.latestVersion ?? null,
           nextVersion: releaseInfo.version || prev.latestVersion || null,
           prevBundleVersion: prev.jsBundleVersion ?? null,
-          nextBundleVersion:
-            releaseInfo.jsBundleVersion || prev.jsBundleVersion || null,
+          nextBundleVersion: effectiveJsBundleVersion ?? null,
         });
 
         return {
@@ -2070,19 +2223,22 @@ class ServiceAppUpdate extends ServiceBase {
           downloadUrl: releaseInfo.downloadUrl || undefined,
           changeLog: releaseInfo.changeLog || undefined,
           fileSize: releaseInfo.fileSize,
-          jsBundleVersion: releaseInfo.jsBundleVersion || undefined,
-          jsBundle: releaseInfo.jsBundle || undefined,
+          jsBundleVersion: effectiveJsBundleVersion,
+          jsBundle: effectiveJsBundle,
           summary: releaseInfo?.summary || '',
           latestVersion: releaseInfo.version || prev.latestVersion,
           updateAt: Date.now(),
-          errorText: shouldResetFailed ? undefined : prev.errorText,
+          errorText:
+            shouldResetFailed || shouldPreemptReadyOrPendingTarget
+              ? undefined
+              : prev.errorText,
           downloadedEvent: shouldClearDownloadedEvent
             ? undefined
             : prev.downloadedEvent,
           status: nextStatus,
           // Always refresh based on current decision — a stale flag from a
           // previous rollback would break first-launch detection for upgrades.
-          isRollbackTarget: decision.decision === 'jsBundleRollback',
+          isRollbackTarget: isRollbackDecision,
           previousAppVersion: shouldTransitionToNotify
             ? platformEnv.version
             : prev.previousAppVersion,
@@ -2119,15 +2275,13 @@ class ServiceAppUpdate extends ServiceBase {
         // app-shell fallback to the current bundleVersion stays consistent.
         const autoDownloadTargetKey =
           releaseInfo.version &&
-          (releaseInfo.jsBundleVersion ||
-            decision.decision === 'appShellUpdate')
+          (effectiveJsBundleVersion || decision.decision === 'appShellUpdate')
             ? this.getTargetKey({
                 targetAppVersion: releaseInfo.version,
                 targetBundleVersion:
                   decision.decision === 'appShellUpdate'
-                    ? releaseInfo.jsBundleVersion ||
-                      String(platformEnv.bundleVersion || '')
-                    : releaseInfo.jsBundleVersion!,
+                    ? String(platformEnv.bundleVersion || '')
+                    : effectiveJsBundleVersion!,
               })
             : null;
         const autoDownloadBlocked = autoDownloadTargetKey
@@ -2170,6 +2324,18 @@ class ServiceAppUpdate extends ServiceBase {
         }
       }
     } else {
+      if (pendingTask?.status === EPendingInstallTaskStatus.pending) {
+        const latest = await appUpdatePersistAtom.get();
+        defaultLogger.app.appUpdate.appUpdateFetchResult({
+          traceId,
+          requestSeq,
+          hasReleaseInfo: !!releaseInfo,
+          httpStatus: null,
+          reason: 'skip_pending_task_not_executed',
+          finalStatus: latest.status,
+        });
+        return latest;
+      }
       defaultLogger.app.appUpdate.appUpdateDecisionResolved(
         {
           traceId,
