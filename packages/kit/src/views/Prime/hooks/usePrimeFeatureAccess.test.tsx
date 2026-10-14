@@ -163,15 +163,6 @@ function toastAt(index: number) {
     | undefined;
 }
 
-function pressGetPrimeOf(index: number) {
-  const actions = toastAt(index)?.actions as
-    | ReactElement<{ onPress: () => void }>
-    | undefined;
-  act(() => {
-    actions?.props.onPress();
-  });
-}
-
 describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -722,13 +713,12 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
         }),
       ).resolves.toEqual({ granted: false });
     });
-    // Judged on the local quota: the client sentence, and no dashboard until
-    // "Get Prime" is pressed.
-    expect(mockPushFullModal).not.toHaveBeenCalled();
+    // Judged on the local quota: the dashboard opens with the client
+    // sentence as a toast, without a button.
+    expect(dashboardReason()).toBe('notOpen');
     expect(toastAt(0)?.title).toBe('批量转账暂未开放免费体验');
     expect(toastAt(0)?.message).toBeUndefined();
-    pressGetPrimeOf(0);
-    expect(dashboardReason()).toBe('notOpen');
+    expect(toastAt(0)?.actions).toBeUndefined();
   });
 
   it('lets a logged-in user with no uses left into the page on entry', async () => {
@@ -811,7 +801,7 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
     setSnapshot(undefined);
   });
 
-  it('titles a not-open toast with the client sentence and no body', () => {
+  it('opens the dashboard with a not-open toast and no body', () => {
     const result = renderAccessHook();
 
     act(() => {
@@ -826,11 +816,10 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
       });
     });
 
-    expect(mockPushFullModal).not.toHaveBeenCalled();
+    expect(dashboardReason()).toBe('notOpen');
     expect(toastAt(0)?.title).toBe('地址风险检查暂未开放免费体验');
     expect(toastAt(0)?.message).toBeUndefined();
-    pressGetPrimeOf(0);
-    expect(dashboardReason()).toBe('notOpen');
+    expect(toastAt(0)?.actions).toBeUndefined();
   });
 
   describe('details of an address not checked this month', () => {

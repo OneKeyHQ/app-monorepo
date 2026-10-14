@@ -198,11 +198,12 @@ export function usePrimeFeatureAccess() {
   );
 
   // Feedback after the user actively tried a feature that is exhausted or
-  // not open. Used up: the dashboard opens right away, with a toast saying
-  // why. Not open: a toast with a "Get Prime" button. When the quota is only
-  // held by live reservations of earlier uses, the toast says so instead,
-  // since nothing was used up and it comes back by itself. The server's reservation fields cover every device; an older
-  // server without them falls back to this device's own records.
+  // not open: the dashboard opens right away, with a toast saying why. The
+  // details of an address not checked this month only get the toast. When
+  // the quota is only held by live reservations of earlier uses, the toast
+  // says so instead, since nothing was used up and it comes back by itself.
+  // The server's reservation fields cover every device; an older server
+  // without them falls back to this device's own records.
   const showActiveRejectedFeedback = useCallback(
     ({
       featureId,
@@ -223,16 +224,29 @@ export function usePrimeFeatureAccess() {
       reservation?: IPrimeFreeTrialReservation;
     }) => {
       if (reason === 'notOpen') {
+        // Details of an address not checked this month: the feature itself
+        // is open, so only the toast.
+        if (notOpenReason === 'detailsNotEligible') {
+          showFreeTrialNoticeToast({
+            featureId,
+            notice: { kind: 'detailsNotEligible' },
+            networkId,
+            afterPageExit,
+          });
+          return;
+        }
+        openPrimeDashboard({
+          featureId,
+          networkId,
+          freeTrialReason: 'notOpen',
+          afterPageExit,
+        });
         showFreeTrialNoticeToast({
           featureId,
-          notice: {
-            kind:
-              notOpenReason === 'detailsNotEligible'
-                ? 'detailsNotEligible'
-                : 'notOpen',
-          },
+          notice: { kind: 'notOpen' },
           networkId,
           afterPageExit,
+          withGetPrime: false,
         });
         return;
       }
@@ -437,7 +451,7 @@ export function usePrimeFeatureAccess() {
    * - Prime: granted right away, no free-trial request.
    * - Travel mode: legacy Prime behavior (dashboard).
    * - Logged out: open trial -> log in, then continue; not open -> dashboard.
-   * - Logged-in free user: exhausted / not open -> a toast with "Get Prime",
+   * - Logged-in free user: exhausted / not open -> the dashboard and a toast,
    *   else granted.
    *   With `deferQuotaCheck` (feature entries) a feature without a free
    *   trial opens the dashboard; otherwise the user is let in without a
