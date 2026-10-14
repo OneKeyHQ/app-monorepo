@@ -14,8 +14,11 @@ import { ElectronTranslations } from './i18n';
 import { assertSafeBundleVersion, resolveBundlePath } from './libs/bundlePaths';
 import {
   clearUpdateBundleData,
+  getDevSettingsEnabled,
   getNativeBuildNumber,
   getNativeVersion,
+  getSkipGPGVerification,
+  setNativeVersion,
 } from './libs/store';
 
 export const readMetadataFileSha256 = async (
@@ -274,8 +277,14 @@ export const getBundleIndexHtmlPath = ({
     currentBuildNumber,
     prevBuildNumber,
   );
-  if (!semver.eq(currentAppVersion, prevNativeVersion)) {
+  if (
+    !semver.valid(prevNativeVersion) ||
+    !semver.eq(currentAppVersion, prevNativeVersion) ||
+    !semver.valid(appVersion) ||
+    !semver.eq(currentAppVersion, appVersion)
+  ) {
     clearUpdateBundleData();
+    setNativeVersion?.(currentAppVersion);
     return undefined;
   }
   if (
@@ -367,12 +376,16 @@ export const getMetadata = async ({
   signature: string;
 }): Promise<Record<string, string>> => {
   const metadataPath = path.join(bundleDir, '..', 'metadata.json');
-  // Intentionally global in QA skip-gpg builds: startup metadata verification
-  // follows build-time policy rather than per-request runtime toggles.
   const allowSkipGPG =
-    String(process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION) === 'true';
+    String(process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION) === 'true' &&
+    Boolean(getDevSettingsEnabled?.() && getSkipGPGVerification?.());
   if (!allowSkipGPG) {
-    await verifyMetadataFileSha256({ appVersion, bundleVersion, signature });
+    await verifyMetadataFileSha256({
+      appVersion,
+      expectedAppVersion: app.getVersion(),
+      bundleVersion,
+      signature,
+    });
   }
   const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8')) as Record<
     string,
@@ -450,6 +463,18 @@ export const getDriveLetter = () => {
   const appPath = app.getAppPath();
   return isWin ? appPath.substring(0, 3) : '';
 };
+
+function getOwnMetadataHash(
+  map: Record<string, string> | undefined,
+  k: string,
+): string | undefined {
+  return map &&
+    Object.prototype.hasOwnProperty.call(map, k) &&
+    typeof map[k] === 'string'
+    ? map[k]
+    : undefined;
+}
+
 export const checkFileHash = ({
   bundleDirPath,
   metadata,
@@ -465,28 +490,29 @@ export const checkFileHash = ({
     throw new OneKeyLocalError('Bundle directory path not found');
   }
   const replacedKey = url.replace(/^\/+/, '').trim();
-  let key = replacedKey || 'index.html';
-  // Handle Windows path separators
-  if (isWin) {
-    key = key
-      .replace(/\\/g, '/')
-      .replace(bundleDirPath.replace(/\\/g, '/'), '')
-      .replace(driveLetter, '')
-      .replace('C:/', '');
-
-    // Remove leading slash if present
-    if (key.startsWith('/')) {
-      key = key.replace(/^\/+/, '').trim();
-    }
-  }
-  if (!metadata[key]) {
+  const normalizedBundleDir = bundleDirPath.replace(/\\/g, '/');
+  const normalizedDrive = driveLetter.replace(/\\/g, '/');
+  let key = (replacedKey || 'index.html')
+    .replace(/\\/g, '/')
+    .replace(normalizedBundleDir, '')
+    .replace(normalizedDrive, '')
+    .replace(/^[A-Za-z]:\//, '')
+    .replace(/^\/+/, '')
+    .trim();
+  key = key || 'index.html';
+  if (!getOwnMetadataHash(metadata, key)) {
     logger.info(
       `${key}: File ${url} ${bundleDirPath} not found in metadata.json`,
     );
     key = 'index.html';
   }
-  const sha512 = metadata[key];
-  const filePath = path.join(bundleDirPath, key);
+  const sha512 = getOwnMetadataHash(metadata, key);
+  const resolvedBundleDir = path.resolve(bundleDirPath);
+  const filePath = path.resolve(resolvedBundleDir, key);
+  if (!filePath.startsWith(`${resolvedBundleDir}${path.sep}`)) {
+    unmatchedFileDialog();
+    throw new OneKeyLocalError(`File ${url} is outside bundle directory`);
+  }
   if (!sha512) {
     logger.info(
       'checkFileHash error:',

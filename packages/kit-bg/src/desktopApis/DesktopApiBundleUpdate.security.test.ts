@@ -215,7 +215,7 @@ test('accepts safe versions and derives the download and extraction destinations
     latestVersion: appVersion,
     bundleVersion,
     downloadUrl: 'https://fixture.test/bundle',
-    sha256: 'hash',
+    sha256: 'a'.repeat(64),
   });
   expect(mockDownload.mock.calls[0][0].targetPath).toBe(
     path.join(
@@ -370,25 +370,38 @@ test('keeps legal fallbacks and omits a poisoned active pointer during installat
 });
 
 test('passes URL-independent identity to downloadNodeFile and binds single-flight deduplication to sha256', async () => {
+  const shaFixed = 'a'.repeat(64);
+  const shaA = 'b'.repeat(64);
+  const shaB = 'c'.repeat(64);
+  await expect(
+    api.downloadBundle({
+      latestVersion: '6.6.0',
+      bundleVersion: '123',
+      downloadUrl: 'https://fixture.test/bundle',
+      sha256: 'not-a-valid-sha256',
+    }),
+  ).rejects.toThrow('Invalid parameters');
+  expect(mockDownload).not.toHaveBeenCalled();
+
   await api.downloadBundle({
     latestVersion: '6.6.0',
     bundleVersion: '123',
     downloadUrl: 'https://fixture.test/bundle?token=ephemeral-1',
-    sha256: 'sha256-fixed',
+    sha256: shaFixed,
   });
   await api.downloadBundle({
     latestVersion: '6.6.0',
     bundleVersion: '123',
     downloadUrl: 'https://fixture.test/bundle?token=ephemeral-2',
-    sha256: 'sha256-fixed',
+    sha256: shaFixed,
   });
 
   expect(mockDownload).toHaveBeenCalledTimes(2);
   expect(mockDownload.mock.calls[0][0].identity).toBe(
-    'bundle:6.6.0:123:sha256-fixed',
+    `bundle:6.6.0:123:${shaFixed}`,
   );
   expect(mockDownload.mock.calls[1][0].identity).toBe(
-    'bundle:6.6.0:123:sha256-fixed',
+    `bundle:6.6.0:123:${shaFixed}`,
   );
 
   // Concurrent calls with different sha256 must not piggyback on the same in-flight promise
@@ -404,23 +417,23 @@ test('passes URL-independent identity to downloadNodeFile and binds single-fligh
     latestVersion: '6.6.0',
     bundleVersion: '123',
     downloadUrl: 'https://fixture.test/bundle',
-    sha256: 'sha256-a',
+    sha256: shaA,
   });
   const sameHashRun = api.downloadBundle({
     latestVersion: '6.6.0',
     bundleVersion: '123',
     downloadUrl: 'https://fixture.test/bundle',
-    sha256: 'sha256-a',
+    sha256: shaA,
   });
   const differentHashRun = api.downloadBundle({
     latestVersion: '6.6.0',
     bundleVersion: '123',
     downloadUrl: 'https://fixture.test/bundle',
-    sha256: 'sha256-b',
+    sha256: shaB,
   });
   resolveFirst();
   await Promise.all([firstRun, sameHashRun, differentHashRun]);
-  // 2 from sequential calls + 1 for sha256-a + 1 for sha256-b = 4 calls total
+  // 2 from sequential calls + 1 for shaA + 1 for shaB = 4 calls total
   expect(mockDownload).toHaveBeenCalledTimes(4);
 });
 
@@ -597,4 +610,50 @@ test('installBundle rejects mismatched appVersion, missing files, invalid signat
   ).rejects.toThrow('SHA512 mismatch for file index.html');
   expect(mockStore.setUpdateBundleData).not.toHaveBeenCalled();
   expect(restartSpy).not.toHaveBeenCalled();
+});
+
+test('setCurrentUpdateBundleData rejects missing signature, mismatched appVersion, and tampered extracted files before updating store', async () => {
+  await expect(
+    api.setCurrentUpdateBundleData({
+      appVersion: '6.5.0',
+      bundleVersion: '100',
+      signature: 'signature',
+    }),
+  ).rejects.toThrow('Bundle appVersion mismatch');
+  expect(mockStore.setUpdateBundleData).not.toHaveBeenCalled();
+
+  await expect(
+    api.setCurrentUpdateBundleData({
+      appVersion: '6.6.0',
+      bundleVersion: '100',
+      signature: '',
+    }),
+  ).rejects.toThrow('Bundle signature is required');
+  expect(mockStore.setUpdateBundleData).not.toHaveBeenCalled();
+
+  const { buildDir } = prepareValidExtractedBundle('6.6.0', '200');
+  fs.writeFileSync(path.join(buildDir, 'index.html'), '<html>tampered</html>');
+  await expect(
+    api.setCurrentUpdateBundleData({
+      appVersion: '6.6.0',
+      bundleVersion: '200',
+      signature: 'signature',
+    }),
+  ).rejects.toThrow('SHA512 mismatch for file index.html');
+  expect(mockStore.setUpdateBundleData).not.toHaveBeenCalled();
+  expect(restartSpy).not.toHaveBeenCalled();
+
+  prepareValidExtractedBundle('6.6.0', '201');
+  await api.setCurrentUpdateBundleData({
+    appVersion: '6.6.0',
+    bundleVersion: '201',
+    signature: 'signature',
+  });
+  expect(mockStore.setUpdateBundleData).toHaveBeenCalledWith({
+    appVersion: '6.6.0',
+    bundleVersion: '201',
+    signature: 'signature',
+  });
+  expect(mockStore.setNativeVersion).toHaveBeenCalledWith('6.6.0');
+  expect(restartSpy).toHaveBeenCalledTimes(1);
 });

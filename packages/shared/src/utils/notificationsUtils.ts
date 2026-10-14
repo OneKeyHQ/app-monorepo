@@ -510,6 +510,12 @@ export function parseNotificationPayload(
       if (!payload) {
         return false;
       }
+      if (!isAllowedWebViewUrl(payload)) {
+        defaultLogger.app.error.log(
+          `parseNotificationPayload: blocked unsafe url in openInDapp: ${payload}`,
+        );
+        return false;
+      }
       appEventBus.emit(EAppEventBusNames.ShowNotificationInDappPage, payload);
       return true;
     case ENotificationPushMessageMode.command:

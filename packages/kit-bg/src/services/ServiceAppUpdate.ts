@@ -1296,10 +1296,13 @@ class ServiceAppUpdate extends ServiceBase {
     }
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
-      downloadedEvent: {
-        ...prev.downloadedEvent,
-        downloadUrl,
-      },
+      downloadUrl,
+      downloadedEvent: prev.downloadedEvent
+        ? {
+            ...prev.downloadedEvent,
+            downloadUrl,
+          }
+        : undefined,
     }));
   }
 
@@ -1356,6 +1359,17 @@ class ServiceAppUpdate extends ServiceBase {
       return { refreshed: false };
     }
     const after = await appUpdatePersistAtom.get();
+    const sameTarget =
+      after.latestVersion === before.latestVersion &&
+      (after.jsBundleVersion || '') === (before.jsBundleVersion || '') &&
+      (after.jsBundle?.sha256 || '') === (before.jsBundle?.sha256 || '');
+    if (!sameTarget) {
+      return {
+        refreshed: false,
+        downloadUrl: undefined,
+        jsBundleDownloadUrl: undefined,
+      };
+    }
     const downloadUrl = after.downloadUrl;
     const jsBundleDownloadUrl = after.jsBundle?.downloadUrl;
     // "Refreshed" means we actually have a usable HTTPS URL now AND it changed
@@ -1375,6 +1389,16 @@ class ServiceAppUpdate extends ServiceBase {
     };
   }
 
+  private async assertDevModeEnabled() {
+    if (platformEnv.isDev) {
+      return;
+    }
+    const devSettings = await devSettingsPersistAtom.get();
+    if (!devSettings?.enabled) {
+      throw new OneKeyLocalError('Developer mode is not enabled');
+    }
+  }
+
   // DEV ONLY: seed the app-update atom into an arbitrary scenario so QA can
   // verify the update prompt (dot / desktop button / reminder) and the
   // unified click routing without a real server response or downloaded
@@ -1389,6 +1413,7 @@ class ServiceAppUpdate extends ServiceBase {
     status: EAppUpdateStatus;
     channel?: 'direct' | 'store';
   }) {
+    await this.assertDevModeEnabled();
     const { fileType, updateStrategy, status, channel = 'direct' } = params;
     const isJsBundle = fileType === EUpdateFileType.jsBundle;
     // appShell → bump the app version; jsBundle → keep the app version and
@@ -1929,9 +1954,10 @@ class ServiceAppUpdate extends ServiceBase {
       // jsBundleVersion is omitted (no newer bundle available).
       // In this case, don't treat the absent jsBundleVersion as a
       // rollback signal — the client is already on the latest bundle.
+      // Likewise, when jsBundleCount is omitted (undefined), never treat
+      // the absent jsBundleVersion as a rollback signal.
       if (
-        typeof releaseInfo?.jsBundleCount === 'number' &&
-        releaseInfo.jsBundleCount > 0 &&
+        releaseInfo?.jsBundleCount !== 0 &&
         !releaseInfo.jsBundleVersion
       ) {
         hasActiveCustomBundle = false;
@@ -1969,7 +1995,10 @@ class ServiceAppUpdate extends ServiceBase {
       //   2. targetBundle(0) < currentBundle → true (rollback)
       //   3. Fall into the existing builtin fallback path:
       //      clearPendingInstallTask → resetToBuiltInBundle → restart
-      if (decision.decision === 'jsBundleRollbackToBuiltin') {
+      if (
+        decision.decision === 'jsBundleRollbackToBuiltin' &&
+        releaseInfo.jsBundleCount === 0
+      ) {
         await this.scheduleRollbackToBuiltinTask({
           reason: 'jsBundleRollbackToBuiltin',
           requestSeq,
@@ -2421,6 +2450,7 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   async devFetchBundleVersions() {
+    await this.assertDevModeEnabled();
     return this._devFetchBundleVersions();
   }
 
@@ -2502,6 +2532,7 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   async devFetchBundlesForVersion(version: string) {
+    await this.assertDevModeEnabled();
     return this._devFetchBundlesForVersion(version);
   }
 
@@ -2524,6 +2555,7 @@ class ServiceAppUpdate extends ServiceBase {
       };
     }[]
   > {
+    await this.assertDevModeEnabled();
     const needle = commitHash.trim().toLowerCase();
     if (!needle) return [];
     // Only search the current app version's bundles — dev builds

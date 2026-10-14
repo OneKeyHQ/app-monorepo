@@ -758,6 +758,24 @@ describe('ServiceAppUpdate state transitions', () => {
   });
 
   describe('dev bundle switcher endpoint', () => {
+    beforeEach(() => {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { devSettingsPersistAtom } = require('../states/jotai/atoms/devSettings');
+      devSettingsPersistAtom.get.mockResolvedValue({
+        enabled: true,
+        settings: {},
+      });
+    });
+
+    afterEach(() => {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { devSettingsPersistAtom } = require('../states/jotai/atoms/devSettings');
+      devSettingsPersistAtom.get.mockResolvedValue({
+        enabled: false,
+        settings: {},
+      });
+    });
+
     test('devFetchBundleVersions always uses test utility endpoint', async () => {
       await service.devFetchBundleVersions();
       // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -788,6 +806,32 @@ describe('ServiceAppUpdate state transitions', () => {
           env: 'test',
         }),
       });
+    });
+
+    test('rejects devSimulateUpdate and devFetchBundleVersions when developer mode is disabled', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { devSettingsPersistAtom } = require('../states/jotai/atoms/devSettings');
+      devSettingsPersistAtom.get.mockResolvedValue({
+        enabled: false,
+        settings: {},
+      });
+
+      await expect(
+        service.devSimulateUpdate({
+          fileType: 'appShell' as any,
+          updateStrategy: EUpdateStrategy.manual,
+          status: EAppUpdateStatus.notify,
+        }),
+      ).rejects.toThrow('Developer mode is not enabled');
+      await expect(service.devFetchBundleVersions()).rejects.toThrow(
+        'Developer mode is not enabled',
+      );
+      await expect(service.devFetchBundlesForVersion('7.6.0')).rejects.toThrow(
+        'Developer mode is not enabled',
+      );
+      await expect(service.devSearchBundleByCommit('abc1234')).rejects.toThrow(
+        'Developer mode is not enabled',
+      );
     });
   });
 
@@ -1309,6 +1353,18 @@ describe('ServiceAppUpdate state transitions', () => {
       );
 
       expect(atomValue.downloadedEvent?.downloadUrl).toBeUndefined();
+    });
+
+    test('updates top-level downloadUrl without creating a malformed downloadedEvent when downloadedEvent is undefined', async () => {
+      resetAtom({
+        status: EAppUpdateStatus.notify,
+        downloadedEvent: undefined,
+      });
+
+      await service.updateDownloadUrl('https://cdn.onekey.so/app.dmg');
+
+      expect(atomValue.downloadUrl).toBe('https://cdn.onekey.so/app.dmg');
+      expect(atomValue.downloadedEvent).toBeUndefined();
     });
   });
 
@@ -1998,6 +2054,38 @@ describe('ServiceAppUpdate state transitions', () => {
 
       expect(result.refreshed).toBe(false);
     });
+
+    test('reports refreshed=false when fetchAppUpdateInfo switches to a different target version or bundle sha256', async () => {
+      resetAtom({
+        latestVersion: '2.0.0',
+        jsBundleVersion: '10',
+        downloadUrl: 'https://dl.onekey.so/app-2.0.0?token=stale',
+        jsBundle: {
+          downloadUrl: 'https://dl.onekey.so/bundle-10.zip?token=stale',
+          sha256: 'sha-10',
+        },
+      });
+      jest.spyOn(service, 'fetchAppUpdateInfo').mockImplementation(async () => {
+        atomValue = {
+          ...atomValue,
+          latestVersion: '3.0.0',
+          downloadUrl: 'https://dl.onekey.so/app-3.0.0?token=fresh',
+          jsBundle: {
+            downloadUrl: 'https://dl.onekey.so/bundle-11.zip?token=fresh',
+            sha256: 'sha-11',
+          },
+        };
+        return atomValue;
+      });
+
+      const result = await service.refreshDownloadUrlForRetry();
+
+      expect(result).toEqual({
+        refreshed: false,
+        downloadUrl: undefined,
+        jsBundleDownloadUrl: undefined,
+      });
+    });
   });
 
   // =========================================================================
@@ -2007,6 +2095,50 @@ describe('ServiceAppUpdate state transitions', () => {
     function mockLatestInfo(info: any) {
       jest.spyOn(service, 'getAppLatestInfo').mockResolvedValue(info);
     }
+
+    test('does NOT trigger jsBundleRollbackToBuiltin when jsBundleCount is undefined and custom bundle is active', async () => {
+      const {
+        BundleUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      BundleUpdate.getJsBundlePath.mockResolvedValueOnce('/custom/bundle.js');
+      resetAtom({ status: EAppUpdateStatus.done, updateAt: 0 });
+      mockLatestInfo({
+        version: '1.0.0',
+        jsBundleVersion: undefined,
+        jsBundleCount: undefined,
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+      jest.spyOn(service, 'refreshUpdateStatus').mockResolvedValue(undefined);
+
+      await service.fetchAppUpdateInfo(true);
+
+      expect(pendingInstallTaskValue).toBeUndefined();
+      expect(atomValue.status).toBe(EAppUpdateStatus.done);
+    });
+
+    test('triggers jsBundleRollbackToBuiltin when jsBundleCount is 0 and custom bundle is active', async () => {
+      const {
+        BundleUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      BundleUpdate.getJsBundlePath.mockResolvedValueOnce('/custom/bundle.js');
+      resetAtom({ status: EAppUpdateStatus.done, updateAt: 0 });
+      mockLatestInfo({
+        version: '1.0.0',
+        jsBundleVersion: undefined,
+        jsBundleCount: 0,
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+      jest.spyOn(service, 'refreshUpdateStatus').mockResolvedValue(undefined);
+
+      await service.fetchAppUpdateInfo(true);
+
+      expect(pendingInstallTaskValue).toMatchObject({
+        type: EPendingInstallTaskType.jsBundleSwitch,
+        targetBundleVersion: '0',
+      });
+    });
 
     test('sets notify status when new version is available', async () => {
       resetAtom({ status: EAppUpdateStatus.done, updateAt: 0 });

@@ -35,6 +35,7 @@ let mockTempDir: string;
 const mockApp = Object.assign(new EventEmitter(), {
   getPath: jest.fn(() => mockTempDir),
   getVersion: mockAppGetVersion,
+  isPackaged: false,
   quit: mockAppQuit,
   exit: mockAppExit,
   relaunch: mockAppRelaunch,
@@ -46,6 +47,7 @@ const mockStore = {
   clearASCFile: jest.fn(),
   clearUpdateSettings: jest.fn(),
   getASCFile: jest.fn(() => ''),
+  getDevSettingsEnabled: jest.fn(() => false),
   getUpdateBuildNumber: jest.fn(() => ''),
   getUpdateSettings: jest.fn(() => ({ useTestFeedUrl: false })),
   setASCFile: jest.fn(),
@@ -449,13 +451,13 @@ test('verifies ASC signature and streamed SHA-256 before install', async () => {
   mockReadKey.mockResolvedValue({});
   mockReadCleartextMessage.mockResolvedValue({
     getText: () => `${mockSha256}  ${path.basename(file)}`,
-    verify: async () => [{ verified: Promise.resolve() }],
+    verify: async () => [{ verified: Promise.resolve(true) }],
   });
   expect(await api.verifyASC(params)).toBe(true);
   expect(await api.verifyPackage(params)).toBe(true);
   mockReadCleartextMessage.mockResolvedValueOnce({
     getText: () => `${'0'.repeat(64)}  ${path.basename(file)}`,
-    verify: async () => [{ verified: Promise.resolve() }],
+    verify: async () => [{ verified: Promise.resolve(true) }],
   });
   expect(await api.verifyPackage(params)).toBe(false);
 });
@@ -765,7 +767,7 @@ test('manual AppImage fallback releases the install lock for retry', async () =>
   mockReadKey.mockResolvedValue({});
   mockReadCleartextMessage.mockResolvedValue({
     getText: () => `${mockSha256}  ${path.basename(file)}`,
-    verify: async () => [{ verified: Promise.resolve() }],
+    verify: async () => [{ verified: Promise.resolve(true) }],
   });
   expect(await api.installPackage(params)).toBe(true);
   expect(await api.installPackage(params)).toBe(true);
@@ -780,7 +782,7 @@ test('Linux AppImage without a writable current path offers the verified downloa
   mockReadKey.mockResolvedValue({});
   mockReadCleartextMessage.mockResolvedValue({
     getText: () => `${mockSha256}  ${path.basename(file)}`,
-    verify: async () => [{ verified: Promise.resolve() }],
+    verify: async () => [{ verified: Promise.resolve(true) }],
   });
   expect(await api.installPackage(params)).toBe(true);
   expect(mockOpenPath).toHaveBeenCalledWith(path.dirname(file));
@@ -831,7 +833,7 @@ test('rejects an ASC signed for a different artifact filename', async () => {
   mockReadKey.mockResolvedValue({});
   mockReadCleartextMessage.mockResolvedValue({
     getText: () => `${mockSha256}  OneKey-6.5.0-mac-arm64.zip`,
-    verify: async () => [{ verified: Promise.resolve() }],
+    verify: async () => [{ verified: Promise.resolve(true) }],
   });
   expect(
     await api.verifyFile({
@@ -839,6 +841,35 @@ test('rejects an ASC signed for a different artifact filename', async () => {
       skipGPGVerification: false,
     }),
   ).toBe(false);
+  expect(await api.verifyASC()).toBe(false);
+  expect(
+    await api.verifyASC({
+      ...params,
+      downloadedFile: '/tmp/OneKey-6.5.0-mac-arm64.zip',
+      skipGPGVerification: false,
+    }),
+  ).toBe(false);
+});
+
+test('rejects feed artifact filename that does not contain selectedVersion and guards useTestUpdateFeedUrl in packaged builds', async () => {
+  const api = createApi('darwin');
+  mockHttpsResponse(feed('6.0.0', [`OneKey-5.9.9-${process.arch}.zip`]));
+  await expect(api.checkForUpdates(false, {}, '6.0.0')).rejects.toThrow(
+    'App update feed version mismatch',
+  );
+
+  mockApp.isPackaged = true;
+  mockStore.getDevSettingsEnabled.mockReturnValue(false);
+  await api.useTestUpdateFeedUrl(true);
+  expect(mockStore.setUpdateSettings).not.toHaveBeenCalled();
+
+  mockStore.getDevSettingsEnabled.mockReturnValue(true);
+  await api.useTestUpdateFeedUrl(true);
+  expect(mockStore.setUpdateSettings).toHaveBeenCalledWith({
+    useTestFeedUrl: true,
+  });
+  mockApp.isPackaged = false;
+  mockStore.getDevSettingsEnabled.mockReturnValue(false);
 });
 
 test('Linux AppImage handoff cleans up marker even if APPIMAGE moved and falls back to copyFile on EXDEV', async () => {

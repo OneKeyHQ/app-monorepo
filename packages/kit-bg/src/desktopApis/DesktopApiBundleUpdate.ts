@@ -233,7 +233,10 @@ class DesktopApiAppBundleUpdate {
   private isSkipGPGAllowed(skipGPGVerification?: boolean) {
     return (
       process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION === 'true' &&
-      Boolean(skipGPGVerification)
+      Boolean(
+        skipGPGVerification ||
+          (store.getDevSettingsEnabled?.() && store.getSkipGPGVerification?.()),
+      )
     );
   }
 
@@ -288,9 +291,9 @@ class DesktopApiAppBundleUpdate {
 
   // The destination zip path for a (appVersion, bundleVersion) pair.
   private getDestZipPath(
-    params: Pick<IDownloadPackageParams, 'latestVersion' | 'bundleVersion'>,
+    params?: Pick<IDownloadPackageParams, 'latestVersion' | 'bundleVersion'>,
   ): string | null {
-    const { latestVersion: appVersion, bundleVersion } = params;
+    const { latestVersion: appVersion, bundleVersion } = params || {};
     assertSafeBundleVersion(appVersion);
     assertSafeBundleVersion(bundleVersion);
     return resolveBundlePath(
@@ -308,15 +311,18 @@ class DesktopApiAppBundleUpdate {
     params: IDownloadPackageParams,
   ): Promise<IUpdateDownloadedEvent> {
     while (this.cacheClearPromise) await this.cacheClearPromise;
-    const destKey = this.getDestZipPath(params);
+    const safeParams = params || ({} as IDownloadPackageParams);
+    const destKey = this.getDestZipPath(safeParams);
     const inFlightDownloadKey =
-      destKey && params.sha256
-        ? `${params.latestVersion}:${params.bundleVersion}:${params.sha256}`
+      destKey &&
+      typeof safeParams.sha256 === 'string' &&
+      /^[a-fA-F0-9]{64}$/.test(safeParams.sha256)
+        ? `${safeParams.latestVersion}:${safeParams.bundleVersion}:${safeParams.sha256}`
         : null;
     // No usable key (missing version/sha256 params): skip single-flight bookkeeping
     // and let the downstream validation produce the canonical error.
     if (!destKey || !inFlightDownloadKey) {
-      return this.runDownloadBundle(params);
+      return this.runDownloadBundle(safeParams);
     }
     const existing = this.inflightDownloads.get(inFlightDownloadKey);
     if (existing) {
@@ -326,7 +332,7 @@ class DesktopApiAppBundleUpdate {
       );
       return existing;
     }
-    const run = this.runDownloadBundle(params).finally(() => {
+    const run = this.runDownloadBundle(safeParams).finally(() => {
       this.inflightDownloads.delete(inFlightDownloadKey);
       this.cancelByDest.delete(destKey);
     });
@@ -345,8 +351,14 @@ class DesktopApiAppBundleUpdate {
       sha256,
       fileSize,
       headers,
-    } = params;
-    if (!latestVersion || !bundleVersion || !downloadUrl || !sha256) {
+    } = params || {};
+    if (
+      !latestVersion ||
+      !bundleVersion ||
+      !downloadUrl ||
+      typeof sha256 !== 'string' ||
+      !/^[a-fA-F0-9]{64}$/.test(sha256)
+    ) {
       throw new OneKeyLocalError('Invalid parameters');
     }
     const filePath = this.getDestZipPath(params);
@@ -1088,10 +1100,49 @@ class DesktopApiAppBundleUpdate {
   async setCurrentUpdateBundleData(
     updateBundleData: IDesktopStoreUpdateBundleData,
   ) {
-    assertSafeBundleVersion(updateBundleData?.appVersion);
-    assertSafeBundleVersion(updateBundleData?.bundleVersion);
+    const { appVersion, bundleVersion, signature } = updateBundleData || {};
+    assertSafeBundleVersion(appVersion);
+    assertSafeBundleVersion(bundleVersion);
+    if (!semver.valid(appVersion) || !semver.eq(appVersion, app.getVersion())) {
+      throw new OneKeyLocalError('Bundle appVersion mismatch');
+    }
+    const allowSkipGPG = this.isSkipGPGAllowed(false);
+    if (!allowSkipGPG && !signature) {
+      throw new OneKeyLocalError('Bundle signature is required');
+    }
+    const extractDir = getBundleExtractDir({ appVersion, bundleVersion });
+    if (!fs.existsSync(extractDir)) {
+      throw new OneKeyLocalError(
+        `Bundle directory not found: ${appVersion}-${bundleVersion}`,
+      );
+    }
+    const indexHtmlPath = path.join(extractDir, 'build', 'index.html');
+    if (!fs.existsSync(indexHtmlPath)) {
+      throw new OneKeyLocalError('Bundle index.html not found');
+    }
+    const metadataFilePath = this.getMetadataFilePath({
+      appVersion,
+      bundleVersion,
+    });
+    if (!fs.existsSync(metadataFilePath)) {
+      throw new OneKeyLocalError('metadata.json not found in bundle');
+    }
+    if (!allowSkipGPG) {
+      await verifyMetadataFileSha256({
+        appVersion,
+        expectedAppVersion: appVersion,
+        bundleVersion,
+        signature: signature!,
+      });
+    }
+    const metadataContent = fs.readFileSync(metadataFilePath, 'utf8');
+    const metadata = JSON.parse(metadataContent) as Record<string, string>;
+    this.verifyAllExtractedFiles(extractDir, metadata, extractDir);
+
     store.setUpdateBundleData(updateBundleData);
-    if (updateBundleData.appVersion && updateBundleData.bundleVersion) {
+    store.setNativeVersion(app.getVersion());
+    store.setNativeBuildNumber(process.env.BUILD_NUMBER ?? '');
+    if (appVersion && bundleVersion) {
       await this.restartAppForBundleUpdate();
     }
   }

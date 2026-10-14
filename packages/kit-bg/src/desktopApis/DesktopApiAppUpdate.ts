@@ -208,6 +208,9 @@ function selectArtifact(
   if (!fileName || fileName === '.' || fileName === '..') {
     throw new OneKeyLocalError('App update artifact name is invalid');
   }
+  if (!fileName.includes(selectedVersion)) {
+    throw new OneKeyLocalError('App update feed version mismatch');
+  }
   return {
     version: feed.version,
     releaseDate: feed.releaseDate || '',
@@ -897,7 +900,12 @@ class DesktopApiAppUpdate {
       const message = await readCleartextMessage({ cleartextMessage: asc });
       const key = await readKey({ armoredKey: PUBLIC_KEY });
       const signatures = await message.verify([key]);
-      await signatures[0].verified;
+      const valid = Boolean(signatures[0]) && (await signatures[0].verified);
+      if (!valid) {
+        throw new OneKeyLocalError(
+          ElectronTranslations.update_signature_verification_failed_alert_text,
+        );
+      }
       const lines = message
         .getText()
         .trim()
@@ -928,13 +936,16 @@ class DesktopApiAppUpdate {
   }
 
   async verifyASC(params?: IInstallUpdateParams): Promise<boolean> {
-    const expectedFileName = params?.downloadedFile
+    if (this.isSkipGPGAllowed(params?.skipGPGVerification)) return true;
+    const record = this.readRecord();
+    const paramFileName = params?.downloadedFile
       ? path.basename(params.downloadedFile)
       : undefined;
-    return (
-      this.isSkipGPGAllowed(params?.skipGPGVerification) ||
-      Boolean(await this.getSha256(expectedFileName))
-    );
+    if (record?.fileName && paramFileName && paramFileName !== record.fileName) {
+      return false;
+    }
+    const expectedFileName = record?.fileName ?? paramFileName;
+    return Boolean(await this.getSha256(expectedFileName));
   }
 
   private async verifySha256(
@@ -1274,7 +1285,14 @@ class DesktopApiAppUpdate {
     if (openError) throw new OneKeyLocalError(openError);
   }
 
+  private isDevSettingsEnabled(): boolean {
+    return Boolean(store.getDevSettingsEnabled?.());
+  }
+
   async useTestUpdateFeedUrl(enabled = false): Promise<void> {
+    if (app.isPackaged && !this.isDevSettingsEnabled()) {
+      return;
+    }
     store.setUpdateSettings({ useTestFeedUrl: enabled });
   }
 

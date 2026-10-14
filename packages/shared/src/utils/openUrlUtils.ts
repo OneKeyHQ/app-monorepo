@@ -115,12 +115,17 @@ function openUrlByWebviewPro({
 }
 
 const openUrlOutsideNative = (url: string): void => {
+  const trimmedUrl = url.trim();
+  const parsedUrl = parseUrl(trimmedUrl);
+  if (parsedUrl?.urlSchema !== 'http' && parsedUrl?.urlSchema !== 'https') {
+    return;
+  }
   if (platformEnv.isExtension) {
     void chrome.tabs.create({
-      url,
+      url: trimmedUrl,
     });
   } else {
-    window.open(url, '_blank');
+    window.open(trimmedUrl, '_blank');
   }
 };
 
@@ -234,11 +239,19 @@ export const openUrlExternal = (
   options?: IOpenUrlExternalOptions,
 ) => {
   const trimmedUrl = url.trim();
+  if (!trimmedUrl) {
+    return;
+  }
+  const parsedUrl = parseUrl(trimmedUrl);
+  const isHttpUrl =
+    parsedUrl?.urlSchema === 'http' || parsedUrl?.urlSchema === 'https';
+  if (!parsedUrl || !isHttpUrl) {
+    return;
+  }
   if (!platformEnv.isNative) {
     openUrlOutsideNative(trimmedUrl);
     return;
   }
-  const parsedUrl = parseUrl(trimmedUrl);
   const openViaSystemBrowser = () => {
     trackOpenUrl(parsedUrl, 'system');
     void linkingOpenURL(trimmedUrl);
@@ -252,9 +265,7 @@ export const openUrlExternal = (
     openViaSystemBrowser();
     return;
   }
-  const isHttpUrl =
-    parsedUrl?.urlSchema === 'http' || parsedUrl?.urlSchema === 'https';
-  if (!parsedUrl || !isHttpUrl || isSystemBrowserOnlyHost(parsedUrl.hostname)) {
+  if (isSystemBrowserOnlyHost(parsedUrl.hostname)) {
     openViaSystemBrowser();
     return;
   }

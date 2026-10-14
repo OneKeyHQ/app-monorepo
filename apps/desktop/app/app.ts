@@ -1662,85 +1662,106 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     session.defaultSession.protocol.interceptFileProtocol(
       PROTOCOL,
       (request, callback) => {
-        const isJsSdkFile = request.url.indexOf('/static/js-sdk') > -1;
-        const isIFrameHtml =
-          request.url.indexOf('/static/js-sdk/iframe.html') > -1;
+        try {
+          const cleanUrl = request.url.split(/[?#]/, 1)[0];
+          const isJsSdkFile = cleanUrl.indexOf('/static/js-sdk') > -1;
+          const isIFrameHtml =
+            cleanUrl.indexOf('/static/js-sdk/iframe.html') > -1;
 
-        // resolve iframe path
-        if (isJsSdkFile && isIFrameHtml) {
+          // resolve iframe path
+          if (isJsSdkFile && isIFrameHtml) {
+            if (useJsBundle && indexHtmlPath && bundleDirPath) {
+              let key = path.join('static', 'js-sdk', 'iframe.html');
+              const filePath = path.join(bundleDirPath, key);
+              if (isWin) {
+                key = key.replace(/\\/g, '/');
+              }
+              const sha512 =
+                Object.prototype.hasOwnProperty.call(metadata, key) &&
+                typeof metadata[key] === 'string'
+                  ? metadata[key]
+                  : undefined;
+              if (!sha512 || !checkFileSha512(filePath, sha512)) {
+                logger.info(
+                  'checkFileHash error in js-sdk:',
+                  `${key}:  ${filePath} not matched ${sha512 ?? ''}`,
+                );
+                store.clearUpdateBundleData();
+                throw new OneKeyLocalError(`File ${key} sha512 mismatch`);
+              }
+              callback(filePath);
+              return;
+            }
+            callback({
+              path: path.join(
+                __dirname,
+                '..',
+                'build',
+                'static',
+                'js-sdk',
+                'iframe.html',
+              ),
+            });
+            return;
+          }
+
+          const url = cleanUrl.substring(PROTOCOL.length + 1);
           if (useJsBundle && indexHtmlPath && bundleDirPath) {
-            let key = path.join('static', 'js-sdk', 'iframe.html');
-            const filePath = path.join(bundleDirPath, key);
-            if (isWin) {
-              key = key.replace(/\\/g, '/');
+            let decodedUrl: string;
+            try {
+              decodedUrl = decodeURIComponent(url);
+            } catch {
+              callback({ error: -6 } as any);
+              return;
             }
-            const sha512 = metadata[key];
-            if (!checkFileSha512(filePath, sha512)) {
-              logger.info(
-                'checkFileHash error in js-sdk:',
-                `${key}:  ${filePath} not matched ${sha512}`,
-              );
-              store.clearUpdateBundleData();
-              throw new OneKeyLocalError(`File ${key} sha512 mismatch`);
+            const normalizedDecodedUrl = decodedUrl.replace(/\\/g, '/');
+            const normalizedBundleDirPath = bundleDirPath.replace(/\\/g, '/');
+            if (normalizedDecodedUrl.includes(normalizedBundleDirPath)) {
+              const filePath = checkFileHash({
+                bundleDirPath,
+                metadata,
+                driveLetter,
+                url: normalizedDecodedUrl.replace(normalizedBundleDirPath, ''),
+              });
+              callback(filePath);
+            } else {
+              const filePath = checkFileHash({
+                bundleDirPath,
+                metadata,
+                driveLetter,
+                url: decodedUrl,
+              });
+              callback(filePath);
             }
-            callback(filePath);
-            return;
-          }
-          callback({
-            path: path.join(
-              __dirname,
-              '..',
-              'build',
-              'static',
-              'js-sdk',
-              'iframe.html',
-            ),
-          });
-          return;
-        }
-
-        // Strip the query string before path resolution — without this the
-        // tray window's `?render=tray` gets concatenated into the resolved
-        // filename and fs misses. Guarded by indexOf so the common
-        // no-query case (main window resources) stays allocation-free.
-        const queryIdx = request.url.indexOf('?');
-        const rawUrl =
-          queryIdx === -1 ? request.url : request.url.substring(0, queryIdx);
-        const url = rawUrl.substring(PROTOCOL.length + 1);
-        if (useJsBundle && indexHtmlPath && bundleDirPath) {
-          const decodedUrl = decodeURIComponent(url);
-          if (decodedUrl.includes(bundleDirPath)) {
-            const filePath = checkFileHash({
-              bundleDirPath,
-              metadata,
-              driveLetter,
-              url: decodedUrl.replace(bundleDirPath, ''),
-            });
-            callback(filePath);
           } else {
-            const filePath = checkFileHash({
-              bundleDirPath,
-              metadata,
-              driveLetter,
-              url: decodedUrl,
-            });
-            callback(filePath);
+            const buildDir = path.resolve(__dirname, '..', 'build');
+            let decodedUrl: string;
+            try {
+              decodedUrl = decodeURIComponent(url);
+            } catch {
+              callback({ error: -6 } as any);
+              return;
+            }
+            // Strip leading protocol slashes (e.g. "//index.html" → "index.html")
+            // and Windows drive prefix so path.resolve treats the segment as relative.
+            const relativeUrl = decodedUrl
+              .replace(/^[:/\\]+/, '')
+              .replace(/^[A-Za-z]:[\\/]/, '')
+              .replace(/^[:/\\]+/, '');
+            const resolved = path.resolve(buildDir, relativeUrl);
+            if (
+              !resolved.startsWith(buildDir + path.sep) &&
+              resolved !== buildDir
+            ) {
+              logger.warn('Blocked file access outside build dir:', resolved);
+              callback({ error: -6 } as any); // net::ERR_FILE_NOT_FOUND
+              return;
+            }
+            callback(resolved);
           }
-        } else {
-          const buildDir = path.resolve(__dirname, '..', 'build');
-          // Strip leading protocol slashes (e.g. "//index.html" → "index.html")
-          // so path.resolve treats the segment as relative, not absolute.
-          const relativeUrl = url.replace(/^[:/]+/, '');
-          const resolved = path.resolve(buildDir, relativeUrl);
-          if (
-            !resolved.startsWith(buildDir + path.sep) &&
-            resolved !== buildDir
-          ) {
-            logger.warn('Blocked file access outside build dir:', resolved);
-            callback({ error: -6 } as any); // net::ERR_FILE_NOT_FOUND
-            return;
-          }
-          callback(resolved);
+        } catch (error) {
+          logger.error('interceptFileProtocol error:', error);
+          callback({ error: -6 } as any);
         }
       },
     );

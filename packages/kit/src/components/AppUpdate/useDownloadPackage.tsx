@@ -567,7 +567,7 @@ export const useDownloadPackage = () => {
           return;
         }
         await backgroundApiProxy.serviceAppUpdate.updateDownloadedEvent({
-          ...downloadParams,
+          ...activeDownloadParams,
           ...result,
         });
         await downloadASC();

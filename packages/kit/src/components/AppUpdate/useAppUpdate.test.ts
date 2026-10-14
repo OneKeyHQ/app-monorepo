@@ -1341,6 +1341,49 @@ describe('useDownloadPackage', () => {
       expect(svc.downloadASC).toHaveBeenCalled();
     });
 
+    test('persists refreshed downloadUrl in updateDownloadedEvent when 401/403 triggers refreshUrl', async () => {
+      svc.getUpdateInfo.mockResolvedValue({
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://example.com/app.zip?token=stale',
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      svc.getDownloadEvent.mockResolvedValue({
+        downloadedFile: '/tmp/app.zip',
+        downloadUrl: 'https://example.com/app.zip?token=fresh',
+      });
+      svc.refreshDownloadUrlForRetry.mockResolvedValueOnce({
+        refreshed: true,
+        downloadUrl: 'https://example.com/app.zip?token=fresh',
+      });
+      appUpd.downloadPackage
+        .mockRejectedValueOnce(new Error('HTTP 403'))
+        .mockResolvedValueOnce({
+          downloadedFile: '/tmp/app.zip',
+        });
+      appUpd.downloadASC.mockResolvedValue(undefined);
+      appUpd.verifyASC.mockResolvedValue(undefined);
+      appUpd.verifyPackage.mockResolvedValue(undefined);
+
+      const { result } = renderHook(() => useDownloadPackage());
+
+      await act(async () => {
+        const p = result.current.downloadPackage();
+        for (let i = 0; i < 8; i += 1) {
+          // eslint-disable-next-line no-await-in-loop
+          await Promise.resolve();
+          jest.runOnlyPendingTimers();
+        }
+        await p;
+      });
+
+      expect(svc.updateDownloadedEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          downloadUrl: 'https://example.com/app.zip?token=fresh',
+          downloadedFile: '/tmp/app.zip',
+        }),
+      );
+    });
+
     test('OCDS §5.11: an exhausted service-instance budget gives up without re-downloading', async () => {
       svc.getUpdateInfo.mockResolvedValue({
         latestVersion: '2.0.0',

@@ -195,6 +195,33 @@ describe('desktop startup with persisted state', () => {
     },
   );
 
+  it('rejects and clears pending switch when payload.appVersion mismatches currentAppVersion', () => {
+    seedUpdateState();
+    const task = {
+      status: 'pending',
+      action: 'switch-bundle',
+      type: 'jsbundle-switch',
+      scheduledEnvAppVersion: '6.7.0',
+      scheduledEnvBuildNumber: '100',
+      scheduledEnvBundleVersion: '2',
+      expiresAt: Date.now() + 60_000,
+      payload: { ...activeBundle, appVersion: '6.6.0', bundleVersion: '3' },
+    };
+    writeProfile('mmkv-onekey-app-setting', {
+      onekey_pending_install_task: JSON.stringify(task),
+    });
+    const { store } = loadStartup();
+    expect(store.processPreLaunchPendingTask()).toBe(false);
+    expect(store.getUpdateBundleData()).toEqual(activeBundle);
+    const mmkvAfter = JSON.parse(
+      fs.readFileSync(
+        path.join(mockProfileDir, 'mmkv-onekey-app-setting.json'),
+        'utf8',
+      ),
+    ) as Record<string, unknown>;
+    expect(mmkvAfter.onekey_pending_install_task).toBeUndefined();
+  });
+
   it('documents the unsupported same-native replacement with legacy-only bundle state', () => {
     writeProfile('OneKey', {
       ...preferences,

@@ -4,6 +4,7 @@ import path from 'path';
 import { app, safeStorage } from 'electron';
 import logger from 'electron-log/main';
 import Store from 'electron-store';
+import semver from 'semver';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
@@ -354,6 +355,20 @@ export const setBootFailAppVersion = (version: string) =>
 
 // ==================== MMKV Persistent Store ====================
 const mmkvAppSettingStore = new Store({ name: 'mmkv-onekey-app-setting' });
+const mmkvDevSettingStore = new Store({ name: 'mmkv-onekey-app-dev-setting' });
+
+export const getDevSettingsEnabled = (): boolean => {
+  const devSettingEnabled = mmkvDevSettingStore.get(
+    'onekey_developer_mode_enabled',
+  );
+  if (typeof devSettingEnabled === 'boolean') {
+    return devSettingEnabled;
+  }
+  return mmkvAppSettingStore.get('onekey_developer_mode_enabled') === true;
+};
+
+export const getSkipGPGVerification = (): boolean =>
+  mmkvDevSettingStore.get('onekey_bundle_skip_gpg_verification') === true;
 
 export const clearMmkvRecoveryKeys = () => {
   mmkvAppSettingStore.delete('onekey_pending_install_task');
@@ -415,6 +430,15 @@ export const processPreLaunchPendingTask = (): boolean => {
     if (!appVersion || !bundleVersion || !signature) return false;
     assertSafeBundleVersion(appVersion);
     assertSafeBundleVersion(bundleVersion);
+    if (!semver.valid(appVersion) || !semver.eq(appVersion, currentAppVersion)) {
+      logger.warn(
+        'processPreLaunchPendingTask: payload appVersion mismatch, clearing pending task',
+        appVersion,
+        currentAppVersion,
+      );
+      mmkvAppSettingStore.delete('onekey_pending_install_task');
+      return false;
+    }
 
     // Verify bundle directory and entry file exist
     const bundleDirName = path.join(app.getPath('userData'), 'onekey-bundle');

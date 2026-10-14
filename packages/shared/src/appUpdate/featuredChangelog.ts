@@ -69,8 +69,13 @@ export const ALLOWED_FEATURED_HREF_PROTOCOLS = new Set([
   'onekey:',
 ]);
 
-function isHttps(url: string): boolean {
-  return url.startsWith('https://');
+function isHttpsUrl(url: string | undefined): url is string {
+  if (!url || !url.startsWith('https://')) return false;
+  try {
+    return new URL(url).protocol === 'https:';
+  } catch {
+    return false;
+  }
 }
 
 export function isAllowedFeaturedHref(url: string | undefined): url is string {
@@ -90,7 +95,7 @@ function normalizeFeaturedItem(raw: unknown): IFeaturedItem | undefined {
   const src = raw as Record<string, unknown>;
 
   const mediaUrl = optionalTrimmedString(src.mediaUrl);
-  if (!mediaUrl || !isHttps(mediaUrl)) return undefined;
+  if (!mediaUrl || !isHttpsUrl(mediaUrl)) return undefined;
 
   const mediaType = src.mediaType;
   if (mediaType !== 'image' && mediaType !== 'video') return undefined;
@@ -102,24 +107,30 @@ function normalizeFeaturedItem(raw: unknown): IFeaturedItem | undefined {
       : undefined;
 
   const rawMode = src.mode;
-  const mode =
+  const parsedMode =
     typeof rawMode === 'number' && VALID_MODE_VALUES.has(rawMode)
       ? (rawMode as ENotificationPushMessageMode)
       : undefined;
+  const isUrlMode =
+    parsedMode !== undefined && URL_PAYLOAD_MODES.has(parsedMode);
 
   const rawHref = optionalTrimmedString(src.href);
-  const href = isAllowedFeaturedHref(rawHref) ? rawHref : undefined;
+  const href = (
+    hrefType === 'external' || isUrlMode
+      ? isHttpsUrl(rawHref)
+      : isAllowedFeaturedHref(rawHref)
+  )
+    ? rawHref
+    : undefined;
 
-  // For URL-class modes the payload IS the dispatch target; gate it on the
-  // same allowlist as href. JSON-payload modes (page/dialog/command) keep the
-  // trimmed payload as-is because parseNotificationPayload JSON.parses it.
+  // For URL-class modes (openInBrowser / openInApp / openInDapp), the payload
+  // IS an external/WebView URL target and must be strictly HTTPS. JSON-payload
+  // modes (page/dialog/command) keep the trimmed payload as-is because
+  // parseNotificationPayload JSON.parses it.
   const rawPayload = optionalTrimmedString(src.payload);
   const payload =
-    mode !== undefined &&
-    URL_PAYLOAD_MODES.has(mode) &&
-    !isAllowedFeaturedHref(rawPayload)
-      ? undefined
-      : rawPayload;
+    isUrlMode && !isHttpsUrl(rawPayload) ? undefined : rawPayload;
+  const mode = isUrlMode && !payload && !href ? undefined : parsedMode;
 
   return {
     title: optionalTrimmedString(src.title),
