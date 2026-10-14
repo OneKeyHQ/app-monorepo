@@ -22,9 +22,11 @@ export type ITronClaimDemo = {
 };
 
 export const TRON_RESOURCE_LIFETIME = 10 * 60 * 1000;
+const CLAIM_DAY = 24 * 60 * 60 * 1000;
+const CLAIM_TIMEZONE_OFFSET = 8 * 60 * 60 * 1000;
 
 function getClaimDay(timestamp: number) {
-  return new Date(timestamp + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  return new Date(timestamp + CLAIM_TIMEZONE_OFFSET).toISOString().slice(0, 10);
 }
 
 export function createTronClaimDemo(
@@ -76,20 +78,20 @@ export function getTronClaimStatus(state: ITronClaimDemo, now: number) {
   let reason: string | undefined;
   if (!account) reason = '请先添加 TRON 账户。';
   else if (account.watching) reason = '观察账户不能领取资源，请选择其他账户。';
-  else if (state.monthIPRemaining === 0)
+  else if (state.monthIPRemaining <= 0)
     reason = '当前 IP 本月领取次数已达上限。';
-  else if (account.monthRemaining === 0)
+  else if (account.monthRemaining <= 0)
     reason = '当前地址本月领取次数已达上限。';
   else if (!account.activated)
     reason = '当前地址尚未激活，请先向该地址转入 TRX。';
-  else if (state.remaining === 0 || state.total === 0)
+  else if (state.remaining <= 0 || state.total <= 0)
     reason = '免费资源已领完，请稍后再来。';
   else if (claimedToday)
     reason = '当前地址今日已领取，请在 GMT+8 次日重置后再来。';
 
   let buttonText = '领取';
   if (claimedToday) buttonText = '已领取';
-  if (state.remaining === 0 || state.total === 0) buttonText = '已领完';
+  if (state.remaining <= 0 || state.total <= 0) buttonText = '已领完';
 
   return {
     account,
@@ -124,13 +126,25 @@ export function claimTronDemo(
   };
 }
 
-export function useTronClaimClock() {
+export function useTronClaimClock(state: ITronClaimDemo) {
   const [now, setNow] = useState(Date.now);
+  const claimedAt = state.accounts.find(
+    (account) => account.id === state.selectedAccountId,
+  )?.claimedAt;
   useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-  return now;
+    if (claimedAt === undefined) return;
+    const currentTime = Date.now();
+    const remaining = claimedAt + TRON_RESOURCE_LIFETIME - currentTime;
+    const untilReset =
+      CLAIM_DAY - ((currentTime + CLAIM_TIMEZONE_OFFSET) % CLAIM_DAY);
+    // Only tick each second while resources are valid; otherwise wake at reset.
+    const timer = setTimeout(
+      () => setNow(Date.now()),
+      remaining > 0 ? Math.min(1000, remaining, untilReset) : untilReset,
+    );
+    return () => clearTimeout(timer);
+  }, [claimedAt, now]);
+  return Date.now();
 }
 
 export function formatResourceTime(seconds: number) {

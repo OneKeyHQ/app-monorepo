@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useRoute } from '@react-navigation/native';
+import { useWindowDimensions } from 'react-native';
 
 import {
   Badge,
@@ -199,6 +200,60 @@ function SubsidyRecordList({ items }: { items: ISubsidyRecord[] }) {
   );
 }
 
+function SubsidySummaryStats() {
+  const { width, fontScale } = useWindowDimensions();
+  const [containerWidth, setContainerWidth] = useState(width);
+  const stacked = containerWidth < 320 || fontScale > 1.3;
+
+  return (
+    <Stack
+      flexDirection={stacked ? 'column' : 'row'}
+      mt="$2"
+      bg="$bgSubdued"
+      borderRadius="$6"
+      borderCurve="continuous"
+      overflow="hidden"
+      onLayout={(event) => setContainerWidth(event.nativeEvent.layout.width)}
+    >
+      {[
+        { label: '已补贴交易', value: '18 笔' },
+        { label: '可用补贴', value: '2 项' },
+      ].map(({ label, value }, index) => (
+        <Stack
+          key={label}
+          flex={stacked ? undefined : 1}
+          minWidth={0}
+          flexDirection={stacked ? 'row' : 'column'}
+          alignItems={stacked ? 'center' : 'stretch'}
+          gap={stacked ? '$4' : '$1'}
+          p="$4"
+          borderLeftWidth={!stacked && index === 1 ? 1 : 0}
+          borderLeftColor="$bgApp"
+          borderTopWidth={stacked && index === 1 ? 1 : 0}
+          borderTopColor="$bgApp"
+        >
+          <SizableText
+            size="$bodySm"
+            color="$textSubdued"
+            textAlign={stacked ? 'left' : 'center'}
+            flex={1}
+            minWidth={0}
+          >
+            {label}
+          </SizableText>
+          <SizableText
+            size="$headingMd"
+            textAlign={stacked ? 'right' : 'center'}
+            flexShrink={0}
+          >
+            {value}
+          </SizableText>
+        </Stack>
+      ))}
+    </Stack>
+  );
+}
+
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <XStack
@@ -373,7 +428,7 @@ function NetworkFeeSubsidy() {
   const [tronClaim, setTronClaim] = useState(() =>
     createTronClaimDemo(params?.tronClaimScenario),
   );
-  const now = useTronClaimClock();
+  const now = useTronClaimClock(tronClaim);
   const tronStatus = getTronClaimStatus(tronClaim, now);
   const benefits = benefitTemplates.map((benefit) =>
     benefit.id === 'tron'
@@ -458,13 +513,23 @@ function NetworkFeeSubsidy() {
   };
 
   const openTronClaim = () => {
-    dialog.show({
+    const claimDialog = dialog.show({
       title: '领取 TRON 免费资源',
       nativeSheet: true,
       boundedSheetLayout: true,
       showFooter: false,
       renderContent: (
-        <TronClaimContent initialState={tronClaim} onChange={setTronClaim} />
+        <TronClaimContent
+          initialState={tronClaim}
+          onChange={setTronClaim}
+          onSuccess={async () => {
+            await claimDialog.close();
+            Toast.success({
+              title: '领取成功',
+              message: '请在 10 分钟内使用资源。',
+            });
+          }}
+        />
       ),
     });
   };
@@ -546,32 +611,39 @@ function NetworkFeeSubsidy() {
             pb="$5"
             gap="$6"
           >
-            <YStack>
-              <Stack
-                alignSelf="center"
-                width={240}
-                height={240}
-                mt={-24}
-                mb={-116}
-                zIndex={1}
-                pointerEvents="none"
-                $gtMd={{ width: 280, height: 280, mt: -28, mb: -136 }}
-              >
-                <EnergyArtwork />
-              </Stack>
+            <YStack pt={signedIn ? '$2' : 0}>
+              {signedIn ? null : (
+                <Stack
+                  alignSelf="center"
+                  width={240}
+                  height={240}
+                  mt={-24}
+                  mb={-116}
+                  zIndex={1}
+                  pointerEvents="none"
+                  $gtMd={{ width: 280, height: 280, mt: -28, mb: -136 }}
+                >
+                  <EnergyArtwork />
+                </Stack>
+              )}
               <YStack
-                bg="$bgSubdued"
+                bg={signedIn ? '$transparent' : '$bgSubdued'}
                 borderRadius="$6"
                 borderCurve="continuous"
-                p="$4"
-                pt={96}
-                gap="$5"
-                $gtMd={{ pt: 112 }}
+                p={signedIn ? 0 : '$4'}
+                pt={signedIn ? 0 : 96}
+                gap={signedIn ? '$2' : '$5'}
+                $gtMd={{ pt: signedIn ? 0 : 112 }}
               >
-                <YStack alignItems="center" gap="$2">
+                <YStack alignItems="center" gap="$2" pt={signedIn ? '$2' : 0}>
                   {signedIn ? (
                     <>
-                      <SizableText size="$heading4xl" textAlign="center">
+                      <SizableText
+                        size="$heading4xl"
+                        fontSize={40}
+                        lineHeight={48}
+                        textAlign="center"
+                      >
                         $12.86
                       </SizableText>
                       <SizableText
@@ -595,32 +667,7 @@ function NetworkFeeSubsidy() {
                   )}
                 </YStack>
                 {signedIn ? (
-                  <XStack
-                    borderTopWidth={1}
-                    borderTopColor="$bgApp"
-                    mx="$-4"
-                    px="$4"
-                    pt="$4"
-                  >
-                    <YStack flex={1} gap="$1" pr="$4">
-                      <SizableText size="$bodySm" color="$textSubdued">
-                        已补贴交易
-                      </SizableText>
-                      <SizableText size="$headingMd">18 笔</SizableText>
-                    </YStack>
-                    <YStack
-                      flex={1}
-                      gap="$1"
-                      pl="$4"
-                      borderLeftWidth={1}
-                      borderLeftColor="$borderSubdued"
-                    >
-                      <SizableText size="$bodySm" color="$textSubdued">
-                        可用补贴
-                      </SizableText>
-                      <SizableText size="$headingMd">2 项</SizableText>
-                    </YStack>
-                  </XStack>
+                  <SubsidySummaryStats />
                 ) : (
                   <Button
                     testID="subsidy-mock-login"
