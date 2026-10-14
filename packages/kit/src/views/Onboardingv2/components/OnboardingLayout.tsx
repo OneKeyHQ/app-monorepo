@@ -20,6 +20,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
+import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -293,6 +294,7 @@ OnboardingLayoutFooter.displayName = 'OnboardingLayoutFooter';
 
 const OnboardingLayoutRoot = memo(
   ({ children }: { children: React.ReactNode }) => {
+    const [isLocked] = useAppIsLockedAtom();
     const { top, bottom } = useSafeAreaInsets();
     // iOS 26 renders a transparent native glass header that overlays the top of
     // the card; reserve room for it via the shared inset instead of the small
@@ -304,6 +306,7 @@ const OnboardingLayoutRoot = memo(
 
     return (
       <DesktopDragZoneBox
+        disabled={isLocked}
         h="100%"
         $platform-web={{
           height: '100vh',
