@@ -21154,6 +21154,7 @@
     "packages/kit/src/hooks/useDappQuery.ts": 7950,
     "packages/kit/src/hooks/useDebounce.ts": 24480,
     "packages/kit/src/hooks/useDelayedState.ts": 11492,
+    "packages/kit/src/hooks/useDeriveTypesCollapseState.ts": 11785,
     "packages/kit/src/hooks/useDeviceStageBurst.ts": 8023,
     "packages/kit/src/hooks/useDeviceTimeZone.ts": 22946,
     "packages/kit/src/hooks/useDisplayAccountAddress.ts": 20186,
