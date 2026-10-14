@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { rootNavigationRef } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
+import { getSelectorSearchAssetId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/constants';
 import { buildMarketSearchTokenDetailPreview } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPreview';
 import { useToDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -50,10 +51,15 @@ export function useUniversalSearchMarketPress({
         network,
       });
       const listingStockId = isStockListing ? stockId?.trim() : undefined;
-      // When network is empty, the item was converted from IMarketToken
-      // (trending/legacy) and address contains coingeckoId for legacy
-      // navigation
-      const isLegacyNavigation = !isStockListing && !network;
+      // The Market selector's rule: an asset-only result opens through its
+      // asset id, while a concrete chain token keeps its own chain identity.
+      const assetId = isStockListing
+        ? undefined
+        : getSelectorSearchAssetId(item.payload);
+      // When network is empty and there is no asset id, the item was converted
+      // from IMarketToken (trending/legacy) and address contains coingeckoId
+      // for legacy navigation
+      const isLegacyNavigation = !isStockListing && !network && !assetId;
 
       const searchText = getSearchInput?.();
       if (searchText) {
@@ -88,6 +94,7 @@ export function useUniversalSearchMarketPress({
           name,
           symbol,
           isNative,
+          assetId,
           stockId: listingStockId,
           stock: isStockListing ? stock : undefined,
           tokenDetailPreview: buildMarketSearchTokenDetailPreview(item.payload),
@@ -100,8 +107,14 @@ export function useUniversalSearchMarketPress({
 
         if (!isTrending && symbol?.trim()) {
           setTimeout(() => {
+            let recentId = address;
+            if (listingStockId) {
+              recentId = `stock:${listingStockId}`;
+            } else if (assetId) {
+              recentId = `asset:${assetId}`;
+            }
             universalSearchActions.current.addIntoRecentSearchList({
-              id: listingStockId ? `stock:${listingStockId}` : address,
+              id: recentId,
               text: symbol,
               type: item.type,
               timestamp: Date.now(),
