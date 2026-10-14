@@ -7,7 +7,7 @@ export interface IHeaderScrollGestureWrapperProps {
   disableMomentum?: boolean;
   panActiveOffsetY?: [number, number];
   panFailOffsetX?: [number, number];
-  // Initial vertical speed in points/second; slower drags yield to children.
+  // Vertical speed in points/second; slower drags yield to eligible children.
   verticalPanMinVelocity?: number;
   verticalPanMaxPointers?: number;
   excludeRightEdgeRatio?: number;

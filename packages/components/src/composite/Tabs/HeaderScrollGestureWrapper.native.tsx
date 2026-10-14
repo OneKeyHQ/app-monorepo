@@ -14,12 +14,16 @@ import Animated, {
 import { Haptics, ImpactFeedbackStyle } from '../../primitives/Haptics';
 
 import { CollapsibleTabContext } from './CollapsibleTabContext';
-import { HeaderScrollGestureContext } from './HeaderScrollGestureContext';
+import {
+  HeaderScrollGestureChildPanContext,
+  HeaderScrollGestureContext,
+} from './HeaderScrollGestureContext';
 
 import type { IHeaderScrollGestureWrapperProps } from './HeaderScrollGestureWrapper';
 import type { LayoutChangeEvent } from 'react-native';
 
 const REFRESH_THRESHOLD = 80;
+const PAN_VELOCITY_SAMPLE_MAX_AGE = 80;
 
 export function HeaderScrollGestureWrapper({
   children,
@@ -48,7 +52,9 @@ export function HeaderScrollGestureWrapper({
   const contentInset = tabsContext?.contentInset ?? 0;
 
   const startScrollY = useSharedValue(0);
+  const startTranslationY = useSharedValue(0);
   const targetScrollY = useSharedValue(0);
+  const canChildHandlePan = useSharedValue(false);
   const containerWidth = useSharedValue(0);
   const containerHeight = useSharedValue(0);
   const isGestureEnabled = useSharedValue(true);
@@ -58,7 +64,9 @@ export function HeaderScrollGestureWrapper({
   const pendingPanStart = useSharedValue<{
     x: number;
     y: number;
-    time: number;
+    lastY: number;
+    lastTime: number | null;
+    previousSampleWasStale: boolean;
   } | null>(null);
   const [measuredWidth, setMeasuredWidth] = useState(0);
 
@@ -158,14 +166,40 @@ export function HeaderScrollGestureWrapper({
             manager.fail();
             return;
           }
+          const now = Date.now();
+          const elapsed = start.lastTime === null ? 0 : now - start.lastTime;
+          const isSampleStale = elapsed > PAN_VELOCITY_SAMPLE_MAX_AGE;
+          pendingPanStart.value = {
+            ...start,
+            lastY: touch.absoluteY,
+            lastTime: now,
+            previousSampleWasStale: isSampleStale,
+          };
           if (dy >= panActiveOffsetY[0] && dy <= panActiveOffsetY[1]) {
+            return;
+          }
+
+          // Controls, axes and empty charts have no child vertical pan to accept.
+          if (!canChildHandlePan.value) {
+            pendingPanStart.value = null;
+            manager.activate();
+            return;
+          }
+          // Touch-down may precede movement by an arbitrary hold. Wait for two
+          // recent move samples instead of counting idle time as slow dragging.
+          // Consecutive sparse samples still describe a slow drag, so do not
+          // keep both recognizers waiting when move events arrive infrequently.
+          if (
+            elapsed <= 0 ||
+            (isSampleStale && !start.previousSampleWasStale)
+          ) {
             return;
           }
 
           // Decide once, after touch slop, so a chart drag cannot turn into
           // a page scroll when the finger accelerates later in the gesture.
           const velocityY =
-            (Math.abs(dy) * 1000) / Math.max(1, Date.now() - start.time);
+            (Math.abs(touch.absoluteY - start.lastY) * 1000) / elapsed;
           pendingPanStart.value = null;
           if (velocityY >= verticalPanMinVelocity) {
             manager.activate();
@@ -205,10 +239,13 @@ export function HeaderScrollGestureWrapper({
               manager.fail();
               return;
             }
+            cancelAnimation(targetScrollY);
             pendingPanStart.value = {
               x: touch.absoluteX,
               y: touch.absoluteY,
-              time: Date.now(),
+              lastY: touch.absoluteY,
+              lastTime: null,
+              previousSampleWasStale: false,
             };
           }
         },
@@ -233,6 +270,8 @@ export function HeaderScrollGestureWrapper({
         }
         cancelAnimation(targetScrollY);
         startScrollY.value = scrollYCurrent?.value ?? 0;
+        startTranslationY.value =
+          verticalPanMinVelocity > 0 ? e.translationY : 0;
         if (onGestureActiveChange) {
           hasNotifiedGestureActive.value = true;
           runOnJS(onGestureActiveChange)(true);
@@ -247,10 +286,11 @@ export function HeaderScrollGestureWrapper({
         ) {
           return;
         }
-        targetScrollY.value = startScrollY.value - e.translationY * scrollScale;
+        const translationY = e.translationY - startTranslationY.value;
+        targetScrollY.value = startScrollY.value - translationY * scrollScale;
         const isRefreshThresholdReached =
           startScrollY.value <= contentInset &&
-          e.translationY > REFRESH_THRESHOLD;
+          translationY > REFRESH_THRESHOLD;
         if (
           onRefresh &&
           isRefreshThresholdReached &&
@@ -270,7 +310,8 @@ export function HeaderScrollGestureWrapper({
           return;
         }
         const wasAtTop = startScrollY.value <= contentInset;
-        const pulledDown = e.translationY > REFRESH_THRESHOLD;
+        const pulledDown =
+          e.translationY - startTranslationY.value > REFRESH_THRESHOLD;
         if (wasAtTop && pulledDown && onRefresh) {
           runOnJS(onRefresh)();
         } else if (!disableMomentum) {
@@ -351,8 +392,10 @@ export function HeaderScrollGestureWrapper({
     };
   }, [
     startScrollY,
+    startTranslationY,
     scrollYCurrent,
     targetScrollY,
+    canChildHandlePan,
     contentInset,
     onRefresh,
     disableMomentum,
@@ -384,9 +427,13 @@ export function HeaderScrollGestureWrapper({
 
   return (
     <HeaderScrollGestureContext.Provider value={scrollGestures}>
-      <GestureDetector gesture={panGesture}>
-        <Animated.View onLayout={handleLayout}>{children}</Animated.View>
-      </GestureDetector>
+      <HeaderScrollGestureChildPanContext.Provider
+        value={verticalPanMinVelocity > 0 ? canChildHandlePan : undefined}
+      >
+        <GestureDetector gesture={panGesture}>
+          <Animated.View onLayout={handleLayout}>{children}</Animated.View>
+        </GestureDetector>
+      </HeaderScrollGestureChildPanContext.Provider>
     </HeaderScrollGestureContext.Provider>
   );
 }

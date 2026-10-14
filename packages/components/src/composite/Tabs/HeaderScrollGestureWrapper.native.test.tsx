@@ -3,6 +3,7 @@
  */
 
 import type { ReactNode } from 'react';
+import { useContext, useLayoutEffect } from 'react';
 
 import { render } from '@testing-library/react';
 import {
@@ -10,8 +11,13 @@ import {
   PointerType,
   State,
 } from 'react-native-gesture-handler';
-import { useAnimatedReaction } from 'react-native-reanimated';
+import {
+  cancelAnimation,
+  useAnimatedReaction,
+  withDecay,
+} from 'react-native-reanimated';
 
+import { HeaderScrollGestureChildPanContext } from './HeaderScrollGestureContext';
 import { HeaderScrollGestureWrapper } from './HeaderScrollGestureWrapper.native';
 
 import type { IHeaderScrollGestureWrapperProps } from './HeaderScrollGestureWrapper';
@@ -91,7 +97,20 @@ const panEvent = {
 
 const panOffsets: [number, number] = [-12, 12];
 
-function setup(props: IHeaderScrollGestureWrapperProps = {}) {
+function ChartTouch({ canPan }: { canPan: boolean }) {
+  const canChildHandlePan = useContext(HeaderScrollGestureChildPanContext);
+  useLayoutEffect(() => {
+    if (canChildHandlePan) {
+      canChildHandlePan.value = canPan;
+    }
+  }, [canChildHandlePan, canPan]);
+  return <div />;
+}
+
+function setup(
+  props: IHeaderScrollGestureWrapperProps = {},
+  childCanPan = true,
+) {
   render(
     <HeaderScrollGestureWrapper
       panActiveOffsetY={panOffsets}
@@ -100,7 +119,7 @@ function setup(props: IHeaderScrollGestureWrapperProps = {}) {
       verticalPanMaxPointers={1}
       {...props}
     >
-      <div />
+      <ChartTouch canPan={childCanPan} />
     </HeaderScrollGestureWrapper>,
   );
   const gesture = jest.mocked(GestureDetector).mock.calls.at(-1)?.[0]
@@ -130,6 +149,7 @@ describe('header scroll speed arbitration', () => {
     'scrolls a fast vertical swipe (direction %i)',
     (direction) => {
       const { gesture, manager, move } = setup();
+      move(1, 8 * direction, 10);
       move(2, 20 * direction, 25);
       expect(gesture.config.manualActivation).toBe(true);
       expect(manager.activate).toHaveBeenCalledTimes(1);
@@ -145,6 +165,7 @@ describe('header scroll speed arbitration', () => {
     'yields a slow vertical drag (direction %i)',
     (direction) => {
       const { manager, move } = setup();
+      move(1, 10 * direction, 100);
       move(2, 20 * direction, 160);
       expect(manager.fail).toHaveBeenCalledTimes(1);
       expect(manager.activate).not.toHaveBeenCalled();
@@ -193,6 +214,7 @@ describe('header scroll speed arbitration', () => {
 
   it('stops an active scroll when a second finger is added', () => {
     const { gesture, manager, move, getScrollY } = setup();
+    move(0, -8, 10);
     move(0, -20, 20);
     gesture.handlers.onStart?.(panEvent);
     gesture.handlers.onUpdate?.({ ...panEvent, translationY: -40 });
@@ -208,8 +230,113 @@ describe('header scroll speed arbitration', () => {
     gesture.handlers.onFinalize?.(panEvent, false);
     now.mockReturnValue(1000);
     gesture.handlers.onTouchesDown?.(touchEvent(), manager);
+    move(0, -8, 10);
     move(0, -20, 20);
     expect(manager.activate).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([-1, 1])(
+    'recognizes a fast swipe after a hold without stationary events (direction %i)',
+    (direction) => {
+      const { manager, move } = setup();
+      move(0, 5 * direction, 110);
+      move(0, 20 * direction, 125);
+      expect(manager.activate).toHaveBeenCalledTimes(1);
+      expect(manager.fail).not.toHaveBeenCalled();
+    },
+  );
+
+  it('waits for another move when the first sample crosses touch slop', () => {
+    const { manager, move } = setup();
+    move(0, -20, 120);
+    expect(manager.activate).not.toHaveBeenCalled();
+    expect(manager.fail).not.toHaveBeenCalled();
+    move(0, -40, 140);
+    expect(manager.activate).toHaveBeenCalledTimes(1);
+    expect(manager.fail).not.toHaveBeenCalled();
+  });
+
+  it('discards a stale sample after a pause within touch slop', () => {
+    const { manager, move } = setup();
+    move(0, -1, 5);
+    move(0, -20, 140);
+    expect(manager.fail).not.toHaveBeenCalled();
+    move(0, -40, 160);
+    expect(manager.activate).toHaveBeenCalledTimes(1);
+  });
+
+  it('still yields a slow drag after an initial hold', () => {
+    const { manager, move } = setup();
+    move(0, -10, 150);
+    move(0, -20, 210);
+    expect(manager.fail).toHaveBeenCalledTimes(1);
+    expect(manager.activate).not.toHaveBeenCalled();
+  });
+
+  it('yields slow dragging even when move events arrive infrequently', () => {
+    const { manager, move } = setup();
+    move(0, -5, 100);
+    move(0, -10, 200);
+    move(0, -20, 300);
+    expect(manager.fail).toHaveBeenCalledTimes(1);
+    expect(manager.activate).not.toHaveBeenCalled();
+  });
+
+  it('scrolls slowly when no child can handle the touch', () => {
+    const { manager, move } = setup({}, false);
+    move(0, -20, 160);
+    expect(manager.activate).toHaveBeenCalledTimes(1);
+    expect(manager.fail).not.toHaveBeenCalled();
+  });
+
+  it('stops page inertia before handing the next slow drag to a child', () => {
+    const { gesture, manager, move, now } = setup();
+    move(0, -8, 10);
+    move(0, -20, 20);
+    gesture.handlers.onStart?.(panEvent);
+    gesture.handlers.onUpdate?.({ ...panEvent, translationY: -40 });
+    gesture.handlers.onEnd?.(
+      { ...panEvent, translationY: -40, velocityY: -700 },
+      true,
+    );
+    gesture.handlers.onFinalize?.(panEvent, true);
+    expect(withDecay).toHaveBeenCalledTimes(1);
+    const scrollAnimation = jest.mocked(cancelAnimation).mock.calls.at(-1)?.[0];
+    jest.mocked(cancelAnimation).mockClear();
+    manager.activate.mockClear();
+    manager.fail.mockClear();
+    now.mockReturnValue(1000);
+    gesture.handlers.onTouchesDown?.(touchEvent(), manager);
+    expect(cancelAnimation).toHaveBeenCalledWith(scrollAnimation);
+    move(0, -10, 100);
+    move(0, -20, 160);
+    expect(manager.fail).toHaveBeenCalledTimes(1);
+    expect(manager.activate).not.toHaveBeenCalled();
+  });
+
+  it.each([-20, 0, 20])(
+    'starts page scrolling from the activation translation (%i pt)',
+    (translationY) => {
+      const { gesture, getScrollY } = setup({ scrollScale: 1.2 });
+      gesture.handlers.onStart?.({ ...panEvent, translationY });
+      gesture.handlers.onUpdate?.({ ...panEvent, translationY });
+      expect(getScrollY?.()).toBe(0);
+      gesture.handlers.onUpdate?.({
+        ...panEvent,
+        translationY: translationY - 30,
+      });
+      expect(getScrollY?.()).toBe(36);
+    },
+  );
+
+  it('does not count movement before activation toward refresh', () => {
+    const onRefresh = jest.fn();
+    const { gesture } = setup({ onRefresh });
+    gesture.handlers.onStart?.({ ...panEvent, translationY: 30 });
+    gesture.handlers.onEnd?.({ ...panEvent, translationY: 100 }, true);
+    expect(onRefresh).not.toHaveBeenCalled();
+    gesture.handlers.onEnd?.({ ...panEvent, translationY: 120 }, true);
+    expect(onRefresh).toHaveBeenCalledTimes(1);
   });
 
   it('keeps automatic direction-based activation for other headers', () => {

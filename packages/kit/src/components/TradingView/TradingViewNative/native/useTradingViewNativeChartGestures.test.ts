@@ -9,7 +9,10 @@ import { renderHook } from '@testing-library/react';
 import { Gesture } from 'react-native-gesture-handler';
 import { scheduleOnRN } from 'react-native-worklets';
 
-import { HeaderScrollGestureContext } from '@onekeyhq/components/src/composite/Tabs/HeaderScrollGestureContext';
+import {
+  HeaderScrollGestureChildPanContext,
+  HeaderScrollGestureContext,
+} from '@onekeyhq/components/src/composite/Tabs/HeaderScrollGestureContext';
 
 import {
   TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
@@ -27,6 +30,7 @@ import { useTradingViewNativeChartGestures } from './useTradingViewNativeChartGe
 
 import type { ITradingViewNativePriceRange } from '../utils/chartViewport';
 import type { GestureType } from 'react-native-gesture-handler';
+import type { SharedValue } from 'react-native-reanimated';
 
 type IMockGestureHandler = (...args: unknown[]) => void;
 
@@ -53,6 +57,9 @@ jest.mock(
     HeaderScrollGestureContext: jest
       .requireActual<typeof import('react')>('react')
       .createContext<GestureType[]>([]),
+    HeaderScrollGestureChildPanContext: jest
+      .requireActual<typeof import('react')>('react')
+      .createContext<SharedValue<boolean> | undefined>(undefined),
   }),
 );
 
@@ -234,17 +241,27 @@ function renderChartGestures({
   } as unknown as Parameters<typeof useTradingViewNativeChartGestures>[0];
 
   const initialPanGestureCount = mockPanGestures.length;
-  renderHook(() => useTradingViewNativeChartGestures(props), {
-    wrapper: ({ children }: PropsWithChildren) =>
-      createElement(
-        HeaderScrollGestureContext.Provider,
-        { value: headerScrollGestures },
-        children,
-      ),
-  });
+  const canChildHandlePan = { value: false } as SharedValue<boolean>;
+  const { unmount } = renderHook(
+    () => useTradingViewNativeChartGestures(props),
+    {
+      wrapper: ({ children }: PropsWithChildren) =>
+        createElement(
+          HeaderScrollGestureContext.Provider,
+          { value: headerScrollGestures },
+          createElement(
+            HeaderScrollGestureChildPanContext.Provider,
+            { value: canChildHandlePan },
+            children,
+          ),
+        ),
+    },
+  );
   return {
     chartRuntime,
     decayOffset,
+    canChildHandlePan,
+    unmount,
     contentPanGesture: mockPanGestures[initialPanGestureCount + 1],
   };
 }
@@ -413,6 +430,57 @@ describe('free chart panning', () => {
     mockPanGestures.length = 0;
     mockTapGestures.length = 0;
   });
+
+  it.each([
+    { x: 100, y: 120, canPan: true },
+    { x: 100, y: 280, canPan: false },
+    { x: 310, y: 120, canPan: false },
+  ])(
+    'reports whether a touch at ($x, $y) can pan the chart',
+    ({ x, y, canPan }) => {
+      const { canChildHandlePan, contentPanGesture } = renderChartGestures({
+        headerScrollGestures: [Gesture.Pan()],
+        prioritizePageScroll: true,
+      });
+      contentPanGesture.handlers.onTouchesDown?.(
+        { changedTouches: [{ x, y }] },
+        { fail: jest.fn() },
+      );
+      expect(canChildHandlePan.value).toBe(canPan);
+      contentPanGesture.handlers.onFinalize?.();
+      expect(canChildHandlePan.value).toBe(false);
+    },
+  );
+
+  it('leaves page scrolling available while the chart has no data', () => {
+    const { chartRuntime, canChildHandlePan, contentPanGesture } =
+      renderChartGestures({
+        headerScrollGestures: [Gesture.Pan()],
+        prioritizePageScroll: true,
+      });
+    chartRuntime.value.points = [];
+    contentPanGesture.handlers.onTouchesDown?.(
+      { changedTouches: [{ x: 100, y: 120 }] },
+      { fail: jest.fn() },
+    );
+    expect(canChildHandlePan.value).toBe(false);
+  });
+
+  it('clears touch eligibility when the chart is unmounted', () => {
+    const { canChildHandlePan, contentPanGesture, unmount } =
+      renderChartGestures({
+        headerScrollGestures: [Gesture.Pan()],
+        prioritizePageScroll: true,
+      });
+    contentPanGesture.handlers.onTouchesDown?.(
+      { changedTouches: [{ x: 100, y: 120 }] },
+      { fail: jest.fn() },
+    );
+    expect(canChildHandlePan.value).toBe(true);
+    unmount();
+    expect(canChildHandlePan.value).toBe(false);
+  });
+
   it('keeps other embedded charts independent of parent scroll thresholds', () => {
     const headerScrollGesture = Gesture.Pan();
     const { contentPanGesture } = renderChartGestures({

@@ -1,4 +1,4 @@
-import { useContext, useMemo } from 'react';
+import { useContext, useEffect, useMemo } from 'react';
 
 import { Gesture } from 'react-native-gesture-handler';
 import {
@@ -8,7 +8,10 @@ import {
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
-import { HeaderScrollGestureContext } from '@onekeyhq/components/src/composite/Tabs/HeaderScrollGestureContext';
+import {
+  HeaderScrollGestureChildPanContext,
+  HeaderScrollGestureContext,
+} from '@onekeyhq/components/src/composite/Tabs/HeaderScrollGestureContext';
 
 import {
   TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
@@ -86,6 +89,7 @@ export function useTradingViewNativeChartGestures({
   timeAxisHeight: number;
 }) {
   const headerScrollGestures = useContext(HeaderScrollGestureContext);
+  const canChildHandlePan = useContext(HeaderScrollGestureChildPanContext);
   const shouldWaitForPageScroll =
     prioritizePageScroll && headerScrollGestures.length > 0;
   const pressedSubIndicatorSettingsTarget =
@@ -101,6 +105,14 @@ export function useTradingViewNativeChartGestures({
   const panPriceLastTranslationY = useSharedValue(0);
   const isPricePanActive = useSharedValue(false);
   const activeGestures = useSharedValue(0);
+  useEffect(
+    () => () => {
+      if (canChildHandlePan && shouldWaitForPageScroll) {
+        canChildHandlePan.value = false;
+      }
+    },
+    [canChildHandlePan, shouldWaitForPageScroll],
+  );
   return useMemo(() => {
     const setInteraction = (bit: number, active: boolean) => {
       'worklet';
@@ -301,11 +313,17 @@ export function useTradingViewNativeChartGestures({
         'worklet';
 
         const touch = event.changedTouches[0];
-        if (
+        const isAxisTouch =
           touch &&
           (isMainPriceAxisTouch(touch.x, touch.y) ||
-            isTimeAxisTouch(touch.x, touch.y))
-        ) {
+            isTimeAxisTouch(touch.x, touch.y));
+        if (canChildHandlePan && shouldWaitForPageScroll) {
+          canChildHandlePan.value =
+            Boolean(touch) &&
+            !isAxisTouch &&
+            chartRuntime.value.points.length > 0;
+        }
+        if (isAxisTouch) {
           stateManager.fail();
         }
       })
@@ -456,6 +474,9 @@ export function useTradingViewNativeChartGestures({
       .onFinalize(() => {
         'worklet';
         setInteraction(2, false);
+        if (canChildHandlePan && shouldWaitForPageScroll) {
+          canChildHandlePan.value = false;
+        }
 
         const runtime = chartRuntime.value;
         chartRuntime.value = {
@@ -663,6 +684,7 @@ export function useTradingViewNativeChartGestures({
     );
   }, [
     activeGestures,
+    canChildHandlePan,
     panPriceRange,
     panPriceHeight,
     panStartTranslationX,
