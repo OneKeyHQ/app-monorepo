@@ -1,18 +1,26 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import {
   BlurView,
   Carousel,
   Image,
+  LinearGradient,
   SizableText,
   Skeleton,
   Stack,
+  Theme,
   XStack,
   YStack,
   useCarouselPressSuppressor,
+  useThemeName,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IEarnPageBannerListItem } from '@onekeyhq/shared/types/earn';
 
@@ -23,17 +31,39 @@ import {
 import { EarnTestIDs } from '../testIDs';
 
 const BANNER_HEIGHT = 200;
-export const EARN_HOME_BANNER_BLOCK_HEIGHT = 248;
+// Card 200 + 8 gap + 6 dot + 16 to the next section. Kept fixed so a cold
+// start reserves the final height (OK-60299) and the header gesture wrapper
+// can exclude exactly this band (OK-61516).
+export const EARN_HOME_BANNER_BLOCK_HEIGHT = BANNER_HEIGHT + 30;
 // $pagePadding ($5) split into container padding + per-card margin, so the
 // card still lands on the design's 353pt width while its drop shadow has room
 // to fall inside the pager's clipping viewport. Both halves are s()-scaled
 // tokens, so they keep tracking each other on Android's small-screen uiScale.
 const BANNER_CONTAINER_PADDING = '$3';
 const BANNER_SHADOW_ROOM = '$2';
-// Figma gives the bottom bar as Hug 56px, which py $2 + icon $10 + py $2
-// reproduces exactly. Pinning it as a floor as well keeps the bar the same
-// height on an icon-less slide, so it does not jump as the carousel pages.
-const BANNER_INFO_HEIGHT = 56;
+// The pager clips at its own bounds, so it is made this much taller than the
+// card for BANNER_SHADOW to fall into (y offset + blur + spread = 12).
+const BANNER_SHADOW_ROOM_BOTTOM = 12;
+// The dots keep the pagination item's $1 padding as their tap target. Pulling
+// the row back up over the shadow room lands the dots themselves 8pt under the
+// card, as in Figma: 12 (room) - 8 (offset) + 4 (padding) = 8.
+const BANNER_PAGINATION_OFFSET = -8;
+// Soft lift for light mode, written as a CSS box-shadow so it renders on
+// Android 9+ as well: the shadow* props it replaces only ever drew on iOS. A
+// tight contact layer for the edge, plus a wider one whose negative spread
+// keeps it within 8pt of the sides and 12pt below, the room the pager leaves
+// before it clips. Dark mode has nothing light for a shadow to fall on.
+const BANNER_SHADOW =
+  '0px 1px 2px rgba(0, 0, 0, 0.06), 0px 4px 12px -4px rgba(0, 0, 0, 0.16)';
+// Figma's copy column is 183pt of the 350pt card. Kept as a share of the card
+// rather than a fixed width: the artwork is cropped to the card's width, so
+// its focal point (the coin, from ~58% across) moves with it, and the column
+// has to stop short of it on every screen size.
+const BANNER_COPY_WIDTH = '52%';
+// Figma (30705:41176) gives the bottom bar as Hug 60px: the 40pt icon plus
+// 10pt above and below it. Pinned rather than hugged so the bar keeps its
+// height on an icon-less slide and does not jump as the carousel pages.
+const BANNER_INFO_HEIGHT = 60;
 // Dark frosted material. A frosted pane is blur *plus* a tint layer, never
 // plain transparency, so the bar always has a color — the only question is
 // which. The two options are not symmetric: a Light material is "add white
@@ -48,23 +78,36 @@ const BANNER_INFO_HEIGHT = 56;
 // while the Dark family keeps its own values.
 const BANNER_INFO_GLASS_MATERIAL = 'systemUltraThinMaterialDark' as const;
 // How much of the material is applied. On iOS this is the effect animator's
-// fraction, on Android it scales both the blur radius and the overlay alpha —
-// on both it is the one knob that goes *thinner* than the thinnest material.
-const BANNER_INFO_GLASS_INTENSITY = 55;
-// Optional veil above the material, kept as the readability escape hatch.
-// Off by default: it lands on top of the blur, so any non-zero value trades
-// the pane's transparency away. Unusually bright artwork can raise this to a
-// low-alpha black (0.1-0.2) rather than reaching for the material again.
-const BANNER_INFO_GLASS_TINT = 'transparent';
+// fraction; on Android, where no blur target is set, it only scales the
+// overlay's alpha. Figma's frost is light (8), so the material is only partly
+// applied and the veil below does the darkening.
+const BANNER_INFO_GLASS_INTENSITY = 30;
+// Figma's veil over the glass: a 31% black fill above the blur, keeping light
+// copy legible over light artwork too. Not iOS 26 Liquid Glass: its clear
+// style barely frosts busy artwork and its regular style adapts to a milky
+// pane that no tint darkens, neither of which is Figma's frosted dark bar.
+const BANNER_INFO_GLASS_TINT = 'rgba(0, 0, 0, 0.31)';
 // Specular highlight along the bar's top edge — the strongest "this is glass"
 // cue in Apple's materials. Without it the pane reads as translucent plastic
-// no matter how good the blur is.
-const BANNER_INFO_GLASS_EDGE = 'rgba(255,255,255,0.22)';
+// no matter how good the blur is. Figma lights the glass from the upper left
+// (328°), so it fades out to the right.
+const BANNER_INFO_GLASS_EDGE_COLORS = [
+  'rgba(255, 255, 255, 0.5)',
+  'rgba(255, 255, 255, 0.08)',
+];
+const BANNER_INFO_GLASS_EDGE_START = { x: 0, y: 0 } as const;
+const BANNER_INFO_GLASS_EDGE_END = { x: 1, y: 0 } as const;
 // Half of $bodyMdMedium's extra leading (20 - 14 = 6), which iOS places
 // entirely above the glyphs. Paint-only, so no script can be clipped by it.
 const BANNER_BUTTON_LABEL_NUDGE = {
   transform: [{ translateY: -1.5 }],
 } as const;
+// Figma's Join pill is 101pt wide; a minimum rather than a fixed width so a
+// longer localized label grows the pill instead of being truncated.
+const BANNER_BUTTON_MIN_WIDTH = 101;
+// Figma's pill is pure white. The dark theme's $bgPrimary is an off-white that
+// reads grey against the frosted bar.
+const BANNER_BUTTON_BG = '#FFFFFF';
 // Figma default text colors (double fallback: prefer server-configured
 // colors, fall back to these when absent)
 const BANNER_DEFAULT_COLORS = {
@@ -77,8 +120,87 @@ const BANNER_DEFAULT_COLORS = {
   subtitle: 'rgba(255,255,255,0.65)',
 } as const;
 
+const NO_BREAK_SPACE = '\u00A0';
+// Longest last-two-word pair bindLastTwoWords may join, per text style: about
+// two-thirds of a line at the copy column's narrowest (iPhone SE), so the
+// joined pair always fits on a line of its own.
+const BANNER_TITLE_MAX_BOUND_PAIR = 16;
+const BANNER_SUBTITLE_MAX_BOUND_PAIR = 24;
+
+type IBannerArtworkState = {
+  uri: string;
+  status: 'displayed' | 'failed';
+};
+
+// iOS text layout has no balanced line breaking, so wrapped copy can end on a
+// lone word ("…APR with / Bitway"). A no-break space between the last two
+// words moves the break one word earlier. Copy without spaces (CJK) keeps its
+// own break points, and an ops-forced newline still starts a new line.
+function bindLastTwoWords(text: string, maxPairLength: number) {
+  const copy = text.trimEnd();
+  const lineStart = copy.lastIndexOf('\n') + 1;
+  const lastSpace = copy.lastIndexOf(' ');
+  if (lastSpace < lineStart) {
+    return copy;
+  }
+  const pairStart = Math.max(
+    copy.lastIndexOf(' ', lastSpace - 1) + 1,
+    lineStart,
+  );
+  if (copy.length - pairStart > maxPairLength) {
+    return copy;
+  }
+  return `${copy.slice(0, lastSpace)}${NO_BREAK_SPACE}${copy.slice(lastSpace + 1)}`;
+}
+
+function EarnHomeBannerInfoGlass() {
+  return (
+    <>
+      {/* Bottom radii are set explicitly instead of relying on parent
+          clipping: on iOS the BlurView (native UIVisualEffectView) may ignore
+          the RN parent's overflow hidden and leak square corners. The tint is
+          a sibling above the blur, never `bg` on it: that would land on the
+          wrapper the blur samples as its backdrop. */}
+      <BlurView
+        position="absolute"
+        top={0}
+        right={0}
+        bottom={0}
+        left={0}
+        intensity={BANNER_INFO_GLASS_INTENSITY}
+        tint={BANNER_INFO_GLASS_MATERIAL}
+        borderBottomLeftRadius="$3"
+        borderBottomRightRadius="$3"
+        overflow="hidden"
+      />
+      <Stack
+        position="absolute"
+        top={0}
+        right={0}
+        bottom={0}
+        left={0}
+        bg={BANNER_INFO_GLASS_TINT}
+        pointerEvents="none"
+      />
+      <LinearGradient
+        position="absolute"
+        top={0}
+        left={0}
+        right={0}
+        h={StyleSheet.hairlineWidth}
+        colors={BANNER_INFO_GLASS_EDGE_COLORS}
+        start={BANNER_INFO_GLASS_EDGE_START}
+        end={BANNER_INFO_GLASS_EDGE_END}
+        pointerEvents="none"
+      />
+    </>
+  );
+}
+
 function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
   const shouldSuppressPress = useCarouselPressSuppressor();
+  const isDarkTheme = useThemeName() === 'dark';
+  const reducedMotion = useReducedMotion();
   const handlePress = useCallback(async () => {
     if (!item.href || shouldSuppressPress()) {
       return;
@@ -96,13 +218,46 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
     handleDeepLinkUrl({ url: item.href });
   }, [item.href, item.hrefType, shouldSuppressPress]);
 
+  // Keyed by URL so a refreshed list that swaps the artwork starts loading
+  // again instead of inheriting the old image's state.
+  const [artwork, setArtwork] = useState<IBannerArtworkState>();
+  const artworkStatus =
+    artwork?.uri === item.backgroundImage ? artwork.status : 'loading';
+  const handleArtworkDisplay = useCallback(() => {
+    setArtwork((current) =>
+      current?.uri === item.backgroundImage && current.status === 'displayed'
+        ? current
+        : { uri: item.backgroundImage, status: 'displayed' },
+    );
+  }, [item.backgroundImage]);
+  const handleArtworkError = useCallback(() => {
+    setArtwork({ uri: item.backgroundImage, status: 'failed' });
+  }, [item.backgroundImage]);
+  // Until the artwork is on screen the card stays one shimmer, continuous
+  // with the cold-start skeleton, instead of drawing copy over a placeholder
+  // it was never colored for. The image copy only ever reads against its
+  // artwork, so a failed image drops it and keeps the self-contained bar.
+  const showImageCopy = artworkStatus === 'displayed';
+  const showInfoContent = artworkStatus !== 'loading';
+  const contentTransition = reducedMotion ? undefined : 'quick';
+
   const hasImageCopy = Boolean(item.imageTitle || item.imageSubtitle);
 
   return (
     // Outer layer carries the drop shadow (product feedback): on iOS,
     // overflow:hidden clips the element's own shadow, so the shadow lives on
-    // the wrapper while the inner layer handles corner clipping
+    // the wrapper while the inner layer handles corner clipping. It is also
+    // the press target, so the press scale takes the shadow along with it.
+    //
+    // Whole card is the tap target (OK-60602), not just the CTA. Kept on a
+    // plain YStack rather than a Pressable: the card lives inside three
+    // nested horizontal gesture handlers (the banner Carousel, the header's
+    // pan wrapper and the outer tab pager), and a component that claims
+    // touches would swallow the swipe. The Responder-based onPress bows out as
+    // soon as a drag starts. The CTA keeps its own onPress — the innermost
+    // responder wins, so it does not fire twice.
     <YStack
+      testID={EarnTestIDs.bannerItem(item.bannerId)}
       h={BANNER_HEIGHT}
       // react-native-pager-view's viewport clips at the page edge, and a page
       // is exactly as wide as the carousel. Without this inset the card's
@@ -111,36 +266,26 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
       // same amount so the card keeps its design width.
       mx={BANNER_SHADOW_ROOM}
       borderRadius="$3"
+      borderCurve="continuous"
       bg="$bgApp"
-      // Figma drop shadow: x 0, y 3, blur 4, spread 0, rgba(0,0,0,0.25).
-      // Spelled out rather than using $shadowColor, which is far lighter than
-      // 0.25 black and would sink the card back into the page.
-      shadowColor="#000000"
-      shadowOffset={{ width: 0, height: 3 }}
-      shadowOpacity={0.25}
-      shadowRadius={4}
+      boxShadow={isDarkTheme ? undefined : BANNER_SHADOW}
+      {...(item.href
+        ? {
+            role: 'button' as const,
+            cursor: 'pointer' as const,
+            transition: reducedMotion ? undefined : ('fast' as const),
+            animateOnly: ANIMATE_ONLY_TRANSFORM,
+            pressStyle: { scale: 0.98 },
+            onPress: handlePress,
+          }
+        : undefined)}
     >
-      {/* Whole card is the tap target (OK-60602), not just the CTA. Kept on a
-          plain YStack rather than a Pressable: the card lives inside three
-          nested horizontal gesture handlers (the banner Carousel, the header's
-          pan wrapper and the outer tab pager), and a component that claims
-          touches would swallow the swipe. The Responder-based onPress bows out
-          as soon as a drag starts. The CTA keeps its own onPress — the
-          innermost responder wins, so it does not fire twice. */}
       <YStack
-        testID={EarnTestIDs.bannerItem(item.bannerId)}
         flex={1}
         borderRadius="$3"
+        borderCurve="continuous"
         overflow="hidden"
         bg="$bgApp"
-        {...(item.href
-          ? {
-              role: 'button' as const,
-              cursor: 'pointer' as const,
-              pressStyle: { opacity: 0.9 },
-              onPress: handlePress,
-            }
-          : undefined)}
       >
         {/* Background image fills the card (OK-58503: the bottom bar floats
             over the image instead of splitting the card vertically) */}
@@ -150,155 +295,155 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
             h="100%"
             src={item.backgroundImage}
             resizeMode="cover"
-            placeholder={<Stack w="100%" h="100%" bg="$bgSubdued" />}
+            placeholder={<Skeleton w="100%" h="100%" radius="square" />}
+            fallback={<Stack w="100%" h="100%" bg="$bgSubdued" />}
+            onDisplay={handleArtworkDisplay}
+            onError={handleArtworkError}
           />
         </YStack>
-        <Stack flex={1} />
-        {/* Campaign copy at the image's bottom-left. Long i18n copy: line
-            clamp + wrapping so it never overflows the card. Color double
-            fallback: prefer admin-configured colors, else Figma default dark.
-            Keep the copy shadow-free so dark text does not look embossed. */}
-        {hasImageCopy ? (
-          // Figma: padding 12, gap 10. The gap prop is $0.5, not $2.5,
-          // because the prop only adds to what line-height already
-          // contributes: $headingLg is 18/24 and $bodyMd is 14/20, so the two
-          // half-leadings alone already separate the glyph boxes. Product
-          // signed off on the measured-on-device value over the annotation.
-          // pr stays wider than the design's 12 so a long localized title
-          // breaks before it reaches the artwork's focal point — Figma only
-          // ever shows the short English copy.
-          <YStack px="$3" pb="$3" gap="$0.5" pr="$8">
-            {item.imageTitle ? (
-              <SizableText
-                size="$headingLg"
-                color={item.imageTitleColor || BANNER_DEFAULT_COLORS.imageTitle}
-                numberOfLines={2}
-              >
-                {item.imageTitle}
-              </SizableText>
-            ) : null}
-            {item.imageSubtitle ? (
-              <SizableText
-                size="$bodyMd"
-                color={
-                  item.imageSubtitleColor || BANNER_DEFAULT_COLORS.imageSubtitle
-                }
-                numberOfLines={1}
-              >
-                {item.imageSubtitle}
-              </SizableText>
-            ) : null}
-          </YStack>
-        ) : null}
-        {/* Bottom bar: flush to the bottom + frosted glass. Two separate
-            reasons this used to render as a flat grey strip, both fixed here:
-            the veil must sit *above* the blur (`bg` on a BlurView lands on the
-            wrapper the native blur samples as its backdrop, so the blur only
-            ever saw flat white), and the tint must be a system material rather
-            than the legacy heavy `light` style — see the constants up top. */}
-        {/* Square top corners, bottom corners follow the card radius. Set the
-            bottom radii explicitly instead of relying on parent clipping: on
-            iOS the BlurView (native UIVisualEffectView) may ignore the RN
-            parent's overflow hidden and leak square corners (product feedback) */}
-        <BlurView
-          intensity={BANNER_INFO_GLASS_INTENSITY}
-          // BlurView defaults tint to the app theme name ('light' / 'dark'),
-          // both of which are the legacy heavy styles. Pin the material.
-          tint={BANNER_INFO_GLASS_MATERIAL}
-          minHeight={BANNER_INFO_HEIGHT}
-          borderBottomLeftRadius="$3"
-          borderBottomRightRadius="$3"
-          overflow="hidden"
-          contentStyle={{ flex: 1 }}
+        {/* Campaign copy, vertically centered in the artwork above the bar
+            and wrapped inside a column that stops short of the artwork's
+            focal point. Long i18n copy: line clamps keep the block (at most
+            3 x 24 + 2 x 16) inside the 140pt it is centered in. Android
+            balances the lines and bindLastTwoWords keeps iOS from ending on a
+            lone word; ops can still force a break with a newline in the copy.
+            Color double fallback: prefer admin-configured colors, else Figma
+            default dark. Keep the copy shadow-free so dark text does not look
+            embossed. */}
+        <YStack
+          flex={1}
+          jc="center"
+          pointerEvents="none"
+          opacity={showImageCopy ? 1 : 0}
+          transition={contentTransition}
+          animateOnly={ANIMATE_ONLY_OPACITY}
         >
-          {/* Figma: padding 8/12, gap 12, height Hug 56 */}
-          <XStack
-            flex={1}
-            minHeight={BANNER_INFO_HEIGHT}
-            bg={BANNER_INFO_GLASS_TINT}
-            px="$3"
-            py="$2"
-            gap="$3"
-            ai="center"
-          >
-            {item.icon ? (
-              // The bar is a fixed 56pt with $2 padding, so $10 filled the
-              // 40pt content box edge to edge with no breathing room.
-              <Image
-                src={item.icon}
-                w="$8"
-                h="$8"
-                borderRadius="$2"
-                resizeMode="contain"
-              />
-            ) : null}
-            {/* Keep the bottom-bar copy shadow-free as well. Contrast remains
-                controlled by the server colors and the frosted material. */}
-            <YStack flex={1} minWidth={0} jc="center">
-              <SizableText
-                size="$bodyMdMedium"
-                color={item.titleColor || BANNER_DEFAULT_COLORS.title}
-                numberOfLines={1}
-              >
-                {item.title}
-              </SizableText>
-              <SizableText
-                size="$bodySm"
-                color={item.subtitleColor || BANNER_DEFAULT_COLORS.subtitle}
-                numberOfLines={1}
-              >
-                {item.subtitle}
-              </SizableText>
+          {hasImageCopy ? (
+            <YStack ml="$3" w={BANNER_COPY_WIDTH}>
+              {item.imageTitle ? (
+                <SizableText
+                  size="$headingMd"
+                  color={
+                    item.imageTitleColor || BANNER_DEFAULT_COLORS.imageTitle
+                  }
+                  numberOfLines={3}
+                  textBreakStrategy="balanced"
+                >
+                  {bindLastTwoWords(
+                    item.imageTitle,
+                    BANNER_TITLE_MAX_BOUND_PAIR,
+                  )}
+                </SizableText>
+              ) : null}
+              {item.imageSubtitle ? (
+                <SizableText
+                  size="$bodySm"
+                  color={
+                    item.imageSubtitleColor ||
+                    BANNER_DEFAULT_COLORS.imageSubtitle
+                  }
+                  numberOfLines={2}
+                  textBreakStrategy="balanced"
+                >
+                  {bindLastTwoWords(
+                    item.imageSubtitle,
+                    BANNER_SUBTITLE_MAX_BOUND_PAIR,
+                  )}
+                </SizableText>
+              ) : null}
             </YStack>
-            {item.button && item.href ? (
-              <XStack
-                testID={EarnTestIDs.bannerButton(item.bannerId)}
-                role="button"
-                flexShrink={0}
-                ai="center"
-                jc="center"
-                // Figma Button/Small/Primary: 47 x 30, padding 11 / 5 (the 5
-                // includes the component's 1px border). Height is pinned
-                // rather than derived from padding so the label can keep its
-                // natural line box — see the label below.
-                px={11}
-                h={30}
-                borderRadius="$full"
-                bg="$bgPrimary"
-                cursor="pointer"
-                pressStyle={{ bg: '$bgPrimaryActive' }}
-                onPress={handlePress}
-              >
+          ) : null}
+        </YStack>
+        {/* Bottom bar: flush to the bottom, glass over the artwork. Pinned to
+            the dark theme because the glass is always a dark pane, whatever
+            the app theme: the Join label and its pressed state resolve the
+            same in both themes, as in Figma. */}
+        <Theme name="dark">
+          <YStack h={BANNER_INFO_HEIGHT}>
+            {/* The glass mounts once the artwork settles rather than fading
+                in: animating the opacity of a native blur view, or of any of
+                its parents, breaks the effect until the animation ends. */}
+            {showInfoContent ? <EarnHomeBannerInfoGlass /> : null}
+            <XStack
+              flex={1}
+              px="$3"
+              gap="$3"
+              ai="center"
+              opacity={showInfoContent ? 1 : 0}
+              transition={contentTransition}
+              animateOnly={ANIMATE_ONLY_OPACITY}
+            >
+              {item.icon ? (
+                <Image
+                  src={item.icon}
+                  w="$10"
+                  h="$10"
+                  borderRadius="$2"
+                  resizeMode="contain"
+                />
+              ) : null}
+              {/* Keep the bottom-bar copy shadow-free as well. Contrast comes
+                  from the server colors and the tinted glass. */}
+              <YStack flex={1} minWidth={0} jc="center">
                 <SizableText
                   size="$bodyMdMedium"
-                  color="$textInverse"
+                  color={item.titleColor || BANNER_DEFAULT_COLORS.title}
                   numberOfLines={1}
-                  // OK-60303: iOS puts $bodyMdMedium's 6pt of extra leading
-                  // (14/20) above the glyphs, so centring the line box still
-                  // leaves the label low in the pill. Collapsing lineHeight to
-                  // the font size fixed the offset but made the line box
-                  // shorter than the glyphs' own ascent+descent, which clipped
-                  // the top of taller scripts — CJK most visibly. Keep Figma's
-                  // line box and correct the offset in paint instead:
-                  // translateY does not participate in layout, so it cannot
-                  // clip and cannot be re-centred away by alignItems.
-                  style={BANNER_BUTTON_LABEL_NUDGE}
                 >
-                  {item.button}
+                  {item.title}
                 </SizableText>
-              </XStack>
-            ) : null}
-          </XStack>
-          <Stack
-            position="absolute"
-            top={0}
-            left={0}
-            right={0}
-            h={StyleSheet.hairlineWidth}
-            bg={BANNER_INFO_GLASS_EDGE}
-            pointerEvents="none"
-          />
-        </BlurView>
+                <SizableText
+                  size="$bodySm"
+                  color={item.subtitleColor || BANNER_DEFAULT_COLORS.subtitle}
+                  numberOfLines={1}
+                >
+                  {item.subtitle}
+                </SizableText>
+              </YStack>
+              {item.button && item.href ? (
+                <XStack
+                  testID={EarnTestIDs.bannerButton(item.bannerId)}
+                  role="button"
+                  flexShrink={0}
+                  ai="center"
+                  jc="center"
+                  // Figma Button/Small/Primary: 30pt tall, padding 11 / 5 (the
+                  // 5 includes the component's 1px border). Height is pinned
+                  // rather than derived from padding so the label can keep its
+                  // natural line box — see the label below.
+                  minWidth={BANNER_BUTTON_MIN_WIDTH}
+                  px={11}
+                  h={30}
+                  borderRadius="$full"
+                  borderCurve="continuous"
+                  bg={BANNER_BUTTON_BG}
+                  cursor="pointer"
+                  pressStyle={{ bg: '$bgPrimaryActive' }}
+                  onPress={handlePress}
+                >
+                  <SizableText
+                    size="$bodyMdMedium"
+                    color="$textInverse"
+                    numberOfLines={1}
+                    // OK-60303: iOS puts $bodyMdMedium's 6pt of extra leading
+                    // (14/20) above the glyphs, so centring the line box still
+                    // leaves the label low in the pill. Collapsing lineHeight
+                    // to the font size fixed the offset but made the line box
+                    // shorter than the glyphs' own ascent+descent, which
+                    // clipped the top of taller scripts — CJK most visibly.
+                    // Keep Figma's line box and correct the offset in paint
+                    // instead: translateY does not participate in layout, so
+                    // it cannot clip and cannot be re-centred away by
+                    // alignItems.
+                    style={BANNER_BUTTON_LABEL_NUDGE}
+                  >
+                    {item.button}
+                  </SizableText>
+                </XStack>
+              ) : null}
+            </XStack>
+          </YStack>
+        </Theme>
       </YStack>
     </YStack>
   );
@@ -332,9 +477,14 @@ export function EarnHomeBanner({
       <YStack
         h={EARN_HOME_BANNER_BLOCK_HEIGHT}
         px={BANNER_CONTAINER_PADDING}
-        pb="$4"
+        pb="$3"
       >
-        <Skeleton h={BANNER_HEIGHT} mx={BANNER_SHADOW_ROOM} borderRadius="$3" />
+        <Skeleton
+          h={BANNER_HEIGHT}
+          mx={BANNER_SHADOW_ROOM}
+          borderRadius="$3"
+          borderCurve="continuous"
+        />
       </YStack>
     );
   }
@@ -348,7 +498,7 @@ export function EarnHomeBanner({
       testID={EarnTestIDs.banner}
       h={EARN_HOME_BANNER_BLOCK_HEIGHT}
       px={BANNER_CONTAINER_PADDING}
-      pb="$4"
+      pb="$3"
     >
       <Carousel
         data={validBanners}
@@ -357,22 +507,8 @@ export function EarnHomeBanner({
         loop={validBanners.length > 1}
         infinite
         showPagination={validBanners.length > 1}
-        // Extra 16px of height: render room for the card's drop shadow;
-        // otherwise the Carousel viewport clips it and the depth effect is
-        // lost (product feedback)
-        containerStyle={{ height: BANNER_HEIGHT + 16 }}
-        paginationContainerStyle={{ mt: '$2.5', h: '$1.5' }}
-        renderPaginationItem={({ activeDotStyle, onPress }, index) => (
-          <YStack
-            key={validBanners[index]?.bannerId ?? index}
-            w="$1.5"
-            h="$1.5"
-            mr={index === validBanners.length - 1 ? '$0' : '$1.5'}
-            borderRadius="$full"
-            bg={activeDotStyle ? '$bgPrimary' : '$neutral5'}
-            onPress={onPress}
-          />
-        )}
+        containerStyle={{ height: BANNER_HEIGHT + BANNER_SHADOW_ROOM_BOTTOM }}
+        paginationContainerStyle={{ mt: BANNER_PAGINATION_OFFSET }}
       />
     </YStack>
   );
