@@ -27,6 +27,9 @@ export function HomeNativePager({
   initialTabName,
   headerHeightHint,
   renderHeader,
+  topOverlay,
+  onTopScrollEdgeCapability,
+  topEdgeActive,
   renderTabBar,
   onTabChange,
   onTabPrepare,
@@ -169,6 +172,11 @@ export function HomeNativePager({
       initialPage={initialIndex}
       nestedScrollEnabled
       nativeSmoothHeaderScrollEnabled
+      topScrollEdgeEffect={topOverlay ? 'hard' : undefined}
+      topOverlay={topOverlay}
+      onScrollEdgeCapability={(event) =>
+        onTopScrollEdgeCapability?.(event.nativeEvent.available)
+      }
       headerHeight={headerLayout.height}
       stickyHeaderHeight={stickyHeight}
       // Spot remains the owner of shared asset loading even while offscreen.
@@ -200,12 +208,14 @@ export function HomeNativePager({
       }
       stickyHeader={
         <View
-          style={{ backgroundColor: theme.bgApp.val }}
+          style={{
+            backgroundColor: topEdgeActive ? 'transparent' : theme.bgApp.val,
+          }}
           onLayout={(event) =>
             setStickyHeight(Math.ceil(event.nativeEvent.layout.height))
           }
         >
-          {renderTabBar(tabBarProps)}
+          {renderTabBar({ ...tabBarProps, topEdgeActive })}
         </View>
       }
       onMountedPagesChanged={({ pageKeys }) => {
