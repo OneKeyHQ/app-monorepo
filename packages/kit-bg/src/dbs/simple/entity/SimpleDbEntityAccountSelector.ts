@@ -692,15 +692,10 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
 
     const rawDataValue = rawData ?? (await this.getRawData());
 
-    const map = rawDataValue?.globalDeriveTypesMap?.[scope];
-    const key = accountSelectorUtils.buildGlobalDeriveTypesMapKey({
+    return accountSelectorUtils.getGlobalDeriveTypeFromMap({
       networkId,
+      globalDeriveTypesMap: rawDataValue?.globalDeriveTypesMap?.[scope],
     });
-    const deriveType = map?.[key];
-    if (networkUtils.isBTCNetwork(networkId) && deriveType === undefined) {
-      return 'BIP86'; // Taproot
-    }
-    return deriveType;
   }
 
   async saveGlobalDeriveType({
