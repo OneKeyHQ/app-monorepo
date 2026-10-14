@@ -117,7 +117,7 @@ export function useWalletConnection({
       shouldCancelWalletConnectOnDialogCloseRef.current = true;
       dialogRef.current = Dialog.show({
         title:
-          platformEnv.isNative && isWalletConnect
+          (platformEnv.isNative || platformEnv.isDesktop) && isWalletConnect
             ? undefined
             : intl.formatMessage(
                 { id: ETranslations.global_connect_to_wallet },

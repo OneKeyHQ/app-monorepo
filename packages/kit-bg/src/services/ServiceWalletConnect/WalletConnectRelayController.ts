@@ -12,7 +12,7 @@ import { RELAYER_EVENTS } from './walletConnectSdkEvents';
 
 import type { Relayer } from '@walletconnect/core';
 import type { IJsonRpcConnection } from '@walletconnect/jsonrpc-utils';
-import type { ICore } from '@walletconnect/types';
+import type { ICore, SubscriberTypes } from '@walletconnect/types';
 
 // Core makes up to five attempts per round. Limit only this invocation's
 // added fallback work; later SDK reconnect triggers receive a fresh budget.
@@ -68,15 +68,20 @@ function createExpiringPromise<T>(
 // Structural stand-in for `relayer instanceof Relayer`: the class lives in the
 // SDK's single bundled entry, which must stay out of the background startup
 // graph. Every member the controller binds or patches has to be present.
-type ISdkRelayer = ICore['relayer'] & Pick<Relayer, 'transportDisconnect'>;
+type ISdkRelayer = ICore['relayer'] &
+  Pick<Relayer, 'transportDisconnect'> & {
+    // SDK subscribe/request also call this method without using transportOpen.
+    connect: (relayUrl?: string) => Promise<void>;
+  };
 function isSdkRelayer(relayer: ICore['relayer']): relayer is ISdkRelayer {
   // Two @walletconnect/jsonrpc-types copies make IRelayer and Relayer
   // non-overlapping for TS; the check below is purely structural.
-  const candidate = relayer as unknown as Partial<Relayer>;
+  const candidate = relayer as unknown as Partial<ISdkRelayer>;
   return (
     typeof candidate.transportOpen === 'function' &&
     typeof candidate.transportClose === 'function' &&
     typeof candidate.transportDisconnect === 'function' &&
+    typeof candidate.connect === 'function' &&
     typeof candidate.restartTransport === 'function' &&
     typeof candidate.request === 'function' &&
     typeof candidate.subscribe === 'function' &&
@@ -87,7 +92,7 @@ function isSdkRelayer(relayer: ICore['relayer']): relayer is ISdkRelayer {
   );
 }
 
-// Serialize public SDK operations around relay changes. A complete SDK retry
+// Serialize SDK socket acquisition around relay changes. A complete SDK retry
 // round finishes before the next endpoint is selected; SDK internals stay intact.
 export class WalletConnectRelayController {
   private static controllers = new WeakMap<
@@ -131,11 +136,11 @@ export class WalletConnectRelayController {
 
   private initialSubscription?: Promise<string>;
 
-  private initialSubscriptionCycle?: IConnectionCycle;
+  private pendingSubscriptions = new Map<string, SubscriberTypes.Params>();
 
   private connections = new Map<IJsonRpcConnection, IConnection>();
 
-  private readonly openTransport: ICore['relayer']['transportOpen'];
+  private readonly connectTransport: ISdkRelayer['connect'];
 
   private readonly closeTransport: ICore['relayer']['transportClose'];
 
@@ -147,7 +152,6 @@ export class WalletConnectRelayController {
   ) {
     this.currentRelayUrl = initialRelayUrl;
     const { relayer } = core;
-    this.openTransport = relayer.transportOpen.bind(relayer);
     this.closeTransport = relayer.transportClose.bind(relayer);
     const request = relayer.request.bind(relayer);
     const subscribe = relayer.subscribe.bind(relayer);
@@ -155,7 +159,19 @@ export class WalletConnectRelayController {
       throw new OneKeyLocalError('Expected the WalletConnect SDK relayer');
     }
     this.disconnectTransport = relayer.transportDisconnect.bind(relayer);
+    this.connectTransport = relayer.connect.bind(relayer);
+    const sdkConnecting: (() => boolean) | undefined =
+      Object.getOwnPropertyDescriptor(
+        Object.getPrototypeOf(relayer),
+        'connecting',
+      )?.get?.bind(relayer);
+    Object.defineProperty(relayer, 'connecting', {
+      get: () => Boolean(this.opening || sdkConnecting?.()),
+    });
 
+    // Route the SDK's direct connect calls through the same round budget and
+    // relay selection as heartbeat, network recovery and application retries.
+    relayer.connect = (url) => this.open(url, true);
     relayer.transportOpen = (url) => this.open(url);
     relayer.transportClose = () => this.close();
     relayer.restartTransport = async (url) => {
@@ -168,40 +184,42 @@ export class WalletConnectRelayController {
       if (this.closing) {
         throw new OneKeyLocalError('WalletConnect connection cancelled');
       }
-      if (!relayer.subscriber.hasAnyTopics && !relayer.connected) {
-        await this.initialSubscription;
-      }
-      await this.open();
+      await this.open(undefined, true);
       // Never replay an RPC after it has been handed to the SDK.
       return request(...args);
     };
     relayer.subscribe = async (...args) => {
-      while (this.initialSubscription) {
-        // Serialize pairings without inheriting a different pairing's failure.
-        await this.initialSubscription.catch(() => undefined);
+      while (this.initialSubscription || this.closing) {
+        // A new pairing waits for the previous owner and its cleanup, without
+        // inheriting the old subscription's error or cancellation generation.
+        await Promise.allSettled([this.initialSubscription, this.closing]);
       }
-      // The first pairing has no subscription topics yet. Its SDK subscribe
-      // creates the pending topic before reaching the guarded request above.
-      if (relayer.subscriber.hasAnyTopics || this.opening || this.closing) {
-        await this.open();
-      }
-      if (!relayer.subscriber.hasAnyTopics && !relayer.connected) {
-        // The first subscribe calls the SDK's own connect before its guarded
-        // request. Reserve that round so fallback adds at most five attempts.
-        this.initialSubscriptionCycle = this.createCycle();
-        this.initialSubscriptionCycle.remainingRounds -= 1;
-        this.initialSubscriptionCycle.round = 1;
-        this.diagnostic('relay_round_started');
-        const subscribing = subscribe(...args);
-        this.initialSubscription = subscribing;
-        try {
-          return await subscribing;
-        } finally {
+      const subscribing = (async () => {
+        const [topic, options] = args;
+        if (!options?.transportType || options.transportType === 'relay') {
+          if (!options?.internal?.skipSubscribe) {
+            // Keep recovery intent outside the SDK pending map until connected.
+            // Its heartbeat would otherwise start RPC timeouts during retries.
+            this.pendingSubscriptions.set(topic, {
+              ...options,
+              topic,
+              relay: options?.relay ?? { protocol: 'irn' },
+            });
+          }
+          // The subscription's 15s/60s timers must start after socket recovery,
+          // so an old subscribe cannot time out and restart a newer retry.
+          await this.open(undefined, true);
+        }
+        return subscribe(...args);
+      })();
+      this.initialSubscription = subscribing;
+      try {
+        return await subscribing;
+      } finally {
+        if (this.initialSubscription === subscribing) {
           this.initialSubscription = undefined;
-          this.initialSubscriptionCycle = undefined;
         }
       }
-      return subscribe(...args);
     };
 
     const debug = relayer.logger.debug;
@@ -255,6 +273,10 @@ export class WalletConnectRelayController {
       Reflect.apply(warn, relayer.logger, args);
     };
     relayer.on(RELAYER_EVENTS.connect, () => {
+      for (const [topic, options] of this.pendingSubscriptions) {
+        relayer.subscriber.pending.set(topic, options);
+      }
+      this.pendingSubscriptions.clear();
       this.trackConnection()?.settle();
       this.attemptStarted = false;
       this.failed = false;
@@ -465,7 +487,7 @@ export class WalletConnectRelayController {
     await this.closing;
   }
 
-  private async open(relayUrl?: string): Promise<void> {
+  private async open(relayUrl?: string, force = false): Promise<void> {
     const { relayer } = this.core;
     // An open overlapping explicit closure belongs to the cancelled cycle.
     // A fresh open/restart after closure can still start the SDK normally.
@@ -484,15 +506,15 @@ export class WalletConnectRelayController {
     if (this.opening) {
       return this.opening;
     }
-    if (!relayer.subscriber.hasAnyTopics) {
+    if (
+      !force &&
+      !relayer.subscriber.hasAnyTopics &&
+      !this.pendingSubscriptions.size
+    ) {
       return;
     }
     const generation = this.generation;
-    const opening = this.run(
-      generation,
-      this.initialSubscriptionCycle ?? this.createCycle(),
-      relayUrl,
-    );
+    const opening = this.run(generation, this.createCycle(), relayUrl);
     this.opening = opening;
     try {
       await opening;
@@ -571,7 +593,7 @@ export class WalletConnectRelayController {
       }
       this.diagnostic('relay_round_started');
       try {
-        await this.openTransport(nextUrl);
+        await this.connectTransport(nextUrl);
         if (generation !== this.generation) {
           throw new OneKeyLocalError('WalletConnect connection cancelled');
         }

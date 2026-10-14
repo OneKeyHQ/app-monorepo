@@ -9,6 +9,7 @@ import { WALLET_CONNECT_RELAY_URLS } from '@onekeyhq/shared/src/walletConnect/co
 
 import walletConnectClient from './walletConnectClient';
 import {
+  WalletConnectDiagnostics,
   dappSideWalletConnectDiagnostics,
   walletConnectDiagnostics,
 } from './WalletConnectDiagnostics';
@@ -50,6 +51,57 @@ describe('WalletConnect application relay controller with the SDK transport', ()
     jest.restoreAllMocks();
     jest.useRealTimers();
   });
+
+  it.each([0, 1])(
+    'routes initial and queued pairing retries through ten attempts each; initial=%s',
+    async (initial) => {
+      jest.useFakeTimers();
+      const core = createCore(RELAYS[initial]);
+      prepareCore(core);
+      const { relayer } = core;
+      jest
+        .spyOn(relayer.subscriber, 'hasAnyTopics', 'get')
+        .mockReturnValue(false);
+      WalletConnectRelayController.attach(core, RELAYS[initial]);
+      const diagnostics = new WalletConnectDiagnostics('wallet');
+      diagnostics.attachCore(core);
+      const subscribe = jest.spyOn(relayer.subscriber, 'subscribe');
+      const attempts: string[] = [];
+      jest
+        .spyOn(JsonRpcProvider.prototype, 'connect')
+        .mockImplementation(async function connect(this: JsonRpcProvider) {
+          if (!(this.connection instanceof WsConnection))
+            throw new OneKeyLocalError('Expected the SDK WebSocket transport');
+          mockClose(this.connection);
+          attempts.push(new URL(this.connection.url).origin);
+          throw new OneKeyLocalError('Synthetic connection failure');
+        });
+      const first = relayer
+        .subscribe('first-topic')
+        .catch((error: unknown) => error);
+      await jest.advanceTimersByTimeAsync(1000);
+      const retry = relayer
+        .subscribe('retry-topic')
+        .catch((error: unknown) => error);
+      await jest.advanceTimersByTimeAsync(80_000);
+      expect(await first).toBeInstanceOf(Error);
+      expect(await retry).toBeInstanceOf(Error);
+      expect(attempts).toEqual(
+        Array.from(
+          { length: 20 },
+          (_, index) => RELAYS[(initial + Math.floor(index / 5)) % 2],
+        ),
+      );
+      // No SDK subscription timer runs during connection recovery, so neither
+      // caller can leave a timed-out subscribe that cancels the newer cycle.
+      expect(subscribe).not.toHaveBeenCalled();
+      expect(diagnostics.getSnapshot()).toMatchObject({
+        connectionAttempts: 20,
+        lastFailedConnectionAttempt: 20,
+        relaySwitches: 3,
+      });
+    },
+  );
 
   it.each([
     { enabled: true, failures: 6, dapp: false, initial: 0 },
@@ -213,6 +265,9 @@ describe('WalletConnect application relay controller with the SDK transport', ()
       ).catch((error: unknown) => error);
       await jest.advanceTimersByTimeAsync(40_000);
       expect(await connecting).toBeInstanceOf(Error);
+      if (firstPairing) {
+        expect(relayer.subscriber.pending.has('test-topic')).toBe(false);
+      }
       expect(attempts).toEqual([
         ...Array.from({ length: 5 }, () => RELAYS[initial]),
         ...Array.from({ length: 5 }, () => RELAYS[1 - initial]),

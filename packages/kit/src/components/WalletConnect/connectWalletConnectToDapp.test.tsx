@@ -116,6 +116,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => {
     default: {
       ...actual.default,
       isNative: true,
+      isDesktop: false,
       runtimeRole: actual.ERuntimeRole.Standalone,
     },
   };
@@ -143,6 +144,7 @@ function deferred() {
 
 beforeEach(() => {
   mockPlatform.isNative = true;
+  mockPlatform.isDesktop = false;
   mockSnapshot = {
     connected: false,
     connecting: false,
@@ -164,13 +166,34 @@ afterEach(() => {
   mockDialogs.length = 0;
 });
 
-it('keeps web/desktop/extension connections silent', async () => {
+it('keeps web/extension connections silent', async () => {
   mockPlatform.isNative = false;
   await connectWalletConnectToDapp(pairingUri);
 
   expect(mockConnect).toHaveBeenCalledWith(pairingUri);
   expect(mockGetDiagnostics).not.toHaveBeenCalled();
   expect(mockDialogs).toHaveLength(0);
+});
+
+it('shows the same connection count and relay on desktop', async () => {
+  mockPlatform.isNative = false;
+  mockPlatform.isDesktop = true;
+  const pending = deferred();
+  mockConnect.mockReturnValue(pending.promise);
+  const connecting = connectWalletConnectToDapp(pairingUri);
+  await act(async () => undefined);
+  expect(mockDialogs).toHaveLength(1);
+  const view = render(mockDialogs[0].options.renderContent);
+  mockSnapshot = { ...mockSnapshot, connectionAttempts: 13 };
+  view.rerender(cloneElement(mockDialogs[0].options.renderContent));
+  expect(
+    screen.getByTestId('walletconnect-connection-status').textContent,
+  ).toContain('(1/10)');
+  expect(screen.getByTestId('walletconnect-connection-relay').textContent).toBe(
+    'wss://relay.walletconnect.com',
+  );
+  pending.resolve();
+  await connecting;
 });
 
 it.each([
@@ -235,6 +258,7 @@ it('counts only this interaction and updates the relay during fallback', async (
 
 it('includes an ongoing restoration attempt after an explicit user trigger', async () => {
   mockSnapshot.connecting = true;
+  mockSnapshot.lastFailedConnectionAttempt = 11;
   await connectWalletConnectToDapp(pairingUri);
   mockSnapshot = { ...mockSnapshot, connectionAttempts: 13 };
   render(mockDialogs[0].options.renderContent);
@@ -242,6 +266,21 @@ it('includes an ongoing restoration attempt after an explicit user trigger', asy
   expect(
     screen.getByTestId('walletconnect-connection-status').textContent,
   ).toBe('Connecting... (2/10)');
+});
+
+it('does not include a failed attempt while the previous round is backing off', async () => {
+  mockSnapshot.connecting = true;
+  await connectWalletConnectToDapp(pairingUri);
+  const content = mockDialogs[0].options.renderContent;
+  const view = render(content);
+  expect(
+    screen.getByTestId('walletconnect-connection-status').textContent,
+  ).toBe('Connecting... (0/10)');
+  mockSnapshot = { ...mockSnapshot, connectionAttempts: 13 };
+  view.rerender(cloneElement(content));
+  expect(
+    screen.getByTestId('walletconnect-connection-status').textContent,
+  ).toBe('Connecting... (1/10)');
 });
 
 it('closes on socket success before pairing finishes', async () => {
@@ -295,6 +334,62 @@ it('uses one dialog for concurrent explicit triggers', async () => {
     connectWalletConnectToDapp(secondPairingUri),
   ]);
 
+  expect(mockDialogs).toHaveLength(1);
+  expect(mockConnect).toHaveBeenCalledTimes(2);
+});
+
+it('starts a fresh counter when retry arrives before the exhausted dialog polls', async () => {
+  const first = deferred();
+  const second = deferred();
+  mockConnect
+    .mockReturnValueOnce(first.promise)
+    .mockReturnValueOnce(second.promise);
+  const connecting = connectWalletConnectToDapp(pairingUri);
+  await act(async () => undefined);
+  const oldDialog = mockDialogs[0];
+  mockSnapshot = {
+    ...mockSnapshot,
+    connectionAttempts: 22,
+    lastFailedConnectionAttempt: 22,
+    connecting: true,
+  };
+  const retrying = connectWalletConnectToDapp(secondPairingUri);
+  await act(async () => undefined);
+  expect(oldDialog.close).toHaveBeenCalledTimes(1);
+  expect(mockDialogs).toHaveLength(2);
+  const view = render(mockDialogs[1].options.renderContent);
+  mockSnapshot = {
+    ...mockSnapshot,
+    connectionAttempts: 23,
+    relayUrl: 'wss://relay.walletconnect.org',
+  };
+  view.rerender(cloneElement(mockDialogs[1].options.renderContent));
+  expect(
+    screen.getByTestId('walletconnect-connection-status').textContent,
+  ).toBe('Connecting... (1/10)');
+  expect(mockDialogs[1].close).not.toHaveBeenCalled();
+  first.reject(new Error('Old connection failed'));
+  await expect(connecting).rejects.toThrow('Old connection failed');
+  expect(mockDialogs[1].close).not.toHaveBeenCalled();
+  second.resolve();
+  await retrying;
+});
+
+it('does not reopen an exhausted dialog dismissed during the retry diagnostics read', async () => {
+  await connectWalletConnectToDapp(pairingUri);
+  const read = deferred();
+  mockGetDiagnostics.mockImplementationOnce(async () => {
+    await read.promise;
+    return {
+      ...mockSnapshot,
+      connectionAttempts: 22,
+      lastFailedConnectionAttempt: 22,
+    };
+  });
+  const retrying = connectWalletConnectToDapp(secondPairingUri);
+  mockDialogs[0].options.onClose();
+  read.resolve();
+  await retrying;
   expect(mockDialogs).toHaveLength(1);
   expect(mockConnect).toHaveBeenCalledTimes(2);
 });

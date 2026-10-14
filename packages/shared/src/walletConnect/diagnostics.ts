@@ -1,5 +1,26 @@
 export type IWalletConnectDiagnosticLevel = 'info' | 'error';
 
+export function getWalletConnectAttemptBaseline(
+  snapshot?: Pick<
+    IWalletConnectDiagnostics,
+    | 'connectionAttempts'
+    | 'lastFailedConnectionAttempt'
+    | 'connecting'
+    | 'providerConnecting'
+    | 'relaySwitchPending'
+  >,
+) {
+  const attempts = snapshot?.connectionAttempts ?? 0;
+  // A retry backoff or relay cleanup can still report connecting after the
+  // current socket has failed. Only include an attempt that has not failed yet.
+  const inFlight =
+    attempts > (snapshot?.lastFailedConnectionAttempt ?? 0) &&
+    (snapshot?.connecting ||
+      snapshot?.providerConnecting ||
+      snapshot?.relaySwitchPending);
+  return Math.max(0, attempts - (inFlight ? 1 : 0));
+}
+
 export type IWalletConnectRelayOperation = 'switch' | 'close' | 'restart';
 export type IWalletConnectRelayCleanupPhase =
   | 'disconnect_transport'

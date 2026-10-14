@@ -13,6 +13,7 @@ import { ConnectToWalletDialogContent } from './ConnectToWalletDialogContent';
 
 let mockLoading = true;
 let mockIsNative = true;
+let mockIsDesktop = false;
 let mockProgress: IWalletConnectDappConnectionProgress | undefined;
 const mockGetDappProgress = jest.fn<
   Promise<IWalletConnectDappConnectionProgress>,
@@ -54,6 +55,9 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
     get isNative() {
       return mockIsNative;
     },
+    get isDesktop() {
+      return mockIsDesktop;
+    },
   },
 }));
 
@@ -76,6 +80,7 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
 beforeEach(() => {
   mockLoading = true;
   mockIsNative = true;
+  mockIsDesktop = false;
   mockPoll = undefined;
   mockProgress = {
     attemptId: 1,
@@ -172,7 +177,7 @@ it('preserves confirmation copy for a selected injected wallet without polling s
   expect(mockPoll).toBeUndefined();
 });
 
-it('limits socket progress to native WalletConnect flows', () => {
+it('limits socket progress to native and desktop WalletConnect flows', () => {
   mockIsNative = false;
   render(content());
   expect(
@@ -183,6 +188,18 @@ it('limits socket progress to native WalletConnect flows', () => {
       .textContent,
   ).toBe(ETranslations.global_preparing);
   expect(mockPoll).toBeUndefined();
+});
+
+it('shows the shared connection count and relay on desktop', () => {
+  mockIsNative = false;
+  mockIsDesktop = true;
+  render(content());
+  expect(
+    screen.getByTestId('walletconnect-connection-status').textContent,
+  ).toContain('(6/10)');
+  expect(screen.getByTestId('walletconnect-connection-relay').textContent).toBe(
+    'wss://relay.walletconnect.org',
+  );
 });
 
 it('uses a connection error, not a missing confirmation, when setup fails', () => {
