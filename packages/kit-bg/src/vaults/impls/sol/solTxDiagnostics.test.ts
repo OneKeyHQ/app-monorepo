@@ -1,3 +1,4 @@
+/* eslint-disable onekey/no-raw-error */
 import {
   Keypair,
   SystemProgram,

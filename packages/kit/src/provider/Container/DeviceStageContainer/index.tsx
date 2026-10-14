@@ -34,8 +34,8 @@ import {
   isDeviceStageMachineWaitStep,
   resolveDeviceStageBackPress,
 } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
-import { logSolanaTxDiagnostic } from '@onekeyhq/shared/src/logger/solanaTxDiagnostics';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { logSolanaTxDiagnostic } from '@onekeyhq/shared/src/logger/solanaTxDiagnostics';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';

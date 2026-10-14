@@ -1,10 +1,11 @@
-import type { ISolanaTxDiagnosticEvent } from '../../types/solanaTxDiagnostics';
-
+/* eslint-disable onekey/no-raw-error */
 import {
   getSolanaDiagnosticElapsed,
   getSolanaDiagnosticError,
   sanitizeSolanaTxDiagnosticEvent,
 } from './solanaTxDiagnostics';
+
+import type { ISolanaTxDiagnosticEvent } from '../../types/solanaTxDiagnostics';
 
 const correlationId = '11111111-2222-4333-8444-555555555555';
 const event: ISolanaTxDiagnosticEvent = {

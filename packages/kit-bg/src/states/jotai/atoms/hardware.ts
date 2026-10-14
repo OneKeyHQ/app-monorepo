@@ -1,4 +1,3 @@
-import type { ISolanaTxDiagnosticContext } from '@onekeyhq/shared/types/solanaTxDiagnostics';
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
@@ -24,6 +23,7 @@ import type {
   IDeviceStageStepValue,
 } from '@onekeyhq/shared/types/deviceStage';
 import type { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
+import type { ISolanaTxDiagnosticContext } from '@onekeyhq/shared/types/solanaTxDiagnostics';
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';

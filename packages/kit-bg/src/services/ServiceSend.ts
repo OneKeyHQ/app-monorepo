@@ -12,8 +12,8 @@ import type {
   IUnsignedMessage,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
-import { getPbkdf2KdfParamsForNonDbTxNoCache } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import type { IAxiosResponse } from '@onekeyhq/shared/src/appApiClient/appApiClient';
+import { getPbkdf2KdfParamsForNonDbTxNoCache } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import {
   backgroundClass,
   backgroundMethod,
@@ -51,7 +51,6 @@ import {
   createSolanaTxDiagnosticContext,
   logSolanaTxDiagnostic,
 } from '@onekeyhq/shared/src/logger/solanaTxDiagnostics';
-import { getSolanaDiagnosticError } from '@onekeyhq/shared/src/utils/solanaTxDiagnostics';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
@@ -67,6 +66,7 @@ import {
   getPrimeInfiniPaymentValidationFailure,
 } from '@onekeyhq/shared/src/utils/primeInfiniPaymentValidation';
 import { hasUnconfirmedPrimeInfiniPaymentWarnings } from '@onekeyhq/shared/src/utils/primeInfiniPaymentWarnings';
+import { getSolanaDiagnosticError } from '@onekeyhq/shared/src/utils/solanaTxDiagnostics';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {

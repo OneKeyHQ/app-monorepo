@@ -69,13 +69,9 @@ import {
   createSolanaTxDiagnosticContext,
   logSolanaTxDiagnostic,
 } from '@onekeyhq/shared/src/logger/solanaTxDiagnostics';
-import { getSolanaDiagnosticError } from '@onekeyhq/shared/src/utils/solanaTxDiagnostics';
-import type {
-  ISolanaBlockhashDiagnostic,
-  ISolanaTxDiagnosticContext,
-} from '@onekeyhq/shared/types/solanaTxDiagnostics';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
+import { getSolanaDiagnosticError } from '@onekeyhq/shared/src/utils/solanaTxDiagnostics';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import type {
@@ -94,6 +90,10 @@ import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IVerifyMessageParams } from '@onekeyhq/shared/types/message';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
+import type {
+  ISolanaBlockhashDiagnostic,
+  ISolanaTxDiagnosticContext,
+} from '@onekeyhq/shared/types/solanaTxDiagnostics';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 import {
@@ -126,11 +126,11 @@ import {
   truncateProofForCanopy,
 } from './sdkSol/bubblegum';
 import { ClientCustomRpcSol } from './sdkSol/ClientCustomRpcSol';
+import ClientSol, { EParamsEncodings } from './sdkSol/ClientSol';
 import {
   inspectSolTxDiagnostic,
   withSolTxDiagnosticBlockhash,
 } from './solTxDiagnostics';
-import ClientSol, { EParamsEncodings } from './sdkSol/ClientSol';
 import {
   BASE_FEE,
   COMPUTE_UNIT_PRICE_DECIMALS,

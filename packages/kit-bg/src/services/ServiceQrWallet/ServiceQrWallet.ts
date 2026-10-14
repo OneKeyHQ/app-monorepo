@@ -25,15 +25,15 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { logSolanaTxDiagnostic } from '@onekeyhq/shared/src/logger/solanaTxDiagnostics';
-import { getSolanaDiagnosticError } from '@onekeyhq/shared/src/utils/solanaTxDiagnostics';
-import type { ISolanaTxDiagnosticContext } from '@onekeyhq/shared/types/solanaTxDiagnostics';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { resolveQrWalletDeviceType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { getSolanaDiagnosticError } from '@onekeyhq/shared/src/utils/solanaTxDiagnostics';
 import type { IQrWalletDevice } from '@onekeyhq/shared/types/device';
+import type { ISolanaTxDiagnosticContext } from '@onekeyhq/shared/types/solanaTxDiagnostics';
 
 import { vaultFactory } from '../../vaults/factory';
 import { buildDefaultAddAccountNetworksForQrWallet } from '../ServiceAccount/defaultNetworkAccountsConfig';

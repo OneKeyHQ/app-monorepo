@@ -1,11 +1,12 @@
-import type {
-  ISolanaTxDiagnosticContext,
-  ISolanaTxDiagnosticDetails,
-} from '../../types/solanaTxDiagnostics';
 import { generateUUID } from '../utils/miscUtils';
 import { getSolanaDiagnosticElapsed } from '../utils/solanaTxDiagnostics';
 
 import { defaultLogger } from './logger';
+
+import type {
+  ISolanaTxDiagnosticContext,
+  ISolanaTxDiagnosticDetails,
+} from '../../types/solanaTxDiagnostics';
 
 export function createSolanaTxDiagnosticContext():
   | ISolanaTxDiagnosticContext

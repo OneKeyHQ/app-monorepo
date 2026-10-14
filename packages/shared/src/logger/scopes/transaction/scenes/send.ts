@@ -1,12 +1,11 @@
-import { NO_LOG_OUTPUT } from '../../../types';
-import { sanitizeSolanaTxDiagnosticEvent } from '@onekeyhq/shared/src/utils/solanaTxDiagnostics';
-import type { ISolanaTxDiagnosticEvent } from '@onekeyhq/shared/types/solanaTxDiagnostics';
-
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import { sanitizeSolanaTxDiagnosticEvent } from '@onekeyhq/shared/src/utils/solanaTxDiagnostics';
 import type { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
+import type { ISolanaTxDiagnosticEvent } from '@onekeyhq/shared/types/solanaTxDiagnostics';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
+import { NO_LOG_OUTPUT } from '../../../types';
 
 import type {
   IGasAccountActionParams,

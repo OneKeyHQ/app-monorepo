@@ -1,9 +1,12 @@
-import type { ISolanaTxDiagnosticContext } from '../../types/solanaTxDiagnostics';
+/* eslint-disable onekey/no-raw-error */
+/* eslint-disable @typescript-eslint/unbound-method -- Jest mock functions do not use this binding. */
 import { defaultLogger } from './logger';
 import {
   createSolanaTxDiagnosticContext,
   logSolanaTxDiagnostic,
 } from './solanaTxDiagnostics';
+
+import type { ISolanaTxDiagnosticContext } from '../../types/solanaTxDiagnostics';
 
 jest.mock('./logger', () => ({
   defaultLogger: { transaction: { send: { solanaTxDiagnostic: jest.fn() } } },

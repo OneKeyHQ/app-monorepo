@@ -526,7 +526,7 @@ describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
       vault.refreshUnsignedTxBeforeSign.mockImplementation(
         async (tx: IUnsignedTxPro) => {
           if (!tx.solanaTxDiagnostic)
-            throw new Error('Missing diagnostic context');
+            throw new OneKeyLocalError('Missing diagnostic context');
           return {
             ...tx,
             solanaTxDiagnostic: {
