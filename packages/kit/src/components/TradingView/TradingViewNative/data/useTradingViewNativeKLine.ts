@@ -36,6 +36,7 @@ import {
 } from './tradingViewNativeIntervals';
 import {
   getTradingViewNativeIntervalStorageNamespace,
+  readStoredTradingViewActiveInterval,
   readTradingViewNativeActiveInterval,
   saveTradingViewNativeActiveInterval,
 } from './tradingViewNativeIntervalStorage';
@@ -2158,6 +2159,14 @@ export function useTradingViewNativeKLine({
       visibleChartData?.seriesKey !== seriesKey ||
       visibleChartData.interval !== activeInterval
     ) {
+      return;
+    }
+    const storedInterval = readStoredTradingViewActiveInterval(
+      intervalStorageNamespace,
+    );
+    if (storedInterval && !getTradingViewNativeKLineInterval(storedInterval)) {
+      // A display fallback must not replace a TradingView-only preference.
+      // Explicit interval selections still persist in handleIntervalChange.
       return;
     }
     void saveTradingViewNativeActiveInterval({
