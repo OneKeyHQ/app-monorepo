@@ -65,11 +65,13 @@ export const ONEKEY_ID_AUTH_FAILURE_LOG_LIMITS: IOneKeyIdAuthFailureLogLimits =
     // Cap across all signatures in one window, so many distinct failures
     // cannot flood either.
     maxEventsPerWindow: 30,
-    // Signatures tracked at once. A new signature arriving while every slot
-    // is in use is only counted in the overflow summary. As each slot yields
-    // at most one repeat summary per window, one runtime emits at most
-    // maxEventsPerWindow reports, maxTrackedSignatures repeat summaries and
-    // one overflow summary per window.
+    // Signatures tracked at once. When every slot is in use, a new signature
+    // takes the least recently seen slot without unreported repeats (dropping
+    // it emits nothing). Only when every slot holds unreported repeats is it
+    // counted in the overflow summary instead. Slots with repeats are kept
+    // until their window ends, so one runtime emits at most
+    // maxEventsPerWindow reports, about maxTrackedSignatures repeat summaries
+    // and one overflow summary per window.
     maxTrackedSignatures: 30,
     // Updates that only count a suppressed repeat are written to storage at
     // most this often (trailing write), so a tight failure loop does not
@@ -318,6 +320,25 @@ export class OneKeyIdAuthFailureLogLimiter {
     return { summaries, overflow };
   }
 
+  // Frees the least recently seen slot that has no unreported repeats, so a
+  // burst of distinct failures cannot block new ones until windows expire.
+  private freeIdleSlot(state: ILimiterState): boolean {
+    let idle: [string, ISignatureEntry] | undefined;
+    Object.entries(state.signatures).forEach((item) => {
+      if (
+        item[1].repeatCount === 0 &&
+        (!idle || item[1].lastSeenAt < idle[1].lastSeenAt)
+      ) {
+        idle = item;
+      }
+    });
+    if (!idle) {
+      return false;
+    }
+    delete state.signatures[idle[0]];
+    return true;
+  }
+
   /**
    * Records one occurrence. `shouldReport` says whether to write it to the
    * local log and the server; `summaries` and `overflow` belong to ended
@@ -345,7 +366,9 @@ export class OneKeyIdAuthFailureLogLimiter {
     let entry = state.signatures[signature];
     if (!entry) {
       if (
-        Object.keys(state.signatures).length >= this.limits.maxTrackedSignatures
+        Object.keys(state.signatures).length >=
+          this.limits.maxTrackedSignatures &&
+        !this.freeIdleSlot(state)
       ) {
         const overflow = state.overflow ?? {
           droppedCount: 0,

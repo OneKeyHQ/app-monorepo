@@ -61,18 +61,19 @@ export function scrubSensitiveErrorMessageText(text: string): string {
 const MAX_AUTH_FAILURE_SITE_LENGTH = 120;
 
 // Call sites write a reason as `<where it failed>: <error details>`, or put
-// the sanitized `name=... message=...` details right after the location.
-// Only that code-authored location is sent to the server: error details can
-// echo user input (OTP codes, PINs, recovery words) that no scrubber reliably
-// recognizes, so they stay in local logs. Digit runs are masked in case a
-// location interpolates a value.
+// the sanitized `name=... message=...` details right after the location;
+// the location must be code-authored text. Only that location is sent to
+// the server: error details can echo user input (OTP codes, PINs, recovery
+// words) that no scrubber reliably recognizes, so they stay in local logs.
+// A reason without that delimiter yields no location (fails closed). Digit
+// runs are masked in case a location interpolates a value.
 export function getOneKeyIdAuthFailureSite(reason: string): string | undefined {
   const detailsStart = reason.search(/:\s|(?:^|\s)name=/);
+  if (detailsStart < 0) {
+    return undefined;
+  }
   const site = scrubSensitiveErrorMessageText(
-    (detailsStart >= 0 ? reason.slice(0, detailsStart) : reason).replace(
-      /\d{4,}/g,
-      '#',
-    ),
+    reason.slice(0, detailsStart).replace(/\d{4,}/g, '#'),
   ).trim();
   if (!site) {
     return undefined;

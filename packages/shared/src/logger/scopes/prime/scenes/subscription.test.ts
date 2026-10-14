@@ -126,6 +126,16 @@ describe('PrimeSubscriptionScene OneKey ID auth failure logging', () => {
         'Desktop OAuth local server on port 51234 failed: name=Error message=EADDRINUSE',
       trigger: 'interactive',
     });
+    // The fallback toast path embeds the raw error message after its prefix.
+    scene.onekeyIdLoginFailedReason({
+      reason: `OneKey ID fallback toast skipped: Invalid code 654321 for ${words}`,
+      trigger: 'interactive',
+    });
+    // Without the delimiter nothing is known to be code-authored.
+    scene.onekeyIdLoginFailedReason({
+      reason: `Invalid code 112233 ${words}`,
+      trigger: 'passive',
+    });
 
     const reported = getCalls(emitLog, 'onekeyIdLoginFailedReason').map(
       (call) => call[1]?.[0] as Record<string, unknown>,
@@ -148,8 +158,17 @@ describe('PrimeSubscriptionScene OneKey ID auth failure logging', () => {
         failureSite: 'Desktop OAuth local server on port # failed',
       }),
     );
+    expect(reported[3]).toEqual(
+      expect.objectContaining({
+        failureSite: 'OneKey ID fallback toast skipped',
+      }),
+    );
+    expect(reported).toHaveLength(5);
+    expect(reported[4]?.failureSite).toBeUndefined();
     const sent = JSON.stringify(reported);
-    expect(sent).not.toMatch(/123456|abandon|bob@|51234|EADDRINUSE/);
+    expect(sent).not.toMatch(
+      /123456|654321|112233|abandon|bob@|51234|EADDRINUSE|Invalid code/,
+    );
   });
 
   it('reports which login step failed and what triggered it', () => {
@@ -260,7 +279,7 @@ describe('PrimeSubscriptionScene OneKey ID auth failure logging', () => {
     ).toHaveLength(5);
   });
 
-  it('reports failures beyond the tracked signatures once, as an overflow count', () => {
+  it('bounds distinct failures to capped reports, summaries and one overflow count', () => {
     const { scene, emitLog } = createSceneWithSpy();
 
     // Every call is a new failure location.
@@ -281,15 +300,22 @@ describe('PrimeSubscriptionScene OneKey ID auth failure logging', () => {
 
     jest.advanceTimersByTime(ONE_HOUR_MS);
 
+    // Failures 31-60 took over the reported slots (held back by the global
+    // cap); 61-100 found every slot holding repeats.
+    expect(getCalls(emitLog, 'onekeyIdLoginFailedReasonRepeated')).toHaveLength(
+      30,
+    );
+
     const overflowCalls = getCalls(
       emitLog,
       'onekeyIdLoginFailedReasonOverflow',
     );
     expect(overflowCalls).toHaveLength(1);
     expect(overflowCalls[0]?.[1]?.[0]).toEqual(
-      expect.objectContaining({ droppedCount: 70 }),
+      expect.objectContaining({ droppedCount: 40 }),
     );
-    expect(emitLog.mock.calls).toHaveLength(30 * 2 + 1);
+    // 30 reports (server + local line each), 30 summaries, 1 overflow.
+    expect(emitLog.mock.calls).toHaveLength(30 * 2 + 30 + 1);
   });
 
   it('tells apart Desktop API calls that fail with the same error name', () => {

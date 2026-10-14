@@ -171,12 +171,12 @@ export function useOneKeyIdLocalKeylessOAuth({
           throwLocalizedOneKeyIdLoginError({
             intl,
             reason:
-              'OneKey ID login stopped because the local Keyless wallet changed before continuation.',
+              'OneKey ID login stopped: the local Keyless wallet changed before continuation.',
           });
         }
         if (localSessionResult.status === 'retryable') {
           logOneKeyIdLoginFailureReason(
-            'OneKey ID login could not reuse the local Keyless OAuth session because credential migration is retryable.',
+            'OneKey ID login could not reuse the local Keyless OAuth session: credential migration is retryable.',
             undefined,
             { trigger: 'interactive' },
           );

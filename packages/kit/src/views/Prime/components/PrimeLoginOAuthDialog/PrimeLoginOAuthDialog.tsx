@@ -358,7 +358,8 @@ function PrimeLoginOAuthDialog(props: {
               if (!continuation || continuation.provider !== provider) {
                 throwLocalizedOneKeyIdLoginError({
                   intl,
-                  reason: 'OAuth provider-switch continuation is unavailable.',
+                  reason:
+                    'OAuth provider-switch continuation failed: unavailable.',
                 });
               }
               await backgroundApiProxy.serviceIdentityExit.validateOAuthHandoffBeforeLaunch(
@@ -506,7 +507,7 @@ function PrimeLoginOAuthDialog(props: {
                 throwLocalizedOneKeyIdLoginError({
                   intl,
                   reason:
-                    'OAuth continuation after Keyless recovery is unavailable.',
+                    'OAuth continuation after Keyless recovery failed: unavailable.',
                 });
               }
               await backgroundApiProxy.serviceIdentityExit.validateOAuthHandoffBeforeLaunch(

@@ -205,12 +205,43 @@ describe('OneKeyIdAuthFailureLogLimiter', () => {
     expect(result.summaries).toHaveLength(1);
   });
 
-  it('counts new failures in one overflow summary once every slot is in use', () => {
+  it('gives a new failure the least recently seen slot without held-back repeats', () => {
     const { limiter, clock } = createLimiter();
     consume(limiter, payload({ failureSite: 'a' }));
-    consume(limiter, payload({ failureSite: 'a' }));
+    clock.now += 1;
     consume(limiter, payload({ failureSite: 'b' }));
+    clock.now += 1;
     consume(limiter, payload({ failureSite: 'c' }));
+    clock.now += 1;
+    // 'a' now holds a repeat, so it keeps its slot.
+    consume(limiter, payload({ failureSite: 'a' }));
+
+    clock.now += 1;
+    expect(consume(limiter, payload({ failureSite: 'd' }))).toEqual({
+      shouldReport: true,
+      summaries: [],
+    });
+    // 'b' was dropped without a summary; it is tracked as new again.
+    clock.now += 1;
+    expect(consume(limiter, payload({ failureSite: 'b' })).shouldReport).toBe(
+      true,
+    );
+
+    clock.now = 1_000_000 + WINDOW_MS;
+    expect(limiter.takeDueSummaries()).toEqual({
+      summaries: [
+        expect.objectContaining({ failureSite: 'a', repeatCount: 1 }),
+      ],
+      overflow: undefined,
+    });
+  });
+
+  it('counts new failures in one overflow summary once every slot holds repeats', () => {
+    const { limiter, clock } = createLimiter();
+    ['a', 'b', 'c'].forEach((failureSite) => {
+      consume(limiter, payload({ failureSite }));
+      consume(limiter, payload({ failureSite }));
+    });
 
     // Every further new failure is dropped without a report or summary.
     for (let i = 0; i < 50; i += 1) {
@@ -228,7 +259,8 @@ describe('OneKeyIdAuthFailureLogLimiter', () => {
     expect(limiter.takeDueSummaries()).toEqual({
       summaries: [
         expect.objectContaining({ failureSite: 'a', repeatCount: 1 }),
-        expect.objectContaining({ failureSite: 'b', repeatCount: 1 }),
+        expect.objectContaining({ failureSite: 'b', repeatCount: 2 }),
+        expect.objectContaining({ failureSite: 'c', repeatCount: 1 }),
       ],
       overflow: {
         droppedCount: 50,

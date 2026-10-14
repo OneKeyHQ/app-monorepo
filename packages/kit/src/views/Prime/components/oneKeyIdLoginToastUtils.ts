@@ -178,6 +178,9 @@ export function getSanitizedAuthErrorText(error: unknown): string {
 // means "the fallback toast was shown" and keeps firing on its own terms.
 // Skipping an already-logged error object only covers rethrows; repeats of
 // the same failure with new error objects are limited by the logger scene.
+// Write `reason` as `<code-authored location>: <details>`: only the text
+// before the first ": " is sent to the server (see getOneKeyIdAuthFailureSite),
+// so never put error text or user input in front of it.
 export function logOneKeyIdLoginFailureReason(
   reason: string,
   error?: unknown,

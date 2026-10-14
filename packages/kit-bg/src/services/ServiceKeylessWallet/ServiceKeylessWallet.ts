@@ -4051,7 +4051,7 @@ class ServiceKeylessWallet extends ServiceBase {
 
       if (!response.ok) {
         defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
-          reason: `ServiceKeylessWallet auth server health check returned HTTP ${response.status}`,
+          reason: `ServiceKeylessWallet auth server health check returned an HTTP error: ${response.status}`,
           trigger: 'interactive',
         });
         return false;
