@@ -240,44 +240,46 @@ export function usePrimeFeatureAccess() {
       reservation?: IPrimeFreeTrialReservation;
       // False once the calling page or input is gone: no feedback then, so a
       // late rejection never opens the dashboard over another screen.
-      isContextValid?: () => boolean;
+      isContextValid?: () => boolean | Promise<boolean>;
     }) => {
-      if (isContextValid && !isContextValid()) {
-        return;
-      }
+      const isStale = async () =>
+        isContextValid ? !(await isContextValid()) : false;
       const openDashboard = !isPrimeFreeTrialStayOnPageFeature(featureId);
-      if (reason === 'notOpen') {
-        // The details case: the feature itself is open, so only the toast.
-        if (notOpenReason === 'detailsNotEligible') {
+      void (async () => {
+        if (await isStale()) {
+          return;
+        }
+        if (reason === 'notOpen') {
+          // The details case: the feature itself is open, so only the toast.
+          if (notOpenReason === 'detailsNotEligible') {
+            showFreeTrialNoticeToast({
+              featureId,
+              notice: { kind: 'detailsNotEligible' },
+              networkId,
+              afterPageExit,
+            });
+            return;
+          }
+          // No free trial: just the dashboard, as on entry. A feature that
+          // stays on its page gets the toast instead, or the tap would do
+          // nothing.
+          if (openDashboard) {
+            openPrimeDashboard({
+              featureId,
+              networkId,
+              freeTrialReason: 'notOpen',
+              afterPageExit,
+            });
+            return;
+          }
           showFreeTrialNoticeToast({
             featureId,
-            notice: { kind: 'detailsNotEligible' },
+            notice: { kind: 'notOpen' },
             networkId,
             afterPageExit,
           });
           return;
         }
-        // No free trial: just the dashboard, as on entry. A feature that
-        // stays on its page gets the toast instead, or the tap would do
-        // nothing.
-        if (openDashboard) {
-          openPrimeDashboard({
-            featureId,
-            networkId,
-            freeTrialReason: 'notOpen',
-            afterPageExit,
-          });
-          return;
-        }
-        showFreeTrialNoticeToast({
-          featureId,
-          notice: { kind: 'notOpen' },
-          networkId,
-          afterPageExit,
-        });
-        return;
-      }
-      void (async () => {
         if (isPrimeFreeTrialUsageFeatureId(featureId)) {
           let heldUntil: number | undefined;
           if (hasPrimeFreeTrialReservationInfo(reservation)) {
@@ -291,7 +293,7 @@ export function usePrimeFeatureAccess() {
             } catch {
               // Fall back to the exhausted feedback.
             }
-            if (isContextValid && !isContextValid()) {
+            if (await isStale()) {
               return;
             }
           }
@@ -330,16 +332,19 @@ export function usePrimeFeatureAccess() {
         featureId,
         networkId,
         afterPageExit,
+        isContextValid,
       }: {
         featureId: IPrimeFreeTrialFeatureId;
         networkId?: string;
         afterPageExit?: boolean;
+        isContextValid?: () => boolean | Promise<boolean>;
       },
     ) => {
       if (access.status !== 'exhausted' && access.status !== 'notOpen') {
         return false;
       }
       showActiveRejectedFeedback({
+        isContextValid,
         featureId,
         reason: access.status,
         resetAt: access.status === 'exhausted' ? access.resetAt : undefined,
@@ -370,7 +375,7 @@ export function usePrimeFeatureAccess() {
         { status: 'exhausted' } | { status: 'notOpen' }
       >;
       networkId?: string;
-      isContextValid?: () => boolean;
+      isContextValid?: () => boolean | Promise<boolean>;
     }) => {
       showActiveRejectedFeedback({
         isContextValid,
@@ -566,6 +571,10 @@ export function usePrimeFeatureAccess() {
         return result;
       };
       const afterPageExit = Boolean(onDenied);
+      // The rejection feedback re-checks the context after its own async
+      // steps, unless the caller leaves its page itself (onDenied): that page
+      // going away is expected, and the feedback still hands off to it.
+      const feedbackContextValid = onDenied ? undefined : isContextValid;
       // Not open, logged in or not: the dashboard, or the toast for a
       // feature that stays on its page (translate).
       const denyNotOpen = async (): Promise<IPrimeFeatureAccessResult> => {
@@ -575,6 +584,7 @@ export function usePrimeFeatureAccess() {
           reason: 'notOpen',
           networkId,
           afterPageExit,
+          isContextValid: feedbackContextValid,
         });
         return { granted: false };
       };
@@ -756,6 +766,7 @@ export function usePrimeFeatureAccess() {
           featureId,
           networkId,
           afterPageExit,
+          isContextValid: feedbackContextValid,
         });
         return { granted: false };
       }

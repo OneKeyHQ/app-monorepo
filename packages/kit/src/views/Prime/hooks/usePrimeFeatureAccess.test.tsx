@@ -827,6 +827,34 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
     expect(mockToastMessage).not.toHaveBeenCalled();
   });
 
+  it('drops the entry feedback when the context goes while the hold is looked up', async () => {
+    setSnapshot(quotaWith(0));
+    mockRefreshQuota.mockResolvedValue(quotaWith(0));
+    let isValid = true;
+    mockGetHeldReservationEnd.mockImplementation(async () => {
+      isValid = false;
+      return undefined;
+    });
+    const result = renderAccessHook();
+
+    await act(async () => {
+      await expect(
+        result.current.ensureFeatureAccess({
+          featureId: EPrimeFeatures.BulkSend,
+          isContextValid: () => isValid,
+        }),
+      ).resolves.toEqual({ granted: false });
+    });
+    await waitFor(() => {
+      expect(mockGetHeldReservationEnd).toHaveBeenCalled();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockPushFullModal).not.toHaveBeenCalled();
+    expect(mockToastMessage).not.toHaveBeenCalled();
+  });
+
   it('keeps a logged-out user on the page when translate is not open', async () => {
     mockIsLoggedIn.mockResolvedValue(false);
     mockGetPublicConfig.mockResolvedValue({ enabled: false, features: [] });
@@ -870,7 +898,7 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
     setSnapshot(undefined);
   });
 
-  it('opens just the dashboard when the feature is not open', () => {
+  it('opens just the dashboard when the feature is not open', async () => {
     const result = renderAccessHook();
 
     act(() => {
@@ -885,7 +913,9 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
       });
     });
 
-    expect(dashboardReason()).toBe('notOpen');
+    await waitFor(() => {
+      expect(dashboardReason()).toBe('notOpen');
+    });
     expect(mockToastMessage).not.toHaveBeenCalled();
   });
 
@@ -907,7 +937,7 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
     expect(mockPushFullModal).not.toHaveBeenCalled();
   });
 
-  it('keeps translate on the page when it is not open: the toast only', () => {
+  it('keeps translate on the page when it is not open: the toast only', async () => {
     const result = renderAccessHook();
 
     act(() => {
@@ -917,7 +947,9 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
       });
     });
 
-    expect(toastAt(0)?.title).toBe('AI 翻译暂未开放免费体验');
+    await waitFor(() => {
+      expect(toastAt(0)?.title).toBe('AI 翻译暂未开放免费体验');
+    });
     expect(toastAt(0)?.actions).toBeTruthy();
     expect(mockPushFullModal).not.toHaveBeenCalled();
   });
@@ -1022,7 +1054,7 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
       expect(dashboardReason()).toBe('exhausted');
     });
 
-    it('keeps the details sentence while the snapshot has uses left', () => {
+    it('keeps the details sentence while the snapshot has uses left', async () => {
       setSnapshot(quotaWith(1, EPrimeFeatures.AddressRiskCheck));
       const result = renderAccessHook();
 
@@ -1032,7 +1064,9 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
         });
       });
 
-      expect(toastAt(0)?.title).toBe('仅可查看本月检查过的地址详情');
+      await waitFor(() => {
+        expect(toastAt(0)?.title).toBe('仅可查看本月检查过的地址详情');
+      });
       expect(toastAt(0)?.message).toBeUndefined();
     });
   });
