@@ -4,13 +4,15 @@ import type { ReactNode } from 'react';
 
 import { fireEvent, render } from '@testing-library/react';
 
-import type { FlatListProps } from 'react-native';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IPrimeTransferData,
   IPrimeTransferSelectedItemMap,
 } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import { PrimeTransferPreviewList } from './PrimeTransferPreviewList';
+
+import type { FlatListProps } from 'react-native';
 
 const mockToast = jest.fn();
 const mockIntl = { formatMessage: ({ id }: { id: string }) => id };
@@ -28,7 +30,24 @@ jest.mock('@onekeyhq/components', () => {
   }: {
     children?: ReactNode;
     onPress?: () => void;
-  }) => <div onClick={onPress}>{children}</div>;
+  }) => {
+    if (!onPress) return <div>{children}</div>;
+    return (
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onPress}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onPress();
+          }
+        }}
+      >
+        {children}
+      </div>
+    );
+  };
   return {
     Stack: Container,
     XStack: Container,
@@ -59,6 +78,7 @@ jest.mock('@onekeyhq/components', () => {
       <button
         type="button"
         role="checkbox"
+        aria-label="Select account"
         aria-checked={value}
         aria-disabled={disabled}
         onClick={(event) => {
@@ -70,7 +90,11 @@ jest.mock('@onekeyhq/components', () => {
     ),
     // Keep the actual browser FlatList windowing implementation in this test.
     ListView: (props: FlatListProps<unknown>) => <FlatList {...props} />,
-    Toast: { error: (params: unknown) => mockToast(params) },
+    Toast: {
+      error: (params: unknown) => {
+        mockToast(params);
+      },
+    },
   };
 });
 jest.mock('@onekeyhq/kit/src/components/AccountAvatar', () => ({
@@ -175,7 +199,9 @@ test('updates checked state and group action after rerender', () => {
     />,
   );
   expect(view.getByRole('checkbox').getAttribute('aria-checked')).toBe('false');
-  fireEvent.click(view.getByRole('button'));
+  fireEvent.click(
+    view.getByRole('button', { name: ETranslations.global_select_all }),
+  );
   expect(onGroupSelectChange).toHaveBeenCalledWith({
     type: 'importedAccount',
     selectAll: true,
