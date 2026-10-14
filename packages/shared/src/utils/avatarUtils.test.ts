@@ -46,6 +46,8 @@ describe('HwWalletAvatarImages', () => {
     color: string,
   ) => `\`\${EDeviceType.${model}}${color}\``;
   it.each([
+    ['EDeviceType.Classic1s', 'Classic.png'],
+    ['EDeviceType.ClassicPure', 'ClassicPure.png'],
     [colorKey('Classic1s', 'Transparent'), 'Classic1sPureBTC.png'],
     [colorKey('ClassicPure', 'Transparent'), 'Classic1sPureBTC.png'],
     ['EDeviceType.Pro2', 'Pro2Black.png'],
