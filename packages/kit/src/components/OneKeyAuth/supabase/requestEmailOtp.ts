@@ -64,6 +64,7 @@ export async function requestEmailOtp({
     logOneKeyIdLoginFailureReason(
       `OneKey ID email verification code request failed: ${getSanitizedAuthErrorText(res.error)}`,
       error,
+      { trigger: 'interactive' },
     );
     throw error;
   }

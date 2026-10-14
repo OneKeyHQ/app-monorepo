@@ -256,6 +256,7 @@ describe('SupabaseAuthProvider runtime subscriptions', () => {
       expect(mockLogOneKeyIdLoginFailureReason).toHaveBeenCalledWith(
         'SupabaseAuthProvider session fetch failed: message=refresh token rejected',
         sessionError,
+        { trigger: 'passive' },
       );
     });
   });
