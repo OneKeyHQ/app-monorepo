@@ -68,10 +68,11 @@ export function resolveTradingViewNativePriceRange({
       ? 'logarithmic'
       : 'linear';
 
+  if (normalizedRangeScale === 1) {
+    return { ...autoPriceRange, mode };
+  }
+
   if (mode === 'logarithmic') {
-    if (normalizedRangeScale === 1) {
-      return { ...autoPriceRange, mode };
-    }
     const logMinPrice = Math.log(autoPriceRange.minPrice);
     const logMaxPrice = Math.log(autoPriceRange.maxPrice);
     const logRange = logMaxPrice - logMinPrice;
