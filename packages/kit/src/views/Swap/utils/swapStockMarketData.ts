@@ -30,7 +30,9 @@ export async function fetchSwapStockTokenIdentity(
     query: token.contractAddress,
   });
   const stock = response.items.length === 1 ? response.items[0] : undefined;
-  if (!stock) throw new OneKeyLocalError('Stock token identity is unavailable');
+  if (!stock || !resolveMarketStockId(stock)) {
+    throw new OneKeyLocalError('Stock token identity is unavailable');
+  }
   const variants =
     await backgroundApiProxy.serviceMarketV2.fetchMarketStockTokenVariants({
       stockId: stock.stockId,
