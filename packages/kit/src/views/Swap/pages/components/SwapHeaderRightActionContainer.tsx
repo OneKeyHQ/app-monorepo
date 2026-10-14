@@ -40,6 +40,7 @@ import {
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import {
   useSwapActions,
   useSwapProSelectTokenAtom,
@@ -53,8 +54,6 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { shouldRedirectOnboardingToTravelMode } from '@onekeyhq/kit/src/utils/onboardingEntryGate';
 import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
-import { useToMarketStockDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/hooks/useToMarketStockDetailPage';
-import { useToDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import {
   EJotaiContextStoreNames,
   filterSwapHistoryPendingList,
@@ -111,10 +110,6 @@ import { prefetchSwapKLineMetadata } from '../modal/swapKLineTokenUtils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import ProviderManageContainer from './ProviderManageContainer';
-import {
-  resolveSwapHeaderMarketDetail,
-  resolveSwapHeaderMarketToken,
-} from './swapHeaderMarketDetail';
 
 import type { IMarketPresetSettingsState } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings';
 
@@ -715,9 +710,6 @@ const StockKLineHeaderButton = ({
   );
 };
 
-// Mobile Swap Pro: the candlestick button lives in the top capsule (consistent
-// with the Swap & Bridge / Stocks tabs). It opens the Pro market detail for the
-// currently selected Pro token — same destination as the old in-body button.
 const SwapKLineHeaderButton = ({
   iconSize,
   iconColor,
@@ -817,51 +809,47 @@ const SwapKLineHeaderButton = ({
   );
 };
 
-const MobileSwapKLineHeaderButton = ({
+const SwapProKLineHeaderButton = ({
   iconSize,
   iconColor,
   buttonSize,
-  isPro = false,
 }: {
   iconSize: number | `$${string}`;
   iconColor?: ColorTokens;
   buttonSize: 'small' | 'medium';
-  isPro?: boolean;
 }) => {
-  const [fromToken] = useSwapSelectFromTokenAtom();
-  const [toToken] = useSwapSelectToTokenAtom();
+  const navigation = useAppNavigation();
+  const tokenDetailActions = useTokenDetailActions();
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
-  const marketToken = useMemo(
-    () =>
-      isPro
-        ? resolveSwapHeaderMarketToken(swapProSelectToken)
-        : resolveSwapHeaderMarketToken(toToken, fromToken),
-    [fromToken, isPro, swapProSelectToken, toToken],
-  );
-  const toMarketDetail = useToDetailPage({
-    switchToMarketTabFirst: true,
-    resolveMarketAsset: true,
-    from: isPro ? EEnterWay.SwapPro : EEnterWay.Others,
-  });
-  const toStockDetail = useToMarketStockDetailPage();
-  const disabled = shouldRedirectOnboardingToTravelMode() || !marketToken;
+  const disabled =
+    shouldRedirectOnboardingToTravelMode() ||
+    !swapProSelectToken?.networkId ||
+    (!swapProSelectToken.contractAddress && !swapProSelectToken.isNative);
 
-  const openMarketDetail = useCallback(
-    async (resolvedToken: ISwapToken) => {
-      const marketDetail = resolveSwapHeaderMarketDetail(resolvedToken);
-      if (!marketDetail) return;
+  const openProMarketDetail = useCallback(
+    (resolvedToken: ISwapToken) => {
       dismissKeyboard();
-      if (marketDetail.kind === 'stock') {
-        await toStockDetail(marketDetail.target);
-      } else {
-        await toMarketDetail(marketDetail.target);
-      }
+      tokenDetailActions.current.clearTokenDetail();
+      navigation.pushModal(EModalRoutes.SwapModal, {
+        screen: EModalSwapRoutes.SwapProMarketDetail,
+        params: {
+          tokenAddress: resolvedToken.contractAddress,
+          network: resolvedToken.networkId,
+          isNative: resolvedToken.isNative,
+          ...(resolvedToken.isStock
+            ? { stockId: resolveMarketStockId(resolvedToken) }
+            : undefined),
+          from: EEnterWay.SwapPro,
+          disableTrade: true,
+          showFavoriteButton: false,
+        },
+      });
     },
-    [toMarketDetail, toStockDetail],
+    [navigation, tokenDetailActions],
   );
   const { onOpenMarketDetail, isLoading } = useSwapMarketDetailToken({
-    token: marketToken,
-    onOpen: openMarketDetail,
+    token: swapProSelectToken,
+    onOpen: openProMarketDetail,
   });
 
   return (
@@ -1249,13 +1237,9 @@ const SwapHeaderRightActionContainer = ({
           buttonSize={resolvedButtonSize}
         />
       );
-    } else if (
-      platformEnv.isNative &&
-      (pageType !== EPageType.modal || focusSwapPro)
-    ) {
+    } else if (focusSwapPro) {
       kLineButton = (
-        <MobileSwapKLineHeaderButton
-          isPro={focusSwapPro}
+        <SwapProKLineHeaderButton
           iconSize={resolvedIconSize}
           iconColor={iconColor}
           buttonSize={resolvedButtonSize}
