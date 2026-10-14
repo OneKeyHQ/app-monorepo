@@ -884,6 +884,7 @@ describe('swapStockChannelUtils', () => {
       ownerScope: 'account-1:usdc',
       balance: '0.24',
       tokenDetail: usdcToken,
+      unverified: true,
     });
 
     expect(
@@ -905,7 +906,33 @@ describe('swapStockChannelUtils', () => {
       ownerScope: 'account-1:usdc',
       balance: '0.25',
       tokenDetail: usdcToken,
+      unverified: false,
     });
+  });
+
+  it('marks a retained Stock balance unverified after a settled refresh failure', () => {
+    const previousSnapshot = {
+      ownerScope: 'account-1:usdc',
+      balance: '0.24',
+      tokenDetail: usdcToken,
+      unverified: false,
+    };
+
+    expect(
+      resolveStockBalanceSnapshot({
+        ownerScope: 'account-1:usdc',
+        previousSnapshot,
+        requestSettled: false,
+      }),
+    ).toBe(previousSnapshot);
+
+    expect(
+      resolveStockBalanceSnapshot({
+        ownerScope: 'account-1:usdc',
+        previousSnapshot,
+        requestSettled: true,
+      }),
+    ).toEqual({ ...previousSnapshot, unverified: true });
   });
 
   it('does not reuse a Stock balance snapshot across owner scopes', () => {
@@ -916,6 +943,7 @@ describe('swapStockChannelUtils', () => {
           ownerScope: 'account-1:usdc',
           balance: '0.24',
           tokenDetail: usdcToken,
+          unverified: true,
         },
       }),
     ).toBeUndefined();
@@ -928,6 +956,7 @@ describe('swapStockChannelUtils', () => {
           ownerScope: 'account-1:usdc',
           balance: '0.24',
           tokenDetail: usdcToken,
+          unverified: true,
         },
         cachedDisplayBalance: '0.24',
       }),
@@ -944,6 +973,7 @@ describe('swapStockChannelUtils', () => {
           ownerScope: 'account-1:usdc',
           balance: '0.25',
           tokenDetail: usdcToken,
+          unverified: false,
         },
         cachedDisplayBalance: '0.24',
       }),
