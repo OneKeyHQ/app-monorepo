@@ -17,6 +17,8 @@ const readAvatar = (name: string) => readFileSync(join(avatarDir, name));
 
 describe('HwWalletAvatarImages', () => {
   it.each([
+    ['Classic1sPureBTC.png', 'Classic.png'],
+    ['Classic1sPureBTC.png', 'ClassicPure.png'],
     ['Pro2Black.png', 'ProBlack.png'],
     ['Pro2Silver.png', 'Pro2Black.png'],
     ['Pro2Orange.png', 'Pro2Black.png'],
@@ -39,9 +41,13 @@ describe('HwWalletAvatarImages', () => {
     return source.slice(from, source.indexOf("'", from));
   };
   /** A per-color key as the table spells it: `${EDeviceType.<model>}<Color>`. */
-  const colorKey = (model: 'Pro' | 'Pro2', color: string) =>
-    `\`\${EDeviceType.${model}}${color}\``;
+  const colorKey = (
+    model: 'Classic1s' | 'ClassicPure' | 'Pro' | 'Pro2',
+    color: string,
+  ) => `\`\${EDeviceType.${model}}${color}\``;
   it.each([
+    [colorKey('Classic1s', 'Transparent'), 'Classic1sPureBTC.png'],
+    [colorKey('ClassicPure', 'Transparent'), 'Classic1sPureBTC.png'],
     ['EDeviceType.Pro2', 'Pro2Black.png'],
     [colorKey('Pro2', 'Black'), 'Pro2Black.png'],
     [colorKey('Pro2', 'Silver'), 'Pro2Silver.png'],
@@ -54,6 +60,41 @@ describe('HwWalletAvatarImages', () => {
 });
 
 describe('getDeviceAvatarImage', () => {
+  describe.each([
+    [EDeviceType.Classic1s, 'CL'],
+    [EDeviceType.ClassicPure, 'CP'],
+  ] as const)('%s', (deviceType, prefix) => {
+    it('uses the transparent artwork for color C in the eleventh position', () => {
+      expect(getDeviceAvatarImage(deviceType, `${prefix}D42F0001C`)).toBe(
+        `${deviceType}Transparent`,
+      );
+    });
+
+    it.each(['A', 'B', 'Z', ''])(
+      'keeps the default artwork for color "%s"',
+      (color) => {
+        expect(
+          getDeviceAvatarImage(deviceType, `${prefix}D42F0001${color}`),
+        ).toBe(deviceType);
+      },
+    );
+
+    it.each([
+      undefined,
+      '',
+      `${prefix}D42F001C`,
+      `${prefix}D42F00001C`,
+      `${prefix}D42F0001CA`,
+      `${prefix === 'CL' ? 'CP' : 'CL'}D42F0001C`,
+      'PRD42F0001C',
+    ])(
+      'keeps the default artwork for a missing or invalid serial %s',
+      (serialNo) => {
+        expect(getDeviceAvatarImage(deviceType, serialNo)).toBe(deviceType);
+      },
+    );
+  });
+
   it.each([
     ['PR0001B', 'proWhite'],
     ['PR0001A', 'proBlack'],
