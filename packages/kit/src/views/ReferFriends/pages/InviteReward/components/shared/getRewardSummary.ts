@@ -3,12 +3,10 @@ import BigNumber from 'bignumber.js';
 import { toAmount } from '@onekeyhq/kit/src/views/ReferFriends/utils/amountUtils';
 import type { IRewardToken } from '@onekeyhq/shared/src/referralCode/type';
 
-// Referral rewards are paid in USDC, so every reward figure is shown in USD
-// regardless of the wallet currency: it matches what arrives and does not
-// move with exchange rates. Spread onto <Currency>.
-export const REFERRAL_USD_CURRENCY_PROPS = {
+// Reward totals arrive in USD (rewards are paid in USDC); <Currency> converts
+// them to the wallet currency like the level thresholds. Spread onto it.
+export const REFERRAL_USD_SOURCE_PROPS = {
   sourceCurrency: 'usd',
-  targetCurrency: 'usd',
 } as const;
 
 export interface IRewardSummaryItem {
@@ -18,7 +16,7 @@ export interface IRewardSummaryItem {
   usdValue?: string;
 }
 
-// Totals for one product. Display is always fiat (USD), so token metadata is
+// Totals for one product. Display is always fiat, so token metadata is
 // not carried; `usdValue` is set only when every item has one.
 export interface IRewardSummary {
   fiatValue: string;

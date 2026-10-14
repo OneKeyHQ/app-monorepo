@@ -21,8 +21,10 @@ export function getInviteEarningsState(
 
   return {
     isZero: undistributed.isZero() && distributed.isZero(),
-    undistributed: undistributed.toFixed(2),
-    distributed: distributed.toFixed(2),
-    cumulative: cumulative.toFixed(2),
+    // Keep the source precision. Rounding to cents here would turn a sub-cent
+    // USD amount into zero before it is converted to the wallet currency.
+    undistributed: undistributed.toFixed(),
+    distributed: distributed.toFixed(),
+    cumulative: cumulative.toFixed(),
   };
 }

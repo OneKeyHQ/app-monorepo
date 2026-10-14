@@ -27,6 +27,7 @@ import {
   formatStatValueWithFormatter,
 } from '../../utils/statValue';
 import { useTokenDetailHeaderLeftActions } from '../TokenDetailHeader/hooks/useTokenDetailHeaderLeftActions';
+import { TokenSecurityAlert } from '../TokenSecurityAlert/TokenSecurityAlert';
 
 interface ISupplementaryRow {
   key: string;
@@ -98,6 +99,7 @@ function TokenOverviewLinks() {
 
   return (
     <XStack testID="token-mobile-overview-links" ai="center" gap="$3" pt="$2">
+      <TokenSecurityAlert variant="overview" />
       {website ? (
         <XStack bg="$bgStrong" borderRadius="$full" p="$2">
           <InteractiveIcon

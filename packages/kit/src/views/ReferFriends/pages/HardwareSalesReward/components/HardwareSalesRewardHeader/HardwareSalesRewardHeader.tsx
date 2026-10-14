@@ -8,7 +8,7 @@ import {
   StatCard,
 } from '@onekeyhq/kit/src/views/ReferFriends/components';
 import { useNextDistributionLabel } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useNextDistributionLabel';
-import { REFERRAL_USD_CURRENCY_PROPS } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/shared/getRewardSummary';
+import { REFERRAL_USD_SOURCE_PROPS } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/shared/getRewardSummary';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IHardwareCumulativeRewards } from '@onekeyhq/shared/src/referralCode/type';
 
@@ -52,7 +52,7 @@ export function HardwareSalesRewardHeader({
             id: ETranslations.referral_cumulative_rewards,
           })}
           value={totalEarned}
-          fixedCurrency={REFERRAL_USD_CURRENCY_PROPS.targetCurrency}
+          sourceCurrency={REFERRAL_USD_SOURCE_PROPS.sourceCurrency}
           isLoading={isLoading}
           onRefresh={onRefresh}
           rows={[
@@ -61,13 +61,13 @@ export function HardwareSalesRewardHeader({
                 id: ETranslations.referral_undistributed,
               }),
               value: undistributed,
-              fixedCurrency: REFERRAL_USD_CURRENCY_PROPS.targetCurrency,
+              sourceCurrency: REFERRAL_USD_SOURCE_PROPS.sourceCurrency,
               hint: unpaidHint,
             },
             {
               label: intl.formatMessage({ id: ETranslations.referral_pending }),
               value: pending,
-              fixedCurrency: REFERRAL_USD_CURRENCY_PROPS.targetCurrency,
+              sourceCurrency: REFERRAL_USD_SOURCE_PROPS.sourceCurrency,
               prefix: isPendingZero ? undefined : '~',
               hint: pendingHint,
             },
@@ -81,7 +81,7 @@ export function HardwareSalesRewardHeader({
     <RewardHeaderLayout
       primaryCard={
         <StatCard
-          fixedCurrency={REFERRAL_USD_CURRENCY_PROPS.targetCurrency}
+          sourceCurrency={REFERRAL_USD_SOURCE_PROPS.sourceCurrency}
           title={intl.formatMessage({
             id: ETranslations.referral_cumulative_rewards,
           })}
@@ -94,7 +94,7 @@ export function HardwareSalesRewardHeader({
       secondaryCards={
         <>
           <StatCard
-            fixedCurrency={REFERRAL_USD_CURRENCY_PROPS.targetCurrency}
+            sourceCurrency={REFERRAL_USD_SOURCE_PROPS.sourceCurrency}
             title={intl.formatMessage({
               id: ETranslations.referral_undistributed,
             })}
@@ -102,7 +102,7 @@ export function HardwareSalesRewardHeader({
             subtitle={unpaidHint}
           />
           <StatCard
-            fixedCurrency={REFERRAL_USD_CURRENCY_PROPS.targetCurrency}
+            sourceCurrency={REFERRAL_USD_SOURCE_PROPS.sourceCurrency}
             title={intl.formatMessage({
               id: ETranslations.referral_pending,
             })}

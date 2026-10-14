@@ -1,5 +1,5 @@
 import type { MutableRefObject, ReactElement } from 'react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -78,6 +78,9 @@ function NetworkLogo({ network }: { network: ISwapNetwork }) {
   return <Icon name="GlobusOutline" size="$6" color="$iconSubdued" />;
 }
 
+// Sections of the network column that may list the same network.
+type INetworkSection = 'sameChain' | 'assets' | 'all';
+
 function NetworkRow({
   network,
   selected,
@@ -105,10 +108,12 @@ function NetworkRow({
       alignItems="center"
       height={44}
       px={9}
-      pl={indented ? 29 : 9}
+      // Indent child rows with margin, not padding, so the selected
+      // border/background starts right of the group guide line.
+      ml={indented ? 26 : 0}
       gap="$2"
       borderWidth={1}
-      borderColor={selected ? '$borderActive' : '$transparent'}
+      borderColor={selected ? '$border' : '$transparent'}
       borderRadius="$3"
       bg={selected ? '$bgSubdued' : undefined}
       opacity={disabled ? 0.5 : 1}
@@ -122,16 +127,6 @@ function NetworkRow({
       }}
       onPress={onPress}
     >
-      {indented ? (
-        <Stack
-          position="absolute"
-          left={20}
-          top="$0"
-          bottom="$0"
-          width={1.5}
-          bg="$borderSubdued"
-        />
-      ) : null}
       <NetworkLogo network={network} />
       <SizableText size="$bodyMdMedium" flex={1} numberOfLines={1}>
         {network.name}
@@ -284,6 +279,53 @@ export function SwapTokenSelectorDesktop({
   const showNetworkSearchEmpty = hasNetworkSearch && networkGroups.length === 0;
   const selectedNetworkId = selectedNetwork?.networkId;
   const selectedIsAllNetworks = selectedNetwork?.isAllNetworks;
+  // One network can be listed in up to three sections (same-chain shortcut,
+  // networks with assets, A–Z). Only one row may show the selected state:
+  // the row the user pressed, or, before any press, the first visible section
+  // in the order above. While searching only the A–Z groups are rendered.
+  const [pickedRow, setPickedRow] = useState<{
+    section: INetworkSection;
+    networkId: string;
+  }>();
+  const sameChainNetworkId = sameChainNetwork?.networkId;
+  const selectedInAssets = assetNetworks.some(
+    ({ network }) => network.networkId === selectedNetworkId,
+  );
+  const resolveSelectedSection = (): INetworkSection => {
+    if (hasNetworkSearch) {
+      return 'all';
+    }
+    const picked =
+      pickedRow && pickedRow.networkId === selectedNetworkId
+        ? pickedRow.section
+        : undefined;
+    if (
+      picked === 'sameChain' &&
+      sameChainNetworkId !== undefined &&
+      selectedNetworkId === sameChainNetworkId
+    ) {
+      return 'sameChain';
+    }
+    if (picked === 'assets' && selectedInAssets) {
+      return 'assets';
+    }
+    if (picked === 'all') {
+      return 'all';
+    }
+    if (
+      sameChainNetworkId !== undefined &&
+      selectedNetworkId === sameChainNetworkId
+    ) {
+      return 'sameChain';
+    }
+    if (selectedInAssets) {
+      return 'assets';
+    }
+    return 'all';
+  };
+  const selectedSection = resolveSelectedSection();
+  const isRowSelected = (section: INetworkSection, networkId: string) =>
+    selectedNetworkId === networkId && selectedSection === section;
 
   return (
     <XStack testID="swap-token-selector-desktop" flex={1} minHeight={0}>
@@ -350,7 +392,10 @@ export function SwapTokenSelectorDesktop({
                 </NetworkSectionLabel>
                 <NetworkRow
                   network={sameChainNetwork}
-                  selected={selectedNetworkId === sameChainNetwork.networkId}
+                  selected={isRowSelected(
+                    'sameChain',
+                    sameChainNetwork.networkId,
+                  )}
                   disabled={disableNetworks.includes(
                     sameChainNetwork.networkId,
                   )}
@@ -360,6 +405,10 @@ export function SwapTokenSelectorDesktop({
                     if (disableNetworks.includes(sameChainNetwork.networkId)) {
                       onDisableNetworksClick();
                     } else {
+                      setPickedRow({
+                        section: 'sameChain',
+                        networkId: sameChainNetwork.networkId,
+                      });
                       onSelectNetwork(sameChainNetwork);
                     }
                   }}
@@ -377,7 +426,7 @@ export function SwapTokenSelectorDesktop({
                   <NetworkRow
                     key={`asset-${network.networkId}`}
                     network={network}
-                    selected={selectedNetworkId === network.networkId}
+                    selected={isRowSelected('assets', network.networkId)}
                     disabled={disableNetworks.includes(network.networkId)}
                     fiatValue={fiatValue}
                     currencySymbol={currencySymbol}
@@ -385,6 +434,10 @@ export function SwapTokenSelectorDesktop({
                       if (disableNetworks.includes(network.networkId)) {
                         onDisableNetworksClick();
                       } else {
+                        setPickedRow({
+                          section: 'assets',
+                          networkId: network.networkId,
+                        });
                         onSelectNetwork(network);
                       }
                     }}
@@ -401,34 +454,56 @@ export function SwapTokenSelectorDesktop({
               <YStack key={network.networkId}>
                 <NetworkRow
                   network={network}
-                  selected={selectedNetworkId === network.networkId}
+                  selected={isRowSelected('all', network.networkId)}
                   disabled={disableNetworks.includes(network.networkId)}
                   currencySymbol={currencySymbol}
                   onPress={() => {
                     if (disableNetworks.includes(network.networkId)) {
                       onDisableNetworksClick();
                     } else {
+                      setPickedRow({
+                        section: 'all',
+                        networkId: network.networkId,
+                      });
                       onSelectNetwork(network);
                     }
                   }}
                 />
-                {children.map((child) => (
-                  <NetworkRow
-                    key={child.networkId}
-                    network={child}
-                    selected={selectedNetworkId === child.networkId}
-                    disabled={disableNetworks.includes(child.networkId)}
-                    indented
-                    currencySymbol={currencySymbol}
-                    onPress={() => {
-                      if (disableNetworks.includes(child.networkId)) {
-                        onDisableNetworksClick();
-                      } else {
-                        onSelectNetwork(child);
-                      }
-                    }}
-                  />
-                ))}
+                {children.length > 0 ? (
+                  <YStack>
+                    {/* One continuous guide line for the whole child group,
+                        centered under the parent network logo. */}
+                    <Stack
+                      position="absolute"
+                      left={20}
+                      top="$0"
+                      bottom="$0"
+                      width={1.5}
+                      bg="$borderSubdued"
+                    />
+                    {children.map((child) => (
+                      <NetworkRow
+                        key={child.networkId}
+                        network={child}
+                        selected={isRowSelected('all', child.networkId)}
+                        disabled={disableNetworks.includes(child.networkId)}
+                        indented
+                        currencySymbol={currencySymbol}
+                        onPress={() => {
+                          if (disableNetworks.includes(child.networkId)) {
+                            onDisableNetworksClick();
+                          } else {
+                            setPickedRow({
+                              section: 'all',
+                              networkId: child.networkId,
+                            });
+                            onSelectNetwork(child);
+                          }
+                        }}
+                      />
+                    ))}
+                  </YStack>
+                ) : null}
               </YStack>
             ))}
           </ScrollView>

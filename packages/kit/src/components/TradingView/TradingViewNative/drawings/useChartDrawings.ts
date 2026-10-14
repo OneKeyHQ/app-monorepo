@@ -327,6 +327,11 @@ export function useChartDrawings({
             hit.handle === null &&
             model.history.present.length < MAX_DRAWINGS,
         };
+        event.setCursor?.(
+          hit.handle === null || hit.drawing.tool === 'cross'
+            ? 'move'
+            : 'crosshair',
+        );
       } else {
         if (model.history.present.length >= MAX_DRAWINGS) return true;
         const lastAnchor = model.draft?.anchors.at(-1);
@@ -482,7 +487,11 @@ export function useChartDrawings({
               event.touch ? 18 : 8,
             );
       if (hit && !hit.drawing.locked) {
-        event.setCursor?.(hit.handle === null ? 'move' : 'crosshair');
+        event.setCursor?.(
+          hit.handle === null || hit.drawing.tool === 'cross'
+            ? 'move'
+            : 'crosshair',
+        );
         return true;
       }
       return false;

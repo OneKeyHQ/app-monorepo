@@ -55,6 +55,8 @@ function InviteLinkField({
       // them it stands alone in the card's column, where flex would stretch
       // its height instead.
       flex={trailing ? undefined : 1}
+      // Lets a long link truncate on web instead of widening the row.
+      minWidth={0}
       minHeight={trailing ? 48 : 44}
       ai="center"
       gap="$2"
@@ -67,7 +69,7 @@ function InviteLinkField({
     >
       {/* The more-links menu sits right after the link it switches, the
           actions at the far end. */}
-      <SizableText flexShrink={1} numberOfLines={1} size="$bodyLg">
+      <SizableText flexShrink={1} minWidth={0} numberOfLines={1} size="$bodyLg">
         {displayUrl}
       </SizableText>
       <ReferralLinkDropdown inviteUrl={inviteUrl} />

@@ -3778,6 +3778,7 @@
   "pin_verify_reminder_dialog_verified_toast": "PIN 확인이 다른 기기에서 처리되었습니다",
   "placeholder_search_networks": "네트워크 검색",
   "placeholder_stock_search": "주식 검색",
+  "portfolio_spotlight__desc": "기기의 포트폴리오를 최신 상태로 유지하세요. 여기에서 업데이트하세요.",
   "portfolio_sync_to_device__action": "기기 포트폴리오 업데이트",
   "portfolio_updated__title": "포트폴리오 업데이트 완료",
   "position_changed_review_submit_again__msg": "포지션이 변경되었습니다. 검토한 후 다시 제출해 주세요.",

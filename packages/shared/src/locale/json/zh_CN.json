@@ -3778,6 +3778,7 @@
   "pin_verify_reminder_dialog_verified_toast": "PIN 检查已在其他设备完成",
   "placeholder_search_networks": "搜索网络",
   "placeholder_stock_search": "搜索股票",
+  "portfolio_spotlight__desc": "让硬件上的资产概览保持最新。在这里更新。",
   "portfolio_sync_to_device__action": "更新设备资产概览",
   "portfolio_updated__title": "资产概览已更新",
   "position_changed_review_submit_again__msg": "仓位已发生变化，请检查后重新提交。",
