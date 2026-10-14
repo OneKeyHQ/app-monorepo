@@ -148,8 +148,8 @@ async function flush() {
 
 function holdExit() {
   let release: () => void = () => undefined;
-  const promise = new Promise<void>((resolve) => {
-    release = resolve;
+  const promise = new Promise<boolean>((resolve) => {
+    release = () => resolve(false);
   });
   jest.mocked(yieldDeviceStageToDialog).mockReturnValue(promise);
   return async () => {
@@ -163,7 +163,7 @@ function holdExit() {
 beforeEach(() => {
   jest.clearAllMocks();
   mockUiState = undefined;
-  jest.mocked(yieldDeviceStageToDialog).mockResolvedValue(undefined);
+  jest.mocked(yieldDeviceStageToDialog).mockResolvedValue(false);
 });
 
 it.each([
