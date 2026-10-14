@@ -117,6 +117,7 @@ import {
 import { useSettingsSearch } from '../hooks/useSettingsSearch';
 import { useUniversalSearchMarketPress } from '../hooks/useUniversalSearchMarketPress';
 import { UniversalSearchTestIDs } from '../testIDs';
+import { isSearchResponseCurrent } from '../universalSearchRun';
 import {
   getUniversalSearchTabIndex,
   prioritizeMarketFocusedSections,
@@ -835,6 +836,15 @@ export function UniversalSearch({
     searchRunRef.current += 1;
     const run = searchRunRef.current;
     setSearchRun(run);
+    // Late responses of a superseded run, even of the same query, are dropped
+    // so they cannot overwrite this run's results or pending analytics.
+    const isResponseStale = () =>
+      !isSearchResponseCurrent({
+        run,
+        input,
+        currentRun: searchRunRef.current,
+        currentInput: searchInputRef.current,
+      });
     setStockQuery(isStockSearchInScope ? input : '');
     if (input) {
       let primarySections: IUniversalSection[] = [];
@@ -866,7 +876,7 @@ export function UniversalSearch({
               ...searchParams,
               searchTypes: effectivePrimaryTypes,
             });
-          if (isSearchResultStale(input)) {
+          if (isResponseStale()) {
             return;
           }
 
@@ -896,7 +906,7 @@ export function UniversalSearch({
               ...searchParams,
               searchTypes: effectiveDeferredTypes,
             });
-          if (isSearchResultStale(input)) {
+          if (isResponseStale()) {
             return;
           }
 
@@ -914,7 +924,7 @@ export function UniversalSearch({
         setSearchStatus(ESearchStatus.done);
         setPendingAnalytics({ input, run, sections: mergedSections });
       } catch (error) {
-        if (isSearchResultStale(input)) {
+        if (isResponseStale()) {
           return;
         }
         console.error('[universalSearch] search failed', error);

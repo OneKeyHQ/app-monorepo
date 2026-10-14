@@ -23555,6 +23555,7 @@
     "packages/kit/src/views/UniversalSearch/pages/components/RecentSearched.tsx": 6468,
     "packages/kit/src/views/UniversalSearch/router/index.ts": 21466,
     "packages/kit/src/views/UniversalSearch/testIDs.ts": 940,
+    "packages/kit/src/views/UniversalSearch/universalSearchRun.ts": 23976,
     "packages/kit/src/views/UniversalSearch/universalSearchSource.ts": 18762,
     "packages/kit/src/views/UniversalSearch/universalSearchTabs.ts": 13357,
     "packages/kit/src/views/WalletAddress/hooks/useAllNetworkCopyAddressHandler.ts": 24467,
