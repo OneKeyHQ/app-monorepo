@@ -27,6 +27,10 @@ import {
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
+  normalizeIntervalConfig,
+  normalizeNativeChartControlsConfig,
+} from '../../TradingViewV2/components/tradingViewV2/messageHandlers/nativeChartControlsConfigUtils';
+import {
   MESSAGE_TYPES,
   PERPS_TV_MESSAGE_METHODS,
 } from '../constants/messageTypes';
@@ -35,6 +39,10 @@ import { EMarksUpdateOperationEnum } from '../types';
 import { getPerpsInteractionOverlayOpenState } from './interactionOverlayState';
 
 import type { IWebViewRef } from '../../../WebView/types';
+import type {
+  ITradingViewIntervalConfigData,
+  ITradingViewNativeChartControlsConfigData,
+} from '../../TradingViewV2/types';
 import type {
   IGetMarksRequest,
   IGetMarksResponse,
@@ -61,6 +69,8 @@ export function usePerpsTradingViewMessageHandler({
   onChartOrderIntent,
   onTouchScroll,
   onInteractionOverlayOpenChange,
+  onIntervalConfigChange,
+  onNativeChartControlsConfigChange,
 }: {
   symbol: string;
   userAddress?: IHex | null;
@@ -73,6 +83,10 @@ export function usePerpsTradingViewMessageHandler({
   onChartOrderIntent?: (payload: ITVChartOrderIntentPayload) => void;
   onTouchScroll?: (deltaY: number) => void;
   onInteractionOverlayOpenChange?: (isOpen: boolean) => void;
+  onIntervalConfigChange?: (config: ITradingViewIntervalConfigData) => void;
+  onNativeChartControlsConfigChange?: (
+    config: ITradingViewNativeChartControlsConfigData,
+  ) => void;
 }) {
   const previousUserAddressRef = useRef<IHex | null | undefined>(userAddress);
   const marksRequestIdRef = useRef(0);
@@ -323,6 +337,31 @@ export function usePerpsTradingViewMessageHandler({
       if (messageData.scope !== IInjectedProviderNames.$private) return;
 
       switch (messageData.method) {
+        case 'tradingview_intervalConfig': {
+          const config = normalizeIntervalConfig(messageData.data);
+          if (config) {
+            onIntervalConfigChange?.(config);
+          }
+          break;
+        }
+        case 'tradingview_nativeChartControlsConfig': {
+          if (!onNativeChartControlsConfigChange) {
+            break;
+          }
+          const normalized = normalizeNativeChartControlsConfig(
+            messageData.data,
+          );
+          if (normalized) {
+            if (normalized.chartTypeToSync !== undefined) {
+              webRef.current?.sendMessageViaInjectedScript({
+                type: 'TRADINGVIEW_CHART_TYPE_CHANGE',
+                payload: { chartType: normalized.chartTypeToSync },
+              });
+            }
+            onNativeChartControlsConfigChange(normalized.config);
+          }
+          break;
+        }
         case 'tradingview_getMarks':
           await handleGetMarks(messageData.data as IGetMarksRequest);
           break;
@@ -391,7 +430,10 @@ export function usePerpsTradingViewMessageHandler({
       onChartOrderIntent,
       onTouchScroll,
       onInteractionOverlayOpenChange,
+      onIntervalConfigChange,
+      onNativeChartControlsConfigChange,
       setLayoutState,
+      webRef,
     ],
   );
 

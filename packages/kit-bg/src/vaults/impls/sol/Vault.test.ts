@@ -21,6 +21,7 @@ import bs58 from 'bs58';
 import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
 import type { IEncodedTxSol } from '@onekeyhq/core/src/chains/sol/types';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import { logSolanaTxDiagnostic } from '@onekeyhq/shared/src/logger/solanaTxDiagnostics';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
@@ -29,6 +30,11 @@ import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 // Importing the vault pulls in the localDb singleton, whose constructor opens
 // IndexedDB at module load and crashes under jest's node environment.
+jest.mock('@onekeyhq/shared/src/logger/solanaTxDiagnostics', () => ({
+  logSolanaTxDiagnostic: jest.fn(),
+  createSolanaTxDiagnosticContext: jest.fn(),
+}));
+
 jest.mock('../../../dbs/local/localDbInstance', () => ({
   __esModule: true,
   default: {},
@@ -137,6 +143,11 @@ function buildUnsignedTx(encodedTx: IEncodedTxSol): IUnsignedTxPro {
     encodedTx,
     payload: { feePayer: payer.publicKey.toBase58() },
     uuid: 'uuid-1',
+    solanaTxDiagnostic: {
+      correlationId: '11111111-2222-4333-8444-555555555555',
+      startedAt: 1000,
+      recentBlockhash: OLD_BLOCKHASH,
+    },
   };
 }
 
@@ -732,5 +743,67 @@ describe('SolVault dApp transaction fee handling (OK-64196)', () => {
         estimateFeeParams?.estimateFeeParamsSol?.computeUnitPriceInTx,
       ).toBe('0');
     });
+  });
+});
+
+describe('SolVault local blockhash diagnostics', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.clearAllMocks();
+  });
+
+  it('carries actual refreshed hash, valid height and acquisition metadata forward', async () => {
+    const { vault, getRecentBlockHash } = buildVault();
+    getRecentBlockHash.mockResolvedValue({
+      recentBlockhash: NEW_BLOCKHASH,
+      lastValidBlockHeight: NEW_LAST_VALID_BLOCK_HEIGHT,
+      blockhashFetchedAt: 2000,
+      contextSlot: 111,
+      commitment: 'confirmed',
+      blockhashFetchAttempts: 2,
+      blockhashFetchDurationMs: 1100,
+    });
+    const unsignedTx = buildUnsignedTx(buildLegacyEncodedTx([transferIx]));
+    const refreshed = await vault.refreshUnsignedTxBeforeSign(unsignedTx);
+    expect(refreshed.solanaTxDiagnostic).toEqual(
+      expect.objectContaining({
+        correlationId: unsignedTx.solanaTxDiagnostic?.correlationId,
+        recentBlockhash: NEW_BLOCKHASH,
+        lastValidBlockHeight: NEW_LAST_VALID_BLOCK_HEIGHT,
+        blockhashFetchedAt: 2000,
+        contextSlot: 111,
+        commitment: 'confirmed',
+        blockhashFetchAttempts: 2,
+      }),
+    );
+    expect(logSolanaTxDiagnostic).toHaveBeenLastCalledWith(
+      refreshed.solanaTxDiagnostic,
+      expect.objectContaining({ stage: 'refresh', status: 'succeeded' }),
+    );
+  });
+
+  it('keeps the original tx on fetch failure and emits a sanitized failure category', async () => {
+    const { vault, getRecentBlockHash } = buildVault();
+    getRecentBlockHash.mockRejectedValue({
+      code: 'ETIMEDOUT',
+      message: 'synthetic-private-message',
+      config: { url: 'synthetic-private-rpc' },
+    });
+    const unsignedTx = buildUnsignedTx(buildLegacyEncodedTx([transferIx]));
+    expect(await vault.refreshUnsignedTxBeforeSign(unsignedTx)).toBe(
+      unsignedTx,
+    );
+    expect(logSolanaTxDiagnostic).toHaveBeenLastCalledWith(
+      unsignedTx.solanaTxDiagnostic,
+      expect.objectContaining({
+        stage: 'refresh',
+        status: 'failed',
+        reason: 'fetchFailed',
+        errorCategory: 'timeout',
+      }),
+    );
+    expect(
+      JSON.stringify(jest.mocked(logSolanaTxDiagnostic).mock.calls),
+    ).not.toContain('synthetic-private');
   });
 });
