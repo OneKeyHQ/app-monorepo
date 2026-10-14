@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import type { IXStackProps, IYStackProps } from '@onekeyhq/components';
 import {
   Button,
+  DesktopDragZoneBox,
   IconButton,
   KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
   Keyboard,
@@ -24,11 +25,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useLanguageSelectorWithoutAuto } from '../../Setting/hooks/useLanguageSelector';
-
-// Constants for performance optimization
-const DESKTOP_DRAGGABLE_STYLE = {
-  WebkitAppRegion: 'drag',
-} as any;
 
 const OnboardingLayoutBack = memo(({ exit }: { exit?: boolean }) => {
   const navigation = useAppNavigation();
@@ -67,7 +63,7 @@ const OnboardingLayoutLanguageSelector = memo(() => {
   );
 
   return (
-    <YStack ml="auto" zIndex={1}>
+    <YStack ml="auto">
       <Select
         testID="onboardingv2-handle-language-change-select"
         offset={{ mainAxis: 8, crossAxis: 8 }}
@@ -308,7 +304,7 @@ const OnboardingLayoutRoot = memo(
       : top + 10;
 
     return (
-      <YStack
+      <DesktopDragZoneBox
         h="100%"
         $platform-web={{
           height: '100vh',
@@ -320,22 +316,6 @@ const OnboardingLayoutRoot = memo(
           p: '$10',
         }}
       >
-        {/* Draggable area for desktop window */}
-        {platformEnv.isDesktop ? (
-          <YStack
-            position="absolute"
-            top={0}
-            left={0}
-            right={0}
-            h={34}
-            $gtMd={{
-              h: '$12',
-            }}
-            zIndex={9999}
-            pointerEvents="none"
-            style={DESKTOP_DRAGGABLE_STYLE}
-          />
-        ) : null}
         <YStack
           h="100%"
           w="100%"
@@ -374,6 +354,7 @@ const OnboardingLayoutRoot = memo(
           >
             <YStack
               h="100%"
+              className="app-region-no-drag"
               gap="$5"
               mx="$-5"
               $gtMd={{
@@ -385,7 +366,7 @@ const OnboardingLayoutRoot = memo(
             </YStack>
           </YStack>
         </YStack>
-      </YStack>
+      </DesktopDragZoneBox>
     );
   },
 );

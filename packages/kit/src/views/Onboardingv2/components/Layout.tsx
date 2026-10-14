@@ -14,6 +14,7 @@ import type {
 } from '@onekeyhq/components';
 import {
   Button,
+  DesktopDragZoneBox,
   Divider,
   Icon,
   IconButton,
@@ -40,19 +41,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useLanguageSelectorWithoutAuto } from '../../Setting/hooks/useLanguageSelector';
 import { OnboardingTestIDs } from '../testIDs';
 
-// Electron drag-region helper. On desktop, only the top blank inset strip
-// above the header bar acts as the window drag handle; the header action row
-// (Back button, title, language selector) is outside the drag region.
-const DRAG_STYLE = (
-  platformEnv.isDesktop ? { WebkitAppRegion: 'drag' } : undefined
-) as any;
-
 export const LayoutHeader = memo(
   ({ children, style, ...rest }: IXStackProps) => {
     const { top } = useSafeAreaInsets();
     return (
-      <YStack>
-        <YStack h={top || '$12'} style={DRAG_STYLE} />
+      <DesktopDragZoneBox pt={top || '$12'}>
         <XStack
           h={52}
           px="$5"
@@ -65,7 +58,7 @@ export const LayoutHeader = memo(
         >
           {children}
         </XStack>
-      </YStack>
+      </DesktopDragZoneBox>
     );
   },
 );
