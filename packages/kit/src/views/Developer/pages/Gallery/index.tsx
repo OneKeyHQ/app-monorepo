@@ -6,6 +6,10 @@ import { EGalleryRoutes } from '@onekeyhq/shared/src/routes';
 const ComponentsScreen = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components'),
 );
+const NetworkFeeSubsidyGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NetworkFeeSubsidy'),
+);
 const AccountModelGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/AccountModelGallery'),
@@ -338,6 +342,10 @@ export const galleryScreenList: {
   component: ComponentType;
 }[] = [
   { name: EGalleryRoutes.Components, component: ComponentsScreen },
+  {
+    name: EGalleryRoutes.ComponentNetworkFeeSubsidy,
+    component: NetworkFeeSubsidyGallery,
+  },
   {
     name: EGalleryRoutes.ComponentTypography,
     component: TypographyGallery,

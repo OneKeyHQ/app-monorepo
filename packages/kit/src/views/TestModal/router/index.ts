@@ -4,6 +4,11 @@ import { ETestModalPages } from '@onekeyhq/shared/src/routes';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
 
+const NetworkFeeSubsidyModal = LazyLoadPage(
+  () =>
+    import('../../Developer/pages/Gallery/Components/stories/NetworkFeeSubsidy/NetworkFeeSubsidyModal'),
+);
+
 const TestSimpleModal = LazyLoadPage(() =>
   import('../pages/TestSimpleModal').then((m) => ({
     default: m.TestSimpleModal,
@@ -17,5 +22,9 @@ export const TestModalRouter: IModalFlowNavigatorConfig<
   {
     name: ETestModalPages.TestSimpleModal,
     component: TestSimpleModal,
+  },
+  {
+    name: ETestModalPages.NetworkFeeSubsidy,
+    component: NetworkFeeSubsidyModal,
   },
 ];

@@ -1,4 +1,5 @@
 export enum EGalleryRoutes {
+  ComponentNetworkFeeSubsidy = 'component-NetworkFeeSubsidy',
   ComponentAccountAvatar = 'component-AccountAvatar',
   ComponentAccountModel = 'component-AccountModel',
   ComponentAddressInput = 'component-AddressInput',
