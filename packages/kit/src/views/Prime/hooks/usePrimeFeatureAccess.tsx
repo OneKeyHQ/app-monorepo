@@ -439,8 +439,9 @@ export function usePrimeFeatureAccess() {
    * - Logged out: open trial -> log in, then continue; not open -> dashboard.
    * - Logged-in free user: exhausted / not open -> a toast with "Get Prime",
    *   else granted.
-   *   With `deferQuotaCheck` (feature entries) the user is let in without a
-   *   quota check; the submit inside the page decides.
+   *   With `deferQuotaCheck` (feature entries) a feature without a free
+   *   trial opens the dashboard; otherwise the user is let in without a
+   *   quota check and the submit inside the page decides.
    */
   const ensureFeatureAccess = useCallback(
     async ({
@@ -580,6 +581,31 @@ export function usePrimeFeatureAccess() {
         });
       }
       if (deferQuotaCheck) {
+        // A feature without a free trial goes to the dashboard, the same as
+        // for a logged-out user; used up still lets the user in (the address
+        // risk history stays readable), and the submit decides.
+        const localUser =
+          await backgroundApiProxy.servicePrime.getLocalUserInfo();
+        const cachedAccess = resolvePrimeFreeTrialAccess({
+          featureId,
+          isPrimeSubscriptionActive: false,
+          isLoggedIn: true,
+          config: freeTrialRef.current.config.data,
+          quota: getPrimeFreeTrialQuotaOfUser({
+            quota: freeTrialRef.current.quota,
+            onekeyUserId: localUser.onekeyUserId,
+          }),
+        });
+        if (cachedAccess.status === 'notOpen') {
+          await onDenied?.('notOpen');
+          openPrimeDashboard({
+            featureId,
+            networkId,
+            freeTrialReason: 'notOpen',
+            afterPageExit,
+          });
+          return { granted: false };
+        }
         return grantIfContextValid({
           granted: true,
           entitlementSource: 'freeTrial',

@@ -749,6 +749,23 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
     expect(mockDialogLoading).not.toHaveBeenCalled();
   });
 
+  it('opens the dashboard on entry for a logged-in user when the feature is not open', async () => {
+    // Only address risk check is open: bulk send has no free trial.
+    setSnapshot(quotaWith(2, EPrimeFeatures.AddressRiskCheck));
+    const result = renderAccessHook();
+
+    await act(async () => {
+      await expect(
+        result.current.ensureFeatureAccess({
+          featureId: EPrimeFeatures.BulkSend,
+          deferQuotaCheck: true,
+        }),
+      ).resolves.toEqual({ granted: false });
+    });
+    expect(dashboardReason()).toBe('notOpen');
+    expect(mockToastMessage).not.toHaveBeenCalled();
+  });
+
   it('still asks to log in on entry, then lets the user in without a quota check', async () => {
     mockIsLoggedIn.mockResolvedValueOnce(false).mockResolvedValue(true);
     mockLoginOneKeyId.mockResolvedValue(undefined);
