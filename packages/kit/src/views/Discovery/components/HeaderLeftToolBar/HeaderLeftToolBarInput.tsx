@@ -205,6 +205,10 @@ function HeaderLeftToolBarInput({
                     }),
                   },
                   testID: 'browser-bar-translate',
+                  // Highlighted while the page is in translate mode.
+                  ...(isTranslated && {
+                    iconColor: '$iconSuccess' as const,
+                  }),
                 },
               ]
             : []),

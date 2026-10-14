@@ -134,7 +134,13 @@ export async function fetchStockPortfolioData({
         return { variantKey, items: [], resolved: false };
       }
 
-      const cacheKey = [stockId, networkAccount.id, variantKey].join(':');
+      const cacheKey = [
+        stockId,
+        networkAccount.id,
+        networkAccount.address,
+        networkAccount.xpub ?? '',
+        variantKey,
+      ].join(':');
 
       try {
         const response = await fetchPortfolio({

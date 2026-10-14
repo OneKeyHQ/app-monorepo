@@ -17,11 +17,15 @@ import type {
   IDebugRenderTrackerProps,
   IElement,
   IInputProps,
+  IInputRef,
   IXStackProps,
 } from '@onekeyhq/components';
 import {
   Button,
+  ButtonGroup,
   DebugRenderTracker,
+  Dialog,
+  Icon,
   IconButton,
   Input,
   ListView,
@@ -35,6 +39,7 @@ import {
   XStack,
   YStack,
   useIsKeyboardShown,
+  useMedia,
 } from '@onekeyhq/components';
 import { FixedColumnShadowOverlay } from '@onekeyhq/kit/src/components/FixedColumnShadowOverlay';
 import {
@@ -282,6 +287,8 @@ const PaginationFooter = ({
   paginationAction?: ReactElement | null;
 }) => {
   const intl = useIntl();
+  const { md } = useMedia();
+  const shouldFocusAfterSheetOpen = platformEnv.isNative && md;
   const [inputValue, setInputValue] = useState(currentPage.toString());
 
   useEffect(() => {
@@ -305,6 +312,79 @@ const PaginationFooter = ({
     handleInputSubmit();
   };
 
+  const handleMobilePagePress = () => {
+    let pageInput: IInputRef | null = null;
+    let isSheetOpen = false;
+    let isClosing = false;
+    let hasFocusedPageInput = false;
+    const focusPageInputWhenReady = () => {
+      if (!isSheetOpen || !pageInput || isClosing || hasFocusedPageInput) {
+        return;
+      }
+      // The lazy field and sheet animation can become ready in either order.
+      hasFocusedPageInput = true;
+      pageInput.focus();
+    };
+    Dialog.show({
+      title: intl.formatMessage({
+        id: ETranslations.global_bulk_accounts_page_number,
+      }),
+      // Let the input own initial focus; the web focus scope can also select text.
+      onOpenAutoFocus: (event) => event.preventDefault(),
+      onCloseRequested: () => {
+        isClosing = true;
+      },
+      sheetProps: shouldFocusAfterSheetOpen
+        ? {
+            onAnimationComplete: ({ open }) => {
+              isSheetOpen = open;
+              focusPageInputWhenReady();
+            },
+          }
+        : undefined,
+      renderContent: (
+        <Dialog.Form
+          formProps={{ defaultValues: { page: String(currentPage) } }}
+        >
+          <Dialog.FormField
+            name="page"
+            rules={{
+              validate: (value: string) => {
+                const page = Number(value);
+                return (
+                  (Number.isInteger(page) && page >= 1 && page <= totalPages) ||
+                  intl.formatMessage({
+                    id: ETranslations.global_bulk_accounts_page_number_error,
+                  })
+                );
+              },
+            }}
+          >
+            <Input
+              ref={(instance) => {
+                pageInput = instance;
+                focusPageInputWhenReady();
+              }}
+              testID="perp-pagination-page-input"
+              autoFocus={!shouldFocusAfterSheetOpen}
+              keyboardType="number-pad"
+              size="large"
+              maxLength={totalPages.toString().length}
+              placeholder={`1–${totalPages}`}
+            />
+          </Dialog.FormField>
+        </Dialog.Form>
+      ),
+      onConfirm: async ({ getForm, close }) => {
+        const values = getForm()?.getValues() as { page: string } | undefined;
+        if (values) {
+          onPageChange(Number(values.page));
+          await close();
+        }
+      },
+    });
+  };
+
   if (totalPages <= 1 && !onViewAll && !paginationAction) {
     return null;
   }
@@ -320,7 +400,50 @@ const PaginationFooter = ({
       borderTopWidth="$px"
       borderTopColor={borderColor}
     >
-      {totalPages > 1 ? (
+      {totalPages > 1 && isMobile ? (
+        <Stack borderRadius="$2" overflow="hidden">
+          <ButtonGroup>
+            <ButtonGroup.Item
+              testID="perp-pagination-prev"
+              opacity={1}
+              maxWidth={42}
+              disabled={currentPage === 1}
+              onPress={onPreviousPage}
+            >
+              <Icon
+                name="ChevronLeftSmallOutline"
+                size="$5"
+                ml="$1"
+                opacity={currentPage === 1 ? 0.5 : undefined}
+              />
+            </ButtonGroup.Item>
+            <ButtonGroup.Item
+              testID="perp-pagination-page-number"
+              px="$3"
+              onPress={handleMobilePagePress}
+            >
+              <SizableText size="$bodyLgMedium">
+                {currentPage} / {totalPages}
+              </SizableText>
+            </ButtonGroup.Item>
+            <ButtonGroup.Item
+              testID="perp-pagination-next"
+              opacity={1}
+              maxWidth={42}
+              disabled={currentPage === totalPages}
+              onPress={onNextPage}
+            >
+              <Icon
+                name="ChevronRightSmallOutline"
+                size="$5"
+                mr="$1"
+                opacity={currentPage === totalPages ? 0.5 : undefined}
+              />
+            </ButtonGroup.Item>
+          </ButtonGroup>
+        </Stack>
+      ) : null}
+      {totalPages > 1 && !isMobile ? (
         <>
           <IconButton
             testID="perp-handle-input-blur-icon-btn"

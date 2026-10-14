@@ -1,3 +1,5 @@
+import type { IInviteRewardRouteParams } from './referFriends';
+
 export enum ETabReferFriendsRoutes {
   TabReferAFriend = 'TabReferAFriend',
   TabInviteReward = 'TabInviteReward',
@@ -15,11 +17,7 @@ export type ITabReferFriendsParamList = {
     utmSource?: string;
     code?: string;
   };
-  TabInviteReward:
-    | {
-        showRewardDistributionHistory?: boolean;
-      }
-    | undefined;
+  TabInviteReward: IInviteRewardRouteParams | undefined;
   TabYourReferred: undefined;
   TabHardwareSalesReward:
     | {

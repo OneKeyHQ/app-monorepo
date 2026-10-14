@@ -1,46 +1,138 @@
-import type { CSSProperties } from 'react';
+import type { MouseEventHandler, ReactNode } from 'react';
 
-import { useTheme } from '@onekeyhq/components';
+import {
+  ButtonFrame,
+  ScrollView,
+  SizableText,
+  XStack,
+  YStack,
+  useTheme,
+} from '@onekeyhq/components';
+import type { IButtonProps } from '@onekeyhq/components';
 
 import { DrawingIcon } from './DrawingToolbar';
 import { DRAWING_TOOLS } from './model';
 
 import type { IChartDrawingsController } from './useChartDrawings';
 
-const inspectorCss = `
-.chart-inspector { display:flex; flex-shrink:0; min-height:0; background:var(--inspector-bg); color:var(--inspector-text); border-left:1px solid var(--inspector-border); font-size:12px; }
-.chart-inspector button { display:flex; align-items:center; justify-content:center; flex-shrink:0; background:transparent; color:inherit; border:0; padding:2px; border-radius:4px; cursor:pointer; font:inherit; }
-.chart-inspector button:hover { background:var(--inspector-hover); }
-.chart-inspector button:focus-visible, .chart-inspector input:focus-visible { outline:2px solid #2962ff; outline-offset:-2px; }
-.chart-inspector button:disabled { opacity:.3; cursor:default; }
-.chart-inspector button[aria-pressed=true] { color:#2962ff; background:var(--inspector-active); }
-.chart-inspector-rail { width:34px; display:flex; flex-direction:column; align-items:center; gap:6px; padding-top:4px; }
-.chart-inspector-rail button { width:30px; height:32px; }
-.chart-inspector-panel { width:264px; min-height:0; display:flex; flex-direction:column; border-right:1px solid var(--inspector-border); }
-.chart-inspector-heading { display:flex; align-items:center; justify-content:space-between; min-height:40px; padding:0 12px; border-bottom:1px solid var(--inspector-border); font-size:13px; font-weight:600; }
-.chart-inspector-heading button { width:24px; height:26px; }
-.chart-inspector-content { overflow:auto; min-height:0; flex:1; }
-.chart-object-list { list-style:none; margin:0; padding:5px 0; }
-.chart-object-row { display:flex; align-items:center; min-height:38px; padding:0 5px; gap:1px; }
-.chart-object-row[data-selected=true] { background:var(--inspector-active); }
-.chart-object-row[data-hidden=true] > .chart-object-select { opacity:.5; }
-.chart-object-row .chart-object-select { flex:1; min-width:0; justify-content:flex-start; gap:6px; text-align:left; }
-.chart-object-select span:last-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.chart-object-row > button:not(.chart-object-select) { width:25px; height:28px; }
-.chart-object-row > button:not(.chart-object-select) .chart-drawing-icon { width:22px !important; height:22px !important; }
-.chart-object-details { padding:10px; border-top:1px solid var(--inspector-border); }
-.chart-object-details label { display:flex; align-items:center; gap:8px; }
-.chart-object-details input { width:100%; min-width:0; color:inherit; background:var(--inspector-bg); border:1px solid var(--inspector-border); border-radius:4px; padding:6px; font:inherit; }
-.chart-object-order { display:flex; gap:8px; margin-top:8px; }
-.chart-object-order button { flex:1; gap:8px; padding:6px; border:1px solid var(--inspector-border); }
-.chart-data-section { padding:10px 12px; border-bottom:1px solid var(--inspector-border); }
-.chart-data-section h4 { margin:0 0 8px; font-size:12px; font-weight:600; }
-.chart-data-section dl { margin:0; }
-.chart-data-row { display:flex; justify-content:space-between; gap:12px; line-height:25px; }
-.chart-data-row dt { color:var(--inspector-muted); }
-.chart-data-row dd { margin:0; font-variant-numeric:tabular-nums; text-align:right; overflow-wrap:anywhere; }
-.chart-inspector-empty { padding:20px 14px; color:var(--inspector-muted); line-height:20px; }
-`;
+function InspectorButton({
+  label,
+  title = label,
+  active,
+  disabled,
+  onClick,
+  ...props
+}: Omit<IButtonProps, 'color'> & {
+  label: string;
+  title?: string;
+  active?: boolean;
+  onClick?: MouseEventHandler<HTMLButtonElement>;
+}) {
+  return (
+    <ButtonFrame
+      render={
+        <button
+          type="button"
+          title={title}
+          aria-label={label}
+          onClick={onClick}
+        />
+      }
+      aria-label={label}
+      aria-pressed={active}
+      disabled={disabled}
+      alignItems="center"
+      justifyContent="center"
+      flexShrink={0}
+      minWidth={0}
+      padding={2}
+      borderWidth={0}
+      borderRadius={4}
+      backgroundColor={active ? '$bgActive' : '$transparent'}
+      cursor={disabled ? 'default' : 'pointer'}
+      opacity={disabled ? 0.3 : 1}
+      hoverStyle={disabled ? undefined : { backgroundColor: '$bgHover' }}
+      focusVisibleStyle={{
+        outlineColor: '#2962ff',
+        outlineWidth: 2,
+        outlineStyle: 'solid',
+        outlineOffset: -2,
+      }}
+      {...props}
+    />
+  );
+}
+
+function DataSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <YStack
+      paddingVertical={10}
+      paddingHorizontal={12}
+      borderBottomWidth={1}
+      borderColor="$borderSubdued"
+    >
+      <SizableText
+        render="h4"
+        margin={0}
+        marginBottom={8}
+        fontSize={12}
+        lineHeight={18}
+        fontWeight="600"
+      >
+        {title}
+      </SizableText>
+      <YStack render="dl" margin={0}>
+        {children}
+      </YStack>
+    </YStack>
+  );
+}
+
+function DataRow({
+  label,
+  children,
+  testID,
+  title,
+}: {
+  label: string;
+  children: ReactNode;
+  testID: string;
+  title?: string;
+}) {
+  return (
+    <XStack justifyContent="space-between" gap={12}>
+      <SizableText
+        render="dt"
+        color="$textSubdued"
+        fontSize={12}
+        lineHeight={25}
+        flexShrink={0}
+      >
+        {label}
+      </SizableText>
+      <SizableText
+        render={<dd title={title} />}
+        testID={testID}
+        margin={0}
+        minWidth={0}
+        flexShrink={1}
+        fontSize={12}
+        lineHeight={25}
+        fontVariant={['tabular-nums']}
+        textAlign="right"
+        wordWrap="break-word"
+      >
+        {children}
+      </SizableText>
+    </XStack>
+  );
+}
 
 export function ChartInspector({
   controller,
@@ -57,179 +149,218 @@ export function ChartInspector({
   );
   const data = state.data;
   const date = data ? new Date(data.time * 1000).toISOString() : null;
+  if (!state.panel) return null;
+
   return (
-    <div
-      className="chart-inspector"
-      style={
-        {
-          '--inspector-bg': theme.bg.val,
-          '--inspector-text': theme.text.val,
-          '--inspector-muted': theme.textSubdued.val,
-          '--inspector-border': theme.borderSubdued.val,
-          '--inspector-hover': theme.bgHover.val,
-          '--inspector-active': theme.bgActive.val,
-        } as CSSProperties
+    <YStack
+      render="section"
+      testID="chart-inspector-panel"
+      aria-label={
+        state.panel === 'objects' ? 'Object Tree panel' : 'Data Window panel'
       }
+      width={265}
+      minHeight={0}
+      flexShrink={0}
+      backgroundColor="$bg"
+      borderLeftWidth={1}
+      borderColor="$borderSubdued"
     >
-      <style>{inspectorCss}</style>
-      {state.panel ? (
-        <section
-          className="chart-inspector-panel"
-          aria-label={
-            state.panel === 'objects'
-              ? 'Object Tree panel'
-              : 'Data Window panel'
-          }
+      <XStack
+        alignItems="center"
+        justifyContent="space-between"
+        minHeight={40}
+        paddingHorizontal={12}
+        borderBottomWidth={1}
+        borderColor="$borderSubdued"
+      >
+        <SizableText fontSize={13} fontWeight="600">
+          {state.panel === 'objects' ? 'Object Tree' : 'Data Window'}
+        </SizableText>
+        <InspectorButton
+          label="Collapse chart panel"
+          title="Collapse"
+          width={24}
+          height={26}
+          onPress={() => controller.togglePanel(state.panel ?? 'objects')}
         >
-          <div className="chart-inspector-heading">
-            <span>
-              {state.panel === 'objects' ? 'Object Tree' : 'Data Window'}
-            </span>
-            <button
-              type="button"
-              aria-label="Collapse chart panel"
-              title="Collapse"
-              onClick={() => controller.togglePanel(state.panel ?? 'objects')}
-            >
-              <DrawingIcon name="chevron" />
-            </button>
-          </div>
-          <div className="chart-inspector-content">
-            {state.panel === 'objects' ? (
-              <ul className="chart-object-list" aria-label="Drawing objects">
-                {[...state.history.present].toReversed().map((drawing) => {
-                  const label =
-                    drawing.name || DRAWING_TOOLS[drawing.tool].label;
-                  return (
+          <DrawingIcon name="chevron" color={theme.text.val} />
+        </InspectorButton>
+      </XStack>
+      <ScrollView minHeight={0} flex={1}>
+        {state.panel === 'objects' ? (
+          <YStack
+            render="ul"
+            aria-label="Drawing objects"
+            margin={0}
+            paddingHorizontal={0}
+            paddingVertical={5}
+          >
+            {[...state.history.present].toReversed().map((drawing) => {
+              const label = drawing.name || DRAWING_TOOLS[drawing.tool].label;
+              const isSelected = state.selectedIds.includes(drawing.id);
+              const isHidden = drawing.hidden || state.hidden;
+              return (
+                <XStack
+                  key={drawing.id}
+                  render={
                     <li
-                      key={drawing.id}
-                      className="chart-object-row"
-                      data-testid="chart-object"
                       data-object-id={drawing.id}
-                      data-selected={state.selectedIds.includes(drawing.id)}
-                      data-hidden={drawing.hidden || state.hidden}
-                    >
-                      <button
-                        type="button"
-                        className="chart-object-select"
-                        title={label}
-                        aria-label={`Select ${label}`}
-                        aria-pressed={state.selectedIds.includes(drawing.id)}
-                        onClick={(event) =>
-                          controller.selectDrawing(
-                            drawing.id,
-                            event.ctrlKey || event.metaKey,
-                          )
-                        }
-                      >
-                        <DrawingIcon name={drawing.tool} />
-                        <span>{label}</span>
-                      </button>
-                      <button
-                        type="button"
-                        title={drawing.hidden ? 'Show' : 'Hide'}
-                        aria-label={`${drawing.hidden ? 'Show' : 'Hide'} ${label}`}
-                        onClick={() =>
-                          controller.updateDrawing(drawing.id, {
-                            hidden: !drawing.hidden,
-                          })
-                        }
-                      >
-                        <DrawingIcon name={drawing.hidden ? 'show' : 'hide'} />
-                      </button>
-                      <button
-                        type="button"
-                        title={drawing.locked ? 'Unlock' : 'Lock'}
-                        aria-label={`${drawing.locked ? 'Unlock' : 'Lock'} ${label}`}
-                        disabled={state.locked}
-                        onClick={() =>
-                          controller.updateDrawing(drawing.id, {
-                            locked: !drawing.locked,
-                          })
-                        }
-                      >
-                        <DrawingIcon
-                          name={drawing.locked ? 'lock' : 'unlock'}
-                        />
-                      </button>
-                      <button
-                        type="button"
-                        title="Delete"
-                        aria-label={`Delete ${label}`}
-                        disabled={drawing.locked || state.locked}
-                        onClick={() => controller.removeDrawing(drawing.id)}
-                      >
-                        <DrawingIcon name="delete" />
-                      </button>
-                    </li>
-                  );
-                })}
-                {!state.history.present.length ? (
-                  <li className="chart-inspector-empty">
-                    Drawings on this chart will appear here.
-                  </li>
-                ) : null}
-              </ul>
-            ) : null}
-            {state.panel === 'data' && data ? (
-              <>
-                <div className="chart-data-section">
-                  <h4>{data.historical ? 'Selected bar' : 'Latest bar'}</h4>
-                  <dl>
-                    <div className="chart-data-row">
-                      <dt>Date</dt>
-                      <dd data-testid="chart-data-date">
-                        {date?.slice(0, 10)}
-                      </dd>
-                    </div>
-                    <div className="chart-data-row">
-                      <dt>Time (UTC)</dt>
-                      <dd data-testid="chart-data-time">
-                        {date?.slice(11, 19)}
-                      </dd>
-                    </div>
-                  </dl>
-                </div>
-                {data.groups.map((group, index) => (
-                  <div
-                    className="chart-data-section"
-                    key={`${group.name}-${index}`}
+                      data-selected={isSelected}
+                      data-hidden={isHidden}
+                    />
+                  }
+                  testID="chart-object"
+                  alignItems="center"
+                  minHeight={38}
+                  paddingHorizontal={5}
+                  gap={1}
+                  backgroundColor={isSelected ? '$bgActive' : '$transparent'}
+                >
+                  <InspectorButton
+                    label={`Select ${label}`}
+                    title={label}
+                    active={isSelected}
+                    flex={1}
+                    minWidth={0}
+                    justifyContent="flex-start"
+                    gap={6}
+                    opacity={isHidden ? 0.5 : 1}
+                    onClick={(event) =>
+                      controller.selectDrawing(
+                        drawing.id,
+                        event.ctrlKey || event.metaKey,
+                      )
+                    }
                   >
-                    <h4>{group.name}</h4>
-                    <dl>
-                      {group.rows.map((row) => (
-                        <div className="chart-data-row" key={row.name}>
-                          <dt>{row.name}</dt>
-                          <dd
-                            data-testid={`chart-data-${row.name}`}
-                            title={String(row.value ?? '')}
-                          >
-                            {row.value !== null && Number.isFinite(row.value)
-                              ? row.value.toLocaleString('en-US', {
-                                  maximumSignificantDigits: 10,
-                                })
-                              : '—'}
-                          </dd>
-                        </div>
-                      ))}
-                    </dl>
-                  </div>
+                    <DrawingIcon
+                      name={drawing.tool}
+                      color={isSelected ? '#2962ff' : theme.text.val}
+                    />
+                    <SizableText
+                      fontSize={12}
+                      lineHeight={16}
+                      color={isSelected ? '#2962ff' : '$text'}
+                      minWidth={0}
+                      flexShrink={1}
+                      numberOfLines={1}
+                    >
+                      {label}
+                    </SizableText>
+                  </InspectorButton>
+                  <InspectorButton
+                    label={`${drawing.hidden ? 'Show' : 'Hide'} ${label}`}
+                    title={drawing.hidden ? 'Show' : 'Hide'}
+                    width={25}
+                    height={28}
+                    onPress={() =>
+                      controller.updateDrawing(drawing.id, {
+                        hidden: !drawing.hidden,
+                      })
+                    }
+                  >
+                    <DrawingIcon
+                      name={drawing.hidden ? 'show' : 'hide'}
+                      color={theme.text.val}
+                    />
+                  </InspectorButton>
+                  <InspectorButton
+                    label={`${drawing.locked ? 'Unlock' : 'Lock'} ${label}`}
+                    title={drawing.locked ? 'Unlock' : 'Lock'}
+                    width={25}
+                    height={28}
+                    disabled={state.locked}
+                    onPress={() =>
+                      controller.updateDrawing(drawing.id, {
+                        locked: !drawing.locked,
+                      })
+                    }
+                  >
+                    <DrawingIcon
+                      name={drawing.locked ? 'lock' : 'unlock'}
+                      color={theme.text.val}
+                    />
+                  </InspectorButton>
+                  <InspectorButton
+                    label={`Delete ${label}`}
+                    title="Delete"
+                    width={25}
+                    height={28}
+                    disabled={drawing.locked || state.locked}
+                    onPress={() => controller.removeDrawing(drawing.id)}
+                  >
+                    <DrawingIcon name="delete" color={theme.text.val} />
+                  </InspectorButton>
+                </XStack>
+              );
+            })}
+            {!state.history.present.length ? (
+              <SizableText
+                render="li"
+                display="block"
+                paddingVertical={20}
+                paddingHorizontal={14}
+                color="$textSubdued"
+                fontSize={12}
+                lineHeight={20}
+              >
+                Drawings on this chart will appear here.
+              </SizableText>
+            ) : null}
+          </YStack>
+        ) : null}
+        {state.panel === 'data' && data ? (
+          <>
+            <DataSection
+              title={data.historical ? 'Selected bar' : 'Latest bar'}
+            >
+              <DataRow label="Date" testID="chart-data-date">
+                {date?.slice(0, 10)}
+              </DataRow>
+              <DataRow label="Time (UTC)" testID="chart-data-time">
+                {date?.slice(11, 19)}
+              </DataRow>
+            </DataSection>
+            {data.groups.map((group, index) => (
+              <DataSection title={group.name} key={`${group.name}-${index}`}>
+                {group.rows.map((row) => (
+                  <DataRow
+                    key={row.name}
+                    label={row.name}
+                    testID={`chart-data-${row.name}`}
+                    title={String(row.value ?? '')}
+                  >
+                    {row.value !== null && Number.isFinite(row.value)
+                      ? row.value.toLocaleString('en-US', {
+                          maximumSignificantDigits: 10,
+                        })
+                      : '—'}
+                  </DataRow>
                 ))}
-              </>
-            ) : null}
-            {state.panel === 'data' && !data ? (
-              <div className="chart-inspector-empty">
-                Waiting for chart data…
-              </div>
-            ) : null}
-          </div>
-          {state.panel === 'objects' && selected ? (
-            <div className="chart-object-details">
-              <label>
-                Name
+              </DataSection>
+            ))}
+          </>
+        ) : null}
+        {state.panel === 'data' && !data ? (
+          <SizableText
+            paddingVertical={20}
+            paddingHorizontal={14}
+            color="$textSubdued"
+            fontSize={12}
+            lineHeight={20}
+          >
+            Waiting for chart data…
+          </SizableText>
+        ) : null}
+      </ScrollView>
+      {state.panel === 'objects' && selected ? (
+        <YStack padding={10} borderTopWidth={1} borderColor="$borderSubdued">
+          <XStack render="label" alignItems="center" gap={8}>
+            <SizableText fontSize={12}>Name</SizableText>
+            <SizableText
+              key={`${selected.id}-${selected.name ?? ''}`}
+              render={
                 <input
                   aria-label="Object name"
-                  key={`${selected.id}-${selected.name ?? ''}`}
                   maxLength={100}
                   defaultValue={
                     selected.name ?? DRAWING_TOOLS[selected.tool].label
@@ -244,60 +375,61 @@ export function ChartInspector({
                     if (event.key === 'Enter') event.currentTarget.blur();
                   }}
                 />
-              </label>
-              <div className="chart-object-order">
-                <button
-                  type="button"
-                  aria-label="Bring drawing forward"
-                  disabled={
-                    selected.locked ||
-                    state.locked ||
-                    selectedIndex === state.history.present.length - 1
-                  }
-                  onClick={() => controller.reorderDrawing(selected.id, 1)}
-                >
-                  Bring forward
-                </button>
-                <button
-                  type="button"
-                  aria-label="Send drawing backward"
-                  disabled={
-                    selected.locked || state.locked || selectedIndex === 0
-                  }
-                  onClick={() => controller.reorderDrawing(selected.id, -1)}
-                >
-                  Send backward
-                </button>
-              </div>
-            </div>
-          ) : null}
-        </section>
+              }
+              flex={1}
+              minWidth={0}
+              color="$text"
+              backgroundColor="$bg"
+              borderWidth={1}
+              borderColor="$borderSubdued"
+              borderRadius={4}
+              padding={6}
+              fontSize={12}
+              lineHeight={16}
+              focusVisibleStyle={{
+                outlineColor: '#2962ff',
+                outlineWidth: 2,
+                outlineStyle: 'solid',
+                outlineOffset: -2,
+              }}
+            />
+          </XStack>
+          <XStack gap={8} marginTop={8}>
+            <InspectorButton
+              label="Bring drawing forward"
+              flex={1}
+              gap={8}
+              padding={6}
+              borderWidth={1}
+              borderColor="$borderSubdued"
+              disabled={
+                selected.locked ||
+                state.locked ||
+                selectedIndex === state.history.present.length - 1
+              }
+              onPress={() => controller.reorderDrawing(selected.id, 1)}
+            >
+              <SizableText fontSize={12} lineHeight={16}>
+                Bring forward
+              </SizableText>
+            </InspectorButton>
+            <InspectorButton
+              label="Send drawing backward"
+              flex={1}
+              gap={8}
+              padding={6}
+              borderWidth={1}
+              borderColor="$borderSubdued"
+              disabled={selected.locked || state.locked || selectedIndex === 0}
+              onPress={() => controller.reorderDrawing(selected.id, -1)}
+            >
+              <SizableText fontSize={12} lineHeight={16}>
+                Send backward
+              </SizableText>
+            </InspectorButton>
+          </XStack>
+        </YStack>
       ) : null}
-      <div
-        className="chart-inspector-rail"
-        role="toolbar"
-        aria-label="Chart panels"
-        aria-orientation="vertical"
-      >
-        <button
-          type="button"
-          aria-label="Object Tree"
-          title="Object Tree"
-          aria-pressed={state.panel === 'objects'}
-          onClick={() => controller.togglePanel('objects')}
-        >
-          <DrawingIcon name="objects" />
-        </button>
-        <button
-          type="button"
-          aria-label="Data Window"
-          title="Data Window"
-          aria-pressed={state.panel === 'data'}
-          onClick={() => controller.togglePanel('data')}
-        >
-          <DrawingIcon name="data" />
-        </button>
-      </div>
-    </div>
+    </YStack>
   );
 }

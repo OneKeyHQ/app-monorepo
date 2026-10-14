@@ -23,16 +23,13 @@ export type IModalWebViewParamList = {
 };
 
 // Root-level WebView overlay (separate from the modal-card webview above).
-// Reachable at ERootRoutes.WebView ('RootWebView') from in-app calls,
-// App Clip campaign handoffs, and notification taps.
+// Reachable at ERootRoutes.WebView ('RootWebView') from in-app calls and notification taps.
 export enum EWebViewRoutes {
   WebView = 'WebView',
 }
 
 export interface IWebViewPageParams {
   url: string;
-  /** Restricts an App Clip campaign handoff to official hosts and disables the wallet bridge. */
-  appClipCampaign?: boolean;
   title?: string;
   hideHeader?: boolean;
   /** Address bar is hidden by default — opt-in by passing `true`. */

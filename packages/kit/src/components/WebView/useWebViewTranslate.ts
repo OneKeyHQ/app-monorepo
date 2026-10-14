@@ -1,15 +1,18 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import {
   ETranslateDisplayMode,
   ETranslateEngine,
 } from '@onekeyhq/shared/types/discovery';
+import type { IPrimeFreeTrialError } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 
 import { getWebviewWrapperRef } from '../../views/Discovery/utils/explorerUtils';
 
@@ -35,15 +38,34 @@ import type { WebView } from 'react-native-webview';
 
 type ITranslateResult = Array<string | null>;
 
+export type IFreeTrialTranslateStopPayload = {
+  freeTrialError: IPrimeFreeTrialError;
+  sessionId: string;
+  targetLang: string;
+};
+
 type ITranslateRequestOptions = {
-  onSuccess?: () => void;
+  // `billed`: at least one batch was translated (and billed) by the server;
+  // false when every batch fell back to the original text.
+  onSuccess?: (result: { billed: boolean }) => void;
   onTranslateUnavailable?: (payload: {
     code: number;
     sessionId?: string;
     targetLang: string;
   }) => void;
+  // Free trial exhausted / closed: true skips the background call and
+  // answers with the original texts.
+  isSessionFreeTrialStopped?: (sessionId?: string) => boolean;
+  onRequestStart?: (sessionId?: string) => void;
+  onRequestEnd?: (sessionId?: string) => void;
+  onFreeTrialError?: (payload: IFreeTrialTranslateStopPayload) => void;
   testFlag?: string;
 };
+
+// Mirrors TRANSLATE_TIMEOUT_MS in translateInject.js (that constant lives in
+// the injected script string and cannot be imported). After a free-trial
+// stop, in-flight requests get at most this long before `stop` is forced.
+const FREE_TRIAL_STOP_MAX_WAIT_MS = 15_000;
 
 type ITranslateResponsePayload = {
   translations?: ITranslateResult;
@@ -75,7 +97,11 @@ async function translateTexts(
   targetLang: string,
   engine: ETranslateEngine,
   testFlag?: string,
-): Promise<ITranslateResult> {
+): Promise<{
+  translations: ITranslateResult;
+  freeTrialError?: IPrimeFreeTrialError;
+  hasBilledBatch: boolean;
+}> {
   const result = (await backgroundApiProxy.servicePrime.apiTranslate({
     texts,
     sourceLang: 'auto',
@@ -85,10 +111,16 @@ async function translateTexts(
   })) as
     | {
         translations?: ITranslateResult;
+        freeTrialError?: IPrimeFreeTrialError;
+        hasBilledBatch?: boolean;
       }
     | undefined;
   const translations = result?.translations;
-  return Array.isArray(translations) ? translations : texts;
+  return {
+    translations: Array.isArray(translations) ? translations : texts,
+    freeTrialError: result?.freeTrialError,
+    hasBilledBatch: Boolean(result?.hasBilledBatch),
+  };
 }
 
 function isAITranslateUnavailableError(error: unknown): error is IOneKeyError {
@@ -122,22 +154,30 @@ function handleTranslateRequest(
   {
     onSuccess,
     onTranslateUnavailable,
+    isSessionFreeTrialStopped,
+    onRequestStart,
+    onRequestEnd,
+    onFreeTrialError,
     testFlag,
   }: ITranslateRequestOptions = {},
 ): void {
+  // A free-trial error comes back in the return value, never as a throw, so
+  // it never triggers the whole-request retry below (which would re-bill the
+  // batches that already succeeded).
   const attemptTranslate = async (): Promise<{
     translations: ITranslateResult;
+    freeTrialError?: IPrimeFreeTrialError;
+    hasBilledBatch: boolean;
   } | null> => {
     let lastErr: unknown;
     for (let attempt = 1; attempt <= TRANSLATE_MAX_ATTEMPTS; attempt += 1) {
       try {
-        const translations = await translateTexts(
+        return await translateTexts(
           data.texts,
           data.targetLang,
           engine,
           testFlag,
         );
-        return { translations };
       } catch (err) {
         lastErr = err;
         if (
@@ -156,14 +196,36 @@ function handleTranslateRequest(
   };
 
   const handler = async () => {
+    if (isSessionFreeTrialStopped?.(data.sessionId)) {
+      // The session hit its free-trial limit: no new billed request.
+      sendTranslationResponse(tabId, data.id, {
+        translations: data.texts,
+        sessionId: data.sessionId,
+      });
+      return;
+    }
+    onRequestStart?.(data.sessionId);
     try {
       const result = await attemptTranslate();
       if (result) {
+        // Already billed translations are written back first.
         sendTranslationResponse(tabId, data.id, {
           translations: result.translations,
           sessionId: data.sessionId,
         });
-        onSuccess?.();
+        const freeTrialError = data.sessionId
+          ? result.freeTrialError
+          : undefined;
+        if (!freeTrialError || result.hasBilledBatch) {
+          onSuccess?.({ billed: result.hasBilledBatch });
+        }
+        if (freeTrialError && data.sessionId) {
+          onFreeTrialError?.({
+            freeTrialError,
+            sessionId: data.sessionId,
+            targetLang: data.targetLang,
+          });
+        }
       } else {
         sendTranslationResponse(tabId, data.id, {
           translations: data.texts,
@@ -185,6 +247,8 @@ function handleTranslateRequest(
           targetLang: data.targetLang,
         });
       }
+    } finally {
+      onRequestEnd?.(data.sessionId);
     }
   };
   void handler();
@@ -197,6 +261,8 @@ export function useWebViewTranslate({
   displayMode = ETranslateDisplayMode.replace,
   dappUrl,
   onAITranslateUnavailable,
+  onFreeTrialUnavailable,
+  entitlementSource,
   currentTargetLang,
 }: {
   tabId: string;
@@ -208,12 +274,18 @@ export function useWebViewTranslate({
     code: number;
     targetLang: string;
   }) => void;
+  // Free trial exhausted (90600) or closed (90601) during a session; called
+  // once per session after the session was stopped.
+  onFreeTrialUnavailable?: (payload: IFreeTrialTranslateStopPayload) => void;
+  // Analytics only: Prime subscription or monthly free trial.
+  entitlementSource?: 'prime' | 'freeTrial';
   currentTargetLang?: string;
 }) {
   const translatingRef = useRef(false);
   const desktopCleanupRef = useRef<(() => void) | null>(null);
   const startTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasLoggedSuccessRef = useRef(false);
+  const hasLoggedFreeTrialUsageRef = useRef(false);
   const activeSessionIdRef = useRef<string | null>(null);
   const sessionEngineRef = useRef(engine);
   const engineRef = useRef(engine);
@@ -226,16 +298,47 @@ export function useWebViewTranslate({
   // Electron fires did-finish-load / did-stop-loading / did-fail-load for the
   // same navigation; WebContent.desktop binds all three to the same callback,
   // so notifyTabNavigationEnd arrives multiple times. Consume once per nav.
-  const navEndConsumedRef = useRef(false);
+  // did-stop-loading / did-fail-load also fire for child frames (iframes)
+  // with no navigation of the page, so only the first end after a main-frame
+  // navigation counts, whether or not the tab was translating at that time.
+  // A stray end restarting the session would leave the page's script on the
+  // old session while the app tracks the new one.
+  const navEndConsumedRef = useRef(true);
   // Hold via ref so callers don't have to memoize the callback; otherwise a
   // fresh inline lambda would invalidate the downstream memo chain and
   // re-register nav handlers on every render.
   const onAITranslateUnavailableRef = useRef(onAITranslateUnavailable);
+  const onFreeTrialUnavailableRef = useRef(onFreeTrialUnavailable);
+  const entitlementSourceRef = useRef(entitlementSource);
+  entitlementSourceRef.current = entitlementSource;
   engineRef.current = engine;
   displayModeRef.current = displayMode;
   dappUrlRef.current = dappUrl;
   targetLangRef.current = currentTargetLang;
   onAITranslateUnavailableRef.current = onAITranslateUnavailable;
+  onFreeTrialUnavailableRef.current = onFreeTrialUnavailable;
+
+  // Free-trial stop state of the current page's session.
+  const freeTrialStoppedSessionRef = useRef<string | null>(null);
+  // Session whose `stop` was already sent (by the last in-flight request or
+  // the wait cap), so a request finishing after the cap sends no second one.
+  // Session ids are unique, so it never needs a reset.
+  const freeTrialStopSentSessionRef = useRef<string | null>(null);
+  // Requests in flight on the current document, per session. A load end can
+  // start a new session on the same document while the previous session's
+  // requests are still answered (and billed), and `stop` drops every pending
+  // response of the page, so it waits for all of them. Only a document
+  // navigation clears it; ends of sessions it no longer holds are ignored.
+  const inFlightRequestsRef = useRef(new Map<string, number>());
+  const freeTrialStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const clearFreeTrialStopTimer = useCallback(() => {
+    if (freeTrialStopTimerRef.current) {
+      clearTimeout(freeTrialStopTimerRef.current);
+      freeTrialStopTimerRef.current = null;
+    }
+  }, []);
 
   useEffect(() => () => unregisterTranslateHandler(tabId), [tabId]);
 
@@ -244,7 +347,13 @@ export function useWebViewTranslate({
       activeSessionIdRef.current = null;
       handledUnavailableSessionRef.current = null;
       hasLoggedSuccessRef.current = false;
+      hasLoggedFreeTrialUsageRef.current = false;
       navEndConsumedRef.current = false;
+      // The old page (and its injected script) is gone: an old session's
+      // free-trial stop must not touch the new page.
+      freeTrialStoppedSessionRef.current = null;
+      inFlightRequestsRef.current = new Map();
+      clearFreeTrialStopTimer();
       if (startTimerRef.current) {
         clearTimeout(startTimerRef.current);
         startTimerRef.current = null;
@@ -255,7 +364,7 @@ export function useWebViewTranslate({
       onNavigate?.(translatingRef.current);
     });
     return () => offTabNavigation(tabId);
-  }, [tabId, onNavigate]);
+  }, [tabId, onNavigate, clearFreeTrialStopTimer]);
 
   useEffect(
     () => () => {
@@ -264,23 +373,47 @@ export function useWebViewTranslate({
         clearTimeout(startTimerRef.current);
         startTimerRef.current = null;
       }
+      clearFreeTrialStopTimer();
+      // A closed tab can come back with the same tabId (reopen the last
+      // closed tab). Requests still in flight for this instance must not
+      // stop, restore or report on the new page, which commands reach by
+      // tabId; without a session they are all ignored.
+      activeSessionIdRef.current = null;
+      freeTrialStoppedSessionRef.current = null;
     },
-    [],
+    [clearFreeTrialStopTimer],
   );
 
   const logTranslateSuccess = useCallback(
-    (targetLang: string, sessionId?: string) => {
-      if (
-        !hasLoggedSuccessRef.current &&
-        sessionId &&
-        sessionId === activeSessionIdRef.current
-      ) {
+    (targetLang: string, sessionId: string | undefined, billed: boolean) => {
+      if (!sessionId || sessionId !== activeSessionIdRef.current) {
+        return;
+      }
+      if (!hasLoggedSuccessRef.current) {
         hasLoggedSuccessRef.current = true;
         defaultLogger.prime.usage.dappTranslateSuccess({
           engine: sessionEngineRef.current,
           targetLang,
           displayMode: displayModeRef.current,
-          dappDomain: dappUrlRef.current ?? '',
+          dappDomain: uriUtils.getHostNameFromUrl({
+            url: dappUrlRef.current ?? '',
+          }),
+          featureName: EPrimeFeatures.DAppTranslate,
+          entitlementSource: entitlementSourceRef.current,
+        });
+      }
+      if (
+        billed &&
+        entitlementSourceRef.current === 'freeTrial' &&
+        !hasLoggedFreeTrialUsageRef.current
+      ) {
+        // Translate is metered by the server; one consumption event per
+        // session, once a batch was actually billed.
+        hasLoggedFreeTrialUsageRef.current = true;
+        defaultLogger.prime.subscription.primeFreeTrialUsageSuccess({
+          featureName: EPrimeFeatures.DAppTranslate,
+          featureId: EPrimeFeatures.DAppTranslate,
+          entitlementSource: 'freeTrial',
         });
       }
     },
@@ -292,6 +425,11 @@ export function useWebViewTranslate({
       clearTimeout(startTimerRef.current);
       startTimerRef.current = null;
     }
+    clearFreeTrialStopTimer();
+    freeTrialStoppedSessionRef.current = null;
+    // `restore` drops every pending response of the page, so the requests
+    // still in flight no longer hold back a later stop.
+    inFlightRequestsRef.current = new Map();
     injectScript(
       tabId,
       createMessageInjectedScript({
@@ -304,7 +442,108 @@ export function useWebViewTranslate({
     handledUnavailableSessionRef.current = null;
     activeSessionIdRef.current = null;
     translatingRef.current = false;
-  }, [tabId]);
+  }, [tabId, clearFreeTrialStopTimer]);
+
+  // Sends `stop` (keeps the written translations, unlike `restore`) once the
+  // page has no request in flight: `stop` drops the script's pending
+  // responses, so sending it early would lose billed results.
+  const finishFreeTrialStop = useCallback(
+    (sessionId: string) => {
+      if (
+        freeTrialStoppedSessionRef.current !== sessionId ||
+        freeTrialStopSentSessionRef.current === sessionId
+      ) {
+        return;
+      }
+      freeTrialStopSentSessionRef.current = sessionId;
+      clearFreeTrialStopTimer();
+      injectScript(
+        tabId,
+        createMessageInjectedScript({
+          type: TRANSLATE_COMMAND_TYPE,
+          command: 'stop',
+        }),
+      );
+      unregisterTranslateHandler(tabId);
+      desktopCleanupRef.current?.();
+      if (activeSessionIdRef.current === sessionId) {
+        activeSessionIdRef.current = null;
+      }
+    },
+    [tabId, clearFreeTrialStopTimer],
+  );
+
+  const isSessionFreeTrialStopped = useCallback(
+    (sessionId?: string) =>
+      Boolean(sessionId) && freeTrialStoppedSessionRef.current === sessionId,
+    [],
+  );
+
+  const onRequestStart = useCallback((sessionId?: string) => {
+    if (!sessionId) return;
+    const inFlight = inFlightRequestsRef.current;
+    inFlight.set(sessionId, (inFlight.get(sessionId) ?? 0) + 1);
+  }, []);
+
+  const onRequestEnd = useCallback(
+    (sessionId?: string) => {
+      if (!sessionId) return;
+      const inFlight = inFlightRequestsRef.current;
+      const count = inFlight.get(sessionId);
+      if (count === undefined) return;
+      if (count > 1) {
+        inFlight.set(sessionId, count - 1);
+      } else {
+        inFlight.delete(sessionId);
+      }
+      const stoppedSessionId = freeTrialStoppedSessionRef.current;
+      if (inFlight.size === 0 && stoppedSessionId) {
+        finishFreeTrialStop(stoppedSessionId);
+      }
+    },
+    [finishFreeTrialStop],
+  );
+
+  const handleFreeTrialError = useCallback(
+    (payload: IFreeTrialTranslateStopPayload) => {
+      const { sessionId } = payload;
+      if (
+        sessionId !== activeSessionIdRef.current ||
+        freeTrialStoppedSessionRef.current === sessionId
+      ) {
+        return;
+      }
+      freeTrialStoppedSessionRef.current = sessionId;
+      // No sticky re-translate after a navigation for this tab.
+      translatingRef.current = false;
+      if (startTimerRef.current) {
+        clearTimeout(startTimerRef.current);
+        startTimerRef.current = null;
+      }
+      clearFreeTrialStopTimer();
+      freeTrialStopTimerRef.current = setTimeout(() => {
+        freeTrialStopTimerRef.current = null;
+        finishFreeTrialStop(sessionId);
+      }, FREE_TRIAL_STOP_MAX_WAIT_MS);
+      onFreeTrialUnavailableRef.current?.(payload);
+    },
+    [clearFreeTrialStopTimer, finishFreeTrialStop],
+  );
+
+  const freeTrialRequestOptions = useMemo(
+    () => ({
+      isSessionFreeTrialStopped,
+      onRequestStart,
+      onRequestEnd,
+      onFreeTrialError: handleFreeTrialError,
+    }),
+    [
+      handleFreeTrialError,
+      isSessionFreeTrialStopped,
+      onRequestEnd,
+      onRequestStart,
+    ],
+  );
 
   const handleTranslateUnavailable = useCallback(
     ({
@@ -357,9 +596,10 @@ export function useWebViewTranslate({
             ) as ITranslateRequest;
             if (data.type === TRANSLATE_REQUEST_TYPE) {
               handleTranslateRequest(tabId, data, selectedEngine, {
-                onSuccess: () =>
-                  logTranslateSuccess(data.targetLang, data.sessionId),
+                onSuccess: ({ billed }) =>
+                  logTranslateSuccess(data.targetLang, data.sessionId, billed),
                 onTranslateUnavailable: handleTranslateUnavailable,
+                ...freeTrialRequestOptions,
                 testFlag,
               });
             }
@@ -381,7 +621,12 @@ export function useWebViewTranslate({
         desktopCleanupRef.current = null;
       };
     },
-    [tabId, logTranslateSuccess, handleTranslateUnavailable],
+    [
+      tabId,
+      logTranslateSuccess,
+      handleTranslateUnavailable,
+      freeTrialRequestOptions,
+    ],
   );
 
   const ensureInjected = useCallback(
@@ -410,11 +655,16 @@ export function useWebViewTranslate({
       sessionEngineRef.current = selectedEngine;
       handledUnavailableSessionRef.current = null;
       hasLoggedSuccessRef.current = false;
+      hasLoggedFreeTrialUsageRef.current = false;
+      freeTrialStoppedSessionRef.current = null;
+      clearFreeTrialStopTimer();
 
       registerTranslateHandler(tabId, (data) =>
         handleTranslateRequest(tabId, data, selectedEngine, {
-          onSuccess: () => logTranslateSuccess(data.targetLang, data.sessionId),
+          onSuccess: ({ billed }) =>
+            logTranslateSuccess(data.targetLang, data.sessionId, billed),
           onTranslateUnavailable: handleTranslateUnavailable,
+          ...freeTrialRequestOptions,
           testFlag,
         }),
       );
@@ -444,16 +694,18 @@ export function useWebViewTranslate({
       handleTranslateUnavailable,
       logTranslateSuccess,
       restoreOriginal,
+      freeTrialRequestOptions,
+      clearFreeTrialStopTimer,
     ],
   );
 
   useEffect(() => {
     onTabNavigationEnd(tabId, () => {
       if (navEndConsumedRef.current) return;
+      navEndConsumedRef.current = true;
       if (!translatingRef.current) return;
       const nextTargetLang = targetLangRef.current;
       if (!nextTargetLang) return;
-      navEndConsumedRef.current = true;
       // Fresh page — nothing to restore. Skip the bogus restore inject that
       // startTranslate would otherwise fire via its re-entry path.
       translatingRef.current = false;

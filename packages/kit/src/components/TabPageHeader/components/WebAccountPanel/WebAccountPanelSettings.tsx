@@ -75,7 +75,7 @@ function ThemeRow() {
             my="$0.5"
             name="LaptopOutline"
             size="$4"
-            color={theme === 'system' ? '$iconInverse' : '$icon'}
+            color={theme === 'system' ? '$iconStrong' : '$icon'}
           />
         ),
         value: 'system' as const,
@@ -86,7 +86,7 @@ function ThemeRow() {
             my="$0.5"
             name="SunOutline"
             size="$4"
-            color={theme === 'light' ? '$iconInverse' : '$icon'}
+            color={theme === 'light' ? '$iconStrong' : '$icon'}
           />
         ),
         value: 'light' as const,
@@ -97,7 +97,7 @@ function ThemeRow() {
             my="$0.5"
             name="MoonOutline"
             size="$4"
-            color={theme === 'dark' ? '$iconInverse' : '$icon'}
+            color={theme === 'dark' ? '$iconStrong' : '$icon'}
           />
         ),
         value: 'dark' as const,
@@ -119,7 +119,11 @@ function ThemeRow() {
           options={options}
           value={theme}
           onChange={handleChange}
-          segmentControlItemStyleProps={{ px: '$2.5', py: '$1' }}
+          segmentControlItemStyleProps={{
+            px: '$2.5',
+            py: '$0',
+            justifyContent: 'center',
+          }}
           h={26}
         />
       }

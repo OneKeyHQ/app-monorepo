@@ -274,11 +274,6 @@ export function getDrawingGeometry(
             { x: a.x, y: height },
           ],
         });
-      labels.push({
-        x: Math.max(width - 80, 4),
-        y: a.y - 8,
-        text: formatTradingViewNativePriceTick(drawing.points[0].price),
-      });
       break;
     case 'vertical':
       paths.push({

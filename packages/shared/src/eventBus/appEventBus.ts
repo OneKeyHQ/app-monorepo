@@ -73,7 +73,6 @@ import type { FuseResult } from 'fuse.js';
 // Supported hardware error types for dialog display
 export const HARDWARE_ERROR_DIALOG_TYPES = {
   DEVICE_NOT_FOUND: 'DeviceNotFound',
-  BLE_DEVICE_BOND_ERROR: 'BleDeviceBondError',
   NEED_ONEKEY_BRIDGE: 'NeedOneKeyBridge',
   DEVICE_NOT_OPENED_PASSPHRASE: 'DeviceNotOpenedPassphrase',
 } as const;
@@ -185,7 +184,11 @@ export interface IAppEventBusPayload {
     fromAmount: string;
     toAmount: string;
   };
-  [EAppEventBusNames.SwapStockTokenSelected]: ISwapToken;
+  [EAppEventBusNames.SwapStockTokenSelected]: {
+    token: ISwapToken;
+    /** Identifies the Swap provider instance that opened the selector. */
+    storeName: string;
+  };
   [EAppEventBusNames.WalletRemove]: {
     walletId: string;
   };

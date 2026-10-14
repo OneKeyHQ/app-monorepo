@@ -1,8 +1,4 @@
-import {
-  isAllowedAppClipCampaignEntryUrl,
-  isAllowedAppClipCampaignNavigationUrl,
-  isAllowedWebViewUrl,
-} from './webViewUrlSafety';
+import { isAllowedWebViewUrl } from './webViewUrlSafety';
 
 // Avoid the literal `javascript:` URL form to satisfy `no-script-url`.
 const JS_SCHEME_URL = ['java', 'script:', 'alert(1)'].join('');
@@ -254,35 +250,5 @@ describe('isAllowedWebViewUrl', () => {
     it('rejects malformed URL the parser cannot read', () => {
       expect(isAllowedWebViewUrl('https://')).toBe(false);
     });
-  });
-});
-
-describe('App Clip campaign URL policy', () => {
-  it.each([
-    'https://app.onekey.so/campaign',
-    'https://app.onekey.so/campaign/',
-    'https://app.onekeytest.com/campaign/summer?source=app-clip',
-  ])('accepts campaign entry URL %s', (url) => {
-    expect(isAllowedAppClipCampaignEntryUrl(url)).toBe(true);
-  });
-
-  it.each([
-    'https://app.onekey.so/settings',
-    'https://app.onekey.so/campaigns',
-    'https://evil.example/campaign',
-    'http://app.onekey.so/campaign',
-  ])('rejects campaign entry URL %s', (url) => {
-    expect(isAllowedAppClipCampaignEntryUrl(url)).toBe(false);
-  });
-
-  it('allows same-host navigation without relaxing the host allowlist', () => {
-    expect(
-      isAllowedAppClipCampaignNavigationUrl(
-        'https://app.onekey.so/campaign/complete',
-      ),
-    ).toBe(true);
-    expect(
-      isAllowedAppClipCampaignNavigationUrl('https://evil.example/campaign'),
-    ).toBe(false);
   });
 });

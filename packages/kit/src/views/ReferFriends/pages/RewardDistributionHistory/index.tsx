@@ -19,7 +19,9 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
+import { InviteWithdrawAddressRow } from '@onekeyhq/kit/src/views/ReferFriends/pages/RewardDistributionHistory/components/InviteWithdrawAddressRow';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IInvitePaidHistory,
   IInvitePaidItem,
@@ -191,32 +193,38 @@ function RewardDistributionHistoryPageWrapper() {
     <Page>
       <Page.Header
         title={intl.formatMessage({
-          id: ETranslations.referral_reward_history,
+          id: ETranslations.referral_payout_history__title,
         })}
+        // iOS 26 veils the first list row under the modal bar. Restate the
+        // hidden edge here; Page.Header replaces this option as a whole.
+        {...(platformEnv.isNativeIOS26Plus
+          ? { scrollEdgeEffects: { top: 'hidden' as const } }
+          : undefined)}
       />
       <Page.Body>
         <ReferFriendsPageContainer flex={1} position="relative">
-          {sections === undefined ? (
-            <YStack
-              position="absolute"
-              top={0}
-              left={0}
-              right={0}
-              bottom={0}
-              ai="center"
-              jc="center"
-              flex={1}
-            >
-              <Spinner size="large" />
-            </YStack>
-          ) : (
-            <SectionList
-              flex={1}
-              refreshControl={
-                <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
-              }
-              contentContainerStyle={{ pb: '$10' }}
-              ListEmptyComponent={
+          <SectionList
+            flex={1}
+            // The address row is the list's first row, so the scroller must
+            // inset it below the modal header. A sibling above the list left
+            // that inset as a blank gap over the first section on phones.
+            contentInsetAdjustmentBehavior="automatic"
+            ListHeaderComponent={<InviteWithdrawAddressRow />}
+            refreshControl={
+              <RefreshControl
+                // The first load shows its own spinner in the list.
+                refreshing={isLoading && sections !== undefined}
+                onRefresh={onRefresh}
+              />
+            }
+            contentContainerStyle={{ pb: '$10' }}
+            // Loading shows in the list, so the address row above stays.
+            ListEmptyComponent={
+              sections === undefined ? (
+                <YStack py="$10" ai="center">
+                  <Spinner size="large" />
+                </YStack>
+              ) : (
                 <Empty
                   mt={34}
                   illustration="QuestionMark"
@@ -224,14 +232,14 @@ function RewardDistributionHistoryPageWrapper() {
                     id: ETranslations.global_no_data,
                   })}
                 />
-              }
-              sections={sections}
-              renderSectionHeader={renderSectionHeader}
-              estimatedItemSize={60}
-              renderItem={renderItem}
-              // onEndReached={fetchMore}
-            />
-          )}
+              )
+            }
+            sections={sections ?? []}
+            renderSectionHeader={renderSectionHeader}
+            estimatedItemSize={60}
+            renderItem={renderItem}
+            // onEndReached={fetchMore}
+          />
         </ReferFriendsPageContainer>
       </Page.Body>
     </Page>

@@ -1,4 +1,6 @@
 import {
+  Suspense,
+  lazy,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -15,7 +17,6 @@ import { useIntl } from 'react-intl';
 import type { ITabContainerRef } from '@onekeyhq/components';
 import {
   DelayedFreeze,
-  HeaderScrollGestureWrapper,
   Icon,
   KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
   Keyboard,
@@ -84,6 +85,7 @@ import {
 } from '../../../states/jotai/contexts/accountSelector';
 import { deferHeavyWorkUntilUIIdle } from '../../../utils/deferHeavyWork';
 import { NetworkUnsupportedWarning } from '../../Staking/components/ProtocolDetails/NetworkUnsupportedWarning';
+import { HomeHeaderGesture } from '../components/HomeHeaderGesture';
 import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 import { NotBackedUpEmpty } from '../components/NotBakcedUp';
@@ -93,6 +95,7 @@ import { HomeTestIDs } from '../testIDs';
 
 import { DeFiContainerWithProvider } from './DeFiContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
+import { HomeNativePager } from './HomeNativePager';
 import { homePageContentMaxWidthSx } from './homePageContentMaxWidth';
 import {
   isWalletListResolvedNoWallet,
@@ -104,56 +107,37 @@ import {
   useHomeTabOwnerThaw,
 } from './homeTabFreeze';
 import { NFTListContainerWithProvider } from './NFTListContainer';
-import { PerpsContainer } from './PerpsContainer';
+import { debugPerpsChain } from './perpsChainTrace';
 import { PortfolioContainerWithProvider } from './PortfolioContainer';
 import { TabHeaderSettings } from './TabHeaderSettings';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
 
-import type { LayoutChangeEvent } from 'react-native';
+import type { LayoutChangeEvent, View } from 'react-native';
 
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
 const NATIVE_TAB_BAR_CONTAINER_STYLE = { position: 'relative' } as const;
+const PerpsContainer = lazy(async () => {
+  debugPerpsChain('import.start');
+  const module = await import('./PerpsContainer');
+  debugPerpsChain('import.end');
+  return { default: module.PerpsContainer };
+});
+function PerpsSuspenseTrace() {
+  debugPerpsChain('suspense.render');
+  useLayoutEffect(() => {
+    debugPerpsChain('suspense.commit');
+    return () => debugPerpsChain('suspense.unmount');
+  }, []);
+  return null;
+}
 // Seed for the collapsible header height before the first layout (the funded
 // layout with the banner band). Measured heights per header variant are kept
 // for the session so a later switch back paints with the exact height.
 const NATIVE_HEADER_HEIGHT_SEED = 292;
 // Header container height (alerts excluded) per layout variant.
 const learnedNativeHeaderHeights = new Map<string, number>();
-
-interface IAndroidScrollContainerProps {
-  children: React.ReactNode;
-}
-const AndroidScrollContainer = platformEnv.isNativeAndroid
-  ? ({ children }: IAndroidScrollContainerProps) => {
-      const [height, setHeight] = useState(0);
-      const heightRef = useRef(0);
-      const handleLayout = useCallback((event: LayoutChangeEvent) => {
-        const h = Math.round(event.nativeEvent.layout.height);
-        if (h !== heightRef.current) {
-          heightRef.current = h;
-          setHeight(h);
-        }
-      }, []);
-      const contentContainerStyle = useMemo(() => ({ height }), [height]);
-      return (
-        <YStack flex={1} onLayout={handleLayout}>
-          {height > 0 ? (
-            <ScrollView
-              nestedScrollEnabled
-              refreshControl={<PullToRefresh onRefresh={onHomePageRefresh} />}
-              contentContainerStyle={contentContainerStyle}
-            >
-              {children}
-            </ScrollView>
-          ) : null}
-        </YStack>
-      );
-    }
-  : ({ children }: IAndroidScrollContainerProps) => {
-      return children;
-    };
 
 // Placement differs by platform — see the renderHeader comment in HomePageView.
 function HomeAlerts() {
@@ -598,26 +582,28 @@ export function HomePageView({
   // showed the list shifted for those frames. Remember the measured height of
   // the header container per layout variant and hand the tab container the
   // expected total in the same commit the variant changes; onLayout only
-  // corrects a wrong hint. The alert band above the container (risk approval,
-  // watch-only, network) is measured separately and added live, so accounts
-  // with and without alerts never share a remembered height.
+  // corrects a wrong hint. Inner and alert measurements only predict variant
+  // changes; the complete header measurement remains authoritative.
   const [nativeHeaderHeightHint, setNativeHeaderHeightHint] = useState(
     NATIVE_HEADER_HEIGHT_SEED,
   );
   const nativeHeaderAlertsHeightRef = useRef(0);
+  const nativeHeaderRef = useRef<View>(null);
+  const nativeHeaderMeasureGenerationRef = useRef(0);
+  const handleFullHeaderLayout = useCallback((event: LayoutChangeEvent) => {
+    nativeHeaderMeasureGenerationRef.current += 1;
+    const height = Math.ceil(event.nativeEvent.layout.height);
+    if (height > 0) {
+      setNativeHeaderHeightHint(height);
+    }
+  }, []);
   const handleHeaderAlertsLayout = useCallback((event: LayoutChangeEvent) => {
     const height = Math.round(event.nativeEvent.layout.height);
-    const delta = height - nativeHeaderAlertsHeightRef.current;
-    if (delta === 0) {
-      return;
-    }
     nativeHeaderAlertsHeightRef.current = height;
-    // Alerts can change within one header variant, where no variant or
-    // container height change re-applies the hint; shift it by the alert
-    // delta so it tracks the band regardless of which onLayout lands first.
-    setNativeHeaderHeightHint((prev) => prev + delta);
   }, []);
   const handleHeaderVariantChange = useCallback((variant: string) => {
+    nativeHeaderMeasureGenerationRef.current += 1;
+    const generation = nativeHeaderMeasureGenerationRef.current;
     let learned = learnedNativeHeaderHeights.get(variant);
     if (!learned) {
       // First time this launch: the height measured on an earlier launch.
@@ -633,6 +619,16 @@ export function HomePageView({
     if (learned) {
       setNativeHeaderHeightHint(learned + nativeHeaderAlertsHeightRef.current);
     }
+    // Equal-height variants may not emit another layout event. Measure the
+    // complete header after the variant commits, then discard older snapshots.
+    nativeHeaderRef.current?.measure((_x, _y, _width, rawHeight) => {
+      if (
+        generation === nativeHeaderMeasureGenerationRef.current &&
+        rawHeight > 0
+      ) {
+        setNativeHeaderHeightHint(Math.ceil(rawHeight));
+      }
+    });
   }, []);
   const handleHeaderContainerLayout = useCallback(
     (variant: string, rawHeight: number) => {
@@ -648,19 +644,22 @@ export function HomePageView({
           // The hint is a paint optimization; failing to remember it is fine.
         }
       }
-      setNativeHeaderHeightHint(height + nativeHeaderAlertsHeightRef.current);
     },
     [],
   );
 
   const renderHeader = useCallback(() => {
     return (
-      <Stack {...homePageContentMaxWidthSx}>
+      <Stack
+        {...homePageContentMaxWidthSx}
+        ref={platformEnv.isNative ? nativeHeaderRef : undefined}
+        onLayout={platformEnv.isNative ? handleFullHeaderLayout : undefined}
+      >
         {platformEnv.isNative ? (
           <Stack onLayout={handleHeaderAlertsLayout}>
-            <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
+            <HomeHeaderGesture onRefresh={onHomePageRefresh}>
               <HomeAlerts />
-            </HeaderScrollGestureWrapper>
+            </HomeHeaderGesture>
           </Stack>
         ) : null}
         <HomeHeaderContainer
@@ -674,6 +673,7 @@ export function HomePageView({
       </Stack>
     );
   }, [
+    handleFullHeaderLayout,
     handleHeaderAlertsLayout,
     handleHeaderContainerLayout,
     handleHeaderVariantChange,
@@ -727,7 +727,23 @@ export function HomePageView({
             testID: HomeTestIDs.tabPerps,
             component: (
               <HomeTabContentMaxWidth>
-                <PerpsContainer />
+                <Suspense
+                  fallback={
+                    platformEnv.isNative ? (
+                      <PerpsSuspenseTrace />
+                    ) : (
+                      <Stack
+                        flex={1}
+                        justifyContent="center"
+                        alignItems="center"
+                      >
+                        <Spinner size="large" />
+                      </Stack>
+                    )
+                  }
+                >
+                  <PerpsContainer />
+                </Suspense>
               </HomeTabContentMaxWidth>
             ),
           }
@@ -839,6 +855,31 @@ export function HomePageView({
     Set<EHomeWalletTab>
   >(() => (initialTabId ? new Set([initialTabId]) : new Set()));
   const lastDisplayableTabNameRef = useRef(initialTabName);
+  debugPerpsChain('home.render', {
+    activeTabId,
+    perpsMounted: mountedHomeTabIds.has(EHomeWalletTab.Perps),
+  });
+  useLayoutEffect(() => {
+    debugPerpsChain('home.commit', {
+      activeTabId,
+      perpsMounted: mountedHomeTabIds.has(EHomeWalletTab.Perps),
+    });
+  }, [activeTabId, mountedHomeTabIds]);
+
+  const handleTabPrepare = useCallback(
+    ({ tabId }: { tabId: EHomeWalletTab }) => {
+      if (!pagerTabConfigs.some((tab) => tab.id === tabId)) return;
+      debugPerpsChain('home.tabPrepare', { tabId, activeTabId });
+      // Preparing a swipe target must not change the selected business tab.
+      setMountedHomeTabIds((prev) => {
+        if (prev.has(tabId)) return prev;
+        const next = new Set(prev);
+        next.add(tabId);
+        return next;
+      });
+    },
+    [activeTabId, pagerTabConfigs],
+  );
 
   useEffect(() => {
     setActiveTabName((prev) =>
@@ -913,6 +954,7 @@ export function HomePageView({
       // Design: plain-text tabs on small screens only; pill elsewhere.
       const tabBarVariant = isSmallScreen ? 'text' : 'pill';
       const handleTabPress = (name: string) => {
+        debugPerpsChain('home.tabPress', { name });
         const nextTab = tabConfigs.find((tab) => tab.name === name);
         if (perpTabShowWeb && nextTab?.id === EHomeWalletTab.Perps) {
           switchToPerpsWebTab();
@@ -995,6 +1037,7 @@ export function HomePageView({
 
   const handleTabChange = useCallback(
     (data: { tabName: string }) => {
+      debugPerpsChain('home.tabChange', { name: data.tabName });
       const nextTab = tabConfigs.find((tab) => tab.name === data.tabName);
       if (perpTabShowWeb && nextTab?.id === EHomeWalletTab.Perps) {
         switchToPerpsWebTab();
@@ -1045,6 +1088,11 @@ export function HomePageView({
         <Keyboard.AwareScrollView
           style={{ flex: 1 }}
           nestedScrollEnabled={platformEnv.isNativeAndroid}
+          refreshControl={
+            platformEnv.isNative ? (
+              <PullToRefresh onRefresh={onHomePageRefresh} />
+            ) : undefined
+          }
           contentContainerStyle={{ paddingBottom: tabBarHeight }}
           bottomOffset={KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET}
         >
@@ -1080,6 +1128,30 @@ export function HomePageView({
     )
       ? activeTabName
       : pagerTabConfigs[0]?.name;
+    if (platformEnv.isNative) {
+      return (
+        <HomeNativePager
+          // Native page offsets have no reset command; reset only for a new owner.
+          key={homeScrollOwnerKey}
+          ref={tabsRef}
+          tabs={pagerTabConfigs.map((tab) => ({
+            ...tab,
+            component:
+              tab.id === EHomeWalletTab.Portfolio ||
+              activeTabId === tab.id ||
+              mountedHomeTabIds.has(tab.id)
+                ? tab.component
+                : null,
+          }))}
+          initialTabName={seedTabName}
+          headerHeightHint={nativeHeaderHeightHint}
+          renderHeader={renderHeader}
+          renderTabBar={renderTabBar}
+          onTabChange={handleTabChange}
+          onTabPrepare={handleTabPrepare}
+        />
+      );
+    }
     return (
       <Tabs.Container
         ref={tabsRef as any}
@@ -1158,6 +1230,7 @@ export function HomePageView({
     activeTabName,
     activeTabId,
     mountedHomeTabIds,
+    handleTabPrepare,
     homeScrollOwnerKey,
     nativeHeaderHeightHint,
   ]);
@@ -1364,15 +1437,7 @@ export function HomePageView({
   const walletListResolvedNoWallet = isWalletListResolvedNoWallet({
     wallets: walletListResult?.wallets,
   });
-  const walletPageContent = useMemo(
-    () =>
-      platformEnv.isNative ? (
-        <AndroidScrollContainer>{homePageContent}</AndroidScrollContainer>
-      ) : (
-        homePageContent
-      ),
-    [homePageContent],
-  );
+  const walletPageContent = homePageContent;
   const activeWalletId = wallet?.id;
   const activeWalletUnavailable =
     accountUtils.isWalletDeprecatedOrMocked(wallet);
