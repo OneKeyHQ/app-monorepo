@@ -81,12 +81,12 @@ import {
 import { ReceiveTitle } from '../components/ReceiveTitle';
 import { ReceiveTestIDs } from '../testIDs';
 import { EAddressState } from '../types';
+import { getManualAddressVerificationPath } from '../utils/manualVerificationPathUtils';
 import { resolveReceiveNetworkSwitchable } from '../utils/receiveNetworkSwitchUtils';
 import {
   buildReceiveTitleLogo,
   resolveReceiveTitleIconURI,
 } from '../utils/receiveTitleUtils';
-import { getManualAddressVerificationPath } from '../utils/manualVerificationPathUtils';
 
 import type {
   IReceiveShareData,
@@ -300,10 +300,6 @@ function ReceiveToken() {
   const verificationPath = isBtcUsedAddressVerifyMode
     ? btcUsedAddressPath
     : currentAccount?.addressDetail?.receiveAddressPath;
-  // What the page shows right now. A verification settles for the address it
-  // was started with, which the page may have left by then.
-  const shownAddressRef = useRef({ networkId, address: displayAddress });
-  shownAddressRef.current = { networkId, address: displayAddress };
   const manualVerificationPath = getManualAddressVerificationPath({
     receiveAddressPath: verificationPath,
     accountPath: currentAccount?.path,
@@ -311,6 +307,10 @@ function ReceiveToken() {
   });
   const hardwareVendor = wallet?.associatedDeviceInfo?.vendor;
   const { addressVerification } = getVendorProfile(hardwareVendor);
+  // What the page shows right now. A verification settles for the address it
+  // was started with, which the page may have left by then.
+  const shownAddressRef = useRef({ networkId, address: displayAddress });
+  shownAddressRef.current = { networkId, address: displayAddress };
 
   const { bottom } = useSafeAreaInsets();
 
