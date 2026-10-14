@@ -29,6 +29,11 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  ARC_ERC20_USDC_CONTRACT_ADDRESS,
+  ARC_EURC_CONTRACT_ADDRESS,
+  ARC_NETWORK_ID,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IFetchBuildTxResponse,
   IFetchQuoteResult,
@@ -717,6 +722,36 @@ describe('useSpeedSwapActions', () => {
     await waitFor(() => {
       expect(result.current.checkTokenAllowanceLoading).toBe(false);
       expect(result.current.shouldApprove).toBe(true);
+    });
+  });
+
+  it('loads Arc gas reserves when the input changes from EURC to ERC-20 USDC', async () => {
+    const arcUsdc: ISwapTokenBase = {
+      ...usdcToken,
+      networkId: ARC_NETWORK_ID,
+      contractAddress: ARC_ERC20_USDC_CONTRACT_ADDRESS,
+      isNative: false,
+    };
+    const otherArcToken: ISwapTokenBase = {
+      ...arcUsdc,
+      contractAddress: ARC_EURC_CONTRACT_ADDRESS,
+      symbol: 'EURC',
+    };
+    mockFetchSwapNativeTokenConfig.mockResolvedValue({
+      networkId: ARC_NETWORK_ID,
+      reserveGas: '0.1',
+    });
+    const { rerender } = renderSwapHook(
+      ({ tradeToken }: { tradeToken: ISwapTokenBase }) =>
+        useSpeedSwapActions(createHookProps({ tradeToken })),
+      { initialProps: { tradeToken: otherArcToken } },
+    );
+    expect(mockFetchSwapNativeTokenConfig).not.toHaveBeenCalled();
+    rerender({ tradeToken: arcUsdc });
+    await waitFor(() => {
+      expect(mockFetchSwapNativeTokenConfig).toHaveBeenCalledWith({
+        networkId: ARC_NETWORK_ID,
+      });
     });
   });
 
