@@ -23,19 +23,43 @@ function requiredEnv(name) {
   return value;
 }
 
-function runSignTool(args) {
+function runSignTool(args, { quiet = false } = {}) {
   try {
     const output = execFileSync(requiredEnv('WIN_SIGNTOOL_PATH'), args, {
       encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'inherit'],
+      stdio: ['ignore', 'pipe', quiet ? 'pipe' : 'inherit'],
     });
-    process.stdout.write(output);
+    if (!quiet) {
+      process.stdout.write(output);
+    }
     return output;
   } catch (error) {
-    if (error.stdout) {
+    if (error.stdout && !quiet) {
       process.stdout.write(error.stdout);
     }
     throw error;
+  }
+}
+
+// signExts also matches non-Windows binaries shipped by some packages (for
+// example macOS-only .node files); only PE images can be code-signed.
+function isPortableExecutable(file) {
+  const fd = fs.openSync(file, 'r');
+  try {
+    const header = Buffer.alloc(2);
+    return fs.readSync(fd, header, 0, 2, 0) === 2 && header.toString() === 'MZ';
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+// Verification output when the file already has a valid trusted signature,
+// or null otherwise.
+function existingSignature(file) {
+  try {
+    return runSignTool(['verify', '/pa', '/v', file], { quiet: true });
+  } catch {
+    return null;
   }
 }
 
@@ -95,7 +119,31 @@ function certChainFile() {
   return file;
 }
 
+function recordSigned(file) {
+  const manifest = path.join(
+    requiredEnv('RUNNER_TEMP'),
+    'onekey-windows-signed.jsonl',
+  );
+  fs.appendFileSync(manifest, `${JSON.stringify(file)}\n`);
+}
+
 function signFile(file) {
+  if (!isPortableExecutable(file)) {
+    console.log(`Skipping non-PE file: ${file}`);
+    return;
+  }
+  const existing = existingSignature(file);
+  if (existing && !existing.toUpperCase().includes(expectedThumbprint)) {
+    // Keep vendor signatures (e.g. Microsoft VC++ runtime) instead of
+    // replacing them with ours.
+    console.log(`Keeping existing third-party signature: ${file}`);
+    return;
+  }
+  if (existing) {
+    verify(file);
+    recordSigned(file);
+    return;
+  }
   // Jsign reads AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_SESSION_TOKEN
   // from the environment set by aws-actions/configure-aws-credentials.
   const javaHome = process.env.JAVA_HOME;
@@ -129,20 +177,39 @@ function signFile(file) {
     { stdio: 'inherit' },
   );
   verify(file);
-  const manifest = path.join(
-    requiredEnv('RUNNER_TEMP'),
-    'onekey-windows-signed.jsonl',
-  );
-  fs.appendFileSync(manifest, `${JSON.stringify(file)}\n`);
+  recordSigned(file);
 }
 
-function listExes(dir) {
+// Files that NSIS embeds directly into the installer, outside electron-builder's
+// signing pipeline: the 7za extractor run during install (path matches the
+// app-builder-lib patch) and the custom installer UI plugin.
+function installerPayload() {
+  const appBuilderLib = path.dirname(
+    require.resolve('app-builder-lib/package.json', { paths: [desktopDir] }),
+  );
+  const sevenZipBin = path.dirname(
+    require.resolve('7zip-bin/package.json', { paths: [appBuilderLib] }),
+  );
+  return [
+    path.join(sevenZipBin, 'win', 'ia32', '7za.exe'),
+    path.join(
+      desktopDir,
+      'build/nsis-duilib-ui/plugin/x86-unicode/nsis-duilib-ui.dll',
+    ),
+  ];
+}
+
+const peExtensions = new Set(['.exe', '.dll', '.node']);
+
+function listPeFiles(dir) {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const file = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      return listExes(file);
+      return listPeFiles(file);
     }
-    return entry.isFile() && entry.name.toLowerCase().endsWith('.exe')
+    return entry.isFile() &&
+      peExtensions.has(path.extname(entry.name).toLowerCase()) &&
+      isPortableExecutable(file)
       ? [file]
       : [];
   });
@@ -182,17 +249,25 @@ function verifyNsisOutput() {
       throw new Error(`Unsigned NSIS installer: ${file}`);
     }
   }
-  // Every executable that ships in an unpacked app (OneKey.exe, elevate.exe,
-  // bridge and BLE helpers) must have gone through the signer.
-  const unpackedExes = fs
-    .readdirSync(outputDir, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && entry.name.endsWith('-unpacked'))
-    .flatMap((entry) => listExes(path.join(outputDir, entry.name)));
   const normalize = (file) => path.resolve(file).toLowerCase();
   const signedSet = new Set(signed.map(normalize));
-  for (const file of unpackedExes) {
+  for (const file of installerPayload()) {
     if (!signedSet.has(normalize(file))) {
-      throw new Error(`Unsigned packaged executable: ${file}`);
+      throw new Error(`Unsigned installer payload: ${file}`);
+    }
+  }
+  // Every PE file that ships in an unpacked app must have gone through the
+  // signer. Executables must carry our signature; DLLs and native modules may
+  // instead keep a valid vendor signature (e.g. the Microsoft VC++ runtime).
+  const unpackedFiles = fs
+    .readdirSync(outputDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && entry.name.endsWith('-unpacked'))
+    .flatMap((entry) => listPeFiles(path.join(outputDir, entry.name)));
+  for (const file of unpackedFiles) {
+    const signedByUs = signedSet.has(normalize(file));
+    const isExe = path.extname(file).toLowerCase() === '.exe';
+    if (!signedByUs && (isExe || !existingSignature(file))) {
+      throw new Error(`Unsigned packaged file: ${file}`);
     }
   }
   for (const file of signed) {
@@ -211,7 +286,9 @@ module.exports = async function signWithAwsKms(configuration) {
 
 if (require.main === module) {
   const command = process.argv[2];
-  if (command === 'verify-nsis') {
+  if (command === 'sign-installer-payload') {
+    installerPayload().forEach(signFile);
+  } else if (command === 'verify-nsis') {
     verifyNsisOutput();
   } else {
     throw new Error(`Unknown Windows signing command: ${command}`);
