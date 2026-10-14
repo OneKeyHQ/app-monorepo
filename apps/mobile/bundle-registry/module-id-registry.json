@@ -24984,6 +24984,8 @@
     "packages/shared/src/logger/scopes/perp/scenes/tokenSelector.ts": 24259,
     "packages/shared/src/logger/scopes/perp/type.ts": 3425,
     "packages/shared/src/logger/scopes/prime/index.ts": 8295,
+    "packages/shared/src/logger/scopes/prime/oneKeyIdAuthFailureLogLimiter.ts": 2461,
+    "packages/shared/src/logger/scopes/prime/oneKeyIdAuthFailureLogLimiterStorage.ts": 21016,
     "packages/shared/src/logger/scopes/prime/scenes/subscription.ts": 14569,
     "packages/shared/src/logger/scopes/prime/scenes/transfer.ts": 15795,
     "packages/shared/src/logger/scopes/prime/scenes/usage.ts": 16613,

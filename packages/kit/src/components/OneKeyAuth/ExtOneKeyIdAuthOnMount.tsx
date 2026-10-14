@@ -105,6 +105,7 @@ function ExtOneKeyIdAuthOnMountCmp() {
               error,
             )}`,
             error,
+            { trigger: 'interactive' },
           );
         } finally {
           isFlowRunning = false;
