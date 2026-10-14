@@ -731,3 +731,74 @@ describe('prepareTopCoinSwapEntry', () => {
     expect(modalStore.get(swapSelectToTokenAtom())).toBe(modalToken);
   });
 });
+
+describe('Market modal store preparation', () => {
+  beforeEach(() => {
+    jotaiContextStore.storeCache.clear();
+    jotaiContextStore.storeResetRequests.clear();
+    delete (globalThis as IGlobalColdStartSnapshot)
+      .__ONEKEY_CTX_ATOM_SNAPSHOT__;
+  });
+
+  afterEach(() => {
+    jotaiContextStore.storeCache.clear();
+    jotaiContextStore.storeResetRequests.clear();
+  });
+
+  it.each([
+    { prepare: prepareTopCoinSwapEntry, isStock: false },
+    { prepare: prepareStockSwapEntry, isStock: true },
+  ])(
+    'prepares a modal pair with isStock=$isStock without modifying the Trade tab',
+    ({ prepare, isStock }) => {
+      const tabStore = jotaiContextStore.getOrCreateStore(swapStoreData);
+      tabStore.set(swapSelectFromTokenAtom(), ordinaryFromToken);
+      tabStore.set(swapSelectToTokenAtom(), ordinaryToToken);
+      tabStore.set(swapFromTokenAmountAtom(), { value: '42', isInput: true });
+      tabStore.set(swapTypeSwitchAtom(), ESwapTabSwitchType.LIMIT);
+      const modalStore = jotaiContextStore.getOrCreateStore(swapModalStoreData);
+      modalStore.set(swapSelectFromTokenAtom(), ordinaryToToken);
+      const target = { ...proToken, isStock };
+      const storeId = buildJotaiContextStoreId(swapModalStoreData);
+      jotaiContextStore.requestStoreReset(swapModalStoreData, modalStore);
+
+      const buyEntry = prepare({
+        token: target,
+        storeName: EJotaiContextStoreNames.swapModal,
+      });
+      jotaiContextStore.completeStoreResetIfRequestedById(storeId);
+      expect(jotaiContextStore.getStore(swapModalStoreData)).toBe(modalStore);
+      expect(buyEntry.toToken).toEqual(target);
+      expect(modalStore.get(swapSelectToTokenAtom())).toEqual(target);
+      modalStore.set(swapFromTokenAmountAtom(), {
+        value: '123',
+        isInput: true,
+      });
+      const sellEntry = prepare({
+        token: target,
+        direction: 'from',
+        storeName: EJotaiContextStoreNames.swapModal,
+      });
+      expect(sellEntry.fromToken).toEqual(target);
+      expect(modalStore.get(swapSelectFromTokenAtom())).toEqual(target);
+      expect(modalStore.get(swapFromTokenAmountAtom())).toEqual({
+        value: '',
+        isInput: false,
+      });
+      expect(modalStore.get(swapTypeSwitchAtom())).toBe(
+        isStock ? ESwapTabSwitchType.STOCK : ESwapTabSwitchType.SWAP,
+      );
+      if (isStock) {
+        expect(modalStore.get(swapStockSelectedTokenAtom())).toEqual(target);
+        expect(modalStore.get(swapStockExecutionTokensAtom())).toBeUndefined();
+      }
+      expect(tabStore.get(swapSelectFromTokenAtom())).toBe(ordinaryFromToken);
+      expect(tabStore.get(swapSelectToTokenAtom())).toBe(ordinaryToToken);
+      expect(tabStore.get(swapFromTokenAmountAtom())).toEqual({
+        value: '42',
+        isInput: true,
+      });
+      expect(tabStore.get(swapTypeSwitchAtom())).toBe(ESwapTabSwitchType.LIMIT);
+    },
+  );
+});

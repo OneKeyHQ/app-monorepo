@@ -38,17 +38,31 @@ beforeEach(() => {
 });
 
 jest.mock('react-native-webview', () => ({
-  WebView: jest.fn(() => null),
+  WebView: jest.fn(({ testID }: { testID?: string }) => (
+    <div data-testid={testID} />
+  )),
 }));
 
 jest.mock('@onekeyhq/components', () => {
   const Container = ({
     children,
     testID,
+    'aria-hidden': ariaHidden,
+    pointerEvents,
   }: {
     children?: import('react').ReactNode;
     testID?: string;
-  }) => <div data-testid={testID}>{children}</div>;
+    'aria-hidden'?: boolean;
+    pointerEvents?: string;
+  }) => (
+    <div
+      data-testid={testID}
+      aria-hidden={ariaHidden}
+      data-pointer-events={pointerEvents}
+    >
+      {children}
+    </div>
+  );
   return {
     Stack: Container,
     XStack: Container,
@@ -96,10 +110,14 @@ function nativeEvent<T>(payload: { nativeEvent: T }): NativeSyntheticEvent<T> {
 afterEach(() => jest.useRealTimers());
 
 describe('native CAPTCHA page loading', () => {
-  test('conceals the page until the validated provider bridge starts', () => {
+  test('keeps loading beneath the transparent page after the provider bridge starts', () => {
     const { props } = renderFrame();
     expect(screen.getByText('Loading CAPTCHA…')).toBeTruthy();
     expect(props.containerStyle).toMatchObject({ opacity: 0 });
+    expect(props.pointerEvents).toBe('none');
+    const loading = screen.getByTestId('email-otp-captcha-loading');
+    const frame = screen.getByTestId('email-otp-captcha-frame');
+    expect(loading.getAttribute('aria-hidden')).toBe('false');
     act(() => {
       props.onMessage?.(
         nativeEvent({
@@ -114,10 +132,21 @@ describe('native CAPTCHA page loading', () => {
         }),
       );
     });
-    expect(screen.queryByText('Loading CAPTCHA…')).toBeNull();
+    expect(screen.getByTestId('email-otp-captcha-loading')).toBe(loading);
+    expect(loading.compareDocumentPosition(frame)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(loading.getAttribute('aria-hidden')).toBe('true');
+    expect(loading.getAttribute('data-pointer-events')).toBe('none');
     expect(
       jest.mocked(WebView).mock.calls.at(-1)?.[0].containerStyle,
     ).toMatchObject({ opacity: 1 });
+    expect(jest.mocked(WebView).mock.calls.at(-1)?.[0].style).toMatchObject({
+      backgroundColor: 'transparent',
+    });
+    expect(jest.mocked(WebView).mock.calls.at(-1)?.[0].pointerEvents).toBe(
+      'auto',
+    );
   });
 
   test('turns an HTTP 404 page into one load failure and ignores late success', () => {
@@ -234,7 +263,11 @@ describe('native CAPTCHA page loading', () => {
         },
       ],
     ]);
-    expect(screen.queryByText('Loading CAPTCHA…')).toBeNull();
+    expect(
+      screen
+        .getByTestId('email-otp-captcha-loading')
+        .getAttribute('aria-hidden'),
+    ).toBe('true');
   });
 
   test('a new request hides the previous page and ignores callbacks after unmount', () => {
@@ -257,9 +290,18 @@ describe('native CAPTCHA page loading', () => {
         }),
       ),
     );
-    expect(screen.queryByText('Loading CAPTCHA…')).toBeNull();
+    expect(
+      screen
+        .getByTestId('email-otp-captcha-loading')
+        .getAttribute('aria-hidden'),
+    ).toBe('true');
     rerender(<CaptchaFrame {...props} requestId="next" />);
     expect(screen.getByText('Loading CAPTCHA…')).toBeTruthy();
+    expect(
+      screen
+        .getByTestId('email-otp-captcha-loading')
+        .getAttribute('aria-hidden'),
+    ).toBe('false');
     unmount();
     act(() => {
       oldView?.onHttpError?.(

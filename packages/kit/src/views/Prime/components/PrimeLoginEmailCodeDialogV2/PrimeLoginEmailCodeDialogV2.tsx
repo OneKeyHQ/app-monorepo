@@ -248,6 +248,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
           error,
         )}`,
         error,
+        { trigger: 'interactive' },
       );
       if (!isMountedRef.current) {
         return;
@@ -407,6 +408,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
               error,
             )}`,
             error,
+            { trigger: 'interactive' },
           );
         }
         if (!isolatedTest)
@@ -454,6 +456,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
             error,
           )}`,
           error,
+          { trigger: 'interactive' },
         );
         // The OTP has already been consumed and the bg runtime has committed
         // the OneKey ID login. Keep this step completed even if closing the
