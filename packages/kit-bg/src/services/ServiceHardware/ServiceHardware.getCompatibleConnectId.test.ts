@@ -1756,6 +1756,15 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
                 .fn()
                 .mockResolvedValue(usbTransportType),
             },
+            serviceHardware: {
+              getDeviceByConnectId: jest.fn().mockResolvedValue(undefined),
+              searchDevices: jest.fn().mockResolvedValue({
+                success: true,
+                payload: [
+                  { connectId: 'USB_ID', commType: usbCommunicationMode },
+                ],
+              }),
+            },
           } as unknown as IBackgroundApi,
         });
         const detectBluetoothAvailability = jest
@@ -1780,10 +1789,12 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
             hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
           }),
         ).resolves.toBe('AA:BB:CC:DD:EE:FF');
-        expect(getDevices).toHaveBeenCalledTimes(2);
-        expect(detectWebUSBAvailability).toHaveBeenLastCalledWith(
-          'DEVICE_B_USB',
-        );
+        if (usbCommunicationMode === 'webusb') {
+          expect(getDevices).toHaveBeenCalledTimes(3);
+          expect(detectWebUSBAvailability).toHaveBeenCalledWith('DEVICE_B_USB');
+        } else {
+          expect(getDevices).not.toHaveBeenCalled();
+        }
         expect(detectBluetoothAvailability).toHaveBeenCalled();
       } finally {
         if (originalNavigator) {
@@ -1841,6 +1852,13 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
             getHardwareTransportType: jest
               .fn()
               .mockResolvedValue(EHardwareTransportType.Bridge),
+          },
+          serviceHardware: {
+            getDeviceByConnectId: jest.fn().mockResolvedValue(undefined),
+            searchDevices: jest.fn().mockResolvedValue({
+              success: true,
+              payload: [{ connectId: 'PRO_USB_SERIAL', commType: 'bridge' }],
+            }),
           },
         } as unknown as IBackgroundApi,
       });
@@ -2008,6 +2026,201 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
         service.detectUSBDeviceAvailability({ connectId: 'PHYSICAL_SERIAL' }),
       ).resolves.toBe(false);
       expect(mockedResetHardwareSDKInstance).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('ordinary desktop USB routing', () => {
+    let originalNavigator: PropertyDescriptor | undefined;
+    const getDevices = jest.fn();
+    const usbDevice = {
+      connectId: 'PHYSICAL_SERIAL',
+      serialNo: 'PHYSICAL_SERIAL',
+      deviceId: 'WALLET_ID',
+      commType: 'webusb',
+    } as SearchDevice;
+    const descriptor = {
+      vendorId: 0x12_09,
+      productId: 0x53_c1,
+      serialNumber: 'USB_DESCRIPTOR_PATH',
+    };
+
+    const createService = () => {
+      const backgroundApi = {
+        serviceDevSetting: {
+          getDevSetting: jest.fn().mockResolvedValue({
+            settings: { usbCommunicationMode: 'webusb' },
+          }),
+          getFirmwareUpdateDevSettings: jest.fn().mockResolvedValue(false),
+        },
+        serviceSetting: {
+          getHardwareTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.WEBUSB),
+          setHardwareTransportType: jest.fn(),
+        },
+      } as unknown as IBackgroundApi;
+      const service = new ServiceHardware({ backgroundApi });
+      backgroundApi.serviceHardware = service;
+      const bluetooth = jest
+        .spyOn(service.connectionManager, 'detectBluetoothAvailability')
+        .mockResolvedValue(true);
+      return { service, bluetooth };
+    };
+
+    beforeEach(() => {
+      originalNavigator = Object.getOwnPropertyDescriptor(
+        globalThis,
+        'navigator',
+      );
+      getDevices.mockReset().mockResolvedValue([descriptor]);
+      Object.defineProperty(globalThis, 'navigator', {
+        configurable: true,
+        value: { usb: { getDevices } },
+      });
+    });
+    afterEach(() => {
+      if (originalNavigator)
+        Object.defineProperty(globalThis, 'navigator', originalNavigator);
+      else delete (globalThis as { navigator?: Navigator }).navigator;
+    });
+
+    it('prefers the USB device identified by the SDK when its descriptor path differs from the business serial', async () => {
+      const { service, bluetooth } = createService();
+      const search = jest
+        .spyOn(service, 'searchDevices')
+        .mockResolvedValue({ success: true, payload: [usbDevice] });
+      await expect(
+        service.connectionManager.shouldSwitchTransportType({
+          connectId: 'PHYSICAL_SERIAL',
+          connectProtocol: 'V1',
+        }),
+      ).resolves.toMatchObject({ targetType: EHardwareTransportType.WEBUSB });
+      expect(search).toHaveBeenCalledWith({
+        connectProtocol: 'V1',
+        transportType: 'usb',
+      });
+      expect(bluetooth).not.toHaveBeenCalled();
+    });
+
+    it('uses the bound BLE endpoint when the SDK finds a different USB device', async () => {
+      const { service, bluetooth } = createService();
+      mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+        connectId: 'PHYSICAL_SERIAL',
+        bleConnectId: 'BLE_ENDPOINT',
+        connectProtocol: 'V1',
+        vendor: EHardwareVendor.onekey,
+      } as IDBDevice);
+      jest.spyOn(service, 'searchDevices').mockResolvedValue({
+        success: true,
+        payload: [
+          {
+            ...usbDevice,
+            connectId: 'OTHER_SERIAL',
+            serialNo: 'OTHER_SERIAL',
+          },
+        ],
+      });
+      await expect(
+        service.getCompatibleConnectId({
+          connectId: 'PHYSICAL_SERIAL',
+          hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+        }),
+      ).resolves.toBe('BLE_ENDPOINT');
+      expect(bluetooth).toHaveBeenCalled();
+    });
+
+    it('uses BLE without searching USB when no USB descriptor is present', async () => {
+      getDevices.mockResolvedValue([]);
+      const { service, bluetooth } = createService();
+      const search = jest.spyOn(service, 'searchDevices');
+      await expect(
+        service.connectionManager.shouldSwitchTransportType({
+          connectId: 'PHYSICAL_SERIAL',
+        }),
+      ).resolves.toMatchObject({
+        targetType: EHardwareTransportType.DesktopWebBle,
+      });
+      expect(search).not.toHaveBeenCalled();
+      expect(bluetooth).toHaveBeenCalled();
+    });
+
+    it.each(['ble', 'bridge'] as const)(
+      'does not accept a %s result as proof of a WebUSB target',
+      async (commType) => {
+        const { service } = createService();
+        jest.spyOn(service, 'searchDevices').mockResolvedValue({
+          success: true,
+          payload: [{ ...usbDevice, commType }],
+        });
+        await expect(
+          service.connectionManager.shouldSwitchTransportType({
+            connectId: 'PHYSICAL_SERIAL',
+          }),
+        ).resolves.toMatchObject({
+          targetType: EHardwareTransportType.DesktopWebBle,
+        });
+      },
+    );
+
+    it('rejects ambiguous USB identities', async () => {
+      const { service } = createService();
+      jest
+        .spyOn(service, 'searchDevices')
+        .mockResolvedValue({ success: true, payload: [usbDevice, usbDevice] });
+      await expect(
+        service.connectionManager.shouldSwitchTransportType({
+          connectId: 'PHYSICAL_SERIAL',
+        }),
+      ).resolves.toMatchObject({
+        targetType: EHardwareTransportType.DesktopWebBle,
+      });
+    });
+
+    it('does not search through OneKey SDK for a third-party device', async () => {
+      const { service } = createService();
+      mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+        vendor: EHardwareVendor.trezor,
+      } as IDBDevice);
+      const search = jest.spyOn(service, 'searchDevices');
+      await service.connectionManager.shouldSwitchTransportType({
+        connectId: 'TREZOR_SERIAL',
+      });
+      expect(search).not.toHaveBeenCalled();
+    });
+
+    it('can search USB during automatic SDK lookup without waiting on its own lifecycle lock or resetting the identified USB SDK again', async () => {
+      const { service, bluetooth } = createService();
+      const sdk = {
+        searchDevices: jest
+          .fn()
+          .mockResolvedValue({ success: true, payload: [usbDevice] }),
+        setDeviceConnectProtocol: jest.fn(),
+      };
+      mockedGetHardwareSDKInstance.mockResolvedValue(
+        sdk as unknown as Awaited<ReturnType<typeof getHardwareSDKInstance>>,
+      );
+      service.checkSdkVersionValid = jest.fn();
+      jest
+        .spyOn(
+          service as unknown as { registerSdkEvents: () => Promise<void> },
+          'registerSdkEvents',
+        )
+        .mockResolvedValue(undefined);
+      await expect(
+        service.getSDKInstance({
+          connectId: 'PHYSICAL_SERIAL',
+          connectProtocol: 'V1',
+        }),
+      ).resolves.toBe(sdk);
+      expect(sdk.searchDevices).toHaveBeenCalledTimes(1);
+      expect(mockedGetHardwareSDKInstance).toHaveBeenCalledTimes(2);
+      expect(mockedGetHardwareSDKInstance).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          hardwareTransportType: EHardwareTransportType.WEBUSB,
+        }),
+      );
+      expect(mockedResetHardwareSDKInstance).not.toHaveBeenCalled();
+      expect(bluetooth).not.toHaveBeenCalled();
     });
   });
 
@@ -2211,6 +2424,13 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
             getHardwareTransportType: jest
               .fn()
               .mockResolvedValue(EHardwareTransportType.Bridge),
+          },
+          serviceHardware: {
+            getDeviceByConnectId: jest.fn().mockResolvedValue(undefined),
+            searchDevices: jest.fn().mockResolvedValue({
+              success: true,
+              payload: [{ connectId: 'PRO2_USB_ID', commType: 'bridge' }],
+            }),
           },
         } as unknown as IBackgroundApi,
       });

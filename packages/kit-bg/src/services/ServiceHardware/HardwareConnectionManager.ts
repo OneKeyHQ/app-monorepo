@@ -14,6 +14,7 @@ import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type { IHardwareCallContext } from '@onekeyhq/shared/types/device';
 import {
   EHardwareCallContext,
+  EHardwareVendor,
   EOneKeyDeviceMode,
 } from '@onekeyhq/shared/types/device';
 
@@ -346,16 +347,54 @@ export class HardwareConnectionManager {
           : EHardwareTransportType.WEBUSB;
       }
       const usbAvailable = await this.detectUSBDeviceAvailability(
-        connectId,
+        mode === 'bridge' ? undefined : connectId,
         connectProtocol,
       );
-      if (usbAvailable) {
+      let targetOnUSB = usbAvailable && (!connectId || mode !== 'bridge');
+      if (
+        !targetOnUSB &&
+        connectId &&
+        (usbAvailable ||
+          (await this.detectUSBDeviceAvailability(undefined, connectProtocol)))
+      ) {
+        // Descriptor paths are routing keys. Let the SDK identify the device
+        // before falling back to BLE; Bridge paths are never physical serials.
+        try {
+          const device =
+            await this.backgroundApi.serviceHardware.getDeviceByConnectId({
+              connectId,
+            });
+          if (!device?.vendor || device.vendor === EHardwareVendor.onekey) {
+            const result =
+              await this.backgroundApi.serviceHardware.searchDevices({
+                connectProtocol,
+                transportType: 'usb',
+              });
+            const target = connectId.trim().toLowerCase();
+            targetOnUSB =
+              result?.success === true &&
+              result.payload.filter(
+                (known) =>
+                  known.commType === mode &&
+                  [
+                    known.connectId,
+                    known.serialNo,
+                    known.uuid,
+                    known.deviceId,
+                  ].some((id) => id?.trim().toLowerCase() === target),
+              ).length === 1;
+          }
+        } catch {
+          targetOnUSB = false;
+        }
+      }
+      if (targetOnUSB) {
         return mode === 'bridge'
           ? EHardwareTransportType.Bridge
           : EHardwareTransportType.WEBUSB;
       }
 
-      // No USB devices, check if Bluetooth is available before fallback
+      // The selected device was not identified over USB; consider BLE.
       const bluetoothAvailable =
         await this.detectBluetoothAvailability(hardwareCallContext);
       if (bluetoothAvailable) {

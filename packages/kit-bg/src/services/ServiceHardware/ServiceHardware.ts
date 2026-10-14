@@ -1082,8 +1082,28 @@ class ServiceHardware extends ServiceBase {
   }
 
   async getSDKInstance(options: IGetSDKInstanceOptions) {
+    await this.assertOneKeySdkConnectId(options?.connectId);
+    let resolvedOptions = options;
+    if (
+      platformEnv.isSupportDesktopBle &&
+      options.hardwareTransportType === undefined
+    ) {
+      const connectProtocol = options.forceProtocolDetection
+        ? undefined
+        : (options.connectProtocol ??
+          (await this.getKnownDeviceProtocol(options.connectId)));
+      // Auto routing may search USB through getSDKInstance with an explicit
+      // transport. Resolve it before taking the non-reentrant lifecycle lock.
+      const { targetType } =
+        await this.connectionManager.shouldSwitchTransportType({
+          connectId: options.connectId,
+          connectProtocol,
+          hardwareCallContext: options.hardwareCallContext,
+        });
+      resolvedOptions = { ...options, hardwareTransportType: targetType };
+    }
     return this.sdkInstanceMutex.runExclusive(() =>
-      this.getSDKInstanceWithLifecycleLock(options),
+      this.getSDKInstanceWithLifecycleLock(resolvedOptions),
     );
   }
 
@@ -1105,7 +1125,6 @@ class ServiceHardware extends ServiceBase {
     const { hardwareCallContext = EHardwareCallContext.USER_INTERACTION } =
       options || {};
     this.checkSdkVersionValid();
-    await this.assertOneKeySdkConnectId(options?.connectId);
 
     // 只有搜索/onboarding 可以显式重新探测；普通业务调用必须恢复已确认协议。
     const resolvedConnectProtocol = options.forceProtocolDetection
@@ -1186,27 +1205,10 @@ class ServiceHardware extends ServiceBase {
       isDesktopBackgroundCall && options.hardwareTransportType
         ? undefined
         : normalizedForceTransportType;
-    let hardwareTransportType =
+    const hardwareTransportType =
       effectiveForceTransportType ??
       options.hardwareTransportType ??
       currentTransportType;
-    let shouldSwitch = false;
-
-    // Desktop Auto switch transport type
-    if (
-      platformEnv.isSupportDesktopBle &&
-      effectiveForceTransportType === undefined &&
-      options.hardwareTransportType === undefined
-    ) {
-      // Check if we should switch transport type based on optimal connection strategy
-      const result = await this.connectionManager.shouldSwitchTransportType({
-        connectId: options?.connectId,
-        connectProtocol: resolvedConnectProtocol,
-        hardwareCallContext,
-      });
-      shouldSwitch = result.shouldSwitch;
-      hardwareTransportType = result.targetType;
-    }
 
     // connectionManager 会在 UI 展示前提交选路结果，因此不能再用它的
     // currentTransportType 判断 SDK 是否需要重建。单独记录实际 SDK transport，
@@ -1214,7 +1216,7 @@ class ServiceHardware extends ServiceBase {
     const sdkTransportChanged =
       this.activeHardwareTransportType !== undefined &&
       this.activeHardwareTransportType !== hardwareTransportType;
-    if (shouldSwitch || sdkTransportChanged) {
+    if (sdkTransportChanged) {
       console.log(
         `🔄 TRANSPORT SWITCH: ${
           this.activeHardwareTransportType ?? currentTransportType ?? 'null'
