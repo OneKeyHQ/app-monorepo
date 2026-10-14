@@ -109,7 +109,6 @@ const OnboardingLayoutTitle = memo(
       zIndex={0}
       justifyContent="center"
       alignItems="center"
-      pointerEvents="none"
     >
       <SizableText size="$headingLg" textAlign="center">
         {children}

@@ -115,7 +115,6 @@ export const LayoutHeaderTitle = memo(
       justifyContent="center"
       alignItems="center"
       px="$16"
-      pointerEvents="none"
     >
       <SizableText size="$headingLg" textAlign="center" numberOfLines={1}>
         {children}
