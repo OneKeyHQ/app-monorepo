@@ -721,14 +721,51 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
     expect(toastAt(0)?.actions).toBeUndefined();
   });
 
-  it('lets a logged-in user with no uses left into the page on entry', async () => {
+  it('stops a bulk tool with no uses left on entry, after a fresh quota', async () => {
     setSnapshot(quotaWith(0));
+    mockRefreshQuota.mockResolvedValue(quotaWith(0));
     const result = renderAccessHook();
 
     await act(async () => {
       await expect(
         result.current.ensureFeatureAccess({
           featureId: EPrimeFeatures.BulkSend,
+          deferQuotaCheck: true,
+        }),
+      ).resolves.toEqual({ granted: false });
+    });
+    expect(mockRefreshQuota).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(dashboardReason()).toBe('exhausted');
+    });
+    expect(toastAt(0)?.title).toBe('批量转账本月免费次数已用完');
+  });
+
+  it('lets a bulk tool in on entry when the refresh shows a new month', async () => {
+    setSnapshot(quotaWith(0));
+    mockRefreshQuota.mockResolvedValue(quotaWith(1));
+    const result = renderAccessHook();
+
+    await act(async () => {
+      await expect(
+        result.current.ensureFeatureAccess({
+          featureId: EPrimeFeatures.BulkSend,
+          deferQuotaCheck: true,
+        }),
+      ).resolves.toEqual({ granted: true, entitlementSource: 'freeTrial' });
+    });
+    expect(mockPushFullModal).not.toHaveBeenCalled();
+    expect(mockToastMessage).not.toHaveBeenCalled();
+  });
+
+  it('lets address risk check with no uses left in on entry for its history', async () => {
+    setSnapshot(quotaWith(0, EPrimeFeatures.AddressRiskCheck));
+    const result = renderAccessHook();
+
+    await act(async () => {
+      await expect(
+        result.current.ensureFeatureAccess({
+          featureId: EPrimeFeatures.AddressRiskCheck,
           deferQuotaCheck: true,
         }),
       ).resolves.toEqual({ granted: true, entitlementSource: 'freeTrial' });

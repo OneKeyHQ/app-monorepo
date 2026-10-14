@@ -462,8 +462,9 @@ export function usePrimeFeatureAccess() {
    * - Logged-in free user: exhausted / not open -> the dashboard and a toast,
    *   else granted.
    *   With `deferQuotaCheck` (feature entries) a feature without a free
-   *   trial opens the dashboard; otherwise the user is let in without a
-   *   quota check and the submit inside the page decides.
+   *   trial opens the dashboard, and a tool whose local snapshot is used up
+   *   gets the full check (address risk check still lets the user in for its
+   *   history); otherwise the user is let in and the submit decides.
    */
   const ensureFeatureAccess = useCallback(
     async ({
@@ -604,8 +605,10 @@ export function usePrimeFeatureAccess() {
       }
       if (deferQuotaCheck) {
         // A feature without a free trial goes to the dashboard, the same as
-        // for a logged-out user; used up still lets the user in (the address
-        // risk history stays readable), and the submit decides.
+        // for a logged-out user. Used up: only address risk check lets the
+        // user in (its history stays readable); the other tools fall through
+        // to the full check below, which refreshes the quota first so a
+        // stale snapshot (e.g. a new month) does not block them.
         const localUser =
           await backgroundApiProxy.servicePrime.getLocalUserInfo();
         const cachedAccess = resolvePrimeFreeTrialAccess({
@@ -628,10 +631,15 @@ export function usePrimeFeatureAccess() {
           });
           return { granted: false };
         }
-        return grantIfContextValid({
-          granted: true,
-          entitlementSource: 'freeTrial',
-        });
+        if (
+          cachedAccess.status !== 'exhausted' ||
+          featureId === EPrimeFeatures.AddressRiskCheck
+        ) {
+          return grantIfContextValid({
+            granted: true,
+            entitlementSource: 'freeTrial',
+          });
+        }
       }
 
       // Fast path for a user who was already logged in: a snapshot that
