@@ -1,8 +1,10 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isTabBarHiddenByRequest } from '@onekeyhq/shared/src/tabBar/hideTabBarRequests';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { finishMarketDetailTabBarTransition } from '../../../utils/marketDetailNavigation';
 
+import { convertSearchTokenToMarketToken } from './constants';
 import { navigateToMarketTokenDetail } from './navigateToMarketTokenDetail';
 
 const mockFetchAssetDetail = jest.fn<Promise<unknown>, unknown[]>();
@@ -301,6 +303,56 @@ describe('navigateToMarketTokenDetail', () => {
     );
     expect(mockFetchAssetDetail).not.toHaveBeenCalled();
   });
+
+  it.each([false, true])(
+    'keeps the selected search chain instead of the default asset variant (native token: %s)',
+    async (isNative) => {
+      jest.mocked(networkUtils.getNetworkShortCode).mockReturnValueOnce('sol');
+      mockFetchAssetDetail.mockResolvedValue({
+        selectedVariant: {
+          networkId: 'evm--1',
+          tokenAddress: '0xDefault',
+          isNative: false,
+          variantId: 'default-eth',
+        },
+      });
+      const address = isNative ? '' : 'SolanaUsdc';
+      const selected = convertSearchTokenToMarketToken({
+        assetId: isNative ? 'solana' : 'usd-coin',
+        network: 'sol--101',
+        address,
+        isNative,
+        symbol: isNative ? 'SOL' : 'USDC',
+        name: isNative ? 'Solana' : 'USD Coin',
+        price: '1',
+        decimals: 6,
+        logoUrl: '',
+        networkLogoURI: '',
+        liquidity: '0',
+        volume_24h: '0',
+      });
+      await navigateToMarketTokenDetail(
+        { ...selected, networkId: selected.networkId ?? '' },
+        { tokenDetailActions, resolveMarketAsset: true },
+      );
+      jest.runAllTimers();
+      expect(mockFetchAssetDetail).not.toHaveBeenCalled();
+      expect(navigateMock).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          params: expect.objectContaining({
+            params: expect.objectContaining({
+              tokenAddress: address,
+              network: 'sol',
+              isNative,
+              resolveMarketAsset: true,
+            }),
+          }),
+        }),
+      );
+      expect(selected.networkId).toBe('sol--101');
+    },
+  );
 
   it('resolves an asset only on navigation and preserves the asset route', async () => {
     mockFetchAssetDetail.mockResolvedValue({

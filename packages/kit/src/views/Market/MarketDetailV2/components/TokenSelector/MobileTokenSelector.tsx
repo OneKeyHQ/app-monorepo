@@ -34,6 +34,7 @@ import {
   buildMarketTokenDetailPreview,
 } from '../../utils/marketDetailPreview';
 
+import { getSelectorSearchAssetId } from './constants';
 import {
   DETAIL_SELECTOR_TOKEN_CATEGORY,
   DetailSelectorBrowseTabs,
@@ -181,7 +182,12 @@ function MobileTokenSelectorContent() {
     ],
   );
 
-  const { data: topCoins, isLoading: isTopCoinsLoading } = useMarketTopCoins();
+  const {
+    data: topCoins,
+    isLoading: isTopCoinsLoading,
+    isError: isTopCoinsError,
+    refresh: refreshTopCoins,
+  } = useMarketTopCoins();
   const handleTopCoinSelect = useCallback(
     (item: IMarketAssetListItem) => {
       if (isMarketTopCoinNavigationSuppressed()) {
@@ -230,6 +236,7 @@ function MobileTokenSelectorContent() {
         address: token.address,
         networkId: token.network,
         isNative: token.isNative,
+        assetId: getSelectorSearchAssetId(token),
         stockId: token.stockId,
         tokenDetailPreview,
       });
@@ -328,6 +335,8 @@ function MobileTokenSelectorContent() {
               <MobileSelectorTopCoinsList
                 data={topCoins}
                 isLoading={Boolean(isTopCoinsLoading)}
+                isError={isTopCoinsError}
+                onRetry={() => void refreshTopCoins()}
                 onItemPress={handleTopCoinSelect}
               />
             ) : null}

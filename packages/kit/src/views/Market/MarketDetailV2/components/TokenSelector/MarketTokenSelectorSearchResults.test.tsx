@@ -339,6 +339,38 @@ describe('MarketTokenSelectorSearchResults', () => {
     expect(mockStockPress).toHaveBeenCalledWith(defaultStockResult.items[0]);
   });
 
+  it('preserves asset-only search identities through conversion and selection', () => {
+    render(
+      <MarketTokenSelectorSearchResults
+        query="coin"
+        marketItems={['bitcoin', 'ethereum'].map((assetId) => ({
+          ...marketItem,
+          assetId,
+          network: '',
+          address: '',
+        }))}
+        onStockPress={mockStockPress}
+        onMarketPress={mockMarketPress}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('search-row-market_asset_bitcoin'));
+    expect(mockMarketPress).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        assetId: 'bitcoin',
+        address: '',
+        networkId: '',
+      }),
+    );
+    fireEvent.click(screen.getByTestId('search-row-market_asset_ethereum'));
+    expect(mockMarketPress).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        assetId: 'ethereum',
+        address: '',
+        networkId: '',
+      }),
+    );
+  });
+
   it('filters stock and token rows and resets to tokens for a new query', () => {
     const { rerender } = render(
       <MarketTokenSelectorSearchResults

@@ -320,11 +320,10 @@ function MobileMarketTokenSelectorSearchResults({
     () =>
       marketItems
         .filter((item) => isDetailSearchChainToken(item))
-        .map((item) => ({
-          key: `${item.network}:${item.address}`,
-          raw: item,
-          token: convertSearchTokenToMarketToken(item),
-        })),
+        .map((item) => {
+          const token = convertSearchTokenToMarketToken(item);
+          return { key: token.id, raw: item, token };
+        }),
     [marketItems],
   );
   const hasTokenResults = tokenEntries.length > 0;

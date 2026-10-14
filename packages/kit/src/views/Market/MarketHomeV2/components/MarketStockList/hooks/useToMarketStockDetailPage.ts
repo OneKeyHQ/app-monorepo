@@ -121,7 +121,10 @@ export function useToMarketStockDetailPage(
   return useCallback(
     async (
       stock: IMarketStockDetailNavigationInput,
-      request?: { isCurrentRequest: () => boolean },
+      request?: {
+        isCurrentRequest: () => boolean;
+        onNavigationStart?: () => void;
+      },
     ): Promise<boolean> => {
       if (
         travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
@@ -168,6 +171,12 @@ export function useToMarketStockDetailPage(
         isStockRoute: true,
         layout: preloadLayout,
       });
+      if (platformEnv.isNative) {
+        await preloadPromise;
+      }
+
+      if (!isCurrentRequest()) return false;
+
       if (!shouldKeepCurrentStockTokenDetail) {
         tokenDetailActions.current.prepareStockTokenDetail({
           tokenAddress: stockTokenParams?.tokenAddress ?? '',
@@ -185,12 +194,6 @@ export function useToMarketStockDetailPage(
           undefined,
         );
       }
-
-      if (platformEnv.isNative) {
-        await preloadPromise;
-      }
-
-      if (!isCurrentRequest()) return false;
 
       if (
         platformEnv.isExtensionUiPopup ||
@@ -232,6 +235,8 @@ export function useToMarketStockDetailPage(
           const marketTab = platformEnv.isNative
             ? ETabRoutes.Discovery
             : ETabRoutes.Market;
+          // Switching tabs dismisses the selector; this is no longer a user cancellation.
+          request?.onNavigationStart?.();
           await switchTabAsync(marketTab);
           if (!isCurrentRequest() || !rootNavigationRef.current) return false;
           rootNavigationRef.current.navigate(ERootRoutes.Main, {

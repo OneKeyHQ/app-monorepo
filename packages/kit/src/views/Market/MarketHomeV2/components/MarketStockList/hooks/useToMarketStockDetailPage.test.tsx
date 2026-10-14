@@ -490,6 +490,50 @@ describe('useToMarketStockDetailPage', () => {
     });
   });
 
+  it('cancels native stock navigation when the selector is dismissed during preload', async () => {
+    mockIsModalPage = true;
+    mockedPlatformEnv.isNative = true;
+    mockedPlatformEnv.isDesktop = false;
+    let completePreload = () => {};
+    mockPreloadMarketDetailV2Page.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          completePreload = resolve;
+        }),
+    );
+    const closeSelector = jest.fn();
+    const onError = jest.fn();
+    const requestIdRef = { current: 0 };
+    const selector = renderHook(() => {
+      const navigate = useToMarketStockDetailPage({
+        replaceCurrentDetail: true,
+      });
+      return useMobileStockSelectorNavigation({
+        navigate,
+        requestIdRef,
+        closeSelector,
+        onError,
+      });
+    });
+    act(() =>
+      selector.result.current({
+        stockId: 'AAPL',
+        symbol: 'AAPL',
+        name: 'Apple',
+        logoUrl: '',
+        assetType: 'stock',
+        currency: 'USD',
+      }),
+    );
+    selector.unmount();
+    await act(async () => completePreload());
+    expect(mockPrepareStockTokenDetail).not.toHaveBeenCalled();
+    expect(mockSwitchTabAsync).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(closeSelector).not.toHaveBeenCalled();
+    expect(onError).not.toHaveBeenCalled();
+  });
+
   it('opens the native stock detail after switching tabs unmounts the selector', async () => {
     mockIsModalPage = true;
     mockedPlatformEnv.isNative = true;

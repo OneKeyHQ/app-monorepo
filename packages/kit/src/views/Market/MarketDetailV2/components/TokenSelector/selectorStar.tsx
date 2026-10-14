@@ -3,6 +3,7 @@ import { memo } from 'react';
 import { IconButton } from '@onekeyhq/components';
 import { MarketTestIDs } from '@onekeyhq/kit/src/views/Market/testIDs';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
+import { isMarketSearchStockListing } from '@onekeyhq/shared/src/utils/marketSearchStock';
 
 import { MarketListingStar } from '../../../components/MarketListingStar';
 import {
@@ -26,10 +27,16 @@ function BasicSelectorTokenStar({
   item: IMarketToken & { marketAssetId?: string };
   networkId?: string;
 }) {
+  const chainId = item.chainId ?? networkId ?? item.networkId ?? '';
+  const isStockListing = isMarketSearchStockListing({
+    stockId: item.stockId,
+    network: chainId,
+    address: item.address,
+  });
   const spotStar = useStarV2Checked({
     assetId: item.assetId,
-    stockId: item.stockId,
-    chainId: item.chainId ?? networkId ?? '',
+    stockId: isStockListing ? item.stockId : undefined,
+    chainId,
     contractAddress: item.address,
     from: EWatchlistFrom.Search,
     tokenSymbol: item.symbol,

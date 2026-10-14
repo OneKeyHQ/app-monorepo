@@ -33,10 +33,18 @@ export function useMobileStockSelectorNavigation({
       pendingRef.current = true;
       requestIdRef.current += 1;
       const requestId = requestIdRef.current;
-      const isCurrentRequest = () => requestIdRef.current === requestId;
+      let navigationStarted = false;
+      const isCurrentRequest = () =>
+        requestIdRef.current === requestId &&
+        (mountedRef.current || navigationStarted);
       dismissMobileTokenSelectorKeyboard();
       // Replace the detail while the selector still exposes the tab stack.
-      void navigate(stock, { isCurrentRequest })
+      void navigate(stock, {
+        isCurrentRequest,
+        onNavigationStart: () => {
+          navigationStarted = true;
+        },
+      })
         .then((didNavigate) => {
           if (didNavigate && isCurrentRequest() && mountedRef.current) {
             closeSelector();

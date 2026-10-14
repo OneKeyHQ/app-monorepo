@@ -69,6 +69,8 @@ interface IMarketTokenSelectorListProps {
   searchResults?: (IMarketSearchV2Token & { networkLogoURI: string })[];
   dataOverride?: IMarketTokenSelectorItem[];
   dataOverrideLoading?: boolean;
+  dataOverrideError?: boolean;
+  onDataOverrideRetry?: () => void;
 }
 
 // Shared ListView renderer to eliminate duplication across list variants
@@ -322,6 +324,8 @@ function ListContent({
   timeRange,
   dataOverride,
   dataOverrideLoading,
+  dataOverrideError,
+  onDataOverrideRetry,
   columns,
   listHeader,
 }: IMarketTokenSelectorListProps & {
@@ -357,6 +361,8 @@ function ListContent({
       <TokenSelectorListView
         data={dataOverride}
         isLoading={dataOverrideLoading}
+        isError={dataOverrideError}
+        onRetry={onDataOverrideRetry}
         networkId={networkId}
         onItemPress={onItemPress}
         columns={columns}
@@ -391,6 +397,8 @@ const MarketTokenSelectorList = memo(
     searchResults,
     dataOverride,
     dataOverrideLoading,
+    dataOverrideError,
+    onDataOverrideRetry,
   }: IMarketTokenSelectorListProps) => {
     const intl = useIntl();
 
@@ -476,6 +484,8 @@ const MarketTokenSelectorList = memo(
           timeRange={timeRange}
           dataOverride={dataOverride}
           dataOverrideLoading={dataOverrideLoading}
+          dataOverrideError={dataOverrideError}
+          onDataOverrideRetry={onDataOverrideRetry}
           columns={columns}
           listHeader={listHeader}
         />

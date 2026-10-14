@@ -118,8 +118,8 @@ export function useMarketStockSelectorList({
     if (!response) {
       return EMPTY_STOCK_SELECTOR_RESULT;
     }
-    return { queryKey: '', response };
-  }, [defaultListQueryKey, emptyListSwrKey, shouldUseDefaultList]);
+    return { queryKey, response };
+  }, [defaultListQueryKey, emptyListSwrKey, queryKey, shouldUseDefaultList]);
 
   const [listState, setListState] = useState<IMarketStockSelectorListState>({
     queryKey: UNINITIALIZED_STOCK_SELECTOR_QUERY_KEY,
