@@ -1302,6 +1302,20 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     return Number.isFinite(balance) && balance > 0;
   }, [detailInfo?.mobilePortfolio, tokenInfo?.balanceParsed]);
 
+  // A position, for the footer's Redeem, is principal in the protocol
+  // (OK-64550): the Portfolio tab's Balance group, which holds the active
+  // principal, redemptions in flight and matured principal to collect.
+  // Rewards alone do not make one. A server without the read model falls back
+  // to hasPortfolio's balance check.
+  const hasDeposit = useMemo(() => {
+    if (detailInfo?.mobilePortfolio) {
+      return detailInfo.mobilePortfolio.groups.some(
+        (group) => group.key === 'balance' && group.items.length > 0,
+      );
+    }
+    return hasPortfolio;
+  }, [detailInfo?.mobilePortfolio, hasPortfolio]);
+
   useUnsupportedProtocol({
     detailInfo,
     appNavigation,
@@ -1613,12 +1627,10 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
 
     const isManageOnly = isCustomProtocol;
     // Pendle sells PT rather than redeeming it, so the footer reads Buy and
-    // Sell early (Redeem once the market has matured), and the second button
-    // stays put while there is nothing to sell, disabled, the way the other
-    // providers' Redeem does (OK-63802). The server sends no actions for
-    // Pendle (its wide layout has its own swap pair), so the rules mirror the
-    // manage page's pair: no buying after maturity, no selling without a
-    // position.
+    // Sell early (Redeem once the market has matured). The server sends no
+    // actions for Pendle (its wide layout has its own swap pair), so the rules
+    // mirror the manage page's pair: no buying after maturity, no selling
+    // without a position.
     const isPendle = earnUtils.isPendleProvider({ providerName: provider });
     const isMatured = Boolean(detailInfo?.maturity?.isMatured);
     const buttonText = isManageOnly
@@ -1630,18 +1642,19 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
       ? () => handleOpenManageModal()
       : () => handleOpenManageModal('deposit');
 
-    // The phone footer is driven by the server's actions, which already model
-    // what the design asks for: both buttons stay put, and one that cannot be
-    // used right now is disabled rather than removed (OK-62410, OK-62406).
-    // Deriving it from capabilities.redeem meant "no ability, no button", so a
-    // token with no position lost its Redeem entirely. A protocol whose
-    // actions carry no deposit/withdraw at all (hold-to-earn) keeps the single
-    // primary button it always had.
+    // Per the design, the footer gains Redeem once the user has a position and
+    // shows Deposit alone before that (OK-64550): a Redeem with nothing to
+    // redeem only ever sat there disabled. With a position, Redeem follows the
+    // server's withdraw action, disabled when it cannot be used right now
+    // (OK-62406), and Pendle's Sell early / Redeem follows the same rule. A
+    // protocol whose actions carry no deposit/withdraw at all (hold-to-earn)
+    // keeps the single primary button it always had.
     const depositAction = detailInfo?.actions?.find(
       (action) => action.type === 'deposit',
     );
     const showRedeem =
       isMobileLayout &&
+      hasDeposit &&
       (Boolean(redeemAction) || isPendle || redeemWithoutActions);
     const depositDisabled =
       Boolean(depositAction?.disabled) || (isPendle && isMatured);
@@ -1689,6 +1702,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     detailInfo,
     provider,
     hasPortfolio,
+    hasDeposit,
     redeemWithoutActions,
   ]);
 
