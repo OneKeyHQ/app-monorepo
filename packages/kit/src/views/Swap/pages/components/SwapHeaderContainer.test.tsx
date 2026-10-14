@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 
 import { act, fireEvent, render, waitFor } from '@testing-library/react';
 
+import { EPageType } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -77,6 +78,7 @@ jest.mock('@onekeyhq/components', () => {
       children,
     );
   return {
+    EPageType: { modal: 'modal' },
     SegmentControl: ({
       options,
       onChange,
@@ -162,6 +164,50 @@ jest.mock('./SwapHeaderRightActionContainer', () => {
 });
 
 describe('SwapHeaderContainer', () => {
+  it('keeps the seeded Market Stock modal out of default type initialization', async () => {
+    jest.useFakeTimers();
+    try {
+      const view = render(
+        <SwapHeaderContainer
+          storeName={EJotaiContextStoreNames.swapModal}
+          pageType={EPageType.modal}
+          defaultSwapType={ESwapTabSwitchType.STOCK}
+          enterFrom={ESwapSource.MARKET}
+          showSwapPro
+        />,
+      );
+      await act(async () => {
+        jest.advanceTimersByTime(100);
+      });
+      expect(mockSwapTypeSwitchAction).not.toHaveBeenCalled();
+      view.unmount();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('still initializes the default type for an ordinary Stock modal', async () => {
+    jest.useFakeTimers();
+    try {
+      const view = render(
+        <SwapHeaderContainer
+          pageType={EPageType.modal}
+          defaultSwapType={ESwapTabSwitchType.STOCK}
+        />,
+      );
+      await act(async () => {
+        jest.advanceTimersByTime(100);
+      });
+      expect(mockSwapTypeSwitchAction).toHaveBeenCalledWith(
+        ESwapTabSwitchType.STOCK,
+        mockFromToken.networkId,
+      );
+      view.unmount();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it.each([true, false])(
     'forwards the Market store through the header (single: %s)',
     (singleSwapBridgeTab) => {

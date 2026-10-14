@@ -22,9 +22,18 @@ export type ITradingViewNativeIntervalStorageNamespace =
   | 'token';
 
 interface IStoredTradingViewNativeInterval {
-  interval: ITradingViewNativeChartInterval;
+  interval: string;
   timestamp: number;
   version: 1;
+}
+
+export function normalizeTradingViewStoredInterval(interval: string) {
+  const hourMatch = interval.match(/^(\d+)H$/);
+  const value = hourMatch ? String(Number(hourMatch[1]) * 60) : interval;
+  return (
+    getTradingViewNativeKLineInterval(value)?.value ??
+    (['3', '120', '480', '720', '3D'].includes(value) ? value : undefined)
+  );
 }
 
 function getStorageKey(namespace: ITradingViewNativeIntervalStorageNamespace) {
@@ -58,9 +67,9 @@ export function getTradingViewNativeIntervalStorageNamespace(
   return source.isNative || !source.tokenAddress.trim() ? 'native' : 'token';
 }
 
-export function readStoredTradingViewNativeActiveInterval(
+export function readStoredTradingViewActiveInterval(
   namespace: ITradingViewNativeIntervalStorageNamespace,
-): ITradingViewNativeChartInterval | undefined {
+): string | undefined {
   try {
     const storedIntervals = appStorage.syncStorage.getObject<
       Record<string, unknown>
@@ -73,10 +82,19 @@ export function readStoredTradingViewNativeActiveInterval(
     if (typeof interval !== 'string') {
       return undefined;
     }
-    return getTradingViewNativeKLineInterval(interval)?.value;
+    return normalizeTradingViewStoredInterval(interval);
   } catch {
     return undefined;
   }
+}
+
+export function readStoredTradingViewNativeActiveInterval(
+  namespace: ITradingViewNativeIntervalStorageNamespace,
+): ITradingViewNativeChartInterval | undefined {
+  const interval = readStoredTradingViewActiveInterval(namespace);
+  return interval
+    ? getTradingViewNativeKLineInterval(interval)?.value
+    : undefined;
 }
 
 export function readTradingViewNativeActiveInterval(
@@ -100,13 +118,31 @@ export async function saveTradingViewNativeActiveInterval({
     return;
   }
 
+  return saveTradingViewActiveInterval({
+    interval: supportedInterval.value,
+    namespace,
+  });
+}
+
+export async function saveTradingViewActiveInterval({
+  interval,
+  namespace,
+}: {
+  interval: string;
+  namespace: ITradingViewNativeIntervalStorageNamespace;
+}) {
+  const supportedInterval = normalizeTradingViewStoredInterval(interval);
+  if (!supportedInterval) {
+    return;
+  }
+
   try {
     const storageKey = getStorageKey(namespace);
     const storedIntervals =
       appStorage.syncStorage.getObject<Record<string, unknown>>(storageKey) ??
       {};
     const storedInterval: IStoredTradingViewNativeInterval = {
-      interval: supportedInterval.value,
+      interval: supportedInterval,
       timestamp: Date.now(),
       version: 1,
     };
