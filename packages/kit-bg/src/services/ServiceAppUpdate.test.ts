@@ -776,9 +776,7 @@ describe('ServiceAppUpdate state transitions', () => {
 
       expect(result.status).toBe(EAppUpdateStatus.notify);
       expect(result.downloadedEvent).toBeUndefined();
-      expect(
-        result.fullFlowRetryByTarget?.['recovery:1.0.0:2']?.count,
-      ).toBe(1);
+      expect(result.fullFlowRetryByTarget?.['recovery:1.0.0:2']?.count).toBe(1);
     });
   });
 

@@ -579,9 +579,18 @@ test('verifyBundleASC rejects invalid or replayed PGP signature before full zip 
 
 test('installBundle rolling back to a fallback entry does not delete the newly installed bundle directory when fallback queue shifts', async () => {
   const { extractDir: b1Dir } = prepareValidExtractedBundle('6.6.0', 'b1');
-  const b2Dir = getBundleExtractDir({ appVersion: '6.6.0', bundleVersion: 'b2' });
-  const b3Dir = getBundleExtractDir({ appVersion: '6.6.0', bundleVersion: 'b3' });
-  const b4Dir = getBundleExtractDir({ appVersion: '6.6.0', bundleVersion: 'b4' });
+  const b2Dir = getBundleExtractDir({
+    appVersion: '6.6.0',
+    bundleVersion: 'b2',
+  });
+  const b3Dir = getBundleExtractDir({
+    appVersion: '6.6.0',
+    bundleVersion: 'b3',
+  });
+  const b4Dir = getBundleExtractDir({
+    appVersion: '6.6.0',
+    bundleVersion: 'b4',
+  });
   fs.mkdirSync(b2Dir, { recursive: true });
   fs.mkdirSync(b3Dir, { recursive: true });
   fs.mkdirSync(b4Dir, { recursive: true });
