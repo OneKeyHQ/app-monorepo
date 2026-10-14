@@ -6,15 +6,17 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
+import { usePrimeFeatureAccess } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimeFeatureAccess';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
-import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EPrimeFreeTrialPendingActionType } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 
 export function BulkCopyAddressesButton({
   wallet,
@@ -42,6 +44,7 @@ export function BulkCopyAddressesButton({
     },
   );
   const isBulkCopyBlocked = isBotWallet && isBotWalletDeactivated;
+  const { ensureFeatureAccess } = usePrimeFeatureAccess();
 
   return (
     <ActionList.Item
@@ -68,14 +71,6 @@ export function BulkCopyAddressesButton({
             entryPoint,
             isPrimeActive,
           });
-          navigation?.pushModal(EModalRoutes.PrimeModal, {
-            screen: EPrimePages.PrimeDashboard,
-            params: {
-              fromFeature: EPrimeFeatures.BulkCopyAddresses,
-              networkId,
-            },
-          });
-          return;
         }
 
         const fallbackNetworkId = networkUtils.toNetworkIdFallback({
@@ -83,12 +78,41 @@ export function BulkCopyAddressesButton({
           allNetworkFallbackToBtc: true,
         });
 
-        if (
+        const isMockedHwWallet = Boolean(
           wallet?.isMocked &&
           accountUtils.isHwWallet({
             walletId: wallet?.id,
-          })
-        ) {
+          }),
+        );
+        const access = await ensureFeatureAccess({
+          featureId: EPrimeFeatures.BulkCopyAddresses,
+          networkId,
+          deferQuotaCheck: true,
+          // The wallet may be removed while the user logs in.
+          isContextValid: async () =>
+            !wallet?.id ||
+            Boolean(
+              await backgroundApiProxy.serviceAccount.getWalletSafe({
+                walletId: wallet.id,
+              }),
+            ),
+          extPopup: fallbackNetworkId
+            ? {
+                mode: 'pendingAction',
+                action: {
+                  type: EPrimeFreeTrialPendingActionType.BulkCopyAddresses,
+                  // Mocked hardware wallets export without a device.
+                  walletId: isMockedHwWallet ? '' : wallet?.id || '',
+                  networkId: fallbackNetworkId,
+                },
+              }
+            : undefined,
+        });
+        if (!access.granted) {
+          return;
+        }
+
+        if (isMockedHwWallet && wallet) {
           const device =
             await backgroundApiProxy.serviceAccount.getWalletDeviceSafe({
               dbWallet: wallet,
