@@ -61,6 +61,7 @@ export function EmailOTPDialog(props: {
           error,
         )}`,
         error,
+        { trigger: 'interactive' },
       );
       if (isMountedRef.current) {
         setCountdown(0);
@@ -96,6 +97,7 @@ export function EmailOTPDialog(props: {
           error,
         )}`,
         error,
+        { trigger: 'interactive' },
       );
       if (isMountedRef.current) {
         const retryAfterSeconds = getEmailOtpRateLimitRetryAfterSeconds(error);
@@ -147,6 +149,7 @@ export function EmailOTPDialog(props: {
           error,
         )}`,
         error,
+        { trigger: 'interactive' },
       );
       // Not every consume failure means the code was wrong — a transient
       // network failure or an expired OneKey ID login must not be rendered

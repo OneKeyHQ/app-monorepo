@@ -162,6 +162,7 @@ export class SupabaseStorage {
             `Supabase secure storage read failed: ${
               (error as Error | undefined)?.message ?? 'unknown'
             }`,
+            { cause: error },
           );
         }
       }
