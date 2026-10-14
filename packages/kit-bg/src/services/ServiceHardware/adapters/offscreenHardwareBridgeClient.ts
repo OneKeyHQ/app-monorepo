@@ -65,9 +65,9 @@ export class OffscreenHardwareBridgeClient implements IHardwareBridge {
     params: Parameters<IHardwareBridge['connect']>[0],
   ): Promise<ConnectorSession> {
     defaultLogger.hardware.sdkLog.log(
-      `[3rdPartyHW][Bridge] connect vendor=${params.vendor} deviceId=${
-        params.deviceId ?? ''
-      }`,
+      `[3rdPartyHW][Bridge] connect vendor=${params.vendor} hasDeviceId=${String(
+        Boolean(params.deviceId),
+      )}`,
     );
     await this.replayKnownCredentials(params.vendor);
     return offscreenApiProxy.thirdPartyHardware.connect(params);

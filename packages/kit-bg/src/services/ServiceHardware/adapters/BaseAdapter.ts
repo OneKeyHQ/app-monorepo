@@ -104,7 +104,9 @@ export abstract class BaseAdapter {
 
   cancel(connectId?: string): void {
     defaultLogger.hardware.sdkLog.log(
-      `[3rdPartyHW][${this.vendor}] cancel connectId=${connectId || '(empty)'}`,
+      `[3rdPartyHW][${this.vendor}] cancel hasConnectId=${String(
+        Boolean(connectId),
+      )}`,
     );
     // Targeted cancellation may refer to an ended or different operation.
     // Its SDK completion events own UI cleanup; only a cancel without a target
