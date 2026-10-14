@@ -1232,7 +1232,10 @@ const SwapHeaderRightActionContainer = ({
           buttonSize={resolvedButtonSize}
         />
       );
-    } else if (platformEnv.isNative) {
+    } else if (
+      platformEnv.isNative &&
+      (pageType !== EPageType.modal || focusSwapPro)
+    ) {
       kLineButton = (
         <MobileSwapKLineHeaderButton
           isPro={focusSwapPro}
