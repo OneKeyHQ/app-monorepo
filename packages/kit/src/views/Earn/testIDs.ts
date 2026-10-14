@@ -75,7 +75,6 @@ export const EarnTestIDs = {
 
   // Vault detail — Portfolio tab (phone layout)
   portfolioRedeemButton: 'earn-portfolio-redeem-button',
-  portfolioClaimButton: 'earn-portfolio-claim-button',
   portfolioRewardManageButton: 'earn-portfolio-reward-manage-button',
 
   // Protocol intro section
