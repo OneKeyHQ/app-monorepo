@@ -1,3 +1,6 @@
+import { getOneKeyIdAuthFailureLogLimiterStorage } from './oneKeyIdAuthFailureLogLimiterStorage';
+
+import type { IOneKeyIdAuthFailureLogLimiterStorage } from './oneKeyIdAuthFailureLogLimiterStorage';
 import type {
   IOneKeyIdAuthFailureServerParams,
   IOneKeyIdAuthFailureTrigger,
@@ -56,8 +59,6 @@ export const ONEKEY_ID_AUTH_FAILURE_LOG_LIMITS: IOneKeyIdAuthFailureLogLimits =
 
 export const ONEKEY_ID_AUTH_FAILURE_LOG_LIMITER_STORAGE_KEY =
   'onekey_id_auth_failure_log_limiter_v1';
-
-type IStorageLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 
 type ISignatureEntry = {
   payload: IOneKeyIdAuthFailureLogPayload;
@@ -135,18 +136,6 @@ function parseState(raw: string | null): ILimiterState {
   }
 }
 
-// Web storage survives a renderer reload (desktop, web, extension pages), so
-// a provider that fails on every mount does not report from scratch again.
-// Native runtimes and the extension service worker have none and keep the
-// state in memory for the life of the runtime.
-function getDefaultStorage(): IStorageLike | undefined {
-  try {
-    return globalThis.localStorage ?? undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 // Volatile tokens differ between occurrences of one failure (request ids,
 // local server ports, durations) and must not split its signature.
 function normalizeReasonForSignature(reason: string): string {
@@ -204,7 +193,7 @@ export class OneKeyIdAuthFailureLogLimiter {
     private readonly options: {
       limits?: IOneKeyIdAuthFailureLogLimits;
       // null disables persistence; undefined uses web storage when present.
-      storage?: IStorageLike | null;
+      storage?: IOneKeyIdAuthFailureLogLimiterStorage | null;
       now?: () => number;
     } = {},
   ) {}
@@ -223,11 +212,11 @@ export class OneKeyIdAuthFailureLogLimiter {
     return this.options.now?.() ?? Date.now();
   }
 
-  private getStorage(): IStorageLike | undefined {
+  private getStorage(): IOneKeyIdAuthFailureLogLimiterStorage | undefined {
     if (this.options.storage === null) {
       return undefined;
     }
-    return this.options.storage ?? getDefaultStorage();
+    return this.options.storage ?? getOneKeyIdAuthFailureLogLimiterStorage();
   }
 
   private getState(): ILimiterState {
