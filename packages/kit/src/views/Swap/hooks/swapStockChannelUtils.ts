@@ -438,6 +438,42 @@ function mergeStockExecutionMetadata({
   return isEqual(mergedStock, currentStock) ? currentStock : mergedStock;
 }
 
+export function shouldSyncStockExecutionTokenMetadata({
+  token,
+  tokenDetail,
+}: {
+  token?: ISwapToken;
+  tokenDetail?: ISwapToken;
+}) {
+  if (
+    !token ||
+    !tokenDetail ||
+    !equalTokenNoCaseSensitive({ token1: token, token2: tokenDetail })
+  ) {
+    return false;
+  }
+  if (
+    token.decimals !== tokenDetail.decimals ||
+    token.isNative !== (tokenDetail.isNative ?? token.isNative) ||
+    !token.isStock
+  ) {
+    return true;
+  }
+  return (
+    [
+      'stockId',
+      'subtitle',
+      'source',
+      'underlyingAssetTicker',
+      'underlyingAssetName',
+      'tokenToAssetRatio',
+    ] as const
+  ).some((key) => {
+    const value = tokenDetail.stock?.[key];
+    return !!value?.trim() && value !== token.stock?.[key];
+  });
+}
+
 export function resolveStockExecutionTokenMetadata({
   token,
   tokenDetail,
