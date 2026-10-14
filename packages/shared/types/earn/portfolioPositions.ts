@@ -75,6 +75,11 @@ export type IEarnPositionEffectiveDeposit = {
   fiatValue?: string;
   label: IEarnText;
   tooltip?: IEarnTooltip;
+  /**
+   * The user's own APY on the whole balance, with its breakdown behind the
+   * tooltip: the detail page's Effective APY cell, worded by the server.
+   */
+  apy?: { title: IEarnText; description?: IEarnText; tooltip?: IEarnTooltip };
 };
 
 /** The Earn detail page that Manage opens: this position's own page. */

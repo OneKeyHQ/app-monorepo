@@ -32,10 +32,8 @@ import { PortfolioPendingTxsProvider } from '../../../components/PortfolioTabCon
 import { EarnTestIDs } from '../../../testIDs';
 import { EarnHoldingSections } from '../../EarnPositions/mobile/EarnHoldingSections';
 
-import { pickHoldingInvestmentCells } from './holdingInvestmentCells.utils';
 import { TransactionLink } from './TransactionLink';
 
-import type { IHoldingInvestmentCell } from './holdingInvestmentCells.utils';
 import type { IEarnPositionView } from '../../EarnPositions/mobile/earnPositionModel';
 
 type IMobilePortfolio = NonNullable<IStakeEarnDetail['mobilePortfolio']>;
@@ -149,18 +147,14 @@ function PortfolioRow({
 
 /**
  * My investment over the holding's card (product 10-14): the balance and
- * the 24h earnings first, then the cells the server made for the phone
- * (Spark's Effective APY). The APY cell that repeated the headline is gone.
+ * the 24h earnings first, then Spark's Effective APY, which the positions
+ * carry on the effective deposit. The APY cell that repeated the headline
+ * is gone.
  */
-function HoldingInvestment({
-  holding,
-  cells,
-}: {
-  holding: IEarnPositionView;
-  cells: IHoldingInvestmentCell[];
-}) {
+function HoldingInvestment({ holding }: { holding: IEarnPositionView }) {
   const intl = useIntl();
   const currencyInfo = useCurrency();
+  const apy = holding.effectiveDeposit?.apy;
   const earnings24h = new BigNumber(
     holding.source.earn.investment.earnings24hFiatValue || '0',
   );
@@ -208,16 +202,14 @@ function HoldingInvestment({
             </NumberSizeableTextWrapper>
           }
         />
-        {cells.map((cell, index) => (
+        {apy ? (
           <GridItem
-            key={cell.title?.text || `cell-${index}`}
-            title={cell.title}
-            description={cell.description}
-            tooltip={cell.tooltip}
+            title={apy.title}
+            description={apy.description}
+            tooltip={apy.tooltip}
             tooltipTrigger="title"
-            type={cell.type}
           />
-        ))}
+        ) : null}
       </XStack>
     </YStack>
   );
@@ -301,15 +293,7 @@ export function PortfolioTab({
 
   return (
     <YStack gap="$6">
-      {holding ? (
-        <HoldingInvestment
-          holding={holding}
-          cells={pickHoldingInvestmentCells(
-            portfolio.summary?.items,
-            holding.effectiveDeposit?.label.text,
-          )}
-        />
-      ) : null}
+      {holding ? <HoldingInvestment holding={holding} /> : null}
       {!holding && portfolio.summary?.items?.length ? (
         <YStack gap="$2">
           <SizableText size="$headingMd" color="$text">
