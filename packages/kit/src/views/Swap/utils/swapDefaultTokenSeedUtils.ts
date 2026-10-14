@@ -19,7 +19,6 @@ import {
   isSwapSelectedTokensColdStartContextMatchedWithSelectedAccount,
   isSwapSelectedTokensColdStartOwnerMatchedWithSelectedAccountIgnoringDeriveType,
   shouldResetSelectedTokensForAllNetworkHome,
-  shouldWaitForSwapDefaultConfig,
 } from './swapColdStartTokenCacheUtils';
 
 import type { ISwapDefaultConfigStatus } from './swapColdStartTokenCacheUtils';
@@ -275,15 +274,7 @@ export function getSwapSelectedTokensHomeAccountSyncAction({
   | {
       type: 'clear';
     } {
-  if (
-    deferSelectedTokenSync ||
-    swapType === ESwapTabSwitchType.STOCK ||
-    shouldWaitForSwapDefaultConfig({
-      networkId: homeSelectedAccount?.networkId,
-      swapType,
-      defaultConfigStatus,
-    })
-  ) {
+  if (deferSelectedTokenSync || swapType === ESwapTabSwitchType.STOCK) {
     return { type: 'preserve' };
   }
 

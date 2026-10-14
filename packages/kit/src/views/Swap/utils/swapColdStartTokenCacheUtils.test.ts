@@ -207,7 +207,7 @@ describe('Swap default configuration readiness', () => {
     },
   );
 
-  it('defers Home default replacement until the default configuration settles', () => {
+  it('clears the previous Home owner while waiting for its default configuration', () => {
     const args = {
       homeSelectedAccount: buildSelectedAccount({
         indexedAccountId: 'new-home-account',
@@ -223,7 +223,7 @@ describe('Swap default configuration readiness', () => {
         ...args,
         defaultConfigStatus: 'pending',
       }),
-    ).toEqual({ type: 'preserve' });
+    ).toEqual({ type: 'clear' });
     expect(
       getSwapSelectedTokensHomeAccountSyncAction({
         ...args,
@@ -249,6 +249,34 @@ describe('Swap default configuration readiness', () => {
       }),
     });
   });
+
+  it.each([
+    { preserveSelectedTokens: true },
+    { deferSelectedTokenSync: true },
+    { swapType: ESwapTabSwitchType.STOCK },
+    {
+      swapSelectedAccount: buildSelectedAccount({
+        indexedAccountId: 'new-home-account',
+      }),
+    },
+  ])(
+    'preserves explicit input and unchanged owners while config is pending: %o',
+    (overrides) => {
+      expect(
+        getSwapSelectedTokensHomeAccountSyncAction({
+          homeSelectedAccount: buildSelectedAccount({
+            indexedAccountId: 'new-home-account',
+          }),
+          swapSelectedAccount: buildSelectedAccount(),
+          hasSelectedTokens: true,
+          initialSelectedTokensSynced: true,
+          swapType: ESwapTabSwitchType.SWAP,
+          defaultConfigStatus: 'pending',
+          ...overrides,
+        }),
+      ).toEqual({ type: 'preserve' });
+    },
+  );
 
   it.each(['pending', 'failed'] as const)(
     'does not reconcile a saved automatic seed with cached details when %s',

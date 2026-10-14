@@ -732,7 +732,8 @@ const SwapKLineHeaderButton = ({
   const [toToken] = useSwapSelectToTokenAtom();
   const isKLineDisabled =
     shouldRedirectOnboardingToTravelMode() || (!fromToken && !toToken);
-  const showKLineAsDialog = platformEnv.isExtension && !gtLg;
+  const showKLineAsDialog =
+    platformEnv.isNative || (platformEnv.isExtension && !gtLg);
   const kLineDialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
   const onSwapKLinePressIn = useCallback(() => {
     if (isKLineDisabled || shouldRedirectOnboardingToTravelMode()) {

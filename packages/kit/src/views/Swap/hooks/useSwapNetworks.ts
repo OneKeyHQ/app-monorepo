@@ -62,6 +62,7 @@ export function useSwapNetworks() {
             (isSwapNetworkCacheCompatible(cachedSwapNetworks) ||
               isSwapNetworkCacheReadyForBasicList(cachedSwapNetworks))
           ) {
+            swapNetworksRef.current = cachedSwapNetworks;
             setSwapNetworks(cachedSwapNetworks);
             setNetworkListFetching(false);
           } else if (!canUseSwapNetworkCacheAsSortSource(cachedSwapNetworks)) {
@@ -78,6 +79,12 @@ export function useSwapNetworks() {
           await backgroundApiProxy.serviceSwap.fetchSwapNetworks({
             refreshClientNetworks: true,
           });
+        if (!fetchNetworks.length) {
+          // An empty result cannot replace the selector cache or validate its defaults.
+          defaultConfigStatusRef.current = 'failed';
+          setDefaultConfigStatus('failed');
+          return;
+        }
         const networks = mergeSwapNetworksWithCachedSort({
           cachedNetworks: swapNetworksSortList?.data,
           fetchedNetworks: fetchNetworks,

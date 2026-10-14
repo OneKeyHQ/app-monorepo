@@ -35,6 +35,7 @@ import {
   shouldResetStockTradeReceiveAmount,
   shouldResetStockTradeSideForMarketEntry,
   shouldSyncControlledStockTokenMetadata,
+  shouldSyncStockExecutionTokenMetadata,
   upsertSwapStockPayTokenScopeCache,
 } from './swapStockChannelUtils';
 
@@ -537,6 +538,72 @@ describe('swapStockChannelUtils', () => {
         },
       }),
     ).toBeUndefined();
+  });
+
+  it('ignores market status polling changes without losing execution metadata updates', () => {
+    const token = {
+      ...appleStockToken,
+      stock: { stockId: 'AAPL', subtitle: 'Apple', sourceLogoUri: '' },
+    };
+    const tokenDetail = {
+      ...token,
+      stock: {
+        ...token.stock,
+        isOpen: false,
+        description: 'opens soon',
+        nextOpenMinutes: 42,
+        isPaused: true,
+        pausedUpdatedAt: '2026-10-14T08:00:00Z',
+        priceUpdatedAt: '2026-10-14T08:00:00Z',
+      },
+    };
+    expect(shouldSyncStockExecutionTokenMetadata({ token, tokenDetail })).toBe(
+      false,
+    );
+    expect(
+      shouldSyncStockExecutionTokenMetadata({
+        token,
+        tokenDetail: { ...tokenDetail, decimals: 6 },
+      }),
+    ).toBe(true);
+    expect(
+      shouldSyncStockExecutionTokenMetadata({
+        token,
+        tokenDetail: {
+          ...tokenDetail,
+          contractAddress: micronStockToken.contractAddress,
+        },
+      }),
+    ).toBe(false);
+  });
+
+  it.each([
+    'stockId',
+    'subtitle',
+    'source',
+    'underlyingAssetTicker',
+    'underlyingAssetName',
+    'tokenToAssetRatio',
+  ] as const)('syncs new Stock execution metadata for %s', (field) => {
+    const token = {
+      ...appleStockToken,
+      stock: { subtitle: 'Apple', sourceLogoUri: '' },
+    };
+    expect(
+      shouldSyncStockExecutionTokenMetadata({
+        token,
+        tokenDetail: {
+          ...token,
+          stock: { ...token.stock, [field]: 'changed' },
+        },
+      }),
+    ).toBe(true);
+    expect(
+      shouldSyncStockExecutionTokenMetadata({
+        token,
+        tokenDetail: { ...token, stock: { ...token.stock, [field]: ' ' } },
+      }),
+    ).toBe(false);
   });
 
   it('backfills incomplete Stock metadata from an identity-matched token detail', () => {

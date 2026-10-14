@@ -4,6 +4,8 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
+import { buildSwapDefaultSelectedTokensForNetwork } from '../utils/swapColdStartTokenCacheUtils';
+
 import { useSwapNetworks } from './useSwapNetworks';
 
 import type { ISwapDefaultConfigStatus } from '../utils/swapColdStartTokenCacheUtils';
@@ -120,10 +122,7 @@ describe('useSwapNetworks configuration lifecycle', () => {
     expect(result.current.defaultConfigStatusRef.current).toBe('pending');
   });
 
-  it.each([
-    { label: 'configured pair', networks: [freshNetwork] },
-    { label: 'empty response', networks: [] },
-  ])(
+  it.each([{ label: 'configured pair', networks: [freshNetwork] }])(
     'uses the fresh $label without restoring old backend defaults',
     async ({ networks }) => {
       const request = deferred<ISwapNetwork[]>();
@@ -143,6 +142,45 @@ describe('useSwapNetworks configuration lifecycle', () => {
       expect(mockFetchNetworks).toHaveBeenCalledTimes(1);
     },
   );
+
+  it('retains usable selector cache after an immediately empty response without accepting its default pair', async () => {
+    mockFetchNetworks.mockResolvedValue([]);
+    const { result } = renderHook(useSwapNetworks);
+    await waitFor(() =>
+      expect(result.current.defaultConfigStatus).toBe('failed'),
+    );
+    expect(result.current.swapNetworks).toEqual([cachedNetwork]);
+    expect(result.current.swapNetworksRef.current).toEqual([cachedNetwork]);
+    expect(result.current.networkListFetching).toBe(false);
+    expect(mockSetNetworkCache).not.toHaveBeenCalled();
+    const defaults = buildSwapDefaultSelectedTokensForNetwork({
+      networkId: 'evm--1',
+      swapNetworks: result.current.swapNetworks,
+      defaultConfigStatus: result.current.defaultConfigStatus,
+    });
+    expect(defaults?.fromToken?.symbol).toBe('ETH');
+    expect(defaults?.toToken?.symbol).toBe('USDC');
+  });
+
+  it('does not restore removed networks or old support flags from a nonempty fresh response', async () => {
+    mockGetNetworkCache.mockResolvedValue({
+      data: [
+        cachedNetwork,
+        {
+          ...cachedNetwork,
+          networkId: 'evm--56',
+          defaultSelectTokenDetail: undefined,
+        },
+      ],
+    });
+    const disabledNetwork = { ...freshNetwork, supportSingleSwap: false };
+    mockFetchNetworks.mockResolvedValue([disabledNetwork]);
+    const { result } = renderHook(useSwapNetworks);
+    await waitFor(() =>
+      expect(result.current.defaultConfigStatus).toBe('success'),
+    );
+    expect(result.current.swapNetworks).toEqual([disabledNetwork]);
+  });
 
   it('releases local fallback after transport failure while retaining the usable selector cache', async () => {
     const request = deferred<ISwapNetwork[]>();
@@ -169,7 +207,8 @@ describe('useSwapNetworks configuration lifecycle', () => {
     const { result } = renderHook(useSwapNetworks);
     await waitFor(() => expect(mockFetchNetworks).toHaveBeenCalledTimes(1));
     await act(async () => request.resolve([]));
-    expect(result.current.swapNetworks).toEqual([]);
+    expect(result.current.swapNetworks).toEqual([cachedNetwork]);
+    expect(result.current.defaultConfigStatus).toBe('failed');
 
     const refreshes: Promise<void>[] = [];
     act(() => {
@@ -177,8 +216,8 @@ describe('useSwapNetworks configuration lifecycle', () => {
     });
     await waitFor(() => expect(mockFetchNetworks).toHaveBeenCalledTimes(2));
 
-    expect(result.current.swapNetworks).toEqual([]);
-    expect(result.current.defaultConfigStatus).toBe('success');
+    expect(result.current.swapNetworks).toEqual([cachedNetwork]);
+    expect(result.current.defaultConfigStatus).toBe('failed');
 
     await act(async () => {
       refreshRequest.resolve([freshNetwork]);

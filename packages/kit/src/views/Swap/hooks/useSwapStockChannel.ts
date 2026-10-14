@@ -58,6 +58,7 @@ import {
   shouldResetStockTradeReceiveAmount,
   shouldResetStockTradeSideForMarketEntry,
   shouldSyncControlledStockTokenMetadata,
+  shouldSyncStockExecutionTokenMetadata,
 } from './swapStockChannelUtils';
 import {
   getSwapColdStartDisplayTokensFromGlobalSnapshot,
@@ -496,21 +497,28 @@ export function useSwapStockChannel(
 
   useEffect(() => {
     const detail = stockTokenDetail;
-    // Detail is authoritative after a locale change; keep the selected token
-    // and its execution snapshot aligned with the current-language metadata.
+    // Market status remains live in detail. Only execution metadata advances the quote scope.
     if (currentStockToken && detail?.stock) {
-      syncStockTokenDetail({
+      const currentToken = stockTokenSnapshotRef.current ?? currentStockToken;
+      const tokenDetail: ISwapToken = {
         ...currentStockToken,
         networkId: detail.networkId ?? currentStockToken.networkId,
         contractAddress: detail.address,
         decimals: isMarketTokenDecimalsReady(detail)
           ? detail.decimals
-          : (stockTokenSnapshotRef.current?.decimals ??
-            currentStockToken.decimals),
+          : currentToken.decimals,
         isNative: detail.isNative ?? currentStockToken.isNative,
         isStock: true,
         stock: detail.stock,
-      });
+      };
+      if (
+        shouldSyncStockExecutionTokenMetadata({
+          token: currentToken,
+          tokenDetail,
+        })
+      ) {
+        syncStockTokenDetail(tokenDetail);
+      }
     }
   }, [currentStockToken, stockTokenDetail, syncStockTokenDetail]);
 
