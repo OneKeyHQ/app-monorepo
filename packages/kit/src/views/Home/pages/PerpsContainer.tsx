@@ -1059,6 +1059,8 @@ function PerpsHeaderActions({
   );
 }
 
+// The zero total goes through PerpsTotalUsd so it follows the selected display
+// currency like the ready state does, instead of a hard-coded "$0.00" (OK-64029).
 function PerpsEmptyState({
   canDeposit,
   isDepositDisabled,
@@ -1079,13 +1081,12 @@ function PerpsEmptyState({
             <SizableText size="$headingXl" color="$textSubdued">
               ·
             </SizableText>
-            <SizableText
+            <PerpsTotalUsd
+              value={0}
               size="$headingXl"
               color="$textSubdued"
               numberOfLines={1}
-            >
-              $0.00
-            </SizableText>
+            />
           </XStack>
           <PerpsDepositButton
             testID={HomeTestIDs.perpsDepositButton}
@@ -1100,7 +1101,9 @@ function PerpsEmptyState({
           title={intl.formatMessage({
             id: ETranslations.perp_account_panel_account_value,
           })}
-          subTitle="$0.00"
+          subTitle={
+            <PerpsTotalUsd value={0} size="$headingXl" color="$textSubdued" />
+          }
           headerContainerProps={{ px: 0, pb: 0 }}
           headerActions={
             <PerpsHeaderActions

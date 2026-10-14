@@ -137,7 +137,10 @@ import {
   assertTransferSize,
   getTransferMessageLimit,
 } from './e2ee/transferSize';
-import { PrimeTransferPreparation } from './PrimeTransferPreparation';
+import {
+  PRIME_TRANSFER_DEFAULT_PAYLOAD_STAGES,
+  PrimeTransferPreparation,
+} from './PrimeTransferPreparation';
 import {
   collectAndPruneUnavailableTransferCredentials,
   filterTransferWallets,
@@ -2372,6 +2375,14 @@ class ServicePrimeTransfer extends ServiceBase {
         proxy.api.finishChunkedTransfer({ transferId: task.transferId }),
       );
       this.assertNetworkTask(task);
+      // Acknowledged chunks are not a finished send; the receiver accepts the
+      // reassembled payload only when finishChunkedTransfer succeeds.
+      this.publishNetworkProgress(task, {
+        ...manifest,
+        direction: 'sending',
+        transferredBytes: manifest.totalBytes,
+        completed: true,
+      });
     } catch (error) {
       // Reset the flow while its preparation owner still exists. The network
       // finally block clears that owner, so a later task-scoped UI cancel is
@@ -2570,7 +2581,7 @@ class ServicePrimeTransfer extends ServiceBase {
 
     let sendResult: unknown;
     try {
-      this.getPreparationTask(preparationTaskId);
+      await this.getPreparationTask(preparationTaskId)?.update('decrypting');
       // BotWallet -> CLI export is intentionally Transfer-only. The encrypted
       // credential payload must be embedded in Prime Transfer data and sent
       // through the paired E2EE channel, not shown as Base64/QR/manual input.
@@ -2658,6 +2669,11 @@ class ServicePrimeTransfer extends ServiceBase {
         if (!walletId) {
           throw new OneKeyLocalError('Bot wallet transfer data is invalid');
         }
+        preparation?.setPayloadStages([
+          'decrypting',
+          'serializing',
+          'encrypting',
+        ]);
         return this.sendCliBotWalletEncryptedCredentialTransferData({
           transferData,
           walletId,
@@ -2674,6 +2690,17 @@ class ServicePrimeTransfer extends ServiceBase {
       // to decrypt. An empty/invalid peer appVersion means the room contains
       // an ancient or forged client we should not send credentials to.
       const peerSupportsV2 = await this.resolvePeerSupportsV2Envelope();
+      preparation?.setPayloadStages(
+        peerSupportsV2
+          ? PRIME_TRANSFER_DEFAULT_PAYLOAD_STAGES
+          : [
+              'decrypting',
+              'wrappingCredentials',
+              'legacyCredentials',
+              'serializing',
+              'encrypting',
+            ],
+      );
 
       await this.decryptTransferDataCredentials({
         data: transferData,
@@ -2695,6 +2722,7 @@ class ServicePrimeTransfer extends ServiceBase {
           format: peerSupportsV2 ? 'v2' : 'legacy',
           ...appCrypto.pbkdf2.getPbkdf2KdfParamsForNonDbTx(),
         });
+      await preparation?.update('wrappingCredentials');
       if (!peerSupportsV2) {
         // Overwrite the raw credential field with legacy-format ciphertext so
         // pre-6.4.0 receivers (which never read decryptedCredentialsHex) can
@@ -2707,6 +2735,8 @@ class ServicePrimeTransfer extends ServiceBase {
           });
       }
       transferData.privateData.decryptedCredentials = undefined;
+    } else {
+      preparation?.setPayloadStages(['serializing', 'encrypting']);
     }
 
     return this.sendPreparedTransferData({
