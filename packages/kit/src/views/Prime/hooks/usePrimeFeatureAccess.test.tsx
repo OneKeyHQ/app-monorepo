@@ -730,7 +730,6 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
       await expect(
         result.current.ensureFeatureAccess({
           featureId: EPrimeFeatures.BulkSend,
-          deferQuotaCheck: true,
         }),
       ).resolves.toEqual({ granted: false });
     });
@@ -750,7 +749,6 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
       await expect(
         result.current.ensureFeatureAccess({
           featureId: EPrimeFeatures.BulkSend,
-          deferQuotaCheck: true,
         }),
       ).resolves.toEqual({ granted: true, entitlementSource: 'freeTrial' });
     });
@@ -777,14 +775,14 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
   });
 
   it('opens the dashboard on entry for a logged-in user when the feature is not open', async () => {
-    // Only address risk check is open: bulk send has no free trial.
-    setSnapshot(quotaWith(2, EPrimeFeatures.AddressRiskCheck));
+    // Only bulk send is open: address risk check has no free trial.
+    setSnapshot(quotaWith(2, EPrimeFeatures.BulkSend));
     const result = renderAccessHook();
 
     await act(async () => {
       await expect(
         result.current.ensureFeatureAccess({
-          featureId: EPrimeFeatures.BulkSend,
+          featureId: EPrimeFeatures.AddressRiskCheck,
           deferQuotaCheck: true,
         }),
       ).resolves.toEqual({ granted: false });
@@ -802,7 +800,7 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
     await act(async () => {
       await expect(
         result.current.ensureFeatureAccess({
-          featureId: EPrimeFeatures.BulkSend,
+          featureId: EPrimeFeatures.AddressRiskCheck,
           deferQuotaCheck: true,
         }),
       ).resolves.toEqual({ granted: true, entitlementSource: 'freeTrial' });

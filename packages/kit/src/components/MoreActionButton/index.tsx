@@ -1251,7 +1251,6 @@ const MoreActionWalletGrid = () => {
     const access = await ensureFeatureAccess({
       featureId: EPrimeFeatures.BulkCopyAddresses,
       networkId: network?.id,
-      deferQuotaCheck: true,
       isContextValid: isSameActiveContext({
         walletId: wallet?.id,
         networkId: network?.id,
@@ -1289,7 +1288,6 @@ const MoreActionWalletGrid = () => {
       const access = await ensureFeatureAccess({
         featureId: EPrimeFeatures.BulkSend,
         networkId: network?.id,
-        deferQuotaCheck: true,
         // Bulk send opens with this account as the sender.
         isContextValid: isSameActiveContext({
           walletId: wallet?.id,

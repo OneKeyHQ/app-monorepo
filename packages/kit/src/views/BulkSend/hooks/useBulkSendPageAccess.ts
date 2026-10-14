@@ -77,7 +77,6 @@ export function useBulkSendPageAccess({
       await ensureFeatureAccess({
         featureId: EPrimeFeatures.BulkSend,
         networkId,
-        deferQuotaCheck: true,
         isContextValid: () => !isUnmountedRef.current,
         onDenied: async () => {
           if (isUnmountedRef.current) {

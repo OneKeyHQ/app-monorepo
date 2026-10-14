@@ -461,10 +461,10 @@ export function usePrimeFeatureAccess() {
    * - Logged out: open trial -> log in, then continue; not open -> dashboard.
    * - Logged-in free user: exhausted / not open -> the dashboard and a toast,
    *   else granted.
-   *   With `deferQuotaCheck` (feature entries) a feature without a free
-   *   trial opens the dashboard, and a tool whose local snapshot is used up
-   *   gets the full check (address risk check still lets the user in for its
-   *   history); otherwise the user is let in and the submit decides.
+   *   Translate gets the toast only and never leaves the page.
+   *   With `deferQuotaCheck` (entries of a feature with history to read,
+   *   i.e. address risk check) a feature without a free trial opens the
+   *   dashboard, and a used-up user is still let in; the submit decides.
    */
   const ensureFeatureAccess = useCallback(
     async ({
@@ -481,9 +481,11 @@ export function usePrimeFeatureAccess() {
       // false when the caller already shows its own loading, e.g. on the
       // pressed button that stays on screen.
       showLoading?: boolean;
-      // Feature entries: only log in here and let a logged-in free user in
-      // whatever the quota; the submit (start, the metered API or a check on
-      // the page's first step) shows the exhausted / not open feedback.
+      // Entries of a feature whose page has history to read even when used
+      // up (address risk check): log in here and let a logged-in free user
+      // in whatever the quota (not open still goes to the dashboard); the
+      // submit shows the used-up feedback. Other entries leave it off and
+      // are stopped right here.
       deferQuotaCheck?: boolean;
       // Re-checked before granting after any async step (login, background
       // checks, quota refresh); false drops the continuation.
@@ -605,10 +607,7 @@ export function usePrimeFeatureAccess() {
       }
       if (deferQuotaCheck) {
         // A feature without a free trial goes to the dashboard, the same as
-        // for a logged-out user. Used up: only address risk check lets the
-        // user in (its history stays readable); the other tools fall through
-        // to the full check below, which refreshes the quota first so a
-        // stale snapshot (e.g. a new month) does not block them.
+        // for a logged-out user; used up still lets the user in.
         const localUser =
           await backgroundApiProxy.servicePrime.getLocalUserInfo();
         const cachedAccess = resolvePrimeFreeTrialAccess({
@@ -631,15 +630,10 @@ export function usePrimeFeatureAccess() {
           });
           return { granted: false };
         }
-        if (
-          cachedAccess.status !== 'exhausted' ||
-          featureId === EPrimeFeatures.AddressRiskCheck
-        ) {
-          return grantIfContextValid({
-            granted: true,
-            entitlementSource: 'freeTrial',
-          });
-        }
+        return grantIfContextValid({
+          granted: true,
+          entitlementSource: 'freeTrial',
+        });
       }
 
       // Fast path for a user who was already logged in: a snapshot that
