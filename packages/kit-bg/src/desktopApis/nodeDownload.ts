@@ -223,6 +223,30 @@ async function probeWithRetry(opts: INodeDownloadOptions) {
   throw new OneKeyLocalError('Range probe retry exhausted');
 }
 
+function isStrongEtag(etag: string | null | undefined): etag is string {
+  return Boolean(
+    etag && !etag.trim().startsWith('W/') && !etag.trim().startsWith('w/'),
+  );
+}
+
+function isRetryableFsError(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException | undefined)?.code;
+  return code === 'EPERM' || code === 'EACCES' || code === 'EBUSY';
+}
+
+function renameWithRetrySync(fromPath: string, toPath: string): void {
+  for (let attempt = 0; attempt <= 3; attempt += 1) {
+    try {
+      fs.renameSync(fromPath, toPath);
+      return;
+    } catch (error) {
+      if (!isRetryableFsError(error) || attempt === 3) {
+        throw error;
+      }
+    }
+  }
+}
+
 function checksumKey(opts: INodeDownloadOptions): string {
   return `${opts.expectedSha512 ?? ''}:${opts.expectedSha256 ?? ''}`;
 }
@@ -248,9 +272,12 @@ async function verify(
           cancelled(opts.signal);
           hash.update(chunk);
         }
-      } catch {
+      } catch (error) {
         cancelled(opts.signal);
-        return false;
+        if ((error as NodeJS.ErrnoException | undefined)?.code === 'ENOENT') {
+          return false;
+        }
+        throw error;
       } finally {
         opts.signal?.removeEventListener('abort', onAbort);
         stream.destroy();
@@ -278,9 +305,15 @@ function saveManifest(
   fd?: number,
 ): void {
   if (fd !== undefined) fs.fsyncSync(fd);
-  const temp = `${manifestPath}.tmp`;
-  fs.writeFileSync(temp, JSON.stringify(manifest));
-  fs.renameSync(temp, manifestPath);
+  const tempPath = `${manifestPath}.tmp`;
+  fs.writeFileSync(tempPath, JSON.stringify(manifest));
+  try {
+    renameWithRetrySync(tempPath, manifestPath);
+  } catch (error) {
+    if (!isRetryableFsError(error)) throw error;
+    fs.copyFileSync(tempPath, manifestPath);
+    fs.rmSync(tempPath, { force: true });
+  }
 }
 
 function readManifest(
@@ -297,17 +330,15 @@ function readManifest(
       fs.readFileSync(manifestPath, 'utf8'),
     ) as IManifest;
     const matching =
-      manifest.identity === opts.identity &&
-      manifest.url === opts.url &&
+      (opts.identity
+        ? manifest.identity === opts.identity
+        : manifest.url === opts.url) &&
       manifest.size === size &&
-      manifest.etag === etag &&
+      manifest.etag === (etag ?? manifest.etag) &&
       manifest.checksum === checksumKey(opts) &&
       manifest.mode === mode &&
       Array.isArray(manifest.parts);
     if (!matching) return null;
-    const stat = fs.statSync(partial);
-    if (mode === 'parallel' && stat.size !== size) return null;
-    if (mode === 'single' && stat.size !== manifest.parts[0]?.done) return null;
     if (
       manifest.parts.some(
         (p) =>
@@ -321,6 +352,17 @@ function readManifest(
       )
     )
       return null;
+    const stat = fs.statSync(partial);
+    if (mode === 'parallel' && stat.size !== size) return null;
+    if (mode === 'single') {
+      if (manifest.parts.length !== 1) return null;
+      const done = manifest.parts[0]?.done ?? 0;
+      if (stat.size < done) return null;
+      if (stat.size > done) fs.truncateSync(partial, done);
+    }
+    if (manifest.url !== opts.url) {
+      manifest.url = opts.url;
+    }
     return manifest;
   } catch {
     return null;
@@ -408,7 +450,7 @@ async function downloadPart(
       const headers = {
         ...opts.headers,
         Range: `bytes=${start}-${part.end}`,
-        ...(manifest.etag ? { 'If-Range': manifest.etag } : {}),
+        ...(isStrongEtag(manifest.etag) ? { 'If-Range': manifest.etag } : {}),
       };
       // A cross-origin probe redirect must not forward source credentials.
       const safeHeaders =
@@ -465,7 +507,11 @@ async function downloadPart(
       if (part.done === part.end - part.start + 1) return;
       throw new OneKeyLocalError('Range body incomplete');
     } catch (error) {
-      flush();
+      try {
+        flush();
+      } catch {
+        /* ignore manifest flush errors during unwind */
+      }
       if (
         error instanceof RangeFallback ||
         opts.signal?.aborted ||
@@ -574,7 +620,7 @@ async function single(
   const headers = {
     ...opts.headers,
     ...(offset ? { Range: `bytes=${offset}-` } : {}),
-    ...(offset && etag ? { 'If-Range': etag } : {}),
+    ...(offset && isStrongEtag(etag) ? { 'If-Range': etag } : {}),
   };
   const { response } = await get(
     opts.url,
@@ -621,6 +667,7 @@ async function single(
     throw new OneKeyLocalError('Download size mismatch or limit exceeded');
   }
   const fd = fs.openSync(partial, 'r+');
+  const flush = () => saveManifest(manifestPath, manifest, fd);
   let sinceFlush = 0;
   try {
     emit(opts, manifest, 0);
@@ -638,18 +685,22 @@ async function single(
       sinceFlush += bytes.length;
       emit(opts, manifest, bytes.length);
       if (sinceFlush >= FLUSH_BYTES) {
-        saveManifest(manifestPath, manifest, fd);
+        flush();
         sinceFlush = 0;
       }
     }
-    saveManifest(manifestPath, manifest, fd);
+    flush();
     if (manifest.size && part.done !== manifest.size)
       throw new OneKeyLocalError('Download incomplete');
     if (opts.expectedBytes && part.done !== opts.expectedBytes)
       throw new OneKeyLocalError('Download size mismatch');
     return part.done;
   } finally {
-    saveManifest(manifestPath, manifest, fd);
+    try {
+      flush();
+    } catch {
+      /* ignore manifest flush errors during unwind */
+    }
     fs.closeSync(fd);
   }
 }
@@ -823,7 +874,7 @@ export async function downloadNodeFile(
     throw new OneKeyLocalError('Downloaded file checksum mismatch');
   }
   cancelled(opts.signal);
-  fs.renameSync(partial, opts.targetPath);
+  renameWithRetrySync(partial, opts.targetPath);
   fs.rmSync(manifestPath, { force: true });
   return { filePath: opts.targetPath, totalBytes: size };
 }

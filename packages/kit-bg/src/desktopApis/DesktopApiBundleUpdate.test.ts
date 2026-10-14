@@ -16,6 +16,8 @@ import { UNRECOVERABLE_DOWNLOAD_ERROR_CODES } from '@onekeyhq/kit/src/components
 // the test must pin the actual classifier the downloader runs).
 import { USERDATA, makeApi } from './__e2e__/desktopBundleUpdateE2eHarness';
 import {
+  MAX_BUNDLE_ENTRY_COUNT,
+  MAX_BUNDLE_UNCOMPRESSED_BYTES,
   classifyHttpStatus,
   computeBackoffMs,
   contentRangeStart,
@@ -1542,5 +1544,12 @@ describe('DesktopApiBundleUpdate §5.6 resume restart decisions', () => {
     expect(shouldRestart).toBe(true);
     if (shouldRestart) downloadedBytes = 0;
     expect(downloadedBytes > 0 ? 'a' : 'w').toBe('w');
+  });
+});
+
+describe('DesktopApiBundleUpdate zip bomb quota constants', () => {
+  test('matches Android 512 MiB uncompressed byte quota and 4096 entry limit', () => {
+    expect(MAX_BUNDLE_UNCOMPRESSED_BYTES).toBe(512 * 1024 * 1024);
+    expect(MAX_BUNDLE_ENTRY_COUNT).toBe(4096);
   });
 });

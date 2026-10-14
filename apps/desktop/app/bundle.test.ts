@@ -43,12 +43,17 @@ jest.mock('./libs/store', () => ({
   setFallbackUpdateBundleData: jest.fn(),
 }));
 
+import * as openpgp from 'openpgp';
+
 import {
-  getBundleIndexHtmlPath,
+  TEST_SIGNATURE,
   calculateSHA256,
   checkFileSha512,
+  getBundleIndexHtmlPath,
   lastSHA256FailureReason,
+  readMetadataFileSha256,
   testExtractedSha256FromVerifyAscFile,
+  verifyMetadataFileSha256,
   verifySha256,
 } from './bundle';
 import { clearUpdateBundleData } from './libs/store';
@@ -215,6 +220,92 @@ describe('testExtractedSha256FromVerifyAscFile', () => {
   test('verifies embedded test GPG signature returns correct SHA256', async () => {
     const result = await testExtractedSha256FromVerifyAscFile();
     expect(result).toBe(true);
+  });
+
+  test('accepts matching appVersion and bundleVersion in signed PGP payload', async () => {
+    await expect(
+      readMetadataFileSha256(TEST_SIGNATURE, {
+        appVersion: '6.1.0',
+        bundleVersion: '7701116',
+      }),
+    ).resolves.toBe(
+      'bf3734ac6e59388fe23c40ce2960b6fd197c596af05dd08b3ccc8b201b78c52b',
+    );
+  });
+
+  test('rejects replayed signature with mismatched appVersion', async () => {
+    await expect(
+      readMetadataFileSha256(TEST_SIGNATURE, {
+        appVersion: '6.2.0',
+        bundleVersion: '7701116',
+      }),
+    ).rejects.toThrow('Signed metadata appVersion mismatch');
+  });
+
+  test('rejects replayed signature with mismatched bundleVersion', async () => {
+    await expect(
+      readMetadataFileSha256(TEST_SIGNATURE, {
+        appVersion: '6.1.0',
+        bundleVersion: '9999999',
+      }),
+    ).rejects.toThrow('Signed metadata bundleVersion mismatch');
+  });
+
+  test('verifyMetadataFileSha256 rejects replayed signature for different appVersion or bundleVersion', async () => {
+    await expect(
+      verifyMetadataFileSha256({
+        appVersion: '6.2.0',
+        bundleVersion: '7701116',
+        signature: TEST_SIGNATURE,
+      }),
+    ).rejects.toThrow('Signed metadata appVersion mismatch');
+
+    await expect(
+      verifyMetadataFileSha256({
+        appVersion: '6.1.0',
+        bundleVersion: '9999999',
+        signature: TEST_SIGNATURE,
+      }),
+    ).rejects.toThrow('Signed metadata bundleVersion mismatch');
+  });
+
+  test('rejects invalid signed fileName or appType', async () => {
+    const readSpy = jest.spyOn(openpgp, 'readCleartextMessage');
+    try {
+      readSpy.mockResolvedValueOnce({
+        verify: async () => [{ verified: Promise.resolve(true) }],
+        getText: () =>
+          JSON.stringify({
+            fileName: 'evil.json',
+            sha256:
+              'bf3734ac6e59388fe23c40ce2960b6fd197c596af05dd08b3ccc8b201b78c52b',
+            appVersion: '6.1.0',
+            bundleVersion: '7701116',
+            appType: 'electron',
+          }),
+      } as unknown as openpgp.CleartextMessage);
+      await expect(readMetadataFileSha256('signed-msg')).rejects.toThrow(
+        'Invalid signed metadata fileName',
+      );
+
+      readSpy.mockResolvedValueOnce({
+        verify: async () => [{ verified: Promise.resolve(true) }],
+        getText: () =>
+          JSON.stringify({
+            fileName: 'metadata.json',
+            sha256:
+              'bf3734ac6e59388fe23c40ce2960b6fd197c596af05dd08b3ccc8b201b78c52b',
+            appVersion: '6.1.0',
+            bundleVersion: '7701116',
+            appType: 'android',
+          }),
+      } as unknown as openpgp.CleartextMessage);
+      await expect(readMetadataFileSha256('signed-msg')).rejects.toThrow(
+        'Invalid signed metadata appType',
+      );
+    } finally {
+      readSpy.mockRestore();
+    }
   });
 });
 

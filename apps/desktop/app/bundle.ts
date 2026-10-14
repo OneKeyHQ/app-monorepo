@@ -18,7 +18,17 @@ import {
   getNativeVersion,
 } from './libs/store';
 
-const readMetadataFileSha256 = async (signature: string) => {
+export const readMetadataFileSha256 = async (
+  signature: string,
+  expected?: { appVersion?: string; bundleVersion?: string },
+) => {
+  let json: {
+    fileName?: unknown;
+    sha256?: unknown;
+    appVersion?: unknown;
+    bundleVersion?: unknown;
+    appType?: unknown;
+  };
   try {
     const ascFileMessage = signature;
     if (!ascFileMessage) {
@@ -34,19 +44,14 @@ const readMetadataFileSha256 = async (signature: string) => {
     // Get result (validity of the signature)
     const valid = await result[0].verified;
     logger.info('auto-updater', `file valid: ${String(valid)}`);
-    if (valid) {
-      const text = signedMessage.getText();
-      logger.info('auto-updater', `text: ${text}`);
-      const json = JSON.parse(text) as {
-        sha256: string;
-      };
-      const sha256 = json.sha256;
-      logger.info('auto-updater', `getSha256 from asc file: ${sha256}`);
-      return sha256;
+    if (!valid) {
+      throw new OneKeyLocalError(
+        ElectronTranslations.update_signature_verification_failed_alert_text,
+      );
     }
-    throw new OneKeyLocalError(
-      ElectronTranslations.update_signature_verification_failed_alert_text,
-    );
+    const text = signedMessage.getText();
+    logger.info('auto-updater', `text: ${text}`);
+    json = JSON.parse(text) as typeof json;
   } catch (error) {
     logger.error(
       'auto-updater',
@@ -55,7 +60,7 @@ const readMetadataFileSha256 = async (signature: string) => {
     );
     const { message } = error as { message: string };
 
-    const lowerCaseMessage = message.toLowerCase();
+    const lowerCaseMessage = (message ?? '').toLowerCase();
     const isInValid =
       lowerCaseMessage.includes('signed digest did not match') ||
       lowerCaseMessage.includes('misformed armored text') ||
@@ -66,6 +71,33 @@ const readMetadataFileSha256 = async (signature: string) => {
         : ElectronTranslations.update_installation_package_possibly_compromised,
     );
   }
+
+  if (typeof json?.sha256 !== 'string' || !json.sha256) {
+    throw new OneKeyLocalError('Invalid signed metadata sha256');
+  }
+  if (json.fileName !== undefined && json.fileName !== 'metadata.json') {
+    throw new OneKeyLocalError('Invalid signed metadata fileName');
+  }
+  if (json.appType !== undefined && json.appType !== 'electron') {
+    throw new OneKeyLocalError('Invalid signed metadata appType');
+  }
+  if (
+    expected?.appVersion &&
+    json.appVersion !== undefined &&
+    String(json.appVersion) !== String(expected.appVersion)
+  ) {
+    throw new OneKeyLocalError('Signed metadata appVersion mismatch');
+  }
+  if (
+    expected?.bundleVersion &&
+    json.bundleVersion !== undefined &&
+    String(json.bundleVersion) !== String(expected.bundleVersion)
+  ) {
+    throw new OneKeyLocalError('Signed metadata bundleVersion mismatch');
+  }
+  const { sha256 } = json;
+  logger.info('auto-updater', `getSha256 from asc file: ${sha256}`);
+  return sha256;
 };
 
 // Side-channel reason from the most recent SHA256 operation.
@@ -287,10 +319,12 @@ const getMetadataFilePath = ({
 
 export const verifyMetadataFileSha256 = async ({
   appVersion,
+  expectedAppVersion,
   bundleVersion,
   signature,
 }: {
   appVersion: string;
+  expectedAppVersion?: string;
   bundleVersion: string;
   signature: string;
 }) => {
@@ -299,7 +333,13 @@ export const verifyMetadataFileSha256 = async ({
     bundleVersion,
   });
   logger.info('bundle-verifyBundleASC', metadataFilePath);
-  const metadataFilesSha256 = await readMetadataFileSha256(signature);
+  const targetAppVersion =
+    expectedAppVersion ??
+    (appVersion.startsWith('verify_temp_') ? undefined : appVersion);
+  const metadataFilesSha256 = await readMetadataFileSha256(signature, {
+    appVersion: targetAppVersion,
+    bundleVersion,
+  });
   const isVerified = verifySha256(metadataFilePath, metadataFilesSha256);
   if (!isVerified) {
     throw new OneKeyLocalError('Invalid asc file');
@@ -333,7 +373,7 @@ export const getMetadata = async ({
   return metadata;
 };
 
-const TEST_SIGNATURE = `
+export const TEST_SIGNATURE = `
 -----BEGIN PGP SIGNED MESSAGE-----
 Hash: SHA256
 

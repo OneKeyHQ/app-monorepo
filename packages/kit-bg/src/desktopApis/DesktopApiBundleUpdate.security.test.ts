@@ -1,11 +1,20 @@
+import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
-import { getBundleExtractDir } from '@onekeyhq/desktop/app/bundle';
+import AdmZip from 'adm-zip';
+
+import {
+  TEST_SIGNATURE,
+  getBundleExtractDir,
+} from '@onekeyhq/desktop/app/bundle';
 import { resolveBundlePath } from '@onekeyhq/desktop/app/libs/bundlePaths';
 
-import DesktopApiBundleUpdate from './DesktopApiBundleUpdate';
+import DesktopApiBundleUpdate, {
+  MAX_BUNDLE_ENTRY_COUNT,
+  MAX_BUNDLE_UNCOMPRESSED_BYTES,
+} from './DesktopApiBundleUpdate';
 import { isDesktopApiMethodAllowed } from './desktopApiMethodPolicy';
 
 import type { IDesktopApi } from './base/types';
@@ -19,10 +28,12 @@ const mockStore = {
   setNativeVersion: jest.fn(),
   setNativeBuildNumber: jest.fn(),
 };
-const mockDownload = jest.fn(async (opts: { targetPath: string }) => ({
-  filePath: opts.targetPath,
-  totalBytes: 1,
-}));
+const mockDownload = jest.fn(
+  async (opts: { targetPath: string; identity?: string; url?: string }) => ({
+    filePath: opts.targetPath,
+    totalBytes: 1,
+  }),
+);
 jest.mock('electron', () => ({
   app: { getPath: () => mockUserData, getVersion: () => '6.6.0' },
   dialog: {},
@@ -53,6 +64,28 @@ jest.mock('@onekeyhq/desktop/app/windowProgressBar', () => ({
   clearWindowProgressBar: jest.fn(),
   updateWindowProgressBar: jest.fn(),
 }));
+const mockGetEntriesOverride = jest.fn<AdmZip.IZipEntry[] | undefined, []>(
+  () => undefined,
+);
+const mockExtractAllToSpy = jest.fn();
+jest.mock('adm-zip', () => {
+  const ActualAdmZip = jest.requireActual<typeof import('adm-zip')>('adm-zip');
+  return function MockAdmZip(
+    ...args: ConstructorParameters<typeof ActualAdmZip>
+  ) {
+    const instance = new ActualAdmZip(...args);
+    const origGetEntries = instance.getEntries.bind(instance);
+    const origExtractAllTo = instance.extractAllTo.bind(instance);
+    instance.getEntries = () => mockGetEntriesOverride() ?? origGetEntries();
+    instance.extractAllTo = (
+      ...extractArgs: Parameters<typeof origExtractAllTo>
+    ) => {
+      mockExtractAllToSpy(...extractArgs);
+      return origExtractAllTo(...extractArgs);
+    };
+    return instance;
+  };
+});
 jest.mock('./nodeDownload', () => ({
   stripSensitiveHeaders:
     jest.requireActual<typeof import('./nodeDownload')>('./nodeDownload')
@@ -304,4 +337,175 @@ test('keeps legal fallbacks and omits a poisoned active pointer during installat
   expect(mockStore.setFallbackUpdateBundleData).toHaveBeenCalledWith([valid]);
   expect(restartSpy).toHaveBeenCalledTimes(1);
   expect(fs.readFileSync(sentinel, 'utf8')).toBe('untouched');
+});
+
+test('passes URL-independent identity to downloadNodeFile and binds single-flight deduplication to sha256', async () => {
+  await api.downloadBundle({
+    latestVersion: '6.6.0',
+    bundleVersion: '123',
+    downloadUrl: 'https://fixture.test/bundle?token=ephemeral-1',
+    sha256: 'sha256-fixed',
+  });
+  await api.downloadBundle({
+    latestVersion: '6.6.0',
+    bundleVersion: '123',
+    downloadUrl: 'https://fixture.test/bundle?token=ephemeral-2',
+    sha256: 'sha256-fixed',
+  });
+
+  expect(mockDownload).toHaveBeenCalledTimes(2);
+  expect(mockDownload.mock.calls[0][0].identity).toBe(
+    'bundle:6.6.0:123:sha256-fixed',
+  );
+  expect(mockDownload.mock.calls[1][0].identity).toBe(
+    'bundle:6.6.0:123:sha256-fixed',
+  );
+
+  // Concurrent calls with different sha256 must not piggyback on the same in-flight promise
+  let resolveFirst!: () => void;
+  mockDownload.mockImplementationOnce(
+    async (opts: { targetPath: string }) =>
+      new Promise((resolve) => {
+        resolveFirst = () =>
+          resolve({ filePath: opts.targetPath, totalBytes: 1 });
+      }),
+  );
+  const firstRun = api.downloadBundle({
+    latestVersion: '6.6.0',
+    bundleVersion: '123',
+    downloadUrl: 'https://fixture.test/bundle',
+    sha256: 'sha256-a',
+  });
+  const sameHashRun = api.downloadBundle({
+    latestVersion: '6.6.0',
+    bundleVersion: '123',
+    downloadUrl: 'https://fixture.test/bundle',
+    sha256: 'sha256-a',
+  });
+  const differentHashRun = api.downloadBundle({
+    latestVersion: '6.6.0',
+    bundleVersion: '123',
+    downloadUrl: 'https://fixture.test/bundle',
+    sha256: 'sha256-b',
+  });
+  resolveFirst();
+  await Promise.all([firstRun, sameHashRun, differentHashRun]);
+  // 2 from sequential calls + 1 for sha256-a + 1 for sha256-b = 4 calls total
+  expect(mockDownload).toHaveBeenCalledTimes(4);
+});
+
+test('verifyBundleASC rejects zip bombs exceeding entry count or uncompressed byte quotas', async () => {
+  const appVersion = '6.1.0';
+  const bundleVersion = '7701116';
+  const destZip = path.join(
+    api.getDownloadDir(),
+    `${appVersion}-${bundleVersion}.zip`,
+  );
+  const dummyZip = new AdmZip();
+  dummyZip.addFile('metadata.json', Buffer.from('{}'));
+  dummyZip.writeZip(destZip);
+  const zipSha256 = crypto
+    .createHash('sha256')
+    .update(fs.readFileSync(destZip))
+    .digest('hex');
+
+  mockExtractAllToSpy.mockClear();
+
+  // 1. Entry count > MAX_BUNDLE_ENTRY_COUNT
+  mockGetEntriesOverride.mockReturnValueOnce(
+    new Array(MAX_BUNDLE_ENTRY_COUNT + 1).fill({
+      entryName: 'build/file.js',
+      isDirectory: false,
+      header: { size: 1 },
+    }) as unknown as AdmZip.IZipEntry[],
+  );
+  await expect(
+    api.verifyBundleASC({
+      latestVersion: appVersion,
+      bundleVersion,
+      downloadedFile: destZip,
+      sha256: zipSha256,
+      signature: TEST_SIGNATURE,
+    }),
+  ).rejects.toThrow('Bundle zip contains too many entries');
+  expect(mockExtractAllToSpy).not.toHaveBeenCalled();
+
+  // 2. Single entry size > MAX_BUNDLE_UNCOMPRESSED_BYTES
+  mockGetEntriesOverride.mockReturnValueOnce([
+    {
+      entryName: 'metadata.json',
+      isDirectory: false,
+      header: { size: MAX_BUNDLE_UNCOMPRESSED_BYTES + 1 },
+    },
+  ] as unknown as AdmZip.IZipEntry[]);
+  await expect(
+    api.verifyBundleASC({
+      latestVersion: appVersion,
+      bundleVersion,
+      downloadedFile: destZip,
+      sha256: zipSha256,
+      signature: TEST_SIGNATURE,
+    }),
+  ).rejects.toThrow('Bundle zip entry exceeds maximum size');
+  expect(mockExtractAllToSpy).not.toHaveBeenCalled();
+
+  // 3. Total uncompressed size > MAX_BUNDLE_UNCOMPRESSED_BYTES
+  const halfPlusOne = Math.floor(MAX_BUNDLE_UNCOMPRESSED_BYTES / 2) + 1;
+  mockGetEntriesOverride.mockReturnValueOnce([
+    {
+      entryName: 'metadata.json',
+      isDirectory: false,
+      header: { size: halfPlusOne },
+    },
+    {
+      entryName: 'build/index.html',
+      isDirectory: false,
+      header: { size: halfPlusOne },
+    },
+  ] as unknown as AdmZip.IZipEntry[]);
+  await expect(
+    api.verifyBundleASC({
+      latestVersion: appVersion,
+      bundleVersion,
+      downloadedFile: destZip,
+      sha256: zipSha256,
+      signature: TEST_SIGNATURE,
+    }),
+  ).rejects.toThrow('Bundle zip exceeds maximum uncompressed size');
+  expect(mockExtractAllToSpy).not.toHaveBeenCalled();
+});
+
+test('verifyBundleASC rejects invalid or replayed PGP signature before full zip extraction', async () => {
+  const appVersion = '6.6.0';
+  const bundleVersion = '999';
+  const destZip = path.join(
+    api.getDownloadDir(),
+    `${appVersion}-${bundleVersion}.zip`,
+  );
+  const zip = new AdmZip();
+  zip.addFile('metadata.json', Buffer.from('{"index.html":"abc"}'));
+  zip.addFile('build/index.html', Buffer.from('<html>untrusted</html>'));
+  zip.writeZip(destZip);
+  const zipSha256 = crypto
+    .createHash('sha256')
+    .update(fs.readFileSync(destZip))
+    .digest('hex');
+
+  mockExtractAllToSpy.mockClear();
+
+  // Replaying valid TEST_SIGNATURE (signed for 6.1.0 / 7701116) against 6.6.0 / 999
+  await expect(
+    api.verifyBundleASC({
+      latestVersion: appVersion,
+      bundleVersion,
+      downloadedFile: destZip,
+      sha256: zipSha256,
+      signature: TEST_SIGNATURE,
+    }),
+  ).rejects.toThrow('Signed metadata appVersion mismatch');
+
+  expect(mockExtractAllToSpy).not.toHaveBeenCalled();
+  expect(
+    fs.existsSync(getBundleExtractDir({ appVersion, bundleVersion })),
+  ).toBe(false);
 });

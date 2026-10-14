@@ -62,6 +62,10 @@ beforeEach(() => {
 
 test('verifies a real app-shell checksum signature with the production public key', async () => {
   expect(await api.getSha256()).toBe(checksum);
+  expect(await api.getSha256('OneKey-Wallet-6.6.0-mac-arm64.zip')).toBe(
+    checksum,
+  );
+  expect(await api.getSha256('OneKey-Wallet-6.5.0-mac-arm64.zip')).toBe('');
   expect(await api.verifyASC()).toBe(true);
 });
 

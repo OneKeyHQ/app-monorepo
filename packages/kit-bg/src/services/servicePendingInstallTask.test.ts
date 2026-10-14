@@ -491,6 +491,11 @@ describe('servicePendingInstallTask', () => {
   test('executes app shell install task when package is ready', async () => {
     const service = createService();
     const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    let statusDuringInstall: string | undefined;
+    autoUpdate.AppUpdate.installPackage.mockImplementationOnce(async () => {
+      statusDuringInstall = pendingTaskValue?.status;
+      return true;
+    });
     setState({
       latestVersion: '2.0.0',
       updateStrategy: EUpdateStrategy.seamless,
@@ -504,6 +509,7 @@ describe('servicePendingInstallTask', () => {
     await service.processPendingInstallTask();
 
     expect(autoUpdate.AppUpdate.installPackage).toHaveBeenCalled();
+    expect(statusDuringInstall).toBe('applied_waiting_verify');
     expect(pendingTaskValue.status).toBe('applied_waiting_verify');
   });
 

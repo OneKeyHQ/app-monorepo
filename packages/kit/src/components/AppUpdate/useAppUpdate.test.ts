@@ -619,9 +619,23 @@ describe('runDownloadWithRetry', () => {
       'Invalid version string format',
       'Invalid URL',
       'Already downloading',
+      'App update feed version mismatch',
+      'App update feed artifact is ambiguous',
+      'App update feed artifact missing or ambiguous',
+      'App update target version is invalid',
+      'App update feed SHA-512 is invalid',
+      'App update feed size is invalid',
+      'App update artifact name is invalid',
+      'App update artifact must use HTTPS',
+      'App update request must use HTTPS',
+      'App update redirect must use HTTPS',
+      'App update metadata too large',
+      'App update installation is in progress',
+      'App update artifact was not selected',
     ];
     for (const msg of cases) {
       const err = new Error(msg);
+      expect(isUnrecoverableDownloadError(err)).toBe(true);
       const op = jest.fn().mockRejectedValue(err);
       // eslint-disable-next-line no-await-in-loop
       await expect(runDownloadWithRetry(op, 'test')).rejects.toBe(err);

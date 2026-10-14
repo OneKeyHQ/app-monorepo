@@ -151,6 +151,7 @@ function selectArtifact(
   feed: IFeedData,
   selectedVersion: string,
   baseUrl: string,
+  arch = getRuntimeArch(),
 ): IArtifact {
   if (feed.version !== selectedVersion || !Array.isArray(feed.files)) {
     throw new OneKeyLocalError('App update feed version mismatch');
@@ -164,22 +165,31 @@ function selectArtifact(
     }
     return new URL(file.url, baseUrl).pathname.endsWith(extension);
   });
-  const arch = getRuntimeArch();
   // electron-builder names x64 AppImages with the Linux artifact arch x86_64.
   const artifactArch = isLinux && arch === 'x64' ? 'x86_64' : arch;
   const archMarker = `-${artifactArch}.`;
   const matching = files.filter((file) =>
     new URL(file.url, baseUrl).pathname.includes(archMarker),
   );
-  const universal = isMac
-    ? files.filter((file) =>
-        new URL(file.url, baseUrl).pathname.includes('-universal.'),
-      )
-    : [];
   if (matching.length > 1) {
     throw new OneKeyLocalError('App update feed artifact is ambiguous');
   }
-  const selected = matching.length === 1 ? matching : universal;
+  let fallback: IFeedFile[] = [];
+  if (matching.length === 0) {
+    if (isMac) {
+      fallback = files.filter((file) =>
+        /-(?:universal|all)\./i.test(new URL(file.url, baseUrl).pathname),
+      );
+    } else if (isWin) {
+      fallback = files.filter(
+        (file) =>
+          !/-(?:x64|amd64|arm64|aarch64|ia32)\./i.test(
+            new URL(file.url, baseUrl).pathname,
+          ),
+      );
+    }
+  }
+  const selected = matching.length === 1 ? matching : fallback;
   if (selected.length !== 1) {
     throw new OneKeyLocalError('App update feed artifact missing or ambiguous');
   }
@@ -293,6 +303,16 @@ class DesktopApiAppUpdate {
 
   private installHandoffStarted = false;
 
+  private cachedRuntimeArch?: string;
+
+  private lastVerifiedFile?: {
+    filePath: string;
+    size: number;
+    mtimeMs: number;
+    sha512: string;
+    sha256?: string;
+  };
+
   private isSkipGPGAllowed(skip?: boolean): boolean {
     return (
       process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION === 'true' && Boolean(skip)
@@ -301,7 +321,19 @@ class DesktopApiAppUpdate {
 
   constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
     this.desktopApi = desktopApi;
+    if (isMac) {
+      autoUpdater.on?.('error', (error: unknown) => {
+        logger.warn('auto-updater', 'Native autoUpdater error:', error);
+      });
+    }
     if (isAppImage) this.reconcileAppImageHandoff();
+  }
+
+  private getRuntimeArch(): string {
+    if (!this.cachedRuntimeArch) {
+      this.cachedRuntimeArch = getRuntimeArch();
+    }
+    return this.cachedRuntimeArch;
   }
 
   private getMainWindow(): BrowserWindow | undefined {
@@ -343,28 +375,24 @@ class DesktopApiAppUpdate {
       ) {
         throw new OneKeyLocalError('Invalid AppImage handoff');
       }
-      if (
-        app.getVersion() === handoff.version &&
-        process.env.APPIMAGE === handoff.destination
-      ) {
+      if (app.getVersion() === handoff.version) {
         store.setUpdateBuildNumber(handoff.buildNumber);
-        if (handoff.destination !== handoff.current) {
-          fs.rmSync(handoff.current, { force: true });
-        } else if (handoff.backup) {
-          fs.rmSync(handoff.backup, { force: true });
+        if (process.env.APPIMAGE === handoff.destination) {
+          if (handoff.destination !== handoff.current) {
+            fs.rmSync(handoff.current, { force: true });
+          } else if (handoff.backup) {
+            fs.rmSync(handoff.backup, { force: true });
+          }
         }
       } else if (
-        app.getVersion() !== handoff.version &&
-        (process.env.APPIMAGE === handoff.current ||
-          process.env.APPIMAGE === handoff.backup)
+        process.env.APPIMAGE === handoff.current ||
+        process.env.APPIMAGE === handoff.backup
       ) {
         if (handoff.backup && fs.existsSync(handoff.backup)) {
           fs.renameSync(handoff.backup, handoff.current);
         } else if (handoff.destination !== handoff.current) {
           fs.rmSync(handoff.destination, { force: true });
         }
-      } else {
-        return;
       }
       fs.rmSync(marker, { force: true });
     } catch (error) {
@@ -376,6 +404,30 @@ class DesktopApiAppUpdate {
     return path.join(this.getCacheDir(), artifact.fileName);
   }
 
+  private cleanupStaleInstallers(keepFileName: string): void {
+    const cacheDir = this.getCacheDir();
+    if (!fs.existsSync(cacheDir)) return;
+    const keep = new Set([
+      keepFileName,
+      `${keepFileName}.partial`,
+      `${keepFileName}.partial.progress.json`,
+      'package.json',
+      'appimage-handoff.json',
+    ]);
+    try {
+      for (const entry of fs.readdirSync(cacheDir)) {
+        if (!keep.has(entry)) {
+          fs.rmSync(path.join(cacheDir, entry), {
+            recursive: true,
+            force: true,
+          });
+        }
+      }
+    } catch (error) {
+      logger.warn('auto-updater', 'Stale installer cleanup failed', error);
+    }
+  }
+
   private readRecord(): ICacheRecord | undefined {
     try {
       const record = JSON.parse(
@@ -384,7 +436,7 @@ class DesktopApiAppUpdate {
       if (
         path.basename(record.fileName) !== record.fileName ||
         record.platform !== process.platform ||
-        record.arch !== getRuntimeArch() ||
+        record.arch !== this.getRuntimeArch() ||
         record.downloadedFile !== this.getTargetPath(record) ||
         !semver.valid(record.version) ||
         !semver.gt(record.version, app.getVersion()) ||
@@ -420,14 +472,30 @@ class DesktopApiAppUpdate {
     if (availability.status !== EAppUpdatePackageAvailabilityStatus.available) {
       return undefined;
     }
-    if (
-      record.size &&
-      fs.statSync(record.downloadedFile).size !== record.size
-    ) {
+    const stat = fs.statSync(record.downloadedFile);
+    if (record.size && stat.size !== record.size) {
       return undefined;
     }
+    if (
+      this.lastVerifiedFile &&
+      this.lastVerifiedFile.filePath === record.downloadedFile &&
+      this.lastVerifiedFile.size === stat.size &&
+      this.lastVerifiedFile.mtimeMs === stat.mtimeMs &&
+      this.lastVerifiedFile.sha512 === record.sha512
+    ) {
+      return record;
+    }
     const actual = await hashFile(record.downloadedFile, 'sha512');
-    return actual === record.sha512 ? record : undefined;
+    if (actual !== record.sha512) {
+      return undefined;
+    }
+    this.lastVerifiedFile = {
+      filePath: record.downloadedFile,
+      size: stat.size,
+      mtimeMs: stat.mtimeMs,
+      sha512: actual,
+    };
+    return record;
   }
 
   private async assertVerifiedRecord(
@@ -503,9 +571,27 @@ class DesktopApiAppUpdate {
       this.macStagedIdentity = undefined;
       this.downloadedEvent = undefined;
       this.selectedArtifact = undefined;
+      this.lastVerifiedFile = undefined;
       this.isDownloading = false;
       store.clearASCFile();
       fs.rmSync(this.getCacheDir(), { recursive: true, force: true });
+      try {
+        const homeDir = app.getPath('home');
+        let legacyBaseCacheDir =
+          process.env.XDG_CACHE_HOME || path.join(homeDir, '.cache');
+        if (isMac) {
+          legacyBaseCacheDir = path.join(homeDir, 'Library', 'Caches');
+        } else if (isWin) {
+          legacyBaseCacheDir =
+            process.env.LOCALAPPDATA || app.getPath('userData');
+        }
+        fs.rmSync(path.join(legacyBaseCacheDir, '@onekeyhqdesktop-updater'), {
+          recursive: true,
+          force: true,
+        });
+      } catch {
+        // Ignore if legacy cache path is unavailable.
+      }
     })();
     try {
       await this.cacheClearPromise;
@@ -550,7 +636,12 @@ class DesktopApiAppUpdate {
       throw new OneKeyLocalError('Download cancelled');
     }
     const parsed = YAML.parse(raw) as IFeedData;
-    const artifact = selectArtifact(parsed, latestVersion, feedBase);
+    const artifact = selectArtifact(
+      parsed,
+      latestVersion,
+      feedBase,
+      this.getRuntimeArch(),
+    );
     this.selectedArtifact = artifact;
     this.latestVersion = {
       version: artifact.version,
@@ -626,11 +717,12 @@ class DesktopApiAppUpdate {
           record.url !== artifact.url ||
           record.sha512 !== artifact.sha512
         ) {
+          this.cleanupStaleInstallers(artifact.fileName);
           const targetPath = this.getTargetPath(artifact);
           await downloadNodeFile({
             url: artifact.url,
             targetPath,
-            identity: `${artifact.version}:${artifact.platform}:${artifact.arch}:${artifact.url}:${artifact.sha512}`,
+            identity: `${artifact.version}:${artifact.platform}:${artifact.arch}:${artifact.fileName}:${artifact.sha512}`,
             headers: this.getArtifactRequestHeaders(artifact.url),
             expectedSha512: artifact.sha512,
             expectedBytes: artifact.size,
@@ -638,12 +730,24 @@ class DesktopApiAppUpdate {
             onProgress: (progress) => this.emitProgress(progress),
             signal: this.activeController?.signal,
           });
+          const stat = fs.statSync(targetPath);
+          this.lastVerifiedFile = {
+            filePath: targetPath,
+            size: stat.size,
+            mtimeMs: stat.mtimeMs,
+            sha512: artifact.sha512,
+          };
           record = { ...artifact, downloadedFile: targetPath };
           this.writeRecord(record);
+          this.cleanupStaleInstallers(artifact.fileName);
         }
         this.emitDownloaded(record);
       } catch (error) {
-        this.emitError(error);
+        if (
+          !(error instanceof Error && error.message === 'Download cancelled')
+        ) {
+          this.emitError(error);
+        }
         throw error;
       } finally {
         this.isDownloading = false;
@@ -775,7 +879,7 @@ class DesktopApiAppUpdate {
     return true;
   }
 
-  async getSha256(): Promise<string> {
+  async getSha256(expectedFileName?: string): Promise<string> {
     const asc = store.getASCFile();
     if (!asc) return '';
     try {
@@ -783,7 +887,27 @@ class DesktopApiAppUpdate {
       const key = await readKey({ armoredKey: PUBLIC_KEY });
       const signatures = await message.verify([key]);
       await signatures[0].verified;
-      const checksum = message.getText().trim().split(/\s+/)[0];
+      const lines = message
+        .getText()
+        .trim()
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+      let checksum = '';
+      if (expectedFileName) {
+        for (const line of lines) {
+          const tokens = line.split(/\s+/);
+          if (tokens.length >= 2) {
+            const signedName = path.basename(tokens[1].replace(/^\*/, ''));
+            if (signedName === expectedFileName) {
+              checksum = tokens[0];
+              break;
+            }
+          }
+        }
+      } else {
+        checksum = lines[0]?.split(/\s+/)[0] ?? '';
+      }
       return /^[a-fA-F0-9]{64}$/.test(checksum) ? checksum.toLowerCase() : '';
     } catch {
       throw new OneKeyLocalError(
@@ -793,9 +917,12 @@ class DesktopApiAppUpdate {
   }
 
   async verifyASC(params?: IInstallUpdateParams): Promise<boolean> {
+    const expectedFileName = params?.downloadedFile
+      ? path.basename(params.downloadedFile)
+      : undefined;
     return (
       this.isSkipGPGAllowed(params?.skipGPGVerification) ||
-      Boolean(await this.getSha256())
+      Boolean(await this.getSha256(expectedFileName))
     );
   }
 
@@ -803,14 +930,37 @@ class DesktopApiAppUpdate {
     downloadedFile: string,
     sha256: string,
   ): Promise<boolean> {
-    return (await hashFile(downloadedFile, 'sha256')) === sha256.toLowerCase();
+    const expected = sha256.toLowerCase();
+    const stat = fs.statSync(downloadedFile);
+    if (
+      this.lastVerifiedFile &&
+      this.lastVerifiedFile.filePath === downloadedFile &&
+      this.lastVerifiedFile.size === stat.size &&
+      this.lastVerifiedFile.mtimeMs === stat.mtimeMs &&
+      this.lastVerifiedFile.sha256 === expected
+    ) {
+      return true;
+    }
+    const actual = await hashFile(downloadedFile, 'sha256');
+    if (actual !== expected) {
+      return false;
+    }
+    if (
+      this.lastVerifiedFile &&
+      this.lastVerifiedFile.filePath === downloadedFile &&
+      this.lastVerifiedFile.size === stat.size &&
+      this.lastVerifiedFile.mtimeMs === stat.mtimeMs
+    ) {
+      this.lastVerifiedFile.sha256 = actual;
+    }
+    return true;
   }
 
   async verifyFile(params: IInstallUpdateParams): Promise<boolean> {
     const record = await this.assertVerifiedRecord(params.downloadedFile);
     if (params.downloadUrl !== record.url) return false;
     if (this.isSkipGPGAllowed(params.skipGPGVerification)) return true;
-    const sha256 = await this.getSha256();
+    const sha256 = await this.getSha256(record.fileName);
     return Boolean(
       sha256 && (await this.verifySha256(record.downloadedFile, sha256)),
     );
@@ -894,9 +1044,6 @@ class DesktopApiAppUpdate {
       oldName === record.fileName || !/\d+\.\d+\.\d+/.test(oldName)
         ? current
         : path.join(path.dirname(current), record.fileName);
-    if (destination !== current && fs.existsSync(destination)) {
-      throw new OneKeyLocalError('AppImage destination already exists');
-    }
     const nonce = crypto.randomBytes(8).toString('hex');
     const staging = path.join(
       path.dirname(destination),
@@ -914,7 +1061,13 @@ class DesktopApiAppUpdate {
       await fs.promises.copyFile(record.downloadedFile, staging);
       await fs.promises.chmod(staging, 0o755);
       if (destination === current) {
-        await fs.promises.link(current, backup);
+        try {
+          await fs.promises.link(current, backup);
+        } catch {
+          await fs.promises.copyFile(current, backup);
+        }
+      } else if (fs.existsSync(destination)) {
+        await fs.promises.rm(destination, { force: true });
       }
       await fs.promises.rename(staging, destination);
       renamed = true;
@@ -927,7 +1080,7 @@ class DesktopApiAppUpdate {
       };
       fs.mkdirSync(this.getCacheDir(), { recursive: true });
       fs.writeFileSync(marker, JSON.stringify(handoff), { mode: 0o600 });
-      app.relaunch({ execPath: destination, args: [] });
+      app.relaunch({ execPath: destination, args: process.argv.slice(1) });
       handoffQueued = true;
       app.quit();
       this.installHandoffStarted = true;

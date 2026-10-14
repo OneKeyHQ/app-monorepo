@@ -267,3 +267,201 @@ test('rejects corrupted parallel assembly without publishing or retaining artifa
   for (const suffix of ['', '.partial', '.partial.progress.json'])
     expect(fs.existsSync(`${opts.targetPath}${suffix}`)).toBe(false);
 });
+
+test('omits If-Range for weak ETags while sending If-Range for strong ETags', async () => {
+  const strongOpts = options();
+  const strongIfRanges: Array<string | undefined> = [];
+  strongOpts.transport = async (url, headers) => {
+    if (headers.Range === 'bytes=0-0') {
+      return {
+        url,
+        response: response(206, {
+          'content-range': `bytes 0-0/${content.length}`,
+          etag: '"strong-etag"',
+        }),
+      };
+    }
+    strongIfRanges.push(headers['If-Range']);
+    const match = /^bytes=(\d+)-(\d+)$/.exec(headers.Range!)!;
+    const start = Number(match[1]);
+    const end = Number(match[2]);
+    return {
+      url,
+      response: response(
+        206,
+        {
+          'content-range': `bytes ${start}-${end}/${content.length}`,
+          etag: '"strong-etag"',
+        },
+        [content.subarray(start, end + 1)],
+      ),
+    };
+  };
+  await downloadNodeFile(strongOpts);
+  expect(strongIfRanges).toHaveLength(8);
+  expect(strongIfRanges.every((v) => v === '"strong-etag"')).toBe(true);
+
+  const weakTargetDir = fs.mkdtempSync(path.join(os.tmpdir(), 'weak-etag-'));
+  try {
+    const weakOpts: INodeDownloadOptions = {
+      ...options(),
+      targetPath: path.join(weakTargetDir, 'bundle.zip'),
+    };
+    const weakIfRanges: Array<string | undefined> = [];
+    weakOpts.transport = async (url, headers) => {
+      if (headers.Range === 'bytes=0-0') {
+        return {
+          url,
+          response: response(206, {
+            'content-range': `bytes 0-0/${content.length}`,
+            etag: 'W/"weak-etag"',
+          }),
+        };
+      }
+      weakIfRanges.push(headers['If-Range']);
+      const match = /^bytes=(\d+)-(\d+)$/.exec(headers.Range!)!;
+      const start = Number(match[1]);
+      const end = Number(match[2]);
+      return {
+        url,
+        response: response(
+          206,
+          {
+            'content-range': `bytes ${start}-${end}/${content.length}`,
+            etag: 'W/"weak-etag"',
+          },
+          [content.subarray(start, end + 1)],
+        ),
+      };
+    };
+    await downloadNodeFile(weakOpts);
+    expect(weakIfRanges).toHaveLength(8);
+    expect(weakIfRanges.every((v) => v === undefined)).toBe(true);
+  } finally {
+    fs.rmSync(weakTargetDir, { recursive: true, force: true });
+  }
+});
+
+test('resumes a partial download when signed URL changes for the same identity', async () => {
+  const bytes = Buffer.from('resumed across refreshed tokenized url');
+  const initialOpts = options(bytes);
+  seedSingle(
+    { ...initialOpts, url: 'https://fixture.test/bundle?token=expired' },
+    bytes,
+    8,
+  );
+  const refreshedOpts: INodeDownloadOptions = {
+    ...initialOpts,
+    url: 'https://fixture.test/bundle?token=fresh',
+  };
+  const seenRequests: Array<{ url: string; range?: string }> = [];
+  refreshedOpts.transport = async (url, headers) => {
+    seenRequests.push({ url, range: headers.Range });
+    if (headers.Range === 'bytes=0-0') {
+      return { url, response: probe(bytes.length) };
+    }
+    expect(headers.Range).toBe('bytes=8-');
+    return {
+      url,
+      response: response(
+        206,
+        {
+          'content-range': `bytes 8-${bytes.length - 1}/${bytes.length}`,
+          etag: '"fixture"',
+        },
+        [bytes.subarray(8)],
+      ),
+    };
+  };
+  await downloadNodeFile(refreshedOpts);
+  expect(seenRequests).toEqual([
+    { url: 'https://fixture.test/bundle?token=fresh', range: 'bytes=0-0' },
+    { url: 'https://fixture.test/bundle?token=fresh', range: 'bytes=8-' },
+  ]);
+  expect(fs.readFileSync(refreshedOpts.targetPath)).toEqual(bytes);
+});
+
+test('truncates un-flushed tail bytes in single mode and resumes from manifest done', async () => {
+  const bytes = Buffer.from('0123456789abcdef-complete-single-stream');
+  const opts = options(bytes);
+  const done = 10;
+  // Simulate unclean exit where 16 bytes were written to .partial before manifest flushed at 10
+  fs.writeFileSync(
+    `${opts.targetPath}.partial`,
+    Buffer.concat([bytes.subarray(0, done), Buffer.from('GARBAGE!')]),
+  );
+  fs.writeFileSync(
+    `${opts.targetPath}.partial.progress.json`,
+    JSON.stringify({
+      identity: opts.identity,
+      url: opts.url,
+      size: bytes.length,
+      etag: '"fixture"',
+      checksum: `:${opts.expectedSha256}`,
+      mode: 'single',
+      parts: [{ start: 0, end: bytes.length - 1, done }],
+    }),
+  );
+  const ranges: Array<string | undefined> = [];
+  opts.transport = async (url, headers) => {
+    ranges.push(headers.Range);
+    if (headers.Range === 'bytes=0-0') {
+      return { url, response: probe(bytes.length) };
+    }
+    expect(headers.Range).toBe(`bytes=${done}-`);
+    expect(fs.statSync(`${opts.targetPath}.partial`).size).toBe(done);
+    return {
+      url,
+      response: response(
+        206,
+        {
+          'content-range': `bytes ${done}-${bytes.length - 1}/${bytes.length}`,
+          etag: '"fixture"',
+        },
+        [bytes.subarray(done)],
+      ),
+    };
+  };
+  await downloadNodeFile(opts);
+  expect(ranges).toEqual(['bytes=0-0', `bytes=${done}-`]);
+  expect(fs.readFileSync(opts.targetPath)).toEqual(bytes);
+});
+
+test('rethrows non-ENOENT read errors in verify without discarding partial progress', async () => {
+  const bytes = Buffer.from('complete partial fixture with transient EIO');
+  const opts = options(bytes);
+  seedSingle(opts, bytes, bytes.length);
+  opts.transport = async (url) => ({
+    url,
+    response: probe(bytes.length),
+  });
+  const realCreateReadStream = fs.createReadStream;
+  const spy = jest.spyOn(fs, 'createReadStream').mockImplementation(((
+    target: fs.PathLike,
+    ...rest: unknown[]
+  ) => {
+    if (String(target) === `${opts.targetPath}.partial`) {
+      return new Readable({
+        read() {
+          const ioErr = Object.assign(new Error('disk read failure'), {
+            code: 'EIO',
+          });
+          this.destroy(ioErr);
+        },
+      }) as unknown as fs.ReadStream;
+    }
+    return (realCreateReadStream as (...args: unknown[]) => fs.ReadStream)(
+      target,
+      ...rest,
+    );
+  }) as typeof fs.createReadStream);
+  try {
+    await expect(downloadNodeFile(opts)).rejects.toThrow('disk read failure');
+    expect(fs.existsSync(`${opts.targetPath}.partial`)).toBe(true);
+    expect(fs.existsSync(`${opts.targetPath}.partial.progress.json`)).toBe(
+      true,
+    );
+  } finally {
+    spy.mockRestore();
+  }
+});

@@ -214,5 +214,41 @@ test.each([
       'OneKey-test',
     );
     expect(redirected.setHeader).toHaveBeenCalledWith('Range', 'bytes=0-0');
+    const initial = mockRequest.mock.results[0].value as ReturnType<
+      typeof requestFor
+    >;
+    expect(initial.abort).toHaveBeenCalledTimes(1);
   },
 );
+
+test('sets default Cache-Control: no-cache when not provided and preserves custom Cache-Control', async () => {
+  mockRequest.mockImplementation(({ url }: { url: string }) => requestFor(url));
+  const first = await requestUpdateUrl('https://cdn.test/latest-mac.yml', {
+    Accept: 'text/yaml',
+  });
+  for await (const _chunk of first.response) {
+    /* drain */
+  }
+  const firstReq = mockRequest.mock.results[0].value as ReturnType<
+    typeof requestFor
+  >;
+  expect(firstReq.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-cache');
+
+  const second = await requestUpdateUrl('https://cdn.test/latest-mac.yml', {
+    'cache-control': 'max-age=60',
+  });
+  for await (const _chunk of second.response) {
+    /* drain */
+  }
+  const secondReq = mockRequest.mock.results[1].value as ReturnType<
+    typeof requestFor
+  >;
+  expect(secondReq.setHeader).not.toHaveBeenCalledWith(
+    'Cache-Control',
+    'no-cache',
+  );
+  expect(secondReq.setHeader).toHaveBeenCalledWith(
+    'cache-control',
+    'max-age=60',
+  );
+});

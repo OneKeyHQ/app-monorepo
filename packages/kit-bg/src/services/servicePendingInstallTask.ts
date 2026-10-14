@@ -1208,6 +1208,11 @@ class ServicePendingInstallTask {
         }`,
       );
     }
+    await setPendingInstallTask({
+      ...task,
+      status: EPendingInstallTaskStatus.appliedWaitingVerify,
+      lastError: undefined,
+    });
     return AppUpdate.installPackage({
       ...appInfo,
       latestVersion: payload.latestVersion,

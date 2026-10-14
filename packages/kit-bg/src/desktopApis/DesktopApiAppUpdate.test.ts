@@ -797,7 +797,7 @@ test('Linux replaces a writable AppImage and relaunches it', async () => {
   expect(mockSpawn).not.toHaveBeenCalled();
   expect(mockAppRelaunch).toHaveBeenCalledWith({
     execPath: current,
-    args: [],
+    args: process.argv.slice(1),
   });
   expect(mockStore.setUpdateBuildNumber).not.toHaveBeenCalled();
   expect(
@@ -811,6 +811,59 @@ test('Linux replaces a writable AppImage and relaunches it', async () => {
   expect(
     fs.readdirSync(mockTempDir).some((name) => name.endsWith('.old')),
   ).toBe(false);
+});
+
+test.each(['x64', 'arm64'] as const)(
+  'Windows %s selects a single multi-arch NSIS installer',
+  async (arch) => {
+    const api = createApi('win32', undefined, arch);
+    mockHttpsResponse(feed('6.6.0', ['OneKey-Wallet-6.6.0-win.exe']));
+    const artifact = await api.checkForUpdates(false, {}, '6.6.0');
+    expect(artifact?.fileName).toBe('OneKey-Wallet-6.6.0-win.exe');
+    expect(artifact?.arch).toBe(arch);
+  },
+);
+
+test('rejects an ASC signed for a different artifact filename', async () => {
+  const { api, params } = await preparePackage('darwin');
+  delete process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
+  mockStore.getASCFile.mockReturnValue('signed checksums');
+  mockReadKey.mockResolvedValue({});
+  mockReadCleartextMessage.mockResolvedValue({
+    getText: () => `${mockSha256}  OneKey-6.5.0-mac-arm64.zip`,
+    verify: async () => [{ verified: Promise.resolve() }],
+  });
+  expect(
+    await api.verifyFile({
+      ...params,
+      skipGPGVerification: false,
+    }),
+  ).toBe(false);
+});
+
+test('Linux AppImage handoff cleans up marker even if APPIMAGE moved and falls back to copyFile on EXDEV', async () => {
+  const current = path.join(mockTempDir, 'OneKey.AppImage');
+  fs.writeFileSync(current, 'old app');
+  process.env.APPIMAGE = current;
+  const { api, params } = await preparePackage('linux', 'appImage');
+  jest.spyOn(fs.promises, 'link').mockRejectedValueOnce(
+    Object.assign(new Error('cross-device link not permitted'), {
+      code: 'EXDEV',
+    }),
+  );
+  expect(await api.installPackage(params)).toBe(true);
+  expect(fs.readFileSync(current)).toEqual(mockPackage);
+  const marker = path.join(
+    mockTempDir,
+    'app-shell-updater',
+    'appimage-handoff.json',
+  );
+  expect(fs.existsSync(marker)).toBe(true);
+  process.env.APPIMAGE = path.join(mockTempDir, 'Moved-OneKey.AppImage');
+  mockAppGetVersion.mockReturnValue('6.0.0');
+  createApi('linux', 'appImage');
+  expect(mockStore.setUpdateBuildNumber).toHaveBeenCalledWith('123');
+  expect(fs.existsSync(marker)).toBe(false);
 });
 
 test('Linux restores the old AppImage when relaunch cannot be queued', async () => {

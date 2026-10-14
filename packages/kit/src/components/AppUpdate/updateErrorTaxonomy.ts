@@ -242,7 +242,20 @@ export function isUnrecoverableDownloadError(error: unknown): boolean {
     msg.includes('Bundle download URL must use HTTPS') ||
     msg.includes('Invalid version string format') ||
     msg.includes('Already downloading') ||
-    msg.includes('Invalid URL')
+    msg.includes('Invalid URL') ||
+    msg.includes('App update feed version mismatch') ||
+    msg.includes('App update feed artifact is ambiguous') ||
+    msg.includes('App update feed artifact missing or ambiguous') ||
+    msg.includes('App update target version is invalid') ||
+    msg.includes('App update feed SHA-512 is invalid') ||
+    msg.includes('App update feed size is invalid') ||
+    msg.includes('App update artifact name is invalid') ||
+    msg.includes('App update artifact must use HTTPS') ||
+    msg.includes('App update request must use HTTPS') ||
+    msg.includes('App update redirect must use HTTPS') ||
+    msg.includes('App update metadata too large') ||
+    msg.includes('App update installation is in progress') ||
+    msg.includes('App update artifact was not selected')
   );
 }
 

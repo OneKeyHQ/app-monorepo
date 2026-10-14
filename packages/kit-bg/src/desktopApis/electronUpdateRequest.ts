@@ -80,6 +80,7 @@ export async function requestUpdateUrl(
       request.on('redirect', (_status, _method, redirectUrl) => {
         settled = true;
         cleanup();
+        abortRequest();
         // Electron 43 cancels a manual redirect; restart after validating its URL.
         resolve({ redirectUrl });
       });
@@ -124,6 +125,13 @@ export async function requestUpdateUrl(
         resetTimer();
         resolve({ response, url: currentUrl });
       });
+      if (
+        !Object.keys(currentHeaders).some(
+          (name) => name.toLowerCase() === 'cache-control',
+        )
+      ) {
+        request.setHeader('Cache-Control', 'no-cache');
+      }
       Object.entries(currentHeaders).forEach(([name, value]) =>
         request.setHeader(name, value),
       );

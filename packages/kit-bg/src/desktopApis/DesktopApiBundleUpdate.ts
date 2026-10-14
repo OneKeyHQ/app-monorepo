@@ -50,6 +50,9 @@ export interface IUpdateProgressUpdate {
 const BUNDLE_RETRY_BASE_DELAY_MS = 500;
 const BUNDLE_RETRY_MAX_DELAY_MS = 1000 * 10;
 
+export const MAX_BUNDLE_UNCOMPRESSED_BYTES = 512 * 1024 * 1024;
+export const MAX_BUNDLE_ENTRY_COUNT = 4096;
+
 // OCDS §4 failure classification. Every non-2xx HTTP status resolves to exactly
 // one of two classes with opposite recoveries: a Permanent failure means the
 // concurrent path is unusable for this object (fall back / give up), a
@@ -305,12 +308,16 @@ class DesktopApiAppBundleUpdate {
   ): Promise<IUpdateDownloadedEvent> {
     while (this.cacheClearPromise) await this.cacheClearPromise;
     const destKey = this.getDestZipPath(params);
-    // No usable key (missing version params): skip single-flight bookkeeping
+    const inFlightDownloadKey =
+      destKey && params.sha256
+        ? `${params.latestVersion}:${params.bundleVersion}:${params.sha256}`
+        : null;
+    // No usable key (missing version/sha256 params): skip single-flight bookkeeping
     // and let the downstream validation produce the canonical error.
-    if (!destKey) {
+    if (!destKey || !inFlightDownloadKey) {
       return this.runDownloadBundle(params);
     }
-    const existing = this.inflightDownloads.get(destKey);
+    const existing = this.inflightDownloads.get(inFlightDownloadKey);
     if (existing) {
       logger.info(
         'bundle-download',
@@ -319,10 +326,10 @@ class DesktopApiAppBundleUpdate {
       return existing;
     }
     const run = this.runDownloadBundle(params).finally(() => {
-      this.inflightDownloads.delete(destKey);
+      this.inflightDownloads.delete(inFlightDownloadKey);
       this.cancelByDest.delete(destKey);
     });
-    this.inflightDownloads.set(destKey, run);
+    this.inflightDownloads.set(inFlightDownloadKey, run);
     return run;
   }
 
@@ -352,7 +359,7 @@ class DesktopApiAppBundleUpdate {
       await downloadNodeFile({
         url: downloadUrl,
         targetPath: filePath,
-        identity: `bundle:${latestVersion}:${bundleVersion}:${downloadUrl}:${sha256}`,
+        identity: `bundle:${latestVersion}:${bundleVersion}:${sha256}`,
         headers: stripSensitiveHeaders(headers ?? {}),
         expectedBytes:
           typeof fileSize === 'number' &&
@@ -552,9 +559,14 @@ class DesktopApiAppBundleUpdate {
 
     try {
       const zip = new AdmZip(downloadedFile);
+      const entries = zip.getEntries();
+      if (entries.length > MAX_BUNDLE_ENTRY_COUNT) {
+        throw new OneKeyLocalError('Bundle zip contains too many entries');
+      }
       const resolvedExtractDir = path.resolve(extractDir);
-      // Validate all zip entries for path traversal before extraction
-      for (const entry of zip.getEntries()) {
+      let totalUncompressedBytes = 0;
+      // Validate all zip entries for path traversal and uncompressed size quotas before extraction
+      for (const entry of entries) {
         const entryPath = path.resolve(resolvedExtractDir, entry.entryName);
         if (
           !entryPath.startsWith(resolvedExtractDir + path.sep) &&
@@ -568,6 +580,46 @@ class DesktopApiAppBundleUpdate {
             `Path traversal detected in zip entry: ${entry.entryName}`,
           );
         }
+        const entrySize = entry.header.size;
+        if (
+          !Number.isFinite(entrySize) ||
+          entrySize < 0 ||
+          entrySize > MAX_BUNDLE_UNCOMPRESSED_BYTES
+        ) {
+          throw new OneKeyLocalError('Bundle zip entry exceeds maximum size');
+        }
+        totalUncompressedBytes += entrySize;
+        if (totalUncompressedBytes > MAX_BUNDLE_UNCOMPRESSED_BYTES) {
+          throw new OneKeyLocalError(
+            'Bundle zip exceeds maximum uncompressed size',
+          );
+        }
+      }
+      const metadataEntry = entries.find(
+        (e) =>
+          !e.isDirectory &&
+          e.entryName.replace(/\\/g, '/').replace(/^\.\//, '') ===
+            'metadata.json',
+      );
+      if (!metadataEntry) {
+        throw new OneKeyLocalError('metadata.json not found in bundle');
+      }
+      if (!allowSkipGPG) {
+        if (typeof zip.extractEntryTo === 'function') {
+          zip.extractEntryTo(metadataEntry, extractDir, false, true);
+        } else if (typeof metadataEntry.getData === 'function') {
+          fs.mkdirSync(extractDir, { recursive: true });
+          fs.writeFileSync(
+            this.getMetadataFilePath({ appVersion, bundleVersion }),
+            metadataEntry.getData(),
+          );
+        }
+        await verifyMetadataFileSha256({
+          appVersion,
+          expectedAppVersion: appVersion,
+          bundleVersion,
+          signature: signature!,
+        });
       }
       zip.extractAllTo(extractDir, true);
     } catch (error) {
@@ -588,6 +640,7 @@ class DesktopApiAppBundleUpdate {
       if (!allowSkipGPG) {
         await verifyMetadataFileSha256({
           appVersion,
+          expectedAppVersion: appVersion,
           bundleVersion,
           signature: signature!,
         });
