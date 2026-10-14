@@ -103,6 +103,37 @@ export function getQRCodeLogoClearArenaSize({
   return (logoSize + logoMargin * 2) / cellSize + QR_CODE_DOT_RADIUS_RATIO * 2;
 }
 
+// The OneKey mark for the middle of a code, as filled shapes: the three
+// shapes of the `Onekey` brand icon (primitives/Icon/react/brand). The icon
+// pads its 24-unit grid by one unit a side; `inset` and `size` give the
+// square the mark itself fills, as the bitmap logo does. It is kept as data
+// so the SVG and the canvas renderer both draw it in the same pass as the
+// code: an image has to load first and the icon component loads lazily, and
+// neither tells a share capture when the mark is finally on screen.
+export const QR_CODE_BRAND_MARK: {
+  inset: number;
+  size: number;
+  shapes: { d: string; fill: string; fillRule?: 'evenodd' }[];
+} = {
+  inset: 1,
+  size: 22,
+  shapes: [
+    {
+      fill: '#44D62C',
+      d: 'M23 12c0 7.594-3.406 11-11 11S1 19.594 1 12 4.406 1 12 1s11 3.406 11 11',
+    },
+    {
+      fill: '#000000',
+      d: 'M12.994 5.665h-3.06l-.537 1.623h1.7v3.42h1.897z',
+    },
+    {
+      fill: '#000000',
+      fillRule: 'evenodd',
+      d: 'M15.49 14.846a3.49 3.49 0 1 1-6.98 0 3.49 3.49 0 0 1 6.98 0m-1.584 0a1.906 1.906 0 1 1-3.811 0 1.906 1.906 0 0 1 3.81 0',
+    },
+  ],
+};
+
 export const QR_CODE_PLATE_BORDER_RADIUS = 16;
 
 // The symbol is centered on the white plate with `quietZoneSize` of plate

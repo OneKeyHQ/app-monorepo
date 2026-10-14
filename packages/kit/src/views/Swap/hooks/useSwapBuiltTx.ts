@@ -84,6 +84,7 @@ import {
 } from '@onekeyhq/shared/types/staking';
 import type {
   ESwapCancelLimitOrderSource,
+  ESwapQuoteSource,
   IFetchBuildTxResponse,
   IFetchLimitOrderRes,
   IFetchQuoteResult,
@@ -121,6 +122,7 @@ import {
   useSwapLimitPriceFromAmountAtom,
   useSwapLimitPriceToAmountAtom,
   useSwapProInputAmountAtom,
+  useSwapQuoteActionLockAtom,
   useSwapQuoteEventTotalCountAtom,
   useSwapQuoteListAtom,
   useSwapStepNetFeeLevelAtom,
@@ -150,7 +152,11 @@ import {
   getSwapRequiredNativeBalanceAmount,
   validateSwapBtcOutputs,
 } from '../utils/swapBalanceUtils';
-import { isSwapGasSponsored } from '../utils/swapGasUtils';
+import {
+  canReuseSwapReviewGasInfo,
+  isSwapGasSponsored,
+  shouldRequestSwapGasAccount,
+} from '../utils/swapGasUtils';
 import { buildSwapRateDifference } from '../utils/swapRateDifferenceUtils';
 import {
   type ISwapStepSignAndSendProgress,
@@ -159,6 +165,7 @@ import {
   markSubmittedSwapApprovalsCompleted,
   resolveSwapReviewNeedFetchGasAfterRebuild,
   shouldFallbackSwapStep,
+  updateSwapReviewStep,
 } from '../utils/swapReviewState';
 import {
   getStockTradeAnalyticsPayload,
@@ -240,11 +247,15 @@ type IEstimateNetworkFeeOptions = {
       >
     >
   >;
+  // The quote this review was built from; its `allowanceResult` tells whether
+  // the swap still needs an approval and therefore opts out of Gas Account.
+  quoteResult?: IFetchQuoteResult;
 };
 
 type IUseSwapBuildTxOptions = {
   onSwapBroadcast?: (isReviewCurrent?: () => boolean) => void | Promise<void>;
   marketSwapApprovalFlowId?: string;
+  buildTxSource?: ESwapQuoteSource;
 };
 
 type ISwapSignAndSendProgressEvent = {
@@ -308,6 +319,7 @@ function getSwapCreateFrom({
 export function useSwapBuildTx({
   onSwapBroadcast,
   marketSwapApprovalFlowId,
+  buildTxSource,
 }: IUseSwapBuildTxOptions = {}) {
   const onSwapBroadcastRef = useRef(onSwapBroadcast);
   onSwapBroadcastRef.current = onSwapBroadcast;
@@ -317,6 +329,7 @@ export function useSwapBuildTx({
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
   const [, setInAppNotificationAtom] = useInAppNotificationAtom();
+  const [quoteActionLock] = useSwapQuoteActionLockAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
@@ -612,24 +625,16 @@ export function useSwapBuildTx({
           clearQuoteData();
         }
         if (!reviewGuard || reviewGuard.isCurrent()) {
-          setSwapSteps(
-            (prevSteps: {
-              steps: ISwapStep[];
-              preSwapData: ISwapPreSwapData;
-              quoteResult?: IFetchQuoteResult | undefined;
-            }) => {
-              const newSteps = [...prevSteps.steps];
-              newSteps[newSteps.length - 1] = {
-                ...newSteps[newSteps.length - 1],
+          setSwapSteps((prevSteps) =>
+            updateSwapReviewStep({
+              reviewState: prevSteps,
+              stepIndex: prevSteps.steps.length - 1,
+              partialStep: {
                 status: ESwapStepStatus.PENDING,
                 txHash: txId,
                 orderId,
-              };
-              return {
-                ...prevSteps,
-                steps: newSteps,
-              };
-            },
+              },
+            }),
           );
           if (
             accountUtils.isQrAccount({
@@ -696,23 +701,15 @@ export function useSwapBuildTx({
           ) {
             rootNavigationRef.current?.goBack();
           }
-          setSwapSteps(
-            (prevSteps: {
-              steps: ISwapStep[];
-              preSwapData: ISwapPreSwapData;
-              quoteResult?: IFetchQuoteResult | undefined;
-            }) => {
-              const newSteps = [...prevSteps.steps];
-              newSteps[newSteps.length - 1] = {
-                ...newSteps[newSteps.length - 1],
+          setSwapSteps((prevSteps) =>
+            updateSwapReviewStep({
+              reviewState: prevSteps,
+              stepIndex: prevSteps.steps.length - 1,
+              partialStep: {
                 status: ESwapStepStatus.PENDING,
                 orderId,
-              };
-              return {
-                ...prevSteps,
-                steps: newSteps,
-              };
-            },
+              },
+            }),
           );
         }
         await completeSignedNoSendSwapSuccess({
@@ -1205,24 +1202,16 @@ export function useSwapBuildTx({
         throw new OneKeyAppError('checkLatestNativeTokenBalance failed');
       }
       assertSwapReviewExecutionAllowed(reviewGuard);
-      updateExecutionState(
-        (prev: {
-          steps: ISwapStep[];
-          preSwapData: ISwapPreSwapData;
-          quoteResult?: IFetchQuoteResult | undefined;
-        }) => {
-          const newSteps = cloneDeep(prev.steps);
-          newSteps[stepIndex] = {
-            ...newSteps[stepIndex],
+      updateExecutionState((prev) =>
+        updateSwapReviewStep({
+          reviewState: prev,
+          stepIndex,
+          partialStep: {
             stepSubTitle: intl.formatMessage({
               id: ETranslations.swap_process_sign_and_sent_tx,
             }),
-          };
-          return {
-            ...prev,
-            steps: newSteps,
-          };
-        },
+          },
+        }),
       );
       await runDirectSwapGasAccountStep({
         context: gasAccountAnalyticsContext,
@@ -1457,22 +1446,14 @@ export function useSwapBuildTx({
           return prev;
         });
         if (!shouldWaitApprove && (!reviewGuard || reviewGuard.isCurrent())) {
-          setSwapSteps(
-            (prev: {
-              steps: ISwapStep[];
-              preSwapData: ISwapPreSwapData;
-              quoteResult?: IFetchQuoteResult | undefined;
-            }) => {
-              const newSteps = cloneDeep(prev.steps);
-              newSteps[stepIndex] = {
-                ...newSteps[stepIndex],
+          setSwapSteps((prev) =>
+            updateSwapReviewStep({
+              reviewState: prev,
+              stepIndex,
+              partialStep: {
                 status: ESwapStepStatus.SUCCESS,
-              };
-              return {
-                ...prev,
-                steps: newSteps,
-              };
-            },
+              },
+            }),
           );
         }
       }
@@ -1496,22 +1477,14 @@ export function useSwapBuildTx({
       if (reviewGuard && !reviewGuard.isCurrent()) {
         return;
       }
-      setSwapSteps(
-        (prevSteps: {
-          steps: ISwapStep[];
-          preSwapData: ISwapPreSwapData;
-          quoteResult?: IFetchQuoteResult | undefined;
-        }) => {
-          const newSteps = [...prevSteps.steps];
-          newSteps[stepIndex] = {
-            ...newSteps[stepIndex],
+      setSwapSteps((prevSteps) =>
+        updateSwapReviewStep({
+          reviewState: prevSteps,
+          stepIndex,
+          partialStep: {
             status: ESwapStepStatus.FAILED,
-          };
-          return {
-            ...prevSteps,
-            steps: newSteps,
-          };
-        },
+          },
+        }),
       );
     },
     [setSwapSteps, setInAppNotificationAtom],
@@ -1550,22 +1523,14 @@ export function useSwapBuildTx({
       if (reviewGuard && !reviewGuard.isCurrent()) {
         return;
       }
-      setSwapSteps(
-        (prev: {
-          steps: ISwapStep[];
-          preSwapData: ISwapPreSwapData;
-          quoteResult?: IFetchQuoteResult | undefined;
-        }) => {
-          const newSteps = cloneDeep(prev.steps);
-          newSteps[stepIndex] = {
-            ...newSteps[stepIndex],
+      setSwapSteps((prev) =>
+        updateSwapReviewStep({
+          reviewState: prev,
+          stepIndex,
+          partialStep: {
             status: ESwapStepStatus.FAILED,
-          };
-          return {
-            ...prev,
-            steps: newSteps,
-          };
-        },
+          },
+        }),
       );
     },
     [setSwapSteps],
@@ -1580,24 +1545,16 @@ export function useSwapBuildTx({
     ) => {
       if (reviewGuard && !reviewGuard.isCurrent()) return;
       if (swapStepsRef.current?.preSwapData?.isHWAndExBatchTransfer) {
-        setSwapSteps(
-          (prev: {
-            steps: ISwapStep[];
-            preSwapData: ISwapPreSwapData;
-            quoteResult?: IFetchQuoteResult | undefined;
-          }) => {
-            const newSteps = cloneDeep(prev.steps);
-            newSteps[stepIndex] = {
-              ...newSteps[stepIndex],
+        setSwapSteps((prev) =>
+          updateSwapReviewStep({
+            reviewState: prev,
+            stepIndex,
+            partialStep: {
               stepTitle: `${intl.formatMessage({
                 id: ETranslations.swap_page_approve_and_swap,
               })} [ ${i + 1} / ${(approveUnsignedTxArr?.length ?? 0) + 1} ]`,
-            };
-            return {
-              ...prev,
-              steps: newSteps,
-            };
-          },
+            },
+          }),
         );
       }
     },
@@ -1785,35 +1742,32 @@ export function useSwapBuildTx({
         reviewGuard?.execution?.state ?? swapStepsRef.current
       ).preSwapData.netWorkFee?.gasInfos;
       const swapInfo = buildUnsignedParams?.swapInfo;
-      // Backend Gas Account pre-check from the build-tx response. When the
-      // sponsorship candidate flag is on we must re-run estimate-fee right
-      // before sending to obtain a fresh, non-expired gasAccountQuote.quoteId,
-      // so we skip the cached-gas fast path below for sponsored swaps.
-      const isGasAccountEnabled =
-        !!swapInfo?.swapBuildResData?.result?.gasAccountEnabled;
+      // Gas Account sponsorship request for this send (OK-62562): backend
+      // provider pre-check, a single swap tx without approval, and no custom
+      // RPC. When it is on we must re-run estimate-fee right before sending to
+      // obtain a fresh, non-expired gasAccountQuote.quoteId, so the cached-gas
+      // fast path below is skipped for sponsored swaps.
+      const isGasAccountEnabled = await shouldRequestSwapGasAccount({
+        networkId,
+        swapInfo,
+        quoteResult,
+        hasApproveTx: !!approveUnsignedTxArr?.length,
+      });
       const buildUnsignedParamsCheckNonce = { ...buildUnsignedParams };
       if (approveUnsignedTxArr?.length && approveUnsignedTxArr.length > 0) {
         buildUnsignedParamsCheckNonce.prevNonce =
           approveUnsignedTxArr[approveUnsignedTxArr.length - 1].nonce;
       }
-      updateExecutionState(
-        (prev: {
-          steps: ISwapStep[];
-          preSwapData: ISwapPreSwapData;
-          quoteResult?: IFetchQuoteResult | undefined;
-        }) => {
-          const newSteps = cloneDeep(prev.steps);
-          newSteps[stepIndex] = {
-            ...newSteps[stepIndex],
+      updateExecutionState((prev) =>
+        updateSwapReviewStep({
+          reviewState: prev,
+          stepIndex,
+          partialStep: {
             stepSubTitle: intl.formatMessage({
               id: ETranslations.swap_process_build_and_estimate_tx,
             }),
-          };
-          return {
-            ...prev,
-            steps: newSteps,
-          };
-        },
+          },
+        }),
       );
       let lastTxRes: ISwapSendTxResult | undefined;
       const unsignedTx =
@@ -2179,9 +2133,12 @@ export function useSwapBuildTx({
           }
         }
       } else if (
-        findGasInfo(stepGasInfos ?? [], unsignedTx.encodedTx) &&
-        !needFetchGas &&
-        !isGasAccountEnabled
+        canReuseSwapReviewGasInfo({
+          cachedGasInfo: findGasInfo(stepGasInfos ?? [], unsignedTx.encodedTx)
+            ?.gasInfo,
+          needFetchGas,
+          isGasAccountEnabled,
+        })
       ) {
         const gasInfoFinal = findGasInfo(
           stepGasInfos ?? [],
@@ -2651,6 +2608,8 @@ export function useSwapBuildTx({
             protocol: data.protocol ?? EProtocolOfExchange.SWAP,
             kind: data.kind ?? ESwapQuoteKind.SELL,
             walletType: swapFromAddressInfo.accountInfo?.wallet?.type ?? '',
+            deviceType: swapFromAddressInfo.accountInfo?.device?.deviceType,
+            source: quoteActionLock.source ?? buildTxSource,
             tradeSource: getSwapTradeSource({
               protocol: data.protocol,
               isSwapPro: focusSwapPro,
@@ -2988,6 +2947,8 @@ export function useSwapBuildTx({
       checkQuoteBalances,
       swapFromAddressInfo.accountInfo?.wallet?.type,
       swapFromAddressInfo.accountInfo?.device?.deviceType,
+      quoteActionLock.source,
+      buildTxSource,
       swapFromAddressInfo.accountInfo?.deriveInfo?.addressEncoding,
       focusSwapPro,
       isFirstTimeSwap,
@@ -3029,24 +2990,16 @@ export function useSwapBuildTx({
         fromAccountNetworkId &&
         fromAccountId
       ) {
-        updateExecutionState(
-          (prev: {
-            steps: ISwapStep[];
-            preSwapData: ISwapPreSwapData;
-            quoteResult?: IFetchQuoteResult | undefined;
-          }) => {
-            const newSteps = cloneDeep(prev.steps);
-            newSteps[stepIndex] = {
-              ...newSteps[stepIndex],
+        updateExecutionState((prev) =>
+          updateSwapReviewStep({
+            reviewState: prev,
+            stepIndex,
+            partialStep: {
               stepSubTitle: intl.formatMessage({
                 id: ETranslations.swap_process_create_order,
               }),
-            };
-            return {
-              ...prev,
-              steps: newSteps,
-            };
-          },
+            },
+          }),
         );
         const {
           skipSendTransAction,
@@ -3088,24 +3041,16 @@ export function useSwapBuildTx({
                 handleBuildTxFallbackOnCancel(stepIndex, reviewGuard),
             });
             if (!reviewGuard || reviewGuard.isCurrent()) {
-              updateExecutionState(
-                (prev: {
-                  steps: ISwapStep[];
-                  preSwapData: ISwapPreSwapData;
-                  quoteResult?: IFetchQuoteResult | undefined;
-                }) => {
-                  const newSteps = cloneDeep(prev.steps);
-                  newSteps[stepIndex] = {
-                    ...newSteps[stepIndex],
+              updateExecutionState((prev) =>
+                updateSwapReviewStep({
+                  reviewState: prev,
+                  stepIndex,
+                  partialStep: {
                     stepSubTitle: intl.formatMessage({
                       id: ETranslations.swap_process_build_and_estimate_tx,
                     }),
-                  };
-                  return {
-                    ...prev,
-                    steps: newSteps,
-                  };
-                },
+                  },
+                }),
               );
             }
           } else {
@@ -3636,6 +3581,7 @@ export function useSwapBuildTx({
         reviewGuard,
         vaultSettingsResult,
         prefetchedOnChainNonce,
+        quoteResult,
       } = options ?? {};
       const updateReviewSteps = (
         updater: (prev: typeof swapSteps) => typeof swapSteps,
@@ -3653,11 +3599,15 @@ export function useSwapBuildTx({
       }
       const gasAccountReviewSession = gasAccountReviewSessionRef.current;
       const swapInfo = buildUnsignedParams?.swapInfo;
-      // Gas Account sponsorship pre-check from the build-tx response; forwarded
-      // to estimate-fee so the preview can decide whether to show the sponsored
-      // badge based on the real `gasAccountEligible` response.
-      const isGasAccountEnabled =
-        !!swapInfo?.swapBuildResData?.result?.gasAccountEnabled;
+      // Gas Account sponsorship request for the preview (OK-62562), using the
+      // same rule as the send path so the sponsored badge and the broadcast
+      // agree; the real `gasAccountEligible` still comes from estimate-fee.
+      const isGasAccountEnabled = await shouldRequestSwapGasAccount({
+        networkId,
+        swapInfo,
+        quoteResult,
+        hasApproveTx: !!approveUnsignedTxArr?.length,
+      });
       const buildUnsignedParamsCheckNonce = { ...buildUnsignedParams };
       if (approveUnsignedTxArr?.length && approveUnsignedTxArr.length > 0) {
         buildUnsignedParamsCheckNonce.prevNonce =
@@ -4125,7 +4075,11 @@ export function useSwapBuildTx({
             swapInfo,
           },
           unsignedTxArr,
-          { updateReviewState: false, vaultSettingsResult },
+          {
+            updateReviewState: false,
+            vaultSettingsResult,
+            quoteResult: rebuiltQuoteResult,
+          },
         );
 
         if (
@@ -4344,6 +4298,7 @@ export function useSwapBuildTx({
               reviewGuard,
               vaultSettingsResult,
               prefetchedOnChainNonce,
+              quoteResult: data,
             },
           );
           if (!reviewGuard.isCurrent()) {
@@ -4518,22 +4473,15 @@ export function useSwapBuildTx({
             };
             let approvalRequestId: string | undefined;
             try {
-              updateExecutionState(
-                (prevSteps: {
-                  steps: ISwapStep[];
-                  preSwapData: ISwapPreSwapData;
-                }) => {
-                  const newSteps = [...prevSteps.steps];
-                  newSteps[i] = {
-                    ...newSteps[i],
+              updateExecutionState((prevSteps) =>
+                updateSwapReviewStep({
+                  reviewState: prevSteps,
+                  stepIndex: i,
+                  partialStep: {
                     status: ESwapStepStatus.LOADING,
                     errorMessage: undefined,
-                  };
-                  return {
-                    ...prevSteps,
-                    steps: newSteps,
-                  };
-                },
+                  },
+                }),
               );
               if (type === ESwapStepType.APPROVE_TX) {
                 const approveAmount = isResetApprove
@@ -4675,22 +4623,14 @@ export function useSwapBuildTx({
                 i !== swapStepsValuesFinal.length - 1 &&
                 !preSwapDataFinal?.shouldFallback
               ) {
-                updateExecutionState(
-                  (prevSteps: {
-                    steps: ISwapStep[];
-                    preSwapData: ISwapPreSwapData;
-                    quoteResult?: IFetchQuoteResult | undefined;
-                  }) => {
-                    const newSteps = [...prevSteps.steps];
-                    newSteps[i] = {
-                      ...newSteps[i],
+                updateExecutionState((prevSteps) =>
+                  updateSwapReviewStep({
+                    reviewState: prevSteps,
+                    stepIndex: i,
+                    partialStep: {
                       status: ESwapStepStatus.SUCCESS,
-                    };
-                    return {
-                      ...prevSteps,
-                      steps: newSteps,
-                    };
-                  },
+                    },
+                  }),
                 );
               }
             } catch (error) {
@@ -4743,7 +4683,7 @@ export function useSwapBuildTx({
                     succeededApproveCount:
                       signAndSendProgress.succeededApproveCount,
                   });
-                } else {
+                } else if (newSteps[i]) {
                   newSteps[i] = {
                     ...newSteps[i],
                     status: ESwapStepStatus.READY,
@@ -4758,36 +4698,34 @@ export function useSwapBuildTx({
                   quoteResult: fallbackSwapStepsValues.quoteResult,
                 };
               }
-              updateExecutionState(
-                (prevSteps: {
-                  steps: ISwapStep[];
-                  preSwapData: ISwapPreSwapData;
-                  quoteResult?: IFetchQuoteResult | undefined;
-                }) => {
-                  if (shouldFallback) {
-                    return {
-                      ...prevSteps,
-                      steps: fallbackSwapStepsValues.steps,
-                      preSwapData: fallbackSwapStepsValues.preSwapData,
-                      quoteResult: fallbackSwapStepsValues.quoteResult,
-                    };
-                  }
-                  const newSteps = [...prevSteps.steps];
-                  newSteps[i] = {
-                    ...newSteps[i],
-                    status: ESwapStepStatus.FAILED,
-                    errorMessage,
-                  };
+              updateExecutionState((prevSteps) => {
+                if (shouldFallback) {
                   return {
                     ...prevSteps,
-                    steps: newSteps,
-                    preSwapData: {
-                      ...prevSteps.preSwapData,
-                      shouldFallback: false,
-                    },
+                    steps: fallbackSwapStepsValues.steps,
+                    preSwapData: fallbackSwapStepsValues.preSwapData,
+                    quoteResult: fallbackSwapStepsValues.quoteResult,
                   };
-                },
-              );
+                }
+                const nextState = updateSwapReviewStep({
+                  reviewState: prevSteps,
+                  stepIndex: i,
+                  partialStep: {
+                    status: ESwapStepStatus.FAILED,
+                    errorMessage,
+                  },
+                });
+                if (nextState === prevSteps) {
+                  return prevSteps;
+                }
+                return {
+                  ...nextState,
+                  preSwapData: {
+                    ...nextState.preSwapData,
+                    shouldFallback: false,
+                  },
+                };
+              });
               if (
                 shouldFallback &&
                 !swapStepsValues?.preSwapData.shouldFallback

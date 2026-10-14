@@ -23,6 +23,7 @@ import type {
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import type { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
+import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 
 import appGlobals from '../appGlobals';
@@ -72,7 +73,6 @@ import type { FuseResult } from 'fuse.js';
 // Supported hardware error types for dialog display
 export const HARDWARE_ERROR_DIALOG_TYPES = {
   DEVICE_NOT_FOUND: 'DeviceNotFound',
-  BLE_DEVICE_BOND_ERROR: 'BleDeviceBondError',
   NEED_ONEKEY_BRIDGE: 'NeedOneKeyBridge',
   DEVICE_NOT_OPENED_PASSPHRASE: 'DeviceNotOpenedPassphrase',
 } as const;
@@ -143,6 +143,11 @@ export type IEventBusPayloadAccountDataUpdate =
       refreshSource?: 'home-header' | 'pull-to-refresh';
     };
 
+export type IEventBusPayloadAccountUpdate = {
+  /** Whether account-scoped network data changed. */
+  isAccountDataChanged?: boolean;
+};
+
 // The item shape is owned by kit's settings config; it stays opaque here so
 // shared never depends on kit types or its search-results presentation.
 export type ISettingsSearchResultItem = FuseResult<unknown>;
@@ -179,14 +184,18 @@ export interface IAppEventBusPayload {
     fromAmount: string;
     toAmount: string;
   };
-  [EAppEventBusNames.SwapStockTokenSelected]: ISwapToken;
+  [EAppEventBusNames.SwapStockTokenSelected]: {
+    token: ISwapToken;
+    /** Identifies the Swap provider instance that opened the selector. */
+    storeName: string;
+  };
   [EAppEventBusNames.WalletRemove]: {
     walletId: string;
   };
   [EAppEventBusNames.WalletRename]: {
     walletId: string;
   };
-  [EAppEventBusNames.AccountUpdate]: undefined;
+  [EAppEventBusNames.AccountUpdate]: IEventBusPayloadAccountUpdate | undefined;
   [EAppEventBusNames.AccountRemove]: undefined;
   [EAppEventBusNames.AddDBAccountsToWallet]: {
     walletId: string;
@@ -198,7 +207,9 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.CloseCurrentBrowserTab]: undefined;
   [EAppEventBusNames.DAppConnectUpdate]: undefined;
   [EAppEventBusNames.DAppLastFocusUrlUpdate]: undefined;
-  [EAppEventBusNames.GlobalDeriveTypeUpdate]: undefined;
+  [EAppEventBusNames.GlobalDeriveTypeUpdate]: {
+    networkImpl: string;
+  };
   [EAppEventBusNames.NetworkDeriveTypeChanged]: undefined;
   [EAppEventBusNames.AccountSelectorSelectedAccountUpdate]: {
     selectedAccount: IAccountSelectorSelectedAccount;
@@ -206,6 +217,10 @@ export interface IAppEventBusPayload {
     sceneName: EAccountSelectorSceneName;
     sceneUrl?: string;
     num: number;
+    sourceOperationId?: number;
+    sourceRuntimeId?: string;
+    sourceTransitionId?: number;
+    trigger?: string;
   };
   [EAppEventBusNames.OnSwitchDAppNetwork]: {
     state: 'switching' | 'completed';
@@ -422,18 +437,7 @@ export interface IAppEventBusPayload {
         accounts: {
           accountId: string;
           networkId: string;
-          // Stable across network switches for HD accounts; forwarded so a
-          // frozen token list (whose own `indexedAccount` closure may be
-          // stale) resolves aggregate hidden/custom tokens against the right
-          // indexed account. Undefined for Others (imported/watch-only).
-          indexedAccountId?: string;
         }[];
-        // When true, the home token list refreshes strictly against the
-        // provided account/network instead of its own active account. Used by
-        // emitters from a different home tab right after a network switch,
-        // when the (inactive) token list is frozen and its closures still
-        // point at the previous network.
-        refreshByProvidedAccounts?: boolean;
       };
   [EAppEventBusNames.RefreshHistoryList]: undefined;
   [EAppEventBusNames.RefreshApprovalList]: undefined;
@@ -487,6 +491,7 @@ export interface IAppEventBusPayload {
   // listen to it to re-pull their network list.
   [EAppEventBusNames.AddedCustomNetwork]: undefined;
   [EAppEventBusNames.SyncDappAccountToHomeAccount]: {
+    expectedSelectedAccount: IAccountSelectorSelectedAccount;
     selectedAccount: IAccountSelectorSelectedAccount;
   };
   [EAppEventBusNames.ShowFindInWebPage]: {
@@ -755,6 +760,12 @@ export interface IAppEventBusPayload {
     /** Wall-clock timestamp (ms since unix epoch). */
     timestamp: number;
   };
+  /**
+   * A fresh invite post-config was fetched and cached. Carries the config
+   * itself so listeners never re-read through `getPostConfig()`: with a cache
+   * present that read schedules another refresh, which would emit again.
+   */
+  [EAppEventBusNames.ReferralPostConfigUpdated]: IInvitePostConfig;
 }
 
 /**

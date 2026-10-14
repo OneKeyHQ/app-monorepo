@@ -1,7 +1,8 @@
 import { useCallback } from 'react';
 
 import type { ITradingViewNativePriceUpdateData } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
-import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+
+import { useMarketChartPriceUpdate } from './useMarketChartPriceUpdate';
 
 export function useMarketNativeChartPriceUpdate({
   networkId,
@@ -12,23 +13,19 @@ export function useMarketNativeChartPriceUpdate({
   tokenAddress: string;
   enabled?: boolean;
 }) {
-  const actions = useTokenDetailActions();
+  const acceptChartPrice = useMarketChartPriceUpdate({
+    networkId,
+    tokenAddress,
+    enabled,
+  });
 
   return useCallback(
     (data: ITradingViewNativePriceUpdateData) => {
-      if (!enabled || !networkId || data.source !== 'realtime') {
+      if (!Number.isFinite(data.price) || data.price <= 0) {
         return;
       }
-
-      actions.current.applyChartPriceUpdate({
-        networkId,
-        tokenAddress,
-        price: String(data.price),
-        // Candle timestamps mark interval starts; use reception time so later
-        // ticks within the same candle can refresh the price cache.
-        lastUpdated: data.receivedAt,
-      });
+      acceptChartPrice(String(data.price), data.source);
     },
-    [actions, enabled, networkId, tokenAddress],
+    [acceptChartPrice],
   );
 }

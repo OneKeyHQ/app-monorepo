@@ -18,6 +18,8 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAddressRiskCheckDetails } from '@onekeyhq/shared/types/addressRiskCheck';
 
+import { usePrimeFeatureAccess } from '../../Prime/hooks/usePrimeFeatureAccess';
+
 import { formatRiskCheckDate } from './RiskCheckShared';
 
 function SectionHeader({ title, extra }: { title: string; extra?: string }) {
@@ -340,6 +342,7 @@ export function AddressRiskMoreAnalysis({
   address: string;
 }) {
   const intl = useIntl();
+  const { handleFreeTrialError } = usePrimeFeatureAccess();
   const [isLoading, setIsLoading] = useState(false);
   const [details, setDetails] = useState<
     IAddressRiskCheckDetails | undefined
@@ -354,12 +357,15 @@ export function AddressRiskMoreAnalysis({
           address,
         });
       setDetails(data);
-    } catch {
-      // The background proxy already shows the server-provided error toast.
+    } catch (error) {
+      // Free users may read details of an address checked this month; the
+      // server decides. Not eligible / exhausted get the unified feedback,
+      // other errors were already toasted by the background proxy.
+      handleFreeTrialError({ error, networkId });
     } finally {
       setIsLoading(false);
     }
-  }, [networkId, address]);
+  }, [networkId, address, handleFreeTrialError]);
 
   if (!details) {
     return (

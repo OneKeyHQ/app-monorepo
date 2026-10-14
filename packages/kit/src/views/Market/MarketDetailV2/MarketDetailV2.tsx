@@ -270,7 +270,7 @@ function MarketDetail({
   // Track market entry analytics
   useMarketEnterAnalytics();
 
-  // Start auto-refresh for token details every 6 seconds
+  // Refresh metadata, initialize the quote, and recover it when chart updates stop.
   // Use actualNetworkId (converted from shortcode if needed) for API calls
   const {
     marketAssetDetail,
@@ -340,7 +340,10 @@ function MarketDetail({
         {isChartFullscreen && !platformEnv.isNative ? (
           <Page.Header headerShown={false} />
         ) : (
-          <MarketDetailHeader showFavoriteButton={showFavoriteButton} />
+          <MarketDetailHeader
+            showFavoriteButton={showFavoriteButton}
+            marketTokenCategory={marketTokenCategory}
+          />
         )}
 
         <Page.Body

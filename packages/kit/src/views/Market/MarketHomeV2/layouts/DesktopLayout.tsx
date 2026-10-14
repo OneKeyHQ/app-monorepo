@@ -184,11 +184,19 @@ export function DesktopLayout({
   const stockCategories =
     filterBarProps.stockCategories ?? EMPTY_MARKET_STOCK_CATEGORIES;
   const [selectedStockCategoryId, setSelectedStockCategoryId] =
-    useMarketSubCategorySelection(stockCategories);
+    useMarketSubCategorySelection(
+      stockCategories,
+      'selectedStockCategory',
+      filterBarProps.isCategoryConfigLoading,
+    );
   const topCoinsCategories =
     filterBarProps.topCoinsCategories ?? EMPTY_MARKET_TOP_COINS_CATEGORIES;
   const [selectedTopCoinsCategoryId, setSelectedTopCoinsCategoryId] =
-    useMarketSubCategorySelection(topCoinsCategories);
+    useMarketSubCategorySelection(
+      topCoinsCategories,
+      'selectedTopCoinsCategory',
+      filterBarProps.isCategoryConfigLoading,
+    );
   const handleStockDataChange = useCallback(
     (categoryId: string, isStockData: boolean) => {
       setStockDataCategoryMap((prev) => {
@@ -225,6 +233,8 @@ export function DesktopLayout({
   // without recreating the callback (which would break collapsible tab memoisation).
   const setActiveTabNameRef = useRef(setActiveTabName);
   setActiveTabNameRef.current = setActiveTabName;
+  const handleTabChangeRef = useRef(handleTabChange);
+  handleTabChangeRef.current = handleTabChange;
 
   // Use refs for filterBarProps and activeTabName to keep renderTabBar stable
   const filterBarPropsRef = useRef(filterBarProps);
@@ -281,6 +291,7 @@ export function DesktopLayout({
         // tab-switch animation completes (onTabChange fires after animation).
         ensureTabActivated(name);
         setActiveTabNameRef.current(name);
+        handleTabChangeRef.current(name);
         tabBarProps.onTabPress?.(name);
       };
       const currentFilterBarProps = filterBarPropsRef.current;
@@ -369,11 +380,16 @@ export function DesktopLayout({
 
   const onTabChangeHandler = useCallback(
     ({ tabName }: { tabName: string }) => {
+      // The web container emits this callback after the press. A newer press
+      // or an unmount must not let an old callback overwrite the saved tab.
+      if (tabsRef.current?.getFocusedTab() !== tabName) {
+        return;
+      }
       ensureTabActivated(tabName);
       setActiveTabName(tabName);
-      handleTabChange(tabName);
+      handleTabChangeRef.current(tabName);
     },
-    [ensureTabActivated, handleTabChange, setActiveTabName],
+    [ensureTabActivated, setActiveTabName, tabsRef],
   );
 
   const listContainerProps = useMemo(() => {

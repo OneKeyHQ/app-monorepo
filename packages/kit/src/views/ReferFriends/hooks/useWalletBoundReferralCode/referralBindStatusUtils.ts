@@ -10,6 +10,22 @@ type IReferralBindState = {
   bindWindowReason?: string;
 };
 
+export function isBindWindowExpiredError(
+  error:
+    | {
+        message?: string;
+        data?: { message?: string; messageId?: string };
+      }
+    | null
+    | undefined,
+): boolean {
+  return (
+    error?.data?.messageId === 'exceeded_bind_window' ||
+    error?.data?.message === 'exceeded_bind_window' ||
+    error?.message === 'exceeded_bind_window'
+  );
+}
+
 export function canBindReferralCode(
   status: IReferralBindState | null | undefined,
 ): boolean {

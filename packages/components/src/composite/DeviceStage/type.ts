@@ -6,7 +6,10 @@ import type {
   IDeviceStageErrorI18n,
 } from '@onekeyhq/shared/types/deviceStage';
 
-import type { IHardwareDeviceType } from '../../content/HardwareDevice';
+import type {
+  IHardwareDeviceColor,
+  IHardwareDeviceType,
+} from '../../content/HardwareDevice';
 
 /**
  * Exploration-only hardware-interaction stage. Deliberately minimal:
@@ -178,6 +181,10 @@ export interface IDeviceStageProps {
    * widths. Defaults to REPLICA_WIDTH (see ./consts).
    */
   replicaWidth?: number;
+  /** The model's finish, read by the driver off the device row's serial
+   * number (shared/utils/hardwareDeviceColors) — only the Pro 2 has one.
+   * Omitted: the model's default shell. */
+  deviceColor?: IHardwareDeviceColor;
   step: IDeviceStageStep;
   /**
    * Dresses the stage for a third-party device: the capsule's left seat
@@ -327,6 +334,8 @@ export interface IDeviceStageProps {
    * integration layer hands over the UR json and owns nothing else.
    */
   qrValueUr?: IAirGapUrJson;
+  qrSessionId?: number;
+  qrRenderKey?: string;
   /**
    * The live camera preview for scanQr's viewfinder window — the stage
    * fixes where the window sits and how it is framed, the integration
@@ -343,6 +352,7 @@ export interface IDeviceStageProps {
    * with nothing to scan back), the step renders no button.
    */
   onQrNext?: () => void;
+  onQrRenderReady?: () => void;
   /**
    * Steps scanQr back to presenting the code — the escape hatch for a
    * premature handoff: if the device never got the task, nothing will ever

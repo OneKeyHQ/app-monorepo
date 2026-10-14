@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 
 import { act, fireEvent, render, waitFor } from '@testing-library/react';
 
+import { EPageType } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -77,7 +78,33 @@ jest.mock('@onekeyhq/components', () => {
       children,
     );
   return {
-    SegmentControl: Container,
+    EPageType: { modal: 'modal' },
+    SegmentControl: ({
+      options,
+      onChange,
+    }: {
+      options?: Array<{
+        label: ReactNode;
+        testID?: string;
+        value: string | number;
+      }>;
+      onChange?: (value: string | number) => void;
+    }) =>
+      createElement(
+        'div',
+        null,
+        options?.map((option) =>
+          createElement(
+            'button',
+            {
+              key: String(option.value),
+              'data-testid': option.testID,
+              onClick: () => onChange?.(option.value),
+            },
+            option.label,
+          ),
+        ),
+      ),
     SizableText: Container,
     Stack: Container,
     XStack: Container,
@@ -137,6 +164,50 @@ jest.mock('./SwapHeaderRightActionContainer', () => {
 });
 
 describe('SwapHeaderContainer', () => {
+  it('keeps the seeded Market Stock modal out of default type initialization', async () => {
+    jest.useFakeTimers();
+    try {
+      const view = render(
+        <SwapHeaderContainer
+          storeName={EJotaiContextStoreNames.swapModal}
+          pageType={EPageType.modal}
+          defaultSwapType={ESwapTabSwitchType.STOCK}
+          enterFrom={ESwapSource.MARKET}
+          showSwapPro
+        />,
+      );
+      await act(async () => {
+        jest.advanceTimersByTime(100);
+      });
+      expect(mockSwapTypeSwitchAction).not.toHaveBeenCalled();
+      view.unmount();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('still initializes the default type for an ordinary Stock modal', async () => {
+    jest.useFakeTimers();
+    try {
+      const view = render(
+        <SwapHeaderContainer
+          pageType={EPageType.modal}
+          defaultSwapType={ESwapTabSwitchType.STOCK}
+        />,
+      );
+      await act(async () => {
+        jest.advanceTimersByTime(100);
+      });
+      expect(mockSwapTypeSwitchAction).toHaveBeenCalledWith(
+        ESwapTabSwitchType.STOCK,
+        mockFromToken.networkId,
+      );
+      view.unmount();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it.each([true, false])(
     'forwards the Market store through the header (single: %s)',
     (singleSwapBridgeTab) => {
@@ -198,6 +269,7 @@ describe('SwapHeaderContainer', () => {
       expect(mockUpdateSelectedAccountNetwork).toHaveBeenCalledWith({
         num: 0,
         networkId: mockFromToken.networkId,
+        reason: 'swapTypeNetworkSync',
       });
     });
   });
@@ -215,12 +287,29 @@ describe('SwapHeaderContainer', () => {
       expect(mockUpdateSelectedAccountNetwork).toHaveBeenCalledWith({
         num: 0,
         networkId: mockProToken.networkId,
+        reason: 'swapTypeNetworkSync',
       });
     });
     expect(mockUpdateSelectedAccountNetwork).not.toHaveBeenCalledWith({
       num: 0,
       networkId: mockFromToken.networkId,
+      reason: 'swapTypeNetworkSync',
     });
+  });
+
+  it('notifies the content before switching the active Swap type', () => {
+    const onSwapTypeSwitch = jest.fn();
+    const { getByTestId } = render(
+      <SwapHeaderContainer
+        showSwapPro
+        hideRightActions
+        onSwapTypeSwitch={onSwapTypeSwitch}
+      />,
+    );
+
+    fireEvent.click(getByTestId(`swap-type-tab-${ESwapTabSwitchType.SWAP}`));
+
+    expect(onSwapTypeSwitch).toHaveBeenCalledWith(ESwapTabSwitchType.SWAP);
   });
 
   it('hides the Swap & Bridge title in the Market embedded header', () => {

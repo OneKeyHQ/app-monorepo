@@ -2,6 +2,7 @@
 
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import type { IHardwareDeviceColor } from '@onekeyhq/shared/src/utils/hardwareDeviceColors';
 import type {
   EFirmwareUpdateTipMessages,
   EHardwareVendor,
@@ -22,6 +23,7 @@ import type {
   IDeviceStageStepValue,
 } from '@onekeyhq/shared/types/deviceStage';
 import type { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
+import type { ISolanaTxDiagnosticContext } from '@onekeyhq/shared/types/solanaTxDiagnostics';
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
@@ -194,6 +196,7 @@ export const {
  * the DeviceStageContainer renders purely from it. `step: 'off'` is the only
  * state that plays the exit animation.
  */
+
 export type IDeviceStageState = {
   /** Monotonic id; a new burst resets the container's close-grant policy. */
   burstId: number;
@@ -203,6 +206,9 @@ export type IDeviceStageState = {
   step: IDeviceStageStepValue;
   connectId?: string;
   deviceType?: IDeviceType;
+  /** The finish the serial number names (Pro 2 only) — which of the
+   * model's shells the replica wears. */
+  deviceColor?: IHardwareDeviceColor;
   deviceName?: string;
   /** Third-party track: dresses the stage for Trezor / Ledger. */
   vendor?: EHardwareVendor;
@@ -251,6 +257,7 @@ export type IDeviceStageState = {
    * session is dropped — a stale frame must never answer a newer
    * request. The servicePromise id itself never leaves bg. */
   qrSessionId?: number;
+  qrDiagnostic?: ISolanaTxDiagnosticContext;
   confirmDetails?: IDeviceStageConfirmDetail[];
   confirmMessage?: string;
   confirmDescription?: string;

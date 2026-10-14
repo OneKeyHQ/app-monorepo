@@ -261,7 +261,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
   ]);
 
   // Set tokenAddress/networkId/isNative synchronously on prop change,
-  // NOT inside the polling callback. This prevents stale polling responses
+  // not inside the request callback. This prevents stale responses
   // from writing old token identifiers back into atoms after a token switch.
   useLayoutEffect(() => {
     if (!active) return;
@@ -392,10 +392,8 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
     ],
     {
       undefinedResultIfError: true,
-      // Keep the interval identity stable while a retained Desktop/Web route is
-      // inactive. usePromiseResult delays a changed interval by its full
-      // duration; a stable interval lets the active dependency refetch
-      // immediately when the user returns to the route.
+      // Refresh statistics and recover quotes when the chart feed becomes stale.
+      // A stable interval also lets retained routes refetch immediately on entry.
       pollingInterval: 6000,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,

@@ -116,8 +116,11 @@ jest.mock('./BorrowHealthFactorSummary', () => {
     jest.requireActual<typeof import('../testIDs')>('../testIDs');
   return {
     __esModule: true,
-    BorrowHealthFactorSummary: () => (
-      <div data-testid={ids.overviewHealthFactor} />
+    BorrowHealthFactorSummary: ({ isLoading }: { isLoading?: boolean }) => (
+      <div
+        data-testid={ids.overviewHealthFactor}
+        data-loading={isLoading ? 'true' : 'false'}
+      />
     ),
   };
 });
@@ -191,5 +194,47 @@ describe('Overview position metrics', () => {
 
     expect(queryByTestId(BorrowTestIDs.overviewHealthFactor)).toBeTruthy();
     expect(queryByTestId(BorrowTestIDs.overviewNetApy)).toBeTruthy();
+  });
+
+  it('keeps health factor through polling but loads on a market or account change', () => {
+    const originalMarket = context.market;
+    const originalEarnAccount = context.earnAccount;
+    const originalHealthFactorData = overviewData.healthFactorData;
+    const originalHealthFactorLoading = overviewData.isHealthFactorLoading;
+
+    try {
+      overviewData.healthFactorData =
+        {} as IBorrowOverviewData['healthFactorData'];
+      overviewData.isHealthFactorLoading = false;
+      const { queryByTestId, rerender } = renderOverview();
+      const loading = () =>
+        queryByTestId(BorrowTestIDs.overviewHealthFactor)?.getAttribute(
+          'data-loading',
+        );
+
+      expect(loading()).toBe('false');
+      overviewData.healthFactorData = null;
+      overviewData.isHealthFactorLoading = true;
+      rerender(<Overview eModeStatus={null} overviewData={overviewData} />);
+      expect(loading()).toBe('false');
+
+      context.market = { ...originalMarket, marketAddress: '0xOtherMarket' };
+      rerender(<Overview eModeStatus={null} overviewData={overviewData} />);
+      expect(loading()).toBe('true');
+
+      overviewData.healthFactorData =
+        {} as IBorrowOverviewData['healthFactorData'];
+      rerender(<Overview eModeStatus={null} overviewData={overviewData} />);
+      expect(loading()).toBe('false');
+      context.earnAccount = { data: { account: { id: 'account-2' } } };
+      overviewData.healthFactorData = null;
+      rerender(<Overview eModeStatus={null} overviewData={overviewData} />);
+      expect(loading()).toBe('true');
+    } finally {
+      context.market = originalMarket;
+      context.earnAccount = originalEarnAccount;
+      overviewData.healthFactorData = originalHealthFactorData;
+      overviewData.isHealthFactorLoading = originalHealthFactorLoading;
+    }
   });
 });

@@ -3,6 +3,7 @@ import { map, max } from 'lodash';
 
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 
+import type { IDasAsset, IDasAssetProof } from '../types';
 import type { AccountInfo, PublicKey } from '@solana/web3.js';
 
 export enum EParamsEncodings {
@@ -24,6 +25,8 @@ export enum ERpcMethods {
   GET_LATEST_BLOCK_HASH = 'getLatestBlockhash',
   GET_MULTIPLE_ACCOUNTS_INFO = 'getMultipleAccounts',
   GET_SIGNATURE_STATUSES = 'getSignatureStatuses',
+  GET_ASSET = 'getAsset',
+  GET_ASSET_PROOF = 'getAssetProof',
 }
 
 export const MIN_PRIORITY_FEE = 1_000_000;
@@ -62,10 +65,16 @@ class ClientSol {
     return response;
   }
 
-  async getLatestBlockHash() {
+  async getLatestBlockHash(): Promise<{
+    recentBlockhash: string;
+    lastValidBlockHeight: number;
+    contextSlot?: number;
+    commitment?: 'confirmed';
+  }> {
     const [response] =
       await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
         value: { blockhash: string; lastValidBlockHeight: number };
+        context?: { slot?: number };
       }>({
         networkId: this.networkId,
         body: [
@@ -86,6 +95,8 @@ class ClientSol {
     return {
       recentBlockhash: response.value.blockhash,
       lastValidBlockHeight: response.value.lastValidBlockHeight,
+      contextSlot: response.context?.slot,
+      commitment: 'confirmed' as const,
     };
   }
 
@@ -188,6 +199,46 @@ class ClientSol {
         ],
       });
     return response.value;
+  }
+
+  // DAS methods are only served by DAS-capable upstreams; on other backends
+  // the proxy rejects with "Method not found" and the vault degrades.
+  async getAsset(assetId: string): Promise<IDasAsset> {
+    const [response] =
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<IDasAsset>(
+        {
+          networkId: this.networkId,
+          body: [
+            {
+              route: 'rpc',
+              params: {
+                method: ERpcMethods.GET_ASSET,
+                params: { id: assetId },
+              },
+            },
+          ],
+        },
+      );
+    return response;
+  }
+
+  async getAssetProof(assetId: string): Promise<IDasAssetProof> {
+    const [response] =
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<IDasAssetProof>(
+        {
+          networkId: this.networkId,
+          body: [
+            {
+              route: 'rpc',
+              params: {
+                method: ERpcMethods.GET_ASSET_PROOF,
+                params: { id: assetId },
+              },
+            },
+          ],
+        },
+      );
+    return response;
   }
 
   async getRecentPrioritizationFees(accountAddresses: string[]) {

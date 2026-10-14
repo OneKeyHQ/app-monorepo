@@ -3358,7 +3358,9 @@ class ServiceAccount extends ServiceBase {
 
     if (!params.applyRestoreSyncPolicy) {
       if (!params.skipEventEmit) {
-        appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+        appEventBus.emit(EAppEventBusNames.AccountUpdate, {
+          isAccountDataChanged: false,
+        });
       }
 
       if (oldName && name && oldName !== name) {
@@ -3397,7 +3399,9 @@ class ServiceAccount extends ServiceBase {
     const isNameChanged = oldName && latestName && oldName !== latestName;
 
     if (!params.skipEventEmit && isNameChanged) {
-      appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+      appEventBus.emit(EAppEventBusNames.AccountUpdate, {
+        isAccountDataChanged: false,
+      });
     }
 
     if (isNameChanged) {
@@ -3485,7 +3489,9 @@ class ServiceAccount extends ServiceBase {
       }
     }
     if (!params.skipEventEmit && isAccountNameChanged) {
-      appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+      appEventBus.emit(EAppEventBusNames.AccountUpdate, {
+        isAccountDataChanged: false,
+      });
     }
   }
 

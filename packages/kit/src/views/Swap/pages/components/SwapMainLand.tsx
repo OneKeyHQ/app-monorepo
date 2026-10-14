@@ -10,6 +10,7 @@ import {
 import BigNumber from 'bignumber.js';
 import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import type {
   IDialogInstance,
@@ -25,6 +26,7 @@ import {
   useInTabDialog,
   useMedia,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { LazyPageContainer } from '@onekeyhq/kit/src/components/LazyPageContainer';
@@ -106,6 +108,7 @@ import {
   ESwapDirectionType,
   ESwapProTradeType,
   ESwapQuoteKind,
+  ESwapQuoteSource,
   ESwapSelectTokenSource,
   ESwapSource,
   ESwapTabSwitchType,
@@ -172,6 +175,7 @@ import {
   SwapStockMobileContainer,
 } from './SwapStockDesktopContainer';
 import SwapSwapMbContainer from './SwapSwapMbContainer';
+import SwapTipsContainer from './SwapTipsContainer';
 
 import type { ScrollView as ScrollViewNative } from 'react-native';
 
@@ -197,6 +201,8 @@ interface ISwapMainLoadProps {
 type ISwapMainLoadContentProps = Omit<ISwapMainLoadProps, 'storeName'> & {
   storeName: EJotaiContextStoreNames;
 };
+
+const SWAP_CONTENT_ENTER_STYLE = { opacity: 0 } as const;
 
 const SwapMainLoad = ({
   storeName,
@@ -263,6 +269,8 @@ const SwapMainLoad = ({
     markCurrentGasAccountReviewSubmitted,
   } = useSwapBuildTx({
     onSwapBroadcast,
+    // Order attribution must not change the quote's provider pool.
+    buildTxSource: isMarketEmbeddedSwap ? ESwapQuoteSource.MARKET : undefined,
     marketSwapApprovalFlowId: isMarketEmbeddedSwap
       ? marketSwapApprovalFlowId
       : undefined,
@@ -1454,6 +1462,22 @@ const SwapMainLoad = ({
     isMarketEmbeddedSwap,
   });
 
+  const [hasSwitchedSwapType, setHasSwitchedSwapType] = useState(false);
+  // Cold-start atom hydration must keep the initial content instance intact;
+  // only a user tab click should restart the content entrance animation.
+  const [swapContentVersion, setSwapContentVersion] = useState(0);
+  const reducedMotion = useReducedMotion();
+  const fadeInSwapContent = hasSwitchedSwapType && !reducedMotion;
+  const handleSwapTypeSwitch = useCallback(() => {
+    setHasSwitchedSwapType(true);
+    setSwapContentVersion((version) => version + 1);
+  }, []);
+  const shouldRenderDesktopSwapHeader =
+    gtLg &&
+    pageType !== EPageType.modal &&
+    (platformEnv.isDesktop || platformEnv.isWeb) &&
+    !embeddedStockTrade;
+
   const renderSwapSwapBridgeContainer = useCallback(() => {
     if (
       embeddedStockTrade &&
@@ -1516,15 +1540,19 @@ const SwapMainLoad = ({
           stockTradeHeader={stockTradeHeader}
           stockTradeToken={stockTradeToken}
           headerContent={
-            <SwapHeaderContainer
-              storeName={storeName}
-              pageType={pageType}
-              defaultSwapType={swapInitParams?.swapTabSwitchType}
-              showSwapPro={platformEnv.isNative}
-              hideRightActions
-              enterFrom={swapInitParams?.swapSource}
-            />
+            !shouldRenderDesktopSwapHeader ? (
+              <SwapHeaderContainer
+                storeName={storeName}
+                pageType={pageType}
+                defaultSwapType={swapInitParams?.swapTabSwitchType}
+                showSwapPro={platformEnv.isNative}
+                hideRightActions
+                enterFrom={swapInitParams?.swapSource}
+              />
+            ) : undefined
           }
+          hasExternalHeader={shouldRenderDesktopSwapHeader}
+          hideSwapTips={shouldRenderDesktopSwapHeader}
         />
       );
     }
@@ -1576,7 +1604,9 @@ const SwapMainLoad = ({
           swapRecentTokenPairs={swapRecentTokenPairs}
           hideRecentTokenPairs={isMarketEmbeddedSwap}
           headerContent={
-            gtLg && pageType !== EPageType.modal ? (
+            gtLg &&
+            pageType !== EPageType.modal &&
+            !shouldRenderDesktopSwapHeader ? (
               <SwapHeaderContainer
                 storeName={storeName}
                 pageType={pageType}
@@ -1587,6 +1617,8 @@ const SwapMainLoad = ({
               />
             ) : undefined
           }
+          hasExternalHeader={shouldRenderDesktopSwapHeader}
+          hideSwapTips={shouldRenderDesktopSwapHeader}
         />
       );
     }
@@ -1648,6 +1680,7 @@ const SwapMainLoad = ({
     swapInitParams?.swapSource,
     gtLg,
     isMarketEmbeddedSwap,
+    shouldRenderDesktopSwapHeader,
   ]);
 
   // Desktop: show provider panel on the right side, need wider layout
@@ -1696,7 +1729,84 @@ const SwapMainLoad = ({
     contentTopPadding = '$0';
   }
 
-  return (
+  // Keep the desktop header outside the keyed content so SegmentControl stays
+  // mounted while the tab-specific container changes.
+  const renderSwapHeader = () => {
+    if (
+      embeddedStockTrade ||
+      (!shouldRenderDesktopSwapHeader &&
+        gtLg &&
+        pageType !== EPageType.modal &&
+        !platformEnv.isNative)
+    ) {
+      return null;
+    }
+    const header = (
+      <SwapHeaderContainer
+        storeName={storeName}
+        pageType={pageType}
+        defaultSwapType={swapInitParams?.swapTabSwitchType}
+        onSwapTypeSwitch={
+          shouldRenderDesktopSwapHeader ? handleSwapTypeSwitch : undefined
+        }
+        showSwapPro={platformEnv.isNative}
+        hideRightActions={showDesktopProviderPanel}
+        enterFrom={swapInitParams?.swapSource}
+        singleSwapBridgeTab={singleSwapBridgeHeader}
+        marketPresetSettings={
+          focusSwapPro ? swapProMarketPresetSettings : undefined
+        }
+      />
+    );
+    if (!shouldRenderDesktopSwapHeader) {
+      return header;
+    }
+    return (
+      <YStack width="100%">
+        <SwapTipsContainer pageType={pageType} />
+        <YStack width="100%" alignItems="center" pt="$8" pb="$4">
+          {header}
+        </YStack>
+      </YStack>
+    );
+  };
+
+  const swapContent = focusSwapPro ? (
+    <SwapProContainer
+      storeName={storeName}
+      pageType={pageType}
+      isFocused={isFocused}
+      onProSelectToken={onProSelectToken}
+      onSwapProActionClick={onPreSwap}
+      onOpenOrdersClick={onOpenOrdersClick}
+      onSelectPercentageStage={onSelectPercentageStage}
+      onBalanceMaxPress={onBalanceMaxPress}
+      handleSelectAccountClick={handleSelectAccountClick}
+      onProMarketDetail={onProMarketDetail}
+      onTokenPress={onTokenPress}
+      supportNetworksList={SwapProSupportNetworksList}
+      supportNetworksReady={swapProSupportNetworksReady}
+      marketPresetSettings={
+        swapProMarketPresetTokenContext
+          ? swapProMarketPresetSettings
+          : undefined
+      }
+      config={{
+        isLoading,
+        isAccountContextReady: isSwapProAccountContextReady,
+        speedConfigReady,
+        speedConfig,
+        balanceLoading,
+        isMEV,
+        hasEnoughBalance,
+        supportSpeedSwap,
+      }}
+    />
+  ) : (
+    renderSwapSwapBridgeContainer()
+  );
+
+  const pageContent = (
     <>
       <Page.Container flex={1} layout={containerLayout} padded={false}>
         <YStack
@@ -1712,61 +1822,42 @@ const SwapMainLoad = ({
             pt: '$0',
           }}
         >
-          {embeddedStockTrade ||
-          (gtLg &&
-            pageType !== EPageType.modal &&
-            !platformEnv.isNative) ? null : (
-            <SwapHeaderContainer
-              storeName={storeName}
-              pageType={pageType}
-              defaultSwapType={swapInitParams?.swapTabSwitchType}
-              showSwapPro={platformEnv.isNative}
-              hideRightActions={showDesktopProviderPanel}
-              enterFrom={swapInitParams?.swapSource}
-              singleSwapBridgeTab={singleSwapBridgeHeader}
-              marketPresetSettings={
-                focusSwapPro ? swapProMarketPresetSettings : undefined
-              }
-            />
-          )}
-          {focusSwapPro ? (
-            <SwapProContainer
-              storeName={storeName}
-              pageType={pageType}
-              isFocused={isFocused}
-              onProSelectToken={onProSelectToken}
-              onOpenOrdersClick={onOpenOrdersClick}
-              onSwapProActionClick={onPreSwap}
-              onSelectPercentageStage={onSelectPercentageStage}
-              onBalanceMaxPress={onBalanceMaxPress}
-              handleSelectAccountClick={handleSelectAccountClick}
-              onProMarketDetail={onProMarketDetail}
-              onTokenPress={onTokenPress}
-              supportNetworksList={SwapProSupportNetworksList}
-              supportNetworksReady={swapProSupportNetworksReady}
-              marketPresetSettings={
-                swapProMarketPresetTokenContext
-                  ? swapProMarketPresetSettings
-                  : undefined
-              }
-              config={{
-                isLoading,
-                isAccountContextReady: isSwapProAccountContextReady,
-                speedConfigReady,
-                speedConfig,
-                balanceLoading,
-                isMEV,
-                hasEnoughBalance,
-                supportSpeedSwap,
+          {renderSwapHeader()}
+          {shouldRenderDesktopSwapHeader ? (
+            <YStack
+              flex={1}
+              minHeight={0}
+              width="100%"
+              overflow="hidden"
+              $gtMd={{
+                flex: 'unset',
               }}
-            />
+            >
+              <YStack
+                key={swapContentVersion}
+                flex={1}
+                minHeight={0}
+                width="100%"
+                transition="quick"
+                animateOnly={ANIMATE_ONLY_OPACITY}
+                enterStyle={
+                  fadeInSwapContent ? SWAP_CONTENT_ENTER_STYLE : undefined
+                }
+                $gtMd={{
+                  flex: 'unset',
+                }}
+              >
+                {swapContent}
+              </YStack>
+            </YStack>
           ) : (
-            renderSwapSwapBridgeContainer()
+            swapContent
           )}
         </YStack>
       </Page.Container>
     </>
   );
+  return pageContent;
 };
 
 const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
@@ -1782,26 +1873,31 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
     (pageType === EPageType.modal
       ? EJotaiContextStoreNames.swapModal
       : EJotaiContextStoreNames.swap);
-  const shouldSeedMarketEmbeddedPair = Boolean(
-    singleSwapBridgeHeader &&
+  const shouldSeedMarketPair = Boolean(
+    (singleSwapBridgeHeader || pageType === EPageType.modal) &&
     swapInitParams?.swapSource === ESwapSource.MARKET &&
-    swapInitParams.importFromToken &&
-    swapInitParams.importToToken,
+    (swapInitParams.importFromToken || swapInitParams.importToToken),
   );
+  const preserveMarketModalAmounts =
+    shouldSeedMarketPair && pageType === EPageType.modal;
   const initialSelectedTokensOnInit =
     (swapInitParams?.swapSource === ESwapSource.WALLET_HOME_TOKEN_LIST &&
       Boolean(swapInitParams?.importNetworkId)) ||
-    shouldSeedMarketEmbeddedPair
+    shouldSeedMarketPair
       ? {
           accountKey: swapInitParams?.importAccountKey,
           fromToken: swapInitParams?.importFromToken,
           toToken: swapInitParams?.importToToken,
-          inputAmountDraft: shouldSeedMarketEmbeddedPair
-            ? (initialInputAmountDraft ?? {
-                fromTokenAmount: { value: '', isInput: false },
-                toTokenAmount: { value: '', isInput: false },
-              })
+          inputAmountDraft: shouldSeedMarketPair
+            ? (initialInputAmountDraft ??
+              (preserveMarketModalAmounts
+                ? undefined
+                : {
+                    fromTokenAmount: { value: '', isInput: false },
+                    toTokenAmount: { value: '', isInput: false },
+                  }))
             : undefined,
+          preserveInputAmounts: preserveMarketModalAmounts,
           swapType:
             swapInitParams?.swapTabSwitchType ?? ESwapTabSwitchType.SWAP,
         }

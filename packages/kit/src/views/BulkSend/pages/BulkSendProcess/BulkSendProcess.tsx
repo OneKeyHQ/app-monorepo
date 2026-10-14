@@ -33,10 +33,12 @@ import { isHardwareInterruptErrorByCode } from '@onekeyhq/shared/src/errors/util
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   type EModalBulkSendRoutes,
   type IModalBulkSendParamList,
 } from '@onekeyhq/shared/src/routes';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -54,6 +56,10 @@ import type {
 } from '@onekeyhq/shared/types/fee';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
+import {
+  isPrimeFreeTrialUserCancelError,
+  usePrimeFreeTrialUsage,
+} from '../../../Prime/hooks/usePrimeFreeTrialUsage';
 import BulkSendBar from '../../components/BulkSendBar';
 import BulkSendContentWrapper from '../../components/BulkSendContentWrapper';
 import BulkSendHeader from '../../components/BulkSendHeader';
@@ -226,12 +232,27 @@ function BulkSendProcessContent({
   totalTokenAmount,
   totalFiatAmount,
   intervalSettings,
+  freeTrialUsageId,
   onSuccess,
   onFail,
 }: IBulkSendProcessRouteParams) {
   const intl = useIntl();
   const media = useMedia();
   const navigation = useAppNavigation();
+
+  // Free trial (free users only, started on the Review page). ServiceSend
+  // marks the usage consumed at the broadcast point; this page only settles
+  // a round without any broadcast and decides whether a retry needs a new
+  // start. All state lives in refs: the loop keeps running after unmount.
+  const { settleUsage, prepareRetryUsage: prepareRetryFreeTrialUsage } =
+    usePrimeFreeTrialUsage({
+      featureId: EPrimeFeatures.BulkSend,
+    });
+  const freeTrialUsageIdRef = useRef<string | undefined>(freeTrialUsageId);
+  const freeTrialUsageSucceededRef = useRef(false);
+  const freeTrialRoundCancelledRef = useRef(false);
+  const retryStartingRef = useRef(false);
+  const [isRetryStarting, setIsRetryStarting] = useState(false);
 
   const tokenPrice = useMemo(() => {
     if (!totalTokenAmount || !totalFiatAmount) return undefined;
@@ -263,7 +284,7 @@ function BulkSendProcessContent({
 
   const handleFillUp = useCallback(() => {
     if (nativeToken) {
-      void handleOnReceive({ token: nativeToken });
+      void handleOnReceive({ token: nativeToken, source: 'bulkSend' });
     }
   }, [handleOnReceive, nativeToken]);
 
@@ -814,6 +835,7 @@ function BulkSendProcessContent({
           };
 
           // Sign and send
+          const roundUsageId = freeTrialUsageIdRef.current;
           const result =
             await backgroundApiProxy.serviceSend.batchSignAndSendTransaction({
               accountId: txAccountId,
@@ -821,7 +843,13 @@ function BulkSendProcessContent({
               unsignedTxs: [updatedTx],
               feeInfos: [sendSelectedFeeInfo],
               transferPayload: undefined,
+              freeTrialUsage: roundUsageId
+                ? { featureId: EPrimeFeatures.BulkSend, usageId: roundUsageId }
+                : undefined,
             });
+          if (roundUsageId) {
+            freeTrialUsageSucceededRef.current = true;
+          }
 
           // Deduct fee from tracked balance
           if (!isNil(networkStatusRef.current[balanceKey]?.nativeBalance)) {
@@ -859,6 +887,9 @@ function BulkSendProcessContent({
         } catch (error: unknown) {
           let passphraseEnabled;
           let deviceCommunicationError;
+          if (isPrimeFreeTrialUserCancelError(error)) {
+            freeTrialRoundCancelledRef.current = true;
+          }
 
           // Hardware interrupt error
           if (
@@ -966,6 +997,18 @@ function BulkSendProcessContent({
       }
     } finally {
       isProcessingRef.current = false;
+      // Round over and every broadcast of it has returned: settle a usage
+      // without any broadcast right away (the background ignores this once a
+      // broadcast succeeded).
+      const roundUsageId = freeTrialUsageIdRef.current;
+      if (roundUsageId && !freeTrialUsageSucceededRef.current) {
+        void settleUsage(
+          roundUsageId,
+          isAborted.current || freeTrialRoundCancelledRef.current
+            ? 'cancelled'
+            : 'failed',
+        );
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getCachedFeeContext, unsignedTxs, waitUntilInProgress, intl]);
@@ -1008,11 +1051,48 @@ function BulkSendProcessContent({
     }
   }, [progressState, currentProcessIndex, navigateAfterDone]);
 
-  const handleOnCancel = useCallback(() => {
+  // Retry of failed items. A usage with a broadcast is reused; a settled
+  // usage without one needs a new start, and a rejected start keeps the
+  // result page untouched.
+  const prepareRetryUsage = useCallback(async () => {
+    // E2E rounds are not metered, as on the Review page.
+    if (platformEnv.isE2E) {
+      return true;
+    }
+    const prepared = await prepareRetryFreeTrialUsage({
+      usageId: freeTrialUsageIdRef.current,
+      succeededLocally: freeTrialUsageSucceededRef.current,
+      networkId,
+      // Set on unmount: a page left while starting runs no retry.
+      isCallerGone: () => isAborted.current,
+    });
+    if (prepared.isNewUsage) {
+      freeTrialUsageIdRef.current = prepared.usageId;
+      freeTrialUsageSucceededRef.current = false;
+      freeTrialRoundCancelledRef.current = false;
+    }
+    return prepared.proceed;
+  }, [networkId, prepareRetryFreeTrialUsage]);
+
+  const handleOnCancel = useCallback(async () => {
     if (
       progressState === EBulkSendProgressState.Finished &&
       (failedTxCount > 0 || skippedTxCount > 0)
     ) {
+      if (retryStartingRef.current) {
+        return;
+      }
+      retryStartingRef.current = true;
+      setIsRetryStarting(true);
+      try {
+        if (!(await prepareRetryUsage())) {
+          return;
+        }
+      } finally {
+        retryStartingRef.current = false;
+        setIsRetryStarting(false);
+      }
+      freeTrialRoundCancelledRef.current = false;
       // Retry: filter out succeeded txs, reset and restart
       networkStatusRef.current = {};
       const failedIndices = new Set<number>();
@@ -1041,7 +1121,14 @@ function BulkSendProcessContent({
     isAborted.current = true;
     setProgressState(EBulkSendProgressState.Aborted);
     navigation.pop();
-  }, [progressState, failedTxCount, skippedTxCount, txStatusMap, navigation]);
+  }, [
+    progressState,
+    failedTxCount,
+    skippedTxCount,
+    txStatusMap,
+    navigation,
+    prepareRetryUsage,
+  ]);
 
   return (
     <Page
@@ -1124,7 +1211,11 @@ function BulkSendProcessContent({
                       size: 'large',
                     } as any
                   }
-                  onPress={handleOnCancel}
+                  loading={isRetryStarting}
+                  disabled={isRetryStarting}
+                  onPress={() => {
+                    void handleOnCancel();
+                  }}
                 >
                   {progressState === EBulkSendProgressState.Finished &&
                   (failedTxCount !== 0 || skippedTxCount !== 0)

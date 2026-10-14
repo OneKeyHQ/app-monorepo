@@ -22,6 +22,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 
 import { MarketTestIDs } from '../../../testIDs';
+import { useMarketHomeSelection } from '../../hooks/useMarketHomeSelection';
 import { MarketRecommendList } from '../MarketRecommendList';
 
 import { InlineActionBar } from './components/InlineActionBar';
@@ -38,7 +39,6 @@ import {
 } from './MarketTokenListBase';
 import {
   DEFAULT_WATCHLIST_FILTER,
-  type IWatchlistFilterType,
   MarketWatchlistCategorySelector,
 } from './MarketWatchlistCategorySelector';
 
@@ -88,12 +88,9 @@ function MarketWatchlistTokenList({
   const actions = useWatchListV2Actions();
 
   // Watchlist category filter: all / spot / stocks / perps
-  const [selectedFilter, setSelectedFilter] = useState<IWatchlistFilterType>(
+  const [selectedFilter, handleSelectFilter] = useMarketHomeSelection(
+    'watchlistFilter',
     DEFAULT_WATCHLIST_FILTER,
-  );
-  const handleSelectFilter = useCallback(
-    (filter: IWatchlistFilterType) => setSelectedFilter(filter),
-    [],
   );
 
   // State for mobile inline action bar
@@ -165,6 +162,13 @@ function MarketWatchlistTokenList({
     (watchlist.length > 0 &&
       filteredResult.data.length === 0 &&
       Boolean(filteredResult.isLoading));
+  // Stored favorites that never become rows would otherwise keep the empty
+  // table up and hide the recommend grid.
+  const showRecommendList =
+    watchlist.length === 0 ||
+    (watchlistState.isMounted &&
+      !filteredResult.isLoading &&
+      watchlistResult.data.length === 0);
 
   // Reordering inside a category is safe: sortWatchListV2Items places the
   // dragged row between its visible neighbors' sortIndex, so the relative
@@ -363,8 +367,8 @@ function MarketWatchlistTokenList({
     );
   }
 
-  // Show recommend list when watchlist is empty
-  if (watchlist.length === 0) {
+  // Show recommend list when there is nothing to render.
+  if (showRecommendList) {
     // When tab-integrated on native, wrap in Tabs.ScrollView so the collapsible
     // tab system has a registered scroll view for this tab.
     if (tabIntegrated && platformEnv.isNative) {

@@ -3,9 +3,11 @@ import type { ReactNode } from 'react';
 
 import {
   NavBackButton,
+  Page,
   SizableText,
   XStack,
   YStack,
+  useIsOverlayPage,
   useMedia,
 } from '@onekeyhq/components';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
@@ -29,6 +31,7 @@ export function ReferFriendsDetailHeader({
   toolbar,
 }: IReferFriendsDetailHeaderProps) {
   const { md } = useMedia();
+  const isOverlayPage = useIsOverlayPage();
   const navigation = useAppNavigation();
 
   const handleBackPress = useCallback(() => {
@@ -44,6 +47,25 @@ export function ReferFriendsDetailHeader({
     [handleBackPress],
   );
 
+  const toolbarRow = toolbar ? (
+    <XStack px="$5" pb="$2" pt="$2" jc="space-between" ai="center">
+      {toolbar}
+    </XStack>
+  ) : null;
+
+  // Inside the native modal stack these pages use the stack's own header,
+  // like the invite home and the other pages behind it: same height, title
+  // and back button. The hand-built bar below skips the modal's top inset
+  // and sits too high there.
+  if (platformEnv.isNative && isOverlayPage) {
+    return (
+      <>
+        <Page.Header title={title} />
+        {toolbarRow}
+      </>
+    );
+  }
+
   if (platformEnv.isNative || md) {
     return (
       <>
@@ -55,11 +77,7 @@ export function ReferFriendsDetailHeader({
             </SizableText>
           </XStack>
         </TabPageHeaderContainer>
-        {toolbar ? (
-          <XStack px="$5" pb="$2" pt="$2" jc="space-between" ai="center">
-            {toolbar}
-          </XStack>
-        ) : null}
+        {toolbarRow}
       </>
     );
   }

@@ -126,6 +126,7 @@ interface ISwapHeaderContainerProps {
   storeName?: EJotaiContextStoreNames;
   pageType?: EPageType;
   defaultSwapType?: ESwapTabSwitchType;
+  onSwapTypeSwitch?: (nextType: ESwapTabSwitchType) => void;
   showSwapPro?: boolean;
   /** Hide right action buttons (settings/history) - used when they're shown elsewhere in desktop layout */
   hideRightActions?: boolean;
@@ -141,6 +142,7 @@ const SwapHeaderContainer = ({
   storeName,
   pageType,
   defaultSwapType,
+  onSwapTypeSwitch,
   showSwapPro,
   hideRightActions,
   singleSwapBridgeTab,
@@ -226,7 +228,7 @@ const SwapHeaderContainer = ({
       !defaultSwapType ||
       (pageType === 'modal' &&
         (enterFrom === ESwapSource.WALLET_HOME_TOKEN_LIST ||
-          (singleSwapBridgeTab && enterFrom === ESwapSource.MARKET)))
+          enterFrom === ESwapSource.MARKET))
     ) {
       return;
     }
@@ -247,6 +249,7 @@ const SwapHeaderContainer = ({
       await updateSelectedAccountNetwork({
         num: 0,
         networkId: targetNetworkId,
+        reason: 'swapTypeNetworkSync',
       });
     },
     [updateSelectedAccountNetwork],
@@ -270,6 +273,8 @@ const SwapHeaderContainer = ({
           ? ESwapTabSwitchType.SWAP
           : (value as ESwapTabSwitchType);
       if (swapTypeSwitch === newType) return;
+
+      onSwapTypeSwitch?.(newType);
 
       defaultLogger.swap.tradeCategorySwitch.tradeCategorySwitch({
         fromCategory: getSwapAnalyticsCategoryFromSwapType(
@@ -324,6 +329,7 @@ const SwapHeaderContainer = ({
     [
       swapTypeSwitch,
       swapTypeSwitchAction,
+      onSwapTypeSwitch,
       syncRouteTabParam,
       networkId,
       fromToken?.networkId,

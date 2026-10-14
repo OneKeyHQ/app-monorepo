@@ -34,6 +34,10 @@ export const NOTIFICATIONS_HELP_CENTER_URL =
 export const DOWNLOAD_URL = 'https://onekey.so/download';
 export const DOWNLOAD_MOBILE_APP_URL =
   'https://onekey.so/download?client=mobile';
+// `client=desktop` keeps the page on the desktop app when opened from a phone;
+// it resolves to the desktop OS closest to the visitor (portal PR #911).
+export const DOWNLOAD_DESKTOP_APP_URL =
+  'https://onekey.so/download/?client=desktop';
 export const REFERRAL_HELP_LINK = 'https://help.onekey.so/articles/11461266';
 export const COIN_CONTROL_HELP_LINK =
   'https://help.onekey.so/articles/13050014';
@@ -106,14 +110,6 @@ export function buildReferralUrl({
   const baseUrl = getWebAppUrl(env);
   return `${baseUrl}/r/${code}${REFERRAL_LANDING_PATH[source]}`;
 }
-
-export const EXT_RATE_URL = {
-  'chrome':
-    'https://chrome.google.com/webstore/detail/onekey/jnmbobjmhlngoefaiojfljckilhhlhcj',
-  'firefox': 'https://addons.mozilla.org/zh-CN/firefox/addon/onekey/reviews/',
-  'edge':
-    'https://microsoftedge.microsoft.com/addons/detail/onekey/obffkkagpmohennipjokmpllocnlndac',
-};
 
 export const APP_STORE_APP_ID = '1609559473';
 const APP_STORE_BASE_LINK = `itms-apps://apps.apple.com/app/id${APP_STORE_APP_ID}`;

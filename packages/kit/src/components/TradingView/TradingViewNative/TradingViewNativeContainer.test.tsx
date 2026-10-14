@@ -3,11 +3,18 @@
  */
 
 import type { ReactElement, ReactNode, SetStateAction } from 'react';
-import { Suspense, startTransition, use, useState } from 'react';
+import {
+  Suspense,
+  isValidElement,
+  startTransition,
+  use,
+  useState,
+} from 'react';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import { getMarketDetailTradingViewNativeSource } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/getMarketDetailTradingViewNativeSource';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 import {
   type ITradingViewNativeChartSettings,
@@ -721,14 +728,39 @@ describe('TradingViewNativeContainer', () => {
         -1,
       )?.[0] as {
         mobileSettingsControl: ReactElement<{
-          onBeforeOpenSettings: () => void;
+          children?: ReactNode;
+          onBeforeOpenSettings?: () => void;
         }>;
       };
       return props.mobileSettingsControl;
     };
+    const getSettingsAction = (
+      control: ReactElement<{
+        children?: ReactNode;
+        onBeforeOpenSettings?: () => void;
+      }>,
+    ) => {
+      if (typeof control.props.onBeforeOpenSettings === 'function') {
+        return control.props.onBeforeOpenSettings;
+      }
+      const children = Array.isArray(control.props.children)
+        ? control.props.children
+        : [control.props.children];
+      const settingsButton = children.find(
+        (child): child is ReactElement<{ onBeforeOpenSettings: () => void }> =>
+          isValidElement<{ onBeforeOpenSettings?: () => void }>(child) &&
+          typeof child.props.onBeforeOpenSettings === 'function',
+      );
+      if (!settingsButton) {
+        throw new OneKeyLocalError('Missing toolbar settings button');
+      }
+      return settingsButton.props.onBeforeOpenSettings;
+    };
     const { rerender } = render(chart());
     const settingsControl = getSettingsControl();
-    act(() => settingsControl.props.onBeforeOpenSettings());
+    act(() => {
+      getSettingsAction(settingsControl)();
+    });
     expect(onFullscreenChange).not.toHaveBeenCalled();
 
     mockPoints = [{ o: 100, h: 110, l: 99, c: 105, v: 10, t: 1000 }];
@@ -736,7 +768,9 @@ describe('TradingViewNativeContainer', () => {
     expect(getSettingsControl()).toBe(settingsControl);
 
     rerender(chart(true));
-    act(() => getSettingsControl().props.onBeforeOpenSettings());
+    act(() => {
+      getSettingsAction(getSettingsControl())();
+    });
     expect(onFullscreenChange).toHaveBeenCalledWith(false);
   });
 
@@ -922,6 +956,54 @@ describe('TradingViewNativeContainer', () => {
       <TradingViewNativeContainer source={{ ...source }} testID="chart" />,
     );
     expect(screen.queryByTestId('chart-loading')).toBeNull();
+  });
+
+  it('emits history prices when the latest point changes, not when the callback changes', () => {
+    mockDataState = { status: 'live' };
+    mockPoints = [{ c: 100, h: 101, l: 99, o: 100, t: 1, v: 10 }];
+    const source = {
+      kind: 'market' as const,
+      networkId: 'evm--1',
+      tokenAddress: '0xabc',
+      symbol: 'TOKEN',
+      realtime: 'disabled' as const,
+    };
+    const firstOnPriceUpdate = jest.fn();
+    const { rerender } = render(
+      <TradingViewNativeContainer
+        source={source}
+        onPriceUpdate={firstOnPriceUpdate}
+      />,
+    );
+    expect(firstOnPriceUpdate).toHaveBeenCalledTimes(1);
+    expect(firstOnPriceUpdate).toHaveBeenLastCalledWith(
+      expect.objectContaining({ price: 100, source: 'history', timestamp: 1 }),
+    );
+
+    // A retained route re-creating its callback must not replay the old close.
+    const nextOnPriceUpdate = jest.fn();
+    rerender(
+      <TradingViewNativeContainer
+        source={source}
+        onPriceUpdate={nextOnPriceUpdate}
+      />,
+    );
+    expect(nextOnPriceUpdate).not.toHaveBeenCalled();
+
+    mockPoints = [
+      ...mockPoints,
+      { c: 101, h: 102, l: 100, o: 100, t: 2, v: 10 },
+    ];
+    rerender(
+      <TradingViewNativeContainer
+        source={{ ...source }}
+        onPriceUpdate={nextOnPriceUpdate}
+      />,
+    );
+    expect(nextOnPriceUpdate).toHaveBeenCalledTimes(1);
+    expect(nextOnPriceUpdate).toHaveBeenLastCalledWith(
+      expect.objectContaining({ price: 101, source: 'history', timestamp: 2 }),
+    );
   });
 
   it('renders a retryable error state when history has no points', () => {

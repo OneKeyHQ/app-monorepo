@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -14,7 +14,6 @@ import {
   SizableText,
   Skeleton,
   Stack,
-  Tabs,
   XStack,
   YStack,
   rootNavigationRef,
@@ -33,12 +32,14 @@ import {
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { useNavigateToMarketTab } from '@onekeyhq/kit/src/views/Market/hooks';
 import { useMarketPerpsTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/hooks/useMarketPerpsTokenList';
+import { isSpotHoldingVisible } from '@onekeyhq/kit/src/views/Perp/components/OrderInfoPanel/utils';
 import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
 import {
   perpsPendingInfoPanelTabAtom,
   spotActiveAssetAtom,
   tradingModeAtom,
   useCurrencyPersistAtom,
+  usePerpsCustomSettingsAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
@@ -76,6 +77,7 @@ import {
   buildOverviewGridStyle,
 } from '../components/DeFiListBlock/DeFiOverviewLayout';
 import { resolveOverviewCols } from '../components/DeFiListBlock/overviewColsResolver';
+import { HomeScrollView } from '../components/HomeScrollView';
 import {
   HOME_PERPS_GUIDE_URL,
   HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
@@ -86,7 +88,15 @@ import { SupportHub } from '../components/SupportHub/SupportHub';
 import { Upgrade } from '../components/Upgrade/Upgrade';
 import { HomeTestIDs } from '../testIDs';
 
+import { debugPerpsChain } from './perpsChainTrace';
 import { usePerpsHomePortfolio } from './usePerpsHomePortfolio';
+
+import type { View } from 'react-native';
+
+debugPerpsChain('module.evaluated');
+
+const isPerpsChainDebugEnabled =
+  process.env.NODE_ENV !== 'production' && platformEnv.isNative;
 
 const HYPER_EVM_LOGO_URI =
   'https://uni.onekey-asset.com/static/chain/hyper-evm.png';
@@ -550,9 +560,40 @@ function PerpsPositionSkeletonCard() {
 }
 
 function PerpsLoadingState() {
+  const skeletonRef = useRef<View>(null);
+  debugPerpsChain('skeleton.render');
+  useLayoutEffect(() => {
+    debugPerpsChain('skeleton.commit');
+    return () => debugPerpsChain('skeleton.unmount');
+  }, []);
   return (
     <>
-      <YStack display="flex" $gtMd={{ display: 'none' }} gap="$3" py="$2">
+      <YStack
+        testID={isPerpsChainDebugEnabled ? 'perps-chain-skeleton' : undefined}
+        ref={isPerpsChainDebugEnabled ? skeletonRef : undefined}
+        onLayout={
+          isPerpsChainDebugEnabled
+            ? (event) => {
+                debugPerpsChain(
+                  'skeleton.nativeLayout',
+                  event.nativeEvent.layout,
+                );
+                skeletonRef.current?.measureInWindow((x, y, width, height) =>
+                  debugPerpsChain('skeleton.nativeWindow', {
+                    x,
+                    y,
+                    width,
+                    height,
+                  }),
+                );
+              }
+            : undefined
+        }
+        display="flex"
+        $gtMd={{ display: 'none' }}
+        gap="$3"
+        py="$2"
+      >
         <XStack alignItems="center" justifyContent="space-between" gap="$4">
           <XStack flex={1} minWidth={0} alignItems="center" gap="$1">
             <Skeleton.HeadingXl w={112} />
@@ -1018,6 +1059,8 @@ function PerpsHeaderActions({
   );
 }
 
+// The zero total goes through PerpsTotalUsd so it follows the selected display
+// currency like the ready state does, instead of a hard-coded "$0.00" (OK-64029).
 function PerpsEmptyState({
   canDeposit,
   isDepositDisabled,
@@ -1038,13 +1081,12 @@ function PerpsEmptyState({
             <SizableText size="$headingXl" color="$textSubdued">
               ·
             </SizableText>
-            <SizableText
+            <PerpsTotalUsd
+              value={0}
               size="$headingXl"
               color="$textSubdued"
               numberOfLines={1}
-            >
-              $0.00
-            </SizableText>
+            />
           </XStack>
           <PerpsDepositButton
             testID={HomeTestIDs.perpsDepositButton}
@@ -1059,7 +1101,9 @@ function PerpsEmptyState({
           title={intl.formatMessage({
             id: ETranslations.perp_account_panel_account_value,
           })}
-          subTitle="$0.00"
+          subTitle={
+            <PerpsTotalUsd value={0} size="$headingXl" color="$textSubdued" />
+          }
           headerContainerProps={{ px: 0, pb: 0 }}
           headerActions={
             <PerpsHeaderActions
@@ -1606,10 +1650,42 @@ export function PerpsContainer() {
   const tabBarHeight = useScrollContentTabBarOffset();
   const { viewState, view, canDeposit, isDepositDisabled } =
     usePerpsHomePortfolio();
+  debugPerpsChain('container.render', { viewState });
+  useLayoutEffect(() => {
+    debugPerpsChain('container.commit', { viewState });
+  }, [viewState]);
+  const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
+  const visibleHoldings = useMemo(
+    () =>
+      view?.holdings.filter((holding) =>
+        isSpotHoldingVisible(
+          {
+            rawCoin: holding.symbol,
+            total: holding.balance,
+            usdcValueNum: holding.valueUsd ?? 0,
+            hasPriceSource: holding.valueUsd !== undefined,
+          },
+          perpsCustomSettings.hideSmallSpotHoldings ?? false,
+        ),
+      ) ?? [],
+    [view?.holdings, perpsCustomSettings.hideSmallSpotHoldings],
+  );
 
   return (
     <Stack flex={1}>
-      <Tabs.ScrollView
+      <HomeScrollView
+        onLayout={
+          isPerpsChainDebugEnabled
+            ? (event) =>
+                debugPerpsChain('scroll.nativeLayout', event.nativeEvent.layout)
+            : undefined
+        }
+        onContentSizeChange={
+          isPerpsChainDebugEnabled
+            ? (width, height) =>
+                debugPerpsChain('scroll.nativeContentSize', { width, height })
+            : undefined
+        }
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: tabBarHeight }}
         nestedScrollEnabled={platformEnv.isNativeAndroid}
@@ -1620,6 +1696,15 @@ export function PerpsContainer() {
         }
       >
         <YStack
+          onLayout={
+            isPerpsChainDebugEnabled
+              ? (event) =>
+                  debugPerpsChain('body.nativeLayout', {
+                    ...event.nativeEvent.layout,
+                    viewState,
+                  })
+              : undefined
+          }
           px="$5"
           py="$3"
           pb="$4"
@@ -1637,7 +1722,7 @@ export function PerpsContainer() {
             <>
               <PerpsMobileHoldingsSummary
                 totalUsd={view.accountValueUsd}
-                holdings={view.holdings}
+                holdings={visibleHoldings}
                 isDegraded={view.isDegraded}
                 canDeposit={canDeposit}
                 isDepositDisabled={isDepositDisabled}
@@ -1667,7 +1752,7 @@ export function PerpsContainer() {
                   plainContentContainer
                 />
                 <PerpsHoldingsBlock
-                  holdings={view.holdings}
+                  holdings={visibleHoldings}
                   hyperEvmLogoUri={HYPER_EVM_LOGO_URI}
                 />
               </YStack>
@@ -1702,7 +1787,7 @@ export function PerpsContainer() {
             </>
           ) : null}
         </YStack>
-      </Tabs.ScrollView>
+      </HomeScrollView>
     </Stack>
   );
 }

@@ -67,6 +67,15 @@ export const TabsContext = createContext<
      * polling-based measurement retry loop.
      */
     requestRemeasure?: () => void;
+    /**
+     * Web only: scroll the container's real scroll element (the
+     * `Tabs.Container` root, the only node with `overflow-y: scroll`) back to
+     * the top instantly and forget every saved per-tab offset, so a later
+     * tab switch / route focus does not restore the previous position.
+     * The per-tab nodes in `scrollTabElementsRef` are measurement targets,
+     * not scroll containers — calling `scrollTo` on them is a silent no-op.
+     */
+    scrollToTop?: () => void;
   }
 >({
   headerHeight: 0,

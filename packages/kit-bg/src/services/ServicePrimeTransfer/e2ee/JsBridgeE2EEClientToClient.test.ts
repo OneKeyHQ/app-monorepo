@@ -55,7 +55,7 @@ function createReceiver() {
       data: { module: 'api', method, params },
     });
   };
-  return { bridge, send, responses, receiveHandler };
+  return { bridge, socket, send, responses, receiveHandler };
 }
 
 describe('Prime Transfer client bridge errors', () => {
@@ -209,4 +209,60 @@ describe('Prime Transfer client bridge errors', () => {
     send([], 'cancelTransfer', 4);
     expect(receiveHandler).toHaveBeenCalledTimes(3);
   });
+
+  test('distinct method floods are capped without resetting live windows', () => {
+    const { send, responses, receiveHandler } = createReceiver();
+    send([], 'hello', 1);
+    send([], 'hello', 2);
+    expect(responses.at(-1)?.payload.error).toMatchObject({ code: 1100 });
+    for (let id = 1; id < 64; id += 1) send([], `method-${id}`, 100 + id);
+    expect(receiveHandler).toHaveBeenCalledTimes(64);
+    send([], 'method-overflow', 200);
+    expect(responses.at(-1)?.payload).toMatchObject({
+      id: 200,
+      error: { code: 1100 },
+    });
+    send([], 'hello', 201);
+    expect(responses.at(-1)?.payload).toMatchObject({
+      id: 201,
+      error: { code: 1100 },
+    });
+    expect(receiveHandler).toHaveBeenCalledTimes(64);
+    jest.setSystemTime(13_500);
+    send([], 'method-overflow', 202);
+    send([], 'hello', 203);
+    expect(receiveHandler).toHaveBeenCalledTimes(66);
+  });
+
+  test.each([
+    undefined,
+    null,
+    'hello',
+    1,
+    [],
+    {},
+    { method: 1 },
+    { method: null },
+  ])(
+    'malformed request data is throttled without throwing: %#',
+    async (data) => {
+      const { socket, responses } = createReceiver();
+      const [listener] = socket.listeners('e2ee-c2c-request') as Array<
+        (payload: unknown) => Promise<void>
+      >;
+      const request = (id: number) => ({
+        id,
+        type: IJsBridgeMessageTypes.REQUEST,
+        scope: 'test-scope',
+        remoteId: 'test-remote',
+        peerOrigin: 'test-origin',
+        data,
+      });
+      await expect(listener(request(1))).resolves.toBeUndefined();
+      await expect(listener(request(2))).resolves.toBeUndefined();
+      expect(
+        responses.find(({ payload }) => payload.id === 2)?.payload.error,
+      ).toMatchObject({ code: 1100 });
+    },
+  );
 });

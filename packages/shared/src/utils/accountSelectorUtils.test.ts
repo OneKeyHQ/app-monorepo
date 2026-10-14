@@ -124,3 +124,44 @@ describe('accountSelectorUtils buildMergedSelectedAccount', () => {
     expect(result.deriveType).toBe('BIP86');
   });
 });
+
+describe('accountSelectorUtils getGlobalDeriveTypeFromMap', () => {
+  it('reads the saved derive type by network impl', () => {
+    expect(
+      accountSelectorUtils.getGlobalDeriveTypeFromMap({
+        networkId: 'btc--0',
+        globalDeriveTypesMap: { btc: 'BIP44' },
+      }),
+    ).toBe('BIP44');
+    expect(
+      accountSelectorUtils.getGlobalDeriveTypeFromMap({
+        networkId: 'evm--1',
+        globalDeriveTypesMap: { evm: 'default' },
+      }),
+    ).toBe('default');
+  });
+
+  it('defaults BTC networks to Taproot when nothing was saved', () => {
+    expect(
+      accountSelectorUtils.getGlobalDeriveTypeFromMap({
+        networkId: 'btc--0',
+        globalDeriveTypesMap: {},
+      }),
+    ).toBe('BIP86');
+    expect(
+      accountSelectorUtils.getGlobalDeriveTypeFromMap({
+        networkId: 'tbtc--0',
+        globalDeriveTypesMap: undefined,
+      }),
+    ).toBe('BIP86');
+  });
+
+  it('leaves other networks unresolved when nothing was saved', () => {
+    expect(
+      accountSelectorUtils.getGlobalDeriveTypeFromMap({
+        networkId: 'evm--1',
+        globalDeriveTypesMap: {},
+      }),
+    ).toBeUndefined();
+  });
+});
