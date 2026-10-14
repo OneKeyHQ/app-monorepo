@@ -120,6 +120,7 @@ export const TradingViewNativeChart = memo(
   ({
     drawingStorageKey,
     enableDrawings = false,
+    prioritizePageScroll = false,
     candleIntervalSeconds,
     candleTimeMode = 'calendar',
     chartComponents,
@@ -943,6 +944,7 @@ export const TradingViewNativeChart = memo(
     });
 
     const chartGestures = useTradingViewNativeChartGestures({
+      prioritizePageScroll,
       onPriceRangePan: handlePriceRangePan,
       chartRuntime,
       decayOffset,

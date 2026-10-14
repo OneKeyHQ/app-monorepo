@@ -22,8 +22,10 @@ import {
   XStack,
   YStack,
   useClipboard,
+  useDialogInstance,
 } from '@onekeyhq/components';
 import type { IInputRef } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import CaptchaFrame from '@onekeyhq/kit/src/components/Captcha/CaptchaFrame';
 import {
   EmailOtpCaptchaCancelledError,
@@ -32,6 +34,7 @@ import {
 import { getEmailOtpRequestErrorMessage } from '@onekeyhq/kit/src/components/OneKeyAuth/emailOtpErrorUtils';
 import { getEmailOtpRateLimitRetryAfterSeconds } from '@onekeyhq/kit/src/components/OneKeyAuth/emailOtpRateLimitError';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getOneKeyIdAuthConfigByDevSettings } from '@onekeyhq/shared/src/config/oneKeyIdAuth';
@@ -40,6 +43,10 @@ import type { IEmailOtpCaptchaConfig } from '@onekeyhq/shared/src/consts/authCon
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EModalNetworkDoctorPages,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { isTransientNetworkLikeError } from '@onekeyhq/shared/src/utils/transientNetworkErrorUtils';
 
 import {
@@ -127,6 +134,8 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     status: 'initial',
   });
   const intl = useIntl();
+  const navigation = useAppNavigation();
+  const dialogInstance = useDialogInstance();
   const { copyText } = useClipboard();
   const { isReady } = useOneKeyAuth();
   const [isApiReady, setIsApiReady] = useState(false);
@@ -136,6 +145,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     takeCaptchaToken,
     cancelCaptcha,
     isWaiting,
+    errorKey: captchaErrorKey,
     errorMessage: captchaErrorMessage,
   } = useEmailOtpCaptcha({
     config: captchaConfig,
@@ -143,6 +153,15 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     email,
     revision: developmentConfigRevision,
   });
+
+  const handleNetworkDiagnostics = useCallback(async () => {
+    // Finish dismissing the login dialog before presenting a native modal.
+    await dialogInstance.close();
+    navigation.pushModal(EModalRoutes.NetworkDoctorModal, {
+      screen: EModalNetworkDoctorPages.NetworkDoctorResult,
+    });
+    void backgroundApiProxy.serviceNetworkDoctor.runNetworkDiagnostics();
+  }, [dialogInstance, navigation]);
 
   useEffect(() => {
     if (active && isCodeInputEnabled) codeInputRef.current?.focus();
@@ -642,7 +661,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
                 </Stack>
               ) : null}
               {captchaErrorMessage ? (
-                <Stack px="$5" pb="$5">
+                <YStack px="$5" pb="$5" gap="$2">
                   <Alert
                     testID="email-otp-captcha-error"
                     type="critical"
@@ -661,7 +680,25 @@ export function PrimeLoginEmailCodeDialogV2(props: {
                       onPrimaryPress: sendEmailVerificationCode,
                     }}
                   />
-                </Stack>
+                  {platformEnv.isNative &&
+                  captchaErrorKey ===
+                    ETranslations.auth_captcha_load_failed__msg ? (
+                    <SizableText
+                      testID="email-otp-captcha-network-diagnostics"
+                      accessibilityRole="link"
+                      alignSelf="center"
+                      size="$bodySm"
+                      color="$textInteractive"
+                      textDecorationLine="underline"
+                      pressStyle={{ opacity: 0.8 }}
+                      onPress={handleNetworkDiagnostics}
+                    >
+                      {intl.formatMessage({
+                        id: ETranslations.global_network_doctor_title,
+                      })}
+                    </SizableText>
+                  ) : null}
+                </YStack>
               ) : null}
               {onChooseAnotherSignInMethod ? (
                 <XStack justifyContent="center" px="$5" pb="$5">

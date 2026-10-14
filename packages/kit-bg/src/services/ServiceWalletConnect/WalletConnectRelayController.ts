@@ -3,6 +3,10 @@ import {
   WALLET_CONNECT_RELAY_URL,
   WALLET_CONNECT_RELAY_URLS,
 } from '@onekeyhq/shared/src/walletConnect/constant';
+import type {
+  IWalletConnectConnectionLog,
+  IWalletConnectRelayOperation,
+} from '@onekeyhq/shared/src/walletConnect/diagnostics';
 
 import { RELAYER_EVENTS } from './walletConnectSdkEvents';
 
@@ -10,19 +14,29 @@ import type { Relayer } from '@walletconnect/core';
 import type { IJsonRpcConnection } from '@walletconnect/jsonrpc-utils';
 import type { ICore } from '@walletconnect/types';
 
-// Core 2.21.9 makes up to five attempts per round. Limit only this invocation's
+// Core makes up to five attempts per round. Limit only this invocation's
 // added fallback work; later SDK reconnect triggers receive a fresh budget.
 const MAX_RELAY_ROUNDS = 2;
 const RELAY_DRAIN_TIMEOUT_MS = 15_000;
 
-type IConnectionCycle = { remainingRounds: number };
+type IConnectionCycle = {
+  id: number;
+  round: number;
+  remainingRounds: number;
+};
+type IDrainContext = {
+  operation: IWalletConnectRelayOperation;
+  targetRelayUrl?: string;
+};
 
 type IConnection = {
+  id: number;
   connection: IJsonRpcConnection;
   settled: Promise<void>;
   registrationSettled: boolean;
   settle: () => void;
   cleanup: () => void;
+  closing?: Promise<void>;
 };
 
 // Mirrors createExpiringPromise from '@walletconnect/utils'. Importing the
@@ -99,6 +113,16 @@ export class WalletConnectRelayController {
 
   private generation = 0;
 
+  private cycleNumber = 0;
+
+  private connectionNumber = 0;
+
+  private activeCycle?: IConnectionCycle;
+
+  private drainState?: Partial<IWalletConnectConnectionLog>;
+
+  private drainStartedAt?: number;
+
   private failed = false;
 
   private attemptStarted = false;
@@ -136,7 +160,7 @@ export class WalletConnectRelayController {
     relayer.transportClose = () => this.close();
     relayer.restartTransport = async (url) => {
       const opening = this.opening;
-      await this.close();
+      await this.close('restart');
       await opening?.catch(() => undefined);
       await this.open(url ?? this.currentRelayUrl);
     };
@@ -164,9 +188,10 @@ export class WalletConnectRelayController {
       if (!relayer.subscriber.hasAnyTopics && !relayer.connected) {
         // The first subscribe calls the SDK's own connect before its guarded
         // request. Reserve that round so fallback adds at most five attempts.
-        this.initialSubscriptionCycle = {
-          remainingRounds: MAX_RELAY_ROUNDS - 1,
-        };
+        this.initialSubscriptionCycle = this.createCycle();
+        this.initialSubscriptionCycle.remainingRounds -= 1;
+        this.initialSubscriptionCycle.round = 1;
+        this.diagnostic('relay_round_started');
         const subscribing = subscribe(...args);
         this.initialSubscription = subscribing;
         try {
@@ -199,7 +224,7 @@ export class WalletConnectRelayController {
         this.attemptStarted = false;
         this.failed = true;
         const tracked = this.trackConnection();
-        // Core 2.21.9 logs, rather than emits, individual attempt failures.
+        // Core logs, rather than emits, individual attempt failures.
         // Its timeout does not cancel the underlying WebSocket registration.
         const timedOut = args.some(
           (arg) =>
@@ -208,6 +233,23 @@ export class WalletConnectRelayController {
         );
         if (!timedOut) {
           tracked?.settle();
+        } else if (tracked?.connection.connecting) {
+          // Cancel timed-out native handshakes before the SDK creates another
+          // provider, so a retired attempt cannot open during a later retry.
+          const details = {
+            connectionId: tracked.id,
+            cycleId: this.activeCycle?.id,
+            round: this.activeCycle?.round,
+          };
+          void this.closeConnection(tracked).then(
+            () => this.diagnostic('relay_registration_cancelled', details),
+            (error) =>
+              this.diagnostic(
+                'relay_registration_cancel_failed',
+                details,
+                error,
+              ),
+          );
         }
       }
       Reflect.apply(warn, relayer.logger, args);
@@ -225,6 +267,35 @@ export class WalletConnectRelayController {
     });
   }
 
+  private createCycle() {
+    this.cycleNumber += 1;
+    const cycle = {
+      id: this.cycleNumber,
+      round: 0,
+      remainingRounds: MAX_RELAY_ROUNDS,
+    };
+    this.activeCycle = cycle;
+    this.diagnostic('relay_cycle_started');
+    return cycle;
+  }
+
+  private diagnostic(
+    event: string,
+    details: Partial<IWalletConnectConnectionLog> = {},
+    error?: unknown,
+  ) {
+    this.core.relayer.events.emit('onekey_relay_diagnostic', {
+      event,
+      relayUrl: this.currentRelayUrl,
+      cycleId: this.activeCycle?.id,
+      round: this.activeCycle?.round,
+      connected: this.core.relayer.connected,
+      connecting: this.core.relayer.connecting,
+      ...details,
+      error,
+    });
+  }
+
   private trackConnection() {
     const connection = this.core.relayer.provider?.connection;
     if (!connection) {
@@ -239,7 +310,9 @@ export class WalletConnectRelayController {
       settle = resolve;
     });
     const events = ['open', 'close', 'register_error'];
+    this.connectionNumber += 1;
     const tracked: IConnection = {
+      id: this.connectionNumber,
       connection,
       settled,
       registrationSettled: false,
@@ -263,11 +336,25 @@ export class WalletConnectRelayController {
     return tracked;
   }
 
+  private closeConnection(tracked: IConnection) {
+    if (!tracked.closing) {
+      const closing = tracked.connection.close();
+      tracked.closing = closing;
+      void closing
+        .finally(() => {
+          if (tracked.closing === closing) tracked.closing = undefined;
+        })
+        .catch(() => undefined);
+    }
+    return tracked.closing;
+  }
+
   private async drainConnections(
+    context: IDrainContext,
     deadline = Date.now() + RELAY_DRAIN_TIMEOUT_MS,
   ): Promise<void> {
     if (!this.draining) {
-      const draining = this.drain();
+      const draining = this.drain(context);
       this.draining = draining;
       const release = () => {
         if (this.draining === draining) this.draining = undefined;
@@ -275,40 +362,82 @@ export class WalletConnectRelayController {
       // Keep cleaning up late sockets after the caller's bounded wait expires.
       void draining.then(release, release);
     }
-    await createExpiringPromise(
-      this.draining,
-      Math.max(0, deadline - Date.now()),
-      'WalletConnect relay switch timed out waiting for old sockets to close',
-    );
+    try {
+      await createExpiringPromise(
+        this.draining,
+        Math.max(0, deadline - Date.now()),
+        `WalletConnect ${context.operation} timed out during relay cleanup`,
+      );
+    } catch (error) {
+      this.diagnostic(
+        'relay_cleanup_failed',
+        {
+          ...this.drainState,
+          elapsedMs: Date.now() - (this.drainStartedAt ?? Date.now()),
+        },
+        error,
+      );
+      throw error;
+    }
     // A caller can join cleanup left running by an earlier timed-out switch.
     // Drain any provider recovered since that cleanup took its snapshot too.
-    if (this.connections.size) await this.drainConnections(deadline);
+    if (this.connections.size) await this.drainConnections(context, deadline);
   }
 
-  private async drain() {
+  private async drain(context: IDrainContext) {
+    const startedAt = Date.now();
+    this.drainStartedAt = startedAt;
     this.trackConnection();
     // Later SDK recovery can create a new provider on the same endpoint. This
     // cleanup owns only the connections retired when it started.
     const connections = Array.from(this.connections.values());
+    const phase = (
+      cleanupPhase: IWalletConnectConnectionLog['cleanupPhase'],
+      tracked?: IConnection,
+    ) => {
+      this.drainState = {
+        ...context,
+        cleanupPhase,
+        connectionId: tracked?.id,
+        pendingConnections: this.connections.size,
+        elapsedMs: Date.now() - startedAt,
+        connected: tracked?.connection.connected,
+        connecting: tracked?.connection.connecting,
+      };
+      this.diagnostic('relay_cleanup', this.drainState);
+    };
     // Relay switching must not disable SDK recovery if the next online check
     // fails before connect() clears transportExplicitlyClosed.
+    phase('disconnect_transport');
     await this.disconnectTransport();
     for (const tracked of connections) {
-      // A timed-out registration can still open later. Keep the next relay
-      // blocked until it settles and any resulting socket confirms closure.
-      await tracked.settled;
-      if (tracked.connection.connected) {
-        await tracked.connection.close();
+      // The patched transport retires pending registrations and isolates their
+      // late callbacks. Cancel first: waiting first can stall forever on native.
+      if (
+        tracked.closing ||
+        tracked.connection.connected ||
+        tracked.connection.connecting
+      ) {
+        phase(
+          tracked.connection.connecting
+            ? 'cancel_registration'
+            : 'close_socket',
+          tracked,
+        );
+        await this.closeConnection(tracked);
       }
+      phase('wait_registration', tracked);
+      await tracked.settled;
       if (tracked.connection.connected) {
         throw new OneKeyLocalError('WalletConnect transport is still open');
       }
       tracked.cleanup();
       this.connections.delete(tracked.connection);
     }
+    phase('complete');
   }
 
-  private async close() {
+  private async close(operation: IWalletConnectRelayOperation = 'close') {
     this.generation += 1;
     this.switching = true;
     if (!this.closing) {
@@ -316,18 +445,21 @@ export class WalletConnectRelayController {
       const subscribing = this.initialSubscription;
       this.closing = (async () => {
         await this.closeTransport();
-        await this.drainConnections();
+        await this.drainConnections({ operation });
         if (opening || subscribing) {
           // A provider may still be created after an asynchronous JWT lookup.
           // Wait for its owner to exit, then drain any late-created socket.
           await Promise.allSettled([opening, subscribing]);
           await this.closeTransport();
-          await this.drainConnections();
+          await this.drainConnections({ operation });
         }
       })().finally(() => {
         this.closing = undefined;
         this.switching = false;
-        this.core.relayer.events.emit('onekey_relay_switch_cancelled');
+        this.core.relayer.events.emit('onekey_relay_switch_cancelled', {
+          operation,
+          relayUrl: this.currentRelayUrl,
+        });
       });
     }
     await this.closing;
@@ -358,9 +490,7 @@ export class WalletConnectRelayController {
     const generation = this.generation;
     const opening = this.run(
       generation,
-      this.initialSubscriptionCycle ?? {
-        remainingRounds: MAX_RELAY_ROUNDS,
-      },
+      this.initialSubscriptionCycle ?? this.createCycle(),
       relayUrl,
     );
     this.opening = opening;
@@ -383,6 +513,8 @@ export class WalletConnectRelayController {
     );
     for (let round = 0; cycle.remainingRounds > 0; round += 1) {
       cycle.remainingRounds -= 1;
+      cycle.round += 1;
+      this.activeCycle = cycle;
       if (generation !== this.generation) {
         throw new OneKeyLocalError('WalletConnect connection cancelled');
       }
@@ -399,16 +531,30 @@ export class WalletConnectRelayController {
       }
       if (nextUrl !== this.currentRelayUrl) {
         this.switching = true;
-        this.core.relayer.events.emit('onekey_relay_switch_waiting');
+        const switchDetails = {
+          operation: 'switch' as const,
+          previousRelayUrl: this.currentRelayUrl,
+          relayUrl: this.currentRelayUrl,
+          targetRelayUrl: nextUrl,
+          cycleId: cycle.id,
+          round: cycle.round,
+        };
+        this.core.relayer.events.emit(
+          'onekey_relay_switch_waiting',
+          switchDetails,
+        );
         try {
-          await this.drainConnections();
+          await this.drainConnections({
+            operation: 'switch',
+            targetRelayUrl: nextUrl,
+          });
         } catch (error) {
-          // The SDK cannot cancel an unopened WebSocket through its public
-          // connection API. End this fallback, retaining same-relay recovery
-          // until the old registration settles; never open a competing relay.
+          // A genuine cleanup failure must still prevent competing transports.
           this.switching = false;
-          this.failed = false;
-          this.core.relayer.events.emit('onekey_relay_switch_cancelled');
+          this.core.relayer.events.emit('onekey_relay_switch_cancelled', {
+            ...switchDetails,
+            error,
+          });
           throw error;
         }
         if (generation !== this.generation) {
@@ -418,10 +564,12 @@ export class WalletConnectRelayController {
         this.currentRelayUrl = nextUrl;
         this.switching = false;
         this.core.relayer.events.emit('onekey_relay_changed', {
+          ...switchDetails,
           previousRelayUrl,
           relayUrl: nextUrl,
         });
       }
+      this.diagnostic('relay_round_started');
       try {
         await this.openTransport(nextUrl);
         if (generation !== this.generation) {
@@ -442,6 +590,7 @@ export class WalletConnectRelayController {
         await new Promise<void>((resolve) => setTimeout(resolve, 0));
       }
     }
+    this.diagnostic('relay_cycle_exhausted', {}, lastError);
     // Return after two rounds without closing the transport or setting a stop
     // flag. SDK heartbeat and network callbacks may start a fresh cycle.
     throw lastError;

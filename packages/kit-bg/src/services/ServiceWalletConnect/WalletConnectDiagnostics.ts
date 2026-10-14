@@ -1,8 +1,10 @@
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   WALLET_CONNECT_RELAY_URL,
   WALLET_CONNECT_RELAY_URLS,
 } from '@onekeyhq/shared/src/walletConnect/constant';
 import type {
+  IWalletConnectConnectionLog,
   IWalletConnectDiagnosticEvent,
   IWalletConnectDiagnostics,
 } from '@onekeyhq/shared/src/walletConnect/diagnostics';
@@ -28,6 +30,47 @@ function identifier(value: unknown) {
     : undefined;
 }
 
+function connectionMetadata(payload: unknown) {
+  const value = asRecord(payload);
+  const number = (key: string) =>
+    typeof value[key] === 'number' && Number.isFinite(value[key])
+      ? value[key]
+      : undefined;
+  const operation = (['switch', 'close', 'restart'] as const).find(
+    (item) => item === value.operation,
+  );
+  const cleanupPhase = (
+    [
+      'disconnect_transport',
+      'cancel_registration',
+      'wait_registration',
+      'close_socket',
+      'complete',
+    ] as const
+  ).find((item) => item === value.cleanupPhase);
+  return {
+    relayUrl: WALLET_CONNECT_RELAY_URLS.find((url) => url === value.relayUrl),
+    previousRelayUrl: WALLET_CONNECT_RELAY_URLS.find(
+      (url) => url === value.previousRelayUrl,
+    ),
+    targetRelayUrl: WALLET_CONNECT_RELAY_URLS.find(
+      (url) => url === value.targetRelayUrl,
+    ),
+    cycleId: number('cycleId'),
+    round: number('round'),
+    sdkAttempt: number('sdkAttempt'),
+    connectionId: number('connectionId'),
+    pendingConnections: number('pendingConnections'),
+    elapsedMs: number('elapsedMs'),
+    operation,
+    cleanupPhase,
+    connected:
+      typeof value.connected === 'boolean' ? value.connected : undefined,
+    connecting:
+      typeof value.connecting === 'boolean' ? value.connecting : undefined,
+  };
+}
+
 // Only protocol metadata is retained. Never copy params, results, URIs or
 // arbitrary error messages: any of them can contain signing data or secrets.
 function metadata(payload: unknown) {
@@ -36,10 +79,7 @@ function metadata(payload: unknown) {
   const request = asRecord(params.request);
   const topic = value.topic ?? params.topic;
   return {
-    relayUrl: WALLET_CONNECT_RELAY_URLS.find((url) => url === value.relayUrl),
-    previousRelayUrl: WALLET_CONNECT_RELAY_URLS.find(
-      (url) => url === value.previousRelayUrl,
-    ),
+    ...connectionMetadata(payload),
     requestId:
       typeof value.id === 'number' && Number.isFinite(value.id)
         ? value.id
@@ -86,6 +126,10 @@ function errorMetadata(error: unknown) {
 }
 
 export class WalletConnectDiagnostics {
+  constructor(
+    private readonly role: IWalletConnectConnectionLog['role'] = 'wallet',
+  ) {}
+
   private core?: ICore;
 
   private wallet?: IWalletKit;
@@ -133,6 +177,12 @@ export class WalletConnectDiagnostics {
 
   private relayUrl: string = WALLET_CONNECT_RELAY_URL;
 
+  private targetRelayUrl?: string;
+
+  private cycleId?: number;
+
+  private round?: number;
+
   record(
     stage: IWalletConnectDiagnosticEvent['stage'],
     event: string,
@@ -143,15 +193,38 @@ export class WalletConnectDiagnostics {
       this.lastConnectionErrorAt = Date.now();
     }
     this.sequence += 1;
-    this.events.push({
+    const entry: IWalletConnectDiagnosticEvent = {
       sequence: this.sequence,
       timestamp: Date.now(),
       stage,
       event,
       level: error === undefined ? 'info' : 'error',
-      ...metadata(payload),
+      ...(stage === 'connection'
+        ? connectionMetadata(payload)
+        : metadata(payload)),
       ...(error === undefined ? {} : errorMetadata(error)),
-    });
+    };
+    this.events.push(entry);
+    if (stage === 'connection') {
+      // Persist only allowlisted connection metadata, including in production.
+      // Session topics, pairing URIs and arbitrary SDK text never reach this log.
+      const safe = connectionMetadata(payload);
+      defaultLogger.app.background.walletConnectConnection({
+        ...safe,
+        role: this.role,
+        event: identifier(event) ?? 'unknown',
+        sequence: entry.sequence,
+        level: entry.level,
+        relayUrl: safe.relayUrl ?? this.relayUrl,
+        targetRelayUrl: safe.targetRelayUrl ?? this.targetRelayUrl,
+        cycleId: safe.cycleId ?? this.cycleId,
+        round: safe.round ?? this.round,
+        attempt: this.connectionAttempts,
+        connected: safe.connected ?? this.core?.relayer.connected,
+        connecting: safe.connecting ?? this.core?.relayer.connecting,
+        ...(error === undefined ? {} : errorMetadata(error)),
+      });
+    }
     if (this.events.length > EVENT_LIMIT) {
       this.events.splice(0, this.events.length - EVENT_LIMIT);
     }
@@ -206,17 +279,24 @@ export class WalletConnectDiagnostics {
       const original = relayer.logger[level];
       const observer = (...args: unknown[]) => {
         if (level === 'debug') {
-          // Core 2.21.9 has no attempt event; this log precedes each new socket.
-          if (
-            args.some(
-              (arg) =>
-                typeof arg === 'string' &&
-                /^Connecting to .+, attempt: \d+\.\.\.$/.test(arg),
-            )
-          ) {
+          // Core has no attempt event; this log precedes each new socket.
+          const message = args.find(
+            (arg) =>
+              typeof arg === 'string' &&
+              /^Connecting to .+, attempt: \d+\.\.\.$/.test(arg),
+          );
+          if (typeof message === 'string') {
+            const attempt =
+              /^Connecting to (wss:\/\/relay\.walletconnect\.(?:org|com))(?:\?\S*)?, attempt: (\d+)\.\.\.$/.exec(
+                message,
+              );
+            if (attempt) this.relayUrl = attempt[1];
             this.connectionAttempts += 1;
             this.connectionAttemptPending = true;
-            this.record('connection', 'relay_connecting');
+            this.record('connection', 'relay_connecting', {
+              relayUrl: this.relayUrl,
+              sdkAttempt: attempt ? Number(attempt[2]) : undefined,
+            });
           }
         } else if (
           !(
@@ -267,17 +347,46 @@ export class WalletConnectDiagnostics {
     });
     const listeners: Array<[string, (payload?: unknown) => void]> = [
       [
+        'onekey_relay_diagnostic',
+        (payload) => {
+          const value = asRecord(payload);
+          if (
+            ![
+              'relay_cycle_started',
+              'relay_round_started',
+              'relay_cycle_exhausted',
+              'relay_cleanup',
+              'relay_cleanup_failed',
+              'relay_registration_cancelled',
+              'relay_registration_cancel_failed',
+            ].includes(String(value.event))
+          )
+            return;
+          const safe = connectionMetadata(payload);
+          this.cycleId = safe.cycleId;
+          this.round = safe.round;
+          this.record('connection', String(value.event), payload, value.error);
+        },
+      ],
+      [
         'onekey_relay_switch_waiting',
-        () => {
+        (payload) => {
           this.relaySwitchPending = true;
-          this.record('connection', 'relay_switch_waiting_for_close');
+          this.targetRelayUrl = connectionMetadata(payload).targetRelayUrl;
+          this.record('connection', 'relay_switch_waiting_for_close', payload);
         },
       ],
       [
         'onekey_relay_switch_cancelled',
-        () => {
+        (payload) => {
           this.relaySwitchPending = false;
-          this.record('connection', 'relay_switch_cancelled');
+          this.record(
+            'connection',
+            'relay_switch_cancelled',
+            payload,
+            asRecord(payload).error,
+          );
+          this.targetRelayUrl = undefined;
         },
       ],
       [
@@ -289,6 +398,7 @@ export class WalletConnectDiagnostics {
             this.relayUrl = relayUrl;
             this.relaySwitches += 1;
             this.record('connection', 'relay_switched', payload);
+            this.targetRelayUrl = undefined;
           }
         },
       ],
@@ -401,6 +511,7 @@ export class WalletConnectDiagnostics {
       relaySwitches: this.relaySwitches,
       relaySwitchPending: this.relaySwitchPending,
       relayUrl: this.relayUrl,
+      targetRelayUrl: this.targetRelayUrl,
       snapshotFailed: false,
       lastRelayMessageAt: this.lastRelayMessageAt,
       lastSessionEventAt: this.lastSessionEventAt,
@@ -482,4 +593,6 @@ export class WalletConnectDiagnostics {
 }
 
 export const walletConnectDiagnostics = new WalletConnectDiagnostics();
-export const dappSideWalletConnectDiagnostics = new WalletConnectDiagnostics();
+export const dappSideWalletConnectDiagnostics = new WalletConnectDiagnostics(
+  'dapp',
+);

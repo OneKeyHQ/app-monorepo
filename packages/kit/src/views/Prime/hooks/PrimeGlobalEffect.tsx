@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import { noop } from 'lodash';
 
-import { useUpdateEffect } from '@onekeyhq/components';
+import { useNetInfo, useUpdateEffect } from '@onekeyhq/components';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import type { IPrimeInitAtomData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -293,6 +293,22 @@ function PrimeGlobalEffectAfterAuthReady() {
   }, [setPrimeInitAtom, isSupabaseLoggedIn]);
 
   const isActive = primePersistAtom.primeSubscription?.isActive;
+
+  // Free trial: keep the display snapshot bound to the current user and
+  // subscription, and re-send pending usage reports of that user.
+  const freeTrialUserId = user?.isLoggedInOnServer
+    ? user?.onekeyUserId
+    : undefined;
+  useEffect(() => {
+    void backgroundApiProxy.servicePrimeFreeTrial.onPrimeUserStateChanged();
+  }, [freeTrialUserId, isActive]);
+  const { isInternetReachable } = useNetInfo();
+  useUpdateEffect(() => {
+    if (isInternetReachable) {
+      void backgroundApiProxy.servicePrimeFreeTrial.flushPendingReports();
+    }
+  }, [isInternetReachable]);
+
   useUpdateEffect(() => {
     console.log('primePersistAtom.primeSubscription?.isActive', {
       isActive,

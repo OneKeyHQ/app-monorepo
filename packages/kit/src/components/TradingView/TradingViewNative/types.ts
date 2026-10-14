@@ -166,6 +166,8 @@ export interface ITradingViewNativeProps {
   storageNamespace?: ITradingViewNativeStorageNamespace;
   /** Opt-in for drawing tools on full Market charts across all platforms. */
   enableDrawings?: boolean;
+  /** Let the enclosing page claim vertical drags on an embedded native chart. */
+  prioritizePageScroll?: boolean;
   forcedChartType?: ITradingViewNativeChartType;
   chartComponents?: readonly ITradingViewNativeChartComponentNode[];
   onReferenceLineAction?: (

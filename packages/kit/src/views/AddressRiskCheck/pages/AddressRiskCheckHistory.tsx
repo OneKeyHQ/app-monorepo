@@ -1,24 +1,88 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Dialog, Empty, Page, ScrollView, YStack } from '@onekeyhq/components';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IAddressRiskCheckRecentItem } from '@onekeyhq/shared/types/addressRiskCheck';
 
+import { usePrimeFeatureAccess } from '../../Prime/hooks/usePrimeFeatureAccess';
 import { RecentCheckItem } from '../components/RecentCheckItem';
 import { useCheckAddressRisk } from '../hooks/useCheckAddressRisk';
 import { useRecentChecks } from '../hooks/useRecentChecks';
 
+// undefined: the background could not tell.
+async function getBackgroundLoginState() {
+  try {
+    return await backgroundApiProxy.servicePrime.isLoggedIn();
+  } catch {
+    return undefined;
+  }
+}
+
+// Page-level gate: the history needs a OneKey ID login (Prime or free trial),
+// also when the route is opened directly or the user is logged out while on
+// it. Logged-out users are sent to the dashboard.
+export function useAddressRiskCheckHistoryAccess() {
+  const navigation = useAppNavigation();
+  const { isLoggedIn } = useOneKeyAuth();
+  const { openPrimeDashboard } = usePrimeFeatureAccess();
+  useEffect(() => {
+    if (isLoggedIn) {
+      return;
+    }
+    // Set when the page closes or the login state changes. Until the exit
+    // starts, that ends this check: a page the user already left is not
+    // popped again, and no dashboard opens over the page they went to.
+    let isStopped = false;
+    void (async () => {
+      // The local projection may lag on a cold start. A failed check is
+      // asked once more, so a single failure does not close the page of a
+      // logged-in user; a check that keeps failing trusts the local logout.
+      let loggedIn = await getBackgroundLoginState();
+      if (loggedIn === undefined && !isStopped) {
+        await timerUtils.wait(1000);
+        loggedIn = await getBackgroundLoginState();
+      }
+      if (isStopped || loggedIn) {
+        return;
+      }
+      navigation.pop();
+      await timerUtils.wait(300);
+      // Found logged out above: only a login that came back skips the
+      // dashboard, a failed check here still opens it.
+      if (await getBackgroundLoginState()) {
+        return;
+      }
+      openPrimeDashboard({
+        featureId: EPrimeFeatures.AddressRiskCheck,
+        afterPageExit: true,
+      });
+    })();
+    return () => {
+      isStopped = true;
+    };
+    // Runs on mount and whenever the login state changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn]);
+  return Boolean(isLoggedIn);
+}
+
 function AddressRiskCheckHistory() {
   const intl = useIntl();
+  const canViewHistory = useAddressRiskCheckHistoryAccess();
   const { items, networkNameMap, deleteOne, clearAll } = useRecentChecks();
   const { checkRisk } = useCheckAddressRisk();
 
   const handlePress = useCallback(
     (item: IAddressRiskCheckRecentItem) => {
-      void checkRisk({
+      checkRisk({
         networkId: item.networkId,
         address: item.address,
         entryPoint: 'historyList',
@@ -45,10 +109,10 @@ function AddressRiskCheckHistory() {
 
   const headerRight = useCallback(
     () =>
-      items.length ? (
+      canViewHistory && items.length ? (
         <HeaderIconButton icon="BroomOutline" onPress={handleClearAll} />
       ) : null,
-    [items.length, handleClearAll],
+    [canViewHistory, items.length, handleClearAll],
   );
 
   return (
@@ -60,7 +124,7 @@ function AddressRiskCheckHistory() {
         headerRight={headerRight}
       />
       <Page.Body>
-        {items.length ? (
+        {canViewHistory && items.length ? (
           <ScrollView>
             <YStack py="$2">
               {items.map((item) => (
@@ -74,7 +138,8 @@ function AddressRiskCheckHistory() {
               ))}
             </YStack>
           </ScrollView>
-        ) : (
+        ) : null}
+        {canViewHistory && !items.length ? (
           <Empty
             icon="ClockTimeHistoryOutline"
             title={intl.formatMessage({
@@ -84,7 +149,7 @@ function AddressRiskCheckHistory() {
               id: ETranslations.address_risk_check_history_empty__desc,
             })}
           />
-        )}
+        ) : null}
       </Page.Body>
     </Page>
   );

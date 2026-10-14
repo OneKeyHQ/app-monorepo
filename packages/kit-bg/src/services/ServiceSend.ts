@@ -47,6 +47,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -106,6 +107,24 @@ import type {
   IUpdateUnsignedTxParams,
 } from '../vaults/types';
 
+type IBatchSignedTx = ISignedTxPro & {
+  primeInfiniPayment?: IPrimeInfiniBeforeBroadcastAction;
+};
+
+// A tx that batchSignAndSendTransaction broadcast under a sentTxsTrackingId.
+// 'broadcasted' keeps what was actually broadcast until the decode/history
+// steps finish, so a retry can finish them without broadcasting again.
+// 'recorded' keeps the returned result, so a retry whose earlier response
+// was lost (or whose caller failed afterwards) still gets it.
+type IBatchBroadcastedTx =
+  | { status: 'recorded'; returnedData: ISendTxOnSuccessData | undefined }
+  | {
+      status: 'broadcasted';
+      signedTx: IBatchSignedTx;
+      unsignedTx: IUnsignedTxPro;
+      feeInfo: ISendSelectedFeeInfo | undefined;
+    };
+
 const assertAccountCanSign = (accountId: string) => {
   if (accountUtils.isWatchingAccount({ accountId })) {
     throw new OneKeyInternalError(
@@ -127,6 +146,26 @@ class ServiceSend extends ServiceBase {
   // cleared in its `finally`. UI calls `abortGasAccountSubmit` to break the
   // loop when the user cancels the confirm screen.
   private gasAccountSubmitAborters: Map<string, AbortController> = new Map();
+
+  // sentTxsTrackingId → (tx uuid → broadcast record). Held in the background
+  // so retries from the same confirm screen see it on every runtime. The UI
+  // never clears its entry, hence the bound.
+  private batchBroadcastedTxs = new cacheUtils.LRUCache<
+    string,
+    Map<string, IBatchBroadcastedTx>
+  >({
+    max: 50,
+    ttl: timerUtils.getTimeDurationMs({ day: 1 }),
+  });
+
+  private getBatchBroadcastedTxs(sentTxsTrackingId: string) {
+    let broadcastedTxs = this.batchBroadcastedTxs.get(sentTxsTrackingId);
+    if (!broadcastedTxs) {
+      broadcastedTxs = new Map();
+      this.batchBroadcastedTxs.set(sentTxsTrackingId, broadcastedTxs);
+    }
+    return broadcastedTxs;
+  }
 
   private async getPrimeInfiniReplacementContext({
     accountId,
@@ -1264,6 +1303,15 @@ class ServiceSend extends ServiceBase {
     return newUnsignedTxs;
   }
 
+  // Same rule as the broadcast skip in signAndSendTransaction.
+  private async isAlwaysSignOnlySendTxInDev() {
+    const devSetting =
+      await this.backgroundApi.serviceDevSetting.getDevSetting();
+    return Boolean(
+      devSetting?.enabled && devSetting?.settings?.alwaysSignOnlySendTx,
+    );
+  }
+
   @backgroundMethod()
   @toastIfError()
   public async batchSignAndSendTransaction(
@@ -1278,7 +1326,7 @@ class ServiceSend extends ServiceBase {
       feeInfos: sendSelectedFeeInfos,
       replaceTxInfo,
       transferPayload,
-      successfullySentTxs,
+      sentTxsTrackingId,
       tronResourceRentalInfo,
       gasAccountUiState,
       gasAccountSubmitId,
@@ -1286,7 +1334,14 @@ class ServiceSend extends ServiceBase {
       beforeBroadcastAction,
       wcPayPreBroadcastRecord,
       useDefaultRpc,
+      freeTrialUsage,
     } = params;
+    // Decided before any broadcast: nothing may throw after one. Developer
+    // mode "always sign only" signs without broadcasting, so it uses nothing.
+    const broadcastUsage =
+      freeTrialUsage && !signOnly && !(await this.isAlwaysSignOnlySendTxInDev())
+        ? freeTrialUsage
+        : undefined;
 
     const isMultiTxs = unsignedTxs.length > 1;
     if (
@@ -1351,66 +1406,96 @@ class ServiceSend extends ServiceBase {
       }
     }
 
+    const broadcastedTxs = sentTxsTrackingId
+      ? this.getBatchBroadcastedTxs(sentTxsTrackingId)
+      : undefined;
     const result: ISendTxOnSuccessData[] = [];
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
-      let unsignedTx = unsignedTxs[i];
-      const feeInfo = sendSelectedFeeInfos?.[i];
-      if (
-        !successfullySentTxs ||
-        !unsignedTx.uuid ||
-        !successfullySentTxs.includes(unsignedTx.uuid)
-      ) {
-        if (isMultiTxs && i > 0) {
-          unsignedTx = await vault.refreshUnsignedTxBeforeBatchSign(unsignedTx);
+      const txUuid = unsignedTxs[i].uuid;
+      const broadcastedTx = txUuid ? broadcastedTxs?.get(txUuid) : undefined;
+      if (broadcastedTx?.status === 'recorded') {
+        // An earlier attempt already broadcast and recorded this tx.
+        if (broadcastedTx.returnedData) {
+          result.push(broadcastedTx.returnedData);
         }
-        const buildSignedTx = () =>
-          signOnly && !beforeBroadcastAction && !replaceTxInfo
-            ? this.signTransaction({
-                unsignedTx,
+      } else {
+        let unsignedTx = unsignedTxs[i];
+        let feeInfo = sendSelectedFeeInfos?.[i];
+        let signedTx: IBatchSignedTx;
+        if (broadcastedTx?.status === 'broadcasted') {
+          // An earlier attempt broadcast this tx and then failed; finish the
+          // remaining steps with what was actually broadcast.
+          ({ unsignedTx, feeInfo, signedTx } = broadcastedTx);
+        } else {
+          if (isMultiTxs && i > 0) {
+            unsignedTx =
+              await vault.refreshUnsignedTxBeforeBatchSign(unsignedTx);
+          }
+          const buildSignedTx = () =>
+            signOnly && !beforeBroadcastAction && !replaceTxInfo
+              ? this.signTransaction({
+                  unsignedTx,
+                  accountId,
+                  networkId,
+                  signOnly: true,
+                  stageFeeInfo: feeInfo,
+                })
+              : this.signAndSendTransaction({
+                  unsignedTx,
+                  networkId,
+                  accountId,
+                  signOnly: Boolean(signOnly),
+                  stageFeeInfo: feeInfo,
+                  tronResourceRentalInfo,
+                  gasAccountUiState: effectiveGasAccountUiState,
+                  gasAccountSubmitId: effectiveGasAccountSubmitId,
+                  broadcastDeadline,
+                  beforeBroadcastAction,
+                  wcPayPreBroadcastRecord,
+                  replaceTxInfo,
+                  transferPayload,
+                  isPrivateSend,
+                  useDefaultRpc,
+                });
+          try {
+            signedTx = await buildSignedTx();
+          } catch (error) {
+            // Safety net for the residual race between the pre-broadcast nonce
+            // check and the actual broadcast: the backend rejected the replace
+            // because the nonce is already used. Clean up the stale pending tx
+            // and surface a friendly message instead of the raw backend error.
+            if (
+              replaceTxInfo &&
+              (this.isReplaceTxNonceAlreadyUsedServerError(error) ||
+                this.isReplaceTxNonceAlreadyUsedRpcError(error))
+            ) {
+              await this.cleanupStaleReplaceTxAndThrow({
                 accountId,
                 networkId,
-                signOnly: true,
-                stageFeeInfo: feeInfo,
-              })
-            : this.signAndSendTransaction({
-                unsignedTx,
-                networkId,
-                accountId,
-                signOnly: Boolean(signOnly),
-                stageFeeInfo: feeInfo,
-                tronResourceRentalInfo,
-                gasAccountUiState: effectiveGasAccountUiState,
-                gasAccountSubmitId: effectiveGasAccountSubmitId,
-                broadcastDeadline,
-                beforeBroadcastAction,
-                wcPayPreBroadcastRecord,
-                replaceTxInfo,
-                transferPayload,
-                isPrivateSend,
-                useDefaultRpc,
+                replaceHistoryId: replaceTxInfo.replaceHistoryId,
               });
-        let signedTx: ISignedTxPro & {
-          primeInfiniPayment?: IPrimeInfiniBeforeBroadcastAction;
-        };
-        try {
-          signedTx = await buildSignedTx();
-        } catch (error) {
-          // Safety net for the residual race between the pre-broadcast nonce
-          // check and the actual broadcast: the backend rejected the replace
-          // because the nonce is already used. Clean up the stale pending tx and
-          // surface a friendly message instead of the raw backend error.
-          if (
-            replaceTxInfo &&
-            (this.isReplaceTxNonceAlreadyUsedServerError(error) ||
-              this.isReplaceTxNonceAlreadyUsedRpcError(error))
-          ) {
-            await this.cleanupStaleReplaceTxAndThrow({
-              accountId,
-              networkId,
-              replaceHistoryId: replaceTxInfo.replaceHistoryId,
+            }
+            throw error;
+          }
+          if (!signOnly && txUuid && broadcastedTxs) {
+            // Record before the decode/history steps below, which can still
+            // throw after a successful broadcast.
+            broadcastedTxs.set(txUuid, {
+              status: 'broadcasted',
+              signedTx,
+              unsignedTx,
+              feeInfo,
             });
           }
-          throw error;
+          // Free-trial metering: this call just broadcast, so mark the usage
+          // consumed before any later step (decode, history) can throw. A
+          // retry that only finishes an earlier broadcast was marked then.
+          // Never awaits the network and never alters the send result.
+          if (broadcastUsage) {
+            await this.backgroundApi.servicePrimeFreeTrial.markBroadcastSuccess(
+              broadcastUsage,
+            );
+          }
         }
         const decodedTx = await this.buildDecodedTx({
           networkId,
@@ -1469,13 +1554,14 @@ class ServiceSend extends ServiceBase {
 
         // For batch approve+swap/staking: only return the swap/staking tx result
         // For bulk send and DeFi portfolio action batches: return all business tx results
-        if (
+        const shouldReturnData = Boolean(
           !isMultiTxs ||
           unsignedTx.swapInfo ||
           unsignedTx.stakingInfo ||
           unsignedTx.transfersInfo ||
-          hasDeFiActionInfo
-        ) {
+          hasDeFiActionInfo,
+        );
+        if (shouldReturnData) {
           result.push(data);
         }
 
@@ -1496,8 +1582,11 @@ class ServiceSend extends ServiceBase {
           });
         }
 
-        if (!signOnly && unsignedTx.uuid && successfullySentTxs) {
-          successfullySentTxs.push(unsignedTx.uuid);
+        if (!signOnly && txUuid && broadcastedTxs) {
+          broadcastedTxs.set(txUuid, {
+            status: 'recorded',
+            returnedData: shouldReturnData ? data : undefined,
+          });
         }
       }
     }
