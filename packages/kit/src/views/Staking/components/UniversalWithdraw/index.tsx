@@ -11,6 +11,7 @@ import {
   Alert,
   Dialog,
   Divider,
+  HeightTransition,
   Icon,
   IconButton,
   Image,
@@ -1950,130 +1951,133 @@ export function UniversalWithdraw({
           borderWidth={StyleSheet.hairlineWidth}
           borderColor="$borderSubdued"
         >
-          {showApyHeader && apyDetail ? (
-            <XStack gap="$1" ai="center" mb="$3.5">
-              <EarnText
-                text={apyDetail.description}
-                size="$headingLg"
-                color="$textSuccess"
-              />
-              <EarnActionIcon
-                title={apyDetail.title.text}
-                actionIcon={apyDetail.button}
-              />
-            </XStack>
-          ) : null}
-          {hasSummarySection && usePendleSummaryLayout ? (
-            <PendleSummarySection
-              rewardRows={pendleRewardRows}
-              tipText={pendleTipText}
-              loading={quoteLoading}
-            />
-          ) : null}
-          {hasSummarySection && !usePendleSummaryLayout ? (
-            <YStack gap="$1.5">
-              <XStack ai="center" gap="$1">
+          <HeightTransition>
+            {showApyHeader && apyDetail ? (
+              <XStack gap="$1" ai="center" mb="$3.5">
                 <EarnText
-                  text={transactionConfirmation?.title}
-                  color="$textSubdued"
-                  size="$bodyMd"
+                  text={apyDetail.description}
+                  size="$headingLg"
+                  color="$textSuccess"
                 />
-                {transactionConfirmation?.tooltip ? (
-                  <EarnTooltip
-                    title={transactionConfirmation?.title?.text}
-                    tooltip={transactionConfirmation?.tooltip}
-                  />
-                ) : null}
+                <EarnActionIcon
+                  title={apyDetail.title.text}
+                  actionIcon={apyDetail.button}
+                />
               </XStack>
-              {transactionConfirmation?.rewards?.map((reward) => {
-                const hasTooltip = reward.tooltip?.type === 'text';
-                let descriptionTextSize = (
-                  hasTooltip ? '$bodyMd' : '$bodyLgMedium'
-                ) as FontSizeTokens;
-                if (reward.description.size) {
-                  descriptionTextSize = reward.description.size;
-                }
-                return (
-                  <XStack
-                    key={reward.title.text}
-                    gap="$1"
-                    ai="flex-start"
-                    flexWrap="wrap"
-                  >
-                    <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
-                      <EarnText
-                        text={reward.title}
-                        color={reward.title.color}
-                        size={reward.title.size}
-                      />
+            ) : null}
+            {hasSummarySection && usePendleSummaryLayout ? (
+              <PendleSummarySection
+                rewardRows={pendleRewardRows}
+                tipText={pendleTipText}
+                loading={quoteLoading}
+              />
+            ) : null}
+            {hasSummarySection && !usePendleSummaryLayout ? (
+              <YStack gap="$1.5">
+                <XStack ai="center" gap="$1">
+                  <EarnText
+                    text={transactionConfirmation?.title}
+                    color="$textSubdued"
+                    size="$bodyMd"
+                  />
+                  {transactionConfirmation?.tooltip ? (
+                    <EarnTooltip
+                      title={transactionConfirmation?.title?.text}
+                      tooltip={transactionConfirmation?.tooltip}
+                    />
+                  ) : null}
+                </XStack>
+                {transactionConfirmation?.rewards?.map((reward) => {
+                  const hasTooltip = reward.tooltip?.type === 'text';
+                  let descriptionTextSize = (
+                    hasTooltip ? '$bodyMd' : '$bodyLgMedium'
+                  ) as FontSizeTokens;
+                  if (reward.description.size) {
+                    descriptionTextSize = reward.description.size;
+                  }
+                  return (
+                    <XStack
+                      key={reward.title.text}
+                      gap="$1"
+                      ai="flex-start"
+                      flexWrap="wrap"
+                    >
                       <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
                         <EarnText
-                          text={reward.description}
-                          size={descriptionTextSize}
-                          color={reward.description.color ?? '$textSubdued'}
-                          flexShrink={1}
+                          text={reward.title}
+                          color={reward.title.color}
+                          size={reward.title.size}
                         />
-                        {hasTooltip ? (
-                          <EarnTooltip
-                            title={reward.title.text}
-                            tooltip={reward.tooltip}
+                        <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
+                          <EarnText
+                            text={reward.description}
+                            size={descriptionTextSize}
+                            color={reward.description.color ?? '$textSubdued'}
+                            flexShrink={1}
                           />
-                        ) : null}
+                          {hasTooltip ? (
+                            <EarnTooltip
+                              title={reward.title.text}
+                              tooltip={reward.tooltip}
+                            />
+                          ) : null}
+                        </XStack>
                       </XStack>
                     </XStack>
-                  </XStack>
-                );
-              })}
-              {transactionConfirmation?.availableLiquidity ? (
-                // Server-driven "Available liquidity" row (e.g. Bitway:
-                // instant withdrawal is capped by the flash pool balance, so
-                // amounts above it must go through the queued path). Kept in
-                // the always-visible summary so users can see why instant
-                // withdrawal is unavailable. (OK-58353)
-                <XStack ai="center" jc="space-between" flexWrap="wrap">
-                  <XStack ai="center" gap="$1">
-                    <EarnText
-                      text={transactionConfirmation.availableLiquidity.title}
-                      color={
-                        transactionConfirmation.availableLiquidity.title
-                          .color ?? '$textSubdued'
-                      }
-                      size={
-                        transactionConfirmation.availableLiquidity.title.size ??
-                        '$bodyMd'
-                      }
-                    />
-                    {transactionConfirmation.availableLiquidity.tooltip ? (
-                      <EarnTooltip
-                        title={
-                          transactionConfirmation.availableLiquidity.title.text
+                  );
+                })}
+                {transactionConfirmation?.availableLiquidity ? (
+                  // Server-driven "Available liquidity" row (e.g. Bitway:
+                  // instant withdrawal is capped by the flash pool balance, so
+                  // amounts above it must go through the queued path). Kept in
+                  // the always-visible summary so users can see why instant
+                  // withdrawal is unavailable. (OK-58353)
+                  <XStack ai="center" jc="space-between" flexWrap="wrap">
+                    <XStack ai="center" gap="$1">
+                      <EarnText
+                        text={transactionConfirmation.availableLiquidity.title}
+                        color={
+                          transactionConfirmation.availableLiquidity.title
+                            .color ?? '$textSubdued'
                         }
-                        tooltip={
-                          transactionConfirmation.availableLiquidity.tooltip
+                        size={
+                          transactionConfirmation.availableLiquidity.title
+                            .size ?? '$bodyMd'
                         }
                       />
-                    ) : null}
+                      {transactionConfirmation.availableLiquidity.tooltip ? (
+                        <EarnTooltip
+                          title={
+                            transactionConfirmation.availableLiquidity.title
+                              .text
+                          }
+                          tooltip={
+                            transactionConfirmation.availableLiquidity.tooltip
+                          }
+                        />
+                      ) : null}
+                    </XStack>
+                    <EarnText
+                      text={
+                        transactionConfirmation.availableLiquidity.description
+                      }
+                      size={
+                        transactionConfirmation.availableLiquidity.description
+                          .size ?? '$bodyMdMedium'
+                      }
+                      color={
+                        transactionConfirmation.availableLiquidity.description
+                          .color
+                      }
+                    />
                   </XStack>
-                  <EarnText
-                    text={
-                      transactionConfirmation.availableLiquidity.description
-                    }
-                    size={
-                      transactionConfirmation.availableLiquidity.description
-                        .size ?? '$bodyMdMedium'
-                    }
-                    color={
-                      transactionConfirmation.availableLiquidity.description
-                        .color
-                    }
-                  />
-                </XStack>
-              ) : null}
-            </YStack>
-          ) : null}
-          {hasSummarySection && showPendleTransactionSection ? (
-            <Divider my="$5" />
-          ) : null}
+                ) : null}
+              </YStack>
+            ) : null}
+            {hasSummarySection && showPendleTransactionSection ? (
+              <Divider my="$5" />
+            ) : null}
+          </HeightTransition>
           {showPendleTransactionSection ? (
             <Accordion
               overflow="hidden"

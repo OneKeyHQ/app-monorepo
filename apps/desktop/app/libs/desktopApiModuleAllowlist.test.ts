@@ -47,4 +47,37 @@ describe('desktop API module allowlist', () => {
     expect(isDesktopApiMethodAllowed('system', 'getSystemInfo')).toBe(true);
     expect(isDesktopApiMethodAllowed('system', '_privateMethod')).toBe(false);
   });
+
+  it.each([
+    'revenueCatIsAvailable',
+    'revenueCatConfigure',
+    'revenueCatSupportsVerifiedIdentity',
+    'revenueCatLogInWithVerifiedSession',
+    'revenueCatLogOut',
+    'revenueCatGetAppUserId',
+    'revenueCatGetCustomerInfo',
+    'revenueCatGetOfferings',
+    'revenueCatPurchasePackage',
+    'revenueCatRestorePurchases',
+    'revenueCatCheckTrialOrIntroductoryPriceEligibility',
+    'revenueCatSetAttributes',
+  ])('allows inAppPurchase.%s', (method) => {
+    expect(isDesktopApiMethodAllowed('inAppPurchase', method)).toBe(true);
+  });
+
+  it.each([
+    'invoke',
+    'revenueCatLogIn',
+    'getNativeModule',
+    'loadNativeModule',
+    'validateRequest',
+    '_privateMethod',
+    '__proto__',
+    'constructor',
+    'toString',
+    undefined,
+    42,
+  ])('rejects unlisted inAppPurchase method %s', (method) => {
+    expect(isDesktopApiMethodAllowed('inAppPurchase', method)).toBe(false);
+  });
 });

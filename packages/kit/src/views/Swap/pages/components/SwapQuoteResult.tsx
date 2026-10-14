@@ -69,6 +69,7 @@ import { SwapTestIDs } from '../../testIDs';
 import { getSwapQuoteTokenTaxPercentages } from '../../utils/swapTokenTaxUtils';
 
 import SwapApproveAllowanceSelectContainer from './SwapApproveAllowanceSelectContainer';
+import SwapQuoteRiskAlert from './SwapQuoteRiskAlert';
 import SwapSlippageTriggerContainer from './SwapSlippageTriggerContainer';
 
 interface ISwapQuoteResultProps {
@@ -83,10 +84,12 @@ function SwapQuoteResultAccordion({
   children,
   disabled,
   renderTrigger,
+  footer,
 }: {
   children: ReactNode;
   disabled: boolean;
   renderTrigger: (open: boolean) => ReactNode;
+  footer?: ReactNode;
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -99,40 +102,45 @@ function SwapQuoteResultAccordion({
   }, []);
 
   return (
-    <Accordion
-      type="single"
-      collapsible
-      value={isOpen ? SWAP_ACCORDION_VALUE : ''}
-      onValueChange={onValueChange}
-    >
-      <Accordion.Item value={SWAP_ACCORDION_VALUE}>
-        <Accordion.Trigger
-          unstyled
-          testID={SwapTestIDs.quoteDetailsToggle}
-          borderWidth={0}
-          bg="$transparent"
-          p="$0"
-          cursor="pointer"
-          disabled={disabled}
-        >
-          {({ open }: { open: boolean }) => renderTrigger(open)}
-        </Accordion.Trigger>
-        <HeightTransition hide={!isOpen}>
-          <Accordion.Content
-            forceMount
-            gap="$4"
+    <YStack gap="$3">
+      <Accordion
+        type="single"
+        collapsible
+        value={isOpen ? SWAP_ACCORDION_VALUE : ''}
+        onValueChange={onValueChange}
+      >
+        <Accordion.Item value={SWAP_ACCORDION_VALUE}>
+          <Accordion.Trigger
+            unstyled
+            testID={SwapTestIDs.quoteDetailsToggle}
+            borderWidth={0}
+            bg="$transparent"
             p="$0"
-            pointerEvents={isOpen ? 'auto' : 'none'}
-            aria-hidden={!isOpen}
-            accessibilityElementsHidden={!isOpen}
-            importantForAccessibility={isOpen ? 'auto' : 'no-hide-descendants'}
-            {...(platformEnv.isNative ? {} : { inert: !isOpen })}
+            cursor="pointer"
+            disabled={disabled}
           >
-            {children}
-          </Accordion.Content>
-        </HeightTransition>
-      </Accordion.Item>
-    </Accordion>
+            {({ open }: { open: boolean }) => renderTrigger(open)}
+          </Accordion.Trigger>
+          <HeightTransition hide={!isOpen}>
+            <Accordion.Content
+              forceMount
+              gap="$4"
+              p="$0"
+              pointerEvents={isOpen ? 'auto' : 'none'}
+              aria-hidden={!isOpen}
+              accessibilityElementsHidden={!isOpen}
+              importantForAccessibility={
+                isOpen ? 'auto' : 'no-hide-descendants'
+              }
+              {...(platformEnv.isNative ? {} : { inert: !isOpen })}
+            >
+              {children}
+            </Accordion.Content>
+          </HeightTransition>
+        </Accordion.Item>
+      </Accordion>
+      {footer}
+    </YStack>
   );
 }
 
@@ -342,6 +350,13 @@ const SwapQuoteResult = ({
             />
           ) : null}
 
+          <SwapQuoteRiskAlert
+            quote={quoteResultForDisplay}
+            fromToken={fromToken}
+            toToken={toToken}
+            isLoading={isQuotePresentationLoading}
+            hasQuoteError={quoteUiPhase === ESwapQuoteUiPhase.Error}
+          />
           <LimitExpirySelect
             currentSelectExpiryValue={swapLimitExpirySelect}
             onSelectExpiryValue={setSwapLimitExpirySelect}
@@ -372,6 +387,15 @@ const SwapQuoteResult = ({
           !quoteResultForDisplay?.info.provider ||
           swapQuoteLoading ||
           isStaleRefreshing
+        }
+        footer={
+          <SwapQuoteRiskAlert
+            quote={quoteResultForDisplay}
+            fromToken={fromToken}
+            toToken={toToken}
+            isLoading={isQuotePresentationLoading}
+            hasQuoteError={quoteUiPhase === ESwapQuoteUiPhase.Error}
+          />
         }
         renderTrigger={(open) => (
           <SwapQuoteResultRate

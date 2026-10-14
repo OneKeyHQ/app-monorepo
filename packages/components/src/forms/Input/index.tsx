@@ -560,7 +560,7 @@ function BaseInput(
           autoFocus={reloadAutoFocus}
           value={shownValue}
           onFocus={handleFocus as any}
-          selectTextOnFocus={selectTextOnFocus}
+          selectTextOnFocus={selectTextOnFocus && !platformEnv.isNativeAndroid}
           editable={editable}
           secureTextEntry={usedSecureTextEntry}
           {...readOnlyStyle}

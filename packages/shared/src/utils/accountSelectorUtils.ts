@@ -137,6 +137,27 @@ function buildGlobalDeriveTypesMapKey({ networkId }: { networkId: string }) {
   // return key;
 }
 
+// The persisted map only holds derive types the user saved explicitly. BTC
+// defaults to Taproot (BIP86) without such an entry, and every reader of the
+// raw map must apply that same default, or a scene seeded from the raw map
+// ends up on Nested SegWit while home shows Taproot (OK-64269).
+// The derive type union lives in kit-bg, which shared must not import, so the
+// helper is typed by the caller's map instead.
+function getGlobalDeriveTypeFromMap<T extends string>({
+  networkId,
+  globalDeriveTypesMap,
+}: {
+  networkId: string;
+  globalDeriveTypesMap: Partial<Record<string, T | undefined>> | undefined;
+}): T | 'BIP86' | undefined {
+  const key = buildGlobalDeriveTypesMapKey({ networkId });
+  const deriveType = globalDeriveTypesMap?.[key];
+  if (deriveType === undefined && networkUtils.isBTCNetwork(networkId)) {
+    return 'BIP86'; // Taproot
+  }
+  return deriveType;
+}
+
 function isSceneCanPersist({
   sceneName,
 }: {
@@ -203,12 +224,34 @@ function isSceneAutoSaveToGlobalDeriveType({
   return true;
 }
 
+// An others-wallet account (imported, watching, external) belongs to specific
+// networks, so its selection can name a network the account does not support;
+// HD, hardware and QR selections resolve their account per network and cannot.
+// Only a selection that passes this check has a pair to verify or repair.
+function hasOthersWalletAccountNetworkPair({
+  selectedAccount,
+}: {
+  selectedAccount: IAccountSelectorSelectedAccount | undefined;
+}): boolean {
+  const walletId = selectedAccount?.walletId;
+  const networkId = selectedAccount?.networkId;
+  return Boolean(
+    walletId &&
+    networkId &&
+    selectedAccount?.othersWalletAccountId &&
+    accountUtils.isOthersWallet({ walletId }) &&
+    !networkUtils.isAllNetwork({ networkId }),
+  );
+}
+
 export default {
   isEqualAccountSelectorScene,
+  hasOthersWalletAccountNetworkPair,
   buildAccountSelectorSaveKey,
   buildAccountSelectorSceneId,
   buildMergedSelectedAccount,
   buildGlobalDeriveTypesMapKey,
+  getGlobalDeriveTypeFromMap,
   isSceneCanAutoSelect,
   isSceneCanPersist,
   isSceneUseGlobalDeriveType,

@@ -21,6 +21,7 @@ import {
   XStack,
   YStack,
   onVisibilityStateChange,
+  useThemeName,
 } from '@onekeyhq/components';
 import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import { usePasswordPersistManualLockStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
@@ -70,6 +71,20 @@ interface IPasswordVerifyProps {
 export interface IPasswordVerifyForm {
   password: string;
   passCode: string;
+}
+
+function PasswordCooldownText({ text }: { text: string }) {
+  const themeName = useThemeName();
+  return (
+    <XStack alignSelf="center" w="$45" h="$10" borderRadius="$2.5">
+      <SizableText
+        size="$bodyMd"
+        color={themeName === 'dark' ? '$textOnColor' : '$textOnBrightColor'}
+      >
+        {text}
+      </SizableText>
+    </XStack>
+  );
 }
 
 function PasswordVerify({
@@ -352,13 +367,7 @@ function PasswordVerify({
                 testID="password-input"
               />
             </Form.Field>
-            {alertText ? (
-              <XStack alignSelf="center" w="$45" h="$10" borderRadius="$2.5">
-                <SizableText size="$bodyMd" color="$textOnBrightColor">
-                  {alertText}
-                </SizableText>
-              </XStack>
-            ) : null}
+            {alertText ? <PasswordCooldownText text={alertText} /> : null}
           </>
         ) : (
           <>

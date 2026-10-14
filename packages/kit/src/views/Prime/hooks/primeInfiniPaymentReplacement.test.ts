@@ -731,7 +731,6 @@ describe('resolvePrimeInfiniPaymentForcedReplacement', () => {
         fetchLatestPayment: async () => currentSession.payment,
         fetchPurchaseStatusSnapshot,
         archivePaymentSession,
-        persistTrackedPayment,
         shouldContinue: () => true,
       }),
     ).resolves.toEqual({
@@ -757,7 +756,6 @@ describe('resolvePrimeInfiniPaymentForcedReplacement', () => {
         },
         fetchPurchaseStatusSnapshot,
         archivePaymentSession,
-        persistTrackedPayment,
         onLatestPaymentUnavailable,
         shouldContinue: () => true,
       }),
@@ -790,7 +788,6 @@ describe('resolvePrimeInfiniPaymentForcedReplacement', () => {
           infiniSubscription: undefined,
         }),
         archivePaymentSession,
-        persistTrackedPayment,
         shouldContinue: () => true,
       }),
     ).resolves.toEqual({ type: 'completed' });
@@ -808,19 +805,21 @@ describe('resolvePrimeInfiniPaymentForcedReplacement', () => {
           throw new OneKeyLocalError('purchase status is unavailable');
         },
         archivePaymentSession,
-        persistTrackedPayment,
         shouldContinue: () => true,
       }),
     ).rejects.toThrow('purchase status is unavailable');
     expect(archivePaymentSession).not.toHaveBeenCalled();
   });
 
-  it('does not replace an invoice after it becomes fully paid', async () => {
+  it('archives a fully paid invoice when the user accepts the risk and the subscription is inactive', async () => {
     const fullyPaidPayment = {
       ...currentSession.payment,
       amountConfirmed: currentSession.payment.amountDue,
     };
-    const archivePaymentSession = jest.fn();
+    const archivePaymentSession = jest.fn(async (latestPayment) => ({
+      ...currentSession,
+      payment: latestPayment,
+    }));
 
     await expect(
       resolvePrimeInfiniPaymentForcedReplacement({
@@ -828,14 +827,13 @@ describe('resolvePrimeInfiniPaymentForcedReplacement', () => {
         fetchLatestPayment: async () => fullyPaidPayment,
         fetchPurchaseStatusSnapshot,
         archivePaymentSession,
-        persistTrackedPayment,
         shouldContinue: () => true,
       }),
     ).resolves.toEqual({
-      type: 'track',
+      type: 'replace',
       payment: fullyPaidPayment,
     });
-    expect(archivePaymentSession).not.toHaveBeenCalled();
+    expect(archivePaymentSession).toHaveBeenCalledWith(fullyPaidPayment);
   });
 
   it('does not replace after the subscription became active', async () => {
@@ -855,7 +853,6 @@ describe('resolvePrimeInfiniPaymentForcedReplacement', () => {
           infiniSubscription: undefined,
         }),
         archivePaymentSession,
-        persistTrackedPayment,
         shouldContinue: () => true,
       }),
     ).resolves.toEqual({ type: 'completed' });
@@ -869,7 +866,6 @@ describe('resolvePrimeInfiniPaymentForcedReplacement', () => {
         fetchLatestPayment: async () => currentSession.payment,
         fetchPurchaseStatusSnapshot,
         archivePaymentSession: async () => undefined,
-        persistTrackedPayment,
         shouldContinue: () => true,
       }),
     ).resolves.toEqual({ type: 'reload' });
@@ -884,7 +880,6 @@ describe('resolvePrimeInfiniPaymentForcedReplacement', () => {
         fetchLatestPayment: async () => currentSession.payment,
         fetchPurchaseStatusSnapshot,
         archivePaymentSession,
-        persistTrackedPayment,
         shouldContinue: () => false,
       }),
     ).resolves.toEqual({ type: 'cancelled' });

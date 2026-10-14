@@ -11,6 +11,7 @@ let mockWide = false;
 let mockTokenListId = 'composite';
 let mockStockTokens = false;
 let mockIncludeNonStockToken = false;
+let mockIsWeb = true;
 jest.mock('@react-navigation/core', () => ({
   useRoute: () => ({
     params: {
@@ -87,7 +88,11 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
-  default: { isWeb: true },
+  default: {
+    get isWeb() {
+      return mockIsWeb;
+    },
+  },
 }));
 jest.mock('../../../components/TabPageHeader', () => ({
   TabPageHeader: () => null,
@@ -151,8 +156,16 @@ jest.mock('./BannerDetailTokenFlatList', () => ({
   BannerDetailTokenFlatList: () => <div data-testid="mobile-list" />,
 }));
 jest.mock('./PerpsTokenListSection', () => ({
-  PerpsTokenListSection: ({ tokenListId }: { tokenListId: string }) => (
-    <div data-testid="perps">{tokenListId}</div>
+  PerpsTokenListSection: ({
+    tokenListId,
+    isActive,
+  }: {
+    tokenListId: string;
+    isActive: boolean;
+  }) => (
+    <div data-testid="perps" data-active={String(isActive)}>
+      {tokenListId}
+    </div>
   ),
 }));
 jest.mock('./useMarketBannerDetail', () => ({
@@ -185,6 +198,7 @@ beforeEach(() => {
   mockStockTokens = false;
   mockIncludeNonStockToken = false;
   mockWide = false;
+  mockIsWeb = true;
   mockType = EMarketBannerType.Mixed;
 });
 
@@ -278,20 +292,30 @@ it.each([
     isStock: true,
     isIndex: false,
   });
-  expect(screen.getByTestId(spotTestId())).toBeTruthy();
+  const spotList = screen.getByTestId(spotTestId());
+  expect(screen.getByRole('tabpanel').contains(spotList)).toBe(true);
   expect(screen.queryByTestId('perps')).toBeNull();
   expect(
     screen.getByRole('tab', { name: 'spot' }).getAttribute('aria-selected'),
   ).toBe('true');
   fireEvent.click(screen.getByRole('tab', { name: 'perps' }));
-  expect(screen.queryByTestId(spotTestId())).toBeNull();
-  expect(screen.getByTestId('perps').textContent).toBe('composite');
+  expect(screen.getByTestId(spotTestId())).toBe(spotList);
+  const perpsList = screen.getByTestId('perps');
+  expect(screen.getByRole('tabpanel').contains(perpsList)).toBe(true);
+  expect(perpsList.textContent).toBe('composite');
+  expect(perpsList.getAttribute('data-active')).toBe('true');
   expect(
     screen.getByRole('tab', { name: 'perps' }).getAttribute('aria-selected'),
   ).toBe('true');
   fireEvent.click(screen.getByRole('tab', { name: 'spot' }));
-  expect(screen.getByTestId(spotTestId())).toBeTruthy();
-  expect(screen.queryByTestId('perps')).toBeNull();
+  expect(screen.getByTestId(spotTestId())).toBe(spotList);
+  expect(screen.getByRole('tabpanel').contains(spotList)).toBe(true);
+  expect(screen.getByTestId('perps')).toBe(perpsList);
+  expect(perpsList.getAttribute('data-active')).toBe('false');
+  fireEvent.click(screen.getByRole('tab', { name: 'perps' }));
+  expect(screen.getByTestId('perps')).toBe(perpsList);
+  expect(screen.getByRole('tabpanel').contains(perpsList)).toBe(true);
+  expect(perpsList.getAttribute('data-active')).toBe('true');
 });
 
 it.each([
@@ -313,7 +337,11 @@ it.each([
     expect(screen.queryByTestId('stocks')).toBeNull();
     expect(screen.queryByTestId('mobile-stock-list')).toBeNull();
     fireEvent.click(screen.getByRole('tab', { name: 'perps' }));
-    expect(screen.queryByTestId(tickerSpotTestId)).toBeNull();
+    expect(
+      screen
+        .getByRole('tabpanel')
+        .contains(screen.getByTestId(tickerSpotTestId)),
+    ).toBe(false);
     expect(screen.getByTestId('perps').textContent).toBe('composite');
   },
 );
@@ -325,6 +353,19 @@ it('resets the selected category for another banner', () => {
   fireEvent.click(screen.getByRole('tab', { name: 'perps' }));
   mockTokenListId = 'another-banner';
   rerender(<MarketBannerDetail />);
+  expect(screen.getByTestId(spotTestId())).toBeTruthy();
+  expect(screen.queryByTestId('perps')).toBeNull();
+});
+
+it('keeps conditional sections outside web', () => {
+  mockIsWeb = false;
+  mockWide = true;
+  render(<MarketBannerDetail />);
+  expect(screen.queryByRole('tabpanel')).toBeNull();
+  fireEvent.click(screen.getByRole('tab', { name: 'perps' }));
+  expect(screen.queryByTestId(spotTestId())).toBeNull();
+  expect(screen.getByTestId('perps')).toBeTruthy();
+  fireEvent.click(screen.getByRole('tab', { name: 'spot' }));
   expect(screen.getByTestId(spotTestId())).toBeTruthy();
   expect(screen.queryByTestId('perps')).toBeNull();
 });

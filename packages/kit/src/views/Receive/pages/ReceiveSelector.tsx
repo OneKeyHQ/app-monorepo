@@ -33,6 +33,7 @@ import openUrlUtils, {
   openUrlInDiscovery,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EHeadlessBuyEntry } from '@onekeyhq/shared/types/fiatCrypto';
 import {
   ESwapSource,
   ESwapTabSwitchType,
@@ -47,6 +48,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useExchangeAppDetection } from '../../../hooks/useExchangeAppDetection';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { tryOpenHeadlessBuy } from '../../FiatCrypto/utils/openFiatCryptoOrHeadless';
 import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { WalletActionBuy } from '../../Home/components/WalletActions/WalletActionBuy';
 import { WalletActionReceive } from '../../Home/components/WalletActions/WalletActionReceive';
@@ -129,7 +131,7 @@ function ReceiveSelectorContent() {
   const networkId = route.params?.networkId ?? network?.id;
   const walletId = route.params?.walletId ?? wallet?.id;
   const indexedAccountId = route.params?.indexedAccountId ?? indexedAccount?.id;
-  const { token, onClose, showSwapEntry } = route.params ?? {};
+  const { token, onClose, showSwapEntry, showDoneButton } = route.params ?? {};
 
   // Exchanges cannot withdraw to Lightning invoices, so the
   // "receive from exchange" section is hidden on Lightning networks
@@ -218,17 +220,37 @@ function ReceiveSelectorContent() {
           token,
           indexedAccountId,
           disableSelector: true,
+          source: 'receiveSelector',
+          showDoneButton,
         });
       } else {
         onPress();
       }
     },
-    [token, accountId, networkId, walletId, indexedAccountId, navigation],
+    [
+      token,
+      accountId,
+      networkId,
+      walletId,
+      indexedAccountId,
+      navigation,
+      showDoneButton,
+    ],
   );
 
   const handleBuyOnPress = useCallback(
-    ({ onPress }: { onPress: () => void }) => {
+    async ({ onPress }: { onPress: () => void }) => {
       if (token && isSupported && url) {
+        if (
+          await tryOpenHeadlessBuy({
+            networkId: networkId ?? '',
+            tokenAddress: token.address,
+            accountId,
+            entryFrom: EHeadlessBuyEntry.ReceiveSelector,
+          })
+        ) {
+          return;
+        }
         if (platformEnv.isDesktop || platformEnv.isNative) {
           openFiatCryptoUrl(url);
         } else {
@@ -238,7 +260,7 @@ function ReceiveSelectorContent() {
         onPress();
       }
     },
-    [token, isSupported, url],
+    [token, isSupported, url, networkId, accountId],
   );
 
   const handleSwapOnPress = useCallback(() => {
@@ -276,7 +298,7 @@ function ReceiveSelectorContent() {
         accountId,
         indexedAccountId,
         closeAfterSelect: false,
-        showDeFiTokenSwitch: true,
+        hideDeFiTokens: true,
         aggregateTokenSelectorScreen:
           EModalReceiveRoutes.ReceiveSelectAggregateToken,
         exchangeFilter: {
@@ -368,7 +390,7 @@ function ReceiveSelectorContent() {
           accountId,
           indexedAccountId,
           closeAfterSelect: false,
-          showDeFiTokenSwitch: true,
+          hideDeFiTokens: true,
           aggregateTokenSelectorScreen:
             EModalReceiveRoutes.ReceiveSelectAggregateToken,
           onSelect: async (selectedToken: IToken) => {
@@ -386,6 +408,8 @@ function ReceiveSelectorContent() {
                 token: selectedToken,
                 indexedAccountId,
                 exchangeSource: config.id,
+                source: 'exchange',
+                showDoneButton,
               });
             } else {
               try {
@@ -431,6 +455,7 @@ function ReceiveSelectorContent() {
       indexedAccountId,
       walletId,
       wallet?.type,
+      showDoneButton,
     ],
   );
 

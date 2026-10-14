@@ -41,59 +41,131 @@ export const useGetSignatureSections = <T extends { createdAt: number }>(
   const methodRef = useRef(method);
   const hasLoadedFirstPageRef = useRef(false);
   const resetGenRef = useRef(0);
-  const [query, setQuery] = useState<{ offset: number; limit: number }>({
+  const { networkId, searchContent: address } = useContext(SignatureContext);
+  const [query, setQuery] = useState<{
+    networkId?: string;
+    address?: string;
+    offset: number;
+    limit: number;
+  }>({
+    networkId,
+    address,
     offset: 0,
     limit: 10,
   });
-  const { networkId, searchContent: address } = useContext(SignatureContext);
+  const offset =
+    query.networkId === networkId && query.address === address
+      ? query.offset
+      : 0;
 
   // Reset accumulated data and pagination when filters change
   useEffect(() => {
     ref.current = [];
     hasLoadedFirstPageRef.current = false;
     resetGenRef.current += 1;
-    setQuery({ offset: 0, limit: 10 });
+    setQuery({ networkId, address, offset: 0, limit: 10 });
   }, [networkId, address]);
 
-  const {
-    result: { sections, ending },
-  } = usePromiseResult(
+  const { result, isLoading, run } = usePromiseResult(
     async () => {
       const gen = resetGenRef.current;
-      const resp = await methodRef.current({
-        networkId,
-        address,
-        offset: query.offset,
-        limit: query.limit,
-      });
+      let resp: T[];
+      try {
+        resp = await methodRef.current({
+          networkId,
+          address,
+          offset,
+          limit: query.limit,
+        });
+      } catch (error) {
+        if (resetGenRef.current !== gen || offset !== 0) {
+          throw error;
+        }
+        return {
+          sections: [],
+          ending: true,
+          networkId,
+          address,
+          hasError: true,
+        };
+      }
       // Skip stale results from before a filter reset
       if (resetGenRef.current !== gen) {
-        return { sections: [], ending: false };
+        return {
+          sections: [],
+          ending: false,
+          networkId,
+          address,
+          hasError: false,
+        };
       }
       const isSearch = !networkUtils.isAllNetwork({ networkId }) || address;
       if (!isSearch) {
-        if (query.offset === 0) {
+        if (offset === 0) {
           ref.current = [...resp];
         } else {
-          ref.current.splice(query.offset, query.limit, ...resp);
+          ref.current.splice(offset, query.limit, ...resp);
         }
       }
       hasLoadedFirstPageRef.current = true;
       return {
         sections: groupBy(isSearch ? resp : ref.current),
         ending: resp.length < query.limit,
+        networkId,
+        address,
+        hasError: false,
       };
     },
-    [networkId, query.limit, query.offset, address],
-    { initResult: { sections: [], ending: false } },
+    [networkId, query.limit, offset, address],
+    {
+      initResult: {
+        sections: [],
+        ending: false,
+        networkId: '',
+        address: '',
+        hasError: false,
+      },
+      watchLoading: true,
+    },
   );
 
+  const isCurrentFilter =
+    result.networkId === networkId && result.address === address;
+  const sections = useMemo(
+    () => (isCurrentFilter ? result.sections : []),
+    [isCurrentFilter, result.sections],
+  );
+  const ending = isCurrentFilter ? result.ending : false;
+  const isSectionsLoading = Boolean(isLoading || !isCurrentFilter);
+  const hasError = isCurrentFilter && result.hasError;
+
+  const onRetry = useCallback(() => {
+    void run();
+  }, [run]);
+
   const onEndReached = useCallback(() => {
-    if (ending || !hasLoadedFirstPageRef.current) {
+    if (ending || !isCurrentFilter || !hasLoadedFirstPageRef.current) {
       return;
     }
-    setQuery((prev) => ({ ...prev, offset: prev.offset + prev.limit }));
-  }, [ending]);
+    setQuery((prev) => ({
+      ...prev,
+      networkId,
+      address,
+      offset:
+        (prev.networkId === networkId && prev.address === address
+          ? prev.offset
+          : 0) + prev.limit,
+    }));
+  }, [ending, isCurrentFilter, networkId, address]);
 
-  return useMemo(() => ({ sections, onEndReached }), [sections, onEndReached]);
+  return useMemo(
+    () => ({
+      sections,
+      isLoading: isSectionsLoading,
+      hasError,
+      onRetry,
+      onEndReached,
+    }),
+    [sections, isSectionsLoading, hasError, onRetry, onEndReached],
+  );
 };

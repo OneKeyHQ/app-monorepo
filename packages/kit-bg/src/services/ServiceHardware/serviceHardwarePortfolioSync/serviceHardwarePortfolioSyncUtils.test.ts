@@ -76,7 +76,6 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
   test('submits v2 categories and the account ordinal with existing server metadata', () => {
     const artifacts = buildPortfolioSyncArtifacts({
       schemaVersion: 2,
-      categoryFiat: { defiFiat: '20', perpsFiat: '30' },
       currencyMap,
       displayCurrency: { id: 'usd', symbol: '$' },
       timestamp: 1_789_380_000_000,
@@ -84,6 +83,8 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
         indexedAccountIndex: 1,
         indexedAccountName: 'Account #2',
         aggregateTokenMap: {},
+        homeTotalFiatUsd: '125',
+        homeCategoryFiatUsd: { defiFiat: '20', perpsFiat: '30' },
         totalFiat: '100',
         totalFiatCurrency: 'usd',
         totalTokenCount: 1,
@@ -104,7 +105,7 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
       tokensFiat: '$100.00',
       defiFiat: '$20.00',
       perpsFiat: '$30.00',
-      totalFiat: '$150.00',
+      totalFiat: '$125.00',
       tokens: [{ iconName: null, logoURI: 'https://example.com/eth.png' }],
     });
     expect(artifacts.portfolio.tokens[0]).not.toHaveProperty('color');

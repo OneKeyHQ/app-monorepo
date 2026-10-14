@@ -10,13 +10,34 @@ import { globalAtom } from '../utils';
 
 export type IMarketSelectedTab = 'watchlist' | 'trending' | 'perps';
 
-export interface IMarketSelectedTabAtom {
+export interface IMarketHomePreferences {
+  selectedNetworkId?: string;
+  timeRange?: '5m' | '1h' | '4h' | '24h';
+  selectedStockCategory?: string;
+  selectedTopCoinsCategory?: string;
+  watchlistFilter?: 'all' | 'spot' | 'stocks' | 'perps';
+}
+
+export interface IMarketHomePreferencesAtom extends IMarketHomePreferences {
+  revision?: number;
+}
+
+export interface IMarketSelectedTabAtom extends IMarketHomePreferences {
   tab: IMarketSelectedTab;
   selectedSpotCategory?: string;
   spotCategoryToSelect?: string;
   selectedPerpsCategory?: string;
   perpsCategoryToSelect?: string;
 }
+
+export const {
+  target: marketHomePreferencesAtom,
+  use: useMarketHomePreferencesAtom,
+} = globalAtom<IMarketHomePreferencesAtom>({
+  persist: true,
+  name: EAtomNames.marketHomePreferencesAtom,
+  initialValue: {},
+});
 
 export const { target: marketSelectedTabAtom, use: useMarketSelectedTabAtom } =
   globalAtom<IMarketSelectedTabAtom>({
@@ -137,13 +158,13 @@ export interface IMarketPriceSourceAtom {
   source: IMarketPriceSource;
 }
 
-// Shared by the stock price header and chart. StockDesktopLayout resets this
-// non-persisted value to 'share' when the selected stock changes.
+// Shared by the stock price header and chart. Start on the token quote until
+// the selected stock's market status can choose the initial price source.
 export const { target: marketPriceSourceAtom, use: useMarketPriceSourceAtom } =
   globalAtom<IMarketPriceSourceAtom>({
     persist: false,
     name: EAtomNames.marketPriceSourceAtom,
-    initialValue: { source: 'share' },
+    initialValue: { source: 'token' },
   });
 
 export interface IMarketDesktopLayout {

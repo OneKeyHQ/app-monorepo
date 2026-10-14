@@ -222,6 +222,7 @@ bypassable
 bytesize
 bytify
 cacheable
+caip
 caips
 calc
 camelcase
@@ -261,6 +262,7 @@ Cmp
 Codec
 codespace
 coinbase
+coinbasepay
 coingecko
 coinselect
 cointype
@@ -417,6 +419,7 @@ fs
 fucntion
 func
 Func
+funder
 Geist
 getr
 gif
@@ -495,6 +498,7 @@ isXprvt
 itms
 izari
 jane
+jetpack
 jotai
 Jotai
 jpeg
@@ -517,6 +521,7 @@ keyring
 keysend
 keytag
 krc20
+Lamport
 Lamports
 lang
 lasttime
@@ -536,6 +541,7 @@ lru
 ltc
 Ltc
 lte
+macappstore
 macos
 mainnet
 malloc
@@ -631,6 +637,7 @@ onekeyhq
 onekeyid
 onopen
 onramper
+onramps
 Ons
 onsuccess
 onupgradeneeded
@@ -652,6 +659,7 @@ passcode
 passpharse
 passphrase
 pathname
+paybis
 payin
 payout
 Pbkdf2
@@ -960,6 +968,7 @@ vtc
 wagmi
 Wagmi
 walletconnect
+walletkit
 wasm
 Wasm
 wasmd
@@ -1600,6 +1609,7 @@ otsu
 Otsu
 OTSU
 binarize
+scure
 
 # password manager brand referenced in Input suppression comment
 Dashlane

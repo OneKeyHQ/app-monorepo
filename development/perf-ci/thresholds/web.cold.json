@@ -9,8 +9,9 @@
     "largestPreLcpScriptDecodedBytes": 614400
   },
   "startupGraph": {
+    "_comment": "startupModuleBytes is each startup module's share of the emitted bundles, attributed through the source maps. It replaced sourceSizeBytes, which measured pre-compile source and so charged the budget for comments and type declarations that are never downloaded.",
     "moduleCount": 3300,
-    "sourceSizeBytes": 13172736,
+    "startupModuleBytes": 6291456,
     "initialScriptCount": 45,
     "initialScriptRawBytes": 6291456,
     "initialScriptGzipBytes": 2097152,

@@ -52,7 +52,7 @@ describe('TradingViewNativeFullscreenButton', () => {
       expect.objectContaining({
         bottom: 28,
         icon: 'TradingViewExitFullscreenCustom',
-        left: '$5',
+        left: 64,
       }),
     );
   });

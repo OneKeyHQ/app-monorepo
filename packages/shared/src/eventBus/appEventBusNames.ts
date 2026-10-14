@@ -23,6 +23,7 @@ export enum EAppEventBusNames {
   FinalizeWalletSetupError = 'FinalizeWalletSetupError',
   WalletConnectOpenModal = 'WalletConnectOpenModal',
   WalletConnectCloseModal = 'WalletConnectCloseModal',
+  WalletConnectCloseConnectionProgress = 'WalletConnectCloseConnectionProgress',
   WalletConnectModalState = 'WalletConnectModalState',
   WalletConnectConnectSuccess = 'WalletConnectConnectSuccess',
   WalletConnectConnectError = 'WalletConnectConnectError',
@@ -215,4 +216,5 @@ export enum EAppEventBusNames {
   NavigateModalFromBackgroundThread = 'NavigateModalFromBackgroundThread',
   TrayActionWillNavigate = 'TrayActionWillNavigate',
   MemoryPressureWarning = 'MemoryPressureWarning',
+  ReferralPostConfigUpdated = 'ReferralPostConfigUpdated',
 }

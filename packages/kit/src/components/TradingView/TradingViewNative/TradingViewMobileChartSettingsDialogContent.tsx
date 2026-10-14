@@ -11,7 +11,6 @@ import {
   YStack,
   useDialogInstance,
 } from '@onekeyhq/components';
-import { useMarketTradingViewChartSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   ITradingViewNativeChartSettingsOptions,
@@ -25,6 +24,9 @@ import {
 import { TradingViewChartTypeSettingsRow } from '../TradingViewChartControls/chartSettings';
 
 import { normalizeTradingViewNativeChartSettings } from './chartSettingsAdapter';
+import { useTradingViewNativeChartSettings } from './useTradingViewNativeSettings';
+
+import type { ITradingViewNativeStorageNamespace } from './types';
 
 type IQuickSettingOptions = Pick<
   ITradingViewNativeChartSettingsOptions,
@@ -93,24 +95,39 @@ function QuickSettingOption({
   );
 }
 
-export function TradingViewMobileChartSettingsDialogContent({
+type IChartSettingsDialogProps = {
+  storageNamespace?: ITradingViewNativeStorageNamespace;
+  chartMode?: ITradingViewChartMode;
+  isChartSwitchDisabled?: boolean;
+  showPreviousClose?: boolean;
+  onChartSwitch?: () => void;
+  onOpenSettings: () => void;
+};
+
+export function TradingViewMobileChartSettingsDialogContent(
+  props: IChartSettingsDialogProps,
+) {
+  const settingsState = useTradingViewNativeChartSettings(
+    props.storageNamespace,
+  );
+  return (
+    <ChartSettingsDialogContent {...props} settingsState={settingsState} />
+  );
+}
+
+function ChartSettingsDialogContent({
+  settingsState,
   chartMode,
   isChartSwitchDisabled = false,
   showPreviousClose = false,
   onChartSwitch,
   onOpenSettings,
-}: {
-  chartMode?: ITradingViewChartMode;
-  isChartSwitchDisabled?: boolean;
-  // Only stock detail charts offer Prev close.
-  showPreviousClose?: boolean;
-  onChartSwitch?: () => void;
-  onOpenSettings: () => void;
+}: IChartSettingsDialogProps & {
+  settingsState: ReturnType<typeof useTradingViewNativeChartSettings>;
 }) {
   const intl = useIntl();
   const dialog = useDialogInstance();
-  const [settings, setSettings] =
-    useMarketTradingViewChartSettingsPersistAtom();
+  const [settings, setSettings] = settingsState;
   const normalizedSettings = useMemo(
     () => normalizeTradingViewNativeChartSettings(settings),
     [settings],

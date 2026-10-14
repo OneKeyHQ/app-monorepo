@@ -37,13 +37,8 @@ jest.mock('./mmkvStorageInstance', () => ({
   default: testMMKV,
 }));
 
-jest.mock('./coldStartCacheMMKVInstance', () => ({
-  __esModule: true,
-  default: coldStartMMKV,
-}));
-
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { createMMKVSyncStorage, syncStorage, coldStartCacheStorage } =
+const { createMMKVSyncStorage, syncStorage } =
   require('./syncStorageInstance') as typeof import('./syncStorageInstance');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { travelModeManager } =
@@ -180,14 +175,6 @@ describe('syncStorage export', () => {
   });
 });
 
-describe('coldStartCacheStorage export', () => {
-  it('does not have checkResetting', () => {
-    mockCheckNotInResetting.mockClear();
-    void coldStartCacheStorage.set(EAppSyncStorageKeys.perf_switch, 'val');
-    expect(mockCheckNotInResetting).not.toHaveBeenCalled();
-  });
-});
-
 describe('Travel Mode masking', () => {
   it('hides settings and skips settings writes', () => {
     testMMKV.set(EAppSyncStorageKeys.perf_switch, 'persisted');
@@ -202,22 +189,6 @@ describe('Travel Mode masking', () => {
     void syncStorage.set(EAppSyncStorageKeys.perf_switch, 'changed');
 
     expect(testMMKV.getString(EAppSyncStorageKeys.perf_switch)).toBe(
-      'persisted',
-    );
-  });
-
-  it('hides cold-start values and skips cold-start writes', () => {
-    coldStartMMKV.set(EAppSyncStorageKeys.perf_switch, 'persisted');
-    jest
-      .spyOn(travelModeManager, 'getRuntimeEnvironmentSync')
-      .mockReturnValue(maskedEnvironment);
-
-    expect(
-      coldStartCacheStorage.getString(EAppSyncStorageKeys.perf_switch),
-    ).toBeUndefined();
-    void coldStartCacheStorage.delete(EAppSyncStorageKeys.perf_switch);
-
-    expect(coldStartMMKV.getString(EAppSyncStorageKeys.perf_switch)).toBe(
       'persisted',
     );
   });

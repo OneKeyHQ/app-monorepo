@@ -97,6 +97,8 @@ jest.mock('react-native-reanimated', () => {
     makeMutable: <T,>(value: T) => ({ value }),
     runOnJS: jest.fn(identity),
     useAnimatedKeyboard: () => ({ height: { value: 0 } }),
+    // The keyboard rise's settle gate; no worklet runs under this mock.
+    useAnimatedReaction: jest.fn(),
     // A detectable stand-in for every animated style, so a test can tell
     // which element wears one without running any worklet.
     useAnimatedStyle: () => ({ opacity: 0.42 }),

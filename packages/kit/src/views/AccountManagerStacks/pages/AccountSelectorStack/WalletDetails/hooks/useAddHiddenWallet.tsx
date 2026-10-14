@@ -213,10 +213,15 @@ export function useAddHiddenWallet() {
           features: device?.featuresInfo,
           fallbackName: device?.name,
         });
+        const stageDeviceColor = deviceUtils.getDeviceColorFromFeatures({
+          deviceType: device?.deviceType,
+          features: device?.featuresInfo,
+        });
         stageToken =
           await backgroundApiProxy.serviceHardwareUI.deviceStageBeginBurst({
             connectId: device?.connectId,
             deviceType: device?.deviceType,
+            deviceColor: stageDeviceColor,
             deviceName: stageDeviceName,
           });
         // Listening starts before the card is asked for: the paint is an
@@ -233,6 +238,7 @@ export function useAddHiddenWallet() {
               {
                 connectId: device?.connectId,
                 deviceType: device?.deviceType,
+                deviceColor: stageDeviceColor,
                 deviceName: stageDeviceName,
               },
             );

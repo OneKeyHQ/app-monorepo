@@ -24,11 +24,13 @@ import {
   isSwapZeroProviderQuoteCompleted,
   resolveSwapQuoteForDisplay,
   resolveSwapQuoteRefreshAction,
+  selectSwapCurrentEventQuotes,
   selectSwapCurrentQuote,
   selectSwapPreviousActionableQuote,
   shouldOfferSwapQuoteRefresh,
   shouldPlaySwapQuoteRefreshAnimation,
   shouldShowSwapQuoteActionLoading,
+  shouldShowSwapQuoteLimitWarning,
   shouldShowSwapQuoteRequestLoading,
 } from './quoteProgress';
 
@@ -61,6 +63,85 @@ function buildQuote({
 }
 
 describe('swap quote progress', () => {
+  it('keeps a current-event quote visible while provider keys are mirrored', () => {
+    const currentQuote = buildQuote({
+      eventId: 'event-2',
+      provider: 'current',
+    });
+
+    expect(
+      selectSwapCurrentEventQuotes({
+        quotes: [currentQuote],
+        quoteEventTotalCount: { eventId: 'event-2', count: 2 },
+        currentEventProviderKeys: [],
+      }),
+    ).toEqual([currentQuote]);
+  });
+
+  it('does not leak a previous event while waiting for provider keys', () => {
+    const previousQuote = buildQuote({
+      eventId: 'event-1',
+      provider: 'previous',
+    });
+
+    expect(
+      selectSwapCurrentEventQuotes({
+        quotes: [previousQuote],
+        quoteEventTotalCount: { eventId: 'event-2', count: 2 },
+        currentEventProviderKeys: [],
+      }),
+    ).toEqual([]);
+  });
+
+  it('uses provider keys once the current event has received them', () => {
+    const firstQuote = buildQuote({
+      eventId: 'event-2',
+      provider: 'first',
+    });
+    const secondQuote = buildQuote({
+      eventId: 'event-2',
+      provider: 'second',
+    });
+
+    expect(
+      selectSwapCurrentEventQuotes({
+        quotes: [firstQuote, secondQuote],
+        quoteEventTotalCount: { eventId: 'event-2', count: 2 },
+        currentEventProviderKeys: [buildSwapQuoteProviderKey(secondQuote)],
+      }),
+    ).toEqual([secondQuote]);
+  });
+
+  it('does not show a previous-event quote while provider keys are mirrored', () => {
+    const previousQuote = buildQuote({
+      eventId: 'event-1',
+      provider: 'same-provider',
+    });
+    const currentProviderKeys = [buildSwapQuoteProviderKey(previousQuote)];
+
+    expect(
+      selectSwapCurrentEventQuotes({
+        quotes: [previousQuote],
+        quoteEventTotalCount: { eventId: 'event-2', count: 1 },
+        currentEventProviderKeys: currentProviderKeys,
+      }),
+    ).toEqual([]);
+  });
+
+  it('waits for the quote event to settle before showing limit warnings', () => {
+    expect(
+      shouldShowSwapQuoteLimitWarning({
+        quoteEventCompleted: false,
+        quoteEventFetching: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowSwapQuoteLimitWarning({
+        quoteEventCompleted: true,
+        quoteEventFetching: false,
+      }),
+    ).toBe(true);
+  });
   it('validates the amount on the active quote side', () => {
     expect(
       isSwapQuoteInputAmountValid({

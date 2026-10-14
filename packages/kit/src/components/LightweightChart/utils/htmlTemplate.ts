@@ -15,11 +15,22 @@ function getStyles(): string {
 
 function getChartInitScript(): string {
   return `
-      var compactPriceFormatter = ${formatChartPriceSource};
+      window.__onekeyFormatChartPrice = ${formatChartPriceSource};
       function getPriceFormatter(nextConfig) {
+        if (nextConfig.priceScaleFormat === 'stock') {
+          return function(price) {
+            var formatChartPrice = window.__onekeyFormatChartPrice;
+            return formatChartPrice(
+              price,
+              nextConfig.compactPriceMaxCharacters || 10,
+              true,
+            );
+          };
+        }
         if (nextConfig.compactPriceMaxCharacters) {
           return function(price) {
-            return compactPriceFormatter(price, nextConfig.compactPriceMaxCharacters);
+            var formatChartPrice = window.__onekeyFormatChartPrice;
+            return formatChartPrice(price, nextConfig.compactPriceMaxCharacters);
           };
         }
         if (nextConfig.priceFormatterType === 'usd') return usdPriceFormatter;
@@ -116,7 +127,7 @@ function getChartInitScript(): string {
         return options;
       }
       function getChartOptions(nextConfig) {
-        return {
+        var options = {
           layout: {
             background: { color: nextConfig.theme.bgColor },
             textColor: nextConfig.theme.textSubduedColor,
@@ -137,6 +148,17 @@ function getChartInitScript(): string {
           rightPriceScale: getPriceScaleOptions(nextConfig, 'right'),
           leftPriceScale: getPriceScaleOptions(nextConfig, 'left'),
         };
+        // Desktop installs formatChartPrice on the series, and the price scale
+        // uses that for both ticks and the last-value badge. A function cannot
+        // cross into the WebView, so the same formatter is installed on the
+        // scale itself. Otherwise the badge keeps the series' raw precision
+        // ("$0.184056...") while ticks stay compact ("$0.19").
+        if (nextConfig.compactPriceMaxCharacters) {
+          options.localization = {
+            priceFormatter: getPriceFormatter(nextConfig),
+          };
+        }
+        return options;
       }
       function getPrimarySeriesType(nextConfig) {
         if (nextConfig.seriesType === 'baseline') return 'baseline';
@@ -454,60 +476,6 @@ function getChartInitScript(): string {
           priceFormat: { type: 'custom', formatter: priceFormatter },
         });
       }
-      function applyPrimarySeriesOptions(nextConfig) {
-        if (!window.series) return;
-        var priceFormatter = getPriceFormatter(nextConfig);
-        var showLast = Boolean(nextConfig.showLastValue);
-        var normalizedLineWidth = getNormalizedLineWidth(nextConfig.lineWidth, 3);
-        if (window.seriesType === 'dotted-area') {
-          window.series.applyOptions(getDottedAreaSeriesOptions(nextConfig));
-          return;
-        }
-        if (window.seriesType === 'baseline') {
-          window.series.applyOptions(Object.assign({}, nextConfig.baselineOptions, {
-            priceScaleId: getPriceScalePosition(nextConfig),
-            lineType: getLineType(nextConfig),
-            lineWidth: normalizedLineWidth,
-            lastValueVisible: showLast,
-            priceLineVisible: showLast,
-            crosshairMarkerRadius: 5,
-            priceFormat: { type: 'custom', formatter: priceFormatter },
-          }));
-          return;
-        }
-        if (window.seriesType === 'histogram') {
-          window.series.applyOptions(getHistogramSeriesOptions(nextConfig));
-          return;
-        }
-        window.series.applyOptions({
-          priceScaleId: getPriceScalePosition(nextConfig),
-          topColor: nextConfig.theme.topColor,
-          bottomColor: nextConfig.theme.bottomColor,
-          lineColor: nextConfig.theme.lineColor,
-          lineWidth: normalizedLineWidth,
-          lastValueVisible: showLast,
-          priceLineVisible: showLast,
-          crosshairMarkerRadius: 5,
-          crosshairMarkerBorderColor: nextConfig.theme.lineColor,
-          crosshairMarkerBackgroundColor: '#ffffff',
-          priceFormat: { type: 'custom', formatter: priceFormatter },
-        });
-      }
-      function syncPrimarySeries(nextConfig) {
-        var nextSeriesType = getPrimarySeriesType(nextConfig);
-        if (!window.series || window.seriesType !== nextSeriesType) {
-          if (window.series) {
-            chart.removeSeries(window.series);
-          }
-          window.referencePriceLine = null;
-          window.series = createPrimarySeries(nextConfig);
-          window.seriesType = nextSeriesType;
-        } else {
-          applyPrimarySeriesOptions(nextConfig);
-        }
-        window.series.applyOptions(getLastValueSeriesOptions(nextConfig));
-        window.series.setData(Array.isArray(nextConfig.data) ? nextConfig.data : []);
-      }
       function syncReferenceLine(nextConfig) {
         if (!window.series) return;
         window.series.applyOptions({
@@ -545,30 +513,45 @@ function getChartInitScript(): string {
           crosshairMarkerVisible: false,
         };
       }
-      function syncSecondarySeries(nextConfig) {
-        var hasSecondaryData =
-          Array.isArray(nextConfig.secondaryLineData) &&
-          nextConfig.secondaryLineData.length > 0;
-        // Returns whether the overlay's points changed; applyChartConfig then
-        // re-issues the primary data (see the note there).
-        if (!hasSecondaryData) {
-          if (!window.secondarySeries) return false;
-          window.secondarySeries.setData([]);
-          window.secondarySeries.applyOptions({ visible: false });
-          return true;
+      // Rebuilds both series from scratch on every apply.
+      //
+      // lightweight-charts 5.2 keeps a stale copy of its time points after a
+      // single-series setData whose times did not change: the fast path swaps
+      // the point objects, but _replaceTimeScalePoints returns early and keeps
+      // the old list. Once a second series exists, the next setData on the
+      // first one deletes its rows through that stale list, the cleanup pass
+      // then treats those points as empty and drops the shared keys from the
+      // map, the time scale ends up with no points and the chart goes blank,
+      // axes included. Both lines get identical timestamps from the 1D / 1W
+      // buckets, which is exactly the trigger (OK-62390, OK-63666). Removing
+      // every series resets that state, and rebuilding is cheap at these
+      // sizes. The primary goes first so the overlay keeps drawing on top of
+      // it; everything runs before the next frame, so nothing flickers.
+      function rebuildSeries(nextConfig) {
+        if (window.secondarySeries) {
+          window.chart.removeSeries(window.secondarySeries);
+          window.secondarySeries = null;
         }
-        if (!window.secondarySeries) {
-          window.secondarySeries = chart.addSeries(
+        if (window.series) {
+          window.chart.removeSeries(window.series);
+          window.series = null;
+          window.referencePriceLine = null;
+        }
+        window.series = createPrimarySeries(nextConfig);
+        window.seriesType = getPrimarySeriesType(nextConfig);
+        window.series.applyOptions(getLastValueSeriesOptions(nextConfig));
+        window.series.setData(Array.isArray(nextConfig.data) ? nextConfig.data : []);
+        syncReferenceLine(nextConfig);
+        if (
+          Array.isArray(nextConfig.secondaryLineData) &&
+          nextConfig.secondaryLineData.length > 0
+        ) {
+          window.secondarySeries = window.chart.addSeries(
             LightweightCharts.LineSeries,
             getSecondarySeriesOptions(nextConfig)
           );
-        } else {
-          window.secondarySeries.applyOptions(
-            Object.assign({ visible: true }, getSecondarySeriesOptions(nextConfig))
-          );
+          window.secondarySeries.setData(nextConfig.secondaryLineData);
         }
-        window.secondarySeries.setData(nextConfig.secondaryLineData);
-        return true;
       }
       // Price formatter: use a serializable formatter type in WebView, otherwise default %
       // NOTE: Keep in sync with formatChartUsdPrice in shared/src/utils/perpsUtils.ts
@@ -658,20 +641,7 @@ function getChartInitScript(): string {
       window.applyChartConfig = function(nextConfig) {
         if (!nextConfig || !window.chart) return;
         window.chart.applyOptions(getChartOptions(nextConfig));
-        syncPrimarySeries(nextConfig);
-        syncReferenceLine(nextConfig);
-        var overlayChanged = syncSecondarySeries(nextConfig);
-        // Replacing the overlay's points — emptying it (OK-62390), or swapping
-        // a week of hourly points for a month of daily ones when the range
-        // switches (OK-63666) — can leave the time scale with no visible
-        // range: the chart goes blank, and fitContent / autoscale alone do not
-        // bring it back. Re-issuing the primary data is the one call that
-        // rebuilds the range, so it is the last data write, after any overlay
-        // change. The primary is created first so the overlay keeps drawing
-        // on top of it.
-        if (overlayChanged && window.series) {
-          window.series.setData(Array.isArray(nextConfig.data) ? nextConfig.data : []);
-        }
+        rebuildSeries(nextConfig);
         window.chart.timeScale().fitContent();
       };
       window.applyChartConfig(config);
@@ -712,12 +682,20 @@ function getEventHandlers(): string {
         }
       });
 
-      new ResizeObserver(entries => {
-        if (entries.length) {
-          const { width, height } = entries[0].contentRect;
-          chart.applyOptions({ width, height });
+      window.repaintChart = function() {
+        const width = container.clientWidth;
+        const height = container.clientHeight;
+        if (width > 0 && height > 0) {
+          // A translated native header can return with the same DOM dimensions.
+          // Force a repaint even when ResizeObserver has nothing new to report.
+          chart.resize(width, height, true);
         }
-      }).observe(container);
+      };
+      new ResizeObserver(() => window.repaintChart()).observe(container);
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) window.repaintChart();
+      });
+      window.addEventListener('pageshow', () => window.repaintChart());
 
       window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ready' }));
   `.trim();

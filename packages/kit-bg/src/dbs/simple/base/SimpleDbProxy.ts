@@ -25,6 +25,7 @@ import type { SimpleDbEntityBTCFreshAddress } from '../entity/SimpleDbEntityBTCF
 import type { SimpleDbEntityBTCFreshAddressMeta } from '../entity/SimpleDbEntityBTCFreshAddressMeta';
 import type { SimpleDbEntityChainResource } from '../entity/SimpleDbEntityChainResource';
 import type { SimpleDbEntityChangeHistory } from '../entity/SimpleDbEntityChangeHistory';
+import type { SimpleDbEntityCloudBackupPasswordCache } from '../entity/SimpleDbEntityCloudBackupPasswordCache';
 import type { SimpleDbEntityCustomNetwork } from '../entity/SimpleDbEntityCustomNetwork';
 import type { SimpleDbEntityCustomRpc } from '../entity/SimpleDbEntityCustomRPC';
 import type { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnection';
@@ -51,6 +52,7 @@ import type { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetw
 import type { SimpleDbEntityNotificationSettings } from '../entity/SimpleDbEntityNotificationSettings';
 import type { SimpleDbEntityPerp } from '../entity/SimpleDbEntityPerp';
 import type { SimpleDbEntityPrime } from '../entity/SimpleDbEntityPrime';
+import type { SimpleDbEntityPrimeFreeTrial } from '../entity/SimpleDbEntityPrimeFreeTrial';
 import type { SimpleDbEntityPrimeTransfer } from '../entity/SimpleDbEntityPrimeTransfer';
 import type { SimpleDbEntityReceiveArrivalConfig } from '../entity/SimpleDbEntityReceiveArrivalConfig';
 import type { SimpleDbEntityRecentNetworks } from '../entity/SimpleDbEntityRecentNetworks';
@@ -66,6 +68,7 @@ import type { SimpleDbEntitySwapProSelectToken } from '../entity/SimpleDbEntityS
 import type { SimpleDbEntityUniversalSearch } from '../entity/SimpleDbEntityUniversalSearch';
 import type { SimpleDbEntityV4MigrationResult } from '../entity/SimpleDbEntityV4MigrationResult';
 import type { SimpleDbEntityWalletBanner } from '../entity/SimpleDbEntityWalletBanner';
+import type { SimpleDbEntityWalletConnectPay } from '../entity/SimpleDbEntityWalletConnectPay';
 import type { SimpleDbEntityWalletStatus } from '../entity/SimpleDbEntityWalletStatus';
 
 export class SimpleDbProxy
@@ -87,6 +90,10 @@ export class SimpleDbProxy
   }
 
   prime = this._createProxyService('prime') as SimpleDbEntityPrime;
+
+  cloudBackupPasswordCache = this._createProxyService(
+    'cloudBackupPasswordCache',
+  ) as SimpleDbEntityCloudBackupPasswordCache;
 
   browserTabs = this._createProxyService(
     'browserTabs',
@@ -290,6 +297,10 @@ export class SimpleDbProxy
     'primeTransfer',
   ) as SimpleDbEntityPrimeTransfer;
 
+  primeFreeTrial = this._createProxyService(
+    'primeFreeTrial',
+  ) as SimpleDbEntityPrimeFreeTrial;
+
   approval = this._createProxyService('approval') as SimpleDbEntityApproval;
 
   aggregateToken = this._createProxyService(
@@ -323,4 +334,8 @@ export class SimpleDbProxy
   rookieGuide = this._createProxyService(
     'rookieGuide',
   ) as SimpleDbEntityRookieGuide;
+
+  walletConnectPay = this._createProxyService(
+    'walletConnectPay',
+  ) as SimpleDbEntityWalletConnectPay;
 }

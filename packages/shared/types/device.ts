@@ -57,6 +57,7 @@ export type IFirmwareUpdatesDetectResult = {
     firmware?: IFirmwareUpdateInfo;
     ble?: IBleFirmwareUpdateInfo;
     targetsToUpdate?: IPro2FirmwareUpdateTarget[];
+    estimatedTransferBytes?: number;
   };
 };
 
@@ -70,6 +71,11 @@ export type IFirmwareUpdateDetectStatus = {
   toVersion: string | undefined;
   toFirmwareType: EFirmwareType | undefined;
   toVersionBle: string | undefined;
+  /**
+   * Bytes the detected update will transfer, summed over the artifacts of
+   * its update plan; absent when the plan or any artifact size is unknown.
+   */
+  estimatedTransferBytes?: number;
 };
 
 export type IFirmwareUpdatesDetectStatus = Partial<
@@ -168,6 +174,8 @@ export type ICheckAllFirmwareReleaseResult = {
   pro2TargetsToUpdate?: IPro2FirmwareUpdateTarget[];
   pro2ResourceArchive?: IProtocolV2ResourceArchive;
   protocolV2FirmwareVersionInfo?: IProtocolV2FirmwareVersionInfo;
+  /** See IFirmwareUpdateDetectStatus.estimatedTransferBytes. */
+  estimatedTransferBytes?: number;
 };
 
 export const PRO2_FIRMWARE_UPDATE_TARGETS = [

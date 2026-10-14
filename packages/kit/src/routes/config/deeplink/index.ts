@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import * as Linking from 'expo-linking';
 import { isString } from 'lodash';
 
@@ -38,23 +39,22 @@ import {
   ETabRoutes,
   ETabSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { dismissNativeInAppBrowser } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { isAllowedAppClipCampaignEntryUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { reportInstallAttribution } from '../../../components/LastActivityTracker/installAttribution';
+import { connectWalletConnectToDapp } from '../../../components/WalletConnect/connectWalletConnectToDapp';
 import { whenAppUnlocked } from '../../../utils/passwordUtils';
 import { EarnNavigation } from '../../../views/Earn/earnUtils';
 import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAccountUtils';
 import { marketNavigation } from '../../../views/Market/marketUtils';
-import { openWebView } from '../../../views/WebView/utils/webViewNavigation';
 import { captureAndReportLoggerUtmParamsFromUrl } from '../loggerUtmParams';
 
 import { registerHandler } from './handler';
-import { parseWebViewDeepLink } from './parseWebViewDeepLink';
 import {
   handleReferralLandingUrl,
   isValidReferralCode,
@@ -105,6 +105,22 @@ async function openRedeemBitcoinVoucherDialog(initialCode?: string) {
   await redeemBitcoinVoucherOpenTask;
 }
 
+async function openPrimeInfiniSubscriptionFromDeepLink({
+  navigation,
+}: {
+  navigation: NonNullable<typeof appGlobals.$rootAppNavigation>;
+}) {
+  await whenAppUnlocked();
+  const isLoggedIn = await backgroundApiProxy.servicePrime.isLoggedIn();
+  // Logged-out users land on the dashboard, which continues to Infini after login.
+  navigation.pushModal(
+    EModalRoutes.PrimeModal,
+    isLoggedIn
+      ? { screen: EPrimePages.PrimeInfiniSubscription }
+      : { screen: EPrimePages.PrimeDashboard, params: { fromDeepLink: true } },
+  );
+}
+
 function getOneKeyDeepLinkPath({ hostname, path, scheme }: Linking.ParsedURL) {
   if (scheme !== ONEKEY_APP_DEEP_LINK && scheme !== ONEKEY_APP_DEEP_LINK_NAME) {
     return undefined;
@@ -147,7 +163,6 @@ type IOneKeyAppLinkTarget =
       network: string;
       isNative?: boolean;
     }
-  | { type: 'appClipWeb'; url: string }
   | {
       // Earn protocol detail universal link, mirroring the web route
       // /earn/:network/:symbol/:provider?vault= (EarnProtocolDetailsShare)
@@ -176,19 +191,6 @@ const ONEKEY_APP_CLIP_HANDOFF_PATH = 'app-clip';
 // expo-linking returns "swap" while the jest URL polyfill returns "/swap".
 function normalizeAppLinkPath(path?: string | null) {
   return path?.replace(/^\/+|\/+$/gu, '').toLowerCase() ?? '';
-}
-
-function parseAppClipWebUrl(value: unknown): string | undefined {
-  const rawUrl = getStringQueryParam(value);
-  if (!rawUrl || !isAllowedAppClipCampaignEntryUrl(rawUrl)) {
-    return undefined;
-  }
-  try {
-    const url = new URL(rawUrl);
-    return url.toString();
-  } catch {
-    return undefined;
-  }
 }
 
 function parseAppClipMarketTarget(
@@ -262,10 +264,6 @@ function parseOneKeyAppLinkTarget({
   if (normalizedPath === 'clip/market') {
     return parseAppClipMarketTarget(queryParams);
   }
-  if (normalizedPath === 'clip/web' || normalizedPath.startsWith('clip/web/')) {
-    const url = parseAppClipWebUrl(queryParams?.web_url);
-    return url ? { type: 'appClipWeb', url } : undefined;
-  }
   // Earn detail page universal link: /earn/:network/:symbol/:provider?vault=.
   // Cannot use normalizeAppLinkPath (it lowercases): server-side matching of
   // symbol/provider/vault is case-sensitive, so preserve the original casing.
@@ -319,9 +317,7 @@ async function processOneKeyAppUniversalLink(
   if (
     times === 0 &&
     platformEnv.isNativeIOS &&
-    (normalizedPath === 'clip/market' ||
-      normalizedPath === 'clip/web' ||
-      normalizedPath.startsWith('clip/web/'))
+    normalizedPath === 'clip/market'
   ) {
     void reportInstallAttribution().catch(() => undefined);
   }
@@ -416,14 +412,6 @@ async function processOneKeyAppUniversalLink(
     });
     return true;
   }
-  if (target.type === 'appClipWeb') {
-    openWebView({
-      appClipCampaign: true,
-      url: target.url,
-      source: 'deeplink',
-    });
-    return true;
-  }
   const perpsTabRoute = await getPerpsAppLinkTabRoute();
   if (perpsTabRoute) {
     // switchTabAsync serializes overlay dismiss and tab switch; the sync
@@ -448,11 +436,7 @@ async function processAppClipHandoff(
   try {
     const parsedUrl = Linking.parse(canonicalUrl);
     const normalizedPath = normalizeAppLinkPath(parsedUrl.path);
-    if (
-      normalizedPath !== 'clip/market' &&
-      normalizedPath !== 'clip/web' &&
-      !normalizedPath.startsWith('clip/web/')
-    ) {
+    if (normalizedPath !== 'clip/market') {
       return true;
     }
     if (!parseOneKeyAppLinkTarget(parsedUrl)) {
@@ -552,18 +536,12 @@ async function processDeepLinkUrlAccount(
             await openRedeemBitcoinVoucherDialog(initialCode);
           }
           break;
+        case EOneKeyDeepLinkPath.prime_subscription:
+          await openPrimeInfiniSubscriptionFromDeepLink({ navigation });
+          break;
         case EOneKeyDeepLinkPath.cross_device_transfer:
           console.log('TODO implement cross_device_transfer deeplink');
           break;
-        case EOneKeyDeepLinkPath.webview: {
-          const query =
-            queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.webview];
-          const webViewParams = parseWebViewDeepLink(query);
-          if (webViewParams) {
-            openWebView(webViewParams);
-          }
-          break;
-        }
         case EOneKeyDeepLinkPath.preview_featured_changelog: {
           // Ops-only entry: opens the Featured Changelog preview page so
           // dashboard-configured changelog content can be verified in a
@@ -669,10 +647,26 @@ async function processDeepLinkWalletConnect({
       }
     }
 
-    if (wcUri) {
-      console.log('Create walletConnect connection by DeepLink: ', wcUri);
+    // ** WalletConnect Pay links must be routed to the payment flow BEFORE
+    // pairing; pair() would fail on them. Any scheme can carry a direct
+    // payment link (plain https included), so the raw url is always offered
+    // to the strict isPaymentLink verdict; non-pay links fall through.
+    // Loaded on demand: the pay entry stays off the main startup graph.
+    const payLinkCandidate = wcUri || url;
+    if (payLinkCandidate) {
+      const { handleWalletConnectPayLink } =
+        await import('./walletConnectPayLink');
+      const payResult = await handleWalletConnectPayLink({
+        url,
+        payLinkCandidate,
+      });
+      if (payResult) {
+        return payResult;
+      }
+    }
 
-      await backgroundApiProxy.walletConnect.connectToDapp(wcUri);
+    if (wcUri) {
+      await connectWalletConnectToDapp(wcUri);
       return {
         type: 'walletConnect',
         url,

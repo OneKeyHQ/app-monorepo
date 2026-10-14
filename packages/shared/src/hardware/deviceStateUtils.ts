@@ -1,4 +1,4 @@
-import { cloneDeep } from 'lodash';
+import { cloneDeep, isNil } from 'lodash';
 
 import { EOneKeyDeviceMode } from '../../types/device';
 
@@ -77,6 +77,37 @@ export function hasAuthoritativeDeviceInfoVersionChange({
   );
 }
 
+export function getDeviceStateSettingsRecoveryKeys({
+  currentState,
+  incomingState,
+  source,
+}: {
+  currentState?: IOneKeyDeviceState;
+  incomingState: IOneKeyDeviceState;
+  source?: string;
+}): string[] {
+  if (
+    currentState?.protocol !== 'V1' ||
+    incomingState.protocol !== 'V1' ||
+    incomingState.status.mode !== EOneKeyDeviceMode.normal ||
+    source !== 'device-info' ||
+    hasDeviceStateIdentityMismatch({
+      currentDeviceId: currentState.identity.deviceId,
+      incomingDeviceId: incomingState.identity.deviceId,
+    })
+  ) {
+    return [];
+  }
+  // V1 firmware read-backs also carry GetFeatures settings. Only recover
+  // missing App values; the SDK snapshot must not overwrite newer settings.
+  return Object.entries(incomingState.settings).flatMap(([field, value]) =>
+    !isNil(value) &&
+    isNil((currentState.settings as Record<string, unknown>)[field])
+      ? [`settings.${field}`]
+      : [],
+  );
+}
+
 function sanitizeState(state: IOneKeyDeviceState) {
   const nextState = cloneDeep(state);
   delete (nextState as unknown as { raw?: unknown }).raw;
@@ -105,6 +136,22 @@ export function mergeDeviceStateEvent({
   }
 
   let mergedState = sanitizeState(currentState);
+  const settingsRecoveryKeys = getDeviceStateSettingsRecoveryKeys({
+    currentState,
+    incomingState,
+    source,
+  });
+  // Equal-metadata read-backs may fill holes, but must not replay other fields.
+  const isSettingsRecoveryOnly =
+    settingsRecoveryKeys.length > 0 &&
+    currentState.updatedAt === incomingState.updatedAt &&
+    currentState.revision === incomingState.revision &&
+    !hasAuthoritativeDeviceInfoVersionChange({
+      currentState,
+      incomingState,
+      changedKeys,
+      source,
+    });
   // V1 snapshots may contain current device values that are absent from
   // changedKeys because the SDK cache observed them before App persistence.
   const isAuthoritativeSettingsSnapshot =
@@ -121,7 +168,15 @@ export function mergeDeviceStateEvent({
     ...(isAuthoritativeSettingsSnapshot ? ['settings'] : []),
     ...authoritativeVersionKeys,
   ];
-  const mergeKeys = Array.from(new Set([...changedKeys, ...authoritativeKeys]));
+  const mergeKeys = isSettingsRecoveryOnly
+    ? settingsRecoveryKeys
+    : Array.from(
+        new Set([
+          ...changedKeys,
+          ...authoritativeKeys,
+          ...settingsRecoveryKeys,
+        ]),
+      );
   for (const changedKey of mergeKeys) {
     const isNonPersistedKey =
       changedKey === 'identity.displayName' ||
@@ -155,6 +210,26 @@ export function mergeDeviceStateEvent({
           );
           mergedRecord[section] = targetSection;
         }
+      }
+    }
+  }
+
+  if (isSettingsRecoveryOnly) {
+    return mergedState;
+  }
+  if (
+    currentState.protocol === 'V1' &&
+    incomingState.protocol === 'V1' &&
+    isLoaderMode(incomingState.status.mode)
+  ) {
+    // Loader snapshots omit application settings. Apply this after every
+    // merge form, including whole-section and wildcard replacements.
+    for (const [field, value] of Object.entries(currentState.settings)) {
+      if (
+        !isNil(value) &&
+        isNil((mergedState.settings as Record<string, unknown>)[field])
+      ) {
+        Object.assign(mergedState.settings, { [field]: value });
       }
     }
   }

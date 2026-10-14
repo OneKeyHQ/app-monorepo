@@ -286,6 +286,11 @@ export const useRouterConfig = () => {
       routerConfig: rootRouter,
       containerProps: {
         documentTitle: {
+          // The document title is the browser tab label on web only. On
+          // desktop it becomes the native window title and on the extension
+          // the popup title, so those keep the static title from the HTML
+          // shell instead. See utils/documentTitleUtils.
+          enabled: platformEnv.isWeb,
           formatter: (_options, _route) => {
             if (!platformEnv.isWebDappMode) {
               return 'OneKey';

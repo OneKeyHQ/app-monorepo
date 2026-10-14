@@ -6,9 +6,59 @@ import { getEmailOtpRateLimitRetryAfterSeconds } from './emailOtpRateLimitError'
 
 import type { IntlShape } from 'react-intl';
 
+export function getEmailAuthCaptchaErrorMessage({
+  error,
+  intl,
+}: {
+  error: unknown;
+  intl: IntlShape;
+}): string | undefined {
+  const candidate = error as
+    | { name?: unknown; code?: unknown; status?: unknown }
+    | undefined;
+  if (
+    candidate?.name === 'AuthApiError' &&
+    candidate.status === 400 &&
+    candidate.code === 'captcha_failed'
+  ) {
+    return intl.formatMessage({
+      id: ETranslations.auth_captcha_incomplete__msg,
+    });
+  }
+  return undefined;
+}
+
+export function isEmailOtpSendKnownFailure(error: unknown): boolean {
+  const candidate = error as
+    | {
+        name?: unknown;
+        code?: unknown;
+        status?: unknown;
+        data?: { isEmailOtpSendFailure?: unknown };
+      }
+    | undefined;
+  if (candidate?.data?.isEmailOtpSendFailure === true) return true;
+  // Older SDK responses may only identify a rejected send by its cooldown text.
+  if (getEmailOtpRateLimitRetryAfterSeconds(error) !== undefined) return true;
+  if (
+    isTransientNetworkLikeError(error) ||
+    candidate?.name === 'TimeoutError' ||
+    candidate?.name === 'NetworkError'
+  )
+    return true;
+  // Recognize structured send failures without guessing from message text.
+  // Unknown errors stay permissive so users can submit a code they received.
+  return (
+    candidate?.name === 'AuthApiError' &&
+    ((candidate.status === 400 && candidate.code === 'captcha_failed') ||
+      (candidate.status === 429 &&
+        candidate.code === 'over_email_send_rate_limit'))
+  );
+}
+
 // Returns undefined when the dialog must NOT toast: bridged server errors
 // flagged autoToast are already surfaced by the global error toast with the
-// server's own message, and a second generic toast here would contradict it.
+// prepared message, and a second toast here would duplicate it.
 export function getEmailOtpRequestErrorMessage({
   error,
   intl,
@@ -34,6 +84,17 @@ export function getEmailOtpRequestErrorMessage({
   if (oneKeyError?.autoToast) {
     return undefined;
   }
+  switch (oneKeyError?.key) {
+    case ETranslations.auth_captcha_unavailable__msg:
+    case ETranslations.auth_captcha_in_progress__msg:
+    case ETranslations.auth_captcha_timeout__msg:
+    case ETranslations.auth_captcha_load_failed__msg:
+      return intl.formatMessage({ id: oneKeyError.key });
+    default:
+      break;
+  }
+  const captchaMessage = getEmailAuthCaptchaErrorMessage({ error, intl });
+  if (captchaMessage) return captchaMessage;
   // Transient infrastructure failures (offline, 5xx, timeout) have a precise
   // name; rendering them as "unknown error" tells the user to retry blindly.
   if (
@@ -41,6 +102,9 @@ export function getEmailOtpRequestErrorMessage({
     isTransientNetworkLikeError(error)
   ) {
     return intl.formatMessage({ id: ETranslations.global_network_error });
+  }
+  if (typeof oneKeyError?.message === 'string' && oneKeyError.message) {
+    return oneKeyError.message;
   }
   return intl.formatMessage({
     id: ETranslations.global_unknown_error_retry_message,

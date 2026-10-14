@@ -61,6 +61,20 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: Added explicit loading, visible, and hidden quick bar states; reserve the slot only while loading or visible, and restore the chart height when the quick bar is hidden.
 **Catchable by**: Section 5: "Not loaded" versus intentionally unavailable state must be distinguished
 
+## Case: WalletConnect Pay expiry popStack dropped in-flight txid
+**Date**: 2026-08-18 | **Platforms**: mobile, desktop, web (hardware wallets especially)
+**Symptom**: If a WalletConnect Pay payment expired while an eth_sendTransaction confirmation was already submitting, the broadcast could succeed while the executor treated the wait as failed, so the txid was neither confirmed to the server nor stored for retry.
+**Root Cause**: confirmWithinDeadline closed the SignatureConfirm modal on expiry. TxConfirm only sets isSubmitted after broadcast returns, so unmount fired onCancel and rejected waitForConfirm. The late-persist `.then` on that promise never ran; onSuccess's resolve was a no-op.
+**Fix**: Persist the txid inside onSuccess, decoupled from waitForConfirm settling. The happy path still awaits that persist promise before the next action; expiry-during-broadcast relies on the fire-and-forget persist from onSuccess.
+**Catchable by**: Section 5: No race conditions in async operations — do not persist irreversible results through a promise that modal unmount can reject
+
+## Case: WalletConnect Pay KYC collected before platform broadcast refusal
+**Date**: 2026-08-18 | **Platforms**: web, desktop without safeStorage
+**Symptom**: Users on platforms without durable progress filled the hosted compliance form, submitted personal data to the merchant's KYC provider, then were told on-chain payments are not supported.
+**Root Cause**: supportsDurableProgress was checked only in getRequiredPaymentActions, which runs after handlePay's collectData step.
+**Fix**: Shared shouldRefuseWcPayWithoutDurableProgress helper; options page disables broadcast options and preflights before the form; getRequiredPaymentActions remains the backstop. Tests cover broadcast×durable combinations.
+**Catchable by**: Section 4: Data flow end-to-end — platform gates that abort a flow must run before side-effecting steps such as KYC submission
+
 ## Case: Swap invite history showed invite-code remarks unlike other rebate modules
 **Date**: 2026-08-18 | **Platforms**: mobile, desktop, web, extension
 **Symptom**: Rebate Swap invite history rendered the invite-code remark under the code badge; Perps and hardware invite/list rows only showed the invite code.
@@ -592,3 +606,242 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: Move pinned/current caches to `onekey-tradingview-embed-pin-v1:`, delete the legacy `onekey-tradingview-embed:` namespace when adopting a release, and regression-test that a poisoned legacy entry is not served.
 **Catchable by**: Section 4: implementation matches original requirement — a trust-root change must also rotate or re-verify the persistent cache that will execute those bytes
 
+## Case: Stale HideTabBar cleanup covered the market trade buttons
+**Date**: 2026-09-20 | **Platforms**: iOS, Android
+**Symptom**: OK-63513. After switching tokens a couple of times on the market detail page, the bottom tab bar reappeared over the trade buttons, so the buttons looked cut off or missing.
+**Root Cause**: `EAppEventBusNames.HideTabBar` carries a bare boolean, so the last writer wins. A leaving market detail instance ran its focus cleanup after the surviving instance had already asked for a hidden tab bar, and its `false` resurrected it. The focus effect does not depend on route params, so an in-place `setParams` switch never re-asserted `true`. The trade footer is a plain flex sibling padded only by `useSafeAreaInsets().bottom`, so a visible tab bar drew straight over it.
+**Fix**: Route every writer through a `hideTabBarRequests` registry that resolves the union of live per-instance requests, and pad the trade footer with `usePageFooterSafeAreaBottom() + usePageFooterTabBarHeight()` so a visible tab bar cannot overlap it.
+**Catchable by**: Section 4: state atoms modified → verified all readers/writers; NEW — a global boolean owned by several screens needs per-instance request ownership, and a footer outside Page.Footer must claim the tab bar inset itself instead of trusting the hide path
+
+## Case: Market detail footer used a stricter identity than the chart
+**Date**: 2026-09-20 | **Platforms**: iOS, Android, Desktop, Web, Extension
+**Symptom**: OK-63513 follow-up. After switching tokens on market detail, some tokens (BTC, Solana, ERC-20) lost the bottom trade buttons even when the chart rendered.
+**Root Cause**: Footer visibility compared raw `address.toLowerCase()` + `networkId` + `decimalsResolved`. Route/store identity can be a short code (`sol`), a CoinGecko id (`bitcoin`), or an empty native address, while `tokenDetail` uses `btc--0` / `sol--101` and may omit or case-fold the address. Switching also clears `tokenDetail` before the next fetch, so the mobile footer waited on full detail while the chart already accepted a matching preview.
+**Fix**: One `isMatchingMarketTokenIdentity` for chart, footer, and preview merge. Footer show/hide is identity-only; decimals stay on quote/stock skeleton. Mobile footer reads the same display token (preview or detail) as the chart.
+**Catchable by**: Section 4: shared hook/utility modified → checked all consumers; NEW — two surfaces that represent the same market token must share one identity compare, and decimal readiness must not unmount the trade footer
+
+## Case: Market display preferred stale detail over the new preview
+**Date**: 2026-09-20 | **Platforms**: iOS, Android, Desktop, Web, Extension
+**Symptom**: OK-63513 follow-up review. Switching tokens could still hide the footer, pass `bitcoin` into Swap, or treat a previous native coin as the current mint.
+**Root Cause**: `displayTokenDetail` kept the old full detail whenever it existed, even if a new preview belonged to another token. Native identity treated any contract vs empty address as the same asset. Placeholder networks matched every chain. Discovery hide-tab-bar had no unmount release.
+**Fix**: Prefer the new preview when identities differ; native shortcut only for empty/zero/ticker; placeholder nets only match a concrete chain or the same placeholder string; Swap execution blanks non-contract ids; Discovery releases its owner on unmount.
+**Catchable by**: Section 4: shared hook/utility modified → checked all consumers; NEW — a display fallback must not keep previous full detail over a newer matching preview
+
+## Case: Swap invitee reward blocked watch-only EVM as unsupported
+**Date**: 2026-09-20 | **Platforms**: Desktop, Mobile, Web, Extension
+**Symptom**: Opening Swap 奖励 from a watch-only account showed “当前账户不支持。请连接一个 EVM 账户后重试” with no action, while Perps/Earn still allowed viewing.
+**Root Cause**: Viewing reused HD/HW invite-code identity (`getReferralCodeWalletInfo`) and `getCurrentEvmAccountAddress` only resolved an ETH sibling via `indexedAccountId`, which Others accounts do not have.
+**Fix**: Resolve Others EVM addresses from the stored account; fetch rebate by that address; map no-wallet / no-EVM empty state to Perps `InviteeRewardNoWallet`. Binding stays HD/HW-only.
+**Catchable by**: Section 4: shared hook/utility modified → checked all consumers; NEW — a viewing surface must not reuse a bind-only wallet-identity gate
+
+## Case: Market detail search omitted stock listings
+**Date**: 2026-09-20 | **Platforms**: Desktop, Mobile, Web, Extension
+**Symptom**: Searching AAPL from Market detail returned tokenized chain assets such as AAPLx, but not the aggregated AAPL stock listing shown by universal search.
+**Root Cause**: Both detail token selectors only called the V2 market-token search path; the stock selector hook already supported `/utility/v1/stocks/search` but was unmounted whenever a search query was present.
+**Fix**: Run stock and market-token search independently, render separate Stocks and Market sections, and preserve `stockId` navigation separately from chain `network + address` navigation.
+**Catchable by**: Section 4: Data flow end-to-end API → state → UI; NEW — every product search entry must wire all product identity APIs that its result UI promises
+
+## Case: Reselecting the current stock cleared its chart
+**Date**: 2026-09-20 | **Platforms**: Desktop, Web
+**Symptom**: OK-63786. Selecting the stock already open in Market detail left the page on the same symbol but removed its K-line.
+**Root Cause**: Stock rows do not carry a resolved token variant, so same-stock navigation called `prepareStockTokenDetail` with an empty identity. That cleared the loaded token state, while the unchanged route identity did not restart the detail request.
+**Fix**: Preserve the loaded token state when a retained desktop/web stock route reselects the same `stockId` without an explicit variant, while still applying the route parameter update.
+**Catchable by**: Section 4: state data flow end-to-end; NEW — idempotent same-identity navigation must not clear state whose refetch key remains unchanged
+
+## Case: Mobile stock selector could not identify the detail behind its modal
+**Date**: 2026-09-20 | **Platforms**: Mobile
+**Symptom**: OK-63786 follow-up. Reselecting the currently displayed stock from the mobile selector still cleared the K-line.
+**Root Cause**: The same-stock guard read `useRoute()` from the selector modal, so it never saw the `MarketStockDetail` route and `stockId` underneath the overlay.
+**Fix**: Resolve the active stock identity from the nested Market/Discovery stack in the root navigation state before deciding whether to preserve loaded token detail.
+**Catchable by**: Section 4: logic moved between scopes carries its surrounding context; NEW — modal actions that mutate background-page state must derive identity from the owning stack, not the modal route
+
+## Case: Grouped Market stock search stopped after its first page
+**Date**: 2026-09-20 | **Platforms**: Desktop, Mobile, Web, Extension
+**Symptom**: Market detail search exposed only the first 20 matching stock listings even when the API returned another cursor.
+**Root Cause**: The grouped search result components consumed the stock hook's first-page items but ignored `canLoadMore`, `loadMore`, and load-more error state.
+**Fix**: Add progressive Show more pagination to expanded Stocks results on desktop and mobile, including loading feedback and retry after a failed page.
+**Catchable by**: Section 4: data flow end-to-end API → state → UI; NEW — every paginated hook consumer must wire the cursor, loading, and retry outputs or explicitly document a result cap
+
+## Case: Whitespace Market search showed the default stock list
+**Date**: 2026-09-20 | **Platforms**: Desktop, Mobile, Web, Extension
+**Symptom**: Typing only spaces in Market detail search hid the category tabs and rendered the unfiltered stock list as search results.
+**Root Cause**: Search mode used a truthy debounce string, so `"   "` entered grouped search. The stock hook then trimmed the query to empty and called the default list endpoint.
+**Fix**: Gate search mode on the trimmed query, and pass `searchOnly` so grouped search never hydrates the default stock list.
+**Catchable by**: Section 4: empty vs loaded data; NEW — a search surface that reuses a list hook must distinguish "no query" from "unfiltered browse"
+
+## Case: Simple mode chart froze because it had no live price source at all
+**Date**: 2026-09-20 | **Platforms**: Desktop, Web, Extension (wide layout only; Simple mode never mounts on native)
+**Symptom**: OK-63597 reopened. On the market detail page the price and the K-line looked stuck and drifted ~0.6-1% from third-party quotes, minutes at a time. Pro mode on the same token stayed live. The earlier fix had aligned chart and header, so they now looked stale together instead of disagreeing.
+**Root Cause**: Simple mode had two dead inputs. `tokenDetail.price`, which the chart pins its last point to, comes from a 6s poll of `/utility/v2/market/token/detail`, and that endpoint answers from a snapshot holding one price for minutes. The `StockSimpleChart` series itself was fetched once with no `pollingInterval`, so the drawn history stopped at mount time. Pro mode looked live for an unrelated reason: TradingView runs its own K-line feed inside the embed and reports the price back through `TRADINGVIEW_PRICE_UPDATE`, a path Simple mode never mounts.
+**Fix**: Added `useMarketKlineLivePrice`, which polls the token K-line endpoint (proven live for the same token whose snapshot was frozen) every 6s and writes the newest bucket close back through `applyChartPriceUpdate`, plus range-aware polling for the drawn series. The 6s cadence stays inside `CHART_PRICE_FRESHNESS_MS` so the snapshot poll cannot overwrite the fresh price, and the write timestamp is forced strictly newer because `MarketTokenPrice` silently drops a non-newer `lastUpdated`.
+**Catchable by**: NEW — a `usePromiseResult` `pollingInterval` must not vary with UI state: the first attempt derived it from the selected range, and because a changed interval is treated as a timer retune that withholds the dependency-triggered run for the full new duration, every range switch sat on the previous range's line for minutes. Pace per-variant work inside the request instead, keeping one constant interval. NEW — an event stream is not a refresh mechanism: the ohlcv websocket only emits on a trade, so a first attempt that subscribed Simple mode to it was inert on exactly the thin markets whose snapshot sits still. Verify a "live" source actually delivers for the failing asset (not just that the subscription registered), and treat `dataCount` as no evidence at all since consumers clear it on every frame. A new `usePromiseResult` poll on this route also needs `checkIsFocused: false`, or a modal still on the stack gates every tick into a no-op; and when checking any poll by hand, confirm the window is visible first, because a hidden document parks the whole chain.
+
+## Case: Recommend network badge treated only empty contracts as mainstream
+**Date**: 2026-09-23 | **Platforms**: Desktop, Mobile, Web, Extension
+**Symptom**: ASTER and AAVE still showed a network badge on the recommend grid. After adding them to the watchlist the badge disappeared.
+**Root Cause**: The badge hid only when `contractAddress` was blank or the config already had `assetId`. Mainstream coins that are ERC-20s still have a contract, and the top-coin match that assigns `assetId` ran only on add.
+**Fix**: Resolve the same top-coin listing before painting the badge, hide it until that match finishes, and reuse the result when the user adds the tokens.
+**Catchable by**: Section 4: data flow end-to-end; NEW — a display rule and the later save rule must share one identity, not a cheaper proxy that only covers part of the set
+
+## Case: Mobile simple-chart last price kept raw digits
+**Date**: 2026-09-28 | **Platforms**: iOS, Android (main WebView chart)
+**Symptom**: The green last-price badge on the mobile simple chart read `$0.184056...` while the axis ticks beside it were `$0.19` / `$0.18`, and desktop/web showed `$0.1841`.
+**Root Cause**: Desktop passes `formatChartPrice` as the series formatter, which the price scale uses for both ticks and the last-value badge. The native WebView cannot receive that function. Tick labels went through the embedded compact formatter, but the badge stayed on the scale's default precision and was then cut with an ellipsis.
+**Fix**: When compact prices are enabled, install the same embedded `formatChartPrice` as the WebView chart's `localization.priceFormatter`, and remount the WebView when that formatter source changes so a stale document cannot keep the old badge text.
+**Catchable by**: Section 3: a shared chart component with a native WebView must check that axis labels and the last-value badge use the same formatter; a function prop dropped by `JSON.stringify` is not applied inside the page.
+
+## Case: Stock overview showed the transactions column header
+**Date**: 2026-09-28 | **Platforms**: iOS, Android (main)
+**Symptom**: The stock detail Overview tab opened with 类型/时间, 数量, 价值/价格 above the stock summary.
+**Root Cause**: The sticky column header treated the first tab as the transactions table. Stock and top-coin overviews are not that table.
+**Fix**: Show the column header only for a real table tab. Stock and top-coin overviews, and Financials, render none; My position still shows its columns.
+**Catchable by**: Section 4: a shared tab chrome must be gated by the tab's content, not by "first tab".
+
+## Case: Stock trade opened Swap Pro
+**Date**: 2026-09-28 | **Platforms**: iOS, Android (main)
+**Symptom**: Tapping Trade on a stock token opened the Swap tab with 专业 selected and the order book, instead of 股票.
+**Root Cause**: The mobile market footer always called `prepareSwapProEntry`, which sets the swap type to Limit. Stock tokens already carry `isStock`, and the stock tab has its own entry state.
+**Fix**: Stock trades call `prepareStockSwapEntry`, which selects the stock tab and the tapped token, and clear any pending pro jump so it cannot switch the tab back to Limit.
+**Catchable by**: Section 4: a shared Trade action must branch on the token kind; the destination tab is part of the behavior, not a default of the Swap screen.
+
+## Case: Stock variant picker showed no data before the list
+**Date**: 2026-09-28 | **Platforms**: iOS, Android (main)
+**Symptom**: Opening the stock token picker first showed 暂无数据 and 重试, then the issuer and chain list replaced it.
+**Root Cause**: The variants request did not report loading, so a missing result was treated as an empty response until the request finished.
+**Fix**: Keep the picker in a loading skeleton until the response belongs to the current stock. Show 暂无数据 only after that response has no items.
+**Catchable by**: Section 4: empty versus not-loaded must stay distinct; a request that has not settled is not an empty result.
+
+## Case: Mainstream coin trade opened Swap Pro
+**Date**: 2026-09-28 | **Platforms**: iOS, Android (main)
+**Symptom**: Tapping Trade on a mainstream coin such as BTC opened Swap with 专业 selected, instead of 兑换 & 跨链.
+**Root Cause**: The mobile market footer sent every non-stock token through `prepareSwapProEntry`, which sets the swap type to Limit.
+**Fix**: Mainstream coins call `prepareTopCoinSwapEntry`, which selects 兑换 & 跨链 and puts the coin on the receive side. Trending tokens still open Pro, and stocks still open the stock tab.
+**Catchable by**: Section 4: a shared Trade action must branch on the detail kind; the destination tab is part of the behavior.
+
+## Case: Trending and Robinhood trade opened Swap Pro
+**Date**: 2026-09-28 | **Platforms**: iOS, Android (main)
+**Symptom**: Tapping Trade on a trending token or a Robinhood token opened Swap with 专业 selected.
+**Root Cause**: Those details share the trending kind, and that kind still resolved to the Pro destination after mainstream coins were moved to ordinary Swap.
+**Fix**: Every non-stock market detail, including trending and Robinhood, opens 兑换 & 跨链. Stocks still open the stock tab.
+**Catchable by**: Section 4: a shared Trade action must cover every detail kind, including categories that reuse the trending layout.
+
+## Case: Swap candlestick opened the in-swap chart
+**Date**: 2026-09-29 | **Platforms**: iOS, Android (main); desktop, web, and extension share the header
+**Symptom**: The swap header candlestick opened an in-swap K-line dialog for 兑换, or the Pro market modal for 股票, instead of the Market detail for the receive token or the stock. Cross-chain 兑换 hid the button.
+**Root Cause**: The button was wired to SwapKLine and SwapProMarketDetail, and BRIDGE was excluded from the button visibility check.
+**Fix**: 兑换 and 兑换 & 跨链 open the Market detail of the to token, resolving a mainstream coin when the asset matches. 股票 opens the Market stock detail for the selected stock, including the wrapped token when its address is known. 专业 still opens the Pro market detail.
+**Catchable by**: Section 4: a header action that leaves the current screen must target the page the user came from, and a visible-tab alias such as BRIDGE must keep the same action.
+
+## Case: Market trade opened Swap with both tokens empty
+**Date**: 2026-09-29 | **Platforms**: iOS, Android (main)
+**Symptom**: Tapping Trade on a token detail opened 兑换 with both 从 and 到 showing 选择代币.
+**Root Cause**: The detail page wrote the pair into the Swap store, then the Swap tab's focus sync cleared that pair before paint. With no connected wallet, the sync also did not install a default pair.
+**Fix**: Remember the pair on the market jump atom and write it again after the focus sync, once swap networks exist. If there is no payment token, use the network's default pay token.
+**Catchable by**: Section 4: a handoff written before navigation must still be present after the destination screen's focus sync.
+
+## Case: Stock trade kept the previous stock
+**Date**: 2026-09-29 | **Platforms**: iOS, Android (main)
+**Symptom**: Tapping Trade on an NVIDIA stock token opened the stock swap page still showing AAPL.
+**Root Cause**: The stock form keeps the last stock in local state and prefers the last execution pair over the newly selected stock atom. That local AAPL was published again after the trade handoff.
+**Fix**: When the selected stock atom changes, the form follows that stock instead of the previous local stock or execution pair.
+**Catchable by**: Section 4: a screen that keeps its own copy of a selection must follow the shared selection when another page writes it.
+
+## Case: Stock swap header flashed the issuer icon
+**Date**: 2026-09-29 | **Platforms**: iOS, Android (main)
+**Symptom**: After Trade opened the stock swap page, the header first showed the stock-token issuer icon, then switched to the company icon.
+**Root Cause**: The mobile stock header used the wrapped-token logo until `fetchMarketStockDetail` returned the listing logo.
+**Fix**: The large avatar uses only the listing logo for the current stock. Until that request settles, the avatar stays a skeleton.
+**Catchable by**: Section 4: a fallback image must be the same kind of asset; an issuer logo is not a stand-in for the company logo while the listing is still loading.
+
+## Case: Stock candlestick opened the detail with the issuer icon
+**Date**: 2026-09-29 | **Platforms**: iOS, Android (main); desktop, web, and extension share the header
+**Symptom**: The stock swap candlestick opened Market detail showing the wrapped-token symbol and issuer icon before the company listing.
+**Root Cause**: The navigation preview copied the wrapped token's symbol and logo, and the detail header used that issuer logo whenever the company logo was still empty. Switching stocks on the swap page also kept the previous listing name.
+**Fix**: The preview carries the listing ticker and company name, with no issuer logo. The detail header does not substitute the wrapped-token logo once the listing is known. The swap header ignores a listing response for a different stock.
+**Catchable by**: Section 4: a navigation preview must be the same kind of asset as the destination header; an issuer logo is not the company logo.
+
+## Case: Desktop stock detail flashed the issuer icon
+**Date**: 2026-09-29 | **Platforms**: desktop, web
+**Symptom**: Opening a stock from the swap candlestick showed the wrapped-token or issuer icon in the desktop stock page header until the listing logo arrived.
+**Root Cause**: That header used the wrapped-token logo and issuer logo whenever the company logo was still empty, even after the listing ticker was known.
+**Fix**: Once a listing ticker or stock id is known, the header uses only the listing logo, symbol, and name.
+**Catchable by**: Section 4: a fallback image must be the same kind of asset; an issuer logo is not a stand-in for the company logo.
+
+## Case: Market mobile redesign reached desktop and web
+**Date**: 2026-09-29 | **Platforms**: desktop, web, extension
+**Symptom**: Shared market and swap code changed the desktop and web stock header, candlestick destination, and narrow-window detail page.
+**Root Cause**: The mobile detail layout, stock header identity, and swap candlestick lived in modules also bundled for desktop, web, and extension.
+**Fix**: Desktop, web, and extension keep the previous detail layout, stock page header, and in-swap chart. The new detail page, listing header, and market-detail candlestick stay on the native app.
+**Catchable by**: Section 3: a shared component change has to say which platforms keep the previous behavior.
+
+## Case: Stock variant row hid the token name
+**Date**: 2026-09-29 | **Platforms**: iOS, Android (main)
+**Symptom**: The stock swap variant row showed the token icon, chevron, and price, with no token name.
+**Root Cause**: The name text used `flexShrink` inside a popover trigger that sizes to its content, so the label width collapsed to zero.
+**Fix**: The label keeps its text width, and falls back from the detail symbol to the token symbol or name.
+**Catchable by**: Section 2: do not put `flexShrink` on text inside a shrink-wrapped trigger; the label width becomes zero.
+
+## Case: Market review left stock trades and headers wrong
+**Date**: 2026-09-29 | **Platforms**: iOS, Android (main)
+**Symptom**: A new stock could display while the quote stayed on the previous stock, the old share amount became a USDC amount, the stock detail hid the contract risk result, and the trending overview showed the transactions column header.
+**Root Cause**: The follow effect compared the new stock with the already updated display token, stock entry kept the previous amount, the stock header returned before the risk row, and the column header treated the first tab as the transactions table.
+**Fix**: Commit the followed stock when local state or the execution pair is still the previous one, clear amounts when the stock changes, show the risk result on the stock header, request variants with the market stock id, and match column headers by tab name.
+**Catchable by**: Section 4: a displayed token and the execution pair are different identities; a tab header belongs to that tab's content, not to whichever tab is first.
+
+## Case: Market trade kept the previous sell side and pay amount
+**Date**: 2026-09-29 | **Platforms**: iOS, Android (main)
+**Symptom**: After selling a stock, the next Market Trade tap still opened Sell. Opening a coin whose receive token stayed the same kept an amount entered for a different pay token.
+**Root Cause**: The stock page's local sell/buy state overrides the buy pair written by Market. Amounts were cleared only when the receive token changed.
+**Fix**: A market stock entry forces Buy and rewrites the execution pair. Amounts clear when either the receive token or the pay token changes.
+**Catchable by**: Section 4: a new trade entry must reset the side and amount that belonged to the previous pair.
+
+## Case: Market detail tests still imported the old module graph
+**Date**: 2026-09-29 | **Platforms**: CI unit tests
+**Symptom**: Market information tabs failed to load in Jest, and the native chart settings test called a missing callback.
+**Root Cause**: The tabs test did not mock the stock detail context that now loads the background API. The chart test still treated the toolbar wrapper as the settings button.
+**Fix**: Mock the stock detail context and overview panels. Read the settings callback from the button inside the toolbar wrapper.
+**Catchable by**: Section 6: a new import in a rendered component needs a mock, and a wrapped control needs the assertion to follow the element that owns the callback.
+
+## Case: Stock variant kept the previous listing after a failed detail lookup
+**Date**: 2026-09-29 | **Platforms**: iOS, Android (main)
+**Symptom**: Choosing another stock issuer or chain could still open the previous stock's market page.
+**Root Cause**: A failed or empty token-detail response left the previous token's stock metadata on the newly selected variant.
+**Fix**: Carry the current stock metadata only when the selected variant is the same token. A different variant starts without it and uses the detail response when one arrives.
+**Catchable by**: Section 4: a failed lookup must not keep the previous entity's identity on the new selection.
+
+## Case: Trending market detail hid the position list
+**Date**: 2026-09-29 | **Platforms**: iOS, Android (main)
+**Symptom**: A trending token detail no longer had a My position tab. The footer showed only that token's value and unrealized PnL.
+**Root Cause**: The redesigned trending tabs omitted the portfolio tab and treated the footer summary as its replacement.
+**Fix**: Trending tokens keep the portfolio tab next to the footer summary. The tab still lists every position row.
+**Catchable by**: Section 4: a summary of one item does not replace the list that item came from.
+
+## Case: A second Market trade was dropped during Swap handoff
+**Date**: 2026-10-01 | **Platforms**: iOS, Android, desktop, web, extension (main)
+**Symptom**: Tapping Trade on another token while Swap was still applying the previous Market jump left Swap on the first token.
+**Root Cause**: The in-flight handoff ignored a newer jump because it was already applying, then cleared the pending intent unconditionally.
+**Fix**: Clear the pending intent only when it is still the one this handoff captured. If a newer intent replaced it, apply that intent after the current handoff finishes.
+**Catchable by**: Section 5: an async handoff that drops work while a guard is set must not erase a newer request that arrived during the await.
+
+## Case: Market jump intent module missing a native module id
+**Date**: 2026-10-01 | **Platforms**: iOS, Android (native union build)
+**Symptom**: `release-app-bundles` failed on iOS and Android Build Bundle for `swapMarketJumpIntent.ts`.
+**Root Cause**: The new Swap hook module entered the native graph without a row in `module-id-registry.json`.
+**Fix**: Register `packages/kit/src/views/Swap/hooks/swapMarketJumpIntent.ts` as module id `21801`.
+**Catchable by**: Section 4: a new file that the native bundle imports must be added to `apps/mobile/bundle-registry/module-id-registry.json` before the release bundle runs.
+
+
+## Case: Removed-account activeAccount clear only worked in E2E/dev perf mode
+
+**Date**: 2026-08-20 | **Platforms**: mobile, desktop, web, extension (production builds)
+**Symptom**: On this branch, deleting the selected account in a non-auto-select scene (addressInput/primePayment) cleared `selectedAccount` but production builds kept the deleted account's full `activeAccount` (address included) until manual re-selection; E2E and dev builds cleared it correctly.
+**Root Cause**: The guard bypass in `reloadActiveAccountInfo` branched on `transitionMeta?.reason === 'removeAccountSelectionClear'`, but that reason travels through the perfDebug WeakMap attribution channel, which is only populated when `isAccountSelectorPerfDebugEnabled()` (isE2E or dev+logger) — empty in production, so `shouldKeepNetworkOnlySelection` kept the stale active account. This violated the perfDebug contract "Diagnostics only — never branch on these entries", and E2E could not catch it because `isE2E` keeps perf attribution permanently on.
+**Fix**: Added a formal `forceIncompleteSelectionReload` payload flag to `reloadActiveAccountInfo`, removed the perf-reason inference, and made the `autoSelectNextAccount` clear branch call the reload directly with the flag after a committed clear; added a regression test asserting perf metadata alone cannot bypass the guard.
+**Catchable by**: NEW — control flow must never depend on diagnostics-only channels (perf WeakMaps, trace metadata); test-mode-only wiring needs a perf-off regression path
+
+## Case: Extension OS notifications used a transparent icon
+**Date**: 2026-09-20 | **Platforms**: Extension
+**Symptom**: Chrome extension system pushes carried no OneKey branding, only the browser's own attribution. Marketing notifications looked unattributed.
+**Root Cause**: `chrome.notifications.create` used `BLANK_ICON_BASE64` (1x1 transparent PNG) when `extras.image` was missing or the remote URL failed, so the notification's content icon was invisible. On macOS the app icon is always Chrome's, so `iconUrl` is the only place OneKey can appear.
+**Fix**: Resolve `iconUrl` with the packaged `icon-128.png` via `chrome.runtime.getURL` when the payload has no usable icon, including the create-failure retry path.
+**Catchable by**: Section 3: identified which platforms consume modified code; NEW — extension OS notifications must not use a transparent placeholder for `iconUrl`

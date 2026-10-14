@@ -72,16 +72,15 @@ export function SingleAccountAndNetworkSelectorTrigger({
 }) {
   const { handleAccountInfoChanged } = useShouldUpdateConnectedAccount();
   const handleAccountChanged = useCallback(
-    async (accountChangedParams: IHandleAccountChangedParams) => {
-      await handleAccountInfoChanged({
+    async (accountChangedParams: IHandleAccountChangedParams) =>
+      handleAccountInfoChanged({
         origin,
         accountSelectorNum: num,
         prevAccountInfo: account,
         accountChangedParams,
         storageType: account.storageType,
         afterUpdate: afterChangeAccount,
-      });
-    },
+      }),
     [num, account, afterChangeAccount, handleAccountInfoChanged, origin],
   );
 
@@ -218,16 +217,16 @@ function AccountSelectorPopoverContent({
             num={account.num}
             // compressionUiMode
             beforeShowTrigger={beforeShowTrigger}
-            handleAccountChanged={async (accountChangedParams) => {
-              await handleAccountInfoChanged({
+            handleAccountChanged={(accountChangedParams) =>
+              handleAccountInfoChanged({
                 origin,
                 accountSelectorNum: account.num,
                 prevAccountInfo: account,
                 accountChangedParams,
                 storageType: account.storageType,
                 afterUpdate: afterChangeAccount,
-              });
-            }}
+              })
+            }
           />
         ))}
       </YStack>

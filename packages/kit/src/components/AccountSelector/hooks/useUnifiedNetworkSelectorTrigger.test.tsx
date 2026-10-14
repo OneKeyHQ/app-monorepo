@@ -29,12 +29,8 @@ jest.mock('../../../states/jotai/contexts/accountSelector', () => ({
   useActiveAccount: () => ({ activeAccount: {} }),
 }));
 
-jest.mock('../../../states/jotai/contexts/accountSelector/actions', () => ({
-  useAccountSelectorActions: () => ({
-    current: {
-      showUnifiedNetworkSelector: mockShowUnifiedNetworkSelector,
-    },
-  }),
+jest.mock('../../../states/jotai/contexts/accountSelector/actionsLazy', () => ({
+  useAccountSelectorLazyAction: () => mockShowUnifiedNetworkSelector,
 }));
 
 jest.mock('./useAccountSelectorAvailableNetworks', () => ({
@@ -60,5 +56,9 @@ describe('useUnifiedNetworkSelectorTrigger', () => {
 
     expect(Haptics.selection).toHaveBeenCalledTimes(1);
     expect(mockShowUnifiedNetworkSelector).toHaveBeenCalledTimes(1);
+    expect(mockShowUnifiedNetworkSelector).toHaveBeenCalledWith(
+      'showUnifiedNetworkSelector',
+      expect.objectContaining({ navigation: mockNavigation, num: 0 }),
+    );
   });
 });

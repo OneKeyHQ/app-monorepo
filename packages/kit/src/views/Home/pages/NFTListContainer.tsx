@@ -1,8 +1,14 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 
 import { isEmpty, uniqBy } from 'lodash';
 
-import { useTabIsRefreshingFocused } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
@@ -31,6 +37,7 @@ import {
 } from '../../../states/jotai/contexts/nftList';
 import { NFTListView } from '../components/NFTListView';
 import { onHomePageRefresh } from '../components/PullToRefresh';
+import { useTabIsRefreshingFocused } from '../hooks/useHomeTab';
 
 const networkIdsMap = getNetworkIdsMap();
 
@@ -49,11 +56,49 @@ function NFTListContainer() {
     activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
 
+  // Owner this list is showing. `Tabs.Container` no longer remounts on an
+  // account switch (OK-63873), so the local `nftList` survives it: drop the
+  // previous owner's rows in the same commit the owner changes (layout effect,
+  // before paint) and let every async writer bail when its captured owner is
+  // no longer current, otherwise a slow read/fetch for the old owner would
+  // land on the new one.
+  const ownerKey = `${account?.id ?? ''}|${network?.id ?? ''}|${
+    wallet?.id ?? ''
+  }`;
+  const ownerKeyRef = useRef(ownerKey);
+  ownerKeyRef.current = ownerKey;
+  const prevOwnerKeyRef = useRef(ownerKey);
+  useLayoutEffect(() => {
+    if (prevOwnerKeyRef.current === ownerKey) {
+      return;
+    }
+    prevOwnerKeyRef.current = ownerKey;
+    setNftList([]);
+    setNftListState({
+      initialized: false,
+      isRefreshing: true,
+    });
+  }, [ownerKey]);
+  // The All Networks callbacks below only know the account and network of the
+  // run they belong to. After a switch the previous owner's fan-out keeps
+  // running (the new owner's run queues behind it), so they check the live
+  // owner before writing.
+  const activeOwnerRef = useRef<{ accountId?: string; networkId?: string }>({});
+  activeOwnerRef.current = { accountId: account?.id, networkId: network?.id };
+  const isActiveOwner = useCallback(
+    (accountId?: string, networkId?: string) =>
+      activeOwnerRef.current.accountId === accountId &&
+      activeOwnerRef.current.networkId === networkId,
+    [],
+  );
+
   const { run } = usePromiseResult(
     async () => {
       if (!account || !network) return;
 
       if (network.isAllNetworks) return;
+
+      const capturedOwnerKey = ownerKeyRef.current;
 
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: true,
@@ -68,6 +113,10 @@ function NFTListContainer() {
         networkId: network.id,
         saveToLocal: true,
       });
+
+      if (ownerKeyRef.current !== capturedOwnerKey) {
+        return r.data;
+      }
 
       setNftListState({
         initialized: true,
@@ -101,11 +150,13 @@ function NFTListContainer() {
       networkId,
       allNetworkDataInit,
       dbAccount,
+      isRunCurrent,
     }: {
       accountId: string;
       networkId: string;
       allNetworkDataInit?: boolean;
       dbAccount?: IDBAccount;
+      isRunCurrent?: () => boolean;
     }) => {
       const r = await backgroundApiProxy.serviceNFT.fetchAccountNFTs({
         dbAccount,
@@ -117,6 +168,19 @@ function NFTListContainer() {
         allNetworksNetworkId: network?.id,
         saveToLocal: true,
       });
+      // A fan-out superseded by an enabled-network change writes nothing; the
+      // run that replaced it reads the manual-refresh flag for its own requests.
+      if (isRunCurrent?.() === false) {
+        return r;
+      }
+      // Neither does the previous owner's fan-out after a switch: its
+      // `isSameAllNetworksAccountData` compares against the owner the request
+      // started for, so it still passes. Its manual refresh is spent, though:
+      // the next owner's queued run must not inherit a forced fetch.
+      if (!isActiveOwner(account?.id, network?.id)) {
+        isAllNetworkManualRefresh.current = false;
+        return r;
+      }
       if (
         !allNetworkDataInit &&
         r.networkId === networkIdsMap.onekeyall &&
@@ -137,7 +201,7 @@ function NFTListContainer() {
       isAllNetworkManualRefresh.current = false;
       return r;
     },
-    [account?.id, network?.id],
+    [account?.id, isActiveOwner, network?.id],
   );
 
   const handleAllNetworkRequestsFinished = useCallback(
@@ -204,7 +268,18 @@ function NFTListContainer() {
   );
 
   const handleAllNetworkCacheData = useCallback(
-    async ({ data }: { data: IAccountNFT[] }) => {
+    async ({
+      data,
+      accountId,
+      networkId,
+    }: {
+      data: IAccountNFT[];
+      accountId: string;
+      networkId: string;
+    }) => {
+      if (!isActiveOwner(accountId, networkId)) {
+        return;
+      }
       const allNFTs = data.flat();
       if (!isEmpty(allNFTs)) {
         setNftList(allNFTs);
@@ -214,7 +289,7 @@ function NFTListContainer() {
         });
       }
     },
-    [],
+    [isActiveOwner],
   );
 
   const handleAllNetworkAccountsData = useCallback(
@@ -277,12 +352,17 @@ function NFTListContainer() {
         return;
       }
 
+      const capturedOwnerKey = ownerKeyRef.current;
       const localNFTs = await backgroundApiProxy.serviceNFT.getAccountLocalNFTs(
         {
           accountId,
           networkId,
         },
       );
+      // A faster owner switch took over during the read.
+      if (ownerKeyRef.current !== capturedOwnerKey) {
+        return;
+      }
 
       if (!isEmpty(localNFTs)) {
         setNftList(localNFTs);

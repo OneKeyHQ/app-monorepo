@@ -136,9 +136,14 @@ export function useMarketTabsLogic(
         tabValue = 'perps';
       }
 
+      const pendingSelection = isTabSelectionInFlight()
+        ? lastWrittenSelectionRef.current
+        : undefined;
       const isSelectionUnchanged =
-        tabValue === selectedTab &&
-        (!categoryId || categoryId === selectedSpotCategory);
+        tabValue === (pendingSelection?.tab ?? selectedTab) &&
+        (!categoryId ||
+          categoryId ===
+            (pendingSelection?.categoryId ?? selectedSpotCategory));
 
       if (isSelectionUnchanged) {
         return;
@@ -158,6 +163,7 @@ export function useMarketTabsLogic(
       onTabChange(tabValue);
     },
     [
+      isTabSelectionInFlight,
       onSpotCategoryChange,
       onTabChange,
       perpsTabName,

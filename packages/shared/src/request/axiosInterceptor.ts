@@ -344,10 +344,13 @@ axios.interceptors.response.use(
     const { config } = response;
     const url =
       response?.request?.responseURL || config?.baseURL || config?.url || '';
+    const timeCheckRequestId: unknown = config.headers[HEADER_REQUEST_ID_KEY];
     void systemTimeUtils.handleServerResponseDate({
       source: 'axios',
       headerDate: response?.headers?.date || '',
       url,
+      requestId:
+        typeof timeCheckRequestId === 'string' ? timeCheckRequestId : undefined,
     });
 
     try {

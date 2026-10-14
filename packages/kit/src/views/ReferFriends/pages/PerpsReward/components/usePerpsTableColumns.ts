@@ -79,7 +79,7 @@ export function usePerpsTableColumns(isMobile: boolean) {
       MIN_COLUMN_WIDTHS.fee,
     );
     const rewardWidth = Math.max(
-      intl.formatMessage({ id: ETranslations.earn_rewards }).length *
+      intl.formatMessage({ id: ETranslations.referral_order_reward }).length *
         CHAR_WIDTH_MULTIPLIER,
       MIN_COLUMN_WIDTHS.reward,
     );

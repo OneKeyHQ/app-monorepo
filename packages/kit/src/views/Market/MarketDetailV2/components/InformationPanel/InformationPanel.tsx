@@ -30,6 +30,13 @@ import { TokenSecurityAlert } from '../TokenSecurityAlert';
 import { useTokenSecurity } from '../TokenSecurityAlert/hooks';
 
 import { InformationPanelSkeleton } from './InformationPanelSkeleton';
+import { resolveDisplayedPriceChange } from './stockMobilePriceChange';
+import { StockMobilePriceHeader } from './StockMobilePriceHeader';
+
+import type { IMarketMobileDetailKind } from '../../utils/marketMobileDetailKind';
+
+// 4pt top padding plus the 16pt stock badges.
+const STOCK_TAG_ROW_MIN_HEIGHT = 20;
 
 function getPriceSizeByValue(price: string) {
   if (price.startsWith('0.0000')) {
@@ -54,11 +61,13 @@ function StatRow({ label, value }: { label: string; value: string }) {
 
 function HeaderStatRows({
   isStockToken,
+  isPreview,
   stock,
   btcMetadata,
   fallback,
 }: {
   isStockToken: boolean;
+  isPreview: boolean;
   stock: IMarketTokenDetail['stock'];
   btcMetadata: ReturnType<typeof useBtcMetadataContext>;
   fallback: {
@@ -68,13 +77,15 @@ function HeaderStatRows({
   };
 }) {
   const intl = useIntl();
-  if (isStockToken && stock) {
+  // A stock preview has no stock stats yet; keep the stock labels in place so
+  // loading does not swap the rows under the user.
+  if (isStockToken && (stock || isPreview)) {
     return (
       <>
         <StatRow
           label={intl.formatMessage({ id: ETranslations.global_market_cap })}
           value={formatStatValueWithFormatter(
-            stock.marketCap,
+            stock?.marketCap,
             USD_CURRENCY_FORMATTER,
           )}
         />
@@ -83,7 +94,7 @@ function HeaderStatRows({
             id: ETranslations.dexmarket_stock_24h_volume,
           })}
           value={formatStatValueWithFormatter(
-            stock.assetAnalysis?.volume24h,
+            stock?.assetAnalysis?.volume24h,
             USD_CURRENCY_FORMATTER,
           )}
         />
@@ -91,7 +102,7 @@ function HeaderStatRows({
           label={intl.formatMessage({
             id: ETranslations.dexmarket_stock_pe_ttm,
           })}
-          value={formatRatioValue(stock.tradingActivity?.peRatio)}
+          value={formatRatioValue(stock?.tradingActivity?.peRatio)}
         />
       </>
     );
@@ -145,7 +156,11 @@ function HeaderStatRows({
   );
 }
 
-export function InformationPanel() {
+export function InformationPanel({
+  mobileDetailKind,
+}: {
+  mobileDetailKind?: IMarketMobileDetailKind;
+}) {
   const intl = useIntl();
   const currencyInfo = useCurrency();
   const { tokenDetail, networkId, isPreviewTokenDetail, isStockToken } =
@@ -158,6 +173,12 @@ export function InformationPanel() {
     networkId: networkId ?? '',
   });
 
+  // Figma stock chart header: price, dollar change, Share/Token toggle, and
+  // the market-status row. Desktop and web keep the previous stat header.
+  if (platformEnv.isNative && isStockToken) {
+    return <StockMobilePriceHeader />;
+  }
+
   if (!tokenDetail) return <InformationPanelSkeleton />;
 
   const {
@@ -169,7 +190,6 @@ export function InformationPanel() {
     liquidity,
     priceConverted,
     holders = 0,
-    address = '',
     communityRecognized,
     stock,
   } = tokenDetail;
@@ -191,6 +211,13 @@ export function InformationPanel() {
 
   const { color: priceChangeColor, display: priceChangeDisplay } =
     formatPriceChangeDisplay(priceChange24hPercent);
+
+  const priceChangeValue = platformEnv.isNative
+    ? resolveDisplayedPriceChange({
+        price: currentPrice,
+        priceChangePercent: priceChange24hPercent,
+      })?.toFixed()
+    : undefined;
 
   return (
     <XStack
@@ -229,11 +256,35 @@ export function InformationPanel() {
               {priceConverted}
             </NumberSizeableText>
           ) : null}
-          <SizableText pt="$1" size="$bodyLgMedium" color={priceChangeColor}>
-            {priceChangeDisplay}
-          </SizableText>
+          <XStack pt="$1" ai="center" gap="$1.5">
+            {priceChangeValue !== undefined ? (
+              <NumberSizeableText
+                testID="market-mobile-price-change-value"
+                size="$bodyMdMedium"
+                color={priceChangeColor}
+                formatter="price"
+                formatterOptions={{ currency: '$', showPlusMinusSigns: true }}
+              >
+                {priceChangeValue}
+              </NumberSizeableText>
+            ) : null}
+            <SizableText
+              size={platformEnv.isNative ? '$bodyMdMedium' : '$bodyLgMedium'}
+              color={priceChangeColor}
+            >
+              {priceChangeValue !== undefined
+                ? `(${priceChangeDisplay})`
+                : priceChangeDisplay}
+            </SizableText>
+          </XStack>
         </YStack>
-        <XStack ai="center" gap="$1" pt="$1">
+        <XStack
+          ai="center"
+          gap="$1"
+          pt="$1"
+          // Stock badges land with the detail response; hold their 16pt row.
+          minHeight={isStockToken ? STOCK_TAG_ROW_MIN_HEIGHT : undefined}
+        >
           <TokenTagsPopover
             communityRecognized={communityRecognized}
             stock={stock}
@@ -245,43 +296,57 @@ export function InformationPanel() {
         </XStack>
       </YStack>
 
-      <YStack gap="$1" width="$40" pt="$1">
-        <HeaderStatRows
-          isStockToken={Boolean(isStockToken)}
-          stock={stock}
-          btcMetadata={btcMetadata}
-          fallback={{
-            marketCap: formattedMarketCap,
-            liquidity: formattedLiquidity,
-            holders: formattedHolders,
-          }}
-        />
-        {/* Reserve the native risk row before its separate request settles. */}
-        {networkId && address && (platformEnv.isNative || securityData) ? (
-          <XStack
-            testID="market-detail-security-row"
-            gap="$1"
-            ai="center"
-            width="100%"
-            jc="space-between"
-          >
-            <SizableText
-              pointerEvents="none"
-              size="$bodySm"
-              color="$textSubdued"
+      {platformEnv.isNative &&
+      mobileDetailKind === 'trending' &&
+      securityData ? (
+        <XStack
+          testID="market-detail-security-row"
+          ai="center"
+          gap="$1"
+          bg="$bgStrong"
+          borderRadius="$full"
+          px="$2"
+          py="$1.5"
+        >
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.dexmarket_audit })}
+          </SizableText>
+          <TokenSecurityAlert />
+        </XStack>
+      ) : null}
+      {platformEnv.isNative ? null : (
+        <YStack gap="$1" width="$40" pt="$1">
+          <HeaderStatRows
+            isStockToken={Boolean(isStockToken)}
+            isPreview={isPreviewTokenDetail}
+            stock={stock}
+            btcMetadata={btcMetadata}
+            fallback={{
+              marketCap: formattedMarketCap,
+              liquidity: formattedLiquidity,
+              holders: formattedHolders,
+            }}
+          />
+          {securityData ? (
+            <XStack
+              testID="market-detail-security-row"
+              gap="$1"
+              ai="center"
+              width="100%"
+              jc="space-between"
             >
-              {intl.formatMessage({ id: ETranslations.dexmarket_audit })}
-            </SizableText>
-            {securityData ? (
-              <TokenSecurityAlert />
-            ) : (
-              <SizableText size="$bodySmMedium" color="$textSubdued">
-                --
+              <SizableText
+                pointerEvents="none"
+                size="$bodySm"
+                color="$textSubdued"
+              >
+                {intl.formatMessage({ id: ETranslations.dexmarket_audit })}
               </SizableText>
-            )}
-          </XStack>
-        ) : null}
-      </YStack>
+              <TokenSecurityAlert />
+            </XStack>
+          ) : null}
+        </YStack>
+      )}
     </XStack>
   );
 }

@@ -1553,9 +1553,20 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     }
 
     const isManageOnly = isCustomProtocol;
+    // Pendle sells PT rather than redeeming it, so the footer reads Buy and
+    // Sell early (Redeem once the market has matured), and the second button
+    // stays put while there is nothing to sell, disabled, the way the other
+    // providers' Redeem does (OK-63802). The server sends no actions for
+    // Pendle (its wide layout has its own swap pair), so the rules mirror the
+    // manage page's pair: no buying after maturity, no selling without a
+    // position.
+    const isPendle = earnUtils.isPendleProvider({ providerName: provider });
+    const isMatured = Boolean(detailInfo?.maturity?.isMatured);
     const buttonText = isManageOnly
       ? intl.formatMessage({ id: ETranslations.global_manage })
-      : intl.formatMessage({ id: ETranslations.earn_deposit });
+      : intl.formatMessage({
+          id: isPendle ? ETranslations.global_buy : ETranslations.earn_deposit,
+        });
     const onPress = isManageOnly
       ? () => handleOpenManageModal()
       : () => handleOpenManageModal('deposit');
@@ -1570,9 +1581,18 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     const depositAction = detailInfo?.actions?.find(
       (action) => action.type === 'deposit',
     );
-    const showRedeem = isMobileLayout && Boolean(redeemAction);
-    const depositDisabled = Boolean(depositAction?.disabled);
-    const withdrawDisabled = Boolean(redeemAction?.disabled);
+    const showRedeem = isMobileLayout && (Boolean(redeemAction) || isPendle);
+    const depositDisabled =
+      Boolean(depositAction?.disabled) || (isPendle && isMatured);
+    const withdrawDisabled = isPendle
+      ? !hasPortfolio
+      : Boolean(redeemAction?.disabled);
+    const redeemText = intl.formatMessage({
+      id:
+        isPendle && !isMatured
+          ? ETranslations.defi_sell_early
+          : ETranslations.earn_redeem,
+    });
 
     return (
       <Page.Footer
@@ -1585,9 +1605,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
         }}
         {...(showRedeem
           ? {
-              onCancelText: intl.formatMessage({
-                id: ETranslations.earn_redeem,
-              }),
+              onCancelText: redeemText,
               cancelButtonProps: {
                 variant: 'secondary',
                 disabled: withdrawDisabled,
@@ -1608,6 +1626,8 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     isCustomProtocol,
     isMobileLayout,
     detailInfo,
+    provider,
+    hasPortfolio,
   ]);
 
   return (

@@ -6,6 +6,7 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import type { IAccountSelectorWalletInfo } from '../../../type';
+import type { RowModel } from '@onekeyfe/react-native-native-list';
 
 type IBuildWalletListEntry = {
   wallet: IDBWallet;
@@ -50,6 +51,56 @@ export function getWalletChildrenLength(
   wallet: Pick<IAccountSelectorWalletInfo, 'hiddenWallets' | 'botWallets'>,
 ): number {
   return (wallet.hiddenWallets?.length ?? 0) + (wallet.botWallets?.length ?? 0);
+}
+
+export function findWalletListScrollTarget({
+  rows,
+  focusedWallet,
+}: {
+  rows: readonly RowModel[];
+  focusedWallet: string | undefined;
+}): { key: string; viewOffset: number } | undefined {
+  if (!focusedWallet) {
+    return undefined;
+  }
+
+  for (const row of rows) {
+    if (row.type !== 'walletGroup' && row.key === focusedWallet) {
+      return { key: row.key, viewOffset: 0 };
+    }
+    if (row.type === 'walletGroup') {
+      const members = [row.parent, ...row.children];
+      const focusedIndex = members.findIndex(
+        (member) => member.key === focusedWallet,
+      );
+      if (focusedIndex >= 0) {
+        const heights = members.map(
+          (member) => member.height ?? (member.badges?.length ? 92 : 68),
+        );
+        const borderInset = row.parent.height === undefined ? 0 : 1;
+        const groupHeight =
+          heights.reduce((total, height) => total + height, 0) +
+          row.children.length * 12 +
+          borderInset * 2;
+        const memberCenter =
+          borderInset +
+          heights
+            .slice(0, focusedIndex)
+            .reduce((total, height) => total + height, 0) +
+          focusedIndex * 12 +
+          heights[focusedIndex] / 2;
+
+        // TODO: Clamp group alignment to the NativeList viewport height so
+        // focused members stay visible when a group is taller than the viewport.
+        return {
+          key: row.key,
+          viewOffset: groupHeight / 2 - memberCenter,
+        };
+      }
+    }
+  }
+
+  return undefined;
 }
 
 export function buildGroupedAccountSelectorWallets(

@@ -1,11 +1,26 @@
 import { isString } from 'lodash';
 
 import { BaseScene } from '../../../base/baseScene';
-import { LogToLocal } from '../../../base/decorators';
+import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export class HardwareHomeScreenScene extends BaseScene {
+  @LogToServer()
+  @LogToLocal()
+  public wallpaperApply(params: {
+    deviceType: IDeviceType;
+    isCustomScreen: boolean;
+    status: 'success' | 'failed';
+    totalDurationMs?: number;
+    hardwareCallMs?: number;
+    uploadSizeBytes?: number;
+    errorCode?: string;
+    errorName?: string;
+  }) {
+    return params;
+  }
+
   @LogToLocal()
   public recordImageCompression(params: {
     target: string;

@@ -88,6 +88,7 @@ import {
   TokenListViewContext,
   useTokenListViewContext,
 } from './TokenListViewContext';
+import { getHomeTokenListRowKeys } from './utils';
 
 import type {
   IScopedActiveTokenList,
@@ -213,6 +214,9 @@ type IProps = {
     | 'ListFooterComponentStyle'
     | 'contentContainerStyle'
   >;
+  // Scroll feed for a collapsing header rendered above the list.
+  onScroll?: ComponentProps<typeof ListView>['onScroll'];
+  scrollEventThrottle?: number;
   showNetworkIcon?: boolean;
   allAggregateTokenMap?: Record<
     string,
@@ -273,6 +277,8 @@ function TokenListViewCmp(props: IProps) {
     emptyAccountView,
     showActiveAccountTokenList = false,
     listViewStyleProps,
+    onScroll,
+    scrollEventThrottle,
     onRefresh,
     showNetworkIcon,
     allAggregateTokenMap,
@@ -415,6 +421,7 @@ function TokenListViewCmp(props: IProps) {
     indexedAccountId,
     mergeDeriveAddressData,
     enabled: tokenManagementEnabled && !isHomeProjectionPath,
+    customTokensOnly: true,
   });
 
   // The token list atoms are scoped to a singleton store, so they survive the
@@ -845,6 +852,17 @@ function TokenListViewCmp(props: IProps) {
     listStructure.generation,
   ]);
 
+  // Home plain-mode rows are keyed by ASSET so a shared token keeps its row
+  // (and decoded icon) mounted across an account switch (OK-63873). Only the
+  // home projection path: selector / scoped lists keep `$key` identity.
+  const homeRowKeys = useMemo(
+    () =>
+      isHomeProjectionPath && plainMode
+        ? getHomeTokenListRowKeys(listData)
+        : undefined,
+    [isHomeProjectionPath, plainMode, listData],
+  );
+
   // Selector search state (any scope): drives the unified "No result" /
   // search-error empty states. The jotai `searchKey` atom is NOT written by
   // TokenSelector, so this must key off the prop.
@@ -1054,6 +1072,7 @@ function TokenListViewCmp(props: IProps) {
       ) : (
         <EmptyToken
           testID="TokenSelector-Search-Empty"
+          illustration="SearchDocument"
           title={intl.formatMessage({
             id: ETranslations.token_selector_search_no_result__title,
           })}
@@ -1204,7 +1223,7 @@ function TokenListViewCmp(props: IProps) {
             hideValue={hideValue}
             hideBalanceAndValue={hideBalanceAndValue}
             token={item}
-            key={item.$key}
+            key={homeRowKeys?.get(item.$key) ?? item.$key}
             onPress={onPressToken}
             tableLayout={tableLayout}
             withPrice={withPrice}
@@ -1235,6 +1254,8 @@ function TokenListViewCmp(props: IProps) {
       // @ts-ignore
       estimatedItemSize={tableLayout ? undefined : 60}
       showsVerticalScrollIndicator={false}
+      onScroll={onScroll}
+      scrollEventThrottle={scrollEventThrottle}
       refreshControl={
         onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
       }

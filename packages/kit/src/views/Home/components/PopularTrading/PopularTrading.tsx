@@ -52,7 +52,13 @@ import { CategorySelector } from '../../../Market/MarketHomeV2/components/Catego
 import { getNativeTokenInfo } from '../../../Market/MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 import { useMarketTopCoinResolver } from '../../../Market/MarketHomeV2/components/MarketTopCoinsList/hooks/useMarketTopCoins';
 import { EMarketHomeTab } from '../../../Market/MarketHomeV2/types';
+import { getRecommendTokenNetworkId } from '../../../Market/utils/getRecommendTokenNetworkId';
+import {
+  copyRecommendListingIds,
+  mapRecommendTokensToWatchlistItems,
+} from '../../../Market/utils/mapRecommendTokensToWatchlistItems';
 import { openOrReplaceMarketDetailRoute } from '../../../Market/utils/marketDetailNavigation';
+import { orderSelectedRecommendTokens } from '../../../Market/utils/orderSelectedRecommendTokens';
 import { RichBlock } from '../RichBlock/RichBlock';
 import { RichTable } from '../RichTable';
 
@@ -68,40 +74,217 @@ import {
   HOME_MARKET_TABLE_HEADER_MIN_HEIGHT,
   HOME_MARKET_TABLE_ROW_MIN_HEIGHT,
   getPopularTradingColumns,
-  renderPopularTradingCommunityBadge,
   renderPopularTradingStockBadges,
 } from './metricColumns';
 import { useHomeMarketCategoryTokens } from './useHomeMarketCategoryTokens';
 import {
   buildHomeMarketCategories,
+  buildHomeRecommendAddSortIndexes,
   getMarketTokenDisplayMarketCap,
   getMarketTokenDisplayPrice,
   getMarketTokenDisplayPriceChange24h,
   getMarketTokenDisplayVolume24h,
   getTokenKey,
   mapMarketPerpsTokenToDisplay,
+  shouldShowHomeRecommendCards,
 } from './utils';
 
 import type { IFavoriteTokenDisplay } from './types';
 import type { IMarketCategoryItem } from '../../../Market/MarketHomeV2/types';
 
+function toHomeListingDisplayToken(
+  token: {
+    assetId?: string;
+    stockId?: string;
+    symbol?: string;
+    name?: string;
+    logo?: string;
+  },
+  quote?: {
+    symbol?: string;
+    name?: string;
+    logoUrl?: string;
+    price?: string;
+    priceChange24hPercent?: string;
+    marketCap?: string;
+    volume24h?: string;
+  },
+): IFavoriteTokenDisplay {
+  return {
+    assetId: token.assetId,
+    stockId: token.stockId,
+    chainId: '',
+    contractAddress: '',
+    isNative: false,
+    symbol:
+      quote?.symbol ?? token.symbol ?? token.assetId ?? token.stockId ?? '',
+    name: quote?.name ?? token.name ?? token.assetId ?? token.stockId ?? '',
+    logoUrl: quote?.logoUrl ?? token.logo ?? '',
+    price: Number(quote?.price ?? NaN),
+    priceChange24h: Number(quote?.priceChange24hPercent ?? NaN),
+    marketCap: Number(quote?.marketCap ?? NaN),
+    volume24h: Number(quote?.volume24h ?? NaN),
+  };
+}
+
+async function loadHomeRecommendDisplayTokens(
+  displayCount: number,
+): Promise<IFavoriteTokenDisplay[]> {
+  const config =
+    await backgroundApiProxy.serviceMarketV2.fetchMarketBasicConfig();
+  const recommendedTokens = config?.data?.recommendTokens ?? [];
+  if (recommendedTokens.length === 0) {
+    return [];
+  }
+
+  const seen = new Set<string>();
+  const tokens = recommendedTokens
+    .filter((token) => {
+      const key = getTokenKey({ ...token, ...copyRecommendListingIds(token) });
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    })
+    .slice(0, displayCount);
+  const listingTokens = tokens.flatMap((token) => {
+    const ids = copyRecommendListingIds(token);
+    if (!ids.assetId?.trim() && !ids.stockId?.trim()) {
+      return [];
+    }
+    return [{ token, ...ids }];
+  });
+  const chainTokens = tokens.filter(
+    (token) =>
+      !copyRecommendListingIds(token).assetId?.trim() &&
+      !copyRecommendListingIds(token).stockId?.trim(),
+  );
+
+  const stockIds = listingTokens.flatMap((item) =>
+    !item.assetId?.trim() && item.stockId?.trim() ? [item.stockId.trim()] : [],
+  );
+  const [assetQuotes, stockQuotes, chainResponse] = await Promise.all([
+    Promise.all(
+      listingTokens
+        .filter((item) => item.assetId?.trim())
+        .map(async (item) => {
+          try {
+            const quote =
+              await backgroundApiProxy.serviceMarketV2.fetchMarketListingWatchlistQuote(
+                { assetId: item.assetId },
+              );
+            return { key: getTokenKey({ ...item.token, ...item }), quote };
+          } catch {
+            return {
+              key: getTokenKey({ ...item.token, ...item }),
+              quote: undefined,
+            };
+          }
+        }),
+    ),
+    stockIds.length > 0
+      ? backgroundApiProxy.serviceMarketV2
+          .fetchMarketStockBatch({ stockIds })
+          .catch(() => [])
+      : Promise.resolve([]),
+    chainTokens.length > 0
+      ? backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
+          tokenAddressList: chainTokens.map((token) => {
+            const { isNative } = getNativeTokenInfo(
+              token.isNative,
+              token.contractAddress,
+            );
+            return {
+              chainId: token.chainId,
+              contractAddress: token.contractAddress,
+              isNative,
+            };
+          }),
+        })
+      : Promise.resolve({ list: [] as IMarketTokenListItem[] }),
+  ]);
+
+  const assetQuoteByKey = new Map(
+    assetQuotes.map((item) => [item.key, item.quote]),
+  );
+  const stockQuoteById = new Map(
+    stockQuotes.map((stock) => [stock.stockId.toUpperCase(), stock]),
+  );
+  const chainTokenMap = new Map<string, IMarketTokenListItem>();
+  chainResponse.list.forEach((item) => {
+    const networkId = item.networkId ?? item.chainId ?? '';
+    const { normalizedAddress } = getNativeTokenInfo(
+      item.isNative,
+      item.address,
+    );
+    chainTokenMap.set(`${networkId}:${normalizedAddress}`, item);
+  });
+
+  return tokens.flatMap((token) => {
+    const ids = copyRecommendListingIds(token);
+    const assetId = ids.assetId?.trim();
+    const stockId = ids.stockId?.trim();
+    if (assetId || stockId) {
+      const quote = assetId
+        ? assetQuoteByKey.get(getTokenKey({ ...token, ...ids }))
+        : stockQuoteById.get((stockId ?? '').toUpperCase());
+      return [
+        toHomeListingDisplayToken(
+          { ...token, assetId, stockId, logo: token.logo },
+          quote,
+        ),
+      ];
+    }
+
+    const { normalizedAddress } = getNativeTokenInfo(
+      token.isNative,
+      token.contractAddress,
+    );
+    const item = chainTokenMap.get(`${token.chainId}:${normalizedAddress}`);
+    if (!item) {
+      return [];
+    }
+    return [
+      {
+        chainId: token.chainId,
+        contractAddress: token.contractAddress,
+        isNative: token.isNative ?? false,
+        symbol: item.symbol,
+        name: item.name,
+        logoUrl: item.logoUrl ?? '',
+        logoUrls: item.logoUrls,
+        price: getMarketTokenDisplayPrice(item),
+        priceChange24h: getMarketTokenDisplayPriceChange24h(item),
+        marketCap: getMarketTokenDisplayMarketCap(item),
+        volume24h: getMarketTokenDisplayVolume24h(item),
+        communityRecognized: item.communityRecognized,
+        stock: item.stock,
+      },
+    ];
+  });
+}
+
 function RecommendCardItem({
   token,
   checked,
+  disabled = false,
   onChange,
 }: {
   token: IFavoriteTokenDisplay;
   checked: boolean;
+  disabled?: boolean;
   onChange: (checked: boolean, tokenKey: string) => void;
 }) {
   const { sharedFrameStyles } = useMemo(
     () =>
       getSharedButtonStyles({
-        disabled: false,
+        disabled,
         loading: false,
       }),
-    [],
+    [disabled],
   );
+  const networkId = getRecommendTokenNetworkId(token);
 
   return (
     <XStack
@@ -116,7 +299,12 @@ function RecommendCardItem({
       borderRadius="$3"
       borderWidth={1}
       borderColor="$neutral3"
-      onPress={() => onChange(!checked, getTokenKey(token))}
+      onPress={() => {
+        if (disabled) {
+          return;
+        }
+        onChange(!checked, getTokenKey(token));
+      }}
       ai="center"
       $sm={{
         px: '$2.5',
@@ -128,8 +316,8 @@ function RecommendCardItem({
           size="md"
           tokenImageUri={token.logoUrl}
           tokenImageUris={token.logoUrls}
-          networkId={token.chainId}
-          showNetworkIcon
+          networkId={networkId}
+          showNetworkIcon={Boolean(networkId)}
         />
         <YStack
           flexShrink={1}
@@ -154,7 +342,6 @@ function RecommendCardItem({
               {token.symbol}
             </SizableText>
             {renderPopularTradingStockBadges(token)}
-            {renderPopularTradingCommunityBadge(token)}
           </XStack>
           <XStack>
             <SizableText
@@ -209,6 +396,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     [],
   );
   const [hasUserFavorites, setHasUserFavorites] = useState(false);
+  const [showRecommendCards, setShowRecommendCards] = useState(false);
   const [totalFavoritesCount, setTotalFavoritesCount] = useState(0);
   const [selectedTokens, setSelectedTokens] = useState<IFavoriteTokenDisplay[]>(
     [],
@@ -220,8 +408,10 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     FAVORITES_CATEGORY_ID,
   );
 
+  const [isAdding, setIsAdding] = useState(false);
   const initializedRef = useRef(false);
   const hasShownCategorySelectorRef = useRef(false);
+  const isAddingRef = useRef(false);
   const refreshDataRef = useRef<() => Promise<void>>(async () => {});
   const handleRemoveFromWatchlistRef = useRef<
     (record: IFavoriteTokenDisplay) => void
@@ -651,83 +841,20 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           })
           .filter((item): item is IFavoriteTokenDisplay => item !== null);
 
-        setFavoriteTokens(displayTokens);
+        const recommendInstead = shouldShowHomeRecommendCards({
+          hasStoredFavorites: true,
+          visibleFavoriteCount: displayTokens.length,
+        });
+        setShowRecommendCards(recommendInstead);
+        setFavoriteTokens(
+          recommendInstead
+            ? await loadHomeRecommendDisplayTokens(displayCount)
+            : displayTokens,
+        );
         initializedRef.current = true;
       } else {
-        // Use server-side recommended tokens (always 4 for card layout)
-        const config =
-          await backgroundApiProxy.serviceMarketV2.fetchMarketBasicConfig();
-        const recommendedTokens = config?.data?.recommendTokens ?? [];
-
-        if (recommendedTokens.length === 0) {
-          setFavoriteTokens([]);
-          initializedRef.current = true;
-          return;
-        }
-
-        const seen = new Set<string>();
-        const uniqueTokens = recommendedTokens.filter((token) => {
-          const key = getTokenKey(token);
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        });
-
-        const targetList = uniqueTokens.slice(0, displayCount).map((token) => ({
-          chainId: token.chainId,
-          contractAddress: token.contractAddress,
-          isNative: token.isNative ?? false,
-        }));
-
-        const response =
-          await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
-            tokenAddressList: targetList,
-          });
-
-        if (response.list.length === 0) {
-          return;
-        }
-
-        const tokenMap = new Map<string, IMarketTokenListItem>();
-        response.list.forEach((item: IMarketTokenListItem) => {
-          const networkId = item.networkId ?? item.chainId ?? '';
-          const { normalizedAddress } = getNativeTokenInfo(
-            item.isNative,
-            item.address,
-          );
-          const key = `${networkId}:${normalizedAddress}`;
-          tokenMap.set(key, item);
-        });
-
-        const displayTokens: IFavoriteTokenDisplay[] = targetList
-          .map((targetItem): IFavoriteTokenDisplay | null => {
-            const { normalizedAddress } = getNativeTokenInfo(
-              targetItem.isNative,
-              targetItem.contractAddress,
-            );
-            const key = `${targetItem.chainId}:${normalizedAddress}`;
-            const item = tokenMap.get(key);
-            if (!item) return null;
-
-            return {
-              chainId: targetItem.chainId,
-              contractAddress: targetItem.contractAddress,
-              isNative: targetItem.isNative,
-              symbol: item.symbol,
-              name: item.name,
-              logoUrl: item.logoUrl ?? '',
-              logoUrls: item.logoUrls,
-              price: getMarketTokenDisplayPrice(item),
-              priceChange24h: getMarketTokenDisplayPriceChange24h(item),
-              marketCap: getMarketTokenDisplayMarketCap(item),
-              volume24h: getMarketTokenDisplayVolume24h(item),
-              communityRecognized: item.communityRecognized,
-              stock: item.stock,
-            };
-          })
-          .filter((item): item is IFavoriteTokenDisplay => item !== null);
-
-        setFavoriteTokens(displayTokens);
+        setShowRecommendCards(false);
+        setFavoriteTokens(await loadHomeRecommendDisplayTokens(displayCount));
         initializedRef.current = true;
       }
     },
@@ -766,13 +893,19 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
   // Initialize selected tokens when favorites load (for empty state)
   useEffect(() => {
-    if (!hasUserFavorites && favoriteTokens.length > 0) {
+    if (
+      (!hasUserFavorites || showRecommendCards) &&
+      favoriteTokens.length > 0
+    ) {
       setSelectedTokens(favoriteTokens);
     }
-  }, [hasUserFavorites, favoriteTokens]);
+  }, [favoriteTokens, hasUserFavorites, showRecommendCards]);
 
   const handleRecommendItemChange = useCallback(
     (checked: boolean, tokenKey: string) => {
+      if (isAddingRef.current) {
+        return;
+      }
       const token = favoriteTokens.find((t) => getTokenKey(t) === tokenKey);
       if (!token) return;
 
@@ -787,14 +920,26 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
   // Handle add tokens button press
   const handleAddTokens = useCallback(async () => {
-    if (selectedTokens.length === 0) return;
+    if (selectedTokens.length === 0 || isAddingRef.current) {
+      return;
+    }
+    isAddingRef.current = true;
+    setIsAdding(true);
 
     try {
-      const nextWatchListItems = selectedTokens.map((token, index) => ({
-        chainId: token.chainId,
-        contractAddress: token.contractAddress,
-        isNative: token.isNative,
-        sortIndex: 1000 - (index + 1),
+      const orderedTokens = orderSelectedRecommendTokens(
+        favoriteTokens,
+        selectedTokens,
+        getTokenKey,
+      );
+      const mappedItems = mapRecommendTokensToWatchlistItems(orderedTokens);
+      const sortIndexes = buildHomeRecommendAddSortIndexes({
+        existingWatchlist: watchListItems,
+        count: mappedItems.length,
+      });
+      const nextWatchListItems = mappedItems.map((item, index) => ({
+        ...item,
+        sortIndex: sortIndexes[index],
       }));
 
       await backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
@@ -829,8 +974,11 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           id: ETranslations.global_an_error_occurred,
         }),
       });
+    } finally {
+      isAddingRef.current = false;
+      setIsAdding(false);
     }
-  }, [selectedTokens, intl, refreshData]);
+  }, [favoriteTokens, refreshData, selectedTokens, intl, watchListItems]);
 
   // Handle remove token from watchlist
   const handleRemoveFromWatchlist = useCallback(
@@ -1061,6 +1209,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         key={getTokenKey(token)}
         token={token}
         checked={isTokenSelected(token)}
+        disabled={isAdding}
         onChange={handleRecommendItemChange}
       />
     );
@@ -1089,6 +1238,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     selectedTokens,
     handleRecommendItemChange,
     shouldUseTableLayout,
+    isAdding,
   ]);
 
   // Navigate to Market favorites tab
@@ -1185,7 +1335,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         testID="home-header-actions-btn"
         size="small"
         variant="secondary"
-        disabled={selectedTokens.length === 0}
+        disabled={selectedTokens.length === 0 || isAdding}
+        loading={isAdding}
         onPress={handleAddTokens}
       >
         {intl.formatMessage(
@@ -1194,7 +1345,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         )}
       </Button>
     ),
-    [selectedTokens.length, handleAddTokens, intl],
+    [selectedTokens.length, handleAddTokens, intl, isAdding],
   );
 
   const renderContent = useCallback(() => {
@@ -1245,8 +1396,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         );
       }
 
-      // Empty state: show card layout
-      if (!hasUserFavorites) {
+      // Empty state: show card layout. Stored favorites that never become
+      // rows would otherwise keep an empty table and hide the recommend grid.
+      if (!hasUserFavorites || showRecommendCards) {
         if (favoriteTokens.length === 0) {
           return (
             <Stack alignItems="center" justifyContent="center" p="$8">
@@ -1299,6 +1451,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     handleTokenPress,
     handleViewMore,
     hasUserFavorites,
+    showRecommendCards,
     homeCategories,
     intl,
     isCategoryLoading,

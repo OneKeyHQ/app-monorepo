@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import BigNumber from 'bignumber.js';
 import { isNil, unionBy, uniqBy } from 'lodash';
 
@@ -738,7 +739,11 @@ function getLocalReplacementFields({
   onChainHistoryTx: IAccountHistoryTx;
 }): Pick<
   IAccountHistoryTx,
-  'replacedPrevId' | 'replacedNextId' | 'replacedType' | 'replacedMethod'
+  | 'replacedPrevId'
+  | 'replacedNextId'
+  | 'replacedType'
+  | 'replacedMethod'
+  | 'primeInfiniPayment'
 > {
   // Replacement linkage is local-only metadata. The indexer response can
   // replace the local record after confirmation, so carry it forward when the
@@ -746,6 +751,9 @@ function getLocalReplacementFields({
   // replacement must remain distinguishable from the staking metadata it
   // inherits for pending-state guards.
   return {
+    ...(localTx.primeInfiniPayment
+      ? { primeInfiniPayment: localTx.primeInfiniPayment }
+      : {}),
     ...(isNil(onChainHistoryTx.replacedPrevId) && !isNil(localTx.replacedPrevId)
       ? { replacedPrevId: localTx.replacedPrevId }
       : {}),
@@ -1458,7 +1466,7 @@ class ServiceHistory extends ServiceBase {
     // Confirmed transactions
     let confirmedTxs: IAccountHistoryTx[] = [];
     // Transactions still in pending status
-    const pendingTxs: IAccountHistoryTx[] = [];
+    let pendingTxs: IAccountHistoryTx[] = [];
     const accountsWithCompletedDeFiPortfolioTxs: {
       accountId: string;
       networkId: string;
@@ -1554,6 +1562,27 @@ class ServiceHistory extends ServiceBase {
       } else {
         pendingTxs.push(localHistoryPendingTx);
       }
+    }
+
+    // Chains where a broadcast tx can expire without ever landing (Solana
+    // blockhash expiry, OK-63381) report those pending txs as dropped so they
+    // leave the pending bucket instead of showing as confirming until the
+    // user clears them by hand.
+    const droppedPendingTxs = await this.getDroppedPendingTxs({ pendingTxs });
+    if (droppedPendingTxs.length) {
+      const droppedTxIds = new Set(droppedPendingTxs.map((tx) => tx.id));
+      pendingTxs = pendingTxs.filter((tx) => !droppedTxIds.has(tx.id));
+      confirmedTxs.push(
+        ...droppedPendingTxs.map((tx) => ({
+          ...tx,
+          originalId: tx.id,
+          decodedTx: {
+            ...tx.decodedTx,
+            status: EDecodedTxStatus.Dropped,
+            isFinal: true,
+          },
+        })),
+      );
     }
 
     // Notify subscribers (e.g. DeFi scheduler) that locally-pending txs
@@ -2441,6 +2470,47 @@ class ServiceHistory extends ServiceBase {
     };
   }
 
+  // Asks each involved vault which of its pending txs the chain will never
+  // confirm; a vault failure only keeps that account's txs pending.
+  async getDroppedPendingTxs({
+    pendingTxs,
+  }: {
+    pendingTxs: IAccountHistoryTx[];
+  }): Promise<IAccountHistoryTx[]> {
+    const txsByAccount = new Map<string, IAccountHistoryTx[]>();
+    for (const tx of pendingTxs) {
+      const { accountId, networkId } = tx.decodedTx;
+      const key = `${accountId}__${networkId}`;
+      const group = txsByAccount.get(key);
+      if (group) {
+        group.push(tx);
+      } else {
+        txsByAccount.set(key, [tx]);
+      }
+    }
+    if (!txsByAccount.size) {
+      return [];
+    }
+
+    const results = await promiseAllSettledEnhanced(
+      [...txsByAccount.values()].map((txs) => async () => {
+        const { accountId, networkId } = txs[0].decodedTx;
+        try {
+          const vault = await vaultFactory.getVault({ networkId, accountId });
+          return await vault.getDroppedPendingTxs({ pendingTxs: txs });
+        } catch (error) {
+          console.error(
+            `Failed to check dropped pending txs for account ${accountId}:`,
+            error,
+          );
+          return [];
+        }
+      }),
+      { continueOnError: true, concurrency: PROMISE_CONCURRENCY_LIMIT },
+    );
+    return results.flatMap((txs) => txs ?? []);
+  }
+
   @backgroundMethod()
   async getPendingTxsToModify(params: {
     accountId: string;
@@ -3300,8 +3370,10 @@ class ServiceHistory extends ServiceBase {
     accountId: string;
     data: ISendTxOnSuccessData;
     replaceTxInfo?: IReplaceTxInfo;
+    primeInfiniPayment?: IAccountHistoryTx['primeInfiniPayment'];
   }) {
-    const { networkId, accountId, data, replaceTxInfo } = params;
+    const { networkId, accountId, data, replaceTxInfo, primeInfiniPayment } =
+      params;
 
     if (!data || !data.decodedTx) {
       return;
@@ -3318,6 +3390,9 @@ class ServiceHistory extends ServiceBase {
       isSigner: true,
       isLocalCreated: true,
     });
+    if (primeInfiniPayment) {
+      newHistoryTx.primeInfiniPayment = primeInfiniPayment;
+    }
 
     const [xpub, accountAddress] = await Promise.all([
       this.backgroundApi.serviceAccount.getAccountXpub({

@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
-import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
+import { readContextAtomSnapshotRaw } from '@onekeyhq/shared/src/storage/uiSnapshotCaches';
 import { parseColdStartSnapshotRaw } from '@onekeyhq/shared/src/utils/coldStartCacheSnapshotUtils';
 import {
   getSwapColdStartSelectedTokensFromSnapshot,
@@ -11,7 +11,10 @@ import {
 import type { ISwapSelectedTokensColdStartContext } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import type {
+  ISwapNetwork,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 
 import {
   type ISwapBalanceDisplayCache,
@@ -29,7 +32,6 @@ const ACCOUNT_SELECTOR_HOME_SCOPE_KEY = 'store:accountSelector@home';
 const ACCOUNT_SELECTOR_SWAP_SCOPE_KEY = 'store:accountSelector@swap';
 
 type IGlobalColdStartCache = typeof globalThis & {
-  __ONEKEY_COLD_START_CACHE_MAP__?: Map<string, unknown>;
   __ONEKEY_CTX_ATOM_SNAPSHOT__?: Record<string, unknown>;
 };
 
@@ -156,26 +158,16 @@ function getColdStartSnapshotCandidatesFromGlobal() {
   const globalCache = globalThis as IGlobalColdStartCache;
   const snapshots: Record<string, unknown>[] = [];
 
-  const rawSnapshot = globalCache.__ONEKEY_COLD_START_CACHE_MAP__?.get(
-    EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
-  );
-  if (typeof rawSnapshot === 'string') {
-    const snapshot = parseColdStartSnapshotRaw(rawSnapshot);
-    if (
-      isSnapshotRecord(snapshot) &&
-      (hasSwapSelectedTokenSnapshot(snapshot) ||
-        hasSwapStockSelectedTokenSnapshot(snapshot) ||
-        hasHomeSelectedAccountSnapshot(snapshot))
-    ) {
-      snapshots.push(snapshot);
-    }
-  } else if (
-    isSnapshotRecord(rawSnapshot) &&
-    (hasSwapSelectedTokenSnapshot(rawSnapshot) ||
-      hasSwapStockSelectedTokenSnapshot(rawSnapshot) ||
-      hasHomeSelectedAccountSnapshot(rawSnapshot))
+  // The record as its namespace holds it, for a caller that runs before the
+  // startup path published the parsed copy below.
+  const snapshot = parseColdStartSnapshotRaw(readContextAtomSnapshotRaw());
+  if (
+    isSnapshotRecord(snapshot) &&
+    (hasSwapSelectedTokenSnapshot(snapshot) ||
+      hasSwapStockSelectedTokenSnapshot(snapshot) ||
+      hasHomeSelectedAccountSnapshot(snapshot))
   ) {
-    snapshots.push(rawSnapshot);
+    snapshots.push(snapshot);
   }
 
   if (
@@ -423,9 +415,11 @@ function getDefaultSwapSelectedTokensFromHomeSnapshot(
 export function getSwapDefaultSelectedTokensFromGlobalHomeSnapshot({
   allNetworksOnly = false,
   swapType,
+  swapNetworks,
 }: {
   allNetworksOnly?: boolean;
   swapType?: ESwapTabSwitchType;
+  swapNetworks?: ISwapNetwork[];
 } = {}) {
   for (const snapshot of getColdStartSnapshotCandidatesFromGlobal()) {
     const homeSelectedAccount = getSelectedAccountFromSnapshot({
@@ -439,6 +433,7 @@ export function getSwapDefaultSelectedTokensFromGlobalHomeSnapshot({
       const defaultTokens = buildSwapDefaultSelectedTokensFromHomeAccount({
         homeSelectedAccount,
         swapType,
+        swapNetworks,
       });
       if (defaultTokens?.fromToken?.symbol || defaultTokens?.toToken?.symbol) {
         return defaultTokens;

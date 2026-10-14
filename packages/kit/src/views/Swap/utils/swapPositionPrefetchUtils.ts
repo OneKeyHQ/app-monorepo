@@ -43,3 +43,26 @@ export function buildSwapPositionPrefetchScopes({
       scope.networkList.length > 0,
   );
 }
+
+// The Swap tab stays mounted behind other tabs. Keep only the latest account's
+// positions prefetch while hidden, and start it when the surface regains focus.
+export function createSwapPositionPrefetchScheduler() {
+  let pendingRun: (() => void) | undefined;
+  const flush = () => {
+    const run = pendingRun;
+    pendingRun = undefined;
+    run?.();
+  };
+  return {
+    request(run: () => void, isFocused: boolean) {
+      pendingRun = run;
+      if (isFocused) {
+        flush();
+      }
+    },
+    flush,
+    cancel() {
+      pendingRun = undefined;
+    },
+  };
+}

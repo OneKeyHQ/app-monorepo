@@ -131,9 +131,10 @@ export function buildPortfolioSyncArtifacts({
   const portfolioPayloadParams = {
     account: buildPortfolioAccountFromEventPayload(eventPayload, schemaVersion),
     aggregateTokenMap: eventPayload.aggregateTokenMap,
-    categoryFiat,
+    categoryFiat: categoryFiat ?? eventPayload.homeCategoryFiatUsd,
     currencyMap,
     displayCurrency,
+    homeTotalFiatUsd: eventPayload.homeTotalFiatUsd,
     schemaVersion,
     totalFiat: eventPayload.totalFiat,
     totalFiatCurrency: eventPayload.totalFiatCurrency,

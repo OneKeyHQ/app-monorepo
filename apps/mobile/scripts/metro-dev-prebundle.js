@@ -24,6 +24,10 @@ const {
 const { REPO_ROOT, loadRegistry } = require('../plugins/moduleIdRegistry');
 
 const { getSharedCacheRoot } = require('./dev-cache-paths');
+const {
+  downloadOciBlobConcurrent,
+  isRetryableOciError,
+} = require('./oci-concurrent-download');
 
 const MOBILE_DIR = path.resolve(__dirname, '..');
 const execFileAsync = promisify(execFile);
@@ -795,16 +799,22 @@ function createOciClient({
   const repositoryScope = `repository:${devVendorConfig.OCI_REPOSITORY}:pull`;
   let authorization;
 
-  async function fetchRegistry(url, { accept, timeoutMs }) {
+  async function fetchRegistry(
+    url,
+    { accept, headers = {}, signal, timeoutMs },
+  ) {
     const request = () =>
       fetchImpl(url, {
         headers: {
           Accept: accept,
           ...(authorization ? { Authorization: authorization } : {}),
           'User-Agent': 'OneKey-Metro-Dev-Prebundle',
+          ...headers,
         },
         redirect: 'follow',
-        signal: AbortSignal.timeout(timeoutMs),
+        signal: signal
+          ? AbortSignal.any([AbortSignal.timeout(timeoutMs), signal])
+          : AbortSignal.timeout(timeoutMs),
       });
     let response = await request();
     if (response.status !== 401) return response;
@@ -872,12 +882,17 @@ function createOciClient({
 
   const repositoryUrl = `${baseUrl}/v2/${devVendorConfig.OCI_REPOSITORY}`;
   return {
-    fetchBlob(digest, timeoutMs = 120_000) {
+    fetchBlob(digest, timeoutMs = 120_000, { range, ifRange, signal } = {}) {
       if (!/^sha256:[0-9a-f]{64}$/.test(digest || '')) {
         throw new Error('[metroDevPrebundle] Invalid OCI blob digest.');
       }
       return fetchRegistry(`${repositoryUrl}/blobs/${digest}`, {
         accept: 'application/octet-stream',
+        headers: {
+          ...(range ? { Range: range, 'Accept-Encoding': 'identity' } : {}),
+          ...(ifRange ? { 'If-Range': ifRange } : {}),
+        },
+        signal,
         timeoutMs,
       });
     },
@@ -1017,29 +1032,47 @@ async function downloadOciAsset({
       `[metroDevPrebundle] Downloaded asset is too large: ${safeFileName}.`,
     );
   }
-  const response = await ociArtifact.client.fetchBlob(
-    descriptor.digest,
+  const concurrent = await downloadOciBlobConcurrent({
+    client: ociArtifact.client,
+    descriptor,
     timeoutMs,
-  );
-  if (!response.ok) {
-    throw new Error(
-      `[metroDevPrebundle] OCI blob download failed for ${safeFileName}: HTTP ${response.status}.`,
-    );
-  }
-  const content = await readResponseBody({
-    fileName: safeFileName,
-    maxBytes,
-    response,
   });
-  if (
-    content.length !== descriptor.size ||
-    `sha256:${sha256(content)}` !== descriptor.digest
-  ) {
-    throw new Error(
-      `[metroDevPrebundle] OCI blob integrity mismatch: ${safeFileName}.`,
-    );
+  if (concurrent) return concurrent.content;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const response = await ociArtifact.client.fetchBlob(
+        descriptor.digest,
+        timeoutMs,
+      );
+      if (!response.ok) {
+        const error = new Error(
+          `[metroDevPrebundle] OCI blob download failed for ${safeFileName}: HTTP ${response.status}.`,
+        );
+        error.retryable =
+          [408, 425, 429].includes(response.status) || response.status >= 500;
+        throw error;
+      }
+      const content = await readResponseBody({
+        fileName: safeFileName,
+        maxBytes,
+        response,
+      });
+      if (
+        content.length !== descriptor.size ||
+        `sha256:${sha256(content)}` !== descriptor.digest
+      ) {
+        const error = new Error(
+          `[metroDevPrebundle] OCI blob integrity mismatch: ${safeFileName}.`,
+        );
+        error.retryable = content.length !== descriptor.size;
+        throw error;
+      }
+      return content;
+    } catch (error) {
+      if (attempt === 3 || !isRetryableOciError(error)) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
+    }
   }
-  return content;
 }
 
 function assertDownloadedAsset(content, metadata) {

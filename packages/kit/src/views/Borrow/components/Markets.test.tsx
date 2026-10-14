@@ -1,5 +1,8 @@
 /* eslint-disable import/first */
 
+const mockTokenMounts = jest.fn();
+const mockTokenUnmounts = jest.fn();
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
@@ -10,9 +13,17 @@ jest.mock('@onekeyhq/components', () => {
     jest.requireActual<typeof import('react-native')>('react-native');
   return {
     Icon: () => null,
-    Select: (props: Record<string, unknown>) =>
-      React.createElement(View, props),
+    Image: () => null,
+    Select: ({ renderTrigger, ...props }: Record<string, unknown>) =>
+      React.createElement(
+        View,
+        props,
+        (renderTrigger as (params: { onPress: () => void }) => React.ReactNode)(
+          { onPress: () => undefined },
+        ),
+      ),
     SizableText: Text,
+    Stack: View,
     XStack: View,
     YStack: View,
     useMedia: () => ({ gtMd: true }),
@@ -20,7 +31,24 @@ jest.mock('@onekeyhq/components', () => {
 });
 
 jest.mock('@onekeyhq/kit/src/components/Token', () => ({
-  Token: () => null,
+  getTokenImageResizeWidth: (size: 'md' | 'sm') => (size === 'md' ? 32 : 24),
+  Token: ({ tokenImageUri }: { tokenImageUri?: string }) => {
+    const React = jest.requireActual<typeof import('react')>('react');
+    React.useEffect(() => {
+      mockTokenMounts(tokenImageUri);
+      return () => {
+        mockTokenUnmounts(tokenImageUri);
+      };
+    }, [tokenImageUri]);
+    return null;
+  },
+}));
+
+jest.mock('./borrowImagePrewarm', () => ({
+  getBorrowMarketIconSources: () => [],
+  getBorrowMarketNetworkLogoResizeWidth: (size: 'md' | 'sm') =>
+    size === 'md' ? 16 : 12,
+  prewarmBorrowImages: () => () => undefined,
 }));
 
 jest.mock('../BorrowProvider', () => ({
@@ -52,7 +80,8 @@ const markets = ['a', 'b', 'c'].map(
       networkId: 'evm--1',
       provider: 'aave',
       name: marketAddress,
-      network: { logoURI: '' },
+      logoURI: `https://example.com/${marketAddress}.png`,
+      network: { logoURI: 'https://example.com/network.png' },
     }) as IBorrowMarketItem,
 );
 const rememberMarket = jest.fn();
@@ -114,9 +143,57 @@ describe('Markets selection intent', () => {
   it('publishes a new market request immediately', () => {
     setContext(markets[1]);
     const screen = render(<Markets />);
+    const select = screen.UNSAFE_root.findByProps({
+      testID: BorrowTestIDs.marketSelect,
+    });
+    expect(select.props.waitForChangeBeforeClose).toBe(true);
+    expect(select.props.value).toBe(buildBorrowMarketKey(markets[1]));
     selectMarket(screen, buildBorrowMarketKey(markets[2]));
     expect(rememberMarket).toHaveBeenCalledWith(markets[2]);
     expect(setRequestedMarket).toHaveBeenCalledWith(markets[2]);
+  });
+
+  it('pre-mounts a small market catalog and bounds retained trigger images', () => {
+    const screen = render(<Markets />);
+    expect(mockTokenMounts).toHaveBeenCalledWith(markets[0].logoURI);
+    expect(mockTokenMounts).toHaveBeenCalledWith(markets[1].logoURI);
+    expect(mockTokenMounts).toHaveBeenCalledWith(markets[2].logoURI);
+
+    setContext(null, markets[1]);
+    screen.rerender(<Markets />);
+    expect(mockTokenMounts).toHaveBeenCalledWith(markets[1].logoURI);
+    expect(mockTokenUnmounts).not.toHaveBeenCalledWith(markets[0].logoURI);
+    expect(mockTokenUnmounts).not.toHaveBeenCalledWith(markets[2].logoURI);
+
+    setContext(null, markets[0]);
+    screen.rerender(<Markets />);
+    expect(
+      mockTokenMounts.mock.calls.filter(([uri]) => uri === markets[0].logoURI),
+    ).toHaveLength(1);
+    expect(
+      mockTokenMounts.mock.calls.filter(([uri]) => uri === markets[1].logoURI),
+    ).toHaveLength(1);
+    expect(
+      mockTokenMounts.mock.calls.filter(([uri]) => uri === markets[2].logoURI),
+    ).toHaveLength(1);
+
+    const fourthMarket = {
+      ...markets[0],
+      marketAddress: 'd',
+      logoURI: 'https://example.com/d.png',
+    };
+    const availableMarkets = [...markets, fourthMarket];
+    setContext(null, markets[2], availableMarkets);
+    screen.rerender(<Markets />);
+    setContext(null, fourthMarket, availableMarkets);
+    screen.rerender(<Markets />);
+    expect(mockTokenUnmounts).toHaveBeenCalledWith(markets[1].logoURI);
+  });
+
+  it('keeps the published logo visible while the market catalog changes', () => {
+    setContext(null, markets[2], markets.slice(0, 2));
+    render(<Markets />);
+    expect(mockTokenMounts).toHaveBeenCalledWith(markets[2].logoURI);
   });
 
   it('keeps an idle current-market selection as a no-op', () => {

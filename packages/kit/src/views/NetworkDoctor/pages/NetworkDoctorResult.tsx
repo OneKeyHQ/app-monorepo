@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -53,16 +53,20 @@ function NetworkDoctorResult() {
   const connectivityLevelMap = useConnectivityLevelMap();
 
   const { status, progress, result, error } = doctorState;
+  const statusRef = useRef(status);
+  statusRef.current = status;
 
   // Only reset if status is 'completed' or 'failed', not 'running'
   // This allows background diagnostics to continue if user closes the page
+  // Check the latest status on unmount only: a new run replacing an old
+  // result while the page is open must not be reset.
   useEffect(
     () => () => {
-      if (status === 'completed' || status === 'failed') {
+      if (statusRef.current === 'completed' || statusRef.current === 'failed') {
         void backgroundApiProxy.serviceNetworkDoctor.resetNetworkDiagnostics();
       }
     },
-    [status],
+    [],
   );
 
   const handleContactSupport = useCallback(() => {

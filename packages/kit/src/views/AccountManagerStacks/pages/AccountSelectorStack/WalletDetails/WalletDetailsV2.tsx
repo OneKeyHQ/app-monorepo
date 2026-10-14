@@ -25,10 +25,17 @@ import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/
 import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
+  useAccountSelectorSceneInfo,
   useAccountSelectorStorageReadyAtom,
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
+import {
+  HOME_TOKEN_LIST_PREWARM_TAP_TIMEOUT_MS,
+  buildAccountSelectorRowPrewarmParams,
+  prewarmHomeTokenListOwner,
+  prewarmHomeTokenListOwnerWithin,
+} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells/prewarmOwnerFrames';
 import qrHiddenCreateGuideDialog from '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/qrHiddenCreateGuideDialog';
 import type {
   IDBAccount,
@@ -40,7 +47,10 @@ import type {
   IAccountSelectorAccountsListSectionData,
   IAccountSelectorSelectedAccount,
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-import { accountSelectorAccountsListIsLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  accountSelectorAccountsListIsLoadingAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   EAppEventBusNames,
@@ -52,6 +62,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { HiddenWalletRememberSwitch } from '../../../components/WalletEdit/HiddenWalletRememberSwitch';
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
@@ -68,6 +79,7 @@ import {
   AccountSelectorMenuActionV2,
 } from './AccountSelectorActionV2';
 import { preloadAccountSelectorAvatarImages } from './accountSelectorAvatarPreload';
+import { buildAccountSelectorValueDisplayScopeKeyV2 } from './accountSelectorValueDisplayCacheV2';
 import { DeprecatedWalletBanner } from './DeprecatedWalletBanner';
 import { EmptyNoAccountsView, EmptyView } from './EmptyView';
 import { useAddAccount } from './hooks/useAddAccount';
@@ -79,6 +91,9 @@ import type { IAccountEditActionListV2Props } from './AccountEditActionListV2';
 
 const INITIAL_ACCOUNT_IMAGE_PRELOAD_COUNT = 16;
 const ACCOUNT_IMAGE_PRELOAD_BUDGET_MS = 200;
+// Longest a switched wallet waits for its avatars and first-screen balances
+// before it is presented anyway.
+const ACCOUNT_PRESENTATION_BUDGET_MS = 300;
 
 async function preloadAccountSelectorImages(
   sources: readonly ImageSource[],
@@ -127,8 +142,13 @@ function BotWalletDeactivatedBanner({ walletId }: { walletId: string }) {
   );
 }
 
+// Accounts listed first are the likeliest targets; a wallet with more rows
+// than this still prewarms the tapped row itself.
+const HOME_TOKEN_LIST_PREWARM_MAX_ROWS = 12;
+
 function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
   const intl = useIntl();
+  const [{ currencyInfo }] = useSettingsPersistAtom();
   const { serviceAccountSelector } = backgroundApiProxy;
   const { selectedAccount } = useSelectedAccount({ num });
   const actions = useAccountSelectorActions();
@@ -195,6 +215,10 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
   );
   const isOthersUniversal = isOthers || isOthersWallet;
   // const isOthersUniversal = true;
+  const { sceneName } = useAccountSelectorSceneInfo();
+  // Every scene (Swap, Send, DApp, ...) pushes this page, but only the home
+  // selector switches the home token list the prewarm feeds.
+  const canPrewarmHomeTokenList = sceneName === EAccountSelectorSceneName.home;
 
   const {
     result: listDataResult,
@@ -352,11 +376,30 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
   );
 
   // Load account values asynchronously in batches via atoms, scoped by selector num
-  useAccountSelectorValuesLoaderV2({
+  const { valuesLoaded } = useAccountSelectorValuesLoaderV2({
     num,
     accountsForValuesQuery: listDataResult?.accountsForValuesQuery,
     linkedNetworkId,
   });
+  const valueDisplayCacheKey = useMemo(
+    () =>
+      selectedAccount?.focusedWallet
+        ? swrKeys.accountSelectorValues({
+            walletId: selectedAccount.focusedWallet,
+          })
+        : undefined,
+    [selectedAccount?.focusedWallet],
+  );
+  const valueDisplayScopeKey = useMemo(
+    () =>
+      buildAccountSelectorValueDisplayScopeKeyV2({
+        deriveType: usedDeriveType ?? '',
+        linkedNetworkId,
+        selectedNetworkId,
+        keepAllOtherAccounts,
+      }),
+    [usedDeriveType, linkedNetworkId, selectedNetworkId, keepAllOtherAccounts],
+  );
 
   const accountsCount = useMemo(
     () => listDataResult?.accountsCount ?? 0,
@@ -372,12 +415,15 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
     [focusedWalletInfo?.wallet?.deprecated],
   );
 
-  const { enabledNetworksCompatibleWithWalletId, networkInfoMap } =
-    useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
-      walletId: focusedWalletInfo?.wallet?.id ?? '',
-      networkId: selectedNetworkId,
-      withNetworksInfo: true,
-    });
+  const {
+    enabledNetworksCompatibleWithWalletId,
+    networkInfoMap,
+    isReady: walletNetworksReady,
+  } = useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
+    walletId: focusedWalletInfo?.wallet?.id ?? '',
+    networkId: selectedNetworkId,
+    withNetworksInfo: true,
+  });
 
   useEffect(() => {
     const fn = async () => {
@@ -414,7 +460,11 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
     isOthersUniversal,
     focusedWalletInfo,
   });
-  const { rows: accountRows, records } = useAccountSelectorAccountRowsV2({
+  const {
+    rows: accountRows,
+    records,
+    areRowValuesReady,
+  } = useAccountSelectorAccountRowsV2({
     num,
     sections: sectionData,
     selectedAccount,
@@ -428,10 +478,79 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
     mergeDeriveAssetsEnabled: listDataResult?.mergeDeriveAssetsEnabled,
     enabledNetworksCompatibleWithWalletId,
     networkInfoMap,
+    walletNetworksReady,
     theme,
+    valueDisplayCacheKey,
+    valueDisplayScopeKey,
+    persistDisplayedValues: !searchText,
+    valuesLoaded,
   });
+
+  // Prewarm the home token list for the listed accounts while the selector is
+  // open (OK-63873): the tap then finds the owner's frames in the replay
+  // cache and the switch paints without a skeleton. Sequential and bounded so
+  // it stays a background courtesy; the tap itself re-requests its target.
+  // Search results are a transient subset (not persisted either, see
+  // `persistDisplayedValues`): targeting them restarted the batch on every
+  // debounced keystroke and re-asked for owners that have no frames.
+  const homeTokenListPrewarmTargets = useMemo(
+    () =>
+      canPrewarmHomeTokenList && !searchText
+        ? records.slice(0, HOME_TOKEN_LIST_PREWARM_MAX_ROWS).map((record) =>
+            buildAccountSelectorRowPrewarmParams({
+              row: record,
+              isOthersUniversal,
+              selectedNetworkId: selectedAccount.networkId,
+              selectedDeriveType: selectedAccount.deriveType,
+              currencyId: currencyInfo.id,
+            }),
+          )
+        : [],
+    [
+      canPrewarmHomeTokenList,
+      currencyInfo.id,
+      isOthersUniversal,
+      records,
+      searchText,
+      selectedAccount.deriveType,
+      selectedAccount.networkId,
+    ],
+  );
+  const homeTokenListPrewarmTargetsRef = useRef(homeTokenListPrewarmTargets);
+  homeTokenListPrewarmTargetsRef.current = homeTokenListPrewarmTargets;
+  // Records are rebuilt on unrelated row state; restart only on new targets.
+  const homeTokenListPrewarmTargetsKey = homeTokenListPrewarmTargets
+    .map((params) =>
+      [
+        params.networkId,
+        params.deriveType,
+        params.indexedAccountId,
+        params.othersWalletAccountId,
+        params.currencyId,
+      ].join(':'),
+    )
+    .join('|');
+  useEffect(() => {
+    const targets = homeTokenListPrewarmTargetsRef.current;
+    if (!targets.length) {
+      return undefined;
+    }
+    let cancelled = false;
+    void (async () => {
+      for (const params of targets) {
+        if (cancelled) {
+          return;
+        }
+        await prewarmHomeTokenListOwner(params);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [homeTokenListPrewarmTargetsKey]);
   const listIdentity = `${focusedWalletInfo?.wallet?.id ?? ''}:${linkedNetworkId ?? ''}:${usedDeriveType ?? ''}:${searchText}`;
-  const presentationScope = `${focusedWalletInfo?.wallet?.id ?? ''}:${linkedNetworkId ?? ''}:${usedDeriveType ?? ''}`;
+  // Everything that changes the list or its balances, not only the wallet.
+  const presentationScope = `${focusedWalletInfo?.wallet?.id ?? ''}:${valueDisplayScopeKey}`;
   const identityRef = useRef(listIdentity);
   const generationRef = useRef(1);
   if (identityRef.current !== listIdentity) {
@@ -557,6 +676,19 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
     !searchText && listHeight > 0 && selectedIndex * 60 > listHeight
       ? selectedKey
       : undefined;
+  // Rows the list shows first; the initial scroll brings the selected one in.
+  const firstScreenValuesReady = areRowValuesReady(
+    initialScrollKey
+      ? Math.max(
+          0,
+          Math.min(
+            selectedIndex,
+            accountRows.length - INITIAL_ACCOUNT_IMAGE_PRELOAD_COUNT,
+          ),
+        )
+      : 0,
+    INITIAL_ACCOUNT_IMAGE_PRELOAD_COUNT,
+  );
   const candidateList = useMemo(
     () => ({
       editable,
@@ -611,35 +743,65 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
       setPreloadedList(candidateList);
     }
   }, [candidateList, preloadedList.presentationScope]);
+  // A new wallet/network/derive scope is presented once its avatars and
+  // first-screen balances are ready (within one budget), so a switch paints
+  // complete rows instead of placeholders that fill in afterwards.
+  const pendingPresentationScope =
+    candidateList.hasResolved &&
+    candidateList.presentationScope !== preloadedList.presentationScope
+      ? candidateList.presentationScope
+      : undefined;
+  const presentationWaitRef = useRef<{ scope?: string; id: number }>({
+    id: 0,
+  });
+  if (presentationWaitRef.current.scope !== pendingPresentationScope) {
+    presentationWaitRef.current = {
+      scope: pendingPresentationScope,
+      id: presentationWaitRef.current.id + 1,
+    };
+  }
+  const presentationWaitId = presentationWaitRef.current.id;
+  const [imagesReadyWaitId, setImagesReadyWaitId] = useState<number>();
+  const [expiredWaitId, setExpiredWaitId] = useState<number>();
   useEffect(() => {
-    if (
-      !candidateList.hasResolved ||
-      candidateList.presentationScope === preloadedList.presentationScope
-    ) {
-      return;
-    }
+    if (!pendingPresentationScope) return;
+    const timer = setTimeout(
+      () => setExpiredWaitId(presentationWaitId),
+      ACCOUNT_PRESENTATION_BUDGET_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [pendingPresentationScope, presentationWaitId]);
+  useEffect(() => {
+    if (!pendingPresentationScope) return;
     let cancelled = false;
-    const targetPresentationScope = candidateList.presentationScope;
     void preloadAccountSelectorImages(
       initialImagePreloadSourcesRef.current,
     ).then(() => {
-      const latestCandidate = candidateListRef.current;
-      if (
-        !cancelled &&
-        latestCandidate.hasResolved &&
-        latestCandidate.presentationScope === targetPresentationScope
-      ) {
-        setPreloadedList(latestCandidate);
-      }
+      if (!cancelled) setImagesReadyWaitId(presentationWaitId);
     });
     return () => {
       cancelled = true;
     };
+  }, [pendingPresentationScope, presentationWaitId, initialImagePreloadScope]);
+  useEffect(() => {
+    if (!pendingPresentationScope) return;
+    const ready =
+      expiredWaitId === presentationWaitId ||
+      (imagesReadyWaitId === presentationWaitId && firstScreenValuesReady);
+    const latestCandidate = candidateListRef.current;
+    if (
+      ready &&
+      latestCandidate.hasResolved &&
+      latestCandidate.presentationScope === pendingPresentationScope
+    ) {
+      setPreloadedList(latestCandidate);
+    }
   }, [
-    candidateList.hasResolved,
-    candidateList.presentationScope,
-    initialImagePreloadScope,
-    preloadedList.presentationScope,
+    expiredWaitId,
+    firstScreenValuesReady,
+    imagesReadyWaitId,
+    pendingPresentationScope,
+    presentationWaitId,
   ]);
   const nativeSnapshot = useAccountSelectorNativeSnapshotV2({
     identity: presentedList.identity,
@@ -662,6 +824,34 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
     setPendingMenu(undefined);
   }, [listIdentity]);
 
+  // Give the home token list the owner's local-cache frames before the
+  // publish so the switch paints without a skeleton (OK-63873); bounded so
+  // the selection never waits on it, and skipped outside the home scene.
+  const prewarmHomeTokenListBeforeSelect = useCallback(
+    async (record: IAccountSelectorRowRecordV2) => {
+      if (!canPrewarmHomeTokenList) {
+        return;
+      }
+      await prewarmHomeTokenListOwnerWithin(
+        buildAccountSelectorRowPrewarmParams({
+          row: record,
+          isOthersUniversal,
+          selectedNetworkId: selectedAccount.networkId,
+          selectedDeriveType: selectedAccount.deriveType,
+          currencyId: currencyInfo.id,
+        }),
+        HOME_TOKEN_LIST_PREWARM_TAP_TIMEOUT_MS,
+      );
+    },
+    [
+      canPrewarmHomeTokenList,
+      currencyInfo.id,
+      isOthersUniversal,
+      selectedAccount.deriveType,
+      selectedAccount.networkId,
+    ],
+  );
+
   const handleAccountPress = useCallback(
     async (record: IAccountSelectorRowRecordV2) => {
       if (
@@ -669,28 +859,43 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
         (!allowSelectEmptyAccount && record.shouldShowCreateAddressButton)
       )
         return;
-      if (isOthersUniversal) {
-        let autoChangeToAccountMatchedNetworkId = record.avatarNetworkId;
-        if (
-          selectedAccount.networkId &&
-          networkUtils.isAllNetwork({ networkId: selectedAccount.networkId })
-        )
-          autoChangeToAccountMatchedNetworkId = selectedAccount.networkId;
-        const confirmed = await actions.current.confirmAccountSelect({
-          num,
-          indexedAccount: undefined,
-          othersWalletAccount: record.account,
-          autoChangeToAccountMatchedNetworkId,
+      try {
+        if (isOthersUniversal) {
+          let autoChangeToAccountMatchedNetworkId = record.avatarNetworkId;
+          if (
+            selectedAccount.networkId &&
+            networkUtils.isAllNetwork({ networkId: selectedAccount.networkId })
+          )
+            autoChangeToAccountMatchedNetworkId = selectedAccount.networkId;
+          await prewarmHomeTokenListBeforeSelect(record);
+          const confirmed = await actions.current.confirmAccountSelect({
+            num,
+            indexedAccount: undefined,
+            othersWalletAccount: record.account,
+            autoChangeToAccountMatchedNetworkId,
+          });
+          if (!confirmed) return;
+        } else if (focusedWalletInfo) {
+          await prewarmHomeTokenListBeforeSelect(record);
+          const confirmed = await actions.current.confirmAccountSelect({
+            num,
+            indexedAccount: record.indexedAccount,
+            othersWalletAccount: undefined,
+            autoChangeToAccountMatchedNetworkId: undefined,
+          });
+          if (!confirmed) return;
+        }
+      } catch {
+        // Keep the selector open when the selection could not be saved.
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          }),
+          message: intl.formatMessage({
+            id: ETranslations.global_an_error_occurred_desc,
+          }),
         });
-        if (!confirmed) return;
-      } else if (focusedWalletInfo) {
-        const confirmed = await actions.current.confirmAccountSelect({
-          num,
-          indexedAccount: record.indexedAccount,
-          othersWalletAccount: undefined,
-          autoChangeToAccountMatchedNetworkId: undefined,
-        });
-        if (!confirmed) return;
+        return;
       }
       resetAccountManagerStacksModal();
     },
@@ -698,8 +903,10 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
       actions,
       allowSelectEmptyAccount,
       focusedWalletInfo,
+      intl,
       isOthersUniversal,
       num,
+      prewarmHomeTokenListBeforeSelect,
       selectedAccount.networkId,
     ],
   );

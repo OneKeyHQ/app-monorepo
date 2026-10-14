@@ -1,0 +1,49 @@
+diff --git a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/ScrollView/RCTPullToRefreshViewComponentView.mm b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/ScrollView/RCTPullToRefreshViewComponentView.mm
+index 60160ef..a5a165d 100644
+--- a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/ScrollView/RCTPullToRefreshViewComponentView.mm
++++ b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/ScrollView/RCTPullToRefreshViewComponentView.mm
+@@ -121,7 +121,9 @@ - (void)updateProps:(const Props::Shared &)props oldProps:(const Props::Shared &
+     if (newConcreteProps.refreshing) {
+       [self beginRefreshingProgrammatically];
+     } else {
+-      [_refreshControl endRefreshing];
++      // OneKey patch: finish partially collapsed refresh controls as well.
++      // [_refreshControl endRefreshing];
++      [self endRefreshingProgrammatically];
+     }
+   }
+ 
+@@ -243,6 +245,22 @@ - (void)beginRefreshingProgrammatically
+   }
+ }
+ 
++- (void)endRefreshingProgrammatically
++{
++  UIScrollView *scrollView = _scrollViewComponentView.scrollView;
++  CGFloat previousTopInset = scrollView.adjustedContentInset.top;
++  [_refreshControl endRefreshing];
++
++  // UIKit can remove the refresh inset without restoring a partially collapsed offset.
++  // Leave active gestures and the normal fully expanded refresh animation to UIKit.
++  CGPoint offset = scrollView.contentOffset;
++  CGFloat topOffset = -scrollView.adjustedContentInset.top;
++  if (scrollView && !scrollView.tracking && !scrollView.dragging && !scrollView.decelerating &&
++      offset.y > -previousTopInset && offset.y < topOffset) {
++    [scrollView setContentOffset:CGPointMake(offset.x, topOffset) animated:YES];
++  }
++}
++
+ #pragma mark - Native commands
+ 
+ - (void)handleCommand:(const NSString *)commandName args:(const NSArray *)args
+@@ -255,7 +273,9 @@ - (void)setNativeRefreshing:(BOOL)refreshing
+   if (refreshing) {
+     [self beginRefreshingProgrammatically];
+   } else {
+-    [_refreshControl endRefreshing];
++    // OneKey patch: use the same completion path as refreshing prop updates.
++    // [_refreshControl endRefreshing];
++    [self endRefreshingProgrammatically];
+   }
+ }
+ 

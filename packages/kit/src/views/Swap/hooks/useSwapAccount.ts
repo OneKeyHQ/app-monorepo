@@ -44,8 +44,10 @@ import {
 } from '../utils/swapColdStartTokenCacheUtils';
 
 import {
+  buildSwapAddressAccountInfo,
   getSwapAddressAccountSelectorNum,
   resolveSwapTargetNetworkAccount,
+  resolveSwapTargetNetworkAccountOnce,
   shouldResetSwapRecipientOnAccountNetworkSync,
   shouldShowSwapRecipientAddressInfo,
   shouldUseSwapCustomRecipientAddress,
@@ -163,12 +165,14 @@ export function useSwapFromAccountNetworkSync() {
         await updateSelectedAccountNetwork({
           num: 0,
           networkId: fromTokenRef.current?.networkId,
+          reason: 'swapFromTokenNetworkSync',
         });
       }
       if (toTokenRef.current) {
         await updateSelectedAccountNetwork({
           num: 1,
           networkId: toTokenRef.current?.networkId,
+          reason: 'swapToTokenNetworkSync',
         });
       }
       if (fromTokenRef.current && toTokenRef.current) {
@@ -200,6 +204,7 @@ export function useSwapFromAccountNetworkSync() {
               void updateSelectedAccountNetwork({
                 num: 1,
                 networkId: toTokenRef.current?.networkId,
+                reason: 'swapRecipientNetworkSync',
               });
           }, 500);
         }
@@ -260,12 +265,50 @@ export function useSwapFromAccountNetworkSync() {
   ]);
 }
 
-export function useSwapAddressInfo(type: ESwapDirectionType) {
+// The active account's counterpart on `networkId`: same wallet and indexed
+// account, the network's global derive type. useSwapAddressInfo runs this for
+// a cross-network token; press handlers call it directly when they need that
+// account while the hook's lookup is still pending, so the tap is not lost.
+export function resolveSwapNetworkAccount({
+  accountId,
+  indexedAccountId,
+  dbAccount,
+  networkId,
+}: {
+  accountId?: string;
+  indexedAccountId?: string;
+  dbAccount?: IAccountSelectorActiveAccountInfo['dbAccount'];
+  networkId: string;
+}) {
+  return resolveSwapTargetNetworkAccount({
+    getDeriveType: () =>
+      backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+        networkId,
+      }),
+    getNetworkAccount: (deriveType) =>
+      backgroundApiProxy.serviceAccount.getNetworkAccount({
+        deriveType,
+        indexedAccountId,
+        accountId: indexedAccountId ? undefined : accountId,
+        dbAccount,
+        networkId,
+      }),
+  });
+}
+
+export function useSwapAddressInfo(
+  type: ESwapDirectionType,
+  {
+    useCustomRecipientAddress = true,
+  }: { useCustomRecipientAddress?: boolean } = {},
+) {
   const [{ swapToAnotherAccountSwitchOn }] = useSettingsAtom();
+  const useRecipientAccount =
+    useCustomRecipientAddress && swapToAnotherAccountSwitchOn;
   const { activeAccount } = useActiveAccount({
     num: getSwapAddressAccountSelectorNum({
       type,
-      swapToAnotherAccountSwitchOn,
+      swapToAnotherAccountSwitchOn: useRecipientAccount,
     }),
   });
   const [fromToken] = useSwapSelectFromTokenAtom();
@@ -282,8 +325,10 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
   const [deriveTypeForTargetNetwork, setDeriveTypeForTargetNetwork] = useState<
     IAccountDeriveTypes | undefined
   >(undefined);
-  const [resolvedTargetNetworkAccountKey, setResolvedTargetNetworkAccountKey] =
-    useState<string | undefined>(undefined);
+  const [targetNetworkAccountResolution, setTargetNetworkAccountResolution] =
+    useState<{ key: string; status: 'resolved' | 'failed' } | undefined>(
+      undefined,
+    );
 
   const focusSwapPro = useMemo(() => {
     return (
@@ -347,23 +392,27 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
     tokenNetworkId,
   ]);
 
-  const targetNetworkAccountResolveKey = useMemo(() => {
-    if (!shouldResolveTargetNetworkAccount || !tokenNetworkId) {
-      return undefined;
-    }
-    return [
+  const validationScopeKey = useMemo(
+    () =>
+      [
+        tokenNetworkId,
+        activeAccount.wallet?.id ?? '',
+        activeAccount.indexedAccount?.id ?? '',
+        activeAccount.account?.id ?? '',
+        activeAccount.deriveType ?? '',
+      ].join('|'),
+    [
+      activeAccount.account?.id,
+      activeAccount.deriveType,
+      activeAccount.indexedAccount?.id,
+      activeAccount.wallet?.id,
       tokenNetworkId,
-      activeAccount.indexedAccount?.id ?? '',
-      activeAccount.account?.id ?? '',
-      activeAccount.deriveType ?? '',
-    ].join('|');
-  }, [
-    activeAccount.account?.id,
-    activeAccount.deriveType,
-    activeAccount.indexedAccount?.id,
-    shouldResolveTargetNetworkAccount,
-    tokenNetworkId,
-  ]);
+    ],
+  );
+  const targetNetworkAccountResolveKey =
+    shouldResolveTargetNetworkAccount && tokenNetworkId
+      ? validationScopeKey
+      : undefined;
 
   const isAddressInfoReady = useMemo(() => {
     if (!activeAccount.ready) {
@@ -372,40 +421,48 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
     if (!targetNetworkAccountResolveKey) {
       return true;
     }
-    return resolvedTargetNetworkAccountKey === targetNetworkAccountResolveKey;
+    return (
+      targetNetworkAccountResolution?.key === targetNetworkAccountResolveKey &&
+      targetNetworkAccountResolution.status === 'resolved'
+    );
   }, [
     activeAccount.ready,
-    resolvedTargetNetworkAccountKey,
+    targetNetworkAccountResolution,
     targetNetworkAccountResolveKey,
   ]);
+  // Address-only validation can continue after a terminal account lookup failure.
+  // Keep this separate from readiness used by account resolution consumers.
+  const isRecipientValidationReady =
+    activeAccount.ready &&
+    (!targetNetworkAccountResolveKey ||
+      targetNetworkAccountResolution?.key === targetNetworkAccountResolveKey);
 
   useEffect(() => {
     let cancelled = false;
 
-    if (!shouldResolveTargetNetworkAccount || !tokenNetworkId) {
+    // The key is only defined while a target account has to be resolved.
+    if (
+      !shouldResolveTargetNetworkAccount ||
+      !tokenNetworkId ||
+      !targetNetworkAccountResolveKey
+    ) {
       setAccountForTargetNetwork(undefined);
       setDeriveTypeForTargetNetwork(undefined);
-      setResolvedTargetNetworkAccountKey(undefined);
+      setTargetNetworkAccountResolution(undefined);
       return;
     }
     setDeriveTypeForTargetNetwork(undefined);
-    setResolvedTargetNetworkAccountKey(undefined);
+    setTargetNetworkAccountResolution(undefined);
 
     void (async () => {
       try {
         const { account: targetAccount, deriveType: targetDeriveType } =
-          await resolveSwapTargetNetworkAccount({
-            getDeriveType: () =>
-              backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-                networkId: tokenNetworkId,
-              }),
-            getNetworkAccount: (deriveType) =>
-              backgroundApiProxy.serviceAccount.getNetworkAccount({
-                deriveType,
+          await resolveSwapTargetNetworkAccountOnce({
+            key: targetNetworkAccountResolveKey,
+            resolve: () =>
+              resolveSwapNetworkAccount({
+                accountId: activeAccount.account?.id,
                 indexedAccountId: activeAccount.indexedAccount?.id,
-                accountId: activeAccount.indexedAccount?.id
-                  ? undefined
-                  : activeAccount.account?.id,
                 dbAccount: activeAccount.dbAccount,
                 networkId: tokenNetworkId,
               }),
@@ -413,12 +470,19 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
         if (!cancelled) {
           setAccountForTargetNetwork(targetAccount);
           setDeriveTypeForTargetNetwork(targetDeriveType);
-          setResolvedTargetNetworkAccountKey(targetNetworkAccountResolveKey);
+          setTargetNetworkAccountResolution({
+            key: targetNetworkAccountResolveKey,
+            status: 'resolved',
+          });
         }
       } catch (_e) {
         if (!cancelled) {
           setAccountForTargetNetwork(undefined);
           setDeriveTypeForTargetNetwork(undefined);
+          setTargetNetworkAccountResolution({
+            key: targetNetworkAccountResolveKey,
+            status: 'failed',
+          });
         }
       }
     })();
@@ -445,6 +509,8 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
       accountInfo: IAccountSelectorActiveAccountInfo | undefined;
       activeAccount: IAccountSelectorActiveAccountInfo | undefined;
       isAddressInfoReady: boolean;
+      isRecipientValidationReady: boolean;
+      validationScopeKey: string;
     } = {
       networkId: undefined,
       deriveType: shouldResolveTargetNetworkAccount
@@ -454,10 +520,13 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
       accountInfo: undefined,
       activeAccount: undefined,
       isAddressInfoReady,
+      isRecipientValidationReady,
+      validationScopeKey,
     };
     // Keep the confirmed custom recipient even when cross-chain TO account
     // resolution has not materialized a network account yet.
     if (
+      useCustomRecipientAddress &&
       shouldUseSwapCustomRecipientAddress({
         type,
         swapToAnotherAccountSwitchOn,
@@ -523,11 +592,24 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
       };
     }
 
-    const resolvedAccount = shouldResolveTargetNetworkAccount
-      ? accountForTargetNetwork
-      : activeAccount.account;
+    // Do not expose a previous target-network result while the current lookup
+    // is pending. The active account remains the source for an on-demand
+    // lookup, but derived address and balance state must not use stale data.
+    let resolvedAccount: INetworkAccount | undefined = activeAccount.account;
+    if (shouldResolveTargetNetworkAccount) {
+      resolvedAccount = isAddressInfoReady
+        ? accountForTargetNetwork
+        : undefined;
+    }
 
     if (activeAccount) {
+      const resolvedAccountInfo = buildSwapAddressAccountInfo({
+        activeAccount,
+        shouldResolveTargetNetworkAccount,
+        // Do not expose the previous target result during a new lookup. The
+        // resolve key is only marked ready after this request settles.
+        targetNetworkAccount: isAddressInfoReady ? resolvedAccount : undefined,
+      });
       return {
         ...res,
         address: resolvedAccount?.addressDetail?.address,
@@ -544,16 +626,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
               }
             : undefined),
         },
-        accountInfo: {
-          ...activeAccount,
-          ...(resolvedAccount
-            ? {
-                account: {
-                  ...resolvedAccount,
-                },
-              }
-            : undefined),
-        },
+        accountInfo: resolvedAccountInfo,
       };
     }
     if (
@@ -571,6 +644,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     type,
+    useCustomRecipientAddress,
     swapToAnotherAccountSwitchOn,
     swapToAnotherAccountAddressAtom.address,
     swapToAnotherAccountAddressAtom.networkId,
@@ -580,6 +654,8 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
     accountForTargetNetwork,
     deriveTypeForTargetNetwork,
     isAddressInfoReady,
+    isRecipientValidationReady,
+    validationScopeKey,
     tokenNetworkId,
     currentSelectNetwork?.networkId,
     shouldResolveTargetNetworkAccount,

@@ -137,6 +137,7 @@ import {
   inAppNotificationAtom,
   perpsDepositOrderAtom,
   settingsPersistAtom,
+  swapLimitOrdersLoadingAtom,
 } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 
@@ -160,6 +161,13 @@ import {
 import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwork';
 
 const SWAP_REFERRAL_LOOKUP_TIMEOUT_MS = 3000;
+
+type ISwapBuildTxContext = {
+  accountId?: string;
+  protocol: EProtocolOfExchange;
+  referralBuildTxParams: ReturnType<typeof buildSwapReferralBuildTxParams>;
+  walletTypeHeader: { 'X-OneKey-Wallet-Type': string };
+};
 
 const formatter: INumberFormatProps = {
   formatter: 'balance',
@@ -608,11 +616,31 @@ export default class ServiceSwap extends ServiceBase {
     return buildSwapReferralBuildTxParams(referralInfo);
   }
 
+  @backgroundMethod()
+  async prepareSwapBuildTxContext({
+    accountId,
+    protocol,
+  }: {
+    accountId?: string;
+    protocol: EProtocolOfExchange;
+  }): Promise<ISwapBuildTxContext> {
+    const [referralBuildTxParams, walletTypeHeader] = await Promise.all([
+      this.getSwapReferralBuildTxParams({ accountId, protocol }),
+      this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+        accountId,
+      }) as Promise<ISwapBuildTxContext['walletTypeHeader']>,
+    ]);
+    return { accountId, protocol, referralBuildTxParams, walletTypeHeader };
+  }
+
   private _limitOrderCurrentAccountId?: string;
 
   private approvingInterval: ReturnType<typeof setTimeout> | undefined;
 
   private approvingIntervalCount = 0;
+
+  // Invalidates receipts from an older polling loop, even for the same tx.
+  private approvingPollingRequestId = 0;
 
   private speedSwapApprovingInterval: ReturnType<typeof setTimeout> | undefined;
 
@@ -735,7 +763,12 @@ export default class ServiceSwap extends ServiceBase {
                 }
               : {}),
             networkId: network.networkId,
+            isL2: network.isL2 ?? false,
+            ...(network.parentNetworkId
+              ? { parentNetworkId: network.parentNetworkId }
+              : {}),
             defaultSelectToken: network.defaultSelectToken,
+            defaultSelectTokenDetail: network.defaultSelectTokenDetail,
             supportCrossChainSwap: network.supportCrossChainSwap,
             supportSingleSwap: network.supportSingleSwap,
             supportLimit: network.supportLimit,
@@ -885,15 +918,17 @@ export default class ServiceSwap extends ServiceBase {
       const successfulResponses = responses.flatMap((response) =>
         response.status === 'fulfilled' ? [response.value] : [],
       );
-      if (successfulResponses.length === 0) {
-        const failedResponse = responses.find(
-          (response) => response.status === 'rejected',
-        ) as PromiseRejectedResult;
-        throw failedResponse.reason;
-      }
+      const failedResponse = responses.find(
+        (response): response is PromiseRejectedResult =>
+          response.status === 'rejected',
+      );
       const tokens = mergeSwapTokenLists(
         successfulResponses.map(({ data }) => data?.data ?? []),
       );
+      // An incomplete empty search cannot invalidate the last-good result.
+      if (failedResponse && tokens.length === 0) {
+        throw failedResponse.reason;
+      }
       return normalizeSwapTokenListCurrency({
         tokens,
         currency: requestCurrency,
@@ -1476,7 +1511,10 @@ export default class ServiceSwap extends ServiceBase {
     protocol,
     kind,
     walletType,
+    deviceType,
+    source,
     tradeSource,
+    preparedContext,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
@@ -1491,12 +1529,28 @@ export default class ServiceSwap extends ServiceBase {
     protocol: EProtocolOfExchange;
     kind: ESwapQuoteKind;
     walletType?: string;
+    deviceType?: string;
+    source?: ESwapQuoteSource;
     tradeSource: ESwapTradeSource;
+    preparedContext?: ISwapBuildTxContext;
   }): Promise<IFetchBuildTxResponse | undefined> {
-    const referralBuildTxParams = await this.getSwapReferralBuildTxParams({
-      accountId,
-      protocol,
-    });
+    const contextPromise =
+      preparedContext &&
+      preparedContext.accountId === accountId &&
+      preparedContext.protocol === protocol
+        ? Promise.resolve(preparedContext)
+        : this.prepareSwapBuildTxContext({ accountId, protocol });
+    const accountDevicePromise =
+      !deviceType && accountId
+        ? this.backgroundApi.serviceAccount.getAccountDeviceSafe({
+            accountId,
+          })
+        : Promise.resolve(undefined);
+    const [context, accountDevice, client] = await Promise.all([
+      contextPromise,
+      accountDevicePromise,
+      this.getClient(EServiceEndpointEnum.Swap),
+    ]);
     const params: IFetchBuildTxParams = {
       fromTokenAddress: fromToken.contractAddress,
       toTokenAddress: toToken.contractAddress,
@@ -1512,18 +1566,18 @@ export default class ServiceSwap extends ServiceBase {
       quoteResultCtx,
       kind,
       walletType,
+      deviceType: deviceType ?? accountDevice?.deviceType,
+      // Preserve the trading entry for attribution even when native BTC quotes
+      // fall back to the legacy provider pool.
+      source,
       tradeSource,
-      ...referralBuildTxParams,
+      ...context.referralBuildTxParams,
     };
-    const client = await this.getClient(EServiceEndpointEnum.Swap);
     const { data } = await client.post<IFetchResponse<IFetchBuildTxResponse>>(
       '/swap/v1/build-tx',
       params,
       {
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId,
-          }),
+        headers: context.walletTypeHeader,
       },
     );
     return data?.data;
@@ -1900,6 +1954,7 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async cleanApprovingInterval() {
+    this.approvingPollingRequestId += 1;
     if (this.approvingInterval) {
       clearTimeout(this.approvingInterval);
       this.approvingInterval = undefined;
@@ -1914,57 +1969,69 @@ export default class ServiceSwap extends ServiceBase {
     }
   }
 
-  async approvingStateRunSync(networkId: string, txId: string) {
+  async approvingStateRunSync(
+    networkId: string,
+    txId: string,
+    approvalRequestId?: string,
+    pollingRequestId = this.approvingPollingRequestId,
+  ) {
     let enableInterval = true;
+    let trackedTxId: string | undefined = txId;
+    const ownsPolling = () =>
+      pollingRequestId === this.approvingPollingRequestId;
+    const matchesApproval = (approval?: ISwapApproveTransaction) =>
+      approval?.txId === trackedTxId &&
+      approval?.fromToken.networkId === networkId &&
+      approval?.approvalRequestId === approvalRequestId;
     try {
       const txState = await this.fetchTxState({
         txId,
         networkId,
       });
-      const preApproveTx = await this.getApprovingTransaction();
-      if (
-        txState.state === ESwapTxHistoryStatus.SUCCESS ||
-        txState.state === ESwapTxHistoryStatus.FAILED
-      ) {
-        enableInterval = false;
-        if (preApproveTx) {
-          if (
-            txState.state === ESwapTxHistoryStatus.SUCCESS ||
-            txState.state === ESwapTxHistoryStatus.FAILED
-          ) {
-            let newApproveTx: ISwapApproveTransaction = {
-              ...preApproveTx,
-              blockNumber: txState.blockNumber,
-              status: ESwapApproveTransactionStatus.SUCCESS,
-            };
-            if (txState.state === ESwapTxHistoryStatus.FAILED) {
-              newApproveTx = {
-                ...preApproveTx,
-                txId: undefined,
-                status: ESwapApproveTransactionStatus.FAILED,
-              };
-            }
-            await this.setApprovingTransaction(newApproveTx);
-          }
+      await inAppNotificationAtom.set((pre) => {
+        const approval = pre.swapApprovingTransaction;
+        if (!ownsPolling() || !approval || !matchesApproval(approval)) {
+          return pre;
         }
-      } else if (
-        preApproveTx &&
-        preApproveTx.status !== ESwapApproveTransactionStatus.PENDING
-      ) {
-        await this.setApprovingTransaction({
-          ...preApproveTx,
-          status: ESwapApproveTransactionStatus.PENDING,
-        });
-      }
+        const failed = txState.state === ESwapTxHistoryStatus.FAILED;
+        if (failed || txState.state === ESwapTxHistoryStatus.SUCCESS) {
+          enableInterval = false;
+          trackedTxId = failed ? undefined : txId;
+          return {
+            ...pre,
+            swapApprovingLoading: false,
+            swapApprovingTransaction: {
+              ...approval,
+              txId: trackedTxId,
+              ...(failed ? {} : { blockNumber: txState.blockNumber }),
+              status: failed
+                ? ESwapApproveTransactionStatus.FAILED
+                : ESwapApproveTransactionStatus.SUCCESS,
+            },
+          };
+        }
+        return approval.status === ESwapApproveTransactionStatus.PENDING
+          ? pre
+          : {
+              ...pre,
+              swapApprovingTransaction: {
+                ...approval,
+                status: ESwapApproveTransactionStatus.PENDING,
+              },
+            };
+      });
     } catch (e) {
       console.error(e);
     } finally {
-      if (enableInterval) {
-        this.approvingIntervalCount += 1;
-        void this.approvingStateAction();
-      } else {
-        void this.cleanApprovingInterval();
-        this.approvingIntervalCount = 0;
+      const approval = await this.getApprovingTransaction();
+      if (ownsPolling() && matchesApproval(approval)) {
+        if (enableInterval) {
+          this.approvingIntervalCount += 1;
+          void this.approvingStateAction();
+        } else {
+          void this.cleanApprovingInterval();
+          this.approvingIntervalCount = 0;
+        }
       }
     }
   }
@@ -2027,14 +2094,20 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async approvingStateAction() {
     void this.cleanApprovingInterval();
+    const pollingRequestId = this.approvingPollingRequestId;
     const approvingTransaction = await this.getApprovingTransaction();
-    if (approvingTransaction && approvingTransaction.txId) {
+    if (
+      pollingRequestId === this.approvingPollingRequestId &&
+      approvingTransaction?.txId
+    ) {
       this.approvingInterval = setTimeout(
         () => {
           if (approvingTransaction.txId) {
             void this.approvingStateRunSync(
               approvingTransaction.fromToken.networkId,
               approvingTransaction.txId,
+              approvingTransaction.approvalRequestId,
+              pollingRequestId,
             );
           }
         },
@@ -3455,10 +3528,7 @@ export default class ServiceSwap extends ServiceBase {
         swapSupportNetworks: swapLimitSupportNetworks,
       });
     if (supportAccountsFetchFailed) {
-      await inAppNotificationAtom.set((pre) => ({
-        ...pre,
-        swapLimitOrdersLoading: false,
-      }));
+      await swapLimitOrdersLoadingAtom.set(() => false);
       this.scheduleSwapLimitOrdersFetchLoop(
         indexedAccountId,
         otherWalletTypeAccountId,
@@ -3495,10 +3565,7 @@ export default class ServiceSwap extends ServiceBase {
             userAddress: account.apiAddress,
             networkId: account.networkId,
           }));
-          await inAppNotificationAtom.set((pre) => ({
-            ...pre,
-            swapLimitOrdersLoading: true,
-          }));
+          await swapLimitOrdersLoadingAtom.set(() => true);
           res = await this.fetchLimitOrders(accounts);
           await this.checkLimitOrderStatus(res, swapLimitOrders);
           await inAppNotificationAtom.set((pre) => {
@@ -3517,13 +3584,11 @@ export default class ServiceSwap extends ServiceBase {
               return {
                 ...pre,
                 swapLimitOrders: [...newList],
-                swapLimitOrdersLoading: false,
                 swapLimitOrdersAccountIdKey: accountIdKey,
               };
             }
             return {
               ...pre,
-              swapLimitOrdersLoading: false,
               swapLimitOrders: [...res],
               swapLimitOrdersAccountIdKey: accountIdKey,
             };
@@ -3535,11 +3600,11 @@ export default class ServiceSwap extends ServiceBase {
             );
           }
         } else {
-          await inAppNotificationAtom.set((pre) => ({
-            ...pre,
-            swapLimitOrdersLoading: false,
-            swapLimitOrdersAccountIdKey: accountIdKey,
-          }));
+          await inAppNotificationAtom.set((pre) =>
+            pre.swapLimitOrdersAccountIdKey === accountIdKey
+              ? pre
+              : { ...pre, swapLimitOrdersAccountIdKey: accountIdKey },
+          );
         }
       } catch (_error) {
         this.scheduleSwapLimitOrdersFetchLoop(
@@ -3547,18 +3612,20 @@ export default class ServiceSwap extends ServiceBase {
           otherWalletTypeAccountId,
         );
       } finally {
-        await inAppNotificationAtom.set((pre) => ({
-          ...pre,
-          swapLimitOrdersLoading: false,
-        }));
+        await swapLimitOrdersLoadingAtom.set(() => false);
       }
     } else {
-      await inAppNotificationAtom.set((pre) => ({
-        ...pre,
-        swapLimitOrders: [],
-        swapLimitOrdersLoading: false,
-        swapLimitOrdersAccountIdKey: accountIdKey,
-      }));
+      await inAppNotificationAtom.set((pre) =>
+        pre.swapLimitOrders.length === 0 &&
+        pre.swapLimitOrdersAccountIdKey === accountIdKey
+          ? pre
+          : {
+              ...pre,
+              swapLimitOrders: [],
+              swapLimitOrdersAccountIdKey: accountIdKey,
+            },
+      );
+      await swapLimitOrdersLoadingAtom.set(() => false);
     }
   }
 

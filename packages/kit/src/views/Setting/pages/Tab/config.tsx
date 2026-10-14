@@ -80,7 +80,7 @@ import {
   TravelModeListItem,
   UseGasAccountByDefaultListItem,
 } from './CustomElement';
-import { showExportLogsDialog } from './exportLogs/showExportLogsDialog';
+import { ExportDiagnosticLogsListItem } from './exportLogs/ExportDiagnosticLogsListItem';
 import { OFFICIAL_CHANNELS_SEARCH_KEYWORDS } from './officialChannels';
 import { getSettingsDisplayTitle } from './settingsDisplay';
 import { SETTINGS_SIDEBAR_ORDER } from './settingsRootLayout';
@@ -1025,13 +1025,14 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.settings_export_state_logs,
               }),
-              onPress: () => {
-                showExportLogsDialog({
-                  title: intl.formatMessage({
-                    id: ETranslations.settings_upload_state_logs,
-                  }),
-                });
-              },
+              keywords: [
+                'diagnostic logs',
+                'state logs',
+                '导出诊断日志',
+                '导出状态日志',
+              ],
+              testID: SettingTestIDs.exportDiagnosticLogsItem,
+              renderElement: <ExportDiagnosticLogsListItem />,
             },
           ],
         ],

@@ -4,6 +4,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { Toast, rootNavigationRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
+import { finishMarketDetailTabBarTransition } from '@onekeyhq/kit/src/views/Market/utils/marketDetailNavigation';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -119,6 +120,9 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
 }));
 
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
+  EAppEventBusNames: {
+    HideTabBar: 'HideTabBar',
+  },
   appEventBus: {
     emit: jest.fn(),
   },
@@ -174,6 +178,7 @@ describe('useToDetailPage', () => {
   });
 
   afterEach(() => {
+    finishMarketDetailTabBarTransition();
     jest.useRealTimers();
     Object.defineProperty(globalThis, 'close', {
       configurable: true,
@@ -563,6 +568,36 @@ describe('useToDetailPage', () => {
       includeHeavyModules: true,
       isStockRoute: true,
       layout: 'mobile',
+    });
+    mockedPlatformEnv.isExtensionUiPopup = true;
+  });
+
+  it('navigates items whose stock id is only nested on stock', async () => {
+    const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+    };
+    mockedPlatformEnv.isExtensionUiPopup = false;
+    const { result } = renderHook(() => useToDetailPage());
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: '0xaapl',
+        networkId: 'evm--1',
+        symbol: 'AAPLon',
+        stock: {
+          subtitle: 'Apple Inc.',
+          sourceLogoUri: '',
+          stockId: 'aapl',
+        },
+      });
+    });
+
+    expect(mockNavigationPush).toHaveBeenCalledWith('MarketStockDetail', {
+      stockId: 'AAPL',
+      tokenAddress: '0xaapl',
+      network: 'eth',
+      isNative: undefined,
+      from: undefined,
     });
     mockedPlatformEnv.isExtensionUiPopup = true;
   });

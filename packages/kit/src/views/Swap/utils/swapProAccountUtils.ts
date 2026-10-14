@@ -1,4 +1,6 @@
+import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { shouldKeepCurrentActiveAccountForIncompleteSelection } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/activeAccountInitGuard';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 export enum ESwapProAccountStatus {
   NO_ACCOUNT = 'noAccount',
@@ -129,6 +131,42 @@ export function getSwapProAccountForCurrentScope<T>({
   return account;
 }
 
+export function getSwapProDepositAccountInfo({
+  activeAccount,
+  networkAccount,
+  indexedAccountId,
+  accountId,
+  selectedWalletId,
+}: {
+  activeAccount: IAccountSelectorActiveAccountInfo;
+  networkAccount: INetworkAccount | undefined;
+  indexedAccountId: string | undefined;
+  accountId: string | undefined;
+  selectedWalletId: string | undefined;
+}): IAccountSelectorActiveAccountInfo | undefined {
+  if (!networkAccount || !activeAccount.wallet?.id) return undefined;
+  if (selectedWalletId && activeAccount.wallet.id !== selectedWalletId) {
+    return undefined;
+  }
+  const identityMatches = indexedAccountId
+    ? activeAccount.indexedAccount?.id === indexedAccountId
+    : Boolean(
+        accountId &&
+        (activeAccount.account?.id === accountId ||
+          activeAccount.dbAccount?.id === accountId),
+      );
+  if (!identityMatches) return undefined;
+  return {
+    ...activeAccount,
+    account: networkAccount,
+    indexedAccount: indexedAccountId ? activeAccount.indexedAccount : undefined,
+    dbAccount:
+      accountId && activeAccount.dbAccount?.id === accountId
+        ? activeAccount.dbAccount
+        : undefined,
+  };
+}
+
 export function getSwapProErrorAlertAction({
   isSwapProActive,
   previousAccountScope,
@@ -162,6 +200,7 @@ export function getSwapProErrorAlertAction({
 }
 
 export function shouldSyncSwapProAccountNetwork({
+  isFocused,
   isSwapProActive,
   targetNetworkId,
   currentNetworkId,
@@ -170,6 +209,7 @@ export function shouldSyncSwapProAccountNetwork({
   isSingletonAccountReady,
   isSingletonAccountCompatible,
 }: {
+  isFocused: boolean;
   isSwapProActive: boolean;
   targetNetworkId: string;
   currentNetworkId: string | undefined;
@@ -179,6 +219,7 @@ export function shouldSyncSwapProAccountNetwork({
   isSingletonAccountCompatible: boolean;
 }) {
   if (
+    !isFocused ||
     !isSwapProActive ||
     !targetNetworkId ||
     currentNetworkId === targetNetworkId

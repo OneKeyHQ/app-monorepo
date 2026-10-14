@@ -1,13 +1,24 @@
+/* cspell:ignore Infini */
 import { reportInstallAttribution } from '@onekeyhq/kit/src/components/LastActivityTracker/installAttribution';
+import {
+  closeWcPayDialog,
+  getWcPayDialogState,
+  openWcPayDialog,
+  setWcPayDialogGuarded,
+} from '@onekeyhq/kit/src/views/WalletConnectPay/dialog/wcPayDialogStore';
+import { openWebView as openWebViewOverlay } from '@onekeyhq/kit/src/views/WebView/utils/webViewNavigation';
 import { perpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  EModalRoutes,
   ERootRoutes,
   ETabMarketRoutes,
   ETabRoutes,
   ETabSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
 import { handleDeepLinkUrl } from '..';
 import {
@@ -31,15 +42,37 @@ jest.mock('@onekeyhq/shared/src/utils/cacheUtils', () => ({
   memoizee: (fn: unknown) => fn,
 }));
 
+jest.mock(
+  '../../../../components/WalletConnect/connectWalletConnectToDapp',
+  () => ({
+    connectWalletConnectToDapp: jest.fn(async () => undefined),
+  }),
+);
+
 jest.mock('../../../../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceDevSetting: {
       getDevSetting: jest.fn(async () => ({ settings: {} })),
     },
+    servicePrime: {
+      isLoggedIn: jest.fn(async () => false),
+    },
     walletConnect: {
       connectToDapp: jest.fn(),
     },
+    serviceWalletConnectPay: {
+      isPaymentLink: jest.fn(async () => false),
+      supportsDurableProgress: jest.fn(async () => true),
+    },
+  },
+}));
+
+// keep the components package out of this suite's import graph; only Toast
+// is consumed by the deeplink module (explicit pay refusal)
+jest.mock('@onekeyhq/components', () => ({
+  Toast: {
+    error: jest.fn(),
   },
 }));
 
@@ -76,6 +109,12 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   perpsCommonConfigPersistAtom: {
     get: jest.fn(),
   },
+}));
+
+// the pay deep link waits for unlock before opening the dialog; resolved
+// immediately by default, individual tests swap in a deferred promise
+jest.mock('../../../../utils/passwordUtils', () => ({
+  whenAppUnlocked: jest.fn(async () => {}),
 }));
 
 jest.mock('../referralLandingLink', () => ({
@@ -149,6 +188,36 @@ describe('handleDeepLinkUrl', () => {
     await flushAsyncTasks();
 
     expect(mockedNavigateToReferralLanding).not.toHaveBeenCalled();
+  });
+});
+
+describe('disabled webview deep links', () => {
+  const navigate = jest.fn();
+  const originalRootAppNavigation = appGlobals.$rootAppNavigation;
+  const url = 'onekey-wallet://webview?url=https%3A%2F%2Fonekey.so';
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    appGlobals.$rootAppNavigation = {
+      navigate,
+    } as unknown as typeof appGlobals.$rootAppNavigation;
+  });
+
+  afterEach(() => {
+    appGlobals.$rootAppNavigation = originalRootAppNavigation;
+  });
+
+  it.each([
+    { url },
+    { url, isColdStartup: true },
+    { url: '', argv: [url] },
+    { url: `${url}&title=OneKey&hideHeader=1&showAddressBar=0` },
+  ])('does not open a webpage for %j', async (data) => {
+    handleDeepLinkUrl(data);
+    await flushAsyncTasks();
+
+    expect(openWebViewOverlay).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
   });
 });
 
@@ -260,24 +329,27 @@ describe('stocks / perps universal links', () => {
     }
   });
 
-  it('opens a same-domain App Clip web campaign in the full-app WebView', async () => {
-    const { openWebView } = jest.requireMock(
-      '../../../../views/WebView/utils/webViewNavigation',
-    );
-    const webUrl = 'https://app.onekey.so/campaign/summer?source=app-clip';
-    handleDeepLinkUrl({
-      url: `https://app.onekey.so/clip/web/summer?web_url=${encodeURIComponent(
-        webUrl,
-      )}`,
-    });
-    await flushAsyncTasks();
+  it.each(['/clip/web', '/clip/web/summer'])(
+    'rejects the removed App Clip WebView universal link: %s',
+    async (path) => {
+      const originalIsNativeIOS = platformEnv.isNativeIOS;
+      platformEnv.isNativeIOS = true;
+      try {
+        handleDeepLinkUrl({
+          url: `https://app.onekey.so${path}?web_url=${encodeURIComponent(
+            'https://app.onekey.so/campaign/summer',
+          )}`,
+        });
+        await flushAsyncTasks();
 
-    expect(openWebView).toHaveBeenCalledWith({
-      appClipCampaign: true,
-      source: 'deeplink',
-      url: webUrl,
-    });
-  });
+        expect(navigate).not.toHaveBeenCalled();
+        expect(openWebViewOverlay).not.toHaveBeenCalled();
+        expect(reportInstallAttribution).not.toHaveBeenCalled();
+      } finally {
+        platformEnv.isNativeIOS = originalIsNativeIOS;
+      }
+    },
+  );
 
   it('routes an App Clip selection to the existing market detail page', async () => {
     handleDeepLinkUrl({
@@ -391,29 +463,11 @@ describe('stocks / perps universal links', () => {
     });
   });
 
-  it('unwraps a validated App Clip web handoff', async () => {
-    const { openWebView } = jest.requireMock(
-      '../../../../views/WebView/utils/webViewNavigation',
-    );
-    const webUrl = 'https://app.onekey.so/campaign/autumn?source=app-clip';
-    const canonicalUrl = `https://app.onekey.so/clip/web?web_url=${encodeURIComponent(
-      webUrl,
-    )}&utm_campaign=autumn`;
-    handleDeepLinkUrl({
-      url: `onekey-wallet://app-clip?url=${encodeURIComponent(canonicalUrl)}`,
-    });
-    await flushAsyncTasks();
-
-    expect(openWebView).toHaveBeenCalledWith({
-      appClipCampaign: true,
-      source: 'deeplink',
-      url: webUrl,
-    });
-  });
-
   it.each([
     'https://evil.example/clip/market?network=eth&address=0x1234',
     'https://app.onekey.so/settings',
+    'https://app.onekey.so/clip/web?web_url=https%3A%2F%2Fapp.onekey.so%2Fcampaign',
+    'https://app.onekey.so/clip/web/summer?web_url=https%3A%2F%2Fapp.onekey.so%2Fcampaign',
     'not-a-url',
   ])(
     'rejects an invalid App Clip custom-scheme handoff: %s',
@@ -460,26 +514,6 @@ describe('stocks / perps universal links', () => {
         screen: ETabMarketRoutes.TabMarket,
       },
     });
-  });
-
-  it.each([
-    'http://app.onekey.so/campaign',
-    'https://evil.example/campaign',
-    'https://user:secret@app.onekey.so/campaign',
-    'https://app.onekey.so/settings',
-    'https://app.onekey.so/campaigns',
-  ])('rejects an unsafe App Clip web campaign URL: %s', async (webUrl) => {
-    const { openWebView } = jest.requireMock(
-      '../../../../views/WebView/utils/webViewNavigation',
-    );
-    handleDeepLinkUrl({
-      url: `https://app.onekey.so/clip/web?web_url=${encodeURIComponent(
-        webUrl,
-      )}`,
-    });
-    await flushAsyncTasks();
-
-    expect(openWebView).not.toHaveBeenCalled();
   });
 
   it('routes earn detail universal link to EarnProtocolDetailsShare with vault', async () => {
@@ -588,5 +622,217 @@ describe('stocks / perps universal links', () => {
 
     expect(navigate).not.toHaveBeenCalled();
     expect(switchTabAsync).not.toHaveBeenCalled();
+  });
+});
+
+describe('prime_subscription deep link', () => {
+  const pushModal = jest.fn();
+  const originalRootAppNavigation = appGlobals.$rootAppNavigation;
+  const backgroundApiProxy = jest.requireMock(
+    '../../../../background/instance/backgroundApiProxy',
+  ).default as {
+    servicePrime: { isLoggedIn: jest.Mock };
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    appGlobals.$rootAppNavigation = {
+      pushModal,
+    } as unknown as typeof appGlobals.$rootAppNavigation;
+    backgroundApiProxy.servicePrime.isLoggedIn.mockResolvedValue(false);
+  });
+
+  afterEach(() => {
+    appGlobals.$rootAppNavigation = originalRootAppNavigation;
+  });
+
+  it('opens Prime dashboard when the OneKey ID session is missing', async () => {
+    handleDeepLinkUrl({
+      url: `onekey-wallet://${EOneKeyDeepLinkPath.prime_subscription}`,
+    });
+    await flushAsyncTasks();
+    await flushAsyncTasks();
+
+    expect(pushModal).toHaveBeenCalledWith(EModalRoutes.PrimeModal, {
+      screen: EPrimePages.PrimeDashboard,
+      params: { fromDeepLink: true },
+    });
+  });
+
+  it.each([
+    'https://app.onekey.so/prime/subscription',
+    'https://app.onekeytest.com/prime/subscription',
+  ])(
+    'does not treat the web landing URL as an app deep link: %s',
+    async (url) => {
+      handleDeepLinkUrl({ url });
+      await flushAsyncTasks();
+      await flushAsyncTasks();
+
+      expect(pushModal).not.toHaveBeenCalled();
+    },
+  );
+
+  it('opens the Infini subscription page when already logged in', async () => {
+    backgroundApiProxy.servicePrime.isLoggedIn.mockResolvedValue(true);
+
+    handleDeepLinkUrl({
+      url: `onekey-wallet://${EOneKeyDeepLinkPath.prime_subscription}`,
+    });
+    await flushAsyncTasks();
+    await flushAsyncTasks();
+
+    expect(pushModal).toHaveBeenCalledWith(EModalRoutes.PrimeModal, {
+      screen: EPrimePages.PrimeInfiniSubscription,
+    });
+  });
+});
+
+describe('walletconnect pay deep links', () => {
+  // oxlint-disable-next-line @cspell/spellchecker
+  const payUrl = 'wc:pay-1@2?relay-protocol=irn&symKey=abc';
+  const originalRootAppNavigation = appGlobals.$rootAppNavigation;
+  const mockedBackgroundApiProxy = (
+    jest.requireMock('../../../../background/instance/backgroundApiProxy') as {
+      default: {
+        walletConnect: { connectToDapp: jest.Mock };
+        serviceWalletConnectPay: {
+          isPaymentLink: jest.Mock;
+          supportsDurableProgress: jest.Mock;
+        };
+      };
+    }
+  ).default;
+  const mockedIsPaymentLink =
+    mockedBackgroundApiProxy.serviceWalletConnectPay.isPaymentLink;
+  const mockedSupportsDurableProgress =
+    mockedBackgroundApiProxy.serviceWalletConnectPay.supportsDurableProgress;
+  const mockedConnectToDapp =
+    mockedBackgroundApiProxy.walletConnect.connectToDapp;
+  const mockedWhenAppUnlocked = (
+    jest.requireMock('../../../../utils/passwordUtils') as {
+      whenAppUnlocked: jest.Mock;
+    }
+  ).whenAppUnlocked;
+
+  // deep chains of awaits need more microtask turns than flushAsyncTasks runs
+  async function flushDeepAsyncTasks() {
+    for (let i = 0; i < 10; i += 1) {
+      await Promise.resolve();
+    }
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedIsPaymentLink.mockResolvedValue(true);
+    mockedSupportsDurableProgress.mockResolvedValue(true);
+    // clearAllMocks keeps implementations; restore the immediate-unlock
+    // default in case a test swapped in a deferred promise
+    mockedWhenAppUnlocked.mockImplementation(async () => {});
+    appGlobals.$rootAppNavigation = undefined;
+    closeWcPayDialog();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    appGlobals.$rootAppNavigation = originalRootAppNavigation;
+    closeWcPayDialog();
+  });
+
+  it('opens the pay dialog for a recognized pay link', async () => {
+    handleDeepLinkUrl({ url: payUrl });
+    await flushDeepAsyncTasks();
+
+    expect(getWcPayDialogState()).toMatchObject({
+      isOpen: true,
+      paymentLink: payUrl,
+    });
+  });
+
+  it('opens the pay dialog for a direct https payment link', async () => {
+    // not a wc:-scheme URI, so only the bg isPaymentLink verdict routes it
+    const httpsPayUrl = 'https://pay.walletconnect.com/?pid=pay_123';
+
+    handleDeepLinkUrl({ url: httpsPayUrl });
+    await flushDeepAsyncTasks();
+
+    expect(mockedIsPaymentLink).toHaveBeenCalledWith({ uri: httpsPayUrl });
+    expect(getWcPayDialogState()).toMatchObject({
+      isOpen: true,
+      paymentLink: httpsPayUrl,
+    });
+  });
+
+  it('refuses the pay link with an explicit toast when durable progress is unsupported', async () => {
+    mockedSupportsDurableProgress.mockResolvedValue(false);
+
+    handleDeepLinkUrl({ url: payUrl });
+    await flushDeepAsyncTasks();
+
+    expect(getWcPayDialogState().isOpen).toBe(false);
+    // the recognized pay URI must be consumed here, never handed to dapp
+    // pairing (pair() rejects pay URIs silently)
+    expect(mockedConnectToDapp).not.toHaveBeenCalled();
+    const { Toast } = jest.requireMock('@onekeyhq/components') as {
+      Toast: { error: jest.Mock };
+    };
+    expect(Toast.error).toHaveBeenCalled();
+  });
+
+  it('opens the pay dialog even before root navigation exists (cold start)', async () => {
+    // cold start: the link arrives before $rootAppNavigation is assigned.
+    // The dialog store holds state, not a navigation call, so nothing is
+    // dropped — the container renders from the store once it mounts.
+    expect(appGlobals.$rootAppNavigation).toBeUndefined();
+
+    handleDeepLinkUrl({ url: payUrl });
+    await flushDeepAsyncTasks();
+
+    expect(getWcPayDialogState()).toMatchObject({
+      isOpen: true,
+      paymentLink: payUrl,
+    });
+  });
+
+  it('waits for app unlock before opening the pay dialog', async () => {
+    // the dialog is a system sheet that would present ABOVE the RN lock
+    // screen, so the link must park until the app is unlocked
+    let resolveUnlock: () => void = () => {};
+    mockedWhenAppUnlocked.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveUnlock = resolve;
+        }),
+    );
+
+    handleDeepLinkUrl({ url: payUrl });
+    await flushDeepAsyncTasks();
+    expect(getWcPayDialogState().isOpen).toBe(false);
+
+    resolveUnlock();
+    await flushDeepAsyncTasks();
+    expect(getWcPayDialogState()).toMatchObject({
+      isOpen: true,
+      paymentLink: payUrl,
+    });
+  });
+
+  it('refuses a second pay link while the flow is entry-guarded', async () => {
+    // an in-flight, non-dismissible payment sets the entry guard; a new
+    // deep link must not remount the flow, and the refusal is surfaced
+    openWcPayDialog({ paymentLink: 'link-in-flight' });
+    setWcPayDialogGuarded(true);
+
+    handleDeepLinkUrl({ url: payUrl });
+    await flushDeepAsyncTasks();
+
+    expect(getWcPayDialogState()).toMatchObject({
+      isOpen: true,
+      paymentLink: 'link-in-flight',
+    });
+    const { Toast } = jest.requireMock('@onekeyhq/components') as {
+      Toast: { error: jest.Mock };
+    };
+    expect(Toast.error).toHaveBeenCalled();
   });
 });
