@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
@@ -44,10 +44,10 @@ const BANNER_SHADOW_ROOM = '$2';
 // The pager clips at its own bounds, so it is made this much taller than the
 // card for BANNER_SHADOW to fall into (y offset + blur + spread = 12).
 const BANNER_SHADOW_ROOM_BOTTOM = 12;
-// The dots keep the pagination item's $1 padding as their tap target. Pulling
-// the row back up over the shadow room lands the dots themselves 8pt under the
-// card, as in Figma: 12 (room) - 8 (offset) + 4 (padding) = 8.
-const BANNER_PAGINATION_OFFSET = -8;
+// Each dot keeps a $0.5 pad as its tap target. Pulling the row back up over
+// the shadow room lands the dots themselves 8pt under the card, as in Figma:
+// 12 (room) - 6 (offset) + 2 (pad) = 8.
+const BANNER_PAGINATION_OFFSET = -6;
 // Soft lift for light mode, written as a CSS box-shadow so it renders on
 // Android 9+ as well: the shadow* props it replaces only ever drew on iOS. A
 // tight contact layer for the edge, plus a wider one whose negative spread
@@ -121,36 +121,37 @@ const BANNER_DEFAULT_COLORS = {
 } as const;
 
 const NO_BREAK_SPACE = '\u00A0';
-// Longest last-two-word pair bindLastTwoWords may join, per text style: about
-// two-thirds of a line at the copy column's narrowest (iPhone SE), so the
-// joined pair always fits on a line of its own.
-const BANNER_TITLE_MAX_BOUND_PAIR = 16;
-const BANNER_SUBTITLE_MAX_BOUND_PAIR = 24;
+// Longest last-two-word pair bindLastTwoWords may join, per text style. A
+// joined pair wider than the copy column breaks mid-word, and the column is
+// ~174pt at its narrowest (375pt-wide phones). Measured in Roobert, all-caps
+// pairs at these lengths average ~139pt (title) and ~149pt (subtitle); only a
+// pair of mostly wide letters would overflow.
+const BANNER_TITLE_MAX_BOUND_PAIR = 14;
+const BANNER_SUBTITLE_MAX_BOUND_PAIR = 20;
+// How long the card stays one shimmer waiting for its artwork. Past this the
+// bar shows anyway: a stalled image can take ~30s to fail on iOS, and never
+// does on Android, whose image client has no network timeout.
+const BANNER_ARTWORK_PATIENCE_MS = 3000;
 
 type IBannerArtworkState = {
   uri: string;
-  status: 'displayed' | 'failed';
+  // 'slow': still loading after BANNER_ARTWORK_PATIENCE_MS.
+  status: 'displayed' | 'failed' | 'slow';
 };
 
 // iOS text layout has no balanced line breaking, so wrapped copy can end on a
-// lone word ("…APR with / Bitway"). A no-break space between the last two
-// words moves the break one word earlier. Copy without spaces (CJK) keeps its
-// own break points, and an ops-forced newline still starts a new line.
+// lone word ("…APR with / Bitway"). Joining the last two words of the last
+// line with one no-break space moves the break one word earlier. Copy without
+// spaces (CJK) keeps its own break points, and an ops-forced newline still
+// starts a new line.
 function bindLastTwoWords(text: string, maxPairLength: number) {
   const copy = text.trimEnd();
-  const lineStart = copy.lastIndexOf('\n') + 1;
-  const lastSpace = copy.lastIndexOf(' ');
-  if (lastSpace < lineStart) {
+  // `\S` excludes newlines, so the pair never spans a line break.
+  const pair = /(\S+) +(\S+)$/.exec(copy);
+  if (!pair || pair[1].length + 1 + pair[2].length > maxPairLength) {
     return copy;
   }
-  const pairStart = Math.max(
-    copy.lastIndexOf(' ', lastSpace - 1) + 1,
-    lineStart,
-  );
-  if (copy.length - pairStart > maxPairLength) {
-    return copy;
-  }
-  return `${copy.slice(0, lastSpace)}${NO_BREAK_SPACE}${copy.slice(lastSpace + 1)}`;
+  return `${copy.slice(0, pair.index)}${pair[1]}${NO_BREAK_SPACE}${pair[2]}`;
 }
 
 function EarnHomeBannerInfoGlass() {
@@ -233,12 +234,28 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
   const handleArtworkError = useCallback(() => {
     setArtwork({ uri: item.backgroundImage, status: 'failed' });
   }, [item.backgroundImage]);
+  useEffect(() => {
+    if (artworkStatus !== 'loading') {
+      return undefined;
+    }
+    const timer = setTimeout(() => {
+      setArtwork((current) =>
+        current?.uri === item.backgroundImage
+          ? current
+          : { uri: item.backgroundImage, status: 'slow' },
+      );
+    }, BANNER_ARTWORK_PATIENCE_MS);
+    return () => clearTimeout(timer);
+  }, [artworkStatus, item.backgroundImage]);
   // Until the artwork is on screen the card stays one shimmer, continuous
   // with the cold-start skeleton, instead of drawing copy over a placeholder
   // it was never colored for. The image copy only ever reads against its
-  // artwork, so a failed image drops it and keeps the self-contained bar.
+  // artwork, so a failed or slow image drops it and keeps the self-contained
+  // bar. A hidden layer takes no touches and stays out of the accessibility
+  // tree, and the card only becomes a button once it shows something.
   const showImageCopy = artworkStatus === 'displayed';
   const showInfoContent = artworkStatus !== 'loading';
+  const isPressable = Boolean(item.href) && showInfoContent;
   const contentTransition = reducedMotion ? undefined : 'quick';
 
   const hasImageCopy = Boolean(item.imageTitle || item.imageSubtitle);
@@ -269,12 +286,15 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
       borderCurve="continuous"
       bg="$bgApp"
       boxShadow={isDarkTheme ? undefined : BANNER_SHADOW}
-      {...(item.href
+      // Set on every render, outside the press props below: Tamagui switches
+      // to an animated element the first time `transition` appears, which
+      // would remount the card and its artwork when loading ends.
+      transition={reducedMotion ? undefined : 'fast'}
+      animateOnly={ANIMATE_ONLY_TRANSFORM}
+      {...(isPressable
         ? {
             role: 'button' as const,
             cursor: 'pointer' as const,
-            transition: reducedMotion ? undefined : ('fast' as const),
-            animateOnly: ANIMATE_ONLY_TRANSFORM,
             pressStyle: { scale: 0.98 },
             onPress: handlePress,
           }
@@ -315,6 +335,10 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
           jc="center"
           pointerEvents="none"
           opacity={showImageCopy ? 1 : 0}
+          accessibilityElementsHidden={!showImageCopy}
+          importantForAccessibility={
+            showImageCopy ? 'auto' : 'no-hide-descendants'
+          }
           transition={contentTransition}
           animateOnly={ANIMATE_ONLY_OPACITY}
         >
@@ -370,6 +394,11 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
               gap="$3"
               ai="center"
               opacity={showInfoContent ? 1 : 0}
+              pointerEvents={showInfoContent ? 'auto' : 'none'}
+              accessibilityElementsHidden={!showInfoContent}
+              importantForAccessibility={
+                showInfoContent ? 'auto' : 'no-hide-descendants'
+              }
               transition={contentTransition}
               animateOnly={ANIMATE_ONLY_OPACITY}
             >
@@ -509,6 +538,25 @@ export function EarnHomeBanner({
         showPagination={validBanners.length > 1}
         containerStyle={{ height: BANNER_HEIGHT + BANNER_SHADOW_ROOM_BOTTOM }}
         paginationContainerStyle={{ mt: BANNER_PAGINATION_OFFSET }}
+        // 6pt dots 6pt apart, as in production (the dots in the Figma
+        // reference are a production screenshot). The default item pads each
+        // dot by $1, 8pt apart; a $0.5 pad plus a $0.5 margin keeps the 6pt
+        // gap and still gives each dot more to tap than the bare dot.
+        renderPaginationItem={({ activeDotStyle, onPress }, index) => (
+          <YStack
+            key={index}
+            p="$0.5"
+            mr={index === validBanners.length - 1 ? '$0' : '$0.5'}
+            onPress={onPress}
+          >
+            <YStack
+              w="$1.5"
+              h="$1.5"
+              borderRadius="$full"
+              bg={activeDotStyle ? '$bgPrimary' : '$neutral5'}
+            />
+          </YStack>
+        )}
       />
     </YStack>
   );

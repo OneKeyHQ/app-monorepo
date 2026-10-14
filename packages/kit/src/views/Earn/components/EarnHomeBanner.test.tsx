@@ -4,7 +4,10 @@ import type { ReactNode } from 'react';
 
 import { act, render, screen } from '@testing-library/react';
 
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IEarnPageBannerListItem } from '@onekeyhq/shared/types/earn';
+
+import { EarnTestIDs } from '../testIDs';
 
 import { EarnHomeBanner } from './EarnHomeBanner';
 
@@ -14,17 +17,46 @@ type IMockImageHandlers = {
 };
 
 const mockImageHandlers: Record<string, IMockImageHandlers> = {};
+const mockPressHandlers: Record<string, (() => unknown) | undefined> = {};
+const mockUseReducedMotion = jest.fn(() => false);
 
 jest.mock('@onekeyhq/components', () => {
   const MockStack = ({
     children,
+    testID,
     opacity,
+    pointerEvents,
+    accessibilityElementsHidden,
+    transition,
+    onPress,
   }: {
     children?: ReactNode;
+    testID?: string;
     opacity?: number;
-  }) => <div data-opacity={opacity}>{children}</div>;
+    pointerEvents?: string;
+    accessibilityElementsHidden?: boolean;
+    transition?: string;
+    onPress?: () => unknown;
+  }) => {
+    if (testID) {
+      mockPressHandlers[testID] = onPress;
+    }
+    return (
+      <div
+        data-testid={testID}
+        data-opacity={opacity}
+        data-pointer-events={pointerEvents}
+        data-a11y-hidden={accessibilityElementsHidden}
+        data-transition={transition}
+      >
+        {children}
+      </div>
+    );
+  };
   return {
     BlurView: () => <div data-testid="banner-glass" />,
+    // Pages are keyed by index, like the real pager, so a refreshed list
+    // hands an existing card a different banner.
     Carousel: ({
       data,
       renderItem,
@@ -37,7 +69,7 @@ jest.mock('@onekeyhq/components', () => {
     }) => (
       <div data-testid="banner-carousel">
         {data.map((item, index) => (
-          <div key={item.bannerId}>{renderItem({ item, index })}</div>
+          <div key={index}>{renderItem({ item, index })}</div>
         ))}
       </div>
     ),
@@ -64,22 +96,12 @@ jest.mock('@onekeyhq/components', () => {
 });
 
 jest.mock('react-native', () => ({
-  StyleSheet: {
-    absoluteFill: {
-      position: 'absolute',
-      top: 0,
-      right: 0,
-      bottom: 0,
-      left: 0,
-    },
-    create: <T,>(styles: T) => styles,
-    hairlineWidth: 1,
-  },
+  StyleSheet: { hairlineWidth: 1 },
 }));
 
 jest.mock('react-native-reanimated', () => ({
   __esModule: true,
-  useReducedMotion: () => false,
+  useReducedMotion: () => mockUseReducedMotion(),
 }));
 
 jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
@@ -112,12 +134,32 @@ describe('EarnHomeBanner', () => {
     subtitle: 'Bitway',
   };
 
+  const linkedBanner: IEarnPageBannerListItem = {
+    ...campaignBanner,
+    button: 'Join',
+    href: 'https://example.com/earn',
+    hrefType: 'external',
+  };
+
   // The copy and the bottom-bar content each sit in their own fading layer.
+  const getLayer = (text: string) =>
+    screen.getByText(text).closest('[data-opacity]');
   const getLayerOpacity = (text: string) =>
-    screen
-      .getByText(text)
-      .closest('[data-opacity]')
-      ?.getAttribute('data-opacity');
+    getLayer(text)?.getAttribute('data-opacity');
+  const showArtwork = (url = campaignBanner.backgroundImage) =>
+    act(() => {
+      mockImageHandlers[url]?.onDisplay?.();
+    });
+  const failArtwork = (url = campaignBanner.backgroundImage) =>
+    act(() => {
+      mockImageHandlers[url]?.onError?.();
+    });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    mockUseReducedMotion.mockReturnValue(false);
+    jest.mocked(openUrlExternal).mockClear();
+  });
 
   it('reserves the banner block with a skeleton on a true cache miss', () => {
     render(<EarnHomeBanner banners={[]} isLoading />);
@@ -147,9 +189,7 @@ describe('EarnHomeBanner', () => {
     expect(getLayerOpacity(campaignBanner.title)).toBe('0');
     expect(screen.queryByTestId('banner-glass')).toBeNull();
 
-    act(() => {
-      mockImageHandlers[campaignBanner.backgroundImage]?.onDisplay?.();
-    });
+    showArtwork();
 
     expect(getLayerOpacity(campaignBanner.imageTitle ?? '')).toBe('1');
     expect(getLayerOpacity(campaignBanner.title)).toBe('1');
@@ -159,13 +199,105 @@ describe('EarnHomeBanner', () => {
   it('keeps only the bottom bar when the artwork fails to load', () => {
     render(<EarnHomeBanner banners={[campaignBanner]} isLoading={false} />);
 
-    act(() => {
-      mockImageHandlers[campaignBanner.backgroundImage]?.onError?.();
-    });
+    failArtwork();
 
     expect(getLayerOpacity(campaignBanner.imageTitle ?? '')).toBe('0');
     expect(getLayerOpacity(campaignBanner.title)).toBe('1');
     expect(screen.getByTestId('banner-glass')).toBeTruthy();
+  });
+
+  it('shows the bar when the artwork is slow, and the copy once it lands', () => {
+    jest.useFakeTimers();
+    render(<EarnHomeBanner banners={[campaignBanner]} isLoading={false} />);
+
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+    expect(getLayerOpacity(campaignBanner.title)).toBe('0');
+
+    act(() => {
+      jest.advanceTimersByTime(10_000);
+    });
+    expect(getLayerOpacity(campaignBanner.title)).toBe('1');
+    expect(getLayerOpacity(campaignBanner.imageTitle ?? '')).toBe('0');
+    expect(screen.getByTestId('banner-glass')).toBeTruthy();
+
+    showArtwork();
+
+    expect(getLayerOpacity(campaignBanner.imageTitle ?? '')).toBe('1');
+  });
+
+  it('ignores taps and hides its content from assistive tech while loading', async () => {
+    const cardTestID = EarnTestIDs.bannerItem(linkedBanner.bannerId);
+    render(<EarnHomeBanner banners={[linkedBanner]} isLoading={false} />);
+    const barLayer = getLayer(linkedBanner.title);
+
+    expect(mockPressHandlers[cardTestID]).toBeUndefined();
+    expect(barLayer?.getAttribute('data-pointer-events')).toBe('none');
+    expect(barLayer?.getAttribute('data-a11y-hidden')).toBe('true');
+
+    showArtwork();
+
+    expect(barLayer?.getAttribute('data-pointer-events')).toBe('auto');
+    expect(barLayer?.getAttribute('data-a11y-hidden')).toBe('false');
+    await act(async () => {
+      await mockPressHandlers[cardTestID]?.();
+    });
+    expect(openUrlExternal).toHaveBeenCalledWith(linkedBanner.href);
+  });
+
+  it('starts over when the artwork URL changes', () => {
+    const { rerender } = render(
+      <EarnHomeBanner banners={[campaignBanner]} isLoading={false} />,
+    );
+    showArtwork();
+    expect(getLayerOpacity(campaignBanner.imageTitle ?? '')).toBe('1');
+
+    const nextImage = 'https://example.com/next-banner.png';
+    rerender(
+      <EarnHomeBanner
+        banners={[{ ...campaignBanner, backgroundImage: nextImage }]}
+        isLoading={false}
+      />,
+    );
+
+    expect(getLayerOpacity(campaignBanner.imageTitle ?? '')).toBe('0');
+    showArtwork(nextImage);
+    expect(getLayerOpacity(campaignBanner.imageTitle ?? '')).toBe('1');
+  });
+
+  it('brings the copy back if a failed artwork loads after all', () => {
+    render(<EarnHomeBanner banners={[campaignBanner]} isLoading={false} />);
+
+    failArtwork();
+    expect(getLayerOpacity(campaignBanner.imageTitle ?? '')).toBe('0');
+
+    showArtwork();
+    expect(getLayerOpacity(campaignBanner.imageTitle ?? '')).toBe('1');
+  });
+
+  it('drops the fades and the press spring under Reduce Motion', () => {
+    const cardTestID = EarnTestIDs.bannerItem(linkedBanner.bannerId);
+    const { unmount } = render(
+      <EarnHomeBanner banners={[linkedBanner]} isLoading={false} />,
+    );
+    expect(
+      getLayer(linkedBanner.imageTitle ?? '')?.getAttribute('data-transition'),
+    ).toBe('quick');
+    expect(screen.getByTestId(cardTestID).getAttribute('data-transition')).toBe(
+      'fast',
+    );
+    unmount();
+
+    mockUseReducedMotion.mockReturnValue(true);
+    render(<EarnHomeBanner banners={[linkedBanner]} isLoading={false} />);
+
+    expect(
+      getLayer(linkedBanner.imageTitle ?? '')?.hasAttribute('data-transition'),
+    ).toBe(false);
+    expect(screen.getByTestId(cardTestID).hasAttribute('data-transition')).toBe(
+      false,
+    );
   });
 
   it('keeps wrapped copy from ending on a lone word', () => {
@@ -175,8 +307,8 @@ describe('EarnHomeBanner', () => {
           { ...campaignBanner, bannerId: 'bound' },
           {
             ...campaignBanner,
-            bannerId: 'long-pair',
-            imageTitle: 'Earn with Bitway',
+            bannerId: 'double-space',
+            imageTitle: 'Earn with  Bitway',
             imageSubtitle:
               'Deposit USDT and earn onchain-yield-bearing rewards',
           },
@@ -196,6 +328,8 @@ describe('EarnHomeBanner', () => {
 
     expect(getExactText('Earn up to 7.5% APR with\u00A0Bitway')).toBeTruthy();
     expect(getExactText('Deposit USDT, earn onchain\u00A0yield')).toBeTruthy();
+    // A run of spaces collapses into the one no-break space.
+    expect(getExactText('Earn with\u00A0Bitway')).toBeTruthy();
     // A pair too long to share a line stays breakable.
     expect(
       getExactText('Deposit USDT and earn onchain-yield-bearing rewards'),
