@@ -1722,6 +1722,8 @@ class ServicePrime extends ServiceBase {
               reason: `ServicePrime.apiEmailOtpLogin phone OTP exchange failed before email fallback: ${getSanitizedAuthErrorLog(
                 error,
               )}`,
+              trigger: 'interactive',
+              error,
             });
           }
         }
@@ -1737,6 +1739,7 @@ class ServicePrime extends ServiceBase {
             reason: `ServicePrime.apiEmailOtpLogin email OTP verification failed: ${getSanitizedAuthErrorLog(
               response.error,
             )}`,
+            trigger: 'interactive',
           });
           markOneKeyIdFailureServerLogged(error);
           throw error;
@@ -1760,6 +1763,8 @@ class ServicePrime extends ServiceBase {
           reason: `ServicePrime.apiEmailOtpLogin failed: ${getSanitizedAuthErrorLog(
             error,
           )}`,
+          trigger: 'interactive',
+          error,
         });
         markOneKeyIdFailureServerLogged(error);
       }
@@ -2056,6 +2061,7 @@ class ServicePrime extends ServiceBase {
       );
       defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
         reason: getSanitizedAuthErrorLog(error),
+        trigger: 'interactive',
       });
       markOneKeyIdFailureServerLogged(error);
       throw error;
@@ -2071,6 +2077,7 @@ class ServicePrime extends ServiceBase {
       );
       defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
         reason: getSanitizedAuthErrorLog(error),
+        trigger: 'interactive',
       });
       markOneKeyIdFailureServerLogged(error);
       throw error;
@@ -2086,6 +2093,7 @@ class ServicePrime extends ServiceBase {
       );
       defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
         reason: getSanitizedAuthErrorLog(error),
+        trigger: 'interactive',
       });
       markOneKeyIdFailureServerLogged(error);
       throw error;
@@ -2998,6 +3006,8 @@ class ServicePrime extends ServiceBase {
           reason: `ServicePrime.claimOneKeyIdOAuthBindPrompt prompt upgrade state read failed: ${getSanitizedAuthErrorLog(
             error,
           )}`,
+          trigger: 'passive',
+          error,
         });
         return { status: 'retryable' };
       }
@@ -3028,6 +3038,8 @@ class ServicePrime extends ServiceBase {
             reason: `ServicePrime.claimOneKeyIdOAuthBindPrompt OneKey ID refresh failed: ${getSanitizedAuthErrorLog(
               error,
             )}`,
+            trigger: 'passive',
+            error,
           });
           return { status: 'retryable' };
         }
@@ -3062,6 +3074,8 @@ class ServicePrime extends ServiceBase {
             reason: `ServicePrime.claimOneKeyIdOAuthBindPrompt credential upgrade failed: ${getSanitizedAuthErrorLog(
               error,
             )}`,
+            trigger: 'passive',
+            error,
           });
           return { status: 'retryable' };
         }
@@ -3079,6 +3093,8 @@ class ServicePrime extends ServiceBase {
           reason: `ServicePrime.claimOneKeyIdOAuthBindPrompt bind requirement check failed: ${getSanitizedAuthErrorLog(
             error,
           )}`,
+          trigger: 'passive',
+          error,
         });
         return { status: 'retryable' };
       }
@@ -3094,6 +3110,8 @@ class ServicePrime extends ServiceBase {
             reason: `ServicePrime.claimOneKeyIdOAuthBindPrompt prompt state write failed: ${getSanitizedAuthErrorLog(
               error,
             )}`,
+            trigger: 'passive',
+            error,
           });
           return { status: 'retryable' };
         }
@@ -3117,6 +3135,8 @@ class ServicePrime extends ServiceBase {
           reason: `ServicePrime.claimOneKeyIdOAuthBindPrompt prompt claim failed: ${getSanitizedAuthErrorLog(
             error,
           )}`,
+          trigger: 'passive',
+          error,
         });
         return { status: 'retryable' };
       }
@@ -5314,6 +5334,8 @@ class ServicePrime extends ServiceBase {
         reason: `ServicePrime.apiSendEmailVerificationCode failed and returned legacy fallback success: ${getSanitizedAuthErrorLog(
           error,
         )}`,
+        trigger: 'interactive',
+        error,
       });
     }
 
@@ -5348,6 +5370,8 @@ class ServicePrime extends ServiceBase {
         reason: `ServicePrime.apiPrimeLogin failed and returned legacy fallback failure: ${getSanitizedAuthErrorLog(
           error,
         )}`,
+        trigger: 'interactive',
+        error,
       });
     }
     return { success: false };
