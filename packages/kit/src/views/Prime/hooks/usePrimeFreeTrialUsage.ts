@@ -149,7 +149,11 @@ export function usePrimeFreeTrialUsage({
             if (!allowLogin) {
               return { status: 'rejected' };
             }
-            const access = await ensureFeatureAccess({ featureId, networkId });
+            const access = await ensureFeatureAccess({
+              featureId,
+              networkId,
+              isContextValid: () => !isCallerGone?.(),
+            });
             if (!access.granted) {
               return { status: 'rejected' };
             }

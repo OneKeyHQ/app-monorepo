@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -347,6 +347,13 @@ export function AddressRiskMoreAnalysis({
   const [details, setDetails] = useState<
     IAddressRiskCheckDetails | undefined
   >();
+  const isUnmountedRef = useRef(false);
+  useEffect(() => {
+    isUnmountedRef.current = false;
+    return () => {
+      isUnmountedRef.current = true;
+    };
+  }, []);
 
   const handleLoad = useCallback(async () => {
     setIsLoading(true);
@@ -361,7 +368,12 @@ export function AddressRiskMoreAnalysis({
       // Free users may read details of an address checked this month; the
       // server decides. Not eligible / exhausted get the unified feedback,
       // other errors were already toasted by the background proxy.
-      handleFreeTrialError({ error, networkId });
+      // A page left meanwhile gets no feedback (no dashboard over it).
+      handleFreeTrialError({
+        error,
+        networkId,
+        isContextValid: () => !isUnmountedRef.current,
+      });
     } finally {
       setIsLoading(false);
     }

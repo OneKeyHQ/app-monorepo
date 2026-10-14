@@ -242,8 +242,15 @@ export function usePrimeFeatureAccess() {
       // late rejection never opens the dashboard over another screen.
       isContextValid?: () => boolean | Promise<boolean>;
     }) => {
-      const isStale = async () =>
-        isContextValid ? !(await isContextValid()) : false;
+      const isStale = async () => {
+        try {
+          return isContextValid ? !(await isContextValid()) : false;
+        } catch {
+          // A context that cannot be checked gets no feedback over a page
+          // that may be gone.
+          return true;
+        }
+      };
       const openDashboard = !isPrimeFreeTrialStayOnPageFeature(featureId);
       void (async () => {
         if (await isStale()) {
@@ -399,10 +406,13 @@ export function usePrimeFeatureAccess() {
       error,
       networkId,
       afterPageExit,
+      isContextValid,
     }: {
       error: unknown;
       networkId?: string;
       afterPageExit?: boolean;
+      // False once the page that made the request is gone: no feedback.
+      isContextValid?: () => boolean | Promise<boolean>;
     }): IPrimeFreeTrialError | undefined => {
       const freeTrialError = getPrimeFreeTrialError(error);
       if (!freeTrialError) {
@@ -416,6 +426,7 @@ export function usePrimeFeatureAccess() {
           networkId,
           afterPageExit,
           reservation: freeTrialError.data,
+          isContextValid,
         });
         return freeTrialError;
       }
@@ -437,6 +448,7 @@ export function usePrimeFeatureAccess() {
             resetAt: access.status === 'exhausted' ? access.resetAt : undefined,
             networkId,
             afterPageExit,
+            isContextValid,
           });
           return freeTrialError;
         }
@@ -447,6 +459,7 @@ export function usePrimeFeatureAccess() {
         networkId,
         afterPageExit,
         notOpenReason: reason,
+        isContextValid,
       });
       return freeTrialError;
     },

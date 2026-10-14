@@ -686,6 +686,7 @@ function BulkRevoke() {
     try {
       const outcome = await startUsage({
         networkId: unsignedTxs[0]?.networkId,
+        isCallerGone: () => isAborted.current,
       });
       if (outcome.status === 'rejected' || outcome.status === 'error') {
         return;

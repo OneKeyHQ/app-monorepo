@@ -5,6 +5,7 @@ import type { ReactElement } from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react';
 
 import {
+  OneKeyLocalError,
   PrimeLoginDialogCancelError,
   PrimeLoginHandedOffToExtExpandTabError,
 } from '@onekeyhq/shared/src/errors';
@@ -952,6 +953,50 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
     });
     expect(toastAt(0)?.actions).toBeTruthy();
     expect(mockPushFullModal).not.toHaveBeenCalled();
+  });
+
+  it('gives no feedback for a metered API error after its page closed', async () => {
+    const result = renderAccessHook();
+
+    act(() => {
+      result.current.handleFreeTrialError({
+        error: {
+          code: 90_600,
+          data: {
+            featureId: EPrimeFeatures.AddressRiskCheck,
+            remaining: 0,
+            resetAt: RESET_AT,
+          },
+        },
+        isContextValid: () => false,
+      });
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockPushFullModal).not.toHaveBeenCalled();
+    expect(mockToastMessage).not.toHaveBeenCalled();
+  });
+
+  it('gives no feedback when the context check itself fails', async () => {
+    const result = renderAccessHook();
+
+    act(() => {
+      result.current.showActiveRejectedFeedback({
+        featureId: EPrimeFeatures.BulkSend,
+        reason: 'notOpen',
+        isContextValid: async () => {
+          throw new OneKeyLocalError('lookup failed');
+        },
+      });
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockPushFullModal).not.toHaveBeenCalled();
+    expect(mockToastMessage).not.toHaveBeenCalled();
   });
 
   it('gives no feedback for a start rejected after its page closed', async () => {

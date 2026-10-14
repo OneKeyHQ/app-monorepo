@@ -76,11 +76,21 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
 }));
 
 let mockIsFocused = true;
+const mockBlurListeners = new Set<() => void>();
+const mockReactNavigation = {
+  isFocused: () => mockIsFocused,
+  addListener: (_event: 'blur', listener: () => void) => {
+    mockBlurListeners.add(listener);
+    return () => {
+      mockBlurListeners.delete(listener);
+    };
+  },
+};
 jest.mock('@react-navigation/core', () => ({
   ...jest.requireActual<typeof import('@react-navigation/core')>(
     '@react-navigation/core',
   ),
-  useNavigation: () => ({ isFocused: () => mockIsFocused }),
+  useNavigation: () => mockReactNavigation,
 }));
 
 jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => ({
@@ -424,6 +434,39 @@ describe('useCheckAddressRisk', () => {
       }),
     );
     nowSpy.mockRestore();
+  });
+
+  it('opens nothing once the page lost focus during the pre-check', async () => {
+    mockPush.mockClear();
+    let releaseGate: (value: { granted: boolean }) => void = () => {};
+    mockGetCachedAccess.mockReturnValueOnce({ status: 'exhausted' });
+    mockEnsureFeatureAccess.mockReturnValueOnce(
+      new Promise((resolve) => {
+        releaseGate = resolve;
+      }),
+    );
+    const { result } = renderHook(() => useCheckAddressRisk());
+
+    act(() => {
+      result.current.checkRisk({
+        networkId: riskResult.networkId,
+        address: riskResult.address,
+        entryPoint: 'inputManual',
+      });
+    });
+    await waitFor(() => {
+      expect(mockEnsureFeatureAccess).toHaveBeenCalled();
+    });
+
+    // History opens over the input, which stays mounted.
+    act(() => {
+      mockBlurListeners.forEach((listener) => listener());
+    });
+    await act(async () => {
+      releaseGate({ granted: true });
+      await Promise.resolve();
+    });
+    expect(mockPush).not.toHaveBeenCalled();
   });
 
   it('still opens the page of an address with a history result', async () => {

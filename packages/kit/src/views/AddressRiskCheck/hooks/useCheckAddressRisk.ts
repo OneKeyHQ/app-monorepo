@@ -145,8 +145,11 @@ const OPEN_RESULT_GUARD_MS = 1000;
 // without a loading page.
 export function useCheckAddressRisk() {
   const navigation = useAppNavigation();
+  const reactNavigation = useNavigation();
   const lastOpenedAtRef = useRef(0);
-  // Bumped per check: a slow earlier check never opens over a newer one.
+  // Bumped per check and whenever the page loses focus (e.g. History opened
+  // over the input, which stays mounted): a pending check whose id moved on
+  // never opens its result.
   const requestIdRef = useRef(0);
   const isUnmountedRef = useRef(false);
   useEffect(() => {
@@ -155,6 +158,13 @@ export function useCheckAddressRisk() {
       isUnmountedRef.current = true;
     };
   }, []);
+  useEffect(
+    () =>
+      reactNavigation.addListener('blur', () => {
+        requestIdRef.current += 1;
+      }),
+    [reactNavigation],
+  );
   const { getCachedAccess, ensureFeatureAccess } = usePrimeFeatureAccess();
 
   const checkRisk = useCallback(
@@ -186,7 +196,7 @@ export function useCheckAddressRisk() {
         return;
       }
       void (async () => {
-        // The page closed, or the user started another check meanwhile.
+        // The page closed or lost focus, or another check started meanwhile.
         const isStale = () =>
           isUnmountedRef.current || requestIdRef.current !== requestId;
         if (!(await getHistoryResult({ networkId, address })) && !isStale()) {
