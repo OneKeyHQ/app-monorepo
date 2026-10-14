@@ -503,7 +503,26 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     ) => {
       const requestStartedAt = Date.now();
       const requestId = get(tokenDetailRequestIdAtom()) + 1;
+      const previousResolution = get(marketPerpsResolutionAtom());
       set(tokenDetailRequestIdAtom(), requestId);
+      // A settled footer belongs to the token even when its detail is absent.
+      if (
+        previousResolution?.requestId === requestId - 1 &&
+        equalTokenNoCaseSensitive({
+          token1: {
+            networkId: previousResolution.networkId,
+            contractAddress: previousResolution.tokenAddress,
+          },
+          token2: { networkId, contractAddress: tokenAddress },
+        })
+      ) {
+        set(marketPerpsResolutionAtom(), {
+          networkId,
+          tokenAddress,
+          requestId,
+          status: previousResolution.status,
+        });
+      }
       let isStale = false;
       const isCurrentRequest = () =>
         get(tokenDetailRequestIdAtom()) === requestId;

@@ -205,6 +205,88 @@ describe('token detail refresh failures', () => {
 
   afterEach(() => jest.restoreAllMocks());
 
+  it.each(['error', 'empty-name'] as const)(
+    'retains the settled footer through polling without detail after %s',
+    async (outcome) => {
+      const { store, Wrapper } = createWrapper();
+      const { result } = renderHook(() => useTokenDetailActions().current, {
+        wrapper: Wrapper,
+      });
+      store.set(networkIdAtom(), detail.networkId);
+      store.set(tokenAddressAtom(), detail.address);
+      const emptyResponse = {
+        data: { token: { ...detail, name: '' }, websocket },
+      };
+      if (outcome === 'error') {
+        mockFetchMarketTokenDetailByTokenAddress.mockRejectedValueOnce(
+          new Error('initial fetch failed'),
+        );
+        await act(async () => {
+          await expect(
+            result.current.fetchTokenDetail(detail.address, detail.networkId),
+          ).rejects.toThrow('initial fetch failed');
+        });
+      } else {
+        mockFetchMarketTokenDetailByTokenAddress.mockResolvedValueOnce(
+          emptyResponse,
+        );
+        await act(async () => {
+          await result.current.fetchTokenDetail(
+            detail.address,
+            detail.networkId,
+          );
+        });
+      }
+      const expectedStatus = outcome === 'error' ? 'error' : 'resolved';
+      expect(store.get(tokenDetailAtom())).toBeUndefined();
+      expect(store.get(marketPerpsInfoStatusAtom())).toBe(expectedStatus);
+      for (let poll = 0; poll < 2; poll += 1) {
+        const response = createDeferred<typeof emptyResponse>();
+        mockFetchMarketTokenDetailByTokenAddress.mockReturnValueOnce(
+          response.promise,
+        );
+        let refresh: ReturnType<typeof result.current.fetchTokenDetail>;
+        act(() => {
+          refresh = result.current.fetchTokenDetail(
+            detail.address,
+            detail.networkId,
+          );
+        });
+        expect(store.get(marketPerpsInfoStatusAtom())).toBe(expectedStatus);
+        expect(store.get(tokenDetailAtom())).toBeUndefined();
+        await act(async () => {
+          if (outcome === 'error') {
+            response.reject(new Error('poll failed'));
+            await expect(refresh).rejects.toThrow('poll failed');
+          } else {
+            response.resolve(emptyResponse);
+            await refresh;
+          }
+        });
+        expect(store.get(marketPerpsInfoStatusAtom())).toBe(expectedStatus);
+      }
+
+      // A different token must still wait for its own support response.
+      store.set(tokenAddressAtom(), '0xother');
+      const nextResponse = createDeferred<typeof emptyResponse>();
+      mockFetchMarketTokenDetailByTokenAddress.mockReturnValueOnce(
+        nextResponse.promise,
+      );
+      let nextRefresh: ReturnType<typeof result.current.fetchTokenDetail>;
+      act(() => {
+        nextRefresh = result.current.fetchTokenDetail(
+          '0xother',
+          detail.networkId,
+        );
+      });
+      expect(store.get(marketPerpsInfoStatusAtom())).toBe('pending');
+      await act(async () => {
+        nextResponse.resolve(emptyResponse);
+        await nextRefresh;
+      });
+    },
+  );
+
   it('retains the error footer during a token refresh without Perps support', async () => {
     const { store, Wrapper } = createWrapper();
     const { result } = renderHook(() => useTokenDetailActions().current, {
