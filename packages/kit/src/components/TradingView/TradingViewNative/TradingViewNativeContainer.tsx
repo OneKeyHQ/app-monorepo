@@ -225,6 +225,7 @@ const TradingViewNativeContent = memo(
     enablePreviousClose = false,
     enableNativeChartSettings,
     enableDrawings = false,
+    prioritizePageScroll = false,
     nativeChartSettingsInToolbar = false,
     mobileToolbarExtra,
     initialRightOffset,
@@ -1021,6 +1022,9 @@ const TradingViewNativeContent = memo(
                 storageNamespace !== 'swap'
               }
               drawingStorageKey={drawingSourceKey}
+              prioritizePageScroll={
+                prioritizePageScroll && !isNativeChartFullscreen
+              }
               runtimeRef={chartRuntimeRef}
               candleIntervalSeconds={candleIntervalSeconds}
               candleTimeMode={candleTimeMode}

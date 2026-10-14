@@ -15,26 +15,37 @@ import {
 import type { IElement } from '@onekeyhq/components';
 import { CollapsibleTabContext } from '@onekeyhq/components/src/composite/Tabs/CollapsibleTabContext';
 
+import { SpotlightScrollStateContext } from './SpotlightScrollStateContext';
+
 export function useSpotlightScrollPause(
   _triggerRef: RefObject<IElement | null>,
   enabled: boolean,
   onScrollChange: (scrolling: boolean) => void,
 ) {
+  const nativeState = useContext(SpotlightScrollStateContext);
+  const hasNativeSource = nativeState !== undefined;
+  const nativeSettled = nativeState?.headerSettledAtTop === true;
+  const nativePageKey = nativeState?.pageKey;
   const context = useContext(CollapsibleTabContext);
-  const scrollY = enabled ? context?.scrollYCurrent : undefined;
+  const scrollY =
+    enabled && !hasNativeSource ? context?.scrollYCurrent : undefined;
   const paused = useSharedValue(true);
   const settled = useSharedValue(0);
   // A retired session also rejects callbacks already queued onto main JS.
   const session = useMemo(
     () => ({
       active: false,
-      onScrollChange: enabled && scrollY ? onScrollChange : undefined,
+      pageKey: nativePageKey,
+      onScrollChange:
+        enabled && (hasNativeSource || scrollY) ? onScrollChange : undefined,
     }),
-    [enabled, scrollY, onScrollChange],
+    [enabled, hasNativeSource, nativePageKey, scrollY, onScrollChange],
   );
   const notify = useCallback(
     (isPaused: boolean) => {
-      if (session.active) session.onScrollChange?.(isPaused);
+      if (session.active) {
+        session.onScrollChange?.(isPaused);
+      }
     },
     [session],
   );
@@ -56,8 +67,16 @@ export function useSpotlightScrollPause(
   }, [notify, paused, settled]);
   useEffect(() => {
     session.active = enabled;
+    if (hasNativeSource) {
+      if (enabled) notify(!nativeSettled);
+      return () => {
+        session.active = false;
+      };
+    }
     // Keep main JS blocked until the UI thread reads its current offset.
-    if (enabled) onScrollChange(true);
+    if (enabled) {
+      onScrollChange(true);
+    }
     if (scrollY) {
       runOnUI(() => {
         'worklet';
@@ -79,6 +98,8 @@ export function useSpotlightScrollPause(
     };
   }, [
     enabled,
+    hasNativeSource,
+    nativeSettled,
     notify,
     onScrollChange,
     paused,
