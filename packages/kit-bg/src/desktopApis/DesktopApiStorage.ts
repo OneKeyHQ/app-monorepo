@@ -1,4 +1,6 @@
 import * as store from '@onekeyhq/desktop/app/libs/store';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { EDesktopStoreKeys } from '@onekeyhq/shared/types/desktop';
 import type { IDesktopStoreMap } from '@onekeyhq/shared/types/desktop';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
@@ -10,27 +12,36 @@ class DesktopApiStorage {
 
   desktopApi: IDesktopApi;
 
-  async storeSetItemAsync<T extends keyof IDesktopStoreMap>(
+  private assertAllowedKey(key: unknown) {
+    if (key !== EDesktopStoreKeys.AppInstanceMetaBackup) {
+      throw new OneKeyLocalError('Desktop store key is not allowed');
+    }
+  }
+
+  async storeSetItemAsync<T extends EDesktopStoreKeys.AppInstanceMetaBackup>(
     key: T,
     value: IDesktopStoreMap[T],
   ): Promise<void> {
+    this.assertAllowedKey(key);
     store.instance.set(key, value);
   }
 
-  async storeGetItemAsync<T extends keyof IDesktopStoreMap>(
+  async storeGetItemAsync<T extends EDesktopStoreKeys.AppInstanceMetaBackup>(
     key: T,
   ): Promise<IDesktopStoreMap[T]> {
+    this.assertAllowedKey(key);
     return store.instance.get(key);
   }
 
-  async storeDelItemAsync<T extends keyof IDesktopStoreMap>(
+  async storeDelItemAsync<T extends EDesktopStoreKeys.AppInstanceMetaBackup>(
     key: T,
   ): Promise<void> {
+    this.assertAllowedKey(key);
     store.instance.delete(key);
   }
 
-  async storeClear(): Promise<void> {
-    store.instance.clear();
+  async resetAppConfiguration(): Promise<void> {
+    store.clear();
   }
 
   async secureSetItemAsync(key: string, value: string): Promise<void> {

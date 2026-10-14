@@ -44,12 +44,14 @@ jest.mock('./libs/store', () => ({
 }));
 
 import {
+  getBundleIndexHtmlPath,
   calculateSHA256,
   checkFileSha512,
   lastSHA256FailureReason,
   testExtractedSha256FromVerifyAscFile,
   verifySha256,
 } from './bundle';
+import { clearUpdateBundleData } from './libs/store';
 
 // --- Helpers ---
 
@@ -215,3 +217,20 @@ describe('testExtractedSha256FromVerifyAscFile', () => {
     expect(result).toBe(true);
   });
 });
+
+test.each(['../outside', 'bad/version', 'a..b'])(
+  'falls back to the built-in bundle for an invalid persisted pointer %s',
+  (bundleVersion) => {
+    jest.mocked(clearUpdateBundleData).mockClear();
+    const exists = jest.spyOn(fs, 'existsSync');
+    try {
+      expect(
+        getBundleIndexHtmlPath({ appVersion: '1.0.0', bundleVersion }),
+      ).toBeUndefined();
+      expect(clearUpdateBundleData).toHaveBeenCalledTimes(1);
+      expect(exists).not.toHaveBeenCalled();
+    } finally {
+      exists.mockRestore();
+    }
+  },
+);

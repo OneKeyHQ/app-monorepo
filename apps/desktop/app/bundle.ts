@@ -11,6 +11,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { PUBLIC_KEY } from './constant/gpg';
 import { ElectronTranslations } from './i18n';
+import { assertSafeBundleVersion, resolveBundlePath } from './libs/bundlePaths';
 import {
   clearUpdateBundleData,
   getNativeBuildNumber,
@@ -194,8 +195,12 @@ export const getBundleExtractDir = ({
   appVersion: string;
   bundleVersion: string;
 }) => {
-  const bundleDir = getBundleDirName();
-  return path.join(bundleDir, `${appVersion}-${bundleVersion}`);
+  assertSafeBundleVersion(appVersion);
+  assertSafeBundleVersion(bundleVersion);
+  return resolveBundlePath(
+    getBundleDirName(),
+    `${appVersion}-${bundleVersion}`,
+  );
 };
 
 export const getBundleIndexHtmlPath = ({
@@ -206,6 +211,14 @@ export const getBundleIndexHtmlPath = ({
   bundleVersion: string;
 }) => {
   if (!appVersion || !bundleVersion) {
+    return undefined;
+  }
+  try {
+    assertSafeBundleVersion(appVersion);
+    assertSafeBundleVersion(bundleVersion);
+  } catch {
+    // A legacy persisted pointer must not prevent starting the built-in bundle.
+    clearUpdateBundleData();
     return undefined;
   }
   const prevNativeVersion = getNativeVersion();
@@ -241,8 +254,8 @@ export const getBundleIndexHtmlPath = ({
     return undefined;
   }
   const extractDir = getBundleExtractDir({
-    appVersion: appVersion || '1.0.0',
-    bundleVersion: bundleVersion || '1',
+    appVersion,
+    bundleVersion,
   });
   if (!fs.existsSync(extractDir)) {
     return undefined;
@@ -266,8 +279,8 @@ const getMetadataFilePath = ({
   bundleVersion: string;
 }) => {
   const bundleDir = getBundleExtractDir({
-    appVersion: appVersion || '1.0.0',
-    bundleVersion: bundleVersion || '1',
+    appVersion,
+    bundleVersion,
   });
   return path.join(bundleDir, 'metadata.json');
 };

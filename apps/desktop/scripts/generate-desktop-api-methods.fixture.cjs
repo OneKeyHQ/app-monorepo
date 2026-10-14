@@ -70,4 +70,17 @@ test('the committed policy is reproducible from every registered desktop API', a
   }
   assert(table.appUpdate.includes('installPackage'));
   assert(table.firmwareArtifact.includes('download'));
+  assert.equal(
+    table.bundleUpdate.some((method) => method.startsWith('test')),
+    false,
+  );
+  assert.equal(table.bundleUpdate.includes('getSha256FromFilePath'), false);
+  assert.equal(table.bundleUpdate.includes('verifyAndResolve'), false);
+  assert.equal(table.appUpdate.includes('verifySha256'), false);
+  assert.equal(table.storage.includes('storeClear'), false);
+  assert(table.storage.includes('resetAppConfiguration'));
+  const development = module.exports.desktopApiDevelopmentMethods;
+  assert(Object.isFrozen(development));
+  assert(development.bundleUpdate.includes('testDeleteJsRuntimeDir'));
+  assert(development.bundleUpdate.includes('getSha256FromFilePath'));
 });

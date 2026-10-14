@@ -18,8 +18,6 @@ export const desktopApiPublicMethods: Readonly<
     'revenueCatRestorePurchases',
     'revenueCatSetAttributes',
     'revenueCatSupportsVerifiedIdentity',
-    'testDelay',
-    'testError',
   ]),
   'system': Object.freeze([
     'changeLanguage',
@@ -60,10 +58,10 @@ export const desktopApiPublicMethods: Readonly<
   ]),
   'storage': Object.freeze([
     'isSecureStorageAvailable',
+    'resetAppConfiguration',
     'secureDelItemAsync',
     'secureGetItemAsync',
     'secureSetItemAsync',
-    'storeClear',
     'storeDelItemAsync',
     'storeGetItemAsync',
     'storeSetItemAsync',
@@ -125,7 +123,6 @@ export const desktopApiPublicMethods: Readonly<
     'verifyASC',
     'verifyFile',
     'verifyPackage',
-    'verifySha256',
   ]),
   'bundleUpdate': Object.freeze([
     'clearAllJSBundleData',
@@ -142,7 +139,6 @@ export const desktopApiPublicMethods: Readonly<
     'getMetadataFilePath',
     'getNativeAppVersion',
     'getNativeBuildNumber',
-    'getSha256FromFilePath',
     'installBundle',
     'isBundleExists',
     'isSkipGpgVerificationAllowed',
@@ -152,13 +148,6 @@ export const desktopApiPublicMethods: Readonly<
     'restart',
     'restartAppForBundleUpdate',
     'setCurrentUpdateBundleData',
-    'testDeleteJsBundle',
-    'testDeleteJsRuntimeDir',
-    'testDeleteMetadataJson',
-    'testSkipVerification',
-    'testVerification',
-    'testWriteEmptyMetadataJson',
-    'verifyAndResolve',
     'verifyBundle',
     'verifyBundleASC',
     'verifyExtractedBundle',
@@ -196,4 +185,18 @@ export const desktopApiPublicMethods: Readonly<
     'stopServer',
   ]),
   'appleAuth': Object.freeze(['isAvailable', 'signIn']),
+});
+export const desktopApiDevelopmentMethods: Readonly<
+  Record<string, readonly string[]>
+> = Object.freeze({
+  'inAppPurchase': Object.freeze(['testDelay', 'testError']),
+  'bundleUpdate': Object.freeze([
+    'getSha256FromFilePath',
+    'testDeleteJsBundle',
+    'testDeleteJsRuntimeDir',
+    'testDeleteMetadataJson',
+    'testSkipVerification',
+    'testVerification',
+    'testWriteEmptyMetadataJson',
+  ]),
 });

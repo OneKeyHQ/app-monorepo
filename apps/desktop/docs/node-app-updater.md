@@ -157,3 +157,60 @@ and Node Range/resume core;
 packaged network verification is still required before rollout.
 Report source checks, packaged-runtime checks, and each OS outcome separately;
 an IPC `true`, file existence, or signature alone is not an installed update.
+
+## Renderer capability boundaries
+
+Desktop `main`/`background` app code uses one JS runtime. Renderer IPC callers
+remain untrusted; filesystem, configuration and OS handlers belong to the main
+process. The generated policy still derives ordinary APIs from TypeScript public
+visibility. Moving every module to explicit opt-in needs a separate inventory and
+migration; public visibility alone must never replace runtime input validation.
+
+| Remote capability | Main-process restriction |
+| --- | --- |
+| Bundle download, verification, extraction, install and switch | ASCII version strings (`A-Z`, `a-z`, digits, `.`, `_`, `-`; no `..`), resolved destinations inside managed roots, exact derived ZIP path, validated fallback cleanup |
+| Bundle diagnostics (`test*`, `getSha256FromFilePath`) | Separate development list plus production dispatcher and method guards |
+| Arbitrary-path checksum helpers | `verifyAndResolve` and app-shell `verifySha256` are private |
+| Log collection/export/upload | Safe archive basename, archive registered by this main-process instance, direct child of `logs_zip`, regular ZIP file, main-derived size, HTTPS allowlist and no redirects |
+| OAuth `openBrowser` | HTTPS configured Supabase/auth origins, no credentials or extra ports |
+| Generic store set/get/delete | Only `AppInstanceMetaBackup`; configuration reset uses `resetAppConfiguration` |
+| App-shell install/manual install | Existing verified record and derived destination checks remain required |
+| System preferences, subscriptions and Bluetooth settings | Fixed OS targets, not caller-provided URLs |
+
+Log upload origins are `https://wallet.onekeycn.com` and
+`https://wallet.onekeytest.com`, at `/wallet/v1/client/log`. OAuth origins come
+from `SUPABASE_PROJECT_URL` and `KEYLESS_SUPABASE_PROJECT_URL`; currently these are
+`https://bwgpgzbzdgkisozswlck.supabase.co` and `https://auth.onekey.so`. Adding an
+endpoint requires reviewing the main-process allowlist. Team ownership changes
+for the generated policy in CODEOWNERS remain a proposal, not part of this change.
+
+Download regressions exercise the production downloader with controlled local
+streams: segmented 200/misaligned/overlong/short responses, disconnect/stall/429
+recovery, monotonic progress through fallback, 200-on-resume, complete partial
+finalization and corrupt assembly cleanup. Loopback integration also checks
+same-destination joining and cancellation before shared directory removal.
+The saved v6.6.0 app-shell ASC fixture is verified offline with the production
+public key, with negative cases for changed content/signature and a wrong key.
+These checks do not establish signed-package installation or OS login acceptance.
+
+Sensitive public method inventory for this review:
+
+- `bundleUpdate`: `downloadBundle`, `downloadBundleASC`, `verifyBundle`,
+  `verifyBundleASC`, `verifyExtractedBundle`, `installBundle`,
+  `setCurrentUpdateBundleData`, `getBundleBuildPath`, `getMetadataFilePath`,
+  `isBundleExists`, `getJsBundlePath`, `getDownloadDir`, `listLocalBundles`,
+  `pruneStaleAppVersionBundles`, `clearDownload`, `clearBundleExtract`,
+  `clearBundle`, `clearAllJSBundleData`, `resetToBuiltInBundle`, `restart`,
+  `restartAppForBundleUpdate`.
+- `appUpdate`: `checkForUpdates`, `downloadUpdate`, `downloadASC`, `getSha256`,
+  `verifyASC`, `verifyFile`, `verifyPackage`, `checkDownloadedFileExists`,
+  `getDownloadedFileAvailability`, `installPackage`, `manualInstallPackage`,
+  `clearUpdateCache`, `useTestUpdateFeedUrl`.
+- `dev`: `collectLoggerDigest`, `exportLoggerZip`, `uploadLoggerBundle`,
+  `getLogDirectory`, `getLogFilePaths`, `openLoggerFile`, `deleteLogFiles`.
+- `storage`: `storeSetItemAsync`, `storeGetItemAsync`, `storeDelItemAsync`,
+  `resetAppConfiguration` (the removed `storeClear` is never registered).
+- `oauthLocalServer`: `openBrowser`, `startServer`, `stopServer`.
+- Fixed OS targets: `system.openPreferences`, `system.openPrivacyPanel`,
+  `system.openAppStoreSubscriptions`, `bluetooth.openBluetoothSettings`,
+  `bluetooth.openPrivacySettings`.

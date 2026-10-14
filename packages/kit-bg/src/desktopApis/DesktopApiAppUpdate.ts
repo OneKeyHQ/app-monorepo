@@ -790,7 +790,10 @@ class DesktopApiAppUpdate {
     );
   }
 
-  async verifySha256(downloadedFile: string, sha256: string): Promise<boolean> {
+  private async verifySha256(
+    downloadedFile: string,
+    sha256: string,
+  ): Promise<boolean> {
     return (await hashFile(downloadedFile, 'sha256')) === sha256.toLowerCase();
   }
 

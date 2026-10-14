@@ -85,6 +85,7 @@ async function generate(directory = apiDirectory) {
   );
   if (!declaration) throw new Error('Desktop API registry is missing');
   const table = {};
+  const developmentTable = {};
   for (const getter of declaration.members.filter(
     ts.isGetAccessorDeclaration,
   )) {
@@ -115,10 +116,13 @@ async function generate(directory = apiDirectory) {
         'Desktop API class must belong to its registry directory',
       );
     }
-    table[memberName(getter)] = publicMethods(
-      fs.readFileSync(fileName, 'utf8'),
-      fileName,
+    const methods = publicMethods(fs.readFileSync(fileName, 'utf8'), fileName);
+    const developmentOnly = (name) =>
+      name.startsWith('test') || name === 'getSha256FromFilePath';
+    table[memberName(getter)] = methods.filter(
+      (name) => !developmentOnly(name),
     );
+    developmentTable[memberName(getter)] = methods.filter(developmentOnly);
   }
   if (!Object.keys(table).length) throw new Error('Empty desktop API registry');
   const entries = Object.entries(table).map(
@@ -130,6 +134,14 @@ async function generate(directory = apiDirectory) {
     '// Rebuilt before every desktop main build; missing metadata denies remote calls.',
     'export const desktopApiPublicMethods: Readonly<Record<string, readonly string[]>> = Object.freeze({',
     ...entries,
+    '});',
+    'export const desktopApiDevelopmentMethods: Readonly<Record<string, readonly string[]>> = Object.freeze({',
+    ...Object.entries(developmentTable)
+      .filter(([, methods]) => methods.length)
+      .map(
+        ([name, methods]) =>
+          `  ${JSON.stringify(name)}: Object.freeze(${JSON.stringify(methods)}),`,
+      ),
     '});',
     '',
   ].join('\n');

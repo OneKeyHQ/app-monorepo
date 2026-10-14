@@ -14,6 +14,8 @@ import type {
   IDesktopStoreUpdateSettings,
 } from '@onekeyhq/shared/types/desktop';
 
+import { assertSafeBundleVersion } from './bundlePaths';
+
 const store = new Store<IDesktopStoreMap>({ name: 'OneKey' });
 
 export type ILocalStore = {
@@ -177,6 +179,8 @@ export const clearUpdateBuildNumber = () => {
 export const setUpdateBundleData = (
   updateBundleData: IDesktopStoreUpdateBundleData,
 ) => {
+  assertSafeBundleVersion(updateBundleData.appVersion);
+  assertSafeBundleVersion(updateBundleData.bundleVersion);
   store.set(EDesktopStoreKeys.UpdateBundleData, updateBundleData);
 };
 
@@ -193,6 +197,10 @@ export const clearUpdateBundleData = () => {
 export const setFallbackUpdateBundleData = (
   fallbackUpdateBundleData: IDesktopStoreFallbackUpdateBundleData,
 ) => {
+  for (const entry of fallbackUpdateBundleData) {
+    assertSafeBundleVersion(entry.appVersion);
+    assertSafeBundleVersion(entry.bundleVersion);
+  }
   store.set(
     EDesktopStoreKeys.FallbackUpdateBundleData,
     fallbackUpdateBundleData,

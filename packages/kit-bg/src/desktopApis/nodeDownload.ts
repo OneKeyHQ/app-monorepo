@@ -129,7 +129,7 @@ async function get(
     const req = https.get(url, { headers, signal }, (response) => {
       const status = response.statusCode ?? 0;
       if ([301, 302, 303, 307, 308].includes(status)) {
-        response.resume();
+        response.destroy();
         if (!response.headers.location || redirects >= MAX_REDIRECTS) {
           reject(new OneKeyLocalError('Invalid download redirect'));
           return;
@@ -437,7 +437,7 @@ async function downloadPart(
           'multipart/byteranges',
         )
       ) {
-        response.resume();
+        response.destroy();
         if (status === 416) throw new RangeFallback('HTTP 416', true);
         if (status === 200 || status === 206)
           throw new RangeFallback('Range response changed');
@@ -585,18 +585,18 @@ async function single(
   );
   const status = response.statusCode ?? 0;
   if (status !== 200 && status !== 206) {
-    response.resume();
+    response.destroy();
     throw new OneKeyLocalError(`HTTP ${status}`);
   }
   if (etag && response.headers.etag && response.headers.etag !== etag) {
-    response.resume();
+    response.destroy();
     discard(partial, manifestPath);
     throw new OneKeyLocalError('Download object changed');
   }
   if (status === 206) {
     const range = contentRange(response.headers['content-range']);
     if (!range || range.start !== offset || (size && range.total !== size)) {
-      response.resume();
+      response.destroy();
       discard(partial, manifestPath);
       throw new OneKeyLocalError('Invalid resume range');
     }
@@ -746,8 +746,16 @@ async function parallelWithRecovery(
 }
 
 export async function downloadNodeFile(
-  opts: INodeDownloadOptions,
+  input: INodeDownloadOptions,
 ): Promise<{ filePath: string; totalBytes: number }> {
+  let highestPercent = 0;
+  const opts: INodeDownloadOptions = {
+    ...input,
+    onProgress: (progress) => {
+      highestPercent = Math.max(highestPercent, progress.percent);
+      input.onProgress?.({ ...progress, percent: highestPercent });
+    },
+  };
   cancelled(opts.signal);
   if (!opts.identity || !isHttps(opts.url))
     throw new OneKeyLocalError('Invalid download parameters');

@@ -16,6 +16,10 @@ import {
   verifySha256,
 } from '@onekeyhq/desktop/app/bundle';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
+import {
+  assertSafeBundleVersion,
+  resolveBundlePath,
+} from '@onekeyhq/desktop/app/libs/bundlePaths';
 import * as store from '@onekeyhq/desktop/app/libs/store';
 import {
   clearWindowProgressBar,
@@ -242,7 +246,7 @@ class DesktopApiAppBundleUpdate {
     return globalThis.$desktopMainAppFunctions?.getSafelyMainWindow?.();
   }
 
-  async verifyAndResolve(filePath: string, sha256: string) {
+  private async verifyAndResolve(filePath: string, sha256: string) {
     return new Promise<boolean>((resolve, reject) => {
       setTimeout(() => {
         const verified = verifySha256(filePath, sha256);
@@ -279,10 +283,13 @@ class DesktopApiAppBundleUpdate {
   }
 
   // The destination zip path for a (appVersion, bundleVersion) pair.
-  private getDestZipPath(params: IDownloadPackageParams): string | null {
+  private getDestZipPath(
+    params: Pick<IDownloadPackageParams, 'latestVersion' | 'bundleVersion'>,
+  ): string | null {
     const { latestVersion: appVersion, bundleVersion } = params;
-    if (!appVersion || !bundleVersion) return null;
-    return path.join(
+    assertSafeBundleVersion(appVersion);
+    assertSafeBundleVersion(bundleVersion);
+    return resolveBundlePath(
       this.getDownloadDir(),
       `${appVersion}-${bundleVersion}.zip`,
     );
@@ -393,8 +400,10 @@ class DesktopApiAppBundleUpdate {
     appVersion: string;
     bundleVersion: string;
   }) {
-    const bundleDir = getBundleDirName();
-    return path.join(bundleDir, `${appVersion}-${bundleVersion}`, 'build');
+    return path.join(
+      getBundleExtractDir({ appVersion, bundleVersion }),
+      'build',
+    );
   }
 
   getMetadataFilePath({
@@ -404,10 +413,8 @@ class DesktopApiAppBundleUpdate {
     appVersion: string;
     bundleVersion: string;
   }) {
-    const bundleDir = getBundleDirName();
     return path.join(
-      bundleDir,
-      `${appVersion}-${bundleVersion}`,
+      getBundleExtractDir({ appVersion, bundleVersion }),
       'metadata.json',
     );
   }
@@ -421,6 +428,14 @@ class DesktopApiAppBundleUpdate {
       signature,
       skipGPGVerification,
     } = params || {};
+    assertSafeBundleVersion(appVersion);
+    assertSafeBundleVersion(bundleVersion);
+    if (
+      downloadedFile !==
+      this.getDestZipPath({ latestVersion: appVersion, bundleVersion })
+    ) {
+      throw new OneKeyLocalError('Invalid bundle download path');
+    }
     const allowSkipGPG = this.isSkipGPGAllowed(skipGPGVerification);
     if (
       !downloadedFile ||
@@ -457,6 +472,14 @@ class DesktopApiAppBundleUpdate {
       signature,
       skipGPGVerification,
     } = params || {};
+    assertSafeBundleVersion(appVersion);
+    assertSafeBundleVersion(bundleVersion);
+    if (
+      downloadedFile !==
+      this.getDestZipPath({ latestVersion: appVersion, bundleVersion })
+    ) {
+      throw new OneKeyLocalError('Invalid bundle download path');
+    }
     const allowSkipGPG = this.isSkipGPGAllowed(skipGPGVerification);
     if (
       !downloadedFile ||
@@ -478,6 +501,14 @@ class DesktopApiAppBundleUpdate {
       signature,
       skipGPGVerification,
     } = params || {};
+    assertSafeBundleVersion(appVersion);
+    assertSafeBundleVersion(bundleVersion);
+    if (
+      downloadedFile !==
+      this.getDestZipPath({ latestVersion: appVersion, bundleVersion })
+    ) {
+      throw new OneKeyLocalError('Invalid bundle download path');
+    }
     const allowSkipGPG = this.isSkipGPGAllowed(skipGPGVerification);
     if (
       !downloadedFile ||
@@ -856,6 +887,8 @@ class DesktopApiAppBundleUpdate {
       signature,
       skipGPGVerification,
     } = params || {};
+    assertSafeBundleVersion(appVersion);
+    assertSafeBundleVersion(bundleVersion);
     const allowSkipGPG = this.isSkipGPGAllowed(skipGPGVerification);
     if (!appVersion || !bundleVersion || (!signature && !allowSkipGPG)) {
       logger.error('bundle-install', 'Invalid parameters', {
@@ -867,6 +900,18 @@ class DesktopApiAppBundleUpdate {
       throw new OneKeyLocalError('Invalid parameters');
     }
     const currentUpdateBundleData = store.getUpdateBundleData();
+    const fallbackUpdateBundleData = store.getFallbackUpdateBundleData();
+    for (const entry of fallbackUpdateBundleData) {
+      assertSafeBundleVersion(entry?.appVersion);
+      assertSafeBundleVersion(entry?.bundleVersion);
+    }
+    if (
+      currentUpdateBundleData?.appVersion ||
+      currentUpdateBundleData?.bundleVersion
+    ) {
+      assertSafeBundleVersion(currentUpdateBundleData.appVersion);
+      assertSafeBundleVersion(currentUpdateBundleData.bundleVersion);
+    }
 
     // Security: Verify bundle directory exists before updating store
     const extractDir = getBundleExtractDir({ appVersion, bundleVersion });
@@ -897,7 +942,6 @@ class DesktopApiAppBundleUpdate {
       nativeVersion: app.getVersion(),
       buildNumber,
     });
-    const fallbackUpdateBundleData = store.getFallbackUpdateBundleData();
     if (
       currentUpdateBundleData &&
       currentUpdateBundleData.appVersion &&
@@ -910,9 +954,7 @@ class DesktopApiAppBundleUpdate {
     if (fallbackUpdateBundleData.length > 3) {
       const shiftUpdateBundleData = fallbackUpdateBundleData.shift();
       if (shiftUpdateBundleData) {
-        const dirName = `${shiftUpdateBundleData.appVersion}-${shiftUpdateBundleData.bundleVersion}`;
-        const bundleDir = getBundleDirName();
-        const bundleDirPath = path.join(bundleDir, dirName);
+        const bundleDirPath = getBundleExtractDir(shiftUpdateBundleData);
         if (fs.existsSync(bundleDirPath)) {
           fs.rmSync(bundleDirPath, { recursive: true, force: true });
         }
@@ -947,6 +989,8 @@ class DesktopApiAppBundleUpdate {
   async setCurrentUpdateBundleData(
     updateBundleData: IDesktopStoreUpdateBundleData,
   ) {
+    assertSafeBundleVersion(updateBundleData?.appVersion);
+    assertSafeBundleVersion(updateBundleData?.bundleVersion);
     store.setUpdateBundleData(updateBundleData);
     if (updateBundleData.appVersion && updateBundleData.bundleVersion) {
       await this.restartAppForBundleUpdate();
@@ -1043,11 +1087,19 @@ class DesktopApiAppBundleUpdate {
     });
   }
 
+  private assertDevelopmentBuild() {
+    if (process.env.NODE_ENV === 'production') {
+      throw new OneKeyLocalError('Development bundle API is unavailable');
+    }
+  }
+
   async testVerification() {
+    this.assertDevelopmentBuild();
     return testExtractedSha256FromVerifyAscFile();
   }
 
   async testSkipVerification() {
+    this.assertDevelopmentBuild();
     const skipGPGVerification = true;
     return Promise.resolve(this.isSkipGPGAllowed(skipGPGVerification));
   }
@@ -1064,6 +1116,7 @@ class DesktopApiAppBundleUpdate {
    * @param bundleVersion - Bundle version
    */
   async testDeleteJsBundle(appVersion: string, bundleVersion: string) {
+    this.assertDevelopmentBuild();
     try {
       const bundleDir = getBundleExtractDir({ appVersion, bundleVersion });
       const mainIndexHtmlPath = path.join(bundleDir, 'index.html');
@@ -1104,6 +1157,7 @@ class DesktopApiAppBundleUpdate {
    * @param bundleVersion - Bundle version
    */
   async testDeleteJsRuntimeDir(appVersion: string, bundleVersion: string) {
+    this.assertDevelopmentBuild();
     try {
       const bundleDir = getBundleExtractDir({ appVersion, bundleVersion });
 
@@ -1143,6 +1197,7 @@ class DesktopApiAppBundleUpdate {
    * @param bundleVersion - Bundle version
    */
   async testDeleteMetadataJson(appVersion: string, bundleVersion: string) {
+    this.assertDevelopmentBuild();
     try {
       const metadataFilePath = this.getMetadataFilePath({
         appVersion,
@@ -1185,6 +1240,7 @@ class DesktopApiAppBundleUpdate {
    * @param bundleVersion - Bundle version
    */
   async testWriteEmptyMetadataJson(appVersion: string, bundleVersion: string) {
+    this.assertDevelopmentBuild();
     try {
       const bundleDir = getBundleExtractDir({ appVersion, bundleVersion });
       const metadataFilePath = path.join(bundleDir, 'metadata.json');
@@ -1241,6 +1297,7 @@ class DesktopApiAppBundleUpdate {
   }
 
   async getSha256FromFilePath(filePath: string) {
+    this.assertDevelopmentBuild();
     return calculateSHA256(filePath);
   }
 }

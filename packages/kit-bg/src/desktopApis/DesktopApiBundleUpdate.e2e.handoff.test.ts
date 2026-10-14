@@ -296,3 +296,89 @@ describe('DesktopApiBundleUpdate public download integration', () => {
     }
   });
 });
+
+describe('bundle writer lifecycle through the public API', () => {
+  let previousRejectUnauthorized: boolean | undefined;
+  beforeEach(() => {
+    previousRejectUnauthorized = https.globalAgent.options.rejectUnauthorized;
+    https.globalAgent.options.rejectUnauthorized = false;
+    fs.rmSync(USERDATA, { recursive: true, force: true });
+  });
+  afterEach(() => {
+    https.globalAgent.options.rejectUnauthorized = previousRejectUnauthorized;
+    fs.rmSync(USERDATA, { recursive: true, force: true });
+  });
+
+  test('joins same-destination requests into one real network download', async () => {
+    const content = crypto.randomBytes(3 * 1024 * 1024);
+    const server = await startServer(content, true);
+    try {
+      const api = makeApi();
+      const params = {
+        latestVersion: '6.6.0',
+        bundleVersion: '123',
+        downloadUrl: server.url,
+        sha256: sha256(content),
+      };
+      const [first, joined] = await Promise.all([
+        api.downloadBundle(params),
+        api.downloadBundle(params),
+      ]);
+      expect(first).toBe(joined);
+      expect(server.requests).toHaveLength(9);
+      expect(fs.readFileSync(first!.downloadedFile!).equals(content)).toBe(
+        true,
+      );
+    } finally {
+      await server.close();
+    }
+  });
+
+  test('clearDownload cancels a real writer before deleting all resumable artifacts', async () => {
+    let markStarted: () => void = () => {};
+    let markClosed: () => void = () => {};
+    const started = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    const closed = new Promise<void>((resolve) => {
+      markClosed = resolve;
+    });
+    const server = https.createServer(
+      { key: pems.private, cert: pems.cert },
+      (request, response) => {
+        response.writeHead(200, { 'Content-Length': 64 * 1024 });
+        if (request.headers.range) {
+          response.end(Buffer.alloc(64 * 1024));
+          return;
+        }
+        response.on('close', markClosed);
+        response.write(Buffer.alloc(1024));
+        markStarted();
+      },
+    );
+    await new Promise<void>((resolve) =>
+      server.listen(0, '127.0.0.1', resolve),
+    );
+    try {
+      const api = makeApi();
+      const port = (server.address() as AddressInfo).port;
+      const run = api.downloadBundle({
+        latestVersion: '6.6.0',
+        bundleVersion: '123',
+        downloadUrl: `https://127.0.0.1:${port}/bundle.zip`,
+        sha256: sha256(Buffer.alloc(64 * 1024)),
+      });
+      const outcome = run.catch((error: unknown) => error);
+      await started;
+      await api.clearDownload();
+      expect(await outcome).toBeInstanceOf(Error);
+      await closed;
+      expect(api.isDownloading).toBe(false);
+      expect(fs.existsSync(path.join(USERDATA, 'onekey-bundle-download'))).toBe(
+        false,
+      );
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+});

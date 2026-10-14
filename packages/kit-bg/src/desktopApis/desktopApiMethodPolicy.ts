@@ -1,4 +1,7 @@
-import { desktopApiPublicMethods } from './desktopApiPublicMethods.generated';
+import {
+  desktopApiDevelopmentMethods,
+  desktopApiPublicMethods,
+} from './desktopApiPublicMethods.generated';
 
 const prototypeMethods = new Set([
   'constructor',
@@ -28,4 +31,6 @@ export const isDesktopApiMethodAllowed = (
   typeof method === 'string' &&
   !method.startsWith('_') &&
   !prototypeMethods.has(method) &&
-  desktopApiPublicMethods[module].includes(method);
+  (desktopApiPublicMethods[module].includes(method) ||
+    (process.env.NODE_ENV !== 'production' &&
+      desktopApiDevelopmentMethods[module]?.includes(method) === true));

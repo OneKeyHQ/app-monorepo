@@ -105,3 +105,60 @@ test('cancels an in-flight Electron request', async () => {
   await expect(request).rejects.toThrow('Download cancelled');
   expect(mockRequest.mock.results[0].value.abort).toHaveBeenCalledTimes(1);
 });
+
+test('destroying an unused Electron response aborts without draining the body', async () => {
+  let consumed = 0;
+  const incoming = Object.assign(
+    new Readable({
+      read() {
+        consumed += 1;
+        this.push(Buffer.alloc(1024));
+      },
+    }),
+    { statusCode: 200, headers: {} },
+  );
+  const request = requestFor('https://fixture.test/package');
+  request.end.mockImplementation(() => {
+    setImmediate(() => request.emit('response', incoming));
+  });
+  mockRequest.mockReturnValue(request);
+  const result = await requestUpdateUrl('https://fixture.test/package', {});
+  result.response.destroy();
+  expect(request.abort).toHaveBeenCalledTimes(1);
+  expect(incoming.destroyed).toBe(true);
+  expect(consumed).toBe(0);
+});
+
+test('times out a response body that stalls after delivering its first chunk', async () => {
+  let started = false;
+  const incoming = Object.assign(
+    new Readable({
+      read() {
+        if (!started) {
+          started = true;
+          this.push(Buffer.from('first chunk'));
+        }
+      },
+    }),
+    { statusCode: 206, headers: {} },
+  );
+  const request = requestFor('https://fixture.test/package');
+  request.end.mockImplementation(() => {
+    setImmediate(() => request.emit('response', incoming));
+  });
+  mockRequest.mockReturnValue(request);
+  const result = await requestUpdateUrl(
+    'https://fixture.test/package',
+    {},
+    undefined,
+    10,
+  );
+  const consume = async () => {
+    for await (const _chunk of result.response) {
+      /* Wait for the body watchdog. */
+    }
+  };
+  await expect(consume()).rejects.toThrow('Download timeout');
+  expect(request.abort).toHaveBeenCalledTimes(1);
+  expect(incoming.destroyed).toBe(true);
+});

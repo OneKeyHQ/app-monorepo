@@ -4,6 +4,7 @@ import { Dialog, Page, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EDesktopStoreKeys } from '@onekeyhq/shared/types/desktop';
 
 export default function DesktopApiProxyTestDevSettings() {
   const [devToolsEnabled, setDevToolsEnabled] = useState(false);
@@ -256,8 +257,12 @@ export default function DesktopApiProxyTestDevSettings() {
   const testStorageSetItem = useCallback(async () => {
     try {
       await globalThis.desktopApiProxy.storage.storeSetItemAsync(
-        'testKey' as any,
-        'testValue',
+        EDesktopStoreKeys.AppInstanceMetaBackup,
+        {
+          instanceId: 'desktop-api-test',
+          sensitiveEncodeKey: '',
+          instanceIdBackup: undefined,
+        },
       );
       Dialog.debugMessage({
         debugMessage: { result: 'storeSetItemAsync() called successfully' },
@@ -272,7 +277,7 @@ export default function DesktopApiProxyTestDevSettings() {
   const testStorageGetItem = useCallback(async () => {
     try {
       const value = await globalThis.desktopApiProxy.storage.storeGetItemAsync(
-        'testKey' as any,
+        EDesktopStoreKeys.AppInstanceMetaBackup,
       );
       Dialog.debugMessage({
         debugMessage: { getValue: value },
@@ -287,7 +292,7 @@ export default function DesktopApiProxyTestDevSettings() {
   const testStorageDelItem = useCallback(async () => {
     try {
       await globalThis.desktopApiProxy.storage.storeDelItemAsync(
-        'testKey' as any,
+        EDesktopStoreKeys.AppInstanceMetaBackup,
       );
       Dialog.debugMessage({
         debugMessage: { result: 'storeDelItemAsync() called successfully' },
@@ -301,9 +306,9 @@ export default function DesktopApiProxyTestDevSettings() {
 
   const testStorageClear = useCallback(async () => {
     try {
-      await globalThis.desktopApiProxy.storage.storeClear();
+      await globalThis.desktopApiProxy.storage.resetAppConfiguration();
       Dialog.debugMessage({
-        debugMessage: { result: 'storeClear() called successfully' },
+        debugMessage: { result: 'resetAppConfiguration() called successfully' },
       });
     } catch (error) {
       Dialog.debugMessage({
@@ -802,7 +807,7 @@ export default function DesktopApiProxyTestDevSettings() {
         />
 
         <ListItem
-          title="storeClear()"
+          title="resetAppConfiguration()"
           subtitle="Clear all store data"
           drillIn
           onPress={testStorageClear}
