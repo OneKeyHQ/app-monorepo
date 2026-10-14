@@ -1231,4 +1231,11 @@ function TxActionTransferDetailView(props: ITxActionProps) {
   return <>{renderTransferBlock([...sendsBlock, ...receivesBlock])}</>;
 }
 
-export { TxActionTransferListView, TxActionTransferDetailView };
+export {
+  TxActionTransferListView,
+  TxActionTransferDetailView,
+  getTxActionTransferInfo,
+  buildTransferChangeInfo,
+  groupTransfersByToken,
+  buildPrivateSendDisplaySends,
+};

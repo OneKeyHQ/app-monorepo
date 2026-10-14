@@ -4,6 +4,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IFeeInfoUnit, IFeesInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IEncodedTxLightning } from '@onekeyhq/shared/types/lightning';
+import type { ISolanaTxDiagnosticContext } from '@onekeyhq/shared/types/solanaTxDiagnostics';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 
@@ -105,6 +106,7 @@ export type IUnsignedTx = {
 };
 
 export type IUnsignedTxPro = IUnsignedTx & {
+  solanaTxDiagnostic?: ISolanaTxDiagnosticContext;
   encodedTx: IEncodedTx;
   feeInfo?: IFeeInfoUnit | undefined;
   feesInfo?: IFeesInfoUnit | undefined;
@@ -151,6 +153,7 @@ export type ISignedTxResult = ISignedTx & {
   outputIndex?: number;
 };
 export type ISignedTxPro = ISignedTxResult & {
+  solanaTxDiagnostic?: ISolanaTxDiagnosticContext;
   encodedTx: IEncodedTx | null;
 };
 export type ISignedMessageItemPro = string;

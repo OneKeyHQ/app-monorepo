@@ -15,6 +15,8 @@ import { useTokenDetailActions, useWatchListV2Actions } from './actions';
 import {
   ProviderJotaiContextMarketV2,
   isNativeAtom,
+  marketPerpsInfoStatusAtom,
+  marketPerpsResolutionAtom,
   marketV2StorageReadyAtom,
   marketWatchListV2Atom,
   networkIdAtom,
@@ -202,6 +204,132 @@ describe('token detail refresh failures', () => {
   });
 
   afterEach(() => jest.restoreAllMocks());
+
+  it.each(['error', 'empty-name'] as const)(
+    'retains the settled footer through polling without detail after %s',
+    async (outcome) => {
+      const { store, Wrapper } = createWrapper();
+      const { result } = renderHook(() => useTokenDetailActions().current, {
+        wrapper: Wrapper,
+      });
+      store.set(networkIdAtom(), detail.networkId);
+      store.set(tokenAddressAtom(), detail.address);
+      const emptyResponse = {
+        data: { token: { ...detail, name: '' }, websocket },
+      };
+      if (outcome === 'error') {
+        mockFetchMarketTokenDetailByTokenAddress.mockRejectedValueOnce(
+          new Error('initial fetch failed'),
+        );
+        await act(async () => {
+          await expect(
+            result.current.fetchTokenDetail(detail.address, detail.networkId),
+          ).rejects.toThrow('initial fetch failed');
+        });
+      } else {
+        mockFetchMarketTokenDetailByTokenAddress.mockResolvedValueOnce(
+          emptyResponse,
+        );
+        await act(async () => {
+          await result.current.fetchTokenDetail(
+            detail.address,
+            detail.networkId,
+          );
+        });
+      }
+      const expectedStatus = outcome === 'error' ? 'error' : 'resolved';
+      expect(store.get(tokenDetailAtom())).toBeUndefined();
+      expect(store.get(marketPerpsInfoStatusAtom())).toBe(expectedStatus);
+      for (let poll = 0; poll < 2; poll += 1) {
+        const response = createDeferred<typeof emptyResponse>();
+        mockFetchMarketTokenDetailByTokenAddress.mockReturnValueOnce(
+          response.promise,
+        );
+        let refresh: ReturnType<typeof result.current.fetchTokenDetail>;
+        act(() => {
+          refresh = result.current.fetchTokenDetail(
+            detail.address,
+            detail.networkId,
+          );
+        });
+        expect(store.get(marketPerpsInfoStatusAtom())).toBe(expectedStatus);
+        expect(store.get(tokenDetailAtom())).toBeUndefined();
+        await act(async () => {
+          if (outcome === 'error') {
+            response.reject(new Error('poll failed'));
+            await expect(refresh).rejects.toThrow('poll failed');
+          } else {
+            response.resolve(emptyResponse);
+            await refresh;
+          }
+        });
+        expect(store.get(marketPerpsInfoStatusAtom())).toBe(expectedStatus);
+      }
+
+      // A different token must still wait for its own support response.
+      store.set(tokenAddressAtom(), '0xother');
+      const nextResponse = createDeferred<typeof emptyResponse>();
+      mockFetchMarketTokenDetailByTokenAddress.mockReturnValueOnce(
+        nextResponse.promise,
+      );
+      let nextRefresh: ReturnType<typeof result.current.fetchTokenDetail>;
+      act(() => {
+        nextRefresh = result.current.fetchTokenDetail(
+          '0xother',
+          detail.networkId,
+        );
+      });
+      expect(store.get(marketPerpsInfoStatusAtom())).toBe('pending');
+      await act(async () => {
+        nextResponse.resolve(emptyResponse);
+        await nextRefresh;
+      });
+    },
+  );
+
+  it('retains the error footer during a token refresh without Perps support', async () => {
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useTokenDetailActions().current, {
+      wrapper: Wrapper,
+    });
+    store.set(networkIdAtom(), detail.networkId);
+    store.set(tokenAddressAtom(), detail.address);
+    mockFetchMarketTokenDetailByTokenAddress.mockResolvedValueOnce({
+      data: { token: detail, websocket },
+    });
+    await act(async () => {
+      await result.current.fetchTokenDetail(detail.address, detail.networkId);
+    });
+    mockFetchMarketTokenDetailByTokenAddress.mockRejectedValueOnce(
+      new Error('refresh failed'),
+    );
+    await act(async () => {
+      await expect(
+        result.current.fetchTokenDetail(detail.address, detail.networkId),
+      ).rejects.toThrow('refresh failed');
+    });
+    expect(store.get(marketPerpsInfoStatusAtom())).toBe('error');
+    const response = createDeferred<{
+      data: { token: typeof detail; websocket: typeof websocket };
+    }>();
+    mockFetchMarketTokenDetailByTokenAddress.mockReturnValueOnce(
+      response.promise,
+    );
+    let refresh: ReturnType<typeof result.current.fetchTokenDetail>;
+    act(() => {
+      refresh = result.current.fetchTokenDetail(
+        detail.address,
+        detail.networkId,
+      );
+    });
+    expect(store.get(marketPerpsInfoStatusAtom())).toBe('error');
+    expect(store.get(perpsInfoAtom())).toBeUndefined();
+    await act(async () => {
+      response.resolve({ data: { token: detail, websocket } });
+      await refresh;
+    });
+    expect(store.get(marketPerpsInfoStatusAtom())).toBe('resolved');
+  });
 
   it.each(['changeActiveToken', 'fetchTokenDetail'] as const)(
     'preserves the list first-trade time through %s and polling',
@@ -475,6 +603,99 @@ describe('retained token navigation identity', () => {
 
 describe('stock navigation identity', () => {
   beforeEach(() => jest.clearAllMocks());
+
+  it.each([
+    ['evm--1', '0xAbCd', '0xabcd', 'resolved'],
+    ['sol--101', 'AbCd', 'abcd', 'pending'],
+    ['evm--1', '0xAbCd', '0xother', 'pending'],
+  ])(
+    'matches retained Perps metadata using the address rules for %s (%s -> %s)',
+    (networkId, tokenAddress, responseAddress, expectedStatus) => {
+      const { store } = createWrapper();
+      store.set(networkIdAtom(), networkId);
+      store.set(tokenAddressAtom(), tokenAddress);
+      store.set(tokenDetailRequestIdAtom(), 2);
+      store.set(marketPerpsResolutionAtom(), {
+        networkId,
+        tokenAddress,
+        requestId: 1,
+        status: 'resolved',
+      });
+      store.set(tokenDetailAtom(), {
+        networkId,
+        address: responseAddress,
+        name: 'Token',
+        symbol: 'TOKEN',
+        decimals: 18,
+        logoUrl: '',
+        price: '1',
+      });
+      expect(store.get(marketPerpsInfoStatusAtom())).toBe(expectedStatus);
+    },
+  );
+
+  it.each([true, false])(
+    'resolves the stock button group together with hasPerps=%s and preserves it during polling',
+    async (hasPerps) => {
+      const { store, Wrapper } = createWrapper();
+      const { result } = renderHook(() => useTokenDetailActions().current, {
+        wrapper: Wrapper,
+      });
+      const target = { networkId: 'sol--101', tokenAddress: 'AAPLx' };
+      const response = createDeferred<unknown>();
+      mockFetchMarketTokenDetailByTokenAddress.mockReturnValueOnce(
+        response.promise,
+      );
+      act(() => result.current.prepareStockTokenDetail(target));
+      let request: Promise<unknown> | undefined;
+      act(() => {
+        request = result.current.fetchTokenDetail(
+          target.tokenAddress,
+          target.networkId,
+        );
+      });
+      expect(store.get(marketPerpsInfoStatusAtom())).toBe('pending');
+      expect(store.get(perpsInfoAtom())).toBeUndefined();
+
+      await act(async () => {
+        response.resolve({
+          data: {
+            token: {
+              address: target.tokenAddress,
+              name: 'Apple xStock',
+              symbol: 'AAPLx',
+              decimals: 8,
+              logoUrl: '',
+              price: '318',
+            },
+            perpsInfo: hasPerps ? { hlTicker: 'xyz:AAPL' } : undefined,
+          },
+        });
+        await request;
+      });
+      expect(store.get(marketPerpsInfoStatusAtom())).toBe('resolved');
+      expect(store.get(tokenDetailAtom())?.symbol).toBe('AAPLx');
+      expect(store.get(perpsInfoAtom())).toEqual(
+        hasPerps ? { hlTicker: 'xyz:AAPL' } : undefined,
+      );
+
+      const refresh = createDeferred<unknown>();
+      mockFetchMarketTokenDetailByTokenAddress.mockReturnValueOnce(
+        refresh.promise,
+      );
+      act(() => {
+        request = result.current.fetchTokenDetail(
+          target.tokenAddress,
+          target.networkId,
+        );
+      });
+      expect(store.get(marketPerpsInfoStatusAtom())).toBe('resolved');
+      await act(async () => {
+        refresh.resolve({ data: {} });
+        await request;
+      });
+    },
+  );
 
   it('preserves loaded state when re-entering the same stock variant', () => {
     const { store, Wrapper } = createWrapper();
@@ -982,6 +1203,9 @@ describe('marketV2 asset token detail actions', () => {
       });
       if (delayedRequest === 'decimals') {
         expect(mockFetchTokenInfoOnly).toHaveBeenCalledTimes(1);
+        expect(mockResolveMarketPerpsInfoBySymbol).toHaveBeenCalledWith({
+          symbol: 'DOGE',
+        });
       }
       act(() => {
         result.current.actions.applyChartPriceUpdate({
@@ -1101,6 +1325,196 @@ describe('marketV2 asset token detail actions', () => {
     expect(store.get(perpsInfoAtom())).toEqual({ hlTicker: 'DOGE' });
   });
 
+  it.each(['supported', 'unsupported', 'error'] as const)(
+    'keeps Perps support pending independently of detail loading until %s is known',
+    async (outcome) => {
+      const response = createDeferred<{ hlTicker: string } | undefined>();
+      mockResolveMarketPerpsInfoBySymbol.mockReturnValueOnce(response.promise);
+      const { store, Wrapper } = createWrapper();
+      store.set(networkIdAtom(), 'doge--0');
+      const { result } = renderHook(() => useMarketAssetTokenDetailAction(), {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await result.current({
+          assetId: 'doge',
+          tokenAddress: '',
+          networkId: 'doge--0',
+        });
+      });
+
+      expect(store.get(tokenDetailLoadingAtom())).toBe(false);
+      expect(store.get(tokenDetailAtom())?.symbol).toBe('DOGE');
+      expect(store.get(marketPerpsInfoStatusAtom())).toBe('pending');
+      expect(store.get(perpsInfoAtom())).toBeUndefined();
+
+      await act(async () => {
+        if (outcome === 'error') {
+          response.reject(new Error('Perps metadata unavailable'));
+        } else {
+          response.resolve(
+            outcome === 'supported' ? { hlTicker: 'DOGE' } : undefined,
+          );
+        }
+      });
+
+      expect(store.get(marketPerpsInfoStatusAtom())).toBe(
+        outcome === 'error' ? 'error' : 'resolved',
+      );
+      expect(store.get(perpsInfoAtom())).toEqual(
+        outcome === 'supported' ? { hlTicker: 'DOGE' } : undefined,
+      );
+    },
+  );
+
+  it.each(['supported', 'unsupported', 'error'] as const)(
+    'keeps a live Perps lookup pending after an asset poll fails: %s',
+    async (outcome) => {
+      const response = createDeferred<{ hlTicker: string } | undefined>();
+      mockResolveMarketPerpsInfoBySymbol.mockReturnValueOnce(response.promise);
+      const { store, Wrapper } = createWrapper();
+      store.set(networkIdAtom(), 'doge--0');
+      const { result } = renderHook(() => useMarketAssetTokenDetailAction(), {
+        wrapper: Wrapper,
+      });
+      const payload = {
+        assetId: 'doge',
+        tokenAddress: '',
+        networkId: 'doge--0',
+      };
+      await act(async () => {
+        await result.current(payload);
+      });
+      mockFetchMarketAssetDetail.mockRejectedValueOnce(
+        new Error('poll failed'),
+      );
+      await act(async () => {
+        await expect(result.current(payload)).rejects.toThrow('poll failed');
+      });
+      expect(store.get(marketPerpsInfoStatusAtom())).toBe('pending');
+      expect(store.get(tokenDetailLoadingAtom())).toBe(false);
+      expect(mockResolveMarketPerpsInfoBySymbol).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        if (outcome === 'error') response.reject(new Error('lookup failed'));
+        else
+          response.resolve(
+            outcome === 'supported' ? { hlTicker: 'DOGE' } : undefined,
+          );
+      });
+      expect(store.get(marketPerpsInfoStatusAtom())).toBe(
+        outcome === 'error' ? 'error' : 'resolved',
+      );
+      expect(store.get(perpsInfoAtom())).toEqual(
+        outcome === 'supported' ? { hlTicker: 'DOGE' } : undefined,
+      );
+    },
+  );
+
+  it('retains the error footer while retrying an asset Perps lookup', async () => {
+    mockResolveMarketPerpsInfoBySymbol.mockRejectedValueOnce(
+      new Error('lookup failed'),
+    );
+    const { store, Wrapper } = createWrapper();
+    store.set(networkIdAtom(), 'doge--0');
+    const { result } = renderHook(() => useMarketAssetTokenDetailAction(), {
+      wrapper: Wrapper,
+    });
+    const payload = { assetId: 'doge', tokenAddress: '', networkId: 'doge--0' };
+    await act(async () => {
+      await result.current(payload);
+    });
+    expect(store.get(marketPerpsInfoStatusAtom())).toBe('error');
+    const response = createDeferred<{ hlTicker: string } | undefined>();
+    mockResolveMarketPerpsInfoBySymbol.mockReturnValueOnce(response.promise);
+    await act(async () => {
+      await result.current(payload);
+    });
+    expect(store.get(marketPerpsInfoStatusAtom())).toBe('error');
+    expect(store.get(perpsInfoAtom())).toBeUndefined();
+    await act(async () => {
+      response.resolve(undefined);
+    });
+    expect(store.get(marketPerpsInfoStatusAtom())).toBe('resolved');
+  });
+
+  it('ignores a Perps response after the active token changes', async () => {
+    const response = createDeferred<{ hlTicker: string } | undefined>();
+    mockResolveMarketPerpsInfoBySymbol.mockReturnValueOnce(response.promise);
+    const { store, Wrapper } = createWrapper();
+    store.set(networkIdAtom(), 'doge--0');
+    const { result } = renderHook(
+      () => ({
+        actions: useTokenDetailActions().current,
+        fetchAssetTokenDetail: useMarketAssetTokenDetailAction(),
+      }),
+      { wrapper: Wrapper },
+    );
+    await act(async () => {
+      await result.current.fetchAssetTokenDetail({
+        assetId: 'doge',
+        tokenAddress: '',
+        networkId: 'doge--0',
+      });
+    });
+    act(() => {
+      result.current.actions.prepareTokenDetailPreview({
+        address: '',
+        networkId: 'evm--1',
+        isNative: true,
+        name: 'Ethereum',
+        symbol: 'ETH',
+        decimals: 18,
+        selectedAt: Date.now(),
+      });
+    });
+    await act(async () => {
+      response.resolve({ hlTicker: 'DOGE' });
+    });
+
+    expect(store.get(perpsInfoAtom())).toBeUndefined();
+    expect(store.get(marketPerpsInfoStatusAtom())).toBe('pending');
+  });
+
+  it.each(['supported', 'unsupported', 'error'] as const)(
+    'settles a slow Perps lookup after repeated asset polling: %s',
+    async (outcome) => {
+      const response = createDeferred<{ hlTicker: string } | undefined>();
+      mockResolveMarketPerpsInfoBySymbol.mockReturnValueOnce(response.promise);
+      const { store, Wrapper } = createWrapper();
+      store.set(networkIdAtom(), 'doge--0');
+      const { result } = renderHook(() => useMarketAssetTokenDetailAction(), {
+        wrapper: Wrapper,
+      });
+      for (let poll = 0; poll < 3; poll += 1) {
+        await act(async () => {
+          await result.current({
+            assetId: 'doge',
+            tokenAddress: '',
+            networkId: 'doge--0',
+          });
+        });
+      }
+      expect(mockResolveMarketPerpsInfoBySymbol).toHaveBeenCalledTimes(1);
+      expect(store.get(marketPerpsInfoStatusAtom())).toBe('pending');
+      await act(async () => {
+        if (outcome === 'error') {
+          response.reject(new Error('Perps metadata unavailable'));
+        } else {
+          response.resolve(
+            outcome === 'supported' ? { hlTicker: 'DOGE' } : undefined,
+          );
+        }
+      });
+      expect(store.get(marketPerpsInfoStatusAtom())).toBe(
+        outcome === 'error' ? 'error' : 'resolved',
+      );
+      expect(store.get(perpsInfoAtom())).toEqual(
+        outcome === 'supported' ? { hlTicker: 'DOGE' } : undefined,
+      );
+    },
+  );
+
   it('uses local network decimals for a preview-less native asset', async () => {
     const { store, Wrapper } = createWrapper();
     const { result } = renderHook(
@@ -1192,6 +1606,35 @@ describe('marketV2 asset token detail actions', () => {
     });
     expect(store.get(tokenDetailAtom())).toBeUndefined();
     expect(store.get(tokenDetailLoadingAtom())).toBe(false);
+    expect(store.get(marketPerpsInfoStatusAtom())).toBe('error');
+  });
+
+  it('settles Perps loading when the asset response has the wrong variant', async () => {
+    const { store, Wrapper } = createWrapper();
+    store.set(networkIdAtom(), 'doge--0');
+    mockFetchMarketAssetDetail.mockResolvedValueOnce({
+      ...dogeAssetDetail,
+      selectedVariant: {
+        ...dogeAssetDetail.selectedVariant,
+        variantId: 'wrong-variant',
+      },
+    });
+    const { result } = renderHook(() => useMarketAssetTokenDetailAction(), {
+      wrapper: Wrapper,
+    });
+    await act(async () => {
+      await expect(
+        result.current({
+          assetId: 'doge',
+          variantId: 'doge-doge--0-1',
+          tokenAddress: '',
+          networkId: 'doge--0',
+        }),
+      ).rejects.toThrow('Market asset detail variant does not match');
+    });
+    expect(store.get(marketPerpsInfoStatusAtom())).toBe('error');
+    expect(store.get(tokenDetailLoadingAtom())).toBe(false);
+    expect(mockResolveMarketPerpsInfoBySymbol).not.toHaveBeenCalled();
   });
 
   it('preserves the last successful asset detail when polling fails', async () => {

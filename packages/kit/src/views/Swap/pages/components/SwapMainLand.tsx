@@ -1879,26 +1879,31 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
     (pageType === EPageType.modal
       ? EJotaiContextStoreNames.swapModal
       : EJotaiContextStoreNames.swap);
-  const shouldSeedMarketEmbeddedPair = Boolean(
-    singleSwapBridgeHeader &&
+  const shouldSeedMarketPair = Boolean(
+    (singleSwapBridgeHeader || pageType === EPageType.modal) &&
     swapInitParams?.swapSource === ESwapSource.MARKET &&
-    swapInitParams.importFromToken &&
-    swapInitParams.importToToken,
+    (swapInitParams.importFromToken || swapInitParams.importToToken),
   );
+  const preserveMarketModalAmounts =
+    shouldSeedMarketPair && pageType === EPageType.modal;
   const initialSelectedTokensOnInit =
     (swapInitParams?.swapSource === ESwapSource.WALLET_HOME_TOKEN_LIST &&
       Boolean(swapInitParams?.importNetworkId)) ||
-    shouldSeedMarketEmbeddedPair
+    shouldSeedMarketPair
       ? {
           accountKey: swapInitParams?.importAccountKey,
           fromToken: swapInitParams?.importFromToken,
           toToken: swapInitParams?.importToToken,
-          inputAmountDraft: shouldSeedMarketEmbeddedPair
-            ? (initialInputAmountDraft ?? {
-                fromTokenAmount: { value: '', isInput: false },
-                toTokenAmount: { value: '', isInput: false },
-              })
+          inputAmountDraft: shouldSeedMarketPair
+            ? (initialInputAmountDraft ??
+              (preserveMarketModalAmounts
+                ? undefined
+                : {
+                    fromTokenAmount: { value: '', isInput: false },
+                    toTokenAmount: { value: '', isInput: false },
+                  }))
             : undefined,
+          preserveInputAmounts: preserveMarketModalAmounts,
           swapType:
             swapInitParams?.swapTabSwitchType ?? ESwapTabSwitchType.SWAP,
         }

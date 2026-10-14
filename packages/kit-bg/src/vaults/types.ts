@@ -44,6 +44,7 @@ import type {
 } from '@onekeyhq/shared/types/history';
 import type { ILNURLPaymentInfo } from '@onekeyhq/shared/types/lightning';
 import type { ENFTType } from '@onekeyhq/shared/types/nft';
+import type { IPrimeFreeTrialBroadcastUsage } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 import type { IPrimeInfiniBeforeBroadcastAction } from '@onekeyhq/shared/types/prime/primeTypes';
 import type { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
@@ -778,7 +779,12 @@ export interface IBatchSignTransactionParamsBase {
   sourceInfo?: IDappSourceInfo;
   replaceTxInfo?: IReplaceTxInfo;
   transferPayload: ITransferPayload | undefined;
-  successfullySentTxs?: string[];
+  // UI-generated id, stable across retries of one confirm screen. The
+  // background records broadcast tx uuids under it so a retry never broadcasts
+  // them again. It is an id rather than a mutable array because params are
+  // serialized on split runtimes (extension, native background thread), where
+  // background-side mutations never reach the UI.
+  sentTxsTrackingId?: string;
   tronResourceRentalInfo?: ITronResourceRentalInfo;
   gasAccountUiState?: IGasAccountUiState;
   // UI-generated token that identifies a single submit attempt. The background
@@ -792,6 +798,9 @@ export interface IBatchSignTransactionParamsBase {
   // (duplicate-payment boundary, see ServiceSend.signAndSendTransaction)
   wcPayPreBroadcastRecord?: IWcPayPreBroadcastRecord;
   useDefaultRpc?: boolean;
+  // Free-trial usage of a bulk tool; ServiceSend marks it consumed right
+  // after a broadcast succeeds. Omitted for Prime users and other callers.
+  freeTrialUsage?: IPrimeFreeTrialBroadcastUsage;
 }
 
 export interface ISignMessageParams extends IPbkdf2KdfParams {

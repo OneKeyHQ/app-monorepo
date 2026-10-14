@@ -69,13 +69,15 @@ function WalletEditButtonView({
   const [devSettings] = useDevSettingsPersistAtom();
 
   const { isPrimeAvailable } = usePrimeAvailable();
-  const { user, isPrimeActive } = useOneKeyAuth();
+  const { isPrimeActive, isPrimeSubscriptionActive } = useOneKeyAuth();
   const { goToOneKeyIDLoginPageForKeylessWallet } = useKeylessWallet();
   const { verifyKeylessPinChecking } = useVerifyKeylessPinChecking();
 
   const [isResetPinLoading, setIsResetPinLoading] = useState(false);
   const [isVerifyPinLoading, _setIsVerifyPinLoading] = useState(false);
-  const isPrimeUser = Boolean(isPrimeActive && user?.onekeyUserId);
+  // Only drives the Prime badge; access (incl. free trial) is checked by the
+  // button itself.
+  const isPrimeUser = Boolean(isPrimeSubscriptionActive);
 
   // True when the wallet is bound to a third-party hardware vendor.
   // Used only for entries that are still third-party-wide exclusions. Device

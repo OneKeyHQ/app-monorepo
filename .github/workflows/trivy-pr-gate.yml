@@ -1,0 +1,82 @@
+name: Trivy trusted PR gate
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, edited, ready_for_review]
+    branches:
+      - x
+      - hotfix/*
+      - release/*
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  trivy-pr-gate:
+    name: Trivy PR incremental gate
+    if: github.event_name == 'pull_request_target'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - name: Initialize safe failure evidence
+        run: |
+          mkdir -p "$RUNNER_TEMP/trivy-evidence"
+          echo '{"schemaVersion":1,"status":"incomplete","error":"setup_failed"}' > "$RUNNER_TEMP/trivy-evidence/result.json"
+
+      # PR files are scan input only. No candidate scripts, actions or tests run.
+      - name: Checkout PR test merge as data
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
+          fetch-depth: 2
+          allow-unsafe-pr-checkout: true
+          persist-credentials: false
+          path: source
+
+      - name: Checkout policy from the trusted workflow revision
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+          path: trusted
+
+      - name: Require trusted gate
+        run: |
+          if [ ! -f trusted/.github/scripts/trivy_gate.py ]; then
+            echo '{"schemaVersion":1,"status":"incomplete","error":"trusted_policy_not_installed"}' > "$RUNNER_TEMP/trivy-evidence/result.json"
+            exit 1
+          fi
+
+      - name: Set up pinned Trivy
+        uses: aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514
+        with:
+          version: v0.71.0
+          cache: false
+
+      - name: Compare exact base and merge with frozen databases
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          POLICY_SHA: ${{ github.workflow_sha }}
+        run: |
+          test "$(git -C trusted rev-parse HEAD)" = "$POLICY_SHA"
+          echo "$POLICY_SHA" > "$RUNNER_TEMP/trivy-evidence/policy-revision.txt"
+          MERGE_SHA="$(git -C source rev-parse HEAD)"
+          python3 -I trusted/.github/scripts/trivy_gate.py \
+            --repo source --base "$BASE_SHA" --head "$HEAD_SHA" --merge "$MERGE_SHA" \
+            --output "$RUNNER_TEMP/trivy-evidence"
+
+      - name: Retain sanitized evidence on success and failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-pr-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/trivy-evidence/
+          retention-days: 14
+          if-no-files-found: error

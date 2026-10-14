@@ -334,6 +334,8 @@ export interface IDeviceStageProps {
    * integration layer hands over the UR json and owns nothing else.
    */
   qrValueUr?: IAirGapUrJson;
+  qrSessionId?: number;
+  qrRenderKey?: string;
   /**
    * The live camera preview for scanQr's viewfinder window — the stage
    * fixes where the window sits and how it is framed, the integration
@@ -350,6 +352,7 @@ export interface IDeviceStageProps {
    * with nothing to scan back), the step renders no button.
    */
   onQrNext?: () => void;
+  onQrRenderReady?: () => void;
   /**
    * Steps scanQr back to presenting the code — the escape hatch for a
    * premature handoff: if the device never got the task, nothing will ever

@@ -42,6 +42,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IPrimeCryptoPaymentStage } from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import {
@@ -73,6 +74,11 @@ import type {
   IIdentityExitOAuthHandoff,
   IKeylessOAuthSessionRollbackHandle,
 } from '@onekeyhq/shared/types/prime/identityExitTypes';
+import type {
+  IPrimeFreeTrialError,
+  IPrimeFreeTrialQuota,
+  IPrimeFreeTrialUserInfoField,
+} from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 import type {
   IPrimeGiftClaimParams,
   IPrimeGiftClaimResult,
@@ -488,7 +494,7 @@ async function withIdentityNetworkTimeout<T>(
   }
 }
 
-type IOneKeyIdAuthSnapshot = {
+export type IOneKeyIdAuthSnapshot = {
   expectedOneKeyUserId: string;
   requestAuthToken: string;
   authSessionSource: EPrimeAuthSessionSource;
@@ -849,6 +855,39 @@ class ServicePrime extends ServiceBase {
     };
   }
 
+  // Background-only (not exposed to the UI): lets other services pin the
+  // OneKey ID session an account-scoped request belongs to, e.g. free-trial
+  // usage reports that must never be sent as a different user.
+  async captureOneKeyIdAuthRequestConfig({
+    expectedOneKeyUserId,
+    createStateChangedError,
+  }: {
+    expectedOneKeyUserId: string;
+    createStateChangedError: () => Error;
+  }) {
+    const snapshot = await this.captureOneKeyIdAuthSnapshot({
+      expectedOneKeyUserId,
+      createStateChangedError,
+    });
+    return {
+      snapshot,
+      requestConfig: this.getOneKeyIdAuthSnapshotRequestConfig(snapshot),
+    };
+  }
+
+  async assertOneKeyIdAuthSnapshotUnchanged({
+    snapshot,
+    createStateChangedError,
+  }: {
+    snapshot: IOneKeyIdAuthSnapshot;
+    createStateChangedError: () => Error;
+  }) {
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot,
+      createStateChangedError,
+    });
+  }
+
   private async captureInfiniPurchaseAuthSnapshot(
     expectedOneKeyUserId: string,
   ): Promise<IOneKeyIdAuthSnapshot> {
@@ -1068,8 +1107,21 @@ class ServicePrime extends ServiceBase {
     targetLang: string;
     engine?: ETranslateEngine;
     testFlag?: string;
-  }): Promise<{ translations: Array<string | null> }> {
+  }): Promise<{
+    translations: Array<string | null>;
+    // Free-trial quota exhausted (90600) or not open (normalized 90601) on at
+    // least one batch. Returned instead of thrown so translations of the
+    // other, already billed batches are kept.
+    freeTrialError?: IPrimeFreeTrialError;
+    // At least one batch was translated by the server (and so billed).
+    hasBilledBatch: boolean;
+  }> {
     const client = await this.getPrimeClient();
+    const primeUser = await primePersistAtom.get();
+    // A locally active subscription keeps the original behavior (original
+    // text, no free-trial stop), even when the server already sees it as
+    // lapsed and the local state has not caught up yet.
+    const isLocalPrimeActive = Boolean(primeUser.primeSubscription?.isActive);
     // API limit: max 4 texts per translate request
     const batches = chunk(texts, 4);
     const requestConfig: Parameters<typeof client.post>[2] & {
@@ -1077,7 +1129,10 @@ class ServicePrime extends ServiceBase {
     } = {
       autoHandleError: false,
     };
-    const results: Array<Array<string | null>> = await Promise.all(
+    let freeTrialError: IPrimeFreeTrialError | undefined;
+    let hasBilledBatch = false;
+    // allSettled: one batch failing must not drop the other batches' results.
+    const settledResults = await Promise.allSettled(
       batches.map(async (batch): Promise<Array<string | null>> => {
         try {
           const res = await client.post<{
@@ -1110,6 +1165,7 @@ class ServicePrime extends ServiceBase {
             });
           }
 
+          hasBilledBatch = true;
           const translations = res?.data?.data?.translations;
 
           return Array.isArray(translations) ? translations : batch;
@@ -1117,6 +1173,17 @@ class ServicePrime extends ServiceBase {
           const errorCode = Number((error as OneKeyError | undefined)?.code);
           if ([90_104, 90_105].includes(errorCode)) {
             throw error;
+          }
+
+          const batchFreeTrialError = isLocalPrimeActive
+            ? undefined
+            : this.backgroundApi.servicePrimeFreeTrial.normalizeFreeTrialError({
+                error,
+                featureId: EPrimeFeatures.DAppTranslate,
+              });
+          if (batchFreeTrialError) {
+            freeTrialError = freeTrialError ?? batchFreeTrialError;
+            return batch;
           }
 
           console.error(
@@ -1127,7 +1194,23 @@ class ServicePrime extends ServiceBase {
         }
       }),
     );
-    return { translations: results.flat() };
+    const rejected = settledResults.find(
+      (result): result is PromiseRejectedResult => result.status === 'rejected',
+    );
+    if (rejected) {
+      // Keep the existing 90104 / 90105 AI-unavailable behavior.
+      throw rejected.reason;
+    }
+    const results = settledResults.map((result, index) =>
+      result.status === 'fulfilled' ? result.value : batches[index],
+    );
+    if (freeTrialError) {
+      await this.backgroundApi.servicePrimeFreeTrial.handleFreeTrialErrorFromServer(
+        freeTrialError,
+        { onekeyUserId: primeUser.onekeyUserId },
+      );
+    }
+    return { translations: results.flat(), freeTrialError, hasBilledBatch };
   }
 
   async deleteOneKeyIdAccountOnServer({
@@ -4465,7 +4548,12 @@ class ServicePrime extends ServiceBase {
   }
 
   @backgroundMethod()
-  async callApiFetchPrimeUserInfo(): Promise<IPrimeServerUserInfoWithProfile> {
+  async callApiFetchPrimeUserInfo({
+    onFreeTrial,
+  }: {
+    // Background-internal only; a UI caller cannot pass a function.
+    onFreeTrial?: (freeTrial: IPrimeFreeTrialQuota | null | undefined) => void;
+  } = {}): Promise<IPrimeServerUserInfoWithProfile> {
     // Snapshot the token AND pin it as the explicit request header (the
     // ServiceBase interceptor respects a pre-set header). Without pinning,
     // the interceptor would re-read the active token at send time, so a
@@ -4481,13 +4569,18 @@ class ServicePrime extends ServiceBase {
       await this.backgroundApi.simpleDb.prime.getActiveAuthToken();
     return this.callApiFetchPrimeUserInfoWithRequestToken({
       requestAuthToken,
+      onFreeTrial,
     });
   }
 
   private async callApiFetchPrimeUserInfoWithRequestToken({
     requestAuthToken,
+    onFreeTrial,
   }: {
     requestAuthToken: string;
+    // Receives `freeTrial` of /user/info, split off before the merge so it
+    // never leaks into IPrimeServerUserInfo. undefined means unknown.
+    onFreeTrial?: (freeTrial: IPrimeFreeTrialQuota | null | undefined) => void;
   }): Promise<IPrimeServerUserInfoWithProfile> {
     const client = await this.getPrimeClient();
     const requestConfig: Parameters<typeof client.get>[1] & {
@@ -4500,7 +4593,9 @@ class ServicePrime extends ServiceBase {
     };
     type IProfileApiResponse =
       IPrimeApiClientResponse<IOneKeyIdProfileResponse>;
-    type IUserInfoApiResponse = IPrimeApiClientResponse<IPrimeServerUserInfo>;
+    type IUserInfoApiResponse = IPrimeApiClientResponse<
+      IPrimeServerUserInfo & IPrimeFreeTrialUserInfoField
+    >;
     const profileRequest = client
       .get<IProfileApiResponse>('/prime/v1/account/profile', requestConfig)
       .then((response) =>
@@ -4531,10 +4626,12 @@ class ServicePrime extends ServiceBase {
 
     const profile =
       profileResult.status === 'fulfilled' ? profileResult.value : undefined;
-    const serverUserInfo =
-      serverUserInfoResult.status === 'fulfilled'
-        ? serverUserInfoResult.value
-        : undefined;
+    let serverUserInfo: IPrimeServerUserInfo | undefined;
+    if (serverUserInfoResult.status === 'fulfilled') {
+      const { freeTrial, ...restServerUserInfo } = serverUserInfoResult.value;
+      serverUserInfo = restServerUserInfo;
+      onFreeTrial?.(freeTrial);
+    }
 
     if (serverUserInfo) {
       return this.mergeDefinedPrimeServerUserInfo({
@@ -4914,7 +5011,14 @@ class ServicePrime extends ServiceBase {
           : undefined,
       };
     }
-    const serverUserInfo = await this.callApiFetchPrimeUserInfo();
+    const freeTrialQuotaRequestSeq =
+      this.backgroundApi.servicePrimeFreeTrial.allocateQuotaRequestSeq();
+    let freeTrialFromUserInfo: IPrimeFreeTrialQuota | null | undefined;
+    const serverUserInfo = await this.callApiFetchPrimeUserInfo({
+      onFreeTrial: (freeTrial) => {
+        freeTrialFromUserInfo = freeTrial;
+      },
+    });
 
     // Re-check auth token after the network request returns. If the user
     // logged out while this request was in flight, the simpleDb token will
@@ -5005,6 +5109,15 @@ class ServicePrime extends ServiceBase {
       const { primeSubscription } = await this.updatePrimeAtomByServerUserInfo({
         serverUserInfo,
       });
+      // Only atom writes happen here, so it is safe inside loginMutex.
+      await this.backgroundApi.servicePrimeFreeTrial.applyQuotaFromPrimeUserInfo(
+        {
+          freeTrial: freeTrialFromUserInfo,
+          onekeyUserId: localUserInfoBeforeFetch.onekeyUserId,
+          requestSeq: freeTrialQuotaRequestSeq,
+          isPrimeSubscriptionActive: Boolean(primeSubscription?.isActive),
+        },
+      );
       const serverPasswordUUID = serverUserInfo?.pwdHash;
       const isServerMasterPasswordSet = Boolean(
         serverPasswordUUID &&
