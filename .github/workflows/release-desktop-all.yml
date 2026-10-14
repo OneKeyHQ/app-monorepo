@@ -610,10 +610,15 @@ jobs:
           if ($env:WIN_HSM_SIGNING_ENABLED -eq 'true') {
             $baseConfig = (Resolve-Path 'electron-builder-win.config.js').Path.Replace('\', '/')
             $signScript = (Resolve-Path 'scripts/kms-sign-windows.js').Path.Replace('\', '/')
+            # NSIS embeds 7za and the installer UI plugin directly, outside
+            # electron-builder's signer, so sign them before packaging.
+            node scripts/kms-sign-windows.js sign-installer-payload
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             $signedConfig = Join-Path $env:RUNNER_TEMP 'onekey-win-hsm-builder.json'
             @{
               extends = "file:$baseConfig"
               win = @{
+                signExts = @('.dll', '.node')
                 signtoolOptions = @{
                   sign = $signScript
                   signingHashAlgorithms = @('sha256')
@@ -749,10 +754,15 @@ jobs:
           if ($env:WIN_HSM_SIGNING_ENABLED -eq 'true') {
             $baseConfig = (Resolve-Path 'electron-builder-ms.config.js').Path.Replace('\', '/')
             $signScript = (Resolve-Path 'scripts/kms-sign-windows.js').Path.Replace('\', '/')
+            # NSIS embeds 7za and the installer UI plugin directly, outside
+            # electron-builder's signer, so sign them before packaging.
+            node scripts/kms-sign-windows.js sign-installer-payload
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             $signedConfig = Join-Path $env:RUNNER_TEMP 'onekey-winms-hsm-builder.json'
             @{
               extends = "file:$baseConfig"
               win = @{
+                signExts = @('.dll', '.node')
                 signtoolOptions = @{
                   sign = $signScript
                   signingHashAlgorithms = @('sha256')
