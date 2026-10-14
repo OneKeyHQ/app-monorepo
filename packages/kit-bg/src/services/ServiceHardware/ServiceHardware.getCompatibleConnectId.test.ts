@@ -2186,6 +2186,21 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       expect(bluetooth).toHaveBeenCalled();
     });
 
+    it('rejects an unknown protocol before USB routing can reset the active SDK', async () => {
+      const { service } = createService();
+      const search = jest.spyOn(service, 'searchDevices');
+      const route = jest.spyOn(
+        service.connectionManager,
+        'shouldSwitchTransportType',
+      );
+      await expect(
+        service.getSDKInstance({ connectId: 'UNKNOWN_DEVICE' }),
+      ).rejects.toThrow('Hardware connect protocol is unavailable');
+      expect(route).not.toHaveBeenCalled();
+      expect(search).not.toHaveBeenCalled();
+      expect(mockedResetHardwareSDKInstance).not.toHaveBeenCalled();
+    });
+
     it.each(['ble', 'bridge'] as const)(
       'does not accept a %s result as proof of a WebUSB target',
       async (commType) => {
@@ -3677,6 +3692,9 @@ describe('ServiceHardware.unlockDevice', () => {
       backgroundApi: {} as unknown as IBackgroundApi,
     });
     service.getCompatibleConnectId = jest.fn().mockResolvedValue('PRO2_USB');
+    jest
+      .spyOn(service, 'getCurrentTransportType')
+      .mockResolvedValue(EHardwareTransportType.WEBUSB);
     service.getSDKInstance = jest.fn().mockResolvedValue({
       deviceUnlock,
     } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
@@ -3689,6 +3707,39 @@ describe('ServiceHardware.unlockDevice', () => {
     expect(deviceUnlock).toHaveBeenCalledWith('PRO2_USB', {
       pinType: DeviceSessionPinType.Any,
     });
+  });
+
+  it('resolves the BLE endpoint and transport before acquiring the SDK and pins that pair for unlock', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    const deviceUnlock = jest
+      .fn()
+      .mockResolvedValue({ success: true, payload: { unlocked: true } });
+    const resolve = jest
+      .spyOn(service, 'resolveHardwareTransport')
+      .mockResolvedValue({
+        connectId: 'BLE_ENDPOINT',
+        transportType: EHardwareTransportType.DesktopWebBle,
+      });
+    const sdk = jest
+      .spyOn(service, 'getSDKInstance')
+      .mockResolvedValue({ deviceUnlock } as unknown as Awaited<
+        ReturnType<ServiceHardware['getSDKInstance']>
+      >);
+    const compatible = jest.spyOn(service, 'getCompatibleConnectId');
+    await service.unlockDevice({ connectId: 'TARGET_SERIAL' });
+    expect(resolve).toHaveBeenCalledTimes(1);
+    expect(resolve.mock.invocationCallOrder[0]).toBeLessThan(
+      sdk.mock.invocationCallOrder[0],
+    );
+    expect(sdk).toHaveBeenCalledWith({
+      connectId: 'BLE_ENDPOINT',
+      hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+    });
+    expect(compatible).not.toHaveBeenCalled();
+    expect(deviceUnlock).toHaveBeenCalledWith('BLE_ENDPOINT', {});
   });
 });
 

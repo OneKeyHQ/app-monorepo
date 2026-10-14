@@ -1092,6 +1092,15 @@ class ServiceHardware extends ServiceBase {
         ? undefined
         : (options.connectProtocol ??
           (await this.getKnownDeviceProtocol(options.connectId)));
+      if (
+        options.connectId &&
+        !connectProtocol &&
+        options.forceProtocolDetection !== true
+      ) {
+        throw new OneKeyLocalError(
+          HARDWARE_CONNECT_PROTOCOL_UNAVAILABLE_MESSAGE,
+        );
+      }
       // Auto routing may search USB through getSDKInstance with an explicit
       // transport. Resolve it before taking the non-reentrant lifecycle lock.
       const { targetType } =
@@ -2876,11 +2885,13 @@ class ServiceHardware extends ServiceBase {
     const lease =
       this.backgroundApi.serviceHardwareUI?.hardwareProcessingManager?.getActiveOneKeyOperationLease();
     if (lease?.signal?.aborted) throw new UserCancelFromOutside();
-    const hardwareSDK = await this.getSDKInstance({
+    const resolvedTransport = await this.resolveHardwareTransport({
       connectId,
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
     });
-    const compatibleConnectId = await this.getCompatibleConnectId({
-      connectId,
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: resolvedTransport.connectId,
+      hardwareTransportType: resolvedTransport.transportType,
       hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
     });
     const unlockParams: CommonParams & {
@@ -2888,7 +2899,10 @@ class ServiceHardware extends ServiceBase {
     } = pinType === undefined ? {} : { pinType };
     return convertDeviceResponse(() => {
       if (lease?.signal?.aborted) throw new UserCancelFromOutside();
-      return hardwareSDK?.deviceUnlock(compatibleConnectId, unlockParams);
+      return hardwareSDK?.deviceUnlock(
+        resolvedTransport.connectId,
+        unlockParams,
+      );
     });
   }
 
