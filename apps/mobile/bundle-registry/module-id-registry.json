@@ -21030,6 +21030,7 @@
     "packages/kit/src/components/TradingView/TradingViewPerpsV2/constants/messageTypes.ts": 22703,
     "packages/kit/src/components/TradingView/TradingViewPerpsV2/hooks/index.ts": 5493,
     "packages/kit/src/components/TradingView/TradingViewPerpsV2/hooks/useChartLines.ts": 3122,
+    "packages/kit/src/components/TradingView/TradingViewPerpsV2/hooks/usePerpsNativeChartControls.ts": 17838,
     "packages/kit/src/components/TradingView/TradingViewPerpsV2/index.ts": 5697,
     "packages/kit/src/components/TradingView/TradingViewPerpsV2/messageHandlers/index.ts": 8806,
     "packages/kit/src/components/TradingView/TradingViewPerpsV2/messageHandlers/interactionOverlayState.ts": 16953,
