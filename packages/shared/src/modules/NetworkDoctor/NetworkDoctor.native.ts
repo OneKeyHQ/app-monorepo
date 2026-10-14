@@ -18,19 +18,21 @@ import {
   startNetworkLogging,
   stopNetworkLogging,
 } from 'react-native-network-logger';
-import Ping from 'react-native-ping';
+import { Ping } from 'react-native-ping';
 import TcpSocket from 'react-native-tcp-socket';
 
 import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import { ONEKEY_HEALTH_CHECK_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { getEndpointByServiceName } from '@onekeyhq/shared/src/config/endpointsMap';
+import { getOneKeyIdAuthConfig } from '@onekeyhq/shared/src/config/oneKeyIdAuth';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { isProxyActiveForUrl } from '@onekeyhq/shared/src/request/helpers/sniRequest';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
-import { mergeConfig } from './config';
+import { CAPTCHA_PAGE_PROBE_LABEL, mergeConfig } from './config';
 import {
   EDiagnosticPhase,
   ENetworkConnectivityLevel,
@@ -54,6 +56,8 @@ import type {
 } from './types';
 
 export class NetworkDoctor {
+  private readonly userConfig: IDoctorConfig;
+
   private config: IMergedConfig;
 
   private endpoint: string | null = null;
@@ -67,6 +71,7 @@ export class NetworkDoctor {
   private startTime = 0;
 
   constructor(userConfig: IDoctorConfig) {
+    this.userConfig = userConfig;
     this.config = mergeConfig(userConfig);
 
     defaultLogger.networkDoctor.log.info({
@@ -85,10 +90,7 @@ export class NetworkDoctor {
    * Initialize endpoint, client and health check URL from service configuration
    */
   private async initialize(): Promise<void> {
-    if (this.endpoint && this.client) {
-      return; // Already initialized
-    }
-
+    // Resolve on every run so reused instances follow server settings changes.
     try {
       // Get endpoint from service configuration
       this.endpoint = await getEndpointByServiceName(
@@ -205,6 +207,10 @@ export class NetworkDoctor {
       this.t(ETranslations.global_network_doctor_progress_initializing),
     );
 
+    // Read the active CAPTCHA environment for every run, including reused instances.
+    const { captcha } = await getOneKeyIdAuthConfig();
+    this.config = mergeConfig(this.userConfig, captcha.pageUrl);
+
     // Initialize endpoint, client and health check URL
     await this.initialize();
 
@@ -253,7 +259,14 @@ export class NetworkDoctor {
       defaultLogger.networkDoctor.log.info({
         info: '[DR] Phase 2: DNS Resolution',
       });
-      const dns = await this.testDns();
+      const [dns, extraDnsChecks] = await Promise.all([
+        this.testDns(),
+        Promise.all(
+          this.config.extraConnectivityTargets.map((hostname) =>
+            this.testDns(hostname),
+          ),
+        ),
+      ]);
 
       // ========== Phase 3: TCP + TLS Tests (Parallel) ==========
       this.emitProgress(
@@ -264,10 +277,17 @@ export class NetworkDoctor {
       defaultLogger.networkDoctor.log.info({
         info: '[DR] Phase 3: TCP & TLS Tests',
       });
-      const [tcpTests, tlsTest] = await Promise.all([
-        this.testTcpConnectivity(dns.ips[0]),
-        this.testTlsHandshake(),
-      ]);
+      const [tcpTests, tlsTest, extraTcpChecks, proxiedCaptchaHosts] =
+        await Promise.all([
+          this.testTcpConnectivity(dns.ips[0]),
+          this.testTlsHandshake(),
+          Promise.all(
+            this.config.extraConnectivityTargets.map((host) =>
+              this.testTcpConnection(host, 443, this.config.timeouts.tcp),
+            ),
+          ),
+          this.testProxiedCaptchaHosts(),
+        ]);
 
       // ========== Phase 4: Ping Tests ==========
       this.emitProgress(
@@ -278,10 +298,11 @@ export class NetworkDoctor {
       defaultLogger.networkDoctor.log.info({
         info: '[DR] Phase 4: Ping Tests',
       });
-      const pingDomain = await this.testPing(this.targetDomain ?? '');
-      const pingIp =
-        dns.ips.length > 0 ? await this.testPing(dns.ips[0]) : undefined;
-      const extraPings = await this.testExtraPings();
+      const [pingDomain, pingIp, extraPings] = await Promise.all([
+        this.testPing(this.targetDomain ?? ''),
+        dns.ips.length > 0 ? this.testPing(dns.ips[0]) : undefined,
+        this.testExtraPings(),
+      ]);
 
       // ========== Phase 5: HTTP Tests ==========
       this.emitProgress(
@@ -317,7 +338,10 @@ export class NetworkDoctor {
         netInfo,
         networkEnv,
         dns,
+        extraDnsChecks,
         tcpTests,
+        extraTcpChecks,
+        proxiedCaptchaHosts,
         tlsTest,
         pingDomain,
         pingIp,
@@ -390,9 +414,10 @@ export class NetworkDoctor {
     }
   }
 
-  private async testDns(): Promise<IDnsResult> {
+  private async testDns(
+    hostname = this.targetDomain ?? '',
+  ): Promise<IDnsResult> {
     const startTime = Date.now();
-    const hostname = this.targetDomain ?? '';
     try {
       const { getIpAddressesForHostname } =
         await import('react-native-dns-lookup');
@@ -526,7 +551,8 @@ export class NetworkDoctor {
   private async testTcpConnectivity(
     apiIp?: string,
   ): Promise<IConnectivityComparison> {
-    const targetHost = apiIp;
+    // DNS failures must not prevent the remaining connectivity checks.
+    const targetHost = apiIp || this.targetDomain;
     const timeout = this.config.timeouts.tcp || 10_000;
 
     if (!targetHost) {
@@ -643,8 +669,7 @@ export class NetworkDoctor {
     try {
       const timeMs = await Ping.start(target, {
         timeout,
-        interval: 1000,
-      } as any);
+      });
       const result = { target, success: true, timeMs };
       defaultLogger.networkDoctor.log.info({
         info: `[PING] ✓ ${target} - time: ${timeMs}ms`,
@@ -664,12 +689,37 @@ export class NetworkDoctor {
     }
   }
 
+  /**
+   * CAPTCHA hosts that the native HTTP stack, like the CAPTCHA WebView, routes
+   * through a proxy. Direct DNS/TCP probes bypass that proxy.
+   */
+  private async testProxiedCaptchaHosts(): Promise<string[]> {
+    const { captchaHosts } = this.config;
+    const proxyStates = await Promise.all(
+      captchaHosts.map(async (host) => {
+        try {
+          return await isProxyActiveForUrl(`https://${host}/`);
+        } catch (_e) {
+          return null;
+        }
+      }),
+    );
+    const proxiedHosts = captchaHosts.filter(
+      (_host, index) => proxyStates[index] === true,
+    );
+    defaultLogger.networkDoctor.log.info({
+      info: `[PROXY] CAPTCHA hosts routed through a proxy: ${
+        proxiedHosts.join(', ') || 'none'
+      }`,
+    });
+    return proxiedHosts;
+  }
+
   private async testExtraPings(): Promise<IPingResult[]> {
-    const results: IPingResult[] = [];
-    for (const target of this.config.extraPingTargets) {
-      results.push(await this.testPing(target));
-    }
-    return results;
+    // Each native ping owns its socket, so timeouts on blocked ICMP overlap.
+    return Promise.all(
+      this.config.extraPingTargets.map((target) => this.testPing(target)),
+    );
   }
 
   private async testHealthCheck(): Promise<IHttpProbeResult> {
@@ -874,6 +924,50 @@ export class NetworkDoctor {
 
     if (isOneKeyHealthy) {
       const intermediateIssues = this.detectIntermediateIssues(results);
+      const captchaFailure = this.detectCaptchaFailure(results);
+
+      if (captchaFailure) {
+        const { layer, isBlocking } = captchaFailure;
+        defaultLogger.networkDoctor.log.warn({
+          info: `[Diagnosis] 🚨 ${
+            isBlocking ? 'CAPTCHA_UNREACHABLE' : 'CAPTCHA_SERVICE_ERROR'
+          } - Health check succeeded, layer: ${layer}`,
+        });
+
+        return {
+          connectivityLevel: isBlocking
+            ? ENetworkConnectivityLevel.ONEKEY_BLOCKED
+            : ENetworkConnectivityLevel.ONEKEY_SERVICE_ERROR,
+          oneKeyFailureReason:
+            layer === 'dns'
+              ? EOneKeyFailureReason.DNS_RESOLUTION_FAILED
+              : EOneKeyFailureReason.HTTP_REQUEST_FAILED,
+          failureLayer: layer,
+          summary: this.t(
+            isBlocking
+              ? ETranslations.auth_captcha_load_failed__msg
+              : ETranslations.auth_captcha_unavailable__msg,
+          ),
+          suggestedActions: isBlocking
+            ? [
+                this.t(ETranslations.global_network_doctor_action_check_proxy),
+                this.t(
+                  ETranslations.global_network_doctor_action_switch_network_tcp,
+                ),
+                this.t(ETranslations.global_network_doctor_action_try_later),
+              ]
+            : [
+                this.t(
+                  ETranslations.global_network_doctor_action_service_unavailable,
+                ),
+                this.t(ETranslations.global_network_doctor_action_check_status),
+                this.t(ETranslations.global_network_doctor_action_try_later),
+              ],
+          assessment: isBlocking ? 'blocked' : 'degraded',
+          intermediateIssues:
+            intermediateIssues.length > 0 ? intermediateIssues : undefined,
+        };
+      }
 
       const issuesSummary =
         intermediateIssues.length > 0 ? intermediateIssues.join('; ') : 'none';
@@ -1081,6 +1175,38 @@ export class NetworkDoctor {
         this.t(ETranslations.global_network_doctor_action_try_later),
       ],
     };
+  }
+
+  /**
+   * Classify a failed CAPTCHA page request. A failed direct DNS lookup refines
+   * a connection failure to the DNS layer unless the host is proxied. Direct
+   * TCP probes are informational only: they bypass proxies, and the iOS probe
+   * cannot connect to IPv6 addresses.
+   */
+  private detectCaptchaFailure(
+    results: any,
+  ): { layer: 'dns' | 'http'; isBlocking: boolean } | null {
+    const failedPage = (results.publicHttpChecks as IHttpProbeResult[]).find(
+      (probe) => probe.label === CAPTCHA_PAGE_PROBE_LABEL && !probe.success,
+    );
+    if (!failedPage) {
+      return null;
+    }
+    // Any HTTP response proves the network path works; the service failed.
+    if (failedPage.status !== undefined) {
+      return { layer: 'http', isBlocking: false };
+    }
+
+    const host = new URL(failedPage.url).hostname;
+    const proxiedHosts: string[] = results.proxiedCaptchaHosts ?? [];
+    const extraDnsChecks: IDnsResult[] = results.extraDnsChecks ?? [];
+    const isDnsFailure =
+      !proxiedHosts.includes(host) &&
+      extraDnsChecks.some(
+        (check) =>
+          check.hostname === host && (!!check.error || check.ips.length === 0),
+      );
+    return { layer: isDnsFailure ? 'dns' : 'http', isBlocking: true };
   }
 
   /**

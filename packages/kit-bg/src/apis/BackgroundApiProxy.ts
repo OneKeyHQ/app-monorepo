@@ -74,6 +74,7 @@ import type ServicePassword from '../services/ServicePassword';
 import type { ServicePendingInstallTask } from '../services/servicePendingInstallTask';
 import type ServicePrime from '../services/ServicePrime';
 import type ServicePrimeCloudSync from '../services/ServicePrimeCloudSync';
+import type ServicePrimeFreeTrial from '../services/ServicePrimeFreeTrial';
 import type ServicePrimeTransfer from '../services/ServicePrimeTransfer';
 // import type ServiceCronJob from './services/ServiceCronJob';
 import type ServicePromise from '../services/ServicePromise';
@@ -312,6 +313,10 @@ class BackgroundApiProxy
 
   get servicePrimeCloudSync(): ServicePrimeCloudSync {
     return this.getProxyService<ServicePrimeCloudSync>('servicePrimeCloudSync');
+  }
+
+  get servicePrimeFreeTrial(): ServicePrimeFreeTrial {
+    return this.getProxyService<ServicePrimeFreeTrial>('servicePrimeFreeTrial');
   }
 
   get serviceHardwarePortfolioSync(): ServiceHardwarePortfolioSync {

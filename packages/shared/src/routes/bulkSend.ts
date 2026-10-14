@@ -90,6 +90,8 @@ export type IModalBulkSendParamList = {
     totalTokenAmount: string;
     totalFiatAmount: string;
     intervalSettings?: IIntervalSettings;
+    // Free-trial usage started on the Review page; absent for Prime users.
+    freeTrialUsageId?: string;
     onSuccess?: (data: ISendTxOnSuccessData[]) => void;
     onFail?: (error: Error) => void;
   };

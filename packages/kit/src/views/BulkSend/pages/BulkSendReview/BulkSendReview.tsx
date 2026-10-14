@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -19,6 +19,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalBulkSendRoutes,
   EModalRoutes,
@@ -28,7 +29,9 @@ import {
   ETabRoutes,
   type IModalBulkSendParamList,
 } from '@onekeyhq/shared/src/routes';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -36,9 +39,14 @@ import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 import type { ISendSelectedFeeInfo } from '@onekeyhq/shared/types/fee';
 import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
+import type { IPrimeFreeTrialBroadcastUsage } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
+import {
+  isPrimeFreeTrialUserCancelError,
+  usePrimeFreeTrialUsage,
+} from '../../../Prime/hooks/usePrimeFreeTrialUsage';
 import { usePreCheckFeeInfo } from '../../../SignatureConfirm/hooks/usePreCheckFeeInfo';
 import BulkSendTxDetails from '../../components/BulkSendTxDetails';
 import { useRedirectToBulkSendAddressesInput } from '../../hooks/useRedirectToBulkSendAddressesInput';
@@ -271,15 +279,84 @@ function BaseBulkSendReview({
 
   // Track how many txs were successfully sent (used by Tron one-by-one flow)
   const sentTxCountRef = useRef(0);
+  // Resolves once the Tron confirm page of the current tx is gone. A failed
+  // send keeps that page open, and a retry there still broadcasts with the
+  // round's free-trial usage.
+  const tronConfirmPageExitRef = useRef<Promise<void>>(Promise.resolve());
 
-  // Track successfully sent transaction UUIDs to prevent duplicate sends on retry
-  const successfullySentTxs = useRef<string[]>([]);
+  // Lets the background skip already broadcast txs when the user retries
+  const [sentTxsTrackingId] = useState(() => generateUUID());
+
+  // Free trial: the usage of this Review page instance. OneToMany keeps it
+  // for a resubmit (e.g. transfer failed after the approve went through)
+  // while it is already consumed, so the transfer can still be sent with a
+  // single monthly free use. Leaving the page starts a new usage next time.
+  const { settleUsage, prepareRetryUsage } = usePrimeFreeTrialUsage({
+    featureId: EPrimeFeatures.BulkSend,
+  });
+  const reviewUsageIdRef = useRef<string | undefined>(undefined);
+  // Starting or checking a usage can take a while; a page closed meanwhile
+  // must not send.
+  const isUnmountedRef = useRef(false);
+  useEffect(() => {
+    isUnmountedRef.current = false;
+    return () => {
+      isUnmountedRef.current = true;
+    };
+  }, []);
+
+  // `usageId` is the usage of this round (undefined: not metered);
+  // `prepared: false` means the round must not run. The shared retry
+  // preparation reuses a consumed usage or starts a new one, and runs no
+  // round for a page closed meanwhile on either path.
+  const prepareFreeTrialUsage = useCallback(
+    async ({
+      allowReuse,
+    }: {
+      allowReuse: boolean;
+    }): Promise<{ prepared: boolean; usageId?: string }> => {
+      if (platformEnv.isE2E) {
+        return { prepared: true };
+      }
+      const { proceed, usageId, isNewUsage } = await prepareRetryUsage({
+        usageId: allowReuse ? reviewUsageIdRef.current : undefined,
+        succeededLocally: false,
+        networkId,
+        isCallerGone: () => isUnmountedRef.current,
+      });
+      if (!proceed) {
+        return { prepared: false };
+      }
+      if (isNewUsage) {
+        reviewUsageIdRef.current = usageId;
+      }
+      return { prepared: true, usageId };
+    },
+    [networkId, prepareRetryUsage],
+  );
+
+  // Settles a round that ended with an error. Ignored by the background
+  // when a broadcast of this usage already succeeded.
+  const settleFreeTrialRoundError = useCallback(
+    async (usageId: string | undefined, error: unknown) => {
+      const isCancelled =
+        isPrimeFreeTrialUserCancelError(error) ||
+        (error instanceof Error && error.message === 'User cancelled');
+      await settleUsage(usageId, isCancelled ? 'cancelled' : 'failed');
+    },
+    [settleUsage],
+  );
 
   // Handle Tron transactions one by one
   const handleTronTxsOneByOne = useCallback(
-    async (txs: IUnsignedTxPro[], txFeeInfos: ISendSelectedFeeInfo[]) => {
+    async (
+      txs: IUnsignedTxPro[],
+      txFeeInfos: ISendSelectedFeeInfo[],
+      freeTrialUsage: IPrimeFreeTrialBroadcastUsage | undefined,
+    ) => {
       const allResults: ISendTxOnSuccessData[] = [];
       sentTxCountRef.current = 0;
+      tronConfirmPageExitRef.current = Promise.resolve();
 
       for (let i = 0, len = txs.length; i < len; i += 1) {
         const unsignedTx = txs[i];
@@ -298,6 +375,10 @@ function BaseBulkSendReview({
           await waitAsync(300);
         }
 
+        let markConfirmPageExited: () => void = () => {};
+        tronConfirmPageExitRef.current = new Promise<void>((resolve) => {
+          markConfirmPageExited = resolve;
+        });
         const result: ISendTxOnSuccessData[] = await new Promise(
           (resolve, reject) => {
             navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
@@ -309,13 +390,19 @@ function BaseBulkSendReview({
                 popStack: false,
                 useFeeInTx: true, // Use the fee info we set on unsignedTx
                 gasAccountScenario: 'send',
+                // ServiceSend marks the usage at the broadcast point, which
+                // also covers broadcasts whose onSuccess never fires.
+                freeTrialUsage,
                 onSuccess: (data: ISendTxOnSuccessData[]) => {
+                  markConfirmPageExited();
                   resolve(data);
                 },
                 onFail: (error: Error) => {
                   reject(error);
                 },
+                // Also called when the page unmounts without a success.
                 onCancel: () => {
+                  markConfirmPageExited();
                   reject(new Error('User cancelled'));
                 },
               },
@@ -484,6 +571,22 @@ function BaseBulkSendReview({
       }
     }
 
+    // Free trial: reserve one use after local checks and confirmations, right
+    // before the first signature. Cancelling the confirm above reserves
+    // nothing.
+    const freeTrialPrepared = await prepareFreeTrialUsage({
+      allowReuse: bulkSendMode === EBulkSendMode.OneToMany,
+    });
+    if (!freeTrialPrepared.prepared) {
+      setIsSubmitting(false);
+      return;
+    }
+    const freeTrialUsageId = freeTrialPrepared.usageId;
+    const freeTrialUsage: IPrimeFreeTrialBroadcastUsage | undefined =
+      freeTrialUsageId
+        ? { featureId: EPrimeFeatures.BulkSend, usageId: freeTrialUsageId }
+        : undefined;
+
     // Step 3.5: ManyToMany/ManyToOne — navigate to BulkSendProcess
     if (bulkSendMode !== EBulkSendMode.OneToMany) {
       setIsSubmitting(false);
@@ -502,6 +605,7 @@ function BaseBulkSendReview({
         totalTokenAmount,
         totalFiatAmount,
         intervalSettings,
+        freeTrialUsageId,
         onSuccess,
         onFail,
       };
@@ -528,6 +632,7 @@ function BaseBulkSendReview({
         const results = await handleTronTxsOneByOne(
           newUnsignedTxs,
           feeState.feeInfos,
+          freeTrialUsage,
         );
 
         defaultLogger.prime.usage.bulkSendSuccess({
@@ -552,6 +657,12 @@ function BaseBulkSendReview({
         ) {
           startApprovalRecheck();
         }
+        // Settled once the confirm page is gone: a retry on a page left open
+        // by a failed send still broadcasts with this usage, and a settled
+        // usage would not count that broadcast.
+        void tronConfirmPageExitRef.current.then(() =>
+          settleFreeTrialRoundError(freeTrialUsageId, e),
+        );
         if (e instanceof Error && e.message === 'User cancelled') {
           return;
         }
@@ -576,7 +687,8 @@ function BaseBulkSendReview({
           feeInfos: feeState.feeInfos.slice(0, approveCount),
           signOnly: false,
           transferPayload: undefined,
-          successfullySentTxs: successfullySentTxs.current,
+          sentTxsTrackingId,
+          freeTrialUsage,
         });
         approveTxsSent = true;
       } catch (e: any) {
@@ -584,6 +696,7 @@ function BaseBulkSendReview({
         if (accountUtils.isQrAccount({ accountId })) {
           navigation.popStack();
         }
+        await settleFreeTrialRoundError(freeTrialUsageId, e);
         setIsSubmitting(false);
         onFail?.(e as Error);
         throw e;
@@ -599,8 +712,13 @@ function BaseBulkSendReview({
         feeInfos: feeState.feeInfos.slice(approveCount),
         signOnly: false,
         transferPayload: undefined,
-        successfullySentTxs: successfullySentTxs.current,
+        sentTxsTrackingId,
+        freeTrialUsage,
       });
+      // A resubmit that only finished broadcasts of an earlier attempt
+      // (replayed through sentTxsTrackingId) used nothing, so this round's
+      // usage is released. One a broadcast already marked stays charged.
+      void settleUsage(freeTrialUsageId, 'cancelled');
 
       // Step 6: Show success toast
       Toast.success({
@@ -626,6 +744,7 @@ function BaseBulkSendReview({
       if (accountUtils.isQrAccount({ accountId })) {
         navigation.popStack();
       }
+      await settleFreeTrialRoundError(freeTrialUsageId, e);
       setIsSubmitting(false);
       // Only recheck approval if approve txs were already broadcast
       if (approveTxsSent) {
@@ -659,6 +778,10 @@ function BaseBulkSendReview({
     intervalSettings,
     isInModal,
     isMaxMode,
+    prepareFreeTrialUsage,
+    settleFreeTrialRoundError,
+    settleUsage,
+    sentTxsTrackingId,
   ]);
 
   // Determine if confirm button should be disabled
