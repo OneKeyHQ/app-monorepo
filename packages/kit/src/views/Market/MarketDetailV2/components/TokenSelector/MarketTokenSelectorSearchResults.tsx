@@ -45,6 +45,7 @@ import {
   TOKEN_SELECTOR_NAME_GAP,
   TOKEN_SELECTOR_ROW_HEIGHT,
   TOKEN_SELECTOR_SEARCH_NAME_COLUMN_WIDTH,
+  TOKEN_SELECTOR_SEARCH_SECTION_GAP,
   TOKEN_SELECTOR_SEARCH_SECTION_PREVIEW_ROWS,
   TOKEN_SELECTOR_SHOW_MORE_HEIGHT,
   TOKEN_SELECTOR_STAR_COLUMN_WIDTH,
@@ -80,8 +81,6 @@ const SEARCH_SECTION_PREVIEW_LIMIT = TOKEN_SELECTOR_SEARCH_SECTION_PREVIEW_ROWS;
 // Section keys for the shared All preview rule.
 const STOCK_SECTION_INDEX = 0;
 const TOKEN_SECTION_INDEX = 1;
-// The space between a search All tab's sections, above a stock or token one.
-export const MARKET_SEARCH_SECTION_GAP = 10;
 const SECTION_TITLE_POSITION = platformEnv.isNative ? 'relative' : 'sticky';
 
 // `VirtualizedList` (web/desktop/extension) pins `ListHeaderComponent` at
@@ -233,7 +232,7 @@ export function MarketSearchSectionTitle({
  * A full-width row, like Universal Search's Show more, inset to the table so
  * its label starts on the name column's edge.
  */
-function ShowMoreButton({
+export function MarketSearchShowMoreButton({
   testID,
   onPress,
 }: {
@@ -597,7 +596,7 @@ export function MarketSearchStockSection({
         />
       ) : null}
       {showMore ? (
-        <ShowMoreButton
+        <MarketSearchShowMoreButton
           testID="market-token-selector-stock-search-show-more"
           onPress={onShowMore}
         />
@@ -650,7 +649,7 @@ export function MarketSearchTokenSection({
         </YStack>
       ) : null}
       {showMore ? (
-        <ShowMoreButton
+        <MarketSearchShowMoreButton
           testID="market-token-selector-market-search-show-more"
           onPress={onShowMore}
         />
@@ -858,7 +857,7 @@ function MarketTokenSelectorSearchResults({
           {showTokenSection ? (
             <>
               {showStockSection ? (
-                <Stack height={MARKET_SEARCH_SECTION_GAP} />
+                <Stack height={TOKEN_SELECTOR_SEARCH_SECTION_GAP} />
               ) : null}
               <MarketSearchTokenSection
                 items={chainTokenItems.slice(0, tokenPreview.sliceData?.length)}

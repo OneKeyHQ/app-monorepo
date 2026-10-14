@@ -7,6 +7,7 @@ import {
   type IMarketSearchResultToken,
   TokenTabList,
 } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/MarketTokenSelectorSearchResults';
+import type { IMobileMarketSearchTokenEntry } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/MobileMarketTokenSelectorSearchResults';
 import type { useMarketStockSelectorList } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/useMarketStockSelectorList';
 import { buildMarketSearchTokenDetailPreview } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPreview';
 import { mapMarketStockPublicItemToSearchToken } from '@onekeyhq/shared/src/utils/marketSearchStock';
@@ -52,6 +53,9 @@ export function useUniversalSearchSelectorTokens(
   return useMemo(() => {
     const itemByTokenId = new Map<string, IUniversalSearchV2MarketToken>();
     const tokens: IMarketSearchResultToken[] = [];
+    // The mobile lists take the token with its result item for the press.
+    const entries: IMobileMarketSearchTokenEntry<IUniversalSearchV2MarketToken>[] =
+      [];
     items.forEach((item) => {
       if (item.type !== EUniversalSearchType.V2MarketToken) {
         return;
@@ -59,8 +63,13 @@ export function useUniversalSearchSelectorTokens(
       const token = toSelectorSearchToken(item);
       itemByTokenId.set(token.id, item);
       tokens.push(token);
+      entries.push({
+        key: `${item.payload.network}:${item.payload.address}`,
+        raw: item,
+        token,
+      });
     });
-    return { tokens, itemByTokenId };
+    return { tokens, entries, itemByTokenId };
   }, [items]);
 }
 
