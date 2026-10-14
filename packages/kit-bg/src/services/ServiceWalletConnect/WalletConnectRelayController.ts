@@ -136,7 +136,9 @@ export class WalletConnectRelayController {
 
   private initialSubscription?: Promise<string>;
 
-  private pendingSubscriptions = new Map<string, SubscriberTypes.Params>();
+  private pendingSubscription?: SubscriberTypes.Params;
+
+  private reconnectWanted = false;
 
   private connections = new Map<IJsonRpcConnection, IConnection>();
 
@@ -198,17 +200,25 @@ export class WalletConnectRelayController {
         const [topic, options] = args;
         if (!options?.transportType || options.transportType === 'relay') {
           if (!options?.internal?.skipSubscribe) {
-            // Keep recovery intent outside the SDK pending map until connected.
-            // Its heartbeat would otherwise start RPC timeouts during retries.
-            this.pendingSubscriptions.set(topic, {
+            // Only the current socket waiter can hand a topic to the SDK.
+            // A failed caller may request socket recovery without replaying it.
+            this.pendingSubscription = {
               ...options,
               topic,
               relay: options?.relay ?? { protocol: 'irn' },
-            });
+            };
+            this.reconnectWanted = !relayer.connected;
           }
           // The subscription's 15s/60s timers must start after socket recovery,
           // so an old subscribe cannot time out and restart a newer retry.
-          await this.open(undefined, true);
+          const pending = this.pendingSubscription;
+          try {
+            await this.open(undefined, true);
+          } finally {
+            if (this.pendingSubscription === pending) {
+              this.pendingSubscription = undefined;
+            }
+          }
         }
         return subscribe(...args);
       })();
@@ -273,10 +283,14 @@ export class WalletConnectRelayController {
       Reflect.apply(warn, relayer.logger, args);
     };
     relayer.on(RELAYER_EVENTS.connect, () => {
-      for (const [topic, options] of this.pendingSubscriptions) {
-        relayer.subscriber.pending.set(topic, options);
+      if (this.pendingSubscription) {
+        relayer.subscriber.pending.set(
+          this.pendingSubscription.topic,
+          this.pendingSubscription,
+        );
+        this.pendingSubscription = undefined;
       }
-      this.pendingSubscriptions.clear();
+      this.reconnectWanted = false;
       this.trackConnection()?.settle();
       this.attemptStarted = false;
       this.failed = false;
@@ -506,11 +520,7 @@ export class WalletConnectRelayController {
     if (this.opening) {
       return this.opening;
     }
-    if (
-      !force &&
-      !relayer.subscriber.hasAnyTopics &&
-      !this.pendingSubscriptions.size
-    ) {
+    if (!force && !relayer.subscriber.hasAnyTopics && !this.reconnectWanted) {
       return;
     }
     const generation = this.generation;
