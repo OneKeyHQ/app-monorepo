@@ -476,15 +476,19 @@ function ChartSection({
         });
 
       // Second line = campaign boost + protocol reward APYs, summed by the
-      // server. Only points that actually carry one are kept, so a history that
-      // predates the campaign simply starts the line later instead of dropping
-      // to zero.
-      const extraApyHistory = impliedApyHistory
-        .filter((item) => item.extraApy !== undefined)
-        .map((item) => ({
-          timestamp: item.timestamp,
-          apy: item.extraApy as string,
-        }));
+      // server. It keeps every base point and leaves the ones without an extra
+      // APY empty: a history that predates the campaign starts the line later
+      // instead of dropping to zero, and a campaign that stopped and resumed
+      // breaks the line instead of joining the two runs straight across the
+      // weeks in between (OK-64549).
+      const extraApyHistory = impliedApyHistory.some(
+        (item) => item.extraApy !== undefined,
+      )
+        ? impliedApyHistory.map((item) => ({
+            timestamp: item.timestamp,
+            apy: item.extraApy,
+          }))
+        : [];
       // Campaign wins over reward, matching the rule the server applies per
       // point ("a campaign present at all makes the line orange") and the
       // headline's split. Taking the first point that happens to carry a kind

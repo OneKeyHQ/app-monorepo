@@ -1,11 +1,15 @@
 export type IApyChartHistoryItem = {
   timestamp: number;
-  apy: string;
+  /** Absent on a point the series has no value for: a gap in the line. */
+  apy?: string;
 };
 
 export type IApyChartTimePeriod = '1h' | '1d' | '1w' | 'max';
 
+type IChartPoint = { timestamp: number };
 type INormalizedApyHistoryItem = { timestamp: number; apy: number };
+/** A null apy is a gap: the line breaks there. */
+export type IApyChartGapPoint = { timestamp: number; apy: number | null };
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
 const ONE_DAY_MS = 24 * ONE_HOUR_MS;
@@ -13,22 +17,31 @@ const SEVEN_DAYS_MS = 7 * ONE_DAY_MS;
 const THIRTY_DAYS_MS = 30 * ONE_DAY_MS;
 const ONE_YEAR_MS = 365 * ONE_DAY_MS;
 
-function normalizeHistory(
+function normalizeHistoryWithGaps(
   history?: IApyChartHistoryItem[] | null,
-): INormalizedApyHistoryItem[] {
+): IApyChartGapPoint[] {
   if (!history?.length) {
     return [];
   }
 
   return history
-    .map((item) => ({
-      timestamp: Number(item.timestamp),
-      apy: Number(item.apy),
-    }))
-    .filter(
-      (item) => Number.isFinite(item.timestamp) && Number.isFinite(item.apy),
-    )
+    .map((item) => {
+      const apy = Number(item.apy);
+      return {
+        timestamp: Number(item.timestamp),
+        apy: Number.isFinite(apy) ? apy : null,
+      };
+    })
+    .filter((item) => Number.isFinite(item.timestamp))
     .toSorted((a, b) => a.timestamp - b.timestamp);
+}
+
+function normalizeHistory(
+  history?: IApyChartHistoryItem[] | null,
+): INormalizedApyHistoryItem[] {
+  return normalizeHistoryWithGaps(history).filter(
+    (item): item is INormalizedApyHistoryItem => item.apy !== null,
+  );
 }
 
 /** Newest point of a series, the anchor the other line's window is cut from. */
@@ -56,11 +69,11 @@ function toUtcWeekKey(timestamp: number) {
   return utcDate.getTime().toString();
 }
 
-function aggregateByPeriod(
-  history: INormalizedApyHistoryItem[],
+function aggregateByPeriod<T extends IChartPoint>(
+  history: T[],
   period: '1d' | '1w',
-) {
-  const bucket = new Map<string, INormalizedApyHistoryItem>();
+): T[] {
+  const bucket = new Map<string, T>();
 
   history.forEach((item) => {
     const key =
@@ -75,11 +88,11 @@ function aggregateByPeriod(
   );
 }
 
-function filterByTimeWindow(
-  history: INormalizedApyHistoryItem[],
+function filterByTimeWindow<T extends IChartPoint>(
+  history: T[],
   windowMs: number,
   anchorTimestamp?: number,
-) {
+): T[] {
   if (!history.length) {
     return [];
   }
@@ -100,13 +113,11 @@ function filterByTimeWindow(
   );
 }
 
-export function buildChartHistory(
-  history: IApyChartHistoryItem[] | null | undefined,
+function windowByPeriod<T extends IChartPoint>(
+  normalized: T[],
   period: IApyChartTimePeriod,
   anchorTimestamp?: number,
-) {
-  const normalized = normalizeHistory(history);
-
+): T[] {
   if (!normalized.length) {
     return [];
   }
@@ -132,4 +143,31 @@ export function buildChartHistory(
   }
 
   return normalized;
+}
+
+export function buildChartHistory(
+  history: IApyChartHistoryItem[] | null | undefined,
+  period: IApyChartTimePeriod,
+  anchorTimestamp?: number,
+): INormalizedApyHistoryItem[] {
+  return windowByPeriod(normalizeHistory(history), period, anchorTimestamp);
+}
+
+/**
+ * buildChartHistory for a line that may stop and resume, such as a campaign
+ * that ran in August and again in October: points without a value stay as
+ * gaps, so the chart breaks the line there instead of drawing one straight
+ * segment across the weeks in between. The daily and weekly buckets keep the
+ * same last-point-of-the-bucket rule, so both lines sample the same moments.
+ */
+export function buildChartHistoryWithGaps(
+  history: IApyChartHistoryItem[] | null | undefined,
+  period: IApyChartTimePeriod,
+  anchorTimestamp?: number,
+): IApyChartGapPoint[] {
+  return windowByPeriod(
+    normalizeHistoryWithGaps(history),
+    period,
+    anchorTimestamp,
+  );
 }
