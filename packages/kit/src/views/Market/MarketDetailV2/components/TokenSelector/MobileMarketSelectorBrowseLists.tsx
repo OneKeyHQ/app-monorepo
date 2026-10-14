@@ -738,9 +738,12 @@ type IMobileStockSelectorListResult = ReturnType<
 export function MobileSelectorStockTable({
   result,
   onItemPress,
+  listHeader,
 }: {
   result: IMobileStockSelectorListResult;
   onItemPress: (item: IMarketStockPublicItem) => void;
+  // Scrolls with the rows, e.g. universal search's section title.
+  listHeader?: ReactElement;
 }) {
   const intl = useIntl();
   const {
@@ -802,6 +805,7 @@ export function MobileSelectorStockTable({
       windowSize={7}
       onEndReached={handleEndReached}
       onEndReachedThreshold={0.4}
+      ListHeaderComponent={listHeader}
       ListFooterComponent={
         <LoadMoreFooter
           isLoading={isLoadingMore}

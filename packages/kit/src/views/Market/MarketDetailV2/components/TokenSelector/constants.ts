@@ -52,6 +52,10 @@ export const TOKEN_SELECTOR_POPOVER_HEIGHT = 600;
 // variants of one asset (chains, wrappers, issuers) before Show more.
 export const TOKEN_SELECTOR_SEARCH_SECTION_PREVIEW_ROWS = 5;
 
+// The space between a search All tab's sections, above a stock or token one;
+// the same 10px stays fixed under the tab bar above every search tab.
+export const TOKEN_SELECTOR_SEARCH_SECTION_GAP = 10;
+
 // The browse lists' name column. With the figures right-aligned the name has
 // room to spare, so it runs narrower than the design's 288 `Left Fixed` frame.
 // The stocks table keeps the same width so the tabs line up.

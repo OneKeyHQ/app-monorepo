@@ -49,6 +49,39 @@ const marketItem = {
   networkLogoURI: '',
 };
 
+// The tab bar is `Tabs.TabBar` underneath (covered by its own test); a plain
+// row of buttons keeps these tests on the selector's own logic.
+jest.mock('./selectorTabBar', () => {
+  const ReactModule = jest.requireActual<typeof import('react')>('react');
+  return {
+    SelectorTabBar: ({
+      tabs,
+      onChange,
+      testIDPrefix,
+    }: {
+      tabs: { id: string; label: string }[];
+      onChange: (tabId: string) => void;
+      testIDPrefix: string;
+    }) =>
+      ReactModule.createElement(
+        'div',
+        null,
+        tabs.map((tab) =>
+          ReactModule.createElement(
+            'button',
+            {
+              key: tab.id,
+              type: 'button',
+              'data-testid': `${testIDPrefix}${tab.id}`,
+              onClick: () => onChange(tab.id),
+            },
+            tab.label,
+          ),
+        ),
+      ),
+  };
+});
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
@@ -72,33 +105,8 @@ jest.mock('@onekeyhq/components', () => {
     );
   return {
     Button: Container,
+    Stack: Container,
     Empty: () => <div data-testid="empty" />,
-    ScrollView: ({
-      children,
-      onScroll,
-    }: {
-      children?: ReactNode;
-      onScroll?: (event: unknown) => void;
-    }) => (
-      <div>
-        {children}
-        {/* Fires a scroll that reaches the end of the content. */}
-        <button
-          data-testid="scroll-to-end"
-          aria-label="scroll to end"
-          type="button"
-          onClick={() =>
-            onScroll?.({
-              nativeEvent: {
-                contentOffset: { y: 1000 },
-                layoutMeasurement: { height: 500 },
-                contentSize: { height: 1500 },
-              },
-            })
-          }
-        />
-      </div>
-    ),
     SizableText: Container,
     XStack: Container,
     YStack: Container,
@@ -106,6 +114,32 @@ jest.mock('@onekeyhq/components', () => {
 });
 
 jest.mock('react-native', () => ({
+  ScrollView: ({
+    children,
+    onScroll,
+  }: {
+    children?: ReactNode;
+    onScroll?: (event: unknown) => void;
+  }) => (
+    <div>
+      {children}
+      {/* Fires a scroll that reaches the end of the content. */}
+      <button
+        data-testid="scroll-to-end"
+        aria-label="scroll to end"
+        type="button"
+        onClick={() =>
+          onScroll?.({
+            nativeEvent: {
+              contentOffset: { y: 1000 },
+              layoutMeasurement: { height: 500 },
+              contentSize: { height: 1500 },
+            },
+          })
+        }
+      />
+    </div>
+  ),
   FlatList: ({
     data,
     renderItem,
