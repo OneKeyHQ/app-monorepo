@@ -389,6 +389,7 @@ function TokenInputSectionComponent(
           selectedTokenDecimals={selectedToken?.decimals}
           selectedTokenNetworkId={selectedToken?.networkId}
           selectedTokenIsNative={selectedToken?.isNative}
+          selectedTokenContractAddress={selectedToken?.contractAddress}
           onSelect={handlePresetAmountSelect}
           onPresetSelect={onAmountEnterTypeChange}
           tradeType={tradeType}
