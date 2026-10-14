@@ -430,7 +430,10 @@ export const processPreLaunchPendingTask = (): boolean => {
     if (!appVersion || !bundleVersion || !signature) return false;
     assertSafeBundleVersion(appVersion);
     assertSafeBundleVersion(bundleVersion);
-    if (!semver.valid(appVersion) || !semver.eq(appVersion, currentAppVersion)) {
+    if (
+      !semver.valid(appVersion) ||
+      !semver.eq(appVersion, currentAppVersion)
+    ) {
       logger.warn(
         'processPreLaunchPendingTask: payload appVersion mismatch, clearing pending task',
         appVersion,

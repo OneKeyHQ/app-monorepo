@@ -804,11 +804,18 @@ class DesktopApiAppUpdate {
         response.writeHead(404).end();
         return;
       }
+      let size: number;
+      try {
+        size = fs.statSync(record.downloadedFile).size;
+      } catch {
+        response.writeHead(404).end();
+        return;
+      }
       const stream = fs.createReadStream(record.downloadedFile);
       stream.once('error', () => response.destroy());
       response.writeHead(200, {
         'Content-Type': 'application/zip',
-        'Content-Length': fs.statSync(record.downloadedFile).size,
+        'Content-Length': size,
       });
       stream.pipe(response);
     });
@@ -831,6 +838,10 @@ class DesktopApiAppUpdate {
           clearTimeout(timer.id);
           autoUpdater.removeListener('update-downloaded', onDownloaded);
           autoUpdater.removeListener('error', onError);
+          server.close();
+          if (this.macFeedServer === server) {
+            this.macFeedServer = undefined;
+          }
         };
         onDownloaded = () => {
           cleanup();
@@ -941,7 +952,11 @@ class DesktopApiAppUpdate {
     const paramFileName = params?.downloadedFile
       ? path.basename(params.downloadedFile)
       : undefined;
-    if (record?.fileName && paramFileName && paramFileName !== record.fileName) {
+    if (
+      record?.fileName &&
+      paramFileName &&
+      paramFileName !== record.fileName
+    ) {
       return false;
     }
     const expectedFileName = record?.fileName ?? paramFileName;
@@ -1015,7 +1030,11 @@ class DesktopApiAppUpdate {
     const args = ['--updated', '--force-run'];
     const start = (file: string, argv: string[]): Promise<void> =>
       new Promise<void>((resolve, reject) => {
-        const child = spawn(file, argv, { detached: true, stdio: 'ignore' });
+        const child = spawn(file, argv, {
+          cwd: path.dirname(file),
+          detached: true,
+          stdio: 'ignore',
+        });
         child.once('error', reject);
         child.once('spawn', () => {
           child.unref();
@@ -1080,7 +1099,11 @@ class DesktopApiAppUpdate {
     }
     this.appImageInstallInProgress = true;
     try {
-      await fs.promises.copyFile(record.downloadedFile, staging);
+      await fs.promises.copyFile(
+        record.downloadedFile,
+        staging,
+        fs.constants.COPYFILE_EXCL,
+      );
       await fs.promises.chmod(staging, 0o755);
       if (destination === current) {
         try {

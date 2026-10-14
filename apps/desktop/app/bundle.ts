@@ -433,8 +433,14 @@ export const testExtractedSha256FromVerifyAscFile = async () => {
   );
 };
 
+let isShowingUnmatchedFileDialog = false;
+
 const unmatchedFileDialog = (): void => {
   clearUpdateBundleData();
+  if (isShowingUnmatchedFileDialog) {
+    return;
+  }
+  isShowingUnmatchedFileDialog = true;
   setTimeout(() => {
     void dialog
       .showMessageBox({
@@ -444,10 +450,14 @@ const unmatchedFileDialog = (): void => {
         buttons: ['exit it'],
       })
       .then((selection) => {
+        isShowingUnmatchedFileDialog = false;
         if (selection.response === 0) {
           clearUpdateBundleData();
           app.exit();
         }
+      })
+      .catch(() => {
+        isShowingUnmatchedFileDialog = false;
       });
   });
 };

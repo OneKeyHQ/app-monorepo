@@ -443,6 +443,7 @@ function resetAllMocks() {
   dappSvc.hasPendingDappRequest.mockResolvedValue(false);
   mockPlatformEnv.isDesktop = false;
   mockPlatformEnv.isDesktopMac = false;
+  mockPlatformEnv.isNative = false;
 
   // Default resolved values. getUpdateInfo uses mockImplementation so it
   // always returns the CURRENT mockAtomHolder.value — tests that reassign
@@ -2350,6 +2351,37 @@ describe('useDownloadPackage', () => {
       expect(svc.resetToInComplete).toHaveBeenCalled();
       expect(mockDialogShow).toHaveBeenCalled();
     });
+
+    test('jsBundle missing/corrupted error triggers recoverAppShellPackage with forceMissing and allowJsBundle', async () => {
+      mockPlatformEnv.isNative = true;
+      svc.getUpdateInfo.mockResolvedValue({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '5',
+      });
+      svc.getDownloadEvent.mockResolvedValue({
+        downloadedFile: '/tmp/bundle.zip',
+      });
+      svc.reconcileAppShellPackage.mockResolvedValue({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '5',
+        status: EAppUpdateStatus.notify,
+      });
+      bundleUpd.installBundle.mockRejectedValueOnce(
+        new Error('ENOENT: no such file or directory, open metadata.json'),
+      );
+
+      const { result } = renderHook(() => useDownloadPackage());
+
+      await act(async () => {
+        await result.current.manualInstallPackage();
+      });
+
+      expect(svc.reconcileAppShellPackage).toHaveBeenCalledWith({
+        forceMissing: true,
+        allowJsBundle: true,
+      });
+      expect(svc.resetToInComplete).not.toHaveBeenCalled();
+    });
   });
 });
 
@@ -3049,6 +3081,30 @@ describe('useAppUpdateInfo useEffect', () => {
       expect(svc.refreshUpdateStatus).toHaveBeenCalled();
       // pushFullModal for WhatsNew should NOT be called for seamless
       expect(nav.pushFullModal).not.toHaveBeenCalled();
+    });
+
+    test('isFirstLaunchAfterUpdated + isRollbackTarget → no WhatsNew dialog even with manual strategy', async () => {
+      await clearWhatsNewShown();
+      setAtom({
+        status: EAppUpdateStatus.notify,
+        latestVersion: '1.0.0',
+        jsBundleVersion: '1',
+        isRollbackTarget: true,
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      svc.fetchAppUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+
+      await act(async () => {
+        await jest.runAllTimersAsync();
+      });
+
+      expect(svc.refreshUpdateStatus).toHaveBeenCalled();
+      expect(nav.pushModal).not.toHaveBeenCalledWith('AppUpdateModal', {
+        screen: 'WhatsNew',
+      });
     });
 
     test('hook returns pre-hydration placeholder but service returns post-update state → dialog still fires on the same launch', async () => {

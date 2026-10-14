@@ -1665,8 +1665,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         try {
           const cleanUrl = request.url.split(/[?#]/, 1)[0];
           const isJsSdkFile = cleanUrl.indexOf('/static/js-sdk') > -1;
-          const isIFrameHtml =
-            cleanUrl.indexOf('/static/js-sdk/iframe.html') > -1;
+          const isIFrameHtml = cleanUrl.endsWith('/static/js-sdk/iframe.html');
 
           // resolve iframe path
           if (isJsSdkFile && isIFrameHtml) {

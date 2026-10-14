@@ -1054,4 +1054,21 @@ describe('servicePendingInstallTask', () => {
     // When lastRequestSeq is 0, fallback uses Date.now() * 1000 + counter
     expect(seq).toBeGreaterThan(Date.now() * 999);
   });
+
+  test('executeBundleSwitchTask clears bundle and triggers fullFlowRetry when switchBundle throws verification error', async () => {
+    const service = createService();
+    const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    autoUpdate.BundleUpdate.isBundleExists.mockResolvedValue(true);
+    autoUpdate.BundleUpdate.verifyExtractedBundle.mockResolvedValue(undefined);
+    autoUpdate.BundleUpdate.switchBundle.mockRejectedValueOnce(
+      new Error('GPG signature verification failed'),
+    );
+    pendingTaskValue = makeSwitchTask();
+
+    await service.processPendingInstallTask();
+
+    expect(autoUpdate.BundleUpdate.clearBundle).toHaveBeenCalledTimes(1);
+    expect(pendingTaskValue).toBeUndefined();
+    expect(appUpdateState.fullFlowRetryByTarget?.['1.0.0:2']?.count).toBe(1);
+  });
 });

@@ -55,7 +55,7 @@ const URL_PAYLOAD_MODES = new Set<number>([
 function optionalTrimmedString(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
   const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
+  return trimmed.length > 0 && trimmed.length <= 4096 ? trimmed : undefined;
 }
 
 // Featured Changelog is a high-trust update surface: media is rendered
@@ -128,8 +128,7 @@ function normalizeFeaturedItem(raw: unknown): IFeaturedItem | undefined {
   // modes (page/dialog/command) keep the trimmed payload as-is because
   // parseNotificationPayload JSON.parses it.
   const rawPayload = optionalTrimmedString(src.payload);
-  const payload =
-    isUrlMode && !isHttpsUrl(rawPayload) ? undefined : rawPayload;
+  const payload = isUrlMode && !isHttpsUrl(rawPayload) ? undefined : rawPayload;
   const mode = isUrlMode && !payload && !href ? undefined : parsedMode;
 
   return {
@@ -167,6 +166,7 @@ export function normalizeFeaturedChangelog(
   }
 
   const features = src.features
+    .slice(0, 10)
     .map((f) => normalizeFeaturedItem(f))
     .filter((f): f is IFeaturedItem => f !== undefined);
 

@@ -436,7 +436,13 @@ class ServicePendingInstallTask {
 
   private isValidJsBundleSwitchPayload(payload: unknown) {
     const p = payload as IJsBundleSwitchTaskPayload;
-    return !!(p?.appVersion && p.bundleVersion && p.signature);
+    if (!p?.appVersion || !p.bundleVersion || !p.signature) {
+      return false;
+    }
+    if (p.bundleVersion !== '0' && p.signature === PLACEHOLDER_SIGNATURE) {
+      return false;
+    }
+    return true;
   }
 
   private isValidAppShellInstallPayload(payload: unknown) {
@@ -1139,6 +1145,22 @@ class ServicePendingInstallTask {
       throw new OneKeyLocalError(RETRY_TRIGGER_BUNDLE_MISSING);
     }
 
+    if (!signature || signature === PLACEHOLDER_SIGNATURE) {
+      const skipAllowed = await Promise.resolve(
+        (
+          BundleUpdate as {
+            isSkipGpgVerificationAllowed?: () => boolean | Promise<boolean>;
+          }
+        ).isSkipGpgVerificationAllowed?.(),
+      ).catch(() => false);
+      if (!skipAllowed) {
+        await BundleUpdate.clearBundle();
+        throw new OneKeyLocalError(
+          `${RETRY_TRIGGER_VERIFY_FAILED}:BUNDLE_SIGNATURE_MISSING`,
+        );
+      }
+    }
+
     try {
       await BundleUpdate.verifyExtractedBundle(appVersion, bundleVersion);
     } catch (error) {
@@ -1167,11 +1189,24 @@ class ServicePendingInstallTask {
       status: EPendingInstallTaskStatus.appliedWaitingVerify,
       lastError: undefined,
     });
-    await BundleUpdate.switchBundle({
-      appVersion,
-      bundleVersion,
-      signature,
-    });
+    try {
+      await BundleUpdate.switchBundle({
+        appVersion,
+        bundleVersion,
+        signature,
+      });
+    } catch (error) {
+      const errMsg = (error as Error)?.message || 'unknown';
+      if (
+        /signature|verify|verification|checksum|sha256|mismatch|tamper|metadata\.json|index\.html/i.test(
+          errMsg,
+        )
+      ) {
+        await BundleUpdate.clearBundle();
+        throw new OneKeyLocalError(`${RETRY_TRIGGER_VERIFY_FAILED}:${errMsg}`);
+      }
+      throw error;
+    }
   }
 
   private async executeAppShellInstallTask(

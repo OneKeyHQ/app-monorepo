@@ -229,6 +229,50 @@ describe('openUrlExternal (native)', () => {
       appGlobals.$defaultLogger = undefined;
     }
   });
+
+  test.each([
+    // eslint-disable-next-line no-script-url
+    'javascript:alert(1)',
+    '  JAVASCRIPT:alert(1)',
+    'data:text/html,<script>alert(1)</script>',
+    'vbscript:msgbox(1)',
+    'file:///etc/passwd',
+    'blob:https://onekey.so/123',
+    'about:blank',
+    'chrome://settings',
+    'chrome-extension://abcdef/popup.html',
+    'intent://scan/#Intent;scheme=zxing;end',
+  ])('blocks dangerous external scheme on native: %s', async (url) => {
+    openUrlExternal(url);
+    await flushPromises();
+    expect(mockOpenBrowserAsync).not.toHaveBeenCalled();
+    expect(mockOpenURL).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    // eslint-disable-next-line no-script-url
+    'javascript:alert(1)',
+    'data:text/html,<script>alert(1)</script>',
+    'file:///etc/passwd',
+  ])('blocks dangerous external scheme on desktop/web: %s', async (url) => {
+    mockEnv.isNative = false;
+    const mockOpenUrl = jest.fn();
+    (
+      globalThis as unknown as { desktopApi?: { openUrl: jest.Mock } }
+    ).desktopApi = {
+      openUrl: mockOpenUrl,
+    };
+    (mockEnv as unknown as { isDesktop: boolean }).isDesktop = true;
+    try {
+      openUrlExternal(url);
+      await flushPromises();
+      expect(mockOpenUrl).not.toHaveBeenCalled();
+      expect(mockOpenURL).not.toHaveBeenCalled();
+    } finally {
+      (mockEnv as unknown as { isDesktop: boolean }).isDesktop = false;
+      delete (globalThis as unknown as { desktopApi?: unknown }).desktopApi;
+    }
+  });
 });
 
 describe('OneKey store deep links', () => {

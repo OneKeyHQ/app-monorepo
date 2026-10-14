@@ -755,12 +755,39 @@ describe('ServiceAppUpdate state transitions', () => {
       expect(result.status).toBe(EAppUpdateStatus.ready);
       expect(result.downloadedEvent?.downloadedFile).toBe('/tmp/app-2.0.0.zip');
     });
+
+    test('forceMissing bypasses status and storeUrl guards for jsBundle/appShell recovery', async () => {
+      resetAtom({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '2',
+        status: EAppUpdateStatus.notify,
+        storeUrl: 'https://apps.apple.com/app/id1609559473',
+        updateStrategy: EUpdateStrategy.seamless,
+        downloadedEvent: {
+          downloadedFile: '/tmp/bundle-2.zip',
+          downloadUrl: 'https://cdn.onekey.so/bundle-2.zip',
+        },
+      });
+
+      const result = await service.reconcileAppShellPackage({
+        forceMissing: true,
+        allowJsBundle: true,
+      });
+
+      expect(result.status).toBe(EAppUpdateStatus.notify);
+      expect(result.downloadedEvent).toBeUndefined();
+      expect(
+        result.fullFlowRetryByTarget?.['recovery:1.0.0:2']?.count,
+      ).toBe(1);
+    });
   });
 
   describe('dev bundle switcher endpoint', () => {
     beforeEach(() => {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { devSettingsPersistAtom } = require('../states/jotai/atoms/devSettings');
+      const {
+        devSettingsPersistAtom,
+      } = require('../states/jotai/atoms/devSettings');
       devSettingsPersistAtom.get.mockResolvedValue({
         enabled: true,
         settings: {},
@@ -769,7 +796,9 @@ describe('ServiceAppUpdate state transitions', () => {
 
     afterEach(() => {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { devSettingsPersistAtom } = require('../states/jotai/atoms/devSettings');
+      const {
+        devSettingsPersistAtom,
+      } = require('../states/jotai/atoms/devSettings');
       devSettingsPersistAtom.get.mockResolvedValue({
         enabled: false,
         settings: {},
@@ -810,7 +839,9 @@ describe('ServiceAppUpdate state transitions', () => {
 
     test('rejects devSimulateUpdate and devFetchBundleVersions when developer mode is disabled', async () => {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { devSettingsPersistAtom } = require('../states/jotai/atoms/devSettings');
+      const {
+        devSettingsPersistAtom,
+      } = require('../states/jotai/atoms/devSettings');
       devSettingsPersistAtom.get.mockResolvedValue({
         enabled: false,
         settings: {},
@@ -1741,7 +1772,8 @@ describe('ServiceAppUpdate state transitions', () => {
         updateStrategy: EUpdateStrategy.manual,
         jsBundle: {
           downloadUrl: 'https://cdn.onekey.so/bundle.zip',
-          sha256: 'abc',
+          sha256: 'a'.repeat(64),
+          fileSize: 1024,
         },
       });
 
@@ -1751,6 +1783,40 @@ describe('ServiceAppUpdate state transitions', () => {
       expect(result?.jsBundle?.downloadUrl).toBe(
         'https://cdn.onekey.so/bundle.zip',
       );
+    });
+
+    test('rejects jsBundle with invalid sha256 or fileSize', async () => {
+      mockFetchConfigResponse({
+        version: '2.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+        jsBundle: {
+          downloadUrl: 'https://cdn.onekey.so/bundle.zip',
+          sha256: 'not-a-64-char-hex',
+        },
+      });
+      expect(await service.fetchConfig()).toBeUndefined();
+
+      mockFetchConfigResponse({
+        version: '2.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+        jsBundle: {
+          downloadUrl: 'https://cdn.onekey.so/bundle.zip',
+          sha256: 'a'.repeat(64),
+          fileSize: 0,
+        },
+      });
+      expect(await service.fetchConfig()).toBeUndefined();
+
+      mockFetchConfigResponse({
+        version: '2.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+        jsBundle: {
+          downloadUrl: 'https://cdn.onekey.so/bundle.zip',
+          sha256: 'a'.repeat(64),
+          fileSize: 513 * 1024 * 1024,
+        },
+      });
+      expect(await service.fetchConfig()).toBeUndefined();
     });
 
     test('rejects appShell with HTTP downloadUrl', async () => {
@@ -2117,12 +2183,26 @@ describe('ServiceAppUpdate state transitions', () => {
       expect(atomValue.status).toBe(EAppUpdateStatus.done);
     });
 
-    test('triggers jsBundleRollbackToBuiltin when jsBundleCount is 0 and custom bundle is active', async () => {
+    test('triggers jsBundleRollbackToBuiltin when jsBundleCount is 0 and custom bundle is active, resetting stale atom status', async () => {
       const {
         BundleUpdate,
       } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
       BundleUpdate.getJsBundlePath.mockResolvedValueOnce('/custom/bundle.js');
-      resetAtom({ status: EAppUpdateStatus.done, updateAt: 0 });
+      resetAtom({
+        status: EAppUpdateStatus.ready,
+        jsBundleVersion: '5',
+        jsBundle: {
+          downloadUrl: 'https://cdn.onekey.so/bundle-5.zip',
+          sha256: 'a'.repeat(64),
+          fileSize: 1024,
+        },
+        downloadedEvent: {
+          downloadedFile: '/tmp/bundle-5.zip',
+        },
+        isRollbackTarget: true,
+        errorText: 'stale-error' as any,
+        updateAt: 0,
+      });
       mockLatestInfo({
         version: '1.0.0',
         jsBundleVersion: undefined,
@@ -2138,6 +2218,12 @@ describe('ServiceAppUpdate state transitions', () => {
         type: EPendingInstallTaskType.jsBundleSwitch,
         targetBundleVersion: '0',
       });
+      expect(atomValue.status).toBe(EAppUpdateStatus.done);
+      expect(atomValue.jsBundleVersion).toBeUndefined();
+      expect(atomValue.jsBundle).toBeUndefined();
+      expect(atomValue.downloadedEvent).toBeUndefined();
+      expect(atomValue.isRollbackTarget).toBe(false);
+      expect(atomValue.errorText).toBeUndefined();
     });
 
     test('sets notify status when new version is available', async () => {

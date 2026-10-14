@@ -248,6 +248,8 @@ class ServiceAppUpdate extends ServiceBase {
         signature: PLACEHOLDER_SIGNATURE,
       },
     });
+    clearTimeout(downloadTimeoutId);
+    clearTimeout(failedRecoveryTimerId);
     return true;
   }
 
@@ -429,9 +431,10 @@ class ServiceAppUpdate extends ServiceBase {
     await this.cleanupUpdateControlState();
     const snapshot = await appUpdatePersistAtom.get();
     if (
-      !APP_SHELL_PACKAGE_RECONCILE_STATUSES.has(snapshot.status) ||
+      (!options?.forceMissing &&
+        !APP_SHELL_PACKAGE_RECONCILE_STATUSES.has(snapshot.status)) ||
       isFirstLaunchAfterUpdated(snapshot) ||
-      snapshot.storeUrl ||
+      (!options?.forceMissing && snapshot.storeUrl) ||
       (!options?.allowJsBundle &&
         getUpdateFileType(snapshot) !== EUpdateFileType.appShell)
     ) {
@@ -668,6 +671,29 @@ class ServiceAppUpdate extends ServiceBase {
           defaultLogger.app.appUpdate.endInstallPackage(
             false,
             new Error('jsBundle downloadUrl must use HTTPS'),
+          );
+          return this.cachedUpdateInfo;
+        }
+        if (
+          normalizedData.jsBundle.sha256 &&
+          !/^[a-fA-F0-9]{64}$/.test(normalizedData.jsBundle.sha256)
+        ) {
+          defaultLogger.app.appUpdate.endInstallPackage(
+            false,
+            new Error('jsBundle sha256 is invalid'),
+          );
+          return this.cachedUpdateInfo;
+        }
+        if (
+          normalizedData.jsBundle.fileSize !== undefined &&
+          (typeof normalizedData.jsBundle.fileSize !== 'number' ||
+            !Number.isFinite(normalizedData.jsBundle.fileSize) ||
+            normalizedData.jsBundle.fileSize <= 0 ||
+            normalizedData.jsBundle.fileSize > 512 * 1024 * 1024)
+        ) {
+          defaultLogger.app.appUpdate.endInstallPackage(
+            false,
+            new Error('jsBundle fileSize is invalid'),
           );
           return this.cachedUpdateInfo;
         }
@@ -1925,13 +1951,23 @@ class ServiceAppUpdate extends ServiceBase {
           targetBundleVersion: null,
           ...this.buildTaskLogFields(null),
         });
-        await this.scheduleRollbackToBuiltinTask({
+        const scheduled = await this.scheduleRollbackToBuiltinTask({
           reason: 'jsBundleCount_is_zero',
           requestSeq,
           appVersion: platformEnv.version || '',
         });
         await appUpdatePersistAtom.set((prev) => ({
           ...prev,
+          ...(scheduled
+            ? {
+                status: EAppUpdateStatus.done,
+                jsBundleVersion: undefined,
+                jsBundle: undefined,
+                downloadedEvent: undefined,
+                isRollbackTarget: false,
+                errorText: undefined,
+              }
+            : null),
           updateAt: Date.now(),
         }));
         const latest = await appUpdatePersistAtom.get();
@@ -1956,10 +1992,7 @@ class ServiceAppUpdate extends ServiceBase {
       // rollback signal — the client is already on the latest bundle.
       // Likewise, when jsBundleCount is omitted (undefined), never treat
       // the absent jsBundleVersion as a rollback signal.
-      if (
-        releaseInfo?.jsBundleCount !== 0 &&
-        !releaseInfo.jsBundleVersion
-      ) {
+      if (releaseInfo?.jsBundleCount !== 0 && !releaseInfo.jsBundleVersion) {
         hasActiveCustomBundle = false;
       }
       const decision = resolveUpdateDecision({
@@ -1999,21 +2032,32 @@ class ServiceAppUpdate extends ServiceBase {
         decision.decision === 'jsBundleRollbackToBuiltin' &&
         releaseInfo.jsBundleCount === 0
       ) {
-        await this.scheduleRollbackToBuiltinTask({
+        const scheduled = await this.scheduleRollbackToBuiltinTask({
           reason: 'jsBundleRollbackToBuiltin',
           requestSeq,
           appVersion: releaseInfo.version || platformEnv.version || '',
         });
         await appUpdatePersistAtom.set((prev) => ({
           ...prev,
+          ...(scheduled
+            ? {
+                status: EAppUpdateStatus.done,
+                jsBundleVersion: undefined,
+                jsBundle: undefined,
+                downloadedEvent: undefined,
+                isRollbackTarget: false,
+                errorText: undefined,
+              }
+            : null),
           updateAt: Date.now(),
         }));
         const latest = await appUpdatePersistAtom.get();
         return latest;
       }
 
+      let isPendingTaskSameTarget = false;
       if (pendingTask?.status === EPendingInstallTaskStatus.pending) {
-        const isSameTarget =
+        isPendingTaskSameTarget =
           pendingTask.targetAppVersion === releaseInfo.version &&
           (pendingTask.type === EPendingInstallTaskType.appInstall
             ? decision.decision === 'appShellUpdate'
@@ -2024,7 +2068,7 @@ class ServiceAppUpdate extends ServiceBase {
         const isRollback =
           decision.decision === 'jsBundleRollback' ||
           (releaseInfo.jsBundleCount ?? 1) === 0;
-        if (isSameTarget && !isForceUpdate && !isRollback) {
+        if (isPendingTaskSameTarget && !isForceUpdate && !isRollback) {
           const latest = await appUpdatePersistAtom.get();
           defaultLogger.app.appUpdate.appUpdateFetchResult({
             traceId,
@@ -2087,6 +2131,7 @@ class ServiceAppUpdate extends ServiceBase {
         }
       }
 
+      let shouldClearSupersededPendingTask = false;
       await appUpdatePersistAtom.set((prev) => {
         const isUpdating = prev.status !== EAppUpdateStatus.done;
         const isFailed = ServiceAppUpdate.FAILED_STATUSES.includes(prev.status);
@@ -2223,6 +2268,10 @@ class ServiceAppUpdate extends ServiceBase {
           (!isUpdating ||
             shouldResetFailed ||
             shouldPreemptReadyOrPendingTarget);
+        shouldClearSupersededPendingTask =
+          pendingTask?.status === EPendingInstallTaskStatus.pending &&
+          !isPendingTaskSameTarget &&
+          shouldTransitionToNotify;
         const nextStatus = shouldTransitionToNotify
           ? EAppUpdateStatus.notify
           : prev.status;
@@ -2273,6 +2322,15 @@ class ServiceAppUpdate extends ServiceBase {
             : prev.previousAppVersion,
         };
       });
+      if (shouldClearSupersededPendingTask) {
+        await clearPendingInstallTask();
+        defaultLogger.app.appUpdate.pendingTaskCleared?.({
+          traceId,
+          requestSeq,
+          reason: 'superseded_by_newer_target',
+          ...this.buildTaskLogFields(pendingTask),
+        });
+      }
 
       // Auto-trigger the background download so the user does not need to
       // manually initiate the update. Two cases qualify:

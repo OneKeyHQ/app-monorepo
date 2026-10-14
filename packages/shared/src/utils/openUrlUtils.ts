@@ -114,10 +114,29 @@ function openUrlByWebviewPro({
   });
 }
 
+const BLOCKED_EXTERNAL_SCHEMES = new Set([
+  'javascript',
+  'data',
+  'vbscript',
+  'file',
+  'blob',
+  'about',
+  'chrome',
+  'chrome-extension',
+  'intent',
+]);
+
+export const isBlockedExternalScheme = (url: string): boolean => {
+  const match = url.trim().match(/^([a-zA-Z][a-zA-Z0-9+.-]*):/);
+  if (!match) {
+    return false;
+  }
+  return BLOCKED_EXTERNAL_SCHEMES.has(match[1].toLowerCase());
+};
+
 const openUrlOutsideNative = (url: string): void => {
   const trimmedUrl = url.trim();
-  const parsedUrl = parseUrl(trimmedUrl);
-  if (parsedUrl?.urlSchema !== 'http' && parsedUrl?.urlSchema !== 'https') {
+  if (!trimmedUrl || isBlockedExternalScheme(trimmedUrl)) {
     return;
   }
   if (platformEnv.isExtension) {
@@ -239,15 +258,12 @@ export const openUrlExternal = (
   options?: IOpenUrlExternalOptions,
 ) => {
   const trimmedUrl = url.trim();
-  if (!trimmedUrl) {
+  if (!trimmedUrl || isBlockedExternalScheme(trimmedUrl)) {
     return;
   }
   const parsedUrl = parseUrl(trimmedUrl);
   const isHttpUrl =
     parsedUrl?.urlSchema === 'http' || parsedUrl?.urlSchema === 'https';
-  if (!parsedUrl || !isHttpUrl) {
-    return;
-  }
   if (!platformEnv.isNative) {
     openUrlOutsideNative(trimmedUrl);
     return;
@@ -257,6 +273,8 @@ export const openUrlExternal = (
     void linkingOpenURL(trimmedUrl);
   };
   if (
+    !parsedUrl ||
+    !isHttpUrl ||
     options?.useSystemBrowser ||
     forceSystemBrowserForDebug ||
     // The background JS runtime cannot present a native view controller.

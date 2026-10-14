@@ -1272,4 +1272,65 @@ describe('executeBundleSwitchTask rollback to builtin', () => {
 
     expect(BundleUpdate.resetToBuiltInBundle).not.toHaveBeenCalled();
   });
+
+  test('fetchAppUpdateInfo clears superseded pending task when transitioning to notify for a different target', async () => {
+    resetPendingTask(
+      makeSwitchTask({
+        taskId: 'jsbundle:1.0.0:2',
+        targetAppVersion: '1.0.0',
+        targetBundleVersion: '2',
+        status: 'pending',
+      }),
+    );
+    resetAppUpdateState({
+      status: EAppUpdateStatus.ready,
+      latestVersion: '1.0.0',
+      jsBundleVersion: '2',
+      downloadedEvent: {
+        downloadedFile: '/tmp/bundle-v2.zip',
+        downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+        signature: 'sig-2',
+      },
+    } as any);
+    jest.spyOn(service, 'getAppLatestInfo').mockResolvedValue({
+      version: '1.0.0',
+      jsBundleVersion: '3',
+      updateStrategy: EUpdateStrategy.manual,
+      jsBundle: {
+        downloadUrl: 'https://cdn.onekey.so/bundle-v3.zip',
+        fileSize: 1024,
+        sha256: 'a'.repeat(64),
+        signature: 'sig-3',
+      },
+    } as any);
+    jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+
+    await service.fetchAppUpdateInfo(true);
+
+    expect(appUpdateState.status).toBe(EAppUpdateStatus.notify);
+    expect(appUpdateState.jsBundleVersion).toBe('3');
+    expect(pendingTaskValue).toBeUndefined();
+  });
+
+  test('readyToInstall rejects non-builtin jsBundle task with PLACEHOLDER_SIGNATURE', async () => {
+    resetAppUpdateState({
+      status: EAppUpdateStatus.verifyPackage,
+      updateStrategy: EUpdateStrategy.seamless,
+      latestVersion: '1.0.0',
+      jsBundleVersion: '2',
+      jsBundle: {
+        downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+        fileSize: 1024,
+        sha256: 'a'.repeat(64),
+      },
+      downloadedEvent: {
+        downloadedFile: '/tmp/bundle-v2.zip',
+        downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+      },
+    } as any);
+
+    await service.readyToInstall();
+
+    expect(pendingTaskValue).toBeUndefined();
+  });
 });

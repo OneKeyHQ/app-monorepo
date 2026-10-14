@@ -444,6 +444,7 @@ export function useAppUpdateForegroundEffects(enabled = true) {
         // on completion, same as seamless).
         if (
           !isAutoUpdateStrategy(info.updateStrategy) &&
+          !info.isRollbackTarget &&
           !whatsNewAlreadyShown
         ) {
           if (fileType === EUpdateFileType.appShell) {

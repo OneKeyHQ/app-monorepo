@@ -663,6 +663,7 @@ export const useDownloadPackage = () => {
       const recoveredStatus = await recoverAppShellPackage({
         fileType,
         errorCode,
+        error: e,
         showIncompleteDialog: false,
       });
       if (recoveredStatus) {

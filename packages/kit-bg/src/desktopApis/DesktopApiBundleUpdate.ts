@@ -12,6 +12,7 @@ import {
   getBundleDirName,
   getBundleExtractDir,
   lastSHA256FailureReason,
+  readMetadataFileSha256,
   testExtractedSha256FromVerifyAscFile,
   verifyMetadataFileSha256,
   verifySha256,
@@ -235,7 +236,7 @@ class DesktopApiAppBundleUpdate {
       process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION === 'true' &&
       Boolean(
         skipGPGVerification ||
-          (store.getDevSettingsEnabled?.() && store.getSkipGPGVerification?.()),
+        (store.getDevSettingsEnabled?.() && store.getSkipGPGVerification?.()),
       )
     );
   }
@@ -564,6 +565,10 @@ class DesktopApiAppBundleUpdate {
           `Bundle SHA256 verification failed: ${reason}`,
         );
       }
+      await readMetadataFileSha256(signature!, {
+        appVersion,
+        bundleVersion,
+      });
     }
     const extractDir = getBundleExtractDir({
       appVersion,
@@ -594,11 +599,25 @@ class DesktopApiAppBundleUpdate {
           );
         }
         const entrySize = entry.header.size;
+        const compressedSize = entry.header.compressedSize;
         if (
           !Number.isFinite(entrySize) ||
           entrySize < 0 ||
           entrySize > MAX_BUNDLE_UNCOMPRESSED_BYTES
         ) {
+          throw new OneKeyLocalError('Bundle zip entry exceeds maximum size');
+        }
+        if (
+          !Number.isFinite(compressedSize) ||
+          compressedSize < 0 ||
+          compressedSize > MAX_BUNDLE_UNCOMPRESSED_BYTES
+        ) {
+          throw new OneKeyLocalError('Bundle zip entry exceeds maximum size');
+        }
+        // adm-zip only passes { maxOutputLength: expectedLength } to zlib.inflateRawSync
+        // when expectedLength > 0. Reject deflated non-directory entries that claim size === 0
+        // with non-empty compressed payload (> 2 bytes for empty deflate block).
+        if (!entry.isDirectory && entrySize === 0 && compressedSize > 2) {
           throw new OneKeyLocalError('Bundle zip entry exceeds maximum size');
         }
         totalUncompressedBytes += entrySize;
@@ -614,7 +633,7 @@ class DesktopApiAppBundleUpdate {
           e.entryName.replace(/\\/g, '/').replace(/^\.\//, '') ===
             'metadata.json',
       );
-      if (!metadataEntry) {
+      if (!metadataEntry || !(metadataEntry.header.size > 0)) {
         throw new OneKeyLocalError('metadata.json not found in bundle');
       }
       if (!allowSkipGPG) {
@@ -991,7 +1010,19 @@ class DesktopApiAppBundleUpdate {
         : undefined;
     const storedFallbacks = store.getFallbackUpdateBundleData();
     const fallbackUpdateBundleData = Array.isArray(storedFallbacks)
-      ? storedFallbacks.filter(isValidStoredBundle)
+      ? storedFallbacks.filter(
+          (entry) =>
+            isValidStoredBundle(entry) &&
+            !(
+              entry.appVersion === appVersion &&
+              entry.bundleVersion === bundleVersion
+            ) &&
+            !(
+              currentUpdateBundleData &&
+              entry.appVersion === currentUpdateBundleData.appVersion &&
+              entry.bundleVersion === currentUpdateBundleData.bundleVersion
+            ),
+        )
       : [];
 
     // Security: Verify bundle directory and integrity before updating store
@@ -1057,14 +1088,22 @@ class DesktopApiAppBundleUpdate {
       currentUpdateBundleData &&
       currentUpdateBundleData.appVersion &&
       currentUpdateBundleData.bundleVersion &&
-      currentUpdateBundleData.signature
+      currentUpdateBundleData.signature &&
+      (currentUpdateBundleData.appVersion !== appVersion ||
+        currentUpdateBundleData.bundleVersion !== bundleVersion)
     ) {
       fallbackUpdateBundleData.push(currentUpdateBundleData);
     }
 
     if (fallbackUpdateBundleData.length > 3) {
       const shiftUpdateBundleData = fallbackUpdateBundleData.shift();
-      if (shiftUpdateBundleData) {
+      if (
+        shiftUpdateBundleData &&
+        !(
+          shiftUpdateBundleData.appVersion === appVersion &&
+          shiftUpdateBundleData.bundleVersion === bundleVersion
+        )
+      ) {
         const bundleDirPath = getBundleExtractDir(shiftUpdateBundleData);
         if (fs.existsSync(bundleDirPath)) {
           fs.rmSync(bundleDirPath, { recursive: true, force: true });

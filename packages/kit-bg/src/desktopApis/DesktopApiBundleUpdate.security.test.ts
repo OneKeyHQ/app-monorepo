@@ -459,7 +459,7 @@ test('verifyBundleASC rejects zip bombs exceeding entry count or uncompressed by
     new Array(MAX_BUNDLE_ENTRY_COUNT + 1).fill({
       entryName: 'build/file.js',
       isDirectory: false,
-      header: { size: 1 },
+      header: { size: 1, compressedSize: 1 },
     }) as unknown as AdmZip.IZipEntry[],
   );
   await expect(
@@ -478,7 +478,7 @@ test('verifyBundleASC rejects zip bombs exceeding entry count or uncompressed by
     {
       entryName: 'metadata.json',
       isDirectory: false,
-      header: { size: MAX_BUNDLE_UNCOMPRESSED_BYTES + 1 },
+      header: { size: MAX_BUNDLE_UNCOMPRESSED_BYTES + 1, compressedSize: 10 },
     },
   ] as unknown as AdmZip.IZipEntry[]);
   await expect(
@@ -498,12 +498,12 @@ test('verifyBundleASC rejects zip bombs exceeding entry count or uncompressed by
     {
       entryName: 'metadata.json',
       isDirectory: false,
-      header: { size: halfPlusOne },
+      header: { size: halfPlusOne, compressedSize: 10 },
     },
     {
       entryName: 'build/index.html',
       isDirectory: false,
-      header: { size: halfPlusOne },
+      header: { size: halfPlusOne, compressedSize: 10 },
     },
   ] as unknown as AdmZip.IZipEntry[]);
   await expect(
@@ -515,6 +515,30 @@ test('verifyBundleASC rejects zip bombs exceeding entry count or uncompressed by
       signature: TEST_SIGNATURE,
     }),
   ).rejects.toThrow('Bundle zip exceeds maximum uncompressed size');
+  expect(mockExtractAllToSpy).not.toHaveBeenCalled();
+
+  // 4. Zero header.size with non-empty compressedSize > 2 (adm-zip maxOutputLength bypass)
+  mockGetEntriesOverride.mockReturnValueOnce([
+    {
+      entryName: 'metadata.json',
+      isDirectory: false,
+      header: { size: 10, compressedSize: 10 },
+    },
+    {
+      entryName: 'build/bomb.js',
+      isDirectory: false,
+      header: { size: 0, compressedSize: 1024 },
+    },
+  ] as unknown as AdmZip.IZipEntry[]);
+  await expect(
+    api.verifyBundleASC({
+      latestVersion: appVersion,
+      bundleVersion,
+      downloadedFile: destZip,
+      sha256: zipSha256,
+      signature: TEST_SIGNATURE,
+    }),
+  ).rejects.toThrow('Bundle zip entry exceeds maximum size');
   expect(mockExtractAllToSpy).not.toHaveBeenCalled();
 });
 
@@ -551,6 +575,46 @@ test('verifyBundleASC rejects invalid or replayed PGP signature before full zip 
   expect(
     fs.existsSync(getBundleExtractDir({ appVersion, bundleVersion })),
   ).toBe(false);
+});
+
+test('installBundle rolling back to a fallback entry does not delete the newly installed bundle directory when fallback queue shifts', async () => {
+  const { extractDir: b1Dir } = prepareValidExtractedBundle('6.6.0', 'b1');
+  const b2Dir = getBundleExtractDir({ appVersion: '6.6.0', bundleVersion: 'b2' });
+  const b3Dir = getBundleExtractDir({ appVersion: '6.6.0', bundleVersion: 'b3' });
+  const b4Dir = getBundleExtractDir({ appVersion: '6.6.0', bundleVersion: 'b4' });
+  fs.mkdirSync(b2Dir, { recursive: true });
+  fs.mkdirSync(b3Dir, { recursive: true });
+  fs.mkdirSync(b4Dir, { recursive: true });
+
+  mockStore.getUpdateBundleData.mockReturnValue({
+    appVersion: '6.6.0',
+    bundleVersion: 'b4',
+    signature: 'sig-b4',
+  });
+  mockStore.getFallbackUpdateBundleData.mockReturnValue([
+    { appVersion: '6.6.0', bundleVersion: 'b1', signature: 'sig-b1' },
+    { appVersion: '6.6.0', bundleVersion: 'b2', signature: 'sig-b2' },
+    { appVersion: '6.6.0', bundleVersion: 'b3', signature: 'sig-b3' },
+  ]);
+
+  await api.installBundle({
+    latestVersion: '6.6.0',
+    bundleVersion: 'b1',
+    signature: 'sig-b1',
+  });
+
+  // b1 is the newly installed bundle and must NOT be deleted!
+  expect(fs.existsSync(b1Dir)).toBe(true);
+  expect(mockStore.setUpdateBundleData).toHaveBeenCalledWith({
+    appVersion: '6.6.0',
+    bundleVersion: 'b1',
+    signature: 'sig-b1',
+  });
+  expect(mockStore.setFallbackUpdateBundleData).toHaveBeenCalledWith([
+    { appVersion: '6.6.0', bundleVersion: 'b2', signature: 'sig-b2' },
+    { appVersion: '6.6.0', bundleVersion: 'b3', signature: 'sig-b3' },
+    { appVersion: '6.6.0', bundleVersion: 'b4', signature: 'sig-b4' },
+  ]);
 });
 
 test('installBundle rejects mismatched appVersion, missing files, invalid signature, and tampered extracted files before updating store', async () => {

@@ -433,7 +433,7 @@ export function parseNotificationPayload(
         return false;
       }
     case ENotificationPushMessageMode.openInBrowser:
-      if (!payload) {
+      if (!payload || !/^https?:\/\//i.test(payload.trim())) {
         return false;
       }
       // The push protocol's openInBrowser mode promises the OS browser;

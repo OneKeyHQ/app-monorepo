@@ -490,7 +490,12 @@ test('macOS local ZIP requires its random capability path', async () => {
     readRecord: () => { downloadedFile: string };
     stageMacUpdate: (record: { downloadedFile: string }) => Promise<void>;
   };
-  await internal.stageMacUpdate(internal.readRecord());
+  let triggerDownloaded!: () => void;
+  mockNativeUpdater.checkForUpdates.mockImplementationOnce(() => {
+    triggerDownloaded = () => mockNativeUpdater.emit('update-downloaded');
+  });
+  const staging = internal.stageMacUpdate(internal.readRecord());
+  await new Promise<void>((resolve) => setImmediate(resolve));
   const feedConfig = mockNativeUpdater.setFeedURL.mock.calls[0][0] as {
     url: string;
     headers: { Authorization: string };
@@ -507,6 +512,8 @@ test('macOS local ZIP requires its random capability path', async () => {
   const zipResponse = await localGet(zipUrl);
   expect(zipResponse.status).toBe(200);
   expect(zipResponse.body.equals(mockPackage)).toBe(true);
+  triggerDownloaded();
+  await staging;
 });
 
 test('clearing update cache cancels a stalled feed request', async () => {
@@ -717,6 +724,7 @@ test('Windows launches only the verified NSIS installer and then quits', async (
   const { api, file, params } = await preparePackage('win32');
   expect(await api.installPackage(params)).toBe(true);
   expect(mockSpawn).toHaveBeenCalledWith(file, ['--updated', '--force-run'], {
+    cwd: path.dirname(file),
     detached: true,
     stdio: 'ignore',
   });
