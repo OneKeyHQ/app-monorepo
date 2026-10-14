@@ -33,11 +33,11 @@ import { HomeTestIDs } from '../../testIDs';
 import { HomeStickyHeaderContext } from '../HomeStickyHeaderContext';
 import { HomeTokenListProviderMirrorWrapper } from '../HomeTokenListProvider';
 
+import { LazyWalletActionBulkSend } from './LazyWalletActionBulkSend';
 import { RawActions } from './RawActions';
 import { useWalletActionConfig } from './useWalletActionConfig';
 import { WalletActionAddressList } from './WalletActionAddressList';
 import { WalletActionApprovals } from './WalletActionApprovals';
-import { WalletActionBulkSend } from './WalletActionBulkSend';
 import { WalletActionBuy } from './WalletActionBuy';
 import { WalletActionCoins } from './WalletActionCoins';
 import { WalletActionCopy } from './WalletActionCopy';
@@ -253,7 +253,7 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
               );
             case 'bulkSend':
               return (
-                <WalletActionBulkSend
+                <LazyWalletActionBulkSend
                   key="bulkSend"
                   onClose={handleActionListClose}
                 />

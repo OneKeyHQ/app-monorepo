@@ -56,7 +56,7 @@ export function AccountSearchBar({
   const { config } = useAccountSelectorContextData();
   const { activeAccount } = useActiveAccount({ num });
   const { isPrimeAvailable } = usePrimeAvailable();
-  const { user, isPrimeActive } = useOneKeyAuth();
+  const { isPrimeActive, isPrimeSubscriptionActive } = useOneKeyAuth();
   const { handleAddAccount, canAddAccount } = useAddAccount({
     num,
     isOthersUniversal,
@@ -68,7 +68,9 @@ export function AccountSearchBar({
   }, 300);
 
   const wallet = focusedWalletInfo?.wallet;
-  const isPrimeUser = Boolean(isPrimeActive && user?.onekeyUserId);
+  // Only drives the Prime badge; access (incl. free trial) is checked by the
+  // button itself.
+  const isPrimeUser = Boolean(isPrimeSubscriptionActive);
 
   const showBulkCopyAddressesButton = Boolean(
     isPrimeAvailable &&

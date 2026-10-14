@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { cloneDeep } from 'lodash';
 
+import type { IPrimeFreeTrialAtomData } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 import type { IPrimeGiftEligibility } from '@onekeyhq/shared/types/prime/primeGiftTypes';
 import type {
   IPrimeTransferNetworkProgress,
@@ -239,4 +240,16 @@ export const { target: primeTransferAtom, use: usePrimeTransferAtom } =
       importProgress: undefined,
       refreshQrcodeHook: undefined,
     },
+  });
+
+export const primeFreeTrialAtomInitialValue: IPrimeFreeTrialAtomData = {
+  config: { status: 'idle' },
+  quota: { status: 'idle' },
+};
+// Free-trial display snapshot. Not persisted: the background refreshes it on
+// login, feature entry and metering; the server stays the source of truth.
+export const { target: primeFreeTrialAtom, use: usePrimeFreeTrialAtom } =
+  globalAtom<IPrimeFreeTrialAtomData>({
+    name: EAtomNames.primeFreeTrialAtom,
+    initialValue: cloneDeep(primeFreeTrialAtomInitialValue),
   });

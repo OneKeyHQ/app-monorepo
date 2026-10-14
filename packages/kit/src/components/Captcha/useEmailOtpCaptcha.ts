@@ -25,6 +25,18 @@ type IPendingCaptcha = {
   timer: ReturnType<typeof setTimeout>;
 };
 
+// Only codes explicitly marked "Retry: No" may replace the provider's UI.
+// https://developers.cloudflare.com/turnstile/troubleshooting/client-side-errors/error-codes/
+const TERMINAL_ERROR_CODES = new Set([
+  '110100',
+  '110110',
+  '110200',
+  '200100',
+  '400020',
+  '400021',
+  '400070',
+]);
+
 export function useEmailOtpCaptcha({
   config,
   active = true,
@@ -87,11 +99,11 @@ export function useEmailOtpCaptcha({
     [],
   );
 
-  const failToLoad = useCallback(
+  const failCaptcha = useCallback(
     (key: ETranslations) => {
       settle(createCaptchaError(key));
-      // No provider result exists yet. Remove the stalled frame so a late load
-      // cannot show success for an OTP request that has already been released.
+      // Remove the failed frame so late recovery cannot show success for an
+      // OTP request that has already been released.
       if (mounted.current) {
         setChallenge(undefined);
         setErrorKey(key);
@@ -139,7 +151,7 @@ export function useEmailOtpCaptcha({
       resolve,
       reject,
       timer: setTimeout(
-        () => failToLoad(ETranslations.auth_captcha_timeout__msg),
+        () => failCaptcha(ETranslations.auth_captcha_timeout__msg),
         120_000,
       ),
     };
@@ -147,7 +159,7 @@ export function useEmailOtpCaptcha({
     setErrorKey(undefined);
     setChallenge({ url: url.toString(), requestId });
     return promise;
-  }, [active, enabled, pageUrl, failToLoad, createCaptchaError]);
+  }, [active, enabled, pageUrl, failCaptcha, createCaptchaError]);
 
   const onResult = useCallback(
     (message: ICaptchaMessage) => {
@@ -155,17 +167,23 @@ export function useEmailOtpCaptcha({
       if (message.status === 'success' && message.token) {
         settle(message.token);
       } else if (message.status === 'load-error') {
-        failToLoad(ETranslations.auth_captcha_load_failed__msg);
+        failCaptcha(ETranslations.auth_captcha_load_failed__msg);
       } else if (message.status === 'timeout') {
         // The hosted page requires a fresh challenge after interaction timeout.
-        failToLoad(ETranslations.auth_captcha_timeout__msg);
+        failCaptcha(ETranslations.auth_captcha_timeout__msg);
+      } else if (
+        message.status === 'error' &&
+        message.code &&
+        TERMINAL_ERROR_CODES.has(message.code)
+      ) {
+        failCaptcha(ETranslations.auth_captcha_unavailable__msg);
       } else {
         // Once the provider is running, its retry/expiry UI owns recovery.
         // Keep the original send waiting for success, including manual Retry.
         clearTimeout(pending.current.timer);
       }
     },
-    [failToLoad, settle],
+    [failCaptcha, settle],
   );
 
   const takeCaptchaToken = useCallback(async () => {
@@ -182,6 +200,7 @@ export function useEmailOtpCaptcha({
     takeCaptchaToken,
     cancelCaptcha,
     isWaiting,
+    errorKey,
     errorMessage: errorKey ? intl.formatMessage({ id: errorKey }) : undefined,
   };
 }

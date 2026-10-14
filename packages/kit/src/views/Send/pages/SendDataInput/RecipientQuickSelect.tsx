@@ -72,6 +72,7 @@ import {
   normalizeSearchKey,
   prioritizeNameThenAddressMatches,
 } from './searchMatchUtils';
+import { useStableItemPress } from './useStableItemPress';
 
 function DeriveTypeLabelWithTooltip({
   label,
@@ -168,7 +169,14 @@ type IQuickItem = {
 };
 
 const QuickSelectListItem = memo(
-  ({ item, onPress }: { item: IQuickItem; onPress?: () => void }) => {
+  ({
+    item,
+    onPress,
+  }: {
+    item: IQuickItem;
+    onPress?: (item: IQuickItem) => void;
+  }) => {
+    const handlePress = useCallback(() => onPress?.(item), [item, onPress]);
     // Use name if available, otherwise show truncated address as primary
     const displayName =
       item.name || accountUtils.shortenAddress({ address: item.address });
@@ -191,7 +199,7 @@ const QuickSelectListItem = memo(
         walletId={item.walletId}
         wallet={item.wallet}
         customRenderAvatar={item.customRenderAvatar}
-        onPress={onPress}
+        onPress={handlePress}
         testID={SendTestIDs.recipientItem(item.address)}
         primary={
           <XStack gap="$2" alignItems="center" flexWrap="nowrap">
@@ -215,7 +223,11 @@ const QuickSelectListItem = memo(
       />
     );
   },
+  // Rows compare by data plus the `onPress` identity: parents pass one stable
+  // handler (useStableItemPress), so a row only re-renders on real data
+  // changes yet never holds on to a stale callback (OK-63928).
   (prevProps, nextProps) =>
+    prevProps.onPress === nextProps.onPress &&
     prevProps.item.id === nextProps.item.id &&
     prevProps.item.address === nextProps.item.address &&
     prevProps.item.displayAddress === nextProps.item.displayAddress &&
@@ -475,22 +487,13 @@ function AccountRecipients({
     return [...nameMatchedGroups, ...addressOnlyGroups];
   }, [walletGroups, isSearchActive, searchValue, btcFreshAddressMap]);
 
-  // Handle account selection
-  const handleSelectAccount = useCallback(
-    (item: IAccountWithDeriveInfo) => {
-      const account = item?.account;
-      if (!account) return;
-      const address =
-        item.matchedAddress ??
-        account.addressDetail?.displayAddress ??
-        account.address ??
-        account.addressDetail?.address ??
-        '';
-      onInputTypeChange?.(EInputAddressChangeType.AccountSelector);
-      onSelect?.({ address });
-    },
-    [onInputTypeChange, onSelect],
-  );
+  // Handle account selection. A row's displayAddress is the matched
+  // historical address when the search hit one, else the account's current
+  // address — the same value the row shows.
+  const handleSelectAccount = useStableItemPress((item: IQuickItem) => {
+    onInputTypeChange?.(EInputAddressChangeType.AccountSelector);
+    onSelect?.({ address: item.displayAddress ?? item.address });
+  });
 
   // Derive type selection per wallet group (for BTC/LTC multi-derive chains)
   const [walletDeriveType, setWalletDeriveType] = useState<
@@ -833,7 +836,7 @@ function AccountRecipients({
                 />
               ),
             }}
-            onPress={() => handleSelectAccount({ account, matchedAddress })}
+            onPress={handleSelectAccount}
           />
         );
       })}
@@ -913,6 +916,15 @@ function AddressBookRecipients({
     }).sorted;
   }, [addressBookItems, isSearchActive, searchValue]);
 
+  const handleSelectAddressBookItem = useStableItemPress((item: IQuickItem) => {
+    onInputTypeChange?.(EInputAddressChangeType.AddressBook);
+    onSelect?.({
+      address: item.address,
+      memo: item.memo,
+      note: item.note,
+    });
+  });
+
   // Notify parent of match status and count
   useEffect(() => {
     if (isDebouncing) return;
@@ -975,14 +987,7 @@ function AddressBookRecipients({
             memo: item.memo,
             note: item.note,
           }}
-          onPress={() => {
-            onInputTypeChange?.(EInputAddressChangeType.AddressBook);
-            onSelect?.({
-              address: item.address,
-              memo: item.memo,
-              note: item.note,
-            });
-          }}
+          onPress={handleSelectAddressBookItem}
         />
       ))}
     </Stack>

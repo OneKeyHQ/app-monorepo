@@ -1,12 +1,15 @@
 /** @jest-environment jsdom */
 
-import type { RefObject } from 'react';
+import type { PropsWithChildren, RefObject } from 'react';
 
 import { act, cleanup, renderHook } from '@testing-library/react';
 
 import type { IElement } from '@onekeyhq/components';
 
+import { SpotlightScrollStateContext } from './SpotlightScrollStateContext';
 import { useSpotlightScrollPause } from './useSpotlightScrollPause.native';
+
+import type { ISpotlightScrollState } from './SpotlightScrollStateContext';
 
 let mockScrollY = { value: 0 };
 let mockHasContext = true;
@@ -432,5 +435,104 @@ describe('Spotlight native scroll pause', () => {
     expect(mockPrepare()).toBeUndefined();
     expect(visibilityChange.mock.calls).toEqual([[true]]);
     expect(mockBridgeCall).not.toHaveBeenCalled();
+  });
+});
+
+// Native state already includes the owner-bound 150ms stabilization gate.
+describe('Spotlight native Header state source', () => {
+  const ref = { current: null } as RefObject<IElement | null>;
+  let state: ISpotlightScrollState | null;
+  const wrapper = ({ children }: PropsWithChildren) => (
+    <SpotlightScrollStateContext.Provider value={state}>
+      {children}
+    </SpotlightScrollStateContext.Provider>
+  );
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    state = null;
+    mockHasContext = true;
+    mockScrollY = { value: 100 };
+    mockDeferUI = false;
+    mockQueueJS = false;
+    mockQueuedJS = [];
+    mockDelay.mockClear();
+  });
+  afterEach(() => {
+    cleanup();
+    jest.clearAllTimers();
+    jest.useRealTimers();
+  });
+
+  it('keeps an unknown native source paused instead of falling back to Tabs', () => {
+    const notify = jest.fn();
+    renderHook(() => useSpotlightScrollPause(ref, true, notify), { wrapper });
+    expect(notify.mock.calls).toEqual([[true]]);
+    expect(mockPrepare()).toBeUndefined();
+    expect(mockDelay).not.toHaveBeenCalled();
+  });
+
+  it('measures immediately after native settling without a second 150ms delay', () => {
+    const notify = jest.fn();
+    const view = renderHook(() => useSpotlightScrollPause(ref, true, notify), {
+      wrapper,
+    });
+    state = { pageKey: 'Spot', headerSettledAtTop: true };
+    view.rerender();
+    expect(notify.mock.calls).toEqual([[true], [false]]);
+    expect(mockPrepare()).toBeUndefined();
+    expect(mockDelay).not.toHaveBeenCalled();
+    state = { pageKey: 'Spot', headerSettledAtTop: false };
+    view.rerender();
+    expect(notify).toHaveBeenLastCalledWith(true);
+  });
+
+  it('uses the last native snapshot when qualification enables later', () => {
+    state = { pageKey: 'Spot', headerSettledAtTop: true };
+    const notify = jest.fn();
+    const view = renderHook(
+      ({ enabled }) => useSpotlightScrollPause(ref, enabled, notify),
+      {
+        wrapper,
+        initialProps: { enabled: false },
+      },
+    );
+    expect(notify).not.toHaveBeenCalled();
+    view.rerender({ enabled: true });
+    expect(notify.mock.calls).toEqual([[false]]);
+    expect(mockDelay).not.toHaveBeenCalled();
+  });
+
+  it('notifies a new native owner even if its settled boolean is unchanged', () => {
+    state = { pageKey: 'Spot', headerSettledAtTop: true };
+    const notify = jest.fn();
+    const view = renderHook(() => useSpotlightScrollPause(ref, true, notify), {
+      wrapper,
+    });
+    state = { pageKey: 'Other', headerSettledAtTop: true };
+    view.rerender();
+    expect(notify.mock.calls).toEqual([[false], [false]]);
+  });
+
+  it('rejects queued legacy completion after switching to an unknown native owner', () => {
+    mockScrollY = { value: 0 };
+    mockQueueJS = true;
+    const notify = jest.fn();
+    const view = renderHook(() => useSpotlightScrollPause(ref, true, notify), {
+      wrapper: ({ children }) => (
+        <SpotlightScrollStateContext.Provider
+          value={state === null ? undefined : state}
+        >
+          {children}
+        </SpotlightScrollStateContext.Provider>
+      ),
+    });
+    act(() => jest.advanceTimersByTime(150));
+    const queued = mockQueuedJS.splice(0);
+    state = { pageKey: 'Spot', headerSettledAtTop: false };
+    view.rerender();
+    notify.mockClear();
+    act(() => queued.forEach((callback) => callback()));
+    expect(notify).not.toHaveBeenCalled();
   });
 });

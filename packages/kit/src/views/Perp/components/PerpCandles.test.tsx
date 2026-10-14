@@ -4,6 +4,7 @@ import { act, render } from '@testing-library/react-native';
 
 import type { ITradingViewChartMode } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 import type { ITradingViewNativeProps } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
+import type { ITradingViewPerpsV2Props } from '@onekeyhq/kit/src/components/TradingView/TradingViewPerpsV2/TradingViewPerpsV2';
 import type { IPerpsCustomSettings } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { PerpMarketWorkspacePanel } from './MarketDetail/PerpMarketWorkspacePanel';
@@ -26,6 +27,9 @@ const mockSetCustomSettings = jest.fn(
   },
 );
 const mockNativeChart = jest.fn<null, [ITradingViewNativeProps]>(() => null);
+const mockTradingViewChart = jest.fn<null, [ITradingViewPerpsV2Props]>(
+  () => null,
+);
 const mockChartModeSelect = jest.fn<
   null,
   [{ chartMode: ITradingViewChartMode; onChartSwitch: () => void }]
@@ -114,7 +118,8 @@ jest.mock(
   () => {
     const { useEffect } = jest.requireActual<typeof import('react')>('react');
     return {
-      TradingViewPerpsV2: () => {
+      TradingViewPerpsV2: (props: ITradingViewPerpsV2Props) => {
+        mockTradingViewChart(props);
         useEffect(() => {
           mockChartMount();
           return () => {
@@ -205,11 +210,12 @@ describe.each([
   it('remembers both choices across remounts and preserves other settings', () => {
     const first = render(<Chart />);
     expect(mockChartMount).toHaveBeenCalledTimes(1);
-    expect(mockChartModeSelect.mock.lastCall?.[0].chartMode).toBe(
-      'tradingView',
-    );
+    expect(mockChartModeSelect).not.toHaveBeenCalled();
+    expect(
+      mockTradingViewChart.mock.lastCall?.[0].enableNativeChartControls,
+    ).toBe(true);
 
-    act(() => mockChartModeSelect.mock.lastCall?.[0].onChartSwitch());
+    act(() => mockTradingViewChart.mock.lastCall?.[0].onChartSwitch?.());
     first.rerender(<Chart />);
     expect(mockNativeChart).toHaveBeenCalled();
     expect(mockCustomSettings).toEqual({
@@ -221,19 +227,13 @@ describe.each([
     const second = render(<Chart />);
     expect(mockChartMount).toHaveBeenCalledTimes(1);
     act(() => {
-      if (Chart === PerpCandles) {
-        mockNativeChart.mock.lastCall?.[0].onChartSwitch?.();
-      } else {
-        mockChartModeSelect.mock.lastCall?.[0].onChartSwitch();
-      }
+      mockNativeChart.mock.lastCall?.[0].onChartSwitch?.();
     });
     second.unmount();
 
     render(<Chart />);
     expect(mockChartMount).toHaveBeenCalledTimes(2);
-    expect(mockChartModeSelect.mock.lastCall?.[0].chartMode).toBe(
-      'tradingView',
-    );
+    expect(mockChartModeSelect).not.toHaveBeenCalled();
     expect(mockCustomSettings).toEqual({
       chartMode: 'tradingView',
       showChartLines: false,
