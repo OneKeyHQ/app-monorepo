@@ -34,6 +34,7 @@ import {
   buildMarketTokenDetailPreview,
 } from '../../utils/marketDetailPreview';
 
+import { getSelectorSearchAssetId } from './constants';
 import {
   DETAIL_SELECTOR_TOKEN_CATEGORY,
   DetailSelectorBrowseTabs,
@@ -235,7 +236,7 @@ function MobileTokenSelectorContent() {
         address: token.address,
         networkId: token.network,
         isNative: token.isNative,
-        assetId: token.assetId,
+        assetId: getSelectorSearchAssetId(token),
         stockId: token.stockId,
         tokenDetailPreview,
       });

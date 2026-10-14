@@ -116,6 +116,19 @@ export interface IMarketTokenSelectorColumns {
 // Default all-networks ID (constant, never changes)
 export const ALL_NETWORK_ID = getNetworkIdsMap().onekeyall;
 
+export function getSelectorSearchAssetId(
+  item: Pick<
+    IMarketSearchV2Token,
+    'assetId' | 'network' | 'address' | 'isNative'
+  >,
+): string | undefined {
+  // A concrete chain token must not be replaced by the asset's default variant.
+  const hasChainIdentity = Boolean(
+    item.network?.trim() && (item.address?.trim() || item.isNative),
+  );
+  return hasChainIdentity ? undefined : item.assetId;
+}
+
 // Shared search token → market token converter
 export function convertSearchTokenToMarketToken(
   item: IMarketSearchV2Token & { networkLogoURI: string },
@@ -125,7 +138,7 @@ export function convertSearchTokenToMarketToken(
       item.assetId && !item.network && !item.address
         ? `market_asset_${item.assetId}`
         : `${item.network}_${item.address}`,
-    assetId: item.assetId,
+    assetId: getSelectorSearchAssetId(item),
     name: item.name,
     symbol: item.symbol,
     address: item.address,

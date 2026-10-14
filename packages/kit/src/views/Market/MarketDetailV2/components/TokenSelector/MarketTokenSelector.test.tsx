@@ -423,6 +423,43 @@ describe('MarketTokenSelector stock default category', () => {
     );
   });
 
+  it.each([false, true])(
+    'keeps an explicit mobile search chain even when the result has assetId (native token: %s)',
+    (isNative) => {
+      const address = isNative ? '' : 'SolanaUsdc';
+      mockMobileSearchTokenList = [
+        {
+          assetId: isNative ? 'solana' : 'usd-coin',
+          network: 'sol--101',
+          address,
+          isNative,
+          name: isNative ? 'Solana' : 'USD Coin',
+          symbol: isNative ? 'SOL' : 'USDC',
+          price: '1',
+          logoUrl: '',
+          decimals: 6,
+          liquidity: '0',
+          volume_24h: '0',
+          networkLogoURI: '',
+        },
+      ];
+      render(<MobileTokenSelector />);
+      fireEvent.change(screen.getByTestId('market-token-selector-search'), {
+        target: { value: 'usdc' },
+      });
+      fireEvent.click(screen.getByTestId('mobile-search-result'));
+      expect(mockNavigateToMarketTokenDetail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          assetId: undefined,
+          networkId: 'sol--101',
+          address,
+          isNative,
+        }),
+        expect.anything(),
+      );
+    },
+  );
+
   it('shows Favorites, Stocks, and Tokens instead of market categories', async () => {
     renderOpenStockSelector();
 
