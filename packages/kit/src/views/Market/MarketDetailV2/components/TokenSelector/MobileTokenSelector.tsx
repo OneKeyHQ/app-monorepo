@@ -235,6 +235,7 @@ function MobileTokenSelectorContent() {
         address: token.address,
         networkId: token.network,
         isNative: token.isNative,
+        assetId: token.assetId,
         stockId: token.stockId,
         tokenDetailPreview,
       });

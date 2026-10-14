@@ -121,7 +121,11 @@ export function convertSearchTokenToMarketToken(
   item: IMarketSearchV2Token & { networkLogoURI: string },
 ): IMarketToken {
   return {
-    id: `${item.network}_${item.address}`,
+    id:
+      item.assetId && !item.network && !item.address
+        ? `market_asset_${item.assetId}`
+        : `${item.network}_${item.address}`,
+    assetId: item.assetId,
     name: item.name,
     symbol: item.symbol,
     address: item.address,

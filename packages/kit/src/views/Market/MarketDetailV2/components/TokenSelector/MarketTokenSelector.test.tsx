@@ -11,6 +11,7 @@ import {
 } from '@testing-library/react';
 
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
+import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
 import type {
   IMarketSpotCategory,
   IMarketStockPublicItem,
@@ -18,6 +19,7 @@ import type {
 
 import { useDetailSelectorBrowseState } from './detailSelectorBrowse';
 import { MarketTokenSelector } from './MarketTokenSelector';
+import MobileTokenSelector from './MobileTokenSelector';
 
 const mockSetSelectorConfig = jest.fn();
 const mockStockListMount = jest.fn();
@@ -31,6 +33,9 @@ let mockConfigLoading = false;
 let mockSpotCategories: IMarketSpotCategory[] = [];
 let mockStockCategories: Array<{ category: string; name: string }> = [];
 let mockSearchTokenList: IMarketToken[] = [];
+let mockMobileSearchTokenList:
+  | (IMarketSearchV2Token & { networkLogoURI: string })[]
+  | undefined;
 let mockWatchlistToken: IMarketToken | undefined;
 
 let mockRouteParams:
@@ -67,6 +72,12 @@ jest.mock('@onekeyhq/components', () => {
   }
 
   return {
+    Page: Object.assign(StackComponent, {
+      Header: () => null,
+      Body: StackComponent,
+    }),
+    Stack: StackComponent,
+    Toast: { error: jest.fn() },
     Icon: () => null,
     Image: () => null,
     GradientMask: () => null,
@@ -127,6 +138,50 @@ jest.mock('@onekeyhq/kit/src/hooks/useDebounce', () => ({
   useDebounce: (value: string) => value,
 }));
 
+jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
+  __esModule: true,
+  default: () => ({ popStack: jest.fn() }),
+}));
+jest.mock(
+  '@onekeyhq/kit/src/views/Market/MarketWatchListProviderMirrorV2',
+  () => ({
+    MarketWatchListProviderMirrorV2: ({ children }: { children?: ReactNode }) =>
+      children,
+  }),
+);
+jest.mock('./dismissMobileTokenSelectorKeyboard', () => ({
+  dismissMobileTokenSelectorKeyboard: jest.fn(),
+}));
+jest.mock('../../utils/marketDetailImagePreload', () => ({
+  prewarmMarketTokenImages: jest.fn(),
+}));
+jest.mock('./useLiveTokenOverride', () => ({
+  useLiveTokenOverride: () => undefined,
+}));
+jest.mock('./MobileMarketSelectorBrowseLists', () => ({
+  MobileSelectorCategoryTokenList: () => null,
+  MobileSelectorStockList: () => null,
+  MobileSelectorTopCoinsList: () => null,
+  MobileSelectorWatchlistList: () => null,
+}));
+jest.mock('./MobileMarketTokenSelectorSearchResults', () => ({
+  MobileMarketTokenSelectorSearchResults: ({
+    marketItems,
+    onMarketPress,
+  }: {
+    marketItems: IMarketSearchV2Token[];
+    onMarketPress: (item: IMarketSearchV2Token) => void;
+  }) => (
+    <button
+      type="button"
+      data-testid="mobile-search-result"
+      onClick={() => onMarketPress(marketItems[0])}
+    >
+      Select asset
+    </button>
+  ),
+}));
+
 jest.mock('@onekeyhq/kit/src/hooks/useNetworkLogoUri', () => ({
   useNetworkLogoUri: () => undefined,
 }));
@@ -181,11 +236,12 @@ jest.mock(
 jest.mock('@onekeyhq/kit/src/views/Swap/hooks/useSwapPro', () => ({
   useSwapProTokenSearch: () => ({
     searchLoading: false,
-    searchTokenList: mockSearchTokenList,
+    searchTokenList: mockMobileSearchTokenList ?? mockSearchTokenList,
   }),
 }));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  EJotaiContextStoreNames: { marketWatchListV2: 'marketWatchListV2' },
   useMarketTokenSelectorConfigAtom: () => [
     { isWatchlistMode: false },
     mockSetSelectorConfig,
@@ -324,6 +380,7 @@ describe('MarketTokenSelector stock default category', () => {
     mockUseToMarketStockDetailPage.mockClear();
     mockToStock.mockClear();
     mockSearchTokenList = [];
+    mockMobileSearchTokenList = undefined;
     mockWatchlistToken = undefined;
     mockRouteParams = undefined;
     mockConfigLoading = false;
@@ -332,6 +389,38 @@ describe('MarketTokenSelector stock default category', () => {
       { type: 'stocks', name: 'Stocks' },
     ];
     mockStockCategories = [];
+  });
+
+  it('preserves assetId when selecting an asset-only mobile search result', () => {
+    mockMobileSearchTokenList = [
+      {
+        assetId: 'bitcoin',
+        name: 'Bitcoin',
+        symbol: 'BTC',
+        address: '',
+        network: '',
+        price: '100',
+        logoUrl: '',
+        isNative: true,
+        decimals: 8,
+        liquidity: '0',
+        volume_24h: '0',
+        networkLogoURI: '',
+      },
+    ];
+    render(<MobileTokenSelector />);
+    fireEvent.change(screen.getByTestId('market-token-selector-search'), {
+      target: { value: 'btc' },
+    });
+    fireEvent.click(screen.getByTestId('mobile-search-result'));
+    expect(mockNavigateToMarketTokenDetail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        assetId: 'bitcoin',
+        address: '',
+        networkId: '',
+      }),
+      expect.anything(),
+    );
   });
 
   it('shows Favorites, Stocks, and Tokens instead of market categories', async () => {
