@@ -119,6 +119,14 @@ export type IEarnPositionRewardAsset = IDeFiAsset & {
   claim?: IEarnPositionRewardClaim;
   status?: 'pending';
   tooltip?: IEarnTooltip;
+  /**
+   * Read from the EarnRewards ledger (Spark, Native), sent on request
+   * (`withLedgerRewards`): the rewards portfolio lists the same rows, so the
+   * Rewards totals and lists leave these out and only the holding shows them.
+   */
+  source?: 'ledger';
+  /** pending ledger rows: when the reward is expected to become claimable (ms), when known */
+  availableAt?: number;
 };
 
 /** The investment detail this position was cut from, kept whole. */

@@ -605,4 +605,69 @@ describe('earn position model: rewards claimable stage', () => {
       everstake.groupId,
     ]);
   });
+
+  it("shows the ledger's rewards on the card and its Claim, and leaves them to the ledger lists and header", () => {
+    const native = fixturePosition(`native:evm--1:${NATIVE_USDT_VAULT}`);
+    const ledgerClaim = {
+      button: {
+        type: 'claimAirdrop',
+        disabled: false,
+        text: { text: 'Claim' },
+        data: { balance: '4' },
+      },
+      claimSource: 'airdrop' as const,
+      row: { title: { text: '4 USDT' }, claimType: 'airdrop' as const },
+    };
+    const withLedger: IEarnPortfolioPosition = {
+      ...native,
+      rewards: [
+        ...native.rewards,
+        {
+          ...native.rewards[0],
+          amount: '4',
+          value: 4,
+          price: 1,
+          status: undefined,
+          tooltip: undefined,
+          source: 'ledger',
+          claim: ledgerClaim,
+        } as IEarnPortfolioPosition['rewards'][number],
+        {
+          ...native.rewards[0],
+          amount: '2',
+          value: 2,
+          price: 1,
+          source: 'ledger',
+          status: 'pending',
+          tooltip: undefined,
+        },
+      ],
+    };
+    const response: IEarnPortfolioPositionsResponse = {
+      positions: { 'evm--1': [withLedger] },
+      protocolSummaries: [],
+      errors: [],
+    };
+    const { protocols } = buildEarnPortfolioView({ response, translate });
+    const [holding] = protocols[0].positions;
+    const rewards = holding.sections.find(
+      (section) => section.kind === 'rewards',
+    );
+    expect(rewards?.assets.map((asset) => asset.amount)).toEqual([
+      '0.0026',
+      '4',
+      '2',
+    ]);
+    expect(holding.claimableRewards.map((reward) => reward.amount)).toEqual([
+      '4',
+    ]);
+    // the ledger endpoint lists these rows and adds them to the header
+    expect(buildEarnClaimableRewardGroups(protocols)).toEqual([]);
+    expect(
+      buildEarnPendingRewardGroups(protocols).flatMap((group) =>
+        group.rows.map((row) => row.asset.amount),
+      ),
+    ).toEqual(['0.0026']);
+    expect(sumEarnClaimableRewards(protocols)).toBe(0);
+  });
 });

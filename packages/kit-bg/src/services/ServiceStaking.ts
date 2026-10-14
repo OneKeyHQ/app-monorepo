@@ -1546,6 +1546,9 @@ class ServiceStaking extends ServiceBase {
       networkId,
       provider,
       ...(publicKey ? { publicKey } : {}),
+      // Spark's and Native's ledger rewards on their holdings, marked
+      // `source: 'ledger'`; the Rewards totals leave those rows out.
+      withLedgerRewards: true,
     };
     const response = await client.post<{
       data: IEarnPortfolioPositionsResponse;

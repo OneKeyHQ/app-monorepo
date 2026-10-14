@@ -566,7 +566,10 @@ function buildEarnRewardGroups(
             position,
             asset,
           }))
-          .filter((row) => pick(row.asset)),
+          // Ledger rows (Spark, Native) are listed from the rewards
+          // portfolio already; counting the holding's copy too would show
+          // them twice and double the header.
+          .filter((row) => row.asset.source !== 'ledger' && pick(row.asset)),
       );
       return {
         key: protocol.key,
