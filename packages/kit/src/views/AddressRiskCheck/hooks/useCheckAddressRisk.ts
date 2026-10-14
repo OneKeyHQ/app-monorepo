@@ -139,14 +139,21 @@ const OPEN_RESULT_GUARD_MS = 1000;
 
 // Entry for running a check from the standalone input and history pages: opens
 // the result page right away, which shows the loading and runs the check.
-// A free user whose local snapshot is already used up (or not open) gets the
-// feedback without the page, unless the address has a local history result
-// to fall back to.
+// When the local snapshot already says used up (or not open) and the address
+// has no local history result to fall back to, the gate decides first on a
+// fresh quota, so a stale 0 does not block and a real one gets the feedback
+// without a loading page.
 export function useCheckAddressRisk() {
   const navigation = useAppNavigation();
   const lastOpenedAtRef = useRef(0);
-  const { getCachedAccess, showRejectedFeedbackOfAccess } =
-    usePrimeFeatureAccess();
+  const isUnmountedRef = useRef(false);
+  useEffect(() => {
+    isUnmountedRef.current = false;
+    return () => {
+      isUnmountedRef.current = true;
+    };
+  }, []);
+  const { getCachedAccess, ensureFeatureAccess } = usePrimeFeatureAccess();
 
   const checkRisk = useCallback(
     ({
@@ -175,17 +182,26 @@ export function useCheckAddressRisk() {
         return;
       }
       void (async () => {
-        if (await getHistoryResult({ networkId, address })) {
-          openResult();
-          return;
+        const isPageGone = () => isUnmountedRef.current;
+        if (
+          !(await getHistoryResult({ networkId, address })) &&
+          !isPageGone()
+        ) {
+          const gate = await ensureFeatureAccess({
+            featureId: EPrimeFeatures.AddressRiskCheck,
+            networkId,
+            isContextValid: () => !isPageGone(),
+          });
+          if (!gate.granted) {
+            return;
+          }
         }
-        showRejectedFeedbackOfAccess(access, {
-          featureId: EPrimeFeatures.AddressRiskCheck,
-          networkId,
-        });
+        if (!isPageGone()) {
+          openResult();
+        }
       })();
     },
-    [getCachedAccess, navigation, showRejectedFeedbackOfAccess],
+    [ensureFeatureAccess, getCachedAccess, navigation],
   );
 
   return { checkRisk };

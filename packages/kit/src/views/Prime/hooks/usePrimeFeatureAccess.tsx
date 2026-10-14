@@ -582,6 +582,32 @@ export function usePrimeFeatureAccess() {
           }),
         });
       };
+      // A fresh quota (and, for a null quota, the public config).
+      const loadFreshAccess = async () => {
+        const { quota, config } = await runWithEntryLoading(
+          showLoading,
+          async () => {
+            const freshQuota = await loadQuotaOfLoggedInFreeUser();
+            // null for a free user: nothing may be open; the public config
+            // decides.
+            const publicConfig =
+              freshQuota === null
+                ? ((await withTimeout(
+                    backgroundApiProxy.servicePrimeFreeTrial.getPublicConfig(),
+                    ENTRY_REQUEST_TIMEOUT_MS,
+                  )) ?? freeTrialRef.current.config.data)
+                : undefined;
+            return { quota: freshQuota, config: publicConfig };
+          },
+        );
+        return resolvePrimeFreeTrialAccess({
+          featureId,
+          isPrimeSubscriptionActive: false,
+          isLoggedIn: true,
+          config,
+          quota,
+        });
+      };
       if (isPrimeFreeTrialTravelMode()) {
         await onDenied?.('notOpen');
         openPrimeDashboard({ featureId, networkId, afterPageExit });
@@ -666,11 +692,19 @@ export function usePrimeFeatureAccess() {
       }
       if (deferQuotaCheck) {
         // A feature without a free trial goes to the dashboard, the same as
-        // for a logged-out user; used up still lets the user in.
+        // for a logged-out user; used up still lets the user in. A snapshot
+        // saying not open may be stale, so it is refreshed first.
         const cachedAccess = await getSnapshotAccess(
           freeTrialRef.current.config.data,
         );
-        if (cachedAccess.status === 'notOpen') {
+        if (
+          cachedAccess.status === 'notOpen' &&
+          (await loadFreshAccess()).status === 'notOpen'
+        ) {
+          if (await isContextGone()) {
+            await onDenied?.('contextChanged');
+            return { granted: false };
+          }
           return denyNotOpen();
         }
         return grantIfContextValid({
@@ -697,33 +731,11 @@ export function usePrimeFeatureAccess() {
         }
       }
 
-      const { quota, config } = await runWithEntryLoading(
-        showLoading,
-        async () => {
-          const freshQuota = await loadQuotaOfLoggedInFreeUser();
-          // null for a free user: nothing may be open; the public config
-          // decides.
-          const publicConfig =
-            freshQuota === null
-              ? ((await withTimeout(
-                  backgroundApiProxy.servicePrimeFreeTrial.getPublicConfig(),
-                  ENTRY_REQUEST_TIMEOUT_MS,
-                )) ?? freeTrialRef.current.config.data)
-              : undefined;
-          return { quota: freshQuota, config: publicConfig };
-        },
-      );
+      const access = await loadFreshAccess();
       if (await isContextGone()) {
         await onDenied?.('contextChanged');
         return { granted: false };
       }
-      const access = resolvePrimeFreeTrialAccess({
-        featureId,
-        isPrimeSubscriptionActive: false,
-        isLoggedIn: true,
-        config,
-        quota,
-      });
       if (access.status === 'exhausted' || access.status === 'notOpen') {
         await onDenied?.(access.status);
         showRejectedFeedbackOfAccess(access, {
@@ -756,7 +768,6 @@ export function usePrimeFeatureAccess() {
       openPrimeDashboard,
       showFreeTrialNoticeToast,
       showActiveRejectedFeedback,
-      showRejectedFeedbackOfAccess,
       handleStartRejected,
       handleFreeTrialError,
     }),
@@ -768,7 +779,6 @@ export function usePrimeFeatureAccess() {
       openPrimeDashboard,
       showActiveRejectedFeedback,
       showFreeTrialNoticeToast,
-      showRejectedFeedbackOfAccess,
     ],
   );
 }

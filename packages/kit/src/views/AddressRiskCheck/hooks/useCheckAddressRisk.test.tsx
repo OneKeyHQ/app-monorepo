@@ -30,7 +30,10 @@ const mockHandleFreeTrialError = jest.fn<unknown, [unknown]>();
 const mockGetCachedAccess = jest.fn<{ status: string; resetAt?: number }, []>(
   () => ({ status: 'available' }),
 );
-const mockShowRejectedFeedbackOfAccess = jest.fn<void, [unknown, unknown]>();
+const mockEnsureFeatureAccess = jest.fn<
+  Promise<{ granted: boolean }>,
+  [unknown]
+>(async () => ({ granted: false }));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/prime', () => ({
   usePrimePersistAtom: () => [
@@ -46,8 +49,7 @@ jest.mock('../../Prime/hooks/usePrimeFeatureAccess', () => ({
   usePrimeFeatureAccess: () => ({
     handleFreeTrialError: (params: unknown) => mockHandleFreeTrialError(params),
     getCachedAccess: () => mockGetCachedAccess(),
-    showRejectedFeedbackOfAccess: (access: unknown, params: unknown) =>
-      mockShowRejectedFeedbackOfAccess(access, params),
+    ensureFeatureAccess: (params: unknown) => mockEnsureFeatureAccess(params),
   }),
 }));
 
@@ -335,12 +337,10 @@ describe('useCheckAddressRisk', () => {
     nowSpy.mockRestore();
   });
 
-  it('gives the used-up feedback without opening the page', async () => {
+  it('lets the gate decide a used-up snapshot without opening the page', async () => {
     mockPush.mockClear();
-    mockGetCachedAccess.mockReturnValueOnce({
-      status: 'exhausted',
-      resetAt: 1000,
-    });
+    mockEnsureFeatureAccess.mockClear();
+    mockGetCachedAccess.mockReturnValueOnce({ status: 'exhausted' });
     const { result } = renderHook(() => useCheckAddressRisk());
 
     act(() => {
@@ -352,17 +352,35 @@ describe('useCheckAddressRisk', () => {
     });
 
     await waitFor(() => {
-      expect(mockShowRejectedFeedbackOfAccess).toHaveBeenCalledWith(
-        { status: 'exhausted', resetAt: 1000 },
+      expect(mockEnsureFeatureAccess).toHaveBeenCalledWith(
         expect.objectContaining({ networkId: riskResult.networkId }),
       );
     });
     expect(mockPush).not.toHaveBeenCalled();
   });
 
+  it('opens the page when the fresh quota turns out to have uses', async () => {
+    mockPush.mockClear();
+    mockGetCachedAccess.mockReturnValueOnce({ status: 'exhausted' });
+    mockEnsureFeatureAccess.mockResolvedValueOnce({ granted: true });
+    const { result } = renderHook(() => useCheckAddressRisk());
+
+    act(() => {
+      result.current.checkRisk({
+        networkId: riskResult.networkId,
+        address: riskResult.address,
+        entryPoint: 'inputManual',
+      });
+    });
+
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it('still opens the page of an address with a history result', async () => {
     mockPush.mockClear();
-    mockShowRejectedFeedbackOfAccess.mockClear();
+    mockEnsureFeatureAccess.mockClear();
     mockGetCachedAccess.mockReturnValueOnce({ status: 'exhausted' });
     mockGetCheck.mockResolvedValueOnce({ result: riskResult });
     const { result } = renderHook(() => useCheckAddressRisk());
@@ -378,7 +396,7 @@ describe('useCheckAddressRisk', () => {
     await waitFor(() => {
       expect(mockPush).toHaveBeenCalledTimes(1);
     });
-    expect(mockShowRejectedFeedbackOfAccess).not.toHaveBeenCalled();
+    expect(mockEnsureFeatureAccess).not.toHaveBeenCalled();
   });
 });
 
