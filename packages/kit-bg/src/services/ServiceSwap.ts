@@ -1203,6 +1203,7 @@ export default class ServiceSwap extends ServiceBase {
   @toastIfError()
   async fetchQuotesEvents({
     source,
+    denySingleSwapProvider: inputDenySingleSwapProvider,
     fromToken,
     toToken,
     fromTokenAmount,
@@ -1230,10 +1231,17 @@ export default class ServiceSwap extends ServiceBase {
       fromToken.networkId,
       toToken.networkId,
     );
-    const denySingleSwapProvider = await this.getDenySingleSwapProvider(
-      fromToken.networkId,
-      toToken.networkId,
-    );
+    const configuredDenySingleSwapProvider =
+      await this.getDenySingleSwapProvider(
+        fromToken.networkId,
+        toToken.networkId,
+      );
+    const denySingleSwapProvider = inputDenySingleSwapProvider
+      ? mergeDenyProviderStrings(
+          configuredDenySingleSwapProvider,
+          inputDenySingleSwapProvider,
+        )
+      : configuredDenySingleSwapProvider;
     const walletDevice =
       await this.backgroundApi.serviceAccount.getAccountDeviceSafe({
         accountId: accountId ?? '',
@@ -1552,6 +1560,7 @@ export default class ServiceSwap extends ServiceBase {
       this.getClient(EServiceEndpointEnum.Swap),
     ]);
     const params: IFetchBuildTxParams = {
+      source,
       fromTokenAddress: fromToken.contractAddress,
       toTokenAddress: toToken.contractAddress,
       fromTokenAmount,
@@ -1569,7 +1578,6 @@ export default class ServiceSwap extends ServiceBase {
       deviceType: deviceType ?? accountDevice?.deviceType,
       // Preserve the trading entry for attribution even when native BTC quotes
       // fall back to the legacy provider pool.
-      source,
       tradeSource,
       ...context.referralBuildTxParams,
     };
@@ -1594,6 +1602,7 @@ export default class ServiceSwap extends ServiceBase {
     receivedAddress,
     orderId,
     ctx,
+    requestCurrency,
   }: {
     txId?: string;
     toTokenAddress?: string;
@@ -1603,6 +1612,7 @@ export default class ServiceSwap extends ServiceBase {
     provider?: string;
     orderId?: string;
     ctx?: any;
+    requestCurrency?: string;
   }): Promise<IFetchSwapTxHistoryStatusResponse> {
     const params = {
       txId,
@@ -1618,7 +1628,11 @@ export default class ServiceSwap extends ServiceBase {
 
     const { data } = await client.post<
       IFetchResponse<IFetchSwapTxHistoryStatusResponse>
-    >('/swap/v1/state-tx', params);
+    >('/swap/v1/state-tx', params, {
+      headers: requestCurrency
+        ? { 'x-onekey-request-currency': requestCurrency }
+        : undefined,
+    });
     return data?.data ?? { state: ESwapTxHistoryStatus.PENDING };
   }
 
@@ -2943,6 +2957,9 @@ export default class ServiceSwap extends ServiceBase {
     });
     return this.fetchTxState({
       txId: getSwapHistoryStateTxIdParam(currentSwapTxHistory),
+      // Status fees must use the persisted record's denomination, even after
+      // the user changes their display currency.
+      requestCurrency: currentSwapTxHistory.currencyId,
       provider: currentSwapTxHistory.swapInfo.provider.provider,
       protocol:
         currentSwapTxHistory.protocol ??
