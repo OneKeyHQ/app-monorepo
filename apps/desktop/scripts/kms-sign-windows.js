@@ -24,7 +24,19 @@ function requiredEnv(name) {
 }
 
 function runSignTool(args) {
-  execFileSync(requiredEnv('WIN_SIGNTOOL_PATH'), args, { stdio: 'inherit' });
+  try {
+    const output = execFileSync(requiredEnv('WIN_SIGNTOOL_PATH'), args, {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'inherit'],
+    });
+    process.stdout.write(output);
+    return output;
+  } catch (error) {
+    if (error.stdout) {
+      process.stdout.write(error.stdout);
+    }
+    throw error;
+  }
 }
 
 // SHA-1 thumbprint of the checked-in leaf, so a signature from any other
@@ -36,7 +48,15 @@ const expectedThumbprint = new X509Certificate(
   .toUpperCase();
 
 function verify(file) {
-  runSignTool(['verify', '/pa', '/all', '/v', file]);
+  const output = runSignTool(['verify', '/pa', '/all', '/v', file]);
+  // `/all` prints one "Signature Index" block per signature; more than one
+  // means a nested signature was appended instead of replaced.
+  const signatureCount = (output.match(/^\s*Signature Index:/gm) || []).length;
+  if (signatureCount !== 1) {
+    throw new Error(
+      `Expected exactly one signature on ${file}, found ${signatureCount}`,
+    );
+  }
   const thumbprint = execFileSync(
     'powershell.exe',
     [
@@ -134,8 +154,8 @@ function verifyNsisOutput() {
   );
   const signed = fs
     .readFileSync(manifest, 'utf8')
-    .trim()
     .split('\n')
+    .filter(Boolean)
     .map((line) => JSON.parse(line));
   const unpackedApps = signed.filter(
     (file) => path.basename(file) === 'OneKey.exe',
