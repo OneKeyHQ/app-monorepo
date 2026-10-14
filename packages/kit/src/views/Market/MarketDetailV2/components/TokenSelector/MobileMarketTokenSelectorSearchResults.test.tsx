@@ -49,6 +49,39 @@ const marketItem = {
   networkLogoURI: '',
 };
 
+// The tab bar is `Tabs.TabBar` underneath (covered by its own test); a plain
+// row of buttons keeps these tests on the selector's own logic.
+jest.mock('./selectorTabBar', () => {
+  const ReactModule = jest.requireActual<typeof import('react')>('react');
+  return {
+    SelectorTabBar: ({
+      tabs,
+      onChange,
+      testIDPrefix,
+    }: {
+      tabs: { id: string; label: string }[];
+      onChange: (tabId: string) => void;
+      testIDPrefix: string;
+    }) =>
+      ReactModule.createElement(
+        'div',
+        null,
+        tabs.map((tab) =>
+          ReactModule.createElement(
+            'button',
+            {
+              key: tab.id,
+              type: 'button',
+              'data-testid': `${testIDPrefix}${tab.id}`,
+              onClick: () => onChange(tab.id),
+            },
+            tab.label,
+          ),
+        ),
+      ),
+  };
+});
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
