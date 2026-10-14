@@ -2,16 +2,9 @@
 
 import type { ReactNode } from 'react';
 
-import {
-  act,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
-import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import type {
   IPrimeFreeTrialAtomData,
   IPrimeFreeTrialFeatureQuota,
@@ -22,7 +15,6 @@ import { PrimeFreeTrialRemainingHint } from './PrimeFreeTrialRemainingHint';
 const mockPushFullModal = jest.fn();
 const mockDialogClose = jest.fn();
 const mockUpgradeClick = jest.fn();
-const mockParentPress = jest.fn();
 const mockRefreshQuota = jest.fn();
 let mockQuota: IPrimeFreeTrialAtomData['quota'];
 let mockConfig: IPrimeFreeTrialAtomData['config'];
@@ -157,32 +149,15 @@ describe('PrimeFreeTrialRemainingHint', () => {
     // Open features only: bulk send is missing, so it is not open.
     setRemaining(2);
     render(
-      <div role="presentation" onClick={mockParentPress}>
-        <PrimeFreeTrialRemainingHint
-          featureId={EPrimeFeatures.AddressRiskCheck}
-          networkId="evm--1"
-        />
-      </div>,
+      <PrimeFreeTrialRemainingHint
+        featureId={EPrimeFeatures.AddressRiskCheck}
+      />,
     );
 
-    // Not open has no reset date: the exact sentence, nothing appended.
+    // Not open has no reset date: the exact sentence, nothing appended, and
+    // no "Get Prime" (the main button leads there).
     expect(screen.getByText('暂未开放免费体验')).toBeTruthy();
-    fireEvent.click(screen.getByTestId('prime-free-trial-hint-get-prime-btn'));
-
-    expect(mockUpgradeClick).toHaveBeenCalledWith({
-      featureName: EPrimeFeatures.AddressRiskCheck,
-      featureId: EPrimeFeatures.AddressRiskCheck,
-    });
-    expect(mockPushFullModal).toHaveBeenCalledWith(EModalRoutes.PrimeModal, {
-      screen: EPrimePages.PrimeDashboard,
-      params: {
-        fromFeature: EPrimeFeatures.AddressRiskCheck,
-        networkId: 'evm--1',
-        freeTrialReason: 'notOpen',
-      },
-    });
-    expect(mockDialogClose).toHaveBeenCalledTimes(1);
-    expect(mockParentPress).not.toHaveBeenCalled();
+    expect(screen.queryByText('获取 Prime')).toBeNull();
   });
 
   it('reads a null quota by the public config', () => {
@@ -221,35 +196,13 @@ describe('PrimeFreeTrialRemainingHint', () => {
     expect(screen.queryByText('获取 Prime')).toBeNull();
   });
 
-  it('offers the same "Get Prime" as the exhausted toast at 0', () => {
+  it('says the uses are gone at 0, without a "Get Prime"', () => {
     setRemaining(0);
-    render(
-      // The bulk revoke dialog puts the hint inside its pressable card.
-      <div role="presentation" onClick={mockParentPress}>
-        <PrimeFreeTrialRemainingHint
-          featureId={EPrimeFeatures.BulkSend}
-          networkId="evm--1"
-        />
-      </div>,
-    );
+    render(<PrimeFreeTrialRemainingHint featureId={EPrimeFeatures.BulkSend} />);
 
     expect(screen.getByText(/^本月免费次数已用完。.+ 重置$/)).toBeTruthy();
-    fireEvent.click(screen.getByTestId('prime-free-trial-hint-get-prime-btn'));
-
-    expect(mockUpgradeClick).toHaveBeenCalledWith({
-      featureName: EPrimeFeatures.BulkSend,
-      featureId: EPrimeFeatures.BulkSend,
-    });
-    expect(mockPushFullModal).toHaveBeenCalledWith(EModalRoutes.PrimeModal, {
-      screen: EPrimePages.PrimeDashboard,
-      params: {
-        fromFeature: EPrimeFeatures.BulkSend,
-        networkId: 'evm--1',
-        freeTrialReason: 'exhausted',
-      },
-    });
-    expect(mockDialogClose).toHaveBeenCalledTimes(1);
-    expect(mockParentPress).not.toHaveBeenCalled();
+    expect(screen.queryByText('获取 Prime')).toBeNull();
+    expect(mockPushFullModal).not.toHaveBeenCalled();
   });
 
   it('says when a quota held by a live reservation comes back', () => {
@@ -268,7 +221,6 @@ describe('PrimeFreeTrialRemainingHint', () => {
       screen.getByText(/^上次使用未结束。若已中断，.+ 前退回次数$/),
     ).toBeTruthy();
     expect(screen.queryByText(/^本月免费次数已用完/)).toBeNull();
-    expect(screen.getByText('获取 Prime')).toBeTruthy();
   });
 
   it('reads an ended reservation as used up', () => {
@@ -355,37 +307,4 @@ describe('PrimeFreeTrialRemainingHint', () => {
       expect(container.textContent).toBe('');
     },
   );
-
-  it('opens the dashboard after beforeGetPrime settles', async () => {
-    setRemaining(0);
-    let closePopover: () => void = () => {};
-    const beforeGetPrime = jest.fn(
-      () =>
-        new Promise<void>((resolve) => {
-          closePopover = resolve;
-        }),
-    );
-    render(
-      <PrimeFreeTrialRemainingHint
-        featureId={EPrimeFeatures.BulkSend}
-        beforeGetPrime={beforeGetPrime}
-      />,
-    );
-
-    fireEvent.click(screen.getByTestId('prime-free-trial-hint-get-prime-btn'));
-    expect(beforeGetPrime).toHaveBeenCalledTimes(1);
-    expect(mockPushFullModal).not.toHaveBeenCalled();
-
-    closePopover();
-    await waitFor(() => {
-      expect(mockPushFullModal).toHaveBeenCalledWith(EModalRoutes.PrimeModal, {
-        screen: EPrimePages.PrimeDashboard,
-        params: {
-          fromFeature: EPrimeFeatures.BulkSend,
-          networkId: undefined,
-          freeTrialReason: 'exhausted',
-        },
-      });
-    });
-  });
 });

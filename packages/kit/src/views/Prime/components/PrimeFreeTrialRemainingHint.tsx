@@ -1,10 +1,9 @@
-import type { ReactNode } from 'react';
 import { useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, XStack, useDialogInstance } from '@onekeyhq/components';
-import type { IXStackProps } from '@onekeyhq/components';
+import { SizableText } from '@onekeyhq/components';
+import type { ISizableTextProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   usePrimeFreeTrialAtom,
@@ -16,7 +15,6 @@ import { getPrimeFreeTrialHeldReservationEnd } from '@onekeyhq/shared/src/utils/
 import type { IPrimeFreeTrialFeatureId } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 
 import { isPrimeFreeTrialTravelMode } from '../hooks/usePrimeFeatureAccess';
-import { usePrimeFreeTrialUpgrade } from '../hooks/usePrimeFreeTrialUpgrade';
 import {
   getPrimeFreeTrialQuotaOfUser,
   resolvePrimeFreeTrialAccess,
@@ -24,7 +22,6 @@ import {
 import { getPrimeFreeTrialNoticeCopy } from '../utils/primeFreeTrialCopy';
 
 import type { IPrimeFreeTrialNotice } from '../utils/primeFreeTrialCopy';
-import type { GestureResponderEvent } from 'react-native';
 
 // A snapshot younger than this is reused instead of refreshing on mount; the
 // entry gate usually refreshed it a moment ago.
@@ -35,23 +32,19 @@ const RESERVATION_MAX_MS = 30 * 60 * 1000;
 const RESERVATION_END_GRACE_MS = 2000;
 
 // Remaining free uses of a feature. Rendered only for logged-in free users
-// with a known quota, and never for token quotas (translate shows no hint). Used up, held by
-// live reservations, or without a free trial (the entry lets the user in, so
+// with a known quota, and never for translate. Used up, held by live
+// reservations, or without a free trial (the entry lets the user in, so
 // nobody fills in the page first), it shows the same notice as the toast a
-// submit would get, with the same "Get Prime".
+// submit would get. No "Get Prime" here: the main button already leads to
+// the dashboard or its toast.
 // Reads the Prime atom directly (not useOneKeyAuth) so it also works inside
 // dialogs rendered outside the auth providers.
 export function PrimeFreeTrialRemainingHint({
   featureId,
-  networkId,
-  beforeGetPrime,
   ...rest
 }: {
   featureId: IPrimeFreeTrialFeatureId;
-  networkId?: string;
-  // Closes a popover holding the hint before the dashboard opens.
-  beforeGetPrime?: () => Promise<void>;
-} & IXStackProps) {
+} & ISizableTextProps) {
   const [user] = usePrimePersistAtom();
   const isLoggedIn = Boolean(user?.isLoggedIn && user?.isLoggedInOnServer);
   const isPrimeSubscriptionActive = Boolean(
@@ -60,10 +53,7 @@ export function PrimeFreeTrialRemainingHint({
   const [{ quota, config }] = usePrimeFreeTrialAtom();
   const onekeyUserId = user?.onekeyUserId;
   const isFreeUser = isLoggedIn && !isPrimeSubscriptionActive;
-  const { getPrime } = usePrimeFreeTrialUpgrade();
   const intl = useIntl();
-  // Empty outside a dialog, where close does nothing.
-  const dialog = useDialogInstance();
 
   const isSnapshotFresh =
     quota.onekeyUserId === onekeyUserId &&
@@ -138,35 +128,6 @@ export function PrimeFreeTrialRemainingHint({
   if (access.status !== 'notOpen' && !featureQuota) {
     return null;
   }
-  const renderGetPrime = (freeTrialReason: 'exhausted' | 'notOpen') => {
-    const openDashboard = () => {
-      getPrime({ featureId, networkId, freeTrialReason });
-    };
-    return (
-      <SizableText
-        testID="prime-free-trial-hint-get-prime-btn"
-        size="$bodyMdMedium"
-        color="$textSuccess"
-        cursor="pointer"
-        hoverStyle={{ opacity: 0.8 }}
-        pressStyle={{ opacity: 0.6 }}
-        role="button"
-        onPress={(event: GestureResponderEvent) => {
-          // The hint can sit inside a pressable card (bulk revoke method).
-          event.stopPropagation();
-          // A dialog would stay above the dashboard.
-          void dialog.close();
-          if (beforeGetPrime) {
-            void beforeGetPrime().then(openDashboard);
-            return;
-          }
-          openDashboard();
-        }}
-      >
-        {intl.formatMessage({ id: ETranslations.prime_get_prime })}
-      </SizableText>
-    );
-  };
   // Rejection states read the same notice copy as the toasts.
   let notice: IPrimeFreeTrialNotice | undefined;
   if (!featureQuota) {
@@ -179,29 +140,15 @@ export function PrimeFreeTrialRemainingHint({
       resetAt: access.status === 'exhausted' ? access.resetAt : undefined,
     };
   }
-  let content: ReactNode;
-  if (notice) {
-    content = (
-      <>
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {getPrimeFreeTrialNoticeCopy({ intl, featureId, notice }).hint}
-        </SizableText>
-        {renderGetPrime(notice.kind === 'notOpen' ? 'notOpen' : 'exhausted')}
-      </>
-    );
-  } else if (featureQuota) {
-    content = (
-      <SizableText size="$bodyMd" color="$textSubdued">
-        {intl.formatMessage(
-          { id: ETranslations.prime_free_trial_remaining_uses__desc },
-          { count: featureQuota.remaining },
-        )}
-      </SizableText>
-    );
-  }
+  const text = notice
+    ? getPrimeFreeTrialNoticeCopy({ intl, featureId, notice }).hint
+    : intl.formatMessage(
+        { id: ETranslations.prime_free_trial_remaining_uses__desc },
+        { count: featureQuota?.remaining ?? 0 },
+      );
   return (
-    <XStack gap="$1.5" alignItems="center" flexWrap="wrap" {...rest}>
-      {content}
-    </XStack>
+    <SizableText size="$bodyMd" color="$textSubdued" {...rest}>
+      {text}
+    </SizableText>
   );
 }

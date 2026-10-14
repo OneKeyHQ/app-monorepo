@@ -855,9 +855,8 @@ function BaseBulkSendAddressesInput({
             {/* Left of the button on wide screens, above it on narrow ones. */}
             <PrimeFreeTrialRemainingHint
               featureId={EPrimeFeatures.BulkSend}
-              networkId={selectedNetworkId}
-              $md={{ alignSelf: 'center' }}
-              $gtMd={{ flex: 1, justifyContent: 'flex-end' }}
+              $md={{ alignSelf: 'center', textAlign: 'center' }}
+              $gtMd={{ flex: 1 }}
             />
           </Page.FooterActions>
         </BulkSendContentWrapper>
