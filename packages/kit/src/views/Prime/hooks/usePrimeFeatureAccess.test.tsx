@@ -713,12 +713,9 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
         }),
       ).resolves.toEqual({ granted: false });
     });
-    // Judged on the local quota: the dashboard opens with the client
-    // sentence as a toast, without a button.
+    // Judged on the local quota: just the dashboard, no toast.
     expect(dashboardReason()).toBe('notOpen');
-    expect(toastAt(0)?.title).toBe('批量转账暂未开放免费体验');
-    expect(toastAt(0)?.message).toBeUndefined();
-    expect(toastAt(0)?.actions).toBeUndefined();
+    expect(mockToastMessage).not.toHaveBeenCalled();
   });
 
   it('stops a bulk tool with no uses left on entry, after a fresh quota', async () => {
@@ -836,7 +833,7 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
     setSnapshot(undefined);
   });
 
-  it('opens the dashboard with a not-open toast and no body', () => {
+  it('opens just the dashboard when the feature is not open', () => {
     const result = renderAccessHook();
 
     act(() => {
@@ -852,9 +849,7 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
     });
 
     expect(dashboardReason()).toBe('notOpen');
-    expect(toastAt(0)?.title).toBe('地址风险检查暂未开放免费体验');
-    expect(toastAt(0)?.message).toBeUndefined();
-    expect(toastAt(0)?.actions).toBeUndefined();
+    expect(mockToastMessage).not.toHaveBeenCalled();
   });
 
   it('keeps translate on the page: a toast with Get Prime, no dashboard', async () => {
@@ -871,6 +866,21 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
     await waitFor(() => {
       expect(toastAt(0)?.title).toBe('AI 翻译本月免费额度已用完');
     });
+    expect(toastAt(0)?.actions).toBeTruthy();
+    expect(mockPushFullModal).not.toHaveBeenCalled();
+  });
+
+  it('keeps translate on the page when it is not open: the toast only', () => {
+    const result = renderAccessHook();
+
+    act(() => {
+      result.current.showActiveRejectedFeedback({
+        featureId: EPrimeFeatures.DAppTranslate,
+        reason: 'notOpen',
+      });
+    });
+
+    expect(toastAt(0)?.title).toBe('AI 翻译暂未开放免费体验');
     expect(toastAt(0)?.actions).toBeTruthy();
     expect(mockPushFullModal).not.toHaveBeenCalled();
   });

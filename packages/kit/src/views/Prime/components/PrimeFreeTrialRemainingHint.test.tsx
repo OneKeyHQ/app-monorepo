@@ -107,39 +107,26 @@ describe('PrimeFreeTrialRemainingHint', () => {
     mockConfig = { status: 'idle' };
   });
 
-  it('says Prime is needed when the feature has no free trial', () => {
-    // Open features only: bulk send is missing, so it is not open.
+  it('renders nothing for a feature without a free trial', () => {
+    // Open features only: address risk check is missing, so it is not open.
     setRemaining(2);
-    render(
+    const { container, rerender } = render(
       <PrimeFreeTrialRemainingHint
         featureId={EPrimeFeatures.AddressRiskCheck}
       />,
     );
+    expect(container.textContent).toBe('');
 
-    // Not open has no reset date: the exact sentence, nothing appended, and
-    // no "Get Prime" (the main button leads there).
-    expect(screen.getByText('暂未开放免费体验')).toBeTruthy();
-    expect(screen.queryByText('获取 Prime')).toBeNull();
-  });
-
-  it('reads a null quota by the public config', () => {
+    // A null quota with a closed public config is not open either.
     setQuotaData(null);
     mockConfig = {
       status: 'success',
       data: { enabled: false, features: [] },
     };
-    const { rerender } = render(
-      <PrimeFreeTrialRemainingHint featureId={EPrimeFeatures.BulkSend} />,
-    );
-    expect(screen.getByText('暂未开放免费体验')).toBeTruthy();
-
-    // An unknown config is never read as not open.
-    mockConfig = { status: 'error' };
     rerender(
       <PrimeFreeTrialRemainingHint featureId={EPrimeFeatures.BulkSend} />,
     );
-    expect(screen.queryByText('暂未开放免费体验')).toBeNull();
-    expect(screen.queryByText('获取 Prime')).toBeNull();
+    expect(container.textContent).toBe('');
   });
 
   it('hides while the quota is unknown', () => {

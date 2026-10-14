@@ -32,11 +32,10 @@ const RESERVATION_MAX_MS = 30 * 60 * 1000;
 const RESERVATION_END_GRACE_MS = 2000;
 
 // Remaining free uses of a feature. Rendered only for logged-in free users
-// with a known quota, and never for translate. Used up, held by live
-// reservations, or without a free trial (the entry lets the user in, so
-// nobody fills in the page first), it shows the same notice as the toast a
-// submit would get. No "Get Prime" here: the main button already leads to
-// the dashboard or its toast.
+// with a known quota of a feature open for a free trial, never for
+// translate. Used up or held by live reservations, it shows the same notice
+// as the toast a submit would get. No "Get Prime" here: the main button
+// already leads to the dashboard.
 // Reads the Prime atom directly (not useOneKeyAuth) so it also works inside
 // dialogs rendered outside the auth providers.
 export function PrimeFreeTrialRemainingHint({
@@ -118,23 +117,20 @@ export function PrimeFreeTrialRemainingHint({
     return () => clearTimeout(timer);
   }, [reservationEnd, isFreeUser]);
 
+  // Only features open for a free trial get a hint.
   if (
     !isFreeUser ||
+    !featureQuota ||
     isPrimeFreeTrialTravelMode() ||
     isPrimeFreeTrialStayOnPageFeature(featureId)
   ) {
-    return null;
-  }
-  if (access.status !== 'notOpen' && !featureQuota) {
     return null;
   }
   // Rejection states read the same notice copy as the toasts.
   const noticeHint = (notice: IPrimeFreeTrialNotice) =>
     getPrimeFreeTrialNoticeCopy({ intl, featureId, notice }).hint;
   let text: string;
-  if (!featureQuota) {
-    text = noticeHint({ kind: 'notOpen' });
-  } else if (heldUntil) {
+  if (heldUntil) {
     text = noticeHint({ kind: 'reservationHeld', heldUntil });
   } else if (featureQuota.remaining <= 0) {
     text = noticeHint({

@@ -211,8 +211,9 @@ export function usePrimeFeatureAccess() {
 
   // Feedback after the user actively tried a feature that is exhausted or
   // not open:
-  // - used up / not open: the dashboard and a toast saying why; a feature
-  //   that stays on its page (translate) gets the toast with "Get Prime"
+  // - used up: the dashboard and a toast saying why; not open: just the
+  //   dashboard. A feature that stays on its page (translate) gets the toast
+  //   with "Get Prime" instead
   // - details of an address not checked this month: the toast only
   // - quota only held by live reservations of earlier uses: a toast saying
   //   so, since nothing was used up and it comes back by itself. The
@@ -239,14 +240,33 @@ export function usePrimeFeatureAccess() {
     }) => {
       const openDashboard = !isPrimeFreeTrialStayOnPageFeature(featureId);
       if (reason === 'notOpen') {
-        const isDetails = notOpenReason === 'detailsNotEligible';
+        // The details case: the feature itself is open, so only the toast.
+        if (notOpenReason === 'detailsNotEligible') {
+          showFreeTrialNoticeToast({
+            featureId,
+            notice: { kind: 'detailsNotEligible' },
+            networkId,
+            afterPageExit,
+          });
+          return;
+        }
+        // No free trial: just the dashboard, as on entry. A feature that
+        // stays on its page gets the toast instead, or the tap would do
+        // nothing.
+        if (openDashboard) {
+          openPrimeDashboard({
+            featureId,
+            networkId,
+            freeTrialReason: 'notOpen',
+            afterPageExit,
+          });
+          return;
+        }
         showFreeTrialNoticeToast({
           featureId,
-          notice: { kind: isDetails ? 'detailsNotEligible' : 'notOpen' },
+          notice: { kind: 'notOpen' },
           networkId,
           afterPageExit,
-          // The details case: the feature itself is open.
-          openDashboard: openDashboard && !isDetails,
         });
         return;
       }
@@ -289,7 +309,7 @@ export function usePrimeFeatureAccess() {
         });
       })();
     },
-    [showFreeTrialNoticeToast],
+    [openPrimeDashboard, showFreeTrialNoticeToast],
   );
 
   // Feedback for an access the gate resolved as used up or not open.
@@ -476,8 +496,8 @@ export function usePrimeFeatureAccess() {
    * - Prime: granted right away, no free-trial request.
    * - Travel mode: legacy Prime behavior (dashboard).
    * - Logged out: open trial -> log in, then continue; not open -> dashboard.
-   * - Logged-in free user: exhausted / not open -> the dashboard and a toast,
-   *   else granted.
+   * - Logged-in free user: exhausted -> the dashboard and a toast; not open
+   *   -> the dashboard; else granted.
    *   Translate gets the toast only and never leaves the page.
    *   With `deferQuotaCheck` (entries of a feature with history to read,
    *   i.e. address risk check) a feature without a free trial opens the
