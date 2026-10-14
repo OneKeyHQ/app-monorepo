@@ -183,6 +183,7 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
                         closeError,
                       )}`,
                       closeError,
+                      { trigger: 'interactive' },
                     );
                   }
                   await onLoginSuccess?.();
@@ -204,6 +205,7 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
                           closeError,
                         )}`,
                         closeError,
+                        { trigger: 'interactive' },
                       );
                     }
                   }
@@ -267,6 +269,7 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
           closeError,
         )}`,
         closeError,
+        { trigger: 'interactive' },
       );
     }
     await onLoginSuccess?.();

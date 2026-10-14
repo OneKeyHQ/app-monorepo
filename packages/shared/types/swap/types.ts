@@ -664,6 +664,7 @@ export interface ISwapPreSwapData {
 
 export interface IFetchSwapQuoteParams {
   source?: ESwapQuoteSource;
+  denySingleSwapProvider?: string;
   fromToken: ISwapToken;
   toToken: ISwapToken;
   requestScopeKey?: string;
@@ -941,6 +942,7 @@ export type ISwapQuoteEventData =
 
 // build_tx
 export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
+  source?: ESwapQuoteSource;
   userAddress: string;
   receivingAddress: string;
   slippagePercentage: number;
@@ -951,7 +953,6 @@ export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
   kind: ESwapQuoteKind;
   walletType?: string;
   deviceType?: string;
-  source?: ESwapQuoteSource;
   bindedAccountAddress?: string;
   bindedNetworkId?: string;
   rebateAddress?: string;
