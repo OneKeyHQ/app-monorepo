@@ -61,7 +61,7 @@ function payload(
     source: 'throwSite',
     category: 'unknown',
     trigger: 'passive',
-    reason: 'SupabaseAuthProvider session fetch failed: name=Error',
+    failureSite: 'SupabaseAuthProvider session fetch failed',
     ...overrides,
   };
 }
@@ -77,24 +77,10 @@ function consume(
 }
 
 describe('getOneKeyIdAuthFailureSignature', () => {
-  it('ignores request ids, uuids, ports and durations', () => {
+  it('ignores request ids', () => {
     expect(
-      getOneKeyIdAuthFailureSignature(
-        payload({
-          requestId: 'a',
-          reason:
-            'Desktop OAuth local server start failed on port 51234 after 10000ms requestId=req-1 session 3f8a1c92-7d4e-4b16-9c0a-5e2b7f13a840',
-        }),
-      ),
-    ).toBe(
-      getOneKeyIdAuthFailureSignature(
-        payload({
-          requestId: 'b',
-          reason:
-            'Desktop OAuth local server start failed on port 50011 after 12000ms requestId=req-2 session 0b6e3f4a-1111-4b16-9c0a-5e2b7f13a840',
-        }),
-      ),
-    );
+      getOneKeyIdAuthFailureSignature(payload({ requestId: 'req-1' })),
+    ).toBe(getOneKeyIdAuthFailureSignature(payload({ requestId: 'req-2' })));
   });
 
   it('separates call sites, triggers and Desktop API calls', () => {
@@ -112,7 +98,7 @@ describe('getOneKeyIdAuthFailureSignature', () => {
       getOneKeyIdAuthFailureSignature({ ...base, trigger: 'interactive' }),
       getOneKeyIdAuthFailureSignature({
         ...base,
-        reason: 'SupabaseAuthProvider initial session fetch failed: name=Error',
+        failureSite: 'SupabaseAuthProvider initial session fetch failed',
       }),
       getOneKeyIdAuthFailureSignature({ ...base, httpStatusCode: 503 }),
     ]);
@@ -160,7 +146,7 @@ describe('OneKeyIdAuthFailureLogLimiter', () => {
     const results = Array.from(
       { length: 7 },
       (_, i) =>
-        consume(limiter, payload({ reason: `failure ${'x'.repeat(i)}` }))
+        consume(limiter, payload({ failureSite: `failure ${'x'.repeat(i)}` }))
           .shouldReport,
     );
     expect(results).toEqual([true, true, true, true, true, false, false]);
@@ -176,11 +162,14 @@ describe('OneKeyIdAuthFailureLogLimiter', () => {
     consume(limiter, payload({ requestId: 'req-3' }));
 
     clock.now = 1_000_000 + WINDOW_MS - 1;
-    expect(limiter.takeDueSummaries()).toEqual([]);
+    expect(limiter.takeDueSummaries()).toEqual({
+      summaries: [],
+      overflow: undefined,
+    });
 
     clock.now = 1_000_000 + WINDOW_MS;
     const { requestId: _requestId, ...summaryPayload } = first;
-    expect(limiter.takeDueSummaries()).toEqual([
+    expect(limiter.takeDueSummaries().summaries).toEqual([
       {
         ...summaryPayload,
         repeatCount: 2,
@@ -216,20 +205,40 @@ describe('OneKeyIdAuthFailureLogLimiter', () => {
     expect(result.summaries).toHaveLength(1);
   });
 
-  it('summarizes the least recently seen signature when evicting it', () => {
+  it('counts new failures in one overflow summary once every slot is in use', () => {
     const { limiter, clock } = createLimiter();
-    consume(limiter, payload({ reason: 'a' }));
-    consume(limiter, payload({ reason: 'a' }));
-    clock.now += 1;
-    consume(limiter, payload({ reason: 'b' }));
-    clock.now += 1;
-    consume(limiter, payload({ reason: 'c' }));
-    clock.now += 1;
+    consume(limiter, payload({ failureSite: 'a' }));
+    consume(limiter, payload({ failureSite: 'a' }));
+    consume(limiter, payload({ failureSite: 'b' }));
+    consume(limiter, payload({ failureSite: 'c' }));
 
-    const result = consume(limiter, payload({ reason: 'd' }));
-    expect(result.summaries).toEqual([
-      expect.objectContaining({ reason: 'a', repeatCount: 1 }),
-    ]);
+    // Every further new failure is dropped without a report or summary.
+    for (let i = 0; i < 50; i += 1) {
+      clock.now += 1;
+      const result = consume(limiter, payload({ failureSite: `new ${i}` }));
+      expect(result).toEqual({ shouldReport: false, summaries: [] });
+    }
+    // Known failures are still tracked.
+    expect(consume(limiter, payload({ failureSite: 'b' })).shouldReport).toBe(
+      false,
+    );
+    expect(limiter.getNextSummaryDueAt()).toBe(1_000_000 + WINDOW_MS);
+
+    clock.now = 1_000_000 + WINDOW_MS;
+    expect(limiter.takeDueSummaries()).toEqual({
+      summaries: [
+        expect.objectContaining({ failureSite: 'a', repeatCount: 1 }),
+        expect.objectContaining({ failureSite: 'b', repeatCount: 1 }),
+      ],
+      overflow: {
+        droppedCount: 50,
+        firstDroppedAt: 1_000_001,
+        lastDroppedAt: 1_000_050,
+      },
+    });
+    expect(
+      consume(limiter, payload({ failureSite: 'new 0' })).shouldReport,
+    ).toBe(true);
   });
 
   it('keeps limiting after a renderer restart and reports the old repeats later', () => {
@@ -248,7 +257,7 @@ describe('OneKeyIdAuthFailureLogLimiter', () => {
     expect(consume(second.limiter, payload()).shouldReport).toBe(false);
 
     second.clock.now = 1_000_000 + WINDOW_MS;
-    expect(second.limiter.takeDueSummaries()).toEqual([
+    expect(second.limiter.takeDueSummaries().summaries).toEqual([
       expect.objectContaining({ repeatCount: 2 }),
     ]);
   });

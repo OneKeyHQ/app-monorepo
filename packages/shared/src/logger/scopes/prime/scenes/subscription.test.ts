@@ -61,7 +61,7 @@ describe('PrimeSubscriptionScene OneKey ID auth failure logging', () => {
     oneKeyIdAuthFailureLogLimiter.reset();
   });
 
-  it('keeps scrubbed text local and sends a scrubbed reason with structured fields', () => {
+  it('keeps scrubbed text local and sends only structured fields with the failure location', () => {
     const { scene, emitLog } = createSceneWithSpy();
     const secret = 'AbCdEfGhIjKlMnOpQrStUvWxYz123456';
     const requestId = '3f8a1c92-7d4e-4b16-9c0a-5e2b7f13a840';
@@ -97,35 +97,59 @@ describe('PrimeSubscriptionScene OneKey ID auth failure logging', () => {
         errorCode: 'auth_conflict',
         httpStatusCode: 409,
         requestId,
-        reason: expectedReason,
+        failureSite: 'OneKey ID is already logged in',
       },
     ]);
     expect(serverCall?.[2]).toEqual([
       expect.objectContaining({ type: 'server' }),
     ]);
     expect(JSON.stringify(serverCall)).not.toContain(secret);
+    expect(serverCall?.[1]?.[0]).not.toHaveProperty('reason');
   });
 
-  it('bounds the server reason and strips emails, tokens, URL params and home paths', () => {
+  it('never sends error details such as echoed OTP codes or recovery words', () => {
     const { scene, emitLog } = createSceneWithSpy();
+    const words =
+      'abandon ability able about above absent absorb abstract absurd abuse access accident';
 
     scene.onekeyIdLoginFailedReason({
-      reason: `SupabaseAuthProvider session fetch failed: name=UnwrappedIpcError message=read /Users/alice/Library/OneKey/store.json for bob@example.com via https://auth.onekey.so/cb?code=abc123&state=xyz access_token=at_123 ${'x'.repeat(400)}`,
-      trigger: 'passive',
+      reason: `ServicePrime.apiEmailOtpLogin email OTP verification failed: name=AuthApiError message=otp=123456 rejected for bob@example.com (${words}) code=otp_expired status=400`,
+      trigger: 'interactive',
+    });
+    scene.onekeyIdLoginFailedReason({
+      reason:
+        'name=OneKeyLocalError message=ServicePrime.apiOAuthLogin: OneKey ID is already logged in. code=-99999',
+      trigger: 'interactive',
+    });
+    scene.onekeyIdLoginFailedReason({
+      reason:
+        'Desktop OAuth local server on port 51234 failed: name=Error message=EADDRINUSE',
+      trigger: 'interactive',
     });
 
-    const payload = getCalls(
-      emitLog,
-      'onekeyIdLoginFailedReason',
-    )[0]?.[1]?.[0] as {
-      reason: string;
-    };
-    expect(payload.reason).toContain('/Users/[user]/Library');
-    expect(payload.reason).toContain('[email]');
-    expect(payload.reason).toContain('https://auth.onekey.so/cb ');
-    expect(payload.reason).toContain('access_token=[redacted]');
-    expect(payload.reason).not.toMatch(/alice|bob@|abc123|at_123/);
-    expect(payload.reason.length).toBeLessThanOrEqual(203);
+    const reported = getCalls(emitLog, 'onekeyIdLoginFailedReason').map(
+      (call) => call[1]?.[0] as Record<string, unknown>,
+    );
+    expect(reported[0]).toEqual(
+      expect.objectContaining({
+        failureSite:
+          'ServicePrime.apiEmailOtpLogin email OTP verification failed',
+        errorName: 'AuthApiError',
+        errorCode: 'otp_expired',
+        httpStatusCode: 400,
+      }),
+    );
+    expect(reported[1]?.failureSite).toBeUndefined();
+    expect(reported[1]).toEqual(
+      expect.objectContaining({ category: 'alreadyLoggedIn' }),
+    );
+    expect(reported[2]).toEqual(
+      expect.objectContaining({
+        failureSite: 'Desktop OAuth local server on port # failed',
+      }),
+    );
+    const sent = JSON.stringify(reported);
+    expect(sent).not.toMatch(/123456|abandon|bob@|51234|EADDRINUSE/);
   });
 
   it('reports which login step failed and what triggered it', () => {
@@ -148,8 +172,7 @@ describe('PrimeSubscriptionScene OneKey ID auth failure logging', () => {
         trigger: 'interactive',
         category: 'oauth',
         errorName: 'AuthRetryableFetchError',
-        reason:
-          'OneKey ID OAuth sign-in failed: name=AuthRetryableFetchError message=fetch failed code= status= requestId=',
+        failureSite: 'OneKey ID OAuth sign-in failed',
       },
     ]);
   });
@@ -183,9 +206,7 @@ describe('PrimeSubscriptionScene OneKey ID auth failure logging', () => {
     expect(summaryCalls[0]?.[1]?.[0]).toEqual(
       expect.objectContaining({
         trigger: 'passive',
-        reason: expect.stringContaining(
-          'SupabaseAuthProvider session fetch failed',
-        ),
+        failureSite: 'SupabaseAuthProvider session fetch failed',
         repeatCount: 9,
         firstRepeatAt: startedAt + 60 * 1000,
         lastRepeatAt: startedAt + 9 * 60 * 1000,
@@ -231,12 +252,44 @@ describe('PrimeSubscriptionScene OneKey ID auth failure logging', () => {
     });
 
     const reported = getCalls(emitLog, 'onekeyIdLoginFailedReason').map(
-      (call) => call[1]?.[0] as { trigger: string; reason: string },
+      (call) => call[1]?.[0] as { trigger: string },
     );
     expect(reported).toHaveLength(2 + 5 + 1);
     expect(
       reported.filter((payload) => payload.trigger === 'interactive'),
     ).toHaveLength(5);
+  });
+
+  it('reports failures beyond the tracked signatures once, as an overflow count', () => {
+    const { scene, emitLog } = createSceneWithSpy();
+
+    // Every call is a new failure location.
+    for (let i = 0; i < 100; i += 1) {
+      scene.onekeyIdLoginFailedReason({
+        reason: `Failure site ${'x'.repeat(i)}: name=Error`,
+        trigger: 'passive',
+      });
+    }
+
+    expect(getCalls(emitLog, 'onekeyIdLoginFailedReason')).toHaveLength(30);
+    expect(getCalls(emitLog, 'onekeyIdLoginFailedReasonRepeated')).toHaveLength(
+      0,
+    );
+    expect(getCalls(emitLog, 'onekeyIdLoginFailedReasonOverflow')).toHaveLength(
+      0,
+    );
+
+    jest.advanceTimersByTime(ONE_HOUR_MS);
+
+    const overflowCalls = getCalls(
+      emitLog,
+      'onekeyIdLoginFailedReasonOverflow',
+    );
+    expect(overflowCalls).toHaveLength(1);
+    expect(overflowCalls[0]?.[1]?.[0]).toEqual(
+      expect.objectContaining({ droppedCount: 70 }),
+    );
+    expect(emitLog.mock.calls).toHaveLength(30 * 2 + 1);
   });
 
   it('tells apart Desktop API calls that fail with the same error name', () => {

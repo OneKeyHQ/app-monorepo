@@ -1265,7 +1265,7 @@ export function useKeylessWallet() {
         throwLocalizedOneKeyIdLoginError({
           intl,
           key: ETranslations.keyless_wallet_data_unavailable__desc,
-          reason: `Unable to identify the local Keyless wallet for recovery. ${
+          reason: `Unable to identify the local Keyless wallet for recovery: ${
             prepareResult.errorMessage || ''
           }`,
         });

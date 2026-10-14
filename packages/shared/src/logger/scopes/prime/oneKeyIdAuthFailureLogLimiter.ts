@@ -10,10 +10,13 @@ export type IOneKeyIdAuthFailureLogTrigger =
   | IOneKeyIdAuthFailureTrigger
   | 'unknown';
 
+// What onekeyIdLoginFailedReason sends. Error details never appear here:
+// they stay in the local log line.
 export type IOneKeyIdAuthFailureLogPayload =
   IOneKeyIdAuthFailureServerParams & {
     trigger: IOneKeyIdAuthFailureLogTrigger;
-    reason: string;
+    // Code-authored location of the failure (see getOneKeyIdAuthFailureSite).
+    failureSite?: string;
   };
 
 // Occurrences of one failure that were not reported, sent once its window
@@ -25,6 +28,20 @@ export type IOneKeyIdAuthFailureRepeatSummary = Omit<
   repeatCount: number;
   firstRepeatAt: number;
   lastRepeatAt: number;
+};
+
+// Occurrences that could not be tracked because every signature slot was in
+// use. None of them was written locally or sent; this count is reported once
+// when the window ends.
+export type IOneKeyIdAuthFailureOverflowSummary = {
+  droppedCount: number;
+  firstDroppedAt: number;
+  lastDroppedAt: number;
+};
+
+export type IOneKeyIdAuthFailureDueSummaries = {
+  summaries: IOneKeyIdAuthFailureRepeatSummary[];
+  overflow?: IOneKeyIdAuthFailureOverflowSummary;
 };
 
 export type IOneKeyIdAuthFailureLogLimits = {
@@ -46,10 +63,13 @@ export const ONEKEY_ID_AUTH_FAILURE_LOG_LIMITS: IOneKeyIdAuthFailureLogLimits =
     // mounts, session reads, renderer reloads) report once.
     maxEventsPerSignature: { interactive: 5, passive: 1, unknown: 1 },
     // Cap across all signatures in one window, so many distinct failures
-    // cannot flood either. Repeat summaries are not counted.
+    // cannot flood either.
     maxEventsPerWindow: 30,
-    // Beyond this, the least recently seen signature is summarized and
-    // dropped.
+    // Signatures tracked at once. A new signature arriving while every slot
+    // is in use is only counted in the overflow summary. As each slot yields
+    // at most one repeat summary per window, one runtime emits at most
+    // maxEventsPerWindow reports, maxTrackedSignatures repeat summaries and
+    // one overflow summary per window.
     maxTrackedSignatures: 30,
     // Updates that only count a suppressed repeat are written to storage at
     // most this often (trailing write), so a tight failure loop does not
@@ -74,6 +94,7 @@ type ILimiterState = {
   version: 1;
   windowStartedAt?: number;
   reportedCount: number;
+  overflow?: IOneKeyIdAuthFailureOverflowSummary;
   signatures: Record<string, ISignatureEntry>;
 };
 
@@ -93,7 +114,7 @@ function isSignatureEntry(value: unknown): value is ISignatureEntry {
     typeof entry === 'object' &&
     !!entry.payload &&
     typeof entry.payload === 'object' &&
-    typeof entry.payload.reason === 'string' &&
+    typeof entry.payload.trigger === 'string' &&
     isFiniteNumber(entry.windowStartedAt) &&
     isFiniteNumber(entry.lastSeenAt) &&
     isFiniteNumber(entry.reportedCount) &&
@@ -121,6 +142,7 @@ function parseState(raw: string | null): ILimiterState {
         signatures[signature] = entry;
       }
     });
+    const { overflow } = parsed;
     return {
       version: 1,
       windowStartedAt: isFiniteNumber(parsed.windowStartedAt)
@@ -129,6 +151,13 @@ function parseState(raw: string | null): ILimiterState {
       reportedCount: isFiniteNumber(parsed.reportedCount)
         ? parsed.reportedCount
         : 0,
+      overflow:
+        overflow &&
+        isFiniteNumber(overflow.droppedCount) &&
+        isFiniteNumber(overflow.firstDroppedAt) &&
+        isFiniteNumber(overflow.lastDroppedAt)
+          ? overflow
+          : undefined,
       signatures,
     };
   } catch {
@@ -136,21 +165,9 @@ function parseState(raw: string | null): ILimiterState {
   }
 }
 
-// Volatile tokens differ between occurrences of one failure (request ids,
-// local server ports, durations) and must not split its signature.
-function normalizeReasonForSignature(reason: string): string {
-  return reason
-    .replace(/requestId=\S*/gi, 'requestId=')
-    .replace(
-      /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi,
-      '[uuid]',
-    )
-    .replace(/\d{4,}/g, '#');
-}
-
-// Stable identity of a failure: what triggered it, where it was thrown
-// (the reason names the call site) and which Desktop API call failed. It
-// never depends on the Error object or on timestamps.
+// Stable identity of a failure: what triggered it, where it failed, how
+// (error name/code/status) and which Desktop API call failed. It never
+// depends on the Error object, error text, request ids or timestamps.
 export function getOneKeyIdAuthFailureSignature(
   payload: IOneKeyIdAuthFailureLogPayload,
 ): string {
@@ -164,7 +181,7 @@ export function getOneKeyIdAuthFailureSignature(
     payload.httpStatusCode,
     payload.ipcModule,
     payload.ipcMethod,
-    normalizeReasonForSignature(payload.reason),
+    payload.failureSite,
   ]
     .map((value) => (value === undefined ? '' : String(value)))
     .join('|');
@@ -272,12 +289,12 @@ export class OneKeyIdAuthFailureLogLimiter {
     );
   }
 
-  // Ends expired signature windows, returning summaries for those that had
-  // unreported repeats.
-  private takeExpiredSummaries(
+  // Ends expired windows: each signature's (with a summary when it had
+  // unreported repeats) and the shared one (with the overflow count).
+  private takeDue(
     state: ILimiterState,
     now: number,
-  ): IOneKeyIdAuthFailureRepeatSummary[] {
+  ): IOneKeyIdAuthFailureDueSummaries {
     const summaries: IOneKeyIdAuthFailureRepeatSummary[] = [];
     Object.entries(state.signatures).forEach(([signature, entry]) => {
       if (!this.isWindowOver(entry.windowStartedAt, now)) {
@@ -288,35 +305,23 @@ export class OneKeyIdAuthFailureLogLimiter {
       }
       delete state.signatures[signature];
     });
-    return summaries;
-  }
-
-  private evictLeastRecentlySeen(
-    state: ILimiterState,
-    keepSignature: string,
-  ): IOneKeyIdAuthFailureRepeatSummary[] {
-    const summaries: IOneKeyIdAuthFailureRepeatSummary[] = [];
-    const signatures = Object.keys(state.signatures)
-      .filter((signature) => signature !== keepSignature)
-      .toSorted(
-        (a, b) =>
-          state.signatures[a].lastSeenAt - state.signatures[b].lastSeenAt,
-      );
-    const overflow =
-      Object.keys(state.signatures).length - this.limits.maxTrackedSignatures;
-    signatures.slice(0, Math.max(0, overflow)).forEach((signature) => {
-      const entry = state.signatures[signature];
-      if (entry.repeatCount > 0) {
-        summaries.push(toRepeatSummary(entry));
-      }
-      delete state.signatures[signature];
-    });
-    return summaries;
+    let overflow: IOneKeyIdAuthFailureOverflowSummary | undefined;
+    if (
+      state.windowStartedAt !== undefined &&
+      this.isWindowOver(state.windowStartedAt, now)
+    ) {
+      overflow = state.overflow;
+      state.windowStartedAt = undefined;
+      state.reportedCount = 0;
+      state.overflow = undefined;
+    }
+    return { summaries, overflow };
   }
 
   /**
    * Records one occurrence. `shouldReport` says whether to write it to the
-   * local log and the server; `summaries` are ended windows to report now.
+   * local log and the server; `summaries` and `overflow` belong to ended
+   * windows and are reported now.
    */
   consume({
     signature,
@@ -324,24 +329,35 @@ export class OneKeyIdAuthFailureLogLimiter {
   }: {
     signature: string;
     payload: IOneKeyIdAuthFailureLogPayload;
-  }): {
+  }): IOneKeyIdAuthFailureDueSummaries & {
     shouldReport: boolean;
-    summaries: IOneKeyIdAuthFailureRepeatSummary[];
   } {
     const now = this.now();
     const state = this.getState();
-    const summaries = this.takeExpiredSummaries(state, now);
+    const due = this.takeDue(state, now);
+    const hasDue = due.summaries.length > 0 || !!due.overflow;
 
-    if (
-      state.windowStartedAt === undefined ||
-      this.isWindowOver(state.windowStartedAt, now)
-    ) {
+    if (state.windowStartedAt === undefined) {
       state.windowStartedAt = now;
       state.reportedCount = 0;
     }
 
     let entry = state.signatures[signature];
     if (!entry) {
+      if (
+        Object.keys(state.signatures).length >= this.limits.maxTrackedSignatures
+      ) {
+        const overflow = state.overflow ?? {
+          droppedCount: 0,
+          firstDroppedAt: now,
+          lastDroppedAt: now,
+        };
+        overflow.droppedCount += 1;
+        overflow.lastDroppedAt = now;
+        state.overflow = overflow;
+        this.persist(now, { force: hasDue });
+        return { shouldReport: false, ...due };
+      }
       entry = {
         payload,
         windowStartedAt: now,
@@ -350,7 +366,6 @@ export class OneKeyIdAuthFailureLogLimiter {
         repeatCount: 0,
       };
       state.signatures[signature] = entry;
-      summaries.push(...this.evictLeastRecentlySeen(state, signature));
     }
     entry.lastSeenAt = now;
 
@@ -367,32 +382,29 @@ export class OneKeyIdAuthFailureLogLimiter {
       entry.lastRepeatAt = now;
     }
 
-    this.persist(now, { force: shouldReport || summaries.length > 0 });
-    return { shouldReport, summaries };
+    this.persist(now, { force: shouldReport || hasDue });
+    return { shouldReport, ...due };
   }
 
   // Summaries of windows that have ended since the last call; used by the
-  // scene's flush timer when the failure stops recurring.
-  takeDueSummaries(): IOneKeyIdAuthFailureRepeatSummary[] {
+  // scene's flush timer when failures stop recurring.
+  takeDueSummaries(): IOneKeyIdAuthFailureDueSummaries {
     const now = this.now();
-    const summaries = this.takeExpiredSummaries(this.getState(), now);
+    const due = this.takeDue(this.getState(), now);
     this.persist(now, { force: true });
-    return summaries;
+    return due;
   }
 
-  // When the earliest window holding unreported repeats ends.
+  // When the earliest window holding unreported occurrences ends.
   getNextSummaryDueAt(): number | undefined {
-    let dueAt: number | undefined;
-    Object.values(this.getState().signatures).forEach((entry) => {
-      if (entry.repeatCount === 0) {
-        return;
-      }
-      const entryDueAt = entry.windowStartedAt + this.limits.windowMs;
-      if (dueAt === undefined || entryDueAt < dueAt) {
-        dueAt = entryDueAt;
-      }
-    });
-    return dueAt;
+    const state = this.getState();
+    const dueTimes = Object.values(state.signatures)
+      .filter((entry) => entry.repeatCount > 0)
+      .map((entry) => entry.windowStartedAt + this.limits.windowMs);
+    if (state.overflow && state.windowStartedAt !== undefined) {
+      dueTimes.push(state.windowStartedAt + this.limits.windowMs);
+    }
+    return dueTimes.length > 0 ? Math.min(...dueTimes) : undefined;
   }
 
   reset() {

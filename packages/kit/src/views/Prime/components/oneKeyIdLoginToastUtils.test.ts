@@ -202,6 +202,8 @@ describe('logOneKeyIdLoginFailureReason', () => {
       trigger: 'passive',
       error,
     });
+    // Console output comes from the logger, after the repeat limiter.
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
     consoleErrorSpy.mockRestore();
   });
 

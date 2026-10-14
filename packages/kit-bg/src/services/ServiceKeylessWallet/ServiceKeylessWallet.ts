@@ -4061,7 +4061,7 @@ class ServiceKeylessWallet extends ServiceBase {
       const isHealthy = result?.status === 'ok';
       if (!isHealthy) {
         defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
-          reason: `ServiceKeylessWallet auth server health check returned status=${String(
+          reason: `ServiceKeylessWallet auth server health check returned an unhealthy status: ${String(
             result?.status || 'missing',
           )}`,
           trigger: 'interactive',

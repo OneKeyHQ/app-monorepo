@@ -5,7 +5,7 @@ import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { getPrimeInfiniPaymentSafeLogParams } from '@onekeyhq/shared/src/utils/primeInfiniPaymentDiagnostics';
 import {
   getOneKeyIdAuthFailureServerParams,
-  getOneKeyIdAuthFailureServerReason,
+  getOneKeyIdAuthFailureSite,
   scrubSensitiveErrorMessageText,
 } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import type {
@@ -24,8 +24,10 @@ import {
 } from '../oneKeyIdAuthFailureLogLimiter';
 
 import type {
+  IOneKeyIdAuthFailureDueSummaries,
   IOneKeyIdAuthFailureLogPayload,
   IOneKeyIdAuthFailureLogTrigger,
+  IOneKeyIdAuthFailureOverflowSummary,
   IOneKeyIdAuthFailureRepeatSummary,
 } from '../oneKeyIdAuthFailureLogLimiter';
 import type {
@@ -799,6 +801,8 @@ export class PrimeSubscriptionScene extends BaseScene {
   // failure — unlike onekeyIdLoginFailedToast above, which strictly means
   // "the fallback toast was shown". It also fires from passive session
   // checks, so `trigger` separates real login attempts from those.
+  // The scrubbed reason stays in local logs; the server gets structured
+  // fields plus the code-authored failure location, never error text.
   // Every call, from logOneKeyIdLoginFailureReason or direct, goes through
   // oneKeyIdAuthFailureLogLimiter: repeats of one failure inside its window
   // are counted instead of written locally or sent, and reported later by
@@ -821,15 +825,13 @@ export class PrimeSubscriptionScene extends BaseScene {
     const payload: IOneKeyIdAuthFailureLogPayload = {
       ...getOneKeyIdAuthFailureServerParams({ source, reason, step, error }),
       trigger: trigger ?? 'unknown',
-      reason: getOneKeyIdAuthFailureServerReason(reason),
+      failureSite: getOneKeyIdAuthFailureSite(reason),
     };
-    const { shouldReport, summaries } = oneKeyIdAuthFailureLogLimiter.consume({
+    const { shouldReport, ...due } = oneKeyIdAuthFailureLogLimiter.consume({
       signature: getOneKeyIdAuthFailureSignature(payload),
       payload,
     });
-    summaries.forEach((summary) =>
-      this.onekeyIdLoginFailedReasonRepeated(summary),
-    );
+    this.reportOneKeyIdAuthFailureSummaries(due);
     this.scheduleOneKeyIdAuthFailureSummaryFlush();
     if (!shouldReport) {
       return NO_LOG_OUTPUT;
@@ -856,6 +858,28 @@ export class PrimeSubscriptionScene extends BaseScene {
     return summary;
   }
 
+  // onekeyIdLoginFailedReason occurrences dropped untracked because every
+  // limiter slot was in use during the window.
+  @LogToLocal({ level: 'warn' })
+  @LogToServer()
+  public onekeyIdLoginFailedReasonOverflow(
+    summary: IOneKeyIdAuthFailureOverflowSummary,
+  ) {
+    return summary;
+  }
+
+  private reportOneKeyIdAuthFailureSummaries({
+    summaries,
+    overflow,
+  }: IOneKeyIdAuthFailureDueSummaries) {
+    summaries.forEach((summary) =>
+      this.onekeyIdLoginFailedReasonRepeated(summary),
+    );
+    if (overflow) {
+      this.onekeyIdLoginFailedReasonOverflow(overflow);
+    }
+  }
+
   private oneKeyIdAuthFailureSummaryFlush:
     | { dueAt: number; timer: ReturnType<typeof setTimeout> }
     | undefined;
@@ -875,11 +899,9 @@ export class PrimeSubscriptionScene extends BaseScene {
     const timer = setTimeout(
       () => {
         this.oneKeyIdAuthFailureSummaryFlush = undefined;
-        oneKeyIdAuthFailureLogLimiter
-          .takeDueSummaries()
-          .forEach((summary) =>
-            this.onekeyIdLoginFailedReasonRepeated(summary),
-          );
+        this.reportOneKeyIdAuthFailureSummaries(
+          oneKeyIdAuthFailureLogLimiter.takeDueSummaries(),
+        );
         this.scheduleOneKeyIdAuthFailureSummaryFlush();
       },
       Math.max(0, dueAt - Date.now()),
@@ -889,9 +911,8 @@ export class PrimeSubscriptionScene extends BaseScene {
     this.oneKeyIdAuthFailureSummaryFlush = { dueAt, timer };
   }
 
-  // Keeps the scrubbed diagnostic text on the device. onekeyIdLoginFailedReason
-  // also sends its scrubbed reason; the other auth failure events send only
-  // structured fields.
+  // Keeps the scrubbed diagnostic text on the device. The corresponding
+  // server events above receive only structured fields.
   @LogToLocal({ level: 'error' })
   public onekeyIdAuthFailureLocal({
     source,

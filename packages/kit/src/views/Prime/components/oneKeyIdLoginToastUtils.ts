@@ -198,8 +198,9 @@ export function logOneKeyIdLoginFailureReason(
   ) {
     return;
   }
+  // No console output here: the logger's local error entry already prints in
+  // dev, and only for occurrences the repeat limiter lets through.
   const safeReason = scrubSensitiveErrorMessageText(reason);
-  console.error(safeReason);
   defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
     reason: safeReason,
     step,

@@ -58,16 +58,28 @@ export function scrubSensitiveErrorMessageText(text: string): string {
   return scrubbed;
 }
 
-// The free-text reason sent with onekeyIdLoginFailedReason. On top of the
-// shared scrubber (credentials, URL query/hash, emails; capped at
-// MAX_SANITIZED_ERROR_MESSAGE_LENGTH), drop the OS user name that keychain
-// and file-store errors embed in home-directory paths.
-export function getOneKeyIdAuthFailureServerReason(reason: string): string {
-  return scrubSensitiveErrorMessageText(
-    reason
-      .replace(/(\/(?:Users|home)\/)[^/\s'"]+/g, '$1[user]')
-      .replace(/([a-z]:\\+Users\\+)[^\\\s'"]+/gi, '$1[user]'),
-  );
+const MAX_AUTH_FAILURE_SITE_LENGTH = 120;
+
+// Call sites write a reason as `<where it failed>: <error details>`, or put
+// the sanitized `name=... message=...` details right after the location.
+// Only that code-authored location is sent to the server: error details can
+// echo user input (OTP codes, PINs, recovery words) that no scrubber reliably
+// recognizes, so they stay in local logs. Digit runs are masked in case a
+// location interpolates a value.
+export function getOneKeyIdAuthFailureSite(reason: string): string | undefined {
+  const detailsStart = reason.search(/:\s|(?:^|\s)name=/);
+  const site = scrubSensitiveErrorMessageText(
+    (detailsStart >= 0 ? reason.slice(0, detailsStart) : reason).replace(
+      /\d{4,}/g,
+      '#',
+    ),
+  ).trim();
+  if (!site) {
+    return undefined;
+  }
+  return site.length > MAX_AUTH_FAILURE_SITE_LENGTH
+    ? `${site.slice(0, MAX_AUTH_FAILURE_SITE_LENGTH)}...`
+    : site;
 }
 
 export function getSanitizedErrorLogText(error: unknown): string {
