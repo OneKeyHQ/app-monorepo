@@ -1,18 +1,20 @@
 /** @jest-environment jsdom */
 
+import { beforeEach, expect, jest, test } from '@jest/globals';
 import { renderHook } from '@testing-library/react';
 
-import { useNetworkLogoUri } from './useNetworkLogoUri';
-
-const mockGetNetworkSafe = jest.fn(async (_params: unknown) => ({
-  logoURI: 'fixture-remote-logo',
-}));
+const mockGetNetworkSafe = jest.fn(
+  async (_params: unknown): Promise<{ logoURI: string }> => ({
+    logoURI: 'fixture-remote-logo',
+  }),
+);
 const mockLoaders: Array<() => Promise<unknown>> = [];
 jest.mock('../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceNetwork: {
-      getNetworkSafe: (params: unknown) => mockGetNetworkSafe(params),
+      getNetworkSafe: (params: unknown): Promise<{ logoURI: string }> =>
+        mockGetNetworkSafe(params),
     },
   },
 }));
@@ -36,6 +38,11 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
       networkId === 'evm--1' ? { logoURI: 'fixture-preset-logo' } : undefined,
   },
 }));
+
+// Imported Jest bindings do not hoist mocks in the SWC transform.
+const { useNetworkLogoUri } = jest.requireActual<
+  typeof import('./useNetworkLogoUri')
+>('./useNetworkLogoUri');
 
 beforeEach(() => {
   mockLoaders.length = 0;
