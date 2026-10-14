@@ -45,6 +45,15 @@ import { NetworkFilterControl } from './NetworkFilterControl';
 
 import type { IEarnSortDirection } from './EarnMobileSortControl';
 
+// Earn's outer and inner tab bars share a scroll context on non-native
+// surfaces. Keep the inner category bar in normal flow so it cannot compete
+// with the outer sticky tab bar.
+const ASSET_TAB_BAR_CONTAINER_STYLE = {
+  px: '$0',
+  position: 'relative' as const,
+  zIndex: 0,
+} as const;
+
 export function AvailableAssetsTabViewList({
   isActive = true,
 }: {
@@ -591,7 +600,7 @@ export function AvailableAssetsTabViewList({
       </XStack>
       <XStack ai="center" jc="space-between" px="$pagePadding">
         <Tabs.TabBar
-          containerStyle={{ px: '$0' }}
+          containerStyle={ASSET_TAB_BAR_CONTAINER_STYLE}
           divider={false}
           onTabPress={handleTabChange}
           tabNames={TabNames}

@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
+import pLimit from 'p-limit';
+import { useIntl } from 'react-intl';
 
+import { Toast } from '@onekeyhq/components';
 import {
   resetAboveMainRoute,
   rootNavigationRef,
@@ -23,11 +26,13 @@ import {
 import type { INetworkDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
+import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EPerpPageEnterSource,
@@ -78,6 +83,7 @@ import { hasDeFiSupportedEnabledNetwork } from '../views/Home/hooks/homeWalletTa
 import {
   type ITrayActiveAccountScope,
   TRAY_DATA_REFRESH_EVENT_NAMES,
+  buildTrayListingQuoteDisplay,
   buildTrayWatchlistInSourceOrder,
   collectTrayTrackedTxs,
   formatTrayUsdPrice,
@@ -89,6 +95,11 @@ import {
 
 const TRAY_ROUTE_HOME = '/main/tab-home';
 const TRAY_ROUTE_MARKET = '/main/tab-market';
+
+// Every tray action bumps this so an async navigation (top-coin detail
+// resolve) that outlives a newer tap cannot steer the UI back to the old
+// destination — same guard useToMarketDetailPage keeps for the Market list.
+const trayNavigationGenerationRef = { current: 0 };
 
 async function refreshTrayPendingTxStatuses(
   txs: IAccountHistoryTx[],
@@ -505,6 +516,7 @@ async function getTrayEnabledNetworkScope({
 }
 
 export function useTrayDataProvider() {
+  const intl = useIntl();
   const [activeAccountValue] = useActiveAccountValueAtom();
   const [appIsLocked] = useAppIsLockedAtom();
   const [
@@ -721,8 +733,16 @@ export function useTrayDataProvider() {
         const watchListData =
           await backgroundApiProxy.serviceMarketV2.getMarketWatchListV2();
         if (watchListData?.data?.length) {
+          // Listing favorites (Market top coins / stocks) have no chainId, so
+          // they need their own quote source instead of the spot batch
+          // (OK-63844, OK-63845).
           const spotItems = watchListData.data.filter(
-            (item: any) => !item.perpsCoin && item.chainId,
+            (item) =>
+              !item.perpsCoin && !item.assetId && !item.stockId && item.chainId,
+          );
+          const assetItems = watchListData.data.filter((item) => item.assetId);
+          const stockItems = watchListData.data.filter(
+            (item) => !item.assetId && item.stockId,
           );
           const perpsItems = watchListData.data.filter(
             (item: any) => !!item.perpsCoin,
@@ -734,6 +754,8 @@ export function useTrayDataProvider() {
               contractAddress?: string;
               isNative?: boolean;
               perpsCoin?: string;
+              assetId?: string;
+              stockId?: string;
             };
             item: ITrayWatchlistItem;
           }> = [];
@@ -778,7 +800,10 @@ export function useTrayDataProvider() {
                       price: formatTrayUsdPrice(coin.price),
                       change24h: Number(coin.priceChange24hPercent || 0),
                       type: 'spot',
-                      tokenAddress,
+                      // Natives such as SUI resolve to a Move type-tag address
+                      // that the detail route needs; the Market list opens
+                      // them with this same API address (OK-63847).
+                      tokenAddress: coin.address || tokenAddress,
                       networkId: spotItem.chainId,
                       isNative: spotIsNative,
                       communityRecognized: coin.communityRecognized,
@@ -789,6 +814,84 @@ export function useTrayDataProvider() {
               }
             } catch {
               // spot fetch failed
+            }
+          }
+
+          if (assetItems.length > 0 || stockItems.length > 0) {
+            const limit = pLimit(4);
+            const [assetResults, stockResults] = await Promise.all([
+              Promise.all(
+                assetItems.map((item) =>
+                  limit(async () => {
+                    try {
+                      const quote =
+                        await backgroundApiProxy.serviceMarketV2.fetchMarketListingWatchlistQuote(
+                          { assetId: item.assetId },
+                        );
+                      return { item, quote };
+                    } catch {
+                      // A delisted or failing asset must not hide the rest.
+                      return { item, quote: undefined };
+                    }
+                  }),
+                ),
+              ),
+              (async () => {
+                if (stockItems.length === 0) return [];
+                try {
+                  return await backgroundApiProxy.serviceMarketV2.fetchMarketStockBatch(
+                    {
+                      stockIds: Array.from(
+                        new Set(stockItems.map((item) => item.stockId ?? '')),
+                      ),
+                    },
+                  );
+                } catch {
+                  return [];
+                }
+              })(),
+            ]);
+
+            for (const { item, quote } of assetResults) {
+              if (quote?.symbol) {
+                watchlistResults.push({
+                  sourceItem: item,
+                  item: {
+                    symbol: quote.symbol.toUpperCase(),
+                    name: quote.name || '',
+                    icon: quote.logoUrl || '',
+                    ...buildTrayListingQuoteDisplay({
+                      price: quote.price,
+                      priceChange24hPercent: quote.priceChange24hPercent,
+                    }),
+                    type: 'spot',
+                    assetId: item.assetId,
+                  },
+                });
+              }
+            }
+
+            const stockById = new Map(
+              stockResults.map((stock) => [stock.stockId.toUpperCase(), stock]),
+            );
+            for (const item of stockItems) {
+              const stock = stockById.get((item.stockId ?? '').toUpperCase());
+              if (stock?.symbol) {
+                watchlistResults.push({
+                  sourceItem: item,
+                  item: {
+                    symbol: stock.symbol.toUpperCase(),
+                    name: stock.name || '',
+                    icon: stock.logoUrl || '',
+                    ...buildTrayListingQuoteDisplay({
+                      price: stock.price,
+                      priceChange24hPercent: stock.priceChange24hPercent,
+                    }),
+                    type: 'spot',
+                    stockId: stock.stockId,
+                  },
+                });
+              }
             }
           }
 
@@ -1055,6 +1158,11 @@ export function useTrayDataProvider() {
       const nav = rootNavigationRef.current;
       if (!nav) return;
 
+      const navigationGeneration = trayNavigationGenerationRef.current + 1;
+      trayNavigationGenerationRef.current = navigationGeneration;
+      const isStaleNavigation = () =>
+        trayNavigationGenerationRef.current !== navigationGeneration;
+
       // Tamagui Popover/Sheet portal to body at high zIndex and would
       // obscure any tray-triggered RN modal. Ask open overlays to dismiss.
       appEventBus.emit(EAppEventBusNames.TrayActionWillNavigate, undefined);
@@ -1144,6 +1252,88 @@ export function useTrayDataProvider() {
           return;
         }
 
+        if (action.stockId) {
+          const stockId = action.stockId;
+          void switchTabAsync(ETabRoutes.Market).then(() => {
+            rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+              screen: ETabRoutes.Market,
+              params: {
+                screen: ETabMarketRoutes.MarketStockDetail,
+                params: { stockId },
+              },
+            });
+          });
+          return;
+        }
+
+        if (action.assetId) {
+          const assetId = action.assetId;
+          void (async () => {
+            // Same resolution the Market list performs for a top-coin row:
+            // the asset's default variant decides network and address.
+            let variant:
+              | {
+                  variantId: string;
+                  networkId: string;
+                  tokenAddress: string;
+                  isNative: boolean;
+                }
+              | undefined;
+            try {
+              const { selectedVariant } =
+                await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
+                  assetId,
+                  currency: 'usd',
+                  autoHandleError: false,
+                });
+              variant = selectedVariant;
+            } catch (e) {
+              defaultLogger.app.error.log(
+                `[TrayDataProvider] asset navigation error: ${
+                  (e as Error)?.message || String(e)
+                }`,
+              );
+              if (isStaleNavigation()) return;
+              // fetchMarketAssetDetail runs with autoHandleError: false, so
+              // this is the only feedback the user gets for a failed tap.
+              Toast.error({
+                title: intl.formatMessage({
+                  id: ETranslations.global_an_error_occurred,
+                }),
+              });
+              return;
+            }
+            if (isStaleNavigation()) return;
+            if (!variant) return;
+            const shortCode = networkUtils.getNetworkShortCode({
+              networkId: variant.networkId,
+            });
+            const params = {
+              tokenAddress: variant.tokenAddress,
+              network: shortCode || variant.networkId,
+              isNative: variant.isNative,
+              marketTokenId: assetId,
+              marketVariantId: variant.variantId,
+              marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
+            };
+            // A newer tray action can land during the overlay-dismiss wait
+            // inside switchTabAsync; let it abandon the tab switch too, not
+            // only the detail navigation.
+            await switchTabAsync(ETabRoutes.Market, {
+              shouldContinue: () => !isStaleNavigation(),
+            });
+            if (isStaleNavigation()) return;
+            rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+              screen: ETabRoutes.Market,
+              params: {
+                screen: ETabMarketRoutes.MarketDetailV2,
+                params,
+              },
+            });
+          })();
+          return;
+        }
+
         const isNative = action.isNative || false;
         if (action.networkId) {
           const networkId = action.networkId;
@@ -1182,7 +1372,7 @@ export function useTrayDataProvider() {
         }
       }
     },
-    [handleOpenTransactionDetail],
+    [handleOpenTransactionDetail, intl],
   );
 
   useEffect(() => {

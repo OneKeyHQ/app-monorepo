@@ -80,6 +80,12 @@ jest.mock('@onekeyhq/components', () => {
     YStack: Container,
     SizableText: Container,
     Icon: () => null,
+    HeightTransition: ({ children }: { children?: ReactNode }) =>
+      React.createElement(
+        'div',
+        { 'data-testid': 'prime-gift-offer-height-transition' },
+        children,
+      ),
     useThemeName: () => 'light',
   };
 });
@@ -149,6 +155,7 @@ const eligible: IPrimeGiftEligibility = {
   giftMonths: 12,
 };
 const offerTestId = 'prime-gift-offer-deviceDetails';
+const heightTransitionTestId = 'prime-gift-offer-height-transition';
 
 function renderOffer() {
   return render(<PrimeGiftOffer device={device} source="deviceDetails" />, {
@@ -225,12 +232,13 @@ describe('PrimeGiftOffer real server eligibility', () => {
     await act(async () => {
       resolve(eligible);
     });
-    expect(screen.getByText('附赠 12 个月 Prime')).toBeTruthy();
+    expect(screen.getByText('领取 12 个月 Prime')).toBeTruthy();
+    expect(screen.getByTestId(heightTransitionTestId)).toBeTruthy();
     fireEvent.click(screen.getByTestId(offerTestId));
     expect(mockNavigate).toHaveBeenCalledTimes(1);
   });
 
-  it('updates the offer duration and reused claim action when the locale changes', async () => {
+  it('updates the offer duration without a separate claim label when the locale changes', async () => {
     mockCache = { 'DEVICE-A': eligible };
     mockFetchEligibility.mockResolvedValue(eligible);
     const view = render(
@@ -238,8 +246,8 @@ describe('PrimeGiftOffer real server eligibility', () => {
         <PrimeGiftOffer device={device} source="deviceDetails" />
       </IntlProvider>,
     );
-    expect(screen.getByText('附赠 12 个月 Prime')).toBeTruthy();
-    expect(screen.getByText('领取')).toBeTruthy();
+    expect(screen.getByText('领取 12 个月 Prime')).toBeTruthy();
+    expect(screen.queryByText('领取')).toBeNull();
     await act(async () => {
       view.rerender(
         <IntlProvider locale="en-US" messages={enTranslations}>
@@ -247,9 +255,9 @@ describe('PrimeGiftOffer real server eligibility', () => {
         </IntlProvider>,
       );
     });
-    expect(screen.getByText('12 months of Prime included')).toBeTruthy();
-    expect(screen.getByText('Claim')).toBeTruthy();
-    expect(screen.queryByText('附赠 12 个月 Prime')).toBeNull();
+    expect(screen.getByText('Claim 12 months of Prime')).toBeTruthy();
+    expect(screen.queryByText('Claim')).toBeNull();
+    expect(screen.queryByText('领取 12 个月 Prime')).toBeNull();
   });
 
   it.each([
@@ -265,6 +273,7 @@ describe('PrimeGiftOffer real server eligibility', () => {
       renderOffer();
     });
     expect(screen.queryByTestId(offerTestId)).toBeNull();
+    expect(screen.queryByTestId(heightTransitionTestId)).toBeNull();
     expect(mockNavigate).not.toHaveBeenCalled();
     expect(mockOfferShown).not.toHaveBeenCalled();
     expect(mockOfferClick).not.toHaveBeenCalled();
@@ -278,6 +287,7 @@ describe('PrimeGiftOffer real server eligibility', () => {
       renderOffer();
     });
     expect(screen.queryByTestId(offerTestId)).toBeNull();
+    expect(screen.queryByTestId(heightTransitionTestId)).toBeNull();
   });
 
   it('waits for the prefetch result and still refreshes after redemption', async () => {
@@ -297,6 +307,7 @@ describe('PrimeGiftOffer real server eligibility', () => {
       mockCacheListeners.forEach((listener) => listener());
     });
     expect(screen.getByTestId('prime-gift-offer-onboarding')).toBeTruthy();
+    expect(screen.getByTestId(heightTransitionTestId)).toBeTruthy();
     mockFetchEligibility.mockResolvedValue({
       ...eligible,
       hasUnclaimedGift: false,
@@ -305,6 +316,7 @@ describe('PrimeGiftOffer real server eligibility', () => {
       mockListeners.forEach((listener) => listener({ serialNo: device.uuid }));
     });
     expect(screen.queryByTestId('prime-gift-offer-onboarding')).toBeNull();
+    expect(screen.queryByTestId(heightTransitionTestId)).toBeNull();
     expect(servicePrime.apiGetPrimeGiftEligibility.mock.calls).toHaveLength(1);
   });
 
@@ -317,8 +329,8 @@ describe('PrimeGiftOffer real server eligibility', () => {
         giftDays: 45,
       });
       renderOffer();
-      expect(await screen.findByText('附赠 45 天 Prime')).toBeTruthy();
-      expect(screen.queryByText('附赠 6 个月 Prime')).toBeNull();
+      expect(await screen.findByText('领取 45 天 Prime')).toBeTruthy();
+      expect(screen.queryByText('领取 6 个月 Prime')).toBeNull();
     },
   );
 
@@ -340,6 +352,7 @@ describe('PrimeGiftOffer real server eligibility', () => {
       resolve({ ...eligible, hasUnclaimedGift: false });
     });
     expect(screen.queryByTestId(offerTestId)).toBeNull();
+    expect(screen.queryByTestId(heightTransitionTestId)).toBeNull();
     expect(servicePrime.apiGetPrimeGiftEligibility.mock.calls).toHaveLength(2);
   });
 
@@ -347,18 +360,32 @@ describe('PrimeGiftOffer real server eligibility', () => {
     mockCache = { 'DEVICE-A': eligible };
     mockFetchEligibility.mockRejectedValue(new Error('Offline'));
     renderOffer();
-    expect(screen.getByText('附赠 12 个月 Prime')).toBeTruthy();
+    expect(screen.getByText('领取 12 个月 Prime')).toBeTruthy();
+    expect(screen.queryByTestId(heightTransitionTestId)).toBeNull();
     await act(async () => undefined);
-    expect(screen.getByText('附赠 12 个月 Prime')).toBeTruthy();
+    expect(screen.getByText('领取 12 个月 Prime')).toBeTruthy();
+    expect(screen.queryByTestId(heightTransitionTestId)).toBeNull();
     expect(servicePrime.apiGetPrimeGiftEligibility.mock.calls).toEqual([
       [{ serialNo: 'DEVICE-A' }],
     ]);
   });
 
+  it('animates an onboarding offer that is already eligible on the first frame', () => {
+    mockCache = { 'DEVICE-A': eligible };
+    mockFetchEligibility.mockResolvedValue(eligible);
+    render(
+      <IntlProvider locale="zh-CN" messages={zhTranslations}>
+        <PrimeGiftOffer device={device} source="onboarding" />
+      </IntlProvider>,
+    );
+    expect(screen.getByTestId('prime-gift-offer-onboarding')).toBeTruthy();
+    expect(screen.getByTestId(heightTransitionTestId)).toBeTruthy();
+  });
+
   it('retains the same offer on re-entry while a slow refresh updates its duration', async () => {
     mockFetchEligibility.mockResolvedValue(eligible);
     const firstVisit = renderOffer();
-    await screen.findByText('附赠 12 个月 Prime');
+    await screen.findByText('领取 12 个月 Prime');
     firstVisit.unmount();
     let resolve!: (result: IPrimeGiftEligibility) => void;
     mockFetchEligibility.mockReturnValue(
@@ -367,11 +394,11 @@ describe('PrimeGiftOffer real server eligibility', () => {
       }),
     );
     renderOffer();
-    expect(screen.getByText('附赠 12 个月 Prime')).toBeTruthy();
+    expect(screen.getByText('领取 12 个月 Prime')).toBeTruthy();
     await act(async () => {
       resolve({ ...eligible, giftMonths: 0, giftDays: 45 });
     });
-    expect(screen.getByText('附赠 45 天 Prime')).toBeTruthy();
+    expect(screen.getByText('领取 45 天 Prime')).toBeTruthy();
   });
 
   it('does not show another device cached offer when switching serial numbers', async () => {

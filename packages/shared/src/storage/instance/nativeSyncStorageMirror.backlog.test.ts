@@ -3,25 +3,24 @@ import { OneKeyLocalError } from '../../errors';
 import { createMMKVSyncStorage } from './createMMKVSyncStorage';
 
 import type {
-  INativeSWRCachePatchIntent,
   INativeStorageBootstrapSnapshot,
   INativeStorageGlobal,
   INativeStorageRequest,
 } from '../nativeStorageTypes';
 
 const mockCallNativeStorage = jest.fn();
-const mockSWRCacheSnapshotState = jest.fn();
+const mockNativeStorageSnapshotState = jest.fn();
 
 jest.mock('../../logger/logger', () => ({
   defaultLogger: {
     app: {
-      background: { nativeStorageQueueState: jest.fn() },
-      perf: {
-        swrCacheSlowOp: jest.fn(),
-        swrCacheSnapshotState: (params: unknown) => {
-          mockSWRCacheSnapshotState(params);
+      background: {
+        nativeStorageQueueState: jest.fn(),
+        nativeStorageSnapshotState: (params: unknown) => {
+          mockNativeStorageSnapshotState(params);
         },
       },
+      perf: { swrCacheSlowOp: jest.fn() },
     },
   },
 }));
@@ -35,32 +34,13 @@ jest.mock('../nativeStorageBridge', () => ({
 const globals = globalThis as INativeStorageGlobal;
 const emptySnapshot: INativeStorageBootstrapSnapshot = {
   settings: [],
-  coldStart: [],
   devSettings: [],
 };
-const swrKey = 'onekey_swr_cache';
-const entry = (value: number) => JSON.stringify({ d: value, t: value });
-const patch = (value: number): INativeSWRCachePatchIntent => ({
-  removePrefixes: [],
-  removals: [],
-  updates: [['same-key', entry(value)] as const],
-});
 
 function acknowledge(request: INativeStorageRequest) {
   if (request.scope === 'bootstrap') return emptySnapshot;
   if (request.scope !== 'syncStorage')
     throw new OneKeyLocalError('Unexpected request');
-  if (request.operation === 'patchSWR') {
-    return {
-      store: request.store,
-      operation: 'patchSWR',
-      sourceMutationId: request.sourceMutationId,
-      entries: [
-        ...request.patch.removals.map(([key]) => [key, null]),
-        ...request.patch.updates,
-      ],
-    };
-  }
   return { ...request };
 }
 
@@ -79,7 +59,7 @@ describe('native sync storage backlog recovery', () => {
       .mockImplementation(async (request: INativeStorageRequest) =>
         acknowledge(request),
       );
-    mockSWRCacheSnapshotState.mockReset();
+    mockNativeStorageSnapshotState.mockReset();
     globals.__onekeyNativeStorageIsTransportReady = () => true;
     delete globals.__onekeyNativeSyncStorageTransportReady;
   });
@@ -117,233 +97,6 @@ describe('native sync storage backlog recovery', () => {
     expect(mockCallNativeStorage).toHaveBeenCalledTimes(2);
   });
 
-  it('bounds confirmation groups while 10000 SWR updates compact', async () => {
-    const module = loadMirror();
-    await module.bootstrapNativeSyncStorageMirrors();
-    globals.__onekeyNativeStorageIsTransportReady = () => false;
-    const storage = module.createNativeSyncStorageMirror('coldStart');
-    const acknowledgements = new Set<Promise<void>>();
-    for (let i = 1; i <= 10_000; i += 1) {
-      const acknowledgement = storage.applySWRCachePatch?.(patch(i));
-      if (acknowledgement) acknowledgements.add(acknowledgement);
-    }
-    expect(acknowledgements.size).toBeLessThanOrEqual(100);
-    globals.__onekeyNativeStorageIsTransportReady = () => true;
-    globals.__onekeyNativeSyncStorageTransportReady?.();
-    await module.waitForNativeSyncStorageMutations();
-    await Promise.all(acknowledgements);
-    expect(JSON.parse(storage.getString(swrKey) ?? '{}')).toEqual({
-      'same-key': { d: 10_000, t: 10_000 },
-    });
-  });
-
-  it('does not reject a refresh when pending SWR writes exceed the replay budget', async () => {
-    const module = loadMirror();
-    await module.bootstrapNativeSyncStorageMirrors();
-    globals.__onekeyNativeStorageIsTransportReady = () => false;
-    const storage = module.createNativeSyncStorageMirror('coldStart');
-
-    for (let batch = 0; batch < 2; batch += 1) {
-      void storage.applySWRCachePatch?.({
-        removePrefixes: [],
-        removals: [],
-        updates: Array.from({ length: 501 }, (_, index) => {
-          const key = `pending-${batch}-${index}`;
-          return [
-            key,
-            JSON.stringify({ d: key, t: batch * 501 + index + 1 }),
-          ] as const;
-        }),
-      });
-    }
-
-    await module.refreshNativeSyncStorageMirrors();
-
-    const value = JSON.parse(storage.getString(swrKey) ?? '{}') as Record<
-      string,
-      unknown
-    >;
-    expect(Object.keys(value)).toHaveLength(1002);
-    expect(value['pending-1-500']).toEqual({
-      d: 'pending-1-500',
-      t: 1002,
-    });
-    expect(mockCallNativeStorage).toHaveBeenCalledTimes(2);
-  });
-
-  it('does not replay local writes into the in-flight snapshot budget', async () => {
-    const module = loadMirror();
-    await module.bootstrapNativeSyncStorageMirrors();
-    globals.__onekeyNativeStorageIsTransportReady = () => false;
-    let resolveSnapshot:
-      | ((snapshot: INativeStorageBootstrapSnapshot) => void)
-      | undefined;
-    mockCallNativeStorage.mockImplementationOnce(
-      () =>
-        new Promise<INativeStorageBootstrapSnapshot>((resolve) => {
-          resolveSnapshot = resolve;
-        }),
-    );
-    const refresh = module.refreshNativeSyncStorageMirrors();
-    const storage = module.createNativeSyncStorageMirror('coldStart');
-
-    for (let batch = 0; batch < 2; batch += 1) {
-      void storage.applySWRCachePatch?.({
-        removePrefixes: [],
-        removals: [],
-        updates: Array.from({ length: 501 }, (_, index) => {
-          const key = `in-flight-${batch}-${index}`;
-          return [
-            key,
-            JSON.stringify({ d: key, t: batch * 501 + index + 1 }),
-          ] as const;
-        }),
-      });
-    }
-
-    resolveSnapshot?.(emptySnapshot);
-    await refresh;
-
-    const value = JSON.parse(storage.getString(swrKey) ?? '{}') as Record<
-      string,
-      unknown
-    >;
-    expect(Object.keys(value)).toHaveLength(1002);
-    expect(value['in-flight-1-500']).toEqual({
-      d: 'in-flight-1-500',
-      t: 1002,
-    });
-  });
-
-  it('abandons a refresh when own acknowledgements exceed the replay budget', async () => {
-    let resolveSnapshot:
-      | ((snapshot: INativeStorageBootstrapSnapshot) => void)
-      | undefined;
-    const module = loadMirror();
-    await module.bootstrapNativeSyncStorageMirrors();
-    mockCallNativeStorage.mockImplementationOnce(
-      () =>
-        new Promise<INativeStorageBootstrapSnapshot>((resolve) => {
-          resolveSnapshot = resolve;
-        }),
-    );
-    const refresh = module.refreshNativeSyncStorageMirrors();
-    const storage = module.createNativeSyncStorageMirror('coldStart');
-
-    for (let batch = 0; batch < 2; batch += 1) {
-      void storage.applySWRCachePatch?.({
-        removePrefixes: [],
-        removals: [],
-        updates: Array.from({ length: 501 }, (_, index) => {
-          const key = `ack-${batch}-${index}`;
-          return [
-            key,
-            JSON.stringify({ d: key, t: batch * 501 + index + 1 }),
-          ] as const;
-        }),
-      });
-    }
-
-    resolveSnapshot?.(emptySnapshot);
-    await expect(refresh).rejects.toThrow('snapshot replay budget exceeded');
-
-    const value = JSON.parse(storage.getString(swrKey) ?? '{}') as Record<
-      string,
-      unknown
-    >;
-    expect(Object.keys(value)).toHaveLength(1002);
-    expect(value['ack-1-500']).toEqual({ d: 'ack-1-500', t: 1002 });
-    expect(mockSWRCacheSnapshotState).toHaveBeenCalledWith(
-      expect.objectContaining({
-        eventCount: 1,
-        eventType: 'aborted',
-        reason: 'replayBudgetExceeded',
-      }),
-    );
-  });
-
-  it('preserves newer broadcasts after an over-budget refresh', async () => {
-    const module = loadMirror();
-    await module.bootstrapNativeSyncStorageMirrors();
-    let resolveSnapshot:
-      | ((snapshot: INativeStorageBootstrapSnapshot) => void)
-      | undefined;
-    mockCallNativeStorage.mockImplementationOnce(
-      () =>
-        new Promise<INativeStorageBootstrapSnapshot>((resolve) => {
-          resolveSnapshot = resolve;
-        }),
-    );
-    const refresh = module.refreshNativeSyncStorageMirrors();
-    const storage = module.createNativeSyncStorageMirror('coldStart');
-
-    for (let index = 0; index < 1000; index += 1) {
-      globals.__onekeyNativeSyncStorageApplyMutation?.({
-        store: 'coldStart',
-        operation: 'patchSWR',
-        entries: [[`history-${index}`, entry(index + 1)]],
-      });
-    }
-
-    void storage.applySWRCachePatch?.({
-      removePrefixes: [],
-      removals: [],
-      updates: [['race', entry(1)]],
-    });
-    await module.waitForNativeSyncStorageMutations();
-
-    globals.__onekeyNativeSyncStorageApplyMutation?.({
-      store: 'coldStart',
-      operation: 'set',
-      key: swrKey,
-      value: JSON.stringify({ race: { d: 2, t: 2 } }),
-    });
-    await expect(refresh).rejects.toThrow('snapshot replay budget exceeded');
-    expect(JSON.parse(storage.getString(swrKey) ?? '{}').race).toEqual({
-      d: 2,
-      t: 2,
-    });
-    mockCallNativeStorage.mockResolvedValueOnce({
-      ...emptySnapshot,
-      swrCacheEntries: [['race', entry(3)]],
-    });
-    await module.refreshNativeSyncStorageMirrors();
-    expect(new Map(storage.readSWRCacheEntries?.()).get('race')).toBe(entry(3));
-    resolveSnapshot?.(emptySnapshot);
-  });
-
-  it('allows initial bootstrap with pending SWR writes over the replay budget', async () => {
-    globals.__onekeyNativeStorageIsTransportReady = () => false;
-    const module = loadMirror();
-    const storage = module.createNativeSyncStorageMirror('coldStart');
-
-    for (let batch = 0; batch < 2; batch += 1) {
-      void storage.applySWRCachePatch?.({
-        removePrefixes: [],
-        removals: [],
-        updates: Array.from({ length: 501 }, (_, index) => {
-          const key = `pending-${batch}-${index}`;
-          return [
-            key,
-            JSON.stringify({ d: key, t: batch * 501 + index + 1 }),
-          ] as const;
-        }),
-      });
-    }
-
-    await module.bootstrapNativeSyncStorageMirrors();
-
-    const value = JSON.parse(storage.getString(swrKey) ?? '{}') as Record<
-      string,
-      unknown
-    >;
-    expect(Object.keys(value)).toHaveLength(1002);
-    expect(value['pending-1-500']).toEqual({
-      d: 'pending-1-500',
-      t: 1002,
-    });
-  });
-
   it('coalesces 10000 same-key broadcasts while a snapshot is in flight', async () => {
     let resolveSnapshot:
       | ((snapshot: INativeStorageBootstrapSnapshot) => void)
@@ -358,24 +111,40 @@ describe('native sync storage backlog recovery', () => {
     const bootstrap = module.bootstrapNativeSyncStorageMirrors();
     for (let i = 1; i <= 10_000; i += 1)
       globals.__onekeyNativeSyncStorageApplyMutation?.({
-        store: 'coldStart',
-        operation: 'patchSWR',
-        entries: [['same-key', entry(i)]],
+        store: 'settings',
+        operation: 'set',
+        key: 'same-key',
+        value: i,
       });
     resolveSnapshot?.({
       ...emptySnapshot,
-      coldStart: [[swrKey, JSON.stringify({ retained: { d: 'bg', t: 1 } })]],
+      settings: [
+        ['retained', 'bg'],
+        ['same-key', 0],
+      ],
     });
     await bootstrap;
-    expect(
-      JSON.parse(
-        module.createNativeSyncStorageMirror('coldStart').getString(swrKey) ??
-          '{}',
-      ),
-    ).toEqual({
-      retained: { d: 'bg', t: 1 },
-      'same-key': { d: 10_000, t: 10_000 },
-    });
+    const storage = module.createNativeSyncStorageMirror('settings');
+    expect(storage.getString('retained')).toBe('bg');
+    expect(storage.getNumber('same-key')).toBe(10_000);
+  });
+
+  it('keeps the mirror authoritative while a refresh is in flight or after it fails', async () => {
+    const module = loadMirror();
+    await module.bootstrapNativeSyncStorageMirrors();
+    expect(module.isNativeSyncStorageMirrorBootstrapped()).toBe(true);
+    let rejectSnapshot: ((error: Error) => void) | undefined;
+    mockCallNativeStorage.mockImplementationOnce(
+      () =>
+        new Promise<INativeStorageBootstrapSnapshot>((_resolve, reject) => {
+          rejectSnapshot = reject;
+        }),
+    );
+    const refresh = module.refreshNativeSyncStorageMirrors();
+    expect(module.isNativeSyncStorageMirrorBootstrapped()).toBe(true);
+    rejectSnapshot?.(new Error('snapshot timeout'));
+    await expect(refresh).rejects.toThrow('snapshot timeout');
+    expect(module.isNativeSyncStorageMirrorBootstrapped()).toBe(true);
   });
 
   it('ends a failed refresh window instead of replaying acknowledged writes later', async () => {
@@ -385,20 +154,70 @@ describe('native sync storage backlog recovery', () => {
     await expect(module.refreshNativeSyncStorageMirrors()).rejects.toThrow(
       'snapshot timeout',
     );
-    const storage = module.createNativeSyncStorageMirror('coldStart');
+    const storage = module.createNativeSyncStorageMirror('settings');
     for (let i = 1; i <= 1000; i += 1) {
-      await storage.applySWRCachePatch?.(patch(i));
+      await storage.set('same-key', i);
       await module.waitForNativeSyncStorageMutations();
     }
-    await module.waitForNativeSyncStorageMutations();
+    // bg has since moved on; its snapshot must not be overwritten by writes
+    // that were acknowledged after the failed refresh ended.
+    globals.__onekeyNativeSyncStorageApplyMutation?.({
+      store: 'settings',
+      operation: 'remove',
+      key: 'same-key',
+    });
     mockCallNativeStorage.mockResolvedValueOnce({
       ...emptySnapshot,
-      coldStart: [[swrKey, storage.getString(swrKey)]],
+      settings: [['same-key', 'bg-latest']],
     });
     await module.refreshNativeSyncStorageMirrors();
-    expect(JSON.parse(storage.getString(swrKey) ?? '{}')).toEqual({
-      'same-key': { d: 1000, t: 1000 },
+    expect(storage.getString('same-key')).toBe('bg-latest');
+  });
+
+  it('keeps live data and unacknowledged writes when a refresh fails', async () => {
+    const module = loadMirror();
+    await module.bootstrapNativeSyncStorageMirrors();
+    let rejectSnapshot: ((error: Error) => void) | undefined;
+    mockCallNativeStorage.mockImplementationOnce(
+      () =>
+        new Promise<INativeStorageBootstrapSnapshot>((_resolve, reject) => {
+          rejectSnapshot = reject;
+        }),
+    );
+    const refresh = module.refreshNativeSyncStorageMirrors();
+    globals.__onekeyNativeStorageIsTransportReady = () => false;
+    const settings = module.createNativeSyncStorageMirror('settings');
+    let acknowledged = false;
+    void settings.set('pending', 'local').then(() => {
+      acknowledged = true;
     });
+    globals.__onekeyNativeSyncStorageApplyMutation?.({
+      store: 'settings',
+      operation: 'set',
+      key: 'live',
+      value: 'latest',
+    });
+    rejectSnapshot?.(new Error('snapshot timeout'));
+    await expect(refresh).rejects.toThrow('snapshot timeout');
+    expect(settings.getString('pending')).toBe('local');
+    expect(settings.getString('live')).toBe('latest');
+    expect(acknowledged).toBe(false);
+
+    mockCallNativeStorage.mockResolvedValueOnce({
+      ...emptySnapshot,
+      settings: [['live', 'fresh-bg']],
+    });
+    await module.refreshNativeSyncStorageMirrors();
+    expect(settings.getString('pending')).toBe('local');
+    expect(settings.getString('live')).toBe('fresh-bg');
+
+    globals.__onekeyNativeStorageIsTransportReady = () => true;
+    globals.__onekeyNativeSyncStorageTransportReady?.();
+    await module.waitForNativeSyncStorageMutations();
+    expect(acknowledged).toBe(true);
+    expect(settings.getString('pending')).toBe('local');
+    await jest.advanceTimersByTimeAsync(60_000);
+    expect(mockCallNativeStorage).toHaveBeenCalledTimes(4);
   });
 
   it('automatically retries a failed refresh with backoff', async () => {
@@ -410,13 +229,13 @@ describe('native sync storage backlog recovery', () => {
     expect(mockCallNativeStorage).toHaveBeenCalledTimes(2);
     await jest.advanceTimersByTimeAsync(1);
     expect(mockCallNativeStorage).toHaveBeenCalledTimes(3);
-    expect(mockSWRCacheSnapshotState).toHaveBeenCalledWith(
-      expect.objectContaining({ eventType: 'failed', reason: 'requestFailed' }),
+    expect(mockNativeStorageSnapshotState).toHaveBeenCalledWith(
+      expect.objectContaining({ eventType: 'failed', failedAttemptCount: 1 }),
     );
-    expect(mockSWRCacheSnapshotState).toHaveBeenCalledWith(
+    expect(mockNativeStorageSnapshotState).toHaveBeenCalledWith(
       expect.objectContaining({
         eventType: 'recovered',
-        reason: 'requestFailed',
+        failedAttemptCount: 1,
       }),
     );
   });
@@ -431,12 +250,11 @@ describe('native sync storage backlog recovery', () => {
     await expect(module.refreshNativeSyncStorageMirrors()).rejects.toThrow();
     await expect(module.refreshNativeSyncStorageMirrors()).rejects.toThrow();
 
-    expect(mockSWRCacheSnapshotState).toHaveBeenCalledTimes(1);
-    expect(mockSWRCacheSnapshotState).toHaveBeenCalledWith(
+    expect(mockNativeStorageSnapshotState).toHaveBeenCalledTimes(1);
+    expect(mockNativeStorageSnapshotState).toHaveBeenCalledWith(
       expect.objectContaining({
         eventCount: 1,
         eventType: 'failed',
-        reason: 'requestFailed',
       }),
     );
   });
@@ -469,6 +287,7 @@ describe('native sync storage backlog recovery', () => {
     await expect(module.bootstrapNativeSyncStorageMirrors()).rejects.toThrow(
       'initial timeout',
     );
+    expect(module.isNativeSyncStorageMirrorBootstrapped()).toBe(false);
     await jest.advanceTimersByTimeAsync(60_000);
     expect(mockCallNativeStorage).toHaveBeenCalledTimes(1);
     await module.bootstrapNativeSyncStorageMirrors();
@@ -496,62 +315,6 @@ describe('native sync storage backlog recovery', () => {
       expect(bootstrap).rejects.toThrow('replacement failed'),
       expect(replacement).rejects.toThrow('replacement failed'),
     ]);
-  });
-
-  it('abandons an over-budget snapshot while keeping live data and unacknowledged writes', async () => {
-    const module = loadMirror();
-    await module.bootstrapNativeSyncStorageMirrors();
-    let resolveStaleSnapshot:
-      | ((snapshot: INativeStorageBootstrapSnapshot) => void)
-      | undefined;
-    mockCallNativeStorage.mockImplementationOnce(
-      () =>
-        new Promise<INativeStorageBootstrapSnapshot>((resolve) => {
-          resolveStaleSnapshot = resolve;
-        }),
-    );
-    const refresh = module.refreshNativeSyncStorageMirrors();
-    globals.__onekeyNativeStorageIsTransportReady = () => false;
-    const settings = module.createNativeSyncStorageMirror('settings');
-    let acknowledged = false;
-    void settings.set('pending', 'local').then(() => {
-      acknowledged = true;
-    });
-    for (let i = 0; i <= 1000; i += 1) {
-      globals.__onekeyNativeSyncStorageApplyMutation?.({
-        store: 'coldStart',
-        operation: 'patchSWR',
-        entries: [[`removed-${i}`, null]],
-      });
-    }
-    globals.__onekeyNativeSyncStorageApplyMutation?.({
-      store: 'settings',
-      operation: 'set',
-      key: 'live',
-      value: 'latest',
-    });
-    await expect(refresh).rejects.toThrow('snapshot replay budget exceeded');
-    expect(settings.getString('pending')).toBe('local');
-    expect(settings.getString('live')).toBe('latest');
-    expect(acknowledged).toBe(false);
-    mockCallNativeStorage.mockResolvedValueOnce({
-      ...emptySnapshot,
-      settings: [['live', 'fresh-bg']],
-    });
-    await module.refreshNativeSyncStorageMirrors();
-    expect(settings.getString('pending')).toBe('local');
-    resolveStaleSnapshot?.({
-      ...emptySnapshot,
-      settings: [['live', 'stale-bg']],
-    });
-    await jest.advanceTimersByTimeAsync(0);
-    expect(settings.getString('live')).toBe('fresh-bg');
-    globals.__onekeyNativeStorageIsTransportReady = () => true;
-    globals.__onekeyNativeSyncStorageTransportReady?.();
-    await module.waitForNativeSyncStorageMutations();
-    expect(acknowledged).toBe(true);
-    await jest.advanceTimersByTimeAsync(60_000);
-    expect(mockCallNativeStorage).toHaveBeenCalledTimes(4);
   });
 
   it('keeps in-flight confirmation separate and resolves compacted writes only after clear is durable', async () => {

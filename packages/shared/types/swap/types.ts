@@ -91,6 +91,7 @@ export enum ESwapQuoteKind {
 
 export enum ESwapQuoteSource {
   MARKET = 'Market',
+  SWEEP = 'Sweep',
 }
 
 export enum ESwapSource {
@@ -207,7 +208,15 @@ export interface ISwapInitParams {
 
 export interface ISwapNetworkBase {
   networkId: string;
+  /** Whether this network is an L2 chain. */
+  isL2?: boolean;
+  /** The parent L1 network id for an L2 chain. */
+  parentNetworkId?: string;
   defaultSelectToken?: { from?: string; to?: string };
+  defaultSelectTokenDetail?: {
+    from?: ISwapToken;
+    to?: ISwapToken;
+  };
   supportCrossChainSwap?: boolean;
   supportSingleSwap?: boolean;
   supportLimit?: boolean;
@@ -385,6 +394,7 @@ export interface ISwapOrderHash {
 }
 
 export interface ISwapApproveTransaction {
+  approvalRequestId?: string;
   fromToken: ISwapToken;
   toToken: ISwapToken;
   marketSwapApprovalFlowId?: string;
@@ -630,6 +640,7 @@ export interface ISwapPreSwapData {
   swapType?: ESwapTabSwitchType;
   unSupportSlippage?: boolean;
   swapBuildResultData?: {
+    reviewQuoteResult?: IFetchQuoteResult;
     swapInfo?: ISwapTxInfo;
     orderId?: string;
     slippagePercentage?: number;
@@ -752,6 +763,8 @@ export interface IFetchQuoteResult {
   providerDisableBatchTransfer?: boolean;
   buyTax?: number;
   sellTax?: number;
+  honeypot?: boolean;
+  lowLiquidity?: boolean;
 }
 
 export interface IAllowanceResult {
@@ -826,6 +839,9 @@ export interface ISwapState {
   isRefreshQuote?: boolean;
   isWaitingAutoSlippage?: boolean;
   shouldEnterRecipient?: boolean;
+  // From-token balance is a loaded zero: the action button becomes the
+  // deposit entry instead of a disabled "insufficient balance" label.
+  shouldDepositToTrade?: boolean;
 }
 
 export interface ISwapApproveAllowanceResponse {
@@ -877,6 +893,13 @@ export interface ISwapAlertState {
   alertLevel?: ESwapAlertLevel;
   inputShowError?: boolean;
   noConnectWallet?: boolean;
+  isAccountNetworkUnsupported?: boolean;
+  accountNetworkUnsupportedContext?: {
+    accountId?: string;
+    walletId?: IDBWalletId;
+    networkId?: string;
+    directionType?: ESwapDirectionType;
+  };
   action?: {
     actionType: ESwapAlertActionType;
     actionLabel?: string;
@@ -927,6 +950,8 @@ export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
   quoteResultCtx?: any;
   kind: ESwapQuoteKind;
   walletType?: string;
+  deviceType?: string;
+  source?: ESwapQuoteSource;
   bindedAccountAddress?: string;
   bindedNetworkId?: string;
   rebateAddress?: string;

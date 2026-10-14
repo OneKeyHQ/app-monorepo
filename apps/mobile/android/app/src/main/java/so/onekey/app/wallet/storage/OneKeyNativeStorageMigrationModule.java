@@ -55,7 +55,6 @@ public final class OneKeyNativeStorageMigrationModule extends ReactContextBaseJa
     private static final List<String> VALID_MMKV_IDS = Arrays.asList(
         "onekey-app-storage-v1",
         "onekey-app-setting",
-        "onekey-cold-start-cache",
         "onekey-app-dev-setting",
         "onekey-jotai-states"
     );

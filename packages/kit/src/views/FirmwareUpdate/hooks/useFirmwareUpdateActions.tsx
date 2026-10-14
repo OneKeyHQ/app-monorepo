@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import {
   type EDeviceType,
@@ -9,7 +9,14 @@ import { StackActions } from '@react-navigation/routers';
 import { useIntl } from 'react-intl';
 import { useThrottledCallback } from 'use-debounce';
 
-import { Dialog, resetToRoute, rootNavigationRef } from '@onekeyhq/components';
+import type { IDialogInstance } from '@onekeyhq/components';
+import {
+  Dialog,
+  resetModalRouteByName,
+  resetToRoute,
+  rootNavigationRef,
+} from '@onekeyhq/components';
+import { DOWNLOAD_DESKTOP_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -21,22 +28,128 @@ import {
   EOnboardingV2Routes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { FirmwareUpdateCheckList } from '../components/FirmwareUpdateCheckList';
+import { shouldSuggestDesktopUsbFirmwareUpdate } from '../firmwareUpdateTransportUtils';
+import { FirmwareUpdateTestIDs } from '../testIDs';
 import { getTargetFirmwareTypeLabel } from '../utils';
 
 import { bootloaderModeDialogManager } from './bootloaderModeDialogManager';
 
-import type { AllFirmwareRelease } from '@onekeyfe/hd-core';
+import type { AllFirmwareRelease, IDeviceType } from '@onekeyfe/hd-core';
 
-export type IBootloaderModeDialogHost = Pick<typeof Dialog, 'show'>;
+/** A page-owned `Dialog.show`, for pages that carry their own theme. */
+export type IFirmwareUpdateDialogHost = Pick<typeof Dialog, 'show'>;
+export type IBootloaderModeDialogHost = IFirmwareUpdateDialogHost;
+
+/**
+ * What an entry knows about the update from an earlier release check, so the
+ * desktop USB suggestion can be decided before the device is contacted.
+ */
+export type IKnownFirmwareUpdate = {
+  deviceType: IDeviceType | undefined;
+  estimatedTransferBytes: number | undefined;
+};
+
+/**
+ * The "desktop USB is faster" suggestion for models that update slowly over
+ * Bluetooth. The calling component owns the dialog: it closes with it.
+ */
+function useDesktopUsbSuggestion() {
+  const intl = useIntl();
+  const isOpenRef = useRef(false);
+  const dialogRef = useRef<IDialogInstance | undefined>(undefined);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      // The suggestion lives in the overlay, so it would otherwise stay on
+      // top of whatever replaces its page.
+      void dialogRef.current?.close();
+    };
+  }, []);
+
+  // Resolves true only when the user chooses to keep updating via Bluetooth.
+  return useCallback(
+    async (dialogHost: IFirmwareUpdateDialogHost = Dialog) => {
+      // Callers are button handlers that nothing waits for, so a second tap
+      // must not stack another suggestion on the one already open. An entry
+      // may also be gone by the time it asks (onboarding prepares the
+      // transport first); its cleanup has run, so nothing would close a
+      // dialog opened now.
+      if (isOpenRef.current || !isMountedRef.current) {
+        return false;
+      }
+      isOpenRef.current = true;
+      try {
+        const confirmed = await new Promise<boolean>((resolve) => {
+          let continueViaBluetooth = false;
+          dialogRef.current = dialogHost.show({
+            icon: 'TypeCoutline',
+            title: intl.formatMessage({
+              id: ETranslations.firmware_update_install_page__title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.firmware_update_usb_recommended__desc,
+            }),
+            // The primary action ends the suggestion and opens the desktop
+            // download page. The dialog must be gone first: on iOS it lives
+            // in the FullWindowOverlay, which stays above the in-app browser
+            // (SFSafariViewController), so a dialog kept open would cover the
+            // page it just opened. `close` resolves after the teardown.
+            onConfirmText: intl.formatMessage({
+              id: ETranslations.firmware_update_download_desktop_app__action,
+            }),
+            confirmButtonProps: {
+              icon: 'LaptopOutline',
+              testID: FirmwareUpdateTestIDs.usbSuggestionDownloadBtn,
+            },
+            onConfirm: async ({ close }) => {
+              await close();
+              openUrlExternal(DOWNLOAD_DESKTOP_APP_URL);
+            },
+            onCancelText: intl.formatMessage({
+              id: ETranslations.firmware_update_continue_via_bluetooth__action,
+            }),
+            cancelButtonProps: {
+              icon: 'BluetoothOutline',
+              testID: FirmwareUpdateTestIDs.usbSuggestionContinueBtn,
+            },
+            // The only way to continue is this button; the close button,
+            // backdrop and back key close without it.
+            onCancel: (close) => {
+              continueViaBluetooth = true;
+              void close();
+            },
+            // Phones stack the buttons with the primary one on top.
+            footerProps: { $md: { flexDirection: 'column-reverse' } },
+            // onClose runs once the sheet has left the overlay, so whatever the
+            // caller opens next never mounts inside this dialog's exit window.
+            onClose: () => {
+              dialogRef.current = undefined;
+              resolve(continueViaBluetooth);
+            },
+          });
+        });
+        return confirmed && isMountedRef.current;
+      } finally {
+        isOpenRef.current = false;
+      }
+    },
+    [intl],
+  );
+}
 
 export function useFirmwareUpdateActions() {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const confirmUpdateViaBluetooth = useDesktopUsbSuggestion();
 
   const openChangeLogOfExtension = useThrottledCallback(
     async (params: {
@@ -90,10 +203,21 @@ export function useFirmwareUpdateActions() {
       connectId,
       firmwareType,
       baseReleaseInfo,
+      knownUpdate,
+      dialogHost,
     }: {
       connectId: string | undefined;
       firmwareType?: EFirmwareType;
       baseReleaseInfo?: AllFirmwareRelease;
+      /**
+       * Set by entries that already have a release check behind them (the
+       * update banner, the onboarding firmware step), so the desktop USB
+       * suggestion shows before any device communication. Other entries
+       * leave it out, and the changelog page asks once its own check has
+       * sized the update.
+       */
+      knownUpdate?: IKnownFirmwareUpdate;
+      dialogHost?: IFirmwareUpdateDialogHost;
     }) => {
       if (
         platformEnv.isExtensionUiPopup ||
@@ -108,6 +232,21 @@ export function useFirmwareUpdateActions() {
           window.close();
         }
         return;
+      }
+
+      let usbSuggestionAcknowledged = false;
+      if (
+        knownUpdate &&
+        shouldSuggestDesktopUsbFirmwareUpdate({
+          isNative: platformEnv.isNative,
+          deviceType: knownUpdate.deviceType,
+          estimatedTransferBytes: knownUpdate.estimatedTransferBytes,
+        })
+      ) {
+        if (!(await confirmUpdateViaBluetooth(dialogHost))) {
+          return;
+        }
+        usbSuggestionAcknowledged = true;
       }
 
       let resolvedConnectId = connectId;
@@ -129,17 +268,21 @@ export function useFirmwareUpdateActions() {
         }
       }
 
+      const changeLogParams = {
+        connectId: resolvedConnectId,
+        firmwareType,
+        baseReleaseInfo,
+        // Left out unless set: this route is also addressable by URL on web
+        // and extension, where its params must stay as they were.
+        ...(usbSuggestionAcknowledged ? { usbSuggestionAcknowledged } : {}),
+      };
       if (rootNavigationRef.current) {
         rootNavigationRef.current?.dispatch(
           StackActions.push(ERootRoutes.Modal, {
             screen: EModalRoutes.FirmwareUpdateModal,
             params: {
               screen: EModalFirmwareUpdateRoutes.ChangeLog,
-              params: {
-                connectId: resolvedConnectId,
-                firmwareType,
-                baseReleaseInfo,
-              },
+              params: changeLogParams,
             },
           }),
         );
@@ -147,20 +290,16 @@ export function useFirmwareUpdateActions() {
         // **** navigation.pushModal not working when Dialog open
         navigation.pushModal(EModalRoutes.FirmwareUpdateModal, {
           screen: EModalFirmwareUpdateRoutes.ChangeLog,
-          params: {
-            connectId: resolvedConnectId,
-            firmwareType,
-            baseReleaseInfo,
-          },
+          params: changeLogParams,
         });
       }
     },
-    [navigation, openChangeLogOfExtension],
+    [navigation, openChangeLogOfExtension, confirmUpdateViaBluetooth],
   );
 
   const closeUpdateModal = useCallback(() => {
-    navigation.popStack();
-  }, [navigation]);
+    resetModalRouteByName(EModalRoutes.FirmwareUpdateModal);
+  }, []);
 
   const restartOnboarding = useCallback(
     async ({ deviceType }: { deviceType: EDeviceType | undefined }) => {
@@ -327,6 +466,7 @@ export function useFirmwareUpdateActions() {
     showBootloaderMode,
     showForceUpdate,
     showCheckList,
+    confirmUpdateViaBluetooth,
     restartOnboarding,
   };
 }

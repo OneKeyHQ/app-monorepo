@@ -827,54 +827,55 @@ describe('TradingViewNative chart layout', () => {
       canvasWidth: 640,
       mainChartBottom: 300,
     });
-    expect(regularLayout).toMatchObject({ width: 96, x: 272 });
-    expect(regularLayout?.height).toBeCloseTo(29.2683);
-    expect(regularLayout?.y).toBeCloseTo(135.3659);
+    expect(regularLayout?.width).toBeCloseTo(105.6);
+    expect(regularLayout?.x).toBeCloseTo(267.2);
+    expect(regularLayout?.height).toBeCloseTo(32.1951);
+    expect(regularLayout?.y).toBeCloseTo(133.9024);
 
     const smallLayout = getTradingViewNativeWatermarkLayout({
       canvasWidth: 100,
       mainChartBottom: 50,
     });
-    expect(smallLayout).toMatchObject({ width: 15, x: 42.5 });
-    expect(smallLayout?.height).toBeCloseTo(4.5732);
-    expect(smallLayout?.y).toBeCloseTo(22.7134);
+    expect(smallLayout).toMatchObject({ width: 16.5, x: 41.75 });
+    expect(smallLayout?.height).toBeCloseTo(5.0305);
+    expect(smallLayout?.y).toBeCloseTo(22.4848);
 
     const wideLayout = getTradingViewNativeWatermarkLayout({
       canvasWidth: 3840,
       mainChartBottom: 2160,
     });
-    expect(wideLayout).toMatchObject({ width: 320, x: 1760 });
-    expect(wideLayout?.y).toBeCloseTo(1031.2195);
+    expect(wideLayout).toMatchObject({ width: 352, x: 1744 });
+    expect(wideLayout?.y).toBeCloseTo(1026.3415);
 
     const mobileLayout = getTradingViewNativeWatermarkLayout({
       canvasWidth: 320,
       isMobileLayout: true,
       mainChartBottom: 284,
     });
-    expect(mobileLayout).toMatchObject({ width: 70.4, x: 124.8 });
-    expect(mobileLayout?.height).toBeCloseTo(21.4634);
-    expect(mobileLayout?.y).toBeCloseTo(131.2683);
+    expect(mobileLayout).toMatchObject({ width: 77.44, x: 121.28 });
+    expect(mobileLayout?.height).toBeCloseTo(23.6098);
+    expect(mobileLayout?.y).toBeCloseTo(130.1951);
 
     const mobileLandscapeLayout = getTradingViewNativeWatermarkLayout({
       canvasWidth: 1000,
       isMobileLayout: true,
       mainChartBottom: 500,
     });
-    expect(mobileLandscapeLayout).toMatchObject({ width: 220, x: 390 });
-    expect(mobileLandscapeLayout?.y).toBeCloseTo(216.4634);
+    expect(mobileLandscapeLayout).toMatchObject({ width: 242, x: 379 });
+    expect(mobileLandscapeLayout?.y).toBeCloseTo(213.1098);
 
     expect(
       getTradingViewNativeWatermarkLayout({
         canvasWidth: 767,
         mainChartBottom: 300,
       })?.x,
-    ).toBeCloseTo((767 - 767 * 0.15) / 2);
+    ).toBeCloseTo((767 - 767 * 0.165) / 2);
     expect(
       getTradingViewNativeWatermarkLayout({
         canvasWidth: 768,
         mainChartBottom: 300,
       })?.x,
-    ).toBeCloseTo(326.4);
+    ).toBeCloseTo(320.64);
     expect(
       getTradingViewNativeWatermarkLayout({
         canvasWidth: 100,

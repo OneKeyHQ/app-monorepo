@@ -11,6 +11,7 @@ import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IHardwareHomeScreenData } from '@onekeyhq/kit-bg/src/services/ServiceHardware/DeviceSettingsManager';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import enMessages from '@onekeyhq/shared/src/locale/json/en_US.json';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EAccountManagerStacksRoutes } from '@onekeyhq/shared/src/routes';
 
 import HardwareHomeScreenModal from './HardwareHomeScreenModal';
@@ -143,7 +144,12 @@ jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
-    hardware: { homescreen: { setHomeScreen: jest.fn() } },
+    hardware: {
+      homescreen: {
+        setHomeScreen: jest.fn(),
+        wallpaperApply: jest.fn(),
+      },
+    },
   },
 }));
 
@@ -236,6 +242,24 @@ describe('hardware wallpaper confirmation', () => {
       expect(Toast.success).toHaveBeenCalledTimes(1);
     },
   );
+
+  it('logs one final Pro2 result with the uploaded file size', async () => {
+    const response = { message: 'Success', applyScreen: true, size: 4096 };
+    mockSetDeviceHomeScreen.mockResolvedValueOnce(response);
+    await renderSelectedWallpaper(EDeviceType.Pro2);
+
+    await act(async () => mockOnConfirm(mockClose));
+
+    const wallpaperApplyCalls = jest.mocked(defaultLogger.hardware.homescreen)
+      .wallpaperApply.mock.calls;
+    expect(wallpaperApplyCalls).toHaveLength(1);
+    expect(wallpaperApplyCalls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        status: 'success',
+        uploadSizeBytes: 4096,
+      }),
+    );
+  });
 
   it('waits for the hardware update to finish before closing', async () => {
     let finishUpdate: (

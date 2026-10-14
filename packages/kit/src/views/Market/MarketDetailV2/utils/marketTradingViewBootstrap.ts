@@ -1,8 +1,12 @@
-import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IMarketTokenDetail,
   IMarketTokenDetailPreview,
 } from '@onekeyhq/shared/types/marketV2';
+
+import {
+  isMatchingMarketTokenIdentity,
+  normalizeMarketTokenAddress,
+} from './marketTokenIdentity';
 
 export interface IMarketTradingViewBootstrap {
   tokenAddress: string;
@@ -24,39 +28,7 @@ export function normalizeChartTokenAddress(
   address: string | undefined,
   networkId: string,
 ) {
-  return (
-    normalizeTokenContractAddress({
-      networkId,
-      contractAddress: address?.trim(),
-    }) ?? ''
-  );
-}
-
-export function isMatchingMarketTokenIdentity(
-  token:
-    | Pick<IMarketTokenDetail, 'address' | 'networkId'>
-    | Pick<IMarketTokenDetailPreview, 'address' | 'networkId'>,
-  {
-    tokenAddress,
-    networkId,
-    isNative,
-  }: Pick<
-    IBuildMarketTradingViewBootstrapOptions,
-    'tokenAddress' | 'networkId' | 'isNative'
-  >,
-) {
-  if (token.networkId && token.networkId !== networkId) {
-    return false;
-  }
-
-  if (isNative && !tokenAddress) {
-    return true;
-  }
-
-  return (
-    normalizeChartTokenAddress(token.address, networkId) ===
-    normalizeChartTokenAddress(tokenAddress, networkId)
-  );
+  return normalizeMarketTokenAddress(address, networkId);
 }
 
 export function buildMarketTradingViewBootstrap({

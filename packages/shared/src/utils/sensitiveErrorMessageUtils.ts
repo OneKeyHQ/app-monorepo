@@ -7,6 +7,10 @@ export type IOneKeyIdAuthFailureLogSource =
   | 'fallbackToast'
   | 'throwSite';
 
+// Which hop of a OneKey ID login failed: the identity provider (Google /
+// Apple) or the Supabase auth service. Omitted when the hop is not known.
+export type IOneKeyIdAuthFailureStep = 'provider' | 'auth';
+
 export type IOneKeyIdAuthFailureCategory =
   | 'alreadyLoggedIn'
   | 'inconsistentAuthState'
@@ -124,11 +128,14 @@ function getLastSafeLabeledValue({
 export function getOneKeyIdAuthFailureServerParams({
   reason,
   source,
+  step,
 }: {
   reason: string;
   source: IOneKeyIdAuthFailureLogSource;
+  step?: IOneKeyIdAuthFailureStep;
 }): {
   source: IOneKeyIdAuthFailureLogSource;
+  step?: IOneKeyIdAuthFailureStep;
   category: IOneKeyIdAuthFailureCategory;
   errorName?: string;
   errorCode?: string;
@@ -142,6 +149,7 @@ export function getOneKeyIdAuthFailureServerParams({
   const parsedStatus = status && /^\d{3}$/.test(status) ? Number(status) : null;
   return {
     source,
+    step,
     category: getOneKeyIdAuthFailureCategory(reason),
     errorName: getLastSafeLabeledValue({
       reason,

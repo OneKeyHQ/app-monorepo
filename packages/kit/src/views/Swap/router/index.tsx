@@ -55,6 +55,14 @@ export const ModalSwapStack: IModalFlowNavigatorConfig<
   {
     name: EModalSwapRoutes.SwapTokenSelect,
     component: SwapTokenSelectModal,
+    options: ({ route }) => {
+      const isSwapStockSelectTarget =
+        route.params?.selectTarget === 'swapStock';
+      return {
+        modalContentMaxWidth: isSwapStockSelectTarget ? undefined : 880,
+        modalContentMaxHeight: isSwapStockSelectTarget ? undefined : 700,
+      };
+    },
     translationId: ETranslations.token_selector_title,
   },
   {

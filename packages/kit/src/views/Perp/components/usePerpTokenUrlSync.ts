@@ -10,6 +10,10 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { useSpotActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { PERPS_ROUTE_PATH } from '@onekeyhq/shared/src/consts/perp';
+import {
+  getDocumentTitle,
+  setDocumentTitle,
+} from '@onekeyhq/shared/src/utils/documentTitleUtils';
 import { isPerpsUniverseCacheComplete } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
 
@@ -167,10 +171,10 @@ export function usePerpTokenUrlSync(): void {
 
     try {
       if (!price || !symbolDisplay) {
-        globalThis.document.title = originalTitleRef.current;
+        setDocumentTitle(originalTitleRef.current);
         return;
       }
-      globalThis.document.title = `${price} | ${symbolDisplay} | OneKey`;
+      setDocumentTitle(`${price} | ${symbolDisplay} | OneKey`);
     } catch {
       // ignore
     }
@@ -181,7 +185,7 @@ export function usePerpTokenUrlSync(): void {
   useEffect(() => {
     if (isInitializedRef.current || !isFocused) return;
 
-    originalTitleRef.current = globalThis.document.title;
+    originalTitleRef.current = getDocumentTitle();
 
     void (async () => {
       const urlInstrument = await getInstrumentFromUrl();

@@ -1,4 +1,7 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isTabBarHiddenByRequest } from '@onekeyhq/shared/src/tabBar/hideTabBarRequests';
+
+import { finishMarketDetailTabBarTransition } from '../../../utils/marketDetailNavigation';
 
 import { navigateToMarketTokenDetail } from './navigateToMarketTokenDetail';
 
@@ -61,6 +64,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   default: {
     isDesktop: true,
     isNative: false,
+    isNativeAndroid: false,
     isWeb: false,
   },
 }));
@@ -101,15 +105,18 @@ describe('navigateToMarketTokenDetail', () => {
     jest.useFakeTimers();
     platformEnv.isDesktop = true;
     platformEnv.isNative = false;
+    platformEnv.isNativeAndroid = false;
     platformEnv.isWeb = false;
     getRootStateMock.mockReturnValue(undefined);
     getCurrentRouteMock.mockReturnValue(undefined);
   });
 
   afterEach(() => {
+    finishMarketDetailTabBarTransition();
     jest.useRealTimers();
     platformEnv.isDesktop = true;
     platformEnv.isNative = false;
+    platformEnv.isNativeAndroid = false;
     platformEnv.isWeb = false;
   });
 
@@ -633,6 +640,26 @@ describe('navigateToMarketTokenDetail', () => {
     expect(dispatchMock).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'SET_PARAMS',
+      }),
+    );
+  });
+
+  it('hides the Android tab bar before the root navigation fallback', async () => {
+    platformEnv.isDesktop = false;
+    platformEnv.isNative = true;
+    platformEnv.isNativeAndroid = true;
+
+    await navigateToMarketTokenDetail(
+      { address: '0xabc', networkId: 'evm--1', isNative: false },
+      { tokenDetailActions },
+    );
+
+    jest.advanceTimersByTime(100);
+    expect(isTabBarHiddenByRequest()).toBe(true);
+    expect(navigateMock).toHaveBeenCalledWith(
+      'main',
+      expect.objectContaining({
+        screen: 'Discovery',
       }),
     );
   });

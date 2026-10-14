@@ -22,6 +22,7 @@ import {
   WC_DAPP_SIDE_METHODS_EVM,
   implToNamespaceMap,
 } from '@onekeyhq/shared/src/walletConnect/constant';
+import type { IWalletConnectDappConnectionProgress } from '@onekeyhq/shared/src/walletConnect/diagnostics';
 import type {
   IWalletConnectConnectParams,
   IWalletConnectConnectToWalletParams,
@@ -40,13 +41,16 @@ import externalWalletFactory from '../../connectors/externalWalletFactory';
 import localDb from '../../dbs/local/localDb';
 
 import walletConnectClient from './walletConnectClient';
-import { WalletConnectDappSideProvider } from './WalletConnectDappSideProvider';
+import { dappSideWalletConnectDiagnostics } from './WalletConnectDiagnostics';
 
+import type { WalletConnectDappSideProvider } from './WalletConnectDappSideProvider';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBExternalAccount } from '../../dbs/local/types';
 
 type IWalletConnectConnectAttempt = {
   attemptId: number;
+  connectionAttemptsBeforeStart: number;
+  connectionSuccessesBeforeStart: number;
   cancelError?: OneKeyWalletConnectModalCloseError;
   provider?: WalletConnectDappSideProvider;
   rejectCancellation?: (error: OneKeyWalletConnectModalCloseError) => void;
@@ -74,20 +78,23 @@ export class WalletConnectDappSide {
 
   async getSharedClient() {
     if (!this.sharedClient) {
-      this.sharedClient = await walletConnectClient.getDappSideClient();
+      const client = await walletConnectClient.getDappSideClient();
+      // Concurrent callers share SDK initialization; only one owns registration.
+      if (this.sharedClient) return this.sharedClient;
       // TODO off event
-      this.sharedClient.on(
+      client.on(
         EWalletConnectSessionEvents.session_delete,
         this.handleSessionDelete,
       );
-      this.sharedClient.on(
+      client.on(
         EWalletConnectSessionEvents.session_update,
         this.handleSessionUpdate,
       );
-      this.sharedClient.on(
+      client.on(
         EWalletConnectSessionEvents.session_event,
         this.handleSessionEvent,
       );
+      this.sharedClient = client;
     }
     return this.sharedClient;
   }
@@ -290,6 +297,10 @@ export class WalletConnectDappSide {
     if (!provider) {
       const client = await this.getSharedClient();
 
+      // loaded on demand: the provider module extends UniversalProvider and
+      // must stay out of the background startup graph
+      const { WalletConnectDappSideProvider } =
+        await import('./WalletConnectDappSideProvider');
       provider = await WalletConnectDappSideProvider.initPro({
         ...walletConnectClient.sharedOptions,
         logger: WALLET_CONNECT_LOGGER_LEVEL,
@@ -394,6 +405,28 @@ export class WalletConnectDappSide {
 
   activeConnectAttempt: IWalletConnectConnectAttempt | undefined;
 
+  getConnectionProgress(): IWalletConnectDappConnectionProgress {
+    const snapshot = dappSideWalletConnectDiagnostics.getSnapshot();
+    const active = this.activeConnectAttempt;
+    const baseline =
+      active?.connectionAttemptsBeforeStart ?? snapshot.connectionAttempts;
+    return {
+      attemptId: active?.attemptId,
+      attempt: Math.max(0, snapshot.connectionAttempts - baseline),
+      lastFailedAttempt: Math.max(
+        0,
+        snapshot.lastFailedConnectionAttempt - baseline,
+      ),
+      connected: snapshot.connected,
+      connectedDuringAttempt: Boolean(
+        active &&
+        snapshot.connectionSuccesses > active.connectionSuccessesBeforeStart,
+      ),
+      snapshotFailed: snapshot.snapshotFailed,
+      relayUrl: snapshot.relayUrl,
+    };
+  }
+
   async abortConnectPairing({ uri }: { uri: string }) {
     const attempt = this.activeConnectAttempt;
     if (!attempt) return false;
@@ -446,8 +479,20 @@ export class WalletConnectDappSide {
       throw new OneKeyWalletConnectModalCloseError({ autoToast: false });
     }
 
+    const initialConnection = dappSideWalletConnectDiagnostics.getSnapshot();
     const attempt: IWalletConnectConnectAttempt = {
       attemptId: generation,
+      // Include an in-flight reconnect, but exclude previous interactions.
+      connectionAttemptsBeforeStart: Math.max(
+        0,
+        initialConnection.connectionAttempts -
+          (initialConnection.connecting ||
+          initialConnection.providerConnecting ||
+          initialConnection.relaySwitchPending
+            ? 1
+            : 0),
+      ),
+      connectionSuccessesBeforeStart: initialConnection.connectionSuccesses,
     };
     this.activeConnectAttempt = attempt;
     this.closeModal();

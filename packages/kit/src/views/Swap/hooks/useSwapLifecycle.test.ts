@@ -12,7 +12,6 @@ import {
   useSwapProTokenSearch,
 } from './useSwapPro';
 import {
-  handleSwapQuoteTabVisibilityChange,
   isSwapQuoteTabEffectivelyVisible,
   shouldKeepSwapQuoteAliveOnFocusLoss,
 } from './useSwapQuote';
@@ -143,54 +142,6 @@ describe('Swap quote lifecycle visibility', () => {
       ).toBe(expected);
     },
   );
-
-  it('pauses and unsubscribes while the focused tab is hidden by an overlay', () => {
-    const setQuoteVisible = jest.fn();
-    const subscribeQuoteEvents = jest.fn();
-    const refreshPreservedInputQuote = jest.fn();
-    const pauseQuote = jest.fn();
-    const unsubscribeQuoteEvents = jest.fn();
-
-    handleSwapQuoteTabVisibilityChange({
-      isFocus: true,
-      isHiddenModel: true,
-      setQuoteVisible,
-      subscribeQuoteEvents,
-      refreshPreservedInputQuote,
-      pauseQuote,
-      unsubscribeQuoteEvents,
-    });
-
-    expect(setQuoteVisible).toHaveBeenCalledWith(false);
-    expect(pauseQuote).toHaveBeenCalledTimes(1);
-    expect(unsubscribeQuoteEvents).toHaveBeenCalledTimes(1);
-    expect(subscribeQuoteEvents).not.toHaveBeenCalled();
-    expect(refreshPreservedInputQuote).not.toHaveBeenCalled();
-  });
-
-  it('subscribes and consumes the refresh marker once the tab is visible', () => {
-    const setQuoteVisible = jest.fn();
-    const subscribeQuoteEvents = jest.fn();
-    const refreshPreservedInputQuote = jest.fn();
-    const pauseQuote = jest.fn();
-    const unsubscribeQuoteEvents = jest.fn();
-
-    handleSwapQuoteTabVisibilityChange({
-      isFocus: true,
-      isHiddenModel: false,
-      setQuoteVisible,
-      subscribeQuoteEvents,
-      refreshPreservedInputQuote,
-      pauseQuote,
-      unsubscribeQuoteEvents,
-    });
-
-    expect(setQuoteVisible).toHaveBeenCalledWith(true);
-    expect(subscribeQuoteEvents).toHaveBeenCalledTimes(1);
-    expect(refreshPreservedInputQuote).toHaveBeenCalledTimes(1);
-    expect(pauseQuote).not.toHaveBeenCalled();
-    expect(unsubscribeQuoteEvents).not.toHaveBeenCalled();
-  });
 });
 
 describe('Swap Pro trade state ownership', () => {

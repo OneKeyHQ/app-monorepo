@@ -1,5 +1,7 @@
 import { useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Button,
   Dialog,
@@ -52,6 +54,7 @@ let lastRecordId = '';
 const password = '123456';
 
 export function CloudBackupApiTests() {
+  const intl = useIntl();
   const [recordId, setRecordId] = useState('123');
   const [backupsList, setBackupsList] = useState<any[]>([]);
 
@@ -117,7 +120,8 @@ export function CloudBackupApiTests() {
 
         <XStack gap="$2" flexWrap="wrap">
           <Button
-            onPress={() => showPrimeTransferImportProcessingDialog({})}
+            testID="gallery-prime-transfer-import-dialog"
+            onPress={() => showPrimeTransferImportProcessingDialog({ intl })}
             variant="secondary"
           >
             ShowImportProcessingDialog
@@ -195,8 +199,12 @@ export function CloudBackupApiTests() {
           <Button
             onPress={() =>
               handleApiCall(async () => {
+                const taskUUID =
+                  await backgroundApiProxy.servicePrimeTransfer.prepareImportTask();
+                if (!taskUUID) return;
                 const result =
                   await backgroundApiProxy.serviceCloudBackupV2.restore({
+                    taskUUID,
                     password,
                     payload: {} as any,
                   });
@@ -246,8 +254,12 @@ export function CloudBackupApiTests() {
           <Button
             onPress={() => {
               void handleApiCall(async () => {
+                const taskUUID =
+                  await backgroundApiProxy.servicePrimeTransfer.prepareImportTask();
+                if (!taskUUID) return;
                 const result =
                   await backgroundApiProxy.serviceCloudBackupV2.restore({
+                    taskUUID,
                     payload: {
                       recordId,
                     } as any,

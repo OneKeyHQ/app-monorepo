@@ -19,7 +19,6 @@ import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
-import { Token } from '@onekeyhq/kit/src/components/Token';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IBorrowApy,
@@ -29,6 +28,7 @@ import type {
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 
+import { BorrowAssetToken } from './BorrowAssetToken';
 import { ApyTextV2 } from './BorrowTableList/ApyTextV2';
 
 const ACCESSIBILITY_ACTIVATE = [{ name: 'activate' }] as const;
@@ -217,7 +217,7 @@ export function BorrowPositionCard({
         </XStack>
 
         <XStack ai="center" gap="$3" py="$2" {...disclosureProps}>
-          <Token size="lg" tokenImageUri={token.logoURI} />
+          <BorrowAssetToken size="lg" logoURI={token.logoURI} />
           <YStack flex={1} minWidth={0} gap="$0.5">
             <SizableText size="$bodyLgMedium" numberOfLines={1}>
               {token.symbol}

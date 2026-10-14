@@ -15,6 +15,7 @@ import type {
 export type ITradingViewNativeIntervalStorageNamespace =
   | 'asset'
   | 'market-hyperliquid'
+  | 'perps'
   | 'native'
   | 'stock'
   | 'swap'
@@ -27,6 +28,9 @@ interface IStoredTradingViewNativeInterval {
 }
 
 function getStorageKey(namespace: ITradingViewNativeIntervalStorageNamespace) {
+  if (namespace === 'perps') {
+    return EAppSyncStorageKeys.onekey_perps_trading_view_native_active_intervals_v1;
+  }
   return namespace === 'swap'
     ? EAppSyncStorageKeys.onekey_swap_trading_view_native_active_intervals_v1
     : EAppSyncStorageKeys.onekey_trading_view_native_active_intervals_v1;
@@ -38,6 +42,9 @@ export function getTradingViewNativeIntervalStorageNamespace(
 ): ITradingViewNativeIntervalStorageNamespace {
   if (storageNamespace === 'swap') {
     return 'swap';
+  }
+  if (storageNamespace === 'perps') {
+    return 'perps';
   }
   if (source.kind === 'hyperliquid') {
     return 'market-hyperliquid';

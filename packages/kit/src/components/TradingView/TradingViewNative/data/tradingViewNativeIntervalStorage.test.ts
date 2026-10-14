@@ -165,4 +165,21 @@ describe('TradingViewNative active interval storage', () => {
       },
     );
   });
+
+  it.each(['token', 'perps', 'swap'] as const)(
+    'ignores legacy panel intervals when restoring the %s chart',
+    (namespace) => {
+      const legacyPanelIntervals = {
+        [`${namespace}:panel:panel-2`]: { interval: '240' },
+      };
+      mockSyncStorage.getObject.mockReturnValue(legacyPanelIntervals);
+      expect(readTradingViewNativeActiveInterval(namespace)).toBe('60');
+
+      mockSyncStorage.getObject.mockReturnValue({
+        ...legacyPanelIntervals,
+        [namespace]: { interval: '15' },
+      });
+      expect(readTradingViewNativeActiveInterval(namespace)).toBe('15');
+    },
+  );
 });

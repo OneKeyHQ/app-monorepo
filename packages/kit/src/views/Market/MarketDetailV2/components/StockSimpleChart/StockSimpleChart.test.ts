@@ -3,14 +3,20 @@ import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import {
   STOCK_SHARE_SIMPLE_CHART_RANGES,
+  STOCK_SIMPLE_CHART_POLLING_MS,
   TOKEN_SIMPLE_CHART_RANGES,
+  buildStockSimpleChartScopeKey,
   fetchStockSimpleChartPoints,
   mergeStockSimpleChartLivePrice,
   resolveStockSimpleChartBucketSeconds,
+  resolveStockSimpleChartDisplayPoints,
   resolveStockSimpleChartLivePrice,
+  resolveStockSimpleChartMinRefreshMs,
   resolveStockSimpleChartPreviousClose,
   resolveStockSimpleChartPulseLastPoint,
+  resolveStockSimpleChartRangeForPriceMode,
   resolveStockSimpleChartRequestScope,
+  shouldStoreStockSimpleChartSeries,
 } from './stockSimpleChartData';
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
@@ -57,9 +63,54 @@ describe('fetchStockSimpleChartPoints', () => {
   it.each([
     ['1H', '1h'],
     ['1D', '1d'],
+  ] as const)(
+    'preserves backend-filtered %s history during Sunday overnight',
+    async (range, period) => {
+      // Monday in Beijing is still Sunday overnight in New York.
+      const overnightNow = Date.parse('2026-09-28T03:23:09Z') / 1000;
+      const fridayClose = Date.parse('2026-09-26T00:00:00Z') / 1000;
+      jest.spyOn(Date, 'now').mockReturnValue(overnightNow * 1000);
+      const points = Array.from({ length: 60 }, (_, index) => ({
+        t: fridayClose - (59 - index) * 60,
+        o: 100,
+        h: 102,
+        l: 99,
+        c: 101,
+        v: 1,
+      }));
+      serviceMarketV2.fetchMarketStockChart.mockResolvedValue({
+        stockId: 'AAPL',
+        period,
+        currency: 'USD',
+        points,
+      });
+      const history = await fetchStockSimpleChartPoints({
+        isNative: false,
+        networkId: '',
+        priceMode: 'share',
+        range,
+        stockId: 'AAPL',
+        tokenAddress: '',
+      });
+      const displayed = resolveStockSimpleChartDisplayPoints({
+        livePrice: '101',
+        nowSeconds: overnightNow,
+        points: history,
+      });
+      expect(displayed).toEqual([
+        ...points.map((point) => [point.t, point.c]),
+        [overnightNow, 101],
+      ]);
+    },
+  );
+
+  it.each([
+    ['1H', '1h'],
+    ['1D', '1d'],
     ['1W', '1w'],
     ['1M', '1m'],
     ['1Y', '1y'],
+    ['5Y', 'all'],
     ['All', 'all'],
   ] as const)(
     'requests %s without limiting or truncating points',
@@ -520,10 +571,26 @@ describe('fetchStockSimpleChartPoints', () => {
 });
 
 describe('stock simple chart request identity', () => {
-  it('exposes All for both token and share data sources', () => {
+  it('ends token ranges on All and share ranges on 5Y', () => {
     expect(TOKEN_SIMPLE_CHART_RANGES).toContain('All');
-    expect(STOCK_SHARE_SIMPLE_CHART_RANGES).toContain('All');
+    expect(TOKEN_SIMPLE_CHART_RANGES).not.toContain('5Y');
+    expect(STOCK_SHARE_SIMPLE_CHART_RANGES).toContain('5Y');
+    expect(STOCK_SHARE_SIMPLE_CHART_RANGES).not.toContain('All');
   });
+
+  it.each([
+    ['share', 'All', '5Y'],
+    ['token', '5Y', 'All'],
+    ['share', '1Y', '1Y'],
+    ['token', 'All', 'All'],
+  ] as const)(
+    'resolves a %s-mode %s selection to %s',
+    (priceMode, range, expected) => {
+      expect(
+        resolveStockSimpleChartRangeForPriceMode({ priceMode, range }),
+      ).toBe(expected);
+    },
+  );
 
   it('ignores token variants while showing share prices', () => {
     const firstVariant = resolveStockSimpleChartRequestScope({
@@ -834,5 +901,150 @@ describe('mergeStockSimpleChartLivePrice', () => {
         points,
       }),
     ).toBe(points);
+  });
+});
+
+describe('resolveStockSimpleChartDisplayPoints', () => {
+  const mondayPreMarketNow = Date.parse('2026-09-21T08:18:00Z') / 1000;
+  const mondayPreMarketOpen = Date.parse('2026-09-21T08:05:00Z') / 1000;
+
+  it('pins the live quote to the history already filtered by the backend', () => {
+    expect(
+      resolveStockSimpleChartDisplayPoints({
+        livePrice: '223.58',
+        nowSeconds: mondayPreMarketNow,
+        points: [[mondayPreMarketOpen, 223.1]],
+      }),
+    ).toEqual([
+      [mondayPreMarketOpen, 223.1],
+      [mondayPreMarketNow, 223.58],
+    ]);
+  });
+
+  it('keeps last-session history until a live quote exists', () => {
+    const points: IMarketTokenChart = [
+      [Date.parse('2026-09-18T20:00:00Z') / 1000, 222],
+    ];
+    expect(
+      resolveStockSimpleChartDisplayPoints({
+        livePrice: undefined,
+        nowSeconds: mondayPreMarketNow,
+        points,
+      }),
+    ).toBe(points);
+  });
+});
+
+describe('shouldStoreStockSimpleChartSeries', () => {
+  const baseParams = {
+    currentScopeKey: 'token|1D|evm--1|0xabc|||',
+    requestScopeKey: 'token|1D|evm--1|0xabc|||',
+    requestSeq: 2,
+    storedSeq: 1,
+  };
+
+  it('stores a newer response for the current scope', () => {
+    expect(shouldStoreStockSimpleChartSeries(baseParams)).toBe(true);
+  });
+
+  it('stores the first response of a session', () => {
+    expect(
+      shouldStoreStockSimpleChartSeries({
+        ...baseParams,
+        requestSeq: 1,
+        storedSeq: undefined,
+      }),
+    ).toBe(true);
+  });
+
+  // Two refreshes of one scope can overlap and answer out of order; the older
+  // one must not restore its series over the newer one.
+  it('drops a response overtaken by a later request', () => {
+    expect(
+      shouldStoreStockSimpleChartSeries({
+        ...baseParams,
+        requestSeq: 2,
+        storedSeq: 3,
+      }),
+    ).toBe(false);
+  });
+
+  it('drops a response whose scope the user has left', () => {
+    expect(
+      shouldStoreStockSimpleChartSeries({
+        ...baseParams,
+        currentScopeKey: 'token|1W|evm--1|0xabc|||',
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('resolveStockSimpleChartMinRefreshMs', () => {
+  it('refetches fine-bucket ranges more often than coarse ones', () => {
+    const oneHour = resolveStockSimpleChartMinRefreshMs({ range: '1H' });
+    const oneYear = resolveStockSimpleChartMinRefreshMs({ range: '1Y' });
+    expect(oneHour).toBeLessThan(oneYear);
+  });
+
+  it('keeps every range on a positive floor', () => {
+    for (const range of TOKEN_SIMPLE_CHART_RANGES) {
+      expect(resolveStockSimpleChartMinRefreshMs({ range })).toBeGreaterThan(0);
+    }
+  });
+
+  // A per-range pollingInterval would make usePromiseResult withhold the
+  // dependency-triggered run for the full new duration on every range switch.
+  it('paces ranges without varying the polling interval', () => {
+    expect(STOCK_SIMPLE_CHART_POLLING_MS).toBeGreaterThan(0);
+    const floors = TOKEN_SIMPLE_CHART_RANGES.map((range) =>
+      resolveStockSimpleChartMinRefreshMs({ range }),
+    );
+    expect(Math.min(...floors)).toBeGreaterThanOrEqual(
+      STOCK_SIMPLE_CHART_POLLING_MS,
+    );
+  });
+});
+
+describe('buildStockSimpleChartScopeKey', () => {
+  const baseScope = {
+    networkId: 'evm--4663',
+    priceMode: 'token' as const,
+    range: '1D' as const,
+    tokenAddress: '0xabc',
+  };
+
+  it('matches itself for an unchanged scope', () => {
+    expect(buildStockSimpleChartScopeKey(baseScope)).toBe(
+      buildStockSimpleChartScopeKey(baseScope),
+    );
+  });
+
+  it('separates a different range, token, network or price mode', () => {
+    const key = buildStockSimpleChartScopeKey(baseScope);
+    expect(
+      buildStockSimpleChartScopeKey({ ...baseScope, range: '1W' }),
+    ).not.toBe(key);
+    expect(
+      buildStockSimpleChartScopeKey({ ...baseScope, tokenAddress: '0xdef' }),
+    ).not.toBe(key);
+    expect(
+      buildStockSimpleChartScopeKey({ ...baseScope, networkId: 'evm--56' }),
+    ).not.toBe(key);
+    expect(
+      buildStockSimpleChartScopeKey({ ...baseScope, priceMode: 'share' }),
+    ).not.toBe(key);
+  });
+
+  it('separates series that only differ by their upstream id', () => {
+    const key = buildStockSimpleChartScopeKey(baseScope);
+    expect(
+      buildStockSimpleChartScopeKey({ ...baseScope, stockId: 'AAPL' }),
+    ).not.toBe(key);
+    expect(
+      buildStockSimpleChartScopeKey({ ...baseScope, marketAssetId: 'bitcoin' }),
+    ).not.toBe(key);
+    expect(
+      buildStockSimpleChartScopeKey({ ...baseScope, coinGeckoId: 'bitcoin' }),
+    ).not.toBe(key);
   });
 });

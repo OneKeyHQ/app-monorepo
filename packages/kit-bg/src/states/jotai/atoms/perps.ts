@@ -14,6 +14,7 @@ import type {
   IPerpTokenSelectorConfig,
   IPerpUserConfig,
   IPerpsActiveAssetData,
+  IPerpsDexCrossMargin,
   IPerpsFormattedAssetCtx,
   IPerpsUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
@@ -28,6 +29,12 @@ import {
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { IUsdcWithdrawDestinationId } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
+import {
+  type ITradingViewNativeChartSettings,
+  type ITradingViewNativeIndicatorSettings,
+  createTradingViewNativeChartSettings,
+  createTradingViewNativeIndicatorSettings,
+} from '@onekeyhq/shared/types/tradingViewNative';
 import type {
   IUnifoldDepositExecution,
   IUnifoldExecutionStatus,
@@ -40,6 +47,24 @@ import { hyperLiquidAgentPasswordStatusAtom } from './passwordLock';
 
 import type { IPerpDynamicTab } from '../../../services/ServiceWebviewPerp/ServiceWebviewPerp';
 import type { IAccountDeriveTypes } from '../../../vaults/types';
+
+export const {
+  target: perpsTradingViewChartSettingsPersistAtom,
+  use: usePerpsTradingViewChartSettingsPersistAtom,
+} = globalAtom<ITradingViewNativeChartSettings>({
+  persist: true,
+  name: EAtomNames.perpsTradingViewChartSettingsPersistAtom,
+  initialValue: createTradingViewNativeChartSettings(),
+});
+
+export const {
+  target: perpsTradingViewIndicatorSettingsPersistAtom,
+  use: usePerpsTradingViewIndicatorSettingsPersistAtom,
+} = globalAtom<ITradingViewNativeIndicatorSettings>({
+  persist: true,
+  name: EAtomNames.perpsTradingViewIndicatorSettingsPersistAtom,
+  initialValue: createTradingViewNativeIndicatorSettings(),
+});
 
 // Shared by Market entries and Web Perps, including expanded extension windows.
 export const {
@@ -210,17 +235,18 @@ export function getPerpsAccountDisplaySnapshotEntry({
 // #region Abstraction Mode
 export type IPerpsAbstractionModeSource = 'live' | 'cache';
 
-export const {
-  target: perpsAbstractionModeAtom,
-  use: usePerpsAbstractionModeAtom,
-} = globalAtom<
+export type IPerpsAbstractionModeAtom =
   | {
       accountAddress: IHex | undefined;
       mode: EHyperLiquidAbstractionMode | undefined;
       source?: IPerpsAbstractionModeSource;
     }
-  | undefined
->({
+  | undefined;
+
+export const {
+  target: perpsAbstractionModeAtom,
+  use: usePerpsAbstractionModeAtom,
+} = globalAtom<IPerpsAbstractionModeAtom>({
   name: EAtomNames.perpsAbstractionModeAtom,
   initialValue: undefined,
 });
@@ -329,6 +355,26 @@ export const { target: perpsSpotBalancesAtom, use: usePerpsSpotBalancesAtom } =
     name: EAtomNames.perpsSpotBalancesAtom,
     initialValue: undefined,
   });
+// #endregion
+
+// #region Liquidation Risk Inputs
+// Live-only: never hydrated from the display cache, so a pre-trade liquidation
+// estimate cannot be computed from a stale or different account's snapshot.
+export type IPerpsLiquidationRiskInputsAtom =
+  | {
+      accountAddress: IHex;
+      abstractionMode: EHyperLiquidAbstractionMode;
+      tokenToAvailableAfterMaintenance?: Record<number, string>;
+      crossMarginByDex?: Record<string, IPerpsDexCrossMargin>;
+    }
+  | undefined;
+export const {
+  target: perpsLiquidationRiskInputsAtom,
+  use: usePerpsLiquidationRiskInputsAtom,
+} = globalAtom<IPerpsLiquidationRiskInputsAtom>({
+  name: EAtomNames.perpsLiquidationRiskInputsAtom,
+  initialValue: undefined,
+});
 // #endregion
 
 export type IPerpsActiveAccountStatusDetails = {
@@ -1111,6 +1157,7 @@ export interface IPerpsCustomSettings {
   showTradeMarks: boolean;
   showChartLines: boolean;
   chartPosition?: IPerpsChartPosition;
+  chartMode?: 'native' | 'tradingView';
   hideSmallSpotHoldings: boolean;
   lastTriggerOrderType: ETriggerOrderType;
   lastAdvancedOrderType?: IPerpsLastAdvancedOrderType;
@@ -1127,6 +1174,7 @@ export const {
     showTradeMarks: true,
     showChartLines: true,
     chartPosition: 'bottom',
+    chartMode: 'tradingView',
     hideSmallSpotHoldings: true,
     lastTriggerOrderType: ETriggerOrderType.TRIGGER_MARKET,
     lastAdvancedOrderType: ETriggerOrderType.TRIGGER_MARKET,

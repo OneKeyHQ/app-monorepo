@@ -55,6 +55,7 @@ jest.mock('@onekeyhq/components', () => ({
   ),
   getCurrentVisibilityState: () => true,
   onVisibilityStateChange: () => () => undefined,
+  s: (value: number) => value,
   useDeferredPromise: () => ({
     promise: Promise.resolve(null),
     reset: jest.fn(),
@@ -64,6 +65,7 @@ jest.mock('@onekeyhq/components', () => ({
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => true,
+  useRouteIsFocusedWhenEnabled: () => true,
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
   useLocaleVariant: () => 'en-US',
@@ -157,6 +159,17 @@ it('loads selector pages and appends unique stocks', async () => {
     limit: 20,
   });
   expect(result.current.canLoadMore).toBe(false);
+});
+
+it('does not load the default stock list for whitespace search-only queries', async () => {
+  const { result } = renderHook(() =>
+    useMarketStockSelectorList({ query: '  ', searchOnly: true }),
+  );
+
+  await waitFor(() => expect(result.current.isLoading).toBe(false));
+  expect(result.current.items).toEqual([]);
+  expect(fetchList).not.toHaveBeenCalled();
+  expect(searchStocks).not.toHaveBeenCalled();
 });
 
 it('passes the normalized query and cursor to search pages', async () => {

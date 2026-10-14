@@ -40,7 +40,6 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
-  HARDWARE_ERROR_DIALOG_TYPES,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IHardwareErrorDialogPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -52,6 +51,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EFirmwareUpdateTipMessages,
@@ -73,7 +73,6 @@ import {
   OpenBleNotifyChangeErrorDialog,
   OpenBleSettingsDialog,
   RequireBlePermissionDialog,
-  buildBleBondError,
   buildBleNotifyChangeError,
   buildBlePermissionDialogProps,
   buildBleSettingsDialogProps,
@@ -87,7 +86,6 @@ import {
 import {
   createHardwareErrorDialogEventHandler,
   isTrezorHardwareErrorDialogPayload,
-  shouldReplaceHardwareErrorDialog,
 } from './hardwareErrorDialogUtils';
 import { shouldSkipHardwareDeviceCancel } from './hardwareUiCancelPolicy';
 import { hardwareUiStateDialogLifecycle } from './hardwareUiStateDialogLifecycle';
@@ -318,6 +316,8 @@ function HardwareSingletonDialogCmp(
         state?.payload?.passphraseState ||
         state?.payload?.expectedPassphraseState
       );
+      const isPro2NeoPassphraseCreation =
+        !isSingleInput && isProtocolV2ProductType(state?.payload?.deviceType);
       const saveCachedHiddenWalletOptions = async ({
         hideImmediately,
       }: {
@@ -338,8 +338,10 @@ function HardwareSingletonDialogCmp(
           isVerifyMode={isSingleInput}
           allowUseAttachPin={!!state?.payload?.existsAttachPinUser}
           deviceOnly={state?.payload?.deviceOnly === true}
+          asciiCreationFeedback={isPro2NeoPassphraseCreation}
           allowProtocolV2Utf8={
-            state?.payload?.source === 'wallet-session-coordinator'
+            state?.payload?.source === 'wallet-session-coordinator' &&
+            !isPro2NeoPassphraseCreation
           }
           onConfirm={async ({ passphrase, hideImmediately }) => {
             await saveCachedHiddenWalletOptions({
@@ -735,7 +737,6 @@ function HardwareUiStateContainerCmpControlled() {
   const dialogInstanceRef = useRef<IDialogInstance | null>(null);
   const toastInstanceRef = useRef<IShowToasterInstance | null>(null);
   const hardwareErrorDialogInstanceRef = useRef<IDialogInstance | null>(null);
-  const hardwareErrorDialogTypeRef = useRef<string | null>(null);
   if (process.env.NODE_ENV !== 'production') {
     // @ts-ignore
     globalThis.$$hardwareUiStateDialogInstanceRef = dialogInstanceRef;
@@ -825,28 +826,14 @@ function HardwareUiStateContainerCmpControlled() {
 
   // Handle hardware error dialog
   useEffect(() => {
-    let isDisposed = false;
-    let isReplacingWithBleBondError = false;
-    const showBleBondErrorDialog = () => {
-      hardwareErrorDialogTypeRef.current =
-        HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR;
-      hardwareErrorDialogInstanceRef.current = Dialog.show(
-        buildBleBondError(intl),
-      );
-    };
     const callback = createHardwareErrorDialogEventHandler(
       (errorDialogPayload: IHardwareErrorDialogPayload) => {
         const { errorType } = errorDialogPayload;
-        const isDeviceNotFound =
-          errorType === HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_FOUND;
-        const isBleDeviceBondError =
-          errorType === HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR;
         // OK-59934: one failure, one surface — the stage lands the failure
         // itself while it is on, and this dialog speaks for everything the
         // stage is not carrying (device search, the firmware update
         // workflow, any call that never opened a burst).
         if (
-          !isBleDeviceBondError &&
           !shouldLegacyContainerRaiseHardwareErrorDialog({
             errorType,
             stageIsShowing: stageIsShowingRef.current,
@@ -854,48 +841,15 @@ function HardwareUiStateContainerCmpControlled() {
         ) {
           return;
         }
-        if (isDeviceNotFound && isReplacingWithBleBondError) {
-          return;
-        }
-        const existingDialog = hardwareErrorDialogInstanceRef.current;
-        if (existingDialog?.isExist()) {
-          if (
-            shouldReplaceHardwareErrorDialog({
-              currentErrorType: hardwareErrorDialogTypeRef.current,
-              nextErrorType: errorType,
-            })
-          ) {
-            void serviceHardwareUI.cleanHardwareUiState();
-            hardwareErrorDialogTypeRef.current =
-              HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR;
-            isReplacingWithBleBondError = true;
-            void (async () => {
-              try {
-                await existingDialog.close();
-              } catch {
-                // Keep the repair guidance visible even if closing fails.
-              }
-              if (!isDisposed) {
-                showBleBondErrorDialog();
-              }
-              isReplacingWithBleBondError = false;
-            })();
-          }
+        if (hardwareErrorDialogInstanceRef.current?.isExist()) {
           return;
         }
 
         void serviceHardwareUI.cleanHardwareUiState();
 
-        if (isBleDeviceBondError) {
-          showBleBondErrorDialog();
-          return;
-        }
-
         const isTrezorError =
           isTrezorHardwareErrorDialogPayload(errorDialogPayload);
 
-        hardwareErrorDialogTypeRef.current =
-          HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_FOUND;
         hardwareErrorDialogInstanceRef.current = Dialog.show({
           title: intl.formatMessage({
             id: isTrezorError
@@ -920,11 +874,9 @@ function HardwareUiStateContainerCmpControlled() {
 
     appEventBus.on(EAppEventBusNames.ShowHardwareErrorDialog, callback);
     return () => {
-      isDisposed = true;
       appEventBus.off(EAppEventBusNames.ShowHardwareErrorDialog, callback);
       callback.cancel();
       hardwareErrorDialogInstanceRef.current = null;
-      hardwareErrorDialogTypeRef.current = null;
     };
   }, [intl, serviceHardwareUI]);
 

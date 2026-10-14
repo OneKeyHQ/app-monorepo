@@ -5,7 +5,6 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import resetUtils from '../../utils/resetUtils';
 
 import mmkvStorageInstance from './mmkvStorageInstance';
-import { createWebColdStartStorage } from './webColdStartStorage';
 
 // cspell:ignore IMMKV
 import type { IMMKVInstance, ISyncStorage } from './createMMKVSyncStorage';
@@ -59,4 +58,3 @@ function createWebSettingsSyncStorage(mmkv: IMMKVInstance): ISyncStorage {
 }
 
 export const syncStorage = createWebSettingsSyncStorage(mmkvStorageInstance);
-export const coldStartCacheStorage = createWebColdStartStorage();

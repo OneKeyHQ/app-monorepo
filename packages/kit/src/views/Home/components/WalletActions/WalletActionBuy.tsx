@@ -13,6 +13,7 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { useHomeTokenListSnapshot } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells';
 import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
 import { useFiatCrypto } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
+import { tryOpenHeadlessBuy } from '@onekeyhq/kit/src/views/FiatCrypto/utils/openFiatCryptoOrHeadless';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -24,6 +25,7 @@ import {
   openUrlExternal,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import { EHeadlessBuyEntry } from '@onekeyhq/shared/types/fiatCrypto';
 
 export function WalletActionBuy({
   onClose,
@@ -190,6 +192,16 @@ export function WalletActionBuy({
             tokenSymbol: nativeToken.symbol,
             networkID: network?.id ?? '',
           });
+          if (
+            await tryOpenHeadlessBuy({
+              networkId: network?.id ?? '',
+              tokenAddress: nativeToken.address,
+              accountId: a?.id ?? '',
+              entryFrom: EHeadlessBuyEntry.HomeWalletAction,
+            })
+          ) {
+            return;
+          }
           const { url } =
             await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
               networkId: network?.id ?? '',

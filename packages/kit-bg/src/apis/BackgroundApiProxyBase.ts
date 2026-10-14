@@ -42,6 +42,10 @@ import type {
 // ever revived.
 import type ProviderApiBase from '../providers/ProviderApiBase';
 import type { EAtomNames } from '../states/jotai/atomNames';
+import type {
+  IJotaiContextStoreRegistrationUpdate,
+  IJotaiContextStoreRegistrationUpdateResult,
+} from '../states/jotai/atoms/jotaiContextStoreMap';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
   IInjectedProviderNames,
@@ -417,6 +421,12 @@ export class BackgroundApiProxyBase
   async setAtomValue(atomName: EAtomNames, value: any) {
     // await this.allAtoms;
     return this.callBackground('setAtomValue', atomName, value);
+  }
+
+  async updateJotaiContextStoreRegistration(
+    update: IJotaiContextStoreRegistrationUpdate,
+  ): Promise<IJotaiContextStoreRegistrationUpdateResult> {
+    return this.callBackground('updateJotaiContextStoreRegistration', update);
   }
 
   async emitEvent<T extends keyof IAppEventBusPayload>(

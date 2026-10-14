@@ -2,12 +2,14 @@ import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { HardwareErrorCode as HwkHardwareErrorCode } from '@onekeyfe/hwk-adapter-core';
 import { isArray, isNil } from 'lodash';
 
+import { ETranslations } from '../../locale';
 import platformEnv from '../../platformEnv';
 import * as HardwareErrors from '../errors/hardwareErrors';
 import { THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE } from '../errors/thirdPartyHardwareErrors';
 import {
   ECustomOneKeyHardwareError,
   EOneKeyErrorClassNames,
+  ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
 } from '../types/errorTypes';
 
 import { getDeviceErrorPayloadMessage } from './errorUtils';
@@ -173,21 +175,34 @@ export function convertDeviceError(
       return new HardwareErrors.NetworkError({ payload });
     case HardwareErrorCode.BlePermissionError:
       return new HardwareErrors.NeedBluetoothTurnedOn({ payload });
+    case HardwareErrorCode.BlePoweredOff:
+      return new HardwareErrors.OneKeyHardwareError({
+        payload,
+        code,
+        key: ETranslations.hardware_bluetooth_need_turned_on_error,
+      });
+    case HardwareErrorCode.BleUnsupported:
+      return new HardwareErrors.OneKeyHardwareError({
+        payload,
+        code,
+        key: ETranslations.hardware_third_party_transport_not_available,
+      });
     case HardwareErrorCode.BleLocationError:
       return new HardwareErrors.NeedBluetoothPermissions({ payload });
     case HardwareErrorCode.BleLocationServicesDisabled:
       return new HardwareErrors.BleLocationServiceError({ payload });
     case HardwareErrorCode.BleDeviceNotBonded:
-      return new HardwareErrors.DeviceNotBonded({ payload });
-    case HardwareErrorCode.BleDeviceBondedCanceled:
-      return new HardwareErrors.BleDeviceBondedCanceled({ payload });
-    case HardwareErrorCode.BleDeviceBondError:
-    case HardwareErrorCode.BlePeerRemovedPairingInformation:
-    case HardwareErrorCode.BleBondInvalid:
-      return new HardwareErrors.DeviceBondError({
+      return new HardwareErrors.DeviceNotBonded({
         payload,
-        silentMode: options?.silentMode,
+        key: platformEnv.isDesktop
+          ? ETranslations.feedback_bluetooth_pairing_failed
+          : undefined,
       });
+    case HardwareErrorCode.BleDeviceBondedCanceled:
+      if (platformEnv.isDesktop) {
+        return new HardwareErrors.UserCancel({ payload, autoToast: false });
+      }
+      return new HardwareErrors.BleDeviceBondedCanceled({ payload });
     case HardwareErrorCode.BleWriteCharacteristicError:
       return new HardwareErrors.BleWriteCharacteristicError({ payload });
     case HardwareErrorCode.BleScanError:
@@ -271,6 +286,18 @@ export function convertDeviceError(
       return new HardwareErrors.DeviceDataOverload({ payload });
     case HardwareErrorCode.BridgeDeviceDisconnected:
       return new HardwareErrors.DeviceDisconnectedError({ payload });
+    case ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE:
+      return new HardwareErrors.OneKeyHardwareError({
+        payload,
+        code,
+        key: ETranslations.global_connection_failed_usb_help_text,
+      });
+    case HardwareErrorCode.BridgeNeedsPermission:
+      return new HardwareErrors.OneKeyHardwareError({
+        payload,
+        code,
+        key: ETranslations.device_grant_usb_access,
+      });
     case HardwareErrorCode.BTCPsbtTooManyUtxos:
       return new HardwareErrors.BTCPsbtTooManyUtxos({ payload });
     case HardwareErrorCode.ResponseUnexpectTypeError:
@@ -343,7 +370,11 @@ export async function convertDeviceResponse<T>(
       ?.errorCode;
     if (typeof sdkErrorCode === 'number') {
       throw convertDeviceError(
-        { code: sdkErrorCode, error: error?.message },
+        {
+          code: sdkErrorCode,
+          error: error?.message,
+          params: (error as { params?: unknown } | undefined)?.params,
+        },
         options,
       );
     }
@@ -363,6 +394,17 @@ export function isOneKeyHardwareError(error: unknown): error is IOneKeyError {
     oneKeyError?.className === EOneKeyErrorClassNames.OneKeyHardwareError ||
     oneKeyError?.className === EOneKeyErrorClassNames.UnknownHardwareError ||
     oneKeyError?.$isHardwareError === true,
+  );
+}
+
+export function isDesktopBlePairingCanceledError(
+  error: unknown,
+): error is IOneKeyError {
+  const oneKeyError = error as IOneKeyError | undefined;
+  return Boolean(
+    platformEnv.isDesktop &&
+    isOneKeyHardwareError(error) &&
+    oneKeyError?.payload?.code === HardwareErrorCode.BleDeviceBondedCanceled,
   );
 }
 

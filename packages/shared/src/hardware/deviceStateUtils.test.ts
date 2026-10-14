@@ -225,6 +225,139 @@ describe('deviceStateUtils', () => {
     expect(merged.settings.language).toBe('ja');
   });
 
+  it.each([
+    {
+      mode: 'bootloader',
+      changedKeys: ['settings.language'],
+      source: 'device-info',
+    },
+    { mode: 'bootloader', changedKeys: ['settings'], source: 'initialize' },
+    { mode: 'romloader', changedKeys: ['*'], source: 'initialize' },
+  ] as const)(
+    'preserves missing V1 loader settings for $mode / $changedKeys',
+    ({ mode, changedKeys, source }) => {
+      const currentState = createState();
+      currentState.protocol = 'V1';
+      currentState.settings.language = 'ja';
+      currentState.settings.autoLockDelayMs = 60_000;
+      currentState.settings.autoShutdownDelayMs = 120_000;
+      currentState.settings.brightness = 50;
+      currentState.settings.hapticFeedback = true;
+      const incomingState = createState({ revision: 2, updatedAt: 2 });
+      incomingState.protocol = 'V1';
+      incomingState.status.mode = mode;
+      incomingState.settings.brightness = 0;
+      incomingState.settings.hapticFeedback = false;
+      delete (incomingState.settings as Partial<typeof incomingState.settings>)
+        .autoShutdownDelayMs;
+
+      const merged = mergeDeviceStateEvent({
+        currentState,
+        incomingState,
+        changedKeys: [
+          ...changedKeys,
+          'status.mode',
+          'settings.autoLockDelayMs',
+          'settings.autoShutdownDelayMs',
+          'settings.brightness',
+          'settings.hapticFeedback',
+        ],
+        source,
+      });
+
+      expect(merged.settings).toMatchObject({
+        language: 'ja',
+        autoLockDelayMs: 60_000,
+        autoShutdownDelayMs: 120_000,
+        brightness: 0,
+        hapticFeedback: false,
+      });
+      expect(merged.status.mode).toBe(mode);
+      expect(currentState.settings.brightness).toBe(50);
+      expect(incomingState.settings.language).toBeNull();
+    },
+  );
+
+  it.each(['V1', 'V2'] as const)(
+    'only repairs missing settings on normal V1 firmware read-back (%s)',
+    (protocol) => {
+      const currentState = createState();
+      currentState.protocol = protocol;
+      currentState.settings.language = 'ja';
+      currentState.settings.autoShutdownDelayMs = 120_000;
+      const incomingState = createState({ revision: 2, updatedAt: 2 });
+      incomingState.protocol = protocol;
+      incomingState.settings.language = 'en';
+      incomingState.settings.autoLockDelayMs = 0;
+      incomingState.settings.autoShutdownDelayMs = 300_000;
+      incomingState.settings.hapticFeedback = false;
+
+      const merged = mergeDeviceStateEvent({
+        currentState,
+        incomingState,
+        changedKeys: ['versions.firmware'],
+        source: 'device-info',
+      });
+
+      expect(merged.settings).toMatchObject({
+        language: 'ja',
+        autoLockDelayMs: protocol === 'V1' ? 0 : null,
+        autoShutdownDelayMs: 120_000,
+        hapticFeedback: protocol === 'V1' ? false : null,
+        brightness: null,
+      });
+    },
+  );
+
+  it('only fills missing settings when equal metadata permits a V1 read-back', () => {
+    const currentState = createState();
+    currentState.protocol = 'V1';
+    currentState.settings.autoLockDelayMs = 60_000;
+    const incomingState = createState();
+    incomingState.protocol = 'V1';
+    incomingState.settings.language = 'ja';
+    incomingState.settings.autoLockDelayMs = 300_000;
+    incomingState.identity.label = 'Stale label';
+    incomingState.status.unlocked = true;
+
+    const merged = mergeDeviceStateEvent({
+      currentState,
+      incomingState,
+      changedKeys: ['*'],
+      source: 'device-info',
+    });
+
+    expect(merged.settings.language).toBe('ja');
+    expect(merged.settings.autoLockDelayMs).toBe(60_000);
+    expect(merged.identity.label).toBe(currentState.identity.label);
+    expect(merged.identity.deviceId).toBe(currentState.identity.deviceId);
+    expect(merged.status).toEqual(currentState.status);
+  });
+
+  it.each([
+    { protocol: 'V1', mode: 'normal' },
+    { protocol: 'V2', mode: 'bootloader' },
+  ] as const)(
+    'keeps existing null semantics for $protocol / $mode',
+    ({ protocol, mode }) => {
+      const currentState = createState();
+      currentState.protocol = protocol;
+      currentState.settings.language = 'ja';
+      const incomingState = createState({ revision: 2, updatedAt: 2 });
+      incomingState.protocol = protocol;
+      incomingState.status.mode = mode;
+
+      expect(
+        mergeDeviceStateEvent({
+          currentState,
+          incomingState,
+          changedKeys: ['settings.language'],
+          source: 'initialize',
+        }).settings.language,
+      ).toBeNull();
+    },
+  );
+
   it('keeps sparse patch semantics for a V2 initialize event', () => {
     const currentState = createState({ revision: 1, updatedAt: 1 });
     currentState.settings.language = 'en';

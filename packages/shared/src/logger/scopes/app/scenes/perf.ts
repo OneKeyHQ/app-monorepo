@@ -1,3 +1,4 @@
+import type { IRuntimeHealthReport } from '@onekeyhq/shared/src/performance/collectors/jsBlockCollector';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { BaseScene } from '../../../base/baseScene';
@@ -47,6 +48,38 @@ export class AppPerfScene extends BaseScene {
     return [params];
   }
 
+  // Atom names only, aggregated per window: never a line per write.
+  @LogToLocal()
+  public uiAtomWriteCensus(params: {
+    windowMs: number;
+    total: number;
+    atomCount: number;
+    byAtom: { atom: string; count: number }[];
+  }) {
+    return [params];
+  }
+
+  // Aggregated per window: event-loop blocks, JS heap and GC, process CPU
+  // and memory, including compact numeric frame-window tuples.
+  @LogToLocal()
+  public runtimeHealthCensus(params: IRuntimeHealthReport) {
+    return [params];
+  }
+
+  // How much data the background pushed into this runtime, per window.
+  // Sender names and sizes only, never payloads.
+  @LogToLocal()
+  public mainInboundCensus(params: {
+    windowMs: number;
+    total: number;
+    totalKB: number;
+    totalChars: number;
+    byKind: { kind: string; count: number; kb: number }[];
+    bySender: { sender: string; count: number; kb: number }[];
+  }) {
+    return [params];
+  }
+
   @LogToLocal()
   public cpuWatchdogFired(params: {
     reason:
@@ -92,31 +125,12 @@ export class AppPerfScene extends BaseScene {
     return params;
   }
 
+  // A deletion path waited for the snapshot store and the store reported the
+  // batch still in memory: it re-queued the removal behind a timer that an
+  // extension popup, closing right after the deletion, would take with it.
   @LogToLocal({ level: 'warn' })
-  public swrCacheSnapshotState(params: {
-    eventCount: number;
-    eventType: 'aborted' | 'failed' | 'recovered';
-    cooldownMs: number;
-    maxReplayKeys: number;
-    maxReplaySerializedChars: number;
-    pendingMutationCount: number;
-    replayMutationCount: number;
-    replaySWRKeyCount: number;
-    replaySWRSerializedChars: number;
-    reason: 'replayBudgetExceeded' | 'requestFailed';
-    retryAttempt: number;
-    store: 'all' | 'settings' | 'coldStart' | 'devSettings';
-  }) {
-    return { ...params, runtime: platformEnv.runtimeRole };
-  }
-
-  @LogToLocal({ level: 'warn' })
-  public swrCacheWriteState(params: {
-    affectedEntryCount: number;
-    cooldownMs: number;
-    eventCount: number;
-    maxIncomingEntrySerializedChars: number;
-    reason: 'staleTimestamp';
+  public swrCacheRemovalNotPersisted(params: {
+    reason: 'removedWallet' | 'removedAccount';
   }) {
     return { ...params, runtime: platformEnv.runtimeRole };
   }
@@ -199,5 +213,28 @@ export class AppPerfScene extends BaseScene {
     dataVersion: string;
   }) {
     return params;
+  }
+
+  // A root tab has to clear three gates before it can be shown without any
+  // loading state, and preloading is only worth anything if all three happen
+  // before the user taps. One line per transition, never one per render:
+  //   dispatch          - the navigator sent CommonActions.preload
+  //   sceneRevealed     - the scene laid out and SceneLoadingView came off
+  //   pageBodyRendered  - LazyPageContainer let the page tree mount
+  // `aheadOfFocus: false` means the stage only happened once the tab was
+  // already focused, i.e. the user sat through it. `dispatch` carries no such
+  // flag: it is a scheduler event, and whether the queue reached a tab first
+  // is answered by the two stages that actually gate what the user sees.
+  @LogToLocal()
+  public tabPreloadStage(
+    params:
+      | { stage: 'dispatch'; tab: string }
+      | {
+          stage: 'sceneRevealed' | 'pageBodyRendered';
+          tab: string;
+          aheadOfFocus: boolean;
+        },
+  ) {
+    return [params];
   }
 }

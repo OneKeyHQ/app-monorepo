@@ -7,11 +7,20 @@ import {
   getOneKeyIdAuthFailureServerParams,
   scrubSensitiveErrorMessageText,
 } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
-import type { IOneKeyIdAuthFailureLogSource } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
+import type {
+  IOneKeyIdAuthFailureLogSource,
+  IOneKeyIdAuthFailureStep,
+} from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import type { IPrimeInfiniPaymentSource } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
+
+import type {
+  IPrimeEntitlementSource,
+  IPrimeFreeTrialExhaustedTrigger,
+  IPrimeFreeTrialLoginResult,
+} from '../types';
 
 // Payment channel dimension: 'iap' = native in-app purchase (RevenueCat),
 // 'stripe' = RevenueCat web billing (Stripe), 'crypto' = Infini crypto checkout
@@ -180,6 +189,10 @@ export type IPrimeGiftStageParams =
   | {
       stage: 'claim';
       status: 'submit';
+    }
+  | {
+      stage: 'code';
+      status: 'view' | 'copy';
     };
 
 export class PrimeSubscriptionScene extends BaseScene {
@@ -204,7 +217,8 @@ export class PrimeSubscriptionScene extends BaseScene {
       | 'browserTranslate'
       | 'historySettings'
       | 'sendAddressInput'
-      | 'signatureConfirm';
+      | 'signatureConfirm'
+      | 'approvalBulkRevoke';
     isPrimeActive: boolean;
   }) {
     return {
@@ -243,14 +257,80 @@ export class PrimeSubscriptionScene extends BaseScene {
   public primeDashboardShow({
     featureName,
     isPrimeActive,
+    entitlementSource,
+    freeTrialReason,
   }: {
     featureName?: EPrimeFeatures;
     isPrimeActive: boolean;
+    // Set when the dashboard is opened by the free-trial flow
+    entitlementSource?: IPrimeEntitlementSource;
+    freeTrialReason?: 'exhausted' | 'notOpen';
   }) {
     return {
       featureName,
       isPrimeActive,
+      entitlementSource,
+      freeTrialReason,
     };
+  }
+
+  /**
+   * Free-trial login result
+   * Triggered when a logged-out user is asked to log in to try a feature.
+   */
+  @LogToServer()
+  public primeFreeTrialLoginResult(params: {
+    featureName: EPrimeFeatures;
+    featureId: EPrimeFeatures;
+    result: IPrimeFreeTrialLoginResult;
+  }) {
+    return params;
+  }
+
+  /**
+   * Free-trial usage consumed
+   * Triggered once per usage id (or translate session) at the background
+   * success settle point, i.e. when the usage is charged.
+   */
+  @LogToServer()
+  public primeFreeTrialUsageSuccess(params: {
+    featureName: EPrimeFeatures;
+    featureId: EPrimeFeatures;
+    entitlementSource: IPrimeEntitlementSource;
+  }) {
+    return params;
+  }
+
+  /**
+   * Free-trial quota exhausted feedback shown
+   */
+  @LogToServer()
+  public primeFreeTrialQuotaExhausted(params: {
+    featureName: EPrimeFeatures;
+    featureId: EPrimeFeatures;
+    trigger: IPrimeFreeTrialExhaustedTrigger;
+  }) {
+    return params;
+  }
+
+  /**
+   * "Get Prime" button pressed on a free-trial exhausted toast
+   */
+  @LogToServer()
+  public primeFreeTrialUpgradeClick(params: {
+    featureName: EPrimeFeatures;
+    featureId: EPrimeFeatures;
+  }) {
+    return params;
+  }
+
+  @LogToLocal({ level: 'info' })
+  public primeFreeTrialTrace(params: {
+    featureId?: EPrimeFeatures;
+    stage: string;
+    reason?: string;
+  }) {
+    return params;
   }
 
   /** Track when a logged-in user opens the Prime redemption dialog. */
@@ -708,10 +788,16 @@ export class PrimeSubscriptionScene extends BaseScene {
   // surfaces the failure — unlike onekeyIdLoginFailedToast above, which
   // strictly means "the fallback toast was shown".
   @LogToServer()
-  public onekeyIdLoginFailedReason({ reason }: { reason: string }) {
+  public onekeyIdLoginFailedReason({
+    reason,
+    step,
+  }: {
+    reason: string;
+    step?: IOneKeyIdAuthFailureStep;
+  }) {
     const source = 'throwSite';
     this.onekeyIdAuthFailureLocal({ source, reason });
-    return getOneKeyIdAuthFailureServerParams({ source, reason });
+    return getOneKeyIdAuthFailureServerParams({ source, reason, step });
   }
 
   // Keeps the scrubbed diagnostic text on the device. The corresponding

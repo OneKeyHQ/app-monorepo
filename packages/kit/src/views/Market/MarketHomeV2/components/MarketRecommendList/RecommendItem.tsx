@@ -10,35 +10,34 @@ import {
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { CommunityRecognizedBadge } from '../../../components/CommunityRecognizedBadge';
 import { MarketTokenIcon } from '../../../components/MarketTokenIcon';
 
 export function RecommendItem({
   icon,
   checked = false,
+  disabled = false,
   onChange,
   tokenName,
   symbol,
   address,
   networkId,
-  communityRecognized,
 }: {
   icon: string;
   tokenName: string;
   checked: boolean;
+  disabled?: boolean;
   symbol: string;
   address: string;
   networkId?: string;
-  communityRecognized?: boolean;
   onChange: (checked: boolean, address: string) => void;
 }) {
   const { sharedFrameStyles } = useMemo(
     () =>
       getSharedButtonStyles({
-        disabled: false,
+        disabled,
         loading: false,
       }),
-    [],
+    [disabled],
   );
   return (
     <XStack
@@ -53,6 +52,9 @@ export function RecommendItem({
       borderWidth={1}
       borderColor="$neutral3"
       onPress={() => {
+        if (disabled) {
+          return;
+        }
         onChange(!checked, address);
       }}
       ai="center"
@@ -84,7 +86,6 @@ export function RecommendItem({
             >
               {symbol}
             </SizableText>
-            {communityRecognized ? <CommunityRecognizedBadge /> : null}
           </XStack>
           <XStack>
             <SizableText

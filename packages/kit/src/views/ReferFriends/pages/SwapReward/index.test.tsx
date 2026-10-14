@@ -124,6 +124,9 @@ jest.mock('../../components', () => ({
 }));
 
 jest.mock('../../hooks/useDatePresets', () => ({
+  ...jest.requireActual<typeof import('../../hooks/useDatePresets')>(
+    '../../hooks/useDatePresets',
+  ),
   useDatePresets: () => mockDatePresets,
 }));
 
@@ -290,7 +293,7 @@ describe('SwapReward refresh feedback', () => {
 
     expect(mockReferFriendsDetailHeader).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: ETranslations.swap_referral_link__title,
+        title: ETranslations.global_swap,
       }),
     );
   });

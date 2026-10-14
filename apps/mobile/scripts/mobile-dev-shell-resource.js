@@ -16,6 +16,7 @@ const {
   readLocalShellCache,
 } = require('./local-dev-shell-cache');
 const { withCacheLock } = require('./metro-dev-prebundle');
+const { downloadOciBlobConcurrent } = require('./oci-concurrent-download');
 
 const REPO_ROOT = path.resolve(__dirname, '../../..');
 const OCI_REGISTRY = 'ghcr.io';
@@ -157,16 +158,22 @@ function createOciClient({ fetchImpl = globalThis.fetch } = {}) {
   const repositoryUrl = `${baseUrl}/v2/${OCI_REPOSITORY}`;
   let authorization;
 
-  async function fetchRegistry(url, { accept, timeoutMs }) {
+  async function fetchRegistry(
+    url,
+    { accept, headers = {}, signal, timeoutMs },
+  ) {
     const request = () =>
       fetchImpl(url, {
         headers: {
           Accept: accept,
           ...(authorization ? { Authorization: authorization } : {}),
           'User-Agent': 'OneKey-Mobile-Dev-Shell',
+          ...headers,
         },
         redirect: 'follow',
-        signal: AbortSignal.timeout(timeoutMs),
+        signal: signal
+          ? AbortSignal.any([AbortSignal.timeout(timeoutMs), signal])
+          : AbortSignal.timeout(timeoutMs),
       });
     let response = await request();
     if (response.status !== 401) return response;
@@ -228,12 +235,17 @@ function createOciClient({ fetchImpl = globalThis.fetch } = {}) {
   }
 
   return {
-    fetchBlob(digest, timeoutMs = 180_000) {
+    fetchBlob(digest, timeoutMs = 180_000, { range, ifRange, signal } = {}) {
       if (!/^sha256:[0-9a-f]{64}$/.test(digest || '')) {
         throw new Error('[mobileDevShellResource] Invalid OCI blob digest.');
       }
       return fetchRegistry(`${repositoryUrl}/blobs/${digest}`, {
         accept: 'application/octet-stream',
+        headers: {
+          ...(range ? { Range: range, 'Accept-Encoding': 'identity' } : {}),
+          ...(ifRange ? { 'If-Range': ifRange } : {}),
+        },
+        signal,
         timeoutMs,
       });
     },
@@ -420,6 +432,12 @@ async function downloadLayerOnce({ client, descriptor, filePath, maxBytes }) {
       `[mobileDevShellResource] Shell layer exceeds size limit: ${path.basename(filePath)}.`,
     );
   }
+  const concurrent = await downloadOciBlobConcurrent({
+    client,
+    descriptor,
+    filePath,
+  });
+  if (concurrent) return;
   const response = await client.fetchBlob(descriptor.digest);
   if (!response.ok) {
     const error = new Error(
@@ -455,9 +473,11 @@ async function downloadLayerOnce({ client, descriptor, filePath, maxBytes }) {
     receivedBytes !== descriptor.size ||
     `sha256:${hash.digest('hex')}` !== descriptor.digest
   ) {
-    throw new Error(
+    const error = new Error(
       `[mobileDevShellResource] Shell layer integrity mismatch: ${path.basename(filePath)}.`,
     );
+    error.retryable = receivedBytes !== descriptor.size;
+    throw error;
   }
 }
 
@@ -922,14 +942,19 @@ async function restoreLocator({
         [getSidecarFile(compatibility.artifactFile), MAX_MANIFEST_BYTES],
         [ATTESTATION_FILE, MAX_ATTESTATION_BYTES],
       ];
-      for (const [fileName, maxBytes] of files) {
-        await downloadLayerToFile({
+      const downloads = files.map(([fileName, maxBytes]) =>
+        downloadLayerToFile({
           client: resolved.client,
           descriptor: resolved.layers.get(fileName),
           filePath: path.join(temporaryDirectory, fileName),
           maxBytes,
-        });
-      }
+        }),
+      );
+      const downloadResults = await Promise.allSettled(downloads);
+      const failedDownload = downloadResults.find(
+        (result) => result.status === 'rejected',
+      );
+      if (failedDownload) throw failedDownload.reason;
       await fs.promises.writeFile(
         path.join(temporaryDirectory, RECEIPT_FILE),
         `${JSON.stringify(

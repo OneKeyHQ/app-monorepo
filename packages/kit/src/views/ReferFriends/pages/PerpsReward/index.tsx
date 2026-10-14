@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  DatePicker,
   Page,
   RefreshControl,
   ScrollView,
@@ -31,8 +30,12 @@ import {
   FilterButton,
   ReferFriendsDetailHeader,
   ReferFriendsPageContainer,
+  RewardDateRangeField,
 } from '../../components';
-import { useDatePresets } from '../../hooks/useDatePresets';
+import {
+  REFERRAL_ALL_TIME_START,
+  useDatePresets,
+} from '../../hooks/useDatePresets';
 import { useRewardFilter } from '../../hooks/useRewardFilter';
 
 import { PerpsDetailsSection } from './components/PerpsDetailsSection';
@@ -60,8 +63,6 @@ function PerpsRewardPageWrapper() {
   const [hideZeroVolume, setHideZeroVolume] = useState(true);
   const [sortBy, setSortBy] = useState<IPerpsInvitesSortBy>('volume');
   const [sortOrder, setSortOrder] = useState<IPerpsInvitesSortOrder>('desc');
-  // Track whether user has explicitly clicked a sort header
-  const [hasUserSorted, setHasUserSorted] = useState(false);
 
   // Pagination state
   const [cursor, setCursor] = useState<string | undefined>();
@@ -69,7 +70,6 @@ function PerpsRewardPageWrapper() {
 
   const handleSort = useCallback(
     (field: IPerpsInvitesSortBy) => {
-      setHasUserSorted(true);
       if (sortBy === field) {
         // Toggle order if same field
         setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'));
@@ -89,7 +89,7 @@ function PerpsRewardPageWrapper() {
     clearCustomDateRange,
     datePickerValue,
   } = useRewardFilter({
-    startTime: new Date('2024-01-01T00:00:00.000').getTime(),
+    startTime: REFERRAL_ALL_TIME_START.getTime(),
     endTime: (() => {
       const d = new Date();
       d.setHours(23, 59, 59, 999);
@@ -372,15 +372,12 @@ function PerpsRewardPageWrapper() {
   const toolbar = useMemo(
     () => (
       <>
-        <YStack width={240}>
-          <DatePicker.Range
-            value={currentDatePickerValue}
-            onChange={handleDateRangeChange}
-            maxDate={maxDate}
-            showPreviousMonth
-            presets={presets}
-          />
-        </YStack>
+        <RewardDateRangeField
+          value={currentDatePickerValue}
+          onChange={handleDateRangeChange}
+          maxDate={maxDate}
+          presets={presets}
+        />
         <XStack gap="$3">
           <FilterButton
             filterState={filterState}
@@ -410,7 +407,7 @@ function PerpsRewardPageWrapper() {
   return (
     <Page>
       <ReferFriendsDetailHeader
-        title={intl.formatMessage({ id: ETranslations.global_perp })}
+        title={intl.formatMessage({ id: ETranslations.perps_perps })}
         toolbar={toolbar}
       />
       <Page.Body>
@@ -459,7 +456,6 @@ function PerpsRewardPageWrapper() {
                 onSort={handleSort}
                 isLoadingMore={isLoadingMore}
                 isTabLoading={isTabLoading}
-                hasUserSorted={hasUserSorted}
               />
             </ScrollView>
           )}

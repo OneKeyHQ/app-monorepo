@@ -1,3 +1,6 @@
+import { CanceledError } from 'axios';
+
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { TravelModeManager } from '@onekeyhq/shared/src/travelMode/TravelModeManager';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
@@ -33,6 +36,13 @@ class TestEntity extends SimpleDbEntityBase<{ v: number }> {
 
   protected override readonly enableUnreadableRecordSelfHeal: boolean;
 
+  async writeWithGuard(
+    builder: () => { v: number } | Promise<{ v: number }>,
+    guard: () => void,
+  ) {
+    return this.setRawDataWithCommitGuard(async () => builder(), guard);
+  }
+
   constructor({
     name = 'test-entity',
     enableCache = false,
@@ -43,9 +53,117 @@ class TestEntity extends SimpleDbEntityBase<{ v: number }> {
     this.enableCache = enableCache;
     this.enableUnreadableRecordSelfHeal = selfHeal;
   }
+
+  async runTransaction({
+    afterPublish,
+    beforePublish,
+    build,
+    shouldCommit,
+  }: {
+    afterPublish?: (data: { v: number }) => boolean;
+    beforePublish?: (data: { v: number }) => Promise<boolean> | boolean;
+    build: (
+      rawData: { v: number } | null | undefined,
+    ) => Promise<{ data: { v: number } } | undefined>;
+    shouldCommit: () => boolean;
+  }) {
+    return this.setRawDataTransaction({
+      afterPublish,
+      beforePublish,
+      build,
+      shouldCommit,
+    });
+  }
 }
 
 const expectedHealGetItemCalls = 1 + UNREADABLE_SELF_HEAL_MAX_RETRIES;
+
+describe('SimpleDbEntityBase request commit guard', () => {
+  it('rejects a stale queued writer after acquiring the entity lock', async () => {
+    const entity = new TestEntity();
+    const setItem = jest.fn(async () => undefined);
+    entity.appStorage = {
+      ...entity.appStorage,
+      getItem: jest.fn(async () => null),
+      setItem,
+    };
+    const [, release] = await entity.mutex.acquire();
+    let current = true;
+    const builder = jest.fn(() => ({ v: 1 }));
+    const pending = entity.writeWithGuard(builder, () => {
+      if (!current) throw new CanceledError('owner expired');
+    });
+    const rejected = (async () => {
+      await expect(pending).rejects.toThrow('owner expired');
+    })();
+    current = false;
+    release();
+    await rejected;
+    expect(builder).not.toHaveBeenCalled();
+    expect(setItem).not.toHaveBeenCalled();
+    await entity.setRawData({ v: 2 });
+    expect(setItem).toHaveBeenCalledTimes(1);
+  });
+
+  it('rechecks after a pending read before building or writing', async () => {
+    const entity = new TestEntity();
+    let releaseRead!: (value: null) => void;
+    let signalRead!: () => void;
+    const readStarted = new Promise<void>((resolve) => {
+      signalRead = resolve;
+    });
+    const read = new Promise<null>((resolve) => {
+      releaseRead = resolve;
+    });
+    const setItem = jest.fn(async () => undefined);
+    entity.appStorage = {
+      ...entity.appStorage,
+      getItem: jest.fn(async () => {
+        signalRead();
+        return read;
+      }),
+      setItem,
+    };
+    let current = true;
+    const builder = jest.fn(() => ({ v: 1 }));
+    const pending = entity.writeWithGuard(builder, () => {
+      if (!current) throw new CanceledError('owner expired');
+    });
+    const rejected = (async () => {
+      await expect(pending).rejects.toThrow('owner expired');
+    })();
+    await readStarted;
+    current = false;
+    releaseRead(null);
+    await rejected;
+    expect(builder).not.toHaveBeenCalled();
+    expect(setItem).not.toHaveBeenCalled();
+  });
+
+  it('rechecks after an async builder and admits the final owner normally', async () => {
+    const entity = new TestEntity();
+    const setItem = jest.fn(async () => undefined);
+    entity.appStorage = {
+      ...entity.appStorage,
+      getItem: jest.fn(async () => null),
+      setItem,
+    };
+    let current = true;
+    const guard = () => {
+      if (!current) throw new CanceledError('owner expired');
+    };
+    await expect(
+      entity.writeWithGuard(async () => {
+        current = false;
+        return { v: 1 };
+      }, guard),
+    ).rejects.toThrow('owner expired');
+    expect(setItem).not.toHaveBeenCalled();
+    current = true;
+    await entity.writeWithGuard(() => ({ v: 2 }), guard);
+    expect(setItem).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe('SimpleDbEntityBase Travel Mode masking', () => {
   test('hides cached reads and skips builders and durable writes', async () => {
@@ -77,9 +195,20 @@ describe('SimpleDbEntityBase Travel Mode masking', () => {
 
     await expect(entity.getRawData()).resolves.toBeNull();
     await expect(entity.setRawData(builder)).resolves.toBeUndefined();
+    const transactionBuilder = jest.fn(async () => ({ data: { v: 3 } }));
+    const afterPublish = jest.fn(() => true);
+    await expect(
+      entity.runTransaction({
+        build: transactionBuilder,
+        afterPublish,
+        shouldCommit: () => true,
+      }),
+    ).resolves.toEqual({ committed: false, data: null, previousData: null });
     await expect(entity.clearRawData()).resolves.toBeUndefined();
 
     expect(builder).not.toHaveBeenCalled();
+    expect(transactionBuilder).not.toHaveBeenCalled();
+    expect(afterPublish).not.toHaveBeenCalled();
     expect(getItem).not.toHaveBeenCalled();
     expect(setItem).not.toHaveBeenCalled();
     expect(removeItem).not.toHaveBeenCalled();
@@ -195,6 +324,284 @@ describe('SimpleDbEntityBase clear/set mutex serialization', () => {
 
     expect(order).toEqual(['setItem', 'removeItem']); // serialized, clear last
     expect(entity.entityKey in store).toBe(false); // cache stays cleared
+  });
+});
+
+describe('SimpleDbEntityBase guarded transaction visibility', () => {
+  const readStoredData = (value: unknown) => {
+    const saved =
+      typeof value === 'string'
+        ? (JSON.parse(value) as { data: { v: number } })
+        : (value as { data: { v: number } });
+    return saved.data;
+  };
+
+  test('keeps the old snapshot visible and restores storage when the guard becomes stale', async () => {
+    const entity = new TestEntity({ enableCache: true });
+    const store: Record<string, unknown> = {};
+    let transactionWriteCount = 0;
+    let signalTransactionWrite!: () => void;
+    const transactionWriteStarted = new Promise<void>((resolve) => {
+      signalTransactionWrite = resolve;
+    });
+    let releaseTransactionWrite!: () => void;
+    const transactionWriteGate = new Promise<void>((resolve) => {
+      releaseTransactionWrite = resolve;
+    });
+    let transactionActive = false;
+    (entity as any).appStorage = {
+      getItem: async (key: string) => (key in store ? store[key] : null),
+      setItem: async (key: string, value: unknown) => {
+        store[key] = value;
+        if (transactionActive && transactionWriteCount === 0) {
+          transactionWriteCount += 1;
+          signalTransactionWrite();
+          await transactionWriteGate;
+        }
+      },
+      removeItem: async (key: string) => {
+        delete store[key];
+      },
+    };
+    await entity.setRawData({ v: 1 });
+
+    let current = true;
+    transactionActive = true;
+    const transaction = entity.runTransaction({
+      build: async () => ({ data: { v: 2 } }),
+      shouldCommit: () => current,
+    });
+    await transactionWriteStarted;
+
+    expect(readStoredData(store[entity.entityKey])).toEqual({ v: 2 });
+    await expect(entity.getRawData()).resolves.toEqual({ v: 1 });
+
+    current = false;
+    releaseTransactionWrite();
+    await expect(transaction).resolves.toMatchObject({ committed: false });
+    await expect(entity.getRawData()).resolves.toEqual({ v: 1 });
+    expect(readStoredData(store[entity.entityKey])).toEqual({ v: 1 });
+  });
+
+  test('publishes the new cache only after persistence and the final guard pass', async () => {
+    const entity = new TestEntity({ enableCache: true });
+    const store: Record<string, unknown> = {};
+    let signalTransactionWrite!: () => void;
+    const transactionWriteStarted = new Promise<void>((resolve) => {
+      signalTransactionWrite = resolve;
+    });
+    let releaseTransactionWrite!: () => void;
+    const transactionWriteGate = new Promise<void>((resolve) => {
+      releaseTransactionWrite = resolve;
+    });
+    let transactionActive = false;
+    (entity as any).appStorage = {
+      getItem: async (key: string) => (key in store ? store[key] : null),
+      setItem: async (key: string, value: unknown) => {
+        store[key] = value;
+        if (transactionActive) {
+          signalTransactionWrite();
+          await transactionWriteGate;
+        }
+      },
+      removeItem: async (key: string) => {
+        delete store[key];
+      },
+    };
+    await entity.setRawData({ v: 1 });
+
+    transactionActive = true;
+    const transaction = entity.runTransaction({
+      build: async () => ({ data: { v: 2 } }),
+      shouldCommit: () => true,
+    });
+    await transactionWriteStarted;
+    await expect(entity.getRawData()).resolves.toEqual({ v: 1 });
+
+    transactionActive = false;
+    releaseTransactionWrite();
+    await expect(transaction).resolves.toMatchObject({ committed: true });
+    await expect(entity.getRawData()).resolves.toEqual({ v: 2 });
+    expect(readStoredData(store[entity.entityKey])).toEqual({ v: 2 });
+  });
+
+  test('restores storage and cache when the synchronous publish finalizer rejects', async () => {
+    const entity = new TestEntity({ enableCache: true });
+    const store: Record<string, unknown> = {};
+    (entity as any).appStorage = {
+      getItem: async (key: string) => (key in store ? store[key] : null),
+      setItem: async (key: string, value: unknown) => {
+        store[key] = value;
+      },
+      removeItem: async (key: string) => {
+        delete store[key];
+      },
+    };
+    await entity.setRawData({ v: 1 });
+
+    await expect(
+      entity.runTransaction({
+        afterPublish: (data) => {
+          expect(data).toEqual({ v: 2 });
+          expect(entity.cachedRawData).toEqual({ v: 2 });
+          return false;
+        },
+        build: async () => ({ data: { v: 2 } }),
+        shouldCommit: () => true,
+      }),
+    ).resolves.toMatchObject({ committed: false });
+
+    await expect(entity.getRawData()).resolves.toEqual({ v: 1 });
+    expect(readStoredData(store[entity.entityKey])).toEqual({ v: 1 });
+  });
+
+  test('restores storage and cache when the pre-publish finalizer throws', async () => {
+    const entity = new TestEntity({ enableCache: true });
+    const store: Record<string, unknown> = {};
+    (entity as any).appStorage = {
+      getItem: async (key: string) => (key in store ? store[key] : null),
+      setItem: async (key: string, value: unknown) => {
+        store[key] = value;
+      },
+      removeItem: async (key: string) => {
+        delete store[key];
+      },
+    };
+    await entity.setRawData({ v: 1 });
+
+    await expect(
+      entity.runTransaction({
+        beforePublish: async () => {
+          await expect(entity.getRawData()).resolves.toEqual({ v: 1 });
+          throw new OneKeyLocalError('finalizer failed');
+        },
+        build: async () => ({ data: { v: 2 } }),
+        shouldCommit: () => true,
+      }),
+    ).rejects.toThrow('finalizer failed');
+
+    await expect(entity.getRawData()).resolves.toEqual({ v: 1 });
+    expect(readStoredData(store[entity.entityKey])).toEqual({ v: 1 });
+  });
+
+  test('retries a failed guarded rollback instead of leaving rejected data on disk', async () => {
+    const entity = new TestEntity({ enableCache: true });
+    const store: Record<string, unknown> = {};
+    let rollbackAttemptCount = 0;
+    let transactionStarted = false;
+    (entity as any).appStorage = {
+      getItem: async (key: string) => (key in store ? store[key] : null),
+      setItem: async (key: string, value: unknown) => {
+        if (transactionStarted && readStoredData(value).v === 1) {
+          rollbackAttemptCount += 1;
+          if (rollbackAttemptCount === 1) {
+            throw new OneKeyLocalError('transient rollback failure');
+          }
+        }
+        store[key] = value;
+      },
+      removeItem: async (key: string) => {
+        delete store[key];
+      },
+    };
+    await entity.setRawData({ v: 1 });
+    transactionStarted = true;
+    let guardCheckCount = 0;
+
+    await expect(
+      entity.runTransaction({
+        build: async () => ({ data: { v: 2 } }),
+        shouldCommit: () => {
+          guardCheckCount += 1;
+          return guardCheckCount === 1;
+        },
+      }),
+    ).resolves.toMatchObject({ committed: false });
+
+    expect(rollbackAttemptCount).toBe(2);
+    await expect(entity.getRawData()).resolves.toEqual({ v: 1 });
+    expect(readStoredData(store[entity.entityKey])).toEqual({ v: 1 });
+  });
+
+  test('drops the rollback cache when both restore attempts fail', async () => {
+    const entity = new TestEntity({ enableCache: true });
+    const store: Record<string, unknown> = {};
+    let rollbackAttemptCount = 0;
+    let transactionStarted = false;
+    (entity as any).appStorage = {
+      getItem: async (key: string) => (key in store ? store[key] : null),
+      setItem: async (key: string, value: unknown) => {
+        if (transactionStarted && readStoredData(value).v === 1) {
+          rollbackAttemptCount += 1;
+          throw new OneKeyLocalError('persistent rollback failure');
+        }
+        store[key] = value;
+      },
+      removeItem: async (key: string) => {
+        delete store[key];
+      },
+    };
+    await entity.setRawData({ v: 1 });
+    transactionStarted = true;
+    let guardCheckCount = 0;
+
+    const transaction = entity.runTransaction({
+      build: async () => ({ data: { v: 2 } }),
+      shouldCommit: () => {
+        guardCheckCount += 1;
+        return guardCheckCount === 1;
+      },
+    });
+
+    await expect(transaction).rejects.toThrow(
+      'Failed to restore SimpleDB data after retry: persistent rollback failure',
+    );
+    await expect(transaction).rejects.toMatchObject({
+      cause: {
+        firstRestoreError: expect.objectContaining({
+          message: 'persistent rollback failure',
+        }),
+        retryError: expect.objectContaining({
+          message: 'persistent rollback failure',
+        }),
+      },
+    });
+
+    expect(rollbackAttemptCount).toBe(2);
+    expect(readStoredData(store[entity.entityKey])).toEqual({ v: 2 });
+    await expect(entity.getRawData()).resolves.toEqual({ v: 2 });
+  });
+
+  test('restores a persisted value whose legacy timestamp is zero', async () => {
+    const entity = new TestEntity({ enableCache: true });
+    const store: Record<string, unknown> = {
+      [entity.entityKey]: JSON.stringify({ data: { v: 1 }, updatedAt: 0 }),
+    };
+    const removeItem = jest.fn(async (key: string) => {
+      delete store[key];
+    });
+    (entity as any).appStorage = {
+      getItem: async (key: string) => (key in store ? store[key] : null),
+      setItem: async (key: string, value: unknown) => {
+        store[key] = value;
+      },
+      removeItem,
+    };
+    await expect(entity.getRawData()).resolves.toEqual({ v: 1 });
+    let guardCheckCount = 0;
+
+    await expect(
+      entity.runTransaction({
+        build: async () => ({ data: { v: 2 } }),
+        shouldCommit: () => {
+          guardCheckCount += 1;
+          return guardCheckCount === 1;
+        },
+      }),
+    ).resolves.toMatchObject({ committed: false });
+
+    expect(removeItem).not.toHaveBeenCalled();
+    expect(readStoredData(store[entity.entityKey])).toEqual({ v: 1 });
   });
 });
 

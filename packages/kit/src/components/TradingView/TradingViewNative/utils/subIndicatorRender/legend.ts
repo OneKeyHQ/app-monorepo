@@ -239,6 +239,7 @@ export function getTradingViewNativeSubIndicatorLegendHitRegions({
   const stackLayout = getTradingViewNativeSubIndicatorPaneStackLayout({
     height,
     paneCount: visiblePaneCount,
+    panes,
     timeAxisHeight,
   });
   if (stackLayout.height <= 0) {

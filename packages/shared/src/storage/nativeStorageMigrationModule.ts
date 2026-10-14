@@ -21,7 +21,6 @@ export type INativeStorageMigrationLedgerValue =
 export type INativeStorageMMKVId =
   | 'onekey-app-storage-v1'
   | 'onekey-app-setting'
-  | 'onekey-cold-start-cache'
   | 'onekey-app-dev-setting'
   | 'onekey-jotai-states';
 

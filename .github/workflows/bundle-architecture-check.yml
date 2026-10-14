@@ -34,10 +34,37 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'yarn'
+          package-manager-cache: false
           registry-url: 'https://npm.pkg.github.com'
           check-latest: true
           scope: '@onekeyhq'
+
+      - name: Locate Yarn cache
+        id: yarn-cache
+        shell: bash
+        run: |
+          node <<'NODE'
+          // Match the repository's Yarn 4 cache path without executing checkout plugins.
+          const fs = require('node:fs');
+          const os = require('node:os');
+          const path = require('node:path');
+          const base = process.platform === 'win32'
+            ? path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'Yarn', 'Berry')
+            : process.env.XDG_DATA_HOME
+              ? path.join(process.env.XDG_DATA_HOME, 'yarn', 'berry')
+              : path.join(os.homedir(), '.yarn', 'berry');
+          const cache = process.env.YARN_ENABLE_GLOBAL_CACHE === 'true'
+            ? path.join(base, 'cache') : path.join(process.env.GITHUB_WORKSPACE, '.yarn', 'cache');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `path=${cache}\narch=${process.arch}\n`);
+          NODE
+
+      - name: Restore Yarn cache from x
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.yarn-cache.outputs.path }}
+          key: node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-
 
       - name: Write bundle architecture AI prompt
         run: |
@@ -46,10 +73,11 @@ jobs:
             echo "AI prompt generation failed; inspect the failed step log and bundle architecture logs." > ci-ai/bundle-architecture-ai-prompt.md
 
       - name: Install Dependencies
+        id: dependencies
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
-        run: yarn install --immutable
+        uses: ./.github/actions/install-dependencies
 
       - name: Build union graph and allocation reports
         env:
@@ -105,6 +133,10 @@ jobs:
             echo "- Open: \`bundle-architecture-check.log\`, \`bundle-architecture-union-build.log\`, and \`bundle-architecture-ai-prompt.md\`"
           } >> "$GITHUB_STEP_SUMMARY"
           echo "::notice title=CI diagnostics::Download allocation-reports and inspect bundle-architecture-check.log"
+
+      - name: Unmount dependency image
+        if: always() && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup
 
   notify-failure:
     name: Notify on Failure

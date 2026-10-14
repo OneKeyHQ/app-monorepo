@@ -106,7 +106,7 @@ import {
   getEnableTradingDialogConfirmDecision,
   shouldShowPerpsFirstDepositPrompt,
 } from '../../utils/enableTradingDialogConfirm';
-import { shouldApplyMinimumOrderGuard } from '../../utils/minimumOrderGuard';
+import { isBelowMinimumOrderValue } from '../../utils/minimumOrderGuard';
 import {
   type IPerpsMobileLayoutTraceRect,
   getPerpsMobileLayoutTraceRect,
@@ -248,27 +248,32 @@ async function getLatestPerpsMarketDataFreshness() {
 // Est. Liq price isolated into its own leaf: it owns the price-driven
 // `useLiquidationPrice` subscription, so a price tick re-renders ONLY this
 // text node instead of the whole side button. Value is debounced (~10Hz).
-const EstLiqPriceLeaf = memo(({ side }: { side: 'long' | 'short' }) => {
-  const liquidationPrice = useDebounce(useLiquidationPrice(side), 100);
-  if (liquidationPrice) {
-    return (
-      <NumberSizeableText
-        size="$bodySmMedium"
-        fontFamily="$body"
-        color="$text"
-        formatter="price"
-        formatterOptions={{ currency: '$' }}
-      >
-        {liquidationPrice.toNumber()}
-      </NumberSizeableText>
+const EstLiqPriceLeaf = memo(
+  ({ side, size }: { side: 'long' | 'short'; size: BigNumber }) => {
+    const liquidationPrice = useDebounce(
+      useLiquidationPrice({ side, size }),
+      100,
     );
-  }
-  return (
-    <SizableText size="$bodySmMedium" fontFamily="$body" color="$text">
-      --
-    </SizableText>
-  );
-});
+    if (liquidationPrice) {
+      return (
+        <NumberSizeableText
+          size="$bodySmMedium"
+          fontFamily="$body"
+          color="$text"
+          formatter="price"
+          formatterOptions={{ currency: '$' }}
+        >
+          {liquidationPrice.toNumber()}
+        </NumberSizeableText>
+      );
+    }
+    return (
+      <SizableText size="$bodySmMedium" fontFamily="$body" color="$text">
+        --
+      </SizableText>
+    );
+  },
+);
 EstLiqPriceLeaf.displayName = 'EstLiqPriceLeaf';
 
 function getPerpSideButtonStyles(isLong: boolean) {
@@ -543,27 +548,10 @@ function SideButtonInternal({
 
   const marginRequired = useDebounce(marginRequiredRaw, 100);
 
-  const isMinimumOrderNotMetForSide = useMemo(() => {
-    if (
-      !shouldApplyMinimumOrderGuard({
-        isSpot,
-        orderMode: formData.orderMode,
-        orderType: formData.type,
-        hasBboPriceMode: Boolean(formData.bboPriceMode),
-      })
-    ) {
-      return false;
-    }
-    if (!orderValue || !orderValue.isFinite() || orderValue.lte(0))
-      return false;
-    return orderValue.lt(10);
-  }, [
-    formData.bboPriceMode,
-    formData.orderMode,
-    formData.type,
-    isSpot,
-    orderValue,
-  ]);
+  const isMinimumOrderNotMetForSide = useMemo(
+    () => isBelowMinimumOrderValue(orderValue),
+    [orderValue],
+  );
 
   const isAccountLoading = useMemo<boolean>(() => {
     return (
@@ -1763,7 +1751,7 @@ function SideButtonInternal({
                 })}
               </DashText>
 
-              <EstLiqPriceLeaf side={side} />
+              <EstLiqPriceLeaf side={side} size={computedSizeForSide} />
             </XStack>
           </YStack>
         ) : null}
@@ -1818,7 +1806,7 @@ function SideButtonInternal({
               renderTrigger={desktopLiqPriceTooltipTrigger}
             />
 
-            <EstLiqPriceLeaf side={side} />
+            <EstLiqPriceLeaf side={side} size={computedSizeForSide} />
           </XStack>
         </YStack>
       ) : null}
@@ -2662,7 +2650,7 @@ function TradingButtonGroup({
               numberOfLines={1}
             >
               {intl.formatMessage({
-                id: ETranslations.global_top_up,
+                id: ETranslations.perp_trade_deposit,
               })}
             </SizableText>
           </YStack>

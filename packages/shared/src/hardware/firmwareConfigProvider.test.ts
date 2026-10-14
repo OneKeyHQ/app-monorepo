@@ -74,7 +74,11 @@ const mockedSniRequest = sniRequest as jest.Mock;
 const CONFIG_URL = 'https://data.onekey.so/config.json?noCache=1';
 const PRE_RELEASE_CONFIG_URL =
   'https://data.onekey.so/pre-config.json?noCache=1';
-const BUILTIN_FIRST_IP = '104.18.20.233';
+// Cloudflare endpoints lead the builtin table but are skipped for this host.
+const BUILTIN_FIRST_IP = '216.19.3.115';
+// The builtin fill alternates between the two non-Cloudflare providers.
+const BUILTIN_SECOND_IP = '43.168.19.96';
+const BUILTIN_THIRD_IP = '216.19.2.116';
 
 function buildRemoteConfig(): RemoteConfigResponse {
   const deviceConfig = { firmware: [], ble: [] };
@@ -92,6 +96,54 @@ function buildRemoteConfig(): RemoteConfigResponse {
 
 function transportError(code = 'ECONNABORTED') {
   return Object.assign(new Error(code), { code });
+}
+
+type IIpTableConfigWithRuntime = NonNullable<
+  Awaited<ReturnType<typeof requestHelper.getIpTableConfig>>
+>;
+
+// `provider` is optional here because the remote shape guard only checks `ip`.
+function mockActiveIpTable({
+  domain = 'onekeycn.com',
+  endpoints,
+  selection,
+  lastBestIp,
+}: {
+  domain?: string;
+  endpoints: Array<{ ip: string; provider?: string }>;
+  selection: string;
+  lastBestIp: string;
+}) {
+  mockedRequestHelper.getIpTableConfig.mockResolvedValue({
+    config: {
+      version: 2,
+      ttl_sec: 60,
+      generated_at: '2026-07-27T00:00:00.000Z',
+      signature: '',
+      domains: {
+        [domain]: {
+          endpoints: endpoints.map((endpoint) => ({
+            region: 'ALL',
+            weight: 100,
+            ...endpoint,
+          })),
+        },
+      },
+    },
+    runtime: {
+      enabled: true,
+      lastUpdated: 0,
+      lastRegionCheck: 0,
+      selections: { [domain]: selection },
+      lastBestIp: { [domain]: lastBestIp },
+    },
+  } as IIpTableConfigWithRuntime);
+}
+
+function getSniRequestIps(): string[] {
+  return mockedSniRequest.mock.calls.map(
+    ([request]) => (request as { ip: string }).ip,
+  );
 }
 
 describe('firmware config provider', () => {
@@ -271,7 +323,7 @@ describe('firmware config provider', () => {
       mockedSniRequest.mockImplementation(
         ({ ip, timeout }: { ip: string; timeout: number }) =>
           new Promise((resolve, reject) => {
-            const isLastCandidate = ip === '216.19.3.115';
+            const isLastCandidate = ip === BUILTIN_THIRD_IP;
             setTimeout(
               () => {
                 if (isLastCandidate) {
@@ -299,7 +351,7 @@ describe('firmware config provider', () => {
         mockedSniRequest.mock.calls.map(
           ([request]) => (request as { ip: string }).ip,
         ),
-      ).toEqual([BUILTIN_FIRST_IP, '104.18.21.233', '216.19.3.115']);
+      ).toEqual([BUILTIN_FIRST_IP, BUILTIN_SECOND_IP, BUILTIN_THIRD_IP]);
       expect(mockedSniRequest).toHaveBeenNthCalledWith(
         3,
         expect.objectContaining({ timeout: 10_000 }),
@@ -538,6 +590,135 @@ describe('firmware config provider', () => {
         ([request]) => (request as { ip: string }).ip,
       ),
     ).toEqual(['1.1.1.1', '2.2.2.2', BUILTIN_FIRST_IP]);
+  });
+
+  it('skips Cloudflare endpoints, including a Cloudflare runtime selection', async () => {
+    const config = buildRemoteConfig();
+    directGet.mockRejectedValue(transportError());
+    mockActiveIpTable({
+      endpoints: [
+        { ip: '9.9.9.9', provider: 'Cloudflare' },
+        { ip: '1.1.1.1', provider: 'test' },
+      ],
+      selection: '9.9.9.9',
+      lastBestIp: '1.1.1.1',
+    });
+    mockedSniRequest
+      .mockRejectedValueOnce(transportError('SNI_TIMEOUT'))
+      .mockRejectedValueOnce(transportError('SNI_TIMEOUT'))
+      .mockResolvedValueOnce({
+        statusCode: 200,
+        headers: {},
+        body: JSON.stringify(config),
+      });
+
+    await expect(fetchFirmwareConfig({ preRelease: false })).resolves.toEqual(
+      config,
+    );
+    expect(getSniRequestIps()).toEqual([
+      '1.1.1.1',
+      BUILTIN_FIRST_IP,
+      BUILTIN_SECOND_IP,
+    ]);
+  });
+
+  it('follows a preferred endpoint with a different provider', async () => {
+    const config = buildRemoteConfig();
+    directGet.mockRejectedValue(transportError());
+    mockActiveIpTable({
+      endpoints: [{ ip: BUILTIN_THIRD_IP, provider: 'volcengine' }],
+      selection: '',
+      lastBestIp: BUILTIN_THIRD_IP,
+    });
+    mockedSniRequest
+      .mockRejectedValueOnce(transportError('SNI_TIMEOUT'))
+      .mockRejectedValueOnce(transportError('SNI_TIMEOUT'))
+      .mockResolvedValueOnce({
+        statusCode: 200,
+        headers: {},
+        body: JSON.stringify(config),
+      });
+
+    await expect(fetchFirmwareConfig({ preRelease: false })).resolves.toEqual(
+      config,
+    );
+    expect(getSniRequestIps()).toEqual([
+      BUILTIN_THIRD_IP,
+      BUILTIN_SECOND_IP,
+      BUILTIN_FIRST_IP,
+    ]);
+  });
+
+  it('tries a selection that is also last-best and builtin only once', async () => {
+    directGet.mockRejectedValue(transportError());
+    mockActiveIpTable({
+      endpoints: [{ ip: BUILTIN_FIRST_IP, provider: 'volcengine' }],
+      selection: BUILTIN_FIRST_IP,
+      lastBestIp: BUILTIN_FIRST_IP,
+    });
+    mockedSniRequest.mockRejectedValue(transportError('SNI_TIMEOUT'));
+
+    await expect(
+      fetchFirmwareConfig({ preRelease: false }),
+    ).resolves.toBeNull();
+    expect(getSniRequestIps()).toEqual([
+      BUILTIN_FIRST_IP,
+      BUILTIN_SECOND_IP,
+      BUILTIN_THIRD_IP,
+    ]);
+  });
+
+  it('resolves provider labels from the active table first, then the builtin one', async () => {
+    directGet.mockRejectedValue(transportError());
+    mockActiveIpTable({
+      endpoints: [
+        // No label here: the builtin table labels it Cloudflare.
+        { ip: '104.18.20.233' },
+        // The active label overrides the builtin one.
+        { ip: BUILTIN_FIRST_IP, provider: 'cloudflare' },
+        // No label in either table: still usable.
+        { ip: '5.5.5.5' },
+      ],
+      selection: '104.18.20.233',
+      lastBestIp: '5.5.5.5',
+    });
+    mockedSniRequest.mockRejectedValue(transportError('SNI_TIMEOUT'));
+
+    await expect(
+      fetchFirmwareConfig({ preRelease: false }),
+    ).resolves.toBeNull();
+    expect(getSniRequestIps()).toEqual([
+      '5.5.5.5',
+      BUILTIN_THIRD_IP,
+      BUILTIN_SECOND_IP,
+    ]);
+  });
+
+  it('uses only the non-Cloudflare builtin endpoints of the test API table', async () => {
+    mockedGetMappedDomainForIpLookup.mockResolvedValue('onekeytest.com');
+    directGet.mockRejectedValue(transportError());
+    mockedSniRequest.mockRejectedValue(transportError('SNI_TIMEOUT'));
+
+    await expect(
+      fetchFirmwareConfig({ preRelease: false }),
+    ).resolves.toBeNull();
+    expect(getSniRequestIps()).toEqual(['43.168.24.171', '43.168.19.96']);
+  });
+
+  it('makes no SNI attempt when only Cloudflare endpoints are known', async () => {
+    mockedGetMappedDomainForIpLookup.mockResolvedValue(null);
+    directGet.mockRejectedValue(transportError());
+    mockActiveIpTable({
+      domain: 'onekey.so',
+      endpoints: [{ ip: '9.9.9.9', provider: 'cloudflare' }],
+      selection: '9.9.9.9',
+      lastBestIp: '9.9.9.9',
+    });
+
+    await expect(
+      fetchFirmwareConfig({ preRelease: false }),
+    ).resolves.toBeNull();
+    expect(mockedSniRequest).not.toHaveBeenCalled();
   });
 
   it('continues after non-2xx and invalid SNI responses', async () => {

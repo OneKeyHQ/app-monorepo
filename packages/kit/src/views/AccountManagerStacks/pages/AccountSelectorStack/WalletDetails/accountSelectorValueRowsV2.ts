@@ -1,14 +1,14 @@
 import { isEqual } from 'lodash';
 
-import type {
-  IAccountSelectorDeFiMap,
-  IAccountSelectorValuesMap,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IAccountSelectorValuesMap } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { formatAccountSelectorValueV2 } from './accountSelectorValueV2';
 
 import type { IAccountSelectorRowRecordV2 } from './accountSelectorAccountRowsV2';
-import type { IdentityRow } from '@onekeyfe/react-native-native-list';
+import type {
+  IdentityRow,
+  SelectorTextSegment,
+} from '@onekeyfe/react-native-native-list';
 
 type IValueParams = Parameters<typeof formatAccountSelectorValueV2>[0];
 type IFormattingContext = Omit<
@@ -18,26 +18,47 @@ type IFormattingContext = Omit<
   | 'overview'
   | 'linkedAccountId'
   | 'linkedNetworkId'
-> & { networkId?: string };
+> & {
+  networkId?: string;
+  // App locale of the formatted texts: a change formats every row again.
+  locale?: string;
+};
+type IRowValueParams = Pick<
+  IValueParams,
+  'accountValue' | 'activeAccountValue' | 'linkedAccountId' | 'linkedNetworkId'
+> & {
+  // Text the row last displayed, used until its live value is presentable.
+  displayedValue?: SelectorTextSegment;
+};
+
+// Where a row's balance text comes from.
+export type IAccountSelectorValueSourceV2 =
+  // Formatted from the loaded value, including a final "--".
+  | 'live'
+  // The text shown last time, until the loaded value is presentable.
+  | 'displayed'
+  // Nothing to show yet.
+  | 'pending'
+  // The row shows no balance.
+  | 'none';
+
+export type IAccountSelectorValueRowsV2 = {
+  rows: IdentityRow[];
+  sources: Record<string, IAccountSelectorValueSourceV2>;
+};
 
 export function createAccountSelectorValueRowsV2(
   formatValue = formatAccountSelectorValueV2,
 ) {
   let context: IFormattingContext | undefined;
-  let previousRows: IdentityRow[] = [];
+  let previous: IAccountSelectorValueRowsV2 = { rows: [], sources: {} };
   let previousStaticRows: IdentityRow[] | undefined;
   const cache = new Map<
     string,
     {
-      params: Pick<
-        IValueParams,
-        | 'accountValue'
-        | 'activeAccountValue'
-        | 'overview'
-        | 'linkedAccountId'
-        | 'linkedNetworkId'
-      >;
-      value: ReturnType<typeof formatValue>;
+      params: IRowValueParams;
+      value: SelectorTextSegment;
+      source: IAccountSelectorValueSourceV2;
       base: IdentityRow;
       row: IdentityRow;
     }
@@ -46,19 +67,19 @@ export function createAccountSelectorValueRowsV2(
     staticRows,
     records,
     accountValues,
-    accountDeFi,
     activeAccountValue,
+    displayedValues,
     context: nextContext,
     skipValues,
   }: {
     staticRows: IdentityRow[];
     records: IAccountSelectorRowRecordV2[];
     accountValues: IAccountSelectorValuesMap[number];
-    accountDeFi: IAccountSelectorDeFiMap[number];
     activeAccountValue: IValueParams['activeAccountValue'];
+    displayedValues?: Record<string, SelectorTextSegment>;
     context: IFormattingContext;
     skipValues: boolean;
-  }): IdentityRow[] => {
+  }): IAccountSelectorValueRowsV2 => {
     // Compare shared network/rate content once, not once per account.
     if (!isEqual(context, nextContext)) {
       context = nextContext;
@@ -71,27 +92,62 @@ export function createAccountSelectorValueRowsV2(
       }
       previousStaticRows = staticRows;
     }
+    const sources: Record<string, IAccountSelectorValueSourceV2> = {};
     const rows = staticRows.map((row, index) => {
       const record = records[index];
-      if (skipValues || record.shouldShowCreateAddressButton) return row;
-      const accountValue = accountValues?.[row.key];
-      const params = {
+      if (skipValues || record.shouldShowCreateAddressButton) {
+        sources[row.key] = 'none';
+        return row;
+      }
+      const item = accountValues?.[row.key];
+      // An item loaded for another network scope is not this row's value
+      // yet: the list switched networks and its reload has not landed.
+      const accountValue =
+        item?.networkId === record.valuesNetworkId ? item : undefined;
+      const params: IRowValueParams = {
         accountValue,
         // An active value only overrides its own account in the formatter.
         activeAccountValue:
           accountValue?.accountId === activeAccountValue?.accountId
             ? activeAccountValue
             : undefined,
-        overview: accountDeFi?.[row.key],
         linkedAccountId:
           record.indexedAccount?.associateAccount?.id ?? record.item.id,
         linkedNetworkId: record.avatarNetworkId ?? nextContext.networkId,
+        displayedValue: displayedValues?.[row.key],
       };
       const cached = cache.get(row.key);
-      const value =
-        cached && isEqual(cached.params, params)
-          ? cached.value
-          : formatValue({ ...nextContext, ...params });
+      let value: SelectorTextSegment;
+      let source: IAccountSelectorValueSourceV2;
+      if (cached && isEqual(cached.params, params)) {
+        ({ value, source } = cached);
+      } else {
+        const { displayedValue, ...valueParams } = params;
+        // The overview travels with the value, so both come from one load.
+        const live = accountValue
+          ? formatValue({
+              ...nextContext,
+              ...valueParams,
+              overview: accountValue.deFi,
+            })
+          : undefined;
+        if (live) {
+          value = live;
+          source = 'live';
+        } else if (displayedValue) {
+          value = displayedValue;
+          source = 'displayed';
+        } else {
+          value = {
+            text: nextContext.hideValue ? '****' : '--',
+            tone: 'disabled',
+          };
+          // An item loaded without a stored value will not get a balance, so
+          // its placeholder is final; it just never replaces a displayed text.
+          source = accountValue && !accountValue.currency ? 'live' : 'pending';
+        }
+      }
+      sources[row.key] = source;
       if (cached?.base === row && cached.value === value) return cached.row;
       const subtitleSegments = [value, ...(row.subtitleSegments ?? [])];
       const valueRow: IdentityRow = {
@@ -102,16 +158,16 @@ export function createAccountSelectorValueRowsV2(
           ...subtitleSegments.map((segment) => segment.text),
         ].join(', '),
       };
-      cache.set(row.key, { params, value, base: row, row: valueRow });
+      cache.set(row.key, { params, value, source, base: row, row: valueRow });
       return valueRow;
     });
     if (
-      rows.length === previousRows.length &&
-      rows.every((row, index) => row === previousRows[index])
+      rows.length === previous.rows.length &&
+      rows.every((row, index) => row === previous.rows[index])
     ) {
-      return previousRows;
+      return previous;
     }
-    previousRows = rows;
-    return rows;
+    previous = { rows, sources };
+    return previous;
   };
 }

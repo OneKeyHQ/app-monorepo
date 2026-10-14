@@ -1,20 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useReplaceToReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
+
+import { useInvitePostConfig } from '../../../hooks/useInvitePostConfig';
 
 import { useLoginStatusChange } from './useLoginStatusChange';
 
 export function useReferAFriendData() {
   const replaceToReferFriends = useReplaceToReferFriends();
-  const [postConfig, setPostConfig] = useState<IInvitePostConfig | undefined>(
-    undefined,
-  );
+  const { postConfig } = useInvitePostConfig();
 
   // Monitor login status changes and auto-navigate when user logs in
   useLoginStatusChange(() => {
@@ -23,19 +22,6 @@ export function useReferAFriendData() {
   });
 
   useEffect(() => {
-    async function loadPostConfig() {
-      const cachedConfig =
-        await backgroundApiProxy.serviceReferralCode.getPostConfig();
-      if (cachedConfig) {
-        setPostConfig(cachedConfig);
-      }
-      const freshConfig =
-        await backgroundApiProxy.serviceReferralCode.fetchPostConfig();
-      if (freshConfig) {
-        setPostConfig(freshConfig);
-      }
-    }
-
     async function checkLoginAndRedirect() {
       const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
       if (isLogin) {
@@ -64,7 +50,6 @@ export function useReferAFriendData() {
       }
     }
 
-    void loadPostConfig();
     void checkLoginAndRedirect();
   }, [replaceToReferFriends]);
 

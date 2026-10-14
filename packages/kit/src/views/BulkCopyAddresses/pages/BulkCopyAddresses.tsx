@@ -39,6 +39,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import type { IModalBulkCopyAddressesParamList } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -56,6 +57,11 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { EmptyNoWalletView } from '../../AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/EmptyView';
 import { BATCH_CREATE_ACCONT_MAX_COUNT } from '../../AccountManagerStacks/pages/BatchCreateAccount/BatchCreateAccountFormBase';
 import { showBatchCreateAccountProcessingDialog } from '../../AccountManagerStacks/pages/BatchCreateAccount/ProcessingDialog';
+import { PrimeFreeTrialRemainingHint } from '../../Prime/components/PrimeFreeTrialRemainingHint';
+import {
+  isPrimeFreeTrialUserCancelError,
+  usePrimeFreeTrialUsage,
+} from '../../Prime/hooks/usePrimeFreeTrialUsage';
 import { BulkCopyAddressesTestIDs } from '../testIDs';
 import { buildBulkCopyByAccountsFlowParams } from '../utils/buildBulkCopyByAccountsParams';
 import { computeBulkCopyByAccountsViewState } from '../utils/bulkCopyAddressesViewState';
@@ -133,6 +139,23 @@ function BulkCopyAddresses({
     EBulkCopyType.Account,
   );
   const [isGeneratingAddresses, setIsGeneratingAddresses] = useState(false);
+  const { startUsage, markUsageSuccess, settleUsage } = usePrimeFreeTrialUsage({
+    featureId: EPrimeFeatures.BulkCopyAddresses,
+  });
+  // Guards against a second export press while the first one is still
+  // starting the free-trial usage or generating addresses.
+  const exportInFlightRef = useRef(false);
+  // Covers the free-trial start before any generation dialog shows up.
+  const [isExporting, setIsExporting] = useState(false);
+  // A start or generation can take a while; a page closed meanwhile neither
+  // uses the free use nor opens the result page.
+  const isUnmountedRef = useRef(false);
+  useEffect(() => {
+    isUnmountedRef.current = false;
+    return () => {
+      isUnmountedRef.current = true;
+    };
+  }, []);
   const sharedStyles = getSharedInputStyles({
     size: 'large',
   });
@@ -869,7 +892,44 @@ function BulkCopyAddresses({
     handleFormValueOnChange,
   ]);
 
-  const handleExportAddresses = useCallback(
+  // Free trial: a usage is consumed once addresses were generated and the
+  // result page opens; copying / exporting there is not metered again.
+  const settleGenerateError = useCallback(
+    async (usageId: string | undefined, error: unknown) => {
+      // ServiceBatchCreateAccount.checkIfCancelled throws the flow's own
+      // `errorMessage` (bulk copy passes its own copy), or the generic bulk
+      // accounts copy when none is given.
+      const message = (error as Error | undefined)?.message;
+      const isCancelled =
+        isPrimeFreeTrialUserCancelError(error) ||
+        (!!message &&
+          [
+            ETranslations.global_bulk_copy_addresses_loading_error,
+            ETranslations.global_bulk_accounts_loading_error,
+          ].some((id) => intl.formatMessage({ id }) === message));
+      await settleUsage(usageId, isCancelled ? 'cancelled' : 'failed');
+    },
+    [intl, settleUsage],
+  );
+  const settleGenerateResult = useCallback(
+    async (
+      usageId: string | undefined,
+      accountsData: Record<string, unknown[] | undefined> | undefined,
+    ) => {
+      const addressCount = Object.values(accountsData ?? {}).reduce(
+        (sum, list) => sum + (list?.length ?? 0),
+        0,
+      );
+      if (addressCount > 0) {
+        await markUsageSuccess(usageId);
+      } else {
+        await settleUsage(usageId, 'failed');
+      }
+    },
+    [markUsageSuccess, settleUsage],
+  );
+
+  const handleExportAddressesImpl = useCallback(
     async ({ exportWithoutDevice }: { exportWithoutDevice?: boolean }) => {
       if (copyType === EBulkCopyType.Account) {
         let enumeratedAccounts = networkAccountsByDeriveType;
@@ -887,11 +947,24 @@ function BulkCopyAddresses({
           enumeratedAccounts = fresh.networkAccountsByDeriveType;
           enumeratedNetworkAccounts = fresh.networkAccounts;
         }
+        const usage = await startUsage({
+          networkId: selectedNetworkId,
+          isCallerGone: () => isUnmountedRef.current,
+        });
+        if (usage.status === 'rejected' || usage.status === 'error') {
+          return;
+        }
+        const usageId = usage.status === 'granted' ? usage.usageId : undefined;
         let accountsData = enumeratedAccounts;
         if (isHwWallet && !exportWithoutDevice) {
-          accountsData = await handleGenerateAddressesByAccounts(
-            enumeratedNetworkAccounts,
-          );
+          try {
+            accountsData = await handleGenerateAddressesByAccounts(
+              enumeratedNetworkAccounts,
+            );
+          } catch (error) {
+            await settleGenerateError(usageId, error);
+            throw error;
+          }
           if (enumeratedAccounts) {
             for (const [deriveType, accounts] of Object.entries(accountsData)) {
               accountsData[deriveType] =
@@ -907,6 +980,11 @@ function BulkCopyAddresses({
           }
         }
 
+        if (isUnmountedRef.current) {
+          await settleUsage(usageId, 'cancelled');
+          return;
+        }
+        await settleGenerateResult(usageId, accountsData);
         navigation.push(EModalBulkCopyAddressesRoutes.ExportAddressesModal, {
           walletId: selectedWalletId,
           networkId: selectedNetworkId,
@@ -915,7 +993,26 @@ function BulkCopyAddresses({
           exportWithoutDevice,
         });
       } else if (copyType === EBulkCopyType.Range) {
-        const resp = await handleGenerateAddressesByRange();
+        const usage = await startUsage({
+          networkId: selectedNetworkId,
+          isCallerGone: () => isUnmountedRef.current,
+        });
+        if (usage.status === 'rejected' || usage.status === 'error') {
+          return;
+        }
+        const usageId = usage.status === 'granted' ? usage.usageId : undefined;
+        let resp: Awaited<ReturnType<typeof handleGenerateAddressesByRange>>;
+        try {
+          resp = await handleGenerateAddressesByRange();
+        } catch (error) {
+          await settleGenerateError(usageId, error);
+          throw error;
+        }
+        if (isUnmountedRef.current) {
+          await settleUsage(usageId, 'cancelled');
+          return;
+        }
+        await settleGenerateResult(usageId, resp);
         navigation.push(EModalBulkCopyAddressesRoutes.ExportAddressesModal, {
           walletId: selectedWalletId,
           networkId: selectedNetworkId,
@@ -939,12 +1036,33 @@ function BulkCopyAddresses({
       handleGenerateAddressesByAccounts,
       handleGenerateAddressesByRange,
       isHwWallet,
+      startUsage,
+      settleUsage,
+      settleGenerateError,
+      settleGenerateResult,
     ],
   );
 
+  const handleExportAddresses = useCallback(
+    async (params: { exportWithoutDevice?: boolean }) => {
+      if (exportInFlightRef.current) {
+        return;
+      }
+      exportInFlightRef.current = true;
+      setIsExporting(true);
+      try {
+        await handleExportAddressesImpl(params);
+      } finally {
+        exportInFlightRef.current = false;
+        setIsExporting(false);
+      }
+    },
+    [handleExportAddressesImpl],
+  );
+
   const isLoading = useMemo(() => {
-    return isGeneratingAddresses;
-  }, [isGeneratingAddresses]);
+    return isGeneratingAddresses || isExporting;
+  }, [isGeneratingAddresses, isExporting]);
 
   const isDisabled = useMemo(() => {
     return copyType === EBulkCopyType.Account
@@ -1122,78 +1240,84 @@ function BulkCopyAddresses({
         </YStack>
       </Page.Body>
       <Page.Footer>
-        <YStack
-          p="$5"
-          bg="$bgApp"
-          alignItems="center"
-          justifyContent="space-between"
-          flexDirection="row-reverse"
-          $md={{
-            flexDirection: 'column',
-            gap: '$5',
-            justifyContent: 'center',
-          }}
-        >
-          <Button
-            testID={BulkCopyAddressesTestIDs.exportBtn}
-            variant="primary"
-            size="medium"
-            onPress={() =>
-              handleExportAddresses({
-                exportWithoutDevice: false,
-              })
-            }
+        <YStack p="$5" bg="$bgApp" gap="$3">
+          <PrimeFreeTrialRemainingHint
+            featureId={EPrimeFeatures.BulkCopyAddresses}
+            networkId={selectedNetworkId}
+            alignSelf="flex-end"
+            $md={{ alignSelf: 'center' }}
+          />
+          <YStack
+            alignItems="center"
+            justifyContent="space-between"
+            flexDirection="row-reverse"
             $md={{
-              width: '100%',
-              size: 'large',
+              flexDirection: 'column',
+              gap: '$5',
+              justifyContent: 'center',
             }}
-            loading={isLoading}
-            disabled={isDisabled}
           >
-            {intl.formatMessage({
-              id: isHwWallet
-                ? ETranslations.global_action_verify_and_export
-                : ETranslations.global_export,
-            })}
-          </Button>
-          {isHwWallet && copyType === EBulkCopyType.Account ? (
             <Button
-              testID={BulkCopyAddressesTestIDs.exportWithoutDeviceBtn}
+              testID={BulkCopyAddressesTestIDs.exportBtn}
+              variant="primary"
               size="medium"
-              variant="tertiary"
-              disabled={isDisabled}
+              onPress={() =>
+                handleExportAddresses({
+                  exportWithoutDevice: false,
+                })
+              }
               $md={{
                 width: '100%',
+                size: 'large',
               }}
-              onPress={() => {
-                Dialog.confirm({
-                  icon: 'ErrorOutline',
-                  tone: 'warning',
-                  title: intl.formatMessage({
-                    id: ETranslations.global_receive_address_confirmation,
-                  }),
-                  description: intl.formatMessage({
-                    id: ETranslations.global_receive_address_confirmation_desc,
-                  }),
-                  onConfirmText: intl.formatMessage({
-                    id: ETranslations.global_receive_address_confirmation_button,
-                  }),
-                  onConfirm: () => {
-                    void handleExportAddresses({
-                      exportWithoutDevice: true,
-                    });
-                  },
-                  confirmButtonProps: {
-                    variant: 'secondary',
-                  },
-                });
-              }}
+              loading={isLoading}
+              disabled={isDisabled}
             >
               {intl.formatMessage({
-                id: ETranslations.global_bulk_copy_addresses_action_export_without_device,
+                id: isHwWallet
+                  ? ETranslations.global_action_verify_and_export
+                  : ETranslations.global_export,
               })}
             </Button>
-          ) : null}
+            {isHwWallet && copyType === EBulkCopyType.Account ? (
+              <Button
+                testID={BulkCopyAddressesTestIDs.exportWithoutDeviceBtn}
+                size="medium"
+                variant="tertiary"
+                disabled={isDisabled}
+                $md={{
+                  width: '100%',
+                }}
+                onPress={() => {
+                  Dialog.confirm({
+                    icon: 'ErrorOutline',
+                    tone: 'warning',
+                    title: intl.formatMessage({
+                      id: ETranslations.global_receive_address_confirmation,
+                    }),
+                    description: intl.formatMessage({
+                      id: ETranslations.global_receive_address_confirmation_desc,
+                    }),
+                    onConfirmText: intl.formatMessage({
+                      id: ETranslations.global_receive_address_confirmation_button,
+                    }),
+                    onConfirm: () => {
+                      void handleExportAddresses({
+                        exportWithoutDevice: true,
+                      });
+                    },
+                    confirmButtonProps: {
+                      variant: 'secondary',
+                    },
+                  });
+                }}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.global_bulk_copy_addresses_action_export_without_device,
+                })}
+              </Button>
+            ) : null}
+          </YStack>
         </YStack>
       </Page.Footer>
     </Page>

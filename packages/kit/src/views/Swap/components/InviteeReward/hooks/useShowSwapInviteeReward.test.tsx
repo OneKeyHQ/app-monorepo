@@ -296,6 +296,33 @@ describe('useShowSwapInviteeReward', () => {
     });
   });
 
+  it('does not offer binding for a watch-only EVM account', async () => {
+    const mocks = getMocks();
+    mocks.getReferralCodeWalletInfo.mockResolvedValue(null);
+
+    const { result } = renderHook(() =>
+      useShowSwapInviteeReward({
+        accountId: 'watching--evm--0xWatch',
+      }),
+    );
+
+    act(() => {
+      result.current.showSwapInviteeReward();
+    });
+
+    await waitFor(() => {
+      expect(mocks.dialogShow).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.getReferralCodeBondStatus).not.toHaveBeenCalled();
+    expect(mocks.bindWalletInviteCode).not.toHaveBeenCalled();
+    expect(mocks.dialogShow.mock.calls[0][0].renderContent.props).toMatchObject(
+      {
+        accountId: 'watching--evm--0xWatch',
+        currentEvmAddress: '0xCurrent',
+      },
+    );
+  });
+
   it('does not offer binding to a BTC-only wallet unsupported by Swap rewards', async () => {
     const mocks = getMocks();
     mocks.getReferralCodeWalletInfo.mockResolvedValue({

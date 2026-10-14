@@ -6,7 +6,10 @@ import type {
   IDeviceStageErrorI18n,
 } from '@onekeyhq/shared/types/deviceStage';
 
-import type { IHardwareDeviceType } from '../../content/HardwareDevice';
+import type {
+  IHardwareDeviceColor,
+  IHardwareDeviceType,
+} from '../../content/HardwareDevice';
 
 /**
  * Exploration-only hardware-interaction stage. Deliberately minimal:
@@ -178,6 +181,10 @@ export interface IDeviceStageProps {
    * widths. Defaults to REPLICA_WIDTH (see ./consts).
    */
   replicaWidth?: number;
+  /** The model's finish, read by the driver off the device row's serial
+   * number (shared/utils/hardwareDeviceColors) — only the Pro 2 has one.
+   * Omitted: the model's default shell. */
+  deviceColor?: IHardwareDeviceColor;
   step: IDeviceStageStep;
   /**
    * Dresses the stage for a third-party device: the capsule's left seat
@@ -450,6 +457,8 @@ export interface IDeviceStageProps {
    * what the gallery shows.
    */
   passphraseKeepAccessible?: boolean;
+  /** Show immediate ASCII creation guidance only for Pro2/Neo new wallets. */
+  passphraseAsciiCreationFeedback?: boolean;
   /**
    * The request comes from a protocol V2 device: the passphrase form takes
    * UTF-8 measured in bytes and normalizes it to NFKD, the way the shipped

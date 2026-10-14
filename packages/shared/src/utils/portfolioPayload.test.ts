@@ -55,6 +55,50 @@ describe('Portfolio v2 category amounts', () => {
     });
   });
 
+  test('uses the displayed Home total when no category snapshot is supplied', () => {
+    expect(
+      buildPortfolioPayload({ ...params, categoryFiat: undefined }),
+    ).toMatchObject({
+      v: 2,
+      tokensFiat: '$1.00K',
+      defiFiat: '—',
+      perpsFiat: '—',
+      totalFiat: '$1,000.00',
+    });
+  });
+
+  test('uses the rendered Home total while preserving its known categories', () => {
+    expect(
+      buildPortfolioPayload({
+        ...params,
+        homeTotalFiatUsd: '600',
+        categoryFiat: { defiFiat: '200', perpsFiat: '300' },
+      }),
+    ).toMatchObject({
+      v: 2,
+      tokensFiat: '$1.00K',
+      defiFiat: '$200.00',
+      perpsFiat: '$300.00',
+      totalFiat: '$600.00',
+      tokens: [{ portfolioPercentage: 80 }],
+      otherTokens: { fiat: '$200.00', portfolioPercentage: 20 },
+    });
+  });
+
+  test('keeps the rendered Home total when a category is unavailable', () => {
+    expect(
+      buildPortfolioPayload({
+        ...params,
+        homeTotalFiatUsd: '600',
+        categoryFiat: { perpsFiat: '300' },
+      }),
+    ).toMatchObject({
+      defiFiat: '—',
+      perpsFiat: '$300.00',
+      totalFiat: '$600.00',
+    });
+  });
+
   test('converts all categories into the same display currency', () => {
     expect(
       buildPortfolioPayload({
@@ -125,7 +169,7 @@ describe('Portfolio v2 category amounts', () => {
     });
   });
 
-  test('preserves negative net worth when formatting and summing', () => {
+  test('matches the app formatting rules for DeFi and Perps net worth', () => {
     expect(
       buildPortfolioPayload({
         ...params,
@@ -141,7 +185,19 @@ describe('Portfolio v2 category amounts', () => {
         ...params,
         categoryFiat: { defiFiat: '-0.001', perpsFiat: '0' },
       }),
-    ).toMatchObject({ defiFiat: '> -$0.01' });
+    ).toMatchObject({ defiFiat: '-$0.00', perpsFiat: '$0.00' });
+    expect(
+      buildPortfolioPayload({
+        ...params,
+        categoryFiat: { defiFiat: '0.004', perpsFiat: '0.004' },
+      }),
+    ).toMatchObject({ defiFiat: '$0.00', perpsFiat: '< $0.01' });
+    expect(
+      buildPortfolioPayload({
+        ...params,
+        categoryFiat: { defiFiat: '0.005', perpsFiat: '-0.004' },
+      }),
+    ).toMatchObject({ defiFiat: '$0.01', perpsFiat: '> -$0.01' });
   });
 
   test('keeps the seven-field v1 shape and token-only total', () => {

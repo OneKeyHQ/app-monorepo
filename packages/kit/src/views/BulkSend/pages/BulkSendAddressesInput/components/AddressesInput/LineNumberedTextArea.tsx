@@ -24,6 +24,7 @@ import {
   useSelectionColor,
   useTheme,
 } from '@onekeyhq/components';
+import { TABULAR_NUMS } from '@onekeyhq/components/src/utils/tabularNums';
 import { webFontFamily } from '@onekeyhq/components/src/utils/webFontFamily';
 import { AddressBadge } from '@onekeyhq/kit/src/components/AddressBadge';
 import { SelectorPlugin } from '@onekeyhq/kit/src/components/AddressInput/plugins/selector';
@@ -408,6 +409,13 @@ function LineNumberedTextArea({
               fontSize: FONT_SIZE,
               lineHeight: LINE_HEIGHT,
               fontFamily: webFontFamily,
+              // react-native-web's TextInput base style sets the `font`
+              // shorthand, which resets `font-variant-numeric` and drops the
+              // app-wide `body { tabular-nums }` rule the display layer
+              // inherits. Re-apply it so the invisible textarea lays out
+              // digits at the same width as the visible text; otherwise the
+              // caret/selection drift on digit-heavy lines such as addresses.
+              fontVariantNumeric: TABULAR_NUMS.join(' '),
               textAlignVertical: 'top',
               color: 'transparent',
               caretColor: textColor,

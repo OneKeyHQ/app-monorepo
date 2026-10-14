@@ -20,6 +20,7 @@ import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { normalizeMarketApiKLineInterval } from '@onekeyhq/shared/src/utils/marketKLineUtils';
+import { toMarketTokenBatchRequestItems } from '@onekeyhq/shared/src/utils/marketTokenBatchUtils';
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import { dedupeTokenSelectorFavoriteCoins } from '@onekeyhq/shared/src/utils/perpsTokenSelectorFavorites';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
@@ -72,7 +73,9 @@ import type { INotificationWatchlistToken } from '@onekeyhq/shared/types/notific
 
 import { type IDBCloudSyncItem } from '../dbs/local/types';
 import {
+  type IMarketHomePreferences,
   devSettingsPersistAtom,
+  marketHomePreferencesAtom,
   settingsPersistAtom,
 } from '../states/jotai/atoms';
 import { perpTokenFavoritesPersistAtom } from '../states/jotai/atoms/perps';
@@ -109,6 +112,16 @@ type IFetchMarketTokenListOptions = {
 
 @backgroundClass()
 class ServiceMarketV2 extends ServiceBase {
+  @backgroundMethod()
+  async updateMarketHomePreferences(preferences: IMarketHomePreferences) {
+    await marketHomePreferencesAtom.set((prev) => ({
+      ...prev,
+      ...preferences,
+      revision: (prev.revision ?? 0) + 1,
+    }));
+    return (await marketHomePreferencesAtom.get()).revision ?? 0;
+  }
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
     // Drop the in-memory market data cache + memoized batch fetchers on
@@ -608,7 +621,7 @@ class ServiceMarketV2 extends ServiceBase {
     }>(
       '/utility/v2/market/token/list/batch',
       {
-        tokenAddressList: missingTokens,
+        tokenAddressList: toMarketTokenBatchRequestItems(missingTokens),
         currency: 'usd',
       },
       {

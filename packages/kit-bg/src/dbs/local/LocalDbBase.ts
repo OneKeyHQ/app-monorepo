@@ -92,6 +92,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
+  getDeviceStateSettingsRecoveryKeys,
   hasAuthoritativeDeviceInfoVersionChange,
   hasDeviceStateIdentityMismatch,
   mergeDeviceStateEvent,
@@ -118,7 +119,10 @@ import perfUtils, {
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
-import { resolveQrWalletDeviceType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
+import {
+  isProtocolV2ProductType,
+  resolveQrWalletDeviceType,
+} from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -4165,7 +4169,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             const serialNo = deviceUtils.getDeviceSerialNoFromFeatures(
               device?.featuresInfo,
             );
-            if (device && deviceType === EDeviceType.Pro && serialNo) {
+            if (
+              device &&
+              deviceType &&
+              (deviceType === EDeviceType.Pro ||
+                isProtocolV2ProductType(deviceType)) &&
+              serialNo
+            ) {
               const imgFromSerialNo = getDeviceAvatarImage(
                 deviceType,
                 serialNo,
@@ -5446,9 +5456,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     // upload to server
     if (!skipUploadToServer) {
-      void this.backgroundApi?.servicePrimeCloudSync.apiUploadItems({
-        localItems: items,
-      });
+      // Fire-and-forget by design, so the rejection must be handled here:
+      // apiUploadItems throws whenever cloud sync is unavailable (disabled,
+      // logged out) — the normal state for most users — and every sync-item
+      // write (e.g. an account rename) would surface that as an unhandled
+      // rejection. The item already sits in the local sync pool, so the next
+      // full sync uploads it once sync becomes available.
+      this.backgroundApi?.servicePrimeCloudSync
+        .apiUploadItems({
+          localItems: items,
+        })
+        .catch((error) => {
+          errorUtils.autoPrintErrorIgnore(error);
+        });
     }
   }
 
@@ -5974,6 +5994,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               changedKeys,
               source,
             });
+          const hasEqualMetadataSettingsRecovery =
+            getDeviceStateSettingsRecoveryKeys({
+              currentState,
+              incomingState: state,
+              source,
+            }).length > 0;
           const isStaleSdkEvent = Boolean(
             hasSdkEventOrder &&
             currentEventOrder &&
@@ -5988,7 +6014,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               (state.updatedAt === currentState.updatedAt &&
                 (state.revision < currentState.revision ||
                   (state.revision === currentState.revision &&
-                    !hasEqualMetadataVersionChange)))),
+                    !hasEqualMetadataVersionChange &&
+                    !hasEqualMetadataSettingsRecovery)))),
           );
           if (isStaleSdkEvent || isStaleLegacyEvent) {
             return item;

@@ -62,7 +62,7 @@ import { createJotaiContext } from '../../utils/createJotaiContext';
 import {
   type ISwapQuoteEventTotalCount,
   type ISwapQuoteSelectionIntent,
-  buildSwapQuoteProviderKey,
+  selectSwapCurrentEventQuotes,
   selectSwapCurrentQuote,
 } from './quoteProgress';
 
@@ -136,6 +136,21 @@ const sanitizeSwapProSelectedTokenColdStartSnapshot = memoizeSnapshotTransform(
 const sanitizeSwapStockPayTokenColdStartSnapshot = memoizeSnapshotTransform(
   sanitizeSwapStockPayTokenDisplaySnapshot,
 );
+
+const SWAP_TOKEN_SELECTOR_COLD_START_MAX_CACHE_ENTRIES = 3;
+const SWAP_TOKEN_SELECTOR_COLD_START_MAX_TOKENS = 200;
+
+const sanitizeSwapAllNetworkTokenListMapColdStartSnapshot =
+  memoizeSnapshotTransform((value: Record<string, ISwapToken[]>) =>
+    Object.fromEntries(
+      Object.entries(value)
+        .slice(-SWAP_TOKEN_SELECTOR_COLD_START_MAX_CACHE_ENTRIES)
+        .map(([cacheKey, tokens]) => [
+          cacheKey,
+          tokens.slice(0, SWAP_TOKEN_SELECTOR_COLD_START_MAX_TOKENS),
+        ]),
+    ),
+  );
 
 export type ISwapQuoteEventErrorState = {
   message: string;
@@ -401,7 +416,16 @@ export const {
 export const {
   atom: swapAllNetworkTokenListMapAtom,
   use: useSwapAllNetworkTokenListMapAtom,
-} = contextAtom<Record<string, ISwapToken[]>>({});
+} = contextAtom<Record<string, ISwapToken[]>>(
+  {},
+  {
+    coldStartCache: true,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapAllNetworkTokenListMapAtom,
+    coldStartCacheTransform:
+      sanitizeSwapAllNetworkTokenListMapColdStartSnapshot,
+  },
+);
 
 export const {
   atom: swapAllNetworkActionLockAtom,
@@ -494,12 +518,11 @@ export const {
   const list = get(swapQuoteListAtom());
   const quoteEventTotalCount = get(swapQuoteEventTotalCountAtom());
   const currentEventProviderKeys = get(swapQuoteCurrentEventProviderKeysAtom());
-  const currentEventProviderKeySet = new Set(currentEventProviderKeys);
-  return quoteEventTotalCount.count > 0
-    ? list.filter((quote) =>
-        currentEventProviderKeySet.has(buildSwapQuoteProviderKey(quote)),
-      )
-    : list;
+  return selectSwapCurrentEventQuotes({
+    quotes: list,
+    quoteEventTotalCount,
+    currentEventProviderKeys,
+  });
 });
 
 export const {
@@ -569,6 +592,35 @@ export const {
 } = contextAtom<Record<ESwapDirectionType, boolean>>({
   from: false,
   to: false,
+});
+
+// Bookkeeping for the stored From/To balance: which token + account it was
+// fetched for (see buildSwapBalanceOwner in swapBalanceOwnerUtils), and whether
+// the stored figure is only a fallback (the fetch failed, or the response
+// carried no balance) rather than an authoritative amount; callers must not
+// read such a '0' as a real zero. A reload for the same owner keeps the figure
+// on screen while it refreshes; a different owner clears it so a stale number
+// is never shown for the new selection, and readers ignore a figure whose
+// owner is not the current selection (resolveVerifiedSwapBalance).
+export interface ISwapSelectedTokenBalanceMeta {
+  tokenKey?: string;
+  // Lower-cased; only ever compared with itself.
+  accountAddress?: string;
+  // Network-agnostic account identity (wallet + indexed/db account) the figure
+  // was fetched for; see buildSwapBalanceAccountIdentity. It decides before the
+  // address resolves, so another account never inherits this figure while its
+  // own cross-network lookup is still pending.
+  accountIdentity?: string;
+  unverified: boolean;
+}
+export const EMPTY_SWAP_SELECTED_TOKEN_BALANCE_META: ISwapSelectedTokenBalanceMeta =
+  { unverified: false };
+export const {
+  atom: swapSelectedTokenBalanceMetaAtom,
+  use: useSwapSelectedTokenBalanceMetaAtom,
+} = contextAtom<Record<ESwapDirectionType, ISwapSelectedTokenBalanceMeta>>({
+  from: EMPTY_SWAP_SELECTED_TOKEN_BALANCE_META,
+  to: EMPTY_SWAP_SELECTED_TOKEN_BALANCE_META,
 });
 
 export const { atom: swapSelectTokenDetailRequestIdAtom } = contextAtom<

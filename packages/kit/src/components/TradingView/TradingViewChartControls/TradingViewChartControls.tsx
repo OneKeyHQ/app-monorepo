@@ -510,6 +510,7 @@ export const TradingViewChartControls = memo(
       const IntervalContainer = desktopToolbar ? Stack : ScrollView;
       return (
         <Stack
+          testID="trading-view-chart-controls"
           bg={backgroundColor}
           px={desktopControlsPaddingX}
           py="$1"
@@ -618,6 +619,7 @@ export const TradingViewChartControls = memo(
 
     return (
       <Stack
+        testID="trading-view-chart-controls"
         bg={backgroundColor}
         px="$2"
         py={compactMobileLayout ? undefined : '$2'}

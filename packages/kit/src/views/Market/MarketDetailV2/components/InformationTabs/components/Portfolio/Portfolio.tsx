@@ -96,6 +96,7 @@ function PortfolioBase({
 
   return (
     <Tabs.FlatList<IMarketAccountPortfolioDisplayItem>
+      testID="market-detail-portfolio-list"
       showsVerticalScrollIndicator={false}
       scrollEnabled={scrollEnabled}
       data={data}

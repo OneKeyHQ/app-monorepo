@@ -333,6 +333,11 @@ const InAppNotification = () => {
                 message,
               });
             } else {
+              const approvalRequestId =
+                swapApprovingTransactionRef.current?.approvalRequestId;
+              const txId = swapApprovingTransactionRef.current?.txId;
+              const networkId =
+                swapApprovingTransactionRef.current?.fromToken.networkId;
               toastRef.current = Toast.success({
                 title,
                 message,
@@ -340,11 +345,22 @@ const InAppNotification = () => {
                 actions: approvingSuccessAction,
                 actionsAlign: 'left',
                 onClose: () => {
-                  setInAppNotificationAtom((prev) => ({
-                    ...prev,
-                    swapApprovingLoading: false,
-                    swapApprovingTransaction: undefined,
-                  }));
+                  setInAppNotificationAtom((prev) => {
+                    const approval = prev.swapApprovingTransaction;
+                    if (
+                      !approval ||
+                      approval.approvalRequestId !== approvalRequestId ||
+                      approval.txId !== txId ||
+                      approval.fromToken.networkId !== networkId
+                    ) {
+                      return prev;
+                    }
+                    return {
+                      ...prev,
+                      swapApprovingLoading: false,
+                      swapApprovingTransaction: undefined,
+                    };
+                  });
                 },
               });
             }

@@ -25,10 +25,25 @@ class ClientCustomRpcSol {
     };
   }
 
-  async broadcastTransaction(rawTx: string, options?: any): Promise<string> {
+  async broadcastTransaction(
+    rawTx: string,
+    options?: {
+      skipPreflight?: boolean;
+      preflightCommitment?: string;
+      maxRetries?: number;
+    },
+  ): Promise<string> {
     return this.rpc.call(ERpcMethods.SEND_TRANSACTION, [
       rawTx,
-      { encoding: EParamsEncodings.BASE64, ...options },
+      {
+        encoding: EParamsEncodings.BASE64,
+        // Match the server proxy. The Solana default `finalized` bank lags
+        // the tip by ~30 slots, so a nearly expired blockhash could pass
+        // preflight there and then be dropped at the tip, leaving a txid
+        // that never lands.
+        preflightCommitment: 'confirmed',
+        ...options,
+      },
     ]);
   }
 }

@@ -11,8 +11,10 @@ import {
   encryptImportedCredential,
   encryptRevealableSeed,
   encryptVerifyString,
+  entropyToMnemonic,
   getSecretEncryptV2LocalTargetIterations,
   readSecretEncryptPayloadMetadata,
+  sha256,
 } from '@onekeyhq/core/src/secret';
 import type { ICoreHyperLiquidAgentCredential } from '@onekeyhq/core/src/types';
 import { PBKDF2_LEGACY_NUM_OF_ITERATIONS } from '@onekeyhq/shared/src/appCrypto/consts';
@@ -36,11 +38,20 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  defaultLoggerConfig,
+  loggerConfig,
+} from '@onekeyhq/shared/src/logger/loggerConfig';
+import {
+  drainAccountSelectorPerfE2ETrace,
+  isAccountSelectorPerfE2EAttributionEnabled,
+  setAccountSelectorPerfE2EAttributionEnabled,
+} from '@onekeyhq/shared/src/logger/scopes/accountSelector/scenes/perfE2E';
 import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
-import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import {
   HyperLiquidAgentSecretSession,
@@ -70,6 +81,7 @@ import {
 } from '../dbs/local/localSecretEnvelope';
 import { EIndexedDBBucketNames } from '../dbs/local/types';
 import {
+  perpsActiveAccountAtom,
   settingsAtomInitialValue,
   settingsPersistAtom,
 } from '../states/jotai/atoms';
@@ -164,6 +176,14 @@ const LOCAL_SECRET_ENVELOPE_E2E_RESTORE_CREDENTIAL_ID_PREFIX =
   'imported-lse-restore-e2e-credential';
 const HYPERLIQUID_AGENT_MIGRATION_E2E_USER_ADDRESS =
   '0x0000000000000000000000000000000000000e2e';
+const ACCOUNT_SELECTOR_E2E_WALLET_ENTROPY_LABELS = {
+  alpha: 'onekey-account-selector-e2e-wallet-alpha-v1',
+  beta: 'onekey-account-selector-e2e-wallet-beta-v1',
+} as const;
+const ACCOUNT_SELECTOR_E2E_WALLET_NAMES = new Set(['E2E A', 'E2E B']);
+
+type IAccountSelectorE2EWalletFixtureId =
+  keyof typeof ACCOUNT_SELECTOR_E2E_WALLET_ENTROPY_LABELS;
 
 function assertLocalSecretEnvelopeE2E(
   condition: boolean,
@@ -684,6 +704,101 @@ class ServiceE2E extends ServiceBase {
   }
 
   @backgroundMethodForDev()
+  async configureAccountSelectorPerfE2E({
+    attributionEnabled,
+    enabled,
+    ...params
+  }: IBackgroundMethodWithDevOnlyPassword & {
+    enabled: boolean;
+    // Runtime override for perf attribution (isAccountSelectorPerfDebugEnabled
+    // under isE2E). Omitted = keep the current state; E2E boots with it
+    // enabled. An explicit false reproduces the production perf-off wiring so
+    // scenarios can verify behavior that must not depend on perf metadata.
+    attributionEnabled?: boolean;
+  }) {
+    checkDevOnlyPassword(params);
+    if (attributionEnabled !== undefined) {
+      setAccountSelectorPerfE2EAttributionEnabled(attributionEnabled);
+    }
+    const currentConfig = await defaultLoggerConfig.getSavedLoggerConfig();
+    defaultLoggerConfig.saveLoggerConfig({
+      ...currentConfig,
+      colorfulLog: enabled,
+      enabled: {
+        ...currentConfig.enabled,
+        accountSelector: {
+          ...currentConfig.enabled.accountSelector,
+          perf: enabled,
+        },
+      },
+    });
+    await timerUtils.wait(400);
+    return {
+      attributionEnabled: isAccountSelectorPerfE2EAttributionEnabled(),
+      enabled: loggerConfig.shouldLog('accountSelector', 'perf'),
+    };
+  }
+
+  @backgroundMethodForDev()
+  async drainAccountSelectorPerfE2ETrace(
+    params: IBackgroundMethodWithDevOnlyPassword,
+  ) {
+    checkDevOnlyPassword(params);
+    return drainAccountSelectorPerfE2ETrace();
+  }
+
+  @backgroundMethodForDev()
+  async getPerpsActiveAccountE2E(params: IBackgroundMethodWithDevOnlyPassword) {
+    checkDevOnlyPassword(params);
+    return perpsActiveAccountAtom.get();
+  }
+
+  @backgroundMethodForDev()
+  async getAccountSelectorE2EEncodedMnemonic({
+    fixtureId,
+    ...params
+  }: IBackgroundMethodWithDevOnlyPassword & {
+    fixtureId: IAccountSelectorE2EWalletFixtureId;
+  }) {
+    checkDevOnlyPassword(params);
+    const label = ACCOUNT_SELECTOR_E2E_WALLET_ENTROPY_LABELS[fixtureId];
+    if (!label) {
+      throw new OneKeyLocalError(
+        `Unknown Account Selector E2E wallet fixture: ${fixtureId}`,
+      );
+    }
+    const entropyHash = await sha256(bufferUtils.toBuffer(label, 'utf8'));
+    const mnemonic = entropyToMnemonic(entropyHash.subarray(0, 16));
+    return this.backgroundApi.servicePassword.encodeSensitiveText({
+      text: mnemonic,
+    });
+  }
+
+  @backgroundMethodForDev()
+  async removeAccountSelectorE2EWallet({
+    walletId,
+    ...params
+  }: IBackgroundMethodWithDevOnlyPassword & { walletId: string }) {
+    checkDevOnlyPassword(params);
+    const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
+      walletId,
+    });
+    if (!wallet || !ACCOUNT_SELECTOR_E2E_WALLET_NAMES.has(wallet.name)) {
+      throw new OneKeyLocalError(
+        'removeAccountSelectorE2EWallet only accepts isolated E2E fixtures',
+      );
+    }
+    await localDb.removeWallet({
+      isRemoveToMocked: false,
+      walletId,
+    });
+    appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    await this.backgroundApi.serviceDApp.removeDappConnectionAfterWalletRemove({
+      walletId,
+    });
+  }
+
+  @backgroundMethodForDev()
   async clearWalletsAndAccounts(params: IBackgroundMethodWithDevOnlyPassword) {
     checkDevOnlyPassword(params);
     await localDb.clearRecords({
@@ -711,18 +826,9 @@ class ServiceE2E extends ServiceBase {
 
     await this.backgroundApi.simpleDb.accountSelector.clearRawData();
 
-    // Wipe every SWR namespace (walletList, accountSelectorList,
-    // allNetCompat, netContent, unsMeta, recentNets, defiEnabled, etc.).
-    // This dev wipe means to reset all wallet state, so the broad clear
-    // is intentional — keeping non-account namespaces around would leave
-    // them referencing IDs that no longer exist in localDb.
-    // ServiceApp.resetApp clears the entire coldStartCacheStorage (jotai
-    // snapshot included); this path is narrower (SWR only). flushNow
-    // persists the empty snapshot immediately — clearAll alone debounces
-    // the MMKV write 2s, which could lose the wipe on a fast kill.
-    swrCacheUtils.clearAll();
-    swrCacheUtils.flushNow();
-
+    // The SWR namespaces are dropped by the UI runtime on the WalletClear
+    // below — it owns the hooks that wrote them. ServiceApp.resetApp is the
+    // path that clears every UI snapshot namespace outright.
     appEventBus.emit(EAppEventBusNames.WalletClear, undefined);
   }
 

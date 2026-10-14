@@ -2,7 +2,12 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { NavCloseButton, Page } from '@onekeyhq/components';
+import {
+  NavCloseButton,
+  Page,
+  XStack,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
@@ -12,6 +17,8 @@ import { enterWalletAfterOnboarding } from '@onekeyhq/kit/src/views/Onboardingv2
 import { usePrimeGiftKyt } from '@onekeyhq/kit/src/views/Setting/pages/Protection/usePrimeGiftKyt';
 import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   EPrimeGiftPages,
@@ -26,27 +33,46 @@ import {
   PrimeGiftSuccessView,
 } from '../../components/PrimeGiftViews';
 import { getPrimeGiftDurationText } from '../../hooks/primeGiftDuration';
+import { resolvePrimeGiftPrimaryAction } from '../../hooks/primeGiftPrimaryAction';
 import { usePrimeGiftClaim } from '../../hooks/usePrimeGiftClaim';
 import { usePrimeGiftReasonMessage } from '../../hooks/usePrimeGiftMessages';
 
 function PrimeGiftPageHeader({
   headerShown,
   onClose,
+  useOnboardingSafeAreaClose,
 }: {
   headerShown: boolean;
   onClose: () => void;
+  useOnboardingSafeAreaClose: boolean;
 }) {
-  const intl = useIntl();
+  const { top } = useSafeAreaInsets();
   const renderHeaderLeft = useCallback(
     () => <NavCloseButton onPress={onClose} />,
     [onClose],
   );
+  if (useOnboardingSafeAreaClose) {
+    return (
+      <>
+        <Page.Header headerShown={false} />
+        {headerShown ? (
+          <XStack
+            pt={top}
+            px="$5"
+            h={top + 52}
+            flexShrink={0}
+            alignItems="center"
+          >
+            <NavCloseButton onPress={onClose} />
+          </XStack>
+        ) : null}
+      </>
+    );
+  }
   return (
     <Page.Header
       headerShown={headerShown}
-      headerTitle={intl.formatMessage({
-        id: ETranslations.prime_gift__title,
-      })}
+      headerTitle=""
       headerLeft={renderHeaderLeft}
     />
   );
@@ -54,10 +80,12 @@ function PrimeGiftPageHeader({
 
 function Success({
   result,
-  onEnterWallet,
+  confirmLabel,
+  onConfirm,
 }: {
   result: IPrimeGiftClaimResult;
-  onEnterWallet: () => void;
+  confirmLabel: string;
+  onConfirm: () => void;
 }) {
   const { isEnabled, isLoading, open } = usePrimeGiftKyt({
     expectedOneKeyUserId: result.onekeyUserId,
@@ -73,7 +101,8 @@ function Success({
   return (
     <PrimeGiftSuccessView
       result={result}
-      onEnterWallet={onEnterWallet}
+      confirmLabel={confirmLabel}
+      onConfirm={onConfirm}
       isKytEnabled={isEnabled}
       isKytLoading={isLoading}
       isNotificationEnabled={isNotificationEnabled}
@@ -127,49 +156,56 @@ export default function PrimeGiftPage() {
         : ETranslations.prime_gift_no_code__desc,
     });
   }
-  let primaryLabel = intl.formatMessage({
-    id: claim.deviceVerified
-      ? ETranslations.prime_gift__title
-      : ETranslations.prime_gift_verify_and_claim__action,
-  });
   const giftDuration = getPrimeGiftDurationText(claim.eligibility ?? {}, intl);
-  if (claim.deviceVerified && giftDuration) {
-    primaryLabel = intl.formatMessage(
-      { id: ETranslations.prime_gift_claim_duration__action },
-      { duration: giftDuration },
-    );
-  }
-  if (claim.isQuerying)
-    primaryLabel = intl.formatMessage({
-      id: ETranslations.prime_gift_checking_login__desc,
-    });
-  else if (!claim.isLoggedIn)
-    primaryLabel = intl.formatMessage({
-      id: ETranslations.prime_gift_login__action,
-    });
-  else if (claim.error)
-    primaryLabel = intl.formatMessage({
-      id: claim.deviceVerified
-        ? ETranslations.prime_gift_retry_claim__action
-        : ETranslations.prime_gift_retry_verify__action,
-    });
-  else if (
-    verification &&
-    !verification.hasCode &&
-    verification.status !== 'redeemed'
-  )
-    primaryLabel = intl.formatMessage({
-      id: ETranslations.prime_gift_retry_verify__action,
-    });
+  const successFromOnboarding = params.source === 'onboarding';
+  const successConfirmLabel = intl.formatMessage({
+    id: successFromOnboarding
+      ? ETranslations.enter_wallet
+      : ETranslations.global_done,
+  });
+  const primary = resolvePrimeGiftPrimaryAction({
+    isQuerying: claim.isQuerying,
+    isLoggedIn: claim.isLoggedIn,
+    isPendingPaymentConfirm: claim.isPendingPaymentConfirm,
+    hasClaimableCode: Boolean(claim.code),
+    isAlreadyRedeemed,
+    hasVerificationWithoutCode: Boolean(
+      verification && !verification.hasCode && !isAlreadyRedeemed,
+    ),
+    hasError: Boolean(claim.error),
+    giftDuration,
+  });
+  const primaryLabel = intl.formatMessage(
+    { id: primary.labelId },
+    primary.labelValues,
+  );
+  const trackCode = useCallback(
+    (status: 'view' | 'copy') => {
+      defaultLogger.prime.subscription.primeGiftStage({
+        source: params.source,
+        stage: 'code',
+        status,
+      });
+    },
+    [params.source],
+  );
   return (
     <Page backgroundColor="$bgApp">
-      <PrimeGiftPageHeader headerShown={!claim.result} onClose={closePage} />
+      <PrimeGiftPageHeader
+        headerShown={!claim.result}
+        onClose={closePage}
+        useOnboardingSafeAreaClose={Boolean(
+          platformEnv.isNativeAndroid && params.source === 'onboarding',
+        )}
+      />
       <Page.Body>
         {claim.result ? (
           <Success
             result={claim.result}
-            onEnterWallet={() => {
-              void enterWallet();
+            confirmLabel={successConfirmLabel}
+            onConfirm={() => {
+              if (successFromOnboarding) void enterWallet();
+              else closePage();
             }}
           />
         ) : (
@@ -191,11 +227,21 @@ export default function PrimeGiftPage() {
             }
             isAccountReady={claim.isLoggedIn}
             isDeviceVerified={claim.deviceVerified}
+            redemptionCode={claim.code}
+            onViewCode={() => {
+              trackCode('view');
+            }}
+            onCopyCode={() => {
+              trackCode('copy');
+            }}
+            isPendingPaymentConfirm={claim.isPendingPaymentConfirm}
             error={reasonMessage(claim.error)}
             primaryLabel={primaryLabel}
             isProcessing={claim.isSubmitting || claim.isQuerying}
             onSubmit={() => {
-              if (!claim.isLoggedIn) void claim.login();
+              if (primary.action === 'login') void claim.login();
+              else if (primary.action === 'claim') void claim.claim();
+              else if (primary.action === 'close') closePage();
               else void claim.submit();
             }}
           />

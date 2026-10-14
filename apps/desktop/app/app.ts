@@ -75,13 +75,19 @@ import {
   applyDesktopNetworkThrottleToKnownSessions,
   applyDesktopNetworkThrottleToWebContents,
 } from './libs/networkThrottle';
+import { openExternalUrl } from './libs/openExternalUrl';
 // Side-effect import: registers synchronous IPC handler for renderer MMKV access
 // eslint-disable-next-line import-js/order
 import './libs/react-native-mmkv-desktop-main';
 import { registerInfoHandlers } from './libs/registerInfoHandlers';
+import { shouldReloadAppShellAfterFailedLoad } from './libs/rendererLoadRecovery';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
 import { getBackgroundColor } from './libs/utils';
+import {
+  isWcPayEmbedUrl,
+  stripFrameBlockingHeaders,
+} from './libs/wcPayFrameEmbedding';
 import { shouldGrantMainWindowDevicePermission } from './libs/webUsbDeviceSelection';
 // Logger initialization (file rotation, sanitization, rate limiting)
 import './logger';
@@ -394,6 +400,30 @@ async function softRestartRenderer() {
   }
 }
 
+// The built-in `toggleDevTools` role targets the focused webContents, which
+// can be an embedded <webview> (even one in a hidden tab), so the main window
+// shortcut must target the main window explicitly.
+const toggleMainWindowDevTools = () => {
+  getSafelyMainWindow()?.webContents.toggleDevTools();
+};
+
+const toggleFocusedWebViewDevTools = () => {
+  const focused = electronWebContents.getFocusedWebContents();
+  if (!focused || focused.isDestroyed()) {
+    return;
+  }
+  // Webview DevTools always open detached and take focus, so resolve the
+  // inspected webview from its DevTools frontend to allow closing it again.
+  const inspected = electronWebContents
+    .getAllWebContents()
+    .find((contents) => contents.devToolsWebContents === focused);
+  const target = inspected ?? focused;
+  if (target.isDestroyed() || target.getType() !== 'webview') {
+    return;
+  }
+  target.toggleDevTools();
+};
+
 const initMenu = () => {
   const template = [
     {
@@ -496,13 +526,18 @@ const initMenu = () => {
           ? [
               { role: 'reload' },
               { role: 'forceReload' },
-              { role: 'toggleDevTools' },
-              isDevServer
-                ? {
-                    role: 'toggleDevTools',
-                    label: `Toggle DevTools: ${store.getDevTools().toString()}`,
-                  }
-                : null,
+              {
+                label: isDevServer
+                  ? `Toggle Developer Tools: ${store.getDevTools().toString()}`
+                  : 'Toggle Developer Tools',
+                accelerator: isMac ? 'Alt+Command+I' : 'Ctrl+Shift+I',
+                click: toggleMainWindowDevTools,
+              },
+              {
+                label: 'Toggle WebView Developer Tools',
+                accelerator: isMac ? 'Alt+Shift+Command+I' : 'Ctrl+Alt+Shift+I',
+                click: toggleFocusedWebViewDevTools,
+              },
               { type: 'separator' },
             ].filter(Boolean)
           : []),
@@ -817,7 +852,9 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     webPreferences: {
       spellcheck: false,
       webviewTag: true,
-      webSecurity: isPerfCiMode ? true : !isDev,
+      // Disabling origin checks breaks Turnstile child-frame commits in
+      // Chromium and terminates the renderer, even during development.
+      webSecurity: true,
       // @ts-expect-error
       nativeWindowOpen: true,
       allowRunningInsecureContent: false,
@@ -858,6 +895,8 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     getBundleIndexHtmlPath: () => bundleIndexHtmlPath,
     useJsBundle: () => !!bundleIndexHtmlPath,
     softRestartRenderer,
+    getRevenueCat: async () =>
+      (await import('./service/revenueCat/revenueCat')).default,
   };
 
   if (isMac) {
@@ -1063,24 +1102,8 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     isAppReady = true;
   });
 
-  // Gate shell.openExternal behind a protocol whitelist so a tainted main
-  // renderer (XSS) cannot weaponize window.open() into phishing redirects
-  // via javascript:/file:/data: URIs. Only https:// (and mailto:) are
-  // forwarded to the OS browser. See SlowMist audit Desktop-14.
   browserWindow.webContents.setWindowOpenHandler(({ url }) => {
-    try {
-      const parsed = new URL(url);
-      if (parsed.protocol !== 'https:' && parsed.protocol !== 'mailto:') {
-        logger.warn(
-          '[setWindowOpenHandler] blocked non-https url:',
-          parsed.protocol,
-        );
-        return { action: 'deny' };
-      }
-      void shell.openExternal(url);
-    } catch {
-      logger.warn('[setWindowOpenHandler] blocked malformed url');
-    }
+    void openExternalUrl(url);
     return { action: 'deny' };
   });
 
@@ -1543,9 +1566,30 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
 
   // Inject security response headers for the app's own pages only.
   // Scoped to file:// and localhost to avoid interfering with external API responses.
+  //
+  // The WalletConnect Pay hosts are the one exception: their compliance form
+  // is embedded in an iframe (official web integration path), but its CSP
+  // `frame-ancestors https:` rejects the desktop renderer origin (file:// in
+  // prod, http://localhost in dev). Strip only the frame-blocking headers for
+  // those hosts; the rest of their CSP stays enforced. Electron replaces the
+  // previous onHeadersReceived listener on re-registration, so both concerns
+  // must share this single registration.
   session.defaultSession.webRequest.onHeadersReceived(
-    { urls: ['file://*', 'http://localhost:*/*'] },
+    {
+      urls: [
+        'file://*',
+        'http://localhost:*/*',
+        'https://pay.walletconnect.com/*',
+        'https://*.pay.walletconnect.com/*',
+      ],
+    },
     (details, callback) => {
+      if (isWcPayEmbedUrl(details.url)) {
+        callback({
+          responseHeaders: stripFrameBlockingHeaders(details.responseHeaders),
+        });
+        return;
+      }
       callback({
         responseHeaders: {
           ...details.responseHeaders,
@@ -1682,12 +1726,22 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     const safelyBrowserWindow = getSafelyBrowserWindow();
     safelyBrowserWindow?.webContents.on(
       'did-fail-load',
-      (_, __, ___, validatedURL) => {
-        const redirectPath = validatedURL.replace(`${PROTOCOL}://`, '');
-        if (validatedURL.startsWith(PROTOCOL) && !redirectPath.includes('.')) {
-          const w = getSafelyBrowserWindow();
-          void w?.loadURL(src);
+      (_, errorCode, __, validatedURL, isMainFrame) => {
+        if (
+          !shouldReloadAppShellAfterFailedLoad({
+            validatedURL,
+            isMainFrame,
+            errorCode,
+            appShellUrl: src,
+          })
+        ) {
+          return;
         }
+        logger.info('browserWindow >>>> reload app shell after failed load', {
+          errorCode,
+        });
+        const w = getSafelyBrowserWindow();
+        void w?.loadURL(src);
       },
     );
   }

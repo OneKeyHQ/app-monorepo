@@ -15,8 +15,9 @@ import {
   getTradingViewChartSettingsValue,
   getTradingViewNativeChartSettings,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/chartSettingsAdapter';
+import type { ITradingViewNativeStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/types';
+import { useTradingViewNativeChartSettings } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/useTradingViewNativeSettings';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
-import { useMarketTradingViewChartSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -52,19 +53,31 @@ const NON_NATIVE_HIDDEN_OPTION_IDS = [
   ITradingViewChartSettingsProps['hiddenOptionIds']
 >;
 
-function MarketChartSettingsContent({
-  mobileLayout = false,
-  usePageFooter = false,
-  showPreviousClose = false,
-  onClose,
-}: {
+type IMarketChartSettingsContentProps = {
+  storageNamespace?: ITradingViewNativeStorageNamespace;
   mobileLayout?: boolean;
   usePageFooter?: boolean;
   showPreviousClose?: boolean;
   onClose?: () => void;
+};
+
+function MarketChartSettingsContent(props: IMarketChartSettingsContentProps) {
+  const settingsState = useTradingViewNativeChartSettings(
+    props.storageNamespace,
+  );
+  return <ChartSettingsContent {...props} settingsState={settingsState} />;
+}
+
+function ChartSettingsContent({
+  settingsState,
+  mobileLayout = false,
+  usePageFooter = false,
+  showPreviousClose = false,
+  onClose,
+}: IMarketChartSettingsContentProps & {
+  settingsState: ReturnType<typeof useTradingViewNativeChartSettings>;
 }) {
-  const [chartSettings, setChartSettings] =
-    useMarketTradingViewChartSettingsPersistAtom();
+  const [chartSettings, setChartSettings] = settingsState;
   const settingsValue = useMemo(
     () => getTradingViewChartSettingsValue(chartSettings),
     [chartSettings],
@@ -112,13 +125,16 @@ function MarketChartSettingsContent({
 }
 
 export function showMarketChartSettingsDialog({
+  storageNamespace,
   showPreviousClose = false,
 }: {
   showPreviousClose?: boolean;
+  storageNamespace?: ITradingViewNativeStorageNamespace;
 } = {}) {
   return showTradingViewChartSettingsDialog({
     renderContent: (closeDialog) => (
       <MarketChartSettingsContent
+        storageNamespace={storageNamespace}
         showPreviousClose={showPreviousClose}
         onClose={closeDialog}
       />
@@ -142,6 +158,7 @@ export default function MarketChartSettingsModal() {
       />
       <Page.Body minHeight={0}>
         <MarketChartSettingsContent
+          storageNamespace={route.params?.storageNamespace}
           usePageFooter={!md}
           mobileLayout={md}
           showPreviousClose={showPreviousClose}

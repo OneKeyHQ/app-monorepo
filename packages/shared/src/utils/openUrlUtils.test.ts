@@ -6,6 +6,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   dismissNativeInAppBrowser,
+  getOneKeyStoreHandoffUrl,
+  handleOneKeyStoreLink,
   openUrlExternal,
   setForceSystemBrowserForDebug,
 } from './openUrlUtils';
@@ -17,6 +19,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => {
     isNativeAndroid: false,
     isNativeBackgroundThread: false,
     isDesktop: false,
+    isDesktopMac: false,
     isExtension: false,
   };
   return { __esModule: true, default: env };
@@ -45,6 +48,7 @@ const mockEnv = platformEnv as unknown as {
   isNative: boolean;
   isNativeIOS: boolean;
   isNativeBackgroundThread: boolean;
+  isDesktopMac: boolean;
 };
 const mockOpenURL = openURL as jest.Mock;
 const mockOpenBrowserAsync = openBrowserAsync as jest.Mock;
@@ -225,6 +229,115 @@ describe('openUrlExternal (native)', () => {
       appGlobals.$defaultLogger = undefined;
     }
   });
+});
+
+describe('OneKey store deep links', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockEnv.isNative = true;
+    mockEnv.isNativeIOS = false;
+    mockEnv.isNativeBackgroundThread = false;
+    mockEnv.isDesktopMac = false;
+    setForceSystemBrowserForDebug(false);
+  });
+
+  const appleLinks = [
+    // onekey.so Mac App Store button (OK-64036)
+    'macappstore://itunes.apple.com/app/id1609559473?mt=12',
+    // App Store web page redirect in the iOS DApp browser (OK-63168)
+    'itms-appss://apps.apple.com/us/app/onekey-open-source-wallet/id1609559473',
+    'itms-apps://apps.apple.com/app/id1609559473',
+    'ITMS-APPS://APPS.APPLE.COM/cn/app/onekey/id1609559473?pt=1&ct=2',
+  ];
+
+  test.each(appleLinks)('maps %s to the Mac App Store on macOS', (url) => {
+    mockEnv.isNative = false;
+    mockEnv.isDesktopMac = true;
+    expect(getOneKeyStoreHandoffUrl(url)).toBe(
+      'macappstore://itunes.apple.com/app/id1609559473?mt=12',
+    );
+  });
+
+  test.each(appleLinks)('maps %s to the App Store app on iOS', (url) => {
+    mockEnv.isNativeIOS = true;
+    expect(getOneKeyStoreHandoffUrl(url)).toBe(
+      'itms-apps://apps.apple.com/app/id1609559473',
+    );
+  });
+
+  test.each(appleLinks)(
+    'maps %s to the App Store web page elsewhere',
+    (url) => {
+      expect(getOneKeyStoreHandoffUrl(url)).toBe(
+        'https://apps.apple.com/app/id1609559473',
+      );
+    },
+  );
+
+  test.each([
+    'market://details?id=so.onekey.app.wallet',
+    'market://details?id=so.onekey.app.wallet&referrer=utm_source%3Donekey.so',
+    'market://details?referrer=x&id=so.onekey.app.wallet',
+  ])('maps %s to the Play Store listing', (url) => {
+    expect(getOneKeyStoreHandoffUrl(url)).toBe(
+      'https://play.google.com/store/apps/details?id=so.onekey.app.wallet',
+    );
+  });
+
+  test.each([
+    'itms-apps://apps.apple.com/app/id1234567890',
+    'itms-apps://apps.apple.com/app/id16095594730',
+    'itms-apps://apps.apple.com/app/id1609559473abc',
+    'itms-apps://apps.apple.com.example.com/app/id1609559473',
+    'itms-apps://example.com@apps.apple.com/app/id1609559473',
+    'itms-apps://apps.apple.com/app/other?next=/id1609559473',
+    'https://apps.apple.com/app/id1609559473',
+    'macappstores://apps.apple.com/account/subscriptions',
+    'market://details?id=com.example.wallet',
+    'market://details?id=so.onekey.app.wallet.fake',
+    'market://details?xid=so.onekey.app.wallet',
+    'x-safari-https://redirect.x.com/OneKeyHQ',
+    'http://onekey.so',
+  ])('leaves %s to the existing policy', (url) => {
+    expect(getOneKeyStoreHandoffUrl(url)).toBeUndefined();
+  });
+
+  test('opens the canonical link, not the page-supplied one', () => {
+    mockEnv.isNativeIOS = true;
+    expect(
+      handleOneKeyStoreLink(
+        'itms-appss://apps.apple.com/us/app/onekey-open-source-wallet/id1609559473?ct=other',
+      ),
+    ).toBe(true);
+    expect(mockOpenBrowserAsync).not.toHaveBeenCalled();
+    expect(mockOpenURL).toHaveBeenCalledTimes(1);
+    expect(mockOpenURL).toHaveBeenCalledWith(
+      'itms-apps://apps.apple.com/app/id1609559473',
+    );
+  });
+
+  test('drops the link from an embedded frame without opening the store', () => {
+    mockEnv.isNativeIOS = true;
+    expect(
+      handleOneKeyStoreLink('itms-apps://apps.apple.com/app/id1609559473', {
+        isTopFrame: false,
+      }),
+    ).toBe(true);
+    expect(mockOpenBrowserAsync).not.toHaveBeenCalled();
+    expect(mockOpenURL).not.toHaveBeenCalled();
+  });
+
+  test.each([true, false])(
+    'leaves other links to the block page (isTopFrame: %s)',
+    (isTopFrame) => {
+      expect(
+        handleOneKeyStoreLink('itms-apps://apps.apple.com/app/id1234567890', {
+          isTopFrame,
+        }),
+      ).toBe(false);
+      expect(mockOpenURL).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe('dismissNativeInAppBrowser', () => {
