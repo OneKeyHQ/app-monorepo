@@ -139,9 +139,14 @@ const OPEN_RESULT_GUARD_MS = 1000;
 
 // Entry for running a check from the standalone input and history pages: opens
 // the result page right away, which shows the loading and runs the check.
+// A free user whose local snapshot is already used up (or not open) gets the
+// feedback without the page, unless the address has a local history result
+// to fall back to.
 export function useCheckAddressRisk() {
   const navigation = useAppNavigation();
   const lastOpenedAtRef = useRef(0);
+  const { getCachedAccess, showActiveRejectedFeedback } =
+    usePrimeFeatureAccess();
 
   const checkRisk = useCallback(
     ({
@@ -158,12 +163,33 @@ export function useCheckAddressRisk() {
         return;
       }
       lastOpenedAtRef.current = now;
-      navigation.push(EModalAddressRiskCheckRoutes.AddressRiskCheckResult, {
-        checkRequest: { networkId, address, entryPoint },
-        showMoreAnalysis: true,
-      });
+      const openResult = () => {
+        navigation.push(EModalAddressRiskCheckRoutes.AddressRiskCheckResult, {
+          checkRequest: { networkId, address, entryPoint },
+          showMoreAnalysis: true,
+        });
+      };
+      const access = getCachedAccess(EPrimeFeatures.AddressRiskCheck);
+      if (access.status !== 'exhausted' && access.status !== 'notOpen') {
+        openResult();
+        return;
+      }
+      void (async () => {
+        if (await getHistoryResult({ networkId, address })) {
+          openResult();
+          return;
+        }
+        showActiveRejectedFeedback({
+          featureId: EPrimeFeatures.AddressRiskCheck,
+          reason: access.status,
+          resetAt: access.status === 'exhausted' ? access.resetAt : undefined,
+          networkId,
+          reservation:
+            access.status === 'exhausted' ? access.featureQuota : undefined,
+        });
+      })();
     },
-    [navigation],
+    [getCachedAccess, navigation, showActiveRejectedFeedback],
   );
 
   return { checkRisk };

@@ -27,6 +27,10 @@ const mockGetCheck = jest.fn<
 >();
 const mockAddressRiskCheckSuccess = jest.fn<void, [unknown]>();
 const mockHandleFreeTrialError = jest.fn<unknown, [unknown]>();
+const mockGetCachedAccess = jest.fn<{ status: string; resetAt?: number }, []>(
+  () => ({ status: 'available' }),
+);
+const mockShowActiveRejectedFeedback = jest.fn<void, [unknown]>();
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/prime', () => ({
   usePrimePersistAtom: () => [
@@ -41,6 +45,9 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/prime', () => ({
 jest.mock('../../Prime/hooks/usePrimeFeatureAccess', () => ({
   usePrimeFeatureAccess: () => ({
     handleFreeTrialError: (params: unknown) => mockHandleFreeTrialError(params),
+    getCachedAccess: () => mockGetCachedAccess(),
+    showActiveRejectedFeedback: (params: unknown) =>
+      mockShowActiveRejectedFeedback(params),
   }),
 }));
 
@@ -326,6 +333,51 @@ describe('useCheckAddressRisk', () => {
     });
     expect(mockPush).toHaveBeenCalledTimes(2);
     nowSpy.mockRestore();
+  });
+
+  it('gives the used-up feedback without opening the page', async () => {
+    mockPush.mockClear();
+    mockGetCachedAccess.mockReturnValueOnce({
+      status: 'exhausted',
+      resetAt: 1000,
+    });
+    const { result } = renderHook(() => useCheckAddressRisk());
+
+    act(() => {
+      result.current.checkRisk({
+        networkId: riskResult.networkId,
+        address: riskResult.address,
+        entryPoint: 'inputManual',
+      });
+    });
+
+    await waitFor(() => {
+      expect(mockShowActiveRejectedFeedback).toHaveBeenCalledWith(
+        expect.objectContaining({ reason: 'exhausted', resetAt: 1000 }),
+      );
+    });
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('still opens the page of an address with a history result', async () => {
+    mockPush.mockClear();
+    mockShowActiveRejectedFeedback.mockClear();
+    mockGetCachedAccess.mockReturnValueOnce({ status: 'exhausted' });
+    mockGetCheck.mockResolvedValueOnce({ result: riskResult });
+    const { result } = renderHook(() => useCheckAddressRisk());
+
+    act(() => {
+      result.current.checkRisk({
+        networkId: riskResult.networkId,
+        address: riskResult.address,
+        entryPoint: 'historyList',
+      });
+    });
+
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledTimes(1);
+    });
+    expect(mockShowActiveRejectedFeedback).not.toHaveBeenCalled();
   });
 });
 
