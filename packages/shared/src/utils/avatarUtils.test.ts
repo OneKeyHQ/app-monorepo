@@ -9,6 +9,7 @@ import {
   getDeviceAvatarImage,
   getThirdPartyDeviceAvatarImage,
 } from './avatarUtils';
+import { getHardwareDeviceColor } from './hardwareDeviceColors';
 
 // require() resolves to a single mocked value under Jest, so tests that must
 // tell artworks apart compare the actual asset bytes on disk.
@@ -70,6 +71,9 @@ describe('getDeviceAvatarImage', () => {
       expect(getDeviceAvatarImage(deviceType, `${prefix}D42F0001C`)).toBe(
         `${deviceType}Transparent`,
       );
+      expect(
+        getHardwareDeviceColor({ deviceType, serialNo: `${prefix}D42F0001C` }),
+      ).toBe('Transparent');
     });
 
     it.each(['A', 'B', 'Z', ''])(
@@ -78,6 +82,12 @@ describe('getDeviceAvatarImage', () => {
         expect(
           getDeviceAvatarImage(deviceType, `${prefix}D42F0001${color}`),
         ).toBe(deviceType);
+        expect(
+          getHardwareDeviceColor({
+            deviceType,
+            serialNo: `${prefix}D42F0001${color}`,
+          }),
+        ).toBeUndefined();
       },
     );
 
@@ -93,6 +103,9 @@ describe('getDeviceAvatarImage', () => {
       'keeps the default artwork for a missing or invalid serial %s',
       (serialNo) => {
         expect(getDeviceAvatarImage(deviceType, serialNo)).toBe(deviceType);
+        expect(
+          getHardwareDeviceColor({ deviceType, serialNo }),
+        ).toBeUndefined();
       },
     );
   });
