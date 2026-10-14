@@ -135,12 +135,24 @@ type IBannerArtworkState = {
 // breaks.
 function bindLastTwoWords(text: string, maxPairLength: number) {
   const copy = text.trimEnd();
-  // `\S` excludes newlines, so the pair never spans a line break.
-  const pair = /(\S+) +(\S+)$/.exec(copy);
-  if (!pair || pair[1].length + 1 + pair[2].length > maxPairLength) {
+  // Split instead of matching /(\S+) +(\S+)$/: a regex anchored only at the
+  // end retries from every start position, so one long unbroken token from
+  // the server took quadratic time on the main thread.
+  const parts = copy.split(/(\s+)/);
+  if (parts.length < 3) {
     return copy;
   }
-  return `${copy.slice(0, pair.index)}${pair[1]}${NO_BREAK_SPACE}${pair[2]}`;
+  const [first, gap, last] = parts.slice(-3);
+  // Only plain spaces join, so the pair never spans a line break. `first` is
+  // empty when the copy starts with whitespace.
+  if (
+    !first ||
+    !/^ +$/.test(gap) ||
+    first.length + 1 + last.length > maxPairLength
+  ) {
+    return copy;
+  }
+  return `${parts.slice(0, -3).join('')}${first}${NO_BREAK_SPACE}${last}`;
 }
 
 function EarnHomeBannerInfoGlass() {

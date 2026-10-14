@@ -338,4 +338,19 @@ describe('EarnHomeBanner', () => {
     expect(getExactText('Earn up to 7.5% APR\nBitway')).toBeTruthy();
     expect(getExactText('Simple onchain\u00A0savings')).toBeTruthy();
   });
+
+  it('leaves one long unbroken token alone, in linear time', () => {
+    // The previous end-anchored regex took seconds on this token.
+    const token = 'A'.repeat(100_000);
+    const startedAt = performance.now();
+    render(
+      <EarnHomeBanner
+        banners={[{ ...campaignBanner, imageTitle: token }]}
+        isLoading={false}
+      />,
+    );
+
+    expect(performance.now() - startedAt).toBeLessThan(1000);
+    expect(screen.getByText(token)).toBeTruthy();
+  });
 });
