@@ -216,7 +216,7 @@ export function PerpCandles({
           useFullscreenOverlay={!isDesktopLayout}
           onInteractionChange={setIsChartInteracting}
           enableNativeChartSettings
-          enableDrawings
+          enableDrawings={!platformEnv.isNative}
           nativeControlsLayoutMode={isDesktopLayout ? 'desktop' : 'mobile'}
           nativeChartSettingsInToolbar={platformEnv.isNative}
           showNativeIndicatorQuickBar={platformEnv.isNative}
